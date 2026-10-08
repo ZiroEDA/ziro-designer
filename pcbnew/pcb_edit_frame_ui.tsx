@@ -203,7 +203,6 @@ import type { DIALOG_GENCAD_EXPORT_OPTIONS } from './dialogs/dialog_gencad_expor
 import { gencadFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import {
   DialogBoardSetup,
-  defaultBoardSetup,
   type BoardSetupValues,
   type PageId as BoardSetupPageId,
 } from './dialogs/dialog_board_setup.js';
@@ -302,7 +301,6 @@ import type { DIALOG_FP_EDIT_PAD_TABLE } from './dialogs/dialog_fp_edit_pad_tabl
 import type { DIALOG_OFFSET_ITEM } from './dialogs/dialog_offset_item.js';
 import { DialogBookReporterModeless } from '@ziroeda/common/dialogs/dialog_book_reporter_ui.js';
 import type { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
-import { netClassFor } from '@ziroeda/common/netclass_resolve.js';
 // APPEARANCE_CONTROLS is ONE widget that PCB_EDIT_FRAME and
 // FOOTPRINT_EDIT_FRAME both construct, so the panel, its Objects table and its
 // presets live in `widgets/` and this frame supplies only its own data.
@@ -747,19 +745,6 @@ const isClickTool = (t: string): boolean => t === 'routeSingleTrack';
 // live in @ziroeda/pcbnew/layer_ids.ts — the table used to be restated
 // here, and this copy had no way to reach the board's names at all.
 
-// Routing dimensions of a net class (NETCLASS factory defaults, in IU), the
-// last-resort fallback when even the Default class carries no value.
-interface ClassDims {
-  trackWidth: number;
-  viaDiameter: number;
-  viaDrill: number;
-}
-const DEFAULT_CLASS_DIMS: ClassDims = {
-  trackWidth: 0.25 * MM,
-  viaDiameter: 0.8 * MM,
-  viaDrill: 0.4 * MM,
-};
-
 /**
  * The selection an EDIT_TOOL command actually operates on: groups expanded to
  * their members, and pads replaced by their parent footprints, the
@@ -1185,7 +1170,6 @@ export function PcbEditor({
     preloadBoardLibraries,
     cleanup3dCache,
     EMPTY_PCB,
-    addNetclassAssignment,
   } = app;
   /**
    * `EDA_BASE_FRAME::RecreateToolbars` (`common/eda_base_frame.cpp:1728-1843`):
@@ -1436,7 +1420,6 @@ export function PcbEditor({
   // Nets tab state: per-net / per-class colors, ratsnest visibility, and the
   // Net Display Options modes (appearance_controls.cpp net display pane).
   const [hiddenNets, setHiddenNets] = useState<ReadonlySet<number>>(new Set());
-  const [classColors, setClassColors] = useState<ReadonlyMap<string, string>>(new Map());
   const [hiddenClasses, setHiddenClasses] = useState<ReadonlySet<string>>(new Set());
   const [netColorMode, setNetColorMode] = useState<'all' | 'ratsnest' | 'off'>('ratsnest');
   const [ratsnestMode, setRatsnestMode] = useState<'all' | 'visible' | 'off'>('all');
@@ -2678,7 +2661,13 @@ export function PcbEditor({
    * read from does (`drc_job.ts`).
    */
   const drcNetlistTextRef = useRef<string | null>(null);
-  const [boardSetup, setBoardSetup] = useState<BoardSetupValues>(defaultBoardSetup);
+  /**
+   * DIALOG_BOARD_SETUP's window, while it is shown: every panel's
+   * TransferDataToWindow over the live objects when it opens. Nothing outside
+   * the dialog reads it - the editor reads BOARD_DESIGN_SETTINGS and the
+   * project's NET_SETTINGS, as KiCad's frame does.
+   */
+  const [boardSetup, setBoardSetup] = useState<BoardSetupValues | null>(null);
   // Latest texts this editor wrote for project-side files: the projectFiles
   // prop is a load-time snapshot (App persists to storage without refreshing
   // the prop), so without this overlay a hydrate after a board save, or a
@@ -2699,8 +2688,6 @@ export function PcbEditor({
       return { name: f.name, text: entry.text };
     });
   }, [projectFiles]);
-  const boardSetupRef = useRef(boardSetup);
-  boardSetupRef.current = boardSetup;
 
   // The frame's DIALOG_FIND while it is shown (PCB_EDIT_FRAME::ShowFindDialog).
   const [findDlg, setFindDlg] = useState<DIALOG_FIND | null>(null);
@@ -3114,8 +3101,8 @@ export function PcbEditor({
 
   // The project's files changed under the editor (a save from Board Setup,
   // another session, the schematic side): reload them into the BOARD, the way
-  // BOARD::SetProject + LoadProjectSettings do, and re-read the Board Setup
-  // snapshot from the live objects.
+  // BOARD::SetProject + LoadProjectSettings do; what reads the project's
+  // settings reads them again.
   useEffect(() => {
     const files = projectFilesNow();
     const frame = frameRef.current;
@@ -3128,8 +3115,8 @@ export function PcbEditor({
         true,
         projectDirRef.current,
       );
-      const dru = findProjectDru(files, rootPro);
-      setBoardSetup(BoardSetupToWindow(frame.GetBoard()!, frame.Prj(), dru?.text ?? ''));
+      // What reads the project's NET_SETTINGS and the BOARD's settings reads them again.
+      setBoardSettingsRev((n) => n + 1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupSourceKey, rootPro, openNonce]);
@@ -3473,6 +3460,56 @@ export function PcbEditor({
    * is the Custom Rules text, and the board goes out through the normal save
    * when something board-side moved.
    */
+  /**
+   * `SETTINGS_MANAGER::SaveProject()`: the `.kicad_pro` written from the live
+   * PROJECT_FILE, and the `.kicad_dru` when a rules text is handed in. Upstream
+   * writes the project on the next board save; here it is persisted at once, as
+   * every edit is. What changed it is the caller's business: Board Setup's OK,
+   * a net or net-class colour, Assign Netclass, the teardrop targets.
+   */
+  const saveProjectSettings = useCallback(
+    (aRulesText?: string): void => {
+      const prj = frameRef.current?.Prj();
+      if (!prj) return;
+      const files = projectFilesNow();
+      const baseOf = (name: string): string =>
+        (projectFiles ?? []).find((f) => f.name === name)?.text ?? '';
+      const persist: { name: string; text: string }[] = [];
+      const pro = findProjectPro(files, rootPro);
+      const saved = Pgm().GetSettingsManager().SaveProject(prj);
+      if (pro && saved) {
+        const updated = DumpJson(saved.pro);
+        if (updated !== pro.text) persist.push({ name: pro.name, text: updated });
+        if (aRulesText !== undefined) {
+          const druName = druFileName(pro.name);
+          const dru = findProjectDru(files, rootPro);
+          if (dru ? aRulesText !== dru.text : aRulesText.trim() !== '')
+            persist.push({ name: dru?.name ?? druName, text: aRulesText });
+        }
+      }
+      if (persist.length) {
+        for (const f of persist)
+          projectFileEditsRef.current.set(f.name, { base: baseOf(f.name), text: f.text });
+        onPersistFiles?.(persist);
+      }
+    },
+    [projectFilesNow, projectFiles, rootPro, onPersistFiles],
+  );
+
+  // DIALOG_BOARD_SETUP's constructor + TransferDataToWindow: the window is
+  // filled from the live objects each time it opens, and dropped when it closes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: opening the dialog is the trigger; the rest is read through refs and the frame
+  useEffect(() => {
+    const frame = frameRef.current;
+    const kb = frame?.GetBoard();
+    if (!boardSetupOpen || !frame || !kb) {
+      setBoardSetup(null);
+      return;
+    }
+    const dru = findProjectDru(projectFilesNow(), rootPro);
+    setBoardSetup(BoardSetupToWindow(kb, frame.Prj(), dru?.text ?? ''));
+  }, [boardSetupOpen]);
+
   const commitBoardSetup = useCallback(
     (next: BoardSetupValues) => {
       const frame = frameRef.current;
@@ -3503,28 +3540,8 @@ export function PcbEditor({
       if (panel) boardSetupRepaint(frame, panel, kb);
 
       // .kicad_pro + .kicad_dru, persisted now.
-      const files = projectFilesNow();
-      const baseOf = (name: string): string =>
-        (projectFiles ?? []).find((f) => f.name === name)?.text ?? '';
-      const persist: { name: string; text: string }[] = [];
-      const pro = findProjectPro(files, rootPro);
-      const saved = Pgm().GetSettingsManager().SaveProject(prj);
-      if (pro && saved) {
-        const updated = DumpJson(saved.pro);
-        if (updated !== pro.text) persist.push({ name: pro.name, text: updated });
-        const druName = druFileName(pro.name);
-        const dru = findProjectDru(files, rootPro);
-        if (dru ? next.customRules.text !== dru.text : next.customRules.text.trim() !== '') {
-          persist.push({ name: dru?.name ?? druName, text: next.customRules.text });
-        }
-      }
-      if (persist.length) {
-        for (const f of persist)
-          projectFileEditsRef.current.set(f.name, { base: baseOf(f.name), text: f.text });
-        onPersistFiles?.(persist);
-      }
-
-      setBoardSetup(BoardSetupToWindow(kb, prj, next.customRules.text));
+      saveProjectSettings(next.customRules.text);
+      setBoardSettingsRev((n) => n + 1);
 
       // We don't know if anything was modified, so err on the side of requiring a save
       if (modified) {
@@ -3532,7 +3549,7 @@ export function PcbEditor({
         else setDirty(true);
       }
     },
-    [projectFilesNow, projectFiles, rootPro, onPersistFiles, onSaveBoard, setBoardModel],
+    [rootPro, saveProjectSettings, onSaveBoard, setBoardModel],
   );
 
   /**
@@ -4816,21 +4833,10 @@ export function PcbEditor({
     // call; the view is re-derived here instead.
     if (!listenerRef.current!.IsPending()) setBoardModel({ k: kb, fileName: fileNameRef.current });
 
-    const tdl = kb.GetDesignSettings().GetTeadropParamsList();
-    commitBoardSetup({
-      ...boardSetupRef.current,
-      teardrops: {
-        ...boardSetupRef.current.teardrops,
-        targets: {
-          vias: tdl.m_TargetVias,
-          pthPads: tdl.m_TargetPTHPads,
-          smdPads: tdl.m_TargetSMDPads,
-          trackToTrack: tdl.m_TargetTrack2Track,
-          roundShapesOnly: tdl.m_UseRoundShapesOnly,
-        },
-      },
-    });
-  }, [commitBoardSetup, setBoardModel]);
+    // The dialog wrote the targets into BOARD_DESIGN_SETTINGS'
+    // TEARDROP_PARAMETERS_LIST itself; they are `teardrop_options` in the project.
+    saveProjectSettings();
+  }, [saveProjectSettings, setBoardModel]);
 
   /**
    * `DIALOG_UPDATE_PCB::~DIALOG_UPDATE_PCB` (`dialog_update_pcb.cpp:65-85`): once
@@ -5426,57 +5432,39 @@ export function PcbEditor({
 
   // ----- ratsnest + net classes ----------------------------------------------
 
-  // Net classes from Board Setup, the single source of truth (hydrated from
-  // the project's net_settings, updated live when the dialog commits). A blank
-  // per-class cell inherits the Default class, which itself falls back to the
-  // NETCLASS factory constants (netclass resolution).
-
+  // The project's NET_SETTINGS, which BOARD::SetProject hands the board as
+  // `BOARD_DESIGN_SETTINGS::m_NetSettings`: what APPEARANCE_CONTROLS::rebuildNets
+  // lists (appearance_controls.cpp:2654-2670) - Default first, then the rest by
+  // name, `std::sort` over wxString - and each class's own PCB colour.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `boardSettingsRev` is the trigger; NET_SETTINGS is read off the BOARD
   const netclassInfo = useMemo(() => {
-    const rows = boardSetup.netClasses.classes;
-    const mmVal = (s: string): number | undefined => {
-      const v = parseFloat(s);
-      return Number.isFinite(v) && v > 0 ? Math.round(v * MM) : undefined;
-    };
-    const dflt = rows[0];
-    const dfltDims: ClassDims = {
-      trackWidth: mmVal(dflt?.trackWidth ?? '') ?? DEFAULT_CLASS_DIMS.trackWidth,
-      viaDiameter: mmVal(dflt?.viaSize ?? '') ?? DEFAULT_CLASS_DIMS.viaDiameter,
-      viaDrill: mmVal(dflt?.viaHole ?? '') ?? DEFAULT_CLASS_DIMS.viaDrill,
-    };
-    const dfltClearance = mmVal(dflt?.clearance ?? '') ?? 0;
-    const classes: string[] = [];
+    const netSettings = boardK?.GetDesignSettings().m_NetSettings;
+    if (!netSettings) return { classes: ['Default'], classColors: new Map<string, string>() };
+    const names = [...netSettings.GetNetclasses().keys()].sort();
     const classColors = new Map<string, string>();
-    const classDims = new Map<string, ClassDims>();
-    const classClearance = new Map<string, number>();
-    for (const c of rows) {
-      if (!c.name || classes.includes(c.name)) continue;
-      classes.push(c.name);
-      if (c.pcbColor) classColors.set(c.name, c.pcbColor);
-      classDims.set(c.name, {
-        trackWidth: mmVal(c.trackWidth) ?? dfltDims.trackWidth,
-        viaDiameter: mmVal(c.viaSize) ?? dfltDims.viaDiameter,
-        viaDrill: mmVal(c.viaHole) ?? dfltDims.viaDrill,
-      });
-      classClearance.set(c.name, mmVal(c.clearance) ?? dfltClearance);
+    for (const name of names) {
+      const color = netSettings.GetNetClassByName(name).GetPcbColor();
+      if (color.a > 0) classColors.set(name, toCssColor(color, ', '));
     }
-    if (!classes.includes('Default')) classes.unshift('Default');
-    const patterns = boardSetup.netClasses.assignments.filter((a) => a.pattern && a.netClass);
-    return { classes, classColors, classDims, classClearance, patterns };
-  }, [boardSetup.netClasses]);
+    return { classes: [netSettings.GetDefaultNetclass().GetName(), ...names], classColors };
+  }, [boardK, boardSettingsRev]);
 
   // TOP_AUX pre-defined size lists = BOARD_DESIGN_SETTINGS m_TrackWidthList /
   // m_ViasDimensionsList (Board Setup > Pre-defined Sizes, in stored order;
   // upstream's [0] "use netclass" sentinel is the dropdowns' first option).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `boardSettingsRev` is the trigger; the lists are read off the BOARD
   const trackWidthList = useMemo(
-    () => boardSetup.trackWidthsMM.filter((w) => w > 0).map((w) => Math.round(w * MM)),
-    [boardSetup.trackWidthsMM],
+    () => boardK?.GetDesignSettings().m_TrackWidthList.slice(1) ?? [],
+    [boardK, boardSettingsRev],
   );
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `boardSettingsRev` is the trigger; the lists are read off the BOARD
   const viaSizeList = useMemo(
     () =>
-      boardSetup.viaSizesMM
-        .filter((v) => v.diameter > 0)
-        .map((v) => ({ diameter: Math.round(v.diameter * MM), drill: Math.round(v.drill * MM) })),
-    [boardSetup.viaSizesMM],
+      (boardK?.GetDesignSettings().m_ViasDimensionsList.slice(1) ?? []).map((v) => ({
+        diameter: v.m_Diameter,
+        drill: v.m_Drill,
+      })),
+    [boardK, boardSettingsRev],
   );
   // A shrunken list drops an out-of-range selection back to "use netclass".
   useEffect(() => {
@@ -5507,19 +5495,6 @@ export function PcbEditor({
     // a route in flight takes the new size at once.
     if (changed) frameRef.current?.GetToolManager()?.RunAction(PCB_ACTIONS.trackViaSizeChanged);
   }, [boardK, trackSel, viaSel, autoTrackWidth]);
-  // net code -> net class name, via the project's netclass_patterns.
-  const netClassOf = useMemo(() => {
-    const m = new Map<number, string>();
-    if (board) {
-      for (const [code, name] of netNamesByCode(frameRef.current?.GetBoard()))
-        m.set(code, netClassFor(name, netclassInfo.patterns));
-    }
-    return m;
-  }, [board, netclassInfo]);
-  const classColorOf = useCallback(
-    (cls: string): string | undefined => classColors.get(cls) ?? netclassInfo.classColors.get(cls),
-    [classColors, netclassInfo],
-  );
 
   // ----- what APPEARANCE_CONTROLS is handed ------------------------------------
   //
@@ -5539,15 +5514,18 @@ export function PcbEditor({
    * colour picker ever wrote, so a board whose project assigns colours opened
    * with every net unspecified, and a colour set here was gone on reload.
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `boardSettingsRev` is the trigger; the assignments are read off the BOARD
   const netColors = useMemo(() => {
     const byCode = new Map<number, string>();
-    if (!board) return byCode;
-    for (const [code, name] of netNamesByCode(frameRef.current?.GetBoard())) {
-      const css = boardSetup.netClasses.netColors[name];
-      if (css) byCode.set(code, css);
+    const kb = frameRef.current?.GetBoard();
+    if (!board || !kb) return byCode;
+    const assigned = kb.GetDesignSettings().m_NetSettings.GetNetColorAssignments();
+    for (const [code, name] of netNamesByCode(kb)) {
+      const color = assigned.get(name);
+      if (color) byCode.set(code, toCssColor(color, ', '));
     }
     return byCode;
-  }, [board, boardSetup.netClasses.netColors]);
+  }, [board, boardSettingsRev]);
 
   /**
    * The editor's Appearance state into the frame, the VIEW and the render
@@ -5672,38 +5650,24 @@ export function PcbEditor({
   ]);
 
   /**
-   * The picker's write, straight back into the project slice it came from.
-   *
-   * `#rrggbb`, because that is the form every colour in a BoardSetupValues
-   * takes — `kicadColorToCss` normalises the file's `rgb(...)` into it and
-   * `cssColorToKicad` only accepts it back (project_settings.ts:196-209). An
-   * `rgb(...)` string handed in here would be written out as the UNSET
-   * sentinel, i.e. silently dropped.
-   *
+   * The net colour picker's write: `NET_SETTINGS::GetNetColorAssignments()`,
+   * keyed by net NAME, which is `net_settings.net_colors` in the .kicad_pro.
    * COLOR4D::UNSPECIFIED (alpha 0) clears the assignment rather than storing a
    * transparent black, which is what upstream's `if( color != UNSPECIFIED )`
    * does on the way in (pcbnew_config.cpp:99).
    */
   const setNetColor = useCallback(
     (code: number, picked: Color4d): void => {
-      const name = netNamesByCode(frameRef.current?.GetBoard()).get(code);
-      if (!name) return;
-      const next = { ...(boardSetupRef.current.netClasses.netColors ?? {}) };
-      if (picked.a > 0) {
-        const ch = (v: number): string =>
-          Math.round(Math.min(1, Math.max(0, v)) * 255)
-            .toString(16)
-            .padStart(2, '0');
-        next[name] = `#${ch(picked.r)}${ch(picked.g)}${ch(picked.b)}`;
-      } else {
-        delete next[name];
-      }
-      commitBoardSetup({
-        ...boardSetupRef.current,
-        netClasses: { ...boardSetupRef.current.netClasses, netColors: next },
-      });
+      const kb = frameRef.current?.GetBoard();
+      const name = netNamesByCode(kb).get(code);
+      if (!kb || !name) return;
+      const assigned = kb.GetDesignSettings().m_NetSettings.GetNetColorAssignments();
+      if (picked.a > 0) assigned.set(name, picked);
+      else assigned.delete(name);
+      saveProjectSettings();
+      setBoardSettingsRev((n) => n + 1);
     },
-    [commitBoardSetup],
+    [saveProjectSettings],
   );
 
   const netRows = useMemo(
@@ -5722,10 +5686,10 @@ export function PcbEditor({
     () =>
       netclassInfo.classes.map((name) => ({
         name,
-        color: classColorOf(name),
+        color: netclassInfo.classColors.get(name),
         visible: !hiddenClasses.has(name),
       })),
-    [netclassInfo, classColorOf, hiddenClasses],
+    [netclassInfo, hiddenClasses],
   );
 
   const presetItems = useMemo(
@@ -7053,8 +7017,18 @@ export function PcbEditor({
                       refreshInspectionMirrorRef.current();
                     },
                     netclasses: netclassRows,
-                    onNetclassColor: (cls, picked) =>
-                      setClassColors((p) => new Map(p).set(cls, toCssColor(picked, ', '))),
+                    // APPEARANCE_CONTROLS::onNetclassColorChanged
+                    // (appearance_controls.cpp:3368-3387): the class's own PCB colour.
+                    onNetclassColor: (cls, picked) => {
+                      const netSettings = frameRef.current
+                        ?.GetBoard()
+                        ?.GetDesignSettings().m_NetSettings;
+                      if (!netSettings) return;
+                      netSettings.GetNetClassByName(cls).SetPcbColor(picked);
+                      netSettings.RecomputeEffectiveNetclasses();
+                      saveProjectSettings();
+                      setBoardSettingsRev((n) => n + 1);
+                    },
                     onNetclassVisibility: (cls) =>
                       setHiddenClasses((p) => {
                         const next = new Set(p);
@@ -7117,8 +7091,6 @@ export function PcbEditor({
           // BOARD_ADAPTER reads the stackup off the board it is given; ours is
           // held by the editor, so it is handed down. The Color column on the
           // Physical Stackup page is what these paint.
-          stackup={boardSetup.physicalStackup}
-          boardFinish={boardSetup.boardFinish}
           backLabel="← PCB Editor"
           imageBaseName={projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'board'}
           onClose={() => setShow3D(false)}
@@ -7140,7 +7112,6 @@ export function PcbEditor({
               ?.Kiway()
               ?.ExpressMail(FRAME_T.FRAME_SCH, MAIL_T.MAIL_SELECTION, { value: command }, frame);
           }}
-          netClassOf={netClassOf}
           // "Follow PCB Editor": IsLayerVisible / IsElementVisible off this frame
           pcbVisibility={{
             layers: visible,
@@ -8069,10 +8040,7 @@ export function PcbEditor({
           frame="pcb"
           netNames={netclassDlg.names}
           candidateNetNames={[...netclassDlg.candidates].sort()}
-          netClasses={boardSetup.netClasses.classes
-            .map((c) => c.name)
-            .filter((n) => n !== 'Default')
-            .sort()}
+          netClasses={netclassInfo.classes.slice(1)}
           // BOARD_EDITOR_CONTROL::AssignNetclass's previewer.
           onPreview={(names) => netclassDlg.preview(names)}
           onCancel={() => {
@@ -8081,20 +8049,18 @@ export function PcbEditor({
           }}
           onOk={(pattern, netClass) => {
             setNetclassDlg(null);
-            // SetNetclassPatternAssignment, then SynchronizeNetsAndNetClasses
-            // (commitBoardSetup does the sync).
-            commitBoardSetup({
-              ...boardSetupRef.current,
-              netClasses: {
-                ...boardSetupRef.current.netClasses,
-                assignments: addNetclassAssignment(
-                  boardSetupRef.current.netClasses.assignments,
-                  pattern,
-                  netClass,
-                ),
-              },
-            });
+            // DIALOG_ASSIGN_NETCLASS::TransferDataFromWindow
+            // (dialog_assign_netclass.cpp:185-196): one pattern assignment on the
+            // project's NET_SETTINGS. The tool then runs
+            // SynchronizeNetsAndNetClasses( false ) (board_editor_control.cpp:2184).
+            frameRef.current
+              ?.Prj()
+              .GetProjectFile()
+              .NetSettings()
+              .SetNetclassPatternAssignment(pattern, netClass);
             netclassDlg.resolve(true);
+            saveProjectSettings();
+            setBoardSettingsRev((n) => n + 1);
           }}
         />
       )}
@@ -8272,7 +8238,7 @@ export function PcbEditor({
           }}
         />
       )}
-      {boardSetupOpen && (
+      {boardSetupOpen && boardSetup && (
         <DialogBoardSetup
           units={unitLabel}
           board={frameRef.current?.GetBoard() ?? null}

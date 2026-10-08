@@ -154,8 +154,6 @@ export interface Viewer3dRenderOptions {
   };
   /** `GetLayerColors()` as the pane resolved it (preset, stackup, swatches). */
   layerColors?: ReadonlyMap<string, import('@ziroeda/common/gal/color4d.js').Color4d>;
-  /** `GetNetClass()->GetHumanReadableName()` by net code, for the HOVERED_ITEM pane. */
-  netClassOf?: (net: number) => string;
   /**
    * `EDA_3D_VIEWER_SETTINGS::m_UseStackupColors` — the appearance panel's
    * "Use board stackup colors". Stored true, but the first open of the frame
@@ -210,29 +208,6 @@ export interface Viewer3dCameraOptions {
   animationEnabled: boolean;
   /** `camera.moving_speed_multiplier`, the 1..5 slider. */
   movingSpeedMultiplier: number;
-}
-
-/**
- * The stackup fields `board_adapter_colors.ts`'s `stackupColors` reads —
- * structurally the same shape as `designer/`'s real `PhysicalStackup` /
- * `BoardFinish` (`editors/pcb/board_settings.ts`, the Board Setup dialog's
- * data model), which this package never imports. The app passes its real
- * board settings object straight through `Viewer3DFrame`'s `stackup` /
- * `boardFinish` props; TypeScript's structural typing accepts it here because
- * every field this package reads is present on the real type too.
- */
-export interface StackupLayer3D {
-  name: string;
-  type: string;
-  color: string;
-}
-
-export interface PhysicalStackup {
-  layers: readonly StackupLayer3D[];
-}
-
-export interface BoardFinish {
-  copperFinish: string;
 }
 
 /**

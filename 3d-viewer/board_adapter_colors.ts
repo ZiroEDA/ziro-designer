@@ -27,7 +27,11 @@
 
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { parseColor4d, COLOR4D_UNSPECIFIED } from '@ziroeda/common/gal/color4d.js';
-import type { PhysicalStackup, BoardFinish } from './viewer3d_types.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import {
+  type BOARD_STACKUP,
+  BOARD_STACKUP_ITEM_TYPE,
+} from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
 
 /** `ADD_COLOR( list, r, g, b, a, name )` — 0-255 channels, 0-1 alpha. */
 const rgba = (r: number, g: number, b: number, a: number): Color4d => ({
@@ -129,14 +133,26 @@ export const DEFAULT_COMMENTS: Color4d = { r: 0.85, g: 0.85, b: 0.85, a: 1.0 };
 export const DEFAULT_ECOS: Color4d = { r: 0.7, g: 0.1, b: 0.1, a: 1.0 };
 
 /**
+ * `KIGFX::COLOR4D()`, default-constructed (`include/gal/color4d.h:108-114`):
+ * OPAQUE black. Its comment says "creates the Color 0,0,0,0", but the
+ * initialiser list sets `a( 1.0 )`, and that is what a miss below returns.
+ */
+const COLOR4D_DEFAULT: Color4d = { r: 0, g: 0, b: 0, a: 1.0 };
+
+/**
  * `findColor( aColorName, aColorSet )` (`board_adapter.cpp:661-679`): a name
  * beginning `#` is a literal `COLOR4D( aColorName )`, otherwise it is looked up
- * by name, and a miss returns a default-constructed COLOR4D — transparent
- * black, which the caller tests against.
+ * by name, and a miss returns a default-constructed COLOR4D - opaque black.
+ *
+ * Observable: a dielectric whose colour is "Not specified", which is what
+ * BOARD_STACKUP_ITEM's constructor gives one and what a file without `(color
+ * ...)` keeps, misses `g_BoardColors` and makes the board body black.
+ * `kicad-cli pcb render --use-board-stackup-colors` (10.0.6) draws such a
+ * board's edge at (15,13,10) where "FR4 natural" draws it at (89,95,61).
  */
 export function findColor(aName: string, aSet: Readonly<Record<string, Color4d>>): Color4d {
   if (aName.startsWith('#')) return parseColor4d(aName);
-  return aSet[aName] ?? COLOR4D_UNSPECIFIED;
+  return aSet[aName] ?? COLOR4D_DEFAULT;
 }
 
 /** What the stackup has to say about the 3D view's materials. */
@@ -154,7 +170,8 @@ export interface StackupColors {
 const isUnspecified = (c: Color4d): boolean => c.r === 0 && c.g === 0 && c.b === 0 && c.a === 0;
 
 /**
- * `GetLayerColors()`'s stackup block (`board_adapter.cpp:654-745`), whole.
+ * `GetLayerColors()`'s stackup block (`board_adapter.cpp:654-745`), whole,
+ * over the board's own `BOARD_STACKUP`.
  *
  * The dielectric accumulation is the subtle part and is transcribed rather than
  * simplified: each dielectric layer is mixed into the running body colour by
@@ -162,10 +179,7 @@ const isUnspecified = (c: Color4d): boolean => c.r === 0 && c.g === 0 && c.b ===
  * `( 1.0 - bodyColor.a ) * layerColor.a / 2`. A single dielectric therefore
  * lands on its own colour, and a thick multi-dielectric stack darkens.
  */
-export function stackupColors(
-  aStackup: PhysicalStackup,
-  aFinish: BoardFinish | undefined,
-): StackupColors {
+export function stackupColors(aStackup: BOARD_STACKUP): StackupColors {
   const out: StackupColors = {
     silkTop: DEFAULT_SILKSCREEN,
     silkBottom: DEFAULT_SILKSCREEN,
@@ -173,42 +187,56 @@ export function stackupColors(
     maskBottom: DEFAULT_SOLDERMASK,
   };
 
-  let body: Color4d = COLOR4D_UNSPECIFIED;
+  let bodyColor: Color4d = COLOR4D_UNSPECIFIED;
 
-  for (const item of aStackup.layers) {
-    const name = item.color || 'Not specified';
+  for (const stackupItem of aStackup.GetList()) {
+    const colorName = stackupItem.GetColor();
 
-    if (item.type.includes('Silk Screen')) {
-      const c = findColor(name, SILK_COLORS);
-      if (item.name.startsWith('F.')) out.silkTop = c;
-      else out.silkBottom = c;
-    } else if (item.type.includes('Solder Mask')) {
-      const c = findColor(name, MASK_COLORS);
-      if (item.name.startsWith('F.')) out.maskTop = c;
-      else out.maskBottom = c;
-    } else if (item.type === 'Core' || item.type === 'Prepreg') {
-      const layerColor = findColor(name, BOARD_COLORS);
-      body = isUnspecified(body) ? layerColor : mix(body, layerColor, 1.0 - layerColor.a);
-      body = { ...body, a: body.a + (1.0 - body.a) * (layerColor.a / 2) };
+    switch (stackupItem.GetType()) {
+      case BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_SILKSCREEN:
+        if (stackupItem.GetBrdLayerId() === PCB_LAYER_ID.F_SilkS)
+          out.silkTop = findColor(colorName, SILK_COLORS);
+        else out.silkBottom = findColor(colorName, SILK_COLORS);
+
+        break;
+
+      case BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_SOLDERMASK:
+        if (stackupItem.GetBrdLayerId() === PCB_LAYER_ID.F_Mask)
+          out.maskTop = findColor(colorName, MASK_COLORS);
+        else out.maskBottom = findColor(colorName, MASK_COLORS);
+
+        break;
+
+      case BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_DIELECTRIC: {
+        const layerColor = findColor(colorName, BOARD_COLORS);
+
+        if (isUnspecified(bodyColor)) bodyColor = layerColor;
+        else bodyColor = mix(bodyColor, layerColor, 1.0 - layerColor.a);
+
+        bodyColor = { ...bodyColor, a: bodyColor.a + ((1.0 - bodyColor.a) * layerColor.a) / 2 };
+        break;
+      }
+
+      default:
+        break;
     }
   }
 
-  if (!isUnspecified(body)) out.body = body;
+  if (!isUnspecified(bodyColor)) out.body = bodyColor;
 
-  // The surface finish decides the copper colour, by suffix/prefix on the
-  // finish NAME (`:722-744`) — the tests are ordered, and OSP is checked first.
-  const finish = aFinish?.copperFinish ?? '';
-  if (finish.endsWith('OSP')) out.copper = findColor('Copper', FINISH_COLORS);
-  else if (finish.endsWith('IG') || finish.endsWith('gold'))
+  const finishName = aStackup.m_FinishType;
+
+  if (finishName.endsWith('OSP')) out.copper = findColor('Copper', FINISH_COLORS);
+  else if (finishName.endsWith('IG') || finishName.endsWith('gold'))
     out.copper = findColor('Gold', FINISH_COLORS);
   else if (
-    finish.startsWith('HAL') ||
-    finish.startsWith('HASL') ||
-    finish.endsWith('tin') ||
-    finish.endsWith('nickel')
+    finishName.startsWith('HAL') ||
+    finishName.startsWith('HASL') ||
+    finishName.endsWith('tin') ||
+    finishName.endsWith('nickel')
   )
     out.copper = findColor('Tin', FINISH_COLORS);
-  else if (finish.endsWith('silver')) out.copper = findColor('Silver', FINISH_COLORS);
+  else if (finishName.endsWith('silver')) out.copper = findColor('Silver', FINISH_COLORS);
 
   return out;
 }

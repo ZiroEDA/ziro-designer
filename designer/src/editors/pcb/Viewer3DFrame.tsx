@@ -60,7 +60,6 @@ import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { buildViewer3DMenus } from '@ziroeda/3d-viewer/3d_menubar.js';
 import { VIEWER_3D_FRAME_NAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { stackupColors } from '@ziroeda/3d-viewer/board_adapter_colors.js';
-import type { BoardFinish, PhysicalStackup } from '@ziroeda/3d-viewer/viewer3d_types.js';
 import { MODELS3D_HOST } from '../../libraryHosts.js';
 import './viewer3d_cache_shim.js';
 import { Appearance3DPanel } from '@ziroeda/3d-viewer/dialogs/appearance_controls_3d.js';
@@ -109,14 +108,6 @@ export interface Viewer3DFrameProps {
   /** The open project's own files, so ${KIPRJMOD} model paths resolve. */
   projectFiles?: { name: string; text: string }[];
   /**
-   * The board's Physical Stackup and board finish, which decide the silkscreen,
-   * solder-mask, body and surface-finish colours — `BOARD_ADAPTER::
-   * GetLayerColors()`'s `m_UseStackupColors` block. The footprint browser has no
-   * board and passes neither, which is upstream's option-off path.
-   */
-  stackup?: PhysicalStackup;
-  boardFinish?: BoardFinish;
-  /**
    * `PCB_BASE_FRAME::Update3DView`'s `aTitle` (pcb_base_frame.cpp:161): a
    * parent may override the child frame's title, and exactly two do — the
    * Footprint Library Browser (`footprint_viewer_frame.cpp:966`) and the
@@ -144,8 +135,6 @@ export interface Viewer3DFrameProps {
    * forwards). Empty parts clear the selection.
    */
   onSelect?: (parts: string[]) => void;
-  /** `GetNetClass()->GetHumanReadableName()` by net code, for HOVERED_ITEM. */
-  netClassOf?: ReadonlyMap<number, string>;
   /** `ACTIONS::openPreferences` — the owning frame shows the Preferences dialog. */
   onOpenPreferences?: () => void;
   /**
@@ -159,15 +148,12 @@ export interface Viewer3DFrameProps {
 export function Viewer3DFrame({
   board,
   projectFiles,
-  stackup,
-  boardFinish,
   title = VIEWER_3D_FRAME_NAME,
   backLabel,
   imageBaseName,
   onClose,
   selectedFootprints,
   onSelect,
-  netClassOf,
   pcbVisibility,
   onOpenPreferences,
 }: Viewer3DFrameProps): JSX.Element {
@@ -185,8 +171,6 @@ export function Viewer3DFrame({
   // in either does not remount the scene (the scene is the expensive half).
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
-  const netClassOfRef = useRef(netClassOf);
-  netClassOfRef.current = netClassOf;
   const selectedRef = useRef(selectedFootprints);
   selectedRef.current = selectedFootprints;
   useEffect(() => {
@@ -279,9 +263,12 @@ export function Viewer3DFrame({
     const p = presets.find((x) => x.name === v3d.current_layer_preset);
     return p ? new Map(Object.entries(p.colors) as [Layer3dFlag, Color4d][]) : undefined;
   }, [presets, v3d.current_layer_preset]);
+  // `if( m_Cfg->m_UseStackupColors && m_board )`: the board's own
+  // BOARD_STACKUP, read off the board this frame shows (a new handle is a new
+  // board, `NewDisplay`).
   const stackupCols = useMemo(
-    () => (stackup ? stackupColors(stackup, boardFinish) : undefined),
-    [stackup, boardFinish],
+    () => (board ? stackupColors(board.k.GetDesignSettings().GetStackupDescriptor()) : undefined),
+    [board],
   );
   const layerColors = useMemo(
     () => layerColors3d(presetColors, v3d.use_stackup_colors, stackupCols, overrides),
@@ -448,7 +435,6 @@ export function Viewer3DFrame({
         clipSilkOnViaAnnuli: render3d.clip_silk_on_via_annulus,
         highlightOnRollover: render3d.opengl_highlight_on_rollover,
         differentiatePlatedCopper: render3d.plated_and_bare_copper,
-        netClassOf: (net: number) => netClassOfRef.current?.get(net) ?? 'Default',
         // APPEARANCE_CONTROLS_3D: GetVisibleLayers() and GetLayerColors()
         visible3d: visible3d,
         layerColors: layerColors,

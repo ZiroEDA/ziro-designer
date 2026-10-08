@@ -55,7 +55,6 @@ const tag = (aItem: PickedItem | null): string | null => {
       return `zone:${aItem.zone.m_Uuid}:${aItem.layer}`;
   }
 };
-const netClassOf = (): string => 'Default';
 
 describe('boardItemAt — which copper item covers a board point', () => {
   it('a pad by its shape, not the drill', () => {
@@ -135,19 +134,15 @@ describe('pickBoardItem — the nearest hit along the ray', () => {
 
 describe('the HOVERED_ITEM message', () => {
   it('"Pad %s\\tNet %s\\tNet class %s" for a pad, "REF  VALUE" for a model', () => {
-    expect(
-      hoveredItemMessage(board, { kind: 'pad', footprint: 0, pad: pads[0]! }, netClassOf),
-    ).toBe('Pad 1\tNet GND\tNet class Default');
-    expect(hoveredItemMessage(board, { kind: 'footprint', footprint: 0 }, netClassOf)).toBe(
-      'R1  10k',
+    expect(hoveredItemMessage(board, { kind: 'pad', footprint: 0, pad: pads[0]! })).toBe(
+      'Pad 1\tNet GND\tNet class Default',
     );
-    expect(hoveredItemMessage(board, { kind: 'via', via }, netClassOf)).toBe(
-      'Net VCC\tNet class Default',
-    );
-    expect(hoveredItemMessage(board, { kind: 'zone', zone, layer: 'B.Cu' }, netClassOf)).toBe(
+    expect(hoveredItemMessage(board, { kind: 'footprint', footprint: 0 })).toBe('R1  10k');
+    expect(hoveredItemMessage(board, { kind: 'via', via })).toBe('Net VCC\tNet class Default');
+    expect(hoveredItemMessage(board, { kind: 'zone', zone, layer: 'B.Cu' })).toBe(
       'Zone pour\tNet GND\tNet class Default',
     );
-    expect(hoveredItemMessage(board, null, netClassOf)).toBe('');
+    expect(hoveredItemMessage(board, null)).toBe('');
   });
 });
 

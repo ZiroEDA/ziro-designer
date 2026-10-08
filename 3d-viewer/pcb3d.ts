@@ -1714,7 +1714,6 @@ export function mount3DViewer(
 
   // ---- picking (IntersectBoardItem), rollover and selection ----------------
   const raycaster = new THREE.Raycaster();
-  const netClassOf = (net: number): string => cur.render.netClassOf?.(net) ?? 'Default';
   /** `getRayAtCurrentMousePosition` → the board item under it. */
   const pickUnderMouse = (): PickedItem | null => {
     const ray = camera.makeRayAtCurrentMousePosition();
@@ -1769,7 +1768,7 @@ export function mount3DViewer(
   /** OnMouseMove's rollover half: the HOVERED_ITEM pane and the highlight. */
   const updateRollOver = (): void => {
     const item = pickUnderMouse();
-    const msg = hoveredItemMessage(cur.board, item, netClassOf);
+    const msg = hoveredItemMessage(cur.board, item);
     const fp = item?.kind === 'footprint' ? item.footprint : null;
     if (fp !== rollOverFootprint) {
       rollOverFootprint = fp;

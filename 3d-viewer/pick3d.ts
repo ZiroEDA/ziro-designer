@@ -188,15 +188,15 @@ export function pickBoardItem(
   return modelHit ? { kind: 'footprint', footprint: modelHit.footprint } : null;
 }
 
-/** `printNetInfo`: `_( "Net %s\tNet class %s" )`. */
-const netInfo = (aItem: BOARD_CONNECTED_ITEM, netClassOf: (net: number) => string): string =>
-  `Net ${unescapeString(aItem.GetNetname())}\tNet class ${netClassOf(aItem.GetNetCode())}`;
+/**
+ * `printNetInfo` (eda_3d_canvas.cpp:992-997): `_( "Net %s\tNet class %s" )`
+ * over `aItem->GetNet()->GetNetname()` and the net's own
+ * `GetNetClass()->GetHumanReadableName()`.
+ */
+const netInfo = (aItem: BOARD_CONNECTED_ITEM): string =>
+  `Net ${unescapeString(aItem.GetNetname())}\tNet class ${aItem.GetNet()?.GetNetClass().GetHumanReadableName() ?? ''}`;
 
-export function hoveredItemMessage(
-  aBoard: BOARD,
-  item: PickedItem | null,
-  netClassOf: (net: number) => string,
-): string {
+export function hoveredItemMessage(aBoard: BOARD, item: PickedItem | null): string {
   if (!item) return '';
 
   switch (item.kind) {
@@ -206,7 +206,7 @@ export function hoveredItemMessage(
 
       if (pad.GetNumber()) msg += `Pad ${pad.GetNumber()}\t`;
 
-      if (pad.IsOnCopperLayer()) msg += netInfo(pad, netClassOf);
+      if (pad.IsOnCopperLayer()) msg += netInfo(pad);
 
       return msg;
     }
@@ -217,13 +217,13 @@ export function hoveredItemMessage(
     }
 
     case 'track':
-      return netInfo(item.track, netClassOf);
+      return netInfo(item.track);
 
     case 'arc':
-      return netInfo(item.arc, netClassOf);
+      return netInfo(item.arc);
 
     case 'via':
-      return netInfo(item.via, netClassOf);
+      return netInfo(item.via);
 
     case 'zone': {
       const z = item.zone;
@@ -232,7 +232,7 @@ export function hoveredItemMessage(
       if (z.GetZoneName())
         msg += z.GetIsRuleArea() ? `Rule area ${z.GetZoneName()}\t` : `Zone ${z.GetZoneName()}\t`;
 
-      if (/\.Cu$/.test(item.layer)) msg += netInfo(z, netClassOf);
+      if (/\.Cu$/.test(item.layer)) msg += netInfo(z);
 
       return msg;
     }
