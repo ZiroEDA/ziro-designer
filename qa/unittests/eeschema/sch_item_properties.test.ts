@@ -398,6 +398,14 @@ describe('SCH_SYMBOL_DESC', () => {
     expect(mgr.IsAvailableFor(TYPE_HASH(SCH_SYMBOL), get('Pin numbers'), single)).toBe(true);
     expect(get('Library Link').Writeable(dual)).toBe(false); // NO_SETTER
 
+    // The exclusion rows act on the current sheet's instance, each its own attribute.
+    single.SetExcludedFromBOMProp(true);
+    expect([single.GetExcludedFromBOMProp(), single.GetExcludedFromSimProp()]).toEqual([true, false]);
+    expect(single.GetExcludedFromBOM(h.frame.Schematic().CurrentSheet())).toBe(true);
+    single.SetExcludedFromSimProp(true);
+    single.SetExcludedFromBOMProp(false);
+    expect([single.GetExcludedFromBOMProp(), single.GetExcludedFromSimProp()]).toEqual([false, true]);
+
     const choices = get('Unit').GetChoices(dual);
     expect([choices.GetLabel(0), choices.GetValue(0), choices.GetLabel(1)]).toEqual(['A', 1, 'B']);
   });
