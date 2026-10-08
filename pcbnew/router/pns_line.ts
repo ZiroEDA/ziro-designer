@@ -99,7 +99,7 @@ import {
   segLineProject,
 } from '@ziroeda/kimath/src/geometry/seg.js';
 import { arcLength, convertArcToPolyline, reversedArc, type ShapeArc } from './pns_arc.js';
-import { arcShape } from '../drc/drc_engine_view.js';
+import { arcShape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import {
   arcIsClockwise,
   constructArcFromStartEndCenter,

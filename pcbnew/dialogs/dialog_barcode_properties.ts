@@ -26,10 +26,9 @@ import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.j
 import { BOARD_COMMIT } from '../board_commit.js';
 import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
 import { BARCODE_ECC_T, BARCODE_T, PCB_BARCODE } from '../pcb_barcode.js';
-import { barcodeGeometry } from '../pcb_io/kicad_sexpr/board_view.js';
 import type { TransferResult } from './dialog_text_properties.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import type { BarcodeEcc, BarcodeKind, PcbBarcode } from '../types.js';
+import type { BarcodeEcc, BarcodeKind } from '@ziroeda/zint';
 
 /**
  * The Code radio box, in `BARCODE_T` order — which is the order the file's
@@ -73,41 +72,6 @@ export interface BarcodeValues {
   ecc: BarcodeEcc;
 }
 
-/** `TransferDataToWindow` (`:174-227`). */
-export const barcodeValues = (b: PcbBarcode): BarcodeValues => ({
-  text: b.text,
-  locked: b.locked ?? false,
-  layer: b.layer,
-  at: b.at,
-  width: b.width,
-  height: b.height,
-  textHeight: b.textHeight,
-  angle: b.angle,
-  knockout: b.knockout,
-  margin: b.margin,
-  showText: b.showText,
-  kind: b.kind,
-  ecc: b.ecc,
-});
-
-/** `transferDataToBarcode` (`:257-320`), the values back onto the item. */
-export const applyBarcodeValues = (b: PcbBarcode, v: BarcodeValues): PcbBarcode => ({
-  ...b,
-  text: v.text,
-  locked: v.locked,
-  layer: v.layer,
-  at: v.at,
-  width: v.width,
-  height: v.height,
-  textHeight: v.textHeight,
-  angle: v.angle,
-  knockout: v.knockout,
-  margin: v.margin,
-  showText: v.showText,
-  kind: v.kind,
-  ecc: v.ecc,
-});
-
 /** Which controls `OnUpdateUI` leaves usable for the current values. */
 export interface BarcodeUiState {
   /** "Error correction options are only meaningful for QR codes" (`:148-150`). */
@@ -140,23 +104,6 @@ export const barcodeUiState = (v: BarcodeValues): BarcodeUiState => ({
 export function correctEccForKind(v: BarcodeValues): BarcodeValues {
   if (v.kind === 'microqr' && v.ecc === 'H') return { ...v, ecc: 'Q' };
   return v;
-}
-
-/**
- * `TransferDataFromWindow` (`:238-244`): the text is set but nothing encoded.
- *
- *     if( !m_dummyBarcode->GetText().empty() && m_dummyBarcode->GetSymbolPoly().OutlineCount() == 0 )
- *         wxMessageBox( m_dummyBarcode->GetLastError(), _( "Barcode Error" ), … );
- *
- * Returns the message to show, or the empty string when the dialog may close.
- * Empty text is deliberately allowed through — a barcode with nothing in it is
- * legal and simply draws nothing.
- */
-export function barcodeCommitError(b: PcbBarcode, v: BarcodeValues): string {
-  if (v.text === '') return '';
-
-  const g = barcodeGeometry(applyBarcodeValues(b, v));
-  return g.symbolPoly.length === 0 ? g.error || 'Barcode Error' : '';
 }
 
 // ---------------------------------------------------------------------------

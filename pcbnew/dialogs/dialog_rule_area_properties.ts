@@ -32,11 +32,10 @@
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 // ZONE_SETTINGS' defaults for a fresh rule area, which is also what a copper
 // zone being *converted* into one starts from.
-import type { Board, PlacementSourceType, ZonePlacementArea } from '../types.js';
 import { LSET_Name } from '@ziroeda/common/layer_ids.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
-import { layerSetOfTokens, layerTokens } from '../pcb_io/kicad_sexpr/board_view.js';
+import { layerSetOfTokens, layerTokens } from './layer_tokens.js';
 import type { ZONE } from '../zone.js';
 import {
   PLACEMENT_SOURCE_T,
@@ -48,6 +47,36 @@ import type { BOARD } from '../board.js';
 import type { CONVERT_SETTINGS } from '../pcbnew_settings.js';
 import { CONVERSION_BOX, type ConversionBoxValues } from '../tools/convert_settings_dialog.js';
 import { editZoneParamsCommit } from './panel_zone_properties.js';
+
+/** `(keepout (tracks …) (vias …) (pads …) (copperpour …) (footprints …))`. */
+export interface RuleAreaKeepout {
+  tracks: boolean;
+  vias: boolean;
+  pads: boolean;
+  /** `copperpour`, ZONE::GetDoNotAllowZoneFills. */
+  copperPour: boolean;
+  footprints: boolean;
+}
+
+/**
+ * PLACEMENT_SOURCE_T, minus `DESIGN_BLOCK`: that member exists only for the
+ * multichannel tool's in-flight rule areas, has no file token, and upstream's
+ * writer explicitly emits nothing for it — a saved zone can never carry it.
+ */
+export type PlacementSourceType = 'sheetname' | 'component_class' | 'group';
+
+/**
+ * `(placement (enabled yes|no) (sheetname|component_class|group "…"))`.
+ *
+ * `sourceType` and `source` are written even when `enabled` is false, because
+ * upstream stores the last-chosen source so re-enabling the rule area does not
+ * lose it.
+ */
+export interface ZonePlacementArea {
+  enabled: boolean;
+  sourceType: PlacementSourceType;
+  source: string;
+}
 
 /**
  * `ZONE_SETTINGS`'s defaults for a fresh rule area: tracks, vias and pads

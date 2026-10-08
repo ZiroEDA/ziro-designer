@@ -20,9 +20,9 @@ import { BOARD_COMMIT } from '../board_commit.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_SHAPE } from '../pcb_shape.js';
 import type { TransferResult } from './dialog_text_properties.js';
-import type { PcbFillMode } from '../shape_fill.js';
-import type { PcbShape, StrokeType } from '../types.js';
+import type { PcbShape } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import type { LineStyleToken } from '@ziroeda/common/stroke_params.js';
 
 /** The mask layer that pairs with a graphic's own layer, F.SilkS -> F.Mask. */
 /** Every field DIALOG_SHAPE_PROPERTIES edits, for a board graphic. */
@@ -40,7 +40,7 @@ export interface ShapeValues {
    */
   kind: PcbShape['kind'];
   lineWidth: number;
-  strokeType: StrokeType;
+  strokeType: LineStyleToken;
   /** `(radius …)`, a rounded rectangle's corner. Zero for every other kind. */
   cornerRadius: number;
   /**
@@ -99,7 +99,14 @@ const SHAPE_KIND: Partial<Record<SHAPE_T, PcbShape['kind']>> = {
   [SHAPE_T.BEZIER]: 'curve',
 };
 
-const FILL_MODES: readonly PcbFillMode[] = [
+/**
+ * `m_fillCtrl`'s selection, `UI_FILL_MODE`, as the window holds it - a
+ * board-file spelling, so `solid` where the file writes FILLED_WITH_COLOR.
+ */
+export type PcbFillMode = 'none' | 'solid' | 'hatch' | 'reverse_hatch' | 'cross_hatch';
+
+/** `m_fillCtrl`'s entries in UI_FILL_MODE order; their labels are FILL_MODE_NAMES. */
+export const FILL_MODES: readonly PcbFillMode[] = [
   'none',
   'solid',
   'hatch',

@@ -16,18 +16,19 @@
  *   text frame leader only, and a centre dimension has no format block. Writing
  *   one to the wrong kind makes a file KiCad reads back differently from what
  *   was saved.
- *
- * Every assertion that matters round-trips through the writer, because an
- * in-memory check cannot tell those failures apart from success.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { collectDimensionValues } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { PCB_DIMENSION_BASE } from '@ziroeda/pcbnew/pcb_dimension.js';
+import {
+  DIALOG_DIMENSION_PROPERTIES,
+  type DimensionValues,
+} from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { TEST_PCB_FRAME } from './support/test_pcb_frame.js';
 
-const MM = (n: number): number => mmToIU(n);
+const MM = (n: number): number => pcbIUScale.mmToIU(n);
 
 /** Verbatim from demos/cm5_minima. */
 const ORTHO = `(dimension
@@ -67,18 +68,24 @@ const CENTER = `(dimension
     (style (thickness 0.1) (arrow_length 1.27) (text_position_mode 0)
       (extension_offset 0.5) (keep_text_aligned yes)))`;
 
-const read = (...extra: string[]): Board =>
-  readBoard(
-    parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
+const read = (...extra: string[]): BOARD =>
+  ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user) (5 "F.SilkS" user "F.Silkscreen")
+    (17 "Dwgs.User" user "User.Drawings") (19 "Cmts.User" user "User.Comments"))
   (net 0 "")
   ${extra.join('\n  ')}
-)`),
-  );
+)`);
 
-describe('reading the values', () => {
+/** `TransferDataToWindow` on the board's one dimension. */
+const window = (text: string): DimensionValues => {
+  const board = read(text);
+  const dim = board.Drawings()[0] as PCB_DIMENSION_BASE;
+  return new DIALOG_DIMENSION_PROPERTIES(new TEST_PCB_FRAME(board), dim).TransferDataToWindow();
+};
+
+describe('reading the values (TransferDataToWindow)', () => {
   it('reads the format block', () => {
-    const v = collectDimensionValues(read(ORTHO).dimensions[0]!);
+    const v = window(ORTHO);
 
     expect(v.units).toBe(3);
     expect(v.unitsFormat).toBe(0);
@@ -87,7 +94,7 @@ describe('reading the values', () => {
   });
 
   it('reads the style block', () => {
-    const v = collectDimensionValues(read(ORTHO).dimensions[0]!);
+    const v = window(ORTHO);
 
     expect(v.lineThickness).toBe(MM(0.1));
     expect(v.arrowLength).toBe(MM(1.27));
@@ -97,7 +104,7 @@ describe('reading the values', () => {
   });
 
   it('reads the text', () => {
-    const v = collectDimensionValues(read(ORTHO).dimensions[0]!);
+    const v = window(ORTHO);
 
     expect(v.textHeight).toBe(MM(1));
     expect(v.textThickness).toBe(MM(0.15));
@@ -105,17 +112,18 @@ describe('reading the values', () => {
   });
 
   it('distinguishes no override from an empty one', () => {
-    expect(collectDimensionValues(read(ORTHO).dimensions[0]!).overrideValue).toBeUndefined();
-    expect(collectDimensionValues(read(LEADER).dimensions[0]!).overrideValue).toBe(
-      '0.3mm Thickness',
-    );
+    expect(window(ORTHO).overrideValue).toBeUndefined();
+    expect(window(LEADER).overrideValue).toBe('0.3mm Thickness');
   });
 
-  it('reads a centre dimension without inventing a format', () => {
-    const v = collectDimensionValues(read(CENTER).dimensions[0]!);
+  it('reads a centre dimension as its constructor leaves it', () => {
+    // No format block in the file: PCB_DIM_CENTER's constructor
+    // (pcb_dimension.cpp:1718-1723) turns the override ON with no text, and
+    // the text keeps EDA_TEXT's DEFAULT_SIZE_TEXT, 50 mil (eda_text.cpp:105).
+    const v = window(CENTER);
 
     expect(v.prefix).toBe('');
-    expect(v.overrideValue).toBeUndefined();
-    expect(v.textHeight).toBe(0);
+    expect(v.overrideValue).toBe('');
+    expect(v.textHeight).toBe(MM(1.27));
   });
 });

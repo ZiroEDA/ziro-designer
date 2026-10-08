@@ -15,6 +15,7 @@ import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_CIRCLE } from '@ziroeda/kimath/src/geometry/shape_circle.js';
 import { SHAPE_COMPOUND } from '@ziroeda/kimath/src/geometry/shape_compound.js';
 import { SHAPE_SEGMENT } from '@ziroeda/kimath/src/geometry/shape_segment.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { PAD, PAD_ATTRIB, PAD_SHAPE } from '@ziroeda/pcbnew/pad.js';
 import { PAD_DRILL_SHAPE } from '@ziroeda/pcbnew/padstack.js';
@@ -199,5 +200,29 @@ describe('`VECTOR2I / 2` rounds (vector2d.h operator/( double ): KiROUND)', () =
     p.SetAttribute(PAD_ATTRIB.SMD);
     p.SetLayerSet(PAD.SMDMask());
     expect(box(p.GetBoundingBox(PCB_LAYER_ID.F_Cu))).toEqual([-500000, -300000, 1000000, 600000]);
+  });
+});
+
+describe('PAD::CanHaveNumber (pad.cpp:497)', () => {
+  const smd = (layers: PCB_LAYER_ID[]): PAD => {
+    const p = new PAD(new BOARD());
+    p.SetAttribute(PAD_ATTRIB.SMD);
+    p.SetLayerSet(new LSET(layers));
+    return p;
+  };
+
+  it('a copper pad can', () => {
+    expect(smd([PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.F_Paste]).CanHaveNumber()).toBe(true);
+  });
+
+  it('an aperture pad (no copper layer at all, pad.h:580) cannot', () => {
+    expect(smd([PCB_LAYER_ID.F_Paste]).CanHaveNumber()).toBe(false);
+  });
+
+  it('an NPTH pad cannot, even with copper', () => {
+    const p = new PAD(new BOARD());
+    p.SetAttribute(PAD_ATTRIB.NPTH);
+    p.SetLayerSet(LSET.AllCuMask().or(new LSET([PCB_LAYER_ID.F_Mask])));
+    expect(p.CanHaveNumber()).toBe(false);
   });
 });

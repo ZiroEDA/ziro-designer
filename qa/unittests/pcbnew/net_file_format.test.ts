@@ -22,7 +22,6 @@ import { head, isList, type SList, type SNode } from '@ziroeda/sexpr/types.js';
 import { arg, numArg } from '@ziroeda/sexpr/query.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { padAt } from '@ziroeda/pcbnew/dialogs/dialog_pad_properties.js';
 import { ORPHANED_NET } from '@ziroeda/pcbnew/netinfo.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 import { U } from './support/written_node.js';
@@ -235,27 +234,3 @@ describe('writing', () => {
 // -----------------------------------------------------------------------------
 // the property patchers
 // -----------------------------------------------------------------------------
-
-/** The `(net …)` of the first `(pad …)` / `(segment …)` in the file, verbatim. */
-function itemNet(text: string, kind: 'pad' | 'segment'): string {
-  let found: string | null = null;
-  const walk = (n: SNode): void => {
-    if (found !== null || !isList(n)) return;
-    if (head(n) === kind) {
-      for (const it of n.items)
-        if (isList(it) && head(it) === 'net') {
-          const code = numArg(it, 0);
-          const name = arg(it, code !== undefined ? 1 : 0);
-          found = [code, name === undefined ? undefined : `"${name}"`]
-            .filter((x) => x !== undefined)
-            .join(' ');
-          return;
-        }
-      return;
-    }
-    for (const it of n.items) walk(it);
-  };
-  walk(parse(text));
-  if (found === null) throw new Error(`no (net …) on a ${kind}`);
-  return found;
-}

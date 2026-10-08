@@ -32,12 +32,6 @@ import {
   rotateBoardItemsBy,
   setBoardItemsLocked,
 } from '@ziroeda/pcbnew/edit-board.js';
-import {
-  barcodeCommitError,
-  barcodeUiState,
-  barcodeValues,
-  correctEccForKind,
-} from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
 import { encodeBarcode } from '@ziroeda/zint';
 import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
@@ -348,59 +342,6 @@ describe('as a board item', () => {
 
     expect(id).toBe('barcode:1');
     expect(serializeBoard(board)).toContain('(text "NEW")');
-  });
-});
-
-describe('what the properties dialog decides', () => {
-  it('offers error correction for the two QR kinds only', () => {
-    // `m_barcode->GetSelection() >= to_underlying( BARCODE_T::QR_CODE )`
-    // (`dialog_barcode_properties.cpp:149`). Data Matrix has error correction
-    // too — ECC 200 — but its level is fixed by the symbol size, so there is
-    // nothing to choose.
-    const state = (kind: PcbBarcode['kind']): boolean =>
-      barcodeUiState(barcodeValues(bc({ kind }))).eccEnabled;
-
-    expect(state('qr')).toBe(true);
-    expect(state('microqr')).toBe(true);
-    expect(state('code39')).toBe(false);
-    expect(state('code128')).toBe(false);
-    expect(state('datamatrix')).toBe(false);
-  });
-
-  it('greys level H for Micro QR, and moves the choice off it', () => {
-    // `m_errorCorrection->Enable( 3, !isMicroQR )` and, if H was selected,
-    // `SetSelection( 2 )` — "consistent with SetErrorCorrection" (`:158-168`).
-    // Leaving H selected would commit a level Micro QR cannot carry, and the
-    // encoder would refuse it on OK.
-    expect(barcodeUiState(barcodeValues(bc({ kind: 'microqr' }))).eccHEnabled).toBe(false);
-    expect(barcodeUiState(barcodeValues(bc({ kind: 'qr' }))).eccHEnabled).toBe(true);
-
-    const v = correctEccForKind({ ...barcodeValues(bc({ kind: 'microqr' })), ecc: 'H' });
-    expect(v.ecc).toBe('Q');
-    // …and a level it CAN carry is left alone.
-    expect(correctEccForKind({ ...v, ecc: 'M' }).ecc).toBe('M');
-  });
-
-  it('gates text size on Show Text and the margins on Knockout', () => {
-    expect(barcodeUiState(barcodeValues(bc({ showText: false }))).textSizeEnabled).toBe(false);
-    expect(barcodeUiState(barcodeValues(bc({ showText: true }))).textSizeEnabled).toBe(true);
-    expect(barcodeUiState(barcodeValues(bc({ knockout: false }))).marginsEnabled).toBe(false);
-    expect(barcodeUiState(barcodeValues(bc({ knockout: true }))).marginsEnabled).toBe(true);
-  });
-
-  it('refuses OK when the text will not encode, with Zint’s own message', () => {
-    // `TransferDataFromWindow` (`:238-244`) shows `GetLastError()` and returns
-    // false rather than committing an empty symbol.
-    const b = bc();
-    const bad = { ...barcodeValues(b), kind: 'code39' as const, text: 'a*b' };
-
-    expect(barcodeCommitError(b, bad)).toContain('Invalid character at position 2');
-  });
-
-  it('but lets empty text through, which draws nothing', () => {
-    // `if( !m_dummyBarcode->GetText().empty() && … )` — the emptiness check
-    // comes first, so a barcode with no content is a legal item.
-    expect(barcodeCommitError(bc(), { ...barcodeValues(bc()), text: '' })).toBe('');
   });
 });
 

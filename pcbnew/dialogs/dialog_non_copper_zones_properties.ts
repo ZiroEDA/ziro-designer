@@ -23,13 +23,12 @@
  */
 
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Board, PcbZone } from '../types.js';
 import type { ZoneBorderStyle, ZoneValueError } from './dialog_rule_area_properties.js';
 import { LSET_Name } from '@ziroeda/common/layer_ids.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
-import { layerSetOfTokens, layerTokens } from '../pcb_io/kicad_sexpr/board_view.js';
+import { layerSetOfTokens, layerTokens } from './layer_tokens.js';
 import type { ZONE } from '../zone.js';
 import { ZONE_BORDER_DISPLAY_STYLE, ZONE_FILL_MODE, ZONE_SETTINGS } from '../zone_settings.js';
 import type { TransferResult } from './dialog_text_properties.js';

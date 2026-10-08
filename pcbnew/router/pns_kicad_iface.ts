@@ -47,7 +47,7 @@ import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { BOARD_STACKUP } from '../board_stackup_manager/board_stackup.js';
 import type { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
-import { arcShape } from '../drc/drc_engine_view.js';
+import { arcShape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { DRC_ENGINE } from '../drc/drc_engine.js';
 import {
   DRC_CONSTRAINT,

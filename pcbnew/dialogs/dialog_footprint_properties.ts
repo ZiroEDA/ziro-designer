@@ -13,7 +13,6 @@
  * board-absolute in this model, so its anchor cannot move on its own.
  */
 
-import type { PcbFootprint } from '../types.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { BOARD_COMMIT } from '../board_commit.js';
@@ -30,6 +29,7 @@ import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import { ZONE_CONNECTION } from '../zones.js';
 import type { FP_3DMODEL } from '../footprint.js';
 import type { TransferResult } from './dialog_text_properties.js';
+import type { ZoneConnection } from '../zone_connection.js';
 
 /** FOOTPRINT_ATTR_T, in the order PCB_IO_KICAD_SEXPR writes them. */
 export const FOOTPRINT_ATTRIBUTES = [
@@ -73,7 +73,7 @@ export interface FootprintValues {
   localSolderMaskMargin: number | null;
   localSolderPasteMargin: number | null;
   localSolderPasteMarginRatio: number | null;
-  zoneConnection: NonNullable<PcbFootprint['zoneConnection']>;
+  zoneConnection: ZoneConnection;
   /**
    * `m_3dPanel->GetModelList()`: the 3D Models page's list, which OK copies onto
    * the footprint (`dialog_footprint_properties.cpp:729-733`). Absent when the page

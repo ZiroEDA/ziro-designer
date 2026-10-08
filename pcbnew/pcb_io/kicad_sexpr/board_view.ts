@@ -73,7 +73,6 @@ import { LSET } from '@ziroeda/common/lset.js';
 import { NETINFO_ITEM, NETINFO_LIST } from '../../netinfo.js';
 import { PAD } from '../../pad.js';
 import {
-  defaultThermalSpokeAngle,
   PAD_ATTRIB,
   PAD_DRILL_SHAPE,
   PAD_PROP,
@@ -166,6 +165,36 @@ import { ZONE_CONNECTION_CODE, zoneConnectionFromCode } from '../../zone_connect
 import type { PcbFillMode } from '../../shape_fill.js';
 import { base64Decode } from './pcb_io_kicad_sexpr_items.js';
 import { PCB_IO_KICAD_SEXPR_PARSER } from './pcb_io_kicad_sexpr_parser.js';
+import { layerSetOfTokens, layerTokens } from '../../dialogs/layer_tokens.js';
+import { teardropParamsView } from '../../teardrop/teardrop_parameters.js';
+
+/**
+ * `PADSTACK::DefaultThermalSpokeAngleForShape`, as the s-expression parser
+ * resolves it (`pcb_io_kicad_sexpr_parser.cpp:6442-6469`), in DEGREES.
+ *
+ * "45° will produce an X (the default for circular pads and circular-anchored
+ * custom shaped pads), while 90° will produce a + (the default for all other
+ * shapes)."
+ *
+ * The parser's rule is the one a loaded board uses, and it is not quite
+ * `DefaultThermalSpokeAngleForShape`: that function returns 45° for a trapezoid
+ * while the parser writes 90°, because it asks whether the shape is a circle
+ * rather than whether it is a rectangle. A file always goes through the parser,
+ * so the parser wins.
+ *
+ * `aFileVersion` matters for one case only: a custom pad on a circular anchor
+ * took a `+` in 6.0 and an `X` after it.
+ */
+export function defaultThermalSpokeAngle(
+  shape: PadShape,
+  anchorShape: PadShape | undefined,
+  fileVersion = Number.POSITIVE_INFINITY,
+): number {
+  if (shape === 'circle') return 45;
+  if (shape === 'custom' && (anchorShape ?? 'circle') === 'circle')
+    return fileVersion <= 20211014 ? 90 : 45;
+  return 90;
+}
 
 // ---------------------------------------------------------------------------
 // Small conversions
@@ -361,80 +390,7 @@ function applyNets(board: BOARD, nets: Map<number, string>): NetCodes {
 // Layers: the `(layers …)` tokens of a multi-layer item, `formatLayers` (:1549)
 // ---------------------------------------------------------------------------
 
-/**
- * The `(layers …)` tokens KiCad writes for a layer set, wildcards and all —
- * `formatLayers( aLayerMask, aEnumerateLayers, aIsZone )` (:1549). With
- * `enumerate` no wildcard is used ("Always enumerate every layer for a zone on
- * a copper layer", :2883).
- */
-export function layerTokens(
-  layerMaskIn: LSET,
-  copperLayerCount: number,
-  isZone = false,
-  enumerate = false,
-): string[] {
-  const cu_all = LSET.AllCuMask();
-  const fr_bk = new LSET([B_Cu, F_Cu]);
-  const cu_board_mask = LSET.AllCuMask(copperLayerCount);
-  let layerMask = new LSET(layerMaskIn);
-  const out: string[] = [];
-  if (!enumerate) {
-    // If all copper layers present on the board are enabled, then output the wildcard
-    if (layerMask.and(cu_board_mask).equals(cu_board_mask)) {
-      out.push('*.Cu');
-      layerMask = layerMask.and(cu_all.not());
-    } else if (layerMask.and(cu_board_mask).equals(fr_bk)) {
-      out.push(isZone ? 'F&B.Cu' : '*.Cu');
-      layerMask = layerMask.and(fr_bk.not());
-    }
-    const pairs: [string, number, number][] = [
-      ['*.Adhes', 9, 11],
-      ['*.Paste', 13, 15],
-      ['*.SilkS', 5, 7],
-      ['*.Mask', 1, 3],
-      ['*.CrtYd', 31, 29],
-      ['*.Fab', 35, 33],
-    ];
-    for (const [name, a, b] of pairs) {
-      const set = new LSET([a, b]);
-      if (layerMask.and(set).equals(set)) {
-        out.push(name);
-        layerMask = layerMask.and(set.not());
-      }
-    }
-  }
-  // output any individual layers not handled in wildcard combos above
-  for (const layer of layerMask.Seq()) out.push(LSET_Name(layer));
-  return out;
-}
-
 /** The parser's `m_layerMasks` for the canonical names and wildcards. */
-const WILDCARD_MASKS: Record<string, () => LSET> = {
-  '*.Cu': () => LSET.AllCuMask(),
-  '*In.Cu': () => LSET.InternalCuMask(),
-  'F&B.Cu': () => new LSET([F_Cu, B_Cu]),
-  '*.Adhes': () => new LSET([9, 11]),
-  '*.Paste': () => new LSET([13, 15]),
-  '*.SilkS': () => new LSET([5, 7]),
-  '*.Mask': () => new LSET([1, 3]),
-  '*.CrtYd': () => new LSET([29, 31]),
-  '*.Fab': () => new LSET([33, 35]),
-};
-
-/** `(layers …)` tokens back to a layer set, `parseBoardItemLayersAsMask`. */
-export function layerSetOfTokens(tokens: readonly string[]): LSET {
-  let set = new LSET();
-  for (const tok of tokens) {
-    const wild = WILDCARD_MASKS[tok];
-    if (wild) {
-      set = set.or(wild());
-      continue;
-    }
-    const id = LSET_NameToLayer(tok);
-    if (id >= 0) set.set(id);
-  }
-  return set;
-}
 
 // ---------------------------------------------------------------------------
 // Page and title block
@@ -885,23 +841,6 @@ const UNCONNECTED_MODE_OF_VIEW: Record<UnconnectedLayerMode, UNCONNECTED_LAYER_M
 function isDefaultTeardropParameters(td: TEARDROP_PARAMETERS): boolean {
   return td.equals(new TEARDROP_PARAMETERS());
 }
-
-/**
- * A TEARDROP_PARAMETERS as the view's `teardrops` field. A view item whose
- * `teardrops` is absent carries the defaults: `teardropParamsView(new
- * TEARDROP_PARAMETERS())` is what it means.
- */
-export const teardropParamsView = (td: TEARDROP_PARAMETERS): TeardropParams => ({
-  enabled: td.m_Enabled,
-  allowUseTwoTracks: td.m_AllowUseTwoTracks,
-  tdOnPadsInZones: td.m_TdOnPadsInZones,
-  bestLengthRatio: td.m_BestLengthRatio,
-  tdMaxLen: td.m_TdMaxLen,
-  bestWidthRatio: td.m_BestWidthRatio,
-  tdMaxWidth: td.m_TdMaxWidth,
-  curvedEdges: td.m_CurvedEdges,
-  widthtoSizeFilterRatio: td.m_WidthtoSizeFilterRatio,
-});
 
 const teardropsView = (td: TEARDROP_PARAMETERS): TeardropParams | undefined =>
   isDefaultTeardropParameters(td) ? undefined : teardropParamsView(td);

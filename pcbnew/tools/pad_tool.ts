@@ -29,6 +29,7 @@ import { niluuid, type KIID } from '@ziroeda/common/kiid.js';
 import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
 import { STATUS_TEXT_POPUP } from '@ziroeda/common/status_popup.js';
@@ -512,9 +513,11 @@ export class PAD_TOOL extends PCB_TOOL_BASE {
         });
         // Search will be made every 0.1 mm:
         const segments = Math.trunc(distance / Math.trunc(0.1 * pcbIUScale.IU_PER_MM)) + 1;
+        // VECTOR2I / int is VECTOR2<T>::operator/( double ): KiROUND per axis
+        // for an integral T (vector2d.h:536-539), not a truncation.
         const line_step: VECTOR2I = {
-          x: Math.trunc((mousePos.x - oldMousePos.x) / segments),
-          y: Math.trunc((mousePos.y - oldMousePos.y) / segments),
+          x: KiROUND((mousePos.x - oldMousePos.x) / segments),
+          y: KiROUND((mousePos.y - oldMousePos.y) / segments),
         };
 
         collector.Empty();

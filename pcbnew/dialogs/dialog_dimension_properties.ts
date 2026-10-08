@@ -11,8 +11,7 @@
  * `updateDimensionFromDialog` (pcbnew/dialogs/dialog_dimension_properties.cpp).
  *
  * Headless, like the other properties modules: the dialog is layout, this is
- * the part with decisions in it, and it patches the item's source node so a
- * saved file keeps everything the model does not represent.
+ * the part with decisions in it.
  *
  * ## Override text is a mode, not a string
  *
@@ -32,7 +31,6 @@
  * to the wrong kind produces a file KiCad reads back differently from what was
  * saved.
  */
-import type { EdaUnits } from '@ziroeda/common/eda_units.js';
 import { IN_EDIT } from '@ziroeda/common/eda_item_flags.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
@@ -48,18 +46,22 @@ import {
   type DIM_UNITS_MODE,
 } from '../pcb_dimension_types.js';
 import type { TransferResult } from './dialog_text_properties.js';
-import { updateDimension } from '../dimension_text.js';
-import { isAlignedKind } from '../types.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
-import type {
-  Board,
-  DimPrecision,
-  DimTextBorder,
-  DimTextPosition,
-  DimUnitsFormat,
-  DimUnitsMode,
-  PcbDimension,
-} from '../types.js';
+
+/** `DIM_PRECISION`: 0-5 fixed digits, 6-9 the scaled `V_*` variants. */
+export type DimPrecision = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+
+/** `DIM_TEXT_BORDER`: 0 none, 1 rectangle, 2 circle, 3 round rectangle. */
+export type DimTextBorder = 0 | 1 | 2 | 3;
+
+/** `DIM_TEXT_POSITION`: 0 outside, 1 inline, 2 manual. */
+export type DimTextPosition = 0 | 1 | 2;
+
+/** `DIM_UNITS_FORMAT`: 0 none, 1 bare suffix, 2 parenthesised suffix. */
+export type DimUnitsFormat = 0 | 1 | 2;
+
+/** `DIM_UNITS_MODE`: 0 inch, 1 mils, 2 mm, 3 automatic. */
+export type DimUnitsMode = 0 | 1 | 2 | 3;
 
 /** Every control on the dialog, flattened. */
 export interface DimensionValues {
@@ -294,38 +296,4 @@ export class DIALOG_DIMENSION_PROPERTIES {
 
     return { ok: true };
   }
-}
-
-/** `TransferDataToWindow`: the dialog's starting values. */
-export function collectDimensionValues(d: PcbDimension): DimensionValues {
-  const f = d.format;
-  const t = d.text;
-  return {
-    layer: d.layer,
-    prefix: f?.prefix ?? '',
-    suffix: f?.suffix ?? '',
-    overrideValue: f?.overrideValue,
-    units: f?.units ?? 3,
-    unitsFormat: f?.unitsFormat ?? 1,
-    precision: f?.precision ?? 4,
-    suppressZeroes: f?.suppressZeroes ?? false,
-    textPositionMode: d.style.textPositionMode,
-    keepTextAligned: d.style.keepTextAligned ?? false,
-    arrowDirection: d.style.arrowDirection ?? 'outward',
-    lineThickness: d.style.thickness,
-    arrowLength: d.style.arrowLength,
-    extensionOffset: d.style.extensionOffset,
-    extensionOvershoot: d.style.extensionHeight ?? 0,
-    textFrame: d.style.textFrame ?? 0,
-    textWidth: t?.size.x ?? 0,
-    textHeight: t?.size.y ?? 0,
-    textThickness: t?.thickness ?? 0,
-    textOrientation: t?.angle ?? 0,
-    bold: t?.bold ?? false,
-    italic: t?.italic ?? false,
-    mirrored: t?.mirror ?? false,
-    textX: t?.at.x ?? 0,
-    textY: t?.at.y ?? 0,
-    locked: d.locked ?? false,
-  };
 }

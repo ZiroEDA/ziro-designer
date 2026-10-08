@@ -73,13 +73,8 @@ import { PCB_GROUP } from '../pcb_group.js';
 import type { ZONE } from '../zone.js';
 import type { COMPONENT_CLASS } from '../component_classes/component_class.js';
 import { COMPONENT_CLASS_MANAGER } from '../component_classes/component_class_manager.js';
-import { kiidFromString, newKiid } from '@ziroeda/common/kiid.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
-import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { kiidFromString } from '@ziroeda/common/kiid.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { footprintViewOfBoard } from '../pcb_io/kicad_sexpr/board_view.js';
-import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
-import type { PcbFootprint } from '../types.js';
 import { fpidIsLegacy, fpidItemName, type COMPONENT, type NETLIST } from './pcb_netlist.js';
 
 /**
@@ -1675,72 +1670,3 @@ export function fpidsEquivalent(boardFpid: string, schematicFpid: string): boole
 // `PCB_EDIT_FRAME::ExchangeFootprint` (`pcb_edit_frame.cpp:2591`), whose only
 // caller upstream is BOARD_NETLIST_UPDATER (board_netlist_updater.cpp:382). They
 // stay here until BOARD_NETLIST_UPDATER takes a frame the way upstream's does.
-
-export interface PlaceFootprintOptions {
-  /** The full LIB_ID the board footprint should carry ("Library:Footprint"). */
-  fpid: string;
-  /** Board position of the footprint anchor. */
-  at: VECTOR2I;
-  /** Orientation in degrees. */
-  angle?: number;
-  /** 'F.Cu' or 'B.Cu'. */
-  layer?: string;
-  uuid?: string;
-  /** `(path …)`, the linked symbol's KIID_PATH. */
-  path?: string;
-  sheetname?: string;
-  sheetfile?: string;
-  locked?: boolean;
-}
-
-/**
- * Turn a library footprint into a board footprint at a given place.
- * `LoadFootprintFromProject` + the placement: `FOOTPRINT( *lib )`, its nets
- * cleared (a library footprint's pads carry orphaned net codes), then
- * `SetPosition` / `SetOrientation`, which carry every child with the anchor,
- * and `Flip` for the back side, the way `ExchangeFootprint` puts a new
- * footprint on the side of the old one (pcb_edit_frame.cpp:2671).
- */
-export function placeFootprint(
-  libFootprint: PcbFootprint,
-  opts: PlaceFootprintOptions,
-): PcbFootprint | null {
-  const lib = libFootprint.k;
-  if (!lib) return null;
-
-  // `FOOTPRINT( *lib )`: a copy of the library footprint, then the board's own
-  // placement written over it — CTL_OMIT_FOOTPRINT_VERSION drops the library
-  // header's version and generator, which live on the board instead.
-  const k = lib.Clone();
-  k.SetInitialComments(null);
-  k.SetFPIDAsString(opts.fpid);
-  k.SetLocked(opts.locked ?? false);
-  (k as { m_Uuid: string }).m_Uuid = opts.uuid ?? newKiid();
-  const path = opts.path ?? '';
-  k.SetPath(
-    path === ''
-      ? []
-      : path
-          .split('/')
-          .filter((s) => s !== '')
-          .map(kiidFromString),
-  );
-  k.SetSheetname(opts.sheetname ?? '');
-  k.SetSheetfile(opts.sheetfile ?? '');
-
-  // `FOOTPRINT::ClearAllNets`: a library pad's net, pin function and type are
-  // the symbol's business, and the netlist fills them in.
-  k.ClearAllNets();
-  for (const pad of k.Pads()) {
-    pad.SetPinFunction('');
-    pad.SetPinType('');
-  }
-
-  // A library footprint sits at the origin, unrotated; the children ride the anchor.
-  k.SetPosition({ x: opts.at.x, y: opts.at.y });
-  k.SetOrientation(new EDA_ANGLE(opts.angle ?? 0));
-  if (LSET_NameToLayer(opts.layer ?? 'F.Cu') !== k.GetLayer())
-    k.Flip(k.GetPosition(), FLIP_DIRECTION.TOP_BOTTOM);
-
-  return footprintViewOfBoard(k);
-}

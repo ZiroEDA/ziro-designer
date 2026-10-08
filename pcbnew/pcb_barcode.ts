@@ -57,7 +57,7 @@ import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/prop
 
 import { PCB_TEXT } from './pcb_text.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
-import type { BarcodeEcc, BarcodeKind } from './types.js';
+import type { BarcodeEcc, BarcodeKind } from '@ziroeda/zint';
 
 export enum BARCODE_T {
   CODE_39 = 0,

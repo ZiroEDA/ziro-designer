@@ -14,14 +14,10 @@
  *
  * The decision logic lives here so it can be tested without a UI.
  */
-
-import { parseBoardItemId } from '../edit-board.js';
-import type { Board, PadShape, PadType, PcbPad } from '../types.js';
-import { teardropParamsView } from '../pcb_io/kicad_sexpr/board_view.js';
-import type { TeardropParams } from '../types.js';
+import { teardropParamsView } from '../teardrop/teardrop_parameters.js';
+import type { TeardropParams } from '../teardrop/teardrop_parameters.js';
 
 /** `BOARD_CONNECTED_ITEM::GetTeardropParams()`: the item's own, or the defaults. */
-import type { UnconnectedLayerMode } from '../types.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { FLIP_DIRECTION } from '@ziroeda/kimath/src/core/mirror.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
@@ -29,7 +25,7 @@ import { BRIGHTENED, SELECTED } from '@ziroeda/common/eda_item_flags.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { B_Cu, F_Cu } from '@ziroeda/common/layer_ids.js';
 import { LSET } from '@ziroeda/common/lset.js';
-import { layerSetOfTokens, layerTokens } from '../pcb_io/kicad_sexpr/board_view.js';
+import { layerSetOfTokens, layerTokens } from './layer_tokens.js';
 import { BOARD_COMMIT } from '../board_commit.js';
 import { DRCE_PAD_TH_WITH_NO_HOLE, DRCE_PADSTACK_INVALID } from '../drc/drc_item.js';
 import type { FOOTPRINT } from '../footprint.js';
@@ -49,12 +45,30 @@ import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import { PCB_SHAPE } from '../pcb_shape.js';
 import { ZONE_CONNECTION } from '../zones.js';
 import type { TransferResult } from './dialog_text_properties.js';
+import type { ZoneConnection } from '../zone_connection.js';
 
-/** Where a pad lives: which footprint, and which pad within it. */
-export interface PadRef {
-  footprint: number;
-  pad: number;
-}
+export type PadShape = 'circle' | 'rect' | 'oval' | 'trapezoid' | 'roundrect' | 'custom';
+
+export type PadType = 'thru_hole' | 'smd' | 'connect' | 'np_thru_hole';
+
+/**
+ * `UNCONNECTED_LAYER_MODE` (pcbnew/padstack.h): what a through-hole pad or via
+ * does with a copper layer it is not connected on. The removal is never applied
+ * to the stored layer set — it is re-evaluated by `FlashLayer()` every time the
+ * item is drawn, filled or plotted, so it tracks the routing.
+ *
+ * `start_end_only` has no pad spelling in the file format (the pad parser has
+ * no token for it), so it can only round-trip on a via.
+ */
+export type UnconnectedLayerMode =
+  /** Copper on every layer of the span, connected or not. KiCad's default. */
+  | 'keep_all'
+  /** Copper only where connected — outer layers included. */
+  | 'remove_all'
+  /** Copper where connected, plus the end layers: "Keep outside layers". */
+  | 'remove_except_start_and_end'
+  /** Copper on the two end layers and nowhere else, connections ignored. */
+  | 'start_end_only';
 
 /** Every field the dialog edits. */
 export interface PadValues {
@@ -87,7 +101,7 @@ export interface PadValues {
   localSolderMaskMargin: number | null;
   localSolderPasteMargin: number | null;
   localSolderPasteMarginRatio: number | null;
-  zoneConnection: NonNullable<PcbPad['zoneConnection']>;
+  zoneConnection: ZoneConnection;
   /**
    * `(pinfunction …)` / `(pintype …)` — the schematic's pin name and electrical
    * type, pushed onto the pad by the netlist. DIALOG_PAD_PROPERTIES shows them
@@ -113,21 +127,6 @@ export interface PadValues {
    * do to a via.
    */
   teardrops: TeardropParams;
-}
-
-/** Resolve a `pad:F:P` id, or null when the selection is not a single pad. */
-export function padAt(board: Board, selection: Iterable<string>): PadRef | null {
-  let found: PadRef | null = null;
-
-  for (const id of selection) {
-    const ref = parseBoardItemId(id);
-    if (!ref || ref.kind !== 'pad') continue;
-    if (found !== null) return null;
-    const fp = board.footprints[ref.index];
-    if (fp?.pads[ref.sub ?? 0]) found = { footprint: ref.index, pad: ref.sub ?? 0 };
-  }
-
-  return found;
 }
 
 /** DIALOG_PAD_PROPERTIES::TransferDataToWindow. */
@@ -193,7 +192,7 @@ const CODE_SHAPE: Record<ShapeChoice, PAD_SHAPE> = {
 };
 
 /** `m_ZoneConnectionChoice`'s rows (:746-752, :1979-1986). */
-const ZONE_CHOICE: readonly [PcbPad['zoneConnection'] & string, ZONE_CONNECTION][] = [
+const ZONE_CHOICE: readonly [ZoneConnection & string, ZONE_CONNECTION][] = [
   ['inherited', ZONE_CONNECTION.INHERITED],
   ['full', ZONE_CONNECTION.FULL],
   ['thermal', ZONE_CONNECTION.THERMAL],

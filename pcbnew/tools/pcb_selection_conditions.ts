@@ -10,19 +10,12 @@
  * toolbar reads on every selection change — plus `BOARD::IsEmpty()`, which is
  * what `EDIT_TOOL::Init`'s `noItemsCondition` asks.
  */
-import { parseBoardItemId } from '../edit-board.js';
-import type { Board } from '../types.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { SELECTION } from '@ziroeda/common/tool/selection.js';
 import type { SELECTION_CONDITION } from '@ziroeda/common/tool/selection_conditions.js';
 import type { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import { UNCONNECTED_NET as NETINFO_LIST_UNCONNECTED } from '../netinfo_list.js';
-
-/** Whether any group holding `id` as a member is itself locked. */
-function inLockedGroup(board: Board, id: string): boolean {
-  return board.groups.some((g) => g.locked === true && g.members.includes(id));
-}
 
 /**
  * `PCB_SELECTION_CONDITIONS` (pcb_selection_conditions.cpp): the selection

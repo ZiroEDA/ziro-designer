@@ -99,7 +99,14 @@ import {
   Rescue,
   User_1,
 } from '@ziroeda/common/layer_ids.js';
-import type { Box } from './board_outline.js';
+
+/** An axis-aligned box in board IU. */
+interface Box {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
 
 /** The PCB_LAYER_IDs the 3D viewer builds (`techLayerList`). */
 export type Layer3d =

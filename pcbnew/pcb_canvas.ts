@@ -25,8 +25,6 @@ import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import type { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { BOARD } from './board.js';
-import { parseBoardItemId } from './edit-board.js';
-import type { Board } from './types.js';
 import type { BOARD_ITEM } from './board_item.js';
 import { PCB_SELECTION } from './tools/pcb_selection.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';

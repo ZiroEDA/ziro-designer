@@ -10,6 +10,8 @@ import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import {
   DIALOG_BARCODE_PROPERTIES,
   barcodePreview,
+  barcodeUiState,
+  correctEccForKind,
 } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
 import { BARCODE_ECC_T, BARCODE_T, PCB_BARCODE } from '@ziroeda/pcbnew/pcb_barcode.js';
 import { IS_NEW } from '@ziroeda/common/eda_item_flags.js';
@@ -66,14 +68,24 @@ describe('DIALOG_BARCODE_PROPERTIES', () => {
     expect(bc().GetText()).toBe('ZIRO-1');
   });
 
-  it('refuses a text the symbology cannot encode, changing nothing', () => {
+  it('refuses a text the symbology cannot encode, with Zint’s own message, changing nothing', () => {
+    // `TransferDataFromWindow` (`:238-244`) shows `GetLastError()` and returns
+    // false rather than committing an empty symbol.
     const v = dlg().TransferDataToWindow();
     // Code 39 has no lower case or '@'.
     const r = dlg().TransferDataFromWindow({ ...v, kind: 'code39', text: 'a@b' });
     expect(r.ok).toBe(false);
-    expect(r.message).not.toBe('');
+    expect(r.message).toContain('Invalid character at position 2');
     expect(bc().GetKind()).toBe(BARCODE_T.QR_CODE);
     expect(frame.GetUndoCommandCount()).toBe(0);
+  });
+
+  it('lets empty text through, which draws nothing', () => {
+    // `if( !m_dummyBarcode->GetText().empty() && … )` (`:238`) — the emptiness
+    // check comes first, so a barcode with no content is a legal item.
+    const r = dlg().TransferDataFromWindow({ ...dlg().TransferDataToWindow(), text: '' });
+    expect(r.ok).toBe(true);
+    expect(bc().GetText()).toBe('');
   });
 
   it('the preview is the dialog values on a copy; the item is untouched (:322-343)', () => {
@@ -99,5 +111,43 @@ describe('DIALOG_BARCODE_PROPERTIES', () => {
     });
     expect(fresh.GetText()).toBe('FRESH');
     expect(frame.GetUndoCommandCount()).toBe(0);
+  });
+});
+
+describe('what OnUpdateUI decides (:145-168)', () => {
+  const window = () => dlg().TransferDataToWindow();
+
+  it('offers error correction for the two QR kinds only', () => {
+    // `m_barcode->GetSelection() >= to_underlying( BARCODE_T::QR_CODE )`
+    // (`:149`). Data Matrix has error correction too — ECC 200 — but its level
+    // is fixed by the symbol size, so there is nothing to choose.
+    const state = (kind: ReturnType<typeof window>['kind']): boolean =>
+      barcodeUiState({ ...window(), kind }).eccEnabled;
+
+    expect(state('qr')).toBe(true);
+    expect(state('microqr')).toBe(true);
+    expect(state('code39')).toBe(false);
+    expect(state('code128')).toBe(false);
+    expect(state('datamatrix')).toBe(false);
+  });
+
+  it('greys level H for Micro QR, and moves the choice off it', () => {
+    // `m_errorCorrection->Enable( 3, !isMicroQR )` and, if H was selected,
+    // `SetSelection( 2 )` — "consistent with SetErrorCorrection" (`:158-168`).
+    expect(barcodeUiState({ ...window(), kind: 'microqr' }).eccHEnabled).toBe(false);
+    expect(barcodeUiState({ ...window(), kind: 'qr' }).eccHEnabled).toBe(true);
+
+    const v = correctEccForKind({ ...window(), kind: 'microqr', ecc: 'H' });
+    expect(v.ecc).toBe('Q');
+    // …a level it CAN carry is left alone, and so is H on a plain QR code.
+    expect(correctEccForKind({ ...v, ecc: 'M' }).ecc).toBe('M');
+    expect(correctEccForKind({ ...window(), kind: 'qr', ecc: 'H' }).ecc).toBe('H');
+  });
+
+  it('gates text size on Show Text and the margins on Knockout', () => {
+    expect(barcodeUiState({ ...window(), showText: false }).textSizeEnabled).toBe(false);
+    expect(barcodeUiState({ ...window(), showText: true }).textSizeEnabled).toBe(true);
+    expect(barcodeUiState({ ...window(), knockout: false }).marginsEnabled).toBe(false);
+    expect(barcodeUiState({ ...window(), knockout: true }).marginsEnabled).toBe(true);
   });
 });

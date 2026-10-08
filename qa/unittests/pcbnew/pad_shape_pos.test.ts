@@ -12,81 +12,70 @@
  *         return m_pos + loc_offset;
  *     }
  *
- * while `GetEffectiveHoleShape()` builds its `SHAPE_SEGMENT` from `m_pos`. This
- * tree had the pair the other way round — the hole drawn and knocked out at
- * `at + offset`, the copper left on `at` — which keeps the two the right
- * distance apart and puts both in the wrong place. Every TO-92 on the
- * `complex_hierarchy` demo carries a 0.4 mm offset, and the pour's reliefs and
- * spokes were 0.4 mm off around all of them.
+ * while `GetEffectiveHoleShape()` builds its `SHAPE_SEGMENT` from `m_pos`. Every
+ * TO-92 on the `complex_hierarchy` demo carries a 0.4 mm offset, and the pour's
+ * reliefs and spokes were 0.4 mm off around all of them when the pair was the
+ * other way round.
  *
  * The three expected positions are KiCad 10.0.5's own answers for that board,
  * read back through `pad.ShapePos( pcbnew.F_Cu )`.
  */
-import { describe, it, expect } from 'vitest';
-import { padShapePos } from '@ziroeda/pcbnew/padstack.js';
-import { padShapes } from '@ziroeda/pcbnew/drc/drc_engine_view.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import type { PcbPad } from '@ziroeda/pcbnew/types.js';
+import { describe, expect, it } from 'vitest';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import type { PAD } from '@ziroeda/pcbnew/pad.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
-const MM = (n: number): number => mmToIU(n);
+const MM = (n: number): number => pcbIUScale.mmToIU(n);
 
-const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
-  number: '1',
-  type: 'thru_hole',
-  shape: 'rect',
-  at: { x: MM(10), y: MM(10) },
-  angle: 0,
-  size: { x: MM(1.1), y: MM(1.8) },
-  layers: ['*.Cu'],
-  net: 1,
-  drill: { oblong: false, w: MM(0.75), h: MM(0.75), offset: { x: 0, y: MM(0.4) } },
-  ...over,
-});
+/** One TO-92 pad 1 in a footprint at the origin, so its position is board-absolute. */
+const padAt = (x: number, y: number, angle: number, drill = '(drill 0.75 (offset 0 0.4))'): PAD =>
+  ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal))
+  (net 0 "")
+  (footprint "TO-92" (layer "F.Cu") (uuid "aaaaaaaa-0000-4000-8000-000000000001") (at 0 0)
+    (pad "1" thru_hole rect (at ${x} ${y} ${angle}) (size 1.1 1.8) ${drill} (layers "*.Cu")
+      (uuid "aaaaaaaa-0000-4000-8000-000000000002"))))`)
+    .Footprints()[0]!
+    .Pads()[0]!;
 
-/** The centre of the axis-aligned box the pad's copper covers. */
-const copperCentre = (p: PcbPad): { x: number; y: number } => {
-  const pts = padShapes(p).flatMap((s) =>
-    s.kind === 'poly' ? s.pts : s.kind === 'circle' ? [s.c] : [],
-  );
-  const xs = pts.map((q) => q.x);
-  const ys = pts.map((q) => q.y);
-  return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
-};
+/** The centre of the box the pad's F.Cu copper covers. */
+const copperCentre = (p: PAD): { x: number; y: number } =>
+  p.GetEffectivePolygon(PCB_LAYER_ID.F_Cu, ERROR_LOC.ERROR_INSIDE).BBox().Centre();
 
 describe('PAD::ShapePos', () => {
   it('answers what KiCad answers for complex_hierarchy, at every orientation', () => {
     // Q201 pad 1: (at 131.445 115.316 0), offset (0, 0.4) -> (131.445, 115.716)
-    const q201 = padShapePos(pad({ at: { x: MM(131.445), y: MM(115.316) }, angle: 0 }));
-    expect(q201.x).toBeCloseTo(MM(131.445), 0);
-    expect(q201.y).toBeCloseTo(MM(115.716), 0);
-
+    expect(padAt(131.445, 115.316, 0).ShapePos(PCB_LAYER_ID.F_Cu)).toEqual({
+      x: MM(131.445),
+      y: MM(115.716),
+    });
     // U101 pad 1: (at 124.206 70.866 90), offset (0, 0.4) -> (124.606, 70.866)
-    const u101 = padShapePos(pad({ at: { x: MM(124.206), y: MM(70.866) }, angle: 90 }));
-    expect(u101.x).toBeCloseTo(MM(124.606), 0);
-    expect(u101.y).toBeCloseTo(MM(70.866), 0);
-
+    expect(padAt(124.206, 70.866, 90).ShapePos(PCB_LAYER_ID.F_Cu)).toEqual({
+      x: MM(124.606),
+      y: MM(70.866),
+    });
     // Q203 pad 1: (at 151.765 123.825 180), offset (0, 0.4) -> (151.765, 123.425)
-    const q203 = padShapePos(pad({ at: { x: MM(151.765), y: MM(123.825) }, angle: 180 }));
-    expect(q203.x).toBeCloseTo(MM(151.765), 0);
-    expect(q203.y).toBeCloseTo(MM(123.425), 0);
+    expect(padAt(151.765, 123.825, 180).ShapePos(PCB_LAYER_ID.F_Cu)).toEqual({
+      x: MM(151.765),
+      y: MM(123.425),
+    });
   });
 
   it('leaves a pad with no offset exactly on its position', () => {
-    const p = pad({ drill: { oblong: false, w: MM(0.75), h: MM(0.75) } });
-    expect(padShapePos(p)).toEqual(p.at);
-    expect(padShapePos(pad({ drill: undefined, type: 'smd' }))).toEqual(pad().at);
+    const p = padAt(10, 10, 0, '(drill 0.75)');
+    expect(p.ShapePos(PCB_LAYER_ID.F_Cu)).toEqual(p.GetPosition());
   });
 
-  it('puts the copper on ShapePos', () => {
-    const p = pad();
-    const copper = copperCentre(p);
-    expect(copper.x).toBeCloseTo(p.at.x, 0);
-    expect(copper.y).toBeCloseTo(p.at.y + MM(0.4), 0);
+  it('puts the copper on ShapePos and the hole on the position', () => {
+    const p = padAt(10, 10, 0);
+    expect(copperCentre(p)).toEqual({ x: MM(10), y: MM(10.4) });
+    expect(p.GetEffectiveHoleShape()!.Centre()).toEqual({ x: MM(10), y: MM(10) });
   });
 
   it('turns the offset with the pad, so the copper leads the rotation', () => {
-    const copper = copperCentre(pad({ angle: 90 }));
-    expect(copper.x).toBeCloseTo(MM(10) + MM(0.4), 0);
-    expect(copper.y).toBeCloseTo(MM(10), 0);
+    // RotatePoint( (0, 0.4), 90° ) is (0.4, 0) in KiCad's y-down frame.
+    expect(copperCentre(padAt(10, 10, 90))).toEqual({ x: MM(10.4), y: MM(10) });
   });
 });

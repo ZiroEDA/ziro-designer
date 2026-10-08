@@ -58,6 +58,23 @@ describe('reading the board as back-annotation data', () => {
     const fields = boardFootprintData(board(FP))[0]!.fields ?? {};
     expect(fields.MPN).toBe('RC0805');
     expect(fields.Sheetname).toBeUndefined();
+    // Reference and Value travel as their own members, not as fields.
+    expect(fields.Reference).toBeUndefined();
+    expect(fields.Value).toBeUndefined();
+  });
+
+  it('reads each attribute on its own', () => {
+    // FP_EXCLUDE_FROM_POS_FILES alone: neither DNP nor out of the BOM.
+    const pos = FP.replace('(attr smd exclude_from_bom dnp)', '(attr smd exclude_from_pos_files)');
+    const [fp] = boardFootprintData(board(pos));
+    expect(fp!.dnp).toBe(false);
+    expect(fp!.excludeFromBom).toBe(false);
+    expect(fp!.excludeFromPosFiles).toBe(true);
+    // FP_DNP alone does not take a part out of the BOM.
+    const dnp = FP.replace('(attr smd exclude_from_bom dnp)', '(attr smd dnp)');
+    const [d] = boardFootprintData(board(dnp));
+    expect(d!.dnp).toBe(true);
+    expect(d!.excludeFromBom).toBe(false);
   });
 
   it('skips a footprint with no path rather than guessing at one', () => {

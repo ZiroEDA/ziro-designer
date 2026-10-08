@@ -31,14 +31,10 @@ import {
   deleteBoardItems,
   hitTestBoard,
   isBoardItemLocked,
+  imageBBox,
   moveBoardItems,
 } from '@ziroeda/pcbnew/edit-board.js';
-import {
-  FALLBACK_PIXELS,
-  imageBBox,
-  imageSizeIU,
-  iuPerPixel,
-} from '@ziroeda/pcbnew/pcb_reference_image.js';
+import { FALLBACK_PIXELS, imageSizeIU, iuPerPixel } from '@ziroeda/pcbnew/pcb_reference_image.js';
 import { DEFAULT_PPI, pngPPI, pngPixelSize } from '@ziroeda/common/wx/png_meta.js';
 import { pngCrc32 } from '@ziroeda/common/png_encoder.js';
 import { WX_IMAGE } from '@ziroeda/common/wx/wx_image.js';

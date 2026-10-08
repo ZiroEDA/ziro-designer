@@ -38,13 +38,16 @@ import { FONT } from '@ziroeda/common/font/font.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
 import { ClampTextPenSize } from '@ziroeda/common/gr_text.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
-import { LINE_STYLE, LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
+import {
+  LINE_STYLE,
+  LINE_STYLE_NAMES,
+  type LineStyleToken,
+} from '@ziroeda/common/stroke_params.js';
 import { ESCAPE_CONTEXT, EscapeString, unescapeString } from '@ziroeda/common/string_utils.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { BOARD_COMMIT } from '../board_commit.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_TEXTBOX } from '../pcb_textbox.js';
-import type { StrokeType } from '../types.js';
 import type { TransferResult } from './dialog_text_properties.js';
 
 export type HorizJustify = 'left' | 'center' | 'right';
@@ -68,7 +71,7 @@ export interface TextBoxValues {
   vertJustify: VertJustify;
   border: boolean;
   borderWidth: number;
-  borderStyle: StrokeType;
+  borderStyle: LineStyleToken;
   knockout: boolean;
   marginLeft: number;
   marginTop: number;
@@ -172,7 +175,7 @@ export class DIALOG_TEXTBOX_PROPERTIES {
       border: tb.IsBorderEnabled(),
       borderWidth: stroke.GetWidth(),
       borderStyle: (LINE_STYLE_NAMES.find((d) => d.style === style)?.value ??
-        'solid') as StrokeType,
+        'solid') as LineStyleToken,
       knockout: tb.IsKnockout(),
       marginLeft: tb.GetMarginLeft(),
       marginTop: tb.GetMarginTop(),

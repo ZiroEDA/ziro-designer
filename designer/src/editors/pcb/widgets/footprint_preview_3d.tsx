@@ -15,11 +15,9 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
-import type { Board } from '@ziroeda/pcbnew/types.js';
 import { BOARD, BOARD_USE } from '@ziroeda/pcbnew/board.js';
 import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
-import type { BOARD_3D_HANDLE, Viewer3D } from '@ziroeda/3d-viewer/viewer3d_types.js';
-import { boardToBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
+import type { Viewer3D } from '@ziroeda/3d-viewer/viewer3d_types.js';
 import { MODELS3D_HOST } from '../../../libraryHosts.js';
 import '../viewer3d_cache_shim.js';
 
@@ -80,26 +78,6 @@ export function useFootprintHolderBoard(
   }, [footprint, loadFootprint]);
 
   return board;
-}
-
-/**
- * TRANSITIONAL (#636, the footprint-editor arc): the footprint frames still
- * hold the view model; the 3D viewer takes the BOARD. One handle per view
- * board, so the frame's "a new board is a changed board" rule still holds.
- */
-const s_holderHandles = new WeakMap<Board, BOARD_3D_HANDLE>();
-
-export function holderHandle(aView: Board | null): BOARD_3D_HANDLE | null {
-  if (!aView) return null;
-
-  let handle = s_holderHandles.get(aView);
-
-  if (!handle) {
-    handle = { k: boardToBOARD(aView) };
-    s_holderHandles.set(aView, handle);
-  }
-
-  return handle;
 }
 
 export interface FootprintPreview3DProps {

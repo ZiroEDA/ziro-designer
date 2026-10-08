@@ -40,7 +40,6 @@ import {
 import { dimensionBBox, distanceToDimension } from './dimension_geometry.js';
 import { textBoxBBox } from './textbox_geometry.js';
 import { tableBBox } from './table_geometry.js';
-import { imageBBox } from './pcb_reference_image.js';
 import type {
   PcbBarcode,
   Board,
@@ -68,6 +67,28 @@ import {
 import { isHatchedFill, isSolidFill, shapeHatchLines } from './shape_fill.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
 import { ARC_HIGH_DEF } from '@ziroeda/common/eda_units.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import { imageSizeIU } from './pcb_reference_image.js';
+
+/**
+ * `REFERENCE_IMAGE::GetBoundingBox`, which is `BOX2I::ByCenter(pos, size)` —
+ * `BOX2(center - size / 2, size)`.
+ *
+ * `size / 2` is `VECTOR2<int>::operator/( double )`, which ROUNDS each
+ * coordinate (KiROUND), so an odd size sits half an IU off-centre towards the
+ * origin; the box is then exactly `size` across.
+ */
+export function imageBBox(img: PcbImage): {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+} {
+  const { w, h } = imageSizeIU(img);
+  const minX = img.at.x - KiROUND(w / 2);
+  const minY = img.at.y - KiROUND(h / 2);
+  return { minX, minY, maxX: minX + w, maxY: minY + h };
+}
 
 // ----- shared geometry helpers --------------------------------------------
 // Cross-cutting arc/rotation math with no single KiCad file of its own — every

@@ -40,7 +40,7 @@ import { BOARD_COMMIT, SKIP_CONNECTIVITY } from '../board_commit.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_TABLE } from '../pcb_table.js';
 import type { TransferResult } from './dialog_text_properties.js';
-import type { StrokeType } from '../types.js';
+import type { LineStyleToken } from '@ziroeda/common/stroke_params.js';
 
 /** Every control on the dialog, flattened. The cell texts are the grid. */
 export interface TableValues {
@@ -49,11 +49,11 @@ export interface TableValues {
   borderExternal: boolean;
   borderHeader: boolean;
   borderWidth: number;
-  borderStyle: StrokeType;
+  borderStyle: LineStyleToken;
   separatorRows: boolean;
   separatorCols: boolean;
   separatorWidth: number;
-  separatorStyle: StrokeType;
+  separatorStyle: LineStyleToken;
   /** Cell text in *display* order: `[row][col]` as the grid shows it. */
   cellText: string[][];
 }
@@ -72,10 +72,10 @@ export function isBackLayer(layer: string): boolean {
 // DIALOG_TABLE_PROPERTIES over the live PCB_TABLE (#636 stage 6)
 
 /** `lineTypeNames` index of a style, the first entry for anything out of range. */
-const styleToken = (aStyle: LINE_STYLE): StrokeType =>
+const styleToken = (aStyle: LINE_STYLE): LineStyleToken =>
   LINE_STYLE_NAMES.find((d) => d.style === aStyle)?.value ?? 'solid';
 
-const tokenStyle = (aToken: StrokeType): LINE_STYLE =>
+const tokenStyle = (aToken: LineStyleToken): LINE_STYLE =>
   LINE_STYLE_NAMES.find((d) => d.value === aToken)?.style ?? LINE_STYLE.SOLID;
 
 /**

@@ -67,7 +67,6 @@ import { gridSizeToIU } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { gridSnappingEnabled } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.js';
 import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from './footprint_editor_settings.js';
-import { type PcbLayerDef } from './types.js';
 import { FOOTPRINT_EDITOR_CONTROL } from './tools/footprint_editor_control.js';
 import { LIBRARY_EDITOR_CONTROL } from '@ziroeda/common/tool/library_editor_control.js';
 import type { LIB_TREE } from '@ziroeda/common/eda_draw_frame.js';
@@ -78,6 +77,14 @@ import type { FOOTPRINT_LIBRARY_ADAPTER } from './footprint_library_adapter.js';
 import { LAYER_CLASS, TEXT_ITEM_INFO } from './board_design_settings.js';
 import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import type { DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR } from './dialogs/dialog_footprint_properties_fp_editor.js';
+
+/** One `(N "Name" type [userName])` row of the `(layers …)` table. */
+export interface PcbLayerDef {
+  id: number;
+  name: string;
+  kind: string;
+  userName?: string;
+}
 
 export interface FOOTPRINT_EDIT_FRAME_HOOKS extends PCB_BASE_EDIT_FRAME_DIALOG_HOOKS {
   /**

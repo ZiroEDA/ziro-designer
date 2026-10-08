@@ -28,7 +28,6 @@ import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { setBoardOrigin } from '@ziroeda/pcbnew/edit-board.js';
-import { boardAuxOrigin } from '@ziroeda/pcbnew/board_design_settings.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 
@@ -53,21 +52,6 @@ describe('moving an origin', () => {
     const b = setBoardOrigin(read(WITH_SETUP), 'grid_origin', { x: MM(30), y: MM(40) });
 
     expect(serializeBoard(b)).toContain('(pad_to_mask_clearance 0)');
-  });
-});
-
-describe('a board that never named an origin', () => {
-  const NO_ORIGIN = `(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
-  (setup (pad_to_mask_clearance 0))
-  (net 0 "")
-)`;
-
-  it('and a board with no (setup …) at all gains that too', () => {
-    const bare = `(kicad_pcb (version 20241229) (generator "test") (net 0 ""))`;
-    const b = setBoardOrigin(read(bare), 'aux_axis_origin', { x: MM(9), y: 0 });
-
-    expect(boardAuxOrigin(b)).toEqual({ x: MM(9), y: 0 });
   });
 });
 

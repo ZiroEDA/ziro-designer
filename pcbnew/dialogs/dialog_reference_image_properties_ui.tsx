@@ -64,7 +64,6 @@ import {
 import { pngPixelSize, pngPPI } from '@ziroeda/common/wx/png_meta.js';
 import { CheckValues, PANEL_IMAGE_EDITOR } from '@ziroeda/common/dialogs/panel_image_editor.js';
 import { MessageDialogError, MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
-import type { PcbImage } from '../types.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { parseUnitValue, stringFromValue, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';

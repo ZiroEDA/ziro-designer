@@ -23,7 +23,26 @@ import { kiidPathAsString } from '@ziroeda/common/kiid.js';
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
-import { RESERVED_FOOTPRINT_PROPERTIES } from '@ziroeda/pcbnew/types.js';
+
+/**
+ * Property names a footprint may carry that are NOT user fields. Before KiCad's PCB
+ * fields (file version < 20230620) these reserved keys stood in for what now have
+ * their own tokens, `(sheetname …)`, `(sheetfile …)`, `(descr …)`, `(tags …)`, and
+ * `Footprint` duplicated the LIB_ID until V9. `parseFOOTPRINT` consumes them rather
+ * than making fields of them, so nothing should present them to the user or compare
+ * them against a symbol's fields.
+ */
+const RESERVED_FOOTPRINT_PROPERTIES: ReadonlySet<string> = new Set([
+  'Sheetname',
+  'Sheet name',
+  'Sheetfile',
+  'Sheet file',
+  'ki_description',
+  'ki_keywords',
+  'ki_locked',
+  'ki_fp_filters',
+  'Footprint',
+]);
 
 /** The symbol path's last element: `FOOTPRINT::GetPath().back()`. */
 function symbolPathOf(fp: FOOTPRINT): string | null {
@@ -40,9 +59,13 @@ export function boardFootprintData(board: BOARD): PcbFootprintData[] {
     if (!path) continue;
     const fields: Record<string, string> = {};
     for (const f of fp.GetFields()) {
+      // NOT upstream: MAIL_PCB_GET_NETLIST (cross-probing.cpp:565) sends every
+      // field, and BACK_ANNOTATE skips Reference and Value on the receiving
+      // side (backannotate.cpp:953). Our engine has no such skip, so they are
+      // held back here, where they are reported as their own changes.
       if (!f || f.GetId() === FIELD_T.REFERENCE || f.GetId() === FIELD_T.VALUE) continue;
-      // The reserved properties are the file format's own bookkeeping — sheet
-      // name, description, filters — and were never the user's fields.
+      // NOT upstream either: a reserved property read as a field (a pre-v8
+      // Sheetname) is the file's bookkeeping, never a field the user made.
       if (RESERVED_FOOTPRINT_PROPERTIES.has(f.GetCanonicalName())) continue;
       fields[f.GetCanonicalName()] = f.GetText();
     }

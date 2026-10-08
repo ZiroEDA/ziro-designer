@@ -17,13 +17,8 @@ export {
 export {
   UNCONNECTED_NET,
   ORPHANED_NET,
-  findNet,
-  netName,
   shortNetname,
   displayNetname,
   displayNetnames,
-  appendNet,
-  removeUnusedNets,
-  renameNet,
   NETINFO_LIST,
 } from './netinfo_list.js';

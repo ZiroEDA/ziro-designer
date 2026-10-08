@@ -16,7 +16,6 @@
  * The zone's *outline* is not edited here; that is the point editor's job.
  */
 
-import type { Board, PcbZone, RuleAreaKeepout, ZonePlacementArea } from '../types.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import { LSET } from '@ziroeda/common/lset.js';
@@ -24,7 +23,7 @@ import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { BOARD_COMMIT, SKIP_CONNECTIVITY } from '../board_commit.js';
 import { ORPHANED_NET } from '../netinfo.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
-import { layerSetOfTokens, layerTokens } from '../pcb_io/kicad_sexpr/board_view.js';
+import { layerSetOfTokens, layerTokens } from './layer_tokens.js';
 import type { BOARD } from '../board.js';
 import type { ZONE } from '../zone.js';
 import type { ZONE_SETTINGS_BAG } from '../zone_settings_bag.js';
@@ -45,6 +44,7 @@ import {
 import type { TransferResult } from './dialog_text_properties.js';
 import type { CONVERT_SETTINGS } from '../pcbnew_settings.js';
 import { CONVERSION_BOX, type ConversionBoxValues } from '../tools/convert_settings_dialog.js';
+import type { RuleAreaKeepout, ZonePlacementArea } from './dialog_rule_area_properties.js';
 
 /** Every field PANEL_ZONE_PROPERTIES edits. */
 export interface ZoneValues {
@@ -57,20 +57,20 @@ export interface ZoneValues {
   clearance: number;
   /** `(min_thickness …)`, IU. */
   minThickness: number;
-  padConnection: NonNullable<PcbZone['padConnection']>;
+  padConnection: 'thermal' | 'full' | 'none' | 'thru_hole_only';
   /** `(fill … (thermal_gap …))`, IU. */
   thermalGap: number;
   /** `(fill … (thermal_bridge_width …))`, IU. */
   thermalBridgeWidth: number;
   /** Border display: `(hatch none|edge|full <pitch>)`. */
-  hatchStyle: NonNullable<PcbZone['hatchStyle']>;
+  hatchStyle: 'none' | 'edge' | 'full' | 'invisible';
   hatchPitch: number;
-  cornerSmoothing: NonNullable<PcbZone['cornerSmoothing']>;
+  cornerSmoothing: 'none' | 'chamfer' | 'fillet';
   cornerRadius: number;
-  islandRemovalMode: NonNullable<PcbZone['islandRemovalMode']>;
+  islandRemovalMode: 'always' | 'never' | 'area';
   /** `(fill … (island_area_min …))` in mm², as the file stores it. */
   islandAreaMin: number;
-  fillMode: NonNullable<PcbZone['fillMode']>;
+  fillMode: 'solid' | 'hatch';
   /** Hatched-fill parameters, live only when `fillMode` is `hatch`. */
   hatchThickness: number;
   hatchGap: number;

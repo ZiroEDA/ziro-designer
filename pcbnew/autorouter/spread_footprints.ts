@@ -24,9 +24,6 @@
 import { getTrailingInt } from '@ziroeda/common/string_utils.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { findBestPacking, type RectWH } from '@ziroeda/rectpack2d';
-import { boardItemId, moveBoardItems } from '../edit-board.js';
-import { footprintBBox } from '../edit-footprint.js';
-import type { Board, PcbFootprint } from '../types.js';
 import type { FOOTPRINT } from '../footprint.js';
 import { kiidPathAsString } from '@ziroeda/common/kiid.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

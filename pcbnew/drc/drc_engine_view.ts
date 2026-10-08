@@ -13,7 +13,7 @@
  * parity check emits. All of it goes when those move onto the classes
  * (stage 3 / 5).
  */
-import { padShapePos } from '../padstack.js';
+
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type {
   Board,
@@ -24,9 +24,42 @@ import type {
   PcbVia,
   PcbZone,
 } from '../types.js';
-import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
+import { arcShape, type Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { DrcDisallow, DrcRule } from './drc_rule_view.js';
 import { isSolidFill } from '../shape_fill.js';
+
+/**
+ * `PAD::ShapePos( aLayer )` (pad.cpp) — where the pad's COPPER sits.
+ *
+ *     if( GetOffset( aLayer ) == VECTOR2I( 0, 0 ) ) return m_pos;
+ *     VECTOR2I loc_offset = GetOffset( aLayer );
+ *     RotatePoint( loc_offset, GetOrientation() );
+ *     return m_pos + loc_offset;
+ *
+ * A pad's `(at …)` is the position of its **hole**; `(drill … (offset x y))`
+ * moves the copper away from it, not the hole away from the copper. This tree
+ * had it the other way round — the hole was drawn and knocked out at
+ * `at + offset` while the copper stayed on `at` — which is the same *relative*
+ * geometry but the wrong absolute one, so every offset pad's copper, its
+ * thermal relief and its spokes sat one offset away from where KiCad puts them.
+ * On the `complex_hierarchy` demo that is every TO-92: 0.4 mm of drift on 20
+ * transistor pads, and 12 mm² of the pour in the wrong place.
+ *
+ * The hole itself stays on `pad.at`: `GetEffectiveHoleShape` builds its
+ * `SHAPE_SEGMENT` from `m_pos`, never from `ShapePos`.
+ */
+export function padShapePos(pad: { at: Vec2; angle: number; drill?: { offset?: Vec2 } }): Vec2 {
+  const o = pad.drill?.offset;
+  if (!o || (o.x === 0 && o.y === 0)) return pad.at;
+
+  // `RotatePoint( VECTOR2I&, const EDA_ANGLE& )` in board coordinates, whose y
+  // grows downwards: (0, 0.4) at 90° comes back as (0.4, 0), which is what
+  // KiCad's own `ShapePos` answers for U101 on complex_hierarchy.
+  const rad = (pad.angle * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return { x: pad.at.x + o.x * cos + o.y * sin, y: pad.at.y - o.x * sin + o.y * cos };
+}
 
 // ---------------------------------------------------------------------------
 // Public API.
@@ -82,34 +115,6 @@ function rot(p: Vec2, deg: number): Vec2 {
   const cos = Math.cos(rad);
   const sin = Math.sin(rad);
   return { x: p.x * cos + p.y * sin, y: -p.x * sin + p.y * cos };
-}
-
-/** Circumcenter of the arc through start/mid/end (null when collinear). */
-function arcCenter(s: Vec2, m: Vec2, e: Vec2): Vec2 | null {
-  const d = 2 * (s.x * (m.y - e.y) + m.x * (e.y - s.y) + e.x * (s.y - m.y));
-  if (d === 0) return null;
-  const s2 = s.x * s.x + s.y * s.y;
-  const m2 = m.x * m.x + m.y * m.y;
-  const e2 = e.x * e.x + e.y * e.y;
-  return {
-    x: (s2 * (m.y - e.y) + m2 * (e.y - s.y) + e2 * (s.y - m.y)) / d,
-    y: (s2 * (e.x - m.x) + m2 * (s.x - e.x) + e2 * (m.x - s.x)) / d,
-  };
-}
-
-/** SHAPE_ARC from a track arc's start/mid/end + width. */
-export function arcShape(s: Vec2, m: Vec2, e: Vec2, width: number): Shape {
-  const c = arcCenter(s, m, e);
-  if (!c) return { kind: 'stadium', a: s, b: e, r: width / 2 };
-  const rad = Math.hypot(s.x - c.x, s.y - c.y);
-  const a0 = Math.atan2(s.y - c.y, s.x - c.x);
-  const am = Math.atan2(m.y - c.y, m.x - c.x);
-  const a1 = Math.atan2(e.y - c.y, e.x - c.x);
-  const TAU = 2 * Math.PI;
-  const norm = (a: number): number => ((a % TAU) + TAU) % TAU;
-  let sweep = norm(a1 - a0);
-  if (norm(am - a0) > sweep) sweep -= TAU; // the mid point picks the direction
-  return { kind: 'arc', c, rad, a0, sweep, r: width / 2, chord: { s, m, e } };
 }
 
 /** The pad's copper shapes (board-absolute; pad.at/angle are absolute).

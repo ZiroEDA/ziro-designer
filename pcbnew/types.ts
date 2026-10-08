@@ -37,17 +37,6 @@ import type { PCB_TEXTBOX } from './pcb_textbox.js';
 import type { PCB_ARC, PCB_TRACK, PCB_VIA } from './pcb_track.js';
 import type { ZONE } from './zone.js';
 
-/** One `(N "Name" type [userName])` row of the `(layers …)` table. */
-export interface PcbLayerDef {
-  id: number;
-  name: string;
-  kind: string;
-  userName?: string;
-}
-
-export type PadType = 'thru_hole' | 'smd' | 'connect' | 'np_thru_hole';
-export type PadShape = 'circle' | 'rect' | 'oval' | 'trapezoid' | 'roundrect' | 'custom';
-
 /** A drawing primitive of a custom pad, in pad-local coordinates. */
 export interface PadPrimitive {
   /**
@@ -144,51 +133,9 @@ export interface PcbPad {
   k?: PAD;
 }
 
-/**
- * `UNCONNECTED_LAYER_MODE` (pcbnew/padstack.h): what a through-hole pad or via
- * does with a copper layer it is not connected on. The removal is never applied
- * to the stored layer set — it is re-evaluated by `FlashLayer()` every time the
- * item is drawn, filled or plotted, so it tracks the routing.
- *
- * `start_end_only` has no pad spelling in the file format (the pad parser has
- * no token for it), so it can only round-trip on a via.
- */
-export type UnconnectedLayerMode =
-  /** Copper on every layer of the span, connected or not. KiCad's default. */
-  | 'keep_all'
-  /** Copper only where connected — outer layers included. */
-  | 'remove_all'
-  /** Copper where connected, plus the end layers: "Keep outside layers". */
-  | 'remove_except_start_and_end'
-  /** Copper on the two end layers and nowhere else, connections ignored. */
-  | 'start_end_only';
+import type { TeardropParams } from './teardrop/teardrop_parameters.js';
 
-/**
- * `(teardrops …)` on a pad or via: TEARDROP_PARAMETERS, in IU.
- *
- * The engine's own type lives in teardrop.ts; this is the file-format shape,
- * kept here so the reader and writer do not have to depend on the generator.
- */
-export interface TeardropParams {
-  /** `(enabled …)`. */
-  enabled: boolean;
-  /** `(allow_two_segments …)`. */
-  allowUseTwoTracks: boolean;
-  /** The *inverse* of `(prefer_zone_connections …)`, as upstream stores it. */
-  tdOnPadsInZones: boolean;
-  /** `(best_length_ratio …)`. */
-  bestLengthRatio: number;
-  /** `(max_length …)`, IU. */
-  tdMaxLen: number;
-  /** `(best_width_ratio …)`. */
-  bestWidthRatio: number;
-  /** `(max_width …)`, IU. */
-  tdMaxWidth: number;
-  /** `(curved_edges …)`, or a non-zero legacy `(curve_points …)`. */
-  curvedEdges: boolean;
-  /** `(filter_ratio …)`. */
-  widthtoSizeFilterRatio: number;
-}
+export type { TeardropParams };
 
 /** A board or footprint graphic (gr_line/fp_line families), board-absolute. */
 /** `(stroke (type …))`, LINE_STYLE. `default` is the layer's own style. */
@@ -311,26 +258,6 @@ export interface PcbFootprintField {
   k?: PCB_FIELD;
 }
 
-/**
- * Property names a footprint may carry that are NOT user fields. Before KiCad's PCB
- * fields (file version < 20230620) these reserved keys stood in for what now have
- * their own tokens, `(sheetname …)`, `(sheetfile …)`, `(descr …)`, `(tags …)`, and
- * `Footprint` duplicated the LIB_ID until V9. `parseFOOTPRINT` consumes them rather
- * than making fields of them, so nothing should present them to the user or compare
- * them against a symbol's fields.
- */
-export const RESERVED_FOOTPRINT_PROPERTIES: ReadonlySet<string> = new Set([
-  'Sheetname',
-  'Sheet name',
-  'Sheetfile',
-  'Sheet file',
-  'ki_description',
-  'ki_keywords',
-  'ki_locked',
-  'ki_fp_filters',
-  'Footprint',
-]);
-
 export interface PcbFootprint {
   lib: string;
   at: Vec2;
@@ -437,16 +364,6 @@ export interface PcbArcTrack {
   uuid?: string;
   /** The item in KiCad's own model, what the file is written from. */
   k?: PCB_ARC;
-}
-
-/**
- * One side of a via's outer-layer flag, `std::optional<bool>` in PADSTACK.
- * Absent means FROM_BOARD — take the board stackup's setting — which is a third
- * state and not a false. Written `(front yes|no|none)`.
- */
-export interface FrontBackOptBool {
-  front?: boolean;
-  back?: boolean;
 }
 
 export interface PcbVia {
@@ -602,36 +519,6 @@ export interface PcbZone {
   uuid?: string;
   /** The item in KiCad's own model, what the file is written from. */
   k?: ZONE;
-}
-
-/** `(keepout (tracks …) (vias …) (pads …) (copperpour …) (footprints …))`. */
-export interface RuleAreaKeepout {
-  tracks: boolean;
-  vias: boolean;
-  pads: boolean;
-  /** `copperpour`, ZONE::GetDoNotAllowZoneFills. */
-  copperPour: boolean;
-  footprints: boolean;
-}
-
-/**
- * PLACEMENT_SOURCE_T, minus `DESIGN_BLOCK`: that member exists only for the
- * multichannel tool's in-flight rule areas, has no file token, and upstream's
- * writer explicitly emits nothing for it — a saved zone can never carry it.
- */
-export type PlacementSourceType = 'sheetname' | 'component_class' | 'group';
-
-/**
- * `(placement (enabled yes|no) (sheetname|component_class|group "…"))`.
- *
- * `sourceType` and `source` are written even when `enabled` is false, because
- * upstream stores the last-chosen source so re-enabling the rule area does not
- * lose it.
- */
-export interface ZonePlacementArea {
-  enabled: boolean;
-  sourceType: PlacementSourceType;
-  source: string;
 }
 
 /**
@@ -799,17 +686,6 @@ export type DimensionKind = 'aligned' | 'orthogonal' | 'leader' | 'center' | 'ra
 /** True where upstream's `dynamic_cast<PCB_DIM_ALIGNED*>` would succeed. */
 export const isAlignedKind = (k: DimensionKind): boolean => k === 'aligned' || k === 'orthogonal';
 
-/** `DIM_UNITS_MODE`: 0 inch, 1 mils, 2 mm, 3 automatic. */
-export type DimUnitsMode = 0 | 1 | 2 | 3;
-/** `DIM_UNITS_FORMAT`: 0 none, 1 bare suffix, 2 parenthesised suffix. */
-export type DimUnitsFormat = 0 | 1 | 2;
-/** `DIM_PRECISION`: 0-5 fixed digits, 6-9 the scaled `V_*` variants. */
-export type DimPrecision = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
-/** `DIM_TEXT_POSITION`: 0 outside, 1 inline, 2 manual. */
-export type DimTextPosition = 0 | 1 | 2;
-/** `DIM_TEXT_BORDER`: 0 none, 1 rectangle, 2 circle, 3 round rectangle. */
-export type DimTextBorder = 0 | 1 | 2 | 3;
-
 /** `(format …)`. Absent on a centre dimension, which measures nothing. */
 export interface DimensionFormat {
   prefix: string;
@@ -910,6 +786,39 @@ export interface PcbPoint {
  */
 export type { BarcodeKind } from '@ziroeda/zint';
 import type { BarcodeEcc, BarcodeKind } from '@ziroeda/zint';
+
+// Moved to the live modules that own them; re-exported until this file goes.
+import type { PadShape, PadType, UnconnectedLayerMode } from './dialogs/dialog_pad_properties.js';
+import type { FrontBackOptBool } from './dialogs/dialog_track_via_properties.js';
+import type {
+  PlacementSourceType,
+  RuleAreaKeepout,
+  ZonePlacementArea,
+} from './dialogs/dialog_rule_area_properties.js';
+import type {
+  DimPrecision,
+  DimTextBorder,
+  DimTextPosition,
+  DimUnitsFormat,
+  DimUnitsMode,
+} from './dialogs/dialog_dimension_properties.js';
+import type { PcbLayerDef } from './footprint_edit_frame.js';
+
+export type {
+  PadShape,
+  PadType,
+  UnconnectedLayerMode,
+  FrontBackOptBool,
+  PlacementSourceType,
+  RuleAreaKeepout,
+  ZonePlacementArea,
+  DimPrecision,
+  DimTextBorder,
+  DimTextPosition,
+  DimUnitsFormat,
+  DimUnitsMode,
+  PcbLayerDef,
+};
 
 /**
  * `BARCODE_ECC_T` (`pcb_barcode.h:50-56`). Only QR and Micro QR have one; the

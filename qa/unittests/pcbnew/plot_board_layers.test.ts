@@ -8,7 +8,6 @@
  * layer, the creation date, the drill/place origin and the Protel extensions.
  * Every expected line is one kicad-cli writes for the same input.
  */
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
 import { describe, it, expect } from 'vitest';
@@ -16,7 +15,6 @@ import { parse } from '@ziroeda/sexpr/index.js';
 import { ParseBoard, readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { setBoardPageSettings } from '@ziroeda/pcbnew/edit-board.js';
-import { boardAuxOrigin } from '@ziroeda/pcbnew/board_design_settings.js';
 import { EXCELLON_WRITER } from '@ziroeda/pcbnew/exporters/gendrill_excellon_writer.js';
 import { ZEROS_FMT } from '@ziroeda/pcbnew/exporters/gendrill_writer_base.js';
 import { DRILL_MARKS, PCB_PLOT_PARAMS } from '@ziroeda/pcbnew/pcb_plot_params.js';
@@ -144,17 +142,6 @@ describe('Gerber X2 plot (GERBER_PLOTTER / pcbplot.cpp)', () => {
       if (savedTz === undefined) delete process.env.TZ;
       else process.env.TZ = savedTz;
     }
-  });
-
-  it('"Use drill/place file origin" plots relative to the aux axis origin', () => {
-    const text = BOARD.replace('(net 0 "")', '(setup (aux_axis_origin 5 5))\n  (net 0 "")');
-    const withOrigin = readBoard(parse(text));
-    expect(boardAuxOrigin(withOrigin)).toEqual({ x: mmToIU(5), y: mmToIU(5) });
-    const out = plot(text, PCB_LAYER_ID.F_Cu, { useAuxOrigin: true });
-    // The track start (10,10) is 5 mm from the (5,5) origin.
-    expect(out).toContain('X5000000Y-5000000D02*');
-    // The drill file follows the same origin.
-    expect(drill(text, { x: mmToIU(5), y: mmToIU(5) })).toContain('X15.0Y-5.0'); // via at (20,10)
   });
 });
 

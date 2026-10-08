@@ -41,7 +41,6 @@ import type { BOARD } from '../board.js';
 import { NETINFO_LIST } from '../netinfo_list.js';
 import { PAD_ATTRIB, PAD_SHAPE, PADSTACK } from '../padstack.js';
 import type { PCB_VIA } from '../pcb_track.js';
-import type { Board, PcbVia } from '../types.js';
 
 /** One row of the netlist, `D356_RECORD`. */
 export interface D356Record {
@@ -81,20 +80,6 @@ export function iuToD356(iu: number, clamp: number): number {
  * TRANSITIONAL (E17): the view board's via tenting, for the 3D viewer until
  * it reads the BOARD.
  */
-/**
- * `BOARD_DESIGN_SETTINGS::m_TentViasFront/Back`, which both default to **true**.
- * Tented means covered by mask, i.e. *not* probeable.
- */
-export function boardTentVias(board: Board): { front: boolean; back: boolean } {
-  const bds = board.k?.GetDesignSettings();
-  return { front: bds?.m_TentViasFront ?? true, back: bds?.m_TentViasBack ?? true };
-}
-
-/** `PCB_VIA::IsTented`: the via's own setting wins, else the board default. */
-export function viaIsTented(board: Board, via: PcbVia, side: 'front' | 'back'): boolean {
-  return via.tenting?.[side] ?? boardTentVias(board)[side];
-}
-
 /**
  * `compute_pad_access_code`: the access code for a pad, -1 when it has no
  * copper (a mask-only aperture is not a test point).
