@@ -217,11 +217,10 @@ export const SCH_DEFAULT_TOOLBARS: ToolbarDefaults = {
 };
 
 /**
- * `?schgal=1` (TRANSITIONAL, W2): the toolbar ids whose TOOL_ACTION runs on the frame's
- * TOOL_MANAGER, against the live canvas, instead of the window's record tools. The canvas-editing
- * actions only: file I/O, dialogs and sheet navigation stay on the record path until the project is
- * mounted and the window follows the live current sheet. An id named like its action needs no
- * entry; the rest are the toolbar's own names (toolbars_sch_editor.cpp).
+ * (TRANSITIONAL, W2) The toolbar ids whose TOOL_ACTION runs on the frame's TOOL_MANAGER, against
+ * KiCad's canvas on the live model; the rest still run the window's record handlers until their
+ * live dialogs land. An id named like its action needs no entry; the rest are the toolbar's own
+ * names (toolbars_sch_editor.cpp).
  */
 export const GAL_TOOLBAR_ACTIONS: Readonly<Record<string, TOOL_ACTION>> = {
   select: ACTIONS.selectSetRect,
@@ -272,7 +271,7 @@ export const GAL_ROUTED_IDS: ReadonlySet<string> = new Set([
   'placeHierLabel',
 ]);
 
-/** The TOOL_ACTION a routed toolbar id runs on the live canvas, or null to keep the record path. */
+/** The TOOL_ACTION a routed toolbar id runs on the live canvas, or null for the record handler. */
 export function schToolbarAction(aId: string): TOOL_ACTION | null {
   if (!GAL_ROUTED_IDS.has(aId)) return null;
 

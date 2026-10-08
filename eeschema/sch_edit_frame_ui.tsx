@@ -567,14 +567,6 @@ import { symbolLibraryUri } from './cross-probing.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
-/** `?schgal=1`: KiCad's canvas on the live model over the window's (TRANSITIONAL, S4-6c). */
-const SCH_GAL =
-  typeof location !== 'undefined' && new URLSearchParams(location.search).has('schgal');
-
-/** The TOOL_ACTION a routed toolbar id runs under `?schgal=1`, or null to keep the record path. */
-function galToolbarAction(aId: string): TOOL_ACTION | null {
-  return SCH_GAL ? schToolbarAction(aId) : null;
-}
 
 const EMPTY_SCH =
   '(kicad_sch (version 20231120) (generator "ziroeda") (paper "A4")\n  (lib_symbols)\n)\n';
@@ -5463,12 +5455,11 @@ export function SchematicEditor({
   // NETLIST_EXPORTER_KICAD); this keeps that schematic the window's: every sheet's record, the
   // open one with the edits its file only gets on the debounced save, opened through
   // OpenProjectFiles under the folder pcbnew loads the project from.
-  // `?schgal=1` (TRANSITIONAL, W3a): the open project's files on the mounted file system, where
+  // (TRANSITIONAL, W3a): the open project's files on the mounted file system, where
   // KiCad would find them (`/<project>/…`), so the live tools that read or write files - Import
   // Sheet, Place Image, Export Symbols, Rescue, ChangeSheetFile - see the project. A write lands
   // in the project's file store; the explicit Save stays the window's until the switch.
   useEffect(() => {
-    if (!SCH_GAL) return;
     const name = projectName ?? project.current.root.replace(/\.[^.]*$/, '');
     if (!name) return;
     const enc = new TextEncoder();
@@ -5505,7 +5496,7 @@ export function SchematicEditor({
     });
     return liveMirrorRef.current.get() !== null;
   };
-  // `?schgal=1` (TRANSITIONAL, S4-6c/S5): KiCad's own canvas - SCH_DRAW_PANEL on the live model,
+  // (TRANSITIONAL, S4-6c/S5): KiCad's own canvas - SCH_DRAW_PANEL on the live model,
   // its VIEW and WX_VIEW_CONTROLS owning zoom and pan - over the window's, read only until the
   // tools (SCH_SELECTION_TOOL onward) run on it. The live model follows the records.
   const glCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -5542,7 +5533,6 @@ export function SchematicEditor({
     panel.ForceRefresh();
   };
   useEffect(() => {
-    if (!SCH_GAL) return;
     let cancelled = false;
     loadBitmapFontImage().then(
       (img) => {
@@ -5556,13 +5546,13 @@ export function SchematicEditor({
   }, []);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a changed sheet or record is the trigger; the panel reads them through refs
   useEffect(() => {
-    if (SCH_GAL) showLiveRef.current();
+    showLiveRef.current();
   }, [doc, currentFile]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: the font atlas is the trigger; the rest are refs
   useEffect(() => {
     const canvas = glCanvasRef.current;
     const frame = schFrameRef.current;
-    if (!SCH_GAL || !canvas || !frame || !schFontImage || schPanelRef.current) return;
+    if (!canvas || !frame || !schFontImage || schPanelRef.current) return;
     const panel = createSchDrawPanel(frame, canvas, schFontImage);
     if (!panel) return;
     schPanelRef.current = panel;
@@ -5619,14 +5609,14 @@ export function SchematicEditor({
     if (cmds.size) runProject(cmds);
     liveMirrorRef.current?.Adopt(docs);
   };
-  // `?schgal=1` (TRANSITIONAL, S5): a tool on the live canvas committed (SCH_EDIT_FRAME::OnModify).
+  // (TRANSITIONAL, S5): a tool on the live canvas committed (SCH_EDIT_FRAME::OnModify).
   // Its screen - and any sheet file the commit created - become the window's records, so the
   // window follows the live model the tools edit.
-  // `?schgal=1` (TRANSITIONAL, W2c): a live tool changed sheets (DisplayCurrentSheet). The window
+  // (TRANSITIONAL, W2c): a live tool changed sheets (DisplayCurrentSheet). The window
   // follows: the record path of that instance is '/' then each sheet below the top-level one,
   // by uuid ('/<uuid>/<uuid>/'), and the file is its screen's, relative to the project folder.
   liveSheetChangedRef.current = () => {
-    if (!SCH_GAL || showingLiveRef.current || !schPanelRef.current) return;
+    if (showingLiveRef.current || !schPanelRef.current) return;
     const frame = schFrameRef.current!;
     const sheetPath = frame.GetCurrentSheet();
     const screen = sheetPath.LastScreen();
@@ -5640,7 +5630,7 @@ export function SchematicEditor({
     if (path !== currentPath || file !== currentFile) switchSheet(path, file);
   };
   liveModifiedRef.current = () => {
-    if (!SCH_GAL || inEditLiveRef.current || !schPanelRef.current) return;
+    if (inEditLiveRef.current || !schPanelRef.current) return;
     const frame = schFrameRef.current!;
     const changed = new Set<SCH_SCREEN>();
     const current = frame.GetScreen();
@@ -6828,7 +6818,7 @@ export function SchematicEditor({
   }, []);
   useEffect(() => () => statusPopupRef.current?.Destroy(), []);
 
-  // `wxWindow::PopupMenu` for the frame under `?schgal=1` (TRANSITIONAL, W2): the tools'
+  // `wxWindow::PopupMenu` for the frame under (TRANSITIONAL, W2): the tools'
   // context menu (TOOL_MENU::ShowContextMenu, evaluated against the selection) and any other
   // ACTION_MENU a tool puts up, drawn with the menu bar's ContextMenu.
   const [toolPopup, setToolPopup] = useState<{
@@ -6839,7 +6829,7 @@ export function SchematicEditor({
   } | null>(null);
   useEffect(() => {
     const frame = schFrameRef.current;
-    if (!SCH_GAL || !frame) return;
+    if (!frame) return;
     frame.SetPopupMenuPresenter((aMenu, aOnClose) => {
       const at = KIPLATFORM_UI.GetMousePosition();
       aMenu.OnMenuEvent(new wxMenuEvent(wxMenuEventType.wxEVT_MENU_OPEN, 0, aMenu));
@@ -7735,8 +7725,8 @@ export function SchematicEditor({
 
   const onTopAction = useCallback(
     (id: string) => {
-      // `?schgal=1`: the canvas-editing actions run on the frame's TOOL_MANAGER (TRANSITIONAL, W2).
-      const galAction = galToolbarAction(id);
+      // the canvas-editing actions run on the frame's TOOL_MANAGER (TRANSITIONAL, W2).
+      const galAction = schToolbarAction(id);
       const galMgr = schPanelRef.current ? schFrameRef.current?.GetToolManager() : null;
       if (galAction && galMgr) {
         galMgr.RunAction(galAction);
@@ -8884,8 +8874,8 @@ export function SchematicEditor({
    */
   const onRightToolbar = useCallback(
     (id: string) => {
-      // `?schgal=1`: the tools run on the frame's TOOL_MANAGER (TRANSITIONAL, W2).
-      const galAction = galToolbarAction(id);
+      // the tools run on the frame's TOOL_MANAGER (TRANSITIONAL, W2).
+      const galAction = schToolbarAction(id);
       const galMgr = schPanelRef.current ? schFrameRef.current?.GetToolManager() : null;
       if (galAction && galMgr) {
         galMgr.RunAction(galAction);
@@ -10041,24 +10031,8 @@ export function SchematicEditor({
                                   PROPERTIES_PANEL's own (properties_panel.cpp:
                                   196-210), so the panel renders them rather
                                   than the frame swapping in a placeholder. */}
-                              {/* `?schgal=1` (TRANSITIONAL, S5): SCH_PROPERTIES_PANEL on the live model. */}
-                              {SCH_GAL ? (
-                                <LiveSchPropertiesPanel
-                                  frame={schFrameRef.current!}
-                                  units={units}
-                                />
-                              ) : (
-                                <SchPropertiesPanel
-                                  rows={propRows}
-                                  selectionCount={selection.size}
-                                  friendlyName={propFriendlyName}
-                                  units={units}
-                                  onCommand={runCommand}
-                                  onBrowseFootprint={(current, commit) =>
-                                    setFpChooser({ current, commit, ...selectedSymbolFpContext() })
-                                  }
-                                />
-                              )}
+                              {/* SCH_PROPERTIES_PANEL on the live model. */}
+                              <LiveSchPropertiesPanel frame={schFrameRef.current!} units={units} />
                             </div>
                           </div>
                           {sashAfter('properties')}
@@ -10262,20 +10236,18 @@ export function SchematicEditor({
               lockedIds={remoteLockedIds}
               onScaleChange={onScaleChange}
             />
-            {SCH_GAL && (
-              <canvas
-                ref={glCanvasRef}
-                // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas takes the keys, as the wxGLCanvas does
-                tabIndex={0}
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  outline: 'none',
-                  width: '100%',
-                  height: '100%',
-                }}
-              />
-            )}
+            <canvas
+              ref={glCanvasRef}
+              // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas takes the keys, as the wxGLCanvas does
+              tabIndex={0}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                outline: 'none',
+                width: '100%',
+                height: '100%',
+              }}
+            />
             {ctxMenu && (
               <ContextMenu
                 x={ctxMenu.x}

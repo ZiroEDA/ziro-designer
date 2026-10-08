@@ -81,7 +81,7 @@ export function SchPropertiesPanel({
 }
 
 /**
- * The live panel (TRANSITIONAL window side, `?schgal=1`): SCH_PROPERTIES_PANEL over the frame's
+ * The live panel: SCH_PROPERTIES_PANEL over the frame's
  * selection tool, each edit one SCH_COMMIT. The frame is handed the panel the way
  * `EDA_DRAW_FRAME::m_propertiesPanel` holds it, so PROPERTIES_TOOL's selection and undo events
  * (`UpdateProperties`) re-read the grid; an edit re-reads it through `AfterCommit`.

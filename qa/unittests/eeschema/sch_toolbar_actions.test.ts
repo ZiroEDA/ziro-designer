@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The toolbar ids routed to the frame's TOOL_MANAGER on the live canvas (`?schgal=1`, W2): each
+ * The toolbar ids routed to the frame's TOOL_MANAGER on the live canvas (W2): each
  * resolves to the TOOL_ACTION toolbars_sch_editor.cpp puts on that button, and every one has a
  * tool registered for it, so a click does something.
  */
