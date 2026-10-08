@@ -13,6 +13,7 @@
  * RC_ITEM) and connection-graph recalculation.
  */
 
+import type { SCH_COMMIT } from './sch_commit.js';
 import { BASE_SCREEN } from '@ziroeda/common/base_screen.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
@@ -1549,16 +1550,19 @@ export class SCH_SCREEN extends BASE_SCREEN {
     return [...variantNames].sort(cpCmp);
   }
 
-  /** `DeleteVariant`: an SCH_COMMIT is pending; the edit is made directly. */
-  DeleteVariant(aVariantName: string): void {
+  /** `DeleteVariant`. */
+  DeleteVariant(aVariantName: string, aCommit: SCH_COMMIT | null = null): void {
     if (aVariantName === '') return; // wxCHECK
 
     for (const item of this.Items().OfType(KICAD_T.SCH_SYMBOL_T)) {
       const symbol = item as SCH_SYMBOL;
 
       for (const instance of [...symbol.GetInstances()]) {
-        if (instance.m_Variants.has(aVariantName))
+        if (instance.m_Variants.has(aVariantName)) {
+          if (aCommit) aCommit.Modify(item, this);
+
           symbol.DeleteVariant(instance.m_Path, aVariantName);
+        }
       }
     }
 
@@ -1566,22 +1570,28 @@ export class SCH_SCREEN extends BASE_SCREEN {
       const sheet = item as SCH_SHEET;
 
       for (const instance of [...sheet.GetInstances()]) {
-        if (instance.m_Variants.has(aVariantName))
+        if (instance.m_Variants.has(aVariantName)) {
+          if (aCommit) aCommit.Modify(item, this);
+
           sheet.DeleteVariant(instance.m_Path, aVariantName);
+        }
       }
     }
   }
 
-  /** `RenameVariant`: an SCH_COMMIT is pending; the edit is made directly. */
-  RenameVariant(aOldName: string, aNewName: string): void {
+  /** `RenameVariant`. */
+  RenameVariant(aOldName: string, aNewName: string, aCommit: SCH_COMMIT | null = null): void {
     if (aOldName === '' || aNewName === '') return; // wxCHECK
 
     for (const item of this.Items().OfType(KICAD_T.SCH_SYMBOL_T)) {
       const symbol = item as SCH_SYMBOL;
 
       for (const instance of [...symbol.GetInstances()]) {
-        if (instance.m_Variants.has(aOldName))
+        if (instance.m_Variants.has(aOldName)) {
+          if (aCommit) aCommit.Modify(item, this);
+
           symbol.RenameVariant(instance.m_Path, aOldName, aNewName);
+        }
       }
     }
 
@@ -1589,22 +1599,32 @@ export class SCH_SCREEN extends BASE_SCREEN {
       const sheet = item as SCH_SHEET;
 
       for (const instance of [...sheet.GetInstances()]) {
-        if (instance.m_Variants.has(aOldName))
+        if (instance.m_Variants.has(aOldName)) {
+          if (aCommit) aCommit.Modify(item, this);
+
           sheet.RenameVariant(instance.m_Path, aOldName, aNewName);
+        }
       }
     }
   }
 
-  /** `CopyVariant`: an SCH_COMMIT is pending; the edit is made directly. */
-  CopyVariant(aSourceVariant: string, aNewVariant: string): void {
+  /** `CopyVariant`. */
+  CopyVariant(
+    aSourceVariant: string,
+    aNewVariant: string,
+    aCommit: SCH_COMMIT | null = null,
+  ): void {
     if (aSourceVariant === '' || aNewVariant === '') return; // wxCHECK
 
     for (const item of this.Items().OfType(KICAD_T.SCH_SYMBOL_T)) {
       const symbol = item as SCH_SYMBOL;
 
       for (const instance of [...symbol.GetInstances()]) {
-        if (instance.m_Variants.has(aSourceVariant))
+        if (instance.m_Variants.has(aSourceVariant)) {
+          if (aCommit) aCommit.Modify(item, this);
+
           symbol.CopyVariant(instance.m_Path, aSourceVariant, aNewVariant);
+        }
       }
     }
 
@@ -1612,8 +1632,11 @@ export class SCH_SCREEN extends BASE_SCREEN {
       const sheet = item as SCH_SHEET;
 
       for (const instance of [...sheet.GetInstances()]) {
-        if (instance.m_Variants.has(aSourceVariant))
+        if (instance.m_Variants.has(aSourceVariant)) {
+          if (aCommit) aCommit.Modify(item, this);
+
           sheet.CopyVariant(instance.m_Path, aSourceVariant, aNewVariant);
+        }
       }
     }
   }
@@ -1992,22 +2015,26 @@ export class SCH_SCREENS {
     return [...variantNames].sort(cpCmp);
   }
 
-  DeleteVariant(aVariantName: string): void {
+  DeleteVariant(aVariantName: string, aCommit: SCH_COMMIT | null = null): void {
     if (aVariantName === '') return; // wxCHECK
 
-    for (const screen of this.m_screens) screen.DeleteVariant(aVariantName);
+    for (const screen of this.m_screens) screen.DeleteVariant(aVariantName, aCommit);
   }
 
-  RenameVariant(aOldName: string, aNewName: string): void {
+  RenameVariant(aOldName: string, aNewName: string, aCommit: SCH_COMMIT | null = null): void {
     if (aOldName === '' || aNewName === '') return; // wxCHECK
 
-    for (const screen of this.m_screens) screen.RenameVariant(aOldName, aNewName);
+    for (const screen of this.m_screens) screen.RenameVariant(aOldName, aNewName, aCommit);
   }
 
-  CopyVariant(aSourceVariant: string, aNewVariant: string): void {
+  CopyVariant(
+    aSourceVariant: string,
+    aNewVariant: string,
+    aCommit: SCH_COMMIT | null = null,
+  ): void {
     if (aSourceVariant === '' || aNewVariant === '') return; // wxCHECK
 
-    for (const screen of this.m_screens) screen.CopyVariant(aSourceVariant, aNewVariant);
+    for (const screen of this.m_screens) screen.CopyVariant(aSourceVariant, aNewVariant, aCommit);
   }
 
   private addScreenToList(aScreen: SCH_SCREEN | null, aSheet: SCH_SHEET): void {

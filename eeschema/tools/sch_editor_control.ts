@@ -1145,6 +1145,21 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     return 0;
   }
 
+  *AddVariant(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    yield* this.RunMainStackModal(() => this.m_frame!.AddVariant());
+    return 0;
+  }
+
+  *RemoveVariant(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    yield* this.RunMainStackModal(() => this.m_frame!.RemoveVariant());
+    return 0;
+  }
+
+  *EditVariantDescription(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    yield* this.RunMainStackModal(() => this.m_frame!.EditVariantDescription());
+    return 0;
+  }
+
   GridFeedback(_aEvent: TOOL_EVENT): number {
     if (!PgmOrNull()?.GetCommonSettings()?.m_Input.hotkey_feedback) return 0;
 
@@ -1190,7 +1205,7 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     // Not ported yet, in KiCad's order: RescueSymbols, ExportSymbolsToLibrary, the clipboard,
     // EditWithSymbolEditor, ImportNonKicadSchematic, DrawSheetOnClipboard, the linked design
-    // blocks and the variants. Left out, as the simulator is: SimProbe, SimTune, MarkSimExclusions,
+    // blocks. Left out, as the simulator is: SimProbe, SimTune, MarkSimExclusions,
     // ToggleOPVoltages, ToggleOPCurrents.
     this.Go(this.ShowSchematicSetup, SCH_ACTIONS.schematicSetup.MakeEvent());
     this.Go(this.PageSetup, ACTIONS.pageSettings.MakeEvent());
@@ -1251,6 +1266,10 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       SCH_ACTIONS.angleSnapModeChanged.MakeEvent(),
     );
     this.Go(SYNC_HANDLER(this.ToggleAnnotateAuto), SCH_ACTIONS.toggleAnnotateAuto.MakeEvent());
+
+    this.Go(this.AddVariant, SCH_ACTIONS.addVariant.MakeEvent());
+    this.Go(this.RemoveVariant, SCH_ACTIONS.removeVariant.MakeEvent());
+    this.Go(this.EditVariantDescription, SCH_ACTIONS.editVariantDescription.MakeEvent());
   }
 }
 

@@ -30,6 +30,8 @@ import type { SCH_MARKER } from './sch_marker.js';
 import { ESCAPE_CONTEXT, EscapeString, unescapeString } from '@ziroeda/common/string_utils.js';
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
 import { Pgm, PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { GetDefaultVariantName } from '@ziroeda/common/string_utils.js';
+import type { SINGLE_CHOICE_ARG } from './tools/assign_footprints.js';
 import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import {
   PROJECT_FILE_EXTENSION,
@@ -203,6 +205,32 @@ export interface NET_NAVIGATOR {
   IsShown(): boolean;
   /** `m_netNavigatorFilter->SetValue( aNetName )`. */
   SetFilter(aNetName: string): void;
+}
+
+/**
+ * `m_currentVariantCtrl`, the toolbar's design-variant wxChoice
+ * (`ID_TOOLBAR_SCH_SELECT_VARAIANT`): the window builds it and installs it with
+ * SetVariantSelectCtrl; its selection change calls onVariantSelected.
+ */
+export interface VARIANT_CHOICE {
+  GetSelection(): number;
+  SetSelection(aIndex: number): void;
+  GetString(aIndex: number): string;
+  GetCount(): number;
+  FindString(aString: string): number;
+  Set(aItems: readonly string[]): void;
+}
+
+/** The "New Design Variant" dialog's two fields, which the window fills on OK. */
+export interface NEW_VARIANT_DIALOG_ARG {
+  name: string;
+  description: string;
+}
+
+/** The "Edit Description for '%s'" dialog's field, which the window fills on OK. */
+export interface VARIANT_DESCRIPTION_DIALOG_ARG {
+  title: string;
+  description: string;
 }
 
 export interface SCH_EDIT_FRAME_HOOKS {
@@ -883,8 +911,255 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     this.m_toolManager?.GetTool(SCH_NAVIGATE_TOOL)?.CleanHistory();
   }
 
-  /** The window's variant chooser: not on the live model. */
-  UpdateVariantSelectionCtrl(_aVariantNames: readonly string[]): void {}
+  /// `m_currentVariantCtrl`: null until the window builds the toolbar control.
+  private m_currentVariantCtrl: VARIANT_CHOICE | null = null;
+
+  /** The toolbar control factory's result, or null from ClearToolbarControl. */
+  SetVariantSelectCtrl(aCtrl: VARIANT_CHOICE | null): void {
+    this.m_currentVariantCtrl = aCtrl;
+  }
+
+  /** `UpdateVariantSelectionCtrl( aVariantNames )` (toolbars_sch_editor.cpp:290). */
+  UpdateVariantSelectionCtrl(aVariantNames: readonly string[]): void {
+    const ctrl = this.m_currentVariantCtrl;
+
+    if (!ctrl) return;
+
+    // Fall back to the default if nothing is currently selected.
+    let currentSelection = GetDefaultVariantName();
+    let selectionIndex = ctrl.GetSelection();
+
+    if (selectionIndex !== -1) currentSelection = ctrl.GetString(selectionIndex);
+
+    // Add all variant names, a separator, and "Add New Variant..." at the end
+    ctrl.Set([...aVariantNames, '---', 'Add New Design Variant...']);
+
+    selectionIndex = ctrl.FindString(currentSelection);
+
+    if (selectionIndex === -1 && ctrl.GetCount() !== 0) selectionIndex = 0;
+
+    ctrl.SetSelection(selectionIndex);
+  }
+
+  /** `onVariantSelected( aEvent )` (toolbars_sch_editor.cpp:318): the control's wxEVT_CHOICE. */
+  async onVariantSelected(): Promise<void> {
+    const ctrl = this.m_currentVariantCtrl;
+
+    if (!ctrl) return; // wxCHECK
+
+    const selection = ctrl.GetSelection();
+    const count = ctrl.GetCount();
+
+    if (selection === -1 || count === 0) return;
+
+    const previous = () =>
+      ctrl.FindString(
+        this.Schematic().GetCurrentVariant() === ''
+          ? GetDefaultVariantName()
+          : this.Schematic().GetCurrentVariant(),
+      );
+
+    // "Add New Variant..." is always the last item, separator is second-to-last
+    if (selection === count - 1) {
+      // Restore previous selection before showing dialog
+      const previousSelection = previous();
+
+      if (previousSelection !== -1) ctrl.SetSelection(previousSelection);
+
+      await this.ShowAddVariantDialog();
+      return;
+    }
+
+    // Separator line - ignore selection
+    if (selection === count - 2) {
+      const previousSelection = previous();
+
+      if (previousSelection !== -1) ctrl.SetSelection(previousSelection);
+
+      return;
+    }
+
+    const selectedString = ctrl.GetString(selection);
+    let selectedVariant = '';
+
+    if (selectedString !== GetDefaultVariantName()) selectedVariant = selectedString;
+
+    this.Schematic().SetCurrentVariant(selectedVariant);
+    this.UpdateProperties();
+    this.HardRedraw();
+
+    // Refresh message panel for current selection
+    const selTool = this.m_toolManager?.FindTool('common.InteractiveSelection') as {
+      GetSelection(): SELECTION;
+    } | null;
+
+    if (selTool) {
+      const sub_sel = selTool.GetSelection();
+
+      if (sub_sel.Size() === 1) this.SetMsgPanel(sub_sel.Front()!);
+    }
+  }
+
+  /** `ShowAddVariantDialog( aParent )` (toolbars_sch_editor.cpp:384). */
+  async ShowAddVariantDialog(): Promise<boolean> {
+    const dlg: NEW_VARIANT_DIALOG_ARG = { name: '', description: '' };
+
+    if ((await this.ShowModalDialog('NEW_DESIGN_VARIANT', [], dlg)) === wxID_CANCEL) return false;
+
+    const variantName = dlg.name.trim();
+    const variantDesc = dlg.description.trim();
+
+    // Empty strings, reserved names, and duplicate variant names are not allowed.
+    if (variantName === '') {
+      this.GetInfoBar()?.ShowMessageFor('Variant name cannot be empty.', 10000, 'error');
+      return false;
+    }
+
+    // Check for reserved name (case-insensitive)
+    if (variantName.toLowerCase() === GetDefaultVariantName().toLowerCase()) {
+      this.GetInfoBar()?.ShowMessageFor(
+        `'${GetDefaultVariantName()}' is a reserved variant name.`,
+        10000,
+        'error',
+      );
+      return false;
+    }
+
+    // Check for duplicate variant names (case-insensitive)
+    for (const existingName of this.Schematic().GetVariantNames()) {
+      if (existingName.toLowerCase() === variantName.toLowerCase()) {
+        this.GetInfoBar()?.ShowMessageFor(
+          `Variant '${existingName}' already exists.`,
+          10000,
+          'error',
+        );
+        return false;
+      }
+    }
+
+    // Add variant to the schematic
+    this.Schematic().AddVariant(variantName);
+
+    if (variantDesc !== '') this.Schematic().SetVariantDescription(variantName, variantDesc);
+
+    // Update the variant selector and select the new variant
+    this.UpdateVariantSelectionCtrl(this.Schematic().GetVariantNamesForUI());
+    this.SetCurrentVariant(variantName);
+    this.OnModify();
+    return true;
+  }
+
+  /** `SetCurrentVariant( aVariantName )` (toolbars_sch_editor.cpp:472). */
+  SetCurrentVariant(aVariantName: string): void {
+    const ctrl = this.m_currentVariantCtrl;
+
+    if (!ctrl) return;
+
+    const name = aVariantName === '' ? GetDefaultVariantName() : aVariantName;
+    const newSelection = ctrl.FindString(name);
+
+    if (newSelection === -1) return;
+
+    const currentSelection = ctrl.GetSelection();
+    let selectedString = '';
+
+    if (currentSelection !== -1) selectedString = ctrl.GetString(currentSelection);
+
+    if (selectedString !== name) {
+      ctrl.SetSelection(newSelection);
+      this.Schematic().SetCurrentVariant(aVariantName);
+
+      this.UpdateProperties();
+      this.HardRedraw();
+    }
+  }
+
+  /** `AddVariant()` (sch_edit_frame.cpp:3060): pick the control's "Add New Design Variant...". */
+  async AddVariant(): Promise<void> {
+    if (!this.m_currentVariantCtrl) return;
+
+    this.m_currentVariantCtrl.SetSelection(this.m_currentVariantCtrl.GetCount() - 1);
+
+    await this.onVariantSelected();
+  }
+
+  /** `EditVariantDescription()` (sch_edit_frame.cpp:3072). */
+  async EditVariantDescription(): Promise<void> {
+    const choices = this.Schematic().GetVariantNamesForUI();
+
+    // Default variant cannot be edited.
+    choices.splice(0, 1);
+
+    if (choices.length === 0) {
+      this.GetInfoBar()?.ShowMessageFor('No design variants to edit.', 10000, 'error');
+      return;
+    }
+
+    const chooser: SINGLE_CHOICE_ARG = {
+      message: 'Select variant to edit description:                ',
+      caption: 'Edit Variant Description',
+      choices,
+      selection: -1,
+    };
+
+    if ((await this.ShowModalDialog('wxSingleChoiceDialog', [], chooser)) === wxID_CANCEL) return;
+
+    const variantName = chooser.selection >= 0 ? (choices[chooser.selection] ?? '') : '';
+
+    if (variantName === '') return;
+
+    const dlg: VARIANT_DESCRIPTION_DIALOG_ARG = {
+      title: `Edit Description for '${variantName}'`,
+      description: this.Schematic().GetVariantDescription(variantName),
+    };
+
+    if ((await this.ShowModalDialog('VARIANT_DESCRIPTION', [], dlg)) === wxID_CANCEL) return;
+
+    const newDesc = dlg.description.trim();
+
+    this.Schematic().SetVariantDescription(variantName, newDesc);
+    this.OnModify();
+    this.GetCanvas()?.Refresh();
+  }
+
+  /** `RemoveVariant()` (sch_edit_frame.cpp:3134). */
+  async RemoveVariant(): Promise<void> {
+    if (!this.m_currentVariantCtrl) return;
+
+    const choices = this.Schematic().GetVariantNamesForUI();
+
+    // Default variant cannot be removed.
+    choices.splice(0, 1);
+
+    // wxSingleChoiceDialog will ellipsize the title bar if the contents aren't wide enough.  The
+    // set of spaces in the control label are to prevent this.
+    const dlg: SINGLE_CHOICE_ARG = {
+      message: 'Select variant name to remove:                ',
+      caption: 'Remove Design Variant',
+      choices,
+      selection: -1,
+    };
+
+    if ((await this.ShowModalDialog('wxSingleChoiceDialog', [], dlg)) === wxID_CANCEL) return;
+
+    const variantName = dlg.selection >= 0 ? (choices[dlg.selection] ?? '') : '';
+
+    if (variantName === '') return;
+
+    const commit = new SCH_COMMIT(this);
+    this.Schematic().DeleteVariant(variantName, commit);
+
+    if (!commit.Empty()) {
+      commit.Push(`Delete variant '${variantName}'`);
+      this.OnModify();
+    }
+
+    if (this.Schematic().GetCurrentVariant() === variantName) this.SetCurrentVariant('');
+
+    this.UpdateVariantSelectionCtrl(this.Schematic().GetVariantNamesForUI());
+
+    this.GetCanvas()?.Refresh();
+  }
 
   /** `SCH_EDIT_FRAME::UpdateHopOveredWires`: the hop-over shapes are view-side, not here. */
   UpdateHopOveredWires(_aItem: SCH_ITEM): void {}

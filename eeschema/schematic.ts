@@ -1561,13 +1561,13 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     for (const l of this.m_listeners) l.OnSchCurrentVariantChanged?.(this);
   }
 
-  /** `DeleteVariant`: an SCH_COMMIT is pending; the edit is made directly. */
-  DeleteVariant(aVariantName: string): void {
+  /** `DeleteVariant( aVariantName, aCommit )` (schematic.cpp:2257). */
+  DeleteVariant(aVariantName: string, aCommit: SCH_COMMIT | null = null): void {
     if (!this.m_rootSheet) return; // wxCHECK
 
     const allScreens = new SCH_SCREENS(this.m_rootSheet);
 
-    allScreens.DeleteVariant(aVariantName);
+    allScreens.DeleteVariant(aVariantName, aCommit);
 
     this.m_variantNames.delete(aVariantName);
     this.Settings().m_VariantDescriptions.delete(aVariantName);
@@ -1582,8 +1582,8 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     if (!descriptions.has(aVariantName)) descriptions.set(aVariantName, '');
   }
 
-  /** `RenameVariant`: an SCH_COMMIT is pending; the edit is made directly. */
-  RenameVariant(aOldName: string, aNewName: string): void {
+  /** `RenameVariant( aOldName, aNewName, aCommit )` (schematic.cpp:2270). */
+  RenameVariant(aOldName: string, aNewName: string, aCommit: SCH_COMMIT | null = null): void {
     if (!this.m_rootSheet) return; // wxCHECK
 
     if (aOldName === '' || aNewName === '') return; // wxCHECK
@@ -1603,11 +1603,15 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     if (this.m_currentVariant === aOldName) this.m_currentVariant = aNewName;
 
     const allScreens = new SCH_SCREENS(this.m_rootSheet);
-    allScreens.RenameVariant(aOldName, aNewName);
+    allScreens.RenameVariant(aOldName, aNewName, aCommit);
   }
 
-  /** `CopyVariant`: an SCH_COMMIT is pending; the edit is made directly. */
-  CopyVariant(aSourceVariant: string, aNewVariant: string): void {
+  /** `CopyVariant( aSourceVariant, aNewVariant, aCommit )` (schematic.cpp:2296). */
+  CopyVariant(
+    aSourceVariant: string,
+    aNewVariant: string,
+    aCommit: SCH_COMMIT | null = null,
+  ): void {
     if (!this.m_rootSheet) return; // wxCHECK
 
     if (aSourceVariant === '' || aNewVariant === '') return; // wxCHECK
@@ -1624,7 +1628,7 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
       descriptions.set(aNewVariant, descriptions.get(aSourceVariant)!);
 
     const allScreens = new SCH_SCREENS(this.m_rootSheet);
-    allScreens.CopyVariant(aSourceVariant, aNewVariant);
+    allScreens.CopyVariant(aSourceVariant, aNewVariant, aCommit);
   }
 
   /** The variant names, in code-point order (a std::set<wxString>). */
