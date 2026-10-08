@@ -41,7 +41,21 @@ import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { ORIGIN_TRANSFORMS } from '@ziroeda/common/origin_transforms.js';
 import type { PAGE_INFO } from '@ziroeda/common/page_info.js';
-import { GetColorSettings as PgmGetColorSettings } from '@ziroeda/common/pgm_base.js';
+import { PgmOrNull, GetColorSettings as PgmGetColorSettings } from '@ziroeda/common/pgm_base.js';
+import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
+import { LIBRARY_TABLE_SCOPE } from '@ziroeda/common/libraries/library_table.js';
+import { RSTRING_T } from '@ziroeda/common/project.js';
+import {
+  GetUseGlobalTable,
+  MakeFileDlgHookNewLibrary,
+} from '@ziroeda/common/widgets/filedlg_hook_new_library.js';
+import {
+  KiCadSymbolLibFileExtension,
+  kicadSymbolLibWildcard,
+} from '@ziroeda/common/wildcards_and_files_ext.js';
+import { wxID_CANCEL, wxID_HIGHEST, wxID_OK } from '@ziroeda/common/wx/menu.js';
+import { SymbolLibAdapter } from './project_sch.js';
+import { SYMBOL_LIBRARY_MANAGER } from './symbol_library_manager.js';
 import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import { strNumCmp, unescapeString } from '@ziroeda/common/string_utils.js';
 import { SCH_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
@@ -196,6 +210,129 @@ export function GetLibraryItemsForListDialog(
 }
 
 export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
+  /**
+   * The window's half of the dialogs a frame opens: the dialog by name, with an argument it reads
+   * and fills. A frame with no window (the symbol viewer and editor until their switch) cancels.
+   */
+  ShowModalDialog(
+    _aDialog: string,
+    _aItems: readonly EDA_ITEM[],
+    _aArg?: unknown,
+  ): Promise<number> {
+    return Promise.resolve(wxID_CANCEL);
+  }
+
+  /** `GetLibraryItemsForListDialog( aHeaders, aItemsToDisplay )` (sch_base_frame.cpp:667). */
+  GetLibraryItemsForListDialog(): { headers: string[]; items: LIBRARY_LIST_ITEM[] } {
+    const cfg = PgmOrNull()?.GetCommonSettings() ?? null;
+    const project = this.Prj().GetProjectFile();
+    const adapter = SymbolLibAdapter(this.Prj());
+    const libraries = adapter.GetLibraryNames().map((nickname) => ({
+      nickname,
+      description: adapter.GetLibraryDescription(nickname) ?? '',
+    }));
+
+    return GetLibraryItemsForListDialog(libraries, [
+      ...project.m_PinnedSymbolLibs,
+      ...(cfg?.m_Session?.pinned_symbol_libs ?? []),
+    ]);
+  }
+
+  /**
+   * `SelectLibrary( aDialogTitle, aListLabel, aExtraCheckboxes )` (sch_base_frame.cpp:715): ask for
+   * a symbol library, offering "New Library..." until a valid one is chosen; "" is Cancel.
+   */
+  async SelectLibrary(
+    aDialogTitle: string,
+    aListLabel: string,
+    aExtraCheckboxes: readonly EDA_LIST_EXTRA_CHECKBOX[] = [],
+  ): Promise<string> {
+    const ID_MAKE_NEW_LIBRARY = wxID_HIGHEST;
+
+    // Keep asking the user for a new name until they give a valid one or cancel the operation
+    while (true) {
+      const { headers, items } = this.GetLibraryItemsForListDialog();
+      let libraryName = this.Prj().GetRString(RSTRING_T.SCH_LIB_SELECT);
+
+      const dlg: EDA_LIST_DIALOG_ARG = {
+        title: aDialogTitle,
+        headers,
+        items,
+        selection: libraryName,
+        sortList: false,
+        listLabel: aListLabel,
+        extraCheckboxes: aExtraCheckboxes.map((c) => ({ label: c.label, value: c.value.value })),
+        extraButton: { id: ID_MAKE_NEW_LIBRARY, label: 'New Library...' },
+        textSelection: '',
+      };
+
+      const ret = await this.ShowModalDialog('EDA_LIST_DIALOG', [], dlg);
+
+      switch (ret) {
+        case wxID_CANCEL:
+          return '';
+
+        case wxID_OK:
+          libraryName = dlg.textSelection;
+          this.Prj().SetRString(RSTRING_T.SCH_LIB_SELECT, libraryName);
+
+          // dlg.GetExtraCheckboxValues()
+          aExtraCheckboxes.forEach((c, i) => {
+            c.value.value = dlg.extraCheckboxes[i]!.value;
+          });
+
+          return libraryName;
+
+        case ID_MAKE_NEW_LIBRARY: {
+          const mgr = new SYMBOL_LIBRARY_MANAGER(this);
+          const fn = { value: this.Prj().GetRString(RSTRING_T.SCH_LIB_PATH) };
+          const tableChooser = MakeFileDlgHookNewLibrary(false);
+
+          if (
+            !(await this.LibraryFileBrowser(
+              'Create New Library',
+              false,
+              fn,
+              [kicadSymbolLibWildcard()],
+              KiCadSymbolLibFileExtension,
+              false,
+              tableChooser,
+            ))
+          ) {
+            break;
+          }
+
+          const slash = fn.value.lastIndexOf('/');
+          const fullName = fn.value.slice(slash + 1);
+          libraryName = fullName.includes('.')
+            ? fullName.slice(0, fullName.lastIndexOf('.'))
+            : fullName;
+          this.Prj().SetRString(
+            RSTRING_T.SCH_LIB_PATH,
+            slash < 0 ? '' : fn.value.slice(0, slash) || '/',
+          );
+
+          const scope = GetUseGlobalTable(tableChooser)
+            ? LIBRARY_TABLE_SCOPE.GLOBAL
+            : LIBRARY_TABLE_SCOPE.PROJECT;
+          const adapter = SymbolLibAdapter(this.Prj());
+
+          if (adapter.HasLibrary(libraryName, false)) {
+            DisplayErrorMessage(`Library '${libraryName}' already exists.`);
+            break;
+          }
+
+          if (!mgr.CreateLibrary(fn.value, scope))
+            DisplayErrorMessage(`Could not add library '${libraryName}'.`);
+
+          break;
+        }
+
+        default:
+          break;
+      }
+    }
+  }
   /** `Kiface().KifaceSettings()`: EESCHEMA_SETTINGS (the symbol editor overrides it). */
   override config(): APP_SETTINGS_BASE | null {
     return eeschemaKifaceSettings();
@@ -561,4 +698,27 @@ export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
 function isSchItem(aItem: EDA_ITEM): aItem is SCH_ITEM {
   const t = aItem.Type();
   return t >= KICAD_T.SCH_SHAPE_T && t <= KICAD_T.SCH_SHEET_T;
+}
+
+/** `aExtraCheckboxes`: a label and the bool it reads and writes (`std::pair<wxString, bool*>`). */
+export interface EDA_LIST_EXTRA_CHECKBOX {
+  label: string;
+  value: { value: boolean };
+}
+
+/**
+ * `EDA_LIST_DIALOG( this, aTitle, aHeaders, aItems, aSelection, aSortList )` as SelectLibrary sets
+ * it up; the window fills `textSelection` (`GetTextSelection()`) and the check boxes' values, and
+ * ends with wxID_OK, wxID_CANCEL or the extra button's id.
+ */
+export interface EDA_LIST_DIALOG_ARG {
+  title: string;
+  headers: string[];
+  items: LIBRARY_LIST_ITEM[];
+  selection: string;
+  sortList: boolean;
+  listLabel: string;
+  extraCheckboxes: { label: string; value: boolean }[];
+  extraButton: { id: number; label: string } | null;
+  textSelection: string;
 }

@@ -108,6 +108,16 @@ export abstract class EDA_BASE_FRAME
     return Pgm().GetSettingsManager().Prj();
   }
 
+  protected m_mruPath = ''; // Most recently used path.
+
+  SetMruPath(aPath: string): void {
+    this.m_mruPath = aPath;
+  }
+
+  GetMruPath(): string {
+    return this.m_mruPath;
+  }
+
   constructor(aFrameType: FRAME_T, aIuScale: EdaIuScale, aUnits: EdaUnits) {
     super();
 

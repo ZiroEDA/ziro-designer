@@ -339,7 +339,7 @@ export class GERBVIEW_CONTROL extends TOOL_INTERACTIVE {
 
     if (!(await this.frame().Host().MapGerberLayersToPcbDialog(layerdlg))) return;
 
-    this.frame().m_mruPath = fileName.slice(0, Math.max(0, fileName.lastIndexOf('/')));
+    this.frame().SetMruPath(fileName.slice(0, Math.max(0, fileName.lastIndexOf('/'))));
 
     const images_list = [];
 

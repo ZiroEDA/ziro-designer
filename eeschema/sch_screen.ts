@@ -6,8 +6,7 @@
  * library symbol cache, page and title block; and `SCH_SCREENS`, the unique screens of a
  * hierarchy (eeschema stage E3).
  *
- * Pending, marked in place: Plot (the plotters), UpdateSymbolLinks (the symbol library
- * adapter), MigrateSimModels (SIM_MODEL), the font half of FixupEmbeddedData
+ * Pending, marked in place: Plot (the plotters), MigrateSimModels (SIM_MODEL), the font half of FixupEmbeddedData
  * (EDA_TEXT::ResolveFont), InProjectPath
  * (wxFileName on a disk), Show (debug), and SCH_SCREENS' marker deletion (SCH_MARKER,
  * RC_ITEM) and connection-graph recalculation.
@@ -15,6 +14,14 @@
 
 import type { SCH_COMMIT } from './sch_commit.js';
 import { BASE_SCREEN } from '@ziroeda/common/base_screen.js';
+import { IO_ERROR } from '@ziroeda/common/exceptions.js';
+import {
+  RPT_SEVERITY_ERROR,
+  RPT_SEVERITY_INFO,
+  RPT_SEVERITY_WARNING,
+  type Reporter,
+} from '@ziroeda/common/reporter.js';
+import { SymbolLibAdapter } from './project_sch.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import {
@@ -30,7 +37,8 @@ import { type KIID_PATH, newKiid, type KIID } from '@ziroeda/common/kiid.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
-import type { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
@@ -470,10 +478,115 @@ export class SCH_SCREEN extends BASE_SCREEN {
   }
 
   /**
-   * Update the symbol value and footprint links from the symbol library adapter:
-   * pending (the library adapter). {@link SCH_SCREEN.UpdateLocalLibSymbolLinks} relinks
-   * from this screen's own cache.
+   * `UpdateSymbolLinks( aReporter )` (sch_screen.cpp): relink every symbol to its library symbol -
+   * this screen's cache when it has one, else the symbol library adapter - and rebuild the cache.
+   *
+   * The legacy `<project>-cache.lib` fallback (`PROJECT_SCH::LegacySchLibs`) is not reached: that
+   * is a PROJECT element upstream and the project here does not hold one, so `legacyLibs` is the
+   * null an s-expression schematic gets.
    */
+  UpdateSymbolLinks(aReporter: Reporter | null = null): void {
+    const schematic = this.Schematic();
+
+    if (!schematic) return; // wxCHECK_RET: "Cannot call SCH_SCREEN::UpdateSymbolLinks with no SCHEMATIC"
+
+    let msg: string;
+    const libs = SymbolLibAdapter(schematic.Project());
+    const legacyLibs = null;
+    const symbols = [...this.Items().OfType(KICAD_T.SCH_SYMBOL_T)] as SCH_SYMBOL[];
+
+    // Remove them from the R tree.  Their bounding box size may change.
+    for (const symbol of symbols) this.Remove(symbol);
+
+    // Clear all existing symbol links.
+    this.clearLibSymbols();
+
+    const describe = (aSymbol: SCH_SYMBOL) =>
+      `${aSymbol.GetField(FIELD_T.REFERENCE)!.GetText()} ${aSymbol.GetField(FIELD_T.VALUE)!.GetText()}`;
+
+    for (const symbol of symbols) {
+      let tmp: LIB_SYMBOL | null = null;
+
+      // If the symbol is already in the internal library, map the symbol to it.
+      const it = this.m_libSymbols.get(symbol.GetSchSymbolLibraryName());
+
+      if (it) {
+        if (aReporter) {
+          msg = `Setting schematic symbol '${describe(symbol)}' library identifier to '${unescapeString(symbol.GetLibId().Format())}'.`;
+          aReporter.ReportTail(msg, RPT_SEVERITY_INFO);
+        }
+
+        // Internal library symbols are already flattened so just make a copy.
+        symbol.SetLibSymbol(LIB_SYMBOL.copyOf(it));
+        continue;
+      }
+
+      if (!symbol.GetLibId().IsValid()) {
+        if (aReporter) {
+          msg = `Schematic symbol reference '${unescapeString(symbol.GetLibId().Format())}' library identifier is not valid. Unable to link library symbol.`;
+          aReporter.ReportTail(msg, RPT_SEVERITY_WARNING);
+        }
+
+        continue;
+      }
+
+      // LIB_TABLE_BASE::LoadSymbol() throws an IO_ERROR if the library nickname is not found in
+      // the table so check if the library still exists in the table before attempting to load
+      // the symbol.
+      const nickname = symbol.GetLibId().GetLibNickname();
+      const hasLibraryRow = libs.GetRow(nickname) !== null;
+      let hasLoadedLibrary = libs.HasLibrary(nickname);
+
+      if (!hasLibraryRow && !legacyLibs) {
+        if (aReporter) {
+          msg = `Symbol library '${nickname}' not found and no fallback cache library available.  Unable to link library symbol.`;
+          aReporter.ReportTail(msg, RPT_SEVERITY_WARNING);
+        }
+
+        continue;
+      }
+
+      if (hasLibraryRow && !hasLoadedLibrary) {
+        libs.LoadOne(nickname);
+        hasLoadedLibrary = libs.HasLibrary(nickname);
+      }
+
+      if (hasLoadedLibrary) {
+        try {
+          tmp = libs.LoadSymbol(symbol.GetLibId());
+        } catch (ioe) {
+          if (!(ioe instanceof IO_ERROR)) throw ioe;
+
+          if (aReporter) {
+            msg = `I/O error ${ioe.message} resolving library symbol ${unescapeString(symbol.GetLibId().Format())}`;
+            aReporter.ReportTail(msg, RPT_SEVERITY_ERROR);
+          }
+        }
+      }
+
+      if (tmp) {
+        // We want a full symbol not just the top level child symbol.
+        const libSymbol = tmp.Flatten();
+        libSymbol.SetLibParent();
+
+        this.m_libSymbols.set(symbol.GetSchSymbolLibraryName(), LIB_SYMBOL.copyOf(libSymbol));
+
+        if (aReporter) {
+          msg = `Setting schematic symbol '${describe(symbol)}' library identifier to '${unescapeString(symbol.GetLibId().Format())}'.`;
+          aReporter.ReportTail(msg, RPT_SEVERITY_INFO);
+        }
+
+        symbol.SetLibSymbol(libSymbol);
+      } else if (aReporter) {
+        msg = `No library symbol found for schematic symbol '${describe(symbol)}'.`;
+        aReporter.ReportTail(msg, RPT_SEVERITY_ERROR);
+      }
+    }
+
+    // Changing the symbol may adjust the bbox of the symbol.  This re-inserts the item with the
+    // new bbox
+    for (const symbol of symbols) this.Append(symbol);
+  }
 
   /**
    * Initialize the #LIB_SYMBOL reference for each #SCH_SYMBOL found in this schematic
@@ -1860,6 +1973,26 @@ export class SCH_SCREENS {
    * Test all of the #SCH_SYMBOL objects in the schematic to see if they use a library
    * with no nickname; true when every symbol does (and there is at least one).
    */
+  /** `UpdateSymbolLinks( aReporter )`: every screen's links, then the connection graph rebuilt. */
+  UpdateSymbolLinks(aReporter: Reporter | null = null): void {
+    for (let screen = this.GetFirst(); screen; screen = this.GetNext())
+      screen.UpdateSymbolLinks(aReporter);
+
+    const first = this.GetFirst();
+
+    if (!first) return;
+
+    const sch = first.Schematic();
+
+    if (!sch) return; // wxCHECK_RET: "Null schematic in SCH_SCREENS::UpdateSymbolLinks"
+
+    const sheets = sch.Hierarchy();
+
+    // All of the library symbols have been replaced with copies so the connection graph
+    // pointers are stale.
+    sch.ConnectionGraph()?.Recalculate(sheets, true);
+  }
+
   HasNoFullyDefinedLibIds(): boolean {
     let has_symbols = false;
 

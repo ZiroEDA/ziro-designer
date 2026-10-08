@@ -1568,7 +1568,7 @@ describe('DIALOG_MAP_GERBER_LAYERS_TO_PCB', () => {
 
   it('Export to PCB asks for the mapping, then writes the board it chose', async () => {
     await load4();
-    const mru = env.frame.m_mruPath;
+    const mru = env.frame.GetMruPath();
     env.savePaths.push('/boards/out');
     env.okCancelAnswers.push(true);
     env.mapLayersEdits.push(() => {});
@@ -1584,12 +1584,12 @@ describe('DIALOG_MAP_GERBER_LAYERS_TO_PCB', () => {
     expect(text).not.toContain('In3.Cu');
     // SetMruPath( fileName.GetPath() ) only once the dialog said OK.
     expect(mru).not.toBe('/boards');
-    expect(env.frame.m_mruPath).toBe('/boards');
+    expect(env.frame.GetMruPath()).toBe('/boards');
   });
 
   it('Cancel on the mapping exports nothing (gerbview_control.cpp:139-140)', async () => {
     await load4();
-    const mru = env.frame.m_mruPath;
+    const mru = env.frame.GetMruPath();
     env.savePaths.push('/boards/out');
 
     env.frame.GetToolManager()!.RunAction(GERBVIEW_ACTIONS.exportToPcbnew);
@@ -1597,7 +1597,7 @@ describe('DIALOG_MAP_GERBER_LAYERS_TO_PCB', () => {
 
     expect(env.mapLayers).toHaveLength(1);
     expect(env.saved).toEqual([]);
-    expect(env.frame.m_mruPath).toBe(mru);
+    expect(env.frame.GetMruPath()).toBe(mru);
   });
 
   it('a refused OK is not an export', async () => {

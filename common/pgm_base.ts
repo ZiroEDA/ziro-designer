@@ -20,6 +20,8 @@ import type { COLOR_SETTINGS } from './settings/color_settings.js';
 
 /** `COMMON_SETTINGS`, the slice the GAL, the panel and the view controls read. */
 export interface COMMON_SETTINGS_LIKE {
+  /** `m_Session` (COMMON_SETTINGS::SESSION): the libraries pinned to the top of the choosers. */
+  m_Session?: { pinned_symbol_libs: string[]; pinned_fp_libs: string[] };
   m_Appearance: {
     /** `show_scrollbars`, PARAM<bool> default true. */
     show_scrollbars: boolean;

@@ -59,6 +59,17 @@ import { ZOOM_MENU } from './tool/zoom_menu.js';
 import { IsImperialUnit } from './units_provider.js';
 import { RENDER_TARGET } from './gal/definitions.js';
 import { type wxChoice, wxNOT_FOUND } from './wx/choice.js';
+import type { ChooserFilter } from './wx/filedlg.js';
+import type { wxFileDialogCustomizeHook } from './widgets/filedlg_hook_new_library.js';
+import {
+  wxDD_DEFAULT_STYLE,
+  wxDD_DIR_MUST_EXIST,
+  wxFD_CHANGE_DIR,
+  wxFD_FILE_MUST_EXIST,
+  wxFD_OPEN,
+  wxFD_OVERWRITE_PROMPT,
+  wxFD_SAVE,
+} from './wx/defs.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
@@ -151,6 +162,96 @@ export interface HOTKEY_CYCLE_POPUP_LIKE {
 export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
   /** `m_hotkeyPopup` (eda_draw_frame.h). */
   protected m_hotkeyPopup: HOTKEY_CYCLE_POPUP_LIKE | null = null;
+
+  /**
+   * `wxFileDialog( this, aTitle, aDefaultDir, aDefaultFile, aWildcard, aStyle ).ShowModal()` then
+   * `GetPath()`: the window's file picker. Null is wxID_CANCEL - and with no window there is
+   * nothing to pick from, so a frame without one always cancels.
+   */
+  ShowFileDialog(
+    _aTitle: string,
+    _aDefaultDir: string,
+    _aDefaultFile: string,
+    _aWildcard: string | readonly ChooserFilter[],
+    _aStyle: number,
+    aCustomizeHook?: wxFileDialogCustomizeHook,
+  ): Promise<string | null> {
+    // `dlg.SetCustomizeHook( hook )`: a hook the window does not show stays unattached.
+    if (aCustomizeHook) aCustomizeHook.attached = false;
+
+    return Promise.resolve(null);
+  }
+
+  /** `wxDirDialog( this, aTitle, aDefaultDir, aStyle ).ShowModal()` then `GetPath()`; null is Cancel. */
+  ShowDirDialog(_aTitle: string, _aDefaultDir: string, _aStyle: number): Promise<string | null> {
+    return Promise.resolve(null);
+  }
+
+  /**
+   * `LibraryFileBrowser( aTitle, doOpen, aFilename, wildcard, ext, isDirectory, aFileDlgHook )`
+   * (eda_draw_frame.cpp:1259): ask for a library file or folder; \a aFilename is in-out.
+   */
+  async LibraryFileBrowser(
+    aTitle: string,
+    doOpen: boolean,
+    aFilename: { value: string },
+    wildcard: string | readonly ChooserFilter[],
+    ext: string,
+    isDirectory = false,
+    aFileDlgHook?: wxFileDialogCustomizeHook,
+  ): Promise<boolean> {
+    const setExt = (aPath: string) => {
+      const slash = aPath.lastIndexOf('/');
+      const dot = aPath.lastIndexOf('.');
+      const stem = dot > slash + 1 ? aPath.slice(0, dot) : aPath;
+
+      return ext === '' ? stem : `${stem}.${ext}`;
+    };
+
+    aFilename.value = setExt(aFilename.value);
+
+    const slash = aFilename.value.lastIndexOf('/');
+    let defaultDir = slash < 0 ? '' : aFilename.value.slice(0, slash) || '/';
+
+    if (defaultDir === '') defaultDir = this.GetMruPath();
+
+    if (isDirectory && doOpen) {
+      const path = await this.ShowDirDialog(
+        aTitle,
+        defaultDir,
+        wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST,
+      );
+
+      if (path === null) return false;
+
+      aFilename.value = setExt(path);
+    } else {
+      // Ensure the file has a dummy name, otherwise GTK will display the regex from the filter
+      let fullName = aFilename.value.slice(slash + 1);
+
+      if (fullName === '' || fullName.startsWith('.')) fullName = setExt('Library');
+
+      const path = await this.ShowFileDialog(
+        aTitle,
+        defaultDir,
+        fullName,
+        wildcard,
+        doOpen
+          ? wxFD_OPEN | wxFD_FILE_MUST_EXIST
+          : wxFD_SAVE | wxFD_CHANGE_DIR | wxFD_OVERWRITE_PROMPT,
+        aFileDlgHook,
+      );
+
+      if (path === null) return false;
+
+      aFilename.value = setExt(path);
+    }
+
+    const at = aFilename.value.lastIndexOf('/');
+    this.SetMruPath(at < 0 ? '' : aFilename.value.slice(0, at) || '/');
+
+    return true;
+  }
 
   /** `PropertiesPaneName()` (eda_draw_frame.h:437). */
   static PropertiesPaneName(): string {

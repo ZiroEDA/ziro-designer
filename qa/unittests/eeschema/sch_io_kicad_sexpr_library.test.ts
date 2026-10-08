@@ -13,6 +13,7 @@ import {
   MEMORY_FILESYSTEM,
   wxDirEnumerate,
   wxFileExists,
+  wxFileModificationTime,
   wxMountFileSystem,
   wxReadFileSync,
   wxWriteFileSync,
@@ -22,6 +23,7 @@ import {
   PropPowerSymsOnly,
   SCH_IO_KICAD_SEXPR,
 } from '@ziroeda/eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
+import { SCH_IO_KICAD_SEXPR_LIB_CACHE } from '@ziroeda/eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_lib_cache.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const DATA = resolve(__dirname, '../../data');
@@ -208,6 +210,21 @@ describe('a .kicad_sym file library', () => {
     expect(pi.CanReadLibrary('/libs/folder')).toBe(true);
     wxWriteFileSync('/libs/other/readme.txt', new Uint8Array());
     expect(pi.CanReadLibrary('/libs/other')).toBe(false);
+  });
+});
+
+describe('SCH_IO_KICAD_SEXPR_LIB_CACHE', () => {
+  it('Save() of an unmodified cache leaves the file alone', () => {
+    const cache = new SCH_IO_KICAD_SEXPR_LIB_CACHE('/libs/all.kicad_sym');
+    cache.Load();
+    const stamp = wxFileModificationTime('/libs/all.kicad_sym');
+
+    cache.Save();
+    expect(wxFileModificationTime('/libs/all.kicad_sym')).toBe(stamp);
+
+    cache.SetModified();
+    cache.Save();
+    expect(wxFileModificationTime('/libs/all.kicad_sym')).not.toBe(stamp);
   });
 });
 

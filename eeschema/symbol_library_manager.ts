@@ -14,6 +14,12 @@
  * and library modified (SYMBOL_BUFFER/LIB_BUFFER's IsModified) until saved.
  * "Saving" serializes with the lossless writer and hands the bytes to the
  * caller (a browser download replaces writing to disk).
+ *
+ * `SYMBOL_LIBRARY_MANAGER` below is the port of the KiCad class itself, over the live model and
+ * the library tables. So far it adds and creates libraries (`addLibrary`, the path
+ * SCH_BASE_FRAME::SelectLibrary's "New Library..." takes); its edit buffers (`LIB_BUFFER`,
+ * `SYMBOL_BUFFER`) come with the symbol editor's live switch, which retires the record-model
+ * manager above.
  */
 
 import { parse } from '@ziroeda/sexpr';
@@ -21,6 +27,18 @@ import { readSymbolLib } from './sch_io/sexpr/read-schematic.js';
 import { serializeSymbolLib } from './sch_io/sexpr/write-symbol-lib.js';
 import { type LibSymbol } from './types.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
+import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
+import { NormalizePath } from '@ziroeda/common/env_paths.js';
+import { IO_ERROR } from '@ziroeda/common/exceptions.js';
+import { KICTL_CREATE } from '@ziroeda/common/kiway_player.js';
+import {
+  type LIBRARY_TABLE_SCOPE,
+  LIBRARY_TABLE_TYPE,
+} from '@ziroeda/common/libraries/library_table.js';
+import { Pgm } from '@ziroeda/common/pgm_base.js';
+import { SymbolLibAdapter } from './project_sch.js';
+import type { SCH_BASE_FRAME } from './sch_base_frame.js';
+import { SCH_FILE_T, SCH_IO_MGR } from './sch_io/sch_io_mgr.js';
 
 export interface ManagedLibrary {
   /** Library nickname shown in the tree (file basename without extension). */
@@ -407,5 +425,105 @@ export class SymbolLibraryManager {
     lib.libModified = false;
     this.touch();
     return text;
+  }
+}
+
+/** `SYMBOL_LIBRARY_MANAGER` (eeschema/symbol_library_manager.cpp). */
+export class SYMBOL_LIBRARY_MANAGER {
+  protected readonly m_frame: SCH_BASE_FRAME;
+
+  /** `m_libs`: the edit buffers by library nickname (the symbol editor's; none yet). */
+  protected readonly m_libs = new Map<string, never>();
+
+  constructor(aFrame: SCH_BASE_FRAME) {
+    this.m_frame = aFrame;
+  }
+
+  /** Create an empty library and adds it to the library table.  The library file is created. */
+  CreateLibrary(aFilePath: string, aScope: LIBRARY_TABLE_SCOPE): boolean {
+    return this.addLibrary(aFilePath, true, aScope);
+  }
+
+  /** Add an existing library.  The library is added to the library table as well. */
+  AddLibrary(aFilePath: string, aScope: LIBRARY_TABLE_SCOPE): boolean {
+    return this.addLibrary(aFilePath, false, aScope);
+  }
+
+  /** `LibraryExists( aLibrary, aCheckEnabled )`: buffered, or loaded by the adapter. */
+  LibraryExists(aLibrary: string, aCheckEnabled = false): boolean {
+    if (aLibrary === '') return false;
+
+    if (this.m_libs.has(aLibrary)) return true;
+
+    return SymbolLibAdapter(this.m_frame.Prj()).HasLibrary(aLibrary, aCheckEnabled);
+  }
+
+  /** Called whenever the library data changes; the symbol editor's tree overrides it. */
+  OnDataChanged(): void {}
+
+  /** `getLibraryName( aFilePath )`: the file's name without its extension. */
+  protected static getLibraryName(aFilePath: string): string {
+    const full = aFilePath.slice(aFilePath.lastIndexOf('/') + 1);
+    const dot = full.lastIndexOf('.');
+
+    return dot <= 0 ? full : full.slice(0, dot);
+  }
+
+  /** `addLibrary( aFilePath, aCreate, aScope )` (symbol_library_manager.cpp:748). */
+  protected addLibrary(aFilePath: string, aCreate: boolean, aScope: LIBRARY_TABLE_SCOPE): boolean {
+    const libName = SYMBOL_LIBRARY_MANAGER.getLibraryName(aFilePath);
+
+    if (this.LibraryExists(libName)) return false; // wxCHECK: either create or add an existing one
+
+    // try to use path normalized to an environmental variable or project path
+    const relPath = NormalizePath(aFilePath, Pgm().GetLocalEnvVariables(), this.m_frame.Prj());
+
+    let schFileType = SCH_IO_MGR.GuessPluginTypeFromLibPath(aFilePath, aCreate ? KICTL_CREATE : 0);
+
+    if (schFileType === SCH_FILE_T.SCH_FILE_UNKNOWN) schFileType = SCH_FILE_T.SCH_LEGACY;
+
+    const adapter = SymbolLibAdapter(this.m_frame.Prj());
+    const table = Pgm().GetLibraryManager().Table(LIBRARY_TABLE_TYPE.SYMBOL, aScope);
+
+    if (!table) return false; // wxCHECK
+
+    let success = true;
+
+    try {
+      const row = table.InsertRow();
+
+      row.SetNickname(libName);
+      row.SetURI(relPath);
+      row.SetType(SCH_IO_MGR.ShowType(schFileType));
+
+      const saved = table.Save();
+
+      if (!saved.ok) {
+        // wxMessageBox( …, _( "File Save Error" ), wxOK | wxICON_ERROR )
+        DisplayErrorMessage(`Error saving library table:\n\n${saved.error.message}`);
+        success = false;
+      }
+    } catch (ioe) {
+      if (!(ioe instanceof IO_ERROR)) throw ioe;
+
+      DisplayErrorMessage(ioe.message);
+      return false;
+    }
+
+    if (success) {
+      if (aCreate) {
+        if (schFileType === SCH_FILE_T.SCH_LEGACY) return false; // wxCHECK
+
+        if (!adapter.CreateLibrary(libName)) {
+          table.Rows().pop();
+          return false;
+        }
+      }
+
+      adapter.LoadOne(libName);
+      this.OnDataChanged();
+    }
+
+    return success;
   }
 }

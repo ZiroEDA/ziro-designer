@@ -10,7 +10,7 @@
  */
 import { DS_PROXY_UNDO_ITEM } from '@ziroeda/common/drawing_sheet/ds_proxy_undo_item.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
-import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { Pgm, PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
 import { ACTIONS, EVENTS } from '@ziroeda/common/tool/actions.js';
 import type { COROUTINE_BODY } from '@ziroeda/common/tool/coroutine.js';
@@ -66,6 +66,11 @@ import { strNumCmp, unescapeString } from '@ziroeda/common/string_utils.js';
 import { INT_MAX } from '@ziroeda/kimath/src/math/util.js';
 import { EuclideanNormI, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { LIB_SYMBOL } from '../lib_symbol.js';
+import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
+import { IO_ERROR } from '@ziroeda/common/exceptions.js';
+import type { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { SymbolLibAdapter } from '../project_sch.js';
+import { SCH_IO_MGR } from '../sch_io/sch_io_mgr.js';
 import { SCH_BITMAP } from '../sch_bitmap.js';
 import type { SCH_LINE } from '../sch_line.js';
 import type { SCH_SHAPE } from '../sch_shape.js';
@@ -859,6 +864,116 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     const selection = aForce ? selTool.RequestSelection() : selTool.GetSelection();
 
     this.m_frame!.SendSelectItemsToPcb(selection.GetItemsSortedBySelectionOrder(), aForce);
+  }
+
+  /**
+   * `ExportSymbolsToLibrary( aEvent )` (sch_editor_control.cpp:653): every schematic symbol's
+   * library symbol, flattened, saved into a chosen library; optionally the schematic symbols are
+   * relinked to it.
+   */
+  *ExportSymbolsToLibrary(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const savePowerSymbols = { value: false };
+    const map = { value: false };
+
+    const targetLib = yield* this.RunMainStackModal(() =>
+      this.m_frame!.SelectLibrary('Export Symbols', 'Export symbols to library:', [
+        { label: 'Include power symbols in export', value: savePowerSymbols },
+        { label: 'Update schematic symbols to link to exported symbols', value: map },
+      ]),
+    );
+
+    if (!targetLib) return 0;
+
+    const sheets = this.m_frame!.Schematic().BuildSheetListSortedByPageNumbers();
+    const symbols = new SCH_REFERENCE_LIST();
+    sheets.GetSymbols(
+      symbols,
+      savePowerSymbols.value
+        ? SYMBOL_FILTER.SYMBOL_FILTER_ALL
+        : SYMBOL_FILTER.SYMBOL_FILTER_NON_POWER,
+    );
+
+    // std::map<LIB_ID, …>: keyed by the formatted id.
+    const libSymbols = new Map<string, { id: LIB_ID; symbol: LIB_SYMBOL }>();
+    const symbolMap = new Map<string, SCH_SYMBOL[]>();
+
+    for (let i = 0; i < symbols.GetCount(); ++i) {
+      const symbol = symbols.at(i).GetSymbol();
+      const libSymbol = symbol.GetLibSymbolRef()!;
+      const id = libSymbol.GetLibId();
+      const key = id.Format();
+
+      // wxASSERT_MSG: "Two symbols have the same LIB_ID but are different!"
+      if (!libSymbols.has(key)) libSymbols.set(key, { id, symbol: libSymbol });
+
+      const list = symbolMap.get(key) ?? [];
+      list.push(symbol);
+      symbolMap.set(key, list);
+    }
+
+    let append = false;
+    const commit = new SCH_COMMIT(this.m_toolMgr!);
+    const adapter = SymbolLibAdapter(this.m_frame!.Prj());
+
+    const row = adapter.GetRow(targetLib);
+
+    if (!row) return 0; // wxCHECK
+
+    const type = SCH_IO_MGR.EnumFromStr(row.Type());
+    const pi = SCH_IO_MGR.FindPlugin(type);
+
+    if (!pi) return 0;
+
+    const dest = Pgm().GetLibraryManager().GetFullURI(row, true);
+
+    for (const [key, it] of [...libSymbols].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+      const origSym = it.symbol;
+      const newSym = origSym.Flatten();
+
+      try {
+        pi.SaveSymbol(dest, newSym);
+      } catch (ioe) {
+        if (!(ioe instanceof IO_ERROR)) throw ioe;
+
+        // wxLogWarning( msg )
+        DisplayErrorMessage(
+          `Error saving symbol ${newSym.GetName()} to library '${row.Nickname()}'.\n\n${ioe.message}`,
+        );
+        return 0;
+      }
+
+      if (map.value) {
+        const id = it.id.clone();
+        id.SetLibNickname(targetLib);
+
+        for (const symbol of symbolMap.get(key) ?? []) {
+          const parentScreen = symbol.GetParent() as SCH_SCREEN | null;
+
+          if (!parentScreen) continue; // wxCHECK2
+
+          commit.Modify(symbol, parentScreen, RECURSE_MODE.NO_RECURSE);
+          symbol.SetLibId(id);
+          append = true;
+        }
+      }
+    }
+
+    if (append) {
+      const processedScreens = new Set<SCH_SCREEN>();
+
+      for (const sheet of sheets) {
+        const screen = sheet.LastScreen()!;
+
+        if (!processedScreens.has(screen)) {
+          processedScreens.add(screen);
+          screen.UpdateSymbolLinks();
+        }
+      }
+
+      commit.Push('Update Library Identifiers');
+    }
+
+    return 0;
   }
 
   /** `doCopy( aUseDuplicateClipboard )` (sch_editor_control.cpp:1651): copy selection to clipboard or to m_duplicateClipboard. */
@@ -2348,9 +2463,10 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     this.Go(this.ImportFPAssignments, SCH_ACTIONS.importFPAssignments.MakeEvent());
 
-    // Not ported yet, in KiCad's order: RescueSymbols, ExportSymbolsToLibrary,
+    // Not ported yet, in KiCad's order: RescueSymbols,
     // ImportNonKicadSchematic, DrawSheetOnClipboard. Left out, as the simulator is: SimProbe,
     // SimTune, MarkSimExclusions, ToggleOPVoltages, ToggleOPCurrents.
+    this.Go(this.ExportSymbolsToLibrary, SCH_ACTIONS.exportSymbolsToLibrary.MakeEvent());
     this.Go(this.ShowSchematicSetup, SCH_ACTIONS.schematicSetup.MakeEvent());
     this.Go(this.PageSetup, ACTIONS.pageSettings.MakeEvent());
     this.Go(this.Print, ACTIONS.print.MakeEvent());

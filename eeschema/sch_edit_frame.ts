@@ -49,6 +49,10 @@ import {
 } from '@ziroeda/common/wx/filefn.js';
 import type { SCHEMATIC_SETTINGS } from './schematic_settings.js';
 import type { FILEDLG_HOOK_SAVE_PROJECT } from './files-io.js';
+import type { FILEDLG_HOOK_NEW_LIBRARY } from '@ziroeda/common/widgets/filedlg_hook_new_library.js';
+
+/** The customize hooks a file dialog of this frame can carry; the window tells them apart. */
+export type FILEDLG_HOOK = FILEDLG_HOOK_SAVE_PROJECT | FILEDLG_HOOK_NEW_LIBRARY;
 import { PosixPath } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
 import { TEXTVARS_CHANGED } from '@ziroeda/common/tool/tools_holder.js';
 import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
@@ -380,7 +384,7 @@ export interface SCH_EDIT_FRAME_HOOKS {
     aDefaultFile: string,
     aWildcard: string | readonly ChooserFilter[],
     aStyle: number,
-    aCustomizeHook?: FILEDLG_HOOK_SAVE_PROJECT,
+    aCustomizeHook?: FILEDLG_HOOK,
   ): string | null | Promise<string | null>;
 }
 
@@ -1563,13 +1567,13 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   }
 
   /** See SCH_EDIT_FRAME_HOOKS.fileDialog. */
-  ShowFileDialog(
+  override ShowFileDialog(
     aTitle: string,
     aDefaultDir: string,
     aDefaultFile: string,
     aWildcard: string | readonly ChooserFilter[],
     aStyle: number,
-    aCustomizeHook?: FILEDLG_HOOK_SAVE_PROJECT,
+    aCustomizeHook?: FILEDLG_HOOK,
   ): Promise<string | null> {
     // `dlg.SetCustomizeHook( hook )`: a hook the window does not show stays unattached.
     if (aCustomizeHook) aCustomizeHook.attached = false;
@@ -1695,7 +1699,11 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   LoadProject(): void {}
 
   /** The window's half of the dialogs a tool opens: see SCH_EDIT_FRAME_HOOKS.showModal. */
-  ShowModalDialog(aDialog: string, aItems: readonly EDA_ITEM[], aArg?: unknown): Promise<number> {
+  override ShowModalDialog(
+    aDialog: string,
+    aItems: readonly EDA_ITEM[],
+    aArg?: unknown,
+  ): Promise<number> {
     return Promise.resolve(this.hooks.showModal?.(aDialog, aItems, aArg) ?? wxID_CANCEL);
   }
 

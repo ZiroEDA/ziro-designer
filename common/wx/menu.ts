@@ -26,6 +26,8 @@ export const wxID_ANY = -1;
 export const wxID_SEPARATOR = -2;
 /** `wxID_OK` / `wxID_CANCEL` (wx/defs.h): what a dialog's ShowModal returns. */
 export const wxID_OK = 5100;
+/** `wxID_HIGHEST` (wx/defs.h): every predefined id is below it. */
+export const wxID_HIGHEST = 5999;
 export const wxID_CANCEL = 5101;
 
 let s_autoId = -1000;

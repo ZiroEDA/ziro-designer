@@ -29,3 +29,9 @@ export const wxFD_FILE_MUST_EXIST = 0x0010;
 export const wxFD_SAVE = 0x0002;
 /** `wxFD_OVERWRITE_PROMPT` (wx/filedlg.h). */
 export const wxFD_OVERWRITE_PROMPT = 0x0004;
+/** `wxFD_CHANGE_DIR` (wx/filedlg.h). */
+export const wxFD_CHANGE_DIR = 0x0080;
+/** `wxDD_DIR_MUST_EXIST` (wx/dirdlg.h). */
+export const wxDD_DIR_MUST_EXIST = 0x0200;
+/** `wxDD_DEFAULT_STYLE` (wx/dirdlg.h): wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER. */
+export const wxDD_DEFAULT_STYLE = 0x20000000 | 0x0800 | 0x1000 | 0x0040;

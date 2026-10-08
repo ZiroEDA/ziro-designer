@@ -204,8 +204,6 @@ export class GERBVIEW_FRAME extends EDA_DRAW_FRAME {
 
   /// The last filename chosen to be proposed to the user.
   m_lastFileName = '';
-  /// `EDA_BASE_FRAME::m_mruPath`: the directory the last dialog was in.
-  m_mruPath = '';
 
   private m_host: GERBVIEW_FRAME_HOST = NO_HOST;
 
