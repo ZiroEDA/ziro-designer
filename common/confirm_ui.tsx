@@ -7,7 +7,21 @@
  * own root - as the wx dialog gets its own top-level window.
  */
 import { createRoot } from 'react-dom/client';
-import { SetErrorPresenter, SetInfoPresenter, SetQuestionPresenter } from './confirm.js';
+import {
+  type KICAD_MESSAGE_DIALOG_ARG,
+  SetErrorPresenter,
+  SetInfoPresenter,
+  SetMessageDialogPresenter,
+  SetQuestionPresenter,
+} from './confirm.js';
+import {
+  wxCANCEL,
+  wxCANCEL_DEFAULT,
+  wxICON_ERROR,
+  wxICON_EXCLAMATION,
+  wxICON_QUESTION,
+} from './wx/defs.js';
+import { wxID_CANCEL, wxID_OK } from './wx/menu.js';
 import {
   MessageDialogError,
   MessageDialogOk,
@@ -79,6 +93,55 @@ export function InstallInfoPresenter(): void {
               resolve();
             }}
           />,
+        );
+      }),
+  );
+}
+
+/**
+ * Route `ShowKicadMessageDialog` to the native message box. Called once, at startup. An OK-only
+ * style is the one-button box; with wxCANCEL it is the two-button box, its labels the
+ * SetOKCancelLabels pair, its default wxCANCEL_DEFAULT's choice.
+ */
+export function InstallMessageDialogPresenter(): void {
+  SetMessageDialogPresenter(
+    (aArg: KICAD_MESSAGE_DIALOG_ARG) =>
+      new Promise<number>((resolve) => {
+        const icon =
+          aArg.style & wxICON_ERROR
+            ? 'error'
+            : aArg.style & wxICON_EXCLAMATION
+              ? 'warning'
+              : aArg.style & wxICON_QUESTION
+                ? 'question'
+                : 'information';
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const root = createRoot(host);
+        const done = (aId: number): void => {
+          root.unmount();
+          host.remove();
+          resolve(aId);
+        };
+        root.render(
+          aArg.style & wxCANCEL ? (
+            <MessageDialogYesNo
+              caption={aArg.caption}
+              message={aArg.message}
+              {...(aArg.extended ? { extendedMessage: aArg.extended } : {})}
+              icon={icon}
+              defaultButton={aArg.style & wxCANCEL_DEFAULT ? 'no' : 'yes'}
+              labels={{ yes: aArg.okLabel ?? 'OK', no: aArg.cancelLabel ?? 'Cancel' }}
+              onResult={(r) => done(r === 'yes' ? wxID_OK : wxID_CANCEL)}
+            />
+          ) : (
+            <MessageDialogOk
+              caption={aArg.caption}
+              message={aArg.extended ? `${aArg.message}\n${aArg.extended}` : aArg.message}
+              icon={icon}
+              onClose={() => done(wxID_OK)}
+            />
+          ),
         );
       }),
   );

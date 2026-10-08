@@ -4,6 +4,7 @@
 import {
   InstallErrorPresenter,
   InstallInfoPresenter,
+  InstallMessageDialogPresenter,
   InstallQuestionPresenter,
 } from '@ziroeda/common/confirm_ui.js';
 import { StrictMode } from 'react';
@@ -66,6 +67,7 @@ InitPgm();
 InstallErrorPresenter();
 InstallQuestionPresenter();
 InstallInfoPresenter();
+InstallMessageDialogPresenter();
 // wxFileDialog, for the dialogs in common/ that open one (common/wx/filedlg.tsx).
 // The chooser's `kind` is its own set of shared folders; common passes a string.
 SetFileDialog((p) => (

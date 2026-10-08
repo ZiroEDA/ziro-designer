@@ -9,6 +9,7 @@
  * tsconfig has no `--jsx` and cannot import a `.tsx` at all — a rule only the
  * component knows is untestable by construction.
  */
+import type { KICAD_MESSAGE_DIALOG_ARG } from '@ziroeda/common/confirm.js';
 import { IMPORT_PROJ_PROPS } from '@ziroeda/common/import_proj_properties.js';
 import type { Reporter } from '@ziroeda/common/reporter.js';
 import {
@@ -158,16 +159,6 @@ export function ReconcileImportedFootprintFields(
  * `LoadProjectSettings`/`LoadDrawingSheet` (the window loads both from the record model).
  */
 /** `KICAD_MESSAGE_DIALOG` / `wxRichMessageDialog`, which the window shows. */
-export interface SAVE_MESSAGE_DIALOG_ARG {
-  message: string;
-  caption: string;
-  style: number;
-  /** `SetExtendedMessage` / `ShowDetailedText`. */
-  extended?: string;
-  /** `SetOKCancelLabels`. */
-  okLabel?: string;
-  cancelLabel?: string;
-}
 
 /** `FILEDLG_HOOK_SAVE_PROJECT`'s three checkboxes, which the window fills when it shows them. */
 export interface FILEDLG_HOOK_SAVE_PROJECT {
@@ -358,7 +349,7 @@ export class SCH_FILES_IO_MIXIN {
           message: msg,
           caption: 'Error',
           style: wxOK | wxICON_EXCLAMATION | wxCENTER,
-        } satisfies SAVE_MESSAGE_DIALOG_ARG);
+        } satisfies KICAD_MESSAGE_DIALOG_ARG);
         return false;
       }
 
@@ -396,7 +387,7 @@ export class SCH_FILES_IO_MIXIN {
           message: err.value,
           caption: 'Error',
           style: wxOK | wxICON_EXCLAMATION | wxCENTER,
-        } satisfies SAVE_MESSAGE_DIALOG_ARG);
+        } satisfies KICAD_MESSAGE_DIALOG_ARG);
         return false;
       }
     } else if (!wxFileExists(fileName)) {
@@ -447,7 +438,7 @@ export class SCH_FILES_IO_MIXIN {
         caption: 'Locked File Warning',
         style: wxOK | wxICON_WARNING | wxCENTER,
         extended: `You do not have write permissions to:\n\n${msg}`,
-      } satisfies SAVE_MESSAGE_DIALOG_ARG);
+      } satisfies KICAD_MESSAGE_DIALOG_ARG);
       return false;
     }
 
@@ -462,7 +453,7 @@ export class SCH_FILES_IO_MIXIN {
         extended: `The following files will be overwritten:\n\n${msg}`,
         okLabel: 'Overwrite Files',
         cancelLabel: 'Abort Project Save',
-      } satisfies SAVE_MESSAGE_DIALOG_ARG);
+      } satisfies KICAD_MESSAGE_DIALOG_ARG);
 
       if (answer === wxID_CANCEL) return false;
     }

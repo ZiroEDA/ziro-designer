@@ -6,6 +6,7 @@
  * (the window's), then the live model's (SCH_SHEET_MIXIN at the end): InitSheet,
  * CheckSheetForRecursion, ChangeSheetFile and AllowCaseSensitiveFileNameClashes.
  */
+import type { KICAD_MESSAGE_DIALOG_ARG } from '@ziroeda/common/confirm.js';
 import { ExpandTextVars } from '@ziroeda/common/common.js';
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
 import { currentEeschemaSettings, type EeschemaSettings } from './eeschema_settings.js';
@@ -101,16 +102,6 @@ function normalizeAgainst(aPath: string, aDir: string): string {
 
 const dirOf = (aPath: string) => aPath.replace(/\/[^/]*$/, '') || '/';
 
-/** The `KICAD_MESSAGE_DIALOG` "Continue Load Schematic" questions, which the window shows. */
-export interface LOAD_SHEET_QUESTION_ARG {
-  message: string;
-  caption: string;
-  style: number;
-  extended?: string;
-  okLabel?: string;
-  cancelLabel?: string;
-}
-
 export class SCH_SHEET_MIXIN {
   /** `checkForNoFullyDefinedLibIds( aSheet )` (sheet.cpp:96). */
   checkForNoFullyDefinedLibIds(this: SCH_EDIT_FRAME, aSheet: SCH_SHEET): boolean {
@@ -162,7 +153,7 @@ export class SCH_SHEET_MIXIN {
       return bytes ? new TextDecoder().decode(bytes) : null;
     };
 
-    const ask = (aArg: LOAD_SHEET_QUESTION_ARG) =>
+    const ask = (aArg: KICAD_MESSAGE_DIALOG_ARG) =>
       this.ShowModalDialog('KICAD_MESSAGE_DIALOG', [], aArg);
 
     try {
@@ -500,7 +491,7 @@ export class SCH_SHEET_MIXIN {
           caption: 'File Save Error',
           style: wxOK | wxICON_ERROR,
           extended: saved.error.message,
-        } satisfies LOAD_SHEET_QUESTION_ARG);
+        } satisfies KICAD_MESSAGE_DIALOG_ARG);
     }
 
     // Make the best attempt to set the symbol instance data for the loaded schematic.

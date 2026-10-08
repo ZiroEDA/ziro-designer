@@ -32,7 +32,7 @@ import {
 import type { SCH_EDIT_FRAME, SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { SCH_IO_KICAD_SEXPR } from '@ziroeda/eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
-import type { LOAD_SHEET_QUESTION_ARG } from '@ziroeda/eeschema/sheet.js';
+import type { KICAD_MESSAGE_DIALOG_ARG } from '@ziroeda/common/confirm.js';
 import { SCH_ACTIONS } from '@ziroeda/eeschema/tools/sch_actions.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openProject, schFrame, schToolHarness } from './support/sch_tool_harness.js';
@@ -118,7 +118,7 @@ describe('Rescue Symbols', () => {
     const h = setUp({
       showModal: (aDialog, _aItems, aArg) => {
         if (aDialog === 'KICAD_MESSAGE_DIALOG')
-          messages.push((aArg as LOAD_SHEET_QUESTION_ARG).message);
+          messages.push((aArg as KICAD_MESSAGE_DIALOG_ARG).message);
         return wxID_OK;
       },
     });
@@ -172,7 +172,7 @@ describe('Rescue Symbols', () => {
           (aArg as DIALOG_RESCUE_EACH_ARG).chosen[0] = false;
           return wxID_OK;
         }
-        messages.push((aArg as LOAD_SHEET_QUESTION_ARG).message);
+        messages.push((aArg as KICAD_MESSAGE_DIALOG_ARG).message);
         return wxID_OK;
       },
     });

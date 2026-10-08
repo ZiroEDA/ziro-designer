@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { wxID_CANCEL } from './wx/menu.js';
+
 /**
  * The "Save Changes?" question, and what each answer means. Counterpart:
  * `common/confirm.cpp` (`UnsavedChangesDialog` / `HandleUnsavedChanges`).
@@ -150,4 +152,32 @@ export function SetInfoPresenter(aPresenter: InfoPresenter): void {
  */
 export function DisplayInfoMessage(aMessage: string, aExtraInfo = ''): Promise<void> {
   return s_infoPresenter(aMessage, aExtraInfo);
+}
+
+/**
+ * A `KICAD_MESSAGE_DIALOG` (confirm.h: wxRichMessageDialog, the native message box on GTK) as a
+ * tool builds it: the message, the caption, the wx style word, `SetExtendedMessage`, and
+ * `SetOKCancelLabels`.
+ */
+export interface KICAD_MESSAGE_DIALOG_ARG {
+  message: string;
+  caption: string;
+  style: number;
+  extended?: string;
+  okLabel?: string;
+  cancelLabel?: string;
+}
+
+type MessageDialogPresenter = (aArg: KICAD_MESSAGE_DIALOG_ARG) => Promise<number>;
+
+let s_messageDialogPresenter: MessageDialogPresenter = async () => wxID_CANCEL;
+
+/** Install the modal that `ShowKicadMessageDialog` shows. */
+export function SetMessageDialogPresenter(aPresenter: MessageDialogPresenter): void {
+  s_messageDialogPresenter = aPresenter;
+}
+
+/** `KICAD_MESSAGE_DIALOG( … ).ShowModal()`: wxID_OK or wxID_CANCEL. */
+export function ShowKicadMessageDialog(aArg: KICAD_MESSAGE_DIALOG_ARG): Promise<number> {
+  return s_messageDialogPresenter(aArg);
 }

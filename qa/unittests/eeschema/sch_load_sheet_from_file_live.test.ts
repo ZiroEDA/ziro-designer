@@ -13,7 +13,7 @@ import { MEMORY_FILESYSTEM, wxMountFileSystem } from '@ziroeda/common/wx/filefn.
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
-import type { LOAD_SHEET_QUESTION_ARG } from '@ziroeda/eeschema/sheet.js';
+import type { KICAD_MESSAGE_DIALOG_ARG } from '@ziroeda/common/confirm.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openProject, schFrame, schToolHarness } from './support/sch_tool_harness.js';
 
@@ -47,7 +47,7 @@ describe('LoadSheetFromFile', () => {
     const asked: string[] = [];
     const h = setUp({
       showModal: (_aDialog, _aItems, aArg) => {
-        asked.push((aArg as LOAD_SHEET_QUESTION_ARG).message);
+        asked.push((aArg as KICAD_MESSAGE_DIALOG_ARG).message);
         return wxID_OK;
       },
     });
@@ -85,7 +85,7 @@ describe('LoadSheetFromFile', () => {
     const asked: string[] = [];
     const h = setUp({
       showModal: (_aDialog, _aItems, aArg) => {
-        asked.push((aArg as LOAD_SHEET_QUESTION_ARG).message);
+        asked.push((aArg as KICAD_MESSAGE_DIALOG_ARG).message);
         return wxID_OK;
       },
     });
@@ -116,7 +116,7 @@ describe('LoadSheetFromFile', () => {
     const errors: { caption: string; extended?: string }[] = [];
     const h = setUp({
       showModal: (_aDialog, _aItems, aArg) => {
-        errors.push(aArg as LOAD_SHEET_QUESTION_ARG);
+        errors.push(aArg as KICAD_MESSAGE_DIALOG_ARG);
         return wxID_CANCEL;
       },
     });

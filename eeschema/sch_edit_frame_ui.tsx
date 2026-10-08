@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { wxID_CANCEL } from '@ziroeda/common/wx/menu.js';
+import { type KICAD_MESSAGE_DIALOG_ARG, ShowKicadMessageDialog } from '@ziroeda/common/confirm.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { FIELD_T, GetCanonicalFieldName } from '@ziroeda/common/template_fieldnames.js';
 import type { PICKED_SYMBOL } from './sch_screen.js';
@@ -1737,6 +1739,14 @@ export function SchematicEditor({
   const assignPendingRef = useRef(false);
   if (!schFrameRef.current) {
     schFrameRef.current = new SCH_EDIT_FRAME({
+      // `DIALOG_xxx( this, … ).ShowModal()` for the live tools: each dialog KiCad names, by its C++
+      // class. One not ported yet is cancelled, as with no window, and says so in the console.
+      showModal: (aDialog, _aItems, aArg) => {
+        if (aDialog === 'KICAD_MESSAGE_DIALOG')
+          return ShowKicadMessageDialog(aArg as KICAD_MESSAGE_DIALOG_ARG);
+        console.warn(`${aDialog} is not ported to the live model yet`);
+        return wxID_CANCEL;
+      },
       pickSymbol: (aFilter, aHistory, aPlaced, aShowFootprints) =>
         new Promise((resolve) =>
           setChooserRequest({
