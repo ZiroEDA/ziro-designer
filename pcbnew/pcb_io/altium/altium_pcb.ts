@@ -25,7 +25,7 @@ import type { COMPOUND_FILE_ENTRY } from '@ziroeda/common/io/altium/compoundfile
 import { EDA_SHAPE, SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { EMBEDDED_FILE, EMBEDDED_FILES, FILE_TYPE } from '@ziroeda/common/embedded_files.js';
-import { IO_ERROR } from '@ziroeda/common/exceptions.js';
+import { THROW_IO_ERROR } from '@ziroeda/common/exceptions.js';
 import { FONT } from '@ziroeda/common/font/font.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
 import { KIID_PATH, kiidFromString } from '@ziroeda/common/kiid.js';
@@ -257,11 +257,6 @@ type PARSE_FUNCTION_POINTER_fp = (
 type EDA_TEXT = PCB_TEXT | PCB_TEXTBOX;
 
 const BOLD_FACTOR = 1.75; // CSS font-weight-normal is 400; bold is 700
-
-/** `THROW_IO_ERROR( msg )`. */
-function THROW_IO_ERROR(aMessage: string): never {
-  throw new IO_ERROR(aMessage);
-}
 
 /** `std::map` ordered by key, for the few maps upstream iterates. */
 function sortedEntries<K extends number | string, V>(aMap: Map<K, V>): [K, V][] {

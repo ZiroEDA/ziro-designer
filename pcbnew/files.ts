@@ -25,6 +25,7 @@
 import type { RawFile } from '@ziroeda/common';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import { IO_ERROR } from '@ziroeda/common/exceptions.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { IMPORT_PROJ_PROPS } from '@ziroeda/common/import_proj_properties.js';
 import { Pgm } from '@ziroeda/common/pgm_base.js';
 import { KICTL_IMPORT_LIB } from '@ziroeda/common/kiway_player.js';
@@ -180,6 +181,10 @@ export class FILES_MIXIN {
     const readFile = (aPath: string): Uint8Array | null => (aPath === aFileName ? aData : null);
 
     const pluginType = await PCB_IO_MGR.FindPluginTypeFromBoardPath(aFileName, readFile, aCtl);
+    // An importer may embed what it reads (Altium's 3D bodies go through
+    // EMBEDDED_FILES::CompressAndEncode); the zstd codec is a wasm module that
+    // has to be instantiated before anything synchronous asks for it.
+    await EMBEDDED_FILES.InitCodec();
 
     if (pluginType === PCB_FILE_T.FILE_TYPE_NONE)
       throw new IO_ERROR('File format is not supported');

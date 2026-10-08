@@ -224,7 +224,11 @@ registry.Register(
   async () => new (await import('./easyedapro/pcb_io_easyedapro.js')).PCB_IO_EASYEDAPRO(),
 );
 
-// Fabmaster registers here upstream.
+registry.Register(
+  PCB_FILE_T.FABMASTER,
+  'Fabmaster',
+  async () => new (await import('./fabmaster/pcb_io_fabmaster.js')).PCB_IO_FABMASTER(),
+);
 
 registry.Register(
   PCB_FILE_T.GEDA_PCB,
