@@ -8,6 +8,8 @@
  * reaches them through {@link SYMBOL_EDIT_FRAME_HOOKS}.
  */
 import type { LIB_SYMBOL } from '../lib_symbol.js';
+import type { LIB_ID } from '@ziroeda/common/lib_id.js';
+import type { SCH_SYMBOL } from '../sch_symbol.js';
 import {
   currentSymbolEditorSettings,
   type SymbolEditorSettings,
@@ -26,6 +28,17 @@ export interface SYMBOL_EDIT_FRAME_HOOKS {
    * upstream's messages), make it the current library and show it.
    */
   libEdit(aUri: string): void;
+  /**
+   * `LoadSymbolFromSchematic( aSymbol )` (symbol_edit_frame.cpp): open a schematic symbol's
+   * library symbol for editing in place. The window's symbol editor does it.
+   */
+  loadSymbolFromSchematic?(aSymbol: SCH_SYMBOL): void;
+  /** `LoadSymbol( aLibId, aUnit, aBodyStyle )` (symbol_edit_frame.cpp): open a library symbol. */
+  loadSymbol?(aLibId: LIB_ID, aUnit: number, aBodyStyle: number): boolean;
+  /** `IsLibraryTreeShown()`. */
+  isLibraryTreeShown?(): boolean;
+  /** `ToggleLibraryTree()`. */
+  toggleLibraryTree?(): void;
 }
 
 export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
@@ -107,6 +120,26 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
   /** `GetShowInvisiblePins()` (symbol_edit_frame.cpp:2271): libeditconfig()->m_ShowHiddenPins. */
   GetShowInvisiblePins(): boolean {
     return currentSymbolEditorSettings().show_hidden_lib_pins;
+  }
+
+  /** `LoadSymbolFromSchematic( aSymbol )`: the window's editor opens it. */
+  LoadSymbolFromSchematic(aSymbol: SCH_SYMBOL): void {
+    this.hooks.loadSymbolFromSchematic?.(aSymbol);
+  }
+
+  /** `LoadSymbol( aLibId, aUnit, aBodyStyle )`: false when the window cannot. */
+  LoadSymbol(aLibId: LIB_ID, aUnit: number, aBodyStyle: number): boolean {
+    return this.hooks.loadSymbol?.(aLibId, aUnit, aBodyStyle) ?? false;
+  }
+
+  /** `IsLibraryTreeShown()`. */
+  override IsLibraryTreeShown(): boolean {
+    return this.hooks.isLibraryTreeShown?.() ?? false;
+  }
+
+  /** `ToggleLibraryTree()`. */
+  override ToggleLibraryTree(): void {
+    this.hooks.toggleLibraryTree?.();
   }
 
   /** `LIB_EDIT_FRAME_NAME`, the name wx gives this frame. */

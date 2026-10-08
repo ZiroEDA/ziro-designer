@@ -30,6 +30,9 @@ import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { KIWAY } from '@ziroeda/common/kiway.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { SCH_GROUP } from '@ziroeda/eeschema/sch_group.js';
+import { SYMBOL_EDIT_FRAME } from '@ziroeda/eeschema/symbol_editor/symbol_edit_frame.js';
 import { KIWAY_PLAYER } from '@ziroeda/common/kiway_player.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
@@ -401,5 +404,77 @@ describe('SCH_EDITOR_CONTROL', () => {
     expect(received.length).toBe(1);
     expect(received[0]![0]).toBe(MAIL_T.MAIL_EESCHEMA_NETLIST);
     expect(received[0]![1]).toMatch(/^\(export\n\t\(version "E"\)/);
+  });
+
+  it('Edit with Symbol Editor hands the selected symbol to the symbol editor; Edit Library Symbol opens its LIB_ID', () => {
+    const h = setUp();
+    const calls: unknown[][] = [];
+    const kiway = new KIWAY({
+      OnKiCadExit: () => {},
+      Player: () => true,
+      HasProjectManager: () => true,
+      ShowProjectManager: () => {},
+      CreateKiWindow: () => false,
+    });
+    h.frame.SetKiway(kiway);
+    const symEditor = new SYMBOL_EDIT_FRAME({
+      libEdit: () => {},
+      loadSymbolFromSchematic: (aSymbol) => calls.push(['fromSchematic', aSymbol]),
+      loadSymbol: (aLibId, aUnit, aBodyStyle) => {
+        calls.push(['library', aLibId.Format(), aUnit, aBodyStyle]);
+        return true;
+      },
+      isLibraryTreeShown: () => false,
+      toggleLibraryTree: () => calls.push(['toggleTree']),
+    });
+    kiway.SetPlayerFrame(FRAME_T.FRAME_SCH_SYMBOL_EDITOR, symEditor);
+    const symbol = [...h.frame.GetScreen()!.Items().OfType(KICAD_T.SCH_SYMBOL_T)][0] as SCH_SYMBOL;
+    h.sel.AddItemToSel(symbol, true);
+
+    h.mgr.RunAction(SCH_ACTIONS.editWithLibEdit);
+    h.mgr.RunAction(SCH_ACTIONS.editLibSymbolWithLibEdit);
+
+    expect(calls.length).toBe(3);
+    expect(calls[0]![0]).toBe('fromSchematic');
+    expect(calls[0]![1] === symbol).toBe(true);
+    expect(calls[1]).toEqual([
+      'library',
+      symbol.GetLibId().Format(),
+      symbol.GetUnit(),
+      symbol.GetBodyStyle(),
+    ]);
+    expect(calls[2]).toEqual(['toggleTree']);
+  });
+
+  it('Place / Save Linked Design Block need a lone group with a link, and say when the block is gone', () => {
+    const h = setUp();
+    const messages: string[] = [];
+    h.frame.SetInfoBar({
+      IsLocked: () => false,
+      AddButton: () => {},
+      RemoveAllButtons: () => {},
+      ShowMessageFor: (m) => {
+        messages.push(m);
+      },
+      Dismiss: () => {},
+    });
+    h.frame.m_designBlocksPane = { GetDesignBlock: () => null } as never;
+    const group = new SCH_GROUP();
+    h.frame.AddToScreen(group, h.frame.GetScreen());
+
+    // No link: nothing to do.
+    h.sel.ClearSelection(true);
+    h.sel.AddItemToSel(group, true);
+    h.mgr.RunAction(SCH_ACTIONS.placeLinkedDesignBlock);
+    expect(messages).toEqual([]);
+
+    group.SetDesignBlockLibId(new LIB_ID('Blocks', 'amp'));
+    h.mgr.RunAction(SCH_ACTIONS.placeLinkedDesignBlock);
+    h.mgr.RunAction(SCH_ACTIONS.saveToLinkedDesignBlock);
+
+    expect(messages).toEqual([
+      'Could not find design block Blocks:amp.',
+      'Could not find design block Blocks:amp.',
+    ]);
   });
 });

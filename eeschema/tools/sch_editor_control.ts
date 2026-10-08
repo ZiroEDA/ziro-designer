@@ -33,6 +33,9 @@ import { SYMBOL_FILTER } from '../sch_sheet_path.js';
 import { LINE_MODE, SCH_ACTIONS } from './sch_actions.js';
 import { SCH_SELECTION_TOOL } from './sch_selection_tool.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
+import { SCH_EDIT_TABLE_TOOL } from './sch_edit_table_tool.js';
+import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { SCH_ASSIGN_FOOTPRINTS_MIXIN } from './assign_footprints.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
@@ -49,6 +52,7 @@ import { ERC_TESTER } from '../erc/erc.js';
 import type { SCH_CONNECTION } from '../sch_connection.js';
 import { NET_NAVIGATOR_ITEM_DATA, SCH_SEARCH_T } from '../sch_edit_frame.js';
 import { SCH_ITEM } from '../sch_item.js';
+import type { SCH_GROUP } from '../sch_group.js';
 import type { SCH_PIN } from '../sch_pin.js';
 import type { SCH_SHEET } from '../sch_sheet.js';
 import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
@@ -943,6 +947,53 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     return 0;
   }
 
+  /** `EditWithSymbolEditor( aEvent )` (sch_editor_control.cpp:2851). */
+  *EditWithSymbolEditor(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const selTool = this.m_toolMgr!.GetTool(SCH_SELECTION_TOOL)!;
+    const selection = selTool.RequestSelection([KICAD_T.SCH_SYMBOL_T]);
+    let symbol: SCH_SYMBOL | null = null;
+
+    if (selection.Size() >= 1) symbol = selection.Front() as unknown as SCH_SYMBOL;
+
+    if (selection.IsHover()) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+    if (!symbol) {
+      // Giant hack: by default we assign Edit Table to the same hotkey, so give the table
+      // tool a chance to handle it if we can't.
+      const tableTool = this.m_toolMgr!.GetTool(SCH_EDIT_TABLE_TOOL);
+
+      if (tableTool) yield* tableTool.EditTable(aEvent);
+
+      return 0;
+    }
+
+    if (symbol.GetEditFlags() !== 0) return 0;
+
+    if (symbol.IsMissingLibSymbol()) {
+      this.m_frame!.ShowInfoBarError('Symbols with broken library symbol links cannot be edited.');
+      return 0;
+    }
+
+    this.m_toolMgr!.RunAction(ACTIONS.showSymbolEditor);
+    const symbolEditor = this.m_frame!.Kiway()?.GetPlayerFrame(
+      FRAME_T.FRAME_SCH_SYMBOL_EDITOR,
+    ) as SYMBOL_EDIT_FRAME | null;
+
+    if (symbolEditor) {
+      // `Kiway().GetBlockingDialog()->Close()`: a page has no window-modal dialog to close.
+
+      if (aEvent.IsAction(SCH_ACTIONS.editWithLibEdit)) {
+        symbolEditor.LoadSymbolFromSchematic(symbol);
+      } else if (aEvent.IsAction(SCH_ACTIONS.editLibSymbolWithLibEdit)) {
+        symbolEditor.LoadSymbol(symbol.GetLibId(), symbol.GetUnit(), symbol.GetBodyStyle());
+
+        if (!symbolEditor.IsLibraryTreeShown()) symbolEditor.ToggleLibraryTree();
+      }
+    }
+
+    return 0;
+  }
+
   ShowCvpcb(_aEvent: TOOL_EVENT): number {
     this.m_frame!.OnOpenCvpcb();
     return 0;
@@ -1145,6 +1196,74 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     return 0;
   }
 
+  /** `PlaceLinkedDesignBlock( aEvent )` (sch_editor_control.cpp:3394). */
+  PlaceLinkedDesignBlock(_aEvent: TOOL_EVENT): number {
+    const editFrame = this.m_frame;
+
+    if (!editFrame) return 1;
+
+    // Need to have a group selected and it needs to have a linked design block
+    const selTool = this.m_toolMgr!.GetTool(SCH_SELECTION_TOOL)!;
+    const selection = selTool.GetSelection();
+
+    if (selection.Size() !== 1 || selection.at(0)!.Type() !== KICAD_T.SCH_GROUP_T) return 1;
+
+    const group = selection.at(0) as unknown as SCH_GROUP;
+
+    if (!group.HasDesignBlockLink()) return 1;
+
+    // Get the associated design block
+    const designBlockPane = editFrame.GetDesignBlockPane()!;
+    const designBlock = designBlockPane.GetDesignBlock(group.GetDesignBlockLibId(), true, true);
+
+    if (!designBlock) {
+      const msg = `Could not find design block ${group.GetDesignBlockLibId().GetUniStringLibId()}.`;
+      editFrame.GetInfoBar()?.ShowMessageFor(msg, 5000, 'warning');
+      return 1;
+    }
+
+    if (designBlock.GetSchematicFile() === '') {
+      const msg = `Design block ${group.GetDesignBlockLibId().GetUniStringLibId()} does not have a schematic file.`;
+      editFrame.GetInfoBar()?.ShowMessageFor(msg, 5000, 'warning');
+      return 1;
+    }
+
+    editFrame.GetDesignBlockPane()!.SelectLibId(group.GetDesignBlockLibId());
+
+    return this.m_toolMgr!.RunAction(SCH_ACTIONS.placeDesignBlock, designBlock) ? 1 : 0;
+  }
+
+  /** `SaveToLinkedDesignBlock( aEvent )` (sch_editor_control.cpp:3441). */
+  SaveToLinkedDesignBlock(_aEvent: TOOL_EVENT): number {
+    const editFrame = this.m_frame;
+
+    if (!editFrame) return 1;
+
+    // Need to have a group selected and it needs to have a linked design block
+    const selTool = this.m_toolMgr!.GetTool(SCH_SELECTION_TOOL)!;
+    const selection = selTool.GetSelection();
+
+    if (selection.Size() !== 1 || selection.at(0)!.Type() !== KICAD_T.SCH_GROUP_T) return 1;
+
+    const group = selection.at(0) as unknown as SCH_GROUP;
+
+    if (!group.HasDesignBlockLink()) return 1;
+
+    // Get the associated design block
+    const designBlockPane = editFrame.GetDesignBlockPane()!;
+    const designBlock = designBlockPane.GetDesignBlock(group.GetDesignBlockLibId(), true, true);
+
+    if (!designBlock) {
+      const msg = `Could not find design block ${group.GetDesignBlockLibId().GetUniStringLibId()}.`;
+      editFrame.GetInfoBar()?.ShowMessageFor(msg, 5000, 'warning');
+      return 1;
+    }
+
+    editFrame.GetDesignBlockPane()!.SelectLibId(group.GetDesignBlockLibId());
+
+    return this.m_toolMgr!.RunAction(SCH_ACTIONS.updateDesignBlockFromSelection) ? 1 : 0;
+  }
+
   *AddVariant(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
     yield* this.RunMainStackModal(() => this.m_frame!.AddVariant());
     return 0;
@@ -1204,9 +1323,8 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     this.Go(this.ImportFPAssignments, SCH_ACTIONS.importFPAssignments.MakeEvent());
 
     // Not ported yet, in KiCad's order: RescueSymbols, ExportSymbolsToLibrary, the clipboard,
-    // EditWithSymbolEditor, ImportNonKicadSchematic, DrawSheetOnClipboard, the linked design
-    // blocks. Left out, as the simulator is: SimProbe, SimTune, MarkSimExclusions,
-    // ToggleOPVoltages, ToggleOPCurrents.
+    // ImportNonKicadSchematic, DrawSheetOnClipboard. Left out, as the simulator is: SimProbe,
+    // SimTune, MarkSimExclusions, ToggleOPVoltages, ToggleOPCurrents.
     this.Go(this.ShowSchematicSetup, SCH_ACTIONS.schematicSetup.MakeEvent());
     this.Go(this.PageSetup, ACTIONS.pageSettings.MakeEvent());
     this.Go(this.Print, ACTIONS.print.MakeEvent());
@@ -1229,6 +1347,8 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     this.Go(this.IncrementAnnotations, SCH_ACTIONS.incrementAnnotations.MakeEvent());
     this.Go(SYNC_HANDLER(this.EditSymbolFields), SCH_ACTIONS.editSymbolFields.MakeEvent());
     this.Go(this.EditSymbolLibraryLinks, SCH_ACTIONS.editSymbolLibraryLinks.MakeEvent());
+    this.Go(this.EditWithSymbolEditor, SCH_ACTIONS.editWithLibEdit.MakeEvent());
+    this.Go(this.EditWithSymbolEditor, SCH_ACTIONS.editLibSymbolWithLibEdit.MakeEvent());
     this.Go(SYNC_HANDLER(this.ShowCvpcb), SCH_ACTIONS.assignFootprints.MakeEvent());
     this.Go(SYNC_HANDLER(this.ShowPcbNew), SCH_ACTIONS.showPcbNew.MakeEvent());
     this.Go(SYNC_HANDLER(this.UpdatePCB), ACTIONS.updatePcbFromSchematic.MakeEvent());
@@ -1266,6 +1386,15 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       SCH_ACTIONS.angleSnapModeChanged.MakeEvent(),
     );
     this.Go(SYNC_HANDLER(this.ToggleAnnotateAuto), SCH_ACTIONS.toggleAnnotateAuto.MakeEvent());
+
+    this.Go(
+      SYNC_HANDLER(this.PlaceLinkedDesignBlock),
+      SCH_ACTIONS.placeLinkedDesignBlock.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER(this.SaveToLinkedDesignBlock),
+      SCH_ACTIONS.saveToLinkedDesignBlock.MakeEvent(),
+    );
 
     this.Go(this.AddVariant, SCH_ACTIONS.addVariant.MakeEvent());
     this.Go(this.RemoveVariant, SCH_ACTIONS.removeVariant.MakeEvent());
