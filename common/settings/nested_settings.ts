@@ -59,7 +59,7 @@ export class NESTED_SETTINGS extends JSON_SETTINGS {
   }
 
   /** Call Store() and then write the contents of the JSON document to the parent object. */
-  SaveToFile(): boolean {
+  override SaveToFile(): boolean {
     if (!this.m_parent) return false;
 
     const modified = this.Store();

@@ -232,10 +232,79 @@ export class SETTINGS_MANAGER {
 
     if (!this.m_projects.has(project.GetProjectFullName())) return null;
 
+    // SETTINGS_MANAGER::SaveProject (settings_manager.cpp:1234): both files written to the project
+    // folder, onto whichever writable mount holds it. The JSON goes back too, for the callers
+    // that persist it themselves.
+    if (!project.IsReadOnly()) {
+      const projectPath = project.GetProjectPath();
+      project.GetProjectFile().SaveToFile(projectPath);
+      project.GetLocalSettings().SaveToFile(projectPath);
+    }
+
     return {
       pro: project.GetProjectFile().SaveToJson(),
       prl: project.GetLocalSettings().SaveToJson(),
     };
+  }
+
+  /** `SaveProjectAs( aFullPath, aProject )` (settings_manager.cpp:1261). */
+  SaveProjectAs(aFullPath: string, aProject: PROJECT | null = null): void {
+    const project = aProject ?? this.Prj();
+    const oldName = project.GetProjectFullName();
+
+    if (aFullPath === oldName) {
+      this.SaveProject(project);
+      return;
+    }
+
+    // Changing this will cause UnloadProject to not save over the "old" project when loading below
+    project.setProjectFullName(aFullPath);
+
+    const dir = aFullPath.slice(0, aFullPath.lastIndexOf('/'));
+    const name = aFullPath.slice(aFullPath.lastIndexOf('/') + 1).replace(/\.[^.]*$/, '');
+
+    const file = this.m_project_files.get(oldName)!;
+
+    // Ensure read-only flags are copied; this allows doing a "Save As" on a standalone board/sch
+    // without creating project files if the checkbox is turned off
+    file.SetReadOnly(project.IsReadOnly());
+    project.GetLocalSettings().SetReadOnly(project.IsReadOnly());
+
+    file.SetFilename(name);
+    file.SaveToFile(dir);
+
+    project.GetLocalSettings().SetFilename(name);
+    project.GetLocalSettings().SaveToFile(dir);
+
+    this.m_project_files.set(aFullPath, file);
+    this.m_project_files.delete(oldName);
+
+    this.m_projects.set(aFullPath, this.m_projects.get(oldName)!);
+    this.m_projects.delete(oldName);
+  }
+
+  /** `SaveProjectCopy( aFullPath, aProject )` (settings_manager.cpp:1300). */
+  SaveProjectCopy(aFullPath: string, aProject: PROJECT | null = null): void {
+    const project = aProject ?? this.Prj();
+    const file = this.m_project_files.get(project.GetProjectFullName())!;
+    const oldName = file.GetFilename();
+    const dir = aFullPath.slice(0, aFullPath.lastIndexOf('/'));
+    const name = aFullPath.slice(aFullPath.lastIndexOf('/') + 1).replace(/\.[^.]*$/, '');
+
+    const readOnly = file.IsReadOnly();
+    file.SetReadOnly(false);
+
+    file.SetFilename(name);
+    file.SaveToFile(dir);
+    file.SetFilename(oldName);
+
+    const localSettings = project.GetLocalSettings();
+
+    localSettings.SetFilename(name);
+    localSettings.SaveToFile(dir);
+    localSettings.SetFilename(oldName);
+
+    file.SetReadOnly(readOnly);
   }
 
   private loadProjectFile(aProject: PROJECT, aProJson: JsonValue | null): boolean {

@@ -148,6 +148,29 @@ function setIfPresent<T extends boolean | number | string>(
 }
 
 export class PROJECT_LOCAL_SETTINGS extends JSON_SETTINGS {
+  /** `getFileExt()` (project_local_settings.h:83): FILEEXT::ProjectLocalSettingsFileExtension. [data] */
+  protected override getFileExt(): string {
+    return 'kicad_prl';
+  }
+
+  /**
+   * `SaveToFile( aDirectory, aForce )` (project_local_settings.cpp:537). `meta.filename` is
+   * `m_project->GetProjectName()` upstream, which is this file's own name (SaveProjectAs renames
+   * both together); there is no PROJECT link here.
+   */
+  override SaveToFile(aDirectory = '', aForce = false): boolean {
+    this.Set<string>('meta.filename', `${this.m_filename}.${this.getFileExt()}`);
+
+    // Even if parameters were not modified, we should resave after migration
+    const force = aForce || this.m_wasMigrated;
+
+    // If we're actually going ahead and doing the save, the flag that keeps code from doing the
+    // save should be cleared at this point.
+    this.m_wasMigrated = false;
+
+    return super.SaveToFile(aDirectory, force);
+  }
+
   /** The list of files (unrelated to the project) that were open when it was last closed. */
   m_files: PROJECT_FILE_STATE[] = [];
   m_OpenJobSets: string[] = [];

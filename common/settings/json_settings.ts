@@ -23,6 +23,15 @@
  * setter, which is the same binding without the address.
  */
 
+import {
+  wxDirExists,
+  wxFileExists,
+  wxIsDirWritable,
+  wxMkdir,
+  wxReadFileSync,
+  wxWriteFileSync,
+} from '../wx/filefn.js';
+import { DumpJson } from './json_dump.js';
 import { PARAM, type PARAM_BASE } from './parameters.js';
 import type { NESTED_SETTINGS } from './nested_settings.js';
 import { type JsonObject, type JsonValue, PointerFromString } from './json_settings_internals.js';
@@ -117,6 +126,73 @@ export class JSON_SETTINGS {
 
   GetFilename(): string {
     return this.m_filename;
+  }
+
+  SetFilename(aFilename: string): void {
+    this.m_filename = aFilename;
+  }
+
+  /** `getFileExt()` (json_settings.h:306). */
+  protected getFileExt(): string {
+    return 'json';
+  }
+
+  /**
+   * `SaveToFile( aDirectory, aForce )` (json_settings.cpp:422): write `<dir>/<name>.<ext>` when
+   * something changed, onto whichever writable mount holds it (common/wx/filefn.ts). Returns
+   * whether it wrote.
+   */
+  SaveToFile(aDirectory = '', aForce = false): boolean {
+    if (!this.m_writeFile) return false;
+
+    // Default PROJECT won't have a filename set
+    if (this.m_filename === '') return false;
+
+    const path =
+      aDirectory === ''
+        ? `${this.m_filename}.${this.getFileExt()}`
+        : `${aDirectory.replace(/\/+$/, '')}/${this.m_filename}.${this.getFileExt()}`;
+    const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) || '/' : '.';
+    const exists = wxFileExists(path);
+
+    // "File for %s doesn't exist and m_createIfMissing == false; not saving"
+    if (!this.m_createIfMissing && !exists) return false;
+
+    // Ensure the path exists, and create it if not.
+    if (!wxDirExists(dir) && !wxMkdir(dir)) return false;
+
+    // "File for %s is read-only; not saving": a path no writable mount covers.
+    if (!wxIsDirWritable(dir)) return false;
+
+    let modified = false;
+
+    for (const settings of this.m_nested_settings) modified = settings.SaveToFile() || modified;
+
+    modified = this.Store() || modified;
+
+    // "%s contents not modified, skipping save"
+    if (!modified && !aForce && exists) return false;
+    // "%s contents still default and m_createIfDefault == false; not saving"
+    else if (!modified && !aForce && !this.m_createIfDefault) return false;
+
+    const payload = DumpJson(this.m_internals);
+
+    // Last-chance skip for the case where the dirty heuristic fired but the serialized payload
+    // still equals the on-disk bytes (e.g. key reordering or normalization).
+    if (!aForce && exists) {
+      const existing = wxReadFileSync(path);
+
+      if (existing && new TextDecoder().decode(existing) === payload) {
+        this.m_modified = false;
+        return false;
+      }
+    }
+
+    const success = wxWriteFileSync(path, new TextEncoder().encode(payload));
+
+    this.m_modified = false;
+
+    return success;
   }
 
   GetLocation(): SETTINGS_LOC {

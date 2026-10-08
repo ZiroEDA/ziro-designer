@@ -402,9 +402,27 @@ export class PROJECT_FILE extends JSON_SETTINGS {
     return true;
   }
 
+  /** `SaveToFile( aDirectory, aForce )` (project_file.cpp:755). */
+  override SaveToFile(aDirectory = '', aForce = false): boolean {
+    if (this.m_project)
+      this.Set<string>(
+        'meta.filename',
+        `${this.m_project.GetProjectName()}.${PROJECT_FILE_EXTENSION}`,
+      );
+
+    // Even if parameters were not modified, we should resave after migration
+    const force = aForce || this.m_wasMigrated;
+
+    // If we're actually going ahead and doing the save, the flag that keeps code from doing the
+    // save should be cleared at this.
+    this.m_wasMigrated = false;
+
+    return super.SaveToFile(aDirectory, force);
+  }
+
   /**
-   * `SaveToFile`: `meta.filename` is the project's, and a migrated file is
-   * saved even when nothing else moved.
+   * `SaveToFile`'s tree without the write: `meta.filename` is the project's, and a migrated file
+   * is saved even when nothing else moved.
    */
   override SaveToJson(): JsonObject {
     if (this.m_project)
@@ -507,7 +525,7 @@ export class PROJECT_FILE extends JSON_SETTINGS {
     return !this.m_wasMigrated && !this.m_isFutureFormat;
   }
 
-  protected getFileExt(): string {
+  protected override getFileExt(): string {
     return PROJECT_FILE_EXTENSION;
   }
 }
