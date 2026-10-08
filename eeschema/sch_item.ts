@@ -23,6 +23,14 @@
 import { ResolveTextVars } from '@ziroeda/common/common.js';
 import { EDA_ITEM, type OutStr, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import {
+  type INSPECTABLE_ITEM,
+  PG_CHOICES,
+  PROPERTY,
+  TYPE_BOOL,
+  TYPE_STRING,
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
+import {
   BRIGHTENED,
   type EDA_ITEM_FLAGS,
   SELECTED,
@@ -1261,3 +1269,96 @@ export abstract class SCH_ITEM extends EDA_ITEM {
 
 /** Helper for the typed flag argument some callers pass. */
 export type { EDA_ITEM_FLAGS };
+
+/**
+ * `static struct SCH_ITEM_DESC` (eeschema/sch_item.cpp:844).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_ITEM);
+  propMgr.InheritsAfter(SCH_ITEM, EDA_ITEM);
+
+  // `#ifdef NOTYET` upstream: "Locked", not yet functional in UI.
+
+  const multiUnit = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof SCH_ITEM) {
+      const symbol = aItem.GetParentSymbol();
+
+      if (symbol) return symbol.IsMultiUnit();
+    }
+
+    return false;
+  };
+
+  const multiBodyStyle = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof SCH_ITEM) {
+      const symbol = aItem.GetParentSymbol();
+
+      if (symbol) return symbol.IsMultiBodyStyle();
+    }
+
+    return false;
+  };
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_ITEM, string>(
+        SCH_ITEM,
+        'Unit',
+        'SetUnitString',
+        'GetUnitString',
+        TYPE_STRING,
+      ),
+    )
+    .SetAvailableFunc(multiUnit)
+    .SetIsHiddenFromDesignEditors()
+    .SetChoicesFunc((aItem) => {
+      const choices = new PG_CHOICES();
+      choices.Add('All units', 0);
+
+      if (aItem instanceof SCH_ITEM) {
+        const symbol = aItem.GetParentSymbol();
+
+        if (symbol) {
+          for (let ii = 1; ii <= symbol.GetUnitCount(); ii++)
+            choices.Add(symbol.GetUnitDisplayName(ii, false), ii);
+        }
+      }
+
+      return choices;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_ITEM, string>(
+        SCH_ITEM,
+        'Body Style',
+        'SetBodyStyleProp',
+        'GetBodyStyleProp',
+        TYPE_STRING,
+      ),
+    )
+    .SetAvailableFunc(multiBodyStyle)
+    .SetIsHiddenFromDesignEditors()
+    .SetChoicesFunc((aItem) => {
+      const choices = new PG_CHOICES();
+      choices.Add('All body styles');
+
+      if (aItem instanceof SCH_ITEM) {
+        const symbol = aItem.GetParentSymbol();
+
+        if (symbol) {
+          for (const ii of [BODY_STYLE.BASE, BODY_STYLE.DEMORGAN])
+            choices.Add(symbol.GetBodyStyleDescription(ii, false));
+        }
+      }
+
+      return choices;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_ITEM, boolean>(SCH_ITEM, 'Private', 'SetPrivate', 'IsPrivate', TYPE_BOOL),
+    )
+    .SetIsHiddenFromDesignEditors();
+})();
