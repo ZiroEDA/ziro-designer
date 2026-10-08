@@ -53,3 +53,35 @@ export function aiBridge(kind: EditorKind): AiBridge | undefined {
 export function allBridges(): AiBridge[] {
   return [...bridges.values()];
 }
+
+/**
+ * Run one agent tool on whichever bridge takes it: the app tools first, a guard may refuse.
+ * The chat pane's turns and tool calls from the user's own AI app (over the agent's link) both
+ * come through here. `kind` is the bridge that ran it (absent when none could).
+ */
+export async function runAiTool(
+  name: string,
+  args: Record<string, unknown>,
+): Promise<{ out: ToolOutput; kind?: EditorKind }> {
+  for (const b of allBridges()) {
+    const refused = b.guard?.(name);
+    if (refused) return { out: refused };
+  }
+  for (const b of [...allBridges()].sort(
+    (x, y) => Number(y.kind === 'app') - Number(x.kind === 'app'),
+  )) {
+    const out = b.run(name, args);
+    if (out) {
+      // The editor doing the work is the one on screen.
+      if (b.kind === 'sch' || b.kind === 'pcb') aiBridge('app')?.show?.(b.kind);
+      return { out: await out, kind: b.kind };
+    }
+  }
+  return {
+    out: {
+      text: `Nothing open can run ${name} right now: open the editor it belongs to (open_editor) first.`,
+      isError: true,
+      note: `${name}: its editor is not open`,
+    },
+  };
+}
