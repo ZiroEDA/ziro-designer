@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { FIELD_T, GetCanonicalFieldName } from '@ziroeda/common/template_fieldnames.js';
+import type { PICKED_SYMBOL } from './sch_screen.js';
+import type { SYMBOL_LIBRARY_FILTER } from './symbol_library_common.js';
 import type { SchScriptApi } from './sch_script_api.js';
 import { GetAssociatedDocument } from '@ziroeda/common/eda_doc.js';
 import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
@@ -559,6 +563,40 @@ import { symbolLibraryUri } from './cross-probing.js';
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
 
+/** A PICKED_SYMBOL as the chooser's history rows take it. */
+function pickedToChooser(aPicked: PICKED_SYMBOL): PickedSymbol {
+  return {
+    libId: aPicked.LibId.Format(),
+    unit: aPicked.Unit,
+    fields: aPicked.Fields.map(([id, value]) => [GetCanonicalFieldName(id), value]),
+  };
+}
+
+/** The chooser's answer as PickSymbolFromLibrary returns it (picksymbol.cpp). */
+function chooserToPicked(aResult: SymbolChooserResult): PICKED_SYMBOL {
+  const fields: [FIELD_T, string][] = [];
+  for (const [name, value] of aResult.fields) {
+    const id = [
+      FIELD_T.REFERENCE,
+      FIELD_T.VALUE,
+      FIELD_T.FOOTPRINT,
+      FIELD_T.DATASHEET,
+      FIELD_T.DESCRIPTION,
+    ].find((f) => GetCanonicalFieldName(f) === name);
+    if (id !== undefined) fields.push([id, value]);
+  }
+  const libId = new LIB_ID();
+  libId.Parse(aResult.symbol.libId);
+  return {
+    LibId: libId,
+    Unit: aResult.unit,
+    Convert: 1,
+    KeepSymbol: aResult.keepSymbol,
+    PlaceAllUnits: aResult.placeAllUnits,
+    Fields: fields,
+  };
+}
+
 const EMPTY_SCH =
   '(kicad_sch (version 20231120) (generator "ziroeda") (paper "A4")\n  (lib_symbols)\n)\n';
 
@@ -703,7 +741,6 @@ const DEFAULT_FILE = 'untitled.kicad_sch';
 // The chooser's "Recently Used" group persists across dialog openings for the
 // session (sch_drawing_tools.cpp s_SymbolHistoryList / s_PowerHistoryList).
 const sSymbolHistoryList: PickedSymbol[] = [];
-const sPowerHistoryList: PickedSymbol[] = [];
 
 /** A token's value from a resolver, or '' when it does not answer. */
 function resolveToken(aResolver: TextVarResolverFn | undefined, aName: string): string {
@@ -1670,6 +1707,14 @@ export function SchematicEditor({
     [connDoc, libById, busAliases],
   );
   const schFrameRef = useRef<SCH_EDIT_FRAME | null>(null);
+  /** PickSymbolFromLibrary's DIALOG_SYMBOL_CHOOSER while it is up. */
+  const [chooserRequest, setChooserRequest] = useState<{
+    filter: SYMBOL_LIBRARY_FILTER | null;
+    history: readonly PICKED_SYMBOL[];
+    placed: readonly PICKED_SYMBOL[];
+    showFootprints: boolean;
+    resolve: (aPicked: PICKED_SYMBOL | null) => void;
+  } | null>(null);
   // MAIL_ASSIGN_FOOTPRINTS and MAIL_SCH_SAVE, filled in below once the
   // project edit and the save they call exist.
   const saveProjectRef = useRef<() => boolean>(() => false);
@@ -1692,6 +1737,16 @@ export function SchematicEditor({
   const assignPendingRef = useRef(false);
   if (!schFrameRef.current) {
     schFrameRef.current = new SCH_EDIT_FRAME({
+      pickSymbol: (aFilter, aHistory, aPlaced, aShowFootprints) =>
+        new Promise((resolve) =>
+          setChooserRequest({
+            filter: aFilter,
+            history: aHistory,
+            placed: aPlaced,
+            showFootprints: aShowFootprints,
+            resolve,
+          }),
+        ),
       crossProbingSettings: () => app.settings.eeschema.cross_probing,
       saveProject: () => saveProjectRef.current(),
       syncLiveSchematic: () => syncLiveRef.current(),
@@ -2282,82 +2337,6 @@ export function SchematicEditor({
   useEffect(() => {
     setSelectionFilterClosed(false);
   }, [selFilterInputs]);
-
-  // The chooser's "-- Already Placed --" group: every distinct library symbol
-  // used anywhere in the hierarchy, filtered to the tool's power-symbol flavour
-  // (sch_drawing_tools.cpp builds the same list before PickSymbolFromLibrary).
-  const alreadyPlaced = useMemo<PickedSymbol[]>(() => {
-    if (!chooserOpen) return [];
-    const powerOnly = activeTool === 'placePower';
-    const seen = new Set<string>();
-    const out: PickedSymbol[] = [];
-    for (const d of liveDocs().values()) {
-      const libs = new Map(d.libSymbols.map((l) => [l.libId, l]));
-      for (const s of d.symbols) {
-        if (seen.has(s.libId)) continue;
-        seen.add(s.libId);
-        const lib = libs.get(schSymbolLibraryName(s));
-        if (lib && lib.isPower === powerOnly) out.push({ libId: s.libId, unit: 1, fields: [] });
-      }
-    }
-    return out;
-  }, [chooserOpen, activeTool, liveDocs]);
-
-  // Resolve a LIB_ID from the schematics' embedded library caches, so the
-  // chooser groups show descriptions/units without refetching libraries.
-  const getPlacedLibSymbol = useCallback(
-    (libId: string): LibSymbol | undefined => {
-      const own = libById.get(libId);
-      if (own) return own;
-      for (const d of liveDocs().values()) {
-        const hit = d.libSymbols.find((l) => l.libId === libId);
-        if (hit) return hit;
-      }
-      return undefined;
-    },
-    [libById, liveDocs],
-  );
-
-  const onChooserOk = useCallback(
-    (result: SymbolChooserResult | null) => {
-      // OK with nothing selected returns an invalid LIB_ID; the tool ignores
-      // it and the chooser comes straight back (sch_drawing_tools.cpp).
-      if (!result) return;
-      const { symbol, unit, fields, keepSymbol, placeAllUnits } = result;
-
-      // Field edits (the footprint override) land on the embedded library copy.
-      let lib = symbol;
-      for (const [key, value] of fields) {
-        const properties = lib.properties.some((p) => p.key === key)
-          ? lib.properties.map((p) => (p.key === key ? { ...p, value } : p))
-          : [
-              ...lib.properties,
-              (() => {
-                const field = {
-                  key,
-                  value,
-                  angle: 0,
-                  effects: { hidden: true, fontSize: [12700, 12700] as [number, number] },
-                };
-                return { ...field, source: buildPropertyNode(field) };
-              })(),
-            ];
-        lib = { ...lib, properties };
-      }
-
-      const unitCount = new Set(lib.units.map((u) => u.unit).filter((u) => u > 0)).size || 1;
-      placeFlags.current = { keepSymbol, placeAllUnits, unitCount };
-
-      // AddSymbolToHistory: most recent first, deduplicated by LIB_ID.
-      const hist = activeTool === 'placePower' ? sPowerHistoryList : sSymbolHistoryList;
-      const dup = hist.findIndex((h) => h.libId === symbol.libId);
-      if (dup >= 0) hist.splice(dup, 1);
-      hist.unshift({ libId: symbol.libId, unit: unit > 0 ? unit : 1, fields });
-
-      setPlaceLib(lib);
-    },
-    [activeTool],
-  );
 
   // The stored page number of the sheet instance at `path`
   // (SCH_SHEET_PATH::GetPageNumber): the root sheet from the document-level
@@ -9088,15 +9067,21 @@ export function SchematicEditor({
         />
       )}
 
-      {chooserOpen && (
+      {/* DIALOG_SYMBOL_CHOOSER, opened by PickSymbolFromLibrary for the live tools. */}
+      {chooserRequest && (
         <DialogSymbolChooser
-          powerFilter={activeTool === 'placePower'}
-          showFootprints={es.appearance.footprint_preview}
-          historyList={activeTool === 'placePower' ? sPowerHistoryList : sSymbolHistoryList}
-          alreadyPlaced={alreadyPlaced}
-          getPlacedLibSymbol={getPlacedLibSymbol}
-          onOk={onChooserOk}
-          onCancel={() => setChooserDismissed(true)}
+          powerFilter={chooserRequest.filter?.GetFilterPowerSymbols() ?? false}
+          showFootprints={chooserRequest.showFootprints}
+          historyList={chooserRequest.history.map(pickedToChooser)}
+          alreadyPlaced={chooserRequest.placed.map(pickedToChooser)}
+          onOk={(result) => {
+            setChooserRequest(null);
+            chooserRequest.resolve(result ? chooserToPicked(result) : null);
+          }}
+          onCancel={() => {
+            setChooserRequest(null);
+            chooserRequest.resolve(null);
+          }}
         />
       )}
 
