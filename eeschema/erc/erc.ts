@@ -124,14 +124,21 @@ export function ercExclusionKey(v: Pick<ErcViolation, 'code' | 'at' | 'items' | 
 }
 
 // The active ERC configuration for the current run (set at the top of runErc).
-let g_settings: ErcSettings = defaultErcSettings();
+let g_settingsSet: ErcSettings | null = null;
+
+/** The defaults are made on first use, not at load: erc_settings.ts may not have run yet when a
+ *  module cycle reaches this file. */
+function settingsNow(): ErcSettings {
+  g_settingsSet ??= defaultErcSettings();
+  return g_settingsSet;
+}
 // The sheet being checked, stamped onto every marker it produces.
 let g_file: string | undefined;
 
 const violation = (code: ErcCode, message: string, at: Vec2, items: string[]): ErcViolation => ({
   code,
   // 'ignore' rules are dropped after the run; the survivors are error/warning.
-  severity: g_settings.severities[code] as ErcSeverity,
+  severity: settingsNow().severities[code] as ErcSeverity,
   message,
   at,
   items,
@@ -343,7 +350,7 @@ export function* runErcSteps(
   settings: ErcSettings = defaultErcSettings(),
   opts: ErcRunOptions = {},
 ): Generator<string, ErcViolation[], void> {
-  g_settings = settings;
+  g_settingsSet = settings;
   g_file = opts.sheetFile;
   const out: ErcViolation[] = [];
   const netlist = computeNetlist(sch, libById, {
@@ -1100,7 +1107,7 @@ export function* runErcSteps(
         // pairs that both live off-sheet are left to that sheet's own run).
         for (const ext of external) {
           if (stacked2(ref, ext)) continue;
-          const erc = g_settings.pinMap[typeIndex(refType)]![typeIndex(ext.electricalType)]!;
+          const erc = settingsNow().pinMap[typeIndex(refType)]![typeIndex(ext.electricalType)]!;
           if (erc !== OK) {
             externalMismatches.push([i, ext, erc]);
             mismatchCounts.set(i, (mismatchCounts.get(i) ?? 0) + 1);
@@ -1110,7 +1117,7 @@ export function* runErcSteps(
         for (let j = i + 1; j < gpins.length; j++) {
           const test = gpins[j]!;
           if (stacked(ref, test)) continue; // stacked pins don't conflict
-          const erc = g_settings.pinMap[typeIndex(refType)]![typeIndex(test.electricalType)]!;
+          const erc = settingsNow().pinMap[typeIndex(refType)]![typeIndex(test.electricalType)]!;
           if (erc !== OK) {
             mismatches.push([i, j, erc]);
             mismatchCounts.set(i, (mismatchCounts.get(i) ?? 0) + 1);
@@ -1438,7 +1445,7 @@ export function* runErcSteps(
 
   /** ERC_TESTER::TestSimModelIssues. */
   const testSimModelIssues = (): void => {
-    if (g_settings.severities.simulation_model_issue !== 'ignore') {
+    if (settingsNow().severities.simulation_model_issue !== 'ignore') {
       sch.symbols.forEach((sym, i) => {
         const reference = sym.fields.find((f) => f.key === 'Reference')?.value ?? '';
         // Power symbols and anything else referenced with '#' are not simulated.
@@ -2115,7 +2122,7 @@ export function* runErcSteps(
   testMissingNetclasses();
 
   // Drop rules set to "ignore" in the Schematic Setup severities panel.
-  const kept = out.filter((v) => g_settings.severities[v.code] !== 'ignore');
+  const kept = out.filter((v) => settingsNow().severities[v.code] !== 'ignore');
 
   // Stable order: errors first, then by position (KiCad sorts its report).
   kept.sort((a, b) =>

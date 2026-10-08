@@ -28,8 +28,8 @@
 
 import type { ErcCode, ErcSeverityLevel, PinError } from './index.js';
 // Straight from the declaring module, not ./index.js: cross-probing.ts imports
-// this file, and through the barrel's cycle ERC_ITEMS was still undefined when
-// SEVERITY_KEYS read it at load time.
+// this file, and through the barrel's cycle ERC_ITEMS can still be undefined at
+// load time - so severityKeys() reads it on first use.
 import { ERC_ITEMS, PIN_TYPES } from './erc/erc_settings.js';
 import type { RawFile } from '@ziroeda/common';
 import {
@@ -115,9 +115,14 @@ function str(v: unknown, dflt: string): string {
  *  ERC_ITEM::GetItemsWithSeverities, so the file round-trips exactly what KiCad
  *  writes. The internal types (`duplicate_pins`, `pin_to_pin_error`) sit past
  *  `heading_internal` upstream and are deliberately not serialized. */
-const SEVERITY_KEYS: readonly (readonly [ErcCode, string])[] = ERC_ITEMS.map(
-  (item) => [item.code, item.code] as const,
-);
+let s_severityKeys: readonly (readonly [ErcCode, string])[] | null = null;
+
+/** Read on first use, not at load: the eeschema module graph has cycles through this file, and
+ *  any of them can reach here before erc_settings.ts has run. */
+function severityKeys(): readonly (readonly [ErcCode, string])[] {
+  s_severityKeys ??= ERC_ITEMS.map((item) => [item.code, item.code] as const);
+  return s_severityKeys;
+}
 
 /** KiCad's "auto" operating-point range sentinels ('~V' / '~A'); the panel
  *  shows them as 'Auto'. */
@@ -356,7 +361,7 @@ export function readSchematicSetupText(proText: string): SchematicSetup {
   // erc.*, ERC_SETTINGS.
   const sev = getPath(j, 'erc.rule_severities');
   if (isObj(sev)) {
-    for (const [code, key] of SEVERITY_KEYS) {
+    for (const [code, key] of severityKeys()) {
       const v = sev[key];
       if (v === 'error' || v === 'warning' || v === 'ignore')
         s.erc.severities[code] = v as ErcSeverityLevel;
@@ -714,7 +719,7 @@ export function writeSchematicSetupText(proText: string, s: SchematicSetup): str
   // erc.rule_severities: overwrite our keys, keep unknown rules untouched.
   const oldSev = getPath(j, 'erc.rule_severities');
   const sevOut: Json = isObj(oldSev) ? { ...oldSev } : {};
-  for (const [code, key] of SEVERITY_KEYS) sevOut[key] = s.erc.severities[code];
+  for (const [code, key] of severityKeys()) sevOut[key] = s.erc.severities[code];
   setPath(j, 'erc.rule_severities', sevOut);
 
   // erc.pin_map (12x12) and erc.erc_exclusions ([signature, comment] pairs;

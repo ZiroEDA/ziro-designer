@@ -50,6 +50,55 @@ export interface DESIGN_BLOCK_PLACEMENT_OPTIONS {
   keep_annotations: boolean;
 }
 
+/**
+ * `FILEDLG_IMPORT_SHEET_CONTENTS` (sch_design_block_pane.cpp:163): the four placement check boxes
+ * the Import Sheet file dialog carries, seeded from and written back to
+ * `m_DesignBlockChooserPanel` (`TransferDataFromCustomControls`) when the window showed them.
+ */
+export interface FILEDLG_IMPORT_SHEET_CONTENTS {
+  kind: 'import_sheet_contents';
+  attached: boolean;
+  repeated_placement: boolean;
+  place_as_group: boolean;
+  place_as_sheet: boolean;
+  keep_annotations: boolean;
+}
+
+/** `FILEDLG_IMPORT_SHEET_CONTENTS( aSettings )`: the boxes as the settings have them. */
+export function MakeFileDlgImportSheetContents(aSettings: {
+  repeated_placement: boolean;
+  place_as_group: boolean;
+  place_as_sheet: boolean;
+  keep_annotations: boolean;
+}): FILEDLG_IMPORT_SHEET_CONTENTS {
+  return {
+    kind: 'import_sheet_contents',
+    attached: false,
+    repeated_placement: aSettings.repeated_placement,
+    place_as_group: aSettings.place_as_group,
+    place_as_sheet: aSettings.place_as_sheet,
+    keep_annotations: aSettings.keep_annotations,
+  };
+}
+
+/** `TransferDataFromCustomControls()`: the boxes into the settings. */
+export function TransferImportSheetContents(
+  aHook: FILEDLG_IMPORT_SHEET_CONTENTS,
+  aSettings: {
+    repeated_placement: boolean;
+    place_as_group: boolean;
+    place_as_sheet: boolean;
+    keep_annotations: boolean;
+  },
+): void {
+  if (!aHook.attached) return;
+
+  aSettings.repeated_placement = aHook.repeated_placement;
+  aSettings.place_as_group = aHook.place_as_group;
+  aSettings.place_as_sheet = aHook.place_as_sheet;
+  aSettings.keep_annotations = aHook.keep_annotations;
+}
+
 export class SCH_DESIGN_BLOCK_PANE extends DESIGN_BLOCK_PANE {
   private readonly m_readOptions: () => DESIGN_BLOCK_PLACEMENT_OPTIONS;
   private readonly m_writeOptions: (aOptions: DESIGN_BLOCK_PLACEMENT_OPTIONS) => void;

@@ -50,9 +50,13 @@ import {
 import type { SCHEMATIC_SETTINGS } from './schematic_settings.js';
 import type { FILEDLG_HOOK_SAVE_PROJECT } from './files-io.js';
 import type { FILEDLG_HOOK_NEW_LIBRARY } from '@ziroeda/common/widgets/filedlg_hook_new_library.js';
+import type { FILEDLG_IMPORT_SHEET_CONTENTS } from './widgets/sch_design_block_pane.js';
 
 /** The customize hooks a file dialog of this frame can carry; the window tells them apart. */
-export type FILEDLG_HOOK = FILEDLG_HOOK_SAVE_PROJECT | FILEDLG_HOOK_NEW_LIBRARY;
+export type FILEDLG_HOOK =
+  | FILEDLG_HOOK_SAVE_PROJECT
+  | FILEDLG_HOOK_NEW_LIBRARY
+  | FILEDLG_IMPORT_SHEET_CONTENTS;
 import { PosixPath } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
 import { TEXTVARS_CHANGED } from '@ziroeda/common/tool/tools_holder.js';
 import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';

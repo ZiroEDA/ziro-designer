@@ -11,7 +11,14 @@
  */
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { IGNORE_PARENT_GROUP, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
-import { IS_MOVING, IS_NEW, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
+import {
+  ENDPOINT,
+  IS_MOVING,
+  IS_NEW,
+  SKIP_STRUCT,
+  STARTPOINT,
+  STRUCT_DELETED,
+} from '@ziroeda/common/eda_item_flags.js';
 import { FILL_T } from '@ziroeda/common/eda_shape.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
@@ -19,7 +26,21 @@ import { parseColor4d } from '@ziroeda/common/gal/color4d.js';
 import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import { type KIID, newKiid } from '@ziroeda/common/kiid.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
-import { Pgm } from '@ziroeda/common/pgm_base.js';
+import { Pgm, PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import type { DESIGN_BLOCK } from '@ziroeda/common/design_block.js';
+import {
+  imageFileWildcard,
+  kicadSchematicWildcard,
+} from '@ziroeda/common/wildcards_and_files_ext.js';
+import { wxFD_FILE_MUST_EXIST, wxFD_OPEN } from '@ziroeda/common/wx/defs.js';
+import { wxFileExists, wxReadFileSync } from '@ziroeda/common/wx/filefn.js';
+import { SCH_BITMAP } from '../sch_bitmap.js';
+import { SCH_GROUP } from '../sch_group.js';
+import {
+  MakeFileDlgImportSheetContents,
+  TransferImportSheetContents,
+} from '../widgets/sch_design_block_pane.js';
+import { UniqueGroupName } from './sch_tool_utils.js';
 import { NULL_REPORTER } from '@ziroeda/common/reporter.js';
 import { strNumCmp } from '@ziroeda/common/string_utils.js';
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
@@ -2156,6 +2177,575 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   }
 
   /**
+   * `PlaceImage( aEvent )` (sch_drawing_tools.cpp:1110): a click asks for an image file, the image
+   * follows the cursor, and the next click places it. Given a SCH_BITMAP (a pasted image) it starts
+   * already following the cursor and ends after one placement.
+   */
+  *PlaceImage(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    let image: SCH_BITMAP | null = aEvent.Parameter<SCH_BITMAP>() ?? null;
+    const immediateMode = image !== null;
+    let ignorePrimePosition = false;
+    const common_settings = PgmOrNull()?.GetCommonSettings() ?? null;
+
+    if (this.m_inDrawingTool) return 0;
+
+    // REENTRANCY_GUARD guard( &m_inDrawingTool )
+    this.m_inDrawingTool = true;
+
+    const grid = new EE_GRID_HELPER(this.m_toolMgr);
+    const controls = this.controls();
+    let cursorPos: VECTOR2I = { x: 0, y: 0 };
+
+    try {
+      this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+      // Add all the drawable symbols to preview
+      if (image) {
+        image.SetPosition(controls.GetCursorPosition());
+        this.m_view!.ClearPreview();
+        this.m_view!.AddToPreview(image, false); // Add, but not give ownership
+      }
+
+      this.m_frame!.PushTool(aEvent);
+
+      const setCursor = () => {
+        this.m_frame!.GetCanvas()?.SetCurrentCursor(image ? KICURSOR.MOVING : KICURSOR.ARROW);
+      };
+
+      const cleanup = () => {
+        this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+        this.m_view!.ClearPreview();
+        this.m_view!.RecacheAllItems();
+        image = null;
+      };
+
+      this.Activate();
+
+      // Must be done after Activate() so that it gets set into the correct context
+      controls.ShowCursor(true);
+
+      // Set initial cursor
+      setCursor();
+
+      // Prime the pump
+      if (image) {
+        this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
+      } else if (aEvent.HasPosition()) {
+        this.m_toolMgr!.PrimeTool(aEvent.Position());
+      } else if (common_settings?.m_Input.immediate_actions && !aEvent.IsReactivate()) {
+        this.m_toolMgr!.PrimeTool({ x: 0, y: 0 });
+        ignorePrimePosition = true;
+      }
+
+      // Main loop: keep receiving events
+      for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+        setCursor();
+        grid.SetSnap(!evt.Modifier(MD_SHIFT));
+        grid.SetUseGrid(this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
+
+        cursorPos = grid.Align(controls.GetMousePosition(), GRID_HELPER_GRIDS.GRID_GRAPHICS);
+        controls.ForceCursorPosition(true, cursorPos);
+
+        // The tool hotkey is interpreted as a click when drawing
+        const isSyntheticClick =
+          !!image && evt.IsActivate() && evt.HasPosition() && evt.Matches(aEvent);
+
+        if (evt.IsCancelInteractive() || (image && evt.IsAction(ACTIONS.undo))) {
+          this.m_frame!.GetInfoBar()?.Dismiss();
+
+          if (image) {
+            cleanup();
+          } else {
+            this.m_frame!.PopTool(aEvent);
+            break;
+          }
+
+          if (immediateMode) {
+            this.m_frame!.PopTool(aEvent);
+            break;
+          }
+        } else if (evt.IsActivate() && !isSyntheticClick) {
+          if (image && evt.IsMoveTool()) {
+            // we're already moving our own item; ignore the move tool
+            evt.SetPassEvent(false);
+            continue;
+          }
+
+          if (image) {
+            this.m_frame!.ShowInfoBarMsg('Press <ESC> to cancel image creation.');
+            evt.SetPassEvent(false);
+            continue;
+          }
+
+          if (evt.IsMoveTool()) {
+            // leave ourselves on the stack so we come back after the move
+            break;
+          }
+
+          this.m_frame!.PopTool(aEvent);
+          break;
+        } else if (
+          evt.IsClick(BUT_LEFT) ||
+          evt.IsDblClick(BUT_LEFT) ||
+          isSyntheticClick ||
+          evt.IsAction(ACTIONS.cursorClick) ||
+          evt.IsAction(ACTIONS.cursorDblClick)
+        ) {
+          if (!image) {
+            this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+            const fullFilename = yield* this.RunMainStackModal(() =>
+              this.m_frame!.ShowFileDialog(
+                'Choose Image',
+                this.m_mruPath,
+                '',
+                [imageFileWildcard()],
+                wxFD_OPEN,
+              ),
+            );
+
+            if (!fullFilename) continue;
+
+            // If we started with a hotkey which has a position then warp back to that.
+            // Otherwise update to the current mouse position pinned inside the autoscroll
+            // boundaries.
+            if (evt.IsPrime() && !ignorePrimePosition) {
+              cursorPos = grid.Align(evt.Position());
+              controls.WarpMouseCursor(cursorPos, true);
+            } else {
+              controls.PinCursorInsideNonAutoscrollArea(true);
+              cursorPos = controls.GetMousePosition();
+            }
+
+            this.m_mruPath = fullFilename.slice(0, Math.max(0, fullFilename.lastIndexOf('/')));
+
+            if (wxFileExists(fullFilename)) image = new SCH_BITMAP(cursorPos);
+
+            const bytes = wxReadFileSync(fullFilename);
+
+            if (!image || !bytes || !image.GetReferenceImage().ReadImageFile(bytes)) {
+              // wxMessageBox
+              this.m_frame!.DisplayError(`Could not load image from '${fullFilename}'.`);
+              image = null;
+              continue;
+            }
+
+            image.SetFlags(IS_NEW | IS_MOVING);
+
+            this.m_frame!.SaveCopyForRepeatItem(image);
+
+            this.m_view!.ClearPreview();
+            this.m_view!.AddToPreview(image, false); // Add, but not give ownership
+            this.m_view!.RecacheAllItems(); // Bitmaps are cached in Opengl
+
+            this.m_selectionTool!.AddItemToSel(image);
+
+            controls.SetCursorPosition(cursorPos, false);
+            setCursor();
+          } else {
+            const commit = new SCH_COMMIT(this.m_toolMgr!);
+            commit.Add(image, this.m_frame!.GetScreen());
+            commit.Push('Place Image');
+
+            image = null;
+            this.m_toolMgr!.PostAction(ACTIONS.activatePointEditor);
+
+            this.m_view!.ClearPreview();
+
+            if (immediateMode) {
+              this.m_frame!.PopTool(aEvent);
+              break;
+            }
+          }
+        } else if (evt.IsClick(BUT_RIGHT)) {
+          // Warp after context menu only if dragging...
+          if (!image) this.m_toolMgr!.VetoContextMenuMouseWarp();
+
+          this.m_menu?.ShowContextMenu(this.m_selectionTool!.GetSelection());
+        } else if (
+          evt.IsAction(ACTIONS.duplicate) ||
+          evt.IsAction(SCH_ACTIONS.repeatDrawItem) ||
+          evt.IsAction(ACTIONS.paste)
+        ) {
+          if (image) {
+            // This doesn't really make sense; we'll just end up dragging a stack of objects so
+            // we ignore the duplicate and just carry on.
+            wxBell();
+            continue;
+          }
+
+          // Exit.  The duplicate/repeat/paste will run in its own loop.
+          this.m_frame!.PopTool(aEvent);
+          evt.SetPassEvent();
+          break;
+        } else if (image && (evt.IsAction(ACTIONS.refreshPreview) || evt.IsMotion())) {
+          image.SetPosition(cursorPos);
+          this.m_view!.ClearPreview();
+          this.m_view!.AddToPreview(image, false); // Add, but not give ownership
+          this.m_view!.RecacheAllItems(); // Bitmaps are cached in Opengl
+          this.m_frame!.SetMsgPanel(image);
+        } else if (image && evt.IsAction(ACTIONS.doDelete)) {
+          cleanup();
+        } else if (image && evt.IsAction(ACTIONS.redo)) {
+          wxBell();
+        } else {
+          evt.SetPassEvent();
+        }
+
+        // Enable autopanning and cursor capture only when there is an image to be placed
+        controls.SetAutoPan(image !== null);
+        controls.CaptureCursor(image !== null);
+      }
+
+      controls.SetAutoPan(false);
+      controls.CaptureCursor(false);
+      this.m_frame!.GetCanvas()?.SetCurrentCursor(KICURSOR.ARROW);
+
+      return 0;
+    } finally {
+      this.m_inDrawingTool = false;
+    }
+  }
+
+  /**
+   * `ImportSheet( aEvent )` (sch_drawing_tools.cpp:729), also Place Design Block: a schematic's
+   * contents placed under the cursor (as a group, annotated or not, repeatedly), or a click that
+   * starts drawing the sheet that will hold it.
+   */
+  *ImportSheet(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const common_settings = PgmOrNull()?.GetCommonSettings() ?? null;
+    const cfg = this.m_frame!.eeconfig();
+    // m_DesignBlockChooserPanel lives on APP_SETTINGS_BASE, not in the eeschema JSON slice
+    const chooser = this.m_frame!.config()?.m_DesignBlockChooserPanel ?? null;
+    const schSettings = this.schematic().Settings();
+    const screen = this.m_frame!.GetScreen()!;
+    const sheetPath = this.m_frame!.GetCurrentSheet();
+
+    const controls = this.controls();
+    const grid = new EE_GRID_HELPER(this.m_toolMgr);
+    let cursorPos: VECTOR2I = { x: 0, y: 0 };
+
+    // Guard to reset forced cursor positioning on exit, regardless of error path
+    try {
+      if (!cfg || !common_settings || !chooser) return 0;
+
+      if (this.m_inDrawingTool) return 0;
+
+      const placingDesignBlock = aEvent.IsAction(SCH_ACTIONS.placeDesignBlock);
+
+      let designBlock: DESIGN_BLOCK | null = null;
+      let sheetFileName = '';
+
+      if (placingDesignBlock) {
+        const designBlockPane = this.m_frame!.GetDesignBlockPane();
+
+        if (designBlockPane?.GetSelectedLibId().IsValid()) {
+          designBlock = designBlockPane.GetDesignBlock(
+            designBlockPane.GetSelectedLibId(),
+            true,
+            true,
+          );
+
+          if (!designBlock) {
+            this.m_frame!.ShowInfoBarError(
+              `Could not find design block ${designBlockPane.GetSelectedLibId().GetUniStringLibId()}.`,
+              true,
+            );
+            return 0;
+          }
+
+          sheetFileName = designBlock.GetSchematicFile();
+
+          if (sheetFileName === '' || !wxFileExists(sheetFileName)) {
+            this.m_frame!.ShowInfoBarError('Design block has no schematic to place.', true);
+            return 0;
+          }
+        }
+      } else {
+        const importSourceFile = aEvent.Parameter<string>();
+
+        if (importSourceFile) sheetFileName = importSourceFile;
+      }
+
+      const setCursor = () => {
+        this.m_frame!.GetCanvas()?.SetCurrentCursor(
+          designBlock ? KICURSOR.MOVING : KICURSOR.COMPONENT,
+        );
+      };
+
+      const self = this;
+
+      function* placeSheetContents(): COROUTINE_BODY<boolean> {
+        const commit = new SCH_COMMIT(self.m_toolMgr!);
+        // m_toolMgr->GetTool<SCH_SELECTION_TOOL>(): the tool's own m_selectionTool
+        const selectionTool = self.m_selectionTool!;
+
+        const newItems: EDA_ITEM[] = [];
+        const keepAnnotations = chooser!.keep_annotations;
+        const placeAsGroup = chooser!.place_as_group;
+
+        selectionTool.ClearSelection();
+
+        // Mark all existing items on the screen so we don't select them after appending
+        for (const item of screen.Items()) item.SetFlags(SKIP_STRUCT);
+
+        const loaded = yield* self.RunMainStackModal(() =>
+          self.m_frame!.LoadSheetFromFile(
+            sheetPath.Last()!,
+            sheetPath,
+            sheetFileName,
+            true,
+            placingDesignBlock,
+          ),
+        );
+
+        if (!loaded) return false;
+
+        self.m_frame!.SetSheetNumberAndCount();
+
+        self.m_frame!.SyncView();
+        self.m_frame!.OnModify();
+        self.m_frame!.HardRedraw(); // Full reinit of the current screen and the display.
+
+        let group: SCH_GROUP | null = null;
+
+        if (placeAsGroup) {
+          group = new SCH_GROUP(screen);
+
+          let baseName: string;
+
+          if (designBlock) {
+            baseName = designBlock.GetLibId().GetLibItemName();
+            group.SetDesignBlockLibId(designBlock.GetLibId());
+          } else {
+            const full = sheetFileName.slice(sheetFileName.lastIndexOf('/') + 1);
+            baseName = full.includes('.') ? full.slice(0, full.lastIndexOf('.')) : full;
+          }
+
+          group.SetName(UniqueGroupName(screen, baseName));
+        }
+
+        const autoAnnotate = !keepAnnotations && cfg!.annotation.automatic;
+
+        // Select all new items
+        for (const item of [...screen.Items()]) {
+          if (!item.HasFlag(SKIP_STRUCT)) {
+            // When auto-annotating, preserve original refs so that AnnotateSymbols can build
+            // correct locked groups for multi-unit symbols before assigning new references.
+            // Clearing first would leave locked groups empty, causing units from different
+            // same-value arrays to get mixed.
+            if (item.Type() === KICAD_T.SCH_SYMBOL_T && !keepAnnotations && !autoAnnotate)
+              (item as SCH_SYMBOL).ClearAnnotation(sheetPath, false);
+
+            if (item.Type() === KICAD_T.SCH_LINE_T) item.SetFlags(STARTPOINT | ENDPOINT);
+
+            if (!item.GetParentGroup()) {
+              if (placeAsGroup) group!.AddItem(item);
+
+              newItems.push(item);
+            }
+
+            commit.Added(item, screen);
+          } else {
+            item.ClearFlags(SKIP_STRUCT);
+          }
+        }
+
+        if (placeAsGroup) {
+          commit.Add(group!, screen);
+          selectionTool.AddItemToSel(group!);
+        } else {
+          selectionTool.AddItemsToSel(newItems, true);
+        }
+
+        cursorPos = grid.Align(
+          controls.GetMousePosition(),
+          grid.GetSelectionGrid(selectionTool.GetSelection()),
+        );
+        controls.ForceCursorPosition(true, cursorPos);
+
+        // Move everything to our current mouse position now that we have a selection to get a
+        // reference point
+        const anchorPos = selectionTool.GetSelection().GetReferencePoint();
+        const delta = { x: cursorPos.x - anchorPos.x, y: cursorPos.y - anchorPos.y };
+
+        // Will all be SCH_ITEMs as these were pulled from the screen->Items()
+        for (const item of newItems) (item as SCH_ITEM).Move(delta);
+
+        if (!keepAnnotations || placingDesignBlock) {
+          if (autoAnnotate) {
+            self.m_frame!.AnnotateSymbols(
+              commit,
+              ANNOTATE_SCOPE_T.ANNOTATE_SELECTION,
+              schSettings.m_AnnotateSortOrder as ANNOTATE_ORDER_T,
+              schSettings.m_AnnotateMethod as ANNOTATE_ALGO_T,
+              true /* recursive */,
+              schSettings.m_AnnotateStartNum,
+              true /* aResetAnnotation */,
+              false,
+              false,
+              new NULL_REPORTER(),
+              SYMBOL_FILTER.SYMBOL_FILTER_NON_POWER,
+            );
+          }
+
+          if (placingDesignBlock) {
+            if (placeAsGroup) selectionTool.AddItemToSel(group!);
+            else selectionTool.AddItemsToSel(newItems, true);
+
+            self.m_frame!.AnnotateSymbols(
+              commit,
+              ANNOTATE_SCOPE_T.ANNOTATE_SELECTION,
+              schSettings.m_AnnotateSortOrder as ANNOTATE_ORDER_T,
+              schSettings.m_AnnotateMethod as ANNOTATE_ALGO_T,
+              true /* recursive */,
+              schSettings.m_AnnotateStartNum,
+              true /* aResetAnnotation */,
+              false,
+              false,
+              new NULL_REPORTER(),
+              SYMBOL_FILTER.SYMBOL_FILTER_POWER,
+            );
+          }
+
+          // Annotation will clear selection, so we need to restore it
+          for (const item of newItems) {
+            if (item.Type() === KICAD_T.SCH_LINE_T) item.SetFlags(STARTPOINT | ENDPOINT);
+          }
+
+          if (placeAsGroup) selectionTool.AddItemToSel(group!);
+          else selectionTool.AddItemsToSel(newItems, true);
+        }
+
+        // Start moving selection, cancel undoes the insertion
+        const placed = yield* self.RunSynchronousActionWait(SCH_ACTIONS.move, commit);
+
+        // Update our cursor position to the new location in case we're placing repeated copies
+        cursorPos = grid.Align(controls.GetMousePosition(), GRID_HELPER_GRIDS.GRID_CONNECTABLE);
+
+        if (placed)
+          commit.Push(placingDesignBlock ? 'Add Design Block' : 'Import Schematic Sheet Content');
+        else commit.Revert();
+
+        selectionTool.RebuildSelection();
+        self.m_frame!.UpdateHierarchyNavigator();
+
+        return placed;
+      }
+
+      // Whether we are placing the sheet as a sheet, or as its contents, we need to get a filename
+      // if we weren't provided one
+      if (sheetFileName === '') {
+        if (!placingDesignBlock) {
+          const fullName = this.m_frame!.Prj().GetProjectFullName();
+          const path = fullName.slice(0, Math.max(0, fullName.lastIndexOf('/')));
+
+          // Open file chooser dialog even if we have been provided a file so the user can select
+          // the options they want
+          const dlgHook = MakeFileDlgImportSheetContents(chooser);
+          const chosen = yield* this.RunMainStackModal(() =>
+            this.m_frame!.ShowFileDialog(
+              'Choose Schematic',
+              path,
+              '',
+              [kicadSchematicWildcard()],
+              wxFD_OPEN | wxFD_FILE_MUST_EXIST,
+              dlgHook,
+            ),
+          );
+
+          if (!chosen) return 0;
+
+          TransferImportSheetContents(dlgHook, chooser);
+          sheetFileName = chosen;
+
+          this.m_frame!.GetDesignBlockPane()?.UpdateCheckboxes();
+        }
+
+        if (sheetFileName === '') return 0;
+      }
+
+      // If we're placing sheet contents, we don't even want to run our tool loop, just add the
+      // items to the canvas and run the move tool
+      if (!chooser.place_as_sheet) {
+        while ((yield* placeSheetContents()) && chooser.repeated_placement) {
+          // place another copy
+        }
+
+        this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+        this.m_view?.ClearPreview();
+        return 0;
+      }
+
+      // We're placing a sheet as a sheet, we need to run a small tool loop to get the starting
+      // coordinate of the sheet drawing
+      this.m_frame!.PushTool(aEvent);
+
+      this.Activate();
+
+      // Must be done after Activate() so that it gets set into the correct context
+      controls.ShowCursor(true);
+
+      // Set initial cursor
+      setCursor();
+
+      if (common_settings.m_Input.immediate_actions && !aEvent.IsReactivate())
+        this.m_toolMgr!.PrimeTool({ x: 0, y: 0 });
+
+      // Main loop: keep receiving events
+      for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+        setCursor();
+        grid.SetSnap(!evt.Modifier(MD_SHIFT));
+        grid.SetUseGrid(this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
+
+        cursorPos = grid.Align(controls.GetMousePosition(), GRID_HELPER_GRIDS.GRID_CONNECTABLE);
+        controls.ForceCursorPosition(true, cursorPos);
+
+        // The tool hotkey is interpreted as a click when drawing
+        const isSyntheticClick =
+          !!designBlock && evt.IsActivate() && evt.HasPosition() && evt.Matches(aEvent);
+
+        if (evt.IsCancelInteractive() || (designBlock && evt.IsAction(ACTIONS.undo))) {
+          this.m_frame!.GetInfoBar()?.Dismiss();
+          break;
+        } else if (evt.IsActivate() && !isSyntheticClick) {
+          this.m_frame!.GetInfoBar()?.Dismiss();
+          break;
+        } else if (
+          evt.IsClick(BUT_LEFT) ||
+          evt.IsDblClick(BUT_LEFT) ||
+          isSyntheticClick ||
+          evt.IsAction(ACTIONS.cursorClick) ||
+          evt.IsAction(ACTIONS.cursorDblClick)
+        ) {
+          // drawSheet must delete designBlock / sheetFileName
+          if (placingDesignBlock)
+            this.m_toolMgr!.PostAction(SCH_ACTIONS.drawSheetFromDesignBlock, designBlock);
+          else this.m_toolMgr!.PostAction(SCH_ACTIONS.drawSheetFromFile, sheetFileName);
+
+          break;
+        } else if (evt.IsClick(BUT_RIGHT)) {
+          // Warp after context menu only if dragging...
+          if (!designBlock) this.m_toolMgr!.VetoContextMenuMouseWarp();
+
+          this.m_menu?.ShowContextMenu(this.m_selectionTool!.GetSelection());
+        } else if (evt.IsAction(ACTIONS.duplicate) || evt.IsAction(SCH_ACTIONS.repeatDrawItem)) {
+          wxBell();
+        } else {
+          evt.SetPassEvent();
+        }
+      }
+
+      this.m_frame!.PopTool(aEvent);
+      this.m_frame!.GetCanvas()?.SetCurrentCursor(KICURSOR.ARROW);
+
+      return 0;
+    } finally {
+      controls.ForceCursorPosition(false);
+    }
+  }
+
+  /**
    * DrawSheet. drawSheetFromDesignBlock (a DESIGN_BLOCK's schematic) is not ported yet: the design
    * block libraries are not on the live model.
    */
@@ -2738,6 +3328,9 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     this.Go(this.TwoClickPlace, SCH_ACTIONS.placeClassLabel.MakeEvent());
     this.Go(this.TwoClickPlace, SCH_ACTIONS.placeHierLabel.MakeEvent());
     this.Go(this.TwoClickPlace, SCH_ACTIONS.placeGlobalLabel.MakeEvent());
+    this.Go(this.PlaceImage, SCH_ACTIONS.placeImage.MakeEvent());
+    this.Go(this.ImportSheet, SCH_ACTIONS.placeDesignBlock.MakeEvent());
+    this.Go(this.ImportSheet, SCH_ACTIONS.importSheet.MakeEvent());
     this.Go(this.DrawSheet, SCH_ACTIONS.drawSheet.MakeEvent());
     this.Go(this.DrawSheet, SCH_ACTIONS.drawSheetFromFile.MakeEvent());
     this.Go(this.TwoClickPlace, SCH_ACTIONS.placeSheetPin.MakeEvent());
