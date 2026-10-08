@@ -503,7 +503,7 @@ import { useHotkeyCyclePopup } from '@ziroeda/common/dialogs/hotkey_cycle_popup_
 import { resolveTemplateFieldnames } from '@ziroeda/common/template_fieldnames.js';
 import type { RenderOpts } from './sch_render_settings.js';
 import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
-import { SchPropertiesPanel } from './widgets/sch_properties_panel_ui.js';
+import { LiveSchPropertiesPanel, SchPropertiesPanel } from './widgets/sch_properties_panel_ui.js';
 import { SearchPanel } from './widgets/sch_search_pane.js';
 import { NetNavigatorPanel } from './widgets/net_navigator_panel.js';
 import { DialogUpdateFromPcb } from './dialogs/dialog_update_from_pcb.js';
@@ -10041,16 +10041,24 @@ export function SchematicEditor({
                                   PROPERTIES_PANEL's own (properties_panel.cpp:
                                   196-210), so the panel renders them rather
                                   than the frame swapping in a placeholder. */}
-                              <SchPropertiesPanel
-                                rows={propRows}
-                                selectionCount={selection.size}
-                                friendlyName={propFriendlyName}
-                                units={units}
-                                onCommand={runCommand}
-                                onBrowseFootprint={(current, commit) =>
-                                  setFpChooser({ current, commit, ...selectedSymbolFpContext() })
-                                }
-                              />
+                              {/* `?schgal=1` (TRANSITIONAL, S5): SCH_PROPERTIES_PANEL on the live model. */}
+                              {SCH_GAL ? (
+                                <LiveSchPropertiesPanel
+                                  frame={schFrameRef.current!}
+                                  units={units}
+                                />
+                              ) : (
+                                <SchPropertiesPanel
+                                  rows={propRows}
+                                  selectionCount={selection.size}
+                                  friendlyName={propFriendlyName}
+                                  units={units}
+                                  onCommand={runCommand}
+                                  onBrowseFootprint={(current, commit) =>
+                                    setFpChooser({ current, commit, ...selectedSymbolFpContext() })
+                                  }
+                                />
+                              )}
                             </div>
                           </div>
                           {sashAfter('properties')}

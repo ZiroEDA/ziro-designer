@@ -24,9 +24,10 @@
  * kind of thing was selected.
  */
 
-import type { JSX } from 'react';
+import { type JSX, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditCommand } from '../tools/command.js';
-import type { PropRow } from './sch_properties_panel.js';
+import { type PropRow, SCH_PROPERTIES_PANEL } from './sch_properties_panel.js';
+import type { SCH_BASE_FRAME } from '../sch_base_frame.js';
 import { schIUScale } from '@ziroeda/common';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { PropertiesPanel } from '@ziroeda/common/widgets/properties_panel_ui.js';
@@ -75,6 +76,66 @@ export function SchPropertiesPanel({
       parse={(text) => PG_UNIT_EDITOR.GetValueFromControl(text, false, frame) ?? null}
       onCommand={onCommand}
       onBrowse={onBrowseFootprint}
+    />
+  );
+}
+
+/**
+ * The live panel (TRANSITIONAL window side, `?schgal=1`): SCH_PROPERTIES_PANEL over the frame's
+ * selection tool, each edit one SCH_COMMIT. The frame is handed the panel the way
+ * `EDA_DRAW_FRAME::m_propertiesPanel` holds it, so PROPERTIES_TOOL's selection and undo events
+ * (`UpdateProperties`) re-read the grid; an edit re-reads it through `AfterCommit`.
+ */
+export function LiveSchPropertiesPanel({
+  frame,
+  units,
+}: {
+  frame: SCH_BASE_FRAME;
+  units: StatusUnits;
+}): JSX.Element {
+  const panelRef = useRef<{ frame: SCH_BASE_FRAME; panel: SCH_PROPERTIES_PANEL } | null>(null);
+
+  if (panelRef.current?.frame !== frame)
+    panelRef.current = { frame, panel: new SCH_PROPERTIES_PANEL(frame) };
+
+  const panel = panelRef.current.panel;
+  // A new grid after UpdateData / AfterCommit: the model holds it, React only re-reads it.
+  const [version, setVersion] = useState(0);
+
+  useEffect(() => {
+    frame.SetPropertiesPanel({
+      IsShownOnScreen: () => true,
+      UpdateData: () => {
+        panel.UpdateData();
+        setVersion((v) => v + 1);
+      },
+    });
+    panel.UpdateData();
+    setVersion((v) => v + 1);
+
+    return () => frame.SetPropertiesPanel(null);
+  }, [frame, panel]);
+
+  const pgFrame: PG_FRAME = useMemo(
+    () => ({ units, iuScale: schIUScale, originTransforms: frame.GetOriginTransforms() }),
+    [units, frame],
+  );
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version is the trigger; the grid lives in the panel.
+  const rows = useMemo(() => panel.GridRows(pgFrame), [panel, pgFrame, version]);
+
+  return (
+    <PropertiesPanel<() => void>
+      selectionCount={panel.getSelection().length}
+      friendlyName={
+        panel.getSelection().length === 1 ? panel.getSelection()[0]!.GetFriendlyName() : undefined
+      }
+      rows={rows}
+      fmt={(iu) => new PGPROPERTY_DISTANCE(pgFrame).DistanceToString(iu)}
+      parse={(text) => PG_UNIT_EDITOR.GetValueFromControl(text, false, pgFrame) ?? null}
+      onCommand={(edit) => {
+        void Promise.resolve(edit()).then(() => setVersion((v) => v + 1));
+      }}
     />
   );
 }
