@@ -29,7 +29,7 @@ import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import { ZONE_CONNECTION } from '../zones.js';
 import type { FP_3DMODEL } from '../footprint.js';
 import type { TransferResult } from './dialog_text_properties.js';
-import type { ZoneConnection } from '../zone_connection.js';
+import type { ZoneConnection } from './dialog_pad_properties.js';
 
 /** FOOTPRINT_ATTR_T, in the order PCB_IO_KICAD_SEXPR writes them. */
 export const FOOTPRINT_ATTRIBUTES = [

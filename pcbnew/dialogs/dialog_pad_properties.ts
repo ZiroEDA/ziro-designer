@@ -45,7 +45,9 @@ import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import { PCB_SHAPE } from '../pcb_shape.js';
 import { ZONE_CONNECTION } from '../zones.js';
 import type { TransferResult } from './dialog_text_properties.js';
-import type { ZoneConnection } from '../zone_connection.js';
+
+/** ZONE_CONNECTION, spelled as this model spells enums. */
+export type ZoneConnection = 'inherited' | 'none' | 'thermal' | 'full' | 'tht_thermal';
 
 export type PadShape = 'circle' | 'rect' | 'oval' | 'trapezoid' | 'roundrect' | 'custom';
 

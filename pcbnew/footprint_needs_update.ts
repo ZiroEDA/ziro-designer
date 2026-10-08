@@ -7,6 +7,12 @@
  * its library copy, either reporting every difference (aReporter given) or
  * stopping at the first (DRC mode).
  *
+ * It is its own module, not folded into our provider file, because importing a
+ * provider registers it: the frame and the exchange dialog reaching it through
+ * the provider would register library parity ahead of the order
+ * `browser/drc_test_providers.ts` sets, and that order is the order DIALOG_DRC
+ * lists the violations in. A C++ static initialiser has no such side effect.
+ *
  * The TEST*() macros have two modes:
  * In "Report" mode (aReporter != nullptr) all properties are checked and reported on.
  * In "DRC" mode (aReporter == nulltpr) properties are only checked until a difference is found.
