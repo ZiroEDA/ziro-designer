@@ -126,7 +126,6 @@ export class FIELD_VALIDATOR extends wxTextValidator {
   }
 }
 
-
 /**
  * `GetFieldValidationErrorMessage( aFieldId, aValue )` (validators.cpp:292): why \a aValue is not a
  * valid value for the field, or "" when it is.

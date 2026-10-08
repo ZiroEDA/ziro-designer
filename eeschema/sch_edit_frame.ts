@@ -1727,7 +1727,11 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   LoadProject(): void {}
 
   /** The window's half of the dialogs a tool opens: see SCH_EDIT_FRAME_HOOKS.showModal. */
-  override ShowModalDialog(aDialog: string, aItems: readonly EDA_ITEM[], aArg?: unknown): Promise<number> {
+  override ShowModalDialog(
+    aDialog: string,
+    aItems: readonly EDA_ITEM[],
+    aArg?: unknown,
+  ): Promise<number> {
     // WithoutDialogs: no window to ask; a message dialog's question takes the capture's answer.
     if (this.m_capture) {
       const message = (aArg as { message?: string } | undefined)?.message;
