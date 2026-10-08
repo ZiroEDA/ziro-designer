@@ -27,14 +27,9 @@
 import { useState, type JSX } from 'react';
 import { useModalEscape } from '../dialog_shim.js';
 
-/** `PASTE_MODE` (`include/dialogs/dialog_paste_special.h:33-38`), in order. */
-export const PASTE_MODES = [
-  'UNIQUE_ANNOTATIONS',
-  'KEEP_ANNOTATIONS',
-  'REMOVE_ANNOTATIONS',
-] as const;
+import { PASTE_MODES, type PasteSpecialMode } from './dialog_paste_special_types.js';
 
-export type PasteSpecialMode = (typeof PASTE_MODES)[number];
+export { PASTE_MODES, type PasteSpecialMode };
 
 /**
  * `m_optionsChoices` (`dialog_paste_special_base.cpp:22`), verbatim and in the

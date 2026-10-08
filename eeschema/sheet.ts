@@ -10,7 +10,26 @@ import { ExpandTextVars } from '@ziroeda/common/common.js';
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
 import { currentEeschemaSettings, type EeschemaSettings } from './eeschema_settings.js';
 import type { SCH_EDIT_FRAME } from './sch_edit_frame.js';
-import { SCH_SCREEN } from './sch_screen.js';
+import { SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';
+import { DisplayErrorMessage, DisplayInfoMessage } from '@ziroeda/common/confirm.js';
+import {
+  LIBRARY_TABLE,
+  LIBRARY_TABLE_SCOPE,
+  LIBRARY_TABLE_TYPE,
+} from '@ziroeda/common/libraries/library_table.js';
+import type { LIBRARY_TABLE_ROW } from '@ziroeda/common/libraries/library_table.js';
+import { Pgm } from '@ziroeda/common/pgm_base.js';
+import {
+  wxCANCEL,
+  wxCANCEL_DEFAULT,
+  wxCENTER,
+  wxICON_ERROR,
+  wxICON_QUESTION,
+  wxOK,
+} from '@ziroeda/common/wx/defs.js';
+import { wxReadFileSync } from '@ziroeda/common/wx/filefn.js';
+import { wxID_CANCEL } from '@ziroeda/common/wx/menu.js';
+import { PosixPath, SCH_IO_KICAD_SEXPR } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
 import { SCH_SHEET } from './sch_sheet.js';
 import { SCH_SHEET_LIST, type SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { SCH_CLEANUP_FLAGS } from './schematic.js';
@@ -81,7 +100,446 @@ function normalizeAgainst(aPath: string, aDir: string): string {
 
 const dirOf = (aPath: string) => aPath.replace(/\/[^/]*$/, '') || '/';
 
+/** The `KICAD_MESSAGE_DIALOG` "Continue Load Schematic" questions, which the window shows. */
+export interface LOAD_SHEET_QUESTION_ARG {
+  message: string;
+  caption: string;
+  style: number;
+  extended?: string;
+  okLabel?: string;
+  cancelLabel?: string;
+}
+
+/**
+ * `PROJECT_SCH::SymbolLibAdapter( &Prj() )`'s row lookups as LoadSheetFromFile uses them, over
+ * LIBRARY_MANAGER's symbol tables: the project table first, then the global one.
+ */
+function symbolLibRow(aNickname: string): LIBRARY_TABLE_ROW | undefined {
+  const mgr = Pgm().GetLibraryManager();
+
+  return (
+    mgr.Table(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.PROJECT)?.Row(aNickname) ??
+    mgr.Table(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.GLOBAL)?.Row(aNickname)
+  );
+}
+
 export class SCH_SHEET_MIXIN {
+  /** `checkForNoFullyDefinedLibIds( aSheet )` (sheet.cpp:96). */
+  checkForNoFullyDefinedLibIds(this: SCH_EDIT_FRAME, aSheet: SCH_SHEET): boolean {
+    console.assert(!!aSheet.GetScreen());
+
+    const newScreens = new SCH_SCREENS(aSheet);
+
+    if (newScreens.HasNoFullyDefinedLibIds()) {
+      const msg =
+        `The schematic '${aSheet.GetScreen()!.GetFileName()}' has not had its symbol library links ` +
+        'remapped to the symbol library table.  The project this schematic belongs to must first be ' +
+        'remapped before it can be imported into the current project.';
+      void DisplayInfoMessage(msg);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * `LoadSheetFromFile( aSheet, aCurrentSheet, aFileName, aSkipRecursionCheck, aSkipLibCheck )`
+   * (sheet.cpp:412): load a schematic file into \a aSheet (or append it to the sheet's screen),
+   * from the mounted file system. The "Continue Load Schematic" questions are the window's.
+   */
+  async LoadSheetFromFile(
+    this: SCH_EDIT_FRAME,
+    aSheet: SCH_SHEET,
+    aCurrentSheet: SCH_SHEET_PATH,
+    aFileName: string,
+    aSkipRecursionCheck = false,
+    aSkipLibCheck = false,
+  ): Promise<boolean> {
+    let msg: string;
+    let libTableChanged = false;
+
+    // SCH_IO_MGR::GuessPluginTypeFromSchPath: the KiCad plugin is the one ported.
+    const pi = new SCH_IO_KICAD_SEXPR();
+    let tmpSheet = new SCH_SHEET(this.Schematic());
+
+    // This will cause the sheet UUID to be set to the UUID of the aSheet argument.  This is
+    // required to ensure all of the sheet paths in any sub-sheets are correctly generated when
+    // using the temporary SCH_SHEET object that the file is loaded into..
+    (tmpSheet as { m_Uuid: string }).m_Uuid = aSheet.m_Uuid;
+
+    const projectPath = this.Prj().GetProjectPath();
+    const fullFilename = PosixPath.makeAbsolute(aFileName, projectPath);
+    const readFile = (aPath: string) => {
+      const bytes = wxReadFileSync(aPath);
+      return bytes ? new TextDecoder().decode(bytes) : null;
+    };
+
+    const ask = (aArg: LOAD_SHEET_QUESTION_ARG) =>
+      this.ShowModalDialog('KICAD_MESSAGE_DIALOG', [], aArg);
+
+    try {
+      if (aSheet.GetScreen() !== null) {
+        tmpSheet = pi.LoadSchematicFile(fullFilename, this.Schematic(), projectPath, readFile);
+      } else {
+        tmpSheet.SetFileName(fullFilename);
+        pi.LoadSchematicFile(fullFilename, this.Schematic(), projectPath, readFile, tmpSheet);
+      }
+
+      if (pi.GetError() !== '') {
+        msg =
+          'The entire schematic could not be loaded.  Errors occurred attempting to load ' +
+          'hierarchical sheet schematics.';
+
+        const answer = await ask({
+          message: msg,
+          caption: 'Schematic Load Error',
+          style: wxOK | wxCANCEL | wxCANCEL_DEFAULT | wxCENTER | wxICON_QUESTION,
+          okLabel: 'Use partial schematic',
+          extended: pi.GetError(),
+        });
+
+        if (answer === wxID_CANCEL) return false;
+      }
+    } catch (ioe) {
+      msg = `Error loading schematic '${fullFilename}'.`;
+      DisplayErrorMessage(msg, ioe instanceof Error ? ioe.message : String(ioe));
+
+      msg = `Failed to load '${fullFilename}'.`;
+      this.SetMsgPanel('', msg);
+
+      return false;
+    }
+
+    // If the loaded schematic is in a different folder from the current project and
+    // it contains hierarchical sheets, the hierarchical sheet paths need to be updated.
+    //
+    // Additionally, we need to make all backing screens absolute paths be in the current project
+    // path not the source path.
+    const loadedDir = PosixPath.dirname(fullFilename);
+
+    if (`${loadedDir}/` !== `${projectPath.replace(/\/+$/, '')}/`) {
+      const loadedSheets = SCH_SHEET_LIST.build(tmpSheet);
+
+      for (const sheetPath of loadedSheets) {
+        // Skip the loaded sheet since the user already determined if the file path should
+        // be relative or absolute.
+        if (sheetPath.size() === 1) continue;
+
+        let lastSheetPath = projectPath;
+
+        for (let i = 1; i < sheetPath.size(); i++) {
+          const sheet = sheetPath.at(i);
+
+          if (!sheet) continue; // wxCHECK2
+
+          const screen = sheet.GetScreen();
+
+          if (!screen) continue; // wxCHECK2
+
+          // Use the screen file name which should always be absolute.
+          const loadedSheetFileName = screen.GetFileName();
+
+          if (!PosixPath.isAbsolute(loadedSheetFileName)) continue; // wxCHECK2
+
+          const rel = PosixPath.makeRelativeTo(loadedSheetFileName, lastSheetPath);
+          const sheetFileName = rel !== loadedSheetFileName ? rel : loadedSheetFileName;
+
+          sheet.SetFileName(sheetFileName.replace(/\\/g, '/'));
+          lastSheetPath = PosixPath.dirname(loadedSheetFileName);
+        }
+      }
+    }
+
+    const projectTable = Pgm()
+      .GetLibraryManager()
+      .Table(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.PROJECT);
+
+    const loadedSheets = SCH_SHEET_LIST.build(tmpSheet);
+    this.Schematic().RefreshHierarchy();
+    const schematicSheets = this.Schematic().Hierarchy();
+
+    // Make sure any new sheet changes do not cause any recursion issues.
+    if (!aSkipRecursionCheck && this.CheckSheetForRecursion(tmpSheet, aCurrentSheet)) return false;
+
+    if (this.checkForNoFullyDefinedLibIds(tmpSheet)) return false;
+
+    // Make a valiant attempt to warn the user of all possible scenarios where there could
+    // be broken symbol library links.
+    const names: string[] = [];
+    const newLibNames: string[] = [];
+    const newScreens = new SCH_SCREENS(tmpSheet); // All screens associated with the import.
+    const prjScreens = new SCH_SCREENS(this.Schematic().Root());
+
+    newScreens.GetLibNicknames(names);
+
+    const okButtonLabel = 'Continue Load';
+    const cancelButtonLabel = 'Cancel Load';
+    const question = wxOK | wxCANCEL | wxCANCEL_DEFAULT | wxCENTER | wxICON_QUESTION;
+
+    // Prior to schematic file format 20221002, all symbol instance data was saved in the root
+    // sheet so loading a hierarchical sheet that is not the root sheet will have no symbol
+    // instance data.  Give the user a chance to go back and save the project that contains this
+    // hierarchical sheet so the symbol instance data will be correct on load.
+    if (
+      tmpSheet.GetScreen()!.GetFileFormatVersionAtLoad() < 20221002 &&
+      tmpSheet.GetScreen()!.GetSymbolInstances().length === 0
+    ) {
+      msg =
+        'There are hierarchical sheets in the loaded schematic file from an older file version ' +
+        'resulting in  missing symbol instance data.  This will result in all of the symbols in the ' +
+        'loaded schematic to use either the default instance setting or fall back to the library ' +
+        'symbol settings.  Loading the project that uses this schematic file and saving to the ' +
+        'latest file version will resolve this issue.\n\nDo you wish to continue?';
+
+      if (
+        (await ask({
+          message: msg,
+          caption: 'Continue Load Schematic',
+          style: question,
+          okLabel: okButtonLabel,
+          cancelLabel: cancelButtonLabel,
+        })) === wxID_CANCEL
+      )
+        return false;
+    }
+
+    if (!aSkipLibCheck && !prjScreens.HasSchematic(fullFilename)) {
+      if (`${loadedDir}/` === `${projectPath.replace(/\/+$/, '')}/`) {
+        // A schematic in the current project path that isn't part of the current project.
+        // It's possible the user copied this schematic from another project so the library
+        // links may not be available.  Even this is check is no guarantee that all symbol
+        // library links are valid but it's better than nothing.
+        for (const name of names) {
+          if (!symbolLibRow(name)) newLibNames.push(name);
+        }
+
+        if (newLibNames.length > 0) {
+          msg =
+            'There are library names in the selected schematic that are missing from the current ' +
+            'project library table.  This may result in broken symbol library references for the ' +
+            'loaded schematic.\n\nDo you wish to continue?';
+
+          if (
+            (await ask({
+              message: msg,
+              caption: 'Continue Load Schematic',
+              style: question,
+              okLabel: okButtonLabel,
+              cancelLabel: cancelButtonLabel,
+            })) === wxID_CANCEL
+          )
+            return false;
+        }
+      } else if (projectTable) {
+        // A schematic loaded from a path other than the current project path.
+
+        // If there are symbol libraries in the imported schematic that are not in the
+        // symbol library table of this project, there could be a lot of broken symbol
+        // library links.  Attempt to add the missing libraries to the project symbol
+        // library table.
+        const duplicateLibNames: string[] = [];
+
+        for (const name of names) {
+          if (!symbolLibRow(name)) newLibNames.push(name);
+          else duplicateLibNames.push(name);
+        }
+
+        const symLibTableFn = `${loadedDir}/sym-lib-table`;
+        const tableText = readFile(symLibTableFn);
+        const table = new LIBRARY_TABLE(false, tableText, LIBRARY_TABLE_SCOPE.PROJECT);
+
+        // If there are any new or duplicate libraries, check to see if it's possible that
+        // there could be any missing libraries that would cause broken symbol library links.
+        if (newLibNames.length > 0 || duplicateLibNames.length > 0) {
+          if (tableText === null) {
+            msg =
+              'The selected file was created as part of a different project.  Linking the file to ' +
+              'this project may result in missing or incorrect symbol library references.\n\n' +
+              'Do you wish to continue?';
+
+            if (
+              (await ask({
+                message: msg,
+                caption: 'Continue Load Schematic',
+                style: question,
+                okLabel: okButtonLabel,
+                cancelLabel: cancelButtonLabel,
+              })) === wxID_CANCEL
+            )
+              return false;
+          } else if (!table.IsOk()) {
+            msg = `Error loading the symbol library table '${symLibTableFn}'.`;
+            DisplayErrorMessage(msg, table.ErrorDescription());
+            return false;
+          }
+        }
+
+        // Check to see if any of the symbol libraries found in the appended schematic do
+        // not exist in the current project are missing from the appended project symbol
+        // library table.
+        if (newLibNames.length > 0) {
+          let missingLibNames = table.Rows().length === 0;
+
+          if (!missingLibNames) {
+            for (const newLibName of newLibNames) {
+              if (!table.HasRow(newLibName)) {
+                missingLibNames = true;
+                break;
+              }
+            }
+          }
+
+          if (missingLibNames) {
+            msg =
+              'There are symbol library names in the selected schematic that are missing from the ' +
+              'selected schematic project library table.  This may result in broken symbol library ' +
+              'references.\n\nDo you wish to continue?';
+
+            if (
+              (await ask({
+                message: msg,
+                caption: 'Continue Load Schematic',
+                style: question,
+                okLabel: okButtonLabel,
+                cancelLabel: cancelButtonLabel,
+              })) === wxID_CANCEL
+            )
+              return false;
+          }
+        }
+
+        const mgr = Pgm().GetLibraryManager();
+
+        // The library name already exists in the current project.  Check to see if the
+        // duplicate name is the same library in the current project.  If it's not, it's
+        // most likely that the symbol library links will be broken.
+        if (duplicateLibNames.length > 0 && table.Rows().length > 0) {
+          let libNameConflict = false;
+
+          for (const duplicateLibName of duplicateLibNames) {
+            const thisRow = symbolLibRow(duplicateLibName) ?? null;
+            const otherRow = table.HasRow(duplicateLibName)
+              ? (table.Row(duplicateLibName) ?? null)
+              : null;
+
+            // It's in the global library table so there is no conflict.
+            if (thisRow && !otherRow) continue;
+
+            if (!thisRow || !otherRow) continue;
+
+            const thisURI = mgr.GetFullURI(thisRow, true);
+            let otherURI = mgr.GetFullURI(otherRow, false);
+
+            if (otherURI.includes('${KIPRJMOD}') || otherURI.includes('$(KIPRJMOD)')) {
+              // Cannot use relative paths here, "${KIPRJMOD}../path-to-cache-lib" does
+              // not expand to a valid symbol library path.
+              otherURI = `${loadedDir}/${otherURI.slice(otherURI.lastIndexOf('}') + 1).replace(/^\/+/, '')}`;
+            }
+
+            if (thisURI !== otherURI) {
+              libNameConflict = true;
+              break;
+            }
+          }
+
+          if (libNameConflict) {
+            msg =
+              'A duplicate library name that references a different library exists in the current ' +
+              'library table.  This conflict cannot be resolved and may result in broken symbol ' +
+              'library references.\n\nDo you wish to continue?';
+
+            if (
+              (await ask({
+                message: msg,
+                caption: 'Continue Load Schematic',
+                style: question,
+                okLabel: okButtonLabel,
+                cancelLabel: cancelButtonLabel,
+              })) === wxID_CANCEL
+            )
+              return false;
+          }
+        }
+
+        // All (most?) of the possible broken symbol library link cases are covered.  Map the
+        // new appended schematic project symbol library table entries to the current project
+        // symbol library table.
+        if (newLibNames.length > 0 && table.Rows().length > 0) {
+          for (const libName of newLibNames) {
+            if (!table.HasRow(libName) || symbolLibRow(libName)) continue;
+
+            const row = table.Row(libName)!;
+
+            // Don't expand environment variable because KIPRJMOD will not be correct
+            // for a different project.
+            let uri = mgr.GetFullURI(row, false);
+
+            if (uri.includes('${KIPRJMOD}') || uri.includes('$(KIPRJMOD)')) {
+              // Cannot use relative paths here, "${KIPRJMOD}../path-to-cache-lib" does
+              // not expand to a valid symbol library path.
+              uri = `${loadedDir}/${uri.slice(uri.lastIndexOf('}') + 1).replace(/^\/+/, '')}`;
+            } else {
+              uri = mgr.GetFullURI(row, true);
+            }
+
+            // Add the library from the imported project to the current project
+            // symbol library table.
+            const newRow = projectTable.InsertRow();
+
+            newRow.SetNickname(libName);
+            newRow.SetURI(uri);
+            newRow.SetType(row.Type());
+            newRow.SetDescription(row.Description());
+            newRow.SetOptions(row.Options());
+
+            libTableChanged = true;
+          }
+        }
+      }
+    }
+
+    const newScreen = tmpSheet.GetScreen();
+
+    if (!newScreen) return false; // wxCHECK_MSG: "No screen defined for sheet."
+
+    if (libTableChanged && projectTable) {
+      const saved = projectTable.Save();
+
+      if (!saved.ok)
+        await this.ShowModalDialog('KICAD_MESSAGE_DIALOG', [], {
+          message: 'Error saving library table.',
+          caption: 'File Save Error',
+          style: wxOK | wxICON_ERROR,
+          extended: saved.error.message,
+        } satisfies LOAD_SHEET_QUESTION_ARG);
+    }
+
+    // Make the best attempt to set the symbol instance data for the loaded schematic.
+    if (newScreen.GetFileFormatVersionAtLoad() < 20221002) {
+      // If the loaded schematic is a root sheet for another project, update the symbol
+      // instances.
+      if (newScreen.GetSymbolInstances().length > 0)
+        loadedSheets.UpdateSymbolInstanceData(newScreen.GetSymbolInstances());
+    }
+
+    // `newScreen->MigrateSimModels()`: the simulator's, which is not ported.
+
+    // Attempt to create new symbol instances using the instance data loaded above.
+    loadedSheets.AddNewSymbolInstances(aCurrentSheet, this.Prj().GetProjectName());
+
+    // Add new sheet instance data.
+    loadedSheets.AddNewSheetInstances(aCurrentSheet, schematicSheets.GetLastVirtualPageNumber());
+
+    // It is finally safe to add or append the imported schematic.
+    if (aSheet.GetScreen() === null) aSheet.SetScreen(newScreen);
+    else aSheet.GetScreen()!.Append(newScreen);
+
+    const allProjectScreens = new SCH_SCREENS(this.Schematic().Root());
+    allProjectScreens.ReplaceDuplicateTimeStamps();
+
+    return true;
+  }
+
   /** `SCH_EDIT_FRAME::InitSheet` (sheet.cpp:118): a new, empty screen for a new sheet file. */
   InitSheet(this: SCH_EDIT_FRAME, aSheet: SCH_SHEET, aNewFilename: string): void {
     const newScreen = new SCH_SCREEN(this.Schematic());
