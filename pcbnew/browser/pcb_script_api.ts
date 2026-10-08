@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
-import type { BOARD } from './board.js';
-import type { FOOTPRINT } from './footprint.js';
-import type { PCB_EDIT_FRAME } from './pcb_edit_frame.js';
+import type { BOARD } from '../board.js';
+import type { FOOTPRINT } from '../footprint.js';
+import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 
 /** What a host may do to the open board (PcbEditor's `registerScriptApi`). */
 export interface PcbScriptApi {

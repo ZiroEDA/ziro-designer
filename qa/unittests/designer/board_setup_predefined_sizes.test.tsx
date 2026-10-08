@@ -34,7 +34,8 @@ import {
   sortSizeRows,
   validateSizes,
 } from '@ziroeda/pcbnew/dialogs/panel_setup_tracks_and_vias.js';
-import { defaultBoardSetup, type BoardSetupValues } from '@ziroeda/pcbnew/board_settings.js';
+import { freshBoardSetup } from './board_setup_test_utils.js';
+import type { BoardSetupValues } from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
 
 afterEach(cleanup);
 
@@ -54,7 +55,7 @@ function open(over: Partial<BoardSetupValues> = SIZES): {
   let out: BoardSetupValues | null = null;
   render(
     <DialogBoardSetup
-      value={{ ...defaultBoardSetup(), ...over }}
+      value={{ ...freshBoardSetup(), ...over }}
       /* The frame's display units: Board Setup's fields and grid cells are
          `UNIT_BINDER`s and `WX_GRID`s with `SetUnitsProvider( m_Frame )`. */
       units="mm"
@@ -154,7 +155,7 @@ describe('a cell is the text a WX_GRID holds', () => {
     let out: BoardSetupValues | null = null;
     render(
       <DialogBoardSetup
-        value={{ ...defaultBoardSetup(), trackWidthsMM: [0.508], viaSizesMM: [], diffPairsMM: [] }}
+        value={{ ...freshBoardSetup(), trackWidthsMM: [0.508], viaSizesMM: [], diffPairsMM: [] }}
         units="mils"
         onOk={(next) => {
           out = next;

@@ -88,7 +88,7 @@ import {
   FOOTPRINT_LIBRARY_STORE,
   type FOOTPRINT_LIBRARY_STORE_IO,
 } from './footprint_library_adapter.js';
-import { usePcbDrawPanel } from './pcb_draw_panel_gal_host.js';
+import { usePcbDrawPanel } from './browser/pcb_draw_panel_gal_host.js';
 import type { FOOTPRINT_VIEWER_JSON_SETTINGS } from './pcbnew_settings.js';
 import { PCB_ACTIONS } from './tools/pcb_actions.js';
 import {

@@ -25,7 +25,7 @@ import {
   CTL_FOR_BOARD,
   FormatBoardAsync,
 } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import type { PcbScriptApi } from '@ziroeda/pcbnew/pcb_script_api.js';
+import type { PcbScriptApi } from '@ziroeda/pcbnew/browser/pcb_script_api.js';
 import { PCB_PLOTTER } from '@ziroeda/pcbnew/pcb_plotter.js';
 import { DRILL_MARKS, PCB_PLOT_PARAMS } from '@ziroeda/pcbnew/pcb_plot_params.js';
 import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';

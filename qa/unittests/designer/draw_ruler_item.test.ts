@@ -18,7 +18,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { toolCursorCss } from '@ziroeda/common/tool/tool_cursors.js';
-import { boardToolCursor } from '@ziroeda/pcbnew/cursors.js';
+import { boardToolCursor } from '@ziroeda/pcbnew/browser/cursors.js';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {

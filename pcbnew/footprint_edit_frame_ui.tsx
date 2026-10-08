@@ -101,10 +101,10 @@ import {
 import { FootprintTreePane } from './footprint_tree_pane.js';
 import { FpTreeSynchronizingAdapter } from './fp_tree_synchronizing_adapter.js';
 import { footprintEditorMenus } from './menubar_footprint_editor.js';
-import { usePcbItemDialogs } from './pcb_base_edit_frame_dialogs.js';
-import { applyDisplayState, type EditorDisplayState } from './pcb_canvas.js';
+import { usePcbItemDialogs } from './pcb_base_edit_frame_ui.js';
+import { applyDisplayState, type EditorDisplayState } from './browser/pcb_canvas.js';
 import { PCB_DISPLAY_OPTIONS } from './pcb_painter.js';
-import { usePcbDrawPanel } from './pcb_draw_panel_gal_host.js';
+import { usePcbDrawPanel } from './browser/pcb_draw_panel_gal_host.js';
 import {
   layerColor,
   PCB_BACKGROUND,

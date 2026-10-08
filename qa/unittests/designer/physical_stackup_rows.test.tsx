@@ -22,12 +22,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { useState, type JSX } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import {
+  PANEL_SETUP_BOARD_STACKUP,
   PanelPcbStackup,
-  defaultPhysicalStackup,
   type PhysicalStackup,
 } from '@ziroeda/pcbnew/board_stackup_manager/panel_board_stackup.js';
-import { readSetup, writeSetup } from './board_setup_test_utils.js';
-import { defaultBoardSetup } from '@ziroeda/pcbnew/board_settings.js';
+import { freshBoardSetup, readSetup, writeSetup } from './board_setup_test_utils.js';
 
 afterEach(cleanup);
 
@@ -57,7 +56,7 @@ describe('which cells each row type draws', () => {
   it('gives copper a thickness and no material', () => {
     // `IsThicknessEditable()` includes BS_ITEM_TYPE_COPPER; `IsMaterialEditable()`
     // does not. This drew a Material field reading "Copper".
-    render(<Harness initial={defaultPhysicalStackup()} />);
+    render(<Harness initial={freshBoardSetup().physicalStackup} />);
     expect(has('F.Cu', THICKNESS), 'F.Cu thickness').toBe(true);
     expect(has('F.Cu', MATERIAL), 'F.Cu material').toBe(false);
     expect(has('B.Cu', MATERIAL), 'B.Cu material').toBe(false);
@@ -66,14 +65,14 @@ describe('which cells each row type draws', () => {
   it('gives silkscreen a material and no thickness', () => {
     // The mirror image: silkscreen is in the material set and not the
     // thickness set. A silkscreen thickness also fed the board-thickness sum.
-    render(<Harness initial={defaultPhysicalStackup()} />);
+    render(<Harness initial={freshBoardSetup().physicalStackup} />);
     expect(has('F.Silkscreen', MATERIAL), 'F.Silkscreen material').toBe(true);
     expect(has('F.Silkscreen', THICKNESS), 'F.Silkscreen thickness').toBe(false);
     expect(has('B.Silkscreen', THICKNESS), 'B.Silkscreen thickness').toBe(false);
   });
 
   it('gives solder mask both, and solder paste neither', () => {
-    render(<Harness initial={defaultPhysicalStackup()} />);
+    render(<Harness initial={freshBoardSetup().physicalStackup} />);
     expect(has('F.Mask', MATERIAL)).toBe(true);
     expect(has('F.Mask', THICKNESS)).toBe(true);
     expect(has('F.Paste', MATERIAL), 'F.Paste material').toBe(false);
@@ -86,7 +85,7 @@ describe('the Type cell', () => {
     // `panel_board_stackup.cpp:828-840` — a wxChoice for a dielectric's main
     // row, a wxStaticText for every other layer. All of them were text, so the
     // one editable Type cell on the page could not be changed.
-    render(<Harness initial={defaultPhysicalStackup()} />);
+    render(<Harness initial={freshBoardSetup().physicalStackup} />);
     const diel = cellsOf('Dielectric 1')[2]!;
     expect(diel.querySelector('.ze-combo')).not.toBeNull();
     expect(diel.querySelector('.ze-combo-shown')?.textContent).toBe('Core');
@@ -98,7 +97,7 @@ describe('the Type cell', () => {
   it('labels the second entry PrePreg, which is not the stored value', () => {
     // `m_core_prepreg_choice` is "Core" / "PrePreg" (`:121-122`) while
     // SetTypeName stores KEY_CORE / KEY_PREPREG.
-    const s = defaultPhysicalStackup();
+    const s = freshBoardSetup().physicalStackup;
     s.layers = s.layers.map((l) => (l.type === 'Core' ? { ...l, type: 'Prepreg' } : l));
     render(<Harness initial={s} />);
     expect(cellsOf('Dielectric 1')[2]!.querySelector('.ze-combo-shown')?.textContent).toBe(
@@ -114,7 +113,7 @@ describe('board thickness from stackup', () => {
   it('carries its unit in the field and trims trailing zeros', () => {
     // `StringFromValue( thickness, true )` (`:590-594`) — "1.6 mm", not
     // "1.620" beside a separate mm label.
-    render(<Harness initial={defaultPhysicalStackup()} />);
+    render(<Harness initial={freshBoardSetup().physicalStackup} />);
     expect(readField()).toMatch(/^[\d.]+ mm$/);
     expect(readField()).not.toMatch(/0 mm$/);
   });
@@ -123,7 +122,7 @@ describe('board thickness from stackup', () => {
     // `GetBoardThickness()` adds a row only when `IsThicknessEditable()`
     // (`board_stackup.cpp:498-515`), so a stale thickness on a silkscreen or
     // paste row must not reach it.
-    const s = defaultPhysicalStackup();
+    const s = freshBoardSetup().physicalStackup;
     const before = s.layers.reduce(
       (a, l) => a + (l.type === 'Copper' || l.type === 'Core' ? l.thicknessMM : 0),
       0,
@@ -144,7 +143,7 @@ describe('the option and thickness bars are single wx rows', () => {
   it('puts two growable spacers in the top bar', () => {
     // `bTopSizer` adds `40, 0, 1, wxEXPAND` before AND after the checkbox
     // (`panel_board_stackup_base.cpp:37`, `:46`); only one was here.
-    render(<Harness initial={defaultPhysicalStackup()} />);
+    render(<Harness initial={freshBoardSetup().physicalStackup} />);
     const bar = document.querySelector('.ze-stackup-bar')!;
     expect(bar.querySelectorAll(':scope > .ze-stackup-spacer')).toHaveLength(2);
   });
@@ -152,7 +151,7 @@ describe('the option and thickness bars are single wx rows', () => {
   it('puts the bottom bar spacer between Adjust and Export', () => {
     // `bBottomSizer`: value, fixed 10px, Adjust, growable spacer, Export
     // (`:139-148`) — which is what holds Export hard right on its own.
-    render(<Harness initial={defaultPhysicalStackup()} />);
+    render(<Harness initial={freshBoardSetup().physicalStackup} />);
     const bars = document.querySelectorAll('.ze-stackup-bar');
     const bottom = bars[bars.length - 1]!;
     const kids = [...bottom.children];
@@ -218,7 +217,7 @@ describe('the Layer column swatch', () => {
     // (`panel_board_stackup.cpp:807-810`). This drew one only where
     // `IsColorEditable()` was true, so copper and paste rows came out blank —
     // and those are precisely the types with a fixed colour of their own.
-    render(<Harness initial={defaultPhysicalStackup()} />);
+    render(<Harness initial={freshBoardSetup().physicalStackup} />);
     for (const row of ['F.Silkscreen', 'F.Paste', 'F.Mask', 'F.Cu', 'Dielectric 1', 'B.Cu'])
       expect(swatchOf(row), row).not.toBeNull();
   });
@@ -226,7 +225,7 @@ describe('the Layer column swatch', () => {
   it('uses getColorIconItem’s three fixed colours, not the Color cell', () => {
     // [data] `copperColor( 220, 180, 30 )`, `dielectricColor( 75, 120, 75 )`,
     // `pasteColor( 200, 200, 200 )` (`:69-71`).
-    render(<Harness initial={defaultPhysicalStackup()} />);
+    render(<Harness initial={freshBoardSetup().physicalStackup} />);
     expect(swatchOf('F.Cu').style.background).toBe('rgb(220, 180, 30)');
     expect(swatchOf('B.Cu').style.background).toBe('rgb(220, 180, 30)');
     expect(swatchOf('Dielectric 1').style.background).toBe('rgb(75, 120, 75)');
@@ -235,7 +234,7 @@ describe('the Layer column swatch', () => {
 
   it('follows the Color cell only for mask and silkscreen', () => {
     // `case BS_ITEM_TYPE_SOLDERMASK/SILKSCREEN: color = GetSelectedColor( aRow )`.
-    const s = defaultPhysicalStackup();
+    const s = freshBoardSetup().physicalStackup;
     s.layers = s.layers.map((l) =>
       l.name === 'F.Mask' ? { ...l, color: 'Red' } : l.name === 'F.Cu' ? { ...l, color: 'Red' } : l,
     );
@@ -268,7 +267,7 @@ describe('the material dialog', () => {
   };
 
   it('opens with Material empty, Epsilon R 1 and Loss Tan 0, on the type’s own list', () => {
-    render(<Harness initial={defaultBoardSetup().physicalStackup} />);
+    render(<Harness initial={freshBoardSetup().physicalStackup} />);
     // The dielectric list starts with the ten predefined substrates…
     open('Dielectric 1');
     expect(field('Material:').value).toBe('');
@@ -289,7 +288,7 @@ describe('the material dialog', () => {
   });
 
   it('a material the board already uses is appended to the list before it opens', () => {
-    const v = defaultBoardSetup().physicalStackup;
+    const v = freshBoardSetup().physicalStackup;
     const diel = v.layers.findIndex((l) => l.type === 'Core' || l.type === 'Prepreg');
     v.layers[diel] = {
       ...v.layers[diel]!,
@@ -304,7 +303,7 @@ describe('the material dialog', () => {
   });
 
   it('selecting a row fills the fields; OK writes them to the row; an empty name changes nothing', () => {
-    render(<Harness initial={defaultBoardSetup().physicalStackup} />);
+    render(<Harness initial={freshBoardSetup().physicalStackup} />);
     open('Dielectric 1');
     fireEvent.click(listRows()[7]!); // PTFE
     expect(field('Material:').value).toBe('PTFE');
@@ -325,7 +324,7 @@ describe('the material dialog', () => {
     window.alert = (m: string): void => {
       alerts.push(m);
     };
-    render(<Harness initial={defaultBoardSetup().physicalStackup} />);
+    render(<Harness initial={freshBoardSetup().physicalStackup} />);
     open('Dielectric 1');
     fireEvent.click(listRows()[1]!); // FR4
     const eps = field('Epsilon R:');
@@ -337,7 +336,7 @@ describe('the material dialog', () => {
   });
 
   it('Delete on a selected row drops it from the panel’s list, but never row 0', () => {
-    render(<Harness initial={defaultBoardSetup().physicalStackup} />);
+    render(<Harness initial={freshBoardSetup().physicalStackup} />);
     open('Dielectric 1');
     const before = listRows().length;
     fireEvent.click(listRows()[2]!); // FR408-HR
@@ -354,5 +353,29 @@ describe('the material dialog', () => {
     fireEvent.click(screen.getByText('Cancel'));
     open('Dielectric 1');
     expect(listRows().map((r) => r.cells[0]!.textContent)).not.toContain('FR408-HR');
+  });
+});
+
+describe('a new copper count', () => {
+  it("takes BOARD_STACKUP::BuildDefaultStackupList's rows, as KiCad builds them", () => {
+    // KiCad 10.0.6's four-layer default (qa/fixtures/board_support_oracle.json,
+    // stackup4_default_text): core / prepreg / core, 0.48 mm each, FR4, and no
+    // colour on any row - "Not specified", not a White silk or a Green mask.
+    const rows = PANEL_SETUP_BOARD_STACKUP.DefaultRows(4);
+    const dielectrics = rows.filter((r) => r.type === 'Core' || r.type === 'Prepreg');
+    expect(dielectrics.map((r) => [r.type, r.thicknessMM, r.material])).toEqual([
+      ['Core', 0.48, 'FR4'],
+      ['Prepreg', 0.48, 'FR4'],
+      ['Core', 0.48, 'FR4'],
+    ]);
+    expect(rows.filter((r) => r.type === 'Copper').map((r) => r.name)).toEqual([
+      'F.Cu',
+      'In1.Cu',
+      'In2.Cu',
+      'B.Cu',
+    ]);
+    const silk = rows.find((r) => r.name === 'F.Silkscreen')!;
+    const mask = rows.find((r) => r.name === 'F.Mask')!;
+    expect([silk.color, mask.color]).toEqual(['Not specified', 'Not specified']);
   });
 });

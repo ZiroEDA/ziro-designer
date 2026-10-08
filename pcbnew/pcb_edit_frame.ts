@@ -85,6 +85,7 @@ import {
 } from './pcb_base_edit_frame.js';
 import { STRTOK, strncpyLine } from '@ziroeda/common/libc/string.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
 import { type AUI_PANELS, PCBNEW_SETTINGS } from './pcbnew_settings.js';
@@ -110,7 +111,7 @@ import { PCB_VIEWER_TOOLS } from './tools/pcb_viewer_tools.js';
 import type { NETLIST } from './netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from './tools/drc_tool.js';
 import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from './browser/drc_job.js';
-import { runDrcJobOffThread } from './drc_runner.js';
+import { runDrcJobOffThread } from './browser/drc_runner.js';
 import { PCB_TOOL_BASE } from './tools/pcb_tool_base.js';
 import { MARKER_T } from '@ziroeda/common/marker_base.js';
 import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/reporter.js';
@@ -241,6 +242,8 @@ import {
   PCB_CURRENT_LAYER_PAIR_CHANGED,
   PCB_LAYER_PAIR_PRESETS_CHANGED,
 } from './layer_pairs.js';
+import { loadKicadNetlist } from './netlist_reader/kicad_netlist_reader.js';
+import { fetchNetlistFromSchematic } from './browser/headless_netlist.js';
 
 /** `INSPECT_DRC_ERROR_DIALOG_NAME` (pcb_edit_frame.cpp:160). */
 const INSPECT_DRC_ERROR_DIALOG_NAME = 'InspectDrcErrorDialog';
@@ -3853,4 +3856,51 @@ export function isStoredPcbToggle(id: string): boolean {
     id === 'showSearch' ||
     id === 'showNetInspector'
   );
+}
+
+// ---------------------------------------------------------------------------
+// PCB_EDIT_FRAME::FetchNetlistFromSchematic (pcb_edit_frame.cpp)
+
+export type FetchNetlistResult =
+  | { ok: true; netlist: NETLIST; netlistText: string }
+  | { ok: false; error: string; details?: string };
+
+/**
+ * `PCB_EDIT_FRAME::FetchNetlistFromSchematic` (pcb_edit_frame.cpp:2352): ask the
+ * schematic for its netlist with `MAIL_SCH_GET_NETLIST`, the annotate message
+ * as the payload, and read back what it answers. A payload that comes back
+ * unchanged is the schematic refusing (`ReadyToNetlist` failed), reported as
+ * that message alone, as upstream does.
+ *
+ * Upstream's `TestStandalone` opens the schematic frame off screen when it is
+ * not running, so the mail always has a recipient. A frame here mounts
+ * asynchronously, so with no schematic player the same answer is computed
+ * from the project's files: {@link fetchNetlistFromSchematic}, the handler
+ * the off-screen frame would run.
+ */
+export function FetchNetlistFromSchematic(
+  aKiway: KIWAY | null,
+  aSource: unknown,
+  files: readonly RawFile[],
+  aAnnotateMessage: string,
+  rootPro?: string,
+): FetchNetlistResult {
+  if (!aKiway?.GetPlayerFrame(FRAME_T.FRAME_SCH))
+    return fetchNetlistFromSchematic(files, aAnnotateMessage, rootPro);
+
+  const payload = { value: aAnnotateMessage };
+  aKiway.ExpressMail(FRAME_T.FRAME_SCH, MAIL_T.MAIL_SCH_GET_NETLIST, payload, aSource);
+
+  if (payload.value === aAnnotateMessage) return { ok: false, error: aAnnotateMessage };
+
+  try {
+    return { ok: true, netlist: loadKicadNetlist(payload.value), netlistText: payload.value };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        'Received an error while reading netlist. Please report this issue to the ZiroEDA team.',
+      details: String(err),
+    };
+  }
 }

@@ -57,7 +57,7 @@ import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import type { FOOTPRINT_LIBRARY_ADAPTER } from '@ziroeda/pcbnew/footprint_library_adapter.js';
-import { usePcbDrawPanel } from '@ziroeda/pcbnew/pcb_draw_panel_gal_host.js';
+import { usePcbDrawPanel } from '@ziroeda/pcbnew/browser/pcb_draw_panel_gal_host.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
 import { DISPLAY_FOOTPRINTS_FRAME } from './display_footprints_frame.js';
 import {

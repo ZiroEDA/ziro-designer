@@ -28,16 +28,107 @@ import { SpinCtrl } from '@ziroeda/common/widgets/spin_ctrl.js';
 
 const icon = (name: string): string | undefined => svgUrl('teardrops', name);
 
-import type { TeardropsSetup, TeardropShape, TeardropShapeKey } from '../board_settings.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { BOARD } from '../board.js';
+import { TARGET_TD } from '../teardrop/teardrop_parameters.js';
 
-// The data model lives in board_settings.ts (KiCad's data/UI split);
-// re-exported so panel users keep importing from the panel module.
-export {
-  defaultTeardrops,
-  type TeardropShape,
-  type TeardropsSetup,
-} from '../board_settings.js';
+export interface TeardropShape {
+  bestLengthPct: number;
+  maxLengthMM: number;
+  bestWidthPct: number;
+  maxWidthMM: number;
+  preferZoneConnection: boolean;
+  trackWidthLimitPct: number;
+  allowSpanTwoSegments: boolean;
+  curvedEdges: boolean;
+}
+
+/**
+ * `teardrop_options` in the project file: TEARDROP_PARAMETERS_LIST's target
+ * flags. PANEL_SETUP_TEARDROPS does not show these - DIALOG_GLOBAL_EDIT_TEARDROPS
+ * owns them - but they travel with the page's values so OK writes them back
+ * unchanged.
+ */
+export interface TeardropTargets {
+  /** m_TargetVias / `td_onvia`. */
+  vias: boolean;
+  /** m_TargetPTHPads / `td_onpthpad`. */
+  pthPads: boolean;
+  /** m_TargetSMDPads / `td_onsmdpad`. */
+  smdPads: boolean;
+  /** m_TargetTrack2Track / `td_ontrackend`. */
+  trackToTrack: boolean;
+  /** m_UseRoundShapesOnly / `td_onroundshapesonly`. */
+  roundShapesOnly: boolean;
+}
+
+/** The three shape groups PANEL_SETUP_TEARDROPS edits, apart from the targets. */
+export type TeardropShapeKey = 'round' | 'rect' | 'trackToTrack';
+
+export interface TeardropsSetup {
+  round: TeardropShape;
+  rect: TeardropShape;
+  trackToTrack: TeardropShape;
+  targets: TeardropTargets;
+}
+
+/** PANEL_SETUP_TEARDROPS's transfers (panel_setup_teardrops.cpp). */
+export const PANEL_SETUP_TEARDROPS = {
+  TransferDataToWindow(aBoard: BOARD): TeardropsSetup {
+    const tdl = aBoard.GetDesignSettings().GetTeadropParamsList();
+    const mm = (iu: number): number => pcbIUScale.iuToMM(iu);
+    const shape = (t: TARGET_TD): TeardropShape => {
+      const p = tdl.GetParameters(t);
+      return {
+        maxLengthMM: mm(p.m_TdMaxLen),
+        maxWidthMM: mm(p.m_TdMaxWidth),
+        bestLengthPct: p.m_BestLengthRatio * 100.0,
+        bestWidthPct: p.m_BestWidthRatio * 100.0,
+        trackWidthLimitPct: p.m_WidthtoSizeFilterRatio * 100.0,
+        preferZoneConnection: !p.m_TdOnPadsInZones,
+        allowSpanTwoSegments: p.m_AllowUseTwoTracks,
+        curvedEdges: p.m_CurvedEdges,
+      };
+    };
+    return {
+      round: shape(TARGET_TD.TARGET_ROUND),
+      rect: shape(TARGET_TD.TARGET_RECT),
+      trackToTrack: shape(TARGET_TD.TARGET_TRACK),
+      targets: {
+        vias: tdl.m_TargetVias,
+        pthPads: tdl.m_TargetPTHPads,
+        smdPads: tdl.m_TargetSMDPads,
+        trackToTrack: tdl.m_TargetTrack2Track,
+        roundShapesOnly: tdl.m_UseRoundShapesOnly,
+      },
+    };
+  },
+
+  TransferDataFromWindow(v: TeardropsSetup, aBoard: BOARD): void {
+    const tdl = aBoard.GetDesignSettings().GetTeadropParamsList();
+    const iu = (mm: number): number => pcbIUScale.mmToIU(mm);
+    const apply = (t: TARGET_TD, s: TeardropShape, withZone: boolean): void => {
+      const p = tdl.GetParameters(t);
+      p.m_BestLengthRatio = s.bestLengthPct / 100.0;
+      p.m_BestWidthRatio = s.bestWidthPct / 100.0;
+      p.m_TdMaxLen = iu(s.maxLengthMM);
+      p.m_TdMaxWidth = iu(s.maxWidthMM);
+      p.m_CurvedEdges = s.curvedEdges;
+      p.m_WidthtoSizeFilterRatio = s.trackWidthLimitPct / 100.0;
+      if (withZone) p.m_TdOnPadsInZones = !s.preferZoneConnection;
+      p.m_AllowUseTwoTracks = s.allowSpanTwoSegments;
+    };
+    apply(TARGET_TD.TARGET_ROUND, v.round, true);
+    apply(TARGET_TD.TARGET_RECT, v.rect, true);
+    apply(TARGET_TD.TARGET_TRACK, v.trackToTrack, false);
+    tdl.m_TargetVias = v.targets.vias;
+    tdl.m_TargetPTHPads = v.targets.pthPads;
+    tdl.m_TargetSMDPads = v.targets.smdPads;
+    tdl.m_TargetTrack2Track = v.targets.trackToTrack;
+    tdl.m_UseRoundShapesOnly = v.targets.roundShapesOnly;
+  },
+};
 
 interface Props {
   value: TeardropsSetup;

@@ -41,7 +41,7 @@ import {
   setPcbnewLiveSettingsProvider,
   setUpdatePcbnewLiveSettingsProvider,
 } from '@ziroeda/pcbnew/browser/pcbnew_live_settings.js';
-import { setHeadlessNetlistProvider } from '@ziroeda/pcbnew/netlist_from_schematic.js';
+import { setHeadlessNetlistProvider } from '@ziroeda/pcbnew/browser/headless_netlist.js';
 import { formatSchematicNetlist } from '@ziroeda/eeschema/cross-probing.js';
 
 /** `panel_mouse_settings.cpp:113-119`: the four choices are `WXK_*` codes. */

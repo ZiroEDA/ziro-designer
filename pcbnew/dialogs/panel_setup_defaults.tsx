@@ -9,9 +9,8 @@
  * first two are `PanelPcbTextGraphics`; the third is `PanelPcbZones`.
  */
 import type { JSX } from 'react';
-import type { BoardSetupValues } from '../board_settings.js';
-import { PanelPcbTextGraphics } from './panel_setup_text_and_graphics.js';
-import { PanelPcbZones } from './panel_setup_zones.js';
+import { PanelPcbTextGraphics, type TextGfxDefaults } from './panel_setup_text_and_graphics.js';
+import { PanelPcbZones, type ZoneDefaults } from './panel_setup_zones.js';
 
 export function PanelSetupDefaults({
   textGraphics,
@@ -19,10 +18,10 @@ export function PanelSetupDefaults({
   zones,
   onZones,
 }: {
-  textGraphics: BoardSetupValues['textGraphics'];
-  onTextGraphics: (next: BoardSetupValues['textGraphics']) => void;
-  zones: BoardSetupValues['zones'];
-  onZones: (next: BoardSetupValues['zones']) => void;
+  textGraphics: TextGfxDefaults;
+  onTextGraphics: (next: TextGfxDefaults) => void;
+  zones: ZoneDefaults;
+  onZones: (next: ZoneDefaults) => void;
 }): JSX.Element {
   return (
     <div className="ze-pcb-defaults">

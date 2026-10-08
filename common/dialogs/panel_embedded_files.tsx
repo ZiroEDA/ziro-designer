@@ -18,6 +18,52 @@ import { WX_GRID } from '../widgets/wx_grid.js';
 import { type wxGridEvent, wxGridStringTable } from '../wx/grid.js';
 import { WxGridView } from '../wx/grid_ui.js';
 import type { wxMenu, wxMenuEvent } from '../wx/menu.js';
+import { EMBEDDED_FILE, EMBEDDED_FILES, FILE_TYPE } from '../embedded_files.js';
+
+/** PANEL_EMBEDDED_FILES's transfers (common/dialogs/panel_embedded_files.cpp). */
+export const PANEL_EMBEDDED_FILES = {
+  TransferDataToWindow(aFiles: EMBEDDED_FILES): EmbeddedFilesData {
+    return {
+      embedFonts: aFiles.GetAreFontsEmbedded(),
+      files: [...aFiles.EmbeddedFileMap().values()].map((f) => ({
+        name: f.name,
+        reference: aFiles.GetEmbeddedFileLink(f),
+      })),
+    };
+  },
+
+  /** The panel's list replaces the owner's; true when that changed anything. */
+  TransferDataFromWindow(data: EmbeddedFilesData, aFiles: EMBEDDED_FILES): boolean {
+    let modified = aFiles.GetAreFontsEmbedded() !== data.embedFonts;
+    aFiles.SetAreFontsEmbedded(data.embedFonts);
+
+    const keep = new Map<string, EMBEDDED_FILE>();
+    for (const f of data.files) {
+      const existing = aFiles.GetEmbeddedFile(f.name);
+      if (existing && !f.pendingBytes) {
+        keep.set(f.name, existing);
+        continue;
+      }
+      if (!f.pendingBytes) continue;
+      const file = new EMBEDDED_FILE();
+      file.name = f.name;
+      file.type = FILE_TYPE.OTHER;
+      file.decompressedData = f.pendingBytes;
+      EMBEDDED_FILES.CompressAndEncode(file);
+      keep.set(f.name, file);
+      modified = true;
+    }
+
+    for (const name of [...aFiles.EmbeddedFileMap().keys()]) {
+      if (!keep.has(name)) modified = true;
+    }
+
+    aFiles.ClearEmbeddedFiles();
+    for (const file of keep.values()) aFiles.AddFile(file);
+
+    return modified;
+  },
+};
 
 // The data model lives beside the class it describes in common/;
 // re-exported here so the panel stays the import site for its slice.

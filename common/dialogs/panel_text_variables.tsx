@@ -15,7 +15,6 @@
 
 import { type JSX, useEffect } from 'react';
 import { DisplayErrorMessage } from '../confirm.js';
-import type { TextVar } from '../project/project_file.js';
 import { GRID_CELL_TEXT_EDITOR } from '../widgets/grid_text_helpers.js';
 import { Icon } from '../widgets/icons.js';
 import type { WX_GRID } from '../widgets/wx_grid.js';
@@ -26,6 +25,21 @@ import {
   wxGridSelectionModes,
 } from '../wx/grid.js';
 import { useStringGrid, WxGridView } from '../wx/grid_ui.js';
+import type { PROJECT } from '../project.js';
+import type { TextVar } from '../project/project_file.js';
+
+/** PANEL_TEXT_VARIABLES's transfers (common/dialogs/panel_text_variables.cpp): the project's text_variables. */
+export const PANEL_TEXT_VARIABLES = {
+  TransferDataToWindow(aProject: PROJECT): TextVar[] {
+    return [...aProject.GetProjectFile().m_TextVars].map(([name, value]) => ({ name, value }));
+  },
+
+  TransferDataFromWindow(v: readonly TextVar[], aProject: PROJECT): void {
+    const vars = aProject.GetProjectFile().m_TextVars;
+    vars.clear();
+    for (const t of v) if (t.name !== '') vars.set(t.name, t.value);
+  },
+};
 
 // The data model lives beside the class it describes in common/;
 // re-exported here so the panel stays the import site for its slice.

@@ -47,18 +47,143 @@ import type { BOARD_STACKUP } from '../board_stackup_manager/board_stackup.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import type {
-  ProfileType,
-  TuningProfile,
-  TuningProfilesData,
-  TuningProfileTrackEntry,
-  TuningProfileViaOverride,
-} from '../board_settings.js';
 import { CalculationType, calculateTrackParameters } from './panel_setup_tuning_profile_info.js';
+import { IsCopperLayerLowerThan, UNDEFINED_LAYER } from '@ziroeda/common/layer_id.js';
+import type { PROJECT } from '@ziroeda/common/project.js';
+import {
+  DELAY_PROFILE_TRACK_PROPAGATION_ENTRY,
+  DELAY_PROFILE_VIA_OVERRIDE_ENTRY,
+  TUNING_PROFILE,
+  TUNING_PROFILE_TYPE,
+} from '@ziroeda/common/project/tuning_profiles.js';
 
-// The aggregate model lives in board_settings.ts (KiCad's data/UI split);
-// re-exported so panel users keep importing from the panel module.
-export type { TuningProfile, TuningProfilesData } from '../board_settings.js';
+export type ProfileType = 'Single' | 'Differential';
+
+/**
+ * One row of PANEL_SETUP_TUNING_PROFILE_INFO's Track Propagation grid — a
+ * `DELAY_PROFILE_TRACK_PROPAGATION_ENTRY`. Layers are canonical names
+ * (`LSET::Name`), shown through the board's user names; a reference of `''`
+ * is `UNDEFINED_LAYER` (the grid's `<None>`). `delay` is in internal
+ * length-delay units, as `GetUnitValue( row, TRACK_GRID_DELAY )` returns.
+ */
+export interface TuningProfileTrackEntry {
+  signalLayer: string;
+  topReference: string;
+  bottomReference: string;
+  widthMM: number;
+  diffPairGapMM: number;
+  delay: number;
+}
+
+/** One row of the Via delay overrides grid — a `DELAY_PROFILE_VIA_OVERRIDE_ENTRY`; `delay` in IU time. */
+export interface TuningProfileViaOverride {
+  signalLayerFrom: string;
+  signalLayerTo: string;
+  viaLayerFrom: string;
+  viaLayerTo: string;
+  delay: number;
+}
+
+/** `TUNING_PROFILE`, as one notebook page of PANEL_SETUP_TUNING_PROFILES holds it. */
+export interface TuningProfile {
+  name: string;
+  type: ProfileType;
+  targetImpedance: number;
+  enableTimeDomain: boolean;
+  /** `m_ViaPropagationDelay`, IU length-delay ("Global unit delay"). */
+  viaPropDelay: number;
+  trackEntries: TuningProfileTrackEntry[];
+  viaOverrides: TuningProfileViaOverride[];
+}
+export interface TuningProfilesData {
+  profiles: TuningProfile[];
+}
+
+/** PANEL_SETUP_TUNING_PROFILES's transfers (panel_setup_tuning_profiles.cpp), a page per profile. */
+export const PANEL_SETUP_TUNING_PROFILES = {
+  /** `LoadProfile` on each of the project's profiles. */
+  TransferDataToWindow(aProject: PROJECT): TuningProfilesData {
+    const mm = (iu: number): number => pcbIUScale.iuToMM(iu);
+    const layerNameOf = (l: PCB_LAYER_ID): string => (l === UNDEFINED_LAYER ? '' : LSET.Name(l));
+    return {
+      profiles: aProject
+        .GetProjectFile()
+        .TuningProfileParameters()
+        .GetTuningProfiles()
+        .map((p) => ({
+          name: p.m_ProfileName,
+          type: p.m_Type === TUNING_PROFILE_TYPE.DIFFERENTIAL ? 'Differential' : 'Single',
+          targetImpedance: p.m_TargetImpedance,
+          enableTimeDomain: p.m_EnableTimeDomainTuning,
+          viaPropDelay: p.m_ViaPropagationDelay,
+          trackEntries: p.m_TrackPropagationEntries.map((e) => ({
+            signalLayer: layerNameOf(e.GetSignalLayer()),
+            topReference: layerNameOf(e.GetTopReferenceLayer()),
+            bottomReference: layerNameOf(e.GetBottomReferenceLayer()),
+            widthMM: mm(e.GetWidth()),
+            diffPairGapMM: mm(e.GetDiffPairGap()),
+            delay: e.GetDelay(true),
+          })),
+          viaOverrides: p.m_ViaOverrides.map((o) => ({
+            signalLayerFrom: layerNameOf(o.m_SignalLayerFrom),
+            signalLayerTo: layerNameOf(o.m_SignalLayerTo),
+            viaLayerFrom: layerNameOf(o.m_ViaLayerFrom),
+            viaLayerTo: layerNameOf(o.m_ViaLayerTo),
+            delay: o.m_Delay,
+          })),
+        })),
+    };
+  },
+
+  /** `ClearTuningProfiles`, then each page's `GetProfile`. */
+  TransferDataFromWindow(v: TuningProfilesData, aProject: PROJECT): void {
+    const iu = (mm: number): number => pcbIUScale.mmToIU(mm);
+    const tp = aProject.GetProjectFile().TuningProfileParameters();
+    const layerOf = (name: string): PCB_LAYER_ID =>
+      name === '' ? UNDEFINED_LAYER : (LSET.NameToLayer(name) as PCB_LAYER_ID);
+    tp.ClearTuningProfiles();
+    for (const row of v.profiles) {
+      const p = new TUNING_PROFILE();
+      p.m_ProfileName = row.name;
+      p.m_Type =
+        row.type === 'Differential' ? TUNING_PROFILE_TYPE.DIFFERENTIAL : TUNING_PROFILE_TYPE.SINGLE;
+      p.m_EnableTimeDomainTuning = row.enableTimeDomain;
+      p.m_ViaPropagationDelay = row.viaPropDelay;
+      p.m_TargetImpedance = Number.isFinite(row.targetImpedance) ? row.targetImpedance : 0.0;
+
+      for (const t of row.trackEntries) {
+        const entry = new DELAY_PROFILE_TRACK_PROPAGATION_ENTRY();
+        entry.SetSignalLayer(layerOf(t.signalLayer));
+        entry.SetTopReferenceLayer(layerOf(t.topReference));
+        entry.SetBottomReferenceLayer(layerOf(t.bottomReference));
+        entry.SetWidth(iu(t.widthMM));
+        entry.SetDiffPairGap(iu(t.diffPairGapMM));
+        entry.SetDelay(t.delay);
+        entry.SetEnableTimeDomainTuning(p.m_EnableTimeDomainTuning);
+        p.m_TrackPropagationEntries.push(entry);
+        p.m_TrackPropagationEntriesMap.set(entry.GetSignalLayer(), entry);
+      }
+
+      for (const o of row.viaOverrides) {
+        let signalFrom = layerOf(o.signalLayerFrom);
+        let signalTo = layerOf(o.signalLayerTo);
+        let viaFrom = layerOf(o.viaLayerFrom);
+        let viaTo = layerOf(o.viaLayerTo);
+
+        // Order layers in stackup order (from F_Cu first)
+        if (IsCopperLayerLowerThan(signalFrom, signalTo))
+          [signalFrom, signalTo] = [signalTo, signalFrom];
+        if (IsCopperLayerLowerThan(viaFrom, viaTo)) [viaFrom, viaTo] = [viaTo, viaFrom];
+
+        p.m_ViaOverrides.push(
+          new DELAY_PROFILE_VIA_OVERRIDE_ENTRY(signalFrom, signalTo, viaFrom, viaTo, o.delay),
+        );
+      }
+
+      tp.AddTuningProfile(p);
+    }
+  },
+};
 
 /** `m_typeChoices` (`_base.cpp:41`). */
 const PROFILE_TYPES: readonly ProfileType[] = ['Single', 'Differential'];

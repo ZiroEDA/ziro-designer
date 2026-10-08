@@ -25,12 +25,13 @@ import { join } from 'node:path';
 import { useState, type JSX } from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { PanelPcbTextGraphics } from '@ziroeda/pcbnew/dialogs/panel_setup_text_and_graphics.js';
-import { defaultTextGraphics, type TextGfxDefaults } from '@ziroeda/pcbnew/board_settings.js';
+import { freshBoardSetup } from './board_setup_test_utils.js';
+import type { TextGfxDefaults } from '@ziroeda/pcbnew/dialogs/panel_setup_text_and_graphics.js';
 
 afterEach(cleanup);
 
 function Harness(): JSX.Element {
-  const [v, setV] = useState<TextGfxDefaults>(defaultTextGraphics());
+  const [v, setV] = useState<TextGfxDefaults>(freshBoardSetup().textGraphics);
   return <PanelPcbTextGraphics value={v} onChange={setV} />;
 }
 

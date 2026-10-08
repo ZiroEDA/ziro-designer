@@ -27,11 +27,11 @@ beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
 afterEach(() => SetPgm(null));
 import { Reporter, RPT_SEVERITY_ACTION } from '@ziroeda/common';
 import { formatSchematicNetlist } from '@ziroeda/eeschema/cross-probing.js';
-import { setHeadlessNetlistProvider } from '@ziroeda/pcbnew/netlist_from_schematic.js';
+import { setHeadlessNetlistProvider } from '@ziroeda/pcbnew/browser/headless_netlist.js';
 import { FormatBoard, ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { kiidPathAsString } from '@ziroeda/common/kiid.js';
 import { libraryLoader, runLiveUpdate } from '../pcbnew/support/netlist_update_harness.js';
-import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
+import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/browser/headless_netlist.js';
 
 // The app registers the headless MAIL_SCH_GET_NETLIST answer at startup
 // (pgm_app.ts: `setHeadlessNetlistProvider(formatSchematicNetlist)`), since

@@ -50,6 +50,132 @@ export {
 } from '../project/net_settings.js';
 import { ColorSwatch } from '../widgets/color_swatch.js';
 import { parseColor4d, toCssColor } from '../gal/color4d.js';
+import { pcbIUScale, schIUScale } from '../eda_units.js';
+import { COLOR4D_UNSPECIFIED, type Color4d } from '../gal/color4d.js';
+import { NETCLASS } from '../netclass.js';
+import type { NET_SETTINGS } from '../project/net_settings.js';
+
+/** The CSS colour the grid edits; `COLOR4D::UNSPECIFIED` is the blank. */
+function colorToCss(c: Color4d): string {
+  return c.a === 0
+    ? ''
+    : toCssColor(c).replace(/^rgb\((\d+),(\d+),(\d+)\)$/, (_m, r, g, b) => {
+        const hex = (x: string): string => Number(x).toString(16).padStart(2, '0');
+        return `#${hex(r)}${hex(g)}${hex(b)}`;
+      });
+}
+
+function cssToColor(css: string): Color4d {
+  return css === '' ? COLOR4D_UNSPECIFIED : parseColor4d(css);
+}
+
+const numStr = (v: number | undefined): string => (v === undefined ? '' : String(v));
+
+/**
+ * PANEL_SETUP_NETCLASSES's transfers (common/dialogs/panel_setup_netclasses.cpp)
+ * over the project's NET_SETTINGS: Default first, then by priority. PCB
+ * dimensions are mm; the schematic wire and bus widths are mils.
+ */
+export const PANEL_SETUP_NETCLASSES = {
+  TransferDataToWindow(aSettings: NET_SETTINGS): NetClassesData {
+    const mm = (iu: number): number => pcbIUScale.iuToMM(iu);
+    const toRow = (nc: NETCLASS): NetClass => ({
+      name: nc.GetName(),
+      clearance: nc.HasClearance() ? numStr(mm(nc.GetClearance())) : '',
+      trackWidth: nc.HasTrackWidth() ? numStr(mm(nc.GetTrackWidth())) : '',
+      viaSize: nc.HasViaDiameter() ? numStr(mm(nc.GetViaDiameter())) : '',
+      viaHole: nc.HasViaDrill() ? numStr(mm(nc.GetViaDrill())) : '',
+      uviaSize: nc.HasuViaDiameter() ? numStr(mm(nc.GetuViaDiameter())) : '',
+      uviaHole: nc.HasuViaDrill() ? numStr(mm(nc.GetuViaDrill())) : '',
+      dpWidth: nc.HasDiffPairWidth() ? numStr(mm(nc.GetDiffPairWidth())) : '',
+      dpGap: nc.HasDiffPairGap() ? numStr(mm(nc.GetDiffPairGap())) : '',
+      dpViaGap: nc.HasDiffPairViaGap() ? numStr(mm(nc.GetDiffPairViaGap())) : '',
+      tuningProfile: nc.GetTuningProfile(),
+      pcbColor: colorToCss(nc.GetPcbColor(true)),
+      wireThickness: nc.HasWireWidth() ? numStr(schIUScale.iuToMils(nc.GetWireWidth())) : '',
+      busThickness: nc.HasBusWidth() ? numStr(schIUScale.iuToMils(nc.GetBusWidth())) : '',
+      color: colorToCss(nc.GetSchematicColor(true)),
+      lineStyle: nc.HasLineStyle() ? (LINE_STYLES[nc.GetLineStyle()] ?? 'Solid') : 'Solid',
+    });
+
+    const rest = [...aSettings.GetNetclasses().values()].sort(
+      (a, b) => a.GetPriority() - b.GetPriority(),
+    );
+    const netColors: Record<string, string> = {};
+    for (const [net, color] of aSettings.GetNetColorAssignments())
+      netColors[net] = colorToCss(color);
+
+    return {
+      classes: [toRow(aSettings.GetDefaultNetclass()), ...rest.map(toRow)],
+      assignments: aSettings
+        .GetNetclassPatternAssignments()
+        .map(([matcher, netClass]) => ({ pattern: matcher.GetPattern(), netClass })),
+      netColors,
+    };
+  },
+
+  TransferDataFromWindow(data: NetClassesData, aSettings: NET_SETTINGS): void {
+    const parseMM = (s: string): number | undefined => {
+      const t = s.trim();
+      if (t === '') return undefined;
+      const f = Number.parseFloat(t);
+      return Number.isFinite(f) ? pcbIUScale.mmToIU(f) : undefined;
+    };
+    const parseMils = (s: string): number | undefined => {
+      const t = s.trim();
+      if (t === '') return undefined;
+      const f = Number.parseFloat(t);
+      return Number.isFinite(f) ? schIUScale.milsToIU(f) : undefined;
+    };
+
+    const fill = (nc: NETCLASS, row: NetClass): void => {
+      nc.SetClearance(parseMM(row.clearance));
+      nc.SetTrackWidth(parseMM(row.trackWidth));
+      nc.SetViaDiameter(parseMM(row.viaSize));
+      nc.SetViaDrill(parseMM(row.viaHole));
+      nc.SetuViaDiameter(parseMM(row.uviaSize));
+      nc.SetuViaDrill(parseMM(row.uviaHole));
+      nc.SetDiffPairWidth(parseMM(row.dpWidth));
+      nc.SetDiffPairGap(parseMM(row.dpGap));
+      nc.SetDiffPairViaGap(parseMM(row.dpViaGap));
+      nc.SetTuningProfile(row.tuningProfile);
+      nc.SetPcbColor(cssToColor(row.pcbColor));
+      nc.SetWireWidth(parseMils(row.wireThickness));
+      nc.SetBusWidth(parseMils(row.busThickness));
+      nc.SetSchematicColor(cssToColor(row.color));
+      nc.SetLineStyle(Math.max(0, LINE_STYLES.indexOf(row.lineStyle)));
+    };
+
+    const [dfltRow, ...rows] = data.classes;
+    if (dfltRow) {
+      const dflt = aSettings.GetDefaultNetclass();
+      fill(dflt, dfltRow);
+      aSettings.SetDefaultNetclass(dflt);
+    }
+
+    const classes = new Map<string, NETCLASS>();
+    rows.forEach((row, i) => {
+      const nc = new NETCLASS(row.name, false);
+      nc.SetPriority(i);
+      fill(nc, row);
+      classes.set(row.name, nc);
+    });
+    aSettings.SetNetclasses(classes);
+
+    aSettings.ClearNetclassPatternAssignments();
+    for (const a of data.assignments) {
+      if (a.pattern !== '' || a.netClass !== '')
+        aSettings.SetNetclassPatternAssignment(a.pattern, a.netClass);
+    }
+
+    aSettings.GetNetColorAssignments().clear();
+    for (const [net, css] of Object.entries(data.netColors)) {
+      if (css !== '') aSettings.GetNetColorAssignments().set(net, parseColor4d(css));
+    }
+
+    aSettings.ClearAllCaches();
+  },
+};
 
 interface Props {
   value: NetClassesData;

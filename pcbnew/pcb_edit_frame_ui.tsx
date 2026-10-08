@@ -11,7 +11,7 @@
  */
 
 import { ParseFootprintFile } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import type { PcbScriptApi } from './pcb_script_api.js';
+import type { PcbScriptApi } from './browser/pcb_script_api.js';
 import { routeHeadless } from './router/route_headless.js';
 import { PnsDesignSettingsFromBds } from './router/pns_kicad_iface.js';
 import { DEFAULT_UPDATE_PCB_OPTIONS } from './dialogs/dialog_update_pcb.js';
@@ -59,7 +59,7 @@ import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
  * A module constant so its identity is stable across renders.
  */
 const PCB_LOCAL_ORIGIN = { x: 0, y: 0 };
-import { boardToolCursor } from './cursors.js';
+import { boardToolCursor } from './browser/cursors.js';
 import { pickerSnapsToGridOnly } from './tools/pcb_picker_tool.js';
 import { appearanceLayerRows } from './widgets/appearance_controls.js';
 import {
@@ -87,11 +87,7 @@ import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
 import { useHotkeyCyclePopup } from '@ziroeda/common/dialogs/hotkey_cycle_popup_ui.js';
 import type { WX_INFOBAR, WX_INFOBAR_HYPERLINK } from '@ziroeda/common/eda_base_frame.js';
 import { buildPcbMenus } from './menubar_pcb_editor.js';
-import {
-  enabledLayerNames,
-  netNamesByCode,
-  usePcbItemDialogs,
-} from './pcb_base_edit_frame_dialogs.js';
+import { enabledLayerNames, netNamesByCode, usePcbItemDialogs } from './pcb_base_edit_frame_ui.js';
 import { itemHasEditableCorners } from './tools/edit_tool.js';
 
 // Transitional (#636 stage 3): the bridge between the live BOARD and the legacy id selection;
@@ -167,7 +163,12 @@ import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { layerBoxLabel } from './pcb_layer_box_selector.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
-import { PCB_FRAME_NAME, pcbFrameTitle, type PCB_EDIT_FRAME_HOOKS } from './pcb_edit_frame.js';
+import {
+  FetchNetlistFromSchematic,
+  PCB_FRAME_NAME,
+  pcbFrameTitle,
+  type PCB_EDIT_FRAME_HOOKS,
+} from './pcb_edit_frame.js';
 import { withSaveEnablement } from '@ziroeda/common/save_enablement.js';
 import {
   DialogPasteSpecial,
@@ -202,6 +203,8 @@ import { DialogGencadExportOptions } from './dialogs/dialog_gencad_export_option
 import type { DIALOG_GENCAD_EXPORT_OPTIONS } from './dialogs/dialog_gencad_export_options.js';
 import { gencadFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import {
+  BoardSetupFromWindow,
+  BoardSetupToWindow,
   DialogBoardSetup,
   type BoardSetupValues,
   type PageId as BoardSetupPageId,
@@ -212,7 +215,6 @@ import {
   findProjectPro,
   type PCBNEW_JSON_SETTINGS_LIKE,
 } from './pcb_edit_frame.js';
-import { BoardSetupFromWindow, BoardSetupToWindow } from './dialogs/board_setup_transfer.js';
 import { DumpJson } from '@ziroeda/common/settings/json_dump.js';
 import type { BOARD } from './board.js';
 import { DialogDrc } from './dialogs/dialog_drc.js';
@@ -386,7 +388,6 @@ import {
   REACT_BOARD_LISTENER,
   storePcbnewSettings,
 } from './pcb_edit_frame.js';
-import { FetchNetlistFromSchematic } from './netlist_from_schematic.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { BOARD_EDITOR_CONTROL } from './tools/board_editor_control.js';
 import type { FOOTPRINT } from './footprint.js';
@@ -399,7 +400,7 @@ import {
   loadBitmapFontImage,
   syncViewTransform,
   type EditorView,
-} from './pcb_canvas.js';
+} from './browser/pcb_canvas.js';
 import type { PCB_DRAW_PANEL_GAL } from './pcb_draw_panel_gal.js';
 import type { BOARD_ITEM } from './board_item.js';
 import { PCB_DISPLAY_OPTIONS, type PCB_PAINTER } from './pcb_painter.js';
@@ -6396,7 +6397,7 @@ export function PcbEditor({
 
   /**
    * PCB_BASE_EDIT_FRAME's item dialogs, the one module every PCB_BASE_EDIT_FRAME
-   * window draws them with (`pcb_base_edit_frame_dialogs.tsx`), in this frame's
+   * window draws them with (`pcb_base_edit_frame_ui.tsx`), in this frame's
    * theme.
    */
   const itemDialogs = usePcbItemDialogs({

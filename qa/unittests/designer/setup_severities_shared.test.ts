@@ -22,11 +22,11 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ERC_ITEMS } from '@ziroeda/eeschema';
-import { DRC_CATEGORIES } from '@ziroeda/pcbnew/board_settings.js';
 import {
   groupSeverityItems,
   type SeverityGroup,
 } from '@ziroeda/common/dialogs/panel_setup_severities.js';
+import { DRC_CATEGORIES } from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');

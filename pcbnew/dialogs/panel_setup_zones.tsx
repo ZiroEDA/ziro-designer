@@ -21,11 +21,107 @@
 
 import type { JSX } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import type { ZoneDefaults } from '../board_settings.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { BOARD } from '../board.js';
+import { ISLAND_REMOVAL_MODE, ZONE_BORDER_DISPLAY_STYLE } from '../zone_settings.js';
+import { ZONE_CONNECTION } from '../zones.js';
 
-// The data model lives in board_settings.ts (KiCad's data/UI split);
-// re-exported so panel users keep importing from the panel module.
-export { defaultZones, type ZoneDefaults } from '../board_settings.js';
+export interface ZoneDefaults {
+  name: string;
+  clearanceMM: number;
+  minWidthMM: number;
+  padConnection: string;
+  thermalGapMM: number;
+  thermalSpokeMM: number;
+  outlineDisplay: string;
+  outlineHatchPitchMM: number;
+  cornerSmoothing: string;
+  smoothingRadiusMM: number;
+  removeIslands: string;
+  areaLimitMM2: number;
+  locked: boolean;
+}
+
+// The choices' labels indexed by the enum each stores (the combos list them in
+// their own display order below).
+/** ZONE_CONNECTION: NONE=0, THERMAL=1, FULL=2, THT_THERMAL=3. */
+const PAD_CONNECTION_OF: readonly string[] = [
+  'None',
+  'Thermal reliefs',
+  'Solid',
+  'Reliefs for PTH',
+];
+/** ZONE_BORDER_DISPLAY_STYLE: NO_HATCH=0, DIAGONAL_FULL=1, DIAGONAL_EDGE=2. */
+const BORDER_STYLE_OF: readonly string[] = ['Line', 'Fully hatched', 'Hatched'];
+/** ZONE_SETTINGS::SMOOTHING_NONE 0, SMOOTHING_CHAMFER 1, SMOOTHING_FILLET 2. */
+const CORNER_SMOOTHING_OF: readonly string[] = ['None', 'Chamfer', 'Fillet'];
+/** ISLAND_REMOVAL_MODE: ALWAYS=0, NEVER=1, AREA=2. */
+const ISLAND_REMOVAL_OF: readonly string[] = ['Always', 'Never', 'Below area limit'];
+
+/** A choice's selection index, or `aFallback` when the label is not one of them. */
+const selectionOf = (aList: readonly string[], aLabel: string, aFallback: number): number => {
+  const i = aList.indexOf(aLabel);
+  return i < 0 ? aFallback : i;
+};
+
+/**
+ * PANEL_SETUP_ZONES's transfers (panel_setup_zones.cpp): the board's default
+ * ZONE_SETTINGS through PANEL_ZONE_PROPERTIES.
+ */
+export const PANEL_SETUP_ZONES = {
+  TransferDataToWindow(aBoard: BOARD): ZoneDefaults {
+    const zs = aBoard.GetDesignSettings().GetDefaultZoneSettings();
+    const mm = (iu: number): number => pcbIUScale.iuToMM(iu);
+    return {
+      name: zs.m_Name,
+      clearanceMM: mm(zs.m_ZoneClearance),
+      minWidthMM: mm(zs.m_ZoneMinThickness),
+      padConnection: PAD_CONNECTION_OF[zs.GetPadConnection()] ?? 'Thermal reliefs',
+      thermalGapMM: mm(zs.m_ThermalReliefGap),
+      thermalSpokeMM: mm(zs.m_ThermalReliefSpokeWidth),
+      outlineDisplay: BORDER_STYLE_OF[zs.m_ZoneBorderDisplayStyle] ?? 'Hatched',
+      outlineHatchPitchMM: mm(zs.m_BorderHatchPitch),
+      cornerSmoothing: CORNER_SMOOTHING_OF[zs.GetCornerSmoothingType()] ?? 'None',
+      smoothingRadiusMM: mm(zs.GetCornerRadius()),
+      removeIslands: ISLAND_REMOVAL_OF[zs.GetIslandRemovalMode()] ?? 'Always',
+      areaLimitMM2: zs.GetMinIslandArea() / (pcbIUScale.IU_PER_MM * pcbIUScale.IU_PER_MM),
+      locked: zs.m_Locked,
+    };
+  },
+
+  /** `PANEL_ZONE_PROPERTIES::TransferZoneSettingsFromWindow`, into the board's defaults. */
+  TransferDataFromWindow(z: ZoneDefaults, aBoard: BOARD): void {
+    const bds = aBoard.GetDesignSettings();
+    const iu = (mm: number): number => pcbIUScale.mmToIU(mm);
+    const zs = bds.GetDefaultZoneSettings().clone();
+    zs.m_Name = z.name;
+    zs.m_ZoneClearance = iu(z.clearanceMM);
+    zs.m_ZoneMinThickness = iu(z.minWidthMM);
+    zs.SetPadConnection(
+      selectionOf(PAD_CONNECTION_OF, z.padConnection, ZONE_CONNECTION.THERMAL) as ZONE_CONNECTION,
+    );
+    zs.m_ThermalReliefGap = iu(z.thermalGapMM);
+    zs.m_ThermalReliefSpokeWidth = iu(z.thermalSpokeMM);
+    zs.m_ZoneBorderDisplayStyle = selectionOf(
+      BORDER_STYLE_OF,
+      z.outlineDisplay,
+      ZONE_BORDER_DISPLAY_STYLE.DIAGONAL_EDGE,
+    ) as ZONE_BORDER_DISPLAY_STYLE;
+    zs.m_BorderHatchPitch = iu(z.outlineHatchPitchMM);
+    zs.SetCornerSmoothingType(selectionOf(CORNER_SMOOTHING_OF, z.cornerSmoothing, 0));
+    zs.SetCornerRadius(iu(z.smoothingRadiusMM));
+    zs.SetIslandRemovalMode(
+      selectionOf(
+        ISLAND_REMOVAL_OF,
+        z.removeIslands,
+        ISLAND_REMOVAL_MODE.ALWAYS,
+      ) as ISLAND_REMOVAL_MODE,
+    );
+    zs.SetMinIslandArea(Math.trunc(z.areaLimitMM2 * pcbIUScale.IU_PER_MM * pcbIUScale.IU_PER_MM));
+    zs.m_Locked = z.locked;
+    bds.SetDefaultZoneSettings(zs);
+  },
+};
 
 const PAD_CONNECTIONS = ['Solid', 'Thermal reliefs', 'Reliefs for PTH', 'None'];
 const OUTLINE_DISPLAY = ['Line', 'Hatched', 'Fully hatched'];

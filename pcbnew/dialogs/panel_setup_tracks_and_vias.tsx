@@ -18,7 +18,59 @@ import { pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '../pcb_track.js';
-import type { DiffPairSize, ViaSize } from '../board_settings.js';
+import type { BOARD } from '../board.js';
+import { DIFF_PAIR_DIMENSION, VIA_DIMENSION } from '../board_design_settings.js';
+
+export interface ViaSize {
+  diameter: number;
+  drill: number;
+}
+export interface DiffPairSize {
+  width: number;
+  gap: number;
+  viaGap: number;
+}
+
+/** The page's three grids, mm. */
+export interface PredefinedSizes {
+  trackWidthsMM: number[];
+  viaSizesMM: ViaSize[];
+  diffPairsMM: DiffPairSize[];
+}
+
+/** PANEL_SETUP_TRACKS_AND_VIAS's transfers (panel_setup_tracks_and_vias.cpp). */
+export const PANEL_SETUP_TRACKS_AND_VIAS = {
+  /** Skip the first item of each list, which is the current netclass value. */
+  TransferDataToWindow(aBoard: BOARD): PredefinedSizes {
+    const bds = aBoard.GetDesignSettings();
+    const mm = (iu: number): number => pcbIUScale.iuToMM(iu);
+    return {
+      trackWidthsMM: bds.m_TrackWidthList.slice(1).map(mm),
+      viaSizesMM: bds.m_ViasDimensionsList
+        .slice(1)
+        .map((d) => ({ diameter: mm(d.m_Diameter), drill: mm(d.m_Drill) })),
+      diffPairsMM: bds.m_DiffPairDimensionsList
+        .slice(1)
+        .map((d) => ({ width: mm(d.m_Width), gap: mm(d.m_Gap), viaGap: mm(d.m_ViaGap) })),
+    };
+  },
+
+  /** Sorted, with a dummy "use netclass" entry first. */
+  TransferDataFromWindow(v: PredefinedSizes, aBoard: BOARD): void {
+    const bds = aBoard.GetDesignSettings();
+    const iu = (mm: number): number => pcbIUScale.mmToIU(mm);
+    const widths = v.trackWidthsMM.map(iu).sort((a, b) => a - b);
+    const vias = v.viaSizesMM
+      .map((d) => new VIA_DIMENSION(iu(d.diameter), iu(d.drill)))
+      .sort((a, b) => a.m_Diameter - b.m_Diameter || a.m_Drill - b.m_Drill);
+    const pairs = v.diffPairsMM
+      .map((d) => new DIFF_PAIR_DIMENSION(iu(d.width), iu(d.gap), iu(d.viaGap)))
+      .sort((a, b) => a.m_Width - b.m_Width || a.m_Gap - b.m_Gap || a.m_ViaGap - b.m_ViaGap);
+    bds.m_TrackWidthList = [0, ...widths];
+    bds.m_ViasDimensionsList = [new VIA_DIMENSION(0, 0), ...vias];
+    bds.m_DiffPairDimensionsList = [new DIFF_PAIR_DIMENSION(0, 0, 0), ...pairs];
+  },
+};
 
 /** `document.getElementById` handle for one grid cell, so PAGED_DIALOG can
  *  focus the cell `Validate()` refused — `SetError( …, grid, row, col )`. */

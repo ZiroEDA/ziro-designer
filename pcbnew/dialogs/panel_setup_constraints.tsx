@@ -14,9 +14,111 @@ import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { PagedDialogError } from '@ziroeda/common/widgets/paged_dialog.js';
 import { SpinCtrl } from '@ziroeda/common/widgets/spin_ctrl.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
-import type { BoardConstraints } from '../board_settings.js';
 import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import type { BOARD } from '../board.js';
+
+/** The page's fields: BOARD_DESIGN_SETTINGS' minimums, in mm as the binders show them. */
+export interface BoardConstraints {
+  // Copper
+  minClearanceMM: number;
+  minTrackMM: number;
+  minConnectionMM: number;
+  minAnnularMM: number;
+  minViaMM: number;
+  minUViaMM: number;
+  minUViaHoleMM: number;
+  copperToHoleMM: number;
+  copperToEdgeMM: number;
+  // Holes
+  minThroughHoleMM: number;
+  minHoleToHoleMM: number;
+  // Silk
+  silkClearanceMM: number;
+  minTextHeightMM: number;
+  minTextThicknessMM: number;
+  // Arc/Circle approximation
+  maxDeviationMM: number;
+  // Zone fill strategy
+  allowFilletsOutside: boolean;
+  minThermalSpokes: number;
+  // Length tuning
+  includeStackupHeight: boolean;
+}
+
+/** [data] `MINIMUM_ERROR_SIZE_MM` and `MAXIMUM_ERROR_SIZE_MM`
+ *  (`include/board_design_settings.h:97-98`), the range the arc approximation
+ *  error is allowed to take. */
+export const MIN_ERROR_SIZE_MM = 0.001;
+export const MAX_ERROR_SIZE_MM = 0.1;
+
+/**
+ * `m_MaxError` as `PANEL_SETUP_CONSTRAINTS::TransferDataFromWindow` stores it:
+ *
+ *     m_BrdSettings->m_MaxError = KiROUND( std::clamp( m_maxError.GetValue(),
+ *             pcbIUScale.IU_PER_MM * MINIMUM_ERROR_SIZE_MM,
+ *             pcbIUScale.IU_PER_MM * MAXIMUM_ERROR_SIZE_MM ) );
+ *
+ * The clamp is not cosmetic: `GetArcToSegmentCount` divides by the error, so a
+ * zero typed into the field is a division by zero in the zone filler, and a
+ * large one collapses every arc on the board to a triangle.
+ */
+export function clampMaxErrorMM(mm: number): number {
+  return Math.min(Math.max(mm, MIN_ERROR_SIZE_MM), MAX_ERROR_SIZE_MM);
+}
+
+/** PANEL_SETUP_CONSTRAINTS's transfers (panel_setup_constraints.cpp). */
+export const PANEL_SETUP_CONSTRAINTS = {
+  TransferDataToWindow(aBoard: BOARD): BoardConstraints {
+    const bds = aBoard.GetDesignSettings();
+    const mm = (iu: number): number => pcbIUScale.iuToMM(iu);
+    return {
+      minClearanceMM: mm(bds.m_MinClearance),
+      minTrackMM: mm(bds.m_TrackMinWidth),
+      minConnectionMM: mm(bds.m_MinConn),
+      minAnnularMM: mm(bds.m_ViasMinAnnularWidth),
+      minViaMM: mm(bds.m_ViasMinSize),
+      minUViaMM: mm(bds.m_MicroViasMinSize),
+      minUViaHoleMM: mm(bds.m_MicroViasMinDrill),
+      copperToHoleMM: mm(bds.m_HoleClearance),
+      copperToEdgeMM: mm(bds.m_CopperEdgeClearance),
+      minThroughHoleMM: mm(bds.m_MinThroughDrill),
+      minHoleToHoleMM: mm(bds.m_HoleToHoleMin),
+      silkClearanceMM: mm(bds.m_SilkClearance),
+      minTextHeightMM: mm(bds.m_MinSilkTextHeight),
+      minTextThicknessMM: mm(bds.m_MinSilkTextThickness),
+      maxDeviationMM: mm(bds.m_MaxError),
+      allowFilletsOutside: bds.m_ZoneKeepExternalFillets,
+      minThermalSpokes: bds.m_MinResolvedSpokes,
+      includeStackupHeight: bds.m_UseHeightForLengthCalcs,
+    };
+  },
+
+  /** "All stored in project file, not board". */
+  TransferDataFromWindow(c: BoardConstraints, aBoard: BOARD): void {
+    const bds = aBoard.GetDesignSettings();
+    const iu = (mm: number): number => pcbIUScale.mmToIU(mm);
+    bds.m_UseHeightForLengthCalcs = c.includeStackupHeight;
+    bds.m_MaxError = KiROUND(iu(clampMaxErrorMM(c.maxDeviationMM)));
+    bds.m_ZoneKeepExternalFillets = c.allowFilletsOutside;
+    bds.m_MinResolvedSpokes = c.minThermalSpokes;
+    bds.m_MinClearance = iu(c.minClearanceMM);
+    bds.m_MinConn = iu(c.minConnectionMM);
+    bds.m_TrackMinWidth = iu(c.minTrackMM);
+    bds.m_ViasMinAnnularWidth = iu(c.minAnnularMM);
+    bds.m_ViasMinSize = iu(c.minViaMM);
+    bds.m_HoleClearance = iu(c.copperToHoleMM);
+    bds.m_CopperEdgeClearance = iu(c.copperToEdgeMM);
+    bds.m_MinThroughDrill = iu(c.minThroughHoleMM);
+    bds.m_HoleToHoleMin = iu(c.minHoleToHoleMM);
+    bds.m_MicroViasMinSize = iu(c.minUViaMM);
+    bds.m_MicroViasMinDrill = iu(c.minUViaHoleMM);
+    bds.m_SilkClearance = iu(c.silkClearanceMM);
+    bds.m_MinSilkTextHeight = iu(c.minTextHeightMM);
+    bds.m_MinSilkTextThickness = iu(c.minTextThicknessMM);
+  },
+};
 
 /**
  * KiCad's own dark-theme constraint icons, vendored under assets/constraints

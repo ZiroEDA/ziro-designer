@@ -16,9 +16,9 @@
 
 import { type RefObject, useEffect, useState } from 'react';
 import type { COMMON_SETTINGS_LIKE } from '@ziroeda/common/pgm_base.js';
-import type { PCB_BASE_FRAME } from './pcb_base_frame.js';
+import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
 import { createPcbDrawPanel, loadBitmapFontImage } from './pcb_canvas.js';
-import type { PCB_DRAW_PANEL_GAL } from './pcb_draw_panel_gal.js';
+import type { PCB_DRAW_PANEL_GAL } from '../pcb_draw_panel_gal.js';
 
 export interface PCB_DRAW_PANEL_GAL_HOST_ENV {
   /** `Pgm()`: installed before the panel, whose painter and controls read it. */

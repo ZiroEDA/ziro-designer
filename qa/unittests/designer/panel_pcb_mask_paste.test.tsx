@@ -10,10 +10,10 @@
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  defaultMaskPaste,
   type MaskPaste,
   PanelPcbMaskPaste,
 } from '@ziroeda/pcbnew/dialogs/panel_setup_mask_and_paste.js';
+import { freshBoardSetup } from './board_setup_test_utils.js';
 
 afterEach(cleanup);
 
@@ -26,14 +26,14 @@ const field = (): HTMLInputElement => {
 
 describe('the solder paste clearance field', () => {
   it('is one field; there is no relative-clearance row', () => {
-    render(<PanelPcbMaskPaste value={defaultMaskPaste()} onChange={() => {}} />);
+    render(<PanelPcbMaskPaste value={freshBoardSetup().maskPaste} onChange={() => {}} />);
     expect(field()).toBeTruthy();
     expect(document.body.textContent).not.toContain('relative clearance');
   });
 
   it('shows the margin and the ratio together', () => {
     const value: MaskPaste = {
-      ...defaultMaskPaste(),
+      ...freshBoardSetup().maskPaste,
       pasteClearanceMM: -0.1,
       pasteRelativePct: -5,
     };
@@ -43,7 +43,7 @@ describe('the solder paste clearance field', () => {
 
   it('writes both halves back from what was typed', () => {
     let last: MaskPaste | null = null;
-    render(<PanelPcbMaskPaste value={defaultMaskPaste()} onChange={(v) => (last = v)} />);
+    render(<PanelPcbMaskPaste value={freshBoardSetup().maskPaste} onChange={(v) => (last = v)} />);
     fireEvent.change(field(), { target: { value: '0.05mm+2%' } });
     fireEvent.blur(field());
     expect(field().value).toBe('0.05 + 2%');

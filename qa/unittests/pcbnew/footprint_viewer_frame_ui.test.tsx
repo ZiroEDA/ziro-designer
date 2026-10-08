@@ -21,7 +21,9 @@ import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.
 import type { FOOTPRINT_VIEWER_JSON_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import type { COMMON_SETTINGS_LIKE } from '@ziroeda/common/pgm_base.js';
 
-vi.mock('@ziroeda/pcbnew/pcb_draw_panel_gal_host.js', () => ({ usePcbDrawPanel: () => null }));
+vi.mock('@ziroeda/pcbnew/browser/pcb_draw_panel_gal_host.js', () => ({
+  usePcbDrawPanel: () => null,
+}));
 
 /** A real, minimal footprint file: the message panel reads its pads. */
 const MOD = (

@@ -33,13 +33,6 @@
  */
 
 import { useRef, useState, type JSX } from 'react';
-import {
-  buildStackup,
-  isThicknessEditable,
-  type DielectricSublayer,
-  type PhysicalStackup,
-  type StackupLayer,
-} from '../board_settings.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { BOARD_STACKUP_ITEM_TYPE } from './board_stackup.js';
@@ -52,20 +45,251 @@ import { GetStandardColors } from './stackup_predefined_prms.js';
 import { BuildStackupReport } from './board_stackup_reporter.js';
 import { DialogDielectricMaterial, type Substrate } from './dialog_dielectric_list_manager.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { stackupFromView } from '../dialogs/board_setup_transfer.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { stringFromValue } from '@ziroeda/common/widgets/unit_binder.js';
 import { EdaListDialog } from '@ziroeda/common/dialogs/eda_list_dialog.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import type { BOARD } from '../board.js';
+import { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
+import {
+  BOARD_STACKUP,
+  BOARD_STACKUP_ITEM,
+  KEY_COPPER,
+  KEY_CORE,
+  KEY_PREPREG,
+} from './board_stackup.js';
+import { type BoardFinish, edgeConnectorOf } from './panel_board_finish.js';
 
-// The data model lives in board_settings.ts (KiCad's data/UI split);
-// re-exported so panel users keep importing from the panel module.
-export {
-  buildStackup,
-  defaultPhysicalStackup,
-  type DielectricSublayer,
-  type PhysicalStackup,
-  type StackupLayer,
-} from '../board_settings.js';
+/** An additional dielectric sublayer (BOARD_STACKUP_ITEM's DIELECTRIC_PRMS
+ *  entries past index 0, the `addsublayer` groups of the file format). */
+export interface DielectricSublayer {
+  material: string;
+  thicknessMM: number;
+  epsilonR?: number;
+  lossTan?: number;
+  locked?: boolean;
+}
+
+export interface StackupLayer {
+  name: string;
+  type: string;
+  material: string;
+  thicknessMM: number;
+  color: string;
+  locked?: boolean;
+  epsilonR?: number;
+  lossTan?: number;
+  /** Dielectric layers only: sublayers beyond the main one (sublayer 1). A
+   *  new sublayer starts as DIELECTRIC_PRMS(): thickness 0, epsilon 1, loss 0. */
+  sublayers?: DielectricSublayer[];
+}
+
+export interface PhysicalStackup {
+  copperCount: number;
+  impedanceControlled: boolean;
+  layers: StackupLayer[];
+}
+
+/** The stackup rows' type strings: the file's keys for the three the file abbreviates. */
+const STACKUP_TYPE_LABEL: Record<string, string> = {
+  [KEY_COPPER]: 'Copper',
+  [KEY_CORE]: 'Core',
+  [KEY_PREPREG]: 'Prepreg',
+};
+const STACKUP_TYPE_KEY: Record<string, string> = {
+  Copper: KEY_COPPER,
+  Core: KEY_CORE,
+  Prepreg: KEY_PREPREG,
+};
+/** `F.SilkS` shows as `F.Silkscreen` in the stackup rows (the layer's default name). */
+const STACKUP_DISPLAY_NAME: Record<string, string> = {
+  'F.SilkS': 'F.Silkscreen',
+  'B.SilkS': 'B.Silkscreen',
+};
+
+function stackupItemToWindow(item: BOARD_STACKUP_ITEM): StackupLayer {
+  const mm = (iu: number): number => pcbIUScale.iuToMM(iu);
+  const isDielectric = item.GetType() === BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_DIELECTRIC;
+  const layerName = isDielectric
+    ? `Dielectric ${item.GetDielectricLayerId()}`
+    : (STACKUP_DISPLAY_NAME[LSET.Name(item.GetBrdLayerId())] ?? LSET.Name(item.GetBrdLayerId()));
+  const row: StackupLayer = {
+    name: layerName,
+    type: STACKUP_TYPE_LABEL[item.GetTypeName()] ?? item.GetTypeName(),
+    material: item.GetMaterial(0),
+    thicknessMM: mm(item.GetThickness(0)),
+    color: item.GetColor(0),
+  };
+  if (item.IsThicknessLocked(0)) row.locked = true;
+  if (item.HasEpsilonRValue()) row.epsilonR = item.GetEpsilonR(0);
+  if (item.HasLossTangentValue()) row.lossTan = item.GetLossTangent(0);
+
+  if (item.GetSublayersCount() > 1) {
+    const subs: DielectricSublayer[] = [];
+    for (let i = 1; i < item.GetSublayersCount(); ++i) {
+      const sub: DielectricSublayer = {
+        material: item.GetMaterial(i),
+        thicknessMM: mm(item.GetThickness(i)),
+      };
+      if (item.IsThicknessLocked(i)) sub.locked = true;
+      if (item.HasEpsilonRValue()) sub.epsilonR = item.GetEpsilonR(i);
+      if (item.HasLossTangentValue()) sub.lossTan = item.GetLossTangent(i);
+      subs.push(sub);
+    }
+    row.sublayers = subs;
+  }
+  return row;
+}
+
+function stackupItemFromWindow(row: StackupLayer): BOARD_STACKUP_ITEM {
+  const iu = (mm: number): number => pcbIUScale.mmToIU(mm);
+  const typeKey = STACKUP_TYPE_KEY[row.type] ?? row.type;
+  let type: BOARD_STACKUP_ITEM_TYPE;
+  if (typeKey === KEY_COPPER) type = BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_COPPER;
+  else if (typeKey === KEY_CORE || typeKey === KEY_PREPREG)
+    type = BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_DIELECTRIC;
+  else if (/Solder Paste/.test(row.type)) type = BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_SOLDERPASTE;
+  else if (/Solder Mask/.test(row.type)) type = BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_SOLDERMASK;
+  else type = BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_SILKSCREEN;
+
+  const item = new BOARD_STACKUP_ITEM(type);
+  item.SetTypeName(typeKey);
+  if (type !== BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_DIELECTRIC) {
+    const fileName =
+      row.name === 'F.Silkscreen' ? 'F.SilkS' : row.name === 'B.Silkscreen' ? 'B.SilkS' : row.name;
+    item.SetBrdLayerId(LSET.NameToLayer(fileName) as PCB_LAYER_ID);
+  }
+  item.SetMaterial(row.material, 0);
+  item.SetThickness(iu(row.thicknessMM), 0);
+  item.SetThicknessLocked(row.locked ?? false, 0);
+  item.SetColor(row.color, 0);
+  if (row.epsilonR !== undefined) item.SetEpsilonR(row.epsilonR, 0);
+  if (row.lossTan !== undefined) item.SetLossTangent(row.lossTan, 0);
+
+  for (const [i, sub] of (row.sublayers ?? []).entries()) {
+    item.AddDielectricPrms(i + 1);
+    item.SetMaterial(sub.material, i + 1);
+    item.SetThickness(iu(sub.thicknessMM), i + 1);
+    item.SetThicknessLocked(sub.locked ?? false, i + 1);
+    if (sub.epsilonR !== undefined) item.SetEpsilonR(sub.epsilonR, i + 1);
+    if (sub.lossTan !== undefined) item.SetLossTangent(sub.lossTan, i + 1);
+  }
+
+  return item;
+}
+
+/** The rows into a fresh BOARD_STACKUP, dielectrics numbered in order. */
+function stackupOfRows(aRows: readonly StackupLayer[]): BOARD_STACKUP {
+  const st = new BOARD_STACKUP();
+  let dielectricId = 1;
+  for (const row of aRows) {
+    const item = stackupItemFromWindow(row);
+    if (item.GetType() === BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_DIELECTRIC) {
+      item.SetDielectricLayerId(dielectricId);
+      dielectricId++;
+    }
+    st.Add(item);
+  }
+  return st;
+}
+
+/**
+ * `BOARD_STACKUP::IsThicknessEditable()`'s answer for a row
+ * (`board_stackup.cpp:314-319`): copper, dielectric and solder mask have a
+ * thickness; silkscreen and solder paste do not.
+ */
+export function isThicknessEditable(aType: string): boolean {
+  return stackupItemFromWindow({
+    name: '',
+    type: aType,
+    material: '',
+    thicknessMM: 0,
+    color: '',
+  }).IsThicknessEditable();
+}
+
+/** PANEL_SETUP_BOARD_STACKUP's transfers (panel_board_stackup.cpp). */
+export const PANEL_SETUP_BOARD_STACKUP = {
+  /** The descriptor, synchronised to the board, its enabled rows in order. */
+  TransferDataToWindow(aBoard: BOARD): PhysicalStackup {
+    const bds = aBoard.GetDesignSettings();
+    const stackup = bds.GetStackupDescriptor();
+    stackup.SynchronizeWithBoard(bds);
+    return {
+      copperCount: aBoard.GetCopperLayerCount(),
+      impedanceControlled: stackup.m_HasDielectricConstrains,
+      layers: stackup
+        .GetList()
+        .filter((i) => i.IsEnabled())
+        .map(stackupItemToWindow),
+    };
+  },
+
+  /** The rows into the board's descriptor, and the thickness they add up to. */
+  TransferDataFromWindow(v: PhysicalStackup, aBoard: BOARD): boolean {
+    const bds = aBoard.GetDesignSettings();
+    const brd_stackup = bds.GetStackupDescriptor();
+    const before = brd_stackup.GetList().map((i) => BOARD_STACKUP_ITEM.copyOf(i));
+
+    brd_stackup.RemoveAll();
+    for (const item of stackupOfRows(v.layers).GetList()) brd_stackup.Add(item);
+
+    let modified =
+      before.length !== brd_stackup.GetCount() ||
+      before.some((b, i) => !b.equals(brd_stackup.GetStackupLayer(i)!));
+
+    const thickness = brd_stackup.BuildBoardThicknessFromStackup();
+    if (bds.GetBoardThickness() !== thickness) {
+      bds.SetBoardThickness(thickness);
+      modified = true;
+    }
+
+    if (brd_stackup.m_HasDielectricConstrains !== v.impedanceControlled) {
+      brd_stackup.m_HasDielectricConstrains = v.impedanceControlled;
+      modified = true;
+    }
+
+    if (!bds.m_HasStackup) {
+      bds.m_HasStackup = true;
+      modified = true;
+    }
+
+    return modified;
+  },
+
+  /**
+   * `transferDataFromUIToStackup()` + PANEL_SETUP_BOARD_FINISH into a scratch
+   * BOARD_STACKUP: what "Export to Clipboard" hands to `BuildStackupReport`
+   * without touching the board.
+   */
+  StackupOfWindow(aPhysical: PhysicalStackup, aFinish: BoardFinish): BOARD_STACKUP {
+    const st = stackupOfRows(aPhysical.layers);
+    st.m_HasDielectricConstrains = aPhysical.impedanceControlled;
+    st.m_FinishType = aFinish.copperFinish;
+    st.m_EdgeConnectorConstraints = edgeConnectorOf(aFinish.edgeCardConnectors);
+    st.m_EdgePlating = aFinish.platedBoardEdge;
+    return st;
+  },
+
+  /**
+   * The rows for a new copper count: `BOARD_STACKUP::BuildDefaultStackupList`
+   * over settings with that many copper layers, the stackup `buildLayerStackPanel`
+   * creates. [gap] KiCad keeps the rows it has and hides the inactive ones
+   * (`showOnlyActiveLayers`), then redistributes the dielectric thickness to
+   * keep the board's (`setDefaultLayerWidths`); this rebuilds the default stack.
+   */
+  DefaultRows(aCopperCount: number): StackupLayer[] {
+    const bds = new BOARD_DESIGN_SETTINGS();
+    bds.SetCopperLayerCount(aCopperCount);
+    const st = new BOARD_STACKUP();
+    st.BuildDefaultStackupList(bds);
+    return st
+      .GetList()
+      .filter((i) => i.IsEnabled())
+      .map(stackupItemToWindow);
+  },
+};
 
 const COPPER_COUNTS = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32];
 
@@ -88,7 +312,7 @@ const COPPER_COUNTS = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 3
  */
 const hasField = (type: string, f: 'mat' | 'thick' | 'color' | 'eps' | 'diel'): boolean => {
   if (type.includes('Solder Paste')) return false; // no cell of any kind
-  // Thickness comes from the shared predicate in board_settings.ts, because the
+  // Thickness comes from BOARD_STACKUP_ITEM::IsThicknessEditable, because the
   // `(general (thickness))` writer has to reach the same answer.
   if (f === 'thick') return isThicknessEditable(type);
   if (type === 'Copper') return false;
@@ -236,7 +460,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
     setLayer(i, { sublayers });
   };
   const setCount = (copperCount: number): void =>
-    onChange({ ...value, copperCount, layers: buildStackup(copperCount) });
+    onChange({ ...value, copperCount, layers: PANEL_SETUP_BOARD_STACKUP.DefaultRows(copperCount) });
 
   const subCountOf = (l: StackupLayer): number => 1 + (l.sublayers?.length ?? 0);
   // `BOARD_STACKUP::GetBoardThickness()` (`board_stackup.cpp:498-515`) adds a
@@ -450,7 +674,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
   // BOARD_STACKUP, then `BuildStackupReport( m_stackup, m_frame->GetUserUnits() )`.
   const onExport = (): void => {
     const report = BuildStackupReport(
-      stackupFromView(
+      PANEL_SETUP_BOARD_STACKUP.StackupOfWindow(
         value,
         finish ?? { copperFinish: 'None', platedBoardEdge: false, edgeCardConnectors: 'None' },
       ),

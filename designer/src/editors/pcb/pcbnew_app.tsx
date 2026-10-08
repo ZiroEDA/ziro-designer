@@ -10,7 +10,7 @@
  */
 import { registerAiBridge } from '@ziroeda/ai';
 import { pcbBridge } from '@ziroeda/ai/pcb_bridge.js';
-import type { PcbScriptApi } from '@ziroeda/pcbnew/pcb_script_api.js';
+import type { PcbScriptApi } from '@ziroeda/pcbnew/browser/pcb_script_api.js';
 import { type ComponentProps, useMemo } from 'react';
 import type { PCBNEW_APP } from '@ziroeda/pcbnew/browser/pcbnew_app.js';
 import { PcbEditor } from '@ziroeda/pcbnew/pcb_edit_frame_ui.js';

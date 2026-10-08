@@ -7,13 +7,13 @@
  * FIRST failure. The two ranges are written in inches and mils upstream.
  */
 import { describe, expect, it } from 'vitest';
-import { defaultBoardSetup } from '@ziroeda/pcbnew/board_settings.js';
 import {
   constraintFieldId,
   validateConstraints,
 } from '@ziroeda/pcbnew/dialogs/panel_setup_constraints.js';
+import { freshBoardSetup } from '../../designer/board_setup_test_utils.js';
 
-const base = () => defaultBoardSetup().constraints;
+const base = () => freshBoardSetup().constraints;
 
 describe('PANEL_SETUP_CONSTRAINTS validation', () => {
   it('accepts the defaults', () => {

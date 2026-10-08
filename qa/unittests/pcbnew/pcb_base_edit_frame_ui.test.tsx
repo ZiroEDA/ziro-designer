@@ -3,7 +3,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `usePcbItemDialogs` (`pcbnew/pcb_base_edit_frame_dialogs.tsx`): the window
+ * `usePcbItemDialogs` (`pcbnew/pcb_base_edit_frame_ui.tsx`): the window
  * half of PCB_BASE_EDIT_FRAME's `Show…Dialog` methods, shared by every
  * PCB_BASE_EDIT_FRAME window. Each hook draws its dialog on the live item;
  * Cancel answers false and writes nothing, OK runs the model's
@@ -17,7 +17,7 @@ import { DIALOG_PAD_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_pad_proper
 import { DIALOG_TEXT_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
 import { FOOTPRINT_EDIT_FRAME } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import { FOOTPRINT_LIBRARY_STORE } from '@ziroeda/pcbnew/footprint_library_adapter.js';
-import { usePcbItemDialogs } from '@ziroeda/pcbnew/pcb_base_edit_frame_dialogs.js';
+import { usePcbItemDialogs } from '@ziroeda/pcbnew/pcb_base_edit_frame_ui.js';
 import { attachFootprintFrameCanvas } from './support/footprint_frame_canvas.js';
 
 afterEach(cleanup);

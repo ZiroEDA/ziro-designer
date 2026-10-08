@@ -39,24 +39,209 @@
 import { useState, type JSX } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { EdaListDialog } from '@ziroeda/common/dialogs/eda_list_dialog.js';
-import {
-  MANDATORY_LAYERS,
-  type BoardLayer,
-  type CopperLayerType,
-  type LayersSetup,
-  type UserLayerType,
-} from '../board_settings.js';
+import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import type { BOARD } from '../board.js';
+import { LAYER_T } from '../board_types.js';
 
-// The data model lives in board_settings.ts (KiCad's data/UI split);
-// re-exported so panel users keep importing from the panel module.
-export {
-  defaultLayers,
-  MANDATORY_LAYERS,
-  type BoardLayer,
-  type CopperLayerType,
-  type LayersSetup,
-  type UserLayerType,
-} from '../board_settings.js';
+export type CopperLayerType = 'signal' | 'power' | 'mixed' | 'jumper';
+
+/**
+ * A user-defined layer's `LAYER_T`, as its row's second `wxChoice` sets it
+ * (`panel_setup_layers.cpp:537-539`, `showLayerTypes():684-693`): LT_AUX,
+ * LT_FRONT, LT_BACK. Only User.1-45 carry one - the fixed technical layers
+ * show a `wxStaticText` instead, and copper shows the four-way copper choice.
+ */
+export type UserLayerType = 'aux' | 'front' | 'back';
+
+export interface BoardLayer {
+  id: string;
+  name: string;
+  enabled: boolean;
+  /** Which of PANEL_SETUP_LAYERS' three row shapes this layer draws. */
+  kind: 'copper' | 'tech' | 'user';
+  /** Copper layers only. */
+  copperType?: CopperLayerType;
+  /** User-defined (User.N) layers only. */
+  userType?: UserLayerType;
+  /** Fixed technical layers: descriptive label shown in the type column. */
+  desc?: string;
+}
+
+export interface LayersSetup {
+  layers: BoardLayer[];
+}
+
+/**
+ * The layers whose enable checkbox is `mandatoryLayerCbSetup()` — shown,
+ * disabled, tooltip "This layer is required and cannot be disabled"
+ * (`panel_setup_layers.cpp:54-61`). Its call sites are F.Courtyard (`:240`),
+ * B.Courtyard (`:450`), Edge.Cuts (`:451`) and Margin (`:452`); every copper
+ * layer gets it too, from `setCopperLayerCheckBoxes()` (`:728-745`), which the
+ * panel derives from `kind === 'copper'` rather than listing here.
+ *
+ * [data] Transcribed from those call sites, not chosen.
+ */
+export const MANDATORY_LAYERS: ReadonlySet<string> = new Set([
+  'F.CrtYd',
+  'B.CrtYd',
+  'Edge.Cuts',
+  'Margin',
+]);
+
+// The fixed rows in the order PANEL_SETUP_LAYERS adds them to `m_LayersSizer`
+// - front technical, the copper stack (built from the board, before B.Mask),
+// back technical, then Edge.Cuts / Margin / Eco1 / Eco2 / Comments / Drawings
+// (`initialize_front_tech_layers()`, the copper loop, `initialize_back_tech_layers()`).
+// This is NOT `LSET::TechAndUserUIOrder()`, which the *writer* uses. [data]
+// Each row's label and type text are the panel's own.
+const LAYER_ROWS: readonly Omit<BoardLayer, 'enabled'>[] = [
+  { id: 'F.CrtYd', name: 'F.Courtyard', kind: 'tech', desc: 'Off-board, testing' },
+  { id: 'F.Fab', name: 'F.Fab', kind: 'tech', desc: 'Off-board, manufacturing' },
+  { id: 'F.Adhes', name: 'F.Adhesive', kind: 'tech', desc: 'On-board, non-copper' },
+  { id: 'F.Paste', name: 'F.Paste', kind: 'tech', desc: 'On-board, non-copper' },
+  {
+    id: 'F.SilkS',
+    name: 'F.Silkscreen',
+    kind: 'tech',
+    desc: 'On-board, non-copper',
+  },
+  { id: 'F.Mask', name: 'F.Mask', kind: 'tech', desc: 'On-board, non-copper' },
+  { id: 'B.Mask', name: 'B.Mask', kind: 'tech', desc: 'On-board, non-copper' },
+  {
+    id: 'B.SilkS',
+    name: 'B.Silkscreen',
+    kind: 'tech',
+    desc: 'On-board, non-copper',
+  },
+  { id: 'B.Paste', name: 'B.Paste', kind: 'tech', desc: 'On-board, non-copper' },
+  { id: 'B.Adhes', name: 'B.Adhesive', kind: 'tech', desc: 'On-board, non-copper' },
+  { id: 'B.Fab', name: 'B.Fab', kind: 'tech', desc: 'Off-board, manufacturing' },
+  { id: 'B.CrtYd', name: 'B.Courtyard', kind: 'tech', desc: 'Off-board, testing' },
+  { id: 'Edge.Cuts', name: 'Edge.Cuts', kind: 'tech', desc: 'Board contour' },
+  { id: 'Margin', name: 'Margin', kind: 'tech', desc: 'Board contour setback' },
+  // Eco1, Eco2, Comments, Drawings — the order `initialize_back_tech_layers()`
+  // adds them in (`panel_setup_layers.cpp:391`, `:405`, `:417`, `:433`). This
+  // had Drawings and Comments first, which is the Appearance panel's order, not
+  // this page's.
+  { id: 'Eco1.User', name: 'User.Eco1', kind: 'tech', desc: 'Auxiliary' },
+  { id: 'Eco2.User', name: 'User.Eco2', kind: 'tech', desc: 'Auxiliary' },
+  { id: 'Cmts.User', name: 'User.Comments', kind: 'tech', desc: 'Auxiliary' },
+  { id: 'Dwgs.User', name: 'User.Drawings', kind: 'tech', desc: 'Auxiliary' },
+];
+
+/** PANEL_SETUP_LAYERS's transfers (panel_setup_layers.cpp). */
+export const PANEL_SETUP_LAYERS = {
+  /**
+   * `initialize_layers_controls` + `showBoardLayerNames` + `showLayerTypes`
+   * + `showSelectedLayerCheckBoxes`: the rows in the panel's physical order -
+   * front technical, the copper stack, back technical, the auxiliaries, and a
+   * row for each *enabled* user-defined layer (the only ones the panel makes).
+   */
+  TransferDataToWindow(aBoard: BOARD): LayersSetup {
+    const enabled = aBoard.GetEnabledLayers();
+    const rows: BoardLayer[] = [];
+
+    for (const t of LAYER_ROWS) {
+      const layer = LSET.NameToLayer(t.id) as PCB_LAYER_ID;
+      if (t.id === 'B.Mask') {
+        for (const cu of LSET.AllCuMask(aBoard.GetCopperLayerCount()).UIOrder()) {
+          rows.push({
+            id: LSET.Name(cu),
+            name: aBoard.GetLayerName(cu),
+            enabled: true,
+            kind: 'copper',
+            copperType: COPPER_TYPES[aBoard.GetLayerType(cu)]?.[0] ?? 'signal',
+          });
+        }
+      }
+      rows.push({
+        ...t,
+        name: aBoard.GetLayerName(layer),
+        enabled: enabled.test(layer) || MANDATORY_LAYERS.has(t.id),
+      });
+    }
+
+    for (const layer of enabled.and(LSET.UserDefinedLayersMask()).UIOrder()) {
+      const type = aBoard.GetLayerType(layer);
+      rows.push({
+        id: LSET.Name(layer),
+        name: aBoard.GetLayerName(layer),
+        enabled: true,
+        kind: 'user',
+        userType: type === LAYER_T.LT_FRONT ? 'front' : type === LAYER_T.LT_BACK ? 'back' : 'aux',
+      });
+    }
+
+    return { layers: rows };
+  },
+
+  /** `transferDataFromWindow`: the enabled set, names and types. True when the board changed. */
+  TransferDataFromWindow(v: LayersSetup, aBoard: BOARD): boolean {
+    let modified = false;
+    const enabledLayers = new LSET();
+    for (const row of v.layers) {
+      if (!row.enabled) continue;
+      const layer = LSET.NameToLayer(row.id);
+      if (layer >= 0) enabledLayers.set(layer);
+    }
+    const previousEnabled = aBoard.GetEnabledLayers();
+
+    if (!enabledLayers.equals(previousEnabled)) {
+      aBoard.SetEnabledLayers(enabledLayers);
+      const changedLayers = enabledLayers.xor(previousEnabled);
+
+      // Ensure enabled layers are also visible.  This is mainly to avoid mistakes if some
+      // enabled layers are not visible when exiting this dialog.
+      aBoard.SetVisibleLayers(aBoard.GetVisibleLayers().or(changedLayers));
+
+      // Ensure items with through holes have all inner copper layers.  (For historical reasons
+      // this is NOT trimmed to the currently-enabled inner layers.)
+      for (const fp of aBoard.Footprints()) {
+        for (const pad of fp.Pads()) {
+          if (pad.HasHole() && pad.IsOnCopperLayer())
+            pad.SetLayerSet(pad.GetLayerSet().or(LSET.InternalCuMask()));
+        }
+      }
+
+      // Tracks do not change their layer; via layers are their start and end layer.
+      modified = true;
+    }
+
+    for (const row of v.layers) {
+      if (!row.enabled) continue;
+      const layer = LSET.NameToLayer(row.id) as PCB_LAYER_ID;
+      if (layer < 0) continue;
+
+      if (aBoard.GetLayerName(layer) !== row.name) {
+        aBoard.SetLayerName(layer, row.name);
+        modified = true;
+      }
+
+      if (IsCopperLayer(layer)) {
+        const i = COPPER_TYPES.findIndex(([t]) => t === (row.copperType ?? 'signal'));
+        const t = (i < 0 ? LAYER_T.LT_UNDEFINED : i) as LAYER_T;
+        if (aBoard.GetLayerType(layer) !== t) {
+          aBoard.SetLayerType(layer, t);
+          modified = true;
+        }
+      } else if (layer >= PCB_LAYER_ID.User_1) {
+        const t =
+          row.userType === 'front'
+            ? LAYER_T.LT_FRONT
+            : row.userType === 'back'
+              ? LAYER_T.LT_BACK
+              : LAYER_T.LT_AUX;
+        if (aBoard.GetLayerType(layer) !== t) {
+          aBoard.SetLayerType(layer, t);
+          modified = true;
+        }
+      }
+    }
+
+    return modified;
+  },
+};
 
 /**
  * The copper-layer `wxChoice`'s entries, and the values the board file stores

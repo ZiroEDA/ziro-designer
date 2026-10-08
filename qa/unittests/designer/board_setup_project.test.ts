@@ -8,9 +8,10 @@
  */
 import { describe, it, expect } from 'vitest';
 import { findProjectPro } from '@ziroeda/pcbnew/pcb_edit_frame.js';
-import { defaultBoardSetup, type BoardSetupValues } from '@ziroeda/pcbnew/board_settings.js';
 import { EMPTY_PCB, projectJson } from '@ziroeda/designer/src/home/new_project.js';
 import { readSetup, writeProject } from './board_setup_test_utils.js';
+import { freshBoardSetup } from './board_setup_test_utils.js';
+import type { BoardSetupValues } from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
 
 /** The dialog's values for a `.kicad_pro`, over a fresh two-layer board. */
 const readPro = (aProText: string): BoardSetupValues =>
@@ -24,7 +25,7 @@ const TEMPLATE = projectJson('proj', '00000000-0000-0000-0000-000000000000');
 
 /** A setup with every `.kicad_pro`-persisted field off-default. */
 function customSetup(): BoardSetupValues {
-  const s = defaultBoardSetup();
+  const s = freshBoardSetup();
   s.constraints = {
     minClearanceMM: 0.15,
     minTrackMM: 0.13,
@@ -159,7 +160,7 @@ function customSetup(): BoardSetupValues {
 describe('Board Setup, the .kicad_pro side', () => {
   it('reads defaults from a fresh template project', () => {
     const s = readPro(TEMPLATE);
-    expect(s.constraints).toEqual(defaultBoardSetup().constraints);
+    expect(s.constraints).toEqual(freshBoardSetup().constraints);
     expect(s.trackWidthsMM).toEqual([]);
     expect(s.viaSizesMM).toEqual([]);
   });
