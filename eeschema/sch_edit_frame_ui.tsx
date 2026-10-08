@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { DIALOG_JUNCTION_PROPS } from './dialogs/dialog_junction_props.js';
+import type { SCH_JUNCTION } from './sch_junction.js';
+import { color4dToItemColor, itemColorToColor4d } from './dialogs/item_color.js';
 import { type ChooserFilter, type OpenedFile, WxFileDialog } from '@ziroeda/common/wx/filedlg.js';
 import { WxTextEntryDialog } from '@ziroeda/common/wx/textdlg.js';
 import { wxFD_SAVE } from '@ziroeda/common/wx/defs.js';
-import { wxID_CANCEL } from '@ziroeda/common/wx/menu.js';
+import { wxID_CANCEL, wxID_OK } from '@ziroeda/common/wx/menu.js';
 import { type KICAD_MESSAGE_DIALOG_ARG, ShowKicadMessageDialog } from '@ziroeda/common/confirm.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { FIELD_T, GetCanonicalFieldName } from '@ziroeda/common/template_fieldnames.js';
@@ -1388,10 +1391,12 @@ export function SchematicEditor({
     style: string;
     color?: ItemColor;
   } | null>(null);
-  const [junctionEdit, setJunctionEdit] = useState<{
-    index: number;
-    diameterIU: number;
-    color?: ItemColor;
+  /** DIALOG_JUNCTION_PROPS while it is up for the live tools. */
+  const [junctionDialog, setJunctionDialog] = useState<{
+    dlg: DIALOG_JUNCTION_PROPS;
+    shown: ReturnType<DIALOG_JUNCTION_PROPS['TransferDataToWindow']>;
+    firstDiameter: number;
+    resolve: (aId: number) => void;
   } | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [localToggles, setLocalToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
@@ -1781,6 +1786,18 @@ export function SchematicEditor({
       showModal: (aDialog, _aItems, aArg) => {
         if (aDialog === 'KICAD_MESSAGE_DIALOG')
           return ShowKicadMessageDialog(aArg as KICAD_MESSAGE_DIALOG_ARG);
+        if (aDialog === 'DIALOG_JUNCTION_PROPS') {
+          const junctions = _aItems as SCH_JUNCTION[];
+          const dlg = new DIALOG_JUNCTION_PROPS(schFrameRef.current!, junctions);
+          return new Promise<number>((resolve) =>
+            setJunctionDialog({
+              dlg,
+              shown: dlg.TransferDataToWindow(),
+              firstDiameter: junctions[0]!.GetDiameter(),
+              resolve,
+            }),
+          );
+        }
         console.warn(`${aDialog} is not ported to the live model yet`);
         return wxID_CANCEL;
       },
@@ -4751,13 +4768,6 @@ export function SchematicEditor({
               style: l.stroke?.type ?? 'default',
               color: l.stroke?.color,
             });
-        } else if (d.junctions.some((j, i) => refId('junction', j.uuid, i) === id)) {
-          const ji = d.junctions.findIndex((j, i) => refId('junction', j.uuid, i) === id);
-          setJunctionEdit({
-            index: ji,
-            diameterIU: d.junctions[ji]!.diameter,
-            color: d.junctions[ji]!.color,
-          });
         } else if (d.busEntries.some((b, i) => refId('busentry', b.uuid, i) === id)) {
           // Grouped with wires and junctions upstream; same stroke dialog.
           const bi = d.busEntries.findIndex((b, i) => refId('busentry', b.uuid, i) === id);
@@ -6916,22 +6926,6 @@ export function SchematicEditor({
         runCommand(
           cmds.length === 1 ? cmds[0]! : composeCommands('Edit Wire & Bus Properties', cmds),
         );
-        return null;
-      });
-    },
-    [doc, runCommand],
-  );
-
-  const commitJunctionEdit = useCallback(
-    (diameterIU: number, color?: ItemColor) => {
-      setJunctionEdit((je) => {
-        if (!je || !doc) return null;
-        const orig = doc.junctions[je.index];
-        if (orig) {
-          const next = { ...orig, diameter: diameterIU, color };
-          if (!color) delete (next as { color?: ItemColor }).color;
-          runCommand(replaceJunction(je.index, next));
-        }
         return null;
       });
     },
@@ -9524,14 +9518,27 @@ export function SchematicEditor({
         />
       )}
 
-      {/* Junction diameter/colour (DIALOG_JUNCTION_PROPS, E on a junction). */}
-      {junctionEdit && (
+      {/* DIALOG_JUNCTION_PROPS on the live junctions (E / double-click on a junction). */}
+      {junctionDialog && (
         <DialogLineProperties
           kind="junction"
-          diameterIU={junctionEdit.diameterIU}
-          color={junctionEdit.color}
-          onOk={commitJunctionEdit}
-          onCancel={() => setJunctionEdit(null)}
+          diameterIU={junctionDialog.shown.diameter ?? junctionDialog.firstDiameter}
+          color={color4dToItemColor(junctionDialog.shown.color)}
+          onOk={(diameterIU, color) => {
+            setJunctionDialog(null);
+            // The binder was indeterminate and the user left it so: leave the diameters.
+            const unchanged =
+              junctionDialog.shown.diameter === null && diameterIU === junctionDialog.firstDiameter;
+            junctionDialog.dlg.TransferDataFromWindow(
+              unchanged ? null : diameterIU,
+              itemColorToColor4d(color),
+            );
+            junctionDialog.resolve(wxID_OK);
+          }}
+          onCancel={() => {
+            setJunctionDialog(null);
+            junctionDialog.resolve(wxID_CANCEL);
+          }}
         />
       )}
 

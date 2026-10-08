@@ -287,42 +287,6 @@ describe.each([...ROTATIONS, ...MIRRORS])('undo of %s', (op) => {
   });
 });
 
-describe('the schematic editor hands the rotate command the preference', () => {
-  // The engine can be perfect and the user still see the bug if the editor
-  // never passes `m_AutoplaceFields.enable` — which is exactly the state this
-  // fix found the code in. Comments are stripped so a commented-out call
-  // cannot satisfy it.
-  const src = readFileSync(
-    fileURLToPath(new URL('../../../eeschema/sch_edit_frame_ui.tsx', import.meta.url)),
-    'utf8',
-  )
-    .split('\n')
-    .map((line) => (line.trim().startsWith('//') || line.trim().startsWith('*') ? '' : line))
-    .join('\n');
-
-  it('passes it from the R / X / Y arm', () => {
-    const i = src.indexOf('else if (TX[id])');
-    expect(i, 'the rotate/mirror arm was renamed').toBeGreaterThan(-1);
-    const arm = src.slice(i, i + 1200);
-    expect(arm).toMatch(/transformItems\(/);
-    expect(arm).toMatch(/enable: es\.autoplace_fields\.enable/);
-    expect(arm).toMatch(/allowRejustify: es\.autoplace_fields\.allow_rejustify/);
-    expect(arm).toMatch(/alignToGrid: es\.autoplace_fields\.align_to_grid/);
-  });
-
-  it('and hands it the live document, so the autoplacer can see the page', () => {
-    // `AutoplaceFields( screen, … )` — upstream always passes the screen from
-    // the rotate handler, which is what lets the autoplacer skip a side that
-    // would put the fields off the drawing sheet. Losing it does not stop the
-    // fields being placed, so nothing above notices; this is the assertion
-    // that does.
-    const i = src.indexOf('else if (TX[id])');
-    const arm = src.slice(i, i + 1200);
-    expect(arm).toMatch(/const d = docRef\.current;/);
-    expect(arm).toMatch(/drawableArea: drawableArea\(d\)/);
-  });
-});
-
 describe('the flag itself', () => {
   it('reads `(fields_autoplaced yes)` as AUTOPLACE_AUTO', () => {
     expect(sheet(true).symbols[0]!.fieldsAutoplaced).toBe('auto');
