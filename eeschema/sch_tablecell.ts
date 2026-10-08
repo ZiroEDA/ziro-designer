@@ -8,10 +8,22 @@
  * Not here: `Plot`, `GetMsgPanelInfo`, `Serialize`/`Deserialize`, `SCH_TABLECELL_DESC`.
  */
 
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
+import {
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_INT,
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
+import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';
+import { SCH_SHAPE } from './sch_shape.js';
 import { RESOLVE_TEXT_RECURSION_DEPTH, ResolveTextVars } from '@ziroeda/common/common.js';
 import type { EDA_GROUP } from '@ziroeda/common/eda_group.js';
 import type { EDA_ITEM, OutStr } from '@ziroeda/common/eda_item.js';
-import { FILL_T } from '@ziroeda/common/eda_shape.js';
+import { EDA_SHAPE, FILL_T } from '@ziroeda/common/eda_shape.js';
 import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
@@ -346,3 +358,98 @@ export class SCH_TABLECELL extends SCH_TEXTBOX {
     [this.m_rowSpan, cell.m_rowSpan] = [cell.m_rowSpan, this.m_rowSpan];
   }
 }
+
+/** `static struct SCH_TABLECELL_DESC` (eeschema/sch_tablecell.cpp:413). */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_TABLECELL);
+
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_TABLECELL, SCH_TEXTBOX));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_TABLECELL, SCH_SHAPE));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_TABLECELL, EDA_SHAPE));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_TABLECELL, EDA_TEXT));
+  propMgr.InheritsAfter(SCH_TABLECELL, SCH_TEXTBOX);
+  propMgr.InheritsAfter(SCH_TABLECELL, SCH_SHAPE);
+  propMgr.InheritsAfter(SCH_TABLECELL, EDA_SHAPE);
+  propMgr.InheritsAfter(SCH_TABLECELL, EDA_TEXT);
+
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Start X');
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Start Y');
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'End X');
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'End Y');
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Shape');
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Width');
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Height');
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Fill');
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Fill Color');
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Line Width');
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Line Style');
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Line Color');
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Corner Radius');
+
+  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, 'Width');
+  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, 'Height');
+  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, 'Thickness');
+  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, 'Orientation');
+  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, 'Mirrored');
+  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, 'Visible');
+  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, 'Hyperlink');
+
+  const tableProps = 'Table';
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_TABLECELL, number>(
+      SCH_TABLECELL,
+      'Column Width',
+      'SetColumnWidth',
+      'GetColumnWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    tableProps,
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_TABLECELL, number>(
+      SCH_TABLECELL,
+      'Row Height',
+      'SetRowHeight',
+      'GetRowHeight',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    tableProps,
+  );
+
+  const cellProps = 'Cell Properties';
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_TABLECELL, boolean, EDA_SHAPE>(
+      SCH_TABLECELL,
+      'Background Fill',
+      'SetFilled',
+      'IsSolidFill',
+      TYPE_BOOL,
+      PROPERTY_DISPLAY.PT_DEFAULT,
+      COORD_TYPES_T.NOT_A_COORD,
+      EDA_SHAPE,
+    ),
+    cellProps,
+  );
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_TABLECELL, Color4d, EDA_SHAPE>(
+        SCH_TABLECELL,
+        'Background Fill Color',
+        'SetFillColor',
+        'GetFillColor',
+        TYPE_COLOR4D,
+        PROPERTY_DISPLAY.PT_DEFAULT,
+        COORD_TYPES_T.NOT_A_COORD,
+        EDA_SHAPE,
+      ),
+      cellProps,
+    )
+    .SetIsHiddenFromRulesEditor();
+})();

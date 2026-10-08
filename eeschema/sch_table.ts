@@ -9,6 +9,18 @@
  * `Serialize`/`Deserialize`, `SCH_TABLE_DESC`.
  */
 
+import {
+  ENUM_MAP,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_INT,
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
+import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';
 import type { EDA_ITEM, INSPECTOR } from '@ziroeda/common/eda_item.js';
 import { INSPECT_RESULT, type RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
@@ -570,3 +582,144 @@ export class SCH_TABLE extends SCH_ITEM {
     for (const cell of table.m_cells) cell.SetParent(table);
   }
 }
+
+/**
+ * `static struct SCH_TABLE_DESC` (eeschema/sch_table.cpp:521). The LINE_STYLE map is filled by
+ * whoever registers first (sch_line, eda_shape), as upstream.
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_TABLE);
+
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_TABLE, SCH_ITEM));
+  propMgr.InheritsAfter(SCH_TABLE, SCH_ITEM);
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_TABLE, number>(
+      SCH_TABLE,
+      'Start X',
+      'SetPositionX',
+      'GetPositionX',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      COORD_TYPES_T.ABS_X_COORD,
+    ),
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_TABLE, number>(
+      SCH_TABLE,
+      'Start Y',
+      'SetPositionY',
+      'GetPositionY',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      COORD_TYPES_T.ABS_Y_COORD,
+    ),
+  );
+
+  const tableProps = 'Table Properties';
+  const lineStyleEnum = ENUM_MAP.Instance<LINE_STYLE>('LINE_STYLE');
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_TABLE, boolean>(
+      SCH_TABLE,
+      'External Border',
+      'SetStrokeExternal',
+      'StrokeExternal',
+      TYPE_BOOL,
+    ),
+    tableProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_TABLE, boolean>(
+      SCH_TABLE,
+      'Header Border',
+      'SetStrokeHeaderSeparator',
+      'StrokeHeaderSeparator',
+      TYPE_BOOL,
+    ),
+    tableProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_TABLE, number>(
+      SCH_TABLE,
+      'Border Width',
+      'SetBorderWidth',
+      'GetBorderWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    tableProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<SCH_TABLE, LINE_STYLE>(
+      SCH_TABLE,
+      'Border Style',
+      'SetBorderStyle',
+      'GetBorderStyle',
+      lineStyleEnum,
+    ),
+    tableProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_TABLE, Color4d>(
+      SCH_TABLE,
+      'Border Color',
+      'SetBorderColor',
+      'GetBorderColor',
+      TYPE_COLOR4D,
+    ),
+    tableProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_TABLE, boolean>(
+      SCH_TABLE,
+      'Row Separators',
+      'SetStrokeRows',
+      'StrokeRows',
+      TYPE_BOOL,
+    ),
+    tableProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_TABLE, boolean>(
+      SCH_TABLE,
+      'Cell Separators',
+      'SetStrokeColumns',
+      'StrokeColumns',
+      TYPE_BOOL,
+    ),
+    tableProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_TABLE, number>(
+      SCH_TABLE,
+      'Separators Width',
+      'SetSeparatorsWidth',
+      'GetSeparatorsWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    tableProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<SCH_TABLE, LINE_STYLE>(
+      SCH_TABLE,
+      'Separators Style',
+      'SetSeparatorsStyle',
+      'GetSeparatorsStyle',
+      lineStyleEnum,
+    ),
+    tableProps,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_TABLE, Color4d>(
+      SCH_TABLE,
+      'Separators Color',
+      'SetSeparatorsColor',
+      'GetSeparatorsColor',
+      TYPE_COLOR4D,
+    ),
+    tableProps,
+  );
+})();

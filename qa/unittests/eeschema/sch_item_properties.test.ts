@@ -8,7 +8,7 @@
  */
 import { resolve } from 'node:path';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
-import { TYPE_HASH } from '@ziroeda/common/properties/property.js';
+import { TYPE_HASH, TYPE_INT } from '@ziroeda/common/properties/property.js';
 import { PROPERTY_MANAGER } from '@ziroeda/common/properties/property_mgr.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { SCH_ITEM } from '@ziroeda/eeschema/sch_item.js';
@@ -19,6 +19,8 @@ import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
 import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
 import { SCH_FIELD } from '@ziroeda/eeschema/sch_field.js';
 import { SCH_PIN } from '@ziroeda/eeschema/sch_pin.js';
+import { SCH_TABLE } from '@ziroeda/eeschema/sch_table.js';
+import { SCH_TABLECELL } from '@ziroeda/eeschema/sch_tablecell.js';
 import { LIB_SYMBOL } from '@ziroeda/eeschema/lib_symbol.js';
 import { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
 import { SCH_BITMAP } from '@ziroeda/eeschema/sch_bitmap.js';
@@ -400,11 +402,17 @@ describe('SCH_SYMBOL_DESC', () => {
 
     // The exclusion rows act on the current sheet's instance, each its own attribute.
     single.SetExcludedFromBOMProp(true);
-    expect([single.GetExcludedFromBOMProp(), single.GetExcludedFromSimProp()]).toEqual([true, false]);
+    expect([single.GetExcludedFromBOMProp(), single.GetExcludedFromSimProp()]).toEqual([
+      true,
+      false,
+    ]);
     expect(single.GetExcludedFromBOM(h.frame.Schematic().CurrentSheet())).toBe(true);
     single.SetExcludedFromSimProp(true);
     single.SetExcludedFromBOMProp(false);
-    expect([single.GetExcludedFromBOMProp(), single.GetExcludedFromSimProp()]).toEqual([false, true]);
+    expect([single.GetExcludedFromBOMProp(), single.GetExcludedFromSimProp()]).toEqual([
+      false,
+      true,
+    ]);
 
     const choices = get('Unit').GetChoices(dual);
     expect([choices.GetLabel(0), choices.GetValue(0), choices.GetLabel(1)]).toEqual(['A', 1, 'B']);
@@ -494,6 +502,65 @@ describe('LIB_SYMBOL_DESC', () => {
     sym.SetUnitProp(3);
     expect(sym.GetUnitCount()).toBe(3);
     expect(sym.GetUnitProp()).toBe(3);
+  });
+});
+
+describe('SCH_TABLE_DESC', () => {
+  it("lays out SCH_ITEM's rows, its start point, then Table Properties", () => {
+    const rows = byGroup(SCH_TABLE);
+
+    expect(rows.get('')!.slice(-2)).toEqual(['Start X', 'Start Y']);
+    expect(rows.get('Table Properties')).toEqual([
+      'External Border',
+      'Header Border',
+      'Border Width',
+      'Border Style',
+      'Border Color',
+      'Row Separators',
+      'Cell Separators',
+      'Separators Width',
+      'Separators Style',
+      'Separators Color',
+    ]);
+    const style = PROPERTY_MANAGER.Instance().GetProperty(TYPE_HASH(SCH_TABLE), 'Border Style')!;
+    expect(style.Choices().GetLabel(0)).toBe('Solid');
+  });
+});
+
+describe('SCH_TABLECELL_DESC', () => {
+  it("masks the shape's geometry and the text's size and visibility, adding the table's own rows", () => {
+    const rows = byGroup(SCH_TABLECELL);
+    const names = [...rows.values()].flat();
+
+    for (const n of [
+      'Start X',
+      'End Y',
+      'Shape',
+      'Line Style',
+      'Corner Radius',
+      'Thickness',
+      'Mirrored',
+      'Hyperlink',
+    ])
+      expect(names, n).not.toContain(n);
+    // Width/Height masked from both EDA_SHAPE and EDA_TEXT.
+    expect(names).not.toContain('Width');
+    expect(names).not.toContain('Height');
+    expect(rows.get('Table')).toEqual(['Column Width', 'Row Height']);
+    expect(rows.get('Cell Properties')).toEqual(['Background Fill', 'Background Fill Color']);
+  });
+
+  it("Background Fill is EDA_SHAPE's solid fill, called on the cell", () => {
+    const cell = new SCH_TABLECELL();
+    const fill = PROPERTY_MANAGER.Instance().GetProperty(
+      TYPE_HASH(SCH_TABLECELL),
+      'Background Fill',
+    )!;
+
+    expect(fill.get(cell, TYPE_INT)).toBe(0);
+    fill.set(cell, true);
+    expect(cell.IsSolidFill()).toBe(true);
+    expect(fill.get(cell, TYPE_INT)).toBe(1);
   });
 });
 
