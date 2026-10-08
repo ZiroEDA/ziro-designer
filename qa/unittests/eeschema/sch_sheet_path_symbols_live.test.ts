@@ -32,7 +32,6 @@ const DIR = '/complex_hierarchy';
 const hooks: SCH_EDIT_FRAME_HOOKS = {
   crossProbingSettings: () => ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,
   highlightNet: () => {},
-  syncSelection: () => {},
   assignFootprints: () => {},
   saveProject: () => true,
   getNetlist: () => null,

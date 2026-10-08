@@ -29,7 +29,6 @@ function openFrame() {
   const frame = new SCH_EDIT_FRAME({
     crossProbingSettings: () => ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,
     highlightNet: () => {},
-    syncSelection: () => {},
     assignFootprints: () => {},
     saveProject: () => true,
     isOK: () => true,

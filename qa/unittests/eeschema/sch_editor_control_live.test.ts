@@ -309,46 +309,24 @@ describe('SCH_EDITOR_CONTROL', () => {
   });
 
   it('a selection the board sends (MAIL_SELECTION_FORCE) is not sent back to it', () => {
-    let selectIt: (() => void) | null = null;
-    const h = setUp({ syncSelection: () => selectIt?.() });
+    const h = setUp();
     const sent: unknown[] = [];
     (h.frame as unknown as Record<string, unknown>).SendSelectItemsToPcb = (aItems: unknown) =>
       sent.push(aItems);
-    const t = new SCH_TEXT(P(0, 0), 'x');
-    h.frame.AddToScreen(t, h.frame.GetScreen());
-    selectIt = () => h.sel.AddItemToSel(t);
+    const path = h.frame.GetCurrentSheet();
+    const symbol = [...h.frame.GetScreen()!.Items().OfType(KICAD_T.SCH_SYMBOL_T)].find(
+      (s) => !(s as SCH_SYMBOL).GetRef(path).startsWith('#'),
+    ) as SCH_SYMBOL;
 
     h.frame.KiwayMailIn(
       new KIWAY_MAIL_EVENT(FRAME_T.FRAME_SCH, MAIL_T.MAIL_SELECTION_FORCE, {
-        value: '$SELECT: 0,FR1',
+        value: `$SELECT: 0,F${symbol.GetRef(path)}`,
       }),
     );
 
-    expect(h.sel.GetSelection().Items().includes(t)).toBe(true);
+    expect(h.sel.GetSelection().Items().includes(symbol)).toBe(true);
     expect(sent).toEqual([]);
     expect(h.frame.IsSyncingSelection()).toBe(false);
-  });
-
-  it('SendSelectItemsToPcb makes F<ref> for a symbol and S<sheet path><uuid> for a sheet', () => {
-    const h = setUp();
-    const parts: string[][] = [];
-    (h.frame as unknown as Record<string, unknown>).SendSelectPartsToPcb = (aParts: string[]) =>
-      parts.push([...aParts]);
-    const screen = h.frame.GetScreen()!;
-    const symbol = screen.Items().OfType(KICAD_T.SCH_SYMBOL_T)[Symbol.iterator]().next()
-      .value as SCH_SYMBOL;
-    const sheet = screen.Items().OfType(KICAD_T.SCH_SHEET_T)[Symbol.iterator]().next()
-      .value as EDA_ITEM;
-    const path = h.frame.GetCurrentSheet();
-
-    h.frame.SendSelectItemsToPcb([symbol, sheet, new SCH_TEXT(P(0, 0), 'skipped')], false);
-
-    expect(parts).toEqual([
-      [
-        `F${symbol.GetField(FIELD_T.REFERENCE)!.GetText()}`,
-        `S${path.PathAsString()}${sheet.m_Uuid}`,
-      ],
-    ]);
   });
 
   it('a grid change by key pops the grid list at the current grid', () => {

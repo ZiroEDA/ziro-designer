@@ -52,7 +52,6 @@ function setup(answer: string | null) {
   const sch = new SCH_EDIT_FRAME({
     crossProbingSettings: () => new CROSS_PROBING_SETTINGS(),
     highlightNet: () => {},
-    syncSelection: () => {},
     assignFootprints: () => {},
     saveProject: () => true,
     getNetlist: (m) => {

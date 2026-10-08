@@ -36,13 +36,11 @@ class PCB_STUB extends KIWAY_PLAYER {
 function setup() {
   const cfg = new CROSS_PROBING_SETTINGS();
   const highlighted: string[] = [];
-  const synced: [string[], boolean][] = [];
   const assigned: string[] = [];
   let saveAnswer = true;
   const frame = new SCH_EDIT_FRAME({
     crossProbingSettings: () => cfg,
     highlightNet: (n) => highlighted.push(n),
-    syncSelection: (parts, focus) => synced.push([[...parts], focus]),
     assignFootprints: (payload) => {
       if (!payload.startsWith('(cvpcb_netlist')) throw new Error('not a cvpcb_netlist');
       assigned.push(payload);
@@ -78,7 +76,6 @@ function setup() {
   return {
     cfg,
     highlighted,
-    synced,
     assigned,
     frame,
     pcb,
@@ -127,47 +124,6 @@ describe('the schematic probing a net on the board', () => {
   });
 });
 
-describe('the board syncing its selection to the schematic', () => {
-  it('hands the parts after the two-character mode to the selection', () => {
-    const env = setup();
-    env.select('$SELECT: 0,FR1,PR2/1');
-    env.select('$SELECT: 1,FR3');
-    expect(env.synced).toEqual([
-      [['FR1', 'PR2/1'], false],
-      [['FR3'], true],
-    ]);
-  });
-
-  it('refuses MAIL_SELECTION when on_selection is off, but not MAIL_SELECTION_FORCE', () => {
-    const env = setup();
-    env.cfg.on_selection = false;
-    env.select('$SELECT: 0,FR1');
-    env.select('$SELECT: 0,FR2', true);
-    expect(env.synced).toEqual([[['FR2'], false]]);
-  });
-
-  it('drops a command too short to carry a sync string', () => {
-    // `if( paramStr.size() < 2 ) break;` — the prefix itself is not checked.
-    const env = setup();
-    env.select('$SELECT: 0');
-    env.select('$SELECT: ');
-    expect(env.synced).toEqual([]);
-  });
-});
-
-describe('the schematic syncing its selection to the board', () => {
-  it('SendSelectPartsToPcb mails $SELECT: 0,<parts>, forced or not, and nothing for no parts', () => {
-    const env = setup();
-    env.frame.SendSelectPartsToPcb(['FR1', 'S/a/b/'], false);
-    env.frame.SendSelectPartsToPcb(['PU1/2'], true);
-    env.frame.SendSelectPartsToPcb([], true);
-    expect(env.pcb.received).toEqual([
-      [MAIL_T.MAIL_SELECTION, '$SELECT: 0,FR1,S/a/b/'],
-      [MAIL_T.MAIL_SELECTION_FORCE, '$SELECT: 0,PU1/2'],
-    ]);
-  });
-});
-
 describe('Update PCB from Schematic', () => {
   it('OnUpdatePCB brings the board up, then mails it MAIL_PCB_UPDATE', () => {
     const shown: FRAME_T[] = [];
@@ -184,7 +140,6 @@ describe('Update PCB from Schematic', () => {
     const frame = new SCH_EDIT_FRAME({
       crossProbingSettings: () => new CROSS_PROBING_SETTINGS(),
       highlightNet: () => {},
-      syncSelection: () => {},
       assignFootprints: () => {},
       saveProject: () => true,
       getNetlist: () => null,

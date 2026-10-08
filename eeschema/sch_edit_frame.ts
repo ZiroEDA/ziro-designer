@@ -107,6 +107,8 @@ import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
 import { ZOOM_TOOL } from '@ziroeda/common/tool/zoom_tool.js';
 import { PICKER_TOOL } from '@ziroeda/common/tool/picker_tool.js';
 import { SCH_SELECTION_TOOL } from './tools/sch_selection_tool.js';
+import { findItemsFromSyncSelection } from './cross-probing.js';
+import type { KIID } from '@ziroeda/common/kiid.js';
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/common/wx/menu.js';
 import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
@@ -250,12 +252,6 @@ export interface SCH_EDIT_FRAME_HOOKS {
    * (`FindFirstSubgraphByName`) and relights; empty is no highlight.
    */
   highlightNet(aNetName: string): void;
-  /**
-   * `findItemsFromSyncSelection` then `SCH_SELECTION_TOOL::SyncSelection`:
-   * the editor owns the selection, so it resolves the parts and applies them.
-   * `on_selection` has been checked. Focusing the first item is not ported.
-   */
-  syncSelection(aParts: readonly string[], aFocusOnFirst: boolean): void;
   /**
    * `SCH_EDITOR_CONTROL::AssignFootprints( payload )`: apply CvPcb's
    * `cvpcb_netlist` as one undoable commit. Throws on a payload it cannot read.
@@ -1405,6 +1401,67 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   /// `m_syncingPcbToSchSelection`: recursion guard when synchronizing selection from PCB.
   private m_syncingPcbToSchSelection = false;
 
+  /// The cross-probe flash: the items' KIIDs, the phase, and the 500 ms wxTimer.
+  private m_crossProbeFlashItems: KIID[] = [];
+  private m_crossProbeFlashPhase = 0;
+  private m_crossProbeFlashing = false;
+  private m_crossProbeFlashTimer: ReturnType<typeof setInterval> | null = null;
+
+  /** `StartCrossProbeFlash( aItems )` (sch_edit_frame.cpp:491). */
+  StartCrossProbeFlash(aItems: readonly SCH_ITEM[]): void {
+    if (!this.hooks.crossProbingSettings().flash_selection) return;
+
+    if (aItems.length === 0) return;
+
+    if (this.m_crossProbeFlashing && this.m_crossProbeFlashTimer !== null) {
+      clearInterval(this.m_crossProbeFlashTimer);
+      this.m_crossProbeFlashTimer = null;
+    }
+
+    this.m_crossProbeFlashItems = aItems.map((it) => it.m_Uuid);
+    this.m_crossProbeFlashPhase = 0;
+    this.m_crossProbeFlashing = true;
+    this.m_crossProbeFlashTimer = setInterval(() => this.OnCrossProbeFlashTimer(), 500);
+  }
+
+  /** `OnCrossProbeFlashTimer( aEvent )` (sch_edit_frame.cpp:530). */
+  OnCrossProbeFlashTimer(): void {
+    if (!this.m_crossProbeFlashing) return;
+
+    const selTool = this.m_toolManager?.GetTool(SCH_SELECTION_TOOL) ?? null;
+
+    if (!selTool) return;
+
+    const prevGuard = this.m_syncingPcbToSchSelection;
+    this.m_syncingPcbToSchSelection = true;
+
+    const restore = (): void => {
+      for (const id of this.m_crossProbeFlashItems) {
+        const item = this.Schematic().ResolveItem(id, null, true);
+
+        if (item) selTool.AddItemToSel(item, true);
+      }
+    };
+
+    if (this.m_crossProbeFlashPhase % 2 === 0) selTool.ClearSelection(true);
+    else restore();
+
+    this.GetCanvas()?.ForceRefresh();
+
+    this.m_syncingPcbToSchSelection = prevGuard;
+    this.m_crossProbeFlashPhase++;
+
+    if (this.m_crossProbeFlashPhase > 6) {
+      restore();
+
+      this.m_crossProbeFlashing = false;
+
+      if (this.m_crossProbeFlashTimer !== null) clearInterval(this.m_crossProbeFlashTimer);
+
+      this.m_crossProbeFlashTimer = null;
+    }
+  }
+
   /**
    * `OnModify()` (sch_edit_frame.cpp:1333). `Kiway().LocalHistory().NoteFileChange` is the
    * desktop's local file history, which the cloud store replaces; the title the window builds
@@ -1974,12 +2031,23 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
         const focusOnFirst = paramStr[0] === '1';
 
-        this.m_syncingPcbToSchSelection = true; // recursion guard
+        const findRet = findItemsFromSyncSelection(this.Schematic(), syncStr, focusOnFirst);
 
-        try {
-          this.hooks.syncSelection(syncStr.split(','), focusOnFirst);
-        } finally {
-          this.m_syncingPcbToSchSelection = false;
+        if (findRet) {
+          const [sheetPath, focusItem, items] = findRet;
+
+          this.m_syncingPcbToSchSelection = true; // recursion guard
+
+          try {
+            this.m_toolManager
+              ?.GetTool(SCH_SELECTION_TOOL)
+              ?.SyncSelection(sheetPath, focusItem, items);
+          } finally {
+            this.m_syncingPcbToSchSelection = false;
+          }
+
+          if (this.hooks.crossProbingSettings().flash_selection && items.length > 0)
+            this.StartCrossProbeFlash(items);
         }
 
         break;
@@ -2246,25 +2314,20 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
       }
     }
 
-    this.SendSelectPartsToPcb(parts, aForce);
-  }
-
-  /**
-   * SendSelectItemsToPcb from the packet parts on: the record window builds its parts from
-   * record ids (`syncSelectionParts`) and joins here. Nothing is sent for no parts.
-   */
-  SendSelectPartsToPcb(aParts: readonly string[], aForce: boolean): void {
-    if (aParts.length === 0) return;
+    if (parts.length === 0) return;
 
     let command = '$SELECT: 0,';
 
-    for (const part of aParts) {
+    for (const part of parts) {
       command += part;
       command += ',';
     }
 
     command = command.slice(0, -1);
 
+    // Typically ExpressMail is going to be s-expression packets, but since
+    // we have existing interpreter of the selection packet on the other
+    // side in place, we use that here.
     this.Kiway()?.ExpressMail(
       FRAME_T.FRAME_PCB_EDITOR,
       aForce ? MAIL_T.MAIL_SELECTION_FORCE : MAIL_T.MAIL_SELECTION,

@@ -43,12 +43,6 @@ import type { SYMBOL_VIEWER_FRAME_APP } from '@ziroeda/eeschema/symbol_viewer_fr
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { DialogRescueEach } from './dialogs/dialog_rescue_each.js';
 import { DialogChangeSymbols } from './dialogs/dialog_change_symbols.js';
-import {
-  CROSS_PROBE_FLASH_INTERVAL_MS,
-  CROSS_PROBE_FLASH_LAST_PHASE,
-  crossProbeFlashSelection,
-  crossProbeViewChange,
-} from '@ziroeda/pcbnew';
 import type { ComponentProps, JSX } from 'react';
 import { SchematicEditor } from '@ziroeda/eeschema/sch_edit_frame_ui.js';
 
@@ -136,10 +130,6 @@ export function useEeschemaApp(): EESCHEMA_APP {
       PresencePanel: (props) => <PresencePanel {...props} />,
 
       AssignFootprints: (props) => <AssignFootprintsWithApp {...props} />,
-      crossProbeViewChange,
-      crossProbeFlashSelection,
-      CROSS_PROBE_FLASH_INTERVAL_MS,
-      CROSS_PROBE_FLASH_LAST_PHASE,
     }),
     [symbolViewerApp],
   );

@@ -28,7 +28,12 @@ import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { SCH_EDIT_FRAME, type SCH_EDIT_FRAME_HOOKS } from './sch_edit_frame.js';
-import { escapeIpc } from '@ziroeda/common/string_utils.js';
+import { escapeIpc, unescapeString } from '@ziroeda/common/string_utils.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { SCH_ITEM } from './sch_item.js';
+import type { SCH_PIN } from './sch_pin.js';
+import { type SCH_REFERENCE, SCH_REFERENCE_LIST } from './sch_reference_list.js';
+import { type SCH_SHEET_LIST, type SCH_SHEET_PATH, SYMBOL_FILTER } from './sch_sheet_path.js';
 import { resolvePadNumbers, symbolField } from './netlist_exporters/netlist_exporter_base.js';
 import { schSymbolLibraryName } from './lib_symbol.js';
 import { refId } from './tools/hittest.js';
@@ -48,285 +53,6 @@ import { LoadSchematic } from './eeschema_helpers.js';
 import type { SCHEMATIC } from './schematic.js';
 import { PROJECT } from '@ziroeda/common/project.js';
 import { PROJECT_FILE } from '@ziroeda/common/project/project_file.js';
-
-/** `<symbolRefId>:pin<k>` -> its two halves; null for anything else. */
-function pinRef(id: string): { owner: string; index: number } | null {
-  const at = id.lastIndexOf(':pin');
-  if (at === -1) return null;
-  const index = Number(id.slice(at + 4));
-  if (!Number.isInteger(index) || index < 0) return null;
-  return { owner: id.slice(0, at), index };
-}
-
-/**
- * The pin number a `:pin<k>` id names.
- *
- * `k` counts the pins of the units this placement draws, hidden ones included,
- * which is `computePinSegments`' enumeration — the one the ids were minted from.
- * Counting any other set would silently address the wrong pad.
- */
-function pinNumberAt(
-  sym: SchSymbol,
-  lib: LibSymbol | undefined,
-  index: number,
-): string | undefined {
-  let k = 0;
-  for (const u of lib?.units ?? []) {
-    if (
-      (u.unit !== 0 && u.unit !== sym.unit) ||
-      (u.bodyStyle !== 0 && u.bodyStyle !== sym.bodyStyle)
-    )
-      continue;
-    for (const pin of u.pins) if (k++ === index) return pin.number;
-  }
-  return undefined;
-}
-
-/**
- * The `$SELECT:` parts for `selection`, in KiCad's order — the order decides
- * which board item the view ends up centred on, so it is carried through rather
- * than sorted.
- *
- * `sheetPath` is the current sheet's instance path (`SCH_SHEET_PATH::PathAsString`,
- * "/" at the root and slash-terminated below it), which a sheet part is prefixed
- * with so the board can tell two instances of the same sheet apart.
- *
- * Items that are none of the three kinds are skipped, matching the `default:
- * break` of the switch upstream — that is why the menu entry is conditioned on
- * `crossProbingSelection` and not merely on a non-empty selection.
- */
-export function syncSelectionParts(
-  doc: Schematic,
-  selection: ReadonlySet<string>,
-  sheetPath: string,
-  libById?: ReadonlyMap<string, LibSymbol>,
-): string[] {
-  const symbolAt = new Map(doc.symbols.map((s, i) => [refId('symbol', s.uuid, i), i]));
-  const sheetAt = new Map(doc.sheets.map((s, i) => [refId('sheet', s.uuid, i), i]));
-  const parts: string[] = [];
-
-  for (const id of selection) {
-    const si = symbolAt.get(id);
-    if (si !== undefined) {
-      parts.push(`F${escapeIpc(symbolField(doc.symbols[si]!, 'Reference'))}`);
-      continue;
-    }
-
-    const hi = sheetAt.get(id);
-    if (hi !== undefined) {
-      // The sheet's own uuid, appended to the path of the sheet it sits on:
-      // together they are the path prefix every footprint inside it carries.
-      const sheet = doc.sheets[hi]!;
-      parts.push(`S${sheetPath}${sheet.uuid ?? ''}`);
-      continue;
-    }
-
-    const pin = pinRef(id);
-    const owner = pin === null ? undefined : symbolAt.get(pin.owner);
-    if (pin === null || owner === undefined) continue;
-
-    const sym = doc.symbols[owner]!;
-    const lib = libById?.get(schSymbolLibraryName(sym));
-    const number = pinNumberAt(sym, lib, pin.index);
-    if (number === undefined) continue;
-
-    const ref = escapeIpc(symbolField(sym, 'Reference'));
-    // A mapped pin can stand for several pads (`[1,2]`), and upstream highlights
-    // every one of them rather than picking the first.
-    for (const pad of resolvePadNumbers(number, sym, lib, symbolField(sym, 'Footprint'), undefined))
-      parts.push(`P${ref}/${escapeIpc(pad)}`);
-  }
-
-  return parts;
-}
-
-/**
- * The inbound half: the schematic items a `$SELECT:` packet FROM the board
- * names, as selection ids.
- *
- * `SCH_EDIT_FRAME::KiwayMailIn`'s `MAIL_SELECTION` arm parses the same three
- * part letters `syncSelectionParts` writes, and hands the items to
- * `SCH_SELECTION_TOOL::SyncSelection` (`sch_selection_tool.cpp:3464-3534`). The
- * shape deliberately mirrors pcbnew's `findItemsFromSyncSelection`, because the
- * two are the same function pointed the other way — and the letters have to be
- * read exactly as they were written or a round trip silently selects nothing.
- *
- * Unknown letters are ignored rather than failing the packet, as upstream's
- * `default: break` does: a message from a newer board selects what it can.
- */
-export function findSymbolsFromSyncSelection(
-  doc: Schematic,
-  parts: readonly string[],
-  sheetPath: string,
-  libById?: ReadonlyMap<string, LibSymbol>,
-): string[] {
-  const hits: { order: number; id: string }[] = [];
-
-  doc.symbols.forEach((sym, si) => {
-    // Compared in the ESCAPED form the parts carry, exactly as the outbound
-    // half writes it; `escapeIpc` is injective, so this is the same test as
-    // unescaping both sides.
-    const ref = escapeIpc(symbolField(sym, 'Reference'));
-    const id = refId('symbol', sym.uuid, si);
-
-    parts.forEach((part, order) => {
-      if (part === '') return;
-      const data = part.slice(1);
-
-      switch (part[0]) {
-        case 'F':
-          if (data === ref) hits.push({ order, id });
-          break;
-        case 'P': {
-          // `<ref>/<pad>`: the reference comes first, so the separating slash is
-          // the one after it and any slash of its own arrives escaped.
-          if (!data.startsWith(`${ref}/`)) break;
-          const pad = unescapeIpc(data.slice(ref.length + 1));
-          const lib = libById?.get(schSymbolLibraryName(sym));
-          const pins = lib ? lib.units.flatMap((u) => u.pins) : [];
-          pins.forEach((_pin, pi) => {
-            const number = pinNumberAt(sym, lib, pi);
-            if (number === undefined) return;
-            const pads = resolvePadNumbers(
-              number,
-              sym,
-              lib,
-              symbolField(sym, 'Footprint'),
-              undefined,
-            );
-            // The whole SYMBOL is what a pad probe selects here. Upstream
-            // selects the pin and then `FocusOnItem`s it, but a pin is not
-            // independently selectable in this port, and selecting its symbol
-            // is what `select( item )` falls back to for a child whose parent
-            // is on the draw list (`sch_selection_tool.cpp:3506-3512`).
-            if (pads.includes(pad)) hits.push({ order, id });
-          });
-          break;
-        }
-        default:
-          break;
-      }
-    });
-  });
-
-  doc.sheets.forEach((sheet, hi) => {
-    // The path a footprint inside this sheet carries: the sheet's own uuid
-    // appended to the path of the sheet it sits on — the same string the
-    // outbound half writes for `S`.
-    const own = `${sheetPath}${sheet.uuid ?? ''}`;
-    const id = refId('sheet', sheet.uuid, hi);
-    parts.forEach((part, order) => {
-      if (part[0] !== 'S') return;
-      // A PREFIX match, which is what makes a sheet probe reach its subsheets.
-      if (own.startsWith(part.slice(1))) hits.push({ order, id });
-    });
-  });
-
-  hits.sort((a, b) => a.order - b.order);
-  // One part can name a pin of a symbol another part already selected, and the
-  // ids become the selection, so they have to be unique.
-  return [...new Set(hits.map((h) => h.id))];
-}
-
-/** The three CTX_IPC escapes, undone — pcbnew's `unescapeIpc`, pointed back. */
-function unescapeIpc(source: string): string {
-  return source.replaceAll('{slash}', '/').replaceAll('{comma}', ',').replaceAll('{dblquote}', '"');
-}
-
-/**
- * The selection a probe should apply, or null to refuse it.
- *
- * `case MAIL_SELECTION: if( !...on_selection ) break;` — the check sits on
- * `MAIL_SELECTION` alone and `MAIL_SELECTION_FORCE` falls through below it, so
- * a FORCED probe (the cross-probe menu commands) ignores the preference. Same
- * split as pcbnew's `crossProbeSelection`, because it is the same code.
- */
-export function crossProbeSchSelection(
-  cfg: { on_selection: boolean },
-  doc: Schematic,
-  parts: readonly string[],
-  sheetPath: string,
-  libById?: ReadonlyMap<string, LibSymbol>,
-  force = false,
-): string[] | null {
-  if (!cfg.on_selection && !force) return null;
-  return findSymbolsFromSyncSelection(doc, parts, sheetPath, libById);
-}
-
-/**
- * `SCH_SELECTION_TOOL::ZoomFitCrossProbeBBox`'s LUT
- * (`sch_selection_tool.cpp:3391-3397`), mapping "how many default text heights
- * tall is this symbol" to "how much bigger than itself to draw the view".
- *
- * It is NOT pcbnew's table. The two frames run the same algorithm over
- * different numbers — a resistor wants sixteen times its own height of
- * schematic around it where a footprint wants eight — and upstream keeps two
- * copies of the function for exactly that reason. Sharing one table would be
- * the drift, not the fix.
- */
-const ZOOM_LUT: readonly (readonly [number, number])[] = [
-  [1.25, 16],
-  [2.5, 12],
-  [5, 8],
-  [6, 6],
-  [10, 4],
-  [20, 2],
-  [40, 1.5],
-  [100, 1],
-];
-
-/** `DEFAULT_TEXT_SIZE` in schematic IU — the yardstick the ratio is bent against. */
-const TEXT_HEIGHT = mmToIU(50 * 0.0254);
-
-/** Linear interpolation within the LUT; below the first entry, the first value. */
-function bendRatio(compRatio: number): number {
-  const first = ZOOM_LUT[0]!;
-  if (compRatio < first[0]) return first[1];
-  for (let i = 0; i < ZOOM_LUT.length - 1; i++) {
-    const a = ZOOM_LUT[i]!;
-    const b = ZOOM_LUT[i + 1]!;
-    if (a[0] <= compRatio && b[0] >= compRatio)
-      return a[1] + ((b[1] - a[1]) * (compRatio - a[0])) / (b[0] - a[0]);
-  }
-  // "Large symbol default is last LUT entry (1:1)."
-  return ZOOM_LUT[ZOOM_LUT.length - 1]![1];
-}
-
-/**
- * The new view scale a cross-probe should zoom to, or null to leave the zoom
- * alone — `ZoomFitCrossProbeBBox` (`sch_selection_tool.cpp:3362-3461`).
- *
- * The null is upstream's own restraint: "Try not to zoom on every cross-probe;
- * it gets very noisy", so a ratio already between 0.5 and 1.0 changes nothing.
- */
-export function schCrossProbeZoomScale(
-  bbox: { minX: number; minY: number; maxX: number; maxY: number },
-  screen: { x: number; y: number },
-  scale: number,
-): number | null {
-  const width = bbox.maxX - bbox.minX;
-  if (width === 0) return null;
-
-  // `bbox.Inflate( KiROUND( GetWidth() * 0.2f ) )` grows each side, so the size
-  // gains twice the delta.
-  const inflate = Math.round(width * 0.2);
-  const bbSize = { x: width + 2 * inflate, y: bbox.maxY - bbox.minY + 2 * inflate };
-  const screenSize = { x: Math.max(10, Math.abs(screen.x)), y: Math.max(10, screen.y) };
-
-  let ratio = Math.max(-1, Math.abs(bbSize.y / screenSize.y));
-  const kicadRatio = Math.max(Math.abs(bbSize.x / screenSize.x), Math.abs(bbSize.y / screenSize.y));
-  let compRatioBent = bendRatio(bbSize.y / TEXT_HEIGHT);
-
-  // A symbol far wider than it is tall would be cut off at the sides by the
-  // height-driven ratio, so those fall back to the plain fit.
-  if (bbSize.x > screenSize.x * ratio * compRatioBent) {
-    ratio = kicadRatio;
-    compRatioBent = 1.0;
-  }
-
-  ratio *= compRatioBent;
-  return ratio < 0.5 || ratio > 1.0 ? scale / ratio : null;
-}
 
 // ---------------------------------------------------------------------------
 // MAIL_SCH_GET_NETLIST (cross-probing.cpp:1027-1045): the headless handler,
@@ -411,7 +137,6 @@ export function formatSchematicNetlist(
   const frame = new SCH_EDIT_FRAME({
     crossProbingSettings: () => ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,
     highlightNet: () => {},
-    syncSelection: () => {},
     assignFootprints: () => {},
     saveProject: () => false,
     syncLiveSchematic: () => true,
@@ -503,4 +228,331 @@ export function loadProjectSchematic(
     project,
     (aPath) => byName.get(basename(aPath)) ?? null,
   );
+}
+
+type SYNC_SYM_MAP = Map<string, SCH_REFERENCE[]>;
+type SYNC_PIN_MAP = Map<string, Map<string, SCH_PIN | null>>;
+
+/** A SCH_SHEET_PATH as an unordered_map key: its KIID path (operator== compares those). */
+const pathKey = (aPath: SCH_SHEET_PATH): string => aPath.Path().AsString();
+
+/**
+ * `findSymbolsAndPins( aSchematicSheetList, aSheetPath, aSyncSymMap, aSyncPinMap, aRecursive )`
+ * (cross-probing.cpp:474): the symbols on \a aSheetPath whose references the sync maps want,
+ * whole or by pin.
+ */
+export function findSymbolsAndPins(
+  aSchematicSheetList: SCH_SHEET_LIST,
+  aSheetPath: SCH_SHEET_PATH,
+  aSyncSymMap: SYNC_SYM_MAP,
+  aSyncPinMap: SYNC_PIN_MAP,
+  aRecursive = false,
+): boolean {
+  if (aRecursive) {
+    // Iterate over children
+    for (const candidate of aSchematicSheetList) {
+      if (candidate.equals(aSheetPath) || !candidate.IsContainedWithin(aSheetPath)) continue;
+
+      findSymbolsAndPins(aSchematicSheetList, candidate, aSyncSymMap, aSyncPinMap, aRecursive);
+    }
+  }
+
+  const references = new SCH_REFERENCE_LIST();
+
+  aSheetPath.GetSymbols(references, SYMBOL_FILTER.SYMBOL_FILTER_NON_POWER, true);
+
+  for (let ii = 0; ii < references.GetCount(); ii++) {
+    const schRef = references.at(ii);
+
+    if (schRef.IsSplitNeeded()) schRef.Split();
+
+    const symbol = schRef.GetSymbol();
+    const refNum = schRef.GetRefNumber();
+    const fullRef = schRef.GetRef() + refNum;
+
+    // Skip power symbols
+    if (fullRef.startsWith('#')) continue;
+
+    // Unannotated symbols are not supported
+    if (refNum === '?') continue;
+
+    // Look for whole footprint
+    const symMatch = aSyncSymMap.get(fullRef);
+
+    if (symMatch) {
+      symMatch.push(schRef);
+
+      // Whole footprint was selected, no need to select pins
+      continue;
+    }
+
+    // Look for pins
+    const pinMap = aSyncPinMap.get(fullRef);
+
+    if (pinMap) {
+      const pinsOnSheet = symbol.GetPins(aSheetPath);
+
+      for (const pin of pinsOnSheet) {
+        const pinUnit = pin.GetLibPin()!.GetUnit();
+
+        if (pinUnit > 0 && pinUnit !== schRef.GetUnit()) continue;
+
+        if (pinMap.has(pin.GetNumber())) pinMap.set(pin.GetNumber(), pin);
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * `sheetContainsOnlyWantedItems( ... )` (cross-probing.cpp:553): every annotated, non-power symbol
+ * on \a aSheetPath and below is wanted whole.
+ */
+export function sheetContainsOnlyWantedItems(
+  aSchematicSheetList: SCH_SHEET_LIST,
+  aSheetPath: SCH_SHEET_PATH,
+  aSyncSymMap: SYNC_SYM_MAP,
+  aSyncPinMap: SYNC_PIN_MAP,
+  aCache: Map<string, boolean>,
+): boolean {
+  const cached = aCache.get(pathKey(aSheetPath));
+
+  if (cached !== undefined) return cached;
+
+  const emplace = (aValue: boolean): boolean => {
+    // std::unordered_map::emplace keeps an existing entry.
+    if (!aCache.has(pathKey(aSheetPath))) aCache.set(pathKey(aSheetPath), aValue);
+    return aValue;
+  };
+
+  // Iterate over children
+  for (const candidate of aSchematicSheetList) {
+    if (candidate.equals(aSheetPath) || !candidate.IsContainedWithin(aSheetPath)) continue;
+
+    const childRet = sheetContainsOnlyWantedItems(
+      aSchematicSheetList,
+      candidate,
+      aSyncSymMap,
+      aSyncPinMap,
+      aCache,
+    );
+
+    if (!childRet) return emplace(false);
+  }
+
+  const references = new SCH_REFERENCE_LIST();
+  aSheetPath.GetSymbols(references, SYMBOL_FILTER.SYMBOL_FILTER_NON_POWER, true);
+
+  // Empty sheet, obviously do not contain wanted items
+  if (references.GetCount() === 0) return emplace(false);
+
+  for (let ii = 0; ii < references.GetCount(); ii++) {
+    const schRef = references.at(ii);
+
+    if (schRef.IsSplitNeeded()) schRef.Split();
+
+    const refNum = schRef.GetRefNumber();
+    const fullRef = schRef.GetRef() + refNum;
+
+    // Skip power symbols
+    if (fullRef.startsWith('#')) continue;
+
+    // Unannotated symbols are not supported
+    if (refNum === '?') continue;
+
+    if (!aSyncSymMap.has(fullRef)) return emplace(false); // Some symbol is not wanted.
+
+    if (aSyncPinMap.has(fullRef)) return emplace(false); // Looking for specific pins, so can't be mapped
+  }
+
+  return emplace(true);
+}
+
+/**
+ * `findItemsFromSyncSelection( aSchematic, aSyncStr, aFocusOnFirst )` (cross-probing.cpp:628): the
+ * sheet to show, the item to focus and the items to select for a `$SELECT:` sync string of
+ * `F<ref>` and `P<ref>/<pad>` entries - the current sheet tried first.
+ */
+export function findItemsFromSyncSelection(
+  aSchematic: SCHEMATIC,
+  aSyncStr: string,
+  aFocusOnFirst: boolean,
+): [SCH_SHEET_PATH, SCH_ITEM | null, SCH_ITEM[]] | null {
+  const syncArray = aSyncStr.split(',').filter((t) => t !== '');
+
+  const syncSymMap: SYNC_SYM_MAP = new Map();
+  const syncPinMap: SYNC_PIN_MAP = new Map();
+  const fullyWantedCache = new Map<string, boolean>();
+
+  let focusSymbol: string | null = null;
+  let focusPin: [string, string] | null = null;
+  const focusItemResults = new Map<string, SCH_ITEM[]>();
+
+  const allSheetsList = aSchematic.Hierarchy();
+
+  // In orderedSheets, the current sheet comes first.
+  const orderedSheets: SCH_SHEET_PATH[] = [aSchematic.CurrentSheet()];
+
+  for (const sheetPath of allSheetsList) {
+    if (!sheetPath.equals(aSchematic.CurrentSheet())) orderedSheets.push(sheetPath);
+  }
+
+  // Init sync maps from the sync string
+  for (let i = 0; i < syncArray.length; i++) {
+    const syncEntry = syncArray[i]!;
+    const syncData = syncEntry.substring(1);
+
+    switch (syncEntry[0]) {
+      case 'F': {
+        // Select by footprint: F<Reference>
+        const symRef = unescapeString(syncData);
+
+        if (aFocusOnFirst && i === 0) focusSymbol = symRef;
+
+        syncSymMap.set(symRef, []);
+        break;
+      }
+
+      case 'P': {
+        // Select by pad: P<Footprint reference>/<Pad number>
+        const slash = syncData.indexOf('/');
+        const symRef = unescapeString(slash < 0 ? syncData : syncData.substring(0, slash));
+        const padNum = unescapeString(slash < 0 ? '' : syncData.substring(slash + 1));
+
+        if (aFocusOnFirst && i === 0) focusPin = [symRef, padNum];
+
+        if (!syncPinMap.has(symRef)) syncPinMap.set(symRef, new Map());
+
+        syncPinMap.get(symRef)!.set(padNum, null);
+        break;
+      }
+
+      default:
+        break;
+    }
+  }
+
+  // Lambda definitions
+  const flattenSyncMaps = (): SCH_ITEM[] => {
+    const allVec: SCH_ITEM[] = [];
+
+    for (const symbols of syncSymMap.values()) {
+      for (const ref of symbols) allVec.push(ref.GetSymbol());
+    }
+
+    for (const pinMap of syncPinMap.values()) {
+      for (const pin of pinMap.values()) {
+        if (pin) allVec.push(pin);
+      }
+    }
+
+    return allVec;
+  };
+
+  const clearSyncMaps = (): void => {
+    for (const symbols of syncSymMap.values()) symbols.length = 0;
+
+    for (const pins of syncPinMap.values()) {
+      for (const number of pins.keys()) pins.set(number, null);
+    }
+  };
+
+  const syncMapsValuesEmpty = (): boolean => {
+    for (const symbols of syncSymMap.values()) {
+      if (symbols.length > 0) return false;
+    }
+
+    for (const pins of syncPinMap.values()) {
+      for (const pin of pins.values()) {
+        if (pin) return false;
+      }
+    }
+
+    return true;
+  };
+
+  const checkFocusItems = (aSheet: SCH_SHEET_PATH): void => {
+    const push = (aItem: SCH_ITEM): void => {
+      const key = pathKey(aSheet);
+
+      if (!focusItemResults.has(key)) focusItemResults.set(key, []);
+
+      focusItemResults.get(key)!.push(aItem);
+    };
+
+    if (focusSymbol !== null) {
+      const found = syncSymMap.get(focusSymbol);
+
+      if (found && found.length > 0) push(found[0]!.GetSymbol());
+    } else if (focusPin) {
+      const found = syncPinMap.get(focusPin[0]);
+      const pin = found?.get(focusPin[1]);
+
+      if (pin) push(pin);
+    }
+  };
+
+  const makeRetForSheet = (
+    aSheet: SCH_SHEET_PATH,
+    aFocusItem: SCH_ITEM | null,
+  ): [SCH_SHEET_PATH, SCH_ITEM | null, SCH_ITEM[]] => {
+    clearSyncMaps();
+
+    // Fill sync maps
+    findSymbolsAndPins(allSheetsList, aSheet, syncSymMap, syncPinMap);
+    const itemsVector = flattenSyncMaps();
+
+    // Add fully wanted sheets to vector
+    for (const item of aSheet.LastScreen()!.Items().OfType(KICAD_T.SCH_SHEET_T)) {
+      const kiidPath = aSheet.Path().Clone();
+      kiidPath.push_back(item.m_Uuid);
+
+      const subsheetPath = allSheetsList.GetSheetPathByKIIDPath(kiidPath);
+
+      if (!subsheetPath) continue;
+
+      if (
+        sheetContainsOnlyWantedItems(
+          allSheetsList,
+          subsheetPath,
+          syncSymMap,
+          syncPinMap,
+          fullyWantedCache,
+        )
+      )
+        itemsVector.push(item as SCH_ITEM);
+    }
+
+    return [aSheet, aFocusItem, itemsVector];
+  };
+
+  if (aFocusOnFirst) {
+    for (const sheetPath of orderedSheets) {
+      clearSyncMaps();
+
+      findSymbolsAndPins(allSheetsList, sheetPath, syncSymMap, syncPinMap);
+
+      checkFocusItems(sheetPath);
+    }
+
+    if (focusItemResults.size > 0) {
+      for (const sheetPath of orderedSheets) {
+        const items = focusItemResults.get(pathKey(sheetPath)) ?? [];
+
+        if (items.length > 0) return makeRetForSheet(sheetPath, items[0]!);
+      }
+    }
+  } else {
+    for (const sheetPath of orderedSheets) {
+      clearSyncMaps();
+
+      findSymbolsAndPins(allSheetsList, sheetPath, syncSymMap, syncPinMap);
+
+      // Something found on sheet
+      if (!syncMapsValuesEmpty()) return makeRetForSheet(sheetPath, null);
+    }
+  }
+
+  return null;
 }

@@ -37,7 +37,6 @@ function frameWith(hooks: Partial<SCH_EDIT_FRAME_HOOKS>) {
   const frame = new SCH_EDIT_FRAME({
     crossProbingSettings: () => ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,
     highlightNet: () => {},
-    syncSelection: () => {},
     assignFootprints: () => {},
     saveProject: () => true,
     getNetlist: () => 'RECORD NETLIST',

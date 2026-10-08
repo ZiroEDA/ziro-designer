@@ -198,25 +198,4 @@ export interface EESCHEMA_APP {
     onSaveEquFiles?: (files: readonly string[], newFiles: readonly ProjectFile[]) => void;
     onClose: () => void;
   }) => ReactNode;
-  /**
-   * The cross-probe view decision both frames spell identically
-   * (`SCH_SELECTION_TOOL::SyncSelection`, `PCB_SELECTION_TOOL::…`); the zoom
-   * LUT is the caller's.
-   */
-  crossProbeViewChange(
-    cfg: CROSS_PROBING_SETTINGS,
-    bbox: { minX: number; minY: number; maxX: number; maxY: number } | null,
-    view: { scale: number; cx: number; cy: number },
-    canvas: { width: number; height: number },
-    zoomScale?: (
-      bbox: { minX: number; minY: number; maxX: number; maxY: number },
-      screen: { x: number; y: number },
-      scale: number,
-    ) => number | null,
-  ): { scale: number; cx: number; cy: number } | null;
-  /** The selection shown at a cross-probe flash phase. */
-  crossProbeFlashSelection(phase: number, ids: readonly string[]): readonly string[];
-  /** The flash timer's period and last phase. */
-  CROSS_PROBE_FLASH_INTERVAL_MS: number;
-  CROSS_PROBE_FLASH_LAST_PHASE: number;
 }

@@ -132,9 +132,6 @@ import {
   screenHasItems,
   selectionCanCopyAsText,
   selectionIsExpandable,
-  crossProbeSchSelection,
-  schCrossProbeZoomScale,
-  syncSelectionParts,
   getNode,
   selectConnection,
   planNetclassAssignment,
@@ -917,10 +914,6 @@ export function SchematicEditor({
     useAuth,
     PresencePanel,
     AssignFootprints,
-    crossProbeViewChange,
-    crossProbeFlashSelection,
-    CROSS_PROBE_FLASH_INTERVAL_MS,
-    CROSS_PROBE_FLASH_LAST_PHASE,
     SchematicCanvas,
     DialogSymbolChooser,
     SymbolLibraryBrowser,
@@ -1876,7 +1869,6 @@ export function SchematicEditor({
     schFrameRef.current = new SCH_EDIT_FRAME({
       crossProbingSettings: () => app.settings.eeschema.cross_probing,
       highlightNet: (aNetName) => setProbedNet(aNetName === '' ? null : aNetName),
-      syncSelection: (aParts) => applyPcbSelectionRef.current(aParts),
       assignFootprints: (aPayload) => assignFootprintsRef.current(aPayload),
       saveProject: () => saveProjectRef.current(),
       syncLiveSchematic: () => syncLiveRef.current(),
@@ -1888,17 +1880,6 @@ export function SchematicEditor({
       liveSheetChanged: () => liveSheetChangedRef.current(),
     });
   }
-  const applyPcbSelectionRef = useRef<(parts: readonly string[]) => void>(() => {});
-  /**
-   * `SCH_EDITOR_CONTROL::CrossProbeToPcb` on every Selected / Unselected /
-   * Cleared event: the selection's parts, mailed unforced so the board's own
-   * `on_selection` decides. A selection that has not changed has nothing to
-   * say, and one that names nothing on the board sends nothing.
-   *
-   * `lastSchPartsRef` is also the recursion guard (`m_probingPcbToSch`): a
-   * probe from the board records the parts of the selection it applied.
-   */
-  const lastSchPartsRef = useRef('');
   // `KIWAY::Player()` stores the frame it created as FRAME_SCH's player, and
   // the frame's close tells KIWAY it is gone (`PlayerDidClose`).
   useEffect(() => {
@@ -1954,122 +1935,6 @@ export function SchematicEditor({
     if (highlightName === null) frame.SendCrossProbeClearHighlight();
     else frame.SendCrossProbeNetName(highlightName);
   }, [highlightName]);
-
-  /**
-   * ...and the board's selection arriving HERE — `SCH_SELECTION_TOOL::
-   * SyncSelection` (`sch_selection_tool.cpp:3464-3534`).
-   *
-   * Every one of `eeschema.cross_probing`'s five controls is read on this path,
-   * which is what the group on Display Options governs:
-   *
-   *   on_selection    `crossProbeSchSelection` refuses the probe outright
-   *   center_on_items the view moves at all
-   *   zoom_to_fit     the scale changes — INSIDE the `center_on_items` branch,
-   *                   "ignored if center_on_items is off"
-   *   flash_selection the newly probed items blink
-   *   auto_highlight  belongs to the `$NET:` probe, not to this one
-   */
-
-  const applyPcbSelection = (parts: readonly string[]): void => {
-    const doc = docRef.current;
-    if (!doc) return;
-    // Forced: `SCH_EDIT_FRAME::KiwayMailIn` has already refused a MAIL_SELECTION
-    // with `on_selection` off, before touching the selection.
-    const ids = crossProbeSchSelection(
-      app.settings.eeschema.cross_probing,
-      doc,
-      parts,
-      currentPath,
-      libByIdRef.current,
-      true,
-    );
-    if (ids === null) return;
-    // `m_syncingPcbToSchSelection = true`: this selection came from the board,
-    // so it is not sent back to it.
-    lastSchPartsRef.current = syncSelectionParts(
-      doc,
-      new Set(ids),
-      currentPath,
-      libByIdRef.current,
-    ).join(',');
-    setSelection(new Set(ids));
-    if (ids.length === 0) return;
-
-    const cfg = app.settings.eeschema.cross_probing;
-    const box = selectionBBox(doc, new Set(ids), libByIdRef.current);
-    // `if( bbox.GetWidth() != 0 && bbox.GetHeight() != 0 )` — nothing to aim at.
-    const degenerate = box.maxX <= box.minX || box.maxY <= box.minY;
-    // The nesting is the part that is easy to get wrong: `zoom_to_fit` sits
-    // INSIDE the `center_on_items` branch — "ignored if center_on_items is off"
-    // (`app_settings.h:36`) — so with centring off the zoom is not touched
-    // either, and the view does not move at all.
-    const view = controller.current?.viewMetrics();
-    if (!degenerate && view) {
-      // The three-step decision is `crossProbeViewChange`, shared with the
-      // board because upstream spells it identically in both frames; only the
-      // zoom LUT differs, which is why that goes in as an argument. It also
-      // carries `FocusOnLocation`'s rule that a target already on screen does
-      // NOT recentre the view.
-      const next = crossProbeViewChange(
-        cfg,
-        box,
-        { scale: view.scale, cx: view.cx, cy: view.cy },
-        { width: view.width, height: view.height },
-        schCrossProbeZoomScale,
-      );
-      if (next) {
-        if (next.scale !== view.scale) controller.current?.setScale(next.scale);
-        controller.current?.centerOn({ x: next.cx, y: next.cy });
-      }
-    }
-
-    // `flash_selection` — "visual attention aid" (`app_settings.h:37`). The
-    // phases and the interval are `pcbnew/cross-probing.ts`', because the
-    // blink is one behaviour and only the items differ.
-    if (cfg.flash_selection) setFlashPhase(0);
-  };
-  applyPcbSelectionRef.current = applyPcbSelection;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the selection (and the sheet it is read against) is the trigger; the document and library are read through refs
-  useEffect(() => {
-    const doc = docRef.current;
-    if (!doc) return;
-    const parts = syncSelectionParts(doc, selection, currentPath, libByIdRef.current);
-    const key = parts.join(',');
-    if (key === lastSchPartsRef.current) return;
-    lastSchPartsRef.current = key;
-    schFrameRef.current!.SendSelectPartsToPcb(parts, false);
-  }, [selection, currentPath]);
-
-  /**
-   * The flash itself: `crossProbeFlashSelection` decides which ids are lit at
-   * each phase, and the phase advances on a timer until the last one.
-   */
-  const [flashPhase, setFlashPhase] = useState<number | null>(null);
-  /**
-   * The selection the CANVAS draws, which is the real one except during a
-   * cross-probe flash: `crossProbeFlashSelection` blanks it on the even phases,
-   * so the halo blinks. The stored selection never changes — a blink that
-   * actually deselected would break whatever the user did next.
-   */
-  const shownSelection = useMemo(
-    () =>
-      flashPhase === null
-        ? selection
-        : new Set(crossProbeFlashSelection(flashPhase, [...selection])),
-    [selection, flashPhase, crossProbeFlashSelection],
-  );
-  useEffect(() => {
-    if (flashPhase === null) return;
-    if (flashPhase > CROSS_PROBE_FLASH_LAST_PHASE) {
-      setFlashPhase(null);
-      return;
-    }
-    const t = setTimeout(
-      () => setFlashPhase((p) => (p === null ? null : p + 1)),
-      CROSS_PROBE_FLASH_INTERVAL_MS,
-    );
-    return () => clearTimeout(t);
-  }, [flashPhase, CROSS_PROBE_FLASH_INTERVAL_MS, CROSS_PROBE_FLASH_LAST_PHASE]);
 
   // The live document for stable callbacks is `docRef`, kept by `setDoc`.
   // Which file that document is, for the same reason: an undo step is applied
@@ -8221,24 +8086,6 @@ export function SchematicEditor({
           action: () => setGrabRequest((p) => ({ kind: 'drag', nonce: (p?.nonce ?? 0) + 1 })),
         },
       );
-      // SCH_ACTIONS::selectOnPCB, gated on `crossProbingSelection` — the kinds
-      // that name something on the board (symbols, pins, sheets). A selection
-      // of wires or labels has nothing to send, so the entry is absent.
-      if (doc && kiway) {
-        const parts = syncSelectionParts(doc, selection, currentPath, libById);
-        if (parts.length > 0)
-          add(150.2, {
-            label: 'Select on PCB',
-            // `ExplicitCrossProbeToPcb`: a forced probe. Upstream the board frame
-            // is already on screen beside the schematic; here one editor shows
-            // at a time, so the board is brought up first (`Kiway().Player()`),
-            // and the mail waits for it if it is still mounting.
-            action: () => {
-              kiway.Player(FRAME_T.FRAME_PCB_EDITOR);
-              schFrameRef.current!.SendSelectPartsToPcb(parts, true);
-            },
-          });
-      }
       if (netlist && selectedNets(netlist, selection).length > 0)
         add(250.3, {
           label: 'Assign Netclass...',
@@ -10117,7 +9964,7 @@ export function SchematicEditor({
               onInfoBar={setInfoBar}
               schematic={doc}
               libById={libById}
-              selection={shownSelection}
+              selection={selection}
               activeTool={activeTool}
               lineMode={lineMode}
               wireStartRequest={wireStartRequest}
