@@ -35,7 +35,9 @@ export interface SchScriptApi {
    * frame said (empty when all went well), or null when there is no live model to edit. An edit
    * that throws changes nothing in the window, and the throw reaches the caller.
    */
-  editLive?(aEdit: (aFrame: SCH_EDIT_FRAME) => Iterable<SCH_SCREEN> | null): string[] | null;
+  editLive?(
+    aEdit: (aFrame: SCH_EDIT_FRAME) => Promise<Iterable<SCH_SCREEN> | null>,
+  ): Promise<string[] | null>;
   /** Read the live model, brought up to date with the window; null when there is none. */
   readLive?<T>(aRead: (aFrame: SCH_EDIT_FRAME) => T): T | null;
 }

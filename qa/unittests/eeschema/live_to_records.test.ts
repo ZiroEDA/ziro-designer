@@ -39,17 +39,17 @@ function openFrame(isOK: () => boolean = () => false) {
 }
 
 describe('liveScreensToRecords', () => {
-  it('writes each changed screen as a record under its project-relative file name', () => {
+  it('writes each changed screen as a record under its project-relative file name', async () => {
     const frame = openFrame();
     const tools = new SCH_DRAWING_TOOLS(frame);
-    const sheet = drawSheet(
+    const sheet = (await drawSheet(
       frame,
       tools,
       { x: 0, y: 0 },
       { x: 2000 * MIL, y: 1000 * MIL },
       'Power',
       'power.kicad_sch',
-    )!;
+    ))!;
     const label = newHierLabel(frame, tools, { x: 0, y: 0 }, 'VIN', LABEL_FLAG_SHAPE.L_INPUT);
     label.ClearFlags();
     frame.AddToScreen(label, sheet.GetScreen()!);
@@ -76,7 +76,7 @@ describe('liveScreensToRecords', () => {
 });
 
 describe('SCH_EDIT_FRAME::WithoutDialogs', () => {
-  it('answers the questions and collects the messages instead of showing them', () => {
+  it('answers the questions and collects the messages instead of showing them', async () => {
     let asked = 0;
     const frame = openFrame(() => {
       asked++;
@@ -91,7 +91,7 @@ describe('SCH_EDIT_FRAME::WithoutDialogs', () => {
     expect(asked).toBe(1);
   });
 
-  it('collects DisplayError', () => {
+  it('collects DisplayError', async () => {
     const frame = openFrame();
     const { messages } = frame.WithoutDialogs(false, () => frame.DisplayError('bad'));
     expect(messages).toEqual(['bad']);

@@ -194,14 +194,14 @@ export function sheetFileAndSheets(
  * (the file linked through ChangeSheetFile, as EditSheetProperties does), on the next free page,
  * added to the current screen in one commit. Null when the file change was refused.
  */
-export function drawSheet(
+export async function drawSheet(
   aFrame: SCH_EDIT_FRAME,
   aTools: SCH_DRAWING_TOOLS,
   aPos: VECTOR2I,
   aEnd: VECTOR2I,
   aName: string,
   aFileName: string,
-): SCH_SHEET | null {
+): Promise<SCH_SHEET | null> {
   const cfg = currentEeschemaSettings();
   const sheet = new SCH_SHEET(aFrame.GetCurrentSheet().Last(), aPos);
   sheet.SetScreen(null);
@@ -235,7 +235,7 @@ export function drawSheet(
   instance.SetPageNumber(`${nextAvailable}`);
 
   // EditSheetProperties: the dialog's file name goes through ChangeSheetFile.
-  if (!aFrame.ChangeSheetFile(sheet, aFileName)) return null;
+  if (!(await aFrame.ChangeSheetFile(sheet, aFileName))) return null;
 
   sheet.ClearFlags(IS_NEW | IS_MOVING);
   sheet.AutoplaceFields(aFrame.GetScreen(), AUTOPLACE_ALGO.AUTOPLACE_AUTO);
@@ -302,11 +302,11 @@ export function newHierLabel(
  * Returns the screens changed, or throws with every line that failed (nothing is changed then:
  * the caller's editLive discards a thrown edit with the live model rebuilt from the window).
  */
-export function runHierOps(
+export async function runHierOps(
   aFrame: SCH_EDIT_FRAME,
   aPathName: string,
   aOps: readonly { line: string; op: HierOp }[],
-): SCH_SCREEN[] {
+): Promise<SCH_SCREEN[]> {
   const schematic = aFrame.Schematic();
   // A copy: SetCurrentSheet assigns into the schematic's own path (*m_currentSheet = aPath).
   const before = schematic.CurrentSheet().Clone();
@@ -326,7 +326,7 @@ export function runHierOps(
       try {
         if (op.kind === 'sheet') {
           if (sheetOn(screen, op.name)) throw new Error(`a sheet ${op.name} is already here`);
-          const sheet = drawSheet(aFrame, tools, op.at, op.end, op.name, op.file);
+          const sheet = await drawSheet(aFrame, tools, op.at, op.end, op.name, op.file);
           if (!sheet) throw new Error(`sheet ${op.file} could not be used`);
           changed.add(screen);
           changed.add(sheet.GetScreen()!);

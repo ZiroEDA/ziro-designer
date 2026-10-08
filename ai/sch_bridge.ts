@@ -957,10 +957,10 @@ export async function applyZschBatch(api: SchScriptApi, text: string): Promise<A
     ],
     hints,
   });
-  const runLive = (target: string, ops: HierLine[]): string[] | null => {
+  const runLive = async (target: string, ops: HierLine[]): Promise<string[] | null> => {
     if (!ops.length) return null;
     try {
-      api.editLive!((f) => runHierOps(f, target, ops));
+      await api.editLive!((f) => runHierOps(f, target, ops));
       applied += ops.length;
       return null;
     } catch (e) {
@@ -974,7 +974,7 @@ export async function applyZschBatch(api: SchScriptApi, text: string): Promise<A
     // A `pins` line waits for the ports; so does a net naming a sheet pin.
     const pinsOps = seg.first.filter((h) => h.op.kind === 'pins');
     const sheetOps = seg.first.filter((h) => h.op.kind === 'sheet');
-    const failedSheets = runLive(target, sheetOps);
+    const failedSheets = await runLive(target, sheetOps);
     if (failedSheets) return stop(failedSheets);
 
     if (seg.text.length) {
@@ -1011,7 +1011,7 @@ export async function applyZschBatch(api: SchScriptApi, text: string): Promise<A
       applied += r.applied;
     }
 
-    const failedPorts = runLive(target, seg.last);
+    const failedPorts = await runLive(target, seg.last);
     if (failedPorts) return stop(failedPorts);
     if (pinsOps.length) deferred.push({ target, ops: pinsOps });
     done.push(`the lines for ${label}`);
@@ -1019,7 +1019,7 @@ export async function applyZschBatch(api: SchScriptApi, text: string): Promise<A
   // Every `pins` first, wherever it was written: a net on a sheet pin needs the pin to exist.
   for (const kind of ['pins', 'sheetnet'] as const)
     for (const { target, ops } of deferred) {
-      const failed = runLive(
+      const failed = await runLive(
         target,
         ops.filter((h) => h.op.kind === kind),
       );

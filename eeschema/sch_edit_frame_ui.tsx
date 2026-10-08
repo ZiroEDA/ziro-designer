@@ -1866,7 +1866,7 @@ export function SchematicEditor({
   // TRANSITIONAL (S2-5b, gone at S7): the frame's live SCHEMATIC, rebuilt from the window's
   // records when one changed (sch_record_bridge.ts).
   const syncLiveRef = useRef<() => boolean>(() => false);
-  const editLiveRef = useRef<NonNullable<SchScriptApi['editLive']>>(() => null);
+  const editLiveRef = useRef<NonNullable<SchScriptApi['editLive']>>(async () => null);
   const liveFilesRef = useRef<{
     rawFiles: readonly PickedFile[];
     projectName?: string;
@@ -5577,13 +5577,13 @@ export function SchematicEditor({
 
   // SchScriptApi.editLive: an edit on the live model, its screens written back into the window
   // as one undo step (sch_record_bridge.ts liveScreensToRecords; TRANSITIONAL until S7).
-  editLiveRef.current = (aEdit) => {
+  editLiveRef.current = async (aEdit) => {
     if (!syncLiveRef.current()) return null;
     const frame = schFrameRef.current!;
     let edit: { result: Iterable<SCH_SCREEN> | null; messages: string[] };
     inEditLiveRef.current = true;
     try {
-      edit = frame.WithoutDialogs(true, () => aEdit(frame));
+      edit = await frame.WithoutDialogsAsync(true, () => aEdit(frame));
     } catch (e) {
       // The edit may have changed the live model before it threw; the window has not changed,
       // so the next sync rebuilds the live model from it.

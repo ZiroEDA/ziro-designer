@@ -83,11 +83,11 @@ function fakeWindow() {
       undoSteps++;
     },
     readLive: (read) => (mirror.get() ? read(frame) : null),
-    editLive: (edit) => {
+    editLive: async (edit) => {
       if (!mirror.get()) return null;
-      let out: ReturnType<SCH_EDIT_FRAME['WithoutDialogs']>;
+      let out: Awaited<ReturnType<SCH_EDIT_FRAME['WithoutDialogsAsync']>>;
       try {
-        out = frame.WithoutDialogs(true, () => edit(frame));
+        out = await frame.WithoutDialogsAsync(true, () => edit(frame));
       } catch (e) {
         mirror.Invalidate();
         throw e;

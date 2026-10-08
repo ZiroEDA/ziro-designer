@@ -883,6 +883,22 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     }
   }
 
+  /** WithoutDialogs for an edit that awaits: the capture holds until the edit has settled. */
+  async WithoutDialogsAsync<T>(
+    aAnswer: boolean,
+    aEdit: () => Promise<T>,
+  ): Promise<{ result: T; messages: string[] }> {
+    const outer = this.m_capture;
+    const capture = { messages: [] as string[], answer: aAnswer };
+    this.m_capture = capture;
+
+    try {
+      return { result: await aEdit(), messages: capture.messages };
+    } finally {
+      this.m_capture = outer;
+    }
+  }
+
   /**
    * `AutoRotateItem` (sch_edit_frame.cpp:1792): a global or hierarchical label set to turn on
    * placement takes the spin of what it landed on, and the global labels of the same name
@@ -1711,11 +1727,16 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   LoadProject(): void {}
 
   /** The window's half of the dialogs a tool opens: see SCH_EDIT_FRAME_HOOKS.showModal. */
-  override ShowModalDialog(
-    aDialog: string,
-    aItems: readonly EDA_ITEM[],
-    aArg?: unknown,
-  ): Promise<number> {
+  override ShowModalDialog(aDialog: string, aItems: readonly EDA_ITEM[], aArg?: unknown): Promise<number> {
+    // WithoutDialogs: no window to ask; a message dialog's question takes the capture's answer.
+    if (this.m_capture) {
+      const message = (aArg as { message?: string } | undefined)?.message;
+
+      if (message) this.m_capture.messages.push(message);
+
+      return Promise.resolve(this.m_capture.answer ? wxID_OK : wxID_CANCEL);
+    }
+
     return Promise.resolve(this.hooks.showModal?.(aDialog, aItems, aArg) ?? wxID_CANCEL);
   }
 
