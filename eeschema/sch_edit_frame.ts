@@ -89,6 +89,8 @@ import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settin
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { SELECTION } from '@ziroeda/common/tool/selection.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { SCH_ACTIONS } from './tools/sch_actions.js';
+import type { SCH_CONNECTION } from './sch_connection.js';
 import { COMMON_CONTROL } from '@ziroeda/common/tool/common_control.js';
 import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
 import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
@@ -150,6 +152,57 @@ export interface DIALOG_ERC {
   ExcludeMarker(aMarker: SCH_MARKER | null): void;
   /** `Destroy()`, from onCloseErcDialog / EDA_EVT_CLOSE_ERC_DIALOG. */
   Destroy(): void;
+}
+
+/** `SCH_SEARCH_T` (sch_edit_frame.h:77): what FindSymbolAndItem looks for. */
+export enum SCH_SEARCH_T {
+  HIGHLIGHT_PIN,
+  HIGHLIGHT_SYMBOL,
+}
+
+/** `NET_NAVIGATOR_ITEM_DATA` (sch_edit_frame.h:91): a net navigator row's sheet and item. */
+export class NET_NAVIGATOR_ITEM_DATA {
+  constructor(
+    private m_sheetPath: SCH_SHEET_PATH | null = null,
+    private m_item: SCH_ITEM | null = null,
+  ) {}
+
+  GetSheetPath(): SCH_SHEET_PATH | null {
+    return this.m_sheetPath;
+  }
+
+  GetItem(): SCH_ITEM | null {
+    return this.m_item;
+  }
+
+  /** `operator==`. */
+  equals(aRhs: NET_NAVIGATOR_ITEM_DATA): boolean {
+    const sameSheet =
+      this.m_sheetPath === aRhs.m_sheetPath ||
+      (!!this.m_sheetPath && !!aRhs.m_sheetPath && this.m_sheetPath.equals(aRhs.m_sheetPath));
+
+    return sameSheet && this.m_item === aRhs.m_item;
+  }
+}
+
+/**
+ * The net navigator (`m_netNavigator`, a wxGenericTreeCtrl, and its filter) as the frame drives
+ * it: the window owns the tree. Upstream's tree walks in SelectNetNavigatorItem and
+ * GetSelectedNetNavigatorItem are the window's.
+ */
+export interface NET_NAVIGATOR {
+  /** `RefreshNetNavigator( aSelection )` (net_navigator.cpp). */
+  Refresh(aSelection: NET_NAVIGATOR_ITEM_DATA | null): void;
+  /** The row equal to \a aSelection made visible and selected; nothing when none is. */
+  SelectItem(aSelection: NET_NAVIGATOR_ITEM_DATA): void;
+  /** The selected row's item; null for none or the root. */
+  GetSelectedItem(): SCH_ITEM | null;
+  /** `IsFrozen()`. */
+  IsFrozen(): boolean;
+  /** Whether its pane (`NetNavigatorPaneName()`) is shown. */
+  IsShown(): boolean;
+  /** `m_netNavigatorFilter->SetValue( aNetName )`. */
+  SetFilter(aNetName: string): void;
 }
 
 export interface SCH_EDIT_FRAME_HOOKS {
@@ -257,6 +310,10 @@ export interface SCH_EDIT_FRAME_HOOKS {
    * builds; GetSymbolFieldsTableDialog keeps it.
    */
   symbolFieldsTableDialog?(): DIALOG_SYMBOL_FIELDS_TABLE | null;
+  /** `m_netNavigator`: the window's net navigator, or null while it has none. */
+  netNavigator?(): NET_NAVIGATOR | null;
+  /** `m_hierarchy->UpdateNetHighlight( aConnection )`: the window's HIERARCHY_PANE. */
+  hierarchyUpdateNetHighlight?(aConnection: string): void;
   /** `m_hierarchy->GetCollapsedPaths()`: the window's HIERARCHY_PANE. */
   hierarchyCollapsedPaths?(): string[];
   /**
@@ -346,6 +403,111 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   /** `GetHighlightedConnection()` (sch_edit_frame.h). */
   GetHighlightedConnection(): string {
     return this.m_highlightedConn;
+  }
+
+  /** `RefreshNetNavigator( aSelection )` (net_navigator.cpp): the window's tree. */
+  RefreshNetNavigator(aSelection: NET_NAVIGATOR_ITEM_DATA | null = null): void {
+    this.hooks.netNavigator?.()?.Refresh(aSelection);
+  }
+
+  /** `SetHighlightedConnection( aConnection, aSelection )` (sch_edit_frame.cpp:2581). */
+  SetHighlightedConnection(
+    aConnection: string,
+    aSelection: NET_NAVIGATOR_ITEM_DATA | null = null,
+  ): void {
+    const refreshNetNavigator = aConnection !== this.m_highlightedConn;
+
+    this.m_highlightedConn = aConnection;
+
+    if (refreshNetNavigator) {
+      this.RefreshNetNavigator(aSelection);
+
+      this.hooks.hierarchyUpdateNetHighlight?.(aConnection);
+    }
+  }
+
+  /** `SetCrossProbeConnection( aConnection )` (cross-probing.cpp:406). */
+  SetCrossProbeConnection(aConnection: SCH_CONNECTION | null): void {
+    if (!aConnection) {
+      this.SendCrossProbeClearHighlight();
+      return;
+    }
+
+    if (aConnection.IsNet()) {
+      this.SendCrossProbeNetName(aConnection.Name());
+      return;
+    }
+
+    if (aConnection.Members().length === 0) return;
+
+    const all_members = aConnection.AllMembers();
+
+    let nets = all_members[0]!.Name();
+
+    if (all_members.length === 1) {
+      this.SendCrossProbeNetName(nets);
+      return;
+    }
+
+    // TODO: This could be replaced by just sending the bus name once we have bus contents
+    // included as part of the netlist sent from Eeschema to Pcbnew (and thus Pcbnew can
+    // natively keep track of bus membership)
+
+    for (let i = 1; i < all_members.length; i++) nets += `,${all_members[i]!.Name()}`;
+
+    const packet = `$NETS: "${nets}"`;
+
+    // Typically ExpressMail is going to be s-expression packets, but since
+    // we have existing interpreter of the cross probe packet on the other
+    // side in place, we use that here.
+    this.Kiway()?.ExpressMail(
+      FRAME_T.FRAME_PCB_EDITOR,
+      MAIL_T.MAIL_CROSS_PROBE,
+      { value: packet },
+      this,
+    );
+  }
+
+  /** `SelectNetNavigatorItem( aSelection )` (net_navigator.cpp:551). */
+  SelectNetNavigatorItem(aSelection: NET_NAVIGATOR_ITEM_DATA | null): void {
+    const navigator = this.hooks.netNavigator?.() ?? null;
+
+    if (!navigator || navigator.IsFrozen()) return; // wxCHECK
+
+    // Maybe in the future we can do something like collapse the tree for an empty selection.
+    // For now, leave the tree selection in its current state.
+    if (!aSelection) return;
+
+    navigator.SelectItem(aSelection);
+  }
+
+  /** `GetSelectedNetNavigatorItem()` (net_navigator.cpp:604). */
+  GetSelectedNetNavigatorItem(): SCH_ITEM | null {
+    const navigator = this.hooks.netNavigator?.() ?? null;
+
+    if (!navigator || navigator.IsFrozen()) return null;
+
+    return navigator.GetSelectedItem();
+  }
+
+  /** `FindNetInInspector( aNetName )` (net_navigator.cpp:729). */
+  FindNetInInspector(aNetName: string): void {
+    const navigator = this.hooks.netNavigator?.() ?? null;
+
+    if (!navigator || aNetName === '') return;
+
+    // Ensure the net navigator is shown
+    if (!navigator.IsShown()) this.ToggleNetNavigator();
+
+    // Clear any net highlights
+    this.m_highlightedConn = '';
+    this.GetToolManager()?.RunAction(SCH_ACTIONS.updateNetHighlighting);
+
+    // Set the search text to the aNetName
+    navigator.SetFilter(aNetName);
+
+    // Refresh the tree
+    this.RefreshNetNavigator();
   }
 
   /** `DirtyHighlightedConnection()` (sch_edit_frame.h). */
@@ -1550,27 +1712,99 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   }
 
   /**
-   * `SCH_EDIT_FRAME::ExecuteRemoteCommand` (eeschema/cross-probing.cpp:202):
-   * a cross-probe packet from the board. The `$NET:` and `$CLEAR:` arms are
-   * here; `$CONFIG`, `$ERC` and the `$PART:` probe are not yet.
+   * `SCH_EDIT_FRAME::ExecuteRemoteCommand` (eeschema/cross-probing.cpp:202): a cross-probe
+   * packet from the board.
    */
   ExecuteRemoteCommand(cmdline: string): void {
+    // The record window relights its own copy of the net; it runs without a tool manager until it
+    // switches to the live model, so this comes before the guards below.
+    {
+      const recordTok = new STRTOK(strncpyLine(cmdline));
+
+      if (recordTok.Next(' \n\r') === '$NET:' && this.hooks.crossProbingSettings().auto_highlight)
+        this.hooks.highlightNet(recordTok.Next('"\n\r') ?? '');
+    }
+
+    // A remote command can arrive over the cross-probe socket before tools are registered
+    // or after the tool manager has been torn down while the frame is closing.
+    if (!this.m_toolManager) return;
+
+    const editor = this.m_toolManager.FindTool(
+      'eeschema.EditorControl',
+    ) as SCH_EDITOR_CONTROL | null;
+
+    if (!editor) return;
+
     const tok = new STRTOK(strncpyLine(cmdline));
-    const idcmd = tok.Next(' \n\r');
-    const text = tok.Next('"\n\r');
+    let idcmd = tok.Next(' \n\r');
+    let text = tok.Next('"\n\r');
 
     if (idcmd === null) return;
 
     const crossProbingSettings = this.hooks.crossProbingSettings();
 
-    if (idcmd === '$NET:') {
+    if (idcmd === '$CONFIG') {
+      this.GetToolManager()!.RunAction(ACTIONS.showSymbolLibTable);
+      return;
+    } else if (idcmd === '$ERC') {
+      this.GetToolManager()!.RunAction(SCH_ACTIONS.runERC);
+      return;
+    } else if (idcmd === '$NET:') {
       if (!crossProbingSettings.auto_highlight) return;
 
-      this.hooks.highlightNet(text ?? '');
+      const netName = text ?? '';
+      const sg = this.Schematic().ConnectionGraph().FindFirstSubgraphByName(netName);
+
+      if (sg) this.m_highlightedConn = sg.GetDriverConnection()!.Name();
+      else this.m_highlightedConn = '';
+
+      this.GetToolManager()!.RunAction(SCH_ACTIONS.updateNetHighlighting);
+      this.RefreshNetNavigator();
+
+      this.SetStatusText(`Highlighted net: ${unescapeString(netName)}`);
+
       return;
     } else if (idcmd === '$CLEAR:') {
       // Cross-probing is now done through selection so we no longer need a clear command
       return;
+    }
+
+    if (!crossProbingSettings.on_selection) return;
+
+    if (text === null) return;
+
+    if (idcmd !== '$PART:') return;
+
+    const part_ref = text;
+
+    /* look for a complement */
+    idcmd = tok.Next(' \n\r');
+
+    if (idcmd === null) {
+      // Highlight symbol only (from CvPcb or Pcbnew)
+      // Highlight symbol part_ref, or clear Highlight, if part_ref is not existing
+      editor.FindSymbolAndItem(null, part_ref, true, SCH_SEARCH_T.HIGHLIGHT_SYMBOL, '');
+      return;
+    }
+
+    text = tok.Next('"\n\r');
+
+    if (text === null) return;
+
+    const msg = text;
+
+    if (idcmd === '$REF:') {
+      // Highlighting the reference itself isn't actually that useful, and it's harder to
+      // see.  Highlight the parent and display the message.
+      editor.FindSymbolAndItem(null, part_ref, true, SCH_SEARCH_T.HIGHLIGHT_SYMBOL, msg);
+    } else if (idcmd === '$VAL:') {
+      // Highlighting the value itself isn't actually that useful, and it's harder to see.
+      // Highlight the parent and display the message.
+      editor.FindSymbolAndItem(null, part_ref, true, SCH_SEARCH_T.HIGHLIGHT_SYMBOL, msg);
+    } else if (idcmd === '$PAD:') {
+      editor.FindSymbolAndItem(null, part_ref, true, SCH_SEARCH_T.HIGHLIGHT_PIN, msg);
+    } else {
+      editor.FindSymbolAndItem(null, part_ref, true, SCH_SEARCH_T.HIGHLIGHT_SYMBOL, '');
     }
   }
 

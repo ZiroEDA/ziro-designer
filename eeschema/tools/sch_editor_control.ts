@@ -33,6 +33,25 @@ import { SYMBOL_FILTER } from '../sch_sheet_path.js';
 import { LINE_MODE, SCH_ACTIONS } from './sch_actions.js';
 import { SCH_SELECTION_TOOL } from './sch_selection_tool.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
+import { NET_SETTINGS } from '@ziroeda/common/project/net_settings.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import { PICKER_TOOL } from '@ziroeda/common/tool/picker_tool.js';
+import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { Vec2 as VECTOR2D } from '@ziroeda/kimath/src/math/vector2.js';
+import { CONNECTION_SUBGRAPH } from '../connection_graph.js';
+import { ERC_TESTER } from '../erc/erc.js';
+import type { SCH_CONNECTION } from '../sch_connection.js';
+import { NET_NAVIGATOR_ITEM_DATA, SCH_SEARCH_T } from '../sch_edit_frame.js';
+import { SCH_ITEM } from '../sch_item.js';
+import type { SCH_PIN } from '../sch_pin.js';
+import type { SCH_SHEET } from '../sch_sheet.js';
+import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
+import type { SCH_SYMBOL } from '../sch_symbol.js';
+import { SCH_CLEANUP_FLAGS } from '../schematic.js';
 import { ensureFileExtension } from '@ziroeda/common/common.js';
 import { KICTL_REVERT } from '@ziroeda/common/kiway_player.js';
 import {
@@ -59,8 +78,562 @@ export interface INCREMENT_ANNOTATIONS_VALUES {
   increment: number;
 }
 
+/** A singleton reference for clearing the highlight. */
+const CLEAR: VECTOR2D = { x: Number.NaN, y: Number.NaN };
+
+/** `highlightNet( aToolMgr, aPosition )` (sch_editor_control.cpp:1054). */
+async function highlightNet(aToolMgr: TOOL_MANAGER, aPosition: VECTOR2D): Promise<boolean> {
+  const editFrame = aToolMgr.GetToolHolder() as unknown as SCH_EDIT_FRAME;
+  const selTool = aToolMgr.GetTool(SCH_SELECTION_TOOL)!;
+  const editorControl = aToolMgr.GetTool(SCH_EDITOR_CONTROL)!;
+  let conn: SCH_CONNECTION | null = null;
+  let item: SCH_ITEM | null = null;
+  let retVal = true;
+
+  if (aPosition !== CLEAR) {
+    const erc = new ERC_TESTER(editFrame.Schematic());
+
+    if (erc.TestDuplicateSheetNames(false) > 0) {
+      await editFrame.ShowModalDialog('wxMessageBox', [], {
+        message: 'Error: duplicate sub-sheet names found in current sheet.',
+      });
+      retVal = false;
+    } else {
+      item = selTool.GetNode(aPosition) as SCH_ITEM | null;
+      let symbol = item && item.Type() === KICAD_T.SCH_SYMBOL_T ? (item as SCH_SYMBOL) : null;
+
+      if (item) {
+        if (item.IsConnectivityDirty())
+          editFrame.RecalculateConnections(null, SCH_CLEANUP_FLAGS.NO_CLEANUP);
+
+        if (item.Type() === KICAD_T.SCH_FIELD_T) {
+          const parent = item.GetParent();
+          symbol = parent && parent.Type() === KICAD_T.SCH_SYMBOL_T ? (parent as SCH_SYMBOL) : null;
+        }
+
+        if (symbol && symbol.GetLibSymbolRef() && symbol.GetLibSymbolRef()!.IsPower()) {
+          const pins = symbol.GetPins();
+
+          if (pins.length === 1) conn = pins[0]!.Connection();
+        } else {
+          conn = item.Connection();
+        }
+      }
+    }
+  }
+
+  const connName = conn ? conn.Name() : '';
+
+  if (!conn) {
+    editFrame.SetStatusText('');
+    editFrame.SendCrossProbeClearHighlight();
+    editFrame.SetHighlightedConnection('');
+    editorControl.SetHighlightBusMembers(false);
+  } else {
+    const itemData = new NET_NAVIGATOR_ITEM_DATA(editFrame.GetCurrentSheet(), item);
+
+    if (connName !== editFrame.GetHighlightedConnection()) {
+      editorControl.SetHighlightBusMembers(false);
+      editFrame.SetCrossProbeConnection(conn);
+      editFrame.SetHighlightedConnection(connName, itemData);
+    } else {
+      editorControl.SetHighlightBusMembers(!editorControl.GetHighlightBusMembers());
+
+      if (item !== editFrame.GetSelectedNetNavigatorItem())
+        editFrame.SelectNetNavigatorItem(itemData);
+    }
+  }
+
+  editFrame.UpdateNetHighlightStatus();
+
+  editorControl.UpdateNetHighlighting(new TOOL_EVENT());
+
+  return retVal;
+}
+
 export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   private m_probingPcbToSch = false; // Recursion guard for PCB to schematic cross-probing
+  private m_highlightBusMembers = false;
+
+  SetHighlightBusMembers(aHighlightBusMembers: boolean): void {
+    this.m_highlightBusMembers = aHighlightBusMembers;
+  }
+
+  GetHighlightBusMembers(): boolean {
+    return this.m_highlightBusMembers;
+  }
+
+  /**
+   * `FindSymbolAndItem( aPath, aReference, aSearchHierarchy, aSearchType, aSearchText )`
+   * (cross-probing.cpp:54): find a symbol (by path, else by reference) and optionally one of its
+   * pins, go to its sheet and focus on it.
+   */
+  FindSymbolAndItem(
+    aPath: string | null,
+    aReference: string | null,
+    aSearchHierarchy: boolean,
+    aSearchType: SCH_SEARCH_T,
+    aSearchText: string,
+  ): SCH_ITEM | null {
+    let sheetWithSymbolFound: SCH_SHEET_PATH | null = null;
+    let symbol: SCH_SYMBOL | null = null;
+    let pin: SCH_PIN | null = null;
+    let foundItem: SCH_ITEM | null = null;
+
+    const sheetList = aSearchHierarchy
+      ? [...this.m_frame!.Schematic().Hierarchy()]
+      : [this.m_frame!.GetCurrentSheet()];
+
+    for (const sheet of sheetList) {
+      const screen = sheet.LastScreen()!;
+
+      for (const item of screen.Items().OfType(KICAD_T.SCH_SYMBOL_T)) {
+        const candidate = item as SCH_SYMBOL;
+
+        // Search by path if specified, otherwise search by reference
+        let found: boolean;
+
+        if (aPath !== null) {
+          const path = sheet.PathAsString() + candidate.m_Uuid;
+          found = aPath === path;
+        } else {
+          found =
+            aReference !== null &&
+            aReference.toLowerCase() === candidate.GetRef(sheet).toLowerCase();
+        }
+
+        if (found) {
+          symbol = candidate;
+          sheetWithSymbolFound = sheet;
+
+          if (aSearchType === SCH_SEARCH_T.HIGHLIGHT_PIN) {
+            pin = symbol.GetPin(aSearchText);
+
+            // Ensure we have found the right unit in case of multi-units symbol
+            if (pin) {
+              const unit = pin.GetLibPin()!.GetUnit();
+
+              if (unit !== 0 && unit !== symbol.GetUnit()) {
+                pin = null;
+                continue;
+              }
+
+              // Get pin position in true schematic coordinate
+              foundItem = pin;
+              break;
+            }
+          } else {
+            foundItem = symbol;
+            break;
+          }
+        }
+      }
+
+      if (foundItem) break;
+    }
+
+    const crossProbingSettings = this.m_frame!.eeconfig()!.cross_probing;
+
+    if (symbol) {
+      if (!sheetWithSymbolFound!.equals(this.m_frame!.GetCurrentSheet()))
+        this.m_frame!.GetToolManager()!.RunAction(SCH_ACTIONS.changeSheet, sheetWithSymbolFound);
+
+      if (crossProbingSettings.center_on_items) {
+        if (crossProbingSettings.zoom_to_fit) {
+          const bbox = symbol.GetBoundingBox();
+
+          this.m_toolMgr!.GetTool(SCH_SELECTION_TOOL)!.ZoomFitCrossProbeBBox(bbox);
+        }
+
+        if (pin) this.m_frame!.FocusOnItem(pin);
+        else this.m_frame!.FocusOnItem(symbol);
+      }
+    }
+
+    /* Print diag */
+    let msg: string;
+    let displayRef = '';
+
+    if (aReference !== null) displayRef = aReference;
+    else if (aPath !== null) displayRef = aPath;
+
+    if (symbol) {
+      if (aSearchType === SCH_SEARCH_T.HIGHLIGHT_PIN) {
+        if (foundItem) msg = `${displayRef} pin ${aSearchText} found`;
+        else msg = `${displayRef} found but pin ${aSearchText} not found`;
+      } else {
+        msg = `${displayRef} found`;
+      }
+    } else {
+      msg = `${displayRef} not found`;
+    }
+
+    this.m_frame!.SetStatusText(msg);
+    this.m_frame!.GetCanvas()?.Refresh();
+
+    return foundItem;
+  }
+
+  ///< Highlight net under the cursor.
+  *HighlightNet(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const controls = this.getViewControls()!;
+    const cursorPos = controls.GetCursorPosition(!aEvent.DisableGridSnapping());
+
+    yield* this.RunMainStackModal(() => highlightNet(this.m_toolMgr!, cursorPos));
+
+    return 0;
+  }
+
+  ///< Remove any net highlighting
+  *ClearHighlight(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    yield* this.RunMainStackModal(() => highlightNet(this.m_toolMgr!, CLEAR));
+
+    return 0;
+  }
+
+  ///< Launch a tool to highlight nets.
+  HighlightNetCursor(aEvent: TOOL_EVENT): number {
+    const picker = this.m_toolMgr!.GetTool(PICKER_TOOL)!;
+
+    // Deactivate other tools; particularly important if another PICKER is currently running
+    this.Activate();
+
+    picker.SetCursor(KICURSOR.BULLSEYE);
+    picker.SetSnapping(false);
+    picker.ClearHandlers();
+
+    picker.SetClickHandler((aPos: VECTOR2D) => {
+      // highlightNet answers false only after its duplicate-sheet-name message, which the
+      // window shows; the click is handled either way.
+      void highlightNet(this.m_toolMgr!, aPos);
+      return true;
+    });
+
+    this.m_toolMgr!.RunAction(ACTIONS.pickerTool, aEvent);
+
+    return 0;
+  }
+
+  *AssignNetclass(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const selectionTool = this.m_toolMgr!.GetTool(SCH_SELECTION_TOOL)!;
+    const schematic = this.m_frame!.Schematic();
+    const screen = this.m_frame!.GetCurrentSheet().LastScreen()!;
+
+    const selectedConns: SCH_CONNECTION[] = [];
+
+    for (const item of selectionTool.GetSelection()) {
+      const conn = (item as SCH_ITEM).Connection();
+
+      if (!conn) continue;
+
+      selectedConns.push(conn);
+    }
+
+    if (selectedConns.length === 0) {
+      this.m_frame!.ShowInfoBarError('No nets selected.');
+      return 0;
+    }
+
+    // Remove selection in favor of highlighting so the whole net is highlighted
+    selectionTool.ClearSelection();
+
+    const getNetNamePattern = (aConn: SCH_CONNECTION): string | null => {
+      const netName = aConn.Name();
+
+      if (aConn.IsBus()) {
+        const prefix = { value: '' };
+
+        if (NET_SETTINGS.ParseBusVector(netName, prefix, null)) return `${prefix.value}*`;
+        else if (NET_SETTINGS.ParseBusGroup(netName, prefix, null)) return `${prefix.value}.*`;
+      } else if (
+        !aConn.Driver() ||
+        CONNECTION_SUBGRAPH.GetDriverPriority(aConn.Driver()!) <
+          CONNECTION_SUBGRAPH.PRIORITY.SHEET_PIN
+      ) {
+        return null;
+      }
+
+      return netName;
+    };
+
+    const netNames = new Set<string>();
+
+    for (const conn of selectedConns) {
+      const netNamePattern = getNetNamePattern(conn);
+
+      if (netNamePattern === null) {
+        // This is a choice, we can also allow some un-labeled nets as long as some are labeled.
+        this.m_frame!.ShowInfoBarError('All selected nets must be labeled to assign a netclass.');
+        return 0;
+      }
+
+      netNames.add(netNamePattern);
+    }
+
+    if (netNames.size === 0) return 0; // wxCHECK
+
+    const previewer = (aNetNames: readonly string[]) => {
+      for (const item of screen.Items()) {
+        let redraw = item.IsBrightened();
+        const itemConn = item.Connection();
+
+        if (itemConn && aNetNames.includes(itemConn.Name())) item.SetBrightened();
+        else item.ClearBrightened();
+
+        redraw ||= item.IsBrightened();
+
+        if (item.Type() === KICAD_T.SCH_SYMBOL_T) {
+          const symbol = item as SCH_SYMBOL;
+
+          redraw ||= symbol.HasBrightenedPins();
+
+          symbol.ClearBrightenedPins();
+
+          for (const pin of symbol.GetPins()) {
+            const pin_conn = pin.Connection();
+
+            if (pin_conn && aNetNames.includes(pin_conn.Name())) {
+              pin.SetBrightened();
+              redraw = true;
+            }
+          }
+        } else if (item.Type() === KICAD_T.SCH_SHEET_T) {
+          for (const pin of (item as SCH_SHEET).GetPins()) {
+            const pin_conn = pin.Connection();
+
+            redraw ||= pin.IsBrightened();
+
+            if (pin_conn && aNetNames.includes(pin_conn.Name())) pin.SetBrightened();
+            else pin.ClearBrightened();
+
+            redraw ||= pin.IsBrightened();
+          }
+        }
+
+        if (redraw) this.getView()?.Update(item, VIEW_UPDATE_FLAGS.REPAINT);
+      }
+
+      this.m_frame!.GetCanvas()?.ForceRefresh();
+    };
+
+    const result = yield* this.RunMainStackModal(() =>
+      this.m_frame!.ShowModalDialog('DIALOG_ASSIGN_NETCLASS', [], {
+        netNames: [...netNames],
+        candidates: schematic.GetNetClassAssignmentCandidates(),
+        previewer,
+      }),
+    );
+
+    if (result) {
+      this.getView()?.UpdateAllItemsConditionally((aItem) => {
+        let flags = 0;
+
+        const invalidateTextVars = (text: EDA_TEXT) => {
+          if (text.HasTextVars()) {
+            text.ClearRenderCache();
+            text.ClearBoundingBoxCache();
+            flags |= VIEW_UPDATE_FLAGS.GEOMETRY | VIEW_UPDATE_FLAGS.REPAINT;
+          }
+        };
+
+        // Netclass coloured items
+        //
+        const type = (aItem as EDA_ITEM).Type?.();
+
+        if (
+          type === KICAD_T.SCH_LINE_T ||
+          type === KICAD_T.SCH_JUNCTION_T ||
+          type === KICAD_T.SCH_BUS_WIRE_ENTRY_T ||
+          type === KICAD_T.SCH_BUS_BUS_ENTRY_T
+        )
+          flags |= VIEW_UPDATE_FLAGS.REPAINT;
+
+        // Items that might reference an item's netclass name
+        //
+        if (aItem instanceof SCH_ITEM) {
+          aItem.RunOnChildren((aChild: SCH_ITEM) => {
+            if (aChild instanceof EDA_TEXT) invalidateTextVars(aChild as unknown as EDA_TEXT);
+          }, RECURSE_MODE.NO_RECURSE);
+
+          if (flags & VIEW_UPDATE_FLAGS.GEOMETRY) this.m_frame!.GetScreen()!.Update(aItem, false); // Refresh RTree
+        }
+
+        if (aItem instanceof EDA_TEXT) invalidateTextVars(aItem as unknown as EDA_TEXT);
+
+        return flags;
+      });
+    }
+
+    yield* this.RunMainStackModal(() => highlightNet(this.m_toolMgr!, CLEAR));
+    return 0;
+  }
+
+  FindNetInInspector(_aEvent: TOOL_EVENT): number {
+    const selectionTool = this.m_toolMgr!.GetTool(SCH_SELECTION_TOOL);
+
+    if (!selectionTool) return 0;
+
+    let netName = '';
+
+    for (const item of selectionTool.GetSelection()) {
+      const conn = item instanceof SCH_ITEM ? item.Connection() : null;
+
+      if (conn && conn.GetNetName() !== '') {
+        netName = conn.GetNetName();
+        break;
+      }
+    }
+
+    if (netName === '') netName = this.m_frame!.GetHighlightedConnection();
+
+    if (netName === '') {
+      this.m_frame!.ShowInfoBarError('No connected net selected.');
+      return 0;
+    }
+
+    this.m_frame!.FindNetInInspector(netName);
+
+    return 0;
+  }
+
+  ///< Update net highlighting after an edit
+  UpdateNetHighlighting(_aEvent: TOOL_EVENT): number {
+    if (!this.m_frame) return 0; // wxCHECK
+
+    const sheetPath = this.m_frame.GetCurrentSheet();
+    const screen = this.m_frame.GetCurrentSheet().LastScreen();
+    const connectionGraph = this.m_frame.Schematic().ConnectionGraph();
+    const selectedName = this.m_frame.GetHighlightedConnection();
+
+    const connNames = new Set<string>();
+    const itemsToRedraw: EDA_ITEM[] = [];
+
+    if (!screen || !connectionGraph) return 0; // wxCHECK
+
+    if (selectedName !== '') {
+      connNames.add(selectedName);
+
+      const sg = connectionGraph.FindSubgraphByName(selectedName, sheetPath);
+
+      if (sg && this.m_highlightBusMembers) {
+        for (const item of sg.GetItems()) {
+          const connection = item.Connection();
+
+          if (connection) {
+            for (const member of connection.AllMembers()) {
+              if (member) connNames.add(member.Name());
+            }
+          }
+        }
+      }
+
+      // Place all bus names that are connected to the selected net in the set, regardless of
+      // their sheet. This ensures that nets that are connected to a bus on a different sheet
+      // get their buses highlighted as well.
+      for (const subgraph of connectionGraph.GetAllSubgraphs(selectedName)) {
+        for (const bus_sgs of subgraph.GetBusParents().values()) {
+          for (const bus_sg of bus_sgs) connNames.add(bus_sg.GetNetName());
+        }
+      }
+    }
+
+    for (const item of screen.Items()) {
+      if (!item || !item.IsConnectable()) continue;
+
+      let redrawItem: SCH_ITEM | null = null;
+
+      if (item.Type() === KICAD_T.SCH_SYMBOL_T) {
+        const symbol = item as SCH_SYMBOL;
+
+        for (const pin of symbol.GetPins()) {
+          const pin_conn = pin.Connection();
+
+          if (pin_conn) {
+            if (!pin.IsBrightened() && connNames.has(pin_conn.Name())) {
+              pin.SetBrightened();
+              redrawItem = symbol;
+            } else if (pin.IsBrightened() && !connNames.has(pin_conn.Name())) {
+              pin.ClearBrightened();
+              redrawItem = symbol;
+            }
+          } else if (pin.IsBrightened()) {
+            pin.ClearBrightened();
+            redrawItem = symbol;
+          }
+        }
+
+        if (symbol.IsPower() && symbol.GetPins().length) {
+          const pinConn = symbol.GetPins()[0]!.Connection();
+
+          for (const id of [FIELD_T.REFERENCE, FIELD_T.VALUE]) {
+            const field = symbol.GetField(id)!;
+
+            if (!field.IsVisible()) continue;
+
+            if (pinConn) {
+              if (!field.IsBrightened() && connNames.has(pinConn.Name())) {
+                field.SetBrightened();
+                redrawItem = symbol;
+              } else if (field.IsBrightened() && !connNames.has(pinConn.Name())) {
+                field.ClearBrightened();
+                redrawItem = symbol;
+              }
+            } else if (field.IsBrightened()) {
+              field.ClearBrightened();
+              redrawItem = symbol;
+            }
+          }
+        }
+      } else if (item.Type() === KICAD_T.SCH_SHEET_T) {
+        const sheet = item as SCH_SHEET;
+
+        for (const pin of sheet.GetPins()) {
+          const pin_conn = pin.Connection();
+
+          if (pin_conn) {
+            if (!pin.IsBrightened() && connNames.has(pin_conn.Name())) {
+              pin.SetBrightened();
+              redrawItem = sheet;
+            } else if (pin.IsBrightened() && !connNames.has(pin_conn.Name())) {
+              pin.ClearBrightened();
+              redrawItem = sheet;
+            }
+          } else if (pin.IsBrightened()) {
+            pin.ClearBrightened();
+            redrawItem = sheet;
+          }
+        }
+      } else {
+        const itemConn = item.Connection();
+
+        if (itemConn) {
+          if (!item.IsBrightened() && connNames.has(itemConn.Name())) {
+            item.SetBrightened();
+            redrawItem = item;
+          } else if (item.IsBrightened() && !connNames.has(itemConn.Name())) {
+            item.ClearBrightened();
+            redrawItem = item;
+          }
+        } else if (item.IsBrightened()) {
+          item.ClearBrightened();
+          redrawItem = item;
+        }
+      }
+
+      if (redrawItem) itemsToRedraw.push(redrawItem);
+    }
+
+    if (itemsToRedraw.length) {
+      // Be sure highlight change will be redrawn
+      const view = this.getView();
+
+      for (const redrawItem of itemsToRedraw) view?.Update(redrawItem, VIEW_UPDATE_FLAGS.REPAINT);
+
+      this.m_frame.GetCanvas()?.Refresh();
+    }
+
+    return 0;
+  }
 
   constructor() {
     super('eeschema.EditorControl');
@@ -585,7 +1158,19 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     this.Go(this.SaveCurrSheetCopyAs, SCH_ACTIONS.saveCurrSheetCopyAs.MakeEvent());
     this.Go(this.Revert, ACTIONS.revert.MakeEvent());
 
-    // Not ported yet, in KiCad's order: RescueSymbols, ExportSymbolsToLibrary, the highlight-net and netclass handlers,
+    this.Go(this.HighlightNet, SCH_ACTIONS.highlightNet.MakeEvent());
+    this.Go(this.ClearHighlight, SCH_ACTIONS.clearHighlight.MakeEvent());
+    this.Go(SYNC_HANDLER(this.HighlightNetCursor), SCH_ACTIONS.highlightNetTool.MakeEvent());
+    this.Go(SYNC_HANDLER(this.UpdateNetHighlighting), EVENTS.SelectedItemsModified);
+    this.Go(
+      SYNC_HANDLER(this.UpdateNetHighlighting),
+      SCH_ACTIONS.updateNetHighlighting.MakeEvent(),
+    );
+
+    this.Go(this.AssignNetclass, SCH_ACTIONS.assignNetclass.MakeEvent());
+    this.Go(SYNC_HANDLER(this.FindNetInInspector), SCH_ACTIONS.findNetInInspector.MakeEvent());
+
+    // Not ported yet, in KiCad's order: RescueSymbols, ExportSymbolsToLibrary,
     // the clipboard, EditWithSymbolEditor, ShowCvpcb, ImportFPAssignments,
     // ImportNonKicadSchematic, ShowPcbNew, DrawSheetOnClipboard, the linked design blocks and
     // the variants. Left out, as the simulator is: SimProbe, SimTune, MarkSimExclusions,
