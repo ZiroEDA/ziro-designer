@@ -10,9 +10,12 @@
  * `aInstancePath` is the sheet path's KIID path as the `(instances …)` records
  * key it: `/<root uuid>/<sheet uuids…>` (`SCH_SHEET_PATH::Path()`).
  */
+import type { SCH_COMMIT } from './sch_commit.js';
+import { CollectOtherUnits } from './sch_collectors.js';
 import {
   ENUM_MAP,
   type INSPECTABLE_ITEM,
+  type PROPERTY_BASE,
   NO_SETTER,
   PG_CHOICES,
   PROPERTY,
@@ -102,7 +105,7 @@ import { SKIP_STRUCT, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
 import type { EDA_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import type { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
-import { KIID_PATH } from '@ziroeda/common/kiid.js';
+import { type KIID, KIID_PATH, newKiid } from '@ziroeda/common/kiid.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { ELECTRICAL_PINTYPE } from '@ziroeda/common/pin_type.js';
@@ -2276,6 +2279,153 @@ export class SCH_SYMBOL extends SYMBOL {
   SetDNPProp(aEnable: boolean): void {
     const schematic = this.Schematic()!;
     this.SetDNP(aEnable, schematic.CurrentSheet(), schematic.GetCurrentVariant());
+  }
+
+  /**
+   * `SyncOtherUnits( aSourceSheet, aCommit, aProperty, aVariantName )` (sch_symbol.cpp:1481): keep
+   * the value, the other fields, the include/exclude flags and the alternate pin assignments of
+   * the other units of an annotated multi-unit symbol in step with this one. With \a aProperty,
+   * only that property (if it is one of the synced ones).
+   */
+  SyncOtherUnits(
+    aSourceSheet: SCH_SHEET_PATH,
+    aCommit: SCH_COMMIT,
+    aProperty: PROPERTY_BASE | null,
+    aVariantName = '',
+  ): void {
+    let updateValue = true;
+    let updateExclFromBOM = true;
+    let updateExclFromBoard = true;
+    let updateExclFromPosFiles = true;
+    let updateDNP = true;
+    let updateOtherFields = true;
+    let updatePins = true;
+
+    if (aProperty) {
+      updateValue = aProperty.Name() === 'Value';
+      updateExclFromBoard = aProperty.Name() === 'Exclude From Board';
+      updateExclFromBOM = aProperty.Name() === 'Exclude From Bill of Materials';
+      updateExclFromPosFiles = aProperty.Name() === 'Exclude From Position Files';
+      updateDNP = aProperty.Name() === 'Do not Populate';
+      updateOtherFields = false;
+      updatePins = false;
+    }
+
+    if (
+      !updateValue &&
+      !updateExclFromBOM &&
+      !updateExclFromBoard &&
+      !updateExclFromPosFiles &&
+      !updateDNP &&
+      !updateOtherFields &&
+      !updatePins
+    ) {
+      return;
+    }
+
+    // Keep fields other than the reference, include/exclude flags, and alternate pin assignments
+    // in sync in multi-unit parts.
+    if (this.GetUnitCount() > 1 && this.IsAnnotated(aSourceSheet)) {
+      const ref = this.GetRef(aSourceSheet);
+
+      for (const sheet of this.Schematic()!.Hierarchy()) {
+        const screen = sheet.LastScreen();
+        const otherUnits: SCH_SYMBOL[] = [];
+
+        CollectOtherUnits(ref, this.m_unit, this.m_lib_id, sheet, otherUnits);
+
+        for (const otherUnit of otherUnits) {
+          aCommit.Modify(otherUnit, screen);
+
+          if (updateValue) {
+            otherUnit.SetFieldText(
+              this.GetField(FIELD_T.VALUE)!.GetName(),
+              this.GetValue(false, aSourceSheet, false, aVariantName),
+              sheet,
+              aVariantName,
+            );
+          }
+
+          if (updateOtherFields) {
+            for (const field of this.m_fields) {
+              if (field.GetId() === FIELD_T.REFERENCE || field.GetId() === FIELD_T.VALUE) {
+                // already handled
+                continue;
+              }
+
+              const otherField = field.IsMandatory()
+                ? otherUnit.GetField(field.GetId())
+                : otherUnit.GetField(field.GetName());
+
+              if (otherField) {
+                otherField.SetText(field.GetText(aSourceSheet, aVariantName), sheet, aVariantName);
+              } else {
+                const newField = SCH_FIELD.copyOf(field);
+                (newField as { m_Uuid: KIID }).m_Uuid = newKiid();
+
+                const pos = this.GetPosition();
+                const otherPos = otherUnit.GetPosition();
+                newField.Offset({ x: -pos.x, y: -pos.y });
+                newField.Offset(otherPos);
+
+                newField.SetParent(otherUnit);
+                const addedField = otherUnit.AddField(newField);
+
+                if (aVariantName !== '')
+                  addedField.SetText(
+                    field.GetText(aSourceSheet, aVariantName),
+                    sheet,
+                    aVariantName,
+                  );
+              }
+            }
+
+            const otherFields = otherUnit.GetFields();
+
+            for (let ii = otherFields.length - 1; ii >= 0; ii--) {
+              const otherField = otherFields[ii]!;
+
+              if (!otherField.IsMandatory() && !this.GetField(otherField.GetName()))
+                otherFields.splice(ii, 1);
+            }
+          }
+
+          if (updateExclFromBOM) {
+            otherUnit.SetExcludedFromBOM(
+              this.GetExcludedFromBOM(aSourceSheet, aVariantName),
+              sheet,
+              aVariantName,
+            );
+          }
+
+          if (updateExclFromBoard) {
+            otherUnit.SetExcludedFromBoard(
+              this.GetExcludedFromBoard(aSourceSheet, aVariantName),
+              sheet,
+              aVariantName,
+            );
+          }
+
+          if (updateExclFromPosFiles) {
+            otherUnit.SetExcludedFromPosFiles(
+              this.GetExcludedFromPosFiles(aSourceSheet, aVariantName),
+              sheet,
+              aVariantName,
+            );
+          }
+
+          if (updateDNP)
+            otherUnit.SetDNP(this.GetDNP(aSourceSheet, aVariantName), sheet, aVariantName);
+
+          if (updatePins) {
+            for (const model_pin of this.m_pins) {
+              for (const src_pin of otherUnit.GetPinsByNumber(model_pin.GetNumber()))
+                src_pin.SetAlt(model_pin.GetAlt());
+            }
+          }
+        }
+      }
+    }
   }
 
   GetExcludedFromBOMProp(): boolean {
