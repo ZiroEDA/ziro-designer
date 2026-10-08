@@ -557,6 +557,9 @@ import { createSchDrawPanel } from './sch_canvas.js';
 import type { SCH_DRAW_PANEL } from './sch_draw_panel.js';
 import { loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
 import { type SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';
+import type { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
+import { actionMenuItems } from '@ziroeda/common/tool/action_menu_popup.js';
+import { wxMenuEvent, wxMenuEventType } from '@ziroeda/common/wx/menu.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { schToolbarAction } from './toolbars_sch_editor.js';
 import { symbolLibraryUri } from './cross-probing.js';
@@ -6782,6 +6785,26 @@ export function SchematicEditor({
   }, []);
   useEffect(() => () => statusPopupRef.current?.Destroy(), []);
 
+  // `wxWindow::PopupMenu` for the frame under `?schgal=1` (TRANSITIONAL, W2): the tools'
+  // context menu (TOOL_MENU::ShowContextMenu, evaluated against the selection) and any other
+  // ACTION_MENU a tool puts up, drawn with the menu bar's ContextMenu.
+  const [toolPopup, setToolPopup] = useState<{
+    menu: ACTION_MENU;
+    x: number;
+    y: number;
+    onClose: () => void;
+  } | null>(null);
+  useEffect(() => {
+    const frame = schFrameRef.current;
+    if (!SCH_GAL || !frame) return;
+    frame.SetPopupMenuPresenter((aMenu, aOnClose) => {
+      const at = KIPLATFORM_UI.GetMousePosition();
+      aMenu.OnMenuEvent(new wxMenuEvent(wxMenuEventType.wxEVT_MENU_OPEN, 0, aMenu));
+      setToolPopup({ menu: aMenu, x: at.x, y: at.y, onClose: aOnClose });
+    });
+    return () => frame.SetPopupMenuPresenter(null);
+  }, []);
+
   /** `isSheetPin` with no sheet under the cursor (sch_drawing_tools.cpp:2299). */
   const onSheetPinMiss = useCallback(
     () => showStatusPopup('Click over a sheet.'),
@@ -10208,6 +10231,20 @@ export function SchematicEditor({
                 y={ctxMenu.y}
                 items={buildContextMenu()}
                 onClose={() => setCtxMenu(null)}
+              />
+            )}
+            {toolPopup && (
+              <ContextMenu
+                x={toolPopup.x}
+                y={toolPopup.y}
+                items={actionMenuItems(toolPopup.menu)}
+                onClose={() => {
+                  const close = toolPopup.onClose;
+                  setToolPopup(null);
+                  // wx runs the chosen row while PopupMenu is still open and returns after, so
+                  // the close half runs once the row's handler has.
+                  queueMicrotask(close);
+                }}
               />
             )}
             {clarify && doc && (
