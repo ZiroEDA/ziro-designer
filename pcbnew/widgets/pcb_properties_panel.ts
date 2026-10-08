@@ -38,9 +38,14 @@ import { FIELD_T, GetCanonicalFieldName } from '@ziroeda/common/template_fieldna
 import { EVENTS } from '@ziroeda/common/tool/tool_event.js';
 import {
   type PG_CELL,
+  type PG_GRID_ROW,
   PROPERTIES_PANEL,
-  variantEquals,
+  type PROPERTY_VETO,
 } from '@ziroeda/common/widgets/properties_panel.js';
+
+/** The grid row pcbnew's tests and UI name; the common PG_GRID_ROW. */
+export type PCB_GRID_ROW = PG_GRID_ROW;
+export type { PROPERTY_VETO };
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import {
@@ -144,42 +149,6 @@ export class PCB_FOOTPRINT_FIELD_PROPERTY extends PROPERTY_BASE {
   }
 }
 
-/**
- * One cell of the grid as `common/widgets/properties_panel_ui.tsx` draws
- * it: what `createPGProperty` / `PGPropertyFactory` built, holding the cell's
- * value (`wxPGProperty::SetValue`), with `set` standing for the grid's
- * `EVT_PG_CHANGING` + `EVT_PG_CHANGED` pair. `set` returns the edit to run
- * (`valueChanged`), or null when `valueChanging` vetoed it or the text did not
- * convert.
- */
-export interface PCB_GRID_ROW {
-  readonly group: string;
-  readonly name: string;
-  readonly kind: 'coord' | 'dist' | 'string' | 'bool' | 'int' | 'choice' | 'color';
-  readonly choices?: readonly string[];
-  readonly swatch?: string;
-  readonly value: string | number | boolean | null;
-  readonly optional?: boolean;
-  readonly browse?: 'footprint';
-  readonly set?: (v: string | number | boolean) => (() => void) | null;
-}
-
-/** Millimetres per user unit, for an area's side. */
-function userUnitMM(aUnits: string): number {
-  return aUnits === 'in' ? 25.4 : aUnits === 'mils' ? 0.0254 : 1;
-}
-
-/** A number from a cell's text (`wxString::ToDouble` over the whole text). */
-function textToDouble(aText: string): number | null {
-  const t = aText.trim();
-  return /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(t) ? Number(t) : null;
-}
-
-/** What an edit that the validator refused reports. */
-export interface PROPERTY_VETO {
-  readonly message: string;
-}
-
 export class PCB_PROPERTIES_PANEL extends PROPERTIES_PANEL {
   /** The field names on the selected footprints (a static std::set upstream). */
   static m_currentFieldNames = new Set<string>();
@@ -262,6 +231,37 @@ export class PCB_PROPERTIES_PANEL extends PROPERTIES_PANEL {
     super.rebuildProperties(aSelection);
   }
 
+  /** `createPGProperty`'s PCB_LAYER_ID branch: a PGPROPERTY_COLORENUM cell. */
+  protected override customGridRow(
+    aCell: PG_CELL,
+    aBase: { group: string; name: string },
+    aEdit: (value: unknown) => (() => void) | null,
+    aWithSet: (
+      row: Omit<PG_GRID_ROW, 'set'>,
+      set: (v: string | number | boolean) => (() => void) | null,
+    ) => PG_GRID_ROW,
+  ): PG_GRID_ROW | null {
+    const aValue = aCell.value;
+    const layer = this.LayerCell(aCell.property);
+
+    if (!layer) return null;
+
+    const idx = typeof aValue === 'number' ? layer.choices.Index(aValue) : -1;
+    return aWithSet(
+      {
+        ...aBase,
+        kind: 'choice',
+        choices: [...layer.choices].map((c) => c.GetText()),
+        value: idx >= 0 ? layer.choices.GetLabel(idx) : '',
+        swatch: typeof aValue === 'number' ? layer.color(aValue) : undefined,
+      },
+      (v) => {
+        const i = layer.choices.Index(String(v));
+        return i < 0 ? null : aEdit(layer.choices.GetValue(i));
+      },
+    );
+  }
+
   /**
    * `createPGProperty`'s PCB_LAYER_ID branch: the layer's BOARD name for
    * each canonical choice, and its colour from the frame's colour settings.
@@ -293,7 +293,7 @@ export class PCB_PROPERTIES_PANEL extends PROPERTIES_PANEL {
    * The editor a cell swaps in (`createPGProperty`, :502-507): the Footprint
    * field gets PG_FPID_EDITOR, the Datasheet field PG_URL_EDITOR.
    */
-  CellEditor(aProperty: PROPERTY_BASE): 'fpid' | 'url' | null {
+  override CellEditor(aProperty: PROPERTY_BASE): 'fpid' | 'url' | null {
     if (aProperty.Name() === GetCanonicalFieldName(FIELD_T.FOOTPRINT)) return 'fpid';
     if (aProperty.Name() === GetCanonicalFieldName(FIELD_T.DATASHEET)) return 'url';
     return null;
@@ -311,7 +311,7 @@ export class PCB_PROPERTIES_PANEL extends PROPERTIES_PANEL {
    * `valueChanging( aEvent )`: the property's validator on the front item.
    * Returns the veto, or null to let the edit through.
    */
-  valueChanging(aPropertyName: string, aNewValue: unknown): PROPERTY_VETO | null {
+  override valueChanging(aPropertyName: string, aNewValue: unknown): PROPERTY_VETO | null {
     if (this.m_SuppressGridChangeEvents > 0) return null;
 
     const item = this.getFrontItem();
@@ -331,7 +331,7 @@ export class PCB_PROPERTIES_PANEL extends PROPERTIES_PANEL {
   }
 
   /** `valueChanged( aEvent )`: every selected item, one BOARD_COMMIT. */
-  valueChanged(aPropertyName: string, aNewValue: unknown): void {
+  override valueChanged(aPropertyName: string, aNewValue: unknown): void {
     if (this.m_SuppressGridChangeEvents > 0) return;
 
     const selection = this.getSelection();
@@ -421,243 +421,6 @@ export class PCB_PROPERTIES_PANEL extends PROPERTIES_PANEL {
     // PointEditor may need to update if locked/unlocked
     if (aPropertyName === 'Locked')
       this.m_frame.GetToolManager()?.ProcessEvent(EVENTS.SelectedEvent);
-  }
-
-  /**
-   * The grid's cells for the current `m_groups`: `PGPropertyFactory` and this
-   * class's `createPGProperty` choosing each cell's kind, `ValueToString`
-   * painting it, and `StringToValue` + `valueChanging` guarding the edit.
-   */
-  GridRows(aPgFrame: PG_FRAME): PCB_GRID_ROW[] {
-    const rows: PCB_GRID_ROW[] = [];
-
-    for (const group of this.m_groups) {
-      for (const cell of group.cells) {
-        const row = this.gridRow(group.name, cell, aPgFrame);
-        if (row) rows.push(row);
-      }
-    }
-
-    return rows;
-  }
-
-  private gridRow(aGroup: string, aCell: PG_CELL, aPgFrame: PG_FRAME): PCB_GRID_ROW | null {
-    const aProperty = aCell.property;
-    const aValue = aCell.value;
-    const aWriteable = aCell.writeable;
-    const name = aProperty.Name();
-    const type = aProperty.TypeHash();
-    const optional = type === TYPE_OPT_INT || type === TYPE_OPT_DOUBLE;
-
-    /**
-     * EVT_PG_CHANGING then EVT_PG_CHANGED. wxPropertyGrid raises neither when
-     * the committed value equals the cell's, so an unchanged edit is no edit.
-     */
-    const edit = (value: unknown): (() => void) | null => {
-      if (aValue !== null && variantEquals(value, aValue)) return null;
-      if (value === undefined && aValue === null && optional) return null;
-      if (this.valueChanging(name, value)) return null;
-      return () => this.valueChanged(name, value);
-    };
-    const withSet = (
-      row: Omit<PCB_GRID_ROW, 'set'>,
-      set: (v: string | number | boolean) => (() => void) | null,
-    ): PCB_GRID_ROW => (aWriteable ? { ...row, set } : row);
-
-    const base = { group: aGroup, name };
-
-    // PCB_PROPERTIES_PANEL::createPGProperty: every PCB_LAYER_ID is a PGPROPERTY_COLORENUM.
-    const layer = this.LayerCell(aProperty);
-
-    if (layer) {
-      const idx = typeof aValue === 'number' ? layer.choices.Index(aValue) : -1;
-      return withSet(
-        {
-          ...base,
-          kind: 'choice',
-          choices: [...layer.choices].map((c) => c.GetText()),
-          value: idx >= 0 ? layer.choices.GetLabel(idx) : '',
-          swatch: typeof aValue === 'number' ? layer.color(aValue) : undefined,
-        },
-        (v) => {
-          const i = layer.choices.Index(String(v));
-          return i < 0 ? null : edit(layer.choices.GetValue(i));
-        },
-      );
-    }
-
-    const display = aProperty.Display();
-    const transforms = aPgFrame.originTransforms;
-
-    switch (display) {
-      case PROPERTY_DISPLAY.PT_SIZE:
-      case PROPERTY_DISPLAY.PT_COORD: {
-        const ct = aProperty.CoordType();
-        const iu = typeof aValue === 'number' ? aValue : null;
-        const shown =
-          iu === null || display === PROPERTY_DISPLAY.PT_SIZE || !transforms
-            ? iu
-            : transforms.ToDisplay(iu, ct);
-        return withSet(
-          {
-            ...base,
-            kind: display === PROPERTY_DISPLAY.PT_SIZE ? 'dist' : 'coord',
-            value: shown,
-            optional,
-          },
-          (v) => {
-            if (v === '' && optional) return edit(undefined);
-            if (typeof v !== 'number') return null;
-            const back =
-              display === PROPERTY_DISPLAY.PT_SIZE || !transforms
-                ? v
-                : transforms.FromDisplay(v, ct);
-            return edit(back);
-          },
-        );
-      }
-
-      case PROPERTY_DISPLAY.PT_DECIDEGREE:
-      case PROPERTY_DISPLAY.PT_DEGREE: {
-        const prop = new PGPROPERTY_ANGLE();
-        if (display === PROPERTY_DISPLAY.PT_DECIDEGREE) prop.SetScale(10.0);
-        const shown =
-          aValue === null || aValue === undefined
-            ? ''
-            : prop.ValueToString(aValue as number | EDA_ANGLE);
-        return withSet({ ...base, kind: 'string', value: shown }, (v) => {
-          const n = prop.StringToValue(String(v).replace(/°$/, ''));
-          if (n === null) return null;
-          if (type === TYPE_EDA_ANGLE) return edit(new EDA_ANGLE(n, EDA_ANGLE_T.DEGREES_T));
-          return edit(Math.round(n));
-        });
-      }
-
-      case PROPERTY_DISPLAY.PT_RATIO: {
-        const shown = new PGPROPERTY_RATIO().ValueToString(
-          typeof aValue === 'number' ? aValue : null,
-        );
-        return withSet({ ...base, kind: 'string', value: shown }, (v) => {
-          if (String(v).trim() === '' && optional) return edit(undefined);
-          const n = textToDouble(String(v));
-          return n === null ? null : edit(n);
-        });
-      }
-
-      case PROPERTY_DISPLAY.PT_TIME: {
-        const shown =
-          typeof aValue === 'number'
-            ? this.m_frame.GetUnitsProvider().StringFromValue(aValue, true, 'time')
-            : '';
-        return withSet({ ...base, kind: 'string', value: shown }, (v) => {
-          if (String(v).trim() === '' && optional) return edit(undefined);
-          const n = textToDouble(String(v).replace(/\s*[a-z]+$/, ''));
-          return n === null ? null : edit(Math.round(n));
-        });
-      }
-
-      case PROPERTY_DISPLAY.PT_AREA: {
-        // PGPROPERTY_AREA: StringFromValue( area, true, AREA ), and the unit
-        // editor reads the text back in the frame's units squared.
-        const units = this.m_frame.GetUnitsProvider();
-        const shown = typeof aValue === 'number' ? units.StringFromValue(aValue, true, 'area') : '';
-        return withSet({ ...base, kind: 'string', value: shown }, (v) => {
-          const n = textToDouble(String(v).replace(/\s*[a-z²]+$/i, ''));
-          if (n === null) return null;
-          const side = units.GetIuScale().mmToIU(userUnitMM(aPgFrame.units));
-          return edit(Math.round(n * side * side));
-        });
-      }
-
-      case PROPERTY_DISPLAY.PT_NET:
-        break;
-
-      default:
-        break;
-    }
-
-    // PT_NET and PT_DEFAULT with choices: an enum cell.
-    // `if( choices.GetCount() ) pgProp->SetChoices( choices )`: the item's own
-    // choices (GetChoices( item )) win over the property's.
-    if (display === PROPERTY_DISPLAY.PT_NET || aProperty.HasChoices()) {
-      const choices = aCell.choices.GetCount() > 0 ? aCell.choices : aProperty.Choices();
-
-      // A string property with choices (Font) holds the label itself.
-      if (type === TYPE_STRING) {
-        return withSet(
-          {
-            ...base,
-            kind: 'choice',
-            choices: [...choices].map((c) => c.GetText()),
-            value: typeof aValue === 'string' ? aValue : '',
-          },
-          (v) => edit(String(v)),
-        );
-      }
-
-      const idx = typeof aValue === 'number' ? choices.Index(aValue) : -1;
-      return withSet(
-        {
-          ...base,
-          kind: 'choice',
-          choices: [...choices].map((c) => c.GetText()),
-          value: idx >= 0 ? choices.GetLabel(idx) : '',
-        },
-        (v) => {
-          const i = choices.Index(String(v));
-          return i < 0 ? null : edit(choices.GetValue(i));
-        },
-      );
-    }
-
-    if (type === TYPE_INT || type === TYPE_UNSIGNED) {
-      return withSet(
-        { ...base, kind: 'int', value: typeof aValue === 'number' ? aValue : null },
-        (v) => (typeof v === 'number' ? edit(Math.trunc(v)) : null),
-      );
-    }
-
-    if (type === TYPE_DOUBLE) {
-      return withSet(
-        { ...base, kind: 'string', value: typeof aValue === 'number' ? formatG(aValue) : '' },
-        (v) => {
-          const n = textToDouble(String(v));
-          return n === null ? null : edit(n);
-        },
-      );
-    }
-
-    if (type === TYPE_BOOL) {
-      return withSet(
-        { ...base, kind: 'bool', value: aValue === null ? null : Boolean(aValue) },
-        (v) => edit(Boolean(v)),
-      );
-    }
-
-    if (type === TYPE_STRING) {
-      const shown = typeof aValue === 'string' ? new PGPROPERTY_STRING().ValueToString(aValue) : '';
-      return withSet(
-        {
-          ...base,
-          kind: 'string',
-          value: shown,
-          browse: this.CellEditor(aProperty) === 'fpid' ? 'footprint' : undefined,
-        },
-        (v) => edit(String(v)),
-      );
-    }
-
-    if (type === TYPE_COLOR4D) {
-      const c = aValue as Color4d | null;
-      return withSet({ ...base, kind: 'color', value: c && c.a > 0 ? toHexString(c) : '' }, (v) => {
-        if (v === '') return edit({ ...COLOR4D_UNSPECIFIED });
-        const parsed = setFromHexString(String(v));
-        return parsed ? edit(parsed) : null;
-      });
-    }
-
-    // "Property %s not supported by PGPropertyFactory": a disabled category.
-    return null;
   }
 
   /** `updateLists( aBoard )`: the live board's layers and nets as the choices. */
