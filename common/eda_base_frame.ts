@@ -12,6 +12,8 @@
  * held as a member here and its two accessors forwarded, since a class has one
  * base.
  */
+import { DisplayErrorMessage } from './confirm.js';
+import { wxDirExists, wxFileExists, wxIsDirWritable } from './wx/filefn.js';
 import type { MessageDialogIcon } from './confirm_types.js';
 import type { KIWAY } from './kiway.js';
 import type { EdaIuScale, EdaUnits } from './eda_units.js';
@@ -417,6 +419,35 @@ export abstract class EDA_BASE_FRAME
    * a sink with {@link SetStatusTextSink} and writes the field itself, as a
    * wxStatusBar repaints only the field that changed.
    */
+  /**
+   * `IsWritable( aFileName, aVerbose )` (eda_base_frame.cpp:1823): whether \a aFileName can be
+   * written, on the mounted file system (common/wx/filefn.ts) - a path no writable mount covers is
+   * a folder without permission.
+   */
+  IsWritable(aFileName: string, aVerbose = true): boolean {
+    let msg = '';
+    const dir = aFileName.includes('/')
+      ? aFileName.slice(0, aFileName.lastIndexOf('/')) || '/'
+      : '';
+
+    if (dir === '') return false; // wxCHECK: "File name object path is not set.  Bad programmer!"
+
+    if (wxDirExists(aFileName) && !wxIsDirWritable(aFileName))
+      msg = `Insufficient permissions to folder '${dir}'.`;
+    else if (!wxFileExists(aFileName) && !wxIsDirWritable(dir))
+      msg = `Insufficient permissions to save file '${aFileName}'.`;
+    else if (wxFileExists(aFileName) && !wxIsDirWritable(dir))
+      msg = `Insufficient permissions to save file '${aFileName}'.`;
+
+    if (msg !== '') {
+      if (aVerbose) DisplayErrorMessage(msg);
+
+      return false;
+    }
+
+    return true;
+  }
+
   SetStatusText(aText: string, aNumber = 0): void {
     if (this.m_statusText[aNumber] === aText) return;
 

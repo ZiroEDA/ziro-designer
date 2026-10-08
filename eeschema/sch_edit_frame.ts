@@ -29,7 +29,25 @@ import { SCH_INSPECTION_TOOL } from './tools/sch_inspection_tool.js';
 import type { SCH_MARKER } from './sch_marker.js';
 import { ESCAPE_CONTEXT, EscapeString, unescapeString } from '@ziroeda/common/string_utils.js';
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
-import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { Pgm, PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
+import {
+  PROJECT_FILE_EXTENSION,
+  TOP_LEVEL_SHEET_INFO,
+} from '@ziroeda/common/project/project_file.js';
+import type { SCH_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/project_local_settings.js';
+import { BASE_SCREEN } from '@ziroeda/common/base_screen.js';
+import { FILENAME_RESOLVER } from '@ziroeda/common/filename_resolver.js';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import {
+  wxDirExists,
+  wxFileExists,
+  wxIsDirWritable,
+  wxWriteFileSync,
+} from '@ziroeda/common/wx/filefn.js';
+import type { SCHEMATIC_SETTINGS } from './schematic_settings.js';
+import type { FILEDLG_HOOK_SAVE_PROJECT } from './files-io.js';
+import { PosixPath } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
 import { TEXTVARS_CHANGED } from '@ziroeda/common/tool/tools_holder.js';
 import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
 import { SCH_NAVIGATE_TOOL } from './tools/sch_navigate_tool.js';
@@ -239,6 +257,8 @@ export interface SCH_EDIT_FRAME_HOOKS {
    * builds; GetSymbolFieldsTableDialog keeps it.
    */
   symbolFieldsTableDialog?(): DIALOG_SYMBOL_FIELDS_TABLE | null;
+  /** `m_hierarchy->GetCollapsedPaths()`: the window's HIERARCHY_PANE. */
+  hierarchyCollapsedPaths?(): string[];
   /**
    * The AUI half of ToggleSearch, ToggleSchematicHierarchy, ToggleNetNavigator,
    * ToggleProperties, ToggleLibraryTree and ToggleRemoteSymbolPanel (sch_edit_frame.cpp,
@@ -273,8 +293,9 @@ export interface SCH_EDIT_FRAME_HOOKS {
     aTitle: string,
     aDefaultDir: string,
     aDefaultFile: string,
-    aWildcard: string,
+    aWildcard: string | readonly ChooserFilter[],
     aStyle: number,
+    aCustomizeHook?: FILEDLG_HOOK_SAVE_PROJECT,
   ): string | null | Promise<string | null>;
 }
 
@@ -1109,13 +1130,132 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     aTitle: string,
     aDefaultDir: string,
     aDefaultFile: string,
-    aWildcard: string,
+    aWildcard: string | readonly ChooserFilter[],
     aStyle: number,
+    aCustomizeHook?: FILEDLG_HOOK_SAVE_PROJECT,
   ): Promise<string | null> {
+    // `dlg.SetCustomizeHook( hook )`: a hook the window does not show stays unattached.
+    if (aCustomizeHook) aCustomizeHook.attached = false;
+
     return Promise.resolve(
-      this.hooks.fileDialog?.(aTitle, aDefaultDir, aDefaultFile, aWildcard, aStyle) ?? null,
+      this.hooks.fileDialog?.(
+        aTitle,
+        aDefaultDir,
+        aDefaultFile,
+        aWildcard,
+        aStyle,
+        aCustomizeHook,
+      ) ?? null,
     );
   }
+
+  /**
+   * `saveProjectSettings()` (eeschema_config.cpp:162): ERC exclusions, the drawing sheet file,
+   * the IPC-2581 revision and the top-level sheets into the project file, which is then saved.
+   */
+  saveProjectSettings(): void {
+    const fn = this.Schematic()
+      .RootScreen()!
+      .GetFileName()
+      .replace(/\.[^./]*$/, `.${PROJECT_FILE_EXTENSION}`);
+
+    if (
+      fn.slice(fn.lastIndexOf('/') + 1) === `.${PROJECT_FILE_EXTENSION}` ||
+      !this.IsWritable(fn, false)
+    )
+      return;
+
+    this.Schematic().RecordERCExclusions();
+
+    // `Kiway().Player( FRAME_SIMULATOR )`'s ngspice settings: the simulator is not ported.
+
+    // Save the page layout file if doesn't exist yet (e.g. if we opened a non-kicad schematic)
+
+    // TODO: We need to remove dependence on BASE_SCREEN
+    const schSettings = this.Prj().GetProjectFile()
+      .m_SchematicSettings as unknown as SCHEMATIC_SETTINGS | null;
+
+    if (schSettings) schSettings.m_SchDrawingSheetFileName = BASE_SCREEN.m_DrawingSheetFileName;
+
+    if (BASE_SCREEN.m_DrawingSheetFileName !== '') {
+      const resolve = new FILENAME_RESOLVER();
+      resolve.SetProject(this.Prj());
+      resolve.SetProgramBase(PgmOrNull());
+
+      let layoutfn = resolve.ResolvePath(
+        BASE_SCREEN.m_DrawingSheetFileName,
+        this.Prj().GetProjectPath(),
+        [this.Schematic().GetEmbeddedFiles()],
+      );
+
+      if (!PosixPath.isAbsolute(layoutfn))
+        layoutfn = PosixPath.makeAbsolute(layoutfn, this.Prj().GetProjectPath());
+
+      if (layoutfn !== '' && !wxFileExists(layoutfn)) {
+        const dir = PosixPath.dirname(layoutfn);
+
+        if (wxDirExists(dir) && wxIsDirWritable(dir))
+          wxWriteFileSync(
+            layoutfn,
+            new TextEncoder().encode(DS_DATA_MODEL.GetTheInstance().Save(layoutfn)),
+          );
+      }
+    }
+
+    // Propagate the root schematic revision to the project file for IPC-2581 BOM export
+    if (this.Schematic().RootScreen())
+      this.Prj().GetProjectFile().m_IP2581Bom.schRevision = this.Schematic()
+        .RootScreen()!
+        .GetTitleBlock()
+        .GetRevision();
+
+    // Update top-level sheets information in the project file
+    const topLevelSheets = this.Schematic().GetTopLevelSheets();
+
+    if (topLevelSheets.length > 0) {
+      const projectSheets = this.Prj().GetProjectFile().GetTopLevelSheets();
+      projectSheets.length = 0;
+
+      const projectPath = this.Prj().GetProjectPath();
+
+      for (const sheet of topLevelSheets) {
+        // For top-level sheets, get the filename from the screen, not from the sheet's
+        // SHEET_FILENAME field (which is only used for sheet instances on parent sheets)
+        let filename = sheet.GetScreen()?.GetFileName() ?? '';
+
+        // Make the filename relative to the project path
+        if (PosixPath.isAbsolute(filename))
+          filename = PosixPath.makeRelativeTo(filename, projectPath);
+
+        projectSheets.push(new TOP_LEVEL_SHEET_INFO(sheet.m_Uuid, sheet.GetName(), filename));
+      }
+    }
+
+    Pgm().GetSettingsManager().SaveProject();
+  }
+
+  /** `SaveProjectLocalSettings()` (eeschema_config.cpp:250). */
+  SaveProjectLocalSettings(): void {
+    const localSettings = this.Prj().GetLocalSettings();
+    const selTool = this.GetToolManager()?.FindTool('common.InteractiveSelection') as {
+      GetFilter(): SCH_SELECTION_FILTER_OPTIONS;
+    } | null;
+
+    if (selTool) localSettings.m_SchSelectionFilter = selTool.GetFilter();
+
+    localSettings.m_SchHierarchyCollapsed =
+      this.hooks.hierarchyCollapsedPaths?.() ?? localSettings.m_SchHierarchyCollapsed;
+  }
+
+  /**
+   * `NewProject()` (sch_edit_frame.cpp:1435): "Only standalone mode can directly load a new
+   * document" - `if( !Kiface().IsSingle() ) return;` - and the browser always runs under the
+   * project manager, so the rest of it never runs.
+   */
+  NewProject(): void {}
+
+  /** `LoadProject()` (sch_edit_frame.cpp:1470): standalone only, as NewProject. */
+  LoadProject(): void {}
 
   /** The window's half of the dialogs a tool opens: see SCH_EDIT_FRAME_HOOKS.showModal. */
   ShowModalDialog(aDialog: string, aItems: readonly EDA_ITEM[], aArg?: unknown): Promise<number> {

@@ -33,6 +33,15 @@ import { SYMBOL_FILTER } from '../sch_sheet_path.js';
 import { LINE_MODE, SCH_ACTIONS } from './sch_actions.js';
 import { SCH_SELECTION_TOOL } from './sch_selection_tool.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
+import { ensureFileExtension } from '@ziroeda/common/common.js';
+import { KICTL_REVERT } from '@ziroeda/common/kiway_player.js';
+import {
+  KiCadSchematicFileExtension,
+  kicadSchematicWildcard,
+} from '@ziroeda/common/wildcards_and_files_ext.js';
+import { wxFD_OVERWRITE_PROMPT, wxFD_SAVE } from '@ziroeda/common/wx/defs.js';
+import { wxReadFileSync } from '@ziroeda/common/wx/filefn.js';
+import { SCH_SCREENS } from '../sch_screen.js';
 
 /** `MAX_PAGE_SIZE_EESCHEMA_MILS` (page_info.h). [data] */
 const MAX_PAGE_SIZE_EESCHEMA_MILS = 120000;
@@ -55,6 +64,92 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
   constructor() {
     super('eeschema.EditorControl');
+  }
+
+  New(_aEvent: TOOL_EVENT): number {
+    this.m_frame!.NewProject();
+    return 0;
+  }
+
+  Open(_aEvent: TOOL_EVENT): number {
+    this.m_frame!.LoadProject();
+    return 0;
+  }
+
+  *Save(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    yield* this.RunMainStackModal(() => this.m_frame!.SaveProject());
+    return 0;
+  }
+
+  *SaveAs(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    yield* this.RunMainStackModal(() => this.m_frame!.SaveProject(true));
+    return 0;
+  }
+
+  /// Saves the currently-open schematic sheet to an other name
+  *SaveCurrSheetCopyAs(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const curr_sheet = this.m_frame!.GetCurrentSheet().Last()!;
+    const curr_fn = curr_sheet.GetFileName();
+    const slash = curr_fn.lastIndexOf('/');
+
+    const picked = yield* this.RunMainStackModal(() =>
+      this.m_frame!.ShowFileDialog(
+        'Schematic Files',
+        slash >= 0 ? curr_fn.slice(0, slash) : '',
+        curr_fn.slice(slash + 1),
+        [kicadSchematicWildcard()],
+        wxFD_SAVE | wxFD_OVERWRITE_PROMPT,
+      ),
+    );
+
+    if (picked === null) return 0; // `return false`
+
+    const newFilename = ensureFileExtension(picked, KiCadSchematicFileExtension);
+
+    this.m_frame!.saveSchematicFile(curr_sheet, newFilename);
+    return 0;
+  }
+
+  *Revert(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const schematic = this.m_frame!.Schematic();
+    const root = schematic.Root();
+
+    // Save original sheet path to restore if user cancels
+    const originalSheet = this.m_frame!.GetCurrentSheet();
+    const wasOnSubsheet = this.m_frame!.GetCurrentSheet().Last() !== root;
+
+    // Navigate to root sheet first (needed for proper reload), but don't repaint yet
+    if (wasOnSubsheet) {
+      // Use the properly constructed root sheet path from the hierarchy
+      // (manually pushing root creates a path with empty KIID which causes assertions)
+      const rootSheetPath = schematic.Hierarchy()[0]!;
+
+      this.m_frame!.GetToolManager()!.RunAction(SCH_ACTIONS.changeSheet, rootSheetPath);
+    }
+
+    const msg = `Revert '${schematic.GetFileName()}' (and all sub-sheets) to last version saved?`;
+
+    if (!(yield* this.RunMainStackModal(() => Promise.resolve(this.m_frame!.IsOK(msg))))) {
+      // User cancelled - navigate back to original sheet
+      if (wasOnSubsheet)
+        this.m_frame!.GetToolManager()!.RunAction(SCH_ACTIONS.changeSheet, originalSheet);
+
+      return 0; // `return false`
+    }
+
+    const screenList = new SCH_SCREENS(schematic.Root());
+
+    for (let screen = screenList.GetFirst(); screen; screen = screenList.GetNext())
+      screen.SetContentModified(false); // do not prompt the user for changes
+
+    // `m_frame->ReleaseFile()`: the desktop's lock file; the store keeps none.
+    // OpenProjectFiles reads the files back from the mounted project.
+    this.m_frame!.OpenProjectFiles([schematic.GetFileName()], KICTL_REVERT, (aPath) => {
+      const bytes = wxReadFileSync(aPath);
+      return bytes ? new TextDecoder().decode(bytes) : null;
+    });
+
+    return 0;
   }
 
   *ShowSchematicSetup(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
@@ -483,8 +578,14 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   }
 
   protected override setTransitions(): void {
-    // Not ported yet, in KiCad's order: New, Open, Save, SaveAs, SaveCurrSheetCopyAs, Revert
-    // (files-io), RescueSymbols, ExportSymbolsToLibrary, the highlight-net and netclass handlers,
+    this.Go(SYNC_HANDLER(this.New), ACTIONS.doNew.MakeEvent());
+    this.Go(SYNC_HANDLER(this.Open), ACTIONS.open.MakeEvent());
+    this.Go(this.Save, ACTIONS.save.MakeEvent());
+    this.Go(this.SaveAs, ACTIONS.saveAs.MakeEvent());
+    this.Go(this.SaveCurrSheetCopyAs, SCH_ACTIONS.saveCurrSheetCopyAs.MakeEvent());
+    this.Go(this.Revert, ACTIONS.revert.MakeEvent());
+
+    // Not ported yet, in KiCad's order: RescueSymbols, ExportSymbolsToLibrary, the highlight-net and netclass handlers,
     // the clipboard, EditWithSymbolEditor, ShowCvpcb, ImportFPAssignments,
     // ImportNonKicadSchematic, ShowPcbNew, DrawSheetOnClipboard, the linked design blocks and
     // the variants. Left out, as the simulator is: SimProbe, SimTune, MarkSimExclusions,

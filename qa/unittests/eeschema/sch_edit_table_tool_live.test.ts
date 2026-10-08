@@ -230,7 +230,14 @@ describe('SCH_EDIT_TABLE_TOOL', () => {
     await flush();
 
     expect(asked).toEqual([
-      ['Export Table to CSV', '', '', 'CSV files (*.csv)|*.csv', wxFD_SAVE | wxFD_OVERWRITE_PROMPT],
+      [
+        'Export Table to CSV',
+        '',
+        '',
+        'CSV files (*.csv)|*.csv',
+        wxFD_SAVE | wxFD_OVERWRITE_PROMPT,
+        undefined,
+      ],
     ]);
     expect(disk.read('table.csv')).toBe('A,"x,y"\n"q""r",D\n');
   });
