@@ -35,7 +35,7 @@ import {
   SCH_HIERLABEL,
   SCH_LABEL,
 } from '@ziroeda/eeschema/sch_label.js';
-import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
+import { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openProject, schFrame, schToolHarness } from './support/sch_tool_harness.js';
 
@@ -324,6 +324,59 @@ describe('SCH_PIN_DESC', () => {
     const types = get('Electrical Type').Choices();
     expect(types.GetLabel(0)).toBe('Input');
     expect(types.GetLabel(types.GetCount() - 1)).toBe('Unconnected');
+  });
+});
+
+describe('SCH_SYMBOL_DESC', () => {
+  it("orders the rows as upstream's display order does: SYMBOL's pin flags first, then SCH_SYMBOL's own", () => {
+    const mgr = PROPERTY_MANAGER.Instance();
+    const order = mgr.GetDisplayOrder(TYPE_HASH(SCH_SYMBOL));
+    const sorted = [...order.entries()].sort((a, b) => a[1] - b[1]).map(([p]) => p.Name());
+
+    expect(sorted).toEqual([
+      'Pin numbers',
+      'Pin names',
+      'Position X',
+      'Position Y',
+      'Orientation',
+      'Mirror X',
+      'Mirror Y',
+      'Reference',
+      'Value',
+      'Library Link',
+      'Library Description',
+      'Keywords',
+      'Unit',
+      'Body Style',
+      'Exclude From Simulation',
+      'Exclude From Bill of Materials',
+      'Exclude From Board',
+      'Exclude From Position Files',
+      'Do not Populate',
+    ]);
+    // Not SCH_ITEM's: upstream links SCH_SYMBOL to SYMBOL only.
+    expect(sorted).not.toContain('Private');
+  });
+
+  it('the library-backed rows need a library symbol; Unit needs more than one unit', () => {
+    const h = schToolHarness(schFrame({}));
+    openProject(h.frame, ORACLE, 'complex_hierarchy', SHEETS);
+    const symbols = h.frame
+      .Schematic()
+      .Hierarchy()
+      .flatMap((p) => [...p.LastScreen()!.Items().OfType(KICAD_T.SCH_SYMBOL_T)] as SCH_SYMBOL[]);
+    const dual = symbols.find((s) => s.GetUnitCount() === 2)!;
+    const single = symbols.find((s) => s.GetUnitCount() === 1)!;
+    const mgr = PROPERTY_MANAGER.Instance();
+    const get = (n: string) => mgr.GetProperty(TYPE_HASH(SCH_SYMBOL), n)!;
+
+    expect(mgr.IsAvailableFor(TYPE_HASH(SCH_SYMBOL), get('Unit'), dual)).toBe(true);
+    expect(mgr.IsAvailableFor(TYPE_HASH(SCH_SYMBOL), get('Unit'), single)).toBe(false);
+    expect(mgr.IsAvailableFor(TYPE_HASH(SCH_SYMBOL), get('Pin numbers'), single)).toBe(true);
+    expect(get('Library Link').Writeable(dual)).toBe(false); // NO_SETTER
+
+    const choices = get('Unit').GetChoices(dual);
+    expect([choices.GetLabel(0), choices.GetValue(0), choices.GetLabel(1)]).toEqual(['A', 1, 'B']);
   });
 });
 

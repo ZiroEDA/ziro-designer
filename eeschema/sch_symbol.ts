@@ -10,6 +10,20 @@
  * `aInstancePath` is the sheet path's KIID path as the `(instances …)` records
  * key it: `/<root uuid>/<sheet uuids…>` (`SCH_SHEET_PATH::Path()`).
  */
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  NO_SETTER,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
+import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';
 import { list, atom, str } from '@ziroeda/sexpr';
 import type { SchSymbol, SchSymbolInstance } from './types.js';
 
@@ -2264,6 +2278,46 @@ export class SCH_SYMBOL extends SYMBOL {
     this.SetDNP(aEnable, schematic.CurrentSheet(), schematic.GetCurrentVariant());
   }
 
+  GetExcludedFromBOMProp(): boolean {
+    const schematic = this.Schematic()!;
+    return this.GetExcludedFromBOM(schematic.CurrentSheet(), schematic.GetCurrentVariant());
+  }
+
+  SetExcludedFromBOMProp(aEnable: boolean): void {
+    const schematic = this.Schematic()!;
+    this.SetExcludedFromBOM(aEnable, schematic.CurrentSheet(), schematic.GetCurrentVariant());
+  }
+
+  GetExcludedFromSimProp(): boolean {
+    const schematic = this.Schematic()!;
+    return this.GetExcludedFromSim(schematic.CurrentSheet(), schematic.GetCurrentVariant());
+  }
+
+  SetExcludedFromSimProp(aEnable: boolean): void {
+    const schematic = this.Schematic()!;
+    this.SetExcludedFromSim(aEnable, schematic.CurrentSheet(), schematic.GetCurrentVariant());
+  }
+
+  GetExcludedFromBoardProp(): boolean {
+    const schematic = this.Schematic()!;
+    return this.GetExcludedFromBoard(schematic.CurrentSheet(), schematic.GetCurrentVariant());
+  }
+
+  SetExcludedFromBoardProp(aEnable: boolean): void {
+    const schematic = this.Schematic()!;
+    this.SetExcludedFromBoard(aEnable, schematic.CurrentSheet(), schematic.GetCurrentVariant());
+  }
+
+  GetExcludedFromPosFilesProp(): boolean {
+    const schematic = this.Schematic()!;
+    return this.GetExcludedFromPosFiles(schematic.CurrentSheet(), schematic.GetCurrentVariant());
+  }
+
+  SetExcludedFromPosFilesProp(aEnable: boolean): void {
+    const schematic = this.Schematic()!;
+    this.SetExcludedFromPosFiles(aEnable, schematic.CurrentSheet(), schematic.GetCurrentVariant());
+  }
+
   override SetExcludedFromBOM(
     aEnable: boolean,
     aInstance: SCH_SHEET_PATH | null = null,
@@ -3162,3 +3216,208 @@ function wxBeforeLast(s: string, ch: string): string {
   const i = s.lastIndexOf(ch);
   return i < 0 ? '' : s.substring(0, i);
 }
+
+/**
+ * `static struct SCH_SYMBOL_DESC` (eeschema/sch_symbol.cpp:3922). Upstream registers no SYMBOL type
+ * of its own: "Pin numbers" and "Pin names" are owned by SYMBOL, whose class entry the manager
+ * makes on first use, and SCH_SYMBOL inherits from it alone - not SCH_ITEM, which is why it
+ * declares its own Unit and Body Style.
+ */
+(() => {
+  ENUM_MAP.Instance<SYMBOL_ORIENTATION_PROP>('SYMBOL_ORIENTATION_PROP')
+    .Map(SYMBOL_ORIENTATION_PROP.SYMBOL_ANGLE_0, '0')
+    .Map(SYMBOL_ORIENTATION_PROP.SYMBOL_ANGLE_90, '90')
+    .Map(SYMBOL_ORIENTATION_PROP.SYMBOL_ANGLE_180, '180')
+    .Map(SYMBOL_ORIENTATION_PROP.SYMBOL_ANGLE_270, '270');
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_SYMBOL);
+  propMgr.InheritsAfter(SCH_SYMBOL, SYMBOL);
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_SYMBOL, number>(
+      SCH_SYMBOL,
+      'Position X',
+      'SetX',
+      'GetX',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      COORD_TYPES_T.ABS_X_COORD,
+    ),
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_SYMBOL, number>(
+      SCH_SYMBOL,
+      'Position Y',
+      'SetY',
+      'GetY',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      COORD_TYPES_T.ABS_Y_COORD,
+    ),
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<SCH_SYMBOL, SYMBOL_ORIENTATION_PROP>(
+      SCH_SYMBOL,
+      'Orientation',
+      'SetOrientationProp',
+      'GetOrientationProp',
+      ENUM_MAP.Instance<SYMBOL_ORIENTATION_PROP>('SYMBOL_ORIENTATION_PROP'),
+    ),
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_SYMBOL, boolean>(
+      SCH_SYMBOL,
+      'Mirror X',
+      'SetMirrorX',
+      'GetMirrorX',
+      TYPE_BOOL,
+    ),
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_SYMBOL, boolean>(
+      SCH_SYMBOL,
+      'Mirror Y',
+      'SetMirrorY',
+      'GetMirrorY',
+      TYPE_BOOL,
+    ),
+  );
+
+  const hasLibPart = (aItem: INSPECTABLE_ITEM): boolean =>
+    aItem instanceof SCH_SYMBOL ? aItem.GetLibSymbolRef() !== null : false;
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SYMBOL, boolean>(
+        SYMBOL,
+        'Pin numbers',
+        'SetShowPinNumbers',
+        'GetShowPinNumbers',
+        TYPE_BOOL,
+      ),
+    )
+    .SetAvailableFunc(hasLibPart);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SYMBOL, boolean>(
+        SYMBOL,
+        'Pin names',
+        'SetShowPinNames',
+        'GetShowPinNames',
+        TYPE_BOOL,
+      ),
+    )
+    .SetAvailableFunc(hasLibPart);
+
+  const groupFields = 'Fields';
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_SYMBOL, string>(
+      SCH_SYMBOL,
+      'Reference',
+      'SetRefProp',
+      'GetRefProp',
+      TYPE_STRING,
+    ),
+    groupFields,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_SYMBOL, string>(
+      SCH_SYMBOL,
+      'Value',
+      'SetValueProp',
+      'GetValueProp',
+      TYPE_STRING,
+    ),
+    groupFields,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_SYMBOL, string>(
+      SCH_SYMBOL,
+      'Library Link',
+      NO_SETTER,
+      'GetSymbolIDAsString',
+      TYPE_STRING,
+    ),
+    groupFields,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_SYMBOL, string>(
+      SCH_SYMBOL,
+      'Library Description',
+      NO_SETTER,
+      'GetDescription',
+      TYPE_STRING,
+    ),
+    groupFields,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SCH_SYMBOL, string>(SCH_SYMBOL, 'Keywords', NO_SETTER, 'GetKeyWords', TYPE_STRING),
+    groupFields,
+  );
+
+  const multiUnit = (aItem: INSPECTABLE_ITEM): boolean =>
+    aItem instanceof SCH_SYMBOL ? aItem.IsMultiUnit() : false;
+
+  const multiBodyStyle = (aItem: INSPECTABLE_ITEM): boolean =>
+    aItem instanceof SCH_SYMBOL ? aItem.IsMultiBodyStyle() : false;
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_SYMBOL, number>(SCH_SYMBOL, 'Unit', 'SetUnitProp', 'GetUnitProp', TYPE_INT),
+    )
+    .SetAvailableFunc(multiUnit)
+    .SetChoicesFunc((aItem) => {
+      const choices = new PG_CHOICES();
+
+      if (aItem instanceof SCH_SYMBOL) {
+        for (let ii = 1; ii <= aItem.GetUnitCount(); ii++)
+          choices.Add(aItem.GetUnitDisplayName(ii, false), ii);
+      }
+
+      return choices;
+    });
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_SYMBOL, string>(
+        SCH_SYMBOL,
+        'Body Style',
+        'SetBodyStyleProp',
+        'GetBodyStyleProp',
+        TYPE_STRING,
+      ),
+    )
+    .SetAvailableFunc(multiBodyStyle)
+    .SetChoicesFunc((aItem) => {
+      const choices = new PG_CHOICES();
+
+      if (aItem instanceof SCH_SYMBOL) {
+        for (let ii = 1; ii <= aItem.GetBodyStyleCount(); ii++)
+          choices.Add(aItem.GetBodyStyleDescription(ii, false));
+      }
+
+      return choices;
+    });
+
+  const groupAttributes = 'Attributes';
+
+  const flag = (
+    aName: string,
+    aSetter: keyof SCH_SYMBOL & string,
+    aGetter: keyof SCH_SYMBOL & string,
+  ) =>
+    propMgr.AddProperty(
+      new PROPERTY<SCH_SYMBOL, boolean>(SCH_SYMBOL, aName, aSetter, aGetter, TYPE_BOOL),
+      groupAttributes,
+    );
+
+  flag('Exclude From Simulation', 'SetExcludedFromSimProp', 'GetExcludedFromSimProp');
+  flag('Exclude From Bill of Materials', 'SetExcludedFromBOMProp', 'GetExcludedFromBOMProp');
+  flag('Exclude From Board', 'SetExcludedFromBoardProp', 'GetExcludedFromBoardProp');
+  flag('Exclude From Position Files', 'SetExcludedFromPosFilesProp', 'GetExcludedFromPosFilesProp');
+  flag('Do not Populate', 'SetDNPProp', 'GetDNPProp');
+})();
