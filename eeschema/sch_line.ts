@@ -14,6 +14,18 @@
 
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_COLOR4D,
+  TYPE_DOUBLE,
+  TYPE_INT,
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
+import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';
+import {
   ENDPOINT,
   SKIP_STRUCT,
   STARTPOINT,
@@ -1197,3 +1209,118 @@ export class SCH_LINE extends SCH_ITEM {
     return this.IsEndPoint(aPosition);
   }
 }
+
+/**
+ * `static struct SCH_LINE_DESC` (eeschema/sch_line.cpp:1214).
+ */
+(() => {
+  const lineStyleEnum = ENUM_MAP.Instance<LINE_STYLE>('LINE_STYLE');
+
+  if (lineStyleEnum.Choices().GetCount() === 0) {
+    lineStyleEnum
+      .Map(LINE_STYLE.SOLID, 'Solid')
+      .Map(LINE_STYLE.DASH, 'Dashed')
+      .Map(LINE_STYLE.DOT, 'Dotted')
+      .Map(LINE_STYLE.DASHDOT, 'Dash-Dot')
+      .Map(LINE_STYLE.DASHDOTDOT, 'Dash-Dot-Dot');
+  }
+
+  const wireLineStyleEnum = ENUM_MAP.Instance<WIRE_STYLE>('WIRE_STYLE');
+
+  if (wireLineStyleEnum.Choices().GetCount() === 0) {
+    wireLineStyleEnum
+      .Map(WIRE_STYLE.DEFAULT, 'Default')
+      .Map(WIRE_STYLE.SOLID, 'Solid')
+      .Map(WIRE_STYLE.DASH, 'Dashed')
+      .Map(WIRE_STYLE.DOT, 'Dotted')
+      .Map(WIRE_STYLE.DASHDOT, 'Dash-Dot')
+      .Map(WIRE_STYLE.DASHDOTDOT, 'Dash-Dot-Dot');
+  }
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_LINE);
+  propMgr.InheritsAfter(SCH_LINE, SCH_ITEM);
+
+  const isGraphicLine = (aItem: INSPECTABLE_ITEM): boolean =>
+    aItem instanceof SCH_LINE ? aItem.IsGraphicLine() : false;
+
+  const isWireOrBus = (aItem: INSPECTABLE_ITEM): boolean =>
+    aItem instanceof SCH_LINE ? aItem.IsWire() || aItem.IsBus() : false;
+
+  const coord = (
+    aName: string,
+    aSetter: keyof SCH_LINE & string,
+    aGetter: keyof SCH_LINE & string,
+    aType: COORD_TYPES_T,
+  ) =>
+    new PROPERTY<SCH_LINE, number>(
+      SCH_LINE,
+      aName,
+      aSetter,
+      aGetter,
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      aType,
+    );
+
+  propMgr.AddProperty(coord('Start X', 'SetStartX', 'GetStartX', COORD_TYPES_T.ABS_X_COORD));
+  propMgr.AddProperty(coord('Start Y', 'SetStartY', 'GetStartY', COORD_TYPES_T.ABS_Y_COORD));
+  propMgr.AddProperty(coord('End X', 'SetEndX', 'GetEndX', COORD_TYPES_T.ABS_X_COORD));
+  propMgr.AddProperty(coord('End Y', 'SetEndY', 'GetEndY', COORD_TYPES_T.ABS_Y_COORD));
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_LINE, number>(
+      SCH_LINE,
+      'Length',
+      'SetLength',
+      'GetLength',
+      TYPE_DOUBLE,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+  );
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<SCH_LINE, LINE_STYLE>(
+        SCH_LINE,
+        'Line Style',
+        'SetLineStyle',
+        'GetLineStyle',
+        lineStyleEnum,
+      ),
+    )
+    .SetAvailableFunc(isGraphicLine);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<SCH_LINE, WIRE_STYLE>(
+        SCH_LINE,
+        'Wire Style',
+        'SetWireStyle',
+        'GetWireStyle',
+        wireLineStyleEnum,
+      ),
+    )
+    .SetAvailableFunc(isWireOrBus);
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_LINE, number>(
+      SCH_LINE,
+      'Line Width',
+      'SetLineWidth',
+      'GetLineWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_LINE, Color4d>(
+      SCH_LINE,
+      'Color',
+      'SetLineColor',
+      'GetLineColor',
+      TYPE_COLOR4D,
+    ),
+  );
+})();

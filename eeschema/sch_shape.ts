@@ -11,6 +11,13 @@
  */
 
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  PROPERTY_ENUM,
+  TYPE_CAST,
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 import { SKIP_STRUCT, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
 import { EDA_SHAPE, FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
@@ -399,3 +406,66 @@ export class SCH_SHAPE extends SCH_ITEM {
 }
 
 applyMixins(SCH_SHAPE, [EDA_SHAPE]);
+
+/**
+ * `static struct SCH_SHAPE_DESC` (eeschema/sch_shape.cpp:540).
+ */
+(() => {
+  const fillEnum = ENUM_MAP.Instance<FILL_T>('FILL_T');
+
+  if (fillEnum.Choices().GetCount() === 0) {
+    fillEnum
+      .Map(FILL_T.NO_FILL, 'None')
+      .Map(FILL_T.FILLED_SHAPE, 'Body outline color')
+      .Map(FILL_T.FILLED_WITH_BG_BODYCOLOR, 'Body background color')
+      .Map(FILL_T.FILLED_WITH_COLOR, 'Fill color');
+  }
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_SHAPE);
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_SHAPE, SCH_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_SHAPE, EDA_SHAPE));
+  propMgr.InheritsAfter(SCH_SHAPE, SCH_ITEM);
+  propMgr.InheritsAfter(SCH_SHAPE, EDA_SHAPE);
+
+  // Only polygons have meaningful Position properties.
+  // On other shapes, these are duplicates of the Start properties.
+  const isPolygon = (aItem: INSPECTABLE_ITEM): boolean =>
+    aItem instanceof SCH_SHAPE ? aItem.GetShape() === SHAPE_T.POLY : false;
+
+  const isSymbolItem = (aItem: INSPECTABLE_ITEM): boolean =>
+    aItem instanceof SCH_SHAPE ? aItem.GetLayer() === SCH_LAYER_ID.LAYER_DEVICE : false;
+
+  const isSchematicItem = (aItem: INSPECTABLE_ITEM): boolean =>
+    aItem instanceof SCH_SHAPE ? aItem.GetLayer() !== SCH_LAYER_ID.LAYER_DEVICE : false;
+
+  const isFillColorEditable = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof SCH_SHAPE) {
+      if (aItem.GetParentSymbol()) return aItem.GetFillMode() === FILL_T.FILLED_WITH_COLOR;
+
+      return aItem.IsSolidFill();
+    }
+
+    return true;
+  };
+
+  propMgr.OverrideAvailability(SCH_SHAPE, SCH_ITEM, 'Position X', isPolygon);
+  propMgr.OverrideAvailability(SCH_SHAPE, SCH_ITEM, 'Position Y', isPolygon);
+
+  propMgr.OverrideAvailability(SCH_SHAPE, EDA_SHAPE, 'Filled', isSchematicItem);
+
+  propMgr.OverrideWriteability(SCH_SHAPE, EDA_SHAPE, 'Fill Color', isFillColorEditable);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<SCH_SHAPE, FILL_T>(
+        SCH_SHAPE,
+        'Fill Mode',
+        'SetFillMode',
+        'GetFillMode',
+        fillEnum,
+      ),
+      'Shape Properties',
+    )
+    .SetAvailableFunc(isSymbolItem);
+})();

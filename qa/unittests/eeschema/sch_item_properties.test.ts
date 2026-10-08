@@ -16,6 +16,10 @@ import { SCH_GROUP } from '@ziroeda/eeschema/sch_group.js';
 import { SCH_JUNCTION } from '@ziroeda/eeschema/sch_junction.js';
 import { SCH_SHEET_PIN } from '@ziroeda/eeschema/sch_sheet_pin.js';
 import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
+import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
+import { SCH_SHAPE } from '@ziroeda/eeschema/sch_shape.js';
+import { FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import {
   SCH_DIRECTIVE_LABEL,
   SCH_GLOBALLABEL,
@@ -138,5 +142,59 @@ describe('the leaf registrations', () => {
       'Vertical Justification',
     ])
       expect(names).not.toContain(masked);
+  });
+
+  it('SCH_LINE_DESC: Line Style only on graphic lines, Wire Style only on wires and buses', () => {
+    const get = (n: string) => PROPERTY_MANAGER.Instance().GetProperty(TYPE_HASH(SCH_LINE), n)!;
+    const wire = new SCH_LINE({ x: 0, y: 0 }, SCH_LAYER_ID.LAYER_WIRE);
+    const bus = new SCH_LINE({ x: 0, y: 0 }, SCH_LAYER_ID.LAYER_BUS);
+    const note = new SCH_LINE({ x: 0, y: 0 }, SCH_LAYER_ID.LAYER_NOTES);
+
+    expect([get('Line Style').Available(note), get('Line Style').Available(wire)]).toEqual([
+      true,
+      false,
+    ]);
+    expect([
+      get('Wire Style').Available(wire),
+      get('Wire Style').Available(bus),
+      get('Wire Style').Available(note),
+    ]).toEqual([true, true, false]);
+    expect(shown(SCH_LINE)).toEqual(
+      expect.arrayContaining([
+        'Start X',
+        'Start Y',
+        'End X',
+        'End Y',
+        'Length',
+        'Line Width',
+        'Color',
+      ]),
+    );
+  });
+
+  it('SCH_SHAPE_DESC: Fill Mode only in symbols; Fill Color editable only for a solid / colour fill', () => {
+    const get = (n: string) => PROPERTY_MANAGER.Instance().GetProperty(TYPE_HASH(SCH_SHAPE), n)!;
+    const rect = new SCH_SHAPE(SHAPE_T.RECTANGLE, SCH_LAYER_ID.LAYER_NOTES);
+    const symRect = new SCH_SHAPE(SHAPE_T.RECTANGLE, SCH_LAYER_ID.LAYER_DEVICE);
+
+    expect([get('Fill Mode').Available(symRect), get('Fill Mode').Available(rect)]).toEqual([
+      true,
+      false,
+    ]);
+    expect(get('Fill Mode').Group()).toBe('Shape Properties');
+
+    // Upstream also overrides "Position X"/"Y" from SCH_ITEM and "Filled" from EDA_SHAPE, none of
+    // which exists in 10.0.6: those overrides change nothing, and the rows are not there.
+    expect(shown(SCH_SHAPE)).not.toContain('Position X');
+    expect(shown(SCH_SHAPE)).not.toContain('Filled');
+
+    // The panel asks PROPERTY_MANAGER::IsWriteableFor, which applies the class's overrides.
+    const fillColor = get('Fill Color');
+    const writeable = () =>
+      PROPERTY_MANAGER.Instance().IsWriteableFor(TYPE_HASH(SCH_SHAPE), fillColor, rect);
+    rect.SetFillMode(FILL_T.NO_FILL);
+    expect(writeable()).toBe(false);
+    rect.SetFillMode(FILL_T.FILLED_WITH_COLOR);
+    expect(writeable()).toBe(true);
   });
 });
