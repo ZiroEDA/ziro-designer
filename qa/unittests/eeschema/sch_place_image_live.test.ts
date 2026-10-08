@@ -122,7 +122,13 @@ describe('PlaceImage', () => {
   });
 
   it('Escape while the image follows the cursor drops it', async () => {
-    const h = setUp({ fileDialog: () => '/complex_hierarchy/art/pic.png' });
+    let asked = 0;
+    const h = setUp({
+      fileDialog: () => {
+        asked++;
+        return asked === 1 ? '/complex_hierarchy/art/pic.png' : null;
+      },
+    });
 
     h.mgr.RunAction(SCH_ACTIONS.placeImage);
     click(h, P(1, 1));
@@ -131,10 +137,22 @@ describe('PlaceImage', () => {
     await flush();
 
     expect(h.bitmaps()).toEqual([]);
+
+    // The dropped image is gone: a later click asks for a file again rather than placing it.
+    asked = 0;
+    click(h, P(4, 4));
+    await flush();
+    expect(asked).toBe(1);
   });
 
   it('given a bitmap (a pasted image), it places that one and the tool ends', async () => {
-    const h = setUp();
+    let asked = 0;
+    const h = setUp({
+      fileDialog: () => {
+        asked++;
+        return null;
+      },
+    });
     const bitmap = new SCH_BITMAP();
     bitmap.GetReferenceImage().SetImage(new WX_IMAGE(4, 4));
     h.h.mouse = P(2, 2);
@@ -147,9 +165,10 @@ describe('PlaceImage', () => {
 
     expect(h.bitmaps()).toEqual([bitmap]);
     expect(bitmap.GetPosition()).toEqual(P(9, 9));
-    // The tool has ended: another click places nothing more.
+    // The tool has ended: another click neither places anything nor asks for a file.
     click(h, P(12, 12));
     await flush();
     expect(h.bitmaps().length).toBe(1);
+    expect(asked).toBe(0);
   });
 });
