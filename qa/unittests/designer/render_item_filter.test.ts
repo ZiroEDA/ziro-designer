@@ -48,12 +48,8 @@ const doc = (): ReturnType<typeof readSchematic> => readSchematic(parse(SRC));
  * uploads, and it is a faithful record of every draw call the renderer made.
  */
 
-const bytes = (s: Scene): string => s.segments.view().join(',');
-
 /** Every symbol on the sheet, by the id the renderer keys them under. */
 const symbolIds = (): string[] => doc().symbols.map((s, i) => refId('symbol', s.uuid, i));
-/** Every wire, which unlike a symbol carries no fields and so no anchor crosses. */
-const wireIds = (): string[] => doc().lines.map((l, i) => refId('line', l.uuid, i));
 
 describe("sub-items: a symbol's fields", () => {
   it('take their selection halo with them', () => {
@@ -291,17 +287,4 @@ describe('the selection shadow honours the filter too', () => {
     // not passing because nothing draws a halo in the first place.
     expect(haloStrokes({}, moving)).toBeGreaterThan(0);
   });
-});
-
-describe('a drag re-records only what is moving', () => {
-  /**
-   * The preview and the base are exact complements, and the base must not be
-   * rebuilt while a drag is running.
-   *
-   * The failure this guards against is silent: it does not draw anything wrong,
-   * it just costs the whole sheet on every pointer move, which reads as "the
-   * component lags behind the cursor" and nothing else. Both halves of it come
-   * from object identity, so both are easy to reintroduce by writing the
-   * obvious thing.
-   */
 });

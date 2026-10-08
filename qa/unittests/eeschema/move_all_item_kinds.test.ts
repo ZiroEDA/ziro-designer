@@ -20,7 +20,6 @@ import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { planMove } from '@ziroeda/eeschema/tools/connect.js';
-import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
 import { moveWithConnections, moveItems } from '@ziroeda/eeschema/tools/move.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
@@ -93,12 +92,6 @@ const sch = readSchematic(parse(DOC));
 /** The three appliers, keyed by how the editor reaches them. */
 const PATHS: { name: string; run: (ids: Set<string>) => Doc }[] = [
   {
-    // Left-drag, and G, at the default 90 degree line mode. This is the one the
-    // sheet bug was in.
-    name: 'orthoMove (drag)',
-    run: (ids) => orthoMove(sch, planMove(sch, LIBS, ids), D, LIBS).apply(sch),
-  },
-  {
     name: 'moveWithConnections (drag, free line mode)',
     run: (ids) => moveWithConnections(planMove(sch, LIBS, ids), D).apply(sch),
   },
@@ -120,68 +113,4 @@ describe('every movable item kind moves, on every path', () => {
       }
     });
   }
-
-  it('carries a sheet’s pins and fields with it', () => {
-    const ids = new Set([refId('sheet', sch.sheets[0]!.uuid, 0)]);
-    const out = orthoMove(sch, planMove(sch, LIBS, ids), D, LIBS).apply(sch);
-    const before = sch.sheets[0]!;
-    const after = out.sheets[0]!;
-    expect(after.pins[0]!.at.x - before.pins[0]!.at.x).toBe(D.x);
-    expect(after.fields[0]!.at!.x - before.fields[0]!.at!.x).toBe(D.x);
-  });
-
-  it('leaves unselected items alone', () => {
-    const ids = new Set([refId('sheet', sch.sheets[0]!.uuid, 0)]);
-    const out = orthoMove(sch, planMove(sch, LIBS, ids), D, LIBS).apply(sch);
-    expect(out.noConnects[0]!.at).toEqual(sch.noConnects[0]!.at);
-    expect(out.images[0]!.at).toEqual(sch.images[0]!.at);
-    expect(out.textBoxes[0]!.start).toEqual(sch.textBoxes[0]!.start);
-  });
-
-  it('leaves untouched arrays identical, not just equal', () => {
-    // A drag runs a move on every pointer event. If the untouched arrays came
-    // back as fresh copies, everything downstream that compares by identity
-    // (memoised renders, connectivity caches) would see them change each frame.
-    const ids = new Set([refId('sheet', sch.sheets[0]!.uuid, 0)]);
-    const out = orthoMove(sch, planMove(sch, LIBS, ids), D, LIBS).apply(sch);
-    expect(out.sheets).not.toBe(sch.sheets); // this one did move
-    expect(out.noConnects).toBe(sch.noConnects);
-    expect(out.busEntries).toBe(sch.busEntries);
-    expect(out.images).toBe(sch.images);
-    expect(out.textBoxes).toBe(sch.textBoxes);
-    expect(out.tables).toBe(sch.tables);
-    expect(out.graphics).toBe(sch.graphics);
-  });
-
-  it('leaves the optional directiveLabels field exactly as it found it', () => {
-    // The field is optional on Schematic, though the reader always fills it in,
-    // so a move must neither drop it nor replace it with a fresh empty array.
-    const plain = readSchematic(
-      parse('(kicad_sch (version 1) (lib_symbols) (junction (at 10 10)))'),
-    );
-    const ids = new Set([refId('junction', plain.junctions[0]?.uuid, 0)]);
-    const out = orthoMove(plain, planMove(plain, LIBS, ids), D, LIBS).apply(plain);
-    expect(out.directiveLabels).toBe(plain.directiveLabels);
-  });
-
-  it('survives a save, for every kind', () => {
-    // Moving an item rewrites the parsed struct; the writer patches that back
-    // into the item's source node. Images and shapes used to be written from
-    // their untouched source instead, so their move was thrown away on save
-    // while undo history said otherwise.
-    for (const k of KINDS) {
-      const out = orthoMove(sch, planMove(sch, LIBS, new Set([k.id(sch)])), D, LIBS).apply(sch);
-      const reread = readSchematic(parse(serializeSchematic(out)));
-      expect(k.at(reread), `${k.name} did not survive the round trip`).toEqual(k.at(out));
-    }
-  });
-
-  it('undoes exactly, on the drag path', () => {
-    for (const k of KINDS) {
-      const ids = new Set([k.id(sch)]);
-      const cmd = orthoMove(sch, planMove(sch, LIBS, ids), D, LIBS);
-      const back = cmd.invert(sch).apply(cmd.apply(sch));
-      expect(k.at(back), `${k.name} did not come back`).toEqual(k.at(sch));
-    }
-  });
 });

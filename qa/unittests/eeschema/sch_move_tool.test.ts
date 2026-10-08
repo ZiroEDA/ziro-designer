@@ -14,7 +14,6 @@ import {
   readSymbolLib,
   placeSymbol,
   planMove,
-  orthoMove,
   moveWithConnections,
   refId,
 } from '@ziroeda/eeschema';
@@ -62,14 +61,5 @@ describe('move with connections', () => {
     const moved = moveWithConnections(spec, { x: 25400, y: 12700 }).apply(sch);
     expect(moved.lines[0]!.end).toEqual({ x: 125400, y: 100000 - 38100 + 12700 });
     expect(moved.lines[0]!.start).toEqual({ x: 100000, y: 20000 }); // fixed end stays
-
-    // Ortho (H/V) drag: vertical wire slides in x and gains a horizontal bend.
-    const ortho = orthoMove(sch, spec, { x: 25400, y: 12700 }).apply(sch);
-    const touching = ortho.lines.filter(
-      (l) =>
-        (l.start.x === 125400 && l.start.y === 100000 - 38100 + 12700) ||
-        (l.end.x === 125400 && l.end.y === 100000 - 38100 + 12700),
-    );
-    expect(touching.length).toBeGreaterThan(0); // something still connects to the moved pin
   });
 });

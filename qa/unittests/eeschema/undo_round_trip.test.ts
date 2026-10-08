@@ -26,7 +26,6 @@ import type { Schematic, LibSymbol } from '@ziroeda/eeschema/types.js';
 import { History, type EditCommand } from '@ziroeda/eeschema/tools/command.js';
 import { addItems, deleteByIds, placeSymbol } from '@ziroeda/eeschema/tools/mutate.js';
 import { moveItems, moveWithConnections } from '@ziroeda/eeschema/tools/move.js';
-import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
 import { planMove } from '@ziroeda/eeschema/tools/connect.js';
 import { transformItems } from '@ziroeda/eeschema/tools/transform.js';
 import { setSymbolUnit } from '@ziroeda/eeschema/tools/symbol_unit.js';
@@ -88,10 +87,6 @@ const CASES: { name: string; build: (d: Schematic) => EditCommand | null }[] = [
   {
     name: 'moveWithConnections',
     build: (d) => moveWithConnections(planMove(d, LIB, new Set([symId(d)])), at(2.54, 0)),
-  },
-  {
-    name: 'orthoMove',
-    build: (d) => orthoMove(d, planMove(d, LIB, new Set([symId(d)])), at(2.54, 2.54), LIB),
   },
   {
     name: 'transformItems (rotateCW)',

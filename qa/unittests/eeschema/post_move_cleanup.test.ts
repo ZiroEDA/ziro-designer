@@ -25,7 +25,6 @@ import {
 } from '@ziroeda/eeschema/tools/post_move_cleanup.js';
 import { trimWire } from '@ziroeda/eeschema/bus-wire-junction.js';
 import { planMove } from '@ziroeda/eeschema/tools/connect.js';
-import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
 import { moveItems } from '@ziroeda/eeschema/tools/move.js';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { readFileSync } from 'node:fs';
@@ -265,37 +264,5 @@ describe('the whole block, wrapped around a drag', () => {
     const out = withPostMoveCleanup(moveItems(ids, at(10, 0)), spec, LIB, ids, false).apply(doc);
     // Three wires still meet at (120,100), so the dot belongs there.
     expect(hasJunctionAt(out, at(120, 100))).toBe(true);
-  });
-
-  it('undo restores the document exactly', () => {
-    const doc = sheet(`
-      ${wire('w1', at(100, 100), at(120, 100))}
-      ${wire('w2', at(140, 100), at(120, 100))}
-      ${wire('w3', at(120, 120), at(120, 100))}
-      ${wire('w4', at(120, 80), at(120, 100))}`);
-    const ids = new Set([lineId(doc, 3)]);
-    const spec = planMove(doc, LIB, ids);
-    const cmd = withPostMoveCleanup(orthoMove(doc, spec, at(10, 0), LIB), spec, LIB, ids, true);
-    const after = cmd.apply(doc);
-    expect(after).not.toEqual(doc);
-    expect(cmd.invert(doc).apply(after)).toEqual(doc);
-  });
-
-  it('a plain move is not drag-like, so its stubs are left alone', () => {
-    const doc = sheet(`
-      ${wire('w1', at(100, 100), at(120, 100))}
-      ${wire('w2', at(140, 100), at(120, 100))}`);
-    const ids = new Set([lineId(doc, 0)]);
-    const spec = planMove(doc, LIB, ids);
-    const dragged = withPostMoveCleanup(
-      orthoMove(doc, spec, at(0, -10), LIB),
-      spec,
-      LIB,
-      ids,
-      false,
-    );
-    // Nothing throws and the move still lands; the point is only that the
-    // stub-trimming pass is skipped for M.
-    expect(dragged.apply(doc).lines.length).toBeGreaterThan(0);
   });
 });

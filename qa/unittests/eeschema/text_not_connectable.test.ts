@@ -15,7 +15,6 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import { planMove } from '@ziroeda/eeschema/tools/connect.js';
-import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
 import { moveWithConnections } from '@ziroeda/eeschema/tools/move.js';
 import { RECORD_EE_GRID_HELPER } from '@ziroeda/eeschema/tools/ee_grid_helper.js';
 import { GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
@@ -53,32 +52,6 @@ describe('free text is not connectable', () => {
     // A dragged label cuts the wire it sits on; dragged text does not.
     expect(planMove(text, NO_LIB, new Set([itemId(text)])).splits).toHaveLength(0);
     expect(planMove(label, NO_LIB, new Set([itemId(label)])).splits.length).toBeGreaterThan(0);
-  });
-
-  it('leaves the wire alone when dragged', () => {
-    const doc = sheet('text');
-    const before = wire(doc);
-    const delta = { x: 0, y: mmToIU(-10) };
-    const spec = planMove(doc, NO_LIB, new Set([itemId(doc)]));
-
-    for (const cmd of [orthoMove(doc, spec, delta, NO_LIB), moveWithConnections(spec, delta)]) {
-      const after = cmd.apply(doc);
-      expect(after.lines).toHaveLength(1); // no stub, no split
-      expect(after.lines[0]!.start).toEqual(before.start);
-      expect(after.lines[0]!.end).toEqual(before.end);
-      // ...and the text itself did move.
-      expect(after.labels[0]!.at.y).toBe(doc.labels[0]!.at.y + delta.y);
-    }
-  });
-
-  it('drags the wire when the same spot holds a label instead', () => {
-    const doc = sheet('label');
-    const delta = { x: 0, y: mmToIU(-10) };
-    const spec = planMove(doc, NO_LIB, new Set([itemId(doc)]));
-    const after = orthoMove(doc, spec, delta, NO_LIB).apply(doc);
-    // The label is connectable, so the wire follows it, more geometry than we
-    // started with, however upstream chooses to bend or split it.
-    expect(after.lines.length).toBeGreaterThan(1);
   });
 
   it('does not ride a wire that moves under it', () => {

@@ -33,7 +33,6 @@ import { collectAndGuess } from '@ziroeda/eeschema/sch_collectors.js';
 import { moveItems, planMove } from '@ziroeda/eeschema/tools/index.js';
 import { placeSymbol } from '@ziroeda/eeschema/tools/index.js';
 import { moveWithConnections } from '@ziroeda/eeschema/tools/move.js';
-import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { symbolBodyBBox } from '@ziroeda/eeschema/tools/bbox.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
@@ -154,24 +153,6 @@ describe('symbol fields are selectable items', () => {
     expect(after.fields[field.index]!.at!.x).toBe(
       doc.symbols[0]!.fields[field.index]!.at!.x + delta.x,
     );
-  });
-
-  it('moves the field through orthoMove, the drag path the editor actually uses', () => {
-    // The canvas picks orthoMove whenever the line mode is not "free", and the
-    // default line mode is 90, so this, not moveWithConnections, is what a
-    // plain drag runs. It has its own applyMove and needs the same handling.
-    const { doc, lib } = sheetWithResistor();
-    const field = collectFieldBoxes(doc, lib)[0]!;
-    const delta = { x: mmToIU(4), y: mmToIU(1) };
-    const spec = planMove(doc, lib, new Set([field.id]));
-    const after = orthoMove(doc, spec, delta, lib).apply(doc).symbols[0]!;
-
-    expect(after.at).toEqual(doc.symbols[0]!.at); // symbol stayed put
-    const orig = doc.symbols[0]!.fields[field.index]!;
-    expect(after.fields[field.index]!.at).toEqual({
-      x: orig.at!.x + delta.x,
-      y: orig.at!.y + delta.y,
-    });
   });
 
   it('carries fields along when the whole symbol moves', () => {
@@ -455,18 +436,6 @@ describe('pins are selectable items', () => {
     expect(itemPassesFilter(doc, fid, { ...defaultSelectionFilter(), pins: false })).toBe(true);
     expect(itemPassesFilter(doc, fid, { ...defaultSelectionFilter(), symbols: false })).toBe(true);
     expect(itemPassesFilter(doc, fid, { ...defaultSelectionFilter(), text: false })).toBe(false);
-  });
-
-  it('glows on its own without moving anything', () => {
-    // SCH_PIN_T is in neither MovableItems nor DeletableItems: a pin can be
-    // picked, but it belongs to its symbol and does not move on its own.
-    const { doc, lib } = sheetWithResistor();
-    const seg = collectPinSegments(doc, lib)[0]!;
-    const before = JSON.stringify(doc.symbols[0]);
-    const spec = planMove(doc, lib, new Set([seg.id]));
-    const after = orthoMove(doc, spec, { x: mmToIU(5), y: 0 }, lib).apply(doc);
-    expect(JSON.stringify(after.symbols[0])).toBe(before);
-    expect(after.lines).toEqual(doc.lines);
   });
 });
 

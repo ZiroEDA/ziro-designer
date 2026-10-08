@@ -6,7 +6,7 @@
  * to SchematicEditor.tsx's own choke point. Unlike PCB's commitBoard, this
  * editor funnels every edit — the open sheet's own runCommand, a batched
  * multi-sheet operation, a cross-sheet applySheetCommand/Symbols/Document, a
- * dropIntoSheet, applyFieldsEdits — through one function, runProject, so a
+ * applyFieldsEdits — through one function, runProject, so a
  * single guard there covers all of them (see
  * docs/proposals/multiplayer-architecture.md).
  *
@@ -33,13 +33,13 @@ describe('a viewer cannot originate an edit', () => {
     expect(body).toContain(GUARD);
   });
 
-  it('runCommand, applySheetCommand, dropIntoSheet and applyFieldsEdits all reach runProject', () => {
+  it('runCommand, applySheetCommand and applyFieldsEdits all reach runProject', () => {
     // The guard lives once, in runProject — everything else is a thin wrapper
     // (runCommand, applySheetCommand -> stage -> runProject) or calls
-    // runProject directly (dropIntoSheet, applyFieldsEdits, sheetBatch). This
+    // runProject directly (applyFieldsEdits, sheetBatch). This
     // just confirms none of them still holds its own copy of the guard, which
     // would mean runProject's copy is not actually the only one left.
-    for (const fn of ['runCommand', 'applySheetCommand', 'dropIntoSheet', 'applyFieldsEdits']) {
+    for (const fn of ['runCommand', 'applySheetCommand', 'applyFieldsEdits']) {
       const decl = `const ${fn} = useCallback(`;
       const i = text.indexOf(decl);
       expect(i).toBeGreaterThan(-1);

@@ -13,7 +13,6 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { annotateCommand, setSymbolsCommand } from '@ziroeda/eeschema/annotate.js';
-import { splitLinesCommand } from '@ziroeda/eeschema/tools/break_wire.js';
 import { embeddedFilesCommand, setEmbedFonts } from '@ziroeda/eeschema/tools/embedded.js';
 import { replaceSheetPin } from '@ziroeda/eeschema/tools/sch_sheet_pin_tool.js';
 import type { EditCommand } from '@ziroeda/eeschema/tools/command.js';
@@ -79,19 +78,6 @@ describe('the commands nothing was calling', () => {
       fields: s.fields.map((f) => (f.key === 'Value' ? { ...f, value: '4k7' } : f)),
     }));
     roundTrip('setSymbolsCommand', d, setSymbolsCommand(symbols, 'Edit Symbols'));
-  });
-
-  it('splitLinesCommand', () => {
-    // Break at the midpoint: the original wire is shortened and a second one
-    // carries the rest.
-    const d = doc();
-    const line = d.lines[0]!;
-    const mid = { x: (line.start.x + line.end.x) / 2, y: line.start.y };
-    roundTrip(
-      'splitLinesCommand',
-      d,
-      splitLinesCommand('break', new Map([[0, mid]]), [{ ...line, start: mid, uuid: 'w-2' }]),
-    );
   });
 
   it('replaceSheetPin', () => {

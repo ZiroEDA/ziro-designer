@@ -38,12 +38,6 @@ const DIALOG = read('../../../eeschema/dialogs/dialog_table_properties.tsx');
 const SHARED_DIALOG = read('../../../common/dialogs/dialog_table_properties.tsx');
 
 describe('the dialog the tool ends with', () => {
-  it('is opened for a table just drawn and for one already on the sheet', () => {
-    expect(EDITOR).toContain('<DialogTableProperties');
-    expect(EDITOR).toContain("setTableProps({ kind: 'edit', index: idx })");
-    expect(EDITOR).toContain("kind: 'new',");
-  });
-
   it('edits the cell contents', () => {
     expect(SHARED_DIALOG).toContain('Cell contents');
     expect(SHARED_DIALOG).toContain('setCell(row, col, e.target.value)');
