@@ -181,8 +181,17 @@ describe('SCH_EDITOR_CONTROL', () => {
       expect(read()).toBe(!before);
     }
 
-    expect(h.frame.GetRenderSettings()!.m_ShowHiddenFields).toBe(cfg.appearance.show_hidden_fields);
-    expect(h.frame.GetRenderSettings()!.m_ShowPinAltIcons).toBe(cfg.appearance.show_pin_alt_icons);
+    // Both ways: the painter's default is true, so one toggle alone could not tell.
+    for (const shown of [false, true]) {
+      h.mgr.RunAction(SCH_ACTIONS.toggleHiddenFields);
+      expect(cfg.appearance.show_hidden_fields).toBe(shown);
+      expect(h.frame.GetRenderSettings()!.m_ShowHiddenFields).toBe(shown);
+    }
+    for (const shown of [true, false]) {
+      h.mgr.RunAction(SCH_ACTIONS.togglePinAltIcons);
+      expect(cfg.appearance.show_pin_alt_icons).toBe(shown);
+      expect(h.frame.GetRenderSettings()!.m_ShowPinAltIcons).toBe(shown);
+    }
   });
 
   it('Next Line Mode cycles free, 90, 45 and selects the matching toolbar button', () => {
