@@ -36,4 +36,20 @@ describe('liveModified', () => {
     quiet.Push('Add', SKIP_SET_DIRTY);
     expect(told).toBe(1);
   });
+
+  it('liveSheetChanged is told when DisplayCurrentSheet shows another sheet', () => {
+    let told = 0;
+    const h = schToolHarness(schFrame({ liveSheetChanged: () => told++ }));
+    openProject(h.frame, ORACLE, 'complex_hierarchy', SHEETS);
+    const sub = h.frame
+      .Schematic()
+      .Hierarchy()
+      .find((p) => p.size() === 2)!;
+    told = 0;
+
+    h.frame.SetCurrentSheet(sub);
+    expect(told).toBe(0); // SetCurrentSheet alone does not display it
+    h.frame.DisplayCurrentSheet();
+    expect(told).toBe(1);
+  });
 });

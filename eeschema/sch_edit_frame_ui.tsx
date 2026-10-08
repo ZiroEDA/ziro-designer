@@ -1892,6 +1892,7 @@ export function SchematicEditor({
       isOK: () => false,
       symbolLibraryUri: (aNickname) => symbolLibraryUri(liveFilesRef.current.rawFiles)(aNickname),
       liveModified: () => liveModifiedRef.current(),
+      liveSheetChanged: () => liveSheetChangedRef.current(),
     });
   }
   const applyPcbSelectionRef = useRef<(parts: readonly string[]) => void>(() => {});
@@ -5465,6 +5466,8 @@ export function SchematicEditor({
   const inEditLiveRef = useRef(false);
   const adoptLiveScreensRef = useRef<(aScreens: Iterable<SCH_SCREEN>) => void>(() => {});
   const liveModifiedRef = useRef<() => void>(() => {});
+  const liveSheetChangedRef = useRef<() => void>(() => {});
+  const showingLiveRef = useRef(false);
   liveFilesRef.current = { rawFiles, projectName, rootPro };
   syncLiveRef.current = () => {
     liveMirrorRef.current ??= new LIVE_SCHEMATIC_MIRROR(schFrameRef.current!, () => {
@@ -5507,8 +5510,13 @@ export function SchematicEditor({
       .Schematic()
       .Hierarchy()
       .find((p) => p.LastScreen()?.GetFileName().endsWith(`/${file}`));
-    if (path && !path.equals(frame.GetCurrentSheet())) frame.SetCurrentSheet(path);
-    else panel.DisplaySheet(frame.GetScreen());
+    showingLiveRef.current = true;
+    try {
+      if (path && !path.equals(frame.GetCurrentSheet())) frame.SetCurrentSheet(path);
+      else panel.DisplaySheet(frame.GetScreen());
+    } finally {
+      showingLiveRef.current = false;
+    }
     if (had) {
       view.SetScale(had.scale);
       view.SetCenter(had.center);
@@ -5596,6 +5604,23 @@ export function SchematicEditor({
   // `?schgal=1` (TRANSITIONAL, S5): a tool on the live canvas committed (SCH_EDIT_FRAME::OnModify).
   // Its screen - and any sheet file the commit created - become the window's records, so the
   // window follows the live model the tools edit.
+  // `?schgal=1` (TRANSITIONAL, W2c): a live tool changed sheets (DisplayCurrentSheet). The window
+  // follows: the record path of that instance is '/' then each sheet below the top-level one,
+  // by uuid ('/<uuid>/<uuid>/'), and the file is its screen's, relative to the project folder.
+  liveSheetChangedRef.current = () => {
+    if (!SCH_GAL || showingLiveRef.current || !schPanelRef.current) return;
+    const frame = schFrameRef.current!;
+    const sheetPath = frame.GetCurrentSheet();
+    const screen = sheetPath.LastScreen();
+    if (!screen) return;
+    let path = '/';
+    for (let i = 1; i < sheetPath.size(); i++) path += `${sheetPath.at(i)!.m_Uuid}/`;
+    const name = liveFilesRef.current.projectName;
+    const dir = `/${name ?? project.current.root.replace(/\.[^.]*$/, '')}`;
+    const absolute = screen.GetFileName().replace(/\\/g, '/');
+    const file = absolute.startsWith(`${dir}/`) ? absolute.slice(dir.length + 1) : absolute;
+    if (path !== currentPath || file !== currentFile) switchSheet(path, file);
+  };
   liveModifiedRef.current = () => {
     if (!SCH_GAL || inEditLiveRef.current || !schPanelRef.current) return;
     const frame = schFrameRef.current!;

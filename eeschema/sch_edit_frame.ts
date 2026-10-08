@@ -287,6 +287,11 @@ export interface SCH_EDIT_FRAME_HOOKS {
    */
   liveModified?(): void;
   /**
+   * TRANSITIONAL (until S7): `DisplayCurrentSheet` showed another sheet (a live tool entered or
+   * left one). The window, which still tracks its own current sheet, follows.
+   */
+  liveSheetChanged?(): void;
+  /**
    * The KIDIALOG SelectUnit asks when the unit chosen is already placed elsewhere ("Unit Already
    * Placed": Swap / Duplicate / Cancel). KiCad's is modal; a window answers it synchronously, and
    * with no hook the change is cancelled.
@@ -788,6 +793,8 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
     // Allow tools to re-add their VIEW_ITEMs after the last call to Clear in HardRedraw
     this.m_toolManager.ResetTools(RESET_REASON.MODEL_RELOAD);
+
+    this.hooks.liveSheetChanged?.();
   }
 
   /** `SCH_EDIT_FRAME::GetScreenDesc` (sch_edit_frame.cpp:1054): the current sheet's name. */
