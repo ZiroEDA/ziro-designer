@@ -35,11 +35,6 @@ import {
   isBoardItemLocked,
   moveBoardItems,
 } from '@ziroeda/pcbnew/edit-board.js';
-import { itemAnchorPoint } from '@ziroeda/pcbnew/dialogs/dialog_move_exact.js';
-import {
-  DEFAULT_SELECTION_FILTER,
-  itemPassesFilter,
-} from '@ziroeda/pcbnew/dialogs/dialog_filter_selection.js';
 import { textBoxCorners } from '@ziroeda/pcbnew/textbox_geometry.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
@@ -226,33 +221,6 @@ describe('deleting a text box', () => {
   });
 });
 
-describe('the selection filter', () => {
-  const filter = (over: Partial<typeof DEFAULT_SELECTION_FILTER> = {}) => ({
-    ...DEFAULT_SELECTION_FILTER,
-    ...over,
-  });
-
-  it('follows the text checkbox, not the graphics one', () => {
-    // PCB_TEXTBOX_T returns includePcbTexts upstream, beside PCB_TEXT_T.
-    const b = read(BOX());
-
-    expect(itemPassesFilter(b, TB, filter({ text: true }))).toBe(true);
-    expect(itemPassesFilter(b, TB, filter({ text: false }))).toBe(false);
-  });
-
-  it('ignores the layer-based graphics split a dimension uses', () => {
-    // On Edge.Cuts a graphic follows boardOutline; a text box still follows text.
-    const b = read(BOX('Edge.Cuts'));
-
-    expect(itemPassesFilter(b, TB, filter({ text: true, boardOutline: false }))).toBe(true);
-    expect(itemPassesFilter(b, TB, filter({ text: false, boardOutline: true }))).toBe(false);
-  });
-
-  it('drops a stale id', () => {
-    expect(itemPassesFilter(read(BOX()), 'textbox:9', filter())).toBe(false);
-  });
-});
-
 describe('locking and grouping', () => {
   it('reads the locked flag', () => {
     expect(isBoardItemLocked(read(BOX('F.SilkS', '(locked yes)')), TB)).toBe(true);
@@ -264,15 +232,5 @@ describe('locking and grouping', () => {
 
     expect(id).not.toBeNull();
     expect(board.groups[0]!.members).toEqual(['11111111-0000-0000-0000-000000000005']);
-  });
-});
-
-describe('the rotation anchor', () => {
-  it('is the first corner of a rectangle', () => {
-    expect(itemAnchorPoint(read(BOX()), TB)).toEqual({ x: MM(50), y: MM(50) });
-  });
-
-  it('is the first polygon point of a rotated box', () => {
-    expect(itemAnchorPoint(read(ROTATED), TB)).toEqual({ x: MM(10), y: MM(10) });
   });
 });

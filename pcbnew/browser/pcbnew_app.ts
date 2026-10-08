@@ -25,7 +25,6 @@ import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolba
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import type { FootprintIndexLibrary } from '../footprint_info_impl.js';
 import type { FOOTPRINT, FP_3DMODEL } from '../footprint.js';
-import type { PcbFootprint } from '../types.js';
 import type { BOARD } from '../board.js';
 import type { NetClassAssignmentLike } from '@ziroeda/common/netclass_resolve.js';
 
@@ -138,7 +137,11 @@ export interface PCBNEW_APP {
 
   // ----- footprint libraries / 3D cache ------------------------------------
   loadFootprintIndex(): Promise<FootprintIndexLibrary[]>;
-  loadFootprint(libId: string): Promise<PcbFootprint | null>;
+  /**
+   * `PROJECT_PCB::FootprintLibAdapter( &Prj() )->LoadFootprint( nickname, name,
+   * aKeepUUID )` by "Library:Name": a copy the frame owns, or null.
+   */
+  loadFootprint(libId: string, aKeepUUID?: boolean): Promise<FOOTPRINT | null>;
   preloadBoardLibraries(aBoard: BOARD): void;
   cleanup3dCache(clearCacheInterval: number): Promise<number>;
 

@@ -19,7 +19,6 @@
 import { readFileSync } from 'node:fs';
 import { toolCursorCss } from '@ziroeda/common/tool/tool_cursors.js';
 import { boardToolCursor } from '@ziroeda/pcbnew/cursors.js';
-import { footprintToolCursor } from '@ziroeda/pcbnew/footprint_cursors.js';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
@@ -278,7 +277,6 @@ describe('one ruler, three canvases', () => {
 
     for (const [name, cursorFor, tool] of [
       ['the board editor', boardToolCursor, 'measureTool'],
-      ['the footprint editor', footprintToolCursor, 'measureTool'],
     ] as const) {
       expect(cursorFor(tool), `${name} does not set the measure cursor`).toBe(MEASURE);
     }

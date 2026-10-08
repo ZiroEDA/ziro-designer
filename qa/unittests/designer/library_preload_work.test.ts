@@ -26,7 +26,9 @@ const THREE_LIB_INDEX = JSON.stringify([
 const LIB_FILE = `(kicad_symbol_lib (version 20241209) (generator "x")
 	(symbol "R" (property "Reference" "R" (at 0 0 0) (effects (font (size 1.27 1.27))))))
 `;
-const FP_INDEX = JSON.stringify([{ name: 'Resistor_SMD', footprints: ['R_0805'] }]);
+// The library enumerates the footprint the design assigns: the store, like
+// upstream's FP_CACHE, only loads what a library holds.
+const FP_INDEX = JSON.stringify([{ name: 'Resistor_SMD', footprints: ['R_0805_2012Metric'] }]);
 /** The per-symbol file the host serves at `<base>/<Library>/<Symbol>.kicad_sym`,
  *  holding the symbol asked for (tools/libraries/upload.mjs). */
 const oneSymbol = (name: string): string =>
@@ -149,7 +151,7 @@ describe('footprintPreloadWork', { timeout: 30_000 }, () => {
   });
 
   it('asks for a repeated footprint once, and counts it once', async () => {
-    // Same reasoning as the symbol side: `loadFootprint` memoises on `fpCache`,
+    // Same reasoning as the symbol side: the store keeps each file it fetched,
     // so the fetch count alone cannot see the dedupe. The work-list length is
     // the gauge's denominator.
     serve((url) => (url.endsWith('index.json') ? FP_INDEX : ONE_FOOTPRINT));

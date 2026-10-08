@@ -33,11 +33,6 @@ import {
   isBoardItemLocked,
   moveBoardItems,
 } from '@ziroeda/pcbnew/edit-board.js';
-import { itemAnchorPoint } from '@ziroeda/pcbnew/dialogs/dialog_move_exact.js';
-import {
-  DEFAULT_SELECTION_FILTER,
-  itemPassesFilter,
-} from '@ziroeda/pcbnew/dialogs/dialog_filter_selection.js';
 import { dimensionSegments } from '@ziroeda/pcbnew/dimension_geometry.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
@@ -230,47 +225,6 @@ describe('deleting a dimension', () => {
 
     expect(left).toHaveLength(1);
     expect(left[0]!.layer).toBe('F.SilkS');
-  });
-});
-
-describe('the anchor a rotation turns about', () => {
-  it('is the first feature point', () => {
-    // PCB_DIMENSION_BASE::GetPosition() is GetStart() — not the centre of the
-    // drawn lines, and not the text.
-    expect(itemAnchorPoint(read(ORTHO()), DIM)).toEqual({ x: MM(100), y: MM(60) });
-  });
-});
-
-describe('the selection filter', () => {
-  const filter = (over: Partial<typeof DEFAULT_SELECTION_FILTER> = {}) => ({
-    ...DEFAULT_SELECTION_FILTER,
-    ...over,
-  });
-
-  it('follows the tech-layers box off a non-outline layer', () => {
-    const b = read(ORTHO('Dwgs.User'));
-
-    expect(itemPassesFilter(b, DIM, filter({ techLayers: true }))).toBe(true);
-    expect(itemPassesFilter(b, DIM, filter({ techLayers: false }))).toBe(false);
-  });
-
-  it('follows the board-outline box on Edge.Cuts', () => {
-    const b = read(ORTHO('Edge.Cuts'));
-
-    expect(itemPassesFilter(b, DIM, filter({ boardOutline: true }))).toBe(true);
-    expect(itemPassesFilter(b, DIM, filter({ boardOutline: false }))).toBe(false);
-  });
-
-  it('ignores the text box, even though a dimension carries text', () => {
-    // Upstream has no dimension checkbox; both its graphics and dimensions
-    // cases route through the outline/tech split, so `text` is irrelevant here.
-    const b = read(ORTHO('Dwgs.User'));
-
-    expect(itemPassesFilter(b, DIM, filter({ text: false, techLayers: true }))).toBe(true);
-  });
-
-  it('drops a stale id rather than keeping it', () => {
-    expect(itemPassesFilter(read(ORTHO()), 'dimension:9', filter())).toBe(false);
   });
 });
 

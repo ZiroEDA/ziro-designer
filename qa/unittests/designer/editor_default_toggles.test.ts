@@ -252,7 +252,7 @@ describe.each([
   // footprint_editor_toggles.ts merged into footprint_edit_frame.ts (Stage A
   // of the pcbnew/ file-structure move): FOOTPRINT_EDIT_FRAME's toolbar
   // groups sit beside the rest of that class's ported state now, the same
-  // file `UpdateTitle`, the grid and `footprintToBoard` moved into.
+  // file `UpdateTitle` and the grid moved into.
   ['../../pcbnew/footprint_edit_frame_ui.tsx', './footprint_edit_frame.js'],
 ])('%s seeds its toolbar from its toggles module', (rel, specifier) => {
   it('takes DEFAULT_TOGGLES from its toggles module', () => {

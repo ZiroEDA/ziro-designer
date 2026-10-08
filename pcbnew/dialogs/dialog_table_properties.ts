@@ -37,11 +37,10 @@ import { IsBackLayer } from '@ziroeda/common/layer_id.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import { LINE_STYLE, LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
 import { BOARD_COMMIT, SKIP_CONNECTIVITY } from '../board_commit.js';
-import { parseBoardItemId } from '../edit-board.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_TABLE } from '../pcb_table.js';
 import type { TransferResult } from './dialog_text_properties.js';
-import type { Board, StrokeType } from '../types.js';
+import type { StrokeType } from '../types.js';
 
 /** Every control on the dialog, flattened. The cell texts are the grid. */
 export interface TableValues {
@@ -60,39 +59,11 @@ export interface TableValues {
 }
 
 /**
- * The single selected table's index, or null. `EDIT_TOOL::Properties`
- * (pcbnew/tools/edit_tool.cpp:2142-2145) opens the dialog only for a selection
- * of one board item.
- *
- * eeschema has a `tableAt` too and it stays separate: upstream's equivalent test
- * lives in each editor's own edit tool, and the two read different selection-id
- * namespaces -- board ids through `parseBoardItemId` here, `refId('table', ...)`
- * there. There is no shared question for a shared function to answer.
- */
-export function tableAt(board: Board, selection: Iterable<string>): number | null {
-  const ids = [...selection];
-  if (ids.length !== 1) return null;
-  const ref = parseBoardItemId(ids[0]!);
-  if (!ref || ref.kind !== 'table') return null;
-  return board.tables[ref.index] ? ref.index : null;
-}
-
-/**
  * `BOARD::IsBackLayer` for the standard layer set: a back layer is one whose
  * name starts with `B.`.
  */
 export function isBackLayer(layer: string): boolean {
   return layer.startsWith('B.');
-}
-
-/**
- * Which stored column a display column maps to.
- *
- * Identity on a front layer; mirrored on a back one, because the board is being
- * seen from the other side.
- */
-export function displayToStoredCol(col: number, colCount: number, back: boolean): number {
-  return back ? colCount - 1 - col : col;
 }
 
 /** `TransferDataToWindow`: the dialog's starting values. */

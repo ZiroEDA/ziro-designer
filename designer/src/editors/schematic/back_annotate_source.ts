@@ -19,46 +19,42 @@
  */
 
 import type { PcbFootprintData } from '@ziroeda/eeschema';
-import type { Board, PcbFootprint } from '@ziroeda/pcbnew/types.js';
+import { kiidPathAsString } from '@ziroeda/common/kiid.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { RESERVED_FOOTPRINT_PROPERTIES } from '@ziroeda/pcbnew/types.js';
 
-const attr = (fp: PcbFootprint, name: string): boolean => fp.attributes?.includes(name) ?? false;
-
-/**
- * The path of the *symbol*, which is the last element of the footprint's KIID
- * path. `(path "/<sheetUuid>/<symbolUuid>")` on a sub-sheet, `"/<symbolUuid>"`
- * on the root — and the engine matches on the root-sheet form, as our
- * single-sheet connectivity does everywhere else.
- */
-function symbolPathOf(fp: PcbFootprint): string | null {
-  const path = fp.path;
-  if (!path) return null;
-  const last = path.split('/').filter(Boolean).pop();
+/** The symbol path's last element: `FOOTPRINT::GetPath().back()`. */
+function symbolPathOf(fp: FOOTPRINT): string | null {
+  const path = fp.GetPath();
+  if (path.length === 0) return null;
+  const last = kiidPathAsString(path).split('/').filter(Boolean).pop();
   return last ? `/${last}` : null;
 }
 
-/** Every footprint that claims a symbol, as back-annotation data. */
-export function boardFootprintData(board: Board): PcbFootprintData[] {
+export function boardFootprintData(board: BOARD): PcbFootprintData[] {
   const out: PcbFootprintData[] = [];
-  for (const fp of board.footprints) {
+  for (const fp of board.Footprints()) {
     const path = symbolPathOf(fp);
     if (!path) continue;
     const fields: Record<string, string> = {};
-    for (const f of fp.fields ?? []) {
+    for (const f of fp.GetFields()) {
+      if (!f || f.GetId() === FIELD_T.REFERENCE || f.GetId() === FIELD_T.VALUE) continue;
       // The reserved properties are the file format's own bookkeeping — sheet
       // name, description, filters — and were never the user's fields.
-      if (RESERVED_FOOTPRINT_PROPERTIES.has(f.name)) continue;
-      fields[f.name] = f.value;
+      if (RESERVED_FOOTPRINT_PROPERTIES.has(f.GetCanonicalName())) continue;
+      fields[f.GetCanonicalName()] = f.GetText();
     }
     out.push({
       path,
-      reference: fp.reference ?? '',
+      reference: fp.GetReference(),
       // The symbol's Footprint field is the footprint's library id.
-      footprint: fp.lib,
-      value: fp.value ?? '',
-      dnp: attr(fp, 'dnp'),
-      excludeFromBom: attr(fp, 'exclude_from_bom'),
-      excludeFromPosFiles: attr(fp, 'exclude_from_pos_files'),
+      footprint: fp.GetFPID().Format(),
+      value: fp.GetValue(),
+      dnp: fp.IsDNP(),
+      excludeFromBom: fp.IsExcludedFromBOM(),
+      excludeFromPosFiles: fp.IsExcludedFromPosFiles(),
       fields,
     });
   }

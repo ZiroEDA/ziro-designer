@@ -1852,13 +1852,11 @@ export function App(): JSX.Element {
                           // this file: statically, it put the whole .kicad_pcb
                           // parser into the entry chunk for every visitor,
                           // including the ones who never open a board.
-                          const [{ readBoard }, { parse }, { boardFootprintData }] =
-                            await Promise.all([
-                              import('@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js'),
-                              import('@ziroeda/sexpr'),
-                              import('./editors/schematic/back_annotate_source.js'),
-                            ]);
-                          return boardFootprintData(readBoard(parse(pcbFile.text)));
+                          const [{ ParseBoard }, { boardFootprintData }] = await Promise.all([
+                            import('@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js'),
+                            import('./editors/schematic/back_annotate_source.js'),
+                          ]);
+                          return boardFootprintData(ParseBoard(pcbFile.text));
                         } catch {
                           return null;
                         }

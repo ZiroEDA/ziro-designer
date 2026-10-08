@@ -11,21 +11,17 @@ import { parse } from '@ziroeda/sexpr/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { textAt, type TextValues } from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
-import {
-  shapePointsUsed,
-  type ShapeValues,
-} from '@ziroeda/pcbnew/dialogs/dialog_shape_properties.js';
-import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
-import { U, emptyBoard, flatText, writtenItems, writtenNodes } from './support/written_node.js';
+import { shapePointsUsed } from '@ziroeda/pcbnew/dialogs/dialog_shape_properties.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
+import { U, writtenItems } from './support/written_node.js';
 
-const MM = (n: number): number => mmToIU(n);
+const _MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));
-const roundTrip = (b: Board): Board => load(serializeBoard(b));
+const _roundTrip = (b: Board): Board => load(serializeBoard(b));
 /** The written items, one line, header excluded. */
-const flat = (b: Board): string => writtenItems(b);
+const _flat = (b: Board): string => writtenItems(b);
 
-const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
+const _SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
   (gr_text "hello" (at 10 20 30) (layer "F.SilkS") (uuid "${U('x1')}")
     (effects (font (size 1.5 1) (thickness 0.2) (bold yes)) (justify left)))
   (gr_line (start 0 0) (end 10 0) (stroke (width 0.15) (type dash)) (layer "F.SilkS") (uuid "${U('s1')}"))

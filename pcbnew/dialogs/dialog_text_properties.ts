@@ -22,11 +22,9 @@ import { ESCAPE_CONTEXT, EscapeString, unescapeString } from '@ziroeda/common/st
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { BOARD_COMMIT } from '../board_commit.js';
-import { parseBoardItemId } from '../edit-board.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_FIELD } from '../pcb_field.js';
 import type { PCB_TEXT } from '../pcb_text.js';
-import type { Board } from '../types.js';
 
 /** Every field DIALOG_TEXT_PROPERTIES edits, for a board text item. */
 export interface TextValues {
@@ -76,18 +74,6 @@ export interface TextValues {
   /** `(knockout)`: the glyphs are cut out of a filled box. */
   knockout: boolean;
   locked: boolean;
-}
-
-/** Resolve a `text:N` id, or null when the selection is not one board text. */
-export function textAt(board: Board, selection: Iterable<string>): number | null {
-  let found: number | null = null;
-  for (const id of selection) {
-    const ref = parseBoardItemId(id);
-    if (!ref || ref.kind !== 'text') continue;
-    if (found !== null) return null;
-    if (board.texts[ref.index]) found = ref.index;
-  }
-  return found;
 }
 
 /** DIALOG_TEXT_PROPERTIES::TransferDataToWindow. */

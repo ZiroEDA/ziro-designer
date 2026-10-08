@@ -3878,10 +3878,7 @@ export function PcbEditor({
         );
         return r.ok ? { ok: true, reason: '' } : { ok: false, reason: r.reason };
       },
-      loadFootprint: async (libId) => {
-        const lib = await scriptRef.current.loadFootprint(libId);
-        return lib?.k ? (lib.k.Duplicate(false) as FOOTPRINT) : null;
-      },
+      loadFootprint: (libId) => scriptRef.current.loadFootprint(libId),
     });
   }, [registerScriptApi]);
 
@@ -4409,9 +4406,7 @@ export function PcbEditor({
       aId: LIB_ID,
       aKeepUUID: boolean,
     ): Promise<FOOTPRINT | null> => {
-      const lib = await loadFootprint(aId.Format());
-      if (!lib?.k) return null;
-      return aKeepUUID ? (lib.k.Clone() as FOOTPRINT) : (lib.k.Duplicate(false) as FOOTPRINT);
+      return loadFootprint(aId.Format(), aKeepUUID);
     },
     // findDialogs(): the DRC dialog is the one modeless dialog of this frame; its
     // rect in canvas client pixels, as ScreenToClient( dialog->GetScreenPosition() ).

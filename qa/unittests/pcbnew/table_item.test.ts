@@ -37,11 +37,6 @@ import {
   isBoardItemLocked,
   moveBoardItems,
 } from '@ziroeda/pcbnew/edit-board.js';
-import { itemAnchorPoint } from '@ziroeda/pcbnew/dialogs/dialog_move_exact.js';
-import {
-  DEFAULT_SELECTION_FILTER,
-  itemPassesFilter,
-} from '@ziroeda/pcbnew/dialogs/dialog_filter_selection.js';
 import { tableBBox, tableBorderSegments, tableCell } from '@ziroeda/pcbnew/table_geometry.js';
 import { tableRowCount } from '@ziroeda/common/table.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
@@ -260,18 +255,6 @@ describe('tables as board items', () => {
 
   it('are taken by a box that crosses them', () => {
     expect(boardItemsInBox(read(TABLE()), MM(-1), MM(-1), MM(2), MM(2), false)).toContain(TB);
-  });
-
-  it('follow the text selection filter', () => {
-    const b = read(TABLE());
-    const f = (over = {}) => ({ ...DEFAULT_SELECTION_FILTER, ...over });
-
-    expect(itemPassesFilter(b, TB, f({ text: true }))).toBe(true);
-    expect(itemPassesFilter(b, TB, f({ text: false }))).toBe(false);
-  });
-
-  it('anchor on the first cell', () => {
-    expect(itemAnchorPoint(read(TABLE()), TB)).toEqual({ x: MM(0), y: MM(0) });
   });
 
   it('read the locked flag', () => {

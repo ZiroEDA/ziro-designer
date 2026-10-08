@@ -33,11 +33,6 @@ import {
   isBoardItemLocked,
   moveBoardItems,
 } from '@ziroeda/pcbnew/edit-board.js';
-import { itemAnchorPoint } from '@ziroeda/pcbnew/dialogs/dialog_move_exact.js';
-import {
-  DEFAULT_SELECTION_FILTER,
-  itemPassesFilter,
-} from '@ziroeda/pcbnew/dialogs/dialog_filter_selection.js';
 import {
   FALLBACK_PIXELS,
   imageBBox,
@@ -264,20 +259,6 @@ describe('images as board items', () => {
 
   it('are taken by a box that crosses them', () => {
     expect(boardItemsInBox(read(IMAGE()), MM(49), MM(39), MM(51), MM(41), false)).toContain(IMG);
-  });
-
-  it('follow the layer-based graphics filter', () => {
-    const f = (over = {}) => ({ ...DEFAULT_SELECTION_FILTER, ...over });
-
-    expect(itemPassesFilter(read(IMAGE()), IMG, f({ techLayers: true }))).toBe(true);
-    expect(itemPassesFilter(read(IMAGE()), IMG, f({ techLayers: false }))).toBe(false);
-    expect(
-      itemPassesFilter(read(IMAGE(PNG_100x50, '', 'Edge.Cuts')), IMG, f({ boardOutline: false })),
-    ).toBe(false);
-  });
-
-  it('anchor on the centre, which is the position', () => {
-    expect(itemAnchorPoint(read(IMAGE()), IMG)).toEqual({ x: MM(50), y: MM(40) });
   });
 
   it('read the locked flag', () => {

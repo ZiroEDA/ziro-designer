@@ -16,11 +16,7 @@ import {
   type PCB_BASE_EDIT_FRAME_DIALOG_HOOKS,
 } from './pcb_base_edit_frame.js';
 import { niluuid } from '@ziroeda/common/kiid.js';
-import { IO_ERROR } from '@ziroeda/common/exceptions.js';
-import { DisplayErrorMessage, type UnsavedChangesResult } from '@ziroeda/common/confirm.js';
-import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
-import { RPT_SEVERITY_ERROR, RPT_SEVERITY_WARNING } from '@ziroeda/common/reporter.js';
-import { PCB_DRC_CODE as DRCE } from './drc/drc_item.js';
+import { type UnsavedChangesResult } from '@ziroeda/common/confirm.js';
 import { PCB_ACTIONS } from './tools/pcb_actions.js';
 import { CLEARANCE_LAYER_FOR, IsCopperLayer, type PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
@@ -57,7 +53,6 @@ import { CONVERT_TOOL } from './tools/convert_tool.js';
 import { PCB_TOOL_BASE } from './tools/pcb_tool_base.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
-import { parse } from '@ziroeda/sexpr';
 import { FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN } from './load_select_footprint.js';
 import { FOOTPRINT_EDIT_FRAME_INITPCB_MIXIN } from './initpcb.js';
 import { FOOTPRINT_EDITOR_UTILS_MIXIN } from './footprint_editor_utils.js';
@@ -72,8 +67,7 @@ import { gridSizeToIU } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { gridSnappingEnabled } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.js';
 import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from './footprint_editor_settings.js';
-import { readFootprintFile } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { type Board, type PcbFootprint, type PcbLayerDef } from './types.js';
+import { type PcbLayerDef } from './types.js';
 import { FOOTPRINT_EDITOR_CONTROL } from './tools/footprint_editor_control.js';
 import { LIBRARY_EDITOR_CONTROL } from '@ziroeda/common/tool/library_editor_control.js';
 import type { LIB_TREE } from '@ziroeda/common/eda_draw_frame.js';
@@ -1107,50 +1101,6 @@ export const FOOTPRINT_COPPER_STACK: readonly string[] = [
   ...FOOTPRINT_LAYERS.map((l) => l.name).filter((n) => /^In\d+\.Cu$/.test(n)),
   'B.Cu',
 ];
-
-/**
- * Board holding just the given footprint (or empty), for the footprint canvas.
- *
- * `layers` defaults to the module table, which is what the two VIEWER frames
- * want; the EDITOR passes {@link footprintLayers} so its board carries the user
- * layers Preferences was told to give it.
- */
-export function footprintToBoard(
-  fp: PcbFootprint | null,
-  layers: PcbLayerDef[] = FOOTPRINT_LAYERS,
-): Board {
-  return {
-    version: 20241229,
-    layers,
-    nets: new Map([[0, '']]),
-    footprints: fp ? [fp] : [],
-    textBoxes: [],
-    tables: [],
-    images: [],
-    dimensions: [],
-    // The frame's board owns no points of its own: a footprint's snap points
-    // are `FOOTPRINT::Points()` and travel inside `fp`, exactly as its pads and
-    // graphics do.
-    points: [],
-    barcodes: [],
-    tracks: [],
-    arcs: [],
-    vias: [],
-    zones: [],
-    shapes: [],
-    texts: [],
-    groups: [],
-  };
-}
-
-/** Parse `.kicad_mod` text into a footprint, or null if it isn't one. */
-export function parseFootprint(text: string): PcbFootprint | null {
-  try {
-    return readFootprintFile(parse(text));
-  } catch {
-    return null;
-  }
-}
 
 /**
  * `SetActiveLayer( F_SilkS )` (`pcbnew/footprint_edit_frame.cpp:191`) — the

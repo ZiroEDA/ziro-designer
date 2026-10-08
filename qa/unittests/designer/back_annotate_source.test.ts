@@ -7,15 +7,14 @@
  * Counterpart: BACK_ANNOTATE::getPcbModulesFromString.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { boardFootprintData } from '@ziroeda/designer/src/editors/schematic/back_annotate_source.js';
 // The symbol and sheet uuids are real ones: a `(path …)` in a board file is
 // read as a KIID_PATH, and `KIID( const wxString& )` (kiid.cpp) draws a random
 // uuid for any text that does not parse as one.
 
 const board = (footprints: string) =>
-  readBoard(parse(`(kicad_pcb (version 20241229) (generator "test") ${footprints})`));
+  ParseBoard(`(kicad_pcb (version 20241229) (generator "test") ${footprints})`);
 
 const FP = `(footprint "Resistor_SMD:R_0805"
     (layer "F.Cu") (uuid "fp-1") (at 10 10)

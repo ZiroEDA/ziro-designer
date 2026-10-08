@@ -68,7 +68,10 @@ export function hostedFootprintLibs(): Promise<FOOTPRINT_LIBRARY_STORE> {
  * `FootprintLibAdapter()->LoadFootprint( nickname, name, false )` by
  * "Library:Name": a fresh copy each time, as upstream's is, or null.
  */
-export async function loadLibraryFootprint(aLibId: string): Promise<FOOTPRINT | null> {
+export async function loadLibraryFootprint(
+  aLibId: string,
+  aKeepUUID = false,
+): Promise<FOOTPRINT | null> {
   const id = new LIB_ID();
 
   if (id.Parse(aLibId) >= 0 || id.GetUniStringLibNickname() === '') return null;
@@ -78,6 +81,17 @@ export async function loadLibraryFootprint(aLibId: string): Promise<FOOTPRINT | 
   return store.LoadFootprintAsync(
     id.GetUniStringLibNickname(),
     id.GetUniStringLibItemName(),
-    false,
+    aKeepUUID,
   );
+}
+
+/** `IFACE::PreloadLibraries`' footprint work: the file made resident, no copy parsed. */
+export async function preloadLibraryFootprint(aLibId: string): Promise<void> {
+  const id = new LIB_ID();
+
+  if (id.Parse(aLibId) >= 0 || id.GetUniStringLibNickname() === '') return;
+
+  const store = await hostedFootprintLibs();
+
+  await store.FootprintText(id.GetUniStringLibNickname(), id.GetUniStringLibItemName());
 }

@@ -20,10 +20,8 @@
  * - `AlignToSegment` (cpp:350-402) — the cursor on a track centreline.
  * - `AlignToArc` (cpp:405-447) — the same for a curved track.
  *
- * - `BestSnapAnchor` (cpp:597-934) and `BestDragOrigin` (cpp:507-565), with
- *   the `computeAnchors` passes behind them, over the plain `Board` rather than
- *   `BOARD_ITEM`s: an anchor's `items` list is empty, and item ids stand in for
- *   the `aSkip` / selection pointers. `nearestAnchor` is pcbnew's own.
+ * - `BestSnapAnchor` (cpp:568-934) and `BestDragOrigin` (cpp:507-565), with
+ *   the `computeAnchors` passes behind them, on the live `BOARD_ITEM`s.
  *
  * One thing worth recording from reading it, because it is easy to assume
  * otherwise: pcbnew's *general* crosshair does **not** stick to the middle of a
@@ -49,11 +47,7 @@
  * a {@link PcbGridState} — see {@link PCB_GRID_HELPER.SetState}.
  */
 
-import {
-  segIntersectLines,
-  segNearestPoint,
-  segSquaredDistanceToPoint,
-} from '@ziroeda/kimath/src/geometry/seg.js';
+import { segIntersectLines, segSquaredDistanceToPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import { circleIntersectLine } from '@ziroeda/kimath/src/geometry/circle.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { type ANCHOR, ANCHOR_FLAGS, GRID_HELPER } from '@ziroeda/common/tool/grid_helper.js';
@@ -120,10 +114,6 @@ import type {
 } from '../pcb_dimension.js';
 import type { PCB_BARCODE } from '../pcb_barcode.js';
 import type { PCB_GROUP } from '../pcb_group.js';
-import type { Board, PcbBarcode, PcbShape } from '../types.js';
-import { parseBoardItemId, rotatePcb } from '../edit-board.js';
-import { footprintBBox, padBBox } from '../edit-footprint.js';
-import { barcodeGeometry, type BarcodeGeometry } from '../pcb_io/kicad_sexpr/board_view.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
@@ -400,84 +390,6 @@ export interface DragOriginOptions {
   lineSnapMinCornerDistance?: number;
 }
 
-/**
- * `addRectPoints( barcode->GetSymbolPoly().BBox(), … )`
- * (`pcb_grid_helper.cpp:1479-1502`): the box's centre, its four corners and
- * the midpoint of each of its four edges.
- *
- * The box is the *symbol's*, taken before the rotation is applied to `m_poly`,
- * so the nine points turn with the barcode rather than boxing it upright.
- */
-function barcodeSnapPoints(g: BarcodeGeometry, bc: PcbBarcode): Vec2[] {
-  if (g.symbolPoly.length === 0) return [];
-
-  const b = symbolPolyBox(g.symbolPoly);
-  const turn = (p: Vec2): Vec2 => {
-    if (bc.angle === 0) return p;
-    const r = rotatePcb({ x: p.x - bc.at.x, y: p.y - bc.at.y }, bc.angle);
-    return { x: r.x + bc.at.x, y: r.y + bc.at.y };
-  };
-
-  const tl = { x: b.x1, y: b.y1 };
-  const tr = { x: b.x2, y: b.y1 };
-  const br = { x: b.x2, y: b.y2 };
-  const bl = { x: b.x1, y: b.y2 };
-  const mid = (a: Vec2, c: Vec2): Vec2 => ({ x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 });
-
-  return [
-    mid(tl, br), // the box centre
-    tl,
-    mid(tl, tr),
-    tr,
-    mid(tr, br),
-    br,
-    mid(br, bl),
-    bl,
-    mid(bl, tl),
-  ].map(turn);
-}
-
-const symbolPolyBox = (
-  poly: readonly (readonly (readonly Vec2[])[])[],
-): {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-} => {
-  let x1 = Number.POSITIVE_INFINITY;
-  let y1 = Number.POSITIVE_INFINITY;
-  let x2 = Number.NEGATIVE_INFINITY;
-  let y2 = Number.NEGATIVE_INFINITY;
-
-  for (const rings of poly)
-    for (const ring of rings)
-      for (const p of ring) {
-        if (p.x < x1) x1 = p.x;
-        if (p.y < y1) y1 = p.y;
-        if (p.x > x2) x2 = p.x;
-        if (p.y > y2) y2 = p.y;
-      }
-
-  return { x1, y1, x2, y2 };
-};
-
-/** `shape.GetCenter()` for a circle or a rectangle. */
-function shapeCenter(aShape: PcbShape): Vec2 | null {
-  if (aShape.kind === 'circle') {
-    const c = aShape.center ?? aShape.start;
-    return c ? { ...c } : null;
-  }
-
-  if (aShape.kind === 'rect' && aShape.start && aShape.end)
-    return {
-      x: Math.trunc((aShape.start.x + aShape.end.x) / 2),
-      y: Math.trunc((aShape.start.y + aShape.end.y) / 2),
-    };
-
-  return null;
-}
-
 /** The `PCB_SELECTION_FILTER_OPTIONS` members `computeAnchors` reads. */
 export interface SELECTION_FILTER_LIKE {
   pads: boolean;
@@ -578,7 +490,6 @@ function PadstackUniqueLayerAppliesToLayer(
 
 export class PCB_GRID_HELPER extends GRID_HELPER {
   /** The board the last query ran over - upstream's `m_toolMgr->GetModel()`. */
-  private m_board: Board | null = null;
 
   /** `m_pointOnLineCandidates` (pcb_grid_helper.h:165). */
   private m_pointOnLineCandidates: NEARABLE_GEOM[] = [];
@@ -588,268 +499,6 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
    * an `ANCHOR`'s items, a `CONSTRUCTION_ITEM`'s `Item` and the construction
    * manager's involved-items set all compare by identity, as pointers do.
    */
-  private m_itemTokens = new Map<string, EDA_ITEM>();
-
-  private itemToken(aId: string): EDA_ITEM[] {
-    let token = this.m_itemTokens.get(aId);
-
-    if (!token) {
-      token = { boardItemId: aId } as unknown as EDA_ITEM;
-      this.m_itemTokens.set(aId, token);
-    }
-
-    return [token];
-  }
-
-  private itemIdOf(aItem: EDA_ITEM | null): string | undefined {
-    return (aItem as unknown as { boardItemId?: string } | null)?.boardItemId;
-  }
-
-  /**
-   * `GetBoardIntersectable` (cpp:73-112): the idealised geometry of a graphic
-   * shape, a track or an arc on the board last queried.
-   */
-  private intersectableOf(aId: string | undefined): INTERSECTABLE_GEOM | null {
-    const board = this.m_board;
-    const ref = aId === undefined ? null : parseBoardItemId(aId);
-
-    if (!board || !ref) return null;
-
-    if (ref.kind === 'track') {
-      const t = board.tracks[ref.index];
-      return t ? new SEG(t.start, t.end) : null;
-    }
-
-    if (ref.kind === 'arc') {
-      const a = board.arcs[ref.index];
-      return a ? new SHAPE_ARC(a.start, a.mid, a.end, 0) : null;
-    }
-
-    if (ref.kind !== 'shape') return null;
-
-    const s = board.shapes[ref.index];
-
-    if (!s) return null;
-
-    switch (s.kind) {
-      case 'line':
-        return s.start && s.end ? new SEG(s.start, s.end) : null;
-      case 'circle': {
-        const c = s.center ?? s.start;
-        return c && s.end ? new CIRCLE(c, KiROUND(Math.hypot(s.end.x - c.x, s.end.y - c.y))) : null;
-      }
-      case 'arc':
-        return s.start && s.mid && s.end ? new SHAPE_ARC(s.start, s.mid, s.end, 0) : null;
-      case 'rect':
-        return s.start && s.end ? BOX2I.ByCorners(s.start, s.end) : null;
-      default:
-        return null;
-    }
-  }
-
-  /** `m_magneticSettings->allLayers || ( aLayers & item->GetLayerSet() ).any()`. */
-  private itemOnLayers(aBoard: Board, aId: string, aOpts: BestSnapOptions): boolean {
-    if (aOpts.allLayers || !aOpts.layer) return true;
-
-    const ref = parseBoardItemId(aId);
-    const layer =
-      ref?.kind === 'track'
-        ? aBoard.tracks[ref.index]?.layer
-        : ref?.kind === 'arc'
-          ? aBoard.arcs[ref.index]?.layer
-          : ref?.kind === 'shape'
-            ? aBoard.shapes[ref.index]?.layer
-            : undefined;
-
-    return layer === undefined || layerMatches(layer, aOpts.layer);
-  }
-
-  /** The shapes, tracks and arcs `queryVisible` returns round the cursor, as ids. */
-  private queryIntersectableIds(
-    aBoard: Board,
-    aWhere: Vec2,
-    aRange: number,
-    aOpts: BestSnapOptions,
-  ): string[] {
-    const ids: string[] = [];
-    const near = (pts: readonly (Vec2 | undefined)[], pad: number): boolean => {
-      let x1 = Number.POSITIVE_INFINITY;
-      let y1 = Number.POSITIVE_INFINITY;
-      let x2 = Number.NEGATIVE_INFINITY;
-      let y2 = Number.NEGATIVE_INFINITY;
-
-      for (const p of pts) {
-        if (!p) continue;
-        x1 = Math.min(x1, p.x);
-        y1 = Math.min(y1, p.y);
-        x2 = Math.max(x2, p.x);
-        y2 = Math.max(y2, p.y);
-      }
-
-      return (
-        x1 - pad <= aWhere.x + aRange &&
-        x2 + pad >= aWhere.x - aRange &&
-        y1 - pad <= aWhere.y + aRange &&
-        y2 + pad >= aWhere.y - aRange
-      );
-    };
-    const take = (id: string, box: boolean): void => {
-      if (aOpts.avoid?.has(id)) return;
-      if (!this.itemOnLayers(aBoard, id, aOpts)) return;
-      if (box) ids.push(id);
-    };
-
-    aBoard.tracks.forEach((t, i) => take(`track:${i}`, near([t.start, t.end], t.width / 2)));
-    aBoard.arcs.forEach((a, i) => {
-      const arc = new SHAPE_ARC(a.start, a.mid, a.end, 0);
-      const bb = arc.BBox();
-      take(
-        `arc:${i}`,
-        near(
-          [
-            { x: bb.GetLeft(), y: bb.GetTop() },
-            { x: bb.GetRight(), y: bb.GetBottom() },
-          ],
-          a.width / 2,
-        ),
-      );
-    });
-    aBoard.shapes.forEach((s, i) => {
-      const geom = this.intersectableOf(`shape:${i}`);
-
-      if (!geom) return;
-
-      if (geom instanceof CIRCLE) {
-        const c = geom.Center;
-        const r = geom.Radius;
-        take(
-          `shape:${i}`,
-          near(
-            [
-              { x: c.x - r, y: c.y - r },
-              { x: c.x + r, y: c.y + r },
-            ],
-            s.width / 2,
-          ),
-        );
-      } else if (geom instanceof SHAPE_ARC) {
-        const bb = geom.BBox();
-        take(
-          `shape:${i}`,
-          near(
-            [
-              { x: bb.GetLeft(), y: bb.GetTop() },
-              { x: bb.GetRight(), y: bb.GetBottom() },
-            ],
-            s.width / 2,
-          ),
-        );
-      } else {
-        take(`shape:${i}`, near([s.start, s.end], s.width / 2));
-      }
-    });
-
-    return ids;
-  }
-
-  /**
-   * `item->HitTest( aOrigin, 0 )` over the items round the cursor (cpp:866-882):
-   * the first whose outline - its geometry widened by half its width - holds
-   * the cursor.
-   */
-  private hoverHit(
-    aBoard: Board,
-    aWhere: Vec2,
-    aRange: number,
-    aOpts: BestSnapOptions,
-  ): string | null {
-    for (const id of this.queryIntersectableIds(aBoard, aWhere, aRange, aOpts)) {
-      const geom = this.intersectableOf(id);
-      const ref = parseBoardItemId(id);
-
-      if (!geom || !ref) continue;
-
-      const width =
-        ref.kind === 'track'
-          ? (aBoard.tracks[ref.index]?.width ?? 0)
-          : ref.kind === 'arc'
-            ? (aBoard.arcs[ref.index]?.width ?? 0)
-            : (aBoard.shapes[ref.index]?.width ?? 0);
-      const p = GetNearestPoint(geom, aWhere);
-
-      if (Math.hypot(p.x - aWhere.x, p.y - aWhere.y) <= width / 2) return id;
-    }
-
-    return null;
-  }
-
-  /**
-   * The construction-geometry half of `computeAnchors( aItems, … )`
-   * (cpp:1188-1300): the items' intersectables and the construction manager's
-   * geometry, free points as `SNAPPABLE | CONSTRUCTED` anchors, every crossing
-   * between two different items' geometry as a `PT_INTERSECTION` anchor, and
-   * the geometry kept as `m_pointOnLineCandidates`.
-   */
-  private computeConstructionAnchors(aIds: readonly string[]): void {
-    const intersectables: { item: EDA_ITEM | null; geom: INTERSECTABLE_GEOM }[] = [];
-
-    for (const id of aIds) {
-      const geom = this.intersectableOf(id);
-
-      if (geom) intersectables.push({ item: this.itemToken(id)[0]!, geom });
-    }
-
-    for (const batch of this.getSnapManager().GetConstructionItems()) {
-      for (const constructionItem of batch) {
-        for (const drawable of constructionItem.Constructions) {
-          const d = drawable.Drawable;
-
-          if (
-            d instanceof LINE ||
-            d instanceof CIRCLE ||
-            d instanceof HALF_LINE ||
-            d instanceof SHAPE_ARC
-          ) {
-            intersectables.push({ item: constructionItem.Item, geom: d });
-          } else if (!(d instanceof SEG)) {
-            // Add any free-floating points as snap points.
-            this.addAnchor(
-              { x: d.x, y: d.y },
-              ANCHOR_FLAGS.SNAPPABLE | ANCHOR_FLAGS.CONSTRUCTED,
-              constructionItem.Item ? [constructionItem.Item] : [],
-              PT_NONE,
-            );
-          }
-        }
-      }
-    }
-
-    for (let ii = 0; ii < intersectables.length; ++ii) {
-      const a = intersectables[ii]!;
-
-      for (let jj = ii + 1; jj < intersectables.length; ++jj) {
-        const b = intersectables[jj]!;
-
-        // An item and its own extension will often have intersections (as they
-        // are on top of each other), but they not useful points to snap to
-        if (a.item === b.item) continue;
-
-        const intersections: Vec2[] = [];
-        new INTERSECTION_VISITOR(a.geom, intersections).visit(b.geom);
-
-        for (const intersection of intersections) {
-          this.addAnchor(
-            intersection,
-            ANCHOR_FLAGS.SNAPPABLE | ANCHOR_FLAGS.CONSTRUCTED,
-            [a.item, b.item].filter((it): it is EDA_ITEM => it !== null),
-            PT_INTERSECTION,
-          );
-        }
-      }
-    }
-
-    this.m_pointOnLineCandidates = intersectables.map((it) => it.geom);
-  }
 
   /**
    * `PCB_GRID_HELPER()` — no `TOOL_MANAGER`, so the grid comes through the
@@ -1040,151 +689,6 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
   }
 
   /**
-   * `computeAnchors` over the board's copper — and over its snap points.
-   *
-   * Ported: pads (`handlePadShape`'s centre), vias, tracks and arcs — the items
-   * whose anchors decide where a track or a via can be dropped — plus every
-   * `PCB_POINT`, which is what a point is *for*: "a defined snap anchor for
-   * component alignment, [or] a routing snap point in a custom pad"
-   * (`pcb_point.h:31-35`). A point that did not reach this list would be a
-   * marker and nothing more. Not yet ported: graphics, zones, dimensions, text
-   * and the construction-geometry intersections, all of which add anchors
-   * upstream and none of which change where copper lands.
-   */
-  protected computeAnchors(
-    aBoard: Board,
-    aWhere: Vec2,
-    aRange: number,
-    aOpts: BestSnapOptions,
-  ): void {
-    const add = (aPos: Vec2, aFlags: number, aId: string): void =>
-      this.addAnchor(aPos, aFlags, this.itemToken(aId));
-    const pads = aOpts.magneticPads ?? MAGNETIC_OPTIONS.CAPTURE_ALWAYS;
-    const tracks = aOpts.magneticTracks ?? MAGNETIC_OPTIONS.CAPTURE_ALWAYS;
-
-    // `queryVisible`'s horizon: upstream builds a box of `snapRange` about the
-    // cursor and asks the view for what is inside it.
-    const inRange = (p: Vec2): boolean =>
-      Math.abs(p.x - aWhere.x) <= aRange && Math.abs(p.y - aWhere.y) <= aRange;
-
-    const onLayer = (itemLayer: string): boolean =>
-      !!aOpts.allLayers || !aOpts.layer || layerMatches(itemLayer, aOpts.layer);
-
-    const skipped = (kind: string, index: number): boolean =>
-      aOpts.avoid?.has(`${kind}:${index}`) ?? false;
-
-    if (pads === MAGNETIC_OPTIONS.CAPTURE_ALWAYS) {
-      for (const [fpIndex, fp] of aBoard.footprints.entries()) {
-        if (skipped('footprint', fpIndex)) continue;
-
-        for (const [padIndex, pad] of fp.pads.entries()) {
-          if (!pad.layers.some(onLayer)) continue;
-
-          // `handlePadShape`: the pad's own position is its origin anchor.
-          if (inRange(pad.at))
-            add(pad.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE, `pad:${fpIndex}:${padIndex}`);
-        }
-      }
-    }
-
-    if (tracks === MAGNETIC_OPTIONS.CAPTURE_ALWAYS) {
-      for (const [i, v] of aBoard.vias.entries()) {
-        if (skipped('via', i)) continue;
-
-        // A via spans layers, so the layer filter never excludes one.
-        if (inRange(v.at))
-          add(v.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE, `via:${i}`);
-      }
-
-      const wires: { kind: string; index: number; t: (typeof aBoard.tracks)[number] }[] = [
-        ...aBoard.tracks.map((t, index) => ({ kind: 'track', index, t })),
-        ...aBoard.arcs.map((a, index) => ({ kind: 'arc', index, t: a })),
-      ];
-
-      for (const { kind, index, t } of wires) {
-        if (skipped(kind, index)) continue;
-
-        if (!onLayer(t.layer)) continue;
-
-        for (const end of [t.start, t.end]) {
-          if (inRange(end))
-            add(end, ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE, `${kind}:${index}`);
-        }
-
-        // `track->GetCenter()`, added as ORIGIN and *not* SNAPPABLE — see the
-        // block comment above. It is here because it is upstream, and because
-        // leaving it out would make the omission look accidental.
-        const mid = { x: (t.start.x + t.end.x) / 2, y: (t.start.y + t.end.y) / 2 };
-
-        if (inRange(mid)) add(mid, ANCHOR_FLAGS.ORIGIN, `${kind}:${index}`);
-      }
-    }
-
-    // `case PCB_POINT_T: addAnchor( aItem->GetPosition(), ORIGIN | SNAPPABLE, … )`
-    // (`pcb_grid_helper.cpp:1790-1797`), and the same for a footprint's own
-    // points, which upstream collects in the footprint branch with the comment
-    // "Points are also pick-up points" (`:1607-1617`).
-    //
-    // Outside both magnetic blocks above: `MAGNETIC_SETTINGS` govern pads and
-    // tracks, and a point is neither — its anchor is offered whatever those are
-    // set to.
-    if (aOpts.points !== false) {
-      for (const [i, pt] of aBoard.points.entries()) {
-        if (skipped('point', i)) continue;
-        if (!onLayer(pt.layer)) continue;
-        if (inRange(pt.at)) add(pt.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE, `point:${i}`);
-      }
-
-      for (const [fpIndex, fp] of aBoard.footprints.entries()) {
-        if (skipped('footprint', fpIndex)) continue;
-
-        for (const [j, pt] of fp.points.entries()) {
-          if (!onLayer(pt.layer)) continue;
-          if (inRange(pt.at))
-            add(pt.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE, `fppoint:${fpIndex}:${j}`);
-        }
-      }
-    }
-
-    // `case PCB_BARCODE_T` (`pcb_grid_helper.cpp:1915-1928`): the item's own
-    // position as a centre anchor, then the SYMBOL polygon's bounding box —
-    // `GetSymbolPoly().BBox()`, so the human-readable line and any knockout
-    // margin are outside it — through `addRectPoints`.
-    //
-    // Gated on the Selection Filter's "Other items" box rather than on Graphics,
-    // matching `pcb_selection_tool.cpp:3522`.
-    if (aOpts.otherItems !== false) {
-      const barcodes: { kind: string; index: number; bc: PcbBarcode }[] = [
-        ...aBoard.barcodes.map((bc, index) => ({ kind: 'barcode', index, bc })),
-      ];
-
-      for (const { kind, index, bc } of barcodes) {
-        if (skipped(kind, index)) continue;
-        if (!onLayer(bc.layer)) continue;
-
-        // `queryVisible`'s horizon is the item's EXTENT against the box round
-        // the cursor, not its position: a barcode whose corner is under the
-        // cursor has its centre 5 mm away, and gating on the centre would offer
-        // the anchors of exactly the items the cursor is not near.
-        const g = barcodeGeometry(bc);
-        if (g.symbolPoly.length === 0) continue;
-
-        const box = g.bbox;
-        if (box.x2 < aWhere.x - aRange || box.x1 > aWhere.x + aRange) continue;
-        if (box.y2 < aWhere.y - aRange || box.y1 > aWhere.y + aRange) continue;
-
-        // `addAnchor( aItem->GetPosition(), ORIGIN, barcode, PT_CENTER )`.
-        if (inRange(bc.at)) add(bc.at, ANCHOR_FLAGS.ORIGIN, `${kind}:${index}`);
-
-        for (const p of barcodeSnapPoints(g, bc))
-          if (inRange(p)) add(p, ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE, `${kind}:${index}`);
-      }
-    }
-
-    this.computeConstructionAnchors(this.queryIntersectableIds(aBoard, aWhere, aRange, aOpts));
-  }
-
-  /**
    * `PCB_GRID_HELPER::nearestAnchor( aPos, aFlags )` (cpp:1966-2068): the
    * nearest anchor carrying every flag.
    *
@@ -1237,9 +741,7 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
       let distToNearestItem = Number.POSITIVE_INFINITY;
 
       for (const item of anchor.items) {
-        const geom = item?.IsBOARD_ITEM?.()
-          ? GetBoardIntersectable(item as BOARD_ITEM)
-          : this.intersectableOf(this.itemIdOf(item));
+        const geom = item?.IsBOARD_ITEM?.() ? GetBoardIntersectable(item as BOARD_ITEM) : null;
 
         if (geom) {
           const d = squaredDist(GetNearestPoint(geom, aPos), aPos);
@@ -1261,18 +763,6 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
   }
 
   /**
-   * `PCB_GRID_HELPER::BestSnapAnchor` (cpp:593-930) - the cursor for every
-   * tool that is not the router.
-   *
-   * The snap radius and its clamp to the visible grid; the anchors, their
-   * intersections and the construction geometry's; snap lines, which have
-   * priority over new snaps; the held snap (`m_snapItem`) until the cursor is
-   * `snapOut` from it; a new anchor inside `snapIn`, which also proposes its
-   * items' construction geometry; the item under the cursor proposed on hover;
-   * the nearest point on an element when the grid is off; and the grid.
-   */
-  BestSnapAnchor(aBoard: Board, aWhere: Vec2, aOpts: BestSnapOptions): Vec2;
-  /**
    * `BestSnapAnchor( const VECTOR2I& aOrigin, BOARD_ITEM* aReferenceItem,
    * GRID_HELPER_GRIDS aGrid )` (cpp:568-590): the reference item's layers, else
    * the frame's active layer, else all of them; the reference item skipped.
@@ -1289,13 +779,11 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     aSkip?: readonly BOARD_ITEM[],
   ): Vec2;
   BestSnapAnchor(
-    a: Board | Vec2,
-    b: Vec2 | BOARD_ITEM | LSET | null,
-    c?: BestSnapOptions | GRID_HELPER_GRIDS,
+    a: Vec2,
+    b: BOARD_ITEM | LSET | null,
+    c?: GRID_HELPER_GRIDS,
     d?: readonly BOARD_ITEM[],
   ): Vec2 {
-    if ('footprints' in a) return this.bestSnapAnchorOn(a, b as Vec2, c as BestSnapOptions);
-
     if (b instanceof LSET)
       return this.bestSnapAnchorLive(
         a,
@@ -2169,51 +1657,6 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     return (this.m_toolMgr?.GetToolHolder() as never) ?? null;
   }
 
-  private bestSnapAnchorOn(aBoard: Board, aWhere: Vec2, aOpts: BestSnapOptions): Vec2 {
-    this.m_board = aBoard;
-
-    // Snapping distance is in screen space, clamped to the current grid so that
-    // the grid points that are visible can always be snapped to (cpp:604-615).
-    const snapRange = KiROUND(
-      this.m_enableGrid ? Math.min(aOpts.snapScale, aOpts.visibleGrid) : aOpts.snapScale,
-    );
-
-    this.clearAnchors();
-    this.computeAnchors(aBoard, aWhere, snapRange, aOpts);
-
-    const nearest = this.nearestAnchor(aWhere, ANCHOR_FLAGS.SNAPPABLE);
-    const nearestGrid = this.Align(aWhere);
-    const gridSize = this.GetGridSize(0);
-    const hysteresisWorld = KiROUND(aOpts.hysteresis ?? 0);
-
-    return this.resolveSnap(
-      aWhere,
-      snapRange,
-      nearest,
-      nearestGrid,
-      gridSize,
-      hysteresisWorld,
-      (aItems) => {
-        // Null items represent geometry that isn't tied to a board item (a snap
-        // line from another anchor) and produce no construction items.
-        const ids: string[] = [];
-
-        for (const item of aItems) {
-          const id = this.itemIdOf(item);
-
-          if (id !== undefined && this.itemOnLayers(aBoard, id, aOpts)) ids.push(id);
-        }
-
-        this.AddConstructionItems(aBoard, ids, true, false);
-      },
-      () => {
-        const hit = this.hoverHit(aBoard, aWhere, snapRange, aOpts);
-
-        return hit !== null ? this.itemToken(hit)[0]! : null;
-      },
-    );
-  }
-
   /**
    * The decision half of `BestSnapAnchor` (cpp:643-930), once the anchors are
    * computed: snap lines first, the held snap until `snapOut`, a new anchor
@@ -2378,18 +1821,6 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
   }
 
   /**
-   * `PCB_GRID_HELPER::AddConstructionItems` (cpp:204-343) over board item ids:
-   * a graphic segment's two extension rays (or the whole line), an arc's
-   * complement and centre (or its circle), a circle's or rectangle's centre;
-   * every other item is proposed with no geometry of its own.
-   */
-  AddConstructionItems(
-    aBoard: Board,
-    aItemIds: readonly string[],
-    aExtensionOnly: boolean,
-    aIsPersistent: boolean,
-  ): void;
-  /**
    * `PCB_GRID_HELPER::AddConstructionItems( std::vector<BOARD_ITEM*>, bool, bool )`
    * (cpp:204-343) on live items, each proposed under its own pointer.
    */
@@ -2397,88 +1828,8 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     aItems: readonly BOARD_ITEM[],
     aExtensionOnly: boolean,
     aIsPersistent: boolean,
-  ): void;
-  AddConstructionItems(
-    a: Board | readonly BOARD_ITEM[],
-    b: readonly string[] | boolean,
-    c: boolean,
-    d?: boolean,
   ): void {
-    if (Array.isArray(a)) {
-      this.addConstructionItemsLive(a as readonly BOARD_ITEM[], b as boolean, c);
-      return;
-    }
-
-    const aBoard = a as Board;
-    const aItemIds = b as readonly string[];
-    const aExtensionOnly = c;
-    const aIsPersistent = d!;
-
-    if (!ADVANCED_CFG.GetCfg().m_EnableExtensionSnaps) return;
-
-    const batch: CONSTRUCTION_ITEM_BATCH = [];
-    const referenceOnlyPoints: Vec2[] = [];
-
-    for (const id of aItemIds) {
-      const drawables: CONSTRUCTION_GEOM_DRAWABLE[] = [];
-      const ref = parseBoardItemId(id);
-      const shape = ref?.kind === 'shape' ? aBoard.shapes[ref.index] : undefined;
-
-      if (shape?.kind === 'line' && shape.start && shape.end) {
-        const { start, end } = shape;
-
-        if (!aExtensionOnly) {
-          drawables.push(new LINE(start, end));
-        } else {
-          // Two rays, extending from the segment ends
-          const segVec = { x: end.x - start.x, y: end.y - start.y };
-          drawables.push(new HALF_LINE(start, { x: start.x - segVec.x, y: start.y - segVec.y }));
-          drawables.push(new HALF_LINE(end, { x: end.x + segVec.x, y: end.y + segVec.y }));
-        }
-
-        if (aIsPersistent) {
-          drawables.push({ ...start }, { ...end });
-          referenceOnlyPoints.push({ ...start }, { ...end });
-        }
-      } else if (shape?.kind === 'arc' && shape.start && shape.mid && shape.end) {
-        const arc = new SHAPE_ARC(shape.start, shape.mid, shape.end, 0);
-        const center = arc.GetCenter();
-
-        if (!aExtensionOnly) {
-          drawables.push(new CIRCLE(center, arc.GetRadius()));
-        } else {
-          // The rest of the circle is the arc through the opposite point to the midpoint
-          const arcMid = arc.GetArcMid();
-          const oppositeMid = {
-            x: center.x + (center.x - arcMid.x),
-            y: center.y + (center.y - arcMid.y),
-          };
-          drawables.push(new SHAPE_ARC(shape.start, oppositeMid, shape.end, 0));
-        }
-
-        drawables.push({ ...center });
-
-        if (aIsPersistent) {
-          drawables.push({ ...shape.start }, { ...shape.end });
-          referenceOnlyPoints.push({ ...shape.start }, { ...shape.end });
-        }
-      } else if (shape?.kind === 'circle' || shape?.kind === 'rect') {
-        const c = shapeCenter(shape);
-
-        if (c) drawables.push(c);
-      }
-
-      batch.push({
-        Source: CONSTRUCTION_MANAGER_SOURCE.FROM_ITEMS,
-        Item: this.itemToken(id)[0]!,
-        Constructions: drawables.map((d) => ({ Drawable: d, LineWidth: 1 })),
-      });
-    }
-
-    if (referenceOnlyPoints.length)
-      this.getSnapManager().SetReferenceOnlyPoints(referenceOnlyPoints);
-
-    this.getSnapManager().GetConstructionManager().ProposeConstructionItems(batch, aIsPersistent);
+    this.addConstructionItemsLive(aItems, aExtensionOnly, aIsPersistent);
   }
 
   private addConstructionItemsLive(
@@ -2602,137 +1953,6 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
   }
 
   /**
-   * `PCB_GRID_HELPER::computeAnchors( aItems, aRefPos, aFrom = true )` over the
-   * selection, as board item ids.
-   *
-   * `aFrom = true` is a different anchor set from the one {@link
-   * computeCopperAnchors} builds, not merely a filtered one:
-   *
-   * - a pad contributes **only** its centre — "if we are getting a drag point, we
-   *   don't want to center the edge of pads" (cpp:1374-1376), so none of the
-   *   outline key points are collected;
-   * - a footprint contributes its own origin unconditionally, plus the centre of
-   *   its bounding box when that is more than a grid step away, plus the centres
-   *   of the pads whose bounding box the cursor is actually inside (cpp:1576-1648);
-   * - an arc offers its stored midpoint but *not* its derived geometric centre,
-   *   which is rarely on the grid (cpp:1315-1323).
-   *
-   * Not ported, all for the same reason `computeCopperAnchors` leaves them out —
-   * they are anchor sources we have no geometry for here: graphic shapes, zone
-   * outlines, dimensions, text, and the construction-geometry intersections.
-   * A selection made only of those falls back to the cursor, which is upstream's
-   * own answer when nothing contributes an anchor.
-   */
-  computeDragAnchors(
-    aBoard: Board,
-    aItems: Iterable<string>,
-    aWhere: Vec2,
-    aOpts: DragOriginOptions,
-  ): void {
-    let curId = '';
-    const add = (aPos: Vec2, aFlags: number): void =>
-      this.addAnchor(aPos, aFlags, this.itemToken(curId));
-    // `VECTOR2I grid( GetGrid() ); … > grid.SquaredEuclideanNorm()`, and a GAL
-    // grid is square here, so the threshold is both axes together.
-    const gridSq = 2 * aOpts.gridSize * aOpts.gridSize;
-
-    const pad = (p: { at: Vec2 }): void => {
-      add(p.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE);
-    };
-
-    for (const id of aItems) {
-      const ref = parseBoardItemId(id);
-      if (!ref) continue;
-      curId = id;
-
-      switch (ref.kind) {
-        case 'footprint': {
-          const fp = aBoard.footprints[ref.index];
-          if (!fp) break;
-
-          // "pad->GetBoundingBox().Contains( aRefPos )" (cpp:1592): only a pad the
-          // cursor is genuinely over is a pick-up point, which is what makes
-          // grabbing a part by one of its pads drag it by that pad.
-          for (const p of fp.pads) {
-            const bb = padBBox(p);
-            if (
-              bb &&
-              aWhere.x >= bb.minX &&
-              aWhere.x <= bb.maxX &&
-              aWhere.y >= bb.minY &&
-              aWhere.y <= bb.maxY
-            )
-              pad(p);
-          }
-
-          add(fp.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE);
-
-          // `footprint->GetBoundingBox( false )` — the box without the text, so a
-          // long reference cannot drag the centre off the part.
-          const bb = footprintBBox(fp, false);
-          if (bb) {
-            const centre = { x: (bb.minX + bb.maxX) / 2, y: (bb.minY + bb.maxY) / 2 };
-            if (squaredDist(centre, fp.at) > gridSq)
-              add(centre, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE);
-          }
-
-          break;
-        }
-
-        case 'pad': {
-          const p = aBoard.footprints[ref.index]?.pads[ref.sub ?? 0];
-          if (p) pad(p);
-          break;
-        }
-
-        case 'via': {
-          const v = aBoard.vias[ref.index];
-          if (v) add(v.at, ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE);
-          break;
-        }
-
-        case 'track': {
-          const t = aBoard.tracks[ref.index];
-          if (!t) break;
-          add(t.start, ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE);
-          add(t.end, ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE);
-          add({ x: (t.start.x + t.end.x) / 2, y: (t.start.y + t.end.y) / 2 }, ANCHOR_FLAGS.ORIGIN);
-          break;
-        }
-
-        case 'arc': {
-          const a = aBoard.arcs[ref.index];
-          if (!a) break;
-          add(a.start, ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE);
-          add(a.end, ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE);
-          // The stored midpoint, which is grid-aligned when the arc is. The
-          // derived centre is deliberately *not* offered as the arc's own origin.
-          add(a.mid, ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE);
-          break;
-        }
-
-        default:
-          break;
-      }
-    }
-  }
-
-  /**
-   * `PCB_GRID_HELPER::BestDragOrigin` (cpp:507-565) — the point a move measures
-   * itself from, given the selection and the raw mouse position.
-   *
-   * Origin beats corner beats outline, each only when it is nearer; the outline
-   * anchor additionally may not win unless the best of the other two is further
-   * away than `lineSnapMinCornerDistance`. With no anchors at all the cursor
-   * itself is the answer.
-   */
-  BestDragOrigin(
-    aBoard: Board,
-    aItems: Iterable<string>,
-    aWhere: Vec2,
-    aOpts: DragOriginOptions,
-  ): Vec2;
-  /**
    * `BestDragOrigin( const VECTOR2I& aMousePos, std::vector<BOARD_ITEM*>& aItems,
    * GRID_HELPER_GRIDS aGrid, const PCB_SELECTION_FILTER_OPTIONS* aSelectionFilter )`
    * (cpp:507). TRANSITIONAL (#636 stage 3): computed on the frame's view board,
@@ -2741,22 +1961,13 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
   BestDragOrigin(
     aMousePos: Vec2,
     aItems: readonly BOARD_ITEM[],
-    aGrid?: GRID_HELPER_GRIDS,
+    _aGrid?: GRID_HELPER_GRIDS,
     aSelectionFilter?: unknown,
-  ): Vec2;
-  BestDragOrigin(
-    a: Board | Vec2,
-    b: Iterable<string> | readonly BOARD_ITEM[],
-    c?: Vec2 | GRID_HELPER_GRIDS,
-    d?: DragOriginOptions | unknown,
   ): Vec2 {
-    if ('footprints' in a)
-      return this.bestDragOriginOn(a, b as Iterable<string>, c as Vec2, d as DragOriginOptions);
-
     return this.bestDragOriginLive(
-      a,
-      b as readonly BOARD_ITEM[],
-      d as SELECTION_FILTER_LIKE | null,
+      aMousePos,
+      aItems,
+      (aSelectionFilter as SELECTION_FILTER_LIKE | undefined) ?? null,
     );
   }
 
@@ -2799,44 +2010,6 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     }
 
     return best ? { ...best.pos } : { x: aMousePos.x, y: aMousePos.y };
-  }
-
-  private bestDragOriginOn(
-    aBoard: Board,
-    aItems: Iterable<string>,
-    aWhere: Vec2,
-    aOpts: DragOriginOptions,
-  ): Vec2 {
-    this.m_board = aBoard;
-    this.clearAnchors();
-    this.computeDragAnchors(aBoard, aItems, aWhere, aOpts);
-
-    const nearestOutline = this.nearestAnchor(aWhere, ANCHOR_FLAGS.OUTLINE);
-    const nearestCorner = this.nearestAnchor(aWhere, ANCHOR_FLAGS.CORNER);
-    const nearestOrigin = this.nearestAnchor(aWhere, ANCHOR_FLAGS.ORIGIN);
-
-    let best: ANCHOR | null = null;
-    let minDist = Number.MAX_VALUE;
-
-    if (nearestOrigin) {
-      minDist = nearestOrigin.Distance(aWhere);
-      best = nearestOrigin;
-    }
-
-    if (nearestCorner) {
-      const d = nearestCorner.Distance(aWhere);
-      if (d < minDist) {
-        minDist = d;
-        best = nearestCorner;
-      }
-    }
-
-    if (nearestOutline) {
-      const d = nearestOutline.Distance(aWhere);
-      if (minDist > (aOpts.lineSnapMinCornerDistance ?? 0) && d < minDist) best = nearestOutline;
-    }
-
-    return best ? { x: best.pos.x, y: best.pos.y } : { x: aWhere.x, y: aWhere.y };
   }
 }
 
