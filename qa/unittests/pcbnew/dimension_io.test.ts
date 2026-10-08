@@ -42,7 +42,7 @@ import {
   DIM_TEXT_POSITION,
   DIM_UNITS_FORMAT,
   DIM_UNITS_MODE,
-} from '@ziroeda/pcbnew/pcb_dimension_types.js';
+} from '@ziroeda/pcbnew/pcb_dimension.js';
 import { FormatBoard, ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { flatText, writtenNode } from './support/written_node.js';
 

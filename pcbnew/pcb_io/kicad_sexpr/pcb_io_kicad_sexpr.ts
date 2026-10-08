@@ -97,7 +97,7 @@ import {
   UNCONNECTED_LAYER_MODE,
 } from '../../padstack.js';
 import { BARCODE_ECC_T, BARCODE_T, type PCB_BARCODE } from '../../pcb_barcode.js';
-import { DIM_ARROW_DIRECTION } from '../../pcb_dimension_types.js';
+import { DIM_ARROW_DIRECTION } from '../../pcb_dimension.js';
 import {
   PCB_DIM_ALIGNED,
   PCB_DIM_CENTER,

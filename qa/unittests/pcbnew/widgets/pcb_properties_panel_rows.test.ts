@@ -42,7 +42,7 @@ import {
   PLUGGING_MODE,
   TENTING_MODE,
 } from '@ziroeda/pcbnew/pcb_track_types.js';
-import { DIM_UNITS_MODE } from '@ziroeda/pcbnew/pcb_dimension_types.js';
+import { DIM_UNITS_MODE } from '@ziroeda/pcbnew/pcb_dimension.js';
 import type { PCB_DIM_ALIGNED } from '@ziroeda/pcbnew/pcb_dimension.js';
 import { PAD_SHAPE, UNCONNECTED_LAYER_MODE } from '@ziroeda/pcbnew/padstack.js';
 import {

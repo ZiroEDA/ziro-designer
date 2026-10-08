@@ -92,7 +92,7 @@ import {
   DIM_TEXT_POSITION,
   type DIM_UNITS_FORMAT,
   type DIM_UNITS_MODE,
-} from '../../pcb_dimension_types.js';
+} from '../../pcb_dimension.js';
 import {
   PCB_DIM_ALIGNED,
   PCB_DIM_CENTER,

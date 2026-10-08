@@ -34,7 +34,7 @@ import {
   PCB_DIM_ORTHOGONAL,
   type PCB_DIM_RADIAL,
 } from '@ziroeda/pcbnew/pcb_dimension.js';
-import { DIM_TEXT_POSITION } from '@ziroeda/pcbnew/pcb_dimension_types.js';
+import { DIM_TEXT_POSITION } from '@ziroeda/pcbnew/pcb_dimension.js';
 import { EDIT_LINE } from '@ziroeda/common/tool/edit_points.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
 import { PCB_POINT_EDITOR } from '@ziroeda/pcbnew/tools/pcb_point_editor.js';

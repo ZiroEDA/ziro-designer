@@ -93,7 +93,7 @@ import {
   DIM_ARROW_DIRECTION,
   type DIM_PRECISION,
   DIM_UNITS_FORMAT,
-} from '../../pcb_dimension_types.js';
+} from '../../pcb_dimension.js';
 import { PCB_DIM_ALIGNED, PCB_DIM_CENTER, PCB_DIM_RADIAL } from '../../pcb_dimension.js';
 import { PCB_SHAPE } from '../../pcb_shape.js';
 import { PCB_TEXT } from '../../pcb_text.js';

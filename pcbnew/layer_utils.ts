@@ -7,7 +7,7 @@
  * access there) or need `pcbnew` types.
  *
  * `AccumulateNames` already had a private copy inside
- * `footprint_needs_update.ts` (the library-parity DRC's own doc-comment even
+ * the library-parity DRC's compare code (its own doc-comment even
  * cites this file as its source); that copy is now gone in favour of this
  * one, per the central-value rule.
  */

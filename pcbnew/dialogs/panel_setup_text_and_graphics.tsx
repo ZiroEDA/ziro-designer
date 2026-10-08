@@ -48,7 +48,7 @@ import {
   DIM_TEXT_POSITION,
   DIM_UNITS_FORMAT,
   DIM_UNITS_MODE,
-} from '../pcb_dimension_types.js';
+} from '../pcb_dimension.js';
 
 export interface TextGfxRow {
   lineThickness: number;

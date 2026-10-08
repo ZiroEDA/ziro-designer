@@ -45,6 +45,23 @@ export class DRC_TEST_PROVIDER_REGISTRY {
   GetTestProviders(): DRC_TEST_PROVIDER[] {
     return [...this.m_providers];
   }
+
+  /**
+   * Put the registered providers into the order the installed build's static
+   * initialisers run in (see `browser/drc_test_providers.ts`). A C++
+   * `DRC_REGISTER_TEST_PROVIDER<T>` runs at load whatever else the program
+   * does; ours runs when its module is first imported, and a frame that
+   * imports a provider for one of its functions (FOOTPRINT::FootprintNeedsUpdate
+   * lives in the library-parity provider, as upstream) would otherwise register
+   * it out of turn. A name not in the list keeps its place after the listed ones.
+   */
+  SetInitialisationOrder(aNames: readonly string[]): void {
+    const rank = (p: DRC_TEST_PROVIDER): number => {
+      const i = aNames.indexOf(p.GetName());
+      return i < 0 ? aNames.length : i;
+    };
+    this.m_providers = [...this.m_providers].sort((a, b) => rank(a) - rank(b));
+  }
 }
 
 /** `DRC_REGISTER_TEST_PROVIDER<T>`: `new T` into the registry. */

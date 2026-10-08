@@ -120,7 +120,7 @@ import { NETINFO_ITEM } from '../../netinfo_item.js';
 import { NETINFO_LIST } from '../../netinfo_list.js';
 import { PAD } from '../../pad.js';
 import { PAD_ATTRIB, PAD_SHAPE, PADSTACK, PADSTACK_MODE } from '../../padstack.js';
-import { DIM_PRECISION } from '../../pcb_dimension_types.js';
+import { DIM_PRECISION } from '../../pcb_dimension.js';
 import { PCB_DIM_ALIGNED, PCB_DIM_LEADER, PCB_DIM_RADIAL } from '../../pcb_dimension.js';
 import type { PCB_FIELD } from '../../pcb_field.js';
 import { PCB_SHAPE } from '../../pcb_shape.js';

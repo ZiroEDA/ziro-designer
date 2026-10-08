@@ -47,7 +47,7 @@ import {
   PCB_DIM_ORTHOGONAL,
   type PCB_DIM_RADIAL,
 } from '@ziroeda/pcbnew/pcb_dimension.js';
-import { DIM_ARROW_DIRECTION, DIM_UNITS_FORMAT } from '@ziroeda/pcbnew/pcb_dimension_types.js';
+import { DIM_ARROW_DIRECTION, DIM_UNITS_FORMAT } from '@ziroeda/pcbnew/pcb_dimension.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { sub } from '@ziroeda/kimath/src/math/vector2.js';
 import { PCB_TRACK, type PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';

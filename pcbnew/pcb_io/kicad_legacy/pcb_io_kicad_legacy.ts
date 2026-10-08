@@ -75,7 +75,7 @@ import { NETINFO_ITEM } from '../../netinfo_item.js';
 import { NETINFO_LIST } from '../../netinfo_list.js';
 import { PAD } from '../../pad.js';
 import { PAD_ATTRIB, PAD_DRILL_SHAPE, PAD_SHAPE, PADSTACK } from '../../padstack.js';
-import { DIM_UNITS_FORMAT } from '../../pcb_dimension_types.js';
+import { DIM_UNITS_FORMAT } from '../../pcb_dimension.js';
 import { PCB_DIM_ALIGNED } from '../../pcb_dimension.js';
 import { PCB_FIELD } from '../../pcb_field.js';
 import { PCB_PLOT_PARAMS, PCB_PLOT_PARAMS_PARSER } from '../../pcb_plot_params.js';

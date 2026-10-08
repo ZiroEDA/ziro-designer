@@ -94,7 +94,7 @@ import type { FOOTPRINT } from './footprint.js';
 import type { PCB_FIELD } from './pcb_field.js';
 import { PCB_TEXT } from './pcb_text.js';
 import { PCB_DIMENSION_BASE } from './pcb_dimension.js';
-import { FootprintNeedsUpdate } from './footprint_needs_update.js';
+import { FootprintNeedsUpdate } from './drc/drc_test_provider_library_parity.js';
 import { DIALOG_EXCHANGE_FOOTPRINTS } from './dialogs/dialog_exchange_footprints.js';
 import { EMBEDDED_FILE, FILE_TYPE } from '@ziroeda/common/embedded_files.js';
 import { UNCONNECTED_NET } from './netinfo_list.js';

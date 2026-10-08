@@ -117,7 +117,7 @@ import {
   PCB_DIM_LEADER,
   PCB_DIM_ORTHOGONAL,
 } from '../../pcb_dimension.js';
-import { DIM_PRECISION, DIM_UNITS_FORMAT, DIM_UNITS_MODE } from '../../pcb_dimension_types.js';
+import { DIM_PRECISION, DIM_UNITS_FORMAT, DIM_UNITS_MODE } from '../../pcb_dimension.js';
 import { PCB_FIELD } from '../../pcb_field.js';
 import { PCB_GROUP } from '../../pcb_group.js';
 import { PCB_SHAPE } from '../../pcb_shape.js';

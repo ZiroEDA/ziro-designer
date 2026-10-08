@@ -31,7 +31,7 @@ import {
   DIM_TEXT_POSITION,
   DIM_UNITS_FORMAT,
   DIM_UNITS_MODE,
-} from '@ziroeda/pcbnew/pcb_dimension_types.js';
+} from '@ziroeda/pcbnew/pcb_dimension.js';
 
 const deg = (d: number) => new EDA_ANGLE(d, EDA_ANGLE_T.DEGREES_T);
 

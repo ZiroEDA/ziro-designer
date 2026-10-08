@@ -114,7 +114,7 @@ import {
   PCB_DIM_RADIAL,
   type PCB_DIMENSION_BASE,
 } from '../pcb_dimension.js';
-import { DIM_ARROW_DIRECTION } from '../pcb_dimension_types.js';
+import { DIM_ARROW_DIRECTION } from '../pcb_dimension.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { PCB_POINT } from '../pcb_point.js';
 import { PCB_TEXTBOX } from '../pcb_textbox.js';

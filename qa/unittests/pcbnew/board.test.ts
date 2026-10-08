@@ -22,7 +22,7 @@ import { BOARD } from '@ziroeda/pcbnew/board.js';
 import type { HISTORY_FILE_DATA } from '@ziroeda/common/local_history.js';
 import { GetDefaultVariantName } from '@ziroeda/common/string_utils.js';
 import { PCB_DIM_ALIGNED } from '@ziroeda/pcbnew/pcb_dimension.js';
-import { DIM_UNITS_MODE } from '@ziroeda/pcbnew/pcb_dimension_types.js';
+import { DIM_UNITS_MODE } from '@ziroeda/pcbnew/pcb_dimension.js';
 import { NETCLASS } from '@ziroeda/common/netclass.js';
 import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
 import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';

@@ -17,7 +17,7 @@ import {
   DIM_TEXT_POSITION,
   DIM_UNITS_FORMAT,
   DIM_UNITS_MODE,
-} from '@ziroeda/pcbnew/pcb_dimension_types.js';
+} from '@ziroeda/pcbnew/pcb_dimension.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { SHAPE_SEGMENT } from '@ziroeda/kimath/src/geometry/shape_segment.js';
 

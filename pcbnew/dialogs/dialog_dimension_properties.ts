@@ -44,7 +44,7 @@ import {
   type DIM_TEXT_POSITION,
   type DIM_UNITS_FORMAT,
   type DIM_UNITS_MODE,
-} from '../pcb_dimension_types.js';
+} from '../pcb_dimension.js';
 import type { TransferResult } from './dialog_text_properties.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 

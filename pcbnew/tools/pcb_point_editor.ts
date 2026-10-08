@@ -112,7 +112,7 @@ import {
   PCB_DIM_ORTHOGONAL,
   type PCB_DIM_RADIAL,
 } from '../pcb_dimension.js';
-import { DIM_TEXT_POSITION } from '../pcb_dimension_types.js';
+import { DIM_TEXT_POSITION } from '../pcb_dimension.js';
 import type { PCB_GENERATOR } from '../pcb_generator.js';
 import type { PCB_GROUP } from '../pcb_group.js';
 import type { PCB_REFERENCE_IMAGE } from '../pcb_reference_image.js';
