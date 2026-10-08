@@ -132,43 +132,36 @@ import {
   type Transform,
 } from '@ziroeda/common';
 import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
+// Straight from the declaring modules, not ./index.js: the barrel pulls in the tools and frames.
+import { buildWireWithHopShape } from './tools/hop_over.js';
+import { intersheetRefsAutoplaced, intersheetRefsField } from './tools/intersheet_refs.js';
+import { refId, fieldId, sheetPinId, collectPinSegments } from './tools/hittest.js';
+import { symbolBodyBBox, type BBox } from './tools/bbox.js';
 import {
-  buildWireWithHopShape,
-  intersheetRefsAutoplaced,
-  intersheetRefsField,
-  refId,
-  symbolBodyBBox,
   danglingPinPositions,
   symbolPinWorld,
   danglingWireEnds,
   danglingLabelAnchors,
-  busTouchTest,
-  labelDrawsAsBus,
   type DanglingWireEnd,
-  fieldShownText,
-  fieldBoundingBox,
-  fieldDrawRotation,
-  fieldId,
-  sheetPinId,
-  collectPinSegments,
-  getPageSettings,
-  ITALIC_TILT,
-  type BBox,
-  type Schematic,
-  type SchLabel,
-  type SchLine,
-  type SheetPin,
-  type Stroke,
-  type LibGraphic,
-  type LibSymbol,
-  type LibSymbolUnit,
-  type LibPin,
-  directiveGraphic,
-  directiveBox,
-  imageSizeIU,
-  imagePPI,
-  iuPerPixel,
-} from './index.js';
+} from './connectivity/dangling.js';
+import { busTouchTest, labelDrawsAsBus } from './connectivity/bus.js';
+import { fieldShownText, fieldBoundingBox, fieldDrawRotation } from './fieldbox.js';
+import { getPageSettings } from './tools/page_settings.js';
+import { ITALIC_TILT } from '@ziroeda/common/font/font_metrics.js';
+import type {
+  Schematic,
+  SchLabel,
+  SchLine,
+  SheetPin,
+  Stroke,
+  LibGraphic,
+  LibSymbol,
+  LibSymbolUnit,
+  LibPin,
+} from './types.js';
+import { directiveGraphic, directiveBox } from './tools/directive_label.js';
+import { imageSizeIU, imagePPI, iuPerPixel } from './tools/image_size.js';
+import { schSymbolLibraryName } from './lib_symbol.js';
 import {
   DEFAULT_RENDER_OPTS,
   type RenderOpts,
@@ -202,7 +195,6 @@ import { drawOutlineText } from '@ziroeda/common/font/draw_outline_text.js';
 import { globalLabelShape, isEmpty, textPenWidth } from './tools/bbox.js';
 import { contentBBox } from './tools/scene_bbox.js';
 import { tableCellId } from './tools/table_cells.js';
-import { schSymbolLibraryName } from './index.js';
 import { imageDataUrl } from './import_gfx/image_format.js';
 import { libPreviewFields } from './autoplace_fields.js';
 import { drawField } from './symbol_editor/symbol_renderer.js';

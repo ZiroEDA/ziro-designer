@@ -27,7 +27,11 @@
  * the footprint 1 (eeschema/lib_symbol.cpp:160-183) — so carrying `keywords`
  * and letting the tree build the terms is the same data without the duplication.
  */
-import { readSymbolLib, type LibSymbol } from './index.js';
+// Straight from the declaring modules, not ./index.js: the barrel pulls in the tools and the
+// frames, and through project_sch -> symbol_library_adapter this file is reached while
+// SCH_BASE_FRAME is still being defined.
+import { readSymbolLib } from './sch_io/sexpr/read-schematic.js';
+import type { LibSymbol } from './types.js';
 import { parse, type PruneOptions } from '@ziroeda/sexpr';
 import { symbolChooserFields } from './lib_symbol.js';
 
