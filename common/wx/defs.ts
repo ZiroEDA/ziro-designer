@@ -19,6 +19,10 @@ export const wxICON_WARNING = wxICON_EXCLAMATION;
 /** `wxCENTER` (wx/defs.h). */
 export const wxCENTER = 0x0001;
 
+/** `wxFD_OPEN` (wx/filedlg.h). */
+export const wxFD_OPEN = 0x0001;
+/** `wxFD_FILE_MUST_EXIST` (wx/filedlg.h). */
+export const wxFD_FILE_MUST_EXIST = 0x0010;
 /** `wxFD_SAVE` (wx/filedlg.h). */
 export const wxFD_SAVE = 0x0002;
 /** `wxFD_OVERWRITE_PROMPT` (wx/filedlg.h). */

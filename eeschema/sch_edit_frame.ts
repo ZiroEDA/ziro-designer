@@ -1667,6 +1667,12 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
       case MAIL_T.MAIL_ASSIGN_FOOTPRINTS:
         try {
+          const controlTool = this.m_toolManager?.FindTool(
+            'eeschema.EditorControl',
+          ) as SCH_EDITOR_CONTROL | null;
+          controlTool?.AssignFootprints(payload);
+
+          // The record window applies it to its own copy until it switches to the live model.
           this.hooks.assignFootprints(payload);
         } catch {
           // IO_ERROR: an unreadable payload assigns nothing.

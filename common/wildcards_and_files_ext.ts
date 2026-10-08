@@ -95,6 +95,10 @@ export const drillFileWildcard = (): ChooserFilter =>
 export const kicadSchematicWildcard = (): ChooserFilter =>
   fileFilter('KiCad s-expression schematic files', ['kicad_sch']);
 
+/** `FILEEXT::FootprintAssignmentFileWildcard` (wildcards_and_files_ext.cpp:398-402). */
+export const footprintAssignmentWildcard = (): ChooserFilter =>
+  fileFilter('KiCad symbol footprint link files', ['cmp']);
+
 /** `FILEEXT::PcbFileWildcard` (:356-360). */
 export const kicadPcbWildcard = (): ChooserFilter =>
   fileFilter('KiCad printed circuit board files', ['kicad_pcb']);

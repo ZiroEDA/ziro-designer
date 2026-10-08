@@ -33,6 +33,8 @@ import { SYMBOL_FILTER } from '../sch_sheet_path.js';
 import { LINE_MODE, SCH_ACTIONS } from './sch_actions.js';
 import { SCH_SELECTION_TOOL } from './sch_selection_tool.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
+import { applyMixins } from '@ziroeda/core/mixins.js';
+import { SCH_ASSIGN_FOOTPRINTS_MIXIN } from './assign_footprints.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
@@ -151,6 +153,10 @@ async function highlightNet(aToolMgr: TOOL_MANAGER, aPosition: VECTOR2D): Promis
   return retVal;
 }
 
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_ASSIGN_FOOTPRINTS_MIXIN, see libs/core/mixins.ts)
+export interface SCH_EDITOR_CONTROL extends SCH_ASSIGN_FOOTPRINTS_MIXIN {}
+
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_ASSIGN_FOOTPRINTS_MIXIN, see libs/core/mixins.ts)
 export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   private m_probingPcbToSch = false; // Recursion guard for PCB to schematic cross-probing
   private m_highlightBusMembers = false;
@@ -1170,6 +1176,8 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     this.Go(this.AssignNetclass, SCH_ACTIONS.assignNetclass.MakeEvent());
     this.Go(SYNC_HANDLER(this.FindNetInInspector), SCH_ACTIONS.findNetInInspector.MakeEvent());
 
+    this.Go(this.ImportFPAssignments, SCH_ACTIONS.importFPAssignments.MakeEvent());
+
     // Not ported yet, in KiCad's order: RescueSymbols, ExportSymbolsToLibrary,
     // the clipboard, EditWithSymbolEditor, ShowCvpcb, ImportFPAssignments,
     // ImportNonKicadSchematic, ShowPcbNew, DrawSheetOnClipboard, the linked design blocks and
@@ -1234,3 +1242,7 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     this.Go(SYNC_HANDLER(this.ToggleAnnotateAuto), SCH_ACTIONS.toggleAnnotateAuto.MakeEvent());
   }
 }
+
+// assign_footprints.cpp's methods: AssignFootprints, processCmpToFootprintLinkFile,
+// ImportFPAssignments.
+applyMixins(SCH_EDITOR_CONTROL, [SCH_ASSIGN_FOOTPRINTS_MIXIN]);
