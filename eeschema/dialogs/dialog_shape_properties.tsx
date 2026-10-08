@@ -32,6 +32,12 @@ import {
   unitLabel,
 } from '@ziroeda/common/widgets/unit_binder.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
+import { LINE_STYLE, lineTypeNames } from '@ziroeda/common/stroke_params.js';
+import { SCH_COMMIT } from '../sch_commit.js';
+import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
+import type { SCH_SHAPE } from '../sch_shape.js';
+import { lineStyleOfToken, lineStyleToken } from './dialog_wire_bus_properties.js';
 
 /**
  * UI_FILL_MODE (include/eda_shape.h) in its declared order, which is the
@@ -232,4 +238,77 @@ export function DialogShapeProperties({
       </div>
     </div>
   );
+}
+
+/**
+ * `DIALOG_SHAPE_PROPERTIES` (eeschema/dialogs/dialog_shape_properties.cpp), the schematic
+ * editor's model half: the border and fill of a live shape (TransferDataToWindow) and the
+ * SCH_COMMIT its OK makes (TransferDataFromWindow). The window draws it with DialogShapeProperties.
+ *
+ * Not here: the symbol editor's fill radio buttons and unit/body-style checkboxes (that frame has
+ * its own dialog path), and the rule area's four exclude/DNP checkboxes, which the form lacks.
+ */
+export interface SHAPE_DIALOG_VALUES {
+  border: boolean;
+  borderWidth: number;
+  /** The combo's token: `default` is DEFAULT_LINE_STYLE_LABEL's row. */
+  borderStyle: string;
+  borderColor: Color4d;
+  /** `FILL_MODE_TOKENS[ GetFillModeProp() ]`. */
+  fillType: string;
+  fillColor: Color4d;
+}
+
+export class DIALOG_SHAPE_PROPERTIES {
+  private readonly m_frame: SCH_EDIT_FRAME;
+  private readonly m_shape: SCH_SHAPE;
+
+  constructor(aParent: SCH_EDIT_FRAME, aShape: SCH_SHAPE) {
+    this.m_frame = aParent;
+    this.m_shape = aShape;
+  }
+
+  /** `TransferDataToWindow()`, the schematic branch. */
+  TransferDataToWindow(): SHAPE_DIALOG_VALUES {
+    const stroke = this.m_shape.GetStroke();
+
+    return {
+      border: this.m_shape.GetWidth() >= 0,
+      borderWidth: Math.max(0, this.m_shape.GetWidth()),
+      borderStyle: lineStyleToken(stroke.GetLineStyle()),
+      borderColor: stroke.GetColor(),
+      fillType: FILL_MODE_TOKENS[this.m_shape.GetFillModeProp()] ?? 'none',
+      fillColor: this.m_shape.GetFillColor(),
+    };
+  }
+
+  /** `TransferDataFromWindow()`, the schematic branch. */
+  TransferDataFromWindow(aValues: SHAPE_DIALOG_VALUES): boolean {
+    const commit = new SCH_COMMIT(this.m_frame);
+
+    if (!this.m_shape.IsNew()) commit.Modify(this.m_shape, this.m_frame.GetScreen());
+
+    const stroke = this.m_shape.GetStroke();
+
+    if (aValues.border) stroke.SetWidth(Math.max(0, aValues.borderWidth));
+    else stroke.SetWidth(-1);
+
+    // `std::advance( lineTypeNames.begin(), selection )`, SOLID past the end - the "Default" row
+    // of the combo is DEFAULT_LINE_STYLE_LABEL, which is SOLID's own name.
+    const style = lineStyleOfToken(aValues.borderStyle);
+    stroke.SetLineStyle(lineTypeNames.has(style) ? style : LINE_STYLE.SOLID);
+    stroke.SetColor(aValues.borderColor);
+
+    this.m_shape.SetStroke(stroke);
+
+    const fillMode = FILL_MODE_TOKENS.indexOf(
+      aValues.fillType as (typeof FILL_MODE_TOKENS)[number],
+    );
+    this.m_shape.SetFillModeProp(Math.max(0, fillMode));
+    this.m_shape.SetFillColor(aValues.fillColor);
+
+    if (!commit.Empty()) commit.Push(`Edit ${this.m_shape.GetFriendlyName()}`);
+
+    return true;
+  }
 }

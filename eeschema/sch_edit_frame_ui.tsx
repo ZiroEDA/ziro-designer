@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import type { SCH_SHAPE } from './sch_shape.js';
 import {
   DIALOG_WIRE_BUS_PROPERTIES,
   type WIRE_BUS_DIALOG_VALUES,
@@ -428,7 +429,11 @@ import {
   type PasteSpecialMode,
 } from '@ziroeda/common/dialogs/dialog_paste_special.js';
 import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
-import { DialogShapeProperties, type ShapePropsResult } from './dialogs/dialog_shape_properties.js';
+import {
+  DIALOG_SHAPE_PROPERTIES,
+  DialogShapeProperties,
+  type SHAPE_DIALOG_VALUES,
+} from './dialogs/dialog_shape_properties.js';
 import { DialogImageProperties, type ImagePropsResult } from './dialogs/dialog_image_properties.js';
 import { DialogFieldProperties, type FieldPropsResult } from './dialogs/dialog_field_properties.js';
 import {
@@ -1355,9 +1360,13 @@ export function SchematicEditor({
   const [sheetEdit, setSheetEdit] = useState<{ index: number } | null>(null);
   // Shape Properties (DIALOG_SHAPE_PROPERTIES). A graphic polyline lives in
   // `lines`, every other shape in `graphics`, so the target says which.
-  const [shapeEdit, setShapeEdit] = useState<{ kind: 'graphic' | 'line'; index: number } | null>(
-    null,
-  );
+  /** DIALOG_SHAPE_PROPERTIES while it is up for the live tools. */
+  const [shapeDialog, setShapeDialog] = useState<{
+    dlg: DIALOG_SHAPE_PROPERTIES;
+    name: string;
+    shown: SHAPE_DIALOG_VALUES;
+    resolve: (aId: number) => void;
+  } | null>(null);
   // Image Properties (DIALOG_IMAGE_PROPERTIES over PANEL_IMAGE_EDITOR).
   const [imageEdit, setImageEdit] = useState<{ index: number } | null>(null);
   // Field Properties (DIALOG_FIELD_PROPERTIES): which symbol, which field.
@@ -1795,6 +1804,18 @@ export function SchematicEditor({
               dlg,
               shown: dlg.TransferDataToWindow(),
               firstWidth: stroked ? stroked.GetStroke().GetWidth() : 0,
+              resolve,
+            }),
+          );
+        }
+        if (aDialog === 'DIALOG_SHAPE_PROPERTIES') {
+          const shape = _aItems[0] as SCH_SHAPE;
+          const dlg = new DIALOG_SHAPE_PROPERTIES(schFrameRef.current!, shape);
+          return new Promise<number>((resolve) =>
+            setShapeDialog({
+              dlg,
+              name: shape.GetFriendlyName(),
+              shown: dlg.TransferDataToWindow(),
               resolve,
             }),
           );
@@ -4764,16 +4785,6 @@ export function SchematicEditor({
         else if (d.images.some((im, i) => refId('image', im.uuid, i) === id)) {
           const ii = d.images.findIndex((im, i) => refId('image', im.uuid, i) === id);
           setImageEdit({ index: ii });
-        } else if (d.graphics.some((_, i) => refId('graphic', undefined, i) === id)) {
-          const gi = d.graphics.findIndex((_, i) => refId('graphic', undefined, i) === id);
-          // Free text has no border or fill to edit; it is a text item.
-          if (d.graphics[gi]!.kind !== 'text') setShapeEdit({ kind: 'graphic', index: gi });
-        } else if (d.lines.some((l, i) => refId('line', l.uuid, i) === id)) {
-          const li = d.lines.findIndex((l, i) => refId('line', l.uuid, i) === id);
-          const l = d.lines[li]!;
-          // A wire or bus is a connection and gets DIALOG_WIRE_BUS_PROPERTIES;
-          // a graphic polyline is a shape and gets DIALOG_SHAPE_PROPERTIES.
-          if (l.kind === 'polyline') setShapeEdit({ kind: 'line', index: li });
         } else if (
           (d.directiveLabels ?? []).some((dl, i) => refId('directive', dl.uuid, i) === id)
         ) {
@@ -6684,50 +6695,6 @@ export function SchematicEditor({
     [doc, runCommand, currentPath, liveDocs],
   );
 
-  /** The shape being edited, whichever array it lives in. */
-  const shapeEditItem = useCallback(
-    (se: { kind: 'graphic' | 'line'; index: number }) =>
-      se.kind === 'line' ? doc?.lines[se.index] : doc?.graphics[se.index],
-    [doc],
-  );
-
-  /** KiCad titles the dialog after the shape ("Rectangle Properties"). */
-  /**
-   * The dialog's title is `_( "%s Properties" )` formatted with
-   * `aShape->GetFriendlyName()` (dialog_shape_properties.cpp:44). That is
-   * `EDA_ITEM::GetFriendlyName` → `GetTypeDesc()`, and every schematic shape is
-   * one type: `.Map( SCH_SHAPE_T, _HKI( "Graphic" ) )` (eda_item.cpp:480).
-   *
-   * So it is "Graphic Properties" for a rectangle, a circle and an arc alike —
-   * not "Rectangle Properties". This built the word from our own shape token.
-   */
-  const shapeEditName = useCallback(
-    (_se: { kind: 'graphic' | 'line'; index: number }): string => 'Graphic',
-    [],
-  );
-
-  /** The shape's border and fill as the dialog wants them. A stored width below
-   *  zero is KiCad's "no border", which is what the Border checkbox reads. */
-  const shapePropsOf = useCallback(
-    (se: { kind: 'graphic' | 'line'; index: number }): ShapePropsResult => {
-      const item = shapeEditItem(se);
-      // Text is the one graphic with neither, and never opens this dialog.
-      const styled = item && 'stroke' in item ? item : undefined;
-      const stroke = styled?.stroke;
-      const fill = styled && 'fill' in styled ? styled.fill : undefined;
-      const width = stroke?.width ?? 0;
-      return {
-        border: width >= 0,
-        borderWidthIU: Math.max(0, width),
-        borderStyle: stroke?.type ?? 'default',
-        ...(stroke?.color ? { borderColor: stroke.color } : {}),
-        fillType: fill?.type ?? 'none',
-        ...(fill?.color ? { fillColor: fill.color } : {}),
-      };
-    },
-    [shapeEditItem],
-  );
-
   const commitSheetPinEdit = useCallback(
     (r: SheetPinPropsResult) => {
       setSheetPinEdit((sp) => {
@@ -6833,40 +6800,6 @@ export function SchematicEditor({
               ...(r.data !== undefined ? { data: r.data } : {}),
             }),
           );
-        return null;
-      });
-    },
-    [doc, runCommand],
-  );
-
-  /**
-   * Apply DIALOG_SHAPE_PROPERTIES. Unchecking Border stores a width of -1,
-   * KiCad's "no border at all", which is a different thing from 0 meaning "use
-   * the schematic's default line width".
-   */
-  const commitShapeEdit = useCallback(
-    (r: ShapePropsResult) => {
-      setShapeEdit((se) => {
-        if (!se || !doc) return null;
-        const stroke: { width: number; type: string; color?: ItemColor } = {
-          width: r.borderWidthIU,
-          type: r.borderStyle,
-          ...(r.borderColor ? { color: r.borderColor } : {}),
-        };
-        const fill =
-          r.fillType === 'none'
-            ? { type: 'none' }
-            : { type: r.fillType, ...(r.fillColor ? { color: r.fillColor } : {}) };
-
-        if (se.kind === 'line') {
-          const orig = doc.lines[se.index];
-          if (orig) runCommand(replaceLine(se.index, { ...orig, stroke }));
-        } else {
-          const orig = doc.graphics[se.index];
-          // Text carries neither, and never reaches this dialog.
-          if (orig && orig.kind !== 'text')
-            runCommand(replaceGraphic(se.index, { ...orig, stroke, fill }));
-        }
         return null;
       });
     },
@@ -9595,13 +9528,39 @@ export function SchematicEditor({
         />
       )}
 
-      {shapeEdit && (
+      {/* DIALOG_SHAPE_PROPERTIES on a live shape. */}
+      {shapeDialog && (
         <DialogShapeProperties
-          shapeName={shapeEditName(shapeEdit)}
+          shapeName={shapeDialog.name}
           units={units}
-          initial={shapePropsOf(shapeEdit)}
-          onOk={commitShapeEdit}
-          onCancel={() => setShapeEdit(null)}
+          initial={{
+            border: shapeDialog.shown.border,
+            borderWidthIU: shapeDialog.shown.borderWidth,
+            borderStyle: shapeDialog.shown.borderStyle,
+            ...(color4dToItemColor(shapeDialog.shown.borderColor)
+              ? { borderColor: color4dToItemColor(shapeDialog.shown.borderColor) }
+              : {}),
+            fillType: shapeDialog.shown.fillType,
+            ...(color4dToItemColor(shapeDialog.shown.fillColor)
+              ? { fillColor: color4dToItemColor(shapeDialog.shown.fillColor) }
+              : {}),
+          }}
+          onOk={(r) => {
+            setShapeDialog(null);
+            shapeDialog.dlg.TransferDataFromWindow({
+              border: r.border,
+              borderWidth: r.borderWidthIU,
+              borderStyle: r.borderStyle,
+              borderColor: itemColorToColor4d(r.borderColor),
+              fillType: r.fillType,
+              fillColor: itemColorToColor4d(r.fillColor),
+            });
+            shapeDialog.resolve(wxID_OK);
+          }}
+          onCancel={() => {
+            setShapeDialog(null);
+            shapeDialog.resolve(wxID_CANCEL);
+          }}
         />
       )}
 
