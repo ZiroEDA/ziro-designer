@@ -6,9 +6,8 @@
  * in memory, and `SaveSymbol`, the symbol formatter the schematic writer's `lib_symbols`
  * section uses too (eeschema stage E3).
  *
- * The library is read from and written to text: there is no disk here, so the folder
- * form of a library (one file per symbol), the modification time and the file checks are
- * not ported.
+ * The library file (or folder of files) is read and written on the mounted file system
+ * (common/wx/filefn.ts).
  */
 
 import { schIUScale } from '@ziroeda/common/eda_units.js';
@@ -21,6 +20,17 @@ import { ESCAPE_CONTEXT, EscapeString, formatG } from '@ziroeda/common/string_ut
 import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import { GENERATOR as GENERATOR_DEFAULT } from '@ziroeda/common/generator.js';
 import { PRETTIFIED_STRING_FORMATTER } from '@ziroeda/common/richio.js';
+import { KiCadSymbolLibFileExtension } from '@ziroeda/common/wildcards_and_files_ext.js';
+import {
+  wxDirEnumerate,
+  wxDirExists,
+  wxFileExists,
+  wxMkdir,
+  wxReadFileSync,
+  wxRemoveFile,
+  wxWriteFileSync,
+} from '@ziroeda/common/wx/filefn.js';
+import { SCH_IO_LIB_CACHE } from '../sch_io_lib_cache.js';
 import { FormatAngle, FormatInternalUnits } from '@ziroeda/common/eda_units.js';
 import { FIELD_T, GetCanonicalFieldName } from '@ziroeda/common/template_fieldnames.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
@@ -46,7 +56,7 @@ import {
   getPinElectricalTypeToken,
   getPinShapeToken,
 } from './sch_io_kicad_sexpr_common.js';
-import { type LIB_SYMBOL_MAP, SCH_IO_KICAD_SEXPR_PARSER } from './sch_io_kicad_sexpr_parser.js';
+import { SCH_IO_KICAD_SEXPR_PARSER } from './sch_io_kicad_sexpr_parser.js';
 
 const IU = (aValue: number): string => FormatInternalUnits(schIUScale, aValue);
 
@@ -56,26 +66,11 @@ const cpCmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 /**
  * A cache assistant for the KiCad s-expression symbol libraries.
  */
-export class SCH_IO_KICAD_SEXPR_LIB_CACHE {
-  protected m_libFileName: string;
-  protected m_symbols: LIB_SYMBOL_MAP;
-  protected m_isModified: boolean;
-  protected m_hasParseError: boolean;
-  protected m_fileFormatVersionAtLoad: number;
-  protected m_modHash: number;
+export class SCH_IO_KICAD_SEXPR_LIB_CACHE extends SCH_IO_LIB_CACHE {
+  protected m_fileFormatVersionAtLoad = 0;
 
-  constructor(aFullPathAndFileName: string) {
-    this.m_libFileName = aFullPathAndFileName;
-    this.m_symbols = new Map();
-    this.m_isModified = false;
-    this.m_hasParseError = false;
-    this.m_fileFormatVersionAtLoad = 0;
-    this.m_modHash = 1;
-  }
-
-  GetSymbolMap(): LIB_SYMBOL_MAP {
-    return this.m_symbols;
-  }
+  /// Files of a folder library whose symbols were all deleted, removed on the next Save().
+  private readonly m_pendingFileDeletes = new Set<string>();
 
   GetFileFormatVersionAtLoad(): number {
     return this.m_fileFormatVersionAtLoad;
@@ -85,96 +80,287 @@ export class SCH_IO_KICAD_SEXPR_LIB_CACHE {
     this.m_fileFormatVersionAtLoad = aVersion;
   }
 
-  HasParseError(): boolean {
-    return this.m_hasParseError;
+  /** Read one library file's text from the mounted file system: `FILE_LINE_READER`. */
+  private static readText(aPath: string): string {
+    const bytes = wxReadFileSync(aPath);
+
+    if (bytes === null) throw new IO_ERROR(`Unable to open file '${aPath}'`);
+
+    return new TextDecoder().decode(bytes);
   }
 
-  SetModified(aModified = true): void {
-    this.m_isModified = aModified;
-  }
+  Load(): void {
+    // Normalize the path: if it's a directory on the filesystem, ensure m_libFileName
+    // is marked as a directory so that IsDir() checks work correctly throughout the code.
+    // wxFileName::IsDir() only checks if the path string ends with a separator, not if
+    // the path is actually a directory on the filesystem.
+    if (!this.m_libFileName.IsDir() && wxDirExists(this.m_libFileName.GetFullPath()))
+      this.m_libFileName.AssignDir(this.m_libFileName.GetFullPath());
 
-  IncrementModifyHash(): void {
-    this.m_modHash++;
-  }
+    if (!this.isLibraryPathValid())
+      throw new IO_ERROR(`Library '${this.m_libFileName.GetFullPath()}' not found.`);
 
-  GetModifyHash(): number {
-    return this.m_modHash;
-  }
+    // wxCHECK_RET: "Cannot use relative file paths in sexpr plugin to open library '%s'."
+    if (!this.m_libFileName.IsAbsolute()) return;
 
-  /**
-   * `Load()`: parse the library text.  A parse warning (a symbol that failed and was
-   * skipped) is an error that marks the library unsaveable, as upstream.
-   */
-  Load(aText: string): void {
-    const parser = new SCH_IO_KICAD_SEXPR_PARSER(aText, this.m_libFileName);
+    if (!this.m_libFileName.IsDir()) {
+      const parser = new SCH_IO_KICAD_SEXPR_PARSER(
+        SCH_IO_KICAD_SEXPR_LIB_CACHE.readText(this.m_libFileName.GetFullPath()),
+        this.m_libFileName.GetFullPath(),
+      );
 
-    parser.ParseLib(this.m_symbols);
+      parser.ParseLib(this.m_symbols);
 
-    this.SetFileFormatVersionAtLoad(parser.GetParsedRequiredVersion());
+      this.SetFileFormatVersionAtLoad(parser.GetParsedRequiredVersion());
+      this.updateParentSymbolLinks();
+      this.IncrementModifyHash();
 
-    // Check if there were any parse errors.  If so, the library cannot be safely saved.
-    this.updateParentSymbolLinks();
-    this.IncrementModifyHash();
+      // Check if there were any parse warnings (symbols that failed to parse).
+      // If so, mark the library as having parse errors and throw to notify the user.
+      // The library has loaded all valid symbols, but saving would lose the bad ones.
+      const warnings = parser.GetParseWarnings();
 
-    const warnings = parser.GetParseWarnings();
+      if (warnings.length > 0) {
+        this.SetParseError(true);
 
-    if (warnings.length > 0) {
-      this.m_hasParseError = true;
+        let errorMsg = `Library '${this.m_libFileName.GetFullPath()}' loaded with errors:\n\n`;
 
-      let errorMsg = `Library '${this.m_libFileName}' loaded with errors:\n\n`;
+        for (const warning of warnings) errorMsg += `${warning}\n\n`;
 
-      for (const warning of warnings) errorMsg += `${warning}\n\n`;
+        errorMsg += 'The library cannot be saved until these errors are fixed manually.';
 
-      errorMsg += 'The library cannot be saved until these errors are fixed manually.';
+        throw new IO_ERROR(errorMsg);
+      }
+    } else {
+      // Clear source file tracking for fresh load
+      this.m_symbolSourceFiles.clear();
 
-      throw new IO_ERROR(errorMsg);
+      const dirPath = this.m_libFileName.GetPath();
+      const fileSpec = new RegExp(`\\.${KiCadSymbolLibFileExtension}$`, 'i');
+      const libFileNames = (wxDirEnumerate(dirPath) ?? [])
+        .filter((e) => !e.isDir && !e.name.startsWith('.') && fileSpec.test(e.name))
+        .map((e) => e.name);
+
+      if (libFileNames.length > 0) {
+        let errorCache = '';
+
+        for (const libFileName of libFileNames) {
+          const sourceFilePath = `${dirPath}/${libFileName}`;
+
+          // Track symbol pointers before parsing so we can detect which were replaced.
+          // When the parser encounters a duplicate name, it overwrites the existing
+          // symbol, so we need to update source tracking for those symbols too.
+          const existingPtrs = new Map(this.m_symbols);
+
+          try {
+            const parser = new SCH_IO_KICAD_SEXPR_PARSER(
+              SCH_IO_KICAD_SEXPR_LIB_CACHE.readText(sourceFilePath),
+              sourceFilePath,
+            );
+
+            parser.ParseLib(this.m_symbols);
+            this.SetFileFormatVersionAtLoad(parser.GetParsedRequiredVersion());
+
+            // Update source tracking for all symbols that came from this file.
+            // This includes both new symbols and symbols that were overwritten
+            // (when a duplicate name existed in a previously loaded file).
+            for (const [name, symbol] of this.m_symbols) {
+              const prev = existingPtrs.get(name);
+
+              // New symbol from this file, or this file overwrote the previous version:
+              // save to this file (the one whose version is actually in memory).
+              if (prev === undefined || prev !== symbol)
+                this.m_symbolSourceFiles.set(name, sourceFilePath);
+            }
+
+            // Collect any parse warnings from this file
+            for (const warning of parser.GetParseWarnings()) {
+              this.SetParseError(true);
+
+              if (errorCache !== '') errorCache += '\n\n';
+
+              errorCache += warning;
+            }
+          } catch (ioe) {
+            // Mark that we had a parse error - saving would lose symbols
+            this.SetParseError(true);
+
+            if (errorCache !== '') errorCache += '\n\n';
+
+            errorCache += `Unable to read file '${sourceFilePath}'\n`;
+            errorCache += ioe instanceof Error ? ioe.message : String(ioe);
+          }
+        }
+
+        if (errorCache !== '') {
+          errorCache += '\n\nThe library cannot be saved until these errors are fixed manually.';
+          throw new IO_ERROR(errorCache);
+        }
+      }
+
+      this.updateParentSymbolLinks();
+      this.IncrementModifyHash();
     }
+
+    // Remember the file modification time of library file when the cache snapshot was made,
+    // so that in a networked environment we will reload the cache as needed.
+    this.m_fileModTime = this.GetLibModificationTime();
   }
 
   /**
-   * `Save()`: the library as the text KiCad writes, symbols ordered by inheritance depth
-   * then name, or null when nothing changed.
+   * Write the library: one file, or one file per source file of a folder library.  The
+   * generator is ours (common/generator.ts), the one place the bytes deviate from upstream.
    */
-  Save(aGenerator: string = GENERATOR_DEFAULT): string | null {
-    if (!this.m_isModified) return null;
+  override Save(_aOpt?: boolean, aGenerator: string = GENERATOR_DEFAULT): void {
+    if (!this.m_isModified) return;
 
-    // Prevent saving if the library had parse errors during loading.
+    // If the library had a parse error during loading, we cannot safely save it.
+    // Only symbols before the parse error were loaded, so saving would permanently
+    // lose all symbols after the error point. See issue #22241.
     if (this.HasParseError()) {
       throw new IO_ERROR(
-        `Cannot save library '${this.m_libFileName}' because it had a parse error during loading.\n\nSaving would permanently lose symbols that could not be loaded.\nPlease fix the library file manually before saving.`,
+        `Cannot save library '${this.m_libFileName.GetFullPath()}' because it had a parse error during loading.\n\nSaving would permanently lose symbols that could not be loaded.\nPlease fix the library file manually before saving.`,
       );
     }
 
-    const out = { formatter: new PRETTIFIED_STRING_FORMATTER() };
-
-    SCH_IO_KICAD_SEXPR_LIB_CACHE.formatLibraryHeader(out.formatter, aGenerator);
-
-    const orderedSymbols: LIB_SYMBOL[] = [];
-
-    for (const name of [...this.m_symbols.keys()].sort(cpCmp)) {
-      const symbol = this.m_symbols.get(name);
-
-      if (symbol) orderedSymbols.push(symbol);
-    }
+    // Write through symlinks, don't replace them.
+    const fn = this.GetRealFile();
 
     // Library must be ordered by inheritance depth.
-    orderedSymbols.sort((aLhs, aRhs) => {
+    const sortByInheritance = (aLhs: LIB_SYMBOL, aRhs: LIB_SYMBOL): number => {
       const lhDepth = aLhs.GetInheritanceDepth();
       const rhDepth = aRhs.GetInheritanceDepth();
 
       if (lhDepth === rhDepth) return cpCmp(aLhs.GetName(), aRhs.GetName());
 
       return lhDepth - rhDepth;
-    });
+    };
 
-    for (const symbol of orderedSymbols)
-      SCH_IO_KICAD_SEXPR_LIB_CACHE.SaveSymbol(symbol, out.formatter);
+    const writeFile = (aPath: string, aSymbols: LIB_SYMBOL[]): void => {
+      const formatter = new PRETTIFIED_STRING_FORMATTER();
 
-    out.formatter.Print(')');
+      SCH_IO_KICAD_SEXPR_LIB_CACHE.formatLibraryHeader(formatter, aGenerator);
 
+      for (const symbol of aSymbols) SCH_IO_KICAD_SEXPR_LIB_CACHE.SaveSymbol(symbol, formatter);
+
+      formatter.Print(')');
+
+      // PRETTIFIED_FILE_OUTPUTFORMATTER's destructor: a file it cannot write is an IO_ERROR.
+      if (!wxWriteFileSync(aPath, new TextEncoder().encode(formatter.Finish())))
+        throw new IO_ERROR(`Cannot open file '${aPath}'.`);
+    };
+
+    if (!fn.IsDir()) {
+      const orderedSymbols = [...this.m_symbols.values()].filter((s) => !!s);
+
+      orderedSymbols.sort(sortByInheritance);
+      writeFile(fn.GetFullPath(), orderedSymbols);
+    } else {
+      if (!fn.DirExists()) {
+        if (!wxMkdir(fn.GetPath()))
+          throw new IO_ERROR(`Cannot create symbol library path '${fn.GetPath()}'.`);
+      }
+
+      // Group symbols by their source file to preserve multi-symbol files
+      const symbolsByFile = new Map<string, LIB_SYMBOL[]>();
+      const fileFor = (aPath: string) => {
+        let list = symbolsByFile.get(aPath);
+
+        if (!list) {
+          list = [];
+          symbolsByFile.set(aPath, list);
+        }
+
+        return list;
+      };
+
+      for (const [name, symbol] of this.m_symbols) {
+        const source = this.m_symbolSourceFiles.get(name);
+
+        // A symbol with a known source file goes with the others from that file; a new symbol
+        // without one gets its own file.
+        if (source !== undefined) fileFor(source).push(symbol);
+        else
+          fileFor(
+            `${fn.GetPath()}/${EscapeString(name, ESCAPE_CONTEXT.CTX_FILENAME)}.${KiCadSymbolLibFileExtension}`,
+          ).push(symbol);
+      }
+
+      // Write each file, its symbols sorted by inheritance depth
+      for (const [filePath, symbols] of [...symbolsByFile].sort(([a], [b]) => cpCmp(a, b))) {
+        // `oldFn.SetPath( m_libFileName.GetPath() )`: always into the library's own folder.
+        const oldFn = `${this.m_libFileName.GetPath()}/${filePath.slice(filePath.lastIndexOf('/') + 1)}`;
+
+        symbols.sort(sortByInheritance);
+        writeFile(oldFn, symbols);
+
+        // Update source file tracking for new symbols
+        for (const symbol of symbols) this.m_symbolSourceFiles.set(symbol.GetName(), filePath);
+      }
+
+      // Remove files for deleted symbols that are no longer needed
+      for (const deadFile of this.m_pendingFileDeletes) {
+        if (!symbolsByFile.has(deadFile) && wxFileExists(deadFile)) wxRemoveFile(deadFile);
+      }
+
+      this.m_pendingFileDeletes.clear();
+    }
+
+    this.m_fileModTime = this.GetLibModificationTime();
     this.m_isModified = false;
+  }
 
-    return out.formatter.Finish();
+  /** `DeleteSymbol( aSymbolName )`: the symbol, and a root symbol's derived symbols with it. */
+  DeleteSymbol(aSymbolName: string): void {
+    const symbol = this.m_symbols.get(aSymbolName);
+
+    if (!symbol)
+      throw new IO_ERROR(
+        `library ${this.m_libFileName.GetFullName()} does not contain a symbol named ${aSymbolName}`,
+      );
+
+    const recordSourceFileForDeletion = (aName: string) => {
+      const src = this.m_symbolSourceFiles.get(aName);
+
+      if (src !== undefined) {
+        this.m_pendingFileDeletes.add(src);
+        this.m_symbolSourceFiles.delete(aName);
+      }
+    };
+
+    if (symbol.IsRoot()) {
+      const rootSymbol = symbol;
+
+      recordSourceFileForDeletion(aSymbolName);
+
+      // Remove the root symbol and all its children.
+      this.m_symbols.delete(aSymbolName);
+
+      for (const [name, child] of [...this.m_symbols]) {
+        if (child.IsDerived() && child.GetLibParent() === rootSymbol) {
+          recordSourceFileForDeletion(name);
+          child.Destroy();
+          this.m_symbols.delete(name);
+        }
+      }
+
+      rootSymbol.Destroy();
+    } else {
+      recordSourceFileForDeletion(aSymbolName);
+      // Just remove the alias.
+      this.m_symbols.delete(aSymbolName);
+      symbol.Destroy();
+    }
+
+    this.IncrementModifyHash();
+    this.m_isModified = true;
+  }
+
+  /** `isLibraryPathValid()`: the library file, or folder, exists. */
+  isLibraryPathValid(): boolean {
+    if (!this.m_libFileName.IsDir()) return this.m_libFileName.FileExists();
+
+    return this.m_libFileName.DirExists();
   }
 
   /**
@@ -517,7 +703,7 @@ export class SCH_IO_KICAD_SEXPR_LIB_CACHE {
 
       if (!parent)
         throw new IO_ERROR(
-          `No parent for extended symbol ${name} found in library '${this.m_libFileName}'`,
+          `No parent for extended symbol ${name} found in library '${this.m_libFileName.GetFullPath()}'`,
         );
 
       symbol.SetLibParent(parent);

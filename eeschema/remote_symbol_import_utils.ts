@@ -26,13 +26,15 @@ import { Pgm } from '@ziroeda/common/pgm_base.js';
 import { REMOTE_PROVIDER_SETTINGS } from '@ziroeda/common/remote_provider_settings.js';
 import {
   MEMORY_FILESYSTEM,
+  wxCreateTempFileName,
   wxFindMount,
   wxNormalizePath,
+  wxRemoveFile,
   wxWriteFileSync,
 } from '@ziroeda/common/wx/filefn.js';
 import { currentEeschemaSettings } from './eeschema_settings.js';
 import { LIB_SYMBOL } from './lib_symbol.js';
-import { SCH_IO_KICAD_SEXPR_LIB_CACHE } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr_lib_cache.js';
+import { SCH_IO_KICAD_SEXPR } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
 
 /**
  * `LIBRARY_MANAGER` as the remote import asks it: the table of a type and
@@ -255,9 +257,8 @@ export async function PlaceRemoteDownloadedSymbol(
 }
 
 /**
- * `LoadRemoteSymbolFromPayload` (:251-314): the payload read as a KiCad
- * symbol library (upstream writes it to a temp file for the plugin; here the
- * library cache reads the text), and a copy of \a aLibItemName out of it.
+ * `LoadRemoteSymbolFromPayload` (:251-314): the payload written to a temp file, read back by
+ * the KiCad symbol plugin, and a copy of \a aLibItemName out of it.
  */
 export function LoadRemoteSymbolFromPayload(
   aPayload: Uint8Array,
@@ -269,12 +270,24 @@ export function LoadRemoteSymbolFromPayload(
     return null;
   }
 
+  const tempPath = wxCreateTempFileName('remote_symbol');
+
+  if (tempPath === '') {
+    aError.value = 'Unable to create a temporary file for the symbol payload.';
+    return null;
+  }
+
+  if (!wxWriteFileSync(tempPath, aPayload)) {
+    aError.value = 'Unable to create a temporary file for the symbol payload.';
+    wxRemoveFile(tempPath);
+    return null;
+  }
+
+  const plugin = new SCH_IO_KICAD_SEXPR(); // SCH_IO_MGR::FindPlugin( SCH_KICAD )
   let symbol: LIB_SYMBOL | null = null;
 
   try {
-    const cache = new SCH_IO_KICAD_SEXPR_LIB_CACHE('remote_symbol');
-    cache.Load(new TextDecoder().decode(aPayload));
-    const loaded = cache.GetSymbolMap().get(aLibItemName);
+    const loaded = plugin.LoadSymbol(tempPath, aLibItemName);
 
     if (loaded) symbol = LIB_SYMBOL.copyOf(loaded);
     else aError.value = 'Symbol payload did not include the expected symbol.';
@@ -282,6 +295,7 @@ export function LoadRemoteSymbolFromPayload(
     aError.value = `Unable to decode the symbol payload: ${e instanceof Error ? e.message : String(e)}`;
   }
 
+  wxRemoveFile(tempPath);
   return symbol;
 }
 

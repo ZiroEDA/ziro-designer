@@ -257,6 +257,9 @@ export const KiCadDesignBlockLibPathExtension = 'kicad_blocks';
 export const KiCadDesignBlockPathExtension = 'kicad_block';
 /** `FILEEXT::KiCadSchematicFileExtension`. [data] */
 export const KiCadSchematicFileExtension = 'kicad_sch';
+
+/** `FILEEXT::KiCadSymbolLibFileExtension`. [data] */
+export const KiCadSymbolLibFileExtension = 'kicad_sym';
 /** `FILEEXT::KiCadPcbFileExtension`. [data] */
 export const KiCadPcbFileExtension = 'kicad_pcb';
 /** `FILEEXT::JsonFileExtension`. [data] */

@@ -33,6 +33,8 @@ export interface wxWritableFileSystemMount extends wxFileSystemMount {
   List(aRelDir: string): { name: string; isDir: boolean }[] | null;
   /** `wxFileName::Mkdir( wxPATH_MKDIR_FULL )`: an (empty) directory. */
   Mkdir(aRelDir: string): boolean;
+  /** `wxFileModificationTime`: when the file was last written, or -1 when there is no file. */
+  ModificationTime?(aRelPath: string): number;
 }
 
 /** Whether a mount keeps bytes: read, written and listed through the helpers below. */
@@ -155,8 +157,15 @@ export function wxDirExists(aPath: string): boolean {
 }
 
 /** A writable tree held in memory: the temp directory, and anything else the app needs. */
+/**
+ * The clock a RAM disk stamps its writes with: one tick per write, so two writes in the same
+ * second still read as a change - KiCad only ever compares a stamp for equality.
+ */
+let s_writeClock = 0;
+
 export class MEMORY_FILESYSTEM implements wxWritableFileSystemMount {
   private readonly m_files = new Map<string, Uint8Array>();
+  private readonly m_mtimes = new Map<string, number>();
   /** Directories made with `Mkdir`, which exist even while empty. */
   private readonly m_dirs = new Set<string>();
 
@@ -211,6 +220,11 @@ export class MEMORY_FILESYSTEM implements wxWritableFileSystemMount {
 
   Write(aRelPath: string, aData: Uint8Array): void {
     this.m_files.set(aRelPath, aData);
+    this.m_mtimes.set(aRelPath, ++s_writeClock);
+  }
+
+  ModificationTime(aRelPath: string): number {
+    return this.m_mtimes.get(aRelPath) ?? -1;
   }
 
   Read(aRelPath: string): Uint8Array | null {
@@ -218,6 +232,7 @@ export class MEMORY_FILESYSTEM implements wxWritableFileSystemMount {
   }
 
   Remove(aRelPath: string): boolean {
+    this.m_mtimes.delete(aRelPath);
     return this.m_files.delete(aRelPath);
   }
 
@@ -237,6 +252,7 @@ export class MEMORY_FILESYSTEM implements wxWritableFileSystemMount {
     for (const k of [...this.m_files.keys()]) {
       if (k.startsWith(dir)) {
         this.m_files.delete(k);
+        this.m_mtimes.delete(k);
         removed = true;
       }
     }
@@ -266,8 +282,11 @@ export class MEMORY_FILESYSTEM implements wxWritableFileSystemMount {
 
     for (const [from, to] of moves) {
       const data = this.m_files.get(from)!;
+      const mtime = this.m_mtimes.get(from) ?? -1;
       this.m_files.delete(from);
+      this.m_mtimes.delete(from);
       this.m_files.set(to, data);
+      this.m_mtimes.set(to, mtime); // a rename keeps the file's time
     }
 
     const fromBare = aFrom.replace(/\/+$/, '');
@@ -381,4 +400,35 @@ export function wxCopyFile(aSrc: string, aDest: string): boolean {
   const data = wxReadFileSync(aSrc);
 
   return data !== null && wxWriteFileSync(aDest, data);
+}
+
+/** `wxFileModificationTime( path )`: the file's last write, or -1 when there is no such file. */
+export function wxFileModificationTime(aPath: string): number {
+  const hit = wxFindMount(wxNormalizePath(aPath));
+
+  if (!hit || !IsWritableMount(hit.mount) || !hit.mount.FileExists(hit.rel)) return -1;
+
+  return hit.mount.ModificationTime?.(hit.rel) ?? -1;
+}
+
+/** `wxFileName::IsFileWritable()`: the file exists on a mount that can be written. */
+export function wxIsFileWritable(aPath: string): boolean {
+  const hit = wxFindMount(wxNormalizePath(aPath));
+
+  return !!hit && IsWritableMount(hit.mount) && hit.mount.FileExists(hit.rel);
+}
+
+let s_tempFileCounter = 0;
+
+/**
+ * `wxFileName::CreateTempFileName( aPrefix )`: a new, empty file in the temp directory whose
+ * name starts with \a aPrefix, or "" when it cannot be made.
+ */
+export function wxCreateTempFileName(aPrefix: string): string {
+  let path: string;
+
+  do path = `${wxGetTempDir()}/${aPrefix}${(++s_tempFileCounter).toString(36).padStart(6, '0')}`;
+  while (wxFileExists(path));
+
+  return wxWriteFileSync(path, new Uint8Array()) ? path : '';
 }

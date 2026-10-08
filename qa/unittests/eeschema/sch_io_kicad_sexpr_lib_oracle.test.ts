@@ -11,6 +11,7 @@
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { wxReadFileSync, wxWriteFileSync } from '@ziroeda/common/wx/filefn.js';
 import { SCH_IO_KICAD_SEXPR_LIB_CACHE } from '@ziroeda/eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_lib_cache.js';
 
 const DATA = resolve(__dirname, '../../data');
@@ -30,12 +31,17 @@ const LIBS: readonly [string, string][] = [
 ];
 
 function upgrade(aText: string, aName: string): string {
-  const cache = new SCH_IO_KICAD_SEXPR_LIB_CACHE(`/${aName}.kicad_sym`);
+  const path = `/tmp/oracle/${aName}.kicad_sym`;
 
-  cache.Load(aText);
+  wxWriteFileSync(path, new TextEncoder().encode(aText));
+
+  const cache = new SCH_IO_KICAD_SEXPR_LIB_CACHE(path);
+
+  cache.Load();
   cache.SetModified();
+  cache.Save(undefined, 'kicad_symbol_editor');
 
-  return cache.Save('kicad_symbol_editor')!;
+  return new TextDecoder().decode(wxReadFileSync(path)!);
 }
 
 describe('SCH_IO_KICAD_SEXPR_LIB_CACHE against kicad-cli sym upgrade', () => {

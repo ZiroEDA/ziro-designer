@@ -30,7 +30,24 @@ import { type KIID, type KIID_PATH, niluuid } from '@ziroeda/common/kiid.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { type OUTPUTFORMATTER, PRETTIFIED_STRING_FORMATTER } from '@ziroeda/common/richio.js';
 import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
-import { EscapedUTF8, FormatDouble2Str, formatG } from '@ziroeda/common/string_utils.js';
+import {
+  ESCAPE_CONTEXT,
+  EscapeString,
+  EscapedUTF8,
+  FormatDouble2Str,
+  formatG,
+} from '@ziroeda/common/string_utils.js';
+import { IO_ERROR } from '@ziroeda/common/exceptions.js';
+import { KiCadSymbolLibFileExtension } from '@ziroeda/common/wildcards_and_files_ext.js';
+import {
+  wxDirEnumerate,
+  wxDirExists,
+  wxFileExists,
+  wxIsDirWritable,
+  wxIsFileWritable,
+  wxRemoveDirTree,
+  wxRemoveFile,
+} from '@ziroeda/common/wx/filefn.js';
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
 import { SKIP_STRUCT, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
@@ -154,6 +171,7 @@ export class SCH_IO_KICAD_SEXPR {
   protected m_schematic: SCHEMATIC | null = null;
   protected m_out: OUTPUTFORMATTER | null = null; ///< The formatter for saving SCH_SCREEN objects.
   protected m_readFile: SCH_FILE_READER = () => null;
+  protected m_cache: SCH_IO_KICAD_SEXPR_LIB_CACHE | null = null;
 
   /**
    * The `(generator …)` a schematic is written with.  Upstream writes its own program
@@ -1561,4 +1579,222 @@ export class SCH_IO_KICAD_SEXPR {
   static FormatLibSymbol(symbol: LIB_SYMBOL, formatter: OUTPUTFORMATTER): void {
     SCH_IO_KICAD_SEXPR_LIB_CACHE.SaveSymbol(symbol, formatter);
   }
+
+  /** `cacheLib( aLibraryFileName, aProperties )`: (re)read the library unless it is the one cached and unchanged. */
+  protected cacheLib(aLibraryFileName: string, aProperties: SCH_IO_PROPERTIES | null = null): void {
+    if (!this.m_cache || !this.m_cache.IsFile(aLibraryFileName) || this.m_cache.IsFileChanged()) {
+      let oldModifyHash = 1;
+      let isNewCache = false;
+
+      if (this.m_cache) oldModifyHash = this.m_cache.GetModifyHash();
+      else isNewCache = true;
+
+      // a spectacular episode in memory management:
+      this.m_cache = new SCH_IO_KICAD_SEXPR_LIB_CACHE(aLibraryFileName);
+
+      if (!this.isBuffering(aProperties) || (isNewCache && this.m_cache.isLibraryPathValid())) {
+        this.m_cache.Load();
+        this.m_cache.SetModifyHash(oldModifyHash + 1);
+      }
+    }
+  }
+
+  protected isBuffering(aProperties: SCH_IO_PROPERTIES | null): boolean {
+    return aProperties?.has(SCH_IO_KICAD_SEXPR.PropBuffering) === true;
+  }
+
+  GetModifyHash(): number {
+    if (this.m_cache) return this.m_cache.GetModifyHash();
+
+    // If the cache hasn't been loaded, it hasn't been modified.
+    return 0;
+  }
+
+  /** `EnumerateSymbolLib( wxArrayString& aSymbolNameList, … )`: the library's symbol names. */
+  EnumerateSymbolLib(
+    aSymbolNameList: string[],
+    aLibraryPath: string,
+    aProperties: SCH_IO_PROPERTIES | null = null,
+  ): void {
+    for (const [name] of this.enumerate(aLibraryPath, aProperties)) aSymbolNameList.push(name);
+  }
+
+  /**
+   * `EnumerateSymbolLib( std::vector<LIB_SYMBOL*>& aSymbolList, … )`, the overload TypeScript
+   * cannot tell from the one above: the library's symbols.
+   */
+  EnumerateSymbolLibSymbols(
+    aSymbolList: LIB_SYMBOL[],
+    aLibraryPath: string,
+    aProperties: SCH_IO_PROPERTIES | null = null,
+  ): void {
+    for (const [, symbol] of this.enumerate(aLibraryPath, aProperties)) aSymbolList.push(symbol);
+  }
+
+  private enumerate(
+    aLibraryPath: string,
+    aProperties: SCH_IO_PROPERTIES | null,
+  ): [string, LIB_SYMBOL][] {
+    const powerSymbolsOnly = aProperties?.has(PropPowerSymsOnly) === true;
+
+    this.cacheLib(aLibraryPath, aProperties);
+
+    if (!this.isBuffering(aProperties) && !this.m_cache!.isLibraryPathValid())
+      throw new IO_ERROR(`Library '${aLibraryPath}' not found.`);
+
+    return [...this.m_cache!.GetSymbolMap()].filter(
+      ([, symbol]) => !powerSymbolsOnly || symbol.IsPower(),
+    );
+  }
+
+  LoadSymbol(
+    aLibraryPath: string,
+    aSymbolName: string,
+    aProperties: SCH_IO_PROPERTIES | null = null,
+  ): LIB_SYMBOL | null {
+    this.cacheLib(aLibraryPath, aProperties);
+
+    const symbols = this.m_cache!.GetSymbolMap();
+    let it = symbols.get(aSymbolName);
+
+    // We no longer escape '/' in symbol names, but we used to.
+    if (it === undefined && aSymbolName.includes('/'))
+      it = symbols.get(EscapeString(aSymbolName, ESCAPE_CONTEXT.CTX_LEGACY_LIBID));
+
+    if (it === undefined && aSymbolName.includes('{slash}'))
+      it = symbols.get(aSymbolName.replaceAll('{slash}', '/'));
+
+    return it ?? null;
+  }
+
+  SaveSymbol(
+    aLibraryPath: string,
+    aSymbol: LIB_SYMBOL,
+    aProperties: SCH_IO_PROPERTIES | null = null,
+  ): void {
+    this.cacheLib(aLibraryPath, aProperties);
+
+    this.m_cache!.AddSymbol(aSymbol);
+
+    if (!this.isBuffering(aProperties)) this.m_cache!.Save();
+  }
+
+  DeleteSymbol(
+    aLibraryPath: string,
+    aSymbolName: string,
+    aProperties: SCH_IO_PROPERTIES | null = null,
+  ): void {
+    this.cacheLib(aLibraryPath, aProperties);
+
+    this.m_cache!.DeleteSymbol(aSymbolName);
+
+    if (!this.isBuffering(aProperties)) this.m_cache!.Save();
+  }
+
+  CreateLibrary(aLibraryPath: string, _aProperties: SCH_IO_PROPERTIES | null = null): void {
+    // Normalize the path: if it's a directory on the filesystem, ensure fn is marked as a
+    // directory so that IsDir() checks work correctly. wxFileName::IsDir() only checks if
+    // the path string ends with a separator, not if the path is actually a directory.
+    const isDir = aLibraryPath.endsWith('/') || wxDirExists(aLibraryPath);
+
+    if (!isDir) {
+      if (wxFileExists(aLibraryPath))
+        throw new IO_ERROR(`Symbol library file '${aLibraryPath}' already exists.`);
+    } else {
+      const path = aLibraryPath.replace(/\/+$/, '');
+
+      if (wxDirExists(path)) throw new IO_ERROR(`Symbol library path '${path}' already exists.`);
+    }
+
+    this.m_cache = new SCH_IO_KICAD_SEXPR_LIB_CACHE(aLibraryPath);
+    this.m_cache.SetModified();
+    this.m_cache.Save();
+    this.m_cache.Load(); // update m_writable and m_timestamp
+  }
+
+  DeleteLibrary(aLibraryPath: string, _aProperties: SCH_IO_PROPERTIES | null = null): boolean {
+    // Normalize the path: if it's a directory on the filesystem, ensure fn is marked as a
+    // directory so that IsDir() checks work correctly.
+    const isDir = aLibraryPath.endsWith('/') || wxDirExists(aLibraryPath);
+
+    if (!wxFileExists(aLibraryPath) && !wxDirExists(aLibraryPath)) return false;
+
+    if (!isDir) {
+      if (!wxRemoveFile(aLibraryPath))
+        throw new IO_ERROR(`Symbol library file '${aLibraryPath}' cannot be deleted.`);
+    } else {
+      // This may be overly agressive.  Perhaps in the future we should remove all of the
+      // *.kicad_sym files and only delete the folder if it's empty.
+      const path = aLibraryPath.replace(/\/+$/, '');
+
+      if (!wxRemoveDirTree(path))
+        throw new IO_ERROR(`Symbol library folder '${path}' cannot be deleted.`);
+    }
+
+    if (this.m_cache?.IsFile(aLibraryPath)) this.m_cache = null;
+
+    return true;
+  }
+
+  SaveLibrary(aLibraryPath: string, _aProperties: SCH_IO_PROPERTIES | null = null): void {
+    if (!this.m_cache) this.m_cache = new SCH_IO_KICAD_SEXPR_LIB_CACHE(aLibraryPath);
+
+    const oldFileName = this.m_cache.GetFileName();
+
+    if (!this.m_cache.IsFile(aLibraryPath)) this.m_cache.SetFileName(aLibraryPath);
+
+    // This is a forced save.
+    this.m_cache.SetModified();
+    this.m_cache.Save();
+
+    this.m_cache.SetFileName(oldFileName);
+  }
+
+  CanReadLibrary(aLibraryPath: string): boolean {
+    // Check if the path is a directory containing at least one .kicad_sym file
+    if (wxDirExists(aLibraryPath)) {
+      const ext = `.${KiCadSymbolLibFileExtension}`;
+
+      return (wxDirEnumerate(aLibraryPath) ?? []).some(
+        (e) => !e.isDir && e.name.toLowerCase().endsWith(ext),
+      );
+    }
+
+    // Check for proper extension (SCH_IO::CanReadLibrary), then that it actually exists
+    if (!aLibraryPath.toLowerCase().endsWith(`.${KiCadSymbolLibFileExtension}`)) return false;
+
+    return wxFileExists(aLibraryPath);
+  }
+
+  IsLibraryWritable(aLibraryPath: string): boolean {
+    if (wxFileExists(aLibraryPath)) return wxIsFileWritable(aLibraryPath);
+
+    return wxIsDirWritable(aLibraryPath.replace(/\/[^/]*$/, '') || '/');
+  }
+
+  GetAvailableSymbolFields(aNames: string[]): void {
+    if (!this.m_cache) return;
+
+    const fieldNames = new Set<string>();
+
+    for (const symbol of this.m_cache.GetSymbolMap().values()) {
+      const chooserFields = new Map<string, string>();
+      symbol.GetChooserFields(chooserFields);
+
+      for (const name of chooserFields.keys()) fieldNames.add(name);
+    }
+
+    // std::set<wxString>: code-point order.
+    aNames.push(...[...fieldNames].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)));
+  }
+
+  GetDefaultSymbolFields(aNames: string[]): void {
+    this.GetAvailableSymbolFields(aNames);
+  }
 }
+
+/** `std::map<std::string, UTF8>* aProperties`: the options an SCH_IO call is given. */
+export type SCH_IO_PROPERTIES = ReadonlyMap<string, string>;
+
+/** `SYMBOL_LIBRARY_ADAPTER::PropPowerSymsOnly` (libraries/symbol_library_adapter.cpp:43). */
+export const PropPowerSymsOnly = 'pwr_sym_only';

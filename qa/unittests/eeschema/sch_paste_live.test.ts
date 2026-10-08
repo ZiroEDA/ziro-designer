@@ -18,6 +18,10 @@ import type { SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
 import type { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { LIB_SYMBOL } from '@ziroeda/eeschema/lib_symbol.js';
+import { SCH_SCREEN } from '@ziroeda/eeschema/sch_screen.js';
+import { SCH_EDITOR_CONTROL } from '@ziroeda/eeschema/tools/sch_editor_control.js';
 import { SCH_SELECTION_TOOL } from '@ziroeda/eeschema/tools/sch_selection_tool.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { click, mouse, openProject, schFrame, schToolHarness } from './support/sch_tool_harness.js';
@@ -222,6 +226,69 @@ describe('Paste', () => {
     let free = 1;
     while (pagesBefore.includes(`${free}`)) free++;
     expect(pastedPath.GetPageNumber()).toBe(`${free}`);
+  });
+});
+
+describe('Paste, the identity and instance rules', () => {
+  it('a cut symbol pasted back still gets a new identity under unique annotation', () => {
+    const h = setUp();
+    const original = h.symbols().find((s) => !s.GetLibSymbolRef()?.IsPower())!;
+    const uuid = original.m_Uuid;
+    h.sel.AddItemToSel(original, true);
+    h.mgr.RunAction(ACTIONS.cut);
+    const before = new Set(h.symbols());
+
+    h.mgr.RunAction(ACTIONS.paste);
+    h.place(P(8, 8));
+
+    const pasted = h.symbols().filter((s) => !before.has(s));
+    expect(pasted.length).toBe(1);
+    expect(pasted[0]!.m_Uuid).not.toBe(uuid);
+  });
+
+  it("a pasted symbol keeps only this project's instances, each with a real path", () => {
+    const h = setUp();
+    const original = h.symbols().find((s) => !s.GetLibSymbolRef()?.IsPower())!;
+    h.sel.AddItemToSel(original, true);
+    h.mgr.RunAction(ACTIONS.copy);
+    h.sel.ClearSelection(true);
+    const content = GetClipboardUTF8();
+    // The same symbol as another project placed it, beside this project's own instance.
+    const foreign = content.replace(
+      '(instances',
+      '(instances (project "other_proj" (path "/00000000-0000-0000-0000-0000000000aa" (reference "R77") (unit 1)))',
+    );
+    expect(foreign).not.toBe(content);
+    SetClipboardFromText(foreign);
+    const before = new Set(h.symbols());
+
+    h.mgr.RunAction(ACTIONS.paste);
+    h.place(P(8, 8));
+
+    const pasted = h.symbols().filter((s) => !before.has(s))[0]!;
+    const instances = pasted.GetInstances();
+    expect(instances.length).toBeGreaterThan(0);
+    expect(
+      instances.filter((i) => i.m_ProjectName !== 'complex_hierarchy' || i.m_Path.empty()),
+    ).toEqual([]);
+  });
+
+  it("ChoosePasteLibSymbol takes the clipboard's library symbol over the destination's", () => {
+    const h = setUp();
+    const clip = new SCH_SCREEN(h.frame.Schematic());
+    const dest = new SCH_SCREEN(h.frame.Schematic());
+    const a = new LIB_SYMBOL('X');
+    a.SetLibId(new LIB_ID('lib', 'X'));
+    const b = new LIB_SYMBOL('X');
+    b.SetLibId(new LIB_ID('lib', 'X'));
+    clip.AddLibSymbol(a);
+    dest.AddLibSymbol(b);
+
+    expect(SCH_EDITOR_CONTROL.ChoosePasteLibSymbol(clip, dest, 'lib:X')).toBe(a);
+    expect(
+      SCH_EDITOR_CONTROL.ChoosePasteLibSymbol(new SCH_SCREEN(h.frame.Schematic()), dest, 'lib:X'),
+    ).toBe(b);
+    expect(SCH_EDITOR_CONTROL.ChoosePasteLibSymbol(null, null, 'lib:X')).toBeNull();
   });
 });
 

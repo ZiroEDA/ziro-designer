@@ -29,7 +29,6 @@ import {
 } from '@ziroeda/common/libraries/library_table.js';
 import type { REMOTE_PROVIDER_METADATA } from '@ziroeda/common/remote_provider_metadata.js';
 import type { REMOTE_PROVIDER_PART_MANIFEST } from '@ziroeda/common/remote_provider_models.js';
-import { wxReadFileSync, wxWriteFileSync } from '@ziroeda/common/wx/filefn.js';
 import { currentEeschemaSettings } from './eeschema_settings.js';
 import type { LIB_SYMBOL } from './lib_symbol.js';
 import {
@@ -49,7 +48,7 @@ import {
   SanitizeRemoteFileComponent,
   WriteRemoteBinaryFile,
 } from './remote_symbol_import_utils.js';
-import { SCH_IO_KICAD_SEXPR_LIB_CACHE } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr_lib_cache.js';
+import { SCH_IO_KICAD_SEXPR } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
 
 export interface REMOTE_SYMBOL_IMPORT_CONTEXT {
   symbol_name: string;
@@ -315,16 +314,9 @@ export class REMOTE_SYMBOL_IMPORT_JOB {
 
         if (footprintLinks.length > 0) {
           try {
-            // `SCH_IO_KICAD_SEXPR::SaveSymbol( path, symbol )`: the file's cache,
-            // the symbol put in it under its name, and the library written back.
-            const bytes = wxReadFileSync(outFile);
-            const cache = new SCH_IO_KICAD_SEXPR_LIB_CACHE(outFile);
-            cache.Load(bytes ? new TextDecoder().decode(bytes) : '');
-            cache.GetSymbolMap().set(loaded.GetName(), loaded);
-            cache.SetModified();
-            const text = cache.Save();
+            const plugin = new SCH_IO_KICAD_SEXPR(); // SCH_IO_MGR::FindPlugin( SCH_KICAD )
 
-            if (text !== null) wxWriteFileSync(outFile, new TextEncoder().encode(text));
+            plugin.SaveSymbol(outFile, loaded);
           } catch (e) {
             aError.value = `Unable to save the downloaded symbol: ${e instanceof Error ? e.message : String(e)}`;
             return false;
