@@ -359,16 +359,6 @@ function handlerAt(anchor: string, n = 900): string {
 
 const WIRING: { name: string; anchor: string; seam: RegExp }[] = [
   {
-    name: 'rotate / mirror',
-    anchor: 'else if (TX[id])',
-    seam: /withSelection\(RotatableItems,/,
-  },
-  {
-    name: 'delete',
-    anchor: "else if (id === 'delete')",
-    seam: /withSelection\(DeletableItems,/,
-  },
-  {
     name: 'lock / unlock / toggle lock',
     anchor: "else if (id === 'lock' || id === 'unlock' || id === 'toggleLock')",
     seam: /withSelection\(AttributeItems,/,

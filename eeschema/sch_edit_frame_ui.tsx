@@ -6926,7 +6926,7 @@ export function SchematicEditor({
     (id: string) => {
       // the canvas-editing actions run on the frame's TOOL_MANAGER (TRANSITIONAL, W2).
       const galAction = schToolbarAction(id);
-      const galMgr = schPanelRef.current ? schFrameRef.current?.GetToolManager() : null;
+      const galMgr = schFrameRef.current?.GetToolManager();
       if (galAction && galMgr) {
         galMgr.RunAction(galAction);
         return;
@@ -6946,16 +6946,7 @@ export function SchematicEditor({
         assignNetclass();
         return;
       }
-      // mirrorV = MirrorVertically (KiCad SYM_MIRROR_X); mirrorH = MirrorHorizontally (SYM_MIRROR_Y).
-      const TX: Record<string, TransformOp> = {
-        rotateCCW: 'rotateCCW',
-        rotateCW: 'rotateCW',
-        mirrorV: 'mirrorX',
-        mirrorH: 'mirrorY',
-      };
-      if (id === 'undo') undo();
-      else if (id === 'redo') redo();
-      else if (id === 'open') promptOpen();
+      if (id === 'open') promptOpen();
       else if (id === 'save') save();
       // SCH_ACTIONS::saveCurrSheetCopyAs
       else if (id === 'saveCurrSheetCopyAs') saveCurrSheetCopyAs();
@@ -7070,16 +7061,6 @@ export function SchematicEditor({
       else if (id === 'unselectAll') setSelection(new Set());
       // Group / Ungroup (SCH_GROUP_TOOL): members stay selected afterwards,
       // upstream selects the new group (= its members) / the freed members.
-      else if (id === 'group')
-        setSelection((sel) => {
-          if (sel.size >= 2) runCommand(groupItemsCommand(sel));
-          return sel;
-        });
-      else if (id === 'ungroup')
-        setSelection((sel) => {
-          if (sel.size > 0) runCommand(ungroupItemsCommand(sel));
-          return sel;
-        });
       else if (id === 'addToGroup')
         setSelection((sel) => {
           const d = docRef.current;
@@ -7191,56 +7172,6 @@ export function SchematicEditor({
           if (text) void navigator.clipboard?.writeText(text);
         });
       else if (id === 'pasteSpecial') setPasteSpecialOpen(true);
-      else if (id === 'paste')
-        void navigator.clipboard?.readText().then((text) => {
-          setDoc((d) => {
-            const payload = d ? parsePastedText(text, d, pasteOptions()) : null;
-            if (payload) {
-              setActiveTool('select');
-              setPastePending(payload);
-            }
-            return d;
-          });
-        });
-      // `SCH_EDIT_TOOL::DoDelete` (sch_edit_tool.cpp:2224-2235): the target is
-      // `RequestSelection( DeletableItems )`, and the selection is cleared
-      // unconditionally afterwards ("Don't leave a freed pointer in the
-      // selection"), hover or not.
-      else if (id === 'delete')
-        withSelection(DeletableItems, (ids) => {
-          const d = docRef.current;
-          if (d) runCommand(deleteItems(d, ids));
-          applySelectionState({ selection: new Set(), hover: null });
-        });
-      // `SCH_EDIT_TOOL::Rotate` / `::Mirror` (sch_edit_tool.cpp:967, :1297),
-      // both over `RotatableItems`.
-      else if (TX[id])
-        withSelection(RotatableItems, (ids) => {
-          const d = docRef.current;
-          runCommand(
-            transformItems(
-              ids,
-              TX[id]!,
-              // No centre and no grid override: both keep their defaults, and
-              // threading the window's live grid through is a separate change
-              // (see `DEFAULT_GRID_IU`).
-              undefined,
-              undefined,
-              // `if( m_frame->eeconfig()->m_AutoplaceFields.enable )` — the
-              // block that keeps a rotated symbol's reference reading
-              // horizontally (sch_edit_tool.cpp:1022-1029).
-              {
-                enable: es.autoplace_fields.enable,
-                libById,
-                opts: {
-                  allowRejustify: es.autoplace_fields.allow_rejustify,
-                  alignToGrid: es.autoplace_fields.align_to_grid,
-                },
-                ...(d ? { drawableArea: drawableArea(d) } : {}),
-              },
-            ),
-          );
-        });
     },
     [
       undo,
@@ -7283,15 +7214,14 @@ export function SchematicEditor({
     (id: string) => {
       // the tools run on the frame's TOOL_MANAGER (TRANSITIONAL, W2).
       const galAction = schToolbarAction(id);
-      const galMgr = schPanelRef.current ? schFrameRef.current?.GetToolManager() : null;
+      const galMgr = schFrameRef.current?.GetToolManager();
       if (galAction && galMgr) {
         galMgr.RunAction(galAction);
         return;
       }
       if (RIGHT_TOOLBAR_COMMANDS.has(id)) onTopAction(id);
-      else onToolSelect(id);
     },
-    [onTopAction, onToolSelect],
+    [onTopAction],
   );
 
   const onLeftToggle = useCallback(
