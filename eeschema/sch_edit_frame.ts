@@ -292,16 +292,6 @@ export interface SCH_EDIT_FRAME_HOOKS {
    */
   symbolLibraryUri?: NETLIST_LIBRARY_URI;
   /**
-   * `SCH_SELECTION_TOOL::GetSelection()` on the live model (the design block
-   * commands read it). Optional: a frame with no selection tool has none.
-   */
-  currentSelection?(): readonly EDA_ITEM[];
-  /**
-   * `ACTIONS::selectionClear` then `ACTIONS::selectItem( aGroup )`, after a
-   * saved selection was grouped as its design block.
-   */
-  selectGroup?(aGroup: SCH_GROUP): void;
-  /**
    * `DIALOG_xxx( this, aItems… ).ShowModal()` / `ShowQuasiModal()`: the window opens the dialog
    * KiCad names \a aDialog (its C++ class, e.g. `DIALOG_LABEL_PROPERTIES`) on these live items,
    * applies it through a commit as the dialog does, and returns what ShowModal returns. With no
@@ -410,18 +400,9 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     return this.m_designBlocksPane;
   }
 
-  /** `GetCurrentSelection()`: the selection tool's selection. */
+  /** `GetCurrentSelection()` (sch_edit_frame.cpp:2217). */
   override GetCurrentSelection(): SELECTION {
-    const selection = new SELECTION();
-
-    for (const item of this.hooks.currentSelection?.() ?? []) selection.Add(item);
-
-    return selection;
-  }
-
-  /** What `SaveSelectionAsDesignBlock` does with the group it made: select it. */
-  OnDesignBlockGrouped(aGroup: SCH_GROUP): void {
-    this.hooks.selectGroup?.(aGroup);
+    return this.m_toolManager!.GetTool(SCH_SELECTION_TOOL)!.GetSelection();
   }
 
   /// Set when an undo/redo or recalculation may have changed the highlighted net.

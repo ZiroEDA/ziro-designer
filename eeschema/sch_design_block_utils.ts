@@ -18,6 +18,7 @@
  * The modals are the design block pane's (`DESIGN_BLOCK_PANE_DIALOGS`), all
  * asynchronous here.
  */
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { DESIGN_BLOCK } from '@ziroeda/common/design_block.js';
 import { SAVE_T } from '@ziroeda/common/design_block_library_adapter.js';
 import { IO_ERROR } from '@ziroeda/common/exceptions.js';
@@ -576,8 +577,8 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
       commit.Add(newGroup, screen);
       commit.Push('Group Items');
 
-      // ACTIONS::selectionClear, then ACTIONS::selectItem( newGroup )
-      this.OnDesignBlockGrouped(newGroup);
+      this.m_toolManager!.RunAction(ACTIONS.selectionClear);
+      this.m_toolManager!.RunAction(ACTIONS.selectItem, newGroup);
     } else {
       newGroup.RemoveAll();
     }

@@ -5,6 +5,8 @@
  * block commands of `SCH_EDIT_FRAME`, over a real design block library on the
  * page's temp mount, with the pane's modals answered by the test.
  */
+import { schToolHarness } from './support/sch_tool_harness.js';
+import { SCH_SELECTION_TOOL } from '@ziroeda/eeschema/tools/sch_selection_tool.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import '@ziroeda/common/design_block_library_adapter.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
@@ -69,17 +71,15 @@ function setup(aDialogs: Partial<DESIGN_BLOCK_PANE_DIALOGS> = {}) {
   const screen = path.LastScreen()!;
   screen.SetFileName('/p/power.kicad_sch');
 
-  let selection: EDA_ITEM[] = [];
-  const selectedGroups: SCH_GROUP[] = [];
   const hooks: SCH_EDIT_FRAME_HOOKS = {
     crossProbingSettings: () => ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,
     saveProject: () => true,
     getNetlist: () => null,
-    currentSelection: () => selection,
-    selectGroup: (g) => selectedGroups.push(g),
   };
   const frame = new SCH_EDIT_FRAME(hooks);
   frame.SetSchematic(schematic);
+  // The frame's tools (setupTools) on the harness canvas: SCH_SELECTION_TOOL holds the selection.
+  schToolHarness(frame);
 
   const errors: string[] = [];
   const asked: string[] = [];
@@ -126,9 +126,12 @@ function setup(aDialogs: Partial<DESIGN_BLOCK_PANE_DIALOGS> = {}) {
     libs,
     errors,
     asked,
-    selectedGroups,
+    /** What the selection tool holds - the group SaveSelectionAsDesignBlock selects. */
+    selected: () => frame.GetCurrentSelection().Items(),
     select: (items: EDA_ITEM[]) => {
-      selection = items;
+      const sel = frame.GetToolManager()!.GetTool(SCH_SELECTION_TOOL)!;
+      sel.ClearSelection(true);
+      for (const item of items) sel.AddItemToSel(item, true);
     },
   };
 }
@@ -206,7 +209,7 @@ describe('SaveSelectionAsDesignBlock', () => {
     const members = groups[0]!.GetItems();
     expect(members.size).toBe(2);
     expect(members.has(a) && members.has(b)).toBe(true);
-    expect(t.selectedGroups).toEqual([groups[0]]);
+    expect(t.selected()).toEqual([groups[0]]);
   });
 
   it('a single named group names the block and is linked, not regrouped', async () => {
