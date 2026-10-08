@@ -560,6 +560,7 @@ import { type SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';
 import type { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import { actionMenuItems } from '@ziroeda/common/tool/action_menu_popup.js';
 import { wxMenuEvent, wxMenuEventType } from '@ziroeda/common/wx/menu.js';
+import { MEMORY_FILESYSTEM, wxMountFileSystem } from '@ziroeda/common/wx/filefn.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { schToolbarAction } from './toolbars_sch_editor.js';
 import { symbolLibraryUri } from './cross-probing.js';
@@ -5462,6 +5463,23 @@ export function SchematicEditor({
   // NETLIST_EXPORTER_KICAD); this keeps that schematic the window's: every sheet's record, the
   // open one with the edits its file only gets on the debounced save, opened through
   // OpenProjectFiles under the folder pcbnew loads the project from.
+  // `?schgal=1` (TRANSITIONAL, W3a): the open project's files on the mounted file system, where
+  // KiCad would find them (`/<project>/…`), so the live tools that read or write files - Import
+  // Sheet, Place Image, Export Symbols, Rescue, ChangeSheetFile - see the project. A write lands
+  // in the project's file store; the explicit Save stays the window's until the switch.
+  useEffect(() => {
+    if (!SCH_GAL) return;
+    const name = projectName ?? project.current.root.replace(/\.[^.]*$/, '');
+    if (!name) return;
+    const enc = new TextEncoder();
+    const dec = new TextDecoder();
+    const fs = new MEMORY_FILESYSTEM();
+    for (const f of rawFiles) fs.Write(f.name, enc.encode(f.text));
+    fs.SetWriteListener((aRel, aData) =>
+      onPersistFiles?.([{ name: aRel, text: dec.decode(aData) }]),
+    );
+    return wxMountFileSystem(`/${name}`, fs);
+  }, [rawFiles, projectName, onPersistFiles]);
   const liveMirrorRef = useRef<LIVE_SCHEMATIC_MIRROR | null>(null);
   const inEditLiveRef = useRef(false);
   const adoptLiveScreensRef = useRef<(aScreens: Iterable<SCH_SCREEN>) => void>(() => {});

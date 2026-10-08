@@ -166,6 +166,7 @@ let s_writeClock = 0;
 export class MEMORY_FILESYSTEM implements wxWritableFileSystemMount {
   private readonly m_files = new Map<string, Uint8Array>();
   private readonly m_mtimes = new Map<string, number>();
+  private m_writeListener: ((aRelPath: string, aData: Uint8Array) => void) | null = null;
   /** Directories made with `Mkdir`, which exist even while empty. */
   private readonly m_dirs = new Set<string>();
 
@@ -221,6 +222,16 @@ export class MEMORY_FILESYSTEM implements wxWritableFileSystemMount {
   Write(aRelPath: string, aData: Uint8Array): void {
     this.m_files.set(aRelPath, aData);
     this.m_mtimes.set(aRelPath, ++s_writeClock);
+    this.m_writeListener?.(aRelPath, aData);
+  }
+
+  /**
+   * Be told of every write after it lands - how a page keeps the files a mount holds (the open
+   * project's) in its own store. A disk has no such thing; this is the RAM disk's way of being the
+   * project folder.
+   */
+  SetWriteListener(aListener: ((aRelPath: string, aData: Uint8Array) => void) | null): void {
+    this.m_writeListener = aListener;
   }
 
   ModificationTime(aRelPath: string): number {
