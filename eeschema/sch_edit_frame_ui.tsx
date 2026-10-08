@@ -557,6 +557,8 @@ import { createSchDrawPanel } from './sch_canvas.js';
 import type { SCH_DRAW_PANEL } from './sch_draw_panel.js';
 import { loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
 import { type SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
+import { schToolbarAction } from './toolbars_sch_editor.js';
 import { symbolLibraryUri } from './cross-probing.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
@@ -564,6 +566,11 @@ import { symbolLibraryUri } from './cross-probing.js';
 /** `?schgal=1`: KiCad's canvas on the live model over the window's (TRANSITIONAL, S4-6c). */
 const SCH_GAL =
   typeof location !== 'undefined' && new URLSearchParams(location.search).has('schgal');
+
+/** The TOOL_ACTION a routed toolbar id runs under `?schgal=1`, or null to keep the record path. */
+function galToolbarAction(aId: string): TOOL_ACTION | null {
+  return SCH_GAL ? schToolbarAction(aId) : null;
+}
 
 const EMPTY_SCH =
   '(kicad_sch (version 20231120) (generator "ziroeda") (paper "A4")\n  (lib_symbols)\n)\n';
@@ -7662,6 +7669,13 @@ export function SchematicEditor({
 
   const onTopAction = useCallback(
     (id: string) => {
+      // `?schgal=1`: the canvas-editing actions run on the frame's TOOL_MANAGER (TRANSITIONAL, W2).
+      const galAction = galToolbarAction(id);
+      const galMgr = schPanelRef.current ? schFrameRef.current?.GetToolManager() : null;
+      if (galAction && galMgr) {
+        galMgr.RunAction(galAction);
+        return;
+      }
       // ACTIONS::about — Help > About. The menu sent this id and nothing
       // answered it, so the schematic's About did nothing at all.
       if (id === 'about') {
@@ -8804,6 +8818,13 @@ export function SchematicEditor({
    */
   const onRightToolbar = useCallback(
     (id: string) => {
+      // `?schgal=1`: the tools run on the frame's TOOL_MANAGER (TRANSITIONAL, W2).
+      const galAction = galToolbarAction(id);
+      const galMgr = schPanelRef.current ? schFrameRef.current?.GetToolManager() : null;
+      if (galAction && galMgr) {
+        galMgr.RunAction(galAction);
+        return;
+      }
       if (RIGHT_TOOLBAR_COMMANDS.has(id)) onTopAction(id);
       else onToolSelect(id);
     },

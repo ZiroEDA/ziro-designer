@@ -18,6 +18,9 @@
 
 import type { ToolbarDefaults } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
+import { SCH_ACTIONS } from './tools/sch_actions.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -212,3 +215,71 @@ export const SCH_DEFAULT_TOOLBARS: ToolbarDefaults = {
   RIGHT: RIGHT_TOOLBAR,
   TOP_MAIN: TOP_TOOLBAR,
 };
+
+/**
+ * `?schgal=1` (TRANSITIONAL, W2): the toolbar ids whose TOOL_ACTION runs on the frame's
+ * TOOL_MANAGER, against the live canvas, instead of the window's record tools. The canvas-editing
+ * actions only: file I/O, dialogs and sheet navigation stay on the record path until the project is
+ * mounted and the window follows the live current sheet. An id named like its action needs no
+ * entry; the rest are the toolbar's own names (toolbars_sch_editor.cpp).
+ */
+export const GAL_TOOLBAR_ACTIONS: Readonly<Record<string, TOOL_ACTION>> = {
+  select: ACTIONS.selectSetRect,
+  selectLasso: ACTIONS.selectSetLasso,
+  delete: ACTIONS.deleteTool,
+  arc: SCH_ACTIONS.drawArc,
+  bezier: SCH_ACTIONS.drawBezier,
+  circle: SCH_ACTIONS.drawCircle,
+  rectangle: SCH_ACTIONS.drawRectangle,
+  textBox: SCH_ACTIONS.drawTextBox,
+  table: SCH_ACTIONS.drawTable,
+  busEntry: SCH_ACTIONS.placeBusWireEntry,
+  junction: SCH_ACTIONS.placeJunction,
+  noConnect: SCH_ACTIONS.placeNoConnect,
+  placeText: SCH_ACTIONS.placeSchematicText,
+  sheetPin: SCH_ACTIONS.placeSheetPin,
+  image: SCH_ACTIONS.placeImage,
+  lines: SCH_ACTIONS.drawLines,
+  syncAllSheetPins: SCH_ACTIONS.syncAllSheetsPins,
+  zoomFit: ACTIONS.zoomFitScreen,
+};
+export const GAL_ROUTED_IDS: ReadonlySet<string> = new Set([
+  ...Object.keys(GAL_TOOLBAR_ACTIONS),
+  'undo',
+  'redo',
+  'paste',
+  'rotateCCW',
+  'rotateCW',
+  'mirrorV',
+  'mirrorH',
+  'group',
+  'ungroup',
+  'highlightNet',
+  'zoomIn',
+  'zoomOut',
+  'zoomFitObjects',
+  'zoomRedraw',
+  'zoomTool',
+  'placeSymbol',
+  'placePower',
+  'drawWire',
+  'drawBus',
+  'drawRuleArea',
+  'drawSheet',
+  'placeLabel',
+  'placeClassLabel',
+  'placeGlobalLabel',
+  'placeHierLabel',
+]);
+
+/** The TOOL_ACTION a routed toolbar id runs on the live canvas, or null to keep the record path. */
+export function schToolbarAction(aId: string): TOOL_ACTION | null {
+  if (!GAL_ROUTED_IDS.has(aId)) return null;
+
+  const named =
+    GAL_TOOLBAR_ACTIONS[aId] ??
+    (SCH_ACTIONS as unknown as Record<string, unknown>)[aId] ??
+    (ACTIONS as unknown as Record<string, unknown>)[aId];
+
+  return named instanceof TOOL_ACTION ? named : null;
+}
