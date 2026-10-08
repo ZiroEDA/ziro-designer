@@ -1008,4 +1008,3 @@ export class SYMBOL_LIB_TABLE_RESCUER extends RESCUER {
     this.m_rescueLibSymbols.push(LIB_SYMBOL.copyOf(aNewSymbol));
   }
 }
-

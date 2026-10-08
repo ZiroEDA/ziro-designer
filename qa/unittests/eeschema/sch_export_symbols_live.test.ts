@@ -213,6 +213,10 @@ describe('ExportSymbolsToLibrary', () => {
     );
     // Relinked symbols still have their library symbol: UpdateSymbolLinks found it in 'exported'.
     expect(rest.every((s) => s.GetLibSymbolRef() !== null)).toBe(true);
+    // Each screen's library symbol cache was rebuilt under the new ids.
+    const cache = h.frame.GetScreen()!.GetLibSymbols();
+    expect(cache.has('exported:7805')).toBe(true);
+    expect(cache.has('complex_hierarchy_schlib:7805')).toBe(false);
     expect(h.frame.GetUndoCommandCount()).toBe(undo + 1);
   });
 
