@@ -23,26 +23,58 @@ import {
 import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
 import { ITEM_PICKER, PICKED_ITEMS_LIST, UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
 import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
-import { wxID_OK } from '@ziroeda/common/wx/menu.js';
+import { wxID_CANCEL, wxID_OK } from '@ziroeda/common/wx/menu.js';
 import { updateEeschemaSettings } from '../eeschema_settings.js';
 import { SCH_COMMIT } from '../sch_commit.js';
 import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
-import { SCH_REFERENCE, SCH_REFERENCE_LIST } from '../sch_reference_list.js';
-import { SYMBOL_FILTER } from '../sch_sheet_path.js';
+import {
+  ANNOTATE_ALGO_T,
+  ANNOTATE_ORDER_T,
+  SCH_REFERENCE,
+  SCH_REFERENCE_LIST,
+} from '../sch_reference_list.js';
+import {
+  SCH_SHEET_INSTANCE,
+  SCH_SHEET_LIST,
+  type SCH_SHEET_PATH,
+  SCH_SYMBOL_INSTANCE,
+  SYMBOL_FILTER,
+} from '../sch_sheet_path.js';
 import { LINE_MODE, SCH_ACTIONS } from './sch_actions.js';
 import { SCH_SELECTION_TOOL } from './sch_selection_tool.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
 import {
+  GetClipboardUTF8,
+  GetImageFromClipboard,
   SaveClipboard,
   SetClipboardData,
   wxDataObjectComposite,
 } from '@ziroeda/common/clipboard.js';
+import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
+import type { PasteSpecialMode } from '@ziroeda/common/dialogs/dialog_paste_special_types.js';
+import {
+  ENDPOINT,
+  IS_MOVING,
+  IS_NEW,
+  IS_PASTED,
+  STARTPOINT,
+} from '@ziroeda/common/eda_item_flags.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { KIID_PATH, newKiid } from '@ziroeda/common/kiid.js';
+import { strNumCmp, unescapeString } from '@ziroeda/common/string_utils.js';
+import { INT_MAX } from '@ziroeda/kimath/src/math/util.js';
+import { EuclideanNormI, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { LIB_SYMBOL } from '../lib_symbol.js';
+import { SCH_BITMAP } from '../sch_bitmap.js';
+import type { SCH_LINE } from '../sch_line.js';
+import type { SCH_SHAPE } from '../sch_shape.js';
+import type { SCH_TABLE } from '../sch_table.js';
+import { SCH_TEXT } from '../sch_text.js';
 import { FORMAT_MODE, Prettify } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
 import { STRING_FORMATTER } from '@ziroeda/common/richio.js';
-import { SCH_IO_KICAD_SEXPR } from '../sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
-import type { SCH_SCREEN } from '../sch_screen.js';
-import { GetSelectedItemsAsText } from './sch_tool_utils.js';
+import { PosixPath, SCH_IO_KICAD_SEXPR } from '../sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
+import { GetSelectedItemsAsText, UniqueGroupName } from './sch_tool_utils.js';
 import { SCH_EDIT_TABLE_TOOL } from './sch_edit_table_tool.js';
 import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
@@ -64,8 +96,7 @@ import { NET_NAVIGATOR_ITEM_DATA, SCH_SEARCH_T } from '../sch_edit_frame.js';
 import { SCH_ITEM } from '../sch_item.js';
 import type { SCH_GROUP } from '../sch_group.js';
 import type { SCH_PIN } from '../sch_pin.js';
-import type { SCH_SHEET } from '../sch_sheet.js';
-import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
+import { SCH_SHEET } from '../sch_sheet.js';
 import type { SCH_SYMBOL } from '../sch_symbol.js';
 import { SCH_CLEANUP_FLAGS } from '../schematic.js';
 import { ensureFileExtension } from '@ziroeda/common/common.js';
@@ -76,7 +107,7 @@ import {
 } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { wxFD_OVERWRITE_PROMPT, wxFD_SAVE } from '@ziroeda/common/wx/defs.js';
 import { wxReadFileSync } from '@ziroeda/common/wx/filefn.js';
-import { SCH_SCREENS } from '../sch_screen.js';
+import { SCH_SCREEN, SCH_SCREENS } from '../sch_screen.js';
 
 /** `MAX_PAGE_SIZE_EESCHEMA_MILS` (page_info.h). [data] */
 const MAX_PAGE_SIZE_EESCHEMA_MILS = 120000;
@@ -179,6 +210,10 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   // A map of sheet filename --> screens for the clipboard contents.  We use these to hook up
   // cut/paste operations for unsaved sheet content.
   private readonly m_supplementaryClipboard = new Map<string, SCH_SCREEN>();
+
+  // A map of KIID_PATH --> symbol instances for the clipboard contents.
+  private readonly m_clipboardSymbolInstances = new Map<string, SCH_SYMBOL_INSTANCE>();
+  private readonly m_pastedSymbols = new Set<SCH_SYMBOL>();
   private m_highlightBusMembers = false;
 
   SetHighlightBusMembers(aHighlightBusMembers: boolean): void {
@@ -902,6 +937,880 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   // Cut / Copy / Paste with a text control focused (`wxTextEntry`) never reach the tool: the
   // window leaves a focused input's clipboard keys to the browser.
 
+  *Duplicate(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    this.doCopy(true); // Use the local clipboard
+    yield* this.Paste(aEvent);
+
+    return 0;
+  }
+
+  /** `updatePastedSymbol( aSymbol, aPastePath, aClipPath, aForceKeepAnnotations )` (sch_editor_control.cpp:1856). */
+  private updatePastedSymbol(
+    aSymbol: SCH_SYMBOL,
+    aPastePath: SCH_SHEET_PATH,
+    aClipPath: KIID_PATH,
+    aForceKeepAnnotations: boolean,
+  ): void {
+    if (!this.m_frame) return; // wxCHECK
+
+    let newInstance = new SCH_SYMBOL_INSTANCE();
+    let instanceFound = false;
+    const pasteLookupPath = aClipPath.Clone();
+
+    this.m_pastedSymbols.add(aSymbol);
+
+    for (const tmp of aSymbol.GetInstances()) {
+      if (
+        (tmp.m_Path.empty() && aClipPath.empty()) ||
+        (!aClipPath.empty() && tmp.m_Path.EndsWith(aClipPath))
+      ) {
+        newInstance = tmp.Clone();
+        instanceFound = true;
+        break;
+      }
+    }
+
+    // The pasted symbol look up paths include the symbol UUID.
+    pasteLookupPath.push_back(aSymbol.m_Uuid);
+
+    if (!instanceFound) {
+      // Some legacy versions saved value fields escaped.  While we still do in the symbol
+      // editor, we don't anymore in the schematic, so be sure to unescape them.
+      const valueField = aSymbol.GetField(FIELD_T.VALUE)!;
+      valueField.SetText(unescapeString(valueField.GetText()));
+
+      // Pasted from notepad or an older instance of eeschema.  Use the values in the fields
+      // instead.
+      newInstance.m_Reference = aSymbol.GetField(FIELD_T.REFERENCE)!.GetText();
+      newInstance.m_Unit = aSymbol.GetUnit();
+    }
+
+    newInstance.m_Path = aPastePath.Path();
+    newInstance.m_ProjectName = this.m_frame.Prj().GetProjectName();
+
+    aSymbol.AddHierarchicalReference(newInstance);
+
+    if (!aForceKeepAnnotations) aSymbol.ClearAnnotation(aPastePath, false);
+
+    // We might clear annotations but always leave the original unit number from the paste.
+    aSymbol.SetUnit(newInstance.m_Unit);
+  }
+
+  /** `updatePastedSheet( … )` (sch_editor_control.cpp:1920). */
+  private updatePastedSheet(
+    aSheet: SCH_SHEET,
+    aPastePath: SCH_SHEET_PATH,
+    aClipPath: KIID_PATH,
+    aForceKeepAnnotations: boolean,
+    aPastedSheets: SCH_SHEET_LIST,
+    aPastedSymbols: SHEET_PATH_MAP<SCH_REFERENCE_LIST>,
+  ): SCH_SHEET_PATH {
+    const sheetPath = aPastePath.Clone();
+    sheetPath.push_back(aSheet);
+
+    aPastedSheets.push(sheetPath);
+
+    if (aSheet.GetScreen() === null) return sheetPath; // We can only really set the page number but not load any items
+
+    for (const item of aSheet.GetScreen()!.Items()) {
+      if (item.IsConnectable()) item.SetConnectivityDirty();
+
+      if (item.Type() === KICAD_T.SCH_SYMBOL_T) {
+        const symbol = item as SCH_SYMBOL;
+
+        // Only do this once if the symbol is shared across multiple sheets.
+        if (!this.m_pastedSymbols.has(symbol)) {
+          for (const pin of symbol.GetPins()) {
+            (pin as { m_Uuid: string }).m_Uuid = newKiid();
+            pin.SetConnectivityDirty();
+          }
+        }
+
+        this.updatePastedSymbol(symbol, sheetPath, aClipPath, aForceKeepAnnotations);
+      } else if (item.Type() === KICAD_T.SCH_SHEET_T) {
+        const subsheet = item as SCH_SHEET;
+
+        // Make sure pins get a new UUID and set the dirty connectivity flag.
+        if (!aPastedSheets.ContainsSheet(subsheet)) {
+          for (const pin of subsheet.GetPins()) {
+            (pin as { m_Uuid: string }).m_Uuid = newKiid();
+            pin.SetConnectivityDirty();
+          }
+        }
+
+        const newClipPath = aClipPath.Clone();
+        newClipPath.push_back(subsheet.m_Uuid);
+
+        this.updatePastedSheet(
+          subsheet,
+          sheetPath,
+          newClipPath,
+          aForceKeepAnnotations,
+          aPastedSheets,
+          aPastedSymbols,
+        );
+      }
+    }
+
+    sheetPath.GetSymbols(
+      aPastedSymbols.at(aPastePath, () => new SCH_REFERENCE_LIST()),
+      SYMBOL_FILTER.SYMBOL_FILTER_ALL,
+    );
+
+    return sheetPath;
+  }
+
+  /** `setPastedSymbolInstances( aScreen )` (sch_editor_control.cpp:1987). */
+  private setPastedSymbolInstances(aScreen: SCH_SCREEN | null): void {
+    if (!aScreen) return; // wxCHECK
+
+    for (const item of aScreen.Items()) {
+      if (item.Type() === KICAD_T.SCH_SYMBOL_T) {
+        const symbol = item as SCH_SYMBOL;
+
+        for (const symbolInstance of symbol.GetInstances()) {
+          const pathWithSymbol = symbolInstance.m_Path.Clone();
+
+          pathWithSymbol.push_back(symbol.m_Uuid);
+
+          this.m_clipboardSymbolInstances.set(pathWithSymbol.AsString(), symbolInstance);
+        }
+      }
+    }
+  }
+
+  /** `prunePastedSymbolInstances()` (sch_editor_control.cpp:2012). */
+  private prunePastedSymbolInstances(): void {
+    if (!this.m_frame) return; // wxCHECK
+
+    for (const symbol of this.m_pastedSymbols) {
+      const instancePathsToRemove: KIID_PATH[] = [];
+
+      for (const instance of symbol.GetInstances()) {
+        if (
+          instance.m_ProjectName !== this.m_frame.Prj().GetProjectName() ||
+          instance.m_Path.empty()
+        )
+          instancePathsToRemove.push(instance.m_Path);
+      }
+
+      for (const path of instancePathsToRemove) symbol.RemoveInstance(path);
+    }
+  }
+
+  /**
+   * `ChoosePasteLibSymbol( aClipboardScreen, aDestScreen, aLibSymbolName )`
+   * (sch_editor_control.cpp:2034): the clipboard's cached library symbol, else the destination's.
+   */
+  static ChoosePasteLibSymbol(
+    aClipboardScreen: SCH_SCREEN | null,
+    aDestScreen: SCH_SCREEN | null,
+    aLibSymbolName: string,
+  ): LIB_SYMBOL | null {
+    // The clipboard's cached library symbol is a matched pair with the pasted instance, so it
+    // must win over the destination's same-named cache. Pasting from the destination cache would
+    // silently remap the instance to a different definition and drop in-place edits such as
+    // renumbered pins (issue 21401) or a changed power type (issue 22162). Fall back to the
+    // destination cache only when the clipboard carries no copy.
+    if (aClipboardScreen) {
+      const clip = aClipboardScreen.GetLibSymbols().get(aLibSymbolName);
+
+      if (clip) return clip;
+    }
+
+    if (aDestScreen) {
+      const dest = aDestScreen.GetLibSymbols().get(aLibSymbolName);
+
+      if (dest) return dest;
+    }
+
+    return null;
+  }
+
+  /** `Paste( aEvent )` (sch_editor_control.cpp:2063), also Paste Special and Duplicate's second half. */
+  *Paste(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    // A focused wxTextEntry pastes into itself: in the browser that is the input's own paste,
+    // which never reaches the tool.
+
+    const selTool = this.m_toolMgr!.GetTool(SCH_SELECTION_TOOL)!;
+    let content: string;
+    let eventPos: VECTOR2I = { x: 0, y: 0 };
+
+    const tempSheet = new SCH_SHEET();
+
+    // Priority for paste:
+    // 1. application/kicad format (handled by GetClipboardUTF8 which checks this first)
+    // 2. Text data that can be parsed as KiCad S-expressions
+    // 3. Bitmap/image data (fallback only if no valid text content)
+    if (aEvent.IsAction(ACTIONS.duplicate)) content = this.m_duplicateClipboard;
+    else content = GetClipboardUTF8();
+
+    // Only fall back to image data if there's no text content
+    if (content === '') {
+      const clipImg = GetImageFromClipboard();
+
+      if (clipImg) {
+        const bitmap = new SCH_BITMAP();
+
+        if (bitmap.GetReferenceImage().SetImage(clipImg))
+          return this.m_toolMgr!.RunAction(SCH_ACTIONS.placeImage, bitmap) ? 1 : 0;
+      }
+
+      return 0;
+    }
+
+    if (aEvent.IsAction(ACTIONS.duplicate))
+      eventPos = this.getViewControls()!.GetCursorPosition(false);
+
+    const plugin = new SCH_IO_KICAD_SEXPR();
+
+    // Screen object on heap is owned by the sheet.
+    const tempScreen = new SCH_SCREEN(this.m_frame!.Schematic());
+    tempSheet.SetScreen(tempScreen);
+
+    try {
+      plugin.LoadContent(content, tempSheet);
+    } catch {
+      // If it wasn't schematic content, paste as a text object
+      if (content.length > ADVANCED_CFG.GetCfg().m_MaxPastedTextLength) {
+        const result = this.m_frame!.IsOK(
+          'Pasting a long text text string may be very slow.  Do you want to continue?',
+        );
+
+        if (!result) return 0;
+      }
+
+      const text_item = new SCH_TEXT({ x: 0, y: 0 }, content);
+      tempScreen.Append(text_item);
+    }
+
+    const currentSelection = selTool.GetSelection();
+
+    let hasTableCells = false;
+
+    for (const item of currentSelection) {
+      if (item.Type() === KICAD_T.SCH_TABLECELL_T) {
+        hasTableCells = true;
+        break;
+      }
+    }
+
+    if (hasTableCells) {
+      let clipboardTable: SCH_TABLE | null = null;
+
+      for (const item of tempScreen.Items()) {
+        if (item.Type() === KICAD_T.SCH_TABLE_T) {
+          clipboardTable = item as SCH_TABLE;
+          break;
+        }
+      }
+
+      if (clipboardTable) {
+        const tableEditTool = this.m_toolMgr!.GetTool(SCH_EDIT_TABLE_TOOL);
+
+        if (tableEditTool) {
+          const errorMsg = tableEditTool.validatePasteIntoSelection(currentSelection);
+
+          if (errorMsg !== null) {
+            this.m_frame!.DisplayError(errorMsg);
+            return 0;
+          }
+
+          const commit = new SCH_COMMIT(this.m_toolMgr!);
+
+          if (tableEditTool.pasteCellsIntoSelection(currentSelection, clipboardTable, commit)) {
+            commit.Push('Paste Cells');
+            return 0;
+          } else {
+            this.m_frame!.DisplayError('Failed to paste cells');
+            return 0;
+          }
+        }
+      }
+    }
+
+    this.m_pastedSymbols.clear();
+    this.m_clipboardSymbolInstances.clear();
+
+    // Save pasted symbol instances in case the user chooses to keep existing symbol annotation.
+    this.setPastedSymbolInstances(tempScreen);
+
+    // `tempScreen->MigrateSimModels()`: the simulator's, which is not ported.
+
+    const annotateAutomatic = this.m_frame!.eeconfig()!.annotation.automatic;
+    const schematicSettings = this.m_frame!.Schematic().Settings();
+    const annotateStartNum = schematicSettings.m_AnnotateStartNum;
+
+    let pasteMode: PasteSpecialMode = annotateAutomatic
+      ? 'UNIQUE_ANNOTATIONS'
+      : 'REMOVE_ANNOTATIONS';
+    let forceRemoveAnnotations = false;
+
+    if (aEvent.IsAction(ACTIONS.pasteSpecial)) {
+      const defaultPasteMode = pasteMode;
+      const dlg = { pasteMode };
+
+      const answer = yield* this.RunMainStackModal(() =>
+        this.m_frame!.ShowModalDialog('DIALOG_PASTE_SPECIAL', [], dlg),
+      );
+
+      if (answer === wxID_CANCEL) return 0;
+
+      pasteMode = dlg.pasteMode;
+
+      // We have to distinguish if removing was explicit
+      forceRemoveAnnotations = pasteMode === 'REMOVE_ANNOTATIONS' && pasteMode !== defaultPasteMode;
+    }
+
+    let forceKeepAnnotations = pasteMode !== 'REMOVE_ANNOTATIONS';
+
+    // SCH_SEXP_PLUGIN added the items to the paste screen, but not to the view or anything
+    // else.  Pull them back out to start with.
+    const commit = new SCH_COMMIT(this.m_toolMgr!);
+    const loadedItems: EDA_ITEM[] = [];
+    const sortedLoadedItems: SCH_ITEM[] = [];
+    let sheetsPasted = false;
+    let hierarchy = this.m_frame!.Schematic().Hierarchy();
+    const pasteRoot = this.m_frame!.GetCurrentSheet();
+    let destFn = pasteRoot.Last()!.GetFileName();
+
+    if (!PosixPath.isAbsolute(destFn))
+      destFn = PosixPath.makeAbsolute(destFn, this.m_frame!.Prj().GetProjectPath());
+
+    // List of paths in the hierarchy that refer to the destination sheet of the paste
+    const sheetPathsForScreen = hierarchy.FindAllSheetsForScreen(pasteRoot.LastScreen()!);
+    sheetPathsForScreen.SortByPageNumbers();
+
+    // Build a list of screens from the current design (to avoid loading sheets that already exist)
+    const loadedScreens = new Map<string, SCH_SCREEN>();
+
+    for (const item of hierarchy) {
+      if (item.LastScreen()) loadedScreens.set(item.Last()!.GetFileName(), item.LastScreen()!);
+    }
+
+    // Get set of sheet names in the current schematic to prevent duplicate sheet names on paste.
+    const existingSheetNames = new Set(pasteRoot.LastScreen()!.GetSheetNames());
+
+    // Build symbol list for reannotation of duplicates
+    const existingRefs = new SCH_REFERENCE_LIST();
+    hierarchy.GetSymbols(existingRefs, SYMBOL_FILTER.SYMBOL_FILTER_ALL);
+    existingRefs.SortByReferenceOnly();
+
+    const existingRefsSet = new Set<string>();
+
+    for (const ref of existingRefs) existingRefsSet.add(ref.GetRef());
+
+    // Build UUID map for fetching last-resolved-properties
+    const itemMap = new Map<string, SCH_ITEM>();
+    hierarchy.FillItemMap(itemMap);
+
+    // Keep track of pasted sheets and symbols for the different paths to the hierarchy.
+    const pastedSymbols = new SHEET_PATH_MAP<SCH_REFERENCE_LIST>();
+    const pastedSheets = new SHEET_PATH_MAP<SCH_SHEET_LIST>();
+
+    for (const item of tempScreen.Items()) {
+      if (item.Type() === KICAD_T.SCH_SHEET_T) sortedLoadedItems.push(item);
+      else loadedItems.push(item);
+    }
+
+    sortedLoadedItems.sort((firstItem: SCH_ITEM, secondItem: SCH_ITEM) => {
+      const firstSheet = firstItem as SCH_SHEET;
+      const secondSheet = secondItem as SCH_SHEET;
+      return strNumCmp(firstSheet.GetName(), secondSheet.GetName(), false);
+    });
+
+    for (const item of sortedLoadedItems) {
+      loadedItems.push(item);
+
+      if (item.Type() === KICAD_T.SCH_SHEET_T) {
+        const sheet = item as SCH_SHEET;
+        let srcFn = sheet.GetFileName();
+
+        if (!PosixPath.isAbsolute(srcFn))
+          srcFn = PosixPath.makeAbsolute(srcFn, this.m_frame!.Prj().GetProjectPath());
+
+        const sheetHierarchy = SCH_SHEET_LIST.build(sheet);
+
+        if (hierarchy.TestForRecursion(sheetHierarchy, destFn)) {
+          const msg =
+            `The pasted sheet '${sheet.GetFileName()}'\nwas dropped because the destination already has ` +
+            'the sheet or one of its subsheets as a parent.';
+          this.m_frame!.DisplayError(msg);
+          loadedItems.pop();
+        }
+      }
+    }
+
+    // Remove the references from our temporary screen to prevent freeing on the DTOR
+    tempScreen.Clear(false);
+
+    for (const item of loadedItems) {
+      const clipPath = new KIID_PATH('/'); // clipboard is at root
+
+      const schItem = item as SCH_ITEM;
+
+      if (schItem.IsConnectable()) schItem.SetConnectivityDirty();
+
+      if (item.Type() === KICAD_T.SCH_SYMBOL_T) {
+        const symbol = item as SCH_SYMBOL;
+
+        const currentScreen = this.m_frame!.GetScreen();
+
+        if (!currentScreen) continue; // wxCHECK2
+
+        const source = SCH_EDITOR_CONTROL.ChoosePasteLibSymbol(
+          tempScreen,
+          currentScreen,
+          symbol.GetSchSymbolLibraryName(),
+        );
+
+        if (source) symbol.SetLibSymbol(LIB_SYMBOL.copyOf(source));
+
+        // If the symbol is already in the schematic we have to always keep the annotations. The
+        // exception is if the user has chosen to remove them.
+        for (const instance of symbol.GetInstances()) {
+          if (!existingRefsSet.has(instance.m_Reference)) {
+            forceKeepAnnotations = !forceRemoveAnnotations;
+            break;
+          }
+        }
+
+        for (const sheetPath of sheetPathsForScreen)
+          this.updatePastedSymbol(symbol, sheetPath, clipPath, forceKeepAnnotations);
+
+        // Most modes will need new KIIDs for the symbol and its pins.  However, if we are pasting
+        // unique annotations, we need to check if the symbol is not already in the hierarchy.  If
+        // we don't already have a copy of the symbol, we just keep the existing KIID data as it is
+        // likely the same symbol being moved around the schematic.
+        let needsNewKiid = pasteMode === 'UNIQUE_ANNOTATIONS';
+
+        for (const instance of symbol.GetInstances()) {
+          if (existingRefsSet.has(instance.m_Reference)) {
+            needsNewKiid = true;
+            break;
+          }
+        }
+
+        if (needsNewKiid) {
+          // Assign a new KIID
+          (item as { m_Uuid: string }).m_Uuid = newKiid();
+
+          // Make sure pins get a new UUID
+          for (const pin of symbol.GetPins()) {
+            (pin as { m_Uuid: string }).m_Uuid = newKiid();
+            pin.SetConnectivityDirty();
+          }
+
+          for (const sheetPath of sheetPathsForScreen) {
+            // Ignore symbols from a non-existant library.
+            if (source) {
+              const schReference = new SCH_REFERENCE(symbol, sheetPath);
+              schReference.SetSheetNumber(sheetPath.GetPageNumberAsInt());
+              pastedSymbols.at(sheetPath, () => new SCH_REFERENCE_LIST()).AddItem(schReference);
+            }
+          }
+        }
+      } else if (item.Type() === KICAD_T.SCH_SHEET_T) {
+        const sheet = item as SCH_SHEET;
+        const nameField = sheet.GetField(FIELD_T.SHEET_NAME)!;
+        let baseName = nameField.GetText();
+        let candidateName = baseName;
+        let number = '';
+
+        while (baseName !== '' && /[0-9]/.test(baseName[baseName.length - 1]!)) {
+          number = baseName[baseName.length - 1]! + number;
+          baseName = baseName.slice(0, -1);
+        }
+
+        // Update hierarchy to include any other sheets we already added, avoiding
+        // duplicate sheet names
+        hierarchy = this.m_frame!.Schematic().Hierarchy();
+
+        // wxAtoi: the leading digits, 0 for none
+        let uniquifier = Math.max(0, Number.parseInt(number, 10) || 0) + 1;
+
+        while (existingSheetNames.has(candidateName)) candidateName = `${baseName}${uniquifier++}`;
+
+        nameField.SetText(candidateName);
+        existingSheetNames.add(candidateName);
+
+        let fn = sheet.GetFileName();
+        let existingScreen: SCH_SCREEN | null = null;
+
+        sheet.SetParent(pasteRoot.Last());
+        sheet.SetScreen(null);
+
+        if (!PosixPath.isAbsolute(fn)) {
+          const currentSheetFileName = pasteRoot.LastScreen()!.GetFileName();
+          fn = PosixPath.makeAbsolute(fn, PosixPath.dirname(currentSheetFileName));
+        }
+
+        // Try to find the screen for the pasted sheet by several means
+        const found = { value: null as SCH_SCREEN | null };
+
+        if (!this.m_frame!.Schematic().Root().SearchHierarchy(fn, found)) {
+          if (loadedScreens.has(sheet.GetFileName()))
+            existingScreen = loadedScreens.get(sheet.GetFileName())!;
+          else existingScreen = this.searchSupplementaryClipboard(sheet.GetFileName());
+        } else {
+          existingScreen = found.value;
+        }
+
+        if (existingScreen) {
+          sheet.SetScreen(existingScreen);
+        } else {
+          const loaded = yield* this.RunMainStackModal(() =>
+            this.m_frame!.LoadSheetFromFile(sheet, pasteRoot, fn),
+          );
+
+          if (!loaded) this.m_frame!.InitSheet(sheet, sheet.GetFileName());
+        }
+
+        // Save the symbol instances in case the user chooses to keep the existing
+        // symbol annotation.
+        this.setPastedSymbolInstances(sheet.GetScreen());
+        sheetsPasted = true;
+
+        // Push it to the clipboard path while it still has its old KIID
+        clipPath.push_back(sheet.m_Uuid);
+
+        // Assign a new KIID to the pasted sheet
+        (sheet as { m_Uuid: string }).m_Uuid = newKiid();
+
+        // Make sure pins get a new UUID
+        for (const pin of sheet.GetPins()) {
+          (pin as { m_Uuid: string }).m_Uuid = newKiid();
+          pin.SetConnectivityDirty();
+        }
+
+        // Once we have our new KIID we can update all pasted instances. This will either
+        // reset the annotations or copy "kept" annotations from the supplementary clipboard.
+        for (const sheetPath of sheetPathsForScreen) {
+          this.updatePastedSheet(
+            sheet,
+            sheetPath,
+            clipPath,
+            forceKeepAnnotations && annotateAutomatic,
+            pastedSheets.at(sheetPath, () => new SCH_SHEET_LIST()),
+            pastedSymbols,
+          );
+        }
+      } else {
+        const srcItem = itemMap.get(item.m_Uuid);
+        const destItem = item as SCH_ITEM;
+
+        // Everything gets a new KIID
+        (item as { m_Uuid: string }).m_Uuid = newKiid();
+
+        if (srcItem && destItem) {
+          destItem.SetConnectivityDirty(true);
+          destItem.SetLastResolvedState(srcItem);
+        }
+
+        // Pasted named groups need a unique name, the multichannel tool matches groups by name.
+        if (item.Type() === KICAD_T.SCH_GROUP_T) {
+          const group = item as SCH_GROUP;
+
+          if (group.GetName() !== '')
+            group.SetName(UniqueGroupName(this.m_frame!.GetScreen(), group.GetName()));
+        }
+      }
+
+      // Lines need both ends selected for a move after paste so the whole line moves.
+      if (item.Type() === KICAD_T.SCH_LINE_T) item.SetFlags(STARTPOINT | ENDPOINT);
+
+      item.SetFlags(IS_NEW | IS_PASTED | IS_MOVING);
+
+      // don't want a loop!
+      if (!this.m_frame!.GetScreen()!.CheckIfOnDrawList(item as SCH_ITEM))
+        this.m_frame!.AddToScreen(item as SCH_ITEM, this.m_frame!.GetScreen());
+
+      commit.Added(item as SCH_ITEM, this.m_frame!.GetScreen());
+
+      // Start out hidden so the pasted items aren't "ghosted" in their original location
+      // before being moved to the current location.
+      this.getView()?.Hide(item, true);
+    }
+
+    if (sheetsPasted) {
+      // The full schematic hierarchy need to be update before assigning new annotation and page
+      // numbers.
+      this.m_frame!.Schematic().RefreshHierarchy();
+
+      // Update sheet instance page and virtual page numbers to ensure annotation works correctly.
+      for (const sheetPath of sheetPathsForScreen) {
+        for (const pastedSheet of pastedSheets.at(sheetPath, () => new SCH_SHEET_LIST())) {
+          // Find next free string page number for the sheet instance.
+          let page = 1;
+          let pageNum = `${page}`;
+
+          while (hierarchy.PageNumberExists(pageNum)) pageNum = `${++page}`;
+
+          let virtualPageNumber = page;
+
+          // The virtual page and sheet instance page numbers do not necessarily track. Increment by
+          // one to ensure the annotation sheet paths all have unique virtual page numbers.
+          if (page === hierarchy.GetLastVirtualPageNumber())
+            virtualPageNumber = hierarchy.GetLastVirtualPageNumber() + 1;
+
+          pastedSheet.SetVirtualPageNumber(virtualPageNumber);
+
+          const sheetInstance = new SCH_SHEET_INSTANCE();
+
+          sheetInstance.m_Path = pastedSheet.Path();
+
+          // Don't include the actual sheet in the instance path.
+          sheetInstance.m_Path.pop_back();
+          sheetInstance.m_PageNumber = pageNum;
+          sheetInstance.m_ProjectName = this.m_frame!.Prj().GetProjectName();
+
+          const sheet = pastedSheet.Last();
+
+          if (!sheet) continue; // wxCHECK2
+
+          sheet.AddInstance(sheetInstance);
+          hierarchy.push(pastedSheet);
+
+          // Remove all pasted sheet instance data that is not part of the current project.
+          const instancesToRemove: KIID_PATH[] = [];
+
+          for (const instance of sheet.GetInstances()) {
+            if (!hierarchy.HasPath(instance.m_Path)) instancesToRemove.push(instance.m_Path);
+          }
+
+          for (const instancePath of instancesToRemove) sheet.RemoveInstance(instancePath);
+
+          // The sheet paths for the annotation code where copied in updatePastedSheets() when the
+          // virtual page number was still 1.  Set the virtual page number in the copied sheet paths.
+          for (const refs of pastedSymbols.values()) {
+            for (const ref of refs) {
+              if (ref.GetSheetPath().equals(pastedSheet)) {
+                ref.GetSheetPath().SetVirtualPageNumber(virtualPageNumber);
+                ref.SetSheetNumber(virtualPageNumber);
+              }
+            }
+          }
+        }
+      }
+
+      this.m_frame!.SetSheetNumberAndCount();
+
+      // Get a version with correct sheet numbers since we've pasted sheets,
+      // we'll need this when annotating next
+      hierarchy = this.m_frame!.Schematic().Hierarchy();
+    }
+
+    const annotatedSymbols = new SHEET_PATH_MAP<SCH_REFERENCE_LIST>();
+    const annotated = (aPath: SCH_SHEET_PATH) =>
+      annotatedSymbols.at(aPath, () => new SCH_REFERENCE_LIST());
+
+    // Update the list of symbol instances that satisfy the annotation criteria.
+    for (const sheetPath of sheetPathsForScreen) {
+      const refs = pastedSymbols.at(sheetPath, () => new SCH_REFERENCE_LIST());
+
+      for (let i = 0; i < refs.GetCount(); i++) {
+        if (pasteMode === 'UNIQUE_ANNOTATIONS' || refs.at(i).AlwaysAnnotate())
+          annotated(sheetPath).AddItem(refs.at(i));
+      }
+
+      for (const pastedSheetPath of pastedSheets.at(sheetPath, () => new SCH_SHEET_LIST())) {
+        const sheetRefs = pastedSymbols.at(pastedSheetPath, () => new SCH_REFERENCE_LIST());
+
+        for (let i = 0; i < sheetRefs.GetCount(); i++) {
+          if (pasteMode === 'UNIQUE_ANNOTATIONS' || sheetRefs.at(i).AlwaysAnnotate())
+            annotated(pastedSheetPath).AddItem(sheetRefs.at(i));
+        }
+      }
+    }
+
+    if (annotatedSymbols.size > 0) {
+      const annotateOrder = schematicSettings.m_AnnotateSortOrder as ANNOTATE_ORDER_T;
+      const annotateAlgo = schematicSettings.m_AnnotateMethod as ANNOTATE_ALGO_T;
+
+      const reannotate = (aPath: SCH_SHEET_PATH) => {
+        const list = annotated(aPath);
+
+        list.SortByReferenceOnly();
+        list.SetRefDesTracker(schematicSettings.m_refDesTracker);
+
+        if (pasteMode === 'UNIQUE_ANNOTATIONS')
+          list.ReannotateDuplicates(existingRefs, annotateAlgo);
+        else
+          list.ReannotateByOptions(
+            annotateOrder,
+            annotateAlgo,
+            annotateStartNum,
+            existingRefs,
+            false,
+            hierarchy,
+          );
+
+        list.UpdateAnnotation();
+
+        // Update existing refs for next iteration
+        for (let i = 0; i < list.GetCount(); i++) existingRefs.AddItem(list.at(i));
+      };
+
+      for (const path of sheetPathsForScreen) {
+        reannotate(path);
+
+        for (const pastedSheetPath of pastedSheets.at(path, () => new SCH_SHEET_LIST()))
+          reannotate(pastedSheetPath);
+      }
+    }
+
+    this.m_frame!.GetCurrentSheet().UpdateAllScreenReferences();
+
+    // The copy operation creates instance paths that are not valid for the current project or
+    // saved as part of another project.  Prune them now so they do not accumulate in the saved
+    // schematic file.
+    this.prunePastedSymbolInstances();
+
+    const sheets = this.m_frame!.Schematic().Hierarchy();
+    const allScreens = new SCH_SCREENS(this.m_frame!.Schematic().Root());
+
+    allScreens.PruneOrphanedSymbolInstances(this.m_frame!.Prj().GetProjectName(), sheets);
+    allScreens.PruneOrphanedSheetInstances(this.m_frame!.Prj().GetProjectName(), sheets);
+
+    // Now clear the previous selection, select the pasted items, and fire up the "move" tool.
+    this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+    // If the item has a parent group, it will be part of the loadedItems, and will handle
+    // the move action. Iterate backwards to avoid invalidating the iterator.
+    for (let i = loadedItems.length - 1; i >= 0; i--) {
+      const item = loadedItems[i]!;
+
+      if (item.GetParentGroup()) {
+        loadedItems.splice(i, 1);
+        // These were hidden before because they would be added to the move preview,
+        // but now they need to be shown as a preview so they appear to move when
+        // the group moves.
+        this.getView()?.SetVisible(item);
+        this.getView()?.AddToPreview(item, false);
+      }
+    }
+
+    this.m_toolMgr!.RunAction(ACTIONS.selectItems, loadedItems);
+
+    const selection = selTool.GetSelection();
+
+    if (!selection.Empty()) {
+      if (aEvent.IsAction(ACTIONS.duplicate)) {
+        let closest_dist = INT_MAX;
+
+        const processPt = (pt: VECTOR2I) => {
+          const dist = EuclideanNormI({ x: eventPos.x - pt.x, y: eventPos.y - pt.y });
+
+          if (dist < closest_dist) {
+            selection.SetReferencePoint(pt);
+            closest_dist = dist;
+          }
+        };
+
+        // Prefer connection points (which should remain on grid)
+        for (const item of selection.Items()) {
+          const sch_item = item.IsSCH_ITEM() ? (item as SCH_ITEM) : null;
+          const pin = item.Type() === KICAD_T.SCH_PIN_T ? (item as SCH_PIN) : null;
+
+          if (sch_item && sch_item.IsConnectable()) {
+            for (const pt of sch_item.GetConnectionPoints()) processPt(pt);
+          } else if (pin) {
+            processPt(pin.GetPosition());
+          }
+
+          // Symbols need to have their center point added since often users are trying to
+          // move parts from their center.
+          if (item.Type() === KICAD_T.SCH_SYMBOL_T) processPt(item.GetPosition());
+        }
+
+        // Only process other points if we didn't find any connection points
+        if (closest_dist === INT_MAX) {
+          for (const item of selection.Items()) {
+            switch (item.Type()) {
+              case KICAD_T.SCH_LINE_T:
+                processPt((item as SCH_LINE).GetStartPoint());
+                processPt((item as SCH_LINE).GetEndPoint());
+                break;
+
+              case KICAD_T.SCH_SHAPE_T: {
+                const shape = item as SCH_SHAPE;
+
+                switch (shape.GetShape()) {
+                  case SHAPE_T.RECTANGLE:
+                    for (const pt of shape.GetRectCorners()) processPt(pt);
+
+                    break;
+
+                  case SHAPE_T.CIRCLE:
+                    processPt(shape.GetCenter());
+                    break;
+
+                  case SHAPE_T.POLY:
+                    for (let ii = 0; ii < shape.GetPolyShape().TotalVertices(); ++ii)
+                      processPt(shape.GetPolyShape().CVertex(ii));
+
+                    break;
+
+                  default:
+                    processPt(shape.GetStart());
+                    processPt(shape.GetEnd());
+                    break;
+                }
+
+                break;
+              }
+
+              default:
+                processPt(item.GetPosition());
+                break;
+            }
+          }
+        }
+
+        selection.SetIsHover(this.m_duplicateIsHoverSelection);
+      }
+      // We want to the first non-group item in the selection to be the reference point.
+      else if (selection.GetTopLeftItem()!.Type() === KICAD_T.SCH_GROUP_T) {
+        const group = selection.GetTopLeftItem() as SCH_GROUP;
+
+        let found = false;
+        let item: SCH_ITEM | null = null;
+
+        group.RunOnChildren((schItem: SCH_ITEM) => {
+          if (!found && schItem.Type() !== KICAD_T.SCH_GROUP_T) {
+            item = schItem;
+            found = true;
+          }
+        }, RECURSE_MODE.RECURSE);
+
+        if (found) selection.SetReferencePoint((item as SCH_ITEM | null)!.GetPosition());
+        else selection.SetReferencePoint(group.GetPosition());
+      } else {
+        const item = selection.GetTopLeftItem() as SCH_ITEM;
+
+        selection.SetReferencePoint(item.GetPosition());
+      }
+
+      if (yield* this.RunSynchronousActionWait(SCH_ACTIONS.move, commit)) {
+        // Pushing the commit will update the connectivity.
+        commit.Push('Paste');
+
+        if (sheetsPasted) {
+          this.m_frame!.UpdateHierarchyNavigator();
+          // UpdateHierarchyNavigator() will call RefreshNetNavigator()
+        } else {
+          this.m_frame!.RefreshNetNavigator();
+        }
+      } else {
+        commit.Revert();
+      }
+
+      this.getView()?.ClearPreview();
+    }
+
+    return 0;
+  }
+
   Cut(_aEvent: TOOL_EVENT): number {
     if (this.doCopy()) this.m_toolMgr!.RunAction(ACTIONS.doDelete);
 
@@ -1439,7 +2348,7 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     this.Go(this.ImportFPAssignments, SCH_ACTIONS.importFPAssignments.MakeEvent());
 
-    // Not ported yet, in KiCad's order: RescueSymbols, ExportSymbolsToLibrary, Paste and Duplicate,
+    // Not ported yet, in KiCad's order: RescueSymbols, ExportSymbolsToLibrary,
     // ImportNonKicadSchematic, DrawSheetOnClipboard. Left out, as the simulator is: SimProbe,
     // SimTune, MarkSimExclusions, ToggleOPVoltages, ToggleOPCurrents.
     this.Go(this.ShowSchematicSetup, SCH_ACTIONS.schematicSetup.MakeEvent());
@@ -1460,6 +2369,9 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     this.Go(SYNC_HANDLER(this.Cut), ACTIONS.cut.MakeEvent());
     this.Go(SYNC_HANDLER(this.Copy), ACTIONS.copy.MakeEvent());
     this.Go(SYNC_HANDLER(this.CopyAsText), ACTIONS.copyAsText.MakeEvent());
+    this.Go(this.Paste, ACTIONS.paste.MakeEvent());
+    this.Go(this.Paste, ACTIONS.pasteSpecial.MakeEvent());
+    this.Go(this.Duplicate, ACTIONS.duplicate.MakeEvent());
 
     this.Go(SYNC_HANDLER(this.GridFeedback), EVENTS.GridChangedByKeyEvent);
 
@@ -1525,3 +2437,31 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 // assign_footprints.cpp's methods: AssignFootprints, processCmpToFootprintLinkFile,
 // ImportFPAssignments.
 applyMixins(SCH_EDITOR_CONTROL, [SCH_ASSIGN_FOOTPRINTS_MIXIN]);
+
+/**
+ * `std::map<SCH_SHEET_PATH, T>` as Paste uses it: `at` is `operator[]`, which adds a default value
+ * for a path it has not seen. Keyed by the path's KIIDs, the same equivalence `operator<` gives.
+ */
+class SHEET_PATH_MAP<T> {
+  private readonly m_map = new Map<string, T>();
+
+  at(aPath: SCH_SHEET_PATH, aMake: () => T): T {
+    const key = aPath.Path().AsString();
+    let value = this.m_map.get(key);
+
+    if (value === undefined) {
+      value = aMake();
+      this.m_map.set(key, value);
+    }
+
+    return value;
+  }
+
+  get size(): number {
+    return this.m_map.size;
+  }
+
+  values(): IterableIterator<T> {
+    return this.m_map.values();
+  }
+}

@@ -7,6 +7,10 @@
  */
 
 /** `PASTE_MODE`, in order. */
-export const PASTE_MODES = ['UNIQUE_ANNOTATIONS', 'KEEP_ANNOTATIONS', 'REMOVE_ANNOTATIONS'] as const;
+export const PASTE_MODES = [
+  'UNIQUE_ANNOTATIONS',
+  'KEEP_ANNOTATIONS',
+  'REMOVE_ANNOTATIONS',
+] as const;
 
 export type PasteSpecialMode = (typeof PASTE_MODES)[number];
