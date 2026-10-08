@@ -18,6 +18,18 @@
  * infrastructure built on this function, not this file's own.
  */
 
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 import type { LibSymbol, SchSymbol } from './types.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { EDA_ITEM as EDA_ITEM_CLASS } from '@ziroeda/common/eda_item.js';
@@ -1400,3 +1412,179 @@ export class SCH_PIN extends SCH_ITEM {
     return 0;
   }
 }
+
+/**
+ * `static struct SCH_PIN_DESC` (eeschema/sch_pin.cpp:1966).
+ */
+(() => {
+  const pinTypeEnum = ENUM_MAP.Instance<ELECTRICAL_PINTYPE>('ELECTRICAL_PINTYPE');
+
+  if (pinTypeEnum.Choices().GetCount() === 0) {
+    pinTypeEnum
+      .Map(ELECTRICAL_PINTYPE.PT_INPUT, 'Input')
+      .Map(ELECTRICAL_PINTYPE.PT_OUTPUT, 'Output')
+      .Map(ELECTRICAL_PINTYPE.PT_BIDI, 'Bidirectional')
+      .Map(ELECTRICAL_PINTYPE.PT_TRISTATE, 'Tri-state')
+      .Map(ELECTRICAL_PINTYPE.PT_PASSIVE, 'Passive')
+      .Map(ELECTRICAL_PINTYPE.PT_NIC, 'Free')
+      .Map(ELECTRICAL_PINTYPE.PT_UNSPECIFIED, 'Unspecified')
+      .Map(ELECTRICAL_PINTYPE.PT_POWER_IN, 'Power input')
+      .Map(ELECTRICAL_PINTYPE.PT_POWER_OUT, 'Power output')
+      .Map(ELECTRICAL_PINTYPE.PT_OPENCOLLECTOR, 'Open collector')
+      .Map(ELECTRICAL_PINTYPE.PT_OPENEMITTER, 'Open emitter')
+      .Map(ELECTRICAL_PINTYPE.PT_NC, 'Unconnected');
+  }
+
+  const pinShapeEnum = ENUM_MAP.Instance<GRAPHIC_PINSHAPE>('GRAPHIC_PINSHAPE');
+
+  if (pinShapeEnum.Choices().GetCount() === 0) {
+    pinShapeEnum
+      .Map(GRAPHIC_PINSHAPE.LINE, 'Line')
+      .Map(GRAPHIC_PINSHAPE.INVERTED, 'Inverted')
+      .Map(GRAPHIC_PINSHAPE.CLOCK, 'Clock')
+      .Map(GRAPHIC_PINSHAPE.INVERTED_CLOCK, 'Inverted clock')
+      .Map(GRAPHIC_PINSHAPE.INPUT_LOW, 'Input low')
+      .Map(GRAPHIC_PINSHAPE.CLOCK_LOW, 'Clock low')
+      .Map(GRAPHIC_PINSHAPE.OUTPUT_LOW, 'Output low')
+      .Map(GRAPHIC_PINSHAPE.FALLING_EDGE_CLOCK, 'Falling edge clock')
+      .Map(GRAPHIC_PINSHAPE.NONLOGIC, 'NonLogic');
+  }
+
+  const orientationEnum = ENUM_MAP.Instance<PIN_ORIENTATION>('PIN_ORIENTATION');
+
+  if (orientationEnum.Choices().GetCount() === 0) {
+    orientationEnum
+      .Map(PIN_ORIENTATION.PIN_RIGHT, 'Right')
+      .Map(PIN_ORIENTATION.PIN_LEFT, 'Left')
+      .Map(PIN_ORIENTATION.PIN_UP, 'Up')
+      .Map(PIN_ORIENTATION.PIN_DOWN, 'Down');
+  }
+
+  // `dynamic_cast<LIB_SYMBOL*>( pin->GetParentSymbol() )`: a pin in the symbol editor.
+  const isSymbolEditor = (aItem: INSPECTABLE_ITEM): boolean =>
+    aItem instanceof SCH_PIN ? aItem.GetParentSymbol()?.Type() === KICAD_T.LIB_SYMBOL_T : false;
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_PIN);
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_PIN, SCH_ITEM));
+  propMgr.InheritsAfter(SCH_PIN, SCH_ITEM);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_PIN, string>(SCH_PIN, 'Pin Name', 'SetName', 'GetName', TYPE_STRING),
+    )
+    .SetWriteableFunc(isSymbolEditor);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_PIN, string>(SCH_PIN, 'Pin Number', 'SetNumber', 'GetNumber', TYPE_STRING),
+    )
+    .SetWriteableFunc(isSymbolEditor);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<SCH_PIN, ELECTRICAL_PINTYPE>(
+        SCH_PIN,
+        'Electrical Type',
+        'SetType',
+        'GetType',
+        pinTypeEnum,
+      ),
+    )
+    .SetWriteableFunc(isSymbolEditor);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<SCH_PIN, GRAPHIC_PINSHAPE>(
+        SCH_PIN,
+        'Graphic Style',
+        'SetShape',
+        'GetShape',
+        pinShapeEnum,
+      ),
+    )
+    .SetWriteableFunc(isSymbolEditor);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_PIN, number>(
+        SCH_PIN,
+        'Position X',
+        'SetX',
+        'GetX',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_COORD,
+      ),
+    )
+    .SetAvailableFunc(isSymbolEditor);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_PIN, number>(
+        SCH_PIN,
+        'Position Y',
+        'SetY',
+        'GetY',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_COORD,
+      ),
+    )
+    .SetAvailableFunc(isSymbolEditor);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<SCH_PIN, PIN_ORIENTATION>(
+        SCH_PIN,
+        'Orientation',
+        'SetOrientation',
+        'GetOrientation',
+        orientationEnum,
+      ),
+    )
+    .SetWriteableFunc(isSymbolEditor);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_PIN, number>(
+        SCH_PIN,
+        'Length',
+        'ChangeLength',
+        'GetLength',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+    )
+    .SetWriteableFunc(isSymbolEditor);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_PIN, number>(
+        SCH_PIN,
+        'Name Text Size',
+        'SetNameTextSize',
+        'GetNameTextSize',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+    )
+    .SetAvailableFunc(isSymbolEditor);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_PIN, number>(
+        SCH_PIN,
+        'Number Text Size',
+        'SetNumberTextSize',
+        'GetNumberTextSize',
+        TYPE_INT,
+        PROPERTY_DISPLAY.PT_SIZE,
+      ),
+    )
+    .SetAvailableFunc(isSymbolEditor);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_PIN, boolean>(SCH_PIN, 'Visible', 'SetVisible', 'IsVisible', TYPE_BOOL),
+    )
+    .SetAvailableFunc(isSymbolEditor);
+})();

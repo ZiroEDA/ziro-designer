@@ -18,6 +18,7 @@ import { SCH_SHEET_PIN } from '@ziroeda/eeschema/sch_sheet_pin.js';
 import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
 import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
 import { SCH_FIELD } from '@ziroeda/eeschema/sch_field.js';
+import { SCH_PIN } from '@ziroeda/eeschema/sch_pin.js';
 import { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
 import { SCH_BITMAP } from '@ziroeda/eeschema/sch_bitmap.js';
 import { GetFieldValidationErrorMessage } from '@ziroeda/common/validators.js';
@@ -286,6 +287,43 @@ describe('the leaf registrations', () => {
     expect(PROPERTY_MANAGER.Instance().GetProperty(TYPE_HASH(SCH_BITMAP), 'Scale')!.Group()).toBe(
       'Image Properties',
     );
+  });
+});
+
+describe('SCH_PIN_DESC', () => {
+  it('a pin is edited in the symbol editor: read-only in a schematic symbol, its position hidden there', () => {
+    const h = schToolHarness(schFrame({}));
+    openProject(h.frame, ORACLE, 'complex_hierarchy', SHEETS);
+    const symbol = h.frame
+      .Schematic()
+      .Hierarchy()
+      .flatMap((p) => [...p.LastScreen()!.Items().OfType(KICAD_T.SCH_SYMBOL_T)] as SCH_SYMBOL[])
+      .find((s) => s.GetPins().length > 0)!;
+    const schPin = symbol.GetPins()[0]!;
+    const libPin = symbol.GetLibSymbolRef()!.GetPins()[0]!;
+    const mgr = PROPERTY_MANAGER.Instance();
+    const get = (n: string) => mgr.GetProperty(TYPE_HASH(SCH_PIN), n)!;
+
+    for (const n of [
+      'Pin Name',
+      'Pin Number',
+      'Electrical Type',
+      'Graphic Style',
+      'Orientation',
+      'Length',
+    ]) {
+      expect(mgr.IsWriteableFor(TYPE_HASH(SCH_PIN), get(n), schPin), n).toBe(false);
+      expect(mgr.IsWriteableFor(TYPE_HASH(SCH_PIN), get(n), libPin), n).toBe(true);
+    }
+
+    for (const n of ['Position X', 'Position Y', 'Name Text Size', 'Number Text Size', 'Visible']) {
+      expect(mgr.IsAvailableFor(TYPE_HASH(SCH_PIN), get(n), schPin), n).toBe(false);
+      expect(mgr.IsAvailableFor(TYPE_HASH(SCH_PIN), get(n), libPin), n).toBe(true);
+    }
+
+    const types = get('Electrical Type').Choices();
+    expect(types.GetLabel(0)).toBe('Input');
+    expect(types.GetLabel(types.GetCount() - 1)).toBe('Unconnected');
   });
 });
 
