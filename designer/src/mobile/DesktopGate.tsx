@@ -29,7 +29,7 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
-function GateCard({ onContinue }: { onContinue: () => void }): JSX.Element {
+function GateCard(): JSX.Element {
   const [copied, setCopied] = useState(false);
   const url = window.location.href;
   const mailto =
@@ -72,10 +72,6 @@ function GateCard({ onContinue }: { onContinue: () => void }): JSX.Element {
         </div>
 
         <p className="ze-gate-hint">On a tablet? Rotate to landscape, or connect a mouse.</p>
-
-        <button type="button" className="ze-gate-anyway" onClick={onContinue}>
-          Continue anyway
-        </button>
       </div>
     </div>
   );
@@ -93,12 +89,11 @@ function GateCard({ onContinue }: { onContinue: () => void }): JSX.Element {
  * KiCad's project manager (tree pane, drag splitter, status bar), which is no
  * more usable on a phone than the editors are.
  *
- * "Continue anyway" is always offered, the layout will be unusable, but a
- * determined visitor is never hard-blocked, and the choice sticks across
- * reloads.
+ * There is no way past it (decision 10-08): the app does not run on small
+ * screens for now.
  */
 export function DesktopGate({ children }: { children: ReactNode }): JSX.Element {
-  const { gated, dismiss } = useDesktopGate();
-  if (gated) return <GateCard onContinue={dismiss} />;
+  const { gated } = useDesktopGate();
+  if (gated) return <GateCard />;
   return <>{children}</>;
 }

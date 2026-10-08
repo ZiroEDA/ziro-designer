@@ -98,22 +98,6 @@
   color: #8b8f96;
 }
 
-.ze-gate-anyway {
-  margin-top: 20px;
-  padding: 8px;
-  font: inherit;
-  font-size: 13px;
-  color: #8b8f96;
-  background: none;
-  border: 0;
-  text-decoration: underline;
-  cursor: default;
-  -webkit-tap-highlight-color: transparent;
-}
-.ze-gate-anyway:active {
-  color: #c4c7cc;
-}
-
 /* Landscape phone: very little height, so tighten the card down to fit. */
 @media (max-height: 480px) {
   .ze-gate-card {

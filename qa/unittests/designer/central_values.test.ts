@@ -470,7 +470,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // its `#7fb4e6` link colour (--link-fg is HOTLIGHT) and the four inline
   // sizes of a hand-drawn stub. DIALOG_ABOUT lives in common/dialog_about.
   home: { colours: 6, metrics: 4 },
-  mobile: { colours: 15, metrics: 23 },
+  mobile: { colours: 13, metrics: 21 },
   // 33 colours, down from 193: 160 were `defaultRepo.ts`' invented colour
   // themes, gone with the real ones (see `prefs/color_settings_list.ts`). What is
   // left is pcm.css painting its status pills with a private palette — 176
@@ -1407,7 +1407,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 285 -> 284 (E16h): the `editors/pcb` row, the print renderer's white.
     // 284 -> 282 (10-05): the `editors/pcb` row, the old Footprint Editor window.
     // 282 -> 280 (10-08): the same row, the footprint frames' old canvas.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(280);
+    // 280 -> 278 (10-09): `mobile`, the desktop gate's "Continue anyway" link
+    // deleted with the way past the gate.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(278);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1611,7 +1613,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1110 -> 1102 (10-01): `common/widgets` 683 -> 675, the old Edit
     // Teardrops window's CSS deleted with it. Rescanned.
     // 1102 -> 1089 (10-05): the `editors/pcb` row, the old Footprint Editor window.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1089);
+    // 1089 -> 1087 (10-09): `mobile`, the "Continue anyway" link.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1087);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

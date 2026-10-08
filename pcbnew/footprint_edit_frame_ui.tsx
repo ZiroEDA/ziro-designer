@@ -43,6 +43,7 @@ import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { useKiDialog } from '@ziroeda/common/kidialog.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { GAL_LAYER_ID, type PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { GetLayerName } from '@ziroeda/common/layer_ids.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
@@ -618,7 +619,10 @@ export function FootprintEditFrame({
       visibleLayers,
       visibleElements,
       displayOptions: opts,
-      activeLayer: board.GetLayerID(activeLayerName),
+      // The canonical name the layer combo holds (`LSET::NameToLayer`), not the
+      // board's display name: a new board calls F.SilkS "F.Silkscreen", and
+      // `BOARD::GetLayerID` on the canonical one answers UNDEFINED_LAYER.
+      activeLayer: LSET.NameToLayer(activeLayerName) as PCB_LAYER_ID,
       colorTheme: theme.filename,
     };
 

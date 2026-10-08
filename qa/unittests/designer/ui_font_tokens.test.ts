@@ -340,7 +340,7 @@ const BASELINE: Record<string, number> = {
   // 5 -> 1 on 09-26: the old About stub's 16/12/12/12, gone with it. The
   // real dialog's one size is DIALOG_ABOUT_BASE's own `wxFont( 14, ... )`.
   home: 1,
-  mobile: 6,
+  mobile: 5,
   pcm: 10,
   // 157 until the Appearance panel pass. KIUI::GetInfoFont is one font for the
   // whole pane, and eight rules there wrote 12px or 13px between them; they
@@ -740,7 +740,8 @@ describe('hardcoded font sizes do not grow', () => {
     // 97 -> 90 (10-01): 860a063c deleted the legacy DialogPositionRelative,
     // replaced by DIALOG_POSITION_RELATIVE in the panel font - see `editors/pcb`.
     // 90 -> 89 (10-05): the old Footprint Editor window's canvas placeholder.
-    expect(sites.length).toBe(89);
+    // 89 -> 88 (10-09): the desktop gate's "Continue anyway" link.
+    expect(sites.length).toBe(88);
   });
 });
 

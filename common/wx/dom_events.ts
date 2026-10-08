@@ -262,6 +262,9 @@ const NUMPAD_CODES: Readonly<Record<string, WXK>> = {
 export function wxKeyCodeFromDom(aDom: KeyboardEvent): number {
   const key = aDom.key;
 
+  // A browser's autofill raises a keydown with no key at all: no key was pressed.
+  if (key === undefined) return WXK.WXK_NONE;
+
   if (aDom.location === 3) {
     const np = NUMPAD_CODES[aDom.code];
 

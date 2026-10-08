@@ -39,9 +39,6 @@ import { useEffect, useState } from 'react';
 const SMALL = '(max-width: 1024px)';
 const COARSE = '(pointer: coarse)';
 
-/** Set once by "Continue anyway", so the choice survives a reload. */
-const OVERRIDE_KEY = 'ziro.desktopGate.override';
-
 const matches = (q: string): boolean => {
   try {
     return window.matchMedia(q).matches;
@@ -50,34 +47,33 @@ const matches = (q: string): boolean => {
   }
 };
 
-/** True when this device is too small and too touch-only to run the editors. */
-export const isSmallTouchDevice = (): boolean => matches(SMALL) && matches(COARSE);
+/**
+ * [decision, 10-08] The shorter side of the DEVICE's screen, in CSS px, below
+ * which the app does not run at all: every phone, whatever pointer it claims
+ * and however its browser window is sized. A desktop window dragged narrow is
+ * not a small screen, so it is not gated.
+ */
+const PHONE_SCREEN_SIDE = 768;
 
-const overridden = (): boolean => {
+const smallScreen = (): boolean => {
   try {
-    return localStorage.getItem(OVERRIDE_KEY) === '1';
+    return Math.min(window.screen.width, window.screen.height) < PHONE_SCREEN_SIDE;
   } catch {
-    return false; // storage blocked (private mode / third-party cookie rules)
+    return false; // no screen object (non-browser): never gate
   }
 };
 
-/** Remember that the user chose to proceed on a gated device anyway. */
-export const setDesktopGateOverride = (): void => {
-  try {
-    localStorage.setItem(OVERRIDE_KEY, '1');
-  } catch {
-    /* storage blocked, the in-memory state below still lets them through */
-  }
-};
+/** True when this device is too small to run the editors: a phone, or a small touch-only tablet. */
+export const isSmallTouchDevice = (): boolean =>
+  smallScreen() || (matches(SMALL) && matches(COARSE));
 
 /**
  * Whether to show the gate instead of the app. Re-evaluates on resize and
  * orientation change (both surface as a `change` on the media queries), so
  * turning a tablet to landscape drops the gate live rather than on reload.
  */
-export function useDesktopGate(): { gated: boolean; dismiss: () => void } {
+export function useDesktopGate(): { gated: boolean } {
   const [small, setSmall] = useState(isSmallTouchDevice);
-  const [bypass, setBypass] = useState(overridden);
 
   useEffect(() => {
     let lists: MediaQueryList[];
@@ -101,10 +97,6 @@ export function useDesktopGate(): { gated: boolean; dismiss: () => void } {
     };
   }, []);
 
-  const dismiss = () => {
-    setDesktopGateOverride();
-    setBypass(true);
-  };
-
-  return { gated: small && !bypass, dismiss };
+  // No way past it: the app does not run on small screens (10-08).
+  return { gated: small };
 }

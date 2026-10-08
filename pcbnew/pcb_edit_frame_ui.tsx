@@ -1681,6 +1681,16 @@ export function PcbEditor({
   const unitsRef = useRef<StatusUnits>('mm');
   const ctrlDownRef = useRef(false);
   const [scale, setScale] = useState(0);
+  /**
+   * The status bar's zoom field, written by the draw itself (as the cursor
+   * fields are), and the trailing timer that hands the settled scale to React
+   * for the zoom combo. KiCad updates both from idle-time UI events
+   * (`EDA_DRAW_FRAME::OnUpdateSelectZoom`, `UpdateStatusBar`); setting React
+   * state on every frame instead re-rendered the whole frame per zoom step,
+   * which is what made zooming lag.
+   */
+  const zoomFieldRef = useRef<HTMLSpanElement>(null);
+  const scaleSettleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Active grid size (the TOP_AUX grid selector; EDA_DRAW_FRAME's grid list).
   //
   // Seeded from `window.grid.last_size_idx` and written back on every change,
@@ -3310,7 +3320,16 @@ export function PcbEditor({
       );
     }
     notePcbPaint('gl', __t0);
-    setScale(v.scale);
+    if (zoomFieldRef.current)
+      zoomFieldRef.current.textContent = zoomMsg(
+        zoomFactorForScale(v.scale, window.devicePixelRatio || 1),
+      );
+    if (scaleSettleRef.current !== null) clearTimeout(scaleSettleRef.current);
+    const settled = v.scale;
+    scaleSettleRef.current = setTimeout(() => {
+      scaleSettleRef.current = null;
+      setScale(settled);
+    }, 120);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, theme]);
 
@@ -8387,7 +8406,8 @@ export function PcbEditor({
           constraint: 'pcb-constraint-msg',
         }}
         fields={{
-          zoom: zoomMsg(zoomFactorForScale(scale, window.devicePixelRatio || 1)),
+          // Written by the draw, never by React: see zoomFieldRef.
+          zoom: <span ref={zoomFieldRef} />,
           coords: <span ref={statusReadout.coordsRef} />,
           deltas: <span ref={statusReadout.deltasRef} />,
           grid: gridText,
