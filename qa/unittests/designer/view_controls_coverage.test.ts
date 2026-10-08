@@ -26,7 +26,6 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 
 /** Every file in the app that owns a canvas and handles a wheel event. */
 const CANVASES = [
-  'editors/schematic/components/SchematicCanvas.tsx',
   'editors/symbol/SymbolCanvas.tsx',
   // (The board editor's frame is not here: its canvas is PCB_DRAW_PANEL_GAL,
   // whose own WX_VIEW_CONTROLS takes the wheel and the drag gestures, as
@@ -186,12 +185,13 @@ describe('shared view controls', () => {
   );
 
   it('every editing canvas holds its own m_panTimer', () => {
-    // Three, and the preview panes are the fourth CANVAS. If that count moves,
+    // Two, and the preview panes are the third CANVAS. If that count moves,
     // read the block comment above before changing the number. GerbView left
     // this list when it moved onto EDA_DRAW_PANEL_GAL, pl_editor after it, and
-    // the board editor after that (#636 stage 3): their autopan is
+    // the board editor after that (#636 stage 3), and the schematic when its old canvas went
+    // (KiCad's SCH_DRAW_PANEL took over): their autopan is
     // WX_VIEW_CONTROLS' own, not a canvas's copy.
-    expect(AUTOPAN_CANVASES).toHaveLength(3);
+    expect(AUTOPAN_CANVASES).toHaveLength(2);
   });
 
   it.each(AUTOPAN_CANVASES)('%s runs handleAutoPanning on motion', (rel) => {
@@ -238,8 +238,6 @@ describe('shared view controls', () => {
     // It used to live inside the 3878-line SchematicCanvas.tsx and be imported
     // back out of it by two shared widgets - an app importing from another app,
     // which KiCad's common/ + include/ split exists to prevent.
-    const canvas = read('editors/schematic/components/SchematicCanvas.tsx');
-    expect(canvas).not.toMatch(/export\s+(interface\s+InputPrefs|const\s+DEFAULT_INPUT_PREFS)/);
     expect(read('../../common/ui/view_controls.ts')).toMatch(/export interface InputPrefs/);
   });
 

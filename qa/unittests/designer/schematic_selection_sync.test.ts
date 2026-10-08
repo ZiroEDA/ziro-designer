@@ -24,15 +24,6 @@ const editor = readFileSync(
   fileURLToPath(new URL('../../../eeschema/sch_edit_frame_ui.tsx', import.meta.url)),
   'utf8',
 );
-const canvas = readFileSync(
-  fileURLToPath(
-    new URL(
-      '../../../designer/src/editors/schematic/components/SchematicCanvas.tsx',
-      import.meta.url,
-    ),
-  ),
-  'utf8',
-);
 
 describe('a selection goes out in terms a peer can resolve', () => {
   it('never sends the positional fallback id', () => {
@@ -84,51 +75,5 @@ describe('a claim only applies to the sheet it was made on', () => {
     // cannot lock anything here.
     expect(body).toContain('for (const { ids } of remoteSelectionList)');
     expect(body).toContain('[remoteSelectionList]');
-  });
-
-  it('hands both to the canvas', () => {
-    expect(editor).toContain('remoteSelections={remoteSelectionList}');
-    expect(editor).toContain('lockedIds={remoteLockedIds}');
-  });
-});
-
-describe('a grab on a claimed item is refused before it starts', () => {
-  it('guards every single place a move begins', () => {
-    // The invariant, not three separate spot checks: if a fourth way to start
-    // a move appears without a guard, these two counts stop matching and this
-    // fails. That is the whole reason it counts rather than asserting on the
-    // three sites it happens to know about today.
-    const starts = canvas.match(/modeRef\.current = 'move';/g) ?? [];
-    const guards = canvas.match(/isRemotelyLocked\(/g) ?? [];
-    expect(starts.length).toBeGreaterThan(0);
-    expect(guards).toHaveLength(starts.length);
-  });
-
-  it('short-circuits when nobody else is here', () => {
-    // A gesture is on the hot path; with no peers this must not walk a set.
-    const i = canvas.indexOf('const isRemotelyLocked =');
-    expect(i).toBeGreaterThan(-1);
-    const body = canvas.slice(i, i + 300);
-    expect(body).toContain('if (!lockedIds || lockedIds.size === 0) return false;');
-  });
-});
-
-describe('a peer’s selection is drawn as theirs', () => {
-  it('uses that peer’s own colour, not one shared highlight', () => {
-    const i = canvas.indexOf('if (remoteSelections && remoteSelections.length > 0)');
-    expect(i).toBeGreaterThan(-1);
-    const body = canvas.slice(i, canvas.indexOf("// Other viewers' cursors", i));
-    expect(body).toContain('peerColor(rs.peerId)');
-    expect(body).toContain('setLineDash([4, 3])');
-  });
-
-  it('skips ids this sheet does not have, rather than boxing the origin', () => {
-    // A board tab shares this channel and sends board uuids. Without this,
-    // `selectionBBox` would be handed ids it cannot place and the peer would
-    // appear to have selected a corner of the page.
-    const i = canvas.indexOf('if (remoteSelections && remoteSelections.length > 0)');
-    const body = canvas.slice(i, canvas.indexOf("// Other viewers' cursors", i));
-    expect(body).toContain('hasExtent(schematic, id, libById)');
-    expect(body).toContain('if (present.size === 0) continue;');
   });
 });

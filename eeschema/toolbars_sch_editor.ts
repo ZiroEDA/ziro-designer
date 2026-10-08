@@ -257,6 +257,7 @@ export const GAL_ROUTED_IDS: ReadonlySet<string> = new Set([
   'zoomIn',
   'zoomOut',
   'zoomFitObjects',
+  'zoomFitSelection',
   'zoomRedraw',
   'zoomTool',
   'placeSymbol',

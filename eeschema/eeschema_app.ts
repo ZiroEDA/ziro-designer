@@ -25,7 +25,6 @@ import type { LibSymbol, Schematic } from './types.js';
 import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { ProjectFile } from '@ziroeda/common/project_paths.js';
-import type { CanvasController, SchematicCanvasProps } from './sch_draw_panel.js';
 import type { DialogSymbolChooserProps } from './picksymbol.js';
 import type { DialogRescueEachProps } from './project_rescue.js';
 import type { DialogChangeSymbolsProps } from './tools/change_symbols.js';
@@ -88,10 +87,6 @@ export interface EeschemaFootprintPads {
 
 export interface EESCHEMA_APP {
   // ----- windows/dialogs (component-shaped, called as JSX) ----------------
-  /** SCH_DRAW_PANEL: the canvas (its contract is `sch_draw_panel.ts`). */
-  SchematicCanvas: ForwardRefExoticComponent<
-    SchematicCanvasProps & RefAttributes<CanvasController>
-  >;
   /** `DIALOG_SYMBOL_CHOOSER`, `PickSymbolFromLibrary`'s dialog (`picksymbol.ts`). */
   DialogSymbolChooser: (props: DialogSymbolChooserProps) => ReactNode;
   /** `SYMBOL_VIEWER_FRAME`, the Symbol Library Browser. */

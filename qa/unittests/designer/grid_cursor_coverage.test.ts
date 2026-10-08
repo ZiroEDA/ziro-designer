@@ -49,7 +49,6 @@ const GRID_OWNERS: [canvas: string, file: string][] = [
 
 /** Where each canvas' crosshair (GAL::blitCursor) is drawn. */
 const CROSSHAIR_OWNERS: [canvas: string, file: string][] = [
-  ['schematic', 'editors/schematic/components/SchematicCanvas.tsx'],
   ['symbol editor', 'editors/symbol/SymbolCanvas.tsx'],
   ['pcb', '../../pcbnew/pcb_edit_frame_ui.tsx'],
   ['footprint editor', '../../pcbnew/pcb_draw_panel_gal_ui.tsx'],
@@ -57,7 +56,6 @@ const CROSSHAIR_OWNERS: [canvas: string, file: string][] = [
 
 /** Everything that draws a grid or a crosshair, for the no-local-copy sweep. */
 const ALL = [...new Set([...GRID_OWNERS, ...CROSSHAIR_OWNERS].map(([, f]) => f))].concat([
-  'editors/schematic/components/SchematicCanvas.tsx',
   '../../pcbnew/renderBoard.ts',
   'editors/symbol/SymbolCanvas.tsx',
 ]);
@@ -108,20 +106,6 @@ describe('shared grid + crosshair', () => {
         /canvas\.width \+ canvas\.height/,
       );
     }
-  });
-
-  it('the schematic paints the grid on every one of its GL paint paths', () => {
-    // SchematicCanvas has two GL paths, the drag preview and the plain one, and
-    // each clears and repaints the 2D layer under the GL buffer itself; the
-    // whole-scene 2D path gets its grid inside renderSchematic instead. GL
-    // never draws the grid, so a GL path that does not call drawGrid paints no
-    // grid at all — and a conversion that wires one branch and misses the other
-    // looks green everywhere except on screen. This is exactly the half-wiring
-    // #542's coverage test had to be tightened for.
-    const canvas = read('editors/schematic/components/SchematicCanvas.tsx');
-    const glPaints = count(canvas, /gl\.render\(/g);
-    expect(glPaints).toBeGreaterThan(1);
-    expect(count(canvas, /\bdrawGrid\(/g)).toBe(glPaints);
   });
 
   it('the shared painter, not its callers, decides whether the grid is shown', () => {

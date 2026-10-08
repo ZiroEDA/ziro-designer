@@ -35,24 +35,6 @@ const SRC = readFileSync(
   'utf8',
 );
 
-/** The `onEditItem` prop handed to the canvas — the double-click seam. */
-function canvasDoubleClickHandler(): string {
-  const i = SRC.indexOf('onEditItem={(id, kind) =>');
-  expect(i, 'the canvas must take a double-click handler').toBeGreaterThan(-1);
-  return SRC.slice(i, SRC.indexOf('}}', i));
-}
-
-describe('the canvas double-click', () => {
-  it('routes through openProperties, not through the narrower router', () => {
-    expect(canvasDoubleClickHandler()).toContain('openProperties(id)');
-  });
-
-  it('and still enters a sheet rather than opening a dialog for it', () => {
-    // `if( item->Type() == SCH_SHEET_T ) PostAction( enterSheet )`.
-    expect(canvasDoubleClickHandler()).toContain("kind === 'sheet'");
-  });
-});
-
 describe('openProperties is the complete router', () => {
   /**
    * The kinds it must reach. `graphic` is the one that was missing from the

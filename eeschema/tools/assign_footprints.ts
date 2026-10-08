@@ -18,7 +18,6 @@ import type { Schematic, SchField, SchSymbol } from '../types.js';
 import { buildPropertyNode } from '../sch_io/sexpr/write-schematic.js';
 import type { EditCommand } from './command.js';
 import { refId } from './hittest.js';
-import { restoreSymbols } from './properties.js';
 import { DSNLEXER } from '@ziroeda/common/dsnlexer.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { IO_ERROR } from '@ziroeda/common/exceptions.js';

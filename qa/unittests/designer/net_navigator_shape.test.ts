@@ -125,7 +125,7 @@ describe('picking a leaf focuses the item', () => {
   it('centres on the item bounding box, as FocusOnLocation does', () => {
     expect(EDITOR).toContain('FocusOnLocation');
     expect(EDITOR).toMatch(
-      /highlightedNet=\{highlightName\}[\s\S]{0,900}?controller\.current\?\.centerOn/,
+      /highlightedNet=\{highlightName\}[\s\S]{0,900}?schFrameRef\.current!\.FocusOnLocation/,
     );
   });
 

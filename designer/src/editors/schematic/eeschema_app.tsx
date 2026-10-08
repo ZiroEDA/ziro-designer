@@ -36,7 +36,6 @@ import { useAuth } from '../../auth/AuthProvider.js';
 import { PresencePanel } from '../../ui/PresencePanel.js';
 import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
 import { useCvpcbApp } from './cvpcb_app.js';
-import { SchematicCanvas } from './components/SchematicCanvas.js';
 import { DialogSymbolChooser } from './dialogs/dialog_symbol_chooser.js';
 import { SymbolLibraryBrowser } from '@ziroeda/eeschema/symbol_viewer_frame_ui.js';
 import type { SYMBOL_VIEWER_FRAME_APP } from '@ziroeda/eeschema/symbol_viewer_frame.js';
@@ -91,8 +90,6 @@ export function useEeschemaApp(): EESCHEMA_APP {
       useHotkeyOverrides,
       useSchematicTheme,
       overrideItemColorsFor,
-
-      SchematicCanvas,
       DialogSymbolChooser: (props) => <DialogSymbolChooser {...props} />,
       SymbolLibraryBrowser: (props) => <SymbolLibraryBrowser app={symbolViewerApp} {...props} />,
       DialogRescueEach: (props) => <DialogRescueEach {...props} />,

@@ -102,13 +102,11 @@ describe('every app defaults to ALWAYS, so the sweep changed no default', () => 
 
 /** Where each editor snaps, and which settings object is the right one there. */
 const CANVAS: Record<string, string> = {
-  eeschema: 'editors/schematic/components/SchematicCanvas.tsx',
   symbol_editor: '../../eeschema/symbol_editor/grid.ts',
 };
 
 /** The settings-object expression each canvas must reach for. */
 const OWN_SNAP: Record<string, string> = {
-  eeschema: 'settings.eeschema.window.grid.snap',
   symbol_editor: 'cfg.window.grid.snap',
   pl_editor: 'plCfg.window.grid.snap',
   gerbview: 'gbrCfg.window.grid.snap',
@@ -135,17 +133,6 @@ describe('each canvas asks GetGridSnapping, with its own settings', () => {
       expect(src, `${app} reads ${other}'s snap`).not.toContain(
         `settings.${other}.window.grid.snap`,
       );
-  });
-
-  it('the schematic no longer snaps unconditionally', () => {
-    // It was `const snap = (p) => ({ x: round(p.x / GRID) * GRID, … })` with no
-    // test at all — ALWAYS hardcoded, so two of the three options were inert.
-    const src = read(CANVAS.eeschema as string);
-    // Whitespace-insensitive on purpose: the formatter decides where this
-    // wraps, and an assertion that pins indentation fails on a reformat rather
-    // than on the behaviour it is about.
-    expect(src).toMatch(/snapping\s*\?\s*\{\s*x:\s*Math\.round\(p\.x \/ GRID\)/);
-    expect(src).toMatch(/:\s*p;/);
   });
 });
 

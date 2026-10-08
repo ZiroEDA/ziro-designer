@@ -258,15 +258,6 @@ describe('the preview fits the fields it draws, not their anchors', () => {
  * at both of its placement points, and one of them quietly losing its call is
  * the regression worth catching.
  */
-const CANVAS = readFileSync(
-  fileURLToPath(
-    new URL(
-      '../../../designer/src/editors/schematic/components/SchematicCanvas.tsx',
-      import.meta.url,
-    ),
-  ),
-  'utf8',
-);
 
 const RENDERER = readFileSync(
   fileURLToPath(new URL('../../../eeschema/sch_painter.ts', import.meta.url)),
@@ -312,17 +303,5 @@ describe('the chooser preview measures and draws the autoplaced fields', () => {
     // passes because they test the boxes rather than the fit that uses them.
     expect(RENDERER).toContain('inc({ x: b.box.x, y: b.box.y });');
     expect(RENDERER).toContain('inc({ x: b.box.x + b.box.w, y: b.box.y + b.box.h });');
-  });
-});
-
-describe('the placement paths hand their symbol to the autoplacer', () => {
-  it('does it for the symbol still riding the cursor, with no sheet', () => {
-    // `AutoplaceFields( nullptr, AUTOPLACE_AUTO )`: dropped = false.
-    expect(CANVAS).toContain('onAutoplacePlacement(ghost, placeLib, false)');
-  });
-
-  it('does it again for the symbol that lands, with the sheet', () => {
-    // `AutoplaceFields( screen, AUTOPLACE_AUTO )`: dropped = true.
-    expect(CANVAS).toContain('onAutoplacePlacement(ready, placeLib, true)');
   });
 });

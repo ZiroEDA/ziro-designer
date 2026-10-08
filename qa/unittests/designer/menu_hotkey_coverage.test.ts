@@ -165,12 +165,6 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {",
     // SCH_ACTIONS::duplicate - no row in eeschema's Edit menu.
     "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {",
-    // ACTIONS::zoomFitScreen, WXK_HOME off macOS. The Ctrl+0 that used to be
-    // excused here was the `#if defined( __WXMAC__ )` branch, bound alongside
-    // it; Home is now the only spelling, and the View rows carry no
-    // accelerator at all for zoomIn / zoomOut because those are zoomInCenter /
-    // zoomOutCenter, which declare no hotkey.
-    "} else if (e.key === 'Home' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {",
     // ACTIONS::toggleUnits and ACTIONS::cycleArcEditMode, neither with a row.
     "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u' && !e.shiftKey) {",
     "} else if ((e.ctrlKey || e.metaKey) && e.key === ' ') {",
@@ -181,8 +175,6 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     '!e.ctrlKey &&',
     '!e.metaKey &&',
     "} else if (e.key === 'F1' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {",
-    "} else if (e.key === 'F1' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {",
-    "} else if (e.key === 'F2' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {",
     // SCH_ACTIONS::editWithLibEdit - no row.
     "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e' && !e.shiftKey) {",
     // SCH_ACTIONS::nextNetItem / previousNetItem - no row.
@@ -530,10 +522,6 @@ const CANVAS_KEYS: Readonly<
       // the `#else` (actions.cpp:401-406), so on this platform Del is the whole
       // answer. Del itself is in `moved`, declared by Edit > Delete.
       ['Alt+Backspace leave sheet', /leaveSheet \(Alt\+Backspace\)/],
-      // ACTIONS::zoomFitScreen is WXK_HOME off macOS (actions.cpp:719-724).
-      // `hotkeys.ts` printed Home all along while nothing bound it and Ctrl+0 -
-      // the macOS branch - did the work; now Home is bound and Ctrl+0 is not.
-      ['Home zoom to fit', /e\.key === 'Home' && !e\.ctrlKey/],
       ['Ctrl+Shift+G grid overrides', /toggleGridOverrides \(Ctrl\+Shift\+G\)/],
       ['Alt+3 select node', /selectNode \(Alt\+3\)/],
       ['Alt+S swap', /swap \(Alt\+S\)/],
@@ -553,7 +541,6 @@ const CANVAS_KEYS: Readonly<
       ['Ctrl+E edit with lib edit', /editWithLibEdit \(Ctrl\+E\)/],
       ['Tab next net item', /nextNetItem \/ previousNetItem/],
       ['R X Y transform', /rotateCCW\/rotateCW\/mirrorH\/mirrorV/],
-      ['M G move and drag', /SCH_ACTIONS::move \/ drag/],
       ['` ~ highlight', /highlightNet \/ clearHighlight/],
       ['Space reset local coords', /resetLocalCoords/],
       ['Shift+Space line mode', /lineModeNext/],

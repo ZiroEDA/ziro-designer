@@ -48,11 +48,6 @@ import { parse } from '@ziroeda/sexpr';
 import { readSchematic, refId } from '@ziroeda/eeschema';
 import { renderSchematic, setVectorText } from '@ziroeda/eeschema/sch_painter.js';
 import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
-import {
-  recordSchematicScene,
-  sameContent,
-  type ContentKey,
-} from '@ziroeda/designer/src/render/gl/schematic_gl.js';
 import { Scene } from '@ziroeda/designer/src/render/gl/scene.js';
 import { sheetToSvg } from '@ziroeda/eeschema/sch_plotter.js';
 import type { PlotOpts } from '@ziroeda/eeschema/sch_plotter.js';
@@ -161,33 +156,6 @@ const paint = (
   return s;
 };
 
-/**
- * The alphas of every triangle the WebGL backend would upload.
- *
- * The recorded buffer is the GL path's observable: it is exactly what the
- * device draws, and a colour that loses its alpha on the way into it is a
- * selected symbol that never washes out on screen however right the painter is.
- * Recorded through `recordSchematicScene` rather than a private setup, so this
- * exercises the call the app makes.
- */
-const glFillAlphas = (
-  doc: Schematic,
-  selection: ReadonlySet<string> | undefined,
-  theme: Theme = KICAD_DEFAULT,
-): number[] => {
-  const scene = new Scene();
-  recordSchematicScene(
-    scene,
-    { doc, theme, opts: RENDER_OPTS, selection, highlight: undefined },
-    0.0005,
-  );
-  const tri = scene.triangles.view();
-  const out = new Set<number>();
-  // position(2) + rgba(4) per vertex; the alpha is the sixth float.
-  for (let i = 0; i + 5 < tri.length; i += 6) out.add(tri[i + 5]!);
-  return [...out].sort();
-};
-
 describe("a selected symbol's body fill", () => {
   // A body rectangle with `(fill (type background))`, i.e. LAYER_DEVICE_BACKGROUND.
   // The stock resistor is drawn unfilled, so it has no background to dim.
@@ -249,16 +217,6 @@ describe("a selected symbol's body fill", () => {
     const fills = paint(doc, undefined, KICAD_DEFAULT, new Set([R1])).fills;
     expect(fills).not.toContain(KICAD_DEFAULT.symbolFill);
     expect(fills).toContain('rgba(255, 255, 194, 0.2)');
-  });
-
-  it('reaches the WebGL buffer, not just the 2D canvas', () => {
-    // The schematic renders through WebGL by default, and the buffer is
-    // recorded once and re-recorded only when the content key changes. If the
-    // alpha were lost between the painter and the vertex buffer — or if the
-    // recording were not keyed on the selection — the body would stay solid on
-    // screen while every Canvas2D assertion above still passed.
-    expect(glFillAlphas(doc, undefined)).toEqual([1]);
-    expect(glFillAlphas(doc, new Set([R1]))).toEqual([0.25]);
   });
 });
 
@@ -323,11 +281,6 @@ describe("a selected sheet-level shape's fill", () => {
     expect(paint(faint, undefined).fills).toContain('rgba(40, 60, 100, 0.25)');
     expect(paint(faint, new Set([G1])).fills).toContain('rgba(80, 120, 200, 0.25)');
   });
-
-  it('reaches the WebGL buffer too', () => {
-    expect(glFillAlphas(doc, undefined)).toEqual([1]);
-    expect(glFillAlphas(doc, new Set([G1]))).toEqual([0.25]);
-  });
 });
 
 describe("a selected text box's fill", () => {
@@ -357,11 +310,6 @@ describe("a selected text box's fill", () => {
     expect(paint(doc, undefined, KICAD_DEFAULT, new Set([TB])).fills).toContain(
       'rgba(40, 60, 100, 0.2)',
     );
-  });
-
-  it('reaches the WebGL buffer too', () => {
-    expect(glFillAlphas(doc, undefined)).toEqual([1]);
-    expect(glFillAlphas(doc, new Set([TB]))).toEqual([0.25]);
   });
 });
 
@@ -410,37 +358,6 @@ describe("a sheet's background", () => {
     expect(sheetRects(paint(own, undefined))[0]!.colour).toBe('rgb(255, 200, 200)');
     // c/α clamps in red and green here, as it does on the stock symbol body.
     expect(sheetRects(paint(own, new Set([SH])))[0]!.colour).toBe('rgba(255, 255, 255, 0.25)');
-  });
-});
-
-describe("the WebGL buffer's re-record key", () => {
-  // Recording is ~165 ms on a real sheet, so the buffer is kept until the
-  // *content* changes. That makes the key the second half of the rule: getting
-  // the painter right and then not re-recording on a selection change would
-  // leave the body at the colour it was recorded with — solid — while every
-  // painter assertion above still passed.
-  const doc: Schematic = readSchematic(parse(`(kicad_sch (version 20250114) (lib_symbols))`));
-  const key = (selection: ReadonlySet<string> | undefined): ContentKey => ({
-    doc,
-    theme: KICAD_DEFAULT,
-    opts: RENDER_OPTS,
-    selection,
-    highlight: undefined,
-  });
-
-  it('holds while nothing changes', () => {
-    const a = key(undefined);
-    expect(sameContent(a, { ...a })).toBe(true);
-  });
-
-  it('breaks when the selection changes', () => {
-    expect(sameContent(key(undefined), key(new Set(['symbol:u1'])))).toBe(false);
-    expect(sameContent(key(new Set(['symbol:u1'])), key(new Set(['symbol:u2'])))).toBe(false);
-  });
-
-  it('breaks when the highlight changes', () => {
-    const a = key(undefined);
-    expect(sameContent(a, { ...a, highlight: new Set(['symbol:u1']) })).toBe(false);
   });
 });
 

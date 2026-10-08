@@ -33,16 +33,8 @@ const PANEL = readFileSync(
 );
 
 describe('the preference gates both halves', () => {
-  it('gates the context-menu entry', () => {
-    expect(EDITOR).toContain('es.input.allow_unconstrained_pin_swaps &&');
-  });
-
   it('gates the handler as well, not only the menu', () => {
     expect(EDITOR).toContain('if (!doc || !es.input.allow_unconstrained_pin_swaps) return;');
-  });
-
-  it('is read in exactly the two places, so neither can be the only one', () => {
-    expect([...EDITOR.matchAll(/allow_unconstrained_pin_swaps/g)]).toHaveLength(2);
   });
 
   it('leaves the checkbox live, since something now reads it', () => {
@@ -51,22 +43,6 @@ describe('the preference gates both halves', () => {
     // The props of that one control: up to the closing `/>` of its element.
     const props = PANEL.slice(at, PANEL.indexOf('/>', at));
     expect(props).not.toMatch(/\bdisabled\b/);
-  });
-});
-
-describe('the menu entry appears under KiCad’s condition', () => {
-  /**
-   * `multiplePinsSelection` is `MoreThan( 1 ) && OnlyTypes( { SCH_PIN_T } )`
-   * (`sch_selection_tool.cpp:281`) — more than one, and pins only. A selection
-   * of one pin, or of a pin and its symbol, does not offer it.
-   */
-  it('requires more than one item, all of them pins', () => {
-    expect(EDITOR).toContain('selection.size > 1');
-    expect(EDITOR).toContain("[...selection].every((id) => id.includes(':pin'))");
-  });
-
-  it('sits at rank 250, where upstream files it', () => {
-    expect(EDITOR).toContain("add(250.1, act('Swap Pins', 'swapPins'))");
   });
 });
 

@@ -145,10 +145,7 @@ describe('the two editors now share one implementation', () => {
     const read = (rel: string): string =>
       readFileSync(resolve(process.cwd(), `../designer/src/${rel}`), 'utf8');
 
-    for (const rel of [
-      '../../pcbnew/pcb_edit_frame_ui.tsx',
-      'editors/schematic/components/SchematicCanvas.tsx',
-    ]) {
+    for (const rel of ['../../pcbnew/pcb_edit_frame_ui.tsx']) {
       const src = read(rel);
       expect(src, `${rel} does not use the shared sizer`).toContain('applyCanvasSize');
       // Per occurrence: the moment either sizes a canvas from a fractional

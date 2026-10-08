@@ -27,7 +27,6 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const CANVAS = read('../../../designer/src/editors/schematic/components/SchematicCanvas.tsx');
 const EDITOR = read('../../../eeschema/sch_edit_frame_ui.tsx');
 const DIALOG = read('../../../eeschema/dialogs/dialog_table_properties.tsx');
 /**
@@ -37,44 +36,6 @@ const DIALOG = read('../../../eeschema/dialogs/dialog_table_properties.tsx');
  * the shared file, and assertions about what eeschema contributes read DIALOG.
  */
 const SHARED_DIALOG = read('../../../common/dialogs/dialog_table_properties.tsx');
-
-describe('the preview while the table is being dragged out', () => {
-  it('builds a real table, not a rectangle', () => {
-    // `makeTableFromDrag` is the same builder the commit uses, so what you see
-    // while dragging is what you get.
-    expect(CANVAS).toContain('makeTableFromDrag(ds.start, size');
-    expect(CANVAS).toContain('addItems({\n          tables: [');
-  });
-
-  it('and the table tool no longer previews through makeRectangle', () => {
-    // The three that really are rectangles keep sharing that branch.
-    const preview = CANVAS.slice(
-      CANVAS.indexOf('function previewGraphic'),
-      CANVAS.indexOf('function previewGraphic') + 900,
-    );
-    expect(preview).toContain("case 'rectangle':");
-    expect(preview).toContain("case 'textbox':");
-    // `case 'table':` is still listed — returning null, with a comment — so the
-    // exhaustive switch keeps flagging any shape kind nobody handled.
-    expect(preview).toContain("case 'table':");
-    expect(preview).not.toMatch(/case 'table':\s*\n\s*return makeRectangle/);
-  });
-
-  it('using the default text size, which decides the column count', () => {
-    // `int colCount = std::max( 1, requestedSize.x / ( fontSize * 15 ) );`
-    expect(CANVAS).toContain('tableFontSizeIU');
-    expect(EDITOR).toContain('tableFontSizeIU={setup.formatting.defaultTextSizeMils');
-  });
-
-  it('and the raw drag delta, so a backwards drag gives 1x1 as upstream does', () => {
-    // `VECTOR2I requestedSize( cursorPos - origin );` — unnormalized. It is
-    // `table->Normalize()` on the second click that squares things up, and
-    // `std::max( 1, … )` that keeps a backwards drag to a single cell.
-    expect(CANVAS).toContain(
-      'const size = { x: ds.cursor.x - ds.start.x, y: ds.cursor.y - ds.start.y };',
-    );
-  });
-});
 
 describe('the dialog the tool ends with', () => {
   it('is opened for a table just drawn and for one already on the sheet', () => {

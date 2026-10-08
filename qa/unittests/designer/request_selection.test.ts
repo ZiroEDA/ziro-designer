@@ -389,11 +389,6 @@ const WIRING: { name: string; anchor: string; seam: RegExp }[] = [
     seam: /requestTarget\(AnyItems\)/,
   },
   {
-    name: 'move / drag',
-    anchor: "e.key.toLowerCase() === 'm' || e.key.toLowerCase() === 'g'",
-    seam: /requestTarget\(MovableItems\)/,
-  },
-  {
     name: 'autoplace fields',
     anchor: "if (e.key.toLowerCase() === 'o') {",
     seam: /requestTarget\(RotatableItems\)/,
@@ -406,11 +401,6 @@ const WIRING: { name: string; anchor: string; seam: RegExp }[] = [
   {
     name: 'properties (E)',
     anchor: "if (e.key.toLowerCase() === 'e')",
-    seam: /requestTarget\(AnyItems\)/,
-  },
-  {
-    name: 'properties (context menu)',
-    anchor: "icon: 'properties',",
     seam: /requestTarget\(AnyItems\)/,
   },
 ];

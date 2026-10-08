@@ -205,7 +205,7 @@ describe('one CURSOR_STORE, like KiCad', () => {
   ];
 
   /** Files that still name a cursor at the point of use. */
-  const CALLERS = [...DECIDERS, 'designer/src/editors/schematic/components/SchematicCanvas.tsx'];
+  const CALLERS = [...DECIDERS];
 
   it.each(DECIDERS)('%s exists, so its editor has one place to decide', (rel) => {
     expect(existsSync(join(ROOT, rel)), `${rel} is missing`).toBe(true);
@@ -319,14 +319,5 @@ describe('KICURSOR::BULLSEYE is a stock cursor', () => {
 
   it('is what the net-highlight picker wears in eeschema', () => {
     expect(schToolCursor('highlightNet')).toBe(kiCursor('BULLSEYE'));
-  });
-
-  it('and the schematic canvas no longer draws its own', () => {
-    const SRCDIR = fileURLToPath(new URL('../../../designer/src', import.meta.url));
-    const src = readFileSync(
-      join(SRCDIR, 'editors/schematic/components/SchematicCanvas.tsx'),
-      'utf8',
-    );
-    expect(src).not.toMatch(/BULLSEYE_CURSOR|data:image\/svg\+xml/);
   });
 });

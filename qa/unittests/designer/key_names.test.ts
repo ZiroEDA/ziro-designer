@@ -223,13 +223,6 @@ describe('the menu rows print the accelerator, character for character', () => {
     expect(src).not.toContain("'PgDn'");
   });
 
-  it('Leave Sheet says Alt+BackSpace', () => {
-    // SCH_ACTIONS::leaveSheet is MD_ALT + WXK_BACK (sch_actions.cpp:1421).
-    const src = SRC('../../eeschema/sch_edit_frame_ui.tsx');
-    expect(src).toContain("shortcut: 'Alt+BackSpace'");
-    expect(src).not.toContain("shortcut: 'Alt+Backspace'");
-  });
-
   it('the 3D viewer prints the key names, not arrow glyphs', () => {
     // EDA_3D_ACTIONS::moveLeft is WXK_LEFT; GTK labels it `Left`. A glyph is
     // neither spelling, and is not a KeyboardEvent.key either, so the row was

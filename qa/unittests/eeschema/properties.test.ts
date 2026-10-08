@@ -12,7 +12,11 @@ import { fileURLToPath } from 'node:url';
 import { parse, serialize } from '@ziroeda/sexpr/index.js';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { editSymbolProperties, type EditedField } from '@ziroeda/eeschema/tools/properties.js';
+import {
+  editSymbolProperties,
+  type EditedField,
+  restoreSymbols,
+} from '@ziroeda/eeschema/tools/properties.js';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import {
   fieldTextBox,
@@ -299,5 +303,28 @@ describe('field geometry (SCH_FIELD::GetBoundingBox port)', () => {
     const f = mkField();
     expect(fieldShownText(f, sym, 3)).toBe('R1B');
     expect(fieldShownText({ ...f, nameShown: true }, sym, 1)).toBe('Reference: R1');
+  });
+});
+
+describe('restoreSymbols', () => {
+  const doc = readSchematic(
+    parse(`(kicad_sch (version 20250114) (lib_symbols)
+      (symbol (lib_id "Device:R") (at 0 0 0) (unit 1) (uuid "s-1")
+        (property "Reference" "R1" (at 0 0 0) (effects (font (size 1.27 1.27)))))
+      (symbol (lib_id "Device:R") (at 10 0 0) (unit 1) (uuid "s-2")
+        (property "Reference" "R2" (at 0 0 0) (effects (font (size 1.27 1.27))))))`),
+  );
+
+  it('puts the captured symbols back by their ids, leaving the rest, and inverts to what was there', () => {
+    const id = refId('symbol', 's-1', 0);
+    const changed = { ...doc.symbols[0]!, unit: 2 };
+    const edited = { ...doc, symbols: [changed, doc.symbols[1]!] };
+
+    const cmd = restoreSymbols(new Map([[id, doc.symbols[0]!]]));
+    const back = cmd.apply(edited);
+
+    expect(back.symbols[0]).toBe(doc.symbols[0]);
+    expect(back.symbols[1]).toBe(doc.symbols[1]);
+    expect(cmd.invert(edited).apply(back).symbols[0]).toBe(changed);
   });
 });

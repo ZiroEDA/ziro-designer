@@ -299,12 +299,7 @@ import {
   type MsgPanelItem,
   nextFreeUnit,
 } from './index.js';
-import type {
-  CanvasController,
-  LineMode,
-  PendingLabel,
-  PendingDirective,
-} from './sch_draw_panel.js';
+import type { LineMode, PendingLabel, PendingDirective } from './sch_draw_panel.js';
 import {
   DialogLabelProperties,
   type LabelPropsKind,
@@ -567,22 +562,6 @@ import { symbolLibraryUri } from './cross-probing.js';
 const EMPTY_SCH =
   '(kicad_sch (version 20231120) (generator "ziroeda") (paper "A4")\n  (lib_symbols)\n)\n';
 
-// Local view toggles; grid/crosshair/line-mode/hidden-pins live in the settings
-// store (Preferences) and are derived each render so the two stay in sync.
-// `RADIO_GROUPS`, `DEFAULT_TOGGLES` and `applyToggle` are in `toggles.ts`
-// rather than here, because `qa`'s tsconfig compiles `.ts` only: a default
-// written in a `.tsx` is one no test can read, and the opening units sat on the
-// wrong arm of `app_settings.cpp:228-238` for exactly that reason.
-/** Edit > Attributes menu ids, and the attribute each one sets. */
-/** The Attributes submenu, in the Edit menu's order (SCH_EDIT_TOOL). */
-const ATTRIBUTE_MENU: { id: string; label: string }[] = [
-  { id: 'attrSim', label: 'Exclude from Simulation' },
-  { id: 'attrBom', label: 'Exclude from Bill of Materials' },
-  { id: 'attrBoard', label: 'Exclude from Board' },
-  { id: 'attrPosFiles', label: 'Exclude from Position Files' },
-  { id: 'attrDnp', label: 'Do not Populate' },
-];
-
 const ATTRIBUTE_IDS: Record<string, Attribute> = {
   attrSim: 'sim',
   attrBom: 'bom',
@@ -617,17 +596,6 @@ const SETTINGS_TOGGLES = new Set([
 function pageSettingsSeed(sch: Schematic): PageSettingsValue {
   const s = getPageSettings(sch);
   return pageSettingsValue(s.paper, s);
-}
-
-function hasDuplicateSheetNames(sch: Schematic): boolean {
-  const seen = new Set<string>();
-  for (const s of sch.sheets) {
-    const name = (s.fields.find((f) => f.key === 'Sheetname')?.value ?? '').toLowerCase();
-    if (!name) continue;
-    if (seen.has(name)) return true;
-    seen.add(name);
-  }
-  return false;
 }
 
 /**
@@ -913,7 +881,6 @@ export function SchematicEditor({
     useAuth,
     PresencePanel,
     AssignFootprints,
-    SchematicCanvas,
     DialogSymbolChooser,
     SymbolLibraryBrowser,
     DialogRescueEach,
@@ -995,7 +962,6 @@ export function SchematicEditor({
   const [presencePanelOpen, setPresencePanelOpen] = useState(false);
   // Other peers' last-known cursor world position, keyed by peerId. Cleared
   // per-peer on their next 'presence' drop (see the presence handler below).
-  const [remoteCursors, setRemoteCursors] = useState<Map<string, Vec2>>(new Map());
   /**
    * What each peer currently has selected, by item uuid.
    *
@@ -1006,9 +972,6 @@ export function SchematicEditor({
    * is the sheet: a uuid selected on another sheet means nothing on this
    * one, which is why every read of this filters through presence.
    */
-  const [remoteSelections, setRemoteSelections] = useState<Map<string, ReadonlySet<string>>>(
-    new Map(),
-  );
   // A remote sheet-text update waiting to be applied (see the effect near
   // applySheetDocument below — it needs sheetInstanceRefs/applySheetDocument,
   // both defined later in this component, hence the queue rather than
@@ -1043,30 +1006,9 @@ export function SchematicEditor({
     const unsubscribe = transport.onMessage((payload, fromPeerId) => {
       if (payload.kind === 'presence') {
         setSyncPeers(payload.peers);
-        const stillHere = new Set(payload.peers.map((p) => p.peerId));
-        setRemoteCursors((prev) => {
-          const next = new Map(prev);
-          for (const peerId of next.keys()) if (!stillHere.has(peerId)) next.delete(peerId);
-          return next;
-        });
-        setRemoteSelections((prev) => {
-          const next = new Map(prev);
-          for (const peerId of next.keys()) if (!stillHere.has(peerId)) next.delete(peerId);
-          return next;
-        });
-      } else if (payload.kind === 'selection') {
-        // A board tab on this project shares the channel (it is keyed on the
-        // project, not the editor) and sends its own uuids here too. Harmless:
-        // they are uuids of board items, which no sheet has, so they resolve
-        // to nothing when drawn or locked against.
-        setRemoteSelections((prev) => {
-          const next = new Map(prev);
-          if (payload.refs.length === 0) next.delete(fromPeerId);
-          else next.set(fromPeerId, new Set(payload.refs));
-          return next;
-        });
-      } else if (payload.kind === 'cursor') {
-        setRemoteCursors((prev) => new Map(prev).set(fromPeerId, { x: payload.x, y: payload.y }));
+      } else if (payload.kind === 'selection' || payload.kind === 'cursor') {
+        // Peers' cursors and selections were drawn by the record canvas, which is gone; they come
+        // back as an overlay on KiCad's canvas. Until then they are received and not shown.
       } else if (payload.kind === 'model-changed') {
         setPendingRemoteChange({ sheetPath: payload.sheetPath, text: payload.text });
       } else if (payload.kind === 'sheet-patch') {
@@ -1098,42 +1040,6 @@ export function SchematicEditor({
     if (!shown) return;
     sharedSync?.updatePresence('schematic', currentPath);
   }, [currentPath, shown, sharedSync]);
-  // Only show a peer's cursor while they're on the same sheet — a position
-  // from another sheet would land on unrelated geometry here.
-  const remoteCursorList = useMemo(
-    () =>
-      syncPeers
-        .filter((p) => p.sheetPath === currentPath && remoteCursors.has(p.peerId))
-        .map((p) => ({
-          peerId: p.peerId,
-          label: p.peerId.slice(0, 4),
-          world: remoteCursors.get(p.peerId)!,
-        })),
-    [syncPeers, remoteCursors, currentPath],
-  );
-  /** The same sheet filter, for what each peer has selected. */
-  const remoteSelectionList = useMemo(
-    () =>
-      syncPeers
-        .filter(
-          (p) => p.sheetPath === currentPath && (remoteSelections.get(p.peerId)?.size ?? 0) > 0,
-        )
-        .map((p) => ({ peerId: p.peerId, ids: remoteSelections.get(p.peerId)! })),
-    [syncPeers, remoteSelections, currentPath],
-  );
-  /**
-   * Everything a peer on this sheet has claimed by selecting it
-   * (designer/src/sync/) — the board editor's `remoteLockedIds`, which this
-   * mirrors, explains why a selection is a claim worth honouring.
-   *
-   * No translation step, unlike the board's: a schematic id already IS the
-   * uuid, so a peer's ids and this tab's ids are the same strings.
-   */
-  const remoteLockedIds = useMemo(() => {
-    const locked = new Set<string>();
-    for (const { ids } of remoteSelectionList) for (const id of ids) locked.add(id);
-    return locked;
-  }, [remoteSelectionList]);
   useEffect(() => {
     // Only ids that are really uuids. `refId` falls back to `kind:idx:index`
     // for an item with no uuid of its own, and that names a position in THIS
@@ -1213,32 +1119,7 @@ export function SchematicEditor({
   // net toggles the members of the bus it rides on into the highlight.
   const [highlightBusMembers, setHighlightBusMembers] = useState(false);
   const history = useRef(new ProjectHistory());
-  const controller = useRef<CanvasController>(null);
   const [activeTool, setActiveTool] = useState('select');
-  /**
-   * Run an AF_ACTIVATE tool, or stop it if it is the one already running.
-   *
-   * `TOOL_MANAGER::dispatchActivation` sends the activation to the running tool
-   * *and* asks for it to be run again, but `runTool` refuses to restart one that
-   * is already active:
-   *
-   *     // If the tool is already active, bring it to the top of the active tools stack
-   *     if( isActive( aTool ) && m_activeTools.size() > 1 )
-   *     { ... return false; }
-   *
-   * so all the second click really does is deliver the event the tool's own loop
-   * treats as a cancel —
-   *
-   *     if( evt->IsCancelInteractive() || evt->IsActivate() )
-   *         break;
-   *
-   * — after which `PopTool` empties the stack and leaves the selection tool in
-   * charge. Clicking a lit toolbar button therefore turns the tool off, and ours
-   * just re-armed it.
-   */
-  const activateTool = useCallback((id: string) => {
-    setActiveTool((cur) => (cur === id ? 'select' : id));
-  }, []);
   /** The current tool, for callbacks that must not re-run when it changes. */
   const activeToolRef = useRef(activeTool);
   activeToolRef.current = activeTool;
@@ -1269,7 +1150,6 @@ export function SchematicEditor({
   }, []);
   // Unit attached to the cursor, and the chooser's checkbox state driving the
   // after-placement continuation (KeepSymbol / PlaceAllUnits stepping).
-  const [placeUnit, setPlaceUnit] = useState(1);
   // Read by the after-placement continuation, which must see the library that
   // is on the cursor now rather than the one its closure was built with.
   const placeLibRef = useRef<LibSymbol | null>(null);
@@ -1382,19 +1262,8 @@ export function SchematicEditor({
   // SCH_MOVE_TOOL::Main's four modes. Break and Slice split the selected
   // segment first and then run exactly this drag, which is why they are a grab
   // kind rather than an edit of their own.
-  const [grabRequest, setGrabRequest] = useState<{
-    kind: 'move' | 'drag' | 'break' | 'slice';
-    nonce: number;
-  } | null>(null);
   // Right-click selection context menu (SCH_SELECTION_TOOL's TOOL_MENU):
   // client-space position plus the hit-tested item, or null when closed.
-  const [ctxMenu, setCtxMenu] = useState<{
-    x: number;
-    y: number;
-    hit: ItemRef | null;
-    /** Where the click landed, for SCH_POINT_EDITOR's Add / Remove Corner. */
-    pointEdit?: { world: Vec2; handle: EditHandle | null; tolerance: number };
-  } | null>(null);
   // Clarify Selection (SCH_SELECTION_TOOL::doSelectionMenu): an ambiguous
   // click lists every candidate; picking a row selects it.
   const [clarify, setClarify] = useState<{
@@ -1427,9 +1296,6 @@ export function SchematicEditor({
   const [sheetPinEdit, setSheetPinEdit] = useState<SheetPinRef | null>(null);
   // Unfold from Bus leaves the wire tool drawing away from the new entry
   // (SCH_LINE_WIRE_BUS_TOOL continues into its drawing loop).
-  const [wireStartRequest, setWireStartRequest] = useState<{ at: Vec2; nonce: number } | null>(
-    null,
-  );
   // Editing the current sheet's page number (SCH_ACTIONS::editPageNumber).
   // The page-number dialog. `sheet` is the selected sheet's index and uuid when
   // the edit targets a *sub*-sheet from the context menu; without it the open
@@ -1678,35 +1544,6 @@ export function SchematicEditor({
     devicePixelRatio: dpr,
     iuPerMM: SCH_IU_PER_MM,
   });
-  // Throttle cursor broadcasts (designer/src/sync/) — a raw pointermove rate
-  // would flood the channel; peers only need a position often enough to read
-  // as "live," not every frame.
-  const lastCursorBroadcast = useRef(0);
-  const CURSOR_BROADCAST_MS = 80;
-  const onCursorMove = useCallback(
-    (world: Vec2 | null, snapped: Vec2 | null) => {
-      cursorRef.current = world;
-      // SCH_BASE_FRAME::UpdateStatusBar reads GetViewControls()->GetCursorPosition(),
-      // which is the *snapped* cursor, so the coordinate panes are always on the
-      // grid. Ours showed the raw pointer position, which is why the readout sat
-      // on values like 110.0250 on a 1.27 mm grid.
-      statusReadout.setCursor(snapped ?? world);
-      if (world) {
-        const now = Date.now();
-        if (now - lastCursorBroadcast.current >= CURSOR_BROADCAST_MS) {
-          lastCursorBroadcast.current = now;
-          syncTransport.current?.publish({ kind: 'cursor', x: world.x, y: world.y });
-        }
-      }
-    },
-    [statusReadout],
-  );
-  const onScaleChange = useCallback(
-    (s: number) => {
-      statusReadout.setScale(s);
-    },
-    [statusReadout],
-  );
   // The symbol whose properties dialog is open (its refId), or null.
   const [propsTarget, setPropsTarget] = useState<string | null>(null);
   // Items parsed from the clipboard, attached to the cursor until dropped.
@@ -1745,7 +1582,6 @@ export function SchematicEditor({
   // m_cancelled: set by the dialog's Cancel button, read between phases.
   const ercCancelled = useRef(false);
   // The marker a heading row put the focus on (FocusOnItem brightens it).
-  const [ercFocusedMarker, setErcFocusedMarker] = useState<string | null>(null);
   // DIALOG_ERC's visibility, and the phase messages of a run in flight.
   const [ercOpen, setErcOpen] = useState(false);
   /** Tools > Update Schematic from PCB: the footprints read for this run. */
@@ -1884,7 +1720,7 @@ export function SchematicEditor({
     () => (hasBoard && kiway ? () => schFrameRef.current!.OnUpdatePCB() : undefined),
     [hasBoard, kiway],
   );
-  const { highlightWires, highlightName } = useMemo(() => {
+  const { highlightName } = useMemo(() => {
     const items = new Set<string>();
     let name: string | null = null;
     if (netlist && highlightItem !== null) {
@@ -1984,102 +1820,6 @@ export function SchematicEditor({
   const highlightConnRef = useRef<string | null>(null);
   highlightConnRef.current = highlightName;
 
-  // Highlight-Net tool, a port of eeschema's static highlightNet()
-  // (sch_editor_control.cpp:1051). The selection is left alone: upstream's
-  // highlight and selection are independent.
-  const onHighlight = useCallback((id: string | null) => {
-    // ERC_TESTER::TestDuplicateSheetNames guard: upstream refuses to highlight
-    // at all while the current sheet has duplicate sub-sheet names.
-    if (id !== null && docRef.current && hasDuplicateSheetNames(docRef.current)) {
-      setError('Error: duplicate sub-sheet names found in current sheet.');
-      return;
-    }
-    const nl = netlistRef.current;
-    const name = id !== null && nl ? connectionName(nl, id) : null;
-    if (name === null) {
-      // No connection under the cursor: clear the highlight.
-      setHighlightItem(null);
-      setHighlightBusMembers(false);
-      return;
-    }
-    if (name !== highlightConnRef.current) {
-      setHighlightBusMembers(false);
-      setHighlightItem(id);
-      return;
-    }
-    // Same net re-invoked: toggle the bus members in and out of the highlight.
-    setHighlightBusMembers((v) => !v);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Box-selection result (KiCad SelectMultiple): plain drags replace the
-  // selection, shift-drags add, ctrl+shift-drags subtract.
-  const onSelectBox = useCallback(
-    (ids: ReadonlySet<string>, additive: boolean, subtractive: boolean) => {
-      setSelection((prev) => {
-        // Box/lasso results pass through the Selection Filter before promotion
-        // (KiCad narrows the collector), so locked/disabled items never enter.
-        const hit = promote(filterIds(ids));
-        if (subtractive) {
-          const next = new Set(prev);
-          for (const id of hit) next.delete(id);
-          return next;
-        }
-        if (additive) {
-          const next = new Set(prev);
-          for (const id of hit) next.add(id);
-          return next;
-        }
-        return new Set(hit);
-      });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-
-  // Right-click with the select tool (SCH_SELECTION_TOOL::Main,
-  // sch_selection_tool.cpp:643-675). With nothing selected the item under the
-  // cursor is picked up as a hover selection; with something selected the
-  // selection is kept and the menu applies to it, *unless* the click has left
-  // the selection's bounding box by more than a grid square and there is
-  // something else there — "the user likely meant to get the context menu for
-  // that item". Inside the box nothing is re-picked, which is what stops a
-  // selected symbol's own fields and pins from stealing its menu.
-  const onContextMenuRequest = useCallback(
-    (
-      x: number,
-      y: number,
-      hit: ItemRef | null,
-      pointEdit: { world: Vec2; handle: EditHandle | null; tolerance: number },
-    ) => {
-      // Only an *unselected* item is picked up here, and what gets picked up is
-      // a hover selection. Right-clicking something already selected leaves the
-      // selection exactly as it was, hover flag included — which is what keeps
-      // the point editor's handles on screen in that case and not in the other.
-      const before = { selection: selectionRef.current, hover: hoverSelectionRef.current };
-      // `!m_selection.GetBoundingBox().Inflate( grid.x, grid.y ).Contains( pos )`.
-      // A selection with no extent at all has no box to be inside of, which is
-      // upstream's empty `BOX2I` failing `Contains` for every point.
-      const d = docRef.current;
-      const box = d ? selectionBBox(d, before.selection, libByIdRef.current) : emptyBBox();
-      const beyond =
-        isEmpty(box) || !contains(inflate(box, gridSizeIURef.current), pointEdit.world);
-      const after = rightClickSelection(
-        before,
-        hit?.id ?? null,
-        (id) => promote(new Set([id])),
-        beyond,
-      );
-      if (after !== before) {
-        setSelection(after.selection);
-        setHoverSelection(after.hover);
-      }
-      setCtxMenu({ x, y, hit, pointEdit });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-
   /** Push a resolved selection state into both the state and its refs, so a
    *  second command in the same tick reads what the first one left. */
   const applySelectionState = useCallback((next: HoverSelection): void => {
@@ -2120,7 +1860,7 @@ export function SchematicEditor({
         scanTypes,
         // `GetCursorPosition( true )` + the collector, both of which are the
         // canvas's: the editor knows neither the zoom nor the snapped cursor.
-        controller.current?.candidatesAtCursor() ?? [],
+        [],
         (id) => {
           const target = clickTarget(d, id, selFilterRef.current);
           return target === null ? [] : promote(new Set([target]));
@@ -2607,7 +2347,6 @@ export function SchematicEditor({
 
       const unitCount = new Set(lib.units.map((u) => u.unit).filter((u) => u > 0)).size || 1;
       placeFlags.current = { keepSymbol, placeAllUnits, unitCount };
-      setPlaceUnit(unit > 0 ? unit : 1);
 
       // AddSymbolToHistory: most recent first, deduplicated by LIB_ID.
       const hist = activeTool === 'placePower' ? sPowerHistoryList : sSymbolHistoryList;
@@ -2618,111 +2357,6 @@ export function SchematicEditor({
       setPlaceLib(lib);
     },
     [activeTool],
-  );
-
-  /**
-   * The reference string a fresh placement of `lib` carries: its prefix with a
-   * '?', or the number it was given if it was annotated on the way in. Matching
-   * on it is what keeps two different multi-unit parts, which before annotation
-   * both read "U?", from stepping over each other's units.
-   */
-  const referenceForPlacement = useCallback((lib: LibSymbol): string => {
-    const prefix = lib.properties.find((p) => p.key === 'Reference')?.value ?? 'U';
-    return /\?$/.test(prefix) ? prefix : `${prefix}?`;
-  }, []);
-
-  // After each placement: step to the next unit ("Place all units"), keep the
-  // symbol attached ("Place repeated copies"), or clear it so the chooser
-  // reopens, mirroring the continuation in SCH_DRAWING_TOOLS::PlaceSymbol.
-  const onSymbolPlaced = useCallback(() => {
-    // `placeOneOnly = symbol != nullptr`: a placement handed a ready-made symbol
-    // drops exactly one and pops the tool, instead of continuing into the
-    // chooser or the unit stepping (sch_drawing_tools.cpp).
-    if (placeInstance) {
-      setPlaceLib(null);
-      setPlaceUnit(1);
-      setActiveTool('select');
-      return;
-    }
-    const { keepSymbol, placeAllUnits, unitCount } = placeFlags.current;
-    if (placeAllUnits && unitCount > 1) {
-      // The next unit that is not already on the sheet, not simply the next
-      // number: upstream walks past the taken ones
-      //
-      //   while( unit <= unitCount && unitOccupied( unit ) ) unit++;
-      //   if( unit > unitCount ) unit = 1;
-      //
-      // Incrementing blindly meant the count restarted whenever the chooser
-      // reopened, so placing a 4001, closing the chooser and placing it again
-      // put a second unit A on the sheet instead of moving on to B.
-      const lib = placeLibRef.current;
-      const d = docRef.current;
-      const next =
-        lib && d
-          ? nextFreeUnit(d.symbols, referenceForPlacement(lib), lib.libId, unitCount, placeUnit + 1)
-          : placeUnit + 1;
-      if (next > 1) {
-        setPlaceUnit(next);
-        // `addSymbol` opens with `ACTIONS::selectionClear` before it selects the
-        // symbol it is attaching (sch_drawing_tools.cpp:218-232), so the one just
-        // dropped stops being the selection the moment a next one rides the
-        // cursor. Only the path below, where nothing more attaches, leaves it lit.
-        setSelection(new Set());
-        return;
-      }
-      // Wrapped: every unit is placed. Upstream keeps cycling from 1 only when
-      // the symbol is staying on the cursor.
-      if (keepSymbol) {
-        setPlaceUnit(1);
-        // selectionClear, as above: another unit is going on the cursor.
-        setSelection(new Set());
-        return;
-      }
-    } else if (keepSymbol) {
-      // selectionClear, as above: the same symbol stays on the cursor, so the
-      // copy just dropped hands the selection over to it.
-      setSelection(new Set());
-      return; // same symbol stays on the cursor
-    }
-    setPlaceLib(null);
-    setPlaceUnit(1);
-    // ...and the chooser does NOT come straight back. After `commit.Push` the
-    // tool sets `symbol = nextSymbol` (nullptr here) and falls to the bottom of
-    // the loop; nothing opens the chooser there. It reopens only where it
-    // opened the first time — inside the CLICK branch, under `if( !symbol )`
-    // (sch_drawing_tools.cpp:371-375) — so KiCad leaves the tool armed with an
-    // empty cursor and waits for you to click the sheet again.
-    //
-    // Ours derives `chooserOpen` from "tool active and nothing on the cursor",
-    // which is true the instant the symbol is dropped, so the dialog flew back
-    // up on its own. This is the same latch a Cancel uses; the canvas clears it
-    // through `onRequestChooser` on the next click.
-    setChooserDismissed(true);
-  }, [placeUnit, placeInstance, setPlaceLib, referenceForPlacement]);
-
-  /**
-   * SCH_DRAWING_TOOLS::PlaceNextSymbolUnit: attach a copy of the symbol at
-   * `symbolIndex`, switched to a unit the hierarchy is missing, to the cursor.
-   * `unit` is the one the menu entry named; 0 means the lowest one missing.
-   * Refusals go to the info bar with upstream's own wording.
-   */
-  const placeNextSymbolUnit = useCallback(
-    (symbolIndex: number, unit = 0) => {
-      if (!doc) return;
-      const plan = planNextSymbolUnit(doc, symbolIndex, libById, unit, liveDocs().values());
-      if (!plan.ok) {
-        setInfoBar(plan.message);
-        return;
-      }
-      const lib = libById.get(schSymbolLibraryName(doc.symbols[symbolIndex]!));
-      if (!lib) return;
-      placeFlags.current = { keepSymbol: false, placeAllUnits: false, unitCount: 1 };
-      setPlaceUnit(plan.unit);
-      setPlaceLibOnly(lib);
-      setPlaceInstance(plan.symbol);
-      setActiveTool('placeSymbol');
-    },
-    [doc, libById, liveDocs],
   );
 
   // The stored page number of the sheet instance at `path`
@@ -3386,67 +3020,6 @@ export function SchematicEditor({
     [currentFile, stage],
   );
 
-  /**
-   * A move dropped INTO a sheet — the destination half of
-   * `SCH_MOVE_TOOL::moveSelectionToSheet` (`sch_move_tool.cpp:1957-2008`).
-   *
-   * The canvas has already deleted the items from this sheet, as one undo step
-   * with whatever else that move did, and hands over the sheet, the items as
-   * clipboard text, and their extent. The rest is upstream's:
-   *
-   *     VECTOR2I offset = VECTOR2I( 0, 0 ) - bbox.GetPosition();
-   *     … while( overlap ) offset += VECTOR2I( step, step );
-   *
-   * — the selection lands at the target sheet's origin and steps diagonally
-   * until it clears everything already there.
-   *
-   * The clipboard is the transport because it is already exactly this: the
-   * items with the library definitions they need, and `mode: 'keep'` is the
-   * paste that does NOT re-annotate and keeps each KIID, which its own comment
-   * describes as "the same symbol being moved". Instance records are pruned by
-   * that path, which is right — they name a sheet path the items have left.
-   *
-   * Both halves go on as ONE undo entry (`runProject`), because upstream
-   * stages both screens in one `SCH_COMMIT` and pushes it once
-   * (`sch_move_tool.cpp:2005-2006`). Two entries would mean undoing the source
-   * left the copy on the destination — a duplicate, not a revert.
-   */
-  const dropIntoSheet = useCallback(
-    (drop: { sheetId: string; text: string; box: BBox; source: EditCommand }): void => {
-      if (!doc) return;
-      const sheet = doc.sheets.find((sh, i) => refId('sheet', sh.uuid, i) === drop.sheetId);
-      if (!sheet) return;
-      const file = sheetFile(sheet);
-      const target = file === currentFile ? doc : project.current.docs.get(file);
-      if (!target) return;
-      // `pasteOptions('keep')`, not a bare `{ mode }`: this is a MOVE wearing
-      // the clipboard's clothes, so it must not re-annotate — but it still
-      // wants the hierarchy the other paste paths pass, which is what decides
-      // whether a KIID can be kept.
-      const payload = parsePastedText(drop.text, target, pasteOptions('keep'));
-      if (!payload) return;
-      const offset = sheetDropOffset(
-        drop.box,
-        alignBoxes(target, null, libById).map((b) => b.box),
-      );
-      const arrives = pasteItems(translatePayload(payload, offset));
-      // A sheet whose file is this one (a self-reference) is one document, so
-      // the two halves become one command on it rather than two map entries.
-      runProject(
-        file === currentFile
-          ? new Map([[currentFile, composeCommands('Move To Sheet', [drop.source, arrives])]])
-          : new Map([
-              [currentFile, drop.source],
-              [file, arrives],
-            ]),
-      );
-      // `m_toolMgr->RunAction( ACTIONS::selectionClear )` — the items are not
-      // on this sheet any more, so nothing here can still be selected.
-      setSelection(new Set());
-    },
-    [doc, currentFile, libById, runProject, pasteOptions],
-  );
-
   const applySheetSymbols = useCallback(
     (file: string, symbols: readonly SchSymbol[], label: string): void =>
       applySheetCommand(file, setSymbolsCommand(symbols, label)),
@@ -4063,44 +3636,6 @@ export function SchematicEditor({
   const annotatePlacementRef = useRef(annotatePlacement);
   annotatePlacementRef.current = annotatePlacement;
 
-  /**
-   * `SCH_DRAWING_TOOLS::PlaceSymbol` autoplaces the fields of the symbol it is
-   * placing whenever `m_AutoplaceFields.enable` is set, which it is by default
-   * (`eeschema_settings.cpp:328`), at both of its two placement points
-   * (sch_drawing_tools.cpp:484-499).
-   *
-   * Without this the fields keep the positions the library gave them, and for
-   * most parts that is not where KiCad shows them: Screw_Terminal_01x02 stores
-   * its Reference at (0, 2.54) and its Value at (0, -5.08), above and below the
-   * body, while KiCad draws both beside it because the autoplacer moved them
-   * off the pins.
-   *
-   * `dropped` is upstream's screen argument. False is the null screen used
-   * while the symbol is still on the cursor, and true is the real one, which
-   * lets the algorithm see the rest of the sheet and avoid it.
-   */
-  const autoplacePlacement = useCallback(
-    (sym: SchSymbol, lib: LibSymbol, dropped: boolean): SchSymbol => {
-      const d = docRef.current;
-      return autoplacePlacedSymbol(
-        sym,
-        lib,
-        es.autoplace_fields.enable,
-        {
-          allowRejustify: es.autoplace_fields.allow_rejustify,
-          alignToGrid: es.autoplace_fields.align_to_grid,
-        },
-        dropped && d ? { doc: d, libById, drawableArea: drawableArea(d) } : undefined,
-      );
-    },
-    [
-      es.autoplace_fields.enable,
-      es.autoplace_fields.allow_rejustify,
-      es.autoplace_fields.align_to_grid,
-      libById,
-    ],
-  );
-
   // Annotate (SCH_EDIT_FRAME::AnnotateSymbols): one numbering pass across the
   // sheets in scope, then the report loop and CheckAnnotate's final control.
   // The REFDES_TRACKER is deserialized from schematic.used_designators, gated
@@ -4629,7 +4164,6 @@ export function SchematicEditor({
     setPendingLabel(null);
     setActiveTool('select');
     setPlaceLib(null);
-    setPlaceUnit(1);
     setPastePending(null);
     setPropsTarget(null);
   }, []);
@@ -4668,8 +4202,6 @@ export function SchematicEditor({
         // the libraries are paid for now, in the background, so nothing waits
         // for them later. See ./preload.ts.
         preloadSchematicLibraries([next]);
-        // Fit after React commits the new doc to the canvas.
-        requestAnimationFrame(() => controller.current?.zoomToFit());
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -4816,7 +4348,6 @@ export function SchematicEditor({
         // shown: `PreloadLibraries` is hierarchy-wide because the library table
         // is, and entering a sub-sheet must not start a fresh wait.
         preloadSchematicLibraries(docs.values());
-        requestAnimationFrame(() => controller.current?.zoomToFit());
       } catch (e) {
         // Each *sheet* is already caught individually and reported through
         // `problems`. This is everything around them — reading the .kicad_pro,
@@ -4939,7 +4470,6 @@ export function SchematicEditor({
   useEffect(() => {
     if (!placeRequest) return;
     placeFlags.current = { keepSymbol: true, placeAllUnits: false, unitCount: 1 };
-    setPlaceUnit(1);
     setPlaceLib(placeRequest.lib);
     setActiveTool('placeSymbol');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -4970,7 +4500,6 @@ export function SchematicEditor({
       setCurrentFile(file);
       setDoc(target);
       resetTransient();
-      requestAnimationFrame(() => controller.current?.zoomToFit());
     },
     [doc, currentFile, resetTransient],
   );
@@ -5029,7 +4558,7 @@ export function SchematicEditor({
       if (m.sheet.path !== currentPath) switchSheet(m.sheet.path, m.sheet.file);
       setSelection(new Set([m.id]));
       // After a sheet switch the canvas fits first (rAF); centre on the frame after.
-      requestAnimationFrame(() => requestAnimationFrame(() => controller.current?.centerOn(m.pos)));
+      schFrameRef.current!.FocusOnLocation(m.pos);
       setFindStatus(`${findCursor.current + 1} of ${all.length}`);
     },
     [
@@ -5820,12 +5349,6 @@ export function SchematicEditor({
     finishCommand();
   }, [es.annotation.automatic, pasteOptions, requestTarget, finishCommand]);
 
-  // The paste was dropped: keep the pasted items selected, as KiCad does.
-  const onPasteDone = useCallback((ids: ReadonlySet<string>) => {
-    setPastePending(null);
-    setSelection(new Set(ids));
-  }, []);
-
   // ----- ERC (Inspect > Electrical Rules Checker) ------------------------------
   /** The run's options: the hierarchy, the project settings and the libraries. */
   const ercOptions = useCallback(
@@ -6260,7 +5783,6 @@ export function SchematicEditor({
     // The 500 ms upstream waits before flipping to the results page.
     await new Promise((r) => setTimeout(r, 500));
     setErcResult(found);
-    setErcFocusedMarker(null);
     setErcRunning(null);
   }, [
     doc,
@@ -6301,18 +5823,16 @@ export function SchematicEditor({
       if (center) {
         if (switched)
           requestAnimationFrame(() =>
-            requestAnimationFrame(() => controller.current?.centerOn(v.at)),
+            requestAnimationFrame(() => schFrameRef.current!.FocusOnLocation(v.at)),
           );
-        else controller.current?.centerOn(v.at);
+        else schFrameRef.current!.FocusOnLocation(v.at);
       }
       if (itemId) {
-        setErcFocusedMarker(null);
         // A marker's item may be a PIN (`<symId>:pin<k>`); the editor selects
         // its parent symbol, which is what upstream highlights too.
         setSelection(new Set([ercParentId(itemId)]));
       } else {
         setSelection(new Set());
-        setErcFocusedMarker(ercExclusionKey(v));
       }
     },
     [currentFile, flatSheets, switchSheet],
@@ -6427,9 +5947,6 @@ export function SchematicEditor({
     () => resolveTemplateFieldnames(setup.fieldTemplates, es.drawing.field_names),
     [setup.fieldTemplates, es.drawing.field_names],
   );
-
-  const lineMode: LineMode =
-    es.drawing.line_mode === 0 ? 'free' : es.drawing.line_mode === 2 ? '45' : '90';
 
   // Display + input options handed to the canvas, straight from the settings
   // (Preferences > Display Options / Grids / Mouse and Touchpad).
@@ -6593,11 +6110,6 @@ export function SchematicEditor({
     setPendingImage(null);
   }, []);
 
-  // ----- right-toolbar drawing callbacks ---------------------------------------
-  const onSheetDrawn = useCallback((at: Vec2, size: { w: number; h: number }) => {
-    setSheetDraw({ at, size, name: 'Sheet', file: 'sheet.kicad_sch' });
-  }, []);
-
   /**
    * "Place Pins from Sheet" (`SCH_ACTIONS::importSheetPin`).
    *
@@ -6655,15 +6167,6 @@ export function SchematicEditor({
    * seconds - `Move( GetMousePosition() + wxPoint( 20, 20 ) ); PopupFor( 2000 )`.
    */
   const statusPopupRef = useRef<STATUS_TEXT_POPUP | null>(null);
-  const showStatusPopup = useCallback((aText: string) => {
-    statusPopupRef.current?.Destroy();
-    const popup = new STATUS_TEXT_POPUP();
-    statusPopupRef.current = popup;
-    popup.SetText(aText);
-    const at = KIPLATFORM_UI.GetMousePosition();
-    popup.Move({ x: at.x + 20, y: at.y + 20 });
-    popup.PopupFor(2000);
-  }, []);
   useEffect(() => () => statusPopupRef.current?.Destroy(), []);
 
   // `wxWindow::PopupMenu` for the frame under (TRANSITIONAL, W2): the tools'
@@ -6686,80 +6189,12 @@ export function SchematicEditor({
     return () => frame.SetPopupMenuPresenter(null);
   }, []);
 
-  /** `isSheetPin` with no sheet under the cursor (sch_drawing_tools.cpp:2299). */
-  const onSheetPinMiss = useCallback(
-    () => showStatusPopup('Click over a sheet.'),
-    [showStatusPopup],
-  );
-
-  const onSheetPinClick = useCallback(
-    (index: number, at: Vec2, side: SheetSide) => {
-      const d = doc;
-      const sheet = d?.sheets[index];
-      if (!d || !sheet) return;
-      // Sync Sheet Pins armed a queue: place its head rather than importing the
-      // next unmatched label. Upstream branches at exactly this point —
-      //
-      //     if( m_dialogSyncSheetPin && m_dialogSyncSheetPin->GetPlacementTemplate() )
-      //         item = createNewSheetPinFromLabel( sheet, cursorPos, … );
-      //     else
-      //         SCH_HIERLABEL* label = importHierLabel( sheet );  // 'Place Sheet Pins'
-      //
-      // — the two tools sharing one placement loop.
-      const placing = syncPlacementRef.current;
-      const queued = placing?.kind === 'sheetPin' ? placing.queue[0] : undefined;
-      const next = queued ?? nextImportableSheetPin(sheet, liveDocs().get(sheetFile(sheet)));
-      if (!next) {
-        showStatusPopup('No new hierarchical labels found.');
-        setActiveTool('select');
-        return;
-      }
-      lastSheetPin.current = { shape: next.shape };
-      runCommand(replaceSheet(index, addSheetPin(sheet, next.text, at, side, next.shape)));
-      if (!placing || !queued) return;
-      // `EndPlaceItem` then `CanPlaceMore`: keep going, or put the tool away and
-      // show the dialog again.
-      const rest = advanceSyncPlacement(placing);
-      setSyncPlacement(rest);
-      if (!rest) endSyncPlacement();
-    },
-    [doc, liveDocs, runCommand, endSyncPlacement, showStatusPopup],
-  );
-
   /** The active grid step, which the table's cell size is snapped to. */
   const gridSizeIU = useMemo(
     () => gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
     [es.window.grid.sizes, es.window.grid.last_size_idx],
   );
   gridSizeIURef.current = gridSizeIU;
-
-  const onTextBoxDrawn = useCallback((start: Vec2, end: Vec2) => {
-    setTextBoxDraw({ start, end, text: '' });
-  }, []);
-
-  /**
-   * The drag is finished: build the table it describes and show
-   * DIALOG_TABLE_PROPERTIES over it.
-   *
-   *     table->Normalize();
-   *     DIALOG_TABLE_PROPERTIES dlg( m_frame, table );
-   *
-   * The table is real from here on — the same one the preview has been showing
-   * — it is simply not in the document until OK.
-   */
-  const onTableDrawn = useCallback(
-    (start: Vec2, end: Vec2) => {
-      const size = { x: end.x - start.x, y: end.y - start.y };
-      setTableProps({
-        kind: 'new',
-        table: makeTableFromDrag(start, size, setup.formatting.defaultTextSizeMils * IU_PER_MILS, {
-          x: gridSizeIU,
-          y: gridSizeIU,
-        }),
-      });
-    },
-    [gridSizeIU, setup.formatting.defaultTextSizeMils],
-  );
 
   /** The text box being edited, if the dialog was opened on an existing one. */
   const textBoxOrig =
@@ -7040,83 +6475,10 @@ export function SchematicEditor({
     [doc, runCommand],
   );
 
-  /**
-   * A label tool was clicked with nothing attached. If the wire under the
-   * click already carries a label-driven net, the new label takes that name
-   * and no dialog is shown, createNewLabel's findWireLabelDriverName path.
-   * Otherwise the properties dialog opens.
-   */
-  const onLabelPrompt = useCallback(
-    (at: Vec2) => {
-      const kind = LABEL_DIALOG_KINDS[activeTool];
-      const name =
-        kind && kind !== 'hierarchical_label' && doc ? wireLabelDriverName(doc, netlist, at) : '';
-      if (kind && name) {
-        setPendingLabel({
-          kind,
-          text: name,
-          shape: lastLabel.current.shape,
-          bold: lastLabel.current.bold,
-          italic: lastLabel.current.italic,
-          fontSize: setup.formatting.defaultTextSizeMils * IU_PER_MILS,
-          angle: SPIN_ANGLE[lastLabel.current.spin],
-          autoRotate: lastLabel.current.autoRotate,
-        });
-        return;
-      }
-      setLabelPrompt(true);
-    },
-    [activeTool, doc, netlist, setup.formatting.defaultTextSizeMils],
-  );
-
-  /**
-   * Follow a text item's `(hyperlink …)`: "#<page>" switches to that sheet,
-   * anything else is a URL, opened in a new tab (SCH_EDIT_FRAME's handling,
-   * where the OS browser is launched instead).
-   */
-  const onFollowLink = useCallback(
-    (link: string) => {
-      if (link.startsWith('#')) {
-        const page = link.slice(1);
-        const target = flatSheets.find((ref) => pageNumberOf(ref.path) === page);
-        if (target) switchSheet(target.path, target.file);
-        else setInfoBar(`Page '${page}' not found.`);
-        return;
-      }
-      // SCH_NAVIGATE_TOOL::HypertextCommand (sch_navigate_tool.cpp:108).
-      GetAssociatedDocument(link, null);
-    },
-    [flatSheets, pageNumberOf, switchSheet],
-  );
-
   /** A label was dropped: take the next of a multi-label run, else stop. */
   // What F1 repeats: the items the last placement produced
   // (SCH_EDIT_FRAME::GetRepeatItems).
   const repeatItemsRef = useRef<string[]>([]);
-  const onLabelPlaced = useCallback(
-    (id?: string) => {
-      if (id) repeatItemsRef.current = [id];
-      setPendingDirective(null);
-      // Sync Sheet Pins armed a queue of templates. Each carries its own shape,
-      // so it drives the pending label directly rather than through the plain
-      // text queue the label dialog fills.
-      const placing = syncPlacementRef.current;
-      if (placing?.kind === 'hierLabel') {
-        const rest = advanceSyncPlacement(placing);
-        setSyncPlacement(rest);
-        const next = rest?.queue[0];
-        if (next) setPendingLabel((p) => (p ? { ...p, text: next.text, shape: next.shape } : p));
-        else endSyncPlacement();
-        return;
-      }
-      setLabelQueue((q) => {
-        const [next, ...rest] = q;
-        setPendingLabel((p) => (p && next !== undefined ? { ...p, text: next } : null));
-        return rest;
-      });
-    },
-    [endSyncPlacement],
-  );
 
   /** Apply DIALOG_LABEL_PROPERTIES to the label being edited (Properties). */
   const commitLabelProperties = useCallback(
@@ -7533,17 +6895,6 @@ export function SchematicEditor({
     [doc, runCommand],
   );
 
-  const onImagePlaced = useCallback(
-    (at: Vec2) => {
-      setPendingImage((img) => {
-        if (img) runCommand(addItems({ images: [makeImage(at, img.data, img.scale, img.uuid)] }));
-        return null;
-      });
-      setActiveTool('select');
-    },
-    [runCommand],
-  );
-
   // The image file picker: read the chosen bitmap as base64 and attach it to the cursor.
   const onImageFile = useCallback((file: File) => {
     const reader = new FileReader();
@@ -7602,20 +6953,7 @@ export function SchematicEditor({
         mirrorV: 'mirrorX',
         mirrorH: 'mirrorY',
       };
-      if (id === 'zoomFit') controller.current?.zoomToFit();
-      // Zoom to All Objects fits what is drawn, not the page (ACTIONS::zoomFitObjects).
-      else if (id === 'zoomFitObjects') controller.current?.zoomToFit(true);
-      else if (id === 'zoomIn') controller.current?.zoomIn();
-      else if (id === 'zoomOut') controller.current?.zoomOut();
-      else if (id === 'zoomRedraw') controller.current?.redraw();
-      else if (id === 'zoomTool') activateTool('zoomTool');
-      else if (id === 'zoomFitSelection') {
-        // Zoom to Selected Objects. The extent comes from the one walk that
-        // knows every item kind; this used to have its own, and it covered five
-        // kinds of fifteen, so selecting a text box and zooming did nothing.
-        const box = doc ? selectionBBox(doc, selection, libById) : emptyBBox();
-        if (!isEmpty(box)) controller.current?.zoomToBox(box);
-      } else if (id === 'undo') undo();
+      if (id === 'undo') undo();
       else if (id === 'redo') redo();
       else if (id === 'open') promptOpen();
       else if (id === 'save') save();
@@ -7935,767 +7273,6 @@ export function SchematicEditor({
     ],
   );
 
-  // The selection context menu, assembled the way the upstream TOOL_MENU is:
-  // each tool's Init() contributions in priority order, GROUP_TOOL's Grouping
-  // submenu (100), SCH_MOVE_TOOL move/drag and enterSheet/leaveSheet (150),
-  // SCH_EDIT_TOOL transforms + properties (200), wire placements (250), the
-  // clipboard block (300), then selectAll/unselectAll (400).
-  /** One entry point for the six row/column actions, which differ only by op. */
-  const runRowCol = useCallback(
-    (op: RowColOp): void => {
-      const d = docRef.current;
-      if (!d) return;
-      const cmd = rowColCommand(d, selection, op);
-      if (!cmd) return;
-      runCommand(cmd);
-      // The ids shift when rows or columns move, and a stale cell id would
-      // address a different cell. Clearing is what upstream's SelectedEvent
-      // amounts to here.
-      setSelection(new Set());
-    },
-    [selection, runCommand],
-  );
-
-  const buildContextMenu = (): MenuItem[] => {
-    const hit = ctxMenu?.hit ?? null;
-    const act = (label: string, id: string, shortcut?: string): MenuItem => ({
-      label,
-      icon: id,
-      shortcut,
-      action: () => onTopAction(id),
-    });
-    const tool = (label: string, id: string, shortcut?: string): MenuItem => ({
-      label,
-      icon: id,
-      shortcut,
-      action: () => onToolSelect(id),
-    });
-    // KiCad does not build this menu in reading order: every entry is filed
-    // under a rank (`CONDITIONAL_MENU::AddItem`'s last argument) and the menu is
-    // the ranks concatenated, with the separators declared as entries of their
-    // own. `addEntry` inserts after everything of the same rank, so within a
-    // rank the order is the order the *tools* registered in — selection tool,
-    // then edit tool, then move tool, then group tool.
-    //
-    // Ranks used below, with where they come from:
-    //     1   symbol unit / body style menus      sch_edit_tool.cpp
-    //     2   Select/Expand Connection            sch_selection_tool.cpp
-    //    50   point-editor corners                sch_point_editor.cpp (ANY_ORDER)
-    //   100   Draw Wires / Draw Buses             sch_selection_tool.cpp
-    //   101   Grouping, Align, Table, Unfold      group_tool.cpp / align / table
-    //   150   Enter/Leave Sheet, Move, Drag       sch_selection_tool / sch_move_tool
-    //   200   Transform, Attributes, Properties…  sch_edit_tool.cpp
-    //   250   sheet pins, labels, netclass, Lock  sch_selection_tool / sch_edit_tool
-    //   300   the clipboard block                 sch_edit_tool.cpp
-    //   401   Select All / Unselect All           sch_edit_tool.cpp
-    //  1000   Zoom / Grid                         AddStandardSubMenus
-    //
-    // Ranks 100 and 101 are one rank upstream; they are split here because the
-    // second `AddSeparator( 100 )` falls between them, and that separator is
-    // the line under Draw Buses.
-    //
-    // The fractions are not upstream ranks. Within one rank KiCad's order is
-    // the order the *tools* registered, and a port that adds its entries in
-    // source order gets that wrong in a way only a side-by-side screenshot
-    // shows. The fraction pins each entry to the line it holds upstream:
-    //
-    //   150.1‥.3  enterSheet, selectOnPCB, leaveSheet   sch_selection_tool:716
-    //   150.4‥.6  move, drag, alignToGrid               sch_move_tool:202
-    //   200.1‥.9  transform, attributes, swap,          sch_edit_tool:902
-    //             properties, editFields, autoplace,
-    //             editWithLibEdit, change/update, convertTo
-    //   250.0‥.5  labels, break/slice, sheet pins,      sch_selection_tool:721
-    //             netclass, page number, then the
-    //             edit tool's cleanup and lock entries
-    const entries: RankedItem[] = [];
-    const add = (order: number, ...list: MenuItem[]): void => {
-      for (const item of list) entries.push({ order, item });
-    };
-    if (selection.size > 0) {
-      // GROUP_CONTEXT_MENU: all four items always shown, greyed per condition
-      // (GROUP_TOOL::update Enable()). Labels are the actions' FriendlyNames.
-      add(101, {
-        label: 'Grouping',
-        items: [
-          { ...act('Group Items', 'group'), disabled: selection.size < 2 },
-          {
-            ...act('Ungroup Items', 'ungroup'),
-            disabled: !(doc && selectionHasGroup(doc, selection)),
-          },
-          { ...act('Add Items', 'addToGroup'), disabled: !(doc && canAddToGroup(doc, selection)) },
-          {
-            ...act('Remove Items', 'removeFromGroup'),
-            disabled: !(doc && canRemoveFromGroup(doc, selection)),
-          },
-        ],
-      });
-      // Locking (SCH_SELECTION_TOOL makeLockMenu), only symbols lock.
-      const selSymbols =
-        doc?.symbols.filter((s, i) => selection.has(refId('symbol', s.uuid, i))) ?? [];
-      if (selSymbols.length > 0) {
-        const anyUnlocked = selSymbols.some((s) => !s.locked);
-        const anyLocked = selSymbols.some((s) => s.locked);
-        const lockItems: MenuItem[] = [];
-        if (anyUnlocked) lockItems.push(act('Lock', 'lock'));
-        if (anyLocked) lockItems.push(act('Unlock', 'unlock'));
-        lockItems.push(act('Toggle Lock', 'toggleLock'));
-        add(250.5, { label: 'Locking', items: lockItems });
-      }
-      // `menu.AddItem( SCH_ACTIONS::swapPins, multiplePinsSelection &&
-      // schEditCondition && SCH_CONDITIONS::Idle && allowPinSwaps, 250 )`
-      // (`sch_selection_tool.cpp:385`). `multiplePinsSelection` is
-      // `MoreThan( 1 ) && OnlyTypes( { SCH_PIN_T } )` (`:281`) — pins and
-      // nothing else — and `allowPinSwaps` is the preference, so the entry is
-      // absent rather than greyed when it is off.
-      if (
-        es.input.allow_unconstrained_pin_swaps &&
-        selection.size > 1 &&
-        [...selection].every((id) => id.includes(':pin'))
-      ) {
-        add(250.1, act('Swap Pins', 'swapPins'));
-      }
-      add(
-        150.4,
-        {
-          label: 'Move',
-          icon: 'move',
-          shortcut: 'M',
-          action: () => setGrabRequest((p) => ({ kind: 'move', nonce: (p?.nonce ?? 0) + 1 })),
-        },
-        {
-          label: 'Drag',
-          icon: 'drag',
-          shortcut: 'G',
-          action: () => setGrabRequest((p) => ({ kind: 'drag', nonce: (p?.nonce ?? 0) + 1 })),
-        },
-      );
-      if (netlist && selectedNets(netlist, selection).length > 0)
-        add(250.3, {
-          label: 'Assign Netclass...',
-          icon: 'assignNetclass',
-          action: assignNetclass,
-        });
-      // SCH_ACTIONS::breakWire / ::slice, both offered whenever a line is
-      // selected (SCH_SELECTION_TOOL's `linesSelection` condition). Break
-      // divides into connected segments, Slice into unconnected ones.
-      if (doc && [...selection].some((id) => id.startsWith('line:')))
-        add(
-          250.1,
-          {
-            label: 'Break',
-            icon: 'break',
-            action: () => setGrabRequest((p) => ({ kind: 'break', nonce: (p?.nonce ?? 0) + 1 })),
-          },
-          {
-            label: 'Slice',
-            icon: 'slice',
-            action: () => setGrabRequest((p) => ({ kind: 'slice', nonce: (p?.nonce ?? 0) + 1 })),
-          },
-        );
-      if (hit?.kind === 'sheet') {
-        add(150.1, {
-          label: 'Enter Sheet',
-          icon: 'enterSheet',
-          action: () => onEditItem(hit.id, 'sheet'),
-        });
-        // SCH_ACTIONS::placeSheetPin, the first of the sheet block at rank 250.
-        add(250.2, tool('Place Pins from Sheet', 'sheetPin'));
-        add(
-          250.2,
-          // SCH_ACTIONS::autoplaceAllSheetPins: a pin for every hierarchical
-          // label inside the sheet that has none yet.
-          {
-            label: 'Autoplace All Sheet Pins',
-            icon: 'autoplaceAllSheetPins',
-            action: () => {
-              if (!doc) return;
-              const si = doc.sheets.findIndex((s, i) => refId('sheet', s.uuid, i) === hit.id);
-              const sh = doc.sheets[si];
-              if (!sh) return;
-              const file = sh.fields.find((f) => f.key === 'Sheetfile')?.value ?? '';
-              const child = liveDocs().get(file);
-              if (!child) return;
-              const cmd = autoplaceAllSheetPins(
-                doc,
-                si,
-                hierarchicalLabels(child),
-                es.drawing.default_text_size
-                  ? mmToIU(es.drawing.default_text_size * 0.0254)
-                  : 12700,
-              );
-              if (cmd) runCommand(cmd);
-            },
-          },
-          // SCH_ACTIONS::syncSheetPins ("Sync Selected Sheet Pins..."), the
-          // one-sheet form of the toolbar's Sync All.
-          {
-            label: 'Sync Selected Sheet Pins...',
-            icon: 'syncSheetPins',
-            action: () => onTopAction('syncSheetPins'),
-          },
-        );
-        // SCH_ACTIONS::editPageNumber, whose condition here is
-        // `schEditSheetPageNumberCondition` — at most one sheet selected. Last
-        // of the selection tool's rank-250 block, after the sheet-pin actions.
-        add(250.4, {
-          label: 'Edit Sheet Page Number...',
-          icon: 'editPageNumber',
-          action: () => {
-            if (!doc) return;
-            const si = doc.sheets.findIndex((s, i) => refId('sheet', s.uuid, i) === hit.id);
-            const sh = doc.sheets[si];
-            if (!sh?.uuid) return;
-            const rootUuid = liveDocs().get(project.current.root)?.uuid;
-            const chain = [...currentPath.split('/').filter(Boolean), sh.uuid];
-            const key = rootUuid ? instanceKey(rootUuid, chain) : '';
-            setPageEdit({
-              page: sh.instances.find((i) => i.path === key)?.page ?? '',
-              sheet: { index: si, uuid: sh.uuid },
-            });
-          },
-        });
-        // SCH_ACTIONS::cleanupSheetPins is the one sheet entry with a condition
-        // of its own (`sheetHasUndefinedPins`): it is offered only when the
-        // sheet actually carries a pin that no longer names a hierarchical
-        // label inside it. `cleanupSheetPins` returning null is that test.
-        {
-          const si = doc?.sheets.findIndex((s, i) => refId('sheet', s.uuid, i) === hit.id) ?? -1;
-          const sh = si >= 0 ? doc?.sheets[si] : undefined;
-          const file = sh?.fields.find((f) => f.key === 'Sheetfile')?.value ?? '';
-          // Without the child document there is nothing to check against, and
-          // dropping every pin would be worse than doing nothing.
-          const child = file ? liveDocs().get(file) : undefined;
-          const cmd =
-            doc && child && si >= 0
-              ? cleanupSheetPins(doc, si, hierarchicalLabelNames(child))
-              : null;
-          if (cmd)
-            add(250.5, {
-              label: 'Cleanup Sheet Pins',
-              icon: 'cleanupSheetPins',
-              action: () => runCommand(cmd),
-            });
-        }
-      }
-      // SCH_POINT_EDITOR's own two menu items, shown for a polyline under the
-      // same conditions upstream gates them on: the cursor has to be on the
-      // shape to add a corner, and on one of its vertices to remove one.
-      {
-        const pe = ctxMenu?.pointEdit;
-        const target =
-          doc && selection.size === 1 ? pointEditTarget(doc, [...selection][0]!) : null;
-        if (doc && target && pe) {
-          if (canAddCorner(doc, target, pe.world, pe.tolerance))
-            add(50, {
-              label: 'Add Corner',
-              icon: 'addCorner',
-              action: () => {
-                const next = addCorner(doc, target, pe.world);
-                if (next) runCommand(reshapeCommand('Add Corner', next));
-              },
-            });
-          if (pe.handle && canRemoveCorner(doc, target, pe.handle))
-            add(50, {
-              label: 'Remove Corner',
-              icon: 'removeCorner',
-              action: () => {
-                const next = removeCorner(doc, target, pe.handle!);
-                if (next) runCommand(reshapeCommand('Remove Corner', next));
-              },
-            });
-        }
-      }
-      // SCH_ACTIONS::autoplaceFields. `autoplaceCondition` is `FieldOwners` —
-      // symbols, sheets and labels — not symbols alone, so a sheet gets the
-      // entry too and it moves the Sheetname/Sheetfile text back to the box.
-      //
-      // Labels are the part of FieldOwners still missing:
-      // `SCH_LABEL_BASE::AutoplaceFields` places its fields off the direction
-      // the label's connection leaves in, which we have not ported. Offering a
-      // menu entry that does nothing would be worse than leaving it out.
-      {
-        const symbolSel =
-          doc?.symbols.some((sy, i) => selection.has(refId('symbol', sy.uuid, i))) ?? false;
-        const sheetSel = doc?.sheets.some((sh, i) => selection.has(refId('sheet', sh.uuid, i)));
-        if (doc && (symbolSel || sheetSel))
-          add(200.6, {
-            label: 'Autoplace Fields',
-            icon: 'autoplaceFields',
-            shortcut: 'O',
-            action: () => {
-              const cmds = [
-                symbolSel
-                  ? autoplaceFields(
-                      doc,
-                      selection,
-                      libById,
-                      {
-                        allowRejustify: es.autoplace_fields.allow_rejustify,
-                        alignToGrid: es.autoplace_fields.align_to_grid,
-                      },
-                      drawableArea(doc),
-                    )
-                  : null,
-                sheetSel
-                  ? // `SCH_SHEET::GetPenWidth` falls back to the schematic's
-                    // default line width, which this setting holds in mils.
-                    autoplaceSheetFields(
-                      doc,
-                      selection,
-                      es.drawing.default_line_thickness * IU_PER_MILS,
-                    )
-                  : null,
-              ].filter((c): c is EditCommand => c !== null);
-              if (cmds.length === 1) runCommand(cmds[0]!);
-              else if (cmds.length > 1) runCommand(composeCommands('Autoplace Fields', cmds));
-            },
-          });
-      }
-      // SYMBOL_UNIT_MENU: which unit of a multi-unit part this placement is.
-      // Units already on the sheet are annotated rather than disabled, since
-      // re-picking one is legitimate when swapping two of them over.
-      if (doc && selection.size === 1) {
-        const si = doc.symbols.findIndex(
-          (sy, i) => refId('symbol', sy.uuid, i) === [...selection][0],
-        );
-        const sym = si === -1 ? undefined : doc.symbols[si];
-        const lib = sym ? libById.get(schSymbolLibraryName(sym)) : undefined;
-        const count = symbolUnitCount(lib);
-        if (sym && count > 1) {
-          const missing = unplacedUnits(doc, si, libById, liveDocs().values());
-          const unitItems: MenuItem[] = Array.from({ length: count }, (_v, k) => k + 1).map(
-            (u) => ({
-              label: unitDisplayName(lib, u) + (missing.has(u) ? '' : ' (already placed)'),
-              checked: sym.unit === u,
-              action: () => runCommand(setSymbolUnit(si, u)),
-            }),
-          );
-          // Below the list, one entry per unit the hierarchy is still missing,
-          // which starts a placement of that unit as a copy of this symbol.
-          if (missing.size > 0) {
-            unitItems.push({ sep: true });
-            for (const u of [...missing].sort((a, b) => a - b))
-              unitItems.push({
-                label: `Place unit ${unitDisplayName(lib, u)}`,
-                action: () => placeNextSymbolUnit(si, u),
-              });
-          }
-          add(1, { label: 'Symbol Unit', items: unitItems });
-        }
-      }
-      // SCH_EDIT_TOOL's Attributes submenu, the same five item edits the Edit
-      // menu carries (SCH_EDIT_TOOL::SetAttribute).
-      if (doc && Object.values(ATTRIBUTE_IDS).some((a) => canSetAttribute(doc, selection, a)))
-        add(200.2, {
-          label: 'Attributes',
-          items: ATTRIBUTE_MENU.map(({ id, label }) => ({
-            label,
-            checked: attributeIsSet(doc, selection, ATTRIBUTE_IDS[id]!),
-            disabled: !canSetAttribute(doc, selection, ATTRIBUTE_IDS[id]!),
-            action: () => onLeftToggle(id),
-          })),
-        });
-      // SCH_EDIT_TOOL's "Edit Main Fields" submenu: the same three the U, V and
-      // F keys open.
-      if (doc && selection.size === 1) {
-        const owner = /^(.*):field\d+$/.exec([...selection][0]!)?.[1] ?? [...selection][0]!;
-        const si = doc.symbols.findIndex((sy, i) => refId('symbol', sy.uuid, i) === owner);
-        if (si !== -1) {
-          const sym = doc.symbols[si]!;
-          const isPower = !!libById.get(schSymbolLibraryName(sym))?.isPower;
-          const fieldEntries: MenuItem[] = [];
-          for (const [key, label, shortcut] of [
-            ['Reference', 'Edit Reference...', 'U'],
-            ['Value', 'Edit Value...', 'V'],
-            // Footprint is meaningless on a power symbol, so upstream skips it.
-            ...(isPower ? [] : [['Footprint', 'Edit Footprint...', 'F']]),
-          ] as [string, string, string][]) {
-            const fi = sym.fields.findIndex((f) => f.key === key);
-            if (fi !== -1)
-              fieldEntries.push({
-                label,
-                shortcut,
-                action: () => setFieldEdit({ symbol: si, index: fi }),
-              });
-          }
-          if (fieldEntries.length > 0)
-            add(200.5, { label: 'Edit Main Fields', items: fieldEntries });
-          // editWithLibEdit is registered *before* changeSymbol upstream
-          // (sch_edit_tool.cpp:909 against :910), so it sits above the pair.
-          add(200.7, {
-            label: 'Edit with Symbol Editor',
-            shortcut: 'Ctrl+E',
-            action: () => editSymbolInEditor(owner),
-          });
-          add(
-            200.8,
-            {
-              label: 'Change Symbol...',
-              action: () => {
-                setChangeSymbolsMessages([]);
-                setChangeSymbolsSubject(changeSymbolsSubjectOf(sym, true));
-                setChangeSymbolsMode('change');
-              },
-            },
-            {
-              label: 'Update Symbol...',
-              action: () => {
-                setChangeSymbolsMessages([]);
-                setChangeSymbolsSubject(changeSymbolsSubjectOf(sym, true));
-                setChangeSymbolsMode('update');
-              },
-            },
-          );
-        }
-      }
-      // SCH_EDIT_TABLE_TOOL, when the selection holds table cells. Upstream
-      // puts these in their own submenu of the table-cell context menu.
-      if (doc && hasCellSelection(selection)) {
-        const cellItems: MenuItem[] = [
-          { label: 'Add Row Above', action: () => runRowCol('addRowAbove') },
-          { label: 'Add Row Below', action: () => runRowCol('addRowBelow') },
-          { label: 'Add Column Before', action: () => runRowCol('addColumnBefore') },
-          { label: 'Add Column After', action: () => runRowCol('addColumnAfter') },
-          { sep: true },
-          { label: 'Delete Rows', action: () => runRowCol('deleteRows') },
-          { label: 'Delete Columns', action: () => runRowCol('deleteColumns') },
-          { sep: true },
-          {
-            label: 'Merge Cells',
-            disabled: !canMerge(doc, selection),
-            action: () => {
-              const cmd = tableCellsCommand(doc, selection, 'merge');
-              if (cmd) runCommand(cmd);
-            },
-          },
-          {
-            label: 'Properties...',
-            shortcut: 'E',
-            action: () => setCellPropsIds([...selection].filter((i) => tableOfCellId(i) !== null)),
-          },
-          { sep: true },
-          {
-            label: 'Unmerge Cells',
-            disabled: !canUnmerge(doc, selection),
-            action: () => {
-              const cmd = tableCellsCommand(doc, selection, 'unmerge');
-              if (cmd) runCommand(cmd);
-            },
-          },
-        ];
-        add(101, { label: 'Table', items: cellItems });
-      }
-      // SCH_ACTIONS::cycleBodyStyle: step to the De Morgan alternate.
-      if (doc && cycleBodyStyle(doc, selection, libById))
-        add(1, {
-          label: 'Cycle Body Style',
-          icon: 'cycleBodyStyle',
-          action: () => {
-            const cmd = cycleBodyStyle(doc, selection, libById);
-            if (cmd) runCommand(cmd);
-          },
-        });
-      // SCH_ACTIONS::swap (Alt+S).
-      if (doc && canSwap(doc, selection))
-        add(200.3, {
-          label: 'Swap',
-          icon: 'swap',
-          shortcut: 'Alt+S',
-          action: () => {
-            const cmd = swapItems(doc, selection);
-            if (cmd) runCommand(cmd);
-          },
-        });
-      // SCH_ACTIONS::alignToGrid, offered by SCH_MOVE_TOOL's selection menu
-      // whenever there is something movable selected. It drags each item onto
-      // the grid, so connected wiring comes along.
-      if (doc && selection.size > 0)
-        add(150.6, {
-          label: 'Align Items to Grid',
-          action: () => {
-            const grid = gridSizeToIU(
-              es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil',
-            );
-            const cmd = alignToGridCommand(doc, selection, libById, grid);
-            if (cmd) runCommand(cmd);
-          },
-        });
-      // SCH_ALIGN_TOOL's submenu, shown once there is more than one thing to
-      // line up. The click position is the target hint (selectTarget prefers
-      // the item under the cursor), so it is passed through.
-      if (selection.size > 1)
-        add(101, {
-          label: 'Align Items',
-          items: (['top', 'bottom', 'left', 'right', 'centerX', 'centerY'] as AlignMode[]).map(
-            (mode) => ({
-              label: ALIGN_LABELS[mode],
-              action: () => {
-                if (!doc) return;
-                const grid = gridSizeToIU(
-                  es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil',
-                );
-                const cmd = alignItems(
-                  doc,
-                  selection,
-                  libById,
-                  mode,
-                  grid,
-                  ctxMenu?.pointEdit?.world,
-                );
-                if (cmd) runCommand(cmd);
-              },
-            }),
-          ),
-        });
-      // KiCad groups the four transforms into a submenu rather than listing
-      // them flat (SCH_EDIT_TOOL's Transform Selection menu).
-      add(200.1, {
-        label: 'Transform Selection',
-        items: [
-          act('Rotate Counterclockwise', 'rotateCCW', 'R'),
-          act('Rotate Clockwise', 'rotateCW', 'Shift+R'),
-          act('Mirror Vertically', 'mirrorV', 'Y'),
-          act('Mirror Horizontally', 'mirrorH', 'X'),
-        ],
-      });
-      // SCH_EDIT_TOOL's "Change To" submenu (toLabel / toGLabel / toHLabel /
-      // toDLabel / toText / toTextBox), shown when the selection holds
-      // anything convertible. Each entry greys out for a selection that is
-      // already that type, as upstream skips those items.
-      {
-        const convertible = doc ? changeTextType(doc, selection, 'text_box') !== null : false;
-        const anyText =
-          convertible || (doc ? changeTextType(doc, selection, 'label') !== null : false);
-        if (anyText)
-          add(200.9, {
-            label: 'Change To',
-            items: (
-              [
-                'label',
-                'global_label',
-                'hierarchical_label',
-                'directive_label',
-                'text',
-                'text_box',
-              ] as TextType[]
-            ).map((to) => ({
-              label: TYPE_LABELS[to],
-              disabled: !doc || changeTextType(doc, selection, to) === null,
-              action: () => {
-                const cmd = doc && changeTextType(doc, selection, to);
-                if (cmd) {
-                  runCommand(cmd);
-                  setSelection(new Set());
-                }
-              },
-            })),
-          });
-      }
-      if (selection.size === 1)
-        add(200.4, {
-          label: 'Properties...',
-          icon: 'properties',
-          shortcut: 'E',
-          // Same handler as E: the right-click's hover selection is thrown away
-          // once the dialog is up (`clearSelection = selection.IsHover()`).
-          action: () => {
-            const ids = requestTarget(AnyItems);
-            if (ids.size !== 1) return;
-            openProperties([...ids][0]!);
-            finishCommand();
-          },
-        });
-      // SCH_ACTIONS::unfoldBus (C): BUS_UNFOLD_MENU lists the bus's members and
-      // picking one drops an entry plus a label for it.
-      if (hit?.kind === 'line' && doc && ctxMenu?.pointEdit) {
-        const bi = doc.lines.findIndex((l, i) => refId('line', l.uuid, i) === hit.id);
-        const members = bi === -1 ? [] : busUnfoldMembers(doc, bi, busAliases);
-        if (members.length)
-          add(101, {
-            label: 'Unfold from Bus',
-            items: members.map((net) => ({
-              label: net,
-              action: () => {
-                const at = ctxMenu.pointEdit!.world;
-                const out = unfoldBus(
-                  doc,
-                  bi,
-                  at,
-                  net,
-                  mmToIU(es.drawing.default_text_size * 0.0254),
-                );
-                if (out) {
-                  runCommand(out.command);
-                  // KiCad leaves you drawing the wire away from the entry.
-                  setActiveTool('drawWire');
-                  setWireStartRequest((p) => ({
-                    at: out.wireStart,
-                    nonce: (p?.nonce ?? 0) + 1,
-                  }));
-                }
-              },
-            })),
-          });
-      }
-      if (hit?.kind === 'line')
-        add(
-          250,
-          tool('Place Junction', 'junction', 'J'),
-          tool('Place Net Label', 'placeLabel', 'L'),
-          // placeClassLabel sits between the net and global labels upstream.
-          tool('Place Netclass Directive Label', 'placeClassLabel'),
-          tool('Place Global Label', 'placeGlobalLabel', 'Ctrl+L'),
-          tool('Place Hierarchical Label', 'placeHierLabel', 'H'),
-        );
-      // SCH_ACTIONS::clearHighlight (sch_selection_tool.cpp:353), rank 1,
-      // right after the group-enter items.
-      if (highlightItem !== null)
-        add(1.9, { label: 'Clear Net Highlighting', action: clearHighlight });
-      // SCH_ACTIONS::findNetInInspector (sch_selection_tool.cpp:387), rank 250,
-      // between assignNetclass and editPageNumber.
-      {
-        const hitCode = hit && netlist ? netlist.netByItem.get(hit.id) : undefined;
-        const hitNet =
-          hitCode !== undefined
-            ? (netlist?.nets.find((n) => n.code === hitCode)?.name ?? null)
-            : null;
-        if (hitNet)
-          add(250.35, {
-            label: 'Find in Net Navigator',
-            action: () => {
-              setLocalToggles((prev) => new Set(prev).add('showNetNavigator'));
-              if (hit) setSelection(new Set([hit.id]));
-            },
-          });
-      }
-      // SCH_ACTIONS::selectConnection, gated on `expandableSelection` — the
-      // connectivity-carrying kinds. A sheet is not one of them.
-      if (doc && selectionIsExpandable(doc, selection))
-        add(2, {
-          label: 'Select/Expand Connection',
-          shortcut: 'Ctrl+4',
-          action: expandSelectionAlongConnection,
-        });
-      add(300, act('Cut', 'cut', 'Ctrl+X'), act('Copy', 'copy', 'Ctrl+C'));
-      // `canCopyText` is an OnlyTypes condition: every selected item has to
-      // carry text, so one symbol or sheet in the selection removes it.
-      if (doc && selectionCanCopyAsText(doc, selection))
-        add(300, act('Copy as Text', 'copyAsText', 'Ctrl+Shift+C'));
-      add(
-        300,
-        act('Paste', 'paste', 'Ctrl+V'),
-        act('Paste Special...', 'pasteSpecial', 'Ctrl+Shift+V'),
-        act('Delete', 'delete', 'Delete'),
-        {
-          label: 'Duplicate',
-          icon: 'duplicate',
-          shortcut: 'Ctrl+D',
-          action: duplicateSelection,
-        },
-      );
-    } else {
-      add(100, tool('Draw Wires', 'drawWire', 'W'), tool('Draw Buses', 'drawBus', 'B'));
-      // The clipboard block, rank 300 in sch_edit_tool.cpp. Cut / Copy / Copy
-      // as Text / Delete are conditioned on a selection (`IdleSelection`,
-      // `NotEmpty`) and so drop out here, but these three are not:
-      //
-      //   selToolMenu.AddItem( ACTIONS::paste,        S_C::Idle,          300 );
-      //   selToolMenu.AddItem( ACTIONS::pasteSpecial, S_C::Idle,          300 );
-      //   selToolMenu.AddItem( ACTIONS::duplicate,    duplicateCondition, 300 );
-      //
-      // Duplicate over empty canvas looks odd until you read what gates it:
-      // `duplicateCondition` only asks that no wire is being drawn, and its
-      // enable is `ENABLE( hasElements )` — a property of the sheet, not of the
-      // selection. So it is offered, and greyed only on an empty sheet.
-      add(
-        300,
-        act('Paste', 'paste', 'Ctrl+V'),
-        act('Paste Special...', 'pasteSpecial', 'Ctrl+Shift+V'),
-        {
-          label: 'Duplicate',
-          icon: 'duplicate',
-          shortcut: 'Ctrl+D',
-          action: duplicateSelection,
-          disabled: !doc || !screenHasItems(doc),
-        },
-      );
-    }
-    // Leave Sheet is on the menu whatever is selected, greyed on the sheet you
-    // cannot leave. The two halves of that come from different conditions, and
-    // what pulls them apart is the virtual root `SCHEMATIC::ensureVirtualRoot`
-    // puts above the top-level sheets:
-    //
-    //   menu.AddItem( leaveSheet, belowRootSheetCondition, 150 );   // shown
-    //       -> GetCurrentSheet().Last() != &Schematic().Root()
-    //   mgr->SetConditions( leaveSheet, ENABLE( CanGoUp() ) );      // enabled
-    //       -> Last() is not one of GetTopLevelSheets()
-    //
-    // On the top-level schematic the first is *true* — the invisible root sits
-    // above it — while the second is false. Hence shown and greyed. We have no
-    // virtual root, so the shown half is always true for us and only the enable
-    // is left to compute.
-    add(150.3, {
-      label: 'Leave Sheet',
-      icon: 'navUp',
-      // SCH_ACTIONS::leaveSheet is MD_ALT + WXK_BACK (sch_actions.cpp:1421).
-      // GTK labels WXK_BACK `BackSpace` in the menu; the Hotkey List calls it
-      // `Back` (hotkeys_basic.cpp:95), which `hotkeyListName` supplies.
-      shortcut: 'Alt+BackSpace',
-      action: () => onTopAction('navUp'),
-      disabled: parentPath(currentPath) === null,
-    });
-    add(
-      401,
-      act('Select All', 'selectAll', 'Ctrl+A'),
-      act('Unselect All', 'unselectAll', 'Ctrl+Shift+A'),
-    );
-    // EDA_DRAW_FRAME::AddStandardSubMenus, rank 1000: every canvas context
-    // menu in KiCad ends with these two, whatever is selected.
-    add(
-      1000,
-      {
-        label: 'Zoom',
-        items: [
-          act('Zoom to Fit', 'zoomFit', 'Home'),
-          act('Zoom to Objects', 'zoomFitObjects', 'Ctrl+Home'),
-          act('Zoom In', 'zoomIn', 'F1'),
-          act('Zoom Out', 'zoomOut', 'F2'),
-          act('Refresh', 'zoomRedraw', 'F5'),
-        ],
-      },
-      {
-        label: 'Grid',
-        items: [
-          // `GRID_MENU::update` (common/tool/grid_menu.cpp:52-104) labels each
-          // row with `BuildChoiceList`'s `"%s%s (%s)"` — the optional name, the
-          // size in the frame's unit, and the same size in the other one. The
-          // raw stored string stood here, which cannot show a grid's name and
-          // shows only its X.
-          ...es.window.grid.sizes.map((size, i) => ({
-            label: gridChoiceLabel(size, units, SCH_IU_PER_MM, size.name),
-            checked: es.window.grid.last_size_idx === i,
-            action: () =>
-              app.settings.updateEeschema((st) => {
-                st.window.grid.last_size_idx = i;
-              }),
-          })),
-          { sep: true },
-          {
-            label: 'Show Grid',
-            checked: es.window.grid.show,
-            action: () => onLeftToggle('toggleGrid'),
-          },
-        ],
-      },
-    );
-
-    // The separators this menu declares: two at rank 100 (the second is the
-    // line under Draw Buses), then 200, 300, 400 (sch_selection_tool.cpp),
-    // the edit tool's own separator also at 400 (sch_edit_tool.cpp, before
-    // Select All / Unselect All), and AddStandardSubMenus' at 1000.
-    return assembleMenu(entries, [100, 101, 200, 300, 400, 401, 1000]);
-  };
-
   /**
    * A right-toolbar click. Most of its buttons arm a placement tool; the few in
    * `RIGHT_TOOLBAR_COMMANDS` run straight away instead, so they go to the same
@@ -8910,12 +7487,6 @@ export function SchematicEditor({
         app.settings.updateEeschema((s) => {
           s.drawing.arc_edit_mode = incrementArcEditMode(s.drawing.arc_edit_mode as ArcEditMode);
         });
-      } else if (e.key === 'F5' && !e.altKey && !e.shiftKey) {
-        // ACTIONS::zoomRedraw's default off macOS (actions.cpp:705-716), and
-        // now also what the row prints. Ctrl+R, the macOS branch, stays bound
-        // below as the second spelling.
-        e.preventDefault();
-        controller.current?.redraw();
       } else if (
         e.key === 'Insert' &&
         !e.altKey &&
@@ -8953,34 +7524,12 @@ export function SchematicEditor({
           setSelection(new Set(r.ids));
           if (r.clampedAtZero) setError('Label value cannot go below zero');
         }
-      } else if (e.key === 'Home' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-        // ACTIONS::zoomFitScreen. WXK_HOME is its `#else` branch
-        // (actions.cpp:719-724) and what `hotkeys.ts` has always printed for
-        // `zoomFit` -- but nothing bound it, so the row advertised a dead key
-        // while Ctrl+0, the `#if __WXMAC__` branch, did the work.
-        e.preventDefault();
-        controller.current?.zoomToFit();
       } else if (e.key === 'F1' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
         // ACTIONS::listHotKeys is AS_GLOBAL and HotkeyListHost binds Ctrl+F1
         // once, above every frame. The arm stays so the bare-F1 zoom below - a
         // *different* action that requires no modifiers - is still reached only
         // when Ctrl is absent; without it, Ctrl+F1 would fall through and zoom.
         e.preventDefault();
-      } else if (e.key === 'F1' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
-        // ACTIONS::zoomIn, "Zoom In at Cursor" (F1 off macOS). It is not
-        // zoomInCenter, which this used to be labelled: that action zooms about
-        // the viewport centre and has no default hotkey at all.
-        //
-        // Ctrl++ is deliberately NOT bound as a second spelling. That is this
-        // same action's `#if defined( __WXMAC__ )` default (actions.cpp:747-752)
-        // and F1 is the `#else` branch, so binding both gave us a key real
-        // KiCad does not have on this platform. Ctrl+- likewise, below.
-        e.preventDefault();
-        controller.current?.zoomIn();
-      } else if (e.key === 'F2' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
-        // ACTIONS::zoomOut, "Zoom Out at Cursor" (F2 off macOS).
-        e.preventDefault();
-        controller.current?.zoomOut();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e' && !e.shiftKey) {
         // SCH_ACTIONS::editWithLibEdit (Ctrl+E) on a single selected symbol.
         e.preventDefault();
@@ -9146,25 +7695,6 @@ export function SchematicEditor({
           onTopAction(txKey);
           return;
         }
-        // M = Move (leaves connected wires behind), G = Drag (keeps them
-        // attached), SCH_ACTIONS::move / drag. Grabs the current selection.
-        if (e.key.toLowerCase() === 'm' || e.key.toLowerCase() === 'g') {
-          // `SCH_MOVE_TOOL::Main` (sch_move_tool.cpp:1109-1110):
-          //
-          //     SCH_SELECTION& selection =
-          //             m_selectionTool->RequestSelection( SCH_COLLECTOR::MovableItems, true );
-          //     aUnselect = selection.IsHover();
-          //
-          // so M or G over an unselected symbol picks it up and moves it. The
-          // hover is dropped when the move ends rather than now, which is what
-          // `aUnselect` is carried through the move for.
-          if (requestTarget(MovableItems).size > 0) {
-            e.preventDefault();
-            const kind = e.key.toLowerCase() === 'm' ? 'move' : 'drag';
-            setGrabRequest((prev) => ({ kind, nonce: (prev?.nonce ?? 0) + 1 }));
-            return;
-          }
-        }
         // ` = Highlight Net tool, ~ = clear highlighting
         // (SCH_ACTIONS::highlightNet / clearHighlight).
         if (e.key === '`') {
@@ -9225,7 +7755,6 @@ export function SchematicEditor({
               if (out) {
                 runCommand(out.command);
                 setActiveTool('drawWire');
-                setWireStartRequest((p) => ({ at: out.wireStart, nonce: (p?.nonce ?? 0) + 1 }));
               }
               return;
             }
@@ -9378,15 +7907,6 @@ export function SchematicEditor({
     return `${(mm / 25.4).toFixed(4)}`;
   };
 
-  // Properties panel rows (SCH_PROPERTIES_PANEL): the property grid for a
-  // single selected item; multi-selections keep the count message for now
-  // (upstream shows the properties common to the whole selection, #77).
-  const propRows = useMemo<PropRow[]>(() => {
-    if (!doc || selection.size !== 1) return [];
-    const ref = itemRefById(doc, [...selection][0]!);
-    return ref ? schPropertiesFor(doc, libById, ref) : [];
-  }, [doc, selection, libById]);
-
   /**
    * FRAME_FOOTPRINT_CHOOSER, opened by the Footprint field's PG_FPID_EDITOR
    * button. `OnEvent`'s wxEVT_BUTTON branch shows it modally on the cell's
@@ -9402,52 +7922,6 @@ export function SchematicEditor({
     /** Its pin count, the other half. */
     pinCount?: number;
   } | null>(null);
-
-  /**
-   * What upstream mails the chooser as MAIL_SYMBOL_NETLIST: the symbol's
-   * footprint filters and its pin count. Both are the FRAME's knowledge and
-   * neither is derivable inside the chooser, which is why the two filter
-   * checkboxes live there and not in the tree.
-   *
-   * `PG_FPID_EDITOR::OnEvent` builds the netlist through `m_netlistCallback`
-   * and mails it before showing the frame; an empty one simply means no
-   * checkboxes, which is the same `if( !m_fpFilters.empty() )` branch.
-   */
-  const selectedSymbolFpContext = useCallback((): {
-    fpFilters: readonly string[];
-    pinCount?: number;
-  } => {
-    if (!doc || selection.size !== 1) return { fpFilters: [] };
-    const ref = itemRefById(doc, [...selection][0]!);
-    if (ref?.kind !== 'symbol') return { fpFilters: [] };
-    const sym = doc.symbols.find((t, i) => refId('symbol', t.uuid, i) === ref.id);
-    if (!sym) return { fpFilters: [] };
-    const lib = libById.get(sym.libId);
-    const filters = (
-      lib?.properties.find((pr) => pr.key === 'ki_fp_filters')?.value ??
-      sym.fields.find((f) => f.key === 'ki_fp_filters')?.value ??
-      ''
-    )
-      .split(/\s+/)
-      .filter(Boolean);
-    // `FOOTPRINT_CHOOSER_FRAME` counts the pins in the mailed netlist, which is
-    // the symbol's whole pin list - every unit's, across body styles, counted
-    // once per pin NUMBER the way `GetUniquePadCount` counts pads. A power
-    // symbol's hidden pin counts too, because the netlist carries it.
-    const numbers = new Set<string>();
-    for (const unit of lib?.units ?? []) {
-      for (const pin of unit.pins) if (pin.number) numbers.add(pin.number);
-    }
-    return { fpFilters: filters, ...(numbers.size > 0 ? { pinCount: numbers.size } : {}) };
-  }, [doc, selection, libById]);
-
-  // `PROPERTIES_PANEL::rebuildProperties` captions a single selection with
-  // `aSelection.Front()->GetFriendlyName()` — the item's TYPE.
-  const propFriendlyName = useMemo<string | undefined>(() => {
-    if (!doc || selection.size !== 1) return undefined;
-    const ref = itemRefById(doc, [...selection][0]!);
-    return ref ? schItemFriendlyName(doc, ref) : undefined;
-  }, [doc, selection]);
 
   // Existing net/label names for the label dialog's completion list
   // (DIALOG_LABEL_PROPERTIES pre-loads its combo with the sheet's net names).
@@ -9790,7 +8264,7 @@ export function SchematicEditor({
                                     ? selectionBBox(doc, new Set([id]), libById)
                                     : emptyBBox();
                                   if (!isEmpty(box))
-                                    controller.current?.centerOn({
+                                    schFrameRef.current!.FocusOnLocation({
                                       x: (box.minX + box.maxX) / 2,
                                       y: (box.minY + box.maxY) / 2,
                                     });
@@ -9942,130 +8416,6 @@ export function SchematicEditor({
                 </span>
               </div>
             )}
-            <SchematicCanvas
-              ref={controller}
-              onInfoBar={setInfoBar}
-              schematic={doc}
-              libById={libById}
-              selection={selection}
-              activeTool={activeTool}
-              lineMode={lineMode}
-              wireStartRequest={wireStartRequest}
-              arcEditMode={es.drawing.arc_edit_mode as ArcEditMode}
-              placeLib={placeLib}
-              placeUnit={placeUnit}
-              placeInstance={placeInstance}
-              onSymbolPlaced={onSymbolPlaced}
-              pendingLabel={pendingLabel}
-              // The canvas has always read this to decide whether a click drops
-              // the flag or re-opens the dialog, and it was never passed: it saw
-              // `undefined` every time, took the "ask again" branch on every
-              // click, and a directive label could not be placed at all.
-              pendingDirective={pendingDirective}
-              onLabelPlaced={onLabelPlaced}
-              onLabelPrompt={onLabelPrompt}
-              onFollowLink={onFollowLink}
-              highlight={highlightWires}
-              theme={theme}
-              renderOpts={renderOpts}
-              inputPrefs={inputPrefs}
-              onSheetDrawn={onSheetDrawn}
-              onTextBoxDrawn={onTextBoxDrawn}
-              onTableDrawn={onTableDrawn}
-              // The table preview needs the default text size: a column is
-              // fifteen characters wide and a row two high.
-              tableFontSizeIU={setup.formatting.defaultTextSizeMils * IU_PER_MILS}
-              onSheetPinClick={onSheetPinClick}
-              onSheetPinMiss={onSheetPinMiss}
-              pendingImage={pendingImage}
-              onImagePlaced={onImagePlaced}
-              grabRequest={grabRequest}
-              onContextMenuRequest={onContextMenuRequest}
-              isHoverSelection={isHoverSelection({ selection, hover: hoverSelection })}
-              onClarify={(x, y, items, additive) => setClarify({ x, y, items, additive })}
-              onZoomArea={(box) => {
-                // The tool stays armed after a zoom. `ZOOM_TOOL::Main` loops on
-                // `selectRegion()`, and that returns *cancelled* — false for a
-                // zoom that actually happened — so the `break` is only ever taken
-                // when the user escapes or picks another tool:
-                //
-                //     else if( evt->IsDrag( BUT_LEFT ) || evt->IsDrag( BUT_RIGHT ) )
-                //     {
-                //         if( selectRegion() )
-                //             break;
-                //     }
-                //
-                // Dropping back to the selection tool here made it a one-shot, so
-                // zooming in twice meant picking the tool twice.
-                controller.current?.zoomToBox(box);
-              }}
-              onSelect={onSelect}
-              onHighlight={onHighlight}
-              onRequestTool={onToolSelect}
-              // `SCH_SELECTION_TOOL` (sch_selection_tool.cpp:676-694) has ONE
-              // rule for a left double-click: a sheet enters the sheet, a
-              // group enters the group, and everything else does
-              //
-              //     m_toolMgr->PostAction( SCH_ACTIONS::properties );
-              //
-              // which is the same action E is bound to. We had grown two
-              // routers instead — `onEditItem` knew symbol, field, label, text
-              // box, table, directive and sheet, while `openProperties` knew
-              // those AND graphics, lines, images, junctions and bus entries.
-              // So double-clicking a rectangle did nothing at all: it was not
-              // on the shorter list. `openProperties` is the complete one, and
-              // `onEditItem` remains what it calls to open a particular kind.
-              onEditItem={(id, kind) => {
-                if (kind === 'sheet' || kind === 'directive') onEditItem(id, kind);
-                else openProperties(id);
-              }}
-              onSelectBox={onSelectBox}
-              pastePending={pastePending}
-              onPasteDone={onPasteDone}
-              ercMarkers={ercResult
-                ?.filter((v) => (v.file ?? currentFile) === currentFile)
-                .map((v) => ({
-                  ...v,
-                  excluded: setup.ercExclusions.includes(ercExclusionKey(v)),
-                  brightened: ercFocusedMarker === ercExclusionKey(v),
-                }))
-                .filter((v) =>
-                  v.excluded
-                    ? es.appearance.show_erc_exclusions
-                    : v.severity === 'error'
-                      ? es.appearance.show_erc_errors
-                      : es.appearance.show_erc_warnings,
-                )}
-              onMarkerPick={(v, dbl) => {
-                // `SCH_MARKER_T` is always selectable, and selecting one runs
-                // `SCH_INSPECTION_TOOL::CrossProbe`: brighten the marker, drop any
-                // item selection, and walk the open ERC dialog to its row.
-                setSelection(new Set());
-                setErcFocusedMarker(ercExclusionKey(v));
-                // A double-click comes through SCH_EDIT_TOOL::Properties, which
-                // opens the dialog first if it is not already up:
-                //
-                //     if( !dlg->IsShownOnScreen() ) { dlg->Show( true ); dlg->Raise(); }
-                if (dbl) setErcOpen(true);
-                // The dialog may not be mounted yet on that first double-click,
-                // so the row is remembered and applied once its nav appears.
-                if (!ercNav.current?.selectByKey(ercExclusionKey(v)))
-                  pendingErcSelect.current = ercExclusionKey(v);
-              }}
-              onCommand={runCommand}
-              onDropIntoSheet={dropIntoSheet}
-              newSheetDefaults={newSheetDefaults}
-              newPowerSymbols={es.drawing.new_power_symbols}
-              onAnnotatePlacement={annotatePlacement}
-              onAutoplacePlacement={autoplacePlacement}
-              onRequestChooser={() => setChooserDismissed(false)}
-              onEditDrawingSheet={() => setPageSettingsOpen(true)}
-              onCursorMove={onCursorMove}
-              remoteCursors={remoteCursorList}
-              remoteSelections={remoteSelectionList}
-              lockedIds={remoteLockedIds}
-              onScaleChange={onScaleChange}
-            />
             <canvas
               ref={glCanvasRef}
               // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas takes the keys, as the wxGLCanvas does
@@ -10078,14 +8428,6 @@ export function SchematicEditor({
                 height: '100%',
               }}
             />
-            {ctxMenu && (
-              <ContextMenu
-                x={ctxMenu.x}
-                y={ctxMenu.y}
-                items={buildContextMenu()}
-                onClose={() => setCtxMenu(null)}
-              />
-            )}
             {toolPopup && (
               <ContextMenu
                 x={toolPopup.x}
@@ -10341,7 +8683,6 @@ export function SchematicEditor({
                 onDelete={(i) => setErcResult((r) => (r ? r.filter((_, idx) => idx !== i) : r))}
                 onDeleteAll={() => {
                   setErcResult([]);
-                  setErcFocusedMarker(null);
                 }}
                 excluded={new Set(setup.ercExclusions)}
                 exclusionComments={new Map(Object.entries(setup.ercExclusionComments))}
@@ -10371,7 +8712,6 @@ export function SchematicEditor({
                 }}
                 onEditSeverities={() => setSetupOpen(true)}
                 onClose={() => {
-                  setErcFocusedMarker(null);
                   setErcOpen(false);
                 }}
               />
@@ -10714,7 +9054,6 @@ export function SchematicEditor({
                 onPick={(lib) => {
                   setBrowserOpen(false);
                   placeFlags.current = { keepSymbol: true, placeAllUnits: false, unitCount: 1 };
-                  setPlaceUnit(1);
                   setPlaceLib(lib);
                   setActiveTool('placeSymbol');
                 }}
@@ -10755,12 +9094,16 @@ export function SchematicEditor({
                       selection={selection}
                       onClearSelection={() => setSelection(new Set())}
                       onSelect={(id) => setSelection(new Set([id]))}
-                      onCenter={(_id, at) => controller.current?.centerOn(at)}
+                      onCenter={(_id, at) => schFrameRef.current!.FocusOnLocation(at)}
                       onZoomFit={(id) => {
                         // ACTIONS::zoomFitSelection, the same extent walk the View
                         // menu's Zoom to Selected Objects uses.
                         const box = doc ? selectionBBox(doc, new Set([id]), libById) : emptyBBox();
-                        if (!isEmpty(box)) controller.current?.zoomToBox(box);
+                        if (!isEmpty(box))
+                          schFrameRef.current!.FocusOnLocation({
+                            x: (box.minX + box.maxX) / 2,
+                            y: (box.minY + box.maxY) / 2,
+                          });
                       }}
                     />
                   </div>
