@@ -943,6 +943,16 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     return 0;
   }
 
+  ShowCvpcb(_aEvent: TOOL_EVENT): number {
+    this.m_frame!.OnOpenCvpcb();
+    return 0;
+  }
+
+  ShowPcbNew(_aEvent: TOOL_EVENT): number {
+    this.m_frame!.OnOpenPcbnew();
+    return 0;
+  }
+
   UpdatePCB(_aEvent: TOOL_EVENT): number {
     this.m_frame!.OnUpdatePCB();
     return 0;
@@ -1178,10 +1188,9 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     this.Go(this.ImportFPAssignments, SCH_ACTIONS.importFPAssignments.MakeEvent());
 
-    // Not ported yet, in KiCad's order: RescueSymbols, ExportSymbolsToLibrary,
-    // the clipboard, EditWithSymbolEditor, ShowCvpcb, ImportFPAssignments,
-    // ImportNonKicadSchematic, ShowPcbNew, DrawSheetOnClipboard, the linked design blocks and
-    // the variants. Left out, as the simulator is: SimProbe, SimTune, MarkSimExclusions,
+    // Not ported yet, in KiCad's order: RescueSymbols, ExportSymbolsToLibrary, the clipboard,
+    // EditWithSymbolEditor, ImportNonKicadSchematic, DrawSheetOnClipboard, the linked design
+    // blocks and the variants. Left out, as the simulator is: SimProbe, SimTune, MarkSimExclusions,
     // ToggleOPVoltages, ToggleOPCurrents.
     this.Go(this.ShowSchematicSetup, SCH_ACTIONS.schematicSetup.MakeEvent());
     this.Go(this.PageSetup, ACTIONS.pageSettings.MakeEvent());
@@ -1205,6 +1214,8 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     this.Go(this.IncrementAnnotations, SCH_ACTIONS.incrementAnnotations.MakeEvent());
     this.Go(SYNC_HANDLER(this.EditSymbolFields), SCH_ACTIONS.editSymbolFields.MakeEvent());
     this.Go(this.EditSymbolLibraryLinks, SCH_ACTIONS.editSymbolLibraryLinks.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ShowCvpcb), SCH_ACTIONS.assignFootprints.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ShowPcbNew), SCH_ACTIONS.showPcbNew.MakeEvent());
     this.Go(SYNC_HANDLER(this.UpdatePCB), ACTIONS.updatePcbFromSchematic.MakeEvent());
     this.Go(this.UpdateFromPCB, ACTIONS.updateSchematicFromPcb.MakeEvent());
     this.Go(this.ExportNetlist, SCH_ACTIONS.exportNetlist.MakeEvent());

@@ -79,6 +79,18 @@ describe('Assign Footprints from CvPcb', () => {
     expect(h.frame.GetUndoCommandCount()).toBe(undo + 1);
   });
 
+  it('a footprint field that was empty and shown is hidden when assigned', () => {
+    const h = setUp();
+    const field = h.symbol.GetField(FIELD_T.FOOTPRINT)!;
+    field.SetText('');
+    field.SetVisible(true);
+
+    h.editor.AssignFootprints(`(cvpcb_netlist (ref "${h.ref}" (fpid "Lib:New")))`);
+
+    expect(h.footprint()).toBe('Lib:New');
+    expect(field.IsVisible()).toBe(false);
+  });
+
   it('an unchanged footprint is no commit', () => {
     const h = setUp();
     h.editor.AssignFootprints(`(cvpcb_netlist (ref "${h.ref}" (fpid "Lib:Assigned")))`);

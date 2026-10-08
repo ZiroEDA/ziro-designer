@@ -29,6 +29,9 @@ import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
+import { KIWAY } from '@ziroeda/common/kiway.js';
+import { KIWAY_PLAYER } from '@ziroeda/common/kiway_player.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openProject, schFrame, schToolHarness } from './support/sch_tool_harness.js';
@@ -364,5 +367,39 @@ describe('SCH_EDITOR_CONTROL', () => {
     Pgm().SetCommonSettings({ m_Input: { hotkey_feedback: false } } as never);
     h.mgr.ProcessEvent(EVENTS.GridChangedByKeyEvent);
     expect(shown.length).toBe(1);
+  });
+
+  it('Assign Footprints opens CvPcb and mails it the netlist; Show PCB opens the board editor', () => {
+    const h = setUp();
+    const shown: FRAME_T[] = [];
+    const kiway = new KIWAY({
+      OnKiCadExit: () => {},
+      Player: (t) => {
+        shown.push(t);
+        return true;
+      },
+      HasProjectManager: () => true,
+      ShowProjectManager: () => {},
+      CreateKiWindow: () => false,
+    });
+    h.frame.SetKiway(kiway);
+
+    h.mgr.RunAction(SCH_ACTIONS.assignFootprints);
+    h.mgr.RunAction(SCH_ACTIONS.showPcbNew);
+
+    expect(shown).toEqual([FRAME_T.FRAME_CVPCB, FRAME_T.FRAME_PCB_EDITOR]);
+
+    // CvPcb was not up yet: the netlist waits for it to register.
+    const received: [MAIL_T, string][] = [];
+    const cvpcb = new (class extends KIWAY_PLAYER {
+      override KiwayMailIn(aEvent: KIWAY_MAIL_EVENT): void {
+        received.push([aEvent.Command(), aEvent.GetPayload()]);
+      }
+    })(FRAME_T.FRAME_CVPCB, pcbIUScale, 'mm');
+    kiway.SetPlayerFrame(FRAME_T.FRAME_CVPCB, cvpcb);
+
+    expect(received.length).toBe(1);
+    expect(received[0]![0]).toBe(MAIL_T.MAIL_EESCHEMA_NETLIST);
+    expect(received[0]![1]).toMatch(/^\(export\n\t\(version "E"\)/);
   });
 });

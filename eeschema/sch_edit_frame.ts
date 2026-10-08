@@ -1821,6 +1821,61 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
    * running, creating it if it does not exist; the editor here only offers
    * the command when the project has a board.
    */
+  /**
+   * `sendNetlistToCvpcb()` (netlist_generator.cpp:232): the KiCad netlist, mailed to CvPcb
+   * (`MAIL_EESCHEMA_NETLIST`).
+   */
+  sendNetlistToCvpcb(): void {
+    // @todo : trim GNL_ALL down to minimum for CVPCB
+    const exporter = new NETLIST_EXPORTER_KICAD(this.Schematic());
+
+    if (this.hooks.symbolLibraryUri) exporter.m_libraryUri = this.hooks.symbolLibraryUri;
+
+    const packet = exporter.Format(GNL_ALL | GNL_T.GNL_OPT_KICAD); // an abbreviated "kicad" (s-expr) netlist
+
+    this.Kiway()?.ExpressMail(
+      FRAME_T.FRAME_CVPCB,
+      MAIL_T.MAIL_EESCHEMA_NETLIST,
+      { value: packet },
+      this,
+    );
+  }
+
+  /** `OnOpenCvpcb()` (sch_edit_frame.cpp:1576). */
+  OnOpenCvpcb(): void {
+    if (!this.ReadyToNetlist('Assigning footprints requires a fully annotated schematic.')) return;
+
+    const kiway = this.Kiway();
+
+    if (!kiway) return;
+
+    // Kiway().Player( FRAME_CVPCB, true ) and Show( true ): the program opens or raises it; it
+    // returns false when CvPcb cannot be run ("No need to show a warning").
+    if (!kiway.Player(FRAME_T.FRAME_CVPCB)) return;
+
+    // Ensure the netlist (mainly info about symbols) is up to date
+    this.RecalculateConnections(null, SCH_CLEANUP_FLAGS.GLOBAL_CLEANUP);
+    this.sendNetlistToCvpcb();
+  }
+
+  /**
+   * `OnOpenPcbnew()` (sch_edit_frame.cpp:1520), under the project manager: open or raise the
+   * board editor. Upstream hands a new frame `OpenProjectFiles( boardfn )`; the program here
+   * opens the project's own board when it brings the editor up.
+   */
+  OnOpenPcbnew(): void {
+    // Use the project's board, not the active sheet's name, which may belong to another project.
+    const projectName = this.Prj().GetProjectFullName();
+    const kicad_board =
+      projectName === '' ? this.Prj().AbsolutePath(this.Schematic().GetFileName()) : projectName;
+    const name = kicad_board.slice(kicad_board.lastIndexOf('/') + 1).replace(/\.[^.]*$/, '');
+
+    // `ExecuteFile( PCBNEW_EXE, ... )` is standalone mode's, which the browser never runs in.
+    if (name === '') return;
+
+    this.Kiway()?.Player(FRAME_T.FRAME_PCB_EDITOR);
+  }
+
   OnUpdatePCB(): void {
     const kiway = this.Kiway();
 
