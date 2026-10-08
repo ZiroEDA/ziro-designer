@@ -769,7 +769,7 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     const msg = `Revert '${schematic.GetFileName()}' (and all sub-sheets) to last version saved?`;
 
-    if (!(yield* this.RunMainStackModal(() => Promise.resolve(this.m_frame!.IsOK(msg))))) {
+    if (!(yield* this.RunMainStackModal(() => this.m_frame!.IsOKAsync(msg)))) {
       // User cancelled - navigate back to original sheet
       if (wasOnSubsheet)
         this.m_frame!.GetToolManager()!.RunAction(SCH_ACTIONS.changeSheet, originalSheet);
@@ -1343,8 +1343,10 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     } catch {
       // If it wasn't schematic content, paste as a text object
       if (content.length > ADVANCED_CFG.GetCfg().m_MaxPastedTextLength) {
-        const result = this.m_frame!.IsOK(
-          'Pasting a long text text string may be very slow.  Do you want to continue?',
+        const result = yield* this.RunMainStackModal(() =>
+          this.m_frame!.IsOKAsync(
+            'Pasting a long text text string may be very slow.  Do you want to continue?',
+          ),
         );
 
         if (!result) return 0;

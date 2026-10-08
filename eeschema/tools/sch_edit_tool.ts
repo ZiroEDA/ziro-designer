@@ -2845,14 +2845,18 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     return 0;
   }
 
-  CleanupSheetPins(_aEvent: TOOL_EVENT): number {
+  *CleanupSheetPins(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
     const selection = this.m_selectionTool!.RequestSelection([KICAD_T.SCH_SHEET_T]);
     const sheet = selection.Front() as SCH_SHEET | null;
     const commit = new SCH_COMMIT(this.m_toolMgr!);
 
     if (!sheet || !sheet.HasUndefinedPins()) return 0;
 
-    if (!this.m_frame!.IsOK('Do you wish to delete the unreferenced pins from this sheet?'))
+    if (
+      !(yield* this.RunMainStackModal(() =>
+        this.m_frame!.IsOKAsync('Do you wish to delete the unreferenced pins from this sheet?'),
+      ))
+    )
       return 0;
 
     commit.Modify(sheet, this.m_frame!.GetScreen());
@@ -3077,7 +3081,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     this.Go(SYNC_HANDLER(this.SetAttribute), SCH_ACTIONS.setExcludeFromPosFiles.MakeEvent());
     this.Go(SYNC_HANDLER(this.SetAttribute), SCH_ACTIONS.setExcludeFromSim.MakeEvent());
 
-    this.Go(SYNC_HANDLER(this.CleanupSheetPins), SCH_ACTIONS.cleanupSheetPins.MakeEvent());
+    this.Go(this.CleanupSheetPins, SCH_ACTIONS.cleanupSheetPins.MakeEvent());
     this.Go(this.GlobalEdit, SCH_ACTIONS.editTextAndGraphics.MakeEvent());
     this.Go(this.EditPageNumber, SCH_ACTIONS.editPageNumber.MakeEvent());
 

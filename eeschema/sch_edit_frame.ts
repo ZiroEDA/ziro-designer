@@ -13,6 +13,7 @@
  * live items: the frame methods `SCH_COMMIT` and `schematic_undo_redo.ts`
  * (`SCH_UNDO_REDO_MIXIN`, mixed in below) need.
  */
+import { IsOK } from '@ziroeda/common/confirm.js';
 import { IS_MOVING, SKIP_STRUCT, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
 import { IsPointOnSegment } from '@ziroeda/kimath/src/trigo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
@@ -818,6 +819,21 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     }
 
     return this.hooks.isOK?.(aMessage) ?? false;
+  }
+
+  /**
+   * `IsOK( this, aMessage )` as the browser can ask it: the common question box, answered later.
+   * The AI's capture answers at once.
+   */
+  IsOKAsync(aMessage: string): Promise<boolean> {
+    if (this.m_capture) {
+      this.m_capture.messages.push(aMessage);
+      return Promise.resolve(this.m_capture.answer);
+    }
+
+    if (this.hooks.isOK) return Promise.resolve(this.hooks.isOK(aMessage));
+
+    return IsOK(aMessage);
   }
 
   /** `DisplayError( this, aMessage )`. */

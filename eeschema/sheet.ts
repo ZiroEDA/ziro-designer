@@ -604,7 +604,7 @@ export class SCH_SHEET_MIXIN {
       dirOf(currentScreen.GetFileName()),
     );
 
-    if (!this.AllowCaseSensitiveFileNameClashes(aSheet.GetFileName(), newAbsoluteFilename))
+    if (!(await this.AllowCaseSensitiveFileNameClashes(aSheet.GetFileName(), newAbsoluteFilename)))
       return false;
 
     const fullHierarchy = schematic.Hierarchy();
@@ -627,9 +627,9 @@ export class SCH_SHEET_MIXIN {
         clearAnnotation = true;
 
         if (
-          !this.IsOK(
+          !(await this.IsOKAsync(
             `'${shortName}' already exists.\n\nLink '${newAbsoluteFilename}' to this file?`,
-          )
+          ))
         )
           return false;
       } else if (aSourceSheetFilename) {
@@ -660,10 +660,10 @@ export class SCH_SHEET_MIXIN {
           oldScreen = aSheet.GetScreen();
 
           if (
-            !this.IsOK(
+            !(await this.IsOKAsync(
               `Change '${newAbsoluteFilename}' link from '${aSheet.GetFileName()}' to '${shortName}'?` +
                 '\n\nThis action cannot be undone.',
-            )
+            ))
           )
             return false;
 
@@ -672,10 +672,10 @@ export class SCH_SHEET_MIXIN {
           // Save current content to new file name
           if (
             aSheet.GetScreenCount() > 1 &&
-            !this.IsOK(
+            !(await this.IsOKAsync(
               `Create new file '${shortName}' with contents of '${aSheet.GetFileName()}'?` +
                 '\n\nThis action cannot be undone.',
-            )
+            ))
           )
             return false;
 
@@ -767,11 +767,11 @@ export class SCH_SHEET_MIXIN {
    * differs only in case from one beside it in the hierarchy breaks the project on a
    * case-insensitive file system; asks before going on.
    */
-  AllowCaseSensitiveFileNameClashes(
+  async AllowCaseSensitiveFileNameClashes(
     this: SCH_EDIT_FRAME,
     aOldName: string,
     aSchematicFileName: string,
-  ): boolean {
+  ): Promise<boolean> {
     const sheets = this.Schematic().Hierarchy();
 
     if (!aSchematicFileName.startsWith('/')) return false; // wxCHECK( fn.IsAbsolute(), false )
@@ -810,13 +810,13 @@ export class SCH_SHEET_MIXIN {
       // wxRichMessageDialog with "Create New Sheet" / "Cancel" and a "Do not show this message
       // again" box: here a yes/no question.
       if (
-        !this.IsOK(
+        !(await this.IsOKAsync(
           `The file name '${name}' can cause issues with an existing file name\n` +
             'already defined in the schematic on systems that support case\n' +
             'insensitive file names.  This will cause issues if you copy this\n' +
             'project to an operating system that supports case insensitive file\n' +
             'names.\n\nDo you wish to continue?',
-        )
+        ))
       )
         return false;
     }

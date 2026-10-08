@@ -1761,8 +1761,6 @@ export function SchematicEditor({
       saveProject: () => saveProjectRef.current(),
       syncLiveSchematic: () => syncLiveRef.current(),
       modalAnnotate: (aMessage) => modalAnnotateRef.current(aMessage),
-      // IsOK( this, … ) blocks for an answer, which a browser hook cannot wait for: no.
-      isOK: () => false,
       symbolLibraryUri: (aNickname) => symbolLibraryUri(liveFilesRef.current.rawFiles)(aNickname),
       liveModified: () => liveModifiedRef.current(),
       liveSheetChanged: () => liveSheetChangedRef.current(),
