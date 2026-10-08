@@ -17,8 +17,11 @@ import { SCH_JUNCTION } from '@ziroeda/eeschema/sch_junction.js';
 import { SCH_SHEET_PIN } from '@ziroeda/eeschema/sch_sheet_pin.js';
 import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
 import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
+import { SCH_BUS_WIRE_ENTRY } from '@ziroeda/eeschema/sch_bus_entry.js';
+import { SCH_RULE_AREA } from '@ziroeda/eeschema/sch_rule_area.js';
+import { SCH_TEXTBOX } from '@ziroeda/eeschema/sch_textbox.js';
 import { SCH_SHAPE } from '@ziroeda/eeschema/sch_shape.js';
-import { FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { EDA_SHAPE, FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import {
   SCH_DIRECTIVE_LABEL,
@@ -196,5 +199,54 @@ describe('the leaf registrations', () => {
     expect(writeable()).toBe(false);
     rect.SetFillMode(FILL_T.FILLED_WITH_COLOR);
     expect(writeable()).toBe(true);
+  });
+
+  it('SCH_BUS_ENTRY_DESC: Wire Style, Line Width and Color on both kinds of entry', () => {
+    expect(shown(SCH_BUS_WIRE_ENTRY)).toEqual(
+      expect.arrayContaining(['Wire Style', 'Line Width', 'Color', 'Unit']),
+    );
+  });
+
+  it('SCH_RULE_AREA_DESC: the four exclusion flags in Attributes, over the shape properties', () => {
+    const names = shown(SCH_RULE_AREA);
+    const flags = [
+      'Exclude From Board',
+      'Exclude From Simulation',
+      'Exclude From Bill of Materials',
+      'Do not Populate',
+    ];
+    expect(names).toEqual(expect.arrayContaining([...flags, 'Fill Mode']));
+    for (const f of flags)
+      expect(PROPERTY_MANAGER.Instance().GetProperty(TYPE_HASH(SCH_RULE_AREA), f)!.Group()).toBe(
+        'Attributes',
+      );
+  });
+
+  it('SCH_TEXTBOX_DESC: the margins in Margins and Text Size; Shape, Corner Radius and the text sizes masked', () => {
+    const names = shown(SCH_TEXTBOX);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'Margin Left',
+        'Margin Top',
+        'Margin Right',
+        'Margin Bottom',
+        'Text Size',
+        'Text',
+      ]),
+    );
+    for (const masked of ['Shape', 'Corner Radius', 'Thickness', 'Orientation'])
+      expect(names).not.toContain(masked);
+    // EDA_SHAPE has a Width and Height of its own (the box); only EDA_TEXT's are masked. Upstream's
+    // collectPropsRecur does not de-duplicate, so EDA_SHAPE's arrive once per inheritance path
+    // (through SCH_SHAPE and directly) - the same property each time.
+    const all = PROPERTY_MANAGER.Instance().GetProperties(TYPE_HASH(SCH_TEXTBOX));
+    for (const n of ['Width', 'Height']) {
+      const found = new Set(all.filter((p) => p.Name() === n));
+      expect(found.size).toBe(1);
+      expect([...found][0]!.OwnerHash()).toBe(TYPE_HASH(EDA_SHAPE));
+    }
+    expect(
+      PROPERTY_MANAGER.Instance().GetProperty(TYPE_HASH(SCH_TEXTBOX), 'Margin Top')!.Group(),
+    ).toBe('Margins');
   });
 });

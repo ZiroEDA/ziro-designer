@@ -10,6 +10,15 @@
  */
 
 import { unescapeString } from '@ziroeda/common/string_utils.js';
+import {
+  ENUM_MAP,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_COLOR4D,
+  TYPE_INT,
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { COLOR4D_UNSPECIFIED, type Color4d, color4dEquals } from '@ziroeda/common/gal/color4d.js';
@@ -27,7 +36,7 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { IsPointOnSegment, RotatePoint, TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
 import { DEFAULT_SCH_ENTRY_SIZE, DEFAULT_WIRE_WIDTH_MILS } from './default_values.js';
 import { DANGLING_END_ITEM, DANGLING_END_T, SCH_ITEM } from './sch_item.js';
-import type { WIRE_STYLE } from './sch_line.js';
+import { WIRE_STYLE } from './sch_line.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 
 /** `TARGET_BUSENTRY_RADIUS`: circle diameter drawn at the ends. */
@@ -670,3 +679,59 @@ export class SCH_BUS_BUS_ENTRY extends SCH_BUS_ENTRY_BASE {
     );
   }
 }
+
+/**
+ * `static struct SCH_BUS_ENTRY_DESC` (eeschema/sch_bus_entry.cpp:627).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_BUS_WIRE_ENTRY);
+  REGISTER_TYPE(SCH_BUS_BUS_ENTRY);
+  REGISTER_TYPE(SCH_BUS_ENTRY_BASE);
+  propMgr.InheritsAfter(SCH_BUS_ENTRY_BASE, SCH_ITEM);
+  propMgr.InheritsAfter(SCH_BUS_WIRE_ENTRY, SCH_BUS_ENTRY_BASE);
+  propMgr.InheritsAfter(SCH_BUS_BUS_ENTRY, SCH_BUS_ENTRY_BASE);
+
+  const wireLineStyleEnum = ENUM_MAP.Instance<WIRE_STYLE>('WIRE_STYLE');
+
+  if (wireLineStyleEnum.Choices().GetCount() === 0) {
+    wireLineStyleEnum
+      .Map(WIRE_STYLE.DEFAULT, 'Default')
+      .Map(WIRE_STYLE.SOLID, 'Solid')
+      .Map(WIRE_STYLE.DASH, 'Dashed')
+      .Map(WIRE_STYLE.DOT, 'Dotted')
+      .Map(WIRE_STYLE.DASHDOT, 'Dash-Dot')
+      .Map(WIRE_STYLE.DASHDOTDOT, 'Dash-Dot-Dot');
+  }
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<SCH_BUS_ENTRY_BASE, WIRE_STYLE>(
+      SCH_BUS_ENTRY_BASE,
+      'Wire Style',
+      'SetWireStyle',
+      'GetWireStyle',
+      wireLineStyleEnum,
+    ),
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_BUS_ENTRY_BASE, number>(
+      SCH_BUS_ENTRY_BASE,
+      'Line Width',
+      'SetPenWidth',
+      'GetPenWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_BUS_ENTRY_BASE, Color4d>(
+      SCH_BUS_ENTRY_BASE,
+      'Color',
+      'SetBusEntryColor',
+      'GetBusEntryColor',
+      TYPE_COLOR4D,
+    ),
+  );
+})();

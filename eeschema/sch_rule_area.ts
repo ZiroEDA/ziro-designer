@@ -11,6 +11,9 @@
  */
 
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import { PROPERTY, TYPE_BOOL, TYPE_CAST } from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
+import { EDA_SHAPE } from '@ziroeda/common/eda_shape.js';
 import { FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import type { KIID } from '@ziroeda/common/kiid.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -21,7 +24,7 @@ import { SHAPE_RECT } from '@ziroeda/kimath/src/geometry/shape_rect.js';
 import { SHAPE_SEGMENT } from '@ziroeda/kimath/src/geometry/shape_segment.js';
 import { SHAPE_SIMPLE } from '@ziroeda/kimath/src/geometry/shape_simple.js';
 import type { SCH_FIELD } from './sch_field.js';
-import type { SCH_ITEM } from './sch_item.js';
+import { SCH_ITEM } from './sch_item.js';
 import type { SCH_DIRECTIVE_LABEL } from './sch_label.js';
 import type { SCH_LINE } from './sch_line.js';
 import type { SCH_SCREEN } from './sch_screen.js';
@@ -402,3 +405,34 @@ export class SCH_RULE_AREA extends SCH_SHAPE {
     this.m_prev_directives.delete(aLabel.m_Uuid);
   }
 }
+
+/**
+ * `static struct SCH_RULE_AREA_DESC` (eeschema/sch_rule_area.cpp:439).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_RULE_AREA);
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_RULE_AREA, SCH_SHAPE));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_RULE_AREA, SCH_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_RULE_AREA, EDA_SHAPE));
+  propMgr.InheritsAfter(SCH_RULE_AREA, SCH_SHAPE);
+  propMgr.InheritsAfter(SCH_RULE_AREA, SCH_ITEM);
+  propMgr.InheritsAfter(SCH_RULE_AREA, EDA_SHAPE);
+
+  const groupAttributes = 'Attributes';
+
+  const flag = (
+    aName: string,
+    aSetter: keyof SCH_RULE_AREA & string,
+    aGetter: keyof SCH_RULE_AREA & string,
+  ) =>
+    propMgr.AddProperty(
+      new PROPERTY<SCH_RULE_AREA, boolean>(SCH_RULE_AREA, aName, aSetter, aGetter, TYPE_BOOL),
+      groupAttributes,
+    );
+
+  flag('Exclude From Board', 'SetExcludedFromBoardProp', 'GetExcludedFromBoardProp');
+  flag('Exclude From Simulation', 'SetExcludedFromSimProp', 'GetExcludedFromSimProp');
+  flag('Exclude From Bill of Materials', 'SetExcludedFromBOMProp', 'GetExcludedFromBOMProp');
+  flag('Do not Populate', 'SetDNPProp', 'GetDNPProp');
+})();
