@@ -281,6 +281,12 @@ export interface SCH_EDIT_FRAME_HOOKS {
   /** `DisplayError( this, aMessage )`: the window shows it; with no hook it is only logged. */
   displayError?(aMessage: string): void;
   /**
+   * TRANSITIONAL (until S7): the live model was modified (`OnModify`, every SCH_COMMIT push). The
+   * window, which still keeps records, writes the changed screens back so its state follows the
+   * tools that run on the live model. Gone when the window edits the live model itself.
+   */
+  liveModified?(): void;
+  /**
    * The KIDIALOG SelectUnit asks when the unit chosen is already placed elsewhere ("Unit Already
    * Placed": Swap / Duplicate / Cancel). KiCad's is modal; a window answers it synchronously, and
    * with no hook the change is cancelled.
@@ -1385,6 +1391,8 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     super.OnModify();
 
     this.GetScreen()?.SetContentModified();
+
+    this.hooks.liveModified?.();
 
     if (this.m_isClosing) return;
 

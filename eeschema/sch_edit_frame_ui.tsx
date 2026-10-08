@@ -556,7 +556,7 @@ import { LIVE_SCHEMATIC_MIRROR, liveScreensToRecords } from './sch_record_bridge
 import { createSchDrawPanel } from './sch_canvas.js';
 import type { SCH_DRAW_PANEL } from './sch_draw_panel.js';
 import { loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
-import type { SCH_SCREEN } from './sch_screen.js';
+import { type SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';
 import { symbolLibraryUri } from './cross-probing.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
@@ -1881,6 +1881,7 @@ export function SchematicEditor({
       // IsOK( this, … ) blocks for an answer, which a browser hook cannot wait for: no.
       isOK: () => false,
       symbolLibraryUri: (aNickname) => symbolLibraryUri(liveFilesRef.current.rawFiles)(aNickname),
+      liveModified: () => liveModifiedRef.current(),
     });
   }
   const applyPcbSelectionRef = useRef<(parts: readonly string[]) => void>(() => {});
@@ -5451,6 +5452,9 @@ export function SchematicEditor({
   // open one with the edits its file only gets on the debounced save, opened through
   // OpenProjectFiles under the folder pcbnew loads the project from.
   const liveMirrorRef = useRef<LIVE_SCHEMATIC_MIRROR | null>(null);
+  const inEditLiveRef = useRef(false);
+  const adoptLiveScreensRef = useRef<(aScreens: Iterable<SCH_SCREEN>) => void>(() => {});
+  const liveModifiedRef = useRef<() => void>(() => {});
   liveFilesRef.current = { rawFiles, projectName, rootPro };
   syncLiveRef.current = () => {
     liveMirrorRef.current ??= new LIVE_SCHEMATIC_MIRROR(schFrameRef.current!, () => {
@@ -5541,6 +5545,7 @@ export function SchematicEditor({
     if (!syncLiveRef.current()) return null;
     const frame = schFrameRef.current!;
     let edit: { result: Iterable<SCH_SCREEN> | null; messages: string[] };
+    inEditLiveRef.current = true;
     try {
       edit = frame.WithoutDialogs(true, () => aEdit(frame));
     } catch (e) {
@@ -5548,9 +5553,18 @@ export function SchematicEditor({
       // so the next sync rebuilds the live model from it.
       liveMirrorRef.current?.Invalidate();
       throw e;
+    } finally {
+      inEditLiveRef.current = false;
     }
     const { result: screens, messages } = edit;
     if (!screens) return messages.length ? messages : ['nothing was changed'];
+    adoptLiveScreensRef.current(screens);
+    return messages;
+  };
+  // The live model's changed screens written back as the window's records, one undo step
+  // (sch_record_bridge.ts liveScreensToRecords; TRANSITIONAL until S7).
+  adoptLiveScreensRef.current = (screens) => {
+    const frame = schFrameRef.current!;
     const name = liveFilesRef.current.projectName;
     const dir = `/${name ?? project.current.root.replace(/\.[^.]*$/, '')}`;
     const docs = liveScreensToRecords(frame, screens, dir);
@@ -5568,7 +5582,25 @@ export function SchematicEditor({
     }
     if (cmds.size) runProject(cmds);
     liveMirrorRef.current?.Adopt(docs);
-    return messages;
+  };
+  // `?schgal=1` (TRANSITIONAL, S5): a tool on the live canvas committed (SCH_EDIT_FRAME::OnModify).
+  // Its screen - and any sheet file the commit created - become the window's records, so the
+  // window follows the live model the tools edit.
+  liveModifiedRef.current = () => {
+    if (!SCH_GAL || inEditLiveRef.current || !schPanelRef.current) return;
+    const frame = schFrameRef.current!;
+    const changed = new Set<SCH_SCREEN>();
+    const current = frame.GetScreen();
+    if (current) changed.add(current);
+    const name = liveFilesRef.current.projectName;
+    const dir = `/${name ?? project.current.root.replace(/\.[^.]*$/, '')}`;
+    const screens = new SCH_SCREENS(frame.Schematic().Root());
+    for (let screen = screens.GetFirst(); screen; screen = screens.GetNext()) {
+      const file = screen.GetFileName().replace(/\\/g, '/');
+      const rel = file.startsWith(`${dir}/`) ? file.slice(dir.length + 1) : file;
+      if (rel !== currentFileRef.current && !project.current.docs.has(rel)) changed.add(screen);
+    }
+    adoptLiveScreensRef.current(changed);
   };
   // ModalAnnotate: the Annotate dialog, which cannot block the mail here; the user annotates
   // and updates the board again.
