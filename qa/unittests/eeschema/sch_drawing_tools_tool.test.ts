@@ -21,6 +21,16 @@ import {
   SCH_HIERLABEL,
 } from '@ziroeda/eeschema/sch_label.js';
 import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
+import { readFileSync } from 'node:fs';
+import { DESIGN_BLOCK } from '@ziroeda/common/design_block.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import {
+  MEMORY_FILESYSTEM,
+  wxMountFileSystem,
+  wxReadFileSync,
+  wxWriteFileSync,
+} from '@ziroeda/common/wx/filefn.js';
+import type { SCH_GROUP } from '@ziroeda/eeschema/sch_group.js';
 import type { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
 import { SCH_ACTIONS } from '@ziroeda/eeschema/tools/sch_actions.js';
 import { SCH_SELECTION_TOOL } from '@ziroeda/eeschema/tools/sch_selection_tool.js';
@@ -210,10 +220,10 @@ describe('SCH_DRAWING_TOOLS::DrawSheet', () => {
     const frameRef: { frame: SCH_EDIT_FRAME | null } = { frame: null };
     const h = setUp(
       {
-        editSheetProperties: (sheet, _path, src) => {
+        editSheetProperties: async (sheet, _path, src) => {
           asked.push([sheet, src]);
           // the dialog's OK links the file it names, as DIALOG_SHEET_PROPERTIES does
-          if (!frameRef.frame!.ChangeSheetFile(sheet, sheet.GetFileName())) return null;
+          if (!(await frameRef.frame!.ChangeSheetFile(sheet, sheet.GetFileName()))) return null;
           return { isUndoable: true, clearAnnotation: false, updateHierarchyNavigator: false };
         },
       },
@@ -250,6 +260,86 @@ describe('SCH_DRAWING_TOOLS::DrawSheet', () => {
     await flush();
     h.mgr.RunAction(ACTIONS.cancelInteractive);
     expect([...h.screen().Items().OfType(KICAD_T.SCH_SHEET_T)].length).toBe(before);
+  });
+});
+
+describe('SCH_DRAWING_TOOLS::DrawSheet from a design block', () => {
+  const block = () => {
+    const b = new DESIGN_BLOCK();
+    b.SetLibId(new LIB_ID('blocks', 'Amp'));
+    b.SetSchematicFile('/complex_hierarchy/blocks/amp.kicad_sch');
+    b.GetFields().set('Gain', '20');
+    return b;
+  };
+
+  it('names the sheet after the block, carries its fields hidden, and groups it when asked', async () => {
+    const unmount = wxMountFileSystem('/complex_hierarchy', new MEMORY_FILESYSTEM());
+    wxWriteFileSync(
+      '/complex_hierarchy/blocks/amp.kicad_sch',
+      new Uint8Array(readFileSync(resolve(ORACLE, 'ampli_ht.kicad_sch'))),
+    );
+    try {
+      const asked: [SCH_SHEET, string | undefined][] = [];
+      const frameRef: { frame: SCH_EDIT_FRAME | null } = { frame: null };
+      const h = setUp(
+        {
+          // LoadSheetFromFile's old-file-version question: continue
+          showModal: () => wxID_OK,
+          editSheetProperties: async (sheet, _path, src) => {
+            asked.push([sheet, src]);
+            // the dialog's OK copies the source into the sheet's file and links it
+            if (
+              !(await frameRef.frame!.ChangeSheetFile(sheet, sheet.GetFileName(), null, null, src))
+            )
+              return null;
+            return { isUndoable: true, clearAnnotation: false, updateHierarchyNavigator: false };
+          },
+        },
+        false,
+      );
+      frameRef.frame = h.frame;
+      const chooser = h.frame.config()!.m_DesignBlockChooserPanel;
+      chooser.place_as_group = true;
+      chooser.repeated_placement = false;
+
+      h.mgr.RunAction(SCH_ACTIONS.drawSheetFromDesignBlock, block());
+      click(h, P(0, 0));
+      mouse(h, TA_MOUSE_MOTION, P(30, 20));
+      click(h, P(30, 20));
+      await flush();
+
+      expect(asked).toHaveLength(1);
+      const [sheet, src] = asked[0]!;
+      expect(src).toBe('/complex_hierarchy/blocks/amp.kicad_sch');
+      expect(sheet.GetName()).toBe('Amp');
+      const gain = sheet.GetFields().find((f) => f.GetName() === 'Gain')!;
+      expect(gain.GetText()).toBe('20');
+      expect(gain.IsVisible()).toBe(false);
+
+      // The block's schematic was copied beside the sheet and loaded into it.
+      expect(wxReadFileSync('/complex_hierarchy/amp.kicad_sch')).not.toBeNull();
+      expect([...sheet.GetScreen()!.Items().OfType(KICAD_T.SCH_SYMBOL_T)].length).toBeGreaterThan(
+        5,
+      );
+
+      const groups = [...h.screen().Items().OfType(KICAD_T.SCH_GROUP_T)] as SCH_GROUP[];
+      expect(groups.map((g) => g.GetName())).toEqual(['Amp']);
+      expect(groups[0]!.GetItems().has(sheet)).toBe(true);
+    } finally {
+      unmount();
+    }
+  });
+
+  it('a design block whose schematic is missing says so and draws nothing', async () => {
+    const errors: string[] = [];
+    const h = setUp({ displayError: (m) => errors.push(m) }, false);
+    const before = [...h.screen().Items().OfType(KICAD_T.SCH_SHEET_T)].length;
+
+    h.mgr.RunAction(SCH_ACTIONS.drawSheetFromDesignBlock, block());
+    await flush();
+
+    expect([...h.screen().Items().OfType(KICAD_T.SCH_SHEET_T)].length).toBe(before);
+    expect(errors).toEqual(["File '/complex_hierarchy/blocks/amp.kicad_sch' does not exist."]);
   });
 });
 

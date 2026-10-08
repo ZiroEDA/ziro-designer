@@ -280,8 +280,6 @@ export interface SCH_EDIT_FRAME_HOOKS {
   isOK?(aMessage: string): boolean;
   /** `DisplayError( this, aMessage )`: the window shows it; with no hook it is only logged. */
   displayError?(aMessage: string): void;
-  /** `wxFileExists`: whether the project has a file at this absolute path. */
-  fileExists?(aPath: string): boolean;
   /**
    * The KIDIALOG SelectUnit asks when the unit chosen is already placed elsewhere ("Unit Already
    * Placed": Swap / Duplicate / Cancel). KiCad's is modal; a window answers it synchronously, and
@@ -870,11 +868,6 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     } finally {
       this.m_capture = outer;
     }
-  }
-
-  /** `wxFileExists( aPath )` in the project the frame has open. */
-  FileExists(aPath: string): boolean {
-    return this.hooks.fileExists?.(aPath) ?? false;
   }
 
   /**

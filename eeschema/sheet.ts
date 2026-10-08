@@ -23,7 +23,12 @@ import {
   wxICON_QUESTION,
   wxOK,
 } from '@ziroeda/common/wx/defs.js';
-import { wxReadFileSync } from '@ziroeda/common/wx/filefn.js';
+import {
+  wxCopyFile,
+  wxFileExists,
+  wxReadFileSync,
+  wxWriteFileSync,
+} from '@ziroeda/common/wx/filefn.js';
 import { wxID_CANCEL } from '@ziroeda/common/wx/menu.js';
 import { PosixPath, SCH_IO_KICAD_SEXPR } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
 import { SCH_SHEET } from './sch_sheet.js';
@@ -583,13 +588,14 @@ export class SCH_SHEET_MIXIN {
    * has (after the recursion check); an existing sheet is relinked or its contents saved under
    * the new name. Returns false when the change was refused or failed.
    */
-  ChangeSheetFile(
+  async ChangeSheetFile(
     this: SCH_EDIT_FRAME,
     aSheet: SCH_SHEET,
     aNewFilename: string,
     aClearAnnotationNewItems: { value: boolean } | null = null,
     aIsUndoable: { value: boolean } | null = null,
-  ): boolean {
+    aSourceSheetFilename: string | null = null,
+  ): Promise<boolean> {
     const schematic = this.Schematic();
 
     // Resolve text variables before touching disk. The field keeps the raw text for portability.
@@ -614,11 +620,13 @@ export class SCH_SHEET_MIXIN {
     let renameFile = false;
     let loadFromFile = false;
     let clearAnnotation = false;
+    let isExistingSheet = false;
+    let oldScreen: SCH_SCREEN | null = null;
     const useScreen = { value: null as SCH_SCREEN | null };
 
     // Search for a schematic file already in use in the hierarchy or on disk
     if (!schematic.Root().SearchHierarchy(newAbsoluteFilename, useScreen))
-      loadFromFile = this.FileExists(newAbsoluteFilename);
+      loadFromFile = wxFileExists(newAbsoluteFilename);
 
     const shortName = newAbsoluteFilename.replace(/^.*\//, '');
 
@@ -633,11 +641,23 @@ export class SCH_SHEET_MIXIN {
           )
         )
           return false;
+      } else if (aSourceSheetFilename) {
+        // Design block / sheet import -- copy source file to destination
+        loadFromFile = true;
+
+        if (!wxCopyFile(aSourceSheetFilename, newAbsoluteFilename)) {
+          this.DisplayError(
+            `Failed to copy schematic file '${aSourceSheetFilename}' to destination '${newAbsoluteFilename}'.`,
+          );
+          return false;
+        }
       } else {
         this.InitSheet(aSheet, newAbsoluteFilename);
       }
     } else {
       // Existing sheet
+      isExistingSheet = true;
+
       const oldAbsoluteFilename = aSheet.GetScreen()!.GetFileName().replace(/\\/g, '/');
 
       if (newAbsoluteFilename !== oldAbsoluteFilename) {
@@ -646,6 +666,7 @@ export class SCH_SHEET_MIXIN {
 
         if (useScreen.value || loadFromFile) {
           clearAnnotation = true;
+          oldScreen = aSheet.GetScreen();
 
           if (
             !this.IsOK(
@@ -672,15 +693,31 @@ export class SCH_SHEET_MIXIN {
       }
 
       if (renameFile) {
-        // Only update the screen filename when this is the sole user. The file itself is
-        // written when the project is saved (pi->SaveSchematicFile upstream writes it now).
+        const pi = new SCH_IO_KICAD_SEXPR(); // SCH_IO_MGR::FindPlugin( SCH_KICAD )
+
+        // Only update the screen filename when this is the sole user
         if (aSheet.GetScreenCount() <= 1) aSheet.GetScreen()!.SetFileName(newAbsoluteFilename);
-        else {
-          // A shared screen is reloaded upstream from the file just written.
-          this.DisplayError(
-            `Splitting the shared sheet '${aSheet.GetFileName()}' is not supported yet.`,
+
+        try {
+          const text = pi.SaveSchematicFile(aSheet, schematic);
+
+          if (!wxWriteFileSync(newAbsoluteFilename, new TextEncoder().encode(text)))
+            throw new Error(`Cannot open file '${newAbsoluteFilename}'.`);
+        } catch (ioe) {
+          DisplayErrorMessage(
+            `Error occurred saving schematic file '${newAbsoluteFilename}'.`,
+            ioe instanceof Error ? ioe.message : String(ioe),
           );
+
+          this.SetMsgPanel('', `Failed to save schematic '${newAbsoluteFilename}'`);
           return false;
+        }
+
+        // Shared screen needs reload to maintain correct reference counting
+        if (aSheet.GetScreenCount() > 1) {
+          oldScreen = aSheet.GetScreen();
+          aSheet.SetScreen(null);
+          loadFromFile = true;
         }
       }
     }
@@ -701,11 +738,27 @@ export class SCH_SHEET_MIXIN {
       sheetHierarchy.AddNewSymbolInstances(currentSheet, this.Prj().GetProjectName());
       sheetHierarchy.AddNewSheetInstances(currentSheet, fullHierarchy.GetLastVirtualPageNumber());
     } else if (loadFromFile) {
-      // LoadSheetFromFile is not ported: a file outside the hierarchy cannot be linked yet.
-      this.DisplayError(
-        `Linking '${shortName}', a file not already in the hierarchy, is not supported yet.`,
-      );
-      return false;
+      let restoreSheet = false;
+
+      if (isExistingSheet) {
+        restoreSheet = true;
+        currentSheet.LastScreen()!.Remove(aSheet);
+      }
+
+      if (
+        !(await this.LoadSheetFromFile(aSheet, currentSheet, newAbsoluteFilename, false, true)) ||
+        this.CheckSheetForRecursion(aSheet, currentSheet)
+      ) {
+        if (restoreSheet) {
+          if (oldScreen) aSheet.SetScreen(oldScreen);
+
+          currentSheet.LastScreen()!.Append(aSheet);
+        }
+
+        return false;
+      }
+
+      if (restoreSheet) currentSheet.LastScreen()!.Append(aSheet);
     }
 
     if (aClearAnnotationNewItems) aClearAnnotationNewItems.value = clearAnnotation;

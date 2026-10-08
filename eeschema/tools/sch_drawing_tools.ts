@@ -40,7 +40,7 @@ import {
   MakeFileDlgImportSheetContents,
   TransferImportSheetContents,
 } from '../widgets/sch_design_block_pane.js';
-import { UniqueGroupName } from './sch_tool_utils.js';
+import { UniqueGroupName, UniqueSheetName } from './sch_tool_utils.js';
 import { NULL_REPORTER } from '@ziroeda/common/reporter.js';
 import { strNumCmp } from '@ziroeda/common/string_utils.js';
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
@@ -2746,14 +2746,19 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   }
 
   /**
-   * DrawSheet. drawSheetFromDesignBlock (a DESIGN_BLOCK's schematic) is not ported yet: the design
-   * block libraries are not on the live model.
+   * `DrawSheet( aEvent )` (sch_drawing_tools.cpp:3212): a new sheet, a sheet holding a copy of a
+   * file (drawSheetFromFile), or a sheet holding a design block's schematic
+   * (drawSheetFromDesignBlock).
    */
   *DrawSheet(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
     const isDrawSheetCopy = aEvent.IsAction(SCH_ACTIONS.drawSheetFromFile);
+    const isDrawSheetFromDesignBlock = aEvent.IsAction(SCH_ACTIONS.drawSheetFromDesignBlock);
+
+    let designBlock: DESIGN_BLOCK | null = null;
 
     let sheet: SCH_SHEET | null = null;
     let filename = '';
+    let sheetGroup: SCH_GROUP | null = null;
 
     if (isDrawSheetCopy) {
       const ptr = aEvent.Parameter<string>();
@@ -2762,9 +2767,15 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
       // We own the string if we're importing a sheet
       filename = ptr;
+    } else if (isDrawSheetFromDesignBlock) {
+      designBlock = aEvent.Parameter<DESIGN_BLOCK>() ?? null;
+
+      if (!designBlock) return 0; // wxCHECK
+
+      filename = designBlock.GetSchematicFile();
     }
 
-    if (isDrawSheetCopy && !this.m_frame!.FileExists(filename)) {
+    if ((isDrawSheetCopy || isDrawSheetFromDesignBlock) && !wxFileExists(filename)) {
       this.m_frame!.DisplayError(`File '${filename}' does not exist.`);
       return 0;
     }
@@ -2806,7 +2817,8 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       // Set initial cursor
       setCursor();
 
-      if (aEvent.HasPosition() && !isDrawSheetCopy) this.m_toolMgr!.PrimeTool(aEvent.Position());
+      if (aEvent.HasPosition() && !(isDrawSheetCopy || isDrawSheetFromDesignBlock))
+        this.m_toolMgr!.PrimeTool(aEvent.Position());
 
       // Main loop: keep receiving events
       for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
@@ -2899,6 +2911,28 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
             newSheet.GetField(FIELD_T.SHEET_NAME)!.SetText(base);
             newSheet.GetField(FIELD_T.SHEET_FILENAME)!.SetText(base + ext);
+          } else if (isDrawSheetFromDesignBlock) {
+            const base = filename.replace(/^.*[\\/]/, '').replace(/\.[^.]*$/, '');
+
+            newSheet
+              .GetField(FIELD_T.SHEET_NAME)!
+              .SetText(
+                UniqueSheetName(
+                  this.m_frame!.GetScreen(),
+                  designBlock!.GetLibId().GetLibItemName(),
+                ),
+              );
+            newSheet.GetField(FIELD_T.SHEET_FILENAME)!.SetText(base + ext);
+
+            const sheetFields = newSheet.GetFields();
+
+            // Copy default fields into the sheet
+            for (const [fieldName, fieldValue] of designBlock!.GetFields()) {
+              const field = new SCH_FIELD(newSheet, FIELD_T.USER, fieldName);
+              sheetFields.push(field);
+              field.SetText(fieldValue);
+              field.SetVisible(false);
+            }
           } else {
             newSheet.GetField(FIELD_T.SHEET_NAME)!.SetText('Untitled Sheet');
             newSheet.GetField(FIELD_T.SHEET_FILENAME)!.SetText(`untitled${ext}`);
@@ -2959,7 +2993,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
               this.m_frame!.EditSheetProperties(
                 placed,
                 this.m_frame!.GetCurrentSheet(),
-                isDrawSheetCopy ? filename : undefined,
+                isDrawSheetCopy || isDrawSheetFromDesignBlock ? filename : undefined,
               ),
             )
           ) {
@@ -2983,12 +3017,18 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
             const annotateNonPowerSymbols =
               !!cfg?.annotation.automatic &&
-              !(isDrawSheetCopy && !!designBlockChooser?.keep_annotations);
+              !(
+                (isDrawSheetCopy || isDrawSheetFromDesignBlock) &&
+                !!designBlockChooser?.keep_annotations
+              );
+            const annotatePowerSymbols = isDrawSheetFromDesignBlock;
 
-            if (annotateNonPowerSymbols) {
+            if (annotateNonPowerSymbols || annotatePowerSymbols) {
               // Annotation will remove this from selection, but we add it back later
               this.m_selectionTool!.AddItemToSel(placed);
+            }
 
+            if (annotateNonPowerSymbols) {
               this.m_frame!.AnnotateSymbols(
                 c,
                 ANNOTATE_SCOPE_T.ANNOTATE_SELECTION,
@@ -3004,11 +3044,44 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
               );
             }
 
+            if (annotatePowerSymbols) {
+              this.m_selectionTool!.AddItemToSel(placed);
+
+              this.m_frame!.AnnotateSymbols(
+                c,
+                ANNOTATE_SCOPE_T.ANNOTATE_SELECTION,
+                schSettings.m_AnnotateSortOrder as ANNOTATE_ORDER_T,
+                schSettings.m_AnnotateMethod as ANNOTATE_ALGO_T,
+                true /* recursive */,
+                schSettings.m_AnnotateStartNum,
+                true /* reset */,
+                false /* regroup */,
+                false /* repair */,
+                NULL_REPORTER.GetInstance(),
+                SYMBOL_FILTER.SYMBOL_FILTER_POWER,
+              );
+            }
+
+            if (isDrawSheetFromDesignBlock && designBlockChooser?.place_as_group) {
+              const screen = this.m_frame!.GetScreen()!;
+
+              sheetGroup = new SCH_GROUP(screen);
+              sheetGroup.SetName(UniqueGroupName(screen, designBlock!.GetLibId().GetLibItemName()));
+              sheetGroup.SetDesignBlockLibId(designBlock!.GetLibId());
+              c.Add(sheetGroup, screen);
+              c.Modify(placed, screen, RECURSE_MODE.NO_RECURSE);
+              sheetGroup.AddItem(placed);
+            }
+
             c.Push(isDrawSheetCopy ? 'Import Sheet Copy' : 'Draw Sheet');
 
-            this.m_selectionTool!.AddItemToSel(placed);
+            if (sheetGroup) this.m_selectionTool!.AddItemToSel(sheetGroup);
+            else this.m_selectionTool!.AddItemToSel(placed);
 
-            if (isDrawSheetCopy && !designBlockChooser?.repeated_placement) {
+            if (
+              (isDrawSheetCopy || isDrawSheetFromDesignBlock) &&
+              !designBlockChooser?.repeated_placement
+            ) {
               this.m_frame!.PopTool(aEvent);
               sheet = null;
               break;
@@ -3333,6 +3406,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     this.Go(this.ImportSheet, SCH_ACTIONS.importSheet.MakeEvent());
     this.Go(this.DrawSheet, SCH_ACTIONS.drawSheet.MakeEvent());
     this.Go(this.DrawSheet, SCH_ACTIONS.drawSheetFromFile.MakeEvent());
+    this.Go(this.DrawSheet, SCH_ACTIONS.drawSheetFromDesignBlock.MakeEvent());
     this.Go(this.TwoClickPlace, SCH_ACTIONS.placeSheetPin.MakeEvent());
     this.Go(this.TwoClickPlace, SCH_ACTIONS.placeSchematicText.MakeEvent());
     this.Go(this.SyncSheetsPins, SCH_ACTIONS.syncSheetPins.MakeEvent());

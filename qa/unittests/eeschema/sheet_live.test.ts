@@ -15,7 +15,8 @@ import {
 } from '@ziroeda/eeschema/eeschema_settings.js';
 import { SCH_EDIT_FRAME, type SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { MEMORY_FILESYSTEM, wxMountFileSystem, wxReadFileSync } from '@ziroeda/common/wx/filefn.js';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished } from 'vitest';
 
 const ORACLE = resolve(__dirname, '../../data/eeschema/netlist_oracle/complex_hierarchy');
 const SHEETS = ['complex_hierarchy.kicad_sch', 'ampli_ht.kicad_sch', 'complex_hierarchy.kicad_pro'];
@@ -57,16 +58,16 @@ const drawnSheet = (frame: SCH_EDIT_FRAME) => {
 };
 
 describe('SCH_EDIT_FRAME::ChangeSheetFile', () => {
-  it('gives a new sheet a new, empty screen for a new file beside its parent', () => {
+  it('gives a new sheet a new, empty screen for a new file beside its parent', async () => {
     const { frame, asked } = openFrame();
     const sheet = drawnSheet(frame);
-    expect(frame.ChangeSheetFile(sheet, 'power.kicad_sch')).toBe(true);
+    expect(await frame.ChangeSheetFile(sheet, 'power.kicad_sch')).toBe(true);
     expect(sheet.GetScreen()!.GetFileName()).toBe('/complex_hierarchy/power.kicad_sch');
     expect(sheet.GetScreen()!.Items().size()).toBe(0);
     expect(asked).toEqual([]);
   });
 
-  it('copies only what the export settings ask for into the new title block (InitSheet)', () => {
+  it('copies only what the export settings ask for into the new title block (InitSheet)', async () => {
     const { frame } = openFrame();
     frame.GetScreen()!.GetTitleBlock().SetTitle('Parent title');
     setEeschemaSettingsProvider(() => ({
@@ -74,13 +75,13 @@ describe('SCH_EDIT_FRAME::ChangeSheetFile', () => {
       page_settings: { ...EESCHEMA_DEFAULTS.page_settings, export_title: true },
     }));
     const sheet = drawnSheet(frame);
-    frame.ChangeSheetFile(sheet, 'power.kicad_sch');
+    await frame.ChangeSheetFile(sheet, 'power.kicad_sch');
     const tb = sheet.GetScreen()!.GetTitleBlock();
     expect(tb.GetTitle()).toBe(frame.GetScreen()!.GetTitleBlock().GetTitle());
     expect(tb.GetRevision()).toBe('');
   });
 
-  it('asks before linking a file the hierarchy already has, then shares its screen', () => {
+  it('asks before linking a file the hierarchy already has, then shares its screen', async () => {
     const { frame, asked } = openFrame();
     const existing = frame
       .Schematic()
@@ -88,21 +89,21 @@ describe('SCH_EDIT_FRAME::ChangeSheetFile', () => {
       .find((p) => p.size() === 2)!
       .LastScreen()!;
     const sheet = drawnSheet(frame);
-    expect(frame.ChangeSheetFile(sheet, 'ampli_ht.kicad_sch')).toBe(true);
+    expect(await frame.ChangeSheetFile(sheet, 'ampli_ht.kicad_sch')).toBe(true);
     expect(asked[0]).toMatch(
       /^'ampli_ht\.kicad_sch' already exists\.\n\nLink '\/complex_hierarchy\/ampli_ht\.kicad_sch' to this file\?$/,
     );
     expect(sheet.GetScreen()).toBe(existing);
   });
 
-  it('does nothing when the user declines to link the existing file', () => {
+  it('does nothing when the user declines to link the existing file', async () => {
     const { frame } = openFrame({ isOK: () => false });
     const sheet = drawnSheet(frame);
-    expect(frame.ChangeSheetFile(sheet, 'ampli_ht.kicad_sch')).toBe(false);
+    expect(await frame.ChangeSheetFile(sheet, 'ampli_ht.kicad_sch')).toBe(false);
     expect(sheet.GetScreen()).toBe(null);
   });
 
-  it('refuses to link a parent file into its own subsheet (recursion)', () => {
+  it('refuses to link a parent file into its own subsheet (recursion)', async () => {
     const { frame, errors } = openFrame();
     const sub = frame
       .Schematic()
@@ -110,22 +111,22 @@ describe('SCH_EDIT_FRAME::ChangeSheetFile', () => {
       .find((p) => p.size() === 2)!;
     frame.Schematic().SetCurrentSheet(sub);
     const sheet = drawnSheet(frame);
-    expect(frame.ChangeSheetFile(sheet, 'complex_hierarchy.kicad_sch')).toBe(false);
+    expect(await frame.ChangeSheetFile(sheet, 'complex_hierarchy.kicad_sch')).toBe(false);
     expect(errors[0]).toMatch(
       /^The sheet changes cannot be made because the destination sheet already has the sheet/,
     );
   });
 
-  it('asks about a name that differs only in case from one beside it', () => {
+  it('asks about a name that differs only in case from one beside it', async () => {
     const { frame, asked } = openFrame();
     const sheet = drawnSheet(frame);
-    frame.ChangeSheetFile(sheet, 'Ampli_HT.kicad_sch');
+    await frame.ChangeSheetFile(sheet, 'Ampli_HT.kicad_sch');
     expect(asked[0]).toMatch(
       /^The file name 'Ampli_HT' can cause issues with an existing file name\n/,
     );
   });
 
-  it('does not ask about case when that warning is turned off', () => {
+  it('does not ask about case when that warning is turned off', async () => {
     setEeschemaSettingsProvider(() => ({
       ...EESCHEMA_DEFAULTS,
       appearance: {
@@ -135,24 +136,30 @@ describe('SCH_EDIT_FRAME::ChangeSheetFile', () => {
     }));
     const { frame, asked } = openFrame();
     const sheet = drawnSheet(frame);
-    expect(frame.ChangeSheetFile(sheet, 'Ampli_HT.kicad_sch')).toBe(true);
+    expect(await frame.ChangeSheetFile(sheet, 'Ampli_HT.kicad_sch')).toBe(true);
     expect(asked).toEqual([]);
   });
 
-  it('renames an existing, unshared sheet file in place and marks it not undoable', () => {
+  it('renames an existing, unshared sheet file in place, writing it, and marks it not undoable', async () => {
+    const unmount = wxMountFileSystem('/complex_hierarchy', new MEMORY_FILESYSTEM());
+    onTestFinished(unmount);
     const { frame } = openFrame();
     const sheet = drawnSheet(frame);
-    frame.ChangeSheetFile(sheet, 'power.kicad_sch');
+    await frame.ChangeSheetFile(sheet, 'power.kicad_sch');
     const undoable = { value: true };
-    expect(frame.ChangeSheetFile(sheet, 'supply.kicad_sch', null, undoable)).toBe(true);
+    expect(await frame.ChangeSheetFile(sheet, 'supply.kicad_sch', null, undoable)).toBe(true);
     expect(sheet.GetScreen()!.GetFileName()).toBe('/complex_hierarchy/supply.kicad_sch');
     expect(undoable.value).toBe(false);
     expect(sheet.Type()).toBe(KICAD_T.SCH_SHEET_T);
+    // The renamed file is written now, as upstream's pi->SaveSchematicFile does.
+    expect(
+      new TextDecoder().decode(wxReadFileSync('/complex_hierarchy/supply.kicad_sch')!),
+    ).toMatch(/^\(kicad_sch/);
   });
 });
 
 describe('SCH_SHEET_PATH::TestForRecursion', () => {
-  it('compares a relative sheet file name with an absolute screen path (sch_sheet_path.cpp:700)', () => {
+  it('compares a relative sheet file name with an absolute screen path (sch_sheet_path.cpp:700)', async () => {
     const { frame } = openFrame();
     const sub = frame
       .Schematic()
