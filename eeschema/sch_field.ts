@@ -11,6 +11,17 @@
  * `GetKnownNetclassFieldTranslations()`, verbatim.
  */
 
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_BOOL,
+  TYPE_CAST,
+  TYPE_INT,
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 import { GetGeneratedFieldDisplayName, IsGeneratedField } from '@ziroeda/common/common.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { EDA_ITEM as EDA_ITEM_CLASS } from '@ziroeda/common/eda_item.js';
@@ -1417,3 +1428,105 @@ export function SetFieldValue(
   added.SetText(aValue);
   added.SetVisible(aIsVisible);
 }
+
+/**
+ * `static struct SCH_FIELD_DESC` (eeschema/sch_field.cpp:1701).
+ */
+(() => {
+  // These are defined in EDA_TEXT as well but initialization order is not defined, so this needs
+  // to be conditional.
+  const h_inst = ENUM_MAP.Instance<GR_TEXT_H_ALIGN_T>('GR_TEXT_H_ALIGN_T');
+
+  if (h_inst.Choices().GetCount() === 0) {
+    h_inst.Map(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT, 'Left');
+    h_inst.Map(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER, 'Center');
+    h_inst.Map(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT, 'Right');
+  }
+
+  const v_inst = ENUM_MAP.Instance<GR_TEXT_V_ALIGN_T>('GR_TEXT_V_ALIGN_T');
+
+  if (v_inst.Choices().GetCount() === 0) {
+    v_inst.Map(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP, 'Top');
+    v_inst.Map(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER, 'Center');
+    v_inst.Map(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM, 'Bottom');
+  }
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_FIELD);
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_FIELD, SCH_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_FIELD, EDA_TEXT));
+  propMgr.InheritsAfter(SCH_FIELD, SCH_ITEM);
+  propMgr.InheritsAfter(SCH_FIELD, EDA_TEXT);
+
+  const textProps = 'Text Properties';
+
+  const horiz = new PROPERTY_ENUM<SCH_FIELD, GR_TEXT_H_ALIGN_T>(
+    SCH_FIELD,
+    'Horizontal Justification',
+    'SetEffectiveHorizJustify',
+    'GetEffectiveHorizJustify',
+    h_inst,
+  );
+
+  propMgr.ReplaceProperty(EDA_TEXT, 'Horizontal Justification', horiz, textProps);
+
+  const vert = new PROPERTY_ENUM<SCH_FIELD, GR_TEXT_V_ALIGN_T>(
+    SCH_FIELD,
+    'Vertical Justification',
+    'SetEffectiveVertJustify',
+    'GetEffectiveVertJustify',
+    v_inst,
+  );
+
+  propMgr.ReplaceProperty(EDA_TEXT, 'Vertical Justification', vert, textProps);
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_FIELD, boolean>(
+      SCH_FIELD,
+      'Show Field Name',
+      'SetNameShown',
+      'IsNameShown',
+      TYPE_BOOL,
+    ),
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_FIELD, boolean>(
+      SCH_FIELD,
+      'Allow Autoplacement',
+      'SetCanAutoplace',
+      'CanAutoplace',
+      TYPE_BOOL,
+    ),
+  );
+
+  propMgr.Mask(SCH_FIELD, EDA_TEXT, 'Hyperlink');
+  propMgr.Mask(SCH_FIELD, EDA_TEXT, 'Thickness');
+  propMgr.Mask(SCH_FIELD, EDA_TEXT, 'Mirrored');
+  propMgr.Mask(SCH_FIELD, EDA_TEXT, 'Width');
+  propMgr.Mask(SCH_FIELD, EDA_TEXT, 'Height');
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_FIELD, number>(
+      SCH_FIELD,
+      'Text Size',
+      'SetSchTextSize',
+      'GetSchTextSize',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    'Text Properties',
+  );
+
+  propMgr.Mask(SCH_FIELD, EDA_TEXT, 'Orientation');
+
+  const isNotGeneratedField = (aItem: INSPECTABLE_ITEM): boolean =>
+    aItem instanceof SCH_FIELD ? !aItem.IsGeneratedField() : true;
+
+  propMgr.OverrideWriteability(SCH_FIELD, EDA_TEXT, 'Text', isNotGeneratedField);
+
+  const isNonMandatoryField = (aItem: INSPECTABLE_ITEM): boolean =>
+    aItem instanceof SCH_FIELD ? !aItem.IsMandatory() : false;
+
+  propMgr.OverrideAvailability(SCH_FIELD, SCH_ITEM, 'Private', isNonMandatoryField);
+})();

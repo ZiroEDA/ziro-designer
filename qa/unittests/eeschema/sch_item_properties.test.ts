@@ -17,6 +17,7 @@ import { SCH_JUNCTION } from '@ziroeda/eeschema/sch_junction.js';
 import { SCH_SHEET_PIN } from '@ziroeda/eeschema/sch_sheet_pin.js';
 import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
 import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
+import { SCH_FIELD } from '@ziroeda/eeschema/sch_field.js';
 import { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
 import { SCH_BITMAP } from '@ziroeda/eeschema/sch_bitmap.js';
 import { GetFieldValidationErrorMessage } from '@ziroeda/common/validators.js';
@@ -285,6 +286,38 @@ describe('the leaf registrations', () => {
     expect(PROPERTY_MANAGER.Instance().GetProperty(TYPE_HASH(SCH_BITMAP), 'Scale')!.Group()).toBe(
       'Image Properties',
     );
+  });
+});
+
+describe('SCH_FIELD_DESC', () => {
+  const mgr = () => PROPERTY_MANAGER.Instance();
+  const get = (n: string) => mgr().GetProperty(TYPE_HASH(SCH_FIELD), n)!;
+
+  it("replaces EDA_TEXT's justifications with the field's effective ones, in Text Properties", () => {
+    expect(get('Horizontal Justification').OwnerHash()).toBe(TYPE_HASH(SCH_FIELD));
+    expect(get('Vertical Justification').OwnerHash()).toBe(TYPE_HASH(SCH_FIELD));
+    expect(get('Horizontal Justification').Group()).toBe('Text Properties');
+    const names = shown(SCH_FIELD);
+    expect(names.filter((n) => n === 'Horizontal Justification').length).toBe(1);
+    expect(names).toEqual(
+      expect.arrayContaining(['Show Field Name', 'Allow Autoplacement', 'Text Size']),
+    );
+    for (const masked of ['Hyperlink', 'Thickness', 'Mirrored', 'Width', 'Height', 'Orientation'])
+      expect(names).not.toContain(masked);
+  });
+
+  it('Private only on a user field; Text read-only on a generated field', () => {
+    const reference = new SCH_FIELD(null, FIELD_T.REFERENCE);
+    const user = new SCH_FIELD(null, FIELD_T.USER, 'Notes');
+    const priv = mgr().GetProperty(TYPE_HASH(SCH_FIELD), 'Private')!;
+    expect(mgr().IsAvailableFor(TYPE_HASH(SCH_FIELD), priv, reference)).toBe(false);
+    expect(mgr().IsAvailableFor(TYPE_HASH(SCH_FIELD), priv, user)).toBe(true);
+
+    const text = get('Text');
+    expect(mgr().IsWriteableFor(TYPE_HASH(SCH_FIELD), text, user)).toBe(true);
+    const generated = new SCH_FIELD(null, FIELD_T.USER, '${DNP}');
+    expect(generated.IsGeneratedField()).toBe(true);
+    expect(mgr().IsWriteableFor(TYPE_HASH(SCH_FIELD), text, generated)).toBe(false);
   });
 });
 
