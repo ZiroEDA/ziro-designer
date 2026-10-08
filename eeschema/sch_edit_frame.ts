@@ -246,17 +246,6 @@ export interface VARIANT_DESCRIPTION_DIALOG_ARG {
 export interface SCH_EDIT_FRAME_HOOKS {
   /** `eeconfig()->m_CrossProbing`, read on every probe so a changed preference is seen. */
   crossProbingSettings(): CROSS_PROBING_SETTINGS;
-  /**
-   * `m_highlightedConn = …` then `SCH_ACTIONS::updateNetHighlighting`: the
-   * editor resolves the name against its connection graph
-   * (`FindFirstSubgraphByName`) and relights; empty is no highlight.
-   */
-  highlightNet(aNetName: string): void;
-  /**
-   * `SCH_EDITOR_CONTROL::AssignFootprints( payload )`: apply CvPcb's
-   * `cvpcb_netlist` as one undoable commit. Throws on a payload it cannot read.
-   */
-  assignFootprints(aChangedSetOfReferences: string): void;
   /** `SaveProject()`: write the schematic now; false when it could not be. */
   saveProject(): boolean;
   /**
@@ -2059,9 +2048,6 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
             'eeschema.EditorControl',
           ) as SCH_EDITOR_CONTROL | null;
           controlTool?.AssignFootprints(payload);
-
-          // The record window applies it to its own copy until it switches to the live model.
-          this.hooks.assignFootprints(payload);
         } catch {
           // IO_ERROR: an unreadable payload assigns nothing.
         }
@@ -2110,15 +2096,6 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
    * packet from the board.
    */
   ExecuteRemoteCommand(cmdline: string): void {
-    // The record window relights its own copy of the net; it runs without a tool manager until it
-    // switches to the live model, so this comes before the guards below.
-    {
-      const recordTok = new STRTOK(strncpyLine(cmdline));
-
-      if (recordTok.Next(' \n\r') === '$NET:' && this.hooks.crossProbingSettings().auto_highlight)
-        this.hooks.highlightNet(recordTok.Next('"\n\r') ?? '');
-    }
-
     // A remote command can arrive over the cross-probe socket before tools are registered
     // or after the tool manager has been torn down while the frame is closing.
     if (!this.m_toolManager) return;

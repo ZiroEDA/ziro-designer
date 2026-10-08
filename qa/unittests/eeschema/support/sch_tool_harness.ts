@@ -58,8 +58,6 @@ export interface SCH_HARNESS {
 export function schFrame(aHooks: Partial<SCH_EDIT_FRAME_HOOKS> = {}): SCH_EDIT_FRAME {
   return new SCH_EDIT_FRAME({
     crossProbingSettings: () => ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,
-    highlightNet: () => {},
-    assignFootprints: () => {},
     saveProject: () => true,
     ...aHooks,
   });

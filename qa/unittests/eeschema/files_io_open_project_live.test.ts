@@ -22,8 +22,6 @@ const ORACLE = join(DATA, 'eeschema', 'sexpr_oracle');
 
 const hooks: SCH_EDIT_FRAME_HOOKS = {
   crossProbingSettings: () => ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,
-  highlightNet: () => {},
-  assignFootprints: () => {},
   saveProject: () => true,
   getNetlist: () => null,
 };

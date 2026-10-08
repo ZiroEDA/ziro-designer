@@ -32,8 +32,6 @@ function openFrame(hooks: Partial<SCH_EDIT_FRAME_HOOKS> = {}) {
   const errors: string[] = [];
   const frame = new SCH_EDIT_FRAME({
     crossProbingSettings: () => ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,
-    highlightNet: () => {},
-    assignFootprints: () => {},
     saveProject: () => true,
     isOK: (m) => {
       asked.push(m);

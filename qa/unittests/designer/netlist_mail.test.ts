@@ -51,8 +51,6 @@ function setup(answer: string | null) {
   const asked: string[] = [];
   const sch = new SCH_EDIT_FRAME({
     crossProbingSettings: () => new CROSS_PROBING_SETTINGS(),
-    highlightNet: () => {},
-    assignFootprints: () => {},
     saveProject: () => true,
     getNetlist: (m) => {
       asked.push(m);

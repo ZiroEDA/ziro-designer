@@ -1,24 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 /**
- * The two halves of CvPcb's MAIL_ASSIGN_FOOTPRINTS: `NETLIST::FormatCvpcbNetlist`
- * (common/netlist_reader/netlist.cpp:95-179) writing the payload, and
- * `SCH_EDITOR_CONTROL::AssignFootprints` (eeschema/tools/assign_footprints.cpp)
- * applying it. The expected text is the C++'s Print calls followed by hand:
- * NESTWIDTH is 2.
+ * `NETLIST::FormatCvpcbNetlist` (common/netlist_reader/netlist.cpp:95-179), the payload CvPcb
+ * mails as MAIL_ASSIGN_FOOTPRINTS; the live SCH_EDITOR_CONTROL::AssignFootprints that applies it is
+ * pinned in sch_assign_footprints_live.test.ts. The expected text is the C++'s Print calls
+ * followed by hand: NESTWIDTH is 2.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr';
+import { DSNLEXER } from '@ziroeda/common/dsnlexer.js';
 import { COMPONENT, NETLIST } from '@ziroeda/common/netlist_reader/netlist.js';
+import { PTREE, Scan } from '@ziroeda/common/ptree.js';
 import { STRING_FORMATTER } from '@ziroeda/common/richio.js';
-import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
-import type { Schematic } from '@ziroeda/eeschema/types.js';
-import {
-  assignFootprintsCommands,
-  parseCvpcbNetlist,
-} from '@ziroeda/eeschema/tools/assign_footprints.js';
-import { refId } from '@ziroeda/eeschema/tools/hittest.js';
-import { restoreSymbols } from '@ziroeda/eeschema/tools/properties.js';
 
 describe('NETLIST::FormatCvpcbNetlist', () => {
   it('writes (ref "…" (fpid "…")) per component and nothing CTL_FOR_CVPCB omits', () => {
@@ -118,114 +110,16 @@ describe('NETLIST::FormatCvpcbNetlist', () => {
     netlist.AddComponent(new COMPONENT('', 'R2', '', '/', []));
     const sf = new STRING_FORMATTER();
     netlist.FormatCvpcbNetlist(sf);
-    expect(parseCvpcbNetlist(sf.GetString())).toEqual([
-      { reference: 'R1', footprint: 'A:B' },
-      { reference: 'R2', footprint: '' },
+    // Read back the way SCH_EDITOR_CONTROL::AssignFootprints reads it.
+    const doc = new PTREE();
+    Scan(doc, new DSNLEXER(sf.GetString()));
+    const refs = [...doc.get_child('cvpcb_netlist')].map(([, t]) => [
+      t.front()[0],
+      t.get_child('fpid').size() ? t.get_child('fpid').front()[0] : '',
     ]);
-  });
-});
-
-const sym = (uuid: string, ref: string, fp: string, fpHidden: boolean, unit = 1) =>
-  `(symbol (lib_id "Device:R") (at 0 0 0) (unit ${unit}) (uuid "${uuid}")
-    (property "Reference" "${ref}" (at 0 0 0) (effects (font (size 1.27 1.27))))
-    (property "Footprint" "${fp}" (at 0 0 0) (effects (font (size 1.27 1.27))${fpHidden ? ' hide' : ''})))`;
-
-const SHEET = `(kicad_sch (version 20250114) (generator "eeschema") (uuid "root")
-  (paper "A4")
-  (lib_symbols)
-  ${sym('a1', 'R1', '', false, 1)}
-  ${sym('a2', 'R1', '', false, 2)}
-  ${sym('b1', 'C1', 'Old:C', true)}
-  ${sym('p1', '#PWR01', '', false)}
-  ${sym('d1', 'D1', 'Keep:D', true)}
-)`;
-
-function fpOf(doc: Schematic, uuid: string): { value: string; hidden: boolean } {
-  const f = doc.symbols.find((s) => s.uuid === uuid)!.fields.find((x) => x.key === 'Footprint')!;
-  return { value: f.value, hidden: !!f.effects?.hidden };
-}
-
-describe('SCH_EDITOR_CONTROL::AssignFootprints', () => {
-  const doc = readSchematic(parse(SHEET));
-  const docs = new Map([['root.kicad_sch', doc]]);
-  const payload = (refs: [string, string][]) =>
-    `(cvpcb_netlist\n${refs.map(([r, f]) => `  (ref "${r}" (fpid "${f}")\n  )\n`).join('')})\n`;
-
-  it('sets every unit of a named reference, and hides a Footprint field that was empty and visible', () => {
-    const cmds = assignFootprintsCommands(
-      docs,
-      ['root.kicad_sch'],
-      payload([['R1', 'Res:R_0402']]),
-    );
-    const after = cmds!.get('root.kicad_sch')!.apply(doc);
-    expect([fpOf(after, 'a1'), fpOf(after, 'a2')]).toEqual([
-      { value: 'Res:R_0402', hidden: true },
-      { value: 'Res:R_0402', hidden: true },
+    expect(refs).toEqual([
+      ['R1', 'A:B'],
+      ['R2', ''],
     ]);
-  });
-
-  it('changes an assigned footprint without touching its visibility', () => {
-    const cmds = assignFootprintsCommands(docs, ['root.kicad_sch'], payload([['C1', 'New:C']]));
-    const after = cmds!.get('root.kicad_sch')!.apply(doc);
-    expect(fpOf(after, 'b1')).toEqual({ value: 'New:C', hidden: true });
-    expect(fpOf(after, 'a1')).toEqual({ value: '', hidden: false });
-  });
-
-  it('can clear a footprint', () => {
-    const cmds = assignFootprintsCommands(docs, ['root.kicad_sch'], payload([['C1', '']]));
-    expect(fpOf(cmds!.get('root.kicad_sch')!.apply(doc), 'b1').value).toBe('');
-  });
-
-  it('returns nothing when no symbol changes (isChanged false)', () => {
-    expect(
-      assignFootprintsCommands(docs, ['root.kicad_sch'], payload([['D1', 'Keep:D']])),
-    ).toBeNull();
-    expect(assignFootprintsCommands(docs, ['root.kicad_sch'], payload([['X9', 'A:B']]))).toBeNull();
-  });
-
-  it('skips power symbols', () => {
-    expect(
-      assignFootprintsCommands(docs, ['root.kicad_sch'], payload([['#PWR01', 'A:B']])),
-    ).toBeNull();
-  });
-
-  it('is undone by its inverse', () => {
-    const cmd = assignFootprintsCommands(docs, ['root.kicad_sch'], payload([['R1', 'Res:R']]))!.get(
-      'root.kicad_sch',
-    )!;
-    const after = cmd.apply(doc);
-    const back = cmd.invert(doc).apply(after);
-    expect([fpOf(back, 'a1'), fpOf(back, 'a2')]).toEqual([
-      { value: '', hidden: false },
-      { value: '', hidden: false },
-    ]);
-  });
-
-  it('restoreSymbols puts the captured symbols back verbatim and leaves the rest', () => {
-    const cmd = assignFootprintsCommands(
-      docs,
-      ['root.kicad_sch'],
-      payload([
-        ['R1', 'Res:R'],
-        ['C1', 'X:C'],
-      ]),
-    )!.get('root.kicad_sch')!;
-    const after = cmd.apply(doc);
-    // Capture only R1's first unit: C1 and R1's second unit keep the new value.
-    const i = doc.symbols.findIndex((x) => x.uuid === 'a1');
-    const back = restoreSymbols(new Map([[refId('symbol', 'a1', i), doc.symbols[i]!]])).apply(
-      after,
-    );
-    expect([fpOf(back, 'a1'), fpOf(back, 'a2').value, fpOf(back, 'b1').value]).toEqual([
-      { value: '', hidden: false },
-      'Res:R',
-      'X:C',
-    ]);
-  });
-
-  it('refuses a payload that is not a cvpcb_netlist', () => {
-    expect(() =>
-      assignFootprintsCommands(docs, ['root.kicad_sch'], '(export (ref "R1"))'),
-    ).toThrow();
   });
 });

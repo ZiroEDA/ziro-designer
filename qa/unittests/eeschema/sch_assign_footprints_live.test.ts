@@ -115,6 +115,19 @@ describe('Assign Footprints from CvPcb', () => {
     );
     expect(h.footprint()).toBe('Lib:ByMail');
   });
+
+  it('swallows a payload it cannot read, as the IO_ERROR catch does', () => {
+    const h = setUp();
+    const before = h.footprint();
+    expect(() =>
+      h.frame.KiwayMailIn(
+        new KIWAY_MAIL_EVENT(FRAME_T.FRAME_SCH, MAIL_T.MAIL_ASSIGN_FOOTPRINTS, {
+          value: '(export)',
+        }),
+      ),
+    ).not.toThrow();
+    expect(h.footprint()).toBe(before);
+  });
 });
 
 describe('Import Footprint Assignments', () => {

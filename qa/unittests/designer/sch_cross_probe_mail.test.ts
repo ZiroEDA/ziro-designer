@@ -35,16 +35,9 @@ class PCB_STUB extends KIWAY_PLAYER {
 
 function setup() {
   const cfg = new CROSS_PROBING_SETTINGS();
-  const highlighted: string[] = [];
-  const assigned: string[] = [];
   let saveAnswer = true;
   const frame = new SCH_EDIT_FRAME({
     crossProbingSettings: () => cfg,
-    highlightNet: (n) => highlighted.push(n),
-    assignFootprints: (payload) => {
-      if (!payload.startsWith('(cvpcb_netlist')) throw new Error('not a cvpcb_netlist');
-      assigned.push(payload);
-    },
     saveProject: () => saveAnswer,
     getNetlist: () => null,
   });
@@ -75,8 +68,6 @@ function setup() {
   };
   return {
     cfg,
-    highlighted,
-    assigned,
     frame,
     pcb,
     probe,
@@ -87,30 +78,6 @@ function setup() {
     },
   };
 }
-
-describe('the board probing a net on the schematic', () => {
-  it('$NET: highlights the named net, spaces and all, and "" clears', () => {
-    const env = setup();
-    env.probe('$NET: "Net A"');
-    env.probe('$NET: ""');
-    expect(env.highlighted).toEqual(['Net A', '']);
-  });
-
-  it('refuses $NET: when auto_highlight is off', () => {
-    const env = setup();
-    env.cfg.auto_highlight = false;
-    env.probe('$NET: "GND"');
-    expect(env.highlighted).toEqual([]);
-  });
-
-  it('ignores $CLEAR: and anything it does not know', () => {
-    const env = setup();
-    env.probe('$CLEAR: ""');
-    env.probe('$NETS: "A,B"');
-    env.probe('');
-    expect(env.highlighted).toEqual([]);
-  });
-});
 
 describe('the schematic probing a net on the board', () => {
   it('mails $NET: "<name>" and $CLEAR to FRAME_PCB_EDITOR', () => {
@@ -139,8 +106,6 @@ describe('Update PCB from Schematic', () => {
     });
     const frame = new SCH_EDIT_FRAME({
       crossProbingSettings: () => new CROSS_PROBING_SETTINGS(),
-      highlightNet: () => {},
-      assignFootprints: () => {},
       saveProject: () => true,
       getNetlist: () => null,
     });
@@ -156,18 +121,6 @@ describe('Update PCB from Schematic', () => {
 });
 
 describe('CvPcb mailing the schematic', () => {
-  it('MAIL_ASSIGN_FOOTPRINTS hands the payload to AssignFootprints', () => {
-    const env = setup();
-    env.mail(MAIL_T.MAIL_ASSIGN_FOOTPRINTS, '(cvpcb_netlist\n)\n');
-    expect(env.assigned).toEqual(['(cvpcb_netlist\n)\n']);
-  });
-
-  it('swallows a payload AssignFootprints cannot read, as the IO_ERROR catch does', () => {
-    const env = setup();
-    expect(() => env.mail(MAIL_T.MAIL_ASSIGN_FOOTPRINTS, '(export)')).not.toThrow();
-    expect(env.assigned).toEqual([]);
-  });
-
   it('MAIL_SCH_SAVE answers "success" when SaveProject() does, and leaves the payload otherwise', () => {
     const env = setup();
     expect(env.mail(MAIL_T.MAIL_SCH_SAVE, '')).toBe('success');

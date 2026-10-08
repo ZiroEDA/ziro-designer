@@ -24,7 +24,6 @@ import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'rea
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { SCH_EDIT_FRAME } from './sch_edit_frame.js';
-import { assignFootprintsCommands } from './tools/assign_footprints.js';
 import { parse } from '@ziroeda/sexpr';
 import {
   applySchematicPatch,
@@ -1834,19 +1833,9 @@ export function SchematicEditor({
     () => (connDoc ? computeNetlist(connDoc, libById, { busAliases }) : null),
     [connDoc, libById, busAliases],
   );
-  /**
-   * A net highlighted by a `$NET:` probe from the board, subject to
-   * `cross_probing.auto_highlight` — `if( !crossProbingSettings.auto_highlight )
-   * return;` (`eeschema/cross-probing.cpp:229-231`), which returns BEFORE
-   * touching the highlight, so a refused probe leaves whatever is lit alone.
-   */
-  const [probedNet, setProbedNet] = useState<string | null>(null);
-  // The frame's KIWAY half: `$NET:` from the board lands in `setProbedNet`,
-  // `auto_highlight` having been checked by ExecuteRemoteCommand.
   const schFrameRef = useRef<SCH_EDIT_FRAME | null>(null);
   // MAIL_ASSIGN_FOOTPRINTS and MAIL_SCH_SAVE, filled in below once the
   // project edit and the save they call exist.
-  const assignFootprintsRef = useRef<(aPayload: string) => void>(() => {});
   const saveProjectRef = useRef<() => boolean>(() => false);
   // TRANSITIONAL (S2-5b, gone at S7): the frame's live SCHEMATIC, rebuilt from the window's
   // records when one changed (sch_record_bridge.ts).
@@ -1868,8 +1857,6 @@ export function SchematicEditor({
   if (!schFrameRef.current) {
     schFrameRef.current = new SCH_EDIT_FRAME({
       crossProbingSettings: () => app.settings.eeschema.cross_probing,
-      highlightNet: (aNetName) => setProbedNet(aNetName === '' ? null : aNetName),
-      assignFootprints: (aPayload) => assignFootprintsRef.current(aPayload),
       saveProject: () => saveProjectRef.current(),
       syncLiveSchematic: () => syncLiveRef.current(),
       modalAnnotate: (aMessage) => modalAnnotateRef.current(aMessage),
@@ -1900,12 +1887,8 @@ export function SchematicEditor({
   const { highlightWires, highlightName } = useMemo(() => {
     const items = new Set<string>();
     let name: string | null = null;
-    if (netlist && (highlightItem !== null || probedNet !== null)) {
-      // `$NET: "<name>"` from the board (`eeschema/cross-probing.cpp:225-250`)
-      // names a net directly, where a click names an ITEM and the net is
-      // derived from it. Both end in the same `connNames` walk below, which is
-      // `UpdateNetHighlighting`.
-      name = highlightItem !== null ? connectionName(netlist, highlightItem) : probedNet;
+    if (netlist && highlightItem !== null) {
+      name = connectionName(netlist, highlightItem);
       if (name !== null) {
         // UpdateNetHighlighting's connNames set: the net itself, the other
         // label forms of the same bus (GetEquivalentBusNames), the bus members
@@ -1927,7 +1910,7 @@ export function SchematicEditor({
       }
     }
     return { highlightWires: items, highlightName: name };
-  }, [netlist, highlightItem, highlightBusMembers, probedNet]);
+  }, [netlist, highlightItem, highlightBusMembers]);
 
   // Cross-probe the highlight to the PCB editor.
   useEffect(() => {
@@ -2907,6 +2890,14 @@ export function SchematicEditor({
    * precedence while a net is actually highlighted.
    */
   const [statusText, setStatusText] = useState<string>('');
+  // The frame's status bar, field 0: `EDA_BASE_FRAME::SetStatusText` from the live tools.
+  useEffect(() => {
+    const frame = schFrameRef.current!;
+    frame.SetStatusTextSink((aText, aField) => {
+      if (aField === 0) setStatusText(aText);
+    });
+    return () => frame.SetStatusTextSink(null);
+  }, []);
   /** ACTIONS::revert's IsOK(), while it is up. */
   const [revertPrompt, setRevertPrompt] = useState<{
     file: string;
@@ -5308,14 +5299,6 @@ export function SchematicEditor({
     setDirty(false);
     setUnsaved(false);
   }, [fileName, currentFile, onPersistFiles, onSaveFiles]);
-  // `SCH_EDITOR_CONTROL::AssignFootprints`: CvPcb's netlist, one commit over
-  // every sheet it reaches.
-  assignFootprintsRef.current = (aPayload) => {
-    const commands = assignFootprintsCommands(liveDocs(), assignFpFiles, aPayload);
-    if (!commands) return;
-    assignPendingRef.current = true;
-    runProject(commands);
-  };
   // MAIL_SCH_GET_NETLIST is answered by the frame from its live SCHEMATIC (ReadyToNetlist,
   // NETLIST_EXPORTER_KICAD); this keeps that schematic the window's: every sheet's record, the
   // open one with the edits its file only gets on the debounced save, opened through

@@ -37,8 +37,6 @@ afterEach(() => SetPgm(null));
 function openFrame(): SCH_EDIT_FRAME {
   const frame = new SCH_EDIT_FRAME({
     crossProbingSettings: () => ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,
-    highlightNet: () => {},
-    assignFootprints: () => {},
     saveProject: () => true,
   });
   frame.OpenProjectFiles([`/complex_hierarchy/${SHEETS[0]}`], 0, (p) => {

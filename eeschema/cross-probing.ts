@@ -136,8 +136,6 @@ export function formatSchematicNetlist(
 
   const frame = new SCH_EDIT_FRAME({
     crossProbingSettings: () => ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,
-    highlightNet: () => {},
-    assignFootprints: () => {},
     saveProject: () => false,
     syncLiveSchematic: () => true,
     symbolLibraryUri: symbolLibraryUri(files),

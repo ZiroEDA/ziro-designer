@@ -22,6 +22,8 @@ import { SCH_REFERENCE_LIST } from '@ziroeda/eeschema/sch_reference_list.js';
 import { SYMBOL_FILTER, type SCH_SHEET_PATH } from '@ziroeda/eeschema/sch_sheet_path.js';
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
+import type { SCH_ITEM } from '@ziroeda/eeschema/sch_item.js';
+import { SCH_CLEANUP_FLAGS } from '@ziroeda/eeschema/schematic.js';
 import { SCH_SELECTION_TOOL } from '@ziroeda/eeschema/tools/sch_selection_tool.js';
 import { BOX2D, BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -252,5 +254,43 @@ describe('SCH_SELECTION_TOOL::ZoomFitCrossProbeBBox', () => {
     expect(z.scale()).toBe(1);
     z.sel.ZoomFitCrossProbeBBox(z.box(0, mmToIU(5)));
     expect(z.scale()).toBe(1);
+  });
+});
+
+describe('ExecuteRemoteCommand $NET:', () => {
+  /** A net of the open project, as a wire on the root sheet names it. */
+  function aNet(aFrame: ReturnType<typeof setUp>['h']['frame']): string {
+    aFrame.RecalculateConnections(null, SCH_CLEANUP_FLAGS.GLOBAL_CLEANUP);
+    const root = aFrame.Schematic().Hierarchy()[0]!;
+    for (const item of root.LastScreen()!.Items().OfType(KICAD_T.SCH_LINE_T)) {
+      const name = (item as SCH_ITEM).Connection(root)?.Name();
+      if (name) return name;
+    }
+    throw new Error('no named net on the root sheet');
+  }
+
+  it('highlights the named net and says so in the status bar; "" clears', () => {
+    const { h } = setUp();
+    const status: string[] = [];
+    h.frame.SetStatusTextSink((t, n) => n === 0 && status.push(t));
+    const net = aNet(h.frame);
+
+    h.frame.ExecuteRemoteCommand(`$NET: "${net}"`);
+    expect(h.frame.GetHighlightedConnection()).toBe(net);
+    expect(status.at(-1)).toMatch(/^Highlighted net: /);
+
+    h.frame.ExecuteRemoteCommand('$NET: ""');
+    expect(h.frame.GetHighlightedConnection()).toBe('');
+  });
+
+  it('is refused with auto_highlight off, leaving what is lit alone', () => {
+    const { h, cfg } = setUp();
+    const net = aNet(h.frame);
+    h.frame.ExecuteRemoteCommand(`$NET: "${net}"`);
+    cfg.auto_highlight = false;
+
+    h.frame.ExecuteRemoteCommand('$NET: ""');
+
+    expect(h.frame.GetHighlightedConnection()).toBe(net);
   });
 });
