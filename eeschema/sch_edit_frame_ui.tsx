@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { type ChooserFilter, type OpenedFile, WxFileDialog } from '@ziroeda/common/wx/filedlg.js';
+import { WxTextEntryDialog } from '@ziroeda/common/wx/textdlg.js';
+import { wxFD_SAVE } from '@ziroeda/common/wx/defs.js';
 import { wxID_CANCEL } from '@ziroeda/common/wx/menu.js';
 import { type KICAD_MESSAGE_DIALOG_ARG, ShowKicadMessageDialog } from '@ziroeda/common/confirm.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
@@ -557,7 +560,7 @@ import { type SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';
 import type { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import { actionMenuItems } from '@ziroeda/common/tool/action_menu_popup.js';
 import { wxMenuEvent, wxMenuEventType } from '@ziroeda/common/wx/menu.js';
-import { MEMORY_FILESYSTEM, wxMountFileSystem } from '@ziroeda/common/wx/filefn.js';
+import { MEMORY_FILESYSTEM, wxFileExists, wxMountFileSystem } from '@ziroeda/common/wx/filefn.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { schToolbarAction } from './toolbars_sch_editor.js';
 import { symbolLibraryUri } from './cross-probing.js';
@@ -597,6 +600,26 @@ function chooserToPicked(aResult: SymbolChooserResult): PICKED_SYMBOL {
     PlaceAllUnits: aResult.placeAllUnits,
     Fields: fields,
   };
+}
+
+/** Where a file the picker hands back is readable when no mount holds its path. */
+const PICKED_FILES_DIR = '/.picked-files';
+let s_pickedFiles: MEMORY_FILESYSTEM | null = null;
+
+/**
+ * `wxFileDialog::GetPath()` for a file the project picker returned: its own path when a mounted
+ * file system already has it (a project file), else its bytes written to the picked-files folder,
+ * so KiCad's file reads open it.
+ */
+function pickedFilePath(aFile: OpenedFile): string {
+  if (wxFileExists(aFile.path)) return aFile.path;
+  if (!s_pickedFiles) {
+    s_pickedFiles = new MEMORY_FILESYSTEM();
+    wxMountFileSystem(PICKED_FILES_DIR, s_pickedFiles);
+  }
+  const name = aFile.path.replace(/^.*\//, '');
+  s_pickedFiles.Write(name, aFile.bytes);
+  return `${PICKED_FILES_DIR}/${name}`;
 }
 
 const EMPTY_SCH =
@@ -1709,6 +1732,20 @@ export function SchematicEditor({
     [connDoc, libById, busAliases],
   );
   const schFrameRef = useRef<SCH_EDIT_FRAME | null>(null);
+  /** `wxTextEntryDialog` for the live tools while it is up. */
+  const [textEntryRequest, setTextEntryRequest] = useState<{
+    message: string;
+    caption: string;
+    value: string;
+    resolve: (aText: string | null) => void;
+  } | null>(null);
+  /** `wxFileDialog` (open) for the live tools while it is up. */
+  const [fileDialogRequest, setFileDialogRequest] = useState<{
+    title: string;
+    defaultDir: string;
+    filters: readonly ChooserFilter[];
+    resolve: (aPath: string | null) => void;
+  } | null>(null);
   /** PickSymbolFromLibrary's DIALOG_SYMBOL_CHOOSER while it is up. */
   const [chooserRequest, setChooserRequest] = useState<{
     filter: SYMBOL_LIBRARY_FILTER | null;
@@ -1746,6 +1783,25 @@ export function SchematicEditor({
           return ShowKicadMessageDialog(aArg as KICAD_MESSAGE_DIALOG_ARG);
         console.warn(`${aDialog} is not ported to the live model yet`);
         return wxID_CANCEL;
+      },
+      textEntry: (aMessage, aCaption, aValue) =>
+        new Promise((resolve) =>
+          setTextEntryRequest({ message: aMessage, caption: aCaption, value: aValue, resolve }),
+        ),
+      fileDialog: (aTitle, aDefaultDir, _aDefaultFile, aWildcard, aStyle) => {
+        // The project's picker opens files; naming a new one to write is not ported yet.
+        if (aStyle & wxFD_SAVE) {
+          console.warn(`wxFileDialog(wxFD_SAVE) '${aTitle}' is not ported yet`);
+          return null;
+        }
+        return new Promise((resolve) =>
+          setFileDialogRequest({
+            title: aTitle,
+            defaultDir: aDefaultDir,
+            filters: typeof aWildcard === 'string' ? [] : aWildcard,
+            resolve,
+          }),
+        );
       },
       pickSymbol: (aFilter, aHistory, aPlaced, aShowFootprints) =>
         new Promise((resolve) =>
@@ -9075,6 +9131,33 @@ export function SchematicEditor({
         />
       )}
 
+      {textEntryRequest && (
+        <WxTextEntryDialog
+          caption={textEntryRequest.caption}
+          message={textEntryRequest.message}
+          value={textEntryRequest.value}
+          onCancel={() => {
+            setTextEntryRequest(null);
+            textEntryRequest.resolve(null);
+          }}
+          onConfirm={(text) => {
+            setTextEntryRequest(null);
+            textEntryRequest.resolve(text);
+          }}
+        />
+      )}
+      {fileDialogRequest && (
+        <WxFileDialog
+          title={fileDialogRequest.title}
+          filters={fileDialogRequest.filters}
+          initialPath={fileDialogRequest.defaultDir || undefined}
+          projectDir={project.current.root ? `/${project.current.root.replace(/\/.*$/, '')}` : null}
+          onDone={(file) => {
+            setFileDialogRequest(null);
+            fileDialogRequest.resolve(file ? pickedFilePath(file) : null);
+          }}
+        />
+      )}
       {/* DIALOG_SYMBOL_CHOOSER, opened by PickSymbolFromLibrary for the live tools. */}
       {chooserRequest && (
         <DialogSymbolChooser
