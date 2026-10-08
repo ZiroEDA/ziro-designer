@@ -17,6 +17,10 @@ import { SCH_JUNCTION } from '@ziroeda/eeschema/sch_junction.js';
 import { SCH_SHEET_PIN } from '@ziroeda/eeschema/sch_sheet_pin.js';
 import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
 import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
+import { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
+import { SCH_BITMAP } from '@ziroeda/eeschema/sch_bitmap.js';
+import { GetFieldValidationErrorMessage } from '@ziroeda/common/validators.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
 import { SCH_BUS_WIRE_ENTRY } from '@ziroeda/eeschema/sch_bus_entry.js';
 import { SCH_RULE_AREA } from '@ziroeda/eeschema/sch_rule_area.js';
 import { SCH_TEXTBOX } from '@ziroeda/eeschema/sch_textbox.js';
@@ -248,5 +252,61 @@ describe('the leaf registrations', () => {
     expect(
       PROPERTY_MANAGER.Instance().GetProperty(TYPE_HASH(SCH_TEXTBOX), 'Margin Top')!.Group(),
     ).toBe('Margins');
+  });
+
+  it('SCH_SHEET_DESC: Sheet Name refuses an empty name or a "/", through the field validator', () => {
+    const name = PROPERTY_MANAGER.Instance().GetProperty(TYPE_HASH(SCH_SHEET), 'Sheet Name')!;
+    const fmt = (v: unknown) => name.Validate(v, null)?.Format({} as never) ?? '';
+    expect(fmt('Power')).toBe('');
+    expect(fmt('')).toBe('A sheet must have a name.');
+    expect(fmt('a/b')).toBe("The sheet name cannot contain '/' character(s).");
+    expect(shown(SCH_SHEET)).toEqual(
+      expect.arrayContaining([
+        'Border Width',
+        'Border Color',
+        'Background Color',
+        'Do not Populate',
+      ]),
+    );
+  });
+
+  it('SCH_BITMAP_DESC: position, then scale, offsets and size in Image Properties', () => {
+    const names = shown(SCH_BITMAP);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'Position X',
+        'Position Y',
+        'Scale',
+        'Transform Offset X',
+        'Width',
+        'Height',
+      ]),
+    );
+    expect(PROPERTY_MANAGER.Instance().GetProperty(TYPE_HASH(SCH_BITMAP), 'Scale')!.Group()).toBe(
+      'Image Properties',
+    );
+  });
+});
+
+describe('GetFieldValidationErrorMessage', () => {
+  it("words the bad characters as upstream does, in the excludes' order", () => {
+    expect(GetFieldValidationErrorMessage(FIELD_T.REFERENCE, 'R 1')).toBe(
+      'The reference designator cannot contain space character(s).',
+    );
+    expect(GetFieldValidationErrorMessage(FIELD_T.REFERENCE, 'R\t 1')).toBe(
+      'The reference designator cannot contain tab or space character(s).',
+    );
+    expect(GetFieldValidationErrorMessage(FIELD_T.VALUE, 'a\r\n\tb')).toBe(
+      'The value field cannot contain carriage return, line feed, tab character(s).',
+    );
+    // The prefix is everything before the trailing digits, so only an all-digit reference has none.
+    expect(GetFieldValidationErrorMessage(FIELD_T.REFERENCE, '12')).toBe(
+      'References must start with a letter.',
+    );
+    expect(GetFieldValidationErrorMessage(FIELD_T.REFERENCE, '1R')).toBe('');
+    expect(GetFieldValidationErrorMessage(FIELD_T.REFERENCE, 'R${X}')).toBe(
+      'The reference designator cannot contain text variable references',
+    );
+    expect(GetFieldValidationErrorMessage(FIELD_T.VALUE, '')).toBe('');
   });
 });

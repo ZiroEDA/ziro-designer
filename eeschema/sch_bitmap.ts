@@ -9,6 +9,14 @@
  */
 
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import {
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  TYPE_DOUBLE,
+  TYPE_INT,
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
+import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { GAL_LAYER_ID, SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { REFERENCE_IMAGE } from '@ziroeda/common/reference_image.js';
@@ -206,3 +214,66 @@ export class SCH_BITMAP extends SCH_ITEM {
     this.m_referenceImage.SetImageScale(aScale);
   }
 }
+
+/**
+ * `static struct SCH_BITMAP_DESC` (eeschema/sch_bitmap.cpp:300).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_BITMAP);
+  propMgr.InheritsAfter(SCH_BITMAP, SCH_ITEM);
+
+  const coord = (
+    aName: string,
+    aSetter: keyof SCH_BITMAP & string,
+    aGetter: keyof SCH_BITMAP & string,
+    aType = COORD_TYPES_T.NOT_A_COORD,
+  ) =>
+    new PROPERTY<SCH_BITMAP, number>(
+      SCH_BITMAP,
+      aName,
+      aSetter,
+      aGetter,
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_COORD,
+      aType,
+    );
+
+  propMgr.AddProperty(coord('Position X', 'SetX', 'GetX'));
+  propMgr.AddProperty(coord('Position Y', 'SetY', 'GetY'));
+
+  const groupImage = 'Image Properties';
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_BITMAP, number>(
+      SCH_BITMAP,
+      'Scale',
+      'SetImageScale',
+      'GetImageScale',
+      TYPE_DOUBLE,
+    ),
+    groupImage,
+  );
+
+  propMgr.AddProperty(
+    coord(
+      'Transform Offset X',
+      'SetTransformOriginOffsetX',
+      'GetTransformOriginOffsetX',
+      COORD_TYPES_T.ABS_X_COORD,
+    ),
+    groupImage,
+  );
+  propMgr.AddProperty(
+    coord(
+      'Transform Offset Y',
+      'SetTransformOriginOffsetY',
+      'GetTransformOriginOffsetY',
+      COORD_TYPES_T.ABS_Y_COORD,
+    ),
+    groupImage,
+  );
+
+  propMgr.AddProperty(coord('Width', 'SetWidth', 'GetWidth'), groupImage);
+  propMgr.AddProperty(coord('Height', 'SetHeight', 'GetHeight'), groupImage);
+})();

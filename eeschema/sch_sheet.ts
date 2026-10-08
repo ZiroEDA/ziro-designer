@@ -10,6 +10,17 @@
  */
 
 import {
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  TYPE_BOOL,
+  TYPE_COLOR4D,
+  TYPE_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/properties/property.js';
+import { VALIDATION_ERROR_MSG } from '@ziroeda/common/properties/property_validators.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
+import { GetFieldValidationErrorMessage } from '@ziroeda/common/validators.js';
+import {
   INSPECT_RESULT,
   type INSPECTOR,
   type OutStr,
@@ -1908,3 +1919,74 @@ function wxToLong(s: string): number | null {
 
   return Number.parseInt(s, 10);
 }
+
+/**
+ * `static struct SCH_SHEET_DESC` (eeschema/sch_sheet.cpp:2120).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_SHEET);
+  propMgr.InheritsAfter(SCH_SHEET, SCH_ITEM);
+
+  propMgr
+    .AddProperty(
+      new PROPERTY<SCH_SHEET, string>(SCH_SHEET, 'Sheet Name', 'SetName', 'GetName', TYPE_STRING),
+    )
+    .SetValidator((aValue) => {
+      if (typeof aValue !== 'string') return null;
+
+      const msg = GetFieldValidationErrorMessage(FIELD_T.SHEET_NAME, aValue);
+
+      if (msg === '') return null;
+
+      return new VALIDATION_ERROR_MSG(msg);
+    });
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_SHEET, number>(
+      SCH_SHEET,
+      'Border Width',
+      'SetBorderWidth',
+      'GetBorderWidth',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_SHEET, Color4d>(
+      SCH_SHEET,
+      'Border Color',
+      'SetBorderColor',
+      'GetBorderColor',
+      TYPE_COLOR4D,
+    ),
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_SHEET, Color4d>(
+      SCH_SHEET,
+      'Background Color',
+      'SetBackgroundColor',
+      'GetBackgroundColor',
+      TYPE_COLOR4D,
+    ),
+  );
+
+  const groupAttributes = 'Attributes';
+
+  const flag = (
+    aName: string,
+    aSetter: keyof SCH_SHEET & string,
+    aGetter: keyof SCH_SHEET & string,
+  ) =>
+    propMgr.AddProperty(
+      new PROPERTY<SCH_SHEET, boolean>(SCH_SHEET, aName, aSetter, aGetter, TYPE_BOOL),
+      groupAttributes,
+    );
+
+  flag('Exclude From Board', 'SetExcludedFromBoardProp', 'GetExcludedFromBoardProp');
+  flag('Exclude From Simulation', 'SetExcludedFromSimProp', 'GetExcludedFromSimProp');
+  flag('Exclude From Bill of Materials', 'SetExcludedFromBOMProp', 'GetExcludedFromBOMProp');
+  flag('Do not Populate', 'SetDNPProp', 'GetDNPProp');
+})();
