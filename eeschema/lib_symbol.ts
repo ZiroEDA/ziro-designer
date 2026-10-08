@@ -6,6 +6,16 @@
  * `eeschema/lib_symbol.cpp` (LIB_SYMBOL).
  */
 
+import {
+  type INSPECTABLE_ITEM,
+  PG_CHOICES,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  TYPE_BOOL,
+  TYPE_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 import { type Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/reporter.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { isList, head, str, atom, type SList } from '@ziroeda/sexpr/types.js';
@@ -669,6 +679,124 @@ export class LIB_SYMBOL extends SYMBOL {
   /** `SetFootprintProp( aFootprint )` (lib_symbol.h:443). */
   SetFootprintProp(aFootprint: string): void {
     this.GetFootprintField().SetText(aFootprint);
+  }
+
+  GetRefProp(): string {
+    return this.GetReferenceField().GetText();
+  }
+
+  SetRefProp(aRef: string): void {
+    this.GetReferenceField().SetText(aRef);
+  }
+
+  GetValueProp(): string {
+    return this.GetValueField().GetText();
+  }
+
+  SetValueProp(aValue: string): void {
+    this.GetValueField().SetText(aValue);
+  }
+
+  GetDatasheetProp(): string {
+    return this.GetDatasheetField().GetText();
+  }
+
+  SetDatasheetProp(aDatasheet: string): void {
+    this.GetDatasheetField().SetText(aDatasheet);
+  }
+
+  GetKeywordsProp(): string {
+    return this.GetKeyWords();
+  }
+
+  SetKeywordsProp(aKeywords: string): void {
+    this.SetKeyWords(aKeywords);
+  }
+
+  GetPowerSymbolProp(): boolean {
+    return this.IsPower();
+  }
+
+  SetPowerSymbolProp(aIsPower: boolean): void {
+    if (aIsPower) this.SetGlobalPower();
+    else this.SetNormal();
+  }
+
+  GetLocalPowerSymbolProp(): boolean {
+    return this.IsLocalPower();
+  }
+
+  SetLocalPowerSymbolProp(aIsLocalPower: boolean): void {
+    if (aIsLocalPower) this.SetLocalPower();
+    else if (this.IsPower()) this.SetGlobalPower();
+    else this.SetNormal();
+  }
+
+  GetPinNamesInsideProp(): boolean {
+    return this.GetPinNameOffset() !== 0;
+  }
+
+  SetPinNamesInsideProp(aInside: boolean): void {
+    if (aInside && this.GetPinNameOffset() === 0)
+      this.SetPinNameOffset(schIUScale.milsToIU(DEFAULT_PIN_NAME_OFFSET));
+    else if (!aInside) this.SetPinNameOffset(0);
+  }
+
+  GetUnitProp(): number {
+    return this.GetUnitCount();
+  }
+
+  SetUnitProp(aUnits: number): void {
+    this.SetUnitCount(aUnits, true);
+  }
+
+  GetUnitsInterchangeableProp(): boolean {
+    return !this.UnitsLocked();
+  }
+
+  SetUnitsInterchangeableProp(aInterchangeable: boolean): void {
+    this.LockUnits(!aInterchangeable);
+  }
+
+  override GetBodyStyleProp(): string {
+    return this.GetBodyStyleDescription(1, false);
+  }
+
+  override SetBodyStyleProp(_aBodyStyle: string): void {
+    // Body style setting is more complex for LIB_SYMBOL
+    // For now, this is primarily for display purposes
+  }
+
+  GetExcludedFromSimProp(): boolean {
+    return this.GetExcludedFromSim();
+  }
+
+  SetExcludedFromSimProp(aExclude: boolean): void {
+    this.SetExcludedFromSim(aExclude);
+  }
+
+  GetExcludedFromBOMProp(): boolean {
+    return this.GetExcludedFromBOM();
+  }
+
+  SetExcludedFromBOMProp(aExclude: boolean): void {
+    this.SetExcludedFromBOM(aExclude);
+  }
+
+  GetExcludedFromBoardProp(): boolean {
+    return this.GetExcludedFromBoard();
+  }
+
+  SetExcludedFromBoardProp(aExclude: boolean): void {
+    this.SetExcludedFromBoard(aExclude);
+  }
+
+  GetExcludedFromPosFilesProp(): boolean {
+    return this.GetExcludedFromPosFiles();
+  }
+
+  SetExcludedFromPosFilesProp(aExclude: boolean): void {
+    this.SetExcludedFromPosFiles(aExclude);
   }
 
   GetFootprint(): string {
@@ -2851,3 +2979,135 @@ export function symbolSearchTerms(libNickname: string, name: string, sym: LibSym
 
   return terms;
 }
+
+/** `static struct LIB_SYMBOL_DESC` (eeschema/lib_symbol.cpp:2658). */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(LIB_SYMBOL);
+  propMgr.InheritsAfter(LIB_SYMBOL, SYMBOL);
+
+  const str = (
+    aName: string,
+    aSetter: keyof LIB_SYMBOL & string,
+    aGetter: keyof LIB_SYMBOL & string,
+  ) => new PROPERTY<LIB_SYMBOL, string>(LIB_SYMBOL, aName, aSetter, aGetter, TYPE_STRING);
+  const bool = (
+    aName: string,
+    aSetter: keyof LIB_SYMBOL & string,
+    aGetter: keyof LIB_SYMBOL & string,
+  ) => new PROPERTY<LIB_SYMBOL, boolean>(LIB_SYMBOL, aName, aSetter, aGetter, TYPE_BOOL);
+
+  const groupFields = 'Fields';
+
+  propMgr.AddProperty(str('Reference', 'SetRefProp', 'GetRefProp'), groupFields);
+  propMgr.AddProperty(str('Value', 'SetValueProp', 'GetValueProp'), groupFields);
+  propMgr.AddProperty(str('Footprint', 'SetFootprintProp', 'GetFootprintProp'), groupFields);
+  propMgr.AddProperty(str('Datasheet', 'SetDatasheetProp', 'GetDatasheetProp'), groupFields);
+  propMgr.AddProperty(str('Keywords', 'SetKeywordsProp', 'GetKeywordsProp'), groupFields);
+
+  const groupSymbolDef = 'Symbol Definition';
+
+  propMgr.AddProperty(
+    bool('Define as Power Symbol', 'SetPowerSymbolProp', 'GetPowerSymbolProp'),
+    groupSymbolDef,
+  );
+  propMgr.AddProperty(
+    bool('Define as Local Power Symbol', 'SetLocalPowerSymbolProp', 'GetLocalPowerSymbolProp'),
+    groupSymbolDef,
+  );
+
+  const groupPinDisplay = 'Pin Display';
+
+  propMgr.AddProperty(
+    new PROPERTY<SYMBOL, boolean>(
+      SYMBOL,
+      'Show Pin Number',
+      'SetShowPinNumbers',
+      'GetShowPinNumbers',
+      TYPE_BOOL,
+    ),
+    groupPinDisplay,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SYMBOL, boolean>(
+      SYMBOL,
+      'Show Pin Name',
+      'SetShowPinNames',
+      'GetShowPinNames',
+      TYPE_BOOL,
+    ),
+    groupPinDisplay,
+  );
+  propMgr.AddProperty(
+    bool('Place Pin Names Inside', 'SetPinNamesInsideProp', 'GetPinNamesInsideProp'),
+    groupPinDisplay,
+  );
+  propMgr.AddProperty(
+    new PROPERTY<SYMBOL, number>(
+      SYMBOL,
+      'Pin Name Position Offset',
+      'SetPinNameOffset',
+      'GetPinNameOffset',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    groupPinDisplay,
+  );
+
+  const groupAttributes = 'Attributes';
+
+  propMgr.AddProperty(
+    bool('Exclude from Simulation', 'SetExcludedFromSimProp', 'GetExcludedFromSimProp'),
+    groupAttributes,
+  );
+  propMgr.AddProperty(
+    bool('Exclude from Board', 'SetExcludedFromBoardProp', 'GetExcludedFromBoardProp'),
+    groupAttributes,
+  );
+  propMgr.AddProperty(
+    bool('Exclude from Bill of Materials', 'SetExcludedFromBOMProp', 'GetExcludedFromBOMProp'),
+    groupAttributes,
+  );
+  propMgr.AddProperty(
+    bool(
+      'Exclude from Position Files',
+      'SetExcludedFromPosFilesProp',
+      'GetExcludedFromPosFilesProp',
+    ),
+    groupAttributes,
+  );
+
+  const groupUnits = 'Units and Body Styles';
+
+  propMgr.AddProperty(
+    new PROPERTY<LIB_SYMBOL, number>(
+      LIB_SYMBOL,
+      'Number of Symbol Units',
+      'SetUnitProp',
+      'GetUnitProp',
+      TYPE_INT,
+    ),
+    groupUnits,
+  );
+  propMgr.AddProperty(
+    bool('Units are Interchangeable', 'SetUnitsInterchangeableProp', 'GetUnitsInterchangeableProp'),
+    groupUnits,
+  );
+
+  const multiBodyStyle = (aItem: INSPECTABLE_ITEM): boolean =>
+    aItem instanceof LIB_SYMBOL ? aItem.IsMultiBodyStyle() : false;
+
+  propMgr
+    .AddProperty(str('Body Styles', 'SetBodyStyleProp', 'GetBodyStyleProp'), groupUnits)
+    .SetAvailableFunc(multiBodyStyle)
+    .SetChoicesFunc((aItem) => {
+      const choices = new PG_CHOICES();
+
+      if (aItem instanceof LIB_SYMBOL) {
+        for (let ii = 1; ii <= aItem.GetBodyStyleCount(); ii++)
+          choices.Add(aItem.GetBodyStyleDescription(ii, false));
+      }
+
+      return choices;
+    });
+})();

@@ -19,6 +19,7 @@ import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
 import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
 import { SCH_FIELD } from '@ziroeda/eeschema/sch_field.js';
 import { SCH_PIN } from '@ziroeda/eeschema/sch_pin.js';
+import { LIB_SYMBOL } from '@ziroeda/eeschema/lib_symbol.js';
 import { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
 import { SCH_BITMAP } from '@ziroeda/eeschema/sch_bitmap.js';
 import { GetFieldValidationErrorMessage } from '@ziroeda/common/validators.js';
@@ -327,13 +328,25 @@ describe('SCH_PIN_DESC', () => {
   });
 });
 
-describe('SCH_SYMBOL_DESC', () => {
-  it("orders the rows as upstream's display order does: SYMBOL's pin flags first, then SCH_SYMBOL's own", () => {
-    const mgr = PROPERTY_MANAGER.Instance();
-    const order = mgr.GetDisplayOrder(TYPE_HASH(SCH_SYMBOL));
-    const sorted = [...order.entries()].sort((a, b) => a[1] - b[1]).map(([p]) => p.Name());
+/** The rows of \a aType by group, groups in GetGroupDisplayOrder, rows in GetDisplayOrder. */
+function byGroup(aType: abstract new (...args: never[]) => unknown): Map<string, string[]> {
+  const mgr = PROPERTY_MANAGER.Instance();
+  const order = [...mgr.GetDisplayOrder(TYPE_HASH(aType)).entries()].sort((a, b) => a[1] - b[1]);
+  const rows = new Map<string, string[]>(
+    mgr.GetGroupDisplayOrder(TYPE_HASH(aType)).map((g) => [g, []]),
+  );
 
-    expect(sorted).toEqual([
+  for (const [p] of order) rows.get(p.Group())!.push(p.Name());
+
+  return rows;
+}
+
+describe('SCH_SYMBOL_DESC', () => {
+  it("groups its rows as upstream's panel does: its own groups first, then SYMBOL's Pin Display", () => {
+    const rows = byGroup(SCH_SYMBOL);
+
+    expect([...rows.keys()]).toEqual(['', 'Fields', 'Attributes', 'Pin Display']);
+    expect(rows.get('')).toEqual([
       'Pin numbers',
       'Pin names',
       'Position X',
@@ -341,21 +354,31 @@ describe('SCH_SYMBOL_DESC', () => {
       'Orientation',
       'Mirror X',
       'Mirror Y',
+      'Unit',
+      'Body Style',
+    ]);
+    expect(rows.get('Fields')).toEqual([
       'Reference',
       'Value',
       'Library Link',
       'Library Description',
       'Keywords',
-      'Unit',
-      'Body Style',
+    ]);
+    expect(rows.get('Attributes')).toEqual([
       'Exclude From Simulation',
       'Exclude From Bill of Materials',
       'Exclude From Board',
       'Exclude From Position Files',
       'Do not Populate',
     ]);
+    // LIB_SYMBOL_DESC registers these on SYMBOL, so a schematic symbol has them too.
+    expect(rows.get('Pin Display')).toEqual([
+      'Show Pin Number',
+      'Show Pin Name',
+      'Pin Name Position Offset',
+    ]);
     // Not SCH_ITEM's: upstream links SCH_SYMBOL to SYMBOL only.
-    expect(sorted).not.toContain('Private');
+    expect([...rows.values()].flat()).not.toContain('Private');
   });
 
   it('the library-backed rows need a library symbol; Unit needs more than one unit', () => {
@@ -377,6 +400,92 @@ describe('SCH_SYMBOL_DESC', () => {
 
     const choices = get('Unit').GetChoices(dual);
     expect([choices.GetLabel(0), choices.GetValue(0), choices.GetLabel(1)]).toEqual(['A', 1, 'B']);
+  });
+});
+
+describe('LIB_SYMBOL_DESC', () => {
+  it("groups its rows as upstream does, SYMBOL's pin rows inside Pin Display", () => {
+    const rows = byGroup(LIB_SYMBOL);
+
+    // CLASS_DESC's constructor seeds the unnamed group first, in every class.
+    expect([...rows.keys()]).toEqual([
+      '',
+      'Fields',
+      'Symbol Definition',
+      'Pin Display',
+      'Attributes',
+      'Units and Body Styles',
+    ]);
+    expect(rows.get('Fields')).toEqual([
+      'Reference',
+      'Value',
+      'Footprint',
+      'Datasheet',
+      'Keywords',
+    ]);
+    expect(rows.get('Symbol Definition')).toEqual([
+      'Define as Power Symbol',
+      'Define as Local Power Symbol',
+    ]);
+    // collectPropsRecur numbers a base's rows before the class's own: SYMBOL's three, then this one.
+    expect(rows.get('Pin Display')).toEqual([
+      'Show Pin Number',
+      'Show Pin Name',
+      'Pin Name Position Offset',
+      'Place Pin Names Inside',
+    ]);
+    expect(rows.get('Attributes')).toEqual([
+      'Exclude from Simulation',
+      'Exclude from Board',
+      'Exclude from Bill of Materials',
+      'Exclude from Position Files',
+    ]);
+    expect(rows.get('Units and Body Styles')).toEqual([
+      'Number of Symbol Units',
+      'Units are Interchangeable',
+      'Body Styles',
+    ]);
+    // SCH_SYMBOL_DESC's two SYMBOL rows.
+    expect(rows.get('')).toEqual(['Pin numbers', 'Pin names']);
+  });
+
+  it('clearing Local Power on a power symbol leaves it a global power symbol; on a normal one, normal', () => {
+    const power = new LIB_SYMBOL('PWR');
+    power.SetLocalPowerSymbolProp(true);
+    expect([power.IsLocalPower(), power.GetPowerSymbolProp()]).toEqual([true, true]);
+    power.SetLocalPowerSymbolProp(false);
+    expect([power.IsLocalPower(), power.IsGlobalPower()]).toEqual([false, true]);
+
+    const plain = new LIB_SYMBOL('R');
+    plain.SetLocalPowerSymbolProp(false);
+    expect(plain.IsPower()).toBe(false);
+    plain.SetPowerSymbolProp(true);
+    plain.SetPowerSymbolProp(false);
+    expect(plain.IsPower()).toBe(false);
+  });
+
+  it('Place Pin Names Inside restores the default offset only from zero, and clears it to zero', () => {
+    const sym = new LIB_SYMBOL('U');
+    sym.SetPinNameOffset(0);
+    expect(sym.GetPinNamesInsideProp()).toBe(false);
+    sym.SetPinNamesInsideProp(true);
+    expect(sym.GetPinNameOffset()).toBe(20 * 254); // DEFAULT_PIN_NAME_OFFSET, 20 mil
+    sym.SetPinNameOffset(40 * 254);
+    sym.SetPinNamesInsideProp(true);
+    expect(sym.GetPinNameOffset()).toBe(40 * 254);
+    sym.SetPinNamesInsideProp(false);
+    expect(sym.GetPinNameOffset()).toBe(0);
+  });
+
+  it('Units are Interchangeable is the inverse of locked units; Number of Symbol Units is the unit count', () => {
+    const sym = new LIB_SYMBOL('U');
+    sym.SetUnitsInterchangeableProp(false);
+    expect(sym.UnitsLocked()).toBe(true);
+    sym.SetUnitsInterchangeableProp(true);
+    expect(sym.UnitsLocked()).toBe(false);
+    sym.SetUnitProp(3);
+    expect(sym.GetUnitCount()).toBe(3);
+    expect(sym.GetUnitProp()).toBe(3);
   });
 });
 
