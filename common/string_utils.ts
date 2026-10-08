@@ -1290,3 +1290,12 @@ export function AccumulateDescriptions(aItemCollection: Iterable<string>): strin
 
   return desc;
 }
+
+/**
+ * `IsFullFileNameValid( aFullFilename )` (common/string_utils.cpp:61): false when the name holds a
+ * character `wxFileName::GetForbiddenChars()` forbids - on Unix only the NUL; '\\' and '/' are
+ * separators in a full path, so allowed.
+ */
+export function IsFullFileNameValid(aFullFilename: string): boolean {
+  return !aFullFilename.includes('\0');
+}

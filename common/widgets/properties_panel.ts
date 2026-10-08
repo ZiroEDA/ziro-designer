@@ -367,7 +367,7 @@ export abstract class PROPERTIES_PANEL {
   abstract valueChanging(aPropertyName: string, aNewValue: unknown): PROPERTY_VETO | null;
 
   /** `valueChanged( aEvent )`: EVT_PG_CHANGED, the edit itself. */
-  abstract valueChanged(aPropertyName: string, aNewValue: unknown): void;
+  abstract valueChanged(aPropertyName: string, aNewValue: unknown): void | Promise<void>;
 
   /** The editor a cell swaps in (the subclass's `createPGProperty` → `SetEditor`). */
   CellEditor(_aProperty: PROPERTY_BASE): 'fpid' | 'url' | null {
