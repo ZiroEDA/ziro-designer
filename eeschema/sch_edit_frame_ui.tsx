@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import {
+  DIALOG_WIRE_BUS_PROPERTIES,
+  type WIRE_BUS_DIALOG_VALUES,
+} from './dialogs/dialog_wire_bus_properties.js';
+import type { SCH_ITEM } from './sch_item.js';
 import { DIALOG_JUNCTION_PROPS } from './dialogs/dialog_junction_props.js';
 import type { SCH_JUNCTION } from './sch_junction.js';
 import { color4dToItemColor, itemColorToColor4d } from './dialogs/item_color.js';
@@ -1376,20 +1381,15 @@ export function SchematicEditor({
   useModalEscape(() => setPageEdit(null), pageEdit !== null);
   // Editing a wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES) or a junction's
   // diameter (DIALOG_JUNCTION_PROPS).
-  const [lineEdit, setLineEdit] = useState<{
-    index: number;
-    widthIU: number;
-    style: string;
-    color?: ItemColor;
-  } | null>(null);
   // A bus entry opens the same DIALOG_WIRE_BUS_PROPERTIES a wire does: upstream
   // groups SCH_BUS_WIRE_ENTRY_T with SCH_LINE_T and SCH_JUNCTION_T in
   // SCH_EDIT_TOOL::Properties.
-  const [busEntryEdit, setBusEntryEdit] = useState<{
-    index: number;
-    widthIU: number;
-    style: string;
-    color?: ItemColor;
+  /** DIALOG_WIRE_BUS_PROPERTIES while it is up for the live tools. */
+  const [wireBusDialog, setWireBusDialog] = useState<{
+    dlg: DIALOG_WIRE_BUS_PROPERTIES;
+    shown: WIRE_BUS_DIALOG_VALUES;
+    firstWidth: number;
+    resolve: (aId: number) => void;
   } | null>(null);
   /** DIALOG_JUNCTION_PROPS while it is up for the live tools. */
   const [junctionDialog, setJunctionDialog] = useState<{
@@ -1786,6 +1786,19 @@ export function SchematicEditor({
       showModal: (aDialog, _aItems, aArg) => {
         if (aDialog === 'KICAD_MESSAGE_DIALOG')
           return ShowKicadMessageDialog(aArg as KICAD_MESSAGE_DIALOG_ARG);
+        if (aDialog === 'DIALOG_WIRE_BUS_PROPERTIES') {
+          const items = _aItems as SCH_ITEM[];
+          const dlg = new DIALOG_WIRE_BUS_PROPERTIES(schFrameRef.current!, items);
+          const stroked = items.find((it) => it.HasLineStroke());
+          return new Promise<number>((resolve) =>
+            setWireBusDialog({
+              dlg,
+              shown: dlg.TransferDataToWindow(),
+              firstWidth: stroked ? stroked.GetStroke().GetWidth() : 0,
+              resolve,
+            }),
+          );
+        }
         if (aDialog === 'DIALOG_JUNCTION_PROPS') {
           const junctions = _aItems as SCH_JUNCTION[];
           const dlg = new DIALOG_JUNCTION_PROPS(schFrameRef.current!, junctions);
@@ -4761,23 +4774,6 @@ export function SchematicEditor({
           // A wire or bus is a connection and gets DIALOG_WIRE_BUS_PROPERTIES;
           // a graphic polyline is a shape and gets DIALOG_SHAPE_PROPERTIES.
           if (l.kind === 'polyline') setShapeEdit({ kind: 'line', index: li });
-          else
-            setLineEdit({
-              index: li,
-              widthIU: l.stroke?.width ?? 0,
-              style: l.stroke?.type ?? 'default',
-              color: l.stroke?.color,
-            });
-        } else if (d.busEntries.some((b, i) => refId('busentry', b.uuid, i) === id)) {
-          // Grouped with wires and junctions upstream; same stroke dialog.
-          const bi = d.busEntries.findIndex((b, i) => refId('busentry', b.uuid, i) === id);
-          const be = d.busEntries[bi]!;
-          setBusEntryEdit({
-            index: bi,
-            widthIU: be.stroke?.width ?? 0,
-            style: be.stroke?.type ?? 'default',
-            color: be.stroke?.color,
-          });
         } else if (
           (d.directiveLabels ?? []).some((dl, i) => refId('directive', dl.uuid, i) === id)
         ) {
@@ -6871,61 +6867,6 @@ export function SchematicEditor({
           if (orig && orig.kind !== 'text')
             runCommand(replaceGraphic(se.index, { ...orig, stroke, fill }));
         }
-        return null;
-      });
-    },
-    [doc, runCommand],
-  );
-
-  const commitBusEntryEdit = useCallback(
-    (widthIU: number, style: string, color?: ItemColor) => {
-      setBusEntryEdit((be) => {
-        if (!be || !doc) return null;
-        const orig = doc.busEntries[be.index];
-        if (!orig) return null;
-        const stroke: { width: number; type: string; color?: ItemColor } = {
-          ...(orig.stroke ?? {}),
-          width: widthIU,
-          type: style,
-        };
-        if (color) stroke.color = color;
-        else delete stroke.color;
-        runCommand(replaceBusEntry(be.index, { ...orig, stroke }));
-        return null;
-      });
-    },
-    [doc, runCommand],
-  );
-
-  const commitLineEdit = useCallback(
-    (widthIU: number, style: string, color?: ItemColor, junctionIU?: number) => {
-      setLineEdit((le) => {
-        if (!le || !doc) return null;
-        const orig = doc.lines[le.index];
-        if (!orig) return null;
-        const stroke: { width: number; type: string; color?: ItemColor } = {
-          ...(orig.stroke ?? {}),
-          width: widthIU,
-          type: style,
-        };
-        if (color) stroke.color = color;
-        else delete stroke.color;
-
-        const cmds: EditCommand[] = [replaceLine(le.index, { ...orig, stroke })];
-        // The junction size applies to the junctions this wire actually meets,
-        // which is what "the junctions in the selection scope" comes to here.
-        if (junctionIU !== undefined) {
-          const touches = (p: { x: number; y: number }): boolean =>
-            (p.x === orig.start.x && p.y === orig.start.y) ||
-            (p.x === orig.end.x && p.y === orig.end.y);
-          doc.junctions.forEach((j, i) => {
-            if (touches(j.at) && j.diameter !== junctionIU)
-              cmds.push(replaceJunction(i, { ...j, diameter: junctionIU }));
-          });
-        }
-        runCommand(
-          cmds.length === 1 ? cmds[0]! : composeCommands('Edit Wire & Bus Properties', cmds),
-        );
         return null;
       });
     },
@@ -9403,24 +9344,34 @@ export function SchematicEditor({
         />
       )}
 
-      {/* Wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES, E on a wire). */}
-      {lineEdit && (
+      {/* DIALOG_WIRE_BUS_PROPERTIES on the live wires, buses and bus entries. */}
+      {wireBusDialog && (
         <DialogLineProperties
           kind="wire"
-          widthIU={lineEdit.widthIU}
-          style={lineEdit.style}
-          color={lineEdit.color}
-          junctionIU={
-            doc.junctions.find(
-              (j) =>
-                (j.at.x === doc.lines[lineEdit.index]?.start.x &&
-                  j.at.y === doc.lines[lineEdit.index]?.start.y) ||
-                (j.at.x === doc.lines[lineEdit.index]?.end.x &&
-                  j.at.y === doc.lines[lineEdit.index]?.end.y),
-            )?.diameter ?? 0
-          }
-          onOk={commitLineEdit}
-          onCancel={() => setLineEdit(null)}
+          widthIU={wireBusDialog.shown.width ?? wireBusDialog.firstWidth}
+          style={wireBusDialog.shown.style ?? 'default'}
+          color={color4dToItemColor(wireBusDialog.shown.color)}
+          {...(wireBusDialog.shown.junction !== undefined
+            ? { junctionIU: wireBusDialog.shown.junction ?? 0 }
+            : {})}
+          onOk={(widthIU, style, color, junctionIU) => {
+            setWireBusDialog(null);
+            const shown = wireBusDialog.shown;
+            // A binder left indeterminate leaves its value alone.
+            wireBusDialog.dlg.TransferDataFromWindow(
+              shown.width === null && widthIU === wireBusDialog.firstWidth ? null : widthIU,
+              shown.style === null && style === 'default' ? null : style,
+              itemColorToColor4d(color),
+              junctionIU === undefined || (shown.junction === null && junctionIU === 0)
+                ? null
+                : junctionIU,
+            );
+            wireBusDialog.resolve(wxID_OK);
+          }}
+          onCancel={() => {
+            setWireBusDialog(null);
+            wireBusDialog.resolve(wxID_CANCEL);
+          }}
         />
       )}
 
@@ -9503,18 +9454,6 @@ export function SchematicEditor({
             });
             setCellPropsIds(null);
           }}
-        />
-      )}
-
-      {/* A bus entry's stroke (DIALOG_WIRE_BUS_PROPERTIES, E on an entry). */}
-      {busEntryEdit && (
-        <DialogLineProperties
-          kind="wire"
-          widthIU={busEntryEdit.widthIU}
-          style={busEntryEdit.style}
-          color={busEntryEdit.color}
-          onOk={commitBusEntryEdit}
-          onCancel={() => setBusEntryEdit(null)}
         />
       )}
 
