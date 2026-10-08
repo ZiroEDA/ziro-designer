@@ -39,7 +39,7 @@ import {
   type LIBRARY_TABLE_ROW,
   LIBRARY_TABLE_TYPE,
 } from '@ziroeda/common/libraries/library_table.js';
-import { wxFileExists } from '@ziroeda/common/wx/filefn.js';
+import { MEMORY_FILESYSTEM, wxFileExists, wxMountFileSystem } from '@ziroeda/common/wx/filefn.js';
 import type { LIB_SYMBOL } from '../lib_symbol.js';
 import { PropPowerSymsOnly } from '../sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
 import { SCH_FILE_T, type SCH_IO, SCH_IO_MGR } from '../sch_io/sch_io_mgr.js';
@@ -333,6 +333,48 @@ async function fetchOneSymbol(library: string, symbolName: string): Promise<LibS
 }
 
 const symbolCache = new Map<string, Promise<LibSymbol | undefined>>();
+
+/**
+ * Where the hosted per-symbol files land so KiCad's reader can open them: a mounted folder, one
+ * `<Library>/<Symbol>.kicad_sym` per symbol fetched, the file the host serves (the symbol and the
+ * parent chain it extends). The browser cannot read `${KICAD10_SYMBOL_DIR}` synchronously, so this
+ * is the download cache SCH_IO_KICAD_SEXPR::LoadSymbol reads instead.
+ */
+const SYMBOL_DOWNLOAD_DIR = '/.kicad-symbol-downloads';
+let s_downloads: MEMORY_FILESYSTEM | null = null;
+
+const downloadsMount = (): MEMORY_FILESYSTEM => {
+  if (!s_downloads) {
+    s_downloads = new MEMORY_FILESYSTEM();
+    wxMountFileSystem(SYMBOL_DOWNLOAD_DIR, s_downloads);
+  }
+  return s_downloads;
+};
+
+const hostedFiles = new Map<string, Promise<string | null>>();
+
+/**
+ * The hosted file for \a aLibId fetched into the download folder: the path KiCad's reader opens,
+ * or null when the host has no such symbol.
+ */
+export function fetchHostedSymbolFile(aLibId: LIB_ID): Promise<string | null> {
+  const rel = `${aLibId.GetLibNickname()}/${encodeURIComponent(aLibId.GetLibItemName())}.kicad_sym`;
+  let p = hostedFiles.get(rel);
+
+  if (!p) {
+    p = (async () => {
+      const res = await fetch(`${symbolsBase()}/${rel}`).catch(() => null);
+
+      if (!res?.ok) return null;
+
+      downloadsMount().Write(rel, new TextEncoder().encode(await res.text()));
+      return `${SYMBOL_DOWNLOAD_DIR}/${rel}`;
+    })();
+    hostedFiles.set(rel, p);
+  }
+
+  return p;
+}
 
 /**
  * Load one symbol by library and name.

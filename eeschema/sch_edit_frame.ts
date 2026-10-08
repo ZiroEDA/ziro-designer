@@ -321,8 +321,6 @@ export interface SCH_EDIT_FRAME_HOOKS {
     aAlreadyPlaced: readonly PICKED_SYMBOL[],
     aShowFootprints: boolean,
   ): Promise<PICKED_SYMBOL | null>;
-  /** `SchGetLibSymbol( aLibId, SymbolLibAdapter( &Prj() ), … )`: the library's symbol, or null. */
-  getLibSymbol?(aLibId: LIB_ID): Promise<LIB_SYMBOL | null>;
   /** `new DIALOG_ERC( this )`: the window's ERC dialog for this frame; null when there is none. */
   ercDialog?(): DIALOG_ERC | null;
   /**
@@ -1816,11 +1814,6 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     });
 
     return sel;
-  }
-
-  /** `GetLibSymbol( aLibId )` (sch_base_frame.cpp:282): the symbol from the project's libraries. */
-  GetLibSymbol(aLibId: LIB_ID): Promise<LIB_SYMBOL | null> {
-    return this.hooks.getLibSymbol?.(aLibId) ?? Promise.resolve(null);
   }
 
   /** `wxTextEntryDialog`: null when cancelled, or when there is no window to ask. */

@@ -55,9 +55,10 @@ function setUp(
 ) {
   const hooks: Partial<SCH_EDIT_FRAME_HOOKS> = {
     pickSymbol: async (_f, history) => aPick(history),
-    getLibSymbol: async () => aLib(),
   };
   const h = schToolHarness(schFrame(hooks));
+  // The library: GetLibSymbol answers from the test, as a mounted library would.
+  h.frame.GetLibSymbol = async () => aLib();
   openProject(h.frame, ORACLE, 'complex_hierarchy', SHEETS);
   h.frame.SetCurrentSheet(
     h.frame

@@ -106,13 +106,13 @@ describe('SCH_INSPECTION_TOOL', () => {
     let hasLib = false;
     const h = setUp({
       symbolLibHasLibrary: () => hasLib,
-      // the library copy: the schematic's own with its keywords changed, so Compare reports them
-      getLibSymbol: async () => {
-        const lib = h.sym.GetLibSymbolRef()!.Flatten();
-        lib.SetKeyWords(`${lib.GetKeyWords()} changed`);
-        return lib;
-      },
     });
+    // the library copy: the schematic's own with its keywords changed, so Compare reports them
+    h.frame.GetLibSymbol = async () => {
+      const lib = h.sym.GetLibSymbolRef()!.Flatten();
+      lib.SetKeyWords(`${lib.GetKeyWords()} changed`);
+      return lib;
+    };
     h.sel.ClearSelection(true);
     h.sel.AddItemToSel(h.sym, true);
     h.mgr.RunAction(SCH_ACTIONS.diffSymbol);

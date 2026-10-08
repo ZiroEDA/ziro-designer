@@ -23,6 +23,11 @@
  *   `GetLibraryItemsForListDialog`, ported below; the modal loop around it is
  *   the window's.
  */
+import { IO_ERROR } from '@ziroeda/common/exceptions.js';
+import type { LIB_ID } from '@ziroeda/common/lib_id.js';
+import type { LIB_SYMBOL } from './lib_symbol.js';
+import { fetchHostedSymbolFile } from './libraries/symbol_library_adapter.js';
+import { SCH_FILE_T, SCH_IO_MGR } from './sch_io/sch_io_mgr.js';
 import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
 import {
   currentEeschemaSettings,
@@ -210,6 +215,32 @@ export function GetLibraryItemsForListDialog(
 }
 
 export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
+  /**
+   * `GetLibSymbol( aLibId, aUseCacheLib, aShowErrorMsg )` (sch_base_frame.cpp:282). Async in the
+   * browser: a hosted library symbol is fetched into the download folder before KiCad's reader
+   * opens it; a project library is read through the adapter at once.
+   */
+  async GetLibSymbol(aLibId: LIB_ID): Promise<LIB_SYMBOL | null> {
+    const adapter = SymbolLibAdapter(this.Prj());
+    const symbol = await SchGetLibSymbol<LIB_SYMBOL>(aLibId.Format(), {
+      LoadSymbol: async () => adapter.LoadSymbol(aLibId),
+    });
+
+    if (symbol) return symbol;
+
+    const path = await fetchHostedSymbolFile(aLibId);
+
+    if (!path) return null;
+
+    try {
+      return SCH_IO_MGR.FindPlugin(SCH_FILE_T.SCH_KICAD)!.LoadSymbol(path, aLibId.GetLibItemName());
+    } catch (ioe) {
+      if (!(ioe instanceof IO_ERROR)) throw ioe;
+
+      return null;
+    }
+  }
+
   /**
    * The window's half of the dialogs a frame opens: the dialog by name, with an argument it reads
    * and fills. A frame with no window (the symbol viewer and editor until their switch) cancels.
