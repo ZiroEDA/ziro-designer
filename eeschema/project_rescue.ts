@@ -62,6 +62,32 @@ import {
 } from './tools/edit_symbol_libid.js';
 import { escapeLibId, unescapeString } from '@ziroeda/common';
 import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
+import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
+import { IO_ERROR } from '@ziroeda/common/exceptions.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import {
+  LIBRARY_TABLE_SCOPE,
+  LIBRARY_TABLE_TYPE,
+} from '@ziroeda/common/libraries/library_table.js';
+import { Pgm } from '@ziroeda/common/pgm_base.js';
+import type { PROJECT } from '@ziroeda/common/project.js';
+import { ESCAPE_CONTEXT, EscapeString } from '@ziroeda/common/string_utils.js';
+import {
+  KiCadSymbolLibFileExtension,
+  LegacySymbolLibFileExtension,
+} from '@ziroeda/common/wildcards_and_files_ext.js';
+import { wxOK } from '@ziroeda/common/wx/defs.js';
+import { wxID_OK } from '@ziroeda/common/wx/menu.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { LIB_SYMBOL } from './lib_symbol.js';
+import { SymbolLibAdapter } from './project_sch.js';
+import type { SCH_EDIT_FRAME } from './sch_edit_frame.js';
+import { SCH_FILE_T, SCH_IO_MGR } from './sch_io/sch_io_mgr.js';
+import { SCH_IO_KICAD_SEXPR } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
+import { SCH_SCREENS } from './sch_screen.js';
+import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import type { SCH_SYMBOL } from './sch_symbol.js';
+import type { SCHEMATIC } from './schematic.js';
 
 /**
  * One row of the rescue dialog — `RESCUE_SYMBOL_LIB_TABLE_CANDIDATE`.
@@ -453,3 +479,533 @@ export interface DialogRescueEachProps {
   onCancel: () => void;
   onNeverShowAgain: () => void;
 }
+
+// ---------------------------------------------------------------------------
+// The KiCad classes (project_rescue.h / project_rescue.cpp) on the live model. Of the two
+// rescuers only SYMBOL_LIB_TABLE_RESCUER is ported: LEGACY_RESCUER is for a schematic with no
+// library nicknames (a KiCad 4 file), whose LEGACY_SYMBOL_LIBS the live model does not load yet,
+// and RescueSymbols only reaches it for such a file. PROJECT_SCH::LegacySchLibs - the project's
+// `<project>-cache.lib` - is not a PROJECT element here, so `findSymbol` over it finds nothing:
+// with no cache, the live arm is a symbol id with characters LIB_ID forbids.
+// ---------------------------------------------------------------------------
+
+/** `sort_by_libid`: symbols in LIB_ID order, so a library symbol is searched once per group. */
+function getSymbols(aSchematic: SCHEMATIC, aSymbols: SCH_SYMBOL[]): void {
+  const screens = new SCH_SCREENS(aSchematic.Root());
+
+  // Get the full list
+  for (let screen = screens.GetFirst(); screen; screen = screens.GetNext()) {
+    for (const aItem of screen.Items().OfType(KICAD_T.SCH_SYMBOL_T))
+      aSymbols.push(aItem as SCH_SYMBOL);
+  }
+
+  if (aSymbols.length === 0) return;
+
+  // sort aSymbols by lib symbol. symbols will be grouped by same lib symbol.
+  aSymbols.sort((a, b) => a.GetLibId().compare(b.GetLibId()));
+}
+
+/** `findSymbol( aName, aLibs, aCached )`: the legacy libraries are not loaded (see above). */
+function findSymbol(_aName: string, _aLibs: null, _aCached: boolean): LIB_SYMBOL | null {
+  return null;
+}
+
+/** `GetRescueLibraryFileName( aSchematic )`: `<schematic>-rescue.lib` beside the schematic. */
+function GetRescueLibraryFileName(aSchematic: SCHEMATIC): {
+  path: string;
+  name: string;
+  ext: string;
+} {
+  const fn = aSchematic.GetFileName();
+  const slash = fn.lastIndexOf('/');
+  const full = fn.slice(slash + 1);
+  const dot = full.lastIndexOf('.');
+
+  return {
+    path: slash < 0 ? '' : fn.slice(0, slash),
+    name: `${dot <= 0 ? full : full.slice(0, dot)}-rescue`,
+    ext: LegacySymbolLibFileExtension,
+  };
+}
+
+const fullPathOf = (aFn: { path: string; name: string; ext: string }) =>
+  `${aFn.path === '' ? '' : `${aFn.path}/`}${aFn.name}.${aFn.ext}`;
+
+/** `SchGetLibSymbol( aLibId, aLibMgr )` (sch_base_frame.cpp:83) without a cache library. */
+function SchGetLibSymbol(
+  aLibId: LIB_ID,
+  aLibMgr: ReturnType<typeof SymbolLibAdapter>,
+): LIB_SYMBOL | null {
+  try {
+    return aLibMgr.LoadSymbol(aLibId);
+  } catch (ioe) {
+    if (!(ioe instanceof IO_ERROR)) throw ioe;
+
+    return null;
+  }
+}
+
+export abstract class RESCUE_CANDIDATE {
+  protected m_requested_name: string;
+  protected m_new_name: string;
+  protected m_lib_candidate: LIB_SYMBOL | null;
+  protected m_unit: number;
+  protected m_bodyStyle: number;
+
+  constructor(
+    aRequestedName: string,
+    aNewName: string,
+    aLibCandidate: LIB_SYMBOL | null,
+    aUnit: number,
+    aBodyStyle: number,
+  ) {
+    this.m_requested_name = aRequestedName;
+    this.m_new_name = aNewName;
+    this.m_lib_candidate = aLibCandidate;
+    this.m_unit = aUnit;
+    this.m_bodyStyle = aBodyStyle;
+  }
+
+  /** Get the name that was originally requested in the schematic. */
+  GetRequestedName(): string {
+    return this.m_requested_name;
+  }
+
+  /** Get the name we're proposing changing it to. */
+  GetNewName(): string {
+    return this.m_new_name;
+  }
+
+  /** Get the part that can be loaded from the project cache, if possible, or else NULL. */
+  GetCacheCandidate(): LIB_SYMBOL | null {
+    return null;
+  }
+
+  /** Get the part the would be loaded from the libraries, if possible, or else NULL. */
+  GetLibCandidate(): LIB_SYMBOL | null {
+    return this.m_lib_candidate;
+  }
+
+  GetUnit(): number {
+    return this.m_unit;
+  }
+
+  GetBodyStyle(): number {
+    return this.m_bodyStyle;
+  }
+
+  /** Get a description of the action proposed, for displaying in the UI. */
+  abstract GetActionDescription(): string;
+
+  /** Perform the actual rescue action.  @return true for success. */
+  abstract PerformAction(aRescuer: RESCUER): boolean;
+}
+
+export class RESCUE_SYMBOL_LIB_TABLE_CANDIDATE extends RESCUE_CANDIDATE {
+  private readonly m_requested_id: LIB_ID;
+  private readonly m_new_id: LIB_ID;
+  private readonly m_cache_candidate: LIB_SYMBOL | null;
+
+  constructor(
+    aRequestedId: LIB_ID = new LIB_ID(),
+    aNewId: LIB_ID = new LIB_ID(),
+    aCacheCandidate: LIB_SYMBOL | null = null,
+    aLibCandidate: LIB_SYMBOL | null = null,
+    aUnit = 0,
+    aBodyStyle = 0,
+  ) {
+    super(aRequestedId.Format(), '', aLibCandidate, aUnit, aBodyStyle);
+    this.m_requested_id = aRequestedId;
+    this.m_new_id = aNewId;
+    this.m_cache_candidate = aCacheCandidate;
+  }
+
+  override GetCacheCandidate(): LIB_SYMBOL | null {
+    return this.m_cache_candidate;
+  }
+
+  /**
+   * `FindRescues( aRescuer, aCandidates )` (project_rescue.cpp:344): one candidate per symbol id
+   * that is only in the cache, conflicts with its library symbol, or has an illegal name.
+   */
+  static FindRescues(aRescuer: RESCUER, aCandidates: RESCUE_CANDIDATE[]): void {
+    const candidate_map = new Map<
+      string,
+      { id: LIB_ID; candidate: RESCUE_SYMBOL_LIB_TABLE_CANDIDATE }
+    >();
+
+    // Remember the list of symbols is sorted by LIB_ID.
+    // So a search in libraries is made only once by group
+    let cache_match: LIB_SYMBOL | null = null;
+    let lib_match: LIB_SYMBOL | null = null;
+    let old_symbol_id = new LIB_ID();
+
+    let symbolName: string;
+
+    for (const eachSymbol of aRescuer.GetSymbols()) {
+      const symbol_id = eachSymbol.GetLibId();
+
+      if (!old_symbol_id.equals(symbol_id)) {
+        // A new symbol name is found (a new group starts here).
+        // Search the symbol names candidates only once for this group:
+        old_symbol_id = symbol_id;
+
+        symbolName = symbol_id.Format();
+
+        // Get the library symbol from the cache library.  It will be a flattened
+        // symbol by default (no inheritance).
+        cache_match = findSymbol(symbolName, null, true);
+
+        // At some point during V5 development, the LIB_ID delimiter character ':' was
+        // replaced by '_' when writing the symbol cache library so we have to test for
+        // the LIB_NICKNAME_LIB_SYMBOL_NAME case.
+        if (!cache_match) {
+          symbolName = `${symbol_id.GetLibNickname()}-${symbol_id.GetLibItemName()}`;
+          cache_match = findSymbol(symbolName, null, true);
+        }
+
+        // Get the library symbol from the symbol library table.
+        lib_match = SchGetLibSymbol(symbol_id, SymbolLibAdapter(aRescuer.GetPrj()));
+
+        if (!cache_match && !lib_match) continue;
+
+        // If it's a derived symbol, use the parent symbol to perform the pin test.
+        if (lib_match?.IsDerived()) lib_match = lib_match.GetRootSymbol() ?? null;
+
+        // Test whether there is a conflict or if the symbol can only be found in the cache.
+        if (LIB_ID.HasIllegalChars(symbol_id.GetLibItemName()) === -1) {
+          if (
+            cache_match &&
+            lib_match &&
+            !cache_match.PinsConflictWith(lib_match, true, true, true, true, false)
+          )
+            continue;
+
+          if (!cache_match && lib_match) continue;
+        }
+
+        // Fix illegal LIB_ID name characters.
+        const new_name = EscapeString(symbol_id.GetLibItemName(), ESCAPE_CONTEXT.CTX_LIBID);
+
+        // Differentiate symbol name in the rescue library by appending the original symbol
+        // library table nickname to the symbol name to prevent name clashes in the rescue
+        // library.
+        const libNickname = GetRescueLibraryFileName(aRescuer.Schematic()).name;
+
+        const new_id = new LIB_ID(libNickname, `${new_name}-${symbol_id.GetLibNickname()}`);
+
+        const candidate = new RESCUE_SYMBOL_LIB_TABLE_CANDIDATE(
+          symbol_id,
+          new_id,
+          cache_match,
+          lib_match,
+          eachSymbol.GetUnit(),
+          eachSymbol.GetBodyStyle(),
+        );
+
+        candidate_map.set(symbol_id.Format(), { id: symbol_id, candidate });
+      }
+    }
+
+    // Now, dump the map into aCandidates (std::map<LIB_ID, …>: LIB_ID order)
+    for (const { candidate } of [...candidate_map.values()].sort((a, b) => a.id.compare(b.id)))
+      aCandidates.push(candidate);
+  }
+
+  GetActionDescription(): string {
+    if (!this.m_cache_candidate && !this.m_lib_candidate) {
+      return `Cannot rescue symbol ${unescapeString(this.m_requested_id.GetLibItemName())} which is not available in any library or the cache.`;
+    } else if (this.m_cache_candidate && !this.m_lib_candidate) {
+      return `Rescue symbol ${unescapeString(this.m_requested_id.Format())} found only in cache library to ${unescapeString(this.m_new_id.Format())}.`;
+    }
+
+    return `Rescue modified symbol ${unescapeString(this.m_requested_id.Format())} to ${unescapeString(this.m_new_id.Format())}`;
+  }
+
+  PerformAction(aRescuer: RESCUER): boolean {
+    const tmp = this.m_cache_candidate ?? this.m_lib_candidate;
+
+    if (!tmp) return false; // wxCHECK_MSG: "Both cache and library symbols undefined."
+
+    const new_symbol = tmp.Flatten();
+    new_symbol.SetLibId(this.m_new_id);
+    new_symbol.SetName(this.m_new_id.GetLibItemName());
+    aRescuer.AddSymbol(new_symbol);
+
+    for (const eachSymbol of aRescuer.GetSymbols()) {
+      if (!eachSymbol.GetLibId().equals(this.m_requested_id)) continue;
+
+      eachSymbol.SetLibId(this.m_new_id);
+      eachSymbol.ClearFlags();
+      aRescuer.LogRescue(eachSymbol, this.m_requested_id.Format(), this.m_new_id.Format());
+    }
+
+    return true;
+  }
+}
+
+/** `RESCUE_LOG`. */
+export interface RESCUE_LOG {
+  symbol: SCH_SYMBOL;
+  old_name: string;
+  new_name: string;
+}
+
+/**
+ * `DIALOG_RESCUE_EACH` as InvokeDialogRescueEach sets it up: the window shows the candidates and
+ * writes `chosen` (one flag per candidate, the list's check boxes), ending with wxID_OK; Cancel
+ * and "Never Show Again" leave nothing chosen.
+ */
+export interface DIALOG_RESCUE_EACH_ARG {
+  candidates: readonly RESCUE_CANDIDATE[];
+  symbols: readonly SCH_SYMBOL[];
+  currentSheet: SCH_SHEET_PATH;
+  askShowAgain: boolean;
+  chosen: boolean[];
+}
+
+export abstract class RESCUER {
+  protected m_symbols: SCH_SYMBOL[] = [];
+  protected m_prj: PROJECT;
+  protected m_schematic: SCHEMATIC;
+  protected m_currentSheet: SCH_SHEET_PATH;
+
+  protected m_all_candidates: RESCUE_CANDIDATE[] = [];
+  protected m_chosen_candidates: RESCUE_CANDIDATE[] = [];
+
+  protected m_rescue_log: RESCUE_LOG[] = [];
+
+  constructor(aProject: PROJECT, aSchematic: SCHEMATIC | null, aCurrentSheet: SCH_SHEET_PATH) {
+    this.m_schematic = aSchematic ?? (aCurrentSheet.LastScreen()!.Schematic() as SCHEMATIC);
+
+    if (this.m_schematic) getSymbols(this.m_schematic, this.m_symbols);
+
+    this.m_prj = aProject;
+    this.m_currentSheet = aCurrentSheet;
+  }
+
+  abstract WriteRescueLibrary(aParent: SCH_EDIT_FRAME): boolean;
+
+  abstract OpenRescueLibrary(): void;
+
+  abstract FindCandidates(): void;
+
+  abstract AddSymbol(aNewSymbol: LIB_SYMBOL): void;
+
+  abstract InvokeDialog(aParent: SCH_EDIT_FRAME, aAskShowAgain: boolean): Promise<void>;
+
+  /** `RemoveDuplicates()`: the first candidate of each requested name. */
+  RemoveDuplicates(): void {
+    const names_seen: string[] = [];
+
+    this.m_all_candidates = this.m_all_candidates.filter((it) => {
+      if (names_seen.includes(it.GetRequestedName())) return false;
+
+      names_seen.push(it.GetRequestedName());
+      return true;
+    });
+  }
+
+  GetCandidateCount(): number {
+    return this.m_all_candidates.length;
+  }
+
+  GetChosenCandidateCount(): number {
+    return this.m_chosen_candidates.length;
+  }
+
+  GetSymbols(): SCH_SYMBOL[] {
+    return this.m_symbols;
+  }
+
+  GetPrj(): PROJECT {
+    return this.m_prj;
+  }
+
+  Schematic(): SCHEMATIC {
+    return this.m_schematic;
+  }
+
+  LogRescue(aSymbol: SCH_SYMBOL, aOldName: string, aNewName: string): void {
+    this.m_rescue_log.push({ symbol: aSymbol, old_name: aOldName, new_name: aNewName });
+  }
+
+  DoRescues(): boolean {
+    for (const each_candidate of this.m_chosen_candidates) {
+      if (!each_candidate.PerformAction(this)) return false;
+    }
+
+    return true;
+  }
+
+  UndoRescues(): void {
+    for (const each_logitem of this.m_rescue_log) {
+      const libId = new LIB_ID();
+
+      libId.SetLibItemName(each_logitem.old_name);
+      each_logitem.symbol.SetLibId(libId);
+      each_logitem.symbol.ClearFlags();
+    }
+  }
+
+  /** `RescueProject( aParent, aRescuer, aRunningOnDemand )` (project_rescue.cpp:544). */
+  static async RescueProject(
+    aParent: SCH_EDIT_FRAME,
+    aRescuer: RESCUER,
+    aRunningOnDemand: boolean,
+  ): Promise<boolean> {
+    aRescuer.FindCandidates();
+
+    if (!aRescuer.GetCandidateCount()) {
+      if (aRunningOnDemand) {
+        await aParent.ShowModalDialog('KICAD_MESSAGE_DIALOG', [], {
+          message: 'This project has nothing to rescue.',
+          caption: 'Project Rescue Helper',
+          style: wxOK,
+        });
+      }
+
+      return true;
+    }
+
+    aRescuer.RemoveDuplicates();
+    await aRescuer.InvokeDialog(aParent, !aRunningOnDemand);
+
+    // If no symbols were rescued, let the user know what's going on. He might
+    // have clicked cancel by mistake, and should have some indication of that.
+    if (!aRescuer.GetChosenCandidateCount()) {
+      await aParent.ShowModalDialog('KICAD_MESSAGE_DIALOG', [], {
+        message: 'No symbols were rescued.',
+        caption: 'Project Rescue Helper',
+        style: wxOK,
+      });
+
+      // Set the modified flag even on Cancel. Many users seem to instinctively want to Save at
+      // this point, due to the reloading of the symbols, so we'll make the save button active.
+      return true;
+    }
+
+    aRescuer.OpenRescueLibrary();
+
+    if (!aRescuer.DoRescues()) {
+      aRescuer.UndoRescues();
+      return false;
+    }
+
+    aRescuer.WriteRescueLibrary(aParent);
+
+    return true;
+  }
+
+  /** `InvokeDialogRescueEach( aParent, aRescuer, aCurrentSheet, aGalBackEndType, aAskShowAgain )`. */
+  protected async invokeDialogRescueEach(
+    aParent: SCH_EDIT_FRAME,
+    aAskShowAgain: boolean,
+  ): Promise<void> {
+    const arg: DIALOG_RESCUE_EACH_ARG = {
+      candidates: this.m_all_candidates,
+      symbols: this.m_symbols,
+      currentSheet: this.m_currentSheet,
+      askShowAgain: aAskShowAgain,
+      chosen: this.m_all_candidates.map(() => true),
+    };
+
+    // TransferDataFromWindow: the checked rows; Cancel / Never Show Again clear the choice.
+    if ((await aParent.ShowModalDialog('DIALOG_RESCUE_EACH', [], arg)) !== wxID_OK) {
+      this.m_chosen_candidates = [];
+      return;
+    }
+
+    this.m_chosen_candidates = this.m_all_candidates.filter((_c, index) => arg.chosen[index]);
+  }
+}
+
+export class SYMBOL_LIB_TABLE_RESCUER extends RESCUER {
+  private readonly m_rescueLibSymbols: LIB_SYMBOL[] = [];
+  private readonly m_properties = new Map<string, string>();
+
+  FindCandidates(): void {
+    RESCUE_SYMBOL_LIB_TABLE_CANDIDATE.FindRescues(this, this.m_all_candidates);
+  }
+
+  InvokeDialog(aParent: SCH_EDIT_FRAME, aAskShowAgain: boolean): Promise<void> {
+    return this.invokeDialogRescueEach(aParent, aAskShowAgain);
+  }
+
+  OpenRescueLibrary(): void {
+    this.m_properties.set(SCH_IO_KICAD_SEXPR.PropBuffering, '');
+
+    const fn = GetRescueLibraryFileName(this.m_schematic);
+    const manager = Pgm().GetLibraryManager();
+    const adapter = SymbolLibAdapter(this.m_prj);
+
+    // If a rescue library already exists copy the contents of that library so we do not
+    // lose any previous rescues.
+    const row = manager.GetRow(LIBRARY_TABLE_TYPE.SYMBOL, fn.name);
+
+    if (row) {
+      if (SCH_IO_MGR.EnumFromStr(row.Type()) === SCH_FILE_T.SCH_KICAD)
+        fn.ext = KiCadSymbolLibFileExtension;
+
+      for (const symbol of adapter.GetSymbols(fn.name))
+        this.m_rescueLibSymbols.push(LIB_SYMBOL.copyOf(symbol));
+    }
+  }
+
+  WriteRescueLibrary(_aParent: SCH_EDIT_FRAME): boolean {
+    const manager = Pgm().GetLibraryManager();
+    const fn = GetRescueLibraryFileName(this.m_schematic);
+    const optRow = manager.GetRow(LIBRARY_TABLE_TYPE.SYMBOL, fn.name);
+
+    fn.ext = KiCadSymbolLibFileExtension;
+
+    try {
+      const pi = SCH_IO_MGR.FindPlugin(SCH_FILE_T.SCH_KICAD)!;
+
+      for (const symbol of this.m_rescueLibSymbols)
+        pi.SaveSymbol(fullPathOf(fn), LIB_SYMBOL.copyOf(symbol), this.m_properties);
+
+      pi.SaveLibrary(fullPathOf(fn));
+    } catch (ioe) {
+      if (!(ioe instanceof IO_ERROR)) throw ioe;
+
+      DisplayErrorMessage(`Failed to save rescue library ${fullPathOf(fn)}.`, ioe.message);
+      return false;
+    }
+
+    // If the rescue library already exists in the symbol library table no need save it to add
+    // it to the table.
+    if (!optRow || SCH_IO_MGR.EnumFromStr(optRow.Type()) === SCH_FILE_T.SCH_LEGACY) {
+      const uri = `\${KIPRJMOD}/${fn.name}.${fn.ext}`;
+      const libNickname = fn.name;
+
+      const projectTable = manager.Table(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.PROJECT);
+
+      if (!projectTable) return false; // wxCHECK
+
+      const row = projectTable.Row(libNickname) ?? projectTable.InsertRow();
+
+      row.SetNickname(libNickname);
+      row.SetURI(uri);
+      row.SetType('KiCad');
+
+      const saved = projectTable.Save();
+
+      if (!saved.ok) {
+        // wxMessageBox( …, _( "File Save Error" ), wxOK | wxICON_ERROR )
+        DisplayErrorMessage(`Error saving library table:\n\n${saved.error.message}`);
+        return false;
+      }
+    }
+
+    // Update the schematic symbol library links since the library list has changed.
+    const schematic = new SCH_SCREENS(this.m_schematic.Root());
+    schematic.UpdateSymbolLinks();
+    return true;
+  }
+
+  AddSymbol(aNewSymbol: LIB_SYMBOL): void {
+    this.m_rescueLibSymbols.push(LIB_SYMBOL.copyOf(aNewSymbol));
+  }
+}
+

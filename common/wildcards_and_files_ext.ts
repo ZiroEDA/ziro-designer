@@ -260,6 +260,9 @@ export const KiCadSchematicFileExtension = 'kicad_sch';
 
 /** `FILEEXT::KiCadSymbolLibFileExtension`. [data] */
 export const KiCadSymbolLibFileExtension = 'kicad_sym';
+
+/** `FILEEXT::LegacySymbolLibFileExtension`. [data] */
+export const LegacySymbolLibFileExtension = 'lib';
 /** `FILEEXT::KiCadPcbFileExtension`. [data] */
 export const KiCadPcbFileExtension = 'kicad_pcb';
 /** `FILEEXT::JsonFileExtension`. [data] */

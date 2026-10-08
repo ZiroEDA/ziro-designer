@@ -71,6 +71,7 @@ import { IO_ERROR } from '@ziroeda/common/exceptions.js';
 import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { SymbolLibAdapter } from '../project_sch.js';
 import { SCH_IO_MGR } from '../sch_io/sch_io_mgr.js';
+import { RESCUER, SYMBOL_LIB_TABLE_RESCUER } from '../project_rescue.js';
 import { SCH_BITMAP } from '../sch_bitmap.js';
 import type { SCH_LINE } from '../sch_line.js';
 import type { SCH_SHAPE } from '../sch_shape.js';
@@ -824,6 +825,60 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     }
 
     return 0;
+  }
+
+  /** `RescueSymbols( aEvent )` (sch_editor_control.cpp:533): the rescuer the schematic's ids call for. */
+  *RescueSymbols(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const schematic = new SCH_SCREENS(this.m_frame!.Schematic().Root());
+
+    if (schematic.HasNoFullyDefinedLibIds())
+      yield* this.RunMainStackModal(() => this.RescueLegacyProject(true));
+    else yield* this.RunMainStackModal(() => this.RescueSymbolLibTableProject(true));
+
+    return 0;
+  }
+
+  /**
+   * `RescueLegacyProject( aRunningOnDemand )`: LEGACY_RESCUER, for a schematic with no library
+   * nicknames, is not ported (project_rescue.ts says why); there is nothing to rescue with.
+   */
+  async RescueLegacyProject(_aRunningOnDemand: boolean): Promise<boolean> {
+    return false;
+  }
+
+  /** `RescueSymbolLibTableProject( aRunningOnDemand )`. */
+  RescueSymbolLibTableProject(aRunningOnDemand: boolean): Promise<boolean> {
+    const rescuer = new SYMBOL_LIB_TABLE_RESCUER(
+      this.m_frame!.Prj(),
+      this.m_frame!.Schematic(),
+      this.m_frame!.GetCurrentSheet(),
+    );
+
+    return this.rescueProject(rescuer, aRunningOnDemand);
+  }
+
+  /** `rescueProject( aRescuer, aRunningOnDemand )` (sch_editor_control.cpp:564). */
+  private async rescueProject(aRescuer: RESCUER, aRunningOnDemand: boolean): Promise<boolean> {
+    if (!(await RESCUER.RescueProject(this.m_frame!, aRescuer, aRunningOnDemand))) return false;
+
+    if (aRescuer.GetCandidateCount()) {
+      // `Kiway().Player( FRAME_SCH_VIEWER, false )->ReCreateLibList()`: the symbol viewer is not a
+      // KIWAY player here yet; it rebuilds its list from the libraries when it is next shown.
+
+      if (aRunningOnDemand) {
+        const schematic = new SCH_SCREENS(this.m_frame!.Schematic().Root());
+
+        schematic.UpdateSymbolLinks();
+        this.m_frame!.RecalculateConnections(null, SCH_CLEANUP_FLAGS.GLOBAL_CLEANUP);
+      }
+
+      this.m_frame!.ClearUndoRedoList();
+      this.m_frame!.SyncView();
+      this.m_frame!.GetCanvas()?.Refresh();
+      this.m_frame!.OnModify();
+    }
+
+    return true;
   }
 
   *RemapSymbols(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
@@ -2463,9 +2518,10 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     this.Go(this.ImportFPAssignments, SCH_ACTIONS.importFPAssignments.MakeEvent());
 
-    // Not ported yet, in KiCad's order: RescueSymbols,
+    // Not ported yet, in KiCad's order:
     // ImportNonKicadSchematic, DrawSheetOnClipboard. Left out, as the simulator is: SimProbe,
     // SimTune, MarkSimExclusions, ToggleOPVoltages, ToggleOPCurrents.
+    this.Go(this.RescueSymbols, SCH_ACTIONS.rescueSymbols.MakeEvent());
     this.Go(this.ExportSymbolsToLibrary, SCH_ACTIONS.exportSymbolsToLibrary.MakeEvent());
     this.Go(this.ShowSchematicSetup, SCH_ACTIONS.schematicSetup.MakeEvent());
     this.Go(this.PageSetup, ACTIONS.pageSettings.MakeEvent());
