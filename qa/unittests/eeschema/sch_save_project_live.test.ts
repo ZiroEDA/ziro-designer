@@ -10,6 +10,8 @@ import { resolve } from 'node:path';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { MEMORY_FILESYSTEM, wxMountFileSystem } from '@ziroeda/common/wx/filefn.js';
+import { SetErrorPresenter } from '@ziroeda/common/confirm.js';
+import { SEXPR_SCHEMATIC_FILE_VERSION } from '@ziroeda/eeschema/sch_file_versions.js';
 import type { SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
 import { SCH_ACTIONS } from '@ziroeda/eeschema/tools/sch_actions.js';
@@ -35,8 +37,15 @@ const flush = async () => {
 
 function mount(aAt: string) {
   const fs = new MEMORY_FILESYSTEM();
+  let writes = 0;
+  const write = fs.Write.bind(fs);
+  fs.Write = (aRel, aData) => {
+    writes++;
+    write(aRel, aData);
+  };
   unmounts.push(wxMountFileSystem(aAt, fs));
   return {
+    writes: () => writes,
     text: (aRel: string) => {
       const b = fs.Read(aRel);
       return b ? new TextDecoder().decode(b) : null;
@@ -79,20 +88,27 @@ describe('saving the schematic', () => {
     expect(h.frame.GetScreen()!.IsContentModified()).toBe(false);
   });
 
-  it('an unmodified schematic is not written again', async () => {
+  it('a second Save rewrites the sheets (upstream too) but not the unchanged project files', async () => {
+    // SaveProject checks `fn.FileExists()` for Root()'s file name, and Root() is the virtual root
+    // sheet, whose name is empty: the project folder is no file, so every Save writes the sheets,
+    // modified or not, and the `!IsContentModified()` return is never reached. That is 10.0.6.
     const disk = mount('/complex_hierarchy');
     const h = setUp();
-    for (const sheet of h.frame.Schematic().Hierarchy())
+    for (const sheet of h.frame.Schematic().Hierarchy()) {
       sheet.LastScreen()!.SetContentModified(false);
+      sheet.LastScreen()!.SetFileFormatVersionAtLoad(SEXPR_SCHEMATIC_FILE_VERSION);
+    }
+    expect(h.frame.Schematic().Root().GetFileName()).toBe('');
+
+    h.mgr.RunAction(ACTIONS.save);
+    await flush();
+    const writes = disk.writes();
 
     h.mgr.RunAction(ACTIONS.save);
     await flush();
 
-    // The file did not exist in the mount, so this one save does happen; then nothing more.
-    const first = disk.list();
-    h.mgr.RunAction(ACTIONS.save);
-    await flush();
-    expect(disk.list()).toEqual(first);
+    // The two .kicad_sch again; the .kicad_pro and .kicad_prl are unchanged and skipped.
+    expect(disk.writes() - writes).toBe(2);
   });
 
   it('a folder no writable mount covers is an error, and the sheet stays modified', async () => {
@@ -123,6 +139,37 @@ describe('saving the schematic', () => {
     expect(h.frame.Prj().GetProjectFullName()).toBe(
       '/complex_hierarchy/complex_hierarchy.kicad_pro',
     );
+  });
+
+  it('an existing folder that is not writable is "Insufficient permissions", before any write', async () => {
+    const errors: string[] = [];
+    SetErrorPresenter((aText) => errors.push(aText));
+    // A mount that answers for the folder but keeps no bytes: a folder without write permission.
+    unmounts.push(
+      wxMountFileSystem('/complex_hierarchy', { FileExists: () => false, DirExists: () => true }),
+    );
+    const h = setUp({ displayError: (m) => errors.push(m) });
+
+    const saved = h.frame.saveSchematicFile(
+      h.frame.GetCurrentSheet().Last()!,
+      '/complex_hierarchy/complex_hierarchy.kicad_sch',
+    );
+
+    expect(saved).toBe(false);
+    expect(errors).toEqual([
+      "Insufficient permissions to save file '/complex_hierarchy/complex_hierarchy.kicad_sch'.",
+    ]);
+  });
+
+  it('SaveProject answers false when Save As is cancelled, true when an unmodified project needs nothing', async () => {
+    mount('/complex_hierarchy');
+    const h = setUp({ fileDialog: () => null });
+    await h.frame.SaveProject();
+    for (const sheet of h.frame.Schematic().Hierarchy())
+      sheet.LastScreen()!.SetContentModified(false);
+
+    expect(await h.frame.SaveProject(true)).toBe(false);
+    expect(await h.frame.SaveProject()).toBe(true);
   });
 
   it('a cancelled Save As writes nothing', async () => {
@@ -171,6 +218,9 @@ describe('saving the schematic', () => {
   it('Revert answered No keeps the edit', async () => {
     mount('/complex_hierarchy');
     const h = setUp({ isOK: () => false });
+    // Saved first, so a revert that went ahead would have files to reload.
+    h.mgr.RunAction(ACTIONS.save);
+    await flush();
     const t = edit(h, 'ZQX kept');
 
     h.mgr.RunAction(ACTIONS.revert);

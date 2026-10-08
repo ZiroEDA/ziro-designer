@@ -432,8 +432,10 @@ export abstract class EDA_BASE_FRAME
 
     if (dir === '') return false; // wxCHECK: "File name object path is not set.  Bad programmer!"
 
-    if (wxDirExists(aFileName) && !wxIsDirWritable(aFileName))
-      msg = `Insufficient permissions to folder '${dir}'.`;
+    // `fn.IsDir()`: the name has no file part (wxFileName's notion, not the file system's).
+    const isDir = aFileName.endsWith('/');
+
+    if (isDir && !wxIsDirWritable(dir)) msg = `Insufficient permissions to folder '${dir}'.`;
     else if (!wxFileExists(aFileName) && !wxIsDirWritable(dir))
       msg = `Insufficient permissions to save file '${aFileName}'.`;
     else if (wxFileExists(aFileName) && !wxIsDirWritable(dir))
