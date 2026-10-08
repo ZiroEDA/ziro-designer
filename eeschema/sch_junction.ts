@@ -10,6 +10,15 @@
  */
 
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import {
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  TYPE_CAST,
+  TYPE_COLOR4D,
+  TYPE_INT,
+  TYPE_STRING,
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 import { SKIP_STRUCT, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import {
@@ -316,3 +325,33 @@ export class SCH_JUNCTION extends SCH_ITEM {
     return samePt(this.m_pos, aPosition);
   }
 }
+
+/**
+ * `static struct SCH_JUNCTION_DESC` (eeschema/sch_junction.cpp:369).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_JUNCTION);
+  propMgr.InheritsAfter(SCH_JUNCTION, SCH_ITEM);
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_JUNCTION, number>(
+      SCH_JUNCTION,
+      'Diameter',
+      'SetDiameter',
+      'GetDiameter',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_JUNCTION, Color4d>(
+      SCH_JUNCTION,
+      'Color',
+      'SetColor',
+      'GetColor',
+      TYPE_COLOR4D,
+    ),
+  );
+})();

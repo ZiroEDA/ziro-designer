@@ -10,6 +10,8 @@
  */
 
 import { EDA_GROUP } from '@ziroeda/common/eda_group.js';
+import { PROPERTY, TYPE_CAST, TYPE_STRING } from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 import type { EDA_ITEM, INSPECTOR } from '@ziroeda/common/eda_item.js';
 import { IGNORE_PARENT_GROUP, INSPECT_RESULT, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { ENDPOINT, STARTPOINT } from '@ziroeda/common/eda_item_flags.js';
@@ -301,3 +303,25 @@ function getNestedGroup(
 
   return group;
 }
+
+/**
+ * `static struct SCH_GROUP_DESC` (eeschema/sch_group.cpp:447).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_GROUP);
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_GROUP, SCH_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_GROUP, EDA_GROUP));
+  propMgr.InheritsAfter(SCH_GROUP, SCH_ITEM);
+  propMgr.InheritsAfter(SCH_GROUP, EDA_GROUP);
+
+  propMgr.Mask(SCH_GROUP, SCH_ITEM, 'Position X');
+  propMgr.Mask(SCH_GROUP, SCH_ITEM, 'Position Y');
+
+  const groupTab = 'Group Properties';
+
+  propMgr.AddProperty(
+    new PROPERTY<EDA_GROUP, string>(EDA_GROUP, 'Name', 'SetName', 'GetName', TYPE_STRING),
+    groupTab,
+  );
+})();

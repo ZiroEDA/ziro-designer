@@ -9,6 +9,8 @@
  */
 
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { TYPE_CAST } from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 import type { EDA_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -24,6 +26,8 @@ import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { DEFAULT_LINE_WIDTH_MILS } from './default_values.js';
 import { DANGLING_END_ITEM, DANGLING_END_T, type SCH_ITEM } from './sch_item.js';
 import { LABEL_FLAG_SHAPE, SCH_HIERLABEL, SCH_LABEL_BASE, SPIN_STYLE } from './sch_label.js';
+import { SCH_TEXT } from './sch_text.js';
+import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import type { SCH_SHEET } from './sch_sheet.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 
@@ -489,3 +493,17 @@ export class SCH_SHEET_PIN extends SCH_HIERLABEL {
     [this.m_edge, pin.m_edge] = [pin.m_edge, this.m_edge];
   }
 }
+
+/**
+ * `static struct SCH_SHEET_PIN_DESC` (eeschema/sch_sheet_pin.cpp:419).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_SHEET_PIN);
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_SHEET_PIN, SCH_HIERLABEL));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_SHEET_PIN, SCH_LABEL_BASE));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_SHEET_PIN, SCH_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_SHEET_PIN, EDA_TEXT));
+
+  propMgr.InheritsAfter(SCH_SHEET_PIN, SCH_HIERLABEL);
+})();

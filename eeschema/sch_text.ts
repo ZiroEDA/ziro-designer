@@ -11,6 +11,13 @@
  */
 
 import { ResolveTextVars } from '@ziroeda/common/common.js';
+import {
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  TYPE_CAST,
+  TYPE_INT,
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 import type { EDA_ITEM, OutStr } from '@ziroeda/common/eda_item.js';
 import { SKIP_STRUCT, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
 import type { EDA_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
@@ -576,3 +583,35 @@ export class SCH_TEXT extends SCH_ITEM {
 }
 
 applyMixins(SCH_TEXT, [EDA_TEXT]);
+
+/**
+ * `static struct SCH_TEXT_DESC` (eeschema/sch_text.cpp:760).
+ */
+(() => {
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_TEXT);
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_TEXT, SCH_ITEM));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_TEXT, EDA_TEXT));
+  propMgr.InheritsAfter(SCH_TEXT, SCH_ITEM);
+  propMgr.InheritsAfter(SCH_TEXT, EDA_TEXT);
+
+  propMgr.Mask(SCH_TEXT, EDA_TEXT, 'Mirrored');
+  propMgr.Mask(SCH_TEXT, EDA_TEXT, 'Width');
+  propMgr.Mask(SCH_TEXT, EDA_TEXT, 'Height');
+  propMgr.Mask(SCH_TEXT, EDA_TEXT, 'Thickness');
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_TEXT, number>(
+      SCH_TEXT,
+      'Text Size',
+      'SetSchTextSize',
+      'GetSchTextSize',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+    'Text Properties',
+  );
+
+  // Orientation is exposed differently in schematic; mask the base for now
+  propMgr.Mask(SCH_TEXT, EDA_TEXT, 'Orientation');
+})();
