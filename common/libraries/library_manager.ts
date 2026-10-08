@@ -40,6 +40,28 @@ import {
 export class LIBRARY_MANAGER {
   private readonly m_tables = new Map<LIBRARY_TABLE_TYPE, LIBRARY_TABLE>();
   private readonly m_projectTables = new Map<LIBRARY_TABLE_TYPE, LIBRARY_TABLE>();
+  private readonly m_adapters = new Map<LIBRARY_TABLE_TYPE, LIBRARY_MANAGER_ADAPTER>();
+
+  /** `RegisterAdapter( aType, aAdapter )`: once per type. */
+  RegisterAdapter(aType: LIBRARY_TABLE_TYPE, aAdapter: LIBRARY_MANAGER_ADAPTER): void {
+    // wxCHECK_MSG: "You should only register an adapter once!"
+    if (this.m_adapters.has(aType)) return;
+
+    this.m_adapters.set(aType, aAdapter);
+  }
+
+  /** `RemoveAdapter( aType, aAdapter )`: only the adapter registered for the type. */
+  RemoveAdapter(aType: LIBRARY_TABLE_TYPE, aAdapter: LIBRARY_MANAGER_ADAPTER): boolean {
+    if (this.m_adapters.get(aType) !== aAdapter) return false;
+
+    this.m_adapters.delete(aType);
+    return true;
+  }
+
+  /** `Adapter( aType )`: the registered adapter, if any. */
+  Adapter(aType: LIBRARY_TABLE_TYPE): LIBRARY_MANAGER_ADAPTER | undefined {
+    return this.m_adapters.get(aType);
+  }
 
   /** Install (or with null, drop) the table of \a aType in \a aScope. */
   SetTable(
@@ -143,6 +165,9 @@ export interface LIB_DATA {
   plugin: unknown;
   row: LIBRARY_TABLE_ROW;
   status: LIB_STATUS;
+  /** The plugin's modify hash when `available_fields_cache` was filled. */
+  modify_hash?: number;
+  available_fields_cache?: string[];
 }
 
 /** `LIBRARY_MANAGER_ADAPTER`. */
@@ -281,6 +306,54 @@ export abstract class LIBRARY_MANAGER_ADAPTER {
 
       try {
         return plugin.DeleteLibrary(this.getUri(result.value.row));
+      } catch {
+        return false;
+      }
+    }
+
+    return false;
+  }
+
+  /** `ProjectTable()`: this type's project library table, if there is one. */
+  ProjectTable(): LIBRARY_TABLE | null {
+    return this.m_manager?.Table(this.Type(), LIBRARY_TABLE_SCOPE.PROJECT) ?? null;
+  }
+
+  /** `GetRow( aNickname, aScope )` (:1369-1373): this type's row of that nickname. */
+  GetRow(
+    aNickname: string,
+    aScope: LIBRARY_TABLE_SCOPE = LIBRARY_TABLE_SCOPE.BOTH,
+  ): LIBRARY_TABLE_ROW | null {
+    return this.m_manager?.GetRow(this.Type(), aNickname, aScope) ?? null;
+  }
+
+  /** `IsWritable( aNickname )` (:1592-1606): the loaded library's plugin says it can be written. */
+  IsWritable(aNickname: string): boolean {
+    const rowData = this.fetchIfLoaded(aNickname);
+
+    if (rowData) {
+      const plugin = rowData.plugin as { IsLibraryWritable(aPath: string): boolean };
+
+      return plugin.IsLibraryWritable(this.getUri(rowData.row));
+    }
+
+    return false;
+  }
+
+  /** `CreateLibrary( aNickname )` (:1609-1640): the plugin makes the row's (empty) library. */
+  CreateLibrary(aNickname: string): boolean {
+    const result = this.loadIfNeeded(aNickname);
+
+    if (result.ok) {
+      const data = result.value;
+      const options = data.row.GetOptionsMap();
+      const plugin = data.plugin as {
+        CreateLibrary(aPath: string, aProperties: ReadonlyMap<string, string>): void;
+      };
+
+      try {
+        plugin.CreateLibrary(this.getUri(data.row), options);
+        return true;
       } catch {
         return false;
       }

@@ -14,12 +14,14 @@
  *
  * `SchSearchS` (the Eeschema search stack) has no port — there is no
  * filesystem search path to resolve in a browser, every file is already in
- * hand. `SymbolLibAdapter` has no separate module either: the library a
- * symbol id names is resolved through the ordinary library-loading path
- * (`loadSymbol`/`repairSourceLibs`), not a cached per-project adapter object.
+ * hand. `SymbolLibAdapter` is ported as {@link SymbolLibAdapter}.
  */
 
 import type { LibSymbol } from './types.js';
+import { LIBRARY_TABLE_TYPE } from '@ziroeda/common/libraries/library_table.js';
+import { Pgm } from '@ziroeda/common/pgm_base.js';
+import type { PROJECT } from '@ziroeda/common/project.js';
+import { SYMBOL_LIBRARY_ADAPTER } from './libraries/symbol_library_adapter.js';
 import {
   legacyCacheFileNames,
   readLegacySymbolLibrary,
@@ -60,4 +62,21 @@ export function legacySchLibs(
     console.warn(`Symbol library '${file.name}' failed to load.`, e);
     return new Map();
   }
+}
+
+/**
+ * `PROJECT_SCH::SymbolLibAdapter( aProject )` (project_sch.cpp:133): the library manager's symbol
+ * adapter, registered on first ask.
+ */
+export function SymbolLibAdapter(_aProject: PROJECT | null): SYMBOL_LIBRARY_ADAPTER {
+  const mgr = Pgm().GetLibraryManager();
+  const adapter = mgr.Adapter(LIBRARY_TABLE_TYPE.SYMBOL);
+
+  if (!adapter) {
+    const created = new SYMBOL_LIBRARY_ADAPTER(mgr);
+    mgr.RegisterAdapter(LIBRARY_TABLE_TYPE.SYMBOL, created);
+    return created;
+  }
+
+  return adapter as SYMBOL_LIBRARY_ADAPTER;
 }

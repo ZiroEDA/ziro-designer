@@ -12,13 +12,9 @@ import { currentEeschemaSettings, type EeschemaSettings } from './eeschema_setti
 import type { SCH_EDIT_FRAME } from './sch_edit_frame.js';
 import { SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';
 import { DisplayErrorMessage, DisplayInfoMessage } from '@ziroeda/common/confirm.js';
-import {
-  LIBRARY_TABLE,
-  LIBRARY_TABLE_SCOPE,
-  LIBRARY_TABLE_TYPE,
-} from '@ziroeda/common/libraries/library_table.js';
-import type { LIBRARY_TABLE_ROW } from '@ziroeda/common/libraries/library_table.js';
+import { LIBRARY_TABLE, LIBRARY_TABLE_SCOPE } from '@ziroeda/common/libraries/library_table.js';
 import { Pgm } from '@ziroeda/common/pgm_base.js';
+import { SymbolLibAdapter } from './project_sch.js';
 import {
   wxCANCEL,
   wxCANCEL_DEFAULT,
@@ -108,19 +104,6 @@ export interface LOAD_SHEET_QUESTION_ARG {
   extended?: string;
   okLabel?: string;
   cancelLabel?: string;
-}
-
-/**
- * `PROJECT_SCH::SymbolLibAdapter( &Prj() )`'s row lookups as LoadSheetFromFile uses them, over
- * LIBRARY_MANAGER's symbol tables: the project table first, then the global one.
- */
-function symbolLibRow(aNickname: string): LIBRARY_TABLE_ROW | undefined {
-  const mgr = Pgm().GetLibraryManager();
-
-  return (
-    mgr.Table(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.PROJECT)?.Row(aNickname) ??
-    mgr.Table(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.GLOBAL)?.Row(aNickname)
-  );
 }
 
 export class SCH_SHEET_MIXIN {
@@ -250,9 +233,8 @@ export class SCH_SHEET_MIXIN {
       }
     }
 
-    const projectTable = Pgm()
-      .GetLibraryManager()
-      .Table(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.PROJECT);
+    const adapter = SymbolLibAdapter(this.Prj());
+    const projectTable = adapter.ProjectTable();
 
     const loadedSheets = SCH_SHEET_LIST.build(tmpSheet);
     this.Schematic().RefreshHierarchy();
@@ -310,7 +292,7 @@ export class SCH_SHEET_MIXIN {
         // links may not be available.  Even this is check is no guarantee that all symbol
         // library links are valid but it's better than nothing.
         for (const name of names) {
-          if (!symbolLibRow(name)) newLibNames.push(name);
+          if (!SymbolLibAdapter(this.Prj()).HasLibrary(name)) newLibNames.push(name);
         }
 
         if (newLibNames.length > 0) {
@@ -340,7 +322,7 @@ export class SCH_SHEET_MIXIN {
         const duplicateLibNames: string[] = [];
 
         for (const name of names) {
-          if (!symbolLibRow(name)) newLibNames.push(name);
+          if (!SymbolLibAdapter(this.Prj()).HasLibrary(name)) newLibNames.push(name);
           else duplicateLibNames.push(name);
         }
 
@@ -417,7 +399,9 @@ export class SCH_SHEET_MIXIN {
           let libNameConflict = false;
 
           for (const duplicateLibName of duplicateLibNames) {
-            const thisRow = symbolLibRow(duplicateLibName) ?? null;
+            const thisRow = adapter.HasLibrary(duplicateLibName)
+              ? adapter.GetRow(duplicateLibName)
+              : null;
             const otherRow = table.HasRow(duplicateLibName)
               ? (table.Row(duplicateLibName) ?? null)
               : null;
@@ -466,7 +450,7 @@ export class SCH_SHEET_MIXIN {
         // symbol library table.
         if (newLibNames.length > 0 && table.Rows().length > 0) {
           for (const libName of newLibNames) {
-            if (!table.HasRow(libName) || symbolLibRow(libName)) continue;
+            if (!table.HasRow(libName) || adapter.HasLibrary(libName)) continue;
 
             const row = table.Row(libName)!;
 

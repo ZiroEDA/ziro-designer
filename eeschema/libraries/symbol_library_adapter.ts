@@ -22,6 +22,27 @@
  * `libraryHosts.ts` or `widgets/library_loading.ts` directly.
  */
 import { parse } from '@ziroeda/sexpr';
+import { ENV_VAR } from '@ziroeda/common/env_vars.js';
+import { IO_ERROR } from '@ziroeda/common/exceptions.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import {
+  type LIB_DATA,
+  type LIB_STATUS,
+  type LIBRARY_MANAGER,
+  LIBRARY_MANAGER_ADAPTER,
+  LOAD_STATUS,
+} from '@ziroeda/common/libraries/library_manager.js';
+import {
+  LIBRARY_ERROR,
+  type LIBRARY_RESULT,
+  LIBRARY_TABLE_OK,
+  type LIBRARY_TABLE_ROW,
+  LIBRARY_TABLE_TYPE,
+} from '@ziroeda/common/libraries/library_table.js';
+import { wxFileExists } from '@ziroeda/common/wx/filefn.js';
+import type { LIB_SYMBOL } from '../lib_symbol.js';
+import { PropPowerSymsOnly } from '../sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
+import { SCH_FILE_T, type SCH_IO, SCH_IO_MGR } from '../sch_io/sch_io_mgr.js';
 import { readSymbolLib } from '../sch_io/sexpr/read-schematic.js';
 import type { LibSymbol } from '../types.js';
 import { Reporter } from '@ziroeda/common/reporter.js';
@@ -458,4 +479,274 @@ export function symbolSearchTerms(sym: LibSymbol): SearchTerm[] {
 function splitLibId(libId: string): [string, string] {
   const at = libId.indexOf(':');
   return at < 0 ? ['', libId] : [libId.slice(0, at), libId.slice(at + 1)];
+}
+
+/** `SUB_LIBRARY` (libraries/symbol_library_adapter.h). */
+export interface SUB_LIBRARY {
+  nickname: string;
+  description: string;
+}
+
+/** `SYMBOL_LIBRARY_ADAPTER::SYMBOL_TYPE`. */
+export enum SYMBOL_TYPE {
+  ALL_SYMBOLS,
+  POWER_ONLY,
+}
+
+/** `SYMBOL_LIBRARY_ADAPTER::SAVE_T`. */
+export enum SAVE_T {
+  SAVE_OK,
+  SAVE_SKIPPED,
+}
+
+/**
+ * `SYMBOL_LIBRARY_ADAPTER` (libraries/symbol_library_adapter.cpp): the symbol libraries of the
+ * library tables, each read through its SCH_IO plugin.
+ */
+export class SYMBOL_LIBRARY_ADAPTER extends LIBRARY_MANAGER_ADAPTER {
+  static readonly PropPowerSymsOnly = PropPowerSymsOnly;
+  static readonly PropNonPowerSymsOnly = 'non_pwr_sym_only';
+
+  // biome-ignore lint/complexity/noUselessConstructor: SYMBOL_LIBRARY_ADAPTER( LIBRARY_MANAGER& aManager )
+  constructor(aManager: LIBRARY_MANAGER) {
+    super(aManager);
+  }
+
+  Type(): LIBRARY_TABLE_TYPE {
+    return LIBRARY_TABLE_TYPE.SYMBOL;
+  }
+
+  static GlobalPathEnvVariableName(): string {
+    return ENV_VAR.GetVersionedEnvVarName('SYMBOL_DIR');
+  }
+
+  private static schplugin(aRow: LIB_DATA): SCH_IO {
+    return aRow.plugin as SCH_IO;
+  }
+
+  /** `LoadOne( LIB_DATA* aLib )` and `LoadOne( const wxString& aNickname )`: load or reload a library. */
+  LoadOne(aLib: LIB_DATA | string): LIB_STATUS | undefined {
+    if (typeof aLib === 'string') {
+      const result = this.loadIfNeeded(aLib);
+
+      if (result.ok) return this.LoadOne(result.value);
+
+      return {
+        load_status: LOAD_STATUS.LOAD_ERROR,
+        error: new LIBRARY_ERROR(result.error.message),
+      };
+    }
+
+    aLib.status.load_status = LOAD_STATUS.LOADING;
+
+    const options = aLib.row.GetOptionsMap();
+
+    try {
+      const dummyList: string[] = [];
+      SYMBOL_LIBRARY_ADAPTER.schplugin(aLib).EnumerateSymbolLib(
+        dummyList,
+        this.getUri(aLib.row),
+        options,
+      );
+      aLib.status.load_status = LOAD_STATUS.LOADED;
+    } catch (e) {
+      if (!(e instanceof IO_ERROR)) throw e;
+
+      aLib.status.load_status = LOAD_STATUS.LOAD_ERROR;
+      aLib.status.error = new LIBRARY_ERROR(e.message);
+    }
+
+    return aLib.status;
+  }
+
+  protected createPlugin(aRow: LIBRARY_TABLE_ROW): LIBRARY_RESULT<unknown> {
+    const type = SCH_IO_MGR.EnumFromStr(aRow.Type());
+
+    if (type === SCH_FILE_T.SCH_NESTED_TABLE) {
+      if (wxFileExists(this.m_manager!.GetFullURI(aRow, true)))
+        return { ok: false, error: new LIBRARY_TABLE_OK() };
+
+      return { ok: false, error: new LIBRARY_ERROR(`Nested table '${aRow.URI()}' not found.`) };
+    } else if (type === SCH_FILE_T.SCH_FILE_UNKNOWN) {
+      return { ok: false, error: new LIBRARY_ERROR(`Unknown library type ${aRow.Type()} `) };
+    }
+
+    const plugin = SCH_IO_MGR.FindPlugin(type);
+
+    if (!plugin) return { ok: false, error: new LIBRARY_ERROR('Internal error') }; // wxCHECK
+
+    return { ok: true, value: plugin };
+  }
+
+  GetSymbols(aNickname: string, aType = SYMBOL_TYPE.ALL_SYMBOLS): LIB_SYMBOL[] {
+    const symbols: LIB_SYMBOL[] = [];
+    const lib = this.fetchIfLoaded(aNickname);
+
+    if (!lib) return symbols;
+
+    const options = lib.row.GetOptionsMap();
+
+    if (aType === SYMBOL_TYPE.POWER_ONLY) options.set(PropPowerSymsOnly, '');
+
+    try {
+      SYMBOL_LIBRARY_ADAPTER.schplugin(lib).EnumerateSymbolLibSymbols(
+        symbols,
+        this.getUri(lib.row),
+        options,
+      );
+    } catch (e) {
+      if (!(e instanceof IO_ERROR)) throw e;
+    }
+
+    for (const symbol of symbols) {
+      const id = symbol.GetLibId();
+      id.SetLibNickname(lib.row.Nickname());
+      symbol.SetLibId(id);
+    }
+
+    return symbols;
+  }
+
+  GetSymbolNames(aNickname: string, aType = SYMBOL_TYPE.ALL_SYMBOLS): string[] {
+    const names: string[] = [];
+    const lib = this.fetchIfLoaded(aNickname);
+
+    if (lib) {
+      const options = lib.row.GetOptionsMap();
+
+      if (aType === SYMBOL_TYPE.POWER_ONLY) options.set(PropPowerSymsOnly, '');
+
+      try {
+        SYMBOL_LIBRARY_ADAPTER.schplugin(lib).EnumerateSymbolLib(
+          names,
+          this.getUri(lib.row),
+          options,
+        );
+      } catch (e) {
+        if (!(e instanceof IO_ERROR)) throw e;
+      }
+    }
+
+    return names;
+  }
+
+  /** `LoadSymbol( aNickname, aName )` and `LoadSymbol( const LIB_ID& )`. */
+  LoadSymbol(aNickname: string | LIB_ID, aName?: string): LIB_SYMBOL | null {
+    if (aNickname instanceof LIB_ID)
+      return this.LoadSymbol(aNickname.GetLibNickname(), aNickname.GetLibItemName());
+
+    const lib = this.fetchIfLoaded(aNickname);
+
+    if (lib) {
+      const symbol = SYMBOL_LIBRARY_ADAPTER.schplugin(lib).LoadSymbol(
+        this.getUri(lib.row),
+        aName ?? '',
+      );
+
+      if (symbol) {
+        const id = symbol.GetLibId();
+        id.SetLibNickname(lib.row.Nickname());
+        symbol.SetLibId(id);
+        return symbol;
+      }
+    }
+
+    return null;
+  }
+
+  SaveSymbol(aNickname: string, aSymbol: LIB_SYMBOL | null, aOverwrite = true): SAVE_T {
+    if (!aSymbol) return SAVE_T.SAVE_SKIPPED; // wxCHECK
+
+    const libResult = this.loadIfNeeded(aNickname);
+
+    if (!libResult.ok) return SAVE_T.SAVE_SKIPPED;
+
+    const lib = libResult.value;
+    const plugin = SYMBOL_LIBRARY_ADAPTER.schplugin(lib);
+    const options = lib.row.GetOptionsMap();
+
+    if (!aOverwrite) {
+      try {
+        const existing = plugin.LoadSymbol(this.getUri(lib.row), aSymbol.GetName(), options);
+
+        if (existing) return SAVE_T.SAVE_SKIPPED;
+      } catch (e) {
+        if (!(e instanceof IO_ERROR)) throw e;
+
+        return SAVE_T.SAVE_SKIPPED;
+      }
+    }
+
+    try {
+      plugin.SaveSymbol(this.getUri(lib.row), aSymbol, options);
+    } catch (e) {
+      if (!(e instanceof IO_ERROR)) throw e;
+
+      return SAVE_T.SAVE_SKIPPED;
+    }
+
+    return SAVE_T.SAVE_OK;
+  }
+
+  /** `DeleteSymbol`: upstream's is `wxCHECK_MSG( false, …, "Unimplemented!" )`. */
+  DeleteSymbol(_aNickname: string, _aSymbolName: string): void {
+    console.assert(false, 'Unimplemented!');
+  }
+
+  IsSymbolLibWritable(aLib: string): boolean {
+    // Route through fetchIfLoaded() so LOAD_ERROR sentinel entries, which carry a null
+    // plugin, are filtered out instead of dereferenced.
+    const lib = this.fetchIfLoaded(aLib);
+
+    if (lib) return SYMBOL_LIBRARY_ADAPTER.schplugin(lib).IsLibraryWritable(this.getUri(lib.row));
+
+    return false;
+  }
+
+  GetAvailableExtraFields(aNickname: string): string[] {
+    const rowData = this.fetchIfLoaded(aNickname);
+
+    if (rowData) {
+      const hash = SYMBOL_LIBRARY_ADAPTER.schplugin(rowData).GetModifyHash();
+
+      if (hash !== rowData.modify_hash) {
+        rowData.modify_hash = hash;
+        rowData.available_fields_cache = [];
+        SYMBOL_LIBRARY_ADAPTER.schplugin(rowData).GetAvailableSymbolFields(
+          rowData.available_fields_cache,
+        );
+      }
+
+      return rowData.available_fields_cache ?? [];
+    }
+
+    return [];
+  }
+
+  /** `SupportsSubLibraries`: only the database and HTTP plugins have them, neither ported. */
+  SupportsSubLibraries(_aNickname: string): boolean {
+    return false;
+  }
+
+  GetSubLibraries(_aNickname: string): SUB_LIBRARY[] {
+    return [];
+  }
+
+  GetModifyHash(): number {
+    let hash = 0;
+
+    for (const row of this.m_manager?.Rows(this.Type()) ?? []) {
+      const rowData = this.fetchIfLoaded(row.Nickname());
+
+      if (rowData) hash += SYMBOL_LIBRARY_ADAPTER.schplugin(rowData).GetModifyHash();
+    }
+
+    return hash;
+  }
+
+  GetLibraryModifyHash(aNickname: string): number | undefined {
+    const rowData = this.fetchIfLoaded(aNickname);
+
+    return rowData ? SYMBOL_LIBRARY_ADAPTER.schplugin(rowData).GetModifyHash() : undefined;
+  }
 }
