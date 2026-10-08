@@ -33,6 +33,16 @@ import { SYMBOL_FILTER } from '../sch_sheet_path.js';
 import { LINE_MODE, SCH_ACTIONS } from './sch_actions.js';
 import { SCH_SELECTION_TOOL } from './sch_selection_tool.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
+import {
+  SaveClipboard,
+  SetClipboardData,
+  wxDataObjectComposite,
+} from '@ziroeda/common/clipboard.js';
+import { FORMAT_MODE, Prettify } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
+import { STRING_FORMATTER } from '@ziroeda/common/richio.js';
+import { SCH_IO_KICAD_SEXPR } from '../sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
+import type { SCH_SCREEN } from '../sch_screen.js';
+import { GetSelectedItemsAsText } from './sch_tool_utils.js';
 import { SCH_EDIT_TABLE_TOOL } from './sch_edit_table_tool.js';
 import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
@@ -163,6 +173,12 @@ export interface SCH_EDITOR_CONTROL extends SCH_ASSIGN_FOOTPRINTS_MIXIN {}
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_ASSIGN_FOOTPRINTS_MIXIN, see libs/core/mixins.ts)
 export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   private m_probingPcbToSch = false; // Recursion guard for PCB to schematic cross-probing
+  private m_duplicateClipboard = ''; // Temporary storage for Duplicate action
+  private m_duplicateIsHoverSelection = false;
+
+  // A map of sheet filename --> screens for the clipboard contents.  We use these to hook up
+  // cut/paste operations for unsaved sheet content.
+  private readonly m_supplementaryClipboard = new Map<string, SCH_SCREEN>();
   private m_highlightBusMembers = false;
 
   SetHighlightBusMembers(aHighlightBusMembers: boolean): void {
@@ -810,6 +826,107 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     this.m_frame!.SendSelectItemsToPcb(selection.GetItemsSortedBySelectionOrder(), aForce);
   }
 
+  /** `doCopy( aUseDuplicateClipboard )` (sch_editor_control.cpp:1651): copy selection to clipboard or to m_duplicateClipboard. */
+  private doCopy(aUseDuplicateClipboard = false): boolean {
+    const selTool = this.m_toolMgr!.GetTool(SCH_SELECTION_TOOL)!;
+    const selection = selTool.RequestSelection();
+    const schematic = this.m_frame!.Schematic();
+
+    if (selection.Empty()) return false;
+
+    if (aUseDuplicateClipboard) this.m_duplicateIsHoverSelection = selection.IsHover();
+
+    selection.SetScreen(this.m_frame!.GetScreen());
+    this.m_supplementaryClipboard.clear();
+
+    for (const item of selection.GetItems()) {
+      if (item.Type() === KICAD_T.SCH_SHEET_T) {
+        const sheet = item as SCH_SHEET;
+        this.m_supplementaryClipboard.set(sheet.GetFileName(), sheet.GetScreen()!);
+      } else if (item.Type() === KICAD_T.SCH_FIELD_T && selection.IsHover()) {
+        // Most of the time the user is trying to duplicate the parent symbol
+        // and the field text is in it
+        selection.Add(item.GetParent()!);
+      } else if (item.Type() === KICAD_T.SCH_MARKER_T) {
+        // Don't let the markers be copied
+        selection.Remove(item);
+      } else if (item.Type() === KICAD_T.SCH_GROUP_T) {
+        // Groups need to have all their items selected
+        (item as SCH_ITEM).RunOnChildren(
+          (aChild: SCH_ITEM) => selection.Add(aChild),
+          RECURSE_MODE.RECURSE,
+        );
+      }
+    }
+
+    let result = true;
+    const formatter = new STRING_FORMATTER();
+    const plugin = new SCH_IO_KICAD_SEXPR();
+    const selPath = this.m_frame!.GetCurrentSheet();
+
+    plugin.Format(selection, selPath, schematic, formatter, true);
+
+    const prettyData = Prettify(formatter.GetString(), FORMAT_MODE.COMPACT_TEXT_PROPERTIES);
+
+    if (!aUseDuplicateClipboard) {
+      const data = new wxDataObjectComposite();
+
+      // Add KiCad data
+      data.Add('application/kicad', new TextEncoder().encode(prettyData));
+
+      // The bitmap, its HTML wrapper and the SVG (renderSelectionToImageForClipboard,
+      // plotSelectionToSvg) need SCH_ITEM::Plot and the print GAL on the live model, which are
+      // the plotting stage's; until then the clipboard carries the KiCad data and the text.
+
+      // Finally add text data
+      data.text = prettyData;
+
+      result &&= SetClipboardData(data);
+    }
+
+    if (selection.IsHover()) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+    if (aUseDuplicateClipboard) {
+      this.m_duplicateClipboard = prettyData;
+      return true;
+    }
+
+    return result;
+  }
+
+  /** `searchSupplementaryClipboard( aSheetFilename, aScreen )` (sch_editor_control.cpp:1767). */
+  private searchSupplementaryClipboard(aSheetFilename: string): SCH_SCREEN | null {
+    return this.m_supplementaryClipboard.get(aSheetFilename) ?? null;
+  }
+
+  // Cut / Copy / Paste with a text control focused (`wxTextEntry`) never reach the tool: the
+  // window leaves a focused input's clipboard keys to the browser.
+
+  Cut(_aEvent: TOOL_EVENT): number {
+    if (this.doCopy()) this.m_toolMgr!.RunAction(ACTIONS.doDelete);
+
+    return 0;
+  }
+
+  Copy(_aEvent: TOOL_EVENT): number {
+    this.doCopy();
+
+    return 0;
+  }
+
+  CopyAsText(_aEvent: TOOL_EVENT): number {
+    const selTool = this.m_toolMgr!.GetTool(SCH_SELECTION_TOOL)!;
+    const selection = selTool.RequestSelection();
+
+    if (selection.Empty()) return 0; // `return false`
+
+    const itemsAsText = GetSelectedItemsAsText(selection);
+
+    if (selection.IsHover()) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+    return SaveClipboard(itemsAsText) ? 1 : 0;
+  }
+
   Undo(_aEvent: TOOL_EVENT): number {
     if (!this.m_frame) return 0; // wxCHECK
 
@@ -1322,7 +1439,7 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     this.Go(this.ImportFPAssignments, SCH_ACTIONS.importFPAssignments.MakeEvent());
 
-    // Not ported yet, in KiCad's order: RescueSymbols, ExportSymbolsToLibrary, the clipboard,
+    // Not ported yet, in KiCad's order: RescueSymbols, ExportSymbolsToLibrary, Paste and Duplicate,
     // ImportNonKicadSchematic, DrawSheetOnClipboard. Left out, as the simulator is: SimProbe,
     // SimTune, MarkSimExclusions, ToggleOPVoltages, ToggleOPCurrents.
     this.Go(this.ShowSchematicSetup, SCH_ACTIONS.schematicSetup.MakeEvent());
@@ -1340,6 +1457,9 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     this.Go(SYNC_HANDLER(this.Undo), ACTIONS.undo.MakeEvent());
     this.Go(SYNC_HANDLER(this.Redo), ACTIONS.redo.MakeEvent());
+    this.Go(SYNC_HANDLER(this.Cut), ACTIONS.cut.MakeEvent());
+    this.Go(SYNC_HANDLER(this.Copy), ACTIONS.copy.MakeEvent());
+    this.Go(SYNC_HANDLER(this.CopyAsText), ACTIONS.copyAsText.MakeEvent());
 
     this.Go(SYNC_HANDLER(this.GridFeedback), EVENTS.GridChangedByKeyEvent);
 

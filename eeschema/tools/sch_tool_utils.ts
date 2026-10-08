@@ -19,6 +19,14 @@ import { type SCH_REFERENCE, SCH_REFERENCE_LIST } from '../sch_reference_list.js
 import { SYMBOL_FILTER } from '../sch_sheet_path.js';
 import type { SCHEMATIC } from '../schematic.js';
 import type { SCH_PIN } from '../sch_pin.js';
+import type { SCH_FIELD } from '../sch_field.js';
+import type { SCH_GROUP } from '../sch_group.js';
+import type { SCH_ITEM } from '../sch_item.js';
+import type { SCH_SCREEN } from '../sch_screen.js';
+import type { SCH_SHEET } from '../sch_sheet.js';
+import type { SCH_TABLE } from '../sch_table.js';
+import type { SCH_TEXT } from '../sch_text.js';
+import type { SCH_TEXTBOX } from '../sch_textbox.js';
 import { SCH_SYMBOL } from '../sch_symbol.js';
 import type { Schematic, SchSymbol } from '../types.js';
 import { itemRefById, refId } from './hittest.js';
@@ -472,4 +480,127 @@ export function IsUnannotatedUnitOccupied(
   }
 
   return false;
+}
+
+/** `wxString::Trim( false ).Trim( true )`: ASCII whitespace off both ends (wxIsspace). */
+function wxTrim(aText: string): string {
+  return aText.replace(/^[ \t\n\v\f\r]+|[ \t\n\v\f\r]+$/g, '');
+}
+
+/** `GetSchItemAsText( aItem )` (sch_tool_utils.cpp:45): the text an item shows, for Copy as Text. */
+export function GetSchItemAsText(aItem: SCH_ITEM): string {
+  switch (aItem.Type()) {
+    case KICAD_T.SCH_TEXT_T:
+    case KICAD_T.SCH_LABEL_T:
+    case KICAD_T.SCH_HIER_LABEL_T:
+    case KICAD_T.SCH_GLOBAL_LABEL_T:
+    case KICAD_T.SCH_DIRECTIVE_LABEL_T:
+    case KICAD_T.SCH_SHEET_PIN_T: {
+      const text = aItem as unknown as SCH_TEXT;
+      return text.GetShownText(true);
+    }
+
+    case KICAD_T.SCH_FIELD_T: {
+      // Goes via EDA_TEXT
+      const field = aItem as unknown as SCH_FIELD;
+      return field.GetShownText(true);
+    }
+
+    case KICAD_T.SCH_TEXTBOX_T:
+    case KICAD_T.SCH_TABLECELL_T: {
+      // Also EDA_TEXT
+      const textbox = aItem as unknown as SCH_TEXTBOX;
+
+      // Call the correct GetShownText overload with nullptr for settings/path and aDepth=0
+      // This ensures proper variable expansion and escape marker conversion
+      return textbox.GetShownText(null, null, true, 0);
+    }
+
+    case KICAD_T.SCH_PIN_T: {
+      // This is a choice - probably the name makes more sense than the number
+      // (or should it be name/number?)
+      const pin = aItem as unknown as SCH_PIN;
+      return pin.GetShownName();
+    }
+
+    case KICAD_T.SCH_TABLE_T: {
+      // A simple tabbed list of the cells seems like a place to start here
+      const table = aItem as unknown as SCH_TABLE;
+      let s = '';
+
+      for (let row = 0; row < table.GetRowCount(); ++row) {
+        for (let col = 0; col < table.GetColCount(); ++col) {
+          const cell = table.GetCell(row, col)!;
+          s += cell.GetShownText(true);
+
+          if (col < table.GetColCount() - 1) s += '\t';
+        }
+
+        if (row < table.GetRowCount() - 1) s += '\n';
+      }
+
+      return s;
+    }
+
+    default:
+      break;
+  }
+
+  return '';
+}
+
+/** `GetSelectedItemsAsText( aSel )` (sch_tool_utils.cpp:121): one item's text per line. */
+export function GetSelectedItemsAsText(aSel: SELECTION): string {
+  const itemTexts: string[] = [];
+
+  for (const item of aSel) {
+    if (item.IsSCH_ITEM()) {
+      const itemText = wxTrim(GetSchItemAsText(item as SCH_ITEM));
+
+      if (itemText !== '') itemTexts.push(itemText);
+    }
+  }
+
+  // wxJoin( itemTexts, '\n', '\0' ): no escape character.
+  return itemTexts.join('\n');
+}
+
+/** `UniqueSheetName( aScreen, aBaseName )` (sch_tool_utils.cpp:443): case-insensitively unused. */
+export function UniqueSheetName(aScreen: SCH_SCREEN | null, aBaseName: string): string {
+  if (!aScreen) return aBaseName;
+
+  const existing = new Set<string>();
+
+  for (const item of aScreen.Items().OfType(KICAD_T.SCH_SHEET_T))
+    existing.add((item as unknown as SCH_SHEET).GetShownName(false).toLowerCase());
+
+  if (!existing.has(aBaseName.toLowerCase())) return aBaseName;
+
+  for (let n = 1; n < 2147483647; ++n) {
+    const candidate = `${aBaseName}${n}`;
+
+    if (!existing.has(candidate.toLowerCase())) return candidate;
+  }
+
+  return aBaseName;
+}
+
+/** `UniqueGroupName( aScreen, aBaseName )` (sch_tool_utils.cpp:468): a group name the screen lacks. */
+export function UniqueGroupName(aScreen: SCH_SCREEN | null, aBaseName: string): string {
+  if (!aScreen) return aBaseName;
+
+  const existing = new Set<string>();
+
+  for (const item of aScreen.Items().OfType(KICAD_T.SCH_GROUP_T))
+    existing.add((item as unknown as SCH_GROUP).GetName());
+
+  if (!existing.has(aBaseName)) return aBaseName;
+
+  for (let n = 1; n < 2147483647; ++n) {
+    const candidate = `${aBaseName}${n}`;
+
+    if (!existing.has(candidate)) return candidate;
+  }
+
+  return aBaseName;
 }

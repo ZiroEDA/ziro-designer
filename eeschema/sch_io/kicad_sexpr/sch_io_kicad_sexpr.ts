@@ -9,14 +9,15 @@
  * file's text (or null when it does not exist), and a save returns the text.  File paths
  * are POSIX paths.
  *
- * Pending, marked in place: `Format( SCH_SELECTION* … )` (the clipboard; it needs
- * SCH_SELECTION), the symbol-library plugin half (Enumerate/Load/Save/Delete symbol and
+ * Pending, marked in place: the symbol-library plugin half (Enumerate/Load/Save/Delete symbol and
  * library, which ride on the library table), the progress reporter, and the group
  * sanity-check user query.
  */
 
 import { GetMajorMinorVersion } from '@ziroeda/common/build_version.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import type { SCH_ITEM } from '../../sch_item.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { FormatAngle, FormatInternalUnits, schIUScale } from '@ziroeda/common/eda_units.js';
 import { GENERATOR } from '@ziroeda/common/generator.js';
@@ -132,6 +133,11 @@ export const PosixPath = {
 /**
  * A #SCH_IO derivation for loading 6.x+ s-expression schematic files.
  */
+/** What `Format( SCH_SELECTION* … )` reads of an SCH_SELECTION: its items and their screen. */
+export interface SELECTION_FOR_FORMAT extends Iterable<EDA_ITEM> {
+  GetScreen(): SCH_SCREEN | null;
+}
+
 export class SCH_IO_KICAD_SEXPR {
   /// Property the library cache reads to buffer writes.
   static readonly PropBuffering = 'buffering';
@@ -403,8 +409,165 @@ export class SCH_IO_KICAD_SEXPR {
     this.m_out = null;
   }
 
+  /**
+   * `Format( aSelection, aSelectionPath, aSchematic, aFormatter, aForClipboard )`
+   * (sch_io_kicad_sexpr.cpp:547): the selected items, with the library symbols the selected
+   * symbols use, as the clipboard holds them.
+   */
+  Format(
+    aSelection: SELECTION_FOR_FORMAT,
+    aSelectionPath: SCH_SHEET_PATH,
+    aSchematic: SCHEMATIC,
+    aFormatter: OUTPUTFORMATTER,
+    aForClipboard: boolean,
+  ): void;
   /** Format \a aSheet's screen. */
-  Format(aSheet: SCH_SHEET): void {
+  Format(aSheet: SCH_SHEET): void;
+  Format(
+    a: SCH_SHEET | SELECTION_FOR_FORMAT,
+    aSelectionPath?: SCH_SHEET_PATH,
+    aSchematic?: SCHEMATIC,
+    aFormatter?: OUTPUTFORMATTER,
+    aForClipboard = false,
+  ): void {
+    if (aSelectionPath) {
+      this.formatSelection(
+        a as SELECTION_FOR_FORMAT,
+        aSelectionPath,
+        aSchematic!,
+        aFormatter!,
+        aForClipboard,
+      );
+      return;
+    }
+
+    this.formatSheet(a as SCH_SHEET);
+  }
+
+  private formatSelection(
+    aSelection: SELECTION_FOR_FORMAT,
+    aSelectionPath: SCH_SHEET_PATH,
+    aSchematic: SCHEMATIC,
+    aFormatter: OUTPUTFORMATTER,
+    aForClipboard: boolean,
+  ): void {
+    const sheets = aSchematic.Hierarchy();
+
+    this.m_schematic = aSchematic;
+    this.m_out = aFormatter;
+
+    // std::map<wxString, LIB_SYMBOL*>: written in key order.
+    const libSymbols = new Map<string, LIB_SYMBOL>();
+    const screen = aSelection.GetScreen()!;
+    const promotedTables = new Set<SCH_TABLE>();
+
+    for (const item of aSelection) {
+      if (item.Type() !== KICAD_T.SCH_SYMBOL_T) continue;
+
+      const symbol = item as SCH_SYMBOL;
+
+      let libSymbolLookup = symbol.GetLibId().Format();
+
+      if (!symbol.UseLibIdLookup()) libSymbolLookup = symbol.GetSchSymbolLibraryName();
+
+      const it = screen.GetLibSymbols().get(libSymbolLookup);
+
+      if (it) libSymbols.set(libSymbolLookup, it);
+    }
+
+    if (libSymbols.size > 0) {
+      this.m_out.Print('(lib_symbols');
+
+      for (const name of [...libSymbols.keys()].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0)))
+        SCH_IO_KICAD_SEXPR_LIB_CACHE.SaveSymbol(libSymbols.get(name)!, this.m_out, name, false);
+
+      this.m_out.Print(')');
+    }
+
+    for (const edaItem of aSelection) {
+      if (!edaItem.IsSCH_ITEM()) continue;
+
+      const item = edaItem as SCH_ITEM;
+
+      switch (item.Type()) {
+        case KICAD_T.SCH_SYMBOL_T:
+          this.saveSymbol(item as SCH_SYMBOL, aSchematic, sheets, aForClipboard, aSelectionPath);
+          break;
+
+        case KICAD_T.SCH_BITMAP_T:
+          this.saveBitmap(item as SCH_BITMAP);
+          break;
+
+        case KICAD_T.SCH_SHEET_T:
+          this.saveSheet(item as SCH_SHEET, sheets);
+          break;
+
+        case KICAD_T.SCH_JUNCTION_T:
+          this.saveJunction(item as SCH_JUNCTION);
+          break;
+
+        case KICAD_T.SCH_NO_CONNECT_T:
+          this.saveNoConnect(item as SCH_NO_CONNECT);
+          break;
+
+        case KICAD_T.SCH_BUS_WIRE_ENTRY_T:
+        case KICAD_T.SCH_BUS_BUS_ENTRY_T:
+          this.saveBusEntry(item as SCH_BUS_ENTRY_BASE);
+          break;
+
+        case KICAD_T.SCH_LINE_T:
+          this.saveLine(item as SCH_LINE);
+          break;
+
+        case KICAD_T.SCH_SHAPE_T:
+          this.saveShape(item as SCH_SHAPE);
+          break;
+
+        case KICAD_T.SCH_RULE_AREA_T:
+          this.saveRuleArea(item as SCH_RULE_AREA);
+          break;
+
+        case KICAD_T.SCH_TEXT_T:
+        case KICAD_T.SCH_LABEL_T:
+        case KICAD_T.SCH_GLOBAL_LABEL_T:
+        case KICAD_T.SCH_HIER_LABEL_T:
+        case KICAD_T.SCH_DIRECTIVE_LABEL_T:
+          this.saveText(item as SCH_TEXT);
+          break;
+
+        case KICAD_T.SCH_TEXTBOX_T:
+          this.saveTextBox(item as SCH_TEXTBOX);
+          break;
+
+        case KICAD_T.SCH_TABLECELL_T: {
+          const table = item.GetParent() as unknown as SCH_TABLE;
+
+          if (promotedTables.has(table)) break;
+
+          table.SetFlags(SKIP_STRUCT);
+          this.saveTable(table);
+          table.ClearFlags(SKIP_STRUCT);
+          promotedTables.add(table);
+          break;
+        }
+
+        case KICAD_T.SCH_TABLE_T:
+          item.ClearFlags(SKIP_STRUCT);
+          this.saveTable(item as SCH_TABLE);
+          break;
+
+        case KICAD_T.SCH_GROUP_T:
+          this.saveGroup(item as SCH_GROUP);
+          break;
+
+        default:
+          console.assert(false, 'Unexpected schematic object type in SCH_IO_KICAD_SEXPR::Format()');
+      }
+    }
+  }
+
+  /** Format \a aSheet's screen. */
+  private formatSheet(aSheet: SCH_SHEET): void {
     const schematic = this.m_schematic!;
     const out = this.m_out!;
     const sheets = schematic.Hierarchy();

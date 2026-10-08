@@ -26,6 +26,14 @@ export class SCH_SELECTION extends SELECTION {
     this.m_screen = aScreen;
   }
 
+  SetScreen(aScreen: SCH_SCREEN | null): void {
+    this.m_screen = aScreen;
+  }
+
+  GetScreen(): SCH_SCREEN | null {
+    return this.m_screen;
+  }
+
   /** `operator=`: a copy of \a aOther's items and state, screen included. */
   override assign(aOther: SELECTION): this {
     super.assign(aOther);
