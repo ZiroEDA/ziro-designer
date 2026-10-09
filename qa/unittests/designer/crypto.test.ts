@@ -24,6 +24,8 @@ import {
   createProjectKey,
   deriveKeyFromPassword,
   deriveNewKeyFromPassword,
+  KDF_TARGET_WORK,
+  needsRewrap,
   loginSecret,
   unlockWithPasswordKey,
   ARGON2ID,
@@ -420,27 +422,26 @@ describe('the ladder: SENSITIVE work in a MODERATE footprint, down only if the d
     return { tried, argon2 };
   };
 
-  it("the first try is 16 passes over 256 MiB: SENSITIVE's work, MODERATE's memory", async () => {
-    // The reference design's core: desired strength = SENSITIVE mem x ops;
-    // start at MODERATE mem with ops scaled up, so the product is unchanged.
+  it("the first try is libsodium's MODERATE: 3 passes over 256 MiB (#639: SENSITIVE took 12 s)", async () => {
+    // [data] libsodium crypto_pwhash_argon2id.h: OPSLIMIT_MODERATE 3,
+    // MEMLIMIT_MODERATE 268435456 bytes = 262144 KiB.
     const d = deviceWith(ARGON2ID.MEM_SENSITIVE_KIB);
     const { params } = await deriveNewKeyFromPassword(PW, { argon2: d.argon2 });
-    expect(params).toMatchObject({ name: 'argon2id', opsLimit: 16, memLimitKiB: 262_144 });
-    expect(params.opsLimit * params.memLimitKiB).toBe(
-      ARGON2ID.OPS_SENSITIVE * ARGON2ID.MEM_SENSITIVE_KIB,
-    );
+    expect(params).toMatchObject({ name: 'argon2id', opsLimit: 3, memLimitKiB: 262_144 });
+    expect(params.opsLimit * params.memLimitKiB).toBe(KDF_TARGET_WORK);
+    expect(KDF_TARGET_WORK).toBe(3 * 262_144);
     expect(d.tried).toHaveLength(1);
   });
 
   it('a device with 128 MiB: memory halves and passes double, so the work is the same', async () => {
     const d = deviceWith(131_072);
     const { params } = await deriveNewKeyFromPassword(PW, { argon2: d.argon2 });
-    expect(params).toMatchObject({ opsLimit: 32, memLimitKiB: 131_072 });
+    expect(params).toMatchObject({ opsLimit: 6, memLimitKiB: 131_072 });
     expect(d.tried).toEqual([
-      [16, 262_144],
-      [32, 131_072],
+      [3, 262_144],
+      [6, 131_072],
     ]);
-    expect(params.opsLimit * params.memLimitKiB).toBe(4 * 1_048_576);
+    expect(params.opsLimit * params.memLimitKiB).toBe(3 * 262_144);
   });
 
   it("it stops at the design's floor (128 MiB) and refuses below it, rather than issuing a weak key", async () => {
@@ -449,8 +450,19 @@ describe('the ladder: SENSITIVE work in a MODERATE footprint, down only if the d
       /cannot derive/,
     );
     // It tried the floor, and nothing under it.
-    expect(weak.tried.at(-1)).toEqual([32, 131_072]);
+    expect(weak.tried.at(-1)).toEqual([6, 131_072]);
     expect(ARGON2ID.MEM_SENSITIVE_MIN_KIB * 1024).toBe(134_217_728);
+  });
+
+  it('needsRewrap: an account at the old SENSITIVE work, or on PBKDF2, is re-wrapped at the next sign-in', () => {
+    const salt = 'AAAAAAAAAAAAAAAAAAAAAA==';
+    // The old first rung, and the old 128 MiB rung.
+    expect(needsRewrap({ name: 'argon2id', salt, opsLimit: 16, memLimitKiB: 262_144 })).toBe(true);
+    expect(needsRewrap({ name: 'argon2id', salt, opsLimit: 32, memLimitKiB: 131_072 })).toBe(true);
+    expect(needsRewrap({ name: 'PBKDF2-SHA256', salt, iterations: 600_000 })).toBe(true);
+    // Today's, on either rung: the same work, nothing to do.
+    expect(needsRewrap({ name: 'argon2id', salt, opsLimit: 3, memLimitKiB: 262_144 })).toBe(false);
+    expect(needsRewrap({ name: 'argon2id', salt, opsLimit: 6, memLimitKiB: 131_072 })).toBe(false);
   });
 
   it('a fresh salt every time', async () => {

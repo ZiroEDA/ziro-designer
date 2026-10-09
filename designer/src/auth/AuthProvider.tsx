@@ -21,6 +21,7 @@ import {
   encodeRecoveryKey,
   loginSecret,
   rewrapWithNewPassword,
+  needsRewrap,
   unlockWithMasterKey,
   unlockWithPassword,
   unlockWithRecoveryKey,
@@ -425,7 +426,17 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
               // The server accepted the login secret, so the password is right and
               // this unwrap cannot fail on it; if it does, the row is damaged, and
               // that is worth seeing rather than "wrong password".
-              await open(await unlockWithPassword(password, wrapped), userId);
+              const unlocked = await unlockWithPassword(password, wrapped);
+              await open(unlocked, userId);
+              // Made at an older strength (12 s of Argon2id): make it again at
+              // today's, under the same password, while it is in hand - once,
+              // behind the open account, so this sign-in waits no longer.
+              if (needsRewrap(wrapped.kdf)) {
+                const client = supabase;
+                void rewrapWithNewPassword(unlocked.masterKey, password, wrapped)
+                  .then((next) => storeWrappedAccount(client, userId, next))
+                  .catch((e: unknown) => console.warn('account key not re-wrapped:', e));
+              }
             } else {
               // A sign-up that ended before its keys were stored, or an account
               // from before encryption: make them now, under the same password.

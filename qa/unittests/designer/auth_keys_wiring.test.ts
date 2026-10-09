@@ -125,13 +125,29 @@ describe('AuthProvider: the server never gets the password', () => {
     expect(verify).toContain('await finishSetup(userId, await pending.made);');
   });
 
+  it('a sign-in re-wraps an account made at an older strength, behind the open account (#639)', () => {
+    const signIn = SRC.slice(
+      SRC.indexOf('signIn: (email, password) =>'),
+      SRC.indexOf('signUp: (email, password) =>'),
+    );
+    const opened = signIn.indexOf('await open(unlocked, userId);');
+    const rewrap = signIn.indexOf('if (needsRewrap(wrapped.kdf)) {');
+    expect(opened).toBeGreaterThan(-1);
+    // After the open, so the sign-in waits no longer for it...
+    expect(rewrap).toBeGreaterThan(opened);
+    // ...not awaited, and stored when done.
+    expect(signIn).toContain('void rewrapWithNewPassword(unlocked.masterKey, password, wrapped)');
+    expect(signIn).toContain('storeWrappedAccount(client, userId, next)');
+  });
+
   it('a sign-in with no stored keys sets them up under the same password rather than failing', () => {
     const signIn = SRC.slice(
       SRC.indexOf('signIn: (email, password) =>'),
       SRC.indexOf('signUp: (email, password) =>'),
     );
     expect(signIn).toContain('await finishSetup(userId, await createAccount(password));');
-    expect(signIn).toContain('await open(await unlockWithPassword(password, wrapped), userId);');
+    expect(signIn).toContain('const unlocked = await unlockWithPassword(password, wrapped);');
+    expect(signIn).toContain('await open(unlocked, userId);');
   });
 
   it('the recovery key is queued for the wall the moment the keys are stored', () => {
