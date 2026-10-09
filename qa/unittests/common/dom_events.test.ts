@@ -123,11 +123,46 @@ describe('wxMouseEventFromDom', () => {
     expect(e.Dragging()).toBe(false);
   });
 
-  it('the second press of a double click is the DCLICK', () => {
-    const e = wxMouseEventFromDom(target, dom({ button: 0, buttons: 1, detail: 2 }), 'down');
-    expect(e.LeftDClick()).toBe(true);
-    expect(e.LeftDown()).toBe(false);
-    expect(e.GetClickCount()).toBe(2);
+  // GTK's rule (gtk-double-click-time 400 ms, -distance 5 px, measured with Gtk.Settings). A
+  // PointerEvent's detail is always 0 in a browser, so each case sends two real presses.
+  describe('the second press of a double click is the DCLICK', () => {
+    const press = (aT: HTMLElement, aOver: Record<string, unknown>) =>
+      wxMouseEventFromDom(aT, dom({ button: 0, buttons: 1, detail: 0, ...aOver }), 'down');
+    const fresh = () => ({ ...target }) as HTMLElement;
+
+    it('within 400 ms and 5 px of the first press', () => {
+      const t = fresh();
+      expect(press(t, { timeStamp: 1000, clientX: 50, clientY: 50 }).LeftDown()).toBe(true);
+      const e = press(t, { timeStamp: 1400, clientX: 55, clientY: 45 });
+      expect(e.LeftDClick()).toBe(true);
+      expect(e.LeftDown()).toBe(false);
+      expect(e.GetClickCount()).toBe(2);
+    });
+
+    it('not after 400 ms', () => {
+      const t = fresh();
+      press(t, { timeStamp: 1000, clientX: 50, clientY: 50 });
+      expect(press(t, { timeStamp: 1401, clientX: 50, clientY: 50 }).LeftDClick()).toBe(false);
+    });
+
+    it('not more than 5 px away', () => {
+      const t = fresh();
+      press(t, { timeStamp: 1000, clientX: 50, clientY: 50 });
+      expect(press(t, { timeStamp: 1100, clientX: 56, clientY: 50 }).LeftDClick()).toBe(false);
+    });
+
+    it('not for a different button', () => {
+      const t = fresh();
+      press(t, { timeStamp: 1000, clientX: 50, clientY: 50, button: 2, buttons: 2 });
+      expect(press(t, { timeStamp: 1100, clientX: 50, clientY: 50 }).LeftDClick()).toBe(false);
+    });
+
+    it('a third quick press starts a new pair', () => {
+      const t = fresh();
+      press(t, { timeStamp: 1000, clientX: 50, clientY: 50 });
+      press(t, { timeStamp: 1100, clientX: 50, clientY: 50 });
+      expect(press(t, { timeStamp: 1200, clientX: 50, clientY: 50 }).LeftDClick()).toBe(false);
+    });
   });
 
   it('a release is the UP with the button up; a move with a button held is Dragging', () => {

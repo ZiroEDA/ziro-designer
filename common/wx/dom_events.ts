@@ -112,6 +112,44 @@ const BUTTON_DCLICK: readonly wxEventType[] = [
 ];
 
 /**
+ * GTK's double-click rule, which wx reports as the DCLICK: a press of the same button within
+ * `gtk-double-click-time` and `gtk-double-click-distance` of the previous press is a
+ * `GDK_2BUTTON_PRESS`. Measured with Gtk.Settings on this desktop: 400 ms, 5 px (data, the
+ * toolkit's own defaults). The browser's own count is no use here: a PointerEvent's `detail`
+ * is always 0, so the DCLICK never fired and double-click did nothing.
+ */
+const GTK_DOUBLE_CLICK_TIME = 400;
+const GTK_DOUBLE_CLICK_DISTANCE = 5;
+
+/** The press a following one is measured against, per window; cleared once it pairs. */
+const s_lastPress = new WeakMap<
+  HTMLElement,
+  { button: number; time: number; x: number; y: number }
+>();
+
+/** Whether a press of \a aButton at \a aDom completes a double click on \a aTarget. */
+function isDoubleClick(
+  aTarget: HTMLElement,
+  aDom: PointerEvent | MouseEvent,
+  aButton: number,
+): boolean {
+  const last = s_lastPress.get(aTarget);
+  const here = { button: aButton, time: aDom.timeStamp, x: aDom.clientX, y: aDom.clientY };
+  const paired =
+    !!last &&
+    last.button === aButton &&
+    here.time - last.time <= GTK_DOUBLE_CLICK_TIME &&
+    Math.abs(here.x - last.x) <= GTK_DOUBLE_CLICK_DISTANCE &&
+    Math.abs(here.y - last.y) <= GTK_DOUBLE_CLICK_DISTANCE;
+
+  // A third press starts a new pair (GTK's 3BUTTON_PRESS, which wx does not report as a click).
+  if (paired) s_lastPress.delete(aTarget);
+  else s_lastPress.set(aTarget, here);
+
+  return paired;
+}
+
+/**
  * A `wxMouseEvent` from a DOM pointer event. `aKind` is what happened:
  * a press (the second press of a double click is the DCLICK, as GTK sends
  * `GDK_2BUTTON_PRESS` in place of the second `GDK_BUTTON_PRESS`), a release,
@@ -123,11 +161,13 @@ export function wxMouseEventFromDom(
   aKind: 'down' | 'up' | 'move' | 'enter' | 'leave',
 ): wxMouseEvent {
   let type: wxEventType;
+  let dclick = false;
   const button = Math.min(Math.max(aDom.button, 0), 4);
 
   switch (aKind) {
     case 'down':
-      type = aDom.detail === 2 ? BUTTON_DCLICK[button]! : BUTTON_DOWN[button]!;
+      dclick = isDoubleClick(aTarget, aDom, button);
+      type = dclick ? BUTTON_DCLICK[button]! : BUTTON_DOWN[button]!;
       break;
     case 'up':
       type = BUTTON_UP[button]!;
@@ -154,7 +194,7 @@ export function wxMouseEventFromDom(
   setButtonState(ev, aDom.buttons);
   setModifiers(ev, aDom);
 
-  if (aKind === 'down') ev.m_clickCount = aDom.detail === 2 ? 2 : 1;
+  if (aKind === 'down') ev.m_clickCount = dclick ? 2 : 1;
   else if (aKind === 'up') ev.m_clickCount = 1;
 
   KIPLATFORM_UI.SetMousePosition(aDom.pageX, aDom.pageY);
