@@ -1288,6 +1288,92 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     return newbuf;
   }
 
+  /** `ConvertRefsToKIIDs( aSource )` (schematic.cpp): the reference -> KIID direction. */
+  ConvertRefsToKIIDs(aSource: string): string {
+    let newbuf = '';
+    const sourceLen = aSource.length;
+
+    for (let i = 0; i < sourceLen; ++i) {
+      // Check for escaped expressions: \${ or \@{
+      // These should be copied verbatim without any ref→KIID conversion
+      if (
+        aSource[i] === '\\' &&
+        i + 2 < sourceLen &&
+        aSource[i + 2] === '{' &&
+        (aSource[i + 1] === '$' || aSource[i + 1] === '@')
+      ) {
+        // Copy the escape sequence and the entire escaped expression
+        newbuf += aSource[i]! + aSource[i + 1]! + aSource[i + 2]!;
+        i += 2;
+
+        // Find and copy everything until the matching closing brace
+        let braceDepth = 1;
+
+        for (i = i + 1; i < sourceLen && braceDepth > 0; ++i) {
+          if (aSource[i] === '{') braceDepth++;
+          else if (aSource[i] === '}') braceDepth--;
+
+          newbuf += aSource[i];
+        }
+
+        i--; // Back up one since the for loop will increment
+        continue;
+      }
+
+      if (aSource[i] === '$' && i + 1 < sourceLen && aSource[i + 1] === '{') {
+        let token = '';
+        let isCrossRef = false;
+        let nesting = 0;
+
+        for (i = i + 2; i < sourceLen; ++i) {
+          if (
+            aSource[i] === '{' &&
+            (aSource[i - 1] === '_' || aSource[i - 1] === '^' || aSource[i - 1] === '~')
+          ) {
+            nesting++;
+          }
+
+          if (aSource[i] === '}') {
+            nesting--;
+
+            if (nesting < 0) break;
+          }
+
+          if (aSource[i] === ':') isCrossRef = true;
+
+          token += aSource[i];
+        }
+
+        if (isCrossRef) {
+          const colon = token.indexOf(':');
+          const ref = token.substring(0, colon);
+          const remainder = token.substring(colon + 1);
+          const references = new SCH_REFERENCE_LIST();
+
+          this.Hierarchy().GetSymbols(references, SYMBOL_FILTER.SYMBOL_FILTER_ALL);
+
+          for (let jj = 0; jj < references.GetCount(); jj++) {
+            const refSymbol = references.at(jj).GetSymbol();
+
+            if (ref === refSymbol.GetRef(references.at(jj).GetSheetPath(), true)) {
+              const path = references.at(jj).GetSheetPath().Path().Clone();
+              path.push_back(refSymbol.m_Uuid);
+
+              token = `${path.AsString()}:${remainder}`;
+              break;
+            }
+          }
+        }
+
+        newbuf += `\${${token}}`;
+      } else {
+        newbuf += aSource[i];
+      }
+    }
+
+    return newbuf;
+  }
+
   /**
    * Update the symbol references for the legacy (version 4 and earlier) schematic file
    * formats.

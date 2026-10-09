@@ -37,20 +37,10 @@ const SRC = readFileSync(
 
 describe('openProperties is the complete router', () => {
   /**
-   * The kinds it must reach. `graphic` is the one that was missing from the
-   * double-click path — a rectangle, circle or arc, whose dialog is
-   * DIALOG_SHAPE_PROPERTIES.
+   * The kinds the record router still reaches. Images, shapes, wires, bus entries, junctions and
+   * sheet pins left it for the live SCH_EDIT_TOOL::Properties and their live dialogs.
    */
-  it.each([
-    'symbol',
-    'label',
-    'textbox',
-    'table',
-    'image',
-    'graphic',
-    'line',
-    'junction',
-  ])('knows about %s', (kind) => {
+  it.each(['symbol', 'label', 'textbox', 'table'])('knows about %s', (kind) => {
     const i = SRC.indexOf('const openProperties = useCallback');
     const body = SRC.slice(i, SRC.indexOf('\n  );', i));
     const plural: Record<string, string> = {

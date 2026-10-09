@@ -46,6 +46,18 @@ import {
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { FILL_T } from '@ziroeda/common/eda_shape.js';
+import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { FONT } from '@ziroeda/common/font/font.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
+import { LINE_STYLE, lineTypeNames } from '@ziroeda/common/stroke_params.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { ANGLE_HORIZONTAL, ANGLE_VERTICAL } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { SCH_COMMIT } from '../sch_commit.js';
+import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
+import type { SCH_TEXT } from '../sch_text.js';
+import type { SCH_TEXTBOX } from '../sch_textbox.js';
+import { lineStyleOfToken, lineStyleToken } from './dialog_wire_bus_properties.js';
 
 export type HAlign = 'left' | 'center' | 'right';
 export type VAlign = 'top' | 'center' | 'bottom';
@@ -432,4 +444,180 @@ export function DialogTextProperties({
       </div>
     </div>
   );
+}
+
+const H_OF: Record<number, HAlign> = {
+  [GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT]: 'left',
+  [GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER]: 'center',
+  [GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT]: 'right',
+};
+const V_OF: Record<number, VAlign> = {
+  [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP]: 'top',
+  [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER]: 'center',
+  [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM]: 'bottom',
+};
+
+/** The message TransferDataFromWindow refuses an invalid hyperlink with. */
+export const INVALID_HYPERLINK_MESSAGE =
+  'Invalid hyperlink destination. Please enter either a valid URL (e.g. file:// or http(s)://) ' +
+  'or "#<page number>" to create a hyperlink to a page in this schematic.';
+
+/**
+ * `DIALOG_TEXT_PROPERTIES` (eeschema/dialogs/dialog_text_properties.cpp), the schematic editor's
+ * model half for a live SCH_TEXT or SCH_TEXTBOX: the values the form shows (TransferDataToWindow)
+ * and the SCH_COMMIT its OK makes (TransferDataFromWindow). The symbol editor's private and
+ * common-to-units boxes belong to that frame and are not here.
+ */
+export class DIALOG_TEXT_PROPERTIES {
+  private readonly m_frame: SCH_EDIT_FRAME;
+  private readonly m_currentItem: SCH_TEXT | SCH_TEXTBOX;
+
+  constructor(aParent: SCH_EDIT_FRAME, aItem: SCH_TEXT | SCH_TEXTBOX) {
+    this.m_frame = aParent;
+    this.m_currentItem = aItem;
+  }
+
+  IsTextBox(): boolean {
+    return this.m_currentItem.Type() === KICAD_T.SCH_TEXTBOX_T;
+  }
+
+  /** `TransferDataToWindow()`. */
+  TransferDataToWindow(): TextPropsInitial {
+    const item = this.m_currentItem;
+    let text = item.GetText();
+
+    // show text variable cross-references in a human-readable format
+    const schematic = item.Schematic();
+
+    if (schematic) text = schematic.ConvertKIIDsToRefs(text);
+
+    const values: TextPropsInitial = {
+      text,
+      face: item.GetFont()?.GetName() ?? '',
+      bold: item.IsBold(),
+      italic: item.IsItalic(),
+      sizeIU: item.GetTextWidth(),
+      ...(color4dToItemColor(item.GetTextColor())
+        ? { color: color4dToItemColor(item.GetTextColor()) }
+        : {}),
+      hAlign: H_OF[item.GetHorizJustify()] ?? 'left',
+      vAlign: V_OF[item.GetVertJustify()] ?? 'center',
+      angle: item.GetTextAngle().IsVertical() ? 90 : 0,
+      excludeFromSim: item.GetExcludedFromSim(),
+      hyperlink: item.GetHyperlink(),
+    };
+
+    if (this.IsTextBox()) {
+      const textBox = item as SCH_TEXTBOX;
+      const style = textBox.GetStroke().GetLineStyle();
+
+      values.border = textBox.GetWidth() >= 0;
+      values.borderWidthIU = Math.max(0, textBox.GetWidth());
+      const borderColor = color4dToItemColor(textBox.GetStroke().GetColor());
+      if (borderColor) values.borderColor = borderColor;
+      values.borderStyle = lineTypeNames.has(style)
+        ? lineStyleToken(style)
+        : lineStyleToken(LINE_STYLE.SOLID);
+      values.filled = textBox.IsSolidFill();
+      const fillColor = color4dToItemColor(textBox.GetFillColor());
+      if (fillColor) values.fillColor = fillColor;
+    }
+
+    return values;
+  }
+
+  /**
+   * `TransferDataFromWindow()`. Returns the error to show when the dialog must stay open
+   * (an invalid hyperlink), else null.
+   */
+  TransferDataFromWindow(aValues: TextPropsResult): string | null {
+    const item = this.m_currentItem;
+
+    if (!EDA_TEXT.ValidateHyperlink(aValues.hyperlink)) return INVALID_HYPERLINK_MESSAGE;
+
+    const commit = new SCH_COMMIT(this.m_frame);
+
+    /* save old text in undo list if not already in edit */
+    if (item.GetEditFlags() === 0) commit.Modify(item, this.m_frame.GetScreen());
+
+    let text = aValues.text;
+
+    // convert any text variable cross-references to their UUIDs
+    const schematic = item.Schematic();
+
+    if (schematic) text = schematic.ConvertRefsToKIIDs(text);
+
+    // On Windows, a new line is coded as \r\n. We use only \n in KiCad files.
+    item.SetText(text.replaceAll('\r', ''));
+    item.SetExcludedFromSim(aValues.excludeFromSim);
+    item.SetHyperlink(aValues.hyperlink);
+
+    if (item.GetTextWidth() !== aValues.sizeIU)
+      item.SetTextSize({ x: aValues.sizeIU, y: aValues.sizeIU });
+
+    item.SetFont(
+      aValues.face === '' ? null : FONT.GetFont(aValues.face, aValues.bold, aValues.italic),
+    );
+
+    // Must come after SetTextSize()
+    item.SetBold(aValues.bold);
+    item.SetItalic(aValues.italic);
+    item.SetTextColor(itemColorToColor4d(aValues.color));
+
+    item.SetHorizJustify(
+      aValues.hAlign === 'right'
+        ? GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT
+        : aValues.hAlign === 'center'
+          ? GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER
+          : GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
+    );
+    item.SetVertJustify(
+      aValues.vAlign === 'bottom'
+        ? GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM
+        : aValues.vAlign === 'center'
+          ? GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER
+          : GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP,
+    );
+    item.SetTextAngle(aValues.angle === 90 ? ANGLE_VERTICAL : ANGLE_HORIZONTAL);
+
+    if (this.IsTextBox()) {
+      const textBox = item as SCH_TEXTBOX;
+      const stroke = textBox.GetStroke();
+
+      if (aValues.border) stroke.SetWidth(Math.max(0, aValues.borderWidthIU ?? 0));
+      else stroke.SetWidth(-1);
+
+      const style = lineStyleOfToken(aValues.borderStyle ?? 'solid');
+      stroke.SetLineStyle(lineTypeNames.has(style) ? style : LINE_STYLE.SOLID);
+      stroke.SetColor(itemColorToColor4d(aValues.borderColor));
+      textBox.SetStroke(stroke);
+
+      textBox.SetFillMode(aValues.filled ? FILL_T.FILLED_WITH_COLOR : FILL_T.NO_FILL);
+      textBox.SetFillColor(itemColorToColor4d(aValues.fillColor));
+
+      textBox.ClearBoundingBoxCache();
+      textBox.ClearRenderCache();
+
+      const minBoxSize = textBox.GetMinSize();
+      const start = textBox.GetStart();
+      const end = { ...textBox.GetEnd() };
+      let expanded = false;
+
+      if (minBoxSize.x > 0 && Math.abs(end.x - start.x) < minBoxSize.x) {
+        end.x = end.x >= start.x ? start.x + minBoxSize.x : start.x - minBoxSize.x;
+        expanded = true;
+      }
+
+      if (minBoxSize.y > 0 && Math.abs(end.y - start.y) < minBoxSize.y) {
+        end.y = end.y >= start.y ? start.y + minBoxSize.y : start.y - minBoxSize.y;
+        expanded = true;
+      }
+
+      if (expanded) textBox.SetEnd(end);
+    }
+
+    if (!commit.Empty()) commit.Push('Edit Text Properties');
+
+    return null;
+  }
 }

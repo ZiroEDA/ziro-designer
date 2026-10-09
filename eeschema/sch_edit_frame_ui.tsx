@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import type { SCH_TEXT } from './sch_text.js';
+import type { SCH_TEXTBOX } from './sch_textbox.js';
 import type { SCH_SHEET_PIN } from './sch_sheet_pin.js';
 import type { SCH_BITMAP } from './sch_bitmap.js';
 import type { SCH_SHAPE } from './sch_shape.js';
@@ -326,8 +328,10 @@ import {
   type LabelPropsResult,
 } from './dialogs/dialog_label_properties.js';
 import {
+  DIALOG_TEXT_PROPERTIES,
   DialogTextProperties,
   type HAlign,
+  type TextPropsInitial,
   type TextPropsResult,
   type VAlign,
 } from './dialogs/dialog_text_properties.js';
@@ -750,19 +754,6 @@ const LABEL_DIALOG_KINDS: Record<string, 'label' | 'global_label' | 'hierarchica
   placeGlobalLabel: 'global_label',
   placeHierLabel: 'hierarchical_label',
 };
-
-/** `(justify …)` tokens from the text dialog's alignment buttons; centred
- *  alignment is the default and writes no token (EDA_TEXT::Format). */
-const justifyTokens = (h: HAlign, v: VAlign): string[] => [
-  ...(h === 'center' ? [] : [h]),
-  ...(v === 'center' ? [] : [v]),
-];
-
-const hAlignOf = (justify: readonly string[] | undefined): HAlign =>
-  justify?.includes('left') ? 'left' : justify?.includes('right') ? 'right' : 'center';
-
-const vAlignOf = (justify: readonly string[] | undefined): VAlign =>
-  justify?.includes('top') ? 'top' : justify?.includes('bottom') ? 'bottom' : 'center';
 
 /** A file picked from disk for a project open. */
 /**
@@ -1255,15 +1246,6 @@ export function SchematicEditor({
     autoRotate: false,
     face: '',
   });
-  // The free-text equivalents (m_lastTextHJustify / m_lastTextVJustify /
-  // m_lastTextAngle), which createNewText carries between placements.
-  const lastText = useRef({
-    hAlign: 'center' as HAlign,
-    vAlign: 'center' as VAlign,
-    angle: 0,
-    excludeFromSim: false,
-    face: '',
-  });
   // m_lastSheetPinType: the shape the next sheet pin starts with (Input).
   const lastSheetPin = useRef({ shape: 'input' as LabelShape });
   // m_lastNetClassFlagShape: the directive label's flag shape (Circle).
@@ -1304,11 +1286,11 @@ export function SchematicEditor({
     side: SheetSide;
     name: string;
   } | null>(null);
-  const [textBoxDraw, setTextBoxDraw] = useState<{
-    start: Vec2;
-    end: Vec2;
-    text: string;
-    editIndex?: number;
+  /** DIALOG_TEXT_PROPERTIES while it is up for the live tools. */
+  const [textDialog, setTextDialog] = useState<{
+    dlg: DIALOG_TEXT_PROPERTIES;
+    shown: TextPropsInitial;
+    resolve: (aId: number) => void;
   } | null>(null);
   /**
    * The rectangle a table was dragged out over, awaiting confirmation.
@@ -1849,6 +1831,15 @@ export function SchematicEditor({
           );
           return new Promise<number>((resolve) =>
             setSheetPinDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
+          );
+        }
+        if (aDialog === 'DIALOG_TEXT_PROPERTIES') {
+          const dlg = new DIALOG_TEXT_PROPERTIES(
+            schFrameRef.current!,
+            _aItems[0] as SCH_TEXT | SCH_TEXTBOX,
+          );
+          return new Promise<number>((resolve) =>
+            setTextDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
           );
         }
         if (aDialog === 'DIALOG_JUNCTION_PROPS') {
@@ -4756,13 +4747,6 @@ export function SchematicEditor({
           setLabelEdit({ index: idx, kind: l.kind, text: l.text, shape: l.shape });
         }
       }
-      if (kind === 'textbox' && doc) {
-        const idx = doc.textBoxes.findIndex((tb, i) => refId('textbox', tb.uuid, i) === id);
-        if (idx !== -1) {
-          const tb = doc.textBoxes[idx]!;
-          setTextBoxDraw({ start: tb.start, end: tb.end, text: tb.text, editIndex: idx });
-        }
-      }
       if (kind === 'table' && doc) {
         // `SCH_EDIT_TOOL::Properties` opens DIALOG_TABLE_PROPERTIES for a whole
         // table; a selected cell opens the cell dialog instead.
@@ -6276,65 +6260,6 @@ export function SchematicEditor({
   );
   gridSizeIURef.current = gridSizeIU;
 
-  /** The text box being edited, if the dialog was opened on an existing one. */
-  const textBoxOrig =
-    textBoxDraw?.editIndex !== undefined ? doc?.textBoxes[textBoxDraw.editIndex] : undefined;
-
-  /**
-   * DIALOG_TEXT_PROPERTIES for a text box: the text and formatting, plus the
-   * border (a negative stroke width is KiCad's "no border") and the fill.
-   */
-  const commitTextBoxProperties = useCallback(
-    (r: TextPropsResult) => {
-      setTextBoxDraw((tbd) => {
-        if (!tbd) return null;
-        const effects: TextEffects = {
-          hidden: false,
-          face: r.face || undefined,
-          bold: r.bold || undefined,
-          italic: r.italic || undefined,
-          fontSize: [r.sizeIU, r.sizeIU] as [number, number],
-          justify: justifyTokens(r.hAlign, r.vAlign),
-          ...(r.color ? { color: r.color } : {}),
-        };
-        const stroke: Stroke = {
-          width: r.border ? (r.borderWidthIU ?? 0) : -1,
-          type: r.borderStyle ?? 'default',
-          ...(r.borderColor ? { color: r.borderColor } : {}),
-        };
-        const fill: Fill = r.filled
-          ? { type: 'color', ...(r.fillColor ? { color: r.fillColor } : {}) }
-          : { type: 'none' };
-        if (tbd.editIndex !== undefined && doc) {
-          const orig = doc.textBoxes[tbd.editIndex];
-          if (orig) {
-            runCommand(
-              replaceTextBox(tbd.editIndex, {
-                ...orig,
-                text: r.text,
-                angle: r.angle,
-                excludedFromSim: r.excludeFromSim,
-                hyperlink: r.hyperlink || undefined,
-                effects,
-                stroke,
-                fill,
-              }),
-            );
-          }
-        } else {
-          const box = makeTextBox(tbd.start, tbd.end, r.text, { effects, stroke, fill });
-          runCommand(addItems({ textBoxes: [box] }));
-          // Every drawing tool selects what it placed; a text box is drawn by
-          // the same `EE_GRAPHIC_TOOL::DrawShape` path as the other shapes.
-          if (docRef.current)
-            setSelection(new Set([refId('textbox', box.uuid, docRef.current.textBoxes.length)]));
-        }
-        return null;
-      });
-    },
-    [doc, runCommand],
-  );
-
   /** DIALOG_LABEL_PROPERTIES for a sheet pin: name, shape and side. */
   const commitSheetPin = useCallback(
     (r: LabelPropsResult) => {
@@ -6438,36 +6363,6 @@ export function SchematicEditor({
   }, []);
 
   /**
-   * Free text from DIALOG_TEXT_PROPERTIES: attached to the cursor, and its
-   * formatting kept for the next one (m_lastText* in createNewText).
-   */
-  const startTextPlacement = useCallback((r: TextPropsResult) => {
-    lastLabel.current = { ...lastLabel.current, bold: r.bold, italic: r.italic };
-    lastText.current = {
-      hAlign: r.hAlign,
-      vAlign: r.vAlign,
-      angle: r.angle,
-      excludeFromSim: r.excludeFromSim,
-      face: r.face,
-    };
-    setPendingLabel({
-      kind: 'text',
-      text: r.text,
-      shape: 'bidirectional',
-      bold: r.bold,
-      italic: r.italic,
-      fontSize: r.sizeIU,
-      angle: r.angle,
-      justify: justifyTokens(r.hAlign, r.vAlign),
-      excludeFromSim: r.excludeFromSim,
-      ...(r.face ? { face: r.face } : {}),
-      ...(r.hyperlink ? { hyperlink: r.hyperlink } : {}),
-      ...(r.color ? { color: r.color } : {}),
-    });
-    setLabelPrompt(false);
-  }, []);
-
-  /**
    * The Directive Label dialog's result: the flag follows the cursor, and its
    * shape / pin length / orientation seed the next one (m_lastNetClassFlagShape).
    */
@@ -6518,37 +6413,6 @@ export function SchematicEditor({
             fields: orig.fields.map((f) => (f.key === 'Netclass' ? { ...f, value: netclass } : f)),
           }),
         );
-        return null;
-      });
-    },
-    [doc, runCommand],
-  );
-
-  /** Apply DIALOG_TEXT_PROPERTIES to the text item being edited. */
-  const commitTextProperties = useCallback(
-    (r: TextPropsResult) => {
-      setLabelEdit((le) => {
-        if (!le || !doc) return null;
-        const orig = doc.labels[le.index];
-        if (!orig) return null;
-        const next: SchLabel = {
-          ...orig,
-          text: r.text,
-          angle: r.angle,
-          excludedFromSim: r.excludeFromSim,
-          hyperlink: r.hyperlink || undefined,
-          effects: {
-            hidden: false,
-            ...orig.effects,
-            face: r.face || undefined,
-            bold: r.bold || undefined,
-            italic: r.italic || undefined,
-            fontSize: [r.sizeIU, r.sizeIU] as [number, number],
-            justify: justifyTokens(r.hAlign, r.vAlign),
-            ...(r.color ? { color: r.color } : {}),
-          },
-        };
-        runCommand(replaceLabel(le.index, next));
         return null;
       });
     },
@@ -9085,32 +8949,6 @@ export function SchematicEditor({
         />
       )}
 
-      {/* Free text (DIALOG_TEXT_PROPERTIES): createNewText opens it before the
-          text is attached to the cursor, seeded from the last one placed. */}
-      {activeTool === 'placeText' && labelPrompt && !pendingLabel && !labelEdit && (
-        <DialogTextProperties
-          units={units}
-          kind="text"
-          pages={linkPages}
-          initial={{
-            text: '',
-            face: lastText.current.face,
-            hyperlink: '',
-            bold: lastLabel.current.bold,
-            italic: lastLabel.current.italic,
-            // New text defaults to Schematic Setup > Formatting's text size
-            // (createNewText seeds from m_DefaultTextSize).
-            sizeIU: setup.formatting.defaultTextSizeMils * IU_PER_MILS,
-            hAlign: lastText.current.hAlign,
-            vAlign: lastText.current.vAlign,
-            angle: lastText.current.angle,
-            excludeFromSim: lastText.current.excludeFromSim,
-          }}
-          onOk={(r: TextPropsResult) => startTextPlacement(r)}
-          onCancel={() => setLabelPrompt(false)}
-        />
-      )}
-
       {/* Label tools (DIALOG_LABEL_PROPERTIES): the dialog names the label and
           sets its shape/formatting, then it follows the cursor to be placed. */}
       {LABEL_DIALOG_KINDS[activeTool] && labelPrompt && !pendingLabel && !labelEdit && (
@@ -9209,30 +9047,6 @@ export function SchematicEditor({
       )}
 
       {/* Editing existing free text (Properties): the same dialog, pre-filled. */}
-      {labelEdit && labelEdit.kind === 'text' && doc?.labels[labelEdit.index] && (
-        <DialogTextProperties
-          units={units}
-          kind="text"
-          pages={linkPages}
-          initial={{
-            text: labelEdit.text,
-            face: doc.labels[labelEdit.index]?.effects?.face ?? '',
-            hyperlink: doc.labels[labelEdit.index]?.hyperlink ?? '',
-            bold: !!doc.labels[labelEdit.index]?.effects?.bold,
-            italic: !!doc.labels[labelEdit.index]?.effects?.italic,
-            sizeIU: doc.labels[labelEdit.index]?.effects?.fontSize?.[0] ?? 12700,
-            ...(doc.labels[labelEdit.index]?.effects?.color
-              ? { color: doc.labels[labelEdit.index]!.effects!.color! }
-              : {}),
-            hAlign: hAlignOf(doc.labels[labelEdit.index]!.effects?.justify),
-            vAlign: vAlignOf(doc.labels[labelEdit.index]!.effects?.justify),
-            angle: doc.labels[labelEdit.index]!.angle,
-            excludeFromSim: !!doc.labels[labelEdit.index]?.excludedFromSim,
-          }}
-          onOk={commitTextProperties}
-          onCancel={() => setLabelEdit(null)}
-        />
-      )}
 
       {/* Editing an existing label (Properties): the same dialog, pre-filled. */}
       {labelEdit && labelEdit.kind !== 'text' && doc?.labels[labelEdit.index] && (
@@ -9638,38 +9452,26 @@ export function SchematicEditor({
         </div>
       )}
 
-      {/* Text box (DIALOG_TEXT_PROPERTIES' SCH_TEXTBOX variant): the border and
-          fill rows join the text and formatting ones. */}
-      {textBoxDraw && (
+      {/* DIALOG_TEXT_PROPERTIES on a live text or text box. */}
+      {textDialog && (
         <DialogTextProperties
           units={units}
-          kind="textbox"
+          kind={textDialog.dlg.IsTextBox() ? 'textbox' : 'text'}
           pages={linkPages}
-          initial={{
-            text: textBoxDraw.text,
-            face: textBoxOrig?.effects?.face ?? '',
-            hyperlink: textBoxOrig?.hyperlink ?? '',
-            bold: !!textBoxOrig?.effects?.bold,
-            italic: !!textBoxOrig?.effects?.italic,
-            sizeIU:
-              textBoxOrig?.effects?.fontSize?.[0] ??
-              setup.formatting.defaultTextSizeMils * IU_PER_MILS,
-            ...(textBoxOrig?.effects?.color ? { color: textBoxOrig.effects.color } : {}),
-            hAlign: hAlignOf(textBoxOrig?.effects?.justify ?? ['left', 'top']),
-            vAlign: vAlignOf(textBoxOrig?.effects?.justify ?? ['left', 'top']),
-            angle: textBoxOrig?.angle ?? 0,
-            excludeFromSim: !!textBoxOrig?.excludedFromSim,
-            // "Border" is off when the stroke width is negative (KiCad stores
-            // -1 for "no border"); the width row is disabled with it.
-            border: (textBoxOrig?.stroke?.width ?? 0) >= 0,
-            borderWidthIU: Math.max(0, textBoxOrig?.stroke?.width ?? 0),
-            ...(textBoxOrig?.stroke?.color ? { borderColor: textBoxOrig.stroke.color } : {}),
-            borderStyle: textBoxOrig?.stroke?.type ?? 'default',
-            filled: textBoxOrig?.fill?.type === 'color',
-            ...(textBoxOrig?.fill?.color ? { fillColor: textBoxOrig.fill.color } : {}),
+          initial={textDialog.shown}
+          onOk={(values) => {
+            const error = textDialog.dlg.TransferDataFromWindow(values);
+            if (error) {
+              schFrameRef.current!.DisplayError(error);
+              return;
+            }
+            setTextDialog(null);
+            textDialog.resolve(wxID_OK);
           }}
-          onOk={commitTextBoxProperties}
-          onCancel={() => setTextBoxDraw(null)}
+          onCancel={() => {
+            setTextDialog(null);
+            textDialog.resolve(wxID_CANCEL);
+          }}
         />
       )}
 
