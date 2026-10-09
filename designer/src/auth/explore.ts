@@ -50,19 +50,47 @@ export function takeDestination(): Route | null {
 }
 
 /**
- * The full-page sign-up (or sign-in) in a new tab. This tab stays as it is -
- * a demo with edits in it is still there - and becomes signed in once the new
- * tab has the account's keys (AuthProvider's `onSiblingKeyReady`; see
- * {@link gateView} for why it does not wall meanwhile). `noopener`: the new tab
- * shares nothing with this one but the origin, so it lands on the project
- * manager once through, not on a copy of this tab's route.
+ * The full-page sign-up (or sign-in) in a new tab, as EasyEDA does it. This
+ * tab stays as it is - a demo with edits in it is still there - and becomes
+ * signed in once the new tab has the account's keys (AuthProvider's
+ * `onSiblingKeyReady`; see {@link gateView} for why it does not wall
+ * meanwhile). The new tab keeps its `opener`, so once through it can hand the
+ * visitor back here and close: {@link closeIfOpenedByApp}.
  */
 export function goToAuth(
   aStep: AuthStep = 'signup',
-  aOpen: (aUrl: string, aTarget: string, aFeatures: string) => unknown = (u, t, f) =>
-    window.open(u, t, f),
+  aOpen: (aUrl: string, aTarget: string) => unknown = (u, t) => window.open(u, t),
 ): void {
-  aOpen(`/${aStep}`, '_blank', 'noopener');
+  aOpen(`/${aStep}`, '_blank');
+}
+
+/** The part of `window` {@link closeIfOpenedByApp} uses. */
+export interface OpenedWindow {
+  opener: { location: { origin: string }; closed: boolean; focus(): void } | null;
+  location: { origin: string };
+  close(): void;
+}
+
+/**
+ * The sign-up tab, all the way through: back to the tab that opened it, and
+ * close, as EasyEDA's does. Only when that tab is one of OURS - same origin,
+ * still open. A sign-up reached any other way (a link on the marketing site, a
+ * typed address) is the visitor's tab to keep. Returns whether it tried.
+ */
+export function closeIfOpenedByApp(
+  aWin: OpenedWindow = window as unknown as OpenedWindow,
+): boolean {
+  let opener: OpenedWindow['opener'];
+  try {
+    opener = aWin.opener;
+    // Reading a cross-origin opener's location throws: not ours.
+    if (!opener || opener.closed || opener.location.origin !== aWin.location.origin) return false;
+  } catch {
+    return false;
+  }
+  opener.focus();
+  aWin.close();
+  return true;
 }
 
 /** What AuthGate draws, from the auth state; see {@link gateView}. */
@@ -73,6 +101,12 @@ export interface GateView {
   routeToWall: boolean;
   /** The `signedOutHere` flag to carry into the next render. */
   signedOutHere: boolean;
+  /**
+   * Sign this tab out (locally): it has a session but no key in the tab, on
+   * the device or in a sibling, and there is no unlock step any more - the
+   * sign-in it falls back to is one step, and opens the account.
+   */
+  signOutHere: boolean;
 }
 
 export interface GateState {
@@ -89,16 +123,19 @@ export interface GateState {
    * the way through yet. Carried from the previous render.
    */
   signedOutHere: boolean;
+  /** AuthProvider's `opening`: this tab's sign-in or sign-up is making keys. */
+  opening: boolean;
 }
 
 /**
  * AuthGate's decision, kept apart from it so it can be tested: AuthGate itself
  * pulls in the Supabase client.
  *
- * The wall stands for two reasons. No session, on a route that needs one - a
- * signed-out visitor is otherwise in. And a session whose master key is not in
- * this tab: everything encrypted is unreadable until the password opens it, and
- * a new account's recovery key has to be seen before anything else.
+ * The wall stands for no session on a route that needs one - a signed-out
+ * visitor is otherwise in - and for the two signed-in steps that remain: a new
+ * account's recovery key, and recovery from a reset link. A session whose key
+ * cannot be found anywhere (tab, device, sibling) is not walled: there is no
+ * unlock step (#639), so the tab signs itself out and is a signed-out tab.
  *
  * Except in a tab that was in the app signed out when the session arrived: the
  * account was signed up or in from the new tab `goToAuth` opened, and that tab
@@ -119,15 +156,25 @@ export function gateView(s: GateState): GateView {
   const waitingForSibling =
     s.hasSession && signedOutHere && s.explorable && !s.recovering && !s.pendingRecoveryKey;
   const settling = s.hasSession && s.keyState === 'loading' && !waitingForSibling;
+  // The form that is signing in stays, busy, for the seconds Argon2id takes:
+  // the session lands half-way, and neither the splash nor a sign-out belongs
+  // there.
+  if (s.hasSession && s.opening)
+    return { view: 'wall', routeToWall: false, signedOutHere, signOutHere: false };
+
+  const keyless =
+    s.authEnabled &&
+    s.hasSession &&
+    (s.keyState === 'locked' || s.keyState === 'none') &&
+    !s.recovering &&
+    !s.pendingRecoveryKey &&
+    !waitingForSibling;
   const gated =
     s.authEnabled &&
     !s.loading &&
-    !waitingForSibling &&
-    (s.hasSession
-      ? s.recovering || s.keyState === 'locked' || s.keyState === 'none' || s.pendingRecoveryKey
-      : !s.explorable);
-  if (s.authEnabled && (s.loading || settling))
-    return { view: 'splash', routeToWall: false, signedOutHere };
-  if (gated) return { view: 'wall', routeToWall: true, signedOutHere };
-  return { view: 'app', routeToWall: false, signedOutHere };
+    (s.hasSession ? s.recovering || s.pendingRecoveryKey : !s.explorable);
+  if (s.authEnabled && (s.loading || settling || keyless))
+    return { view: 'splash', routeToWall: false, signedOutHere, signOutHere: keyless };
+  if (gated) return { view: 'wall', routeToWall: true, signedOutHere, signOutHere: false };
+  return { view: 'app', routeToWall: false, signedOutHere, signOutHere: false };
 }

@@ -31,6 +31,7 @@ const signedIn = (st: Partial<GateState>) =>
     recovering: false,
     explorable: true,
     signedOutHere: false,
+    opening: false,
     ...st,
   });
 
@@ -104,7 +105,7 @@ describe('AuthProvider: the server never gets the password', () => {
 
   it('every Supabase auth call that takes a password is given the login secret', () => {
     // Positive: both calls pass `password: secret`.
-    expect(SRC).toContain('signInWithPassword({ email, password: secret })');
+    expect(SRC).toMatch(/signInWithPassword\(\{\s*email,\s*password: secret,?\s*\}\)/);
     expect(SRC).toContain('signUp({ email, password: secret })');
     // Negative: no auth call is handed `password` itself, under any spelling.
     expect(SRC).not.toMatch(/auth\.\w+\(\{[^}]*\bpassword\b\s*[,}]/);
@@ -114,15 +115,21 @@ describe('AuthProvider: the server never gets the password', () => {
   });
 
   it('a sign-up starts making its keys before the code is typed, and stores them when the session exists', () => {
-    const signUp = SRC.slice(SRC.indexOf('async signUp('), SRC.indexOf('async unlock('));
+    const signUp = SRC.slice(
+      SRC.indexOf('signUp: (email, password) =>'),
+      SRC.indexOf('async requestPasswordReset('),
+    );
     expect(signUp).toContain('const made = createAccount(password).catch(');
     expect(signUp).toContain('pendingSetup.current = { email, made };');
-    const verify = SRC.slice(SRC.indexOf('async verifyOtp('));
+    const verify = SRC.slice(SRC.indexOf('verifyOtp: (email, token) =>'));
     expect(verify).toContain('await finishSetup(userId, await pending.made);');
   });
 
   it('a sign-in with no stored keys sets them up under the same password rather than failing', () => {
-    const signIn = SRC.slice(SRC.indexOf('async signIn('), SRC.indexOf('async signUp('));
+    const signIn = SRC.slice(
+      SRC.indexOf('signIn: (email, password) =>'),
+      SRC.indexOf('signUp: (email, password) =>'),
+    );
     expect(signIn).toContain('await finishSetup(userId, await createAccount(password));');
     expect(signIn).toContain('await open(await unlockWithPassword(password, wrapped), userId);');
   });
@@ -169,7 +176,12 @@ describe('AuthProvider: the server never gets the password', () => {
     expect(start).toBeGreaterThan(-1);
     const out = SRC.slice(start, SRC.indexOf('const value = useMemo', start));
     expect(out).toContain('forgetMasterKey();');
-    expect(out.indexOf('forgetMasterKey')).toBeLessThan(out.indexOf('supabase.auth.signOut()'));
+    expect(out.indexOf('forgetMasterKey')).toBeLessThan(out.indexOf('supabase.auth.signOut('));
+    // And the device's copy (#639), before the session ends.
+    expect(out.indexOf('await forgetOnDevice();')).toBeGreaterThan(-1);
+    expect(out.indexOf('await forgetOnDevice();')).toBeLessThan(
+      out.indexOf('supabase.auth.signOut('),
+    );
   });
 
   it('deleting the account authenticates again, removes the blobs first, and ends in sign-out', () => {
@@ -218,13 +230,9 @@ describe('the screens say what the reference design says', () => {
     expect(provider).toContain('cancelRecovery: () => setRecovering(false),');
   });
 
-  it('the unlock screen offers Forgot password, as the reference credentials page does', () => {
-    const unlock = SIGNIN.slice(
-      SIGNIN.indexOf("{mode === 'unlock' && ("),
-      SIGNIN.indexOf("{mode === 'recovery-key' &&"),
-    );
-    expect(unlock).toContain('Forgot password');
-    expect(unlock).toContain("setStep('recover');");
+  it('there is no unlock screen (#639): a returning user is let in by the key kept on the device', () => {
+    expect(SIGNIN).not.toContain("mode === 'unlock'");
+    expect(read('nav/route.ts')).not.toMatch(/'unlock'/);
   });
 
   it('the recovery key can be seen again from the account menu, for whoever chose later', () => {
@@ -249,7 +257,7 @@ describe('the screens say what the reference design says', () => {
 
   it("the errors are the reference design's words", () => {
     const provider = read('auth/AuthProvider.tsx');
-    expect(provider).toContain("'Incorrect password'");
+    // ('Incorrect password' was the unlock screen's, which is gone - #639.)
     expect(provider).toContain("'Incorrect password or email not registered'");
     expect(provider).toContain("'Incorrect recovery key'");
     expect(SIGNIN).toContain("Passwords don't match");
@@ -279,19 +287,31 @@ describe('AuthGate: the wall stands until the keys are in the tab', () => {
     );
   });
 
-  it('holds on locked, on none, and while the recovery key waits to be read', () => {
-    expect(signedIn({ keyState: 'locked' }).view).toBe('wall');
-    expect(signedIn({ keyState: 'none' }).view).toBe('wall');
+  it('holds while the recovery key waits to be read, and on recovery', () => {
     expect(signedIn({ pendingRecoveryKey: true }).view).toBe('wall');
+    expect(signedIn({ recovering: true, keyState: 'locked' }).view).toBe('wall');
     expect(signedIn({ hasSession: false, keyState: 'absent', explorable: false }).view).toBe(
       'wall',
     );
     expect(signedIn({}).view).toBe('app');
   });
 
-  it('sends a signed-in visitor to unlock, or to the recovery key first', () => {
+  it('a session with no key anywhere is signed out here, not walled: no unlock step (#639)', () => {
+    for (const keyState of ['locked', 'none'] as const) {
+      const v = signedIn({ keyState });
+      expect(v.view).toBe('splash');
+      expect(v.signOutHere).toBe(true);
+      expect(v.routeToWall).toBe(false);
+    }
+    expect(signedIn({}).signOutHere).toBe(false);
+    // ...in this browser only: the default sign-out would end every device's.
+    expect(SRC).toContain("if (g.signOutHere) void signOut('local');");
+    expect(read('auth/AuthProvider.tsx')).toContain('await supabase.auth.signOut({ scope });');
+  });
+
+  it('sends a signed-in visitor to recovery, or to the recovery key', () => {
     expect(SRC).toMatch(
-      /const wallStep: AuthStep = !session\s*\? 'signup'\s*: recovering\s*\? 'recover'\s*: pendingRecoveryKey\s*\? 'recovery-key'\s*: 'unlock';/,
+      /const wallStep: AuthStep = !session \? 'signup' : recovering \? 'recover' : 'recovery-key';/,
     );
   });
 

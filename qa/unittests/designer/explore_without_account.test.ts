@@ -12,7 +12,9 @@ import {
   explorerMayVisit,
   gateView,
   goToAuth,
+  closeIfOpenedByApp,
   type GateState,
+  type OpenedWindow,
 } from '@ziroeda/designer/src/auth/explore.js';
 
 describe('explorerMayVisit', () => {
@@ -43,6 +45,7 @@ describe('gateView, signed out', () => {
     recovering: false,
     explorable: true,
     signedOutHere: false,
+    opening: false,
   };
 
   it('opening the app drops you straight in: no wall first', () => {
@@ -66,16 +69,71 @@ describe('gateView, signed out', () => {
 });
 
 describe('goToAuth: the full-page sign-up, in a new tab', () => {
-  it('opens /signup in a new tab that shares nothing with this one', () => {
+  it('opens /signup in a new tab that keeps its opener, so it can come back', () => {
     const opened: string[][] = [];
-    goToAuth('signup', (u, t, f) => opened.push([u, t, f]));
-    expect(opened).toEqual([['/signup', '_blank', 'noopener']]);
+    goToAuth('signup', (u, t) => opened.push([u, t]));
+    expect(opened).toEqual([['/signup', '_blank']]);
   });
 
   it('can open on sign-in instead', () => {
     const opened: string[][] = [];
-    goToAuth('signin', (u, t, f) => opened.push([u, t, f]));
-    expect(opened).toEqual([['/signin', '_blank', 'noopener']]);
+    goToAuth('signin', (u, t) => opened.push([u, t]));
+    expect(opened).toEqual([['/signin', '_blank']]);
+  });
+});
+
+describe('closeIfOpenedByApp: the sign-up tab hands back and closes, as EasyEDA does', () => {
+  const tab = (opener: OpenedWindow['opener'], origin = 'https://app.ziroeda.com') => {
+    const log: string[] = [];
+    const win: OpenedWindow = {
+      opener,
+      location: { origin },
+      close: () => log.push('close'),
+    };
+    return { win, log };
+  };
+  const ours = (log: string[], closed = false) => ({
+    location: { origin: 'https://app.ziroeda.com' },
+    closed,
+    focus: () => log.push('focus opener'),
+  });
+
+  it('opened by one of our tabs: focuses it and closes', () => {
+    const log: string[] = [];
+    const { win, log: own } = tab(ours(log));
+    expect(closeIfOpenedByApp(win)).toBe(true);
+    expect(log).toEqual(['focus opener']);
+    expect(own).toEqual(['close']);
+  });
+
+  it('opened by the marketing site (another origin): stays open', () => {
+    const { win, log } = tab({
+      location: { origin: 'https://www.ziroeda.com' },
+      closed: false,
+      focus: () => {},
+    });
+    expect(closeIfOpenedByApp(win)).toBe(false);
+    expect(log).toEqual([]);
+  });
+
+  it('a cross-origin opener whose location cannot even be read: stays open', () => {
+    const opener = {
+      get location(): { origin: string } {
+        throw new Error('SecurityError');
+      },
+      closed: false,
+      focus: () => {},
+    };
+    const { win, log } = tab(opener);
+    expect(closeIfOpenedByApp(win)).toBe(false);
+    expect(log).toEqual([]);
+  });
+
+  it('no opener (a typed address), or the opener already closed: stays open', () => {
+    expect(closeIfOpenedByApp(tab(null).win)).toBe(false);
+    const { win, log } = tab(ours([], true));
+    expect(closeIfOpenedByApp(win)).toBe(false);
+    expect(log).toEqual([]);
   });
 });
 
@@ -89,6 +147,7 @@ describe('gateView: the tab that opened sign-up keeps its app while the other ta
     recovering: false,
     explorable: true,
     signedOutHere: false,
+    opening: false,
   };
   const walk = (steps: Partial<GateState>[]) => {
     let signedOutHere = false;
@@ -113,31 +172,45 @@ describe('gateView: the tab that opened sign-up keeps its app while the other ta
     ]);
     expect(views.map((v) => v.view)).toEqual(['app', 'app', 'app', 'app', 'app', 'app']);
     expect(views.some((v) => v.routeToWall)).toBe(false);
+    // And never signed out while waiting for the other tab.
+    expect(views.some((v) => v.signOutHere)).toBe(false);
     // All the way through: an ordinary signed-in tab from here on.
     expect(views[5]!.signedOutHere).toBe(false);
   });
 
-  it('once through, a later lock walls as for anyone', () => {
+  it('once through, a later lock is handled as for anyone: this tab signs itself out', () => {
     const views = walk([
       {},
       { hasSession: true, keyState: 'unlocked' },
       { hasSession: true, keyState: 'locked' },
     ]);
-    expect(views[2]!.view).toBe('wall');
+    expect(views[2]!.signOutHere).toBe(true);
   });
 
-  it('a returning user meets the unlock wall: the moment before the stored session loads does not count as signed out', () => {
+  it('the moment before the stored session loads does not count as signed out: a keyless returning tab is signed out, not kept', () => {
     const views = walk([
       { loading: true },
       { hasSession: true, keyState: 'loading' },
       { hasSession: true, keyState: 'locked' },
     ]);
-    expect(views.map((v) => v.view)).toEqual(['splash', 'splash', 'wall']);
+    expect(views.map((v) => v.view)).toEqual(['splash', 'splash', 'splash']);
+    expect(views[2]!.signOutHere).toBe(true);
   });
 
   it('the keep-the-app grace is only for places a visitor may be anyway', () => {
     const views = walk([{}, { hasSession: true, keyState: 'locked', explorable: false }]);
-    expect(views[1]!.view).toBe('wall');
+    expect(views[1]!.view).not.toBe('app');
+    expect(views[1]!.signOutHere).toBe(true);
+  });
+
+  it('while this tab is signing in (seconds of Argon2id), the form stays: no splash, no sign-out', () => {
+    // The session lands before the keys are made; it used to show the bare
+    // splash for the whole wait, and with no unlock step a keyless lookup
+    // would have signed the half-finished sign-in out.
+    for (const keyState of ['absent', 'loading', 'none', 'locked'] as const) {
+      const v = gateView({ ...base, hasSession: true, keyState, opening: true, explorable: false });
+      expect(v).toMatchObject({ view: 'wall', routeToWall: false, signOutHere: false });
+    }
   });
 
   it('the new tab itself, which never had the app signed out, shows its recovery key', () => {

@@ -265,7 +265,8 @@ describe('the sign-in wall is a place', () => {
     // The forgotten-password path, and the only one: see AuthStep.
     expect(parseRoute(`${AT}/recover`)).toEqual({ kind: 'auth', step: 'recover' });
     // The signed-in half of the wall: keys not in this tab, and the key shown once.
-    expect(parseRoute(`${AT}/unlock`)).toEqual({ kind: 'auth', step: 'unlock' });
+    // There is no unlock step any more (#639): the key is remembered on the device.
+    expect(parseRoute(`${AT}/unlock`)).toEqual({ kind: 'home' });
     expect(parseRoute(`${AT}/recovery-key`)).toEqual({ kind: 'auth', step: 'recovery-key' });
   });
 

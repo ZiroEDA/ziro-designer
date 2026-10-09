@@ -4,7 +4,13 @@
 import { useEffect, useRef, type JSX, type ReactNode } from 'react';
 import { authEnabled } from './supabaseClient.js';
 import { useAuth } from './AuthProvider.js';
-import { explorerMayVisit, gateView, rememberDestination, takeDestination } from './explore.js';
+import {
+  closeIfOpenedByApp,
+  explorerMayVisit,
+  gateView,
+  rememberDestination,
+  takeDestination,
+} from './explore.js';
 import { GateBackdrop } from './GateBackdrop.js';
 import { SignInDialog } from './SignIn.js';
 import { useRoute } from '../nav/useRoute.js';
@@ -42,7 +48,8 @@ import { HOME, type AuthStep } from '../nav/route.js';
  */
 
 export function AuthGate({ children }: { children: ReactNode }): JSX.Element {
-  const { session, loading, keyState, pendingRecoveryKey, recovering } = useAuth();
+  const { session, loading, keyState, opening, pendingRecoveryKey, recovering, signOut } =
+    useAuth();
   const { route, navigate } = useRoute();
   // Whether this mount has already sent a signed-in visitor onward, so the
   // restore runs once rather than on every render while the session settles.
@@ -59,15 +66,15 @@ export function AuthGate({ children }: { children: ReactNode }): JSX.Element {
     recovering,
     explorable: explorerMayVisit(route),
     signedOutHere: signedOutHere.current,
+    opening,
   });
   signedOutHere.current = g.signedOutHere;
-  const wallStep: AuthStep = !session
-    ? 'signup'
-    : recovering
-      ? 'recover'
-      : pendingRecoveryKey
-        ? 'recovery-key'
-        : 'unlock';
+  const wallStep: AuthStep = !session ? 'signup' : recovering ? 'recover' : 'recovery-key';
+
+  // No key anywhere for this session: out, in this browser only (see gateView).
+  useEffect(() => {
+    if (g.signOutHere) void signOut('local');
+  }, [g.signOutHere, signOut]);
 
   // Walled: put the wall in the address, keeping where they were headed.
   useEffect(() => {
@@ -81,6 +88,10 @@ export function AuthGate({ children }: { children: ReactNode }): JSX.Element {
     if (!session || g.view !== 'app' || restored.current) return;
     if (route.kind !== 'auth') return;
     restored.current = true;
+    // Opened by one of our tabs for this sign-up (#639): that tab is signed in
+    // now too, so go back to it and close. A browser may refuse the close, so
+    // carry on regardless; a tab that did close never shows it.
+    closeIfOpenedByApp();
     navigate(takeDestination() ?? HOME, { replace: true });
   }, [session, g.view, route, navigate]);
 
