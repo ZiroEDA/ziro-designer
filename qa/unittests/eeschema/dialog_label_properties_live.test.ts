@@ -267,6 +267,20 @@ describe('DIALOG_LABEL_PROPERTIES', () => {
     expect(dlg.Fields().at(1).GetName()).toBe('B');
   });
 
+  it('refuses to delete a global label’s mandatory Intersheet References row', () => {
+    const { dlg } = setUp(new SCH_GLOBALLABEL({ x: 0, y: 0 }, 'G'));
+    dlg.TransferDataToWindow();
+    const error = vi.fn();
+    SetErrorPresenter(error);
+
+    dlg.Grid().SetGridCursor(0, 0);
+    dlg.OnDeleteField();
+
+    expect(error).toHaveBeenCalledWith('The first field is mandatory.', '');
+    expect(dlg.Fields().at(0).GetId()).toBe(FIELD_T.INTERSHEET_REFS);
+    expect(dlg.Grid().GetNumberRows()).toBe(1);
+  });
+
   it('deletes a user row, with the cursor going to the row above', () => {
     const label = new SCH_LABEL({ x: 0, y: 0 }, 'L');
     label.SetFields([userField(label, 'A', 'a'), userField(label, 'B', 'b')]);
