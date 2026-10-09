@@ -37,6 +37,7 @@ import {
 } from './account_keys.js';
 import { askSiblingsForMasterKey, onSiblingKeyReady, serveMasterKey } from './tab_keys.js';
 import { forgetOnDevice, recallFromDevice, rememberOnDevice } from './device_key.js';
+import { forgetPrimedLoginSecret, loginSecretFor } from './login_secret_cache.js';
 import { setSessionKeys } from '../cloud/session_keys.js';
 import { ACCOUNT_EXISTS_MESSAGE, signUpOutcome } from './signup_outcome.js';
 import { setLocalVaultFromMasterKey } from '../home/local_vault.js';
@@ -225,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
 
   const open = useCallback(async (unlocked: AccountKeys, userId: string) => {
     openFor.current = userId;
+    forgetPrimedLoginSecret();
     rememberMasterKey(unlocked.masterKey);
     // On the device too, so the next visit is let straight in (device_key.ts),
     // and BEFORE `setKeys` - which starts serving siblings and announces the key
@@ -412,7 +414,8 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
           if (!supabase) return { error: 'Auth is not configured.' };
           // The server is given a value derived from the password, never the
           // password: see `loginSecret`. It can check it and recover nothing.
-          const secret = await loginSecret(email, password);
+          // Usually already derived while the form was filled in.
+          const secret = await loginSecretFor(email, password);
           const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password: secret,
@@ -450,7 +453,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       signUp: (email, password) =>
         whileOpening(async () => {
           if (!supabase) return { error: 'Auth is not configured.', needsConfirm: false };
-          const secret = await loginSecret(email, password);
+          const secret = await loginSecretFor(email, password);
           const { data, error } = await supabase.auth.signUp({ email, password: secret });
           if (error) return { error: error.message, needsConfirm: false };
           const outcome = signUpOutcome(data);

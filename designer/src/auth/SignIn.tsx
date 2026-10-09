@@ -4,6 +4,7 @@
 import { useEffect, useState, type FormEvent, type JSX } from 'react';
 import { RecoveryKeyContents } from './RecoveryKeyContents.js';
 import { useAuth } from './AuthProvider.js';
+import { primeLoginSecret } from './login_secret_cache.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { ACCOUNT_EXISTS_MESSAGE } from './signup_outcome.js';
 import { ZiroLogo } from '../ui/ZiroLogo.js';
@@ -134,6 +135,15 @@ export function SignInDialog({
   const [busy, setBusy] = useState(false);
 
   const strength = usePasswordStrength(password);
+
+  // Start the login secret's half second of Argon2id as soon as the two fields
+  // settle - a pause in typing, or the browser's autofill - so the submit finds
+  // it done (login_secret_cache.ts; it runs in a worker, so typing stays smooth).
+  useEffect(() => {
+    if (mode !== 'signin' && mode !== 'signup') return;
+    const t = setTimeout(() => primeLoginSecret(email, password), 300);
+    return () => clearTimeout(t);
+  }, [mode, email, password]);
   const [noRecoveryKey, setNoRecoveryKey] = useState(false);
 
   const run = async (fn: () => Promise<{ error: string | null }>): Promise<boolean> => {
