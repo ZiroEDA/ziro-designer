@@ -87,6 +87,7 @@ describe('DIALOG_SYMBOL_PROPERTIES', () => {
     const { h, sym, dlg } = setUp();
     const undo = h.frame.GetUndoCommandCount();
     const sheet = h.frame.GetCurrentSheet();
+    const valuePos = { ...sym.GetField(FIELD_T.VALUE)!.GetTextPos() };
     const d = dlg();
     const shown = d.TransferDataToWindow();
     d.Fields().SetValue(0, FIELDS_DATA_COL_ORDER.FDC_VALUE, 'D99');
@@ -103,6 +104,8 @@ describe('DIALOG_SYMBOL_PROPERTIES', () => {
     ).toBe(true);
 
     expect(sym.GetRef(sheet)).toBe('D99');
+    // The fields go back absolute: the rotation and mirror moved the symbol's body, not them.
+    expect(sym.GetField(FIELD_T.VALUE)!.GetTextPos()).toEqual(valuePos);
     expect(sym.GetField(FIELD_T.VALUE)!.GetText()).toBe('1N4148');
     expect(sym.GetOrientation()).toBe(
       SYMBOL_ORIENTATION_T.SYM_ORIENT_90 | SYMBOL_ORIENTATION_T.SYM_MIRROR_X,
