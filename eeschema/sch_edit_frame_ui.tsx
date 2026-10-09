@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import type { SCH_SHEET_PIN } from './sch_sheet_pin.js';
 import type { SCH_BITMAP } from './sch_bitmap.js';
 import type { SCH_SHAPE } from './sch_shape.js';
 import {
@@ -441,8 +442,9 @@ import {
 } from './dialogs/dialog_image_properties.js';
 import { DialogFieldProperties, type FieldPropsResult } from './dialogs/dialog_field_properties.js';
 import {
+  DIALOG_SHEET_PIN_PROPERTIES,
   DialogSheetPinProperties,
-  type SheetPinPropsResult,
+  type SHEET_PIN_DIALOG_VALUES,
 } from './dialogs/dialog_sheet_pin_properties.js';
 import {
   DialogSchematicSetup,
@@ -1381,7 +1383,12 @@ export function SchematicEditor({
   // Field Properties (DIALOG_FIELD_PROPERTIES): which symbol, which field.
   const [fieldEdit, setFieldEdit] = useState<{ symbol: number; index: number } | null>(null);
   // Sheet Pin Properties (DIALOG_SHEET_PIN_PROPERTIES).
-  const [sheetPinEdit, setSheetPinEdit] = useState<SheetPinRef | null>(null);
+  /** DIALOG_SHEET_PIN_PROPERTIES while it is up for the live tools. */
+  const [sheetPinDialog, setSheetPinDialog] = useState<{
+    dlg: DIALOG_SHEET_PIN_PROPERTIES;
+    shown: SHEET_PIN_DIALOG_VALUES;
+    resolve: (aId: number) => void;
+  } | null>(null);
   // Unfold from Bus leaves the wire tool drawing away from the new entry
   // (SCH_LINE_WIRE_BUS_TOOL continues into its drawing loop).
   // Editing the current sheet's page number (SCH_ACTIONS::editPageNumber).
@@ -1833,6 +1840,15 @@ export function SchematicEditor({
           const dlg = new DIALOG_IMAGE_PROPERTIES(schFrameRef.current!, _aItems[0] as SCH_BITMAP);
           return new Promise<number>((resolve) =>
             setImageDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
+          );
+        }
+        if (aDialog === 'DIALOG_SHEET_PIN_PROPERTIES') {
+          const dlg = new DIALOG_SHEET_PIN_PROPERTIES(
+            schFrameRef.current!,
+            _aItems[0] as SCH_SHEET_PIN,
+          );
+          return new Promise<number>((resolve) =>
+            setSheetPinDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
           );
         }
         if (aDialog === 'DIALOG_JUNCTION_PROPS') {
@@ -4783,12 +4799,6 @@ export function SchematicEditor({
         if (!d) return d;
         // A field of a placed symbol: "<symbolRefId>:field<k>"
         // (DIALOG_FIELD_PROPERTIES, not the whole symbol's dialog).
-        // A sheet's hierarchical pin (DIALOG_SHEET_PIN_PROPERTIES).
-        const spRef = d ? parseSheetPinId(d, id) : null;
-        if (spRef) {
-          setSheetPinEdit(spRef);
-          return d;
-        }
         const field = fieldEditTarget(d, id);
         if (field) {
           setFieldEdit(field);
@@ -6703,21 +6713,6 @@ export function SchematicEditor({
       });
     },
     [doc, runCommand, currentPath, liveDocs],
-  );
-
-  const commitSheetPinEdit = useCallback(
-    (r: SheetPinPropsResult) => {
-      setSheetPinEdit((sp) => {
-        if (!sp || !doc) return null;
-        const orig = doc.sheets[sp.sheet]?.pins[sp.pin];
-        if (orig)
-          runCommand(
-            replaceSheetPin(sp, { ...orig, name: r.name, shape: r.shape, effects: r.effects }),
-          );
-        return null;
-      });
-    },
-    [doc, runCommand],
   );
 
   /**
@@ -9479,17 +9474,20 @@ export function SchematicEditor({
         />
       )}
 
-      {sheetPinEdit && doc.sheets[sheetPinEdit.sheet]?.pins[sheetPinEdit.pin] && (
+      {/* DIALOG_SHEET_PIN_PROPERTIES on a live sheet pin. */}
+      {sheetPinDialog && (
         <DialogSheetPinProperties
-          initial={{
-            name: doc.sheets[sheetPinEdit.sheet]!.pins[sheetPinEdit.pin]!.name,
-            shape: doc.sheets[sheetPinEdit.sheet]!.pins[sheetPinEdit.pin]!.shape,
-            effects: doc.sheets[sheetPinEdit.sheet]!.pins[sheetPinEdit.pin]!.effects ?? {
-              hidden: false,
-            },
+          initial={sheetPinDialog.shown}
+          units={units}
+          onOk={(values) => {
+            setSheetPinDialog(null);
+            sheetPinDialog.dlg.TransferDataFromWindow(values);
+            sheetPinDialog.resolve(wxID_OK);
           }}
-          onOk={commitSheetPinEdit}
-          onCancel={() => setSheetPinEdit(null)}
+          onCancel={() => {
+            setSheetPinDialog(null);
+            sheetPinDialog.resolve(wxID_CANCEL);
+          }}
         />
       )}
 

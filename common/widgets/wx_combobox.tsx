@@ -258,3 +258,119 @@ export function Combo({
     </>
   );
 }
+
+/**
+ * A `wxComboBox` — the editable one: a text entry the user types into, with a drop-down of
+ * suggestions beside it (the sheet pin's names, a label's existing values). Its list is drawn
+ * with the wxChoice popup's own classes, but it opens BELOW the entry, as GTK's combobox entry
+ * does, since the entry's text is what the user is looking at.
+ */
+export function TextCombo({
+  value,
+  options,
+  onChange,
+  onEnter,
+  className,
+  title,
+  autoFocus,
+}: {
+  value: string;
+  /** The suggestions; picking one replaces the entry's text. */
+  options: readonly string[];
+  onChange: (value: string) => void;
+  /** Enter in the entry: the dialog's default button. */
+  onEnter?: () => void;
+  className?: string;
+  title?: string;
+  autoFocus?: boolean;
+}): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const [box, setBox] = useState<{ left: number; top: number; width: number } | null>(null);
+  const wrapRef = useRef<HTMLSpanElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setBox(null);
+      return;
+    }
+    const r = wrapRef.current?.getBoundingClientRect();
+    if (r) setBox({ left: r.left, top: r.bottom, width: r.width });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent): void => {
+      if (popRef.current?.contains(e.target as Node)) return;
+      if (wrapRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    window.addEventListener('mousedown', onDown, true);
+    return () => window.removeEventListener('mousedown', onDown, true);
+  }, [open]);
+
+  return (
+    <>
+      <span ref={wrapRef} className={`ze-textcombo${className ? ` ${className}` : ''}`}>
+        <input
+          ref={inputRef}
+          value={value}
+          title={title}
+          // biome-ignore lint/a11y/noAutofocus: wxDialog focuses its first control.
+          autoFocus={autoFocus}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === 'Escape' && open) {
+              e.preventDefault();
+              setOpen(false);
+            } else if (e.key === 'ArrowDown' && options.length > 0) {
+              e.preventDefault();
+              setOpen(true);
+            } else if (e.key === 'Enter') {
+              setOpen(false);
+              onEnter?.();
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="ze-textcombo-button"
+          tabIndex={-1}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          disabled={options.length === 0}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span className="twisty expandable ze-combo-arrow" />
+        </button>
+      </span>
+      {open && box && (
+        <div
+          ref={popRef}
+          className="ze-combo-popup"
+          role="listbox"
+          style={{ position: 'fixed', left: box.left, top: box.top, minWidth: box.width }}
+        >
+          {options.map((o) => (
+            <div
+              key={o}
+              role="option"
+              aria-selected={o === value}
+              className={`ze-combo-item${o === value ? ' selected' : ''}`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onChange(o);
+                setOpen(false);
+                inputRef.current?.focus();
+              }}
+            >
+              {o}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}

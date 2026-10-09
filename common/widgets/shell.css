@@ -14056,6 +14056,35 @@ fieldset.ze-sbox > legend {
   color: var(--ctl-fg-disabled);
 }
 
+/* `wxComboBox` (TextCombo): GTK's combobox entry - the entry styled as every
+   field is, with the drop-down button joined to its right edge in the choice's
+   face. Every value is a token the entry and .ze-combo already use. */
+.ze-textcombo {
+  display: inline-flex;
+  align-items: stretch;
+}
+.ze-textcombo > input {
+  flex: 1 1 auto;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.ze-textcombo-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ctl-height);
+  height: var(--ctl-height);
+  padding: 0;
+  background: var(--ctl-face);
+  color: var(--chrome-fg);
+  border: 1px solid var(--ctl-border);
+  border-left: none;
+  border-radius: 0 var(--ctl-radius) var(--ctl-radius) 0;
+}
+.ze-textcombo-button:disabled {
+  background: var(--ctl-face-disabled);
+}
+
 /* A combo in a grid CELL is a RENDERER, not a control.
  *
  * `wxGrid` draws a cell with its `wxGridCellRenderer` and only swaps in the
