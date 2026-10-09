@@ -71,7 +71,6 @@ export * from './edit_symbol_libid.js';
 export * from '../net_navigator.js';
 export * from '../net_navigator.js';
 export * from './pin_alternates.js';
-export * from './pin_grid.js';
 export * from './backannotate.js';
 export * from './scene_bbox.js';
 export * from './sync_sheet_pins.js';

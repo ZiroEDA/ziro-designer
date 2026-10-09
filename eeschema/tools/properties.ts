@@ -15,10 +15,9 @@
  *     are never dropped.
  */
 
-import type { Schematic, SchSymbol, SchSymbolPin, SchField, LibSymbol } from '../types.js';
+import type { Schematic, SchSymbol, SchField, LibSymbol } from '../types.js';
 import { buildPropertyNode } from '../sch_io/sexpr/write-schematic.js';
 import { refId } from './hittest.js';
-import { schSymbolLibraryName } from '../lib_symbol.js';
 import type { EditCommand } from './command.js';
 
 /** KiCad SCH_FIELD::IsMandatory, by canonical name (we have no FIELD_T ids). */
@@ -50,120 +49,6 @@ export function fieldNamesAreDuplicates(lhs: string, rhs: string): boolean {
 
 /** A field as edited in the dialog: `at` is symbol-relative, `source` optional (new fields). */
 export type EditedField = Omit<SchField, 'source'> & { readonly source?: SchField['source'] };
-
-/** The symbol-level results of the properties dialog. */
-export interface SymbolEdit {
-  readonly fields: readonly EditedField[];
-  readonly angle: number;
-  readonly mirror?: 'x' | 'y';
-  readonly unit: number;
-  /** Body style, 1-based; 2 is KiCad's "De Morgan" alternate. */
-  readonly bodyStyle: number;
-  readonly inBom: boolean;
-  readonly onBoard: boolean;
-  readonly dnp: boolean;
-  readonly excludedFromSim?: boolean;
-  /** `(in_pos_files no)`; undefined leaves the token as the file had it. */
-  readonly excludedFromPosFiles?: boolean;
-  /** The Pin Functions page's alternate selections. Undefined leaves the
-   *  placement's pin list exactly as the file had it. */
-  readonly pins?: readonly SchSymbolPin[];
-  /**
-   * The dialog's "Show pin numbers" / "Show pin names".
-   *
-   * `TransferDataFromWindow` writes these onto the placement's cached library
-   * symbol (`m_symbol->SetShowPinNumbers(...)`), not onto the placement, so one
-   * symbol can hide its pin text without every other use of the same part
-   * changing. Undefined leaves the cached copy exactly as it was.
-   */
-  readonly showPinNumbers?: boolean;
-  readonly showPinNames?: boolean;
-}
-
-/** TransferDataFromWindow's field post-processing + rel→abs position conversion. */
-function applyFields(sym: SchSymbol, edited: readonly EditedField[]): readonly SchField[] {
-  const out: SchField[] = [];
-  for (const f of edited) {
-    if (f.key === '' && f.value === '') continue; // dropped, as in KiCad
-    const key = f.key === '' ? 'untitled' : f.key;
-    const at = f.at ? { x: f.at.x + sym.at.x, y: f.at.y + sym.at.y } : undefined;
-    const base = { ...f, key, at };
-    out.push(f.source ? (base as SchField) : { ...base, source: buildPropertyNode(base) });
-  }
-  return out;
-}
-
-/** Apply the Symbol Properties dialog's result to the symbol with `id`, undoably. */
-export function editSymbolProperties(id: string, edit: SymbolEdit): EditCommand {
-  return {
-    label: 'Edit Symbol Properties',
-    apply(doc: Schematic): Schematic {
-      // The pin-text flags live on the sheet's cached definition, not on the
-      // placement: TransferDataFromWindow calls m_symbol->SetShowPinNumbers,
-      // and SCH_SYMBOL forwards it to the LIB_SYMBOL it owns a copy of. So they
-      // are applied to lib_symbols, and only to the definition this placement
-      // uses — hiding one symbol's pin numbers must not change every other use
-      // of the same part.
-      const target = doc.symbols.find((s, i) => refId('symbol', s.uuid, i) === id);
-      const pinFlags = edit.showPinNumbers !== undefined || edit.showPinNames !== undefined;
-      const libSymbols =
-        target && pinFlags
-          ? doc.libSymbols.map((l) =>
-              l.libId === schSymbolLibraryName(target)
-                ? {
-                    ...l,
-                    ...(edit.showPinNumbers !== undefined
-                      ? { pinNumbersHidden: !edit.showPinNumbers }
-                      : {}),
-                    ...(edit.showPinNames !== undefined
-                      ? { pinNamesHidden: !edit.showPinNames }
-                      : {}),
-                  }
-                : l,
-            )
-          : doc.libSymbols;
-      return {
-        ...doc,
-        libSymbols,
-        symbols: doc.symbols.map((s, i) => {
-          if (refId('symbol', s.uuid, i) !== id) return s;
-          const next: SchSymbol = {
-            ...s,
-            angle: edit.angle,
-            unit: edit.unit,
-            bodyStyle: edit.bodyStyle,
-            inBom: edit.inBom,
-            onBoard: edit.onBoard,
-            dnp: edit.dnp,
-            fields: applyFields(s, edit.fields),
-          };
-          const m = { ...next } as { -readonly [K in keyof SchSymbol]: SchSymbol[K] };
-          if (edit.mirror) m.mirror = edit.mirror;
-          else delete m.mirror;
-          if (edit.excludedFromSim !== undefined) m.excludedFromSim = edit.excludedFromSim;
-          if (edit.excludedFromPosFiles !== undefined)
-            m.excludedFromPosFiles = edit.excludedFromPosFiles;
-          if (edit.pins !== undefined) m.pins = edit.pins;
-          return m;
-        }),
-      };
-    },
-    invert(before: Schematic): EditCommand {
-      const prev = before.symbols.map((s, i) => [refId('symbol', s.uuid, i), s] as const);
-      const target = before.symbols.find((s, i) => refId('symbol', s.uuid, i) === id);
-      const pinFlags = edit.showPinNumbers !== undefined || edit.showPinNames !== undefined;
-      const libs =
-        target && pinFlags
-          ? new Map(
-              before.libSymbols
-                .filter((l) => l.libId === schSymbolLibraryName(target))
-                .map((l) => [l.libId, l] as const),
-            )
-          : undefined;
-      return restoreSymbols(new Map(prev.filter(([rid]) => rid === id)), libs);
-    },
-  };
-}
 
 /**
  * Bulk field edit (the Symbol Fields Table's edit view,

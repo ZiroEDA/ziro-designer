@@ -8,6 +8,7 @@ import type { SCH_LABEL_BASE } from './sch_label.js';
 import type { SCH_COMMIT } from './sch_commit.js';
 import type { SCH_FIELD } from './sch_field.js';
 import type { SCH_SHEET } from './sch_sheet.js';
+import type { SCH_SYMBOL } from './sch_symbol.js';
 import type { SHEET_PROPERTIES_RESULT } from './sch_edit_frame.js';
 import type { SCH_BITMAP } from './sch_bitmap.js';
 import type { SCH_SHAPE } from './sch_shape.js';
@@ -84,7 +85,6 @@ import {
   computeNetlist,
   withCleanup,
   refId,
-  editSymbolProperties,
   copySelectionText,
   parsePastedText,
   boxSelect,
@@ -199,7 +199,6 @@ import {
   busForUnfolding,
   swapItems,
   repeatItems,
-  hasAlternateBodyStyle,
   makeImage,
   ProjectHistory,
   type Schematic,
@@ -209,7 +208,6 @@ import {
   type SchSymbol,
   type EditCommand,
   type LabelShape,
-  type SymbolEdit,
   type PastePayload,
   type ErcViolation,
   type SheetTreeNode,
@@ -231,7 +229,11 @@ import {
   DialogTextProperties,
   type TextPropsInitial,
 } from './dialogs/dialog_text_properties.js';
-import { SymbolPropertiesDialog } from './dialogs/dialog_symbol_properties.js';
+import {
+  DIALOG_SYMBOL_PROPERTIES,
+  DialogSymbolProperties,
+  type SYMBOL_DIALOG_VALUES,
+} from './dialogs/dialog_symbol_properties.js';
 import { ErcDialog, type ErcDialogNav } from './dialogs/dialog_erc.js';
 import type { PickedSymbol, SymbolChooserResult } from './picksymbol.js';
 import { repairSourceLibs } from './browser/repair_source.js';
@@ -1134,6 +1136,11 @@ export function SchematicEditor({
   } | null>(null);
   // KIDIALOG for the live tools' warnings with a "Do not show again" box.
   const kiDialog = useKiDialog();
+  const [symbolDialog, setSymbolDialog] = useState<{
+    dlg: DIALOG_SYMBOL_PROPERTIES;
+    shown: SYMBOL_DIALOG_VALUES;
+    resolve: (aId: number) => void;
+  } | null>(null);
   const [textDialog, setTextDialog] = useState<{
     dlg: DIALOG_TEXT_PROPERTIES;
     shown: TextPropsInitial;
@@ -1458,7 +1465,6 @@ export function SchematicEditor({
     iuPerMM: SCH_IU_PER_MM,
   });
   // The symbol whose properties dialog is open (its refId), or null.
-  const [propsTarget, setPropsTarget] = useState<string | null>(null);
   // Items parsed from the clipboard, attached to the cursor until dropped.
   const [pastePending, setPastePendingOnly] = useState<PastePayload | null>(null);
   /**
@@ -1758,6 +1764,16 @@ export function SchematicEditor({
           );
           return new Promise<number>((resolve) =>
             setSheetDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
+          );
+        }
+        if (aDialog === 'DIALOG_SYMBOL_PROPERTIES') {
+          const dlg = new DIALOG_SYMBOL_PROPERTIES(
+            schFrameRef.current!,
+            _aItems[0] as SCH_SYMBOL,
+            gridTextButtonHost,
+          );
+          return new Promise<number>((resolve) =>
+            setSymbolDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
           );
         }
         if (aDialog === 'DIALOG_JUNCTION_PROPS') {
@@ -2185,16 +2201,6 @@ export function SchematicEditor({
     [foldStep],
   );
 
-  // Resolve the open dialog's target symbol against the current document.
-  const propsSymbol = useMemo(() => {
-    if (!doc || propsTarget === null) return null;
-    for (let i = 0; i < doc.symbols.length; i++) {
-      const s = doc.symbols[i]!;
-      if (refId('symbol', s.uuid, i) === propsTarget) return s;
-    }
-    return null;
-  }, [doc, propsTarget]);
-
   // The schematic hierarchy (SCH_SHEET_LIST): rebuilt from the live documents so
   // sheet edits (adding/renaming sheets) reflect immediately.
   const sheetTree = useMemo<SheetTreeNode | null>(() => {
@@ -2474,21 +2480,6 @@ export function SchematicEditor({
   const [changeSymbolsSubject, setChangeSymbolsSubject] = useState<
     ChangeSymbolsSubject | undefined
   >(undefined);
-  /**
-   * `m_symbol->GetRef()` / VALUE / `GetLibId().Format()`, plus IsSelected().
-   *
-   * Off `fields`, which is where a PLACEMENT keeps its Reference and Value.
-   * `properties` is the LIBRARY symbol's list — reaching for it here found
-   * nothing and seeded two empty boxes, and the parameter had been typed
-   * loosely enough (`properties?:`) that tsc had nothing to object to. Taking
-   * `SchSymbol` is what makes the wrong member a compile error.
-   */
-  const changeSymbolsSubjectOf = (sym: SchSymbol, selected: boolean): ChangeSymbolsSubject => ({
-    reference: sym.fields.find((f) => f.key === 'Reference')?.value ?? '',
-    value: sym.fields.find((f) => f.key === 'Value')?.value ?? '',
-    libId: sym.libId,
-    isSelected: selected,
-  });
   const [changeSymbolsMessages, setChangeSymbolsMessages] = useState<
     readonly ChangeSymbolsMessage[]
   >([]);
@@ -3242,22 +3233,6 @@ export function SchematicEditor({
 
   const editSymbolInEditor = useCallback(
     (id: string): void => openSymbolEditorOn(id, 'schematic'),
-    [openSymbolEditorOn],
-  );
-
-  /**
-   * DIALOG_SYMBOL_PROPERTIES' "Edit Symbol..." / "Edit Library Symbol...".
-   * Upstream's dialog does not open anything itself: it ends quasi-modal with
-   * a return code and SCH_EDIT_TOOL opens the editor
-   * (`sch_edit_tool.cpp:2727-2760`). Ours closes the dialog and seeds the
-   * editor, and the two buttons share this one handler so neither can drift
-   * onto a different path than the other.
-   */
-  const symbolPropsHandoff = useCallback(
-    (id: string, target: SymbolEditorTarget) => (): void => {
-      setPropsTarget(null);
-      openSymbolEditorOn(id, target);
-    },
     [openSymbolEditorOn],
   );
 
@@ -4163,7 +4138,6 @@ export function SchematicEditor({
     setActiveTool('select');
     setPlaceLib(null);
     setPastePending(null);
-    setPropsTarget(null);
   }, []);
 
   /**
@@ -4611,7 +4585,6 @@ export function SchematicEditor({
   // reopens its text editor (double-click = edit).
   const onEditItem = useCallback(
     (id: string, kind: ItemRef['kind']) => {
-      if (kind === 'symbol') setPropsTarget(id);
       if (kind === 'table' && doc) {
         // `SCH_EDIT_TOOL::Properties` opens DIALOG_TABLE_PROPERTIES for a whole
         // table; a selected cell opens the cell dialog instead.
@@ -4640,8 +4613,7 @@ export function SchematicEditor({
     (id: string) => {
       setDoc((d) => {
         if (!d) return d;
-        if (d.symbols.some((s, i) => refId('symbol', s.uuid, i) === id)) setPropsTarget(id);
-        else if (d.textBoxes.some((tb, i) => refId('textbox', tb.uuid, i) === id))
+        if (d.textBoxes.some((tb, i) => refId('textbox', tb.uuid, i) === id))
           onEditItem(id, 'textbox');
         else if (d.tables.some((t, i) => refId('table', t.uuid, i) === id)) onEditItem(id, 'table');
         return d;
@@ -5133,7 +5105,7 @@ export function SchematicEditor({
     // own the document clipboard events (see App's activeView stamp).
     const hidden = (): boolean => (document.body.dataset.activeView ?? 'schematic') !== 'schematic';
     const onCopy = (e: ClipboardEvent): void => {
-      if (hidden() || isTyping() || propsTarget !== null || selection.size === 0 || !doc) return;
+      if (hidden() || isTyping() || selection.size === 0 || !doc) return;
       const text = copySelectionText(doc, selection);
       // Nothing the clipboard can carry: leave the system clipboard alone
       // rather than overwriting whatever is on it with an empty string.
@@ -5142,7 +5114,7 @@ export function SchematicEditor({
       e.preventDefault();
     };
     const onCut = (e: ClipboardEvent): void => {
-      if (hidden() || isTyping() || propsTarget !== null || selection.size === 0 || !doc) return;
+      if (hidden() || isTyping() || selection.size === 0 || !doc) return;
       // TEMPORARY DIVERGENCE from KiCad, whose Cut always succeeds because its
       // copy carries sheets: SCH_EDITOR_CONTROL::doCopy stashes each sheet's
       // screen in m_supplementaryClipboard (sch_editor_control.cpp:1667) and
@@ -5165,7 +5137,7 @@ export function SchematicEditor({
       setSelection(new Set());
     };
     const onPaste = (e: ClipboardEvent): void => {
-      if (hidden() || isTyping() || propsTarget !== null || !doc) return;
+      if (hidden() || isTyping() || !doc) return;
       const text = e.clipboardData?.getData('text/plain') ?? '';
       const payload = parsePastedText(text, doc, pasteOptions());
       if (!payload) return;
@@ -5181,7 +5153,7 @@ export function SchematicEditor({
       document.removeEventListener('cut', onCut);
       document.removeEventListener('paste', onPaste);
     };
-  }, [doc, selection, propsTarget, runCommand, pasteOptions]);
+  }, [doc, selection, runCommand, pasteOptions]);
 
   // Select/Expand Connection (Ctrl+4 and the context menu). Each press widens
   // the selection by one stage; the walk itself lives in eeschema.
@@ -6617,8 +6589,6 @@ export function SchematicEditor({
       // built with.
       const e = remapEvent(raw, app.settings.hotkeys);
       if (!e) return;
-      // While a modal properties dialog is open, only Escape acts on the editor.
-      if (propsTarget !== null && e.key !== 'Escape') return;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
         // Under the project manager eeschema's File menu starts at Save - New
         // and Open belong to the launcher (menubar.cpp) - so this key has no
@@ -6777,7 +6747,6 @@ export function SchematicEditor({
         //     if( m_dialogSyncSheetPin && m_dialogSyncSheetPin->CanPlaceMore() )
         //     { m_dialogSyncSheetPin->EndPlacement(); m_dialogSyncSheetPin->Show( true ); }
         if (syncPlacementRef.current) endSyncPlacement();
-        else if (propsTarget !== null) setPropsTarget(null);
         else if (pastePending) setPastePending(null);
         else if (pendingImage) {
           setPendingImage(null);
@@ -7024,7 +6993,6 @@ export function SchematicEditor({
     pendingImage,
     placeLib,
     placeInstance,
-    propsTarget,
     pastePending,
     duplicateSelection,
     findOpen,
@@ -8337,54 +8305,19 @@ export function SchematicEditor({
         <PreferencesDialog initialPage={prefsPage} onClose={() => setPrefsOpen(false)} />
       )}
 
-      {/* Double-click / E on a symbol: KiCad's Symbol Properties dialog. */}
-      {propsSymbol && propsTarget !== null && (
-        <SymbolPropertiesDialog
-          hasAlternate={hasAlternateBodyStyle(libById.get(schSymbolLibraryName(propsSymbol)))}
-          symbol={propsSymbol}
-          lib={libById.get(schSymbolLibraryName(propsSymbol))}
-          fieldTemplates={resolvedFieldTemplates}
-          subpart={subpartSettings(setup.annotation)}
-          // `m_frame->GetUserUnits()` — the grid's Text Size / X / Y cells are
-          // formatted and parsed in the frame's display unit, not in mm.
-          units={units}
-          onOk={(edit: SymbolEdit) => {
-            runCommand(editSymbolProperties(propsTarget, edit));
-            setPropsTarget(null);
+      {/* DIALOG_SYMBOL_PROPERTIES on a live symbol (SCH_EDIT_TOOL::Properties). */}
+      {symbolDialog && (
+        <DialogSymbolProperties
+          dlg={symbolDialog.dlg}
+          initial={symbolDialog.shown}
+          onClose={(aRetval) => {
+            setSymbolDialog(null);
+            symbolDialog.resolve(aRetval);
           }}
-          onCancel={() => setPropsTarget(null)}
-          // The General page's hand-off buttons. Each closes this dialog and
-          // opens the flow that already exists, as upstream's do.
-          onChangeSymbol={() => {
-            setPropsTarget(null);
-            setChangeSymbolsMessages([]);
-            // Opened ON this symbol, so it is `m_symbol` and seeds the entries.
-            setChangeSymbolsSubject(changeSymbolsSubjectOf(propsSymbol, true));
-            setChangeSymbolsMode('change');
+          onCancel={() => {
+            setSymbolDialog(null);
+            symbolDialog.resolve(wxID_CANCEL);
           }}
-          onUpdateSymbol={() => {
-            setPropsTarget(null);
-            setChangeSymbolsMessages([]);
-            setChangeSymbolsSubject(changeSymbolsSubjectOf(propsSymbol, true));
-            setChangeSymbolsMode('update');
-          }}
-          // The two hand-off buttons are ONE handler with one literal
-          // different, because that is all that separates them upstream
-          // (sch_edit_tool.cpp:2727-2760). "Edit Symbol..." used to call
-          // `onShowSymbolEditor()` — a bare view switch with no symbol — so it
-          // opened on `[no symbol loaded]`; "Edit Library Symbol..." opens the
-          // *library* part rather than this sheet's cached copy, so an edit
-          // there reaches every use of it.
-          onEditSymbol={
-            onEditSymbolInEditor && propsTarget !== null
-              ? symbolPropsHandoff(propsTarget, 'schematic')
-              : undefined
-          }
-          onEditLibrarySymbol={
-            onEditSymbolInEditor && propsTarget !== null
-              ? symbolPropsHandoff(propsTarget, 'library')
-              : undefined
-          }
         />
       )}
 

@@ -9,6 +9,8 @@
  * Every dialog KiCad constructs here is the window's: `SCH_EDIT_FRAME::ShowModalDialog` names the
  * C++ class and hands over the live items, and with no window every dialog is cancelled.
  */
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
 import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 import { CHANGE_TYPE } from '@ziroeda/common/commit.js';
 import { type EDA_ITEM, IGNORE_PARENT_GROUP, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
@@ -2284,18 +2286,27 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           }
 
           this.m_frame!.OnModify();
-        } else if (
-          retval === SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_EDIT_SCHEMATIC_SYMBOL ||
-          retval === SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_EDIT_LIBRARY_SYMBOL
-        ) {
-          // Kiway().Player( FRAME_SCH_SYMBOL_EDITOR, true ) then LoadSymbolFromSchematic /
-          // LoadSymbol: opening the symbol editor is the window's, as the dialog's return says.
-          // The broken library symbol link indicator cannot be edited.
-          if (
-            retval === SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_EDIT_SCHEMATIC_SYMBOL &&
-            symbol.IsMissingLibSymbol()
-          )
-            return;
+        } else if (retval === SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_EDIT_SCHEMATIC_SYMBOL) {
+          // Kiway().Player( FRAME_SCH_SYMBOL_EDITOR, true ), as EditWithSymbolEditor reaches it.
+          // A page has no blocking dialog to close.
+          this.m_toolMgr!.RunAction(ACTIONS.showSymbolEditor);
+          const editor = this.m_frame!.Kiway()?.GetPlayerFrame(
+            FRAME_T.FRAME_SCH_SYMBOL_EDITOR,
+          ) as SYMBOL_EDIT_FRAME | null;
+
+          if (editor) {
+            // The broken library symbol link indicator cannot be edited.
+            if (symbol.IsMissingLibSymbol()) return;
+
+            editor.LoadSymbolFromSchematic(symbol);
+          }
+        } else if (retval === SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_EDIT_LIBRARY_SYMBOL) {
+          this.m_toolMgr!.RunAction(ACTIONS.showSymbolEditor);
+          const editor = this.m_frame!.Kiway()?.GetPlayerFrame(
+            FRAME_T.FRAME_SCH_SYMBOL_EDITOR,
+          ) as SYMBOL_EDIT_FRAME | null;
+
+          editor?.LoadSymbol(symbol.GetLibId(), symbol.GetUnit(), symbol.GetBodyStyle());
         } else if (retval === SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_WANT_UPDATE_SYMBOL) {
           yield* this.RunMainStackModal(() =>
             this.m_frame!.ShowModalDialog(

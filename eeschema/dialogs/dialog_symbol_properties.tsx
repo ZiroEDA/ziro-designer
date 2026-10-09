@@ -1,825 +1,919 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import {
-  PIN_SHAPE_ENTRIES,
-  PIN_TYPE_ENTRIES,
-  electricalPinTypeGetText,
-  pinShapeGetText,
-} from '../pin_type.js';
-import { iuToMM, schIUScale } from '@ziroeda/common';
-import { mmToIU, symbolTransform, composeMirror, orientationFromTransform } from '@ziroeda/common';
-import type { FieldTemplate } from '../schematic_settings.js';
-import {
-  canDeleteRow,
-  canMoveRowDown,
-  canMoveRowUp,
-  defaultShownColumns,
-  duplicateNameError,
-  fieldsFromRows,
-  FIELDS_GRID_COLUMNS,
-  gridRowIndices,
-  isNameReadOnly,
-  isValueReadOnly,
-  type FieldsGridCellKind,
-  mandatoryRowCount,
-  rowsFromSymbol,
-  validateRows,
-  type FieldRow,
-} from '../fields_grid_table.js';
-import { useMemo, useState, type JSX } from 'react';
-import {
-  effectiveHorizJustify,
-  effectiveVertJustify,
-  storedForEffectiveHoriz,
-  storedForEffectiveVert,
-  justifyTokens,
-  storedHJustify,
-  storedVJustify,
-  fieldShownText,
-  DEFAULT_TEXT_SIZE,
-  type SubpartSettings,
-} from '../fieldbox.js';
-import { type SchSymbol, type SchField, type LibSymbol, type TextEffects } from '../types.js';
-import { type SymbolEdit, type EditedField } from '../tools/properties.js';
-import { pinGridRows, setPinAlternate, PIN_GRID_COLUMNS } from '../tools/pin_grid.js';
-import { symbolUnitCount, unitDisplayName } from '../tools/symbol_unit.js';
-import { hasAlternateBodyStyle } from '../tools/body_style.js';
-import { embeddedFilesIn } from '../tools/embedded.js';
-import { PIN_SHAPE_BITMAPS, PIN_TYPE_BITMAPS } from './pin_icons.js';
-import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
-import {
-  DEFAULT_FONT_NAME,
-  KICAD_FONT_NAME,
-  measureText,
-} from '@ziroeda/common/font/stroke_font.js';
-import { BUNDLED_FAMILIES } from '@ziroeda/common/font/outline_fonts.js';
-import {
-  parseUnitValueDouble,
-  stringFromValue,
-  type EdaUnits,
-} from '@ziroeda/common/widgets/unit_binder.js';
+/**
+ * `DIALOG_SYMBOL_PROPERTIES` (eeschema/dialogs/dialog_symbol_properties.cpp) with its
+ * `SCH_PIN_TABLE_DATA_MODEL`, over `dialog_symbol_properties_base.cpp`, on a live SCH_SYMBOL.
+ * Opened by SCH_EDIT_TOOL::Properties, which reads the return code (wxID_OK, or one of the
+ * SYMBOL_PROPS_* hand-offs) and acts on it.
+ *
+ * General page: the fields grid (FIELDS_GRID_TABLE), then General (unit, body style, angle,
+ * mirror, pin text), Attributes and the hand-off buttons. Pin Functions: the pins of the chosen
+ * unit with their alternate assignments. Embedded Files: the library symbol's files, shown.
+ *
+ * Not here: DIALOG_SIM_MODEL behind "Simulation Model..." (the simulator is not in this build),
+ * PANEL_EMBEDDED_FILES' add / remove / export, and KIUI::SelectReferenceNumber on first focus.
+ */
+import { type JSX, useReducer, useState } from 'react';
+import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
-import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
-import { Icon } from '@ziroeda/common/widgets/icons.js';
-// The wxChoice port. A native <select> draws its option list with the OS,
-// so its highlight is Chrome's blue rgb(153,200,255) where GTK paints
-// rgb(62,62,62) — see the header of ui/Combo.tsx for the measurements.
-import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { PIN_NUMBERS } from '@ziroeda/common/pin_numbers.js';
+import { strNumCmp, unescapeString } from '@ziroeda/common/string_utils.js';
+import {
+  DO_TRANSLATE,
+  FIELD_T,
+  FieldNamesAreDuplicates,
+  GetUserFieldName,
+} from '@ziroeda/common/template_fieldnames.js';
+import { GRID_CELL_COMBOBOX } from '@ziroeda/common/widgets/grid_combobox.js';
+import { GRID_CELL_ICON_TEXT_RENDERER } from '@ziroeda/common/widgets/grid_icon_text_helpers.js';
+import type { GRID_TEXT_BUTTON_HOST } from '@ziroeda/common/widgets/grid_text_button_helpers.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
-import { color4dToItemColor, itemColorToColor4d } from './item_color.js';
+import { WX_GRID, WX_GRID_TABLE_BASE } from '@ziroeda/common/widgets/wx_grid.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import {
+  type wxAttrKind,
+  type wxGridEvent,
+  wxEVT_GRID_CELL_CHANGING,
+  wxEVT_GRID_COL_SORT,
+  wxGridCellAttr,
+  wxGridSelectionModes,
+  wxGridTableRequest,
+} from '@ziroeda/common/wx/grid.js';
+import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
+import { wxID_OK } from '@ziroeda/common/wx/menu.js';
+import { FIELDS_DATA_COL_ORDER, FIELDS_GRID_TABLE } from '../fields_grid_table.js';
+import type { LIB_SYMBOL } from '../lib_symbol.js';
+import { PinShapeIcons, PinShapeNames, PinTypeIcons, PinTypeNames } from '../pin_type.js';
+import { SCH_COMMIT } from '../sch_commit.js';
+import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
+import { SCH_FIELD } from '../sch_field.js';
+import { SCH_PIN } from '../sch_pin.js';
+import type { SCH_SYMBOL } from '../sch_symbol.js';
+import { SYMBOL_ORIENTATION_T } from '../symbol.js';
+import { SYMBOL_PROPS_RETVALUE } from '../tools/sch_edit_tool.js';
 
-/**
- * Symbol Properties. Counterpart: `DIALOG_SYMBOL_PROPERTIES`
- * (eeschema/dialogs/dialog_symbol_properties.cpp) over
- * `dialog_symbol_properties_base.cpp`'s layout, control for control:
- *
- *   [ General | Pin Functions | Embedded Files ]
- *   ┌ Fields ─────────────────────────────────────────────────────────┐
- *   │ Name | Value | Show | Show Name | H Align | V Align | Italic |B │
- *   │ [+] [↑] [↓]   [🗑]                                              │
- *   └─────────────────────────────────────────────────────────────────┘
- *   ┌ General ───────────┐ ┌ Attributes ────────┐ [Update Symbol...  ]
- *   │ Unit:      [     ] │ │ [ ] Exclude from…  │ [Change Symbol...  ]
- *   │ Body style:[     ] │ │ [ ] …              │ [Edit Symbol...    ]
- *   │ Angle:     [     ] │ │                    │
- *   │ Mirror:    [     ] │ │                    │ [Edit Library Sym… ]
- *   │ [x] Show pin numbers [x] Show pin names   │
- *   └────────────────────┘ └────────────────────┘
- *   Library link: [Device:R          ]  [Simulation Model...] [Cancel] [OK]
- *
- * The grid is a `WX_GRID` over `FIELDS_GRID_TABLE`, and that is where most of
- * this dialog's behaviour actually lives:
- *
- *  - fifteen columns (`FDC_SCH_EDIT_COUNT`), of which
- *    `ShowHideColumns( "0 1 2 3 4 5 6 7" )` shows eight; the rest are turned on
- *    from the column-label context menu (`GRID_TRICKS::onGridLabelRightClick`)
- *    and the set is not persisted between opens;
- *  - Show / Show Name / Italic / Bold / Allow Autoplacement carry a
- *    `wxGridCellBoolRenderer`, so they are a checkbox at all times; H Align,
- *    V Align and Orientation carry only a `wxGridCellChoiceEditor`, so they
- *    draw as plain centred TEXT and become a control when the cell is opened;
- *  - a mandatory field's Name cell is read-only, and a power symbol's
- *    Footprint value cell is too (`FIELDS_GRID_TABLE::GetAttr`);
- *  - a `private` field is not a row here at all (`getVisibleRowCount`), though
- *    it stays in the table so OK cannot drop it;
- *  - positions are shown symbol-relative (`TransferDataToWindow` offsets each
- *    copy by -symbol position), and Text Size / X / Y carry their unit word
- *    because `StringFromValue`'s `aAddUnitLabel` is true there;
- *  - the H/V-align cells show the *effective* justification and setting them
- *    stores the possibly-flipped one (Get/SetEffectiveHorizJustify). A field
- *    with no `(justify …)` token reads "Center" in BOTH programs — a KiCad
- *    that reads "Left" is showing a field whose token says left, which
- *    autoplacement writes and a bare library placement does not. It is data,
- *    not a dialog difference, and must not be "corrected" here.
- *
- * Not reachable from the browser build, and reported rather than faked:
- *
- *  - the Simulation Model dialog (`OnEditSpiceModel`, :587 → DIALOG_SIM_MODEL).
- *    Upstream never disables that button — it only *hides* it for a power
- *    symbol (:375) — so ours is the one control that is greyed where KiCad's
- *    is live. It carries the reason as its tooltip;
- *  - the FDC_FONT list is `Fontconfig()->ListFonts`, the machine's fonts,
- *    which a browser cannot enumerate; the cell offers the catalogue the
- *    renderer can actually draw with (`BUNDLED_FAMILIES`) instead;
- *  - wxMINIMIZE_BOX / wxMAXIMIZE_BOX from the base file's style flags
- *    (dialog_symbol_properties_base.h:110). Those are decorations the desktop's
- *    window manager draws on a real top-level wxDialog; a DOM modal is not a
- *    window and has none to draw. wxRESIZE_BORDER, the third flag, IS
- *    expressible and is honoured — see `.ze-modal.ze-symprops`;
- *  - adding to / removing from a library symbol's embedded files, which has no
- *    write path in our model yet.
- */
+/** The pin table's columns (dialog_symbol_properties.cpp:58). */
+export enum PIN_TABLE_COL_ORDER {
+  COL_NUMBER,
+  COL_BASE_NAME,
+  COL_ALT_NAME,
+  COL_TYPE,
+  COL_SHAPE,
 
-type Row = FieldRow;
-
-interface Props {
-  symbol: SchSymbol;
-  lib?: LibSymbol;
-  /** Schematic Setup > Field Name Templates: names not yet on the symbol are
-   *  offered as empty rows (dialog_symbol_properties.cpp appends them with the
-   *  template's Visible flag; named-but-empty rows survive OK, like upstream). */
-  fieldTemplates?: readonly FieldTemplate[];
-  /** Unit-notation inputs for the shown Reference (SubReference). */
-  subpart?: SubpartSettings;
-  /**
-   * `m_frame->GetUserUnits()`, which is what `FIELDS_GRID_TABLE` formats and
-   * parses Text Size / X Position / Y Position with
-   * (fields_grid_table.cpp:823-833). Defaults to millimetres so a caller with
-   * no frame behind it still gets upstream's default unit rather than a bare
-   * number in unstated units.
-   */
-  units?: EdaUnits;
-  /** Whether the library symbol draws a second body style (De Morgan).
-   *  `LIB_SYMBOL::IsMultiBodyStyle`; defaults to asking `lib` itself. */
-  hasAlternate?: boolean;
-  onOk: (edit: SymbolEdit) => void;
-  onCancel: () => void;
-  /**
-   * The buttons down the right of upstream's General page
-   * (dialog_symbol_properties_base.cpp:233-252). Each closes this dialog and
-   * hands off to the flow that already exists for it, which is what upstream's
-   * do — `EndQuasiModal( SYMBOL_PROPS_WANT_UPDATE_SYMBOL )` and friends.
-   *
-   * Optional so a caller with no such flow gets a disabled button rather than
-   * a dead one; upstream never *hides* these, it disables two of them from
-   * `onUpdateEditSymbol` / `onUpdateEditLibrarySymbol`.
-   */
-  onChangeSymbol?: () => void;
-  onUpdateSymbol?: () => void;
-  onEditSymbol?: () => void;
-  /** "Edit Library Symbol...": open the library part, not this placement's copy. */
-  onEditLibrarySymbol?: () => void;
+  COL_COUNT, // keep as last
 }
 
-/**
- * What the Text Size / X Position / Y Position cells hold:
- * `m_frame->StringFromValue( value, true )` (fields_grid_table.cpp:823-833).
- *
- * `aAddUnitLabel` is TRUE there, so the cell reads "1.27 mm" and not "1.27" —
- * these are `wxGridCellTextEditor` cells with no unit word beside them, and the
- * suffix is the only thing that says what the number is in. The formatting is
- * the shared `UNIT_BINDER` half of `eda_units.cpp`, at the SCHEMATIC IU scale.
- */
-const valueStr = (iu: number, units: EdaUnits): string =>
-  stringFromValue(iuToMM(iu), units, true, schIUScale);
+const { COL_NUMBER, COL_BASE_NAME, COL_ALT_NAME, COL_TYPE, COL_SHAPE, COL_COUNT } =
+  PIN_TABLE_COL_ORDER;
 
-/** A row as an absolute-position SchField, for the justify/box computations. */
-function absField(row: Row, sym: SchSymbol): SchField {
-  return {
-    key: row.key,
-    value: row.value,
-    at: { x: row.at.x + sym.at.x, y: row.at.y + sym.at.y },
-    angle: row.angle,
-    effects: row.effects,
-    nameShown: row.nameShown || undefined,
-    source: row.source ?? ({ kind: 'list', items: [] } as SchField['source']),
-  };
+/** `SCH_PIN_TABLE_DATA_MODEL`: copies of the symbol's pins, their alternates editable. */
+export class SCH_PIN_TABLE_DATA_MODEL extends WX_GRID_TABLE_BASE {
+  private m_pins: SCH_PIN[] = [];
+  private m_nameAttrs: wxGridCellAttr[] = [];
+  private m_readOnlyAttr: wxGridCellAttr | null = null;
+  private m_typeAttr: wxGridCellAttr | null = null;
+  private m_shapeAttr: wxGridCellAttr | null = null;
+
+  Pins(): readonly SCH_PIN[] {
+    return this.m_pins;
+  }
+
+  push_back(aPin: SCH_PIN): void {
+    this.m_pins.push(aPin);
+  }
+
+  clear(): void {
+    this.m_pins = [];
+  }
+
+  BuildAttrs(): void {
+    this.m_nameAttrs = [];
+
+    this.m_readOnlyAttr = new wxGridCellAttr();
+    this.m_readOnlyAttr.SetReadOnly(true);
+
+    for (const pin of this.m_pins) {
+      const lib_pin = pin.GetLibPin();
+      const attr = new wxGridCellAttr();
+
+      if (!lib_pin || lib_pin.GetAlternates().size === 0) {
+        attr.SetReadOnly(true);
+        // KIPLATFORM::UI::GetDialogBGColour(): wxSYS_COLOUR_BTNFACE
+        attr.SetBackgroundColour('var(--ctl-face)');
+      } else {
+        const choices = [lib_pin.GetName()];
+
+        for (const alt of lib_pin.GetAlternates().keys()) choices.push(alt);
+
+        attr.SetEditor(new GRID_CELL_COMBOBOX(choices));
+      }
+
+      this.m_nameAttrs.push(attr);
+    }
+
+    this.m_typeAttr = new wxGridCellAttr();
+    this.m_typeAttr.SetRenderer(new GRID_CELL_ICON_TEXT_RENDERER(PinTypeIcons(), PinTypeNames()));
+    this.m_typeAttr.SetReadOnly(true);
+
+    this.m_shapeAttr = new wxGridCellAttr();
+    this.m_shapeAttr.SetRenderer(
+      new GRID_CELL_ICON_TEXT_RENDERER(PinShapeIcons(), PinShapeNames()),
+    );
+    this.m_shapeAttr.SetReadOnly(true);
+  }
+
+  override GetNumberRows(): number {
+    return this.m_pins.length;
+  }
+
+  override GetNumberCols(): number {
+    return COL_COUNT;
+  }
+
+  override GetColLabelValue(aCol: number): string {
+    switch (aCol) {
+      case COL_NUMBER:
+        return 'Number';
+      case COL_BASE_NAME:
+        return 'Base Name';
+      case COL_ALT_NAME:
+        return 'Alternate Assignment';
+      case COL_TYPE:
+        return 'Electrical Type';
+      case COL_SHAPE:
+        return 'Graphic Style';
+      default:
+        console.assert(false);
+        return '';
+    }
+  }
+
+  override IsEmptyCell(_row: number, _col: number): boolean {
+    return false; // don't allow adjacent cell overflow, even if we are actually empty
+  }
+
+  override CanSetValueAs(_aRow: number, _aCol: number, _aTypeName: string): boolean {
+    // Don't accept random values; must use the popup to change to a known alternate
+    return false;
+  }
+
+  override GetValue(aRow: number, aCol: number): string {
+    return SCH_PIN_TABLE_DATA_MODEL.GetValue(this.m_pins[aRow]!, aCol);
+  }
+
+  static GetValue(aPin: SCH_PIN, aCol: number): string {
+    if (aCol === COL_ALT_NAME) {
+      if (!aPin.GetLibPin() || aPin.GetLibPin()!.GetAlternates().size === 0) return '';
+      else if (aPin.GetAlt() === '') return aPin.GetName();
+      else return aPin.GetAlt();
+    }
+
+    switch (aCol) {
+      case COL_NUMBER:
+        return aPin.GetNumber();
+      case COL_BASE_NAME:
+        return aPin.GetBaseName();
+      case COL_TYPE:
+        return PinTypeNames()[aPin.GetType()] ?? '';
+      case COL_SHAPE:
+        return PinShapeNames()[aPin.GetShape()] ?? '';
+      default:
+        console.assert(false);
+        return '';
+    }
+  }
+
+  override GetAttr(aRow: number, aCol: number, aKind: wxAttrKind): wxGridCellAttr | null {
+    switch (aCol) {
+      case COL_NUMBER:
+      case COL_BASE_NAME:
+        return this.enhanceAttr(this.m_readOnlyAttr, aRow, aCol, aKind);
+
+      case COL_ALT_NAME:
+        return this.enhanceAttr(this.m_nameAttrs[aRow] ?? null, aRow, aCol, aKind);
+
+      case COL_TYPE:
+        return this.enhanceAttr(this.m_typeAttr, aRow, aCol, aKind);
+
+      case COL_SHAPE:
+        return this.enhanceAttr(this.m_shapeAttr, aRow, aCol, aKind);
+
+      default:
+        console.assert(false);
+        return null;
+    }
+  }
+
+  override SetValue(aRow: number, aCol: number, aValue: string): void {
+    const pin = this.m_pins[aRow]!;
+
+    switch (aCol) {
+      case COL_ALT_NAME:
+        if (pin.GetLibPin() && aValue === pin.GetLibPin()!.GetName()) pin.SetAlt('');
+        else pin.SetAlt(aValue);
+        break;
+
+      case COL_NUMBER:
+      case COL_BASE_NAME:
+      case COL_TYPE:
+      case COL_SHAPE:
+        // Read-only.
+        break;
+
+      default:
+        console.assert(false);
+        break;
+    }
+  }
+
+  static compare(lhs: SCH_PIN, rhs: SCH_PIN, aSortCol: number, ascending: boolean): boolean {
+    let sortCol = aSortCol;
+    let lhStr = SCH_PIN_TABLE_DATA_MODEL.GetValue(lhs, sortCol);
+    let rhStr = SCH_PIN_TABLE_DATA_MODEL.GetValue(rhs, sortCol);
+
+    if (lhStr === rhStr) {
+      // Secondary sort key is always COL_NUMBER
+      sortCol = COL_NUMBER;
+      lhStr = SCH_PIN_TABLE_DATA_MODEL.GetValue(lhs, sortCol);
+      rhStr = SCH_PIN_TABLE_DATA_MODEL.GetValue(rhs, sortCol);
+    }
+
+    // N.B. To meet the iterator sort conditions, we cannot simply invert the truth
+    // to get the opposite sort.  i.e. ~(a<b) != (a>b)
+    const cmp = (a: number, b: number): boolean => (ascending ? a < b : b < a);
+
+    switch (sortCol) {
+      case COL_NUMBER:
+      case COL_BASE_NAME:
+      case COL_ALT_NAME:
+        return cmp(PIN_NUMBERS.Compare(lhStr, rhStr), 0);
+      case COL_TYPE:
+      case COL_SHAPE: {
+        const l = lhStr.toLowerCase();
+        const r = rhStr.toLowerCase();
+        return cmp(l < r ? -1 : l > r ? 1 : 0, 0);
+      }
+      default:
+        return cmp(strNumCmp(lhStr, rhStr), 0);
+    }
+  }
+
+  SortRows(aSortCol: number, ascending: boolean): void {
+    this.m_pins.sort((lhs, rhs) =>
+      SCH_PIN_TABLE_DATA_MODEL.compare(lhs, rhs, aSortCol, ascending)
+        ? -1
+        : SCH_PIN_TABLE_DATA_MODEL.compare(rhs, lhs, aSortCol, ascending)
+          ? 1
+          : 0,
+    );
+  }
 }
 
-/**
- * A `wxGridCellChoiceEditor`'s items, straight off the column table so the
- * order in one place is the order in the other. The stored cell values are
- * lower case (`'left'`, `'top'`, `'horizontal'`); the labels are KiCad's.
- */
-const choiceOptions = (col: number): JSX.Element[] =>
-  (FIELDS_GRID_COLUMNS[col]?.choices ?? []).map((label) => (
-    <option key={label} value={label.toLowerCase()}>
-      {label}
-    </option>
-  ));
+export interface SYMBOL_DIALOG_VALUES {
+  /** m_unitChoice's selection, 0-based; -1 while it is disabled. */
+  unit: number;
+  /** m_bodyStyleChoice's selection, 0-based; -1 while it is disabled. */
+  bodyStyle: number;
+  /** m_orientationCtrl: 0, +90, -90, 180. */
+  orientation: number;
+  /** m_mirrorCtrl: not mirrored, around X, around Y. */
+  mirror: number;
+  excludeFromSim: boolean;
+  excludeFromBom: boolean;
+  excludeFromBoard: boolean;
+  excludeFromPosFiles: boolean;
+  dnp: boolean;
+  showPinNumbers: boolean;
+  showPinNames: boolean;
+}
 
-/**
- * `fonts.Insert( KICAD_FONT_NAME, 0 ); fonts.Insert( DEFAULT_FONT_NAME, 0 )`
- * over the sorted installed list (fields_grid_table.cpp:407-411).
- */
-const FONT_CELL_CHOICES: readonly string[] = [
-  DEFAULT_FONT_NAME,
-  KICAD_FONT_NAME,
-  ...BUNDLED_FAMILIES,
+export class DIALOG_SYMBOL_PROPERTIES {
+  private readonly m_parent: SCH_EDIT_FRAME;
+  private readonly m_symbol: SCH_SYMBOL;
+  private readonly m_part: LIB_SYMBOL | null;
+  private readonly m_fieldsGrid = new WX_GRID();
+  private readonly m_pinGrid = new WX_GRID();
+  private readonly m_fields: FIELDS_GRID_TABLE;
+  private readonly m_dataModel: SCH_PIN_TABLE_DATA_MODEL | null = null;
+
+  readonly m_title: string;
+  readonly m_unitChoices: string[] = [];
+  readonly m_bodyStyleChoices: string[] = [];
+  /** m_pinTablePage->Disable(): multiple body styles. */
+  readonly m_pinsDisabled: boolean;
+  /** m_spiceFieldsButton->Hide() for a power symbol. */
+  readonly m_isPower: boolean;
+  /** onUpdateEditSymbol / onUpdateEditLibrarySymbol: a library symbol to open. */
+  readonly m_canEditSymbol: boolean;
+  m_libraryId = '';
+
+  constructor(aParent: SCH_EDIT_FRAME, aSymbol: SCH_SYMBOL, aHost: GRID_TEXT_BUTTON_HOST) {
+    this.m_parent = aParent;
+    this.m_symbol = aSymbol;
+    this.m_part = aSymbol.GetLibSymbolRef();
+
+    this.m_fields = new FIELDS_GRID_TABLE(this, aParent, this.m_fieldsGrid, aSymbol, aHost);
+
+    this.m_fieldsGrid.SetTable(this.m_fields, false, wxGridSelectionModes.wxGridSelectRows);
+    this.m_fieldsGrid.ShowHideColumns('0 1 2 3 4 5 6 7');
+
+    if (this.m_part?.IsMultiBodyStyle()) {
+      // Multiple body styles are a superclass of alternate pin assignments, so don't allow
+      // free-form alternate assignments as well.  (We won't know how to map the alternates
+      // back and forth when the body style is changed.)
+      this.m_pinsDisabled = true;
+    } else {
+      this.m_pinsDisabled = false;
+      const dataModel = new SCH_PIN_TABLE_DATA_MODEL();
+
+      // Make a copy of the pins for editing
+      for (const pin of aSymbol.GetRawPins()) dataModel.push_back(SCH_PIN.copyOf(pin));
+
+      dataModel.SortRows(COL_NUMBER, true);
+      dataModel.BuildAttrs();
+
+      this.m_pinGrid.SetTable(dataModel, false, wxGridSelectionModes.wxGridSelectRows);
+      this.m_dataModel = dataModel;
+    }
+
+    this.m_isPower = !!this.m_part?.IsPower();
+    this.m_canEditSymbol = this.m_part !== null;
+
+    // wxFormBuilder doesn't include this event...
+    this.m_fieldsGrid.Connect(wxEVT_GRID_CELL_CHANGING, (aEvent: wxGridEvent) =>
+      this.OnGridCellChanging(aEvent),
+    );
+    this.m_pinGrid.Connect(wxEVT_GRID_COL_SORT, (aEvent: wxGridEvent) =>
+      this.OnPinTableColSort(aEvent),
+    );
+
+    // Remind user that they are editing the current variant.
+    const variant = aParent.Schematic().GetCurrentVariant();
+    this.m_title =
+      variant === '' ? 'Symbol Properties' : `Symbol Properties - ${variant} Design Variant`;
+  }
+
+  FieldsGrid(): WX_GRID {
+    return this.m_fieldsGrid;
+  }
+
+  PinGrid(): WX_GRID {
+    return this.m_pinGrid;
+  }
+
+  Fields(): FIELDS_GRID_TABLE {
+    return this.m_fields;
+  }
+
+  PinModel(): SCH_PIN_TABLE_DATA_MODEL | null {
+    return this.m_dataModel;
+  }
+
+  /** `DIALOG_SHIM::OnModify()`: nothing reads the modified flag here. */
+  OnModify(): void {}
+
+  /** `TransferDataToWindow()`. */
+  TransferDataToWindow(): SYMBOL_DIALOG_VALUES {
+    const schematic = this.m_parent.Schematic();
+    const sheetPath = schematic.CurrentSheet();
+    const variantName = schematic.GetCurrentVariant();
+    const defined = new Set<string>();
+    const pos = this.m_symbol.GetPosition();
+
+    // Push a copy of each field into m_updateFields
+    for (const srcField of this.m_symbol.GetFields()) {
+      const field = SCH_FIELD.copyOf(srcField);
+
+      // change offset to be symbol-relative
+      field.Offset({ x: -pos.x, y: -pos.y });
+      field.SetText(
+        schematic.ConvertKIIDsToRefs(
+          this.m_symbol.GetFieldText(field.GetName(), sheetPath, variantName),
+        ),
+      );
+
+      defined.add(field.GetName());
+      this.m_fields.push_back(field);
+    }
+
+    // Add in any template fieldnames not yet defined:
+    for (const templateFieldname of schematic
+      .Settings()
+      .m_TemplateFieldNames.GetTemplateFieldNames()) {
+      if (!defined.has(templateFieldname.m_Name)) {
+        const field = new SCH_FIELD(this.m_symbol, FIELD_T.USER, templateFieldname.m_Name);
+        field.SetVisible(templateFieldname.m_Visible);
+        this.m_fields.push_back(field);
+      }
+    }
+
+    // notify the grid
+    this.m_fieldsGrid.ProcessTableMessage(
+      wxGridTableRequest.wxGRIDTABLE_NOTIFY_ROWS_APPENDED,
+      this.m_fields.GetNumberRows(),
+      0,
+    );
+
+    let unit = -1;
+
+    // If a multi-unit symbol, set up the unit selector and interchangeable checkbox.
+    if (this.m_symbol.IsMultiUnit()) {
+      // Ensure symbol unit is the currently selected unit (mandatory in complex hierarchies)
+      // from the current sheet path, because it can be modified by previous calculations
+      this.m_symbol.SetUnit(this.m_symbol.GetUnitSelection(sheetPath));
+
+      for (let ii = 1; ii <= this.m_symbol.GetUnitCount(); ii++)
+        this.m_unitChoices.push(this.m_symbol.GetUnitDisplayName(ii, false));
+
+      if (this.m_symbol.GetUnit() <= this.m_unitChoices.length) unit = this.m_symbol.GetUnit() - 1;
+    }
+
+    let bodyStyle = -1;
+
+    if (this.m_part?.IsMultiBodyStyle()) {
+      if (this.m_part.HasDeMorganBodyStyles()) {
+        this.m_bodyStyleChoices.push('Standard', 'Alternate');
+      } else {
+        for (let ii = 0; ii < this.m_part.GetBodyStyleCount(); ii++)
+          this.m_bodyStyleChoices.push(this.m_part.GetBodyStyleNames()[ii] ?? '???');
+      }
+
+      if (this.m_symbol.GetBodyStyle() <= this.m_bodyStyleChoices.length)
+        bodyStyle = this.m_symbol.GetBodyStyle() - 1;
+    }
+
+    // Set the symbol orientation and mirroring.
+    const orientation =
+      this.m_symbol.GetOrientation() &
+      ~(SYMBOL_ORIENTATION_T.SYM_MIRROR_X | SYMBOL_ORIENTATION_T.SYM_MIRROR_Y);
+    let orientationSel = 0;
+
+    switch (orientation) {
+      case SYMBOL_ORIENTATION_T.SYM_ORIENT_90:
+        orientationSel = 1;
+        break;
+      case SYMBOL_ORIENTATION_T.SYM_ORIENT_270:
+        orientationSel = 2;
+        break;
+      case SYMBOL_ORIENTATION_T.SYM_ORIENT_180:
+        orientationSel = 3;
+        break;
+      default:
+        orientationSel = 0;
+        break;
+    }
+
+    const mirror =
+      this.m_symbol.GetOrientation() &
+      (SYMBOL_ORIENTATION_T.SYM_MIRROR_X | SYMBOL_ORIENTATION_T.SYM_MIRROR_Y);
+
+    // Set the symbol's library name.
+    this.m_libraryId = unescapeString(this.m_symbol.GetLibId().Format());
+
+    return {
+      unit,
+      bodyStyle,
+      orientation: orientationSel,
+      mirror:
+        mirror === SYMBOL_ORIENTATION_T.SYM_MIRROR_X
+          ? 1
+          : mirror === SYMBOL_ORIENTATION_T.SYM_MIRROR_Y
+            ? 2
+            : 0,
+      excludeFromSim: this.m_symbol.GetExcludedFromSim(sheetPath, variantName),
+      excludeFromBom: this.m_symbol.GetExcludedFromBOM(sheetPath, variantName),
+      excludeFromBoard: this.m_symbol.GetExcludedFromBoard(sheetPath, variantName),
+      excludeFromPosFiles: this.m_symbol.GetExcludedFromPosFiles(sheetPath, variantName),
+      dnp: this.m_symbol.GetDNP(sheetPath, variantName),
+      showPinNumbers: this.m_part ? this.m_part.GetShowPinNumbers() : true,
+      showPinNames: this.m_part ? this.m_part.GetShowPinNames() : true,
+    };
+  }
+
+  /** `Validate()`: the grid's pending edit, and a name for every user field. */
+  Validate(): boolean {
+    if (!this.m_fieldsGrid.CommitPendingChanges()) return false;
+
+    // Check for missing field names.
+    for (let i = 0; i < this.m_fields.size(); ++i) {
+      const field = this.m_fields.at(i);
+
+      if (field.IsMandatory()) continue;
+
+      if (field.GetName(false) === '') {
+        DisplayErrorMessage('Fields must have a name.');
+        this.m_fieldsGrid.SetGridCursor(i, FIELDS_DATA_COL_ORDER.FDC_VALUE);
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /** `TransferDataFromWindow()`: false keeps the dialog open. */
+  TransferDataFromWindow(aValues: SYMBOL_DIALOG_VALUES): boolean {
+    if (!this.Validate()) return false;
+
+    if (!this.m_fieldsGrid.CommitPendingChanges()) return false;
+
+    if (!this.m_pinGrid.CommitPendingChanges()) return false;
+
+    const commit = new SCH_COMMIT(this.m_parent);
+    const currentScreen = this.m_parent.GetScreen();
+    const currentSheet = this.m_parent.Schematic().CurrentSheet();
+    const currentVariant = this.m_parent.Schematic().GetCurrentVariant();
+
+    if (!currentScreen) return false;
+
+    // This needs to be done before the LIB_ID is changed to prevent stale library symbols in
+    // the schematic file.
+    const replaceOnCurrentScreen = currentScreen.Remove(this.m_symbol);
+
+    // save old cmp in undo list if not already in edit, or moving ...
+    if (this.m_symbol.GetEditFlags() === 0) commit.Modify(this.m_symbol, currentScreen);
+
+    // Save current flags which could be modified by next change settings
+    const flags = this.m_symbol.GetFlags();
+
+    // Set the part selection in multiple part per package
+    const unit_selection = aValues.unit >= 0 ? aValues.unit + 1 : 1;
+    this.m_symbol.SetUnitSelection(this.m_parent.GetCurrentSheet(), unit_selection);
+    this.m_symbol.SetUnit(unit_selection);
+
+    const bodyStyle_selection = aValues.bodyStyle >= 0 ? aValues.bodyStyle + 1 : 1;
+    this.m_symbol.SetBodyStyle(bodyStyle_selection);
+
+    switch (aValues.orientation) {
+      case 0:
+        this.m_symbol.SetOrientation(SYMBOL_ORIENTATION_T.SYM_ORIENT_0);
+        break;
+      case 1:
+        this.m_symbol.SetOrientation(SYMBOL_ORIENTATION_T.SYM_ORIENT_90);
+        break;
+      case 2:
+        this.m_symbol.SetOrientation(SYMBOL_ORIENTATION_T.SYM_ORIENT_270);
+        break;
+      case 3:
+        this.m_symbol.SetOrientation(SYMBOL_ORIENTATION_T.SYM_ORIENT_180);
+        break;
+    }
+
+    switch (aValues.mirror) {
+      case 1:
+        this.m_symbol.SetOrientation(SYMBOL_ORIENTATION_T.SYM_MIRROR_X);
+        break;
+      case 2:
+        this.m_symbol.SetOrientation(SYMBOL_ORIENTATION_T.SYM_MIRROR_Y);
+        break;
+    }
+
+    this.m_symbol.SetShowPinNames(aValues.showPinNames);
+    this.m_symbol.SetShowPinNumbers(aValues.showPinNumbers);
+
+    // Restore m_Flag modified by SetUnit() and other change settings from the dialog
+    this.m_symbol.ClearFlags();
+    this.m_symbol.SetFlags(flags);
+
+    // change all field positions from relative to absolute
+    for (const field of this.m_fields.Fields()) field.Offset(this.m_symbol.GetPosition());
+
+    let ordinal = 42; // Arbitrarily larger than any mandatory FIELD_T ids.
+
+    for (const field of this.m_fields.Fields()) {
+      const fieldName = field.GetCanonicalName();
+
+      if (fieldName === '' && field.GetText() === '') continue;
+      else if (fieldName === '') field.SetName('untitled');
+
+      const existingField = this.m_symbol.GetField(field.GetCanonicalName());
+      let tmp: SCH_FIELD;
+
+      if (!existingField) {
+        tmp = this.m_symbol.AddField(field);
+        tmp.SetParent(this.m_symbol);
+      } else {
+        const schematic = this.m_symbol.Schematic()!;
+        const defaultText = schematic.ConvertRefsToKIIDs(existingField.GetText());
+        tmp = existingField;
+
+        field.Copy(tmp);
+        tmp.SetParent(this.m_symbol);
+
+        if (currentVariant !== '') {
+          // Restore the default field text for existing fields.
+          tmp.SetText(defaultText, currentSheet);
+
+          const variantText = schematic.ConvertRefsToKIIDs(field.GetText());
+          tmp.SetText(variantText, currentSheet, currentVariant);
+        }
+      }
+
+      if (!field.IsMandatory()) field.SetOrdinal(ordinal++);
+    }
+
+    const symbolFields = this.m_symbol.GetFields();
+
+    for (let ii = symbolFields.length - 1; ii >= 0; ii--) {
+      const symbolField = symbolFields[ii]!;
+
+      if (symbolField.IsMandatory()) continue;
+
+      let found = false;
+
+      for (const editedField of this.m_fields.Fields()) {
+        if (editedField.GetName() === symbolField.GetName()) {
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) symbolFields.splice(ii, 1);
+    }
+
+    if (currentVariant === '') {
+      // Reference has a specific initialization, depending on the current active sheet
+      // because for a given symbol, in a complex hierarchy, there are more than one
+      // reference.
+      this.m_symbol.SetRef(
+        this.m_parent.GetCurrentSheet(),
+        this.m_fields.GetField(FIELD_T.REFERENCE)!.GetText(),
+      );
+    }
+
+    this.m_symbol.SetExcludedFromSim(aValues.excludeFromSim, currentSheet, currentVariant);
+    this.m_symbol.SetExcludedFromBOM(aValues.excludeFromBom, currentSheet, currentVariant);
+    this.m_symbol.SetExcludedFromBoard(aValues.excludeFromBoard, currentSheet, currentVariant);
+    this.m_symbol.SetExcludedFromPosFiles(
+      aValues.excludeFromPosFiles,
+      currentSheet,
+      currentVariant,
+    );
+    this.m_symbol.SetDNP(aValues.dnp, currentSheet, currentVariant);
+
+    // Update any assignments
+    if (this.m_dataModel) {
+      for (const model_pin of this.m_dataModel.Pins()) {
+        // map from the edited copy back to the "real" pin(s) in the symbol.
+        for (const src_pin of this.m_symbol.GetPinsByNumber(model_pin.GetNumber()))
+          src_pin.SetAlt(model_pin.GetAlt());
+      }
+    }
+
+    // Keep fields other than the reference, include/exclude flags, and alternate pin assignements
+    // in sync in multi-unit parts.
+    this.m_symbol.SyncOtherUnits(currentSheet, commit, null, currentVariant);
+
+    if (replaceOnCurrentScreen) currentScreen.Append(this.m_symbol);
+
+    if (!commit.Empty()) commit.Push('Edit Symbol Properties');
+
+    return true;
+  }
+
+  /** `OnGridCellChanging( wxGridEvent& )`. */
+  private OnGridCellChanging(aEvent: wxGridEvent): void {
+    if (aEvent.GetCol() !== FIELDS_DATA_COL_ORDER.FDC_NAME) return;
+
+    const newName = aEvent.GetString();
+
+    for (let i = 0; i < this.m_fieldsGrid.GetNumberRows(); ++i) {
+      if (i === aEvent.GetRow()) continue;
+
+      if (
+        FieldNamesAreDuplicates(
+          newName,
+          this.m_fieldsGrid.GetCellValue(i, FIELDS_DATA_COL_ORDER.FDC_NAME),
+        )
+      ) {
+        DisplayErrorMessage(`Field name '${newName}' already in use.`);
+        aEvent.Veto();
+      }
+    }
+  }
+
+  /** `OnAddField( wxCommandEvent& )`. */
+  OnAddField(): void {
+    this.m_fieldsGrid.OnAddRow((): [number, number] => {
+      const newField = new SCH_FIELD(
+        this.m_symbol,
+        FIELD_T.USER,
+        GetUserFieldName(this.m_fields.size(), DO_TRANSLATE),
+      );
+
+      newField.SetTextAngle(this.m_fields.GetField(FIELD_T.REFERENCE)!.GetTextAngle());
+      newField.SetVisible(false);
+
+      this.m_fields.push_back(newField);
+
+      // notify the grid
+      this.m_fieldsGrid.ProcessTableMessage(
+        wxGridTableRequest.wxGRIDTABLE_NOTIFY_ROWS_APPENDED,
+        1,
+        0,
+      );
+      this.OnModify();
+
+      return [this.m_fields.size() - 1, FIELDS_DATA_COL_ORDER.FDC_NAME];
+    });
+  }
+
+  /** `OnDeleteField( wxCommandEvent& )`. */
+  OnDeleteField(): void {
+    this.m_fieldsGrid.OnDeleteRows(
+      (row) => {
+        if (row < this.m_fields.GetMandatoryRowCount()) {
+          DisplayErrorMessage(
+            `The first ${this.m_fields.GetMandatoryRowCount()} fields are mandatory.`,
+          );
+          return false;
+        }
+
+        return true;
+      },
+      (row) => {
+        this.m_fields.erase(row);
+
+        // notify the grid
+        this.m_fieldsGrid.ProcessTableMessage(
+          wxGridTableRequest.wxGRIDTABLE_NOTIFY_ROWS_DELETED,
+          row,
+          1,
+        );
+      },
+    );
+
+    this.OnModify();
+  }
+
+  /** `OnMoveUp( wxCommandEvent& )`. */
+  OnMoveUp(): void {
+    this.m_fieldsGrid.OnMoveRowUp(
+      (row) => row > this.m_fields.GetMandatoryRowCount(),
+      (row) => {
+        this.m_fields.SwapRows(row, row - 1);
+        this.m_fieldsGrid.ForceRefresh();
+        this.OnModify();
+      },
+    );
+  }
+
+  /** `OnMoveDown( wxCommandEvent& )`: OnMoveRowDown here (the label and sheet dialogs call Up). */
+  OnMoveDown(): void {
+    this.m_fieldsGrid.OnMoveRowDown(
+      (row) => row >= this.m_fields.GetMandatoryRowCount(),
+      (row) => {
+        this.m_fields.SwapRows(row, row + 1);
+        this.m_fieldsGrid.ForceRefresh();
+        this.OnModify();
+      },
+    );
+  }
+
+  /**
+   * `OnEditSymbol` / `OnEditLibrarySymbol` / `OnUpdateSymbol` / `OnExchangeSymbol`: apply the
+   * dialog, then end with the hand-off for SCH_EDIT_TOOL to act on; null when the apply failed.
+   */
+  EndWith(aValues: SYMBOL_DIALOG_VALUES, aRetval: SYMBOL_PROPS_RETVALUE): number | null {
+    return this.TransferDataFromWindow(aValues) ? aRetval : null;
+  }
+
+  /** `OnPinTableColSort( wxGridEvent& )`. */
+  private OnPinTableColSort(aEvent: wxGridEvent): void {
+    const sortCol = aEvent.GetCol();
+
+    // This is bonkers, but wxWidgets doesn't tell us ascending/descending in the
+    // event, and if we ask it will give us pre-event info.
+    const ascending = this.m_pinGrid.IsSortingBy(sortCol)
+      ? // same column; invert ascending
+        !this.m_pinGrid.IsSortOrderAscending()
+      : // different column; start with ascending
+        true;
+
+    this.m_dataModel?.SortRows(sortCol, ascending);
+    this.m_dataModel?.BuildAttrs();
+  }
+
+  /** `OnUnitChoice( wxCommandEvent& )`: the pin page follows the unit the combo is on. */
+  OnUnitChoice(aSelection: number): void {
+    if (this.m_dataModel) {
+      const flags = this.m_symbol.GetFlags();
+
+      const unit_selection = aSelection + 1;
+
+      // We need to select a new unit to build the new unit pin list
+      // but we should not change the symbol, so the initial unit will be selected
+      // after rebuilding the pin list
+      const old_unit = this.m_symbol.GetUnit();
+      this.m_symbol.SetUnit(unit_selection);
+
+      // Rebuild a copy of the pins of the new unit for editing
+      const rows = this.m_dataModel.GetNumberRows();
+      this.m_dataModel.clear();
+      this.m_pinGrid.ProcessTableMessage(
+        wxGridTableRequest.wxGRIDTABLE_NOTIFY_ROWS_DELETED,
+        0,
+        rows,
+      );
+
+      for (const pin of this.m_symbol.GetRawPins()) this.m_dataModel.push_back(SCH_PIN.copyOf(pin));
+
+      this.m_dataModel.SortRows(COL_NUMBER, true);
+      this.m_dataModel.BuildAttrs();
+      this.m_pinGrid.ProcessTableMessage(
+        wxGridTableRequest.wxGRIDTABLE_NOTIFY_ROWS_APPENDED,
+        this.m_dataModel.GetNumberRows(),
+        0,
+      );
+
+      this.m_symbol.SetUnit(old_unit);
+
+      // Restore m_Flag modified by SetUnit()
+      this.m_symbol.ClearFlags();
+      this.m_symbol.SetFlags(flags);
+    }
+
+    this.OnModify();
+  }
+}
+
+/** The base class's field-grid widths, for the eight shown columns. */
+const FIELD_COLUMNS = [
+  { width: 72 },
+  { width: 120 },
+  { width: 48, center: true },
+  { width: 48, center: true },
+  { width: 72, center: true },
+  { width: 72, center: true },
+  { width: 48, center: true },
+  { width: 48, center: true },
 ];
 
-/** The grid cursor: `SetGridCursor( row, col )`, and whether its editor is up. */
-interface Cursor {
-  /** Index into the *visible* rows, which is what `getField( aRow )` maps. */
-  row: number;
-  /** A `FIELDS_DATA_COL_ORDER` index. */
-  col: number;
-  /** `IsCellEditControlShown()`. */
-  editing: boolean;
-  /**
-   * Whether the row is SELECTED as well as under the cursor. The grid is
-   * `wxGridSelectRows`, so a click selects the whole row — but
-   * `SetGridCursor`, which is how the dialog opens (`HandleDelayedFocus`,
-   * dialog_symbol_properties.cpp:1102-1125) and how add/move leave it, does
-   * not select anything. That is why a freshly-opened dialog shows an editor
-   * on the Reference row without the row being filled.
-   */
-  selected: boolean;
-}
+/** The pin grid's widths (dialog_symbol_properties_base.cpp:279-283). */
+const PIN_COLUMNS = [{ width: 66 }, { width: 140 }, { width: 140 }, { width: 120 }, { width: 120 }];
 
-/**
- * One `GRID_CELL_ICON_TEXT_RENDERER` icon. A token with no entry draws nothing
- * rather than a broken image — upstream's `wxCHECK_MSG` returns
- * `BITMAPS::INVALID_BITMAP` for an unknown type and the renderer skips it
- * (`pin_type.cpp:118-127`). The icon is decorative: the cell's text already
- * names the type, so a second announcement would only repeat it.
- */
-function PinIcon({ bitmap }: { bitmap: string | undefined }): JSX.Element | null {
-  const src = bitmap ? bitmapUrl(bitmap) : undefined;
-  if (!src) return null;
-  return <img className="ze-pin-icon" src={src} alt="" aria-hidden="true" />;
-}
-
-export function SymbolPropertiesDialog({
-  symbol,
-  lib,
-  fieldTemplates,
-  subpart,
-  hasAlternate,
-  units = 'mm',
-  onOk,
+/** The form over DIALOG_SYMBOL_PROPERTIES; onClose carries the return code. */
+export function DialogSymbolProperties({
+  dlg,
+  initial,
+  onClose,
   onCancel,
-  onChangeSymbol,
-  onUpdateSymbol,
-  onEditSymbol,
-  onEditLibrarySymbol,
-}: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
+}: {
+  dlg: DIALOG_SYMBOL_PROPERTIES;
+  initial: SYMBOL_DIALOG_VALUES;
+  onClose: (aRetval: number) => void;
+  onCancel: () => void;
+}): JSX.Element {
   useModalEscape(onCancel);
 
-  // `SCH_SYMBOL::GetUnitCount` and `LIB_SYMBOL::IsMultiBodyStyle`, both off the
-  // library part. Shared helpers rather than a local count: the unit menu, the
-  // annotator and this dialog must agree on what "multi-unit" means.
-  const unitCount = symbolUnitCount(lib);
-  const multiUnit = unitCount > 1;
-  const multiBodyStyle = hasAlternate ?? hasAlternateBodyStyle(lib);
-  const isPower = !!lib?.isPower;
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
+  const [tab, setTab] = useState<'general' | 'pins'>('general');
+  const [values, setValues] = useState(initial);
+  const set = <K extends keyof SYMBOL_DIALOG_VALUES>(k: K, v: SYMBOL_DIALOG_VALUES[K]): void =>
+    setValues((s) => ({ ...s, [k]: v }));
 
-  const [rows, setRows] = useState<Row[]>(() => rowsFromSymbol(symbol, fieldTemplates, lib));
-  // `QueueEvent( SYMBOL_DELAY_FOCUS )` with `{ 0, FDC_VALUE }`, then
-  // `EnableCellEditControl( true )` — the dialog opens with the Reference's
-  // value cell open for editing and nothing selected.
-  const [cursor, setCursor] = useState<Cursor>({ row: 0, col: 1, editing: true, selected: false });
-  const [shownCols, setShownCols] = useState<Set<number>>(defaultShownColumns);
-  const [colMenu, setColMenu] = useState<{ x: number; y: number } | null>(null);
-
-  // Orientation & mirror decompose exactly as TransferDataToWindow: choices are
-  // 0 / +90 / -90 / 180 (SYM_ORIENT_0/90/270/180) and none / around-X / around-Y.
-  const [orient, setOrient] = useState<number>(
-    symbol.angle === 90 ? 90 : symbol.angle === 270 ? 270 : symbol.angle === 180 ? 180 : 0,
-  );
-  const [mirror, setMirror] = useState<'' | 'x' | 'y'>(symbol.mirror ?? '');
-  const [unit, setUnit] = useState(symbol.unit);
-  const [bodyStyle, setBodyStyle] = useState(symbol.bodyStyle);
-
-  const [excludeSim, setExcludeSim] = useState(!!symbol.excludedFromSim);
-  const [excludeBom, setExcludeBom] = useState(!symbol.inBom);
-  const [excludeBoard, setExcludeBoard] = useState(!symbol.onBoard);
-  const [dnp, setDnp] = useState(symbol.dnp);
-  const [excludePosFiles, setExcludePosFiles] = useState(!!symbol.excludedFromPosFiles);
-  // dialog_symbol_properties.cpp reads these off the library symbol
-  //   m_ShowPinNumButt->SetValue( m_part->GetShowPinNumbers() );
-  //   m_ShowPinNameButt->SetValue( m_part->GetShowPinNames() );
-  // and writes them back to the placement's cached copy on OK, so a symbol can
-  // hide its pin text without the library changing for every other use of it.
-  const [showPinNumbers, setShowPinNumbers] = useState(!lib?.pinNumbersHidden);
-  const [showPinNames, setShowPinNames] = useState(!lib?.pinNamesHidden);
-  const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'general' | 'pins' | 'files'>('general');
-  // Pin selections accumulate on a working copy, so Cancel discards them with
-  // everything else rather than having already been applied.
-  const [pinSym, setPinSym] = useState<SchSymbol>(symbol);
-  /**
-   * `OnUnitChoice` (dialog_symbol_properties.cpp:1172-1203) sets the symbol to
-   * the newly chosen unit, rebuilds the pin model from `GetRawPins()` and puts
-   * the unit back — so the Pin Functions page lists the pins of the unit the
-   * COMBO is on, not the one the placement was opened as. Picking unit B and
-   * looking at the page must show B's pins.
-   *
-   * Upstream `clear()`s the model, which also discards alternates entered for
-   * the previous unit; ours are keyed by pin number on the working copy, so
-   * they survive. That is the one place this deliberately keeps more than
-   * upstream — throwing an edit away on a combo change is a data loss, not a
-   * behaviour worth reproducing.
-   */
-  const pinUnitSym = useMemo(() => ({ ...pinSym, unit, bodyStyle }), [pinSym, unit, bodyStyle]);
-
-  // "Multiple body styles are a superclass of alternate pin assignments, so
-  // don't allow free-form alternate assignments as well." The page is disabled
-  // rather than dropped, and carries upstream's tooltip.
-  const pinsDisabled = multiBodyStyle;
-  // `if( m_symbol->GetEmbeddedFiles() )` — SCH_SYMBOL::GetEmbeddedFiles returns
-  // the LIBRARY symbol's collection, and is null when the placement has no
-  // cached library symbol, so the page exists exactly when that does.
-  const embedded = useMemo(() => (lib ? embeddedFilesIn(lib.source) : null), [lib]);
-
-  /** The rows the grid shows: `private` fields are not rows here. */
-  const view = useMemo(() => gridRowIndices(rows), [rows]);
-  const rowAt = (viewRow: number): Row | undefined => rows[view[viewRow] ?? -1];
-
-  /**
-   * `GRID_TRICKS::showEditor`'s `isReadOnly( aRow, aCol )` guard: a single click
-   * opens the editor only where the cell is editable. Everywhere else it
-   * returns false, the event is skipped, and the click just selects the row.
-   *
-   * The two read-only cases are `FIELDS_GRID_TABLE::GetAttr`'s: a mandatory
-   * field's NAME (fields_grid_table.cpp:592-597), and a POWER symbol's Footprint
-   * value — "Power symbols do not appear in the board, so don't allow a
-   * footprint" (:617-631). A bool cell has no editor at all; it toggles, which
-   * is `toggleCell` above `showEditor` in the same handler.
-   */
-  /** Is the editor already open on this exact cell? Then the mouse is the
-   *  editor's, not the grid's. */
-  const inOpenEditor = (viewRow: number, colIndex: number): boolean =>
-    cursor.editing && cursor.row === viewRow && cursor.col === colIndex;
-
-  const cellIsEditable = (row: Row, col: { index: number; kind: FieldsGridCellKind }): boolean => {
-    if (col.kind !== 'text' && col.kind !== 'choice' && col.kind !== 'font') return false;
-    if (col.index === 0) return !isNameReadOnly(row);
-    if (col.index === 1) return !isValueReadOnly(row, isPower);
-    return true;
+  const end = (aRetval: SYMBOL_PROPS_RETVALUE): void => {
+    const code = dlg.EndWith(values, aRetval);
+    if (code !== null) onClose(code);
   };
 
-  const patchRow = (viewRow: number, patch: Partial<Row>): void => {
-    const i = view[viewRow];
-    if (i === undefined) return;
-    setRows((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)));
-  };
-  const patchEffects = (viewRow: number, fx: Partial<TextEffects>): void => {
-    const i = view[viewRow];
-    if (i === undefined) return;
-    setRows((rs) => rs.map((r, k) => (k === i ? { ...r, effects: { ...r.effects, ...fx } } : r)));
-  };
-
-  // Numeric cells keep free text while the editor is open and commit on
-  // blur/Enter, which is what a wxGrid text editor does.
-  const [cellText, setCellText] = useState<string | null>(null);
-  const numEditor = (valueIU: number, commit: (iu: number) => void): JSX.Element => (
-    <input
-      // biome-ignore lint/a11y/noAutofocus: SetGridCursor + EnableCellEditControl
-      autoFocus
-      className="ze-grid-input num"
-      value={cellText ?? valueStr(valueIU, units)}
-      onChange={(e) => setCellText(e.target.value)}
-      onBlur={(e) => {
-        // `WX_GRID`'s numeric cells go through `ValueFromString`, i.e. the same
-        // `DoubleValueFromString` a UNIT_BINDER uses: the leading numeric run
-        // is parsed and a trailing designator overrides the display unit, so
-        // the " mm" the cell was showing does not become part of the number and
-        // "50mil" typed into a mm cell means 50 mils.
-        commit(mmToIU(parseUnitValueDouble(e.target.value, units)));
-        setCellText(null);
-        setCursor((c) => ({ ...c, editing: false }));
-      }}
-      onKeyDown={(e) => {
-        e.stopPropagation();
-        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+  const button = (aBitmap: string, aTip: string, aRun: () => void): JSX.Element => (
+    <StdBitmapButton
+      bitmap={aBitmap}
+      title={aTip}
+      onClick={() => {
+        aRun();
+        redraw();
       }}
     />
   );
 
-  const shownFor = (row: Row): string =>
-    fieldShownText(absField(row, symbol), symbol, unitCount, subpart);
-
-  /**
-   * `OnAddField`: a `USER` field named `GetUserFieldName( size )`, carrying the
-   * Reference field's angle and starting hidden, then the cursor moves to its
-   * Name cell with the editor open.
-   */
-  const addRow = (): void => {
-    const refAngle = rows.find((r) => r.key === 'Reference')?.angle ?? 0;
-    const next: Row = {
-      key: `Field${rows.length}`,
-      value: '',
-      at: { x: 0, y: 0 },
-      angle: refAngle,
-      effects: { hidden: true, fontSize: [DEFAULT_TEXT_SIZE, DEFAULT_TEXT_SIZE] },
-      nameShown: false,
-    };
-    setRows((rs) => [...rs, next]);
-    setCursor({ row: view.length, col: 0, editing: true, selected: false });
-  };
-
-  /**
-   * `OnDeleteField`'s filter: "The first %d fields are mandatory." The message
-   * counts the mandatory BLOCK, not the row, which is why the count comes from
-   * `GetMandatoryRowCount` rather than from the row being refused.
-   */
-  const deleteRow = (): void => {
-    const i = view[cursor.row];
-    if (i === undefined) return;
-    if (!canDeleteRow(rows, i)) {
-      setError(`The first ${mandatoryRowCount(rows)} fields are mandatory.`);
-      return;
-    }
-    setRows((rs) => rs.filter((_, k) => k !== i));
-    setCursor((c) => ({ ...c, row: Math.max(0, c.row - 1), editing: false, selected: false }));
-  };
-
-  /** `OnMoveUp` / `OnMoveDown`, each guarded by the mandatory block. */
-  const moveRow = (dir: -1 | 1): void => {
-    const i = view[cursor.row];
-    if (i === undefined) return;
-    if (!(dir === -1 ? canMoveRowUp(rows, i) : canMoveRowDown(rows, i))) return;
-    setRows((rs) => {
-      const n = rs.slice();
-      [n[i], n[i + dir]] = [n[i + dir]!, n[i]!];
-      return n;
-    });
-    setCursor((c) => ({ ...c, row: c.row + dir, editing: false, selected: false }));
-  };
-
-  const submit = (): void => {
-    const invalid = validateRows(rows);
-    if (invalid) {
-      setError(invalid);
-      return;
-    }
-
-    // Compose orientation then mirror exactly as the dialog's two SetOrientation
-    // calls, and decompose to the canonical serialized (angle, mirror).
-    let t = symbolTransform(orient, undefined);
-    if (mirror) t = composeMirror(t, mirror);
-    const o = orientationFromTransform(t);
-
-    const fields: EditedField[] = fieldsFromRows(rows);
-
-    onOk({
-      fields,
-      angle: o.angle,
-      mirror: o.mirror,
-      // `int unit_selection = m_unitChoice->IsEnabled() ? GetSelection() + 1 : 1;`
-      // and the same for the body style — a symbol whose part offers neither is
-      // written back as unit 1, body style 1 whatever the file said.
-      unit: multiUnit ? unit : 1,
-      bodyStyle: multiBodyStyle ? bodyStyle : 1,
-      inBom: !excludeBom,
-      onBoard: !excludeBoard,
-      dnp,
-      // Leave the token absent unless the file had it or the user turned it on.
-      excludedFromSim: symbol.excludedFromSim !== undefined || excludeSim ? excludeSim : undefined,
-      excludedFromPosFiles:
-        symbol.excludedFromPosFiles !== undefined || excludePosFiles ? excludePosFiles : undefined,
-      // Only when the Pin Functions page actually changed something, so a
-      // symbol whose pins the file never listed does not gain a list from
-      // merely opening the dialog.
-      pins: pinSym === symbol ? undefined : pinSym.pins,
-      // Only when changed, so opening the dialog on a symbol whose library copy
-      // says nothing about pin text does not start writing the flags out.
-      showPinNumbers: showPinNumbers === !lib?.pinNumbersHidden ? undefined : showPinNumbers,
-      showPinNames: showPinNames === !lib?.pinNamesHidden ? undefined : showPinNames,
-    });
-  };
-
-  /** One grid cell. `col` is a `FIELDS_DATA_COL_ORDER` index. */
-  const cell = (viewRow: number, col: number): JSX.Element => {
-    const row = rowAt(viewRow)!;
-    const f = absField(row, symbol);
-    const shown = shownFor(row);
-    const editing = cursor.row === viewRow && cursor.col === col && cursor.editing;
-
-    switch (col) {
-      case 0: {
-        // FDC_NAME. Read-only for a mandatory field.
-        if (isNameReadOnly(row)) return <span className="ze-grid-text">{row.key}</span>;
-        return editing ? (
-          <input
-            // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
-            autoFocus
-            className="ze-grid-input ze-bare"
-            // A wxGrid editor holds a string of its own and writes the table
-            // only on commit, which is what lets `OnGridCellChanging` refuse
-            // the write. Typing straight into the row would leave nothing to
-            // refuse.
-            value={cellText ?? row.key}
-            onChange={(e) => setCellText(e.target.value)}
-            onBlur={(e) => {
-              // `OnGridCellChanging` (dialog_symbol_properties.cpp:878-896):
-              // a name already in use is vetoed, the message shown, and the
-              // cell re-focused with its OLD value — the edit is discarded,
-              // not kept as a pending correction.
-              const dup = duplicateNameError(rows, view[viewRow] ?? -1, e.target.value);
-              setCellText(null);
-              if (dup) {
-                setError(dup);
-                return;
-              }
-              patchRow(viewRow, { key: e.target.value });
-              setCursor((c) => ({ ...c, editing: false }));
-            }}
-            onKeyDown={(e) => {
-              e.stopPropagation();
-              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-            }}
-          />
-        ) : (
-          <span className="ze-grid-text">{row.key}</span>
-        );
-      }
-      case 1: {
-        // FDC_VALUE. A power symbol's Footprint is read-only.
-        if (isValueReadOnly(row, isPower)) return <span className="ze-grid-text">{row.value}</span>;
-        return editing ? (
-          <span className="ze-grid-editwrap">
-            <input
-              // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
-              autoFocus
-              // `wxGridCellTextEditor::BeginEdit` ends with
-              // `SetSelection( -1, -1 )` — the whole value is selected when the
-              // editor opens, so typing replaces it.
-              onFocus={(e) => e.currentTarget.select()}
-              className="ze-grid-input ze-bare"
-              value={row.value}
-              onChange={(e) => patchRow(viewRow, { value: e.target.value })}
-              onBlur={() => setCursor((c) => ({ ...c, editing: false }))}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-              }}
-            />
-            {/* The Footprint row's editor is a GRID_CELL_FPID_EDITOR
-                (fields_grid_table.cpp:309), which is a GRID_CELL_TEXT_BUTTON:
-                a text field with a button carrying `BITMAPS::small_library`
-                (grid_text_button_helpers.cpp:62) that opens
-                FRAME_FOOTPRINT_CHOOSER.
-
-                GREYED, deliberately. The chooser frame does not exist in this
-                app yet, and a button that silently does nothing is worse than
-                one that says so — the same call this repo made for the Edit
-                File button in Manage Footprint Association Files. It sits in
-                its upstream position so the cell is the right shape now and
-                wiring it is the only step left. */}
-            {row.key === 'Footprint' ? (
-              <button
-                type="button"
-                className="ze-grid-cellbtn"
-                disabled
-                title="Browse for footprint — needs the Footprint Chooser"
-                aria-label="Browse for footprint"
-                // The cell's mousedown must not treat this as a click on the
-                // cell and re-enter the editor.
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <Icon name="smallLibrary" size={14} />
-              </button>
-            ) : null}
-          </span>
-        ) : (
-          <span className="ze-grid-text">{row.value}</span>
-        );
-      }
-      case 2:
-        return (
-          <input
-            type="checkbox"
-            aria-label="Show"
-            checked={!row.effects.hidden}
-            onChange={(e) => patchEffects(viewRow, { hidden: !e.target.checked })}
-          />
-        );
-      case 3:
-        return (
-          <input
-            type="checkbox"
-            aria-label="Show Name"
-            checked={row.nameShown}
-            onChange={(e) => patchRow(viewRow, { nameShown: e.target.checked })}
-          />
-        );
-      case 4: {
-        const effH = effectiveHorizJustify(f, symbol, shown, measureText);
-        const label = effH === 'left' ? 'Left' : effH === 'right' ? 'Right' : 'Center';
-        return editing ? (
-          <select
-            // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
-            autoFocus
-            className="ze-grid-input ze-bare"
-            value={effH}
-            onBlur={() => setCursor((c) => ({ ...c, editing: false }))}
-            onChange={(e) => {
-              const stored = storedForEffectiveHoriz(
-                f,
-                symbol,
-                shown,
-                measureText,
-                e.target.value as 'left' | 'center' | 'right',
-              );
-              patchEffects(viewRow, { justify: justifyTokens(stored, storedVJustify(f)) });
-              setCursor((c) => ({ ...c, editing: false }));
-            }}
-          >
-            {choiceOptions(4)}
-          </select>
-        ) : (
-          <span className="ze-grid-text">{label}</span>
-        );
-      }
-      case 5: {
-        const effV = effectiveVertJustify(f, symbol, shown, measureText);
-        const label = effV === 'top' ? 'Top' : effV === 'bottom' ? 'Bottom' : 'Center';
-        return editing ? (
-          <select
-            // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
-            autoFocus
-            className="ze-grid-input ze-bare"
-            value={effV}
-            onBlur={() => setCursor((c) => ({ ...c, editing: false }))}
-            onChange={(e) => {
-              const stored = storedForEffectiveVert(
-                f,
-                symbol,
-                shown,
-                measureText,
-                e.target.value as 'top' | 'center' | 'bottom',
-              );
-              patchEffects(viewRow, { justify: justifyTokens(storedHJustify(f), stored) });
-              setCursor((c) => ({ ...c, editing: false }));
-            }}
-          >
-            {choiceOptions(5)}
-          </select>
-        ) : (
-          <span className="ze-grid-text">{label}</span>
-        );
-      }
-      case 6:
-        return (
-          <input
-            type="checkbox"
-            aria-label="Italic"
-            checked={!!row.effects.italic}
-            onChange={(e) => patchEffects(viewRow, { italic: e.target.checked || undefined })}
-          />
-        );
-      case 7:
-        return (
-          <input
-            type="checkbox"
-            aria-label="Bold"
-            checked={!!row.effects.bold}
-            onChange={(e) => patchEffects(viewRow, { bold: e.target.checked || undefined })}
-          />
-        );
-      case 8: {
-        const size = row.effects.fontSize?.[0] ?? DEFAULT_TEXT_SIZE;
-        return editing ? (
-          numEditor(size, (iu) => patchEffects(viewRow, { fontSize: [iu, iu] }))
-        ) : (
-          <span className="ze-grid-text">{valueStr(size, units)}</span>
-        );
-      }
-      case 9: {
-        const label = row.angle === 90 ? 'Vertical' : 'Horizontal';
-        return editing ? (
-          <select
-            // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
-            autoFocus
-            className="ze-grid-input ze-bare"
-            value={label.toLowerCase()}
-            onBlur={() => setCursor((c) => ({ ...c, editing: false }))}
-            onChange={(e) => {
-              patchRow(viewRow, { angle: e.target.value === 'vertical' ? 90 : 0 });
-              setCursor((c) => ({ ...c, editing: false }));
-            }}
-          >
-            {choiceOptions(9)}
-          </select>
-        ) : (
-          <span className="ze-grid-text">{label}</span>
-        );
-      }
-      case 10:
-        return editing ? (
-          numEditor(row.at.x, (iu) => patchRow(viewRow, { at: { ...row.at, x: iu } }))
-        ) : (
-          <span className="ze-grid-text">{valueStr(row.at.x, units)}</span>
-        );
-      case 11:
-        return editing ? (
-          numEditor(row.at.y, (iu) => patchRow(viewRow, { at: { ...row.at, y: iu } }))
-        ) : (
-          <span className="ze-grid-text">{valueStr(row.at.y, units)}</span>
-        );
-      case 12: {
-        // FDC_FONT. `field.GetFont() ? GetName() : DEFAULT_FONT_NAME`
-        // (fields_grid_table.cpp:838-841), and DEFAULT_FONT_NAME is
-        // `_( "Default Font" )` (:60) — NOT "KiCad Font", which is a face a
-        // field can name explicitly and which the combo lists as a second,
-        // separate entry (:410-411). A field with no `(face …)` reads "Default
-        // Font" in KiCad even though the stroke font is what draws it.
-        //
-        // The editor is a `GRID_CELL_COMBOBOX( fonts )` (:413-414): Default
-        // Font, KiCad Font, then `Fontconfig()->ListFonts` sorted — for us the
-        // catalogue `fontconfig.ts` serves, the same list `FONT_CHOICE`
-        // offers. `SetValue` (:1011-1018) stores DEFAULT_FONT_NAME as no font,
-        // and any other name as that face. A wxComboBox holds whatever text
-        // the file gave it, so a face the list lacks stays selectable as-is.
-        const face = row.effects.face ?? DEFAULT_FONT_NAME;
-        const fonts = FONT_CELL_CHOICES.includes(face)
-          ? FONT_CELL_CHOICES
-          : [...FONT_CELL_CHOICES, face];
-        return editing ? (
-          <select
-            // biome-ignore lint/a11y/noAutofocus: EnableCellEditControl( true )
-            autoFocus
-            className="ze-grid-input ze-bare"
-            value={face}
-            onBlur={() => setCursor((c) => ({ ...c, editing: false }))}
-            onChange={(e) => {
-              const v = e.target.value;
-              patchEffects(viewRow, { face: v === DEFAULT_FONT_NAME ? undefined : v });
-              setCursor((c) => ({ ...c, editing: false }));
-            }}
-          >
-            {fonts.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span className="ze-grid-text">{face}</span>
-        );
-      }
-      case 13:
-        // FDC_COLOR: GRID_CELL_COLOR_RENDERER, a swatch at all times. It can
-        // express "unspecified" — MakeBitmap paints a checkerboard for it —
-        // which is why this is a COLOR_SWATCH and not a colour input.
-        return (
-          <ColorSwatch
-            size="small"
-            label="Field color"
-            color={itemColorToColor4d(row.effects.color)}
-            onChange={(picked) => patchEffects(viewRow, { color: color4dToItemColor(picked) })}
-          />
-        );
-      case 14:
-        // FDC_ALLOW_AUTOPLACE — SCH_FIELD::CanAutoplace, which the file stores
-        // inverted as (do_not_autoplace yes).
-        return (
-          <input
-            type="checkbox"
-            aria-label="Allow Autoplacement"
-            checked={!row.doNotAutoplace}
-            onChange={(e) =>
-              patchRow(viewRow, { doNotAutoplace: e.target.checked ? undefined : true })
-            }
-          />
-        );
-      default:
-        return <span className="ze-grid-text" />;
-    }
-  };
-
-  const cols = FIELDS_GRID_COLUMNS.map((c, i) => ({ ...c, index: i })).filter((c) =>
-    shownCols.has(c.index),
+  const check = (aKey: keyof SYMBOL_DIALOG_VALUES, aLabel: string, aTip?: string): JSX.Element => (
+    <label className="ze-check" title={aTip}>
+      <input
+        type="checkbox"
+        checked={values[aKey] as boolean}
+        onChange={(e) => set(aKey, e.target.checked as never)}
+      />
+      {aLabel}
+    </label>
   );
+
+  const multiUnit = values.unit >= 0;
+  const multiBodyStyle = values.bodyStyle >= 0;
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      {/* NOT `.ze-props-dialog`, which states a 1060 px width. This dialog is
-          `mainSizer->Fit( this )` and states none. */}
       <div className="ze-modal ze-symprops" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
-          Symbol Properties
+          {dlg.m_title}
           <span className="x" onClick={onCancel}>
             ✕
           </span>
         </div>
 
         <div className="ze-symprops-body">
-          {error && (
-            <div className="ze-props-error" onClick={() => setError(null)}>
-              {error}, click to dismiss
-            </div>
-          )}
-
-          {/* m_notebook1. Three pages, the third only when the symbol has a
-              library part to carry embedded files. */}
-          {/* A wxNotebook is a FRAMED control: the border runs round the tab
-              strip and the page together, not just under the tabs. */}
+          {/* m_notebook1: a wxNotebook keeps every page, so the dialog fits the largest. */}
           <div className="ze-nb-frame">
             <div className="ze-nb-tabs" role="tablist">
               <button
@@ -836,38 +930,21 @@ export function SymbolPropertiesDialog({
                 role="tab"
                 aria-selected={tab === 'pins'}
                 className={tab === 'pins' ? 'active' : ''}
-                disabled={pinsDisabled}
+                disabled={dlg.m_pinsDisabled}
                 title={
-                  pinsDisabled
+                  dlg.m_pinsDisabled
                     ? 'Alternate pin assignments are not available for symbols with multiple body styles.'
                     : undefined
                 }
-                onClick={() => setTab('pins')}
+                onClick={() => {
+                  // OnPageChanging: a pending cell edit must commit first.
+                  if (dlg.FieldsGrid().CommitPendingChanges()) setTab('pins');
+                }}
               >
                 Pin Functions
               </button>
-              {embedded && (
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === 'files'}
-                  className={tab === 'files' ? 'active' : ''}
-                  onClick={() => setTab('files')}
-                >
-                  Embedded Files
-                </button>
-              )}
             </div>
 
-            {/* A wxNotebook keeps every page and reports the MAX of them as its
-              best size, so the dialog it sits in is fitted once and never
-              changes size when you switch tabs. These were rendered with
-              `tab === … ? … : null`, which takes the other pages out of the
-              DOM entirely, so the dialog resized itself to whichever tab was
-              showing. They are all present now and stacked in one grid cell —
-              see `.ze-nb-body` — with the inactive ones made invisible rather
-              than removed, which is what keeps them counting towards the
-              size. */}
             <div className="ze-nb-body">
               <div
                 className="ze-symprops-page"
@@ -875,161 +952,16 @@ export function SymbolPropertiesDialog({
                 data-nbhide={tab !== 'pins' ? '' : undefined}
               >
                 <div className="ze-grid-pane ze-symprops-pin-pane">
-                  <table className="ze-grid ze-symprops-pin-grid">
-                    {/* `SetColSize` (base.cpp:279-283) then
-                      `AdjustPinsGridColumns` (dialog_symbol_properties.cpp:1066):
-                      Number, Electrical Type and Graphic Style keep their stated
-                      widths and Base Name / Alternate Assignment split what is
-                      left. The widths live in a `<colgroup>` because that is
-                      where a `table-layout: fixed` table reads them — stated on
-                      the `<th>` they were only a hint, and the browser sized
-                      every column from its content instead. */}
-                    <colgroup>
-                      <col className="num" />
-                      <col className="flex" />
-                      <col className="flex" />
-                      <col className="fixed" />
-                      <col className="fixed" />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        {PIN_GRID_COLUMNS.map((c) => (
-                          <th key={c}>{c}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pinGridRows(pinUnitSym, lib).map((r) => (
-                        <tr key={r.number}>
-                          <td>
-                            <span className="ze-grid-text">{r.number}</span>
-                          </td>
-                          <td>
-                            <span className="ze-grid-text">{r.baseName}</span>
-                          </td>
-                          <td className={r.choices.length === 0 ? 'ze-pin-noalt' : undefined}>
-                            {/* "Don't accept random values; must use the popup to
-                              change to a known alternate." A pin with no
-                              alternates has an empty, uneditable cell — and it
-                              is painted, not just empty: BuildAttrs gives it
-                              `SetBackgroundColour( GetDialogBGColour() )`
-                              (dialog_symbol_properties.cpp:110-112), which is
-                              what makes "this pin has nothing to choose" read at
-                              a glance instead of looking like a blank you could
-                              type in. */}
-                            {r.choices.length === 0 ? (
-                              <span className="ze-grid-text" />
-                            ) : (
-                              <select
-                                className="ze-grid-input ze-bare"
-                                value={r.alternate}
-                                onChange={(e) =>
-                                  setPinSym((sym) => ({
-                                    ...sym,
-                                    // The row's pin is found in the unit the
-                                    // CHOICE is on, not the one the placement
-                                    // was opened as; `sym.unit` itself is left
-                                    // alone, since OK writes the unit from the
-                                    // combo and not from this working copy.
-                                    pins: setPinAlternate(
-                                      { ...sym, unit, bodyStyle },
-                                      lib,
-                                      r.number,
-                                      e.target.value,
-                                    ).pins,
-                                  }))
-                                }
-                              >
-                                {r.choices.map((c) => (
-                                  <option key={c} value={c}>
-                                    {c}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
-                          </td>
-                          {/* Type and Style follow the selection: GetType/GetShape
-                            consult the alternate, so picking a function changes
-                            what the pin is, not just what it is called. */}
-                          {/* GRID_CELL_ICON_TEXT_RENDERER: both cells draw
-                            KiCad's own 16px icon before the text
-                            (dialog_symbol_properties.cpp:131-142). */}
-                          <td>
-                            <span className="ze-grid-text ze-icon-text">
-                              <PinIcon bitmap={PIN_TYPE_BITMAPS[r.electricalType]} />
-                              {electricalPinTypeGetText(r.electricalType)}
-                            </span>
-                          </td>
-                          <td>
-                            <span className="ze-grid-text ze-icon-text">
-                              <PinIcon bitmap={PIN_SHAPE_BITMAPS[r.shape]} />
-                              {pinShapeGetText(r.shape)}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {dlg.PinModel() && (
+                    <WxGridView
+                      grid={dlg.PinGrid()}
+                      columns={PIN_COLUMNS}
+                      ariaLabel="Pin functions"
+                      onUpdate={redraw}
+                    />
+                  )}
                 </div>
               </div>
-
-              {embedded ? (
-                // PANEL_EMBEDDED_FILES (common/dialogs/panel_embedded_files_base.cpp):
-                // a two-column grid, an add/remove button pair, "Embed fonts" and
-                // Export. Read-only here — see the header comment.
-                // The page EXISTS whenever the symbol carries embedded files —
-                // that is the upstream condition for adding it to the notebook —
-                // and is merely invisible when another tab is selected.
-                <div
-                  className="ze-symprops-page"
-                  aria-hidden={tab !== 'files'}
-                  data-nbhide={tab !== 'files' ? '' : undefined}
-                >
-                  <div className="ze-grid-pane ze-symprops-files-pane">
-                    <table className="ze-grid">
-                      <thead>
-                        <tr>
-                          <th>Filename</th>
-                          <th>Embedded Reference</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {embedded.files.map((f) => (
-                          <tr key={f.name}>
-                            <td>
-                              <span className="ze-grid-text">{f.name}</span>
-                            </td>
-                            <td>
-                              <span className="ze-grid-text">{f.reference}</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="ze-grid-btns">
-                    <StdBitmapButton
-                      bitmap="small_folder"
-                      title="Add embedded file"
-                      disabled
-                      onClick={() => {}}
-                    />
-                    <StdBitmapButton
-                      bitmap="small_trash"
-                      title="Remove embedded file"
-                      disabled
-                      onClick={() => {}}
-                    />
-                    <label className="ze-check ze-symprops-embedfonts">
-                      <input type="checkbox" checked={embedded.embedFonts} disabled readOnly />
-                      Embed fonts
-                    </label>
-                    <button type="button" className="ze-btn" disabled>
-                      Export...
-                    </button>
-                  </div>
-                </div>
-              ) : null}
 
               <div
                 className="ze-symprops-page"
@@ -1040,179 +972,30 @@ export function SymbolPropertiesDialog({
                 <fieldset className="ze-ds-group ze-symprops-fields">
                   <legend>Fields</legend>
                   <div className="ze-grid-pane ze-symprops-grid-pane">
-                    <table className="ze-grid ze-symprops-grid">
-                      <thead>
-                        <tr
-                          onContextMenu={(e) => {
-                            // GRID_TRICKS::onGridLabelRightClick: a checkable item
-                            // per column, whatever its shown state.
-                            e.preventDefault();
-                            setColMenu({ x: e.clientX, y: e.clientY });
-                          }}
-                        >
-                          {cols.map((c) => (
-                            <th
-                              key={c.id}
-                              // `RecomputeGridWidths` floors each autosized
-                              // column at its `_base.cpp` width and lets content
-                              // widen it; only FDC_VALUE is given the slack.
-                              style={c.index === 1 ? undefined : { minWidth: c.width }}
-                              className={c.center ? 'c' : undefined}
-                            >
-                              {c.label}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {view.map((rowIndex, viewRow) => (
-                          <tr
-                            key={rowIndex}
-                            // The row fill is not drawn over the row that holds
-                            // the active editor. The SELECTION itself survives —
-                            // `qa/probes/grid_edit_selection_probe.cpp` selects a
-                            // row, enables the cell editor and asks the grid:
-                            //   after SelectRow(2)               rows=1 inSel=1
-                            //   after EnableCellEditControl(true) rows=1 inSel=1
-                            //   after DisableCellEditControl()    rows=1 inSel=1
-                            // so this is a painting rule, not a selection one, and
-                            // the row is still selected for Delete Field etc.
-                            className={
-                              cursor.selected && cursor.row === viewRow && !cursor.editing
-                                ? 'selected'
-                                : ''
-                            }
-                          >
-                            {cols.map((c) => (
-                              <td
-                                key={c.id}
-                                className={[
-                                  c.center ? 'c' : '',
-                                  cursor.row === viewRow && cursor.col === c.index ? 'cursor' : '',
-                                  // FDC_VALUE, the one `SetupColumnAutosizer`
-                                  // marks flexible: it takes the slack, so its
-                                  // text must not reach the column's width.
-                                  c.index === 1 ? 'ze-grid-flexcol' : '',
-                                ]
-                                  .filter(Boolean)
-                                  .join(' ')}
-                                onMouseDown={(e) => {
-                                  // `GRID_TRICKS::onGridCellLeftClick`
-                                  // (grid_tricks.cpp:218-231) — "Don't make users
-                                  // click twice to toggle a checkbox or edit a text
-                                  // cell". ONE click opens the editor, and
-                                  // `m_enableSingleClickEdit` is true by default
-                                  // (:48). This wanted two.
-                                  //
-                                  // `showEditor` (:/^bool GRID_TRICKS::showEditor)
-                                  // moves the cursor, and if the cell is NOT
-                                  // read-only it calls `ClearSelection()`, re-selects
-                                  // the row, and then `ShowEditorOnMouseUp()`. A
-                                  // read-only cell returns false and the click falls
-                                  // through to plain row selection — which is why
-                                  // clicking a mandatory field's NAME only
-                                  // highlights the row.
-                                  //
-                                  // The editor really does open on mouse UP, and
-                                  // that is load-bearing rather than pedantic: the
-                                  // browser moves focus while handling mousedown, so
-                                  // an editor mounted here is focused and then blurred
-                                  // straight back out by the same click. Upstream
-                                  // hit the same class of problem —
-                                  //   "There's the whole SetInSetFocus() issue/hack
-                                  //    in wxWidgets, and there's also wxGrid's MouseUp
-                                  //    handler which doesn't notice it's processing a
-                                  //    MouseUp until after it has disabled the editor
-                                  //    yet again."
-                                  // Suppressing the default here also stops the drag
-                                  // selecting cell text, which a wxGrid never does.
-                                  // A click INSIDE the editor that is already open
-                                  // on this cell is not a grid click at all: the
-                                  // editor control has the mouse, and wxGrid never
-                                  // sees it. It places the caret, and that is the
-                                  // whole of it — no cursor move, no re-selection,
-                                  // no re-opening. Handling it here made the row
-                                  // highlight flash back on and re-selected the
-                                  // whole string, so you could never put the caret
-                                  // in the middle of a long value.
-                                  if (inOpenEditor(viewRow, c.index)) return;
-                                  e.preventDefault();
-                                  setCursor({
-                                    row: viewRow,
-                                    col: c.index,
-                                    // wxGridSelectRows: clicking selects the row.
-                                    selected: true,
-                                    editing: false,
-                                  });
-                                }}
-                                onMouseUp={() => {
-                                  // `ShowEditorOnMouseUp()`. Nothing to do if the
-                                  // editor is already up on this cell.
-                                  //
-                                  // This guard is NOT observable and no test kills
-                                  // removing it: `{ ...prev, editing: true }` when
-                                  // `editing` is already true carries identical
-                                  // values, React keeps the same input element, and
-                                  // the caret survives — `onFocus` does not re-fire,
-                                  // so the select-all does not re-run either. It
-                                  // stays because it says what the mouseup means,
-                                  // and because it costs a render per click inside
-                                  // the editor otherwise. Recorded rather than
-                                  // pinned with a test that could not fail.
-                                  if (inOpenEditor(viewRow, c.index)) return;
-                                  if (!cellIsEditable(rowAt(viewRow)!, c)) return;
-                                  setCursor((prev) => ({ ...prev, editing: true }));
-                                }}
-                                onDoubleClick={() => {
-                                  if (!cellIsEditable(rowAt(viewRow)!, c)) return;
-                                  setCursor({
-                                    row: viewRow,
-                                    col: c.index,
-                                    editing: true,
-                                    selected: true,
-                                  });
-                                }}
-                              >
-                                {cell(viewRow, c.index)}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <WxGridView
+                      grid={dlg.FieldsGrid()}
+                      columns={FIELD_COLUMNS}
+                      flexCol={FIELDS_DATA_COL_ORDER.FDC_VALUE}
+                      ariaLabel="Fields"
+                      onUpdate={redraw}
+                    />
                   </div>
 
                   {/* bButtonSize: add, up, down, a 20px spacer, delete. */}
                   <div className="ze-grid-btns">
-                    <StdBitmapButton bitmap="small_plus" title="Add field" onClick={addRow} />
-                    <StdBitmapButton
-                      bitmap="small_up"
-                      title="Move up"
-                      onClick={() => moveRow(-1)}
-                    />
-                    <StdBitmapButton
-                      bitmap="small_down"
-                      title="Move down"
-                      onClick={() => moveRow(1)}
-                    />
+                    {button('small_plus', 'Add field', () => dlg.OnAddField())}
+                    {button('small_up', 'Move up', () => dlg.OnMoveUp())}
+                    {button('small_down', 'Move down', () => dlg.OnMoveDown())}
                     <span className="ze-symprops-btngap" />
-                    <StdBitmapButton
-                      bitmap="small_trash"
-                      title="Delete field"
-                      onClick={deleteRow}
-                    />
+                    {button('small_trash', 'Delete field', () => dlg.OnDeleteField())}
                   </div>
                 </fieldset>
 
-                {/* bLowerSizer: General (4) | Attributes (3) | buttons (3). */}
+                {/* bLowerSizer: General | Attributes | buttons. */}
                 <div className="ze-symprops-lower">
                   <fieldset className="ze-ds-group ze-symprops-general">
                     <legend>General</legend>
                     <div className="ze-symprops-gb">
-                      {/* `m_unitLabel->Enable( false )` as well as the choice
-                      (dialog_symbol_properties.cpp:504): a wxStaticText greys
-                      with its control, so the word "Unit:" is grey too on a
-                      single-unit part. */}
                       <label
                         className={multiUnit ? 'ze-symprops-lbl' : 'ze-symprops-lbl disabled'}
                         htmlFor="ze-symprops-unit"
@@ -1223,20 +1006,15 @@ export function SymbolPropertiesDialog({
                         id="ze-symprops-unit"
                         ariaLabel="Unit"
                         disabled={!multiUnit}
-                        value={String(unit)}
-                        onChange={(v) => setUnit(Number(v))}
-                        options={
-                          multiUnit
-                            ? Array.from({ length: unitCount }, (_, k) => ({
-                                value: String(k + 1),
-                                label: unitDisplayName(lib, k + 1),
-                              }))
-                            : []
-                        }
+                        value={String(values.unit)}
+                        onChange={(v) => {
+                          set('unit', Number(v));
+                          dlg.OnUnitChoice(Number(v));
+                          redraw();
+                        }}
+                        options={dlg.m_unitChoices.map((c, i) => ({ value: String(i), label: c }))}
                       />
 
-                      {/* `m_bodyStyle->Enable( false )` (:537), the same rule for
-                      the label of a part with only one body style. */}
                       <label
                         className={multiBodyStyle ? 'ze-symprops-lbl' : 'ze-symprops-lbl disabled'}
                         htmlFor="ze-symprops-bodystyle"
@@ -1247,16 +1025,12 @@ export function SymbolPropertiesDialog({
                         id="ze-symprops-bodystyle"
                         ariaLabel="Body style"
                         disabled={!multiBodyStyle}
-                        value={String(bodyStyle)}
-                        onChange={(v) => setBodyStyle(Number(v))}
-                        options={
-                          multiBodyStyle
-                            ? [
-                                { value: '1', label: 'Standard' },
-                                { value: '2', label: 'Alternate' },
-                              ]
-                            : []
-                        }
+                        value={String(values.bodyStyle)}
+                        onChange={(v) => set('bodyStyle', Number(v))}
+                        options={dlg.m_bodyStyleChoices.map((c, i) => ({
+                          value: String(i),
+                          label: c,
+                        }))}
                       />
 
                       {/* gbSizer1 leaves row 2 empty at SetEmptyCellSize( -1, 12 ). */}
@@ -1268,14 +1042,12 @@ export function SymbolPropertiesDialog({
                       <Combo
                         id="ze-symprops-angle"
                         ariaLabel="Angle"
-                        value={String(orient)}
-                        onChange={(v) => setOrient(Number(v))}
-                        options={[
-                          { value: '0', label: '0' },
-                          { value: '90', label: '+90' },
-                          { value: '270', label: '-90' },
-                          { value: '180', label: '180' },
-                        ]}
+                        value={String(values.orientation)}
+                        onChange={(v) => set('orientation', Number(v))}
+                        options={['0', '+90', '-90', '180'].map((label, i) => ({
+                          value: String(i),
+                          label,
+                        }))}
                       />
 
                       <label className="ze-symprops-lbl" htmlFor="ze-symprops-mirror">
@@ -1284,130 +1056,68 @@ export function SymbolPropertiesDialog({
                       <Combo
                         id="ze-symprops-mirror"
                         ariaLabel="Mirror"
-                        value={mirror}
-                        onChange={(v) => setMirror(v as '' | 'x' | 'y')}
-                        options={[
-                          { value: '', label: 'Not mirrored' },
-                          { value: 'x', label: 'Around X axis' },
-                          { value: 'y', label: 'Around Y axis' },
-                        ]}
+                        value={String(values.mirror)}
+                        onChange={(v) => set('mirror', Number(v))}
+                        options={['Not mirrored', 'Around X axis', 'Around Y axis'].map(
+                          (label, i) => ({ value: String(i), label }),
+                        )}
                       />
                     </div>
 
-                    {/* bSizer11, inside the General box and not Attributes. */}
+                    {/* bSizer11, inside the General box. */}
                     <div className="ze-symprops-pinchecks">
-                      <label className="ze-check" title="Show or hide pin numbers">
-                        <input
-                          type="checkbox"
-                          checked={showPinNumbers}
-                          onChange={(e) => setShowPinNumbers(e.target.checked)}
-                        />
-                        Show pin numbers
-                      </label>
-                      <label className="ze-check" title="Show or hide pin names">
-                        <input
-                          type="checkbox"
-                          checked={showPinNames}
-                          onChange={(e) => setShowPinNames(e.target.checked)}
-                        />
-                        Show pin names
-                      </label>
+                      {check('showPinNumbers', 'Show pin numbers', 'Show or hide pin numbers')}
+                      {check('showPinNames', 'Show pin names', 'Show or hide pin names')}
                     </div>
                   </fieldset>
 
-                  {/* sbAttributes, in the base file's order: simulation, a 10px
-                  spacer, bill of materials, board, position files, DNP. */}
+                  {/* sbAttributes: simulation, a 10px spacer, BOM, board, position files, DNP. */}
                   <fieldset className="ze-ds-group ze-symprops-attrs">
                     <legend>Attributes</legend>
-                    <label className="ze-check">
-                      <input
-                        type="checkbox"
-                        checked={excludeSim}
-                        onChange={(e) => setExcludeSim(e.target.checked)}
-                      />
-                      Exclude from simulation
-                    </label>
+                    {check('excludeFromSim', 'Exclude from simulation')}
                     <span className="ze-symprops-attrgap" />
-                    <label
-                      className="ze-check"
-                      title={
-                        'This is useful for adding symbols for board footprints such as fiducials\n' +
-                        'and logos that you do not want to appear in the bill of materials export'
-                      }
-                    >
-                      <input
-                        type="checkbox"
-                        checked={excludeBom}
-                        onChange={(e) => setExcludeBom(e.target.checked)}
-                      />
-                      Exclude from bill of materials
-                    </label>
-                    <label
-                      className="ze-check"
-                      title={
-                        'This is useful for adding symbols that only get exported to the bill of materials but\n' +
-                        'not required to layout the board such as mechanical fasteners and enclosures'
-                      }
-                    >
-                      <input
-                        type="checkbox"
-                        checked={excludeBoard}
-                        onChange={(e) => setExcludeBoard(e.target.checked)}
-                      />
-                      Exclude from board
-                    </label>
-                    <label
-                      className="ze-check"
-                      title={
-                        'This is useful for adding symbols that should not be included in the \n' +
-                        'exported position files used for pick and place machines'
-                      }
-                    >
-                      <input
-                        type="checkbox"
-                        checked={excludePosFiles}
-                        onChange={(e) => setExcludePosFiles(e.target.checked)}
-                      />
-                      Exclude from position files
-                    </label>
-                    <label className="ze-check">
-                      <input
-                        type="checkbox"
-                        checked={dnp}
-                        onChange={(e) => setDnp(e.target.checked)}
-                      />
-                      Do not populate
-                    </label>
+                    {check(
+                      'excludeFromBom',
+                      'Exclude from bill of materials',
+                      'This is useful for adding symbols for board footprints such as fiducials\n' +
+                        'and logos that you do not want to appear in the bill of materials export',
+                    )}
+                    {check(
+                      'excludeFromBoard',
+                      'Exclude from board',
+                      'This is useful for adding symbols that only get exported to the bill of materials but\n' +
+                        'not required to layout the board such as mechanical fasteners and enclosures',
+                    )}
+                    {check(
+                      'excludeFromPosFiles',
+                      'Exclude from position files',
+                      'This is useful for adding symbols that should not be included in the \n' +
+                        'exported position files used for pick and place machines',
+                    )}
+                    {check('dnp', 'Do not populate')}
                   </fieldset>
 
-                  {/* buttonsSizer: a vertical column, with a 20px gap before the
-                  last one — it acts on the LIBRARY part rather than this
-                  placement, which is what the gap says. */}
+                  {/* buttonsSizer: a 20px gap before the one that acts on the library part. */}
                   <div className="ze-symprops-buttons">
                     <button
                       type="button"
                       className="ze-btn"
-                      disabled={!onUpdateSymbol}
-                      onClick={onUpdateSymbol}
+                      onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_WANT_UPDATE_SYMBOL)}
                     >
                       Update Symbol from Library...
                     </button>
                     <button
                       type="button"
                       className="ze-btn"
-                      disabled={!onChangeSymbol}
-                      onClick={onChangeSymbol}
+                      onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_WANT_EXCHANGE_SYMBOL)}
                     >
                       Change Symbol...
                     </button>
-                    {/* onUpdateEditSymbol: `event.Enable( m_symbol &&
-                    m_symbol->GetLibSymbolRef() )` — a placement whose cached
-                    library symbol is missing has nothing to open. */}
                     <button
                       type="button"
                       className="ze-btn"
-                      disabled={!lib || !onEditSymbol}
-                      onClick={onEditSymbol}
+                      disabled={!dlg.m_canEditSymbol}
+                      onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_EDIT_SCHEMATIC_SYMBOL)}
                     >
                       Edit Symbol...
                     </button>
@@ -1415,8 +1125,8 @@ export function SymbolPropertiesDialog({
                     <button
                       type="button"
                       className="ze-btn"
-                      disabled={!lib || !onEditLibrarySymbol}
-                      onClick={onEditLibrarySymbol}
+                      disabled={!dlg.m_canEditSymbol}
+                      onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_EDIT_LIBRARY_SYMBOL)}
                     >
                       Edit Library Symbol...
                     </button>
@@ -1427,43 +1137,19 @@ export function SymbolPropertiesDialog({
           </div>
         </div>
 
-        {/* bSizerBottom, OUTSIDE the notebook: it belongs to the dialog, not to
-            the General page, so it stays put as the pages change. */}
+        {/* bSizerBottom, outside the notebook. */}
         <div className="ze-modal-footer ze-symprops-foot">
           <span className="ze-symprops-libid-label">Library link:</span>
-          {/* `wxTextCtrl( …, wxTE_READONLY|wxBORDER_NONE )`
-              (dialog_symbol_properties_base.cpp:323), painted
-              KIPLATFORM::UI::GetDialogBGColour() — wxSYS_COLOUR_BTNFACE, which
-              is LIGHTER than the dialog around it. Nothing ever clears
-              wxTE_READONLY: the LIB_ID is changed by "Change Symbol...", never
-              by typing here. `aria-readonly` says so to a screen reader, since
-              a borderless read-only entry looks like a label. */}
           <input
-            /* `ze-bare` is the shared entry rule's own opt-out. Without it that
-               rule wins on specificity — `.ze-app input:not(…)×5` is (0,6,1)
-               against this class's (0,1,0) — and its `font: inherit` resets
-               the size back to the dialog's 11pt, so the 9pt below never
-               applied. KiCad sets `KIUI::GetSmallInfoFont` here
-               (dialog_symbol_properties.cpp:381-383) and this is not a GTK
-               entry anyway: it is wxTE_READONLY | wxBORDER_NONE. */
             className="ze-symprops-libid ze-bare"
             readOnly
             aria-readonly="true"
             aria-label="Library link"
-            value={symbol.libId}
-            title={symbol.libId}
+            value={dlg.m_libraryId}
+            title={dlg.m_libraryId}
           />
-          {/* `if( m_part && m_part->IsPower() ) m_spiceFieldsButton->Hide();`
-              (dialog_symbol_properties.cpp:375-376) is the ONLY thing upstream
-              ever does to this button — it is hidden for a power symbol and
-              live for every other one, with no wxUpdateUI handler and no
-              enable condition at all.
-              SEAM: it stays disabled here because `OnEditSpiceModel` (:587)
-              opens DIALOG_SIM_MODEL, which is not ported — eeschema/sim/
-              carries the model types the SPICE exporter needs, not the dialog.
-              A live button that opened nothing would be the worse divergence,
-              so the reason is stated in the tooltip the user actually sees. */}
-          {!isPower && (
+          {/* m_spiceFieldsButton: hidden for a power symbol; DIALOG_SIM_MODEL is not ported. */}
+          {!dlg.m_isPower && (
             <button
               type="button"
               className="ze-btn"
@@ -1476,43 +1162,16 @@ export function SymbolPropertiesDialog({
           <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button type="button" className="ze-btn primary" onClick={submit}>
+          <button
+            type="button"
+            className="ze-btn primary"
+            onClick={() => {
+              if (dlg.TransferDataFromWindow(values)) onClose(wxID_OK);
+            }}
+          >
             OK
           </button>
         </div>
-
-        {colMenu && (
-          // GRID_TRICKS' column-label menu. It is the only way to reach the
-          // seven columns ShowHideColumns leaves hidden.
-          <>
-            <div className="ze-symprops-menu-scrim" onMouseDown={() => setColMenu(null)} />
-            <div
-              className="ze-menu-popup ze-symprops-colmenu"
-              style={{ left: colMenu.x, top: colMenu.y }}
-              role="menu"
-            >
-              {FIELDS_GRID_COLUMNS.map((c, i) => (
-                <div
-                  key={c.id}
-                  className="ze-mitem"
-                  role="menuitemcheckbox"
-                  aria-checked={shownCols.has(i)}
-                  onClick={() =>
-                    setShownCols((s) => {
-                      const n = new Set(s);
-                      if (n.has(i)) n.delete(i);
-                      else n.add(i);
-                      return n;
-                    })
-                  }
-                >
-                  <span className="mcheck">{shownCols.has(i) ? '✓' : ''}</span>
-                  <span className="lbl">{c.label}</span>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
       </div>
     </div>
   );

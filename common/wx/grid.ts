@@ -351,7 +351,7 @@ export interface wxGridCellDrawn {
     aGrid: wxGrid,
     aRow: number,
     aCol: number,
-  ): { label: string; swatch?: string };
+  ): { label: string; swatch?: string; icon?: string };
 }
 
 /**

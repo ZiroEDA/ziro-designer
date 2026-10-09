@@ -34,7 +34,6 @@ import type { EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import type { PrefsContext } from '@ziroeda/designer/src/dialogs/prefs/types.js';
 import { transferTemplateFieldnamesPage } from '@ziroeda/designer/src/editors/schematic/prefs/resets.js';
 import { resolveTemplateFieldnames } from '@ziroeda/common/template_fieldnames.js';
-import { rowsFromSymbol } from '@ziroeda/eeschema/fields_grid_table.js';
 import {
   buildFieldsReferences,
   FieldsDataModel,
@@ -103,43 +102,8 @@ const DOC = readSchematic(
     (property "Reference" "R1" (at 40 57 0) (effects (font (size 1.27 1.27))))
     (property "Value" "10k" (at 40 63 0) (effects (font (size 1.27 1.27))))))`),
 );
-const SYMBOL = DOC.symbols[0]!;
 /** `buildFieldsReferences` on a one-sheet project, which is what the dialog holds. */
 const REFS = buildFieldsReferences(new Map([['root.kicad_sch', DOC]]));
-const LIB = DOC.libSymbols[0];
-
-describe('Symbol Properties offers every resolved template as a row', () => {
-  /*
-   * `for( const TEMPLATE_FIELDNAME& templateFieldname : …GetTemplateFieldNames() )
-   *      if( defined.count( … ) <= 0 ) m_fields->push_back( … );`
-   * (`dialog_symbol_properties.cpp:473-483`) — the RESOLVED list, so a global
-   * template is a row on a symbol that has never carried that field.
-   */
-  it('includes a global one the project does not name', () => {
-    const rows = rowsFromSymbol(SYMBOL, resolveTemplateFieldnames(PROJECT, GLOBAL), LIB);
-    const names = rows.map((r) => r.key);
-    expect(names).toContain('MPN');
-    expect(names).toContain('Vendor');
-  });
-
-  it('and carries that template’s own visibility onto the new row', () => {
-    // `field.SetVisible( templateFieldname.m_Visible )`.
-    // `effects.hidden` is the negation: a template marked visible makes a row
-    // that is not hidden.
-    const rows = rowsFromSymbol(SYMBOL, resolveTemplateFieldnames(PROJECT, GLOBAL), LIB);
-    expect(rows.find((r) => r.key === 'MPN')?.effects.hidden).toBe(false);
-    expect(rows.find((r) => r.key === 'Vendor')?.effects.hidden).toBe(true);
-  });
-
-  it('does not offer it twice when the project names it too', () => {
-    const both = resolveTemplateFieldnames([{ name: 'MPN', visible: false, url: false }], GLOBAL);
-    const rows = rowsFromSymbol(SYMBOL, both, LIB);
-    expect(rows.filter((r) => r.key === 'MPN')).toHaveLength(1);
-    // The PROJECT's entry is the one that survives `resolveTemplates`, so the
-    // row is hidden — the global says visible and does not get a say.
-    expect(rows.find((r) => r.key === 'MPN')?.effects.hidden).toBe(true);
-  });
-});
 
 describe('the Symbol Fields Table gives every resolved template a column', () => {
   /*
@@ -201,10 +165,13 @@ describe('the editor hands the dialogs the resolved list, not the project’s', 
    * resolved list on any project whose global list happens to be empty — which
    * is every project, until someone opens the Preferences page.
    */
-  it('SchematicEditor passes resolvedFieldTemplates to both', () => {
+  // Symbol Properties reads SCHEMATIC_SETTINGS::m_TemplateFieldNames itself now, as upstream's
+  // TransferDataToWindow does (dialog_symbol_properties_live.test.ts); the Fields Table is the
+  // one dialog still handed the list.
+  it('SchematicEditor passes resolvedFieldTemplates to the Fields Table', () => {
     const src = readFileSync(resolve(process.cwd(), '../eeschema/sch_edit_frame_ui.tsx'), 'utf8');
     expect(src).not.toContain('fieldTemplates={setup.fieldTemplates}');
-    expect([...src.matchAll(/fieldTemplates=\{resolvedFieldTemplates\}/g)]).toHaveLength(2);
+    expect([...src.matchAll(/fieldTemplates=\{resolvedFieldTemplates\}/g)]).toHaveLength(1);
     expect(src).toContain(
       'resolveTemplateFieldnames(setup.fieldTemplates, es.drawing.field_names)',
     );

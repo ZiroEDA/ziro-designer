@@ -390,9 +390,12 @@ export function WxGridView({
     const drawn = grid.GetCellRenderer(aRow, aCol) as Partial<wxGridCellDrawn>;
 
     if (drawn.DrawValue) {
-      const { label, swatch } = drawn.DrawValue(value, grid, aRow, aCol);
+      const { label, swatch, icon } = drawn.DrawValue(value, grid, aRow, aCol);
       return (
-        <span className="ze-grid-text">
+        <span className={icon !== undefined ? 'ze-grid-text ze-icon-text' : 'ze-grid-text'}>
+          {icon !== undefined && (
+            <img className="ze-pin-icon" src={icon} alt="" aria-hidden="true" />
+          )}
           {swatch !== undefined && (
             <span className="ze-combo-swatch" style={{ background: swatch }} />
           )}

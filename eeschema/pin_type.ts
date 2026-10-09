@@ -117,3 +117,55 @@ export function ElectricalPinTypeGetText(aType: ELECTRICAL_PINTYPE): string {
 export function PinShapeGetText(aShape: GRAPHIC_PINSHAPE): string {
   return pinShapeGetText(PIN_SHAPE_TOKENS[aShape] ?? '');
 }
+
+/** `g_pinElectricalTypes`' bitmaps (pin_type.cpp:85-96), by type token. [data] */
+const PIN_TYPE_BITMAPS: Readonly<Record<ElectricalPinType, string>> = {
+  input: 'pintype_input',
+  output: 'pintype_output',
+  bidirectional: 'pintype_bidi',
+  tri_state: 'pintype_3states',
+  passive: 'pintype_passive',
+  free: 'pintype_nic',
+  unspecified: 'pintype_notspecif',
+  power_in: 'pintype_powerinput',
+  power_out: 'pintype_poweroutput',
+  open_collector: 'pintype_opencoll',
+  open_emitter: 'pintype_openemit',
+  no_connect: 'pintype_noconnect',
+};
+
+/**
+ * `g_pinShapes`' bitmaps (pin_type.cpp:100-108), by shape token - the FILE token, so
+ * FALLING_EDGE_CLOCK is `edge_clock_high` (sch_io_kicad_sexpr_parser.cpp:1625). [data]
+ */
+const PIN_SHAPE_BITMAPS: Readonly<Record<string, string>> = {
+  line: 'pinshape_normal',
+  inverted: 'pinshape_invert',
+  clock: 'pinshape_clock_normal',
+  inverted_clock: 'pinshape_clock_invert',
+  input_low: 'pinshape_active_low_input',
+  clock_low: 'pinshape_clock_active_low',
+  output_low: 'pinshape_active_low_output',
+  edge_clock_high: 'pinshape_clock_fall',
+  non_logic: 'pinshape_nonlogic',
+};
+
+/** `PinTypeNames()` (pin_type.cpp:153): `g_typeNames`, in ELECTRICAL_PINTYPE order. */
+export function PinTypeNames(): readonly string[] {
+  return PIN_TYPE_ENTRIES.map(([, name]) => name);
+}
+
+/** `PinTypeIcons()` (pin_type.cpp:162): `g_typeIcons`, in the same order. */
+export function PinTypeIcons(): readonly string[] {
+  return PIN_TYPE_ENTRIES.map(([token]) => PIN_TYPE_BITMAPS[token as ElectricalPinType]);
+}
+
+/** `PinShapeNames()` (pin_type.cpp:171): `g_shapeNames`, in GRAPHIC_PINSHAPE order. */
+export function PinShapeNames(): readonly string[] {
+  return PIN_SHAPE_ENTRIES.map(([, name]) => name);
+}
+
+/** `PinShapeIcons()` (pin_type.cpp:180): `g_shapeIcons`, in the same order. */
+export function PinShapeIcons(): readonly string[] {
+  return PIN_SHAPE_ENTRIES.map(([token]) => PIN_SHAPE_BITMAPS[token]!);
+}
