@@ -4717,27 +4717,39 @@ export function SchematicEditor({
     adoptLiveScreensRef.current(screens);
     return messages;
   };
-  // The live model's changed screens written back as the window's records, one undo step
-  // (sch_record_bridge.ts liveScreensToRecords; TRANSITIONAL until S7).
+  // The live model's changed screens written back as the window's records (sch_record_bridge.ts
+  // liveScreensToRecords; TRANSITIONAL until S7, when saving reads the live model). Stored as
+  // KiCad wrote them, the very objects the mirror adopts: they used to go through runProject,
+  // whose record cleanup (withCleanup) rebuilt them, so the mirror saw records it had not built
+  // from and reopened the project - wiping SCH_EDIT_FRAME's undo list after every edit. The
+  // undo step is the live commit's own (SCH_COMMIT::Push); KiCad's cleanup has already run in it.
   adoptLiveScreensRef.current = (screens) => {
+    // A viewer's tab keeps no edits (runProject's guard, kept for the write-back).
+    if (myRoleRef.current === 'viewer') return;
     const frame = schFrameRef.current!;
     const name = liveFilesRef.current.projectName;
     const dir = `/${name ?? project.current.root.replace(/\.[^.]*$/, '')}`;
     const docs = liveScreensToRecords(frame, screens, dir);
-    const cmds = new Map<string, EditCommand>();
-    const replaceWith = (target: Schematic): EditCommand => ({
-      label: 'Edit',
-      apply: () => target,
-      invert: (before) => replaceWith(before),
-    });
+    const here = currentFileRef.current;
+    const changed: PickedFile[] = [];
     for (const [file, d] of docs) {
-      if (file === currentFileRef.current || project.current.docs.has(file))
-        cmds.set(file, replaceWith(d));
-      // A new sheet's file: the project gains it, as initSheetDocument does for a drawn sheet.
-      else project.current.docs.set(file, d);
+      if (file === here) continue;
+      // Another sheet, or a new sheet's file (initSheetDocument's case): the project holds it,
+      // and it is reported for the host to write, as foldStep reports a sheet an edit touched.
+      project.current.docs.set(file, d);
+      try {
+        changed.push({ name: file, text: serializeSchematic(d) });
+      } catch {
+        /* skip a bad sheet */
+      }
     }
-    if (cmds.size) runProject(cmds);
+    if (changed.length) {
+      pendingProjectChange.current.push(...changed);
+      pendingIsMine.current = true;
+    }
     liveMirrorRef.current?.Adopt(docs);
+    const current = docs.get(here);
+    if (current) setDoc(current);
   };
   // (TRANSITIONAL, S5): a tool on the live canvas committed (SCH_EDIT_FRAME::OnModify).
   // Its screen - and any sheet file the commit created - become the window's records, so the
@@ -7291,26 +7303,31 @@ export function SchematicEditor({
             and both toolbars (layer 2) running full height past it and the
             message panel (layer 6) below the lot. See `SCH_BOTTOM_DOCK`. */}
         <div className="ze-canvas-col">
+          {/* `CreateInfoBar()` puts WX_INFOBAR in its own AUI pane ABOVE the canvas. These strips
+              were the wrap's children, and the wrap's <canvas> is `position: absolute; inset: 0`,
+              so the GL canvas painted over them the moment the sheet drew - the demo banner
+              vanished as the schematic appeared. In the column they take their own height and
+              the wrap, flex: 1, gets the rest. */}
+          {readOnlyNotice}
+          {myRole === 'viewer' && (
+            <ReadOnlyNotice message="You have view-only access to this project. Ask the owner for edit access to make changes." />
+          )}
+          {/* WX_INFOBAR: the strip a tool posts an error into, dismissed with
+            its ✕ or by the next successful action. */}
+          {infoBar && (
+            <div className="ze-infobar">
+              {infoBar}
+              <span
+                className="x"
+                title="Close"
+                onClick={() => setInfoBar(null)}
+                style={{ marginLeft: 'auto', cursor: 'default' }}
+              >
+                ✕
+              </span>
+            </div>
+          )}
           <div className="ze-canvas-wrap">
-            {readOnlyNotice}
-            {myRole === 'viewer' && (
-              <ReadOnlyNotice message="You have view-only access to this project. Ask the owner for edit access to make changes." />
-            )}
-            {/* WX_INFOBAR: the strip a tool posts an error into, dismissed with
-              its ✕ or by the next successful action. */}
-            {infoBar && (
-              <div className="ze-infobar">
-                {infoBar}
-                <span
-                  className="x"
-                  title="Close"
-                  onClick={() => setInfoBar(null)}
-                  style={{ marginLeft: 'auto', cursor: 'default' }}
-                >
-                  ✕
-                </span>
-              </div>
-            )}
             <canvas
               ref={glCanvasRef}
               // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas takes the keys, as the wxGLCanvas does
