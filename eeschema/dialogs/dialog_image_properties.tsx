@@ -18,6 +18,9 @@ import { MessageDialogError, MessageDialogYesNo } from '@ziroeda/common/dialogs/
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { SCH_COMMIT } from '../sch_commit.js';
+import type { SCH_BITMAP } from '../sch_bitmap.js';
+import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
 
 export interface ImagePropsResult {
   at: { x: number; y: number };
@@ -144,4 +147,70 @@ export function DialogImageProperties({
       </div>
     </div>
   );
+}
+
+const toBase64 = (aBytes: Uint8Array): string => {
+  let bin = '';
+  for (const b of aBytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+};
+
+const fromBase64 = (aText: string): Uint8Array =>
+  Uint8Array.from(atob(aText), (c) => c.charCodeAt(0));
+
+/**
+ * `DIALOG_IMAGE_PROPERTIES` (eeschema/dialogs/dialog_image_properties.cpp), the model half: the
+ * live bitmap's position and its PANEL_IMAGE_EDITOR values (TransferDataToWindow), and the
+ * SCH_COMMIT its OK makes (TransferDataFromWindow). The editor works on the image's PNG, so the
+ * bitmap is shown as one and read back from one when greyscale changed it.
+ */
+export class DIALOG_IMAGE_PROPERTIES {
+  private readonly m_frame: SCH_EDIT_FRAME;
+  private readonly m_bitmap: SCH_BITMAP;
+
+  constructor(aParent: SCH_EDIT_FRAME, aBitmap: SCH_BITMAP) {
+    this.m_frame = aParent;
+    this.m_bitmap = aBitmap;
+  }
+
+  /** `TransferDataToWindow()`. */
+  TransferDataToWindow(): {
+    at: { x: number; y: number };
+    scale: number;
+    data: string;
+    ppi: number;
+    pixelSize: { w: number; h: number };
+  } {
+    const image = this.m_bitmap.GetReferenceImage().GetImage();
+    const pixels = image.GetImageData();
+    const png = pixels?.SaveFilePng() ?? null;
+
+    return {
+      at: { ...this.m_bitmap.GetPosition() },
+      scale: this.m_bitmap.GetImageScale(),
+      data: png ? toBase64(png) : '',
+      ppi: image.GetPPI(),
+      pixelSize: { w: pixels?.GetWidth() ?? 0, h: pixels?.GetHeight() ?? 0 },
+    };
+  }
+
+  /** `TransferDataFromWindow()`. */
+  TransferDataFromWindow(aResult: ImagePropsResult): boolean {
+    const refImage = this.m_bitmap.GetReferenceImage();
+    const commit = new SCH_COMMIT(this.m_frame);
+
+    // Save old image in undo list if not already in edit
+    if (this.m_bitmap.GetEditFlags() === 0) commit.Modify(this.m_bitmap, this.m_frame.GetScreen());
+
+    // Update our bitmap from the editor
+    refImage.SetImageScale(aResult.scale);
+
+    if (aResult.data !== undefined) refImage.MutableImage().ReadImageFile(fromBase64(aResult.data));
+
+    this.m_bitmap.SetPosition({ x: aResult.at.x, y: aResult.at.y });
+
+    if (!commit.Empty()) commit.Push('Image Properties');
+
+    return true;
+  }
 }

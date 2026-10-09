@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import type { SCH_BITMAP } from './sch_bitmap.js';
 import type { SCH_SHAPE } from './sch_shape.js';
 import {
   DIALOG_WIRE_BUS_PROPERTIES,
@@ -434,7 +435,10 @@ import {
   DialogShapeProperties,
   type SHAPE_DIALOG_VALUES,
 } from './dialogs/dialog_shape_properties.js';
-import { DialogImageProperties, type ImagePropsResult } from './dialogs/dialog_image_properties.js';
+import {
+  DIALOG_IMAGE_PROPERTIES,
+  DialogImageProperties,
+} from './dialogs/dialog_image_properties.js';
 import { DialogFieldProperties, type FieldPropsResult } from './dialogs/dialog_field_properties.js';
 import {
   DialogSheetPinProperties,
@@ -1368,7 +1372,12 @@ export function SchematicEditor({
     resolve: (aId: number) => void;
   } | null>(null);
   // Image Properties (DIALOG_IMAGE_PROPERTIES over PANEL_IMAGE_EDITOR).
-  const [imageEdit, setImageEdit] = useState<{ index: number } | null>(null);
+  /** DIALOG_IMAGE_PROPERTIES while it is up for the live tools. */
+  const [imageDialog, setImageDialog] = useState<{
+    dlg: DIALOG_IMAGE_PROPERTIES;
+    shown: ReturnType<DIALOG_IMAGE_PROPERTIES['TransferDataToWindow']>;
+    resolve: (aId: number) => void;
+  } | null>(null);
   // Field Properties (DIALOG_FIELD_PROPERTIES): which symbol, which field.
   const [fieldEdit, setFieldEdit] = useState<{ symbol: number; index: number } | null>(null);
   // Sheet Pin Properties (DIALOG_SHEET_PIN_PROPERTIES).
@@ -1818,6 +1827,12 @@ export function SchematicEditor({
               shown: dlg.TransferDataToWindow(),
               resolve,
             }),
+          );
+        }
+        if (aDialog === 'DIALOG_IMAGE_PROPERTIES') {
+          const dlg = new DIALOG_IMAGE_PROPERTIES(schFrameRef.current!, _aItems[0] as SCH_BITMAP);
+          return new Promise<number>((resolve) =>
+            setImageDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
           );
         }
         if (aDialog === 'DIALOG_JUNCTION_PROPS') {
@@ -4782,12 +4797,7 @@ export function SchematicEditor({
         else if (d.textBoxes.some((tb, i) => refId('textbox', tb.uuid, i) === id))
           onEditItem(id, 'textbox');
         else if (d.tables.some((t, i) => refId('table', t.uuid, i) === id)) onEditItem(id, 'table');
-        else if (d.images.some((im, i) => refId('image', im.uuid, i) === id)) {
-          const ii = d.images.findIndex((im, i) => refId('image', im.uuid, i) === id);
-          setImageEdit({ index: ii });
-        } else if (
-          (d.directiveLabels ?? []).some((dl, i) => refId('directive', dl.uuid, i) === id)
-        ) {
+        else if ((d.directiveLabels ?? []).some((dl, i) => refId('directive', dl.uuid, i) === id)) {
           // Reachable by double-click already, but Properties never routed here.
           onEditItem(id, 'directive');
         } else {
@@ -6782,28 +6792,6 @@ export function SchematicEditor({
       });
     },
     [doc, runCommand, libById, es.autoplace_fields],
-  );
-
-  /** Apply DIALOG_IMAGE_PROPERTIES: position, scale, and the payload when
-   *  Convert to Greyscale rewrote it. */
-  const commitImageEdit = useCallback(
-    (r: ImagePropsResult) => {
-      setImageEdit((ie) => {
-        if (!ie || !doc) return null;
-        const orig = doc.images[ie.index];
-        if (orig)
-          runCommand(
-            replaceImage(ie.index, {
-              ...orig,
-              at: r.at,
-              scale: r.scale,
-              ...(r.data !== undefined ? { data: r.data } : {}),
-            }),
-          );
-        return null;
-      });
-    },
-    [doc, runCommand],
   );
 
   // The image file picker: read the chosen bitmap as base64 and attach it to the cursor.
@@ -9516,15 +9504,23 @@ export function SchematicEditor({
         />
       )}
 
-      {imageEdit && doc.images[imageEdit.index] && (
+      {/* DIALOG_IMAGE_PROPERTIES on a live bitmap. */}
+      {imageDialog && (
         <DialogImageProperties
-          at={doc.images[imageEdit.index]!.at}
-          scale={doc.images[imageEdit.index]!.scale}
-          data={doc.images[imageEdit.index]!.data}
-          ppi={imagePPI(doc.images[imageEdit.index]!.data)}
-          pixelSize={imagePixelSize(doc.images[imageEdit.index]!.data) ?? { w: 40, h: 40 }}
-          onOk={commitImageEdit}
-          onCancel={() => setImageEdit(null)}
+          at={imageDialog.shown.at}
+          scale={imageDialog.shown.scale}
+          data={imageDialog.shown.data}
+          ppi={imageDialog.shown.ppi}
+          pixelSize={imageDialog.shown.pixelSize}
+          onOk={(r) => {
+            setImageDialog(null);
+            imageDialog.dlg.TransferDataFromWindow(r);
+            imageDialog.resolve(wxID_OK);
+          }}
+          onCancel={() => {
+            setImageDialog(null);
+            imageDialog.resolve(wxID_CANCEL);
+          }}
         />
       )}
 
