@@ -29,7 +29,7 @@
 import { useState, type JSX } from 'react';
 import type { PlotOpts } from '../sch_plotter.js';
 import { BUILTIN_THEMES } from '../sch_render_settings.js';
-import type { EESCHEMA_SETTINGS_STORE } from '../eeschema_app.js';
+import type { EESCHEMA_SETTINGS_STORE } from '../browser/eeschema_app.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {

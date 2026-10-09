@@ -15,7 +15,7 @@ import type { AnnotateOptions } from '../sch_reference_list.js';
 import type { ReportLine, Severity } from '@ziroeda/common';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { toolbarIconUrl } from '@ziroeda/common/bitmap_store.js';
-import type { EESCHEMA_SETTINGS_STORE } from '../eeschema_app.js';
+import type { EESCHEMA_SETTINGS_STORE } from '../browser/eeschema_app.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /** The project-persisted slice of the dialog (SCHEMATIC_SETTINGS: sort order,

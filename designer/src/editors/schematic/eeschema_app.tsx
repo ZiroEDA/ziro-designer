@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `EESCHEMA_APP` (`@ziroeda/eeschema/eeschema_app.ts`): what the Schematic
+ * `EESCHEMA_APP` (`@ziroeda/eeschema/browser/eeschema_app.ts`): what the Schematic
  * Editor's window reaches through the app object, wired to what designer
  * actually has — the same job `pcb/pcbnew_app.tsx` does for `PCBNEW_APP` and
  * `cvpcb_app.tsx` for `CVPCB_APP`. `eeschema` never imports `designer`; this
@@ -12,7 +12,7 @@ import { registerAiBridge } from '@ziroeda/ai';
 import { schBridge } from '@ziroeda/ai/sch_bridge.js';
 import type { SchScriptApi } from '@ziroeda/eeschema';
 import { useMemo } from 'react';
-import type { EESCHEMA_APP } from '@ziroeda/eeschema/eeschema_app.js';
+import type { EESCHEMA_APP } from '@ziroeda/eeschema/browser/eeschema_app.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';

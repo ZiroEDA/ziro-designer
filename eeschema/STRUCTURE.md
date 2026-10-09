@@ -91,6 +91,22 @@ files count as done - so read the "left" column as a floor. Decisions behind the
 
 `dialogs/dialog_increment_annotations`, `dialogs/dialog_sync_sheet_pins`, `dialogs/item_color`, `dialogs/panel_setup_severities`, `erc/marker_nav`, `import_gfx/image_format`, `sch_canvas`, `sim/sim_model_types`, `symbol_editor/cursors`, `symbol_editor/defaults`, `symbol_editor/grid`, `symbol_editor/symbol_edit_frame_app`, `toggles`, `tools/arc_edit`, `tools/assign_netclass`, `tools/index`, `widgets/net_navigator_panel`
 
+### Root, 2026-10-10: what is left, and what is waiting on a decision
+
+Ported this pass: `general.ts`, `sch_text_help_md.ts`, `sch_preview_panel.ts`. Moved:
+`eeschema_app.ts` -> `browser/` (pcbnew's `pcbnew_app.ts` precedent). The root's remaining
+differences, each with the reason it is not done, **for a decision**:
+
+| item | KiCad | why not matched | proposal |
+|---|---|---|---|
+| `invoke_sch_dialog.h` | header only: declares the `Invoke*` dialog launchers, each defined in its dialog's `.cpp` | a TS module cannot declare what another module defines; the launchers live with their dialogs as upstream's definitions do | n/a (header-only declarations) |
+| `save_project_utils.h` | header only: declares `PrepareSaveAsFiles`, defined in `files-io.cpp` | ours is defined in `files-io.ts`, as upstream; the header adds nothing to port | n/a (header-only declaration) |
+| `bom_plugins.cpp` | `BOM_GENERATOR_HANDLER`: runs an external BOM generator (xsltproc / python) on the netlist | a browser runs no external process | n/a, or deferred with `dialog_bom` |
+| `index.ts` (ours) | none: pcbnew has no package barrel | 154 importers use it as the package entry | keep as the package entry, or replace by direct imports |
+| `sch_canvas.ts` (ours) | the canvas half of `SCH_EDIT_FRAME::SCH_EDIT_FRAME` | the DOM element comes from the window; this is the frame's side, as pcbnew's `pcb_canvas.ts` | fold into `sch_edit_frame.ts`, or `browser/` |
+| `toggles.ts` (ours) | the left toolbar's toggle state, upstream frame settings read by `EDITOR_CONDITIONS` | window state the toolbar renders from | port onto the frame's settings and conditions, then delete |
+| `types.ts`, `sch_record_bridge.ts`, `hover_selection.ts`, `net_overrides.ts`, `sch_script_api.ts` (ours) | none: the old record model | consumers not all moved to the live model yet | delete with S7, each with its last consumer |
+
 ## Root match, before and after (stage E1, 2026-09-28)
 
 KiCad's `eeschema/` root has 83 `.cpp` files. Ours had 12 files total, 6 of
@@ -948,8 +964,8 @@ importers repointed with `qa/probes/relocate_imports.mjs`, one commit each):
 `eeschema_app.ts` and `sch_diff`/`repair_source` already carried, now grouped
 the way `pcbnew/browser/` groups pcbnew's own browser-only root files):
 `project_sync_transport.ts`, `sch_diff.ts`, `repair_source.ts`.
-`eeschema_app.ts` stays at the root — the frames helper's file, in active use
-throughout this stage.
+`eeschema_app.ts` stayed at the root then — the frames helper's file, in active use
+throughout that stage; it joined them on 2026-10-10.
 
 **Still declined, re-checked, no change:**
 

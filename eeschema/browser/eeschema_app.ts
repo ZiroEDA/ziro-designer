@@ -21,20 +21,20 @@ import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import type { KeyLike } from '@ziroeda/common/hotkeys_basic_keys.js';
 import type { Menu } from '@ziroeda/common/tool/action_menu_types.js';
-import type { LibSymbol, Schematic } from './types.js';
+import type { LibSymbol, Schematic } from '../types.js';
 import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { ProjectFile } from '@ziroeda/common/project_paths.js';
-import type { DialogSymbolChooserProps } from './picksymbol.js';
-import type { SymbolChooserFrameProps } from './symbol_chooser_frame.js';
-import type { DialogRescueEachProps } from './project_rescue.js';
+import type { DialogSymbolChooserProps } from '../picksymbol.js';
+import type { SymbolChooserFrameProps } from '../symbol_chooser_frame.js';
+import type { DialogRescueEachProps } from '../project_rescue.js';
 import type {
   PeerRole,
   PresenceInfo,
   ProjectSyncTransport,
-} from './browser/project_sync_transport.js';
-import type { EeschemaSettings } from './eeschema_settings.js';
-import type { Theme } from './sch_render_settings.js';
+} from '../browser/project_sync_transport.js';
+import type { EeschemaSettings } from '../eeschema_settings.js';
+import type { Theme } from '../sch_render_settings.js';
 
 /**
  * `Pgm().GetSettingsManager()`, the part the frame reads and writes: the

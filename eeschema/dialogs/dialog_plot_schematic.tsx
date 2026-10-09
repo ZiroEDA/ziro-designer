@@ -31,7 +31,7 @@ import { mmToIU, iuToMM, type ReportLine } from '@ziroeda/common';
 import type { PlotOpts, PlotPageSize } from '../sch_plotter.js';
 import { IU_PER_MILS } from '../schematic_settings.js';
 import { BUILTIN_THEMES } from '../sch_render_settings.js';
-import type { EESCHEMA_SETTINGS_STORE } from '../eeschema_app.js';
+import type { EESCHEMA_SETTINGS_STORE } from '../browser/eeschema_app.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
