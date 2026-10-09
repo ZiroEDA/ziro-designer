@@ -111,6 +111,7 @@ import { SCH_SELECTION_TOOL } from './tools/sch_selection_tool.js';
 import { findItemsFromSyncSelection } from './cross-probing.js';
 import type { KIID } from '@ziroeda/common/kiid.js';
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/common/wx/menu.js';
+import { EVENTS } from '@ziroeda/common/tool/tool_event.js';
 import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
@@ -303,15 +304,6 @@ export interface SCH_EDIT_FRAME_HOOKS {
     aItems: readonly EDA_ITEM[],
     aArg?: unknown,
   ): number | Promise<number>;
-  /**
-   * `EditSheetProperties( aSheet, aHierarchy, … )` (sheet.cpp): DIALOG_SHEET_PROPERTIES on a live
-   * sheet. Null (cancelled) with no hook.
-   */
-  editSheetProperties?(
-    aSheet: SCH_SHEET,
-    aHierarchy: SCH_SHEET_PATH,
-    aSourceSheetFilename?: string,
-  ): SHEET_PROPERTIES_RESULT | null | Promise<SHEET_PROPERTIES_RESULT | null>;
   /**
    * DIALOG_SYMBOL_CHOOSER's answer (picksymbol.cpp): the symbol chosen, its unit (0 when the
    * symbol itself was picked), the fields edited, and the two checkboxes; null when cancelled.
@@ -1797,14 +1789,31 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
    * aUpdateHierarchyNavigator )` (sheet.cpp): the out-params come back in the result; null is
    * Cancel.
    */
-  EditSheetProperties(
-    aSheet: SCH_SHEET,
-    aHierarchy: SCH_SHEET_PATH,
+  async EditSheetProperties(
+    aSheet: SCH_SHEET | null,
+    aHierarchy: SCH_SHEET_PATH | null,
     aSourceSheetFilename?: string,
   ): Promise<SHEET_PROPERTIES_RESULT | null> {
-    return Promise.resolve(
-      this.hooks.editSheetProperties?.(aSheet, aHierarchy, aSourceSheetFilename) ?? null,
-    );
+    if (aSheet === null || aHierarchy === null) return null;
+
+    const result: SHEET_PROPERTIES_RESULT = {
+      isUndoable: false,
+      clearAnnotation: false,
+      updateHierarchyNavigator: false,
+    };
+
+    // Get the new texts: DIALOG_SHEET_PROPERTIES dlg( this, aSheet, aIsUndoable, … )
+    if (
+      (await this.ShowModalDialog('DIALOG_SHEET_PROPERTIES', [aSheet], {
+        result,
+        sourceSheetFilename: aSourceSheetFilename ?? null,
+      })) === wxID_CANCEL
+    )
+      return null;
+
+    this.m_toolManager?.ProcessEvent(EVENTS.SelectedItemsModified);
+
+    return result;
   }
 
   /**

@@ -7,6 +7,8 @@ import type { SCH_SHEET_PIN } from './sch_sheet_pin.js';
 import type { SCH_LABEL_BASE } from './sch_label.js';
 import type { SCH_COMMIT } from './sch_commit.js';
 import type { SCH_FIELD } from './sch_field.js';
+import type { SCH_SHEET } from './sch_sheet.js';
+import type { SHEET_PROPERTIES_RESULT } from './sch_edit_frame.js';
 import type { SCH_BITMAP } from './sch_bitmap.js';
 import type { SCH_SHAPE } from './sch_shape.js';
 import {
@@ -35,7 +37,6 @@ import type { Vec2 } from '@ziroeda/kimath';
 import {
   ensureFileExtension,
   iuToMM,
-  parseColor4d,
   KICAD_SCHEMATIC_FILE_EXTENSION,
   mmToIU,
   RPT_SEVERITY_ACTION,
@@ -73,8 +74,6 @@ import {
   attributeIsSet,
   type Attribute,
   type LabelSpin,
-  type SchField,
-  type SchSheet,
   readSchematic,
   serializeSchematic,
   readSymbolLib,
@@ -191,14 +190,10 @@ import {
   buildSheetTree,
   repairPageNumbersOnLoad,
   sheetFile,
-  sheetName,
   findRootFile,
   addItems,
-  makeSheet,
   swapPinsCommand,
   sharedPinSwapMessage,
-  type NewSheetDefaults,
-  replaceSheet,
   busUnfoldMembers,
   unfoldBus,
   busForUnfolding,
@@ -307,7 +302,7 @@ import {
 import type { ChangeSymbolsSubject } from './tools/change_symbols.js';
 import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
-import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
+import { DialogLineProperties } from './dialogs/dialog_line_properties.js';
 import { DialogEeschemaPageSettings } from './dialogs/dialog_eeschema_page_settings.js';
 import {
   pageSettingsValue,
@@ -323,7 +318,12 @@ import {
   DialogPasteSpecial,
   type PasteSpecialMode,
 } from '@ziroeda/common/dialogs/dialog_paste_special.js';
-import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
+import {
+  DIALOG_SHEET_PROPERTIES,
+  DialogSheetProperties,
+  type SHEET_DIALOG_VALUES,
+} from './dialogs/dialog_sheet_properties.js';
+import { useKiDialog } from '@ziroeda/common/kidialog.js';
 import {
   DIALOG_SHAPE_PROPERTIES,
   DialogShapeProperties,
@@ -351,7 +351,6 @@ import {
 import { LoadProjectSettings } from './eeschema_config.js';
 import { SelectionFilterPanel } from './widgets/panel_sch_selection_filter_ui.js';
 import { gridSizeToIU } from './eeschema_settings.js';
-import { InitSheet } from './sheet.js';
 import {
   findProjectPro,
   readSchematicSetup,
@@ -1115,20 +1114,6 @@ export function SchematicEditor({
     autoRotate: false,
     face: '',
   });
-  // Right-toolbar drawing state: a drawn sheet awaiting its name/file, a sheet-pin
-  // click awaiting its name, an image chosen and following the cursor.
-  const [sheetDraw, setSheetDraw] = useState<{
-    at: Vec2;
-    size: { w: number; h: number };
-    name: string;
-    file: string;
-  } | null>(null);
-
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts. Registered only while the dialog is up, so a
-  // closed one does not sit on the stack swallowing the key.
-  useModalEscape(() => setSheetDraw(null), sheetDraw !== null);
-
   /** DIALOG_TEXT_PROPERTIES while it is up for the live tools. */
   const [labelDialog, setLabelDialog] = useState<{
     dlg: DIALOG_LABEL_PROPERTIES;
@@ -1142,6 +1127,13 @@ export function SchematicEditor({
     commit: SCH_COMMIT;
     resolve: (aId: number) => void;
   } | null>(null);
+  const [sheetDialog, setSheetDialog] = useState<{
+    dlg: DIALOG_SHEET_PROPERTIES;
+    shown: SHEET_DIALOG_VALUES;
+    resolve: (aId: number) => void;
+  } | null>(null);
+  // KIDIALOG for the live tools' warnings with a "Do not show again" box.
+  const kiDialog = useKiDialog();
   const [textDialog, setTextDialog] = useState<{
     dlg: DIALOG_TEXT_PROPERTIES;
     shown: TextPropsInitial;
@@ -1194,7 +1186,6 @@ export function SchematicEditor({
   // Editing a hierarchical sheet's name/file (DIALOG_SHEET_PROPERTIES).
   // Sheet Properties (DIALOG_SHEET_PROPERTIES); the dialog reads the sheet
   // itself out of the document, so only which one is open is state.
-  const [sheetEdit, setSheetEdit] = useState<{ index: number } | null>(null);
   // Shape Properties (DIALOG_SHAPE_PROPERTIES). A graphic polyline lives in
   // `lines`, every other shape in `graphics`, so the target says which.
   /** DIALOG_SHAPE_PROPERTIES while it is up for the live tools. */
@@ -1751,6 +1742,24 @@ export function SchematicEditor({
             setFieldDialog({ dlg, shown: dlg.TransferDataToWindow(), field, commit, resolve }),
           );
         }
+        if (aDialog === 'DIALOG_SHEET_PROPERTIES') {
+          // EditSheetProperties: `DIALOG_SHEET_PROPERTIES dlg( this, aSheet, aIsUndoable, … )`.
+          const { result, sourceSheetFilename } = aArg as {
+            result: SHEET_PROPERTIES_RESULT;
+            sourceSheetFilename: string | null;
+          };
+          const dlg = new DIALOG_SHEET_PROPERTIES(
+            schFrameRef.current!,
+            _aItems[0] as SCH_SHEET,
+            result,
+            sourceSheetFilename,
+            gridTextButtonHost,
+            kiDialog.ask,
+          );
+          return new Promise<number>((resolve) =>
+            setSheetDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
+          );
+        }
         if (aDialog === 'DIALOG_JUNCTION_PROPS') {
           const junctions = _aItems as SCH_JUNCTION[];
           const dlg = new DIALOG_JUNCTION_PROPS(schFrameRef.current!, junctions);
@@ -1998,37 +2007,6 @@ export function SchematicEditor({
     },
     [requestTarget, finishCommand],
   );
-
-  // Every edit runs through KiCad's post-commit cleanup (colinear wire merge),
-  // as part of the same undoable step (SCHEMATIC::CleanUp / RecalculateConnections).
-  /**
-   * "Defaults for New Objects", as `SCH_DRAWING_TOOLS::DrawSheet` reads them
-   * (`sch_drawing_tools.cpp:3444-3446`).
-   *
-   * Both colours are `COLOR4D` upstream and default to UNSPECIFIED, which is
-   * (0, 0, 0, 0) and means "take the theme's". Ours are stored as CSS, so the
-   * unset state is the empty string OR a fully transparent colour, and either
-   * has to come back as `undefined` rather than as black.
-   */
-  const newSheetDefaults = useMemo((): NewSheetDefaults => {
-    const colour = (css: string): readonly [number, number, number, number] | undefined => {
-      if (!css) return undefined;
-      const c = parseColor4d(css);
-      if (c.a === 0) return undefined;
-      return [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255), c.a];
-    };
-    const border = colour(es.drawing.default_sheet_border_color);
-    const background = colour(es.drawing.default_sheet_background_color);
-    return {
-      borderWidthMils: es.drawing.default_line_thickness,
-      ...(border ? { borderColor: border } : {}),
-      ...(background ? { backgroundColor: background } : {}),
-    };
-  }, [
-    es.drawing.default_line_thickness,
-    es.drawing.default_sheet_border_color,
-    es.drawing.default_sheet_background_color,
-  ]);
 
   /**
    * Fold a history step back into the project.
@@ -4666,11 +4644,6 @@ export function SchematicEditor({
         else if (d.textBoxes.some((tb, i) => refId('textbox', tb.uuid, i) === id))
           onEditItem(id, 'textbox');
         else if (d.tables.some((t, i) => refId('table', t.uuid, i) === id)) onEditItem(id, 'table');
-        else {
-          // Properties on a sheet opens its dialog (double-click enters it).
-          const si = d.sheets.findIndex((s, i) => refId('sheet', s.uuid, i) === id);
-          if (si !== -1) setSheetEdit({ index: si });
-        }
         return d;
       });
     },
@@ -5333,36 +5306,6 @@ export function SchematicEditor({
       };
     },
     [liveDocs, currentFile, busAliases, resolveTextVar, app],
-  );
-
-  /**
-   * `SCH_EDIT_FRAME::InitSheet`: give a newly drawn sheet an empty screen so it
-   * can be entered straight away.
-   *
-   *     SCH_SCREEN* newScreen = new SCH_SCREEN( &Schematic() );
-   *     aSheet->SetScreen( newScreen );
-   *     aSheet->GetScreen()->SetContentModified();
-   *     aSheet->GetScreen()->SetFileName( aNewFilename );
-   *
-   * The file itself is only written on save — upstream never touches the disk
-   * here, it just creates the screen in memory. Ours created the sheet symbol
-   * and nothing behind it, so entering it reported the file as missing from the
-   * project.
-   *
-   * A file the project already holds is left alone: pointing a second sheet at
-   * an existing schematic is how a sub-sheet gets used twice.
-   */
-  const initSheetDocument = useCallback(
-    (file: string) => {
-      const name = file.trim();
-      if (!name || project.current.docs.has(name)) return;
-      const blank: Schematic = { ...readSchematic(parse(EMPTY_SCH)), fileName: name };
-      project.current.docs.set(
-        name,
-        InitSheet(blank, liveDocs().get(currentFile), app.settings.eeschema.page_settings),
-      );
-    },
-    [currentFile, liveDocs, app],
   );
 
   /** One synchronous ERC pass (used when a severity change re-runs the list). */
@@ -6186,120 +6129,6 @@ export function SchematicEditor({
     if (!key || !ercOpen) return;
     if (ercNav.current?.selectByKey(key)) pendingErcSelect.current = null;
   }, [ercOpen, ercResult, es.appearance.show_erc_errors, es.appearance.show_erc_warnings]);
-
-  const sheetPropsOf = useCallback(
-    (sh: SchSheet, _index: number): SheetPropsResult => {
-      const rootUuid = liveDocs().get(project.current.root)?.uuid;
-      const chain = [...currentPath.split('/').filter(Boolean), sh.uuid ?? ''];
-      const path = rootUuid && sh.uuid ? instanceKey(rootUuid, chain) : null;
-      return {
-        fields: sh.fields.map((f) => ({
-          key: f.key,
-          value: f.value,
-          effects: f.effects ?? { hidden: false },
-          nameShown: !!f.nameShown,
-          ...(f.source ? { source: f.source } : {}),
-        })),
-        borderWidthIU: sh.stroke?.width ?? 0,
-        ...(sh.stroke?.color ? { borderColor: sh.stroke.color } : {}),
-        ...(sh.fillColor ? { backgroundColor: sh.fillColor } : {}),
-        pageNumber: (path && sh.instances.find((i) => i.path === path)?.page) || '',
-        excludeFromSim: !!sh.excludedFromSim,
-        excludeFromBom: !sh.inBom,
-        excludeFromBoard: !sh.onBoard,
-        dnp: sh.dnp,
-      };
-    },
-    [currentPath, liveDocs],
-  );
-
-  /**
-   * SCH_SHEET_PATH::PathHumanReadable for the sheet being edited: the names of
-   * the sheets from the root down to it, which is the path this sheet's
-   * instance data is keyed under.
-   */
-  const sheetPathLabel = useCallback(
-    (sh: SchSheet): string => {
-      // namePath is the parent chain with a trailing slash ("/" at the root),
-      // so appending this sheet's own name completes the readable path.
-      const here = sheetInstanceRefs.find((r) => r.path === currentPath)?.namePath ?? '/';
-      return `${here}${sheetName(sh)}`;
-    },
-    [sheetInstanceRefs, currentPath],
-  );
-
-  /**
-   * Apply DIALOG_SHEET_PROPERTIES. The fields grid carries the sheet name and
-   * file, since upstream those are just its two mandatory rows; everything else
-   * writes into the sheet object, except the page number, which belongs to this
-   * sheet's instance and goes through the same command editPageNumber uses.
-   */
-  /**
-   * Apply DIALOG_SHEET_PROPERTIES. The fields grid carries the sheet name and
-   * file, since upstream those are just its two mandatory rows; the rest writes
-   * into the sheet object, except the page number, which belongs to this
-   * sheet's instance record and goes through the command editPageNumber uses.
-   */
-  const commitSheetEdit = useCallback(
-    (r: SheetPropsResult) => {
-      setSheetEdit((se) => {
-        if (!se || !doc) return null;
-        const orig = doc.sheets[se.index];
-        if (!orig) return null;
-
-        // Each row keeps the source node of the field it came from, so fields
-        // the dialog did not touch still round-trip byte-for-byte.
-        const fields = r.fields.map((row) => {
-          const prev = orig.fields.find((f) => f.key === row.key);
-          return {
-            ...(prev ?? {}),
-            key: row.key,
-            value: row.value,
-            effects: row.effects,
-            nameShown: row.nameShown,
-          } as SchField;
-        });
-
-        const stroke: NonNullable<SchSheet['stroke']> = {
-          ...(orig.stroke ?? { type: 'solid' }),
-          width: r.borderWidthIU,
-          ...(r.borderColor ? { color: r.borderColor } : {}),
-        };
-        if (!r.borderColor) delete (stroke as { color?: ItemColor }).color;
-
-        const next: SchSheet = {
-          ...orig,
-          fields,
-          stroke,
-          // The file stores these inverted; the dialog asks the other way round.
-          inBom: !r.excludeFromBom,
-          onBoard: !r.excludeFromBoard,
-          dnp: r.dnp,
-          excludedFromSim: r.excludeFromSim,
-          ...(r.backgroundColor ? { fillColor: r.backgroundColor } : {}),
-        };
-        if (!r.backgroundColor) delete (next as { fillColor?: ItemColor }).fillColor;
-
-        // Pointing a sheet at a file the project does not hold yet is the same
-        // "new sheet" case as drawing one: `InitSheet` gives it an empty screen
-        // rather than failing to open it later.
-        initSheetDocument(fields.find((f) => f.key === 'Sheetfile')?.value ?? '');
-
-        const cmds: EditCommand[] = [replaceSheet(se.index, next)];
-        const rootUuid = liveDocs().get(project.current.root)?.uuid;
-        const chain = [...currentPath.split('/').filter(Boolean), orig.uuid ?? ''];
-        if (rootUuid && orig.uuid) {
-          const path = instanceKey(rootUuid, chain);
-          const current = orig.instances.find((i) => i.path === path)?.page ?? '';
-          if (r.pageNumber !== current)
-            cmds.push(setSheetPageNumberCommand(se.index, path, r.pageNumber));
-        }
-        runCommand(composeCommands('Edit Sheet Properties', cmds));
-        return null;
-      });
-    },
-    [doc, runCommand, currentPath, liveDocs],
-  );
 
   // The image file picker: read the chosen bitmap as base64 and attach it to the cursor.
   const onImageFile = useCallback((file: File) => {
@@ -8746,15 +8575,26 @@ export function SchematicEditor({
         </div>
       )}
 
-      {/* Editing an existing sheet's name/file (DIALOG_SHEET_PROPERTIES, E key). */}
-      {sheetEdit && doc.sheets[sheetEdit.index] && (
+      {/* DIALOG_SHEET_PROPERTIES on a live sheet (SCH_EDIT_FRAME::EditSheetProperties). */}
+      {sheetDialog && (
         <DialogSheetProperties
-          initial={sheetPropsOf(doc.sheets[sheetEdit.index]!, sheetEdit.index)}
-          hierarchicalPath={sheetPathLabel(doc.sheets[sheetEdit.index]!)}
-          onOk={commitSheetEdit}
-          onCancel={() => setSheetEdit(null)}
+          dlg={sheetDialog.dlg}
+          initial={sheetDialog.shown}
+          units={units}
+          onOk={(values) => {
+            void sheetDialog.dlg.TransferDataFromWindow(values).then((ok) => {
+              if (!ok) return;
+              setSheetDialog(null);
+              sheetDialog.resolve(wxID_OK);
+            });
+          }}
+          onCancel={() => {
+            setSheetDialog(null);
+            sheetDialog.resolve(wxID_CANCEL);
+          }}
         />
       )}
+      {kiDialog.node}
 
       {/* FRAME_FOOTPRINT_CHOOSER. Upstream reaches it through
           `Kiway().Player( FRAME_FOOTPRINT_CHOOSER, true, m_frame )` from
@@ -8872,86 +8712,6 @@ export function SchematicEditor({
             shapeDialog.resolve(wxID_CANCEL);
           }}
         />
-      )}
-
-      {/* Hierarchical sheet: after drawing the rectangle, name it and its file. */}
-      {sheetDraw && (
-        <div className="ze-modal-backdrop" onMouseDown={() => setSheetDraw(null)}>
-          <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="ze-modal-header">
-              Sheet Properties
-              <span className="x" title="Cancel" onClick={() => setSheetDraw(null)}>
-                ✕
-              </span>
-            </div>
-            <div
-              className="ze-label-dialog-body"
-              style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
-            >
-              <label className="row">
-                <span>Sheet name</span>
-                <input
-                  className="ze-search"
-                  autoFocus
-                  value={sheetDraw.name}
-                  onChange={(e) => setSheetDraw({ ...sheetDraw, name: e.target.value })}
-                  onKeyDown={(e) => e.stopPropagation()}
-                />
-              </label>
-              <label className="row">
-                <span>File name</span>
-                <input
-                  className="ze-search"
-                  value={sheetDraw.file}
-                  onChange={(e) => setSheetDraw({ ...sheetDraw, file: e.target.value })}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === 'Enter') {
-                      initSheetDocument(sheetDraw.file);
-                      const sheet = makeSheet(
-                        sheetDraw.at,
-                        sheetDraw.size,
-                        sheetDraw.name,
-                        sheetDraw.file,
-                        newSheetDefaults,
-                      );
-                      runCommand(addItems({ sheets: [sheet] }));
-                      setSelection(new Set([refId('sheet', sheet.uuid, doc.sheets.length)]));
-                      setSheetDraw(null);
-                    }
-                  }}
-                />
-              </label>
-            </div>
-            <div className="ze-modal-footer">
-              <button className="ze-btn" onClick={() => setSheetDraw(null)}>
-                Cancel
-              </button>
-              <button
-                className="ze-btn primary"
-                disabled={!sheetDraw.name.trim()}
-                onClick={() => {
-                  initSheetDocument(sheetDraw.file.trim());
-                  const sheet = makeSheet(
-                    sheetDraw.at,
-                    sheetDraw.size,
-                    sheetDraw.name.trim(),
-                    sheetDraw.file.trim(),
-                    newSheetDefaults,
-                  );
-                  runCommand(addItems({ sheets: [sheet] }));
-                  // "c.Push( "Draw Sheet" ); ... m_selectionTool->AddItemToSel( sheet );"
-                  // — the new sheet is selected once it is committed, which is
-                  // why it lights up only after you let go.
-                  setSelection(new Set([refId('sheet', sheet.uuid, doc.sheets.length)]));
-                  setSheetDraw(null);
-                }}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* DIALOG_TEXT_PROPERTIES on a live text or text box. */}

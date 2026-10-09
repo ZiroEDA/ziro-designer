@@ -17,11 +17,13 @@ import {
 import {
   wxCANCEL,
   wxCANCEL_DEFAULT,
+  wxNO,
+  wxNO_DEFAULT,
   wxICON_ERROR,
   wxICON_EXCLAMATION,
   wxICON_QUESTION,
 } from './wx/defs.js';
-import { wxID_CANCEL, wxID_OK } from './wx/menu.js';
+import { wxID_CANCEL, wxID_NO, wxID_OK, wxID_YES } from './wx/menu.js';
 import {
   MessageDialogError,
   MessageDialogOk,
@@ -101,7 +103,8 @@ export function InstallInfoPresenter(): void {
 /**
  * Route `ShowKicadMessageDialog` to the native message box. Called once, at startup. An OK-only
  * style is the one-button box; with wxCANCEL it is the two-button box, its labels the
- * SetOKCancelLabels pair, its default wxCANCEL_DEFAULT's choice.
+ * SetOKCancelLabels pair, its default wxCANCEL_DEFAULT's choice; wxYES_NO the same box answering
+ * wxID_YES / wxID_NO.
  */
 export function InstallMessageDialogPresenter(): void {
   SetMessageDialogPresenter(
@@ -124,7 +127,19 @@ export function InstallMessageDialogPresenter(): void {
           resolve(aId);
         };
         root.render(
-          aArg.style & wxCANCEL ? (
+          aArg.style & wxNO ? (
+            // wxYES_NO: the two-button box answering wxID_YES / wxID_NO, its labels the
+            // SetYesNoLabels pair, its default wxNO_DEFAULT's choice.
+            <MessageDialogYesNo
+              caption={aArg.caption}
+              message={aArg.message}
+              {...(aArg.extended ? { extendedMessage: aArg.extended } : {})}
+              icon={icon}
+              defaultButton={aArg.style & wxNO_DEFAULT ? 'no' : 'yes'}
+              labels={{ yes: aArg.okLabel ?? 'Yes', no: aArg.cancelLabel ?? 'No' }}
+              onResult={(r) => done(r === 'yes' ? wxID_YES : wxID_NO)}
+            />
+          ) : aArg.style & wxCANCEL ? (
             <MessageDialogYesNo
               caption={aArg.caption}
               message={aArg.message}

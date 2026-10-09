@@ -421,7 +421,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 128 -> 127 metrics (10-09): the record sheet-pin dialog's `gap: 6px` went with its rebuild
   // from dialog_sheet_pin_properties_base.cpp (dd8881de). Rescanned against aa78a1cd: the other
   // sites that differ are sch_edit_frame_ui.tsx's same literals at new line numbers.
-  'editors/schematic': { colours: 16, metrics: 127 },
+  // 127 -> 126 (10-09): the record sheet form and its two `width: 90` styles went with the live
+  // DIALOG_SHEET_PROPERTIES rebuild. Rescanned.
+  'editors/schematic': { colours: 16, metrics: 126 },
   // 166 -> 163 metrics on `editors/schematic`, moved here whole: cvpcb's
   // three windows left `editors/schematic/dialogs/` for the root `cvpcb/`
   // package (cvpcb/STRUCTURE.md's stage two). No colours moved (the five
@@ -1604,7 +1606,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1110 -> 1102 (10-01): `common/widgets` 683 -> 675, the old Edit
     // Teardrops window's CSS deleted with it. Rescanned.
     // 1102 -> 1101 (10-09): `editors/schematic` 128 -> 127, the record sheet-pin dialog's gap.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1101);
+    // 1101 -> 1100 (10-09): `editors/schematic` 127 -> 126, the record sheet form.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1100);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

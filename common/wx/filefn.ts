@@ -93,6 +93,35 @@ export function wxFindMount(
 
 let s_cwd = '/';
 
+/**
+ * `wxFileName::MakeRelativeTo( aBase )` on a file path (filename.cpp): both normalised against the
+ * working directory, the leading directories they share dropped, a `..` for each of the base's
+ * that is left. One volume here, so it always succeeds.
+ */
+export function wxMakeRelativeTo(aPath: string, aBase: string): string {
+  const dirs = wxNormalizePath(aPath)
+    .split('/')
+    .filter((d) => d !== '');
+  const name = aPath.endsWith('/') ? '' : (dirs.pop() ?? '');
+  const baseDirs = wxNormalizePath(aBase)
+    .split('/')
+    .filter((d) => d !== '');
+
+  // remove common directories starting at the top
+  while (dirs.length > 0 && baseDirs.length > 0 && dirs[0] === baseDirs[0]) {
+    dirs.shift();
+    baseDirs.shift();
+  }
+
+  // add as many ".." as needed
+  for (let i = 0; i < baseDirs.length; i++) dirs.unshift('..');
+
+  // a directory made relative with respect to itself is '.' under Unix
+  if (dirs.length === 0 && name === '') dirs.push('.');
+
+  return [...dirs, name].filter((d, i, a) => d !== '' || i === a.length - 1).join('/');
+}
+
 /** `wxGetCwd()`. */
 export function wxGetCwd(): string {
   return s_cwd;

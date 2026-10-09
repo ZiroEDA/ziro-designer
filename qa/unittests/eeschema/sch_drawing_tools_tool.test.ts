@@ -32,6 +32,8 @@ import {
 } from '@ziroeda/common/wx/filefn.js';
 import type { SCH_GROUP } from '@ziroeda/eeschema/sch_group.js';
 import type { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
+import { DIALOG_SHEET_PROPERTIES } from '@ziroeda/eeschema/dialogs/dialog_sheet_properties.js';
+import type { SHEET_PROPERTIES_RESULT } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { SCH_ACTIONS } from '@ziroeda/eeschema/tools/sch_actions.js';
 import { SCH_SELECTION_TOOL } from '@ziroeda/eeschema/tools/sch_selection_tool.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -214,21 +216,44 @@ describe('SCH_DRAWING_TOOLS::TwoClickPlace', () => {
   });
 });
 
+/**
+ * The window's answer to EditSheetProperties: the real DIALOG_SHEET_PROPERTIES, OK pressed on what
+ * it shows (its TransferDataFromWindow links the file through ChangeSheetFile). Any other dialog
+ * (LoadSheetFromFile's old-version question) is answered OK.
+ */
+function sheetDialogOk(
+  aFrame: { frame: SCH_EDIT_FRAME | null },
+  aAsked: [SCH_SHEET, string | undefined][],
+): NonNullable<SCH_EDIT_FRAME_HOOKS['showModal']> {
+  return async (aDialog, aItems, aArg) => {
+    if (aDialog !== 'DIALOG_SHEET_PROPERTIES') return wxID_OK;
+    const { result, sourceSheetFilename } = aArg as {
+      result: SHEET_PROPERTIES_RESULT;
+      sourceSheetFilename: string | null;
+    };
+    const sheet = aItems[0] as SCH_SHEET;
+    aAsked.push([sheet, sourceSheetFilename ?? undefined]);
+    const dlg = new DIALOG_SHEET_PROPERTIES(
+      aFrame.frame!,
+      sheet,
+      result,
+      sourceSheetFilename,
+      {
+        ChooseFootprint: () => Promise.resolve(null),
+        OpenFile: () => Promise.resolve(null),
+        OpenDocument: () => {},
+      },
+      async () => 'ok',
+    );
+    return (await dlg.TransferDataFromWindow(dlg.TransferDataToWindow())) ? wxID_OK : wxID_CANCEL;
+  };
+}
+
 describe('SCH_DRAWING_TOOLS::DrawSheet', () => {
   it('draws a sheet from click to click, named by the sheet dialog, on the next free page', async () => {
     const asked: [SCH_SHEET, string | undefined][] = [];
     const frameRef: { frame: SCH_EDIT_FRAME | null } = { frame: null };
-    const h = setUp(
-      {
-        editSheetProperties: async (sheet, _path, src) => {
-          asked.push([sheet, src]);
-          // the dialog's OK links the file it names, as DIALOG_SHEET_PROPERTIES does
-          if (!(await frameRef.frame!.ChangeSheetFile(sheet, sheet.GetFileName()))) return null;
-          return { isUndoable: true, clearAnnotation: false, updateHierarchyNavigator: false };
-        },
-      },
-      false,
-    );
+    const h = setUp({ showModal: sheetDialogOk(frameRef, asked) }, false);
     frameRef.frame = h.frame;
     const undo = h.frame.GetUndoCommandCount();
     h.h.mouse = P(0, 0); // the primed click starts the sheet
@@ -252,7 +277,10 @@ describe('SCH_DRAWING_TOOLS::DrawSheet', () => {
   });
 
   it('a cancelled sheet dialog adds nothing', async () => {
-    const h = setUp({ editSheetProperties: () => null }, false);
+    const h = setUp(
+      { showModal: (d) => (d === 'DIALOG_SHEET_PROPERTIES' ? wxID_CANCEL : wxID_OK) },
+      false,
+    );
     const before = [...h.screen().Items().OfType(KICAD_T.SCH_SHEET_T)].length;
     h.h.mouse = P(0, 0);
     h.mgr.RunAction(SCH_ACTIONS.drawSheet);
@@ -283,17 +311,9 @@ describe('SCH_DRAWING_TOOLS::DrawSheet from a design block', () => {
       const frameRef: { frame: SCH_EDIT_FRAME | null } = { frame: null };
       const h = setUp(
         {
-          // LoadSheetFromFile's old-file-version question: continue
-          showModal: () => wxID_OK,
-          editSheetProperties: async (sheet, _path, src) => {
-            asked.push([sheet, src]);
-            // the dialog's OK copies the source into the sheet's file and links it
-            if (
-              !(await frameRef.frame!.ChangeSheetFile(sheet, sheet.GetFileName(), null, null, src))
-            )
-              return null;
-            return { isUndoable: true, clearAnnotation: false, updateHierarchyNavigator: false };
-          },
+          // LoadSheetFromFile's old-file-version question: continue; the sheet dialog's OK
+          // copies the source into the sheet's file and links it.
+          showModal: sheetDialogOk(frameRef, asked),
         },
         false,
       );

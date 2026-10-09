@@ -2,195 +2,636 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Sheet Properties. Counterpart: `eeschema/dialogs/dialog_sheet_properties.cpp`
- * (DIALOG_SHEET_PROPERTIES) over the shared fields grid
- * (`fields_grid_table.cpp`).
+ * `DIALOG_SHEET_PROPERTIES` (eeschema/dialogs/dialog_sheet_properties.cpp) over
+ * `dialog_sheet_properties_base.cpp`, on a live SCH_SHEET, opened by SCH_EDIT_FRAME::
+ * EditSheetProperties.
  *
- * The sheet name and file name are not special-cased controls upstream: they are
- * the two mandatory rows of the fields grid, "Sheetname" and "Sheetfile", which
- * is why the dialog can carry user fields alongside them at all. This shows the
- * columns the sheet variant shows, `ShowHideColumns("0 1 2 3 4 5 6 7")`: Name,
- * Value, Show, Show Name, H Align, V Align, Italic, Bold. Sheets have no
- * transform, so the effective justification is the stored one and the alignment
- * cells are plain.
+ *   ┌ Fields ─────────────────────────────────────────────┐
+ *   │ Name | Value | Show | Show Name | H Align | V Align │   <- FIELDS_GRID_TABLE
+ *   │ [+] [↑] [↓]   [🗑]                                  │
+ *   └─────────────────────────────────────────────────────┘
+ *   ┌ Attributes ───────────┐ ┌ Style ─────────────────────┐
+ *   │ Page number: [   ]    │ │ Border             Fill    │
+ *   │ [ ] Exclude from sim… │ │ Width: [ ] mm Color: [ ]   Color: [ ]
+ *   └───────────────────────┘ └────────────────────────────┘
+ *   Hierarchical path: /sub/                    [ Cancel ] [ OK ]
  *
- * Below the grid: border width and colour, background fill colour, the page
- * number for this instance, the hierarchical path (read-only), and the same
- * four attributes a symbol carries.
+ * The sheet name and file name are the two mandatory rows of the fields grid. OK changes the
+ * sheet's file through SCH_EDIT_FRAME::ChangeSheetFile when it was renamed (or the sheet is new),
+ * asking first whether an absolute path should be made relative; the undo step is the caller's,
+ * gated on the isUndoable out-parameter.
  */
-import { useState, type JSX } from 'react';
-import { iuToMM, mmToIU } from '@ziroeda/common';
-import type { SchField, TextEffects } from '../index.js';
-import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
-import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
+import { type JSX, useReducer, useState } from 'react';
+import { DisplayErrorMessage, ShowKicadMessageDialog } from '@ziroeda/common/confirm.js';
+import { ensureFileExtension } from '@ziroeda/common/common.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { type Color4d, color4dEquals } from '@ziroeda/common/gal/color4d.js';
+import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
+import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
+import { IsFullFileNameValid } from '@ziroeda/common/string_utils.js';
+import {
+  DO_TRANSLATE,
+  FIELD_T,
+  FieldNamesAreDuplicates,
+  GetUserFieldName,
+  SHEET_MANDATORY_FIELDS,
+} from '@ziroeda/common/template_fieldnames.js';
+import { KiCadSchematicFileExtension } from '@ziroeda/common/wildcards_and_files_ext.js';
+import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
+import type { GRID_TEXT_BUTTON_HOST } from '@ziroeda/common/widgets/grid_text_button_helpers.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
+import { UNIT_BINDER, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
+import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
+import { wxCENTER, wxICON_QUESTION, wxYES_DEFAULT, wxYES_NO } from '@ziroeda/common/wx/defs.js';
+import { wxMakeRelativeTo } from '@ziroeda/common/wx/filefn.js';
+import {
+  type wxGridEvent,
+  wxEVT_GRID_CELL_CHANGING,
+  wxGridSelectionModes,
+  wxGridTableRequest,
+} from '@ziroeda/common/wx/grid.js';
+import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
+import { wxID_YES } from '@ziroeda/common/wx/menu.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { FIELDS_DATA_COL_ORDER, FIELDS_GRID_TABLE } from '../fields_grid_table.js';
+import type { SCH_EDIT_FRAME, SHEET_PROPERTIES_RESULT } from '../sch_edit_frame.js';
+import { SCH_FIELD } from '../sch_field.js';
+import { AUTOPLACE_ALGO } from '../sch_item.js';
+import { SCH_SHEET } from '../sch_sheet.js';
+import { SCH_SHEET_LIST, SCH_SHEET_PATH } from '../sch_sheet_path.js';
 
-/** The two rows that always exist and cannot be renamed, deleted or reordered
- *  (SCH_SHEET's mandatory fields). */
-const SHEETNAME = 'Sheetname';
-const SHEETFILE = 'Sheetfile';
-const isMandatory = (key: string): boolean => key === SHEETNAME || key === SHEETFILE;
+/** WX_GRID column widths from the base class, by position, for the eight shown columns. */
+const GRID_COLUMNS = [
+  { width: 72 },
+  { width: 72 },
+  { width: 48, center: true },
+  { width: 72, center: true },
+  { width: 72, center: true },
+  { width: 48, center: true },
+  { width: 48, center: true },
+  { width: 84, center: true },
+];
 
-export interface SheetFieldRow {
-  key: string;
-  value: string;
-  effects: TextEffects;
-  nameShown: boolean;
-  source?: SchField['source'];
-}
-
-export interface SheetPropsResult {
-  fields: SheetFieldRow[];
-  borderWidthIU: number;
-  borderColor?: ItemColor;
-  backgroundColor?: ItemColor;
-  pageNumber: string;
+export interface SHEET_DIALOG_VALUES {
+  /** m_borderWidth's text, in the frame's units. */
+  borderWidth: string;
+  borderColor: Color4d;
+  backgroundColor: Color4d;
   excludeFromSim: boolean;
   excludeFromBom: boolean;
   excludeFromBoard: boolean;
   dnp: boolean;
+  pageNumber: string;
 }
 
-interface Props {
-  initial: SheetPropsResult;
-  /** `SCH_SHEET_PATH::PathHumanReadable`, shown read-only. */
-  hierarchicalPath: string;
-  onOk: (r: SheetPropsResult) => void;
-  onCancel: () => void;
+function positioningChanged(a: SCH_FIELD, b: SCH_FIELD): boolean {
+  const pa = a.GetPosition();
+  const pb = b.GetPosition();
+
+  if (pa.x !== pb.x || pa.y !== pb.y) return true;
+
+  if (a.GetHorizJustify() !== b.GetHorizJustify()) return true;
+
+  if (a.GetVertJustify() !== b.GetVertJustify()) return true;
+
+  if (!a.GetTextAngle().equals(b.GetTextAngle())) return true;
+
+  return false;
 }
 
-const H_ALIGN = ['left', 'center', 'right'] as const;
-const V_ALIGN = ['top', 'center', 'bottom'] as const;
+function sheetPositioningChanged(a: FIELDS_GRID_TABLE, b: SCH_SHEET): boolean {
+  if (positioningChanged(a.GetField(FIELD_T.SHEET_NAME)!, b.GetField(FIELD_T.SHEET_NAME)!))
+    return true;
 
-/** The horizontal/vertical tokens of `(justify …)`, defaulted to centre. */
-function alignOf(fx: TextEffects, axis: 'h' | 'v'): string {
-  const set = axis === 'h' ? H_ALIGN : V_ALIGN;
-  return (fx.justify ?? []).find((t) => (set as readonly string[]).includes(t)) ?? 'center';
+  if (positioningChanged(a.GetField(FIELD_T.SHEET_FILENAME)!, b.GetField(FIELD_T.SHEET_FILENAME)!))
+    return true;
+
+  return false;
 }
 
-/** Rebuild `(justify …)` from the two axes, dropping the centres KiCad omits. */
-function withAlign(fx: TextEffects, h: string, v: string): TextEffects {
-  const tokens = [h, v].filter((t) => t !== 'center');
-  const { justify: _drop, ...rest } = fx;
-  return tokens.length ? { ...rest, justify: tokens } : rest;
+export class DIALOG_SHEET_PROPERTIES {
+  private readonly m_frame: SCH_EDIT_FRAME;
+  private readonly m_sheet: SCH_SHEET;
+  private readonly m_result: SHEET_PROPERTIES_RESULT;
+  private readonly m_sourceSheetFilename: string | null;
+  private readonly m_ask: (aRequest: KiDialogRequest) => Promise<KiDialogResult>;
+  private readonly m_grid = new WX_GRID();
+  private readonly m_fields: FIELDS_GRID_TABLE;
+  private readonly m_borderWidth: UNIT_BINDER;
+  private readonly m_dummySheet: SCH_SHEET;
+  private readonly m_dummySheetNameField: SCH_FIELD;
+
+  constructor(
+    aParent: SCH_EDIT_FRAME,
+    aSheet: SCH_SHEET,
+    aResult: SHEET_PROPERTIES_RESULT,
+    aSourceSheetFilename: string | null,
+    aHost: GRID_TEXT_BUTTON_HOST,
+    aAsk: (aRequest: KiDialogRequest) => Promise<KiDialogResult>,
+  ) {
+    this.m_frame = aParent;
+    this.m_sheet = aSheet;
+    this.m_result = aResult;
+    this.m_sourceSheetFilename = aSourceSheetFilename;
+    this.m_ask = aAsk;
+    this.m_borderWidth = new UNIT_BINDER(aParent, 'Width:', (aMessage) =>
+      DisplayErrorMessage(aMessage),
+    );
+    this.m_dummySheet = SCH_SHEET.copyOf(aSheet);
+    this.m_dummySheetNameField = new SCH_FIELD(this.m_dummySheet, FIELD_T.SHEET_NAME);
+
+    this.m_fields = new FIELDS_GRID_TABLE(this, aParent, this.m_grid, aSheet, aHost);
+
+    this.m_grid.SetTable(this.m_fields, false, wxGridSelectionModes.wxGridSelectRows);
+    this.m_grid.ShowHideColumns('0 1 2 3 4 5 6 7');
+
+    // wxFormBuilder doesn't include this event...
+    this.m_grid.Connect(wxEVT_GRID_CELL_CHANGING, (aEvent: wxGridEvent) =>
+      this.OnGridCellChanging(aEvent),
+    );
+  }
+
+  Grid(): WX_GRID {
+    return this.m_grid;
+  }
+
+  Fields(): FIELDS_GRID_TABLE {
+    return this.m_fields;
+  }
+
+  /** `DIALOG_SHIM::OnModify()`: nothing reads the modified flag here. */
+  OnModify(): void {}
+
+  /** m_infoBar: "Note: individual item colors overridden in Preferences." */
+  ShowsOverrideNote(): boolean {
+    return this.m_frame.GetColorSettings().GetOverrideSchItemColors();
+  }
+
+  /** `TransferDataToWindow()`. */
+  TransferDataToWindow(): SHEET_DIALOG_VALUES {
+    const instance = new SCH_SHEET_PATH(this.m_frame.GetCurrentSheet());
+    const variantName = this.m_frame.Schematic().GetCurrentVariant();
+
+    // Push a copy of each field into m_updateFields
+    for (const field of this.m_sheet.GetFields()) {
+      const field_copy = SCH_FIELD.copyOf(field);
+
+      if (!field_copy.IsMandatory())
+        field_copy.SetText(this.m_sheet.GetFieldText(field.GetName(), instance, variantName));
+
+      // change offset to be symbol-relative
+      const pos = this.m_sheet.GetPosition();
+      field_copy.Offset({ x: -pos.x, y: -pos.y });
+
+      this.m_fields.push_back(field_copy);
+    }
+
+    // notify the grid
+    this.m_grid.ProcessTableMessage(
+      wxGridTableRequest.wxGRIDTABLE_NOTIFY_ROWS_APPENDED,
+      this.m_fields.size(),
+      0,
+    );
+
+    // border width
+    this.m_borderWidth.SetValue(this.m_sheet.GetBorderWidth());
+
+    const values: SHEET_DIALOG_VALUES = {
+      borderWidth: this.m_borderWidth.GetText(),
+      borderColor: this.m_sheet.GetBorderColor(),
+      backgroundColor: this.m_sheet.GetBackgroundColor(),
+      excludeFromSim: this.m_sheet.GetExcludedFromSim(instance, variantName),
+      excludeFromBom: this.m_sheet.GetExcludedFromBOM(instance, variantName),
+      excludeFromBoard: this.m_sheet.GetExcludedFromBoard(instance, variantName),
+      dnp: this.m_sheet.GetDNP(instance, variantName),
+      pageNumber: '',
+    };
+
+    instance.push_back(this.m_sheet);
+    values.pageNumber = instance.GetPageNumber();
+
+    return values;
+  }
+
+  /** `Validate()`: the grid's pending edit, and a name for every field that has text. */
+  Validate(): boolean {
+    if (!this.m_grid.CommitPendingChanges()) return false;
+
+    // Check for missing field names.
+    for (let i = 0; i < this.m_fields.size(); ++i) {
+      const field = this.m_fields.at(i);
+
+      if (field.IsMandatory()) continue;
+
+      if (field.GetName(false) === '' && field.GetText() !== '') {
+        DisplayErrorMessage('Fields must have a name.');
+        this.m_grid.SetGridCursor(i, FIELDS_DATA_COL_ORDER.FDC_NAME);
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /** `TransferDataFromWindow()`: false keeps the dialog open. */
+  async TransferDataFromWindow(aValues: SHEET_DIALOG_VALUES): Promise<boolean> {
+    if (!this.Validate()) return false;
+
+    this.m_result.isUndoable = true;
+
+    // Sheet file names can be relative or absolute.
+    let sheetFileName = this.m_fields.GetField(FIELD_T.SHEET_FILENAME)!.GetText();
+
+    // Ensure filepath is not empty.  (In normal use will be caught by grid validators,
+    // but unedited data from existing files can be bad.)
+    if (sheetFileName === '') {
+      DisplayErrorMessage('A sheet must have a valid file name.');
+      return false;
+    }
+
+    // Ensure the filename extension is OK.  (In normal use will be caught by grid validators,
+    // but unedited data from existing files can be bad.)
+    sheetFileName = ensureFileExtension(sheetFileName, KiCadSchematicFileExtension);
+
+    // Ensure sheetFileName is legal
+    if (!IsFullFileNameValid(sheetFileName)) {
+      DisplayErrorMessage('A sheet must have a valid file name.');
+      return false;
+    }
+
+    // Inside Eeschema, filenames are stored using unix notation
+    let newRelativeFilename = sheetFileName.replace(/\\/g, '/');
+
+    const oldFilename = this.m_sheet
+      .GetField(FIELD_T.SHEET_FILENAME)!
+      .GetText()
+      .replace(/\\/g, '/');
+
+    const filename_changed = oldFilename !== newRelativeFilename;
+
+    if (filename_changed || this.m_sheet.IsNew()) {
+      const currentScreen = this.m_frame.GetCurrentSheet().LastScreen();
+
+      if (!currentScreen) return false;
+
+      let clearFileName = false;
+
+      // This can happen for the root sheet when opening Eeschema in the stand alone mode.
+      if (currentScreen.GetFileName() === '') {
+        clearFileName = true;
+        currentScreen.SetFileName(this.m_frame.Prj().AbsolutePath('noname.kicad_sch'));
+      }
+
+      const screenFileName = currentScreen.GetFileName();
+
+      if (newRelativeFilename.startsWith('/')) {
+        const screenPath = screenFileName.slice(0, Math.max(0, screenFileName.lastIndexOf('/')));
+        const relative = wxMakeRelativeTo(newRelativeFilename, screenPath);
+
+        const answer = await ShowKicadMessageDialog({
+          message: 'Use relative path for sheet file?',
+          caption: 'Sheet File Path',
+          style: wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION | wxCENTER,
+          extended:
+            'Using relative hierarchical sheet file name paths improves schematic portability ' +
+            'across systems and platforms.  Using absolute paths can result in portability issues.',
+          okLabel: 'Use Relative Path',
+          cancelLabel: 'Use Absolute Path',
+        });
+
+        if (answer === wxID_YES) {
+          this.m_fields.GetField(FIELD_T.SHEET_FILENAME)!.SetText(relative);
+          newRelativeFilename = relative;
+        }
+      }
+
+      if (!(await this.onSheetFilenameChanged(newRelativeFilename))) {
+        if (clearFileName) currentScreen.SetFileName('');
+        else this.m_fields.GetField(FIELD_T.SHEET_FILENAME)!.SetText(oldFilename);
+
+        return false;
+      }
+
+      this.m_result.updateHierarchyNavigator = true;
+
+      if (clearFileName) currentScreen.SetFileName('');
+
+      // One last validity check (and potential repair) just to be sure to be sure
+      const repairedList = new SCH_SHEET_LIST();
+      repairedList.BuildSheetList(this.m_frame.Schematic().Root(), true);
+    }
+
+    let newSheetname = this.m_fields.GetField(FIELD_T.SHEET_NAME)!.GetText();
+
+    if (newSheetname !== this.m_sheet.GetName()) this.m_result.updateHierarchyNavigator = true;
+
+    if (newSheetname === '') newSheetname = 'Untitled Sheet';
+
+    this.m_fields.GetField(FIELD_T.SHEET_NAME)!.SetText(newSheetname);
+
+    // Net names embed the sheet path, so retarget netclass/color assignments on a rename.
+    const renamedPath = new SCH_SHEET_PATH(this.m_frame.GetCurrentSheet());
+    renamedPath.push_back(this.m_sheet);
+    const oldNetPrefix = renamedPath.PathHumanReadable(true, false, true);
+
+    this.m_sheet.SetName(newSheetname);
+    this.m_sheet.SetFileName(newRelativeFilename);
+
+    const newNetPrefix = renamedPath.PathHumanReadable(true, false, true);
+
+    if (oldNetPrefix !== newNetPrefix)
+      this.m_frame
+        .Prj()
+        .GetProjectFile()
+        .NetSettings()
+        .RenameNetPathPrefix(oldNetPrefix, newNetPrefix);
+
+    // change all field positions from relative to absolute
+    for (const field of this.m_fields.Fields()) field.Offset(this.m_sheet.GetPosition());
+
+    if (sheetPositioningChanged(this.m_fields, this.m_sheet))
+      this.m_sheet.SetFieldsAutoplaced(AUTOPLACE_ALGO.AUTOPLACE_NONE);
+
+    const instance = new SCH_SHEET_PATH(this.m_frame.GetCurrentSheet());
+    const variantName = this.m_frame.Schematic().GetCurrentVariant();
+
+    let ordinal = 42; // Arbitrarily larger than any mandatory FIELD_T ids.
+
+    for (const field of this.m_fields.Fields()) {
+      const fieldName = field.GetCanonicalName();
+
+      if (field.IsEmpty()) continue;
+      else if (fieldName === '') field.SetName('untitled');
+
+      const existingField = this.m_sheet.GetField(field.GetCanonicalName());
+      let tmp: SCH_FIELD;
+
+      if (!existingField) {
+        tmp = this.m_sheet.AddField(field);
+        tmp.SetParent(this.m_sheet);
+      } else {
+        const schematic = this.m_sheet.Schematic()!;
+        const defaultText = schematic.ConvertRefsToKIIDs(existingField.GetText());
+        tmp = existingField;
+
+        field.Copy(tmp);
+        tmp.SetParent(this.m_sheet);
+
+        if (variantName !== '') {
+          // Restore the default field text for existing fields.
+          tmp.SetText(defaultText, instance);
+
+          const variantText = schematic.ConvertRefsToKIIDs(field.GetText());
+          tmp.SetText(variantText, instance, variantName);
+        }
+      }
+
+      if (!field.IsMandatory()) field.SetOrdinal(ordinal++);
+    }
+
+    const sheetFields = this.m_sheet.GetFields();
+
+    for (let ii = sheetFields.length - 1; ii >= 0; ii--) {
+      const sheetField = sheetFields[ii]!;
+
+      if (sheetField.IsMandatory()) continue;
+
+      let found = false;
+
+      for (const editedField of this.m_fields.Fields()) {
+        if (editedField.GetName() === sheetField.GetName()) {
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) sheetFields.splice(ii, 1);
+    }
+
+    this.m_borderWidth.SetText(aValues.borderWidth);
+    this.m_sheet.SetBorderWidth(this.m_borderWidth.GetIntValue());
+
+    const colorSettings = this.m_frame.GetColorSettings();
+
+    if (
+      colorSettings.GetOverrideSchItemColors() &&
+      (!color4dEquals(this.m_sheet.GetBorderColor(), aValues.borderColor) ||
+        !color4dEquals(this.m_sheet.GetBackgroundColor(), aValues.backgroundColor))
+    ) {
+      await this.m_ask({
+        caption: 'Warning',
+        message: 'Note: item colors are overridden in the current color theme.',
+        extendedMessage:
+          // PANEL_EESCHEMA_COLOR_SETTINGS' m_optOverrideColors label (panel_color_settings_base.cpp:35)
+          "To see individual item colors uncheck 'Override individual item colors'\n" +
+          'in Preferences > Schematic Editor > Colors.',
+        icon: 'warning',
+        doNotShowKey: 'eeschema/dialogs/dialog_sheet_properties.cpp:TransferDataFromWindow',
+      });
+    }
+
+    this.m_sheet.SetBorderColor(aValues.borderColor);
+    this.m_sheet.SetBackgroundColor(aValues.backgroundColor);
+
+    this.m_sheet.SetExcludedFromSim(aValues.excludeFromSim, instance, variantName);
+    this.m_sheet.SetExcludedFromBOM(aValues.excludeFromBom, instance, variantName);
+    this.m_sheet.SetExcludedFromBoard(aValues.excludeFromBoard);
+    this.m_sheet.SetDNP(aValues.dnp, instance, variantName);
+
+    instance.push_back(this.m_sheet);
+
+    instance.SetPageNumber(aValues.pageNumber);
+
+    this.m_frame.TestDanglingEnds();
+
+    // Refresh all sheets in case ordering changed.
+    for (const item of this.m_frame.GetScreen()!.Items().OfType(KICAD_T.SCH_SHEET_T))
+      this.m_frame.UpdateItem(item);
+
+    return true;
+  }
+
+  private onSheetFilenameChanged(aNewFilename: string): Promise<boolean> {
+    const clearAnnotation = { value: this.m_result.clearAnnotation };
+    const isUndoable = { value: this.m_result.isUndoable };
+
+    return this.m_frame
+      .ChangeSheetFile(
+        this.m_sheet,
+        aNewFilename,
+        clearAnnotation,
+        isUndoable,
+        this.m_sourceSheetFilename,
+      )
+      .then((ok) => {
+        this.m_result.clearAnnotation = clearAnnotation.value;
+        this.m_result.isUndoable = isUndoable.value;
+        return ok;
+      });
+  }
+
+  /** `OnGridCellChanging( wxGridEvent& )`. */
+  private OnGridCellChanging(aEvent: wxGridEvent): void {
+    if (aEvent.GetCol() !== FIELDS_DATA_COL_ORDER.FDC_NAME) return;
+
+    const newName = aEvent.GetString();
+
+    for (let i = 0; i < this.m_grid.GetNumberRows(); ++i) {
+      if (i === aEvent.GetRow()) continue;
+
+      if (
+        FieldNamesAreDuplicates(
+          newName,
+          this.m_grid.GetCellValue(i, FIELDS_DATA_COL_ORDER.FDC_NAME),
+          SHEET_MANDATORY_FIELDS,
+        )
+      ) {
+        DisplayErrorMessage(`Field name '${newName}' already in use.`);
+        aEvent.Veto();
+        break;
+      }
+    }
+  }
+
+  /** `OnAddField( wxCommandEvent& )`. */
+  OnAddField(): void {
+    this.m_grid.OnAddRow((): [number, number] => {
+      const newField = new SCH_FIELD(
+        this.m_sheet,
+        FIELD_T.SHEET_USER,
+        GetUserFieldName(this.m_fields.size(), DO_TRANSLATE),
+      );
+
+      newField.SetTextAngle(this.m_fields.GetField(FIELD_T.SHEET_NAME)!.GetTextAngle());
+      newField.SetVisible(false);
+      this.m_fields.push_back(newField);
+
+      // notify the grid
+      this.m_grid.ProcessTableMessage(wxGridTableRequest.wxGRIDTABLE_NOTIFY_ROWS_APPENDED, 1, 0);
+      return [this.m_fields.size() - 1, FIELDS_DATA_COL_ORDER.FDC_NAME];
+    });
+  }
+
+  /** `OnDeleteField( wxCommandEvent& )`. */
+  OnDeleteField(): void {
+    this.m_grid.OnDeleteRows(
+      (row) => {
+        if (row < this.m_fields.GetMandatoryRowCount()) {
+          DisplayErrorMessage(
+            `The first ${this.m_fields.GetMandatoryRowCount()} fields are mandatory.`,
+          );
+          return false;
+        }
+
+        return true;
+      },
+      (row) => {
+        this.m_fields.erase(row);
+
+        // notify the grid
+        this.m_grid.ProcessTableMessage(wxGridTableRequest.wxGRIDTABLE_NOTIFY_ROWS_DELETED, row, 1);
+      },
+    );
+  }
+
+  /** `OnMoveUp( wxCommandEvent& )`. */
+  OnMoveUp(): void {
+    this.m_grid.OnMoveRowUp(
+      (row) => row > this.m_fields.GetMandatoryRowCount(),
+      (row) => {
+        this.m_fields.SwapRows(row, row - 1);
+        this.m_grid.ForceRefresh();
+      },
+    );
+  }
+
+  /** `OnMoveDown( wxCommandEvent& )`: OnMoveRowUp upstream too (see the label dialog's). */
+  OnMoveDown(): void {
+    this.m_grid.OnMoveRowUp(
+      (row) => row >= this.m_fields.GetMandatoryRowCount(),
+      (row) => {
+        this.m_fields.SwapRows(row, row + 1);
+        this.m_grid.ForceRefresh();
+      },
+    );
+  }
+
+  /** OnUpdateUI's m_hierarchicalPath: the current path, then the sheet name as it will show. */
+  HierarchicalPath(): string {
+    let path = this.m_frame.GetCurrentSheet().PathHumanReadable(false);
+
+    if (!path.endsWith('/')) path += '/';
+
+    const sheetnameRow = this.m_fields.GetFieldRow(FIELD_T.SHEET_NAME);
+    const editor = this.m_grid.GetCurrentEditor();
+    const sheetName =
+      editor &&
+      this.m_grid.GetGridCursorRow() === sheetnameRow &&
+      this.m_grid.GetGridCursorCol() === FIELDS_DATA_COL_ORDER.FDC_VALUE
+        ? editor.m_value
+        : this.m_grid.GetCellValue(sheetnameRow, FIELDS_DATA_COL_ORDER.FDC_VALUE);
+
+    this.m_dummySheet.SetFields(this.m_fields.Fields());
+    this.m_dummySheetNameField.SetText(sheetName);
+
+    return path + this.m_dummySheetNameField.GetShownText(false);
+  }
 }
 
+/** The form over DIALOG_SHEET_PROPERTIES. */
 export function DialogSheetProperties({
+  dlg,
   initial,
-  hierarchicalPath,
+  units,
   onOk,
   onCancel,
-}: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
+}: {
+  dlg: DIALOG_SHEET_PROPERTIES;
+  initial: SHEET_DIALOG_VALUES;
+  units: StatusUnits;
+  onOk: (aValues: SHEET_DIALOG_VALUES) => void;
+  onCancel: () => void;
+}): JSX.Element {
   useModalEscape(onCancel);
 
-  const [rows, setRows] = useState<SheetFieldRow[]>(initial.fields.map((f) => ({ ...f })));
-  const [selRow, setSelRow] = useState(0);
-  const [borderWidth, setBorderWidth] = useState(
-    initial.borderWidthIU === 0 ? '0' : String(iuToMM(initial.borderWidthIU)),
-  );
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
+  const [borderWidth, setBorderWidth] = useState(initial.borderWidth);
   const [borderColor, setBorderColor] = useState(initial.borderColor);
-  const [background, setBackground] = useState(initial.backgroundColor);
-  const [pageNumber, setPageNumber] = useState(initial.pageNumber);
+  const [backgroundColor, setBackgroundColor] = useState(initial.backgroundColor);
   const [excludeFromSim, setExcludeFromSim] = useState(initial.excludeFromSim);
   const [excludeFromBom, setExcludeFromBom] = useState(initial.excludeFromBom);
   const [excludeFromBoard, setExcludeFromBoard] = useState(initial.excludeFromBoard);
   const [dnp, setDnp] = useState(initial.dnp);
-  const [error, setError] = useState<string | null>(null);
+  const [pageNumber, setPageNumber] = useState(initial.pageNumber);
 
-  const patchRow = (i: number, patch: Partial<SheetFieldRow>): void =>
-    setRows((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)));
-  const patchEffects = (i: number, patch: Partial<TextEffects>): void =>
-    setRows((rs) =>
-      rs.map((r, k) => (k === i ? { ...r, effects: { ...r.effects, ...patch } } : r)),
-    );
-
-  /** OnAddField: a new field is "Field<n>", starts hidden, and is selected. */
-  const addField = (): void => {
-    setRows((rs) => {
-      const n = rs.length;
-      return [...rs, { key: `Field${n}`, value: '', effects: { hidden: true }, nameShown: false }];
-    });
-    setSelRow(rows.length);
-  };
-  const deleteField = (): void => {
-    const r = rows[selRow];
-    if (!r || isMandatory(r.key)) return;
-    setRows((rs) => rs.filter((_, i) => i !== selRow));
-    setSelRow((i) => Math.max(0, i - 1));
-  };
-  /** Move up/down, never past the mandatory rows at the top. */
-  const move = (delta: number): void => {
-    const to = selRow + delta;
-    const from = rows[selRow];
-    const dest = rows[to];
-    if (!from || !dest || isMandatory(from.key) || isMandatory(dest.key)) return;
-    setRows((rs) => {
-      const out = rs.slice();
-      out[selRow] = dest;
-      out[to] = from;
-      return out;
-    });
-    setSelRow(to);
-  };
-
-  const submit = (): void => {
-    const name = rows.find((r) => r.key === SHEETNAME)?.value.trim() ?? '';
-    if (!name) {
-      // OnOkClick: a sheet must be named, the file name may be blank.
-      setError('A sheet must have a name');
-      return;
-    }
-    const seen = new Set<string>();
-    for (const r of rows) {
-      const key = r.key.trim();
-      if (!key) {
-        setError('Fields must have a name');
-        return;
-      }
-      // FieldNamesAreDuplicates: two fields may not share a name.
-      if (seen.has(key)) {
-        setError(`The field name "${key}" is used more than once`);
-        return;
-      }
-      seen.add(key);
-    }
+  const submit = (): void =>
     onOk({
-      fields: rows.map((r) => ({ ...r, key: r.key.trim() })),
-      borderWidthIU: mmToIU(Number(borderWidth) || 0),
-      ...(borderColor ? { borderColor } : {}),
-      ...(background ? { backgroundColor: background } : {}),
-      pageNumber: pageNumber.trim(),
+      borderWidth,
+      borderColor,
+      backgroundColor,
       excludeFromSim,
       excludeFromBom,
       excludeFromBoard,
       dnp,
+      pageNumber,
     });
-  };
 
-  const swatch = (
-    label: string,
-    value: ItemColor | undefined,
-    set: (c: ItemColor | undefined) => void,
-  ): JSX.Element => (
-    <label className="row">
-      <span>{label}</span>
-      {/* COLOR_SWATCH: it draws the colour and opens DIALOG_COLOR_PICKER
-          (color_swatch.cpp:301-328). It was an <input type="color">,
-          i.e. the desktop's picker as a popup anchored to the control -
-          off-screen near the window edge, and unable to carry alpha. */}
-      <ColorSwatch
-        label={label}
-        color={itemColorToColor4d(value)}
-        onChange={(c) => set(color4dToItemColor(c))}
-      />
-    </label>
+  const button = (aBitmap: string, aTip: string, aRun: () => void): JSX.Element => (
+    <StdBitmapButton
+      bitmap={aBitmap}
+      title={aTip}
+      tooltip={null}
+      onClick={() => {
+        aRun();
+        redraw();
+      }}
+    />
   );
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-props-dialog" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="ze-modal ze-label-props" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Sheet Properties
           <span className="x" title="Cancel" onClick={onCancel}>
@@ -198,179 +639,57 @@ export function DialogSheetProperties({
           </span>
         </div>
 
-        <div className="ze-props-body">
-          {error && (
-            <div className="ze-props-error" onClick={() => setError(null)}>
-              {error}, click to dismiss
+        <div className="ze-modal-body ze-lp-body">
+          {dlg.ShowsOverrideNote() && (
+            <div className="ze-infobar">
+              Note: individual item colors overridden in Preferences.
             </div>
           )}
 
-          <div className="ze-props-grid-wrap">
-            <table className="ze-props-grid">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Value</th>
-                  <th>Show</th>
-                  <th>Show Name</th>
-                  <th>H Align</th>
-                  <th>V Align</th>
-                  <th>Italic</th>
-                  <th>Bold</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: rows are reordered by index
-                  <tr key={i} className={i === selRow ? 'sel' : ''} onClick={() => setSelRow(i)}>
-                    <td>
-                      {isMandatory(row.key) ? (
-                        <span className="ze-cell-ro">{row.key}</span>
-                      ) : (
-                        <input
-                          className="ze-cell-input"
-                          value={row.key}
-                          onChange={(e) => patchRow(i, { key: e.target.value })}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        />
-                      )}
-                    </td>
-                    <td>
-                      <input
-                        className="ze-cell-input"
-                        // biome-ignore lint/a11y/noAutofocus: matches m_delayedFocusColumn = FDC_VALUE
-                        autoFocus={i === 0}
-                        value={row.value}
-                        onChange={(e) => patchRow(i, { value: e.target.value })}
-                        onKeyDown={(e) => e.stopPropagation()}
-                      />
-                    </td>
-                    <td className="c">
-                      <input
-                        type="checkbox"
-                        checked={!row.effects.hidden}
-                        onChange={(e) => patchEffects(i, { hidden: !e.target.checked })}
-                      />
-                    </td>
-                    <td className="c">
-                      <input
-                        type="checkbox"
-                        checked={row.nameShown}
-                        onChange={(e) => patchRow(i, { nameShown: e.target.checked })}
-                      />
-                    </td>
-                    <td>
-                      <select
-                        className="ze-cell-select"
-                        value={alignOf(row.effects, 'h')}
-                        onChange={(e) =>
-                          patchRow(i, {
-                            effects: withAlign(
-                              row.effects,
-                              e.target.value,
-                              alignOf(row.effects, 'v'),
-                            ),
-                          })
-                        }
-                      >
-                        <option value="left">Left</option>
-                        <option value="center">Center</option>
-                        <option value="right">Right</option>
-                      </select>
-                    </td>
-                    <td>
-                      <select
-                        className="ze-cell-select"
-                        value={alignOf(row.effects, 'v')}
-                        onChange={(e) =>
-                          patchRow(i, {
-                            effects: withAlign(
-                              row.effects,
-                              alignOf(row.effects, 'h'),
-                              e.target.value,
-                            ),
-                          })
-                        }
-                      >
-                        <option value="top">Top</option>
-                        <option value="center">Center</option>
-                        <option value="bottom">Bottom</option>
-                      </select>
-                    </td>
-                    <td className="c">
-                      <input
-                        type="checkbox"
-                        checked={!!row.effects.italic}
-                        onChange={(e) => patchEffects(i, { italic: e.target.checked || undefined })}
-                      />
-                    </td>
-                    <td className="c">
-                      <input
-                        type="checkbox"
-                        checked={!!row.effects.bold}
-                        onChange={(e) => patchEffects(i, { bold: e.target.checked || undefined })}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {/* sbFields */}
+          <fieldset className="ze-lp-fields">
+            <legend>Fields</legend>
+            <div className="ze-lp-grid-wrap">
+              <WxGridView
+                grid={dlg.Grid()}
+                columns={GRID_COLUMNS}
+                flexCol={FIELDS_DATA_COL_ORDER.FDC_VALUE}
+                ariaLabel="Fields"
+                onUpdate={redraw}
+              />
+            </div>
+            <div className="ze-lp-fieldbtns">
+              {button('small_plus', 'Add field', () => dlg.OnAddField())}
+              {button('small_up', 'Move up', () => dlg.OnMoveUp())}
+              {button('small_down', 'Move down', () => dlg.OnMoveDown())}
+              <span className="ze-lp-gap" />
+              {button('small_trash', 'Delete field', () => dlg.OnDeleteField())}
+            </div>
+          </fieldset>
 
-          <div className="ze-props-rowbtns">
-            <button className="ze-btn" title="Add field" onClick={addField}>
-              +
-            </button>
-            <button
-              className="ze-btn"
-              title="Delete field"
-              disabled={!rows[selRow] || isMandatory(rows[selRow]!.key)}
-              onClick={deleteField}
-            >
-              −
-            </button>
-            <button className="ze-btn" title="Move up" onClick={() => move(-1)}>
-              ↑
-            </button>
-            <button className="ze-btn" title="Move down" onClick={() => move(1)}>
-              ↓
-            </button>
-          </div>
-
-          <div className="ze-props-columns">
-            <fieldset className="ze-props-group">
-              <legend>Border</legend>
-              <label className="row">
-                <span>Width:</span>
+          {/* bSizer5: Attributes beside Style. */}
+          <div className="ze-lp-options">
+            <fieldset className="ze-lp-shape">
+              <legend>Attributes</legend>
+              <label className="ze-lp-check">
+                Page number:
                 <input
-                  className="ze-search"
-                  style={{ width: 90 }}
-                  value={borderWidth}
-                  onChange={(e) => setBorderWidth(e.target.value)}
+                  className="ze-lp-size"
+                  value={pageNumber}
+                  onChange={(e) => setPageNumber(e.target.value)}
                   onKeyDown={(e) => e.stopPropagation()}
                 />
-                <span className="ze-muted">mm</span>
               </label>
-              {swatch('Color:', borderColor, setBorderColor)}
-            </fieldset>
-
-            <fieldset className="ze-props-group">
-              <legend>Fill</legend>
-              {swatch('Color:', background, setBackground)}
-            </fieldset>
-
-            <fieldset className="ze-props-group">
-              <legend>Attributes</legend>
-              <label className="row">
+              <label className="ze-lp-check">
                 <input
                   type="checkbox"
                   checked={excludeFromSim}
                   onChange={(e) => setExcludeFromSim(e.target.checked)}
                 />
-                <span>Exclude from simulation</span>
+                Exclude from simulation
               </label>
               <label
-                className="row"
+                className="ze-lp-check"
                 title={
                   'This is useful for adding symbols for board footprints such as fiducials\n' +
                   'and logos that you do not want to appear in the bill of materials export'
@@ -381,10 +700,10 @@ export function DialogSheetProperties({
                   checked={excludeFromBom}
                   onChange={(e) => setExcludeFromBom(e.target.checked)}
                 />
-                <span>Exclude from bill of materials</span>
+                Exclude from bill of materials
               </label>
               <label
-                className="row"
+                className="ze-lp-check"
                 title={
                   'This is useful for adding symbols that only get exported to the bill of materials but\n' +
                   'not required to layout the board such as mechanical fasteners and enclosures'
@@ -395,39 +714,62 @@ export function DialogSheetProperties({
                   checked={excludeFromBoard}
                   onChange={(e) => setExcludeFromBoard(e.target.checked)}
                 />
-                <span>Exclude from board</span>
+                Exclude from board
               </label>
-              <label className="row">
+              <label className="ze-lp-check">
                 <input type="checkbox" checked={dnp} onChange={(e) => setDnp(e.target.checked)} />
-                <span>Do not populate</span>
+                Do not populate
               </label>
             </fieldset>
-          </div>
 
-          <label className="row">
-            <span>Page number:</span>
-            <input
-              className="ze-search"
-              style={{ width: 90 }}
-              value={pageNumber}
-              onChange={(e) => setPageNumber(e.target.value)}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Enter') submit();
-              }}
-            />
-          </label>
-          <label className="row">
-            <span>Hierarchical path:</span>
-            <span className="ze-cell-ro">{hierarchicalPath}</span>
-          </label>
+            <fieldset className="ze-lp-formatting">
+              <legend>Style</legend>
+              <div className="ze-lp-fmt-grid">
+                <span className="ze-lp-fmt-label">Border</span>
+                <span className="ze-lp-fmt-label">Fill</span>
+                <div className="ze-lp-sizerow">
+                  <span className="ze-lp-fmt-label">Width:</span>
+                  <input
+                    className="ze-lp-size"
+                    value={borderWidth}
+                    onChange={(e) => setBorderWidth(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
+                  <span className="ze-lp-units">{unitLabel(units)}</span>
+                  <span className="ze-lp-colorlabel">Color:</span>
+                  <span className="ze-lp-swatch-frame">
+                    <ColorSwatch
+                      className="ze-lp-swatch"
+                      label="Border color"
+                      color={borderColor}
+                      onChange={setBorderColor}
+                    />
+                  </span>
+                </div>
+                <div className="ze-lp-sizerow">
+                  <span className="ze-lp-colorlabel">Color:</span>
+                  <span className="ze-lp-swatch-frame">
+                    <ColorSwatch
+                      className="ze-lp-swatch"
+                      label="Fill color"
+                      color={backgroundColor}
+                      onChange={setBackgroundColor}
+                    />
+                  </span>
+                </div>
+              </div>
+            </fieldset>
+          </div>
         </div>
 
+        {/* m_sizerBottom: the hierarchical path beside the standard buttons. */}
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
+          <span className="ze-sheetprops-pathlabel">Hierarchical path:</span>
+          <span className="ze-sheetprops-path">{dlg.HierarchicalPath()}</span>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={submit}>
+          <button type="button" className="ze-btn primary" onClick={submit}>
             OK
           </button>
         </div>

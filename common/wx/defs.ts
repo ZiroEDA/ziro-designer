@@ -13,6 +13,13 @@ export const wxICON_ERROR = 0x00000200;
 export const wxCANCEL = 0x00000010;
 /** `wxCANCEL_DEFAULT` (wx/defs.h). */
 export const wxCANCEL_DEFAULT = 0x80000000;
+/** `wxYES` / `wxNO` / `wxYES_NO` (wx/defs.h). */
+export const wxYES = 0x00000002;
+export const wxNO = 0x00000008;
+export const wxYES_NO = wxYES | wxNO;
+/** `wxYES_DEFAULT` / `wxNO_DEFAULT` (wx/defs.h). */
+export const wxYES_DEFAULT = 0x00000000;
+export const wxNO_DEFAULT = 0x00000080;
 /** `wxICON_EXCLAMATION` / `wxICON_WARNING` (wx/defs.h): the same bit. */
 export const wxICON_EXCLAMATION = 0x00000100;
 export const wxICON_WARNING = wxICON_EXCLAMATION;

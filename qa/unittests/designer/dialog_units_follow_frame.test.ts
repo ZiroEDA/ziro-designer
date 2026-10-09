@@ -123,7 +123,6 @@ const KNOWN_HARDCODED = new Set([
   'eeschema/dialog_line_properties.tsx',
   'eeschema/dialog_plot_schematic.tsx',
   'eeschema/dialog_sheet_pin_properties.tsx',
-  'eeschema/dialog_sheet_properties.tsx',
   // Never scanned until 09-28: these sat in designer/.../pcb/dialogs/panels/,
   // a folder below the one the scan read, and moved up into pcbnew/dialogs/
   // with the file-structure pass. Existing debt made visible, not a regression.

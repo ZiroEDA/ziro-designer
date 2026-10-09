@@ -29,6 +29,9 @@ export const wxID_OK = 5100;
 /** `wxID_HIGHEST` (wx/defs.h): every predefined id is below it. */
 export const wxID_HIGHEST = 5999;
 export const wxID_CANCEL = 5101;
+/** `wxID_YES` / `wxID_NO` (wx/defs.h): a wxYES_NO message box's answers. */
+export const wxID_YES = 5103;
+export const wxID_NO = 5104;
 
 let s_autoId = -1000;
 
