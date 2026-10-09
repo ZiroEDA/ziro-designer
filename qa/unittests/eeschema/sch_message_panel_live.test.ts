@@ -10,7 +10,10 @@
  */
 import { resolve } from 'node:path';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { click, MM, openProject, schToolHarness } from './support/sch_tool_harness.js';
@@ -75,5 +78,66 @@ describe('the schematic message panel', () => {
     click(h, { x: -500 * MM, y: -500 * MM });
 
     expect(rows()).toEqual([]);
+  });
+
+  it('a sheet shows its name, its hierarchical path and its file (sch_sheet.cpp)', () => {
+    const h = schToolHarness();
+    openProject(h.frame, ORACLE, 'complex_hierarchy', SHEETS);
+    const sheet = [...h.frame.GetScreen()!.Items().OfType(KICAD_T.SCH_SHEET_T)][0] as SCH_SHEET;
+    const items: MSG_PANEL_ITEM[] = [];
+
+    sheet.GetMsgPanelInfo(h.frame.AsDrawFrameLike(), items);
+
+    const rows = items.map((i) => [i.GetUpperText(), i.GetLowerText()]);
+    expect(rows.slice(0, 3)).toEqual([
+      ['Sheet Name', sheet.GetName()],
+      ['Hierarchical Path', `complex_hierarchy/${sheet.GetName()}`],
+      ['File Name', sheet.GetFileName()],
+    ]);
+  });
+
+  it('a symbol pin shows its rows in SCH_PIN::GetMsgPanelInfo’s order, then the owner', () => {
+    const { h, sym } = setUp();
+    const pin = sym.GetPins()[0]!;
+    const items: MSG_PANEL_ITEM[] = [];
+
+    pin.GetMsgPanelInfo(h.frame.AsDrawFrameLike(), items);
+
+    const uppers = items.map((i) => i.GetUpperText());
+    const ref = sym.GetRef(h.frame.GetCurrentSheet());
+    expect(uppers.filter((u) => !['Unit', 'Body Style'].includes(u))).toEqual([
+      'Type',
+      'Name',
+      'Number',
+      'Type',
+      'Style',
+      'Visible',
+      'Length',
+      'Orientation',
+      ref,
+    ]);
+    expect(items.find((i) => i.GetUpperText() === 'Number')!.GetLowerText()).toBe(
+      pin.GetShownNumber(),
+    );
+  });
+
+  it('a field shows its name, text and justifications (sch_field.cpp)', () => {
+    const { h, sym } = setUp();
+    const field = sym.GetField(FIELD_T.VALUE)!;
+    const items: MSG_PANEL_ITEM[] = [];
+
+    field.GetMsgPanelInfo(h.frame.AsDrawFrameLike(), items);
+
+    expect(items.map((i) => i.GetUpperText())).toEqual([
+      'Symbol Field',
+      'Text',
+      'Visible',
+      'Font',
+      'Style',
+      'Text Size',
+      'H Justification',
+      'V Justification',
+    ]);
+    expect(items[1]!.GetLowerText()).toBe(field.GetText());
   });
 });

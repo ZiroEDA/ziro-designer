@@ -68,9 +68,11 @@ import type { TRANSFORM } from '@ziroeda/kimath/src/transform.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { DEFAULT_PIN_LENGTH, DEFAULT_PINNAME_SIZE, DEFAULT_PINNUM_SIZE } from './default_values.js';
 import { PIN_LAYOUT_CACHE } from './pin_layout_cache.js';
-import { ElectricalPinTypeGetText, PinShapeGetText } from './pin_type.js';
+import { ElectricalPinTypeGetText, PinOrientationName, PinShapeGetText } from './pin_type.js';
 import { SCH_ITEM } from './sch_item.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 
 /** SCH_PIN::PAD_RESOLUTION, how a pin's pad number was arrived at. */
 export type PadResolution = 'mapped' | 'identity' | 'unmapped';
@@ -408,6 +410,47 @@ export class SCH_PIN extends SCH_ITEM {
 
   override GetClass(): string {
     return 'SCH_PIN';
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_pin.cpp). */
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    const symbol = this.GetParentSymbol();
+
+    aList.push(new MSG_PANEL_ITEM('Type', 'Pin'));
+
+    super.GetMsgPanelInfo(aFrame, aList);
+
+    aList.push(new MSG_PANEL_ITEM('Name', unescapeString(this.GetShownName())));
+    aList.push(new MSG_PANEL_ITEM('Number', this.GetShownNumber()));
+    aList.push(new MSG_PANEL_ITEM('Type', ElectricalPinTypeGetText(this.GetType())));
+    aList.push(new MSG_PANEL_ITEM('Style', PinShapeGetText(this.GetShape())));
+
+    aList.push(new MSG_PANEL_ITEM('Visible', this.IsVisible() ? 'Yes' : 'No'));
+
+    // Display pin length
+    aList.push(new MSG_PANEL_ITEM('Length', aFrame.MessageTextFromValue(this.GetLength(), true)));
+
+    aList.push(new MSG_PANEL_ITEM('Orientation', PinOrientationName(this.GetOrientation())));
+
+    // dynamic_cast<LIB_SYMBOL*> / <SCH_SYMBOL*>: type checks, both import this module.
+    if (symbol?.Type() === KICAD_T.LIB_SYMBOL_T) {
+      aList.push(
+        new MSG_PANEL_ITEM('Pos X', aFrame.MessageTextFromValue(this.GetPosition().x, true)),
+      );
+      aList.push(
+        new MSG_PANEL_ITEM('Pos Y', aFrame.MessageTextFromValue(this.GetPosition().y, true)),
+      );
+    } else if (symbol?.Type() === KICAD_T.SCH_SYMBOL_T) {
+      // schframe->GetCurrentSheet() is the schematic's CurrentSheet(); nullptr without one.
+      const schematic = this.Schematic();
+      const currentSheet = schematic ? schematic.CurrentSheet() : null;
+      const value = (symbol as unknown as { GetField(aId: FIELD_T): { GetText(): string } | null })
+        .GetField(FIELD_T.VALUE)!
+        .GetText();
+
+      // Don't use GetShownText(); we want to see the variable references here
+      aList.push(new MSG_PANEL_ITEM(symbol.GetRef(currentSheet), unescapeString(value)));
+    }
   }
 
   static ClassOf(aItem: EDA_ITEM | null): boolean {

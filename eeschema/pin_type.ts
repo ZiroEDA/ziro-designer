@@ -24,6 +24,7 @@ import {
   type ElectricalPinType,
   GetCanonicalElectricalTypeName,
   GRAPHIC_PINSHAPE,
+  PIN_ORIENTATION,
 } from '@ziroeda/common/pin_type.js';
 
 /**
@@ -116,6 +117,19 @@ export function ElectricalPinTypeGetText(aType: ELECTRICAL_PINTYPE): string {
 /** `PinShapeGetText( GRAPHIC_PINSHAPE )`. */
 export function PinShapeGetText(aShape: GRAPHIC_PINSHAPE): string {
   return pinShapeGetText(PIN_SHAPE_TOKENS[aShape] ?? '');
+}
+
+/** `g_pinOrientations`' names (pin_type.cpp, InitTables). [data] */
+const PIN_ORIENTATION_NAMES: Readonly<Partial<Record<PIN_ORIENTATION, string>>> = {
+  [PIN_ORIENTATION.PIN_RIGHT]: 'Right',
+  [PIN_ORIENTATION.PIN_LEFT]: 'Left',
+  [PIN_ORIENTATION.PIN_UP]: 'Up',
+  [PIN_ORIENTATION.PIN_DOWN]: 'Down',
+};
+
+/** `PinOrientationName( PIN_ORIENTATION )`: '?' for one the table lacks (INHERIT), as the wxCHECK. */
+export function PinOrientationName(aOrientation: PIN_ORIENTATION): string {
+  return PIN_ORIENTATION_NAMES[aOrientation] ?? '?';
 }
 
 /** `g_pinElectricalTypes`' bitmaps (pin_type.cpp:85-96), by type token. [data] */

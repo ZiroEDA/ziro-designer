@@ -43,7 +43,11 @@ import {
   GetDefaultFieldName,
 } from '@ziroeda/common/template_fieldnames.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { KIUI_EllipsizeMenuText } from '@ziroeda/common/widgets/ui_common.js';
+import {
+  INDETERMINATE_STATE,
+  KIUI_EllipsizeMenuText,
+  KIUI_EllipsizeStatusText,
+} from '@ziroeda/common/widgets/ui_common.js';
 import { wxCmp, wxCmpNoCase, wxLess } from '@ziroeda/common/wx/wxstring.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
@@ -62,6 +66,8 @@ import { TRANSFORM } from '@ziroeda/kimath/src/transform.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { SCH_ITEM } from './sch_item.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 
 /** GetKnownNetclassFieldTranslations(), "Netclass" in every shipped locale. */
 export const NETCLASS_FIELD_TRANSLATIONS: readonly string[] = [
@@ -318,6 +324,58 @@ export class SCH_FIELD extends SCH_ITEM {
 
   override GetClass(): string {
     return 'SCH_FIELD';
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_field.cpp). */
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    let msg = '';
+
+    aList.push(new MSG_PANEL_ITEM('Symbol Field', unescapeString(this.GetName())));
+
+    // Don't use GetShownText() here; we want to show the user the variable references
+    aList.push(new MSG_PANEL_ITEM('Text', KIUI_EllipsizeStatusText(aFrame, this.GetText())));
+
+    aList.push(new MSG_PANEL_ITEM('Visible', this.IsVisible() ? 'Yes' : 'No'));
+
+    aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
+
+    aList.push(new MSG_PANEL_ITEM('Style', this.GetTextStyleName()));
+
+    aList.push(new MSG_PANEL_ITEM('Text Size', aFrame.MessageTextFromValue(this.GetTextWidth())));
+
+    switch (this.GetHorizJustify()) {
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT:
+        msg = 'Left';
+        break;
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER:
+        msg = 'Center';
+        break;
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT:
+        msg = 'Right';
+        break;
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_INDETERMINATE:
+        msg = INDETERMINATE_STATE;
+        break;
+    }
+
+    aList.push(new MSG_PANEL_ITEM('H Justification', msg));
+
+    switch (this.GetVertJustify()) {
+      case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP:
+        msg = 'Top';
+        break;
+      case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER:
+        msg = 'Center';
+        break;
+      case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM:
+        msg = 'Bottom';
+        break;
+      case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_INDETERMINATE:
+        msg = INDETERMINATE_STATE;
+        break;
+    }
+
+    aList.push(new MSG_PANEL_ITEM('V Justification', msg));
   }
 
   override IsType(aScanTypes: readonly KICAD_T[]): boolean {

@@ -5,8 +5,7 @@
  * `eeschema/sch_sheet.h` / `sch_sheet.cpp`: `SCH_SHEET`, a hierarchical sheet symbol
  * (eeschema stage E3).
  *
- * Pending, marked in place: Plot (the plotters), GetMsgPanelInfo (the message panel),
- * GetMenuImage, Show (debug), the property registration.
+ * Pending, marked in place: Plot (the plotters), * GetMenuImage, Show (debug), the property registration.
  */
 
 import {
@@ -37,7 +36,10 @@ import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import { strNumCmp } from '@ziroeda/common/string_utils.js';
 import { DO_TRANSLATE, FIELD_T, GetDefaultFieldName } from '@ziroeda/common/template_fieldnames.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { KIUI_EllipsizeMenuText } from '@ziroeda/common/widgets/ui_common.js';
+import {
+  KIUI_EllipsizeMenuText,
+  KIUI_EllipsizeStatusText,
+} from '@ziroeda/common/widgets/ui_common.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import {
   ANGLE_270,
@@ -60,6 +62,8 @@ import type { SCH_SCREEN } from './sch_screen.js';
 import { SCH_SHEET_PIN, SHEET_SIDE } from './sch_sheet_pin.js';
 import { SCH_SHEET_INSTANCE, SCH_SHEET_PATH, SCH_SHEET_VARIANT } from './sch_sheet_path.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 
 export const MIN_SHEET_WIDTH = 500; // Units are mils.
 export const MIN_SHEET_HEIGHT = 150; // Units are mils.
@@ -213,6 +217,47 @@ export class SCH_SHEET extends SCH_ITEM {
 
   override GetClass(): string {
     return 'SCH_SHEET';
+  }
+
+  /**
+   * `GetMsgPanelInfo( aFrame, aList )` (sch_sheet.cpp). `schframe->GetCurrentSheet()` is the
+   * schematic's CurrentSheet(): with no schematic there is no SCH_EDIT_FRAME behind the call.
+   */
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    // Don't use GetShownText(); we want to see the variable references here
+    aList.push(new MSG_PANEL_ITEM('Sheet Name', KIUI_EllipsizeStatusText(aFrame, this.GetName())));
+
+    const schematic = this.Schematic();
+    let currentSheet: SCH_SHEET_PATH | null = null;
+    let currentVariant = '';
+
+    if (schematic) {
+      const path = schematic.CurrentSheet().Clone();
+      path.push_back(this);
+      currentSheet = schematic.CurrentSheet();
+      currentVariant = schematic.GetCurrentVariant();
+
+      aList.push(new MSG_PANEL_ITEM('Hierarchical Path', path.PathHumanReadable(false, true)));
+    }
+
+    // Don't use GetShownText(); we want to see the variable references here
+    aList.push(
+      new MSG_PANEL_ITEM('File Name', KIUI_EllipsizeStatusText(aFrame, this.GetFileName())),
+    );
+
+    const msgs: string[] = [];
+
+    if (this.GetExcludedFromSim()) msgs.push('Simulation');
+
+    if (this.GetExcludedFromBOM()) msgs.push('BOM');
+
+    if (this.GetExcludedFromBoard()) msgs.push('Board');
+
+    if (this.GetDNP(currentSheet, currentVariant)) msgs.push('DNP');
+
+    const msg = msgs.join(', ');
+
+    if (msg) aList.push(new MSG_PANEL_ITEM('Exclude from', msg));
   }
 
   /**
@@ -573,8 +618,6 @@ export class SCH_SHEET extends SCH_ITEM {
 
     return false;
   }
-
-  /** `GetMsgPanelInfo`: pending (the message panel). */
 
   /**
    * Checks if the sheet is vertically oriented: it has pins on the top or bottom edge and
