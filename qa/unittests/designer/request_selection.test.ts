@@ -388,11 +388,8 @@ const WIRING: { name: string; anchor: string; seam: RegExp }[] = [
     anchor: "if (e.key.toLowerCase() === 'd' && doc)",
     seam: /requestTarget\(SymbolItems\)/,
   },
-  {
-    name: 'properties (E)',
-    anchor: "if (e.key.toLowerCase() === 'e')",
-    seam: /requestTarget\(AnyItems\)/,
-  },
+  // 'properties (E)' left the window: the canvas's TOOL_DISPATCHER runs SCH_ACTIONS::properties
+  // on the live SCH_EDIT_TOOL::Properties, whose RequestSelection is the seam.
 ];
 
 describe('every editing command resolves its target through the one seam', () => {

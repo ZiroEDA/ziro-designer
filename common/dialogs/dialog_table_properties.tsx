@@ -24,7 +24,7 @@
  *  - the schematic's **stroke colours**, which a board table takes from its
  *    layer (`renderColor`);
  *  - which controls a switched-off line greys out (`borderEnabled` /
- *    `separatorEnabled`), which is `sch_table_properties.ts`'s rule.
+ *    `separatorEnabled`), which is the dialog's (`eeschema/dialogs/dialog_table_properties.tsx`).
  *
  * Left out, as before: KiCad's Scintilla cell editor with text-variable
  * auto-complete, and the merged-cell shading (a cell with a zero span is drawn

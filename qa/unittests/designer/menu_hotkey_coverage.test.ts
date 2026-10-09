@@ -551,13 +551,8 @@ const CANVAS_KEYS: Readonly<
       // the live SCH_EDIT_TOOL::EditField and stops the event there.
       ['D show datasheet', /showDatasheet/],
       ['O autoplace fields', /autoplaceFields/],
-      // The E arm no longer reads `selection` directly: like every other
-      // editing command it asks `RequestSelection` for its target, so the id it
-      // opens comes from the seam. What this guard is for is unchanged — the E
-      // key must still reach Properties, because it has no menu row — so it is
-      // anchored on the arm's own `if` and on the call inside it rather than on
-      // the expression that happened to spell the id.
-      ['E properties', /if \(e\.key\.toLowerCase\(\) === 'e'\) \{[\s\S]{0,800}?openProperties\(/],
+      // E left this chain like U V F: the GL canvas's TOOL_DISPATCHER runs SCH_ACTIONS::properties
+      // (RunHotKey) on the live SCH_EDIT_TOOL::Properties, and every properties dialog is live.
       ['Esc cancel', /e\.key === 'Escape'/],
     ],
   },

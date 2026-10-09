@@ -79,4 +79,3 @@ export * from './table_cells.js';
 export * from './table_layout.js';
 export * from './table_edit.js';
 export * from './table_cell_props.js';
-export * from './sch_table_properties.js';

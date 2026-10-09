@@ -9,6 +9,7 @@ import type { SCH_COMMIT } from './sch_commit.js';
 import type { SCH_FIELD } from './sch_field.js';
 import type { SCH_SHEET } from './sch_sheet.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
+import type { SCH_TABLE } from './sch_table.js';
 import type { SHEET_PROPERTIES_RESULT } from './sch_edit_frame.js';
 import type { SCH_BITMAP } from './sch_bitmap.js';
 import type { SCH_SHAPE } from './sch_shape.js';
@@ -198,7 +199,6 @@ import {
   ProjectHistory,
   type Schematic,
   type SchImage,
-  type SchTable,
   type LibSymbol,
   type SchSymbol,
   type EditCommand,
@@ -421,12 +421,10 @@ import { NetNavigatorPanel } from './widgets/net_navigator_panel.js';
 import { DialogUpdateFromPcb } from './dialogs/dialog_update_from_pcb.js';
 import { DialogSyncSheetPins, type SyncSheetEntry } from './dialogs/dialog_sync_sheet_pins.js';
 import {
-  applySchTableValues,
-  collectSchTableValues,
-  tableWithValues,
-  type SchTableValues,
-} from './tools/sch_table_properties.js';
-import { DialogTableProperties } from './dialogs/dialog_table_properties.js';
+  DIALOG_TABLE_PROPERTIES,
+  DialogTableProperties,
+  type SCH_TABLE_DIALOG_VALUES,
+} from './dialogs/dialog_table_properties.js';
 import { DialogImportGfx } from './import_gfx/dialog_import_gfx_sch.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { MsgPanel } from '@ziroeda/common/widgets/msgpanel_ui.js';
@@ -1146,6 +1144,12 @@ export function SchematicEditor({
     preselect: string;
     resolve: (aLibId: string | null) => void;
   } | null>(null);
+  const [tableDialog, setTableDialog] = useState<{
+    dlg: DIALOG_TABLE_PROPERTIES;
+    shown: SCH_TABLE_DIALOG_VALUES;
+    isNew: boolean;
+    resolve: (aId: number) => void;
+  } | null>(null);
   const [textDialog, setTextDialog] = useState<{
     dlg: DIALOG_TEXT_PROPERTIES;
     shown: TextPropsInitial;
@@ -1168,9 +1172,6 @@ export function SchematicEditor({
    * rather than in the document, because Cancel throws it away —
    * `else { delete table; }` — so it must not be committed first.
    */
-  const [tableProps, setTableProps] = useState<
-    { kind: 'new'; table: SchTable } | { kind: 'edit'; index: number } | null
-  >(null);
   // The image riding the cursor, built once when the file is chosen and
   // re-placed each frame (SCH_DRAWING_TOOLS::PlaceImage keeps one SCH_BITMAP
   // and moves it), so its identity — and the renderer's decode of it — survives.
@@ -1794,6 +1795,18 @@ export function SchematicEditor({
             setChangeSymbolsDialog({ dlg, resolve });
             void dlg.TransferDataToWindow();
           });
+        }
+        if (aDialog === 'DIALOG_TABLE_PROPERTIES') {
+          const table = _aItems[0] as SCH_TABLE;
+          const dlg = new DIALOG_TABLE_PROPERTIES(schFrameRef.current!, table);
+          return new Promise<number>((resolve) =>
+            setTableDialog({
+              dlg,
+              shown: dlg.TransferDataToWindow(),
+              isNew: table.IsNew(),
+              resolve,
+            }),
+          );
         }
         if (aDialog === 'DIALOG_JUNCTION_PROPS') {
           const junctions = _aItems as SCH_JUNCTION[];
@@ -4467,47 +4480,6 @@ export function SchematicEditor({
     setFindStatus('');
   }, [searchData, runCommand, currentFile, libById]);
 
-  // KiCad's Properties action: symbols have a full properties dialog; a text box
-  // reopens its text editor (double-click = edit).
-  const onEditItem = useCallback(
-    (id: string, kind: ItemRef['kind']) => {
-      if (kind === 'table' && doc) {
-        // `SCH_EDIT_TOOL::Properties` opens DIALOG_TABLE_PROPERTIES for a whole
-        // table; a selected cell opens the cell dialog instead.
-        const idx = doc.tables.findIndex((t, i) => refId('table', t.uuid, i) === id);
-        if (idx !== -1) setTableProps({ kind: 'edit', index: idx });
-      }
-      // Double-clicking a sheet enters it (KiCad's Enter Sheet).
-      if (kind === 'sheet' && doc) {
-        const idx = doc.sheets.findIndex((sh, i) => refId('sheet', sh.uuid, i) === id);
-        if (idx !== -1) {
-          const sh = doc.sheets[idx]!;
-          const file = sheetFile(sh);
-          // Descend from the current instance path (KiCad's SCH_SHEET_PATH push).
-          if (file) switchSheet(`${currentPath}${sh.uuid || `i${idx}`}/`, file);
-        }
-      }
-    },
-    [doc, currentPath, switchSheet],
-  );
-
-  // SCH_EDIT_TOOL::Properties, route a single item to its properties dialog:
-  // symbols open the full symbol dialog, labels/text boxes/tables their
-  // editors, wires/junctions/sheets their small dialogs. Shared by the E
-  // hotkey and the selection context menu, like the upstream action.
-  const openProperties = useCallback(
-    (id: string) => {
-      setDoc((d) => {
-        if (!d) return d;
-        if (d.textBoxes.some((tb, i) => refId('textbox', tb.uuid, i) === id))
-          onEditItem(id, 'textbox');
-        else if (d.tables.some((t, i) => refId('table', t.uuid, i) === id)) onEditItem(id, 'table');
-        return d;
-      });
-    },
-    [onEditItem],
-  );
-
   const openFile = useCallback(
     (file: File) => {
       if (!/\.kicad_sch$/i.test(file.name)) {
@@ -5932,46 +5904,6 @@ export function SchematicEditor({
   );
   gridSizeIURef.current = gridSizeIU;
 
-  /**
-   * What the open table dialog starts from, either half of the two entry points,
-   * plus the table's column widths — `sizeGridToTable` lays the cell grid out in
-   * the table's own proportions.
-   */
-  const tablePropsInitial = useMemo(() => {
-    if (!tableProps) return null;
-    const t = tableProps.kind === 'new' ? tableProps.table : doc?.tables[tableProps.index];
-    return t ? { values: collectSchTableValues(t), colWidths: t.colWidths } : null;
-  }, [tableProps, doc]);
-
-  /**
-   * OK. A new table is added and selected, then the point editor takes over:
-   *
-   *     commit.Add( table, m_frame->GetScreen() );
-   *     commit.Push( _( "Draw Table" ) );
-   *     m_selectionTool->AddItemToSel( table );
-   *     m_toolMgr->PostAction( ACTIONS::activatePointEditor );
-   *
-   * An existing one is just modified in place.
-   */
-  const commitTableProps = useCallback(
-    (v: SchTableValues) => {
-      setTableProps((tp) => {
-        if (!tp) return null;
-        if (tp.kind === 'edit') {
-          runCommand(applySchTableValues(tp.index, v));
-          return null;
-        }
-        const table = tableWithValues(tp.table, v);
-        const at = docRef.current?.tables.length ?? 0;
-        runCommand(addItems({ tables: [table] }));
-        setSelection(new Set([refId('table', table.uuid, at)]));
-        setActiveTool('select');
-        return null;
-      });
-    },
-    [runCommand],
-  );
-
   /** A label was dropped: take the next of a multi-label run, else stop. */
   // What F1 repeats: the items the last placement produced
   // (SCH_EDIT_FRAME::GetRepeatItems).
@@ -6823,24 +6755,6 @@ export function SchematicEditor({
             return;
           }
         }
-        // E = Properties (KiCad SCH_ACTIONS::properties) on a single selected
-        // item (openProperties routes by item kind).
-        if (e.key.toLowerCase() === 'e') {
-          // `SCH_EDIT_TOOL::Properties` (sch_edit_tool.cpp:2569-2571):
-          //
-          //     SCH_SELECTION& selection = m_selectionTool->RequestSelection();
-          //     bool           clearSelection = selection.IsHover();
-          //
-          // Unfiltered, and the hover it may have picked up is cleared once the
-          // dialog returns.
-          const ids = requestTarget(AnyItems);
-          if (ids.size === 1) {
-            e.preventDefault();
-            openProperties([...ids][0]!);
-            finishCommand();
-            return;
-          }
-        }
         // A, P, W, B, Z, Q, J, L, H, S, T and I used to be dispatched here
         // out of TOOL_HOTKEYS, and every one of them is also a Place menu row
         // carrying the same key. The row is the declaration now; the map stays
@@ -6879,7 +6793,6 @@ export function SchematicEditor({
     searchData,
     doFind,
     openFindDialog,
-    openProperties,
     toggles,
     endSyncPlacement,
     requestTarget,
@@ -8645,15 +8558,21 @@ export function SchematicEditor({
           }}
         />
       )}
-      {tableProps && tablePropsInitial && (
+      {/* DIALOG_TABLE_PROPERTIES on a live table (DrawTable, Properties, EditTable). */}
+      {tableDialog && (
         <DialogTableProperties
-          initial={tablePropsInitial.values}
-          columnWidths={tablePropsInitial.colWidths}
-          isNew={tableProps.kind === 'new'}
-          onOk={commitTableProps}
-          // Cancel on a freshly drawn table discards it — `delete table;` —
-          // which is why it was never added to the document in the first place.
-          onCancel={() => setTableProps(null)}
+          dlg={tableDialog.dlg}
+          initial={tableDialog.shown}
+          isNew={tableDialog.isNew}
+          onOk={(values) => {
+            if (!tableDialog.dlg.TransferDataFromWindow(values)) return;
+            setTableDialog(null);
+            tableDialog.resolve(wxID_OK);
+          }}
+          onCancel={() => {
+            setTableDialog(null);
+            tableDialog.resolve(wxID_CANCEL);
+          }}
         />
       )}
 
