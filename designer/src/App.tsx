@@ -44,6 +44,8 @@ import { fileForFrame, type ProjectView, type Route } from './nav/route.js';
 import { installSettingsSync } from './cloud/settingsSync.js';
 import type { DemoMeta } from './home/demos.js';
 import { useAuth } from './auth/AuthProvider.js';
+import { authEnabled } from './auth/supabaseClient.js';
+import { goToAuth } from './auth/explore.js';
 import {
   reportCloudFailed,
   reportCloudOk,
@@ -1474,13 +1476,21 @@ export function App(): JSX.Element {
 
   /** KiCad shows "Schematic is read only." as a strip above the canvas; this is
    *  the same place and the same skin, plus the action that resolves it. */
-  const demoNotice = demoProject ? (
+  // Signed out (#639) there is no account to save a copy into: the strip's
+  // action is the sign-up page, which brings them back to this demo.
+  const demoNotice = !demoProject ? null : authEnabled && !session ? (
+    <ReadOnlyNotice
+      message="Demo project. Edits are not being saved."
+      actionLabel="Sign up to save"
+      onAction={() => goToAuth(navigate, route, 'signup')}
+    />
+  ) : (
     <ReadOnlyNotice
       message="Demo project. Edits are not being saved."
       actionLabel="Save a copy"
       onAction={saveDemoCopy}
     />
-  ) : null;
+  );
 
   /** File > Close Project, for the whole app: the editors drop the project too,
    *  not only the manager's tree. */

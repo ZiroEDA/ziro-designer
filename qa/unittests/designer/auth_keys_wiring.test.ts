@@ -18,6 +18,20 @@ import {
   storeWrappedAccount,
 } from '@ziroeda/designer/src/auth/account_keys.js';
 import { createAccount } from '@ziroeda/designer/src/cloud/crypto.js';
+import { gateView, type GateState } from '@ziroeda/designer/src/auth/explore.js';
+
+/** A signed-in user who never explored, in the state given: AuthGate's decision. */
+const signedIn = (st: Partial<GateState>) =>
+  gateView({
+    authEnabled: true,
+    loading: false,
+    hasSession: true,
+    keyState: 'unlocked',
+    pendingRecoveryKey: false,
+    recovering: false,
+    explorable: true,
+    ...st,
+  });
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
@@ -144,8 +158,8 @@ describe('AuthProvider: the server never gets the password', () => {
   it('the reset link lands on /recover, and the wall holds until recovery is done', () => {
     expect(SRC).toContain('redirectTo: `${window.location.origin}/recover`,');
     expect(SRC).toContain("if (event === 'PASSWORD_RECOVERY') setRecovering(true);");
-    const gate = read('auth/AuthGate.tsx');
-    expect(gate).toMatch(/!session \|\|\s*recovering \|\|/);
+    // AuthGate's decision lives in gateView (auth/explore.ts) since #639.
+    expect(signedIn({ recovering: true }).view).toBe('wall');
   });
 
   it('signing out forgets the master key in the tab', () => {
@@ -249,7 +263,9 @@ describe('AuthGate: the wall stands until the keys are in the tab', () => {
     // The real app blurred behind the wall loaded the project and put its
     // file names in the DOM under a CSS blur, readable with devtools before
     // any password. Only the sign-in panel and the backdrop are rendered.
-    const walled = SRC.slice(SRC.indexOf('if (gated) {'), SRC.indexOf('return <>{children}</>'));
+    const start = SRC.indexOf("if (g.view === 'wall') {");
+    expect(start).toBeGreaterThan(-1);
+    const walled = SRC.slice(start, SRC.indexOf('return <>{children}</>', start));
     expect(walled).toContain('<GateBackdrop />');
     expect(walled).not.toContain('{children}');
     const backdrop = read('auth/GateBackdrop.tsx');
@@ -263,9 +279,13 @@ describe('AuthGate: the wall stands until the keys are in the tab', () => {
   });
 
   it('holds on locked, on none, and while the recovery key waits to be read', () => {
-    expect(SRC).toMatch(
-      /!session \|\|\s*recovering \|\|\s*keyState === 'locked' \|\|\s*keyState === 'none' \|\|\s*pendingRecoveryKey !== null/,
+    expect(signedIn({ keyState: 'locked' }).view).toBe('wall');
+    expect(signedIn({ keyState: 'none' }).view).toBe('wall');
+    expect(signedIn({ pendingRecoveryKey: true }).view).toBe('wall');
+    expect(signedIn({ hasSession: false, keyState: 'absent', explorable: false }).view).toBe(
+      'wall',
     );
+    expect(signedIn({}).view).toBe('app');
   });
 
   it('sends a signed-in visitor to unlock, or to the recovery key first', () => {
@@ -275,7 +295,10 @@ describe('AuthGate: the wall stands until the keys are in the tab', () => {
   });
 
   it('does not send anyone onward while the keys are still being asked for', () => {
-    expect(SRC).toContain("const settling = !!session && keyState === 'loading';");
-    expect(SRC).toContain('if (!session || gated || settling || restored.current) return;');
+    const loading = signedIn({ keyState: 'loading' });
+    expect(loading.view).toBe('splash');
+    expect(loading.routeToWall).toBe(false);
+    // The onward restore waits until the gate would draw the app.
+    expect(SRC).toContain("if (!session || g.view !== 'app' || restored.current) return;");
   });
 });

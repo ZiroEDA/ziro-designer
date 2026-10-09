@@ -34,7 +34,9 @@ import {
 } from '../fs/chooser_places.js';
 import { useAuth } from '../auth/AuthProvider.js';
 import { authEnabled } from '../auth/supabaseClient.js';
-import { SignInDialog } from '../auth/SignIn.js';
+import { goToAuth } from '../auth/explore.js';
+import type { AuthStep } from '../nav/route.js';
+import { useRoute } from '../nav/useRoute.js';
 import {
   syncAllProjects,
   pushProject,
@@ -296,7 +298,9 @@ export function HomePage({
   // Guest-first: sign-in is offered, never forced. The dialog opens from the
   // header button or the local-only nudge; the nudge shows once the guest has
   // real work at stake (a saved project) and stays dismissed once closed.
-  const [signInOpen, setSignInOpen] = useState(false);
+  // Signing in or up is the full page (#639), coming back here once through.
+  const { route, navigate } = useRoute();
+  const toAuth = (step: AuthStep): void => goToAuth(navigate, route, step);
   const [guestNudgeDismissed, setGuestNudgeDismissed] = useState(() => {
     try {
       return localStorage.getItem('ziro.guestNudgeDismissed') === '1';
@@ -1148,9 +1152,21 @@ export function HomePage({
   // KiCad writes, .kicad_pro, root .kicad_sch, .kicad_pcb), show it in the
   // manager tree, and persist it like an opened project. KiCad leaves the new
   // project in the manager; the user then launches an editor from a tile.
-  const openNewProjectDialog = (): void => {
+  /**
+   * Anything that makes or keeps a project needs an account (#639). Signed
+   * out, the action is the sign-up page instead, which brings them back here;
+   * once signed in, the same click does what it says.
+   */
+  const accountFirst =
+    <A extends unknown[]>(fn: (...args: A) => void) =>
+    (...args: A): void => {
+      if (authEnabled && !session) toAuth('signup');
+      else fn(...args);
+    };
+
+  const openNewProjectDialog = accountFirst((): void => {
     setTplStep('template');
-  };
+  });
 
   // Upstream v10 NewProject flow: the template selector creates the project,
   // the built-in "Default" template scaffolds the three blank project files,
@@ -1498,7 +1514,7 @@ export function HomePage({
         void archiveProject();
         break;
       case 'unarchive':
-        zipInputRef.current?.click();
+        accountFirst(() => zipInputRef.current?.click())();
         break;
       case 'refresh':
         refreshSaved();
@@ -1841,7 +1857,7 @@ export function HomePage({
   const menus: Menu[] = buildManagerMenus({
     newProject: openNewProjectDialog,
     openProject: () => setOpenPrjOpen(true),
-    selectProjectFiles: () => filesInputRef.current?.click(),
+    selectProjectFiles: accountFirst(() => filesInputRef.current?.click()),
     openRecent: (id) => void openStored(id),
     clearRecent: () => void clearRecent(),
     closeProject: () => {
@@ -1850,9 +1866,9 @@ export function HomePage({
     },
     restoreLocalHistory: () => setRestoreListOpen(true),
     hasLocalHistory: history.length > 0,
-    saveAs: () => void saveAsProject(),
+    saveAs: accountFirst(() => void saveAsProject()),
     archiveProject: () => void archiveProject(),
-    unarchiveProject: () => zipInputRef.current?.click(),
+    unarchiveProject: accountFirst(() => zipInputRef.current?.click()),
     refresh: refreshSaved,
     toggleLocalHistory: () => setHistoryShown((v) => !v),
     localHistoryShown: historyShown,
@@ -1971,11 +1987,7 @@ export function HomePage({
               <ShareButton projectId={openProjectId} projectName={projName || 'this project'} />
             ) : null
           ) : authEnabled ? (
-            <button
-              type="button"
-              className="ze-account-signout"
-              onClick={() => setSignInOpen(true)}
-            >
+            <button type="button" className="ze-account-signout" onClick={() => toAuth('signin')}>
               Sign in
             </button>
           ) : null
@@ -1985,7 +1997,12 @@ export function HomePage({
       <div
         className="ze-home-body"
         onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => void onDropProject(e)}
+        onDrop={(e) => {
+          // Always: an explorer's drop must not fall through to the browser,
+          // which would navigate away to the dropped file.
+          e.preventDefault();
+          accountFirst(() => void onDropProject(e))();
+        }}
       >
         {/* far-left vertical toolbar */}
         <div className="ze-mgrbar">
@@ -2372,10 +2389,10 @@ export function HomePage({
 
       {/* Guest nudge: once there's real work at stake (a saved project) and no
           account, offer, never force, signing in so it's backed up. */}
-      {authEnabled && !session && !guestNudgeDismissed && saved.length > 0 && !signInOpen && (
+      {authEnabled && !session && !guestNudgeDismissed && saved.length > 0 && (
         <div className="ze-guest-nudge">
           <span>Your projects are saved on this device only.</span>
-          <button type="button" className="ze-btn primary" onClick={() => setSignInOpen(true)}>
+          <button type="button" className="ze-btn primary" onClick={() => toAuth('signin')}>
             Sign in to back them up
           </button>
           <span className="x" title="Dismiss" onClick={dismissGuestNudge}>
@@ -2383,8 +2400,6 @@ export function HomePage({
           </span>
         </div>
       )}
-
-      {signInOpen && <SignInDialog onClose={() => setSignInOpen(false)} />}
 
       {/* The outcome of following a share link. Its own pill rather than folded
           into the sync one: the reader deliberately clicked a link and is
