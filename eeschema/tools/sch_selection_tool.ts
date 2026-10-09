@@ -94,7 +94,11 @@ import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.
 import { SHAPE_RECT } from '@ziroeda/kimath/src/geometry/shape_rect.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import type { Vec2 as VECTOR2D, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import {
+  toVECTOR2I,
+  type Vec2 as VECTOR2D,
+  type VECTOR2I,
+} from '@ziroeda/kimath/src/math/vector2.js';
 import { DEFAULT_TEXT_SIZE } from '../default_values.js';
 import { id_eeschema_frm } from '../eeschema_id.js';
 import type { SCH_BASE_FRAME } from '../sch_base_frame.js';
@@ -1395,6 +1399,8 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
     aWhere: VECTOR2I,
     aScanTypes: readonly KICAD_T[] = [KICAD_T.SCH_LOCATE_ANY_T],
   ): boolean {
+    // `const VECTOR2I& aWhere`: the event's VECTOR2D position is cast on the way in.
+    aWhere = toVECTOR2I(aWhere);
     const pixelThreshold = KiROUND(this.getView()!.ToWorld(HITTEST_THRESHOLD_PIXELS) as number);
     const gs = this.getView()!.GetGAL()!.GetGridSize();
     const gridThreshold = KiROUND(Math.hypot(gs.x, gs.y) / 2.0);
@@ -1443,6 +1449,8 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
     aSelectedOnly = false,
     aRejected: SCH_SELECTION_FILTER_OPTIONS | null = null,
   ): void {
+    // `const VECTOR2I& aWhere`: the event's VECTOR2D position is cast on the way in.
+    aWhere = toVECTOR2I(aWhere);
     const symbolEditorFrame = this.m_frame instanceof SYMBOL_EDIT_FRAME ? this.m_frame : null;
 
     for (let i = collector.GetCount() - 1; i >= 0; --i) {
@@ -1500,6 +1508,8 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
     aSubtract = false,
     aExclusiveOr = false,
   ): COROUTINE_BODY<boolean> {
+    // `const VECTOR2I& aWhere`: the event's VECTOR2D position is cast on the way in.
+    aWhere = toVECTOR2I(aWhere);
     this.m_selection.ClearReferencePoint();
 
     // If still more than one item we're going to have to ask the user.
@@ -1610,6 +1620,8 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
     aSubtract = false,
     aExclusiveOr = false,
   ): COROUTINE_BODY<boolean> {
+    // `const VECTOR2I& aWhere`: the event's VECTOR2D position is cast on the way in.
+    aWhere = toVECTOR2I(aWhere);
     const collector = new SCH_COLLECTOR();
 
     if (!this.CollectHits(collector, aWhere, aScanTypes)) return false;
@@ -1748,6 +1760,9 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
 
   /** Apply heuristics to try and determine a single object when multiple are found under the cursor. */
   GuessSelectionCandidates(collector: SCH_COLLECTOR, aPos: VECTOR2I): void {
+    // `const VECTOR2I& aPos`: the event's VECTOR2D position is cast on the way in.
+    aPos = toVECTOR2I(aPos);
+
     // Prefer exact hits to sloppy ones
     const exactHits = new Set<EDA_ITEM>();
 
@@ -3468,6 +3483,8 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
 
   /** Whether \a aPoint is within (a grip margin of) any selected item's view box. */
   private selectionContains(aPoint: VECTOR2I): boolean {
+    // `const VECTOR2I& aPoint`: the event's VECTOR2D position is cast on the way in.
+    aPoint = toVECTOR2I(aPoint);
     const GRIP_MARGIN = 20;
     const margin = KiROUND(this.getView()!.ToWorld(GRIP_MARGIN) as number);
 

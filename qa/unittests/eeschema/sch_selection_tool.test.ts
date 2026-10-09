@@ -8,7 +8,7 @@
 import { resolve } from 'node:path';
 import { ENDPOINT, STARTPOINT } from '@ziroeda/common/eda_item_flags.js';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
-import { MD_CTRL, MD_SHIFT } from '@ziroeda/common/tool/tool_event.js';
+import { MD_CTRL, MD_SHIFT, TA_MOUSE_MOTION } from '@ziroeda/common/tool/tool_event.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
@@ -18,6 +18,7 @@ import {
   click,
   drag,
   MM,
+  mouse,
   openProject,
   type SCH_HARNESS,
   schToolHarness,
@@ -57,6 +58,38 @@ function loneSymbol(h: ReturnType<typeof setUp>, aSkip = 0): SCH_SYMBOL {
 const centre = (s: SCH_SYMBOL) => s.GetBodyBoundingBox().GetCenter();
 
 describe('SCH_SELECTION_TOOL', () => {
+  it('hovering a wire at a fractional position leaves the tool alive to select', () => {
+    // The rollover pass runs CollectHits and narrowSelection on every motion event: uncast, the
+    // first hover over a wire threw and killed the tool before any click.
+    const h = setUp();
+    const wire = wires(h).find((l) => l.GetStartPoint().y === l.GetEndPoint().y)!;
+    const over = {
+      x: (wire.GetStartPoint().x + wire.GetEndPoint().x) / 2 + 0.37,
+      y: wire.GetStartPoint().y + 0.61,
+    };
+
+    mouse(h, TA_MOUSE_MOTION, over);
+    click(h, { x: Math.round(over.x), y: Math.round(over.y) });
+
+    expect(h.tool.GetSelection().GetItems()).toContain(wire);
+  });
+
+  it('selects a wire clicked at a fractional pointer position (VECTOR2I aWhere)', () => {
+    // The pointer maps to doubles; CollectHits/selectPoint take `const VECTOR2I&` upstream, so
+    // the position is cast on the way in. Uncast, the wire's TestSegmentHit took BigInt of a
+    // fraction, threw, and the selection tool's coroutine died - every later click did nothing.
+    const h = setUp();
+    const wire = wires(h).find((l) => l.GetStartPoint().y === l.GetEndPoint().y)!;
+    const mid = {
+      x: (wire.GetStartPoint().x + wire.GetEndPoint().x) / 2 + 0.37,
+      y: wire.GetStartPoint().y + 0.61,
+    };
+
+    click(h, mid);
+
+    expect(h.tool.GetSelection().GetItems()).toContain(wire);
+  });
+
   it('selects the symbol clicked, and only it', () => {
     const h = setUp();
     const sym = loneSymbol(h);
