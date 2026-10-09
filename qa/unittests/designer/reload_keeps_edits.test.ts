@@ -228,7 +228,9 @@ describe('the manager raises an open project; it does not re-open it', () => {
     expect(APP).toMatch(
       /onOpenProject=\{\(files, start, demo\) => \{\s*raiseOrOpen\(files, start\);/,
     );
-    expect(APP.match(/raiseOrOpen\(files\);/g)?.length).toBe(3);
+    // Plus Import Non-KiCad Project's board half (onImportNonKicadBoard), which
+    // opens the new project's board the way the board launcher does.
+    expect(APP.match(/raiseOrOpen\(files\);/g)?.length).toBe(4);
   });
 
   it('the manager is rendered beside the frames, never instead of them', () => {

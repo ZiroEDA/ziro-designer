@@ -47,6 +47,13 @@ import {
 import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
 import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
+import {
+  IMPORT_FORMATS,
+  acceptFor,
+  importProjectFiles,
+  planImport,
+  type ImportFormat,
+} from './import_project.js';
 import type { AuthStep } from '../nav/route.js';
 import {
   syncAllProjects,
@@ -199,6 +206,7 @@ export function HomePage({
   onOpenSchematic,
   onOpenProject,
   onOpenPcb,
+  onImportNonKicadBoard,
   onOpenSymbolEditor,
   onOpenFootprintEditor,
   onOpenCalculator,
@@ -222,6 +230,16 @@ export function HomePage({
     demo?: DemoMeta | null,
   ) => void;
   onOpenPcb?: (file: PickedHomeFile, files?: PickedHomeFile[]) => void;
+  /**
+   * Import Non-KiCad Project's board half: open the new project's board in the
+   * board editor and mail it the foreign file to import into it
+   * (`IMPORT_PROJ_HELPER::doImport` -> `MAIL_IMPORT_FILE`).
+   */
+  onImportNonKicadBoard?: (
+    board: PickedHomeFile,
+    files: PickedHomeFile[],
+    foreign: { path: string; bytes: Uint8Array },
+  ) => void;
   /** Launch the Symbol Editor (with the open project's libraries, if any).
    *  `startFile` is a `.kicad_sym` to open straight away (KiCad's MAIL_LIB_EDIT). */
   onOpenSymbolEditor?: (files?: PickedHomeFile[], startFile?: string) => void;
@@ -328,6 +346,9 @@ export function HomePage({
   };
   const dirInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
+  /** File > Import Non-KiCad Project's chooser, and the format it was opened for. */
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const importFormatRef = useRef<ImportFormat | null>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   // The picked project's files (shown in the tree until the editor is launched).
   const [picked, setPicked] = useState<PickedHomeFile[] | null>(initialFiles ?? null);
@@ -660,6 +681,51 @@ export function HomePage({
     setSyncState(
       failed.length > 0 ? { failures: failures.filter((f) => failed.includes(f.message)) } : null,
     );
+  };
+
+  /**
+   * `KICAD_MANAGER_FRAME::ImportNonKiCadProject` from the files chosen
+   * (home/import_project.ts decides; this does). The project is created
+   * (`CreateNewProject`, no stub files) and opened, then each half goes to the
+   * editor that imports it, as `IMPORT_PROJ_HELPER::ImportFiles` mails them.
+   */
+  const importNonKicad = async (aFormat: ImportFormat, aList: readonly File[]): Promise<void> => {
+    const picked = await Promise.all(
+      aList.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })),
+    );
+    const desc = IMPORT_FORMATS[aFormat];
+    const plan = planImport(aFormat, picked, new Set(saved.map((p) => p.name)));
+    if (!plan) {
+      DisplayErrorMessage(
+        `None of the files chosen is of the type ${desc.wildcard().label}.`,
+        `${desc.title}: choose the project file, together with the files it uses.`,
+      );
+      return;
+    }
+    if (plan.missing.length > 0) {
+      DisplayErrorMessage(
+        `${plan.input.name} names files that were not chosen: ${plan.missing.join(', ')}.`,
+        'Choose them together with the project file: a browser can only read the files it is given.',
+      );
+      return;
+    }
+    const files = importProjectFiles(plan);
+    await ingest(
+      files.map((f) => ({ name: f.name, bytesOf: async () => f.bytes! })),
+      true,
+    );
+    // The schematic importers are not on this branch yet (eeschema/sch_io);
+    // say what was and was not brought in rather than leave the sheet missing
+    // without a word.
+    if (plan.schematics.length > 0)
+      DisplayErrorMessage(
+        plan.board
+          ? `${desc.menuLabel.replace(/\.\.\.$/, '')} schematics cannot be imported yet, so only the board will be.`
+          : `${desc.menuLabel.replace(/\.\.\.$/, '')} schematics cannot be imported yet.`,
+      );
+    const board = files.find((f) => f.name.endsWith('.kicad_pcb'));
+    if (plan.board && board)
+      onImportNonKicadBoard?.(board, files, { path: plan.board.name, bytes: plan.board.bytes });
   };
 
   /** File > Open Project from GitHub...'s link dialog (#640). */
@@ -1902,6 +1968,15 @@ export function HomePage({
     newProject: openNewProjectDialog,
     openProject: () => setOpenPrjOpen(true),
     selectProjectFiles: accountFirst(() => filesInputRef.current?.click()),
+    // Importing makes a project, so it is an account's (#639). The chooser has
+    // to open inside the click, so `accept` is set and it is clicked right here.
+    importNonKicadProject: accountFirst((aFormat: ImportFormat) => {
+      const input = importInputRef.current;
+      if (!input) return;
+      importFormatRef.current = aFormat;
+      input.accept = acceptFor(aFormat);
+      input.click();
+    }),
     openRecent: (id) => void openStored(id),
     clearRecent: () => void clearRecent(),
     closeProject: () => {
@@ -1988,6 +2063,20 @@ export function HomePage({
         onChange={(e) => {
           void onPicked(e.target.files);
           e.target.value = '';
+        }}
+      />
+      <input
+        ref={importInputRef}
+        type="file"
+        multiple
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          // Copied first: a FileList is live, and clearing the value (so the
+          // same file can be chosen again) empties it.
+          const list = e.target.files ? [...e.target.files] : [];
+          const format = importFormatRef.current;
+          e.target.value = '';
+          if (list.length > 0 && format) void importNonKicad(format, list);
         }}
       />
       <input

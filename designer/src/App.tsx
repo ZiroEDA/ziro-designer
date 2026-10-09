@@ -471,6 +471,15 @@ export function App(): JSX.Element {
    * chunk) re-initialise from the user's work rather than from the file.
    */
   const [openNonce, setOpenNonce] = useState(0);
+  /**
+   * `MAIL_IMPORT_FILE` for the board editor: Import Non-KiCad Project's board,
+   * delivered once per nonce (PcbEditor.importFileRequest).
+   */
+  const [importFileRequest, setImportFileRequest] = useState<{
+    path: string;
+    bytes: Uint8Array;
+    nonce: number;
+  } | null>(null);
   /** Open a project: replace the file set, drop the previous one's edits, and
    *  tell the editors this is an open and not just a state change. */
   const openProjectFiles = useCallback((files: PickedFile[] | null) => {
@@ -1771,6 +1780,15 @@ export function App(): JSX.Element {
           setSchMounted(true);
           setView('schematic');
         }}
+        onImportNonKicadBoard={(_board, files, foreign) => {
+          // The new project's board, opened as any project board is, and the
+          // foreign file mailed to it: `doImport( pcb, FRAME_PCB_EDITOR, type )`.
+          raiseOrOpen(files);
+          setStandalonePcb(null);
+          setImportFileRequest((r) => ({ ...foreign, nonce: (r?.nonce ?? 0) + 1 }));
+          setPcbMounted(true);
+          setView('pcb');
+        }}
         onOpenPcb={(file, files) => {
           if (files) {
             // The OPEN PROJECT's board (`onOpenPcb(pcbFile, picked)`), so
@@ -1936,6 +1954,7 @@ export function App(): JSX.Element {
                 onBoardChange={(text: string) => onProjectChange([{ name: boardFile.name, text }])}
                 registerAutosaveFlush={registerPcbFlush}
                 openNonce={openNonce}
+                importFileRequest={importFileRequest}
                 shown={view === 'pcb'}
                 onSaveBoard={(text: string) => {
                   const name = boardFile.name;

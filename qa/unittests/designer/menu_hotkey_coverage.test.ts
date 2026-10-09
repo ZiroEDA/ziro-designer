@@ -848,6 +848,7 @@ function managerFixture(hasProject: boolean) {
     showHotkeys: spy('showHotkeys'),
     openDemo: spy('openDemo'),
     openFromGithub: spy('openFromGithub'),
+    importNonKicadProject: spy('importNonKicadProject'),
     hasProject,
     hasTextFileSelected: false,
     recent: [],

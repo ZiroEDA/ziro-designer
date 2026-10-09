@@ -1039,6 +1039,7 @@ export function PcbEditor({
   onBoardChange,
   registerAutosaveFlush,
   openNonce,
+  importFileRequest,
   shown = true,
   projectName,
   projectFiles,
@@ -1095,6 +1096,13 @@ export function PcbEditor({
    * changed identity.
    */
   openNonce?: number;
+  /**
+   * `MAIL_IMPORT_FILE` (`PCB_EDIT_FRAME::KiwayMailIn` -> `importFile`): the
+   * project manager's Import Non-KiCad Project hands this frame another
+   * format's board to open into the new project. One per `nonce`; it runs
+   * once the frame's own open has finished, or that open would replace it.
+   */
+  importFileRequest?: { path: string; bytes: Uint8Array; nonce: number } | null;
   /**
    * Whether this frame is the one on screen.
    *
@@ -2708,6 +2716,97 @@ export function PcbEditor({
   const [importGfxDlg, setImportGfxDlg] = useState<{
     resolve: (aResult: IMPORT_GRAPHICS_RESULT | null) => void;
   } | null>(null);
+  /**
+   * `OpenProjectFiles( { file }, KICTL_NONKICAD_ONLY )` (files.cpp:476) for a
+   * file another format wrote: the importer builds the board
+   * (`ImportNonKicadBoard`), which replaces this one under the editor's file
+   * name - upstream keeps `previousBoardFileName` - and is modified, so the
+   * next save writes it into the project. Shared by File > Import > Non-KiCad
+   * Board File and the project manager's Import Non-KiCad Project
+   * (`MAIL_IMPORT_FILE` -> `importFile`, pcb_edit_frame.cpp), as upstream's two
+   * callers share OpenProjectFiles.
+   */
+  const importNonKicadFile = (aPath: string, aBytes: Uint8Array): void => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    void frame
+      .ImportNonKicadBoard(
+        aPath,
+        aBytes,
+        KICTL_NONKICAD_ONLY,
+        null,
+        (layers) =>
+          new Promise((resolve) =>
+            setMapLayersRequest({
+              layers,
+              done: (aMap, aKeep) => {
+                // `m_ImportKeepKiCadLayerNames = dlg.m_cbKeepKiCadLayerNames->GetValue()`
+                frame.GetPcbNewSettings().m_ImportKeepKiCadLayerNames = aKeep;
+                setMapLayersRequest(null);
+                resolve(aMap);
+              },
+            }),
+          ),
+      )
+      .then(({ board: kb, loadMessages, customRules }) => {
+        frame.Clear_Pcb();
+        frame.SetBoard(kb, false);
+        kb.BuildConnectivity();
+
+        // The `.kicad_dru` an importer writes beside the board (Eagle's class
+        // clearance matrix) becomes the project's rules file, as it does when
+        // KiCad then opens the board's project; persisted now, like Board Setup's.
+        let files = projectFilesNow();
+        const pro = findProjectPro(files, rootPro);
+
+        if (customRules !== '' && pro) {
+          const dru = findProjectDru(files, rootPro);
+          const name = dru?.name ?? druFileName(pro.name);
+          projectFileEditsRef.current.set(name, {
+            base: dru?.text ?? '',
+            text: customRules,
+          });
+          onPersistFiles?.([{ name, text: customRules }]);
+          files = dru
+            ? files.map((f) => (f === dru ? { name, text: customRules } : f))
+            : [...files, { name, text: customRules }];
+        }
+
+        syncProjectSettingsIntoBoard(
+          frame,
+          panelRef.current,
+          files,
+          rootPro,
+          false,
+          projectDirRef.current,
+        );
+        setBoardModel({ k: kb, fileName: fileNameRef.current });
+        setDirty(true);
+
+        if (loadMessages !== '') setInfoBarError(loadMessages.trimEnd());
+      })
+      .catch((e: unknown) =>
+        setInfoBarError(
+          `Error loading PCB '${aPath}'.\n${e instanceof Error ? e.message : String(e)}`,
+        ),
+      );
+  };
+
+  // `MAIL_IMPORT_FILE`, delivered once: after this frame's own open has
+  // claimed its file and finished (`parsedOpen` is the open, `loading` gone),
+  // or the 30 ms-deferred parse of the project's board would land on top of
+  // the imported one.
+  const importedNonce = useRef<number | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the request's nonce is the trigger; importNonKicadFile reads this render's frame through refs
+  useEffect(() => {
+    const req = importFileRequest;
+    if (!req || !shown || loading !== null) return;
+    if (importedNonce.current === req.nonce) return;
+    if (parsedOpen.current !== `${openNonce ?? 0} ${fileName}`) return;
+    importedNonce.current = req.nonce;
+    importNonKicadFile(req.path, req.bytes);
+  }, [importFileRequest?.nonce, shown, loading, openNonce, fileName]);
+
   /** File > Import > Non-KiCad Board File: the chooser's type combo while it is up. */
   const [nonKicadFilters, setNonKicadFilters] = useState<ChooserFilter[] | null>(null);
   // DIALOG_MAP_LAYERS::RunModal, asked for by a layer-mappable importer mid-load
@@ -7323,67 +7422,7 @@ export function PcbEditor({
 
             if (!file || !frame) return;
 
-            void frame
-              .ImportNonKicadBoard(
-                file.path,
-                file.bytes,
-                KICTL_NONKICAD_ONLY,
-                null,
-                (layers) =>
-                  new Promise((resolve) =>
-                    setMapLayersRequest({
-                      layers,
-                      done: (aMap, aKeep) => {
-                        // `m_ImportKeepKiCadLayerNames = dlg.m_cbKeepKiCadLayerNames->GetValue()`
-                        frame.GetPcbNewSettings().m_ImportKeepKiCadLayerNames = aKeep;
-                        setMapLayersRequest(null);
-                        resolve(aMap);
-                      },
-                    }),
-                  ),
-              )
-              .then(({ board: kb, loadMessages, customRules }) => {
-                frame.Clear_Pcb();
-                frame.SetBoard(kb, false);
-                kb.BuildConnectivity();
-
-                // The `.kicad_dru` an importer writes beside the board (Eagle's class
-                // clearance matrix) becomes the project's rules file, as it does when
-                // KiCad then opens the board's project; persisted now, like Board Setup's.
-                let files = projectFilesNow();
-                const pro = findProjectPro(files, rootPro);
-
-                if (customRules !== '' && pro) {
-                  const dru = findProjectDru(files, rootPro);
-                  const name = dru?.name ?? druFileName(pro.name);
-                  projectFileEditsRef.current.set(name, {
-                    base: dru?.text ?? '',
-                    text: customRules,
-                  });
-                  onPersistFiles?.([{ name, text: customRules }]);
-                  files = dru
-                    ? files.map((f) => (f === dru ? { name, text: customRules } : f))
-                    : [...files, { name, text: customRules }];
-                }
-
-                syncProjectSettingsIntoBoard(
-                  frame,
-                  panelRef.current,
-                  files,
-                  rootPro,
-                  false,
-                  projectDirRef.current,
-                );
-                setBoardModel({ k: kb, fileName: fileNameRef.current });
-                setDirty(true);
-
-                if (loadMessages !== '') setInfoBarError(loadMessages.trimEnd());
-              })
-              .catch((e: unknown) =>
-                setInfoBarError(
-                  `Error loading PCB '${file.path}'.\n${e instanceof Error ? e.message : String(e)}`,
-                ),
-              );
+            importNonKicadFile(file.path, file.bytes);
           }}
         />
       )}

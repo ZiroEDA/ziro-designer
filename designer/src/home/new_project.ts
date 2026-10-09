@@ -84,7 +84,7 @@ export const emptySch = (uuid: string): string => `(kicad_sch
 // KiCad's default project file (kicad_pro): JSON settings written by File > New
 // Project. Only the essentials KiCad always emits, the app derives the project
 // name from `meta.filename` and ties the root schematic via `sheets`.
-export const projectJson = (name: string, rootUuid: string): string =>
+export const projectJson = (name: string, rootUuid: string | null): string =>
   `${JSON.stringify(
     {
       board: {
@@ -108,7 +108,9 @@ export const projectJson = (name: string, rootUuid: string): string =>
         net_format_name: '',
         spice_current_sheet_as_root: false,
       },
-      sheets: [[rootUuid, '']],
+      // No root sheet: CreateNewProject( ..., false ) - "Don't create stub
+      // files" - which Import Non-KiCad Project calls.
+      sheets: rootUuid ? [[rootUuid, '']] : [],
       text_variables: {},
     },
     null,

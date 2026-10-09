@@ -41,6 +41,7 @@ const handlers = {
   showHotkeys: noop,
   openDemo: noop,
   openFromGithub: noop,
+  importNonKicadProject: noop,
   hasProject: true,
   hasTextFileSelected: true,
   recent: [],
@@ -178,5 +179,29 @@ describe('File > Open Project from GitHub... (#640)', () => {
       ?.items.find((i) => i.label === 'Open Project from GitHub...');
     item?.action?.();
     expect(asked).toBe(1);
+  });
+});
+
+describe('File > Import Non-KiCad Project', () => {
+  it('every row is live and asks for its own format (KICAD_MANAGER_FRAME::OnImportXxx)', () => {
+    const asked: string[] = [];
+    const sub =
+      buildManagerMenus({ ...handlers, importNonKicadProject: (fmt) => asked.push(fmt) })
+        .find((m) => m.label === 'File')
+        ?.items.find((i) => i.label === 'Import Non-KiCad Project...')?.submenu ?? [];
+    expect(sub.map((i) => i.label)).toEqual([
+      'Altium Project...',
+      'CADSTAR Project...',
+      'EAGLE Project...',
+      'EasyEDA (JLCEDA) Std Backup...',
+      'EasyEDA (JLCEDA) Pro Project...',
+      'PADS Project...',
+      'gEDA / Lepton EDA Project...',
+    ]);
+    for (const item of sub) {
+      expect(item.disabled, item.label).toBeFalsy();
+      item.action?.();
+    }
+    expect(asked).toEqual(['altium', 'cadstar', 'eagle', 'easyeda', 'easyedapro', 'pads', 'geda']);
   });
 });

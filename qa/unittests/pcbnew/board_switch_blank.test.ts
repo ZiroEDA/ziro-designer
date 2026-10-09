@@ -28,3 +28,21 @@ describe('PCB editor: another board does not open over the last one', () => {
     expect(SRC).toContain('const which = `${projectDirRef.current}/${fileName}`;');
   });
 });
+
+describe('MAIL_IMPORT_FILE: Import Non-KiCad Project hands the board editor a file', () => {
+  it('imports once per request, and only after the frame finished opening the project board', () => {
+    const effect = SRC.slice(SRC.indexOf('const importedNonce = useRef<number | null>(null);'));
+    const body = effect.slice(0, effect.indexOf('importNonKicadFile(req.path, req.bytes);'));
+    // Not before the 30 ms-deferred parse of the project's (empty) board,
+    // which would land on top of the imported one.
+    expect(body).toContain('loading !== null) return;');
+    expect(body).toContain('if (parsedOpen.current !== `${openNonce ?? 0} ${fileName}`) return;');
+    expect(body).toContain('if (importedNonce.current === req.nonce) return;');
+  });
+
+  it('the same import as File > Import > Non-KiCad Board File', () => {
+    // Its two callers: the menu's file dialog and the manager's mail.
+    expect(SRC.split('importNonKicadFile(').length - 1).toBe(2);
+    expect(SRC).toContain('importNonKicadFile(file.path, file.bytes);');
+  });
+});
