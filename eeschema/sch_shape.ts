@@ -6,7 +6,7 @@
  * schematic or a symbol (`class SCH_SHAPE : public SCH_ITEM, public EDA_SHAPE`, the
  * EDA_SHAPE half mixed in).
  *
- * Not here: `Plot`, `Print`, `GetMsgPanelInfo`, `GetMenuImage`, `Serialize` /
+ * Not here: `Plot`, `Print`, `GetMenuImage`, `Serialize` /
  * `Deserialize`, `SCH_SHAPE_DESC`.
  */
 
@@ -35,6 +35,8 @@ import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { DEFAULT_LINE_WIDTH_MILS } from './default_values.js';
 import { SCH_ITEM } from './sch_item.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 
 const samePt = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 
@@ -87,6 +89,13 @@ export class SCH_SHAPE extends SCH_ITEM {
 
   override GetClass(): string {
     return 'SCH_SHAPE';
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_shape.cpp). */
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    super.GetMsgPanelInfo(aFrame, aList);
+
+    this.ShapeGetMsgPanelInfo(aFrame, aList);
   }
 
   override GetFriendlyName(): string {

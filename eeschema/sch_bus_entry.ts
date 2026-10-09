@@ -5,7 +5,7 @@
  * `eeschema/sch_bus_entry.h` / `eeschema/sch_bus_entry.cpp`: `SCH_BUS_ENTRY_BASE`
  * and its two kinds, `SCH_BUS_WIRE_ENTRY` and `SCH_BUS_BUS_ENTRY`.
  *
- * Not here: `Plot`, `GetMsgPanelInfo`, `GetMenuImage`, `SCH_BUS_ENTRY_DESC`. The
+ * Not here: `Plot`, `GetMenuImage`, `SCH_BUS_ENTRY_DESC`. The
  * net-class width/style/colour wait on the connection graph (E3 part 2).
  */
 
@@ -38,6 +38,8 @@ import { DEFAULT_SCH_ENTRY_SIZE, DEFAULT_WIRE_WIDTH_MILS } from './default_value
 import { DANGLING_END_ITEM, DANGLING_END_T, SCH_ITEM } from './sch_item.js';
 import { WIRE_STYLE } from './sch_line.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 
 /** `TARGET_BUSENTRY_RADIUS`: circle diameter drawn at the ends. */
 export const TARGET_BUSENTRY_RADIUS = schIUScale.milsToIU(12);
@@ -457,6 +459,39 @@ export class SCH_BUS_WIRE_ENTRY extends SCH_BUS_ENTRY_BASE {
 
   override GetClass(): string {
     return 'SCH_BUS_WIRE_ENTRY';
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_bus_entry.cpp). */
+  override GetMsgPanelInfo(_aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    let msg: string;
+
+    switch (this.GetLayer()) {
+      default:
+      case SCH_LAYER_ID.LAYER_WIRE:
+        msg = 'Wire';
+        break;
+      case SCH_LAYER_ID.LAYER_BUS:
+        msg = 'Bus';
+        break;
+    }
+
+    aList.push(new MSG_PANEL_ITEM('Bus Entry Type', msg));
+
+    // dynamic_cast<SCH_EDIT_FRAME*>( aFrame ): a schematic editor's item has a schematic.
+    const conn = !this.IsConnectivityDirty() && this.Schematic() ? this.Connection() : null;
+
+    if (conn) {
+      conn.AppendInfoToMsgPanel(aList);
+
+      // Upstream does not unescape this one; null is NETCLASS( wxEmptyString ), named ''.
+      if (!conn.IsBus())
+        aList.push(
+          new MSG_PANEL_ITEM(
+            'Resolved Netclass',
+            this.GetEffectiveNetClass()?.GetHumanReadableName() ?? '',
+          ),
+        );
+    }
   }
 
   override GetPenWidth(): number {

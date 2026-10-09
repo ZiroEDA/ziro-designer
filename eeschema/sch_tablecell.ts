@@ -5,7 +5,7 @@
  * `eeschema/sch_tablecell.h` / `eeschema/sch_tablecell.cpp`: `SCH_TABLECELL`, one cell of
  * a `SCH_TABLE` — a text box with a row and column span.
  *
- * Not here: `Plot`, `GetMsgPanelInfo`, `Serialize`/`Deserialize`, `SCH_TABLECELL_DESC`.
+ * Not here: `Plot`, `Serialize`/`Deserialize`, `SCH_TABLECELL_DESC`.
  */
 
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
@@ -33,6 +33,9 @@ import type { SCH_ITEM } from './sch_item.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import type { SCH_TABLE } from './sch_table.js';
 import { SCH_TEXTBOX } from './sch_textbox.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { KIUI_EllipsizeStatusText } from '@ziroeda/common/widgets/ui_common.js';
 
 /** `parseCellAddress`: "B3" -> row 3, column 1 (rows are 0-based as written). */
 function parseCellAddress(aAddr: string): { row: number; col: number } | null {
@@ -88,6 +91,36 @@ export class SCH_TABLECELL extends SCH_TEXTBOX {
 
   override GetClass(): string {
     return 'SCH_TABLECELL';
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_tablecell.cpp). */
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    aList.push(new MSG_PANEL_ITEM('Table Cell', this.GetAddr()));
+
+    // Don't use GetShownText() here; we want to show the user the variable references
+    aList.push(new MSG_PANEL_ITEM('Text', KIUI_EllipsizeStatusText(aFrame, this.GetText())));
+
+    aList.push(
+      new MSG_PANEL_ITEM(
+        'Cell Width',
+        aFrame.MessageTextFromValue(Math.abs(this.GetEnd().x - this.GetStart().x)),
+      ),
+    );
+    aList.push(
+      new MSG_PANEL_ITEM(
+        'Cell Height',
+        aFrame.MessageTextFromValue(Math.abs(this.GetEnd().y - this.GetStart().y)),
+      ),
+    );
+
+    aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
+
+    const textStyle = ['Normal', 'Italic', 'Bold', 'Bold Italic'];
+    const style =
+      this.IsBold() && this.IsItalic() ? 3 : this.IsBold() ? 2 : this.IsItalic() ? 1 : 0;
+    aList.push(new MSG_PANEL_ITEM('Style', textStyle[style]!));
+
+    aList.push(new MSG_PANEL_ITEM('Text Size', aFrame.MessageTextFromValue(this.GetTextWidth())));
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {

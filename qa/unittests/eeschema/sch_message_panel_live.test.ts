@@ -16,6 +16,12 @@ import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { SCH_LABEL_BASE } from '@ziroeda/eeschema/sch_label.js';
 import type { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
 import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
+import type { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
+import type { SCH_JUNCTION } from '@ziroeda/eeschema/sch_junction.js';
+import { SCH_TABLE } from '@ziroeda/eeschema/sch_table.js';
+import { SCH_GROUP } from '@ziroeda/eeschema/sch_group.js';
+import { SCH_SHAPE } from '@ziroeda/eeschema/sch_shape.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -183,5 +189,60 @@ describe('the schematic message panel', () => {
       'H Justification',
       'V Justification',
     ]);
+  });
+
+  const rowsOf = (
+    h: ReturnType<typeof setUp>['h'],
+    aItem: { GetMsgPanelInfo: (f: never, l: MSG_PANEL_ITEM[]) => void },
+  ) => {
+    const items: MSG_PANEL_ITEM[] = [];
+    aItem.GetMsgPanelInfo(h.frame.AsDrawFrameLike() as never, items);
+    return items.map((i) => [i.GetUpperText(), i.GetLowerText()] as const);
+  };
+
+  it('a wire says it is a wire, then its stroke and connection (sch_line.cpp)', () => {
+    const { h } = setUp();
+    const wire = ([...h.frame.GetScreen()!.Items().OfType(KICAD_T.SCH_LINE_T)] as SCH_LINE[]).find(
+      (l) => l.IsWire(),
+    )!;
+
+    expect(rowsOf(h, wire)[0]).toEqual(['Line Type', 'Wire']);
+  });
+
+  it('a junction shows its size (sch_junction.cpp)', () => {
+    const { h } = setUp();
+    const junction = [
+      ...h.frame.GetScreen()!.Items().OfType(KICAD_T.SCH_JUNCTION_T),
+    ][0] as SCH_JUNCTION;
+
+    const rows = rowsOf(h, junction);
+    expect(rows[0]).toEqual(['Junction', '']);
+    expect(rows[1]![0]).toBe('Size');
+  });
+
+  it('a table counts its columns; a group names itself and counts members', () => {
+    const { h } = setUp();
+    const table = new SCH_TABLE();
+    table.SetColCount(3);
+    const group = new SCH_GROUP();
+    group.AddItem(table);
+
+    expect(rowsOf(h, table)[0]).toEqual(['Table', '3 Columns']);
+    expect(rowsOf(h, group)).toEqual([
+      ['Group', '<unnamed>'],
+      ['Members', '1'],
+    ]);
+  });
+
+  it('a rectangle reports EDA_SHAPE’s rows after SCH_ITEM’s (sch_shape.cpp)', () => {
+    const { h } = setUp();
+    const rect = new SCH_SHAPE(SHAPE_T.RECTANGLE);
+    rect.SetStart({ x: 0, y: 0 });
+    rect.SetEnd({ x: 254000, y: 127000 });
+
+    const uppers = rowsOf(h, rect).map((r) => r[0]);
+    expect(uppers[0]).toBe('Shape'); // eda_shape.cpp: _( "Shape" ), the friendly name
+    expect(uppers).toContain('Width');
+    expect(uppers).toContain('Height');
   });
 });

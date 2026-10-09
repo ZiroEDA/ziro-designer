@@ -6,7 +6,7 @@
  * schematic items (`class SCH_GROUP : public SCH_ITEM, public EDA_GROUP`, the EDA_GROUP
  * half mixed in). Membership only; the group owns nothing.
  *
- * Not here: `ViewGetLOD`, `Plot`, `GetMsgPanelInfo`, `GetMenuImage`, `SCH_GROUP_DESC`.
+ * Not here: `ViewGetLOD`, `Plot`, `GetMenuImage`, `SCH_GROUP_DESC`.
  */
 
 import { EDA_GROUP } from '@ziroeda/common/eda_group.js';
@@ -26,6 +26,8 @@ import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_c
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { type SCH_COMMIT_LIKE, SCH_ITEM } from './sch_item.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 
 export interface SCH_GROUP extends EDA_GROUP {}
 
@@ -58,6 +60,12 @@ export class SCH_GROUP extends SCH_ITEM {
 
   override GetClass(): string {
     return 'SCH_GROUP';
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_group.cpp). */
+  override GetMsgPanelInfo(_aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    aList.push(new MSG_PANEL_ITEM('Group', this.m_name === '' ? '<unnamed>' : this.m_name));
+    aList.push(new MSG_PANEL_ITEM('Members', `${this.m_items.size}`));
   }
 
   GetSchItems(): Set<SCH_ITEM> {

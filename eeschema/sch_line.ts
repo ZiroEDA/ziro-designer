@@ -6,7 +6,7 @@
  * graphic line.
  *
  * Not here: `Serialize`/`Deserialize` (protobuf), `ViewGetLOD`, `Plot`,
- * `GetMsgPanelInfo`, `GetMenuImage`, `SCH_LINE_DESC`. The net-class answers
+ * `GetMenuImage`, `SCH_LINE_DESC`. The net-class answers
  * (`GetEffectiveNetClass`) wait on the connection graph, so a wire whose stroke
  * says "default" keeps its last resolved style/width/colour, as KiCad does while
  * connectivity is dirty.
@@ -64,6 +64,9 @@ import {
 } from './sch_item.js';
 import type { SCH_SCREEN } from './sch_screen.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
 
 /**
  * `WIRE_STYLE`: the same values as `LINE_STYLE`, but "default" is exposed in the wire
@@ -168,6 +171,48 @@ export class SCH_LINE extends SCH_ITEM {
 
   override GetClass(): string {
     return 'SCH_LINE';
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_line.cpp). */
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    let msg: string;
+
+    switch (this.GetLayer()) {
+      case SCH_LAYER_ID.LAYER_WIRE:
+        msg = 'Wire';
+        break;
+      case SCH_LAYER_ID.LAYER_BUS:
+        msg = 'Bus';
+        break;
+      default:
+        msg = 'Graphical';
+        break;
+    }
+
+    aList.push(new MSG_PANEL_ITEM('Line Type', msg));
+
+    const lineStyle = this.GetStroke().GetLineStyle();
+
+    if (this.GetEffectiveLineStyle() !== lineStyle)
+      aList.push(new MSG_PANEL_ITEM('Line Style', 'from netclass'));
+    else this.GetStroke().GetMsgPanelInfo(aFrame, aList, true, false);
+
+    // dynamic_cast<SCH_EDIT_FRAME*>( aFrame ): a schematic editor's item has a schematic.
+    const conn = !this.IsConnectivityDirty() && this.Schematic() ? this.Connection() : null;
+
+    if (conn) {
+      conn.AppendInfoToMsgPanel(aList);
+
+      if (!conn.IsBus()) {
+        aList.push(
+          new MSG_PANEL_ITEM(
+            'Resolved Netclass',
+            // null is upstream's static NETCLASS( wxEmptyString ), whose name is ''.
+            unescapeString(this.GetEffectiveNetClass()?.GetHumanReadableName() ?? ''),
+          ),
+        );
+      }
+    }
   }
 
   override GetFriendlyName(): string {

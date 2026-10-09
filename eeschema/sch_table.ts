@@ -5,7 +5,7 @@
  * `eeschema/sch_table.h` / `eeschema/sch_table.cpp`: `SCH_TABLE`, a grid of
  * `SCH_TABLECELL`s it owns.
  *
- * Not here: `Plot` (drawing), `GetMsgPanelInfo`, `GetMenuImage`,
+ * Not here: `Plot` (drawing), `GetMenuImage`,
  * `Serialize`/`Deserialize`, `SCH_TABLE_DESC`.
  */
 
@@ -37,6 +37,8 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { SCH_ITEM } from './sch_item.js';
 import { SCH_TABLECELL } from './sch_tablecell.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 
 const samePt = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 
@@ -101,6 +103,14 @@ export class SCH_TABLE extends SCH_ITEM {
 
   override GetClass(): string {
     return 'SCH_TABLE';
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_table.cpp). */
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    // Don't use GetShownText() here; we want to show the user the variable references
+    aList.push(new MSG_PANEL_ITEM('Table', `${this.m_colCount} Columns`));
+
+    super.GetMsgPanelInfo(aFrame, aList);
   }
 
   SetStrokeExternal(aDoStroke: boolean): void {

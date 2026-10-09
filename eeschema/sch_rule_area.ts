@@ -6,7 +6,7 @@
  * whose directive labels apply to the items it contains, and which can exclude them from
  * simulation, the BOM, the board, or mark them DNP.
  *
- * Not here: `Plot`, `GetMsgPanelInfo`, `SCH_RULE_AREA_DESC`; `UpdateRuleAreasInScreens`
+ * Not here: `Plot`, `SCH_RULE_AREA_DESC`; `UpdateRuleAreasInScreens`
  * takes no view (the repaint of directive labels belongs to the painter port).
  */
 
@@ -30,6 +30,8 @@ import type { SCH_LINE } from './sch_line.js';
 import type { SCH_SCREEN } from './sch_screen.js';
 import { SCH_SHAPE } from './sch_shape.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 
 const sameSet = <T>(a: ReadonlySet<T>, b: ReadonlySet<T>): boolean =>
   a.size === b.size && [...a].every((x) => b.has(x));
@@ -103,6 +105,22 @@ export class SCH_RULE_AREA extends SCH_SHAPE {
 
   override GetClass(): string {
     return 'SCH_RULE_AREA';
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_rule_area.cpp). */
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    aList.push(new MSG_PANEL_ITEM('Rule Area', ''));
+
+    aList.push(new MSG_PANEL_ITEM('Points', `${this.GetPolyShape().Outline(0).PointCount()}`));
+
+    this.GetStroke().GetMsgPanelInfo(aFrame, aList);
+
+    const netclasses = this.GetResolvedNetclasses(null);
+    let resolvedNetclass = '<None>';
+
+    if (netclasses.length > 0) resolvedNetclass = netclasses[0]![0];
+
+    aList.push(new MSG_PANEL_ITEM('Resolved netclass', resolvedNetclass));
   }
 
   override GetFriendlyName(): string {

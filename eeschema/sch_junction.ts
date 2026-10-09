@@ -4,7 +4,7 @@
 /**
  * `eeschema/sch_junction.h` / `eeschema/sch_junction.cpp`: `SCH_JUNCTION`.
  *
- * Not here: `Serialize`/`Deserialize`, `Plot`, `GetMsgPanelInfo`, `GetMenuImage`,
+ * Not here: `Serialize`/`Deserialize`, `Plot`, `GetMenuImage`,
  * `SCH_JUNCTION_DESC`. The net-class diameter and colour (`GetEffectiveNetClass`)
  * wait on the connection graph (E3 part 2).
  */
@@ -43,6 +43,9 @@ import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { DEFAULT_JUNCTION_DIAM, DEFAULT_WIRE_WIDTH_MILS } from './default_values.js';
 import { DANGLING_END_ITEM, DANGLING_END_T, SCH_ITEM } from './sch_item.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
 
 const samePt = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 
@@ -88,6 +91,32 @@ export class SCH_JUNCTION extends SCH_ITEM {
 
   override GetClass(): string {
     return 'SCH_JUNCTION';
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_junction.cpp). */
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    aList.push(new MSG_PANEL_ITEM('Junction', ''));
+
+    aList.push(
+      new MSG_PANEL_ITEM('Size', aFrame.MessageTextFromValue(this.GetEffectiveDiameter())),
+    );
+
+    // dynamic_cast<SCH_EDIT_FRAME*>( aFrame ): a schematic editor's item has a schematic.
+    const conn = !this.IsConnectivityDirty() && this.Schematic() ? this.Connection() : null;
+
+    if (conn) {
+      conn.AppendInfoToMsgPanel(aList);
+
+      if (!conn.IsBus()) {
+        aList.push(
+          new MSG_PANEL_ITEM(
+            'Resolved Netclass',
+            // null is upstream's static NETCLASS( wxEmptyString ), whose name is ''.
+            unescapeString(this.GetEffectiveNetClass()?.GetHumanReadableName() ?? ''),
+          ),
+        );
+      }
+    }
   }
 
   protected override swapData(aItem: SCH_ITEM): void {

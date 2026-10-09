@@ -5,7 +5,7 @@
  * `eeschema/sch_bitmap.h` / `eeschema/sch_bitmap.cpp`: `SCH_BITMAP`, a reference image
  * placed on a schematic; the image and its geometry live in the common `REFERENCE_IMAGE`.
  *
- * Not here: `Plot`, `GetMsgPanelInfo`, `GetMenuImage`, `SCH_BITMAP_DESC`.
+ * Not here: `Plot`, `GetMenuImage`, `SCH_BITMAP_DESC`.
  */
 
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
@@ -33,6 +33,8 @@ import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_c
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { SCH_ITEM } from './sch_item.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 
 /**
  * Object to handle a bitmap image that can be inserted in a schematic.
@@ -92,6 +94,21 @@ export class SCH_BITMAP extends SCH_ITEM {
 
   override GetClass(): string {
     return 'SCH_BITMAP';
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_bitmap.cpp): wx's "%d " and "%f ", trailing space. */
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    aList.push(new MSG_PANEL_ITEM('Bitmap', ''));
+
+    aList.push(new MSG_PANEL_ITEM('PPI', `${this.m_referenceImage.GetImage().GetPPI()} `));
+    aList.push(new MSG_PANEL_ITEM('Scale', `${this.m_referenceImage.GetImageScale().toFixed(6)} `));
+
+    aList.push(
+      new MSG_PANEL_ITEM('Width', aFrame.MessageTextFromValue(this.m_referenceImage.GetSize().x)),
+    );
+    aList.push(
+      new MSG_PANEL_ITEM('Height', aFrame.MessageTextFromValue(this.m_referenceImage.GetSize().y)),
+    );
   }
 
   override GetBoundingBox(): BOX2I {
