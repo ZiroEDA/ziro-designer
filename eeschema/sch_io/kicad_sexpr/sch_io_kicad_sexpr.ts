@@ -14,6 +14,7 @@
  * sanity-check user query.
  */
 
+import type { SCH_IO_PROPERTIES } from '../sch_io.js';
 import { GetMajorMinorVersion } from '@ziroeda/common/build_version.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
@@ -1792,9 +1793,6 @@ export class SCH_IO_KICAD_SEXPR {
     this.GetAvailableSymbolFields(aNames);
   }
 }
-
-/** `std::map<std::string, UTF8>* aProperties`: the options an SCH_IO call is given. */
-export type SCH_IO_PROPERTIES = ReadonlyMap<string, string>;
 
 /** `SYMBOL_LIBRARY_ADAPTER::PropPowerSymsOnly` (libraries/symbol_library_adapter.cpp:43). */
 export const PropPowerSymsOnly = 'pwr_sym_only';
