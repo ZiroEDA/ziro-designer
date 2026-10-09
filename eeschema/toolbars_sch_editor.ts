@@ -241,6 +241,8 @@ export const GAL_TOOLBAR_ACTIONS: Readonly<Record<string, TOOL_ACTION>> = {
   lines: SCH_ACTIONS.drawLines,
   syncAllSheetPins: SCH_ACTIONS.syncAllSheetsPins,
   zoomFit: ACTIONS.zoomFitScreen,
+  // Tools > Update Symbols from Library... (menubar.cpp): SCH_ACTIONS::updateSymbols.
+  updateSymbolsFromLibrary: SCH_ACTIONS.updateSymbols,
 };
 export const GAL_ROUTED_IDS: ReadonlySet<string> = new Set([
   ...Object.keys(GAL_TOOLBAR_ACTIONS),
@@ -270,6 +272,7 @@ export const GAL_ROUTED_IDS: ReadonlySet<string> = new Set([
   'placeClassLabel',
   'placeGlobalLabel',
   'placeHierLabel',
+  'changeSymbols',
 ]);
 
 /** The TOOL_ACTION a routed toolbar id runs on the live canvas, or null for the record handler. */

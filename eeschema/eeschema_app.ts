@@ -26,8 +26,8 @@ import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settin
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { ProjectFile } from '@ziroeda/common/project_paths.js';
 import type { DialogSymbolChooserProps } from './picksymbol.js';
+import type { SymbolChooserFrameProps } from './symbol_chooser_frame.js';
 import type { DialogRescueEachProps } from './project_rescue.js';
-import type { DialogChangeSymbolsProps } from './tools/change_symbols.js';
 import type {
   PeerRole,
   PresenceInfo,
@@ -96,8 +96,14 @@ export interface EESCHEMA_APP {
   }) => ReactNode;
   /** `DIALOG_RESCUE_EACH` (`project_rescue.ts` holds its contract). */
   DialogRescueEach: (props: DialogRescueEachProps) => ReactNode;
-  /** `DIALOG_CHANGE_SYMBOLS` (`tools/change_symbols.ts` holds its contract). */
-  DialogChangeSymbols: (props: DialogChangeSymbolsProps) => ReactNode;
+  /** `FRAME_SYMBOL_CHOOSER` (SYMBOL_CHOOSER_FRAME), as a quasi-modal player: the picked LIB_ID. */
+  SymbolChooserFrame: (props: {
+    preselect: string;
+    /** `s_SymbolHistoryList`, the Place Symbol chooser's (symbol_chooser_frame.cpp:86). */
+    historyList: SymbolChooserFrameProps['historyList'];
+    onOk: (libId: string) => void;
+    onCancel: () => void;
+  }) => ReactNode;
   /** `EDA_BASE_FRAME::ShowPreferences()`, opened on a page. */
   PreferencesDialog: (props: { initialPage?: PrefsPageId; onClose: () => void }) => ReactNode;
   /** The home link in the menu bar's left slot. */

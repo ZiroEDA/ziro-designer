@@ -66,7 +66,6 @@ export * from './sch_selection_filter.js';
 export * from './sch_request_selection.js';
 export * from './select_connection.js';
 export * from './global_edit_text_and_graphics.js';
-export * from './change_symbols.js';
 export * from './edit_symbol_libid.js';
 export * from '../net_navigator.js';
 export * from '../net_navigator.js';

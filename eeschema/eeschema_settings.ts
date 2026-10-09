@@ -187,6 +187,11 @@ export interface EeschemaSettings {
     scroll_on_crossprobe: boolean;
     show_all_errors: boolean;
   };
+  /** DIALOG_CHANGE_SYMBOLS' list-box state (EESCHEMA_SETTINGS m_ChangeSymbols, "change_symbols.*"). */
+  change_symbols: {
+    update_references: boolean;
+    update_values: boolean;
+  };
   /** LIB_TREE persisted state (EESCHEMA_SETTINGS m_LibTree). */
   lib_tree: {
     /** Ordered list of visible columns in the tree ("Item" is always first). */
@@ -406,6 +411,10 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     crossprobe: true,
     scroll_on_crossprobe: true,
     show_all_errors: false,
+  },
+  change_symbols: {
+    update_references: false,
+    update_values: false,
   },
   lib_tree: {
     columns: [],

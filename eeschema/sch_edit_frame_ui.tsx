@@ -139,14 +139,9 @@ import {
   defaultAnnotateOptions,
   incrementAnnotations,
   globalEdit,
-  changeSymbols,
   symbolLibIdRows,
   orphanCandidates,
   libIdChangeCommand,
-  type ChangeSymbolsMessage,
-  type ChangeSymbolsMode,
-  type ChangeSymbolsOptions,
-  type SymbolMatch,
   annotationReport,
   checkAnnotation,
   clearAnnotationCommand,
@@ -301,7 +296,8 @@ import {
   DialogGlobalEditTextAndGraphics,
   type GlobalEditResult,
 } from './dialogs/dialog_global_edit_text_and_graphics.js';
-import type { ChangeSymbolsSubject } from './tools/change_symbols.js';
+import { DIALOG_CHANGE_SYMBOLS, DialogChangeSymbols } from './dialogs/dialog_change_symbols.js';
+import type { DIALOG_CHANGE_SYMBOLS_MODE } from './tools/sch_edit_tool.js';
 import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import { DialogLineProperties } from './dialogs/dialog_line_properties.js';
@@ -833,7 +829,7 @@ export function SchematicEditor({
     DialogSymbolChooser,
     SymbolLibraryBrowser,
     DialogRescueEach,
-    DialogChangeSymbols,
+    SymbolChooserFrame,
   } = app;
   const [error, setError] = useState<string | null>(null);
   const initial = useMemo<Schematic | null>(() => {
@@ -1140,6 +1136,15 @@ export function SchematicEditor({
     dlg: DIALOG_SYMBOL_PROPERTIES;
     shown: SYMBOL_DIALOG_VALUES;
     resolve: (aId: number) => void;
+  } | null>(null);
+  const [changeSymbolsDialog, setChangeSymbolsDialog] = useState<{
+    dlg: DIALOG_CHANGE_SYMBOLS;
+    resolve: (aId: number) => void;
+  } | null>(null);
+  // FRAME_SYMBOL_CHOOSER, opened quasi-modal by a dialog's browse button.
+  const [symbolChooser, setSymbolChooser] = useState<{
+    preselect: string;
+    resolve: (aLibId: string | null) => void;
   } | null>(null);
   const [textDialog, setTextDialog] = useState<{
     dlg: DIALOG_TEXT_PROPERTIES;
@@ -1775,6 +1780,20 @@ export function SchematicEditor({
           return new Promise<number>((resolve) =>
             setSymbolDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
           );
+        }
+        if (aDialog === 'DIALOG_CHANGE_SYMBOLS') {
+          // `DIALOG_CHANGE_SYMBOLS dlg( m_frame, selectedSymbol, mode ); dlg.ShowQuasiModal()`.
+          const dlg = new DIALOG_CHANGE_SYMBOLS(
+            schFrameRef.current!,
+            (_aItems[0] as SCH_SYMBOL | undefined) ?? null,
+            aArg as DIALOG_CHANGE_SYMBOLS_MODE,
+            (aPreselect) =>
+              new Promise((resolve) => setSymbolChooser({ preselect: aPreselect, resolve })),
+          );
+          return new Promise<number>((resolve) => {
+            setChangeSymbolsDialog({ dlg, resolve });
+            void dlg.TransferDataToWindow();
+          });
         }
         if (aDialog === 'DIALOG_JUNCTION_PROPS') {
           const junctions = _aItems as SCH_JUNCTION[];
@@ -2469,7 +2488,6 @@ export function SchematicEditor({
   const [libIdsOpen, setLibIdsOpen] = useState(false);
   const [libIdErrors, setLibIdErrors] = useState<readonly string[]>([]);
   // DIALOG_CHANGE_SYMBOLS, in whichever of its two modes was asked for.
-  const [changeSymbolsMode, setChangeSymbolsMode] = useState<ChangeSymbolsMode | null>(null);
   /**
    * The symbol DIALOG_CHANGE_SYMBOLS was opened ON, which it seeds all three
    * match entries from — `m_symbol` is its second constructor argument and
@@ -2477,12 +2495,6 @@ export function SchematicEditor({
    * from it. Null when it is opened from the Tools menu, and then upstream
    * hides the "selected symbol(s)" radio outright.
    */
-  const [changeSymbolsSubject, setChangeSymbolsSubject] = useState<
-    ChangeSymbolsSubject | undefined
-  >(undefined);
-  const [changeSymbolsMessages, setChangeSymbolsMessages] = useState<
-    readonly ChangeSymbolsMessage[]
-  >([]);
   // Page Settings (DIALOG_PAGES_SETTINGS), Print (DIALOG_PRINT) and Plot
   // (DIALOG_PLOT_SCHEMATIC) dialogs, open flags.
   const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
@@ -3126,72 +3138,6 @@ export function SchematicEditor({
     [doc, libById, runCommand],
   );
 
-  /** Every field name in use on this sheet, with the mandatory ones first —
-   *  the dialog's checklist (DIALOG_CHANGE_SYMBOLS::updateFieldsList). */
-  /**
-   * `DIALOG_CHANGE_SYMBOLS::updateFieldsList`. Two things it does that this
-   * did not:
-   *
-   * 1. It walks only the symbols the current match SELECTS —
-   *    `if( !isMatch( symbol, &instance ) ) continue;` — and their library
-   *    symbols. This walked every symbol and every `lib_symbols` entry in the
-   *    document, so choosing "Update selected symbol(s)" on a screw terminal
-   *    still offered `Sim.Device` and `Sim.Pins` because some diode elsewhere
-   *    on the sheet had them. The dialog re-runs it whenever the match changes,
-   *    which is why this is a function and not a memo.
-   *
-   * 2. `ki_keywords`, `ki_description` and `ki_fp_filters` are NOT fields. The
-   *    parser consumes each into the symbol itself and returns nullptr —
-   *    "Not a SCH_FIELD object yet" (sch_io_kicad_sexpr_parser.cpp:1169-1184) —
-   *    so they can never appear in a field list.
-   *
-   * The five mandatory fields are always listed, `Description` included
-   * (`SCH_FIELD::IsMandatory`, sch_field.cpp:1447-1452); it was missing.
-   */
-  const changeSymbolsFieldNames = useCallback(
-    (match: SymbolMatch): readonly string[] => {
-      const names = ['Reference', 'Value', 'Footprint', 'Datasheet', 'Description'];
-      const seen = new Set(names);
-      /** Consumed by the parser into the symbol, never a field. */
-      const NOT_A_FIELD = new Set(['ki_keywords', 'ki_description', 'ki_fp_filters']);
-      const add = (key: string): void => {
-        if (seen.has(key) || NOT_A_FIELD.has(key)) return;
-        seen.add(key);
-        names.push(key);
-      };
-
-      const text = (match.text ?? '').trim();
-      const matches = (sym: SchSymbol, i: number): boolean => {
-        switch (match.mode) {
-          case 'all':
-            return true;
-          case 'selected':
-            return selection.has(refId('symbol', sym.uuid, i));
-          case 'reference':
-            return (
-              text === '' || (sym.fields.find((f) => f.key === 'Reference')?.value ?? '') === text
-            );
-          case 'value':
-            return text === '' || (sym.fields.find((f) => f.key === 'Value')?.value ?? '') === text;
-          case 'libId':
-            return text === '' || sym.libId === text;
-          default:
-            return true;
-        }
-      };
-
-      (doc?.symbols ?? []).forEach((sym, i) => {
-        if (!matches(sym, i)) return;
-        for (const f of sym.fields) add(f.key);
-        // ...and the library symbol it came from.
-        const lib = libById.get(schSymbolLibraryName(sym));
-        for (const f of lib?.properties ?? []) add(f.key);
-      });
-      return names;
-    },
-    [doc, libById, selection],
-  );
-
   /**
    * SCH_EDIT_TOOL's Edit with Symbol Editor. Hands the placement's symbol over
    * in library form: the fields come back out of schematic space, and the unit
@@ -3426,66 +3372,6 @@ export function SchematicEditor({
       pendingClearHistory.current = true;
     },
     [rawFiles, onPersistFiles, saveProjectSymLibTable, liveDocs, runProject],
-  );
-
-  // Change Symbols / Update Symbols from Library (DIALOG_CHANGE_SYMBOLS). The
-  // dialog stays open on its report, as upstream's does.
-  const runChangeSymbols = useCallback(
-    async (o: ChangeSymbolsOptions) => {
-      const sheets = annotateSheets('all', false);
-      // The repair source is the LIBRARY, not the document's own cache.
-      //
-      // `DIALOG_CHANGE_SYMBOLS::processSymbols` resolves every lib_id through
-      // the symbol library table (`SCH_SYMBOL::ResolveLibSymbol`), which is the
-      // whole point of the command: the schematic's `lib_symbols` block is the
-      // thing being brought back into line, so it cannot also be the thing that
-      // says what "correct" is. Ours passed `hierarchyLibs`, whose first term
-      // `libById` is built from `doc.libSymbols` -- the cache itself -- so
-      // Update Symbols from Library compared each symbol against a copy of
-      // itself and could only ever report "no changes".
-      //
-      // It showed up on a schematic written before placements were flattened
-      // (fb9a40b1): its cached `Diode:1N4007` carries `extends` and no body,
-      // the library has the real one, and the command that exists to repair
-      // exactly that repaired nothing.
-      const libs = await repairSourceLibs(
-        sheets.flatMap((s) => s.doc.symbols.map((sym) => sym.libId)),
-        loadSymbol,
-        hierarchyLibs(sheets),
-      );
-      const messages: ChangeSymbolsMessage[] = [];
-      sheetBatch('Change Symbols', () => {
-        for (const sheet of sheets) {
-          const r = changeSymbols(sheet.doc, libs, {
-            ...o,
-            match:
-              o.match.mode === 'selected' && sheet.file === currentFile
-                ? { ...o.match, selected: selection }
-                : o.match.mode === 'selected'
-                  ? { ...o.match, selected: new Set<string>() }
-                  : o.match,
-          });
-          messages.push(...r.messages);
-          if (r.doc === sheet.doc) continue;
-          applySheetDocument(
-            sheet.file,
-            r.doc,
-            o.mode === 'change' ? 'Change Symbols' : 'Update Symbols from Library',
-          );
-        }
-      });
-      setChangeSymbolsMessages(messages);
-    },
-    [
-      annotateSheets,
-      hierarchyLibs,
-      applySheetDocument,
-      currentFile,
-      selection,
-      onProjectChange,
-      sheetBatch,
-      loadSymbol,
-    ],
   );
 
   // Edit Text & Graphics Properties (SCH_EDIT_TOOL::GlobalEdit). The sweep runs
@@ -6324,12 +6210,6 @@ export function SchematicEditor({
       else if (id === 'editSymbolLibraryLinks') {
         setLibIdErrors([]);
         setLibIdsOpen(true);
-      } else if (id === 'changeSymbols' || id === 'updateSymbolsFromLibrary') {
-        setChangeSymbolsMessages([]);
-        // From the Tools menu there is no `m_symbol`: nothing to seed, and the
-        // "selected symbol(s)" radio is hidden.
-        setChangeSymbolsSubject(undefined);
-        setChangeSymbolsMode(id === 'changeSymbols' ? 'change' : 'update');
       } else if (id === 'schematicSetup') {
         // The Embedded Files page lists the sheet's embedded_files section
         // (names + embed-fonts flag) fresh from the document on every open,
@@ -7894,20 +7774,27 @@ export function SchematicEditor({
                 onClose={() => setLibIdsOpen(false)}
               />
             )}
-            {changeSymbolsMode !== null && (
+            {changeSymbolsDialog && (
               <DialogChangeSymbols
-                mode={changeSymbolsMode}
-                fieldNamesFor={changeSymbolsFieldNames}
-                hasSelection={selection.size > 0}
-                {...(changeSymbolsSubject ? { subject: changeSymbolsSubject } : {})}
-                messages={changeSymbolsMessages}
-                onApply={runChangeSymbols}
-                onClose={() => setChangeSymbolsMode(null)}
-                /* The browse buttons open SYMBOL_CHOOSER_FRAME, which is handed
-                   `s_SymbolHistoryList` — the same global the Place Symbol
-                   chooser uses (symbol_chooser_frame.cpp:86), never the power
-                   one, since this frame passes no filter. */
-                chooserHistory={sSymbolHistoryList}
+                dlg={changeSymbolsDialog.dlg}
+                onClose={() => {
+                  setChangeSymbolsDialog(null);
+                  changeSymbolsDialog.resolve(wxID_CANCEL);
+                }}
+              />
+            )}
+            {symbolChooser && (
+              <SymbolChooserFrame
+                preselect={symbolChooser.preselect}
+                historyList={sSymbolHistoryList}
+                onOk={(libId) => {
+                  setSymbolChooser(null);
+                  symbolChooser.resolve(libId);
+                }}
+                onCancel={() => {
+                  setSymbolChooser(null);
+                  symbolChooser.resolve(null);
+                }}
               />
             )}
             {globalEditOpen && (

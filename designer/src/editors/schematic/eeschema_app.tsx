@@ -41,7 +41,8 @@ import { SymbolLibraryBrowser } from '@ziroeda/eeschema/symbol_viewer_frame_ui.j
 import type { SYMBOL_VIEWER_FRAME_APP } from '@ziroeda/eeschema/symbol_viewer_frame.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { DialogRescueEach } from './dialogs/dialog_rescue_each.js';
-import { DialogChangeSymbols } from './dialogs/dialog_change_symbols.js';
+import { SymbolChooserFrame } from '@ziroeda/eeschema/symbol_chooser_frame.js';
+import { SYMBOL_CHOOSER_APP } from './symbol_chooser_app.js';
 import type { ComponentProps, JSX } from 'react';
 import { SchematicEditor } from '@ziroeda/eeschema/sch_edit_frame_ui.js';
 
@@ -93,7 +94,15 @@ export function useEeschemaApp(): EESCHEMA_APP {
       DialogSymbolChooser: (props) => <DialogSymbolChooser {...props} />,
       SymbolLibraryBrowser: (props) => <SymbolLibraryBrowser app={symbolViewerApp} {...props} />,
       DialogRescueEach: (props) => <DialogRescueEach {...props} />,
-      DialogChangeSymbols: (props) => <DialogChangeSymbols {...props} />,
+      SymbolChooserFrame: (props) => (
+        <SymbolChooserFrame
+          app={SYMBOL_CHOOSER_APP}
+          preselect={props.preselect}
+          historyList={props.historyList}
+          onOk={props.onOk}
+          onCancel={props.onCancel}
+        />
+      ),
       PreferencesDialog: (props) => <PreferencesDialog {...props} />,
       HomeLink: (props) => <HomeLink {...props} />,
       OpenFileDialog: (props) => <OpenFileDialog {...props} />,

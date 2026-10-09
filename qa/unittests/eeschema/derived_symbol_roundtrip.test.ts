@@ -25,10 +25,6 @@ import { writeSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/write-symbol-lib.
 import { flattenLibSymbol } from '@ziroeda/eeschema/lib_symbol.js';
 import { placeSymbol } from '@ziroeda/eeschema/tools/mutate.js';
 import { makeSymbol } from '@ziroeda/eeschema/tools/build.js';
-import {
-  changeSymbols,
-  defaultChangeSymbolsOptions,
-} from '@ziroeda/eeschema/tools/change_symbols.js';
 import { History } from '@ziroeda/eeschema/tools/command.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/reporter.js';
@@ -162,41 +158,6 @@ describe('a .kicad_sym library, which must keep writing the derived form', () =>
     const childBlock = text.slice(text.indexOf('(symbol "CHILD"'));
     expect(childBlock).not.toContain('CHILD_0_1');
     expect(childBlock).not.toContain('BASE_0_1');
-  });
-});
-
-describe('a schematic already written with a bodyless derived symbol', () => {
-  /** What the old writer produced: `extends`, no units, and no parent anywhere. */
-  const BROKEN = `(kicad_sch (version 20250114) (generator "eeschema")
-    (lib_symbols
-      (symbol "Diode:CHILD" (extends "BASE")
-        (property "Reference" "D" (at 0 2.54 0) (effects (font (size 1.27 1.27))))
-        (property "Value" "CHILD" (at 0 -2.54 0) (effects (font (size 1.27 1.27))))))
-    (symbol (lib_id "Diode:CHILD") (at 100 100 0) (unit 1) (uuid "1c3d0a1e-0000-4000-8000-000000000001")
-      (property "Reference" "D1" (at 100 96 0) (effects (font (size 1.27 1.27))))
-      (property "Value" "CHILD" (at 100 104 0) (effects (font (size 1.27 1.27))))))`;
-
-  it('opens with no body, because the body is not in the file', () => {
-    const doc = readSchematic(parse(BROKEN));
-    expect(doc.libSymbols[0]!.units).toHaveLength(0);
-  });
-
-  it('is repaired by Update Symbols from Library, which re-caches the flat part', () => {
-    const doc = readSchematic(parse(BROKEN));
-    const libs = new Map([['Diode:CHILD', { ...child(), libId: 'Diode:CHILD' }]]);
-    const result = changeSymbols(doc, libs, defaultChangeSymbolsOptions('update'));
-
-    const cached = result.doc.libSymbols.find((l) => l.libId === 'Diode:CHILD')!;
-    expect(cached.extends).toBeUndefined();
-    expect(cached.units.flatMap((u) => u.pins)).toHaveLength(2);
-    expect(result.messages.some((m) => m.text.includes('replaced with the flattened part'))).toBe(
-      true,
-    );
-
-    // …and the repair reaches the file, not just the model.
-    const text = serialize(writeSchematic(result.doc));
-    expect(text).not.toContain('extends');
-    expect(text).toContain('"CHILD_1_1"');
   });
 });
 
