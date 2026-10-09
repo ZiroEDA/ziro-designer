@@ -381,10 +381,11 @@ import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common
 import { DialogExportNetlist } from './dialogs/dialog_export_netlist.js';
 import { DialogSymbolFieldsTable, type FieldsEdits } from './dialogs/dialog_symbol_fields_table.js';
 import { DialogPrint } from './printing/dialog_print.js';
+import { SCH_PRINTOUT } from './printing/sch_printout.js';
+import { wxPrinter } from '@ziroeda/common/wx/printer.js';
 import { DialogPlot, type PlotRequest } from './dialogs/dialog_plot_schematic.js';
 import {
   downloadBlob,
-  printSheets,
   plotPng,
   plotSvg,
   plotPdf,
@@ -3691,81 +3692,19 @@ export function SchematicEditor({
     return intersheetRefsFor(idx === -1 ? 1 : idx + 1);
   }, [intersheetRefsFor, sheetInstanceRefs, currentPath]);
 
-  // Print (DIALOG_PRINT): render every sheet of the hierarchy, one page per
-  // sheet instance in SCH_SHEET_LIST order, like SCH_PRINTOUT (sheet_count =
-  // Root().CountSheets()), optionally with a different colour theme
-  // (m_useColorTheme choice). NOTE: title-block page-number variables render
-  // per file (the drawing-sheet resolver is not yet instance-aware).
-  const printPages = useCallback(
-    (opts: PlotOpts): { sch: Schematic; opts: PlotOpts }[] => {
-      // Junction dots, dash ratios, label offsets and netclass visuals print
-      // at their Schematic Setup values, like the screen.
-      const o: PlotOpts = {
-        ...opts,
-        ...drawingDefaults,
-        ...(netOverrides ? { netOverrides } : {}),
-        ...(resolveTextVar ? { resolveTextVar } : {}),
-        ...(intersheetRefs ? { intersheetRefs } : {}),
-        ...(activeSheet ? { sheet: activeSheet } : {}),
-      };
-      const docs = liveDocs();
-      const refs = sheetInstanceRefs;
-      const pages = refs.flatMap((s, i) => {
-        const sch = docs.get(s.file);
-        if (!sch) return [];
-        // Per-instance title-block context (SCH_PRINTOUT sets the printed
-        // sheet's page number/count on the drawing-sheet painter).
-        const pageOpts: PlotOpts = {
-          ...o,
-          pageNumber: pageNumberOf(s.path) || String(i + 1),
-          sheetNumber: i + 1,
-          sheetCount: refs.length,
-          ...(s.path !== '/' ? { sheetName: s.name } : {}),
-          sheetPath: s.namePath,
-          ...((): Partial<PlotOpts> => {
-            const r = intersheetRefsFor(i + 1);
-            return r ? { intersheetRefs: r } : {};
-          })(),
-        };
-        return [{ sch, opts: pageOpts }];
-      });
-      // No hierarchy yet (fresh document): print the on-screen sheet.
-      return pages.length === 0 && doc ? [{ sch: doc, opts: o }] : pages;
-    },
-    [
-      doc,
-      activeSheet,
-      drawingDefaults,
-      netOverrides,
-      resolveTextVar,
-      liveDocs,
-      sheetInstanceRefs,
-      pageNumberOf,
-      intersheetRefs,
-      intersheetRefsFor,
-    ],
-  );
-
-  const doPrint = useCallback(
-    (opts: PlotOpts, themeId?: string) => {
-      const printTheme =
-        themeId && BUILTIN_THEMES[themeId] ? BUILTIN_THEMES[themeId]!.theme : theme;
-      printSheets(printPages(opts), printTheme, outputBaseName());
-      setPrintOpen(false);
-    },
-    [theme, outputBaseName, printPages],
-  );
-
-  // Print Preview (DIALOG_PRINT's Apply / OnPrintPreview): render into a new tab
-  // without auto-printing, and keep the dialog open so options can be adjusted.
-  const doPreview = useCallback(
-    (opts: PlotOpts, themeId?: string) => {
-      const printTheme =
-        themeId && BUILTIN_THEMES[themeId] ? BUILTIN_THEMES[themeId]!.theme : theme;
-      printSheets(printPages(opts), printTheme, outputBaseName(), true);
-    },
-    [theme, outputBaseName, printPages],
-  );
+  // Print (DIALOG_PRINT::TransferDataFromWindow): SavePrintOptions has run in the dialog, so
+  // SCH_PRINTOUT reads them from eeconfig(); wxPrinter draws its pages into the browser's print
+  // window on the paper TransferDataToWindow takes from the current screen's page settings.
+  const doPrint = useCallback(() => {
+    const frame = schFrameRef.current;
+    const pageInfo = frame?.GetScreen()?.GetPageSettings();
+    if (!frame || !pageInfo) return;
+    new wxPrinter().Print(new SCH_PRINTOUT(frame, 'Print Schematic'), {
+      x: pageInfo.GetWidthMils() / 1000,
+      y: pageInfo.GetHeightMils() / 1000,
+    });
+    setPrintOpen(false);
+  }, []);
 
   // Bulk Edit Symbol Fields: apply the changed cells across every sheet they
   // reach, as ONE entry — DIALOG_SYMBOL_FIELDS_TABLE builds a single SCH_COMMIT
@@ -7816,7 +7755,6 @@ export function SchematicEditor({
               <DialogPrint
                 settings={app.settings}
                 onPrint={doPrint}
-                onPreview={doPreview}
                 themeId={es.appearance.color_theme}
                 onClose={() => setPrintOpen(false)}
               />
