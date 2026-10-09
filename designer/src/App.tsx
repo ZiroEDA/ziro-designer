@@ -694,9 +694,13 @@ export function App(): JSX.Element {
       // The request is mail, delivered once (KIWAY::ExpressMail). Left set, it
       // was re-read every time the manager mounted again - going home from the
       // demo's editor re-downloaded it and raised the editor straight back.
-      if (demo) setDemoRequest((r) => (r?.id === demo.id ? null : r));
+      // Either id: a GitHub open that settled on one project of several was
+      // asked for as the repository (DemoMeta.requestedAs).
+      const isThis = (id: string | undefined): boolean =>
+        !!demo && (id === demo.id || (!!demo.requestedAs && id === demo.requestedAs));
+      if (demo) setDemoRequest((r) => (isThis(r?.id) ? null : r));
       const pending = pendingDemoFrame.current;
-      if (demo && pending && pending.id === demo.id) {
+      if (demo && pending && isThis(pending.id)) {
         pendingDemoFrame.current = null;
         applyDemoFrame(pending.view, pending.child);
       }

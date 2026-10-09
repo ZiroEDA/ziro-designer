@@ -847,6 +847,7 @@ function managerFixture(hasProject: boolean) {
     showAbout: spy('showAbout'),
     showHotkeys: spy('showHotkeys'),
     openDemo: spy('openDemo'),
+    openFromGithub: spy('openFromGithub'),
     hasProject,
     hasTextFileSelected: false,
     recent: [],

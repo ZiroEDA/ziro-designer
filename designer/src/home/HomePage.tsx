@@ -36,11 +36,17 @@ import { useAuth } from '../auth/AuthProvider.js';
 import { authEnabled } from '../auth/supabaseClient.js';
 import { goToAuth } from '../auth/explore.js';
 import {
+  GithubOpenCancelled,
   GithubOpenError,
+  githubIdFor,
   githubSpecFromId,
+  githubSpecFromUrl,
   isGithubId,
   openGithubProject,
 } from './github_source.js';
+import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
+import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
+import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import type { AuthStep } from '../nav/route.js';
 import {
   syncAllProjects,
@@ -656,6 +662,14 @@ export function HomePage({
     );
   };
 
+  /** File > Open Project from GitHub...'s link dialog (#640). */
+  const [githubUrlOpen, setGithubUrlOpen] = useState(false);
+  /** A repository with several projects: the chooser, and who is waiting on it. */
+  const [githubChoice, setGithubChoice] = useState<{
+    projects: readonly string[];
+    resolve: (path: string | null) => void;
+  } | null>(null);
+
   const openDemoProject = async (
     id: string,
     view?: 'schematic' | 'pcb' | 'symbols' | 'footprints',
@@ -686,7 +700,21 @@ export function HomePage({
     let files: PickedHomeFile[];
     let d: DemoMeta;
     try {
-      if (gh) ({ files, meta: d } = await openGithubProject(gh, progress));
+      if (gh)
+        ({ files, meta: d } = await openGithubProject(gh, progress, undefined, (projects) => {
+          // The download gauge comes down while the chooser is up - it sat
+          // on top and covered the list - and goes back up once one is picked.
+          setLoading(null);
+          return new Promise((resolve) =>
+            setGithubChoice({
+              projects,
+              resolve: (path) => {
+                if (path) setLoading({ title, label: { message, value: 0 } });
+                resolve(path);
+              },
+            }),
+          );
+        }));
       else {
         d = known!;
         files = await openDemo(d, progress);
@@ -696,8 +724,9 @@ export function HomePage({
       // async handler and the card simply did nothing when clicked. A GitHub
       // open says why in words (the rate limit and when to retry, no such
       // repository, no project in it): GithubOpenError's message is that.
+      if (e instanceof GithubOpenCancelled) return;
       const why = e instanceof Error ? e.message : String(e);
-      window.alert(
+      DisplayErrorMessage(
         e instanceof GithubOpenError ? why : `Could not open ${gh ? what : 'that demo'}: ${why}`,
       );
       return;
@@ -1905,6 +1934,7 @@ export function HomePage({
     showAbout: () => setAboutOpen(true),
     showHotkeys: showHotkeyList,
     openDemo: (id) => void openDemoProject(id),
+    openFromGithub: () => setGithubUrlOpen(true),
     hasProject: !!picked,
     hasTextFileSelected: !!selectedTextFile,
     recent: saved,
@@ -2401,6 +2431,39 @@ export function HomePage({
         />
       )}
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
+
+      {githubUrlOpen && (
+        <WX_TEXT_ENTRY_DIALOG
+          caption="Open Project from GitHub"
+          label="GitHub repository link (a public repository):"
+          defaultValue="https://github.com/"
+          extraWidth
+          onResult={(value) => {
+            setGithubUrlOpen(false);
+            if (value === null) return;
+            const spec = githubSpecFromUrl(value);
+            if (!spec) {
+              DisplayErrorMessage(
+                `"${value.trim()}" is not a link to a GitHub repository.`,
+                'Paste the address of the repository from your browser, for example https://github.com/owner/repository',
+              );
+              return;
+            }
+            void openDemoProject(githubIdFor(spec));
+          }}
+        />
+      )}
+      {githubChoice && (
+        <SingleChoiceDialog
+          caption="Open Project from GitHub"
+          message="This repository holds several KiCad projects. Open which one?"
+          choices={githubChoice.projects.map((p) => ({ value: p, label: p }))}
+          onResult={(path) => {
+            githubChoice.resolve(path);
+            setGithubChoice(null);
+          }}
+        />
+      )}
 
       {/* Guest nudge: once there's real work at stake (a saved project) and no
           account, offer, never force, signing in so it's backed up. */}

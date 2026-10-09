@@ -65,6 +65,7 @@ const managerHandlers = {
   showAbout: noop,
   showHotkeys: noop,
   openDemo: noop,
+  openFromGithub: noop,
   hasProject: true,
   hasTextFileSelected: true,
   recent: [],

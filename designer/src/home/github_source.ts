@@ -101,6 +101,9 @@ export function isLfsPointer(text: string): boolean {
 /** Why an open failed, in words for the person who pasted the link. */
 export class GithubOpenError extends Error {}
 
+/** The person closed the chooser: nothing to open, and nothing to report. */
+export class GithubOpenCancelled extends Error {}
+
 const dec = new TextDecoder();
 const FETCH_CONCURRENCY = 8;
 
@@ -122,6 +125,12 @@ export async function openGithubProject(
   spec: GithubSpec,
   onProgress?: (done: number, total: number, file: string) => void,
   fetchFn: typeof fetch = (...a) => fetch(...a),
+  /**
+   * Several projects and no path to pick one: ask. Resolves with one of the
+   * paths, or null for Cancel. Absent, the likeliest is taken
+   * ({@link kicadProjectsIn}'s order).
+   */
+  choose?: (projects: readonly string[]) => Promise<string | null>,
 ): Promise<{ files: PickedHomeFile[]; meta: DemoMeta }> {
   const ref = spec.ref ?? 'HEAD';
   const where = `${spec.owner}/${spec.repo}`;
@@ -144,7 +153,16 @@ export async function openGithubProject(
   if (!treeRes.ok) throw new GithubOpenError(`GitHub answered ${treeRes.status} for ${where}.`);
   const tree = ((await treeRes.json()) as { tree?: TreeEntry[] }).tree ?? [];
 
-  const pro = pickProject(kicadProjectsIn(tree), spec.path);
+  const projects = kicadProjectsIn(tree);
+  let pro = pickProject(projects, spec.path);
+  // Chosen, it is part of the address from here on: a reload, or the link
+  // passed on, opens that project rather than asking again.
+  let chosen: string | null = null;
+  if (pro && !spec.path && projects.length > 1 && choose) {
+    chosen = await choose(projects);
+    if (!chosen) throw new GithubOpenCancelled('cancelled');
+    pro = chosen;
+  }
   if (!pro)
     throw new GithubOpenError(
       spec.path
@@ -190,11 +208,13 @@ export async function openGithubProject(
     return file;
   });
 
-  const id = githubIdFor(spec);
+  const asked = githubIdFor(spec);
+  const id = chosen ? githubIdFor({ ...spec, ref, path: chosen }) : asked;
   const meta: DemoMeta = {
     id,
+    ...(chosen ? { requestedAs: asked } : {}),
     base,
-    title: spec.path ? `${where}/${spec.path}` : where,
+    title: spec.path || chosen ? `${where}/${spec.path ?? chosen}` : where,
     description: `https://github.com/${where}`,
     files: files.map((f) => f.name.slice(base.length + 1)),
   };

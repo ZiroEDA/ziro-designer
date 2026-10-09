@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  GithubOpenCancelled,
   GithubOpenError,
   filesForProject,
   githubIdFor,
@@ -298,5 +299,82 @@ describe('the board editor starts the zstd codec before it parses', () => {
     expect(parse).toBeGreaterThan(init);
     // The only place the editor parses the board it opens.
     expect(src.split('ParseBoard(textRef.current)').length - 1).toBe(1);
+  });
+});
+
+describe('several projects in one repository: the chooser', () => {
+  const two = () =>
+    github({
+      [TREE]: json({ tree: [blob('a/x.kicad_pro'), blob('b/y.kicad_pro')] }),
+      [`${RAW}a/x.kicad_pro`]: new Response('{}'),
+      [`${RAW}b/y.kicad_pro`]: new Response('{}'),
+    });
+
+  it('asks, with every project, likeliest first; the choice goes into the id', async () => {
+    let offered: readonly string[] = [];
+    const { files, meta } = await openGithubProject(
+      { owner: 'o', repo: 'r' },
+      undefined,
+      two().fetch,
+      async (p) => {
+        offered = p;
+        return 'b/y.kicad_pro';
+      },
+    );
+    expect(offered).toEqual(['a/x.kicad_pro', 'b/y.kicad_pro']);
+    expect(files.map((f) => f.name)).toEqual(['b/y.kicad_pro']);
+    // A reload, or the link passed on, opens that project without asking.
+    expect(meta.id).toBe('gh/o/r/tree/HEAD/b/y.kicad_pro');
+    // ...and App can still match it to the request for the repository.
+    expect(meta.requestedAs).toBe('gh/o/r');
+  });
+
+  it('Cancel opens nothing', async () => {
+    const err = await openGithubProject(
+      { owner: 'o', repo: 'r' },
+      undefined,
+      two().fetch,
+      async () => null,
+    ).catch((e) => e);
+    expect(err).toBeInstanceOf(GithubOpenCancelled);
+  });
+
+  it('does not ask when there is one project, or a path picked one', async () => {
+    let asked = 0;
+    const ask = async () => {
+      asked++;
+      return null;
+    };
+    const one = github({
+      [TREE]: json({ tree: [blob('a/x.kicad_pro')] }),
+      [`${RAW}a/x.kicad_pro`]: new Response('{}'),
+    });
+    const single = await openGithubProject({ owner: 'o', repo: 'r' }, undefined, one.fetch, ask);
+    expect(single.meta.requestedAs).toBeUndefined();
+    const tree2 = 'https://api.github.com/repos/o/r/git/trees/main?recursive=1';
+    const pathed = github({
+      [tree2]: json({ tree: [blob('a/x.kicad_pro'), blob('b/y.kicad_pro')] }),
+      'https://raw.githubusercontent.com/o/r/main/b/y.kicad_pro': new Response('{}'),
+    });
+    const picked = await openGithubProject(
+      { owner: 'o', repo: 'r', ref: 'main', path: 'b' },
+      undefined,
+      pathed.fetch,
+      ask,
+    );
+    expect(picked.files.map((f) => f.name)).toEqual(['b/y.kicad_pro']);
+    expect(asked).toBe(0);
+  });
+});
+
+describe('App takes a chosen project as the open it asked for', () => {
+  it('matches its pending request against requestedAs too, or every return home re-downloads', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('../../../designer/src/App.tsx', import.meta.url), 'utf8');
+    const fn = src.slice(src.indexOf('const onDemoStateChange = useCallback('));
+    const body = fn.slice(0, fn.indexOf('applyDemoFrame('));
+    expect(body).toMatch(/id === demo\.requestedAs/);
+    expect(body).toContain('setDemoRequest((r) => (isThis(r?.id) ? null : r));');
+    expect(body).toContain('isThis(pending.id)');
   });
 });
