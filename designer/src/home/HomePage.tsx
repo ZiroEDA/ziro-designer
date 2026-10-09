@@ -2113,6 +2113,8 @@ export function HomePage({
             dirRoot={dirRoot}
             rootLabel={rootLabel}
             projectNames={projectNames}
+            // A project opened from GitHub is in a Git repository (#640).
+            showAllSchematics={!!demoSource && isGithubId(demoSource.id)}
             width={panelWidth}
             expanded={expanded}
             onToggleDir={toggleDir}

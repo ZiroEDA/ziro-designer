@@ -26,6 +26,7 @@
 import type { PickedHomeFile } from './files.js';
 import type { DemoMeta } from './demos.js';
 import { mapLimit } from '../map_limit.js';
+import { isListedFile } from '../fs/allowlist.js';
 import { githubIdFor, type GithubSpec } from './github_id.js';
 
 export { githubIdFor, githubSpecFromId, githubSpecFromUrl, isGithubId } from './github_id.js';
@@ -68,29 +69,45 @@ export function pickProject(projects: readonly string[], path?: string): string 
   return projects.find((p) => p.startsWith(under)) ?? null;
 }
 
-/** What a KiCad project reads: its own files, the lib tables, its libraries. */
-const WANTED =
-  /\.(kicad_pro|kicad_prl|kicad_sch|kicad_pcb|kicad_sym|kicad_mod|kicad_dru|kicad_wks|lib|dcm)$|(^|\/)(sym-lib-table|fp-lib-table)$/;
+/**
+ * What a project reads that its tree does not list: the library tables, the
+ * `.kicad_prl`, and its libraries' own files (`.pretty/*.kicad_mod` is listed,
+ * a legacy `.dcm` is not).
+ */
+const READ_BUT_UNLISTED = /\.(kicad_prl|kicad_mod|dcm)$|(^|\/)(sym-lib-table|fp-lib-table)$/;
 
 /** At most this many files: a fetch per file, and a repository can hold thousands. */
 export const MAX_FILES = 600;
 
+/** A file bigger than this is left on GitHub (a fetch of tens of MB to show a row). */
+export const MAX_FILE_BYTES = 25 * 1024 * 1024;
+
 /**
- * The tree entries to fetch for a project: wanted files under its folder, but
- * no OTHER project's `.kicad_pro`/`.kicad_prl` - the manager opens the one
- * project file it is given, and a second beside it was the one it opened.
+ * The tree entries to fetch for a project: its whole folder as KiCad's project
+ * tree shows it - every name `s_allowedExtensionsToList` lists (fs/allowlist.ts:
+ * sheets, boards, other projects, PDFs, gerbers, drill files, notes), in
+ * subfolders too - plus what the project reads but the tree hides. 3D models
+ * and images are not in that list, so they stay on GitHub, as they would stay
+ * out of KiCad's tree.
+ *
+ * `proPath` comes first among the `.kicad_pro` files: the open project is the
+ * first one (App's activeProName), and any other is a row the user can
+ * double-click to switch to (PROJECT_TREE_ITEM::Activate's loadProject).
  */
 export function filesForProject(tree: readonly TreeEntry[], proPath: string): TreeEntry[] {
   const slash = proPath.lastIndexOf('/');
   const dir = slash < 0 ? '' : proPath.slice(0, slash + 1);
-  const stem = proPath.slice(0, -'.kicad_pro'.length);
-  return tree.filter(
+  const base = (p: string): string => p.slice(p.lastIndexOf('/') + 1);
+  const picked = tree.filter(
     (e) =>
       e.type === 'blob' &&
       e.path.startsWith(dir) &&
-      WANTED.test(e.path) &&
-      (!/\.kicad_pr[ol]$/.test(e.path) || e.path.slice(0, -'.kicad_pro'.length) === stem),
+      (e.size ?? 0) <= MAX_FILE_BYTES &&
+      (isListedFile(base(e.path)) || READ_BUT_UNLISTED.test(e.path)),
   );
+  const at = picked.findIndex((e) => e.path === proPath);
+  if (at > 0) picked.unshift(...picked.splice(at, 1));
+  return picked;
 }
 
 /** A Git LFS pointer: what raw.githubusercontent serves for an LFS file. */

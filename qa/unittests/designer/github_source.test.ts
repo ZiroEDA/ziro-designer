@@ -152,28 +152,36 @@ describe('which project, which files', () => {
     expect(pickProject(projects, 'hw/missing.kicad_pro')).toBeNull();
   });
 
-  it('fetches what a project reads under its folder, no other project file, no 3D or gerbers', () => {
+  it("fetches the project's folder as KiCad's tree lists it, plus what the project reads", () => {
+    // The user opened headblockhead/slab-pcb's interchange-pcb-hackpad and saw
+    // a schematic and a board: everything else in the folder was left behind.
     const tree: TreeEntry[] = [
+      blob('hw/b.kicad_pro'),
       blob('hw/a.kicad_pro'),
       blob('hw/a.kicad_prl'),
       blob('hw/a.kicad_sch'),
       blob('hw/sub.kicad_sch'),
       blob('hw/a.kicad_pcb'),
-      blob('hw/other.kicad_pro'),
-      blob('hw/other.kicad_prl'),
       blob('hw/sym-lib-table'),
       blob('hw/fp-lib-table'),
       blob('hw/lib.pretty/R.kicad_mod'),
       blob('hw/lib.kicad_sym'),
-      blob('hw/3d/R.step'),
       blob('hw/gerbers/a-F_Cu.gbr'),
+      blob('hw/gerbers/a.drl'),
       blob('hw/a.pdf'),
+      blob('hw/NOTES.md'),
+      blob('hw/3d/R.step'),
+      blob('hw/photo.png'),
+      { path: 'hw/huge.pdf', type: 'blob', size: 40 * 1024 * 1024 },
       blob('README.md'),
       blob('elsewhere/x.kicad_sch'),
       { path: 'hw/lib.pretty', type: 'tree' },
     ];
     expect(filesForProject(tree, 'hw/a.kicad_pro').map((e) => e.path)).toEqual([
+      // The open project first: App takes the first .kicad_pro as the project.
       'hw/a.kicad_pro',
+      // Another project is a row to switch to, as in KiCad's tree.
+      'hw/b.kicad_pro',
       'hw/a.kicad_prl',
       'hw/a.kicad_sch',
       'hw/sub.kicad_sch',
@@ -182,6 +190,10 @@ describe('which project, which files', () => {
       'hw/fp-lib-table',
       'hw/lib.pretty/R.kicad_mod',
       'hw/lib.kicad_sym',
+      'hw/gerbers/a-F_Cu.gbr',
+      'hw/gerbers/a.drl',
+      'hw/a.pdf',
+      'hw/NOTES.md',
     ]);
   });
 
@@ -376,5 +388,22 @@ describe('App takes a chosen project as the open it asked for', () => {
     expect(body).toMatch(/id === demo\.requestedAs/);
     expect(body).toContain('setDemoRequest((r) => (isThis(r?.id) ? null : r));');
     expect(body).toContain('isThis(pending.id)');
+  });
+});
+
+describe('the project tree lists every sheet of a project in a Git repository', () => {
+  it('showAllSchematics: a sub-sheet hides normally, and shows from GitHub (project_tree_pane.cpp:505)', async () => {
+    const { isHiddenTreeNode } = await import('@ziroeda/designer/src/home/project_tree.js');
+    const projects = new Set(['interchange-pcb-hackpad']);
+    const root = 'interchange-pcb-hackpad.kicad_pro';
+    // The manual: "normally the tree view only shows the schematic root sheet".
+    expect(isHiddenTreeNode('p/RGBLEDArray.kicad_sch', root, projects)).toBe(true);
+    expect(isHiddenTreeNode('p/interchange-pcb-hackpad.kicad_sch', root, projects)).toBe(false);
+    // "...all sheets are shown when the project is in a Git repository".
+    expect(isHiddenTreeNode('p/RGBLEDArray.kicad_sch', root, projects, true)).toBe(false);
+    // Everything else is unchanged by it: the root row, the allow list.
+    expect(isHiddenTreeNode(`p/${root}`, root, projects, true)).toBe(true);
+    expect(isHiddenTreeNode('p/3d/R.step', root, projects, true)).toBe(true);
+    expect(isHiddenTreeNode('p/fp-lib-table', root, projects, true)).toBe(true);
   });
 });
