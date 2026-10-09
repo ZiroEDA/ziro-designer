@@ -483,9 +483,11 @@ export abstract class CACHED_CONTAINER extends VERTEX_CONTAINER {
       wxASSERT(newChunk !== -1);
     }
 
-    // Parameters of the allocated chunk
-    const newChunkSize = this.getChunkSize(this.m_freeChunks[newChunk]!);
-    const newChunkOffset = this.getChunkOffset(this.m_freeChunks[newChunk]!);
+    // Parameters of the allocated chunk. `newChunk` is a multimap iterator upstream, which the
+    // addFreeChunk below does not move; an array index would, so hold the entry itself.
+    const newChunkEntry = this.m_freeChunks[newChunk]!;
+    const newChunkSize = this.getChunkSize(newChunkEntry);
+    const newChunkOffset = this.getChunkOffset(newChunkEntry);
 
     wxASSERT(newChunkSize >= aSize);
     wxASSERT(newChunkOffset < this.m_currentSize);
@@ -513,7 +515,7 @@ export abstract class CACHED_CONTAINER extends VERTEX_CONTAINER {
     }
 
     // Remove the new allocated chunk from the free space pool
-    this.m_freeChunks.splice(newChunk, 1);
+    this.m_freeChunks.splice(this.m_freeChunks.indexOf(newChunkEntry), 1);
     this.m_freeSpace -= newChunkSize;
 
     this.m_chunkSize = newChunkSize;
@@ -706,12 +708,14 @@ export class CACHED_CONTAINER_RAM extends CACHED_CONTAINER {
     checkGlError(gl, 'binding vertices buffer');
 
     if (this.m_glBufferSize !== this.m_currentSize) {
+      // Everything up to m_maxIndex, as the C++ uploads, and everything written since the last
+      // upload: m_maxIndex moves only in FinishItem, and only for an item that leaves slack, so
+      // vertices written above it this frame would otherwise never reach the new buffer (the
+      // C++ heals on its next full upload; this path sends only touched ranges after this one).
+      const end = Math.min(Math.max(this.m_maxIndex, this.m_dirtyMax), this.m_currentSize);
+
       gl.bufferData(gl.ARRAY_BUFFER, this.m_currentSize * VERTEX_SIZE, gl.DYNAMIC_DRAW);
-      gl.bufferSubData(
-        gl.ARRAY_BUFFER,
-        0,
-        this.m_vertices!.u8.subarray(0, this.m_maxIndex * VERTEX_SIZE),
-      );
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.m_vertices!.u8.subarray(0, end * VERTEX_SIZE));
       this.m_glBufferSize = this.m_currentSize;
     } else if (this.m_dirtyMax > this.m_dirtyMin) {
       const first = Math.max(0, this.m_dirtyMin);
