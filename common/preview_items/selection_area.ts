@@ -35,7 +35,7 @@ import type { VIEW } from '../view/view.js';
 import { SIMPLE_OVERLAY_ITEM } from './simple_overlay_item.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { type VECTOR2I, toVECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** `struct SELECTION_COLORS` (`selection_area.cpp:34-42`). */
 export interface SelectionColors {
@@ -346,7 +346,8 @@ export class SELECTION_AREA extends SIMPLE_OVERLAY_ITEM {
 
   ///< Set the origin of the rectangle (the fixed corner)
   SetOrigin(aOrigin: VECTOR2I): void {
-    this.m_origin = { ...aOrigin };
+    // `m_origin` is a VECTOR2I: a VECTOR2D drag origin is cast to it on the way in.
+    this.m_origin = toVECTOR2I(aOrigin);
   }
 
   /**
@@ -354,7 +355,7 @@ export class SELECTION_AREA extends SIMPLE_OVERLAY_ITEM {
    * cursor.
    */
   SetEnd(aEnd: VECTOR2I): void {
-    this.m_end = { ...aEnd };
+    this.m_end = toVECTOR2I(aEnd);
   }
 
   override GetClass(): string {

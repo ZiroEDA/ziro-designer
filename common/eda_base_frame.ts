@@ -410,10 +410,24 @@ export abstract class EDA_BASE_FRAME
   /**
    * Load common frame parameters from a configuration file.
    *
-   * The window geometry, AUI perspective and file history are the page's
-   * own; nothing of `LoadWindowSettings` has a model here.
+   * The file history is the page's own (FILE_HISTORY has no model here).
    */
-  LoadSettings(_aCfg: APP_SETTINGS_BASE): void {}
+  LoadSettings(aCfg: APP_SETTINGS_BASE): void {
+    this.LoadWindowSettings(this.GetWindowSettings(aCfg));
+  }
+
+  /**
+   * `LoadWindowSettings( aCfg )` (eda_base_frame.cpp:1215). The window state and AUI layout are
+   * the page's; the MRU path, and the input settings TOOLS_HOLDER::CommonSettingsChanged copies
+   * (the left-drag action, warp-on-move, immediate actions), are the frame's. Without that last
+   * call a frame keeps TOOLS_HOLDER's constructor drag action, SELECT, and every left-drag draws
+   * a selection box.
+   */
+  LoadWindowSettings(aCfg: WINDOW_SETTINGS): void {
+    this.m_mruPath = aCfg.mru_path;
+
+    TOOLS_HOLDER.prototype.CommonSettingsChanged.call(this);
+  }
 
   /** Save common frame parameters to a configuration data file. */
   SaveSettings(_aCfg: APP_SETTINGS_BASE): void {}
