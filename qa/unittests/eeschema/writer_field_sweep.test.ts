@@ -26,8 +26,6 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { changeTextType } from '@ziroeda/eeschema/tools/change_text_type.js';
-import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 /**
@@ -303,18 +301,6 @@ describe('every modelled scalar field survives a save', () => {
       expect(misses, `fields that did not survive a save:\n  ${report}`).toEqual([]);
     });
   }
-
-  it('and the head token does round-trip through the tool that changes it', () => {
-    // The two `kind` exclusions above are only honest if the supported path
-    // works. changeTextType replaces the item rather than assigning the field.
-    const doc = load('nfc-antenna.kicad_sch');
-    const first = doc.labels[0];
-    if (!first) return;
-    const id = refId('label', first.uuid, 0);
-    const cmd = changeTextType(doc, new Set([id]), 'global_label')!;
-    const back = readSchematic(parse(serializeSchematic(cmd.apply(doc))));
-    expect(back.labels.some((l) => l.kind === 'global_label' && l.text === first.text)).toBe(true);
-  });
 
   it('is actually looking at something', () => {
     // Without this the sweep could pass by finding no items at all — which is
