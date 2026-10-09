@@ -13,7 +13,10 @@ import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js'
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
 import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { SCH_LABEL_BASE } from '@ziroeda/eeschema/sch_label.js';
 import type { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
+import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
+import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { click, MM, openProject, schToolHarness } from './support/sch_tool_harness.js';
@@ -139,5 +142,46 @@ describe('the schematic message panel', () => {
       'V Justification',
     ]);
     expect(items[1]!.GetLowerText()).toBe(field.GetText());
+  });
+
+  it('a net label shows its kind and text, no electrical type, then style rows (sch_label.cpp)', () => {
+    const { h } = setUp();
+    const label = [
+      ...h.frame.GetScreen()!.Items().OfType(KICAD_T.SCH_LABEL_T),
+    ][0] as SCH_LABEL_BASE;
+    const items: MSG_PANEL_ITEM[] = [];
+
+    label.GetMsgPanelInfo(h.frame.AsDrawFrameLike(), items);
+
+    // Only global and hierarchical labels and sheet pins show an electrical Type.
+    expect(items.map((i) => i.GetUpperText()).slice(0, 5)).toEqual([
+      'Label',
+      'Font',
+      'Style',
+      'Text Size',
+      'Justification',
+    ]);
+    expect(items[0]!.GetLowerText()).toBe(label.GetText());
+  });
+
+  it('graphic text on a sheet has one Justification row; on a symbol, H and V (sch_text.cpp)', () => {
+    const { h } = setUp();
+    const onSheet = new SCH_TEXT({ x: 0, y: 0 }, 'note');
+    const inSymbol = new SCH_TEXT({ x: 0, y: 0 }, 'pin note', SCH_LAYER_ID.LAYER_DEVICE);
+    const rows = (t: SCH_TEXT) => {
+      const items: MSG_PANEL_ITEM[] = [];
+      t.GetMsgPanelInfo(h.frame.AsDrawFrameLike(), items);
+      return items.map((i) => i.GetUpperText());
+    };
+
+    expect(rows(onSheet)).toEqual(['Text', 'Font', 'Style', 'Text Size', 'Justification']);
+    expect(rows(inSymbol)).toEqual([
+      'Text',
+      'Font',
+      'Style',
+      'Text Size',
+      'H Justification',
+      'V Justification',
+    ]);
   });
 });

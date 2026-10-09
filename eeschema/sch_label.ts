@@ -6,7 +6,7 @@
  * `SCH_LABEL_BASE` and its kinds `SCH_LABEL`, `SCH_DIRECTIVE_LABEL`, `SCH_GLOBALLABEL`
  * and `SCH_HIERLABEL` (also the base of `SCH_SHEET_PIN`).
  *
- * Not here: `Plot`, `GetMsgPanelInfo`, `GetMenuImage`, `Serialize`/`Deserialize`, the
+ * Not here: `Plot`, `GetMenuImage`, `Serialize`/`Deserialize`, the
  * `*_DESC` property registrations. Anything that asks a `SCH_CONNECTION` (the net name
  * text variables, `${OP}`, net-name search, the net-class colour) waits on the connection
  * graph (E3 part 2) and answers as KiCad does for an item with no connection.
@@ -39,7 +39,10 @@ import {
   GetDefaultFieldName as GetDefaultFieldNameForId,
 } from '@ziroeda/common/template_fieldnames.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { KIUI_EllipsizeMenuText } from '@ziroeda/common/widgets/ui_common.js';
+import {
+  KIUI_EllipsizeMenuText,
+  KIUI_EllipsizeStatusText,
+} from '@ziroeda/common/widgets/ui_common.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import {
   ANGLE_180,
@@ -73,6 +76,8 @@ import type { SCH_SCREEN } from './sch_screen.js';
 import type { SCH_SHEET } from './sch_sheet.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { SCH_TEXT } from './sch_text.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 
 /** `MIRRORVAL`. */
 const MIRRORVAL = (aPoint: number, aMirrorRef: number): number =>
@@ -1402,6 +1407,88 @@ export class SCH_LABEL extends SCH_LABEL_BASE {
 
   override GetClass(): string {
     return 'SCH_LABEL';
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_label.cpp). */
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    let msg: string;
+
+    switch (this.Type()) {
+      case KICAD_T.SCH_LABEL_T:
+        msg = 'Label';
+        break;
+      case KICAD_T.SCH_DIRECTIVE_LABEL_T:
+        msg = 'Directive Label';
+        break;
+      case KICAD_T.SCH_GLOBAL_LABEL_T:
+        msg = 'Global Label';
+        break;
+      case KICAD_T.SCH_HIER_LABEL_T:
+        msg = 'Hierarchical Label';
+        break;
+      case KICAD_T.SCH_SHEET_PIN_T:
+        msg = 'Hierarchical Sheet Pin';
+        break;
+      default:
+        return;
+    }
+
+    // Don't use GetShownText() here; we want to show the user the variable references
+    aList.push(new MSG_PANEL_ITEM(msg, unescapeString(this.GetText())));
+
+    // Display electrical type if it is relevant
+    if (
+      this.Type() === KICAD_T.SCH_GLOBAL_LABEL_T ||
+      this.Type() === KICAD_T.SCH_HIER_LABEL_T ||
+      this.Type() === KICAD_T.SCH_SHEET_PIN_T
+    )
+      aList.push(new MSG_PANEL_ITEM('Type', getElectricalTypeLabel(this.GetShape())));
+
+    aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
+
+    const textStyle = ['Normal', 'Italic', 'Bold', 'Bold Italic'];
+    const style =
+      this.IsBold() && this.IsItalic() ? 3 : this.IsBold() ? 2 : this.IsItalic() ? 1 : 0;
+    aList.push(new MSG_PANEL_ITEM('Style', textStyle[style]!));
+
+    aList.push(new MSG_PANEL_ITEM('Text Size', aFrame.MessageTextFromValue(this.GetTextWidth())));
+
+    switch (Number(this.GetSpinStyle())) {
+      case SPIN_STYLE.LEFT:
+        msg = 'Align right';
+        break;
+      case SPIN_STYLE.UP:
+        msg = 'Align bottom';
+        break;
+      case SPIN_STYLE.RIGHT:
+        msg = 'Align left';
+        break;
+      case SPIN_STYLE.BOTTOM:
+        msg = 'Align top';
+        break;
+      default:
+        msg = '???';
+        break;
+    }
+
+    aList.push(new MSG_PANEL_ITEM('Justification', msg));
+
+    // dynamic_cast<SCH_EDIT_FRAME*>( aFrame ): a schematic editor's item has a schematic.
+    const conn = !this.IsConnectivityDirty() && this.Schematic() ? this.Connection() : null;
+
+    if (conn) {
+      conn.AppendInfoToMsgPanel(aList);
+
+      if (!conn.IsBus()) {
+        aList.push(
+          new MSG_PANEL_ITEM(
+            'Resolved Netclass',
+            // null is upstream's static NETCLASS( wxEmptyString ), whose name is ''.
+            unescapeString(this.GetEffectiveNetClass()?.GetHumanReadableName() ?? ''),
+          ),
+        );
+      }
+    }
   }
 
   override GetFriendlyName(): string {

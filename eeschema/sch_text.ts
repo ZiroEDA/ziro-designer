@@ -6,7 +6,7 @@
  * base of every label (`class SCH_TEXT : public SCH_ITEM, public EDA_TEXT`, the
  * EDA_TEXT half mixed in).
  *
- * Not here: `Plot`, `GetMsgPanelInfo`, `GetMenuImage`, `DoHypertextAction` (needs the
+ * Not here: `Plot`, `GetMenuImage`, `DoHypertextAction` (needs the
  * navigate tool), `ShowSyntaxHelp` (a dialog), `SCH_TEXT_DESC`.
  */
 
@@ -29,7 +29,11 @@ import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { KIUI_EllipsizeMenuText } from '@ziroeda/common/widgets/ui_common.js';
+import {
+  INDETERMINATE_STATE,
+  KIUI_EllipsizeMenuText,
+  KIUI_EllipsizeStatusText,
+} from '@ziroeda/common/widgets/ui_common.js';
 import { wxCmpNoCase, wxLess } from '@ziroeda/common/wx/wxstring.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
@@ -48,6 +52,8 @@ import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { DEFAULT_TEXT_OFFSET_RATIO } from './default_values.js';
 import { SCH_ITEM } from './sch_item.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 
 /** `MIRRORVAL`. */
 const MIRRORVAL = (aPoint: number, aMirrorRef: number): number =>
@@ -116,6 +122,65 @@ export class SCH_TEXT extends SCH_ITEM {
 
   override GetClass(): string {
     return 'SCH_TEXT';
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_text.cpp). */
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    let msg = '';
+
+    // Don't use GetShownText() here; we want to show the user the variable references
+    aList.push(new MSG_PANEL_ITEM('Text', KIUI_EllipsizeStatusText(aFrame, this.GetText())));
+
+    super.GetMsgPanelInfo(aFrame, aList);
+
+    if (this.m_excludedFromSim) aList.push(new MSG_PANEL_ITEM('Exclude from', 'Simulation'));
+
+    aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
+
+    const textStyle = ['Normal', 'Italic', 'Bold', 'Bold Italic'];
+    const style =
+      this.IsBold() && this.IsItalic() ? 3 : this.IsBold() ? 2 : this.IsItalic() ? 1 : 0;
+    aList.push(new MSG_PANEL_ITEM('Style', textStyle[style]!));
+
+    aList.push(new MSG_PANEL_ITEM('Text Size', aFrame.MessageTextFromValue(this.GetTextWidth())));
+
+    switch (this.GetHorizJustify()) {
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT:
+        msg = 'Align left';
+        break;
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER:
+        msg = 'Align center';
+        break;
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT:
+        msg = 'Align right';
+        break;
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_INDETERMINATE:
+        msg = INDETERMINATE_STATE;
+        break;
+    }
+
+    if (this.m_layer === SCH_LAYER_ID.LAYER_DEVICE) {
+      aList.push(new MSG_PANEL_ITEM('H Justification', msg));
+
+      switch (this.GetVertJustify()) {
+        case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP:
+          msg = 'Top';
+          break;
+        case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER:
+          msg = 'Center';
+          break;
+        case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM:
+          msg = 'Bottom';
+          break;
+        case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_INDETERMINATE:
+          msg = INDETERMINATE_STATE;
+          break;
+      }
+
+      aList.push(new MSG_PANEL_ITEM('V Justification', msg));
+    } else {
+      aList.push(new MSG_PANEL_ITEM('Justification', msg));
+    }
   }
 
   override GetFriendlyName(): string {

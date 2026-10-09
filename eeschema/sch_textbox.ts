@@ -6,7 +6,7 @@
  * that wraps text (`class SCH_TEXTBOX : public SCH_SHAPE, public EDA_TEXT`, the EDA_TEXT
  * half mixed in). Also the base of `SCH_TABLECELL`.
  *
- * Not here: `Plot`, `Print`, `GetMsgPanelInfo`, `GetMenuImage`, `DoHypertextAction`,
+ * Not here: `Plot`, `Print`, `GetMenuImage`, `DoHypertextAction`,
  * `Serialize`/`Deserialize`, `SCH_TEXTBOX_DESC`.
  */
 
@@ -30,7 +30,10 @@ import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { KIUI_EllipsizeMenuText } from '@ziroeda/common/widgets/ui_common.js';
+import {
+  KIUI_EllipsizeMenuText,
+  KIUI_EllipsizeStatusText,
+} from '@ziroeda/common/widgets/ui_common.js';
 import { wxCmpNoCase, wxLess } from '@ziroeda/common/wx/wxstring.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
@@ -40,9 +43,11 @@ import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_c
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import type { SCH_ITEM } from './sch_item.js';
+import { SCH_ITEM } from './sch_item.js';
 import { SCH_SHAPE } from './sch_shape.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 
 // `Replace`, `Similarity`, `Compare` and the text virtuals are overloaded across the two
 // bases in C++; the class carries its own forms.
@@ -109,6 +114,42 @@ export class SCH_TEXTBOX extends SCH_SHAPE {
 
   override GetClass(): string {
     return 'SCH_TEXTBOX';
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_textbox.cpp). */
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    // Don't use GetShownText() here; we want to show the user the variable references
+    aList.push(new MSG_PANEL_ITEM('Text Box', KIUI_EllipsizeStatusText(aFrame, this.GetText())));
+
+    // SCH_ITEM::GetMsgPanelInfo: SCH_SHAPE's override is skipped upstream.
+    SCH_ITEM.prototype.GetMsgPanelInfo.call(this, aFrame, aList);
+
+    if (this.m_excludedFromSim) aList.push(new MSG_PANEL_ITEM('Exclude from', 'Simulation'));
+
+    aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
+
+    const textStyle = ['Normal', 'Italic', 'Bold', 'Bold Italic'];
+    const style =
+      this.IsBold() && this.IsItalic() ? 3 : this.IsBold() ? 2 : this.IsItalic() ? 1 : 0;
+    aList.push(new MSG_PANEL_ITEM('Style', textStyle[style]!));
+
+    aList.push(new MSG_PANEL_ITEM('Text Size', aFrame.MessageTextFromValue(this.GetTextWidth())));
+
+    aList.push(
+      new MSG_PANEL_ITEM(
+        'Box Width',
+        aFrame.MessageTextFromValue(Math.abs(this.GetEnd().x - this.GetStart().x)),
+      ),
+    );
+
+    aList.push(
+      new MSG_PANEL_ITEM(
+        'Box Height',
+        aFrame.MessageTextFromValue(Math.abs(this.GetEnd().y - this.GetStart().y)),
+      ),
+    );
+
+    this.GetStroke().GetMsgPanelInfo(aFrame, aList);
   }
 
   GetLegacyTextMargin(): number {
