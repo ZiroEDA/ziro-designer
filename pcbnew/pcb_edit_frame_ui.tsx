@@ -2918,6 +2918,8 @@ export function PcbEditor({
 
   /** The open this frame has read: `openNonce` + file, set as the parse begins. */
   const parsedOpen = useRef<string | null>(null);
+  /** The project and file the frame last loaded, `/<project>/<file>`. */
+  const loadedWhich = useRef<string | null>(null);
   /** The board whose first paint closes the Load PCB dialog, while one is pending. */
   const firstPaintPendingRef = useRef<BoardHandle | null>(null);
   // The project folder, `/<projectName>`: read through a ref by the loads
@@ -2937,6 +2939,21 @@ export function PcbEditor({
       boardRef.current = emptyBoard;
       requestDrawRef.current();
     }
+    // A DIFFERENT board - another file, or another project's - goes onto a
+    // blank sheet, not over the last one. KiCad never shows the old board
+    // here: changing or closing the project closes every KIWAY_PLAYER
+    // (KICAD_MANAGER_FRAME::CloseProject), so pcbnew starts fresh. Ours keeps
+    // the frame alive between projects (it reopens in an instant), so it has
+    // to drop the board itself, or the "Load PCB" dialog sat over somebody
+    // else's board. A reopen of the SAME board keeps it up until the new
+    // parse lands, as above.
+    const which = `${projectDirRef.current}/${fileName}`;
+    if (loadedWhich.current !== null && loadedWhich.current !== which) {
+      boardRef.current = emptyBoard;
+      setBoard(emptyBoard);
+      requestDrawRef.current();
+    }
+    loadedWhich.current = which;
     // Not on screen: nothing to do yet. The open is read when the frame is
     // next shown, which re-runs this with `shown` true — see the prop.
     if (!shown) return;
