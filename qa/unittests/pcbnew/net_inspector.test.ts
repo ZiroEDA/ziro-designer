@@ -2,203 +2,118 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The Net Inspector's rows.
- * Counterpart: `PCB_NET_INSPECTOR_PANEL` and its data model.
- *
- * The counting columns only. Upstream's four length columns are measured with
- * its optimised-path length calculator and are deliberately absent here — a
- * length that quietly disagrees with the one KiCad shows for the same board is
- * worse than a column that is honestly missing.
+ * The Net Inspector's rows on a live BOARD.
+ * Counterpart: `PCB_NET_INSPECTOR_PANEL::buildNetsList` / `netFilterMatches` /
+ * `calculateNets` (pcb_net_inspector_panel.cpp:513-760) and LIST_ITEM.
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
+  DEFAULT_NET_INSPECTOR_FILTER,
   netInspectorRows,
-  netInspectorSummary,
 } from '@ziroeda/pcbnew/widgets/pcb_net_inspector_panel.js';
-import type { Board, PcbPad } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
+const U = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
-const pad = (number: string, net: number): PcbPad => ({
-  number,
-  type: 'smd',
-  shape: 'rect',
-  at: { x: 0, y: 0 },
-  angle: 0,
-  size: { x: MM(1), y: MM(1) },
-  layers: ['F.Cu'],
-  net,
-});
+const pad = (num: string, x: number, net: number, name: string, extra = '') =>
+  `(pad "${num}" smd rect (at ${x} 0) (size 1 1) (layers "F.Cu") (net ${net} "${name}") ${extra}(uuid "${U(100 + Number(num))}"))`;
 
-const board = (over: Partial<Board> = {}): Board => ({
-  version: 20240108,
-  layers: [
-    { id: 0, name: 'F.Cu', kind: 'signal' },
-    { id: 31, name: 'B.Cu', kind: 'signal' },
-  ],
-  nets: new Map([
-    [0, ''],
-    [1, 'GND'],
-    [2, 'VCC'],
-  ]),
-  footprints: [],
-  tracks: [],
-  arcs: [],
-  vias: [],
-  zones: [],
-  shapes: [],
-  texts: [],
-  dimensions: [],
-  textBoxes: [],
-  tables: [],
-  images: [],
-  points: [],
-  barcodes: [],
-  groups: [],
-  ...over,
-});
+const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generator_version "9.0")
+  (general (thickness 1.6) (legacy_teardrops no)) (paper "A4")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user))
+  (setup (pad_to_mask_clearance 0))
+  (net 0 "") (net 1 "GND") (net 2 "VCC") (net 3 "N3") (net 4 "unconnected-(R1-Pad4)")
+  (net 5 "TRK") (net 6 "N10") (net 7 "N9") (net 8 "/Sheet1/SDA{slash}A4")
+  (footprint "R" (layer "F.Cu") (at 10 10) (uuid "${U(1)}")
+    ${pad('1', -3, 1, 'GND', '(die_length 1.5) ')}
+    ${pad('2', -1, 1, 'GND')}
+    ${pad('3', 1, 2, 'VCC')}
+    ${pad('4', 3, 4, 'unconnected-(R1-Pad4)')}
+    ${pad('5', 5, 6, 'N10')}
+    ${pad('6', 7, 7, 'N9')}
+    ${pad('7', 9, 8, '/Sheet1/SDA{slash}A4')})
+  (segment (start 0 30) (end 10 30) (width 0.2) (layer "F.Cu") (net 1) (uuid "${U(2)}"))
+  (via (at 30 30) (size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") (net 1) (uuid "${U(3)}"))
+  (segment (start 0 40) (end 5 40) (width 0.2) (layer "F.Cu") (net 5) (uuid "${U(4)}"))
+)`;
 
-const track = (net: number) => ({
-  start: { x: 0, y: 0 },
-  end: { x: MM(10), y: 0 },
-  width: MM(0.2),
-  layer: 'F.Cu',
-  net,
-});
+function load(): BOARD {
+  const board = ParseBoard(BOARD_TEXT);
+  board.BuildConnectivity();
+  return board;
+}
 
-const via = (net: number) => ({
-  at: { x: MM(3), y: 0 },
-  size: MM(0.6),
-  drill: MM(0.3),
-  layers: ['F.Cu', 'B.Cu'] as [string, string],
-  kind: 'through' as const,
-  net,
-});
+describe('calculateNets', () => {
+  it('counts pads and vias, and measures the wire and pad-to-die lengths', () => {
+    const gnd = netInspectorRows(load()).find((r) => r.name === 'GND')!;
 
-const fp = (pads: PcbPad[]) => ({
-  lib: 'L:R',
-  reference: 'R1',
-  at: { x: 0, y: 0 },
-  angle: 0,
-  layer: 'F.Cu',
-  pads,
-  shapes: [],
-  texts: [],
-  points: [],
-  barcodes: [],
-  models: [],
-});
-
-describe('rows', () => {
-  it('lists one row per real net', () => {
-    const rows = netInspectorRows(board());
-
-    expect(rows.map((r) => r.name)).toEqual(['GND', 'VCC']);
+    expect(gnd.padCount).toBe(2);
+    // NumVias counts only under m_UseHeightForLengthCalcs, which is on by default.
+    expect(gnd.viaCount).toBe(1);
+    // The one 10 mm segment, nowhere near a pad, so nothing is trimmed.
+    expect(gnd.boardLength).toBe(MM(10));
+    // Pad 1's (die_length 1.5); pad 2 has none.
+    expect(gnd.padDieLength).toBe(MM(1.5));
+    expect(gnd.netclass).toBe('Default');
   });
 
-  it('excludes the unconnected pseudo-net', () => {
-    // Net 0 is not something a user assigns a netclass to or routes.
-    expect(netInspectorRows(board()).some((r) => r.net === 0)).toBe(false);
+  it('lists only nets that have connectivity items and at least one pad', () => {
+    // N3 has nothing on it (not in foundNets); TRK is a track with no pad
+    // (NumPads == 0, m_showZeroPadNets off); the unconnected-( net is filtered.
+    expect(netInspectorRows(load()).map((r) => r.name)).toEqual([
+      '/Sheet1/SDA/A4',
+      'GND',
+      'N9',
+      'N10',
+      'VCC',
+    ]);
   });
 
-  it('lists a net that has no copper on it at all', () => {
-    // An unrouted net with zero of everything is exactly what the panel is
-    // used to find, so it must not be omitted for having nothing.
-    const rows = netInspectorRows(board());
-
-    expect(rows.find((r) => r.name === 'VCC')).toMatchObject({
-      padCount: 0,
-      viaCount: 0,
-      trackCount: 0,
+  it('shows the zero-pad net when asked', () => {
+    const rows = netInspectorRows(load(), {
+      ...DEFAULT_NET_INSPECTOR_FILTER,
+      showZeroPadNets: true,
     });
+    expect(rows.find((r) => r.name === 'TRK')).toMatchObject({ padCount: 0, boardLength: MM(5) });
+    // Still not N3: it was never found among the connectivity items.
+    expect(rows.some((r) => r.name === 'N3')).toBe(false);
   });
 
-  it('counts pads, vias and tracks per net', () => {
-    const b = board({
-      footprints: [fp([pad('1', 1), pad('2', 1), pad('3', 2)])],
-      tracks: [track(1), track(1)],
-      vias: [via(1)],
+  it('shows the unconnected-( nets when asked', () => {
+    const rows = netInspectorRows(load(), {
+      ...DEFAULT_NET_INSPECTOR_FILTER,
+      showUnconnectedNets: true,
     });
-    const gnd = netInspectorRows(b).find((r) => r.name === 'GND');
-
-    expect(gnd).toMatchObject({ padCount: 2, viaCount: 1, trackCount: 2 });
-  });
-
-  it('counts arcs as tracks', () => {
-    const b = board({
-      arcs: [
-        {
-          start: { x: 0, y: 0 },
-          mid: { x: MM(5), y: MM(1) },
-          end: { x: MM(10), y: 0 },
-          width: MM(0.2),
-          layer: 'F.Cu',
-          net: 1,
-        },
-      ],
-    });
-
-    expect(netInspectorRows(b).find((r) => r.name === 'GND')?.trackCount).toBe(1);
-  });
-
-  it('keeps each net’s counts separate', () => {
-    const b = board({ tracks: [track(1), track(2), track(2)] });
-    const rows = netInspectorRows(b);
-
-    expect(rows.find((r) => r.name === 'GND')?.trackCount).toBe(1);
-    expect(rows.find((r) => r.name === 'VCC')?.trackCount).toBe(2);
-  });
-
-  it('joins every netclass the net belongs to', () => {
-    const rows = netInspectorRows(board(), (n) => (n === 'GND' ? ['Default', 'Power'] : []));
-
-    expect(rows.find((r) => r.name === 'GND')?.netclass).toBe('Default, Power');
-  });
-
-  it('sorts by name, not by net code', () => {
-    // Nets are looked up by name far more often than by the code the file
-    // happened to assign.
-    const b = board({
-      nets: new Map([
-        [0, ''],
-        [1, 'ZZZ'],
-        [2, 'AAA'],
-      ]),
-    });
-
-    expect(netInspectorRows(b).map((r) => r.name)).toEqual(['AAA', 'ZZZ']);
+    expect(rows.some((r) => r.name === 'unconnected-(R1-Pad4)')).toBe(true);
   });
 });
 
-describe('summary', () => {
-  it('counts a net with pads but no copper as unrouted', () => {
-    const b = board({ footprints: [fp([pad('1', 1), pad('2', 1)])] });
-
-    expect(netInspectorSummary(netInspectorRows(b))).toMatchObject({ nets: 2, unrouted: 1 });
+describe('netFilterMatches', () => {
+  it('matches the net name case-insensitively', () => {
+    const rows = netInspectorRows(load(), { ...DEFAULT_NET_INSPECTOR_FILTER, filterText: 'gn' });
+    expect(rows.map((r) => r.name)).toEqual(['GND']);
   });
 
-  it('does not count a routed net as unrouted', () => {
-    const b = board({ footprints: [fp([pad('1', 1), pad('2', 1)])], tracks: [track(1)] });
+  it('matches the netclass name too, unless that is switched off', () => {
+    const all = netInspectorRows(load(), { ...DEFAULT_NET_INSPECTOR_FILTER, filterText: 'defa' });
+    expect(all).toHaveLength(5);
 
-    expect(netInspectorSummary(netInspectorRows(b)).unrouted).toBe(0);
+    const none = netInspectorRows(load(), {
+      ...DEFAULT_NET_INSPECTOR_FILTER,
+      filterText: 'defa',
+      filterByNetclass: false,
+    });
+    expect(none).toHaveLength(0);
   });
 
-  it('does not call a single-pad net unrouted', () => {
-    // One pad has nothing to connect to; that is not a missing connection.
-    const b = board({ footprints: [fp([pad('1', 1)])] });
-
-    expect(netInspectorSummary(netInspectorRows(b)).unrouted).toBe(0);
-  });
-
-  it('does not call a net with no pads unrouted', () => {
-    // A stray net entry with nothing on it is not an unrouted connection.
-    expect(netInspectorSummary(netInspectorRows(board())).unrouted).toBe(0);
-  });
-
-  it('counts a net joined only by vias as routed', () => {
-    const b = board({ footprints: [fp([pad('1', 1), pad('2', 1)])], vias: [via(1)] });
-
-    expect(netInspectorSummary(netInspectorRows(b)).unrouted).toBe(0);
+  it('matches the shown (unescaped) name', () => {
+    const rows = netInspectorRows(load(), {
+      ...DEFAULT_NET_INSPECTOR_FILTER,
+      filterText: 'SDA/A4',
+    });
+    expect(rows.map((r) => r.name)).toEqual(['/Sheet1/SDA/A4']);
   });
 });

@@ -1499,6 +1499,34 @@ export type Shape =
     }
   | { kind: 'poly'; pts: Vec2[]; r: number };
 
+/** Circumcenter of the arc through start/mid/end (null when collinear). */
+function arcCenter(s: Vec2, m: Vec2, e: Vec2): Vec2 | null {
+  const d = 2 * (s.x * (m.y - e.y) + m.x * (e.y - s.y) + e.x * (s.y - m.y));
+  if (d === 0) return null;
+  const s2 = s.x * s.x + s.y * s.y;
+  const m2 = m.x * m.x + m.y * m.y;
+  const e2 = e.x * e.x + e.y * e.y;
+  return {
+    x: (s2 * (m.y - e.y) + m2 * (e.y - s.y) + e2 * (s.y - m.y)) / d,
+    y: (s2 * (e.x - m.x) + m2 * (s.x - e.x) + e2 * (m.x - s.x)) / d,
+  };
+}
+
+/** SHAPE_ARC from a track arc's start/mid/end + width. */
+export function arcShape(s: Vec2, m: Vec2, e: Vec2, width: number): Shape {
+  const c = arcCenter(s, m, e);
+  if (!c) return { kind: 'stadium', a: s, b: e, r: width / 2 };
+  const rad = Math.hypot(s.x - c.x, s.y - c.y);
+  const a0 = Math.atan2(s.y - c.y, s.x - c.x);
+  const am = Math.atan2(m.y - c.y, m.x - c.x);
+  const a1 = Math.atan2(e.y - c.y, e.x - c.x);
+  const TAU = 2 * Math.PI;
+  const norm = (a: number): number => ((a % TAU) + TAU) % TAU;
+  let sweep = norm(a1 - a0);
+  if (norm(am - a0) > sweep) sweep -= TAU; // the mid point picks the direction
+  return { kind: 'arc', c, rad, a0, sweep, r: width / 2, chord: { s, m, e } };
+}
+
 const dist = (a: Vec2, b: Vec2): number => Math.hypot(a.x - b.x, a.y - b.y);
 
 /**

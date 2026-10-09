@@ -19,11 +19,11 @@
  */
 
 import { useRef, type JSX, type UIEvent } from 'react';
-import type { CustomRules } from '../board_settings.js';
 
-// The data model lives in board_settings.ts (KiCad's data/UI split);
-// re-exported so panel users keep importing from the panel module.
-export { defaultCustomRules, type CustomRules } from '../board_settings.js';
+/** The page's text: the project's .kicad_dru, which the frame hands in. */
+export interface CustomRules {
+  text: string;
+}
 
 interface Props {
   value: CustomRules;

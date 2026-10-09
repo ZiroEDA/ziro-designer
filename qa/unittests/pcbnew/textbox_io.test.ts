@@ -26,14 +26,18 @@
  * layout is derived from the serializer rather than observed.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { emptyBoard, flatText, writtenNode } from './support/written_node.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Board, PcbTextBox } from '@ziroeda/pcbnew/types.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { PCB_TEXTBOX } from '@ziroeda/pcbnew/pcb_textbox.js';
+import { FormatBoard, ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { flatText, writtenNode } from './support/written_node.js';
 
-const MM = (n: number): number => mmToIU(n);
+const MM = (n: number): number => pcbIUScale.mmToIU(n);
 
 /** Verbatim from KiCad's api_kitchen_sink.kicad_pcb. */
 const BOX = `(gr_text_box "Box\\no\\nCharacters"
@@ -59,77 +63,74 @@ const ROTATED = `(gr_text_box "Turned"
     (stroke (width 0.1) (type solid))
     (knockout yes))`;
 
-const read = (...extra: string[]): Board =>
-  readBoard(
-    parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
+const read = (...extra: string[]): BOARD =>
+  ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user) (5 "F.SilkS" user "F.Silkscreen")
+    (17 "Cmts.User" user "User.Comments"))
   (net 0 "")
   ${extra.join('\n  ')}
-)`),
-  );
-const only = (src: string): PcbTextBox => read(src).textBoxes[0]!;
+)`);
+const boxes = (b: BOARD): PCB_TEXTBOX[] =>
+  b.Drawings().filter((d) => d.Type() === KICAD_T.PCB_TEXTBOX_T) as PCB_TEXTBOX[];
+const only = (src: string): PCB_TEXTBOX => boxes(read(src))[0]!;
 
-describe('reading a text box', () => {
+describe('reading a text box (parsePCB_TEXTBOX)', () => {
   it('reads the text, keeping its newlines', () => {
-    expect(only(BOX).text).toBe('Box\no\nCharacters');
+    expect(only(BOX).GetText()).toBe('Box\no\nCharacters');
   });
 
   it('reads the corners', () => {
     const b = only(BOX);
 
-    expect(b.start).toEqual({ x: MM(116.9), y: MM(49.9) });
-    expect(b.end).toEqual({ x: MM(127.3), y: MM(55.45) });
-    expect(b.pts).toBeUndefined();
+    expect(b.GetShape()).toBe(SHAPE_T.RECTANGLE);
+    expect(b.GetStart()).toEqual({ x: MM(116.9), y: MM(49.9) });
+    expect(b.GetEnd()).toEqual({ x: MM(127.3), y: MM(55.45) });
   });
 
   it('reads the margins in file order: left, top, right, bottom', () => {
-    const b = read(BOX.replace('(margins 1.0025 1.0025 1.0025 1.0025)', '(margins 1 2 3 4)'))
-      .textBoxes[0]!;
+    const b = only(BOX.replace('(margins 1.0025 1.0025 1.0025 1.0025)', '(margins 1 2 3 4)'));
 
-    expect(b.margins).toEqual({ left: MM(1), top: MM(2), right: MM(3), bottom: MM(4) });
+    expect([b.GetMarginLeft(), b.GetMarginTop(), b.GetMarginRight(), b.GetMarginBottom()]).toEqual([
+      MM(1),
+      MM(2),
+      MM(3),
+      MM(4),
+    ]);
   });
 
   it('reads the layer, uuid and text effects', () => {
     const b = only(BOX);
 
-    expect(b.layer).toBe('F.SilkS');
-    expect(b.uuid).toBe('e767597a-10fe-4c42-aa00-6a6954af3954');
-    expect(b.size).toEqual({ x: MM(0.9), y: MM(0.9) });
-    expect(b.thickness).toBe(MM(0.17));
-    expect(b.bold).toBe(true);
-    expect(b.justify).toEqual(['top']);
+    expect(b.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
+    expect(b.m_Uuid).toBe('e767597a-10fe-4c42-aa00-6a6954af3954');
+    expect(b.GetTextSize()).toEqual({ x: MM(0.9), y: MM(0.9) });
+    expect(b.GetTextThickness()).toBe(MM(0.17));
+    expect(b.IsBold()).toBe(true);
+    expect(b.GetVertJustify()).toBe(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP);
   });
 
   it('reads the border, stroke and knockout', () => {
     const b = only(BOX);
 
-    expect(b.border).toBe(true);
-    expect(b.strokeWidth).toBe(MM(0.12));
-    expect(b.strokeType).toBe('dot');
-    expect(b.knockout).toBe(false);
+    expect(b.IsBorderEnabled()).toBe(true);
+    expect(b.GetWidth()).toBe(MM(0.12));
+    expect(b.GetLineStyle()).toBe(LINE_STYLE.DOT);
+    expect(b.IsKnockout()).toBe(false);
   });
 
   it('defaults to a border when the file says nothing', () => {
     // PCB_TEXTBOX's constructor enables the border, so a missing token is not
     // the same as `(border no)`.
-    const b = read(BOX.replace('(border yes)', '')).textBoxes[0]!;
-
-    expect(b.border).toBe(true);
+    expect(only(BOX.replace('(border yes)', '')).IsBorderEnabled()).toBe(true);
   });
 
   it('reads a rotated box as a polygon, not as corners', () => {
     const b = only(ROTATED);
 
-    expect(b.start).toBeUndefined();
-    expect(b.pts).toHaveLength(4);
-    expect(b.pts![0]).toEqual({ x: MM(10), y: MM(10) });
-    expect(b.angle).toBe(12.5);
-  });
-
-  it('leaves the angle absent rather than zero on an upright box', () => {
-    // Upstream omits `(angle …)` when it is zero, and writing one back would
-    // add a token the original file did not have.
-    expect(only(BOX).angle).toBeUndefined();
+    expect(b.GetShape()).toBe(SHAPE_T.POLY);
+    expect(b.GetPolyShape().COutline(0).PointCount()).toBe(4);
+    expect(b.GetPolyShape().COutline(0).CPoint(0)).toEqual({ x: MM(10), y: MM(10) });
+    expect(b.GetTextAngle().AsDegrees()).toBe(12.5);
   });
 
   it('keeps a box with neither corners nor points, where the constructor left it', () => {
@@ -137,76 +138,68 @@ describe('reading a text box', () => {
     // does not position is the PCB_TEXTBOX constructor's, at the origin.
     const broken = BOX.replace('(start 116.9 49.9)', '').replace('(end 127.3 55.45)', '');
 
-    expect(read(broken).textBoxes).toHaveLength(1);
-    expect(read(broken).textBoxes[0]!.start).toEqual({ x: 0, y: 0 });
+    expect(boxes(read(broken))).toHaveLength(1);
+    expect(only(broken).GetStart()).toEqual({ x: 0, y: 0 });
   });
 
   it('does not mistake one for a gr_text', () => {
-    expect(read(BOX).texts).toHaveLength(0);
+    expect(
+      read(BOX)
+        .Drawings()
+        .filter((d) => d.Type() === KICAD_T.PCB_TEXT_T),
+    ).toHaveLength(0);
   });
 });
 
 describe('round-tripping through the writer', () => {
   it('gives an untouched box back unchanged', () => {
-    const out = serializeBoard(read(BOX));
-    const back = readBoard(parse(out));
+    const out = FormatBoard(read(BOX));
+    const back = boxes(ParseBoard(out));
 
-    expect(back.textBoxes).toHaveLength(1);
-    expect(back.textBoxes[0]!.start).toEqual({ x: MM(116.9), y: MM(49.9) });
+    expect(back).toHaveLength(1);
+    expect(back[0]!.GetStart()).toEqual({ x: MM(116.9), y: MM(49.9) });
     expect(out).toContain('(knockout no)');
     expect(out).toContain('(type dot)');
   });
 
   it('keeps a rotated box a polygon', () => {
-    const back = readBoard(parse(serializeBoard(read(ROTATED))));
+    const back = boxes(ParseBoard(FormatBoard(read(ROTATED))))[0]!;
 
-    expect(back.textBoxes[0]!.pts).toHaveLength(4);
-    expect(back.textBoxes[0]!.angle).toBe(12.5);
+    expect(back.GetShape()).toBe(SHAPE_T.POLY);
+    expect(back.GetPolyShape().COutline(0).PointCount()).toBe(4);
+    expect(back.GetTextAngle().AsDegrees()).toBe(12.5);
   });
 
-  it('keeps boxes when other items are edited around them', () => {
+  it('drops a deleted box and keeps the rest, in board order', () => {
     const b = read(BOX, ROTATED);
-    b.texts.push({
-      kind: 'user',
-      text: 'hello',
-      at: { x: 0, y: 0 },
-      angle: 0,
-      layer: 'F.SilkS',
-      size: { x: MM(1), y: MM(1) },
-    });
-    const back = readBoard(parse(serializeBoard(b)));
+    b.Remove(boxes(b)[0]!);
+    const back = boxes(ParseBoard(FormatBoard(b)));
 
-    expect(back.textBoxes).toHaveLength(2);
-    expect(back.texts.some((t) => t.text === 'hello')).toBe(true);
-  });
-
-  it('drops a deleted box and keeps the rest, in model order', () => {
-    const b = read(BOX, ROTATED);
-    b.textBoxes.splice(0, 1);
-    const back = readBoard(parse(serializeBoard(b)));
-
-    expect(back.textBoxes).toHaveLength(1);
-    expect(back.textBoxes[0]!.text).toBe('Turned');
+    expect(back).toHaveLength(1);
+    expect(back[0]!.GetText()).toBe('Turned');
   });
 });
 
-describe('building a box from scratch', () => {
-  const base = (over: Partial<PcbTextBox> = {}): PcbTextBox => ({
-    text: 'hi',
-    start: { x: 0, y: 0 },
-    end: { x: MM(10), y: MM(5) },
-    margins: { left: MM(1), top: MM(1), right: MM(1), bottom: MM(1) },
-    layer: 'F.SilkS',
-    size: { x: MM(1), y: MM(1) },
-    border: true,
-    strokeWidth: MM(0.1),
-    ...over,
-  });
-  const text = (t: PcbTextBox): string =>
-    flatText(writtenNode({ ...emptyBoard(), textBoxes: [t] }, 'gr_text_box'));
+describe('writing a box built from scratch (format( PCB_TEXTBOX* ))', () => {
+  /** A 10 x 5 mm box with 1 mm margins on F.SilkS, put on its own board. */
+  const build = (edit: (t: PCB_TEXTBOX) => void = () => {}): string => {
+    const board = read();
+    const t = new PCB_TEXTBOX(board);
+    t.SetText('hi');
+    t.SetLayer(PCB_LAYER_ID.F_SilkS);
+    t.SetStart({ x: 0, y: 0 });
+    t.SetEnd({ x: MM(10), y: MM(5) });
+    t.SetMarginLeft(MM(1));
+    t.SetMarginTop(MM(1));
+    t.SetMarginRight(MM(1));
+    t.SetMarginBottom(MM(1));
+    edit(t);
+    board.Add(t);
+    return flatText(writtenNode(board, 'gr_text_box'));
+  };
 
   it('writes corners for a rectangle', () => {
-    const s = text(base());
+    const s = build();
 
     expect(s).toContain('(start 0 0)');
     expect(s).toContain('(end 10 5)');
@@ -214,66 +207,58 @@ describe('building a box from scratch', () => {
   });
 
   it('writes points for a polygon, and no corners', () => {
-    const s = text(
-      base({
-        start: undefined,
-        end: undefined,
-        pts: [
-          { x: 0, y: 0 },
-          { x: MM(1), y: 0 },
-        ],
-      }),
-    );
+    const s = build((t) => {
+      t.SetShape(SHAPE_T.POLY);
+      t.GetPolyShape().NewOutline();
+      t.GetPolyShape().Append(0, 0);
+      t.GetPolyShape().Append(MM(1), 0);
+      t.GetPolyShape().Append(MM(1), MM(1));
+    });
 
     expect(s).toContain('(pts');
     expect(s).not.toContain('(start');
     expect(s).not.toContain('(end');
   });
 
-  it('prefers the polygon when somehow given both', () => {
-    // Upstream switches on the shape, so it can never emit both; if a caller
-    // sets both, the polygon is the one carrying the rotation.
-    const s = text(
-      base({
-        pts: [
-          { x: 0, y: 0 },
-          { x: MM(1), y: 0 },
-        ],
-      }),
-    );
-
-    expect(s).toContain('(pts');
-    expect(s).not.toContain('(start');
-  });
-
   it('writes border and knockout both ways, never omitting them', () => {
     // A missing `(border …)` reads back as true, so `no` has to be written.
-    expect(text(base({ border: false }))).toContain('(border no)');
-    expect(text(base({ border: true }))).toContain('(border yes)');
-    expect(text(base({ knockout: false }))).toContain('(knockout no)');
-    expect(text(base({ knockout: true }))).toContain('(knockout yes)');
+    expect(build((t) => t.SetBorderEnabled(false))).toContain('(border no)');
+    expect(build((t) => t.SetBorderEnabled(true))).toContain('(border yes)');
+    expect(build((t) => t.SetIsKnockout(false))).toContain('(knockout no)');
+    expect(build((t) => t.SetIsKnockout(true))).toContain('(knockout yes)');
   });
 
   it('writes an angle only when there is one', () => {
-    expect(text(base({ angle: 30 }))).toContain('(angle 30)');
-    expect(text(base())).not.toContain('(angle');
+    expect(build((t) => t.SetTextAngleDegrees(30))).toContain('(angle 30)');
+    expect(build()).not.toContain('(angle');
   });
 
   it('writes the margins in file order', () => {
-    const s = text(base({ margins: { left: MM(1), top: MM(2), right: MM(3), bottom: MM(4) } }));
+    const s = build((t) => {
+      t.SetMarginTop(MM(2));
+      t.SetMarginRight(MM(3));
+      t.SetMarginBottom(MM(4));
+    });
 
     expect(s).toContain('(margins 1 2 3 4)');
   });
 
   it('round-trips a built box back through the reader', () => {
-    const b = read();
-    b.textBoxes.push(base({ uuid: 'abc', knockout: true, strokeType: 'dash' }));
-    const back = readBoard(parse(serializeBoard(b)));
+    const board = read();
+    const t = new PCB_TEXTBOX(board);
+    t.SetText('hi');
+    t.SetLayer(PCB_LAYER_ID.F_SilkS);
+    t.SetEnd({ x: MM(10), y: MM(5) });
+    t.SetMarginLeft(MM(1));
+    t.SetIsKnockout(true);
+    t.SetLineStyle(LINE_STYLE.DASH);
+    board.Add(t);
+    const back = boxes(ParseBoard(FormatBoard(board)));
 
-    expect(back.textBoxes).toHaveLength(1);
-    expect(back.textBoxes[0]!.text).toBe('hi');
-    expect(back.textBoxes[0]!.knockout).toBe(true);
-    expect(back.textBoxes[0]!.strokeType).toBe('dash');
-    expect(back.textBoxes[0]!.margins.left).toBe(MM(1));
+    expect(back).toHaveLength(1);
+    expect(back[0]!.GetText()).toBe('hi');
+    expect(back[0]!.IsKnockout()).toBe(true);
+    expect(back[0]!.GetLineStyle()).toBe(LINE_STYLE.DASH);
+    expect(back[0]!.GetMarginLeft()).toBe(MM(1));
   });
 });

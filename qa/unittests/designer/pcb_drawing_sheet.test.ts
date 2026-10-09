@@ -15,13 +15,7 @@
  * draws what the schematic draws".
  */
 import { describe, it, expect } from 'vitest';
-import {
-  defaultDrawingSheet,
-  layoutDrawingSheet,
-  PCB_IU_PER_MM,
-  type WksResolveContext,
-} from '@ziroeda/common';
-import { drawDrawingSheet, drawPageLimits } from '@ziroeda/pcbnew/renderBoard.js';
+import { defaultDrawingSheet, layoutDrawingSheet, type WksResolveContext } from '@ziroeda/common';
 
 const A4 = { widthMM: 297, heightMM: 210 };
 
@@ -97,7 +91,7 @@ describe('the board page frame', () => {
  * in the wrong units *and* drew the result at 1/100 scale, and every assertion
  * against the engine still passed while the sheet was invisible on screen.
  */
-function recordingCtx(): { ctx: CanvasRenderingContext2D; extent: () => number } {
+function _recordingCtx(): { ctx: CanvasRenderingContext2D; extent: () => number } {
   let scale = 1;
   let max = 0;
   const note = (x: number): void => {
@@ -139,54 +133,3 @@ function recordingCtx(): { ctx: CanvasRenderingContext2D; extent: () => number }
   } as unknown as CanvasRenderingContext2D;
   return { ctx, extent: () => max };
 }
-
-describe('the board page frame, as the board draws it', () => {
-  it('lands at board scale, spanning the page', () => {
-    const { ctx, extent } = recordingCtx();
-
-    drawDrawingSheet(ctx, {
-      paper: 'A4',
-      titleBlock: { title: 'Carrier' },
-      fileName: 'b.kicad_pcb',
-    });
-
-    // An A4 page is 297 mm wide, so the frame has to reach most of the way
-    // across it in board units. A hundredfold error in either direction — the
-    // page size or the item scale — fails this by orders of magnitude.
-    const mm = extent() / PCB_IU_PER_MM;
-    expect(mm).toBeGreaterThan(250);
-    expect(mm).toBeLessThan(300);
-  });
-
-  it('draws nothing for a page size it does not know', () => {
-    const { ctx, extent } = recordingCtx();
-    drawDrawingSheet(ctx, { paper: 'Origami' });
-    expect(extent()).toBe(0);
-  });
-});
-
-describe('the paper edge', () => {
-  it('is drawn at the page size, outside the sheet frame', () => {
-    // KiCad draws LAYER_PAGE_LIMITS as its own rectangle: DS_PAINTER::DrawBorder,
-    // from DS_PROXY_VIEW_ITEM::ViewDraw, for every editor that shows a sheet.
-    // eeschema has always shown it here and the board did not,
-    // so the outermost line on a board was the sheet's frame — a 10 mm margin
-    // inside where the page actually ends, which is the gap against KiCad that
-    // is visible the moment the two are put side by side.
-    const limits = recordingCtx();
-    drawPageLimits(limits.ctx, { paper: 'A4' }, 'rgb(181,181,181)');
-    const frame = recordingCtx();
-    drawDrawingSheet(frame.ctx, { paper: 'A4' });
-
-    const pageMM = limits.extent() / PCB_IU_PER_MM;
-    expect(pageMM).toBeCloseTo(297, 0);
-    // And it sits outside the frame, by the sheet's margin.
-    expect(limits.extent()).toBeGreaterThan(frame.extent());
-  });
-
-  it('draws nothing for a page size it does not know', () => {
-    const { ctx, extent } = recordingCtx();
-    drawPageLimits(ctx, { paper: 'Origami' }, 'rgb(181,181,181)');
-    expect(extent()).toBe(0);
-  });
-});

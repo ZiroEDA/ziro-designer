@@ -18,17 +18,24 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { head, isList, type SList } from '@ziroeda/sexpr/types.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
   FLIP_DIRECTION,
-  serializeFootprint,
+  FormatFootprintForLibrary,
+  footprintSaveClone,
+  ParseFootprintFile,
 } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { PCB_LAYER_ID as LAYER } from '@ziroeda/common/layer_id.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 import { FlipLayer, type PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { LAYER_T } from '@ziroeda/pcbnew/board_types.js';
 import { B_Cu, F_Cu, In_Cu, User_1 } from '@ziroeda/common/layer_ids.js';
-import { emptyBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
-import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
+import { emptyBOARD } from './support/written_node.js';
+import { BOARD_USE } from '@ziroeda/pcbnew/board.js';
 
 const MM = (n: number): number => mmToIU(n);
 
@@ -54,9 +61,27 @@ const BACK = `(footprint "R" (version 20241229) (generator "pcbnew") (layer "B.C
     (polygon (pts (xy 0 0) (xy 2 0) (xy 2 1) (xy 0 1))))
 )`;
 
-const read = (text: string): PcbFootprint => readFootprintFile(text)!;
-const saved = (dir: FLIP_DIRECTION): PcbFootprint =>
-  read(serializeFootprint(read(BACK), { flipDirection: dir }));
+/**
+ * The footprint as the Footprint Editor holds it: on an FPHOLDER board, whose
+ * FlipLayer the save's flip asks (PCB_TEXT::Flip, FOOTPRINT::Flip).
+ */
+const read = (text: string): FOOTPRINT => {
+  const fp = ParseFootprintFile(text);
+  const holder = emptyBOARD();
+  holder.SetBoardUse(BOARD_USE.FPHOLDER);
+  holder.Add(fp);
+  return fp;
+};
+/** `PCB_IO_KICAD_SEXPR::FootprintSave`'s text: a clone, brought to the front, formatted. */
+const serializeFootprint = (fp: FOOTPRINT, dir = FLIP_DIRECTION.TOP_BOTTOM): string => {
+  const clone = fp.Clone();
+  footprintSaveClone(clone, dir);
+  return FormatFootprintForLibrary(clone);
+};
+const saved = (dir: FLIP_DIRECTION): FOOTPRINT => read(serializeFootprint(read(BACK), dir));
+const shapesOf = (fp: FOOTPRINT): PCB_SHAPE[] =>
+  fp.GraphicalItems().filter((t) => t.Type() === KICAD_T.PCB_SHAPE_T) as PCB_SHAPE[];
+const pointsOf = (fp: FOOTPRINT) => fp.Points();
 
 /** The `(pad "n" …)` node of the written file. */
 function padNode(text: string, number: string): SList {
@@ -80,32 +105,33 @@ describe('a front footprint', () => {
   it('is written as it is', () => {
     const text = BACK.replace('(layer "B.Cu")', '(layer "F.Cu")');
     const fp = read(serializeFootprint(read(text)));
-    expect(fp.layer).toBe('F.Cu');
-    expect(fp.pads[0]!.at).toEqual({ x: MM(1), y: MM(2) });
-    expect(fp.pads[0]!.angle).toBe(30);
+    expect(fp.GetLayer()).toBe(LAYER.F_Cu);
+    expect(fp.Pads()[0]!.GetPosition()).toEqual({ x: MM(1), y: MM(2) });
+    expect(fp.Pads()[0]!.GetOrientationDegrees()).toBe(30);
   });
 });
 
 describe('a back footprint saved with FLIP_DIRECTION::TOP_BOTTOM', () => {
   const fp = saved(FLIP_DIRECTION.TOP_BOTTOM);
-  const pad = (n: string) => fp.pads.find((p) => p.number === n)!;
+  const pad = (n: string) => fp.Pads().find((p) => p.GetNumber() === n)!;
 
   it('lands on the front', () => {
-    expect(fp.layer).toBe('F.Cu');
+    expect(fp.GetLayer()).toBe(LAYER.F_Cu);
   });
 
   it('mirrors a pad about the anchor and negates its angle', () => {
     // PAD::Flip (pad.cpp:1476-1487): MIRROR( m_pos, aCentre, TOP_BOTTOM ) is
     // y -> -y about the footprint, and the relative orientation is negated;
     // PADSTACK::SetOrientation normalises to [0, 360).
-    expect(pad('1').at).toEqual({ x: MM(1), y: MM(-2) });
-    expect(pad('1').angle).toBe(330);
-    expect(pad('3').angle).toBe(270);
+    expect(pad('1').GetPosition()).toEqual({ x: MM(1), y: MM(-2) });
+    expect(pad('1').GetOrientationDegrees()).toBe(330);
+    expect(pad('3').GetOrientationDegrees()).toBe(270);
   });
 
   it('flips every pad layer, keeping the wildcard spelling of a through pad', () => {
-    expect(pad('1').layers).toEqual(['F.Cu', 'F.Mask', 'F.Paste']);
-    expect(pad('3').layers).toEqual(['*.Cu', '*.Mask']);
+    const text = serializeFootprint(read(BACK));
+    expect(words(child(padNode(text, '1'), 'layers'))).toEqual(['F.Cu', 'F.Mask', 'F.Paste']);
+    expect(words(child(padNode(text, '3'), 'layers'))).toEqual(['*.Cu', '*.Mask']);
   });
 
   it('mirrors the chamfered corners top to bottom', () => {
@@ -116,17 +142,17 @@ describe('a back footprint saved with FLIP_DIRECTION::TOP_BOTTOM', () => {
 
   it('mirrors the drill offset with the pad', () => {
     // MIRROR( m_padStack.Offset( aLayer ), VECTOR2I{ 0, 0 }, TOP_BOTTOM ) (pad.cpp:1483).
-    expect(pad('3').drill?.offset).toEqual({ x: MM(0.1), y: MM(-0.2) });
+    expect(pad('3').GetOffset(LAYER.F_Cu)).toEqual({ x: MM(0.1), y: MM(-0.2) });
   });
 
   it('turns a text over: mirrored position, 180 - angle, mirror flag toggled', () => {
     // PCB_TEXT::Flip (pcb_text.cpp:487-494): SetTextY( MIRRORVAL ), SetTextAngle( 180 - angle ),
     // FlipLayer, and `if( IsSideSpecific() ) SetMirrored( !IsMirrored() )` — B.SilkS is.
-    const ref = fp.texts.find((t) => t.kind === 'reference')!;
-    expect(ref.at).toEqual({ x: 0, y: MM(1) });
-    expect(ref.angle).toBe(180);
-    expect(ref.layer).toBe('F.SilkS');
-    expect(ref.mirror).toBeFalsy();
+    const ref = fp.GetField(FIELD_T.REFERENCE)!;
+    expect(ref.GetPosition()).toEqual({ x: 0, y: MM(1) });
+    expect(ref.GetTextAngleDegrees()).toBe(180);
+    expect(ref.GetLayer()).toBe(LAYER.F_SilkS);
+    expect(ref.IsMirrored()).toBe(false);
   });
 
   it('mirrors a segment and swaps the ends of an arc', () => {
@@ -135,9 +161,9 @@ describe('a back footprint saved with FLIP_DIRECTION::TOP_BOTTOM', () => {
     // parse had already put the file's (-1 0.5)..(1 0.5) into the internal
     // winding, start (1 0.5) (`SetArcGeometry`, :1201-1206), so the mirrored
     // and swapped arc is written start (-1 -0.5), end (1 -0.5).
-    const line = fp.shapes.find((s) => s.kind === 'line')!;
-    expect(line.start).toEqual({ x: MM(-1), y: MM(0.5) });
-    expect(line.layer).toBe('F.SilkS');
+    const line = shapesOf(fp).find((s) => s.GetShape() === SHAPE_T.SEGMENT)!;
+    expect(line.GetStart()).toEqual({ x: MM(-1), y: MM(0.5) });
+    expect(line.GetLayer()).toBe(LAYER.F_SilkS);
     const text = serializeFootprint(read(BACK));
     const arc = parse(text).items.find((i): i is SList => isList(i) && head(i) === 'fp_arc')!;
     expect(words(child(arc, 'start'))).toEqual(['-1', '-0.5']);
@@ -147,8 +173,8 @@ describe('a back footprint saved with FLIP_DIRECTION::TOP_BOTTOM', () => {
   });
 
   it('mirrors a point and flips its layer, as PCB_POINT::Flip does', () => {
-    expect(fp.points[0]!.at).toEqual({ x: MM(4), y: MM(-5) });
-    expect(fp.points[0]!.layer).toBe('F.SilkS');
+    expect(pointsOf(fp)[0]!.GetPosition()).toEqual({ x: MM(4), y: MM(-5) });
+    expect(pointsOf(fp)[0]!.GetLayer()).toBe(LAYER.F_SilkS);
   });
 
   it("mirrors a zone's outline and moves it to the front", () => {
@@ -181,29 +207,29 @@ describe('a back footprint saved with FLIP_DIRECTION::TOP_BOTTOM', () => {
 
 describe('a back footprint saved with FLIP_DIRECTION::LEFT_RIGHT', () => {
   const fp = saved(FLIP_DIRECTION.LEFT_RIGHT);
-  const pad = (n: string) => fp.pads.find((p) => p.number === n)!;
+  const pad = (n: string) => fp.Pads().find((p) => p.GetNumber() === n)!;
 
   it('is the top-bottom flip turned through 180 degrees', () => {
     // FOOTPRINT::Flip (:2995-2997): `if( LEFT_RIGHT ) Rotate( aCentre, ANGLE_180 )`.
     // Rotating the footprint leaves its footprint-relative children where
     // they are and adds 180 to the absolute angles the file carries.
-    expect(fp.layer).toBe('F.Cu');
-    expect(pad('1').at).toEqual({ x: MM(1), y: MM(-2) });
-    expect(pad('1').angle).toBe(150);
-    expect(pad('2').angle).toBe(180);
+    expect(fp.GetLayer()).toBe(LAYER.F_Cu);
+    expect(pad('1').GetPosition()).toEqual({ x: MM(1), y: MM(-2) });
+    expect(pad('1').GetOrientationDegrees()).toBe(150);
+    expect(pad('2').GetOrientationDegrees()).toBe(180);
   });
 
   it('keeps a text upright after the turn', () => {
     // PCB_TEXT::KeepUpright (pcb_text.cpp:374): 180 + 180 = 360 normalises to
     // 0, which is upright, so nothing else moves.
-    const ref = fp.texts.find((t) => t.kind === 'reference')!;
-    expect(ref.angle).toBe(0);
-    expect(ref.at).toEqual({ x: 0, y: MM(1) });
+    const ref = fp.GetField(FIELD_T.REFERENCE)!;
+    expect(ref.GetTextAngleDegrees()).toBe(0);
+    expect(ref.GetPosition()).toEqual({ x: 0, y: MM(1) });
   });
 
   it('turns the absolute items about the anchor', () => {
     // A point is written in board coordinates, so the 180 degree turn shows.
-    expect(fp.points[0]!.at).toEqual({ x: MM(-4), y: MM(5) });
+    expect(pointsOf(fp)[0]!.GetPosition()).toEqual({ x: MM(-4), y: MM(5) });
   });
 });
 

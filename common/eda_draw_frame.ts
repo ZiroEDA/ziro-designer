@@ -132,6 +132,17 @@ export interface LIB_TREE {
   Regenerate(aKeepState: boolean): void;
   /** Scroll so @p aLibId's row is centred. */
   CenterLibId(aLibId: LIB_ID): void;
+  /**
+   * `GetSelectedLibId( int* aUnit = nullptr )`: the selected row's LIB_ID — a
+   * library row's has no item name — or an empty one.
+   */
+  GetSelectedLibId(): LIB_ID;
+  /** `SelectLibId( aLibId )`: select the row, expanding its library. */
+  SelectLibId(aLibId: LIB_ID): void;
+  /** `Unselect()`. */
+  Unselect(): void;
+  /** `RefreshLibTree()`: repaint the rows without rebuilding them. */
+  RefreshLibTree(): void;
 }
 
 /**
@@ -274,6 +285,10 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
   }
 
   protected m_canvas: EDA_DRAW_PANEL_GAL | null = null;
+  /** `m_findReplaceData`: the last Find's options and string. */
+  protected m_findReplaceData = new EDA_SEARCH_DATA();
+  /** `m_findStringHistoryList`: the Find combo's history, newest first. */
+  protected m_findStringHistoryList: string[] = [];
   protected m_propertiesPanel: PROPERTIES_PANEL | null = null;
   protected m_currentScreen: BASE_SCREEN | null = null; ///< current used SCREEN
   protected m_colorSettings: COLOR_SETTINGS | null = null;
@@ -368,8 +383,6 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
   /// For those frames that support polar coordinates.
   protected m_polarCoords = false;
 
-  protected m_findReplaceData: EDA_SEARCH_DATA = new EDA_SEARCH_DATA();
-  protected m_findStringHistoryList: string[] = [];
   protected m_replaceStringHistoryList: string[] = [];
 
   constructor(aFrameType: FRAME_T, aIuScale: EdaIuScale, aUnits: EdaUnits) {

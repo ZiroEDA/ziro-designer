@@ -18,9 +18,6 @@ import { buildPcbMenus, type PcbMenuState } from '@ziroeda/pcbnew/menubar_pcb_ed
 import { PCB_ACTIONS, MICROWAVE_FOOTPRINT_SHAPE } from '@ziroeda/pcbnew/tools/pcb_actions.js';
 
 const STATE: PcbMenuState = {
-  selectionCount: 0,
-  polygonBooleanCount: 0,
-  modifiableLineCount: 0,
   hasSchematic: true,
   hasFootprintEditor: true,
   highContrast: false,

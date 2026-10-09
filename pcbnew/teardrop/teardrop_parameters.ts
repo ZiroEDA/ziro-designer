@@ -218,3 +218,41 @@ export enum TEARDROP_TYPE {
   // (when 2 tracks having different widths have a teardrop on the
   // end of the largest track)
 }
+
+/**
+ * TEARDROP_PARAMETERS as plain values, the shape the pad and track/via
+ * dialogs hold in their windows (KiCad's dialogs read the m_* members).
+ */
+export interface TeardropParams {
+  /** `(enabled …)`. */
+  enabled: boolean;
+  /** `(allow_two_segments …)`. */
+  allowUseTwoTracks: boolean;
+  /** The *inverse* of `(prefer_zone_connections …)`, as upstream stores it. */
+  tdOnPadsInZones: boolean;
+  /** `(best_length_ratio …)`. */
+  bestLengthRatio: number;
+  /** `(max_length …)`, IU. */
+  tdMaxLen: number;
+  /** `(best_width_ratio …)`. */
+  bestWidthRatio: number;
+  /** `(max_width …)`, IU. */
+  tdMaxWidth: number;
+  /** `(curved_edges …)`, or a non-zero legacy `(curve_points …)`. */
+  curvedEdges: boolean;
+  /** `(filter_ratio …)`. */
+  widthtoSizeFilterRatio: number;
+}
+
+/** A TEARDROP_PARAMETERS as {@link TeardropParams}. */
+export const teardropParamsView = (td: TEARDROP_PARAMETERS): TeardropParams => ({
+  enabled: td.m_Enabled,
+  allowUseTwoTracks: td.m_AllowUseTwoTracks,
+  tdOnPadsInZones: td.m_TdOnPadsInZones,
+  bestLengthRatio: td.m_BestLengthRatio,
+  tdMaxLen: td.m_TdMaxLen,
+  bestWidthRatio: td.m_BestWidthRatio,
+  tdMaxWidth: td.m_TdMaxWidth,
+  curvedEdges: td.m_CurvedEdges,
+  widthtoSizeFilterRatio: td.m_WidthtoSizeFilterRatio,
+});

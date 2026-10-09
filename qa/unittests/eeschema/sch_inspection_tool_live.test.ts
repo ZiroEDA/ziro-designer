@@ -130,7 +130,8 @@ describe('SCH_INSPECTION_TOOL', () => {
     expect(summary()).not.toContain('No relevant differences detected.');
     const visual = dialog.GetPages()[1]!;
     expect(visual.title).toBe('Visual');
-    expect((visual.panel!.content as SYMBOL_DIFF_WIDGET).GetUnit()).toBe(h.sym.GetUnit());
+    const widget = visual.panel!.find((i) => i.kind === 'widget');
+    expect((widget as { widget: SYMBOL_DIFF_WIDGET }).widget.GetUnit()).toBe(h.sym.GetUnit());
     expect(dialog.GetUserItemID()).toBe(h.sym.m_Uuid);
     expect(dialog.IsShown()).toBe(true);
   });

@@ -72,7 +72,7 @@ import type { PnsVia, ViaHandle } from './pns_via.js';
 import { viaPushoutForce } from './pns_via.js';
 import { PnsLayerRange } from './pns_layerset.js';
 import { routeShortest } from './pns_walkaround.js';
-import { arcShape } from '../drc/drc_engine_view.js';
+import { arcShape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 
 /** `VIA_HANDLE{}`, whose only initialised member is `valid = false`. */
 function invalidViaHandle(): ViaHandle {

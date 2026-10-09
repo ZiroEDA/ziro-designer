@@ -260,6 +260,8 @@ function harness(aText = BOARD_TEXT, aFootprintEditor = false): Harness {
   };
 
   frame.SetCanvas({
+    // Read lazily: the controls are built just below.
+    GetViewControls: () => controls,
     GetView: () => view,
     GetGAL: () => gal,
     SetCurrentCursor: () => {},

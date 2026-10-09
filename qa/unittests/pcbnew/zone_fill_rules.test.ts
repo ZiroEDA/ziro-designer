@@ -23,8 +23,8 @@ import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
 import { DRC_CONSTRAINT_T } from '@ziroeda/pcbnew/drc/drc_rule.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { boardFromBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
-import { fillZone } from '@ziroeda/pcbnew/zone_filler.js';
+import { ZONE_FILLER } from '@ziroeda/pcbnew/zone_filler.js';
+import { filledArea } from './support/live_fill.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 
 /**
@@ -78,20 +78,12 @@ function fillWithRules(aRules: string | null, aZoneIndex = 0): { area: number; b
   engine.InitEngine(aRules, aRules === null ? '' : 'rules.kicad_dru');
   board.GetDesignSettings().m_DRCEngine = engine;
 
-  const fills = fillZone(boardFromBOARD(board), aZoneIndex);
-  const polys = fills[0]?.polys ?? [];
-  let total = 0;
+  // ZONE_FILLER::Fill on the live zone, as ZONE_FILLER_TOOL runs it.
+  const zone = board.Zones()[aZoneIndex]!;
+  new ZONE_FILLER(board).Fill([zone]);
+  const total = filledArea(zone);
 
-  for (const ring of polys) {
-    let a = 0;
-
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++)
-      a += (ring[j]!.x + ring[i]!.x) * (ring[j]!.y - ring[i]!.y);
-
-    total += a / 2;
-  }
-
-  return { area: Math.abs(total) / (MM(1) * MM(1)), board };
+  return { area: total / (MM(1) * MM(1)), board };
 }
 
 describe('a .kicad_dru rule reaches the pour', () => {
@@ -241,10 +233,11 @@ describe('a .kicad_dru rule reaches the pour', () => {
     board.BuildConnectivity();
     expect(board.GetDesignSettings().m_DRCEngine).toBeNull();
 
-    const fills = fillZone(boardFromBOARD(board), 0);
+    const zone = board.Zones()[0]!;
+    new ZONE_FILLER(board).Fill([zone]);
 
     expect(board.GetDesignSettings().m_DRCEngine).not.toBeNull();
-    expect(fills[0]!.polys.length).toBeGreaterThan(0);
+    expect(filledArea(zone)).toBeGreaterThan(0);
   });
 
   it('a rule that names the wrong item changes nothing', () => {

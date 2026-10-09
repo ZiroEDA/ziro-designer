@@ -22,14 +22,7 @@
  * is the less surprising of the two.
  */
 
-import {
-  boardSelectionBBox,
-  duplicateBoardItems,
-  moveBoardItems,
-  rotateBoardItemsBy,
-} from '../edit-board.js';
 import type { ARRAY_OPTIONS } from '@ziroeda/common/array_options.js';
-import type { Board } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { ARRAY_CIRCULAR_OPTIONS, ARRAY_GRID_OPTIONS } from '@ziroeda/common/array_options.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
@@ -37,12 +30,6 @@ import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 
 /** `const ARRAY_OPTIONS&`: a grid or a circular array. */
 export type ArraySpec = ARRAY_OPTIONS;
-
-export interface CreateArrayResult {
-  board: Board;
-  /** Copies added; the original is not counted. */
-  added: number;
-}
 
 /** How many items the array has in total, the original included. */
 export function arraySize(spec: ArraySpec): number {
@@ -52,77 +39,6 @@ export function arraySize(spec: ArraySpec): number {
 /** The transform for copy `n`, given where the selection currently sits. */
 export function arrayTransform(spec: ArraySpec, n: number, pos: Vec2): ARRAY_OPTIONS.TRANSFORM {
   return spec.GetTransform(n, pos);
-}
-
-/**
- * `ARRAY_CREATOR::Invoke`.
- *
- * Each copy is duplicated from the *original* selection rather than from the
- * previous copy, so a rounding error in one placement cannot accumulate along
- * the array — and so a circular array's last item lands where the geometry says
- * rather than a little short of it.
- */
-export function createArray(
-  board: Board,
-  selection: Iterable<string>,
-  spec: ArraySpec,
-): CreateArrayResult {
-  const ids = [...selection];
-  if (ids.length === 0) return { board, added: 0 };
-
-  const total = arraySize(spec);
-  // Only the degenerate case is refused. An array of *one* is not degenerate:
-  // upstream still applies position 0's transform to it, so a single-point
-  // circular array with an angle offset nudges the item round the centre. A
-  // zero-point one would divide by zero working that angle out.
-  if (total < 1) return { board, added: 0 };
-
-  // Circular placement turns about a centre, so it needs to know where the
-  // selection is now. The grid does not — its offsets are relative.
-  const bbox = boardSelectionBBox(board, new Set(ids));
-  const pos: Vec2 = bbox
-    ? { x: Math.round((bbox.minX + bbox.maxX) / 2), y: Math.round((bbox.minY + bbox.maxY) / 2) }
-    : { x: 0, y: 0 };
-
-  let next = board;
-  let added = 0;
-
-  /** Turn a placed group about its own new centre. */
-  const spin = (b: Board, group: ReadonlySet<string>, degrees: number): Board => {
-    if (degrees === 0) return b;
-    // The offset has already carried the group round the circle, so rotating
-    // about the array centre again would move it a second time.
-    const box = boardSelectionBBox(b, group);
-    if (!box) return b;
-    return rotateBoardItemsBy(b, group, degrees, {
-      x: Math.round((box.minX + box.maxX) / 2),
-      y: Math.round((box.minY + box.maxY) / 2),
-    });
-  };
-
-  // The copies are made first, while the original is still where the transforms
-  // were computed from; the original is placed last.
-  for (let n = 1; n < total; n++) {
-    const t = arrayTransform(spec, n, pos);
-
-    // Duplicate takes the offset directly, so the copy lands in place rather
-    // than being made at the original's position and moved afterwards.
-    const dup = duplicateBoardItems(next, new Set(ids), t.m_offset);
-    if (dup.ids.length === 0) continue;
-
-    next = spin(dup.board, new Set(dup.ids), t.m_rotation.AsDegrees());
-    added++;
-  }
-
-  const first = arrayTransform(spec, 0, pos);
-  const originals = new Set(ids);
-
-  if (first.m_offset.x !== 0 || first.m_offset.y !== 0) {
-    next = moveBoardItems(next, originals, first.m_offset);
-  }
-  next = spin(next, originals, first.m_rotation.AsDegrees());
-
-  return { board: next, added };
 }
 
 // --- DIALOG_CREATE_ARRAY::TransferDataFromWindow (was array_settings.ts) ---

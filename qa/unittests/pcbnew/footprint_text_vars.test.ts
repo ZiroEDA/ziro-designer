@@ -5,31 +5,18 @@
  * `${REFERENCE}` and `${VALUE}` follow the field they quote.
  *
  * Every KiCad footprint library since v6 carries a third text on F.Fab whose
- * content is the literal `${REFERENCE}`, and upstream resolves it inside
- * `EDA_TEXT::GetShownText` -> `FOOTPRINT::ResolveTextVar` every time the item is
- * drawn, so it is never stale. Our reader bakes the substitution once, at parse
- * time (`read-board.ts`), which left it frozen at whatever the reference was
- * when the node was read.
- *
- * On a netlist update that moment is `placeFootprint`, which builds the board
- * node and hands it to `readBoardFootprint` BEFORE
- * `BOARD_NETLIST_UPDATER::updateFootprintParameters` assigns the designator — so
- * the F.Fab text was baked to the library's own "REF**" and stayed there, which
- * is exactly what a side-by-side against pcbnew showed: every new footprint
- * labelled "D1" on the silkscreen and "REF**" in the middle.
+ * content is the literal `${REFERENCE}`. The text keeps that literal;
+ * `EDA_TEXT::GetShownText` -> `FOOTPRINT::ResolveTextVar` substitutes it every
+ * time the item is drawn, so it can never go stale - which is exactly what a
+ * bake-once reader got wrong, leaving every netlist-added footprint labelled
+ * "REF**" on F.Fab beside its real designator on the silkscreen.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import {
-  readBoardFootprint,
-  readFootprintFile,
-} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import {
-  footprintTextRaw,
-  resolveFootprintTextVars,
-  setFootprintReference,
-  setFootprintValue,
-} from '@ziroeda/pcbnew/edit-footprint.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { BOARD, BOARD_USE } from '@ziroeda/pcbnew/board.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import type { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
+import { ParseFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 /** A library footprint the way KiCad ships one: REF** plus a `${REFERENCE}`. */
 const SRC = `(footprint "D_DO-41"
@@ -47,69 +34,56 @@ const SRC = `(footprint "D_DO-41"
 )
 `;
 
-const boardFp = () => readBoardFootprint(parse(SRC))!;
-const userText = (fp: ReturnType<typeof boardFp>, i: number): string =>
-  fp.texts.filter((t) => t.kind === 'user')[i]!.text;
+/** The footprint on a board of that use, as the editor or pcbnew holds it. */
+const onBoard = (use: BOARD_USE = BOARD_USE.NORMAL): FOOTPRINT => {
+  const board = new BOARD();
+  board.SetBoardUse(use);
+  const fp = ParseFootprintFile(SRC);
+  board.Add(fp);
+  return fp;
+};
+const userTexts = (fp: FOOTPRINT): PCB_TEXT[] =>
+  fp.GraphicalItems().filter((t) => t.Type() === KICAD_T.PCB_TEXT_T) as PCB_TEXT[];
+const shown = (fp: FOOTPRINT, i: number): string => userTexts(fp)[i]!.GetShownText(true);
 
-describe('footprint text variables', () => {
-  it('the board reader resolves them against the reference it reads', () => {
-    // This is the baking that goes stale; it is correct at read time.
-    expect(userText(boardFp(), 0)).toBe('REF**');
-    expect(userText(boardFp(), 1)).toBe('D_DO-41');
+describe('footprint text variables (FOOTPRINT::ResolveTextVar)', () => {
+  it('resolves them on a board against the fields as they are now', () => {
+    expect(shown(onBoard(), 0)).toBe('REF**');
+    expect(shown(onBoard(), 1)).toBe('D_DO-41');
   });
 
-  it('the library reader leaves the literal alone, as an FPHOLDER board does', () => {
-    // `FOOTPRINT::ResolveTextVar` returns false on an FPHOLDER, so the footprint
-    // editor really does paint `${REFERENCE}` (footprint.cpp:1185-1188).
-    const lib = readFootprintFile(parse(SRC))!;
-    expect(lib.texts.filter((t) => t.kind === 'user')[0]!.text).toBe('${REFERENCE}');
+  it('leaves the literal alone on an FPHOLDER board', () => {
+    // `if( GetBoard() && GetBoard()->GetBoardUse() == BOARD_USE::FPHOLDER )
+    // return false;` (footprint.cpp:1185-1188): the footprint editor paints
+    // `${REFERENCE}`.
+    expect(shown(onBoard(BOARD_USE.FPHOLDER), 0)).toBe('${REFERENCE}');
   });
 
-  it('recovers the unresolved literal from the source node', () => {
-    const fp = boardFp();
-    const users = fp.texts.filter((t) => t.kind === 'user');
-    expect(footprintTextRaw(users[0]!)).toBe('${REFERENCE}');
-    expect(footprintTextRaw(users[1]!)).toBe('${VALUE}');
-    // A plain text is its own raw text.
-    expect(footprintTextRaw(fp.texts.find((t) => t.kind === 'reference')!)).toBe('REF**');
+  it('keeps the literal as the text itself', () => {
+    const fp = onBoard();
+    expect(userTexts(fp)[0]!.GetText()).toBe('${REFERENCE}');
+    expect(userTexts(fp)[1]!.GetText()).toBe('${VALUE}');
   });
 
-  it('setting the reference re-resolves ${REFERENCE}', () => {
-    const fp = setFootprintReference(boardFp(), 'D1');
-    expect(fp.reference).toBe('D1');
-    expect(fp.texts.find((t) => t.kind === 'reference')!.text).toBe('D1');
-    expect(userText(fp, 0)).toBe('D1'); // was frozen at "REF**"
-    expect(userText(fp, 1)).toBe('D_DO-41'); // the value did not change
+  it('follows a new reference, and only ${REFERENCE} does', () => {
+    const fp = onBoard();
+    fp.SetReference('D1');
+    expect(shown(fp, 0)).toBe('D1');
+    expect(shown(fp, 1)).toBe('D_DO-41');
   });
 
-  it('setting the value re-resolves ${VALUE} and leaves ${REFERENCE} alone', () => {
-    const fp = setFootprintValue(boardFp(), '1N4007');
-    expect(fp.value).toBe('1N4007');
-    expect(userText(fp, 1)).toBe('1N4007');
-    expect(userText(fp, 0)).toBe('REF**');
+  it('follows a new value, and leaves ${REFERENCE} alone', () => {
+    const fp = onBoard();
+    fp.SetValue('1N4007');
+    expect(shown(fp, 1)).toBe('1N4007');
+    expect(shown(fp, 0)).toBe('REF**');
   });
 
-  it('re-resolving twice is stable, and the literal survives every pass', () => {
-    const once = setFootprintReference(boardFp(), 'D1');
-    const twice = setFootprintReference(once, 'D2');
-    expect(userText(twice, 0)).toBe('D2');
-    expect(footprintTextRaw(twice.texts.filter((t) => t.kind === 'user')[0]!)).toBe('${REFERENCE}');
-  });
-
-  it('leaves a footprint with no variables untouched, object identity included', () => {
-    const plain = readBoardFootprint(
-      parse(`(footprint "X" (layer "F.Cu")
-        (property "Reference" "REF**" (at 0 0 0) (layer "F.SilkS"))
-        (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu")))`),
-    )!;
-    expect(resolveFootprintTextVars(plain)).toBe(plain);
-  });
-
-  it('reannotating a board footprint moves the F.Fab designator too', () => {
-    // board_reannotate.ts had its own SetReference that patched the model and
-    // the source and stopped there; it goes through the shared one now.
-    const renamed = setFootprintReference(setFootprintReference(boardFp(), 'D1'), 'D7');
-    expect(renamed.texts.find((t) => t.kind === 'reference')!.text).toBe('D7');
-    expect(userText(renamed, 0)).toBe('D7');
+  it('follows every rename, the literal surviving each one', () => {
+    const fp = onBoard();
+    fp.SetReference('D1');
+    fp.SetReference('D7');
+    expect(shown(fp, 0)).toBe('D7');
+    expect(userTexts(fp)[0]!.GetText()).toBe('${REFERENCE}');
   });
 });

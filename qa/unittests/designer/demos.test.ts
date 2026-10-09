@@ -16,7 +16,10 @@ import {
   readSchematic,
   readSymbolLib,
 } from '@ziroeda/eeschema';
-import { readBoard, readFootprintFile } from '@ziroeda/pcbnew';
+import {
+  ParseBoard,
+  ParseFootprintFile,
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 const DEMO = fileURLToPath(new URL('../../../designer/public/demos/ecc83/', import.meta.url));
 // Full corpus sweep source: the gitignored upstream clone (local dev only,
@@ -32,10 +35,10 @@ describe.skipIf(!existsSync(DEMO))('bundled demo project (ecc83)', () => {
   });
 
   it('board parses with layers, nets and footprints', () => {
-    const board = readBoard(parse(read('ecc83-pp.kicad_pcb')));
-    expect(board.layers.length).toBeGreaterThan(2);
-    expect(board.footprints.length).toBeGreaterThan(5);
-    expect(board.tracks.length).toBeGreaterThan(10);
+    const board = ParseBoard(read('ecc83-pp.kicad_pcb'));
+    expect(board.GetEnabledLayers().count()).toBeGreaterThan(2);
+    expect(board.Footprints().length).toBeGreaterThan(5);
+    expect(board.Tracks().length).toBeGreaterThan(10);
   });
 
   it('local symbol library parses', () => {
@@ -155,8 +158,7 @@ describe.skipIf(!existsSync(DEMO))('bundled demo project (ecc83)', () => {
     const files = readdirSync(dir).filter((f) => f.endsWith('.kicad_mod'));
     expect(files.length).toBeGreaterThan(0);
     for (const f of files) {
-      const fp = readFootprintFile(parse(readFileSync(dir + f, 'utf8')));
-      expect(fp).toBeTruthy();
+      expect(() => ParseFootprintFile(readFileSync(dir + f, 'utf8')), f).not.toThrow();
     }
   });
 });
@@ -187,8 +189,7 @@ describe.skipIf(!existsSync(DEMOS_ROOT))('upstream demo corpus parse sweep', () 
 
   it(`parses every demo board (${pcbs.length})`, { timeout: 120_000 }, () => {
     for (const f of pcbs) {
-      const board = readBoard(parse(readFileSync(f, 'utf8')));
-      expect(board.layers.length, f).toBeGreaterThan(0);
+      expect(ParseBoard(readFileSync(f, 'utf8')).GetEnabledLayers().count(), f).toBeGreaterThan(0);
     }
   });
 });

@@ -44,11 +44,11 @@ import {
   type PlacementSources,
   type RuleAreaValues,
 } from './dialog_rule_area_properties.js';
-import type { PlacementSourceType } from '../types.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import type { PlacementSourceType } from './dialog_rule_area_properties.js';
 
 interface Props {
   /** The frame's display units: the hatch pitch is a `UNIT_BINDER` upstream. */

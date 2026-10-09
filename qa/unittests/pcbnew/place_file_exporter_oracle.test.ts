@@ -13,8 +13,24 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { genPositionData } from '@ziroeda/pcbnew/exporters/place_file_exporter.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { PLACE_FILE_EXPORTER } from '@ziroeda/pcbnew/exporters/place_file_exporter.js';
+
+/** The kicad-cli job's defaults: inches, both sides, no filters, page origin. */
+const exporter = (aBoard: ReturnType<typeof ParseBoard>, aCSV: boolean): PLACE_FILE_EXPORTER =>
+  new PLACE_FILE_EXPORTER(
+    aBoard,
+    false,
+    false,
+    false,
+    false,
+    false,
+    true,
+    true,
+    aCSV,
+    false,
+    false,
+  );
 
 const DIR = new URL('../../data/pcbnew/exporters_oracle/', import.meta.url).pathname;
 const BOARDS = new URL('../../data/pcbnew/resave/', import.meta.url).pathname;
@@ -27,27 +43,16 @@ const normaliseAscii = (text: string): string =>
 describe('the footprint position file, against kicad-cli', () => {
   for (const name of ['ecc83-pp', 'interf_u']) {
     it(`${name}.pos (ASCII) matches line for line`, () => {
-      const board = readBoard(readFileSync(`${BOARDS}${name}.kicad_pcb`, 'utf8'));
-      const { data } = genPositionData(board, {
-        unitsMM: false,
-        frontSide: true,
-        backSide: true,
-        formatCSV: false,
-        creationDate: 'X',
-      });
+      const board = ParseBoard(readFileSync(`${BOARDS}${name}.kicad_pcb`, 'utf8'));
+      const data = exporter(board, false).GenPositionData();
 
       const want = normaliseAscii(readFileSync(`${DIR}${name}.pos`, 'utf8'));
       expect(normaliseAscii(data)).toBe(want);
     });
 
     it(`${name}-pos.csv matches byte for byte`, () => {
-      const board = readBoard(readFileSync(`${BOARDS}${name}.kicad_pcb`, 'utf8'));
-      const { data } = genPositionData(board, {
-        unitsMM: false,
-        frontSide: true,
-        backSide: true,
-        formatCSV: true,
-      });
+      const board = ParseBoard(readFileSync(`${BOARDS}${name}.kicad_pcb`, 'utf8'));
+      const data = exporter(board, true).GenPositionData();
 
       const want = readFileSync(`${DIR}${name}-pos.csv`, 'utf8');
       expect(data).toBe(want);

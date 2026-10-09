@@ -21,17 +21,67 @@ import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 
 const icon = (name: string): string | undefined => svgUrl('tuning', name);
 
-import type { CornerStyle, TuningPattern, TuningSetup } from '../board_settings.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { BOARD } from '../board.js';
+import { MeanderStyle, type MeanderSettings } from '../router/pns_meander.js';
 
-// The data model lives in board_settings.ts (KiCad's data/UI split);
-// re-exported so panel users keep importing from the panel module.
-export {
-  defaultTuning,
-  type CornerStyle,
-  type TuningPattern,
-  type TuningSetup,
-} from '../board_settings.js';
+export type CornerStyle = 'Chamfer' | 'Fillet';
+
+export interface TuningPattern {
+  minAmplitudeMM: number;
+  maxAmplitudeMM: number;
+  spacingMM: number;
+  cornerStyle: CornerStyle;
+  radiusPct: number;
+  singleSided: boolean;
+}
+
+export interface TuningSetup {
+  singleTrack: TuningPattern;
+  diffPair: TuningPattern;
+  diffPairSkew: TuningPattern;
+}
+
+/** PANEL_SETUP_TUNING_PATTERNS's transfers (panel_setup_tuning_patterns.cpp). */
+export const PANEL_SETUP_TUNING_PATTERNS = {
+  TransferDataToWindow(aBoard: BOARD): TuningSetup {
+    const bds = aBoard.GetDesignSettings();
+    const mm = (iu: number): number => pcbIUScale.iuToMM(iu);
+    const pattern = (s: MeanderSettings): TuningPattern => ({
+      minAmplitudeMM: mm(s.minAmplitude),
+      maxAmplitudeMM: mm(s.maxAmplitude),
+      spacingMM: mm(s.spacing),
+      cornerStyle: s.cornerStyle === MeanderStyle.MEANDER_STYLE_ROUND ? 'Fillet' : 'Chamfer',
+      radiusPct: s.cornerRadiusPercentage,
+      singleSided: s.singleSided,
+    });
+    return {
+      singleTrack: pattern(bds.m_SingleTrackMeanderSettings),
+      diffPair: pattern(bds.m_DiffPairMeanderSettings),
+      diffPairSkew: pattern(bds.m_SkewMeanderSettings),
+    };
+  },
+
+  TransferDataFromWindow(v: TuningSetup, aBoard: BOARD): void {
+    const bds = aBoard.GetDesignSettings();
+    const iu = (mm: number): number => pcbIUScale.mmToIU(mm);
+    const apply = (s: MeanderSettings, p: TuningPattern): void => {
+      s.minAmplitude = iu(p.minAmplitudeMM);
+      s.maxAmplitude = iu(p.maxAmplitudeMM);
+      s.spacing = iu(p.spacingMM);
+      s.cornerStyle =
+        p.cornerStyle === 'Fillet'
+          ? MeanderStyle.MEANDER_STYLE_ROUND
+          : MeanderStyle.MEANDER_STYLE_CHAMFER;
+      s.cornerRadiusPercentage = Math.trunc(p.radiusPct);
+      s.singleSided = p.singleSided;
+    };
+    apply(bds.m_SingleTrackMeanderSettings, v.singleTrack);
+    apply(bds.m_DiffPairMeanderSettings, v.diffPair);
+    apply(bds.m_SkewMeanderSettings, v.diffPairSkew);
+  },
+};
 
 // [data] `m_track_cornerCtrlChoices` (panel_setup_tuning_patterns_base.cpp:113).
 const CORNER_STYLES: CornerStyle[] = ['Chamfer', 'Fillet'];

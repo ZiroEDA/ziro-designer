@@ -12,9 +12,10 @@ import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
 import { DRC_ITEM, PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
 import { SELECTION } from '@ziroeda/common/tool/selection.js';
-import { BUT_LEFT, TA_MOUSE_CLICK } from '@ziroeda/common/tool/tool_event.js';
+import { BUT_LEFT, TA_MOUSE_CLICK, TA_MOUSE_MOTION } from '@ziroeda/common/tool/tool_event.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import type { PAD } from '@ziroeda/pcbnew/pad.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { FormatProbeItem } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import type { PCB_RENDER_SETTINGS } from '@ziroeda/pcbnew/pcb_painter.js';
 import {
@@ -62,6 +63,8 @@ const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generato
   )
   (segment (start 10 10) (end 20 10) (width 0.25) (layer "F.Cu") (net 1) (uuid "${U(20)}"))
   (segment (start 10 20) (end 20 20) (width 0.25) (layer "F.Cu") (net 2) (uuid "${U(21)}"))
+  (via (at 170 10) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "${U(40)}"))
+  (via (at 172 10) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 2) (uuid "${U(41)}"))
   (segment (start 10 90) (end 20 90) (width 0.25) (layer "B.Cu") (net 1) (uuid "${U(22)}"))
   (segment (start 10 92) (end 20 92) (width 0.25) (layer "B.Cu") (net 2) (uuid "${U(23)}"))
   (gr_line (start 10 50) (end 20 50) (stroke (width 0.1) (type solid)) (layer "F.SilkS") (uuid "${U(30)}"))
@@ -70,8 +73,26 @@ const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generato
 `;
 
 class INSPECTION_FRAME extends TEST_PCB_FRAME implements BOARD_INSPECTION_TOOL_FRAME {
-  m_ProbingSchToPcb = false;
   inspectDrcErrorDlg = new DIALOG_BOOK_REPORTER('InspectDrcErrorDialog', 'Violation Report');
+  inspectClearanceDlg = new DIALOG_BOOK_REPORTER('InspectClearanceDialog', 'Clearance Report');
+  inspectConstraintsDlg = new DIALOG_BOOK_REPORTER(
+    'InspectConstraintsDialog',
+    'Constraints Report',
+  );
+  infoBarErrors: string[] = [];
+  associations: string[] = [];
+  GetInspectClearanceDialog(): DIALOG_BOOK_REPORTER {
+    return this.inspectClearanceDlg;
+  }
+  GetInspectConstraintsDialog(): DIALOG_BOOK_REPORTER {
+    return this.inspectConstraintsDlg;
+  }
+  override ShowInfoBarError(aErrorMsg: string): void {
+    this.infoBarErrors.push(aErrorMsg);
+  }
+  ShowFootprintAssociationsDialog(aFootprint: FOOTPRINT): void {
+    this.associations.push(aFootprint.GetReference());
+  }
   GetInspectDrcErrorDialog(): DIALOG_BOOK_REPORTER {
     return this.inspectDrcErrorDlg;
   }
@@ -428,5 +449,129 @@ describe('BOARD_INSPECTION_TOOL::InspectDRCError (board_inspection_tool.cpp:532-
     tool().InspectDRCError(violation(PCB_DRC_CODE.DRCE_UNCONNECTED_ITEMS, 20, 21));
     expect(pages()).toEqual([]);
     expect(h.frame.inspectDrcErrorDlg.IsShown()).toBe(false);
+  });
+});
+
+/** A report page as its messages, the HTML tags dropped. */
+const text = (aMessages: readonly string[]): string[] =>
+  aMessages.map((m) => m.replace(/<[^>]+>/g, ''));
+
+describe('BOARD_INSPECTION_TOOL::InspectClearance (board_inspection_tool.cpp:895-1636)', () => {
+  it('two tracks on two nets: one page per shared copper layer, the netclass clearance', () => {
+    select(h, 20, 21);
+    h.mgr.RunAction(PCB_ACTIONS.inspectClearance);
+    const dlg = h.frame.inspectClearanceDlg;
+    expect(dlg.IsShown()).toBe(true);
+    const pages = dlg.GetPages();
+    expect(pages.map((p) => p.title)).toEqual(['F.Cu', 'Physical Clearances']);
+    const first = text(pages[0]!.messages);
+    expect(first[0]).toBe('Clearance resolution for:');
+    // The Default netclass's clearance, DEFAULT_CLEARANCE = 0.2 mm (netclass.cpp),
+    // in StringFromValue's form: trailing zeros stripped.
+    expect(first.at(-1)).toBe('Resolved min clearance: 0.2 mm.');
+    // DRC_ENGINE's implicit "barcode visual separation default" is a
+    // physical_clearance rule (drc_engine.cpp:257-262), so the per-layer
+    // branch runs, and its condition keeps it off two tracks.
+    expect(text(pages[1]!.messages)).toContain(
+      "No 'physical_clearance' constraints in effect on F.Cu.",
+    );
+  });
+
+  it('a pad and a track of one net clear by nothing', () => {
+    select(h, 5, 20);
+    h.mgr.RunAction(PCB_ACTIONS.inspectClearance);
+    const first = text(h.frame.inspectClearanceDlg.GetPages()[0]!.messages);
+    expect(first.at(-1)).toBe('Items belong to the same net. Min clearance is 0.');
+  });
+
+  it('two vias share two layers: a Clearance page whose choice picks the layer (:1240-1302)', () => {
+    select(h, 40, 41);
+    h.mgr.RunAction(PCB_ACTIONS.inspectClearance);
+    const page = h.frame.inspectClearanceDlg.GetPages()[0]!;
+    expect(page.title).toBe('Clearance');
+    const [label, choice, report] = page.panel!;
+    expect(label).toEqual({ kind: 'text', text: 'Layer:' });
+    if (choice?.kind !== 'choice' || report?.kind !== 'report') throw new Error('panel');
+    // The active layer first, then the rest of the intersection in order.
+    expect(choice.items).toEqual(['F.Cu', 'B.Cu']);
+    expect(choice.selection).toBe(0);
+    expect(text(report.messages)[1]).toContain('Layer F.Cu');
+    choice.select(1);
+    const after = h.frame.inspectClearanceDlg.GetPages()[0]!.panel![2]!;
+    if (after.kind !== 'report') throw new Error('panel');
+    expect(text(after.messages)[1]).toContain('Layer B.Cu');
+  });
+
+  it('with nothing selected, picks two items with the picker', () => {
+    h.mgr.RunAction(PCB_ACTIONS.inspectClearance);
+    mouse(h, TA_MOUSE_CLICK, mm(15, 10), BUT_LEFT);
+    expect(h.frame.inspectClearanceDlg.IsShown()).toBe(false);
+    // The tool learns of the first pick on the next event, as upstream: the
+    // motion towards the second item.
+    mouse(h, TA_MOUSE_MOTION, mm(15, 20));
+    mouse(h, TA_MOUSE_CLICK, mm(15, 20), BUT_LEFT);
+    mouse(h, TA_MOUSE_MOTION, mm(15, 20));
+    expect(h.frame.inspectClearanceDlg.IsShown()).toBe(true);
+    expect(h.frame.inspectClearanceDlg.GetPages()[0]!.title).toBe('F.Cu');
+  });
+
+  it('refuses the same item picked twice', () => {
+    select(h, 20);
+    h.mgr.RunAction(PCB_ACTIONS.inspectClearance);
+    mouse(h, TA_MOUSE_CLICK, mm(15, 10), BUT_LEFT);
+    mouse(h, TA_MOUSE_MOTION, mm(15, 10));
+    expect(h.frame.infoBarErrors).toEqual(['Select two different items for clearance resolution.']);
+    expect(h.frame.inspectClearanceDlg.IsShown()).toBe(false);
+  });
+});
+
+describe('BOARD_INSPECTION_TOOL::InspectConstraints (board_inspection_tool.cpp:1639-1904)', () => {
+  it('a track: width, mask, keepouts, assertions', () => {
+    select(h, 20);
+    h.mgr.RunAction(PCB_ACTIONS.inspectConstraints);
+    const pages = h.frame.inspectConstraintsDlg.GetPages();
+    expect(pages.map((p) => p.title)).toEqual([
+      'Track Width',
+      'Solder Mask',
+      'Keepouts',
+      'Assertions',
+    ]);
+    expect(text(pages[2]!.messages).at(-1)).toBe('Item allowed at current location.');
+  });
+
+  it('a via: diameter, annular width, hole, mask, keepouts, assertions', () => {
+    select(h, 40);
+    h.mgr.RunAction(PCB_ACTIONS.inspectConstraints);
+    expect(h.frame.inspectConstraintsDlg.GetPages().map((p) => p.title)).toEqual([
+      'Via Diameter',
+      'Via Annular Width',
+      'Hole Size',
+      'Solder Mask',
+      'Keepouts',
+      'Assertions',
+    ]);
+  });
+
+  it('refuses a selection of two', () => {
+    select(h, 20, 21);
+    h.mgr.RunAction(PCB_ACTIONS.inspectConstraints);
+    expect(h.frame.infoBarErrors).toEqual([
+      'Select a single item for a constraints resolution report.',
+    ]);
+    expect(h.frame.inspectConstraintsDlg.GetPageCount()).toBe(0);
+  });
+});
+
+describe('BOARD_INSPECTION_TOOL::ShowFootprintLinks (board_inspection_tool.cpp:1937-1958)', () => {
+  it('opens on the one selected footprint, and refuses anything else', () => {
+    select(h, 1);
+    h.mgr.RunAction(PCB_ACTIONS.showFootprintAssociations);
+    expect(h.frame.associations).toEqual(['R1']);
+    h.sel.ClearSelection(true);
+    select(h, 20);
+    h.mgr.RunAction(PCB_ACTIONS.showFootprintAssociations);
+    expect(h.frame.infoBarErrors).toEqual([
+      'Select a footprint for a footprint associations report.',
+    ]);
   });
 });

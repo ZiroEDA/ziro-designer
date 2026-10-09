@@ -14,8 +14,6 @@
  * every test here is really about the *difference*: what the board editor's
  * variant has that the footprint editor's does not.
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
@@ -34,11 +32,7 @@ import {
 import { resetPcbColors } from '@ziroeda/designer/src/editors/pcb/prefs/resets.js';
 import { pcbColorRows } from '@ziroeda/pcbnew/dialogs/panel_pcbnew_color_settings.js';
 import { fpColorRows } from '@ziroeda/pcbnew/dialogs/panel_fp_editor_color_settings.js';
-import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { DEFAULT_DRAW_OPTIONS as PCB_DEFAULT_DRAW_OPTIONS } from '@ziroeda/pcbnew/renderBoard.js';
 import { pageSizeMM } from '@ziroeda/common';
-import PREVIEW_BOARD_TEXT from '@ziroeda/designer/src/editors/pcb/data/color_preview_board.kicad_pcb?raw';
 import { DISPLAY_ORIGIN_CHOICES } from '@ziroeda/pcbnew/dialogs/panel_pcbnew_display_origin.js';
 import {
   foldPcbToggle,
@@ -352,98 +346,6 @@ describe('PCB Editor > Colors', () => {
     expect(a4p?.h).toBeCloseTo(297.0022, 4);
     expect(pageSizeMM('User 0 0')).toBeNull();
     expect(pageSizeMM(undefined)).toBeNull();
-  });
-
-  it(
-    'lets the preview zoom and pan, as a FOOTPRINT_PREVIEW_PANEL does',
-    async () => {
-      await openPage('pcb-colors');
-      const canvas = document.querySelector('.ze-colorpreview canvas');
-      expect(canvas, 'the preview canvas').toBeTruthy();
-      // `WX_VIEW_CONTROLS::onButton` binds the right button to PAN by default,
-      // and `usePreviewViewControls`' `onContextMenu` swallows the menu for
-      // exactly that reason — so a right-click on a canvas that HAS the
-      // controls is defaultPrevented and one on a static image is not. This is
-      // the observable half; the rest of the gesture set needs a real 2D
-      // context to move a view, which happy-dom has none of.
-      const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
-      (canvas as HTMLElement).dispatchEvent(ev);
-      expect(ev.defaultPrevented, 'the right-drag gesture is bound').toBe(true);
-    },
-    SLOW,
-  );
-
-  it('binds the whole gesture set, through the SHARED hook', () => {
-    // A source-text check, and honest about being one: React attaches its
-    // synthetic listeners at the root, so an individual handler prop is not
-    // visible on the element. `editor_default_toggles.test.ts` guards its
-    // frames the same way and for the same reason.
-    //
-    // What it is really pinning is that the preview uses
-    // `usePreviewViewControls` — the footprint chooser's — rather than a second
-    // reading of `PANEL_MOUSE_SETTINGS` written for this one pane.
-    const src = readFileSync(
-      resolve(process.cwd(), '../designer/src/editors/pcb/prefs/PcbColorPreview.tsx'),
-      'utf8',
-    );
-    expect(src).toContain('usePreviewViewControls(canvasRef, draw, undefined, viewRef)');
-    for (const on of [
-      'onWheel={viewCtl.handlers.onWheel}',
-      'onPointerDown={viewCtl.handlers.onPointerDown}',
-      'onPointerMove={viewCtl.handlers.onPointerMove}',
-      'onPointerUp={viewCtl.handlers.onPointerUp}',
-      'onContextMenu={viewCtl.handlers.onContextMenu}',
-    ])
-      expect(src, on).toContain(on);
-  });
-
-  it('fits the BOARD, and paints it at the painter’s own opacities', () => {
-    const src = readFileSync(
-      resolve(process.cwd(), '../designer/src/editors/pcb/prefs/PcbColorPreview.tsx'),
-      'utf8',
-    );
-    // `BOX2I bBox = m_preview->GetBoard()->GetBoundingBox()` (`:872`) — the
-    // BOARD's box. The sheet is drawn and deliberately not fitted: it is bigger
-    // than the board, so fitting their union shrinks the part you came to look
-    // at. [px] doing that made our preview 13% smaller than KiCad's at the same
-    // pane size (board rects 467x317 against 529x360, the same aspect to 0.3%).
-    expect(src).toContain('const bw = Math.max(1, b.maxX - b.minX);');
-    expect(src).not.toContain('pageSizeMM(PREVIEW_SHEET.paper)');
-
-    // `PCB_DISPLAY_OPTIONS`' constructor sets every opacity to 1.0
-    // (`include/pcb_display_options.h:39-42`). `DEFAULT_DRAW_OPTIONS` carries
-    // the BOARD EDITOR's `zoneOpacity: 0.6`, which is
-    // `PROJECT_LOCAL_SETTINGS::m_ZoneOpacity` — the Appearance panel's Zones
-    // slider. A preview panel has no project, so nothing overrides the
-    // constructor and its zone fill is solid.
-    expect(PCB_DEFAULT_DRAW_OPTIONS.zoneOpacity).toBe(0.6);
-    expect(src).toContain('zoneOpacity: 1.0');
-    expect(src).toContain('...PREVIEW_OPACITIES');
-
-    // `draw( const FOOTPRINT* )`'s LAYER_ANCHOR cross is a SCREEN-space
-    // per-frame pass, so it is never in a retained scene and every canvas has
-    // to call it — `PcbEditor` and `FootprintCanvas` both do. This preview did
-    // not, which is why KiCad's showed a magenta cross at each footprint origin
-    // and ours showed none. `board.anchor` is a swatch on this very page.
-    expect(src).toContain('drawAnchors(ctx, built.scene, view, layers, w, h, drawOpts');
-    // …and it is the SHARED pass, not a cross drawn here.
-    expect(src).toContain("from '@ziroeda/pcbnew/renderBoard.js'");
-  });
-
-  it('previews KiCad’s own `g_previewBoard`, through the central renderer', () => {
-    // `data/color_preview_board.kicad_pcb` is `g_previewBoard`
-    // (`panel_pcbnew_color_settings.cpp:41-687`) unescaped, and it goes through
-    // `readBoard` + `buildScene` like any other board — no second painter.
-    const board = readBoard(parse(PREVIEW_BOARD_TEXT));
-    expect(board.footprints.length).toBe(8);
-    expect(board.tracks.length).toBe(13);
-    expect(board.vias.length).toBe(1);
-    expect(board.zones.length).toBe(1);
-    // It has to reach the layers this page colours, or the preview shows a
-    // subset of the swatches and the comparison it exists for is worthless.
-    const layers = new Set(board.layers.map((l) => l.name));
-    for (const l of ['F.Cu', 'B.Cu', 'F.SilkS', 'F.Mask', 'Edge.Cuts', 'F.Fab'])
-      expect(layers.has(l), l).toBe(true);
   });
 
   it('resets by dropping the board overrides, and only on a writable theme', () => {

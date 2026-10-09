@@ -15,8 +15,8 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
-import { parse } from '@ziroeda/sexpr';
-import { placeFootprint, readBoard, type Board, type PcbFootprint } from '@ziroeda/pcbnew';
+import { BOARD, BOARD_USE } from '@ziroeda/pcbnew/board.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import type { Viewer3D } from '@ziroeda/3d-viewer/viewer3d_types.js';
 import { MODELS3D_HOST } from '../../../libraryHosts.js';
 import '../viewer3d_cache_shim.js';
@@ -36,25 +36,27 @@ export const HOLDER_BOARD = `(kicad_pcb (version 20241229) (generator "ziroeda")
   (net 0 "")
 )`;
 
-function holderBoard(): Board {
-  return readBoard(parse(HOLDER_BOARD));
+/**
+ * The chooser's dummy board (`GetBoard()->SetBoardUse( BOARD_USE::FPHOLDER )`,
+ * footprint_chooser_frame.cpp:135-138), holding \a aFootprint at the origin.
+ */
+function holderBOARD(aFootprint: FOOTPRINT | null): BOARD {
+  const holder = new BOARD();
+  holder.SetBoardUse(BOARD_USE.FPHOLDER);
+
+  if (aFootprint) {
+    aFootprint.SetPosition({ x: 0, y: 0 });
+    holder.Add(aFootprint);
+  }
+
+  return holder;
 }
 
-/**
- * The holder board with the selected footprint loaded into it — what both the
- * in-panel canvas and the "own window" EDA_3D_VIEWER_FRAME render. The bare
- * holder while nothing is selected; null only until the first answer.
- *
- * `loadFootprint` is `widgets/footprint_list.ts`'s hosted per-footprint fetch
- * — an app-level dependency, so it arrives as a parameter (the same seam
- * `PCBNEW_APP` / `CVPCB_APP` give it a frame through) rather than an import,
- * which is what keeps this module free of `designer/`.
- */
 export function useFootprintHolderBoard(
   footprint: string,
-  loadFootprint: (libId: string) => Promise<PcbFootprint | null>,
-): Board | null {
-  const [board, setBoard] = useState<Board | null>(null);
+  loadFootprint: (libId: string) => Promise<FOOTPRINT | null>,
+): BOARD | null {
+  const [board, setBoard] = useState<BOARD | null>(null);
 
   // `m_preview3DCanvas->ReloadRequest()` on every selection: load the
   // footprint into the holder and rebuild.
@@ -62,21 +64,13 @@ export function useFootprintHolderBoard(
     let cancelled = false;
     // No selection is the EMPTY holder, not no canvas: the frame builds
     // `m_preview3DCanvas` in its constructor and it draws the background and
-    // the navigator with nothing loaded (`createBoardPolygon` says "No
-    // footprint loaded." and the scene has no board body).
+    // the navigator with nothing loaded.
     if (!footprint) {
-      setBoard(holderBoard());
+      setBoard(holderBOARD(null));
       return;
     }
-    void loadFootprint(footprint).then((lib) => {
-      if (cancelled) return;
-      if (!lib) {
-        setBoard(holderBoard());
-        return;
-      }
-      const holder = holderBoard();
-      const fp = placeFootprint(lib, { fpid: footprint, at: { x: 0, y: 0 } });
-      setBoard(fp ? { ...holder, footprints: [fp] } : holder);
+    void loadFootprint(footprint).then((fp) => {
+      if (!cancelled) setBoard(holderBOARD(fp));
     });
     return () => {
       cancelled = true;
@@ -88,7 +82,7 @@ export function useFootprintHolderBoard(
 
 export interface FootprintPreview3DProps {
   /** `useFootprintHolderBoard`'s answer; null draws an empty canvas. */
-  board: Board | null;
+  board: BOARD | null;
 }
 
 export function FootprintPreview3D({ board }: FootprintPreview3DProps): JSX.Element {

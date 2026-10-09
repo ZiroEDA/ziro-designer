@@ -5,7 +5,7 @@
  * Board Setup, the board side: the layers table, the stackup, mask & paste,
  * tenting, the dash ratios and the embedded files, read off the live BOARD
  * by `BoardSetupToWindow` and written back through `BoardSetupFromWindow` +
- * the board writer (board_setup_transfer.ts).
+ * the board writer (each panel's PANEL_X pair, composed in dialog_board_setup.tsx).
  */
 import { describe, it, expect } from 'vitest';
 import { parse, head, isList, type SList } from '@ziroeda/sexpr';
@@ -290,5 +290,28 @@ describe('Board Setup, the .kicad_pcb side', () => {
 
   it("a malformed board is the parser's error, not a silent default", () => {
     expect(() => readSetup('(not a board)')).toThrow();
+  });
+});
+
+describe('PANEL_SETUP_TEXT_AND_GRAPHICS::TransferDataFromWindow', () => {
+  it('stores keep-upright per class, and no text for edges or courtyards (:196-240)', () => {
+    // Rows are LAYER_CLASS order: silk, copper, edges, courtyard, fab, other.
+    // `if( i == ROW_EDGES || i == ROW_COURTYARD ) continue;` follows the line
+    // width, so those two rows keep their text settings whatever the grid says.
+    const f = readSetup(KICAD_PCB);
+    const bds = f.board.GetDesignSettings();
+    const courtyardBefore = { ...bds.m_TextSize[3]! };
+    const rows = f.values.textGraphics.rows.map((r, i) =>
+      i === 0
+        ? { ...r, keepUpright: !r.keepUpright }
+        : i === 3
+          ? { ...r, textWidth: 4.5, textHeight: 4.5, lineThickness: 0.07 }
+          : r,
+    );
+    const silkBefore = bds.m_TextUpright[0];
+    writeSetup(f, { ...f.values, textGraphics: { ...f.values.textGraphics, rows } });
+    expect(bds.m_TextUpright[0]).toBe(!silkBefore);
+    expect(bds.m_LineThickness[3]).toBe(70_000);
+    expect(bds.m_TextSize[3]).toEqual(courtyardBefore);
   });
 });

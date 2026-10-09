@@ -157,11 +157,14 @@ describe('what the registered cancel means', () => {
     // DIALOG_PRINT's Close stores the print options on the way out.
     expect(registered('../../eeschema/printing/dialog_print.tsx')).toEqual(['saveAndClose']);
     // The board's is DIALOG_PRINT_PCBNEW on the common DIALOG_PRINT_GENERIC:
-    // the base registers its Close, and the board hands it saveAndClose.
+    // the base registers its Close, and the board's Close runs saveSettings
+    // before it closes, as onCancelButtonClick / onClose do.
     expect(registered('../../common/dialogs/dialog_print_generic_ui.tsx')).toEqual(['onClose']);
     expect(
-      FILES.find((f) => f.rel === '../../pcbnew/dialogs/dialog_print_pcbnew.tsx')?.src,
-    ).toContain('onClose={saveAndClose}');
+      FILES.find((f) => f.rel === '../../pcbnew/dialogs/dialog_print_pcbnew_ui.tsx')?.src,
+    ).toMatch(
+      /onClose=\{\(\) => \{\s*\/\/ onCancelButtonClick \/ onClose: saveSettings first\.\s*const info = dlg\.saveSettings\(\);/,
+    );
   });
 
   it('is not registered at all where the dialog has no Cancel', () => {

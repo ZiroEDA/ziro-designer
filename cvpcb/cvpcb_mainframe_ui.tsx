@@ -109,7 +109,6 @@ import {
   type Dispatch,
   type JSX,
   type ReactNode,
-  type Ref,
   type SetStateAction,
 } from 'react';
 import type { Schematic } from '@ziroeda/eeschema';
@@ -123,14 +122,18 @@ import { Toolbar, type ToolEntry } from '@ziroeda/common/tool/action_toolbar.js'
 import {
   DisplayFootprintsFrame,
   type CvpcbDisplayFootprintsApp,
-} from './display_footprints_frame.js';
-import type { PcbFootprint } from '@ziroeda/pcbnew';
+} from './display_footprints_frame_ui.js';
+import { DO_NOT_INCLUDE_NPTH } from '@ziroeda/pcbnew/footprint.js';
+import {
+  FOOTPRINT_LIBRARY_STORE,
+  type FOOTPRINT_LIBRARY_STORE_IO,
+} from '@ziroeda/pcbnew/footprint_library_adapter.js';
+import { ParseFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { FOOTPRINT_FILTER } from '@ziroeda/common/footprint_filter.js';
 import {
   FOOTPRINT_LIST_IMPL,
   type FootprintIndexLibrary,
 } from '@ziroeda/pcbnew/footprint_info_impl.js';
-import { uniquePadCount } from '@ziroeda/pcbnew';
 import type { ProjectFile } from '@ziroeda/common/project_paths.js';
 import {
   projectFpLibTable,
@@ -222,11 +225,8 @@ type CvpcbWidened<T extends boolean | number | string> = T extends boolean
 export interface CVPCB_APP extends CvpcbDisplayFootprintsApp, CvpcbEquFilesApp {
   /** `widgets/footprint_list.ts`: the hosted footprint library index. */
   loadFootprintIndex(): Promise<FootprintIndexLibrary[]>;
-  /** The same module's lazy per-footprint fetch, by "Library:Name". */
-  loadFootprint(libId: string): Promise<PcbFootprint | null>;
-  /** The footprint parser (`editors/footprint/footprintBoard.ts`): a
-   *  `.kicad_mod`'s text to a `PcbFootprint`. */
-  parseFootprint(text: string): PcbFootprint | null;
+  /** FOOTPRINT_LIBRARY_STORE's storage: where a hosted footprint's file comes from. */
+  libraryIo: Pick<FOOTPRINT_LIBRARY_STORE_IO, 'footprintText' | 'flipLeftRight'>;
   /** Where the hosted footprint libraries are served from ("Library location:"). */
   footprintsBase(): string;
 
@@ -614,11 +614,16 @@ export function DialogAssignFootprints({
         const pads: number[] = [];
         const descr: string[] = [];
         const tags: string[] = [];
-        for (const text of fps.values()) {
-          const fp = app.parseFootprint(text);
-          pads.push(fp ? uniquePadCount(fp) : 0);
-          descr.push(fp?.descr ?? '');
-          tags.push(fp?.tags ?? '');
+        for (const [fpName, text] of fps) {
+          let fp = null;
+          try {
+            fp = ParseFootprintFile(text, `${name}:${fpName}`);
+          } catch {
+            // An unreadable file lists with nothing known about it.
+          }
+          pads.push(fp ? fp.GetUniquePadCount(DO_NOT_INCLUDE_NPTH) : 0);
+          descr.push(fp?.GetLibDescription() ?? '');
+          tags.push(fp?.GetKeywords() ?? '');
         }
         const entry: FootprintIndexLibrary = {
           name,
@@ -631,22 +636,27 @@ export function DialogAssignFootprints({
       }),
       ...hostedIndex,
     ],
-    [projectLibs, hostedIndex, app],
+    [projectLibs, hostedIndex],
   );
 
-  /** Resolve a footprint from the project libraries, else the hosted ones. */
-  const resolveFootprint = useMemo(() => {
-    const cache = new Map<string, PcbFootprint | null>();
-    return async (libId: string): Promise<PcbFootprint | null> => {
-      const sep = libId.indexOf(':');
-      const lib = libId.slice(0, sep);
-      const name = libId.slice(sep + 1);
-      const text = projectLibs.get(lib)?.get(name);
-      if (text === undefined) return app.loadFootprint(libId);
-      if (!cache.has(libId)) cache.set(libId, app.parseFootprint(text));
-      return cache.get(libId) ?? null;
-    };
-  }, [projectLibs, app]);
+  /**
+   * `PROJECT_PCB::FootprintLibAdapter( &Prj() )`: the project's libraries,
+   * which list first, and the hosted ones.
+   */
+  const [fpLibs] = useState(() => new FOOTPRINT_LIBRARY_STORE(app.libraryIo));
+  const [fpLibsRevision, setFpLibsRevision] = useState(0);
+  useEffect(() => {
+    fpLibs.DropProjectLibraries();
+    for (const [name, fps] of projectLibs) {
+      fpLibs.AddProjectLibrary(
+        name,
+        projectLibUris.get(name) ?? name,
+        [...fps].map(([fpName, text]) => ({ fileName: `${fpName}.kicad_mod`, text })),
+      );
+    }
+    for (const lib of hostedIndex) fpLibs.AddGlobalLibrary(lib.name, lib.footprints);
+    setFpLibsRevision((n) => n + 1);
+  }, [fpLibs, projectLibs, projectLibUris, hostedIndex]);
   // The associations, the undo lists and the symbol selection: one state,
   // because the commands in cvpcb/tools/ move them together (DeleteAll
   // rewrites every FPID *and* resets the selection as a single step).
@@ -1031,25 +1041,8 @@ export function DialogAssignFootprints({
 
   // ----- status lines (CVPCB_MAINFRAME::DisplayStatus) ----------------------
 
-  const [fpInfo, setFpInfo] = useState<{ id: string; desc: string; keywords: string } | null>(null);
-  useEffect(() => {
-    if (!selectedFootprint) {
-      setFpInfo(null);
-      return;
-    }
-    let cancelled = false;
-    void resolveFootprint(selectedFootprint).then((fp) => {
-      if (cancelled) return;
-      // FOOTPRINT_INFO's description/keywords are the footprint's (descr …)
-      // and (tags …) metadata.
-      setFpInfo(
-        fp ? { id: selectedFootprint, desc: fp.descr ?? '', keywords: fp.tags ?? '' } : null,
-      );
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedFootprint]);
+  /** `m_FootprintsList->GetFootprintInfo( GetSelectedFootprint() )`. */
+  const fpInfo = selectedFootprint ? footprintList.GetFootprintInfo(selectedFootprint) : null;
 
   const filterStatus = useMemo(() => {
     const parts: string[] = [];
@@ -1091,9 +1084,7 @@ export function DialogAssignFootprints({
 
   const statusLine2 =
     savedStatus ??
-    (fpInfo && (fpInfo.desc || fpInfo.keywords)
-      ? `Description: ${fpInfo.desc};  Keywords: ${fpInfo.keywords}`
-      : '');
+    (fpInfo ? `Description: ${fpInfo.GetDesc()};  Keywords: ${fpInfo.GetKeywords()}` : '');
 
   const statusLine3 = useMemo(() => {
     let lib = '';
@@ -1638,7 +1629,8 @@ export function DialogAssignFootprints({
             app={app}
             footprint={viewerFootprint}
             libNickname={viewerLibNickname}
-            resolve={resolveFootprint}
+            adapter={fpLibs}
+            adapterRevision={fpLibsRevision}
             onClose={() => setViewerOpen(false)}
           />
         )}

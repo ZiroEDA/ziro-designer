@@ -20,11 +20,52 @@
 
 import type { JSX } from 'react';
 import { Check, Group, Num } from '@ziroeda/common/wx/controls.js';
-import type { PcbFormatting } from '../board_settings.js';
+import type { BOARD } from '../board.js';
 
-// The data model lives in board_settings.ts (KiCad's data/UI split);
-// re-exported so panel users keep importing from the panel module.
-export { defaultPcbFormatting, type PcbFormatting } from '../board_settings.js';
+export interface PcbFormatting {
+  dashLengthRatio: number;
+  gapLengthRatio: number;
+  applyFields: boolean;
+  applyText: boolean;
+  applyShapes: boolean;
+  applyDimensions: boolean;
+  applyBarcodes: boolean;
+}
+
+/** PANEL_SETUP_FORMATTING's transfers (pcbnew/dialogs/panel_setup_formatting.cpp). */
+export const PANEL_SETUP_FORMATTING = {
+  TransferDataToWindow(aBoard: BOARD): PcbFormatting {
+    const bds = aBoard.GetDesignSettings();
+    const plot = aBoard.GetPlotOptions();
+    return {
+      dashLengthRatio: plot.GetDashedLineDashRatio(),
+      gapLengthRatio: plot.GetDashedLineGapRatio(),
+      applyFields: bds.m_StyleFPFields,
+      applyText: bds.m_StyleFPText,
+      applyShapes: bds.m_StyleFPShapes,
+      applyDimensions: bds.m_StyleFPDimensions,
+      applyBarcodes: bds.m_StyleFPBarcodes,
+    };
+  },
+
+  /** True when the plot options (board-side) changed. */
+  TransferDataFromWindow(f: PcbFormatting, aBoard: BOARD): boolean {
+    const bds = aBoard.GetDesignSettings();
+    const plot = aBoard.GetPlotOptions();
+    const modified =
+      plot.GetDashedLineDashRatio() !== f.dashLengthRatio ||
+      plot.GetDashedLineGapRatio() !== f.gapLengthRatio;
+    plot.SetDashedLineDashRatio(f.dashLengthRatio);
+    plot.SetDashedLineGapRatio(f.gapLengthRatio);
+    aBoard.SetPlotOptions(plot);
+    bds.m_StyleFPFields = f.applyFields;
+    bds.m_StyleFPText = f.applyText;
+    bds.m_StyleFPShapes = f.applyShapes;
+    bds.m_StyleFPDimensions = f.applyDimensions;
+    bds.m_StyleFPBarcodes = f.applyBarcodes;
+    return modified;
+  },
+};
 
 interface Props {
   value: PcbFormatting;

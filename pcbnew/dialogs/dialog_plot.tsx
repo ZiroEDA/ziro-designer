@@ -25,7 +25,8 @@
  */
 import { useMemo, useRef, useState, type JSX } from 'react';
 import { zipSync, zlibSync, strToU8 } from 'fflate';
-import { boardAuxOrigin, PCB_PLOTTER, type Board } from '../index.js';
+import { PCB_PLOTTER } from '../pcb_plotter.js';
+import type { BOARD } from '../board.js';
 import { DRILL_MARKS, PCB_PLOT_PARAMS } from '../pcb_plot_params.js';
 import { EXCELLON_WRITER } from '../exporters/gendrill_excellon_writer.js';
 import { ZEROS_FMT } from '../exporters/gendrill_writer_base.js';
@@ -52,8 +53,9 @@ import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js'
 import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js';
 
 interface Props {
-  board: Board;
-  visibleLayers: ReadonlySet<string>;
+  board: BOARD;
+  /** The board's file name, which names the plot files. */
+  fileName: string;
   /** The frame's display units. `m_trackWidthCorrection`
    *  (`dialog_plot.cpp:116`) is a `UNIT_BINDER` on the edit frame like every
    *  other distance field, even though its model is millimetres. */
@@ -110,7 +112,7 @@ const download = (name: string, data: Uint8Array | string): void => {
 
 export function DialogPcbPlot({
   board,
-  visibleLayers,
+  fileName,
   units,
   projectFolders = [],
   onOutputFile,
@@ -121,11 +123,14 @@ export function DialogPcbPlot({
   // ui/modal_escape.ts.
   useModalEscape(onClose);
 
-  const layerNames = board.layers.map((l) => l.name);
-  const displayName = new Map(board.layers.map((l) => [l.name, l.userName ?? l.name]));
-  // KiCad defaults to the fab set; seed with the visible layers intersection.
-  const [checked, setChecked] = useState<Set<string>>(
-    () => new Set(layerNames.filter((l) => visibleLayers.has(l))),
+  // m_layerList = board->GetEnabledLayers().UIOrder() (dialog_plot.cpp:285),
+  // each row the board's name for the layer (:351).
+  const layerNames = board
+    .GetEnabledLayers()
+    .UIOrder()
+    .map((l) => LSET.Name(l));
+  const displayName = new Map(
+    layerNames.map((l) => [l, board.GetLayerName(LSET.NameToLayer(l))] as const),
   );
   const [protel, setProtel] = useState(false);
   const [jobFile, setJobFile] = useState(true);
@@ -133,7 +138,11 @@ export function DialogPcbPlot({
   const [useX2, setUseX2] = useState(true);
   const [useAuxOrigin, setUseAuxOrigin] = useState(false);
   // The rest of DIALOG_PLOT::init_Dialog: the board's own plot settings.
-  const [initial] = useState(() => board.k?.GetPlotOptions() ?? new PCB_PLOT_PARAMS());
+  const [initial] = useState(() => board.GetPlotOptions());
+  // `if( m_plotOpts.GetLayerSelection()[layer] ) Check( checkIndex )` (:353).
+  const [checked, setChecked] = useState<Set<string>>(
+    () => new Set(layerNames.filter((l) => initial.GetLayerSelection().test(LSET.NameToLayer(l)))),
+  );
   const [formatSel, setFormatSel] = useState(() => {
     const i = PLOT_FORMATS.findIndex((f) => f.format === initial.GetFormat());
     return String(Math.max(0, i));
@@ -165,7 +174,7 @@ export function DialogPcbPlot({
   const [outputDir, setOutputDir] = useState('gerbers');
   const [browseOpen, setBrowseOpen] = useState(false);
   const [downloadCopy, setDownloadCopy] = useState(false);
-  const base = (board.fileName ?? 'board')
+  const base = (fileName || 'board')
     .replace(/\.kicad_pcb$/i, '')
     .split('/')
     .pop()!;
@@ -212,15 +221,10 @@ export function DialogPcbPlot({
    * own design settings.
    */
   const plot = (): void => {
-    const k = board.k;
-
-    if (!k) {
-      report('The board model is not loaded, nothing to plot.', RPT_SEVERITY_WARNING);
-      return;
-    }
+    const k = board;
 
     // BOARD::GetFileName names the files and the TF.ProjectId; the view holds it.
-    if (!k.GetFileName()) k.SetFileName(board.fileName ?? 'board.kicad_pcb');
+    if (!k.GetFileName()) k.SetFileName(fileName || 'board.kicad_pcb');
 
     const layers = layerNames
       .filter((l) => checked.has(l))
@@ -327,14 +331,9 @@ export function DialogPcbPlot({
    * drill/place origin when "Use drill/place file origin" is checked.
    */
   const drill = (): void => {
-    const k = board.k;
+    const k = board;
 
-    if (!k) {
-      report('The board model is not loaded, nothing to drill.', RPT_SEVERITY_WARNING);
-      return;
-    }
-
-    if (!k.GetFileName()) k.SetFileName(board.fileName ?? 'board.kicad_pcb');
+    if (!k.GetFileName()) k.SetFileName(fileName || 'board.kicad_pcb');
 
     const writer = new EXCELLON_WRITER(k);
     const origin = useAuxOrigin ? k.GetDesignSettings().GetAuxOrigin() : { x: 0, y: 0 };

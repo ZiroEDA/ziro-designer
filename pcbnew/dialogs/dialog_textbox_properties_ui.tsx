@@ -66,7 +66,6 @@ import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { parseUnitValue, stringFromValue, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import type { TextBoxValues } from './dialog_textbox_properties.js';
-import type { StrokeType } from '../types.js';
 import { LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
@@ -79,6 +78,7 @@ import {
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { HtmlMessageBox } from '@ziroeda/common/dialogs/html_message_box.js';
 import { PCB_TEXT_SYNTAX_HELP } from '../pcb_text_help_md.js';
+import type { LineStyleToken } from '@ziroeda/common/stroke_params.js';
 
 type MmKey = 'width' | 'height' | 'thickness' | 'borderWidth';
 
@@ -290,7 +290,7 @@ export function DialogTextBoxProperties({
               className="ze-tbp-borderstyle"
               disabled={!v.border}
               value={v.borderStyle}
-              onChange={(next) => set({ borderStyle: next as StrokeType })}
+              onChange={(next) => set({ borderStyle: next as LineStyleToken })}
               options={LINE_STYLE_NAMES.map((s) => ({
                 value: s.value,
                 label: s.label,

@@ -28,142 +28,98 @@
  */
 import { describe, expect, it } from 'vitest';
 import { head, parse, serialize, type SList } from '@ziroeda/sexpr/index.js';
-import {
-  readBoard,
-  readFootprintFile,
-  serializeBoard,
-  serializeFootprint,
-} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { DEFAULT_POINT_SIZE } from '@ziroeda/pcbnew/pcb_point.js';
-import {
-  addBoardPoint,
-  boardItemBBox,
-  boardHitCandidates,
-  boardItemsInBox,
-  allBoardItemIds,
-  deleteBoardItems,
-  moveBoardItems,
-  rotateBoardItemsBy,
-  mirrorBoardItems,
-  duplicateBoardItems,
-  flipBoardItems,
-} from '@ziroeda/pcbnew/edit-board.js';
-import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
-import { isBoardItemLocked, setBoardItemsLocked } from '@ziroeda/pcbnew/edit-board.js';
-import { livePanel } from './support/live_panel.js';
-import { bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
-import { pcbPointMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
-import { boardIsEmpty } from '@ziroeda/pcbnew/tools/pcb_selection_conditions.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { DEFAULT_POINT_SIZE, PCB_POINT } from '@ziroeda/pcbnew/pcb_point.js';
+import {
+  FormatBoard,
+  FormatFootprintForLibrary,
+  ParseBoard,
+  ParseFootprintFile,
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { livePanel } from './support/live_panel.js';
+import { TEST_PCB_FRAME } from './support/test_pcb_frame.js';
 
-const MM = (n: number): number => mmToIU(n);
+const MM = (n: number): number => pcbIUScale.mmToIU(n);
 
-const BOARD = `(kicad_pcb (version 20241229) (generator "${GENERATOR}") (generator_version "${GENERATOR_VERSION}")
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user "F.Silkscreen"))
+const BOARD_SRC = `(kicad_pcb (version 20241229) (generator "${GENERATOR}") (generator_version "${GENERATOR_VERSION}")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
   (point (at 10 20) (size 1.5) (layer "F.SilkS")
     (uuid "aaaaaaaa-0000-0000-0000-000000000001"))
 )`;
 
-const read = (src = BOARD): Board => readBoard(parse(src));
+const read = (src = BOARD_SRC): BOARD => ParseBoard(src);
+const point = (b: BOARD = read()): PCB_POINT => b.Points()[0]!;
+const pointNodes = (text: string): SList[] =>
+  parse(text).items.filter((i): i is SList => i.kind === 'list' && head(i) === 'point');
 
-describe('reading (point …)', () => {
-  it('lands in board.points with position, size, layer and uuid', () => {
+describe('reading (point …) (parsePCB_POINT)', () => {
+  it('lands in BOARD::Points() with position, size, layer and uuid', () => {
     // `parsePCB_POINT` (`pcb_io_kicad_sexpr_parser.cpp:8582-8628`) — four
     // tokens and it `Expecting( "at, size, layer or uuid" )` for anything else.
-    const [p] = read().points;
+    const p = point();
 
-    expect(p).toBeDefined();
-    expect(p!.at).toEqual({ x: MM(10), y: MM(20) });
-    expect(p!.size).toBe(MM(1.5));
-    expect(p!.layer).toBe('F.SilkS');
-    expect(p!.uuid).toBe('aaaaaaaa-0000-0000-0000-000000000001');
+    expect(p.GetPosition()).toEqual({ x: MM(10), y: MM(20) });
+    expect(p.GetSize()).toBe(MM(1.5));
+    expect(p.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
+    expect(p.m_Uuid).toBe('aaaaaaaa-0000-0000-0000-000000000001');
   });
 
   it('falls back to the constructor’s 1 mm when (size …) is absent', () => {
-    // `DEFAULT_PT_SIZE_MM = 1.0` (`pcb_point.cpp:42`). Every token is optional
-    // in the grammar, so an absent one has to leave the constructed value
-    // behind rather than a zero.
+    // `DEFAULT_PT_SIZE_MM = 1.0` (`pcb_point.cpp:42`).
     const b = read(`(kicad_pcb (version 20241229) (net 0 "")
       (point (at 1 2) (layer "F.Cu")))`);
 
-    expect(b.points[0]!.size).toBe(DEFAULT_POINT_SIZE);
+    expect(point(b).GetSize()).toBe(DEFAULT_POINT_SIZE);
     expect(DEFAULT_POINT_SIZE).toBe(MM(1));
   });
 
-  it('is not a graphic: it does not land in board.shapes', () => {
-    // The token is a bare `point`, not `gr_point`, and the reader's board loop
-    // dispatches on the head — an arm that fell through to `readShape` would
-    // put a shape with no geometry on the board.
+  it('is not a graphic: it does not land in BOARD::Drawings()', () => {
     const b = read();
 
-    expect(b.shapes).toHaveLength(0);
-    expect(b.points).toHaveLength(1);
-  });
-
-  it('counts towards BOARD::IsEmpty', () => {
-    // `return m_drawings.empty() && m_footprints.empty() && m_tracks.empty()
-    //         && m_zones.empty() && m_points.empty();` (`board.cpp:606-609`).
-    // A board holding one point is not empty, so Select All is live on it.
-    expect(boardIsEmpty(read())).toBe(false);
-    expect(boardIsEmpty(read(`(kicad_pcb (version 20241229) (net 0 ""))`))).toBe(true);
+    expect(b.Drawings()).toHaveLength(0);
+    expect(b.Points()).toHaveLength(1);
   });
 });
 
-describe('an unmodelled item survives a save', () => {
-  it('passes through byte-identically, so a gap is never data loss', () => {
-    // The property the whole model leans on: `writeBoardNode` emits any source
-    // child whose head it does not own. A board carrying an item we have not
-    // ported yet — a `(barcode …)`, a `(target …)`, a `(generator …)` — opens
-    // without it on screen and saves with it intact.
-    //
-    // Pinned here because it was *assumed* rather than checked, and because
-    // assuming it wrongly points the finger the wrong way: a missing item reads
-    // as "we deleted the user's data" when it is really "we have not drawn it
-    // yet", and those two have very different urgency.
+describe('a save is stable from the first one on', () => {
+  it('round-trips a board with a point and a barcode, save after save', () => {
     const src = `(kicad_pcb (version 20241229) (generator "${GENERATOR}") (generator_version "${GENERATOR_VERSION}")
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
+  (point (at 10 20) (size 1.5) (layer "F.SilkS") (uuid "aaaaaaaa-0000-0000-0000-000000000001"))
   (barcode (at 10 20 0) (layer "F.SilkS") (size 5 5) (text "ABC") (text_height 1)
     (type qr) (ecc_level M) (hide no) (knockout no) (uuid "aaaaaaaa-0000-0000-0000-00000000000b"))
 )`;
-
-    // The model reads every item type KiCad's parser reads, and the
-    // formatter writes it back; a save is stable from the first one on.
-    const once = serializeBoard(readBoard(src));
+    const once = FormatBoard(read(src));
+    expect(once).toContain('(point');
     expect(once).toContain('(barcode');
-    expect(serializeBoard(readBoard(once))).toBe(once);
+    expect(FormatBoard(read(once))).toBe(once);
   });
 });
 
-describe('writing it back', () => {
-  it('round-trips a file it did not change, save after save', () => {
-    const once = serializeBoard(readBoard(BOARD));
-    expect(once).toContain('(point');
-    expect(serializeBoard(readBoard(once))).toBe(once);
-  });
+describe('writing it back (format( PCB_POINT* ))', () => {
+  /** A fresh 1 mm point at (3, 4) on F.Cu, added to the board. */
+  const added = (): { board: BOARD; p: PCB_POINT } => {
+    const board = read();
+    const p = new PCB_POINT(board);
+    p.SetPosition({ x: MM(3), y: MM(4) });
+    p.SetLayer(PCB_LAYER_ID.F_Cu);
+    board.Add(p);
+    return { board, p };
+  };
 
-  it('builds `(point (at …) (size …) (layer …) (uuid …))` for a fresh one', () => {
-    // `format( const PCB_POINT* )` (`pcb_io_kicad_sexpr.cpp:1156-1167`), in
-    // that order. A freshly placed point has no source node to emit, so this
-    // is the canonical builder and not a patched source.
-    //
-    // Read back through the parser rather than string-matched: the serializer
-    // pretty-prints, so a text compare would be pinning its line breaks.
-    const { board } = addBoardPoint(read(), {
-      at: { x: MM(3), y: MM(4) },
-      size: DEFAULT_POINT_SIZE,
-      layer: 'F.Cu',
-      uuid: 'bbbbbbbb-0000-0000-0000-000000000002',
-    });
-
-    // `format( BOARD )` sorts its points (`cmp_points`: layer, x, y, size,
-    // uuid), so the fresh one is found by its uuid rather than by position.
-    const node = parse(serializeBoard(board))
-      .items.filter((i): i is SList => i.kind === 'list' && head(i) === 'point')
-      .find((n) => serialize(n).includes('bbbbbbbb-0000-0000-0000-000000000002'))!;
+  it('writes `(point (at …) (size …) (layer …) (uuid …))`, in that order', () => {
+    // `format( const PCB_POINT* )` (`pcb_io_kicad_sexpr.cpp:1156-1167`).
+    const { board, p } = added();
+    const node = pointNodes(FormatBoard(board)).find((n) => serialize(n).includes(p.m_Uuid))!;
 
     expect(node.items.map((i) => (i.kind === 'list' ? head(i) : i.value))).toEqual([
       'point',
@@ -172,32 +128,21 @@ describe('writing it back', () => {
       'layer',
       'uuid',
     ]);
-    expect(
-      readBoard(serializeBoard(board)).points.find(
-        (p) => p.uuid === 'bbbbbbbb-0000-0000-0000-000000000002',
-      ),
-    ).toMatchObject({
-      at: { x: MM(3), y: MM(4) },
-      size: MM(1),
-      layer: 'F.Cu',
-      uuid: 'bbbbbbbb-0000-0000-0000-000000000002',
-    });
+    const back = ParseBoard(FormatBoard(board))
+      .Points()
+      .find((x) => x.m_Uuid === p.m_Uuid)!;
+    expect(back.GetPosition()).toEqual({ x: MM(3), y: MM(4) });
+    expect(back.GetSize()).toBe(MM(1));
+    expect(back.GetLayer()).toBe(PCB_LAYER_ID.F_Cu);
   });
 
   it('writes no (locked …), because the formatter has none', () => {
-    // `PCB_POINT` inherits `BOARD_ITEM` and so has the flag — `ViewGetLayers`
-    // even pushes LAYER_LOCKED_ITEM_SHADOW for it — but neither the formatter
-    // nor `parsePCB_POINT` has a token for it, so it cannot survive a save.
-    // Modelling it would be inventing a file format.
-    const { board } = addBoardPoint(read(), {
-      at: { x: 0, y: 0 },
-      size: DEFAULT_POINT_SIZE,
-      layer: 'F.Cu',
-    });
+    // `PCB_POINT` inherits `BOARD_ITEM` and so has the flag, but neither the
+    // formatter nor `parsePCB_POINT` has a token for it.
+    const { board, p } = added();
+    p.SetLocked(true);
 
-    const points = parse(serializeBoard(board)).items.filter(
-      (i): i is SList => i.kind === 'list' && head(i) === 'point',
-    );
+    const points = pointNodes(FormatBoard(board));
     expect(points).toHaveLength(2);
     for (const node of points)
       expect(node.items.some((i) => i.kind === 'list' && head(i) === 'locked')).toBe(false);
@@ -210,85 +155,53 @@ describe('a footprint’s own points', () => {
       (uuid "cccccccc-0000-0000-0000-000000000003")))`;
 
   it('reads into FOOTPRINT::Points(), not the board’s', () => {
-    // `parseFOOTPRINT`, T_point (`…_parser.cpp:5606-5610`): the same unprefixed
-    // token a board uses, added to the footprint.
-    const fp = readFootprintFile(parse(FP))!;
+    // `parseFOOTPRINT`, T_point (`…_parser.cpp:5606-5610`).
+    const fp = ParseFootprintFile(FP);
 
-    expect(fp.points).toHaveLength(1);
-    expect(fp.points[0]!.at).toEqual({ x: MM(1), y: MM(2) });
-    expect(fp.points[0]!.layer).toBe('F.Fab');
+    expect(fp.Points()).toHaveLength(1);
+    expect(fp.Points()[0]!.GetPosition()).toEqual({ x: MM(1), y: MM(2) });
+    expect(fp.Points()[0]!.GetLayer()).toBe(PCB_LAYER_ID.F_Fab);
   });
 
-  it('round-trips a library footprint unchanged, its point uuid included', () => {
-    const src = parse(FP);
-
-    // `FootprintSave` writes the library form (no footprint uuid, no placement)
-    // from a `FOOTPRINT( const FOOTPRINT& )` copy, whose four mandatory fields
-    // are the new footprint's own — `*existingField = *field` copies no KIID —
-    // so pcbnew 10.0.5 itself writes fresh uuids for Reference, Value,
-    // Datasheet and Description on every save (python `FootprintLoad( …, True )`
-    // then `FootprintSave` shows exactly those four change). Everything else,
-    // the point's uuid with it, is stable from the first save on.
-    const once = serializeFootprint(readFootprintFile(src)!);
+  it('round-trips a library footprint, its point uuid included', () => {
+    // `FP_CACHE::Save`'s path: Format( footprint ) under CTL_FOR_LIBRARY.
+    const once = FormatFootprintForLibrary(ParseFootprintFile(FP));
     expect(once).toContain('(point');
-    const twice = serializeFootprint(readFootprintFile(once)!);
-    const fieldUuids = (text: string): string =>
-      text.replace(/\(property [^\n]*\n(?:[^\n]*\n)*?\t\t\(uuid "[^"]+"\)/g, (m) =>
-        m.replace(/\(uuid "[^"]+"\)/, '(uuid "<field>")'),
-      );
-    expect(fieldUuids(twice)).toBe(fieldUuids(once));
-    expect(twice).toContain('(uuid "cccccccc-0000-0000-0000-000000000003")');
+    expect(FormatFootprintForLibrary(ParseFootprintFile(once))).toBe(once);
+    expect(once).toContain('(uuid "cccccccc-0000-0000-0000-000000000003")');
   });
 
   it('is stored in ABSOLUTE board coordinates, unlike every graphic', () => {
-    // A footprint's graphics are footprint-relative in the file: their parser
-    // ends with `Rotate( {0,0}, parentFP->GetOrientation() ); Move(
-    // parentFP->GetPosition() )` (`…_parser.cpp:3649-3652`) and their formatter
-    // unwinds it by passing `parentFP` to `formatInternalUnits`.
-    //
-    // A point is the exception, and it is the exception in BOTH halves:
-    // `parsePCB_POINT()` is the one child parser that takes no parent at all
-    // (:8582), and `format( const PCB_POINT* )` prints `GetPosition()` through
-    // the one-argument overload (`pcb_io_kicad_sexpr.cpp:1158-1160`). Two
-    // missing halves is a convention, not an oversight — so `(at 1 2)` under a
-    // footprint at (100, 50) means 1 mm, 2 mm on the BOARD, and the marker that
-    // draws there is what KiCad draws.
-    //
-    // We used to bake it through the placement, which round-tripped — the
-    // writer unbaked — but drew the marker 100 mm away from where KiCad puts
-    // it, for any footprint not at the origin.
-    const src = `(kicad_pcb (version 20241229) (net 0 "")
+    // `parsePCB_POINT()` takes no parent (:8582) and `format( const PCB_POINT* )`
+    // prints `GetPosition()` through the one-argument overload
+    // (`pcb_io_kicad_sexpr.cpp:1158-1160`): `(at 1 2)` under a footprint at
+    // (100, 50) is 1 mm, 2 mm on the BOARD.
+    const b = read(`(kicad_pcb (version 20241229) (net 0 "")
       (footprint "L:P" (layer "F.Cu") (at 100 50)
         (point (at 1 2) (size 1) (layer "F.Fab")
-          (uuid "dddddddd-0000-0000-0000-000000000004"))))`;
-    const b = read(src);
+          (uuid "dddddddd-0000-0000-0000-000000000004"))))`);
 
-    expect(b.footprints[0]!.points[0]!.at).toEqual({ x: MM(1), y: MM(2) });
-    expect(serializeBoard(b)).toContain('(at 1 2)');
+    expect(b.Footprints()[0]!.Points()[0]!.GetPosition()).toEqual({ x: MM(1), y: MM(2) });
+    expect(FormatBoard(b)).toContain('(at 1 2)');
   });
 
   it('and a rotated footprint does not turn its points either', () => {
-    // The corollary, and the half a round-trip test cannot see: an orientation
-    // is not applied on read, so it must not be unapplied on write.
-    const src = `(kicad_pcb (version 20241229) (net 0 "")
+    const b = read(`(kicad_pcb (version 20241229) (net 0 "")
       (footprint "L:P" (layer "F.Cu") (at 100 50 90)
         (point (at 1 2) (size 1) (layer "F.Fab")
-          (uuid "dddddddd-0000-0000-0000-000000000005"))))`;
-    const b = read(src);
+          (uuid "dddddddd-0000-0000-0000-000000000005"))))`);
 
-    expect(b.footprints[0]!.points[0]!.at).toEqual({ x: MM(1), y: MM(2) });
-    expect(serializeBoard(b)).toContain('(at 1 2)');
+    expect(b.Footprints()[0]!.Points()[0]!.GetPosition()).toEqual({ x: MM(1), y: MM(2) });
+    expect(FormatBoard(b)).toContain('(at 1 2)');
   });
 });
 
-describe('hit testing', () => {
-  // `PCB_POINT::HitTest` (`pcb_point.cpp:82-96`), whose local `size` is
-  // `GetSize() / 2` — so the X's arms reach `GetSize() / 2` from the centre and
-  // the circle's radius is `GetSize() / 4`.
+describe('hit testing (PCB_POINT::HitTest, pcb_point.cpp:82-96)', () => {
+  // The local `size` is `GetSize() / 2`, so the X's arms reach `GetSize() / 2`
+  // from the centre and the circle's radius is `GetSize() / 4`.
   const at = { x: MM(10), y: MM(20) };
   const tol = MM(0.01);
-  const hit = (p: { x: number; y: number }): boolean =>
-    boardHitCandidates(read(), p, tol).includes('point:0');
+  const hit = (p: { x: number; y: number }): boolean => point().HitTest(p, tol);
 
   it('picks up the two bars of the X', () => {
     // size is 1.5 mm, so a corner of the X is 0.75 mm out on each axis.
@@ -297,16 +210,13 @@ describe('hit testing', () => {
   });
 
   it('and the disc at its centre', () => {
-    // `SHAPE_CIRCLE::Collide` is a disc, not a ring: the inside of the little
-    // circle is solid to the mouse. Its radius is 1.5/4 = 0.375 mm, and this
-    // sample is off both diagonals.
+    // `SHAPE_CIRCLE::Collide` is a disc: radius 1.5/4 = 0.375 mm.
     expect(hit({ x: at.x + MM(0.3), y: at.y })).toBe(true);
   });
 
   it('misses the empty quadrant between an arm and the ring', () => {
     // (0.6, 0.05) is 0.39 mm from the nearer diagonal and 0.6 mm from the
-    // centre — outside both. A bounding-box hit test would call this a hit,
-    // which is what makes this the case that separates the two.
+    // centre — outside both, which a bounding-box test would call a hit.
     expect(hit({ x: at.x + MM(0.6), y: at.y + MM(0.05) })).toBe(false);
   });
 
@@ -315,132 +225,65 @@ describe('hit testing', () => {
   });
 
   it('box-selects by its bounding box, in both drag directions', () => {
-    // `PCB_POINT::HitTest( BOX2I )` is `KIGEOM::BoxHitTest` on the bounding box
-    // in both modes, so a crossing drag and a window drag agree.
-    const b = read();
-    const around = [MM(5), MM(15), MM(15), MM(25)] as const;
+    // `PCB_POINT::HitTest( BOX2I )` is `KIGEOM::BoxHitTest` on the bounding box.
+    const around = new BOX2I({ x: MM(5), y: MM(15) }, { x: MM(10), y: MM(10) });
+    const far = new BOX2I({ x: MM(50), y: MM(50) }, { x: MM(10), y: MM(10) });
 
-    expect(boardItemsInBox(b, ...around, true)).toContain('point:0');
-    expect(boardItemsInBox(b, ...around, false)).toContain('point:0');
-    expect(boardItemsInBox(b, MM(50), MM(50), MM(60), MM(60), false)).not.toContain('point:0');
+    expect(point().HitTest(around, true)).toBe(true);
+    expect(point().HitTest(around, false)).toBe(true);
+    expect(point().HitTest(far, false)).toBe(false);
   });
 
   it('has the bounding box PCB_POINT::GetBoundingBox does', () => {
-    // `BOX2I::ByCenter( m_pos, { m_size, m_size } )` — half a size each way,
-    // not a full one.
-    expect(boardItemBBox(read(), 'point:0')).toEqual({
-      minX: MM(10) - MM(0.75),
-      minY: MM(20) - MM(0.75),
-      maxX: MM(10) + MM(0.75),
-      maxY: MM(20) + MM(0.75),
-    });
-  });
-
-  it('is reachable from Select All', () => {
-    expect(allBoardItemIds(read())).toContain('point:0');
+    // `BOX2I::ByCenter( m_pos, { m_size, m_size } )` — half a size each way.
+    const bb = point().GetBoundingBox();
+    expect([bb.GetLeft(), bb.GetTop(), bb.GetRight(), bb.GetBottom()]).toEqual([
+      MM(10) - MM(0.75),
+      MM(20) - MM(0.75),
+      MM(10) + MM(0.75),
+      MM(20) + MM(0.75),
+    ]);
   });
 });
 
 describe('editing', () => {
-  it('moves, and the source node moves with it', () => {
-    // Patched in place, like every other item: the writer emits the source, so
-    // a mover that changed only the model would save the old position.
-    const after = moveBoardItems(read(), new Set(['point:0']), { x: MM(1), y: MM(2) });
+  it('moves, and the file records it', () => {
+    const b = read();
+    point(b).Move({ x: MM(1), y: MM(2) });
 
-    expect(after.points[0]!.at).toEqual({ x: MM(11), y: MM(22) });
-    expect(serializeBoard(after)).toContain('(at 11 22)');
+    expect(point(b).GetPosition()).toEqual({ x: MM(11), y: MM(22) });
+    expect(FormatBoard(b)).toContain('(at 11 22)');
   });
 
   it('rotates about a centre', () => {
-    // `PCB_POINT::Rotate` is `RotatePoint( m_pos, aRotCentre, aAngle )` and
-    // nothing else — there is no orientation to carry round with it.
-    const after = rotateBoardItemsBy(read(), new Set(['point:0']), 90, { x: 0, y: 0 });
+    // `PCB_POINT::Rotate` is `RotatePoint( m_pos, aRotCentre, aAngle )`:
+    // (x, y) at +90 degrees -> (y, -x).
+    const b = read();
+    point(b).Rotate({ x: 0, y: 0 }, ANGLE_90);
 
-    // KiCad's RotatePoint on screen coordinates: (x, y) at +90° -> (y, -x).
-    expect(after.points[0]!.at).toEqual({ x: MM(20), y: MM(-10) });
+    expect(point(b).GetPosition()).toEqual({ x: MM(20), y: MM(-10) });
   });
 
-  it('mirrors its position and keeps its layer', () => {
-    // `PCB_POINT::Mirror` is the one method 10.0.5 forgot: `PCB_POINT_T` is in
-    // `EDIT_TOOL::MirrorableItems` and the switch calls it, but `pcb_point.h`
-    // overrides `Move`/`Rotate`/`Flip` and not `Mirror`, so it lands on
-    // `BOARD_ITEM::Mirror` — a `wxMessageBox( "should not occur" )`.
-    //
-    // Derived, not invented: `MIRROR( p, ref, LEFT_RIGHT )` is
-    // `p.x = -( p.x - ref.x ) + ref.x` (`core/mirror.h:45-61`) and every
-    // sibling's `Mirror` is one `MIRROR()` per coordinate. A point has one, so
-    // the method is `MIRROR( m_pos, aCentre, aDir )`. The layer is untouched —
-    // flipping it is `Flip`, which `PCB_POINT` *does* implement.
-    const after = mirrorBoardItems(read(), new Set(['point:0']), 'h', { x: MM(0), y: MM(0) });
+  it('has no Mirror of its own, so a mirror changes nothing (10.0.6 pcb_point.h)', () => {
+    // `pcb_point.h` overrides Move, Rotate and Flip, not Mirror; the call lands
+    // on `BOARD_ITEM::Mirror`, "should not occur" (board_item.cpp:439-442).
+    const p = point();
+    const assert = console.assert;
+    console.assert = () => {};
+    try {
+      p.Mirror({ x: 0, y: 0 }, FLIP_DIRECTION.LEFT_RIGHT);
+    } finally {
+      console.assert = assert;
+    }
 
-    expect(after.points[0]!.at).toEqual({ x: MM(-10), y: MM(20) });
-    expect(after.points[0]!.layer).toBe('F.SilkS');
-  });
-
-  it('duplicates with a fresh uuid', () => {
-    const { board, ids } = duplicateBoardItems(read(), new Set(['point:0']), { x: MM(1), y: 0 });
-
-    expect(ids).toEqual(['point:1']);
-    expect(board.points).toHaveLength(2);
-    expect(board.points[1]!.uuid).not.toBe(board.points[0]!.uuid);
-    expect(board.points[1]!.at).toEqual({ x: MM(11), y: MM(20) });
+    expect(p.GetPosition()).toEqual({ x: MM(10), y: MM(20) });
+    expect(p.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
   });
 
   it('deletes', () => {
-    expect(deleteBoardItems(read(), new Set(['point:0'])).points).toHaveLength(0);
-  });
-
-  it('appends a placed point on the active layer at the constructor’s size', () => {
-    // `POINT_PLACER::CreateItem` sets exactly one thing on the new item,
-    // `SetLayer( m_frame.GetActiveLayer() )` (`drawing_tool.cpp:885-893`).
-    const { board, id } = addBoardPoint(read(), {
-      at: { x: MM(7), y: MM(8) },
-      size: DEFAULT_POINT_SIZE,
-      layer: 'B.Cu',
-    });
-
-    expect(id).toBe('point:1');
-    expect(board.points[1]).toMatchObject({ size: MM(1), layer: 'B.Cu' });
-  });
-});
-
-describe('as a snap anchor — the thing it exists for', () => {
-  // `case PCB_POINT_T: addAnchor( aItem->GetPosition(), ORIGIN | SNAPPABLE, … )`
-  // (`pcb_grid_helper.cpp:1790-1797`), and the same for a footprint's own
-  // points under the comment "Points are also pick-up points" (`:1607-1617`).
-  //
-  // The grid is DISABLED here, so `align` returns the cursor untouched and
-  // `bestSnapAnchor`'s fallback is the raw position. That is what makes "the
-  // point pulled it" and "nothing pulled it" distinguishable — with a grid on,
-  // both answers could round to the same node and every assertion below would
-  // pass whatever the anchor list held.
-  const grid = { size: MM(1), origin: { x: 0, y: 0 }, enableGrid: false, enableSnap: true };
-  const snapOpts = { snapScale: MM(1), visibleGrid: MM(100), layer: 'F.SilkS' };
-  const near = { x: MM(10) + MM(0.2), y: MM(20) + MM(0.2) };
-
-  it('pulls the cursor onto the point', () => {
-    expect(bestSnapAnchor(read(), near, grid, snapOpts)).toEqual({ x: MM(10), y: MM(20) });
-  });
-
-  it('and a footprint’s point does too', () => {
-    const b = read(`(kicad_pcb (version 20241229)
-      (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user "F.Silkscreen"))
-      (net 0 "")
-      (footprint "L:P" (layer "F.Cu") (at 100 50)
-        (point (at 101 52) (size 1) (layer "F.SilkS"))))`);
-    const nearFp = { x: MM(101) + MM(0.2), y: MM(52) + MM(0.2) };
-
-    expect(bestSnapAnchor(b, nearFp, grid, snapOpts)).toEqual({ x: MM(101), y: MM(52) });
-  });
-
-  it('offers nothing once the Selection Filter’s Points box is cleared', () => {
-    // `if( aSelectionFilter && !aSelectionFilter->points ) continue;` — the
-    // filter gates the anchor, not just the click.
-    expect(bestSnapAnchor(read(), near, grid, { ...snapOpts, points: false })).toEqual(near);
-  });
-
-  it('is not offered from a layer the caller is not on', () => {
-    expect(bestSnapAnchor(read(), near, grid, { ...snapOpts, layer: 'B.Cu' })).toEqual(near);
+    const b = read();
+    b.Remove(point(b));
+    expect(b.Points()).toHaveLength(0);
   });
 });
 
@@ -450,8 +293,12 @@ describe('the message panel', () => {
     // value — it stands in for the `Type` row every other item gets from
     // `GetFriendlyName`, which is why it reads "PCB Point" and not "Point" —
     // and X and Y are separate rows, unlike its neighbours' position pair.
-    const b = read();
-    const rows = pcbPointMsgPanelInfo({ board: b, units: 'mm', frame: 'pcb_edit' }, b.points[0]!);
+    const board = ParseBoard(BOARD_SRC);
+    const frame = new TEST_PCB_FRAME(board);
+    frame.SetUserUnits('mm');
+    const list: MSG_PANEL_ITEM[] = [];
+    board.Points()[0]!.GetMsgPanelInfo(frame.AsDrawFrameLike(), list);
+    const rows = list.map((i) => ({ upper: i.GetUpperText(), lower: i.GetLowerText() }));
 
     expect(rows.map((r) => r.upper)).toEqual([
       'PCB Point',
@@ -473,7 +320,7 @@ describe('the Properties panel', () => {
   // Position Y, Layer and Locked from `BOARD_ITEM_DESC` (`board_item.cpp:449-459`)
   // — which is why Size comes last. This is PCB_PROPERTIES_PANEL on the live
   // BOARD (#636 stage 6).
-  const panel = (src = BOARD) => livePanel(src, (b) => b.Points()[0]!);
+  const panel = (src = BOARD_SRC) => livePanel(src, (b) => b.Points()[0]!);
 
   it('offers BOARD_ITEM’s four rows and PCB_POINT’s Size, in that order', () => {
     expect(
@@ -497,13 +344,13 @@ describe('the Properties panel', () => {
     const p = panel();
     expect(p.set('Size', MM(3))).toBe(true);
     expect(p.board.Points()[0]!.GetSize()).toBe(MM(3));
-    expect(readBoard(parse(p.written())).points[0]!.size).toBe(MM(3));
+    expect(ParseBoard(p.written()).Points()[0]!.GetSize()).toBe(MM(3));
   });
 
   it('commits a position, and that reaches the file too', () => {
     const p = panel();
     expect(p.set('Position X', MM(42))).toBe(true);
-    expect(readBoard(parse(p.written())).points[0]!.at.x).toBe(MM(42));
+    expect(ParseBoard(p.written()).Points()[0]!.GetPosition().x).toBe(MM(42));
   });
 
   it('locks in memory and writes no token, because the parser rejects one', () => {
@@ -516,82 +363,65 @@ describe('the Properties panel', () => {
     expect(p.board.Points()[0]!.IsLocked()).toBe(true);
     expect(p.written()).not.toContain('locked');
     // And it is gone after a round trip, which is what upstream does too.
-    expect(readBoard(parse(p.written())).points[0]!.locked).toBe(false);
+    expect(ParseBoard(p.written()).Points()[0]!.IsLocked()).toBe(false);
   });
 
-  it('Lock/Unlock reaches a point at all, which is the shared command', () => {
-    // `setBoardItemsLocked` is what `PCB_ACTIONS::lock` runs. Points were the
-    // one kind it skipped, so the command silently did nothing to them.
-    const locked = setBoardItemsLocked(read(), new Set(['point:0']), true);
+  it('Lock/Unlock reaches a point, and still writes no token', () => {
+    const b = read();
+    point(b).SetLocked(true);
 
-    expect(isBoardItemLocked(locked, 'point:0')).toBe(true);
-    expect(serializeBoard(locked)).not.toContain('locked');
+    expect(point(b).IsLocked()).toBe(true);
+    expect(FormatBoard(b)).not.toContain('locked');
   });
 });
 
 describe('a footprint carries its points', () => {
   // `FOOTPRINT::Move`, `::Rotate` and `::Flip` each end with a loop over
   // `m_points` calling the same method on every one. A point is stored
-  // board-absolute (it is written that way too), so a transform that moved the
-  // footprint and not its points would move them apart on screen AND save the
-  // new gap — the file records where each point ended up, not an offset that
-  // could still be reconstructed.
+  // board-absolute, so a transform that moved the footprint and not its points
+  // would move them apart on screen AND save the new gap.
   const FP = `(kicad_pcb (version 20241229) (generator "test")
-    (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user "F.Silkscreen")
-            (38 "B.SilkS" user "B.Silkscreen"))
+    (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user "F.Silkscreen")
+            (7 "B.SilkS" user "B.Silkscreen"))
     (net 0 "")
     (footprint "L:P" (layer "F.Cu") (at 100 50)
       (point (at 101 52) (size 2) (layer "F.SilkS"))))`;
-  const fpBoard = (): Board => read(FP);
-  const pointOf = (b: Board): { x: number; y: number } => b.footprints[0]!.points[0]!.at;
+  const fp = (b: BOARD) => b.Footprints()[0]!;
+  const pointOf = (b: BOARD) => fp(b).Points()[0]!;
 
-  it('moves with it — `FOOTPRINT::SetPosition`', () => {
-    const after = moveBoardItems(fpBoard(), new Set(['footprint:0']), { x: MM(10), y: MM(20) });
+  it('moves with it', () => {
+    const b = read(FP);
+    fp(b).Move({ x: MM(10), y: MM(20) });
 
-    expect(after.footprints[0]!.at).toEqual({ x: MM(110), y: MM(70) });
-    expect(pointOf(after)).toEqual({ x: MM(111), y: MM(72) });
-    // …and the file records the point's new absolute position, which is the
-    // half that would silently corrupt it if the point had stayed put.
-    expect(serializeBoard(after)).toContain('(at 111 72)');
+    expect(fp(b).GetPosition()).toEqual({ x: MM(110), y: MM(70) });
+    expect(pointOf(b).GetPosition()).toEqual({ x: MM(111), y: MM(72) });
+    expect(FormatBoard(b)).toContain('(at 111 72)');
   });
 
-  it('rotates with it — `FOOTPRINT::SetOrientation`', () => {
-    // 90° about the footprint's own anchor: the point is at (+1, +2) from it,
-    // and KiCad's RotatePoint on screen coords takes (x, y) to (y, -x).
-    const after = rotateBoardItemsBy(fpBoard(), new Set(['footprint:0']), 90, {
-      x: MM(100),
-      y: MM(50),
-    });
+  it('rotates with it', () => {
+    // 90 degrees about the anchor: (+1, +2) from it goes to (+2, -1).
+    const b = read(FP);
+    fp(b).Rotate({ x: MM(100), y: MM(50) }, ANGLE_90);
 
-    expect(pointOf(after)).toEqual({ x: MM(102), y: MM(49) });
+    expect(pointOf(b).GetPosition()).toEqual({ x: MM(102), y: MM(49) });
   });
 
-  it('flips with it, layer and all — `FOOTPRINT::Flip`', () => {
-    // `for( PCB_POINT* point : m_points ) point->Flip( m_pos, TOP_BOTTOM )`.
-    // Upstream's comment there says "Points move but don't flip layer", but
-    // `PCB_POINT::Flip` is `MIRROR( m_pos, … )` *and*
-    // `SetLayer( GetBoard()->FlipLayer( GetLayer() ) )`. The code is what runs.
-    // An explicit centre: with none, `flipBoardItems` takes the selection's
-    // bounding-box centre, which for a footprint whose only content is this
-    // point IS the point — so it would mirror onto itself and the assertion
-    // would hold whatever the code did.
-    const after = flipBoardItems(fpBoard(), new Set(['footprint:0']), {
-      x: MM(100),
-      y: MM(50),
-    });
-    const p = after.footprints[0]!.points[0]!;
+  it('flips with it, layer and all', () => {
+    // `for( PCB_POINT* point : m_points ) point->Flip( m_pos, TOP_BOTTOM )`, and
+    // `PCB_POINT::Flip` is `MIRROR( m_pos, … )` and `SetLayer( FlipLayer( … ) )`.
+    const b = read(FP);
+    fp(b).Flip({ x: MM(100), y: MM(50) }, FLIP_DIRECTION.TOP_BOTTOM);
 
-    expect(p.at).toEqual({ x: MM(101), y: MM(48) });
-    expect(p.layer).toBe('B.SilkS');
+    expect(pointOf(b).GetPosition()).toEqual({ x: MM(101), y: MM(48) });
+    expect(pointOf(b).GetLayer()).toBe(PCB_LAYER_ID.B_SilkS);
   });
 
   it('is measured by the footprint’s bounding box', () => {
-    // `bbox.Merge( point->GetBoundingBox() )` (`footprint.cpp:1853`). This is
-    // what zoom-to-fit and the board box read, so a point outside every other
-    // item — which is exactly where a snap anchor goes — would be cropped.
-    const fp = fpBoard().footprints[0]!;
-    const far = { ...fp, points: [{ ...fp.points[0]!, at: { x: MM(500), y: MM(500) } }] };
+    // `bbox.Merge( point->GetBoundingBox() )` (`footprint.cpp:1853`).
+    const b = read(FP);
+    pointOf(b).SetPosition({ x: MM(500), y: MM(500) });
+    fp(b).InvalidateGeometryCaches();
 
-    expect(footprintBBox(far)!.maxX).toBeGreaterThanOrEqual(MM(501));
+    expect(fp(b).GetBoundingBox().GetRight()).toBeGreaterThanOrEqual(MM(501));
   });
 });

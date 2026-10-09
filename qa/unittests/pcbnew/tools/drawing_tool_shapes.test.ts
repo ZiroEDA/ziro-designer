@@ -35,6 +35,7 @@ import { DIALOG_RULE_AREA_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_rule
 import { DIALOG_COPPER_ZONE } from '@ziroeda/pcbnew/dialogs/panel_zone_properties.js';
 import type { ZONE } from '@ziroeda/pcbnew/zone.js';
 import type { PCB_TABLE } from '@ziroeda/pcbnew/pcb_table.js';
+import { PCB_TEXTBOX as PcbTextboxClass, type PCB_TEXTBOX } from '@ziroeda/pcbnew/pcb_textbox.js';
 import type { PCB_REFERENCE_IMAGE } from '@ziroeda/pcbnew/pcb_reference_image.js';
 import type { PCB_BARCODE } from '@ziroeda/pcbnew/pcb_barcode.js';
 import type { IMPORT_GRAPHICS_RESULT } from '@ziroeda/pcbnew/pcb_base_edit_frame.js';
@@ -44,8 +45,9 @@ import {
   PCB_DIMENSION_BASE,
   type PCB_DIM_ALIGNED,
   PCB_DIM_ORTHOGONAL,
+  type PCB_DIM_RADIAL,
 } from '@ziroeda/pcbnew/pcb_dimension.js';
-import { DIM_ARROW_DIRECTION } from '@ziroeda/pcbnew/pcb_dimension_types.js';
+import { DIM_ARROW_DIRECTION, DIM_UNITS_FORMAT } from '@ziroeda/pcbnew/pcb_dimension.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { sub } from '@ziroeda/kimath/src/math/vector2.js';
 import { PCB_TRACK, type PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
@@ -686,6 +688,71 @@ describe('DRAWING_TOOL::DrawDimension (drawing_tool.cpp:1580-2045)', () => {
     // OUTWARD is the default (pcb_dimension.cpp), so one flip is INWARD.
     expect(dims()[0]!.GetArrowDirection()).toBe(DIM_ARROW_DIRECTION.INWARD);
   });
+
+  it('a radial takes "R " and a leader of three default arrows, NOT the board arrow length (pcb_dimension.cpp:1557-1565)', () => {
+    // `m_leaderLength = m_arrowLength * 3` runs in the constructor, on the
+    // base class's 50 mil arrow, before SET_ORIGIN applies the board's own.
+    h.board.GetDesignSettings().m_DimensionArrowLength = 2 * MM;
+    start(PCB_ACTIONS.drawRadialDimension);
+    click(mm(10, 10));
+    move(mm(20, 10));
+    click(mm(20, 10));
+    const d = dims()[0]! as PCB_DIM_RADIAL;
+    expect(d.Type()).toBe(KICAD_T.PCB_DIM_RADIAL_T);
+    expect(d.GetPrefix()).toBe('R ');
+    expect(d.GetLeaderLength()).toBe(3 * pcbIUScale.mmToIU(1.27));
+    expect(d.GetArrowLength()).toBe(2 * MM);
+  });
+
+  it('a leader is an override reading "Leader" with no unit suffix (pcb_dimension.cpp:1361-1370)', () => {
+    start(PCB_ACTIONS.drawLeader);
+    click(mm(10, 10));
+    move(mm(20, 10));
+    click(mm(20, 10));
+    const d = dims()[0]!;
+    expect(d.Type()).toBe(KICAD_T.PCB_DIM_LEADER_T);
+    expect(d.GetOverrideTextEnabled()).toBe(true);
+    expect(d.GetOverrideText()).toBe('Leader');
+    expect(d.GetUnitsFormat()).toBe(DIM_UNITS_FORMAT.NO_SUFFIX);
+    expect(d.GetText()).toBe('Leader');
+  });
+
+  it('a centre mark snaps to 45 degrees whatever the snap mode (:1872, constrainDimension)', () => {
+    // |x| 3 > |y| 1 * 2: the y component is zeroed.
+    start(PCB_ACTIONS.drawCenterDimension);
+    click(mm(50, 50));
+    move(mm(53, 51));
+    click(mm(53, 51));
+    expect(sub(dims()[0]!.GetEnd(), dims()[0]!.GetStart())).toEqual(mm(3, 0));
+  });
+
+  it('a centre mark near the diagonal goes onto it, keeping the larger axis (:1417)', () => {
+    start(PCB_ACTIONS.drawCenterDimension);
+    click(mm(50, 50));
+    move(mm(60, 58));
+    click(mm(60, 58));
+    expect(sub(dims()[0]!.GetEnd(), dims()[0]!.GetStart())).toEqual(mm(10, 10));
+  });
+
+  it('an aligned end is left free, the default snap mode being DIRECT', () => {
+    start(PCB_ACTIONS.drawAlignedDimension);
+    click(mm(10, 10));
+    move(mm(20, 13));
+    click(mm(20, 13));
+    move(mm(20, 5));
+    click(mm(20, 5));
+    expect(dims()[0]!.GetEnd()).toEqual(mm(20, 13));
+  });
+
+  it('a dimension on a back layer reads mirrored (SetMirrored( IsBackLayer( layer ) ))', () => {
+    h.frame.SetActiveLayer(PCB_LAYER_ID.B_Cu);
+    start(PCB_ACTIONS.drawAlignedDimension);
+    click(mm(10, 10));
+    click(mm(30, 10));
+    move(mm(30, 5));
+    click(mm(30, 5));
+    expect(dims()[0]!.IsMirrored()).toBe(true);
+  });
 });
 
 describe('DRAWING_TOOL::DrawVia (drawing_tool.cpp:3686-4407)', () => {
@@ -879,6 +946,61 @@ describe('DRAWING_TOOL::DrawTable (drawing_tool.cpp:1186-1415)', () => {
     expect(t.IsSelected()).toBe(true);
   });
 
+  /** Drag a table from (10, 10) mm to `aTo` mm and commit it; the committed table. */
+  const drawn = async (aTo: Vec2): Promise<PCB_TABLE> => {
+    start(PCB_ACTIONS.drawTable);
+    click(mm(10, 10));
+    move(aTo);
+    click(aTo);
+    await flush();
+    return tables()[0]!;
+  };
+
+  /** `KiROUND( (double) v / g ) * g`, the cell size's snap to the grid. */
+  const snapped = (v: number, g: number): number => Math.round(v / g) * g;
+
+  it('a backwards drag is a 1x1 table of the minimum cell, 5 font-widths by 3 heights (:1366-1373)', async () => {
+    const fs = h.board.GetDesignSettings().GetTextSize(PCB_LAYER_ID.F_SilkS);
+    const g = h.view.GetGAL().GetGridSize();
+    const t = await drawn(mm(2, 3));
+
+    expect([t.GetColCount(), t.GetRowCount()]).toEqual([1, 1]);
+    expect(t.GetColWidth(0)).toBe(snapped(fs.x * 5, g.x));
+    expect(t.GetRowHeight(0)).toBe(snapped(fs.y * 3, g.y));
+  });
+
+  it('counts truncate: one column per 15 font-widths, one row per 3 heights (:1366-1367)', async () => {
+    const fs = h.board.GetDesignSettings().GetTextSize(PCB_LAYER_ID.F_SilkS);
+    // 3.9 columns' and 2.9 rows' worth of drag: 3 and 2.
+    const w = (fs.x * 15 * 3.9) / MM;
+    const ht = (fs.y * 3 * 2.9) / MM;
+    const t = await drawn(mm(10 + w, 10 + ht));
+
+    expect([t.GetColCount(), t.GetRowCount()]).toEqual([3, 2]);
+  });
+
+  it('lays the cells out row-major from the first corner, every cell the same size, on the layer', async () => {
+    const fs = h.board.GetDesignSettings().GetTextSize(PCB_LAYER_ID.F_SilkS);
+    const g = h.view.GetGAL().GetGridSize();
+    const w = (fs.x * 15 * 2.5) / MM;
+    const ht = (fs.y * 3 * 2.5) / MM;
+    const t = await drawn(mm(10 + w, 10 + ht));
+    const req = { x: Math.trunc(w * MM), y: Math.trunc(ht * MM) };
+    const cw = snapped(Math.max(fs.x * 5, Math.trunc(req.x / 2)), g.x);
+    const ch = snapped(Math.max(fs.y * 3, Math.trunc(req.y / 2)), g.y);
+    const cells = t.GetCells();
+
+    expect(cells.map((c) => c.GetPosition())).toEqual([
+      mm(10, 10),
+      { x: 10 * MM + cw, y: 10 * MM },
+      { x: 10 * MM, y: 10 * MM + ch },
+      { x: 10 * MM + cw, y: 10 * MM + ch },
+    ]);
+    for (const c of cells)
+      expect(c.GetEnd()).toEqual({ x: c.GetPosition().x + cw, y: c.GetPosition().y + ch });
+    expect(t.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
+  });
+
   it('PENCIL until the first corner, MOVING while the grid is dragged out (:1203-1210)', () => {
     start(PCB_ACTIONS.drawTable);
     expect(h.shape).toBe(KICURSOR.PENCIL);
@@ -946,6 +1068,24 @@ describe('DRAWING_TOOL::PlaceReferenceImage (drawing_tool.cpp:623-872)', () => {
     expect(im.IsSelected()).toBe(true);
   });
 
+  it('stays armed after a placement, and a second image joins the first (:812-819)', async () => {
+    imageFile = png();
+    start(PCB_ACTIONS.placeReferenceImage);
+    await flush();
+    click(mm(10, 10));
+    // `if( !immediateMode ) { ... m_toolMgr->PostAction( ACTIONS::cursorClick ) }`
+    // is not in this branch: the tool loops for the next image.
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.IMAGE);
+    click(mm(30, 30));
+    await flush();
+    click(mm(30, 30));
+
+    const at = images()
+      .map((i) => i.GetPosition())
+      .sort((a, b) => a.x - b.x);
+    expect(at).toEqual([mm(10, 10), mm(30, 30)]);
+  });
+
   it('ARROW until a file is chosen, MOVING while the image rides (:653-661)', async () => {
     imageFile = null;
     start(PCB_ACTIONS.placeReferenceImage);
@@ -982,6 +1122,33 @@ describe('DRAWING_TOOL::DrawRectangle as a text box (drawing_tool.cpp:411-470)',
     for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
   };
   const boxes = (): PCB_SHAPE[] => shapes().filter((x) => x.Type() === KICAD_T.PCB_TEXTBOX_T);
+
+  it('a second click on the first draws no box (:2275-2283)', async () => {
+    start(PCB_ACTIONS.drawTextBox);
+    click(mm(10, 10));
+    click(mm(10, 10));
+    await flush();
+    expect(boxes()).toHaveLength(0);
+  });
+
+  it("on the active layer, its margins the constructor's legacy ones (:426)", async () => {
+    h.frame.SetActiveLayer(PCB_LAYER_ID.F_Cu);
+    start(PCB_ACTIONS.drawTextBox);
+    click(mm(10, 10));
+    click(mm(30, 20));
+    await flush();
+    const b = boxes()[0]! as unknown as PCB_TEXTBOX;
+    expect(b.GetLayer()).toBe(PCB_LAYER_ID.F_Cu);
+    // PCB_TEXTBOX's constructor sets every margin to GetLegacyTextMargin() of
+    // ITS state (pcb_textbox.cpp:59-63); the tool's later text size does not move them.
+    const legacy = new PcbTextboxClass(h.board).GetLegacyTextMargin();
+    expect([b.GetMarginLeft(), b.GetMarginTop(), b.GetMarginRight(), b.GetMarginBottom()]).toEqual([
+      legacy,
+      legacy,
+      legacy,
+      legacy,
+    ]);
+  });
 
   it('two corners, then the dialog: OK commits a normalized text box, selected (:448-461)', async () => {
     start(PCB_ACTIONS.drawTextBox);

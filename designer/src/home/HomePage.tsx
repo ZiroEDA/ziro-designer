@@ -70,7 +70,14 @@ import {
   listUserTemplates,
   userTemplateFiles,
 } from './user_templates.js';
-import { demoAt, launchDemoFrame, loadDemos, openDemo, type DemoMeta } from './demos.js';
+import {
+  demoAt,
+  isListedDemo,
+  launchDemoFrame,
+  loadDemos,
+  openDemo,
+  type DemoMeta,
+} from './demos.js';
 import '@ziroeda/common/widgets/shell.css';
 import type { PickedHomeFile } from './files.js';
 import {
@@ -566,7 +573,7 @@ export function HomePage({
   // Keep the chooser's Demos and Templates places current. They are built once
   // and read these refs, so this is what makes a late-arriving list show up.
   useEffect(() => {
-    demosRef.current = demos;
+    demosRef.current = demos.filter(isListedDemo);
   }, [demos]);
   useEffect(() => {
     templatesRef.current = templates;
@@ -695,6 +702,11 @@ export function HomePage({
     // same waste as downloading them up front, just less visible. They are
     // fetched when the user keeps the project, in `saveDemoCopy`.
     setDemoSource(d);
+    // Reported now, not left to the effect above: the launcher below raises a
+    // frame in this same batch, which unmounts this one before its effects
+    // run. App then never learned a demo was open, so every return home
+    // downloaded it again and replayed the frame the first address named.
+    onDemoStateChange?.(d);
 
     // The frame the address named, launched over the demo now open. The files
     // are the ones just downloaded, not `picked`: `ingest` has only set that
@@ -1873,7 +1885,7 @@ export function HomePage({
       settings.updateCommon((c) => {
         c.system.language = label;
       }),
-    demos,
+    demos: demos.filter(isListedDemo),
   });
 
   /**

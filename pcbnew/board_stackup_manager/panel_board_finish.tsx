@@ -20,11 +20,47 @@
 import type { JSX } from 'react';
 import { Check, Sel } from '@ziroeda/common/wx/controls.js';
 import { GetStandardCopperFinishes } from './stackup_predefined_prms.js';
-import type { BoardFinish } from '../board_settings.js';
+import type { BOARD } from '../board.js';
+import type { BS_EDGE_CONNECTOR_CONSTRAINTS } from './board_stackup.js';
 
-// The data model lives in board_settings.ts (KiCad's data/UI split);
-// re-exported so panel users keep importing from the panel module.
-export { defaultBoardFinish, type BoardFinish } from '../board_settings.js';
+export interface BoardFinish {
+  platedBoardEdge: boolean;
+  copperFinish: string;
+  edgeCardConnectors: string;
+}
+
+/** BS_EDGE_CONNECTOR_CONSTRAINTS: BS_EDGE_CONNECTOR_NONE 0, _IN_USE 1, _BEVELLED 2. */
+export const EDGE_CONNECTORS = ['None', 'Yes', 'Yes, bevelled'] as const;
+
+/** The choice's selection as BS_EDGE_CONNECTOR_CONSTRAINTS. */
+export const edgeConnectorOf = (aLabel: string): BS_EDGE_CONNECTOR_CONSTRAINTS =>
+  Math.max(0, EDGE_CONNECTORS.indexOf(aLabel as (typeof EDGE_CONNECTORS)[number]));
+
+/** PANEL_SETUP_BOARD_FINISH's transfers (panel_board_finish.cpp), over the board's stackup. */
+export const PANEL_SETUP_BOARD_FINISH = {
+  TransferDataToWindow(aBoard: BOARD): BoardFinish {
+    const stackup = aBoard.GetDesignSettings().GetStackupDescriptor();
+    return {
+      copperFinish: stackup.m_FinishType,
+      edgeCardConnectors: EDGE_CONNECTORS[stackup.m_EdgeConnectorConstraints] ?? 'None',
+      platedBoardEdge: stackup.m_EdgePlating,
+    };
+  },
+
+  /** `TransferDataFromWindow( aStackup )`; true when the stackup changed. */
+  TransferDataFromWindow(v: BoardFinish, aBoard: BOARD): boolean {
+    const st = aBoard.GetDesignSettings().GetStackupDescriptor();
+    const edge = edgeConnectorOf(v.edgeCardConnectors);
+    const modified =
+      st.m_FinishType !== v.copperFinish ||
+      st.m_EdgeConnectorConstraints !== edge ||
+      st.m_EdgePlating !== v.platedBoardEdge;
+    st.m_FinishType = v.copperFinish;
+    st.m_EdgeConnectorConstraints = edge;
+    st.m_EdgePlating = v.platedBoardEdge;
+    return modified;
+  },
+};
 
 // [data] `m_choiceEdgeConnChoices` (panel_board_finish_base.cpp:41).
 const EDGE_CARD = ['None', 'Yes', 'Yes, bevelled'];

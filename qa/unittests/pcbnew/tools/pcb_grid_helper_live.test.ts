@@ -143,3 +143,57 @@ describe('PCB_GRID_HELPER::BestDragOrigin on the live BOARD (cpp:507)', () => {
     expect(grid.BestDragOrigin(mm(12.3, 4.5), [])).toEqual(mm(12.3, 4.5));
   });
 });
+
+describe('barcode and point anchors (computeAnchors, pcb_grid_helper.cpp:1790-1797)', () => {
+  const TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew")
+  (general (thickness 1.6) (legacy_teardrops no))
+  (paper "A4")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user "F.Silkscreen") (25 "Edge.Cuts" user)
+    (41 "Dwgs.User" user "User.Drawings"))
+  (setup (pad_to_mask_clearance 0))
+  (net 0 "")
+  (barcode (at 100 100 0) (layer "Dwgs.User") (size 8 8) (text "ZIRO")
+    (text_height 1.27) (type qr) (ecc_level L) (hide yes) (knockout no)
+    (uuid "00000000-0000-4000-8000-000000000051"))
+  (point (at 120 100) (size 1.5) (layer "F.SilkS") (uuid "00000000-0000-4000-8000-000000000061"))
+)
+`;
+  let g: PCB_GRID_HELPER;
+  const DWGS = new LSET([PCB_LAYER_ID.Dwgs_User]);
+  const near = (p: { x: number; y: number }) => ({ x: p.x + 200_000, y: p.y + 200_000 });
+  const at = (p: { x: number; y: number }, aLayers: LSET) =>
+    g.BestSnapAnchor(p, aLayers, GRID_HELPER_GRIDS.GRID_CURRENT, []);
+
+  beforeEach(() => {
+    const hh = toolHarness(
+      TEXT,
+      (b) => new TEST_PCB_FRAME(b),
+      () => [],
+    );
+    const m = new MAGNETIC_SETTINGS();
+    m.graphics = true;
+    g = new PCB_GRID_HELPER(hh.mgr, m);
+    // No grid: an unpulled cursor comes back as it went in.
+    g.SetUseGrid(false);
+    g.SetSnap(true);
+  });
+
+  // 8 mm square centred on (100, 100). One query per helper: a held snap
+  // stays until the cursor leaves it (m_snapItem).
+  it('pulls the cursor onto a corner of the barcode symbol', () => {
+    expect(at(near(mm(96, 96)), DWGS)).toEqual(mm(96, 96));
+  });
+
+  it('and onto the middle of an edge', () => {
+    expect(at(near(mm(100, 96)), DWGS)).toEqual(mm(100, 96));
+  });
+
+  it('pulls the cursor onto a point', () => {
+    expect(at(near(mm(120, 100)), SILK)).toEqual(mm(120, 100));
+  });
+
+  it('offers neither from a layer the caller is not on', () => {
+    expect(at(near(mm(96, 96)), F_Cu)).toEqual(near(mm(96, 96)));
+    expect(at(near(mm(120, 100)), F_Cu)).toEqual(near(mm(120, 100)));
+  });
+});

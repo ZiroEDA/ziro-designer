@@ -30,11 +30,9 @@ function makeFrame() {
     fetchNetlistFromSchematic: () => false,
     schematicNetlistText: () => null,
     projectText: () => null,
-    onEditItemRequest: () => {},
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},
-    syncSelection: () => {},
     editZoneParams: () => {},
     selectCopperLayerPair: () => {},
     updatePcbFromSchematic: () => {},
@@ -55,6 +53,9 @@ function makeFrame() {
     Refresh: () => calls.push('refresh'),
     // A canvas not on the GAL yet: UpdateStatusBar reports no zoom.
     GetGAL: () => null,
+    // UpdateStatusBar reads the cursor through the view controls, which every
+    // EDA_DRAW_PANEL_GAL has from its constructor.
+    GetViewControls: () => ({ GetCursorPosition: () => ({ x: 0, y: 0 }) }),
   };
   frame.SetCanvas(canvas as unknown as PCB_DRAW_PANEL_GAL);
   return { frame, visible, calls };

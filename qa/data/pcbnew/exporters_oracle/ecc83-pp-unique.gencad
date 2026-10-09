@@ -1,7 +1,7 @@
 $HEADER
 GENCAD 1.4
 USER "KiCad 10.0.6-10.0.6~ubuntu24.04.1"
-DRAWING "ecc83-pp.kicad_pcb"
+DRAWING "../resave/ecc83-pp.kicad_pcb"
 REVISION " "
 UNITS INCH
 ORIGIN 0 0

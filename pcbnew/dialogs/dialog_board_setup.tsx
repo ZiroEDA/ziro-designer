@@ -33,7 +33,6 @@ import { PanelTextVariables } from '@ziroeda/common/dialogs/panel_text_variables
 import { PanelSetupNetclasses } from '@ziroeda/common/dialogs/panel_setup_netclasses.js';
 import { PanelEmbeddedFiles } from '@ziroeda/common/dialogs/panel_embedded_files.js';
 import { PanelSetupSeverities } from '@ziroeda/common/dialogs/panel_setup_severities.js';
-import { DRC_CATEGORIES, type DrcSeverity } from '../board_settings.js';
 import { PanelSetupDefaults } from './panel_setup_defaults.js';
 import { PanelSetupConstraints, validateConstraints } from './panel_setup_constraints.js';
 import {
@@ -53,14 +52,6 @@ import { PanelPcbBoardFinish } from '../board_stackup_manager/panel_board_finish
 import { PanelPcbStackup } from '../board_stackup_manager/panel_board_stackup.js';
 import { PanelPcbComponentClasses } from './panel_assign_component_classes.js';
 import { PanelPcbCustomRules } from './panel_setup_rules.js';
-import { clampMaxErrorMM, copperStackNames, syncCopperLayers } from '../board_settings.js';
-import type {
-  BoardConstraints,
-  BoardSetupValues,
-  DiffPairSize,
-  ViaSize,
-} from '../board_settings.js';
-import { BoardSetupToWindow } from './board_setup_transfer.js';
 import { delayProfileNames, validateTuningProfiles } from './panel_setup_tuning_profiles.js';
 import type { BOARD } from '../board.js';
 import { LSET } from '@ziroeda/common/lset.js';
@@ -70,16 +61,327 @@ import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import { ParseBoard } from '../pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { DialogImportSettings, type ImportSettingsOpts } from './dialog_import_settings.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
-
-// The aggregate model lives in board_settings.ts (KiCad's data/UI split);
-// re-exported so dialog users keep importing from the dialog module.
-export {
-  defaultBoardSetup,
+import type { PROJECT } from '@ziroeda/common/project.js';
+import type { TextVar } from '@ziroeda/common/project/project_file.js';
+import type { NetClassesData } from '@ziroeda/common/project/net_settings.js';
+import type { EmbeddedFilesData } from '@ziroeda/common/embedded_files.js';
+import { AllCuMask, LSET_Name } from '@ziroeda/common/layer_ids.js';
+import {
+  RPT_SEVERITY_ERROR,
+  RPT_SEVERITY_IGNORE,
+  RPT_SEVERITY_WARNING,
+  type Severity,
+} from '@ziroeda/common/reporter.js';
+import { PANEL_SETUP_NETCLASSES } from '@ziroeda/common/dialogs/panel_setup_netclasses.js';
+import { PANEL_TEXT_VARIABLES } from '@ziroeda/common/dialogs/panel_text_variables.js';
+import { PANEL_EMBEDDED_FILES } from '@ziroeda/common/dialogs/panel_embedded_files.js';
+import { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
+import { DRC_ITEM } from '../drc/drc_item.js';
+import {
+  type BoardFinish,
+  PANEL_SETUP_BOARD_FINISH,
+} from '../board_stackup_manager/panel_board_finish.js';
+import {
+  PANEL_SETUP_BOARD_STACKUP,
+  type PhysicalStackup,
+} from '../board_stackup_manager/panel_board_stackup.js';
+import {
   type BoardConstraints,
-  type BoardSetupValues,
+  clampMaxErrorMM,
+  PANEL_SETUP_CONSTRAINTS,
+} from './panel_setup_constraints.js';
+import {
   type DiffPairSize,
+  PANEL_SETUP_TRACKS_AND_VIAS,
   type ViaSize,
-} from '../board_settings.js';
+} from './panel_setup_tracks_and_vias.js';
+import { type MaskPaste, PANEL_SETUP_MASK_AND_PASTE } from './panel_setup_mask_and_paste.js';
+import { type PcbFormatting, PANEL_SETUP_FORMATTING } from './panel_setup_formatting.js';
+import type { CustomRules } from './panel_setup_rules.js';
+import { PANEL_SETUP_ZONES, type ZoneDefaults } from './panel_setup_zones.js';
+import {
+  PANEL_SETUP_TEXT_AND_GRAPHICS,
+  type TextGfxDefaults,
+} from './panel_setup_text_and_graphics.js';
+import {
+  PANEL_SETUP_ZONE_HATCH_OFFSETS,
+  type ZoneLayerPropertiesMap,
+} from './panel_setup_zone_hatch_offsets.js';
+import { type BoardLayer, type LayersSetup, PANEL_SETUP_LAYERS } from './panel_setup_layers.js';
+import { PANEL_SETUP_TEARDROPS, type TeardropsSetup } from './panel_setup_teardrops.js';
+import { PANEL_SETUP_TUNING_PATTERNS, type TuningSetup } from './panel_setup_tuning_patterns.js';
+import {
+  PANEL_SETUP_TUNING_PROFILES,
+  type TuningProfilesData,
+} from './panel_setup_tuning_profiles.js';
+import {
+  type ComponentClassesData,
+  PANEL_ASSIGN_COMPONENT_CLASSES,
+} from './panel_assign_component_classes.js';
+
+/**
+ * What DIALOG_BOARD_SETUP's pages hold while it is shown: each panel's own
+ * window values, filled by that panel's TransferDataToWindow over the live
+ * objects and read back by its TransferDataFromWindow. Nothing outside the
+ * dialog reads it.
+ */
+export interface BoardSetupValues {
+  constraints: BoardConstraints;
+  /** Pre-defined routing sizes, mm (PANEL_SETUP_TRACKS_AND_VIAS). */
+  trackWidthsMM: number[];
+  viaSizesMM: ViaSize[];
+  diffPairsMM: DiffPairSize[];
+  /** Net classes + assignments (shared PANEL_SETUP_NETCLASSES). */
+  netClasses: NetClassesData;
+  /** Project text variables (shared PANEL_TEXT_VARIABLES). */
+  textVars: TextVar[];
+  /** Embedded files + embed-fonts flag (shared PANEL_EMBEDDED_FILES). */
+  embeddedFiles: EmbeddedFilesData;
+  /** DRC violation severities (PANEL_SETUP_SEVERITIES). */
+  drcSeverities: DrcSeverities;
+  /** Text & Graphics defaults per layer class (PANEL_SETUP_TEXT_AND_GRAPHICS). */
+  textGraphics: TextGfxDefaults;
+  /** PCB formatting: dashed lines + apply-defaults flags (PANEL_SETUP_FORMATTING). */
+  formatting: PcbFormatting;
+  /** Solder mask / paste settings (PANEL_SETUP_MASK_AND_PASTE). */
+  maskPaste: MaskPaste;
+  /** Custom DRC rules text (PANEL_SETUP_RULES). */
+  customRules: CustomRules;
+  /** Per-layer zone hatched-fill offsets (PANEL_SETUP_ZONE_HATCH_OFFSETS). */
+  zoneLayerProperties: ZoneLayerPropertiesMap;
+  /** Default properties for new zones (PANEL_SETUP_ZONES). */
+  zones: ZoneDefaults;
+  /** Enabled board layers + copper count/types (PANEL_SETUP_LAYERS). */
+  layers: LayersSetup;
+  /** Default teardrop properties (PANEL_SETUP_TEARDROPS). */
+  teardrops: TeardropsSetup;
+  /** Default length-tuning pattern properties (PANEL_SETUP_TUNING_PATTERNS). */
+  tuning: TuningSetup;
+  /** Time-domain tuning profiles (PANEL_SETUP_TUNING_PROFILES). */
+  tuningProfiles: TuningProfilesData;
+  /** Board finish: copper finish + edge connectors (PANEL_SETUP_BOARD_FINISH). */
+  boardFinish: BoardFinish;
+  /** Physical layer stackup (PANEL_SETUP_BOARD_STACKUP). */
+  physicalStackup: PhysicalStackup;
+  /** Component-class assignments (PANEL_ASSIGN_COMPONENT_CLASSES). */
+  componentClasses: ComponentClassesData;
+}
+
+// ---------------------------------------------------------------------------
+// Violation Severity: PANEL_SETUP_SEVERITIES, which DIALOG_BOARD_SETUP builds
+// over `DRC_ITEM::GetItemsWithSeverities()` and `bds.m_DRCSeverities`
+// (dialog_board_setup.cpp).
+
+export type DrcSeverity = 'error' | 'warning' | 'ignore';
+export type DrcSeverities = Record<string, DrcSeverity>;
+
+interface DrcItem {
+  code: string;
+  title: string;
+  /** KiCad default severity (most are error). */
+  def?: DrcSeverity;
+}
+interface DrcCategory {
+  heading: string;
+  items: DrcItem[];
+}
+
+/**
+ * DRC items in KiCad's category order: `DRC_ITEM::GetItemsWithSeverities()`
+ * (drc_item.cpp `allItemTypes` up to `heading_internal`), each heading opening a
+ * category. The codes are the `GetSettingsKey()` strings used in
+ * `board.design_settings.rule_severities`; the defaults are the
+ * `BOARD_DESIGN_SETTINGS` constructor's `m_DRCSeverities`. Both are read from
+ * the classes, never restated here.
+ */
+export const DRC_CATEGORIES: DrcCategory[] = (() => {
+  const defaults = new BOARD_DESIGN_SETTINGS();
+  const severityName = (s: number): DrcSeverity =>
+    s === RPT_SEVERITY_WARNING ? 'warning' : s === RPT_SEVERITY_IGNORE ? 'ignore' : 'error';
+  const categories: DrcCategory[] = [];
+
+  for (const item of DRC_ITEM.GetItemsWithSeverities()) {
+    if (item.GetSettingsKey() === '') {
+      categories.push({ heading: item.GetErrorText(true), items: [] });
+      continue;
+    }
+
+    const def = severityName(defaults.GetSeverity(item.GetErrorCode()));
+    categories[categories.length - 1]!.items.push({
+      code: item.GetSettingsKey(),
+      title: item.GetErrorText(true),
+      ...(def !== 'error' ? { def } : {}),
+    });
+  }
+
+  return categories;
+})();
+
+/** The severities page's transfers, over `BOARD_DESIGN_SETTINGS::m_DRCSeverities`. */
+const PANEL_SETUP_SEVERITIES = {
+  TransferDataToWindow(aBoard: BOARD): DrcSeverities {
+    const bds = aBoard.GetDesignSettings();
+    const severities: DrcSeverities = {};
+    for (const item of DRC_ITEM.GetItemsWithSeverities()) {
+      const key = item.GetSettingsKey();
+      if (key === '') continue;
+      const s = bds.GetSeverity(item.GetErrorCode());
+      severities[key] =
+        s === RPT_SEVERITY_WARNING ? 'warning' : s === RPT_SEVERITY_IGNORE ? 'ignore' : 'error';
+    }
+    return severities;
+  },
+
+  TransferDataFromWindow(v: DrcSeverities, aBoard: BOARD): void {
+    const bds = aBoard.GetDesignSettings();
+    for (const item of DRC_ITEM.GetItemsWithSeverities()) {
+      const key = item.GetSettingsKey();
+      const s = v[key];
+      if (key === '' || s === undefined) continue;
+      const sev: Severity =
+        s === 'warning'
+          ? RPT_SEVERITY_WARNING
+          : s === 'ignore'
+            ? RPT_SEVERITY_IGNORE
+            : RPT_SEVERITY_ERROR;
+      bds.m_DRCSeverities.set(item.GetErrorCode(), sev);
+    }
+  },
+};
+
+/**
+ * `SyncCopperLayers( int aNumCopperLayers )` — the copper count changing on the
+ * Physical Stackup page, pushed into every page whose rows are per copper
+ * layer. Upstream that is three separate overrides fanned out from
+ * `DIALOG_BOARD_SETUP::OnPageChange` (`dialog_board_setup.cpp:306-330`):
+ * `PANEL_SETUP_LAYERS` (`panel_setup_layers.cpp:593`),
+ * `PANEL_SETUP_TUNING_PROFILES` and `PANEL_SETUP_ZONE_HATCH_OFFSETS`
+ * (`panel_setup_zone_hatch_offsets.cpp:82`).
+ *
+ * Here it is one function over the whole `BoardSetupValues`, because our pages
+ * read their rows from that value rather than holding their own controls — the
+ * fan-out exists upstream only because each panel owns wxWidgets state. Doing
+ * it per page would be three copies of the same rule.
+ *
+ * What each page does with the new count is upstream's:
+ *
+ *  - **Layers**: `m_enabledLayers.reset()` over every copper id, then
+ *    `|= LSET::AllCuMask( n )` (`:598-607`) — so the copper rows become exactly
+ *    that stack, and a surviving layer keeps its name and its signal/power type
+ *    because `SyncCopperLayers` round-trips through `transferDataFromWindow`.
+ *  - **Zone hatch offsets**: rows for layers no longer in the stack are
+ *    deleted, rows for new ones added (`:84-103`); the offsets of a layer that
+ *    survives are untouched.
+ */
+export function syncCopperLayers(
+  aValues: BoardSetupValues,
+  aNumCopperLayers: number,
+): BoardSetupValues {
+  const stack = AllCuMask(aNumCopperLayers).map(LSET_Name);
+  const byId = new Map(
+    aValues.layers.layers.filter((l) => l.kind === 'copper').map((l) => [l.id, l]),
+  );
+
+  // The new copper rows, spliced back where the old block was: after the front
+  // technical layers and before B.Mask, which is where the panel builds them.
+  const rebuilt: BoardLayer[] = stack.map(
+    (id) =>
+      byId.get(id) ?? {
+        id,
+        name: id,
+        enabled: true,
+        kind: 'copper' as const,
+        copperType: 'signal' as const,
+      },
+  );
+
+  const rest = aValues.layers.layers.filter((l) => l.kind !== 'copper');
+  const at = rest.findIndex((l) => l.id === 'B.Mask');
+  const next = [...rest];
+  next.splice(at === -1 ? next.length : at, 0, ...rebuilt);
+
+  // A layer that has left the stack takes its hatch offsets with it.
+  const inStack = new Set(stack);
+  const zoneLayerProperties: ZoneLayerPropertiesMap = {};
+  for (const [layer, props] of Object.entries(aValues.zoneLayerProperties))
+    if (inStack.has(layer)) zoneLayerProperties[layer] = props;
+
+  return {
+    ...aValues,
+    layers: { layers: next },
+    zoneLayerProperties,
+    physicalStackup: { ...aValues.physicalStackup, copperCount: aNumCopperLayers },
+  };
+}
+
+/** Every page's `TransferDataToWindow`, in the dialog's page order. */
+export function BoardSetupToWindow(
+  aBoard: BOARD,
+  aProject: PROJECT,
+  aRulesText: string,
+): BoardSetupValues {
+  const file = aProject.GetProjectFile();
+  return {
+    layers: PANEL_SETUP_LAYERS.TransferDataToWindow(aBoard),
+    physicalStackup: PANEL_SETUP_BOARD_STACKUP.TransferDataToWindow(aBoard),
+    boardFinish: PANEL_SETUP_BOARD_FINISH.TransferDataToWindow(aBoard),
+    maskPaste: PANEL_SETUP_MASK_AND_PASTE.TransferDataToWindow(aBoard),
+    zoneLayerProperties: PANEL_SETUP_ZONE_HATCH_OFFSETS.TransferDataToWindow(aBoard),
+    textGraphics: PANEL_SETUP_TEXT_AND_GRAPHICS.TransferDataToWindow(aBoard),
+    formatting: PANEL_SETUP_FORMATTING.TransferDataToWindow(aBoard),
+    textVars: PANEL_TEXT_VARIABLES.TransferDataToWindow(aProject),
+    constraints: PANEL_SETUP_CONSTRAINTS.TransferDataToWindow(aBoard),
+    ...PANEL_SETUP_TRACKS_AND_VIAS.TransferDataToWindow(aBoard),
+    teardrops: PANEL_SETUP_TEARDROPS.TransferDataToWindow(aBoard),
+    tuning: PANEL_SETUP_TUNING_PATTERNS.TransferDataToWindow(aBoard),
+    tuningProfiles: PANEL_SETUP_TUNING_PROFILES.TransferDataToWindow(aProject),
+    netClasses: PANEL_SETUP_NETCLASSES.TransferDataToWindow(file.NetSettings()),
+    componentClasses: PANEL_ASSIGN_COMPONENT_CLASSES.TransferDataToWindow(aProject),
+    // The .kicad_dru text is the frame's, handed in.
+    customRules: { text: aRulesText },
+    drcSeverities: PANEL_SETUP_SEVERITIES.TransferDataToWindow(aBoard),
+    embeddedFiles: PANEL_EMBEDDED_FILES.TransferDataToWindow(aBoard.GetEmbeddedFiles()),
+    zones: PANEL_SETUP_ZONES.TransferDataToWindow(aBoard),
+  };
+}
+
+/**
+ * Every page's `TransferDataFromWindow`, in page order. Returns true when
+ * something on the *board* side changed (the panels' `m_frame->OnModify()`);
+ * project-side values never dirty the board.
+ */
+export function BoardSetupFromWindow(
+  v: BoardSetupValues,
+  aBoard: BOARD,
+  aProject: PROJECT,
+): boolean {
+  let modified = false;
+  modified = PANEL_SETUP_LAYERS.TransferDataFromWindow(v.layers, aBoard) || modified;
+  modified =
+    PANEL_SETUP_BOARD_STACKUP.TransferDataFromWindow(v.physicalStackup, aBoard) || modified;
+  modified = PANEL_SETUP_BOARD_FINISH.TransferDataFromWindow(v.boardFinish, aBoard) || modified;
+  modified = PANEL_SETUP_MASK_AND_PASTE.TransferDataFromWindow(v.maskPaste, aBoard) || modified;
+  PANEL_SETUP_ZONE_HATCH_OFFSETS.TransferDataFromWindow(v.zoneLayerProperties, aBoard);
+  PANEL_SETUP_TEXT_AND_GRAPHICS.TransferDataFromWindow(v.textGraphics, aBoard);
+  modified = PANEL_SETUP_FORMATTING.TransferDataFromWindow(v.formatting, aBoard) || modified;
+  PANEL_TEXT_VARIABLES.TransferDataFromWindow(v.textVars, aProject);
+  PANEL_SETUP_CONSTRAINTS.TransferDataFromWindow(v.constraints, aBoard);
+  PANEL_SETUP_TRACKS_AND_VIAS.TransferDataFromWindow(v, aBoard);
+  PANEL_SETUP_TEARDROPS.TransferDataFromWindow(v.teardrops, aBoard);
+  PANEL_SETUP_TUNING_PATTERNS.TransferDataFromWindow(v.tuning, aBoard);
+  PANEL_SETUP_TUNING_PROFILES.TransferDataFromWindow(v.tuningProfiles, aProject);
+  PANEL_SETUP_NETCLASSES.TransferDataFromWindow(
+    v.netClasses,
+    aProject.GetProjectFile().NetSettings(),
+  );
+  PANEL_ASSIGN_COMPONENT_CLASSES.TransferDataFromWindow(v.componentClasses, aProject);
+  PANEL_SETUP_SEVERITIES.TransferDataFromWindow(v.drcSeverities, aBoard);
+  modified =
+    PANEL_EMBEDDED_FILES.TransferDataFromWindow(v.embeddedFiles, aBoard.GetEmbeddedFiles()) ||
+    modified;
+  PANEL_SETUP_ZONES.TransferDataFromWindow(v.zones, aBoard);
+  return modified;
+}
 
 export type PageId =
   | 'layers'
@@ -267,7 +569,7 @@ export function DialogBoardSetup({
           label: 'Zone Hatch Offsets',
           render: () => (
             <PanelPcbZoneHatchOffsets
-              copperLayers={copperStackNames(v.physicalStackup.copperCount)}
+              copperLayers={AllCuMask(v.physicalStackup.copperCount).map(LSET_Name)}
               value={v.zoneLayerProperties}
               onChange={(zoneLayerProperties) => setV({ ...v, zoneLayerProperties })}
             />
@@ -372,10 +674,12 @@ export function DialogBoardSetup({
               units={units}
               // `SyncCopperLayers( m_physicalStackup->GetCopperLayerCount() )`:
               // the stack the Physical Stackup page says, named by the board.
-              layers={copperStackNames(v.physicalStackup.copperCount).map((id) => ({
-                id,
-                name: board ? board.GetLayerName(LSET.NameToLayer(id) as PCB_LAYER_ID) : id,
-              }))}
+              layers={AllCuMask(v.physicalStackup.copperCount)
+                .map(LSET_Name)
+                .map((id) => ({
+                  id,
+                  name: board ? board.GetLayerName(LSET.NameToLayer(id) as PCB_LAYER_ID) : id,
+                }))}
               stackup={board ? board.GetStackupOrDefault() : null}
               onError={(message) => window.alert(message)}
             />

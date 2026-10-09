@@ -13,7 +13,6 @@
  */
 
 import { unescapeString, wxSplit } from '@ziroeda/common/string_utils.js';
-import type { Board } from './types.js';
 import { NETINFO_ITEM, type NETNAMES_MAP, type NETCODES_MAP } from './netinfo_item.js';
 import type { BOARD } from './board.js';
 import { BOARD_ITEM } from './board_item.js';
@@ -28,17 +27,6 @@ export const UNCONNECTED_NET = 0;
  * contradiction is trusted.
  */
 export const ORPHANED_NET = -1;
-
-/** NETINFO_LIST::GetNetItem( name ), the code of a net by name, or undefined. */
-export function findNet(board: Board, netName: string): number | undefined {
-  for (const [code, name] of board.nets) {
-    if (name === netName) return code;
-  }
-  return undefined;
-}
-
-/** NETINFO_LIST::GetNetItem( code ), the name of a net by code. */
-export const netName = (board: Board, code: number): string => board.nets.get(code) ?? '';
 
 /**
  * `NETINFO_ITEM::GetShortNetname`: the part of a net name after the last `/`.
@@ -130,54 +118,6 @@ export function displayNetnames(nets: ReadonlyMap<number, string>): Map<number, 
     }
   }
   return out;
-}
-
-/** NETINFO_LIST::getFreeNetCode, net codes stay consecutive. */
-function freeNetCode(board: Board): number {
-  let code = 1;
-  while (board.nets.has(code)) code++;
-  return code;
-}
-
-/**
- * NETINFO_LIST::AppendNet, add a net, or return the existing code when a net of
- * that name is already there.
- */
-export function appendNet(board: Board, name: string): { board: Board; code: number } {
-  const existing = findNet(board, name);
-  if (existing !== undefined) return { board, code: existing };
-
-  const code = freeNetCode(board);
-  const nets = new Map(board.nets);
-  nets.set(code, name);
-
-  return { board: { ...board, nets }, code };
-}
-
-/**
- * NETINFO_LIST::RemoveUnusedNets, keep only the nets in `keep` (upstream's
- * IsCurrent flag). Net 0 (`""`, the unconnected net) is always kept.
- */
-export function removeUnusedNets(board: Board, keep: ReadonlySet<number>): Board {
-  const nets = new Map<number, string>();
-  for (const [code, name] of board.nets) {
-    if (code === UNCONNECTED_NET || keep.has(code)) nets.set(code, name);
-  }
-  if (nets.size === board.nets.size) return board;
-
-  return { ...board, nets };
-}
-
-/**
- * Rename a net in place, keeping its code. Used when the netlist keeps a net's
- * identity but the schematic renamed it.
- */
-export function renameNet(board: Board, code: number, name: string): Board {
-  if (!board.nets.has(code)) return board;
-  const nets = new Map(board.nets);
-  nets.set(code, name);
-
-  return { ...board, nets };
 }
 
 const wxLess = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);

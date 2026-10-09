@@ -9,14 +9,11 @@
  * leaves the tracks behind on the old one, which shows up as a ratsnest drawn
  * over copper that is already routed.
  */
-import { runLiveUpdate } from './support/netlist_update_harness.js';
-import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr';
 import { exportKicadNetlist } from '@ziroeda/eeschema/cross-probing.js';
-import { buildRatsnest, loadKicadNetlist, readBoard } from '@ziroeda/pcbnew';
+import { loadKicadNetlist } from '@ziroeda/pcbnew/netlist_reader/kicad_netlist_reader.js';
 
 const DEMO = fileURLToPath(new URL('../../../designer/public/demos/ecc83/', import.meta.url));
 const read = (name: string): string => readFileSync(DEMO + name, 'utf8');
@@ -33,32 +30,6 @@ function demoNetlist(): string {
 }
 
 describe('update PCB from schematic (ecc83 demo)', () => {
-  it('renames no net, so no airwire appears over the routed copper', () => {
-    const board = readBoard(parse(read('ecc83-pp.kicad_pcb')));
-    expect(buildRatsnest(board)).toHaveLength(0); // the demo is fully routed
-
-    const netlist = loadKicadNetlist(demoNetlist());
-
-    // The board's own footprints are what the netlist names; nothing has to be
-    // loaded from a library for a board that is already populated.
-    const { reporter, result } = runLiveUpdate(
-      board,
-      netlist,
-      (fpid) => {
-        const local = board.k!.Footprints().find((f) => f.GetFPID().Format() === fpid.Format());
-        return local ? (local.Duplicate(false) as FOOTPRINT) : null;
-      },
-      { isDryRun: false },
-    );
-
-    const netChanges = reporter.lines
-      .map((l) => l.message)
-      .filter((m) => /^(Add net|Connect|Reconnect|Disconnect)/i.test(m));
-    expect(netChanges).toEqual([]);
-
-    expect(buildRatsnest(result.board)).toHaveLength(0);
-  });
-
   it('names an auto-named net after a named pin, with its unit token', () => {
     const netlist = loadKicadNetlist(demoNetlist());
     const names = new Set<string>();

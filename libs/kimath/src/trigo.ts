@@ -104,9 +104,9 @@ export function CalcArcCenter(
     return { x: (aStart.x + aMid.x + aEnd.x) / 3.0, y: (aStart.y + aMid.y + aEnd.y) / 3.0 };
   }
 
-  let yDelta_21 = aMid.y - aStart.y;
+  const yDelta_21 = aMid.y - aStart.y;
   let xDelta_21 = aMid.x - aStart.x;
-  let yDelta_32 = aEnd.y - aMid.y;
+  const yDelta_32 = aEnd.y - aMid.y;
   let xDelta_32 = aEnd.x - aMid.x;
 
   // This is a special case for aMid as the half-way point when aSlope = 0 and
@@ -125,11 +125,10 @@ export function CalcArcCenter(
   let aSlope = yDelta_21 / xDelta_21;
   let bSlope = yDelta_32 / xDelta_32;
 
-  // Guard the y-deltas after the slopes are taken so a horizontal chord keeps
-  // its exact zero slope while the 0.5/yDelta uncertainty terms below stay
-  // finite instead of a NaN-yielding inf
-  if (yDelta_21 === 0.0) yDelta_21 = EPS;
-  if (yDelta_32 === 0.0) yDelta_32 = EPS;
+  // No guard on the y-deltas: a horizontal chord makes `0.5 / yDelta` infinite and its
+  // slope uncertainty `0 * inf` NaN, the NaN reaches dCenterX / dCenterY, every snap
+  // comparison below is false and the centre is NOT snapped to 10 / 100 IU. KiCad relies
+  // on that (an Allegro arc with a 45-degree start lands on it), so we must too.
 
   const daSlope = aSlope * Math.hypot(0.5 / yDelta_21, 0.5 / xDelta_21);
   const dbSlope = bSlope * Math.hypot(0.5 / yDelta_32, 0.5 / xDelta_32);

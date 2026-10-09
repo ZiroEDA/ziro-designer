@@ -100,6 +100,8 @@ describe('PCB_CONTROL ratsnest modes on the board editor', () => {
     const { f } = frame();
     const visible = new Map<number, boolean>();
     f.SetCanvas({
+      // `GetViewControls()->GetCursorPosition()`, which UpdateStatusBar reads.
+      GetViewControls: () => ({ GetCursorPosition: () => ({ x: 0, y: 0 }) }),
       GetView: () => ({
         SetLayerVisible: (aLayer: number, aOn: boolean) => visible.set(aLayer, aOn),
       }),
@@ -256,6 +258,8 @@ describe('PCB_BASE_FRAME::SetDisplayOptions', () => {
     // The active layer is the screen's, which a frame without a window has not got.
     vi.spyOn(f, 'GetActiveLayer').mockReturnValue(PCB_LAYER_ID.F_Cu);
     f.SetCanvas({
+      // `GetViewControls()->GetCursorPosition()`, which UpdateStatusBar reads.
+      GetViewControls: () => ({ GetCursorPosition: () => ({ x: 0, y: 0 }) }),
       GetView: () => ({
         UpdateDisplayOptions: () => {},
         SetMirror: () => {},

@@ -10,18 +10,16 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr';
-import { readBoard, type Board } from '@ziroeda/pcbnew';
 import { GetLayerName, LayerName } from '@ziroeda/common/layer_ids.js';
-import { boardLayerName } from '@ziroeda/pcbnew/item_description.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
-const demo = (): Board =>
-  readBoard(
-    parse(
-      readFileSync(
-        new URL('../../../designer/public/demos/ecc83/ecc83-pp.kicad_pcb', import.meta.url),
-        'utf8',
-      ),
+const demo = (): BOARD =>
+  ParseBoard(
+    readFileSync(
+      new URL('../../../designer/public/demos/ecc83/ecc83-pp.kicad_pcb', import.meta.url),
+      'utf8',
     ),
   );
 
@@ -99,38 +97,26 @@ describe("GetLayerName: the board's own name wins", () => {
   });
 });
 
-describe('the ecc83 demo board, as real pcbnew shows it', () => {
+describe('BOARD::GetLayerName on the ecc83 demo board, as real pcbnew shows it', () => {
   // Read off a live KiCad 10.0.5 Appearance panel on this same file: the
   // Layers tab opens on `top_cu` and `bottom_cu`, and the aux-bar layer
   // selector reads `top_cu (PgUp)`.
   it('names the copper layers top_cu and bottom_cu', () => {
     const b = demo();
-    expect(GetLayerName(b.layers, 'F.Cu')).toBe('top_cu');
-    expect(GetLayerName(b.layers, 'B.Cu')).toBe('bottom_cu');
+    expect(b.GetLayerName(PCB_LAYER_ID.F_Cu)).toBe('top_cu');
+    expect(b.GetLayerName(PCB_LAYER_ID.B_Cu)).toBe('bottom_cu');
   });
 
   it('names the unrenamed technical layers with the standard name', () => {
     const b = demo();
     // `(13 "F.Paste" user)` and `(25 "Edge.Cuts" user)` carry no fourth token.
-    expect(GetLayerName(b.layers, 'F.Paste')).toBe('F.Paste');
-    expect(GetLayerName(b.layers, 'Edge.Cuts')).toBe('Edge.Cuts');
+    expect(b.GetLayerName(PCB_LAYER_ID.F_Paste)).toBe('F.Paste');
+    expect(b.GetLayerName(PCB_LAYER_ID.Edge_Cuts)).toBe('Edge.Cuts');
   });
 
   it('agrees with the names the file does carry', () => {
     const b = demo();
-    expect(GetLayerName(b.layers, 'F.SilkS')).toBe('F.Silkscreen');
-    expect(GetLayerName(b.layers, 'Dwgs.User')).toBe('User.Drawings');
-  });
-});
-
-describe('boardLayerName delegates rather than reimplementing', () => {
-  it('gives item descriptions the same answer as the Appearance panel', () => {
-    const b = demo();
-    for (const layer of ['F.Cu', 'B.Cu', 'F.SilkS', 'F.Paste', 'Edge.Cuts']) {
-      expect(boardLayerName(b, layer)).toBe(GetLayerName(b.layers, layer));
-    }
-    // …and that shared answer is the right one, not merely a shared wrong one.
-    expect(boardLayerName(b, 'F.Cu')).toBe('top_cu');
-    expect(boardLayerName(b, 'F.SilkS')).toBe('F.Silkscreen');
+    expect(b.GetLayerName(PCB_LAYER_ID.F_SilkS)).toBe('F.Silkscreen');
+    expect(b.GetLayerName(PCB_LAYER_ID.Dwgs_User)).toBe('User.Drawings');
   });
 });

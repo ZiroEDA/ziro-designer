@@ -2,10 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Merge, subtract and intersect polygons.
- * Counterparts: `POLYGON_BOOLEAN_ROUTINE`, `POLYGON_MERGE_ROUTINE`,
- * `POLYGON_SUBTRACT_ROUTINE` and `POLYGON_INTERSECT_ROUTINE`, over
- * `SHAPE_POLY_SET`'s Clipper-backed boolean ops.
+ * Merge, subtract and intersect polygons on a live board.
+ * Counterparts: `EDIT_TOOL::BooleanPolygons`, `POLYGON_BOOLEAN_ROUTINE`,
+ * `POLYGON_MERGE_ROUTINE`, `POLYGON_SUBTRACT_ROUTINE` and
+ * `POLYGON_INTERSECT_ROUTINE`, over `SHAPE_POLY_SET`'s Clipper-backed ops.
  *
  * Results are checked by *area*, which is what the operations are actually
  * about and what stays meaningful when Clipper renumbers or reorders the
@@ -16,53 +16,28 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import {
-  booleanableShapeCount,
-  polygonBoolean,
-  shapeAsPolygon,
-} from '@ziroeda/pcbnew/tools/item_modification_routine.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
+import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
 import {
   booleanAdd,
   booleanIntersection,
   booleanSubtract,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
-import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { PCB_EDIT_FRAME, type PCB_EDIT_FRAME_HOOKS } from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { PCB_SCREEN } from '@ziroeda/pcbnew/pcb_screen.js';
+import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
+import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
+import { harnessCanvas } from './support/pcb_tool_harness.js';
 
 const MM = (n: number): number => mmToIU(n);
-
-const rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
-  kind: 'rect',
-  start: { x: MM(x0), y: MM(y0) },
-  end: { x: MM(x1), y: MM(y1) },
-  width: MM(0.15),
-  fillMode: 'solid',
-  layer: 'F.SilkS',
-});
-
-const board = (shapes: PcbShape[]): Board => ({
-  version: 20240108,
-  layers: [{ id: 0, name: 'F.Cu', kind: 'signal' }],
-  nets: new Map([[0, '']]),
-  footprints: [],
-  tracks: [],
-  arcs: [],
-  vias: [],
-  zones: [],
-  shapes,
-  texts: [],
-  dimensions: [],
-  textBoxes: [],
-  tables: [],
-  images: [],
-  points: [],
-  barcodes: [],
-  groups: [],
-});
-
-const ids = (n: number): string[] => Array.from({ length: n }, (_, i) => `shape:${i}`);
+const U = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 /** Ring area by the shoelace formula, in mm². */
-const areaMM = (pts: { x: number; y: number }[]): number => {
+const areaMM = (pts: readonly { x: number; y: number }[]): number => {
   let a = 0;
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i]!;
@@ -72,78 +47,93 @@ const areaMM = (pts: { x: number; y: number }[]): number => {
   return Math.abs(a) / 2 / 1e12;
 };
 
-const totalArea = (b: Board): number =>
-  b.shapes.reduce((sum, s) => sum + (s.pts ? areaMM(s.pts) : 0), 0);
+type Rect = [number, number, number, number];
 
 /** Two 10 mm squares overlapping by a 5 x 5 mm corner. */
-const overlapping = (): PcbShape[] => [rect(0, 0, 10, 10), rect(5, 5, 15, 15)];
+const OVERLAPPING: Rect[] = [
+  [0, 0, 10, 10],
+  [5, 5, 15, 15],
+];
 
-describe('what a shape contributes', () => {
-  it('takes a polygon as it stands', () => {
-    const pts = [
-      { x: 0, y: 0 },
-      { x: MM(5), y: 0 },
-      { x: 0, y: MM(5) },
-    ];
-    const poly: PcbShape = {
-      kind: 'poly',
-      pts,
-      width: 0,
-      fillMode: 'solid',
-      layer: 'F.SilkS',
-    };
+interface Run {
+  board: BOARD;
+  infobar: string[];
+}
 
-    expect(shapeAsPolygon(poly)).toEqual([pts]);
+/**
+ * Filled `gr_rect`s on F.SilkS (the first with its own layer/width/fill when
+ * given), selected in `aOrder` (default: as listed), then `aAction` run.
+ */
+function run(
+  aRects: Rect[],
+  aAction: TOOL_ACTION,
+  aOrder?: number[],
+  aFirst = '(stroke (width 0.15) (type solid)) (fill yes) (layer "F.SilkS")',
+): Run {
+  installPgm();
+  const settings = new PCBNEW_SETTINGS();
+  const infobar: string[] = [];
+  const frame = new PCB_EDIT_FRAME({
+    settings: () => settings,
+    onModify: () => {},
+  } as unknown as PCB_EDIT_FRAME_HOOKS);
+  frame.ShowInfoBarMsg = (aMsg: string) => {
+    infobar.push(aMsg);
+  };
+  const text = `(kicad_pcb (version 20241229) (generator "pcbnew") (generator_version "9.0")
+  (general (thickness 1.6) (legacy_teardrops no)) (paper "A4")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user "F.Silkscreen") (7 "B.SilkS" user "B.Silkscreen"))
+  (setup (pad_to_mask_clearance 0))
+  (net 0 "")
+  ${aRects
+    .map(
+      ([x0, y0, x1, y1], i) =>
+        `(gr_rect (start ${x0} ${y0}) (end ${x1} ${y1}) ${
+          i === 0 ? aFirst : '(stroke (width 0.15) (type solid)) (fill yes) (layer "F.SilkS")'
+        } (uuid "${U(i + 1)}"))`,
+    )
+    .join('\n  ')}
+)`;
+  const board = ParseBoard(text);
+  frame.SetBoard(board, false);
+  frame.SetScreen(new PCB_SCREEN({ x: 297000000, y: 210000000 }));
+  const { view, controls } = harnessCanvas(board, frame, {
+    mouse: { x: MM(-100), y: MM(-100) },
+    forced: null,
+  });
+  frame.GetToolManager()!.SetEnvironment(board, view, controls, settings as never, frame);
+
+  const items = board.Drawings();
+  const tool = frame.GetSelectionTool();
+
+  for (const i of aOrder ?? items.map((_, n) => n)) tool.AddItemToSel(items[i]!, true);
+
+  frame.GetToolManager()!.RunAction(aAction);
+  return { board, infobar };
+}
+
+/** Each shape's area, outlines less holes, in mm². */
+const areas = (b: BOARD): number[] =>
+  b.Drawings().map((d) => {
+    const shape = d as PCB_SHAPE;
+
+    // A source the routine kept is still its gr_rect.
+    if (shape.GetShape() === SHAPE_T.RECTANGLE) return areaMM(shape.GetRectCorners());
+
+    const poly = shape.GetPolyShape();
+    let a = 0;
+
+    for (let o = 0; o < poly.OutlineCount(); o++) {
+      a += areaMM(poly.COutline(o).CPoints());
+
+      for (let h = 0; h < poly.HoleCount(o); h++) a -= areaMM(poly.CHole(o, h).CPoints());
+    }
+
+    return Math.round(a * 1000) / 1000;
   });
 
-  it('turns a rectangle into its four corners', () => {
-    expect(shapeAsPolygon(rect(0, 0, 10, 4))![0]).toHaveLength(4);
-  });
-
-  it('turns a circle into a ring of about the right area', () => {
-    const circle: PcbShape = {
-      kind: 'circle',
-      center: { x: 0, y: 0 },
-      end: { x: MM(5), y: 0 },
-      width: MM(0.2),
-      fillMode: 'none',
-      layer: 'F.SilkS',
-    };
-    const ring = shapeAsPolygon(circle)![0]!;
-
-    expect(areaMM(ring) / (Math.PI * 25)).toBeGreaterThan(0.99);
-    expect(ring[0]).not.toEqual(ring[ring.length - 1]);
-  });
-
-  it('refuses anything that is not an area', () => {
-    const line: PcbShape = {
-      kind: 'line',
-      start: { x: 0, y: 0 },
-      end: { x: MM(10), y: 0 },
-      width: MM(0.2),
-      fillMode: 'none',
-      layer: 'F.SilkS',
-    };
-
-    expect(shapeAsPolygon(line)).toBeNull();
-  });
-
-  it('counts what a boolean would consider', () => {
-    const b = board([
-      rect(0, 0, 10, 10),
-      {
-        kind: 'line',
-        start: { x: 0, y: 0 },
-        end: { x: MM(10), y: 0 },
-        width: MM(0.2),
-        fillMode: 'none',
-        layer: 'F.SilkS',
-      },
-    ]);
-
-    expect(booleanableShapeCount(b, ids(2))).toBe(1);
-  });
-});
+const polys = (b: BOARD): PCB_SHAPE[] =>
+  b.Drawings().filter((d) => (d as PCB_SHAPE).GetShape() === SHAPE_T.POLY) as PCB_SHAPE[];
 
 describe('the underlying boolean ops', () => {
   const sq = (x0: number, y0: number, x1: number, y1: number) => [
@@ -200,135 +190,137 @@ describe('the underlying boolean ops', () => {
 
 describe('merging on the board', () => {
   it('replaces both sources with one shape of the union area', () => {
-    const b = board(overlapping());
-    const out = polygonBoolean(b, ids(2), 'merge');
+    const { board, infobar } = run(OVERLAPPING, PCB_ACTIONS.mergePolygons);
 
-    expect(out.successes).toBe(1);
-    expect(out.board.shapes).toHaveLength(1);
-    expect(totalArea(out.board)).toBeCloseTo(175, 3);
+    expect(polys(board)).toHaveLength(1);
+    expect(areas(board)).toEqual([175]);
+    expect(infobar).toEqual([]);
   });
 
-  it('takes the layer, width and fill from the first source', () => {
-    const shapes = overlapping();
-    shapes[0] = { ...shapes[0]!, layer: 'B.SilkS', width: MM(0.4), fillMode: 'none' };
-    const out = polygonBoolean(board(shapes), ids(2), 'merge');
+  it('takes the layer, width and fill from the last one selected', () => {
+    // GetLastAddedItem() is put at the front: the property donor and the basis.
+    const donor = '(stroke (width 0.4) (type solid)) (fill no) (layer "B.SilkS")';
+    const last = run(OVERLAPPING, PCB_ACTIONS.mergePolygons, [1, 0], donor).board.Drawings();
+    const shape = last[0] as PCB_SHAPE;
 
-    expect(out.board.shapes[0]!.layer).toBe('B.SilkS');
-    expect(out.board.shapes[0]!.width).toBe(MM(0.4));
-    expect(out.board.shapes[0]!.fillMode).toBe('none');
+    expect(shape.GetLayerName()).toBe('B.Silkscreen');
+    expect(shape.GetWidth()).toBe(MM(0.4));
+    expect(shape.IsSolidFill()).toBe(false);
+
+    const first = run(OVERLAPPING, PCB_ACTIONS.mergePolygons, [0, 1], donor).board.Drawings();
+    expect((first[0] as PCB_SHAPE).GetLayerName()).toBe('F.Silkscreen');
   });
 
-  it('leaves disjoint sources as separate shapes', () => {
-    const b = board([rect(0, 0, 10, 10), rect(50, 50, 60, 60)]);
-    const out = polygonBoolean(b, ids(2), 'merge');
+  it('leaves disjoint sources as one shape per outline', () => {
+    const { board } = run(
+      [
+        [0, 0, 10, 10],
+        [50, 50, 60, 60],
+      ],
+      PCB_ACTIONS.mergePolygons,
+    );
 
-    expect(out.board.shapes).toHaveLength(2);
-    expect(totalArea(out.board)).toBeCloseTo(200, 3);
+    expect(areas(board)).toEqual([100, 100]);
   });
 
   it('folds a third source into the running result', () => {
-    const b = board([rect(0, 0, 10, 10), rect(5, 5, 15, 15), rect(10, 10, 20, 20)]);
-    const out = polygonBoolean(b, ids(3), 'merge');
+    const { board } = run(
+      [
+        [0, 0, 10, 10],
+        [5, 5, 15, 15],
+        [10, 10, 20, 20],
+      ],
+      PCB_ACTIONS.mergePolygons,
+    );
 
-    expect(out.successes).toBe(2);
-    expect(out.board.shapes).toHaveLength(1);
-  });
-
-  it('does nothing with a single polygon', () => {
-    const b = board([rect(0, 0, 10, 10)]);
-
-    expect(polygonBoolean(b, ids(1), 'merge').board).toBe(b);
-  });
-
-  it('ignores selected items that are not areas', () => {
-    const b = board([
-      rect(0, 0, 10, 10),
-      {
-        kind: 'line',
-        start: { x: 0, y: 0 },
-        end: { x: MM(10), y: 0 },
-        width: MM(0.2),
-        fillMode: 'none',
-        layer: 'F.SilkS',
-      },
-    ]);
-
-    expect(polygonBoolean(b, ids(2), 'merge').board).toBe(b);
+    expect(polys(board)).toHaveLength(1);
   });
 });
 
 describe('subtracting on the board', () => {
-  it('leaves the first source minus the rest', () => {
-    const b = board(overlapping());
-    const out = polygonBoolean(b, ids(2), 'subtract');
+  it('leaves the last selected minus the rest', () => {
+    const { board } = run(OVERLAPPING, PCB_ACTIONS.subtractPolygons);
 
-    expect(totalArea(out.board)).toBeCloseTo(75, 3);
+    expect(areas(board)).toEqual([75]);
+    // The basis is the second square, (5,5)-(15,15).
+    const box = polys(board)[0]!.GetPolyShape().BBox();
+    expect([box.GetX(), box.GetY()]).toEqual([MM(5), MM(5)]);
   });
 
   it('depends on the order, unlike merging', () => {
-    // First minus the rest: swapping the two gives the other 75 mm² piece, and
-    // the shapes are in different places.
-    const forward = polygonBoolean(board(overlapping()), ['shape:0', 'shape:1'], 'subtract');
-    const backward = polygonBoolean(board(overlapping()), ['shape:1', 'shape:0'], 'subtract');
+    const { board } = run(OVERLAPPING, PCB_ACTIONS.subtractPolygons, [1, 0]);
+    const box = polys(board)[0]!.GetPolyShape().BBox();
 
-    expect(forward.board.shapes[0]!.pts).not.toEqual(backward.board.shapes[0]!.pts);
+    expect(areas(board)).toEqual([75]);
+    expect([box.GetX(), box.GetY()]).toEqual([0, 0]);
   });
 
   it('fractures a hole into the outline rather than losing it', () => {
-    // Neither PcbShape nor `(gr_poly (pts …))` can hold a hole, so the ring is
-    // slit open to the hole and back. The area is what proves the hole survived
-    // at all: 900 - 100 = 800 mm².
-    const b = board([rect(0, 0, 30, 30), rect(10, 10, 20, 20)]);
-    const out = polygonBoolean(b, ids(2), 'subtract');
+    // A ring: the big square minus a small one wholly inside it. Selected
+    // big-first, the small one is the basis and comes out empty, so upstream
+    // retries largest-first and gets the ring: 900 - 100 = 800 mm². Then
+    // EDA_SHAPE::SetPolyShape fractures any hole (eda_shape.h:356-368), so
+    // the shape has none, and the area is what proves the hole survived.
+    const { board } = run(
+      [
+        [0, 0, 30, 30],
+        [10, 10, 20, 20],
+      ],
+      PCB_ACTIONS.subtractPolygons,
+    );
 
-    expect(out.board.shapes).toHaveLength(1);
-    expect(areaMM(out.board.shapes[0]!.pts!)).toBeCloseTo(800, 1);
+    expect(areas(board)).toEqual([800]);
+    expect(polys(board)[0]!.GetPolyShape().HoleCount(0)).toBe(0);
   });
 
   it('splits a shape a subtraction cuts in two', () => {
-    // A bar straight across the middle leaves two disconnected pieces, and each
-    // becomes its own shape.
-    const b = board([rect(0, 0, 30, 30), rect(-5, 12, 35, 18)]);
-    const out = polygonBoolean(b, ids(2), 'subtract');
+    // A bar straight across the middle leaves two pieces, each its own shape.
+    const { board } = run(
+      [
+        [-5, 12, 35, 18],
+        [0, 0, 30, 30],
+      ],
+      PCB_ACTIONS.subtractPolygons,
+    );
 
-    expect(out.board.shapes).toHaveLength(2);
-    expect(totalArea(out.board)).toBeCloseTo(720, 1);
+    expect(areas(board)).toEqual([360, 360]);
   });
 });
 
 describe('intersecting on the board', () => {
   it('leaves only the overlap', () => {
-    const b = board(overlapping());
-    const out = polygonBoolean(b, ids(2), 'intersect');
+    const { board } = run(OVERLAPPING, PCB_ACTIONS.intersectPolygons);
 
-    expect(totalArea(out.board)).toBeCloseTo(25, 3);
+    expect(areas(board)).toEqual([25]);
   });
 
-  it('refuses a source that would erase everything', () => {
+  it('refuses a source that would erase everything, and says so', () => {
     // Intersecting with something that does not overlap would leave nothing at
-    // all; upstream skips the source and reports it instead of committing.
-    const b = board([rect(0, 0, 10, 10), rect(50, 50, 60, 60)]);
-    const out = polygonBoolean(b, ids(2), 'intersect');
+    // all; the source is kept and the basis comes back as it was.
+    const { board, infobar } = run(
+      [
+        [0, 0, 10, 10],
+        [50, 50, 60, 60],
+      ],
+      PCB_ACTIONS.intersectPolygons,
+    );
 
-    expect(out.successes).toBe(0);
-    expect(out.failures).toBe(1);
-    expect(out.board).toBe(b);
-  });
-
-  it('keeps the sources when every fold fails', () => {
-    const b = board([rect(0, 0, 10, 10), rect(50, 50, 60, 60)]);
-
-    expect(polygonBoolean(b, ids(2), 'intersect').board.shapes).toHaveLength(2);
+    expect(areas(board).sort()).toEqual([100, 100]);
+    expect(infobar).toEqual(['Unable to intersect the selected polygons.']);
   });
 
   it('still folds in the sources that do overlap', () => {
-    // Two that overlap and one that does not: two successes are impossible
-    // here, but the overlapping one must go through and the other be reported.
-    const b = board([rect(0, 0, 10, 10), rect(5, 5, 15, 15), rect(50, 50, 60, 60)]);
-    const out = polygonBoolean(b, ids(3), 'intersect');
+    const { board, infobar } = run(
+      [
+        [0, 0, 10, 10],
+        [50, 50, 60, 60],
+        [5, 5, 15, 15],
+      ],
+      PCB_ACTIONS.intersectPolygons,
+    );
 
-    expect(out.successes).toBe(1);
-    expect(out.failures).toBe(1);
-    expect(totalArea(out.board)).toBeCloseTo(25, 3);
+    // The basis (last selected) meets the first square; the far one is kept.
+    expect(areas(board).sort((a, b) => a - b)).toEqual([25, 100]);
+    expect(infobar).toEqual(['Some of the polygons could not be intersected.']);
   });
 });

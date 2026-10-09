@@ -3,15 +3,11 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { FormatBoard, ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
-// Strip the model (`k`) and turn Maps into entry arrays so two boards compare by
-// their modelled content, like the footprint round-trip test's strip().
-const strip = (b: Board): unknown =>
-  JSON.parse(JSON.stringify(b, (k, v) => (k === 'k' ? undefined : v instanceof Map ? [...v] : v)));
+/** `PCB_IO_KICAD_SEXPR::LoadBoard` then `SaveBoard`, as text. */
+const resave = (text: string): string => FormatBoard(ParseBoard(text));
 
 // A small but representative board: a footprint, two graphics, a track, an arc
 // track and a via, across a minimal layer table with two nets.
@@ -41,32 +37,26 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
 )
 `;
 
-describe('serializeBoard (.kicad_pcb writer)', () => {
-  it('re-parses to an equal model (lossless round-trip)', () => {
+describe('FormatBoard (.kicad_pcb writer)', () => {
+  it('is a fixed point after the first save (lossless round-trip)', () => {
     // The first save normalises a hand-written fixture — the current file
     // version, fresh uuids for items that had none — so the property is that
-    // the second read equals the first.
-    const b1 = readBoard(parse(serializeBoard(readBoard(parse(BOARD)))));
-    const b2 = readBoard(parse(serializeBoard(b1)));
-    expect(strip(b2)).toEqual(strip(b1));
+    // the second save writes the first one's bytes back.
+    const once = resave(BOARD);
+    expect(resave(once)).toBe(once);
   });
 
-  it('preserves every item array through a write + re-read', () => {
-    const b = readBoard(parse(serializeBoard(readBoard(parse(BOARD)))));
-    expect(b.footprints).toHaveLength(1);
-    expect(b.footprints[0]!.pads).toHaveLength(2);
-    expect(b.tracks).toHaveLength(1);
-    expect(b.arcs).toHaveLength(1);
-    expect(b.vias).toHaveLength(1);
-    expect(b.shapes).toHaveLength(1);
-    expect(b.texts).toHaveLength(1);
-    expect([...b.nets.entries()]).toContainEqual([1, 'GND']);
-  });
-
-  it('is idempotent (serialize twice yields identical text)', () => {
-    const once = serializeBoard(readBoard(parse(BOARD)));
-    const twice = serializeBoard(readBoard(parse(once)));
-    expect(twice).toBe(once);
+  it('preserves every item through a write + re-read', () => {
+    const b = ParseBoard(resave(BOARD));
+    const tracks = (t: KICAD_T) => b.Tracks().filter((x) => x.Type() === t);
+    expect(b.Footprints()).toHaveLength(1);
+    expect(b.Footprints()[0]!.Pads()).toHaveLength(2);
+    expect(tracks(KICAD_T.PCB_TRACE_T)).toHaveLength(1);
+    expect(tracks(KICAD_T.PCB_ARC_T)).toHaveLength(1);
+    expect(tracks(KICAD_T.PCB_VIA_T)).toHaveLength(1);
+    expect(b.Drawings().filter((d) => d.Type() === KICAD_T.PCB_SHAPE_T)).toHaveLength(1);
+    expect(b.Drawings().filter((d) => d.Type() === KICAD_T.PCB_TEXT_T)).toHaveLength(1);
+    expect(b.FindNet('GND')).not.toBeNull();
   });
 });
 
@@ -76,11 +66,10 @@ const DEMOS = [
   '/home/akshay/zeo/demos/custom_pads_test/custom_pads_test.kicad_pcb',
 ];
 for (const path of DEMOS) {
-  describe.skipIf(!existsSync(path))(`serializeBoard (real demo: ${path.split('/').pop()})`, () => {
-    it('round-trips the real board model-identically', () => {
-      const b1 = readBoard(parse(readFileSync(path, 'utf8')));
-      const b2 = readBoard(parse(serializeBoard(b1)));
-      expect(strip(b2)).toEqual(strip(b1));
+  describe.skipIf(!existsSync(path))(`FormatBoard (real demo: ${path.split('/').pop()})`, () => {
+    it('round-trips the real board to a fixed point', () => {
+      const once = resave(readFileSync(path, 'utf8'));
+      expect(resave(once)).toBe(once);
     });
   });
 }

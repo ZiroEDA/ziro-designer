@@ -29,15 +29,18 @@
  * vias get first claim on the unsuffixed canonical names. Emitting pads first
  * silently changes the net names on any board with long or colliding names.
  */
-import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import { boardAuxOrigin } from '../board_design_settings.js';
-import type { Board, PcbPad, PcbVia } from '../types.js';
 
-/** `PCB_LAYER_ID` for the layers this exporter cares about (layer_ids.h). */
-const F_CU = 0;
-const F_MASK = 1;
-const B_CU = 2;
-const B_MASK = 3;
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import { DisplayErrorMessage, DisplayInfoMessage } from '@ziroeda/common/confirm.js';
+import { ipcD356FileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
+import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
+import type { BOARD } from '../board.js';
+import { NETINFO_LIST } from '../netinfo_list.js';
+import { PAD_ATTRIB, PAD_SHAPE, PADSTACK } from '../padstack.js';
+import type { PCB_VIA } from '../pcb_track.js';
 
 /** One row of the netlist, `D356_RECORD`. */
 export interface D356Record {
@@ -73,239 +76,183 @@ export function iuToD356(iu: number, clamp: number): number {
   return val;
 }
 
-/** Canonical layer name to `PCB_LAYER_ID`; undefined for anything not copper or mask. */
-export function layerNameToId(name: string): number | undefined {
-  if (name === 'F.Cu') return F_CU;
-  if (name === 'F.Mask') return F_MASK;
-  if (name === 'B.Cu') return B_CU;
-  if (name === 'B.Mask') return B_MASK;
-  const m = /^In(\d+)\.Cu$/.exec(name);
-  if (!m) return undefined;
-  const k = Number(m[1]);
-  return k >= 1 && k <= 30 ? 2 * k + 2 : undefined;
-}
-
-const isCopperId = (id: number): boolean => id === F_CU || id === B_CU || (id >= 4 && id <= 62);
-
-/**
- * A pad's raw `(layers …)` tokens as a set of layer ids, mirroring the
- * parser's `m_layerMasks` table.
- *
- * `*.Cu` expands to **all 32** copper layers regardless of how many the board
- * actually has, which is why a `*.Cu` pad on a two-layer board still reports
- * both outer layers and gets access code 0.
+/*
+ * TRANSITIONAL (E17): the view board's via tenting, for the 3D viewer until
+ * it reads the BOARD.
  */
-export function expandLayerTokens(tokens: readonly string[]): Set<number> {
-  const out = new Set<number>();
-  const inners = (): number[] => Array.from({ length: 30 }, (_, i) => 2 * (i + 1) + 2);
+/**
+ * `compute_pad_access_code`: the access code for a pad, -1 when it has no
+ * copper (a mask-only aperture is not a test point).
+ */
+function compute_pad_access_code(aPcb: BOARD, aLayerMask: LSET): number {
+  // Non-copper is not interesting here
+  const mask = aLayerMask.and(LSET.AllCuMask());
 
-  for (const token of tokens) {
-    if (token === '*.Cu') {
-      out.add(F_CU);
-      out.add(B_CU);
-      for (const id of inners()) out.add(id);
-    } else if (token === '*In.Cu') {
-      for (const id of inners()) out.add(id);
-    } else if (token === 'F&B.Cu') {
-      out.add(F_CU);
-      out.add(B_CU);
-    } else if (token === '*.Mask') {
-      out.add(F_MASK);
-      out.add(B_MASK);
-    } else {
-      const id = layerNameToId(token);
-      if (id !== undefined) out.add(id);
-    }
+  if (!mask.any()) return -1;
+
+  // Traditional TH pad
+  if (mask.test(PCB_LAYER_ID.F_Cu) && mask.test(PCB_LAYER_ID.B_Cu)) return 0;
+
+  // Front SMD pad
+  if (mask.test(PCB_LAYER_ID.F_Cu)) return 1;
+
+  // Back SMD pad
+  if (mask.test(PCB_LAYER_ID.B_Cu)) return aPcb.GetCopperLayerCount();
+
+  // OK, we have an inner-layer only pad (and I have no idea about
+  // what could be used for); anyway, find the first copper layer
+  // it's on: LAYER_RANGE( In1_Cu, B_Cu, copper count ) walks the inners.
+  for (let k = 1; k <= aPcb.GetCopperLayerCount() - 2; k++) {
+    const layer = PCB_LAYER_ID.In1_Cu + 2 * (k - 1);
+
+    if (mask.test(layer)) return layer + 1;
   }
 
-  return out;
-}
-
-/**
- * `compute_pad_access_code`. Returns -1 when the pad has no copper at all,
- * which the caller treats as "skip this pad entirely" — a mask-only aperture
- * is not a test point.
- */
-export function computePadAccessCode(
-  copperLayerCount: number,
-  layerIds: ReadonlySet<number>,
-): number {
-  const copper = [...layerIds].filter(isCopperId);
-  if (copper.length === 0) return -1;
-
-  const has = (id: number): boolean => copper.includes(id);
-
-  if (has(F_CU) && has(B_CU)) return 0;
-  if (has(F_CU)) return 1;
-  if (has(B_CU)) return copperLayerCount;
-
-  // Inner-layer-only pad. The loop is bounded by the board's copper count;
-  // upstream's LAYER_RANGE would walk off the end of the LSET here, and only
-  // gets away with it because a board with no inner layers never reaches this.
-  for (let k = 1; k <= Math.max(copperLayerCount - 2, 0); k++) {
-    const id = 2 * k + 2;
-    if (has(id)) return id + 1;
-  }
-
+  // This shouldn't happen
   return -1;
 }
 
 /**
- * `via_access_code`. Deliberately **not** unified with the pad version: for an
- * inner layer the two disagree, and matching KiCad matters more than being
- * self-consistent.
+ * `via_access_code`. In D-356 layers are numbered from 1 up, where '1' is the
+ * 'primary side' (usually the component side); '0' means 'both sides', and
+ * other layers follows in an unspecified order. Deliberately not unified with
+ * the pad version: for an inner layer the two disagree, as upstream's do.
  */
-export function viaAccessCode(
-  copperLayerCount: number,
-  topLayerId: number,
-  bottomLayerId: number,
-): number {
-  if (topLayerId === F_CU && bottomLayerId === B_CU) return 0;
-  if (topLayerId === F_CU) return 1;
-  if (bottomLayerId === B_CU) return copperLayerCount;
-  return Math.trunc(topLayerId / 2) + 1;
+function via_access_code(aPcb: BOARD, top_layer: number, bottom_layer: number): number {
+  // Easy case for through vias: top_layer is component, bottom_layer is
+  // solder, access code is 0
+  if (top_layer === PCB_LAYER_ID.F_Cu && bottom_layer === PCB_LAYER_ID.B_Cu) return 0;
+
+  // Blind via, reachable from front
+  if (top_layer === PCB_LAYER_ID.F_Cu) return 1;
+
+  // Blind via, reachable from bottom
+  if (bottom_layer === PCB_LAYER_ID.B_Cu) return aPcb.GetCopperLayerCount();
+
+  // It's a buried via, accessible from some inner layer
+  // (maybe could be used for testing before laminating? no idea)
+  return Math.trunc(top_layer / 2) + 1;
 }
 
-/** Physical depth, for ordering a via's layer pair (`IsCopperLayerLowerThan`). */
-const depth = (id: number): number =>
-  id === F_CU ? 0 : id === B_CU ? Number.POSITIVE_INFINITY : id;
+/** `build_via_testpoints`: the D356 records of the vias. */
+function build_via_testpoints(aPcb: BOARD, aRecords: D356Record[]): void {
+  const origin = aPcb.GetDesignSettings().GetAuxOrigin();
 
-/**
- * `PCB_VIA::LayerPair` plus `SanitizeLayers`.
- *
- * A through via is **always** (F.Cu, B.Cu) whatever the file's `(layers …)`
- * token said, so a through via with a nonsense pair still gets access code 0.
- */
-export function viaLayerPair(via: PcbVia): { top: number; bottom: number } {
-  if (via.kind === 'through') return { top: F_CU, bottom: B_CU };
+  // Enumerate all the track segments and keep the vias
+  for (const track of aPcb.Tracks()) {
+    if (track.Type() !== KICAD_T.PCB_VIA_T) continue;
 
-  const a = layerNameToId(via.layers[0]) ?? F_CU;
-  const b = layerNameToId(via.layers[1]) ?? B_CU;
+    const via = track as PCB_VIA;
+    const net = track.GetNet();
+    const [top_layer, bottom_layer] = via.LayerPair();
 
-  return depth(a) <= depth(b) ? { top: a, bottom: b } : { top: b, bottom: a };
-}
-
-// ---------------------------------------------------------------------------
-// Tenting
-
-/**
- * `BOARD_DESIGN_SETTINGS::m_TentViasFront/Back`, which both default to **true**.
- * Tented means covered by mask, i.e. *not* probeable.
- */
-export function boardTentVias(board: Board): { front: boolean; back: boolean } {
-  const bds = board.k?.GetDesignSettings();
-  return { front: bds?.m_TentViasFront ?? true, back: bds?.m_TentViasBack ?? true };
-}
-
-/** `PCB_VIA::IsTented`: the via's own setting wins, else the board default. */
-export function viaIsTented(board: Board, via: PcbVia, side: 'front' | 'back'): boolean {
-  return via.tenting?.[side] ?? boardTentVias(board)[side];
-}
-
-// ---------------------------------------------------------------------------
-// Records
-
-const netNameOf = (board: Board, net: number | undefined): string =>
-  net === undefined ? '' : (board.nets.get(net) ?? '');
-
-const copperLayerCount = (board: Board): number =>
-  board.layers.filter(
-    (l) => layerNameToId(l.name) !== undefined && isCopperId(layerNameToId(l.name)!),
-  ).length;
-
-/** `build_via_testpoints`. */
-export function buildViaTestpoints(board: Board): D356Record[] {
-  const origin = boardAuxOrigin(board);
-  const count = copperLayerCount(board);
-
-  return board.vias.map((via) => {
-    const { top, bottom } = viaLayerPair(via);
-
-    // `hole` is unconditionally true for a via, even one whose drill is 0 —
-    // the D0000P field is still emitted.
-    return {
+    aRecords.push({
       smd: false,
       hole: true,
-      mechanical: false,
-      midpoint: true,
-      netname: netNameOf(board, via.net),
+      netname: net ? net.GetNetname() : '',
       refdes: 'VIA',
       pin: '',
-      drill: via.drill,
-      access: viaAccessCode(count, top, bottom),
-      xLocation: via.at.x - origin.x,
-      yLocation: origin.y - via.at.y,
-      xSize: via.size,
-      ySize: 0,
+      midpoint: true, // Vias are always midpoints
+      drill: via.GetDrillValue(),
+      mechanical: false,
+      access: via_access_code(aPcb, top_layer, bottom_layer),
+      xLocation: via.GetPosition().x - origin.x,
+      yLocation: origin.y - via.GetPosition().y,
+      // The record has a single size for vias, so take the smaller of the front and back
+      xSize:
+        via.Padstack().Mode() !== PADSTACK.MODE.NORMAL
+          ? Math.min(via.GetWidth(PCB_LAYER_ID.F_Cu), via.GetWidth(PCB_LAYER_ID.B_Cu))
+          : via.GetWidth(PADSTACK.ALL_LAYERS),
+      ySize: 0, // Round so height = 0
       rotation: 0,
+      // the value indicates which sides are *not* accessible
       soldermask:
-        (viaIsTented(board, via, 'front') ? 1 : 0) | (viaIsTented(board, via, 'back') ? 2 : 0),
-    };
-  });
+        (via.IsTented(PCB_LAYER_ID.F_Mask) ? 1 : 0) | (via.IsTented(PCB_LAYER_ID.B_Mask) ? 2 : 0),
+    });
+  }
 }
 
 /**
- * `std::min( drill.x, drill.y )` of `pad->GetDrillSize()`. The parser has
- * already decided the size a missing `(drill …)` means: 1 nm on a `thru_hole`
- * pad, the PAD constructor's 30 mils on an `np_thru_hole`, nothing on SMD and
- * CONN.
+ * `IPC356D_WRITER` (export_d356.h): the IPC-D-356 netlist of a board. `Write`
+ * answers the file's text; the caller writes it where the file dialog said.
  */
-function padDrill(pad: PcbPad): number {
-  if (!pad.drill) return 0;
-  return Math.min(pad.drill.w, pad.drill.h);
-}
+export class IPC356D_WRITER {
+  private readonly m_pcb: BOARD;
+  private m_doNotExportUnconnectedPads = false;
 
-/** `build_pad_testpoints`. */
-export function buildPadTestpoints(board: Board, doNotExportUnconnectedPads = false): D356Record[] {
-  const origin = boardAuxOrigin(board);
-  const count = copperLayerCount(board);
-  const out: D356Record[] = [];
-
-  for (const fp of board.footprints) {
-    for (const pad of fp.pads) {
-      const layerIds = expandLayerTokens(pad.layers);
-      const access = computePadAccessCode(count, layerIds);
-      if (access === -1) continue;
-
-      // `SetAttribute(NPTH)` clears the pad number and net at parse time
-      // upstream; our reader keeps whatever the file said, so force both.
-      const npth = pad.type === 'np_thru_hole';
-      const net = npth ? 0 : (pad.net ?? 0);
-      const pin = npth ? '' : pad.number;
-
-      if (doNotExportUnconnectedPads && net === 0) continue;
-
-      const drill = padDrill(pad);
-      // Truncates toward zero rather than rounding — a C++ double assigned to
-      // an int — so 30.7 deg gives -30, not -31. The += 360 runs exactly once.
-      let rotation = Math.trunc(-(((pad.angle % 360) + 360) % 360));
-      if (rotation < 0) rotation += 360;
-
-      out.push({
-        smd: pad.type === 'smd' || pad.type === 'connect',
-        hole: drill !== 0,
-        mechanical: npth,
-        // A named pad is a component terminal; an unnamed copper feature is
-        // only reachable mid-net, so it is a midpoint per IPC-D-356A.
-        midpoint: pin === '',
-        netname: netNameOf(board, net),
-        refdes: fp.reference ?? '',
-        pin,
-        drill,
-        access,
-        xLocation: pad.at.x - origin.x,
-        yLocation: origin.y - pad.at.y,
-        xSize: pad.size.x,
-        // An explicit IPC rule, not an optimisation: a round pad has no second
-        // dimension. Only `circle` — oval and roundrect keep their real y.
-        ySize: pad.shape === 'circle' ? 0 : pad.size.y,
-        rotation,
-        soldermask: 3 & ~(layerIds.has(F_MASK) ? 1 : 0) & ~(layerIds.has(B_MASK) ? 2 : 0),
-      });
-    }
+  constructor(aPcb: BOARD) {
+    this.m_pcb = aPcb;
   }
 
-  return out;
+  SetDoNotExportUnconnectedPads(aDoNotExportUnconnectedPads: boolean): void {
+    this.m_doNotExportUnconnectedPads = aDoNotExportUnconnectedPads;
+  }
+
+  /** `Write( aFilename )`, minus the file I/O: the text it writes. */
+  Write(): string {
+    // This will contain everything needed for the 356 file
+    const d356_records: D356Record[] = [];
+
+    build_via_testpoints(this.m_pcb, d356_records);
+
+    this.build_pad_testpoints(this.m_pcb, d356_records);
+
+    // Code 00 AFAIK is ASCII, CUST 0 is decimils/degrees
+    // CUST 1 would be metric but gerbtool simply ignores it!
+    return `P  CODE 00\nP  UNITS CUST 0\nP  arrayDim   N\n${writeD356Records(d356_records)}999\n`;
+  }
+
+  /** `build_pad_testpoints`: the D356 records of the footprints' pads. */
+  private build_pad_testpoints(aPcb: BOARD, aRecords: D356Record[]): void {
+    const origin = aPcb.GetDesignSettings().GetAuxOrigin();
+
+    for (const footprint of aPcb.Footprints()) {
+      for (const pad of footprint.Pads()) {
+        const access = compute_pad_access_code(aPcb, pad.GetLayerSet());
+
+        // It could be a mask only pad, we only handle pads with copper here
+        if (access === -1) continue;
+
+        if (this.m_doNotExportUnconnectedPads && pad.GetNetCode() === NETINFO_LIST.UNCONNECTED)
+          continue;
+
+        const drill = pad.GetDrillSize();
+        const drillMin = Math.min(drill.x, drill.y);
+        const accessLayer = footprint.IsFlipped() ? PCB_LAYER_ID.B_Cu : PCB_LAYER_ID.F_Cu;
+
+        // An int takes the double: truncation toward zero, then once += 360.
+        let rotation = Math.trunc(-pad.GetOrientation().AsDegrees());
+
+        if (rotation < 0) rotation += 360;
+
+        // the value indicates which sides are *not* accessible
+        let soldermask = 3;
+
+        if (pad.GetLayerSet().test(PCB_LAYER_ID.F_Mask)) soldermask &= ~1;
+
+        if (pad.GetLayerSet().test(PCB_LAYER_ID.B_Mask)) soldermask &= ~2;
+
+        aRecords.push({
+          netname: pad.GetNetname(),
+          pin: pad.GetNumber(),
+          refdes: footprint.GetReference(),
+          midpoint: false, // XXX MAYBE need to be computed (how?)
+          drill: drillMin,
+          hole: drillMin !== 0,
+          smd: pad.GetAttribute() === PAD_ATTRIB.SMD || pad.GetAttribute() === PAD_ATTRIB.CONN,
+          mechanical: pad.GetAttribute() === PAD_ATTRIB.NPTH,
+          access,
+          xLocation: pad.GetPosition().x - origin.x,
+          yLocation: origin.y - pad.GetPosition().y,
+          xSize: pad.GetSize(accessLayer).x,
+          // Rule: round pads have y = 0
+          ySize: pad.GetShape(accessLayer) === PAD_SHAPE.CIRCLE ? 0 : pad.GetSize(accessLayer).y,
+          rotation,
+          soldermask,
+        });
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -400,20 +347,47 @@ export function writeD356Records(records: readonly D356Record[]): string {
   return out;
 }
 
-/**
- * `IPC356D_WRITER::Write`, minus the file I/O.
- *
- * Vias first, then pads — see the note at the top of the file; the order
- * decides which record wins an ambiguous net name.
- */
-export function exportD356(
-  board: Board,
-  opts: { doNotExportUnconnectedPads?: boolean } = {},
-): string {
-  const records = [
-    ...buildViaTestpoints(board),
-    ...buildPadTestpoints(board, opts.doNotExportUnconnectedPads ?? false),
-  ];
+/** The frame `GenD356File` runs on: its board, settings and the save dialog. */
+export interface GEN_D356_FRAME {
+  GetBoard(): BOARD | null;
+  GetPcbNewSettings(): { m_ExportD356: { doNotExportUnconnectedPads: boolean } };
+  ShowSaveFileDialog(
+    aTitle: string,
+    aDefaultName: string,
+    aWildcard: ChooserFilter,
+    aCheckbox: { label: string; value: boolean } | null,
+  ): Promise<{ path: string; checked: boolean } | null>;
+  WriteTextFile(aPath: string, aText: string): boolean;
+}
 
-  return `P  CODE 00\nP  UNITS CUST 0\nP  arrayDim   N\n${writeD356Records(records)}999\n`;
+/**
+ * `BOARD_EDITOR_CONTROL::GenD356File` (export_d356.cpp:437-475): the save
+ * dialog with D365_CUSTOMIZE_HOOK's "Do not export unconnected pads", then the
+ * writer, then the message either way.
+ */
+export async function BOARD_EDITOR_CONTROL_GenD356File(aFrame: GEN_D356_FRAME): Promise<number> {
+  const board = aFrame.GetBoard()!;
+  const base = board.GetFileName().split(/[\\/]/).pop() ?? '';
+  const name = `${base.replace(/\.[^.]*$/, '') || base}.d356`;
+
+  const settings = aFrame.GetPcbNewSettings().m_ExportD356;
+  const dlg = await aFrame.ShowSaveFileDialog(
+    'Generate IPC-D-356 netlist file',
+    name,
+    ipcD356FileWildcard(),
+    { label: 'Do not export unconnected pads', value: settings.doNotExportUnconnectedPads },
+  );
+
+  if (!dlg) return 0;
+
+  const writer = new IPC356D_WRITER(board);
+  const doNotExportUnconnectedPads = dlg.checked;
+  writer.SetDoNotExportUnconnectedPads(doNotExportUnconnectedPads);
+  settings.doNotExportUnconnectedPads = doNotExportUnconnectedPads;
+
+  if (aFrame.WriteTextFile(dlg.path, writer.Write()))
+    void DisplayInfoMessage(`IPC-D-356 netlist file created:\n'${dlg.path}'.`);
+  else DisplayErrorMessage(`Failed to create file '${dlg.path}'.`);
+
+  return 0;
 }

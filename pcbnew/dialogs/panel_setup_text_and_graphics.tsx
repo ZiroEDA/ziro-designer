@@ -41,16 +41,127 @@ import {
   wxGridStringTable,
 } from '@ziroeda/common/wx/grid.js';
 import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
-import type { DimensionDefaults, TextGfxDefaults, TextGfxRow } from '../board_settings.js';
+import type { BOARD } from '../board.js';
+import { LAYER_CLASS } from '../board_design_settings.js';
+import {
+  DIM_PRECISION,
+  DIM_TEXT_POSITION,
+  DIM_UNITS_FORMAT,
+  DIM_UNITS_MODE,
+} from '../pcb_dimension.js';
 
-// The data model lives in board_settings.ts (KiCad's data/UI split);
-// re-exported so panel users keep importing from the panel module.
-export {
-  defaultTextGraphics,
-  type DimensionDefaults,
-  type TextGfxDefaults,
-  type TextGfxRow,
-} from '../board_settings.js';
+export interface TextGfxRow {
+  lineThickness: number;
+  textWidth: number;
+  textHeight: number;
+  textThickness: number;
+  italic: boolean;
+  keepUpright: boolean;
+}
+
+/** PANEL_SETUP_DIMENSIONS's choices, as labels, beside the grid. */
+export interface DimensionDefaults {
+  units: string;
+  format: string;
+  precision: string;
+  suppressTrailingZeroes: boolean;
+  textPosition: string;
+  keepTextAligned: boolean;
+  arrowLengthMM: number;
+  extLineOffsetMM: number;
+}
+
+export interface TextGfxDefaults {
+  rows: TextGfxRow[];
+  dimensions: DimensionDefaults;
+}
+
+/** The grid's rows, LAYER_CLASS order. */
+const LAYER_CLASSES = [
+  LAYER_CLASS.LAYER_CLASS_SILK,
+  LAYER_CLASS.LAYER_CLASS_COPPER,
+  LAYER_CLASS.LAYER_CLASS_EDGES,
+  LAYER_CLASS.LAYER_CLASS_COURTYARD,
+  LAYER_CLASS.LAYER_CLASS_FAB,
+  LAYER_CLASS.LAYER_CLASS_OTHERS,
+];
+
+const selectionOf = (aList: readonly string[], aLabel: string, aFallback: number): number => {
+  const i = aList.indexOf(aLabel);
+  return i < 0 ? aFallback : i;
+};
+
+/**
+ * PANEL_SETUP_TEXT_AND_GRAPHICS's transfers (panel_setup_text_and_graphics.cpp),
+ * which run its PANEL_SETUP_DIMENSIONS' too.
+ */
+export const PANEL_SETUP_TEXT_AND_GRAPHICS = {
+  TransferDataToWindow(aBoard: BOARD): TextGfxDefaults {
+    const bds = aBoard.GetDesignSettings();
+    const mm = (iu: number): number => pcbIUScale.iuToMM(iu);
+    return {
+      rows: LAYER_CLASSES.map((cls) => ({
+        lineThickness: mm(bds.m_LineThickness[cls]!),
+        textWidth: mm(bds.m_TextSize[cls]!.x),
+        textHeight: mm(bds.m_TextSize[cls]!.y),
+        textThickness: mm(bds.m_TextThickness[cls]!),
+        italic: bds.m_TextItalic[cls]!,
+        keepUpright: bds.m_TextUpright[cls]!,
+      })),
+      dimensions: {
+        units: DIM_UNITS[bds.m_DimensionUnitsMode] ?? 'Automatic',
+        format: DIM_FORMATS[bds.m_DimensionUnitsFormat] ?? '1234',
+        precision: DIM_PRECISIONS[bds.m_DimensionPrecision] ?? '0.0000',
+        suppressTrailingZeroes: bds.m_DimensionSuppressZeroes,
+        textPosition: DIM_POSITION[bds.m_DimensionTextPosition] ?? 'Outside',
+        keepTextAligned: bds.m_DimensionKeepTextAligned,
+        arrowLengthMM: mm(bds.m_DimensionArrowLength),
+        extLineOffsetMM: mm(bds.m_DimensionExtensionOffset),
+      },
+    };
+  },
+
+  TransferDataFromWindow(v: TextGfxDefaults, aBoard: BOARD): void {
+    const bds = aBoard.GetDesignSettings();
+    const iu = (mm: number): number => pcbIUScale.mmToIU(mm);
+    v.rows.forEach((row, cls) => {
+      bds.m_LineThickness[cls] = iu(row.lineThickness);
+      if (cls === LAYER_CLASS.LAYER_CLASS_EDGES || cls === LAYER_CLASS.LAYER_CLASS_COURTYARD)
+        return;
+      bds.m_TextSize[cls] = { x: iu(row.textWidth), y: iu(row.textHeight) };
+      bds.m_TextThickness[cls] = iu(row.textThickness);
+      bds.m_TextItalic[cls] = row.italic;
+      bds.m_TextUpright[cls] = row.keepUpright;
+    });
+
+    // PANEL_SETUP_DIMENSIONS::TransferDataFromWindow
+    const d = v.dimensions;
+    bds.m_DimensionUnitsMode = selectionOf(
+      DIM_UNITS,
+      d.units,
+      DIM_UNITS_MODE.AUTOMATIC,
+    ) as DIM_UNITS_MODE;
+    bds.m_DimensionUnitsFormat = selectionOf(
+      DIM_FORMATS,
+      d.format,
+      DIM_UNITS_FORMAT.NO_SUFFIX,
+    ) as DIM_UNITS_FORMAT;
+    bds.m_DimensionPrecision = selectionOf(
+      DIM_PRECISIONS,
+      d.precision,
+      DIM_PRECISION.X_XXXX,
+    ) as DIM_PRECISION;
+    bds.m_DimensionSuppressZeroes = d.suppressTrailingZeroes;
+    bds.m_DimensionTextPosition = selectionOf(
+      DIM_POSITION,
+      d.textPosition,
+      DIM_TEXT_POSITION.OUTSIDE,
+    ) as DIM_TEXT_POSITION;
+    bds.m_DimensionKeepTextAligned = d.keepTextAligned;
+    bds.m_DimensionArrowLength = iu(d.arrowLengthMM);
+    bds.m_DimensionExtensionOffset = iu(d.extLineOffsetMM);
+  },
+};
 
 // Row labels + whether the row carries text (Edge Cuts / Courtyards do not).
 const ROWS: { label: string; text: boolean }[] = [
@@ -65,7 +176,7 @@ const ROWS: { label: string; text: boolean }[] = [
 // Dimension choice lists (panel_setup_dimensions_base.cpp).
 const DIM_UNITS = ['Inches', 'Mils', 'Millimeters', 'Automatic'];
 const DIM_FORMATS = ['1234', '1234 mm', '1234 (mm)'];
-const DIM_PRECISION = ['0', '0.0', '0.00', '0.000', '0.0000', '0.00000'];
+const DIM_PRECISIONS = ['0', '0.0', '0.00', '0.000', '0.0000', '0.00000'];
 const DIM_POSITION = ['Outside', 'Inline'];
 
 interface Props {
@@ -258,7 +369,7 @@ export function PanelPcbTextGraphics({ value, onChange }: Props): JSX.Element {
         <Combo
           value={d.precision}
           ariaLabel="Dimension precision"
-          options={DIM_PRECISION.map((x) => ({ value: x, label: x }))}
+          options={DIM_PRECISIONS.map((x) => ({ value: x, label: x }))}
           onChange={(x) => setDim('precision', x)}
         />
         <span />

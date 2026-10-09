@@ -6,6 +6,7 @@
  * the table properties dialog and the CSV export, on EDIT_TABLE_TOOL_BASE's shared algorithms.
  */
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { applyMixins } from '@ziroeda/core/mixins.js';
 import { newKiid } from '@ziroeda/common/kiid.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { COROUTINE_BODY } from '@ziroeda/common/tool/coroutine.js';
@@ -25,14 +26,8 @@ import type { SCH_TABLE } from '../sch_table.js';
 import { SCH_TABLECELL } from '../sch_tablecell.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
 
-const TABLE_TOOL_BASE = EDIT_TABLE_TOOL_BASE<
-  SCH_TABLE,
-  SCH_TABLECELL,
-  SCH_COMMIT,
-  typeof SCH_TOOL_BASE<SCH_EDIT_FRAME>
->(SCH_TOOL_BASE<SCH_EDIT_FRAME>, (aToolMgr) => new SCH_COMMIT(aToolMgr));
-
-export class SCH_EDIT_TABLE_TOOL extends TABLE_TOOL_BASE {
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EDIT_TABLE_TOOL_BASE, see libs/core/mixins.ts)
+export class SCH_EDIT_TABLE_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   constructor() {
     super('eeschema.TableEditor');
   }
@@ -250,4 +245,19 @@ export class SCH_EDIT_TABLE_TOOL extends TABLE_TOOL_BASE {
     this.Go(this.EditTable, ACTIONS.editTable.MakeEvent());
     this.Go(this.ExportTableToCSV, ACTIONS.exportTableCSV.MakeEvent());
   }
+
+  /** `SCH_COMMIT commit( getToolMgr() )`. */
+  makeCommit(): SCH_COMMIT {
+    return new SCH_COMMIT(this.getToolMgr());
+  }
+
+  /** `dynamic_cast<SCH_TABLECELL*>( aItem )`. */
+  asTableCell(aItem: EDA_ITEM): SCH_TABLECELL | null {
+    return aItem instanceof SCH_TABLECELL ? aItem : null;
+  }
 }
+
+export interface SCH_EDIT_TABLE_TOOL
+  extends EDIT_TABLE_TOOL_BASE<SCH_TABLE, SCH_TABLECELL, SCH_COMMIT> {}
+
+applyMixins(SCH_EDIT_TABLE_TOOL, [EDIT_TABLE_TOOL_BASE]);

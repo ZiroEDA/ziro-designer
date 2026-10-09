@@ -29,13 +29,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { DialogBoardSetup } from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
+import { freshBoardSetup } from './board_setup_test_utils.js';
+import type { BoardSetupValues } from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
 import {
   clampMaxErrorMM,
-  defaultBoardSetup,
   MAX_ERROR_SIZE_MM,
   MIN_ERROR_SIZE_MM,
-  type BoardSetupValues,
-} from '@ziroeda/pcbnew/board_settings.js';
+} from '@ziroeda/pcbnew/dialogs/panel_setup_constraints.js';
 
 afterEach(cleanup);
 
@@ -44,7 +44,7 @@ function open(over: Partial<BoardSetupValues> = {}): { ok: () => BoardSetupValue
   let out: BoardSetupValues | null = null;
   render(
     <DialogBoardSetup
-      value={{ ...defaultBoardSetup(), ...over }}
+      value={{ ...freshBoardSetup(), ...over }}
       /* The frame's display units: Board Setup's fields and grid cells are
          `UNIT_BINDER`s and `WX_GRID`s with `SetUnitsProvider( m_Frame )`. */
       units="mm"
@@ -176,7 +176,7 @@ describe('m_MaxError is clamped on the way out', () => {
     // GetArcToSegmentCount divides by the error, so a zero out of this page is
     // a division by zero in the zone filler.
     const { ok } = open({
-      constraints: { ...defaultBoardSetup().constraints, maxDeviationMM: 0 },
+      constraints: { ...freshBoardSetup().constraints, maxDeviationMM: 0 },
     });
 
     expect(ok()!.constraints.maxDeviationMM).toBe(MIN_ERROR_SIZE_MM);

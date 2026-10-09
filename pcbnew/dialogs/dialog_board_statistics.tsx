@@ -31,7 +31,7 @@ import {
   ComputeBoardStatistics,
   DEFAULT_BOARD_STATISTICS_OPTIONS,
   FormatBoardStatisticsReport,
-} from '../index.js';
+} from '../board_statistics_report.js';
 import type { BOARD } from '../board.js';
 import { DRILL_LINE_ITEM_COL_ID, DRILL_LINE_ITEM_COMPARE } from '../board_statistics.js';
 import { PAD_DRILL_SHAPE } from '../padstack.js';

@@ -8,10 +8,10 @@
  * status column shows), `LibraryError`, and the per-library configuration
  * dialog hooks.
  *
- * Not here: `LIBRARY_MANAGER` itself (the table loading, `Rows` / `GetRow`,
- * the async loads). How libraries load and preload is the editors' own and
- * stays so; pcbnew's `fp_lib_table.ts` keeps `Rows` / `GetRow` / `ExpandURI`
- * over its plain table record. Upstream keeps a second, process-wide map for
+ * Not here: `LIBRARY_MANAGER`'s table loading and its async loads. How
+ * libraries load and preload is still the editors' own: footprint libraries
+ * resolve through `common/fp_lib_table.ts`'s plain records, not through this
+ * class (design blocks are the one caller of `Rows`). Upstream keeps a second, process-wide map for
  * the global libraries (`globalLibs()`); an adapter here has the one map,
  * which is where both scopes' statuses are looked up in the same order.
  */
@@ -35,7 +35,14 @@ import {
  * (`Rows`, a project row overriding a global one of the same nickname), one
  * row by nickname, and a row's URI expanded. The tables themselves are loaded
  * by the host (a page reads the project's and the hosted global tables),
- * handed over with `SetTable`; nested tables are not followed.
+ * handed over with `SetTable`.
+ *
+ * [gap] Nested tables: upstream's `loadNestedTables` reads each `Table` row's
+ * file into `m_childTables` and `Rows` recurses into it, hiding a hidden
+ * parent's rows and skipping a disabled one (library_manager.cpp:139-189,
+ * :784-812). Neither is ported - a `Table` row contributes nothing here.
+ * `ApplyLibOverrides` (the `kicad` settings' per-library overrides on a
+ * read-only table) is not ported either.
  */
 export class LIBRARY_MANAGER {
   private readonly m_tables = new Map<LIBRARY_TABLE_TYPE, LIBRARY_TABLE>();

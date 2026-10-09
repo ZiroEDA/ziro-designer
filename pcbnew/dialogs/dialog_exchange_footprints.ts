@@ -23,7 +23,7 @@ import {
 import { wildCompareString } from '@ziroeda/common/string_utils.js';
 import { BOARD_COMMIT } from '../board_commit.js';
 import type { FOOTPRINT } from '../footprint.js';
-import { FootprintNeedsUpdate } from '../footprint_needs_update.js';
+import { FootprintNeedsUpdate } from '../drc/drc_test_provider_library_parity.js';
 import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import type { PCB_SELECTION_TOOL } from '../tools/pcb_selection_tool.js';
 

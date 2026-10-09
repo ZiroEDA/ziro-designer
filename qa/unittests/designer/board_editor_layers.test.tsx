@@ -20,14 +20,13 @@ import { useState, type JSX } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import {
   PanelPcbLayers,
-  defaultLayers,
   testLayerNames,
   layerNameInputId,
   type LayersSetup,
 } from '@ziroeda/pcbnew/dialogs/panel_setup_layers.js';
 import { readSetup, writeSetup } from './board_setup_test_utils.js';
-import { defaultBoardSetup } from '@ziroeda/pcbnew/board_settings.js';
 import { EMPTY_PCB } from '@ziroeda/designer/src/home/new_project.js';
+import { freshBoardSetup } from './board_setup_test_utils.js';
 
 /** A two-layer board whose `(layers …)` has no User.N and no Margin. */
 const DEMO_NO_USER = `(kicad_pcb (version 20241229) (generator "test")
@@ -59,7 +58,7 @@ const checkboxOf = (layerId: string): HTMLInputElement =>
 const nameOf = (layerId: string): HTMLInputElement =>
   document.getElementById(layerNameInputId(layerId)) as HTMLInputElement;
 
-function renderPanel(value: LayersSetup = defaultLayers()): void {
+function renderPanel(value: LayersSetup = freshBoardSetup().layers): void {
   render(<PanelPcbLayers value={value} onChange={() => {}} />);
 }
 
@@ -68,7 +67,7 @@ describe('Board Editor Layers: the row order', () => {
     // `initialize_back_tech_layers()` adds m_Eco1CheckBox (`:391`), m_Eco2 (`:405`),
     // m_Comments (`:417`) then m_Drawings (`:433`). This page is NOT the
     // Appearance panel, which lists Drawings and Comments first.
-    const ids = defaultLayers().layers.map((l) => l.id);
+    const ids = freshBoardSetup().layers.layers.map((l) => l.id);
     // The User.N tail after Drawings is `SetUserDefinedLayerCount( 4 )`, which
     // `append_user_layer()` puts at the end of the sizer.
     expect(ids.slice(ids.indexOf('Margin'))).toEqual([
@@ -90,7 +89,7 @@ describe('Board Editor Layers: the row order', () => {
     // `layers.copper_layers_begin()`, then initialize_back_tech_layers()
     // (B.Mask, B.SilkS, B.Paste, B.Adhes, B.Fab, B.CrtYd, Edge.Cuts, Margin,
     // Eco1, Eco2, Cmts, Dwgs).
-    expect(defaultLayers().layers.map((l) => l.id)).toEqual([
+    expect(freshBoardSetup().layers.layers.map((l) => l.id)).toEqual([
       'F.CrtYd',
       'F.Fab',
       'F.Adhes',
@@ -156,9 +155,10 @@ describe('Board Editor Layers: the name field', () => {
   it('stays editable on a switched-off layer', () => {
     // The only Disable() calls in the panel are on checkboxes; a disabled
     // layer's wxTextCtrl is untouched, and testLayerNames() just skips it.
-    const value = defaultLayers();
+    // A board whose (layers ...) leaves some out: those rows are switched off.
+    const value = readSetup(DEMO_NO_USER).values.layers;
     const off = value.layers.find((l) => !l.enabled);
-    expect(off, 'the default set must contain a disabled layer').toBeDefined();
+    expect(off, 'the board must leave a layer switched off').toBeDefined();
     renderPanel(value);
     expect(nameOf(off!.id).disabled).toBe(false);
     expect(nameOf('F.Mask').disabled).toBe(false);
@@ -167,9 +167,9 @@ describe('Board Editor Layers: the name field', () => {
   it('carries the "Layer Name" tooltip on copper and user rows only', () => {
     // `:481` (copper) and `:533` (append_user_layer). The fixed technical rows
     // get no SetToolTip on their name control.
-    // `defaultLayers()` already carries User.1-4 since a new board enables
+    // `freshBoardSetup().layers` already carries User.1-4 since a new board enables
     // four of them; pushing another User.1 made a duplicate row.
-    const value = defaultLayers();
+    const value = freshBoardSetup().layers;
     renderPanel(value);
     expect(nameOf('F.Cu').title).toBe('Layer Name');
     expect(nameOf('User.1').title).toBe('Layer Name');
@@ -180,9 +180,9 @@ describe('Board Editor Layers: the name field', () => {
 
 describe('Board Editor Layers: the third column', () => {
   it('gives a user-defined layer a choice, not a description', () => {
-    // `defaultLayers()` already carries User.1-4 since a new board enables
+    // `freshBoardSetup().layers` already carries User.1-4 since a new board enables
     // four of them; pushing another User.1 made a duplicate row.
-    const value = defaultLayers();
+    const value = freshBoardSetup().layers;
     renderPanel(value);
 
     // A fixed technical row is a static text.
@@ -205,7 +205,7 @@ describe('Board Editor Layers: the third column', () => {
   it('shows the copper choice label, not the file token', () => {
     renderPanel();
     expect(rowOf('F.Cu').querySelector('.ze-combo-shown')?.textContent).toBe('signal');
-    const value = defaultLayers();
+    const value = freshBoardSetup().layers;
     value.layers = value.layers.map((l) => (l.id === 'F.Cu' ? { ...l, copperType: 'power' } : l));
     cleanup();
     renderPanel(value);
@@ -215,13 +215,13 @@ describe('Board Editor Layers: the third column', () => {
 
 describe('testLayerNames', () => {
   const withName = (id: string, name: string, enabled = true): LayersSetup => {
-    const v = defaultLayers();
+    const v = freshBoardSetup().layers;
     v.layers = v.layers.map((l) => (l.id === id ? { ...l, name, enabled } : l));
     return v;
   };
 
   it('accepts the default set', () => {
-    expect(testLayerNames(defaultLayers())).toBeNull();
+    expect(testLayerNames(freshBoardSetup().layers)).toBeNull();
   });
 
   it('rejects a blank name', () => {
@@ -409,17 +409,17 @@ describe('Add User Defined Layer...', () => {
 });
 
 describe('a new board starts with four user-defined layers', () => {
-  it('defaultLayers() carries User.1-4, auxiliary and enabled', () => {
+  it('freshBoardSetup().layers carries User.1-4, auxiliary and enabled', () => {
     // `BOARD_DESIGN_SETTINGS::BOARD_DESIGN_SETTINGS` (`:64-66`):
     //   // Default design is a double layer board with 4 user defined layers
     //   SetCopperLayerCount( 2 ); SetUserDefinedLayerCount( 4 );
-    const user = defaultLayers().layers.filter((l) => l.kind === 'user');
+    const user = freshBoardSetup().layers.layers.filter((l) => l.kind === 'user');
     expect(user.map((l) => l.id)).toEqual(['User.1', 'User.2', 'User.3', 'User.4']);
     for (const l of user) expect(l).toMatchObject({ userType: 'aux', enabled: true });
   });
 
   it('they are the last four rows, after User.Drawings', () => {
-    const ids = defaultLayers().layers.map((l) => l.id);
+    const ids = freshBoardSetup().layers.layers.map((l) => l.id);
     expect(ids.slice(-5)).toEqual(['Dwgs.User', 'User.1', 'User.2', 'User.3', 'User.4']);
   });
 

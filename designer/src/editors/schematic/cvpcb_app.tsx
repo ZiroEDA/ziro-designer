@@ -11,12 +11,11 @@
  */
 import { useMemo, type JSX } from 'react';
 import type { CVPCB_APP } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
-import { FootprintCanvas } from '@ziroeda/pcbnew/pcb_draw_panel_gal_ui.js';
-import { footprintToBoard, parseFootprint } from '@ziroeda/pcbnew/footprint_edit_frame.js';
-import { DEFAULT_DRAW_OPTIONS } from '@ziroeda/pcbnew/renderBoard.js';
 import { Viewer3DFrame } from '../pcb/Viewer3DFrame.js';
-import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
-import { footprintsBase } from '../footprint/footprint_edit_frame_app.js';
+import { loadFootprintIndex } from '../../widgets/footprint_list.js';
+import { FP_LIBRARY_IO, footprintsBase } from '../pcb/footprint_lib_adapter_app.js';
+import { installPgm } from '../pcb/pcb_canvas.js';
+import { commonSettingsOf } from '../../pgm_app.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { DialogFpLibTable } from '@ziroeda/pcbnew/dialogs/panel_fp_lib_table.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
@@ -36,9 +35,9 @@ export function useCvpcbApp(): CVPCB_APP {
   return useMemo<CVPCB_APP>(
     () => ({
       loadFootprintIndex,
-      loadFootprint,
-      parseFootprint,
-      footprintToBoard,
+      libraryIo: FP_LIBRARY_IO,
+      installPgm: () => void installPgm(),
+      commonSettingsOf,
       footprintsBase,
 
       get pinnedFpLibs() {
@@ -65,27 +64,7 @@ export function useCvpcbApp(): CVPCB_APP {
         <OpenFileDialog {...props} extra={props.extra as JSX.Element | undefined} />
       ),
 
-      FootprintCanvas: (props, ref) => (
-        <FootprintCanvas
-          ref={ref}
-          footprint={props.footprint}
-          visible={props.visible}
-          showGrid={props.showGrid}
-          crosshairMode={props.crosshairMode}
-          gridIU={props.gridIU}
-          activeTool={props.activeTool}
-          measureUnits={props.measureUnits}
-          onZoomAreaApplied={props.onZoomAreaApplied}
-          onFootprintChange={props.onFootprintChange}
-          onCursorMove={props.onCursorMove}
-          onScaleChange={props.onScaleChange}
-          // FRAME_CVPCB_DISPLAY: the DEFAULT fit margin, not the footprint
-          // editor's 1.48 (`display_footprints_frame.tsx`'s own header).
-          fitFrame="cvpcb_display"
-          drawOpts={{ ...DEFAULT_DRAW_OPTIONS, ...props.drawOpts }}
-        />
-      ),
-      Viewer3DFrame: (props) => <Viewer3DFrame {...props} />,
+      Viewer3DFrame: (props) => <Viewer3DFrame {...props} board={{ k: props.board }} />,
     }),
     [],
   );

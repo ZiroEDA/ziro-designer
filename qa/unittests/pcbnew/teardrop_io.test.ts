@@ -6,14 +6,18 @@
  * …)))` on the generated zones, and the round trip through the writer. What
  * TEARDROP_MANAGER builds and writes is teardrop_manager.test.ts.
  */
-import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
+import { describe, expect, it } from 'vitest';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
+import {
+  TEARDROP_PARAMETERS,
+  TEARDROP_TYPE,
+} from '@ziroeda/pcbnew/teardrop/teardrop_parameters.js';
+import { FormatBoard, ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
-const MM = (n: number): number => mmToIU(n);
+const MM = (n: number): number => pcbIUScale.mmToIU(n);
 
 /** A minimal board: one via, one track into it, one net. */
 const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
@@ -23,71 +27,76 @@ const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
     (teardrops (best_length_ratio 0.7) (max_length 1.5) (best_width_ratio 0.9)
       (max_width 1.8) (curved_edges yes) (filter_ratio 0.8) (enabled yes)
       (allow_two_segments no) (prefer_zone_connections no))
-    (uuid "v1"))
-  (segment (start 10 10) (end 20 10) (width 0.25) (layer "F.Cu") (net 1) (uuid "t1"))
+    (uuid "aaaaaaaa-0000-4000-8000-000000000001"))
+  (segment (start 10 10) (end 20 10) (width 0.25) (layer "F.Cu") (net 1) (uuid "aaaaaaaa-0000-4000-8000-000000000002"))
 )`;
 
-const load = (text: string): Board => readBoard(parse(text));
+const load = (text: string): BOARD => ParseBoard(text);
+const via = (b: BOARD): PCB_VIA =>
+  b.Tracks().find((t) => t.Type() === KICAD_T.PCB_VIA_T)! as PCB_VIA;
 
-describe('(teardrops …) on a via', () => {
+describe('(teardrops …) on a via (parseTEARDROP_PARAMETERS)', () => {
   const board = load(SRC);
 
   it('reads every field, inverting prefer_zone_connections', () => {
-    const td = board.vias[0]!.teardrops;
+    const td = via(board).GetTeardropParams();
 
-    expect(td).toBeDefined();
-    expect(td!.enabled).toBe(true);
-    expect(td!.bestLengthRatio).toBeCloseTo(0.7);
-    expect(td!.tdMaxLen).toBe(MM(1.5));
-    expect(td!.bestWidthRatio).toBeCloseTo(0.9);
-    expect(td!.tdMaxWidth).toBe(MM(1.8));
-    expect(td!.curvedEdges).toBe(true);
-    expect(td!.widthtoSizeFilterRatio).toBeCloseTo(0.8);
-    expect(td!.allowUseTwoTracks).toBe(false);
+    expect(td.m_Enabled).toBe(true);
+    expect(td.m_BestLengthRatio).toBeCloseTo(0.7);
+    expect(td.m_TdMaxLen).toBe(MM(1.5));
+    expect(td.m_BestWidthRatio).toBeCloseTo(0.9);
+    expect(td.m_TdMaxWidth).toBe(MM(1.8));
+    expect(td.m_CurvedEdges).toBe(true);
+    expect(td.m_WidthtoSizeFilterRatio).toBeCloseTo(0.8);
+    expect(td.m_AllowUseTwoTracks).toBe(false);
     // (prefer_zone_connections no) means m_TdOnPadsInZones = true.
-    expect(td!.tdOnPadsInZones).toBe(true);
+    expect(td.m_TdOnPadsInZones).toBe(true);
   });
 
   it('fills in upstream defaults for tokens the file omits', () => {
-    const partial = load(`(kicad_pcb (version 20240108)
+    const td = via(
+      load(`(kicad_pcb (version 20240108)
       (via (at 0 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1)
         (teardrops (enabled yes)))
-    )`);
-    const td = partial.vias[0]!.teardrops!;
+    )`),
+    ).GetTeardropParams();
 
-    expect(td.enabled).toBe(true);
-    expect(td.bestLengthRatio).toBe(0.5);
-    expect(td.tdMaxLen).toBe(MM(1.0));
-    expect(td.bestWidthRatio).toBe(1.0);
-    expect(td.tdMaxWidth).toBe(MM(2.0));
-    expect(td.widthtoSizeFilterRatio).toBe(0.9);
+    expect(td.m_Enabled).toBe(true);
+    expect(td.m_BestLengthRatio).toBe(0.5);
+    expect(td.m_TdMaxLen).toBe(MM(1.0));
+    expect(td.m_BestWidthRatio).toBe(1.0);
+    expect(td.m_TdMaxWidth).toBe(MM(2.0));
+    expect(td.m_WidthtoSizeFilterRatio).toBe(0.9);
     // `parseTEARDROP_PARAMETERS` resets these two on entry (:671-672), the
     // opposite way round from the constructor: absent tokens mean "no" and
     // "yes" here, not the defaults.
-    expect(td.allowUseTwoTracks).toBe(false);
-    expect(td.tdOnPadsInZones).toBe(true);
+    expect(td.m_AllowUseTwoTracks).toBe(false);
+    expect(td.m_TdOnPadsInZones).toBe(true);
   });
 
   it('reads the legacy (curve_points …) spelling', () => {
-    const legacy = load(`(kicad_pcb (version 20240108)
+    const td = via(
+      load(`(kicad_pcb (version 20240108)
       (via (at 0 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1)
         (teardrops (curve_points 5)))
-    )`);
+    )`),
+    ).GetTeardropParams();
 
-    expect(legacy.vias[0]!.teardrops!.curvedEdges).toBe(true);
+    expect(td.m_CurvedEdges).toBe(true);
   });
 
-  it('leaves the field undefined when the token is absent', () => {
-    const plain = load(`(kicad_pcb (version 20240108)
+  it('leaves the constructor’s parameters when the token is absent', () => {
+    const td = via(
+      load(`(kicad_pcb (version 20240108)
       (via (at 0 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1))
-    )`);
+    )`),
+    ).GetTeardropParams();
 
-    expect(plain.vias[0]!.teardrops).toBeUndefined();
+    expect(td.equals(new TEARDROP_PARAMETERS())).toBe(true);
   });
 
-  it('round-trips the file untouched', () => {
-    // The via keeps its source node, so nothing is rewritten.
-    const flat = serializeBoard(board).replace(/\s+/g, ' ').replace(/ \)/g, ')');
+  it('writes the fields back', () => {
+    const flat = FormatBoard(board).replace(/\s+/g, ' ').replace(/ \)/g, ')');
     expect(flat).toContain('(best_length_ratio 0.7)');
     expect(flat).toContain('(prefer_zone_connections no)');
   });
@@ -101,9 +110,9 @@ describe('(teardrops …) on a pad', () => {
           (teardrops (enabled yes) (curved_edges yes))))
     )`);
 
-    const td = board.footprints[0]!.pads[0]!.teardrops!;
-    expect(td.enabled).toBe(true);
-    expect(td.curvedEdges).toBe(true);
+    const td = board.Footprints()[0]!.Pads()[0]!.GetTeardropParams();
+    expect(td.m_Enabled).toBe(true);
+    expect(td.m_CurvedEdges).toBe(true);
   });
 });
 
@@ -123,6 +132,10 @@ describe('(attr (teardrop (type …))) on a zone', () => {
         (fill yes) (polygon (pts (xy 0 0) (xy 5 0) (xy 5 5))))
     )`);
 
-    expect(board.zones.map((z) => z.teardropType)).toEqual(['viapad', 'trackend', undefined]);
+    expect(board.Zones().map((z) => z.GetTeardropAreaType())).toEqual([
+      TEARDROP_TYPE.TD_VIAPAD,
+      TEARDROP_TYPE.TD_TRACKEND,
+      TEARDROP_TYPE.TD_NONE,
+    ]);
   });
 });

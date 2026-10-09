@@ -17,7 +17,8 @@ import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import type { PAD } from '@ziroeda/pcbnew/pad.js';
-import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import type { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
 import type { PCB_TRACK } from '@ziroeda/pcbnew/pcb_track.js';
 import {
@@ -183,6 +184,37 @@ describe('EDIT_TOOL::Rotate (edit_tool.cpp:2226)', () => {
     h.mgr.RunAction(PCB_ACTIONS.rotateCcw);
     expect(track(h, 20).GetEnd()).toEqual(mm(10, 0));
     expect(h.sel.GetSelection().Empty()).toBe(true);
+  });
+
+  it('a lone rectangle turns about its centre, not its start (:2289-2301)', () => {
+    // "Some PCB_SHAPE must be rotated around their center instead of their
+    // start point in order to stay to the same place (at least RECT and POLY)".
+    const rect = new PCB_SHAPE(h.board, SHAPE_T.RECTANGLE);
+    rect.SetLayer(PCB_LAYER_ID.F_SilkS);
+    rect.SetStart(mm(50, 50));
+    rect.SetEnd(mm(60, 56));
+    h.board.Add(rect);
+    h.sel.AddItemToSel(rect, true);
+    h.mgr.RunAction(PCB_ACTIONS.rotateCcw);
+    // About (55, 53): the 10 x 6 box becomes 6 x 10 on the same centre.
+    expect(rect.GetCenter()).toEqual(mm(55, 53));
+    const [s, e] = [rect.GetStart(), rect.GetEnd()];
+    expect([Math.abs(e.x - s.x), Math.abs(e.y - s.y)]).toEqual([6 * MM, 10 * MM]);
+  });
+
+  it('four turns of a lone footprint put it and every pad back', () => {
+    const fp = byUuid(h.board, 1) as FOOTPRINT;
+    const at = { ...fp.GetPosition() };
+    const pads = fp.Pads().map((p) => ({ ...p.GetPosition() }));
+    for (let i = 0; i < 4; i++) {
+      select(h, 1);
+      h.mgr.RunAction(PCB_ACTIONS.rotateCcw);
+      h.mgr.RunAction(ACTIONS.selectionClear);
+      // One turn about the footprint's own anchor leaves the anchor put.
+      expect(fp.GetPosition()).toEqual(at);
+    }
+    expect(fp.GetOrientation().AsDegrees()).toBe(0);
+    expect(fp.Pads().map((p) => p.GetPosition())).toEqual(pads);
   });
 
   it('a locked item is not rotated (FilterCollectorForLockedItems)', () => {

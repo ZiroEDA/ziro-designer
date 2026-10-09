@@ -2,47 +2,72 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `FOOTPRINT_EDIT_FRAME::ImportFootprint` (`footprint_libraries_utils.cpp`),
- * the part after the file dialog: the footprint keeps its own name, a name the
- * library already has is stepped past, and a file with no footprint in it
- * imports nothing.
+ * `FOOTPRINT_EDIT_FRAME::ImportFootprint` (`footprint_libraries_utils.cpp:83-233`):
+ * a footprint file goes onto the editor's board — not into a library — named
+ * by the file's own footprint, with no library nickname until it is saved,
+ * at the origin.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  FootprintLibraryManager,
-  ImportFootprint,
-} from '@ziroeda/pcbnew/footprint_libraries_utils.js';
+import { FOOTPRINT_EDIT_FRAME } from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import { FOOTPRINT_LIBRARY_STORE } from '@ziroeda/pcbnew/footprint_library_adapter.js';
+import { SetErrorPresenter } from '@ziroeda/common/confirm.js';
+import { attachFootprintFrameCanvas } from './support/footprint_frame_canvas.js';
 
-const mod = (name: string): string =>
-  `(footprint "${name}" (version 20240108) (generator "qa") (layer "F.Cu"))`;
+const mod = (name: string): string => `(footprint "${name}" (layer "F.Cu") (at 5 7)
+  (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu")))`;
 
-const manager = (): FootprintLibraryManager => {
-  const m = new FootprintLibraryManager({
-    footprintText: () => Promise.reject(new Error('no global libraries here')),
+function frameImporting(aFile: { path: string; text: string } | null): {
+  frame: FOOTPRINT_EDIT_FRAME;
+  store: FOOTPRINT_LIBRARY_STORE;
+} {
+  const store = new FOOTPRINT_LIBRARY_STORE({
+    footprintText: () => Promise.reject(new Error('none')),
     flipLeftRight: () => false,
   });
-  m.createLibrary('Lib');
-  return m;
-};
+  store.AddProjectLibrary('Lib', 'Lib.pretty', []);
+  const frame = new FOOTPRINT_EDIT_FRAME({
+    fpEdit: () => {},
+    showImportFootprintDialog: () => Promise.resolve(aFile),
+  });
+  frame.SetFootprintLibAdapter(store);
+  attachFootprintFrameCanvas(frame);
+  return { frame, store };
+}
 
 describe('ImportFootprint', () => {
-  it('stores the footprint under its own name, marked modified', () => {
-    const m = manager();
-    expect(ImportFootprint(m, 'Lib', 'file.kicad_mod', mod('R_0805'))).toBe('R_0805');
-    expect(m.getFootprint('Lib', 'R_0805')?.lib).toBe('R_0805');
-    expect(m.isFootprintModified('Lib', 'R_0805')).toBe(true);
+  it("puts the file's footprint on the board, unnamed in any library, at the origin", async () => {
+    const { frame, store } = frameImporting({ path: 'dl/file.kicad_mod', text: mod('R_0805') });
+
+    const fp = await frame.ImportFootprint();
+
+    expect(fp).not.toBeNull();
+    expect(frame.GetBoard()!.GetFirstFootprint()).toBe(fp);
+    expect(fp!.GetFPID().GetLibNickname()).toBe('');
+    expect(fp!.GetFPID().GetLibItemName()).toBe('R_0805');
+    expect(fp!.GetPosition()).toEqual({ x: 0, y: 0 });
+    // Imported, not saved: the library is untouched.
+    expect(store.GetFootprintNames('Lib')).toEqual([]);
   });
 
-  it('steps past a name the library already holds, once per clash', () => {
-    const m = manager();
-    ImportFootprint(m, 'Lib', 'a.kicad_mod', mod('U1'));
-    expect(ImportFootprint(m, 'Lib', 'b.kicad_mod', mod('U1'))).toBe('U1_1');
-    expect(ImportFootprint(m, 'Lib', 'c.kicad_mod', mod('U1'))).toBe('U1_1_1');
+  it('a file whose footprint has no name is named for the file', async () => {
+    const { frame } = frameImporting({ path: 'dl/Fallback.kicad_mod', text: mod('') });
+
+    expect((await frame.ImportFootprint())!.GetFPID().GetLibItemName()).toBe('Fallback');
   });
 
-  it('imports nothing from a file with no footprint in it', () => {
-    const m = manager();
-    expect(ImportFootprint(m, 'Lib', 'x.kicad_mod', '(kicad_pcb (version 1))')).toBeNull();
-    expect(m.footprintNames('Lib')).toEqual([]);
+  it('a file that is not a footprint is refused with "Not a footprint file."', async () => {
+    const errors: string[] = [];
+    SetErrorPresenter((aText) => errors.push(aText));
+    const { frame } = frameImporting({ path: 'dl/notes.txt', text: 'hello' });
+
+    expect(await frame.ImportFootprint()).toBeNull();
+    expect(errors).toEqual(['Not a footprint file.']);
+    expect(frame.GetBoard()!.GetFirstFootprint()).toBeNull();
+  });
+
+  it('Cancel imports nothing', async () => {
+    const { frame } = frameImporting(null);
+
+    expect(await frame.ImportFootprint()).toBeNull();
   });
 });

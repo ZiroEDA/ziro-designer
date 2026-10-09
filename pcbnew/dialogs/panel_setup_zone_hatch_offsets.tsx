@@ -31,16 +31,62 @@
  */
 
 import type { JSX } from 'react';
-import type { ZoneLayerPropertiesMap } from '../board_settings.js';
 import { ZoneLayerPropertiesGrid } from '../zone_layer_properties_grid.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import type { BOARD } from '../board.js';
+import { ZONE_LAYER_PROPERTIES } from '../zone_settings.js';
 
-// The data model lives in board_settings.ts (KiCad's data/UI split);
-// re-exported so panel users keep importing from the panel module.
-export {
-  defaultZoneLayerProperties,
-  type ZoneLayerProperties,
-  type ZoneLayerPropertiesMap,
-} from '../board_settings.js';
+/**
+ * `ZONE_LAYER_PROPERTIES` (`pcbnew/zone_settings.h:50-55`) as a row: one
+ * `std::optional<VECTOR2I>`, and the optional is load-bearing - the writer
+ * skips a layer whose offset was never set ("Do not store the layer properties
+ * if no value is actually set", `pcb_io_kicad_sexpr.cpp:3096-3101`). Offsets
+ * are mm, as the grid shows them.
+ */
+export interface ZoneLayerProperties {
+  /** `(hatch_position (xy X Y))`. Absent = never set, and never written. */
+  hatchingOffset?: { x: number; y: number };
+}
+
+/** `BOARD_DESIGN_SETTINGS::m_ZoneLayerProperties`, keyed by canonical layer name. */
+export type ZoneLayerPropertiesMap = Record<string, ZoneLayerProperties>;
+
+/** PANEL_SETUP_ZONE_HATCH_OFFSETS's transfers (panel_setup_zone_hatch_offsets.cpp). */
+export const PANEL_SETUP_ZONE_HATCH_OFFSETS = {
+  /** A row per enabled copper layer. */
+  TransferDataToWindow(aBoard: BOARD): ZoneLayerPropertiesMap {
+    const bds = aBoard.GetDesignSettings();
+    const mm = (iu: number): number => pcbIUScale.iuToMM(iu);
+    const zlp: ZoneLayerPropertiesMap = {};
+    for (const layer of LSET.AllCuMask().UIOrder()) {
+      if (!bds.IsLayerEnabled(layer)) continue;
+      const props = bds.m_ZoneLayerProperties.get(layer);
+      zlp[LSET.Name(layer)] = props?.hatching_offset
+        ? { hatchingOffset: { x: mm(props.hatching_offset.x), y: mm(props.hatching_offset.y) } }
+        : {};
+    }
+    return zlp;
+  },
+
+  TransferDataFromWindow(v: ZoneLayerPropertiesMap, aBoard: BOARD): void {
+    const bds = aBoard.GetDesignSettings();
+    const iu = (mm: number): number => pcbIUScale.mmToIU(mm);
+    for (const [name, props] of Object.entries(v)) {
+      const layer = LSET.NameToLayer(name) as PCB_LAYER_ID;
+      if (layer < 0) continue;
+      bds.m_ZoneLayerProperties.set(
+        layer,
+        new ZONE_LAYER_PROPERTIES(
+          props.hatchingOffset
+            ? { x: iu(props.hatchingOffset.x), y: iu(props.hatchingOffset.y) }
+            : undefined,
+        ),
+      );
+    }
+  },
+};
 
 interface Props {
   /** The board's enabled copper layers, in `CuStack()` order. */

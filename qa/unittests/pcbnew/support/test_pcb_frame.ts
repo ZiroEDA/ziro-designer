@@ -6,6 +6,7 @@
  * theme and the tool manager — what a BOARD_COMMIT and a dialog's transfer
  * ask the frame for.
  */
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
@@ -20,6 +21,10 @@ export class TEST_PCB_FRAME extends PCB_BASE_EDIT_FRAME {
   readonly settings = new PCBNEW_SETTINGS();
   /** The theme, without a PGM_BASE to ask for it. */
   readonly colors = new COLOR_SETTINGS('test');
+  /** PCB_EDIT_FRAME's cross-probe guard, which BOARD_EDITOR_CONTROL reads. */
+  m_ProbingSchToPcb = false;
+  /** What BOARD_EDITOR_CONTROL::doCrossProbePcbToSch would have mailed. */
+  readonly sentToSch: { items: EDA_ITEM[]; focus: EDA_ITEM | null; force: boolean }[] = [];
 
   constructor(board: BOARD, type = FRAME_T.FRAME_PCB_EDITOR) {
     super(type);
@@ -39,6 +44,14 @@ export class TEST_PCB_FRAME extends PCB_BASE_EDIT_FRAME {
   }
   override GetColorSettings(): COLOR_SETTINGS {
     return this.colors;
+  }
+  /** `PCB_EDIT_FRAME::SendSelectItemsToSch`, recorded: there is no schematic. */
+  SendSelectItemsToSch(
+    aItems: Iterable<EDA_ITEM>,
+    aFocusItem: EDA_ITEM | null,
+    aForce: boolean,
+  ): void {
+    this.sentToSch.push({ items: [...aItems], focus: aFocusItem, force: aForce });
   }
   GetFootprintEditorSettings(): FOOTPRINT_EDITOR_SETTINGS_LIKE {
     return {

@@ -84,7 +84,7 @@ export interface Viewer3D {
    * `reload()` runs. The camera, grid, selection and rollover survive.
    */
   reload: (
-    board: import('@ziroeda/pcbnew').Board,
+    board: import('@ziroeda/pcbnew/board.js').BOARD,
     stackup: import('./board_adapter_colors.js').StackupColors | undefined,
     render: Viewer3dRenderOptions,
     projectFiles?: { name: string; text: string }[],
@@ -154,8 +154,6 @@ export interface Viewer3dRenderOptions {
   };
   /** `GetLayerColors()` as the pane resolved it (preset, stackup, swatches). */
   layerColors?: ReadonlyMap<string, import('@ziroeda/common/gal/color4d.js').Color4d>;
-  /** `GetNetClass()->GetHumanReadableName()` by net code, for the HOVERED_ITEM pane. */
-  netClassOf?: (net: number) => string;
   /**
    * `EDA_3D_VIEWER_SETTINGS::m_UseStackupColors` — the appearance panel's
    * "Use board stackup colors". Stored true, but the first open of the frame
@@ -213,24 +211,10 @@ export interface Viewer3dCameraOptions {
 }
 
 /**
- * The stackup fields `board_adapter_colors.ts`'s `stackupColors` reads —
- * structurally the same shape as `designer/`'s real `PhysicalStackup` /
- * `BoardFinish` (`editors/pcb/board_settings.ts`, the Board Setup dialog's
- * data model), which this package never imports. The app passes its real
- * board settings object straight through `Viewer3DFrame`'s `stackup` /
- * `boardFinish` props; TypeScript's structural typing accepts it here because
- * every field this package reads is present on the real type too.
+ * What a frame hands the 3D viewer: the BOARD to show, wrapped so that a new
+ * handle means "the board changed" (`EDA_3D_VIEWER_FRAME::NewDisplay`) while
+ * the BOARD itself stays the one model.
  */
-export interface StackupLayer3D {
-  name: string;
-  type: string;
-  color: string;
-}
-
-export interface PhysicalStackup {
-  layers: readonly StackupLayer3D[];
-}
-
-export interface BoardFinish {
-  copperFinish: string;
+export interface BOARD_3D_HANDLE {
+  readonly k: import('@ziroeda/pcbnew/board.js').BOARD;
 }

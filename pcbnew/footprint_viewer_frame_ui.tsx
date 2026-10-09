@@ -32,8 +32,17 @@
  * The 5 is a border with no direction flag, so it is no border at all: the
  * filter and the list run edge to edge.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
-import { PCB_IU_PER_MM, pcbIuToMM } from '@ziroeda/common/eda_units.js';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  type JSX,
+  type ReactNode,
+} from 'react';
+import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { FOOTPRINT_INFO_IMPL, type FootprintIndexLibrary } from './footprint_info_impl.js';
@@ -41,10 +50,12 @@ import type { FOOTPRINT_INFO } from '@ziroeda/common/footprint_info.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { MenuBar } from '@ziroeda/common/tool/action_menu_bar.js';
 import { useMenuHotkeys } from '@ziroeda/common/tool/use_menu_hotkeys.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { wasBrowserSuppressed } from '@ziroeda/common/browser_hotkeys.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
-import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
+import { KISTATUSBAR_FIELDS, KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import {
   WxListBox,
@@ -56,7 +67,9 @@ import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { useDocumentTitle } from '@ziroeda/common/use_document_title.js';
-import type { CrosshairMode, GridStyle } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import type { GridStyle } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import { GRID_STYLE } from '@ziroeda/common/gal/gal_display_options.js';
+import type { COMMON_SETTINGS_LIKE } from '@ziroeda/common/pgm_base.js';
 import {
   EDIT_GRIDS_LABEL,
   GRID_LIST_SEPARATOR,
@@ -67,23 +80,17 @@ import {
 } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { ZOOM_LIST, zoomChoices } from '@ziroeda/common/settings/zoom_settings.js';
 import {
-  coordsMsg,
-  deltasMsg,
-  gridMsg,
-  messageTextFromValue,
-  polarMsg,
-  scaleForZoomFactor,
-  unitsMsg,
   zoomFactorForScale,
-  zoomMsg,
   type StatusUnits,
 } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { FootprintCanvas, type FootprintCanvasController } from './pcb_draw_panel_gal_ui.js';
-import { footprintToBoard } from './footprint_edit_frame.js';
-import { DEFAULT_DRAW_OPTIONS } from './renderBoard.js';
-import { footprintMsgPanelInfo } from './msg_panel.js';
-import type { Board, PcbFootprint } from './types.js';
+import type { BOARD } from './board.js';
+import {
+  FOOTPRINT_LIBRARY_STORE,
+  type FOOTPRINT_LIBRARY_STORE_IO,
+} from './footprint_library_adapter.js';
+import { usePcbDrawPanel } from './browser/pcb_draw_panel_gal_host.js';
 import type { FOOTPRINT_VIEWER_JSON_SETTINGS } from './pcbnew_settings.js';
+import { PCB_ACTIONS } from './tools/pcb_actions.js';
 import {
   FOOTPRINT_VIEWER_FRAME,
   FPVIEWER_CONSTANTS,
@@ -119,8 +126,12 @@ import './footprint_viewer_frame_ui.css';
 export interface FOOTPRINT_VIEWER_FRAME_APP {
   /** The hosted library index: `FOOTPRINT_LIBRARY_ADAPTER::GetLibraryNames` and the footprints of each. */
   loadFootprintIndex(): Promise<readonly FootprintIndexLibrary[]>;
-  /** `FOOTPRINT_LIBRARY_ADAPTER::LoadFootprint( nickname, name )`, by LIB_ID text. */
-  loadFootprint(libId: string): Promise<PcbFootprint | null>;
+  /** FOOTPRINT_LIBRARY_STORE's storage: where a hosted footprint's file comes from. */
+  libraryIo: Pick<FOOTPRINT_LIBRARY_STORE_IO, 'footprintText' | 'flipLeftRight'>;
+  /** `Pgm()`, installed before the canvas is built. */
+  installPgm(): void;
+  /** `Pgm().GetCommonSettings()`, which the GAL display options read. */
+  commonSettingsOf(): COMMON_SETTINGS_LIKE;
   /** `LIBRARY_MANAGER::GetFullURI( FOOTPRINT, nickname, true )`, null when unresolved. */
   libraryUri(nickname: string): string | null;
   /** `COMMON_SETTINGS::m_Session.pinned_fp_libs`. */
@@ -146,7 +157,7 @@ export interface FOOTPRINT_VIEWER_FRAME_APP {
   LibraryLoadingPanel(props: { label: string; fallback: JSX.Element | null }): ReactNode;
   /** `EDA_3D_VIEWER_FRAME`, reached through `PCB_VIEWER_TOOLS::Show3DViewer`. */
   Viewer3DFrame(props: {
-    board: Board;
+    board: BOARD;
     title: string;
     backLabel: string;
     imageBaseName: string;
@@ -200,6 +211,8 @@ export function FootprintViewerFrame({
   onClose,
   onExitToHome,
 }: FootprintViewerFrameProps): JSX.Element {
+  const [, repaint] = useReducer((n: number) => n + 1, 0);
+
   // ----- the two lists (ReCreateLibraryList / ReCreateFootprintList) ------
 
   const [index, setIndex] = useState<readonly FootprintIndexLibrary[] | null>(null);
@@ -209,18 +222,32 @@ export function FootprintViewerFrame({
   const [curFootprintName, setCurFootprintNameState] = useState('');
   const [libSel, setLibSel] = useState(wxNOT_FOUND);
   const [fpSel, setFpSel] = useState(wxNOT_FOUND);
-  /** `GetBoard()->GetFirstFootprint()` and the LIB_ID it was loaded as. */
-  const [shown, setShown] = useState<{ fpid: string; footprint: PcbFootprint } | null>(null);
 
-  const [frame] = useState(
+  /** `PROJECT_PCB::FootprintLibAdapter( &Prj() )`: the hosted libraries, read on demand. */
+  const [store] = useState(
     () =>
-      new FOOTPRINT_VIEWER_FRAME({
-        reCreateLibraryList: () => reloadIndexRef.current(),
-        getFirstFootprint: () => shownRef.current,
+      new FOOTPRINT_LIBRARY_STORE({
+        footprintText: (n, f) => app.libraryIo.footprintText(n, f),
+        flipLeftRight: () => app.libraryIo.flipLeftRight(),
       }),
   );
-  const shownRef = useRef(shown);
-  shownRef.current = shown;
+
+  const [frame] = useState(() => {
+    const f = new FOOTPRINT_VIEWER_FRAME({
+      reCreateLibraryList: () => reloadIndexRef.current(),
+      selectAndViewFootprint: (aMode) => selectAndViewFootprintRef.current(aMode),
+    });
+    f.SetFootprintLibAdapter(store);
+
+    // `GetGalDisplayOptions().ReadWindowSettings( … )`: the grid's look.
+    const grid = app.galGridOptions();
+    const gal = f.GetGalDisplayOptions();
+    gal.m_gridStyle = GRID_STYLE_OF[grid.style];
+    gal.m_gridLineWidth = grid.lineWidthPx;
+    gal.m_gridMinSpacing = grid.minSpacingPx;
+
+    return f;
+  });
 
   const setCurNickname = useCallback(
     (aNickname: string) => {
@@ -247,9 +274,12 @@ export function FootprintViewerFrame({
   const reloadIndex = useCallback(() => {
     app
       .loadFootprintIndex()
-      .then(setIndex)
+      .then((idx) => {
+        for (const lib of idx) store.AddGlobalLibrary(lib.name, lib.footprints);
+        setIndex(idx);
+      })
       .catch(() => setIndex([]));
-  }, [app]);
+  }, [app, store]);
   const reloadIndexRef = useRef(reloadIndex);
   reloadIndexRef.current = reloadIndex;
   useEffect(reloadIndex, [reloadIndex]);
@@ -302,8 +332,8 @@ export function FootprintViewerFrame({
   );
 
   /**
-   * `SelectAndViewFootprint( aMode )`: select the row, remember the name, and
-   * load the footprint onto the board.
+   * The list half of `SelectAndViewFootprint( aMode )`: select the row and
+   * remember the name; the effect below has the frame load it onto its board.
    */
   const selectAndViewFootprint = useCallback(
     (aMode: FPVIEWER_CONSTANTS, aCurrent = frame.getCurFootprintName()) => {
@@ -316,6 +346,8 @@ export function FootprintViewerFrame({
     },
     [frame, fpRows, setCurFootprintName],
   );
+  const selectAndViewFootprintRef = useRef(selectAndViewFootprint);
+  selectAndViewFootprintRef.current = selectAndViewFootprint;
 
   /** `ClickOnFootprintList`: a different name is viewed (`CmpNoCase`). */
   const clickOnFootprintList = useCallback(
@@ -360,122 +392,134 @@ export function FootprintViewerFrame({
     }
   }, [fpRows, index]);
 
-  // `LoadFootprint( nickname, name )` whenever the name on show changes.
+  // ----- the canvas (PCB_DRAW_PANEL_GAL) --------------------------------------
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const panel = usePcbDrawPanel(frame, canvasRef, {
+    installPgm: () => app.installPgm(),
+    commonSettings: () => app.commonSettingsOf(),
+  });
+
+  // The board half of `SelectAndViewFootprint`, whenever the name on show changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the two names are the trigger; the frame reads them itself
   useEffect(() => {
-    if (curNickname === '' || curFootprintName === '') {
-      setShown(null);
-      return;
-    }
-    let cancelled = false;
-    const fpid = `${curNickname}:${curFootprintName}`;
-    void app.loadFootprint(fpid).then((fp) => {
-      if (!cancelled) setShown(fp ? { fpid, footprint: fp } : null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [app, curNickname, curFootprintName]);
-
-  // ----- the canvas and its toolbars ---------------------------------------
-
-  const controller = useRef<FootprintCanvasController>(null);
-  const cfg = app.footprintViewerSettings();
-  const [autoZoom, setAutoZoom] = useState(cfg.autozoom);
-  const [gridIdx, setGridIdx] = useState(cfg.grid.last_size_idx);
-  const [crosshair, setCrosshair] = useState<CrosshairMode>(cfg.cursor.crosshair);
-  const [padNumbers, setPadNumbersState] = useState(app.padNumbers());
-  /**
-   * The three sketch toggles and the rest of the left bar's check items.
-   * `toggleGrid` starts on (`window.grid.show`, default true), and Units starts
-   * on millimetres, `EDA_UNITS::MM` being the default `system.units`.
-   */
-  const [toggles, setToggles] = useState<ReadonlySet<string>>(
-    () => new Set(['toggleGrid', 'unitsMm']),
-  );
-  /** `cond.CurrentTool( … )`: selection, measure or the zoom-area tool. */
-  const [activeTool, setActiveTool] = useState('selectionTool');
-  const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
-  const [scale, setScale] = useState(0);
-  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
-  const [show3D, setShow3D] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
-
-  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-  const allLayers = useMemo<ReadonlySet<string>>(
-    () => new Set(footprintToBoard(null).layers.map((l) => l.name)),
-    [],
-  );
-  const board = useMemo(() => footprintToBoard(shown?.footprint ?? null), [shown]);
+    void frame.ViewFootprint().then(repaint);
+  }, [frame, curNickname, curFootprintName]);
 
   /**
-   * `updateView()` (`:1063-1079`): `zoomFitScreen` with automatic zoom on,
-   * `centerContents` with it off. The first time, with it off, the view first
-   * takes the zoom the last session left (`SetScale( m_FootprintViewerZoom )`).
+   * The constructor's tail once the canvas exists: "Restore last zoom" —
+   * `SetScale( m_FootprintViewerZoom )` — then `updateView()`, which auto-zooms
+   * or centres.
    */
-  const restoredZoom = useRef(false);
-  const onFootprintChange = useCallback(() => {
-    setSelection(new Set());
-    if (autoZoom) {
-      controller.current?.zoomToFit();
-      return;
-    }
-    if (!restoredZoom.current) {
-      restoredZoom.current = true;
-      const z = app.footprintViewerSettings().zoom;
-      if (z > 0) controller.current?.setScale(z);
-    }
-    controller.current?.centerContents();
-  }, [autoZoom, app]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the panel is the trigger; the settings are read once, as the constructor does
+  useEffect(() => {
+    if (!panel) return;
+    const z = app.footprintViewerSettings().zoom;
+    if (z > 0) panel.GetView().SetScale(z);
+    frame.updateView();
+    repaint();
+  }, [panel]);
 
   // SaveSettings on close: `m_FootprintViewerZoom = GetView()->GetScale()`.
-  const scaleRef = useRef(scale);
-  scaleRef.current = scale;
   useEffect(
     () => () => {
-      if (scaleRef.current > 0)
+      const scale = panel?.GetView().GetScale() ?? 0;
+      if (scale > 0)
         app.updateFootprintViewerSettings((s) => {
-          s.zoom = scaleRef.current;
+          s.zoom = scale;
         });
     },
-    [app],
+    [app, panel],
   );
+
+  // The frame's status bar and message panel.
+  const statusRefs = useRef<Record<string, HTMLSpanElement | null>>({});
+  const [msgItems, setMsgItems] = useState<MsgPanelItem[]>([]);
+  const [activeTool, setActiveTool] = useState('selectionTool');
+  useEffect(() => {
+    frame.SetStatusTextSink((aText, aField) => {
+      const name = KISTATUSBAR_FIELDS[aField];
+      const el = name ? statusRefs.current[name] : null;
+      if (el) el.textContent = aText;
+    });
+    frame.SetMsgPanelSink((aItems) =>
+      setMsgItems(aItems.map((i) => ({ upper: i.GetUpperText(), lower: i.GetLowerText() }))),
+    );
+    // `ACTION_TOOLBAR::SelectAction`: the button whose action the tool runs.
+    frame.SetSelectToolbarActionSink((aAction) => {
+      for (const id of ['selectionTool', 'measureTool', 'zoomTool']) {
+        if (actionForId(id) === aAction) setActiveTool(id);
+      }
+    });
+    return () => {
+      frame.SetStatusTextSink(null);
+      frame.SetMsgPanelSink(null);
+      frame.SetSelectToolbarActionSink(null);
+    };
+  }, [frame]);
+  const statusSpan = (name: string): JSX.Element => (
+    <span
+      ref={(el) => {
+        statusRefs.current[name] = el;
+      }}
+    />
+  );
+
+  /** `TOOL_MANAGER::RunAction`, as a menu row or a toolbar button runs it. */
+  const runAction = useCallback(
+    (aAction: TOOL_ACTION) => {
+      frame.GetToolManager()?.RunAction(aAction);
+      repaint();
+    },
+    [frame],
+  );
+
+  const cfg = app.footprintViewerSettings();
+  const [gridIdx, setGridIdx] = useState(cfg.grid.last_size_idx);
+  /**
+   * The sketch toggles and the rest of the left bar's check items. Units
+   * start on millimetres, `EDA_UNITS::MM` being the default `system.units`,
+   * and the crosshair on what the last session left.
+   */
+  const [toggles, setToggles] = useState<ReadonlySet<string>>(
+    () =>
+      new Set([
+        'toggleGrid',
+        'unitsMm',
+        cfg.cursor.crosshair === 'full'
+          ? 'crosshairFull'
+          : cfg.cursor.crosshair === '45'
+            ? 'crosshair45'
+            : 'crosshairSmall',
+        ...(app.padNumbers() ? ['showPadNumbers'] : []),
+      ]),
+  );
+  const [show3D, setShow3D] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const unitLabel: StatusUnits = toggles.has('unitsInches')
     ? 'in'
     : toggles.has('unitsMils')
       ? 'mils'
       : 'mm';
-  const fmt = (iu: number): string => messageTextFromValue(pcbIuToMM(iu), unitLabel, PCB_IU_PER_MM);
   const gridIU = FPVIEWER_GRIDS[gridIdx] ?? FPVIEWER_GRIDS[DEFAULT_GRID_INDEX.pcbnew] ?? 0;
-  const zoomFactor = zoomFactorForScale(scale, dpr, PCB_IU_PER_MM);
+
+  // `GAL::SetGridSize` / `SetGridOrigin`: the grid the combo picked.
+  useEffect(() => {
+    const board = frame.GetBoard();
+    if (!panel || !board) return;
+    const gal = panel.GetGAL();
+    gal.SetGridSize({ x: gridIU, y: gridIU });
+    gal.SetGridOrigin(board.GetDesignSettings().GetGridOrigin());
+    panel.Refresh();
+  }, [frame, panel, gridIU]);
+
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  const zoomFactor = zoomFactorForScale(panel?.GetView().GetScale() ?? 0, dpr, PCB_IU_PER_MM);
   const zoom = useMemo(() => zoomChoices(zoomFactor, ZOOM_LIST[ZOOM_APP]), [zoomFactor]);
-  const gal = app.galGridOptions();
 
-  const drawOpts = useMemo(
-    () => ({
-      ...DEFAULT_DRAW_OPTIONS,
-      // One footprint on an FPHOLDER board: there is no page to draw.
-      drawingSheet: false,
-      padFill: !toggles.has('padDisplayMode'),
-      padNumbers,
-      textFill: !toggles.has('textOutlines'),
-      graphicFill: !toggles.has('graphicsOutlines'),
-      // Clearance outlines are drawn on the clearance layers only, which this
-      // frame never enables; and it zeroes the default netclass clearance and
-      // the board solder-mask expansion besides (`:199-205`).
-      padClearance: false,
-    }),
-    [toggles, padNumbers],
-  );
-
-  /** `UpdateMsgPanel()`: `FOOTPRINT::GetMsgPanelInfo` of the footprint on show. */
-  const msgPanelItems = useMemo<MsgPanelItem[]>(() => {
-    if (!shown) return [];
-    return footprintMsgPanelInfo(
-      { board, units: unitLabel, frame: 'footprint_viewer' },
-      shown.footprint,
-    );
-  }, [shown, board, unitLabel]);
+  const shown = frame.GetBoard()?.GetFirstFootprint() ?? null;
+  const autoZoom = frame.GetPcbNewSettings().m_FootprintViewerAutoZoomOnSelect;
 
   /** `AddFootprintToPCB()` — double click, Enter, and the toolbar button. */
   const addFootprintToPCB = useCallback(() => {
@@ -484,40 +528,14 @@ export function FootprintViewerFrame({
 
   const onTopAction = (id: string): void => {
     switch (id) {
-      // `PCB_CONTROL::IterateFootprint` -> `SelectAndViewFootprint( parameter )`.
-      case 'previousFootprint':
-        selectAndViewFootprint(FPVIEWER_CONSTANTS.PREVIOUS_PART);
-        break;
-      case 'nextFootprint':
-        selectAndViewFootprint(FPVIEWER_CONSTANTS.NEXT_PART);
-        break;
-      case 'zoomRedraw':
-        controller.current?.redraw();
-        break;
-      case 'zoomInCenter':
-        controller.current?.zoomIn();
-        break;
-      case 'zoomOutCenter':
-        controller.current?.zoomOut();
-        break;
-      case 'zoomFitScreen':
-        controller.current?.zoomToFit();
-        break;
-      case 'zoomTool':
-        setActiveTool((t) => (t === 'zoomTool' ? 'selectionTool' : 'zoomTool'));
-        break;
       // `PCB_VIEWER_TOOLS::Show3DViewer`, over `CreateAndShow3D_Frame()`.
       case 'show3DViewer':
         setShow3D(true);
-        break;
-      // `PCB_CONTROL::SaveFpToBoard` -> `AddFootprintToPCB()` for this frame.
-      case 'saveFpToBoard':
-        addFootprintToPCB();
-        break;
-      // `PCB_VIEWER_TOOLS::FootprintAutoZoom` flips the setting itself.
+        return;
+      // `PCB_VIEWER_TOOLS::FootprintAutoZoom` flips the setting; SaveSettings
+      // writes it.
       case 'fpAutoZoom': {
         const next = !autoZoom;
-        setAutoZoom(next);
         app.updateFootprintViewerSettings((s) => {
           s.autozoom = next;
         });
@@ -526,35 +544,33 @@ export function FootprintViewerFrame({
       default:
         break;
     }
+
+    const action = actionForId(id);
+    if (action) runAction(action);
   };
 
   const onLeftAction = (id: string): void => {
-    if (id === 'selectionTool' || id === 'measureTool') {
-      setActiveTool(id);
-      return;
-    }
     if (id.startsWith('crosshair')) {
-      const mode: CrosshairMode =
-        id === 'crosshairFull' ? 'full' : id === 'crosshair45' ? '45' : 'small';
-      setCrosshair(mode);
+      const mode = id === 'crosshairFull' ? 'full' : id === 'crosshair45' ? '45' : 'small';
       // `GAL_DISPLAY_OPTIONS::WriteConfig( *window )` on SaveSettings.
       app.updateFootprintViewerSettings((s) => {
         s.cursor.crosshair = mode;
       });
-      return;
     }
-    if (id === 'showPadNumbers') {
-      const next = !padNumbers;
-      setPadNumbersState(next);
-      app.setPadNumbers(next);
-      return;
-    }
+    if (id === 'showPadNumbers') app.setPadNumbers(!toggles.has('showPadNumbers'));
+
+    const action = actionForId(id);
+    if (action) runAction(action);
+
+    if (id === 'selectionTool' || id === 'measureTool') return;
+
     setToggles((prev) => {
       const next = new Set(prev);
-      if (id.startsWith('units')) {
-        next.delete('unitsMm');
-        next.delete('unitsInches');
-        next.delete('unitsMils');
+      if (id.startsWith('units') || id.startsWith('crosshair')) {
+        const group = id.startsWith('units')
+          ? ['unitsMm', 'unitsInches', 'unitsMils']
+          : ['crosshairSmall', 'crosshairFull', 'crosshair45'];
+        for (const g of group) next.delete(g);
         next.add(id);
       } else if (!next.delete(id)) {
         next.add(id);
@@ -567,17 +583,9 @@ export function FootprintViewerFrame({
   const lit = useMemo(() => {
     const on = new Set(toggles);
     on.add(activeTool);
-    if (padNumbers) on.add('showPadNumbers');
     if (autoZoom) on.add('fpAutoZoom');
-    on.add(
-      crosshair === 'full'
-        ? 'crosshairFull'
-        : crosshair === '45'
-          ? 'crosshair45'
-          : 'crosshairSmall',
-    );
     return on;
-  }, [toggles, activeTool, padNumbers, autoZoom, crosshair]);
+  }, [toggles, activeTool, autoZoom]);
 
   /** `saveFpToBoard`'s ENABLE: `GetBoard()->GetFirstFootprint() != nullptr`. */
   const topDisabled = useMemo(
@@ -730,12 +738,12 @@ export function FootprintViewerFrame({
               value={String(zoom.selected)}
               options={zoom.choices.map((c, i) => ({ value: String(i), label: c.label }))}
               onChange={(v) => {
+                // `EDA_DRAW_FRAME::OnSelectZoom`: `RunAction( ACTIONS::zoomPreset, id )`.
                 const preset = zoom.choices[Number(v)]?.preset;
-                if (preset === 0) controller.current?.zoomToFit();
-                else if (preset != null)
-                  controller.current?.setScale(
-                    scaleForZoomFactor(ZOOM_LIST[ZOOM_APP][preset - 1] ?? 1, dpr, PCB_IU_PER_MM),
-                  );
+                if (preset != null) {
+                  frame.GetToolManager()?.RunAction(ACTIONS.zoomPreset, preset);
+                  repaint();
+                }
               }}
             />
           ),
@@ -813,69 +821,24 @@ export function FootprintViewerFrame({
           onResize={onFpResize}
         />
 
-        {/* AUI pane "DrawFrame" */}
+        {/* AUI pane "DrawFrame": `PCB_DRAW_PANEL_GAL`, which takes the canvas's
+            events itself through WX_VIEW_CONTROLS and the frame's TOOL_DISPATCHER. */}
         <div className="ze-fpviewer-canvas" data-testid="fpviewer-canvas">
-          <FootprintCanvas
-            ref={controller}
-            footprint={shown?.footprint ?? null}
-            visible={allLayers}
-            drawOpts={drawOpts}
-            selection={selection}
-            showGrid={toggles.has('toggleGrid')}
-            crosshairMode={crosshair}
-            // `cursor.always_show_cursor = true`: "we don't allow people to
-            // change this right now, so make sure it's on" (`LoadSettings`).
-            alwaysShowCursor
-            gridStyle={gal.style}
-            gridLineWidthPx={gal.lineWidthPx}
-            gridMinSpacingPx={gal.minSpacingPx}
-            gridIU={gridIU}
-            activeTool={
-              activeTool === 'zoomTool' || activeTool === 'measureTool'
-                ? activeTool
-                : 'selectSetRect'
-            }
-            measureUnits={unitLabel}
-            fitFrame="footprint_viewer"
-            onFootprintChange={onFootprintChange}
-            onZoomAreaApplied={() => setActiveTool('selectionTool')}
-            onCursorMove={setCursor}
-            onScaleChange={setScale}
-            onSelect={(id, additive) =>
-              setSelection((prev) => {
-                if (!id) return additive ? prev : new Set();
-                const next = new Set(additive ? prev : []);
-                if (additive && next.has(id)) next.delete(id);
-                else next.add(id);
-                return next;
-              })
-            }
-            onSelectBox={(ids, additive) =>
-              setSelection((prev) => new Set([...(additive ? prev : []), ...ids]))
-            }
-          />
+          <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, outline: 'none' }} />
         </div>
       </div>
 
-      <MsgPanel items={msgPanelItems} testId="fpviewer-message-panel" />
+      <MsgPanel items={msgItems} testId="fpviewer-message-panel" />
 
       <KiStatusBar
         testIds={{ message: 'fpviewer-status-msg', coords: 'fpviewer-coords' }}
         fields={{
-          zoom: zoomMsg(zoomFactor),
-          coords: cursor ? coordsMsg(fmt(cursor.x), fmt(cursor.y)) : coordsMsg(null),
-          deltas: cursor
-            ? toggles.has('togglePolarCoords')
-              ? polarMsg(
-                  fmt(Math.hypot(cursor.x, cursor.y)),
-                  (Math.atan2(-cursor.y, cursor.x) * 180) / Math.PI,
-                )
-              : deltasMsg(fmt(cursor.x), fmt(cursor.y), fmt(Math.hypot(cursor.x, cursor.y)))
-            : toggles.has('togglePolarCoords')
-              ? polarMsg(null)
-              : deltasMsg(null),
-          grid: gridMsg(fmt(gridIU)),
-          units: unitsMsg(unitLabel),
+          message: statusSpan('message'),
+          zoom: statusSpan('zoom'),
+          coords: statusSpan('coords'),
+          deltas: statusSpan('deltas'),
+          grid: statusSpan('grid'),
+          units: statusSpan('units'),
         }}
       />
 
@@ -883,7 +846,7 @@ export function FootprintViewerFrame({
       {show3D &&
         shown &&
         app.Viewer3DFrame({
-          board,
+          board: frame.GetBoard()!,
           title: `3D Viewer — ${curFootprintName}`,
           backLabel: '← Footprint Library Browser',
           imageBaseName: curFootprintName || 'footprint',
@@ -895,4 +858,38 @@ export function FootprintViewerFrame({
       )}
     </div>
   );
+}
+
+/** The app's grid style names, as GAL_DISPLAY_OPTIONS stores them. */
+const GRID_STYLE_OF: Readonly<Record<GridStyle, GRID_STYLE>> = {
+  dots: GRID_STYLE.DOTS,
+  lines: GRID_STYLE.LINES,
+  crosses: GRID_STYLE.SMALL_CROSS,
+};
+
+/**
+ * The toolbar and menu ids this window's bars carry that are not the
+ * TOOL_ACTION's own name. Every other id is `PCB_ACTIONS[id]` or `ACTIONS[id]`.
+ */
+const ACTION_ALIASES: Readonly<Record<string, TOOL_ACTION>> = {
+  unitsInches: ACTIONS.inchesUnits,
+  unitsMils: ACTIONS.milsUnits,
+  unitsMm: ACTIONS.millimetersUnits,
+  crosshairSmall: ACTIONS.cursorSmallCrosshairs,
+  crosshairFull: ACTIONS.cursorFullCrosshairs,
+  crosshair45: ACTIONS.cursor45Crosshairs,
+};
+
+/** The TOOL_ACTION a toolbar or menu id runs, or null for a window-only row. */
+function actionForId(aId: string): TOOL_ACTION | null {
+  const alias = ACTION_ALIASES[aId];
+  if (alias) return alias;
+
+  const pcb = (PCB_ACTIONS as unknown as Record<string, unknown>)[aId];
+  if (pcb && typeof pcb === 'object' && 'MakeEvent' in pcb) return pcb as TOOL_ACTION;
+
+  const common = (ACTIONS as unknown as Record<string, unknown>)[aId];
+  if (common && typeof common === 'object' && 'MakeEvent' in common) return common as TOOL_ACTION;
+
+  return null;
 }

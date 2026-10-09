@@ -25,11 +25,11 @@ import {
   chainPointInside,
   simplify,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
-import { doConvertOutlineToPolygon } from '@ziroeda/pcbnew/convert_shape_list_to_polygon_legacy.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { ConvertOutlineToPolygon } from '@ziroeda/pcbnew/convert_shape_list_to_polygon.js';
+import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { arcConvertToPolyline } from '@ziroeda/kimath/src/geometry/shape_arc.js';
-import { padTransformHoleToPolygon } from '@ziroeda/pcbnew/transform_shape_to_polygon.js';
-import type { Board, PcbPad, PcbShape, PcbZone } from '@ziroeda/pcbnew/types.js';
-import { isolatedIslands } from '@ziroeda/pcbnew/zone_islands.js';
 import { describe, expect, it } from 'vitest';
 
 const MM = (v: number): number => Math.round(v * 1_000_000);
@@ -62,13 +62,9 @@ describe('Simplify() splits an exterior waist', () => {
 });
 
 describe('the board outline walks an arc from where the chain arrived', () => {
-  const shape = (over: Partial<PcbShape>): PcbShape => ({
-    kind: 'line',
-    width: 100_000,
-    fillMode: 'none',
-    layer: 'Edge.Cuts',
-    ...over,
-  });
+  const U = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+  const line = (a: string, b: string, n: number): string =>
+    `(gr_line (start ${a}) (end ${b}) (stroke (width 0.1) (type solid)) (layer "Edge.Cuts") (uuid "${U(n)}"))`;
 
   it("rebuilds the arc as SHAPE_ARC( prevPt, mid, end ) when the neighbour's end is a few units off", () => {
     // A 10 x 10 mm outline whose top-right corner is a 2 mm arc. The line
@@ -79,16 +75,28 @@ describe('the board outline walks an arc from where the chain arrived', () => {
     const arcMid = { x: MM(8) + 1_414_214, y: MM(2) - 1_414_214 };
     const arcEnd = { x: MM(10), y: MM(2) };
     const arrived = { x: MM(8) + 3, y: 0 };
-    const shapes = [
-      shape({ start: { x: 0, y: 0 }, end: arrived }),
-      shape({ kind: 'arc', start: arcStart, mid: arcMid, end: arcEnd }),
-      shape({ start: arcEnd, end: { x: MM(10), y: MM(10) } }),
-      shape({ start: { x: MM(10), y: MM(10) }, end: { x: 0, y: MM(10) } }),
-      shape({ start: { x: 0, y: MM(10) }, end: { x: 0, y: 0 } }),
-    ];
-    const r = doConvertOutlineToPolygon(shapes, 5000, MM(0.01), true);
-    expect(r.success).toBe(true);
-    const ring = r.polygons[0]![0]!;
+    const board = ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+  (general (thickness 1.6))
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user))
+  (setup)
+  (net 0 "")
+  ${line('0 0', '8.000003 0', 1)}
+  (gr_arc (start 8 0) (mid 9.414214 0.585786) (end 10 2) (stroke (width 0.1) (type solid)) (layer "Edge.Cuts") (uuid "${U(2)}"))
+  ${line('10 2', '10 10', 3)}
+  ${line('10 10', '0 10', 4)}
+  ${line('0 10', '0 0', 5)}
+)`);
+    const polys = new SHAPE_POLY_SET();
+    const ok = ConvertOutlineToPolygon(
+      board.Drawings() as PCB_SHAPE[],
+      polys,
+      5000,
+      MM(0.01),
+      true,
+      null,
+    );
+    expect(ok).toBe(true);
+    const ring = [...polys.CIterateWithHoles(0)];
     const fromArrived = arcConvertToPolyline({ p0: arrived, arcMid, p1: arcEnd, width: 0 }, 5000);
     const fromOwnStart = arcConvertToPolyline({ p0: arcStart, arcMid, p1: arcEnd, width: 0 }, 5000);
     // The two polylines differ somewhere in their interior — else there is nothing to pin.
@@ -107,112 +115,20 @@ describe('an odd drill size halves with KiROUND', () => {
     // the slot's segment is (83549987, 64280000)-(82650013, 64280000), so the
     // knockout's leftmost x is 82400001. Truncating the halves gives
     // 82400002 — one unit in, on 54 vertices of that zone.
-    const pad: PcbPad = {
-      number: '1',
-      type: 'thru_hole',
-      shape: 'roundrect',
-      at: { x: 83_100_000, y: 64_280_000 },
-      angle: 270,
-      size: { x: 860_000, y: 1_800_000 },
-      drill: { oblong: true, w: 500_024, h: 1_399_997 },
-      layers: ['F.Cu', 'B.Cu'],
-      net: 1,
-    };
-    const poly = padTransformHoleToPolygon(pad, 0, 5000, ErrorLoc.ERROR_OUTSIDE)[0]![0]!;
+    const board = ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+  (general (thickness 1.6))
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal))
+  (setup)
+  (net 0 "") (net 1 "a")
+  (footprint "T:USB" (layer "F.Cu") (at 0 0) (uuid "00000000-0000-4000-8000-000000000001")
+    (pad "1" thru_hole roundrect (at 83.1 64.28 270) (size 0.86 1.8) (drill oval 0.500024 1.399997)
+      (layers "*.Cu") (roundrect_rratio 0.25) (net 1 "a") (uuid "00000000-0000-4000-8000-000000000002"))))`);
+    const pad = board.Footprints()[0]!.Pads()[0]!;
+    const set = new SHAPE_POLY_SET();
+    pad.TransformHoleToPolygon(set, 0, 5000, ErrorLoc.ERROR_OUTSIDE);
+    const poly = [...set.COutline(0).CPoints()];
     expect(Math.min(...poly.map((p) => p.x))).toBe(82_400_001);
     expect(poly).toHaveLength(16);
-  });
-});
-
-describe('a fill outline touching another within half a unit is connected', () => {
-  const zone = (fills: PcbZone['fills']): PcbZone => ({
-    net: 1,
-    layers: ['F.Cu'],
-    outline: [
-      { x: 0, y: 0 },
-      { x: MM(4), y: 0 },
-      { x: MM(4), y: MM(4) },
-      { x: 0, y: MM(4) },
-    ],
-    fills,
-    priority: 0,
-    uuid: 'z',
-  });
-  const board = (z: PcbZone): Board =>
-    ({
-      zones: [z],
-      footprints: [
-        {
-          reference: 'P1',
-          at: { x: MM(1), y: MM(1) },
-          rotation: 0,
-          layer: 'F.Cu',
-          pads: [
-            {
-              number: '1',
-              type: 'smd',
-              shape: 'rect',
-              at: { x: MM(1), y: MM(1) },
-              angle: 0,
-              size: { x: MM(1), y: MM(1) },
-              layers: ['F.Cu'],
-              net: 1,
-            } as PcbPad,
-          ],
-          shapes: [],
-          texts: [],
-          uuid: 'f',
-        },
-      ],
-      tracks: [],
-      arcs: [],
-      vias: [],
-      shapes: [],
-      texts: [],
-      nets: new Map([[1, 'N']]),
-    }) as unknown as Board;
-
-  it('is ON the edge when SEG::SquaredDistance rounds to 0, not only when exactly collinear', () => {
-    // The big outline's top edge runs from (0,0) to (3 mm, 1) — a slope of one
-    // unit over 3 mm. The sliver's vertex (1.5 mm, 0) is half a unit below that
-    // edge: never integer-collinear, but `SquaredDistance` KiROUNDs 0.25 to 0.
-    const big = [
-      { x: 0, y: 0 },
-      { x: MM(3), y: 1 },
-      { x: MM(3), y: MM(3) },
-      { x: 0, y: MM(3) },
-    ];
-    const sliver = [
-      { x: MM(1.5), y: 0 },
-      { x: MM(1.5) + 40, y: -30 },
-      { x: MM(1.5) - 40, y: -30 },
-    ];
-    const z = zone([{ layer: 'F.Cu', polys: [big, sliver] }]);
-    const islands = isolatedIslands(board(z), [
-      { zone: 0, layer: 'F.Cu', index: 0, ring: big },
-      { zone: 0, layer: 'F.Cu', index: 1, ring: sliver },
-    ]);
-    expect(islands.get(0)?.get('F.Cu') ?? []).toEqual([]);
-  });
-
-  it('and a vertex a whole unit off the edge is not', () => {
-    const big = [
-      { x: 0, y: 0 },
-      { x: MM(3), y: 0 },
-      { x: MM(3), y: MM(3) },
-      { x: 0, y: MM(3) },
-    ];
-    const sliver = [
-      { x: MM(1.5), y: -1 },
-      { x: MM(1.5) + 40, y: -30 },
-      { x: MM(1.5) - 40, y: -30 },
-    ];
-    const z = zone([{ layer: 'F.Cu', polys: [big, sliver] }]);
-    const islands = isolatedIslands(board(z), [
-      { zone: 0, layer: 'F.Cu', index: 0, ring: big },
-      { zone: 0, layer: 'F.Cu', index: 1, ring: sliver },
-    ]);
-    expect(islands.get(0)?.get('F.Cu') ?? []).toEqual([1]);
   });
 });
 

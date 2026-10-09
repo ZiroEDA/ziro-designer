@@ -136,6 +136,21 @@ export const zipFileWildcard = (): ChooserFilter => fileFilter('Zip file', ['zip
 /** `FILEEXT::ReportFileWildcard()`: "Report files" on `ReportFileExtension`, rpt. */
 export const reportFileWildcard = (): ChooserFilter => fileFilter('Report files', ['rpt']);
 
+/** `FILEEXT::IpcD356FileWildcard()` (`:559-563`) on `IpcD356FileExtension`, d356. */
+export const ipcD356FileWildcard = (): ChooserFilter =>
+  fileFilter('IPC-D-356 Test Files', ['d356']);
+
+/**
+ * `FILEEXT::FootprintAssignmentFileWildcard()` (`:398-402`) on
+ * `FootprintAssignmentFileExtension`, cmp: the cvpcb symbol to footprint link file.
+ */
+export const footprintAssignmentFileWildcard = (): ChooserFilter =>
+  fileFilter('KiCad symbol footprint link files', ['cmp']);
+
+/** `FILEEXT::GencadFileWildcard()` (`:527-530`) on `GencadFileExtension`, cad. */
+export const gencadFileWildcard = (): ChooserFilter =>
+  fileFilter('GenCAD 1.4 board files', ['cad']);
+
 /** `FILEEXT::JsonFileWildcard()`: "Json files" on `JsonFileExtension`, json. */
 export const jsonFileWildcard = (): ChooserFilter => fileFilter('Json files', ['json']);
 
@@ -265,6 +280,8 @@ export const KiCadSymbolLibFileExtension = 'kicad_sym';
 export const LegacySymbolLibFileExtension = 'lib';
 /** `FILEEXT::KiCadPcbFileExtension`. [data] */
 export const KiCadPcbFileExtension = 'kicad_pcb';
+/** `FILEEXT::KiCadFootprintFileExtension`. [data] */
+export const KiCadFootprintFileExtension = 'kicad_mod';
 /** `FILEEXT::JsonFileExtension`. [data] */
 export const JsonFileExtension = 'json';
 

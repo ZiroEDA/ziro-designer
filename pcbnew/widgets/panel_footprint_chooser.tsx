@@ -40,7 +40,7 @@ import {
   FootprintPreviewWidget,
   type FOOTPRINT_PREVIEW_PANEL_BASE,
 } from '@ziroeda/common/widgets/footprint_preview_widget.js';
-import type { PcbFootprint } from '../types.js';
+import type { FOOTPRINT } from '../footprint.js';
 import type { FootprintIndexLibrary } from '../footprint_info_impl.js';
 import {
   addFootprintHistory,
@@ -88,7 +88,7 @@ export interface PanelFootprintChooserProps {
    * so it arrives as a prop rather than an import, the same seam `PCBNEW_APP`
    * gives a frame. Unused (and not required) while `showFpView` is false.
    */
-  panel?: FOOTPRINT_PREVIEW_PANEL_BASE<PcbFootprint>;
+  panel?: FOOTPRINT_PREVIEW_PANEL_BASE<FOOTPRINT>;
   /**
    * `m_preview3DCanvas`, which the FRAME builds and adds to this panel's
    * `m_RightPanelSizer` under the footprint view (:796); absent when

@@ -8,7 +8,8 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { readBoard } from '@ziroeda/pcbnew';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import {
   copyProjectFiles,
   newProjectFiles,
@@ -34,9 +35,10 @@ describe('newProjectFiles', () => {
   });
 
   it('generates a board our own reader accepts, with the default 2-layer stack', () => {
-    const board = readBoard(parse(files[2]!.text));
-    expect(board.layers.some((l) => l.name === 'F.Cu')).toBe(true);
-    expect(board.layers.some((l) => l.name === 'B.Cu')).toBe(true);
+    const board = ParseBoard(files[2]!.text);
+    expect(board.GetCopperLayerCount()).toBe(2);
+    expect(board.IsLayerEnabled(PCB_LAYER_ID.F_Cu)).toBe(true);
+    expect(board.IsLayerEnabled(PCB_LAYER_ID.B_Cu)).toBe(true);
   });
 
   it('ties the project file to the root schematic uuid', () => {

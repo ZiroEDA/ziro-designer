@@ -305,7 +305,6 @@ describe('the frame builds a checkbox only when it can filter on something', () 
         onOk={props.onOk ?? (() => {})}
         onCancel={() => {}}
         loadFootprintIndex={() => Promise.resolve(INDEX)}
-        loadFootprint={() => Promise.resolve(null)}
         {...props}
       />,
     );
@@ -395,7 +394,6 @@ describe('the frame builds a checkbox only when it can filter on something', () 
         onOk={onOk}
         onCancel={onCancel}
         loadFootprintIndex={() => Promise.resolve([])}
-        loadFootprint={() => Promise.resolve(null)}
       />,
     );
     fireEvent.click(screen.getByText('OK'));
@@ -419,7 +417,6 @@ describe('the frame builds a checkbox only when it can filter on something', () 
         onOk={onOk}
         onCancel={onCancel}
         loadFootprintIndex={() => Promise.resolve([])}
-        loadFootprint={() => Promise.resolve(null)}
       />,
     );
     fireEvent.click(screen.getByText('OK'));

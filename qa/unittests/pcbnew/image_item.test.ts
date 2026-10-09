@@ -21,37 +21,17 @@
  * header offsets being parsed are the ones a KiCad file actually carries.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import {
-  allBoardItemIds,
-  boardItemBBox,
-  boardItemsInBox,
-  deleteBoardItems,
-  hitTestBoard,
-  isBoardItemLocked,
-  moveBoardItems,
-} from '@ziroeda/pcbnew/edit-board.js';
-import { itemAnchorPoint } from '@ziroeda/pcbnew/dialogs/dialog_move_exact.js';
-import {
-  DEFAULT_SELECTION_FILTER,
-  itemPassesFilter,
-} from '@ziroeda/pcbnew/dialogs/dialog_filter_selection.js';
-import {
-  FALLBACK_PIXELS,
-  imageBBox,
-  imageSizeIU,
-  iuPerPixel,
-} from '@ziroeda/pcbnew/pcb_reference_image.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { PCB_REFERENCE_IMAGE } from '@ziroeda/pcbnew/pcb_reference_image.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { FALLBACK_PIXELS, imageSizeIU, iuPerPixel } from '@ziroeda/pcbnew/pcb_reference_image.js';
 import { DEFAULT_PPI, pngPPI, pngPixelSize } from '@ziroeda/common/wx/png_meta.js';
 import { pngCrc32 } from '@ziroeda/common/png_encoder.js';
 import { WX_IMAGE } from '@ziroeda/common/wx/wx_image.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-const IMG = 'image:0';
 
 /** Build a PNG header with the given pixel size and optional pHYs density. */
 /**
@@ -100,14 +80,14 @@ const IMAGE = (data = PNG_100x50, extra = '', layer = 'F.SilkS'): string => `(im
     (data "${data}")
     (uuid "aaaaaaaa-1111-2222-3333-444444444444"))`;
 
-const read = (...extra: string[]): Board =>
-  readBoard(
-    parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
+const read = (...extra: string[]): BOARD =>
+  ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user) (5 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
   ${extra.join('\n  ')}
-)`),
-  );
+)`);
+const imageOf = (b: BOARD): PCB_REFERENCE_IMAGE =>
+  b.Drawings().find((d) => d.Type() === KICAD_T.PCB_REFERENCE_IMAGE_T) as PCB_REFERENCE_IMAGE;
 
 describe('reading the PNG header', () => {
   it('reads the pixel size', () => {
@@ -165,7 +145,7 @@ describe('reading the PNG header', () => {
     // Anything under 100 px/m is 0 dots/cm after wx's integer division, so it fails `dpiX > 1`.
     for (const ppuX of [1, 19, 40, 59, 99]) {
       expect(pngPPI(png(100, 50, ppuX))).toBe(DEFAULT_PPI);
-      expect(Number.isFinite(imageSizeIU(read(IMAGE(png(100, 50, ppuX))).images[0]!).w)).toBe(true);
+      expect(Number.isFinite(imageSizeIU({ data: png(100, 50, ppuX) }).w)).toBe(true);
     }
 
     // 200 px/m is 2 dots/cm, which passes the test: 2 x 2.54 = 5.08 -> 5 ppi.
@@ -173,154 +153,69 @@ describe('reading the PNG header', () => {
   });
 });
 
-describe('how much board an image covers', () => {
+describe('how much board an image covers (imageSizeIU)', () => {
   it('turns pixels into IU through the resolution', () => {
     // 100 px at 300 ppi is a third of an inch, 8.4667 mm.
-    const size = imageSizeIU(read(IMAGE()).images[0]!);
+    const size = imageSizeIU({ data: PNG_100x50 });
 
     expect(size.w / iuPerPixel(300) / 100).toBeCloseTo(1, 6);
     expect(size.w / MM(25.4 / 3)).toBeCloseTo(1, 4);
   });
 
   it('shrinks with the resolution: a "600 dpi" file reads as 599 ppi', () => {
-    const at300 = imageSizeIU(read(IMAGE(PNG_100x50)).images[0]!);
-    const at600 = imageSizeIU(read(IMAGE(PNG_100x50_600DPI)).images[0]!);
+    const at300 = imageSizeIU({ data: PNG_100x50 });
+    const at600 = imageSizeIU({ data: PNG_100x50_600DPI });
 
     expect(at600.w / at300.w).toBeCloseTo(300 / 599, 6);
   });
 
   it('multiplies by the scale, rather than replacing the resolution', () => {
-    const plain = imageSizeIU(read(IMAGE()).images[0]!);
-    const scaled = imageSizeIU(read(IMAGE(PNG_100x50, '(scale 2)')).images[0]!);
+    const plain = imageSizeIU({ data: PNG_100x50 });
+    const scaled = imageSizeIU({ data: PNG_100x50, scale: 2 });
 
     expect(scaled.w / plain.w).toBeCloseTo(2, 6);
   });
 
   it('keeps the aspect ratio', () => {
-    const size = imageSizeIU(read(IMAGE()).images[0]!);
+    const size = imageSizeIU({ data: PNG_100x50 });
 
     expect(size.w / size.h).toBeCloseTo(2, 6);
   });
 
   it('refuses a payload it cannot read, as the C++ parser does', () => {
-    // `parsePCB_REFERENCE_IMAGE` (pcb_io_kicad_sexpr_parser.cpp): "Failed to
-    // read image data." — the board does not load with a broken image in it.
+    // `parsePCB_REFERENCE_IMAGE`: "Failed to read image data." — the board
+    // does not load with a broken image in it.
     expect(() => read(IMAGE(btoa('garbage')))).toThrow('Failed to read image data.');
   });
 
-  it('falls back to a small square when a view item carries no readable payload', () => {
-    // So a broken image (one the editor made and has not decoded yet) is still
-    // selectable rather than a zero-size ghost.
-    const broken = { ...read(IMAGE()).images[0]!, data: btoa('garbage'), k: undefined };
-    const size = imageSizeIU(broken);
+  it('falls back to a small square for a payload it cannot read', () => {
+    const size = imageSizeIU({ data: btoa('garbage') });
 
     expect(size.w).toBe(Math.round(FALLBACK_PIXELS.w * iuPerPixel(DEFAULT_PPI)));
     expect(size.w).toBeGreaterThan(0);
   });
 });
 
-describe('the bounding box', () => {
+describe('the bounding box (PCB_REFERENCE_IMAGE::GetBoundingBox)', () => {
   it('is centred on the position, not cornered at it', () => {
     // REFERENCE_IMAGE::GetBoundingBox is BOX2I::ByCenter. Reading `(at …)` as a
     // top-left would put every image half its own size out of place.
-    const img = read(IMAGE()).images[0]!;
-    const b = imageBBox(img);
-    const size = imageSizeIU(img);
+    const b = imageOf(read(IMAGE())).GetBoundingBox();
+    const size = imageSizeIU({ data: PNG_100x50 });
 
-    // ByCenter rounds the half-size (VECTOR2<int> / 2 is KiROUND), so an odd size leaves
-    // the centre half an IU off — a nanometre. The width, though, is exact.
-    expect((b.minX + b.maxX) / 2).toBeCloseTo(MM(50), -1);
-    expect((b.minY + b.maxY) / 2).toBeCloseTo(MM(40), -1);
-    expect(b.maxX - b.minX).toBe(size.w);
-    expect(b.maxY - b.minY).toBe(size.h);
+    // ByCenter rounds the half-size (VECTOR2<int> / 2 is KiROUND), so an odd
+    // size leaves the centre half an IU off. The width, though, is exact.
+    expect(b.Centre().x).toBeCloseTo(MM(50), -1);
+    expect(b.Centre().y).toBeCloseTo(MM(40), -1);
+    expect(b.GetWidth()).toBe(size.w);
+    expect(b.GetHeight()).toBe(size.h);
   });
 
   it('grows about the same centre as the scale grows', () => {
-    const b1 = imageBBox(read(IMAGE()).images[0]!);
-    const b2 = imageBBox(read(IMAGE(PNG_100x50, '(scale 2)')).images[0]!);
+    const b1 = imageOf(read(IMAGE())).GetBoundingBox();
+    const b2 = imageOf(read(IMAGE(PNG_100x50, '(scale 2)'))).GetBoundingBox();
 
-    expect((b2.minX + b2.maxX) / 2).toBe((b1.minX + b1.maxX) / 2);
-    expect(b2.maxX - b2.minX).toBeGreaterThan(b1.maxX - b1.minX);
-  });
-});
-
-describe('images as board items', () => {
-  it('are enumerated', () => {
-    expect(allBoardItemIds(read(IMAGE()))).toContain(IMG);
-  });
-
-  it('report a bounding box through the board', () => {
-    expect(boardItemBBox(read(IMAGE()), IMG)).not.toBeNull();
-    expect(boardItemBBox(read(IMAGE()), 'image:9')).toBeNull();
-  });
-
-  it('are clickable anywhere inside', () => {
-    expect(hitTestBoard(read(IMAGE()), { x: MM(50), y: MM(40) }, 0)).toBe(IMG);
-  });
-
-  it('are not clickable well outside', () => {
-    expect(hitTestBoard(read(IMAGE()), { x: MM(200), y: MM(200) }, MM(0.2))).toBeNull();
-  });
-
-  it('are taken by a box that crosses them', () => {
-    expect(boardItemsInBox(read(IMAGE()), MM(49), MM(39), MM(51), MM(41), false)).toContain(IMG);
-  });
-
-  it('follow the layer-based graphics filter', () => {
-    const f = (over = {}) => ({ ...DEFAULT_SELECTION_FILTER, ...over });
-
-    expect(itemPassesFilter(read(IMAGE()), IMG, f({ techLayers: true }))).toBe(true);
-    expect(itemPassesFilter(read(IMAGE()), IMG, f({ techLayers: false }))).toBe(false);
-    expect(
-      itemPassesFilter(read(IMAGE(PNG_100x50, '', 'Edge.Cuts')), IMG, f({ boardOutline: false })),
-    ).toBe(false);
-  });
-
-  it('anchor on the centre, which is the position', () => {
-    expect(itemAnchorPoint(read(IMAGE()), IMG)).toEqual({ x: MM(50), y: MM(40) });
-  });
-
-  it('read the locked flag', () => {
-    expect(isBoardItemLocked(read(IMAGE(PNG_100x50, '(locked yes)')), IMG)).toBe(true);
-    expect(isBoardItemLocked(read(IMAGE()), IMG)).toBe(false);
-  });
-});
-
-describe('moving an image', () => {
-  it('shifts the position', () => {
-    const b = moveBoardItems(read(IMAGE()), new Set([IMG]), { x: MM(5), y: MM(-3) });
-
-    expect(b.images[0]!.at).toEqual({ x: MM(55), y: MM(37) });
-  });
-
-  it('survives a save and reload', () => {
-    const moved = moveBoardItems(read(IMAGE()), new Set([IMG]), { x: MM(5), y: 0 });
-    const back = readBoard(parse(serializeBoard(moved)));
-
-    expect(back.images[0]!.at).toEqual({ x: MM(55), y: MM(40) });
-  });
-
-  it('leaves the payload byte-for-byte alone', () => {
-    // The data is megabytes in a real file; a mover that rebuilt the node would
-    // rewrite all of it on every nudge.
-    const moved = moveBoardItems(read(IMAGE()), new Set([IMG]), { x: MM(5), y: 0 });
-    const back = readBoard(parse(serializeBoard(moved)));
-
-    expect(back.images[0]!.data).toBe(PNG_100x50);
-  });
-
-  it('leaves an unselected image alone', () => {
-    const b = moveBoardItems(read(IMAGE()), new Set(['shape:0']), { x: MM(5), y: 0 });
-
-    expect(b.images[0]!.at).toEqual({ x: MM(50), y: MM(40) });
-  });
-});
-
-describe('deleting an image', () => {
-  it('removes it from the model and the file', () => {
-    const out = serializeBoard(deleteBoardItems(read(IMAGE()), new Set([IMG])));
-
-    expect(readBoard(parse(out)).images).toHaveLength(0);
-    expect(out).not.toContain('(image');
+    expect(b2.Centre().x).toBe(b1.Centre().x);
+    expect(b2.GetWidth()).toBeGreaterThan(b1.GetWidth());
   });
 });

@@ -16,30 +16,24 @@
  * only the controls.
  */
 
-import { useMemo, useState, type JSX } from 'react';
+import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
-import type { TrackViaSelection, TrackViaValues } from './dialog_track_via_properties.js';
-import { collectTrackViaValues } from './dialog_track_via_properties.js';
+import type { TrackViaValues } from './dialog_track_via_properties.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { NetSelector } from '@ziroeda/common/widgets/net_selector.js';
 import { INDETERMINATE_STATE } from '@ziroeda/common/widgets/ui_common.js';
 
 interface Props {
   /**
-   * The view-model form: the window is seeded by collectTrackViaValues. Being
-   * retired for `initial` (DIALOG_TRACK_VIA_PROPERTIES on the live items).
-   */
-  selection?: TrackViaSelection;
-  /**
    * The live form: DIALOG_TRACK_VIA_PROPERTIES::TransferDataToWindow's
    * window. OK hands back this window with only the controls the user
    * changed replaced, so the ones this panel does not draw (backdrill,
    * post-machining, protection, annular rings) pass through as shown.
    */
-  initial?: TrackViaValues;
-  /** With `initial`: the dialog's `m_tracks` / `m_vias`. */
-  hasTracks?: boolean;
-  hasVias?: boolean;
+  initial: TrackViaValues;
+  /** The dialog's `m_tracks` / `m_vias`. */
+  hasTracks: boolean;
+  hasVias: boolean;
   /** Net codes and names, for the Net choice. */
   nets: ReadonlyMap<number, string>;
   /** Copper layer names. */
@@ -77,10 +71,9 @@ const nextTri = (v: Tri): Tri => (v === undefined ? true : v ? false : undefined
 const triLabel = (v: Tri): string => (v === undefined ? '—' : v ? '✓' : '');
 
 export function DialogTrackViaProperties({
-  selection,
   initial,
-  hasTracks: liveHasTracks = false,
-  hasVias: liveHasVias = false,
+  hasTracks,
+  hasVias,
   nets,
   layers,
   trackWidths,
@@ -92,18 +85,11 @@ export function DialogTrackViaProperties({
   // ui/modal_escape.ts.
   useModalEscape(onClose);
 
-  const seed = useMemo(
-    () => initial ?? collectTrackViaValues(selection ?? { tracks: [], arcs: [], vias: [] }),
-    [initial, selection],
-  );
+  const seed = initial;
 
-  const hasTracks = initial
-    ? liveHasTracks
-    : !!selection && (selection.tracks.length > 0 || selection.arcs.length > 0);
-  // The live dialog edits an arc's start and end like a straight track's
-  // (dialog_track_via_properties.cpp:270-290); the view form blanked them.
-  const hasStraightTracks = initial ? liveHasTracks : !!selection && selection.tracks.length > 0;
-  const hasVias = initial ? liveHasVias : !!selection && selection.vias.length > 0;
+  // The dialog edits an arc's start and end like a straight track's
+  // (dialog_track_via_properties.cpp:270-290).
+  const hasStraightTracks = hasTracks;
 
   // ----- Common -----
   const [net, setNet] = useState<Text>(numText(seed.net));

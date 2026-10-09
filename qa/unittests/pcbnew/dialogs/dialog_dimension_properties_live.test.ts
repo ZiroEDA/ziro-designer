@@ -9,7 +9,7 @@ import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { DIALOG_DIMENSION_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
 import type { PCB_DIM_ALIGNED, PCB_DIM_LEADER } from '@ziroeda/pcbnew/pcb_dimension.js';
-import { DIM_ARROW_DIRECTION, DIM_UNITS_MODE } from '@ziroeda/pcbnew/pcb_dimension_types.js';
+import { DIM_ARROW_DIRECTION, DIM_UNITS_MODE } from '@ziroeda/pcbnew/pcb_dimension.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { TEST_PCB_FRAME } from '../support/test_pcb_frame.js';
 

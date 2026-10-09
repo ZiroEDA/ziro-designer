@@ -10,7 +10,7 @@
  */
 import { registerAiBridge } from '@ziroeda/ai';
 import { pcbBridge } from '@ziroeda/ai/pcb_bridge.js';
-import type { PcbScriptApi } from '@ziroeda/pcbnew/pcb_script_api.js';
+import type { PcbScriptApi } from '@ziroeda/pcbnew/browser/pcb_script_api.js';
 import { type ComponentProps, useMemo } from 'react';
 import type { PCBNEW_APP } from '@ziroeda/pcbnew/browser/pcbnew_app.js';
 import { PcbEditor } from '@ziroeda/pcbnew/pcb_edit_frame_ui.js';
@@ -30,7 +30,8 @@ import {
   useUserColors,
   useUserThemes,
 } from '../../prefs/useSettings.js';
-import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
+import { loadFootprintIndex } from '../../widgets/footprint_list.js';
+import { loadLibraryFootprint } from './footprint_lib_adapter_app.js';
 import { preloadBoardLibraries } from './preload.js';
 import { cleanup3dCache } from './model_cache.js';
 import { installPgm, reloadUserColorSettings } from './pcb_canvas.js';
@@ -77,7 +78,7 @@ export function usePcbnewApp(): PCBNEW_APP {
       useToolbarEntries,
 
       loadFootprintIndex,
-      loadFootprint,
+      loadFootprint: loadLibraryFootprint,
       preloadBoardLibraries,
       cleanup3dCache,
 

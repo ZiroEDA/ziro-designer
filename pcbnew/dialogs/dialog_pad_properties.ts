@@ -14,19 +14,10 @@
  *
  * The decision logic lives here so it can be tested without a UI.
  */
-
-import { parseBoardItemId, rotatePcb } from '../edit-board.js';
-import type { Board, PadShape, PadType, PcbFootprint, PcbPad } from '../types.js';
-import { teardropParamsView } from '../pcb_io/kicad_sexpr/board_view.js';
-import { TEARDROP_PARAMETERS } from '../teardrop/teardrop_parameters.js';
-import type { TeardropParams } from '../types.js';
+import { teardropParamsView } from '../teardrop/teardrop_parameters.js';
+import type { TeardropParams } from '../teardrop/teardrop_parameters.js';
 
 /** `BOARD_CONNECTED_ITEM::GetTeardropParams()`: the item's own, or the defaults. */
-const teardropParamsOf = (pad: PcbPad): TeardropParams =>
-  pad.teardrops ?? teardropParamsView(new TEARDROP_PARAMETERS());
-import { unconnectedLayerModeOf } from '../unused_pad_layers.js';
-import type { UnconnectedLayerMode } from '../types.js';
-import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { FLIP_DIRECTION } from '@ziroeda/kimath/src/core/mirror.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
@@ -34,7 +25,7 @@ import { BRIGHTENED, SELECTED } from '@ziroeda/common/eda_item_flags.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { B_Cu, F_Cu } from '@ziroeda/common/layer_ids.js';
 import { LSET } from '@ziroeda/common/lset.js';
-import { layerSetOfTokens, layerTokens } from '../pcb_io/kicad_sexpr/board_view.js';
+import { layerSetOfTokens, layerTokens } from './layer_tokens.js';
 import { BOARD_COMMIT } from '../board_commit.js';
 import { DRCE_PAD_TH_WITH_NO_HOLE, DRCE_PADSTACK_INVALID } from '../drc/drc_item.js';
 import type { FOOTPRINT } from '../footprint.js';
@@ -55,11 +46,31 @@ import { PCB_SHAPE } from '../pcb_shape.js';
 import { ZONE_CONNECTION } from '../zones.js';
 import type { TransferResult } from './dialog_text_properties.js';
 
-/** Where a pad lives: which footprint, and which pad within it. */
-export interface PadRef {
-  footprint: number;
-  pad: number;
-}
+/** ZONE_CONNECTION, spelled as this model spells enums. */
+export type ZoneConnection = 'inherited' | 'none' | 'thermal' | 'full' | 'tht_thermal';
+
+export type PadShape = 'circle' | 'rect' | 'oval' | 'trapezoid' | 'roundrect' | 'custom';
+
+export type PadType = 'thru_hole' | 'smd' | 'connect' | 'np_thru_hole';
+
+/**
+ * `UNCONNECTED_LAYER_MODE` (pcbnew/padstack.h): what a through-hole pad or via
+ * does with a copper layer it is not connected on. The removal is never applied
+ * to the stored layer set — it is re-evaluated by `FlashLayer()` every time the
+ * item is drawn, filled or plotted, so it tracks the routing.
+ *
+ * `start_end_only` has no pad spelling in the file format (the pad parser has
+ * no token for it), so it can only round-trip on a via.
+ */
+export type UnconnectedLayerMode =
+  /** Copper on every layer of the span, connected or not. KiCad's default. */
+  | 'keep_all'
+  /** Copper only where connected — outer layers included. */
+  | 'remove_all'
+  /** Copper where connected, plus the end layers: "Keep outside layers". */
+  | 'remove_except_start_and_end'
+  /** Copper on the two end layers and nowhere else, connections ignored. */
+  | 'start_end_only';
 
 /** Every field the dialog edits. */
 export interface PadValues {
@@ -92,7 +103,7 @@ export interface PadValues {
   localSolderMaskMargin: number | null;
   localSolderPasteMargin: number | null;
   localSolderPasteMarginRatio: number | null;
-  zoneConnection: NonNullable<PcbPad['zoneConnection']>;
+  zoneConnection: ZoneConnection;
   /**
    * `(pinfunction …)` / `(pintype …)` — the schematic's pin name and electrical
    * type, pushed onto the pad by the netlist. DIALOG_PAD_PROPERTIES shows them
@@ -120,204 +131,7 @@ export interface PadValues {
   teardrops: TeardropParams;
 }
 
-/** Resolve a `pad:F:P` id, or null when the selection is not a single pad. */
-export function padAt(board: Board, selection: Iterable<string>): PadRef | null {
-  let found: PadRef | null = null;
-
-  for (const id of selection) {
-    const ref = parseBoardItemId(id);
-    if (!ref || ref.kind !== 'pad') continue;
-    if (found !== null) return null;
-    const fp = board.footprints[ref.index];
-    if (fp?.pads[ref.sub ?? 0]) found = { footprint: ref.index, pad: ref.sub ?? 0 };
-  }
-
-  return found;
-}
-
 /** DIALOG_PAD_PROPERTIES::TransferDataToWindow. */
-export function collectPadValues(pad: PcbPad): PadValues {
-  return {
-    number: pad.number,
-    net: pad.net ?? 0,
-    type: pad.type,
-    shape: pad.shape,
-    x: pad.at.x,
-    y: pad.at.y,
-    orientation: pad.angle,
-    sizeX: pad.size.x,
-    sizeY: pad.size.y,
-    roundrectRatio: pad.roundrectRatio ?? 0.25,
-    deltaX: pad.delta?.x ?? 0,
-    deltaY: pad.delta?.y ?? 0,
-    hasHole: pad.drill !== undefined,
-    holeOblong: pad.drill?.oblong ?? false,
-    holeW: pad.drill?.w ?? 0,
-    holeH: pad.drill?.h ?? 0,
-    holeOffsetX: pad.drill?.offset?.x ?? 0,
-    holeOffsetY: pad.drill?.offset?.y ?? 0,
-    layers: [...pad.layers],
-    localClearance: pad.localClearance ?? null,
-    localSolderMaskMargin: pad.localSolderMaskMargin ?? null,
-    localSolderPasteMargin: pad.localSolderPasteMargin ?? null,
-    localSolderPasteMarginRatio: pad.localSolderPasteMarginRatio ?? null,
-    zoneConnection: pad.zoneConnection ?? 'inherited',
-    pinFunction: pad.pinFunction ?? '',
-    pinType: pad.pinType ?? '',
-    unconnectedLayerMode: unconnectedLayerModeOf(pad),
-    thermalBridgeWidth: pad.thermalBridgeWidth ?? null,
-    thermalGap: pad.thermalGap ?? null,
-    padToDieLength: pad.padToDieLength ?? null,
-    teardrops: teardropParamsOf(pad),
-  };
-}
-
-/**
- * A board-absolute point back into the parent footprint's frame — the inverse
- * of the reader's `toBoard`, which is what the file stores in `(at …)`.
- */
-export function padLocalPos(fp: PcbFootprint, boardPos: Vec2): Vec2 {
-  return rotatePcb({ x: boardPos.x - fp.at.x, y: boardPos.y - fp.at.y }, -fp.angle);
-}
-
-/**
- * DIALOG_PAD_PROPERTIES::TransferDataFromWindow. Returns the board unchanged
- * when nothing moved; the model takes the edit when the board is written.
- */
-export function applyPadValues(board: Board, ref: PadRef, v: PadValues): Board {
-  const fp = board.footprints[ref.footprint];
-  const pad = fp?.pads[ref.pad];
-  if (!fp || !pad) return board;
-
-  const before = collectPadValues(pad);
-  if (JSON.stringify(before) === JSON.stringify(v)) return board;
-
-  const next: PcbPad = { ...pad };
-
-  // Positional atoms: (pad "number" <type> <shape> …).
-  if (v.number !== pad.number) {
-    next.number = v.number;
-  }
-  if (v.type !== pad.type) {
-    next.type = v.type;
-  }
-  if (v.shape !== pad.shape) {
-    next.shape = v.shape;
-  }
-
-  // `(at …)` is footprint-local in the file but board-absolute in the model;
-  // the angle stays absolute either way.
-  const at = { x: v.x, y: v.y };
-  if (at.x !== pad.at.x || at.y !== pad.at.y || v.orientation !== pad.angle) {
-    next.at = at;
-    next.angle = v.orientation;
-  }
-
-  if (v.sizeX !== pad.size.x || v.sizeY !== pad.size.y) {
-    next.size = { x: v.sizeX, y: v.sizeY };
-  }
-
-  if (v.net !== (pad.net ?? 0)) {
-    next.net = v.net;
-  }
-
-  if (v.layers.join() !== pad.layers.join()) {
-    next.layers = [...v.layers];
-  }
-
-  // Shape extras only apply to the shape that owns them, so the others' tokens
-  // are dropped: a pad switched from roundrect to rect keeping its rratio would
-  // read back as a rounded rectangle the moment the shape changed again.
-  if (v.shape === 'roundrect') {
-    next.roundrectRatio = v.roundrectRatio;
-  } else {
-    next.roundrectRatio = undefined;
-  }
-
-  if (v.shape === 'trapezoid' && (v.deltaX !== 0 || v.deltaY !== 0)) {
-    next.delta = { x: v.deltaX, y: v.deltaY };
-  } else {
-    next.delta = undefined;
-  }
-
-  if (v.hasHole && v.holeW > 0) {
-    next.drill = {
-      oblong: v.holeOblong,
-      w: v.holeW,
-      h: v.holeOblong ? v.holeH : v.holeW,
-      offset:
-        v.holeOffsetX !== 0 || v.holeOffsetY !== 0
-          ? { x: v.holeOffsetX, y: v.holeOffsetY }
-          : undefined,
-    };
-  } else {
-    next.drill = undefined;
-  }
-
-  // Overrides: a blank box drops the token; zero is a real value.
-  const override = (
-    key:
-      | 'localClearance'
-      | 'localSolderMaskMargin'
-      | 'localSolderPasteMargin'
-      | 'thermalBridgeWidth'
-      | 'thermalGap'
-      | 'padToDieLength',
-    token: string,
-    value: number | null,
-  ): void => {
-    next[key] = value ?? undefined;
-  };
-
-  override('localClearance', 'clearance', v.localClearance);
-  override('localSolderMaskMargin', 'solder_mask_margin', v.localSolderMaskMargin);
-  override('localSolderPasteMargin', 'solder_paste_margin', v.localSolderPasteMargin);
-  override('thermalBridgeWidth', 'thermal_bridge_width', v.thermalBridgeWidth);
-  override('thermalGap', 'thermal_gap', v.thermalGap);
-  override('padToDieLength', 'die_length', v.padToDieLength);
-
-  next.localSolderPasteMarginRatio = v.localSolderPasteMarginRatio ?? undefined;
-
-  // `(pinfunction …)` / `(pintype …)`: the writer emits each only when it is
-  // non-empty (`format( const PAD* )`, pcb_io_kicad_sexpr.cpp:1862-1868), so
-  // clearing the cell drops the token rather than writing an empty string.
-  const text = (key: 'pinFunction' | 'pinType', token: string, value: string): void => {
-    next[key] = value === '' ? undefined : value;
-  };
-
-  text('pinFunction', 'pinfunction', v.pinFunction);
-  text('pinType', 'pintype', v.pinType);
-
-  // UNCONNECTED_LAYER_MODE, written as the two booleans a PTH pad carries
-  // (pcb_io_kicad_sexpr.cpp:1792-1798): `remove_unused_layers`, and
-  // `keep_end_layers` only when the first is yes. A pad that is not PTH has
-  // neither token — upstream writes them for PAD_ATTRIB::PTH alone.
-  //
-  if (v.type === 'thru_hole' && v.unconnectedLayerMode !== unconnectedLayerModeOf(pad)) {
-    next.unconnectedLayerMode = v.unconnectedLayerMode;
-  } else if (v.type !== 'thru_hole' && pad.unconnectedLayerMode !== undefined) {
-    // The tokens belong to a PTH pad alone, so a pad changed to SMD loses them.
-    next.unconnectedLayerMode = undefined;
-  }
-
-  // `(teardrops …)` is written only when it differs from the defaults, exactly
-  // as the writer decides — so a pad left at the defaults keeps no token.
-  const td = teardropParamsOf(pad);
-  if (
-    (Object.keys(v.teardrops) as (keyof TeardropParams)[]).some((k) => v.teardrops[k] !== td[k])
-  ) {
-    next.teardrops = v.teardrops;
-  }
-
-  next.zoneConnection = v.zoneConnection === 'inherited' ? undefined : v.zoneConnection;
-
-  const pads = fp.pads.map((p, i) => (i === ref.pad ? next : p));
-  return {
-    ...board,
-    footprints: board.footprints.map((f, i) => (i === ref.footprint ? { ...f, pads } : f)),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // The live dialog: DIALOG_PAD_PROPERTIES on a PAD (#636 stage 6)
 // ---------------------------------------------------------------------------
@@ -380,7 +194,7 @@ const CODE_SHAPE: Record<ShapeChoice, PAD_SHAPE> = {
 };
 
 /** `m_ZoneConnectionChoice`'s rows (:746-752, :1979-1986). */
-const ZONE_CHOICE: readonly [PcbPad['zoneConnection'] & string, ZONE_CONNECTION][] = [
+const ZONE_CHOICE: readonly [ZoneConnection & string, ZONE_CONNECTION][] = [
   ['inherited', ZONE_CONNECTION.INHERITED],
   ['full', ZONE_CONNECTION.FULL],
   ['thermal', ZONE_CONNECTION.THERMAL],

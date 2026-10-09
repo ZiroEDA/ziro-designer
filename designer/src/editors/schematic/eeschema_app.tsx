@@ -19,7 +19,8 @@ import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { DialogSymLibTable } from '../../widgets/dialog_sym_lib_table.js';
-import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
+import { loadFootprintIndex } from '../../widgets/footprint_list.js';
+import { loadLibraryFootprint } from '../pcb/footprint_lib_adapter_app.js';
 import { FootprintChooserFrame } from '../pcb/dialogs/footprint_chooser_frame.js';
 import {
   libraryUri,
@@ -43,6 +44,12 @@ import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { DialogRescueEach } from './dialogs/dialog_rescue_each.js';
 import { SymbolChooserFrame } from '@ziroeda/eeschema/symbol_chooser_frame.js';
 import { SYMBOL_CHOOSER_APP } from './symbol_chooser_app.js';
+import {
+  CROSS_PROBE_FLASH_INTERVAL_MS,
+  CROSS_PROBE_FLASH_LAST_PHASE,
+  crossProbeFlashSelection,
+  crossProbeViewChange,
+} from '@ziroeda/pcbnew/cross-probing.js';
 import type { ComponentProps, JSX } from 'react';
 import { SchematicEditor } from '@ziroeda/eeschema/sch_edit_frame_ui.js';
 
@@ -109,17 +116,17 @@ export function useEeschemaApp(): EESCHEMA_APP {
       SaveAsDialog: (props) => <SaveAsDialog {...props} />,
       DialogSymLibTable: (props) => <DialogSymLibTable {...props} />,
       FootprintChooserFrame: (props) => (
-        <FootprintChooserFrame
-          {...props}
-          loadFootprintIndex={loadFootprintIndex}
-          loadFootprint={loadFootprint}
-        />
+        <FootprintChooserFrame {...props} loadFootprintIndex={loadFootprintIndex} />
       ),
 
       useToolbarEntries,
 
       loadFootprintIndex,
-      loadFootprint,
+      // The footprint's pad numbers, which ERC's footprint pin tests compare.
+      loadFootprint: (libId) =>
+        loadLibraryFootprint(libId).then((fp) =>
+          fp ? { pads: fp.Pads().map((p) => ({ number: p.GetNumber() })) } : null,
+        ),
 
       loadIndex,
       loadSymbol,

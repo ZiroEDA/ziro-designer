@@ -26,18 +26,18 @@ import { resolve } from 'node:path';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import {
   PanelPcbTeardrops,
-  defaultTeardrops,
   type TeardropsSetup,
 } from '@ziroeda/pcbnew/dialogs/panel_setup_teardrops.js';
-import { BoardSetupFromWindow } from '@ziroeda/pcbnew/dialogs/board_setup_transfer.js';
 import { EMPTY_PCB } from '@ziroeda/designer/src/home/new_project.js';
 import { TARGET_TD } from '@ziroeda/pcbnew/teardrop/teardrop_parameters.js';
 import { readSetup } from './board_setup_test_utils.js';
+import { BoardSetupFromWindow } from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
+import { freshBoardSetup } from './board_setup_test_utils.js';
 
 afterEach(cleanup);
 
 /** Render the panel and hand back the last value its `onChange` produced. */
-function panel(value: TeardropsSetup = defaultTeardrops()): {
+function panel(value: TeardropsSetup = freshBoardSetup().teardrops): {
   latest: () => TeardropsSetup;
   rerender: (v: TeardropsSetup) => void;
 } {
@@ -142,7 +142,7 @@ describe('a control writes its own field', () => {
   it('Prefer zone connection, which defaults ON', () => {
     // `TEARDROP_PARAMETERS`' constructor leaves `m_TdOnPadsInZones` false, and
     // the checkbox shows its negation (`panel_setup_teardrops.cpp`).
-    expect(defaultTeardrops().round.preferZoneConnection).toBe(true);
+    expect(freshBoardSetup().teardrops.round.preferZoneConnection).toBe(true);
     const p = panel();
     fireEvent.click(checkbox('Prefer zone connection', 0));
     expect(p.latest().round.preferZoneConnection).toBe(false);

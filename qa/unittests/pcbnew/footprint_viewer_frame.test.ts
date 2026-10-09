@@ -10,21 +10,15 @@
  * Every expectation below is written out from the C++, never computed by the
  * code under test.
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { KIWAY } from '@ziroeda/common/kiway.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
-import { SetErrorPresenter } from '@ziroeda/common/confirm.js';
-import { KIWAY_PLAYER } from '@ziroeda/common/kiway_player.js';
-import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { FOOTPRINT_INFO_IMPL } from '@ziroeda/pcbnew/footprint_info_impl.js';
-import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import {
   FOOTPRINT_VIEWER_FRAME,
   FPVIEWER_CONSTANTS,
-  FPVIEWER_NO_BOARD,
-  FPVIEWER_PLACEMENT_IN_PROGRESS,
   clampFootprintViewerListWidths,
   footprintListRows,
   footprintViewerTitle,
@@ -250,8 +244,6 @@ function makeKiway(raised: FRAME_T[] = []): KIWAY {
   });
 }
 
-const FOOTPRINT = { lib: 'R:R_0402' } as unknown as PcbFootprint;
-
 describe('FOOTPRINT_VIEWER_FRAME as a KIWAY player', () => {
   it('is FRAME_FOOTPRINT_VIEWER and answers MAIL_RELOAD_LIB with ReCreateLibraryList', () => {
     let reloads = 0;
@@ -259,7 +251,7 @@ describe('FOOTPRINT_VIEWER_FRAME as a KIWAY player', () => {
       reCreateLibraryList: () => {
         reloads += 1;
       },
-      getFirstFootprint: () => null,
+      selectAndViewFootprint: () => {},
     });
     expect(frame.IsType(FRAME_T.FRAME_FOOTPRINT_VIEWER)).toBe(true);
 
@@ -281,88 +273,12 @@ describe('FOOTPRINT_VIEWER_FRAME as a KIWAY player', () => {
   it('keeps the current nickname and name (the project retained strings)', () => {
     const frame = new FOOTPRINT_VIEWER_FRAME({
       reCreateLibraryList: () => {},
-      getFirstFootprint: () => null,
+      selectAndViewFootprint: () => {},
     });
     frame.setCurNickname('Resistor_SMD');
     frame.setCurFootprintName('R_0402_1005Metric');
     expect(frame.getCurNickname()).toBe('Resistor_SMD');
     expect(frame.getCurFootprintName()).toBe('R_0402_1005Metric');
-  });
-});
-
-/** A board editor as `AddFootprintToPCB` sees one. */
-class FakePcbFrame extends KIWAY_PLAYER {
-  placing = false;
-  placed: [string, PcbFootprint][] = [];
-  constructor() {
-    super(FRAME_T.FRAME_PCB_EDITOR, pcbIUScale, 'mm');
-  }
-  PlacingFootprint(): boolean {
-    return this.placing;
-  }
-  PlaceFootprintFromLibraryBrowser(aFpid: string, aFootprint: PcbFootprint): void {
-    this.placed.push([aFpid, aFootprint]);
-  }
-}
-
-describe('AddFootprintToPCB', () => {
-  const errors: string[] = [];
-  SetErrorPresenter((text) => errors.push(text));
-  afterEach(() => {
-    errors.length = 0;
-  });
-
-  const viewer = (shown: boolean) =>
-    new FOOTPRINT_VIEWER_FRAME({
-      reCreateLibraryList: () => {},
-      getFirstFootprint: () => (shown ? { fpid: 'R:R_0402', footprint: FOOTPRINT } : null),
-    });
-
-  it('does nothing when no footprint is on show', () => {
-    const raised: FRAME_T[] = [];
-    const kiway = makeKiway(raised);
-    const pcb = new FakePcbFrame();
-    kiway.SetPlayerFrame(FRAME_T.FRAME_PCB_EDITOR, pcb);
-    const frame = viewer(false);
-    frame.SetKiway(kiway);
-    expect(frame.AddFootprintToPCB()).toBe(false);
-    expect(pcb.placed).toEqual([]);
-    expect(errors).toEqual([]);
-    expect(raised).toEqual([]);
-  });
-
-  it('"No board currently open." without a board editor', () => {
-    const frame = viewer(true);
-    frame.SetKiway(makeKiway());
-    expect(frame.AddFootprintToPCB()).toBe(false);
-    expect(errors).toEqual([FPVIEWER_NO_BOARD]);
-    expect(FPVIEWER_NO_BOARD).toBe('No board currently open.');
-  });
-
-  it('refuses while a previous placement is still riding the cursor', () => {
-    const kiway = makeKiway();
-    const pcb = new FakePcbFrame();
-    pcb.placing = true;
-    kiway.SetPlayerFrame(FRAME_T.FRAME_PCB_EDITOR, pcb);
-    const frame = viewer(true);
-    frame.SetKiway(kiway);
-    expect(frame.AddFootprintToPCB()).toBe(false);
-    expect(pcb.placed).toEqual([]);
-    expect(errors).toEqual([FPVIEWER_PLACEMENT_IN_PROGRESS]);
-    expect(FPVIEWER_PLACEMENT_IN_PROGRESS).toBe('Previous footprint placement still in progress.');
-  });
-
-  it('hands the footprint to the board editor and raises it', () => {
-    const raised: FRAME_T[] = [];
-    const kiway = makeKiway(raised);
-    const pcb = new FakePcbFrame();
-    kiway.SetPlayerFrame(FRAME_T.FRAME_PCB_EDITOR, pcb);
-    const frame = viewer(true);
-    frame.SetKiway(kiway);
-    expect(frame.AddFootprintToPCB()).toBe(true);
-    expect(pcb.placed).toEqual([['R:R_0402', FOOTPRINT]]);
-    expect(raised).toEqual([FRAME_T.FRAME_PCB_EDITOR]);
-    expect(errors).toEqual([]);
   });
 });
 

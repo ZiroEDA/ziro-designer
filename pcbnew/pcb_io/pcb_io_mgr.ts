@@ -181,6 +181,12 @@ registry.Register(
 // Keep non-KiCad plugins in alphabetical order
 
 registry.Register(
+  PCB_FILE_T.ALLEGRO,
+  'Allegro',
+  async () => new (await import('./allegro/pcb_io_allegro.js')).PCB_IO_ALLEGRO(),
+);
+
+registry.Register(
   PCB_FILE_T.ALTIUM_CIRCUIT_MAKER,
   'Altium Circuit Maker',
   async () =>
@@ -224,7 +230,11 @@ registry.Register(
   async () => new (await import('./easyedapro/pcb_io_easyedapro.js')).PCB_IO_EASYEDAPRO(),
 );
 
-// Fabmaster registers here upstream.
+registry.Register(
+  PCB_FILE_T.FABMASTER,
+  'Fabmaster',
+  async () => new (await import('./fabmaster/pcb_io_fabmaster.js')).PCB_IO_FABMASTER(),
+);
 
 registry.Register(
   PCB_FILE_T.GEDA_PCB,

@@ -38,14 +38,16 @@ import { FONT } from '@ziroeda/common/font/font.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
 import { ClampTextPenSize } from '@ziroeda/common/gr_text.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
-import { LINE_STYLE, LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
+import {
+  LINE_STYLE,
+  LINE_STYLE_NAMES,
+  type LineStyleToken,
+} from '@ziroeda/common/stroke_params.js';
 import { ESCAPE_CONTEXT, EscapeString, unescapeString } from '@ziroeda/common/string_utils.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { BOARD_COMMIT } from '../board_commit.js';
-import { parseBoardItemId } from '../edit-board.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_TEXTBOX } from '../pcb_textbox.js';
-import type { Board, PcbTextBox, StrokeType } from '../types.js';
 import type { TransferResult } from './dialog_text_properties.js';
 
 export type HorizJustify = 'left' | 'center' | 'right';
@@ -69,7 +71,7 @@ export interface TextBoxValues {
   vertJustify: VertJustify;
   border: boolean;
   borderWidth: number;
-  borderStyle: StrokeType;
+  borderStyle: LineStyleToken;
   knockout: boolean;
   marginLeft: number;
   marginTop: number;
@@ -78,14 +80,6 @@ export interface TextBoxValues {
 }
 
 /** The single selected text box's index, or null. */
-export function textBoxAt(board: Board, selection: Iterable<string>): number | null {
-  const ids = [...selection];
-  if (ids.length !== 1) return null;
-  const ref = parseBoardItemId(ids[0]!);
-  if (!ref || ref.kind !== 'textbox') return null;
-  return board.textBoxes[ref.index] ? ref.index : null;
-}
-
 /**
  * Split a `(justify …)` word list into its three independent parts.
  *
@@ -120,75 +114,7 @@ export function joinJustify(horiz: HorizJustify, vert: VertJustify, mirrored: bo
 }
 
 /** `TransferDataToWindow`: the dialog's starting values. */
-export function collectTextBoxValues(t: PcbTextBox): TextBoxValues {
-  const j = splitJustify(t.justify);
-  return {
-    text: t.text,
-    face: t.face ?? '',
-    layer: t.layer,
-    locked: t.locked ?? false,
-    width: t.size.x,
-    height: t.size.y,
-    thickness: t.thickness ?? 0,
-    orientation: t.angle ?? 0,
-    bold: t.bold ?? false,
-    italic: t.italic ?? false,
-    mirrored: j.mirrored,
-    horizJustify: j.horiz,
-    vertJustify: j.vert,
-    border: t.border,
-    borderWidth: t.strokeWidth ?? 0,
-    borderStyle: t.strokeType ?? 'solid',
-    knockout: t.knockout ?? false,
-    marginLeft: t.margins.left,
-    marginTop: t.margins.top,
-    marginRight: t.margins.right,
-    marginBottom: t.margins.bottom,
-  };
-}
-
 /** `TransferDataFromWindow`, plus the source patching that makes it stick. */
-export function applyTextBoxValues(board: Board, index: number, v: TextBoxValues): Board {
-  const t = board.textBoxes[index];
-  if (!t) return board;
-
-  const before = collectTextBoxValues(t);
-  if (JSON.stringify(before) === JSON.stringify(v)) return board;
-
-  const justify = joinJustify(v.horizJustify, v.vertJustify, v.mirrored);
-  const next: PcbTextBox = {
-    ...t,
-    text: v.text,
-    face: v.face || undefined,
-    layer: v.layer,
-    locked: v.locked,
-    size: { x: v.width, y: v.height },
-    thickness: v.thickness,
-    // Plain assignment: 0 and undefined are indistinguishable to every reader
-    // of this field (`t.angle ?? 0`, `if (t.angle)`), and it is `dropChild`
-    // below that actually keeps `(angle 0)` out of the file.
-    angle: v.orientation,
-    bold: v.bold,
-    italic: v.italic,
-    justify: justify.length > 0 ? justify : undefined,
-    border: v.border,
-    strokeWidth: v.borderWidth,
-    strokeType: v.borderStyle,
-    knockout: v.knockout,
-    margins: {
-      left: v.marginLeft,
-      top: v.marginTop,
-      right: v.marginRight,
-      bottom: v.marginBottom,
-    },
-  };
-
-  return {
-    ...board,
-    textBoxes: board.textBoxes.map((cur, i) => (i === index ? next : cur)),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // DIALOG_TEXTBOX_PROPERTIES over the live PCB_TEXTBOX (#636 stage 6)
 
@@ -249,7 +175,7 @@ export class DIALOG_TEXTBOX_PROPERTIES {
       border: tb.IsBorderEnabled(),
       borderWidth: stroke.GetWidth(),
       borderStyle: (LINE_STYLE_NAMES.find((d) => d.style === style)?.value ??
-        'solid') as StrokeType,
+        'solid') as LineStyleToken,
       knockout: tb.IsKnockout(),
       marginLeft: tb.GetMarginLeft(),
       marginTop: tb.GetMarginTop(),

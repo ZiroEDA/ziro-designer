@@ -29,28 +29,27 @@
  */
 
 import { type JSX, useMemo, useRef } from 'react';
-import type { Board } from '../index.js';
 import { pcbIUScale } from '@ziroeda/common';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
-import { boardItemOfViewId } from '../pcb_io/kicad_sexpr/board_view.js';
 import { PCB_PROPERTIES_PANEL } from './pcb_properties_panel.js';
 import { PropertiesPanel } from '@ziroeda/common/widgets/properties_panel_ui.js';
 import { PGPROPERTY_DISTANCE, type PG_FRAME } from '@ziroeda/common/properties/pg_properties.js';
 import { PG_UNIT_EDITOR } from '@ziroeda/common/properties/pg_editors.js';
 
 /**
- * The live panel (#636 stage 6): `PCB_PROPERTIES_PANEL` over the frame's
- * BOARD, each edit one BOARD_COMMIT. The selection is still the editor's view
- * ids until PCB_SELECTION_TOOL holds the items (stage 3), so it is resolved to
- * the BOARD_ITEMs here; `board` is the view the ids index, and a new one is
- * what re-reads the grid after a commit (`AfterCommit` / `UpdateData`).
+ * `PCB_PROPERTIES_PANEL` over the frame's BOARD, each edit one BOARD_COMMIT.
+ * The selection is the selection tool's; `revision` changes on every
+ * selection or board change, which is when upstream's panel re-reads
+ * (`UpdateData` from `AfterCommit` / the selection events).
  */
 interface LiveProps {
   frame: PCB_BASE_EDIT_FRAME | null;
-  board: Board | null;
-  selection: ReadonlySet<string>;
+  /** PCB_SELECTION_TOOL's selection, as the panel shows it. */
+  selection: ReadonlySet<EDA_ITEM>;
+  /** Bumped whenever the board changed under an unchanged selection. */
+  revision: unknown;
   units: StatusUnits;
 }
 
@@ -58,7 +57,7 @@ export function PcbPropertiesPanel(props: LiveProps): JSX.Element {
   return <LivePcbPropertiesPanel {...props} />;
 }
 
-function LivePcbPropertiesPanel({ frame, board, selection, units }: LiveProps): JSX.Element {
+function LivePcbPropertiesPanel({ frame, selection, revision, units }: LiveProps): JSX.Element {
   const panelRef = useRef<{ frame: PCB_BASE_EDIT_FRAME; panel: PCB_PROPERTIES_PANEL } | null>(null);
 
   if (frame && panelRef.current?.frame !== frame)
@@ -69,25 +68,18 @@ function LivePcbPropertiesPanel({ frame, board, selection, units }: LiveProps): 
     [units, frame],
   );
 
-  const items = useMemo<EDA_ITEM[]>(() => {
-    if (!board) return [];
-    const out: EDA_ITEM[] = [];
-    for (const id of selection) {
-      const item = boardItemOfViewId(board, id);
-      if (item) out.push(item);
-    }
-    return out;
-  }, [board, selection]);
+  const items = useMemo<EDA_ITEM[]>(() => [...selection], [selection]);
 
   const panel = panelRef.current?.panel ?? null;
 
   // PCB_PROPERTIES_PANEL::UpdateData, on every selection or board change.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `revision` is the trigger for a board change
   const rows = useMemo(() => {
     if (!panel) return [];
     panel.SetSelectionProvider(() => items);
     panel.UpdateData();
     return panel.GridRows(pgFrame);
-  }, [panel, items, pgFrame]);
+  }, [panel, items, pgFrame, revision]);
 
   return (
     <PropertiesPanel<() => void>

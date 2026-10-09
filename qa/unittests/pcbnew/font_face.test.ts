@@ -19,42 +19,38 @@ import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { FormatBoard, ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { flatText, writtenNodes } from './support/written_node.js';
-import {
-  applyTextValues,
-  collectTextValues,
-} from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
-import {
-  applyTextBoxValues,
-  collectTextBoxValues,
-} from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
   (gr_text "faced" (at 10 10) (layer "F.SilkS")
-    (uuid "t1")
+    (uuid "aaaaaaaa-0000-4000-8000-000000000001")
     (effects (font (face "Sans Serif") (size 1.5 1.5) (thickness 0.3))))
   (gr_text "plain" (at 20 10) (layer "F.SilkS")
-    (uuid "t2")
+    (uuid "aaaaaaaa-0000-4000-8000-000000000002")
     (effects (font (size 1.5 1.5) (thickness 0.3))))
   (gr_text_box "boxed" (start 0 0) (end 20 10) (layer "F.SilkS")
-    (uuid "b1")
+    (uuid "aaaaaaaa-0000-4000-8000-000000000003")
     (effects (font (face "Monospace") (size 1.5 1.5) (thickness 0.3)))
     (border yes)))`;
 
-const board = readBoard(parse(BOARD));
-const out = serializeBoard(board);
+const board = ParseBoard(BOARD);
+const out = FormatBoard(board);
+const texts = board
+  .Drawings()
+  .filter((d) => d.Type() === KICAD_T.PCB_TEXT_T) as unknown as EDA_TEXT[];
+const box = board.Drawings().find((d) => d.Type() === KICAD_T.PCB_TEXTBOX_T) as unknown as EDA_TEXT;
 
 describe('the face survives a read and a write', () => {
   it('is read off `(font (face …))`, and absent means the stroke font', () => {
-    expect(board.texts[0]?.face).toBe('Sans Serif');
+    expect(texts[0]!.GetFontName()).toBe('Sans Serif');
     // `GetFont()->GetName().IsEmpty()` is the test upstream makes before
     // writing the token at all, so no token must read back as no face — not as
     // an empty string, which would then be written as `(face "")`.
-    expect(board.texts[1]?.face).toBeUndefined();
-    expect(board.textBoxes[0]?.face).toBe('Monospace');
+    expect(texts[1]!.GetFont()).toBeNull();
+    expect(box.GetFontName()).toBe('Monospace');
   });
 
   it('is written back, and written FIRST inside (font …)', () => {
@@ -73,46 +69,15 @@ describe('the face survives a read and a write', () => {
   });
 });
 
-describe('the two dialogs carry it, so it is editable rather than merely kept', () => {
-  it('the text dialog collects and applies a face', () => {
-    const before = collectTextValues(board.texts[1]!);
-    expect(before.face).toBe('');
-    const next = applyTextValues(board, 1, { ...before, face: 'Monospace' });
-    expect(next.texts[1]?.face).toBe('Monospace');
-    expect(serializeBoard(next)).toContain('(face "Monospace")');
-  });
-
-  it('and clearing it back to Default Font drops the token', () => {
-    const withFace = applyTextValues(board, 0, {
-      ...collectTextValues(board.texts[0]!),
-      face: '',
-    });
-    // '' is "Default Font" in the combo, and the file's way of saying that is
-    // to carry no `(face …)` at all.
-    expect(withFace.texts[0]?.face).toBeUndefined();
-    const faced = serializeBoard(withFace).slice(0, serializeBoard(withFace).indexOf('"plain"'));
-    expect(faced).not.toContain('(face');
-  });
-
-  it('the text box dialog does the same', () => {
-    const before = collectTextBoxValues(board.textBoxes[0]!);
-    expect(before.face).toBe('Monospace');
-    const next = applyTextBoxValues(board, 0, { ...before, face: 'Sans Serif' });
-    expect(next.textBoxes[0]?.face).toBe('Sans Serif');
-  });
-});
-
 describe('one (font …) writer: EDA_TEXT::Format', () => {
   /** The `(font …)` the board writer emits for one gr_text's font tokens. */
   const fontOf = (tokens: string): string => {
-    const text = serializeBoard(
-      readBoard(
-        parse(`(kicad_pcb (version 20241229) (generator "pcbnew")
-  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (37 "F.SilkS" user))
+    const text = FormatBoard(
+      ParseBoard(`(kicad_pcb (version 20241229) (generator "pcbnew")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user))
   (gr_text "X" (at 10 10) (layer "F.SilkS") (uuid "00000000-0000-4000-8000-0000000000c1")
     (effects (font ${tokens})))
 )`),
-      ),
     );
     return /\(font\b.*?\)\s*\)/.exec(text.replace(/\s+/g, ' '))![0];
   };

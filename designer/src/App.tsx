@@ -577,6 +577,8 @@ export function App(): JSX.Element {
     /** The frame the address named, for the manager's launcher to open. */
     view?: 'schematic' | 'pcb' | 'symbols' | 'footprints';
   } | null>(null);
+  /** Counts requests, so it outlives a request being cleared on delivery. */
+  const demoRequestNonce = useRef(0);
   /** The frame a `/demo/<id>/<frame>` address named, until its files arrive. */
   const pendingDemoFrame = useRef<{
     id: string;
@@ -686,6 +688,10 @@ export function App(): JSX.Element {
       setDemoProject(!!demo);
       setDemoSource(demo);
       if (demo) setDemoRoute(demo.id);
+      // The request is mail, delivered once (KIWAY::ExpressMail). Left set, it
+      // was re-read every time the manager mounted again - going home from the
+      // demo's editor re-downloaded it and raised the editor straight back.
+      if (demo) setDemoRequest((r) => (r?.id === demo.id ? null : r));
       const pending = pendingDemoFrame.current;
       if (demo && pending && pending.id === demo.id) {
         pendingDemoFrame.current = null;
@@ -867,9 +873,10 @@ export function App(): JSX.Element {
             // hands them over, so raising a frame here and leaving the manager
             // to fetch could only ever show the empty board the frame was
             // warmed with - which is what `/demo/<id>/pcb` used to do.
-            setDemoRequest((prev) => ({
+            demoRequestNonce.current += 1;
+            setDemoRequest(() => ({
               id: route.id,
-              nonce: (prev?.nonce ?? 0) + 1,
+              nonce: demoRequestNonce.current,
               ...(route.view ? { view: route.view } : {}),
             }));
           } else {
@@ -1852,13 +1859,11 @@ export function App(): JSX.Element {
                           // this file: statically, it put the whole .kicad_pcb
                           // parser into the entry chunk for every visitor,
                           // including the ones who never open a board.
-                          const [{ readBoard }, { parse }, { boardFootprintData }] =
-                            await Promise.all([
-                              import('@ziroeda/pcbnew'),
-                              import('@ziroeda/sexpr'),
-                              import('./editors/schematic/back_annotate_source.js'),
-                            ]);
-                          return boardFootprintData(readBoard(parse(pcbFile.text)));
+                          const [{ ParseBoard }, { boardFootprintData }] = await Promise.all([
+                            import('@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js'),
+                            import('./editors/schematic/back_annotate_source.js'),
+                          ]);
+                          return boardFootprintData(ParseBoard(pcbFile.text));
                         } catch {
                           return null;
                         }

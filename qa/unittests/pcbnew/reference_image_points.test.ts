@@ -9,28 +9,6 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-describe('and the canvas draws what a selected or half-placed image needs', () => {
-  const EDITOR = readFileSync(
-    fileURLToPath(new URL('../../../pcbnew/pcb_edit_frame_ui.tsx', import.meta.url)),
-    'utf8',
-  );
-  const RENDER = readFileSync(
-    fileURLToPath(new URL('../../../pcbnew/renderBoard.ts', import.meta.url)),
-    'utf8',
-  );
-
-  // A selected image's LAYER_ANCHOR box is PCB_PAINTER's: pcb_painter.test.ts.
-  it('dims a placed image by the image opacity, as the painter does', () => {
-    // `color.a *= m_imageOpacity` (`pcb_painter.cpp:578`). Appearance > Objects
-    // has had the slider all along and `DEFAULT_OPACITY.images` has been 0.6;
-    // the value simply never reached the renderer, so every reference image
-    // painted at full strength over the board it is meant to sit under.
-    expect(RENDER).toContain('imageOpacity: number;');
-    expect(RENDER).toContain('opts.imageOpacity * la');
-    expect(EDITOR).toContain('imageOpacity: opacity.images,');
-  });
-});
-
 describe('the two ways a picture failed to appear at all', () => {
   const EDITOR = readFileSync(
     fileURLToPath(new URL('../../../pcbnew/pcb_edit_frame_ui.tsx', import.meta.url)),

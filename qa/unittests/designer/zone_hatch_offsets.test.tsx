@@ -24,15 +24,11 @@ import {
   ZONE_LAYER_GRID_COLUMNS,
   ZoneLayerPropertiesGrid,
 } from '@ziroeda/pcbnew/zone_layer_properties_grid.js';
-import {
-  copperStackNames,
-  defaultBoardSetup,
-  syncCopperLayers,
-  type ZoneLayerPropertiesMap,
-} from '@ziroeda/pcbnew/board_settings.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
-import { readSetup, writeSetup } from './board_setup_test_utils.js';
-import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
+import { freshBoardSetup, readSetup, writeSetup } from './board_setup_test_utils.js';
+import { AllCuMask, LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
+import { syncCopperLayers } from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
+import type { ZoneLayerPropertiesMap } from '@ziroeda/pcbnew/dialogs/panel_setup_zone_hatch_offsets.js';
 
 afterEach(cleanup);
 
@@ -77,7 +73,7 @@ function editOffset(aLayer: string, aAxis: 'X' | 'Y', aText: string): void {
 
 describe('the page', () => {
   it('is a caption, a rule and the shared grid', () => {
-    render(<Harness layers={copperStackNames(2)} />);
+    render(<Harness layers={AllCuMask(2).map(LSET_Name)} />);
     expect(screen.getByText('Zone Hatched Fill Offsets')).toBeTruthy();
     expect(document.querySelector('.ze-zone-hatch-rule')).not.toBeNull();
     expect(document.querySelector('.ze-zone-layer-grid')).not.toBeNull();
@@ -87,7 +83,7 @@ describe('the page', () => {
     // The TABLE's `GetColLabelValue()` (`zone_layer_properties_grid.h:48-57`),
     // which replaces the base's "X Offset" / "Y Offset" when SetTable runs.
     expect([...ZONE_LAYER_GRID_COLUMNS]).toEqual(['Layer', 'Offset X', 'Offset Y']);
-    render(<Harness layers={copperStackNames(2)} />);
+    render(<Harness layers={AllCuMask(2).map(LSET_Name)} />);
     expect(
       [...document.querySelectorAll('.ze-zone-layer-grid th:not(.ze-grid-filler)')].map(
         (t) => t.textContent,
@@ -98,7 +94,7 @@ describe('the page', () => {
   it('draws one row per enabled copper layer, B.Cu last', () => {
     // `for( PCB_LAYER_ID layer : LSET::AllCuMask().UIOrder() )` — CuStack order,
     // which reaches B.Cu after the inner layers.
-    render(<Harness layers={copperStackNames(4)} />);
+    render(<Harness layers={AllCuMask(4).map(LSET_Name)} />);
     const names = [...document.querySelectorAll('.ze-zone-layer-name')].map((c) => c.textContent);
     expect(names).toEqual(['F.Cu', 'In1.Cu', 'In2.Cu', 'B.Cu']);
   });
@@ -106,14 +102,14 @@ describe('the page', () => {
   it('shows an unset layer as zero, with the unit in the cell', () => {
     // `GetValue()` is `hatching_offset.value_or( VECTOR2I() )` and goes through
     // `StringFromValue( …, true )`.
-    render(<Harness layers={copperStackNames(2)} />);
+    render(<Harness layers={AllCuMask(2).map(LSET_Name)} />);
     expect(offsetText('F.Cu', 'X')).toBe('0 mm');
     expect(offsetText('B.Cu', 'Y')).toBe('0 mm');
   });
 
   it('gives a layer an offset the moment one axis is edited', () => {
     // `SetValue()` assigns the whole VECTOR2I back, so the optional becomes set.
-    render(<Harness layers={copperStackNames(2)} />);
+    render(<Harness layers={AllCuMask(2).map(LSET_Name)} />);
     editOffset('F.Cu', 'X', '0.5 mm');
     expect(offsetText('F.Cu', 'X')).toBe('0.5 mm');
     expect(offsetText('F.Cu', 'Y')).toBe('0 mm');
@@ -125,7 +121,7 @@ describe('the page', () => {
     // zero cannot tell that apart from rebuilding the pair, so Y starts at -3.
     render(
       <Harness
-        layers={copperStackNames(2)}
+        layers={AllCuMask(2).map(LSET_Name)}
         initial={{ 'F.Cu': { hatchingOffset: { x: 0, y: -3 } } }}
       />,
     );
@@ -156,7 +152,7 @@ describe('the grid is content-sized, so it must not be contained', () => {
   });
 
   it('still draws its rows', () => {
-    render(<Harness layers={copperStackNames(2)} />);
+    render(<Harness layers={AllCuMask(2).map(LSET_Name)} />);
     expect(document.querySelectorAll('.ze-zone-layer-name')).toHaveLength(2);
   });
 });
@@ -177,7 +173,7 @@ describe('the grid is the shared one', () => {
   });
 
   it('draws each layer’s swatch from LAYER_PRESENTATION', () => {
-    render(<Harness layers={copperStackNames(2)} />);
+    render(<Harness layers={AllCuMask(2).map(LSET_Name)} />);
     const swatches = [...document.querySelectorAll('.ze-zone-layer-name .ze-combo-swatch')];
     expect(swatches).toHaveLength(2);
     // F.Cu and B.Cu are different colours, so a shared swatch source shows two.
@@ -203,7 +199,7 @@ describe('SyncCopperLayers', () => {
   it('rebuilds the copper rows to the new stack, keeping what survives', () => {
     // `m_enabledLayers` loses every copper id then gains `AllCuMask( n )`
     // (`panel_setup_layers.cpp:598-607`).
-    let v = defaultBoardSetup();
+    let v = freshBoardSetup();
     v.layers.layers = v.layers.layers.map((l) =>
       l.id === 'F.Cu' ? { ...l, name: 'Top', copperType: 'power' as const } : l,
     );
@@ -224,7 +220,7 @@ describe('SyncCopperLayers', () => {
   it('drops the hatch offsets of a layer that leaves the stack', () => {
     // `SyncCopperLayers` deletes the rows of layers no longer enabled
     // (`panel_setup_zone_hatch_offsets.cpp:84-97`).
-    let v = syncCopperLayers(defaultBoardSetup(), 4);
+    let v = syncCopperLayers(freshBoardSetup(), 4);
     v.zoneLayerProperties = {
       'F.Cu': { hatchingOffset: { x: 1, y: 1 } },
       'In2.Cu': { hatchingOffset: { x: 2, y: 2 } },

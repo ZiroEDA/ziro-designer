@@ -29,12 +29,8 @@
  *       m_buttonsSizer (H): "Generate Report File..." (flex 0), sdbSizer
  *         relabelled "Generate" / "Close" (`SetupStandardButtons`)
  *
- * Only EXCELLON_WRITER is ported (`GERBER_WRITER` is not — STRUCTURE.md), so
- * Gerber X2 drill files stay greyed: the row is buildable, not
- * browser-impossible, so it greys rather than disappears
- * (`browser-irrelevant-remove-not-grey`). Its one child (tenting layers) greys
- * with it, matching `onFileFormatSelection`'s `Enable( !enbl_Excellon )` — always
- * false while Excellon is the only selectable format.
+ * Excellon goes through EXCELLON_WRITER, Gerber X2 through GERBER_WRITER;
+ * `onFileFormatSelection` enables each format's own options.
  *
  * Web delta: no local filesystem, so "Output folder:" browses the *project*'s
  * own folders (same popup as `dialog_plot.tsx`'s), and every generated file —
@@ -43,10 +39,10 @@
  * (`plot-print-cloud-output` memory).
  */
 import { useState, type JSX } from 'react';
-import type { Board } from '../index.js';
-import { boardAuxOrigin } from '../board_design_settings.js';
+import type { BOARD } from '../board.js';
 import { PCB_PLOT_PARAMS } from '../pcb_plot_params.js';
 import { EXCELLON_WRITER } from '../exporters/gendrill_excellon_writer.js';
+import { GERBER_WRITER } from '../exporters/gendrill_gerber_writer.js';
 import { DRILL_PRECISION, ZEROS_FMT } from '../exporters/gendrill_writer_base.js';
 import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
@@ -54,7 +50,9 @@ import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
-  board: Board;
+  board: BOARD;
+  /** The board's file name, which names the drill files. */
+  fileName: string;
   /** Folders that already exist in the project (browse choices). */
   projectFolders?: readonly string[];
   /** Write a generated file into the project (path relative to the project
@@ -103,19 +101,19 @@ const download = (name: string, bytes: Uint8Array): void => {
 
 export function DialogGendrill({
   board,
+  fileName,
   projectFolders = [],
   onOutputFile,
   onClose,
 }: Props): JSX.Element {
   useModalEscape(onClose);
 
-  const [initial] = useState(() => board.k?.GetPlotOptions() ?? new PCB_PLOT_PARAMS());
+  const [initial] = useState(() => board.GetPlotOptions());
   const [outputDir, setOutputDir] = useState(() => initial.GetOutputDirectory());
   const [browseOpen, setBrowseOpen] = useState(false);
   const [origin, setOrigin] = useState(() => (initial.GetUseAuxOrigin() ? '1' : '0'));
-  // Gerber X2 drill files stay greyed (GERBER_WRITER not ported); the radio
-  // state exists so the sizer tree matches upstream, but it can never flip.
-  const [format] = useState<'excellon' | 'gerberx2'>('excellon');
+  const [format, setFormat] = useState<'excellon' | 'gerberx2'>('excellon');
+  const [generateTenting, setGenerateTenting] = useState(false);
   const [mirror, setMirror] = useState(false);
   const [minimal, setMinimal] = useState(false);
   const [mergePTHNPTH, setMergePTHNPTH] = useState(false);
@@ -127,10 +125,16 @@ export function DialogGendrill({
   const [messages, setMessages] = useState<string[]>([]);
 
   const excellonSelected = format === 'excellon';
-  const precisionEnabled = Number(zeros) !== ZEROS_FMT.DECIMAL_FORMAT;
-  const precisionStr = (units === '1' ? PRECISION_INCHES : PRECISION_METRIC).GetPrecisionString();
+  // onFileFormatSelection: Gerber's precision is the plot options' 4.6 or 4.5,
+  // always enabled; Excellon's is updatePrecisionOptions'.
+  const precisionEnabled = !excellonSelected || Number(zeros) !== ZEROS_FMT.DECIMAL_FORMAT;
+  const precisionStr = !excellonSelected
+    ? initial.GetGerberPrecision() === 6
+      ? '4.6'
+      : '4.5'
+    : (units === '1' ? PRECISION_INCHES : PRECISION_METRIC).GetPrecisionString();
 
-  const base = (board.fileName ?? 'board')
+  const base = (fileName || 'board')
     .replace(/\.kicad_pcb$/i, '')
     .split('/')
     .pop()!;
@@ -151,8 +155,7 @@ export function DialogGendrill({
   /** `DIALOG_GENDRILL::updateConfig` — persist output dir / origin onto the
    *  board's own plot options, the same field the Plot dialog reads. */
   const updateConfig = (): void => {
-    const k = board.k;
-    if (!k) return;
+    const k = board;
     const opts = new PCB_PLOT_PARAMS();
     opts.assign(k.GetPlotOptions());
     opts.SetOutputDirectory(dir);
@@ -160,48 +163,66 @@ export function DialogGendrill({
     if (!opts.IsSameAs(k.GetPlotOptions())) k.SetPlotOptions(opts);
   };
 
-  /** `DIALOG_GENDRILL::genDrillAndMapFiles`, Excellon branch only. */
+  /** `DIALOG_GENDRILL::genDrillAndMapFiles`. */
   const generate = (): void => {
-    const k = board.k;
-    if (!k) {
-      appendMsg('The board model is not loaded, nothing to generate.');
-      return;
-    }
-    if (!k.GetFileName()) k.SetFileName(board.fileName ?? 'board.kicad_pcb');
+    const k = board;
+    if (!k.GetFileName()) k.SetFileName(fileName || 'board.kicad_pcb');
 
     updateConfig();
     setMessages([]);
 
-    const drillOffset = origin === '1' ? boardAuxOrigin(board) : { x: 0, y: 0 };
+    const drillOffset = origin === '1' ? board.GetDesignSettings().GetAuxOrigin() : { x: 0, y: 0 };
     const precision = units === '1' ? PRECISION_INCHES : PRECISION_METRIC;
 
-    const writer = new EXCELLON_WRITER(k);
-    writer.SetFormat(units === '0', Number(zeros) as ZEROS_FMT, precision.m_Lhs, precision.m_Rhs);
-    writer.SetOptions(mirror, minimal, drillOffset, mergePTHNPTH);
-    writer.SetRouteModeForOvalHoles(!altDrillMode);
-    writer.SetMapFileFormat(MAP_FORMATS[Number(mapFormat)]!);
-    writer.SetPageInfo(k.GetPageSettings());
-    writer.SetFileSink((name, bytes) => emitFile(name, bytes, 'text/plain'));
+    if (excellonSelected) {
+      const writer = new EXCELLON_WRITER(k);
+      writer.SetFormat(units === '0', Number(zeros) as ZEROS_FMT, precision.m_Lhs, precision.m_Rhs);
+      writer.SetOptions(mirror, minimal, drillOffset, mergePTHNPTH);
+      writer.SetRouteModeForOvalHoles(!altDrillMode);
+      writer.SetMapFileFormat(MAP_FORMATS[Number(mapFormat)]!);
+      writer.SetPageInfo(k.GetPageSettings());
+      writer.SetFileSink((name, bytes) => emitFile(name, bytes, 'text/plain'));
 
-    writer.CreateDrillandMapFilesSet('', true, generateMap);
+      writer.CreateDrillandMapFilesSet('', true, generateMap);
+    } else {
+      const writer = new GERBER_WRITER(k);
+      // Set gerber precision: only 5 or 6 digits for mantissa are allowed
+      // (SetFormat() accept 5 or 6, and any other value set the precision to 5)
+      // the integer part precision is always 4, and units always mm
+      writer.SetFormat(initial.GetGerberPrecision());
+      writer.SetOptions(drillOffset);
+      writer.SetMapFileFormat(MAP_FORMATS[Number(mapFormat)]!);
+      writer.SetPageInfo(k.GetPageSettings());
+      writer.SetFileSink((name, bytes) => emitFile(name, bytes, 'text/plain'));
+
+      writer.CreateDrillandMapFilesSet('', true, generateMap, generateTenting);
+    }
     appendMsg('Done.');
   };
 
   /** `DIALOG_GENDRILL::onGenReportFile`. */
   const generateReport = (): void => {
-    const k = board.k;
-    if (!k) {
-      appendMsg('The board model is not loaded, nothing to report.');
-      return;
-    }
-    if (!k.GetFileName()) k.SetFileName(board.fileName ?? 'board.kicad_pcb');
+    const k = board;
+    if (!k.GetFileName()) k.SetFileName(fileName || 'board.kicad_pcb');
 
     updateConfig();
     setMessages([]);
 
     const name = `${base}-drl.rpt`;
-    const writer = new EXCELLON_WRITER(k);
-    writer.SetMergeOption(mergePTHNPTH);
+    // Info is slightly different between Excellon and Gerber
+    // (file ext, Merge PTH/NPTH option)
+    // As upstream: `m_rbExcellon->GetValue() == 0` picks EXCELLON_WRITER when
+    // Gerber X2 is the selected format, and GERBER_WRITER for Excellon.
+    let writer: EXCELLON_WRITER | GERBER_WRITER;
+
+    if (!excellonSelected) {
+      const excellonWriter = new EXCELLON_WRITER(k);
+      excellonWriter.SetMergeOption(mergePTHNPTH);
+      writer = excellonWriter;
+    } else {
+      writer = new GERBER_WRITER(k);
+    }
+
     writer.SetFileSink((_path, bytes) => {
       const path = dir ? `${dir}/${name}` : name;
       if (onOutputFile) onOutputFile(path, bytes, 'text/plain');
@@ -277,7 +298,12 @@ export function DialogGendrill({
               <div className="ze-gendrill-headline">Format</div>
               <hr className="ze-gendrill-rule" />
               <label className="ze-check">
-                <input type="radio" name="ze-gendrill-fmt" checked readOnly />
+                <input
+                  type="radio"
+                  name="ze-gendrill-fmt"
+                  checked={excellonSelected}
+                  onChange={() => setFormat('excellon')}
+                />
                 Excellon
               </label>
               <div className="ze-gendrill-suboptions">
@@ -288,6 +314,7 @@ export function DialogGendrill({
                   <input
                     type="checkbox"
                     checked={mirror}
+                    disabled={!excellonSelected}
                     onChange={(e) => setMirror(e.target.checked)}
                   />
                   Mirror Y axis
@@ -301,6 +328,7 @@ export function DialogGendrill({
                   <input
                     type="checkbox"
                     checked={minimal}
+                    disabled={!excellonSelected}
                     onChange={(e) => setMinimal(e.target.checked)}
                   />
                   Minimal header
@@ -314,6 +342,7 @@ export function DialogGendrill({
                   <input
                     type="checkbox"
                     checked={mergePTHNPTH}
+                    disabled={!excellonSelected}
                     onChange={(e) => setMergePTHNPTH(e.target.checked)}
                   />
                   PTH and NPTH in single file
@@ -322,21 +351,29 @@ export function DialogGendrill({
                   <input
                     type="checkbox"
                     checked={altDrillMode}
+                    disabled={!excellonSelected}
                     onChange={(e) => setAltDrillMode(e.target.checked)}
                   />
                   Use alternate drill mode for oval holes
                 </label>
               </div>
-              <label
-                className="ze-check"
-                title="Not ported: GERBER_WRITER (Gerber drill files) is not built here yet."
-              >
-                <input type="radio" name="ze-gendrill-fmt" disabled />
+              <label className="ze-check">
+                <input
+                  type="radio"
+                  name="ze-gendrill-fmt"
+                  checked={!excellonSelected}
+                  onChange={() => setFormat('gerberx2')}
+                />
                 Gerber X2
               </label>
               <div className="ze-gendrill-suboptions">
                 <label className="ze-check">
-                  <input type="checkbox" disabled />
+                  <input
+                    type="checkbox"
+                    checked={generateTenting}
+                    disabled={excellonSelected}
+                    onChange={(e) => setGenerateTenting(e.target.checked)}
+                  />
                   Generate tenting layers
                 </label>
               </div>

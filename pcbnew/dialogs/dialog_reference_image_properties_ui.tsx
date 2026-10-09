@@ -64,7 +64,6 @@ import {
 import { pngPixelSize, pngPPI } from '@ziroeda/common/wx/png_meta.js';
 import { CheckValues, PANEL_IMAGE_EDITOR } from '@ziroeda/common/dialogs/panel_image_editor.js';
 import { MessageDialogError, MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
-import type { PcbImage } from '../types.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { parseUnitValue, stringFromValue, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
@@ -72,7 +71,8 @@ import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js'
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
-  image: PcbImage;
+  /** The bitmap's PNG, base64: the preview and the size arithmetic. */
+  image: { data: string };
   initial: ImageValues;
   /**
    * The frame's display units. `m_posX`, `m_posY`, `m_width` and `m_height` are

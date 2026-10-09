@@ -14,7 +14,11 @@
  * the two values are held as plain numbers here rather than as a point.
  */
 import { useState, type JSX, type Ref } from 'react';
-import { moveKeepsSelectionInBounds, polarTranslation, type RotationAnchor } from '../index.js';
+import {
+  moveKeepsSelectionInBounds,
+  polarTranslation,
+  type RotationAnchor,
+} from './dialog_move_exact.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 

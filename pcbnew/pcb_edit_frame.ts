@@ -10,6 +10,8 @@
  * The listener is `BOARD_LISTENER` as the React side subscribes to it: every
  * notification schedules one re-derivation of the view from the BOARD.
  */
+import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
+import type { PRINTING } from '@ziroeda/common/settings/app_settings.js';
 import { ROUTER_TOOL } from './router/router_tool.js';
 import { PCB_ACTIONS } from './tools/pcb_actions.js';
 import { AUTOPLACE_TOOL } from './autorouter/autoplace_tool.js';
@@ -61,15 +63,29 @@ import { PCB_EDITOR_CONDITIONS } from './tools/pcb_editor_conditions.js';
 import { PCB_SELECTION_CONDITIONS } from './tools/pcb_selection_conditions.js';
 import { PnsMode, type RoutingSettings } from './router/pns_routing_settings.js';
 import { PAD } from './pad.js';
+import { DIALOG_REFERENCE_IMAGE_PROPERTIES } from './dialogs/dialog_reference_image_properties.js';
+import { DIALOG_PAD_PROPERTIES } from './dialogs/dialog_pad_properties.js';
+import { DIALOG_FOOTPRINT_PROPERTIES } from './dialogs/dialog_footprint_properties.js';
+import { DIALOG_DIMENSION_PROPERTIES } from './dialogs/dialog_dimension_properties.js';
+import { DIALOG_SHAPE_PROPERTIES } from './dialogs/dialog_shape_properties.js';
+import { DIALOG_TARGET_PROPERTIES } from './dialogs/dialog_target_properties.js';
+import { DIALOG_FIND } from './dialogs/dialog_find.js';
+import type { DIALOG_PRINT_PCBNEW } from './dialogs/dialog_print_pcbnew.js';
+import type { DIALOG_GENCAD_EXPORT_OPTIONS } from './dialogs/dialog_gencad_export_options.js';
+import type { PCB_REFERENCE_IMAGE } from './pcb_reference_image.js';
+import type { PCB_SHAPE } from './pcb_shape.js';
+import type { PCB_TARGET } from './pcb_target.js';
 import { PCB_VIA, VIATYPE } from './pcb_track.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import {
   PCB_BASE_EDIT_FRAME,
+  type PCB_BASE_EDIT_FRAME_DIALOG_HOOKS,
   type IMPORT_GRAPHICS_RESULT,
   type PASTE_MODE,
 } from './pcb_base_edit_frame.js';
 import { STRTOK, strncpyLine } from '@ziroeda/common/libc/string.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
 import { type AUI_PANELS, PCBNEW_SETTINGS } from './pcbnew_settings.js';
@@ -78,7 +94,7 @@ import type { FOOTPRINT } from './footprint.js';
 import type { PCB_FIELD } from './pcb_field.js';
 import { PCB_TEXT } from './pcb_text.js';
 import { PCB_DIMENSION_BASE } from './pcb_dimension.js';
-import { FootprintNeedsUpdate } from './footprint_needs_update.js';
+import { FootprintNeedsUpdate } from './drc/drc_test_provider_library_parity.js';
 import { DIALOG_EXCHANGE_FOOTPRINTS } from './dialogs/dialog_exchange_footprints.js';
 import { EMBEDDED_FILE, FILE_TYPE } from '@ziroeda/common/embedded_files.js';
 import { UNCONNECTED_NET } from './netinfo_list.js';
@@ -86,16 +102,16 @@ import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import type { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { collectItemsForSyncParts, sortedSyncParts } from './cross-probing.js';
 import type { ZONE } from './zone.js';
 import type { wxTextValidator } from '@ziroeda/common/validators.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { MICROWAVE_TOOL, type MICROWAVE_HOST } from './microwave/microwave_tool.js';
 import { PCB_VIEWER_TOOLS } from './tools/pcb_viewer_tools.js';
-import type { PcbFootprint } from './types.js';
 import type { NETLIST } from './netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from './tools/drc_tool.js';
 import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from './browser/drc_job.js';
-import { runDrcJobOffThread } from './drc_runner.js';
+import { runDrcJobOffThread } from './browser/drc_runner.js';
 import { PCB_TOOL_BASE } from './tools/pcb_tool_base.js';
 import { MARKER_T } from '@ziroeda/common/marker_base.js';
 import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/reporter.js';
@@ -131,17 +147,24 @@ import { EDIT_MIXIN } from './edit.js';
 import { FILES_MIXIN } from './files.js';
 import { EDIT_ZONE_HELPERS_MIXIN } from './edit_zone_helpers.js';
 import { PCBNEW_CONFIG_MIXIN } from './pcbnew_config.js';
-import { LOAD_SELECT_FOOTPRINT_MIXIN } from './load_select_footprint.js';
 import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { PCB_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/board_project_settings.js';
-import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { ACTIONS, EVENTS } from '@ziroeda/common/tool/actions.js';
 import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
-import { type wxEvent, wxUpdateUIEvent } from '@ziroeda/common/wx/wx_event.js';
+import {
+  type wxEvent,
+  wxTimer,
+  type wxTimerEvent,
+  wxUpdateUIEvent,
+} from '@ziroeda/common/wx/wx_event.js';
+import { escapeIpc, unescapeString } from '@ziroeda/common/string_utils.js';
+import { type KIID, kiidPathAsString } from '@ziroeda/common/kiid.js';
 import type { EDA_BASE_FRAME } from '@ziroeda/common/eda_base_frame.js';
 import type { SelectionFilter } from './dialogs/dialog_filter_selection.js';
 import { PCB_POINT_EDITOR } from './tools/pcb_point_editor.js';
 import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
 import { EDIT_TOOL, type MOVE_EXACT_VALUES } from './tools/edit_tool.js';
+import { PCB_EDIT_TABLE_TOOL } from './tools/pcb_edit_table_tool.js';
 import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
 import { ALIGN_DISTRIBUTE_TOOL } from './tools/align_distribute_tool.js';
 import { BOARD_INSPECTION_TOOL } from './tools/board_inspection_tool.js';
@@ -219,9 +242,13 @@ import {
   PCB_CURRENT_LAYER_PAIR_CHANGED,
   PCB_LAYER_PAIR_PRESETS_CHANGED,
 } from './layer_pairs.js';
+import { loadKicadNetlist } from './netlist_reader/kicad_netlist_reader.js';
+import { fetchNetlistFromSchematic } from './browser/headless_netlist.js';
 
 /** `INSPECT_DRC_ERROR_DIALOG_NAME` (pcb_edit_frame.cpp:160). */
 const INSPECT_DRC_ERROR_DIALOG_NAME = 'InspectDrcErrorDialog';
+const INSPECT_CLEARANCE_DIALOG_NAME = 'InspectClearanceDialog';
+const INSPECT_CONSTRAINTS_DIALOG_NAME = 'InspectConstraintsDialog';
 
 /**
  * The slice of the designer's `PcbnewSettings` (`prefs/settings.ts`)
@@ -242,6 +269,10 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
     color_theme: string;
   };
   cross_probing: CROSS_PROBING_SETTINGS;
+  /** `APP_SETTINGS_BASE::m_Printing`, the `printing.*` PARAMs (app_settings.cpp). */
+  printing: Omit<PRINTING, never>;
+  /** `m_ExportD356`, the `export_d356.*` PARAM (pcbnew_settings.cpp:292). */
+  export_d356: { doNotExportUnconnectedPads: boolean };
   /** `m_AuiPanels`, the keys the Search and Net Inspector panes persist. */
   aui: Pick<AUI_PANELS, 'show_search' | 'show_net_inspector' | 'search_panel_height'>;
   pcb_display: {
@@ -420,6 +451,9 @@ export function loadPcbnewSettings(
 
   s.m_AuiPanels.show_search = json.aui.show_search;
   s.m_AuiPanels.show_net_inspector = json.aui.show_net_inspector;
+
+  Object.assign(s.m_Printing, json.printing, { layers: [...json.printing.layers] });
+  s.m_ExportD356.doNotExportUnconnectedPads = json.export_d356.doNotExportUnconnectedPads;
 
   return s;
 }
@@ -629,10 +663,23 @@ export function storePcbnewSettings(s: PCBNEW_SETTINGS, json: PCBNEW_JSON_SETTIN
   set(json.aui, 'show_search', s.m_AuiPanels.show_search);
   set(json.aui, 'show_net_inspector', s.m_AuiPanels.show_net_inspector);
 
+  set(json.export_d356, 'doNotExportUnconnectedPads', s.m_ExportD356.doNotExportUnconnectedPads);
+
+  for (const key of Object.keys(s.m_Printing) as (keyof PRINTING)[]) {
+    if (key === 'layers') {
+      if (json.printing.layers.join() !== s.m_Printing.layers.join()) {
+        json.printing.layers = [...s.m_Printing.layers];
+        changed = true;
+      }
+    } else {
+      set(json.printing, key, s.m_Printing[key]);
+    }
+  }
+
   return changed;
 }
 
-export interface PCB_EDIT_FRAME_HOOKS {
+export interface PCB_EDIT_FRAME_HOOKS extends PCB_BASE_EDIT_FRAME_DIALOG_HOOKS {
   /** `PCBNEW_SETTINGS`, read on every access so a changed preference is seen. */
   settings(): PCBNEW_SETTINGS;
   /**
@@ -642,6 +689,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   storeSettings?(): void;
   /** TRANSITIONAL (#636): the aux toolbar's track-width / via-size boxes are the window's. */
   reCreateAuxiliaryToolbar?(): void;
+  /** DIALOG_FOOTPRINT_ASSOCIATIONS on a footprint, modal. */
+  showFootprintAssociationsDialog?(aFootprint: FOOTPRINT): void;
   /** DIALOG_ASSIGN_NETCLASS: true when OK closed it, the pattern assigned. */
   showAssignNetclassDialog?(
     aNetNames: ReadonlySet<string>,
@@ -660,28 +709,6 @@ export interface PCB_EDIT_FRAME_HOOKS {
   createDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE;
   /** `Kiface().IsSingle()`: no schematic to test parity against. */
   isSingle(): boolean;
-  /** DIALOG_PASTE_SPECIAL: the chosen mode and clear-nets, or null for Cancel. */
-  showPasteSpecialDialog?(
-    aShowClearNets: boolean,
-  ): Promise<{ mode: PASTE_MODE; clearNets: boolean } | null>;
-  /** DIALOG_PAGES_SETTINGS: true when OK wrote the page and title block into the frame. */
-  showPageSettingsDialog?(): Promise<boolean>;
-  /** DIALOG_IMPORT_GRAPHICS: what OK read off it, or null. */
-  showImportGraphicsDialog?(aFilenameOverride?: string): Promise<IMPORT_GRAPHICS_RESULT | null>;
-  /** DIALOG_BARCODE_PROPERTIES on a live barcode, new or not; true when OK closed it. */
-  showBarcodePropertiesDialog?(aDialog: DIALOG_BARCODE_PROPERTIES): Promise<boolean>;
-  /** DIALOG_TEXTBOX_PROPERTIES on a live text box, new or not; true when OK closed it. */
-  showTextBoxPropertiesDialog?(aDialog: DIALOG_TEXTBOX_PROPERTIES): Promise<boolean>;
-  /** The "Choose Image" file dialog: the bytes chosen, or null for Cancel. */
-  showImageFileDialog?(): Promise<Uint8Array | null>;
-  /** DIALOG_TABLE_PROPERTIES on a live table, new or not; true when OK closed it. */
-  showTablePropertiesDialog?(aDialog: DIALOG_TABLE_PROPERTIES): Promise<boolean>;
-  /** A zone's properties dialog on a ZONE_SETTINGS alone; true when OK closed it. */
-  showZoneSettingsDialog?(
-    aDialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES,
-  ): Promise<boolean>;
-  /** DIALOG_TEXT_PROPERTIES shown quasi-modally; true when OK closed it. */
-  showTextPropertiesDialog?(aDialog: DIALOG_TEXT_PROPERTIES): Promise<boolean>;
   /** The tool stack changed (`PushTool` / `PopTool`): the window's toolbar follows it. */
   toolStackChanged?(): void;
   /** `PCB_EDIT_FRAME::FetchNetlistFromSchematic`: fills aNetlist, false on failure. */
@@ -693,15 +720,43 @@ export interface PCB_EDIT_FRAME_HOOKS {
   schematicNetlistText(): string | null;
   /** The project's `.kicad_pro` text, PROJECT not being ported. */
   projectText(): string | null;
-  /** `PCB_EDIT_FRAME::OnEditItemRequest`: the item's properties dialog. */
-  onEditItemRequest(aItem: BOARD_ITEM | null): void;
   /**
    * `PCB_EDIT_FRAME::Edit_Zone_Params` (`edit_zone_helpers.cpp`), the part
    * `OnEditItemRequest`'s `PCB_ZONE_T` case delegates to: open the zone's
    * properties dialog (rule area / copper / non-copper is the component's
    * own render choice, from the zone's own `GetIsRuleArea()`/layer).
    */
-  editZoneParams(zoneIndex: number): void;
+  editZoneParams(aZone: ZONE): void;
+  /** `ShowFootprintPropertiesDialog`: DIALOG_FOOTPRINT_PROPERTIES, modal. */
+  showFootprintPropertiesDialog?(aDialog: DIALOG_FOOTPRINT_PROPERTIES): void;
+  /** `m_findDialog->Show( true )`: the window draws the modeless Find dialog. */
+  showFindDialog?(aDialog: DIALOG_FIND): void;
+  /**
+   * `wxFileDialog( this, aTitle, Prj().GetProjectPath(), aDefaultName,
+   * aWildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT )` with one customize-hook
+   * checkbox: the chosen name in the project, and the checkbox, or null on
+   * Cancel.
+   */
+  showSaveFileDialog?(
+    aTitle: string,
+    aDefaultName: string,
+    aWildcard: ChooserFilter,
+    aCheckbox: { label: string; value: boolean } | null,
+  ): Promise<{ path: string; checked: boolean } | null>;
+  /** `wxFopen( aPath, "wt" )` + write: the generated file into the project. */
+  writeTextFile?(aPath: string, aText: string): boolean;
+  /** `DIALOG_GENDRILL dlg( editFrame, editFrame ); dlg.ShowModal()`. */
+  showGenDrillDialog?(): Promise<void>;
+  /** `DIALOG_GENCAD_EXPORT_OPTIONS::ShowModal()`: true for OK. */
+  showGencadExportOptionsDialog?(aDialog: DIALOG_GENCAD_EXPORT_OPTIONS): Promise<boolean>;
+  /** `wxFile::Exists( aPath )`: a file of that path in the project. */
+  fileExists?(aPath: string): boolean;
+  /** `DIALOG_GEN_FOOTPRINT_POSITION dlg( this ); dlg.ShowModal()`. */
+  showGenFootprintPositionDialog?(): Promise<void>;
+  /** `DIALOG_PRINT_PCBNEW::ShowModal`: resolves when the dialog is closed. */
+  showPrintDialog?(aDialog: DIALOG_PRINT_PCBNEW): Promise<void>;
+  /** `ShowTargetOptionsDialog`: DIALOG_TARGET_PROPERTIES, modal. */
+  showTargetOptionsDialog?(aDialog: DIALOG_TARGET_PROPERTIES): void;
   /** `DIALOG_EXCHANGE_FOOTPRINTS::ShowQuasiModal()`: the window shows the dialog; it closes itself. */
   showExchangeFootprintsDialog(aDialog: DIALOG_EXCHANGE_FOOTPRINTS): void;
   /**
@@ -711,12 +766,10 @@ export interface PCB_EDIT_FRAME_HOOKS {
    */
   placingFootprint?(): boolean;
   /**
-   * The board half of `FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB`
-   * (`footprint_viewer_frame.cpp:735-779`): `selectionClear`, then
-   * `PostAction( PCB_ACTIONS::placeFootprint, newFootprint )` with a copy of
-   * the library footprint, so it rides the cursor until a click drops it.
+   * `Kiway().GetBlockingDialog()->Close( true )`: the modal open over the
+   * board (the footprint chooser), which the Library Browser's Insert closes.
    */
-  placeFootprintFromLibrary?(aFpid: string, aFootprint: PcbFootprint): void;
+  closeBlockingDialog?(): void;
   /** `findDialogs()`: the open modeless dialogs' rectangles, in canvas client pixels. */
   findDialogRects(): BOX2D[];
   /**
@@ -734,12 +787,6 @@ export interface PCB_EDIT_FRAME_HOOKS {
   highlightChanged?(): void;
   /** `DIALOG_BOARD_STATISTICS dialog( m_frame ); dialog.ShowModal()`. */
   showBoardStatisticsDialog?(): void;
-  /**
-   * `PCB_ACTIONS::syncSelection` / `syncSelectionWithNets` on the items
-   * `FindItemsFromSyncSelection` names: the editor owns the selection, so it
-   * resolves the parts and applies them. `on_selection` has been checked.
-   */
-  syncSelection(aParts: readonly string[], aSelectConnections: boolean): void;
   /** `m_toolManager->RunAction( ACTIONS::updatePcbFromSchematic )`: the editor's dialog. */
   updatePcbFromSchematic(): void;
   /**
@@ -931,7 +978,6 @@ export interface PCB_EDIT_FRAME
     FILES_MIXIN,
     EDIT_ZONE_HELPERS_MIXIN,
     PCBNEW_CONFIG_MIXIN,
-    LOAD_SELECT_FOOTPRINT_MIXIN,
     PCB_DESIGN_BLOCK_UTILS_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (INITPCB_MIXIN mixin, see libs/core/mixins.ts)
@@ -1077,6 +1123,11 @@ function matchItemsBySimilarity<T extends BOARD_ITEM>(
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** Recursion guard when synchronizing selection from schematic. */
   m_ProbingSchToPcb = false;
+  /** The cross-probe flash (pcb_edit_frame.h): the timer, its items, its phase. */
+  m_crossProbeFlashTimer = new wxTimer((e) => this.OnCrossProbeFlashTimer(e));
+  m_crossProbeFlashItems: KIID[] = [];
+  m_crossProbeFlashPhase = 0;
+  m_crossProbeFlashing = false;
   protected readonly hooks: PCB_EDIT_FRAME_HOOKS;
 
   /**
@@ -1088,6 +1139,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** The project's .kicad_dru as last given to OnBoardLoaded: `GetDesignRulesPath()` and its text. */
   private m_designRulesText: string | null = null;
   private m_inspectDrcErrorDlg: DIALOG_BOOK_REPORTER | null = null;
+  private m_inspectClearanceDlg: DIALOG_BOOK_REPORTER | null = null;
+  private m_inspectConstraintsDlg: DIALOG_BOOK_REPORTER | null = null;
 
   /** What {@link Get3DViewerFrame} answers while the window's 3D viewer is open. */
   private readonly m_viewer3D = {};
@@ -1295,49 +1348,117 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
     this.GetCanvas()?.Refresh();
   }
-
-  override ShowPasteSpecialDialog(
-    aShowClearNets: boolean,
-  ): Promise<{ mode: PASTE_MODE; clearNets: boolean } | null> {
-    return this.hooks.showPasteSpecialDialog?.(aShowClearNets) ?? Promise.resolve(null);
+  /** `PCB_BASE_EDIT_FRAME::ShowPadPropertiesDialog( PAD* aPad )`. */
+  /** `PCB_EDIT_FRAME::ShowFootprintPropertiesDialog( FOOTPRINT* aFootprint )`. */
+  ShowFootprintPropertiesDialog(aFootprint: FOOTPRINT): void {
+    this.hooks.showFootprintPropertiesDialog?.(new DIALOG_FOOTPRINT_PROPERTIES(this, aFootprint));
   }
-
-  override ShowPageSettingsDialog(): Promise<boolean> {
-    return this.hooks.showPageSettingsDialog?.() ?? Promise.resolve(false);
-  }
-
-  override ShowImportGraphicsDialog(
-    aFilenameOverride?: string,
-  ): Promise<IMPORT_GRAPHICS_RESULT | null> {
-    return this.hooks.showImportGraphicsDialog?.(aFilenameOverride) ?? Promise.resolve(null);
-  }
-
-  override ShowBarcodePropertiesDialog(aBarcode: PCB_BARCODE): Promise<boolean> {
+  /** `PCB_BASE_EDIT_FRAME::ShowGraphicItemPropertiesDialog( PCB_SHAPE* aShape )`. */
+  /** A save-mode wxFileDialog with a customize hook's one checkbox; see the hook. */
+  ShowSaveFileDialog(
+    aTitle: string,
+    aDefaultName: string,
+    aWildcard: ChooserFilter,
+    aCheckbox: { label: string; value: boolean } | null = null,
+  ): Promise<{ path: string; checked: boolean } | null> {
     return (
-      this.hooks.showBarcodePropertiesDialog?.(new DIALOG_BARCODE_PROPERTIES(this, aBarcode)) ??
-      Promise.resolve(false)
+      this.hooks.showSaveFileDialog?.(aTitle, aDefaultName, aWildcard, aCheckbox) ??
+      Promise.resolve(null)
     );
   }
 
-  override ShowTextBoxPropertiesDialog(aTextBox: PCB_TEXTBOX): Promise<boolean> {
-    return (
-      this.hooks.showTextBoxPropertiesDialog?.(new DIALOG_TEXTBOX_PROPERTIES(this, aTextBox)) ??
-      Promise.resolve(false)
-    );
+  /** The write after a save dialog: false when the file could not be made. */
+  WriteTextFile(aPath: string, aText: string): boolean {
+    return this.hooks.writeTextFile?.(aPath, aText) ?? false;
   }
 
-  override ShowImageFileDialog(): Promise<Uint8Array | null> {
-    return this.hooks.showImageFileDialog?.() ?? Promise.resolve(null);
+  /** `optionsDialog.ShowModal()` for BOARD_EDITOR_CONTROL::ExportGenCAD. */
+  ShowGencadExportOptionsDialog(aDialog: DIALOG_GENCAD_EXPORT_OPTIONS): Promise<boolean> {
+    return this.hooks.showGencadExportOptionsDialog?.(aDialog) ?? Promise.resolve(false);
   }
 
-  /** `DIALOG_TABLE_PROPERTIES( frame, table ).ShowQuasiModal() == wxID_OK`, on the live table. */
-  override ShowTablePropertiesDialog(aTable: PCB_TABLE): Promise<boolean> {
-    return (
-      this.hooks.showTablePropertiesDialog?.(new DIALOG_TABLE_PROPERTIES(this, aTable)) ??
-      Promise.resolve(false)
-    );
+  /** `wxFile::Exists`, against the project's files; false without a window. */
+  FileExists(aPath: string): boolean {
+    return this.hooks.fileExists?.(aPath) ?? false;
   }
 
+  /** `m_frame->GetBoard()->GetFileName()`, for DIALOG_GENCAD_EXPORT_OPTIONS. */
+  GetBoardFileName(): string {
+    return this.GetBoard()?.GetFileName() ?? '';
+  }
+
+  /** `KIDIALOG::ShowModal()`, for the dialogs that take the frame. */
+  ShowKiDialog(aRequest: KiDialogRequest): Promise<KiDialogResult> {
+    return this.AskKiDialog(aRequest);
+  }
+
+  /** `DIALOG_GENDRILL::ShowModal` for BOARD_EDITOR_CONTROL::GenerateDrillFiles. */
+  ShowGenDrillDialog(): Promise<void> {
+    return this.hooks.showGenDrillDialog?.() ?? Promise.resolve();
+  }
+
+  /** `DIALOG_GEN_FOOTPRINT_POSITION::ShowModal` for BOARD_EDITOR_CONTROL::GeneratePosFile. */
+  ShowGenFootprintPositionDialog(): Promise<void> {
+    return this.hooks.showGenFootprintPositionDialog?.() ?? Promise.resolve();
+  }
+
+  /** `dlg.ShowModal()` for PCB_CONTROL::Print. */
+  ShowPrintDialog(aDlg: DIALOG_PRINT_PCBNEW): Promise<void> {
+    return this.hooks.showPrintDialog?.(aDlg) ?? Promise.resolve();
+  }
+
+  /** `m_findDialog`: made on the first Find. */
+  private m_findDialog: DIALOG_FIND | null = null;
+
+  /** `PCB_EDIT_FRAME::ShowFindDialog` (pcb_edit_frame.cpp:2202-2242). */
+  ShowFindDialog(): void {
+    if (!this.m_findDialog) {
+      this.m_findDialog = new DIALOG_FIND(this);
+      const selTool = this.GetSelectionTool();
+      this.m_findDialog.SetCallback((aItem) => selTool.FindItem(aItem));
+    }
+
+    let findString = '';
+
+    const selection = this.GetSelectionTool().GetSelection();
+
+    if (selection.Size() === 1) {
+      const front = selection.Front()!;
+
+      switch (front.Type()) {
+        case KICAD_T.PCB_FOOTPRINT_T:
+          findString = unescapeString((front as unknown as FOOTPRINT).GetValue());
+          break;
+
+        case KICAD_T.PCB_FIELD_T:
+        case KICAD_T.PCB_TEXT_T:
+          findString = unescapeString((front as unknown as PCB_TEXT).GetText());
+
+          if (findString.includes('\n')) findString = findString.slice(0, findString.indexOf('\n'));
+
+          break;
+
+        default:
+          break;
+      }
+    }
+
+    this.m_findDialog.Preload(findString);
+
+    this.hooks.showFindDialog?.(this.m_findDialog);
+  }
+
+  /** `PCB_EDIT_FRAME::FindNext( bool reverse )`. */
+  FindNext(aReverse: boolean): void {
+    if (!this.m_findDialog) this.ShowFindDialog();
+
+    this.m_findDialog!.FindNext(aReverse);
+  }
+
+  /** `PCB_EDIT_FRAME::ShowTargetOptionsDialog( PCB_TARGET* aTarget )`. */
+  ShowTargetOptionsDialog(aTarget: PCB_TARGET): void {
+    this.hooks.showTargetOptionsDialog?.(new DIALOG_TARGET_PROPERTIES(this, aTarget));
+  }
   // ---- CONVERT_TOOL's window half (CONVERT_TOOL_FRAME) ---------------------
 
   ShowConvertSettingsDialog(
@@ -1441,6 +1562,21 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.ShowInfoBarMsg(
       'Automatic refill of zones can be turned off in Preferences if it becomes too slow.',
     );
+  }
+
+  override selectFootprintFromChooser(aPreselect: string): Promise<string | null> {
+    return this.hooks.selectFootprintFromChooser?.(aPreselect) ?? Promise.resolve(null);
+  }
+
+  override loadFootprintFromLibraryWindow(
+    aFootprintId: LIB_ID,
+    aKeepUUID: boolean,
+  ): Promise<FOOTPRINT | null> | null {
+    return this.hooks.loadFootprintFromLibrary?.(aFootprintId, aKeepUUID) ?? null;
+  }
+
+  protected override dialogHooks(): PCB_BASE_EDIT_FRAME_DIALOG_HOOKS {
+    return this.hooks;
   }
 
   /** `KIDIALOG( this, ... ).ShowModal()`, through the window's KiDialog host. */
@@ -1562,6 +1698,11 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    */
   override OnDisplayOptionsChanged(): void {
     this.hooks.updateDisplayOptions?.();
+  }
+
+  /** `DIALOG_FOOTPRINT_ASSOCIATIONS dlg( this, aFootprint ); dlg.ShowModal()`, through the window. */
+  ShowFootprintAssociationsDialog(aFootprint: FOOTPRINT): void {
+    this.hooks.showFootprintAssociationsDialog?.(aFootprint);
   }
 
   /**
@@ -2103,7 +2244,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new PCB_PICKER_TOOL());
     this.m_toolManager.RegisterTool(new ROUTER_TOOL());
     this.m_toolManager.RegisterTool(new EDIT_TOOL());
-    // Not ported: PCB_EDIT_TABLE_TOOL.
+    this.m_toolManager.RegisterTool(new PCB_EDIT_TABLE_TOOL());
     this.m_toolManager.RegisterTool(new GLOBAL_EDIT_TOOL());
     this.m_toolManager.RegisterTool(new PAD_TOOL());
     this.m_toolManager.RegisterTool(new DRAWING_TOOL());
@@ -2170,9 +2311,41 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.m_inspectDrcErrorDlg;
   }
 
+  /** `PCB_EDIT_FRAME::GetInspectClearanceDialog()` (pcb_edit_frame.cpp:3263-3272). */
+  GetInspectClearanceDialog(): DIALOG_BOOK_REPORTER {
+    if (!this.m_inspectClearanceDlg) {
+      this.m_inspectClearanceDlg = new DIALOG_BOOK_REPORTER(
+        INSPECT_CLEARANCE_DIALOG_NAME,
+        'Clearance Report',
+        (aName) => this.onCloseModelessBookReporterDialogs(aName),
+      );
+      this.m_bookReporterListener?.();
+    }
+
+    return this.m_inspectClearanceDlg;
+  }
+
+  /** `PCB_EDIT_FRAME::GetInspectConstraintsDialog()` (pcb_edit_frame.cpp:3275-3284). */
+  GetInspectConstraintsDialog(): DIALOG_BOOK_REPORTER {
+    if (!this.m_inspectConstraintsDlg) {
+      this.m_inspectConstraintsDlg = new DIALOG_BOOK_REPORTER(
+        INSPECT_CONSTRAINTS_DIALOG_NAME,
+        'Constraints Report',
+        (aName) => this.onCloseModelessBookReporterDialogs(aName),
+      );
+      this.m_bookReporterListener?.();
+    }
+
+    return this.m_inspectConstraintsDlg;
+  }
+
   /** The book-reporter dialogs alive now, for the window to draw. */
   GetBookReporterDialogs(): DIALOG_BOOK_REPORTER[] {
-    return this.m_inspectDrcErrorDlg ? [this.m_inspectDrcErrorDlg] : [];
+    return [
+      this.m_inspectDrcErrorDlg,
+      this.m_inspectClearanceDlg,
+      this.m_inspectConstraintsDlg,
+    ].filter((d): d is DIALOG_BOOK_REPORTER => d !== null);
   }
 
   /** The window's subscription to a book-reporter dialog being made or destroyed. */
@@ -2184,6 +2357,12 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   private onCloseModelessBookReporterDialogs(aName: string): void {
     if (this.m_inspectDrcErrorDlg && aName === INSPECT_DRC_ERROR_DIALOG_NAME) {
       this.m_inspectDrcErrorDlg = null;
+      this.m_bookReporterListener?.();
+    } else if (this.m_inspectClearanceDlg && aName === INSPECT_CLEARANCE_DIALOG_NAME) {
+      this.m_inspectClearanceDlg = null;
+      this.m_bookReporterListener?.();
+    } else if (this.m_inspectConstraintsDlg && aName === INSPECT_CONSTRAINTS_DIALOG_NAME) {
+      this.m_inspectConstraintsDlg = null;
       this.m_bookReporterListener?.();
     }
   }
@@ -2221,7 +2400,22 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
           // `paramStr.substr( modeEnd + 1 )`: npos + 1 wraps to 0, the whole string.
           const syncStr = paramStr.substring(modeEnd + 1);
 
-          this.hooks.syncSelection(syncStr.split(del), selectConnections);
+          const items = this.FindItemsFromSyncSelection(syncStr);
+
+          this.m_ProbingSchToPcb = true; // recursion guard
+
+          if (selectConnections)
+            this.GetToolManager()!.RunAction(PCB_ACTIONS.syncSelectionWithNets, items);
+          else this.GetToolManager()!.RunAction(PCB_ACTIONS.syncSelection, items);
+
+          // Update 3D viewer highlighting
+          this.Update3DView(false, this.GetPcbNewSettings().m_Display.m_Live3DRefresh);
+
+          this.m_ProbingSchToPcb = false;
+
+          if (this.GetPcbNewSettings().m_CrossProbing.flash_selection) {
+            if (items.length > 0) this.StartCrossProbeFlash(items);
+          }
         }
 
         break;
@@ -2368,27 +2562,185 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.GetCanvas()?.Refresh();
   }
 
-  /**
-   * `PCB_EDIT_FRAME::SendSelectItemsToSch` (pcbnew/cross-probing.cpp:349),
-   * over the parts `collectItemsForSyncParts` gives (`boardSyncSelectionParts`,
-   * sorted as upstream's `std::set`). The focus item is not sent: the
-   * selection tool does not yet tell a point select from the rest, so the mode
-   * is always 0. Nothing is sent for no parts, as upstream.
-   */
-  SendSelectItemsToSch(aParts: readonly string[], aForce: boolean): void {
+  /** `PCB_EDIT_FRAME::FindItemsFromSyncSelection` (pcbnew/cross-probing.cpp:615-692). */
+  FindItemsFromSyncSelection(syncStr: string): BOARD_ITEM[] {
+    // wxStringTokenize( syncStr, "," )
+    const syncArray = syncStr.split(',');
+
+    const orderPairs: [number, BOARD_ITEM][] = [];
+
+    for (const footprint of this.GetBoard()!.Footprints()) {
+      if (footprint === null) continue;
+
+      const pathStr = kiidPathAsString(footprint.GetPath().map((k) => k.toString()));
+      let fpSheetPath = pathStr.slice(0, Math.max(0, pathStr.lastIndexOf('/')));
+      const fpUUID = footprint.m_Uuid;
+
+      if (fpSheetPath === '') fpSheetPath += '/';
+
+      if (fpUUID === '') continue;
+
+      const fpRefEscaped = escapeIpc(footprint.GetReference());
+
+      for (let index = 0; index < syncArray.length; ++index) {
+        const syncEntry = syncArray[index]!;
+
+        if (syncEntry === '') continue;
+
+        const syncData = syncEntry.substring(1);
+
+        switch (syncEntry.charAt(0)) {
+          case 'S': // Select sheet with subsheets: S<Sheet path>
+            if (fpSheetPath.startsWith(syncData)) orderPairs.push([index, footprint]);
+            break;
+          case 'F': // Select footprint: F<Reference>
+            if (syncData === fpRefEscaped) orderPairs.push([index, footprint]);
+            break;
+          case 'P': {
+            // Select pad: P<Footprint reference>/<Pad number>
+            if (syncData.startsWith(fpRefEscaped)) {
+              const selectPadNumberEscaped = syncData.substring(fpRefEscaped.length + 1); // Skips the slash
+
+              const selectPadNumber = unescapeString(selectPadNumberEscaped);
+
+              for (const pad of footprint.Pads()) {
+                if (selectPadNumber === pad.GetNumber()) orderPairs.push([index, pad]);
+              }
+            }
+            break;
+          }
+          default:
+            break;
+        }
+      }
+    }
+
+    // std::sort is not stable; the indices are what it orders by.
+    orderPairs.sort((a, b) => a[0] - b[0]);
+
+    return orderPairs.map(([, item]) => item);
+  }
+
+  /** `PCB_EDIT_FRAME::StartCrossProbeFlash` (pcb_edit_frame.cpp:632-682). */
+  StartCrossProbeFlash(aItems: readonly BOARD_ITEM[]): void {
+    if (!this.GetPcbNewSettings().m_CrossProbing.flash_selection) return;
+
+    if (aItems.length === 0) return;
+
+    // Don't start flashing if any of the items are being moved. The flash timer toggles
+    // selection hide/show which corrupts the VIEW overlay state during an active move.
+    for (const item of aItems) {
+      if (item.IsMoving()) return;
+    }
+
+    if (this.m_crossProbeFlashing) this.m_crossProbeFlashTimer.Stop();
+
+    this.m_crossProbeFlashItems = aItems.map((it) => it.m_Uuid);
+
+    this.m_crossProbeFlashPhase = 0;
+    this.m_crossProbeFlashing = true;
+
+    this.m_crossProbeFlashTimer.Start(500); // 0.5s intervals -> 3s total for 6 phases
+  }
+
+  /** `PCB_EDIT_FRAME::OnCrossProbeFlashTimer` (pcb_edit_frame.cpp:685-752). */
+  OnCrossProbeFlashTimer(_aEvent: wxTimerEvent): void {
+    if (!this.m_crossProbeFlashing) return;
+
+    const selTool = this.GetToolManager()?.FindTool(
+      'common.InteractiveSelection',
+    ) as unknown as PCB_SELECTION_TOOL | null;
+
+    if (!selTool) return;
+
+    // Don't manipulate the selection while items are being moved. The move tool holds a
+    // live reference to the selection and toggling hide/show on selected items corrupts
+    // the VIEW overlay state, causing crashes.
+    for (const id of this.m_crossProbeFlashItems) {
+      const item = this.GetBoard()!.ResolveItem(id, true);
+
+      if (item?.IsMoving()) {
+        this.m_crossProbeFlashing = false;
+        this.m_crossProbeFlashTimer.Stop();
+        return;
+      }
+    }
+
+    // Prevent recursion / IPC during flashing
+    const prevGuard = this.m_ProbingSchToPcb;
+    this.m_ProbingSchToPcb = true;
+
+    if (this.m_crossProbeFlashPhase % 2 === 0) {
+      // Hide selection
+      selTool.ClearSelection(true);
+    } else {
+      // Restore selection
+      for (const id of this.m_crossProbeFlashItems) {
+        const item = this.GetBoard()!.ResolveItem(id, true);
+
+        if (item) selTool.AddItemToSel(item, true);
+      }
+    }
+
+    // Force a redraw even if the canvas / frame does not currently have focus (mouse elsewhere)
+    this.GetCanvas()?.ForceRefresh();
+
+    this.m_ProbingSchToPcb = prevGuard;
+
+    this.m_crossProbeFlashPhase++;
+
+    if (this.m_crossProbeFlashPhase > 6) {
+      // Ensure final state (selected)
+      for (const id of this.m_crossProbeFlashItems) {
+        const item = this.GetBoard()!.ResolveItem(id, true);
+
+        if (item) selTool.AddItemToSel(item, true);
+      }
+
+      this.m_crossProbeFlashing = false;
+      this.m_crossProbeFlashTimer.Stop();
+    }
+  }
+
+  /** `PCB_EDIT_FRAME::SendSelectItemsToSch` (pcbnew/cross-probing.cpp:349-399). */
+  SendSelectItemsToSch(
+    aItems: Iterable<EDA_ITEM>,
+    aFocusItem: EDA_ITEM | null,
+    aForce: boolean,
+  ): void {
     let command = '$SELECT: ';
 
-    command += '0,';
+    if (aFocusItem) {
+      const focusItems = [aFocusItem];
+      const focusParts = new Set<string>();
+      collectItemsForSyncParts(focusItems, focusParts);
 
-    if (aParts.length === 0) return;
+      if (focusParts.size > 0) {
+        command += '1,';
+        command += sortedSyncParts(focusParts)[0];
+        command += ',';
+      } else {
+        command += '0,';
+      }
+    } else {
+      command += '0,';
+    }
 
-    for (const part of aParts) {
+    const parts = new Set<string>();
+    collectItemsForSyncParts(aItems, parts);
+
+    if (parts.size === 0) return;
+
+    for (const part of sortedSyncParts(parts)) {
       command += part;
       command += ',';
     }
 
     command = command.slice(0, -1);
 
+    // Typically ExpressMail is going to be s-expression packets, but since
+    // we have existing interpreter of the selection packet on the other
+    // side in place, we use that here.
     this.Kiway()?.ExpressMail(
       FRAME_T.FRAME_SCH,
       aForce ? MAIL_T.MAIL_SELECTION_FORCE : MAIL_T.MAIL_SELECTION,
@@ -2437,18 +2789,6 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   FetchNetlistFromSchematic(aNetlist: NETLIST, aAnnotateMessage: string): boolean {
     return this.hooks.fetchNetlistFromSchematic(aNetlist, aAnnotateMessage);
   }
-
-  /** `ShowExchangeFootprintsDialog`: `DIALOG_EXCHANGE_FOOTPRINTS( ... ).ShowQuasiModal()`. */
-  override ShowZoneSettingsDialog(
-    aDialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES,
-  ): Promise<boolean> {
-    return this.hooks.showZoneSettingsDialog?.(aDialog) ?? Promise.resolve(false);
-  }
-
-  override ShowTextPropertiesDialog(aDialog: DIALOG_TEXT_PROPERTIES): Promise<boolean> {
-    return this.hooks.showTextPropertiesDialog?.(aDialog) ?? Promise.resolve(false);
-  }
-
   /** `TOOLS_HOLDER::PushTool`, and the window's toolbar told (KiCad's toolbar asks on update-UI). */
   override PushTool(aEvent: TOOL_EVENT): void {
     super.PushTool(aEvent);
@@ -2798,13 +3138,9 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.placingFootprint?.() ?? false;
   }
 
-  /**
-   * What `FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB` does to this frame once
-   * it has passed its two checks (`footprint_viewer_frame.cpp:735-779`). See
-   * `footprint_viewer_frame.ts`'s `FOOTPRINT_VIEWER_PCB_TARGET`.
-   */
-  PlaceFootprintFromLibraryBrowser(aFpid: string, aFootprint: PcbFootprint): void {
-    this.hooks.placeFootprintFromLibrary?.(aFpid, aFootprint);
+  /** `Kiway().GetBlockingDialog()->Close( true )`, asked by the Library Browser. */
+  CloseBlockingDialog(): void {
+    this.hooks.closeBlockingDialog?.();
   }
 
   override findDialogRects(): BOX2D[] {
@@ -3052,7 +3388,6 @@ applyMixins(PCB_EDIT_FRAME, [
   FILES_MIXIN,
   EDIT_ZONE_HELPERS_MIXIN,
   PCBNEW_CONFIG_MIXIN,
-  LOAD_SELECT_FOOTPRINT_MIXIN,
   PCB_DESIGN_BLOCK_UTILS_MIXIN,
 ]);
 
@@ -3299,6 +3634,30 @@ export const PCB_CHECKED_ACTIONS: Readonly<Record<string, TOOL_ACTION>> = {
   ratsnestLineMode: PCB_ACTIONS.ratsnestLineMode,
 };
 
+/**
+ * The top toolbar's ids whose enablement is the frame's: `setupUIConditions`'
+ * `ENABLE( … )` for them (pcb_edit_frame.cpp:1057-1060).
+ */
+export const PCB_ENABLED_ACTIONS: Readonly<Record<string, TOOL_ACTION>> = {
+  group: ACTIONS.group,
+  ungroup: ACTIONS.ungroup,
+  lock: PCB_ACTIONS.lock,
+  unlock: PCB_ACTIONS.unlock,
+};
+
+/** The {@link PCB_ENABLED_ACTIONS} ids whose condition is disabled now. */
+export function pcbDisabledSet(aFrame: EDA_BASE_FRAME): Set<string> {
+  const out = new Set<string>();
+
+  for (const [id, action] of Object.entries(PCB_ENABLED_ACTIONS)) {
+    const event = new wxUpdateUIEvent(action.GetUIId());
+
+    if (aFrame.ProcessUpdateUI(event) && !event.GetEnabled()) out.add(id);
+  }
+
+  return out;
+}
+
 /** The {@link PCB_CHECKED_ACTIONS} ids whose condition is checked now. */
 export function pcbCheckedSet(aFrame: EDA_BASE_FRAME): Set<string> {
   const out = new Set<string>();
@@ -3497,4 +3856,51 @@ export function isStoredPcbToggle(id: string): boolean {
     id === 'showSearch' ||
     id === 'showNetInspector'
   );
+}
+
+// ---------------------------------------------------------------------------
+// PCB_EDIT_FRAME::FetchNetlistFromSchematic (pcb_edit_frame.cpp)
+
+export type FetchNetlistResult =
+  | { ok: true; netlist: NETLIST; netlistText: string }
+  | { ok: false; error: string; details?: string };
+
+/**
+ * `PCB_EDIT_FRAME::FetchNetlistFromSchematic` (pcb_edit_frame.cpp:2352): ask the
+ * schematic for its netlist with `MAIL_SCH_GET_NETLIST`, the annotate message
+ * as the payload, and read back what it answers. A payload that comes back
+ * unchanged is the schematic refusing (`ReadyToNetlist` failed), reported as
+ * that message alone, as upstream does.
+ *
+ * Upstream's `TestStandalone` opens the schematic frame off screen when it is
+ * not running, so the mail always has a recipient. A frame here mounts
+ * asynchronously, so with no schematic player the same answer is computed
+ * from the project's files: {@link fetchNetlistFromSchematic}, the handler
+ * the off-screen frame would run.
+ */
+export function FetchNetlistFromSchematic(
+  aKiway: KIWAY | null,
+  aSource: unknown,
+  files: readonly RawFile[],
+  aAnnotateMessage: string,
+  rootPro?: string,
+): FetchNetlistResult {
+  if (!aKiway?.GetPlayerFrame(FRAME_T.FRAME_SCH))
+    return fetchNetlistFromSchematic(files, aAnnotateMessage, rootPro);
+
+  const payload = { value: aAnnotateMessage };
+  aKiway.ExpressMail(FRAME_T.FRAME_SCH, MAIL_T.MAIL_SCH_GET_NETLIST, payload, aSource);
+
+  if (payload.value === aAnnotateMessage) return { ok: false, error: aAnnotateMessage };
+
+  try {
+    return { ok: true, netlist: loadKicadNetlist(payload.value), netlistText: payload.value };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        'Received an error while reading netlist. Please report this issue to the ZiroEDA team.',
+      details: String(err),
+    };
+  }
 }

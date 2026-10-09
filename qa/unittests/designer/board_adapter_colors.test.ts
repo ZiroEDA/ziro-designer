@@ -23,11 +23,8 @@ import {
   mix,
   stackupColors,
 } from '@ziroeda/3d-viewer/board_adapter_colors.js';
-import {
-  defaultBoardFinish,
-  defaultPhysicalStackup,
-  type PhysicalStackup,
-} from '@ziroeda/pcbnew/board_settings.js';
+import type { BOARD_STACKUP } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 const ch = (v: number): number => v / 255;
 
@@ -67,10 +64,10 @@ describe('findColor', () => {
     expect(c.g).toBeCloseTo(0, 6);
   });
 
-  it('returns the unspecified colour on a miss, not a table default', () => {
-    // A default-constructed COLOR4D is transparent black, and the caller tests
-    // against exactly that.
-    expect(findColor('No Such Colour', MASK_COLORS)).toEqual({ r: 0, g: 0, b: 0, a: 0 });
+  it('returns a default-constructed COLOR4D on a miss: OPAQUE black', () => {
+    // `COLOR4D() : r( 0 ), g( 0 ), b( 0 ), a( 1.0 )` (include/gal/color4d.h:108-114),
+    // whatever its comment says - and the board body test below is what shows it.
+    expect(findColor('No Such Colour', MASK_COLORS)).toEqual({ r: 0, g: 0, b: 0, a: 1 });
   });
 });
 
@@ -85,19 +82,41 @@ describe('mix', () => {
 });
 
 describe('stackupColors', () => {
-  const withColors = (patch: Record<string, string>): PhysicalStackup => {
-    const s = defaultPhysicalStackup();
-    s.layers = s.layers.map((l) => (patch[l.name] ? { ...l, color: patch[l.name] as string } : l));
-    return s;
+  /**
+   * A two-layer board's BOARD_STACKUP as the file gives it: every row with no
+   * `(color ...)` keeps BOARD_STACKUP_ITEM's "Not specified", and `colors`
+   * names a row's colour by its layer.
+   */
+  const stackup = (
+    colors: Record<string, string> = {},
+    finish = 'None',
+    rows: string[] = ['F.SilkS', 'F.Mask', 'F.Cu', 'dielectric 1', 'B.Cu', 'B.Mask', 'B.SilkS'],
+  ): BOARD_STACKUP => {
+    const ROW: Record<string, string> = {
+      'F.SilkS': '(type "Top Silk Screen")',
+      'F.Mask': '(type "Top Solder Mask") (thickness 0.01)',
+      'F.Cu': '(type "copper") (thickness 0.035)',
+      'dielectric 1': '(type "core") (thickness 1.51) (material "FR4")',
+      'B.Cu': '(type "copper") (thickness 0.035)',
+      'B.Mask': '(type "Bottom Solder Mask") (thickness 0.01)',
+      'B.SilkS': '(type "Bottom Silk Screen")',
+    };
+    const layer = (n: string): string =>
+      `(layer "${n}" ${ROW[n]}${colors[n] ? ` (color "${colors[n]}")` : ''})`;
+    return ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (1 "F.Mask" user) (3 "B.Mask" user)
+          (5 "F.SilkS" user "F.Silkscreen") (7 "B.SilkS" user "B.Silkscreen"))
+  (setup (stackup ${rows.map(layer).join(' ')} (copper_finish "${finish}") (dielectric_constraints no)))
+  (net 0 ""))`)
+      .GetDesignSettings()
+      .GetStackupDescriptor();
   };
 
   it('resolves "Not specified" THROUGH the tables, not to the g_Default*', () => {
-    // A tempting wrong reading. `NotSpecifiedPrm()` is the NAME of the first
-    // entry of g_SilkColors and g_MaskColors (`board_adapter.cpp:164`, `:173`),
-    // so `findColor` HITS on it and the stackup override applies: White for
-    // silk, Green for mask. The `g_Default*` values are the option-off path —
-    // no stackup at all — which is `pcb3d.ts`'s fallback, not this function's.
-    const c = stackupColors(defaultPhysicalStackup(), undefined);
+    // `NotSpecifiedPrm()` is the NAME of the first entry of g_SilkColors and
+    // g_MaskColors (`board_adapter.cpp:164`, `:173`), so `findColor` HITS on it
+    // and the stackup override applies: White for silk, Green for mask.
+    const c = stackupColors(stackup());
     expect(c.silkTop).toEqual(SILK_COLORS['Not specified']);
     expect(c.maskTop).toEqual(MASK_COLORS['Not specified']);
     expect(c.silkTop).not.toEqual(DEFAULT_SILKSCREEN);
@@ -105,63 +124,53 @@ describe('stackupColors', () => {
   });
 
   it('keeps the g_Default* seed only where the stackup has no such layer', () => {
-    // The loop overrides; a stackup with no silkscreen row leaves the seed.
-    const s = defaultPhysicalStackup();
-    s.layers = s.layers.filter((l) => !l.type.includes('Silk Screen'));
-    const c = stackupColors(s, undefined);
+    const c = stackupColors(stackup({}, 'None', ['F.Mask', 'F.Cu', 'dielectric 1', 'B.Cu']));
     expect(c.silkTop).toEqual(DEFAULT_SILKSCREEN);
     expect(c.maskTop).toEqual(MASK_COLORS['Not specified']);
   });
 
-  it('takes the silkscreen and mask colours per side', () => {
+  it("takes the silkscreen and mask colours per side, by the item's board layer", () => {
     const c = stackupColors(
-      withColors({
-        'F.Silkscreen': 'Black',
-        'B.Silkscreen': 'Yellow',
-        'F.Mask': 'Red',
-        'B.Mask': 'Blue',
-      }),
-      undefined,
+      stackup({ 'F.SilkS': 'Black', 'B.SilkS': 'Yellow', 'F.Mask': 'Red', 'B.Mask': 'Blue' }),
     );
     expect(c.silkTop).toEqual(SILK_COLORS.Black);
     expect(c.silkBottom).toEqual(SILK_COLORS.Yellow);
     expect(c.maskTop).toEqual(MASK_COLORS.Red);
     expect(c.maskBottom).toEqual(MASK_COLORS.Blue);
-    // and the two tables are genuinely different for a shared name.
     expect(MASK_COLORS.Red).not.toEqual(SILK_COLORS.Red);
   });
 
-  it('takes the body colour from a single dielectric’s own colour', () => {
+  it("takes the body colour from a single dielectric's own colour", () => {
     // With one dielectric, `bodyColor` is that layer's colour, and its alpha
     // grows by ( 1 - a ) * a / 2.
-    const c = stackupColors(withColors({ 'Dielectric 1': 'Polyimide' }), undefined);
+    const c = stackupColors(stackup({ 'dielectric 1': 'Polyimide' }));
     const base = BOARD_COLORS.Polyimide!;
     expect(c.body?.r).toBeCloseTo(base.r, 6);
     expect(c.body?.g).toBeCloseTo(base.g, 6);
     expect(c.body?.a).toBeCloseTo(base.a + (1 - base.a) * (base.a / 2), 6);
   });
 
-  it('leaves the body unset when no dielectric names a colour', () => {
-    // `if( bodyColor != COLOR4D( 0, 0, 0, 0 ) )` — "Not specified" is not in
-    // g_BoardColors, so findColor misses and the body is never assigned.
-    expect(stackupColors(defaultPhysicalStackup(), undefined).body).toBeUndefined();
+  it('makes the body opaque black when the dielectric is "Not specified", as KiCad renders it', () => {
+    // "Not specified" is not in g_BoardColors, so findColor returns COLOR4D():
+    // opaque black, which is not COLOR4D( 0, 0, 0, 0 ), so it IS assigned.
+    // `kicad-cli pcb render --use-board-stackup-colors` (10.0.6) draws this
+    // board's edge at (15,13,10), and at (89,95,61) with "FR4 natural".
+    expect(stackupColors(stackup()).body).toEqual({ r: 0, g: 0, b: 0, a: 1 });
   });
 
-  it('picks the copper colour from the finish name’s suffix', () => {
+  it("picks the copper colour from the finish name's suffix", () => {
     // `:722-744`, in order.
-    const s = defaultPhysicalStackup();
-    const finish = (copperFinish: string) => ({ ...defaultBoardFinish(), copperFinish });
-
-    expect(stackupColors(s, finish('OSP')).copper).toEqual(FINISH_COLORS.Copper);
-    expect(stackupColors(s, finish('ENIG')).copper).toEqual(FINISH_COLORS.Gold);
-    expect(stackupColors(s, finish('Hard gold')).copper).toEqual(FINISH_COLORS.Gold);
-    expect(stackupColors(s, finish('HAL SnPb')).copper).toEqual(FINISH_COLORS.Tin);
-    expect(stackupColors(s, finish('HASL')).copper).toEqual(FINISH_COLORS.Tin);
-    expect(stackupColors(s, finish('Immersion tin')).copper).toEqual(FINISH_COLORS.Tin);
-    expect(stackupColors(s, finish('Immersion silver')).copper).toEqual(FINISH_COLORS.Silver);
+    const copper = (f: string) => stackupColors(stackup({}, f)).copper;
+    expect(copper('OSP')).toEqual(FINISH_COLORS.Copper);
+    expect(copper('ENIG')).toEqual(FINISH_COLORS.Gold);
+    expect(copper('Hard gold')).toEqual(FINISH_COLORS.Gold);
+    expect(copper('HAL SnPb')).toEqual(FINISH_COLORS.Tin);
+    expect(copper('HASL')).toEqual(FINISH_COLORS.Tin);
+    expect(copper('Immersion tin')).toEqual(FINISH_COLORS.Tin);
+    expect(copper('Immersion silver')).toEqual(FINISH_COLORS.Silver);
   });
 
   it('leaves copper unset for a finish it does not recognise', () => {
-    expect(stackupColors(defaultPhysicalStackup(), undefined).copper).toBeUndefined();
+    expect(stackupColors(stackup()).copper).toBeUndefined();
   });
 });

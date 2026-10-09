@@ -22,12 +22,9 @@ import { ESCAPE_CONTEXT, EscapeString, unescapeString } from '@ziroeda/common/st
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { BOARD_COMMIT } from '../board_commit.js';
-import { parseBoardItemId } from '../edit-board.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_FIELD } from '../pcb_field.js';
 import type { PCB_TEXT } from '../pcb_text.js';
-import { effectiveTextPenWidth, isAutoThickness } from '../types.js';
-import type { Board, PcbTextItem } from '../types.js';
 
 /** Every field DIALOG_TEXT_PROPERTIES edits, for a board text item. */
 export interface TextValues {
@@ -79,91 +76,9 @@ export interface TextValues {
   locked: boolean;
 }
 
-/** Resolve a `text:N` id, or null when the selection is not one board text. */
-export function textAt(board: Board, selection: Iterable<string>): number | null {
-  let found: number | null = null;
-  for (const id of selection) {
-    const ref = parseBoardItemId(id);
-    if (!ref || ref.kind !== 'text') continue;
-    if (found !== null) return null;
-    if (board.texts[ref.index]) found = ref.index;
-  }
-  return found;
-}
-
 /** DIALOG_TEXT_PROPERTIES::TransferDataToWindow. */
-export function collectTextValues(t: PcbTextItem): TextValues {
-  return {
-    text: t.text,
-    face: t.face ?? '',
-    x: t.at.x,
-    y: t.at.y,
-    orientation: t.angle,
-    layer: t.layer,
-    width: t.size.x,
-    height: t.size.y,
-    autoThickness: isAutoThickness(t),
-    thickness: isAutoThickness(t) ? effectiveTextPenWidth(t) : (t.thickness ?? 0),
-    bold: t.bold ?? false,
-    italic: t.italic ?? false,
-    mirrored: t.mirror ?? false,
-    hJustify: t.justify?.includes('left')
-      ? 'left'
-      : t.justify?.includes('right')
-        ? 'right'
-        : 'center',
-    vJustify: t.justify?.includes('top')
-      ? 'top'
-      : t.justify?.includes('bottom')
-        ? 'bottom'
-        : 'center',
-    hidden: t.hide ?? false,
-    knockout: t.knockout ?? false,
-    locked: t.locked ?? false,
-  };
-}
-
 /** The `(justify …)` words `EDA_TEXT::Format` writes, for the model to carry. */
-const justifyWords = (v: TextValues): string[] | undefined => {
-  const words = [
-    ...(v.hJustify === 'center' ? [] : [v.hJustify]),
-    ...(v.vJustify === 'center' ? [] : [v.vJustify]),
-    ...(v.mirrored ? ['mirror'] : []),
-  ];
-  return words.length > 0 ? words : undefined;
-};
-
 /** DIALOG_TEXT_PROPERTIES::TransferDataFromWindow. */
-export function applyTextValues(board: Board, index: number, v: TextValues): Board {
-  const t = board.texts[index];
-  if (!t) return board;
-
-  const before = collectTextValues(t);
-  if (JSON.stringify(before) === JSON.stringify(v)) return board;
-
-  const next: PcbTextItem = {
-    ...t,
-    text: v.text,
-    face: v.face || undefined,
-    at: { x: v.x, y: v.y },
-    angle: v.orientation,
-    layer: v.layer,
-    size: { x: v.width, y: v.height },
-    // `SetAutoThickness( true )` is `SetTextThickness( 0 )` (eda_text.cpp:276-280);
-    // our reader spells a stored zero as the token's absence, so it is undefined.
-    thickness: v.autoThickness ? undefined : v.thickness,
-    bold: v.bold,
-    italic: v.italic,
-    mirror: v.mirrored,
-    justify: justifyWords(v),
-    hide: v.hidden,
-    knockout: v.knockout,
-    locked: v.locked,
-  };
-
-  return { ...board, texts: board.texts.map((x, i) => (i === index ? next : x)) };
-}
-
 // ---------------------------------------------------------------------------
 // DIALOG_TEXT_PROPERTIES over the live PCB_TEXT (#636 stage 6)
 

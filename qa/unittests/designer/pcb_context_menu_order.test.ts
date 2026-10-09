@@ -106,9 +106,9 @@ describe('the PCB selection menu @100 band, in KiCad registration order', () => 
   });
 
   // PCB_EDIT_TABLE_TOOL's `AddSeparator( 100 )`s (edit_table_tool_base.h:94-115),
-  // collapsed to one rule by separator elision: the tool is not ported, so the
-  // rule KiCad draws between Position and Locking is not there yet.
-  it.fails('keeps a rule between Position and Locking, where the table rows go', () => {
+  // collapsed to one rule by separator elision when no table cell is selected:
+  // the rule KiCad draws between Position and Locking.
+  it('keeps a rule between Position and Locking, where the table rows go', () => {
     const rows = band(menuOver(fps[0]!));
     expect(rows[rows.indexOf('Locking') - 1]).toBe('----');
   });

@@ -36,14 +36,13 @@
  * pixels, for an effect a user can get before importing. Left out rather than
  * half-done.
  */
-import { parseBoardItemId } from '../edit-board.js';
 import { imageSizeIU } from '../pcb_reference_image.js';
-import type { Board, PcbImage } from '../types.js';
 import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import { UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import { base64Decode } from '../pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_items.js';
+import { base64Encode } from '@ziroeda/common/plotters/SVG_plotter.js';
 import type { PCB_REFERENCE_IMAGE } from '../pcb_reference_image.js';
 import type { TransferResult } from './dialog_text_properties.js';
 
@@ -65,29 +64,7 @@ export interface ImageValues {
 }
 
 /** The single selected reference image's index, or null. */
-export function imageAt(board: Board, selection: Iterable<string>): number | null {
-  const ids = [...selection];
-  if (ids.length !== 1) return null;
-  const ref = parseBoardItemId(ids[0]!);
-  if (!ref || ref.kind !== 'image') return null;
-  return board.images[ref.index] ? ref.index : null;
-}
-
 /** `TransferDataToWindow`: the item's state as the dialog's fields. */
-export function collectImageValues(img: PcbImage): ImageValues {
-  const size = imageSizeIU(img);
-  return {
-    x: img.at.x,
-    y: img.at.y,
-    layer: img.layer,
-    locked: img.locked ?? false,
-    // An absent `(scale …)` is 1 — the writer omits it at 1.
-    scale: img.scale ?? 1,
-    width: size.w,
-    height: size.h,
-  };
-}
-
 /**
  * `onWidthChanged`: a typed width becomes a scale, and the height follows.
  *
@@ -103,14 +80,22 @@ export function collectImageValues(img: PcbImage): ImageValues {
  * across, and dividing by that gives an infinite scale that no later test
  * rejects.
  */
-export function scaleForWidth(img: PcbImage, values: ImageValues, newWidth: number): ImageValues {
+export function scaleForWidth(
+  img: { data: string },
+  values: ImageValues,
+  newWidth: number,
+): ImageValues {
   const size = imageSizeIU({ ...img, scale: values.scale });
   if (size.w <= 0) return values;
   return sizeForScale(img, values, (values.scale * newWidth) / size.w);
 }
 
 /** `onHeightChanged`, the same the other way round. */
-export function scaleForHeight(img: PcbImage, values: ImageValues, newHeight: number): ImageValues {
+export function scaleForHeight(
+  img: { data: string },
+  values: ImageValues,
+  newHeight: number,
+): ImageValues {
   const size = imageSizeIU({ ...img, scale: values.scale });
   if (size.h <= 0) return values;
   return sizeForScale(img, values, (values.scale * newHeight) / size.h);
@@ -125,38 +110,17 @@ export function scaleForHeight(img: PcbImage, values: ImageValues, newHeight: nu
  * a single pure function that problem cannot arise, which is the point of
  * putting it here rather than in three event handlers.
  */
-export function sizeForScale(img: PcbImage, values: ImageValues, newScale: number): ImageValues {
+export function sizeForScale(
+  img: { data: string },
+  values: ImageValues,
+  newScale: number,
+): ImageValues {
   if (newScale <= 0) return values;
   const size = imageSizeIU({ ...img, scale: newScale });
   return { ...values, scale: newScale, width: size.w, height: size.h };
 }
 
 /** `TransferDataFromWindow`: write the dialog's fields back to the board. */
-export function applyImageValues(board: Board, index: number, v: ImageValues): Board {
-  const img = board.images[index];
-  if (!img) return board;
-
-  const before = collectImageValues(img);
-  if (JSON.stringify(before) === JSON.stringify(v)) return board;
-
-  const next: PcbImage = {
-    ...img,
-    at: { x: v.x, y: v.y },
-    layer: v.layer,
-    locked: v.locked,
-    // A scale of exactly 1 goes back to being absent, since that is how the
-    // file says it: storing 1 would make an untouched image grow a token on
-    // save. `dropChild` below removes it from the source node to match.
-    scale: v.scale === 1 ? undefined : v.scale,
-    ...(v.data !== undefined ? { data: v.data } : {}),
-  };
-
-  return {
-    ...board,
-    images: board.images.map((cur, i) => (i === index ? next : cur)),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // The live dialog: DIALOG_REFERENCE_IMAGE_PROPERTIES on a PCB_REFERENCE_IMAGE
 // (#636 stage 6)
@@ -189,6 +153,12 @@ export class DIALOG_REFERENCE_IMAGE_PROPERTIES {
   constructor(aFrame: PCB_BASE_EDIT_FRAME, aBitmap: PCB_REFERENCE_IMAGE) {
     this.m_frame = aFrame;
     this.m_bitmap = aBitmap;
+  }
+
+  /** PANEL_IMAGE_EDITOR's working image: the bitmap's PNG, base64, for the preview and sizes. */
+  ImageData(): string {
+    const bytes = this.m_bitmap.GetReferenceImage().GetImage().SaveImageData();
+    return bytes ? base64Encode(bytes) : '';
   }
 
   TransferDataToWindow(): ImageValues {
@@ -260,8 +230,6 @@ export class DIALOG_REFERENCE_IMAGE_PROPERTIES {
 
     // Only save locked status on non-footprint editor windows
     if (!this.m_frame.GetBoard()?.IsFootprintHolder()) b.SetLocked(v.locked);
-
-    this.m_frame.OnModify();
 
     return { ok: true };
   }

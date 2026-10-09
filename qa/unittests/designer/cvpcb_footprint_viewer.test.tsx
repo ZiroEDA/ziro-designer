@@ -25,10 +25,6 @@ import { readSchematic } from '@ziroeda/eeschema';
 import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
 import { useCvpcbApp } from '@ziroeda/designer/src/editors/schematic/cvpcb_app.js';
 import {
-  displayFootprintsLibStatus,
-  displayFootprintsTitle,
-} from '@ziroeda/cvpcb/display_footprints_frame.js';
-import {
   DISPLAY_FP_LEFT_TOOLBAR,
   DISPLAY_FP_TOP_TOOLBAR,
 } from '@ziroeda/cvpcb/toolbars_display_footprints.js';
@@ -194,33 +190,6 @@ describe('the toolbars are DefaultToolbarConfig, entry for entry', () => {
     expect(ids.filter((id) => BITMAP[id] === undefined)).toEqual([]);
     expect(BITMAP.showPadNumbers).toBe('pad_number');
     expect(BITMAP.fpAutoZoom).toBe('zoom_auto_fit_in_page');
-  });
-});
-
-describe('the frame’s own strings', () => {
-  it('titles itself Footprint: <fpid>', () => {
-    // SetTitle( wxString::Format( _( "Footprint: %s" ), footprintName ) )
-    //                                     display_footprints_frame.cpp:365
-    expect(displayFootprintsTitle('Capacitor_THT:C_Radial_D8.0mm')).toBe(
-      'Footprint: Capacitor_THT:C_Radial_D8.0mm',
-    );
-  });
-
-  it('and keeps the constructor’s title when nothing is selected', () => {
-    // PCB_BASE_FRAME( …, FRAME_CVPCB_DISPLAY, _( "Footprint Viewer" ), … ) —
-    // InitDisplay only calls SetTitle inside `if( !footprintName.IsEmpty() )`.
-    expect(displayFootprintsTitle('')).toBe('Footprint Viewer');
-  });
-
-  it('writes pane 0 as Lib: <nickname>', () => {
-    expect(displayFootprintsLibStatus('Capacitor_THT')).toBe('Lib: Capacitor_THT');
-  });
-
-  it('and leaves pane 0 EMPTY when the list has no FOOTPRINT_INFO, not "Lib: "', () => {
-    //     if( fpInfo ) SetStatusText( Format( _( "Lib: %s" ), … ), 0 );
-    //     else         SetStatusText( wxEmptyString, 0 );
-    //                                     display_footprints_frame.cpp:392-395
-    expect(displayFootprintsLibStatus(null)).toBe('');
   });
 });
 

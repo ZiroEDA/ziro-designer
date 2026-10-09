@@ -14,14 +14,18 @@ import {
   type FootprintChooserFrameProps as FootprintChooserFrameUiProps,
 } from '@ziroeda/pcbnew/footprint_chooser_frame.js';
 import { FootprintPreview3D, useFootprintHolderBoard } from '../widgets/footprint_preview_3d.js';
+import { loadLibraryFootprint } from '../footprint_lib_adapter_app.js';
 import { Viewer3DFrame } from '../Viewer3DFrame.js';
 import { PCB_FOOTPRINT_PREVIEW_PANEL } from '../footprint_preview_panel.js';
 
 const FOOTPRINT_CHOOSER_APP: FOOTPRINT_CHOOSER_FRAME_APP = {
   previewPanel: PCB_FOOTPRINT_PREVIEW_PANEL,
+  loadFootprint: loadLibraryFootprint,
   useFootprintHolderBoard,
   FootprintPreview3D: ({ board }) => <FootprintPreview3D board={board} />,
-  Viewer3DFrame: (props) => <Viewer3DFrame {...props} />,
+  Viewer3DFrame: (props) => (
+    <Viewer3DFrame {...props} board={props.board ? { k: props.board } : null} />
+  ),
 };
 
 export type FootprintChooserFrameProps = Omit<FootprintChooserFrameUiProps, 'app'>;

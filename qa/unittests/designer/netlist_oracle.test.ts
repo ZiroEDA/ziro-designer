@@ -22,7 +22,7 @@ import { exportKicadNetlist, formatSchematicNetlist } from '@ziroeda/eeschema/cr
 import {
   fetchNetlistFromSchematic,
   setHeadlessNetlistProvider,
-} from '@ziroeda/pcbnew/netlist_from_schematic.js';
+} from '@ziroeda/pcbnew/browser/headless_netlist.js';
 import { beforeAll, describe, expect, it, afterEach, beforeEach } from 'vitest';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 

@@ -13,9 +13,9 @@ import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import {
   BoardSetupFromWindow,
   BoardSetupToWindow,
-} from '@ziroeda/pcbnew/dialogs/board_setup_transfer.js';
-import type { BoardSetupValues } from '@ziroeda/pcbnew/board_settings.js';
-import type { BOARD } from '@ziroeda/pcbnew/board.js';
+  type BoardSetupValues,
+} from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { FormatBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
@@ -50,4 +50,18 @@ export function writeSetup(f: SetupFixture, aValues: BoardSetupValues = f.values
 export function writeProject(f: SetupFixture, aValues: BoardSetupValues = f.values): string {
   BoardSetupFromWindow(aValues, f.board, f.project);
   return DumpJson(f.manager.SaveProject(f.project)!.pro);
+}
+
+/**
+ * The dialog's pages over a new BOARD in an empty project: every value is the
+ * one the live classes start with (BOARD_DESIGN_SETTINGS' constructor, the
+ * NETCLASS defaults, BOARD_STACKUP's default list), never a copy of them.
+ */
+export function freshBoardSetup(): BoardSetupValues {
+  const board = new BOARD();
+  const manager = new SETTINGS_MANAGER();
+  manager.LoadProject('/p/x.kicad_pro', null);
+  const project = manager.Prj();
+  board.SetProject(project);
+  return BoardSetupToWindow(board, project, '(version 1)\n');
 }

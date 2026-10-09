@@ -9,6 +9,7 @@
  * The ERC dialog, the bus syntax help and the diff's canvas are the window's; the frame hands
  * them over (SCH_EDIT_FRAME::GetErcDialog and friends).
  */
+import type { BOOK_REPORTER_PANEL } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
 import type { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { GetAssociatedDocument } from '@ziroeda/common/eda_doc.js';
 import type { EDA_TEXT } from '@ziroeda/common/eda_text.js';
@@ -337,9 +338,9 @@ export class SCH_INSPECTION_TOOL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     dialog.Show(true);
   }
 
-  private constructDiffPanel(aParentPanel: { content: unknown }): SYMBOL_DIFF_WIDGET {
+  private constructDiffPanel(aParentPanel: BOOK_REPORTER_PANEL): SYMBOL_DIFF_WIDGET {
     const diffWidget = new SYMBOL_DIFF_WIDGET();
-    aParentPanel.content = diffWidget;
+    aParentPanel.AddWidget(diffWidget);
     return diffWidget;
   }
 

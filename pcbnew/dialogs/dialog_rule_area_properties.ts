@@ -32,11 +32,10 @@
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 // ZONE_SETTINGS' defaults for a fresh rule area, which is also what a copper
 // zone being *converted* into one starts from.
-import type { Board, PcbZone, PlacementSourceType, ZonePlacementArea } from '../types.js';
 import { LSET_Name } from '@ziroeda/common/layer_ids.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
-import { layerSetOfTokens, layerTokens } from '../pcb_io/kicad_sexpr/board_view.js';
+import { layerSetOfTokens, layerTokens } from './layer_tokens.js';
 import type { ZONE } from '../zone.js';
 import {
   PLACEMENT_SOURCE_T,
@@ -48,6 +47,36 @@ import type { BOARD } from '../board.js';
 import type { CONVERT_SETTINGS } from '../pcbnew_settings.js';
 import { CONVERSION_BOX, type ConversionBoxValues } from '../tools/convert_settings_dialog.js';
 import { editZoneParamsCommit } from './panel_zone_properties.js';
+
+/** `(keepout (tracks …) (vias …) (pads …) (copperpour …) (footprints …))`. */
+export interface RuleAreaKeepout {
+  tracks: boolean;
+  vias: boolean;
+  pads: boolean;
+  /** `copperpour`, ZONE::GetDoNotAllowZoneFills. */
+  copperPour: boolean;
+  footprints: boolean;
+}
+
+/**
+ * PLACEMENT_SOURCE_T, minus `DESIGN_BLOCK`: that member exists only for the
+ * multichannel tool's in-flight rule areas, has no file token, and upstream's
+ * writer explicitly emits nothing for it — a saved zone can never carry it.
+ */
+export type PlacementSourceType = 'sheetname' | 'component_class' | 'group';
+
+/**
+ * `(placement (enabled yes|no) (sheetname|component_class|group "…"))`.
+ *
+ * `sourceType` and `source` are written even when `enabled` is false, because
+ * upstream stores the last-chosen source so re-enabling the rule area does not
+ * lose it.
+ */
+export interface ZonePlacementArea {
+  enabled: boolean;
+  sourceType: PlacementSourceType;
+  source: string;
+}
 
 /**
  * `ZONE_SETTINGS`'s defaults for a fresh rule area: tracks, vias and pads
@@ -62,7 +91,6 @@ export const DEFAULT_RULE_AREA_KEEPOUT = {
   footprints: false,
 } as const;
 /** ZONE_BORDER_HATCH_{DIST,MINDIST,MAXDIST}_MM (pcbnew/zones.h:34-36). */
-const BORDER_HATCH_DEFAULT = mmToIU(0.5);
 const BORDER_HATCH_MIN = mmToIU(0.1);
 const BORDER_HATCH_MAX = mmToIU(2.0);
 
@@ -93,12 +121,6 @@ export interface RuleAreaValues {
 }
 
 /** ZONE::{m_placementAreaEnabled,m_placementAreaSourceType,m_placementAreaSource}. */
-const DEFAULT_PLACEMENT: ZonePlacementArea = {
-  enabled: false,
-  sourceType: 'sheetname',
-  source: '',
-};
-
 /** ZONE::HasKeepoutParametersSet — does any of the five forbid something? */
 export function hasKeepoutParametersSet(v: RuleAreaValues): boolean {
   return (
@@ -122,29 +144,6 @@ export function initialRuleAreaPage(v: RuleAreaValues): 0 | 1 {
 }
 
 /** DIALOG_RULE_AREA_PROPERTIES::TransferDataToWindow. */
-export function collectRuleAreaValues(zone: PcbZone): RuleAreaValues {
-  const ko = zone.ruleArea ?? DEFAULT_RULE_AREA_KEEPOUT;
-  const placement = zone.placementArea ?? DEFAULT_PLACEMENT;
-
-  return {
-    doNotAllowTracks: ko.tracks,
-    doNotAllowVias: ko.vias,
-    doNotAllowPads: ko.pads,
-    doNotAllowCopperPour: ko.copperPour,
-    doNotAllowFootprints: ko.footprints,
-    placementEnabled: placement.enabled,
-    placementSourceType: placement.sourceType,
-    placementSource: placement.source,
-    name: zone.name ?? '',
-    locked: zone.locked ?? false,
-    layers: [...zone.layers],
-    // INVISIBLE_BORDER shares the "none" button; the dialog's switch falls
-    // through to selection 0 for it, so the style is dropped on OK.
-    hatchStyle: zone.hatchStyle === 'full' ? 'full' : zone.hatchStyle === 'edge' ? 'edge' : 'none',
-    hatchPitch: zone.hatchPitch || BORDER_HATCH_DEFAULT,
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Validation
 
@@ -215,37 +214,33 @@ export interface PlacementPage {
 const NOT_FOUND_PREFIX = 'Not found on board: ';
 
 /**
- * The sources the placement page can offer, from the board.
+ * The sources the placement page can offer, from the board
+ * (dialog_rule_area_properties.cpp:266-304).
  *
- * Sheet and group names come from the footprints: a group is offered only when
- * it is some footprint's parent *and* has a name, so an unnamed group or one
- * holding nothing but graphics never appears. Upstream gathers all three into
- * `std::set`s, so each list is unique and sorted; note the empty string is a
+ * Component classes come from the board's COMPONENT_CLASS_MANAGER; sheet and
+ * group names from the footprints, a group only when it is some footprint's
+ * parent *and* has a name. Upstream gathers all three into `std::set`s, so
+ * each list is unique and sorted by code point; the empty string is a
  * legitimate sheet name for a footprint that has none, and upstream offers it.
  */
-export function collectPlacementSources(board: Board): PlacementSources {
+export function collectPlacementSources(aBoard: BOARD): PlacementSources {
+  const byCodePoint = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+  const classNames = new Set(aBoard.GetComponentClassManager().GetClassNames());
   const sheetNames = new Set<string>();
   const groupNames = new Set<string>();
 
-  const groupOf = new Map<string, string>();
-  for (const group of board.groups) {
-    for (const member of group.members) groupOf.set(member, group.name);
-  }
+  for (const fp of aBoard.Footprints()) {
+    sheetNames.add(fp.GetSheetname());
 
-  for (const fp of board.footprints) {
-    sheetNames.add(fp.sheetname ?? '');
-    const groupName = fp.uuid === undefined ? undefined : groupOf.get(fp.uuid);
-    if (groupName) groupNames.add(groupName);
+    const group = fp.GetParentGroup();
+
+    if (group && group.GetName() !== '') groupNames.add(group.GetName());
   }
 
   return {
-    sheetNames: [...sheetNames].sort(),
-    // Upstream reads these from BOARD::GetComponentClassManager(); this port
-    // has no component class manager, so the list is always empty. That is the
-    // same state a board with no class assignments is in, and the not-found
-    // path below keeps such a zone's stored class name intact regardless.
-    componentClassNames: [],
-    groupNames: [...groupNames].sort(),
+    sheetNames: [...sheetNames].sort(byCodePoint),
+    componentClassNames: [...classNames].sort(byCodePoint),
+    groupNames: [...groupNames].sort(byCodePoint),
   };
 }
 
@@ -360,82 +355,6 @@ export function placementFromPage(page: PlacementPage): ZonePlacementArea {
 
 // ---------------------------------------------------------------------------
 // Applying
-
-/**
- * BOARD::GetUniqueZoneName. An empty base name is left alone; otherwise a
- * trailing `_<digits>` is stripped before counting up, so a second copy of
- * `guard_1` becomes `guard_2` rather than `guard_1_1`.
- *
- * Note that nothing is excluded from the search — the zone being renamed is
- * checked against too, which is harmless only because the caller invokes this
- * exclusively when the name actually changed.
- */
-export function uniqueZoneName(board: Board, baseName: string): string {
-  if (baseName === '') return baseName;
-
-  const inUse = (name: string): boolean => board.zones.some((z) => (z.name ?? '') === name);
-  if (!inUse(baseName)) return baseName;
-
-  let root = baseName;
-
-  if (baseName.includes('_')) {
-    const suffix = baseName.slice(baseName.lastIndexOf('_') + 1);
-    if (suffix !== '' && /^[0-9]+$/.test(suffix))
-      root = baseName.slice(0, baseName.lastIndexOf('_'));
-  }
-
-  for (let i = 1; ; i++) {
-    const candidate = `${root}_${i}`;
-    if (!inUse(candidate)) return candidate;
-  }
-}
-
-/**
- * DIALOG_RULE_AREA_PROPERTIES::TransferDataFromWindow, patching the source in
- * step. The board comes back untouched when the values are invalid — upstream
- * returns false and the dialog stays open — or when nothing moved.
- *
- * `SetIsRuleArea( true )` is unconditional here, which is how "Convert to Rule
- * Area" turns a copper zone into one; the zone keeps its net code, because
- * `ExportSetting` only assigns one to a non-rule-area. The parser zeroes it on
- * the next load instead.
- */
-export function applyRuleAreaValues(board: Board, index: number, v: RuleAreaValues): Board {
-  const zone = board.zones[index];
-  if (!zone) return board;
-  if (ruleAreaValuesError(v)) return board;
-
-  // Only enforce uniqueness when the user actually changed the name; a zone
-  // whose name has always collided is left as it is (upstream issue 23131).
-  const name = v.name === (zone.name ?? '') ? v.name : uniqueZoneName(board, v.name);
-
-  const next: PcbZone = {
-    ...zone,
-    ruleArea: {
-      tracks: v.doNotAllowTracks,
-      vias: v.doNotAllowVias,
-      pads: v.doNotAllowPads,
-      copperPour: v.doNotAllowCopperPour,
-      footprints: v.doNotAllowFootprints,
-    },
-    placementArea: {
-      enabled: v.placementEnabled,
-      sourceType: v.placementSourceType,
-      source: v.placementSource,
-    },
-    name: name === '' ? undefined : name,
-    locked: v.locked,
-    layers: [...v.layers],
-    hatchStyle: v.hatchStyle,
-    hatchPitch: v.hatchPitch,
-    // "for a keepout, this param is not used" — the dialog zeroes it outright.
-    priority: 0,
-  };
-
-  // No "nothing changed" shortcut: `Edit_Zone_Params` pushes a commit on every
-  // OK, so an untouched dialog is still an undo entry upstream.
-  return { ...board, zones: board.zones.map((z, i) => (i === index ? next : z)) };
-}
 
 // ---------------------------------------------------------------------------
 // The live dialog: DIALOG_RULE_AREA_PROPERTIES on a ZONE (#636 stage 6)

@@ -57,7 +57,7 @@ import type { HISTORY_FILE_DATA } from '@ziroeda/common/local_history.js';
 import { FORMAT_MODE } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
 import { STRING_FORMATTER } from '@ziroeda/common/richio.js';
 import { PCB_IO_KICAD_SEXPR } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { DIM_UNITS_MODE } from './pcb_dimension_types.js';
+import { DIM_UNITS_MODE } from './pcb_dimension.js';
 import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';

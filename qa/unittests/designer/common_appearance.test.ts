@@ -293,39 +293,12 @@ describe('appearance.zoom_correction_factor', () => {
 });
 
 describe('the board painter dims the way pcb_painter does', () => {
-  /**
-   * A source check, and file-level on purpose: what is being pinned is that
-   * this renderer has no second, alpha-shaped way of dimming a layer. One
-   * surviving `globalAlpha = 0.2` would be invisible in a unit test of the
-   * colour helper and perfectly visible on a board.
-   */
-  const RENDER = readFileSync(resolve(process.cwd(), '../pcbnew/renderBoard.ts'), 'utf8');
-
-  it('mixes toward the background rather than reducing opacity', () => {
-    expect(RENDER).toMatch(/hiContrastColor\(/);
-    expect(RENDER).toMatch(/edgeCutsContrastFactor\(/);
-    // The old shape: a per-layer opacity carrying the dimming factor.
-    expect(RENDER).not.toMatch(/return opts\.contrastMode === 'dim' \? 0\.2 : 0;/);
-  });
-
-  it('takes the factor from the caller, defaulting to KiCad’s own fallback', () => {
-    // `PCB_PAINTER` uses `1.0f - 0.8f` when there is no program object to ask
-    // (`pcb_painter.cpp:178`), which is `HI_CONTRAST_FACTOR`.
-    expect(RENDER).toMatch(/opts\.hiContrastFactor \?\? HI_CONTRAST_FACTOR/);
-  });
-
-  it('is passed by every frame that has a high-contrast mode', () => {
-    for (const frame of [
-      'pcbnew/pcb_edit_frame_ui.tsx',
-      'pcbnew/footprint_edit_frame_ui.tsx',
-      // Not GerbView: GERBVIEW_RENDER_SETTINGS never reads
-      // hicontrast_dimming_factor - only pcb_painter.cpp:176 does - so it
-      // dims at RENDER_SETTINGS' own 0.2 (render_settings.cpp:42).
-    ]) {
-      const src = readFileSync(resolve(process.cwd(), '..', frame), 'utf8');
-      expect(src, frame).toMatch(
-        /hiContrastFactorFor\((?:settings\.common|app\.common\(\)|commonCfg)\.appearance\.hicontrast_dimming_factor\)/,
-      );
-    }
+  // Every PCB frame paints through PCB_PAINTER on the GAL now; no window passes
+  // a factor of its own.
+  it('on the GAL, PCB_PAINTER reads it off Pgm(), as pcb_painter.cpp:176 does', () => {
+    const painter = readFileSync(resolve(process.cwd(), '../pcbnew/pcb_painter.ts'), 'utf8');
+    expect(painter).toMatch(
+      /m_hiContrastFactor = Math\.fround\(\s*1\.0 - pgm\.GetCommonSettings\(\)!\.m_Appearance\.hicontrast_dimming_factor,/,
+    );
   });
 });

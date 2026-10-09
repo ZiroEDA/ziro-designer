@@ -16,7 +16,7 @@ import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { PAGE_INFO } from '@ziroeda/common/page_info.js';
 import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
@@ -84,7 +84,7 @@ class PAGE_FRAME extends TEST_PCB_FRAME {
     return Promise.resolve(pasteSpecial);
   }
 
-  SelectFootprintFromLibrary(): Promise<FOOTPRINT | null> {
+  override SelectFootprintFromLibrary(): Promise<FOOTPRINT | null> {
     return Promise.resolve(chosenFootprint ? chosenFootprint() : null);
   }
 
@@ -171,6 +171,33 @@ describe('BOARD_EDITOR_CONTROL::DrillOrigin', () => {
     click(mm(20, 25));
     h.mgr.RunAction(PCB_ACTIONS.drillResetOrigin);
     expect(bds().GetAuxOrigin()).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('the two origin markers are VIEW items, put there by each tool’s Reset', () => {
+  const inView = (aItem: { m_viewPrivData: { m_view: unknown } | null }): boolean =>
+    aItem.m_viewPrivData?.m_view === h.view;
+
+  it('PCB_CONTROL::Reset adds m_gridOrigin at the board grid origin (:126-145)', () => {
+    const pcbControl = h.mgr.GetTool(PCB_CONTROL)!;
+    const item = pcbControl.GridOriginItem();
+    expect(inView(item as never)).toBe(true);
+    expect(item.ViewGetLayers()).toEqual([GAL_LAYER_ID.LAYER_GP_OVERLAY]);
+
+    bds().SetGridOrigin(mm(3, 4));
+    h.mgr.ResetTools(RESET_REASON.MODEL_RELOAD);
+    expect(item.GetPosition()).toEqual(mm(3, 4));
+    expect(inView(item as never)).toBe(true);
+  });
+
+  it('BOARD_EDITOR_CONTROL::Reset adds m_placeOrigin at the aux origin (:341-349)', () => {
+    const control = h.mgr.GetTool(BOARD_EDITOR_CONTROL)!;
+    const item = control.PlaceOriginItem();
+    expect(inView(item as never)).toBe(true);
+
+    bds().SetAuxOrigin(mm(7, 8));
+    h.mgr.ResetTools(RESET_REASON.MODEL_RELOAD);
+    expect(item.GetPosition()).toEqual(mm(7, 8));
   });
 });
 
@@ -398,6 +425,44 @@ describe('PCB_CONTROL::Paste (:1077-1387)', () => {
     expect(h.frame.GetUndoCommandCount()).toBe(0);
   });
 
+  // BOARD::MapNets (board.cpp:3518-3533), from Paste (:1242): a pasted item
+  // takes the destination's net of the same name, and a name the board lacks
+  // becomes a new net.
+  const tracks = (): BOARD_ITEM[] => [...h.board.Tracks()];
+
+  it('maps pasted nets by name, adding a net the board lacks, once', () => {
+    SetClipboardFromText(NETS_PAYLOAD);
+    h.mgr.RunAction(ACTIONS.paste);
+    click(mm(70, 70));
+    const pasted = tracks() as unknown as { GetNetname(): string; GetNetCode(): number }[];
+    expect(pasted).toHaveLength(2);
+    expect(pasted.map((t) => t.GetNetname())).toEqual(['GND', 'GND']);
+    expect(pasted[0]!.GetNetCode()).toBeGreaterThan(0);
+    expect(pasted[1]!.GetNetCode()).toBe(pasted[0]!.GetNetCode());
+
+    // A second paste finds GND already there.
+    const nets = h.board.GetNetCount();
+    SetClipboardFromText(NETS_PAYLOAD);
+    h.mgr.RunAction(ACTIONS.paste);
+    click(mm(80, 80));
+    expect(h.board.GetNetCount()).toBe(nets);
+    const codes = new Set(
+      (tracks() as unknown as { GetNetCode(): number }[]).map((t) => t.GetNetCode()),
+    );
+    expect(codes.size).toBe(1);
+  });
+
+  it('Paste Special "Clear net assignments" orphans every connected item (:1236-1239)', async () => {
+    SetClipboardFromText(NETS_PAYLOAD);
+    pasteSpecial = { mode: 'KEEP_ANNOTATIONS', clearNets: true };
+    h.mgr.RunAction(ACTIONS.pasteSpecial);
+    await flush();
+    click(mm(70, 70));
+    expect((tracks() as unknown as { GetNetCode(): number }[]).map((t) => t.GetNetCode())).toEqual([
+      0, 0,
+    ]);
+  });
+
   it('items on layers this board has not enabled are dropped (pruneItemLayers, :1010-1074)', () => {
     SetClipboardFromText(PRUNE_PAYLOAD);
     h.mgr.RunAction(ACTIONS.paste);
@@ -415,6 +480,13 @@ const FOOTPRINT_PAYLOAD = `(footprint "Lib:R" (layer "F.Cu") (at 0 0) (uuid "000
 const BOARD_WITH_FOOTPRINT_PAYLOAD = `(kicad_pcb (version 20241229) (generator "pcbnew")
   (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user "F.Silkscreen"))
   ${FOOTPRINT_PAYLOAD}
+)`;
+
+const NETS_PAYLOAD = `(kicad_pcb (version 20241229) (generator "pcbnew")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal))
+  (net 0 "") (net 1 "GND")
+  (segment (start 0 0) (end 5 0) (width 0.25) (layer "F.Cu") (net 1) (uuid "00000000-0000-4000-8000-0000000000d1"))
+  (segment (start 0 2) (end 5 2) (width 0.25) (layer "F.Cu") (net 1) (uuid "00000000-0000-4000-8000-0000000000d2"))
 )`;
 
 const PRUNE_PAYLOAD = `(kicad_pcb (version 20241229) (generator "pcbnew")

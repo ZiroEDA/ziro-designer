@@ -62,6 +62,8 @@ export interface SaveAsDialogProps {
   /** The affirmative button. `Save` unless the caller is exporting. */
   accept?: string;
   title?: string;
+  /** `wxFileDialogCustomizeHook::AddCustomControls`: controls under the chooser. */
+  extra?: JSX.Element;
 }
 
 export function SaveAsDialog({
@@ -74,6 +76,7 @@ export function SaveAsDialog({
   onDone,
   accept = 'Save',
   title = 'Save As',
+  extra,
 }: SaveAsDialogProps): JSX.Element {
   // One filesystem per mount: `projectStoreFileSystem` reads the store on each
   // call, so rebuilding it every render would re-list the account on every
@@ -113,6 +116,7 @@ export function SaveAsDialog({
       {...(initialPath === undefined ? {} : { initialPath })}
       {...(initialPlace === undefined ? {} : { initialPlace })}
       {...(filters === undefined ? {} : { filters })}
+      {...(extra === undefined ? {} : { extra })}
       onAccept={(path) => onDone(path)}
       onCancel={() => onDone(null)}
     />

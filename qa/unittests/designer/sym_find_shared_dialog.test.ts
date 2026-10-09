@@ -347,11 +347,11 @@ describe('DIALOG_SCH_FIND is a SCH_BASE_FRAME facility', () => {
       .sort();
     // Named, not filtered by directory: `pcbnew/dialogs/dialog_find.cpp`'s
     // DIALOG_FIND is a different upstream class on a different base frame
-    // (PCB_BASE_FRAME), with its own search-history and marker options. Listing
+    // (PCB_BASE_FRAME), with its own search-history and marker options (its window is dialog_find_ui.tsx). Listing
     // it here rather than scoping the sweep to eeschema's folders means a
     // second sch find dialog appearing ANYWHERE — including under pcbnew/ (it
     // moved there from designer/src/editors/pcb/dialogs/ in this session's
     // file-structure pass) — still fails.
-    expect(strays).toEqual(['/pcbnew/dialogs/dialog_find.tsx']);
+    expect(strays).toEqual(['/pcbnew/dialogs/dialog_find_ui.tsx']);
   });
 });

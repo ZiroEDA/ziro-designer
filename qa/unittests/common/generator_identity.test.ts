@@ -58,7 +58,12 @@ const SOURCE_ROOTS = [
  * KiCad's name cuts both ways: we must not claim to be KiCad, and we must not
  * strip KiCad's name off files it really wrote. Their provenance stands.
  */
-const KICAD_AUTHORED_CONTENT = ['designer/src/pcm/defaultRepo.ts'];
+const KICAD_AUTHORED_CONTENT = [
+  'designer/src/pcm/defaultRepo.ts',
+  // `g_previewBoard`, the Colors page's preview board: KiCad's own string
+  // literal (panel_pcbnew_color_settings.cpp:41-687), read, never written.
+  'pcbnew/dialogs/panel_pcbnew_color_settings.tsx',
+];
 
 const exempt = (file: string): boolean =>
   KICAD_AUTHORED_CONTENT.some((p) => file.replace(/\\/g, '/').endsWith(p));

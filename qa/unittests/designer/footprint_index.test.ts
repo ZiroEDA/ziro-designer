@@ -16,8 +16,13 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { uniquePadCount, uniquePadNumbers } from '@ziroeda/pcbnew';
-import { parseFootprint } from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import { DO_NOT_INCLUDE_NPTH, type FOOTPRINT, INCLUDE_NPTH } from '@ziroeda/pcbnew/footprint.js';
+import { PAD_ATTRIB } from '@ziroeda/pcbnew/padstack.js';
+import { ParseFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+
+/** `FOOTPRINT::GetUniquePadNumbers( aIncludeNPTH )`, as a set of strings. */
+const uniquePadNumbers = (aFp: FOOTPRINT, aIncludeNPTH = false): Set<string> =>
+  aFp.GetUniquePadNumbers(aIncludeNPTH ? INCLUDE_NPTH : DO_NOT_INCLUDE_NPTH);
 import {
   footprintIndexInfo,
   uniquePadNumbers as indexPadNumbers,
@@ -47,12 +52,12 @@ const MIXED = `(footprint "Mixed" (version 20221018) (generator pcbnew)
 )`;
 
 describe('FOOTPRINT::GetUniquePadNumbers', () => {
-  const fp = parseFootprint(MIXED)!;
+  const fp = ParseFootprintFile(MIXED);
 
   it('counts distinct numbers of the pads KiCad calls electrical', () => {
     // "1" (twice, front and back) and "2". Everything else is excluded below.
     expect([...uniquePadNumbers(fp)].sort()).toEqual(['1', '2']);
-    expect(uniquePadCount(fp)).toBe(2);
+    expect(fp.GetUniquePadCount(DO_NOT_INCLUDE_NPTH)).toBe(2);
   });
 
   it('skips a pad with no copper layer', () => {
@@ -72,15 +77,14 @@ describe('FOOTPRINT::GetUniquePadNumbers', () => {
     // numbered in memory.
     expect(uniquePadNumbers(fp).has('MH1')).toBe(false);
     expect([...uniquePadNumbers(fp, true)].sort()).toEqual(['1', '2']);
-    const numbered = {
-      ...fp,
-      pads: fp.pads.map((p) =>
-        p.type === 'np_thru_hole' && p.at.x < 0 ? { ...p, number: 'MH1' } : p,
-      ),
-    };
+    const numbered = ParseFootprintFile(MIXED);
+    numbered
+      .Pads()
+      .find((p) => p.GetAttribute() === PAD_ATTRIB.NPTH && p.GetPosition().x < 0)!
+      .SetNumber('MH1');
     expect(uniquePadNumbers(numbered).has('MH1')).toBe(false);
     expect([...uniquePadNumbers(numbered, true)].sort()).toEqual(['1', '2', 'MH1']);
-    expect(uniquePadCount(numbered, true)).toBe(3);
+    expect(numbered.GetUniquePadCount(INCLUDE_NPTH)).toBe(3);
   });
 
   it('skips pads with an empty number', () => {
@@ -115,7 +119,7 @@ describe('the hosted index fields', () => {
     expect(files.length).toBeGreaterThan(20);
     for (const file of files) {
       const text = readFileSync(`${CM5IO_DIR}/${file}`, 'utf8');
-      const fp = parseFootprint(text)!;
+      const fp = ParseFootprintFile(text);
       expect([...indexPadNumbers(text)].sort(), file).toEqual([...uniquePadNumbers(fp)].sort());
     }
   });

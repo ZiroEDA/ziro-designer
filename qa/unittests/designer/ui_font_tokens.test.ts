@@ -302,7 +302,7 @@ const BASELINE: Record<string, number> = {
   // RESCANNED from this tree.
   // 8 -> 39 (09-28): the scan now reads pcbnew/ and 3d-viewer/. The drop to 8
   // was the file-structure move carrying sites out of view, not removing them.
-  'editors/pcb': 32, // +1: the Footprint Editor window moved into pcbnew/; -1 (10-01): b7f7835f deleted Filter Selection's invented "N items kept" line; -7 (10-01): 860a063c deleted the legacy Position Relative dialog
+  'editors/pcb': 31, // -1 (10-05): the old Footprint Editor window's placeholder; +1: the Footprint Editor window moved into pcbnew/; -1 (10-01): b7f7835f deleted Filter Selection's invented "N items kept" line; -7 (10-01): 860a063c deleted the legacy Position Relative dialog
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
@@ -340,7 +340,7 @@ const BASELINE: Record<string, number> = {
   // 5 -> 1 on 09-26: the old About stub's 16/12/12/12, gone with it. The
   // real dialog's one size is DIALOG_ABOUT_BASE's own `wxFont( 14, ... )`.
   home: 1,
-  mobile: 6,
+  mobile: 5,
   pcm: 10,
   // 157 until the Appearance panel pass. KIUI::GetInfoFont is one font for the
   // whole pane, and eight rules there wrote 12px or 13px between them; they
@@ -739,7 +739,9 @@ describe('hardcoded font sizes do not grow', () => {
     // line (11.5px), which KiCad's dialog does not have - see `editors/pcb`.
     // 97 -> 90 (10-01): 860a063c deleted the legacy DialogPositionRelative,
     // replaced by DIALOG_POSITION_RELATIVE in the panel font - see `editors/pcb`.
-    expect(sites.length).toBe(90);
+    // 90 -> 89 (10-05): the old Footprint Editor window's canvas placeholder.
+    // 89 -> 88 (10-09): the desktop gate's "Continue anyway" link.
+    expect(sites.length).toBe(88);
   });
 });
 

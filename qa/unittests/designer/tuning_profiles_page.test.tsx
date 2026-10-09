@@ -14,8 +14,8 @@ import {
   validateTuningProfiles,
   delayProfileNames,
 } from '@ziroeda/pcbnew/dialogs/panel_setup_tuning_profiles.js';
-import type { TuningProfilesData } from '@ziroeda/pcbnew/board_settings.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { TuningProfilesData } from '@ziroeda/pcbnew/dialogs/panel_setup_tuning_profiles.js';
 
 const LAYERS = [
   { id: 'F.Cu', name: 'F.Cu' },

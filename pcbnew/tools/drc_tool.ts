@@ -83,7 +83,7 @@ export interface DRC_TOOL_FRAME extends PCB_BASE_EDIT_FRAME {
    * Run a DRC job and stream what it finds back.
    *
    * The frame's, because launching the worker is the *window's* business, not
-   * the tool's: see `pcbnew/drc_runner.ts`.
+   * the tool's: see `pcbnew/browser/drc_runner.ts`.
    */
   RunDrcJob(aRequest: DRC_JOB_REQUEST, aHooks: DRC_JOB_HOOKS): Promise<void>;
   /** `Kiface().IsSingle()`: true when no schematic accompanies the board. */

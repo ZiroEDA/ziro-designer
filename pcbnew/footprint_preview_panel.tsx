@@ -3,216 +3,334 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * `FOOTPRINT_PREVIEW_PANEL` (`pcbnew/footprint_preview_panel.cpp`): the
- * board canvas a `FOOTPRINT_PREVIEW_WIDGET` hosts. The widget, its status
- * text and the "Footprint not found." branch are common
+ * board canvas a `FOOTPRINT_PREVIEW_WIDGET` hosts — a `PCB_DRAW_PANEL_GAL`
+ * with no frame, drawing one library footprint on a dummy FPHOLDER BOARD. The
+ * widget, its status text and the "Footprint not found." branch are common
  * (`common/widgets/footprint_preview_widget.tsx`); upstream it gets this panel
- * from the kiway (`FRAME_FOOTPRINT_PREVIEW`), here the caller passes
- * `PCB_FOOTPRINT_PREVIEW_PANEL`, built by {@link FOOTPRINT_PREVIEW_PANEL_New}.
+ * from the kiway (`FRAME_FOOTPRINT_PREVIEW`), here the caller builds it with
+ * {@link FOOTPRINT_PREVIEW_PANEL_New}.
  *
- * Moved from `designer/src/editors/pcb/footprint_preview_panel.tsx`. Its two
- * reads of the program — the footprint library lookup and `pcbnew.json`'s
- * `window.cursor` — are handed to `New`, the way upstream's
- * `FOOTPRINT_PREVIEW_PANEL::New( aKiway, aParent, aUnitsProvider )` is handed
- * its kiway; designer's file is now only that call.
+ * Upstream's `DisplayFootprint( LIB_ID )` loads and shows in one call. The
+ * load here may wait on a hosted library file, so the widget resolves the
+ * footprint first (`LoadFootprint` through the adapter) and the panel shows
+ * what it was handed ({@link FOOTPRINT_PREVIEW_PANEL.ShowFootprint}).
  */
-import { useCallback, useEffect, useRef, type JSX } from 'react';
+import { type JSX, useEffect, useRef, useState } from 'react';
+import { pcbIUScale, type EdaUnits, DoubleValueFromStringIn } from '@ziroeda/common/eda_units.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { INSPECT_RESULT } from '@ziroeda/common/eda_item.js';
+import { GAL_DISPLAY_OPTIONS_IMPL } from '@ziroeda/common/gal_display_options_common.js';
+import { drawPanelWindow, loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
+import type { COMMON_SETTINGS_LIKE } from '@ziroeda/common/pgm_base.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import {
+  HIGH_CONTRAST_MODE,
+  NET_COLOR_MODE,
+} from '@ziroeda/common/project/board_project_settings.js';
+import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import type { FOOTPRINT_PREVIEW_PANEL_BASE } from '@ziroeda/common/widgets/footprint_preview_widget.js';
-import { footprintBBox, footprintTextOnly, type PcbFootprint } from './index.js';
-import {
-  usePreviewViewControls,
-  type PreviewView,
-} from '@ziroeda/common/widgets/preview_view_controls.js';
-import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
-import {
-  buildScene,
-  drawAnchors,
-  drawBoard,
-  pcbGridOptions,
-  DEFAULT_DRAW_OPTIONS,
-  PCB_DEFAULT_GRID_IU,
-} from './renderBoard.js';
-import { drawCrosshair, drawGrid } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
-import { PCB_BACKGROUND, PCB_CURSOR } from './pcbTheme.js';
-import type { CrosshairMode } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
-import { footprintToBoard, FOOTPRINT_LAYERS } from './footprint_edit_frame.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
+import { BOARD, BOARD_USE } from './board.js';
+import type { FOOTPRINT } from './footprint.js';
+import type { PCB_DIMENSION_BASE } from './pcb_dimension.js';
+import { PCB_DRAW_PANEL_GAL } from './pcb_draw_panel_gal.js';
+import type { PCB_RENDER_SETTINGS } from './pcb_painter.js';
+import { PCBNEW_SETTINGS } from './pcbnew_settings.js';
 
-const ALL_LAYERS: ReadonlySet<string> = new Set(FOOTPRINT_LAYERS.map((l) => l.name));
+export class FOOTPRINT_PREVIEW_PANEL {
+  private readonly m_panel: PCB_DRAW_PANEL_GAL;
+  private readonly m_dummyBoard: BOARD;
+  private m_currentFootprint: FOOTPRINT | null = null;
+  private m_otherFootprint: FOOTPRINT | null = null;
+  /** `m_pinFunctions`: a pad number's pin function, set by `SetPinFunctions`. */
+  private m_pinFunctions = new Map<string, string>();
+  private m_pendingFit = false;
+
+  constructor(aPanel: PCB_DRAW_PANEL_GAL, aUserUnits: EdaUnits) {
+    this.m_panel = aPanel;
+
+    aPanel.SetStealsFocus(false);
+
+    this.m_dummyBoard = new BOARD();
+    this.m_dummyBoard.SetUserUnits(aUserUnits);
+    this.m_dummyBoard.SetBoardUse(BOARD_USE.FPHOLDER);
+
+    aPanel.UpdateColors();
+    aPanel.SyncLayersVisibility(this.m_dummyBoard);
+  }
+
+  GetPanel(): PCB_DRAW_PANEL_GAL {
+    return this.m_panel;
+  }
+
+  /** `GetBoard()`: the dummy board the footprint is shown on. */
+  GetBoard(): BOARD {
+    return this.m_dummyBoard;
+  }
+
+  /** `GetCurrentFootprint()`. */
+  GetCurrentFootprint(): FOOTPRINT | null {
+    return this.m_currentFootprint;
+  }
+
+  /** `SetPinFunctions( aPinFunctions )`. */
+  SetPinFunctions(aPinFunctions: ReadonlyMap<string, string>): void {
+    this.m_pinFunctions = new Map(aPinFunctions);
+  }
+
+  /** `ClearViewAndData()`. */
+  ClearViewAndData(): void {
+    this.m_dummyBoard.DetachAllFootprints();
+
+    const view = this.m_panel.GetView();
+
+    if (this.m_currentFootprint) view.Remove(this.m_currentFootprint);
+    if (this.m_otherFootprint) view.Remove(this.m_otherFootprint);
+
+    view.Clear();
+
+    this.m_currentFootprint = null;
+    this.m_otherFootprint = null;
+  }
+
+  /** `renderFootprint( aFootprint )`. */
+  private renderFootprint(aFootprint: FOOTPRINT): void {
+    this.m_dummyBoard.Add(aFootprint);
+
+    aFootprint.Visit(
+      (descendant: EDA_ITEM) => {
+        (descendant as PCB_DIMENSION_BASE).UpdateUnits();
+        return INSPECT_RESULT.CONTINUE;
+      },
+      null,
+      [
+        KICAD_T.PCB_DIM_LEADER_T,
+        KICAD_T.PCB_DIM_ALIGNED_T,
+        KICAD_T.PCB_DIM_ORTHOGONAL_T,
+        KICAD_T.PCB_DIM_CENTER_T,
+        KICAD_T.PCB_DIM_RADIAL_T,
+      ],
+    );
+
+    // `m_pinFunctions[ pad->GetNumber() ]`: a std::map's operator[], so a pad
+    // with no entry gets the empty string.
+    for (const pad of aFootprint.Pads())
+      pad.SetPinFunction(this.m_pinFunctions.get(pad.GetNumber()) ?? '');
+
+    // Ensure we are not using the high contrast mode to display the selected footprint
+    const view = this.m_panel.GetView();
+    const settings = view.GetPainter().GetSettings() as PCB_RENDER_SETTINGS;
+    settings.m_ContrastModeDisplay = HIGH_CONTRAST_MODE.NORMAL;
+
+    view.Add(aFootprint);
+    view.SetVisible(aFootprint, true);
+    view.Update(aFootprint, VIEW_UPDATE_FLAGS.ALL);
+  }
+
+  /** `fitToCurrentFootprint()`. */
+  fitToCurrentFootprint(): void {
+    const current = this.m_currentFootprint;
+
+    if (!current) return;
+
+    const includeText = current.TextOnly();
+    const bbox = current.GetBoundingBox(includeText);
+
+    if (bbox.GetSize().x > 0 && bbox.GetSize().y > 0) {
+      const view = this.m_panel.GetView();
+
+      // Autozoom
+      view.SetViewport(new BOX2D(bbox.GetOrigin(), bbox.GetSize()));
+
+      // Add a margin
+      view.SetScale(view.GetScale() * 0.7);
+
+      this.m_panel.Refresh();
+    }
+  }
+
+  /**
+   * `onSize`: the first size event after a footprint is shown fits it, the
+   * GAL having been resized to the canvas by then.
+   */
+  onSize(): void {
+    if (this.m_pendingFit && this.m_currentFootprint) {
+      this.m_pendingFit = false;
+      this.fitToCurrentFootprint();
+    }
+  }
+
+  /**
+   * `DisplayFootprint( aFPID )` past its `LoadFootprint`: the last footprint
+   * detached and the view cleared, \a aFootprint (a fresh copy from the
+   * library, or null when it was not found) rendered and fitted.
+   */
+  ShowFootprint(aFootprint: FOOTPRINT | null): boolean {
+    this.m_dummyBoard.DetachAllFootprints();
+
+    const view = this.m_panel.GetView();
+
+    if (this.m_currentFootprint) view.Remove(this.m_currentFootprint);
+
+    view.Clear();
+
+    this.m_currentFootprint = aFootprint;
+
+    if (this.m_currentFootprint) {
+      this.renderFootprint(this.m_currentFootprint);
+      this.m_pendingFit = true;
+      this.fitToCurrentFootprint();
+    }
+
+    this.m_panel.ForceRefresh();
+
+    return this.m_currentFootprint !== null;
+  }
+
+  /** `DisplayFootprints( aFootprintA, aFootprintB )`: two footprints, fitted to the first. */
+  DisplayFootprints(aFootprintA: FOOTPRINT | null, aFootprintB: FOOTPRINT | null): void {
+    this.m_dummyBoard.DetachAllFootprints();
+
+    const view = this.m_panel.GetView();
+
+    if (this.m_currentFootprint) view.Remove(this.m_currentFootprint);
+    if (this.m_otherFootprint) view.Remove(this.m_otherFootprint);
+
+    view.Clear();
+
+    this.m_currentFootprint = aFootprintA;
+    this.m_otherFootprint = aFootprintB;
+
+    if (this.m_currentFootprint) {
+      if (!this.m_otherFootprint) return;
+
+      this.renderFootprint(this.m_currentFootprint);
+      this.renderFootprint(this.m_otherFootprint);
+      this.m_pendingFit = true;
+      this.fitToCurrentFootprint();
+    }
+  }
+
+  /** `RefreshAll()`. */
+  RefreshAll(): void {
+    this.m_panel.GetView().UpdateAllItems(VIEW_UPDATE_FLAGS.REPAINT);
+    this.m_panel.ForceRefresh();
+  }
+
+  /**
+   * `FOOTPRINT_PREVIEW_PANEL::New( aKiway, aParent, aUnitsProvider )`
+   * (`:278-312`): the GAL options from the common settings and pcbnew's own
+   * window settings, the grid shown and sized as pcbnew's last grid, and no
+   * highlight or net colours. Null when WebGL is not to be had.
+   */
+  static New(
+    aCanvas: HTMLCanvasElement,
+    aFontImage: ImageBitmap,
+    aCommonSettings: COMMON_SETTINGS_LIKE,
+    aUserUnits: EdaUnits,
+  ): FOOTPRINT_PREVIEW_PANEL | null {
+    const cfg =
+      PgmOrNull()?.GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew') ??
+      new PCBNEW_SETTINGS();
+
+    const galOpts = new GAL_DISPLAY_OPTIONS_IMPL();
+    galOpts.ReadConfig(aCommonSettings, cfg.m_Window, window);
+
+    let drawPanel: PCB_DRAW_PANEL_GAL;
+
+    try {
+      drawPanel = new PCB_DRAW_PANEL_GAL(null, drawPanelWindow(aCanvas, aFontImage), galOpts);
+    } catch (err) {
+      console.warn(`Could not use OpenGL: ${(err as Error).message}`);
+      return null;
+    }
+
+    const panel = new FOOTPRINT_PREVIEW_PANEL(drawPanel, aUserUnits);
+
+    drawPanel.UpdateColors();
+
+    const gridCfg = cfg.m_Window.grid;
+    drawPanel.GetGAL().SetGridVisibility(gridCfg.show);
+
+    // Bounds checking cannot include number of elements as an index!
+    const gridIdx = Math.min(Math.max(gridCfg.last_size_idx, 0), gridCfg.grids.length - 1);
+    const grid = gridCfg.grids[gridIdx];
+
+    if (grid) {
+      const gridSizeX = DoubleValueFromStringIn(pcbIUScale, 'mils', grid.x);
+      const gridSizeY = DoubleValueFromStringIn(pcbIUScale, 'mils', grid.y);
+      drawPanel.GetGAL().SetGridSize({ x: gridSizeX, y: gridSizeY });
+    }
+
+    const settings = drawPanel.GetView().GetPainter().GetSettings() as PCB_RENDER_SETTINGS;
+    settings.SetHighlight(false);
+    settings.SetNetColorMode(NET_COLOR_MODE.OFF);
+
+    return panel;
+  }
+}
 
 export interface FootprintPreviewPanelProps {
-  /** The resolved footprint (`DisplayFootprint`'s `m_currentFootprint`). */
-  footprint: PcbFootprint;
-  /** Mouse preferences (PANEL_MOUSE_SETTINGS) for the zoom/pan gestures. */
-  inputPrefs?: InputPrefs;
-  /** `pcbnew.json`'s `window.cursor`, read at each paint. */
-  cursorPrefs: () => PreviewCursorPrefs;
+  /** The resolved footprint, a fresh copy from the library. */
+  footprint: FOOTPRINT;
+  /** `Pgm()`, installed before the canvas is built. */
+  installPgm: () => void;
+  /** `Pgm().GetCommonSettings()`, which the GAL options read. */
+  commonSettings: () => COMMON_SETTINGS_LIKE;
 }
 
-/** The two `window.cursor` keys the preview's crosshair reads. */
-export interface PreviewCursorPrefs {
-  crosshair: CrosshairMode;
-  always_show_cursor: boolean;
-}
-
+/** The panel's window: the canvas `New` builds on, and its size events. */
 export function FootprintPreviewPanel({
-  footprint: fp,
-  inputPrefs,
-  cursorPrefs,
+  footprint,
+  installPgm,
+  commonSettings,
 }: FootprintPreviewPanelProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  /** Read through a ref so `draw` stays one callback for the pane's life. */
-  const cursorPrefsRef = useRef(cursorPrefs);
-  cursorPrefsRef.current = cursorPrefs;
+  const [panel, setPanel] = useState<FOOTPRINT_PREVIEW_PANEL | null>(null);
 
-  // Paint the footprint through the pane's view (FOOTPRINT_PREVIEW_PANEL's
-  // fitToCurrentFootprint seeds it; the wheel and a middle/right drag move it
-  // afterwards, as on any GAL canvas).
-  const fpRef = useRef<PcbFootprint | null>(fp);
-  fpRef.current = fp;
-  /**
-   * `WX_VIEW_CONTROLS::m_cursorPos`, in world units: where the pointer last
-   * was over the canvas, and (0, 0) — the footprint's anchor — before it has
-   * ever been there, which is why KiCad's chooser opens with the crosshair
-   * sitting on pad 1. It is not cleared on leave; upstream keeps the last
-   * position too.
-   */
-  const cursorRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-
-  const viewRef = useRef<PreviewView | null>(null);
-
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    const footprintNow = fpRef.current;
-    if (!canvas || !footprintNow) return;
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    // The panel is a pcbnew canvas, so it clears to LAYER_PCB_BACKGROUND
-    // before painting (the raster itself stays transparent).
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = PCB_BACKGROUND;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const scene = buildScene(footprintToBoard(footprintNow), {
-      // `PAD::GetOwnClearance` is "if this board has a DRC engine ask it, else
-      // 0" (board_connected_item.cpp:121-130) and the preview's `m_dummyBoard`
-      // is a bare `new BOARD()` with none, so every pad's clearance here is 0
-      // and `draw( const PAD* )` skips the outline (`clearance > 0`,
-      // pcb_painter.cpp:1974). Ours drew a ring round every pad that pcbnew's
-      // preview does not have.
-      clearanceForNet: () => 0,
-    });
-    const w = canvas.width;
-    const h = canvas.height;
-    // `fitToCurrentFootprint` (pcbnew/footprint_preview_panel.cpp):
-    //
-    //     bool  includeText = m_currentFootprint->TextOnly();
-    //     BOX2I bbox = m_currentFootprint->GetBoundingBox( includeText );
-    //
-    // — the FOOTPRINT's own box, and with its **text excluded** unless the
-    // footprint is nothing but text. This used `scene.bbox`, the whole board's,
-    // so the value on F.Fab (`D_DO-41_SOD81_P10.16mm_Horizontal`, three times
-    // wider than the part) was inside the box being fitted and the footprint
-    // came out small and pushed off-centre.
-    const b = footprintBBox(footprintNow, footprintTextOnly(footprintNow));
-    if (!b) return;
-    const bw = Math.max(1, b.maxX - b.minX);
-    const bh = Math.max(1, b.maxY - b.minY);
-    // SetViewport(bbox) then `SetScale(GetScale() * 0.7)` for the margin.
-    const fitScale = Math.min(w / bw, h / bh) * 0.7;
-    const view = viewRef.current ?? {
-      scale: fitScale,
-      tx: w / 2 - ((b.minX + b.maxX) / 2) * fitScale,
-      ty: h / 2 - ((b.minY + b.maxY) / 2) * fitScale,
-    };
-    viewRef.current = view;
-    // `FOOTPRINT_PREVIEW_PANEL::New` turns the grid on and sizes it from
-    // pcbnew's own window settings — `panel->GetGAL()->SetGridVisibility(
-    // gridCfg.show )` and `SetGridSize( gridCfg.grids[last_size_idx] )` off
-    // `PCBNEW_SETTINGS::m_Window.grid`, whose defaults are `show = true`
-    // (app_settings.cpp:555-556) and index 15 of the non-eeschema grid list,
-    // 0.50 mm (app_settings.cpp:462-481) — which is `PCB_DEFAULT_GRID_IU`.
-    // So the preview canvas is a dotted board grid, and ours had none at all.
-    drawGrid(ctx, view, w, h, pcbGridOptions({ show: true, devicePixelRatio: dpr }));
-    drawBoard(ctx, scene, view, ALL_LAYERS, w, h, {
-      ...DEFAULT_DRAW_OPTIONS,
-      drawingSheet: false,
-    });
-    // `PCB_PAINTER::draw( const FOOTPRINT*, LAYER_ANCHOR )` — the 5 px cross
-    // in the anchor colour at the footprint origin. The editor runs this pass
-    // after the board; the preview never did, so the anchor KiCad's chooser
-    // shows on pad 1 was missing here.
-    drawAnchors(ctx, scene, view, ALL_LAYERS, w, h, DEFAULT_DRAW_OPTIONS, 'none', dpr);
-    // `blitCursor`: this panel runs no tool, so `m_isCursorEnabled` is never
-    // set and the crosshair is there only through `m_forceDisplayCursor` —
-    // "Always show crosshairs", `window.cursor.always_show_cursor`, default
-    // TRUE (app_settings.cpp:564-565) — at `GetCursorPosition()`, the pointer
-    // snapped to the panel's grid (`m_snappingEnabled` is constructed true).
-    const cur = cursorRef.current;
-    const g = PCB_DEFAULT_GRID_IU;
-    const snapped = { x: Math.round(cur.x / g) * g, y: Math.round(cur.y / g) * g };
-    const cursorPrefs = cursorPrefsRef.current();
-    drawCrosshair(
-      ctx,
-      { x: snapped.x * view.scale + view.tx, y: snapped.y * view.scale + view.ty },
-      w,
-      h,
-      {
-        mode: cursorPrefs.crosshair,
-        color: PCB_CURSOR,
-        toolWantsCursor: false,
-        alwaysShow: cursorPrefs.always_show_cursor,
-        devicePixelRatio: dpr,
-      },
-    );
-  }, []);
-
-  const viewCtl = usePreviewViewControls(canvasRef, draw, inputPrefs, viewRef);
-
-  /** `onMotion` — `m_cursorPos = m_view->ToWorld( event position )`. */
-  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>): void => {
-    const canvas = canvasRef.current;
-    const view = viewRef.current;
-    if (canvas && view) {
-      const rect = canvas.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      cursorRef.current = {
-        x: ((e.clientX - rect.left) * dpr - view.tx) / view.scale,
-        y: ((e.clientY - rect.top) * dpr - view.ty) / view.scale,
-      };
-      draw();
-    }
-    viewCtl.handlers.onPointerMove(e);
-  };
-
-  // A newly displayed footprint refits, and so does a resize (onSize).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fp triggers the refit
+  // biome-ignore lint/correctness/useExhaustiveDependencies: built once per window; the two readers are read at build time
   useEffect(() => {
-    viewRef.current = null;
-    draw();
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const observer = new ResizeObserver(() => {
-      viewRef.current = null;
-      draw();
-    });
-    observer.observe(canvas);
-    return () => observer.disconnect();
-  }, [fp, draw]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="ze-fp-canvas"
-      onWheel={viewCtl.handlers.onWheel}
-      onPointerDown={viewCtl.handlers.onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={viewCtl.handlers.onPointerUp}
-      onPointerCancel={viewCtl.handlers.onPointerUp}
-      onContextMenu={viewCtl.handlers.onContextMenu}
-    />
-  );
+    let cancelled = false;
+    let built: FOOTPRINT_PREVIEW_PANEL | null = null;
+    let observer: ResizeObserver | null = null;
+
+    loadBitmapFontImage().then(
+      (fontImage) => {
+        if (cancelled) return;
+
+        installPgm();
+        built = FOOTPRINT_PREVIEW_PANEL.New(canvas, fontImage, commonSettings(), 'mm');
+
+        if (!built) return;
+
+        const p = built;
+        observer = new ResizeObserver(() => p.onSize());
+        observer.observe(canvas);
+        setPanel(p);
+      },
+      (err: unknown) => console.warn(`Could not load the bitmap font: ${(err as Error).message}`),
+    );
+
+    return () => {
+      cancelled = true;
+      observer?.disconnect();
+
+      if (built) {
+        built.ClearViewAndData();
+        built.GetPanel().Destroy();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    panel?.ShowFootprint(footprint);
+  }, [panel, footprint]);
+
+  return <canvas ref={canvasRef} className="ze-fp-canvas" />;
 }
 
 /**
@@ -222,15 +340,19 @@ export function FootprintPreviewPanel({
  * canvas that shows the result.
  */
 export function FOOTPRINT_PREVIEW_PANEL_New(app: {
-  /** The footprint-library lookup, by "Library:Name". */
-  resolve: (libId: string) => Promise<PcbFootprint | null>;
-  /** `pcbnew.json`'s `window.cursor`. */
-  cursorPrefs: () => PreviewCursorPrefs;
-}): FOOTPRINT_PREVIEW_PANEL_BASE<PcbFootprint> {
+  /** `FootprintLibAdapter()->LoadFootprint( nickname, name, false )`, by "Library:Name". */
+  resolve: (libId: string) => Promise<FOOTPRINT | null>;
+  installPgm: () => void;
+  commonSettings: () => COMMON_SETTINGS_LIKE;
+}): FOOTPRINT_PREVIEW_PANEL_BASE<FOOTPRINT> {
   return {
     resolve: app.resolve,
     render: (footprint) => (
-      <FootprintPreviewPanel footprint={footprint} cursorPrefs={app.cursorPrefs} />
+      <FootprintPreviewPanel
+        footprint={footprint}
+        installPgm={app.installPgm}
+        commonSettings={app.commonSettings}
+      />
     ),
   };
 }

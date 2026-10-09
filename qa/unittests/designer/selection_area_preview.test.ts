@@ -239,7 +239,8 @@ describe('the lasso mode follows its winding', () => {
 });
 
 describe('there is one copy of the table', () => {
-  const CANVASES = ['editors/symbol/SymbolCanvas.tsx', '../../pcbnew/pcb_draw_panel_gal_ui.tsx'];
+  // The schematic's and the footprint frames' own canvases are gone (SCH_DRAW_PANEL / EDA_DRAW_PANEL_GAL).
+  const CANVASES = ['editors/symbol/SymbolCanvas.tsx'];
 
   it('no canvas writes a selection colour of its own', () => {
     // Every literal that was in one of the four copies. Matching the VALUES

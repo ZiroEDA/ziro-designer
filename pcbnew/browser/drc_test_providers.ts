@@ -56,3 +56,36 @@ import '../drc/drc_test_provider_connectivity.js';
 import '../drc/drc_test_provider_creepage.js';
 import '../drc/drc_test_provider_disallow.js';
 import '../drc/drc_test_provider_annular_width.js';
+import { DRC_TEST_PROVIDER_REGISTRY } from '../drc/drc_test_provider.js';
+
+// The same order, by the name each provider gives itself: a provider some
+// other module imported first registered earlier, and is put back in its place.
+DRC_TEST_PROVIDER_REGISTRY.Instance().SetInitialisationOrder([
+  'text_mirroring',
+  'sliver checker',
+  'diff_pair_coupling',
+  'length',
+  'silk_clearance',
+  'solder_mask_issues',
+  'diameter',
+  'zone connections',
+  'segment_length',
+  'width',
+  'angle',
+  'text_dimensions',
+  'miscellaneous',
+  'schematic_parity',
+  'library_parity',
+  'hole_size',
+  'hole_to_hole_clearance',
+  'footprint checks',
+  'edge_clearance',
+  'courtyard_clearance',
+  'physical_clearance',
+  'clearance',
+  'copper width',
+  'connectivity',
+  'creepage',
+  'disallow',
+  'annular_width',
+]);

@@ -1,0 +1,47 @@
+%TF.GenerationSoftware,KiCad,Pcbnew,10.0.6-10.0.6~ubuntu24.04.1*%
+%TF.CreationDate,2026-10-04T12:44:31+05:30*%
+%TF.ProjectId,gerber_oracle,67657262-6572-45f6-9f72-61636c652e6b,B*%
+%TF.SameCoordinates,Original*%
+%TF.FileFunction,Plated,1,4,PTH,Mixed*%
+%TF.FilePolarity,Positive*%
+%FSLAX45Y45*%
+G04 Gerber Fmt 4.5, Leading zero omitted, Abs format (unit mm)*
+G04 Created by KiCad (PCBNEW 10.0.6-10.0.6~ubuntu24.04.1) date 2026-10-04 12:44:31*
+%MOMM*%
+%LPD*%
+G01*
+G04 APERTURE LIST*
+%TA.AperFunction,ViaDrill*%
+%ADD10C,0.300000*%
+%TD*%
+%TA.AperFunction,ViaDrill*%
+%ADD11C,0.400000*%
+%TD*%
+G04 aperture for slot hole*
+%TA.AperFunction,ComponentDrill*%
+%ADD12C,0.600000*%
+%TD*%
+%TA.AperFunction,ComponentDrill*%
+%ADD13C,0.800000*%
+%TD*%
+%TA.AperFunction,ComponentDrill*%
+%ADD14C,1.000000*%
+%TD*%
+G04 APERTURE END LIST*
+D10*
+X1400000Y2900000D03*
+D11*
+X1000000Y1000000D03*
+X2800000Y700000D03*
+%TO.C,J1*%
+D12*
+X4034641Y3536000D02*
+X3965359Y3496000D01*
+X4040000Y3262000D02*
+X3960000Y3262000D01*
+D13*
+X4000000Y2754000D03*
+D14*
+X4000000Y3008000D03*
+X4000000Y2500000D03*
+M02*

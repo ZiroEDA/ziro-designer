@@ -10,8 +10,6 @@
  */
 
 import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
-import { head, type SList } from '@ziroeda/sexpr/types.js';
-import { serialize } from '@ziroeda/sexpr/serializer.js';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
@@ -99,7 +97,7 @@ import {
   UNCONNECTED_LAYER_MODE,
 } from '../../padstack.js';
 import { BARCODE_ECC_T, BARCODE_T, type PCB_BARCODE } from '../../pcb_barcode.js';
-import { DIM_ARROW_DIRECTION } from '../../pcb_dimension_types.js';
+import { DIM_ARROW_DIRECTION } from '../../pcb_dimension.js';
 import {
   PCB_DIM_ALIGNED,
   PCB_DIM_CENTER,
@@ -142,14 +140,6 @@ import {
   PCB_IO_KICAD_SEXPR_PARSER,
   SEXPR_BOARD_FILE_VERSION,
 } from './pcb_io_kicad_sexpr_parser.js';
-import {
-  boardFromBOARD,
-  boardToBOARD,
-  footprintOfView,
-  footprintViewOfBoard,
-  footprintViewOfLibrary,
-} from './board_view.js';
-import type { Board, PcbFootprint } from '../../types.js';
 
 /** `GetMajorMinorVersion()`: the `generator_version` a 10.0.x build writes. */
 export const MAJOR_MINOR_VERSION = '10.0';
@@ -2760,60 +2750,7 @@ function isVector2(aValue: unknown): aValue is VECTOR2I {
 }
 
 // ---------------------------------------------------------------------------
-// Reading: `PCB_IO_KICAD_SEXPR::LoadBoard` / `ImportFootprint`. The BOARD the
-// parser builds; `Board` is its view (`pcb_io/kicad_sexpr/board_view.ts`).
-
-/**
- * Read a standalone `.kicad_mod` file (a top-level `(footprint …)` node) into a
- * footprint in its own LOCAL frame, the form the Footprint Editor works in.
- * A library footprint carries no board placement, so children keep their stored
- * (footprint-relative) coordinates: no transform is baked in and the anchor sits
- * at the origin. This is the library-cache load path of KiCad's
- * `PCB_IO_KICAD_SEXPR_PARSER::parseFOOTPRINT` (the footprint is not re-based onto
- * a board), as opposed to `readBoardFootprint`, which bakes children to board coords.
- */
-export function readFootprintFile(input: string | SList): PcbFootprint | null {
-  if (typeof input !== 'string') {
-    const h = head(input);
-    if (h !== 'footprint' && h !== 'module') return null;
-  }
-  const text = typeof input === 'string' ? input : serialize(input);
-  try {
-    return footprintViewOfLibrary(ParseFootprintFile(text));
-  } catch {
-    return null;
-  }
-}
-
-/**
- * A `(footprint …)` node read in BOARD context: children are baked from
- * footprint-local to board coordinates through the node's `(at …)` placement, the
- * same path the board reader takes. This is how a library footprint becomes a
- * board footprint (KiCad's `LoadFootprintFromProject` + `FOOTPRINT::SetPosition`,
- * used by BOARD_NETLIST_UPDATER::addNewFootprint).
- */
-export function readBoardFootprint(input: string | SList): PcbFootprint | null {
-  if (typeof input !== 'string') {
-    const h = head(input);
-    if (h !== 'footprint' && h !== 'module') return null;
-  }
-  const text = typeof input === 'string' ? input : serialize(input);
-  try {
-    return footprintViewOfBoard(ParseFootprintFile(text));
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Read a `.kicad_pcb` document. The KiCad parser builds the model and the
- * Board is its view. A pre-parsed tree is accepted for the callers that still
- * hold one; it is serialised and read again.
- */
-export function readBoard(input: string | SList): Board {
-  const text = typeof input === 'string' ? input : serialize(input);
-  return boardFromBOARD(ParseBoard(text));
-}
+// Reading: `PCB_IO_KICAD_SEXPR::LoadBoard` / `ImportFootprint`.
 
 /** `PCB_IO_KICAD_SEXPR::LoadBoard` for a string: the parser over it, a BOARD back. */
 export function ParseBoard(text: string, source = 'board'): BOARD {
@@ -2893,28 +2830,6 @@ export async function FormatBoardAsync(
 }
 
 /**
- * Serialize a board to `.kicad_pcb` text: the view's edits go back into
- * KiCad's model (`boardToBOARD`) and `format( BOARD )` writes it.
- */
-export function serializeBoard(board: Board): string {
-  return FormatBoard(boardToBOARD(board));
-}
-
-/**
- * `serializeBoard` without holding the thread (`FormatBoardAsync`): the
- * editor's autosave, which runs a moment after every edit on a board the
- * user is still working on. Null when `aAbort` said the board moved
- * underneath it.
- */
-export function serializeBoardAsync(
-  board: Board,
-  aYield: () => Promise<void>,
-  aAbort: () => boolean = () => false,
-): Promise<string | null> {
-  return FormatBoardAsync(boardToBOARD(board), aYield, aAbort);
-}
-
-/**
  * `PCB_IO_KICAD_SEXPR::FootprintSave`'s text (:3360): `Format( aFootprint )`
  * with `CTL_FOR_LIBRARY`, prettified.
  */
@@ -2930,21 +2845,6 @@ export function FormatFootprintForLibrary(
 }
 
 export { FLIP_DIRECTION };
-
-export interface SerializeFootprintOptions {
-  /**
-   * `PCBNEW_SETTINGS::m_FlipDirection`, the "Flip board items L/R" editing
-   * preference, which decides how a back-side footprint is brought to the
-   * front for its library file. `TOP_BOTTOM` is the setting's own default.
-   */
-  flipDirection?: FLIP_DIRECTION;
-  /**
-   * The board the footprint is flipped against (`GetBoard()->FlipLayer`): its
-   * copper count and layer table. The Footprint Editor's holder board is a
-   * plain two-layer BOARD with no user-layer pairing.
-   */
-  board?: BOARD;
-}
 
 /**
  * What `FootprintSave` does to its clone before `Format` (:3449-3462):
@@ -2974,14 +2874,6 @@ export function footprintSaveClone(
   // descendants still carry reference NETINFO_ITEMs owned by that board and may dangle.
   // Force them all to the board-independent ORPHANED singleton before serialization.
   footprint.ClearAllNets();
-}
-
-/** Serialize a footprint to `.kicad_mod` text, the bytes `FootprintSave` writes. */
-export function serializeFootprint(fp: PcbFootprint, opts: SerializeFootprintOptions = {}): string {
-  // "I need my own copy for the cache": FOOTPRINT::Clone() with the view's edits over it.
-  const footprint = footprintOfView(fp, opts.board);
-  footprintSaveClone(footprint, opts.flipDirection ?? FLIP_DIRECTION.TOP_BOTTOM);
-  return FormatFootprintForLibrary(footprint);
 }
 
 /** `CTL_FOR_CLIPBOARD` (pcb_io_kicad_sexpr.h:215). */

@@ -198,7 +198,8 @@ describe('the menu rows print the accelerator, character for character', () => {
     '../../eeschema/symbol_editor/menubar_symbol_editor.ts',
     // The board editor's Edit > Delete row (its canvas menu is the tools').
     '../../pcbnew/menubar_pcb_editor.ts',
-    '../../pcbnew/footprint_edit_frame_ui.tsx',
+    // The Footprint Editor's Edit > Delete row, in its menubar module.
+    '../../pcbnew/menubar_footprint_editor.ts',
     '../../cvpcb/cvpcb_mainframe_ui.tsx',
     '../../eeschema/menubar.ts',
     // Already correct before this split, and pinned by

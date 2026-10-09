@@ -28,11 +28,6 @@ import {
   booleanIntersection,
   simplify,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
-import {
-  transformCircleToPolygonSet,
-  transformOvalToPolygon,
-  transformRingToPolygon,
-} from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 
@@ -57,21 +52,26 @@ function polySetToPolygons(set: SHAPE_POLY_SET): Polygon[] {
   }
   return out;
 }
-import type { Board } from '@ziroeda/pcbnew';
-import { barcodeGeometry } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
-import { viaIsTented } from '@ziroeda/pcbnew/exporters/export_d356.js';
-import { padIsOnLayer } from '@ziroeda/pcbnew/dialogs/dialog_enum_pads.js';
-import { textTransformTextToPolySet } from '@ziroeda/pcbnew/text_to_polyset.js';
 import {
-  ErrorLoc,
-  arcTrackTransformShapeToPolygon,
-  edaShapeTransformShapeToPolygon,
-  padTransformHoleToPolygon,
-  padTransformShapeToPolygon,
-  trackTransformShapeToPolygon,
-  viaTransformShapeToPolygon,
-} from '@ziroeda/pcbnew/transform_shape_to_polygon.js';
-import type { PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '@ziroeda/pcbnew/types.js';
+  TransformCircleToPolygon,
+  TransformOvalToPolygon,
+  TransformRingToPolygon,
+} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { IsSolderMaskLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
+import { LAYER_CLASS } from '@ziroeda/pcbnew/board_design_settings.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import type { PAD } from '@ziroeda/pcbnew/pad.js';
+import { PAD_ATTRIB, PAD_SHAPE } from '@ziroeda/pcbnew/padstack.js';
+import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import type { PCB_TABLE } from '@ziroeda/pcbnew/pcb_table.js';
+import type { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
+import type { PCB_TEXTBOX } from '@ziroeda/pcbnew/pcb_textbox.js';
+import { type PCB_VIA, VIATYPE } from '@ziroeda/pcbnew/pcb_track.js';
 import {
   B_Adhes,
   B_Cu,
@@ -99,7 +99,14 @@ import {
   Rescue,
   User_1,
 } from '@ziroeda/common/layer_ids.js';
-import { boardOutlineLoops, type Box } from './board_outline.js';
+
+/** An axis-aligned box in board IU. */
+interface Box {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
 
 /** The PCB_LAYER_IDs the 3D viewer builds (`techLayerList`). */
 export type Layer3d =
@@ -245,10 +252,10 @@ export function defaultPlotLayerSelection(): Set<number> {
   return out;
 }
 
-export function plotLayerSelection(board: Board): PlotLayerSelection {
-  const p = board.k?.GetPlotOptions();
-  const layers = p ? new Set(p.GetLayerSelection().Seq()) : defaultPlotLayerSelection();
-  if (p) for (const id of p.GetPlotOnAllLayersSequence()) layers.add(id);
+export function plotLayerSelection(aBoard: BOARD): PlotLayerSelection {
+  const p = aBoard.GetPlotOptions();
+  const layers = new Set(p.GetLayerSelection().Seq());
+  for (const id of p.GetPlotOnAllLayersSequence()) layers.add(id);
   // `m_plotReference` / `m_plotValue` / `m_plotFPText` are not board-file
   // tokens in 10.0.5 (`PCB_PLOT_PARAMS::Parse` has no case for them), so a
   // loaded board holds the constructor's `true` for all three.
@@ -292,8 +299,6 @@ export interface Layer3dOptions {
   differentiatePlatedCopper?: boolean;
   /** `show_plated_barrels` (default true). */
   showPlatedBarrels?: boolean;
-  /** Board Setup > Solder Mask/Paste; read from the file when omitted. */
-  maskPaste?: BoardMaskPasteDefaults;
   /** `ADVANCED_CFG::m_HoleWallThickness` (0.020 mm): the barrel's plating, IU. */
   holePlatingThickness?: number;
   /** `BOARD_DESIGN_SETTINGS::m_MaxError` (ARC_HIGH_DEF). */
@@ -346,130 +351,350 @@ export interface Board3dLayers {
 /** `ADVANCED_CFG::m_HoleWallThickness`, 0.020 mm, in IU. */
 export const DEFAULT_HOLE_PLATING_THICKNESS = 20000;
 
-/** The Board Setup > Solder Mask/Paste values, in IU (the ratio is a fraction). */
-export interface BoardMaskPasteDefaults {
-  /** `BOARD_DESIGN_SETTINGS::m_SolderMaskExpansion`. */
-  solderMaskExpansion?: number;
-  /** `m_SolderPasteMargin`. */
-  solderPasteMargin?: number;
-  /** `m_SolderPasteMarginRatio`, a fraction of the pad size, not a percent. */
-  solderPasteMarginRatio?: number;
+/** A SHAPE_POLY_SET as the polygons the rest of this module unions and cuts. */
+function polysOf(aSet: SHAPE_POLY_SET): Polygon[] {
+  return polySetToPolygons(aSet);
 }
 
-/**
- * `BOARD_DESIGN_SETTINGS::m_SolderMaskExpansion` etc.; a board with no model
- * (a footprint holder) leaves them undefined, which the callers read as 0.
- */
-export function boardMaskPasteDefaults(board: Board): BoardMaskPasteDefaults {
-  const bds = board.k?.GetDesignSettings();
-  return {
-    solderMaskExpansion: bds?.m_SolderMaskExpansion,
-    solderPasteMargin: bds?.m_SolderPasteMargin,
-    solderPasteMarginRatio: bds?.m_SolderPasteMarginRatio,
-  };
+/** `textbox->PCB_SHAPE::TransformShapeToPolygon( … )`: the box, not the text's bounds. */
+function textboxBorderToPolygon(
+  aTextbox: PCB_TEXTBOX,
+  aBuffer: SHAPE_POLY_SET,
+  aLayer: PCB_LAYER_ID,
+  aMaxError: number,
+  aErrorLoc: ERROR_LOC,
+): void {
+  const base = PCB_SHAPE.prototype.TransformShapeToPolygon as (
+    this: PCB_SHAPE,
+    aBuffer: SHAPE_POLY_SET,
+    aLayer: PCB_LAYER_ID,
+    aClearance: number,
+    aError: number,
+    aErrorLoc: ERROR_LOC,
+  ) => void;
+  base.call(aTextbox, aBuffer, aLayer, 0, aMaxError, aErrorLoc);
 }
 
-const ringPoly = (ring: Vec2[]): Polygon[] => (ring.length >= 3 ? [[ring]] : []);
+/** `transformFPShapesToPolySet` (create_layer_items.cpp:80-118). */
+function transformFPShapesToPolySet(
+  aFootprint: FOOTPRINT,
+  aLayer: PCB_LAYER_ID,
+  aBuffer: SHAPE_POLY_SET,
+  aMaxError: number,
+  aErrorLoc: ERROR_LOC,
+): void {
+  for (const item of aFootprint.GraphicalItems()) {
+    if (!item.IsOnLayer(aLayer)) continue;
 
-/** `PCB_TRACK::GetSolderMaskExpansion` — the track's own, else the board's. */
-function trackMaskExpansion(own: number | undefined, defaults: BoardMaskPasteDefaults): number {
-  return own ?? defaults.solderMaskExpansion ?? 0;
+    switch (item.Type()) {
+      case KICAD_T.PCB_SHAPE_T: {
+        const shape = item as PCB_SHAPE;
+        let margin = 0;
+
+        if (IsSolderMaskLayer(aLayer) && shape.HasSolderMask())
+          margin = shape.GetSolderMaskExpansion();
+
+        item.TransformShapeToPolySet(aBuffer, aLayer, margin, aMaxError, aErrorLoc);
+        break;
+      }
+
+      case KICAD_T.PCB_BARCODE_T:
+      case KICAD_T.PCB_DIM_ALIGNED_T:
+      case KICAD_T.PCB_DIM_CENTER_T:
+      case KICAD_T.PCB_DIM_RADIAL_T:
+      case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+      case KICAD_T.PCB_DIM_LEADER_T:
+        item.TransformShapeToPolySet(aBuffer, aLayer, 0, aMaxError, aErrorLoc);
+        break;
+
+      default:
+        break;
+    }
+  }
 }
 
-/**
- * `BOARD_ADAPTER::createLayers`, the polygon half.
- */
-export function buildBoard3dLayers(
-  board: Board,
-  bbox: Box,
-  opts: Layer3dOptions = {},
-): Board3dLayers {
-  const maxError = opts.maxError ?? ARC_HIGH_DEF;
-  const maskPaste = opts.maskPaste ?? boardMaskPasteDefaults(board);
-  const plating = opts.holePlatingThickness ?? DEFAULT_HOLE_PLATING_THICKNESS;
-  const showZones = opts.showZones !== false;
-  const showRefs = opts.showFpReferences !== false;
-  const showValues = opts.showFpValues !== false;
-  const showFpText = opts.showFpText !== false;
-  const report = opts.report ?? ((): void => {});
+/** The `LAYER_FP_TEXT` / `LAYER_FP_REFERENCES` / `LAYER_FP_VALUES` flags. */
+interface FP_TEXT_FLAGS {
+  fpText: boolean;
+  references: boolean;
+  values: boolean;
+}
 
-  // ----- the board -----------------------------------------------------------
-  // `GetBoardPolygonOutlines`: the first loop is the outer boundary (largest
-  // area, as `boardOutlineLoops` orders them), the rest are cutouts.
-  // BOARD_ADAPTER::createBoardPolygon (board_adapter.cpp:1029) asks the
-  // board itself - `GetBoardPolygonOutlines( m_board_poly, true, nullptr,
-  // false, true )` - which is the shared outline builder: rounded rectangle
-  // corners, arcs, every shape as pcbnew sees it. The view-only chainer
-  // below is kept for a view with no live BOARD behind it.
-  let boardPoly: Polygon[] = [];
-  const live = opts.empty ? null : board.k;
-  if (live) {
-    const set = new SHAPE_POLY_SET();
-    live.GetBoardPolygonOutlines(set, true, null, false, true);
-    boardPoly = polySetToPolygons(set);
-  }
-  if (!opts.empty && boardPoly.length === 0) {
-    const loops = boardOutlineLoops(board, bbox);
-    boardPoly = loops.length ? simplify([[loops[0]!]]) : [];
-    for (const cut of loops.slice(1)) boardPoly = booleanSubtract(boardPoly, [[cut]]);
-  }
+/** `transformFPTextToPolySet` (create_layer_items.cpp:121-176). */
+function transformFPTextToPolySet(
+  aFootprint: FOOTPRINT,
+  aLayer: PCB_LAYER_ID,
+  aFlags: FP_TEXT_FLAGS,
+  aBuffer: SHAPE_POLY_SET,
+  aMaxError: number,
+  aErrorLoc: ERROR_LOC,
+): void {
+  for (const item of aFootprint.GraphicalItems()) {
+    if (item.Type() === KICAD_T.PCB_TEXT_T) {
+      const text = item as PCB_TEXT;
 
-  // ----- the holes -----------------------------------------------------------
-  // create_layer_items.cpp:527-566 (vias) and :877-901 (pads).
-  let thOD: Polygon[] = [];
-  let thID: Polygon[] = [];
-  let npthOD: Polygon[] = [];
-  let viaAnnuli: Polygon[] = [];
-  for (const via of board.vias) {
-    if (via.kind !== 'through') continue;
-    const holeRadius = Math.trunc(via.drill / 2);
-    const holeOuterRadius = holeRadius + plating;
-    const holeOuterRingRadius = Math.trunc(via.size / 2);
-    thOD.push([
-      transformCircleToPolygonSet(via.at, holeOuterRadius, maxError, ErrorLoc.ERROR_INSIDE),
-    ]);
-    thID.push([transformCircleToPolygonSet(via.at, holeRadius, maxError, ErrorLoc.ERROR_INSIDE)]);
-    viaAnnuli.push([
-      transformCircleToPolygonSet(via.at, holeOuterRingRadius, maxError, ErrorLoc.ERROR_INSIDE),
-    ]);
-  }
-  for (const fp of board.footprints) {
-    for (const pad of fp.pads) {
-      if (!pad.drill || !pad.drill.w || !pad.drill.h) continue;
-      if (pad.type === 'np_thru_hole') {
-        npthOD.push(...padTransformHoleToPolygon(pad, 0, maxError, ErrorLoc.ERROR_INSIDE));
-      } else {
-        thOD.push(...padTransformHoleToPolygon(pad, plating, maxError, ErrorLoc.ERROR_INSIDE));
-        thID.push(...padTransformHoleToPolygon(pad, 0, maxError, ErrorLoc.ERROR_INSIDE));
-        viaAnnuli.push(...padTransformHoleToPolygon(pad, plating, maxError, ErrorLoc.ERROR_INSIDE));
+      if (!aFlags.fpText) continue;
+
+      if (text.GetText() === '${REFERENCE}' && !aFlags.references) continue;
+
+      if (text.GetText() === '${VALUE}' && !aFlags.values) continue;
+
+      if (text.IsOnLayer(aLayer)) text.TransformTextToPolySet(aBuffer, 0, aMaxError, aErrorLoc);
+    }
+
+    if (item.Type() === KICAD_T.PCB_TEXTBOX_T) {
+      const textbox = item as PCB_TEXTBOX;
+
+      if (textbox.IsOnLayer(aLayer)) {
+        // border
+        if (textbox.IsBorderEnabled())
+          textboxBorderToPolygon(textbox, aBuffer, aLayer, aMaxError, aErrorLoc);
+
+        // text
+        textbox.TransformTextToPolySet(aBuffer, 0, aMaxError, aErrorLoc);
       }
     }
   }
-  thOD = simplify(thOD);
-  thID = simplify(thID);
-  npthOD = simplify(npthOD);
-  viaAnnuli = simplify(viaAnnuli);
+
+  for (const field of aFootprint.GetFields()) {
+    if (!aFlags.fpText) continue;
+
+    if (!field) continue;
+
+    if (field.IsReference() && !aFlags.references) continue;
+
+    if (field.IsValue() && !aFlags.values) continue;
+
+    if (field.IsOnLayer(aLayer) && field.IsVisible())
+      field.TransformTextToPolySet(aBuffer, 0, aMaxError, aErrorLoc);
+  }
+}
+
+/** `buildPadOutlineAsPolygon` (create_layer_items.cpp:56-77). */
+function buildPadOutlineAsPolygon(
+  aPad: PAD,
+  aLayer: PCB_LAYER_ID,
+  aBuffer: SHAPE_POLY_SET,
+  aWidth: number,
+  aMaxError: number,
+  aErrorLoc: ERROR_LOC,
+): void {
+  if (aPad.GetShape(aLayer) === PAD_SHAPE.CIRCLE) {
+    // Draw a ring
+    TransformRingToPolygon(
+      aBuffer,
+      aPad.ShapePos(aLayer),
+      Math.trunc(aPad.GetSize(aLayer).x / 2),
+      aWidth,
+      aMaxError,
+      aErrorLoc,
+    );
+  } else {
+    // For other shapes, add outlines as thick segments in polygon buffer
+    const path = aPad.GetEffectivePolygon(aLayer, ERROR_LOC.ERROR_INSIDE).COutline(0);
+    const n = path.PointCount();
+
+    for (let ii = 0; ii < n; ++ii)
+      TransformOvalToPolygon(
+        aBuffer,
+        path.CPoint(ii),
+        path.CPoint((ii + 1) % n),
+        aWidth,
+        aMaxError,
+        aErrorLoc,
+      );
+  }
+}
+
+/**
+ * A board drawing's polygons (create_layer_items.cpp:1525-1600, the same
+ * switch the copper pass runs at :1170-1250).
+ */
+function transformDrawingToPolySet(
+  aItem: BOARD_ITEM,
+  aLayer: PCB_LAYER_ID,
+  aBuffer: SHAPE_POLY_SET,
+  aMaxError: number,
+): void {
+  switch (aItem.Type()) {
+    case KICAD_T.PCB_SHAPE_T: {
+      const shape = aItem as PCB_SHAPE;
+      let margin = 0;
+
+      if (IsSolderMaskLayer(aLayer) && shape.HasSolderMask())
+        margin = shape.GetSolderMaskExpansion();
+
+      aItem.TransformShapeToPolySet(aBuffer, aLayer, margin, aMaxError, ERROR_LOC.ERROR_INSIDE);
+      break;
+    }
+
+    case KICAD_T.PCB_TEXT_T:
+      (aItem as PCB_TEXT).TransformTextToPolySet(aBuffer, 0, aMaxError, ERROR_LOC.ERROR_INSIDE);
+      break;
+
+    case KICAD_T.PCB_TEXTBOX_T: {
+      const textbox = aItem as PCB_TEXTBOX;
+
+      if (textbox.IsBorderEnabled())
+        textboxBorderToPolygon(textbox, aBuffer, aLayer, aMaxError, ERROR_LOC.ERROR_INSIDE);
+
+      textbox.TransformTextToPolySet(aBuffer, 0, aMaxError, ERROR_LOC.ERROR_INSIDE);
+      break;
+    }
+
+    case KICAD_T.PCB_TABLE_T: {
+      const table = aItem as PCB_TABLE;
+
+      for (const cell of table.GetCells())
+        cell.TransformTextToPolySet(aBuffer, 0, aMaxError, ERROR_LOC.ERROR_INSIDE);
+
+      table.DrawBorders((ptA, ptB, stroke) => {
+        TransformOvalToPolygon(
+          aBuffer,
+          ptA,
+          ptB,
+          stroke.GetWidth(),
+          aMaxError,
+          ERROR_LOC.ERROR_INSIDE,
+        );
+      });
+      break;
+    }
+
+    case KICAD_T.PCB_BARCODE_T:
+      aItem.TransformShapeToPolySet(aBuffer, aLayer, 0, 0, ERROR_LOC.ERROR_INSIDE);
+      break;
+
+    case KICAD_T.PCB_DIM_ALIGNED_T:
+    case KICAD_T.PCB_DIM_CENTER_T:
+    case KICAD_T.PCB_DIM_RADIAL_T:
+    case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+    case KICAD_T.PCB_DIM_LEADER_T:
+      aItem.TransformShapeToPolySet(aBuffer, aLayer, 0, aMaxError, ERROR_LOC.ERROR_INSIDE);
+      break;
+
+    default:
+      break;
+  }
+}
+
+/**
+ * `BOARD_ADAPTER::createLayers`, the polygon half, over the BOARD's items.
+ */
+export function buildBoard3dLayers(
+  aBoard: BOARD,
+  bbox: Box,
+  opts: Layer3dOptions = {},
+): Board3dLayers {
+  const bds = aBoard.GetDesignSettings();
+  const maxError = opts.maxError ?? bds.m_MaxError ?? ARC_HIGH_DEF;
+  const plating = opts.holePlatingThickness ?? DEFAULT_HOLE_PLATING_THICKNESS;
+  const showZones = opts.showZones !== false;
+  const flags: FP_TEXT_FLAGS = {
+    fpText: opts.showFpText !== false,
+    references: opts.showFpReferences !== false,
+    values: opts.showFpValues !== false,
+  };
+  const report = opts.report ?? ((): void => {});
+  const vias = aBoard.Tracks().filter((t) => t.Type() === KICAD_T.PCB_VIA_T) as PCB_VIA[];
+
+  // ----- the board -----------------------------------------------------------
+  // BOARD_ADAPTER::createBoardPolygon (board_adapter.cpp:1029):
+  // `GetBoardPolygonOutlines( m_board_poly, true, nullptr, false, true )`.
+  let boardPoly: Polygon[] = [];
+
+  if (!opts.empty) {
+    const set = new SHAPE_POLY_SET();
+    aBoard.GetBoardPolygonOutlines(set, true, null, false, true);
+    boardPoly = polySetToPolygons(set);
+  }
+
+  // ----- the holes -----------------------------------------------------------
+  // create_layer_items.cpp:527-566 (vias) and :904-930 (pads).
+  const thODSet = new SHAPE_POLY_SET();
+  const thIDSet = new SHAPE_POLY_SET();
+  const npthSet = new SHAPE_POLY_SET();
+  const annuliSet = new SHAPE_POLY_SET();
+
+  for (const via of vias) {
+    if (via.GetViaType() !== VIATYPE.THROUGH) continue;
+
+    const holeRadius = Math.trunc(via.GetDrillValue() / 2);
+    const holeOuterRadius = holeRadius + plating;
+    const holeOuterRingRadius = Math.trunc(via.GetWidth(PCB_LAYER_ID.F_Cu) / 2);
+
+    TransformCircleToPolygon(
+      thODSet,
+      via.GetStart(),
+      holeOuterRadius,
+      maxError,
+      ERROR_LOC.ERROR_INSIDE,
+    );
+    TransformCircleToPolygon(thIDSet, via.GetStart(), holeRadius, maxError, ERROR_LOC.ERROR_INSIDE);
+    TransformCircleToPolygon(
+      annuliSet,
+      via.GetStart(),
+      holeOuterRingRadius,
+      maxError,
+      ERROR_LOC.ERROR_INSIDE,
+    );
+  }
+
+  for (const fp of aBoard.Footprints()) {
+    for (const pad of fp.Pads()) {
+      const drill = pad.GetDrillSize();
+
+      if (drill.x === 0 || drill.y === 0) continue;
+
+      // The hole in the body is inflated by copper thickness.
+      if (pad.GetAttribute() === PAD_ATTRIB.NPTH) {
+        pad.TransformHoleToPolygon(npthSet, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+      } else {
+        pad.TransformHoleToPolygon(thODSet, plating, maxError, ERROR_LOC.ERROR_INSIDE);
+        pad.TransformHoleToPolygon(thIDSet, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+        pad.TransformHoleToPolygon(annuliSet, plating, maxError, ERROR_LOC.ERROR_INSIDE);
+      }
+    }
+  }
+
+  // This will make a union of all added contours
+  const thOD = simplify(polysOf(thODSet));
+  const thID = simplify(polysOf(thIDSet));
+  const npthOD = simplify(polysOf(npthSet));
+  const viaAnnuli = simplify(polysOf(annuliSet));
 
   // Blind/micro vias (create_layer_items.cpp:536-546): their hole is per
   // layer, not through the board.
   const layerViaHoles: Partial<Record<Layer3d, Polygon[]>> = {};
   const viaBarrels: Board3dLayers['viaBarrels'] = [];
-  for (const via of board.vias) {
-    if (via.kind === 'through') continue;
+
+  for (const via of vias) {
+    if (via.GetViaType() === VIATYPE.THROUGH) continue;
+
+    const [top, bottom] = via.LayerPair();
     viaBarrels.push({
-      at: via.at,
-      drill: via.drill,
-      topLayer: via.layers[0],
-      bottomLayer: via.layers[1],
+      at: { ...via.GetStart() },
+      drill: via.GetDrillValue(),
+      topLayer: LSET.Name(top),
+      bottomLayer: LSET.Name(bottom),
     });
-    const holeOuterRadius = Math.trunc(via.drill / 2) + plating;
+
+    const holeOuterRadius = Math.trunc(via.GetDrillValue() / 2) + plating;
+
     for (const layer of ['F.Cu', 'B.Cu'] as const) {
-      if (via.layers[0] !== layer && via.layers[1] !== layer) continue;
-      const list = layerViaHoles[layer] ?? [];
-      list.push([
-        transformCircleToPolygonSet(via.at, holeOuterRadius, maxError, ErrorLoc.ERROR_INSIDE),
-      ]);
-      layerViaHoles[layer] = list;
+      if (LSET.Name(top) !== layer && LSET.Name(bottom) !== layer) continue;
+
+      const set = new SHAPE_POLY_SET();
+      TransformCircleToPolygon(
+        set,
+        via.GetStart(),
+        holeOuterRadius,
+        maxError,
+        ERROR_LOC.ERROR_INSIDE,
+      );
+      const holes = layerViaHoles[layer] ?? [];
+      holes.push(...polysOf(set));
+      layerViaHoles[layer] = holes;
     }
   }
 
@@ -479,178 +704,127 @@ export function buildBoard3dLayers(
 
   // `generatePlatedHoleShells`: (drill + plating) − drill, inside the board.
   let platedBarrels: Polygon[] = [];
-  if (opts.showPlatedBarrels !== false) {
+
+  if (opts.showPlatedBarrels !== false)
     platedBarrels = booleanIntersection(booleanSubtract(thOD, thID), boardPoly);
-  }
+
   // `m_outerThroughHoles` is the plated AND non-plated drills together
   // (create_scene.cpp:757-765), which is what every layer is cut by.
   const allHoles = booleanAdd(thOD, npthOD);
 
   // ----- per-layer item polygons ----------------------------------------------
   report('Create tracks and vias'); // create_layer_items.cpp:315
-  const items: Partial<Record<Layer3d, Polygon[]>> = {};
-  const add = (layer: string, polys: Polygon[]): void => {
-    if (!(LAYERS_3D as readonly string[]).includes(layer)) return;
-    const l = layer as Layer3d;
-    const list = items[l] ?? [];
-    list.push(...polys);
-    items[l] = list;
+  const items: Partial<Record<Layer3d, SHAPE_POLY_SET>> = {};
+  const bufferOf = (aLayer: Layer3d): SHAPE_POLY_SET => {
+    const existing = items[aLayer];
+
+    if (existing) return existing;
+
+    const created = new SHAPE_POLY_SET();
+    items[aLayer] = created;
+    return created;
   };
 
-  const addShape = (s: PcbShape, layer: string): void => {
-    if (s.layer !== layer) return;
-    add(layer, edaShapeTransformShapeToPolygon(s, 0, maxError, ErrorLoc.ERROR_INSIDE, false));
-  };
-  const addText = (t: PcbTextItem, layer: string): void => {
-    if (t.layer !== layer || t.hide || !t.text) return;
-    add(layer, textTransformTextToPolySet(t, 0, maxError, ErrorLoc.ERROR_INSIDE));
-  };
-  /** `transformFPTextToPolySet`: the three `show_fp_*` flags. */
-  const addFpText = (fp: PcbFootprint, layer: string): void => {
-    if (!showFpText) return;
-    for (const t of fp.texts) {
-      if (t.kind === 'reference' && !showRefs) continue;
-      if (t.kind === 'value' && !showValues) continue;
-      addText(t, layer);
+  // Copper layers (create_layer_items.cpp:737-1305).
+  for (const name of ['F.Cu', 'B.Cu'] as const) {
+    const layer = pcbLayerIdOf(name);
+    const buf = bufferOf(name);
+
+    // ADD TRACKS: the track/via contour, skipping a via annulus not flashed here.
+    for (const track of aBoard.Tracks()) {
+      if (!track.IsOnLayer(layer)) continue;
+
+      if (track.Type() === KICAD_T.PCB_VIA_T && !(track as PCB_VIA).FlashLayer(layer)) continue;
+
+      track.TransformShapeToPolygon(buf, layer, 0, maxError, ERROR_LOC.ERROR_INSIDE);
     }
-  };
-  /** `PCB_BARCODE::TransformShapeToPolySet` — the assembled modules, as filled rings. */
-  const addBarcodes = (layer: string): void => {
-    for (const bc of [...board.barcodes, ...board.footprints.flatMap((f) => f.barcodes)]) {
-      if (bc.layer !== layer) continue;
-      for (const poly of barcodeGeometry(bc).poly)
-        for (const ring of poly) add(layer, ringPoly(ring));
+
+    for (const fp of aBoard.Footprints()) {
+      fp.TransformPadsToPolySet(buf, layer, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+      transformFPTextToPolySet(fp, layer, flags, buf, maxError, ERROR_LOC.ERROR_INSIDE);
+      transformFPShapesToPolySet(fp, layer, buf, maxError, ERROR_LOC.ERROR_INSIDE);
     }
-  };
-  /**
-   * `addPads` / `FOOTPRINT::TransformPadsToPolySet` with the layer's margin:
-   * `PAD::GetSolderMaskExpansion` / `GetSolderPasteMargin` on the live PAD,
-   * which resolve pad -> footprint -> BOARD_DESIGN_SETTINGS (and the DRC
-   * rules) themselves. A view pad with no PAD behind it has no margin.
-   */
-  const padMargin = (pad: PcbPad, layer: string): Vec2 => {
-    const k = pad.k;
-    if (!k) return { x: 0, y: 0 };
-    if (isMaskLayer(layer)) {
-      const m = k.GetSolderMaskExpansion(pcbLayerIdOf(layer));
-      return { x: m, y: m };
+
+    for (const item of aBoard.Drawings()) {
+      if (item.IsOnLayer(layer)) transformDrawingToPolySet(item, layer, buf, maxError);
     }
-    if (isPasteLayer(layer)) return k.GetSolderPasteMargin(pcbLayerIdOf(layer));
-    return { x: 0, y: 0 };
-  };
-  const addPads = (fp: PcbFootprint, layer: string): void => {
-    for (const pad of fp.pads) {
-      if (!padIsOnLayer(pad, layer)) continue;
-      const m = padMargin(pad, layer);
-      // `PAD::TransformShapeToPolygon` takes one clearance; the paste margin's
-      // x/y split is applied through the pad size upstream (`addPads` builds a
-      // pad copy with `GetSolderPasteMargin` folded into the size). The
-      // uniform case is exact; a per-axis margin uses its x.
-      add(layer, padTransformShapeToPolygon(pad, m.x, maxError, ErrorLoc.ERROR_INSIDE));
+
+    if (showZones) {
+      for (const zone of aBoard.Zones())
+        if (zone.IsOnLayer(layer)) zone.TransformSolidAreasShapesToPolygon(layer, buf);
     }
-  };
-  /** `buildPadOutlineAsPolygon`: a pad ON the silk layer draws as its outline. */
-  const addPadOutlines = (fp: PcbFootprint, layer: string): void => {
-    // m_LineThickness[ LAYER_CLASS_SILK ], DEFAULT_SILK_LINE_WIDTH
-    const linewidth = 100000;
-    for (const pad of fp.pads) {
-      if (!padIsOnLayer(pad, layer)) continue;
-      if (pad.shape === 'circle') {
-        add(
-          layer,
-          transformRingToPolygon(
-            pad.at,
-            Math.trunc(pad.size.x / 2),
-            linewidth,
+  }
+
+  // Tech layers (create_layer_items.cpp:1340-1670).
+  report('Build Tech layers');
+  const maskOpenings = { 'F.Mask': [] as Polygon[], 'B.Mask': [] as Polygon[] };
+  const silkLineWidth = bds.m_LineThickness[LAYER_CLASS.LAYER_CLASS_SILK]!;
+
+  for (const name of LAYERS_3D) {
+    if (isCopperLayer3d(name)) continue;
+
+    const layer = pcbLayerIdOf(name);
+    const buf = bufferOf(name);
+
+    // DRAWINGS
+    for (const item of aBoard.Drawings()) {
+      if (item.IsOnLayer(layer)) transformDrawingToPolySet(item, layer, buf, maxError);
+    }
+
+    // NON-TENTED VIAS
+    if (layer === PCB_LAYER_ID.F_Mask || layer === PCB_LAYER_ID.B_Mask) {
+      const maskExpansion = bds.m_SolderMaskExpansion;
+
+      for (const track of aBoard.Tracks()) {
+        if (track.Type() === KICAD_T.PCB_VIA_T) {
+          const via = track as PCB_VIA;
+
+          if (via.FlashLayer(layer) && !via.IsTented(layer))
+            track.TransformShapeToPolygon(
+              buf,
+              layer,
+              maskExpansion,
+              maxError,
+              ERROR_LOC.ERROR_INSIDE,
+            );
+        } else if (track.HasSolderMask()) {
+          track.TransformShapeToPolySet(
+            buf,
+            layer,
+            maskExpansion,
             maxError,
-            ErrorLoc.ERROR_INSIDE,
-          ).map((r) => [r]),
-        );
-      } else {
-        const outline = padTransformShapeToPolygon(pad, 0, maxError, ErrorLoc.ERROR_INSIDE)[0]?.[0];
-        if (!outline) continue;
-        for (let i = 0; i < outline.length; i++) {
-          const a = outline[i]!;
-          const b = outline[(i + 1) % outline.length]!;
-          add(layer, transformOvalToPolygon(a, b, linewidth, maxError, ErrorLoc.ERROR_INSIDE));
+            ERROR_LOC.ERROR_INSIDE,
+          );
         }
       }
     }
-  };
-  const addZones = (layer: string): void => {
-    for (const z of board.zones)
-      for (const f of z.fills)
-        if (f.layer === layer) for (const ring of f.polys) add(layer, ringPoly(ring));
-  };
 
-  // Copper layers (create_layer_items.cpp:497-1275).
-  for (const layer of ['F.Cu', 'B.Cu'] as const) {
-    for (const t of board.tracks)
-      if (t.layer === layer)
-        add(layer, trackTransformShapeToPolygon(t, 0, maxError, ErrorLoc.ERROR_INSIDE));
-    for (const a of board.arcs)
-      if (a.layer === layer)
-        add(layer, arcTrackTransformShapeToPolygon(a, 0, maxError, ErrorLoc.ERROR_INSIDE));
-    for (const v of board.vias) {
-      // `PCB_VIA::IsOnLayer` — the via's layer span. Through vias flash every
-      // copper layer; a blind/micro via only its ends.
-      const on = v.kind === 'through' || v.layers[0] === layer || v.layers[1] === layer;
-      if (on) add(layer, viaTransformShapeToPolygon(v, 0, maxError, ErrorLoc.ERROR_INSIDE));
-    }
-    for (const fp of board.footprints) {
-      addPads(fp, layer);
-      for (const s of fp.shapes) addShape(s, layer);
-      addFpText(fp, layer);
-    }
-    for (const s of board.shapes) addShape(s, layer);
-    for (const t of board.texts) addText(t, layer);
-    addBarcodes(layer);
-    if (showZones) addZones(layer);
-  }
+    // FOOTPRINT CHILDREN
+    for (const fp of aBoard.Footprints()) {
+      if (layer === PCB_LAYER_ID.F_SilkS || layer === PCB_LAYER_ID.B_SilkS) {
+        for (const pad of fp.Pads()) {
+          if (pad.IsOnLayer(layer))
+            buildPadOutlineAsPolygon(
+              pad,
+              layer,
+              buf,
+              silkLineWidth,
+              maxError,
+              ERROR_LOC.ERROR_INSIDE,
+            );
+        }
+      } else {
+        fp.TransformPadsToPolySet(buf, layer, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+      }
 
-  // Tech layers (create_layer_items.cpp:1320-1655).
-  report('Build Tech layers');
-  const maskOpenings = { 'F.Mask': [] as Polygon[], 'B.Mask': [] as Polygon[] };
-  for (const layer of LAYERS_3D) {
-    if (isCopperLayer3d(layer)) continue;
-    for (const s of board.shapes) addShape(s, layer);
-    if (isMaskLayer(layer)) {
-      // Add track, via and arc tech layers: a track with its own solder mask
-      // opening, and every via that is not tented on this side, grown by the
-      // mask expansion (:1451-1472, :1582-1608).
-      const side = layer === 'F.Mask' ? 'front' : 'back';
-      const copperLayer = layer === 'F.Mask' ? 'F.Cu' : 'B.Cu';
-      for (const v of board.vias) {
-        const on =
-          v.kind === 'through' || v.layers[0] === copperLayer || v.layers[1] === copperLayer;
-        if (!on || viaIsTented(board, v, side)) continue;
-        // A via has no local margin token of its own; `GetSolderMaskExpansion`
-        // falls through to the board's.
-        const m = trackMaskExpansion(undefined, maskPaste);
-        add(layer, viaTransformShapeToPolygon(v, m, maxError, ErrorLoc.ERROR_INSIDE));
-      }
-      for (const t of board.tracks) {
-        // `HasSolderMask()`: the track's layer set names a mask layer.
-        if (t.maskLayer !== layer || t.layer !== copperLayer) continue;
-        const m = trackMaskExpansion(t.solderMaskMargin, maskPaste);
-        add(layer, trackTransformShapeToPolygon(t, m, maxError, ErrorLoc.ERROR_INSIDE));
-      }
-      for (const a of board.arcs) {
-        if (a.maskLayer !== layer || a.layer !== copperLayer) continue;
-        const m = trackMaskExpansion(a.solderMaskMargin, maskPaste);
-        add(layer, arcTrackTransformShapeToPolygon(a, m, maxError, ErrorLoc.ERROR_INSIDE));
-      }
+      transformFPTextToPolySet(fp, layer, flags, buf, maxError, ERROR_LOC.ERROR_INSIDE);
+      transformFPShapesToPolySet(fp, layer, buf, maxError, ERROR_LOC.ERROR_INSIDE);
     }
-    for (const fp of board.footprints) {
-      if (isSilkLayer(layer)) addPadOutlines(fp, layer);
-      else addPads(fp, layer);
-      for (const s of fp.shapes) addShape(s, layer);
-      addFpText(fp, layer);
+
+    if (showZones || layer === PCB_LAYER_ID.F_Mask || layer === PCB_LAYER_ID.B_Mask) {
+      for (const zone of aBoard.Zones())
+        if (zone.IsOnLayer(layer)) zone.TransformSolidAreasShapesToPolygon(layer, buf);
     }
-    for (const t of board.texts) addText(t, layer);
-    addBarcodes(layer);
-    // Draw non copper zones
-    if (showZones || isMaskLayer(layer)) addZones(layer);
   }
 
   // ----- union, cut the holes, clip to the board -----------------------------
@@ -662,27 +836,36 @@ export function buildBoard3dLayers(
   const layers: Partial<Record<Layer3d, Polygon[]>> = {};
   // `Is3dLayerEnabled`: the board must have the layer enabled at all, and
   // the preset must show it.
-  const enabledNames = new Set(board.layers.map((l) => l.name));
   const visible = (layer: Layer3d): boolean =>
-    enabledNames.has(layer) && (!opts.visibleLayers || opts.visibleLayers.has(layerId(layer)));
+    aBoard.IsLayerEnabled(layerId(layer)) &&
+    (!opts.visibleLayers || opts.visibleLayers.has(layerId(layer)));
+
   for (const layer of LAYERS_3D) {
     if (!visible(layer)) continue;
-    const raw = items[layer];
-    if (!raw || raw.length === 0) {
+
+    const raw = items[layer] ? polysOf(items[layer]!) : [];
+
+    if (raw.length === 0) {
       if (isMaskLayer(layer)) layers[layer] = booleanSubtract(boardPoly, allHoles);
       continue;
     }
+
     const unioned = simplify(raw);
+
     if (isMaskLayer(layer)) {
       maskOpenings[layer as 'F.Mask' | 'B.Mask'] = unioned;
       layers[layer] = booleanSubtract(booleanSubtract(boardPoly, unioned), allHoles);
       continue;
     }
+
     let poly = unioned;
+
     if (isSilkLayer(layer)) {
       // clip_silk_on_via_annuli: the silk is cut back to the via ring, not just the hole.
       poly = booleanSubtract(poly, opts.clipSilkOnViaAnnuli ? viaAnnuli : allHoles);
+
       if (!opts.showOffBoardSilk) poly = booleanIntersection(poly, boardPoly);
+
       if (opts.subtractMaskFromSilk && !opts.showOffBoardSilk) {
         const openings = maskOpenings[layer === 'F.SilkS' ? 'F.Mask' : 'B.Mask'];
         // the silk is only where the MASK is, i.e. not in its openings
@@ -692,34 +875,44 @@ export function buildBoard3dLayers(
       poly = booleanSubtract(poly, allHoles);
       // a copper layer is also cut by the blind/micro via holes that end on it
       const viaHoles = layerViaHoles[layer];
+
       if (viaHoles && viaHoles.length) poly = booleanSubtract(poly, simplify(viaHoles));
+
       // `LSET::PhysicalLayersMask().test( layer )` — every layer here is physical.
       poly = booleanIntersection(poly, boardPoly);
     }
+
     layers[layer] = poly;
   }
+
   // TRIM PLATED COPPER TO SOLDERMASK, then subtract it from the unplated
   // (create_layer_items.cpp:1673-1697).
   if (opts.differentiatePlatedCopper) report('Calculating plated copper');
+
   const platedCopper = { 'F.Cu': [] as Polygon[], 'B.Cu': [] as Polygon[] };
+
   if (opts.differentiatePlatedCopper) {
     for (const [cu, mask] of [
       ['F.Cu', 'F.Mask'],
       ['B.Cu', 'B.Mask'],
     ] as const) {
       const copper = layers[cu];
+
       if (!copper) continue;
+
       const plated = booleanIntersection(copper, maskOpenings[mask]);
       platedCopper[cu] = plated;
       layers[cu] = booleanSubtract(copper, plated);
     }
   }
+
   // The mask layers were unioned before the silk asked for their openings;
   // a silk layer visited before its mask would have missed them, so do the
   // subtraction again now that both exist.
   if (opts.subtractMaskFromSilk && !opts.showOffBoardSilk) {
     for (const silk of ['F.SilkS', 'B.SilkS'] as const) {
       const openings = maskOpenings[silk === 'F.SilkS' ? 'F.Mask' : 'B.Mask'];
+
       if (layers[silk] && openings.length) layers[silk] = booleanSubtract(layers[silk]!, openings);
     }
   }

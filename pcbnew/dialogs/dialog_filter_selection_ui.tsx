@@ -13,7 +13,11 @@
  * own default of seven-of-eight opens as mixed, which is what upstream shows.
  */
 import type { JSX, Ref } from 'react';
-import { allItemsState, type SelectionFilter, setAllFilterItems } from '../index.js';
+import {
+  allItemsState,
+  type SelectionFilter,
+  setAllFilterItems,
+} from './dialog_filter_selection.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {

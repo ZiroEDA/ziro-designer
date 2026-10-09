@@ -114,7 +114,7 @@ import {
   PCB_DIM_RADIAL,
   type PCB_DIMENSION_BASE,
 } from '../pcb_dimension.js';
-import { DIM_ARROW_DIRECTION } from '../pcb_dimension_types.js';
+import { DIM_ARROW_DIRECTION } from '../pcb_dimension.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { PCB_POINT } from '../pcb_point.js';
 import { PCB_TEXTBOX } from '../pcb_textbox.js';
@@ -145,11 +145,11 @@ import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { EuclideanNormI, SquaredEuclideanNorm } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
 import { BOARD_ITEM } from '../board_item.js';
-import { DRC_CONSTRAINT, DRC_CONSTRAINT_T } from '../drc/drc_rule.js';
+import { type DRC_CONSTRAINT, DRC_CONSTRAINT_T } from '../drc/drc_rule.js';
 import type { DRC_ENGINE } from '../drc/drc_engine.js';
 import type { PAD } from '../pad.js';
 import { PADSTACK } from '../padstack.js';
-import { PCB_ARC, PCB_TRACK, PCB_VIA } from '../pcb_track.js';
+import { type PCB_ARC, type PCB_TRACK, PCB_VIA } from '../pcb_track.js';
 import { VIATYPE } from '../pcb_track_types.js';
 import { MAGNETIC_OPTIONS } from '../pcbnew_settings.js';
 import { ORPHANED_NET } from '../netinfo_list.js';
@@ -161,20 +161,12 @@ import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import { ZONE_CREATE_HELPER, type ZONE_CREATE_PARAMS } from './zone_create_helper.js';
 import { BEZIER_GEOM_MANAGER, BEZIER_STEPS } from '@ziroeda/common/index.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
-import { newKiid } from '@ziroeda/common/kiid.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import { TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
 import { ConnectBoardShapes } from '../fix_board_shape.js';
 import { PCB_GROUP } from '../pcb_group.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { PCB_SHAPE } from '../pcb_shape.js';
-import type { Board, PcbTrack, PcbVia } from '../types.js';
-import {
-  DEFAULT_DIMENSION_DEFAULTS,
-  type DimensionDefaults as EngineDimensionDefaults,
-  type DimensionKind,
-} from '../index.js';
 
 /** The four control points of a `(gr_curve (pts …))`, in file order. */
 export type BezierPoints = [Vec2, Vec2, Vec2, Vec2];
@@ -284,237 +276,6 @@ export function bezierChainSeed(points: BezierPoints): Vec2[] {
   if (same(end, c2)) return [end];
   return [end, { x: end.x - (c2.x - end.x), y: end.y - (c2.y - end.y) }];
 }
-
-// ---------------------------------------------------------------------------
-/**
- * `DRAWING_TOOL::DrawVia`'s `VIA_PLACER` — the Place Vias tool.
- * Counterpart: `pcbnew/tools/drawing_tool.cpp:3686-4412`.
- *
- * The tool looks like "drop a circle where you clicked", and the two things it
- * actually does are neither of those:
- *
- * - **it picks the net up in a fixed order** — the track under it, then a pad,
- *   then a filled graphic that has a net, and only then the zone it is
- *   stitching (`PlaceItem`, `:4285-4318`). A via placed on a track takes the
- *   *track's* net even when a zone of another net is under it too.
- * - **it BREAKS the track it lands on.** A via strictly inside a segment
- *   shortens that segment to the via and adds a second one from the via to the
- *   old end (`:4340-4361`). Without it the board still holds one continuous
- *   track through the via, so the router cannot attach to it and dragging
- *   either end moves the whole thing.
- *
- * The split is skipped when the via lands exactly on an end — there is nothing
- * to break — and when the user held Shift, because "if the user explicitly
- * disables snap … then don't break the tracks. This will prevent PNS from
- * being able to connect the via and track but it is explicitly requested".
- *
- * This lives in `pcbnew/` rather than in the canvas because it is board
- * surgery: the caller supplies the click, and what comes back is a board.
- */
-
-/** `findTrack`'s answer: the index of the track a via at `at` would attach to. */
-export function trackUnderVia(
-  board: Board,
-  at: Vec2,
-  layers: readonly string[],
-  viaWidth: number,
-): number | null {
-  let best: number | null = null;
-  let minDist = Number.POSITIVE_INFINITY;
-
-  board.tracks.forEach((track, i) => {
-    if (!layers.includes(track.layer)) return;
-
-    // `TestSegmentHit( aPosition, start, end, ( track width + via width ) / 2 )`.
-    if (!TestSegmentHit(at, track.start, track.end, (track.width + viaWidth) / 2)) return;
-
-    // "for( PCB_TRACK* track : possible_tracks )" — the NEAREST wins, measured
-    // to the segment rather than to either end.
-    const near = segNearestPoint({ a: track.start, b: track.end }, at);
-    const dist = Math.hypot(near.x - at.x, near.y - at.y);
-
-    if (dist < minDist) {
-      minDist = dist;
-      best = i;
-    }
-  });
-
-  return best;
-}
-
-/**
- * `SEG::Contains( aVia )` for the split test: the via has to be ON the segment,
- * not merely near it.
- *
- * Upstream's `trackSeg.Contains( viaPos )` is `SquaredDistance <= 3`, i.e. an
- * exact-ish hit in internal units — the via position has already been snapped
- * onto the segment by `SnapItem`'s `AlignToSegment`, so this is asking "did the
- * snap actually land", not "is it close enough".
- */
-function onSegment(track: PcbTrack, at: Vec2): boolean {
-  const near = segNearestPoint({ a: track.start, b: track.end }, at);
-  const dx = near.x - at.x;
-  const dy = near.y - at.y;
-  return dx * dx + dy * dy <= 3;
-}
-
-export interface PlaceViaResult {
-  board: Board;
-  /** The id the caller selects, as `commit.Add( via )` then hands over. */
-  viaId: string;
-  /** Whether the track under the via was broken in two. */
-  splitTrack: boolean;
-}
-
-/**
- * `VIA_PLACER::PlaceItem` — add the via, take the net from what is underneath,
- * and break the track it landed on.
- *
- * `allowSplit` is `m_gridHelper.GetSnap()`, which Shift turns off.
- */
-export function placeVia(
-  board: Board,
-  via: PcbVia,
-  opts: { allowSplit?: boolean } = {},
-): PlaceViaResult {
-  const allowSplit = opts.allowSplit !== false;
-  const viaId = `via:${board.vias.length}`;
-
-  const idx = trackUnderVia(board, via.at, via.layers, via.size);
-  const track = idx === null ? null : board.tracks[idx];
-
-  const noSplit = (): PlaceViaResult => ({
-    board: { ...board, vias: [...board.vias, via] },
-    viaId,
-    splitTrack: false,
-  });
-
-  if (!allowSplit || !track) return noSplit();
-  // "if( viaPos == trackStart || viaPos == trackEnd ) return true;" — landing on
-  // an end attaches to the track without breaking it.
-  if (same(via.at, track.start) || same(via.at, track.end)) return noSplit();
-  if (!onSegment(track, via.at)) return noSplit();
-
-  // `aCommit.Modify( track )` shortens it, and a CLONE carries every other
-  // property — width, layer, net, mask opening, locked — to the far half. Only
-  // the uuid is reissued (`const_cast<KIID&>( newTrack->m_Uuid ) = KIID()`).
-  const nearHalf: PcbTrack = { ...track, end: { x: via.at.x, y: via.at.y } };
-  const farHalf: PcbTrack = {
-    ...track,
-    start: { x: via.at.x, y: via.at.y },
-    uuid: newKiid(),
-  };
-
-  const tracks = [...board.tracks];
-  tracks[idx!] = nearHalf;
-  tracks.push(farHalf);
-
-  return {
-    board: { ...board, tracks, vias: [...board.vias, via] },
-    viaId,
-    splitTrack: true,
-  };
-}
-
-// --- the five `Go( &DRAWING_TOOL::DrawDimension, … )` registrations (was dimension_tools.ts) ---
-
-/** Toolbar/action id -> the kind it places. */
-export const DIMENSION_TOOLS: Readonly<Record<string, DimensionKind>> = {
-  drawAlignedDimension: 'aligned',
-  drawOrthogonalDimension: 'orthogonal',
-  drawCenterDimension: 'center',
-  drawRadialDimension: 'radial',
-  drawLeader: 'leader',
-};
-
-/** The kind this tool places, or null when it is not a dimension tool. */
-export function dimensionToolKind(toolId: string): DimensionKind | null {
-  return DIMENSION_TOOLS[toolId] ?? null;
-}
-
-/** Whether this tool id places a dimension at all. */
-export function isDimensionTool(toolId: string): boolean {
-  return dimensionToolKind(toolId) !== null;
-}
-
-/**
- * Board Setup's dimension block, as the engine wants it.
- *
- * The panel stores these as the *display strings* the dropdowns show
- * (`PANEL_SETUP_TEXT_AND_GRAPHICS`' choice lists), while the engine and the
- * file format both use the numeric `DIM_*` enums. This is that translation, and
- * it is the reason it lives in a plain module: it is the only real logic in the
- * tool wiring, and getting a mapping off by one would silently write a
- * different precision or the wrong units into every dimension placed.
- *
- * An unrecognised string falls back to the engine default rather than to zero —
- * zero is a meaningful value for all four of these (inches, no suffix, `0`
- * precision, outside), so a typo would otherwise look deliberate.
- */
-export function dimensionDefaultsFrom(
-  setup: {
-    units: string;
-    format: string;
-    precision: string;
-    suppressTrailingZeroes: boolean;
-    textPosition: string;
-    keepTextAligned: boolean;
-    arrowLengthMM: number;
-    extLineOffsetMM: number;
-  },
-  layer: string,
-  lineThicknessIU: number,
-  /**
-   * `GetTextSize( layer )`, `GetTextThickness( layer )` and
-   * `GetTextItalic( layer )` — all three index `[ GetLayerClass( aLayer ) ]`
-   * (`board_design_settings.cpp:1689-1704`), so they must come from the row for
-   * the layer being drawn on. Passing the silkscreen row for every layer gave a
-   * dimension on `Dwgs.User` the silkscreen text size.
-   */
-  layerClass: { textWidth: number; textHeight: number; textThickness: number; italic: boolean },
-): EngineDimensionDefaults {
-  const mm = (v: number): number => Math.round(v * 1e6);
-  const idx = <T>(list: readonly string[], value: string, fallback: T): T | number => {
-    const i = list.indexOf(value);
-    return i < 0 ? fallback : i;
-  };
-
-  return {
-    layer,
-    lineThickness: lineThicknessIU || DEFAULT_DIMENSION_DEFAULTS.lineThickness,
-    arrowLength: mm(setup.arrowLengthMM) || DEFAULT_DIMENSION_DEFAULTS.arrowLength,
-    extensionOffset: mm(setup.extLineOffsetMM),
-    unitsMode: idx(DIM_UNITS, setup.units, DEFAULT_DIMENSION_DEFAULTS.unitsMode) as 0 | 1 | 2 | 3,
-    unitsFormat: idx(DIM_FORMATS, setup.format, DEFAULT_DIMENSION_DEFAULTS.unitsFormat) as
-      | 0
-      | 1
-      | 2,
-    precision: idx(
-      DIM_PRECISION,
-      setup.precision,
-      DEFAULT_DIMENSION_DEFAULTS.precision,
-    ) as EngineDimensionDefaults['precision'],
-    suppressZeroes: setup.suppressTrailingZeroes,
-    textPositionMode: idx(
-      DIM_POSITION,
-      setup.textPosition,
-      DEFAULT_DIMENSION_DEFAULTS.textPositionMode,
-    ) as 0 | 1 | 2,
-    keepTextAligned: setup.keepTextAligned,
-    textWidth: layerClass.textWidth || DEFAULT_DIMENSION_DEFAULTS.textWidth,
-    textHeight: layerClass.textHeight || DEFAULT_DIMENSION_DEFAULTS.textHeight,
-    textThickness: layerClass.textThickness || DEFAULT_DIMENSION_DEFAULTS.textThickness,
-    textItalic: layerClass.italic,
-  };
-}
-
-// The dropdown choice lists, in the order that gives each entry its enum value.
-const DIM_UNITS = ['Inches', 'Mils', 'Millimeters', 'Automatic'] as const;
-const DIM_FORMATS = ['1234', '1234 mm', '1234 (mm)'] as const;
-const DIM_PRECISION = ['0', '0.0', '0.00', '0.000', '0.0000', '0.00000'] as const;
-// DIM_TEXT_POSITION also has MANUAL, which the panel does not offer: it is set
-// by dragging the text, not chosen up front.
-const DIM_POSITION = ['Outside', 'Inline'] as const;
 
 // ---------------------------------------------------------------------------
 // DRAWING_TOOL (pcbnew/tools/drawing_tool.cpp), on the live BOARD.
@@ -1041,7 +802,6 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
           controls.ForceCursorPosition(true, cursorPos);
 
           if (evt.IsDrag()) {
-            continue;
           } else if (evt.IsCancelInteractive() || (text && evt.IsAction(ACTIONS.undo))) {
             if (text) {
               cleanup();

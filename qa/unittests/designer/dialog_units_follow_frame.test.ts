@@ -126,7 +126,6 @@ const KNOWN_HARDCODED = new Set([
   // Never scanned until 09-28: these sat in designer/.../pcb/dialogs/panels/,
   // a folder below the one the scan read, and moved up into pcbnew/dialogs/
   // with the file-structure pass. Existing debt made visible, not a regression.
-  'pcbnew/dialog_footprint_properties_fp_editor.tsx',
   'pcbnew/panel_setup_teardrops.tsx',
   'pcbnew/panel_setup_text_and_graphics.tsx',
   'pcbnew/panel_setup_tuning_patterns.tsx',

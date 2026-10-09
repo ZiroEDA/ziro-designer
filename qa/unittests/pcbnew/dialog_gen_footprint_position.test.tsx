@@ -13,14 +13,12 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Board } from '@ziroeda/pcbnew/types.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
-  genPositionData,
+  PLACE_FILE_EXPORTER,
   placeFileName,
-  type PlaceFileOptions,
 } from '@ziroeda/pcbnew/exporters/place_file_exporter.js';
-import { iso8601DateTime } from '@ziroeda/pcbnew/exporters/gendrill_writer_base.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { DialogGenFootprintPosition } from '@ziroeda/pcbnew/dialogs/dialog_gen_footprint_position.js';
 
 beforeEach(() => {
@@ -39,57 +37,40 @@ const SOURCE = readFileSync(resolve(RESAVE, 'ecc83-pp.kicad_pcb'), 'utf8');
 // byte-identical on it — interf_u has a non-zero one, so its wiring can fail.
 const INTERF_SOURCE = readFileSync(resolve(RESAVE, 'interf_u.kicad_pcb'), 'utf8');
 
-function testBoard(): Board {
-  return { ...readBoard(SOURCE), fileName: 'ecc83-pp.kicad_pcb' };
+function testBoard(): BOARD {
+  return ParseBoard(SOURCE);
 }
 
-function interfBoard(): Board {
-  return { ...readBoard(INTERF_SOURCE), fileName: 'interf_u.kicad_pcb' };
+/** As the editor hands it over: with its file name, which `TF.ProjectId` reads. */
+function namedBoard(): BOARD {
+  const board = testBoard();
+  board.SetFileName('/oracle/ecc83-pp.kicad_pcb');
+  return board;
+}
+
+function interfBoard(): BOARD {
+  return ParseBoard(INTERF_SOURCE);
 }
 
 // Neither fixture board has a single B.Cu-layer footprint (both are F.Cu
 // only), so negateBottomX — which only touches the back layer — is
 // unobservable on them. A minimal synthetic board with one back-side
 // footprint is the only way to see its wiring at all.
-function boardWithBackFootprint(): Board {
-  return {
-    version: 20240101,
-    layers: [],
-    nets: new Map(),
-    footprints: [
-      {
-        // IU, not mm: pcbIUScale is nm-per-mm-scaled (1e6 IU/mm), so this is
-        // (10mm, 5mm) — large enough that a negated X is visibly different
-        // after the exporter's 4-decimal rounding.
-        lib: 'Test:R',
-        at: { x: 10_000_000, y: 5_000_000 },
-        angle: 0,
-        layer: 'B.Cu',
-        reference: 'R1',
-        value: '1k',
-        pads: [],
-        shapes: [],
-        texts: [],
-        points: [],
-        barcodes: [],
-        models: [],
-      },
-    ],
-    tracks: [],
-    arcs: [],
-    vias: [],
-    zones: [],
-    shapes: [],
-    texts: [],
-    textBoxes: [],
-    tables: [],
-    images: [],
-    dimensions: [],
-    points: [],
-    barcodes: [],
-    groups: [],
-    fileName: 'back_only.kicad_pcb',
-  };
+function boardWithBackFootprint(): BOARD {
+  // (10mm, 5mm) - large enough that a negated X is visibly different after
+  // the exporter's 4-decimal rounding.
+  return ParseBoard(`(kicad_pcb (version 20241229) (generator "pcbnew") (generator_version "9.0")
+  (general (thickness 1.6) (legacy_teardrops no)) (paper "A4")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user) (6 "B.SilkS" user))
+  (setup (pad_to_mask_clearance 0))
+  (net 0 "")
+  (footprint "Test:R" (layer "B.Cu") (at 10 5) (uuid "00000000-0000-4000-8000-000000000001")
+    (property "Reference" "R1" (at 0 0 0) (layer "B.SilkS") (uuid "00000000-0000-4000-8000-000000000002")
+      (effects (font (size 1 1) (thickness 0.15)) (justify mirror)))
+    (property "Value" "1k" (at 0 0 0) (layer "B.SilkS") (uuid "00000000-0000-4000-8000-000000000003")
+      (effects (font (size 1 1) (thickness 0.15)) (justify mirror)))
+    (attr smd))
+)`);
 }
 
 function written(mock: ReturnType<typeof vi.fn>): Map<string, string> {
@@ -106,56 +87,50 @@ const normaliseAscii = (text: string): string =>
     .replace(/^### Footprint positions - created on .*$/m, '<date>')
     .replace(/^### Printed by .*$/m, '<tool>');
 
-/** The exact pair of calls `generate()` makes for a two-file (not single-file)
- *  run, driven directly for a byte-exact comparison. */
-function directGenerate(
-  opts: Partial<PlaceFileOptions> & { singleFile?: boolean },
-): Map<string, string> {
+interface Opts {
+  unitsMM?: boolean;
+  onlySMD?: boolean;
+  excludeAllTH?: boolean;
+  excludeDNP?: boolean;
+  excludeBOM?: boolean;
+  formatCSV?: boolean;
+  useAuxOrigin?: boolean;
+  negateBottomX?: boolean;
+  singleFile?: boolean;
+}
+
+/** The exact PLACE_FILE_EXPORTERs `generate()` makes, driven directly. */
+function directGenerate(opts: Opts): Map<string, string> {
   const board = testBoard();
   const useCSVfmt = opts.formatCSV ?? false;
-  const common: Omit<PlaceFileOptions, 'frontSide' | 'backSide' | 'creationDate'> = {
-    unitsMM: opts.unitsMM ?? true,
-    onlySMD: opts.onlySMD ?? false,
-    excludeAllTH: opts.excludeAllTH ?? false,
-    excludeDNP: opts.excludeDNP ?? false,
-    excludeBOM: opts.excludeBOM ?? false,
-    formatCSV: useCSVfmt,
-    useAuxOrigin: opts.useAuxOrigin ?? true,
-    negateBottomX: opts.negateBottomX ?? false,
-  };
+  const exporter = (aTop: boolean, aBottom: boolean): PLACE_FILE_EXPORTER =>
+    new PLACE_FILE_EXPORTER(
+      board,
+      opts.unitsMM ?? true,
+      opts.onlySMD ?? false,
+      opts.excludeAllTH ?? false,
+      opts.excludeDNP ?? false,
+      opts.excludeBOM ?? false,
+      aTop,
+      aBottom,
+      useCSVfmt,
+      opts.useAuxOrigin ?? true,
+      opts.negateBottomX ?? false,
+    );
   const single = opts.singleFile ?? true;
   const out = new Map<string, string>();
   // The dialog's own bail: an empty whole-board test writes nothing at all.
-  const test = genPositionData(board, { ...common, frontSide: true, backSide: true });
-  if (test.footprintCount === 0) return out;
+  const test = exporter(true, true);
+  test.GenPositionData();
+  if (test.GetFootprintCount() === 0) return out;
 
-  // The clock is faked to the same instant the dialog's own render ran under.
-  const now = iso8601DateTime(new Date());
   const base = 'ecc83-pp';
 
   if (single) {
-    const { data } = genPositionData(board, {
-      ...common,
-      frontSide: true,
-      backSide: true,
-      creationDate: now,
-    });
-    out.set(placeFileName(base, true, true, useCSVfmt), data);
+    out.set(placeFileName(base, true, true, useCSVfmt), exporter(true, true).GenPositionData());
   } else {
-    const front = genPositionData(board, {
-      ...common,
-      frontSide: true,
-      backSide: false,
-      creationDate: now,
-    });
-    const back = genPositionData(board, {
-      ...common,
-      frontSide: false,
-      backSide: true,
-      creationDate: now,
-    });
-    out.set(placeFileName(base, true, false, useCSVfmt), front.data);
-    out.set(placeFileName(base, false, true, useCSVfmt), back.data);
+    out.set(placeFileName(base, true, false, useCSVfmt), exporter(true, false).GenPositionData());
+    out.set(placeFileName(base, false, true, useCSVfmt), exporter(false, true).GenPositionData());
   }
 
   return out;
@@ -172,7 +147,12 @@ function selectCombo(name: string, optionLabel: string): void {
 describe('DialogGenFootprintPosition', () => {
   it('TransferDataToWindow: KiCad interactive defaults (mm, ASCII, aux origin + single file on, every filter off)', () => {
     render(
-      <DialogGenFootprintPosition board={testBoard()} onOutputFile={vi.fn()} onClose={vi.fn()} />,
+      <DialogGenFootprintPosition
+        board={testBoard()}
+        fileName="ecc83-pp.kicad_pcb"
+        onOutputFile={vi.fn()}
+        onClose={vi.fn()}
+      />,
     );
 
     const checkbox = (label: string): HTMLInputElement =>
@@ -198,11 +178,133 @@ describe('DialogGenFootprintPosition', () => {
     expect(
       screen.getByRole('button', { name: 'Units' }).querySelector('.ze-combo-shown')?.textContent,
     ).toBe('Millimeters');
-    // Gerber X3 is unselectable: PLACEFILE_GERBER_WRITER isn't ported.
     fireEvent.click(screen.getByRole('button', { name: 'Format' }));
     expect(
       within(screen.getByRole('listbox')).getByRole('option', { name: 'Gerber X3' }),
-    ).toHaveProperty('className', expect.stringContaining('disabled'));
+    ).not.toHaveProperty('className', expect.stringContaining('disabled'));
+  });
+
+  it('Gerber X3: the onUpdateUI states, and updateOptionCheckbox clearing what it greys', () => {
+    render(
+      <DialogGenFootprintPosition
+        board={testBoard()}
+        fileName="ecc83-pp.kicad_pcb"
+        onOutputFile={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const checkbox = (label: string): HTMLInputElement =>
+      screen.getByLabelText(label) as HTMLInputElement;
+    const SMD = 'Include only SMD footprints';
+    const TH = 'Exclude all footprints with through hole pads';
+    const DNP = 'Exclude all footprints with the Do Not Populate flag set';
+    const BOM = 'Exclude all footprints with the Exclude from BOM flag set';
+    const NEG = 'Use negative X coordinates for footprints on bottom layer';
+    for (const l of [SMD, TH, DNP, BOM, NEG]) fireEvent.click(checkbox(l));
+
+    selectCombo('Format', 'Gerber X3');
+
+    // FormatSupportsFilter( GERBER, SMD_ONLY / EXCLUDE_TH ) is false: greyed and cleared.
+    for (const l of [SMD, TH, NEG]) {
+      expect(checkbox(l).disabled).toBe(true);
+      expect(checkbox(l).checked).toBe(false);
+    }
+    // ...EXCLUDE_DNP / EXCLUDE_BOM stay: Gerber X3 does not record those.
+    for (const l of [DNP, BOM]) {
+      expect(checkbox(l).disabled).toBe(false);
+      expect(checkbox(l).checked).toBe(true);
+    }
+    expect(checkbox('Include board edge layer').disabled).toBe(false);
+    expect(checkbox('Generate single file with both front and back positions').disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Units' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('Gerber X3: writes the front and back placement files kicad-cli writes', () => {
+    const onOutputFile = vi.fn();
+    render(
+      <DialogGenFootprintPosition
+        board={namedBoard()}
+        fileName="ecc83-pp.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
+    selectCombo('Format', 'Gerber X3');
+    fireEvent.click(screen.getByText('Generate Position File'));
+
+    const IDENTITY = /^(%TF\.GenerationSoftware,|%TF\.CreationDate,|G04 Created by ).*$/gm;
+    const got = written(onOutputFile);
+    expect([...got.keys()]).toEqual(['ecc83-pp-pnp_top.gbr', 'ecc83-pp-pnp_bottom.gbr']);
+    for (const [name, side] of [
+      ['ecc83-pp-pnp_top.gbr', 'front'],
+      ['ecc83-pp-pnp_bottom.gbr', 'back'],
+    ] as const) {
+      const want = readFileSync(resolve(ORACLE, `pnp/ecc83-pp-pnp_${side}.gbr`), 'utf8');
+      expect(got.get(name)!.replace(IDENTITY, '<id>')).toBe(want.replace(IDENTITY, '<id>'));
+    }
+    expect(screen.getByText(/Full component count: 11\./)).toBeTruthy();
+  });
+
+  it('Gerber X3: the full count adds the back side to the front', () => {
+    const board = ParseBoard(
+      readFileSync(
+        resolve(__dirname, '../../data/pcbnew/plot/gerber_oracle_pnp.kicad_pcb'),
+        'utf8',
+      ),
+    );
+    board.SetFileName('/oracle/gerber_oracle_pnp.kicad_pcb');
+    render(
+      <DialogGenFootprintPosition
+        board={board}
+        fileName="gerber_oracle_pnp.kicad_pcb"
+        onOutputFile={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    selectCombo('Format', 'Gerber X3');
+    fireEvent.click(screen.getByText('Generate Position File'));
+
+    expect(screen.getByText(/Full component count: 2\./)).toBeTruthy();
+  });
+
+  it('CSV keeps every filter: FormatSupportsFilter is false for Gerber only', () => {
+    render(
+      <DialogGenFootprintPosition
+        board={testBoard()}
+        fileName="ecc83-pp.kicad_pcb"
+        onOutputFile={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const checkbox = (label: string): HTMLInputElement =>
+      screen.getByLabelText(label) as HTMLInputElement;
+    fireEvent.click(checkbox('Include only SMD footprints'));
+    selectCombo('Format', 'CSV');
+
+    expect(checkbox('Include only SMD footprints').disabled).toBe(false);
+    expect(checkbox('Include only SMD footprints').checked).toBe(true);
+    expect(checkbox('Exclude all footprints with through hole pads').disabled).toBe(false);
+  });
+
+  it('Gerber X3 with "Include board edge layer": the edge file kicad-cli writes', () => {
+    const onOutputFile = vi.fn();
+    render(
+      <DialogGenFootprintPosition
+        board={namedBoard()}
+        fileName="ecc83-pp.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
+    selectCombo('Format', 'Gerber X3');
+    fireEvent.click(screen.getByLabelText('Include board edge layer'));
+    fireEvent.click(screen.getByText('Generate Position File'));
+
+    const IDENTITY = /^(%TF\.GenerationSoftware,|%TF\.CreationDate,|G04 Created by ).*$/gm;
+    const want = readFileSync(resolve(ORACLE, 'pnp/ecc83-pp-edge-pnp_front.gbr'), 'utf8');
+    expect(written(onOutputFile).get('ecc83-pp-pnp_top.gbr')!.replace(IDENTITY, '<id>')).toBe(
+      want.replace(IDENTITY, '<id>'),
+    );
   });
 
   it('Generate at the defaults (single file) is byte-identical to a direct genPositionData call', () => {
@@ -210,6 +312,7 @@ describe('DialogGenFootprintPosition', () => {
     render(
       <DialogGenFootprintPosition
         board={testBoard()}
+        fileName="ecc83-pp.kicad_pcb"
         onOutputFile={onOutputFile}
         onClose={vi.fn()}
       />,
@@ -225,6 +328,7 @@ describe('DialogGenFootprintPosition', () => {
     render(
       <DialogGenFootprintPosition
         board={testBoard()}
+        fileName="ecc83-pp.kicad_pcb"
         onOutputFile={onOutputFile}
         onClose={vi.fn()}
       />,
@@ -243,6 +347,7 @@ describe('DialogGenFootprintPosition', () => {
     render(
       <DialogGenFootprintPosition
         board={testBoard()}
+        fileName="ecc83-pp.kicad_pcb"
         onOutputFile={onOutputFile}
         onClose={vi.fn()}
       />,
@@ -261,6 +366,7 @@ describe('DialogGenFootprintPosition', () => {
     render(
       <DialogGenFootprintPosition
         board={testBoard()}
+        fileName="ecc83-pp.kicad_pcb"
         onOutputFile={onOutputFile}
         onClose={vi.fn()}
       />,
@@ -278,6 +384,7 @@ describe('DialogGenFootprintPosition', () => {
     render(
       <DialogGenFootprintPosition
         board={testBoard()}
+        fileName="ecc83-pp.kicad_pcb"
         onOutputFile={onOutputFile}
         onClose={vi.fn()}
       />,
@@ -314,6 +421,7 @@ describe('DialogGenFootprintPosition', () => {
     render(
       <DialogGenFootprintPosition
         board={testBoard()}
+        fileName="ecc83-pp.kicad_pcb"
         onOutputFile={onOutputFile}
         onClose={vi.fn()}
       />,
@@ -334,6 +442,7 @@ describe('DialogGenFootprintPosition', () => {
     render(
       <DialogGenFootprintPosition
         board={testBoard()}
+        fileName="ecc83-pp.kicad_pcb"
         onOutputFile={onOutputFile}
         onClose={vi.fn()}
       />,
@@ -364,6 +473,7 @@ describe('DialogGenFootprintPosition', () => {
     render(
       <DialogGenFootprintPosition
         board={interfBoard()}
+        fileName="interf_u.kicad_pcb"
         onOutputFile={onOutputFile}
         onClose={vi.fn()}
       />,
@@ -377,6 +487,7 @@ describe('DialogGenFootprintPosition', () => {
     render(
       <DialogGenFootprintPosition
         board={interfBoard()}
+        fileName="interf_u.kicad_pcb"
         onOutputFile={onOutputFile2}
         onClose={vi.fn()}
       />,
@@ -390,22 +501,32 @@ describe('DialogGenFootprintPosition', () => {
     expect(withOrigin).not.toBe(withoutOrigin);
 
     const board = interfBoard();
-    const expectedWith = genPositionData(board, {
-      unitsMM: true,
-      formatCSV: false,
-      frontSide: true,
-      backSide: true,
-      useAuxOrigin: true,
-      creationDate: iso8601DateTime(new Date()),
-    }).data;
-    const expectedWithout = genPositionData(board, {
-      unitsMM: true,
-      formatCSV: false,
-      frontSide: true,
-      backSide: true,
-      useAuxOrigin: false,
-      creationDate: iso8601DateTime(new Date()),
-    }).data;
+    const expectedWith = new PLACE_FILE_EXPORTER(
+      board,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      false,
+    ).GenPositionData();
+    const expectedWithout = new PLACE_FILE_EXPORTER(
+      board,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+    ).GenPositionData();
     expect(withOrigin).toBe(expectedWith);
     expect(withoutOrigin).toBe(expectedWithout);
   });
@@ -415,6 +536,7 @@ describe('DialogGenFootprintPosition', () => {
     render(
       <DialogGenFootprintPosition
         board={boardWithBackFootprint()}
+        fileName="back_only.kicad_pcb"
         onOutputFile={onOutputFile}
         onClose={vi.fn()}
       />,
@@ -426,24 +548,32 @@ describe('DialogGenFootprintPosition', () => {
     fireEvent.click(screen.getByText('Generate Position File'));
 
     const written1 = written(onOutputFile).get('back_only-all.pos') ?? '';
-    const expected = genPositionData(boardWithBackFootprint(), {
-      unitsMM: true,
-      formatCSV: false,
-      frontSide: true,
-      backSide: true,
-      useAuxOrigin: true,
-      negateBottomX: true,
-      creationDate: iso8601DateTime(new Date()),
-    }).data;
-    const withoutNegate = genPositionData(boardWithBackFootprint(), {
-      unitsMM: true,
-      formatCSV: false,
-      frontSide: true,
-      backSide: true,
-      useAuxOrigin: true,
-      negateBottomX: false,
-      creationDate: iso8601DateTime(new Date()),
-    }).data;
+    const expected = new PLACE_FILE_EXPORTER(
+      boardWithBackFootprint(),
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+    ).GenPositionData();
+    const withoutNegate = new PLACE_FILE_EXPORTER(
+      boardWithBackFootprint(),
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      false,
+    ).GenPositionData();
 
     expect(written1).toBe(expected);
     expect(written1).not.toBe(withoutNegate);
@@ -454,6 +584,7 @@ describe('DialogGenFootprintPosition', () => {
     render(
       <DialogGenFootprintPosition
         board={testBoard()}
+        fileName="ecc83-pp.kicad_pcb"
         onOutputFile={onOutputFile}
         onClose={vi.fn()}
       />,
@@ -473,6 +604,7 @@ describe('DialogGenFootprintPosition', () => {
     render(
       <DialogGenFootprintPosition
         board={testBoard()}
+        fileName="ecc83-pp.kicad_pcb"
         onOutputFile={onOutputFile}
         onClose={onClose}
       />,

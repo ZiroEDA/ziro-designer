@@ -44,9 +44,9 @@
  *
  * ## Board Setup already has *a* meander settings type, and it is not this one
  *
- * `pcbnew/board_settings.ts` defines `TuningPattern`: six millimetre-valued
- * fields, persisted in the project file, read by `PANEL_SETUP_TUNING_PATTERNS`
- * (`pcbnew/dialogs/panel_setup_tuning_patterns.tsx`). It is the UI mirror of
+ * `PANEL_SETUP_TUNING_PATTERNS` (`pcbnew/dialogs/panel_setup_tuning_patterns.tsx`)
+ * defines `TuningPattern`: six millimetre-valued fields, the page's window
+ * values over BOARD_DESIGN_SETTINGS' meander settings. It is the UI mirror of
  * six of the fields below and it cannot be reused here: it is the settings
  * *panel's* shape (mm, `'Fillet' | 'Chamfer'`), one layer above the router,
  * and importing it here would have the algorithm depend on the dialog that

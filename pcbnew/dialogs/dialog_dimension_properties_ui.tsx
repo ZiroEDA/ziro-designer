@@ -27,7 +27,7 @@
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { DimensionValues } from './dialog_dimension_properties.js';
-import type { DimensionKind } from '../types.js';
+import type { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { dimensionDialogFields } from './dialog_dimension_properties.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
@@ -58,7 +58,8 @@ interface Props {
    */
   units: StatusUnits;
   initial: DimensionValues;
-  kind: DimensionKind;
+  /** `m_dimension->Type()`: which groups the dialog shows. */
+  type: KICAD_T;
   layers: readonly string[];
   onApply: (v: DimensionValues) => void;
   onClose: () => void;
@@ -67,7 +68,7 @@ interface Props {
 export function DialogDimensionProperties({
   initial,
   units,
-  kind,
+  type,
   layers,
   onApply,
   onClose,
@@ -79,7 +80,7 @@ export function DialogDimensionProperties({
   const [v, setV] = useState<DimensionValues>(initial);
   const [text, setText] = useState<Record<string, string>>({});
   const set = (patch: Partial<DimensionValues>): void => setV((p) => ({ ...p, ...patch }));
-  const show = dimensionDialogFields(kind);
+  const show = dimensionDialogFields(type);
 
   const mmField = (label: string, key: MmKey, disabled = false): JSX.Element => (
     <label>

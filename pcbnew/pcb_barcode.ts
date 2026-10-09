@@ -57,7 +57,7 @@ import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/prop
 
 import { PCB_TEXT } from './pcb_text.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
-import type { BarcodeEcc, BarcodeKind } from './types.js';
+import type { BarcodeEcc, BarcodeKind } from '@ziroeda/zint';
 
 export enum BARCODE_T {
   CODE_39 = 0,
@@ -578,6 +578,13 @@ export class PCB_BARCODE extends BOARD_ITEM {
 
     if (parentFP && aFrame.GetName() === PCB_EDIT_FRAME_NAME)
       aList.push(new MSG_PANEL_ITEM('Footprint', parentFP.GetReference()));
+
+    aList.push(
+      new MSG_PANEL_ITEM(
+        'Barcode',
+        ENUM_MAP.Instance<BARCODE_T>('BARCODE_T').ToString(this.m_kind),
+      ),
+    );
 
     // Don't use GetShownText() here; we want to show the user the variable references
     aList.push(new MSG_PANEL_ITEM('Text', KIUI_EllipsizeStatusText(aFrame, this.GetText())));

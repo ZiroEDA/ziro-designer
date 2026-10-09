@@ -49,7 +49,6 @@ import { type VECTOR2I, add } from '@ziroeda/kimath/src/math/vector2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
 import { BOARD_ITEM } from './board_item.js';
-import type { PcbImage } from './types.js';
 import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';
 import {
   ENUM_MAP,
@@ -473,31 +472,11 @@ export function iuPerPixel(ppi: number): number {
 }
 
 /** `BITMAP_BASE::GetSize`: the image's extent in board IU. */
-export function imageSizeIU(img: PcbImage): { w: number; h: number } {
+export function imageSizeIU(img: { data: string; scale?: number }): { w: number; h: number } {
   const px = pngPixelSize(img.data) ?? FALLBACK_PIXELS;
   const per = iuPerPixel(pngPPI(img.data));
   const scale = img.scale ?? 1;
   return { w: Math.round(px.w * per * scale), h: Math.round(px.h * per * scale) };
-}
-
-/**
- * `REFERENCE_IMAGE::GetBoundingBox`, which is `BOX2I::ByCenter(pos, size)` —
- * `BOX2(center - size / 2, size)`.
- *
- * `size / 2` is `VECTOR2<int>::operator/( double )`, which ROUNDS each
- * coordinate (KiROUND), so an odd size sits half an IU off-centre towards the
- * origin; the box is then exactly `size` across.
- */
-export function imageBBox(img: PcbImage): {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-} {
-  const { w, h } = imageSizeIU(img);
-  const minX = img.at.x - KiROUND(w / 2);
-  const minY = img.at.y - KiROUND(h / 2);
-  return { minX, minY, maxX: minX + w, maxY: minY + h };
 }
 
 // --- BITMAP_BASE::m_bitmap / ImgToBitmap: the decode cache (was image_cache.ts) ---

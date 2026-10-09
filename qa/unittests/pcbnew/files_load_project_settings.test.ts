@@ -49,11 +49,9 @@ function frameOnBoard(): { frame: PCB_EDIT_FRAME; render: PCB_RENDER_SETTINGS } 
     fetchNetlistFromSchematic: () => false,
     schematicNetlistText: () => null,
     projectText: () => null,
-    onEditItemRequest: () => {},
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},
-    syncSelection: () => {},
     editZoneParams: () => {},
     selectCopperLayerPair: () => {},
     updatePcbFromSchematic: () => {},
@@ -72,6 +70,8 @@ function frameOnBoard(): { frame: PCB_EDIT_FRAME; render: PCB_RENDER_SETTINGS } 
     UpdateAllItems: () => {},
   };
   frame.SetCanvas({
+    // `GetViewControls()->GetCursorPosition()`, which UpdateStatusBar reads.
+    GetViewControls: () => ({ GetCursorPosition: () => ({ x: 0, y: 0 }) }),
     GetView: () => view,
     SetHighContrastLayer: () => {},
     Refresh: () => {},

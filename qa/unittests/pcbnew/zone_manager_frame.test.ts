@@ -77,9 +77,6 @@ describe('Tools > Zone Manager...', () => {
         showAbout: () => {},
       },
       {
-        selectionCount: 0,
-        polygonBooleanCount: 0,
-        modifiableLineCount: 0,
         hasSchematic: true,
         hasFootprintEditor: true,
         highContrast: false,

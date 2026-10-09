@@ -13186,6 +13186,22 @@ textarea.ze-ds-textedit {
   min-height: 0;
   padding: 5px; /* [data] sizer->Add( reporter, 1, wxEXPAND | wxALL, 5 ) */
 }
+/* An AddBlankPage panel: each widget carries its own sizer border instead. */
+.ze-bookreporter-page.blank {
+  padding: 0;
+}
+.ze-bookreporter-label {
+  margin: 5px 5px 0; /* [data] vbox->Add( layerLabel, 0, wxLEFT | wxRIGHT | wxTOP, 5 ) */
+}
+.ze-bookreporter-choice {
+  margin: 5px; /* [data] vbox->Add( choice, 0, wxEXPAND | wxALL, 5 ) */
+}
+.ze-bookreporter-report {
+  flex: 1 1 auto; /* [data] vbox->Add( reportBox, 1, wxEXPAND | wxALL, 5 ) */
+  display: flex;
+  flex-direction: column;
+  margin: 5px; /* [data] the same line */
+}
 
 /* wxStaticBox / wxStaticBoxSizer, once. `qa/probes/staticbox_inset_probe.cpp`
    asks wx: GetBordersForSizer reports 18 px on top (the label line) and 0 on
@@ -18695,6 +18711,37 @@ fieldset.ze-import-netlist-options {
 .ze-posrel .ze-modal-footer .ze-btn,
 .ze-offset .ze-modal-footer .ze-btn {
   margin: 5px 0; /* [data] `bSizerBottom->Add( m_stdButtons, 0, wxBOTTOM|wxTOP, 5 )`. */
+}
+
+/* DIALOG_GENCAD_EXPORT_OPTIONS (dialog_gencad_export_options.cpp:43-79), built in
+   code: m_fileSizer `wxEXPAND|wxALL, 5`, m_optsSizer (a one-column wxGridSizer,
+   gaps 3) proportion 1 `wxEXPAND|wxALL, 5`, then CreateSeparatedButtonSizer. */
+.ze-gencad-body {
+  display: flex;
+  flex-direction: column;
+}
+.ze-gencad-file {
+  display: flex;
+  align-items: center;
+  margin: 5px; /* [data] `m_mainSizer->Add( m_fileSizer, 0, wxEXPAND | wxALL, 5 )` */
+}
+.ze-gencad-file > label {
+  margin-left: 5px; /* [data] `m_fileSizer->Add( m_textFile, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 5 )` */
+}
+.ze-gencad-file > input {
+  flex: 1;
+  min-width: 350px; /* [data] `m_outputFileName->SetMinSize( wxSize( 350, -1 ) )` */
+  margin: 5px; /* [data] `m_fileSizer->Add( m_outputFileName, 1, wxALL | wxEXPAND, 5 )` */
+}
+.ze-gencad-file > button {
+  margin-right: 5px; /* [data] `m_fileSizer->Add( m_browseButton, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5 )` */
+}
+.ze-gencad-opts {
+  display: grid;
+  grid-template-columns: max-content;
+  gap: 3px; /* [data] `new wxGridSizer( 0, 1, 3, 3 )` */
+  flex: 1;
+  margin: 5px; /* [data] `m_mainSizer->Add( m_optsSizer, 1, wxEXPAND | wxALL, 5 )` */
 }
 
 /* DIALOG_OFFSET_ITEM (dialog_offset_item_base.cpp): the same grid and bottom row

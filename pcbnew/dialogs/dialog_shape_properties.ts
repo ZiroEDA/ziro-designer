@@ -17,18 +17,16 @@ import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import { LINE_STYLE, LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
 import { EVENTS } from '@ziroeda/common/tool/tool_event.js';
 import { BOARD_COMMIT } from '../board_commit.js';
-import { parseBoardItemId } from '../edit-board.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_SHAPE } from '../pcb_shape.js';
 import type { TransferResult } from './dialog_text_properties.js';
-import type { PcbFillMode } from '../shape_fill.js';
-import type { Board, PcbShape, StrokeType } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import type { LineStyleToken } from '@ziroeda/common/stroke_params.js';
+
+/** The shape the window names, SHAPE_T as the file spells it. */
+export type ShapeKind = 'line' | 'arc' | 'circle' | 'rect' | 'poly' | 'curve';
 
 /** The mask layer that pairs with a graphic's own layer, F.SilkS -> F.Mask. */
-const maskSideOf = (layer: string): string | undefined =>
-  layer.startsWith('F.') ? 'F.Mask' : layer.startsWith('B.') ? 'B.Mask' : undefined;
-
 /** Every field DIALOG_SHAPE_PROPERTIES edits, for a board graphic. */
 export interface ShapeValues {
   /** The geometry points that apply to this shape kind. */
@@ -42,9 +40,9 @@ export interface ShapeValues {
    * two corners. The NODE has to be rebuilt for it, because the kind is the
    * node's head token.
    */
-  kind: PcbShape['kind'];
+  kind: ShapeKind;
   lineWidth: number;
-  strokeType: StrokeType;
+  strokeType: LineStyleToken;
   /** `(radius …)`, a rounded rectangle's corner. Zero for every other kind. */
   cornerRadius: number;
   /**
@@ -66,19 +64,19 @@ export interface ShapeValues {
 }
 
 /** Which of the four points a shape kind actually uses. */
-export function shapePointsUsed(kind: PcbShape['kind']): {
+export function shapePointsUsed(aShape: SHAPE_T): {
   start: boolean;
   end: boolean;
   mid: boolean;
   center: boolean;
 } {
-  switch (kind) {
-    case 'line':
-    case 'rect':
+  switch (aShape) {
+    case SHAPE_T.SEGMENT:
+    case SHAPE_T.RECTANGLE:
       return { start: true, end: true, mid: false, center: false };
-    case 'arc':
+    case SHAPE_T.ARC:
       return { start: true, end: true, mid: true, center: false };
-    case 'circle':
+    case SHAPE_T.CIRCLE:
       return { start: false, end: true, mid: false, center: true };
     default:
       // A polygon or bezier is edited by the point editor, not this dialog.
@@ -87,95 +85,12 @@ export function shapePointsUsed(kind: PcbShape['kind']): {
 }
 
 /** Resolve a `shape:N` id, or null when the selection is not one shape. */
-export function shapeAt(board: Board, selection: Iterable<string>): number | null {
-  let found: number | null = null;
-  for (const id of selection) {
-    const ref = parseBoardItemId(id);
-    if (!ref || ref.kind !== 'shape') continue;
-    if (found !== null) return null;
-    if (board.shapes[ref.index]) found = ref.index;
-  }
-  return found;
-}
-
 const ZERO: Vec2 = { x: 0, y: 0 };
-
-/** DIALOG_SHAPE_PROPERTIES::TransferDataToWindow. */
-export function collectShapeValues(s: PcbShape): ShapeValues {
-  return {
-    start: s.start ?? ZERO,
-    end: s.end ?? ZERO,
-    mid: s.mid ?? ZERO,
-    center: s.center ?? ZERO,
-    net: s.net ?? 0,
-    kind: s.kind,
-    lineWidth: s.width,
-    cornerRadius: s.cornerRadius ?? 0,
-    strokeType: s.strokeType ?? 'solid',
-    fillMode: s.fillMode,
-    layer: s.layer,
-    hasMask: s.maskLayer !== undefined,
-    maskMargin: s.solderMaskMargin ?? null,
-    locked: s.locked ?? false,
-  };
-}
-
-/** DIALOG_SHAPE_PROPERTIES::TransferDataFromWindow. */
-export function applyShapeValues(board: Board, index: number, v: ShapeValues): Board {
-  const s = board.shapes[index];
-  if (!s) return board;
-
-  const before = collectShapeValues(s);
-  if (JSON.stringify(before) === JSON.stringify(v)) return board;
-
-  const used = shapePointsUsed(v.kind);
-  const next: PcbShape = { ...s, kind: v.kind };
-
-  // `SetCornerRadius` clamps to half the shorter side for a RECTANGLE and takes
-  // the value as given for anything else (eda_shape.cpp:508-522) — and only a
-  // rectangle has the token at all.
-  if (v.kind === 'rect') {
-    const w = Math.abs(v.end.x - v.start.x);
-    const h = Math.abs(v.end.y - v.start.y);
-    const clamped = Math.min(Math.max(v.cornerRadius, 0), Math.trunc(Math.min(w, h) / 2));
-    next.cornerRadius = clamped > 0 ? clamped : undefined;
-  } else {
-    next.cornerRadius = undefined;
-  }
-
-  // Only write back the points this kind owns: a circle has no `mid`, and
-  // inventing one would put a token in the file that KiCad never wrote.
-  if (used.start) next.start = v.start;
-  if (used.end) next.end = v.end;
-  if (used.mid) next.mid = v.mid;
-  if (used.center) next.center = v.center;
-
-  next.width = v.lineWidth;
-  next.strokeType = v.strokeType;
-
-  // `format( const PCB_SHAPE* )` (pcb_io_kicad_sexpr.cpp:1071-1097) writes the
-  // fill for a POLY, a RECTANGLE or a CIRCLE and for those three always.
-  next.fillMode = v.fillMode;
-
-  next.layer = v.layer;
-  next.maskLayer = v.hasMask ? maskSideOf(v.layer) : undefined;
-
-  next.solderMaskMargin = v.maskMargin ?? undefined;
-
-  // `(net …)` carries the NAME, not the code (`pcb_io_kicad_sexpr.cpp:1116`,
-  // emitted only when `GetNetCode() > 0`), so the board's table is what names it.
-  next.net = v.net > 0 ? v.net : undefined;
-  next.netName = v.net > 0 ? (board.nets.get(v.net) ?? '') : undefined;
-
-  next.locked = v.locked;
-
-  return { ...board, shapes: board.shapes.map((x, i) => (i === index ? next : x)) };
-}
 
 // ---------------------------------------------------------------------------
 // DIALOG_SHAPE_PROPERTIES over the live PCB_SHAPE (#636 stage 6)
 
-const SHAPE_KIND: Partial<Record<SHAPE_T, PcbShape['kind']>> = {
+const SHAPE_KIND: Partial<Record<SHAPE_T, ShapeKind>> = {
   [SHAPE_T.SEGMENT]: 'line',
   [SHAPE_T.RECTANGLE]: 'rect',
   [SHAPE_T.ARC]: 'arc',
@@ -184,7 +99,14 @@ const SHAPE_KIND: Partial<Record<SHAPE_T, PcbShape['kind']>> = {
   [SHAPE_T.BEZIER]: 'curve',
 };
 
-const FILL_MODES: readonly PcbFillMode[] = [
+/**
+ * `m_fillCtrl`'s selection, `UI_FILL_MODE`, as the window holds it - a
+ * board-file spelling, so `solid` where the file writes FILLED_WITH_COLOR.
+ */
+export type PcbFillMode = 'none' | 'solid' | 'hatch' | 'reverse_hatch' | 'cross_hatch';
+
+/** `m_fillCtrl`'s entries in UI_FILL_MODE order; their labels are FILL_MODE_NAMES. */
+export const FILL_MODES: readonly PcbFillMode[] = [
   'none',
   'solid',
   'hatch',
@@ -209,6 +131,11 @@ export class DIALOG_SHAPE_PROPERTIES {
   constructor(aParent: PCB_BASE_EDIT_FRAME, aShape: PCB_SHAPE) {
     this.m_parent = aParent;
     this.m_item = aShape;
+  }
+
+  /** `m_item->GetShape()`, which decides the dialog's controls (the constructor's switch). */
+  GetShape(): SHAPE_T {
+    return this.m_item.GetShape();
   }
 
   TransferDataToWindow(): ShapeValues {

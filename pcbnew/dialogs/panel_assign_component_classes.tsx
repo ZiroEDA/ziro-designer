@@ -20,22 +20,76 @@
 import type { JSX } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
-import type {
-  ClassCondition,
-  ComponentClassAssignment,
-  ComponentClassesData,
-  ConditionType,
-} from '../board_settings.js';
+import type { PROJECT } from '@ziroeda/common/project.js';
+import {
+  COMPONENT_CLASS_ASSIGNMENT_DATA,
+  CONDITION_TYPE,
+  CONDITIONS_OPERATOR,
+} from '@ziroeda/common/project/component_class_settings.js';
 
-// The data model lives in board_settings.ts (KiCad's data/UI split);
-// re-exported so panel users keep importing from the panel module.
-export {
-  defaultComponentClasses,
-  type ClassCondition,
-  type ComponentClassAssignment,
-  type ComponentClassesData,
-  type ConditionType,
-} from '../board_settings.js';
+export type ConditionType = 'Reference' | 'Side' | 'Rotation' | 'Footprint';
+
+export interface ClassCondition {
+  type: ConditionType;
+  value: string;
+}
+export interface ComponentClassAssignment {
+  componentClass: string;
+  matchMode: 'all' | 'any';
+  conditions: ClassCondition[];
+}
+export interface ComponentClassesData {
+  assignPerSheet: boolean;
+  assignments: ComponentClassAssignment[];
+}
+
+/** `COMPONENT_CLASS_ASSIGNMENT_DATA::GetConditionName` <-> the panel's labels. */
+const CONDITION_LABELS: readonly [CONDITION_TYPE, string][] = [
+  [CONDITION_TYPE.REFERENCE, 'Reference'],
+  [CONDITION_TYPE.SIDE, 'Side'],
+  [CONDITION_TYPE.ROTATION, 'Rotation'],
+  [CONDITION_TYPE.FOOTPRINT, 'Footprint'],
+  [CONDITION_TYPE.FOOTPRINT_FIELD, 'Footprint Field'],
+  [CONDITION_TYPE.CUSTOM, 'Custom'],
+  [CONDITION_TYPE.SHEET_NAME, 'Sheet Name'],
+];
+
+/** PANEL_ASSIGN_COMPONENT_CLASSES's transfers (panel_assign_component_classes.cpp). */
+export const PANEL_ASSIGN_COMPONENT_CLASSES = {
+  TransferDataToWindow(aProject: PROJECT): ComponentClassesData {
+    const ccs = aProject.GetProjectFile().ComponentClassSettings();
+    return {
+      assignPerSheet: ccs.GetEnableSheetComponentClasses(),
+      assignments: ccs.GetComponentClassAssignments().map((a) => ({
+        componentClass: a.GetComponentClass(),
+        matchMode: a.GetConditionsOperator() === CONDITIONS_OPERATOR.ANY ? 'any' : 'all',
+        conditions: a.GetConditions().map(([type, primary]) => ({
+          type: (CONDITION_LABELS.find(([t]) => t === type)?.[1] ?? 'Reference') as ConditionType,
+          value: primary,
+        })),
+      })),
+    };
+  },
+
+  TransferDataFromWindow(v: ComponentClassesData, aProject: PROJECT): void {
+    const ccs = aProject.GetProjectFile().ComponentClassSettings();
+    ccs.SetEnableSheetComponentClasses(v.assignPerSheet);
+    ccs.ClearComponentClassAssignments();
+    for (const a of v.assignments) {
+      const data = new COMPONENT_CLASS_ASSIGNMENT_DATA();
+      data.SetComponentClass(a.componentClass);
+      data.SetConditionsOperation(
+        a.matchMode === 'any' ? CONDITIONS_OPERATOR.ANY : CONDITIONS_OPERATOR.ALL,
+      );
+      for (const c of a.conditions) {
+        const type =
+          CONDITION_LABELS.find(([, label]) => label === c.type)?.[0] ?? CONDITION_TYPE.REFERENCE;
+        data.AddCondition(type, c.value, '');
+      }
+      ccs.AddComponentClassAssignment(data);
+    }
+  },
+};
 
 const CONDITION_TYPES: ConditionType[] = ['Reference', 'Side', 'Rotation', 'Footprint'];
 const SIDES = ['Front', 'Back'];

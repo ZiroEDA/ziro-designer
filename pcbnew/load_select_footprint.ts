@@ -35,7 +35,7 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from './board.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { FOOTPRINT_EDIT_FRAME } from './footprint_edit_frame.js';
-import type { PCB_EDIT_FRAME } from './pcb_edit_frame.js';
+import type { PCB_BASE_FRAME } from './pcb_base_frame.js';
 
 /** `static wxString lastComponentName`, in `SelectFootprintFromLibrary`. */
 let s_lastComponentName = '';
@@ -54,7 +54,7 @@ let s_FootprintInitialCopy: FOOTPRINT | null = null;
 /** `static PICKED_ITEMS_LIST s_PickedList`: "A pick-list to save initial footprint and dragged tracks". */
 const s_PickedList = new PICKED_ITEMS_LIST();
 
-/** `PCB_BASE_FRAME`'s `load_select_footprint.cpp` half, mixed into `PCB_EDIT_FRAME`. */
+/** `PCB_BASE_FRAME`'s `load_select_footprint.cpp` half, mixed into `PCB_BASE_FRAME`. */
 export class LOAD_SELECT_FOOTPRINT_MIXIN {
   /**
    * `PCB_BASE_FRAME::SelectFootprintFromLibrary` (:191-225): the footprint
@@ -65,14 +65,14 @@ export class LOAD_SELECT_FOOTPRINT_MIXIN {
    *         footprint could not be loaded.
    */
   async SelectFootprintFromLibrary(
-    this: PCB_EDIT_FRAME,
+    this: PCB_BASE_FRAME,
     aPreselect: LIB_ID = new LIB_ID(),
   ): Promise<FOOTPRINT | null> {
     let footprintName = aPreselect.Format();
     const fpid = new LIB_ID();
     let footprint: FOOTPRINT | null = null;
 
-    const chosen = (await this.hooks.selectFootprintFromChooser?.(footprintName)) ?? null;
+    const chosen = (await this.selectFootprintFromChooser(footprintName)) ?? null;
 
     if (chosen !== null) {
       footprintName = chosen;
@@ -96,7 +96,7 @@ export class LOAD_SELECT_FOOTPRINT_MIXIN {
   }
 
   /** `PCB_BASE_FRAME::LoadFootprint` (:228-241): `loadFootprint`, an IO_ERROR being "not found". */
-  async LoadFootprint(this: PCB_EDIT_FRAME, aFootprintId: LIB_ID): Promise<FOOTPRINT | null> {
+  async LoadFootprint(this: PCB_BASE_FRAME, aFootprintId: LIB_ID): Promise<FOOTPRINT | null> {
     let footprint: FOOTPRINT | null = null;
 
     try {
@@ -113,7 +113,7 @@ export class LOAD_SELECT_FOOTPRINT_MIXIN {
    * library, its nets cleared, and — for a real board, not a footprint holder —
    * given the board's default text, graphics, dimension and barcode styles.
    */
-  async loadFootprint(this: PCB_EDIT_FRAME, aFootprintId: LIB_ID): Promise<FOOTPRINT | null> {
+  async loadFootprint(this: PCB_BASE_FRAME, aFootprintId: LIB_ID): Promise<FOOTPRINT | null> {
     // When loading a footprint from a library in the footprint editor
     // the items UUIDs must be keep and not reinitialized
     const keepUUID = this.IsType(FRAME_T.FRAME_FOOTPRINT_EDITOR);
@@ -156,12 +156,13 @@ export class LOAD_SELECT_FOOTPRINT_MIXIN {
    * board's adapter for a qualified `LIB_ID`.
    */
   async loadFootprintWithOptionalNickname(
-    this: PCB_EDIT_FRAME,
+    this: PCB_BASE_FRAME,
     aFootprintId: LIB_ID,
     aKeepUUID: boolean,
   ): Promise<FOOTPRINT | null> {
-    if (this.hooks.loadFootprintFromLibrary)
-      return await this.hooks.loadFootprintFromLibrary(aFootprintId, aKeepUUID);
+    const fromWindow = this.loadFootprintFromLibraryWindow(aFootprintId, aKeepUUID);
+
+    if (fromWindow) return await fromWindow;
 
     const adapter = this.GetBoard()?.GetFootprintLibAdapter();
     const nickname = aFootprintId.GetUniStringLibNickname();
@@ -178,7 +179,7 @@ export class LOAD_SELECT_FOOTPRINT_MIXIN {
    * cleared, and the connectivity and ratsnest brought up to date.
    */
   PlaceFootprint(
-    this: PCB_EDIT_FRAME,
+    this: PCB_BASE_FRAME,
     aFootprint: FOOTPRINT | null,
     aRecreateRatsnest = true,
     aPosition?: VECTOR2I,

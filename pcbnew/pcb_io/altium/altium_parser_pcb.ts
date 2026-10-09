@@ -13,7 +13,7 @@ import {
   ALTIUM_PROPS_UTILS,
   type ALTIUM_PROPS,
 } from '@ziroeda/common/io/altium/altium_props_utils.js';
-import { IO_ERROR } from '@ziroeda/common/exceptions.js';
+import { THROW_IO_ERROR } from '@ziroeda/common/exceptions.js';
 import { ToULong } from '@ziroeda/common/libc/stdlib.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
@@ -23,11 +23,6 @@ export { ALTIUM_BINARY_PARSER };
 /** `wxLogError( … )`: to the log, which kicad-cli prints. */
 export function wxLogError(aMessage: string): void {
   console.error(aMessage);
-}
-
-/** `THROW_IO_ERROR( msg )`. */
-function THROW_IO_ERROR(aMessage: string): never {
-  throw new IO_ERROR(aMessage);
 }
 
 // tthis constant specifies an unconnected net

@@ -174,8 +174,10 @@ describe('the draw frames', () => {
   const ON_THE_HOOK = [
     '../../eeschema/sch_edit_frame_ui.tsx',
     '../../pcbnew/pcb_edit_frame_ui.tsx',
-    '../../pcbnew/footprint_edit_frame_ui.tsx',
     '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
+    // The Footprint Editor left the hook when its window moved onto
+    // FOOTPRINT_EDIT_FRAME: PCB_BASE_FRAME::UpdateStatusBar writes the cursor
+    // through the frame's status sink, as upstream.
     // GerbView left the hook when it moved onto GERBVIEW_FRAME: its status
     // bar is EDA_DRAW_FRAME::UpdateStatusBar's, as upstream.
   ];
@@ -190,6 +192,12 @@ describe('the draw frames', () => {
     expect(src, `${rel} still holds the cursor in React state`).not.toMatch(
       /const \[cursor, setCursor\] = useState/,
     );
+  });
+
+  it('the Footprint Editor shows what its frame writes', () => {
+    const src = read('../../pcbnew/footprint_edit_frame_ui.tsx');
+    expect(src).toContain('frame.SetStatusTextSink(');
+    expect(src).not.toContain('useStatusReadout');
   });
 
   it('and pl_editor is the one still off it, for a stated reason', () => {

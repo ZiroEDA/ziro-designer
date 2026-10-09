@@ -118,9 +118,6 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     'if (multi && (e.ctrlKey || e.metaKey)) {',
     'if (e.ctrlKey || e.altKey || e.metaKey) return;',
   ],
-  '../../pcbnew/footprint_edit_frame_ui.tsx': [
-    'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
-  ],
   '../../pcbnew/pcb_edit_frame_ui.tsx': [
     // The chain's own "no Ctrl/Cmd held" predicate - the same guard as the
     // other frames' `plain`, spelled the way this file already spelled it.
@@ -450,20 +447,11 @@ const CANVAS_KEYS: Readonly<
       // reached the other way; `deleteSel();` was the second declaration.
       ['Del delete', /deleteSel\(\);/],
     ],
-    kept: [
-      // PCB_ACTIONS::rotateCcw / rotateCw - R and Shift+R, neither with a row.
-      ['R rotate', /rotateSel\(!e\.shiftKey\)/],
-      ['Esc cancel', /e\.key === 'Escape'/],
-      // The library tree's own Del. Disjoint from the row's, by condition.
-      ['tree Del', /onDelete\(treeSel\.lib, treeSel\.name\)/],
-    ],
-    guards: [
-      // Edit > Delete owns Del whenever the canvas has a selection, so the
-      // tree's Del must stand down while it does. Without this the one
-      // keystroke deleted the selected item AND the footprint from the
-      // library, which is what it did before this branch.
-      ['tree Del declines to the canvas', /if \(canvasSelection\) return;/],
-    ],
+    // Every canvas key is the frame's TOOL_DISPATCHER's now (R and Shift+R are
+    // PCB_ACTIONS::rotateCcw / rotateCw's hotkeys, Esc is cancelInteractive),
+    // and the tree's own Del went with the old window: it was invented, and
+    // upstream a Delete keystroke is Edit > Delete's whatever has the focus.
+    kept: [],
   },
   '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx': {
     moved: [
@@ -748,9 +736,6 @@ const MENU_BUILDER: Readonly<Record<string, () => Menu[]>> = {
         // Every ENABLE() condition true, so a greyed row here is greyed on its
         // own merits (an unbuilt feature) and not on a condition -- which is
         // also what makes "a greyed row prints no accelerator" mean something.
-        selectionCount: 2,
-        polygonBooleanCount: 2,
-        modifiableLineCount: 2,
         hasSchematic: true,
         hasFootprintEditor: true,
         highContrast: false,

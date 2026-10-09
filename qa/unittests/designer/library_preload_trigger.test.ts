@@ -73,7 +73,7 @@ describe('the board fires it from its load path', () => {
     // `textRef.current`: the `text` prop is live now (the host mirrors the
     // board's own autosave back into the open project), so the parse effect
     // reads it at open time instead of depending on it.
-    const parse = at(src, 'readBoard(parse(textRef.current))');
+    const parse = at(src, 'ParseBoard(textRef.current)');
     const call = calls[0] ?? -1;
     expect(call).toBeGreaterThan(parse);
     // ... and before that effect closes: the same open path, not a later one.

@@ -22,7 +22,7 @@ import { BOARD } from '@ziroeda/pcbnew/board.js';
 import type { HISTORY_FILE_DATA } from '@ziroeda/common/local_history.js';
 import { GetDefaultVariantName } from '@ziroeda/common/string_utils.js';
 import { PCB_DIM_ALIGNED } from '@ziroeda/pcbnew/pcb_dimension.js';
-import { DIM_UNITS_MODE } from '@ziroeda/pcbnew/pcb_dimension_types.js';
+import { DIM_UNITS_MODE } from '@ziroeda/pcbnew/pcb_dimension.js';
 import { NETCLASS } from '@ziroeda/common/netclass.js';
 import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
 import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
@@ -74,6 +74,20 @@ describe('BOARD', () => {
     expect(b.FlipLayer(PCB_LAYER_ID.F_Cu)).toBe(PCB_LAYER_ID.B_Cu);
     expect(b.GetLayerName(PCB_LAYER_ID.B_Cu)).toBe('B.Cu');
     expect(b.GetCopperLayerCount()).toBe(2);
+  });
+
+  it('FlipLayer reverses inner copper about the stack (layer_id.cpp:201-212)', () => {
+    // innerIndex -> aCopperLayersCount - 3 - innerIndex.
+    const six = new BOARD();
+    six.SetCopperLayerCount(6);
+    expect(six.FlipLayer(PCB_LAYER_ID.In1_Cu)).toBe(PCB_LAYER_ID.In4_Cu);
+    expect(six.FlipLayer(PCB_LAYER_ID.In2_Cu)).toBe(PCB_LAYER_ID.In3_Cu);
+    const four = new BOARD();
+    four.SetCopperLayerCount(4);
+    expect(four.FlipLayer(PCB_LAYER_ID.In1_Cu)).toBe(PCB_LAYER_ID.In2_Cu);
+    // A layer with no side is its own flip.
+    expect(four.FlipLayer(PCB_LAYER_ID.Edge_Cuts)).toBe(PCB_LAYER_ID.Edge_Cuts);
+    expect(four.FlipLayer(PCB_LAYER_ID.F_SilkS)).toBe(PCB_LAYER_ID.B_SilkS);
   });
 });
 

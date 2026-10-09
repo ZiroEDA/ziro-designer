@@ -11,8 +11,7 @@
  * `updateDimensionFromDialog` (pcbnew/dialogs/dialog_dimension_properties.cpp).
  *
  * Headless, like the other properties modules: the dialog is layout, this is
- * the part with decisions in it, and it patches the item's source node so a
- * saved file keeps everything the model does not represent.
+ * the part with decisions in it.
  *
  * ## Override text is a mode, not a string
  *
@@ -32,7 +31,6 @@
  * to the wrong kind produces a file KiCad reads back differently from what was
  * saved.
  */
-import type { EdaUnits } from '@ziroeda/common/eda_units.js';
 import { IN_EDIT } from '@ziroeda/common/eda_item_flags.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
@@ -46,21 +44,24 @@ import {
   type DIM_TEXT_POSITION,
   type DIM_UNITS_FORMAT,
   type DIM_UNITS_MODE,
-} from '../pcb_dimension_types.js';
+} from '../pcb_dimension.js';
 import type { TransferResult } from './dialog_text_properties.js';
-import { parseBoardItemId } from '../edit-board.js';
-import { updateDimension } from '../dimension_text.js';
-import { isAlignedKind } from '../types.js';
-import type { DimensionKind } from '../index.js';
-import type {
-  Board,
-  DimPrecision,
-  DimTextBorder,
-  DimTextPosition,
-  DimUnitsFormat,
-  DimUnitsMode,
-  PcbDimension,
-} from '../types.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+
+/** `DIM_PRECISION`: 0-5 fixed digits, 6-9 the scaled `V_*` variants. */
+export type DimPrecision = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+
+/** `DIM_TEXT_BORDER`: 0 none, 1 rectangle, 2 circle, 3 round rectangle. */
+export type DimTextBorder = 0 | 1 | 2 | 3;
+
+/** `DIM_TEXT_POSITION`: 0 outside, 1 inline, 2 manual. */
+export type DimTextPosition = 0 | 1 | 2;
+
+/** `DIM_UNITS_FORMAT`: 0 none, 1 bare suffix, 2 parenthesised suffix. */
+export type DimUnitsFormat = 0 | 1 | 2;
+
+/** `DIM_UNITS_MODE`: 0 inch, 1 mils, 2 mm, 3 automatic. */
+export type DimUnitsMode = 0 | 1 | 2 | 3;
 
 /** Every control on the dialog, flattened. */
 export interface DimensionValues {
@@ -102,131 +103,7 @@ export interface DimensionValues {
 }
 
 /** The single selected dimension's index, or null. */
-export function dimensionAt(board: Board, selection: Iterable<string>): number | null {
-  const ids = [...selection];
-  if (ids.length !== 1) return null;
-  const ref = parseBoardItemId(ids[0]!);
-  if (!ref || ref.kind !== 'dimension') return null;
-  return board.dimensions[ref.index] ? ref.index : null;
-}
-
 /** `TransferDataToWindow`: the dialog's starting values. */
-export function collectDimensionValues(d: PcbDimension): DimensionValues {
-  const f = d.format;
-  const t = d.text;
-  return {
-    layer: d.layer,
-    prefix: f?.prefix ?? '',
-    suffix: f?.suffix ?? '',
-    overrideValue: f?.overrideValue,
-    units: f?.units ?? 3,
-    unitsFormat: f?.unitsFormat ?? 1,
-    precision: f?.precision ?? 4,
-    suppressZeroes: f?.suppressZeroes ?? false,
-    textPositionMode: d.style.textPositionMode,
-    keepTextAligned: d.style.keepTextAligned ?? false,
-    arrowDirection: d.style.arrowDirection ?? 'outward',
-    lineThickness: d.style.thickness,
-    arrowLength: d.style.arrowLength,
-    extensionOffset: d.style.extensionOffset,
-    extensionOvershoot: d.style.extensionHeight ?? 0,
-    textFrame: d.style.textFrame ?? 0,
-    textWidth: t?.size.x ?? 0,
-    textHeight: t?.size.y ?? 0,
-    textThickness: t?.thickness ?? 0,
-    textOrientation: t?.angle ?? 0,
-    bold: t?.bold ?? false,
-    italic: t?.italic ?? false,
-    mirrored: t?.mirror ?? false,
-    textX: t?.at.x ?? 0,
-    textY: t?.at.y ?? 0,
-    locked: d.locked ?? false,
-  };
-}
-
-/**
- * `updateDimensionFromDialog`, plus the source patching that makes it survive a
- * save. Returns the board unchanged when nothing moved.
- */
-export function applyDimensionValues(
-  board: Board,
-  index: number,
-  v: DimensionValues,
-  userUnits: EdaUnits = 'mm',
-): Board {
-  const d = board.dimensions[index];
-  if (!d) return board;
-
-  const before = collectDimensionValues(d);
-  if (JSON.stringify(before) === JSON.stringify(v)) return board;
-
-  const aligned = isAlignedKind(d.kind);
-  const hasFormat = d.kind !== 'center';
-
-  const raw: PcbDimension = {
-    ...d,
-    layer: v.layer,
-    locked: v.locked,
-    style: {
-      ...d.style,
-      thickness: v.lineThickness,
-      arrowLength: v.arrowLength,
-      extensionOffset: v.extensionOffset,
-      textPositionMode: v.textPositionMode,
-      keepTextAligned: v.keepTextAligned,
-      // Kind-gated, exactly as the serializer gates them.
-      ...(aligned
-        ? { arrowDirection: v.arrowDirection, extensionHeight: v.extensionOvershoot }
-        : {}),
-      ...(d.kind === 'leader' ? { textFrame: v.textFrame } : {}),
-    },
-    ...(hasFormat
-      ? {
-          format: {
-            prefix: v.prefix,
-            suffix: v.suffix,
-            units: v.units,
-            unitsFormat: v.unitsFormat,
-            precision: v.precision,
-            suppressZeroes: v.suppressZeroes,
-            // Assigned straight through, undefined included: an absent key and
-            // an undefined one are indistinguishable to the serializer's
-            // `!== undefined` check, to the reader, and to the no-op compare.
-            overrideValue: v.overrideValue,
-          },
-        }
-      : {}),
-    ...(d.text
-      ? {
-          text: {
-            ...d.text,
-            layer: v.layer,
-            size: { x: v.textWidth, y: v.textHeight },
-            thickness: v.textThickness,
-            angle: v.textOrientation,
-            bold: v.bold,
-            italic: v.italic,
-            mirror: v.mirrored,
-            // Upstream only writes the position back in MANUAL mode; in the
-            // other two the geometry places it and a stale value would fight
-            // the layout on the next redraw.
-            ...(v.textPositionMode === 2 ? { at: { x: v.textX, y: v.textY } } : {}),
-          },
-        }
-      : {}),
-  };
-
-  // `updateDimensionFromDialog` ends with `aTarget->Update()`, which re-derives
-  // the label and — outside MANUAL mode — moves it back onto the crossbar. A
-  // new precision or unit format is invisible without this.
-  const next = updateDimension(raw, userUnits);
-
-  return {
-    ...board,
-    dimensions: board.dimensions.map((cur, i) => (i === index ? next : cur)),
-  };
-}
-
 // --- DIALOG_DIMENSION_PROPERTIES's constructor field visibility (was dimension_tools.ts) ---
 
 /** Which groups of controls the properties dialog shows, by kind. */
@@ -267,10 +144,10 @@ export interface DimensionDialogFields {
  * the same reason Create Array does not offer numbering: a control that quietly
  * does nothing is worse than its absence.
  */
-export function dimensionDialogFields(kind: DimensionKind): DimensionDialogFields {
-  const aligned = kind === 'aligned' || kind === 'orthogonal';
-  const centre = kind === 'center';
-  const leader = kind === 'leader';
+export function dimensionDialogFields(aType: KICAD_T): DimensionDialogFields {
+  const aligned = aType === KICAD_T.PCB_DIM_ALIGNED_T || aType === KICAD_T.PCB_DIM_ORTHOGONAL_T;
+  const centre = aType === KICAD_T.PCB_DIM_CENTER_T;
+  const leader = aType === KICAD_T.PCB_DIM_LEADER_T;
   return {
     format: !centre && !leader,
     text: !centre,
@@ -303,6 +180,11 @@ export class DIALOG_DIMENSION_PROPERTIES {
   constructor(aFrame: PCB_BASE_EDIT_FRAME, aDimension: PCB_DIMENSION_BASE) {
     this.m_frame = aFrame;
     this.m_dimension = aDimension;
+  }
+
+  /** `m_dimension->Type()`, which decides the dialog's controls (the constructor). */
+  GetDimensionType(): KICAD_T {
+    return this.m_dimension.Type();
   }
 
   TransferDataToWindow(): DimensionValues {

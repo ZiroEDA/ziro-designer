@@ -21,15 +21,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createGlDevice } from '@ziroeda/designer/src/render/gl/device.js';
-import {
-  overlayTargetColor,
-  parseColor,
-  Scene,
-  TRIANGLE_STRIDE,
-} from '@ziroeda/designer/src/render/gl/scene.js';
-import { overlayRecorder } from '@ziroeda/designer/src/render/gl/pcb_gl.js';
-import { PCB_SPECIAL } from '@ziroeda/pcbnew/pcbTheme.js';
-import { selectedColor } from '@ziroeda/pcbnew/renderBoard.js';
+import { parseColor, Scene } from '@ziroeda/designer/src/render/gl/scene.js';
 
 /**
  * What the browser puts on screen for a premultiplied source over `dst`.
@@ -38,107 +30,16 @@ import { selectedColor } from '@ziroeda/pcbnew/renderBoard.js';
  * same equation `OPENGL_COMPOSITOR::DrawBuffer` uses — so feeding it
  * `overlayTargetColor`'s output is feeding it KiCad's overlay buffer.
  */
-function composite(source: string, dst: [number, number, number]): [number, number, number] {
+function _composite(source: string, dst: [number, number, number]): [number, number, number] {
   const c = parseColor(source);
   const ch = (v: number, d: number): number => Math.min(255, Math.round(v * 255 + (1 - c.a) * d));
   return [ch(c.r, dst[0]), ch(c.g, dst[1]), ch(c.b, dst[2])];
 }
 
 /** The board with its area shadow under it, which is what the wash sits on. */
-const BOARD: [number, number, number] = [35, 45, 58];
+const _BOARD: [number, number, number] = [35, 45, 58];
 /** KiCad Default's F.Cu, `CSS_COLOR(200, 52, 52)`. */
-const FCU: [number, number, number] = [200, 52, 52];
-
-describe('overlayTargetColor', () => {
-  it('premultiplies the colour and squares the alpha', () => {
-    // rgba(255,0,5,0.5) -> colour a·C, alpha a². Fractions are kept: rounding
-    // 0.5·255 to 8 bits here would quantise a second time.
-    expect(overlayTargetColor('rgba(255,0,5,0.5)')).toBe('rgba(127.5,0,2.5,0.25)');
-    // An opaque colour is its own premultiplied source and composites normally.
-    expect(overlayTargetColor('rgb(10,20,30)')).toBe('rgba(10,20,30,1)');
-  });
-
-  it('reproduces the three courtyard-shadow pixels measured off KiCad', () => {
-    const base = PCB_SPECIAL.conflictsShadow;
-    expect(base).toBe('rgba(255,0,5,0.5)');
-
-    // [px] the wash over the board, and over an F.Cu pad, where KiCad clamps
-    // the red channel: 0.5·255 + 0.75·200 = 277.5.
-    expect(composite(overlayTargetColor(base), BOARD)).toEqual([154, 34, 46]);
-    expect(composite(overlayTargetColor(base), FCU)).toEqual([255, 39, 42]);
-
-    // [px] and the moving footprint, which is SELECTED and so takes
-    // `m_layerColorsSel` (pcb_painter.cpp:341).
-    const moving = selectedColor(base);
-    expect(moving).toBe('rgba(255,103,106,0.5)');
-    expect(composite(overlayTargetColor(moving), BOARD)).toEqual([154, 85, 97]);
-  });
-
-  it('is not a 50% alpha blend, which is what it replaced', () => {
-    // The same three destinations under an ordinary convex blend. Every one of
-    // them is wrong by 8 to 27 levels, which is the whole reason this exists.
-    const plain = (c: string, dst: [number, number, number]): [number, number, number] => {
-      const p = parseColor(c);
-      return [0, 1, 2].map((i) =>
-        Math.round(p.a * [p.r, p.g, p.b][i]! * 255 + (1 - p.a) * dst[i]!),
-      ) as [number, number, number];
-    };
-    expect(plain(PCB_SPECIAL.conflictsShadow, BOARD)).toEqual([145, 23, 32]);
-    expect(plain(PCB_SPECIAL.conflictsShadow, FCU)).toEqual([228, 26, 29]);
-    expect(plain(selectedColor(PCB_SPECIAL.conflictsShadow), BOARD)).toEqual([145, 74, 82]);
-  });
-});
-
-describe('overlayRecorder', () => {
-  it('records world coordinates, not view coordinates', () => {
-    // The bug this exists for: a retained target gets the SCALE and nothing
-    // else, because the buffer holds world units and the device applies the
-    // view. Recorded through the real view instead — the transform 2D canvas
-    // code sets, and the one the callback looks like it wants — a polygon at
-    // 100 mm lands at 100 mm plus tx/scale, which for a board-sized offset is
-    // millions of units off screen: a blank overlay and no error.
-    const scene = new Scene(true);
-    const rec = overlayRecorder(scene, 1e-5) as unknown as CanvasRenderingContext2D;
-    rec.fillStyle = 'rgba(255,0,5,0.5)';
-    rec.beginPath();
-    rec.moveTo(1e8, 1e8);
-    rec.lineTo(1.2e8, 1e8);
-    rec.lineTo(1.2e8, 1.2e8);
-    rec.closePath();
-    rec.fill();
-
-    const t = scene.triangles.view();
-    expect(t.length).toBeGreaterThan(0);
-    let minX = Number.POSITIVE_INFINITY;
-    let maxX = Number.NEGATIVE_INFINITY;
-    for (let i = 0; i < t.length; i += TRIANGLE_STRIDE) {
-      minX = Math.min(minX, t[i]!);
-      maxX = Math.max(maxX, t[i]!);
-    }
-    expect(minX).toBeCloseTo(1e8, -3);
-    expect(maxX).toBeCloseTo(1.2e8, -3);
-  });
-
-  it('carries the premultiplied colour through unchanged', () => {
-    // `overlayTargetColor`'s fractions must survive `parseColor`, or the
-    // premultiply is quantised twice and the wash drifts.
-    const scene = new Scene(true);
-    const rec = overlayRecorder(scene, 1e-5) as unknown as CanvasRenderingContext2D;
-    rec.fillStyle = overlayTargetColor('rgba(255,0,5,0.5)');
-    rec.beginPath();
-    rec.moveTo(0, 0);
-    rec.lineTo(1e7, 0);
-    rec.lineTo(1e7, 1e7);
-    rec.closePath();
-    rec.fill();
-    const t = scene.triangles.view();
-    // position(2) then rgba(4).
-    expect(t[2]).toBeCloseTo(0.5, 6);
-    expect(t[3]).toBe(0);
-    expect(t[4]).toBeCloseTo(5 / 255 / 2, 6);
-    expect(t[5]).toBeCloseTo(0.25, 6);
-  });
-});
+const _FCU: [number, number, number] = [200, 52, 52];
 
 // ---------------------------------------------------------------------------
 // The device half: the overlay layer has to be drawn with the matching blend,

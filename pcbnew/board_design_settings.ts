@@ -12,13 +12,13 @@
  */
 
 import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
-import { PCB_IU_PER_MM, pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import {
   DIM_PRECISION,
   DIM_TEXT_POSITION,
   DIM_UNITS_FORMAT,
   DIM_UNITS_MODE,
-} from './pcb_dimension_types.js';
+} from './pcb_dimension.js';
 import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { VIATYPE } from './pcb_track_types.js';
@@ -31,7 +31,6 @@ import {
   SeverityToString,
 } from '@ziroeda/common/reporter.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc/drc_item.js';
-import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { ARC_HIGH_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { NET_SETTINGS } from '@ziroeda/common/project/net_settings.js';
 import {
@@ -70,7 +69,6 @@ import {
   MeanderStyle,
 } from './router/pns_meander.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import type { Board } from './types.js';
 import { TEARDROP_PARAMETERS_LIST } from './teardrop/teardrop_parameters.js';
 import { ZONE_SETTINGS, type ZONE_LAYER_PROPERTIES } from './zone_settings.js';
 import { BOARD_STACKUP } from './board_stackup_manager/board_stackup.js';
@@ -2375,21 +2373,4 @@ export class BOARD_DESIGN_SETTINGS extends NESTED_SETTINGS {
 
     return true;
   }
-}
-
-/**
- * `GetAuxOrigin()` of a Board view's design settings: the drill/place file
- * origin (`(setup (aux_axis_origin x y))`) that "Use drill/place file origin"
- * plots against.
- */
-export function boardAuxOrigin(board: Board): VECTOR2I {
-  return board.auxOrigin ?? board.k?.GetDesignSettings().GetAuxOrigin() ?? { x: 0, y: 0 };
-}
-
-/**
- * `GetGridOrigin()` of a Board view's design settings (`(setup (grid_origin x y))`),
- * what Position Relative offers as its "Use Grid Origin" reference.
- */
-export function boardGridOrigin(board: Board): VECTOR2I {
-  return board.gridOrigin ?? board.k?.GetDesignSettings().GetGridOrigin() ?? { x: 0, y: 0 };
 }

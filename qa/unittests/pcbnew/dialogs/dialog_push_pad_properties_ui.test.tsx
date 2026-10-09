@@ -43,6 +43,8 @@ const frame = (aType = FRAME_T.FRAME_PCB_EDITOR): TEST_PCB_FRAME => {
   const f = new TEST_PCB_FRAME(ParseBoard(BOARD), aType);
   f.SetScreen(new PCB_SCREEN({ x: 297e6, y: 210e6 }));
   f.SetCanvas({
+    // `GetViewControls()->GetCursorPosition()`, which UpdateStatusBar reads.
+    GetViewControls: () => ({ GetCursorPosition: () => ({ x: 0, y: 0 }) }),
     GetView: () => new Proxy({} as Record<string, unknown>, { get: () => () => null }),
     ForceRefresh: () => {},
     Refresh: () => {},

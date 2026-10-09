@@ -16,20 +16,23 @@ import {
   FootprintViewerFrame,
   type FOOTPRINT_VIEWER_FRAME_APP,
 } from '@ziroeda/pcbnew/footprint_viewer_frame_ui.js';
-import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
+import { loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { settings } from '../../prefs/settings.js';
 import { HomeLink } from '../../ui/HomeLink.js';
-import { footprintsBase } from '../footprint/footprint_edit_frame_app.js';
+import { FP_LIBRARY_IO, footprintsBase } from './footprint_lib_adapter_app.js';
 import { Viewer3DFrame } from './Viewer3DFrame.js';
 import { installPgm } from './pcb_canvas.js';
+import { commonSettingsOf } from '../../pgm_app.js';
 
 /** Builds the browser's `FOOTPRINT_VIEWER_FRAME_APP`; one object per mount. */
 export function useFootprintViewerFrameApp(): FOOTPRINT_VIEWER_FRAME_APP {
   return useMemo<FOOTPRINT_VIEWER_FRAME_APP>(
     () => ({
       loadFootprintIndex,
-      loadFootprint,
+      libraryIo: FP_LIBRARY_IO,
+      installPgm,
+      commonSettingsOf,
       // `LIBRARY_MANAGER::GetFullURI`, expanded: where the hosted `.pretty` lives.
       libraryUri: (nickname) => `${footprintsBase()}/${nickname}.pretty`,
       pinnedFootprintLibs: () => settings.common.system.session.pinned_fp_libs,
@@ -49,7 +52,7 @@ export function useFootprintViewerFrameApp(): FOOTPRINT_VIEWER_FRAME_APP {
       LibraryLoadingPanel: ({ label, fallback }) => (
         <LibraryLoadingPanel kind="footprints" fallback={fallback} label={label} />
       ),
-      Viewer3DFrame: (props) => <Viewer3DFrame {...props} />,
+      Viewer3DFrame: (props) => <Viewer3DFrame {...props} board={{ k: props.board }} />,
     }),
     [],
   );

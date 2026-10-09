@@ -20,27 +20,29 @@
  * (`default: break`). A footprint's field (its reference text) counts as
  * the footprint for the click but says nothing on hover — left out.
  */
-import type { Board } from '@ziroeda/pcbnew';
 import { ARC_HIGH_DEF } from '@ziroeda/common/eda_units.js';
-import { escapeIpc } from '@ziroeda/common/string_utils.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { escapeIpc, unescapeString } from '@ziroeda/common/string_utils.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { chainPointInside } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { padIsOnLayer } from '@ziroeda/pcbnew/dialogs/dialog_enum_pads.js';
-import {
-  ErrorLoc,
-  arcTrackTransformShapeToPolygon,
-  padTransformHoleToPolygon,
-  padTransformShapeToPolygon,
-} from '@ziroeda/pcbnew/transform_shape_to_polygon.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { BOARD_CONNECTED_ITEM } from '@ziroeda/pcbnew/board_connected_item.js';
+import type { PAD } from '@ziroeda/pcbnew/pad.js';
+import type { PCB_ARC, PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
+import type { ZONE } from '@ziroeda/pcbnew/zone.js';
 import type { Vec3 } from './camera3d.js';
 
 export type PickedItem =
+  /** By index into `Footprints()`, which is how the model meshes are keyed. */
   | { kind: 'footprint'; footprint: number }
-  | { kind: 'pad'; footprint: number; pad: number }
-  | { kind: 'track'; track: number }
-  | { kind: 'arc'; arc: number }
-  | { kind: 'via'; via: number }
-  | { kind: 'zone'; zone: number; layer: string };
+  | { kind: 'pad'; footprint: number; pad: PAD }
+  | { kind: 'track'; track: PCB_TRACK }
+  | { kind: 'arc'; arc: PCB_ARC }
+  | { kind: 'via'; via: PCB_VIA }
+  | { kind: 'zone'; zone: ZONE; layer: string };
 
 export interface PickFrame {
   /** `BiuTo3dUnits()`. */
@@ -80,60 +82,82 @@ function segDistance(p: Vec2, a: Vec2, b: Vec2): number {
 }
 
 /** The copper item under a board point on one outer layer, or null. */
-export function boardItemAt(board: Board, pt: Vec2, layer: 'F.Cu' | 'B.Cu'): PickedItem | null {
+export function boardItemAt(aBoard: BOARD, pt: Vec2, layer: 'F.Cu' | 'B.Cu'): PickedItem | null {
+  const layerId = layer === 'F.Cu' ? PCB_LAYER_ID.F_Cu : PCB_LAYER_ID.B_Cu;
+  const inside = (aFill: (aSet: SHAPE_POLY_SET) => unknown): boolean => {
+    const set = new SHAPE_POLY_SET();
+    aFill(set);
+    return set.Contains(pt);
+  };
+
   // Pads first: they sit on top of the layer's other items (drawn last, and
   // the BVH's nearest hit is the pad's top face).
-  for (let fi = 0; fi < board.footprints.length; fi++) {
-    const fp = board.footprints[fi]!;
-    for (let pi = 0; pi < fp.pads.length; pi++) {
-      const pad = fp.pads[pi]!;
-      if (!padIsOnLayer(pad, layer)) continue;
-      const shape = padTransformShapeToPolygon(pad, 0, ARC_HIGH_DEF, ErrorLoc.ERROR_INSIDE);
-      if (!shape.some((poly) => poly[0] && chainPointInside(poly[0], pt))) continue;
+  const footprints = aBoard.Footprints();
+
+  for (let fi = 0; fi < footprints.length; fi++) {
+    for (const pad of footprints[fi]!.Pads()) {
+      if (!pad.IsOnLayer(layerId)) continue;
+
+      if (
+        !inside((set) =>
+          pad.TransformShapeToPolygon(set, layerId, 0, ARC_HIGH_DEF, ERROR_LOC.ERROR_INSIDE),
+        )
+      )
+        continue;
+
       // through the drill there is nothing to hit
-      const hole = padTransformHoleToPolygon(pad, 0, ARC_HIGH_DEF, ErrorLoc.ERROR_INSIDE);
-      if (hole.some((poly) => poly[0] && chainPointInside(poly[0], pt))) return null;
-      return { kind: 'pad', footprint: fi, pad: pi };
+      if (inside((set) => pad.TransformHoleToPolygon(set, 0, ARC_HIGH_DEF, ERROR_LOC.ERROR_INSIDE)))
+        return null;
+
+      return { kind: 'pad', footprint: fi, pad };
     }
   }
-  for (let i = 0; i < board.vias.length; i++) {
-    const v = board.vias[i]!;
-    const on = v.kind === 'through' || v.layers[0] === layer || v.layers[1] === layer;
-    if (!on) continue;
-    const d = Math.hypot(pt.x - v.at.x, pt.y - v.at.y);
-    if (d < v.drill / 2) return null;
-    if (d <= v.size / 2) return { kind: 'via', via: i };
+
+  const tracks = aBoard.Tracks();
+
+  for (const t of tracks) {
+    if (t.Type() !== KICAD_T.PCB_VIA_T) continue;
+
+    const v = t as PCB_VIA;
+
+    if (!v.IsOnLayer(layerId)) continue;
+
+    const d = Math.hypot(pt.x - v.GetStart().x, pt.y - v.GetStart().y);
+
+    if (d < v.GetDrillValue() / 2) return null;
+
+    if (d <= v.GetWidth(layerId) / 2) return { kind: 'via', via: v };
   }
-  for (let i = 0; i < board.tracks.length; i++) {
-    const t = board.tracks[i]!;
-    if (t.layer !== layer) continue;
-    if (segDistance(pt, t.start, t.end) <= t.width / 2) return { kind: 'track', track: i };
+
+  for (const t of tracks) {
+    if (t.Type() !== KICAD_T.PCB_TRACE_T || t.GetLayer() !== layerId) continue;
+
+    if (segDistance(pt, t.GetStart(), t.GetEnd()) <= t.GetWidth() / 2)
+      return { kind: 'track', track: t };
   }
-  for (let i = 0; i < board.arcs.length; i++) {
-    const a = board.arcs[i]!;
-    if (a.layer !== layer) continue;
-    const polys = arcTrackTransformShapeToPolygon(a, 0, ARC_HIGH_DEF, ErrorLoc.ERROR_INSIDE);
-    if (polys.some((poly) => poly[0] && chainPointInside(poly[0], pt)))
-      return { kind: 'arc', arc: i };
+
+  for (const t of tracks) {
+    if (t.Type() !== KICAD_T.PCB_ARC_T || t.GetLayer() !== layerId) continue;
+
+    if (
+      inside((set) =>
+        t.TransformShapeToPolygon(set, layerId, 0, ARC_HIGH_DEF, ERROR_LOC.ERROR_INSIDE),
+      )
+    )
+      return { kind: 'arc', arc: t as PCB_ARC };
   }
-  for (let zi = 0; zi < board.zones.length; zi++) {
-    const z = board.zones[zi]!;
-    for (const f of z.fills) {
-      if (f.layer !== layer) continue;
-      if (f.polys.some((ring) => chainPointInside(ring, pt)))
-        return { kind: 'zone', zone: zi, layer };
-    }
+
+  for (const z of aBoard.Zones()) {
+    if (!z.IsOnLayer(layerId)) continue;
+
+    if (z.GetFilledPolysList(layerId).Contains(pt)) return { kind: 'zone', zone: z, layer };
   }
+
   return null;
 }
 
-/**
- * The nearest of: a model hit the caller already found (`modelHit`, with its
- * ray parameter and footprint index), and the copper item under the ray on
- * whichever outer face it reaches first.
- */
 export function pickBoardItem(
-  board: Board,
+  board: BOARD,
   frame: PickFrame,
   origin: Vec3,
   dir: Vec3,
@@ -164,58 +188,62 @@ export function pickBoardItem(
   return modelHit ? { kind: 'footprint', footprint: modelHit.footprint } : null;
 }
 
-/** `printNetInfo`: `_( "Net %s\tNet class %s" )`. */
-const netInfo = (board: Board, net: number, netClassOf: (net: number) => string): string =>
-  `Net ${board.nets.get(net) ?? ''}\tNet class ${netClassOf(net)}`;
-
 /**
- * The HOVERED_ITEM text for a hit (eda_3d_canvas.cpp:1010-1067). Empty for
- * an item with no message, and for none.
+ * `printNetInfo` (eda_3d_canvas.cpp:992-997): `_( "Net %s\tNet class %s" )`
+ * over `aItem->GetNet()->GetNetname()` and the net's own
+ * `GetNetClass()->GetHumanReadableName()`.
  */
-export function hoveredItemMessage(
-  board: Board,
-  item: PickedItem | null,
-  netClassOf: (net: number) => string,
-): string {
+const netInfo = (aItem: BOARD_CONNECTED_ITEM): string =>
+  `Net ${unescapeString(aItem.GetNetname())}\tNet class ${aItem.GetNet()?.GetNetClass().GetHumanReadableName() ?? ''}`;
+
+export function hoveredItemMessage(aBoard: BOARD, item: PickedItem | null): string {
   if (!item) return '';
+
   switch (item.kind) {
     case 'pad': {
-      const fp = board.footprints[item.footprint]!;
-      const pad = fp.pads[item.pad]!;
+      const pad = item.pad;
       let msg = '';
-      if (pad.number) msg += `Pad ${pad.number}\t`;
-      // `IsOnCopperLayer()`
-      if (pad.layers.some((l) => /\.Cu$/.test(l))) msg += netInfo(board, pad.net ?? 0, netClassOf);
+
+      if (pad.GetNumber()) msg += `Pad ${pad.GetNumber()}\t`;
+
+      if (pad.IsOnCopperLayer()) msg += netInfo(pad);
+
       return msg;
     }
+
     case 'footprint': {
-      const fp = board.footprints[item.footprint]!;
-      return `${fp.reference ?? ''}  ${fp.value ?? ''}`;
+      const fp = aBoard.Footprints()[item.footprint]!;
+      return `${fp.GetReference()}  ${fp.GetValue()}`;
     }
+
     case 'track':
-      return netInfo(board, board.tracks[item.track]!.net, netClassOf);
+      return netInfo(item.track);
+
     case 'arc':
-      return netInfo(board, board.arcs[item.arc]!.net, netClassOf);
+      return netInfo(item.arc);
+
     case 'via':
-      return netInfo(board, board.vias[item.via]!.net, netClassOf);
+      return netInfo(item.via);
+
     case 'zone': {
-      const z = board.zones[item.zone]!;
+      const z = item.zone;
       let msg = '';
-      if (z.name) msg += z.ruleArea ? `Rule area ${z.name}\t` : `Zone ${z.name}\t`;
-      if (/\.Cu$/.test(item.layer)) msg += netInfo(board, z.net, netClassOf);
+
+      if (z.GetZoneName())
+        msg += z.GetIsRuleArea() ? `Rule area ${z.GetZoneName()}\t` : `Zone ${z.GetZoneName()}\t`;
+
+      if (/\.Cu$/.test(item.layer)) msg += netInfo(z);
+
       return msg;
     }
   }
 }
 
-/**
- * `OnLeftUp`'s cross-probe: the `$SELECT: 0,F<ref>` parts for a click — the
- * footprint of a footprint/pad hit, nothing for anything else (which clears
- * the selection: an empty `$SELECT` is "select nothing").
- */
-export function clickSelectionParts(board: Board, item: PickedItem | null): string[] {
+export function clickSelectionParts(aBoard: BOARD, item: PickedItem | null): string[] {
   if (!item) return [];
+
   if (item.kind !== 'footprint' && item.kind !== 'pad') return [];
-  const fp = board.footprints[item.footprint]!;
-  return [`F${escapeIpc(fp.reference ?? '')}`];
+
+  const fp = aBoard.Footprints()[item.footprint]!;
+  return [`F${escapeIpc(fp.GetReference())}`];
 }

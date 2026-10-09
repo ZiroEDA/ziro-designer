@@ -29,19 +29,66 @@ import { useState, type JSX } from 'react';
 // the measurement that settled that.
 import warningIcon from '@ziroeda/bitmaps_png/sources/theme/dialog-warning.png';
 import { Check, Group, Num } from '@ziroeda/common/wx/controls.js';
-import type { MaskPaste } from '../board_settings.js';
 import { pcbIUScale, pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { MARGIN_OFFSET_BINDER } from '@ziroeda/common/widgets/margin_offset_binder.js';
+import type { BOARD } from '../board.js';
+
+export interface MaskPaste {
+  maskExpansionMM: number;
+  maskMinWebMM: number;
+  maskToCopperMM: number;
+  allowBridged: boolean;
+  tentFront: boolean;
+  tentBack: boolean;
+  pasteClearanceMM: number;
+  pasteRelativePct: number;
+}
+
+/** PANEL_SETUP_MASK_AND_PASTE's transfers (panel_setup_mask_and_paste.cpp). */
+export const PANEL_SETUP_MASK_AND_PASTE = {
+  TransferDataToWindow(aBoard: BOARD): MaskPaste {
+    const bds = aBoard.GetDesignSettings();
+    const mm = (iu: number): number => pcbIUScale.iuToMM(iu);
+    return {
+      maskExpansionMM: mm(bds.m_SolderMaskExpansion),
+      maskMinWebMM: mm(bds.m_SolderMaskMinWidth),
+      maskToCopperMM: mm(bds.m_SolderMaskToCopperClearance),
+      tentFront: bds.m_TentViasFront,
+      tentBack: bds.m_TentViasBack,
+      pasteClearanceMM: mm(bds.m_SolderPasteMargin),
+      pasteRelativePct: bds.m_SolderPasteMarginRatio * 100,
+      allowBridged: bds.m_AllowSoldermaskBridgesInFPs,
+    };
+  },
+
+  /** True when a board-side value changed (the panel's `m_Frame->OnModify()`). */
+  TransferDataFromWindow(mp: MaskPaste, aBoard: BOARD): boolean {
+    const bds = aBoard.GetDesignSettings();
+    const iu = (mm: number): number => pcbIUScale.mmToIU(mm);
+    const next = {
+      m_SolderMaskExpansion: iu(mp.maskExpansionMM),
+      m_SolderMaskMinWidth: iu(mp.maskMinWebMM),
+      m_SolderMaskToCopperClearance: iu(mp.maskToCopperMM),
+      m_TentViasFront: mp.tentFront,
+      m_TentViasBack: mp.tentBack,
+      m_SolderPasteMargin: iu(mp.pasteClearanceMM),
+      m_SolderPasteMarginRatio: mp.pasteRelativePct / 100,
+      m_AllowSoldermaskBridgesInFPs: mp.allowBridged,
+    };
+    let modified = false;
+    for (const [k, val] of Object.entries(next) as [keyof typeof next, number | boolean][]) {
+      if ((bds as unknown as Record<string, unknown>)[k] !== val) modified = true;
+      (bds as unknown as Record<string, unknown>)[k] = val;
+    }
+    return modified;
+  },
+};
 
 /** `m_pasteMarginLabel->SetToolTip( … )` (panel_setup_mask_and_paste.cpp:47-51). */
 const PASTE_MARGIN_TOOLTIP =
   'Solder paste clearance relative to pad size.\n' +
   'Enter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\n' +
   'This value can be superseded by local values for a footprint or a pad.';
-
-// The data model lives in board_settings.ts (KiCad's data/UI split);
-// re-exported so panel users keep importing from the panel module.
-export { defaultMaskPaste, type MaskPaste } from '../board_settings.js';
 
 interface Props {
   value: MaskPaste;

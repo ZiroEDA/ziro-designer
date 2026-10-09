@@ -16,6 +16,11 @@ import type { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import { ORIGIN_VIEWITEM } from '@ziroeda/common/origin_viewitem.js';
+import { BOARD_EDITOR_CONTROL_GenD356File } from '../exporters/export_d356.js';
+import { RecreateCmpFile } from '../exporters/export_footprint_associations.js';
+import { BOARD_EDITOR_CONTROL_ExportGenCAD } from '../exporters/export_gencad.js';
+import { footprintAssignmentFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
+import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
@@ -338,8 +343,8 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
       if (!this.getModel()) return;
 
       this.m_placeOrigin.SetPosition(this.board().GetDesignSettings().GetAuxOrigin());
-      // getView()->Remove / Add( m_placeOrigin ): TRANSITIONAL, the board
-      // canvas draws the marker itself (see ORIGIN_VIEWITEM).
+      this.getView()?.Remove(this.m_placeOrigin);
+      this.getView()?.Add(this.m_placeOrigin);
     }
   }
 
@@ -454,6 +459,51 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     if (this.m_toolMgr) this.m_toolMgr.RunAction(PCB_ACTIONS.angleSnapModeChanged);
 
     return true;
+  }
+
+  /** `Find` (board_editor_control.cpp:577-581). */
+  Find(_aEvent: TOOL_EVENT): number {
+    (this.m_frame as unknown as PCB_EDIT_FRAME).ShowFindDialog();
+    return 0;
+  }
+
+  /** `FindNext` (board_editor_control.cpp:584-588). */
+  FindNext(aEvent: TOOL_EVENT): number {
+    (this.m_frame as unknown as PCB_EDIT_FRAME).FindNext(aEvent.IsAction(ACTIONS.findPrevious));
+    return 0;
+  }
+
+  /** `CrossProbeToSch` (board_editor_control.cpp:2083-2087). */
+  CrossProbeToSch(aEvent: TOOL_EVENT): number {
+    this.doCrossProbePcbToSch(aEvent, false);
+    return 0;
+  }
+
+  /** `ExplicitCrossProbeToSch` (board_editor_control.cpp:2090-2094). */
+  ExplicitCrossProbeToSch(aEvent: TOOL_EVENT): number {
+    this.doCrossProbePcbToSch(aEvent, true);
+    return 0;
+  }
+
+  /** `doCrossProbePcbToSch` (board_editor_control.cpp:2097-2114). */
+  private doCrossProbePcbToSch(aEvent: TOOL_EVENT, aForce: boolean): void {
+    const editFrame = this.m_frame as unknown as PCB_EDIT_FRAME;
+
+    // Don't get in an infinite loop PCB -> SCH -> PCB -> SCH -> ...
+    if (editFrame.m_ProbingSchToPcb) return;
+
+    const selTool = this.m_toolMgr!.FindTool(
+      'common.InteractiveSelection',
+    ) as unknown as PCB_SELECTION_TOOL;
+    const selection = selTool.GetSelection();
+    let focusItem: EDA_ITEM | null = null;
+
+    if (aEvent.Matches(EVENTS.PointSelectedEvent)) focusItem = selection.GetLastAddedItem();
+
+    editFrame.SendSelectItemsToSch(selection.GetItems(), focusItem, aForce);
+
+    // Update 3D viewer highlighting
+    editFrame.Update3DView(false, editFrame.GetPcbNewSettings().m_Display.m_Live3DRefresh);
   }
 
   /** `AssignNetclass` (board_editor_control.cpp:2117-2190). */
@@ -895,6 +945,64 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /** `GenerateDrillFiles` (dialog_gendrill.cpp:60-67). */
+  GenerateDrillFiles(_aEvent: TOOL_EVENT): number {
+    void this.getEditFrame<PCB_EDIT_FRAME>().ShowGenDrillDialog();
+    return 0;
+  }
+
+  /** `GeneratePosFile` (dialog_gen_footprint_position.cpp:537-542). */
+  GeneratePosFile(_aEvent: TOOL_EVENT): number {
+    void this.getEditFrame<PCB_EDIT_FRAME>().ShowGenFootprintPositionDialog();
+    return 0;
+  }
+
+  /** `GenD356File` (export_d356.cpp:437): the dialog is modal, the handler returns at once. */
+  GenD356File(_aEvent: TOOL_EVENT): number {
+    void BOARD_EDITOR_CONTROL_GenD356File(this.getEditFrame<PCB_EDIT_FRAME>());
+    return 0;
+  }
+
+  /** `ExportGenCAD` (export_gencad.cpp:36): the dialog is modal, the handler returns at once. */
+  ExportGenCAD(_aEvent: TOOL_EVENT): number {
+    void BOARD_EDITOR_CONTROL_ExportGenCAD(this.getEditFrame<PCB_EDIT_FRAME>());
+    return 0;
+  }
+
+  /**
+   * `ExportCmpFile` (board_editor_control.cpp): the .cmp file name from the
+   * board's, the save dialog, then RecreateCmpFile.
+   */
+  ExportCmpFile(_aEvent: TOOL_EVENT): number {
+    void this.exportCmpFile();
+    return 0;
+  }
+
+  private async exportCmpFile(): Promise<void> {
+    const frame = this.getEditFrame<PCB_EDIT_FRAME>();
+
+    // Build the .cmp file name from the board name
+    const board = frame.GetBoard()!;
+    const fullName = board.GetFileName().split(/[\\/]/).pop() ?? '';
+    const dot = fullName.lastIndexOf('.');
+    const fn = `${dot > 0 ? fullName.slice(0, dot) : fullName}.cmp`;
+
+    const dlg = await frame.ShowSaveFileDialog(
+      'Save Footprint Association File',
+      fn,
+      footprintAssignmentFileWildcard(),
+      null,
+    );
+
+    if (!dlg) return;
+
+    const path = dlg.path;
+
+    // DisplayError: the same error box as DisplayErrorMessage, without extra info.
+    if (!frame.WriteTextFile(path, RecreateCmpFile(board)))
+      DisplayErrorMessage(`Failed to create file '${path}'.`);
+  }
+
   protected override setTransitions(): void {
     const drill = SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.DrillOrigin);
     this.Go(drill, PCB_ACTIONS.drillOrigin.MakeEvent());
@@ -910,6 +1018,39 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
       PCB_ACTIONS.unlock.MakeEvent(),
     );
     this.Go(this.PageSettings, ACTIONS.pageSettings.MakeEvent());
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenerateDrillFiles),
+      PCB_ACTIONS.generateDrillFiles.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GeneratePosFile),
+      PCB_ACTIONS.generatePosFile.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenD356File),
+      PCB_ACTIONS.generateD356File.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ExportGenCAD),
+      PCB_ACTIONS.exportGenCAD.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ExportCmpFile),
+      PCB_ACTIONS.exportCmpFile.MakeEvent(),
+    );
+
+    this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.Find), ACTIONS.find.MakeEvent());
+    this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.FindNext), ACTIONS.findNext.MakeEvent());
+    this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.FindNext), ACTIONS.findPrevious.MakeEvent());
+
+    this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.CrossProbeToSch), EVENTS.PointSelectedEvent);
+    this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.CrossProbeToSch), EVENTS.SelectedEvent);
+    this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.CrossProbeToSch), EVENTS.UnselectedEvent);
+    this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.CrossProbeToSch), EVENTS.ClearedEvent);
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ExplicitCrossProbeToSch),
+      PCB_ACTIONS.selectOnSchematic.MakeEvent(),
+    );
 
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.AssignNetclass),

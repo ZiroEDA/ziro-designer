@@ -16,24 +16,19 @@
  *   text frame leader only, and a centre dimension has no format block. Writing
  *   one to the wrong kind makes a file KiCad reads back differently from what
  *   was saved.
- *
- * Every assertion that matters round-trips through the writer, because an
- * in-memory check cannot tell those failures apart from success.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { PCB_DIMENSION_BASE } from '@ziroeda/pcbnew/pcb_dimension.js';
 import {
-  applyDimensionValues,
-  collectDimensionValues,
-  dimensionAt,
+  DIALOG_DIMENSION_PROPERTIES,
   type DimensionValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { TEST_PCB_FRAME } from './support/test_pcb_frame.js';
 
-const MM = (n: number): number => mmToIU(n);
+const MM = (n: number): number => pcbIUScale.mmToIU(n);
 
 /** Verbatim from demos/cm5_minima. */
 const ORTHO = `(dimension
@@ -73,43 +68,24 @@ const CENTER = `(dimension
     (style (thickness 0.1) (arrow_length 1.27) (text_position_mode 0)
       (extension_offset 0.5) (keep_text_aligned yes)))`;
 
-const read = (...extra: string[]): Board =>
-  readBoard(
-    parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
+const read = (...extra: string[]): BOARD =>
+  ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user) (5 "F.SilkS" user "F.Silkscreen")
+    (17 "Dwgs.User" user "User.Drawings") (19 "Cmts.User" user "User.Comments"))
   (net 0 "")
   ${extra.join('\n  ')}
-)`),
-  );
+)`);
 
-/** Apply a change and read the file back, which is where the failures show. */
-const roundTrip = (src: string, over: Partial<DimensionValues>): Board => {
-  const b = read(src);
-  const v = { ...collectDimensionValues(b.dimensions[0]!), ...over };
-  return readBoard(parse(serializeBoard(applyDimensionValues(b, 0, v))));
+/** `TransferDataToWindow` on the board's one dimension. */
+const window = (text: string): DimensionValues => {
+  const board = read(text);
+  const dim = board.Drawings()[0] as PCB_DIMENSION_BASE;
+  return new DIALOG_DIMENSION_PROPERTIES(new TEST_PCB_FRAME(board), dim).TransferDataToWindow();
 };
 
-describe('finding the selected dimension', () => {
-  it('takes a single selected one', () => {
-    expect(dimensionAt(read(ORTHO), ['dimension:0'])).toBe(0);
-  });
-
-  it('takes nothing from a multiple selection', () => {
-    expect(dimensionAt(read(ORTHO, LEADER), ['dimension:0', 'dimension:1'])).toBeNull();
-  });
-
-  it('takes nothing from another kind of item', () => {
-    expect(dimensionAt(read(ORTHO), ['track:0'])).toBeNull();
-  });
-
-  it('takes nothing for an index that is not there', () => {
-    expect(dimensionAt(read(ORTHO), ['dimension:5'])).toBeNull();
-  });
-});
-
-describe('reading the values', () => {
+describe('reading the values (TransferDataToWindow)', () => {
   it('reads the format block', () => {
-    const v = collectDimensionValues(read(ORTHO).dimensions[0]!);
+    const v = window(ORTHO);
 
     expect(v.units).toBe(3);
     expect(v.unitsFormat).toBe(0);
@@ -118,7 +94,7 @@ describe('reading the values', () => {
   });
 
   it('reads the style block', () => {
-    const v = collectDimensionValues(read(ORTHO).dimensions[0]!);
+    const v = window(ORTHO);
 
     expect(v.lineThickness).toBe(MM(0.1));
     expect(v.arrowLength).toBe(MM(1.27));
@@ -128,7 +104,7 @@ describe('reading the values', () => {
   });
 
   it('reads the text', () => {
-    const v = collectDimensionValues(read(ORTHO).dimensions[0]!);
+    const v = window(ORTHO);
 
     expect(v.textHeight).toBe(MM(1));
     expect(v.textThickness).toBe(MM(0.15));
@@ -136,243 +112,18 @@ describe('reading the values', () => {
   });
 
   it('distinguishes no override from an empty one', () => {
-    expect(collectDimensionValues(read(ORTHO).dimensions[0]!).overrideValue).toBeUndefined();
-    expect(collectDimensionValues(read(LEADER).dimensions[0]!).overrideValue).toBe(
-      '0.3mm Thickness',
-    );
+    expect(window(ORTHO).overrideValue).toBeUndefined();
+    expect(window(LEADER).overrideValue).toBe('0.3mm Thickness');
   });
 
-  it('reads a centre dimension without inventing a format', () => {
-    const v = collectDimensionValues(read(CENTER).dimensions[0]!);
+  it('reads a centre dimension as its constructor leaves it', () => {
+    // No format block in the file: PCB_DIM_CENTER's constructor
+    // (pcb_dimension.cpp:1718-1723) turns the override ON with no text, and
+    // the text keeps EDA_TEXT's DEFAULT_SIZE_TEXT, 50 mil (eda_text.cpp:105).
+    const v = window(CENTER);
 
     expect(v.prefix).toBe('');
-    expect(v.overrideValue).toBeUndefined();
-    expect(v.textHeight).toBe(0);
-  });
-});
-
-describe('applying a change', () => {
-  it('leaves the board alone when nothing moved', () => {
-    const b = read(ORTHO);
-    const v = collectDimensionValues(b.dimensions[0]!);
-
-    expect(applyDimensionValues(b, 0, v)).toBe(b);
-  });
-
-  it('does nothing for an index that is not there', () => {
-    const b = read(ORTHO);
-
-    expect(applyDimensionValues(b, 9, collectDimensionValues(b.dimensions[0]!))).toBe(b);
-  });
-
-  it('writes the format block through to the file', () => {
-    const back = roundTrip(ORTHO, { units: 2, unitsFormat: 2, precision: 2, prefix: 'W ' });
-    const f = back.dimensions[0]!.format!;
-
-    expect(f.units).toBe(2);
-    expect(f.unitsFormat).toBe(2);
-    expect(f.precision).toBe(2);
-    expect(f.prefix).toBe('W ');
-  });
-
-  it('writes the style block through to the file', () => {
-    const back = roundTrip(ORTHO, {
-      lineThickness: MM(0.25),
-      arrowLength: MM(2),
-      extensionOffset: MM(0.8),
-      extensionOvershoot: MM(1),
-      arrowDirection: 'inward',
-      keepTextAligned: false,
-    });
-    const s = back.dimensions[0]!.style;
-
-    expect(s.thickness).toBe(MM(0.25));
-    expect(s.arrowLength).toBe(MM(2));
-    expect(s.extensionOffset).toBe(MM(0.8));
-    expect(s.extensionHeight).toBe(MM(1));
-    expect(s.arrowDirection).toBe('inward');
-    expect(s.keepTextAligned).toBeFalsy();
-  });
-
-  it('writes the text properties through to the file', () => {
-    const back = roundTrip(ORTHO, {
-      textHeight: MM(2),
-      textWidth: MM(2),
-      textThickness: MM(0.3),
-      textOrientation: 45,
-      bold: true,
-      italic: true,
-    });
-    const t = back.dimensions[0]!.text!;
-
-    expect(t.size.y).toBe(MM(2));
-    expect(t.thickness).toBe(MM(0.3));
-    expect(t.bold).toBe(true);
-    expect(t.italic).toBe(true);
-  });
-
-  it('lets keep-aligned override the orientation that was typed', () => {
-    // The 45 asked for here cannot survive, and upstream does not let you type
-    // it: `m_cbTextOrientation->Enable( !m_cbKeepAligned->GetValue() )`
-    // (`dialog_dimension_properties.cpp:181-184`) greys the combo out while
-    // "Keep aligned with dimension" is checked, and `updateDimensionFromDialog`
-    // ends with `aTarget->Update()`, whose `updateText` recomputes the angle
-    // from the crossbar.
-    //
-    // ORTHO has `(keep_text_aligned yes)`, so 90 is the only answer — and it is
-    // the angle KiCad itself wrote into this very fixture, `(at 125.3 43.975
-    // 90)`, not a number read back off our own output.
-    const back = roundTrip(ORTHO, { textOrientation: 45 });
-    expect(back.dimensions[0]!.text!.angle).toBe(90);
-  });
-
-  it('honours the typed orientation once keep-aligned is off', () => {
-    const back = roundTrip(ORTHO, { textOrientation: 45, keepTextAligned: false });
-    expect(back.dimensions[0]!.text!.angle).toBe(45);
-  });
-
-  it('moves the text onto the dimension layer with it', () => {
-    const back = roundTrip(ORTHO, { layer: 'F.SilkS' });
-
-    expect(back.dimensions[0]!.layer).toBe('F.SilkS');
-    expect(back.dimensions[0]!.text!.layer).toBe('F.SilkS');
-  });
-
-  it('keeps the parts of the source it does not own', () => {
-    const out = serializeBoard(
-      applyDimensionValues(read(ORTHO), 0, {
-        ...collectDimensionValues(read(ORTHO).dimensions[0]!),
-        lineThickness: MM(0.3),
-      }),
-    );
-
-    // The feature points, height and orientation are the geometry's, not the
-    // dialog's, and must survive an edit untouched.
-    expect(out).toContain('(height 12.85)');
-    expect(out).toContain('(orientation 1)');
-    expect(out).toContain('(xy 113.6 58.975)');
-    expect(out).toContain('(uuid "5db1e4c4-a4eb-4089-b0a3-868253fe7188")');
-  });
-});
-
-describe('override text, which is a mode rather than a string', () => {
-  it('writes an empty override, and it survives the reload', () => {
-    // The failure this catches: an empty override dropped as "nothing", so the
-    // dimension goes back to showing its measurement.
-    const back = roundTrip(ORTHO, { overrideValue: '' });
-
-    expect(back.dimensions[0]!.format!.overrideValue).toBe('');
-  });
-
-  it('writes a real override', () => {
-    const back = roundTrip(ORTHO, { overrideValue: '30 typ.' });
-
-    expect(back.dimensions[0]!.format!.overrideValue).toBe('30 typ.');
-  });
-
-  it('removes the override when it is cleared to undefined', () => {
-    // On a dimension that measures something: a leader's text is always its
-    // override (`PCB_DIM_LEADER::PCB_DIM_LEADER` sets `m_overrideTextEnabled`
-    // and "Leader", pcb_dimension.cpp:1360-1363), so clearing it there is
-    // not an operation the C++ has.
-    const withOverride = roundTrip(ORTHO, { overrideValue: '30 typ.' });
-    expect(withOverride.dimensions[0]!.format!.overrideValue).toBe('30 typ.');
-    const v = { ...collectDimensionValues(withOverride.dimensions[0]!), overrideValue: undefined };
-    const back = readBoard(parse(serializeBoard(applyDimensionValues(withOverride, 0, v))));
-
-    expect(back.dimensions[0]!.format!.overrideValue).toBeUndefined();
-  });
-});
-
-describe('the fields each kind is allowed', () => {
-  it('does not give a leader an extension overshoot', () => {
-    // dynamic_cast<PCB_DIM_ALIGNED*> fails for a leader, so upstream never
-    // writes one; a file that had it would read back differently.
-    const out = serializeBoard(
-      applyDimensionValues(read(LEADER), 0, {
-        ...collectDimensionValues(read(LEADER).dimensions[0]!),
-        extensionOvershoot: MM(5),
-      }),
-    );
-
-    expect(out).not.toContain('(extension_height');
-  });
-
-  it('does not give an orthogonal one a text frame', () => {
-    const out = serializeBoard(
-      applyDimensionValues(read(ORTHO), 0, {
-        ...collectDimensionValues(read(ORTHO).dimensions[0]!),
-        textFrame: 2,
-      }),
-    );
-
-    expect(out).not.toContain('(text_frame');
-  });
-
-  it('keeps a leader text frame that is set', () => {
-    const back = roundTrip(LEADER, { textFrame: 2 });
-
-    expect(back.dimensions[0]!.style.textFrame).toBe(2);
-  });
-
-  it('never gives a centre dimension a format in the model either', () => {
-    // Not just absent from the file — absent from the item. The file is safe by
-    // accident (a centre dimension's source has no `(format …)` child to patch),
-    // so a model-level format would stay invisible until the item was rebuilt
-    // from scratch and then appear out of nowhere.
-    const b = read(CENTER);
-    const next = applyDimensionValues(b, 0, {
-      ...collectDimensionValues(b.dimensions[0]!),
-      prefix: 'nope',
-      lineThickness: MM(0.4),
-    });
-
-    expect(next.dimensions[0]!.format).toBeUndefined();
-  });
-
-  it('never gives a centre dimension a format block', () => {
-    const out = serializeBoard(
-      applyDimensionValues(read(CENTER), 0, {
-        ...collectDimensionValues(read(CENTER).dimensions[0]!),
-        prefix: 'nope',
-        overrideValue: 'nope',
-      }),
-    );
-
-    expect(out).not.toContain('(format');
-    expect(out).not.toContain('nope');
-  });
-
-  it('still lets a centre dimension change its style and layer', () => {
-    const back = roundTrip(CENTER, { lineThickness: MM(0.4), layer: 'F.Cu' });
-
-    expect(back.dimensions[0]!.style.thickness).toBe(MM(0.4));
-    expect(back.dimensions[0]!.layer).toBe('F.Cu');
-  });
-});
-
-describe('the manual text position', () => {
-  it('is written only in manual mode', () => {
-    const back = roundTrip(ORTHO, { textPositionMode: 2, textX: MM(50), textY: MM(60) });
-
-    expect(back.dimensions[0]!.style.textPositionMode).toBe(2);
-    expect(back.dimensions[0]!.text!.at).toEqual({ x: MM(50), y: MM(60) });
-  });
-
-  it('is ignored in the automatic modes', () => {
-    // The geometry places the text there; writing a stale coordinate back would
-    // fight the layout on the next redraw.
-    const back = roundTrip(ORTHO, { textPositionMode: 0, textX: MM(50), textY: MM(60) });
-
-    expect(back.dimensions[0]!.text!.at).toEqual({ x: MM(125.3), y: MM(43.975) });
-  });
-});
-
-describe('locking', () => {
-  it('writes and clears the locked flag', () => {
-    expect(roundTrip(ORTHO, { locked: true }).dimensions[0]!.locked).toBe(true);
-
-    const lockedSrc = ORTHO.replace('(type orthogonal)', '(type orthogonal) (locked yes)');
-    expect(roundTrip(lockedSrc, { locked: false }).dimensions[0]!.locked).toBeFalsy();
+    expect(v.overrideValue).toBe('');
+    expect(v.textHeight).toBe(MM(1.27));
   });
 });

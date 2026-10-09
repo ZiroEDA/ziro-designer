@@ -24,9 +24,6 @@
 import { getTrailingInt } from '@ziroeda/common/string_utils.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { findBestPacking, type RectWH } from '@ziroeda/rectpack2d';
-import { boardItemId, moveBoardItems } from '../edit-board.js';
-import { footprintBBox } from '../edit-footprint.js';
-import type { Board, PcbFootprint } from '../types.js';
 import type { FOOTPRINT } from '../footprint.js';
 import { kiidPathAsString } from '@ziroeda/common/kiid.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -148,36 +145,6 @@ export interface SpreadFootprintsOptions {
   componentGap?: number;
   /** Margin around each sheet's area (aGroupGap), default 1.5 mm. */
   groupGap?: number;
-}
-
-/**
- * SpreadFootprints, the moves that lay `footprints` out without overlapping, with
- * the upper-left corner of the area at `targetBoxPosition`. Returns one translation
- * per input footprint, in input order; the caller applies them (this port is a pure
- * function, so it can be used for a dry run too).
- */
-export function spreadFootprints(
-  footprints: readonly PcbFootprint[],
-  targetBoxPosition: Vec2,
-  options: SpreadFootprintsOptions = {},
-): Vec2[] {
-  return spreadSubjects(
-    footprints.map((fp) => {
-      const bbox = footprintBBox(fp, false) ?? {
-        minX: fp.at.x,
-        minY: fp.at.y,
-        maxX: fp.at.x,
-        maxY: fp.at.y,
-      };
-      return {
-        box: { minX: bbox.minX, minY: bbox.minY, maxX: bbox.maxX, maxY: bbox.maxY },
-        path: fp.path ?? '',
-        reference: fp.reference ?? '',
-      };
-    }),
-    targetBoxPosition,
-    options,
-  );
 }
 
 /**
@@ -392,37 +359,4 @@ function spreadSubjects(
     const to = position.get(fp)!;
     return { x: to.minX - from.minX, y: to.minY - from.minY };
   });
-}
-
-/**
- * PCB_EDIT_FRAME::OnNetlistChanged's spread step: lay the given footprints of a
- * board out and return the board with them moved. `targetBoxPosition` is `{0,0}`
- * upstream, because the netlist updater has already parked the new footprints below
- * the board and a move command follows.
- */
-export function spreadBoardFootprints(
-  board: Board,
-  indices: readonly number[],
-  targetBoxPosition: Vec2 = { x: 0, y: 0 },
-  options: SpreadFootprintsOptions = {},
-): Board {
-  const selected = indices
-    .map((i) => board.footprints[i])
-    .filter((fp): fp is PcbFootprint => fp !== undefined);
-  if (selected.length === 0) return board;
-
-  const deltas = spreadFootprints(selected, targetBoxPosition, options);
-  const byIndex = new Map<number, Vec2>();
-  indices.forEach((boardIndex, i) => {
-    const delta = deltas[i];
-    if (delta) byIndex.set(boardIndex, delta);
-  });
-
-  // Every footprint moves by its own delta, so apply them one at a time.
-  let out = board;
-  for (const [index, delta] of byIndex) {
-    if (delta.x === 0 && delta.y === 0) continue;
-    out = moveBoardItems(out, new Set([boardItemId('footprint', index)]), delta);
-  }
-  return out;
 }

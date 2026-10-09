@@ -18,8 +18,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { toolCursorCss } from '@ziroeda/common/tool/tool_cursors.js';
-import { boardToolCursor } from '@ziroeda/pcbnew/cursors.js';
-import { footprintToolCursor } from '@ziroeda/pcbnew/footprint_cursors.js';
+import { boardToolCursor } from '@ziroeda/pcbnew/browser/cursors.js';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
@@ -178,16 +177,12 @@ describe('drawRulerItem', () => {
 });
 
 describe('one ruler, three canvases', () => {
-  // The board editor is not here any more: PCB_VIEWER_TOOLS::MeasureTool puts
-  // the RULER_ITEM itself on the VIEW (pcb_viewer_tools.test.ts drives it).
-  const CANVASES = ['../../pcbnew/pcb_draw_panel_gal_ui.tsx'];
+  // No PCB canvas paints a ruler of its own any more: PCB_VIEWER_TOOLS::MeasureTool
+  // puts the RULER_ITEM itself on the VIEW (pcb_viewer_tools.test.ts drives it),
+  // in the board editor and in every footprint frame.
 
   const read = (rel: string): string =>
     readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
-
-  it.each(CANVASES)('%s paints the ruler through the shared item', (rel) => {
-    expect(read(rel)).toContain('drawRulerItem');
-  });
 
   it('the board editor puts the one RULER_ITEM on its VIEW, from PCB_VIEWER_TOOLS', () => {
     const tool = read('../../pcbnew/tools/pcb_viewer_tools.ts');
@@ -195,14 +190,19 @@ describe('one ruler, three canvases', () => {
     expect(read('../../pcbnew/pcb_edit_frame_ui.tsx')).not.toContain('drawRulerItem');
   });
 
-  it('and none of them re-derives the readout or the graduations', () => {
-    // Per occurrence, across the whole tree: the moment a canvas writes its own
-    // label block or its own tick loop it has to call one of these, and the
-    // only file allowed to is the item itself.
-    for (const rel of CANVASES) {
+  it('and no PCB frame window re-derives the readout or the graduations', () => {
+    // The moment a window writes its own label block or its own tick loop it
+    // has to call one of these, and the only file allowed to is the item itself.
+    for (const rel of [
+      '../../pcbnew/pcb_edit_frame_ui.tsx',
+      '../../pcbnew/footprint_edit_frame_ui.tsx',
+      '../../pcbnew/footprint_viewer_frame_ui.tsx',
+      '../../cvpcb/display_footprints_frame_ui.tsx',
+    ]) {
       const src = read(rel);
       expect(src, `${rel} builds its own dimension strings`).not.toContain('rulerDimensionStrings');
       expect(src, `${rel} builds its own graduations`).not.toContain('rulerTicks');
+      expect(src, `${rel} paints a ruler of its own`).not.toContain('drawRulerItem');
     }
   });
 
@@ -243,15 +243,20 @@ describe('one ruler, three canvases', () => {
     // `RULER_ITEM` is built with `frame()->GetUserUnits()`. The footprint
     // viewer passed this and the editor did not, so the same canvas measured
     // in mm there whatever its Units radio said.
+    // The Footprint Editor measures on the GAL now: PCB_VIEWER_TOOLS::MeasureTool
+    // builds its RULER_ITEM from `frame.GetUserUnits()` itself.
+    expect(
+      readFileSync(new URL('../../../pcbnew/tools/pcb_viewer_tools.ts', import.meta.url), 'utf8'),
+    ).toMatch(/let units: EdaUnits = frame\.GetUserUnits\(\);/);
+    // Every PCB frame measures with that one tool now: the footprint viewer
+    // and CvPcb's footprint window register PCB_VIEWER_TOOLS, as upstream's do.
     for (const rel of [
-      '../../pcbnew/footprint_edit_frame_ui.tsx',
-      // `display_footprints_frame.tsx` moved to `cvpcb/` (cvpcb/STRUCTURE.md's
-      // stage two) and hands `measureUnits` through `CVPCB_APP.FootprintCanvas`
-      // as a plain object field; the actual `<FootprintCanvas measureUnits=.../>`
-      // JSX is the designer-side adapter that implements it.
-      'editors/schematic/cvpcb_app.tsx',
+      '../../../pcbnew/footprint_viewer_frame.ts',
+      '../../../cvpcb/display_footprints_frame.ts',
     ]) {
-      expect(read(rel), `${rel} does not hand the canvas its units`).toContain('measureUnits=');
+      expect(readFileSync(new URL(rel, import.meta.url), 'utf8')).toContain(
+        'RegisterTool(new PCB_VIEWER_TOOLS())',
+      );
     }
   });
 
@@ -272,7 +277,6 @@ describe('one ruler, three canvases', () => {
 
     for (const [name, cursorFor, tool] of [
       ['the board editor', boardToolCursor, 'measureTool'],
-      ['the footprint editor', footprintToolCursor, 'measureTool'],
     ] as const) {
       expect(cursorFor(tool), `${name} does not set the measure cursor`).toBe(MEASURE);
     }

@@ -7,7 +7,7 @@
  * In `common/` because upstream's is: net classes are part of `PROJECT_FILE`,
  * and both eeschema and pcbnew read them — eeschema to colour and style a wire
  * from its class, pcbnew to take its clearances and widths. Ours lived in
- * `eeschema/schematic_settings.ts` and `editors/pcb/board_settings.ts`
+ * `eeschema/schematic_settings.ts` and the Board Setup dialog's own values
  * and `editors/pcb/project_settings.ts` imported `NetClass` across, which is
  * the same misplacement as the drawing-sheet painter: a project-level structure
  * filed under whichever editor happened to need it first.

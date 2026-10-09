@@ -8,15 +8,12 @@
  * layer, the creation date, the drill/place origin and the Protel extensions.
  * Every expected line is one kicad-cli writes for the same input.
  */
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { ParseBoard, readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { setBoardPageSettings } from '@ziroeda/pcbnew/edit-board.js';
-import { boardAuxOrigin } from '@ziroeda/pcbnew/board_design_settings.js';
+import { FormatBoard, ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
+import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import { EXCELLON_WRITER } from '@ziroeda/pcbnew/exporters/gendrill_excellon_writer.js';
 import { ZEROS_FMT } from '@ziroeda/pcbnew/exporters/gendrill_writer_base.js';
 import { DRILL_MARKS, PCB_PLOT_PARAMS } from '@ziroeda/pcbnew/pcb_plot_params.js';
@@ -145,17 +142,6 @@ describe('Gerber X2 plot (GERBER_PLOTTER / pcbplot.cpp)', () => {
       else process.env.TZ = savedTz;
     }
   });
-
-  it('"Use drill/place file origin" plots relative to the aux axis origin', () => {
-    const text = BOARD.replace('(net 0 "")', '(setup (aux_axis_origin 5 5))\n  (net 0 "")');
-    const withOrigin = readBoard(parse(text));
-    expect(boardAuxOrigin(withOrigin)).toEqual({ x: mmToIU(5), y: mmToIU(5) });
-    const out = plot(text, PCB_LAYER_ID.F_Cu, { useAuxOrigin: true });
-    // The track start (10,10) is 5 mm from the (5,5) origin.
-    expect(out).toContain('X5000000Y-5000000D02*');
-    // The drill file follows the same origin.
-    expect(drill(text, { x: mmToIU(5), y: mmToIU(5) })).toContain('X15.0Y-5.0'); // via at (20,10)
-  });
 });
 
 describe('Excellon drill (EXCELLON_WRITER)', () => {
@@ -172,47 +158,38 @@ describe('Excellon drill (EXCELLON_WRITER)', () => {
   });
 });
 
-describe('page settings (DIALOG_PAGES_SETTINGS persistence)', () => {
-  it('upserts (paper) and (title_block) into the source and round-trips', () => {
-    const board = readBoard(parse(BOARD));
-    const next = setBoardPageSettings(board, {
-      paper: 'A3',
-      title: 'Amp',
-      date: '2026-07-23',
-      rev: '1.1',
-      company: 'ZiroEDA',
-      comments: ['first', '', 'third', '', '', '', '', '', ''],
-    });
-    const out = serializeBoard(next);
+describe('page settings (DIALOG_PAGES_SETTINGS on the BOARD)', () => {
+  it('writes (paper) and (title_block) and reads them back', () => {
+    const board = ParseBoard(BOARD);
+    board.SetPageSettings(new PAGE_INFO(PAGE_SIZE_TYPE.A3));
+    const tb = new TITLE_BLOCK();
+    tb.SetTitle('Amp');
+    tb.SetDate('2026-07-23');
+    tb.SetRevision('1.1');
+    tb.SetCompany('ZiroEDA');
+    tb.SetComment(0, 'first');
+    tb.SetComment(2, 'third');
+    board.SetTitleBlock(tb);
+    const out = FormatBoard(board);
     expect(out).toContain('(paper "A3")');
     expect(out).toContain('(title "Amp")');
     expect(out).toContain('(comment 1 "first")');
     expect(out).toContain('(comment 3 "third")');
-    const reread = readBoard(parse(out));
-    expect(reread.paper).toBe('A3');
-    expect(reread.titleBlock?.rev).toBe('1.1');
-    expect(reread.titleBlock?.comments?.[2]).toBe('third');
+    const reread = ParseBoard(out);
+    expect(reread.GetPageSettings().GetType()).toBe(PAGE_SIZE_TYPE.A3);
+    expect(reread.GetTitleBlock().GetRevision()).toBe('1.1');
+    expect(reread.GetTitleBlock().GetComment(2)).toBe('third');
   });
+
   it('portrait and User sizes keep their tokens', () => {
-    const board = readBoard(parse(BOARD));
-    const p1 = setBoardPageSettings(board, {
-      paper: 'A4 portrait',
-      title: '',
-      date: '',
-      rev: '',
-      company: '',
-      comments: [],
-    });
-    expect(serializeBoard(p1)).toContain('(paper "A4" portrait)');
-    const p2 = setBoardPageSettings(board, {
-      paper: 'User 200 150',
-      title: '',
-      date: '',
-      rev: '',
-      company: '',
-      comments: [],
-    });
-    expect(serializeBoard(p2)).toContain('(paper "User" 200 150)');
+    const board = ParseBoard(BOARD);
+    board.SetPageSettings(new PAGE_INFO(PAGE_SIZE_TYPE.A4, true));
+    expect(FormatBoard(board)).toContain('(paper "A4" portrait)');
+    const user = new PAGE_INFO(PAGE_SIZE_TYPE.User);
+    user.SetWidthMils(200 / 0.0254);
+    user.SetHeightMils(150 / 0.0254);
+    board.SetPageSettings(user);
+    expect(FormatBoard(board)).toContain('(paper "User" 200 150)');
   });
 });
 

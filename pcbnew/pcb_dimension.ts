@@ -8,7 +8,8 @@
  * `PCB_DIM_CENTER`. A dimension owns a cache of drawn shapes (`m_shapes`)
  * rebuilt by `updateGeometry` from its two feature points and its text.
  *
- * The enums live in `pcb_dimension_types.ts`.
+ * The enums of `pcb_dimension.h` are in this file too, after the imports, as
+ * they are in the header.
  *
  * Not here: `Serialize`/`Deserialize` (the kiapi protobuf surface) and
  * `DIMENSION_DESC`, the `PROPERTY_MANAGER` registration.
@@ -93,15 +94,57 @@ import {
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { BOARD_ITEM } from './board_item.js';
-import {
-  DIM_ARROW_DIRECTION,
-  DIM_PRECISION,
-  DIM_TEXT_BORDER,
-  DIM_TEXT_POSITION,
-  DIM_UNITS_FORMAT,
-  DIM_UNITS_MODE,
-} from './pcb_dimension_types.js';
 import { PCB_TEXT } from './pcb_text.js';
+
+// ---------------------------------------------------------------------------
+// The enums of pcb_dimension.h
+
+export enum DIM_UNITS_FORMAT {
+  NO_SUFFIX = 0, // 1234.0
+  BARE_SUFFIX = 1, // 1234.0 mm
+  PAREN_SUFFIX = 2, // 1234.0 (mm)
+}
+
+export enum DIM_PRECISION {
+  X = 0, // 0
+  X_X = 1, // 0.0
+  X_XX = 2, // 0.00
+  X_XXX = 3, // 0.000
+  X_XXXX = 4, // 0.0000
+  X_XXXXX = 5, // 0.00000
+  V_VV = 6, // 0.00 / 0 / 0.0
+  V_VVV = 7, // 0.000 / 0 / 0.00
+  V_VVVV = 8, // 0.0000 / 0.0 / 0.000
+  V_VVVVV = 9, // 0.00000 / 0.00 / 0.0000
+}
+
+export enum DIM_TEXT_POSITION {
+  OUTSIDE = 0, ///< Text appears outside the dimension line (default)
+  INLINE = 1, ///< Text appears in line with the dimension line
+  MANUAL = 2, ///< Text placement is manually set by the user
+}
+
+export enum DIM_UNITS_MODE {
+  INCH = 0, // Do not use IN: it conflicts with a Windows header
+  MILS = 1,
+  MM = 2,
+  AUTOMATIC = 3,
+}
+
+/**
+ * Used for dimension's arrow.
+ */
+export enum DIM_ARROW_DIRECTION {
+  INWARD = 0, ///< >-----<
+  OUTWARD = 1, ///< <----->
+}
+
+export enum DIM_TEXT_BORDER {
+  NONE = 0,
+  RECTANGLE = 1,
+  CIRCLE = 2,
+  ROUNDRECT = 3,
+}
 
 const INWARD_ARROW_LENGTH_TO_HEAD_RATIO = 2;
 

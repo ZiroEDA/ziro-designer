@@ -26,7 +26,9 @@ const THREE_LIB_INDEX = JSON.stringify([
 const LIB_FILE = `(kicad_symbol_lib (version 20241209) (generator "x")
 	(symbol "R" (property "Reference" "R" (at 0 0 0) (effects (font (size 1.27 1.27))))))
 `;
-const FP_INDEX = JSON.stringify([{ name: 'Resistor_SMD', footprints: ['R_0805'] }]);
+// The library enumerates the footprint the design assigns: the store, like
+// upstream's FP_CACHE, only loads what a library holds.
+const FP_INDEX = JSON.stringify([{ name: 'Resistor_SMD', footprints: ['R_0805_2012Metric'] }]);
 /** The per-symbol file the host serves at `<base>/<Library>/<Symbol>.kicad_sym`,
  *  holding the symbol asked for (tools/libraries/upload.mjs). */
 const oneSymbol = (name: string): string =>
@@ -149,7 +151,7 @@ describe('footprintPreloadWork', { timeout: 30_000 }, () => {
   });
 
   it('asks for a repeated footprint once, and counts it once', async () => {
-    // Same reasoning as the symbol side: `loadFootprint` memoises on `fpCache`,
+    // Same reasoning as the symbol side: the store keeps each file it fetched,
     // so the fetch count alone cannot see the dedupe. The work-list length is
     // the gauge's denominator.
     serve((url) => (url.endsWith('index.json') ? FP_INDEX : ONE_FOOTPRINT));
@@ -203,9 +205,13 @@ describe('the design is walked for exactly the ids the preload wants', () => {
 
   it('placedFootprintIds takes every footprint on the board', async () => {
     const { placedFootprintIds } = await import('@ziroeda/designer/src/editors/pcb/preload.js');
-    const board = {
-      footprints: [{ lib: 'Resistor_SMD:R_0805' }, { lib: 'Resistor_SMD:R_0805' }, { lib: 'bare' }],
-    } as never;
+    const { ParseBoard } = await import('@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js');
+    const fp = (aId: string, n: number): string =>
+      `(footprint "${aId}" (layer "F.Cu") (at ${n} 0) (uuid "00000000-0000-4000-8000-00000000000${n}"))`;
+    const board = ParseBoard(`(kicad_pcb (version 20241229) (generator "pcbnew")
+      (layers (0 "F.Cu" signal) (2 "B.Cu" signal))
+      ${fp('Resistor_SMD:R_0805', 1)} ${fp('Resistor_SMD:R_0805', 2)} ${fp('bare', 3)})`);
+    // One per distinct LIB_ID; one with no library nickname has nothing to preload.
     expect(placedFootprintIds(board)).toEqual(['Resistor_SMD:R_0805']);
   });
 });

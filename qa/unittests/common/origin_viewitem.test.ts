@@ -17,8 +17,14 @@
  * axis-aligned and stop exactly on it.
  */
 import { describe, expect, it } from 'vitest';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
+import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
+import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
+import { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { VIEW } from '@ziroeda/common/view/view.js';
 import {
   drawOriginViewItem,
+  ORIGIN_VIEWITEM,
   ORIGIN_VIEWITEM_SIZE,
   type OriginMarkerStyle,
 } from '@ziroeda/common/origin_viewitem.js';
@@ -190,5 +196,89 @@ describe('the rest of ViewDraw', () => {
 
   it('skips a marker that lands off the canvas', () => {
     expect(draw('circle_x', { canvasWidth: 50, canvasHeight: 50 }).calls).toHaveLength(0);
+  });
+});
+
+// ----- ORIGIN_VIEWITEM::ViewDraw on a GAL (common/origin_viewitem.cpp:73-114) -----
+
+class LINE_GAL extends GAL {
+  calls: string[] = [];
+  strokeColor: Color4d = { r: 0, g: 0, b: 0, a: 0 };
+  constructor() {
+    super(new GAL_DISPLAY_OPTIONS());
+    this.ResizeScreen(1000, 1000);
+  }
+  override ResizeScreen(aWidth: number, aHeight: number): void {
+    this.m_screenSize = { x: aWidth, y: aHeight };
+    this.ComputeWorldScreenMatrix();
+  }
+  override SetStrokeColor(aColor: Color4d): void {
+    this.strokeColor = aColor;
+    super.SetStrokeColor(aColor);
+  }
+  override DrawLine(a: { x: number; y: number }, b: { x: number; y: number }): void {
+    this.calls.push(`line ${a.x},${a.y} ${b.x},${b.y}`);
+  }
+  override DrawCircle(c: { x: number; y: number }, r: number): void {
+    this.calls.push(`circle ${c.x},${c.y} ${r}`);
+  }
+}
+
+function viewOn(): { view: VIEW; gal: LINE_GAL } {
+  const gal = new LINE_GAL();
+  const view = new VIEW();
+  view.SetGAL(gal);
+  return { view, gal };
+}
+
+/** `aView->ToWorld( VECTOR2D( aSize, aSize ), false )`: the marker size in world units. */
+function worldSize(aView: VIEW, aSize: number): { x: number; y: number } {
+  return aView.ToWorld({ x: aSize, y: aSize }, false);
+}
+
+describe('ORIGIN_VIEWITEM::ViewDraw', () => {
+  const RED = { r: 0.8, g: 0, b: 0, a: 1 };
+
+  it('draws nothing at (0, 0) unless told to draw at zero', () => {
+    const { view, gal } = viewOn();
+    new ORIGIN_VIEWITEM(RED, 'circle_x', 16, { x: 0, y: 0 }).ViewDraw(0, view);
+    expect(gal.calls).toEqual([]);
+
+    const atZero = new ORIGIN_VIEWITEM(RED, 'cross', 16, { x: 0, y: 0 });
+    atZero.SetDrawAtZero(true);
+    atZero.ViewDraw(0, view);
+    expect(gal.calls).toHaveLength(2);
+  });
+
+  it('CIRCLE_X: a circle of the size, then the two diagonals, in its colour', () => {
+    const { view, gal } = viewOn();
+    new ORIGIN_VIEWITEM(RED, 'circle_x', 16, { x: 100, y: 50 }).ViewDraw(0, view);
+    const w = worldSize(view, 16);
+    expect(gal.calls).toEqual([
+      `circle 100,50 ${Math.abs(w.x)}`,
+      `line ${100 - w.x},${50 - w.y} ${100 + w.x},${50 + w.y}`,
+      `line ${100 - w.x},${50 + w.y} ${100 + w.x},${50 - w.y}`,
+    ]);
+    expect(gal.strokeColor).toEqual(RED);
+  });
+
+  it('CROSS: the two arms and no circle; CIRCLE_CROSS both', () => {
+    const { view, gal } = viewOn();
+    new ORIGIN_VIEWITEM(RED, 'cross', 10, { x: 100, y: 50 }).ViewDraw(0, view);
+    const w = worldSize(view, 10);
+    expect(gal.calls).toEqual([
+      `line ${100 - w.x},50 ${100 + w.x},50`,
+      `line 100,${50 - w.y} 100,${50 + w.y}`,
+    ]);
+    gal.calls = [];
+    new ORIGIN_VIEWITEM(RED, 'circle_cross', 10, { x: 100, y: 50 }).ViewDraw(0, view);
+    expect(gal.calls[0]).toBe(`circle 100,50 ${Math.abs(w.x)}`);
+    expect(gal.calls).toHaveLength(3);
+  });
+
+  it('is on LAYER_GP_OVERLAY and never culled', () => {
+    const item = new ORIGIN_VIEWITEM();
+    expect(item.ViewGetLayers()).toEqual([GAL_LAYER_ID.LAYER_GP_OVERLAY]);
+    expect(item.ViewBBox().GetWidth()).toBeGreaterThan(1e9);
   });
 });

@@ -20,6 +20,8 @@ interface Device {
   pointer: 'coarse' | 'fine';
   /** Whether *any* precise pointer is available (an attached mouse/trackpad). */
   anyFine: boolean;
+  /** The device's screen, CSS px, `[width, height]`; a desktop monitor when omitted. */
+  screen?: [number, number];
 }
 
 /** Install a `window.matchMedia` that answers as `d` would. */
@@ -31,8 +33,10 @@ function asDevice(d: Device): void {
     if (q.includes('pointer: coarse')) return d.pointer === 'coarse';
     throw new Error(`unexpected media query: ${q}`);
   };
+  const [sw, sh] = d.screen ?? [1920, 1080];
   (globalThis as { window?: unknown }).window = {
     matchMedia: (q: string) => ({ matches: answer(q) }),
+    screen: { width: sw, height: sh },
   };
 }
 
@@ -42,7 +46,7 @@ afterEach(() => {
 
 describe('isSmallTouchDevice', () => {
   it('gates a phone in portrait', () => {
-    asDevice({ width: 390, pointer: 'coarse', anyFine: false }); // iPhone 15
+    asDevice({ width: 390, pointer: 'coarse', anyFine: false, screen: [390, 844] }); // iPhone 15
     expect(isSmallTouchDevice()).toBe(true);
   });
 
@@ -53,31 +57,42 @@ describe('isSmallTouchDevice', () => {
     // predicate collapsed to false and the app opened normally on phones. The
     // fixtures had encoded the same wrong assumption, so the suite stayed green
     // while the feature did nothing.
-    asDevice({ width: 390, pointer: 'coarse', anyFine: true });
+    asDevice({ width: 390, pointer: 'coarse', anyFine: true, screen: [390, 844] });
     expect(isSmallTouchDevice()).toBe(true);
   });
 
   it('gates a phone in landscape, still far too small', () => {
-    asDevice({ width: 932, pointer: 'coarse', anyFine: true }); // iPhone 15 Pro Max
+    asDevice({ width: 932, pointer: 'coarse', anyFine: true, screen: [430, 932] }); // iPhone 15 Pro Max
     expect(isSmallTouchDevice()).toBe(true);
   });
 
   it('gates a tablet in portrait', () => {
-    asDevice({ width: 820, pointer: 'coarse', anyFine: false }); // iPad Air
+    asDevice({ width: 820, pointer: 'coarse', anyFine: false, screen: [820, 1180] }); // iPad Air
     expect(isSmallTouchDevice()).toBe(true);
   });
 
   it('lets a tablet through in landscape', () => {
-    asDevice({ width: 1180, pointer: 'coarse', anyFine: false }); // iPad Air rotated
+    asDevice({ width: 1180, pointer: 'coarse', anyFine: false, screen: [1180, 820] }); // iPad Air rotated
     expect(isSmallTouchDevice()).toBe(false);
   });
 
   it('gates a portrait tablet even with a mouse attached, the accepted cost', () => {
     // Dropping the any-pointer condition costs this case. Rare in practice
-    // (keyboard cases hold a tablet in landscape, which passes on width), and
-    // "Continue anyway" is one tap.
-    asDevice({ width: 820, pointer: 'coarse', anyFine: true }); // iPad + Magic Keyboard
+    // (keyboard cases hold a tablet in landscape, which passes on width).
+    asDevice({ width: 820, pointer: 'coarse', anyFine: true, screen: [820, 1180] }); // iPad + Magic Keyboard
     expect(isSmallTouchDevice()).toBe(true);
+  });
+
+  it('gates any phone by its SCREEN, whatever its pointer and window claim', () => {
+    // A phone browser in "desktop site" mode can report a 980 px viewport and a
+    // fine pointer; the screen is still a phone's, so the app does not run.
+    asDevice({ width: 980, pointer: 'fine', anyFine: true, screen: [412, 915] });
+    expect(isSmallTouchDevice()).toBe(true);
+  });
+
+  it('does not gate a narrow window on a desktop screen', () => {
+    asDevice({ width: 600, pointer: 'fine', anyFine: true, screen: [1920, 1080] });
+    expect(isSmallTouchDevice()).toBe(false);
   });
 
   it('never gates a desktop', () => {

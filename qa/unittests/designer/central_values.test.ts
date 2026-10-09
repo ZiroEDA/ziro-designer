@@ -323,7 +323,14 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // the pre-port Position Relative dialog and its picker banner went with the
   // window's own positioning code; DIALOG_POSITION_RELATIVE draws in the
   // shared chrome.
-  'editors/pcb': { colours: 25, metrics: 127 },
+  // 25 -> 24 (E16h): the print path's paper-white `'#ffffff'` fill went with
+  // the Canvas2D print renderer; PCBNEW_PRINTOUT clears through the GAL to the
+  // print settings' background.
+  // 24/127 -> 22/114 (10-05): the Footprint Editor window rebuilt on
+  // FOOTPRINT_EDIT_FRAME; its old canvas placeholder and prompt styles went.
+  // 22 -> 20 (10-08): the footprint frames' old Canvas2D canvas
+  // (`pcb_draw_panel_gal_ui.tsx`) went; they draw on PCB_DRAW_PANEL_GAL.
+  'editors/pcb': { colours: 20, metrics: 114 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -470,7 +477,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // its `#7fb4e6` link colour (--link-fg is HOTLIGHT) and the four inline
   // sizes of a hand-drawn stub. DIALOG_ABOUT lives in common/dialog_about.
   home: { colours: 6, metrics: 4 },
-  mobile: { colours: 15, metrics: 23 },
+  mobile: { colours: 13, metrics: 21 },
   // 33 colours, down from 193: 160 were `defaultRepo.ts`' invented colour
   // themes, gone with the real ones (see `prefs/color_settings_list.ts`). What is
   // left is pcm.css painting its status pills with a private palette — 176
@@ -1404,7 +1411,12 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 289 -> 285 (10-01): `common/widgets` 134 -> 130, the old Edit Teardrops
     // window's CSS deleted with it; the dialog is DIALOG_GLOBAL_EDIT_TEARDROPS
     // on the shared widgets now. Rescanned.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(285);
+    // 285 -> 284 (E16h): the `editors/pcb` row, the print renderer's white.
+    // 284 -> 282 (10-05): the `editors/pcb` row, the old Footprint Editor window.
+    // 282 -> 280 (10-08): the same row, the footprint frames' old canvas.
+    // 280 -> 278 (10-09): `mobile`, the desktop gate's "Continue anyway" link
+    // deleted with the way past the gate.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(278);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1607,10 +1619,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // Relative dialog and its banner (-19).
     // 1110 -> 1102 (10-01): `common/widgets` 683 -> 675, the old Edit
     // Teardrops window's CSS deleted with it. Rescanned.
-    // 1102 -> 1101 (10-09): `editors/schematic` 128 -> 127, the record sheet-pin dialog's gap.
-    // 1101 -> 1100 (10-09): `editors/schematic` 127 -> 126, the record sheet form.
-    // 1100 -> 1096 (10-09): `editors/schematic` 126 -> 122, the record table-cell form.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1096);
+    // 1102 -> 1089 (10-05): the `editors/pcb` row, the old Footprint Editor window.
+    // 1089 -> 1087 (10-09): `mobile`, the "Continue anyway" link.
+    // 1087 -> 1081 (10-09, merged): `editors/schematic` 128 -> 122 - the record sheet-pin dialog's
+    // gap, the record sheet form's two widths and the record table-cell form's four gaps.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1081);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

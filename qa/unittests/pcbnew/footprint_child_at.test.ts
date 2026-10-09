@@ -27,23 +27,19 @@
  * (pcb_io_kicad_sexpr_parser.cpp:3959-3965), and `parsePAD` sets the pad's
  * orientation from the file value with no parent term (:5904).
  *
- * Upstream cannot get this wrong because `format()` derives both from the model
- * every time; ours re-emitted a stored parse tree, so each mutation had to
- * convert for itself. Rotation converted neither angle, flip wrote board
- * coordinates into the local slot. The writer derives it now, so these tests are
- * about the round trip and not about any one command.
+ * `format()` derives both from the model every time. These tests are about the
+ * round trip after FOOTPRINT::Rotate, Flip and a field's own Move.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import {
-  flipBoardItems,
-  modificationPoint,
-  moveBoardItems,
-  rotateBoardItems,
-} from '@ziroeda/pcbnew/edit-board.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import type { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
+import { FormatBoard, ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 const MM = 1e6;
 
@@ -54,7 +50,7 @@ const MM = 1e6;
  * copper in the wrong place, not just an ugly label.
  */
 const SRC = `(kicad_pcb (version 20241229) (generator "test")
-	(layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user) (38 "B.SilkS" user))
+	(layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user) (7 "B.SilkS" user))
 	(net 0 "")
 	(footprint "D_DO-41" (layer "F.Cu") (at 100 100)
 		(property "Reference" "D1" (at 0 -2 0) (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.15))))
@@ -65,20 +61,29 @@ const SRC = `(kicad_pcb (version 20241229) (generator "test")
 	)
 )`;
 
-const board = (): Board => readBoard(parse(SRC));
+const board = (): BOARD => ParseBoard(SRC);
 /** Save and open again, which is the whole of what the report was about. */
-const reopen = (b: Board): Board => readBoard(parse(serializeBoard(b)));
-const angles = (b: Board): { texts: number[]; pads: number[]; fp: number } => ({
-  fp: b.footprints[0]!.angle,
-  texts: b.footprints[0]!.texts.map((t) => t.angle),
-  pads: b.footprints[0]!.pads.map((p) => p.angle),
+const reopen = (b: BOARD): BOARD => ParseBoard(FormatBoard(b));
+const fpOf = (b: BOARD): FOOTPRINT => b.Footprints()[0]!;
+/** Reference, Value and the user text, in file order. */
+const texts = (fp: FOOTPRINT): PCB_TEXT[] => [
+  fp.GetField(FIELD_T.REFERENCE)!,
+  fp.GetField(FIELD_T.VALUE)!,
+  ...(fp.GraphicalItems().filter((t) => t.Type() === KICAD_T.PCB_TEXT_T) as PCB_TEXT[]),
+];
+const angles = (b: BOARD): { texts: number[]; pads: number[]; fp: number } => ({
+  fp: fpOf(b).GetOrientationDegrees(),
+  texts: texts(fpOf(b)).map((t) => t.GetTextAngleDegrees()),
+  pads: fpOf(b)
+    .Pads()
+    .map((p) => p.GetOrientationDegrees()),
 });
 
-describe('rotating a footprint', () => {
-  const rotated = (): Board => {
+describe('rotating a footprint about its anchor (FOOTPRINT::Rotate)', () => {
+  const rotated = (): BOARD => {
     const b = board();
-    const at = modificationPoint(b, new Set(['footprint:0'])) ?? undefined;
-    return rotateBoardItems(b, new Set(['footprint:0']), true, at);
+    fpOf(b).Rotate(fpOf(b).GetPosition(), ANGLE_90);
+    return b;
   };
 
   it('turns the footprint, its texts and its pads together', () => {
@@ -87,87 +92,86 @@ describe('rotating a footprint', () => {
   });
 
   it('and they are all still turned after a save and a reopen', () => {
-    // The bug, exactly: this used to come back { fp: 90, texts: [0,0,0], pads: [30,0] }
-    // — the part turned, everything inside it upright. Stated as the literal
-    // rather than as "the same as before the save", so it also fails if the
-    // rotation itself starts producing the wrong angles.
     expect(angles(reopen(rotated()))).toEqual({ fp: 90, texts: [90, 90, 90], pads: [120, 90] });
   });
 
   it('writes the angle into the file in the board frame, not the footprint one', () => {
-    // A footprint-relative angle would be 0 for every child here, since they all
-    // turned with their parent. The file must carry 90 (120 for the pad that
-    // started at 30), or the reader — which subtracts nothing — is wrong.
-    const text = serializeBoard(rotated());
+    // A footprint-relative angle would be 0 for every child here. The file must
+    // carry 90 (120 for the pad that started at 30), positions footprint-local.
+    const text = FormatBoard(rotated());
     expect(text).toContain('(at 0 -2 90)');
     expect(text).toContain('(at 3 0 90)');
     expect(text).toContain('(at 0 0 120)');
     expect(text).toContain('(at 0 2 90)');
-    // …while the positions stay footprint-local: a rigid turn does not move a
-    // child within its parent's frame.
-    expect(text).not.toContain('(at 100 100 90)\n\t\t\t(at 98');
   });
 
   it('leaves the children where they are relative to the part', () => {
-    const r = reopen(rotated());
-    const fp = r.footprints[0]!;
-    // Pad 2 was 2 mm below the anchor; after a quarter turn it is 2 mm to its
-    // right, and it is still exactly 2 mm away.
-    expect(fp.pads[1]!.at).toEqual({ x: 102 * MM, y: 100 * MM });
-    expect(fp.at).toEqual({ x: 100 * MM, y: 100 * MM });
+    const fp = fpOf(reopen(rotated()));
+    // Pad 2 was 2 mm below the anchor; after a quarter turn it is 2 mm to its right.
+    expect(fp.Pads()[1]!.GetPosition()).toEqual({ x: 102 * MM, y: 100 * MM });
+    expect(fp.GetPosition()).toEqual({ x: 100 * MM, y: 100 * MM });
   });
 });
 
-describe('flipping a footprint to the other side', () => {
-  const flipped = (): Board => flipBoardItems(board(), new Set(['footprint:0']));
+describe('flipping a footprint to the other side (FOOTPRINT::Flip, TOP_BOTTOM)', () => {
+  const flipped = (): BOARD => {
+    const b = board();
+    fpOf(b).Flip(fpOf(b).GetPosition(), FLIP_DIRECTION.TOP_BOTTOM);
+    return b;
+  };
 
   it('keeps its pads on it', () => {
-    // The `(at …)` slot is footprint-relative, and flip used to write the
-    // board-absolute position into it: on reload the pads sat at (200, 203),
-    // 100 mm from a footprint at (100, 101.65).
-    const before = flipped().footprints[0]!;
-    const after = reopen(flipped()).footprints[0]!;
-    expect(after.at).toEqual(before.at);
-    expect(after.pads.map((p) => p.at)).toEqual(before.pads.map((p) => p.at));
-    // And as geometry rather than as "whatever it was before the save": pad 1
-    // is on the anchor and pad 2 is 2 mm from it, mirrored to the other side of
-    // it by the flip. Reloading them 100 mm away, which is what happened, fails
-    // this whether or not the in-memory model agrees.
-    expect(after.pads[0]!.at).toEqual(after.at);
-    expect(after.pads[1]!.at).toEqual({ x: after.at.x, y: after.at.y - 2 * MM });
+    const before = fpOf(flipped());
+    const after = fpOf(reopen(flipped()));
+    expect(after.GetLayer()).toBe(PCB_LAYER_ID.B_Cu);
+    expect(after.GetPosition()).toEqual(before.GetPosition());
+    expect(after.Pads().map((p) => p.GetPosition())).toEqual(
+      before.Pads().map((p) => p.GetPosition()),
+    );
+    // As geometry: pad 1 on the anchor, pad 2 mirrored to 2 mm above it.
+    expect(after.Pads()[0]!.GetPosition()).toEqual(after.GetPosition());
+    expect(after.Pads()[1]!.GetPosition()).toEqual({
+      x: after.GetPosition().x,
+      y: after.GetPosition().y - 2 * MM,
+    });
   });
 
   it('keeps their orientation too', () => {
     // `PAD::Flip` negates the orientation: 30° becomes 330°.
-    expect(reopen(flipped()).footprints[0]!.pads.map((p) => p.angle)).toEqual([330, 0]);
+    expect(
+      fpOf(reopen(flipped()))
+        .Pads()
+        .map((p) => p.GetOrientationDegrees()),
+    ).toEqual([330, 0]);
   });
 });
 
-describe('dragging one footprint text on its own', () => {
+describe('moving one footprint text on its own', () => {
   it('survives the round trip', () => {
-    const moved = moveBoardItems(board(), new Set(['fptext:0:0']), { x: 3 * MM, y: 1 * MM });
-    const ref = reopen(moved).footprints[0]!.texts[0]!;
-    expect(ref.at).toEqual({ x: 103 * MM, y: 99 * MM });
+    const b = board();
+    fpOf(b)
+      .GetField(FIELD_T.REFERENCE)!
+      .Move({ x: 3 * MM, y: 1 * MM });
+    expect(fpOf(reopen(b)).GetField(FIELD_T.REFERENCE)!.GetPosition()).toEqual({
+      x: 103 * MM,
+      y: 99 * MM,
+    });
     // Written footprint-local, as `GetFPRelativePosition` gives it.
-    expect(serializeBoard(moved)).toContain('(at 3 -1 0)');
+    expect(FormatBoard(b)).toContain('(at 3 -1 0)');
   });
 
   it('is measured in the footprint frame when the part is turned', () => {
-    const turned = readBoard(parse(SRC.replace('(at 100 100)', '(at 100 100 90)')));
-    const moved = moveBoardItems(turned, new Set(['fptext:0:0']), { x: 3 * MM, y: 0 });
-    // A board +X drag on a part turned 90° is a local −Y shift, and the file
-    // records the local one.
-    const ref = reopen(moved).footprints[0]!.texts[0]!;
-    expect(ref.at).toEqual(moved.footprints[0]!.texts[0]!.at);
+    const b = ParseBoard(SRC.replace('(at 100 100)', '(at 100 100 90)'));
+    const ref = fpOf(b).GetField(FIELD_T.REFERENCE)!;
+    ref.Move({ x: 3 * MM, y: 0 });
+    expect(fpOf(reopen(b)).GetField(FIELD_T.REFERENCE)!.GetPosition()).toEqual(ref.GetPosition());
   });
 });
 
 describe('an untouched footprint', () => {
   it('round-trips unchanged', () => {
-    // The writer derives every child `(at …)` now, so this is the guard that it
-    // derives the *same* one when nothing has been edited.
-    const once = serializeBoard(board());
-    expect(serializeBoard(readBoard(parse(once)))).toBe(once);
+    const once = FormatBoard(board());
+    expect(FormatBoard(ParseBoard(once))).toBe(once);
     expect(angles(reopen(board()))).toEqual(angles(board()));
   });
 });

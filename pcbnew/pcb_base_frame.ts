@@ -9,6 +9,12 @@
  * designer's; the settings objects come through two abstract accessors so
  * the designer's stores supply them.
  */
+import { applyMixins } from '@ziroeda/core/mixins.js';
+import type { UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
+import { LOAD_SELECT_FOOTPRINT_MIXIN } from './load_select_footprint.js';
+import { IS_NEW } from '@ziroeda/common/eda_item_flags.js';
+import { ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { PCB_ACTIONS } from './tools/pcb_actions.js';
 import { EDA_DRAW_FRAME } from '@ziroeda/common/eda_draw_frame.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common';
 import { fromPaperToken, pageSizeMM } from '@ziroeda/common/dialogs/dialog_page_settings.js';
@@ -73,6 +79,7 @@ export interface FOOTPRINT_EDITOR_SETTINGS_LIKE {
   m_MagneticItems?: MAGNETIC_SETTINGS;
 }
 
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (LOAD_SELECT_FOOTPRINT_MIXIN, see libs/core/mixins.ts)
 export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
   protected m_pcb: BOARD | null = null;
   protected m_originTransforms: PCB_ORIGIN_TRANSFORMS;
@@ -199,7 +206,11 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
     if (displ_opts.m_ContrastModeDisplay !== HIGH_CONTRAST_MODE.NORMAL) this.GetCanvas()?.Refresh();
   }
 
-  SetActiveLayer(aLayer: PCB_LAYER_ID): void {
+  /**
+   * `SetActiveLayer( aLayer )`. PCB_EDIT_FRAME's overload adds `aForceRedraw`,
+   * which this base and FOOTPRINT_EDIT_FRAME have no use for.
+   */
+  SetActiveLayer(aLayer: PCB_LAYER_ID, _aForceRedraw = false): void {
     this.GetScreen()!.m_Active_Layer = aLayer;
   }
 
@@ -508,6 +519,60 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
   }
 
   /**
+   * `virtual void SaveCopyInUndoList( ... ) {}` (pcb_base_frame.h:319-328): a
+   * frame with no undo list ignores it; PCB_BASE_EDIT_FRAME's undo_redo.ts
+   * mixin is the one that keeps one.
+   */
+  SaveCopyInUndoList(_aItem: unknown, _aCommandType: UNDO_REDO): void {}
+
+  /**
+   * The footprint chooser (`Kiway().Player( FRAME_FOOTPRINT_CHOOSER )->ShowModal(
+   * &footprintName )`): the chosen LIB_ID text, or null when cancelled. A frame
+   * with no window has no chooser.
+   */
+  selectFootprintFromChooser(_aPreselect: string): Promise<string | null> {
+    return Promise.resolve(null);
+  }
+
+  /**
+   * The window's footprint library (`PROJECT_PCB::FootprintLibAdapter( &Prj() )`
+   * in a browser, where a library file arrives asynchronously): the load, or
+   * null to fall back on the board's synchronous adapter.
+   */
+  loadFootprintFromLibraryWindow(
+    _aFootprintId: LIB_ID,
+    _aKeepUUID: boolean,
+  ): Promise<FOOTPRINT | null> | null {
+    return null;
+  }
+
+  /**
+   * `PCB_BASE_FRAME::AddFootprintToBoard` (pcb_base_frame.cpp:200-222): the
+   * footprint appended, new, at the origin, on the front and unrotated.
+   */
+  AddFootprintToBoard(aFootprint: FOOTPRINT | null): void {
+    if (!aFootprint) return;
+
+    this.GetBoard()!.Add(aFootprint, ADD_MODE.APPEND);
+
+    aFootprint.SetFlags(IS_NEW);
+    aFootprint.SetPosition({ x: 0, y: 0 }); // cursor in GAL may not be initialized yet
+
+    // Put it on FRONT layer (note that it might be stored flipped if the lib is an archive
+    // built from a board)
+    if (aFootprint.IsFlipped())
+      aFootprint.Flip(aFootprint.GetPosition(), this.GetPcbNewSettings().m_FlipDirection);
+
+    // Place it in orientation 0 even if it is not saved with orientation 0 in lib (note that
+    // it might be stored in another orientation if the lib is an archive built from a board)
+    aFootprint.SetOrientation(ANGLE_0);
+
+    this.GetBoard()!.UpdateUserUnits(aFootprint, this.GetCanvas()?.GetView() ?? null);
+
+    this.m_toolManager?.RunAction(PCB_ACTIONS.rehatchShapes);
+  }
+
+  /**
    * `EDA_BASE_FRAME::config()` is `Kiface().KifaceSettings()`, which in
    * pcbnew's kiface is its PCBNEW_SETTINGS; FOOTPRINT_EDIT_FRAME overrides it.
    */
@@ -792,13 +857,69 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
   }
 
   /**
+   * `PCB_BASE_FRAME::UpdateStatusBar` (pcb_base_frame.cpp:761-815): EDA_DRAW_FRAME's
+   * zoom and units, then the cursor — absolute in field 2, relative to the
+   * local origin (or polar) in field 3 — and the grid.
+   */
+  override UpdateStatusBar(): void {
+    super.UpdateStatusBar();
+
+    const screen = this.GetScreen();
+
+    if (!screen) return;
+
+    const canvas = this.GetCanvas();
+
+    if (!canvas) return;
+
+    const cursorPos = canvas.GetViewControls().GetCursorPosition();
+    const mtv = (aValue: number): string =>
+      this.m_unitsProvider.MessageTextFromValue(aValue, false);
+
+    // display polar coordinates
+    if (this.GetShowPolarCoords()) {
+      const dx = cursorPos.x - screen.m_LocalOrigin.x;
+      const dy = cursorPos.y - screen.m_LocalOrigin.y;
+      const theta = (Math.atan2(-dy, dx) * 180) / Math.PI;
+      const ro = Math.hypot(dx, dy);
+
+      this.SetStatusText(`r ${mtv(ro)}  theta ${theta.toFixed(3)}`, 3);
+    }
+
+    // Transform absolute coordinates for user origin preferences
+    let userXpos = this.m_originTransforms.ToDisplayAbsX(cursorPos.x);
+    let userYpos = this.m_originTransforms.ToDisplayAbsY(cursorPos.y);
+
+    // Display absolute coordinates:
+    this.SetStatusText(`X ${mtv(userXpos)}  Y ${mtv(userYpos)}`, 2);
+
+    // display relative cartesian coordinates
+    if (!this.GetShowPolarCoords()) {
+      // Calculate relative coordinates
+      const relXpos = cursorPos.x - screen.m_LocalOrigin.x;
+      const relYpos = cursorPos.y - screen.m_LocalOrigin.y;
+
+      // Transform relative coordinates for user origin preferences
+      userXpos = this.m_originTransforms.ToDisplayRelX(relXpos);
+      userYpos = this.m_originTransforms.ToDisplayRelY(relYpos);
+
+      this.SetStatusText(
+        `dx ${mtv(userXpos)}  dy ${mtv(userYpos)}  dist ${mtv(Math.hypot(userXpos, userYpos))}`,
+        3,
+      );
+    }
+
+    this.DisplayGridMsg();
+  }
+
+  /**
    * Must be called after a change in order to set the "modify" flag and update other data
    * structures and GUI elements.
    */
   override OnModify(): void {
     super.OnModify();
 
-    // GetScreen()->SetContentModified(): PCB_SCREEN lands with the canvas (#636 stage 5)
+    this.GetScreen()?.SetContentModified();
     this.GetBoard()!.IncrementTimeStamp();
 
     if (this.m_isClosing) return;
@@ -916,3 +1037,7 @@ export function pcbZoomFitBox(
 
   return isDegenerate(box) ? null : box;
 }
+
+export interface PCB_BASE_FRAME extends LOAD_SELECT_FOOTPRINT_MIXIN {}
+
+applyMixins(PCB_BASE_FRAME, [LOAD_SELECT_FOOTPRINT_MIXIN]);

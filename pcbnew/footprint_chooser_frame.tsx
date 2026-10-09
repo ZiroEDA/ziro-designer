@@ -35,7 +35,8 @@ import { PanelFootprintChooser } from './widgets/panel_footprint_chooser.js';
 import type { FootprintTreeFilter } from './fp_tree_model_adapter.js';
 import { footprintHistory } from './load_select_footprint.js';
 import type { FootprintIndexLibrary } from './footprint_info_impl.js';
-import type { Board, PcbFootprint } from './index.js';
+import type { BOARD } from './board.js';
+import type { FOOTPRINT } from './footprint.js';
 import type { FOOTPRINT_PREVIEW_PANEL_BASE } from '@ziroeda/common/widgets/footprint_preview_widget.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { BitmapButton, BitmapButtonSeparator } from '@ziroeda/common/widgets/bitmap_button.js';
@@ -55,17 +56,22 @@ const views = { description: true, fp: true, threeD: false };
  */
 export interface FOOTPRINT_CHOOSER_FRAME_APP {
   /** `FOOTPRINT_PREVIEW_WIDGET`'s panel (`footprint_preview_panel.tsx`). */
-  previewPanel: FOOTPRINT_PREVIEW_PANEL_BASE<PcbFootprint>;
+  previewPanel: FOOTPRINT_PREVIEW_PANEL_BASE<FOOTPRINT>;
+  /**
+   * `PROJECT_PCB::FootprintLibAdapter( &Prj() )->LoadFootprint( nickname,
+   * name, false )` by "Library:Name": a fresh copy, or null.
+   */
+  loadFootprint(libId: string): Promise<FOOTPRINT | null>;
   /** The 3D preview's one-footprint holder board, loaded per selection. */
   useFootprintHolderBoard(
     footprint: string,
-    loadFootprint: (libId: string) => Promise<PcbFootprint | null>,
-  ): Board | null;
+    loadFootprint: (libId: string) => Promise<FOOTPRINT | null>,
+  ): BOARD | null;
   /** `m_preview3DCanvas`, the 3D preview pane. */
-  FootprintPreview3D(props: { board: Board | null }): ReactNode;
+  FootprintPreview3D(props: { board: BOARD | null }): ReactNode;
   /** `EDA_3D_VIEWER_FRAME`, "Show 3D viewer in own window". */
   Viewer3DFrame(props: {
-    board: Board | null;
+    board: BOARD | null;
     title: string;
     backLabel: string;
     imageBaseName: string;
@@ -103,7 +109,6 @@ export interface FootprintChooserFrameProps {
    * object.
    */
   loadFootprintIndex: () => Promise<FootprintIndexLibrary[]>;
-  loadFootprint: (libId: string) => Promise<PcbFootprint | null>;
   /** The program's widgets; see {@link FOOTPRINT_CHOOSER_FRAME_APP}. */
   app: FOOTPRINT_CHOOSER_FRAME_APP;
 }
@@ -115,7 +120,6 @@ export function FootprintChooserFrame({
   onOk,
   onCancel,
   loadFootprintIndex,
-  loadFootprint,
   app,
 }: FootprintChooserFrameProps): JSX.Element {
   useModalEscape(onCancel);
@@ -146,7 +150,10 @@ export function FootprintChooserFrame({
   const [show3D, setShow3D] = useState(views.threeD);
   /** `m_show3DViewer`, unticked on every open — a plain wxCheckBox, no setting. */
   const [ownWindow, setOwnWindow] = useState(false);
-  const holderBoard = app.useFootprintHolderBoard(show3D ? (selected ?? '') : '', loadFootprint);
+  const holderBoard = app.useFootprintHolderBoard(
+    show3D ? (selected ?? '') : '',
+    app.loadFootprint,
+  );
 
   /** `toggleBottomSplit` (:808-838). */
   const toggleDescription = (): void => {

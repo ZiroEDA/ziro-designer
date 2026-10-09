@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { loadProjectSchematic } from '@ziroeda/eeschema/cross-probing.js';
 import { NETLIST_EXPORTER_KICAD } from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_kicad.js';
 import { GNL_ALL, GNL_T } from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_xml.js';
-import { loadKicadNetlist } from '@ziroeda/pcbnew';
+import { loadKicadNetlist } from '@ziroeda/pcbnew/netlist_reader/kicad_netlist_reader.js';
 
 /** A 2-pin resistor and a 2-pin capacitor, both with named pins. */
 const LIB = `(symbol "Device:R" (pin_names (offset 0))

@@ -2,20 +2,14 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import {
-  boardItemId,
-  parseBoardItemId,
-  boardHitCandidates,
-  moveBoardItems,
-} from '@ziroeda/pcbnew/edit-board.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import { FormatBoard, ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
-// A footprint at (100,100) rotated 0°, with a reference "R1" at local (0,-2).
+const mmToIU = (n: number): number => pcbIUScale.mmToIU(n);
+
 const BOARD = `(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user))
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user) (5 "F.SilkS" user))
   (net 0 "")
   (footprint "R_0805" (layer "F.Cu") (at 100 100)
     (fp_text reference "R1" (at 0 -2) (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.15))))
@@ -25,62 +19,33 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "test")
   )
 )`;
 
-describe('footprint text as an individually movable item', () => {
-  it('ids round-trip with the sub-index', () => {
-    expect(parseBoardItemId(boardItemId('fptext', 3, 1))).toEqual({
-      kind: 'fptext',
-      index: 3,
-      sub: 1,
-    });
-    expect(parseBoardItemId('fptext:2:0')).toEqual({ kind: 'fptext', index: 2, sub: 0 });
-    expect(parseBoardItemId('fptext:2')).toBeNull();
+describe('a footprint text moved on its own', () => {
+  it('moves only the reference, and writes its new footprint-relative position', () => {
+    const board = ParseBoard(BOARD);
+    const fp = board.Footprints()[0]!;
+    const ref = fp.GetField(FIELD_T.REFERENCE)!;
+    const val = fp.GetField(FIELD_T.VALUE)!;
+    const refBefore = { ...ref.GetPosition() };
+    const valBefore = { ...val.GetPosition() };
+    const fpBefore = { ...fp.GetPosition() };
+
+    ref.Move({ x: mmToIU(3), y: mmToIU(1) });
+    expect(ref.GetPosition()).toEqual({ x: refBefore.x + mmToIU(3), y: refBefore.y + mmToIU(1) });
+    expect(val.GetPosition()).toEqual(valBefore);
+    expect(fp.GetPosition()).toEqual(fpBefore);
+
+    // `format( PCB_TEXT* )` writes a footprint text relative to its parent.
+    const out = FormatBoard(board);
+    expect(out).toContain('(at 3 -1 0)');
+    const back = ParseBoard(out).Footprints()[0]!.GetField(FIELD_T.REFERENCE)!;
+    expect(back.GetPosition()).toEqual(ref.GetPosition());
   });
 
-  it('hit-tests the reference text as its own fptext item, over the footprint', () => {
-    const board = readBoard(parse(BOARD));
-    // The reference sits at board (100, 98). A click there selects the text
-    // outright: GuessSelectionCandidates rejects the much larger footprint at
-    // the 1.5× coverage-area jump, so no disambiguation is offered.
-    const ids = boardHitCandidates(board, { x: mmToIU(100), y: mmToIU(98) }, mmToIU(0.3));
-    expect(ids[0]).toBe('fptext:0:0');
-  });
-
-  it('moves only the reference text, and serializes the new local position', () => {
-    const board = readBoard(parse(BOARD));
-    const before = board.footprints[0]!;
-    const refBefore = { ...before.texts[0]!.at };
-    const valBefore = { ...before.texts[1]!.at };
-    const fpAtBefore = { ...before.at };
-
-    // Drag the reference 3mm right, 1mm down.
-    const moved = moveBoardItems(board, new Set(['fptext:0:0']), { x: mmToIU(3), y: mmToIU(1) });
-    const fp = moved.footprints[0]!;
-    // Only the reference moved; value and footprint origin unchanged.
-    expect(fp.texts[0]!.at).toEqual({ x: refBefore.x + mmToIU(3), y: refBefore.y + mmToIU(1) });
-    expect(fp.texts[1]!.at).toEqual(valBefore);
-    expect(fp.at).toEqual(fpAtBefore);
-
-    // Reserialize + reparse: the reference's board position persists.
-    const back = readBoard(parse(serializeBoard(moved)));
-    expect(back.footprints[0]!.texts[0]!.at.x).toBe(refBefore.x + mmToIU(3));
-    expect(back.footprints[0]!.texts[0]!.at.y).toBe(refBefore.y + mmToIU(1));
-    // The file stores the local at, and a text always carries its angle even
-    // when it is zero — `format( const PCB_TEXT* )` prints `(at %s %s)` with
-    // `FormatAngle( GetTextAngle() )` unconditionally (pcb_io_kicad_sexpr.cpp:
-    // 2300), which is why every `(property "Reference" …)` KiCad 10 wrote into
-    // `ecc83-pp.kicad_pcb` has three arguments: `(at 4.505 -1.28 0)`.
-    // Reference was (0,-2) -> (3,-1).
-    expect(serializeBoard(moved)).toContain('(at 3 -1 0)');
-  });
-
-  it('a rotated footprint moves its text in the correct local frame', () => {
-    // Footprint rotated 90°; a board-frame +X drag maps to a local -Y shift.
-    const ROT = BOARD.replace('(at 100 100)', '(at 100 100 90)');
-    const board = readBoard(parse(ROT));
-    const moved = moveBoardItems(board, new Set(['fptext:0:0']), { x: mmToIU(3), y: 0 });
-    const back = readBoard(parse(serializeBoard(moved)));
-    // Board position shifts by +3mm X regardless of rotation.
-    const refBoard = back.footprints[0]!.texts[0]!.at;
-    expect(refBoard.x).toBeCloseTo(board.footprints[0]!.texts[0]!.at.x + mmToIU(3), 0);
+  it('a rotated footprint keeps a moved text where it was put', () => {
+    const board = ParseBoard(BOARD.replace('(at 100 100)', '(at 100 100 90)'));
+    const ref = board.Footprints()[0]!.GetField(FIELD_T.REFERENCE)!;
+    ref.Move({ x: mmToIU(3), y: 0 });
+    const back = ParseBoard(FormatBoard(board)).Footprints()[0]!.GetField(FIELD_T.REFERENCE)!;
+    expect(back.GetPosition()).toEqual(ref.GetPosition());
   });
 });

@@ -44,19 +44,16 @@ const count = (src: string, re: RegExp): number => (src.match(re) ?? []).length;
 const GRID_OWNERS: [canvas: string, file: string][] = [
   ['schematic', '../../eeschema/sch_painter.ts'],
   ['symbol editor', '../../eeschema/symbol_editor/symbol_renderer.ts'],
-  ['footprint editor', '../../pcbnew/pcb_draw_panel_gal_ui.tsx'],
 ];
 
 /** Where each canvas' crosshair (GAL::blitCursor) is drawn. */
 const CROSSHAIR_OWNERS: [canvas: string, file: string][] = [
   ['symbol editor', 'editors/symbol/SymbolCanvas.tsx'],
   ['pcb', '../../pcbnew/pcb_edit_frame_ui.tsx'],
-  ['footprint editor', '../../pcbnew/pcb_draw_panel_gal_ui.tsx'],
 ];
 
 /** Everything that draws a grid or a crosshair, for the no-local-copy sweep. */
 const ALL = [...new Set([...GRID_OWNERS, ...CROSSHAIR_OWNERS].map(([, f]) => f))].concat([
-  '../../pcbnew/renderBoard.ts',
   'editors/symbol/SymbolCanvas.tsx',
 ]);
 
@@ -122,12 +119,9 @@ describe('shared grid + crosshair', () => {
   });
 
   it('the two editors that drew no grid now consume the shared one', () => {
-    // The whole point of the change. FootprintCanvas.tsx had zero occurrences
-    // of the string "grid"; symbolRenderer.ts had a private painter that no
-    // toggle could switch off.
-    const fp = read('../../pcbnew/pcb_draw_panel_gal_ui.tsx');
-    expect(fp).toMatch(/\bdrawGrid\(/);
-    expect(fp).toMatch(/showGrid/);
+    // The whole point of the change. symbolRenderer.ts had a private painter
+    // that no toggle could switch off. (The footprint frames draw their grid in
+    // the PCB_DRAW_PANEL_GAL's GAL now, as every pcbnew frame does.)
     const sym = read('../../eeschema/symbol_editor/symbol_renderer.ts');
     expect(sym).toMatch(/\bdrawGrid\(/);
     // ...and the symbol editor actually hands the toggle down, rather than the
@@ -143,8 +137,9 @@ describe('shared grid + crosshair', () => {
     // `view->SetLayerVisible( LAYER_GRID, … )` (:1420-1432). Unchecking Grid
     // there hides it in the footprint editor exactly as in the PCB editor,
     // where `objects.grid && toggles.has('toggleGrid')` was already the rule.
+    // On the GAL, the frame's window sets both on the GAL itself.
     expect(read('../../pcbnew/footprint_edit_frame_ui.tsx')).toMatch(
-      /showGrid=\{objects\.grid && toggles\.has\('toggleGrid'\)\}/,
+      /gal\.SetGridVisibility\(objects\.grid && toggles\.has\('toggleGrid'\)\)/,
     );
   });
 

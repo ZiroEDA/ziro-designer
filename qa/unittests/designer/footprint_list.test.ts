@@ -16,7 +16,7 @@ import {
   type FootprintIndexLibrary,
 } from '@ziroeda/pcbnew/footprint_info_impl.js';
 import { filterFootprints as pcbnewFilterFootprints } from '@ziroeda/pcbnew/pcbnew.js';
-import { parseFootprint } from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import { ParseFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { footprintIndexInfo } from '../../../tools/libraries/fp_index.mjs';
 import type { SearchTerm } from '@ziroeda/common';
 
@@ -57,12 +57,12 @@ describe('footprint filters', () => {
 });
 
 describe('footprint preview pipeline', () => {
-  // buildScene needs the browser's Path2D; the canvas render is covered by the
-  // in-app smoke. Here: every hosted .kicad_mod parses into a footprint.
+  // Every hosted .kicad_mod parses into a FOOTPRINT, which is what the
+  // preview panel's library store loads.
   it('parses hosted .kicad_mod files', () => {
     for (const file of readdirSync(CM5IO_DIR).filter((f) => f.endsWith('.kicad_mod'))) {
-      const fp = parseFootprint(readFileSync(`${CM5IO_DIR}/${file}`, 'utf8'));
-      expect(fp, file).not.toBeNull();
+      const fp = ParseFootprintFile(readFileSync(`${CM5IO_DIR}/${file}`, 'utf8'), file);
+      expect(fp.Pads().length + fp.GraphicalItems().length, file).toBeGreaterThan(0);
     }
   });
 });
