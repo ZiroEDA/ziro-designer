@@ -161,7 +161,8 @@ describe('DIALOG_CHANGE_SYMBOLS', () => {
     sym.SetRef(sheet, 'X7');
     const d = dlg(DIALOG_CHANGE_SYMBOLS_MODE.CHANGE);
     await d.TransferDataToWindow();
-    d.m_specifiedReference = 'X7';
+    // WildCompareString( …, false ): the reference pattern ignores case.
+    d.m_specifiedReference = 'x?';
     d.m_newId = 'Diode:1N4007';
     d.m_fieldsBox[0]!.checked = true;
     d.m_fieldsBox[1]!.checked = true;
