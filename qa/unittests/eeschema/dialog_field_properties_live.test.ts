@@ -119,6 +119,46 @@ describe('DIALOG_FIELD_PROPERTIES', () => {
     );
   });
 
+  it('shows a line break as {return}, reads an escape back as its character, and stores refs as KIIDs', () => {
+    const h = setUp();
+    const label = new SCH_LABEL({ x: 0, y: 0 }, 'L');
+    const note = new SCH_FIELD(label, FIELD_T.USER, 'Note');
+    note.SetText('a\nb');
+    label.SetFields([note]);
+    h.frame.AddToScreen(label, h.screen);
+    const field = label.GetFields()[0]!;
+    const sheet = h.frame.GetCurrentSheet();
+    const ref = h.sym.GetRef(sheet, true);
+
+    const dlg = new DIALOG_FIELD_PROPERTIES(h.frame, '', field, HOST);
+    const shown = dlg.TransferDataToWindow();
+    expect(shown.text).toBe('a{return}b');
+
+    dlg.TransferDataFromWindow({ ...shown, text: `x{slash}y \${${ref}:VALUE}` });
+    dlg.UpdateField(new SCH_COMMIT(h.frame), field, sheet);
+
+    expect(field.GetText()).toBe(`x/y \${${sheet.Path().AsString()}/${h.sym.m_Uuid}:VALUE}`);
+  });
+
+  it('writes the three checkboxes back to the field', () => {
+    const h = setUp();
+    const field = h.sym.GetField(FIELD_T.VALUE)!;
+    const dlg = new DIALOG_FIELD_PROPERTIES(h.frame, '', field, HOST);
+    const shown = dlg.TransferDataToWindow();
+
+    dlg.TransferDataFromWindow({
+      ...shown,
+      visible: !shown.visible,
+      nameVisible: !shown.nameVisible,
+      allowAutoplace: !shown.allowAutoplace,
+    });
+    dlg.UpdateField(new SCH_COMMIT(h.frame), field, h.frame.GetCurrentSheet());
+
+    expect(field.IsVisible()).toBe(!shown.visible);
+    expect(field.IsNameShown()).toBe(!shown.nameVisible);
+    expect(field.CanAutoplace()).toBe(!shown.allowAutoplace);
+  });
+
   it('sets the reference for the current sheet only', async () => {
     let show: NonNullable<SCH_EDIT_FRAME_HOOKS['showModal']> = () => 0;
     const h = setUp({ showModal: (d, i, a) => show(d, i, a) });
