@@ -215,6 +215,9 @@ describe('the two dialogs this was found in take the units as a prop', () => {
     const src = readFileSync(pathOf(`eeschema/${file}`), 'utf8');
     expect(src).toMatch(/units:\s*StatusUnits/);
     expect(src).toMatch(/unitLabel\(units\)/);
-    expect(src).toMatch(/parseUnitValueDouble\(/);
+    // The text dialog parses with the shared binder's parser; the live label dialog holds a
+    // UNIT_BINDER on the frame, which parses in the frame's units the same way.
+    if (file === 'dialog_label_properties.tsx') expect(src).toMatch(/new UNIT_BINDER\(aParent,/);
+    else expect(src).toMatch(/parseUnitValueDouble\(/);
   });
 });

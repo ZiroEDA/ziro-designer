@@ -37,10 +37,10 @@ const SRC = readFileSync(
 
 describe('openProperties is the complete router', () => {
   /**
-   * The kinds the record router still reaches. Images, shapes, wires, bus entries, junctions and
-   * sheet pins left it for the live SCH_EDIT_TOOL::Properties and their live dialogs.
+   * The kinds the record router still reaches. Images, shapes, wires, bus entries, junctions,
+   * sheet pins and labels left it for the live SCH_EDIT_TOOL::Properties and their live dialogs.
    */
-  it.each(['symbol', 'label', 'textbox', 'table'])('knows about %s', (kind) => {
+  it.each(['symbol', 'textbox', 'table'])('knows about %s', (kind) => {
     const i = SRC.indexOf('const openProperties = useCallback');
     const body = SRC.slice(i, SRC.indexOf('\n  );', i));
     const plural: Record<string, string> = {

@@ -365,7 +365,8 @@ export function WxGridView({
               e.stopPropagation();
             }}
             onClick={() => {
-              textButton.OnButtonClick?.();
+              // A button that opens another window answers later; draw again when it does.
+              void Promise.resolve(textButton.OnButtonClick?.()).then(bump);
               bump();
             }}
           >

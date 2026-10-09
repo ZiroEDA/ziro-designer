@@ -9,6 +9,9 @@
  * `[1,3-5,7]`. A backslash escapes a structural character (`[ ] , -`) so it can
  * appear inside a pin number.
  */
+import type { OutStr } from './font/font.js';
+import { ResolveUriByEnvVars } from './eda_doc.js';
+import { wxDirExists, wxFileExists, wxNormalizePath } from './wx/filefn.js';
 
 /**
  * EscapeString( …, CTX_NETNAME ), make a string safe to use as (part of) a net
@@ -1041,6 +1044,41 @@ export function IsURL(aStr: string): boolean {
   const regex = /(https?|ftp|file):\/\/([-\w+&@#/%?=~|!:,.;]*[^.,:;<>\s¶])/i;
 
   return regex.test(aStr);
+}
+
+/**
+ * `ConvertPathToFileUri( aPath, aProject )` (string_utils.cpp:1561): a path to a file or
+ * folder that exists (absolute, `${VAR}`-relative or `./`, `../`) gains a `file://`
+ * prefix; anything else, a URL included, comes back as given. \a aProject resolves the
+ * variables and anchors a relative path at the project.
+ */
+export function ConvertPathToFileUri(
+  aPath: string,
+  aProject: { TextVarResolver(aToken: OutStr): boolean; GetProjectPath(): string } | null = null,
+): string {
+  if (aPath === '' || aPath === '~') return aPath;
+
+  const looksLikePath =
+    aPath.startsWith('/') ||
+    aPath.startsWith('${') ||
+    aPath.startsWith('./') ||
+    aPath.startsWith('../');
+
+  // Not a path, return unchanged (a URI with a scheme included)
+  if (!looksLikePath) return aPath;
+
+  // Resolve env vars
+  let resolved = aPath;
+
+  if (aProject) resolved = ResolveUriByEnvVars(aPath, (aToken) => aProject.TextVarResolver(aToken));
+
+  if (!resolved.startsWith('/') && aProject && aProject.GetProjectPath() !== '')
+    resolved = wxNormalizePath(`${aProject.GetProjectPath()}/${resolved}`);
+
+  // Only convert if the file actually exists
+  if (!wxFileExists(resolved) && !wxDirExists(resolved)) return aPath;
+
+  return `file://${aPath}`;
 }
 
 /**

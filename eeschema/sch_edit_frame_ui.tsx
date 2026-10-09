@@ -4,6 +4,7 @@
 import type { SCH_TEXT } from './sch_text.js';
 import type { SCH_TEXTBOX } from './sch_textbox.js';
 import type { SCH_SHEET_PIN } from './sch_sheet_pin.js';
+import type { SCH_LABEL_BASE } from './sch_label.js';
 import type { SCH_BITMAP } from './sch_bitmap.js';
 import type { SCH_SHAPE } from './sch_shape.js';
 import {
@@ -16,7 +17,7 @@ import type { SCH_JUNCTION } from './sch_junction.js';
 import { color4dToItemColor, itemColorToColor4d } from './dialogs/item_color.js';
 import { type ChooserFilter, type OpenedFile, WxFileDialog } from '@ziroeda/common/wx/filedlg.js';
 import { WxTextEntryDialog } from '@ziroeda/common/wx/textdlg.js';
-import { wxFD_SAVE } from '@ziroeda/common/wx/defs.js';
+import { wxFD_FILE_MUST_EXIST, wxFD_OPEN, wxFD_SAVE } from '@ziroeda/common/wx/defs.js';
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/common/wx/menu.js';
 import { type KICAD_MESSAGE_DIALOG_ARG, ShowKicadMessageDialog } from '@ziroeda/common/confirm.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
@@ -62,74 +63,35 @@ import { ReadOnlyNotice } from '@ziroeda/common/widgets/wx_infobar.js';
 import {
   type ArcEditMode,
   incrementArcEditMode,
-  type EditHandle,
-  pointEditTarget,
-  canAddCorner,
-  canRemoveCorner,
-  addCorner,
-  removeCorner,
-  reshapeCommand,
   SPIN_ANGLE,
-  spinOfAngle,
-  wireLabelDriverName,
-  cleanLabelFields,
-  DEFAULT_DIRECTIVE_PIN_LENGTH,
   directiveNetclassAssignments,
   ruleAreaNetclassAssignments,
-  type DirectiveShape,
-  labelFields,
-  changeTextType,
   setAttribute,
-  alignItems,
-  alignToGridCommand,
   autoplaceAfterFieldEdit,
   autoplaceFields,
-  autoplacePlacedSymbol,
-  autoplaceSheetFields,
-  ALIGN_LABELS,
-  type AlignMode,
   attributeIsSet,
-  canSetAttribute,
   type Attribute,
-  TYPE_LABELS,
-  type TextType,
-  setLabelFields,
   type LabelSpin,
-  type TextEffects,
-  type SchLabel,
   type SchField,
   type SchSheet,
-  type Stroke,
-  type Fill,
   readSchematic,
   serializeSchematic,
   readSymbolLib,
   serializeSymbolLib,
   type ProjectStep,
   type ProjectEdit,
-  deleteByIds,
   deleteItems,
-  transformItems,
   computeNetlist,
   withCleanup,
   refId,
   editSymbolProperties,
   copySelectionText,
   parsePastedText,
-  pasteItems,
-  translatePayload,
-  alignBoxes,
-  sheetDropOffset,
   boxSelect,
-  symbolBodyBBox,
   selectionBBox,
-  labelBox,
   emptyBBox,
   type BBox,
   isEmpty,
-  inflate,
-  contains,
-  includePoint,
   instanceKey,
   getSheetPageNumber,
   getRootPageNumber,
@@ -141,8 +103,6 @@ import {
   bulkEditSymbolAttributesCommand,
   composeCommands,
   type SymbolAttrEdit,
-  groupItemsCommand,
-  ungroupItemsCommand,
   addToGroupCommand,
   removeFromGroupCommand,
   canAddToGroup,
@@ -150,9 +110,6 @@ import {
   selectionHasGroup,
   setSymbolsLockedCommand,
   expandSelectionToGroups,
-  screenHasItems,
-  selectionCanCopyAsText,
-  selectionIsExpandable,
   getNode,
   selectConnection,
   planNetclassAssignment,
@@ -166,8 +123,6 @@ import {
   // will pick up from under the cursor, and what it trims a selection down to.
   AnyItems,
   AttributeItems,
-  DeletableItems,
-  MovableItems,
   RotatableItems,
   SheetItems,
   SymbolItems,
@@ -185,11 +140,6 @@ import {
   incrementAnnotations,
   globalEdit,
   changeSymbols,
-  symbolUnitCount,
-  unitDisplayName,
-  unplacedUnits,
-  planNextSymbolUnit,
-  setSymbolUnit,
   symbolLibIdRows,
   orphanCandidates,
   libIdChangeCommand,
@@ -221,15 +171,8 @@ import {
   ercParentId,
   electricalPinTypeGetText,
   pinShapeGetText,
-  canMerge,
-  canUnmerge,
   resolveCell,
   tableCellId,
-  tableOfCellId,
-  hasCellSelection,
-  rowColCommand,
-  tableCellsCommand,
-  type RowColOp,
   symbolEditorRequest,
   type SymbolEditorTarget,
   saveSymbolToSchematic,
@@ -240,12 +183,10 @@ import {
   type PcbFootprintData,
   syncPinFromLabel,
   syncLabelsFromPin,
-  advanceSyncPlacement,
   deleteSyncLabels,
   deleteSyncPins,
   syncPlacementFor,
   type SyncPlacement,
-  type SyncTemplate,
   buildSheetTree,
   repairPageNumbersOnLoad,
   sheetFile,
@@ -253,49 +194,20 @@ import {
   findRootFile,
   addItems,
   makeSheet,
-  applyNewPowerSymbolType,
   swapPinsCommand,
   sharedPinSwapMessage,
   type NewSheetDefaults,
-  addSheetPin,
-  nextImportableSheetPin,
-  importableSheetPins,
   replaceSheet,
-  replaceGraphic,
-  replaceImage,
   replaceSymbol,
-  replaceSheetPin,
-  parseSheetPinId,
-  cleanupSheetPins,
-  autoplaceAllSheetPins,
-  hierarchicalLabels,
   busUnfoldMembers,
   unfoldBus,
   busForUnfolding,
   swapItems,
-  canSwap,
-  cycleBodyStyle,
   repeatItems,
   hasAlternateBodyStyle,
-  setBodyStyle,
-  hierarchicalLabelNames,
-  deleteSheetPin,
-  type SheetPinRef,
   fieldEditCaption,
   fieldEditTarget,
-  imagePPI,
-  imagePixelSize,
-  replaceTextBox,
-  replaceLabel,
-  replaceDirectiveLabel,
-  replaceBusEntry,
-  replaceLine,
-  replaceJunction,
   makeImage,
-  makeTextBox,
-  makeTable,
-  makeTableFromDrag,
-  buildPropertyNode,
   ProjectHistory,
   type Schematic,
   type SchImage,
@@ -303,9 +215,6 @@ import {
   type LibSymbol,
   type SchSymbol,
   type EditCommand,
-  type SheetSide,
-  type TransformOp,
-  type LabelKind,
   type LabelShape,
   type SymbolEdit,
   type PastePayload,
@@ -314,26 +223,20 @@ import {
   type ItemRef,
   describeItem,
   itemRefById,
-  schPropertiesFor,
-  schItemFriendlyName,
-  type PropRow,
   getMsgPanelItems,
   type MsgPanelItem,
-  nextFreeUnit,
 } from './index.js';
-import type { LineMode, PendingLabel, PendingDirective } from './sch_draw_panel.js';
+import type { PendingLabel } from './sch_draw_panel.js';
 import {
+  DIALOG_LABEL_PROPERTIES,
   DialogLabelProperties,
-  type LabelPropsKind,
-  type LabelPropsResult,
+  type LABEL_DIALOG_VALUES,
 } from './dialogs/dialog_label_properties.js';
+import type { GRID_TEXT_BUTTON_HOST } from '@ziroeda/common/widgets/grid_text_button_helpers.js';
 import {
   DIALOG_TEXT_PROPERTIES,
   DialogTextProperties,
-  type HAlign,
   type TextPropsInitial,
-  type TextPropsResult,
-  type VAlign,
 } from './dialogs/dialog_text_properties.js';
 import { SymbolPropertiesDialog } from './dialogs/dialog_symbol_properties.js';
 import { ErcDialog, type ErcDialogNav } from './dialogs/dialog_erc.js';
@@ -372,20 +275,8 @@ import {
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { kicadSchematicWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { RIGHT_TOOLBAR_COMMANDS, SCH_DEFAULT_TOOLBARS } from './toolbars_sch_editor.js';
-import {
-  MenuBar,
-  ContextMenu,
-  type Menu,
-  type MenuItem,
-} from '@ziroeda/common/tool/action_menu_bar.js';
-import { assembleMenu, type RankedItem } from '@ziroeda/common/tool/action_menu_rank.js';
-import {
-  clearHoverSelection,
-  isHoverSelection,
-  requestSelection,
-  rightClickSelection,
-  type HoverSelection,
-} from './hover_selection.js';
+import { MenuBar, ContextMenu, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
+import { clearHoverSelection, requestSelection, type HoverSelection } from './hover_selection.js';
 import { buildMenus } from './menubar.js';
 import {
   CONFIRMATION_CAPTION,
@@ -518,7 +409,6 @@ import type { EESCHEMA_APP } from './eeschema_app.js';
 import {
   fastGridActionForKey,
   fastGridIndex,
-  gridChoiceLabel,
   gridFeedback,
   type FastGridAction,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
@@ -526,7 +416,7 @@ import { useHotkeyCyclePopup } from '@ziroeda/common/dialogs/hotkey_cycle_popup_
 import { resolveTemplateFieldnames } from '@ziroeda/common/template_fieldnames.js';
 import type { RenderOpts } from './sch_render_settings.js';
 import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
-import { LiveSchPropertiesPanel, SchPropertiesPanel } from './widgets/sch_properties_panel_ui.js';
+import { LiveSchPropertiesPanel } from './widgets/sch_properties_panel_ui.js';
 import { SearchPanel } from './widgets/sch_search_pane.js';
 import { NetNavigatorPanel } from './widgets/net_navigator_panel.js';
 import { DialogUpdateFromPcb } from './dialogs/dialog_update_from_pcb.js';
@@ -584,7 +474,6 @@ import type { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import { actionMenuItems } from '@ziroeda/common/tool/action_menu_popup.js';
 import { wxMenuEvent, wxMenuEventType } from '@ziroeda/common/wx/menu.js';
 import { MEMORY_FILESYSTEM, wxFileExists, wxMountFileSystem } from '@ziroeda/common/wx/filefn.js';
-import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { schToolbarAction } from './toolbars_sch_editor.js';
 import { symbolLibraryUri } from './cross-probing.js';
 
@@ -738,21 +627,6 @@ const SCH_TOOL_MSGS: Record<string, string> = {
   image: 'Place Images',
   delete: 'Interactive Delete Tool',
   zoomTool: 'Zoom to Selection Area',
-};
-
-// Right-toolbar tool ids that place a text label, mapped to the label kind.
-const LABEL_TOOL_KINDS: Record<string, LabelKind> = {
-  placeLabel: 'label',
-  placeGlobalLabel: 'global_label',
-  placeHierLabel: 'hierarchical_label',
-  placeText: 'text',
-};
-
-// The subset served by DIALOG_LABEL_PROPERTIES (free text has its own dialog).
-const LABEL_DIALOG_KINDS: Record<string, 'label' | 'global_label' | 'hierarchical_label'> = {
-  placeLabel: 'label',
-  placeGlobalLabel: 'global_label',
-  placeHierLabel: 'hierarchical_label',
 };
 
 /** A file picked from disk for a project open. */
@@ -1228,13 +1102,6 @@ export function SchematicEditor({
   placeLibRef.current = placeLib;
   const placeFlags = useRef({ keepSymbol: true, placeAllUnits: false, unitCount: 1 });
   const [pendingLabel, setPendingLabel] = useState<PendingLabel | null>(null);
-  // The rest of a "Multiple label input" run: KiCad hands TwoClickPlace a list
-  // and places them one click at a time (itemsToPlace).
-  const [labelQueue, setLabelQueue] = useState<readonly string[]>([]);
-  // Whether the label dialog is up. A label tool asks for its label as soon as
-  // it is picked (common_settings->m_Input.immediate_actions primes the tool),
-  // and again on the next click after one is placed.
-  const [labelPrompt, setLabelPrompt] = useState(false);
   // SCH_DRAWING_TOOLS' m_last* members: the next label starts from whatever the
   // previous one was given. Upstream's initial values: Input, RIGHT, no bold /
   // italic / auto-rotate.
@@ -1246,26 +1113,6 @@ export function SchematicEditor({
     autoRotate: false,
     face: '',
   });
-  // m_lastSheetPinType: the shape the next sheet pin starts with (Input).
-  const lastSheetPin = useRef({ shape: 'input' as LabelShape });
-  // m_lastNetClassFlagShape: the directive label's flag shape (Circle).
-  const lastDirective = useRef({
-    shape: 'round' as DirectiveShape,
-    pinLength: DEFAULT_DIRECTIVE_PIN_LENGTH,
-    spin: 'right' as LabelSpin,
-  });
-  const [pendingDirective, setPendingDirective] = useState<PendingDirective | null>(null);
-  // The netclass flag whose properties are open (double-click / Properties).
-  const [directiveEdit, setDirectiveEdit] = useState<{ index: number } | null>(null);
-  // immediate_actions (COMMON_SETTINGS::m_Input): picking a label or text tool
-  // primes it, so the properties dialog comes up as soon as the tool is active
-  // - whichever way it was chosen (toolbar, menu or hotkey).
-  useEffect(() => {
-    const isLabelTool = !!LABEL_TOOL_KINDS[activeTool] || activeTool === 'placeClassLabel';
-    setLabelPrompt(isLabelTool);
-    if (!isLabelTool) setLabelQueue([]);
-    if (activeTool !== 'placeClassLabel') setPendingDirective(null);
-  }, [activeTool]);
   // Right-toolbar drawing state: a drawn sheet awaiting its name/file, a sheet-pin
   // click awaiting its name, an image chosen and following the cursor.
   const [sheetDraw, setSheetDraw] = useState<{
@@ -1280,13 +1127,12 @@ export function SchematicEditor({
   // closed one does not sit on the stack swallowing the key.
   useModalEscape(() => setSheetDraw(null), sheetDraw !== null);
 
-  const [sheetPinDraw, setSheetPinDraw] = useState<{
-    index: number;
-    at: Vec2;
-    side: SheetSide;
-    name: string;
-  } | null>(null);
   /** DIALOG_TEXT_PROPERTIES while it is up for the live tools. */
+  const [labelDialog, setLabelDialog] = useState<{
+    dlg: DIALOG_LABEL_PROPERTIES;
+    shown: LABEL_DIALOG_VALUES;
+    resolve: (aId: number) => void;
+  } | null>(null);
   const [textDialog, setTextDialog] = useState<{
     dlg: DIALOG_TEXT_PROPERTIES;
     shown: TextPropsInitial;
@@ -1336,12 +1182,6 @@ export function SchematicEditor({
     additive: boolean;
   } | null>(null);
   // Editing an existing label's text/shape (DIALOG_LABEL_PROPERTIES).
-  const [labelEdit, setLabelEdit] = useState<{
-    index: number;
-    kind: LabelKind;
-    text: string;
-    shape?: LabelShape;
-  } | null>(null);
   // Editing a hierarchical sheet's name/file (DIALOG_SHEET_PROPERTIES).
   // Sheet Properties (DIALOG_SHEET_PROPERTIES); the dialog reads the sheet
   // itself out of the document, so only which one is open is state.
@@ -1786,6 +1626,24 @@ export function SchematicEditor({
    */
   const saveRequestedRef = useRef(false);
   const assignPendingRef = useRef(false);
+  // What a grid's text-button cell opens (GRID_CELL_FPID / URL / PATH_EDITOR): the frame's own
+  // file dialog and document opener.
+  const gridTextButtonHost: GRID_TEXT_BUTTON_HOST = {
+    ChooseFootprint: () => {
+      console.warn('FRAME_FOOTPRINT_CHOOSER from a grid cell is not ported to the live model yet');
+      return Promise.resolve(null);
+    },
+    OpenFile: (aTitle, aDefaultDir, aWildcard) =>
+      schFrameRef.current!.ShowFileDialog(
+        aTitle,
+        aDefaultDir,
+        '',
+        aWildcard,
+        wxFD_OPEN | wxFD_FILE_MUST_EXIST,
+      ),
+    OpenDocument: (aUrl) =>
+      GetAssociatedDocument(aUrl, (aToken) => schFrameRef.current!.Prj().TextVarResolver(aToken)),
+  };
   if (!schFrameRef.current) {
     schFrameRef.current = new SCH_EDIT_FRAME({
       // `DIALOG_xxx( this, … ).ShowModal()` for the live tools: each dialog KiCad names, by its C++
@@ -1840,6 +1698,22 @@ export function SchematicEditor({
           );
           return new Promise<number>((resolve) =>
             setTextDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
+          );
+        }
+        if (aDialog === 'DIALOG_LABEL_PROPERTIES') {
+          // `DIALOG_LABEL_PROPERTIES dlg( m_frame, label, aNew )`, plus `SetLabelList` for a new
+          // label: Properties passes false, createNewLabel { isNew, labelList }.
+          const arg = aArg as boolean | { isNew: boolean; labelList: SCH_LABEL_BASE[] } | undefined;
+          const isNew = typeof arg === 'object' ? arg.isNew : !!arg;
+          const dlg = new DIALOG_LABEL_PROPERTIES(
+            schFrameRef.current!,
+            _aItems[0] as SCH_LABEL_BASE,
+            isNew,
+            gridTextButtonHost,
+          );
+          if (typeof arg === 'object') dlg.SetLabelList(arg.labelList);
+          return new Promise<number>((resolve) =>
+            setLabelDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
           );
         }
         if (aDialog === 'DIALOG_JUNCTION_PROPS') {
@@ -3353,11 +3227,6 @@ export function SchematicEditor({
     [libById, onEditSymbolInEditor],
   );
 
-  const editLibrarySymbolInEditor = useCallback(
-    (id: string): void => openSymbolEditorOn(id, 'library'),
-    [openSymbolEditorOn],
-  );
-
   const editSymbolInEditor = useCallback(
     (id: string): void => openSymbolEditorOn(id, 'schematic'),
     [openSymbolEditorOn],
@@ -4740,24 +4609,11 @@ export function SchematicEditor({
         const target = fieldEditTarget(doc, id);
         if (target) setFieldEdit(target);
       }
-      if (kind === 'label' && doc) {
-        const idx = doc.labels.findIndex((l, i) => refId('label', l.uuid, i) === id);
-        if (idx !== -1) {
-          const l = doc.labels[idx]!;
-          setLabelEdit({ index: idx, kind: l.kind, text: l.text, shape: l.shape });
-        }
-      }
       if (kind === 'table' && doc) {
         // `SCH_EDIT_TOOL::Properties` opens DIALOG_TABLE_PROPERTIES for a whole
         // table; a selected cell opens the cell dialog instead.
         const idx = doc.tables.findIndex((t, i) => refId('table', t.uuid, i) === id);
         if (idx !== -1) setTableProps({ kind: 'edit', index: idx });
-      }
-      // A netclass flag opens its Directive Label Properties.
-      if (kind === 'directive' && doc) {
-        const flags = doc.directiveLabels ?? [];
-        const idx = flags.findIndex((d, i) => refId('directive', d.uuid, i) === id);
-        if (idx !== -1) setDirectiveEdit({ index: idx });
       }
       // Double-clicking a sheet enters it (KiCad's Enter Sheet).
       if (kind === 'sheet' && doc) {
@@ -4787,14 +4643,10 @@ export function SchematicEditor({
         if (field) {
           setFieldEdit(field);
         } else if (d.symbols.some((s, i) => refId('symbol', s.uuid, i) === id)) setPropsTarget(id);
-        else if (d.labels.some((l, i) => refId('label', l.uuid, i) === id)) onEditItem(id, 'label');
         else if (d.textBoxes.some((tb, i) => refId('textbox', tb.uuid, i) === id))
           onEditItem(id, 'textbox');
         else if (d.tables.some((t, i) => refId('table', t.uuid, i) === id)) onEditItem(id, 'table');
-        else if ((d.directiveLabels ?? []).some((dl, i) => refId('directive', dl.uuid, i) === id)) {
-          // Reachable by double-click already, but Properties never routed here.
-          onEditItem(id, 'directive');
-        } else {
+        else {
           // Properties on a sheet opens its dialog (double-click enters it).
           const si = d.sheets.findIndex((s, i) => refId('sheet', s.uuid, i) === id);
           if (si !== -1) setSheetEdit({ index: si });
@@ -6205,7 +6057,6 @@ export function SchematicEditor({
     setSyncPlacement(null);
     setActiveTool('select');
     setPendingLabel(null);
-    setLabelQueue([]);
     const back = syncReturn.current;
     syncReturn.current = null;
     if (back) switchSheet(back.path, back.file);
@@ -6260,36 +6111,6 @@ export function SchematicEditor({
   );
   gridSizeIURef.current = gridSizeIU;
 
-  /** DIALOG_LABEL_PROPERTIES for a sheet pin: name, shape and side. */
-  const commitSheetPin = useCallback(
-    (r: LabelPropsResult) => {
-      setSheetPinDraw((spd) => {
-        if (!spd || !doc) return null;
-        const sheet = doc.sheets[spd.index];
-        const name = r.texts[0]?.trim();
-        if (!sheet || !name) return null;
-        lastSheetPin.current = { shape: r.shape as LabelShape };
-        // The orientation buttons choose which border the pin sits on.
-        const side = SPIN_ANGLE[r.spin] as SheetSide;
-        const withPin = addSheetPin(sheet, name, spd.at, side, r.shape as LabelShape);
-        // The pin's own fields (SCH_SHEET_PIN is a SCH_LABEL_BASE), from the
-        // grid; writeSheetPin appends the ones the file doesn't have yet.
-        const fields = cleanLabelFields(r.fields) as SchField[];
-        const next = fields.length
-          ? {
-              ...withPin,
-              pins: withPin.pins.map((p, i) =>
-                i === withPin.pins.length - 1 ? { ...p, fields } : p,
-              ),
-            }
-          : withPin;
-        runCommand(replaceSheet(spd.index, next));
-        return null;
-      });
-    },
-    [doc, runCommand],
-  );
-
   /**
    * What the open table dialog starts from, either half of the two entry points,
    * plus the table's column widths — `sizeGridToTable` lays the cell grid out in
@@ -6330,129 +6151,10 @@ export function SchematicEditor({
     [runCommand],
   );
 
-  /**
-   * The dialog's result becomes the label(s) attached to the cursor, and the
-   * last-used shape / formatting / orientation for the next one (KiCad's
-   * m_last* members, saved right after the dialog closes in createNewLabel).
-   */
-  const startLabelPlacement = useCallback((kind: LabelKind, r: LabelPropsResult) => {
-    lastLabel.current = {
-      shape: r.shape as LabelShape,
-      bold: r.bold,
-      italic: r.italic,
-      spin: r.spin,
-      autoRotate: r.autoRotate,
-      face: r.face,
-    };
-    const [first, ...rest] = r.texts;
-    if (first === undefined) return;
-    setPendingLabel({
-      kind,
-      text: first,
-      shape: r.shape as LabelShape,
-      bold: r.bold,
-      italic: r.italic,
-      fontSize: r.sizeIU,
-      angle: SPIN_ANGLE[r.spin],
-      autoRotate: r.autoRotate,
-      ...(r.color ? { color: r.color } : {}),
-      fields: r.fields,
-    });
-    setLabelQueue(rest);
-    setLabelPrompt(false);
-  }, []);
-
-  /**
-   * The Directive Label dialog's result: the flag follows the cursor, and its
-   * shape / pin length / orientation seed the next one (m_lastNetClassFlagShape).
-   */
-  /**
-   * The netclass names the Netclass field cell offers, as
-   * `FIELDS_GRID_TABLE::initGrid` builds them: the default class first, then
-   * every class the project defines.
-   *
-   *     existingNetclasses.push_back( settings->GetDefaultNetclass()->GetName() );
-   *     for( const auto& [name, netclass] : settings->GetNetclasses() )
-   *         existingNetclasses.push_back( name );
-   */
-  const netclassNames = useMemo(
-    () => [...new Set(setup.netClasses.classes.map((c) => c.name).filter(Boolean))],
-    [setup.netClasses.classes],
-  );
-
-  const startDirectivePlacement = useCallback((r: LabelPropsResult) => {
-    const shape = r.shape as DirectiveShape;
-    lastDirective.current = { shape, pinLength: r.sizeIU, spin: r.spin };
-    setPendingDirective({
-      shape,
-      pinLength: r.sizeIU,
-      netclass: r.fields.find((f) => f.key === 'Netclass')?.value.trim() ?? '',
-      angle: SPIN_ANGLE[r.spin],
-      // Upstream places the very item the dialog edited, so every field it
-      // holds travels with it; the netclass above is kept as well because the
-      // netclass resolver reads it by name.
-      fields: r.fields,
-    });
-    setLabelPrompt(false);
-  }, []);
-
-  /** Apply Directive Label Properties to the flag being edited. */
-  const commitDirectiveProperties = useCallback(
-    (r: LabelPropsResult) => {
-      setDirectiveEdit((de) => {
-        if (!de || !doc) return null;
-        const orig = (doc.directiveLabels ?? [])[de.index];
-        if (!orig) return null;
-        const netclass = r.fields.find((f) => f.key === 'Netclass')?.value ?? '';
-        runCommand(
-          replaceDirectiveLabel(de.index, {
-            ...orig,
-            shape: r.shape as DirectiveShape,
-            pinLength: r.sizeIU,
-            angle: SPIN_ANGLE[r.spin],
-            fields: orig.fields.map((f) => (f.key === 'Netclass' ? { ...f, value: netclass } : f)),
-          }),
-        );
-        return null;
-      });
-    },
-    [doc, runCommand],
-  );
-
   /** A label was dropped: take the next of a multi-label run, else stop. */
   // What F1 repeats: the items the last placement produced
   // (SCH_EDIT_FRAME::GetRepeatItems).
   const repeatItemsRef = useRef<string[]>([]);
-
-  /** Apply DIALOG_LABEL_PROPERTIES to the label being edited (Properties). */
-  const commitLabelProperties = useCallback(
-    (r: LabelPropsResult) => {
-      setLabelEdit((le) => {
-        if (!le || !doc) return null;
-        const orig = doc.labels[le.index];
-        if (!orig) return null;
-        const effects: TextEffects = {
-          hidden: false,
-          ...orig.effects,
-          face: r.face || undefined,
-          bold: r.bold || undefined,
-          italic: r.italic || undefined,
-          fontSize: [r.sizeIU, r.sizeIU] as [number, number],
-          ...(r.color ? { color: r.color } : {}),
-        };
-        const next: SchLabel = {
-          ...orig,
-          text: r.texts[0] ?? orig.text,
-          ...(le.shape !== undefined ? { shape: r.shape as LabelShape } : {}),
-          angle: SPIN_ANGLE[r.spin],
-          effects,
-        };
-        runCommand(replaceLabel(le.index, setLabelFields(next, r.fields)));
-        return null;
-      });
-    },
-    [doc, runCommand],
-  );
 
   /** The sheet as DIALOG_SHEET_PROPERTIES wants it: its fields as grid rows,
    *  its border and fill, this instance's page number and its attributes. */
@@ -7610,22 +7312,6 @@ export function SchematicEditor({
     /** Its pin count, the other half. */
     pinCount?: number;
   } | null>(null);
-
-  // Existing net/label names for the label dialog's completion list
-  // (DIALOG_LABEL_PROPERTIES pre-loads its combo with the sheet's net names).
-  /** The combo is loaded with the existing labels *of the same type* across the
-   *  whole hierarchy, plus the project's bus aliases (TransferDataToWindow). */
-  const labelSuggestionsOf = useCallback(
-    (kind: LabelPropsKind): string[] => {
-      const names = new Set<string>();
-      for (const sheet of liveDocs().values()) {
-        for (const l of sheet.labels) if (l.kind === kind && l.text) names.add(l.text);
-      }
-      for (const alias of setup.busAliases) if (alias.name) names.add(`{${alias.name}}`);
-      return [...names].sort((a, b) => a.localeCompare(b));
-    },
-    [liveDocs, setup.busAliases],
-  );
 
   // Message-panel rows (EDA_MSG_PANEL): exactly one selected item shows its
   // GetMsgPanelInfo; empty and multi-selections clear the panel.
@@ -8949,131 +8635,6 @@ export function SchematicEditor({
         />
       )}
 
-      {/* Label tools (DIALOG_LABEL_PROPERTIES): the dialog names the label and
-          sets its shape/formatting, then it follows the cursor to be placed. */}
-      {LABEL_DIALOG_KINDS[activeTool] && labelPrompt && !pendingLabel && !labelEdit && (
-        <DialogLabelProperties
-          units={units}
-          kind={LABEL_DIALOG_KINDS[activeTool]!}
-          isNew
-          initial={{
-            text: '',
-            face: lastLabel.current.face,
-            shape: lastLabel.current.shape,
-            bold: lastLabel.current.bold,
-            italic: lastLabel.current.italic,
-            // New labels default to Schematic Setup > Formatting's text size
-            // (createNewLabel seeds from m_DefaultTextSize).
-            sizeIU: setup.formatting.defaultTextSizeMils * IU_PER_MILS,
-            spin: lastLabel.current.spin,
-            autoRotate: lastLabel.current.autoRotate,
-            fields: [],
-          }}
-          suggestions={labelSuggestionsOf(LABEL_DIALOG_KINDS[activeTool]!)}
-          onOk={(r: LabelPropsResult) => startLabelPlacement(LABEL_DIALOG_KINDS[activeTool]!, r)}
-          onCancel={() => setLabelPrompt(false)}
-        />
-      )}
-
-      {/* Netclass directive label (DIALOG_LABEL_PROPERTIES' "Directive Label
-          Properties"): no text of its own, the flag shape, the pin length and
-          the Netclass field. */}
-      {activeTool === 'placeClassLabel' && labelPrompt && !pendingDirective && !labelEdit && (
-        <DialogLabelProperties
-          units={units}
-          kind="directive"
-          netclasses={netclassNames}
-          isNew
-          initial={{
-            text: '',
-            shape: lastDirective.current.shape,
-            bold: false,
-            italic: false,
-            sizeIU: lastDirective.current.pinLength,
-            spin: lastDirective.current.spin,
-            autoRotate: false,
-            // `createNewLabel`, `case LAYER_NETCLASS_REFS` — a new directive
-            // label is born with *two* user fields, not one:
-            //
-            //     labelItem->GetFields().emplace_back( labelItem, FIELD_T::USER, wxT( "Netclass" ) );
-            //     labelItem->GetFields().emplace_back( labelItem, FIELD_T::USER, wxT( "Component Class" ) );
-            //     labelItem->GetFields().back().SetItalic( true );
-            //     labelItem->GetFields().back().SetVisible( true );
-            //
-            // Ours offered only the netclass row, so the dialog did not match
-            // upstream's and a component class could not be given at all.
-            fields: [
-              {
-                key: 'Netclass',
-                value: '',
-                angle: 0,
-                effects: { hidden: false },
-              },
-              {
-                key: 'Component Class',
-                value: '',
-                angle: 0,
-                effects: { hidden: false, italic: true },
-              },
-            ],
-          }}
-          onOk={startDirectivePlacement}
-          onCancel={() => setLabelPrompt(false)}
-        />
-      )}
-
-      {/* Editing a netclass flag (Properties): the same dialog, pre-filled. */}
-      {directiveEdit && (doc.directiveLabels ?? [])[directiveEdit.index] && (
-        <DialogLabelProperties
-          units={units}
-          kind="directive"
-          netclasses={netclassNames}
-          isNew={false}
-          initial={{
-            text: '',
-            shape: (doc.directiveLabels ?? [])[directiveEdit.index]!.shape ?? 'round',
-            bold: false,
-            italic: false,
-            sizeIU:
-              (doc.directiveLabels ?? [])[directiveEdit.index]!.pinLength ??
-              DEFAULT_DIRECTIVE_PIN_LENGTH,
-            spin: spinOfAngle((doc.directiveLabels ?? [])[directiveEdit.index]!.angle),
-            autoRotate: false,
-            fields: (doc.directiveLabels ?? [])[directiveEdit.index]!.fields,
-          }}
-          onOk={commitDirectiveProperties}
-          onCancel={() => setDirectiveEdit(null)}
-        />
-      )}
-
-      {/* Editing existing free text (Properties): the same dialog, pre-filled. */}
-
-      {/* Editing an existing label (Properties): the same dialog, pre-filled. */}
-      {labelEdit && labelEdit.kind !== 'text' && doc?.labels[labelEdit.index] && (
-        <DialogLabelProperties
-          units={units}
-          kind={labelEdit.kind as LabelPropsKind}
-          isNew={false}
-          initial={{
-            text: labelEdit.text,
-            face: doc.labels[labelEdit.index]?.effects?.face ?? '',
-            shape: labelEdit.shape ?? lastLabel.current.shape,
-            bold: !!doc.labels[labelEdit.index]?.effects?.bold,
-            italic: !!doc.labels[labelEdit.index]?.effects?.italic,
-            sizeIU: doc.labels[labelEdit.index]?.effects?.fontSize?.[0] ?? 12700,
-            ...(doc.labels[labelEdit.index]?.effects?.color
-              ? { color: doc.labels[labelEdit.index]!.effects!.color! }
-              : {}),
-            spin: spinOfAngle(doc.labels[labelEdit.index]!.angle),
-            autoRotate: false,
-            fields: labelFields(doc.labels[labelEdit.index]!),
-          }}
-          suggestions={labelSuggestionsOf(labelEdit.kind as LabelPropsKind)}
-          onOk={commitLabelProperties}
-          onCancel={() => setLabelEdit(null)}
-        />
-      )}
-
       {/* DIALOG_WIRE_BUS_PROPERTIES on the live wires, buses and bus entries. */}
       {wireBusDialog && (
         <DialogLineProperties
@@ -9453,6 +9014,23 @@ export function SchematicEditor({
       )}
 
       {/* DIALOG_TEXT_PROPERTIES on a live text or text box. */}
+      {labelDialog && (
+        <DialogLabelProperties
+          dlg={labelDialog.dlg}
+          initial={labelDialog.shown}
+          units={units}
+          onOk={(values) => {
+            if (!labelDialog.dlg.TransferDataFromWindow(values)) return;
+            setLabelDialog(null);
+            labelDialog.resolve(wxID_OK);
+          }}
+          onCancel={() => {
+            setLabelDialog(null);
+            labelDialog.resolve(wxID_CANCEL);
+          }}
+        />
+      )}
+
       {textDialog && (
         <DialogTextProperties
           units={units}
@@ -9472,28 +9050,6 @@ export function SchematicEditor({
             setTextDialog(null);
             textDialog.resolve(wxID_CANCEL);
           }}
-        />
-      )}
-
-      {/* Sheet pin (DIALOG_LABEL_PROPERTIES' "Hierarchical Sheet Pin
-          Properties"): the pin's name, its flag shape and which side it sits on. */}
-      {sheetPinDraw && (
-        <DialogLabelProperties
-          units={units}
-          kind="sheet_pin"
-          isNew
-          initial={{
-            text: sheetPinDraw.name,
-            shape: lastSheetPin.current.shape,
-            bold: false,
-            italic: false,
-            sizeIU: setup.formatting.defaultTextSizeMils * IU_PER_MILS,
-            spin: spinOfAngle(sheetPinDraw.side),
-            autoRotate: false,
-            fields: [],
-          }}
-          onOk={commitSheetPin}
-          onCancel={() => setSheetPinDraw(null)}
         />
       )}
 

@@ -2,8 +2,14 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Label Properties. Counterpart: `eeschema/dialogs/dialog_label_properties.cpp`
- * over `dialog_label_properties_base.cpp`'s layout, control for control:
+ * `DIALOG_LABEL_PROPERTIES` (eeschema/dialogs/dialog_label_properties.cpp, with its layout from
+ * dialog_label_properties_base.cpp) on a live SCH_LABEL_BASE.
+ *
+ * The model half is the class: the constructor's per-type show/hide rules, TransferDataToWindow
+ * (the label's text, the existing labels of its type for the combo, copies of its fields into a
+ * FIELDS_GRID_TABLE, the formatting) and TransferDataFromWindow (one SCH_COMMIT, or for a new
+ * label the copies it hands back through SetLabelList). The grid's add / delete / move handlers
+ * and the cell-changing check run on the table, as upstream's do.
  *
  *   Label:  [ value ]                       <- combo for local/global labels
  *   [x] Multiple label input      Syntax help
@@ -18,319 +24,654 @@
  *   └──────────┘ └───────────────────────────────────────┘
  *                                        [ Cancel ] [ OK ]
  *
- * The grid column widths, the shown-column set ("0 1 2 3 4 5 6 7"), the
- * 22 px column-label band and the 100 px minimum grid height are the base
- * class's; the per-type show/hide rules (which value control, whether Shape
- * appears, which orientation icons the four buttons carry) are the derived
- * class's constructor.
- *
- * Left out deliberately: the font list (the browser build renders everything
- * with KiCad's own stroke font, so the choice is shown but not editable) and
- * the syntax-help window, which links to KiCad's documentation instead.
+ * Left out: the syntax-help window, which links to KiCad's documentation instead.
  */
 
-import { useEffect, useRef, useState, type JSX } from 'react';
-import { iuToMM, mmToIU } from '@ziroeda/common';
-import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { type JSX, useReducer, useState } from 'react';
+import { DisplayErrorMessage, DisplayInfoMessage } from '@ziroeda/common/confirm.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import type { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { FONT } from '@ziroeda/common/font/font.js';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
+import { newKiid } from '@ziroeda/common/kiid.js';
+import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { ESCAPE_CONTEXT, EscapeString, unescapeString } from '@ziroeda/common/string_utils.js';
 import {
-  parseUnitValueDouble,
-  stringFromValue,
-  unitLabel,
-} from '@ziroeda/common/widgets/unit_binder.js';
-import {
-  cleanLabelFields,
-  type DirectiveShape,
-  type EditedLabelField,
-  type LabelShape,
-  type LabelSpin,
-} from '../index.js';
+  FIELD_T,
+  FieldNamesAreDuplicates,
+  GLOBALLABEL_MANDATORY_FIELDS,
+} from '@ziroeda/common/template_fieldnames.js';
 import { BitmapButton, BitmapButtonSeparator } from '@ziroeda/common/widgets/bitmap_button.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
-import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
-import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import type { GRID_TEXT_BUTTON_HOST } from '@ziroeda/common/widgets/grid_text_button_helpers.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { UNIT_BINDER, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
+import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
+import { TextCombo } from '@ziroeda/common/widgets/wx_combobox.js';
+import {
+  type wxGridEvent,
+  wxEVT_GRID_CELL_CHANGING,
+  wxGridSelectionModes,
+  wxGridTableRequest,
+} from '@ziroeda/common/wx/grid.js';
+import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { FIELDS_DATA_COL_ORDER, FIELDS_GRID_TABLE } from '../fields_grid_table.js';
+import { SCH_COMMIT } from '../sch_commit.js';
+import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
+import { SCH_FIELD } from '../sch_field.js';
+import { AUTOPLACE_ALGO } from '../sch_item.js';
+import {
+  LABEL_FLAG_SHAPE,
+  type SCH_DIRECTIVE_LABEL,
+  SCH_LABEL_BASE,
+  SPIN_STYLE,
+} from '../sch_label.js';
+import { SCH_SCREENS } from '../sch_screen.js';
+import type { SCH_SYMBOL } from '../sch_symbol.js';
 
-/** A flag shape: a label's electrical one, or a directive label's outline. */
-export type AnyLabelShape = LabelShape | DirectiveShape;
-
-/** The label types this dialog serves (SCH_LABEL_T / GLOBAL / HIER / SHEET_PIN). */
-export type LabelPropsKind =
-  | 'label'
-  | 'global_label'
-  | 'hierarchical_label'
-  | 'sheet_pin'
-  | 'directive';
-
-const TITLES: Record<LabelPropsKind, string> = {
-  label: 'Label Properties',
-  global_label: 'Global Label Properties',
-  hierarchical_label: 'Hierarchical Label Properties',
-  sheet_pin: 'Hierarchical Sheet Pin Properties',
-  directive: 'Directive Label Properties',
-};
-
-/** The flag shapes, in the dialog's radio order. */
-const SHAPES: { value: AnyLabelShape; label: string }[] = [
-  { value: 'input', label: 'Input' },
-  { value: 'output', label: 'Output' },
-  { value: 'bidirectional', label: 'Bidirectional' },
-  { value: 'tri_state', label: 'Tri-state' },
-  { value: 'passive', label: 'Passive' },
+/** The radio buttons of m_shapeSizer, in the base dialog's order. */
+const LABEL_SHAPES: { shape: LABEL_FLAG_SHAPE; label: string }[] = [
+  { shape: LABEL_FLAG_SHAPE.L_INPUT, label: 'Input' },
+  { shape: LABEL_FLAG_SHAPE.L_OUTPUT, label: 'Output' },
+  { shape: LABEL_FLAG_SHAPE.L_BIDI, label: 'Bidirectional' },
+  { shape: LABEL_FLAG_SHAPE.L_TRISTATE, label: 'Tri-state' },
+  { shape: LABEL_FLAG_SHAPE.L_UNSPECIFIED, label: 'Passive' },
 ];
 
-/** The four orientation buttons: KiCad's label_align_* bitmaps, in m_spin order. */
-const SPINS: { spin: LabelSpin; icon: string; title: string }[] = [
-  { spin: 'right', icon: 'label_align_left', title: 'Align right' },
-  { spin: 'left', icon: 'label_align_right', title: 'Align left' },
-  { spin: 'up', icon: 'label_align_bottom', title: 'Align top' },
-  { spin: 'bottom', icon: 'label_align_top', title: 'Align bottom' },
+const FLAG_SHAPES: { shape: LABEL_FLAG_SHAPE; label: string }[] = [
+  { shape: LABEL_FLAG_SHAPE.F_DOT, label: 'Dot' },
+  { shape: LABEL_FLAG_SHAPE.F_ROUND, label: 'Circle' },
+  { shape: LABEL_FLAG_SHAPE.F_DIAMOND, label: 'Diamond' },
+  { shape: LABEL_FLAG_SHAPE.F_RECTANGLE, label: 'Rectangle' },
 ];
 
-/** A directive label points its pin instead, so it uses the pinorient bitmaps. */
-const DIRECTIVE_SPINS: { spin: LabelSpin; icon: string; title: string }[] = [
-  { spin: 'right', icon: 'pinorient_down', title: 'Point down' },
-  { spin: 'left', icon: 'pinorient_up', title: 'Point up' },
-  { spin: 'up', icon: 'pinorient_right', title: 'Point right' },
-  { spin: 'bottom', icon: 'pinorient_left', title: 'Point left' },
-];
-
-/** The directive label's flag shapes (F_DOT / F_ROUND / F_DIAMOND / F_RECTANGLE). */
-const DIRECTIVE_SHAPES: { value: AnyLabelShape; label: string }[] = [
-  { value: 'dot', label: 'Dot' },
-  { value: 'round', label: 'Circle' },
-  { value: 'diamond', label: 'Diamond' },
-  { value: 'rectangle', label: 'Rectangle' },
-];
+/** m_spin0..3: the spin style each button stands for. */
+const SPIN_OF_BUTTON = [SPIN_STYLE.RIGHT, SPIN_STYLE.LEFT, SPIN_STYLE.UP, SPIN_STYLE.BOTTOM];
 
 /** WX_GRID column widths from the base class, for the eight shown columns. */
-const COLUMNS: { key: FieldCol; label: string; width: number }[] = [
-  { key: 'name', label: 'Name', width: 72 },
-  { key: 'value', label: 'Value', width: 84 },
-  { key: 'show', label: 'Show', width: 48 },
-  { key: 'showName', label: 'Show Name', width: 48 },
-  { key: 'hAlign', label: 'H Align', width: 70 },
-  { key: 'vAlign', label: 'V Align', width: 70 },
-  { key: 'italic', label: 'Italic', width: 48 },
-  { key: 'bold', label: 'Bold', width: 48 },
+const GRID_COLUMNS = [
+  { width: 72 },
+  { width: 84 },
+  { width: 48, center: true },
+  { width: 48, center: true },
+  { width: 70, center: true },
+  { width: 70, center: true },
+  { width: 48, center: true },
+  { width: 48, center: true },
 ];
 
-type FieldCol = 'name' | 'value' | 'show' | 'showName' | 'hAlign' | 'vAlign' | 'italic' | 'bold';
-
-const H_ALIGNS = ['Left', 'Center', 'Right'];
-const V_ALIGNS = ['Top', 'Center', 'Bottom'];
-
-/** Everything the dialog hands back (DIALOG_LABEL_PROPERTIES's transfer-out). */
-export interface LabelPropsResult {
-  /** One entry per label: several when "Multiple label input" is used. */
-  texts: string[];
-  /** FONT_CHOICE: '' = Default Font, otherwise the face written to the file. */
-  face: string;
-  shape: AnyLabelShape;
-  bold: boolean;
-  italic: boolean;
-  sizeIU: number;
-  color?: ItemColor;
-  spin: LabelSpin;
-  autoRotate: boolean;
-  fields: EditedLabelField[];
-}
-
-export interface LabelPropsInitial {
+export interface LABEL_DIALOG_VALUES {
+  /** m_activeTextEntry's value. */
   text: string;
-  face?: string;
-  shape: AnyLabelShape;
+  /** m_cbMultiLine: the text holds one label per line. */
+  multiLine: boolean;
+  shape: LABEL_FLAG_SHAPE;
+  /** FONT_CHOICE: '' is "Default Font". */
+  face: string;
+  /** m_textSize's text, in the frame's units. */
+  size: string;
   bold: boolean;
   italic: boolean;
-  sizeIU: number;
-  color?: ItemColor;
-  spin: LabelSpin;
+  color: Color4d;
+  /** Which of m_spin0..3 is checked. */
+  spinButton: number;
   autoRotate: boolean;
-  fields: readonly EditedLabelField[];
 }
 
-interface Props {
-  kind: LabelPropsKind;
-  /** Placing a new label (the "Multiple label input" box only appears then). */
-  isNew: boolean;
-  initial: LabelPropsInitial;
-  /** Existing label names of the same type, offered by the combo. */
-  suggestions?: readonly string[];
-  /**
-   * The project's netclass names, offered in the Netclass field's cell.
-   *
-   * `FIELDS_GRID_TABLE` loads them from the project file — the default class
-   * first, then every class defined in Schematic Setup — and gives that row a
-   * `GRID_CELL_COMBOBOX`. Without them the cell is free text and there is
-   * nothing tying what you type to a class the project actually has.
-   */
-  netclasses?: readonly string[];
-  /**
-   * The frame's display units, `EDA_DRAW_FRAME::GetUserUnits()`.
-   *
-   * `m_textSize` is a `UNIT_BINDER` (dialog_label_properties.cpp:53), which
-   * formats and parses in the FRAME's units and writes the unit name into the
-   * label beside the field. This dialog printed "mm" and formatted in mm
-   * whatever the frame was set to, so a schematic in mils showed 1.27 mm where
-   * KiCad shows 50 mils.
-   */
-  units: StatusUnits;
-  onOk: (result: LabelPropsResult) => void;
-  onCancel: () => void;
-}
+function positioningChanged(a: SCH_FIELD, b: SCH_FIELD): boolean {
+  const pa = a.GetPosition();
+  const pb = b.GetPosition();
 
-/** Id of the datalist backing the Netclass cell's dropdown. */
-const netclassListId = 'ze-netclass-options';
-
-const justifyOf = (f: EditedLabelField, axis: 'h' | 'v'): string => {
-  const j = f.effects?.justify ?? [];
-  if (axis === 'h') return j.includes('left') ? 'Left' : j.includes('right') ? 'Right' : 'Center';
-  return j.includes('top') ? 'Top' : j.includes('bottom') ? 'Bottom' : 'Center';
-};
-
-const withJustify = (f: EditedLabelField, axis: 'h' | 'v', value: string): EditedLabelField => {
-  const keep = (f.effects?.justify ?? []).filter((t) =>
-    axis === 'h' ? !['left', 'right'].includes(t) : !['top', 'bottom'].includes(t),
+  return (
+    pa.x !== pb.x ||
+    pa.y !== pb.y ||
+    a.GetHorizJustify() !== b.GetHorizJustify() ||
+    a.GetVertJustify() !== b.GetVertJustify() ||
+    !a.GetTextAngle().equals(b.GetTextAngle())
   );
-  const token = value.toLowerCase();
-  const justify = token === 'center' ? keep : [...keep, token];
-  return { ...f, effects: { hidden: false, ...f.effects, justify } };
-};
+}
 
-/**
- * `UNIT_BINDER::SetValue` for the text-size field: the FRAME's units, not mm.
- * `StringFromValue` with no unit text, since the label carries it separately.
- */
-const sizeToText = (iu: number, units: StatusUnits): string =>
-  stringFromValue(iuToMM(iu), units, false);
+function fieldsPositioningChanged(a: FIELDS_GRID_TABLE, b: readonly SCH_FIELD[]): boolean {
+  for (let i = 0; i < a.size() && i < b.length; ++i) {
+    if (positioningChanged(a.at(i), b[i]!)) return true;
+  }
 
+  return false;
+}
+
+export class DIALOG_LABEL_PROPERTIES {
+  private readonly m_Parent: SCH_EDIT_FRAME;
+  private readonly m_currentLabel: SCH_LABEL_BASE;
+  private readonly m_grid = new WX_GRID();
+  private readonly m_fields: FIELDS_GRID_TABLE;
+  private readonly m_textSize: UNIT_BINDER;
+  private m_labelList: SCH_LABEL_BASE[] | null = null;
+  private readonly m_multilineAllowed: boolean;
+  private readonly m_existingLabelArray: string[] = [];
+
+  /** Which controls the constructor shows, for the form. */
+  readonly m_hasCombo: boolean;
+  readonly m_hasSingleLine: boolean;
+  readonly m_hasTextEntry: boolean;
+  readonly m_hasShape: boolean;
+  readonly m_hasAutoRotate: boolean;
+  readonly m_isDirective: boolean;
+  readonly m_title: string;
+  readonly m_spinBitmaps: string[];
+
+  constructor(
+    aParent: SCH_EDIT_FRAME,
+    aLabel: SCH_LABEL_BASE,
+    aNew: boolean,
+    aHost: GRID_TEXT_BUTTON_HOST,
+  ) {
+    this.m_Parent = aParent;
+    this.m_currentLabel = aLabel;
+    this.m_textSize = new UNIT_BINDER(aParent, 'Text size:', (aMessage) =>
+      DisplayErrorMessage(aMessage),
+    );
+
+    this.m_fields = new FIELDS_GRID_TABLE(this, aParent, this.m_grid, aLabel, aHost);
+
+    const type = aLabel.Type();
+
+    this.m_isDirective = type === KICAD_T.SCH_DIRECTIVE_LABEL_T;
+    this.m_hasCombo = type === KICAD_T.SCH_GLOBAL_LABEL_T || type === KICAD_T.SCH_LABEL_T;
+    this.m_hasSingleLine = type === KICAD_T.SCH_HIER_LABEL_T;
+    this.m_hasTextEntry = this.m_hasCombo || this.m_hasSingleLine;
+
+    if (this.m_isDirective) this.m_textSize.SetLabel('Pin length:');
+
+    // multiline set of labels can be used only to create new labels
+    this.m_multilineAllowed = aNew && !this.m_isDirective;
+
+    switch (type) {
+      case KICAD_T.SCH_GLOBAL_LABEL_T:
+        this.m_title = 'Global Label Properties';
+        break;
+      case KICAD_T.SCH_HIER_LABEL_T:
+        this.m_title = 'Hierarchical Label Properties';
+        break;
+      case KICAD_T.SCH_LABEL_T:
+        this.m_title = 'Label Properties';
+        break;
+      case KICAD_T.SCH_DIRECTIVE_LABEL_T:
+        this.m_title = 'Directive Label Properties';
+        break;
+      case KICAD_T.SCH_SHEET_PIN_T:
+        this.m_title = 'Hierarchical Sheet Pin Properties';
+        break;
+      default:
+        this.m_title = '';
+        break;
+    }
+
+    this.m_grid.SetTable(this.m_fields, false, wxGridSelectionModes.wxGridSelectRows);
+    this.m_grid.ShowHideColumns('0 1 2 3 4 5 6 7');
+
+    // Show/hide relevant controls
+    if (type === KICAD_T.SCH_GLOBAL_LABEL_T || type === KICAD_T.SCH_HIER_LABEL_T) {
+      this.m_hasShape = true;
+      this.m_spinBitmaps = [
+        'label_align_left',
+        'label_align_right',
+        'label_align_bottom',
+        'label_align_top',
+      ];
+    } else if (this.m_isDirective) {
+      this.m_hasShape = true;
+      this.m_spinBitmaps = ['pinorient_down', 'pinorient_up', 'pinorient_right', 'pinorient_left'];
+    } else {
+      this.m_hasShape = false;
+      this.m_spinBitmaps = [
+        'text_align_left',
+        'text_align_right',
+        'text_align_bottom',
+        'text_align_top',
+      ];
+    }
+
+    this.m_hasAutoRotate = aLabel.AutoRotateOnPlacementSupported();
+
+    // wxFormBuilder doesn't include this event...
+    this.m_grid.Connect(wxEVT_GRID_CELL_CHANGING, (aEvent: wxGridEvent) =>
+      this.OnGridCellChanging(aEvent),
+    );
+  }
+
+  /** `SetLabelList( aLabelList )`: where a new label's copies go. */
+  SetLabelList(aLabelList: SCH_LABEL_BASE[]): void {
+    this.m_labelList = aLabelList;
+  }
+
+  /** Whether m_cbMultiLine is shown. */
+  IsMultilineAllowed(): boolean {
+    return this.m_multilineAllowed;
+  }
+
+  Grid(): WX_GRID {
+    return this.m_grid;
+  }
+
+  Fields(): FIELDS_GRID_TABLE {
+    return this.m_fields;
+  }
+
+  ExistingLabels(): readonly string[] {
+    return this.m_existingLabelArray;
+  }
+
+  /** `DIALOG_SHIM::OnModify()`: nothing reads the modified flag here. */
+  OnModify(): void {}
+
+  /** `TransferDataToWindow()`. */
+  TransferDataToWindow(): LABEL_DIALOG_VALUES {
+    const label = this.m_currentLabel;
+    let text = '';
+
+    if (this.m_hasTextEntry) {
+      // show control characters in a human-readable format
+      text = unescapeString(label.GetText());
+
+      // show text variable cross-references in a human-readable format
+      const schematic = label.Schematic();
+      if (schematic) text = schematic.ConvertKIIDsToRefs(text);
+    }
+
+    if (this.m_hasCombo) {
+      // Load the combobox with the existing labels of the same type
+      const existingLabels = new Set<string>();
+      const allScreens = new SCH_SCREENS(this.m_Parent.Schematic().Root());
+
+      for (let screen = allScreens.GetFirst(); screen; screen = allScreens.GetNext()) {
+        for (const item of screen.Items().OfType(label.Type()))
+          existingLabels.add(unescapeString((item as SCH_LABEL_BASE).GetText()));
+
+        // Add global power labels from power symbols
+        if (label.Type() === KICAD_T.SCH_GLOBAL_LABEL_T) {
+          for (const item of screen.Items().OfType(KICAD_T.SCH_SYMBOL_LOCATE_POWER_T)) {
+            const power = item as SCH_SYMBOL;
+
+            // Ensure the symbol has the Power (i.e. equivalent to a global label
+            // before adding its value in list
+            if (power.IsSymbolLikePowerGlobalLabel()) {
+              const valueField = power.GetField(FIELD_T.VALUE);
+              if (valueField) existingLabels.add(unescapeString(valueField.GetText()));
+            }
+          }
+        }
+
+        // Add local power labels from power symbols
+        if (label.Type() === KICAD_T.SCH_LABEL_T) {
+          for (const item of screen.Items().OfType(KICAD_T.SCH_SYMBOL_LOCATE_POWER_T)) {
+            const power = item as SCH_SYMBOL;
+
+            // Ensure the symbol has the Power (i.e. equivalent to a local label
+            // before adding its value in list
+            if (power.IsSymbolLikePowerLocalLabel()) {
+              const valueField = power.GetField(FIELD_T.VALUE);
+              if (valueField) existingLabels.add(unescapeString(valueField.GetText()));
+            }
+          }
+        }
+      }
+
+      // Add bus aliases to label list
+      for (const busAlias of this.m_Parent.Schematic().GetAllBusAliases())
+        existingLabels.add(`{${busAlias.GetName()}}`);
+
+      // std::set<wxString> iterates in code-unit order
+      for (const existing of [...existingLabels].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)))
+        this.m_existingLabelArray.push(existing);
+    }
+
+    // Push a copy of each field into m_updateFields
+    for (const field of label.GetFields()) {
+      const field_copy = SCH_FIELD.copyOf(field);
+
+      // change offset to be symbol-relative
+      const pos = label.GetPosition();
+      field_copy.Offset({ x: -pos.x, y: -pos.y });
+
+      this.m_fields.push_back(field_copy);
+    }
+
+    // notify the grid
+    this.m_grid.ProcessTableMessage(
+      wxGridTableRequest.wxGRIDTABLE_NOTIFY_ROWS_APPENDED,
+      this.m_fields.size(),
+      0,
+    );
+
+    if (this.m_isDirective) this.m_textSize.SetValue((label as SCH_DIRECTIVE_LABEL).GetPinLength());
+    else this.m_textSize.SetValue(label.GetTextWidth());
+
+    const spin = Number(label.GetSpinStyle());
+
+    return {
+      text,
+      multiLine: false,
+      shape: label.GetShape(),
+      face: label.GetFont()?.GetName() ?? '',
+      size: this.m_textSize.GetText(),
+      bold: label.IsBold(),
+      italic: label.IsItalic(),
+      color: label.GetTextColor(),
+      spinButton: Math.max(0, SPIN_OF_BUTTON.indexOf(spin)),
+      autoRotate: this.m_hasAutoRotate ? label.AutoRotateOnPlacement() : false,
+    };
+  }
+
+  /** `TransferDataFromWindow()`: false keeps the dialog open. */
+  TransferDataFromWindow(aValues: LABEL_DIALOG_VALUES): boolean {
+    if (!this.m_grid.CommitPendingChanges()) return false;
+
+    this.m_textSize.SetText(aValues.size);
+
+    // Don't allow text to disappear; it can be difficult to correct if you can't select it
+    if (!this.m_textSize.Validate(0.01, 1000.0, 'mm')) return false;
+
+    const label = this.m_currentLabel;
+    const commit = new SCH_COMMIT(this.m_Parent);
+    let text = '';
+
+    /* save old text in undo list if not already in edit */
+    if (label.GetEditFlags() === 0) commit.Modify(label, this.m_Parent.GetScreen());
+
+    if (this.m_hasTextEntry) {
+      // labels need escaping
+      text = EscapeString(aValues.text, ESCAPE_CONTEXT.CTX_NETNAME);
+
+      // convert any text variable cross-references to their UUIDs
+      const schematic = label.Schematic();
+      if (schematic) text = schematic.ConvertRefsToKIIDs(text);
+
+      if (text === '' && !label.IsNew()) {
+        DisplayErrorMessage('Label can not be empty.');
+        return false;
+      }
+
+      label.SetText(text);
+    }
+
+    // change all field positions from relative to absolute
+    for (const field of this.m_fields.Fields()) {
+      field.Offset(label.GetPosition());
+
+      if (field.GetCanonicalName() === 'Netclass') {
+        field.SetLayer(SCH_LAYER_ID.LAYER_NETCLASS_REFS);
+      } else if (field.GetId() === FIELD_T.INTERSHEET_REFS) {
+        if (field.IsVisible() !== this.m_Parent.Schematic().Settings().m_IntersheetRefsShow) {
+          void DisplayInfoMessage(
+            'Intersheet reference visibility is controlled globally from ' +
+              'Schematic Setup > General > Formatting',
+          );
+        }
+
+        field.SetLayer(SCH_LAYER_ID.LAYER_INTERSHEET_REFS);
+      } else {
+        field.SetLayer(SCH_LAYER_ID.LAYER_FIELDS);
+      }
+    }
+
+    if (fieldsPositioningChanged(this.m_fields, label.GetFields()))
+      label.SetFieldsAutoplaced(AUTOPLACE_ALGO.AUTOPLACE_NONE);
+
+    for (let ii = this.m_fields.GetNumberRows() - 1; ii >= 0; ii--) {
+      const field = this.m_fields.at(ii);
+      const fieldName = field.GetCanonicalName();
+      const fieldText = field.GetText();
+
+      if (fieldName === '' && fieldText === '') {
+        // delete empty, unnamed fields
+        this.m_fields.erase(ii);
+      } else if (fieldName === 'Netclass' && fieldText === '') {
+        // delete empty Netclass fields if there are other Netclass fields present
+        let netclassFieldCount = 0;
+
+        for (let jj = 0; jj < this.m_fields.GetNumberRows(); ++jj) {
+          if (this.m_fields.at(jj).GetCanonicalName() === 'Netclass') netclassFieldCount++;
+        }
+
+        if (netclassFieldCount > 1) this.m_fields.erase(ii);
+      } else if (fieldName === '') {
+        // give non-empty, unnamed fields a name
+        field.SetName('untitled');
+      }
+    }
+
+    let ordinal = 42; // Arbitrarily larger than any mandatory FIELD_T ids.
+
+    for (const field of this.m_fields.Fields()) {
+      if (!field.IsMandatory()) field.SetOrdinal(ordinal++);
+    }
+
+    label.SetFields(this.m_fields.Fields());
+
+    if (this.m_hasShape) label.SetShape(aValues.shape);
+
+    label.SetFont(
+      aValues.face === '' ? null : FONT.GetFont(aValues.face, aValues.bold, aValues.italic),
+    );
+
+    if (this.m_isDirective)
+      (label as SCH_DIRECTIVE_LABEL).SetPinLength(this.m_textSize.GetIntValue());
+    else if (label.GetTextWidth() !== this.m_textSize.GetIntValue())
+      label.SetTextSize({ x: this.m_textSize.GetIntValue(), y: this.m_textSize.GetIntValue() });
+
+    // Must come after SetTextSize()
+    label.SetBold(aValues.bold);
+    label.SetItalic(aValues.italic);
+
+    label.SetTextColor(aValues.color);
+
+    const selectedSpinStyle = new SPIN_STYLE(SPIN_OF_BUTTON[aValues.spinButton] ?? SPIN_STYLE.LEFT);
+
+    if (this.m_hasAutoRotate) {
+      label.SetAutoRotateOnPlacement(aValues.autoRotate);
+      this.m_Parent.AutoRotateItem(this.m_Parent.GetScreen()!, label);
+    } else {
+      label.SetAutoRotateOnPlacement(false);
+    }
+
+    if (!label.AutoRotateOnPlacement() && !label.GetSpinStyle().equals(selectedSpinStyle))
+      label.SetSpinStyle(selectedSpinStyle);
+
+    const fieldsAutoplaced = label.GetFieldsAutoplaced();
+
+    if (
+      fieldsAutoplaced === AUTOPLACE_ALGO.AUTOPLACE_AUTO ||
+      fieldsAutoplaced === AUTOPLACE_ALGO.AUTOPLACE_MANUAL
+    )
+      label.AutoplaceFields(this.m_Parent.GetScreen(), fieldsAutoplaced);
+
+    if (!commit.Empty()) {
+      commit.Push('Edit Label Properties');
+    } else if (this.m_hasTextEntry && this.m_labelList) {
+      // On macOS CTRL+Enter produces '\r' instead of '\n' regardless of EOL setting
+      const lines = aValues.text.replace(/\r/g, '\n').split('\n');
+
+      for (const line of lines) {
+        text = EscapeString(line, ESCAPE_CONTEXT.CTX_NETNAME).trim();
+
+        if (text === '') continue;
+
+        // convert any text variable cross-references to their UUIDs
+        const schematic = label.Schematic();
+        if (schematic) text = schematic.ConvertRefsToKIIDs(text);
+
+        const copy = label.Clone() as SCH_LABEL_BASE;
+        (copy as { m_Uuid: string }).m_Uuid = newKiid(); // Gives a new UUID to the copy
+        copy.SetText(text);
+        this.m_labelList.push(copy);
+      }
+    } else if (this.m_labelList && this.m_isDirective) {
+      this.m_labelList.push(label.Clone() as SCH_LABEL_BASE);
+    }
+
+    return true;
+  }
+
+  /** `OnGridCellChanging( wxGridEvent& )`. */
+  private OnGridCellChanging(aEvent: wxGridEvent): void {
+    if (aEvent.GetCol() !== FIELDS_DATA_COL_ORDER.FDC_NAME) return;
+
+    const newName = aEvent.GetString();
+    const isGlobalLabel = this.m_currentLabel.Type() === KICAD_T.SCH_GLOBAL_LABEL_T;
+
+    for (let i = 0; i < this.m_grid.GetNumberRows(); ++i) {
+      if (i === aEvent.GetRow()) continue;
+
+      const existing = this.m_grid.GetCellValue(i, FIELDS_DATA_COL_ORDER.FDC_NAME);
+
+      // Only global labels have a mandatory field (Intersheet References).  Hierarchical,
+      // regular, and directive labels carry only user fields, which compare case-sensitively.
+      const duplicate = isGlobalLabel
+        ? FieldNamesAreDuplicates(newName, existing, GLOBALLABEL_MANDATORY_FIELDS)
+        : FieldNamesAreDuplicates(newName, existing, []);
+
+      if (duplicate) {
+        DisplayErrorMessage(`Field name '${newName}' already in use.`);
+        aEvent.Veto();
+        break;
+      }
+    }
+  }
+
+  /** `OnAddField( wxCommandEvent& )`. */
+  OnAddField(): void {
+    this.m_grid.OnAddRow((): [number, number] => {
+      let fieldName = 'Netclass';
+
+      for (const field of this.m_fields.Fields()) {
+        if (field.GetId() !== FIELD_T.INTERSHEET_REFS && field.GetName() !== 'Netclass') {
+          fieldName = '';
+          break;
+        }
+      }
+
+      fieldName = SCH_LABEL_BASE.GetDefaultFieldName(fieldName, true);
+
+      const newField = new SCH_FIELD(this.m_currentLabel, FIELD_T.USER, fieldName);
+
+      if (this.m_fields.size() > 0) {
+        // SetAttributes() also covers text angle, size, italic and bold
+        const last = this.m_fields.at(this.m_fields.size() - 1);
+        newField.SetAttributes(last as unknown as EDA_TEXT);
+        newField.SetVisible(last.IsVisible());
+      } else {
+        newField.SetVisible(true);
+        newField.SetItalic(true);
+      }
+
+      this.m_fields.push_back(newField);
+
+      // notify the grid
+      this.m_grid.ProcessTableMessage(wxGridTableRequest.wxGRIDTABLE_NOTIFY_ROWS_APPENDED, 1, 0);
+      return [this.m_fields.size() - 1, FIELDS_DATA_COL_ORDER.FDC_NAME];
+    });
+  }
+
+  /** `OnDeleteField( wxCommandEvent& )`. */
+  OnDeleteField(): void {
+    this.m_grid.OnDeleteRows(
+      (row) => {
+        if (row < this.m_currentLabel.GetMandatoryFieldCount()) {
+          DisplayErrorMessage('The first field is mandatory.');
+          return false;
+        }
+
+        return true;
+      },
+      (row) => {
+        this.m_fields.erase(row);
+
+        // notify the grid
+        this.m_grid.ProcessTableMessage(wxGridTableRequest.wxGRIDTABLE_NOTIFY_ROWS_DELETED, row, 1);
+      },
+    );
+  }
+
+  /** `OnMoveUp( wxCommandEvent& )`. */
+  OnMoveUp(): void {
+    this.m_grid.OnMoveRowUp(
+      (row) => row > this.m_currentLabel.GetMandatoryFieldCount(),
+      (row) => {
+        this.m_fields.SwapRows(row, row - 1);
+        this.m_grid.ForceRefresh();
+      },
+    );
+  }
+
+  /**
+   * `OnMoveDown( wxCommandEvent& )`. Upstream calls OnMoveRowUp here too, with a mover that swaps
+   * the row with the one below: the row moves down and the cursor goes up.
+   */
+  OnMoveDown(): void {
+    this.m_grid.OnMoveRowUp(
+      (row) => row >= this.m_currentLabel.GetMandatoryFieldCount(),
+      (row) => {
+        this.m_fields.SwapRows(row, row + 1);
+        this.m_grid.ForceRefresh();
+      },
+    );
+  }
+}
+
+/** The form over DIALOG_LABEL_PROPERTIES. */
 export function DialogLabelProperties({
-  kind,
-  isNew,
+  dlg,
   initial,
-  suggestions,
-  netclasses,
   units,
   onOk,
   onCancel,
-}: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
+}: {
+  dlg: DIALOG_LABEL_PROPERTIES;
+  initial: LABEL_DIALOG_VALUES;
+  units: StatusUnits;
+  onOk: (aValues: LABEL_DIALOG_VALUES) => void;
+  onCancel: () => void;
+}): JSX.Element {
   useModalEscape(onCancel);
 
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
   const [text, setText] = useState(initial.text);
-  const [multi, setMulti] = useState(false);
-  const [shape, setShape] = useState<AnyLabelShape>(initial.shape);
+  const [multiLine, setMultiLine] = useState(initial.multiLine);
+  const [shape, setShape] = useState(initial.shape);
+  const [face, setFace] = useState(initial.face);
+  const [size, setSize] = useState(initial.size);
   const [bold, setBold] = useState(initial.bold);
   const [italic, setItalic] = useState(initial.italic);
-  const [spin, setSpin] = useState<LabelSpin>(initial.spin);
+  const [color, setColor] = useState(initial.color);
+  const [spinButton, setSpinButton] = useState(initial.spinButton);
   const [autoRotate, setAutoRotate] = useState(initial.autoRotate);
-  const [sizeText, setSizeText] = useState(() => sizeToText(initial.sizeIU, units));
-  const [color, setColor] = useState<ItemColor | undefined>(initial.color);
-  const [face, setFace] = useState(initial.face ?? '');
-  const [fields, setFields] = useState<EditedLabelField[]>([...initial.fields]);
-  const [selRow, setSelRow] = useState<number | null>(null);
-  const valueRef = useRef<HTMLInputElement>(null);
-  const multiRef = useRef<HTMLTextAreaElement>(null);
 
-  // SetInitialFocus( m_valueCombo / m_valueSingleLine ).
-  useEffect(() => {
-    valueRef.current?.focus();
-    valueRef.current?.select();
-  }, []);
+  const submit = (): void =>
+    onOk({ text, multiLine, shape, face, size, bold, italic, color, spinButton, autoRotate });
 
-  // Global, hierarchical labels and sheet pins have a flag shape; only the
-  // first two can auto-rotate on placement (AutoRotateOnPlacementSupported).
-  const isDirective = kind === 'directive';
-  const hasShape =
-    kind === 'global_label' || kind === 'hierarchical_label' || kind === 'sheet_pin' || isDirective;
-  const hasAutoRotate = kind === 'global_label' || kind === 'hierarchical_label';
-  // The combo (with the existing labels) is used for local and global labels;
-  // hierarchical labels and sheet pins get the plain single-line entry.
-  const isCombo = kind === 'label' || kind === 'global_label';
-  // Every type here is a SCH_LABEL_BASE, so every one can carry fields.
-  const hasFields = true;
-  // A directive label has no text of its own — its netclass lives in a field —
-  // so the text entry, the multi-label box and the syntax help are all hidden,
-  // the shape box carries the flag shapes and "Text size" becomes "Pin length".
-  const hasText = !isDirective;
-
-  const sizeIU = (): number => {
-    // `UNIT_BINDER::GetValue`: parsed in the frame's units, and a value with
-    // its own suffix ("50mil" typed into a mm field) is honoured, which is why
-    // this goes through the binder rather than Number().
-    const mm = parseUnitValueDouble(sizeText, units);
-    return Number.isFinite(mm) && mm > 0 ? Math.round(mmToIU(mm)) : initial.sizeIU;
+  // onMultiLabelCheck: the text moves to the multi-line entry, and back as its first line.
+  const onMultiLabelCheck = (aChecked: boolean): void => {
+    setMultiLine(aChecked);
+    if (!aChecked) setText((t) => t.split('\n')[0] ?? '');
   };
 
-  const submit = (): void => {
-    const source = multi ? (multiRef.current?.value ?? '') : text;
-    const texts = (multi ? source.split('\n') : [source]).map((t) => t.trim()).filter(Boolean);
-    // A directive label carries no text of its own (its netclass is a field).
-    if (texts.length === 0 && !isDirective) return; // KiCad refuses an empty label
-    onOk({
-      texts,
-      face,
-      shape,
-      bold,
-      italic,
-      sizeIU: sizeIU(),
-      ...(color ? { color } : {}),
-      spin,
-      autoRotate,
-      fields: cleanLabelFields(fields),
-    });
-  };
-
-  const onKey = (e: React.KeyboardEvent): void => {
+  const enter = (e: React.KeyboardEvent): void => {
     e.stopPropagation();
-    if (e.key === 'Enter' && !multi) {
+    if (e.key === 'Enter') {
       e.preventDefault();
       submit();
     }
   };
 
-  const patchField = (i: number, next: EditedLabelField): void =>
-    setFields((fs) => fs.map((f, j) => (i === j ? next : f)));
-
-  const moveRow = (delta: number): void => {
-    setFields((fs) => {
-      if (selRow === null) return fs;
-      const to = selRow + delta;
-      if (to < 0 || to >= fs.length) return fs;
-      const out = [...fs];
-      [out[selRow], out[to]] = [out[to]!, out[selRow]!];
-      return out;
-    });
-    setSelRow((r) => (r === null ? r : Math.max(0, Math.min(fields.length - 1, r + delta))));
-  };
-
-  const addField = (): void => {
-    setFields((fs) => [
-      ...fs,
-      { key: '', value: '', angle: 0, effects: { hidden: false }, source: undefined },
-    ]);
-    setSelRow(fields.length);
-  };
-
-  const deleteField = (): void => {
-    if (selRow === null) return;
-    setFields((fs) => fs.filter((_, i) => i !== selRow));
-    setSelRow(null);
-  };
+  const shapes = dlg.m_isDirective ? FLAG_SHAPES : LABEL_SHAPES;
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      {netclasses && netclasses.length > 0 && (
-        <datalist id={netclassListId}>
-          {netclasses.map((n) => (
-            <option key={n} value={n} />
-          ))}
-        </datalist>
-      )}
       <div className="ze-modal ze-label-props" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
-          {TITLES[kind]}
+          {dlg.m_title}
           <span className="x" title="Cancel" onClick={onCancel}>
             ✕
           </span>
@@ -338,46 +679,48 @@ export function DialogLabelProperties({
 
         <div className="ze-modal-body ze-lp-body">
           {/* m_textEntrySizer: the label caption and its value control. */}
-          {hasText && (
+          {dlg.m_hasTextEntry && (
             <div className="ze-lp-entry">
               <span className="ze-lp-caption">Label:</span>
-              {multi ? (
+              {multiLine ? (
                 <textarea
-                  ref={multiRef}
                   className="ze-lp-value ze-lp-multiline"
                   rows={4}
-                  defaultValue={text}
+                  value={text}
+                  autoFocus
+                  onChange={(e) => setText(e.target.value)}
                   onKeyDown={(e) => e.stopPropagation()}
+                />
+              ) : dlg.m_hasCombo ? (
+                <TextCombo
+                  className="ze-lp-value"
+                  value={text}
+                  options={dlg.ExistingLabels()}
+                  onChange={setText}
+                  onEnter={submit}
+                  autoFocus
                 />
               ) : (
                 <input
-                  ref={valueRef}
                   className="ze-lp-value"
                   value={text}
+                  autoFocus
                   title="Enter the text to be used within the schematic"
-                  list={isCombo && suggestions?.length ? 'ze-label-suggestions' : undefined}
                   onChange={(e) => setText(e.target.value)}
-                  onKeyDown={onKey}
+                  onKeyDown={enter}
                 />
-              )}
-              {isCombo && suggestions && suggestions.length > 0 && (
-                <datalist id="ze-label-suggestions">
-                  {suggestions.map((s) => (
-                    <option key={s} value={s} />
-                  ))}
-                </datalist>
               )}
             </div>
           )}
 
-          {hasText && (
+          {dlg.m_hasTextEntry && (
             <div className="ze-lp-entry-row2">
-              {isNew ? (
+              {dlg.IsMultilineAllowed() ? (
                 <label className="ze-lp-check">
                   <input
                     type="checkbox"
-                    checked={multi}
-                    onChange={(e) => setMulti(e.target.checked)}
+                    checked={multiLine}
+                    onChange={(e) => onMultiLabelCheck(e.target.checked)}
                   />
                   Multiple label input
                 </label>
@@ -396,179 +739,66 @@ export function DialogLabelProperties({
             </div>
           )}
 
-          {/* sbFields: the label's own fields, in the symbol dialog's grid. */}
-          {hasFields && (
-            <fieldset className="ze-lp-fields">
-              <legend>Fields</legend>
-              <div className="ze-lp-grid-wrap">
-                <table className="ze-lp-grid">
-                  {/* `SetupColumnAutosizer( FDC_VALUE )` (fields_grid_table.cpp:422):
-                      every column keeps the width its _base.cpp sets and Value
-                      alone takes the slack. Stated here, where `table-layout:
-                      fixed` reads it — on the `<th>` alone the surplus was
-                      spread over all eight columns instead. */}
-                  <colgroup>
-                    {COLUMNS.map((c) => (
-                      <col
-                        key={c.key}
-                        style={
-                          c.key === 'value'
-                            ? { width: 'auto', minWidth: c.width }
-                            : { width: c.width }
-                        }
-                      />
-                    ))}
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      {COLUMNS.map((c) => (
-                        <th key={c.key} style={{ width: c.width }}>
-                          {c.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {fields.map((f, i) => (
-                      // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
-                      <tr
-                        key={i}
-                        className={selRow === i ? 'sel' : ''}
-                        onMouseDown={() => setSelRow(i)}
-                      >
-                        <td>
-                          <input
-                            value={f.key}
-                            onChange={(e) => patchField(i, { ...f, key: e.target.value })}
-                            onKeyDown={(e) => e.stopPropagation()}
-                          />
-                        </td>
-                        <td>
-                          {/* The Netclass row is a combobox of the project's
-                              netclasses, not a free-text cell:
-
-                                existingNetclasses.push_back( settings->GetDefaultNetclass()->GetName() );
-                                for( const auto& [name, netclass] : settings->GetNetclasses() )
-                                    existingNetclasses.push_back( name );
-                                m_netclassAttr->SetEditor( new GRID_CELL_COMBOBOX( existingNetclasses ) );
-
-                              A datalist keeps it editable, which is what
-                              GRID_CELL_COMBOBOX is — a dropdown you may also
-                              type into. */}
-                          <input
-                            value={f.value}
-                            list={
-                              f.key === 'Netclass' && netclasses?.length
-                                ? netclassListId
-                                : undefined
-                            }
-                            onChange={(e) => patchField(i, { ...f, value: e.target.value })}
-                            onKeyDown={(e) => e.stopPropagation()}
-                          />
-                        </td>
-                        <td className="c">
-                          <input
-                            type="checkbox"
-                            checked={!f.effects?.hidden}
-                            onChange={(e) =>
-                              patchField(i, {
-                                ...f,
-                                effects: { ...f.effects, hidden: !e.target.checked },
-                              })
-                            }
-                          />
-                        </td>
-                        <td className="c">
-                          <input
-                            type="checkbox"
-                            checked={!!f.nameShown}
-                            onChange={(e) => patchField(i, { ...f, nameShown: e.target.checked })}
-                          />
-                        </td>
-                        {/* A grid choice cell is a `wxGridCellChoiceEditor`,
-                            which is wx's own control and not the platform's
-                            dropdown; `Combo` is ours, and the two below were
-                            the last native `<select>`s in this dialog. */}
-                        <td>
-                          <Combo
-                            value={justifyOf(f, 'h')}
-                            options={H_ALIGNS.map((a) => ({ value: a, label: a }))}
-                            onChange={(v) => patchField(i, withJustify(f, 'h', v))}
-                          />
-                        </td>
-                        <td>
-                          <Combo
-                            value={justifyOf(f, 'v')}
-                            options={V_ALIGNS.map((a) => ({ value: a, label: a }))}
-                            onChange={(v) => patchField(i, withJustify(f, 'v', v))}
-                          />
-                        </td>
-                        <td className="c">
-                          <input
-                            type="checkbox"
-                            checked={!!f.effects?.italic}
-                            onChange={(e) =>
-                              patchField(i, {
-                                ...f,
-                                effects: { hidden: false, ...f.effects, italic: e.target.checked },
-                              })
-                            }
-                          />
-                        </td>
-                        <td className="c">
-                          <input
-                            type="checkbox"
-                            checked={!!f.effects?.bold}
-                            onChange={(e) =>
-                              patchField(i, {
-                                ...f,
-                                effects: { hidden: false, ...f.effects, bold: e.target.checked },
-                              })
-                            }
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="ze-lp-fieldbtns">
-                <BitmapButton bitmap="small_plus" tooltip="Add field" onClick={addField} />
-                <BitmapButton
-                  bitmap="small_up"
-                  tooltip="Move up"
-                  disabled={selRow === null || selRow === 0}
-                  onClick={() => moveRow(-1)}
-                />
-                <BitmapButton
-                  bitmap="small_down"
-                  tooltip="Move down"
-                  disabled={selRow === null || selRow === fields.length - 1}
-                  onClick={() => moveRow(1)}
-                />
-                <span className="ze-lp-gap" />
-                <BitmapButton
-                  bitmap="small_trash"
-                  tooltip="Delete field"
-                  disabled={selRow === null}
-                  onClick={deleteField}
-                />
-              </div>
-            </fieldset>
-          )}
+          {/* sbFields: the label's own fields, on FIELDS_GRID_TABLE. */}
+          <fieldset className="ze-lp-fields">
+            <legend>Fields</legend>
+            <div className="ze-lp-grid-wrap">
+              <WxGridView
+                grid={dlg.Grid()}
+                columns={GRID_COLUMNS}
+                flexCol={FIELDS_DATA_COL_ORDER.FDC_VALUE}
+                ariaLabel="Fields"
+              />
+            </div>
+            <div className="ze-lp-fieldbtns">
+              <BitmapButton
+                bitmap="small_plus"
+                tooltip="Add field"
+                onClick={() => {
+                  dlg.OnAddField();
+                  redraw();
+                }}
+              />
+              <BitmapButton
+                bitmap="small_up"
+                tooltip="Move up"
+                onClick={() => {
+                  dlg.OnMoveUp();
+                  redraw();
+                }}
+              />
+              <BitmapButton
+                bitmap="small_down"
+                tooltip="Move down"
+                onClick={() => {
+                  dlg.OnMoveDown();
+                  redraw();
+                }}
+              />
+              <span className="ze-lp-gap" />
+              <BitmapButton
+                bitmap="small_trash"
+                tooltip="Delete field"
+                onClick={() => {
+                  dlg.OnDeleteField();
+                  redraw();
+                }}
+              />
+            </div>
+          </fieldset>
 
           {/* optionsSizer: Shape beside Formatting. */}
           <div className="ze-lp-options">
-            {hasShape && (
+            {dlg.m_hasShape && (
               <fieldset className="ze-lp-shape">
                 <legend>Shape</legend>
-                {(isDirective ? DIRECTIVE_SHAPES : SHAPES).map((s) => (
-                  <label key={s.value}>
+                {shapes.map((s) => (
+                  <label key={s.shape}>
                     <input
                       type="radio"
                       name="ze-lp-shape"
-                      checked={shape === s.value}
-                      onChange={() => setShape(s.value)}
+                      checked={shape === s.shape}
+                      onChange={() => setShape(s.shape)}
                     />
                     {s.label}
                   </label>
@@ -579,16 +809,14 @@ export function DialogLabelProperties({
             <fieldset className="ze-lp-formatting">
               <legend>Formatting</legend>
               <div className="ze-lp-fmt-grid">
-                <span className="ze-lp-fmt-label">{isDirective ? 'Orientation:' : 'Font:'}</span>
-                {/* The shared FontChoice — `Combo`, our owner-drawn one, as
-                    FONT_CHOICE is a wxOwnerDrawnComboBox. Outline fonts are
-                    still issue #154; this build draws every face with KiCad's
-                    stroke font, so only upstream's two entries are offered. */}
-                {isDirective ? <span /> : <FontChoice face={face} onChange={setFace} />}
+                <span className="ze-lp-fmt-label">
+                  {dlg.m_isDirective ? 'Orientation:' : 'Font:'}
+                </span>
+                {dlg.m_isDirective ? <span /> : <FontChoice face={face} onChange={setFace} />}
                 <div className="ze-lp-iconbar">
-                  <BitmapButtonSeparator />
-                  {!isDirective && (
+                  {!dlg.m_isDirective && (
                     <>
+                      <BitmapButtonSeparator />
                       <BitmapButton
                         bitmap="text_bold"
                         tooltip="Bold"
@@ -604,16 +832,16 @@ export function DialogLabelProperties({
                       <BitmapButtonSeparator />
                     </>
                   )}
-                  {(isDirective ? DIRECTIVE_SPINS : SPINS).map((s) => (
+                  {dlg.m_spinBitmaps.map((bitmap, i) => (
                     <BitmapButton
-                      key={s.spin}
-                      bitmap={s.icon}
-                      tooltip={s.title}
-                      checked={spin === s.spin}
-                      onClick={() => setSpin(s.spin)}
+                      key={bitmap}
+                      bitmap={bitmap}
+                      tooltip=""
+                      checked={spinButton === i}
+                      onClick={() => setSpinButton(i)}
                     />
                   ))}
-                  {hasAutoRotate && (
+                  {dlg.m_hasAutoRotate && (
                     <label className="ze-lp-check ze-lp-auto">
                       <input
                         type="checkbox"
@@ -623,31 +851,27 @@ export function DialogLabelProperties({
                       Auto
                     </label>
                   )}
-                  <BitmapButtonSeparator />
+                  {!dlg.m_isDirective && <BitmapButtonSeparator />}
                 </div>
 
                 <span className="ze-lp-fmt-label">
-                  {isDirective ? 'Pin length:' : 'Text size:'}
+                  {dlg.m_isDirective ? 'Pin length:' : 'Text size:'}
                 </span>
                 <div className="ze-lp-sizerow">
                   <input
                     className="ze-lp-size"
-                    value={sizeText}
-                    onChange={(e) => setSizeText(e.target.value)}
-                    onKeyDown={onKey}
+                    value={size}
+                    onChange={(e) => setSize(e.target.value)}
+                    onKeyDown={enter}
                   />
                   <span className="ze-lp-units">{unitLabel(units)}</span>
                   <span className="ze-lp-colorlabel">Color:</span>
-                  {/* COLOR_SWATCH: it draws the colour and opens DIALOG_COLOR_PICKER
-            (color_swatch.cpp:301-328), where an <input type="color"> handed
-            the job to the desktop's own popup - anchored to the control, so
-            off-screen near the window edge, and unable to carry alpha. */}
                   <span className="ze-lp-swatch-frame">
                     <ColorSwatch
                       className="ze-lp-swatch"
                       label="Text color"
-                      color={itemColorToColor4d(color)}
-                      onChange={(c) => setColor(color4dToItemColor(c))}
+                      color={color}
+                      onChange={setColor}
                     />
                   </span>
                 </div>
@@ -657,10 +881,10 @@ export function DialogLabelProperties({
         </div>
 
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={submit}>
+          <button type="button" className="ze-btn primary" onClick={submit}>
             OK
           </button>
         </div>

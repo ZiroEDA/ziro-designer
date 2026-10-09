@@ -418,7 +418,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // sch_painter.ts sites (821, 3962, 3966, 4526) were already counted while
   // it was designer's render/renderer.ts, so they are no change; the +1 is
   // eeschema/project_settings.ts:131, an rgba() that sat there uncounted.
-  'editors/schematic': { colours: 16, metrics: 128 },
+  // 128 -> 127 metrics (10-09): the record sheet-pin dialog's `gap: 6px` went with its rebuild
+  // from dialog_sheet_pin_properties_base.cpp (dd8881de). Rescanned against aa78a1cd: the other
+  // sites that differ are sch_edit_frame_ui.tsx's same literals at new line numbers.
+  'editors/schematic': { colours: 16, metrics: 127 },
   // 166 -> 163 metrics on `editors/schematic`, moved here whole: cvpcb's
   // three windows left `editors/schematic/dialogs/` for the root `cvpcb/`
   // package (cvpcb/STRUCTURE.md's stage two). No colours moved (the five
@@ -1600,7 +1603,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // Relative dialog and its banner (-19).
     // 1110 -> 1102 (10-01): `common/widgets` 683 -> 675, the old Edit
     // Teardrops window's CSS deleted with it. Rescanned.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1102);
+    // 1102 -> 1101 (10-09): `editors/schematic` 128 -> 127, the record sheet-pin dialog's gap.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1101);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
