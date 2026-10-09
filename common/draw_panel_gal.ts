@@ -242,6 +242,10 @@ export class EDA_DRAW_PANEL_GAL
 
   /// `wxEVT_IDLE`: one animation frame per request.
   private m_idleHandle: number | null = null;
+  /** The animation frame a coalesced Refresh() paints in, or null. */
+  private m_refreshFrameHandle: number | null = null;
+  /** True while a paint runs inside an animation frame (Refresh's own, or onIdle's). */
+  private m_inAnimationFrame = false;
 
   /// `wxEVT_SIZE`: the element's size observer.
   private m_resizeObserver: ResizeObserver | null = null;
@@ -365,6 +369,12 @@ export class EDA_DRAW_PANEL_GAL
     this.Disconnect(wxEVT_SHOW);
 
     this.StopDrawing();
+
+    // A Refresh() coalesced into the next animation frame has nothing left to paint.
+    if (this.m_refreshFrameHandle !== null && typeof cancelAnimationFrame !== 'undefined')
+      cancelAnimationFrame(this.m_refreshFrameHandle);
+
+    this.m_refreshFrameHandle = null;
 
     console.assert(!this.m_drawing);
 
@@ -657,6 +667,29 @@ export class EDA_DRAW_PANEL_GAL
 
   /// @copydoc wxWindow::Refresh()
   Refresh(_aEraseBackground = true, _aRect: BOX2I | null = null): void {
+    // Upstream repaints here, synchronously, and leans on vsync: SwapBuffers blocks until the
+    // display takes the frame, so native KiCad never paints faster than the screen. A browser
+    // never blocks - it presents once per animation frame and discards anything drawn in
+    // between - so every wheel or motion event repainted in full and a fast wheel queued
+    // repaints faster than they finished. Coalesce to the next animation frame; inside one (the
+    // callback below, or onIdle, which runs on one) paint as upstream does.
+    if (typeof requestAnimationFrame !== 'undefined' && !this.m_inAnimationFrame) {
+      if (this.m_refreshFrameHandle === null) {
+        this.m_refreshFrameHandle = requestAnimationFrame(() => {
+          this.m_refreshFrameHandle = null;
+          this.m_inAnimationFrame = true;
+
+          try {
+            this.Refresh();
+          } finally {
+            this.m_inAnimationFrame = false;
+          }
+        });
+      }
+
+      return;
+    }
+
     const now = wxGetLocalTimeMillis();
     const delta = now - this.m_lastRepaintEnd;
     const galInitialized = !!this.m_gal && this.m_gal.IsInitialized();
@@ -1230,8 +1263,13 @@ export class EDA_DRAW_PANEL_GAL
 
     this.m_idleHandle = requestAnimationFrame(() => {
       this.m_idleHandle = null;
+      this.m_inAnimationFrame = true;
 
-      if (this.m_paintConnected) this.onIdle();
+      try {
+        if (this.m_paintConnected) this.onIdle();
+      } finally {
+        this.m_inAnimationFrame = false;
+      }
     });
   }
 
