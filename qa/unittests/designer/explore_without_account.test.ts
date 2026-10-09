@@ -3,19 +3,17 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 /**
  * Signed out, you are in the app (#639): where a visitor with no account may
- * go, what AuthGate draws for them, and the trip to the sign-up page and back.
+ * go, what AuthGate draws for them, and sign-up in a new tab.
  * AuthGate itself pulls in the Supabase client, so the rules it applies live
  * in auth/explore.ts and are tested here.
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   explorerMayVisit,
   gateView,
   goToAuth,
-  takeDestination,
   type GateState,
 } from '@ziroeda/designer/src/auth/explore.js';
-import type { Route } from '@ziroeda/designer/src/nav/route.js';
 
 describe('explorerMayVisit', () => {
   it('lets a visitor with no account into home, the demos and the standalone tools', () => {
@@ -44,14 +42,18 @@ describe('gateView, signed out', () => {
     pendingRecoveryKey: false,
     recovering: false,
     explorable: true,
+    signedOutHere: false,
   };
 
   it('opening the app drops you straight in: no wall first', () => {
-    expect(gateView(out)).toEqual({ view: 'app', routeToWall: false });
+    expect(gateView(out)).toMatchObject({ view: 'app', routeToWall: false });
   });
 
   it('a project in an account, or the sign-up page itself, is the wall', () => {
-    expect(gateView({ ...out, explorable: false })).toEqual({ view: 'wall', routeToWall: true });
+    expect(gateView({ ...out, explorable: false })).toMatchObject({
+      view: 'wall',
+      routeToWall: true,
+    });
   });
 
   it('still a splash while the stored session is being read', () => {
@@ -63,21 +65,86 @@ describe('gateView, signed out', () => {
   });
 });
 
-describe('goToAuth: the full-page sign-up, and back', () => {
-  beforeEach(() => sessionStorage.clear());
-
-  it('pushes the sign-up page and remembers where the visitor was', () => {
-    const went: Route[] = [];
-    const demo: Route = { kind: 'demo', id: 'cm5_minima', view: 'pcb' };
-    goToAuth((r) => went.push(r), demo);
-    expect(went).toEqual([{ kind: 'auth', step: 'signup' }]);
-    // Signing up then lands back on the demo they were playing with.
-    expect(takeDestination()).toEqual(demo);
+describe('goToAuth: the full-page sign-up, in a new tab', () => {
+  it('opens /signup in a new tab that shares nothing with this one', () => {
+    const opened: string[][] = [];
+    goToAuth('signup', (u, t, f) => opened.push([u, t, f]));
+    expect(opened).toEqual([['/signup', '_blank', 'noopener']]);
   });
 
   it('can open on sign-in instead', () => {
-    const went: Route[] = [];
-    goToAuth((r) => went.push(r), { kind: 'home' }, 'signin');
-    expect(went).toEqual([{ kind: 'auth', step: 'signin' }]);
+    const opened: string[][] = [];
+    goToAuth('signin', (u, t, f) => opened.push([u, t, f]));
+    expect(opened).toEqual([['/signin', '_blank', 'noopener']]);
+  });
+});
+
+describe('gateView: the tab that opened sign-up keeps its app while the other tab finishes', () => {
+  const base: GateState = {
+    authEnabled: true,
+    loading: false,
+    hasSession: false,
+    keyState: 'absent',
+    pendingRecoveryKey: false,
+    recovering: false,
+    explorable: true,
+    signedOutHere: false,
+  };
+  const walk = (steps: Partial<GateState>[]) => {
+    let signedOutHere = false;
+    return steps.map((st) => {
+      const v = gateView({ ...base, ...st, signedOutHere });
+      signedOutHere = v.signedOutHere;
+      return v;
+    });
+  };
+
+  it('a sign-up in the new tab: this tab is the app throughout, demo and all', () => {
+    // What this tab sees: signed out on a demo; the session arrives before the
+    // new tab has stored the keys (none); the new tab announces its key, this
+    // one re-settles (loading, then locked until the answer), then unlocked.
+    const views = walk([
+      { explorable: true },
+      { hasSession: true, keyState: 'loading' },
+      { hasSession: true, keyState: 'none' },
+      { hasSession: true, keyState: 'loading' },
+      { hasSession: true, keyState: 'locked' },
+      { hasSession: true, keyState: 'unlocked' },
+    ]);
+    expect(views.map((v) => v.view)).toEqual(['app', 'app', 'app', 'app', 'app', 'app']);
+    expect(views.some((v) => v.routeToWall)).toBe(false);
+    // All the way through: an ordinary signed-in tab from here on.
+    expect(views[5]!.signedOutHere).toBe(false);
+  });
+
+  it('once through, a later lock walls as for anyone', () => {
+    const views = walk([
+      {},
+      { hasSession: true, keyState: 'unlocked' },
+      { hasSession: true, keyState: 'locked' },
+    ]);
+    expect(views[2]!.view).toBe('wall');
+  });
+
+  it('a returning user meets the unlock wall: the moment before the stored session loads does not count as signed out', () => {
+    const views = walk([
+      { loading: true },
+      { hasSession: true, keyState: 'loading' },
+      { hasSession: true, keyState: 'locked' },
+    ]);
+    expect(views.map((v) => v.view)).toEqual(['splash', 'splash', 'wall']);
+  });
+
+  it('the keep-the-app grace is only for places a visitor may be anyway', () => {
+    const views = walk([{}, { hasSession: true, keyState: 'locked', explorable: false }]);
+    expect(views[1]!.view).toBe('wall');
+  });
+
+  it('the new tab itself, which never had the app signed out, shows its recovery key', () => {
+    const views = walk([
+      { explorable: false },
+      { hasSession: true, keyState: 'unlocked', pendingRecoveryKey: true, explorable: false },
+    ]);
+    expect(views[1]!.view).toBe('wall');
   });
 });

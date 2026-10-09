@@ -1477,12 +1477,13 @@ export function App(): JSX.Element {
   /** KiCad shows "Schematic is read only." as a strip above the canvas; this is
    *  the same place and the same skin, plus the action that resolves it. */
   // Signed out (#639) there is no account to save a copy into: the strip's
-  // action is the sign-up page, which brings them back to this demo.
+  // action opens the sign-up page in a new tab, and this tab - edits and all -
+  // turns signed in once that one has the keys, when "Save a copy" takes over.
   const demoNotice = !demoProject ? null : authEnabled && !session ? (
     <ReadOnlyNotice
       message="Demo project. Edits are not being saved."
       actionLabel="Sign up to save"
-      onAction={() => goToAuth(navigate, route, 'signup')}
+      onAction={() => goToAuth('signup')}
     />
   ) : (
     <ReadOnlyNotice

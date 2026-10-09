@@ -35,6 +35,13 @@ export const ASK_TIMEOUT_MS = 300;
 
 type Ask = { type: 'ask'; userId: string; nonce: string };
 type Answer = { type: 'key'; userId: string; nonce: string; key: string };
+/**
+ * "I hold `userId`'s key now." A tab that asked too early - the account was
+ * signed up or in from ANOTHER tab, whose keys were still being made when the
+ * session reached this one (#639: sign-up opens in a new tab) - hears this and
+ * asks again, instead of sitting at `locked` until the password.
+ */
+type Ready = { type: 'ready'; userId: string };
 
 function channel(): BroadcastChannel | null {
   try {
@@ -52,11 +59,27 @@ export function serveMasterKey(userId: string, masterKey: Uint8Array): () => voi
   const ch = channel();
   if (!ch) return () => {};
   const key = bytesToBase64(masterKey);
-  ch.onmessage = (e: MessageEvent<Ask | Answer>) => {
+  ch.onmessage = (e: MessageEvent<Ask | Answer | Ready>) => {
     const m = e.data;
     if (!m || m.type !== 'ask' || m.userId !== userId) return;
     const answer: Answer = { type: 'key', userId, nonce: m.nonce, key };
     ch.postMessage(answer);
+  };
+  const ready: Ready = { type: 'ready', userId };
+  ch.postMessage(ready);
+  return () => ch.close();
+}
+
+/**
+ * Call `onReady` whenever a sibling announces it holds `userId`'s key, until
+ * the returned function is called. Listen while this tab's keys are missing.
+ */
+export function onSiblingKeyReady(userId: string, onReady: () => void): () => void {
+  const ch = channel();
+  if (!ch) return () => {};
+  ch.onmessage = (e: MessageEvent<Ask | Answer | Ready>) => {
+    const m = e.data;
+    if (m && m.type === 'ready' && m.userId === userId) onReady();
   };
   return () => ch.close();
 }
@@ -79,7 +102,7 @@ export function askSiblingsForMasterKey(
       resolve(key);
     };
     const timer = setTimeout(() => done(null), timeoutMs);
-    ch.onmessage = (e: MessageEvent<Ask | Answer>) => {
+    ch.onmessage = (e: MessageEvent<Ask | Answer | Ready>) => {
       const m = e.data;
       if (!m || m.type !== 'key' || m.nonce !== nonce || m.userId !== userId) return;
       try {

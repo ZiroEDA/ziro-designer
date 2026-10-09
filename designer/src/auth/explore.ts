@@ -5,9 +5,10 @@
  *
  * A visitor with no account lands in the project manager and can open the
  * demos (GitHub projects later) and the standalone tools, and play with them -
- * nothing is kept. Anything that makes or keeps a project sends them to the
- * full-page sign-up (`/signup`), and signing up brings them back where they
- * were. A project in an account (`/p/<uid>`) is behind the wall.
+ * nothing is kept. Anything that makes or keeps a project opens the full-page
+ * sign-up (`/signup`) in a NEW tab, as EasyEDA does: the tab they were in keeps
+ * what they had open, and turns signed-in when the new tab has the keys. A
+ * project in an account (`/p/<uid>`) is behind the wall.
  */
 import { HOME, type AuthStep, type Route } from '../nav/route.js';
 
@@ -49,17 +50,19 @@ export function takeDestination(): Route | null {
 }
 
 /**
- * Off to the full-page sign-up (or sign-in) from inside the app, to come back
- * to `aFrom` once through. Pushed, not replaced: Back from the wall returns to
- * where they were, which a signed-out visitor may be.
+ * The full-page sign-up (or sign-in) in a new tab. This tab stays as it is -
+ * a demo with edits in it is still there - and becomes signed in once the new
+ * tab has the account's keys (AuthProvider's `onSiblingKeyReady`; see
+ * {@link gateView} for why it does not wall meanwhile). `noopener`: the new tab
+ * shares nothing with this one but the origin, so it lands on the project
+ * manager once through, not on a copy of this tab's route.
  */
 export function goToAuth(
-  aNavigate: (aRoute: Route) => void,
-  aFrom: Route,
   aStep: AuthStep = 'signup',
+  aOpen: (aUrl: string, aTarget: string, aFeatures: string) => unknown = (u, t, f) =>
+    window.open(u, t, f),
 ): void {
-  rememberDestination(aFrom);
-  aNavigate({ kind: 'auth', step: aStep });
+  aOpen(`/${aStep}`, '_blank', 'noopener');
 }
 
 /** What AuthGate draws, from the auth state; see {@link gateView}. */
@@ -68,6 +71,8 @@ export interface GateView {
   view: 'splash' | 'wall' | 'app';
   /** Whether the wall puts itself in the address (`/signup`, `/unlock`, ...). */
   routeToWall: boolean;
+  /** The `signedOutHere` flag to carry into the next render. */
+  signedOutHere: boolean;
 }
 
 export interface GateState {
@@ -79,6 +84,11 @@ export interface GateState {
   recovering: boolean;
   /** `explorerMayVisit` of the current route. */
   explorable: boolean;
+  /**
+   * This tab has been in the app signed out, and its session has not been all
+   * the way through yet. Carried from the previous render.
+   */
+  signedOutHere: boolean;
 }
 
 /**
@@ -89,16 +99,35 @@ export interface GateState {
  * signed-out visitor is otherwise in. And a session whose master key is not in
  * this tab: everything encrypted is unreadable until the password opens it, and
  * a new account's recovery key has to be seen before anything else.
+ *
+ * Except in a tab that was in the app signed out when the session arrived: the
+ * account was signed up or in from the new tab `goToAuth` opened, and that tab
+ * shows the recovery key and holds the keys. Here the keys arrive from it a
+ * moment later (`none` while it is still storing them, `locked` until it
+ * answers, `loading` in between). Walling meanwhile would replace the app - and
+ * the demo with its edits - for a password this person has just typed in the
+ * other tab. So on a route a visitor may see anyway, this tab stays the app
+ * until the keys come, and only then is it an ordinary signed-in tab.
  */
 export function gateView(s: GateState): GateView {
-  const settling = s.hasSession && s.keyState === 'loading';
+  let signedOutHere = s.signedOutHere;
+  // Not while the stored session is still being read: every tab starts with no
+  // session for a moment, and a returning user's tab must still meet its wall.
+  if (!s.hasSession && !s.loading) signedOutHere = s.explorable || signedOutHere;
+  else if (s.keyState === 'unlocked') signedOutHere = false;
+
+  const waitingForSibling =
+    s.hasSession && signedOutHere && s.explorable && !s.recovering && !s.pendingRecoveryKey;
+  const settling = s.hasSession && s.keyState === 'loading' && !waitingForSibling;
   const gated =
     s.authEnabled &&
     !s.loading &&
+    !waitingForSibling &&
     (s.hasSession
       ? s.recovering || s.keyState === 'locked' || s.keyState === 'none' || s.pendingRecoveryKey
       : !s.explorable);
-  if (s.authEnabled && (s.loading || settling)) return { view: 'splash', routeToWall: false };
-  if (gated) return { view: 'wall', routeToWall: true };
-  return { view: 'app', routeToWall: false };
+  if (s.authEnabled && (s.loading || settling))
+    return { view: 'splash', routeToWall: false, signedOutHere };
+  if (gated) return { view: 'wall', routeToWall: true, signedOutHere };
+  return { view: 'app', routeToWall: false, signedOutHere };
 }

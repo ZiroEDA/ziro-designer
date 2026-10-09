@@ -36,7 +36,6 @@ import { useAuth } from '../auth/AuthProvider.js';
 import { authEnabled } from '../auth/supabaseClient.js';
 import { goToAuth } from '../auth/explore.js';
 import type { AuthStep } from '../nav/route.js';
-import { useRoute } from '../nav/useRoute.js';
 import {
   syncAllProjects,
   pushProject,
@@ -298,9 +297,8 @@ export function HomePage({
   // Guest-first: sign-in is offered, never forced. The dialog opens from the
   // header button or the local-only nudge; the nudge shows once the guest has
   // real work at stake (a saved project) and stays dismissed once closed.
-  // Signing in or up is the full page (#639), coming back here once through.
-  const { route, navigate } = useRoute();
-  const toAuth = (step: AuthStep): void => goToAuth(navigate, route, step);
+  // Signing in or up is the full page, in a new tab (#639); this one stays.
+  const toAuth = (step: AuthStep): void => goToAuth(step);
   const [guestNudgeDismissed, setGuestNudgeDismissed] = useState(() => {
     try {
       return localStorage.getItem('ziro.guestNudgeDismissed') === '1';
@@ -1154,8 +1152,8 @@ export function HomePage({
   // project in the manager; the user then launches an editor from a tile.
   /**
    * Anything that makes or keeps a project needs an account (#639). Signed
-   * out, the action is the sign-up page instead, which brings them back here;
-   * once signed in, the same click does what it says.
+   * out, the action opens the sign-up page in a new tab instead; once signed
+   * in, the same click does what it says.
    */
   const accountFirst =
     <A extends unknown[]>(fn: (...args: A) => void) =>

@@ -30,6 +30,7 @@ const signedIn = (st: Partial<GateState>) =>
     pendingRecoveryKey: false,
     recovering: false,
     explorable: true,
+    signedOutHere: false,
     ...st,
   });
 

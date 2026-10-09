@@ -34,7 +34,7 @@ import {
   rememberMasterKey,
   storeWrappedAccount,
 } from './account_keys.js';
-import { askSiblingsForMasterKey, serveMasterKey } from './tab_keys.js';
+import { askSiblingsForMasterKey, onSiblingKeyReady, serveMasterKey } from './tab_keys.js';
 import { setSessionKeys } from '../cloud/session_keys.js';
 import { ACCOUNT_EXISTS_MESSAGE, signUpOutcome } from './signup_outcome.js';
 import { setLocalVaultFromMasterKey } from '../home/local_vault.js';
@@ -302,6 +302,16 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     if (!keys || !userId) return;
     return serveMasterKey(userId, keys.masterKey);
   }, [keys, userId]);
+
+  // Missing keys for a session another tab is still setting up: the account
+  // was signed up or in over there (#639), and this tab asked before that tab
+  // had the key, or before the account's keys were even stored. When it says
+  // it has them, settle again - from `none` the stored account is there now,
+  // from `locked` the sibling answers.
+  useEffect(() => {
+    if (!session || (keyState !== 'none' && keyState !== 'locked')) return;
+    return onSiblingKeyReady(session.user.id, () => void settleKeys(session));
+  }, [session, keyState, settleKeys]);
 
   const signOut = useCallback(async () => {
     if (!supabase) return;

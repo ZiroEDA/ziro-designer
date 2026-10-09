@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ASK_TIMEOUT_MS,
   askSiblingsForMasterKey,
+  onSiblingKeyReady,
   serveMasterKey,
 } from '@ziroeda/designer/src/auth/tab_keys.js';
 
@@ -59,6 +60,37 @@ describe('tab_keys.ts: the hand-over', () => {
   it('a tab that has stopped serving no longer answers', async () => {
     serveMasterKey('user-1', KEY)();
     expect(await askSiblingsForMasterKey('user-1', 50)).toBeNull();
+  });
+});
+
+describe('tab_keys.ts: a tab that starts holding the key says so (#639)', () => {
+  // Sign-up opens in a new tab; the tab that opened it got the session before
+  // the new one had made the keys, and must hear when it has them.
+  it('a waiting tab hears the account it waits for, and asking again then succeeds', async () => {
+    let heard = 0;
+    const stopListening = onSiblingKeyReady('user-1', () => heard++);
+    const stop = serveMasterKey('user-1', KEY);
+    try {
+      for (let i = 0; i < 50 && heard === 0; i++) await new Promise((r) => setTimeout(r, 10));
+      expect(heard).toBe(1);
+      expect(Array.from((await askSiblingsForMasterKey('user-1'))!)).toEqual(Array.from(KEY));
+    } finally {
+      stop();
+      stopListening();
+    }
+  });
+
+  it('does not hear another account', async () => {
+    let heard = 0;
+    const stopListening = onSiblingKeyReady('user-2', () => heard++);
+    const stop = serveMasterKey('user-1', KEY);
+    try {
+      await new Promise((r) => setTimeout(r, 100));
+      expect(heard).toBe(0);
+    } finally {
+      stop();
+      stopListening();
+    }
   });
 });
 

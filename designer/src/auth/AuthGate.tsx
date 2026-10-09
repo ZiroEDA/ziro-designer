@@ -14,8 +14,8 @@ import { HOME, type AuthStep } from '../nav/route.js';
  * Sign-in wall. When Supabase auth is configured, a visitor with no account is
  * IN the app (#639, the way EasyEDA does it): the project manager, the demos and
  * the tools, nothing kept. The wall is for what needs an account - a project in
- * one (`/p/<uid>`), and creating or keeping anything, which sends them to the
- * full-page `/signup` (auth/explore.ts `goToAuth`). The manager's chrome is
+ * one (`/p/<uid>`), and creating or keeping anything, which opens the
+ * full-page `/signup` in a new tab (auth/explore.ts `goToAuth`). The manager's chrome is
  * rendered blurred and inert behind the sign-in panel (GateBackdrop - NOT the
  * real app, which would load the project).
  *
@@ -47,6 +47,9 @@ export function AuthGate({ children }: { children: ReactNode }): JSX.Element {
   // Whether this mount has already sent a signed-in visitor onward, so the
   // restore runs once rather than on every render while the session settles.
   const restored = useRef(false);
+  // In the app signed out at some point, until an account is all the way
+  // through: see `gateView`.
+  const signedOutHere = useRef(false);
   const g = gateView({
     authEnabled,
     loading,
@@ -55,7 +58,9 @@ export function AuthGate({ children }: { children: ReactNode }): JSX.Element {
     pendingRecoveryKey: pendingRecoveryKey !== null,
     recovering,
     explorable: explorerMayVisit(route),
+    signedOutHere: signedOutHere.current,
   });
+  signedOutHere.current = g.signedOutHere;
   const wallStep: AuthStep = !session
     ? 'signup'
     : recovering
