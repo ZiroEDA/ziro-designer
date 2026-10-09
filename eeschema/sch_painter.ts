@@ -7699,6 +7699,30 @@ export class SCH_PAINTER extends PAINTER {
 
     // A shadow pass goes on for an unselected symbol: it may still have selected pins.
 
+    // Below, upstream copies the whole LIB_SYMBOL, re-orients it and copies the pins' state on
+    // every pass - cheap in C++, ~0.2 ms a symbol here, and these two overlay passes run for
+    // every visible symbol on every repaint (a zoom step). Where that copy provably draws
+    // nothing they stop first; the output is upstream's. On the shadow pass every child returns
+    // unless it is selected or brightened, and the copy's items take the symbol's flags and
+    // its pins their own (draw(SCH_PIN/SHAPE/TEXT/TEXTBOX), sch_painter.cpp); on the
+    // operating-point pass a pin draws only a non-empty operating point, then returns
+    // (sch_painter.cpp:972-1001) - unless the debug bounding boxes are on.
+    const pins = aSymbol.GetPins();
+
+    if (
+      drawingShadows &&
+      !(aSymbol.IsBrightened() || aSymbol.IsSelected()) &&
+      !pins.some((p) => p.IsBrightened() || p.IsSelected())
+    )
+      return;
+
+    if (
+      aLayer === SCH_LAYER_ID.LAYER_OP_CURRENTS &&
+      !this.m_schSettings.GetDrawBoundingBoxes() &&
+      !pins.some((p) => p.GetOperatingPoint() !== '')
+    )
+      return;
+
     const unit = this.m_schematic ? aSymbol.GetUnitSelection(this.m_schematic.CurrentSheet()) : 1;
     const bodyStyle = aSymbol.GetBodyStyle();
 

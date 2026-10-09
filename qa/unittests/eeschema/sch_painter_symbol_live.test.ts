@@ -23,7 +23,7 @@ import { SCH_SHAPE } from '@ziroeda/eeschema/sch_shape.js';
 import { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { OrientAndMirrorSymbolItems } from '@ziroeda/eeschema/symb_transforms_utils.js';
 import { SYMBOL_ORIENTATION_T } from '@ziroeda/eeschema/symbol.js';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RECORDING_GAL } from './support/recording_gal.js';
 
 const [DEFAULT_THEME] = COLOR_SETTINGS.CreateBuiltinColorSettings();
@@ -196,5 +196,60 @@ describe('OrientAndMirrorSymbolItems', () => {
       { x: 0, y: 0 },
       { x: 200 * MIL, y: 100 * MIL },
     ]);
+  });
+});
+
+/**
+ * The two overlay passes stop before the library copy when it provably draws nothing: a shadow
+ * pass with nothing selected or brightened, an operating-point pass with no operating point.
+ * The copy is what costs (~0.2 ms a symbol, every symbol, every repaint); the output is
+ * upstream's either way, so each case also checks the pass still draws when it should.
+ */
+describe('SCH_PAINTER: overlay passes that draw nothing skip the library copy', () => {
+  it('a shadow pass over an unselected symbol copies nothing and draws nothing', () => {
+    const { gal, p } = painter();
+    const sym = placed(libSymbol());
+    const copy = vi.spyOn(LIB_SYMBOL, 'copyOf');
+
+    p.Draw(sym, SCH_LAYER_ID.LAYER_SELECTION_SHADOWS);
+
+    expect(copy).not.toHaveBeenCalled();
+    expect(pinLines(gal)).toEqual([]);
+    copy.mockRestore();
+  });
+
+  it('a selected pin on an unselected symbol still gets its shadow', () => {
+    const { gal, p } = painter();
+    const sym = placed(libSymbol());
+    sym.GetPins()[0]!.SetSelected();
+
+    p.Draw(sym, SCH_LAYER_ID.LAYER_SELECTION_SHADOWS);
+
+    expect(pinLines(gal).length).toBeGreaterThan(0);
+  });
+
+  it('an operating-point pass with no operating point copies nothing', () => {
+    const { p } = painter();
+    const sym = placed(libSymbol());
+    const copy = vi.spyOn(LIB_SYMBOL, 'copyOf');
+
+    p.Draw(sym, SCH_LAYER_ID.LAYER_OP_CURRENTS);
+
+    expect(copy).not.toHaveBeenCalled();
+    copy.mockRestore();
+  });
+
+  it('a pin with an operating point keeps the pass going to the copy', () => {
+    // (Whether our pin then draws the value on this pass is the simulator's, deferred; the
+    // shortcut must only not stop it.)
+    const { p } = painter();
+    const sym = placed(libSymbol());
+    sym.GetPins()[0]!.SetOperatingPoint('1.5mA');
+    const copy = vi.spyOn(LIB_SYMBOL, 'copyOf');
+
+    p.Draw(sym, SCH_LAYER_ID.LAYER_OP_CURRENTS);
+
+    expect(copy).toHaveBeenCalled();
+    copy.mockRestore();
   });
 });
