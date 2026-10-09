@@ -85,7 +85,11 @@ import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { BOX2I, BOX2ISafe } from '@ziroeda/kimath/src/math/box2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import type { Vec2 as VECTOR2D, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import {
+  type Vec2 as VECTOR2D,
+  type VECTOR2I,
+  toVECTOR2I,
+} from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from '../board.js';
 import type { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
 import type { BOARD_ITEM } from '../board_item.js';
@@ -1019,11 +1023,16 @@ export class PCB_SELECTION_TOOL extends SELECTION_TOOL {
    * @return whether or not the selection is empty.
    */
   private *selectPoint(
-    aWhere: VECTOR2I,
+    aPoint: VECTOR2D,
     aOnDrag = false,
     aSelectionCancelledFlag: { value: boolean } | null = null,
     aClientFilter: CLIENT_SELECTION_FILTER | null = null,
   ): COROUTINE_BODY<boolean> {
+    // `const VECTOR2I& aWhere`: every caller hands a VECTOR2D (an event's Position(),
+    // DragOrigin(), GetCursorPosition()), which C++ converts here - clamped, then truncated
+    // to int. Passed through as a double, a fractional board position reached the track
+    // hit-test's BigInt and threw, aborting the click.
+    const aWhere = toVECTOR2I(aPoint);
     const guide = this.getCollectorsGuide();
     const collector = new GENERAL_COLLECTOR();
     const displayOpts = this.m_frame!.GetDisplayOptions();

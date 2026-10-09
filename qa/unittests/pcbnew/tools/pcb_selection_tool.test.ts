@@ -51,6 +51,8 @@ import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import { GENERAL_COLLECTOR } from '@ziroeda/pcbnew/collectors.js';
 import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { PCB_TRACK } from '@ziroeda/pcbnew/pcb_track.js';
+import { ADD_MODE } from '@ziroeda/pcbnew/board_item_container.js';
 import { PCB_PAINTER } from '@ziroeda/pcbnew/pcb_painter.js';
 import { PCB_SCREEN } from '@ziroeda/pcbnew/pcb_screen.js';
 import { PCB_VIEW } from '@ziroeda/pcbnew/pcb_view.js';
@@ -266,6 +268,22 @@ describe('PCB_SELECTION_TOOL::Main, a left click (pcb_selection_tool.cpp:315-358
     click(h, mm(15, 10));
     expect(selectedUuids(h)).toEqual([U(20)]);
     expect(byUuid(h.board, 20).IsSelected()).toBe(true);
+  });
+
+  it('a click at a fractional board position still selects (VECTOR2D -> const VECTOR2I&)', () => {
+    // A browser hands the canvas fractional positions; C++ converts the event's VECTOR2D
+    // to selectPoint's `const VECTOR2I&`. Passed through as a double, the track's
+    // hit-test threw on BigInt( 15000000.37 ) and the click was lost half-way.
+    // A diagonal track: TestSegmentHit answers axis-aligned ones without the BigInt.
+    const diag = new PCB_TRACK(h.board);
+    diag.SetStart({ x: 60 * MM, y: 60 * MM });
+    diag.SetEnd({ x: 70 * MM, y: 70 * MM });
+    diag.SetWidth(0.25 * MM);
+    diag.SetLayer(PCB_LAYER_ID.F_Cu);
+    h.board.Add(diag, ADD_MODE.APPEND);
+    h.view.Add(diag);
+    click(h, { x: 65 * MM + 0.37, y: 65 * MM + 0.81 });
+    expect(h.tool.GetSelection().GetItems()).toEqual([diag]);
   });
 
   it('clears the selection on a click over nothing', () => {
