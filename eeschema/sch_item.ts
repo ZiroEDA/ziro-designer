@@ -21,7 +21,13 @@
  */
 
 import { ResolveTextVars } from '@ziroeda/common/common.js';
-import { EDA_ITEM, type OutStr, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import {
+  type EDA_DRAW_FRAME_LIKE,
+  EDA_ITEM,
+  type OutStr,
+  RECURSE_MODE,
+} from '@ziroeda/common/eda_item.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import {
   type INSPECTABLE_ITEM,
   PG_CHOICES,
@@ -716,6 +722,25 @@ export abstract class SCH_ITEM extends EDA_ITEM {
     if (lib_symbol) return lib_symbol as unknown as SYMBOL;
 
     return null;
+  }
+
+  /** `GetMsgPanelInfo( aFrame, aList )` (sch_item.cpp). */
+  override GetMsgPanelInfo(_aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    const symbol = this.GetParentSymbol();
+
+    if (symbol) {
+      if (symbol.IsMultiUnit())
+        aList.push(new MSG_PANEL_ITEM('Unit', this.GetUnitDisplayName(this.GetUnit(), false)));
+
+      if (symbol.IsMultiBodyStyle())
+        aList.push(
+          new MSG_PANEL_ITEM('Body Style', this.GetBodyStyleDescription(this.GetBodyStyle(), true)),
+        );
+
+      // dynamic_cast<LIB_SYMBOL*>( symbol ): a type check, LIB_SYMBOL imports this module.
+      if (symbol.Type() === KICAD_T.LIB_SYMBOL_T && this.IsPrivate())
+        aList.push(new MSG_PANEL_ITEM('Private', ''));
+    }
   }
 
   /** Indicates that the item has at least one hypertext action. */

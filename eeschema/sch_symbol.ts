@@ -95,6 +95,7 @@ export function AddHierarchicalReference(
 // ---------------------------------------------------------------------------
 
 import {
+  type EDA_DRAW_FRAME_LIKE,
   type EDA_ITEM as EDA_ITEM_E3,
   INSPECT_RESULT,
   type INSPECTOR,
@@ -113,7 +114,11 @@ import { GetRefDesPrefix, GetRefDesUnannotated } from '@ziroeda/common/refdes_ut
 import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { FIELD_T, GetCanonicalFieldName } from '@ziroeda/common/template_fieldnames.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { KIUI_EllipsizeMenuText } from '@ziroeda/common/widgets/ui_common.js';
+import {
+  KIUI_EllipsizeMenuText,
+  KIUI_EllipsizeStatusText,
+} from '@ziroeda/common/widgets/ui_common.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ANGLE_270, ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { KIGEOM_BoxHitTestChain } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
@@ -1405,7 +1410,119 @@ export class SCH_SYMBOL extends SYMBOL {
     return false;
   }
 
-  /** `GetMsgPanelInfo`: pending (the message panel). */
+  /**
+   * `GetMsgPanelInfo( aFrame, aList )` (sch_symbol.cpp). `schframe->GetCurrentSheet()` is
+   * `m_schematic->CurrentSheet()`, the item's own schematic's; with no schematic (the symbol
+   * editor's frame is no SCH_EDIT_FRAME) it is nullptr, as upstream.
+   */
+  override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    let msg = '';
+    const schematic = this.Schematic();
+    const currentSheet = schematic ? schematic.CurrentSheet() : null;
+    const currentVariant = schematic ? schematic.GetCurrentVariant() : '';
+
+    const addExcludes = (): void => {
+      const msgs: string[] = [];
+
+      if (this.GetExcludedFromSim()) msgs.push('Simulation');
+
+      if (this.GetExcludedFromBOM()) msgs.push('BOM');
+
+      if (this.GetExcludedFromBoard()) msgs.push('Board');
+
+      if (this.GetDNP(currentSheet, currentVariant)) msgs.push('DNP');
+
+      msg = msgs.join(', ');
+
+      if (msg) aList.push(new MSG_PANEL_ITEM('Exclude from', msg));
+    };
+
+    // part and alias can differ if alias is not the root
+    if (this.m_part) {
+      if (this.m_part !== LIB_SYMBOL.GetDummy()) {
+        if (this.m_part.IsPower()) {
+          // Don't use GetShownText(); we want to see the variable references here
+          aList.push(
+            new MSG_PANEL_ITEM(
+              'Power symbol',
+              KIUI_EllipsizeStatusText(aFrame, this.GetField(FIELD_T.VALUE)!.GetText()),
+            ),
+          );
+        } else {
+          aList.push(new MSG_PANEL_ITEM('Reference', unescapeString(this.GetRef(currentSheet))));
+
+          // Don't use GetShownText(); we want to see the variable references here
+          aList.push(
+            new MSG_PANEL_ITEM(
+              'Value',
+              KIUI_EllipsizeStatusText(aFrame, this.GetField(FIELD_T.VALUE)!.GetText()),
+            ),
+          );
+          addExcludes();
+          aList.push(
+            new MSG_PANEL_ITEM(
+              'Name',
+              KIUI_EllipsizeStatusText(aFrame, this.GetLibId().GetLibItemName()),
+            ),
+          );
+        }
+
+        if (!this.m_part.IsRoot()) {
+          msg = 'Missing parent';
+
+          const parent = this.m_part.GetLibParent();
+
+          if (parent) msg = parent.GetName();
+
+          aList.push(new MSG_PANEL_ITEM('Derived from', unescapeString(msg)));
+        } else if (this.m_lib_id.GetLibNickname()) {
+          aList.push(new MSG_PANEL_ITEM('Library', this.m_lib_id.GetLibNickname()));
+        } else {
+          aList.push(new MSG_PANEL_ITEM('Library', 'Undefined!!!'));
+        }
+
+        // Display the current associated footprint, if exists.
+        // Don't use GetShownText(); we want to see the variable references here
+        msg = KIUI_EllipsizeStatusText(aFrame, this.GetField(FIELD_T.FOOTPRINT)!.GetText());
+
+        if (!msg) msg = '<Unknown>';
+
+        aList.push(new MSG_PANEL_ITEM('Footprint', msg));
+
+        // Display description of the symbol, and keywords found in lib
+        aList.push(
+          new MSG_PANEL_ITEM(
+            `Description: ${this.GetField(FIELD_T.DESCRIPTION)!.GetText()}`,
+            `Keywords: ${this.m_part.GetKeyWords()}`,
+          ),
+        );
+      }
+    } else {
+      aList.push(new MSG_PANEL_ITEM('Reference', this.GetRef(currentSheet)));
+
+      // Don't use GetShownText(); we want to see the variable references here
+      aList.push(
+        new MSG_PANEL_ITEM(
+          'Value',
+          KIUI_EllipsizeStatusText(aFrame, this.GetField(FIELD_T.VALUE)!.GetText()),
+        ),
+      );
+      addExcludes();
+      aList.push(
+        new MSG_PANEL_ITEM(
+          'Name',
+          KIUI_EllipsizeStatusText(aFrame, this.GetLibId().GetLibItemName()),
+        ),
+      );
+
+      const libNickname = this.GetLibId().GetLibNickname();
+
+      if (!libNickname) msg = 'No library defined!';
+      else msg = `Symbol not found in ${libNickname}!`;
+
+      aList.push(new MSG_PANEL_ITEM('Library', msg));
+    }
+  }
 
   /**
    * Clear exiting symbol annotation.

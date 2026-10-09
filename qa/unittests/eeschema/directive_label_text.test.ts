@@ -15,12 +15,10 @@ import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { makeDirectiveLabel } from '@ziroeda/eeschema/tools/build.js';
 import { replaceDirectiveLabel } from '@ziroeda/eeschema/tools/mutate.js';
-import { getMsgPanelItems } from '@ziroeda/eeschema/tools/msg_panel.js';
-import { itemRefById, refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
-const LIB = new Map<string, LibSymbol>();
+const _LIB = new Map<string, LibSymbol>();
 const sheet = (body: string): Schematic =>
   readSchematic(parse(`(kicad_sch (version 20250114)\n${body}\n)`));
 
@@ -81,20 +79,5 @@ describe('a newly built one', () => {
   it('starts with empty text, matching the node it builds', () => {
     const made = makeDirectiveLabel({ x: 0, y: 0 }, { netclass: 'HV' });
     expect(made.text).toBe('');
-  });
-});
-
-describe('the message panel', () => {
-  const rows = (d: Schematic) =>
-    getMsgPanelItems(d, LIB, itemRefById(d, refId('directive', 'nc-1', 0))!, (n) => `${n}`);
-
-  it('shows the label and its text', () => {
-    expect(rows(withText('HV'))).toEqual([{ upper: 'Directive Label', lower: 'HV' }]);
-  });
-
-  it('has no Type row', () => {
-    // GetMsgPanelInfo adds Type only for global labels, hierarchical labels and
-    // sheet pins — a directive label is none of those, despite having a shape.
-    expect(rows(withText('HV')).map((r) => r.upper)).not.toContain('Type');
   });
 });

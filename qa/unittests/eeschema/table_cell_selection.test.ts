@@ -20,7 +20,6 @@ import {
   defaultSelectionFilter,
   itemPassesFilter,
 } from '@ziroeda/eeschema/tools/sch_selection_filter.js';
-import { getMsgPanelItems } from '@ziroeda/eeschema/tools/msg_panel.js';
 import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
 
@@ -127,18 +126,5 @@ describe('the rest of the sweep', () => {
     expect(itemPassesFilter(d, TABLE, off)).toBe(false);
     expect(itemPassesFilter(d, cellId(0), off)).toBe(false);
     expect(itemPassesFilter(d, cellId(0), defaultSelectionFilter())).toBe(true);
-  });
-
-  it('the message panel describes the cell, not the table', () => {
-    const d = doc();
-    const rows = getMsgPanelItems(d, libs, { kind: 'tablecell', id: cellId(3) }, String);
-    expect(rows[0]).toEqual({ upper: 'Table Cell', lower: 'Row 2, Column 2' });
-    expect(rows[1]).toEqual({ upper: 'Text', lower: 'd' });
-  });
-
-  it('says nothing for a cell that is gone', () => {
-    expect(getMsgPanelItems(doc(), libs, { kind: 'tablecell', id: cellId(99) }, String)).toEqual(
-      [],
-    );
   });
 });

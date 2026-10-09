@@ -207,9 +207,6 @@ import {
   type SheetTreeNode,
   type ItemRef,
   describeItem,
-  itemRefById,
-  getMsgPanelItems,
-  type MsgPanelItem,
 } from './index.js';
 import type { PendingLabel } from './sch_draw_panel.js';
 import {
@@ -430,7 +427,7 @@ import {
 } from './dialogs/dialog_table_properties.js';
 import { DialogImportGfx } from './import_gfx/dialog_import_gfx_sch.js';
 import { KISTATUSBAR_FIELDS, KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
-import { MsgPanel } from '@ziroeda/common/widgets/msgpanel_ui.js';
+import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {
   gridMsg,
   messageTextFromValue,
@@ -6846,19 +6843,25 @@ export function SchematicEditor({
     cancel?: () => void;
   } | null>(null);
 
-  // Message-panel rows (EDA_MSG_PANEL): exactly one selected item shows its
-  // GetMsgPanelInfo; empty and multi-selections clear the panel.
-  const msgPanelItems = useMemo<MsgPanelItem[]>(() => {
-    if (!doc || selection.size !== 1) return [];
-    const id = [...selection][0]!;
-    const ref = itemRefById(doc, id);
-    if (!ref) return [];
-    const code = netlist?.netByItem.get(id);
-    const net = code !== undefined ? netlist?.nets.find((n) => n.code === code) : undefined;
-    // Resolved Netclass (NET_SETTINGS::GetEffectiveNetClass) for the net row.
-    const ncName = net ? resolveEffectiveNetClass(net.name, setup.netClasses).name : null;
-    return getMsgPanelItems(doc, libById, ref, fmt, net?.name ?? null, ncName);
-  }, [doc, selection, libById, netlist, fmt, setup.netClasses]);
+  // Message-panel rows (EDA_MSG_PANEL): what the frame's SetMsgPanel holds - the live tools'
+  // SCH_INSPECTION_TOOL::UpdateMessagePanel fills it on every selection change, from the item's
+  // GetMsgPanelInfo.
+  const [msgPanelItems, setMsgPanelItems] = useState<MsgPanelItem[]>([]);
+  useEffect(() => {
+    const frame = schFrameRef.current!;
+    frame.SetMsgPanelSink((aItems) => {
+      const rows = aItems.map((i) => ({ upper: i.GetUpperText(), lower: i.GetLowerText() }));
+      // The same rows again re-render nothing: UpdateMessagePanel runs on every selection event,
+      // and a fresh array for an unchanged panel set off a render that raised another one.
+      setMsgPanelItems((prev) =>
+        prev.length === rows.length &&
+        prev.every((r, i) => r.upper === rows[i]!.upper && r.lower === rows[i]!.lower)
+          ? prev
+          : rows,
+      );
+    });
+    return () => frame.SetMsgPanelSink(null);
+  }, []);
 
   /**
    * The frame title, `SCH_EDIT_FRAME::updateTitle`
