@@ -128,8 +128,12 @@ export enum DIALOG_CHANGE_SYMBOLS_MODE {
   CHANGE,
 }
 
-/** `DIALOG_TABLECELL_PROPERTIES::TABLECELL_PROPS_EDIT_TABLE` (dialog_tablecell_properties.h). */
-export const TABLECELL_PROPS_EDIT_TABLE = 4;
+/** `DIALOG_TABLECELL_PROPERTIES::TABLECELL_PROPS_RETVALUE` (dialog_tablecell_properties.h). */
+export enum TABLECELL_PROPS_RETVALUE {
+  TABLECELL_PROPS_CANCEL,
+  TABLECELL_PROPS_OK,
+  TABLECELL_PROPS_EDIT_TABLE,
+}
 
 const same = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 
@@ -2243,7 +2247,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
             this.m_frame!.ShowModalDialog('DIALOG_TABLECELL_PROPERTIES', cells),
           );
 
-          if (ret === TABLECELL_PROPS_EDIT_TABLE) {
+          if (ret === TABLECELL_PROPS_RETVALUE.TABLECELL_PROPS_EDIT_TABLE) {
             const table = cells[0]!.GetParent() as SCH_TABLE;
             yield* this.RunMainStackModal(() =>
               this.m_frame!.ShowModalDialog('DIALOG_TABLE_PROPERTIES', [table]),

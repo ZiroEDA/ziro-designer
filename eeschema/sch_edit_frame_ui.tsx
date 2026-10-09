@@ -10,6 +10,7 @@ import type { SCH_FIELD } from './sch_field.js';
 import type { SCH_SHEET } from './sch_sheet.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
 import type { SCH_TABLE } from './sch_table.js';
+import type { SCH_TABLECELL } from './sch_tablecell.js';
 import type { SHEET_PROPERTIES_RESULT } from './sch_edit_frame.js';
 import type { SCH_BITMAP } from './sch_bitmap.js';
 import type { SCH_SHAPE } from './sch_shape.js';
@@ -167,8 +168,6 @@ import {
   ercParentId,
   electricalPinTypeGetText,
   pinShapeGetText,
-  resolveCell,
-  tableCellId,
   symbolEditorRequest,
   type SymbolEditorTarget,
   saveSymbolToSchematic,
@@ -280,7 +279,11 @@ import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/acti
 import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
-import { DialogTableCellProperties } from './dialogs/dialog_tablecell_properties.js';
+import {
+  DIALOG_TABLECELL_PROPERTIES,
+  DialogTableCellProperties,
+  type TABLECELL_DIALOG_VALUES,
+} from './dialogs/dialog_tablecell_properties.js';
 import {
   SchNavigateTool,
   flattenHierarchy,
@@ -1150,6 +1153,11 @@ export function SchematicEditor({
     isNew: boolean;
     resolve: (aId: number) => void;
   } | null>(null);
+  const [cellDialog, setCellDialog] = useState<{
+    dlg: DIALOG_TABLECELL_PROPERTIES;
+    shown: TABLECELL_DIALOG_VALUES;
+    resolve: (aId: number) => void;
+  } | null>(null);
   const [textDialog, setTextDialog] = useState<{
     dlg: DIALOG_TEXT_PROPERTIES;
     shown: TextPropsInitial;
@@ -1178,8 +1186,6 @@ export function SchematicEditor({
   const [pendingImage, setPendingImage] = useState<SchImage | null>(null);
   // Keyboard-initiated grabbed move (SCH_MOVE_TOOL): M leaves connected wires
   // behind, G drags them along. A fresh nonce restarts the grab.
-  /** DIALOG_TABLECELL_PROPERTIES: the cell ids it is editing. */
-  const [cellPropsIds, setCellPropsIds] = useState<string[] | null>(null);
   // Assign Netclass: the patterns the selection produced, awaiting a class.
   const [netclassPatterns, setNetclassPatterns] = useState<string[] | null>(null);
   // SCH_MOVE_TOOL::Main's four modes. Break and Slice split the selected
@@ -1806,6 +1812,16 @@ export function SchematicEditor({
               isNew: table.IsNew(),
               resolve,
             }),
+          );
+        }
+        if (aDialog === 'DIALOG_TABLECELL_PROPERTIES') {
+          // `dlg.ShowQuasiModal(); dlg.GetReturnValue()`: the cell dialog answers its return value.
+          const dlg = new DIALOG_TABLECELL_PROPERTIES(
+            schFrameRef.current!,
+            _aItems as SCH_TABLECELL[],
+          );
+          return new Promise<number>((resolve) =>
+            setCellDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
           );
         }
         if (aDialog === 'DIALOG_JUNCTION_PROPS') {
@@ -8190,46 +8206,15 @@ export function SchematicEditor({
       )}
 
       {/* The read-only hotkey list (DIALOG_LIST_HOTKEYS, Ctrl+F1). */}
-      {cellPropsIds && doc && (
+      {/* DIALOG_TABLECELL_PROPERTIES on live cells (SCH_EDIT_TOOL::Properties). */}
+      {cellDialog && (
         <DialogTableCellProperties
-          cells={cellPropsIds
-            .map((i) => resolveCell(doc, i)?.cell)
-            .filter((c): c is NonNullable<typeof c> => !!c)}
-          fmt={fmt}
-          parse={(t) => {
-            const n = Number.parseFloat(t);
-            if (!Number.isFinite(n)) return null;
-            return units === 'mm'
-              ? mmToIU(n)
-              : units === 'mils'
-                ? mmToIU(n * 0.0254)
-                : mmToIU(n * 25.4);
-          }}
-          onCancel={() => setCellPropsIds(null)}
-          onOk={(next) => {
-            const targets = new Set(cellPropsIds);
-            const tables = doc.tables.map((t, ti) => {
-              const tid = refId('table', t.uuid, ti);
-              if (!t.cells.some((_, k) => targets.has(tableCellId(tid, k)))) return t;
-              return {
-                ...t,
-                cells: t.cells.map((c, k) => (targets.has(tableCellId(tid, k)) ? next(c) : c)),
-              };
-            });
-            runCommand({
-              label: 'Table Cell Properties',
-              apply: (d) => ({ ...d, tables }),
-              invert: (before) => {
-                const was = before.tables;
-                const put = (arr: typeof was): EditCommand => ({
-                  label: 'Table Cell Properties',
-                  apply: (d) => ({ ...d, tables: arr }),
-                  invert: (b) => put(b.tables),
-                });
-                return put(was);
-              },
-            });
-            setCellPropsIds(null);
+          dlg={cellDialog.dlg}
+          initial={cellDialog.shown}
+          units={units}
+          onClose={(aRetval) => {
+            setCellDialog(null);
+            cellDialog.resolve(aRetval);
           }}
         />
       )}
