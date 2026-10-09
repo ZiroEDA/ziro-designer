@@ -10,7 +10,7 @@ import { ENDPOINT, STARTPOINT } from '@ziroeda/common/eda_item_flags.js';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { MD_CTRL, MD_SHIFT, TA_MOUSE_MOTION } from '@ziroeda/common/tool/tool_event.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
-import type { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
+import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { SCH_SELECTION_TOOL } from '@ziroeda/eeschema/tools/sch_selection_tool.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -57,19 +57,30 @@ function loneSymbol(h: ReturnType<typeof setUp>, aSkip = 0): SCH_SYMBOL {
 
 const centre = (s: SCH_SYMBOL) => s.GetBodyBoundingBox().GetCenter();
 
+/**
+ * A diagonal wire in empty space (KiCad's 45-degree drawing mode makes these) and a point on it
+ * off the IU grid: TestSegmentHit's axis-aligned shortcuts skip the BigInt SquaredDistance, so
+ * only a diagonal reaches it.
+ */
+function diagonalWire(h: ReturnType<typeof setUp>): {
+  wire: SCH_LINE;
+  on: { x: number; y: number };
+} {
+  const wire = new SCH_LINE({ x: -100 * MM, y: -100 * MM });
+  wire.SetEndPoint({ x: -90 * MM, y: -90 * MM });
+  h.frame.AddToScreen(wire, h.frame.GetScreen());
+  return { wire, on: { x: -95 * MM + 0.37, y: -95 * MM + 0.61 } };
+}
+
 describe('SCH_SELECTION_TOOL', () => {
   it('hovering a wire at a fractional position leaves the tool alive to select', () => {
     // The rollover pass runs CollectHits and narrowSelection on every motion event: uncast, the
     // first hover over a wire threw and killed the tool before any click.
     const h = setUp();
-    const wire = wires(h).find((l) => l.GetStartPoint().y === l.GetEndPoint().y)!;
-    const over = {
-      x: (wire.GetStartPoint().x + wire.GetEndPoint().x) / 2 + 0.37,
-      y: wire.GetStartPoint().y + 0.61,
-    };
+    const { wire, on } = diagonalWire(h);
 
-    mouse(h, TA_MOUSE_MOTION, over);
-    click(h, { x: Math.round(over.x), y: Math.round(over.y) });
+    mouse(h, TA_MOUSE_MOTION, on);
+    click(h, { x: Math.round(on.x), y: Math.round(on.y) });
 
     expect(h.tool.GetSelection().GetItems()).toContain(wire);
   });
@@ -79,13 +90,9 @@ describe('SCH_SELECTION_TOOL', () => {
     // the position is cast on the way in. Uncast, the wire's TestSegmentHit took BigInt of a
     // fraction, threw, and the selection tool's coroutine died - every later click did nothing.
     const h = setUp();
-    const wire = wires(h).find((l) => l.GetStartPoint().y === l.GetEndPoint().y)!;
-    const mid = {
-      x: (wire.GetStartPoint().x + wire.GetEndPoint().x) / 2 + 0.37,
-      y: wire.GetStartPoint().y + 0.61,
-    };
+    const { wire, on } = diagonalWire(h);
 
-    click(h, mid);
+    click(h, on);
 
     expect(h.tool.GetSelection().GetItems()).toContain(wire);
   });
