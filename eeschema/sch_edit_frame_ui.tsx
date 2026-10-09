@@ -429,7 +429,7 @@ import {
   type SCH_TABLE_DIALOG_VALUES,
 } from './dialogs/dialog_table_properties.js';
 import { DialogImportGfx } from './import_gfx/dialog_import_gfx_sch.js';
-import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
+import { KISTATUSBAR_FIELDS, KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { MsgPanel } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {
   gridMsg,
@@ -458,7 +458,6 @@ import {
 } from './sch_edit_frame.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { loadOutlineFontsFor } from '@ziroeda/common/font/outline_fonts.js';
-import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 import '@ziroeda/common/widgets/shell.css';
 import { schSymbolLibraryName } from './index.js';
@@ -1421,10 +1420,6 @@ export function SchematicEditor({
   // Selection Filter (SCH_SELECTION_FILTER_OPTIONS): gates which item types,
   // and locked items, the selection accepts.
   const [selFilter, setSelFilter] = useState<SelectionFilterOptions>(defaultSelectionFilter);
-  // Status-bar relative coordinates: dx/dy/dist measure from this origin,
-  // which Space resets to the cursor (ACTIONS::resetLocalCoords;
-  // COMMON_TOOLS::ResetLocalCoords sets SCH_SCREEN::m_LocalOrigin).
-  const [localOrigin, setLocalOrigin] = useState<Vec2>({ x: 0, y: 0 });
   // The cursor and the viewport scale drive nothing but the three status-bar
   // panes, and they change on every pointer event, so they are held in refs
   // and pushed straight into that widget. Routing them through this frame's
@@ -1470,12 +1465,6 @@ export function SchematicEditor({
       iuPerMM: SCH_IU_PER_MM,
     });
   };
-  const statusReadout = useStatusReadout({
-    units,
-    localOrigin,
-    devicePixelRatio: dpr,
-    iuPerMM: SCH_IU_PER_MM,
-  });
   // The symbol whose properties dialog is open (its refId), or null.
   // Items parsed from the clipboard, attached to the cursor until dropped.
   const [pastePending, setPastePendingOnly] = useState<PastePayload | null>(null);
@@ -2559,11 +2548,20 @@ export function SchematicEditor({
    * precedence while a net is actually highlighted.
    */
   const [statusText, setStatusText] = useState<string>('');
-  // The frame's status bar, field 0: `EDA_BASE_FRAME::SetStatusText` from the live tools.
+  // `EDA_BASE_FRAME::SetStatusText` from the frame: field 0 is state (the net highlight shares
+  // it); zoom, coordinates and deltas (SCH_BASE_FRAME::UpdateStatusBar on every event) are
+  // written straight to their panes, so the pointer's motion re-renders nothing.
+  const statusPaneRefs = useRef<Record<string, HTMLSpanElement | null>>({});
   useEffect(() => {
     const frame = schFrameRef.current!;
     frame.SetStatusTextSink((aText, aField) => {
-      if (aField === 0) setStatusText(aText);
+      if (aField === 0) {
+        setStatusText(aText);
+        return;
+      }
+      const name = KISTATUSBAR_FIELDS[aField];
+      const el = name && name !== 'grid' && name !== 'units' ? statusPaneRefs.current[name] : null;
+      if (el) el.textContent = aText;
     });
     return () => frame.SetStatusTextSink(null);
   }, []);
@@ -6669,13 +6667,6 @@ export function SchematicEditor({
           clearHighlight();
           return;
         }
-        // Space, reset the status bar's relative (dx/dy) origin to the
-        // cursor (ACTIONS::resetLocalCoords).
-        if (e.key === ' ' && !e.shiftKey) {
-          e.preventDefault();
-          if (cursorRef.current) setLocalOrigin({ ...cursorRef.current });
-          return;
-        }
         // Shift+Space, cycle the wire/bus line mode free → 90° → 45°
         // (SCH_ACTIONS::lineModeNext; SCH_EDITOR_CONTROL::NextLineMode).
         if (e.key === ' ' && e.shiftKey) {
@@ -8047,9 +8038,27 @@ export function SchematicEditor({
         testIds={{ message: 'sch-status-msg', tool: 'sch-tool-msg' }}
         fields={{
           message: highlightName ? `Highlighted net: ${highlightName}` : statusText,
-          zoom: <span ref={statusReadout.zoomRef} />,
-          coords: <span ref={statusReadout.coordsRef} />,
-          deltas: <span ref={statusReadout.deltasRef} />,
+          zoom: (
+            <span
+              ref={(el) => {
+                statusPaneRefs.current.zoom = el;
+              }}
+            />
+          ),
+          coords: (
+            <span
+              ref={(el) => {
+                statusPaneRefs.current.coords = el;
+              }}
+            />
+          ),
+          deltas: (
+            <span
+              ref={(el) => {
+                statusPaneRefs.current.deltas = el;
+              }}
+            />
+          ),
           grid: gridMsg(messageTextFromValue(iuToMM(renderOpts.grid.sizeIU), units, SCH_IU_PER_MM)),
           units: unitsMsg(units),
           tool: SCH_TOOL_MSGS[activeTool] ?? '',

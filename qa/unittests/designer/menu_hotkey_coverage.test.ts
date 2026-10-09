@@ -530,7 +530,9 @@ const CANVAS_KEYS: Readonly<
       ['Tab next net item', /nextNetItem \/ previousNetItem/],
       ['R X Y transform', /rotateCCW\/rotateCW\/mirrorH\/mirrorV/],
       ['` ~ highlight', /highlightNet \/ clearHighlight/],
-      ['Space reset local coords', /resetLocalCoords/],
+      // Space left this chain too: TOOL_DISPATCHER runs ACTIONS::resetLocalCoords on
+      // COMMON_TOOLS::ResetLocalCoords, which sets SCH_SCREEN::m_LocalOrigin - the origin
+      // SCH_BASE_FRAME::UpdateStatusBar measures dx/dy from.
       ['Shift+Space line mode', /lineModeNext/],
       ['N grid next', /gridNext\/gridPrev/],
       ['C unfold bus', /unfoldBus/],

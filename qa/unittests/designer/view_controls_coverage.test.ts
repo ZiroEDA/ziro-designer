@@ -183,13 +183,13 @@ describe('shared view controls', () => {
   );
 
   it('every editing canvas holds its own m_panTimer', () => {
-    // Two, and the preview panes are the third CANVAS. If that count moves,
+    // One, and the preview panes are the second CANVAS. If that count moves,
     // read the block comment above before changing the number. GerbView left
     // this list when it moved onto EDA_DRAW_PANEL_GAL, pl_editor after it, the
     // board editor after that (#636 stage 3), the footprint frames, and the schematic when its
     // old canvas went (KiCad's SCH_DRAW_PANEL took over): their autopan is WX_VIEW_CONTROLS' own,
     // not a canvas's copy.
-    expect(AUTOPAN_CANVASES).toHaveLength(2);
+    expect(AUTOPAN_CANVASES).toHaveLength(1);
   });
 
   it.each(AUTOPAN_CANVASES)('%s runs handleAutoPanning on motion', (rel) => {

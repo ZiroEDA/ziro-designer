@@ -591,6 +591,36 @@ export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
     return true;
   }
 
+  /**
+   * `UpdateStatusBar` (:252): EDA_DRAW_FRAME's zoom and units, then the cursor - absolute in
+   * field 2, relative to the local origin in field 3 - and the grid. TOOL_MANAGER::UpdateUI runs
+   * it after every event, the pointer's motion included.
+   */
+  override UpdateStatusBar(): void {
+    const screen = this.GetScreen();
+
+    if (!screen) return;
+
+    super.UpdateStatusBar();
+
+    const canvas = this.GetCanvas();
+
+    if (!canvas) return;
+
+    // Display absolute and relative coordinates
+    const cursorPos = canvas.GetViewControls().GetCursorPosition();
+    const d = { x: cursorPos.x - screen.m_LocalOrigin.x, y: cursorPos.y - screen.m_LocalOrigin.y };
+    const mtv = (aValue: number): string =>
+      this.m_unitsProvider.MessageTextFromValue(aValue, false);
+
+    this.SetStatusText(`X ${mtv(cursorPos.x)}  Y ${mtv(cursorPos.y)}`, 2);
+
+    this.SetStatusText(`dx ${mtv(d.x)}  dy ${mtv(d.y)}  dist ${mtv(Math.hypot(d.x, d.y))}`, 3);
+
+    this.DisplayGridMsg();
+    this.DisplayUnitsMsg();
+  }
+
   /** `RedrawScreen` (:293). */
   RedrawScreen(aCenterPoint: VECTOR2I, aWarpPointer: boolean): void {
     const canvas = this.GetCanvas();
