@@ -295,6 +295,18 @@ export class PADSTACK_COPPER_LAYER_PROPS {
     return c;
   }
 
+  /** The implicit `operator=`: `padStack.CopperLayer( F_Cu ) = props`. */
+  assign(aOther: PADSTACK_COPPER_LAYER_PROPS): this {
+    this.shape = aOther.shape.clone();
+    this.zone_connection = aOther.zone_connection;
+    this.thermal_spoke_width = aOther.thermal_spoke_width;
+    this.thermal_spoke_angle = aOther.thermal_spoke_angle;
+    this.thermal_gap = aOther.thermal_gap;
+    this.clearance = aOther.clearance;
+    this.custom_shapes = [...aOther.custom_shapes];
+    return this;
+  }
+
   equals(aOther: PADSTACK_COPPER_LAYER_PROPS): boolean {
     if (!this.shape.equals(aOther.shape)) return false;
     if (this.zone_connection !== aOther.zone_connection) return false;

@@ -136,6 +136,21 @@ export class PCB_TEXT extends BOARD_ITEM {
     }
   }
 
+  /**
+   * `PCB_TEXT( BOARD_ITEM* parent, KICAD_T idtype )` chosen at compile time: a caller holding
+   * a `BOARD_ITEM_CONTAINER*` (the Allegro builder's `make_unique<PCB_TEXT>( &aParent )`) gets
+   * this form even when the container is a footprint - multiline, not kept upright, on the
+   * default layer. The constructor above dispatches on the run-time type, so it cannot.
+   */
+  static withBoardItemParent(
+    aParent: BOARD_ITEM | null,
+    aIdtype: KICAD_T = KICAD_T.PCB_TEXT_T,
+  ): PCB_TEXT {
+    const text = new PCB_TEXT(null, aIdtype);
+    text.SetParent(aParent);
+    return text;
+  }
+
   /** `PCB_TEXT( const PCB_TEXT& aOther )`. */
   static copyOf(aOther: PCB_TEXT): PCB_TEXT {
     const copy = new PCB_TEXT(null, aOther.Type());

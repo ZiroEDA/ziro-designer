@@ -20,7 +20,7 @@ import { SHAPE_ARC } from './shape_arc.js';
 import { SHAPE_LINE_CHAIN } from './shape_line_chain.js';
 import type { SHAPE_POLY_SET } from './shape_poly_set.js';
 import type { SHAPE_RECT } from './shape_rect.js';
-import { GetRotated, RotatePointD } from '../trigo.js';
+import { GetRotated } from '../trigo.js';
 
 /**
  * Returns a SEG such that the start point is smaller or equal
@@ -454,7 +454,10 @@ export function KIGEOM_MakeRegularPolygonPoints(
   const pts: VECTOR2I[] = [];
 
   for (let i = 0; i < aN; i++) {
-    const pt = RotatePointD(pt0FromC, FULL_CIRCLE.divide(aN).multiply(i));
+    // `GetRotated( pt0FromC, ... )` with a VECTOR2D: trigo.h has only the VECTOR2I overload,
+    // so the vector converts to int and the integer RotatePoint KiROUNDs each vertex - before
+    // the centre is added, not after.
+    const pt = GetRotated(pt0FromC, FULL_CIRCLE.divide(aN).multiply(i));
     pts.push({ x: KiROUND(pt.x + aCenter.x), y: KiROUND(pt.y + aCenter.y) });
   }
 

@@ -181,6 +181,12 @@ registry.Register(
 // Keep non-KiCad plugins in alphabetical order
 
 registry.Register(
+  PCB_FILE_T.ALLEGRO,
+  'Allegro',
+  async () => new (await import('./allegro/pcb_io_allegro.js')).PCB_IO_ALLEGRO(),
+);
+
+registry.Register(
   PCB_FILE_T.ALTIUM_CIRCUIT_MAKER,
   'Altium Circuit Maker',
   async () =>
