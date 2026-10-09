@@ -7957,6 +7957,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
 }
 
+/* DIALOG_FIELD_PROPERTIES' m_unitLabel in bTextValueBoxSizer. */
+.ze-fieldprops-unit {
+  /* [data] `wxALIGN_CENTER_VERTICAL|wxLEFT, 15` (dialog_field_properties_base.cpp:87). */
+  margin-left: 15px;
+}
+
+/* m_note: KIUI::GetInfoFont( this ).Italic() (dialog_field_properties.cpp:63). */
+.ze-fieldprops-note {
+  /* [data] `wxBOTTOM|wxRIGHT|wxLEFT, 20` (dialog_field_properties_base.cpp:99). */
+  margin: 0 20px 20px;
+  font-size: var(--ui-font-size-info);
+  font-style: italic;
+}
+
 /* `m_helpLabel2` — the static wxStaticText under a page's colour swatches
    (dialog_shape_properties_base.cpp:172, dialog_line_properties_base.cpp:83,
    dialog_junction_props_base.cpp:68, dialog_wire_bus_properties_base.cpp:95).

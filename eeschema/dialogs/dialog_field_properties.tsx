@@ -2,11 +2,12 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Field properties. Counterpart: `eeschema/dialogs/dialog_field_properties.cpp`
- * (DIALOG_FIELD_PROPERTIES) over `dialog_field_properties_base.cpp`, opened by
- * E, by the U/V/F keys and by a double-click on a symbol field.
+ * `DIALOG_FIELD_PROPERTIES` (eeschema/dialogs/dialog_field_properties.cpp) over
+ * `dialog_field_properties_base.cpp`, on a live SCH_FIELD. Opened by E, by the U/V/F keys and by a
+ * double-click on a field (SCH_EDIT_TOOL::editFieldText, which applies `UpdateField` to its own
+ * commit).
  *
- *     Value:  [ entry                                              ]
+ *     Value:  [ entry                                      ] [lib] Unit: [A]
  *     [ ] Visible      [ ] Show field name     [ ] Allow automatic placement
  *     Font:      [Default Font] | B I | ⇤ ⇔ ⇥ | ⤒ ⇕ ⤓ | ⇉ ⇊ |
  *     Text size: [    ] mils   Color: [swatch]
@@ -14,156 +15,548 @@
  *     Position Y:[    ] mils
  *                                              [ Cancel ] [ OK ]
  *
- * Three things about it are easy to get wrong, and were:
+ *  - there is no Name box: the field's name is the label of the value entry
+ *    (`m_textLabel->SetLabel( aField->GetName() + wxS( ":" ) )`);
+ *  - the alignment controls are BITMAP_BUTTONs in the shared formatting bar;
+ *  - the three numeric fields are UNIT_BINDERs on the frame, in its units.
  *
- *  - **there is no Name box.** The field's name is the LABEL of the value
- *    entry: `m_textLabel->SetLabel( aField->GetName() + wxS( ":" ) )`
- *    (dialog_field_properties.cpp:281). A field is renamed in the Symbol
- *    Properties grid, never here, so a Name row is a control upstream does not
- *    have — and with it goes the "mandatory fields cannot be renamed" rule,
- *    which was our own answer to our own extra control.
- *  - **the alignment controls are bitmap toggle buttons, not dropdowns.** They
- *    are `BITMAP_BUTTON`s with `SetIsRadioButton()`
- *    (dialog_field_properties.cpp:100-131) in the same formatting bar every
- *    other text dialog builds, which is `ui/TextFormatBar.tsx` here.
- *  - **the three numeric fields carry the frame's units, not "mm".** Each is a
- *    `UNIT_BINDER( aParent, label, ctrl, units, true )`
- *    (dialog_field_properties.cpp:52-54), so the suffix and the precision are
- *    whatever the editor's units are set to — "mils" on an imperial board.
- *
- * `m_commonToAllUnits` and `m_commonToAllBodyStyles` are built by the base and
- * then hidden by `init()` (dialog_field_properties.cpp:317-319); the unit
- * chooser and the footprint browse button are shown only for the Reference
- * field of a multi-unit symbol and for the Footprint field respectively
- * (`:345-357`), neither of which this dialog reaches yet.
+ * Not here: the Scintilla value editor and its auto-complete (a plain entry), and
+ * `KIUI::SelectReferenceNumber` on first focus.
  */
-import { useState, type JSX } from 'react';
-import { schIUScale } from '@ziroeda/common';
-import type { TextEffects } from '../types.js';
+import { type JSX, useState } from 'react';
+import { DisplayErrorMessage, DisplayInfoMessage } from '@ziroeda/common/confirm.js';
+import { ensureFileExtension } from '@ziroeda/common/common.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { FONT } from '@ziroeda/common/font/font.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
+import {
+  ConvertPathToFileUri,
+  ESCAPE_CONTEXT,
+  EscapeString,
+  unescapeString,
+} from '@ziroeda/common/string_utils.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import { GetFieldValidationErrorMessage } from '@ziroeda/common/validators.js';
+import { KiCadSchematicFileExtension } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
+import type { GRID_TEXT_BUTTON_HOST } from '@ziroeda/common/widgets/grid_text_button_helpers.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
 import {
-  TextFormatBar,
   type HAlign,
+  TextFormatBar,
   type VAlign,
 } from '@ziroeda/common/widgets/text_format_bar.js';
-import { parseUnitValue, stringFromValue, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
-import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { color4dToItemColor, type ItemColor, itemColorToColor4d } from './item_color.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { UNIT_BINDER, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { ANGLE_HORIZONTAL, ANGLE_VERTICAL } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import type { LIB_SYMBOL } from '../lib_symbol.js';
+import type { SCH_BASE_FRAME } from '../sch_base_frame.js';
+import { CollectOtherUnits } from '../sch_collectors.js';
+import type { SCH_COMMIT } from '../sch_commit.js';
+import { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
+import type { SCH_FIELD } from '../sch_field.js';
+import { AUTOPLACE_ALGO, type SCH_ITEM } from '../sch_item.js';
+import type { SCH_SHEET } from '../sch_sheet.js';
+import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
+import type { SCH_SYMBOL } from '../sch_symbol.js';
 
-/** DEFAULT_SIZE_TEXT, 50 mil, the size a field falls back to. */
-const DEFAULT_TEXT_SIZE = schIUScale.mmToIU(1.27);
-
-export interface FieldPropsResult {
-  key: string;
-  value: string;
-  /** Symbol-relative position in IU, as the dialog shows it. */
-  at: { x: number; y: number };
-  /** 0 (horizontal) or 90 (vertical); upstream offers only these two. */
-  angle: number;
-  effects: TextEffects;
-  nameShown: boolean;
-  /** Inverted from the "Allow automatic placement" checkbox. */
-  doNotAutoplace: boolean;
+export interface FIELD_DIALOG_VALUES {
+  /** m_TextCtrl / m_StyledTextCtrl, escaped for one line. */
+  text: string;
+  /** m_unitChoice's selection, 0-based; -1 while it is hidden. */
+  unit: number;
+  /** FONT_CHOICE: '' is "Default Font". */
+  face: string;
+  /** The three UNIT_BINDERs' texts, in the frame's units. */
+  posX: string;
+  posY: string;
+  size: string;
+  vertical: boolean;
+  italic: boolean;
+  bold: boolean;
+  color: Color4d;
+  hAlign: GR_TEXT_H_ALIGN_T;
+  vAlign: GR_TEXT_V_ALIGN_T;
+  visible: boolean;
+  nameVisible: boolean;
+  allowAutoplace: boolean;
 }
 
-interface Props {
-  initial: FieldPropsResult;
-  /**
-   * The window caption, which upstream's caller computes rather than the
-   * dialog: `DIALOG_FIELD_PROPERTIES dlg( m_frame, caption, aField )`
-   * (sch_edit_tool.cpp:2353) and `DIALOG_FIELD_PROPERTIES_BASE( aParent,
-   * wxID_ANY, aTitle )` (dialog_field_properties.cpp:52). See
-   * `fieldEditCaption`.
-   */
-  caption: string;
-  /**
-   * The frame's display units, which every `UNIT_BINDER` in the dialog reads
-   * off its `aParent`. Defaults to millimetres so a caller that has not been
-   * given the frame's units still gets a working dialog, not a blank suffix.
-   */
-  units?: StatusUnits;
-  onOk: (r: FieldPropsResult) => void;
-  onCancel: () => void;
+/** The symbol netlist the footprint chooser filters by: `pin<TAB>pin…\rfilter filter…\r`. */
+function symbolNetlist(aSymbol: LIB_SYMBOL | null): string {
+  let netlist = '';
+  const pins: string[] = [];
+
+  for (const pin of aSymbol?.GetGraphicalPins(0 /* all units */, 1 /* single bodyStyle */) ?? []) {
+    const valid = { value: false };
+    const expanded = pin.GetStackedPinNumbers(valid);
+
+    if (valid.value && expanded.length > 0) {
+      for (const num of expanded) pins.push(`${num} ${pin.GetShownName()}`);
+    } else {
+      pins.push(`${pin.GetNumber()} ${pin.GetShownName()}`);
+    }
+  }
+
+  if (pins.length > 0) netlist += EscapeString(pins.join('\t'), ESCAPE_CONTEXT.CTX_LINE);
+
+  netlist += '\r';
+
+  const fpFilters = aSymbol?.GetFPFilters() ?? [];
+
+  if (fpFilters.length > 0) netlist += EscapeString(fpFilters.join(' '), ESCAPE_CONTEXT.CTX_LINE);
+
+  netlist += '\r';
+
+  return netlist;
 }
 
-const H_ALIGN: readonly string[] = ['left', 'center', 'right'];
-const V_ALIGN: readonly string[] = ['top', 'center', 'bottom'];
+export class DIALOG_FIELD_PROPERTIES {
+  private readonly m_parent: SCH_BASE_FRAME;
+  private readonly m_title: string;
+  private readonly m_field: SCH_FIELD;
+  private readonly m_host: GRID_TEXT_BUTTON_HOST;
+  private readonly m_posX: UNIT_BINDER;
+  private readonly m_posY: UNIT_BINDER;
+  private readonly m_textSize: UNIT_BINDER;
 
-const hAlignOf = (fx: TextEffects): HAlign =>
-  ((fx.justify ?? []).find((t) => H_ALIGN.includes(t)) as HAlign | undefined) ?? 'center';
-const vAlignOf = (fx: TextEffects): VAlign =>
-  ((fx.justify ?? []).find((t) => V_ALIGN.includes(t)) as VAlign | undefined) ?? 'center';
+  private m_text: string;
+  private m_font;
+  private m_isItalic: boolean;
+  private m_isBold: boolean;
+  private m_color: Color4d;
+  private m_position: { x: number; y: number };
+  private m_size: number;
+  private m_isVertical: boolean;
+  private m_verticalJustification: GR_TEXT_V_ALIGN_T;
+  private m_horizontalJustification: GR_TEXT_H_ALIGN_T;
+  private m_isVisible: boolean;
+  private m_isNameVisible: boolean;
+  private m_allowAutoplace: boolean;
+  private m_unitSelection = -1;
+  private readonly m_isSheetFilename: boolean;
+  private readonly m_fieldId: FIELD_T;
+  private readonly m_netlist: string = '';
 
+  /** What init() shows, for the form. */
+  readonly m_label: string;
+  readonly m_useTextCtrl: boolean;
+  readonly m_textEnabled: boolean;
+  readonly m_showUnitSelector: boolean;
+  readonly m_showSelectButton: boolean;
+  readonly m_unitChoices: string[] = [];
+
+  constructor(
+    aParent: SCH_BASE_FRAME,
+    aTitle: string,
+    aField: SCH_FIELD,
+    aHost: GRID_TEXT_BUTTON_HOST,
+  ) {
+    this.m_parent = aParent;
+    this.m_title = aTitle;
+    this.m_field = aField;
+    this.m_host = aHost;
+    this.m_posX = new UNIT_BINDER(aParent, 'Position X:', (aMessage) =>
+      DisplayErrorMessage(aMessage),
+    );
+    this.m_posY = new UNIT_BINDER(aParent, 'Position Y:', (aMessage) =>
+      DisplayErrorMessage(aMessage),
+    );
+    this.m_textSize = new UNIT_BINDER(aParent, 'Text size:', (aMessage) =>
+      DisplayErrorMessage(aMessage),
+    );
+
+    // show text variable cross-references in a human-readable format
+    const schematic = aField.Schematic();
+
+    if (schematic) {
+      const sheetPath = schematic.CurrentSheet();
+      const variant = schematic.GetCurrentVariant();
+
+      this.m_text = schematic.ConvertKIIDsToRefs(aField.GetText(sheetPath, variant));
+    } else {
+      this.m_text = aField.GetText();
+    }
+
+    this.m_font = aField.GetFont();
+    this.m_isItalic = aField.IsItalic();
+    this.m_isBold = aField.IsBold();
+    this.m_color = aField.GetTextColor();
+    this.m_size = aField.GetTextWidth();
+    this.m_isVertical = aField.GetTextAngle().IsVertical();
+    this.m_isVisible = aField.IsVisible();
+
+    this.m_fieldId = aField.GetId();
+
+    const parent = aField.GetParent();
+
+    if (parent && parent.Type() === KICAD_T.LIB_SYMBOL_T) {
+      this.m_netlist = symbolNetlist(aField.GetParentSymbol() as LIB_SYMBOL);
+    } else if (parent && parent.Type() === KICAD_T.SCH_SYMBOL_T) {
+      // We need the list of pins of the lib symbol, not just the pins of the current
+      // sch symbol, that can be just an unit of a multi-unit symbol, to be able to
+      // select/filter right footprints
+      this.m_netlist = symbolNetlist((aField.GetParentSymbol() as SCH_SYMBOL).GetLibSymbolRef());
+    }
+
+    this.m_isSheetFilename = aField.GetId() === FIELD_T.SHEET_FILENAME;
+
+    this.m_label = `${aField.GetName()}:`;
+
+    this.m_position = aField.GetPosition();
+
+    this.m_isNameVisible = aField.IsNameShown();
+    this.m_allowAutoplace = aField.CanAutoplace();
+
+    this.m_horizontalJustification = aField.GetEffectiveHorizJustify();
+    this.m_verticalJustification = aField.GetEffectiveVertJustify();
+
+    // init(): predefined fields cannot contain some chars and cannot be empty, so they need a
+    // SCH_FIELD_VALIDATOR (m_StyledTextCtrl cannot use a SCH_FIELD_VALIDATOR).
+    this.m_useTextCtrl =
+      this.m_fieldId === FIELD_T.REFERENCE ||
+      this.m_fieldId === FIELD_T.FOOTPRINT ||
+      this.m_fieldId === FIELD_T.DATASHEET ||
+      this.m_fieldId === FIELD_T.SHEET_NAME ||
+      this.m_fieldId === FIELD_T.SHEET_FILENAME;
+
+    // Show the unit selector for reference fields on multi-unit schematic symbols
+    const parentSymbol = aField.GetParentSymbol();
+    this.m_showUnitSelector =
+      this.m_fieldId === FIELD_T.REFERENCE &&
+      !!parentSymbol &&
+      parentSymbol.Type() === KICAD_T.SCH_SYMBOL_T &&
+      parentSymbol.IsMultiUnit();
+
+    // Show the footprint selection dialog if this is the footprint field.
+    this.m_showSelectButton = this.m_fieldId === FIELD_T.FOOTPRINT;
+
+    this.m_textEnabled = !(this.m_isSheetFilename || aField.IsGeneratedField());
+  }
+
+  GetTitle(): string {
+    return this.m_title;
+  }
+
+  /** m_note: shown for the sheet file name. */
+  ShowsNote(): boolean {
+    return this.m_isSheetFilename;
+  }
+
+  /** `OnTextValueSelectButtonClick`: the footprint chooser, fed the symbol netlist. */
+  OnTextValueSelectButtonClick(aFpid: string): Promise<string | null> {
+    return this.m_host.ChooseFootprint(aFpid, this.m_netlist);
+  }
+
+  /** `TransferDataToWindow()`. */
+  TransferDataToWindow(): FIELD_DIALOG_VALUES {
+    if (this.m_showUnitSelector) {
+      const symbol = this.m_field.GetParentSymbol() as SCH_SYMBOL;
+
+      this.m_unitChoices.length = 0;
+
+      for (let ii = 1; ii <= symbol.GetUnitCount(); ii++)
+        this.m_unitChoices.push(symbol.GetUnitDisplayName(ii, false));
+
+      if (symbol.GetUnit() <= this.m_unitChoices.length)
+        this.m_unitSelection = symbol.GetUnit() - 1;
+    }
+
+    this.m_posX.SetValue(this.m_position.x);
+    this.m_posY.SetValue(this.m_position.y);
+    this.m_textSize.SetValue(this.m_size);
+
+    return {
+      text: EscapeString(this.m_text, ESCAPE_CONTEXT.CTX_LINE),
+      unit: this.m_unitSelection,
+      face: this.m_font?.GetName() ?? '',
+      posX: this.m_posX.GetText(),
+      posY: this.m_posY.GetText(),
+      size: this.m_textSize.GetText(),
+      vertical: this.m_isVertical,
+      italic: this.m_isItalic,
+      bold: this.m_isBold,
+      color: this.m_color,
+      hAlign: this.m_horizontalJustification,
+      vAlign: this.m_verticalJustification,
+      visible: this.m_isVisible,
+      nameVisible: this.m_isNameVisible,
+      allowAutoplace: this.m_allowAutoplace,
+    };
+  }
+
+  /**
+   * `Validate()` then `TransferDataFromWindow()`: the FIELD_VALIDATOR on m_TextCtrl refuses an
+   * empty or ill-formed predefined field, and the dialog stays open.
+   */
+  TransferDataFromWindow(aValues: FIELD_DIALOG_VALUES): boolean {
+    if (this.m_useTextCtrl && this.m_textEnabled) {
+      const msg = GetFieldValidationErrorMessage(this.m_fieldId, aValues.text);
+
+      if (msg !== '') {
+        DisplayErrorMessage(msg);
+        return false;
+      }
+    }
+
+    this.m_text = unescapeString(aValues.text);
+
+    if (this.m_fieldId === FIELD_T.SHEET_FILENAME)
+      this.m_text = ensureFileExtension(this.m_text, KiCadSchematicFileExtension);
+
+    this.m_posX.SetText(aValues.posX);
+    this.m_posY.SetText(aValues.posY);
+    this.m_textSize.SetText(aValues.size);
+
+    this.m_position = { x: this.m_posX.GetIntValue(), y: this.m_posY.GetIntValue() };
+    this.m_size = this.m_textSize.GetIntValue();
+
+    this.m_font =
+      aValues.face === '' ? null : FONT.GetFont(aValues.face, aValues.bold, aValues.italic);
+
+    this.m_isVertical = aValues.vertical;
+
+    this.m_isBold = aValues.bold;
+    this.m_isItalic = aValues.italic;
+    this.m_color = aValues.color;
+
+    this.m_horizontalJustification = aValues.hAlign;
+    this.m_verticalJustification = aValues.vAlign;
+
+    this.m_isVisible = aValues.visible;
+    this.m_isNameVisible = aValues.nameVisible;
+    this.m_allowAutoplace = aValues.allowAutoplace;
+    this.m_unitSelection = aValues.unit;
+
+    return true;
+  }
+
+  private updateText(aField: SCH_FIELD): void {
+    if (aField.GetTextWidth() !== this.m_size)
+      aField.SetTextSize({ x: this.m_size, y: this.m_size });
+
+    aField.SetFont(this.m_font);
+    aField.SetVisible(this.m_isVisible);
+    aField.SetTextAngle(this.m_isVertical ? ANGLE_VERTICAL : ANGLE_HORIZONTAL);
+    aField.SetItalic(this.m_isItalic);
+    aField.SetBold(this.m_isBold);
+    aField.SetTextColor(this.m_color);
+  }
+
+  /** `UpdateField( SCH_COMMIT*, SCH_FIELD*, SCH_SHEET_PATH* )`. */
+  UpdateField(aCommit: SCH_COMMIT, aField: SCH_FIELD, aSheetPath: SCH_SHEET_PATH): void {
+    const editFrame = this.m_parent instanceof SCH_EDIT_FRAME ? this.m_parent : null;
+    const parent = aField.GetParent() as SCH_ITEM | null;
+    let fieldTextSet = false;
+    let sheetPath: SCH_SHEET_PATH | null = null;
+    let variantName = '';
+    const schematic = aField.Schematic();
+
+    // convert any text variable cross-references to their UUIDs
+    if (schematic) this.m_text = schematic.ConvertRefsToKIIDs(this.m_text);
+
+    if (aField.GetId() !== FIELD_T.SHEET_FILENAME)
+      this.m_text = ConvertPathToFileUri(this.m_text, this.m_parent.Prj());
+
+    if (schematic) {
+      sheetPath = schematic.CurrentSheet();
+      variantName = schematic.GetCurrentVariant();
+    }
+
+    if (parent && parent.Type() === KICAD_T.SCH_SYMBOL_T) {
+      const symbol = parent as SCH_SYMBOL;
+
+      if (this.m_fieldId === FIELD_T.REFERENCE) symbol.SetRef(aSheetPath, this.m_text);
+      else symbol.SetFieldText(aField.GetName(), this.m_text, sheetPath, variantName);
+
+      fieldTextSet = true;
+
+      // Set the unit selection in multiple units per package
+      if (this.m_showUnitSelector) {
+        const unit_selection = this.m_unitSelection + 1;
+        symbol.SetUnitSelection(aSheetPath, unit_selection);
+        symbol.SetUnit(unit_selection);
+      }
+    } else if (parent && parent.Type() === KICAD_T.SCH_SHEET_T) {
+      const sheet = parent as SCH_SHEET;
+
+      if (!aField.IsMandatory()) {
+        sheet.SetFieldText(aField.GetName(), this.m_text, sheetPath, variantName);
+        fieldTextSet = true;
+      }
+    } else if (parent && parent.Type() === KICAD_T.SCH_GLOBAL_LABEL_T) {
+      if (this.m_fieldId === FIELD_T.INTERSHEET_REFS) {
+        if (this.m_isVisible !== parent.Schematic()!.Settings().m_IntersheetRefsShow) {
+          void DisplayInfoMessage(
+            'Intersheet reference visibility is controlled globally from ' +
+              'Schematic Setup > General > Formatting',
+          );
+        }
+      }
+    }
+
+    let positioningModified = false;
+    const pos = aField.GetPosition();
+
+    if (pos.x !== this.m_position.x || pos.y !== this.m_position.y) positioningModified = true;
+
+    if (aField.GetTextAngle().IsVertical() !== this.m_isVertical) positioningModified = true;
+
+    if (aField.GetEffectiveHorizJustify() !== this.m_horizontalJustification)
+      positioningModified = true;
+
+    if (aField.GetEffectiveVertJustify() !== this.m_verticalJustification)
+      positioningModified = true;
+
+    // Changing a sheetname need to update the hierarchy navigator
+    let needUpdateHierNav = false;
+
+    if (this.m_fieldId === FIELD_T.SHEET_NAME) needUpdateHierNav = this.m_text !== aField.GetText();
+
+    if (!fieldTextSet) aField.SetText(this.m_text);
+
+    this.updateText(aField);
+    aField.SetPosition(this.m_position);
+
+    aField.SetNameShown(this.m_isNameVisible);
+    aField.SetCanAutoplace(this.m_allowAutoplace);
+
+    // Note that we must set justifications before we can ask if they're flipped.  If the old
+    // justification is center then it won't know (whereas if the new justification is center
+    // the we don't care).
+    aField.SetHorizJustify(this.m_horizontalJustification);
+    aField.SetVertJustify(this.m_verticalJustification);
+
+    if (aField.IsHorizJustifyFlipped())
+      aField.SetHorizJustify(EDA_TEXT.MapHorizJustify(-this.m_horizontalJustification));
+
+    if (aField.IsVertJustifyFlipped())
+      aField.SetVertJustify(EDA_TEXT.MapVertJustify(-this.m_verticalJustification));
+
+    // The value, footprint and datasheet fields should be kept in sync in multi-unit parts.
+    // Of course the symbol must be annotated to collect other units.
+    if (editFrame && parent && parent.Type() === KICAD_T.SCH_SYMBOL_T) {
+      const symbol = parent as SCH_SYMBOL;
+
+      if (
+        symbol.IsAnnotated(aSheetPath) &&
+        (this.m_fieldId === FIELD_T.VALUE ||
+          this.m_fieldId === FIELD_T.FOOTPRINT ||
+          this.m_fieldId === FIELD_T.DATASHEET)
+      ) {
+        const ref = symbol.GetRef(aSheetPath);
+        const unit = symbol.GetUnit();
+        const libId = symbol.GetLibId();
+
+        for (const sheet of editFrame.Schematic().Hierarchy()) {
+          const screen = sheet.LastScreen();
+          const otherUnits: SCH_SYMBOL[] = [];
+
+          CollectOtherUnits(ref, unit, libId, sheet, otherUnits);
+
+          for (const otherUnit of otherUnits) {
+            aCommit.Modify(otherUnit, screen);
+            otherUnit.GetField(this.m_fieldId)!.SetText(this.m_text, sheet, variantName);
+            editFrame.UpdateItem(otherUnit, false, true);
+          }
+        }
+      }
+    }
+
+    if (positioningModified && parent) parent.SetFieldsAutoplaced(AUTOPLACE_ALGO.AUTOPLACE_NONE);
+
+    // Update the hierarchy navigator labels if needed.
+    if (editFrame && needUpdateHierNav) editFrame.UpdateLabelsHierarchyNavigator();
+  }
+}
+
+const H_OF: Record<number, HAlign> = {
+  [GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT]: 'left',
+  [GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER]: 'center',
+  [GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT]: 'right',
+};
+const V_OF: Record<number, VAlign> = {
+  [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP]: 'top',
+  [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER]: 'center',
+  [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM]: 'bottom',
+};
+const H_FROM: Record<HAlign, GR_TEXT_H_ALIGN_T> = {
+  left: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
+  center: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER,
+  right: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT,
+};
+const V_FROM: Record<VAlign, GR_TEXT_V_ALIGN_T> = {
+  top: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP,
+  center: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER,
+  bottom: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM,
+};
+
+/** The form over DIALOG_FIELD_PROPERTIES. */
 export function DialogFieldProperties({
+  dlg,
   initial,
-  caption,
-  units = 'mm',
+  units,
   onOk,
   onCancel,
-}: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
+}: {
+  dlg: DIALOG_FIELD_PROPERTIES;
+  initial: FIELD_DIALOG_VALUES;
+  units: StatusUnits;
+  onOk: (aValues: FIELD_DIALOG_VALUES) => void;
+  onCancel: () => void;
+}): JSX.Element {
   useModalEscape(onCancel);
 
-  // `UNIT_BINDER::SetValue` writes `StringFromValue( aValue, false )` into the
-  // entry and puts the unit WORD in the static text beside it
-  // (unit_binder.cpp:109-110, :215-230), so the entry holds a bare number;
-  // `GetIntValue` reads it back through DoubleValueFromString + FromUserUnit.
-  // Both halves are `ui/unit_binder.ts`, the shared port of that class — not
-  // the properties grid's `distanceToString`, which appends the unit because a
-  // grid cell has no separate label to carry it.
-  const fmt = (iu: number): string =>
-    stringFromValue(schIUScale.iuToMM(iu), units, false, schIUScale);
-  const parse = (text: string): number =>
-    Math.round(schIUScale.mmToIU(parseUnitValue(text, units, schIUScale)));
+  const [text, setText] = useState(initial.text);
+  const [unit, setUnit] = useState(initial.unit);
+  const [face, setFace] = useState(initial.face);
+  const [posX, setPosX] = useState(initial.posX);
+  const [posY, setPosY] = useState(initial.posY);
+  const [size, setSize] = useState(initial.size);
+  const [vertical, setVertical] = useState(initial.vertical);
+  const [italic, setItalic] = useState(initial.italic);
+  const [bold, setBold] = useState(initial.bold);
+  const [color, setColor] = useState(initial.color);
+  const [hAlign, setHAlign] = useState<HAlign>(H_OF[initial.hAlign] ?? 'center');
+  const [vAlign, setVAlign] = useState<VAlign>(V_OF[initial.vAlign] ?? 'center');
+  const [visible, setVisible] = useState(initial.visible);
+  const [nameVisible, setNameVisible] = useState(initial.nameVisible);
+  const [allowAutoplace, setAllowAutoplace] = useState(initial.allowAutoplace);
 
-  const [value, setValue] = useState(initial.value);
-  const [x, setX] = useState(() => fmt(initial.at.x));
-  const [y, setY] = useState(() => fmt(initial.at.y));
-  const [angle, setAngle] = useState(initial.angle === 90 ? 90 : 0);
-  const [visible, setVisible] = useState(!initial.effects.hidden);
-  const [nameShown, setNameShown] = useState(initial.nameShown);
-  const [autoplace, setAutoplace] = useState(!initial.doNotAutoplace);
-  const [bold, setBold] = useState(!!initial.effects.bold);
-  const [italic, setItalic] = useState(!!initial.effects.italic);
-  const [face, setFace] = useState(initial.effects.face ?? '');
-  const [size, setSize] = useState(() => fmt(initial.effects.fontSize?.[0] ?? DEFAULT_TEXT_SIZE));
-  const [color, setColor] = useState<ItemColor | undefined>(initial.effects.color);
-  const [hAlign, setHAlign] = useState<HAlign>(hAlignOf(initial.effects));
-  const [vAlign, setVAlign] = useState<VAlign>(vAlignOf(initial.effects));
-
-  const submit = (): void => {
-    const sizeIU = parse(size) || DEFAULT_TEXT_SIZE;
-    const justify = [hAlign, vAlign].filter((t) => t !== 'center');
-    const effects: TextEffects = {
-      hidden: !visible,
-      fontSize: [sizeIU, sizeIU],
-      ...(face ? { face } : {}),
-      ...(bold ? { bold: true } : {}),
-      ...(italic ? { italic: true } : {}),
-      ...(color ? { color } : {}),
-      ...(justify.length ? { justify } : {}),
-    };
+  const submit = (): void =>
     onOk({
-      // `TransferDataFromWindow` never touches the field's NAME: there is no
-      // control for it here.
-      key: initial.key,
-      value,
-      at: { x: parse(x), y: parse(y) },
-      angle,
-      effects,
-      nameShown,
-      doNotAutoplace: !autoplace,
+      text,
+      unit,
+      face,
+      posX,
+      posY,
+      size,
+      vertical,
+      italic,
+      bold,
+      color,
+      hAlign: H_FROM[hAlign],
+      vAlign: V_FROM[vAlign],
+      visible,
+      nameVisible,
+      allowAutoplace,
     });
+
+  const enter = (e: React.KeyboardEvent): void => {
+    e.stopPropagation();
+    if (e.key === 'Enter') submit();
   };
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
       <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
-          {caption}
+          {dlg.GetTitle()}
           <span className="x" title="Cancel" onClick={onCancel}>
             ✕
           </span>
@@ -171,19 +564,44 @@ export function DialogFieldProperties({
         <div className="ze-label-dialog-body">
           {/* bTextValueBoxSizer: m_textLabel wears the field's own name. */}
           <label className="row">
-            <span>{`${initial.key}:`}</span>
+            <span>{dlg.m_label}</span>
             <input
               className="ze-search"
               // biome-ignore lint/a11y/noAutofocus: SetInitialFocus( m_TextCtrl )
               autoFocus
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Enter') submit();
-              }}
+              value={text}
+              disabled={!dlg.m_textEnabled}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={enter}
             />
+            {dlg.m_showSelectButton && (
+              <StdBitmapButton
+                bitmap="small_library"
+                title="Select footprint"
+                tooltip={null}
+                onClick={() => {
+                  void dlg.OnTextValueSelectButtonClick(text).then((fpid) => {
+                    if (fpid !== null) setText(fpid);
+                  });
+                }}
+              />
+            )}
+            {dlg.m_showUnitSelector && (
+              <>
+                <span className="ze-fieldprops-unit">Unit:</span>
+                <Combo
+                  value={String(unit)}
+                  options={dlg.m_unitChoices.map((c, i) => ({ value: String(i), label: c }))}
+                  onChange={(v) => setUnit(Number(v))}
+                />
+              </>
+            )}
           </label>
+          {dlg.ShowsNote() && (
+            <div className="ze-fieldprops-note">
+              Sheet filename can only be modified in Sheet Properties dialog.
+            </div>
+          )}
 
           {/* bSizer9: the three checkboxes on ONE row, spaced apart. */}
           <div className="ze-fieldprops-checks">
@@ -198,16 +616,16 @@ export function DialogFieldProperties({
             <label className="chk" title="Show the field name in addition to its value">
               <input
                 type="checkbox"
-                checked={nameShown}
-                onChange={(e) => setNameShown(e.target.checked)}
+                checked={nameVisible}
+                onChange={(e) => setNameVisible(e.target.checked)}
               />
               Show field name
             </label>
             <label className="chk" title="Allow automatic placement of this field in the schematic">
               <input
                 type="checkbox"
-                checked={autoplace}
-                onChange={(e) => setAutoplace(e.target.checked)}
+                checked={allowAutoplace}
+                onChange={(e) => setAllowAutoplace(e.target.checked)}
               />
               Allow automatic placement
             </label>
@@ -228,8 +646,8 @@ export function DialogFieldProperties({
                 onHAlign={setHAlign}
                 vAlign={vAlign}
                 onVAlign={setVAlign}
-                angle={angle}
-                onAngle={setAngle}
+                angle={vertical ? 90 : 0}
+                onAngle={(a) => setVertical(a === 90)}
               />
             </div>
 
@@ -250,13 +668,12 @@ export function DialogFieldProperties({
                 <ColorSwatch
                   className="ze-lp-swatch"
                   label="Color"
-                  color={itemColorToColor4d(color)}
-                  onChange={(c) => setColor(color4dToItemColor(c))}
+                  color={color}
+                  onChange={setColor}
                 />
               </span>
             </div>
 
-            {/* gbSizer1 rows 3 and 4. */}
             {/* gbSizer1 leaves row 2 empty at SetEmptyCellSize's 10 px: the
                 size row is row 1 and Position X is row 3. */}
             <div className="ze-fieldprops-gap" />
@@ -265,8 +682,8 @@ export function DialogFieldProperties({
             <div className="ze-lp-sizerow">
               <input
                 className="ze-lp-size"
-                value={x}
-                onChange={(e) => setX(e.target.value)}
+                value={posX}
+                onChange={(e) => setPosX(e.target.value)}
                 onKeyDown={(e) => e.stopPropagation()}
               />
               <span className="ze-lp-units">{unitLabel(units)}</span>
@@ -276,12 +693,9 @@ export function DialogFieldProperties({
             <div className="ze-lp-sizerow">
               <input
                 className="ze-lp-size"
-                value={y}
-                onChange={(e) => setY(e.target.value)}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                  if (e.key === 'Enter') submit();
-                }}
+                value={posY}
+                onChange={(e) => setPosY(e.target.value)}
+                onKeyDown={enter}
               />
               <span className="ze-lp-units">{unitLabel(units)}</span>
             </div>
@@ -289,10 +703,10 @@ export function DialogFieldProperties({
         </div>
         {/* m_sdbSizerButtons: GTK orders the standard sizer Cancel then OK. */}
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
+          <button type="button" className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={submit}>
+          <button type="button" className="ze-btn primary" onClick={submit}>
             OK
           </button>
         </div>

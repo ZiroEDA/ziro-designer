@@ -26,40 +26,66 @@
  *      showing the frame's own units (`:52-54`).
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
-import { DialogFieldProperties } from '@ziroeda/eeschema/dialogs/dialog_field_properties.js';
-import type { FieldPropsResult } from '@ziroeda/eeschema/dialogs/dialog_field_properties.js';
-import { fieldEditCaption } from '@ziroeda/eeschema/tools/field_properties.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { schIUScale } from '@ziroeda/common';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
+import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import { ANGLE_VERTICAL } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import {
+  DIALOG_FIELD_PROPERTIES,
+  DialogFieldProperties,
+} from '@ziroeda/eeschema/dialogs/dialog_field_properties.js';
+import { SCH_COMMIT } from '@ziroeda/eeschema/sch_commit.js';
+import { SCH_FIELD } from '@ziroeda/eeschema/sch_field.js';
+import { schFrame } from '../eeschema/support/sch_tool_harness.js';
 
-afterEach(cleanup);
+beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
+afterEach(() => {
+  cleanup();
+  SetPgm(null);
+});
 
 const SIZE = schIUScale.mmToIU(1.27);
 
-const initialFor = (over: Partial<FieldPropsResult> = {}): FieldPropsResult => ({
-  key: 'Value',
-  value: '10k',
-  at: { x: schIUScale.mmToIU(2.54), y: schIUScale.mmToIU(1.27) },
-  angle: 0,
-  effects: { hidden: false, fontSize: [SIZE, SIZE] },
-  nameShown: false,
-  doNotAutoplace: false,
-  ...over,
-});
+const HOST = {
+  ChooseFootprint: () => Promise.resolve(null),
+  OpenFile: () => Promise.resolve(null),
+  OpenDocument: () => {},
+};
 
-function open(over: Partial<FieldPropsResult> = {}, units?: 'mm' | 'mils' | 'in') {
-  const initial = initialFor(over);
-  const seen: FieldPropsResult[] = [];
+/** A field with no parent: its name is its own (or the canonical one), its position its text's. */
+function fieldFor(aName = 'Value'): SCH_FIELD {
+  const field =
+    aName === 'Value'
+      ? new SCH_FIELD(null, FIELD_T.VALUE)
+      : new SCH_FIELD(null, FIELD_T.USER, aName);
+  field.SetText('10k');
+  field.SetTextSize({ x: SIZE, y: SIZE });
+  field.SetTextPos({ x: schIUScale.mmToIU(2.54), y: schIUScale.mmToIU(1.27) });
+  return field;
+}
+
+/** Open the form over a live DIALOG_FIELD_PROPERTIES; OK applies it to the field as the window does. */
+function open(aField: SCH_FIELD = fieldFor(), units: 'mm' | 'mils' | 'in' = 'mm') {
+  const frame = schFrame({});
+  frame.SetUserUnits(units);
+  const dlg = new DIALOG_FIELD_PROPERTIES(frame, 'Edit Value Field', aField, HOST);
+  let applied = 0;
   render(
     <DialogFieldProperties
-      initial={initial}
-      caption={fieldEditCaption(initial.key)}
+      dlg={dlg}
+      initial={dlg.TransferDataToWindow()}
       units={units}
-      onOk={(r) => seen.push(r)}
+      onOk={(v) => {
+        if (!dlg.TransferDataFromWindow(v)) return;
+        dlg.UpdateField(new SCH_COMMIT(frame), aField, frame.GetCurrentSheet());
+        applied++;
+      }}
       onCancel={() => {}}
     />,
   );
-  return seen;
+  return { field: aField, applied: () => applied };
 }
 
 /** Every `<label class="row">`'s leading `<span>` — the dialog's row captions. */
@@ -86,14 +112,14 @@ describe('DIALOG_FIELD_PROPERTIES: the value row', () => {
    * wxFormBuilder wrote; the dialog overwrites it before it is ever shown.
    */
   it('labels the entry with the field name, and has no Name row', () => {
-    open({ key: 'MPN', value: 'RC0402' });
+    open(fieldFor('MPN'));
     expect(rowLabels()).toStrictEqual(['MPN:']);
     expect(screen.queryByText('Name:')).toBeNull();
     expect(screen.queryByText('Text:')).toBeNull();
   });
 
   it('labels a mandatory field the same way, with no read-only name cell', () => {
-    open({ key: 'Value' });
+    open(fieldFor('Value'));
     expect(rowLabels()).toStrictEqual(['Value:']);
     expect(document.querySelectorAll('.ze-cell-ro').length).toBe(0);
   });
@@ -104,10 +130,10 @@ describe('DIALOG_FIELD_PROPERTIES: the value row', () => {
    * could rename the field, because no such control exists.
    */
   it('hands the field back under its original name', () => {
-    const seen = open({ key: 'MPN' });
+    const { field, applied } = open(fieldFor('MPN'));
     fireEvent.click(screen.getByText('OK'));
-    expect(seen).toHaveLength(1);
-    expect(seen[0]!.key).toBe('MPN');
+    expect(applied()).toBe(1);
+    expect(field.GetName()).toBe('MPN');
   });
 });
 
@@ -144,11 +170,11 @@ describe('DIALOG_FIELD_PROPERTIES: the checkbox row', () => {
    * that may not be autoplaced opens with Visible and Allow clear.
    */
   it('takes its three values from the field', () => {
-    open({
-      effects: { hidden: true, fontSize: [SIZE, SIZE] },
-      nameShown: true,
-      doNotAutoplace: true,
-    });
+    const field = fieldFor();
+    field.SetVisible(false);
+    field.SetNameShown(true);
+    field.SetCanAutoplace(false);
+    open(field);
     const boxes = Array.from(document.querySelectorAll('.ze-fieldprops-checks input'));
     expect(boxes.map((b) => (b as HTMLInputElement).checked)).toStrictEqual([false, true, false]);
   });
@@ -238,10 +264,11 @@ describe('DIALOG_FIELD_PROPERTIES: the formatting bar', () => {
    * m_horizontal for a non-vertical angle (dialog_field_properties.cpp:496-521).
    */
   it('checks the buttons the field asks for', () => {
-    open({
-      angle: 90,
-      effects: { hidden: false, fontSize: [SIZE, SIZE], justify: ['right', 'top'] },
-    });
+    const field = fieldFor();
+    field.SetTextAngle(ANGLE_VERTICAL);
+    field.SetHorizJustify(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT);
+    field.SetVertJustify(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP);
+    open(field);
     expect(barChecked()).toStrictEqual(['Align right', 'Align top', 'Vertical text']);
   });
 
@@ -279,15 +306,16 @@ describe('DIALOG_FIELD_PROPERTIES: the formatting bar', () => {
     expect(barChecked()).toContain('Align left');
   });
 
-  /** GR_TEXT_*_ALIGN_CENTER writes no justify token, as the writer expects. */
+  /** UpdateField sets the justifications and the angle the buttons say. */
   it('writes the chosen justification back', () => {
-    const seen = open();
+    const { field } = open();
     fireEvent.click(screen.getByTitle('Align right'));
     fireEvent.click(screen.getByTitle('Align top'));
     fireEvent.click(screen.getByTitle('Vertical text'));
     fireEvent.click(screen.getByText('OK'));
-    expect(seen[0]!.effects.justify).toStrictEqual(['right', 'top']);
-    expect(seen[0]!.angle).toBe(90);
+    expect(field.GetHorizJustify()).toBe(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT);
+    expect(field.GetVertJustify()).toBe(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP);
+    expect(field.GetTextAngle().IsVertical()).toBe(true);
   });
 });
 
@@ -300,25 +328,25 @@ describe('DIALOG_FIELD_PROPERTIES: the three UNIT_BINDERs', () => {
    * grid uses (PGPROPERTY_DISTANCE::DistanceToString).
    */
   it('wears the frame units, not a hardcoded mm', () => {
-    open({}, 'mils');
+    open(fieldFor(), 'mils');
     expect(
       Array.from(document.querySelectorAll('.ze-lp-units')).map((u) => u.textContent),
     ).toStrictEqual(['mils', 'mils', 'mils']);
   });
 
   it('shows the values converted to those units', () => {
-    open({ at: { x: schIUScale.mmToIU(2.54), y: schIUScale.mmToIU(1.27) } }, 'mils');
+    open(fieldFor(), 'mils');
     const fields = Array.from(document.querySelectorAll('.ze-lp-size'));
     // 1.27 mm = 50 mils, 2.54 mm = 100 mils; the size field is first.
     expect(fields.map((f) => (f as HTMLInputElement).value)).toStrictEqual(['50', '100', '50']);
   });
 
   it('reads them back in those units', () => {
-    const seen = open({}, 'mils');
+    const { field } = open(fieldFor(), 'mils');
     const fields = Array.from(document.querySelectorAll('.ze-lp-size'));
     fireEvent.change(fields[1]!, { target: { value: '200' } });
     fireEvent.click(screen.getByText('OK'));
-    expect(seen[0]!.at.x).toBe(schIUScale.mmToIU(5.08));
+    expect(field.GetPosition().x).toBe(schIUScale.mmToIU(5.08));
   });
 
   /** Position X: and Position Y: verbatim, and Text size: / Color: beside them. */

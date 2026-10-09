@@ -5,6 +5,8 @@ import type { SCH_TEXT } from './sch_text.js';
 import type { SCH_TEXTBOX } from './sch_textbox.js';
 import type { SCH_SHEET_PIN } from './sch_sheet_pin.js';
 import type { SCH_LABEL_BASE } from './sch_label.js';
+import type { SCH_COMMIT } from './sch_commit.js';
+import type { SCH_FIELD } from './sch_field.js';
 import type { SCH_BITMAP } from './sch_bitmap.js';
 import type { SCH_SHAPE } from './sch_shape.js';
 import {
@@ -67,7 +69,6 @@ import {
   directiveNetclassAssignments,
   ruleAreaNetclassAssignments,
   setAttribute,
-  autoplaceAfterFieldEdit,
   autoplaceFields,
   attributeIsSet,
   type Attribute,
@@ -198,15 +199,12 @@ import {
   sharedPinSwapMessage,
   type NewSheetDefaults,
   replaceSheet,
-  replaceSymbol,
   busUnfoldMembers,
   unfoldBus,
   busForUnfolding,
   swapItems,
   repeatItems,
   hasAlternateBodyStyle,
-  fieldEditCaption,
-  fieldEditTarget,
   makeImage,
   ProjectHistory,
   type Schematic,
@@ -335,7 +333,11 @@ import {
   DIALOG_IMAGE_PROPERTIES,
   DialogImageProperties,
 } from './dialogs/dialog_image_properties.js';
-import { DialogFieldProperties, type FieldPropsResult } from './dialogs/dialog_field_properties.js';
+import {
+  DIALOG_FIELD_PROPERTIES,
+  DialogFieldProperties,
+  type FIELD_DIALOG_VALUES,
+} from './dialogs/dialog_field_properties.js';
 import {
   DIALOG_SHEET_PIN_PROPERTIES,
   DialogSheetPinProperties,
@@ -1133,6 +1135,13 @@ export function SchematicEditor({
     shown: LABEL_DIALOG_VALUES;
     resolve: (aId: number) => void;
   } | null>(null);
+  const [fieldDialog, setFieldDialog] = useState<{
+    dlg: DIALOG_FIELD_PROPERTIES;
+    shown: FIELD_DIALOG_VALUES;
+    field: SCH_FIELD;
+    commit: SCH_COMMIT;
+    resolve: (aId: number) => void;
+  } | null>(null);
   const [textDialog, setTextDialog] = useState<{
     dlg: DIALOG_TEXT_PROPERTIES;
     shown: TextPropsInitial;
@@ -1203,7 +1212,6 @@ export function SchematicEditor({
     resolve: (aId: number) => void;
   } | null>(null);
   // Field Properties (DIALOG_FIELD_PROPERTIES): which symbol, which field.
-  const [fieldEdit, setFieldEdit] = useState<{ symbol: number; index: number } | null>(null);
   // Sheet Pin Properties (DIALOG_SHEET_PIN_PROPERTIES).
   /** DIALOG_SHEET_PIN_PROPERTIES while it is up for the live tools. */
   const [sheetPinDialog, setSheetPinDialog] = useState<{
@@ -1629,10 +1637,22 @@ export function SchematicEditor({
   // What a grid's text-button cell opens (GRID_CELL_FPID / URL / PATH_EDITOR): the frame's own
   // file dialog and document opener.
   const gridTextButtonHost: GRID_TEXT_BUTTON_HOST = {
-    ChooseFootprint: () => {
-      console.warn('FRAME_FOOTPRINT_CHOOSER from a grid cell is not ported to the live model yet');
-      return Promise.resolve(null);
-    },
+    // `Kiway().Player( FRAME_FOOTPRINT_CHOOSER )`, sent MAIL_SYMBOL_NETLIST: KiwayMailIn reads the
+    // pins (one per distinct number) from the first line and the filters from the second.
+    ChooseFootprint: (aPreselect, aNetlist) =>
+      new Promise((resolve) => {
+        const [pinLine = '', filterLine = ''] = aNetlist.split('\r');
+        const pinNames = new Set(
+          pinLine === '' ? [] : pinLine.split('\t').map((pin) => pin.split(' ')[0]!),
+        );
+        setFpChooser({
+          current: aPreselect,
+          commit: resolve,
+          cancel: () => resolve(null),
+          fpFilters: filterLine === '' ? [] : filterLine.split(' '),
+          pinCount: pinNames.size,
+        });
+      }),
     OpenFile: (aTitle, aDefaultDir, aWildcard) =>
       schFrameRef.current!.ShowFileDialog(
         aTitle,
@@ -1714,6 +1734,21 @@ export function SchematicEditor({
           if (typeof arg === 'object') dlg.SetLabelList(arg.labelList);
           return new Promise<number>((resolve) =>
             setLabelDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
+          );
+        }
+        if (aDialog === 'DIALOG_FIELD_PROPERTIES') {
+          // `DIALOG_FIELD_PROPERTIES dlg( m_frame, caption, aField )`; editFieldText hands its commit
+          // for UpdateField.
+          const { caption, commit } = aArg as { caption: string; commit: SCH_COMMIT };
+          const field = _aItems[0] as SCH_FIELD;
+          const dlg = new DIALOG_FIELD_PROPERTIES(
+            schFrameRef.current!,
+            caption,
+            field,
+            gridTextButtonHost,
+          );
+          return new Promise<number>((resolve) =>
+            setFieldDialog({ dlg, shown: dlg.TransferDataToWindow(), field, commit, resolve }),
           );
         }
         if (aDialog === 'DIALOG_JUNCTION_PROPS') {
@@ -4599,16 +4634,6 @@ export function SchematicEditor({
   const onEditItem = useCallback(
     (id: string, kind: ItemRef['kind']) => {
       if (kind === 'symbol') setPropsTarget(id);
-      // `Properties`' `case SCH_FIELD_T` (sch_edit_tool.cpp:2880-2890): a
-      // field is an item in its own right, so double-clicking a symbol's
-      // Reference / Value / Footprint / user field opens DIALOG_FIELD_
-      // PROPERTIES for THAT field, not the whole symbol's dialog. The
-      // hit-test already ranks the field's small text box over the body
-      // (`collectAndGuess`), so this arm is what the click was picking out.
-      if (kind === 'field' && doc) {
-        const target = fieldEditTarget(doc, id);
-        if (target) setFieldEdit(target);
-      }
       if (kind === 'table' && doc) {
         // `SCH_EDIT_TOOL::Properties` opens DIALOG_TABLE_PROPERTIES for a whole
         // table; a selected cell opens the cell dialog instead.
@@ -4637,12 +4662,7 @@ export function SchematicEditor({
     (id: string) => {
       setDoc((d) => {
         if (!d) return d;
-        // A field of a placed symbol: "<symbolRefId>:field<k>"
-        // (DIALOG_FIELD_PROPERTIES, not the whole symbol's dialog).
-        const field = fieldEditTarget(d, id);
-        if (field) {
-          setFieldEdit(field);
-        } else if (d.symbols.some((s, i) => refId('symbol', s.uuid, i) === id)) setPropsTarget(id);
+        if (d.symbols.some((s, i) => refId('symbol', s.uuid, i) === id)) setPropsTarget(id);
         else if (d.textBoxes.some((tb, i) => refId('textbox', tb.uuid, i) === id))
           onEditItem(id, 'textbox');
         else if (d.tables.some((t, i) => refId('table', t.uuid, i) === id)) onEditItem(id, 'table');
@@ -6281,80 +6301,6 @@ export function SchematicEditor({
     [doc, runCommand, currentPath, liveDocs],
   );
 
-  /**
-   * DIALOG_FIELD_PROPERTIES reads and writes the field's position
-   * symbol-relative, the way the symbol properties grid shows it
-   * (TransferDataToWindow offsets each copy by -symbol position).
-   */
-  const fieldPropsOf = useCallback(
-    (fe: { symbol: number; index: number }): FieldPropsResult | null => {
-      const sym = doc?.symbols[fe.symbol];
-      const f = sym?.fields[fe.index];
-      if (!sym || !f) return null;
-      return {
-        key: f.key,
-        value: f.value,
-        at: f.at ? { x: f.at.x - sym.at.x, y: f.at.y - sym.at.y } : { x: 0, y: 0 },
-        angle: f.angle,
-        effects: f.effects ?? { hidden: false },
-        nameShown: !!f.nameShown,
-        doNotAutoplace: !!f.doNotAutoplace,
-      };
-    },
-    [doc],
-  );
-
-  const commitFieldEdit = useCallback(
-    (r: FieldPropsResult) => {
-      setFieldEdit((fe) => {
-        if (!fe || !doc) return null;
-        const sym = doc.symbols[fe.symbol];
-        const orig = sym?.fields[fe.index];
-        if (!sym || !orig) return null;
-        const next: SchField = {
-          ...orig,
-          key: r.key,
-          value: r.value,
-          // Back to absolute, the way the document stores it.
-          at: { x: r.at.x + sym.at.x, y: r.at.y + sym.at.y },
-          angle: r.angle,
-          effects: r.effects,
-          nameShown: r.nameShown,
-          doNotAutoplace: r.doNotAutoplace,
-        };
-        const edited: SchSymbol = {
-          ...sym,
-          fields: sym.fields.map((f, i) => (i === fe.index ? next : f)),
-        };
-        // `editFieldText`'s tail (sch_edit_tool.cpp:2357-2365): with
-        // `m_AutoplaceFields.enable` set, a parent whose fields the autoplacer
-        // already owns has them re-placed, INSIDE the same commit — which is
-        // why making a Value longer nudges the Reference along.
-        const replaced = autoplaceAfterFieldEdit(
-          edited,
-          libById.get(schSymbolLibraryName(edited)),
-          es.autoplace_fields.enable,
-          {
-            allowRejustify: es.autoplace_fields.allow_rejustify,
-            alignToGrid: es.autoplace_fields.align_to_grid,
-          },
-          { doc, libById, drawableArea: drawableArea(doc) },
-        );
-        // `commit.Push( caption )`: the undo entry is named after the dialog,
-        // not "Edit Symbol".
-        runCommand(
-          composeCommands(fieldEditCaption(orig.key), [replaceSymbol(fe.symbol, replaced)]),
-        );
-        // "if( !field->IsVisible() ) m_toolMgr->RunAction( ACTIONS::selectionClear )"
-        // (sch_edit_tool.cpp:2886-2887): unticking Visible in the dialog leaves
-        // the selection pointing at something no longer drawn, so it goes.
-        if (next.effects?.hidden) setSelection(new Set());
-        return null;
-      });
-    },
-    [doc, runCommand, libById, es.autoplace_fields],
-  );
-
   // The image file picker: read the chosen bitmap as base64 and attach it to the cursor.
   const onImageFile = useCallback((file: File) => {
     const reader = new FileReader();
@@ -7150,30 +7096,6 @@ export function SchematicEditor({
             }
           }
         }
-        // U / V / F = edit the Reference / Value / Footprint of the selected
-        // symbol (SCH_EDIT_TOOL::EditField), which opens the same field dialog
-        // double-clicking that field does. A field selected on its own resolves
-        // to its parent symbol, as EditField does.
-        {
-          const FIELD_KEYS: Record<string, string> = { u: 'Reference', v: 'Value', f: 'Footprint' };
-          const want = FIELD_KEYS[e.key.toLowerCase()];
-          if (want && doc && selection.size === 1) {
-            const id = [...selection][0]!;
-            const owner = /^(.*):field\d+$/.exec(id)?.[1] ?? id;
-            const si = doc.symbols.findIndex((sy, i) => refId('symbol', sy.uuid, i) === owner);
-            if (si !== -1) {
-              e.preventDefault();
-              const sym = doc.symbols[si]!;
-              // Footprint is meaningless on a power symbol, so upstream skips it.
-              const isPower = !!libById.get(schSymbolLibraryName(sym))?.isPower;
-              if (!(want === 'Footprint' && isPower)) {
-                const fi = sym.fields.findIndex((f) => f.key === want);
-                if (fi !== -1) setFieldEdit({ symbol: si, index: fi });
-              }
-              return;
-            }
-          }
-        }
         // D = Show Datasheet (ACTIONS::showDatasheet), whose target is
         // `RequestSelection( { SCH_SYMBOL_T } )` and which clears a hover
         // selection afterwards (sch_editor_control.cpp:2845-2852).
@@ -7311,6 +7233,8 @@ export function SchematicEditor({
     fpFilters: readonly string[];
     /** Its pin count, the other half. */
     pinCount?: number;
+    /** Closed without a pick. */
+    cancel?: () => void;
   } | null>(null);
 
   // Message-panel rows (EDA_MSG_PANEL): exactly one selected item shows its
@@ -8845,7 +8769,10 @@ export function SchematicEditor({
             fpChooser.commit(libId);
             setFpChooser(null);
           }}
-          onCancel={() => setFpChooser(null)}
+          onCancel={() => {
+            fpChooser.cancel?.();
+            setFpChooser(null);
+          }}
         />
       )}
 
@@ -8866,14 +8793,28 @@ export function SchematicEditor({
         />
       )}
 
-      {fieldEdit && fieldPropsOf(fieldEdit) && (
+      {fieldDialog && (
         <DialogFieldProperties
-          initial={fieldPropsOf(fieldEdit)!}
-          caption={fieldEditCaption(doc.symbols[fieldEdit.symbol]!.fields[fieldEdit.index]!.key)}
+          dlg={fieldDialog.dlg}
+          initial={fieldDialog.shown}
           // Every UNIT_BINDER in the dialog reads its units off the frame.
           units={units}
-          onOk={commitFieldEdit}
-          onCancel={() => setFieldEdit(null)}
+          onOk={(values) => {
+            if (!fieldDialog.dlg.TransferDataFromWindow(values)) return;
+            // `dlg.UpdateField( &commit, aField, &m_frame->GetCurrentSheet() )`, on the caller's
+            // commit.
+            fieldDialog.dlg.UpdateField(
+              fieldDialog.commit,
+              fieldDialog.field,
+              schFrameRef.current!.GetCurrentSheet(),
+            );
+            setFieldDialog(null);
+            fieldDialog.resolve(wxID_OK);
+          }}
+          onCancel={() => {
+            setFieldDialog(null);
+            fieldDialog.resolve(wxID_CANCEL);
+          }}
         />
       )}
 

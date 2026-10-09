@@ -546,7 +546,9 @@ const CANVAS_KEYS: Readonly<
       ['Shift+Space line mode', /lineModeNext/],
       ['N grid next', /gridNext\/gridPrev/],
       ['C unfold bus', /unfoldBus/],
-      ['U V F edit field', /FIELD_KEYS/],
+      // U V F left this chain: the GL canvas hands its keys to TOOL_DISPATCHER, whose
+      // ACTION_MANAGER::RunHotKey runs SCH_ACTIONS::editReference / editValue / editFootprint on
+      // the live SCH_EDIT_TOOL::EditField and stops the event there.
       ['D show datasheet', /showDatasheet/],
       ['O autoplace fields', /autoplaceFields/],
       // The E arm no longer reads `selection` directly: like every other

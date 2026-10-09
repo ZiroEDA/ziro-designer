@@ -921,6 +921,13 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     this.m_toolManager?.GetTool(SCH_NAVIGATE_TOOL)?.CleanHistory();
   }
 
+  /**
+   * `UpdateLabelsHierarchyNavigator` (sch_edit_frame.cpp:1406): `m_hierarchy->
+   * UpdateLabelsHierarchyTree()`. The window's HIERARCHY_PANE rebuilds its tree from the documents
+   * on every change (`sheetTree`), so there is nothing to push to it here.
+   */
+  UpdateLabelsHierarchyNavigator(): void {}
+
   /// `m_currentVariantCtrl`: null until the window builds the toolbar control.
   private m_currentVariantCtrl: VARIANT_CHOICE | null = null;
 
