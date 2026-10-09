@@ -96,7 +96,10 @@ import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { STRTOK, strncpyLine } from '@ziroeda/common/libc/string.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
-import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
+import type {
+  APP_SETTINGS_BASE,
+  CROSS_PROBING_SETTINGS,
+} from '@ziroeda/common/settings/app_settings.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { SELECTION } from '@ziroeda/common/tool/selection.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
@@ -602,6 +605,34 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
       this.Schematic().SetCurrentSheet(aSheet);
       this.SetSheetNumberAndCount();
       this.GetCanvas()?.DisplaySheet(aSheet.LastScreen());
+    }
+  }
+
+  /**
+   * `SCH_EDIT_FRAME::LoadSettings` (eeschema_config.cpp:263). Upstream's constructor calls it
+   * once the canvas exists and before setupTools; createSchDrawPanel does the same here.
+   *
+   * The pin electrical types and forced pin numbers are a symbol editor display: the schematic
+   * turns both off whatever SCH_RENDER_SETTINGS' constructor said. (The find/replace extras
+   * and the search pane flag are not in our EESCHEMA_SETTINGS yet.)
+   */
+  override LoadSettings(aCfg: APP_SETTINGS_BASE): void {
+    // For now, axes are forced off in Eeschema even if turned on in config
+    aCfg.m_Window.grid.axes_enabled = false;
+
+    super.LoadSettings(aCfg);
+
+    const rs = this.GetRenderSettings();
+    const cfg = this.eeconfig();
+
+    if (!rs) return;
+
+    rs.m_ShowPinsElectricalType = false;
+    rs.m_ShowPinNumbers = false;
+
+    if (cfg) {
+      rs.m_ShowPinAltIcons = cfg.appearance.show_pin_alt_icons;
+      rs.SetDefaultFont(cfg.appearance.default_font);
     }
   }
 

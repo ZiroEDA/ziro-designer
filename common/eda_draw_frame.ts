@@ -44,7 +44,7 @@ import type { PAGE_INFO } from './page_info.js';
 import type { RENDER_SETTINGS } from './render_settings.js';
 import type { PROJECT_TEXT_VARS, TITLE_BLOCK } from './title_block.js';
 import { type EDA_DRAW_PANEL_GAL, GAL_TYPE } from './draw_panel_gal.js';
-import { DEFAULT_THEME, GetColorSettings } from './pgm_base.js';
+import { DEFAULT_THEME, GetColorSettings, PgmOrNull } from './pgm_base.js';
 import type { COLOR_SETTINGS } from './settings/color_settings.js';
 import { MSG_PANEL_ITEM } from './widgets/msgpanel.js';
 import { type APP_SETTINGS_BASE, EdaUnitsFromInt, EdaUnitsToInt } from './settings/app_settings.js';
@@ -1316,9 +1316,17 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
 
     this.m_undoRedoCountMax = aCfg.m_System.max_undo_items;
 
-    // m_galDisplayOptions.ReadConfig( *cmnCfg, *window, this ): the common
-    // half is read at startup (PGM_BASE); the window half is the frame's.
-    this.m_galDisplayOptions.ReadWindowSettings(window);
+    const cmnCfg = PgmOrNull()?.GetCommonSettings() ?? null;
+
+    // m_galDisplayOptions.ReadConfig( *cmnCfg, *window, this ): the antialiasing mode and DPI
+    // come from COMMON_SETTINGS, the grid and cursor from the frame's window settings.
+    if (cmnCfg)
+      this.m_galDisplayOptions.ReadConfig(
+        cmnCfg,
+        window,
+        typeof globalThis.window !== 'undefined' ? globalThis.window : null,
+      );
+    else this.m_galDisplayOptions.ReadWindowSettings(window);
   }
 
   override SaveSettings(aCfg: APP_SETTINGS_BASE): void {

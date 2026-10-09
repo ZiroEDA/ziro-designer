@@ -199,11 +199,17 @@ describe('SCH_EDIT_TABLE_TOOL', () => {
   it('getCellBlockBounds: a block is its bounds, a gap is none; validatePasteIntoSelection says why', () => {
     const h = setUp();
     const tool = h.mgr.FindTool('eeschema.TableEditor') as unknown as {
-      getCellBlockBounds(aSel: unknown): number[] | null;
+      getCellBlockBounds(aSel: unknown): object | null;
       validatePasteIntoSelection(aSel: unknown): string | null;
     };
     h.select(h.table.GetCell(0, 0)!, h.table.GetCell(1, 0)!);
-    expect(tool.getCellBlockBounds(h.sel.GetSelection())).toEqual([0, 1, 0, 2]);
+    // `getCellBlockBounds( aSel, aColMin, aColMax, aRowMin, aRowMax )`'s out-parameters.
+    expect(tool.getCellBlockBounds(h.sel.GetSelection())).toEqual({
+      colMin: 0,
+      colMax: 1,
+      rowMin: 0,
+      rowMax: 2,
+    });
     expect(tool.validatePasteIntoSelection(h.sel.GetSelection())).toBeNull();
 
     h.select(h.table.GetCell(0, 0)!, h.table.GetCell(1, 1)!);

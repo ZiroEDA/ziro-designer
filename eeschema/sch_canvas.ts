@@ -41,7 +41,11 @@ export function createSchDrawPanel(
 
   aFrame.SetCanvas(panel);
 
-  // The constructor's next step upstream, once the canvas exists.
+  // The constructor's next steps upstream, once the canvas exists.
+  const cfg = aFrame.config();
+
+  if (cfg) aFrame.LoadSettings(cfg);
+
   aFrame.setupTools();
 
   return panel;
