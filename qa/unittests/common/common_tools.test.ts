@@ -336,16 +336,23 @@ function drag(aMgr: TOOL_MANAGER, aButton: number, aFrom: VECTOR2I, aTo: VECTOR2
 }
 
 describe('ZOOM_TOOL (zoom_tool.cpp:102-165)', () => {
+  /** The ratio zoom_tool.cpp computes for the test's band, its corners truncated to VECTOR2I. */
+  const bandRatio = (aScreen: { x: number; y: number }): number =>
+    Math.max(Math.trunc(aScreen.x / 4) / aScreen.x, Math.trunc(aScreen.y / 8) / aScreen.y);
+
   it('a left drag zooms IN so the band fills the view, centred on it', () => {
     const view = env.frame.GetCanvas()!.GetView();
     view.SetScale(1.0);
     const screen = view.ToWorld({ x: 1000, y: 800 }, false) as { x: number; y: number };
 
     env.mgr.RunAction(ACTIONS.zoomTool);
-    // A band a quarter of the screen wide: ratio 0.25, scale 1 / 0.25.
+    // A band a quarter of the screen wide. SELECTION_AREA's corners are VECTOR2I, so the band's
+    // fractional end is truncated, and the ratio is max( vSize / sSize ) over that integer box
+    // (zoom_tool.cpp:145-151): a hair under 0.25, the scale a hair over 4.
     drag(env.mgr, BUT_LEFT, { x: 0, y: 0 }, { x: screen.x / 4, y: screen.y / 8 });
 
-    expect(view.GetScale()).toBeCloseTo(4.0, 9);
+    expect(view.GetScale()).toBeCloseTo(1 / bandRatio(screen), 9);
+    expect(view.GetScale()).toBeCloseTo(4.0, 6);
     // BOX2I is integer, so Centre() is to the unit.
     expect(Math.abs(view.GetCenter().x - screen.x / 8)).toBeLessThanOrEqual(1);
   });
@@ -358,6 +365,7 @@ describe('ZOOM_TOOL (zoom_tool.cpp:102-165)', () => {
     env.mgr.RunAction(ACTIONS.zoomTool);
     drag(env.mgr, BUT_RIGHT, { x: 0, y: 0 }, { x: screen.x / 4, y: screen.y / 8 });
 
-    expect(view.GetScale()).toBeCloseTo(0.25, 9);
+    expect(view.GetScale()).toBeCloseTo(bandRatio(screen), 9);
+    expect(view.GetScale()).toBeCloseTo(0.25, 6);
   });
 });
