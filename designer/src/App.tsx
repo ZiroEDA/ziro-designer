@@ -46,6 +46,7 @@ import type { DemoMeta } from './home/demos.js';
 import { useAuth } from './auth/AuthProvider.js';
 import { authEnabled } from './auth/supabaseClient.js';
 import { goToAuth } from './auth/explore.js';
+import { isGithubId } from './home/github_id.js';
 import {
   reportCloudFailed,
   reportCloudOk,
@@ -1479,18 +1480,20 @@ export function App(): JSX.Element {
   // Signed out (#639) there is no account to save a copy into: the strip's
   // action opens the sign-up page in a new tab, and this tab - edits and all -
   // turns signed in once that one has the keys, when "Save a copy" takes over.
+  // What it is, then the one fact that matters: a GitHub project (#640) says
+  // which repository, a demo says it is one.
+  const demoMessage =
+    demoSource && isGithubId(demoSource.id)
+      ? `${demoSource.title} from GitHub. Edits are not being saved.`
+      : 'Demo project. Edits are not being saved.';
   const demoNotice = !demoProject ? null : authEnabled && !session ? (
     <ReadOnlyNotice
-      message="Demo project. Edits are not being saved."
+      message={demoMessage}
       actionLabel="Sign up to save"
       onAction={() => goToAuth('signup')}
     />
   ) : (
-    <ReadOnlyNotice
-      message="Demo project. Edits are not being saved."
-      actionLabel="Save a copy"
-      onAction={saveDemoCopy}
-    />
+    <ReadOnlyNotice message={demoMessage} actionLabel="Save a copy" onAction={saveDemoCopy} />
   );
 
   /** File > Close Project, for the whole app: the editors drop the project too,

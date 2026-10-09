@@ -487,6 +487,7 @@ import {
   type FocusLike,
 } from '@ziroeda/common/browser_hotkeys.js';
 import { parseColor4d, toCssColor, type Color4d } from '@ziroeda/common/gal/color4d.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -2971,6 +2972,15 @@ export function PcbEditor({
       try {
         // The frame — and the dialog over it — painted before the read blocks.
         await keepRefreshing();
+        if (cancelled) return;
+        // A board with embedded files (KiCad 9+: fonts, models, worksheets)
+        // decompresses them as it parses, and the zstd codec is a wasm module
+        // that must be instantiated before anything synchronous asks for it -
+        // KiCad's is native and always ready. Only the importer path
+        // (files.ts) and the DRC worker did this, so a KiCad board with
+        // embedded files opened here failed with "InitCodec() has not
+        // completed" (kaminaris/GigaESC-TOLT, #640).
+        await EMBEDDED_FILES.InitCodec();
         if (cancelled) return;
         // `PROF_TIMER` + `wxLogTrace( traceAllegroPerf, ... )` in
         // OpenProjectFiles: the open's phases, under `WXTRACE=KICAD_ALLEGRO_PERF`.

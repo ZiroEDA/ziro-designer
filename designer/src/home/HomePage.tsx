@@ -35,6 +35,12 @@ import {
 import { useAuth } from '../auth/AuthProvider.js';
 import { authEnabled } from '../auth/supabaseClient.js';
 import { goToAuth } from '../auth/explore.js';
+import {
+  GithubOpenError,
+  githubSpecFromId,
+  isGithubId,
+  openGithubProject,
+} from './github_source.js';
 import type { AuthStep } from '../nav/route.js';
 import {
   syncAllProjects,
@@ -654,8 +660,13 @@ export function HomePage({
     id: string,
     view?: 'schematic' | 'pcb' | 'symbols' | 'footprints',
   ): Promise<void> => {
-    const d = demos.find((x) => x.id === id);
-    if (!d) return;
+    // A GitHub project is a demo whose id is its path (#640): the same road,
+    // fetched from the repository instead of the demo corpus.
+    const gh = isGithubId(id) ? githubSpecFromId(id) : null;
+    const known = gh ? null : demos.find((x) => x.id === id);
+    if (!gh && !known) return;
+    const what = gh ? `${gh.owner}/${gh.repo}` : known!.title;
+    const title = gh ? 'Open from GitHub' : 'Download Demo';
     // Demos open as themselves and are not persisted — see the `ingest(…, false)`
     // below and the reason written there. So an opened demo shows up under
     // neither Projects nor Recent, both of which list the account's store;
@@ -668,22 +679,27 @@ export function HomePage({
     // files - and both used to name the file in flight, so the line changed on
     // every one of 89 ticks and the card resized under it. A fraction is the
     // one thing both paths agree on, and the bar already carries it.
-    setLoading({
-      title: 'Download Demo',
-      label: { message: `Downloading demo: ${d.title}`, value: 0 },
-    });
+    const message = gh ? `Downloading ${what} from GitHub` : `Downloading demo: ${what}`;
+    setLoading({ title, label: { message, value: 0 } });
+    const progress = (done: number, total: number): void =>
+      setLoading({ title, label: { message, value: done / total } });
     let files: PickedHomeFile[];
+    let d: DemoMeta;
     try {
-      files = await openDemo(d, (done, total) =>
-        setLoading({
-          title: 'Download Demo',
-          label: { message: `Downloading demo: ${d.title}`, value: done / total },
-        }),
-      );
+      if (gh) ({ files, meta: d } = await openGithubProject(gh, progress));
+      else {
+        d = known!;
+        files = await openDemo(d, progress);
+      }
     } catch (e) {
       // A demo is fetched over the network. Without this the throw escaped an
-      // async handler and the card simply did nothing when clicked.
-      window.alert(`Could not open that demo: ${e instanceof Error ? e.message : String(e)}`);
+      // async handler and the card simply did nothing when clicked. A GitHub
+      // open says why in words (the rate limit and when to retry, no such
+      // repository, no project in it): GithubOpenError's message is that.
+      const why = e instanceof Error ? e.message : String(e);
+      window.alert(
+        e instanceof GithubOpenError ? why : `Could not open ${gh ? what : 'that demo'}: ${why}`,
+      );
       return;
     } finally {
       setLoading(null);
@@ -740,7 +756,8 @@ export function HomePage({
    */
   useEffect(() => {
     const id = openDemoRequest?.id;
-    if (!id || demos.length === 0) return;
+    // A GitHub project needs no demo list; a demo waits for it.
+    if (!id || (demos.length === 0 && !isGithubId(id))) return;
     if (demoSource?.id === id) return;
     void openDemoProject(id, openDemoRequest?.view);
     // eslint-disable-next-line react-hooks/exhaustive-deps

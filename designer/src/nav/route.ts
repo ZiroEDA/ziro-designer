@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { githubSpecFromId, isGithubId } from '../home/github_id.js';
+
 /**
  * What the address bar says, as data.
  *
@@ -222,6 +224,27 @@ export function parseRoute(href: string, base = '/'): Route {
     };
   }
 
+  // `/gh/<owner>/<repo>[/tree/<ref>/<path>][/-/<frame>[/3d]]` (#640): a GitHub
+  // project, which in the app is a demo whose id is this path. The frame sits
+  // behind `/-/` because a path in a repository can be called `pcb` too.
+  if (head === 'gh') {
+    const dash = parts.indexOf('-');
+    const where = dash < 0 ? parts : parts.slice(0, dash);
+    const id = where.join('/');
+    if (!githubSpecFromId(id)) return HOME;
+    if (dash < 0) return { kind: 'demo', id };
+    const [frame, child, extra] = parts.slice(dash + 1);
+    const view = frame === undefined ? undefined : VIEW_SEGMENTS[frame];
+    if (!view || view === 'manager' || extra !== undefined) return HOME;
+    if (child !== undefined && !(child === '3d' && view === 'pcb')) return HOME;
+    return {
+      kind: 'demo',
+      id,
+      view,
+      ...(child === '3d' ? { child: '3d' as const } : {}),
+    };
+  }
+
   const step = AUTH_SEGMENTS[head!];
   if (step) return { kind: 'auth', step };
 
@@ -248,6 +271,11 @@ export function routeHref(route: Route, base = '/', carry = ''): string {
     path = seg ? `p/${route.uid}/${seg}` : `p/${route.uid}`;
     if (route.child) path += `/${route.child}`;
     if (route.file) params.set('f', route.file);
+  } else if (route.kind === 'demo' && isGithubId(route.id)) {
+    // A GitHub project's address is its own path; the frame behind `/-/`.
+    path = route.id;
+    if (route.view) path += `/-/${SEGMENT_FOR_VIEW[route.view]}`;
+    if (route.child) path += `/${route.child}`;
   } else if (route.kind === 'demo') {
     path = `demo/${route.id}`;
     if (route.view) path += `/${SEGMENT_FOR_VIEW[route.view]}`;
