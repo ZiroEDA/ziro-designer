@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useEffect, useState, type FormEvent, type JSX } from 'react';
 import { RecoveryKeyContents } from './RecoveryKeyContents.js';
 import { useAuth } from './AuthProvider.js';
@@ -446,20 +447,17 @@ export function SignInDialog({
               from the account menu, so this never comes up again.
             </p>
             <div className="ze-auth-recovery-actions">
-              <button type="button" className="ze-btn" onClick={() => setNoRecoveryKey(false)}>
-                Back
-              </button>
-              <button
-                type="button"
-                className="ze-btn primary ze-auth-submit"
+              <Button label="Back" onClick={() => setNoRecoveryKey(false)} />
+              <Button
+                label="I remember my password"
+                isDefault
+                className="ze-auth-submit"
                 onClick={() => {
                   setNoRecoveryKey(false);
                   setError(null);
                   cancelRecovery();
                 }}
-              >
-                I remember my password
-              </button>
+              />
             </div>
           </div>
         )}

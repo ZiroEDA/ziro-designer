@@ -41,7 +41,7 @@ import {
   type Severity,
 } from '@ziroeda/common/reporter.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
-import { Check, Radio } from '@ziroeda/common/wx/controls.js';
+import { Button, Check, Radio } from '@ziroeda/common/wx/controls.js';
 import { WxFileDialog, type ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 
 /** `FILEEXT::NetlistFileWildcard()`. */
@@ -257,15 +257,9 @@ export function DialogImportNetlist({
       {/* `wxStdDialogButtonSizer` on GTK: Cancel, Apply, then the affirmative. */}
       <div className="ze-modal-footer">
         <span className="ze-sdb-spacer" />
-        <button type="button" className="ze-btn" onClick={() => onClose(pathRef.current)}>
-          Close
-        </button>
-        <button type="button" className="ze-btn" onClick={updatePcb}>
-          Update PCB
-        </button>
-        <button type="button" className="ze-btn primary" onClick={() => onFilenameChanged(true)}>
-          Load and Test Netlist
-        </button>
+        <Button label="Close" onClick={() => onClose(pathRef.current)} />
+        <Button label="Update PCB" onClick={updatePcb} />
+        <Button label="Load and Test Netlist" isDefault onClick={() => onFilenameChanged(true)} />
       </div>
       {browsing && (
         <WxFileDialog

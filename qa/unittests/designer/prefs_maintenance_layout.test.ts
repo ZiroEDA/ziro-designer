@@ -157,23 +157,28 @@ describe('the 3D cache duration is a live control', () => {
   });
 });
 
+/** The whole `<Button ... />` (wxButton, common/wx/controls) whose label is \a aLabel. */
+function buttonWith(aLabel: string): string {
+  const at = CODE.indexOf(aLabel);
+  expect(at, aLabel).toBeGreaterThan(-1);
+  return CODE.slice(CODE.lastIndexOf('<Button', at), CODE.indexOf('/>', at));
+}
+
 describe('every button on the page is live', () => {
   it('none of the four is disabled', () => {
     // The last greyed one was Reset "Don't Show Again" Dialogs, on the grounds
     // that this port had no such dialog -- which was a reason to build one, not
     // to grey the button that clears them. `ui/kidialog.tsx` is that dialog.
-    const buttons = CODE.split('<button').slice(1);
+    const buttons = CODE.split('<Button').slice(1);
     expect(buttons.length).toBe(4);
-    for (const b of buttons) expect(b.slice(0, b.indexOf('>'))).not.toMatch(/\bdisabled\b/);
+    for (const b of buttons) expect(b.slice(0, b.indexOf('/>'))).not.toMatch(/\bdisabled\b/);
   });
 
   it('clears BOTH stores, because doClearDontShowAgain has two halves', () => {
     // `settings->m_DoNotShowAgain = {}` is persisted; `KIDIALOG::
     // ClearDoNotShowAgainDialogs()` is a file-static map that dies with the
     // process. Clearing one and not the other leaves a silenced dialog silent.
-    const at = CODE.indexOf('Reset &quot;Don&apos;t Show Again&quot; Dialogs');
-    expect(at).toBeGreaterThan(-1);
-    const arm = CODE.slice(CODE.lastIndexOf('<button', at), at);
+    const arm = buttonWith('Reset &quot;Don&apos;t Show Again&quot; Dialogs');
     // The persisted half is the settings manager's since 09-26 (the panel is
     // handed the operations upstream reaches through Pgm()).
     expect(arm).toMatch(/settingsManager\.ClearDontShowAgain\(\)/);
@@ -185,9 +190,7 @@ describe('every button on the page is live', () => {
     // `onResetAll` calls `doClearDialogState()` (`:140`). The persisted half of
     // that rides along in storage; the session half cannot.
     for (const label of ['Reset All Dialogs to Defaults', 'Reset All Program Settings']) {
-      const at = CODE.indexOf(label);
-      expect(at, label).toBeGreaterThan(-1);
-      const arm = CODE.slice(CODE.lastIndexOf('<button', at), at);
+      const arm = buttonWith(label);
       expect(arm, label).toMatch(/clearDoNotShowAgainDialogs\(\)/);
     }
   });

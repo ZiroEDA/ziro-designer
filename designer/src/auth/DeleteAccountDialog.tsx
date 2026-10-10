@@ -26,6 +26,7 @@
  * sizer's over the widest control, which is the reason list. The one colour
  * is `--critical`, which is ente's.
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useCallback, useEffect, useState, type FormEvent, type JSX } from 'react';
 import { cloudBackend } from '../cloud/cloudStore.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
@@ -210,9 +211,7 @@ export function DeleteAccountDialog({
                     <div className="ze-delete-account-error">
                       Couldn't load your data counts. Try again to review what will be deleted.
                     </div>
-                    <button type="button" className="ze-btn" onClick={() => void load()}>
-                      Try again
-                    </button>
+                    <Button label="Try again" onClick={() => void load()} />
                   </>
                 )}
                 {summary.state === 'ready' && (
@@ -226,15 +225,12 @@ export function DeleteAccountDialog({
                   </>
                 )}
               </div>
-              <label className="ze-check">
-                <input
-                  type="checkbox"
-                  checked={accepted}
-                  disabled={summary.state !== 'ready'}
-                  onChange={(e) => setAccepted(e.target.checked)}
-                />
-                <span>I understand this deletes my account and all its data.</span>
-              </label>
+              <CheckBox
+                label="I understand this deletes my account and all its data."
+                checked={accepted}
+                disabled={summary.state !== 'ready'}
+                onChange={(aChecked) => setAccepted(aChecked)}
+              />
             </>
           )}
 
@@ -271,11 +267,7 @@ export function DeleteAccountDialog({
           okLabel={busy ? 'Deleting...' : okLabel}
           okDisabled={okDisabled}
         >
-          {step !== 'reason' && (
-            <button type="button" className="ze-btn" disabled={busy} onClick={back}>
-              Back
-            </button>
-          )}
+          {step !== 'reason' && <Button label="Back" disabled={busy} onClick={back} />}
         </StdDialogButtons>
       </form>
     </div>

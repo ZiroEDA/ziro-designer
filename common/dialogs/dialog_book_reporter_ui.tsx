@@ -14,6 +14,7 @@
  * The sizer tree (dialog_book_reporter_base.cpp): the notebook, minimum
  * 550 x 480, wxEXPAND|wxALL 10; the button sizer wxEXPAND|wxALL 5.
  */
+import { Button } from '../wx/controls.js';
 import { useEffect, useState, type JSX, type Ref } from 'react';
 import { WX_HTML_REPORT_BOX } from '../widgets/wx_html_report_box.js';
 import { useModalEscape } from '../dialog_shim.js';
@@ -85,9 +86,7 @@ export function DialogBookReporter({
         </div>
       </div>
       <div className="ze-modal-footer ze-bookreporter-buttons">
-        <button type="button" className="ze-btn primary" onClick={onClose}>
-          OK
-        </button>
+        <Button label="OK" isDefault onClick={onClose} />
       </div>
     </div>
   );

@@ -20,6 +20,7 @@
  * two-column grid instead, so every name starts at the same x. This is the one
  * place in the launcher where we knowingly look better than the binary.
  */
+import { Button } from '../wx/controls.js';
 import type { JSX } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { OK_LABEL } from '../confirm_types.js';
@@ -126,14 +127,8 @@ export function SingleChoiceDialog({
       </div>
       {/* wxStdDialogButtonSizer, not the message dialog's split bar. */}
       <div className="ze-choicedlg-buttons">
-        {showCancel && (
-          <button type="button" className="ze-btn" onClick={() => onResult(null)}>
-            Cancel
-          </button>
-        )}
-        <button type="button" className="ze-btn" onClick={() => accept(index)}>
-          {OK_LABEL}
-        </button>
+        {showCancel && <Button label="Cancel" onClick={() => onResult(null)} />}
+        <Button label={OK_LABEL} onClick={() => accept(index)} />
       </div>
     </DialogShim>
   );

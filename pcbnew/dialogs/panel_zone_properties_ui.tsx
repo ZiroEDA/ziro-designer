@@ -22,6 +22,7 @@
  * label and selector are hidden (`m_netLabel->Hide(); m_netSelector->Hide()`).
  */
 
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import type { ZoneValues } from './panel_zone_properties.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
@@ -205,14 +206,12 @@ export function PanelZoneProperties({
         )}
       </div>
 
-      <label className="ze-cz-locked">
-        <input
-          type="checkbox"
-          checked={v.locked}
-          onChange={(e) => set({ locked: e.target.checked })}
-        />
-        Locked
-      </label>
+      <CheckBox
+        label="Locked"
+        checked={v.locked}
+        className="ze-cz-locked"
+        onChange={(aChecked) => set({ locked: aChecked })}
+      />
 
       <div className="ze-cz-nb">
         <div className="ze-nb-tabs">
@@ -303,14 +302,12 @@ export function PanelZoneProperties({
                 {/* `m_cbHatched` IS the fill mode: HATCH_PATTERN when
                           ticked, POLYGONS when not. There is no "Fill type"
                           choice and no "Filled" checkbox in this dialog. */}
-                <label className="ze-cz-span">
-                  <input
-                    type="checkbox"
-                    checked={hatched}
-                    onChange={(e) => set({ fillMode: e.target.checked ? 'hatch' : 'solid' })}
-                  />
-                  Hatched fill
-                </label>
+                <CheckBox
+                  label="Hatched fill"
+                  checked={hatched}
+                  className="ze-cz-span"
+                  onChange={(aChecked) => set({ fillMode: aChecked ? 'hatch' : 'solid' })}
+                />
                 <fieldset disabled={!hatched} className="ze-cz-hatchfields">
                   {num('Orientation:', 'hatchOrientation', 'deg')}
                   {dist('Hatch width:', 'hatchThickness')}
@@ -380,9 +377,8 @@ export function PanelZoneProperties({
                   {/* `OnAddLayerItem` puts up "All zone layers already
                             overridden." when every layer the zone is on has a
                             row already. */}
-                  <button
-                    type="button"
-                    className="ze-btn"
+                  <Button
+                    label="+"
                     disabled={!hatched || v.layers.every((l) => l in v.layerProperties)}
                     title="Add a layer override"
                     onClick={() => {
@@ -395,12 +391,9 @@ export function PanelZoneProperties({
                           },
                         });
                     }}
-                  >
-                    +
-                  </button>
-                  <button
-                    type="button"
-                    className="ze-btn"
+                  />
+                  <Button
+                    label="−"
                     disabled={!hatched || Object.keys(v.layerProperties).length === 0}
                     title="Delete the last layer override"
                     onClick={() => {
@@ -410,9 +403,7 @@ export function PanelZoneProperties({
                       const { [last]: _drop, ...rest } = v.layerProperties;
                       set({ layerProperties: rest });
                     }}
-                  >
-                    −
-                  </button>
+                  />
                 </div>
               </div>
             </div>

@@ -34,7 +34,7 @@
  * on screen and the condition it warns about was never shown.
  */
 import type { JSX } from 'react';
-import { Check, Group } from '../wx/controls.js';
+import { Button, Check, Group } from '../wx/controls.js';
 import { Combo } from '../widgets/wx_combobox.js';
 import { Slider } from '../widgets/slider.js';
 import { KiBitmapBundle } from '../bitmap.js';
@@ -410,9 +410,8 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
           </div>
           {/* `bSizerRight`: both buttons `wxEXPAND`, so they are one width. */}
           <div className="ze-pref-buttoncol">
-            <button
-              type="button"
-              className="ze-btn"
+            <Button
+              label="Reset to Mouse Defaults"
               onClick={() =>
                 upC((s) => {
                   s.input.scroll_modifier_zoom = 'none';
@@ -423,12 +422,9 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
                   s.input.horizontal_pan = false;
                 })
               }
-            >
-              Reset to Mouse Defaults
-            </button>
-            <button
-              type="button"
-              className="ze-btn"
+            />
+            <Button
+              label="Reset to Trackpad Defaults"
               onClick={() =>
                 upC((s) => {
                   s.input.scroll_modifier_zoom = 'ctrl';
@@ -437,9 +433,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
                   s.input.horizontal_pan = true;
                 })
               }
-            >
-              Reset to Trackpad Defaults
-            </button>
+            />
           </div>
         </div>
       </Group>

@@ -53,6 +53,7 @@
  * recolour and re-encode in a place where nothing else touches a raster.
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import {
@@ -195,14 +196,12 @@ export function DialogReferenceImageProperties({
 
             {sizeField('Width:', 'width', 'w')}
 
-            <label className="ze-refimg-check ze-refimg-locked">
-              <input
-                type="checkbox"
-                checked={v.locked}
-                onChange={(e) => set({ locked: e.target.checked })}
-              />
-              Locked
-            </label>
+            <CheckBox
+              label="Locked"
+              checked={v.locked}
+              className="ze-refimg-check ze-refimg-locked"
+              onChange={(aChecked) => set({ locked: aChecked })}
+            />
           </div>
 
           {/* `m_imageSizer`, holding PANEL_IMAGE_EDITOR (common/dialogs). */}

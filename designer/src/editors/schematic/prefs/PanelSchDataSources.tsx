@@ -25,6 +25,7 @@
  * is what `initialTab` on `PluginManagerDialog` is for, and this is its first
  * caller.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcm, usePcmVersion } from '../../../pcm/pcmStore.js';
 import { PluginManagerDialog } from '../../../pcm/PluginManagerDialog.js';
@@ -76,9 +77,7 @@ export function PanelSchDataSources(): JSX.Element {
       </div>
 
       <div className="ze-datasources-btnrow">
-        <button type="button" className="ze-btn" onClick={() => setManaging(true)}>
-          Manage Data Sources...
-        </button>
+        <Button label="Manage Data Sources..." onClick={() => setManaging(true)} />
       </div>
 
       {managing && (

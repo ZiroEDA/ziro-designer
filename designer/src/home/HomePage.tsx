@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { registerAiBridge } from '@ziroeda/ai';
 import { projectBridge } from '@ziroeda/ai/app_bridge.js';
 import { showDoc } from '@ziroeda/ai/doc_viewer.js';
@@ -2351,27 +2352,21 @@ export function HomePage({
                   are the two ways into a project that is not in the account
                   yet, which is the reason Open Project is a window and not a
                   list. */}
-              <button
-                type="button"
-                className="ze-btn"
+              <Button
+                label="Open from Computer..."
                 onClick={() => {
                   setOpenPrjOpen(false);
                   void openProjectPicker();
                 }}
-              >
-                Open from Computer...
-              </button>
-              <button
-                type="button"
-                className="ze-btn"
+              />
+              <Button
+                label="Select Files..."
+                title="If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
                 onClick={() => {
                   setOpenPrjOpen(false);
                   filesInputRef.current?.click();
                 }}
-                title="If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
-              >
-                Select Files...
-              </button>
+              />
             </>
           }
           onDelete={deleteEntry}
@@ -2561,9 +2556,7 @@ export function HomePage({
       {authEnabled && !session && !guestNudgeDismissed && saved.length > 0 && (
         <div className="ze-guest-nudge">
           <span>Your projects are saved on this device only.</span>
-          <button type="button" className="ze-btn primary" onClick={() => toAuth('signin')}>
-            Sign in to back them up
-          </button>
+          <Button label="Sign in to back them up" isDefault onClick={() => toAuth('signin')} />
           <span className="x" title="Dismiss" onClick={dismissGuestNudge}>
             ✕
           </span>

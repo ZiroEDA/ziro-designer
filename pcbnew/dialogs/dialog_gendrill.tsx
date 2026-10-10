@@ -38,6 +38,7 @@
  * manager, falling back to a browser download when the board is standalone
  * (`plot-print-cloud-output` memory).
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import type { BOARD } from '../board.js';
 import { PCB_PLOT_PARAMS } from '../pcb_plot_params.js';
@@ -295,55 +296,37 @@ export function DialogGendrill({
               Excellon
             </label>
             <div className="ze-gendrill-suboptions">
-              <label
-                className="ze-check"
+              <CheckBox
+                label="Mirror Y axis"
+                checked={mirror}
+                disabled={!excellonSelected}
                 title={'Not recommended.\nUsed mostly by users who make the boards themselves.'}
-              >
-                <input
-                  type="checkbox"
-                  checked={mirror}
-                  disabled={!excellonSelected}
-                  onChange={(e) => setMirror(e.target.checked)}
-                />
-                Mirror Y axis
-              </label>
-              <label
-                className="ze-check"
+                onChange={(aChecked) => setMirror(aChecked)}
+              />
+              <CheckBox
+                label="Minimal header"
+                checked={minimal}
+                disabled={!excellonSelected}
                 title={
                   'Not recommended.\nOnly use it for board houses which do not accept fully featured headers.'
                 }
-              >
-                <input
-                  type="checkbox"
-                  checked={minimal}
-                  disabled={!excellonSelected}
-                  onChange={(e) => setMinimal(e.target.checked)}
-                />
-                Minimal header
-              </label>
-              <label
-                className="ze-check"
+                onChange={(aChecked) => setMinimal(aChecked)}
+              />
+              <CheckBox
+                label="PTH and NPTH in single file"
+                checked={mergePTHNPTH}
+                disabled={!excellonSelected}
                 title={
                   'Not recommended.\nOnly use for board houses which ask for merged PTH and NPTH into a single file.'
                 }
-              >
-                <input
-                  type="checkbox"
-                  checked={mergePTHNPTH}
-                  disabled={!excellonSelected}
-                  onChange={(e) => setMergePTHNPTH(e.target.checked)}
-                />
-                PTH and NPTH in single file
-              </label>
-              <label className="ze-check">
-                <input
-                  type="checkbox"
-                  checked={altDrillMode}
-                  disabled={!excellonSelected}
-                  onChange={(e) => setAltDrillMode(e.target.checked)}
-                />
-                Use alternate drill mode for oval holes
-              </label>
+                onChange={(aChecked) => setMergePTHNPTH(aChecked)}
+              />
+              <CheckBox
+                label="Use alternate drill mode for oval holes"
+                checked={altDrillMode}
+                disabled={!excellonSelected}
+                onChange={(aChecked) => setAltDrillMode(aChecked)}
+              />
             </div>
             <label className="ze-check">
               <input
@@ -355,25 +338,19 @@ export function DialogGendrill({
               Gerber X2
             </label>
             <div className="ze-gendrill-suboptions">
-              <label className="ze-check">
-                <input
-                  type="checkbox"
-                  checked={generateTenting}
-                  disabled={excellonSelected}
-                  onChange={(e) => setGenerateTenting(e.target.checked)}
-                />
-                Generate tenting layers
-              </label>
+              <CheckBox
+                label="Generate tenting layers"
+                checked={generateTenting}
+                disabled={excellonSelected}
+                onChange={(aChecked) => setGenerateTenting(aChecked)}
+              />
             </div>
             <div className="ze-gendrill-genmap">
-              <label className="ze-check">
-                <input
-                  type="checkbox"
-                  checked={generateMap}
-                  onChange={(e) => setGenerateMap(e.target.checked)}
-                />
-                Generate map:
-              </label>
+              <CheckBox
+                label="Generate map:"
+                checked={generateMap}
+                onChange={(aChecked) => setGenerateMap(aChecked)}
+              />
               <Combo
                 value={mapFormat}
                 options={MAP_CHOICES}
@@ -434,15 +411,13 @@ export function DialogGendrill({
       </div>
 
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn ze-gendrill-report-btn" onClick={generateReport}>
-          Generate Report File...
-        </button>
-        <button type="button" className="ze-btn" onClick={onClose}>
-          Close
-        </button>
-        <button type="button" className="ze-btn primary" onClick={generate}>
-          Generate
-        </button>
+        <Button
+          label="Generate Report File..."
+          className="ze-gendrill-report-btn"
+          onClick={generateReport}
+        />
+        <Button label="Close" onClick={onClose} />
+        <Button label="Generate" isDefault onClick={generate} />
       </div>
     </DialogShim>
   );

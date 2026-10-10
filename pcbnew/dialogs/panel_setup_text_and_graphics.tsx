@@ -26,6 +26,7 @@
  * entry lines up with the Precision choice. No SetFont anywhere in either panel.
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useLayoutEffect, useRef, useState } from 'react';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
@@ -354,14 +355,12 @@ export function PanelPcbTextGraphics({ value, onChange }: Props): JSX.Element {
           onChange={(f) => setDim('format', f)}
         />
         <span />
-        <label className="ze-pref-check ze-tg-dimright ze-tg-span2">
-          <input
-            type="checkbox"
-            checked={d.keepTextAligned}
-            onChange={(e) => setDim('keepTextAligned', e.target.checked)}
-          />
-          Keep text aligned
-        </label>
+        <CheckBox
+          label="Keep text aligned"
+          checked={d.keepTextAligned}
+          className="ze-pref-check ze-tg-dimright ze-tg-span2"
+          onChange={(aChecked) => setDim('keepTextAligned', aChecked)}
+        />
         <span />
 
         {/* Row 2 */}
@@ -382,14 +381,12 @@ export function PanelPcbTextGraphics({ value, onChange }: Props): JSX.Element {
         <span className="unit">mm</span>
 
         {/* Row 3 */}
-        <label className="ze-pref-check ze-tg-span2">
-          <input
-            type="checkbox"
-            checked={d.suppressTrailingZeroes}
-            onChange={(e) => setDim('suppressTrailingZeroes', e.target.checked)}
-          />
-          Suppress trailing zeroes
-        </label>
+        <CheckBox
+          label="Suppress trailing zeroes"
+          checked={d.suppressTrailingZeroes}
+          className="ze-pref-check ze-tg-span2"
+          onChange={(aChecked) => setDim('suppressTrailingZeroes', aChecked)}
+        />
         <span />
         <span className="ze-tg-dimright">Extension line offset:</span>
         <input

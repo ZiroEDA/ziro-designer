@@ -17,6 +17,7 @@
  * which this window renders. `onResult` is what `ShowModal()` returns: `0` for
  * OK, `1` for Apply, `wxID_CANCEL` otherwise.
  */
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import {
@@ -61,17 +62,16 @@ export function DialogPushPadProperties({
           <fieldset className="ze-sbox ze-pushpad-box">
             <legend>Options</legend>
             {FILTERS.map(({ key, label }) => (
-              <label key={key} className="ze-pushpad-cb">
-                <input
-                  type="checkbox"
-                  checked={dialog[key]}
-                  onChange={(e) => {
-                    dialog[key] = e.target.checked;
-                    redraw((n) => n + 1);
-                  }}
-                />
-                {label}
-              </label>
+              <CheckBox
+                key={key}
+                label={label}
+                checked={dialog[key]}
+                className="ze-pushpad-cb"
+                onChange={(aChecked) => {
+                  dialog[key] = aChecked;
+                  redraw((n) => n + 1);
+                }}
+              />
             ))}
           </fieldset>
         </div>

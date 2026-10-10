@@ -23,6 +23,7 @@
  * is written exactly as KiCad writes them to disk; "Download a copy to this
  * computer" additionally streams the set out as a zip.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useMemo, useRef, useState, type JSX } from 'react';
 import { zipSync, zlibSync, strToU8 } from 'fflate';
 import { PCB_PLOTTER } from '../pcb_plotter.js';
@@ -736,15 +737,9 @@ export function DialogPcbPlot({
         >
           Run DRC...
         </button>
-        <button type="button" className="ze-btn" onClick={drill}>
-          Generate Drill Files...
-        </button>
-        <button type="button" className="ze-btn" onClick={onClose}>
-          Close
-        </button>
-        <button type="button" className="ze-btn primary" onClick={plot}>
-          Plot
-        </button>
+        <Button label="Generate Drill Files..." onClick={drill} />
+        <Button label="Close" onClick={onClose} />
+        <Button label="Plot" isDefault onClick={plot} />
       </div>
     </DialogShim>
   );

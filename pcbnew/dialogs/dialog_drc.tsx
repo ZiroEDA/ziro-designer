@@ -15,6 +15,7 @@
  * bar and resized from its corner. The chrome is the ERC dialog's - the two
  * are the same wx widgets on the same DIALOG_SHIM.
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { RcTreeView } from '@ziroeda/common/widgets/rc_tree_view.js';
 import type { RC_TREE_MODEL, RC_TREE_NODE, RC_TREE_VIEW_STATE } from '@ziroeda/common/rc_item.js';
@@ -114,30 +115,26 @@ export function DialogDrc({ dialog, isSingle, canRefillZones, rootRef }: Props):
 
       {/* gbSizerOptions: the two option boxes, the config menu button at the right */}
       <div className="ze-drc-options">
-        <label className="chk">
-          <input
-            type="checkbox"
-            checked={dialog.m_cbRefillZones && canRefillZones}
-            disabled={!canRefillZones}
-            onChange={(e) => {
-              dialog.m_cbRefillZones = e.target.checked;
+        <CheckBox
+          label="Refill all zones before performing DRC"
+          checked={dialog.m_cbRefillZones && canRefillZones}
+          disabled={!canRefillZones}
+          className="chk"
+          onChange={(aChecked) => {
+            dialog.m_cbRefillZones = aChecked;
+            force((n) => n + 1);
+          }}
+        />
+        {!isSingle && (
+          <CheckBox
+            label="Test for parity between PCB and schematic"
+            checked={dialog.m_cbTestFootprints}
+            className="chk"
+            onChange={(aChecked) => {
+              dialog.m_cbTestFootprints = aChecked;
               force((n) => n + 1);
             }}
           />
-          Refill all zones before performing DRC
-        </label>
-        {!isSingle && (
-          <label className="chk">
-            <input
-              type="checkbox"
-              checked={dialog.m_cbTestFootprints}
-              onChange={(e) => {
-                dialog.m_cbTestFootprints = e.target.checked;
-                force((n) => n + 1);
-              }}
-            />
-            Test for parity between PCB and schematic
-          </label>
         )}
         <span className="grow" />
         <button
@@ -248,97 +245,76 @@ export function DialogDrc({ dialog, isSingle, canRefillZones, rootRef }: Props):
       {/* bSeveritySizer */}
       <div className="ze-erc-footer">
         <span className="show-label">Show:</span>
-        <label className="chk">
-          <input
-            type="checkbox"
-            checked={dialog.m_showAll}
-            onChange={(e) => dialog.OnSeverity('all', e.target.checked)}
-          />
-          All
-        </label>
+        <CheckBox
+          label="All"
+          checked={dialog.m_showAll}
+          className="chk"
+          onChange={(aChecked) => dialog.OnSeverity('all', aChecked)}
+        />
         <span className="gap-35" />
-        <label className="chk">
-          <input
-            type="checkbox"
-            checked={dialog.m_showErrors}
-            onChange={(e) => dialog.OnSeverity('errors', e.target.checked)}
-          />
-          Errors
-        </label>
+        <CheckBox
+          label="Errors"
+          checked={dialog.m_showErrors}
+          className="chk"
+          onChange={(aChecked) => dialog.OnSeverity('errors', aChecked)}
+        />
         <NumberBadge
           number={dialog.m_errorsBadge.number}
           max={dialog.m_errorsBadge.max}
           severity={RPT_SEVERITY_ERROR}
         />
         <span className="gap-25" />
-        <label className="chk">
-          <input
-            type="checkbox"
-            checked={dialog.m_showWarnings}
-            onChange={(e) => dialog.OnSeverity('warnings', e.target.checked)}
-          />
-          Warnings
-        </label>
+        <CheckBox
+          label="Warnings"
+          checked={dialog.m_showWarnings}
+          className="chk"
+          onChange={(aChecked) => dialog.OnSeverity('warnings', aChecked)}
+        />
         <NumberBadge
           number={dialog.m_warningsBadge.number}
           max={dialog.m_warningsBadge.max}
           severity={RPT_SEVERITY_WARNING}
         />
         <span className="gap-25" />
-        <label className="chk">
-          <input
-            type="checkbox"
-            checked={dialog.m_showExclusions}
-            onChange={(e) => dialog.OnSeverity('exclusions', e.target.checked)}
-          />
-          Exclusions
-        </label>
+        <CheckBox
+          label="Exclusions"
+          checked={dialog.m_showExclusions}
+          className="chk"
+          onChange={(aChecked) => dialog.OnSeverity('exclusions', aChecked)}
+        />
         <NumberBadge
           number={dialog.m_exclusionsBadge.number}
           max={dialog.m_exclusionsBadge.max}
           severity={RPT_SEVERITY_EXCLUSION}
         />
         <span className="grow" />
-        <button
-          type="button"
-          className="ze-btn"
+        <Button
+          label="Save..."
           disabled={!dialog.m_saveEnabled}
           onClick={() => void dialog.OnSaveReport()}
-        >
-          Save...
-        </button>
+        />
       </div>
 
       {/* m_sizerButtons */}
       <div className="ze-erc-buttons">
-        <button
-          type="button"
-          className="ze-btn"
+        <Button
+          label="Delete Marker"
           disabled={!dialog.m_deleteEnabled}
           onClick={() => dialog.OnDeleteOneClick()}
-        >
-          Delete Marker
-        </button>
-        <button
-          type="button"
-          className="ze-btn"
+        />
+        <Button
+          label="Delete All Markers"
           disabled={!dialog.m_deleteEnabled}
           onClick={() => void dialog.OnDeleteAllClick()}
-        >
-          Delete All Markers
-        </button>
+        />
         <span className="grow" />
-        <button type="button" className="ze-btn" onClick={() => dialog.OnCancelClick()}>
-          {dialog.m_cancelLabel}
-        </button>
-        <button
-          type="button"
-          className="ze-btn primary"
+        <Button label={dialog.m_cancelLabel} onClick={() => dialog.OnCancelClick()} />
+        <Button
+          label="Run DRC"
+          isDefault
           disabled={!dialog.m_okEnabled}
           onClick={() => dialog.OnRunDRCClick()}
-        >
-          Run DRC
-        </button>
+        />
       </div>
 
       {/* m_drcStatusBar: two fields, 12 px and the rest */}

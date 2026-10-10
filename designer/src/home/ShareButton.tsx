@@ -29,6 +29,7 @@
  * at all, so "Invited" is shown as a state rather than as a confirmation.
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useCallback, useRef, useState, type JSX } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { useDismissOnOutside } from '@ziroeda/common/widgets/use_dismiss_on_outside.js';
@@ -239,14 +240,7 @@ export function ShareButton({
                     ariaLabel="What the invited person may do"
                     onChange={(v) => setInviteRole(v as Role)}
                   />
-                  <button
-                    type="button"
-                    className="ze-btn"
-                    disabled={!invitee.trim()}
-                    onClick={invite}
-                  >
-                    Invite
-                  </button>
+                  <Button label="Invite" disabled={!invitee.trim()} onClick={invite} />
                 </div>
               )}
 
@@ -341,18 +335,15 @@ export function ShareButton({
                 />
                 <div className="ze-share-linkrow">
                   <input readOnly value={url} onFocus={(e) => e.currentTarget.select()} />
-                  <button
-                    type="button"
-                    className="ze-btn"
+                  <Button
+                    label={copied ? 'Copied' : 'Copy link'}
                     onClick={() => {
                       void navigator.clipboard
                         ?.writeText(url)
                         .then(() => setCopied(true))
                         .catch(() => setCopied(false));
                     }}
-                  >
-                    {copied ? 'Copied' : 'Copy link'}
-                  </button>
+                  />
                 </div>
                 {linkAccess !== null && (
                   // The two are easy to conflate and only one of them is what

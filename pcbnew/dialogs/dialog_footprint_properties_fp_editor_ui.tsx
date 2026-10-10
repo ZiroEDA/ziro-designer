@@ -13,6 +13,7 @@
  * Not drawn: the Embedded Files page, which the model does not carry either.
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, type ReactNode, useRef, useState } from 'react';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
@@ -264,14 +265,13 @@ export function DialogFootprintPropertiesFpEditor({
       | 'duplicatePadsAreJumpers',
     title?: string,
   ): JSX.Element => (
-    <label className="ze-fpfe-check" title={title}>
-      <input
-        type="checkbox"
-        checked={v[key]}
-        onChange={(e) => set({ [key]: e.target.checked } as Partial<FootprintFpEditorValues>)}
-      />
-      {label}
-    </label>
+    <CheckBox
+      label={label}
+      checked={v[key]}
+      title={title}
+      className="ze-fpfe-check"
+      onChange={(aChecked) => set({ [key]: aChecked } as Partial<FootprintFpEditorValues>)}
+    />
   );
 
   /** `bButtonSize`: add, a 20 px gap, delete. */

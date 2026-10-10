@@ -20,6 +20,7 @@
  * Not `SingleChoiceDialog`: that one is `wxGetSingleChoice`, a different wx
  * dialog with no headers, no filter and no report columns.
  */
+import { Button } from '../wx/controls.js';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { DialogShim } from '../dialog_shim.js';
 
@@ -150,17 +151,8 @@ export function EdaListDialog({
         )}
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={() => onResult(null)}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="ze-btn primary"
-          disabled={shown.length === 0}
-          onClick={accept}
-        >
-          {okLabel}
-        </button>
+        <Button label="Cancel" onClick={() => onResult(null)} />
+        <Button label={okLabel} isDefault disabled={shown.length === 0} onClick={accept} />
       </div>
     </DialogShim>
   );

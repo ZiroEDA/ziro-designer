@@ -45,6 +45,7 @@
  * (`.ze-kidialog`), measured by `qa/probes/kidialog_probe.cpp`, rather than
  * borrowing `.ze-msgdlg`'s.
  */
+import { CheckBox } from './wx/controls.js';
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { DialogIcon } from './dialogs/dialog_message.js';
 import { type MessageDialogIcon, okCancelButtons } from './confirm_types.js';
@@ -123,10 +124,12 @@ export function KiDialog({
         </div>
       </div>
       {request.doNotShowKey !== undefined && (
-        <label className="ze-pref-check ze-kidialog-check">
-          <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
-          {DO_NOT_SHOW_AGAIN_LABEL}
-        </label>
+        <CheckBox
+          label={DO_NOT_SHOW_AGAIN_LABEL}
+          checked={checked}
+          className="ze-pref-check ze-kidialog-check"
+          onChange={(aChecked) => setChecked(aChecked)}
+        />
       )}
       {/* `wxStaticLine`, which the generic dialog puts above the buttons and
         the native message box has not got at all. */}

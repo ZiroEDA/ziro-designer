@@ -61,6 +61,7 @@
  * text-variable auto-complete.
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { parseUnitValue, stringFromValue, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
@@ -211,14 +212,12 @@ export function DialogTextBoxProperties({
         <div className="ze-tbp-grid">
           {/* `m_cbLocked` at `( 0, 0 )`, spanning three columns — it is IN the
             gridbag, not above it. */}
-          <label className="ze-tbp-check ze-tbp-locked">
-            <input
-              type="checkbox"
-              checked={v.locked}
-              onChange={(e) => set({ locked: e.target.checked })}
-            />
-            Locked
-          </label>
+          <CheckBox
+            label="Locked"
+            checked={v.locked}
+            className="ze-tbp-check ze-tbp-locked"
+            onChange={(aChecked) => set({ locked: aChecked })}
+          />
 
           <span className="ze-tbp-lbl ze-tbp-layer-lbl">Layer:</span>
           {/* `m_LayerSelectionCtrl` is a PCB_LAYER_BOX_SELECTOR: every entry
@@ -259,14 +258,12 @@ export function DialogTextBoxProperties({
           </div>
 
           {mmField('Text width:', 'width', 'w')}
-          <label className="ze-tbp-check ze-tbp-border">
-            <input
-              type="checkbox"
-              checked={v.border}
-              onChange={(e) => set({ border: e.target.checked })}
-            />
-            Border
-          </label>
+          <CheckBox
+            label="Border"
+            checked={v.border}
+            className="ze-tbp-check ze-tbp-border"
+            onChange={(aChecked) => set({ border: aChecked })}
+          />
 
           {mmField('Text height:', 'height', 'h')}
           {mmField('Border width:', 'borderWidth', 'bw', !v.border)}

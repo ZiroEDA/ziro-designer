@@ -43,6 +43,7 @@
  * a real click always fires `OnLeftGridCellClick`/`OnRightGridCellClick`
  * regardless, so hover never changes what a click selects.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { type CSSProperties, type JSX, useEffect, useMemo, useState } from 'react';
 import { DialogShim, useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { hotkeyListKey } from '@ziroeda/common/tool/action_menu_key_names.js';
@@ -675,12 +676,8 @@ export function SelectCopperLayerPairDialog({
         </fieldset>
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onClose}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" onClick={onOK}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onClose} />
+        <Button label="OK" isDefault onClick={onOK} />
       </div>
     </DialogShim>
   );

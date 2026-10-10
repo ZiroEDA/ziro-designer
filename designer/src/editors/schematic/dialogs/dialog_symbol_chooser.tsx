@@ -8,6 +8,7 @@
  * Mirrors kicad/eeschema/dialogs/dialog_symbol_chooser.cpp
  * (DIALOG_SYMBOL_CHOOSER).
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useCallback, useRef, useState } from 'react';
 import {
   PanelSymbolChooser,
@@ -77,32 +78,24 @@ export function DialogSymbolChooser({
         />
       </div>
       <div className="ze-modal-footer ze-chooser-footer">
-        <label className="ze-check" title="Keep the symbol selected for subsequent clicks.">
-          <input
-            type="checkbox"
-            checked={keepSymbol}
-            onChange={(e) => setKeepSymbol(e.target.checked)}
-          />
-          Place repeated copies
-        </label>
-        <label className="ze-check" title="Sequentially place all units of the symbol.">
-          <input
-            type="checkbox"
-            checked={placeAllUnits}
-            onChange={(e) => setPlaceAllUnits(e.target.checked)}
-          />
-          Place all units
-        </label>
+        <CheckBox
+          label="Place repeated copies"
+          checked={keepSymbol}
+          title="Keep the symbol selected for subsequent clicks."
+          onChange={(aChecked) => setKeepSymbol(aChecked)}
+        />
+        <CheckBox
+          label="Place all units"
+          checked={placeAllUnits}
+          title="Sequentially place all units of the symbol."
+          onChange={(aChecked) => setPlaceAllUnits(aChecked)}
+        />
         <span className="ze-chooser-footer-spacer" />
         {/* Cancel then OK, the order wxStdDialogButtonSizer lays out on GTK
           and the order every other dialog here already uses. This one had
           them the other way round. */}
-        <button className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button className="ze-btn primary" onClick={accept}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault onClick={accept} />
       </div>
     </DialogShim>
   );

@@ -34,6 +34,7 @@
  *    (kicad/local_history_pane.cpp:42) — the grid rules belong to this dialog
  *    alone.
  */
+import { Button } from '../wx/controls.js';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import {
   RESTORE_DIALOG_MIN_HEIGHT,
@@ -141,17 +142,13 @@ export function RestoreLocalHistoryDialog({
 
         {/* wxStdDialogButtonSizer: Restore is wxID_OK and starts disabled. */}
         <div className="ze-choicedlg-buttons">
-          <button type="button" className="ze-btn" onClick={() => onResult(null)}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="ze-btn primary"
+          <Button label="Cancel" onClick={() => onResult(null)} />
+          <Button
+            label="Restore"
+            isDefault
             disabled={!chosen}
             onClick={() => selected >= 0 && accept(selected)}
-          >
-            Restore
-          </button>
+          />
         </div>
       </div>
     </div>

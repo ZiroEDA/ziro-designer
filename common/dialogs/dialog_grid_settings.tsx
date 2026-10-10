@@ -27,6 +27,7 @@
  * (`dialog_grid_settings.cpp:42-43`), so they read and write in the frame's
  * display unit while `GRID` itself is always stored in millimetres.
  */
+import { Button } from '../wx/controls.js';
 import { type JSX, useState } from 'react';
 import { useModalEscape } from '../dialog_shim.js';
 import { MessageDialogError } from './dialog_message.js';
@@ -221,12 +222,8 @@ export function DialogGridSettings({
         {/* `wxStdDialogButtonSizer` — OK then Cancel, laid out by the platform;
             every other dialog here renders it through `.ze-modal-footer`. */}
         <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={accept}>
-            OK
-          </button>
+          <Button label="Cancel" onClick={onCancel} />
+          <Button label="OK" isDefault onClick={accept} />
         </div>
       </div>
     </div>

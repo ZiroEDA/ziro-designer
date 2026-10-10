@@ -22,6 +22,7 @@
  * loops below are upstream's, transcribed.
  */
 
+import { Button } from '../wx/controls.js';
 import type { CSSProperties, JSX } from 'react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Color4d, fromHSV, setFromHexString, toHSV, toHexString } from '../gal/color4d.js';
@@ -629,12 +630,8 @@ export function DialogColorPicker({
           {/* m_sdbSizer: a wxStdDialogButtonSizer, so GTK's own order - Cancel
               then OK - and OK is the affirmative default. */}
           <div className="ze-modal-footer">
-            <button type="button" className="ze-btn" onClick={() => onDone(null)}>
-              Cancel
-            </button>
-            <button type="button" className="ze-btn primary" onClick={() => onDone(color)}>
-              OK
-            </button>
+            <Button label="Cancel" onClick={() => onDone(null)} />
+            <Button label="OK" isDefault onClick={() => onDone(color)} />
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@
  * DIALOG_IMPORT_GRAPHICS_BASE, the widget tree only. Every value and handler
  * comes in as a prop; `dialog_import_graphics.tsx` owns the state.
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import type { Dispatch, JSX, SetStateAction } from 'react';
 import type { DXF_IMPORT_UNITS } from '@ziroeda/common/import_gfx/dxf_import_plugin.js';
 import type { PCB_LAYER_NAME } from '@ziroeda/common/layer_ids.js';
@@ -175,14 +176,13 @@ export function DialogImportGraphicsBase({
         {/* `gbSizer2` (`:99-153`): Place at: X/Y, then Layer:. */}
         <fieldset>
           <legend>Placement</legend>
-          <label className="ze-tvp-row" title="If not checked: use interactive placement.">
-            <input
-              type="checkbox"
-              checked={params.placeAt}
-              onChange={(e) => setParams((p) => ({ ...p, placeAt: e.target.checked }))}
-            />
-            <span>Place at:</span>
-          </label>
+          <CheckBox
+            label="Place at:"
+            checked={params.placeAt}
+            title="If not checked: use interactive placement."
+            className="ze-tvp-row"
+            onChange={(aChecked) => setParams((p) => ({ ...p, placeAt: aChecked }))}
+          />
           <div
             style={{
               display: 'flex',
@@ -224,30 +224,25 @@ export function DialogImportGraphicsBase({
               onChange={(l) => setParams((p) => ({ ...p, layer: l as PCB_LAYER_NAME }))}
             />
           </label>
-          <label className="ze-tvp-row" title="Add all imported items to a new group">
-            <input
-              type="checkbox"
-              checked={params.groupItems}
-              onChange={(e) => setParams((p) => ({ ...p, groupItems: e.target.checked }))}
-            />
-            <span>Group imported items</span>
-          </label>
+          <CheckBox
+            label="Group imported items"
+            checked={params.groupItems}
+            title="Add all imported items to a new group"
+            className="ze-tvp-row"
+            onChange={(aChecked) => setParams((p) => ({ ...p, groupItems: aChecked }))}
+          />
         </fieldset>
 
         {/* `bSizer11` (`:189-208`). */}
         <fieldset>
           <legend>Discontinuities</legend>
-          <label
-            className="ze-tvp-row"
+          <CheckBox
+            label="Fix discontinuities"
+            checked={params.fixDiscontinuities}
             title="Trim/extend open shapes or add segments to make vertices of shapes coincide"
-          >
-            <input
-              type="checkbox"
-              checked={params.fixDiscontinuities}
-              onChange={(e) => setParams((p) => ({ ...p, fixDiscontinuities: e.target.checked }))}
-            />
-            <span>Fix discontinuities</span>
-          </label>
+            className="ze-tvp-row"
+            onChange={(aChecked) => setParams((p) => ({ ...p, fixDiscontinuities: aChecked }))}
+          />
           {num(
             'Tolerance:',
             'tol',
@@ -259,12 +254,8 @@ export function DialogImportGraphicsBase({
       </div>
 
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" disabled={!canOk} onClick={onOk}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault disabled={!canOk} onClick={onOk} />
       </div>
     </DialogShim>
   );

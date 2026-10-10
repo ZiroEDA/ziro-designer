@@ -18,6 +18,7 @@
  * matching-nets pane and the per-column tooltips.
  */
 
+import { Button } from '../wx/controls.js';
 import { type JSX, useEffect, useLayoutEffect } from 'react';
 import { DisplayErrorMessage } from '../confirm.js';
 import { StdBitmapButton } from '../widgets/std_bitmap_button.js';
@@ -496,9 +497,11 @@ export function PanelSetupNetclasses({
         {/* `m_importColorsButton`, hidden in eeschema. Stubbed: it copies net
             colours from the schematic's netclass definitions. */}
         {!isEEschema && (
-          <button type="button" className="ze-btn ze-nc-importcolors" title="Not implemented yet">
-            Import colors from schematic
-          </button>
+          <Button
+            label="Import colors from schematic"
+            title="Not implemented yet"
+            className="ze-nc-importcolors"
+          />
         )}
       </div>
 

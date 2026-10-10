@@ -23,6 +23,7 @@
  *    (`:66`, `:108`, `:159`) — not one grey 11px "%(d)".
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import { SpinCtrl } from '@ziroeda/common/widgets/spin_ctrl.js';
 
@@ -191,28 +192,25 @@ export function PanelPcbTeardrops({ value, onChange }: Props): JSX.Element {
             <span>Best length (L):</span>
             {spin('bestLengthPct', 20)}
             {pct}
-            <label className="ze-pref-check ze-td-right" title={SPAN_TIP}>
-              <input
-                type="checkbox"
-                checked={s.allowSpanTwoSegments}
-                onChange={(e) => set('allowSpanTwoSegments', e.target.checked)}
-              />
-              {opts.spanLabel}
-            </label>
+            <CheckBox
+              label={opts.spanLabel}
+              checked={s.allowSpanTwoSegments}
+              title={SPAN_TIP}
+              className="ze-pref-check ze-td-right"
+              onChange={(aChecked) => set('allowSpanTwoSegments', aChecked)}
+            />
 
             {/* Row 1 */}
             <span>Maximum length (L):</span>
             {entry('maxLengthMM')}
             <span className="unit">mm</span>
             {opts.preferZone ? (
-              <label className="ze-pref-check ze-td-right">
-                <input
-                  type="checkbox"
-                  checked={s.preferZoneConnection}
-                  onChange={(e) => set('preferZoneConnection', e.target.checked)}
-                />
-                Prefer zone connection
-              </label>
+              <CheckBox
+                label="Prefer zone connection"
+                checked={s.preferZoneConnection}
+                className="ze-pref-check ze-td-right"
+                onChange={(aChecked) => set('preferZoneConnection', aChecked)}
+              />
             ) : (
               <span className="ze-td-right" />
             )}
@@ -240,14 +238,12 @@ export function PanelPcbTeardrops({ value, onChange }: Props): JSX.Element {
             <div className="ze-td-emptyrow" />
 
             {/* Row 6 */}
-            <label className="ze-pref-check">
-              <input
-                type="checkbox"
-                checked={s.curvedEdges}
-                onChange={(e) => set('curvedEdges', e.target.checked)}
-              />
-              Curved edges
-            </label>
+            <CheckBox
+              label="Curved edges"
+              checked={s.curvedEdges}
+              className="ze-pref-check"
+              onChange={(aChecked) => set('curvedEdges', aChecked)}
+            />
           </div>
         </div>
         {opts.note && <div className="ze-pref-infotext ze-td-note">{opts.note}</div>}

@@ -14,6 +14,7 @@
  *    generic options.
  */
 
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { DIALOG_PRINT_GENERIC } from '@ziroeda/common/dialogs/dialog_print_generic_ui.js';
 import type { DIALOG_PRINT_GERBVIEW } from './dialog_print_gerbview.js';
@@ -95,41 +96,35 @@ export function DialogPrintGerbview({
             ))}
           </div>
           <div className="ze-gbrprint-buttons">
-            <button
-              type="button"
-              className="ze-btn ze-gbrprint-button"
+            <Button
+              label="Select all"
+              className="ze-gbrprint-button"
               onClick={() => {
                 dlg.onSelectAllClick();
                 changed();
               }}
-            >
-              Select all
-            </button>
-            <button
-              type="button"
-              className="ze-btn ze-gbrprint-button"
+            />
+            <Button
+              label="Deselect all"
+              className="ze-gbrprint-button"
               onClick={() => {
                 dlg.onDeselectAllClick();
                 changed();
               }}
-            >
-              Deselect all
-            </button>
+            />
           </div>
         </fieldset>
       }
       extraOptions={
-        <label className="ze-check ze-printdlg-span">
-          <input
-            type="checkbox"
-            checked={dlg.m_checkboxMirror}
-            onChange={(e) => {
-              dlg.m_checkboxMirror = e.target.checked;
-              changed();
-            }}
-          />
-          Print mirrored
-        </label>
+        <CheckBox
+          label="Print mirrored"
+          checked={dlg.m_checkboxMirror}
+          className="ze-printdlg-span"
+          onChange={(aChecked) => {
+            dlg.m_checkboxMirror = aChecked;
+            changed();
+          }}
+        />
       }
       onPrint={() => {
         const { info, error } = dlg.onPrintButtonClick();

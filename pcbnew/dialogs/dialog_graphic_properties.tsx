@@ -20,6 +20,7 @@
  * `pcbnew/dialogs/dialog_shape_properties.ts`.
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { TextValues } from './dialog_text_properties.js';
@@ -189,14 +190,11 @@ export function DialogShapeProperties({
             </select>
           </label>
           <div className="ze-tvp-sub">Technical Layers</div>
-          <label>
-            <input
-              type="checkbox"
-              checked={v.hasMask}
-              onChange={(e) => set({ hasMask: e.target.checked })}
-            />
-            Solder mask
-          </label>
+          <CheckBox
+            label="Solder mask"
+            checked={v.hasMask}
+            onChange={(aChecked) => set({ hasMask: aChecked })}
+          />
           <label
             className={v.hasMask ? '' : 'disabled'}
             title="Local clearance between the shape and the solder mask opening. Leave blank to use the Board Setup value."
@@ -223,14 +221,11 @@ export function DialogShapeProperties({
             />
             <span className="ze-unit-label">{unitLabel(units)}</span>
           </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={v.locked}
-              onChange={(e) => set({ locked: e.target.checked })}
-            />
-            Locked
-          </label>
+          <CheckBox
+            label="Locked"
+            checked={v.locked}
+            onChange={(aChecked) => set({ locked: aChecked })}
+          />
         </fieldset>
       </div>
 

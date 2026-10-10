@@ -14,6 +14,7 @@
  * "Changes Applied to PCB", runs it for real, and hands the new board back.
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import type { ReportLine, Severity } from '@ziroeda/common';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
@@ -190,12 +191,8 @@ export function DialogUpdatePcb({
         the shared rule that states what a wxButton is once for the app. */}
       <div className="ze-modal-footer">
         <span style={{ flex: 1 }} />
-        <button type="button" className="ze-btn" onClick={onClose}>
-          Close
-        </button>
-        <button type="button" className="ze-btn primary" disabled={!okEnabled} onClick={update}>
-          Update PCB
-        </button>
+        <Button label="Close" onClick={onClose} />
+        <Button label="Update PCB" isDefault disabled={!okEnabled} onClick={update} />
       </div>
     </DialogShim>
   );

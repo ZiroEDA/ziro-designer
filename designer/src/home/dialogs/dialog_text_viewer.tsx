@@ -5,6 +5,7 @@
  * "Open Text Editor" (no upstream counterpart file; upstream shells out to
  * the OS text editor). Shows a project text file in a monospace modal. */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
@@ -37,9 +38,7 @@ export function TextViewerDialog({
         {text}
       </pre>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn primary" onClick={onClose}>
-          Close
-        </button>
+        <Button label="Close" isDefault onClick={onClose} />
       </div>
     </DialogShim>
   );

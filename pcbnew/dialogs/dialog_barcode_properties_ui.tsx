@@ -19,6 +19,7 @@
  * and the preview beside all of it.
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import {
@@ -176,30 +177,21 @@ export function DialogBarcodeProperties({
 
         <div className="ze-barcode-columns">
           <div className="ze-barcode-checks">
-            <label>
-              <input
-                type="checkbox"
-                checked={v.locked}
-                onChange={(e) => set({ locked: e.target.checked })}
-              />
-              Locked
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={v.knockout}
-                onChange={(e) => set({ knockout: e.target.checked })}
-              />
-              Knockout
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={v.showText}
-                onChange={(e) => set({ showText: e.target.checked })}
-              />
-              Show text
-            </label>
+            <CheckBox
+              label="Locked"
+              checked={v.locked}
+              onChange={(aChecked) => set({ locked: aChecked })}
+            />
+            <CheckBox
+              label="Knockout"
+              checked={v.knockout}
+              onChange={(aChecked) => set({ knockout: aChecked })}
+            />
+            <CheckBox
+              label="Show text"
+              checked={v.showText}
+              onChange={(aChecked) => set({ showText: aChecked })}
+            />
           </div>
 
           <div className="ze-barcode-grid">

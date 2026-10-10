@@ -19,6 +19,7 @@
  * overrides. See BOARD_SETUP_STATUS.md.
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
@@ -190,14 +191,12 @@ export function PanelPcbZones({ value, onChange }: Props): JSX.Element {
           {numRow('Radius:', 'smoothingRadiusMM', 'mm')}
           {selRow('Remove islands:', 'removeIslands', REMOVE_ISLANDS)}
           {numRow('Area limit:', 'areaLimitMM2', 'mm²')}
-          <label className="ze-pref-check ze-border-top">
-            <input
-              type="checkbox"
-              checked={value.locked}
-              onChange={(e) => set('locked', e.target.checked)}
-            />
-            Locked
-          </label>
+          <CheckBox
+            label="Locked"
+            checked={value.locked}
+            className="ze-pref-check ze-border-top"
+            onChange={(aChecked) => set('locked', aChecked)}
+          />
         </div>
       </div>
     </div>

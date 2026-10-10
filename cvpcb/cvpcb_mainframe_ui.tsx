@@ -100,6 +100,7 @@
  * measurement it came from.
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import {
   useEffect,
   useLayoutEffect,
@@ -1712,19 +1713,13 @@ export function DialogAssignFootprints({
             cvpcb, and the window says how much is left to do by selecting the
             first unassigned symbol instead. */}
         <div className="ze-modal-footer">
-          <button
-            className="ze-btn"
+          <Button
+            label="Apply, Save Schematic &amp; Continue"
             disabled={!changed}
             onClick={() => runSave(saveAndContinueCommand())}
-          >
-            Apply, Save Schematic &amp; Continue
-          </button>
-          <button className="ze-btn" onClick={closeWindow}>
-            Cancel
-          </button>
-          <button className="ze-btn primary" onClick={() => runSave(okCommand())}>
-            OK
-          </button>
+          />
+          <Button label="Cancel" onClick={closeWindow} />
+          <Button label="OK" isDefault onClick={() => runSave(okCommand())} />
         </div>
       </div>
     </div>

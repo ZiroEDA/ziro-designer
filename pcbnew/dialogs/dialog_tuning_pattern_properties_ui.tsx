@@ -16,6 +16,7 @@
  * branch, and the four controls' enabled state. This file is the widgets.
  */
 
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import {
   NULL_TUNING_CONSTRAINT,
@@ -141,16 +142,14 @@ export function DialogTuningPatternProperties({
           />
           <span className="ze-tp-cell ze-tp-r1c2 ze-unit-label">ps</span>
 
-          <label className="ze-tp-cell ze-tp-r0c4">
-            <input
-              type="checkbox"
-              checked={v.overrideCustomRules}
-              onChange={(e) =>
-                set(tuningPatternOverrideToggled(v, e.target.checked, constraint, units))
-              }
-            />
-            Override custom rules
-          </label>
+          <CheckBox
+            label="Override custom rules"
+            checked={v.overrideCustomRules}
+            className="ze-tp-cell ze-tp-r0c4"
+            onChange={(aChecked) =>
+              set(tuningPatternOverrideToggled(v, aChecked, constraint, units))
+            }
+          />
 
           {enable.sourceInfoVisible && (
             <span className="ze-tp-cell ze-tp-r2c1">{tuningPatternSourceInfoText(constraint)}</span>
@@ -200,25 +199,19 @@ export function DialogTuningPatternProperties({
           />
           <span className="ze-tp-cell ze-tp-r8c6 ze-unit-label">%</span>
 
-          <label className="ze-tp-cell ze-tp-r9c1">
-            <input
-              type="checkbox"
-              checked={v.singleSided}
-              onChange={(e) => set({ singleSided: e.target.checked })}
-            />
-            Single-sided
-          </label>
+          <CheckBox
+            label="Single-sided"
+            checked={v.singleSided}
+            className="ze-tp-cell ze-tp-r9c1"
+            onChange={(aChecked) => set({ singleSided: aChecked })}
+          />
         </div>
       </div>
 
       {/* m_stdButtons: wxStdDialogButtonSizer, GTK order Cancel then OK. */}
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onClose}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" onClick={accept}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onClose} />
+        <Button label="OK" isDefault onClick={accept} />
       </div>
     </DialogShim>
   );

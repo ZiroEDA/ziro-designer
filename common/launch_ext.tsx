@@ -35,6 +35,7 @@
  * is a theme of its own, which needs a per-theme store this app does not have,
  * so its colours load into "User" rather than inventing a theme id.
  */
+import { Button } from './wx/controls.js';
 import { useRef, useState, type JSX } from 'react';
 import {
   colorThemeFileText,
@@ -307,13 +308,9 @@ export function ThemeFolderDialog({
           />
           {/* With a folder open its files are listed above and loadable from
               there; this stays for a theme that lives somewhere else. */}
-          <button type="button" className="ze-btn" onClick={() => inputRef.current?.click()}>
-            Import...
-          </button>
+          <Button label="Import..." onClick={() => inputRef.current?.click()} />
           <span className="ze-spacer" />
-          <button type="button" className="ze-btn" onClick={onClose}>
-            {OK_LABEL}
-          </button>
+          <Button label={OK_LABEL} onClick={onClose} />
         </div>
       </div>
     </div>

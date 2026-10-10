@@ -36,6 +36,7 @@
  *   Putting it on all twenty is what parked a stray tooltip over the list.
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { EdaListDialog } from '@ziroeda/common/dialogs/eda_list_dialog.js';
@@ -352,9 +353,7 @@ export function PanelPcbLayers({ value, onChange }: Props): JSX.Element {
       {/* `bSizerLayerCnt`: a stretch spacer then the button, so it sits hard
           right (`panel_setup_layers_base.cpp:22-30`). */}
       <div className="ze-pcb-layers-head">
-        <button type="button" className="ze-btn" onClick={openAdd}>
-          Add User Defined Layer...
-        </button>
+        <Button label="Add User Defined Layer..." onClick={openAdd} />
       </div>
       {addOpen && (
         <EdaListDialog

@@ -10,6 +10,7 @@
  * and "Error:"/"Warning:" prefixes generateHtml() writes.
  */
 
+import { Button } from '../wx/controls.js';
 import { useMemo, type JSX } from 'react';
 import {
   orderedReportLines,
@@ -165,9 +166,7 @@ export function HtmlReportPanel({
           Infos
         </label>
         <span className="ze-report-spacer" />
-        <button type="button" className="ze-btn" onClick={save}>
-          Save...
-        </button>
+        <Button label="Save..." onClick={save} />
       </div>
     </fieldset>
   );

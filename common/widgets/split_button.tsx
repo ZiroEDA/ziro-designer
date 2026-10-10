@@ -27,6 +27,7 @@
  * what a capture of the real page shows and what our first attempt got wrong by
  * flattening the seam into one slab.
  */
+import { Button } from '../wx/controls.js';
 import { useRef, useState, type JSX } from 'react';
 import { ContextMenu } from '../tool/action_menu_bar.js';
 import type { MenuItem } from '../tool/action_menu_types.js';
@@ -55,9 +56,7 @@ export function SplitButton({
 
   return (
     <span className="ze-splitbtn">
-      <button type="button" className="ze-btn" disabled={disabled} onClick={onClick}>
-        {label}
-      </button>
+      <Button label={label} disabled={disabled} onClick={onClick} />
       <button
         ref={arrowRef}
         type="button"

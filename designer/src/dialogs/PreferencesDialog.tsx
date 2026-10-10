@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { MAINTENANCE_OPS } from '../prefs/maintenance.js';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import {
@@ -503,15 +504,12 @@ export function PreferencesDialog({
           <div className="ze-prefs-panel">{panel ? <panel.Panel ctx={ctx} /> : null}</div>
         </div>
         <div className="ze-modal-footer">
-          <button
-            type="button"
-            className="ze-btn"
+          <Button
+            label={resetLabel}
             disabled={!resettable}
             title={resettable ? (panel?.resetTooltip ?? DEFAULT_RESET_TOOLTIP) : undefined}
             onClick={resetPage}
-          >
-            {resetLabel}
-          </button>
+          />
           {/* No `m_openPrefsDirButton` (`common/widgets/paged_dialog.cpp:90-99`,
               under `aShowOpenFolder`, which the Preferences dialog passes).
 
@@ -523,12 +521,8 @@ export function PreferencesDialog({
               has. It is removed, as every other browser-impossible control is.
               */}
           <span style={{ flex: 1 }} />
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={() => ok()}>
-            OK
-          </button>
+          <Button label="Cancel" onClick={onClose} />
+          <Button label="OK" isDefault onClick={() => ok()} />
         </div>
       </div>
 

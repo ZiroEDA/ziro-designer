@@ -26,6 +26,7 @@
  * the caller passes the values in rather than a zone.
  */
 
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import type { ConversionBoxValues } from '../tools/convert_settings_dialog.js';
 import {
   CONVERSION_BOX_LINE_MARGIN,
@@ -112,14 +113,12 @@ export function DialogRuleAreaProperties({
   const [conv, setConv] = useState<ConversionBoxValues | null>(conversion);
 
   const keepout = (label: string, key: keyof RuleAreaValues, title: string): JSX.Element => (
-    <label title={title}>
-      <input
-        type="checkbox"
-        checked={v[key] as boolean}
-        onChange={(e) => set({ [key]: e.target.checked } as Partial<RuleAreaValues>)}
-      />
-      {label}
-    </label>
+    <CheckBox
+      label={label}
+      checked={v[key] as boolean}
+      title={title}
+      onChange={(aChecked) => set({ [key]: aChecked } as Partial<RuleAreaValues>)}
+    />
   );
 
   const combo = (type: PlacementSourceType): JSX.Element => {
@@ -224,14 +223,12 @@ export function DialogRuleAreaProperties({
             <span>Area name:</span>
             <input type="text" value={v.name} onChange={(e) => set({ name: e.target.value })} />
           </label>
-          <label className="ze-rule-area-locked">
-            <input
-              type="checkbox"
-              checked={v.locked}
-              onChange={(e) => set({ locked: e.target.checked })}
-            />
-            Locked
-          </label>
+          <CheckBox
+            label="Locked"
+            checked={v.locked}
+            className="ze-rule-area-locked"
+            onChange={(aChecked) => set({ locked: aChecked })}
+          />
 
           {/* m_areaPropertiesNb, the same wxNotebook tab strip every other
             notebook here draws, so the same shared rule paints it. */}
@@ -330,12 +327,8 @@ export function DialogRuleAreaProperties({
       {/* m_sdbSizerButtons: a wxStdDialogButtonSizer, so GTK's own order —
         Cancel then OK — and OK is the affirmative default. */}
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onClose}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" onClick={accept}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onClose} />
+        <Button label="OK" isDefault onClick={accept} />
       </div>
     </DialogShim>
   );

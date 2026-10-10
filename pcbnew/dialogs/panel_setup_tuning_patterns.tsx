@@ -16,6 +16,7 @@
  * the 12.5px headings, the 12px grid and the 11px units were all invented.
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 
@@ -155,14 +156,12 @@ export function PanelPcbTuning({ value, onChange }: Props): JSX.Element {
 
             {/* Row 5 — the checkbox sits in column 1, under the entries. */}
             <span />
-            <label className="ze-pref-check">
-              <input
-                type="checkbox"
-                checked={s.singleSided}
-                onChange={(e) => set('singleSided', e.target.checked)}
-              />
-              Single-sided
-            </label>
+            <CheckBox
+              label="Single-sided"
+              checked={s.singleSided}
+              className="ze-pref-check"
+              onChange={(aChecked) => set('singleSided', aChecked)}
+            />
             <span />
           </div>
         </div>

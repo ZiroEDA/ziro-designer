@@ -29,6 +29,7 @@
  * `File not found` (`wxFopen` failing) cannot happen for a file the browser has
  * already handed over, but a read that fails is reported the same way.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useRef, useState, type JSX } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { unitEntryText, unitEntryValue } from '@ziroeda/common/dialogs/dialog_unit_entry.js';
@@ -133,13 +134,11 @@ export function MwavePolygonalShapeDlg({
       </div>
       {error && <div className="ze-mwave-error">{error}</div>}
       <StdDialogButtons onOk={ok} onCancel={cancel}>
-        <button
-          type="button"
-          className="ze-btn ze-mwave-read"
+        <Button
+          label="Read Shape Description File..."
+          className="ze-mwave-read"
           onClick={() => file.current?.click()}
-        >
-          Read Shape Description File...
-        </button>
+        />
         <input
           ref={file}
           type="file"

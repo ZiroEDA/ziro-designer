@@ -24,6 +24,7 @@
  * `wxEVT_GRID_COL_SORT` -> `drillGridSort`); the four General grids are plain
  * `wxGrid`s and stay tables here.
  */
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, type Ref, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   type BoardStatisticsData,
@@ -153,14 +154,11 @@ export function DialogBoardStatistics({
   const backTotal = data.footprintEntries.reduce((n, e) => n + e.backCount, 0);
 
   const checkbox = (key: keyof BoardStatisticsOptions, label: string): JSX.Element => (
-    <label className="ze-check">
-      <input
-        type="checkbox"
-        checked={options[key]}
-        onChange={(e) => setOptions({ ...options, [key]: e.target.checked })}
-      />
-      {label}
-    </label>
+    <CheckBox
+      label={label}
+      checked={options[key]}
+      onChange={(aChecked) => setOptions({ ...options, [key]: aChecked })}
+    />
   );
 
   /** `m_gridDrills` (`dialog_board_statistics_base.cpp:226-256`). */

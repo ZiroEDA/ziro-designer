@@ -15,6 +15,7 @@
  * `wxID_OK` (after `TransferDataFromWindow()`), `onResult( false )` is
  * `wxID_CANCEL`.
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, type Ref, useEffect, useRef, useSyncExternalStore } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import type { UNIT_BINDER } from '@ziroeda/common/widgets/unit_binder.js';
@@ -81,14 +82,12 @@ export function DialogOffsetItem({
           {entry(dialog.m_xOffset, 'ze-offset-x', 'r1', xRef)}
           <span className="unit1">{dialog.GetXUnitLabel()}</span>
           <span className="spacer s1" />
-          <button
-            type="button"
-            className="ze-btn r1"
+          <Button
+            label="Reset"
             title={dialog.m_clearXToolTip}
+            className="r1"
             onClick={() => dialog.OnClear('x')}
-          >
-            Reset
-          </button>
+          />
 
           <label className="lbl r2l" htmlFor="ze-offset-y">
             {dialog.GetYLabel()}
@@ -96,25 +95,20 @@ export function DialogOffsetItem({
           {entry(dialog.m_yOffset, 'ze-offset-y', 'r2')}
           <span className="unit2">{dialog.GetYUnitLabel()}</span>
           <span className="spacer r2s" />
-          <button
-            type="button"
-            className="ze-btn r2"
+          <Button
+            label="Reset"
             title={dialog.m_clearYToolTip}
+            className="r2"
             onClick={() => dialog.OnClear('y')}
-          >
-            Reset
-          </button>
+          />
         </div>
       </div>
       <StdDialogButtons onCancel={() => onResult(false)} onOk={ok}>
-        <label>
-          <input
-            type="checkbox"
-            checked={dialog.m_polarCoords}
-            onChange={(e) => dialog.OnPolarChanged(e.target.checked)}
-          />
-          Use polar coordinates
-        </label>
+        <CheckBox
+          label="Use polar coordinates"
+          checked={dialog.m_polarCoords}
+          onChange={(aChecked) => dialog.OnPolarChanged(aChecked)}
+        />
       </StdDialogButtons>
     </DialogShim>
   );

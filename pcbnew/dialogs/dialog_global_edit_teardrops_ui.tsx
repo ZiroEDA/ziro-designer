@@ -7,6 +7,7 @@
  * Board Setup link, and the specified values (tri-state boxes and five
  * UNIT_BINDERs beside the teardrop_sizes bitmap) - then Apply and Close / Close.
  */
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState } from 'react';
 import { svgUrl } from '@ziroeda/bitmaps_png';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
@@ -158,17 +159,15 @@ export function DialogGlobalEditTeardrops({
             {box('m_pthPads', 'PTH pads')}
             {box('m_smdPads', 'SMD pads')}
             {box('m_vias', 'Vias')}
-            <label className="ze-check all5">
-              <input
-                type="checkbox"
-                checked={dialog.m_trackToTrack}
-                onChange={(e) => {
-                  dialog.OnTrackToTrack(e.target.checked);
-                  redraw();
-                }}
-              />
-              Track to track
-            </label>
+            <CheckBox
+              label="Track to track"
+              checked={dialog.m_trackToTrack}
+              className="all5"
+              onChange={(aChecked) => {
+                dialog.OnTrackToTrack(aChecked);
+                redraw();
+              }}
+            />
           </fieldset>
           <fieldset className="ze-sbox ze-getd-filters">
             <legend>Filter Items</legend>

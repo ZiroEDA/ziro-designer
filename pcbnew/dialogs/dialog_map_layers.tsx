@@ -33,6 +33,7 @@
  * Wired: `PCB_EDIT_FRAME::ImportNonKicadBoard` (files.ts) registers it for a
  * mappable plugin, as `OpenProjectFiles` does (`files.cpp:642-649`).
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
@@ -402,17 +403,15 @@ export function DialogMapLayers({
           >
             Auto-Match Layers
           </button>
-          <label
-            className="ze-pref-check"
+          <CheckBox
+            label="Keep KiCad layer names"
+            checked={keep}
             title="If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
-          >
-            <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} />
-            Keep KiCad layer names
-          </label>
+            className="ze-pref-check"
+            onChange={(aChecked) => setKeep(aChecked)}
+          />
           <span className="ze-sdb-spacer" />
-          <button type="button" className="ze-btn primary" onClick={finish}>
-            OK
-          </button>
+          <Button label="OK" isDefault onClick={finish} />
         </div>
       </div>
       {error && (

@@ -36,6 +36,7 @@
  *    global table and legacy files on disk, and are not here.
  *  - The page shown first is the project's, as this dialog always opened.
  */
+import { Button } from '../wx/controls.js';
 import { type JSX, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import { DIALOG_EDIT_LIBRARY_TABLES } from './dialog_edit_library_tables.js';
 import { DIALOG_PLUGIN_OPTIONS } from './dialog_plugin_options.js';
@@ -401,15 +402,13 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
           title="Add empty row to table"
           onClick={() => LIB_TABLE_GRID_TRICKS.AppendRowHandler(cur_grid())}
         />
-        <button
-          type="button"
-          className="ze-btn sm"
-          title="Add Existing"
+        <Button
+          label="Add Existing"
           disabled={unregistered.length === 0}
+          title="Add Existing"
+          className="sm"
           onClick={() => setBrowseOpen((v) => !v)}
-        >
-          Add Existing
-        </button>
+        />
         {browseOpen && unregistered.length > 0 && (
           <div
             style={{

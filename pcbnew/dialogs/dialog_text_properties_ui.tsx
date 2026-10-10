@@ -46,6 +46,7 @@
  * metrics we do not have.
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { TextValues } from './dialog_text_properties.js';
@@ -173,14 +174,12 @@ export function DialogTextProperties({
         {/* One wxGridBagSizer( 2, 3 ), seven columns, growable 1 and 5. */}
         <div className="ze-txt-grid">
           {/* `m_cbLocked` at `( 0, 0 )`, spanning three columns. */}
-          <label className="ze-txt-check ze-txt-locked">
-            <input
-              type="checkbox"
-              checked={v.locked}
-              onChange={(e) => set({ locked: e.target.checked })}
-            />
-            Locked
-          </label>
+          <CheckBox
+            label="Locked"
+            checked={v.locked}
+            className="ze-txt-check ze-txt-locked"
+            onChange={(aChecked) => set({ locked: aChecked })}
+          />
 
           <span className="ze-txt-lbl ze-txt-layer-lbl">Layer:</span>
           {/* `m_LayerSelectionCtrl` is a PCB_LAYER_BOX_SELECTOR: every entry
@@ -194,14 +193,12 @@ export function DialogTextProperties({
           />
           {/* `bSizer7` at `( 1, 4 )`. Knockout is all of it for a board text:
             Keep upright and Show are hidden (`:163-164`). */}
-          <label className="ze-txt-check ze-txt-knockout">
-            <input
-              type="checkbox"
-              checked={v.knockout}
-              onChange={(e) => set({ knockout: e.target.checked })}
-            />
-            Knockout
-          </label>
+          <CheckBox
+            label="Knockout"
+            checked={v.knockout}
+            className="ze-txt-check ze-txt-knockout"
+            onChange={(aChecked) => set({ knockout: aChecked })}
+          />
 
           {/* `m_fontLabel` at `( 2, 0 )` and `m_fontCtrl` at `( 2, 1 )`
             spanning two. `FONT_CHOICE` is a wxOwnerDrawnComboBox, which is

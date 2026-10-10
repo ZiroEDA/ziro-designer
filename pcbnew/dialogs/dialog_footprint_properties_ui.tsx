@@ -13,6 +13,7 @@
  * The decision logic lives in `pcbnew/dialogs/dialog_footprint_properties.ts`.
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useRef, useState, type JSX, type ReactNode } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { FootprintValues } from './dialog_footprint_properties.js';
@@ -141,14 +142,12 @@ export function DialogFootprintProperties({
       | 'allowSolderMaskBridges',
     title?: string,
   ): JSX.Element => (
-    <label title={title}>
-      <input
-        type="checkbox"
-        checked={v[key]}
-        onChange={(e) => set({ [key]: e.target.checked } as Partial<FootprintValues>)}
-      />
-      {label}
-    </label>
+    <CheckBox
+      label={label}
+      checked={v[key]}
+      title={title}
+      onChange={(aChecked) => set({ [key]: aChecked } as Partial<FootprintValues>)}
+    />
   );
 
   const tabButton = (id: Tab, label: string): JSX.Element => (

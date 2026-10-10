@@ -23,6 +23,7 @@
  * `.ze-grid`, the buttons `.ze-gridbtn`; the widths stated are transcribed
  * from the base file and from `setColumnWidths`.
  */
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useLayoutEffect, useRef, useState } from 'react';
 import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
 import { GRID_CELL_RUN_FUNCTION_EDITOR } from '@ziroeda/common/widgets/grid_text_button_helpers.js';
@@ -674,14 +675,12 @@ function ProfileInfoPage({
       </div>
 
       {/* gbSizer1: the checkbox over a wxStaticLine. */}
-      <label className="ze-check ze-tuneprof-enable">
-        <input
-          type="checkbox"
-          checked={profile.enableTimeDomain}
-          onChange={(e) => onChange({ enableTimeDomain: e.target.checked })}
-        />
-        Enable time domain tuning
-      </label>
+      <CheckBox
+        label="Enable time domain tuning"
+        checked={profile.enableTimeDomain}
+        className="ze-tuneprof-enable"
+        onChange={(aChecked) => onChange({ enableTimeDomain: aChecked })}
+      />
       <hr className="ze-tuneprof-rule" />
 
       {/* m_splitter1, SplitHorizontally at 200. */}

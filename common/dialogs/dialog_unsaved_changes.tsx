@@ -19,6 +19,7 @@
  * `handleUnsavedChanges` — so that "cancel aborts the close, discard does not"
  * stays one rule rather than one per dialog.
  */
+import { Button } from '../wx/controls.js';
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
 import {
@@ -66,12 +67,8 @@ export function UnsavedChangesDialog({
           </div>
         </div>
         <div className="ze-msgdlg-buttons">
-          <button type="button" className="ze-btn" onClick={() => onResult('discard')}>
-            {UNSAVED_CHANGES_DISCARD_LABEL}
-          </button>
-          <button type="button" className="ze-btn" onClick={() => onResult('cancel')}>
-            {UNSAVED_CHANGES_CANCEL_LABEL}
-          </button>
+          <Button label={UNSAVED_CHANGES_DISCARD_LABEL} onClick={() => onResult('discard')} />
+          <Button label={UNSAVED_CHANGES_CANCEL_LABEL} onClick={() => onResult('cancel')} />
           <button
             type="button"
             className="ze-btn primary"

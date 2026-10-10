@@ -38,6 +38,7 @@
  * today, and both need a filesystem we do not have.
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { settings } from '../../prefs/settings.js';
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { sanitizeProjectName } from '../new_project.js';
@@ -473,13 +474,9 @@ export function TemplateSelectorDialog({
         )}
 
         <div className="ze-modal-footer" style={{ justifyContent: 'space-between' }}>
-          <button type="button" className="ze-btn" disabled={state === 'initial'} onClick={goBack}>
-            Go Back
-          </button>
+          <Button label="Go Back" disabled={state === 'initial'} onClick={goBack} />
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" className="ze-btn" onClick={onCancel}>
-              Cancel
-            </button>
+            <Button label="Cancel" onClick={onCancel} />
             {/* A plain wxButton, not a highlighted one. m_sdbSizerOK->SetDefault()
                 only makes it the *default* button, which GTK does not colour -
                 measured on a real dialog, OK and Cancel are the same grey. Ours
@@ -490,9 +487,7 @@ export function TemplateSelectorDialog({
                 window closes, in the file dialog and the message boxes that
                 follow it. Pressing OK with nothing selected is answered by
                 NewProject's own "No project template was selected." */}
-            <button type="button" className="ze-btn" onClick={() => onOk(selected)}>
-              OK
-            </button>
+            <Button label="OK" onClick={() => onOk(selected)} />
           </div>
         </div>
 
@@ -563,12 +558,8 @@ export function DuplicateTemplateDialog({
         )}
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn" disabled={!ok} onClick={() => onConfirm(clean)}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" disabled={!ok} onClick={() => onConfirm(clean)} />
       </div>
     </DialogShim>
   );

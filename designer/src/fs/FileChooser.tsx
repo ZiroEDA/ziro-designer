@@ -28,6 +28,7 @@
  * The full capture is in `~/chooser-image-measurements.md`.
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TreeIcon } from '../home/project_tree_pane.js';
 import { treeIconFor } from '../home/project_tree.js';
@@ -585,9 +586,7 @@ export function FileChooser({
         }}
       >
         <div className="ze-chooser-headerbar">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
+          <Button label="Cancel" onClick={onCancel} />
           {mode === 'save' ? (
             <div className="ze-chooser-name">
               <span>Name</span>
@@ -629,14 +628,7 @@ export function FileChooser({
               </g>
             </svg>
           </button>
-          <button
-            type="button"
-            className="ze-btn primary"
-            disabled={!canAccept}
-            onClick={acceptNow}
-          >
-            {accept}
-          </button>
+          <Button label={accept} isDefault disabled={!canAccept} onClick={acceptNow} />
         </div>
 
         <div className="ze-chooser-body">

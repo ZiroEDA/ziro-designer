@@ -7,6 +7,7 @@
  * only), the "Update Options" box with Check All / Uncheck All, the output
  * messages, then Update or Change / Close. Quasi-modal: OK runs and stays.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import type { ReportLine } from '@ziroeda/common/reporter.js';
@@ -151,32 +152,28 @@ export function DialogExchangeFootprints({
             {box('m_resetTextItemPositions', L.resetTextItemPositions, '')}
             {box('m_resetTextItemContent', L.resetTextItemContent, '')}
             <span className="ze-xfp-stretch" />
-            <button
-              type="button"
-              className="ze-btn ze-xfp-all"
+            <Button
+              label="Check All Update Options"
+              className="ze-xfp-all"
               onClick={() => {
                 dialog.CheckAll(true);
                 redraw();
               }}
-            >
-              Check All Update Options
-            </button>
+            />
           </div>
           <div className="ze-xfp-col">
             {box('m_resetFabricationAttrs', L.resetFabricationAttrs, 'top')}
             {box('m_resetClearanceOverrides', L.resetClearanceOverrides, '')}
             {box('m_reset3DModels', L.reset3DModels, '')}
             <span className="ze-xfp-stretch" />
-            <button
-              type="button"
-              className="ze-btn ze-xfp-none"
+            <Button
+              label="Uncheck All Update Options"
+              className="ze-xfp-none"
               onClick={() => {
                 dialog.CheckAll(false);
                 redraw();
               }}
-            >
-              Uncheck All Update Options
-            </button>
+            />
           </div>
         </fieldset>
         <div className="ze-xfp-messages">

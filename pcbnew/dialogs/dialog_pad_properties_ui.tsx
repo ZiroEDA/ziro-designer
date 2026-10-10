@@ -14,6 +14,7 @@
  * The decision logic lives in `pcbnew/dialogs/dialog_pad_properties.ts`.
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { PadValues } from './dialog_pad_properties.js';
@@ -249,14 +250,11 @@ export function DialogPadProperties({
 
             <fieldset>
               <legend>Hole</legend>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={v.hasHole}
-                  onChange={(e) => set({ hasHole: e.target.checked })}
-                />
-                Pad has a hole
-              </label>
+              <CheckBox
+                label="Pad has a hole"
+                checked={v.hasHole}
+                onChange={(aChecked) => set({ hasHole: aChecked })}
+              />
               <label className={v.hasHole ? '' : 'disabled'}>
                 <input
                   type="checkbox"

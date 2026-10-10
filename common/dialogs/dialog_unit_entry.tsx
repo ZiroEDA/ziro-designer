@@ -15,6 +15,7 @@
  * wxLEFT 5, the entry proportion 1 wxALL 5, the unit wxTOP|wxBOTTOM|wxRIGHT 5
  * - then a 100 px stretch spacer and the std buttons at wxALL 5.
  */
+import { Button } from '../wx/controls.js';
 import { useState, type JSX } from 'react';
 import { StdDialogButtons } from '../dialog_shim.js';
 import type { EdaIuScale } from '../eda_units.js';
@@ -145,16 +146,13 @@ export function WX_PT_ENTRY_DIALOG({
       {row(labelY, y, setY)}
       <StdDialogButtons onCancel={() => onResult(null)} onOk={ok}>
         {showResetButton && (
-          <button
-            type="button"
-            className="ze-btn"
+          <Button
+            label="Reset"
             onClick={() => {
               setX(unitEntryText(0, units, iuScale));
               setY(unitEntryText(0, units, iuScale));
             }}
-          >
-            Reset
-          </button>
+          />
         )}
       </StdDialogButtons>
     </DialogShim>

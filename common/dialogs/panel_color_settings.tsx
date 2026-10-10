@@ -62,7 +62,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from 'react';
-import { Check } from '../wx/controls.js';
+import { Button, Check } from '../wx/controls.js';
 import { ColorSwatch } from '../widgets/color_swatch.js';
 import { ThemeFolderDialog, type FolderFile, type ThemeFile } from '../launch_ext.js';
 import { WxTextEntryDialog } from '../wx/textdlg.js';
@@ -434,15 +434,12 @@ export function PanelColorSettings({
           )}
           <span className="ze-spacer" />
           {/* `m_btnOpenFolder`. */}
-          <button
-            type="button"
-            className="ze-btn"
+          <Button
+            label="Open Theme Folder"
             disabled={!themeIo}
             title="Open the folder containing color themes"
             onClick={() => void openThemeFolder()}
-          >
-            Open Theme Folder
-          </button>
+          />
         </div>
         {/* `m_panel1`, the WX_PANEL carrying `m_colorsMainSizer`. */}
         <div className="ze-colorpage-body">

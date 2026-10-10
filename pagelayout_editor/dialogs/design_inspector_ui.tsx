@@ -11,6 +11,7 @@
  * Clicking a row selects that item on the canvas and leaves the dialog open.
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useReducer } from 'react';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import {
@@ -184,9 +185,7 @@ export function DesignInspector({
         <div className="ze-modal-footer">
           {/* m_sdbSizer holds exactly one button, wxID_CANCEL
               (dialog_design_inspector_base.cpp:60-63). */}
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Cancel
-          </button>
+          <Button label="Cancel" onClick={onClose} />
         </div>
       </div>
     </div>

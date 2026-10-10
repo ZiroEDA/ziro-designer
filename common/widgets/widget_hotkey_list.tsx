@@ -12,6 +12,7 @@
  * overrides map, which is the `HOTKEY_STORE` both share upstream.
  */
 
+import { Button } from '../wx/controls.js';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { filterHotkeys, hotkeyConflicts, type HotkeySection } from '../hotkey_store.js';
 import { isBrowserReserved } from '../browser_hotkeys.js';
@@ -84,9 +85,7 @@ function HotkeyPrompt({
             </tbody>
           </table>
           <div style={{ textAlign: 'center', marginTop: 12 }}>
-            <button type="button" className="ze-btn" onClick={() => onPick(null)}>
-              Clear assigned hotkey
-            </button>
+            <Button label="Clear assigned hotkey" onClick={() => onPick(null)} />
           </div>
         </div>
       </div>
@@ -262,9 +261,7 @@ export function WidgetHotkeyList({
             <div className="ze-modal-header">Hotkeys</div>
             <div style={{ padding: '12px 16px' }}>{error}</div>
             <div className="ze-modal-footer">
-              <button type="button" className="ze-btn primary" onClick={() => setError(null)}>
-                OK
-              </button>
+              <Button label="OK" isDefault onClick={() => setError(null)} />
             </div>
           </div>
         </div>
@@ -275,19 +272,15 @@ export function WidgetHotkeyList({
             <div className="ze-modal-header">Hotkey conflict</div>
             <div style={{ padding: '12px 16px' }}>{conflict.message}</div>
             <div className="ze-modal-footer">
-              <button type="button" className="ze-btn" onClick={() => setConflict(null)}>
-                No
-              </button>
-              <button
-                type="button"
-                className="ze-btn primary"
+              <Button label="No" onClick={() => setConflict(null)} />
+              <Button
+                label="Yes"
+                isDefault
                 onClick={() => {
                   onSet(conflict.name, conflict.keys);
                   setConflict(null);
                 }}
-              >
-                Yes
-              </button>
+              />
             </div>
           </div>
         </div>

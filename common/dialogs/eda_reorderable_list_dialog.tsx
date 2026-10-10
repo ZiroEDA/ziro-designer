@@ -8,6 +8,7 @@
  * tree's header menu opens it as `EDA_REORDERABLE_LIST_DIALOG dlg( m_parent,
  * _( "Select Columns" ), ... )` (widgets/lib_tree.cpp:1105).
  */
+import { Button } from '../wx/controls.js';
 import { useState } from 'react';
 import { DialogShim } from '../dialog_shim.js';
 
@@ -89,12 +90,8 @@ export function EDA_REORDERABLE_LIST_DIALOG({
           </div>
         </div>
         <div className="ze-reorderable-buttons">
-          <button type="button" className="ze-btn" title="Add" onClick={add}>
-            &gt;
-          </button>
-          <button type="button" className="ze-btn" title="Remove" onClick={remove}>
-            &lt;
-          </button>
+          <Button label="&gt;" title="Add" onClick={add} />
+          <Button label="&lt;" title="Remove" onClick={remove} />
         </div>
         <div className="ze-reorderable-col wide">
           <label>Enabled:</label>
@@ -111,21 +108,13 @@ export function EDA_REORDERABLE_LIST_DIALOG({
           </div>
         </div>
         <div className="ze-reorderable-buttons">
-          <button type="button" className="ze-btn" title="Move up" onClick={() => move(-1)}>
-            ▲
-          </button>
-          <button type="button" className="ze-btn" title="Move down" onClick={() => move(1)}>
-            ▼
-          </button>
+          <Button label="▲" title="Move up" onClick={() => move(-1)} />
+          <Button label="▼" title="Move down" onClick={() => move(1)} />
         </div>
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn primary" onClick={() => onOk(enabledList)}>
-          OK
-        </button>
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
+        <Button label="OK" isDefault onClick={() => onOk(enabledList)} />
+        <Button label="Cancel" onClick={onCancel} />
       </div>
     </DialogShim>
   );

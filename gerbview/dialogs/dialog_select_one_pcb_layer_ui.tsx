@@ -16,6 +16,7 @@
  * one is OK: `OnLayerSelected` posts wxID_OK (`:163-166`).
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import type { SELECT_LAYER_DIALOG } from './dialog_select_one_pcb_layer.js';
@@ -71,12 +72,8 @@ export function DialogSelectOnePcbLayer({
             </div>
           </fieldset>
           <div className="ze-selectlayer-buttons">
-            <button type="button" className="ze-btn primary" onClick={() => ok(selection)}>
-              OK
-            </button>
-            <button type="button" className="ze-btn" onClick={() => onClose(false)}>
-              Cancel
-            </button>
+            <Button label="OK" isDefault onClick={() => ok(selection)} />
+            <Button label="Cancel" onClick={() => onClose(false)} />
           </div>
         </div>
       </div>

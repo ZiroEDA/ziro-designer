@@ -9,6 +9,7 @@
  * schematic are referenced elsewhere as ${EMBED_...}.
  */
 
+import { Button, CheckBox } from '../wx/controls.js';
 import { type JSX, useLayoutEffect, useRef, useState } from 'react';
 import type { EmbeddedFile, EmbeddedFilesData } from '../embedded_files.js';
 import { SaveClipboard } from '../clipboard.js';
@@ -207,24 +208,19 @@ export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.El
           <Icon name="delete" />
         </button>
         <span style={{ flex: 1 }} />
-        <label className="ze-pref-check">
-          <input
-            type="checkbox"
-            checked={value.embedFonts}
-            onChange={(e) => onChange({ ...value, embedFonts: e.target.checked })}
-          />
-          Embed fonts
-        </label>
+        <CheckBox
+          label="Embed fonts"
+          checked={value.embedFonts}
+          className="ze-pref-check"
+          onChange={(aChecked) => onChange({ ...value, embedFonts: aChecked })}
+        />
         <span style={{ flex: 1 }} />
-        <button
-          type="button"
-          className="ze-btn"
-          title="Export embedded files"
+        <Button
+          label="Export..."
           disabled={!onExport || value.files.length === 0}
+          title="Export embedded files"
           onClick={() => onExport?.(value.files)}
-        >
-          Export...
-        </button>
+        />
       </div>
     </div>
   );

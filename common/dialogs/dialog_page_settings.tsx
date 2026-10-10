@@ -39,6 +39,7 @@
  * DOM node), then the sizer tree and its event plumbing.
  */
 
+import { Button, CheckBox } from '../wx/controls.js';
 import { Fragment, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import {
   PAPER_CHOICES,
@@ -719,10 +720,12 @@ export function DialogPageSettings({
   /** One of the thirteen `fgSizer2` rows' third cell (:237-382). */
   const exportChk = (checked: boolean, onSet: (v: boolean) => void): JSX.Element | null =>
     exportsOn ? (
-      <label className="ze-pgs-export">
-        <input type="checkbox" checked={checked} onChange={(e) => onSet(e.target.checked)} />
-        Export to other sheets
-      </label>
+      <CheckBox
+        label="Export to other sheets"
+        checked={checked}
+        className="ze-pgs-export"
+        onChange={(aChecked) => onSet(aChecked)}
+      />
     ) : null;
 
   const rowValue = (row: (typeof TITLE_BLOCK_ROWS)[number]): string =>
@@ -985,16 +988,12 @@ export function DialogPageSettings({
       )}
 
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="ze-btn primary"
+        <Button label="Cancel" onClick={onCancel} />
+        <Button
+          label="OK"
+          isDefault
           onClick={() => onOk({ ...s, portrait }, exports, wksSheet, wksName)}
-        >
-          OK
-        </button>
+        />
       </div>
     </DialogShim>
   );

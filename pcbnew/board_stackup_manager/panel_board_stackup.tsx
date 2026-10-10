@@ -32,6 +32,7 @@
  * solderMaskMaterial / silkscreenMaterial).
  */
 
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useRef, useState, type JSX } from 'react';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
@@ -863,26 +864,19 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
             `:46`). Only the second one was here, so the checkbox sat against
             the copper-layers choice instead of centred between the two. */}
         <span className="ze-stackup-spacer" />
-        <label className="ze-pref-check">
-          <input
-            type="checkbox"
-            checked={value.impedanceControlled}
-            onChange={(e) => onChange({ ...value, impedanceControlled: e.target.checked })}
-          />
-          Impedance controlled
-        </label>
+        <CheckBox
+          label="Impedance controlled"
+          checked={value.impedanceControlled}
+          className="ze-pref-check"
+          onChange={(aChecked) => onChange({ ...value, impedanceControlled: aChecked })}
+        />
         <span className="ze-stackup-spacer" />
-        <button type="button" className="ze-btn" onClick={onAddDielectric}>
-          Add Dielectric Layer...
-        </button>
-        <button
-          type="button"
-          className="ze-btn"
+        <Button label="Add Dielectric Layer..." onClick={onAddDielectric} />
+        <Button
+          label="Remove Dielectric Layer..."
           disabled={!removableExists}
           onClick={onRemoveDielectric}
-        >
-          Remove Dielectric Layer...
-        </button>
+        />
       </div>
 
       {/* Stackup grid: borderless flexgrid (no table/cell borders), like KiCad. */}
@@ -922,13 +916,9 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
             Export hard right and Adjust beside the field (`:139-148`). This had
             the growable spacer first, so both buttons bunched on the right. */}
         <span className="ze-stackup-gap10" />
-        <button type="button" className="ze-btn" onClick={onAdjustThickness}>
-          Adjust Dielectric Thickness
-        </button>
+        <Button label="Adjust Dielectric Thickness" onClick={onAdjustThickness} />
         <span className="ze-stackup-spacer" />
-        <button type="button" className="ze-btn" onClick={onExport}>
-          Export to Clipboard
-        </button>
+        <Button label="Export to Clipboard" onClick={onExport} />
       </div>
 
       {/* EDA_LIST_DIALOG for add/remove dielectric — the shared component, so

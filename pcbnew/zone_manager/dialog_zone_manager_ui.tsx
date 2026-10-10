@@ -45,6 +45,7 @@
  * Layers with the layer bar as its icon), rendered as a read-only table whose
  * selected row is the one `m_viewZonesOverview->GetSelection()` returns.
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useEffect, useRef, useState, useSyncExternalStore, type JSX } from 'react';
 import { ZONE_SETTINGS_BAG } from '../zone_settings_bag.js';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
@@ -624,23 +625,20 @@ function ZoneManagerBody({
 
       {/* m_sizerBottom */}
       <div className="ze-zm-bottom">
-        <label className="ze-zm-repour" title="Refill zones after changes made on board">
-          <input
-            type="checkbox"
-            checked={view.GetRepourOnClose()}
-            onChange={(e) => view.SetRepour(e.target.checked)}
-          />
-          Refill zones
-        </label>
+        <CheckBox
+          label="Refill zones"
+          checked={view.GetRepourOnClose()}
+          title="Refill zones after changes made on board"
+          className="ze-zm-repour"
+          onChange={(aChecked) => view.SetRepour(aChecked)}
+        />
         <span className="ze-zm-stretch" />
-        <button
-          type="button"
-          className="ze-btn ze-zm-update"
+        <Button
+          label="Update Displayed Zones"
           title="Update filled areas shown in dialog, according to the new current settings"
+          className="ze-zm-update"
           onClick={() => dialog.OnUpdateDisplayedZonesClick()}
-        >
-          Update Displayed Zones
-        </button>
+        />
         <StdDialogButtons
           onCancel={() => close(false)}
           onOk={() => {

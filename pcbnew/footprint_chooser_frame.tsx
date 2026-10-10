@@ -30,6 +30,7 @@
  * the 3D preview (and its holder board) and the 3D viewer child frame — arrive
  * as {@link FOOTPRINT_CHOOSER_FRAME_APP}; designer's file is now the wiring.
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useCallback, useEffect, useMemo, useState, type JSX, type ReactNode } from 'react';
 import { PanelFootprintChooser } from './widgets/panel_footprint_chooser.js';
 import type { FootprintTreeFilter } from './fp_tree_model_adapter.js';
@@ -296,21 +297,14 @@ export function FootprintChooserFrame({
           <BitmapButtonSeparator />
           {/* m_show3DViewer (:178) — `onExternalViewer3DEnable`: ticked with
               the 3D view on opens EDA_3D_VIEWER_FRAME; unticked closes it. */}
-          <label className="ze-check">
-            <input
-              type="checkbox"
-              checked={ownWindow}
-              onChange={(e) => setOwnWindow(e.target.checked)}
-            />
-            <span>Show 3D viewer in own window</span>
-          </label>
+          <CheckBox
+            label="Show 3D viewer in own window"
+            checked={ownWindow}
+            onChange={(aChecked) => setOwnWindow(aChecked)}
+          />
           <div className="ze-modal-footer">
-            <button type="button" className="ze-btn" onClick={onCancel}>
-              Cancel
-            </button>
-            <button type="button" className="ze-btn primary" onClick={accept}>
-              OK
-            </button>
+            <Button label="Cancel" onClick={onCancel} />
+            <Button label="OK" isDefault onClick={accept} />
           </div>
         </div>
       </div>

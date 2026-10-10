@@ -13,6 +13,7 @@
  * wxTOP|wxBOTTOM|wxLEFT 5, entry wxALL|wxEXPAND 5, unit wxTOP|wxBOTTOM|wxRIGHT
  * 5; a checkbox spans the three at wxALL 5; the std buttons wxALL|wxEXPAND 5.
  */
+import { CheckBox } from '../wx/controls.js';
 import { useState, type JSX } from 'react';
 import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import type { EdaIuScale } from '../eda_units.js';
@@ -86,14 +87,14 @@ export function WX_MULTI_ENTRY_DIALOG({
               <span className="ze-unitentry-unit">{unitLabel(units)}</span>
             </div>
           ) : (
-            <label key={e.label} className="ze-check ze-multientry-check" title={e.tooltip}>
-              <input
-                type="checkbox"
-                checked={state[i] as boolean}
-                onChange={(ev) => set(i, ev.target.checked)}
-              />
-              {e.label}
-            </label>
+            <CheckBox
+              key={e.label}
+              label={e.label}
+              checked={state[i] as boolean}
+              title={e.tooltip}
+              className="ze-multientry-check"
+              onChange={(aChecked) => set(i, aChecked)}
+            />
           ),
         )}
       </div>

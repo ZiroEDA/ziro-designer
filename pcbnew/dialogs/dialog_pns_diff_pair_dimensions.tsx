@@ -24,6 +24,7 @@
  * It also stamps `SetDiffPairGapSource( "user choice" )` and the width's, which
  * is the string `ROUTER_TOOL`'s status bar shows afterwards.
  */
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
@@ -122,10 +123,12 @@ export function DialogPnsDiffPairDimensions({ value, units, onOk, onClose }: Pro
           </div>
 
           {/* [data] `bSizer7->Add( m_viaTraceGapEqual, 0, wxALL|wxEXPAND, 10 )`. */}
-          <label className="ze-pref-check ze-dpd-same">
-            <input type="checkbox" checked={same} onChange={(e) => setSame(e.target.checked)} />
-            Via gap same as track gap
-          </label>
+          <CheckBox
+            label="Via gap same as track gap"
+            checked={same}
+            className="ze-pref-check ze-dpd-same"
+            onChange={(aChecked) => setSame(aChecked)}
+          />
         </div>
 
         <div className="ze-modal-footer">

@@ -6,6 +6,7 @@
  * the zone editors' "Conversion Settings" box. The transfers are in
  * `convert_settings_dialog.ts`; every border here is the C++ sizer's Add().
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
@@ -151,19 +152,15 @@ export function ConvertSettingsDialog({
       </div>
 
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={() => onClose(false)}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="ze-btn primary"
+        <Button label="Cancel" onClick={() => onClose(false)} />
+        <Button
+          label="OK"
+          isDefault
           onClick={() => {
             dialog.TransferDataFromWindow(v);
             onClose(true);
           }}
-        >
-          OK
-        </button>
+        />
       </div>
     </DialogShim>
   );

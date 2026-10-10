@@ -19,6 +19,7 @@
  * configured, and the GL window the canvas becomes.
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import {
   type DragEvent as ReactDragEvent,
   type JSX,
@@ -872,9 +873,7 @@ export function GerbviewFrameWindow({
       {infoBar && (
         <div className="ze-infobar" role="alert">
           <span>{infoBar}</span>
-          <button type="button" className="ze-btn" onClick={() => setInfoBar(null)}>
-            ×
-          </button>
+          <Button label="×" onClick={() => setInfoBar(null)} />
         </div>
       )}
 

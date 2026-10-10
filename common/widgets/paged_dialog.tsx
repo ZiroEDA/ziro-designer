@@ -19,6 +19,7 @@
  * page tree and panel renderers; this component owns the chrome and selection.
  */
 
+import { Button } from '../wx/controls.js';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { useModalEscape } from '../dialog_shim.js';
 import { usePagedDialogSize } from './paged_dialog_size.js';
@@ -265,33 +266,23 @@ export function PagedDialog({
           {showReset && (
             // onResetButton: enabled only for resettable pages, exactly like
             // KiCad; ResetPanel() restores the active page's slice to defaults.
-            <button
-              type="button"
-              className="ze-btn"
+            <Button
+              label={resetLabel}
               disabled={!(active?.resettable && active.onReset)}
               title="Reset this page to defaults"
               onClick={() => active?.onReset?.()}
-            >
-              {resetLabel}
-            </button>
+            />
           )}
           {auxiliaryAction && (
-            <button
-              type="button"
-              className="ze-btn"
+            <Button
+              label={auxiliaryAction}
               disabled={!onAuxiliaryAction}
               onClick={onAuxiliaryAction}
-            >
-              {auxiliaryAction}
-            </button>
+            />
           )}
           <div className="ze-paged-footer-spacer" />
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={handleOk}>
-            OK
-          </button>
+          <Button label="Cancel" onClick={onCancel} />
+          <Button label="OK" isDefault onClick={handleOk} />
         </div>
       </div>
     </div>

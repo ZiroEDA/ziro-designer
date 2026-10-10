@@ -51,7 +51,7 @@
  * defaults on the way out.
  */
 import { useState, type JSX } from 'react';
-import { Num } from '../wx/controls.js';
+import { Button, Num } from '../wx/controls.js';
 import { clearDoNotShowAgainDialogs } from '../kidialog_do_not_show.js';
 import type {
   COMMON_SETTINGS_DRAFT,
@@ -105,21 +105,17 @@ export function PanelMaintenance({
         />
 
         <div className="ze-pref-buttoncol">
-          <button
-            type="button"
-            className="ze-btn"
+          <Button
+            label="Clear &quot;Open Recent&quot; History"
             onClick={() => {
               const n = ctx.settingsManager.ClearFileHistory();
               // `_( "File history cleared." )` [data]
               setNote(n > 0 ? 'File history cleared.' : 'File history was already empty.');
             }}
-          >
-            Clear &quot;Open Recent&quot; History
-          </button>
+          />
 
-          <button
-            type="button"
-            className="ze-btn"
+          <Button
+            label="Reset &quot;Don&apos;t Show Again&quot; Dialogs"
             onClick={() => {
               // `doClearDontShowAgain()` — the persisted six and the session
               // map, in that order, exactly as upstream (`:94-105`).
@@ -129,13 +125,10 @@ export function PanelMaintenance({
                 n > 0 ? '"Don\'t show again" dialogs reset.' : 'No dialog had been silenced.',
               );
             }}
-          >
-            Reset &quot;Don&apos;t Show Again&quot; Dialogs
-          </button>
+          />
 
-          <button
-            type="button"
-            className="ze-btn"
+          <Button
+            label="Reset All Dialogs to Defaults"
             onClick={() => {
               // `doClearDialogState` opens with `doClearDontShowAgain()`, whose
               // session half is not storage and so cannot live in
@@ -147,13 +140,10 @@ export function PanelMaintenance({
                 n > 0 ? 'All dialogs reset to defaults.' : 'No dialog had remembered any state.',
               );
             }}
-          >
-            Reset All Dialogs to Defaults
-          </button>
+          />
 
-          <button
-            type="button"
-            className="ze-btn"
+          <Button
+            label="Reset All Program Settings to Defaults"
             onClick={() => {
               // `onResetAll` -> `doClearDialogState()` -> `doClearDontShowAgain()`.
               // `resetAllSettings` drops the whole prefix, which takes the six
@@ -164,9 +154,7 @@ export function PanelMaintenance({
               // not be committed over the defaults we just wrote.
               ctx.cancelDialog();
             }}
-          >
-            Reset All Program Settings to Defaults
-          </button>
+          />
         </div>
       </div>
 

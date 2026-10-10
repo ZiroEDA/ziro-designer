@@ -17,6 +17,7 @@
  * is upstream's validation, which the host runs on OK
  * (`TransferDataFromWindow`).
  */
+import { Button } from '../wx/controls.js';
 import type { JSX } from 'react';
 
 /** MIN_SIZE / MAX_SIZE (panel_image_editor.cpp:71-72), in pixels after scaling. */
@@ -126,15 +127,13 @@ export function PANEL_IMAGE_EDITOR({
         />
         <span className="ze-refimg-lbl">PPI:</span>
         <span className="ze-imgedit-ppi">{ppi}</span>
-        <button
-          type="button"
-          className="ze-btn ze-imgedit-grey"
+        <Button
+          label="Convert to Greyscale"
+          className="ze-imgedit-grey"
           onClick={() => {
             void ConvertToGreyscale(data).then(onGreyscale, () => {});
           }}
-        >
-          Convert to Greyscale
-        </button>
+        />
       </div>
     </div>
   );

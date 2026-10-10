@@ -14,6 +14,7 @@
  *  - `m_infoText`: "Right-click for layer selection commands.".
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { DIALOG_PRINT_GENERIC } from '@ziroeda/common/dialogs/dialog_print_generic_ui.js';
 import { ContextMenu } from '@ziroeda/common/tool/action_menu_bar.js';
@@ -102,42 +103,36 @@ export function DialogPcbPrint({
         }
         extraOptions={
           <>
-            <label className="ze-check ze-printdlg-span">
-              <input
-                type="checkbox"
-                checked={dlg.m_checkAsItems}
-                onChange={(e) => {
-                  dlg.m_checkAsItems = e.target.checked;
-                  changed();
-                }}
-              />
-              Print according to objects tab of appearance manager
-            </label>
-            <label className="ze-check ze-printdlg-span">
-              <input
-                type="checkbox"
-                disabled={!dlg.m_checkBackgroundEnabled}
-                checked={dlg.m_checkBackground}
-                onChange={(e) => {
-                  dlg.m_checkBackground = e.target.checked;
-                  changed();
-                }}
-              />
-              Print background color
-            </label>
-            <label className="ze-check ze-printdlg-span-nb">
-              <input
-                type="checkbox"
-                disabled={!dlg.m_checkUseThemeEnabled}
-                checked={dlg.m_checkUseTheme}
-                onChange={(e) => {
-                  dlg.m_checkUseTheme = e.target.checked;
-                  dlg.onUseThemeClicked();
-                  changed();
-                }}
-              />
-              Use a different color theme for printing:
-            </label>
+            <CheckBox
+              label="Print according to objects tab of appearance manager"
+              checked={dlg.m_checkAsItems}
+              className="ze-printdlg-span"
+              onChange={(aChecked) => {
+                dlg.m_checkAsItems = aChecked;
+                changed();
+              }}
+            />
+            <CheckBox
+              label="Print background color"
+              checked={dlg.m_checkBackground}
+              disabled={!dlg.m_checkBackgroundEnabled}
+              className="ze-printdlg-span"
+              onChange={(aChecked) => {
+                dlg.m_checkBackground = aChecked;
+                changed();
+              }}
+            />
+            <CheckBox
+              label="Use a different color theme for printing:"
+              checked={dlg.m_checkUseTheme}
+              disabled={!dlg.m_checkUseThemeEnabled}
+              className="ze-printdlg-span-nb"
+              onChange={(aChecked) => {
+                dlg.m_checkUseTheme = aChecked;
+                dlg.onUseThemeClicked();
+                changed();
+              }}
+            />
             <div className="ze-printdlg-indent">
               <Combo
                 className="ze-printdlg-theme"
@@ -168,41 +163,35 @@ export function DialogPcbPrint({
                 { value: '2', label: 'Real drill' },
               ]}
             />
-            <label className="ze-check ze-printdlg-span">
-              <input
-                type="checkbox"
-                checked={dlg.m_checkboxMirror}
-                onChange={(e) => {
-                  dlg.m_checkboxMirror = e.target.checked;
-                  changed();
-                }}
-              />
-              Print mirrored
-            </label>
-            <label className="ze-check ze-printdlg-span-nb">
-              <input
-                type="checkbox"
-                checked={dlg.m_checkboxPagePerLayer}
-                onChange={(e) => {
-                  dlg.m_checkboxPagePerLayer = e.target.checked;
-                  dlg.onPagePerLayerClicked();
-                  changed();
-                }}
-              />
-              Print one page per layer
-            </label>
-            <label className="ze-check ze-printdlg-indent">
-              <input
-                type="checkbox"
-                disabled={!dlg.m_checkboxEdgesOnAllPagesEnabled}
-                checked={dlg.m_checkboxEdgesOnAllPages}
-                onChange={(e) => {
-                  dlg.m_checkboxEdgesOnAllPages = e.target.checked;
-                  changed();
-                }}
-              />
-              Print board edges on all pages
-            </label>
+            <CheckBox
+              label="Print mirrored"
+              checked={dlg.m_checkboxMirror}
+              className="ze-printdlg-span"
+              onChange={(aChecked) => {
+                dlg.m_checkboxMirror = aChecked;
+                changed();
+              }}
+            />
+            <CheckBox
+              label="Print one page per layer"
+              checked={dlg.m_checkboxPagePerLayer}
+              className="ze-printdlg-span-nb"
+              onChange={(aChecked) => {
+                dlg.m_checkboxPagePerLayer = aChecked;
+                dlg.onPagePerLayerClicked();
+                changed();
+              }}
+            />
+            <CheckBox
+              label="Print board edges on all pages"
+              checked={dlg.m_checkboxEdgesOnAllPages}
+              disabled={!dlg.m_checkboxEdgesOnAllPagesEnabled}
+              className="ze-printdlg-indent"
+              onChange={(aChecked) => {
+                dlg.m_checkboxEdgesOnAllPages = aChecked;
+                changed();
+              }}
+            />
           </>
         }
         onPrint={() => {

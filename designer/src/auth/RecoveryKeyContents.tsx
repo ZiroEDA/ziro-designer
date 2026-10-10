@@ -11,6 +11,7 @@
  * clipboard does not; Copy is beside the words for the people whose safe
  * place is a password manager.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 
 export function RecoveryKeyContents({
@@ -59,12 +60,8 @@ export function RecoveryKeyContents({
       </div>
       <p className="ze-auth-note">We don't store this key, so please save this in a safe place</p>
       <div className="ze-auth-recovery-actions">
-        <button type="button" className="ze-btn" onClick={onLater}>
-          {laterLabel}
-        </button>
-        <button type="button" className="ze-btn primary ze-auth-submit" onClick={save}>
-          Save Key
-        </button>
+        <Button label={laterLabel} onClick={onLater} />
+        <Button label="Save Key" isDefault className="ze-auth-submit" onClick={save} />
       </div>
     </div>
   );

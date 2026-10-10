@@ -7,6 +7,7 @@
  * language), the KIWAY, the file dialog over the account's storage, the
  * Preferences dialog, the user's toolbar layout, and the way home.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import {
@@ -123,9 +124,8 @@ export function GerberViewer({
           filters={fileDialog.filters}
           multiple={fileDialog.multiple}
           extra={
-            <button
-              type="button"
-              className="ze-btn"
+            <Button
+              label="Open from Computer..."
               onClick={() => {
                 const req = fileDialog;
                 setFileDialog(null);
@@ -141,9 +141,7 @@ export function GerberViewer({
                   else if (!fallbackResolve.current) req.resolve(null);
                 });
               }}
-            >
-              Open from Computer...
-            </button>
+            />
           }
           onDone={(file) => {
             const req = fileDialog;

@@ -17,6 +17,7 @@
  * `.ze-pref-group-title`, which draws the wxStaticLine this had inline.
  */
 
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
@@ -112,19 +113,15 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
 
   return (
     <div className="ze-compclass">
-      <label className="ze-pref-check">
-        <input
-          type="checkbox"
-          checked={value.assignPerSheet}
-          onChange={(e) => onChange({ ...value, assignPerSheet: e.target.checked })}
-        />
-        Assign component class per sheet
-      </label>
+      <CheckBox
+        label="Assign component class per sheet"
+        checked={value.assignPerSheet}
+        className="ze-pref-check"
+        onChange={(aChecked) => onChange({ ...value, assignPerSheet: aChecked })}
+      />
       <div className="ze-pref-group-title ze-compclass-title">
         <span>Custom Assignments:</span>
-        <button type="button" className="ze-btn" onClick={addAssignment}>
-          Add Custom Assignment
-        </button>
+        <Button label="Add Custom Assignment" onClick={addAssignment} />
       </div>
 
       {/* Assignment cards */}
@@ -147,9 +144,7 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
                     onChange={(e) => setAssignment(i, { componentClass: e.target.value })}
                   />
                   <span className="ze-compclass-spacer" />
-                  <button type="button" className="ze-btn" title="Not implemented yet">
-                    Highlight matching footprints
-                  </button>
+                  <Button label="Highlight matching footprints" title="Not implemented yet" />
                   <button
                     type="button"
                     className="ze-gridbtn"
@@ -238,13 +233,11 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
                     </button>
                   </div>
                 ))}
-                <button
-                  type="button"
-                  className="ze-btn ze-compclass-addcond"
+                <Button
+                  label="+ Add condition"
+                  className="ze-compclass-addcond"
                   onClick={() => setConditions([...a.conditions, { type: 'Reference', value: '' }])}
-                >
-                  + Add condition
-                </button>
+                />
               </div>
             );
           })

@@ -8,6 +8,7 @@
  * `TransferDataFromWindow` validation below were the Constraints page of
  * `dialog_board_setup.tsx` until it was split out to the file KiCad keeps it in.
  */
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import { validateUnitValue, type UnitRange } from '@ziroeda/common/widgets/unit_binder.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
@@ -315,14 +316,12 @@ export function PanelSetupConstraints({
             <span className="ze-con-icon">
               <ConIcon name="fillet" />
             </span>
-            <label className="ze-pref-check">
-              <input
-                type="checkbox"
-                checked={value.allowFilletsOutside}
-                onChange={(e) => setCon('allowFilletsOutside', e.target.checked)}
-              />
-              Allow fillets/chamfers outside zone outline
-            </label>
+            <CheckBox
+              label="Allow fillets/chamfers outside zone outline"
+              checked={value.allowFilletsOutside}
+              className="ze-pref-check"
+              onChange={(aChecked) => setCon('allowFilletsOutside', aChecked)}
+            />
           </div>
           <div className="ze-con-spoke">
             <span className="ze-con-icon">
@@ -345,14 +344,12 @@ export function PanelSetupConstraints({
         </div>
 
         <div className="ze-pref-group-title">Length Tuning</div>
-        <label className="ze-pref-check">
-          <input
-            type="checkbox"
-            checked={value.includeStackupHeight}
-            onChange={(e) => setCon('includeStackupHeight', e.target.checked)}
-          />
-          Include stackup height in track length calculations
-        </label>
+        <CheckBox
+          label="Include stackup height in track length calculations"
+          checked={value.includeStackupHeight}
+          className="ze-pref-check"
+          onChange={(aChecked) => setCon('includeStackupHeight', aChecked)}
+        />
       </div>
     </div>
   );

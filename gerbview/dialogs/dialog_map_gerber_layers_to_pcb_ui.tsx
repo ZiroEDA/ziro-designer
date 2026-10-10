@@ -32,6 +32,7 @@
  * Title `_("Layer Selection")` (`_base.h:62`).
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { measureTextWidth } from '@ziroeda/common/widgets/text_ctrl_width.js';
@@ -151,37 +152,31 @@ export function DialogMapGerberLayersToPcb({
               }}
             />
             <span className="ze-mapgbr-stretch" />
-            <button
-              type="button"
-              className="ze-btn ze-mapgbr-button"
+            <Button
+              label="Store Choice"
+              className="ze-mapgbr-button"
               onClick={() => {
                 dlg.OnStoreSetup();
                 refresh();
               }}
-            >
-              Store Choice
-            </button>
-            <button
-              type="button"
-              className="ze-btn ze-mapgbr-button"
+            />
+            <Button
+              label="Get Stored Choice"
               disabled={!dlg.m_buttonRetrieveEnabled}
+              className="ze-mapgbr-button"
               onClick={() => {
                 dlg.OnGetSetup();
                 refresh();
               }}
-            >
-              Get Stored Choice
-            </button>
-            <button
-              type="button"
-              className="ze-btn ze-mapgbr-button"
+            />
+            <Button
+              label="Reset"
+              className="ze-mapgbr-button"
               onClick={() => {
                 dlg.OnResetClick();
                 refresh();
               }}
-            >
-              Reset
-            </button>
+            />
           </div>
         </div>
         <StdDialogButtons onCancel={() => onClose(false)} onOk={ok} />

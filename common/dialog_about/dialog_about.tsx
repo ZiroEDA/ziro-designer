@@ -23,6 +23,7 @@
  *   - `OnNotebookPageChanged` is a wxMac repaint workaround and has nothing to
  *     do here.
  */
+import { Button } from '../wx/controls.js';
 import { type JSX, useEffect, useRef, useState } from 'react';
 import { svgUrl } from '@ziroeda/bitmaps_png';
 import { GetVersionInfoData } from '../build_version.js';
@@ -188,22 +189,16 @@ export function DIALOG_ABOUT({
           </div>
           <div className="ze-about-actions">
             <span className="ze-about-spacer" />
-            <button
-              type="button"
-              className="ze-btn"
+            <Button
+              label={copied ? 'Copied...' : 'Copy Version Info'}
               title={`Copy ${PRODUCT} version info to the clipboard`}
               onClick={onCopyVersionInfo}
-            >
-              {copied ? 'Copied...' : 'Copy Version Info'}
-            </button>
-            <button
-              type="button"
-              className="ze-btn"
+            />
+            <Button
+              label="Report Bug"
               title={`Report a problem with ${PRODUCT}`}
               onClick={reportBug}
-            >
-              Report Bug
-            </button>
+            />
             <span className="ze-about-spacer" />
           </div>
           <span className="ze-about-spacer" />

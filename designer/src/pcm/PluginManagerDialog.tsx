@@ -16,6 +16,7 @@
  * cannot host yet, so those tabs explain that and list packages read-only.
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useMemo, useState, type JSX } from 'react';
 import { settings } from '../prefs/settings.js';
 import { isRuntimeKind, latestVersion, pcm, pcmThemeId, usePcmVersion } from './pcmStore.js';
@@ -192,15 +193,14 @@ export function PluginManagerDialog({
 
     if (state === 'available') {
       return (
-        <button
-          type="button"
-          className="ze-btn primary sm"
+        <Button
+          label="Install"
+          isDefault
           disabled={runtime}
           title={runtime ? 'Requires a runtime not yet available in the browser' : 'Queue install'}
+          className="sm"
           onClick={() => queueInstall(pkg)}
-        >
-          Install
-        </button>
+        />
       );
     }
 
@@ -208,14 +208,10 @@ export function PluginManagerDialog({
     return (
       <>
         {state === 'update_available' && (
-          <button type="button" className="ze-btn primary sm" onClick={() => queueUpdate(pkg)}>
-            Update
-          </button>
+          <Button label="Update" isDefault className="sm" onClick={() => queueUpdate(pkg)} />
         )}
         {pkg.kind === 'colortheme' && !isActiveTheme && (
-          <button type="button" className="ze-btn sm" onClick={() => applyTheme(pkg)}>
-            Set active
-          </button>
+          <Button label="Set active" className="sm" onClick={() => applyTheme(pkg)} />
         )}
         <button
           type="button"
@@ -225,9 +221,7 @@ export function PluginManagerDialog({
         >
           {pcm.isPinned(pkg.id) ? '📌 Pinned' : 'Pin'}
         </button>
-        <button type="button" className="ze-btn sm" onClick={() => queueUninstall(pkg)}>
-          Uninstall
-        </button>
+        <Button label="Uninstall" className="sm" onClick={() => queueUninstall(pkg)} />
       </>
     );
   }
@@ -337,9 +331,7 @@ export function PluginManagerDialog({
                 <div className="ze-pcm-card-meta">from {c.source}</div>
               </div>
               <div className="ze-pcm-card-actions">
-                <button type="button" className="ze-btn sm" onClick={() => pcm.unqueue(c.pkg.id)}>
-                  Cancel
-                </button>
+                <Button label="Cancel" className="sm" onClick={() => pcm.unqueue(c.pkg.id)} />
               </div>
             </div>
           ))}
@@ -423,26 +415,22 @@ export function PluginManagerDialog({
             onChange={(e) => setAddingUrl(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && void addRepo()}
           />
-          <button
-            type="button"
-            className="ze-btn sm"
+          <Button
+            label="Add"
             disabled={busy || !addingUrl.trim()}
+            className="sm"
             onClick={() => void addRepo()}
-          >
-            Add
-          </button>
+          />
           {activeRepo.url && (
-            <button
-              type="button"
-              className="ze-btn sm"
+            <Button
+              label="Remove"
               title="Remove this repository"
+              className="sm"
               onClick={() => {
                 pcm.removeRepository(activeRepo.url);
                 setRepoUrl('');
               }}
-            >
-              Remove
-            </button>
+            />
           )}
         </div>
       </div>
@@ -468,17 +456,13 @@ export function PluginManagerDialog({
         <span className="ze-pcm-status">{status ?? ''}</span>
         {pendingCount > 0 && (
           <>
-            <button type="button" className="ze-btn sm" onClick={() => pcm.discardPending()}>
-              Discard Pending
-            </button>
+            <Button label="Discard Pending" className="sm" onClick={() => pcm.discardPending()} />
             <button type="button" className="ze-btn primary" onClick={applyPending}>
               Apply Pending Changes ({pendingCount})
             </button>
           </>
         )}
-        <button type="button" className="ze-btn" onClick={onClose}>
-          Close
-        </button>
+        <Button label="Close" onClick={onClose} />
       </div>
     </DialogShim>
   );

@@ -22,6 +22,7 @@
  * "Zone hatched fill offsets" is not offered: the zone_defaults block it
  * imports is preserved-opaque board data this clone does not model yet.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useRef, useState, type JSX } from 'react';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
@@ -130,9 +131,7 @@ export function DialogImportSettings({ onImport, onClose }: Props): JSX.Element 
             value={files.map((f) => f.name).join(', ')}
             placeholder="Select the other project's .kicad_pcb + .kicad_pro files"
           />
-          <button type="button" className="ze-btn sm" onClick={() => fileInput.current?.click()}>
-            Browse...
-          </button>
+          <Button label="Browse..." className="sm" onClick={() => fileInput.current?.click()} />
           <input
             ref={fileInput}
             type="file"
@@ -160,17 +159,13 @@ export function DialogImportSettings({ onImport, onClose }: Props): JSX.Element 
         >
           {selectAllNext && !allChecked ? 'Select All' : 'Deselect All'}
         </button>
-        <button type="button" className="ze-btn" onClick={onClose}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="ze-btn primary"
+        <Button label="Cancel" onClick={onClose} />
+        <Button
+          label="Import Settings"
+          isDefault
           disabled={!anyChecked || files.length === 0}
           onClick={() => onImport(files, opts)}
-        >
-          Import Settings
-        </button>
+        />
       </div>
     </DialogShim>
   );

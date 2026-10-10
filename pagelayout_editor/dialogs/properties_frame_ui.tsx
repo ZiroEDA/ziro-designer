@@ -20,6 +20,7 @@
  * `OnUpdateUI` turns that into one `OnAcceptPrms`, as wx's idle does.
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useReducer, useState } from 'react';
 import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
 import { COLOR4D_UNSPECIFIED, type Color4d, toCss } from '@ziroeda/common/gal/color4d.js';
@@ -551,9 +552,7 @@ function GeneralOptions({
         <StackRow label="Line thickness:">{binder(panel.m_defaultLineWidth)}</StackRow>
         <StackRow label="Text thickness:">{binder(panel.m_defaultTextThickness)}</StackRow>
         <div className="ze-ds-row">
-          <button type="button" className="ze-btn" onClick={() => panel.OnSetDefaultValues()}>
-            Set to Default
-          </button>
+          <Button label="Set to Default" onClick={() => panel.OnSetDefaultValues()} />
         </div>
       </Group>
       <Group title="Page Margins" layout="stack">

@@ -53,6 +53,7 @@
  * `OnOkClick` is the only writer upstream too (`:104-118`).
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useLayoutEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
 import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
 import { wxGridStringTable } from '@ziroeda/common/wx/grid.js';
@@ -265,16 +266,8 @@ export function DialogConfigEquFiles({
           />
         </div>
         <div className="ze-modal-footer">
-          <button
-            type="button"
-            className="ze-btn primary"
-            onClick={() => onSave(list.files, pending)}
-          >
-            OK
-          </button>
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Cancel
-          </button>
+          <Button label="OK" isDefault onClick={() => onSave(list.files, pending)} />
+          <Button label="Cancel" onClick={onClose} />
         </div>
       </div>
 
@@ -288,16 +281,13 @@ export function DialogConfigEquFiles({
           multiple: true,
           filters: [equFileWildcard()],
           extra: (
-            <button
-              type="button"
-              className="ze-btn"
+            <Button
+              label="Add from Computer..."
               onClick={() => {
                 setAddOpen(false);
                 localInput.current?.click();
               }}
-            >
-              Add from Computer...
-            </button>
+            />
           ),
           onDone: (file) => {
             setAddOpen(false);

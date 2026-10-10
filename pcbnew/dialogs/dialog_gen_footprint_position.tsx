@@ -43,6 +43,7 @@
  * `onOutputFile` into the file manager, falling back to a download when the
  * board is standalone.
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import type { BOARD } from '../board.js';
 import { PLACE_FILE_EXPORTER, placeFileName } from '../exporters/place_file_exporter.js';
@@ -401,77 +402,53 @@ export function DialogGenFootprintPosition({
         </div>
 
         <div className="ze-genpos-checks">
-          <label className="ze-check">
-            <input
-              type="checkbox"
-              checked={onlySMD}
-              disabled={!onlySMDEnabled}
-              onChange={(e) => setOnlySMD(e.target.checked)}
-            />
-            Include only SMD footprints
-          </label>
-          <label className="ze-check">
-            <input
-              type="checkbox"
-              checked={excludeTH}
-              disabled={!excludeTHEnabled}
-              onChange={(e) => setExcludeTH(e.target.checked)}
-            />
-            Exclude all footprints with through hole pads
-          </label>
-          <label className="ze-check">
-            <input
-              type="checkbox"
-              checked={excludeDNP}
-              disabled={!excludeDNPEnabled}
-              onChange={(e) => setExcludeDNP(e.target.checked)}
-            />
-            Exclude all footprints with the Do Not Populate flag set
-          </label>
-          <label className="ze-check">
-            <input
-              type="checkbox"
-              checked={excludeBOM}
-              disabled={!excludeBOMEnabled}
-              onChange={(e) => setExcludeBOM(e.target.checked)}
-            />
-            Exclude all footprints with the Exclude from BOM flag set
-          </label>
-          <label className="ze-check">
-            <input
-              type="checkbox"
-              checked={includeBoardEdge}
-              disabled={!isGerber}
-              onChange={(e) => setIncludeBoardEdge(e.target.checked)}
-            />
-            Include board edge layer
-          </label>
-          <label className="ze-check">
-            <input
-              type="checkbox"
-              checked={useDrillPlaceOrigin}
-              onChange={(e) => setUseDrillPlaceOrigin(e.target.checked)}
-            />
-            Use drill/place file origin
-          </label>
-          <label className="ze-check">
-            <input
-              type="checkbox"
-              checked={negateX}
-              disabled={!negateXEnabled}
-              onChange={(e) => setNegateX(e.target.checked)}
-            />
-            Use negative X coordinates for footprints on bottom layer
-          </label>
-          <label className="ze-check">
-            <input
-              type="checkbox"
-              checked={singleFile}
-              disabled={isGerber}
-              onChange={(e) => setSingleFile(e.target.checked)}
-            />
-            Generate single file with both front and back positions
-          </label>
+          <CheckBox
+            label="Include only SMD footprints"
+            checked={onlySMD}
+            disabled={!onlySMDEnabled}
+            onChange={(aChecked) => setOnlySMD(aChecked)}
+          />
+          <CheckBox
+            label="Exclude all footprints with through hole pads"
+            checked={excludeTH}
+            disabled={!excludeTHEnabled}
+            onChange={(aChecked) => setExcludeTH(aChecked)}
+          />
+          <CheckBox
+            label="Exclude all footprints with the Do Not Populate flag set"
+            checked={excludeDNP}
+            disabled={!excludeDNPEnabled}
+            onChange={(aChecked) => setExcludeDNP(aChecked)}
+          />
+          <CheckBox
+            label="Exclude all footprints with the Exclude from BOM flag set"
+            checked={excludeBOM}
+            disabled={!excludeBOMEnabled}
+            onChange={(aChecked) => setExcludeBOM(aChecked)}
+          />
+          <CheckBox
+            label="Include board edge layer"
+            checked={includeBoardEdge}
+            disabled={!isGerber}
+            onChange={(aChecked) => setIncludeBoardEdge(aChecked)}
+          />
+          <CheckBox
+            label="Use drill/place file origin"
+            checked={useDrillPlaceOrigin}
+            onChange={(aChecked) => setUseDrillPlaceOrigin(aChecked)}
+          />
+          <CheckBox
+            label="Use negative X coordinates for footprints on bottom layer"
+            checked={negateX}
+            disabled={!negateXEnabled}
+            onChange={(aChecked) => setNegateX(aChecked)}
+          />
+          <CheckBox
+            label="Generate single file with both front and back positions"
+            checked={singleFile}
+            disabled={isGerber}
+            onChange={(aChecked) => setSingleFile(aChecked)}
+          />
         </div>
 
         <div className="ze-genpos-report">
@@ -486,12 +463,8 @@ export function DialogGenFootprintPosition({
       </div>
 
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onClose}>
-          Close
-        </button>
-        <button type="button" className="ze-btn primary" onClick={generate}>
-          Generate Position File
-        </button>
+        <Button label="Close" onClick={onClose} />
+        <Button label="Generate Position File" isDefault onClick={generate} />
       </div>
     </DialogShim>
   );

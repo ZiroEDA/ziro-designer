@@ -24,6 +24,7 @@
  * `include/dialogs/dialog_paste_special.h:33-38`, not in eeschema or pcbnew.
  */
 
+import { Button, CheckBox } from '../wx/controls.js';
 import { useState, type JSX } from 'react';
 import { DialogShim } from '../dialog_shim.js';
 
@@ -126,23 +127,17 @@ export function DialogPasteSpecial({
           ))}
         </fieldset>
         {showClearNets && (
-          <label title="Remove the net information from all connected items before pasting">
-            <input
-              type="checkbox"
-              checked={clearNets}
-              onChange={(e) => setClearNets(e.target.checked)}
-            />{' '}
-            Clear net assignments
-          </label>
+          <CheckBox
+            label="Clear net assignments"
+            checked={clearNets}
+            title="Remove the net information from all connected items before pasting"
+            onChange={(aChecked) => setClearNets(aChecked)}
+          />
         )}
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" onClick={() => onOk(mode, clearNets)}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault onClick={() => onOk(mode, clearNets)} />
       </div>
     </DialogShim>
   );

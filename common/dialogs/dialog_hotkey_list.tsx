@@ -8,6 +8,7 @@
  * and OK writes them back (`WriteHotKeyConfig`); the app's host that opens it
  * on ACTIONS::listHotKeys is `designer/src/ui/hotkey_list_host.tsx`.
  */
+import { Button } from '../wx/controls.js';
 import { useState, type JSX } from 'react';
 import { PanelHotkeysEditor } from './panel_hotkeys_editor.js';
 import type { HotkeyOverrides, HotkeySection } from '../hotkey_store.js';
@@ -51,12 +52,8 @@ export function HotkeyListDialog({
           Preferences page shows, built read-only. */}
         <PanelHotkeysEditor actions={actions} readOnly overrides={edit} onChange={setEdit}>
           {/* sdb_sizer, added to the panel's GetBottomSizer(). */}
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn" onClick={onOk}>
-            OK
-          </button>
+          <Button label="Cancel" onClick={onClose} />
+          <Button label="OK" onClick={onOk} />
         </PanelHotkeysEditor>
       </div>
     </DialogShim>

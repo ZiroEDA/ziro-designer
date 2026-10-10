@@ -38,6 +38,7 @@
  * one place that knows what "apply" means for a given row, so it stays the
  * one place that decides; this component only ever closes.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import type { DIELECTRIC_SUBSTRATE_LIST } from './dielectric_material.js';
@@ -176,12 +177,8 @@ export function DialogDielectricMaterial({
         </div>
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={() => onSubmit(null)}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" onClick={commit}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={() => onSubmit(null)} />
+        <Button label="OK" isDefault onClick={commit} />
       </div>
     </DialogShim>
   );

@@ -24,6 +24,7 @@
  * value modes from the newer constraint system.
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { DimensionValues } from './dialog_dimension_properties.js';
@@ -124,14 +125,11 @@ export function DialogDimensionProperties({
     label: string,
     key: 'suppressZeroes' | 'keepTextAligned' | 'bold' | 'italic' | 'mirrored' | 'locked',
   ): JSX.Element => (
-    <label>
-      <input
-        type="checkbox"
-        checked={v[key]}
-        onChange={(e) => set({ [key]: e.target.checked } as Partial<DimensionValues>)}
-      />
-      {label}
-    </label>
+    <CheckBox
+      label={label}
+      checked={v[key]}
+      onChange={(aChecked) => set({ [key]: aChecked } as Partial<DimensionValues>)}
+    />
   );
 
   const manual = v.textPositionMode === 2;
@@ -162,14 +160,12 @@ export function DialogDimensionProperties({
             <legend>Format</legend>
             {/* The checkbox is the mode; the box alone cannot tell an empty
               override from an absent one. */}
-            <label title="Show this text instead of the measured value.">
-              <input
-                type="checkbox"
-                checked={v.overrideValue !== undefined}
-                onChange={(e) => set({ overrideValue: e.target.checked ? '' : undefined })}
-              />
-              Override value
-            </label>
+            <CheckBox
+              label="Override value"
+              checked={v.overrideValue !== undefined}
+              title="Show this text instead of the measured value."
+              onChange={(aChecked) => set({ overrideValue: aChecked ? '' : undefined })}
+            />
             <label>
               <span className="ze-tvp-label">Value:</span>
               <input

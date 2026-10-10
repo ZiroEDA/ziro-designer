@@ -38,6 +38,7 @@
  * values still ride through untouched, because the file still carries them.
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import type { ZoneValues } from './panel_zone_properties.js';
 import { PanelZoneProperties } from './panel_zone_properties_ui.js';
@@ -167,22 +168,15 @@ export function DialogCopperZones({
             taking the slack — so GTK's order, Cancel then OK. */}
         <div className="ze-cz-foot">
           {existingZone && (
-            <button
-              type="button"
-              className="ze-btn"
+            <Button
+              label="Open Zone Manager..."
               disabled={!onOpenZoneManager}
               onClick={() => onOpenZoneManager?.(settled())}
-            >
-              Open Zone Manager...
-            </button>
+            />
           )}
           <div className="ze-modal-footer">
-            <button type="button" className="ze-btn" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="button" className="ze-btn primary" onClick={accept}>
-              OK
-            </button>
+            <Button label="Cancel" onClick={onClose} />
+            <Button label="OK" isDefault onClick={accept} />
           </div>
         </div>
       </div>

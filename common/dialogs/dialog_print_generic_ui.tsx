@@ -31,6 +31,7 @@
  * cannot enumerate any - the browser's print dialog chooses the printer), and
  * Page Setup... (the browser's print dialog is the page setup).
  */
+import { CheckBox } from '../wx/controls.js';
 import type { JSX, ReactNode } from 'react';
 import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import { Combo } from '../widgets/wx_combobox.js';
@@ -95,14 +96,13 @@ export function DIALOG_PRINT_GENERIC({
                 ]}
               />
               {titleBlockShown && (
-                <label className="ze-check ze-printdlg-span" title="Print Frame references.">
-                  <input
-                    type="checkbox"
-                    checked={titleBlock}
-                    onChange={(e) => onTitleBlock(e.target.checked)}
-                  />
-                  Print drawing sheet
-                </label>
+                <CheckBox
+                  label="Print drawing sheet"
+                  checked={titleBlock}
+                  title="Print Frame references."
+                  className="ze-printdlg-span"
+                  onChange={(aChecked) => onTitleBlock(aChecked)}
+                />
               )}
               {extraOptions}
             </div>

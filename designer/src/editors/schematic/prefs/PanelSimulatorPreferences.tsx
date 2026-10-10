@@ -34,7 +34,7 @@
  */
 import { Fragment, type JSX } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { Group } from '@ziroeda/common/wx/controls.js';
+import { Button, Group } from '@ziroeda/common/wx/controls.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 /**
@@ -147,12 +147,8 @@ export function PanelSimulatorPreferences({ ctx }: { ctx: PrefsContext }): JSX.E
               controls (`panel_simulator_preferences.cpp`), not into the
               settings — the values land in the file on OK with the rest of the
               page, which is what `setWheel` does here. */}
-          <button type="button" className="ze-btn" onClick={() => setWheel(MOUSE_DEFAULTS)}>
-            Reset to Mouse Defaults
-          </button>
-          <button type="button" className="ze-btn" onClick={() => setWheel(TRACKPAD_DEFAULTS)}>
-            Reset to Trackpad Defaults
-          </button>
+          <Button label="Reset to Mouse Defaults" onClick={() => setWheel(MOUSE_DEFAULTS)} />
+          <Button label="Reset to Trackpad Defaults" onClick={() => setWheel(TRACKPAD_DEFAULTS)} />
         </div>
       </div>
     </Group>

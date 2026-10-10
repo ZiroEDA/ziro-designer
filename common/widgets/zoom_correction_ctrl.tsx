@@ -34,6 +34,7 @@
  * as a ratio to the reference pixel, and the page is never told the physical
  * size of anything. So Detect is the best guess and the ruler is the answer.
  */
+import { Button } from '../wx/controls.js';
 import { useEffect, useId, useRef, useState, type JSX } from 'react';
 import { Combo } from './wx_combobox.js';
 import { SpinCtrl } from './spin_ctrl.js';
@@ -227,14 +228,7 @@ export function ZoomCorrectionCtrl({
           max={1000}
           onChange={setPpi}
         />
-        <button
-          type="button"
-          className="ze-btn"
-          disabled={disabled}
-          onClick={() => setPpi(detectScreenPpi())}
-        >
-          Detect
-        </button>
+        <Button label="Detect" disabled={disabled} onClick={() => setPpi(detectScreenPpi())} />
       </div>
 
       {/* `rulerSizer` (`:161-176`): the ruler, then the units choice at its

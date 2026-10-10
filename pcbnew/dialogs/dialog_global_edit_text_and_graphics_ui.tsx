@@ -7,6 +7,7 @@
  * side by side, then "Action" (the specified values, or the layer defaults
  * shown read-only from Board Setup), then Apply and Close / Close.
  */
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { unitLabel } from '@ziroeda/common/eda_units.js';
@@ -262,18 +263,16 @@ export function DialogGlobalEditTextAndGraphics({
             {tri('m_italic', 'Italic', !on)}
             {entry(dialog.m_thickness, !dialog.ThicknessEnabled())}
             <span className="ze-getg-auto">
-              <label className="ze-check" title="Use the default thickness for the text size">
-                <input
-                  type="checkbox"
-                  checked={dialog.m_autoTextThickness}
-                  disabled={!on}
-                  onChange={(e) => {
-                    dialog.OnAutoTextThickness(e.target.checked);
-                    redraw();
-                  }}
-                />
-                Auto
-              </label>
+              <CheckBox
+                label="Auto"
+                checked={dialog.m_autoTextThickness}
+                disabled={!on}
+                title="Use the default thickness for the text size"
+                onChange={(aChecked) => {
+                  dialog.OnAutoTextThickness(aChecked);
+                  redraw();
+                }}
+              />
               {tri('m_keepUpright', 'Keep upright', !on)}
             </span>
             <span />

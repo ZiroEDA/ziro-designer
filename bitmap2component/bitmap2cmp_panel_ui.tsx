@@ -10,6 +10,7 @@
  * Its stylesheet is `bitmap2cmp_panel.css`, which the window that hosts it
  * imports (the package does not compile CSS).
  */
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { Fragment, type JSX, useEffect, useRef } from 'react';
 import { Slider } from '@ziroeda/common/widgets/slider.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
@@ -251,14 +252,12 @@ export function Bitmap2cmpPanel({ panel, dropTarget, version }: Bitmap2cmpPanelP
               options={PIXEL_UNIT_CHOICES.map((label, i) => ({ value: String(i), label }))}
             />
           </div>
-          <label className="imgc-check">
-            <input
-              type="checkbox"
-              checked={panel.m_aspectRatioCheckbox}
-              onChange={(e) => panel.ToggleAspectRatioLock(e.target.checked)}
-            />
-            Lock height / width ratio
-          </label>
+          <CheckBox
+            label="Lock height / width ratio"
+            checked={panel.m_aspectRatioCheckbox}
+            className="imgc-check"
+            onChange={(aChecked) => panel.ToggleAspectRatioLock(aChecked)}
+          />
         </fieldset>
 
         <fieldset className="imgc-group">
@@ -273,14 +272,12 @@ export function Bitmap2cmpPanel({ panel, dropTarget, version }: Bitmap2cmpPanelP
             title={THRESHOLD_TOOLTIP}
             onChange={(v) => panel.OnThresholdChange(v)}
           />
-          <label className="imgc-check">
-            <input
-              type="checkbox"
-              checked={panel.m_checkNegative}
-              onChange={(e) => panel.OnNegativeClicked(e.target.checked)}
-            />
-            Negative
-          </label>
+          <CheckBox
+            label="Negative"
+            checked={panel.m_checkNegative}
+            className="imgc-check"
+            onChange={(aChecked) => panel.OnNegativeClicked(aChecked)}
+          />
         </fieldset>
 
         <fieldset className="imgc-group imgc-format">

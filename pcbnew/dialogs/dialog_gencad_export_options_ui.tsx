@@ -16,6 +16,7 @@
  * `GencadFileWildcard`, as `onBrowseClicked` does.
  */
 
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
@@ -82,17 +83,15 @@ export function DialogGencadExportOptions({
         </div>
         <div className="ze-gencad-opts">
           {GENCAD_EXPORT_OPT_LABELS.map(([opt, label]) => (
-            <label key={opt} className="ze-check">
-              <input
-                type="checkbox"
-                checked={dialog.GetOption(opt)}
-                onChange={(e) => {
-                  dialog.SetOption(opt, e.target.checked);
-                  changed();
-                }}
-              />
-              {label}
-            </label>
+            <CheckBox
+              key={opt}
+              label={label}
+              checked={dialog.GetOption(opt)}
+              onChange={(aChecked) => {
+                dialog.SetOption(opt, aChecked);
+                changed();
+              }}
+            />
           ))}
         </div>
       </div>
