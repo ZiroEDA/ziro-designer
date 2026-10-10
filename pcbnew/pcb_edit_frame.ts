@@ -10,6 +10,7 @@
  * The listener is `BOARD_LISTENER` as the React side subscribes to it: every
  * notification schedules one re-derivation of the view from the BOARD.
  */
+import type { ODBPP_DIALOG_RESULT } from './dialogs/dialog_export_odbpp.js';
 import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import type { PRINTING } from '@ziroeda/common/settings/app_settings.js';
 import { ROUTER_TOOL } from './router/router_tool.js';
@@ -754,6 +755,8 @@ export interface PCB_EDIT_FRAME_HOOKS extends PCB_BASE_EDIT_FRAME_DIALOG_HOOKS {
   /** `DIALOG_GEN_FOOTPRINT_POSITION dlg( this ); dlg.ShowModal()`. */
   showGenFootprintPositionDialog?(): Promise<void>;
   showExport2581Dialog?(): Promise<void>;
+  showExportOdbppDialog?(): Promise<ODBPP_DIALOG_RESULT | null>;
+  writeOutputFile?(aPath: string, aBytes: Uint8Array, aMime: string): void;
   /** `DIALOG_PRINT_PCBNEW::ShowModal`: resolves when the dialog is closed. */
   showPrintDialog?(aDialog: DIALOG_PRINT_PCBNEW): Promise<void>;
   /** `ShowTargetOptionsDialog`: DIALOG_TARGET_PROPERTIES, modal. */
@@ -1406,6 +1409,16 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** `DIALOG_EXPORT_2581::ShowModal` for BOARD_EDITOR_CONTROL::GenIPC2581File. */
   ShowExport2581Dialog(): Promise<void> {
     return this.hooks.showExport2581Dialog?.() ?? Promise.resolve();
+  }
+
+  /** `DIALOG_EXPORT_ODBPP::ShowModal` for BOARD_EDITOR_CONTROL::GenerateODBPPFiles: the settings on OK. */
+  ShowExportOdbppDialog(): Promise<ODBPP_DIALOG_RESULT | null> {
+    return this.hooks.showExportOdbppDialog?.() ?? Promise.resolve(null);
+  }
+
+  /** A generated output into the project's files (a download when the board is standalone). */
+  WriteOutputFile(aPath: string, aBytes: Uint8Array, aMime: string): void {
+    this.hooks.writeOutputFile?.(aPath, aBytes, aMime);
   }
 
   /** `dlg.ShowModal()` for PCB_CONTROL::Print. */

@@ -21,6 +21,10 @@ import { RecreateCmpFile } from '../exporters/export_footprint_associations.js';
 import { BOARD_EDITOR_CONTROL_ExportGenCAD } from '../exporters/export_gencad.js';
 import { footprintAssignmentFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
+import { JOB_EXPORT_PCB_ODB, ODB_UNITS } from '@ziroeda/common/jobs/job_export_pcb_odb.js';
+import { Reporter } from '@ziroeda/common/reporter.js';
+import { GenerateODBPPFiles } from '../dialogs/dialog_export_odbpp.js';
+import type { ZONE_FILLER_TOOL } from './zone_filler_tool.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
@@ -963,6 +967,60 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /**
+   * `GenerateODBPPFiles` (files.cpp:1257): the dialog's settings, out-of-date zones refilled so
+   * the export matches the layout, then DIALOG_EXPORT_ODBPP::GenerateODBPPFiles; whatever it
+   * reported is shown as an error.
+   */
+  GenerateODBPPFiles(_aEvent: TOOL_EVENT): number {
+    void this.generateODBPPFiles();
+    return 0;
+  }
+
+  private async generateODBPPFiles(): Promise<void> {
+    const frame = this.getEditFrame<PCB_EDIT_FRAME>();
+    const dlg = await frame.ShowExportOdbppDialog();
+
+    if (!dlg) return;
+
+    // Refill zones if they are out-of-date so the export matches the current layout.
+    const zoneFiller = this.m_toolMgr!.FindTool(
+      'pcbnew.ZoneFiller',
+    ) as unknown as ZONE_FILLER_TOOL | null;
+    await zoneFiller?.CheckAllZones(frame);
+
+    const board = frame.GetBoard()!;
+    const job = new JOB_EXPORT_PCB_ODB();
+
+    job.m_outputPath = dlg.outputPath;
+    job.m_filename = board.GetFileName();
+    job.m_compressionMode = dlg.compressFormat;
+    job.m_precision = dlg.precision;
+    job.m_units = dlg.units === 'mm' ? ODB_UNITS.MM : ODB_UNITS.INCH;
+
+    const reporter = new Reporter();
+
+    await GenerateODBPPFiles(
+      job,
+      board,
+      {
+        fileExists: (aPath) => frame.FileExists(aPath),
+        confirmOverwrite: async (aMessage) =>
+          (await frame.ShowKiDialog({
+            caption: 'Confirmation',
+            message: aMessage,
+            icon: 'warning',
+            labels: { ok: 'Overwrite' },
+          })) === 'ok',
+        write: (aPath, aBytes, aMime) => frame.WriteOutputFile(aPath, aBytes, aMime),
+      },
+      reporter,
+    );
+
+    if (reporter.lines.length > 0)
+      DisplayErrorMessage(reporter.lines.map((l) => l.message).join('\n'));
+  }
+
   /** `GenD356File` (export_d356.cpp:437): the dialog is modal, the handler returns at once. */
   GenD356File(_aEvent: TOOL_EVENT): number {
     void BOARD_EDITOR_CONTROL_GenD356File(this.getEditFrame<PCB_EDIT_FRAME>());
@@ -1035,6 +1093,10 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenIPC2581File),
       PCB_ACTIONS.generateIPC2581File.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenerateODBPPFiles),
+      PCB_ACTIONS.generateODBPPFile.MakeEvent(),
     );
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenD356File),

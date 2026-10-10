@@ -199,6 +199,7 @@ import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dia
 import { DialogPcbPlot } from './dialogs/dialog_plot.js';
 import { DialogGenFootprintPosition } from './dialogs/dialog_gen_footprint_position.js';
 import { DialogExport2581 } from './dialogs/dialog_export_2581.js';
+import { DialogExportOdbpp, type ODBPP_DIALOG_RESULT } from './dialogs/dialog_export_odbpp.js';
 import { DialogGendrill } from './dialogs/dialog_gendrill.js';
 import { DialogGencadExportOptions } from './dialogs/dialog_gencad_export_options_ui.js';
 import type { DIALOG_GENCAD_EXPORT_OPTIONS } from './dialogs/dialog_gencad_export_options.js';
@@ -2181,6 +2182,8 @@ export function PcbEditor({
     writeTextFile: (aPath: string, aText: string) => boolean;
     showGenFootprintPositionDialog: () => Promise<void>;
     showExport2581Dialog: () => Promise<void>;
+    showExportOdbppDialog: () => Promise<ODBPP_DIALOG_RESULT | null>;
+    writeOutputFile: (aPath: string, aBytes: Uint8Array, aMime: string) => void;
     showGenDrillDialog: () => Promise<void>;
     showGencadExportOptionsDialog: (aDialog: DIALOG_GENCAD_EXPORT_OPTIONS) => Promise<boolean>;
     fileExists: (aPath: string) => boolean;
@@ -2302,6 +2305,9 @@ export function PcbEditor({
       writeTextFile: (aPath, aText) => drcWindowRef.current!.writeTextFile(aPath, aText),
       showGenFootprintPositionDialog: () => drcWindowRef.current!.showGenFootprintPositionDialog(),
       showExport2581Dialog: () => drcWindowRef.current!.showExport2581Dialog(),
+      showExportOdbppDialog: () => drcWindowRef.current!.showExportOdbppDialog(),
+      writeOutputFile: (aPath, aBytes, aMime) =>
+        drcWindowRef.current!.writeOutputFile(aPath, aBytes, aMime),
       showGenDrillDialog: () => drcWindowRef.current!.showGenDrillDialog(),
       showGencadExportOptionsDialog: (aDialog) =>
         drcWindowRef.current!.showGencadExportOptionsDialog(aDialog),
@@ -2561,6 +2567,9 @@ export function PcbEditor({
   /** DIALOG_GEN_FOOTPRINT_POSITION, while BOARD_EDITOR_CONTROL::GeneratePosFile shows it. */
   const [posFileDlg, setPosFileDlg] = useState<{ done: () => void } | null>(null);
   const [ipc2581Dlg, setIpc2581Dlg] = useState<{ done: () => void } | null>(null);
+  const [odbppDlg, setOdbppDlg] = useState<{
+    resolve: (aResult: ODBPP_DIALOG_RESULT | null) => void;
+  } | null>(null);
   /** DIALOG_GENDRILL, while BOARD_EDITOR_CONTROL::GenerateDrillFiles shows it. */
   const [drillDlg, setDrillDlg] = useState<{ done: () => void } | null>(null);
   // DIALOG_GENCAD_EXPORT_OPTIONS while BOARD_EDITOR_CONTROL::ExportGenCAD shows it.
@@ -4529,6 +4538,22 @@ export function PcbEditor({
       new Promise<void>((resolve) => setPosFileDlg({ done: resolve })),
     showExport2581Dialog: (): Promise<void> =>
       new Promise<void>((resolve) => setIpc2581Dlg({ done: resolve })),
+    showExportOdbppDialog: (): Promise<ODBPP_DIALOG_RESULT | null> =>
+      new Promise<ODBPP_DIALOG_RESULT | null>((resolve) => setOdbppDlg({ resolve })),
+    // A generated output takes the plot route: the file manager, or a download standalone.
+    writeOutputFile: (aPath: string, aBytes: Uint8Array, aMime: string): void => {
+      if (onOutputFile) {
+        onOutputFile(aPath, aBytes, aMime);
+        return;
+      }
+
+      const url = URL.createObjectURL(new Blob([aBytes as BlobPart], { type: aMime }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = aPath.split('/').pop() ?? aPath;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
     showGencadExportOptionsDialog: (aDialog: DIALOG_GENCAD_EXPORT_OPTIONS): Promise<boolean> =>
       new Promise<boolean>((resolve) => setGencadDlg({ dialog: aDialog, resolve })),
     // `wxFile::Exists`: a file of that project-relative path in the project.
@@ -6403,6 +6428,10 @@ export function PcbEditor({
         // BOARD_EDITOR_CONTROL::GeneratePosFile.
         runAction(PCB_ACTIONS.generatePosFile);
         break;
+      case 'generateODBPPFile':
+        // BOARD_EDITOR_CONTROL::GenerateODBPPFiles.
+        runAction(PCB_ACTIONS.generateODBPPFile);
+        break;
       case 'generateIPC2581File':
         // BOARD_EDITOR_CONTROL::GenIPC2581File.
         runAction(PCB_ACTIONS.generateIPC2581File);
@@ -8208,6 +8237,17 @@ export function PcbEditor({
             const done = posFileDlg.done;
             setPosFileDlg(null);
             done();
+          }}
+        />
+      )}
+      {odbppDlg && (
+        <DialogExportOdbpp
+          fileName={fileName ?? ''}
+          projectFolders={projectFolders}
+          onClose={(aResult) => {
+            const resolve = odbppDlg.resolve;
+            setOdbppDlg(null);
+            resolve(aResult);
           }}
         />
       )}

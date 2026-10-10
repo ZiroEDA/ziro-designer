@@ -179,7 +179,7 @@ export function buildPcbMenus(
             { label: 'Gerbers (.gbr)...', disabled: dis },
             { label: 'Drill Files (.drl)...', action: () => h.action('generateDrillFiles') },
             { label: 'IPC-2581 File (.xml)...', action: () => h.action('generateIPC2581File') },
-            { label: 'ODB++ Output File...', disabled: dis },
+            { label: 'ODB++ Output File...', action: () => h.action('generateODBPPFile') },
             {
               label: 'Component Placement (.pos, .gbr)...',
               action: () => h.action('generatePosFile'),
