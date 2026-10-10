@@ -2,6 +2,8 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { SCH_ACTIONS } from './tools/sch_actions.js';
+import { SCH_SELECTION_TOOL } from './tools/sch_selection_tool.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import type { SCH_TEXT } from './sch_text.js';
 import type { SCH_TEXTBOX } from './sch_textbox.js';
@@ -74,10 +76,7 @@ import {
   SPIN_ANGLE,
   directiveNetclassAssignments,
   ruleAreaNetclassAssignments,
-  setAttribute,
   autoplaceFields,
-  attributeIsSet,
-  type Attribute,
   type LabelSpin,
   readSchematic,
   serializeSchematic,
@@ -91,7 +90,6 @@ import {
   refId,
   copySelectionText,
   parsePastedText,
-  boxSelect,
   selectionBBox,
   emptyBBox,
   type BBox,
@@ -527,12 +525,13 @@ function pickedFilePath(aFile: OpenedFile): string {
 const EMPTY_SCH =
   '(kicad_sch (version 20231120) (generator "ziroeda") (paper "A4")\n  (lib_symbols)\n)\n';
 
-const ATTRIBUTE_IDS: Record<string, Attribute> = {
-  attrSim: 'sim',
-  attrBom: 'bom',
-  attrBoard: 'board',
-  attrPosFiles: 'posFiles',
-  attrDnp: 'dnp',
+/** The Attributes submenu's rows: SCH_EDIT_TOOL::SetAttribute's five actions. */
+const ATTRIBUTE_IDS: Record<string, TOOL_ACTION> = {
+  attrSim: SCH_ACTIONS.setExcludeFromSim,
+  attrBom: SCH_ACTIONS.setExcludeFromBOM,
+  attrBoard: SCH_ACTIONS.setExcludeFromBoard,
+  attrPosFiles: SCH_ACTIONS.setExcludeFromPosFiles,
+  attrDnp: SCH_ACTIONS.setDNP,
 };
 
 const SETTINGS_TOGGLES = new Set([
@@ -5849,6 +5848,16 @@ export function SchematicEditor({
     schFrameRef.current?.GetToolManager()?.RunAction(aAction);
   }, []);
 
+  /** ACTION_CONDITIONS::checkCondition of a live action, on the live selection. */
+  const liveChecked = useCallback((aAction: TOOL_ACTION): boolean => {
+    const mgr = schFrameRef.current?.GetToolManager();
+    const selection = mgr?.GetTool(SCH_SELECTION_TOOL)?.GetSelection();
+
+    if (!mgr || !selection) return false;
+
+    return mgr.GetActionManager().GetCondition(aAction)?.checkCondition(selection) ?? false;
+  }, []);
+
   const onTopAction = useCallback(
     (id: string) => {
       // the canvas-editing actions run on the frame's TOOL_MANAGER (TRANSITIONAL, W2).
@@ -5971,20 +5980,7 @@ export function SchematicEditor({
       else if (id === 'assignFootprints') setAssignFpOpen(true);
       else if (id === 'showCalculator') onShowCalculator?.();
       // ACTIONS::selectAll, whose row carries Ctrl+A and dispatches from there.
-      else if (id === 'selectAll')
-        setDoc((d) => {
-          // Select All honors the Selection Filter (SCH_SELECTION_TOOL::SelectAll
-          // runs every item through itemPassesFilter).
-          if (d)
-            setSelection(
-              applySelectionFilter(
-                d,
-                boxSelect(d, libById, { x: 1e15, y: 1e15 }, { x: -1e15, y: -1e15 }),
-                selFilterRef.current,
-              ),
-            );
-          return d;
-        });
+      else if (id === 'selectAll') runLiveAction(ACTIONS.selectAll);
       else if (id === 'unselectAll') setSelection(new Set());
       // Group / Ungroup (SCH_GROUP_TOOL): members stay selected afterwards,
       // upstream selects the new group (= its members) / the freed members.
@@ -6100,13 +6096,13 @@ export function SchematicEditor({
       doc,
       netlist,
       selection,
-      libById,
       pageNumberOf,
       pasteOptions,
       withSelection,
       requestTarget,
       applySelectionState,
       runRescueSymbols,
+      runLiveAction,
     ],
   );
 
@@ -6147,10 +6143,7 @@ export function SchematicEditor({
       // acts on the selection (SCH_EDIT_TOOL::SetAttribute).
       const attr = ATTRIBUTE_IDS[id];
       if (attr) {
-        if (doc) {
-          const cmd = setAttribute(doc, selection, attr);
-          if (cmd) runCommand(cmd);
-        }
+        runLiveAction(attr);
         return;
       }
       if (SETTINGS_TOGGLES.has(id)) {
@@ -6175,7 +6168,7 @@ export function SchematicEditor({
       setLocalToggles((prev) => applyToggle(prev, id));
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [doc, selection, runCommand, openPrefs, app],
+    [openPrefs, app, runLiveAction],
   );
 
   // Menus carry their shortcut as literal text, so a rebinding has to be
@@ -6193,6 +6186,7 @@ export function SchematicEditor({
    * event to the default and then comparing it with the override, so every
    * rebound command would answer to nothing.
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: doc and selection are the triggers: an edit or a selection change re-reads liveChecked's ticks
   const menusRaw = useMemo(
     () =>
       buildMenus(
@@ -6219,13 +6213,10 @@ export function SchematicEditor({
           showSearch: toggles.has('showSearch'),
           showHierarchy: toggles.has('showHierarchy'),
           showNetNavigator: toggles.has('showNetNavigator'),
-          // Each attribute shows checked only when everything the action would
-          // touch already carries it, the same test the action itself uses.
+          // Each attribute ticks by the check condition SCH_EDIT_TOOL::Init gives its action
+          // (attribDNPCond and friends), on the live selection.
           ...Object.fromEntries(
-            Object.entries(ATTRIBUTE_IDS).map(([id, a]) => [
-              id,
-              !!doc && attributeIsSet(doc, selection, a),
-            ]),
+            Object.entries(ATTRIBUTE_IDS).map(([id, a]) => [id, liveChecked(a)]),
           ),
         },
       ),
@@ -6240,6 +6231,7 @@ export function SchematicEditor({
       doc,
       selection,
       app,
+      liveChecked,
     ],
   );
   const menus = useMemo(

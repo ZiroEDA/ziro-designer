@@ -29,7 +29,6 @@ import { moveItems, moveWithConnections } from '@ziroeda/eeschema/tools/move.js'
 import { planMove } from '@ziroeda/eeschema/tools/connect.js';
 import { transformItems } from '@ziroeda/eeschema/tools/transform.js';
 import { setSymbolUnit } from '@ziroeda/eeschema/tools/symbol_unit.js';
-import { setAttribute } from '@ziroeda/eeschema/tools/set_attribute.js';
 import { autoplaceFields } from '@ziroeda/eeschema/autoplace_fields.js';
 import { groupItemsCommand } from '@ziroeda/eeschema/tools/sch_group_tool.js';
 import { makeWire, makeJunction, makeLabel } from '@ziroeda/eeschema/tools/build.js';
@@ -96,12 +95,6 @@ const CASES: { name: string; build: (d: Schematic) => EditCommand | null }[] = [
     build: (d) => transformItems(new Set([symId(d)]), 'mirrorX'),
   },
   { name: 'setSymbolUnit', build: () => setSymbolUnit(0, 2) },
-  // setAttribute *toggles*: it works out the new state itself, so there is no
-  // fourth argument to pass.
-  { name: 'setAttribute (dnp)', build: (d) => setAttribute(d, new Set([symId(d)]), 'dnp') },
-  { name: 'setAttribute (bom)', build: (d) => setAttribute(d, new Set([symId(d)]), 'bom') },
-  { name: 'setAttribute (board)', build: (d) => setAttribute(d, new Set([symId(d)]), 'board') },
-  { name: 'setAttribute (sim)', build: (d) => setAttribute(d, new Set([symId(d)]), 'sim') },
   {
     name: 'autoplaceFields',
     build: (d) =>
