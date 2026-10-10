@@ -71,7 +71,7 @@ const BASELINE: Record<(typeof AREAS)[number], Record<Kind, number>> = {
   bitmap2component: { button: 4, checkbox: 0, select: 0, frame: 0, radio: 0, entry: 3, sbox: 4 },
   common: { button: 49, checkbox: 9, select: 0, frame: 1, radio: 2, entry: 44, sbox: 4 },
   cvpcb: { button: 0, checkbox: 0, select: 0, frame: 1, radio: 0, entry: 2, sbox: 0 },
-  designer: { button: 77, checkbox: 2, select: 4, frame: 1, radio: 5, entry: 66, sbox: 13 },
+  designer: { button: 77, checkbox: 2, select: 4, frame: 0, radio: 5, entry: 66, sbox: 13 },
   eeschema: { button: 24, checkbox: 29, select: 26, frame: 1, radio: 13, entry: 72, sbox: 38 },
   gerbview: { button: 3, checkbox: 3, select: 0, frame: 0, radio: 0, entry: 2, sbox: 2 },
   pagelayout_editor: { button: 4, checkbox: 0, select: 0, frame: 0, radio: 0, entry: 4, sbox: 1 },

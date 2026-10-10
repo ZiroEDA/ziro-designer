@@ -227,7 +227,7 @@ export function ruleAreaNetclassAssignments(
     }
     for (const netClass of classes) {
       for (const pattern of names) {
-        const key = `${pattern} ${netClass}`;
+        const key = `${pattern}\u0000${netClass}`;
         if (seen.has(key)) continue;
         seen.add(key);
         out.push({ pattern, netClass });

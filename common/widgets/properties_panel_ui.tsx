@@ -475,7 +475,7 @@ export function PropertiesPanel<C>({
         {groups.map((g) => {
           const open = !collapsed.includes(g.title);
           return (
-            <Fragment key={g.title || ' base'}>
+            <Fragment key={g.title || '\u0000base'}>
               <div
                 className="ze-pgrid-cat"
                 data-group={g.title}
