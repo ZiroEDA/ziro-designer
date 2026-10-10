@@ -24,6 +24,7 @@ import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { JOB_EXPORT_PCB_ODB, ODB_UNITS } from '@ziroeda/common/jobs/job_export_pcb_odb.js';
 import { Reporter } from '@ziroeda/common/reporter.js';
 import { GenerateODBPPFiles } from '../dialogs/dialog_export_odbpp.js';
+import { HYPERLYNX_EXPORTER } from '../exporters/export_hyperlynx.js';
 import type { ZONE_FILLER_TOOL } from './zone_filler_tool.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
@@ -1021,6 +1022,46 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
       DisplayErrorMessage(reporter.lines.map((l) => l.message).join('\n'));
   }
 
+  /**
+   * `ExportHyperlynx` (export_hyperlynx.cpp:669): the save dialog on <board>.hyp, the extension
+   * enforced, then HYPERLYNX_EXPORTER.
+   */
+  ExportHyperlynx(_aEvent: TOOL_EVENT): number {
+    void this.exportHyperlynx();
+    return 0;
+  }
+
+  private async exportHyperlynx(): Promise<void> {
+    const frame = this.getEditFrame<PCB_EDIT_FRAME>();
+    const board = frame.GetBoard()!;
+    const fullName = board.GetFileName().split(/[\\/]/).pop() ?? '';
+    const dot = fullName.lastIndexOf('.');
+    const fn = `${dot > 0 ? fullName.slice(0, dot) : fullName}.hyp`;
+
+    const dlg = await frame.ShowSaveFileDialog(
+      'Export Hyperlynx Layout',
+      fn,
+      { label: '*.hyp', extensions: ['hyp'] },
+      null,
+    );
+
+    if (!dlg) return;
+
+    // always enforce filename extension, user may not have entered it.
+    const base = dlg.path.substring(dlg.path.lastIndexOf('/') + 1);
+    const ext = base.lastIndexOf('.');
+    const path =
+      ext > 0 ? `${dlg.path.slice(0, dlg.path.length - base.length + ext)}.hyp` : `${dlg.path}.hyp`;
+
+    const exporter = new HYPERLYNX_EXPORTER();
+    exporter.SetBoard(board);
+    exporter.SetOutputFilename(path);
+    exporter.SetFileWriter((aPath, aData) =>
+      frame.WriteTextFile(aPath, new TextDecoder().decode(aData)),
+    );
+    exporter.Run();
+  }
+
   /** `GenD356File` (export_d356.cpp:437): the dialog is modal, the handler returns at once. */
   GenD356File(_aEvent: TOOL_EVENT): number {
     void BOARD_EDITOR_CONTROL_GenD356File(this.getEditFrame<PCB_EDIT_FRAME>());
@@ -1093,6 +1134,10 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenIPC2581File),
       PCB_ACTIONS.generateIPC2581File.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ExportHyperlynx),
+      PCB_ACTIONS.exportHyperlynx.MakeEvent(),
     );
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenerateODBPPFiles),

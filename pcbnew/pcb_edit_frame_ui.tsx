@@ -6428,6 +6428,10 @@ export function PcbEditor({
         // BOARD_EDITOR_CONTROL::GeneratePosFile.
         runAction(PCB_ACTIONS.generatePosFile);
         break;
+      case 'exportHyperlynx':
+        // BOARD_EDITOR_CONTROL::ExportHyperlynx.
+        runAction(PCB_ACTIONS.exportHyperlynx);
+        break;
       case 'generateODBPPFile':
         // BOARD_EDITOR_CONTROL::GenerateODBPPFiles.
         runAction(PCB_ACTIONS.generateODBPPFile);

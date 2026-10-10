@@ -167,7 +167,7 @@ export function buildPcbMenus(
               label: 'Footprint Association (.cmp) File...',
               action: () => h.action('exportCmpFile'),
             },
-            { label: 'Hyperlynx...', disabled: dis },
+            { label: 'Hyperlynx...', action: () => h.action('exportHyperlynx') },
             { sep: true },
             { label: 'Footprints...', disabled: dis },
           ],
