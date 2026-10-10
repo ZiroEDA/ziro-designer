@@ -140,7 +140,6 @@ import {
   annotateSymbols,
   defaultAnnotateOptions,
   incrementAnnotations,
-  globalEdit,
   symbolLibIdRows,
   orphanCandidates,
   libIdChangeCommand,
@@ -287,7 +286,8 @@ import {
 } from './dialogs/dialog_increment_annotations.js';
 import {
   DialogGlobalEditTextAndGraphics,
-  type GlobalEditResult,
+  DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS,
+  type GLOBAL_EDIT_VALUES,
 } from './dialogs/dialog_global_edit_text_and_graphics.js';
 import { DIALOG_CHANGE_SYMBOLS, DialogChangeSymbols } from './dialogs/dialog_change_symbols.js';
 import type { DIALOG_CHANGE_SYMBOLS_MODE } from './tools/sch_edit_tool.js';
@@ -1816,6 +1816,13 @@ export function SchematicEditor({
             }),
           );
         }
+        if (aDialog === 'DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS') {
+          // `DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS dlg( m_frame ); dlg.ShowModal();`
+          const dlg = new DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS(schFrameRef.current!);
+          return new Promise<number>((resolve) =>
+            setGlobalEditDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
+          );
+        }
         console.warn(`${aDialog} is not ported to the live model yet`);
         return wxID_CANCEL;
       },
@@ -2491,8 +2498,12 @@ export function SchematicEditor({
   const [annotateOpen, setAnnotateOpen] = useState(false);
   // SCH_ACTIONS::incrementAnnotations, a small dialog of its own.
   const [incrementAnnotationsOpen, setIncrementAnnotationsOpen] = useState(false);
-  // SCH_EDIT_TOOL::GlobalEdit (Edit Text & Graphics Properties).
-  const [globalEditOpen, setGlobalEditOpen] = useState(false);
+  // DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS on the live schematic (SCH_EDIT_TOOL::GlobalEdit).
+  const [globalEditDialog, setGlobalEditDialog] = useState<{
+    dlg: DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS;
+    shown: GLOBAL_EDIT_VALUES;
+    resolve: (aRetval: number) => void;
+  } | null>(null);
   // DIALOG_EDIT_SYMBOLS_LIBID (Bulk Edit Symbol Library Links).
   const [libIdsOpen, setLibIdsOpen] = useState(false);
   const [libIdErrors, setLibIdErrors] = useState<readonly string[]>([]);
@@ -3390,55 +3401,6 @@ export function SchematicEditor({
       pendingClearHistory.current = true;
     },
     [rawFiles, onPersistFiles, saveProjectSymLibTable, liveDocs, runProject],
-  );
-
-  // Edit Text & Graphics Properties (SCH_EDIT_TOOL::GlobalEdit). The sweep runs
-  // over the whole hierarchy, as TransferDataFromWindow does — it walks every
-  // sheet path, not just the one on screen.
-  const runGlobalEdit = useCallback(
-    (r: GlobalEditResult) => {
-      const sheets = annotateSheets('all', false);
-      const libs = hierarchyLibs(sheets);
-      sheetBatch('Edit Text and Graphics', () => {
-        for (const sheet of sheets) {
-          // The net filter needs that sheet's own netlist; it is only computed
-          // when the filter is actually on.
-          const netOfItem = r.filters.net
-            ? (id: string): string | null => {
-                const nl = computeNetlist(sheet.doc, libs);
-                return connectionName(nl, id);
-              }
-            : undefined;
-          const next = globalEdit(sheet.doc, libs, {
-            scope: r.scope,
-            filters: {
-              ...r.filters,
-              ...(r.filters.selectedOnly && sheet.file === currentFile
-                ? { selected: selection }
-                : {}),
-              // "Selected items only" can only mean the sheet on screen; an
-              // off-screen sheet has no selection, so nothing there matches.
-              ...(r.filters.selectedOnly && sheet.file !== currentFile
-                ? { selected: new Set<string>() }
-                : {}),
-            },
-            action: r.action,
-            ...(netOfItem ? { netOfItem } : {}),
-          });
-          if (next === sheet.doc) continue;
-          applySheetDocument(sheet.file, next, 'Edit Text and Graphics');
-        }
-      });
-    },
-    [
-      annotateSheets,
-      hierarchyLibs,
-      applySheetDocument,
-      currentFile,
-      selection,
-      onProjectChange,
-      sheetBatch,
-    ],
   );
 
   /**
@@ -6062,7 +6024,7 @@ export function SchematicEditor({
       else if (id === 'findReplace') openFindDialog('replace');
       else if (id === 'annotate') setAnnotateOpen(true);
       else if (id === 'incrementAnnotations') setIncrementAnnotationsOpen(true);
-      else if (id === 'globalEditTextAndGraphics') setGlobalEditOpen(true);
+      else if (id === 'globalEditTextAndGraphics') runLiveAction(SCH_ACTIONS.editTextAndGraphics);
       else if (id === 'rescueSymbols') void runRescueSymbols(true);
       else if (id === 'editSymbolLibraryLinks') {
         setLibIdErrors([]);
@@ -7576,14 +7538,15 @@ export function SchematicEditor({
                 }}
               />
             )}
-            {globalEditOpen && (
+            {globalEditDialog && (
               <DialogGlobalEditTextAndGraphics
-                hasSelection={selection.size > 0}
-                onOk={(r) => {
-                  setGlobalEditOpen(false);
-                  runGlobalEdit(r);
+                dlg={globalEditDialog.dlg}
+                initial={globalEditDialog.shown}
+                units={units}
+                onClose={() => {
+                  setGlobalEditDialog(null);
+                  globalEditDialog.resolve(wxID_OK);
                 }}
-                onCancel={() => setGlobalEditOpen(false)}
               />
             )}
             {incrementAnnotationsOpen && (

@@ -20,7 +20,7 @@
  * "-- mixed values --" text, an unchecked alignment group, the colour book's popup page), and an
  * indeterminate control writes nothing. Not here: the Scintilla text-variable auto-complete.
  */
-import { type JSX, useEffect, useRef, useState } from 'react';
+import { type JSX, useState } from 'react';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { FONT } from '@ziroeda/common/font/font.js';
@@ -32,6 +32,7 @@ import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { INDETERMINATE_STATE } from '@ziroeda/common/widgets/ui_common.js';
+import { type CHECK_STATE, TriStateCheck } from '@ziroeda/common/widgets/wx_checkbox.js';
 import { UNIT_BINDER, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { SCH_COMMIT } from '../sch_commit.js';
@@ -41,7 +42,6 @@ import type { SCH_TABLECELL } from '../sch_tablecell.js';
 import { TABLECELL_PROPS_RETVALUE } from '../tools/sch_edit_tool.js';
 
 /** wxCheckBoxState: null is wxCHK_UNDETERMINED. */
-type CHECK_STATE = boolean | null;
 
 export interface TABLECELL_DIALOG_VALUES {
   text: string;
@@ -269,35 +269,6 @@ export class DIALOG_TABLECELL_PROPERTIES {
     this.m_returnValue = TABLECELL_PROPS_RETVALUE.TABLECELL_PROPS_EDIT_TABLE;
     return true;
   }
-}
-
-/** A wxCHK_3STATE wxCheckBox: a click cycles checked, unchecked, undetermined. */
-function TriStateCheck({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: CHECK_STATE;
-  onChange: (aValue: CHECK_STATE) => void;
-}): JSX.Element {
-  const ref = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (ref.current) ref.current.indeterminate = value === null;
-  }, [value]);
-
-  return (
-    <label className="ze-check">
-      <input
-        ref={ref}
-        type="checkbox"
-        checked={value === true}
-        onChange={() => onChange(value === false ? true : value === true ? null : false)}
-      />
-      {label}
-    </label>
-  );
 }
 
 const H_BUTTONS: { align: GR_TEXT_H_ALIGN_T; bitmap: string; tip: string }[] = [
