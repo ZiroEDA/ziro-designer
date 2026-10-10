@@ -13,7 +13,7 @@
  * Not drawn: the Embedded Files page, which the model does not carry either.
  */
 
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, type ReactNode, useRef, useState } from 'react';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
@@ -235,17 +235,16 @@ export function DialogFootprintPropertiesFpEditor({
         <span className="ze-fpfe-label" title={title}>
           {label}
         </span>
-        <input
-          type="text"
-          className="ze-fpfe-input"
+        <TextCtrl
           value={text[key] ?? (stored === null ? '' : pcbUnitText(stored, units))}
-          onChange={(e) => {
-            const s = e.target.value;
+          onChange={(aValue) => {
+            const s = aValue;
             setText((p) => ({ ...p, [key]: s }));
             if (s.trim() === '') return set({ [key]: null } as Partial<FootprintFpEditorValues>);
             const iu = pcbUnitValue(s, units);
             if (Number.isFinite(iu)) set({ [key]: iu } as Partial<FootprintFpEditorValues>);
           }}
+          className="ze-fpfe-input"
         />
         <span className="ze-unit-label">{unitLabel(units)}</span>
       </>
@@ -365,25 +364,22 @@ export function DialogFootprintPropertiesFpEditor({
               <legend>Metadata</legend>
               <div className="ze-fpfe-grid2">
                 <span className="ze-fpfe-label">Footprint name:</span>
-                <input
-                  type="text"
-                  className="ze-fpfe-input"
+                <TextCtrl
                   value={v.footprintName}
-                  onChange={(e) => set({ footprintName: e.target.value })}
+                  onChange={(aValue) => set({ footprintName: aValue })}
+                  className="ze-fpfe-input"
                 />
                 <span className="ze-fpfe-label">Description:</span>
-                <input
-                  type="text"
-                  className="ze-fpfe-input"
+                <TextCtrl
                   value={v.description}
-                  onChange={(e) => set({ description: e.target.value })}
+                  onChange={(aValue) => set({ description: aValue })}
+                  className="ze-fpfe-input"
                 />
                 <span className="ze-fpfe-label">Keywords:</span>
-                <input
-                  type="text"
-                  className="ze-fpfe-input"
+                <TextCtrl
                   value={v.keywords}
-                  onChange={(e) => set({ keywords: e.target.value })}
+                  onChange={(aValue) => set({ keywords: aValue })}
+                  className="ze-fpfe-input"
                 />
               </div>
             </fieldset>
@@ -502,22 +498,21 @@ export function DialogFootprintPropertiesFpEditor({
                 'Solder paste clearance relative to pad size.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nThis value can be superseded by local values for a footprint or a pad.',
               )}
               <span className="ze-fpfe-label">Solder paste relative clearance:</span>
-              <input
-                type="text"
-                className="ze-fpfe-input"
+              <TextCtrl
                 value={
                   text.ratio ??
                   (v.localSolderPasteMarginRatio === null
                     ? ''
                     : String(v.localSolderPasteMarginRatio * 100))
                 }
-                onChange={(e) => {
-                  const s = e.target.value;
+                onChange={(aValue) => {
+                  const s = aValue;
                   setText((p) => ({ ...p, ratio: s }));
                   if (s.trim() === '') return set({ localSolderPasteMarginRatio: null });
                   const n = Number(s);
                   if (Number.isFinite(n)) set({ localSolderPasteMarginRatio: n / 100 });
                 }}
+                className="ze-fpfe-input"
               />
               <span className="ze-unit-label">%</span>
             </div>

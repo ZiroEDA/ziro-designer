@@ -13,7 +13,7 @@
  * The decision logic lives in `pcbnew/dialogs/dialog_footprint_properties.ts`.
  */
 
-import { CheckBox, Combo } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, Combo, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useRef, useState, type JSX, type ReactNode } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { FootprintValues } from './dialog_footprint_properties.js';
@@ -78,15 +78,14 @@ export function DialogFootprintProperties({
   const mmField = (label: string, key: 'x' | 'y'): JSX.Element => (
     <label>
       <span className="ze-tvp-label">{label}</span>
-      <input
-        type="text"
-        className="ze-tvp-input"
+      <TextCtrl
         value={text[key] ?? pcbUnitText(v[key], units)}
-        onChange={(e) => {
-          setText((p) => ({ ...p, [key]: e.target.value }));
-          const iu = pcbUnitValue(e.target.value, units);
+        onChange={(aValue) => {
+          setText((p) => ({ ...p, [key]: aValue }));
+          const iu = pcbUnitValue(aValue, units);
           if (Number.isFinite(iu)) set({ [key]: iu } as Partial<FootprintValues>);
         }}
+        className="ze-tvp-input"
       />
       <span className="ze-unit-label">{unitLabel(units)}</span>
     </label>
@@ -106,13 +105,10 @@ export function DialogFootprintProperties({
     return (
       <label title={title}>
         <span className="ze-tvp-label">{label}</span>
-        <input
-          type="text"
-          className="ze-tvp-input"
+        <TextCtrl
           value={shown}
-          placeholder="—"
-          onChange={(e) => {
-            const s = e.target.value;
+          onChange={(aValue) => {
+            const s = aValue;
             setText((p) => ({ ...p, [key]: s }));
             if (s.trim() === '') {
               set({ [key]: null } as Partial<FootprintValues>);
@@ -121,6 +117,8 @@ export function DialogFootprintProperties({
             const iu = pcbUnitValue(s, units);
             if (Number.isFinite(iu)) set({ [key]: iu } as Partial<FootprintValues>);
           }}
+          className="ze-tvp-input"
+          hint="—"
         />
         <span className="ze-unit-label">{unitLabel(units)}</span>
       </label>
@@ -172,25 +170,23 @@ export function DialogFootprintProperties({
               <legend>Footprint</legend>
               <label>
                 <span className="ze-tvp-label">Reference designator:</span>
-                <input
-                  type="text"
-                  className="ze-tvp-select"
+                <TextCtrl
                   value={v.reference}
-                  onChange={(e) => set({ reference: e.target.value })}
+                  onChange={(aValue) => set({ reference: aValue })}
+                  className="ze-tvp-select"
                 />
               </label>
               <label>
                 <span className="ze-tvp-label">Value:</span>
-                <input
-                  type="text"
-                  className="ze-tvp-select"
+                <TextCtrl
                   value={v.value}
-                  onChange={(e) => set({ value: e.target.value })}
+                  onChange={(aValue) => set({ value: aValue })}
+                  className="ze-tvp-select"
                 />
               </label>
               <label title="The library ID and footprint ID currently assigned.">
                 <span className="ze-tvp-label">Library link:</span>
-                <input type="text" className="ze-tvp-select" value={libId} readOnly />
+                <TextCtrl value={libId} readOnly className="ze-tvp-select" />
               </label>
             </fieldset>
 
@@ -282,18 +278,15 @@ export function DialogFootprintProperties({
               )}
               <label title="Solder paste clearance as a fraction of the pad size.">
                 <span className="ze-tvp-label">Paste clearance ratio:</span>
-                <input
-                  type="text"
-                  className="ze-tvp-input"
-                  placeholder="—"
+                <TextCtrl
                   value={
                     text.ratio ??
                     (v.localSolderPasteMarginRatio === null
                       ? ''
                       : String(v.localSolderPasteMarginRatio))
                   }
-                  onChange={(e) => {
-                    const s = e.target.value;
+                  onChange={(aValue) => {
+                    const s = aValue;
                     setText((p) => ({ ...p, ratio: s }));
                     if (s.trim() === '') {
                       set({ localSolderPasteMarginRatio: null });
@@ -302,6 +295,8 @@ export function DialogFootprintProperties({
                     const n = Number(s);
                     if (Number.isFinite(n)) set({ localSolderPasteMarginRatio: n });
                   }}
+                  className="ze-tvp-input"
+                  hint="—"
                 />
                 <span className="ze-tvp-unit">×</span>
               </label>

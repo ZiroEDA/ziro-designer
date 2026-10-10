@@ -38,7 +38,7 @@
  * one place that knows what "apply" means for a given row, so it stays the
  * one place that decides; this component only ever closes.
  */
-import { Button } from '@ziroeda/common/wx/controls.js';
+import { Button, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import type { DIELECTRIC_SUBSTRATE_LIST } from './dielectric_material.js';
@@ -124,22 +124,22 @@ export function DialogDielectricMaterial({
       <div className="ze-modal-body ze-dielmat-body">
         <div className="ze-dielmat-grid">
           <span>Material:</span>
-          <input
-            className="ze-search"
+          <TextCtrl
             value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            onChange={(aValue) => setDraft({ ...draft, name: aValue })}
+            className="ze-search"
           />
           <span>Epsilon R:</span>
-          <input
-            className="ze-search"
+          <TextCtrl
             value={draft.epsilonR}
-            onChange={(e) => setDraft({ ...draft, epsilonR: e.target.value })}
+            onChange={(aValue) => setDraft({ ...draft, epsilonR: aValue })}
+            className="ze-search"
           />
           <span>Loss Tan:</span>
-          <input
-            className="ze-search"
+          <TextCtrl
             value={draft.lossTan}
-            onChange={(e) => setDraft({ ...draft, lossTan: e.target.value })}
+            onChange={(aValue) => setDraft({ ...draft, lossTan: aValue })}
+            className="ze-search"
           />
         </div>
         <div

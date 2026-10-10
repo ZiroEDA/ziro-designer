@@ -17,7 +17,7 @@
  * `.ze-pref-group-title`, which draws the wxStaticLine this had inline.
  */
 
-import { Button, CheckBox, RadioButton } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, RadioButton, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
@@ -138,10 +138,10 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
               <div key={i} className="ze-compclass-card">
                 <div className="ze-compclass-row">
                   <span>Component class:</span>
-                  <input
-                    className="ze-search ze-compclass-name"
+                  <TextCtrl
                     value={a.componentClass}
-                    onChange={(e) => setAssignment(i, { componentClass: e.target.value })}
+                    onChange={(aValue) => setAssignment(i, { componentClass: aValue })}
+                    className="ze-search ze-compclass-name"
                   />
                   <span className="ze-compclass-spacer" />
                   <Button label="Highlight matching footprints" title="Not implemented yet" />
@@ -200,22 +200,20 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
                         }
                       />
                     ) : (
-                      <input
-                        className="ze-search ze-compclass-grow"
+                      <TextCtrl
                         value={c.value}
-                        placeholder={
+                        onChange={(aValue) =>
+                          setConditions(
+                            a.conditions.map((x, j) => (j === ci ? { ...x, value: aValue } : x)),
+                          )
+                        }
+                        className="ze-search ze-compclass-grow"
+                        hint={
                           c.type === 'Rotation'
                             ? 'degrees'
                             : c.type === 'Footprint'
                               ? 'Library:Footprint'
                               : 'e.g. R*'
-                        }
-                        onChange={(e) =>
-                          setConditions(
-                            a.conditions.map((x, j) =>
-                              j === ci ? { ...x, value: e.target.value } : x,
-                            ),
-                          )
                         }
                       />
                     )}

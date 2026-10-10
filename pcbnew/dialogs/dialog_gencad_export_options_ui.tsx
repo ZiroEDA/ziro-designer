@@ -16,7 +16,7 @@
  * `GencadFileWildcard`, as `onBrowseClicked` does.
  */
 
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
@@ -55,15 +55,15 @@ export function DialogGencadExportOptions({
       <div className="ze-modal-body ze-gencad-body">
         <div className="ze-gencad-file">
           <label htmlFor="ze-gencad-output">Output File:</label>
-          <input
-            id="ze-gencad-output"
-            className="ze-search"
-            title="Enter a filename if you do not want to use default file names"
+          <TextCtrl
             value={dialog.m_outputFileName}
-            onChange={(e) => {
-              dialog.m_outputFileName = e.target.value;
+            onChange={(aValue) => {
+              dialog.m_outputFileName = aValue;
               changed();
             }}
+            title="Enter a filename if you do not want to use default file names"
+            id="ze-gencad-output"
+            className="ze-search"
           />
           <button
             type="button"

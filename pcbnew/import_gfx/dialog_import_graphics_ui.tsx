@@ -6,7 +6,7 @@
  * DIALOG_IMPORT_GRAPHICS_BASE, the widget tree only. Every value and handler
  * comes in as a prop; `dialog_import_graphics.tsx` owns the state.
  */
-import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import type { Dispatch, JSX, SetStateAction } from 'react';
 import type { DXF_IMPORT_UNITS } from '@ziroeda/common/import_gfx/dxf_import_plugin.js';
 import type { PCB_LAYER_NAME } from '@ziroeda/common/layer_ids.js';
@@ -66,16 +66,15 @@ export function DialogImportGraphicsBase({
   ): JSX.Element => (
     <label className="ze-tvp-row">
       <span className="ze-tvp-label">{label}</span>
-      <input
-        type="text"
-        className="ze-tvp-input"
-        disabled={!enabled}
+      <TextCtrl
         value={shown(key, pcbUnitTextMM(valueMM, units))}
-        onChange={(e) => {
-          setTyped((p) => ({ ...p, [key]: e.target.value }));
-          apply(pcbUnitValueMM(e.target.value, units));
+        onChange={(aValue) => {
+          setTyped((p) => ({ ...p, [key]: aValue }));
+          apply(pcbUnitValueMM(aValue, units));
         }}
         onBlur={() => setTyped((p) => ({ ...p, [key]: undefined as unknown as string }))}
+        disabled={!enabled}
+        className="ze-tvp-input"
       />
       <span className="ze-unit-label">{unitLabel(units)}</span>
     </label>
@@ -84,16 +83,15 @@ export function DialogImportGraphicsBase({
   const scaleField = (
     <label className="ze-tvp-row">
       <span className="ze-tvp-label">Import scale:</span>
-      <input
-        type="text"
-        className="ze-tvp-input"
+      <TextCtrl
         value={shown('scale', String(params.scale))}
-        onChange={(e) => {
-          setTyped((p) => ({ ...p, scale: e.target.value }));
-          const n = Number(e.target.value);
+        onChange={(aValue) => {
+          setTyped((p) => ({ ...p, scale: aValue }));
+          const n = Number(aValue);
           if (Number.isFinite(n)) setParams((p) => ({ ...p, scale: n }));
         }}
         onBlur={() => setTyped((p) => ({ ...p, scale: undefined as unknown as string }))}
+        className="ze-tvp-input"
       />
     </label>
   );
@@ -146,17 +144,16 @@ export function DialogImportGraphicsBase({
             title="Used when the DXF items in file have no line thickness set"
           >
             <span className="ze-tvp-label">DXF default line width:</span>
-            <input
-              type="text"
-              className="ze-tvp-input"
-              disabled={!isDxf}
+            <TextCtrl
               value={shown('lw', pcbUnitTextMM(params.lineWidthMM, units))}
-              onChange={(e) => {
-                setTyped((p) => ({ ...p, lw: e.target.value }));
-                const mm = pcbUnitValueMM(e.target.value, units);
+              onChange={(aValue) => {
+                setTyped((p) => ({ ...p, lw: aValue }));
+                const mm = pcbUnitValueMM(aValue, units);
                 setParams((p) => ({ ...p, lineWidthMM: mm }));
               }}
               onBlur={() => setTyped((p) => ({ ...p, lw: undefined as unknown as string }))}
+              disabled={!isDxf}
+              className="ze-tvp-input"
             />
             <span className="ze-unit-label">{unitLabel(units)}</span>
           </label>

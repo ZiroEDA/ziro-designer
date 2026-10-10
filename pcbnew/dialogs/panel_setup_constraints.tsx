@@ -8,7 +8,7 @@
  * `TransferDataFromWindow` validation below were the Constraints page of
  * `dialog_board_setup.tsx` until it was split out to the file KiCad keeps it in.
  */
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import { validateUnitValue, type UnitRange } from '@ziroeda/common/widgets/unit_binder.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
@@ -231,11 +231,11 @@ export function PanelSetupConstraints({
     <div className="ze-con-row" key={key}>
       <span className="ze-con-icon">{icon ? <ConIcon name={icon} /> : null}</span>
       <span className="lbl">{label}</span>
-      <input
+      <TextCtrl
+        value={pcbUnitTextMM(value[key] as number, units)}
+        onChange={(aValue) => setCon(key, num(aValue))}
         id={constraintFieldId(key)}
         className="ze-search"
-        value={pcbUnitTextMM(value[key] as number, units)}
-        onChange={(e) => setCon(key, num(e.target.value))}
       />
       <span className="unit">{unitLabel(units)}</span>
     </div>
@@ -295,10 +295,10 @@ export function PanelSetupConstraints({
             column, so this row is NOT one of the left grid's. */}
         <div className="ze-con-dev">
           <span className="lbl">Maximum allowed deviation:</span>
-          <input
-            className="ze-search"
+          <TextCtrl
             value={pcbUnitTextMM(value.maxDeviationMM, units)}
-            onChange={(e) => setCon('maxDeviationMM', num(e.target.value))}
+            onChange={(aValue) => setCon('maxDeviationMM', num(aValue))}
+            className="ze-search"
           />
           <span className="unit">{unitLabel(units)}</span>
         </div>

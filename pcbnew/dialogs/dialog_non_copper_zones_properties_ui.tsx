@@ -8,7 +8,7 @@
  * corner smoothing and its distance) and the Fill box (solid or hatch, and
  * the hatch's orientation, width, gap and smoothing), then OK / Cancel.
  */
-import { CheckBox, StaticBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, StaticBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
@@ -160,14 +160,14 @@ export function DialogNonCopperZonesProperties({
               />
               <span />
               <span className={`lbl${hatch ? '' : ' disabled'}`}>Orientation:</span>
-              <input
-                className="ze-search"
-                disabled={!hatch}
+              <TextCtrl
                 value={String(v.hatchOrientation)}
-                onChange={(e) => {
-                  const d = Number(e.target.value);
+                onChange={(aValue) => {
+                  const d = Number(aValue);
                   if (Number.isFinite(d)) set({ hatchOrientation: d });
                 }}
+                disabled={!hatch}
+                className="ze-search"
               />
               <span className={`unit${hatch ? '' : ' disabled'}`}>degree</span>
               {length('hatchThickness', 'Hatch width:', hatch)}

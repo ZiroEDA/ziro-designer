@@ -14,7 +14,7 @@
  * below carrying `r_calculator_help.md` verbatim.
  */
 
-import { RadioButton } from '@ziroeda/common/wx/controls.js';
+import { RadioButton, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import {
   ESERIES,
@@ -93,9 +93,9 @@ export function PanelRCalculator(): JSX.Element {
   const solutionRow = (label: string, row: SolutionRow): JSX.Element => (
     <>
       <span>{label}</span>
-      <input className="calc-input ro rc-solution" readOnly value={row.formula} />
+      <TextCtrl value={row.formula} readOnly className="calc-input ro rc-solution" />
       <span className="rc-approx-label">Approximation:</span>
-      <input className="calc-input ro rc-approx" readOnly value={row.approxPct} />
+      <TextCtrl value={row.approxPct} readOnly className="calc-input ro rc-approx" />
       <span>%</span>
     </>
   );
@@ -103,11 +103,10 @@ export function PanelRCalculator(): JSX.Element {
   const inputRow = (label: string, value: string, onChange: (v: string) => void): JSX.Element => (
     <>
       <span>{label}</span>
-      <input
-        className="calc-input rc-value"
+      <TextCtrl
         value={value}
-        spellCheck={false}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(aValue) => onChange(aValue)}
+        className="calc-input rc-value"
       />
       <span>kΩ</span>
     </>

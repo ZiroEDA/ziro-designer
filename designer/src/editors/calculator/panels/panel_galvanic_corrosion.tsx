@@ -13,7 +13,7 @@
  * symbols and full names; the threshold field is in mV and defaults to 0.
  */
 
-import { RadioButton } from '@ziroeda/common/wx/controls.js';
+import { RadioButton, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import {
   CORROSION_METALS,
@@ -113,11 +113,10 @@ export function PanelGalvanicCorrosion(): JSX.Element {
       <div className="gc-bottom">
         <div className="calc-field gc-voltage">
           <span>Threshold voltage:</span>
-          <input
-            className="calc-input gc-threshold"
+          <TextCtrl
             value={threshold}
-            spellCheck={false}
-            onChange={(e) => setThreshold(e.target.value)}
+            onChange={(aValue) => setThreshold(aValue)}
+            className="calc-input gc-threshold"
           />
           <span className="calc-unit">mV</span>
         </div>

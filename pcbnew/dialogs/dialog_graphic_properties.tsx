@@ -20,7 +20,7 @@
  * `pcbnew/dialogs/dialog_shape_properties.ts`.
  */
 
-import { CheckBox, Combo } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, Combo, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { TextValues } from './dialog_text_properties.js';
@@ -82,15 +82,14 @@ export function DialogShapeProperties({
     return (
       <label>
         <span className="ze-tvp-label">{label}</span>
-        <input
-          type="text"
-          className="ze-tvp-input"
+        <TextCtrl
           value={text[id] ?? pcbUnitText(v[key][axis], units)}
-          onChange={(e) => {
-            setText(id, e.target.value);
-            const iu = pcbUnitValue(e.target.value, units);
+          onChange={(aValue) => {
+            setText(id, aValue);
+            const iu = pcbUnitValue(aValue, units);
             if (Number.isFinite(iu)) set({ [key]: { ...v[key], [axis]: iu } });
           }}
+          className="ze-tvp-input"
         />
         <span className="ze-unit-label">{unitLabel(units)}</span>
       </label>
@@ -124,15 +123,14 @@ export function DialogShapeProperties({
           <legend>Stroke &amp; Fill</legend>
           <label>
             <span className="ze-tvp-label">Line width:</span>
-            <input
-              type="text"
-              className="ze-tvp-input"
+            <TextCtrl
               value={text.lineWidth ?? pcbUnitText(v.lineWidth, units)}
-              onChange={(e) => {
-                setText('lineWidth', e.target.value);
-                const iu = pcbUnitValue(e.target.value, units);
+              onChange={(aValue) => {
+                setText('lineWidth', aValue);
+                const iu = pcbUnitValue(aValue, units);
                 if (Number.isFinite(iu)) set({ lineWidth: iu });
               }}
+              className="ze-tvp-input"
             />
             <span className="ze-unit-label">{unitLabel(units)}</span>
           </label>
@@ -190,16 +188,12 @@ export function DialogShapeProperties({
             title="Local clearance between the shape and the solder mask opening. Leave blank to use the Board Setup value."
           >
             <span className="ze-tvp-label">Expansion:</span>
-            <input
-              type="text"
-              className="ze-tvp-input"
-              placeholder="—"
-              disabled={!v.hasMask}
+            <TextCtrl
               value={
                 text.maskMargin ?? (v.maskMargin === null ? '' : pcbUnitText(v.maskMargin, units))
               }
-              onChange={(e) => {
-                const s = e.target.value;
+              onChange={(aValue) => {
+                const s = aValue;
                 setText('maskMargin', s);
                 if (s.trim() === '') {
                   set({ maskMargin: null });
@@ -208,6 +202,9 @@ export function DialogShapeProperties({
                 const iu = pcbUnitValue(s, units);
                 if (Number.isFinite(iu)) set({ maskMargin: iu });
               }}
+              disabled={!v.hasMask}
+              className="ze-tvp-input"
+              hint="—"
             />
             <span className="ze-unit-label">{unitLabel(units)}</span>
           </label>

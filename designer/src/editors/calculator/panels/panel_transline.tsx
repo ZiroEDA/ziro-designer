@@ -30,7 +30,7 @@
  * upstream's 0.2 and 0.2.
  */
 
-import { RadioButton } from '@ziroeda/common/wx/controls.js';
+import { RadioButton, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import {
   CONDUCTOR_RESISTIVITIES,
   LOSS_TANGENTS,
@@ -696,7 +696,7 @@ export function PanelTransline(): JSX.Element {
       return (
         <label className="calc-field" key={slotKey}>
           <span className="calc-field-label" />
-          <input className="calc-input" value="" disabled readOnly />
+          <TextCtrl value="" disabled readOnly className="calc-input" />
           <span className="calc-unit" />
         </label>
       );
@@ -711,11 +711,10 @@ export function PanelTransline(): JSX.Element {
         <span className="calc-field-label">{p.label === '' ? '' : `${p.label}:`}</span>
         {p.pick ? (
           <span className="calc-cell">
-            <input
-              className="calc-input"
+            <TextCtrl
               value={text(p.key)}
-              spellCheck={false}
-              onChange={(ev) => put(p.key, ev.target.value)}
+              onChange={(aValue) => put(p.key, aValue)}
+              className="calc-input"
             />
             {/* A plain wxButton labelled "..." with wxBU_EXACTFIT
                 (panel_transline_base.cpp:70) — not the drop-down ours had. */}
@@ -728,13 +727,12 @@ export function PanelTransline(): JSX.Element {
             </button>
           </span>
         ) : (
-          <input
-            className="calc-input"
+          <TextCtrl
             value={text(p.key)}
+            onChange={(aValue) => put(p.key, aValue)}
             disabled={p.dummy}
             readOnly={p.dummy}
-            spellCheck={false}
-            onChange={(ev) => put(p.key, ev.target.value)}
+            className="calc-input"
           />
         )}
         {list ? (
@@ -801,11 +799,10 @@ export function PanelTransline(): JSX.Element {
               <span className="calc-field-label" style={{ textAlign: 'right' }}>
                 Frequency:
               </span>
-              <input
-                className="calc-input"
+              <TextCtrl
                 value={text('Frequency')}
-                spellCheck={false}
-                onChange={(ev) => put('Frequency', ev.target.value)}
+                onChange={(aValue) => put('Frequency', aValue)}
+                className="calc-input"
               />
               <Combo
                 ariaLabel="Frequency unit"

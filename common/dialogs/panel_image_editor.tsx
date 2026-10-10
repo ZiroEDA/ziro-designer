@@ -17,7 +17,7 @@
  * is upstream's validation, which the host runs on OK
  * (`TransferDataFromWindow`).
  */
-import { Button } from '../wx/controls.js';
+import { Button, TextCtrl } from '../wx/controls.js';
 import type { JSX } from 'react';
 
 /** MIN_SIZE / MAX_SIZE (panel_image_editor.cpp:71-72), in pixels after scaling. */
@@ -118,12 +118,11 @@ export function PANEL_IMAGE_EDITOR({
       </div>
       <div className="ze-imgedit-grid">
         <span className="ze-refimg-lbl">Scale:</span>
-        <input
-          type="text"
-          className="ze-input ze-imgedit-scale"
-          aria-label="Scale"
+        <TextCtrl
           value={scaleText}
-          onChange={(e) => onScaleText(e.target.value)}
+          onChange={(aValue) => onScaleText(aValue)}
+          className="ze-input ze-imgedit-scale"
+          ariaLabel="Scale"
         />
         <span className="ze-refimg-lbl">PPI:</span>
         <span className="ze-imgedit-ppi">{ppi}</span>

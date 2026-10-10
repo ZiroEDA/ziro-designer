@@ -41,7 +41,7 @@ import {
   type Severity,
 } from '@ziroeda/common/reporter.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
-import { Button, Check, Radio, StaticBox } from '@ziroeda/common/wx/controls.js';
+import { Button, Check, Radio, StaticBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { WxFileDialog, type ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 
 /** `FILEEXT::NetlistFileWildcard()`. */
@@ -201,11 +201,11 @@ export function DialogImportNetlist({
       <div className="ze-modal-body ze-import-netlist-body">
         <div className="ze-import-netlist-file">
           <label htmlFor="ze-import-netlist-name">Netlist file:</label>
-          <input
+          <TextCtrl
+            value={name}
+            onChange={(aValue) => setName(aValue)}
             id="ze-import-netlist-name"
             className="ze-search"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
           />
           <button
             type="button"

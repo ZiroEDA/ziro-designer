@@ -23,7 +23,7 @@
  * `.ze-grid`, the buttons `.ze-gridbtn`; the widths stated are transcribed
  * from the base file and from `setColumnWidths`.
  */
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useLayoutEffect, useRef, useState } from 'react';
 import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
 import { GRID_CELL_RUN_FUNCTION_EDITOR } from '@ziroeda/common/widgets/grid_text_button_helpers.js';
@@ -645,11 +645,11 @@ function ProfileInfoPage({
       {/* fgSizer2: Name, spacer, Type, spacer, Target impedance + ohms. */}
       <div className="ze-tuneprof-head">
         <span className="lbl">Name:</span>
-        <input
-          className="ze-search ze-tuneprof-name"
-          aria-label="Name"
+        <TextCtrl
           value={profile.name}
-          onChange={(e) => onChange({ name: e.target.value })}
+          onChange={(aValue) => onChange({ name: aValue })}
+          className="ze-search ze-tuneprof-name"
+          ariaLabel="Name"
         />
         <span className="ze-tuneprof-spacer" />
         <span className="lbl">Type:</span>

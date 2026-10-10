@@ -26,7 +26,7 @@
  * the caller passes the values in rather than a zone.
  */
 
-import { Button, CheckBox, RadioButton } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, RadioButton, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import type { ConversionBoxValues } from '../tools/convert_settings_dialog.js';
 import {
   CONVERSION_BOX_LINE_MARGIN,
@@ -219,7 +219,7 @@ export function DialogRuleAreaProperties({
             title="A unique name for this rule area for use in DRC rules"
           >
             <span>Area name:</span>
-            <input type="text" value={v.name} onChange={(e) => set({ name: e.target.value })} />
+            <TextCtrl value={v.name} onChange={(aValue) => set({ name: aValue })} />
           </label>
           <CheckBox
             label="Locked"
@@ -300,12 +300,11 @@ export function DialogRuleAreaProperties({
             </label>
             <label title="Distance between parallel lines used for hatching the area">
               <span>Outline hatch pitch:</span>
-              <input
-                type="text"
+              <TextCtrl
                 value={pitchText ?? pcbUnitText(v.hatchPitch, units)}
-                onChange={(e) => {
-                  setPitchText(e.target.value);
-                  const iu = pcbUnitValue(e.target.value, units);
+                onChange={(aValue) => {
+                  setPitchText(aValue);
+                  const iu = pcbUnitValue(aValue, units);
                   if (Number.isFinite(iu)) set({ hatchPitch: iu });
                 }}
               />

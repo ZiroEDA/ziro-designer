@@ -23,7 +23,7 @@
  *    (`:66`, `:108`, `:159`) — not one grey 11px "%(d)".
  */
 
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import { SpinCtrl } from '@ziroeda/common/widgets/spin_ctrl.js';
 
@@ -171,10 +171,10 @@ export function PanelPcbTeardrops({ value, onChange }: Props): JSX.Element {
       />
     );
     const entry = (k: keyof TeardropShape): JSX.Element => (
-      <input
+      <TextCtrl
+        value={String(s[k] as number)}
+        onChange={(aValue) => set(k, num(aValue) as never)}
         className="ze-search"
-        value={s[k] as number}
-        onChange={(e) => set(k, num(e.target.value) as never)}
       />
     );
     const src = icon(opts.img);

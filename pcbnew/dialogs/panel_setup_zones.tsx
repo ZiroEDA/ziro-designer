@@ -19,7 +19,7 @@
  * overrides. See BOARD_SETUP_STATUS.md.
  */
 
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
@@ -142,10 +142,10 @@ export function PanelPcbZones({ value, onChange }: Props): JSX.Element {
   const numRow = (label: string, key: keyof ZoneDefaults, unit: string): JSX.Element => (
     <div className="ze-pref-row" key={key}>
       <span className="lbl">{label}</span>
-      <input
+      <TextCtrl
+        value={String(value[key] as number)}
+        onChange={(aValue) => set(key, num(aValue) as never)}
         className="ze-search"
-        value={value[key] as number}
-        onChange={(e) => set(key, num(e.target.value) as never)}
       />
       <span className="unit">{unit}</span>
     </div>
@@ -171,10 +171,10 @@ export function PanelPcbZones({ value, onChange }: Props): JSX.Element {
         <div className="ze-pref-group-body">
           <div className="ze-pref-row">
             <span className="lbl">Zone name:</span>
-            <input
-              className="ze-search"
+            <TextCtrl
               value={value.name}
-              onChange={(e) => set('name', e.target.value)}
+              onChange={(aValue) => set('name', aValue)}
+              className="ze-search"
             />
           </div>
           {numRow('Clearance:', 'clearanceMM', 'mm')}

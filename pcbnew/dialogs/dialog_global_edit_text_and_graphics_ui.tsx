@@ -7,7 +7,7 @@
  * side by side, then "Action" (the specified values, or the layer defaults
  * shown read-only from Board Setup), then Apply and Close / Close.
  */
-import { CheckBox, RadioButton, StaticBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, RadioButton, StaticBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { unitLabel } from '@ziroeda/common/eda_units.js';
@@ -182,26 +182,26 @@ export function DialogGlobalEditTextAndGraphics({
               />
               {board && box('m_referenceFilterOpt', 'By parent reference designator:')}
               {board && (
-                <input
-                  className="ze-search"
+                <TextCtrl
                   value={dialog.m_referenceFilter}
-                  onChange={(e) => {
-                    dialog.m_referenceFilter = e.target.value;
+                  onChange={(aValue) => {
+                    dialog.m_referenceFilter = aValue;
                     dialog.m_referenceFilterOpt = true; // OnReferenceFilterText
                     redraw();
                   }}
+                  className="ze-search"
                 />
               )}
               {board && box('m_footprintFilterOpt', 'By parent footprint library link:')}
               {board && (
-                <input
-                  className="ze-search"
+                <TextCtrl
                   value={dialog.m_footprintFilter}
-                  onChange={(e) => {
-                    dialog.m_footprintFilter = e.target.value;
+                  onChange={(aValue) => {
+                    dialog.m_footprintFilter = aValue;
                     dialog.m_footprintFilterOpt = true; // OnFootprintFilterText
                     redraw();
                   }}
+                  className="ze-search"
                 />
               )}
             </div>

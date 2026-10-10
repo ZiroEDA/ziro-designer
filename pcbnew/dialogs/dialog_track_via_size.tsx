@@ -22,6 +22,7 @@
  *    Board Setup > Pre-defined Sizes validates its via grid with, so the two
  *    refuse the same values with the same words.
  */
+import { TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '../pcb_track.js';
@@ -65,7 +66,7 @@ export function DialogTrackViaSize({ value, units, onOk, onClose }: Props): JSX.
     <>
       {/* [data] the label's `wxALIGN_CENTER_VERTICAL|wxTOP|wxBOTTOM|wxRIGHT, 5`. */}
       <span className="lbl">{label}</span>
-      <input id={id} className="ze-search" value={text} onChange={(e) => setText(e.target.value)} />
+      <TextCtrl value={text} onChange={(aValue) => setText(aValue)} id={id} className="ze-search" />
       {/* [data] the unit label's `wxALL|wxALIGN_CENTER_VERTICAL, 5`. */}
       <span className="unit">{unitLabel(units)}</span>
     </>

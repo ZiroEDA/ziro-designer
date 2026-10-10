@@ -24,7 +24,7 @@
  * It also stamps `SetDiffPairGapSource( "user choice" )` and the width's, which
  * is the string `ROUTER_TOOL`'s status bar shows afterwards.
  */
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
@@ -66,12 +66,12 @@ export function DialogPnsDiffPairDimensions({ value, units, onOk, onClose }: Pro
   ): JSX.Element => (
     <>
       <span className={`lbl${disabled ? ' disabled' : ''}`}>{label}</span>
-      <input
+      <TextCtrl
+        value={text}
+        onChange={(aValue) => setText(aValue)}
+        disabled={disabled}
         id={id}
         className="ze-search"
-        value={text}
-        disabled={disabled}
-        onChange={(e) => setText(e.target.value)}
       />
       <span className={`unit${disabled ? ' disabled' : ''}`}>{unitLabel(units)}</span>
     </>

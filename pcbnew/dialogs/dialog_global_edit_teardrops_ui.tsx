@@ -7,7 +7,7 @@
  * Board Setup link, and the specified values (tri-state boxes and five
  * UNIT_BINDERs beside the teardrop_sizes bitmap) - then Apply and Close / Close.
  */
-import { CheckBox, RadioButton, StaticBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, RadioButton, StaticBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState } from 'react';
 import { svgUrl } from '@ziroeda/bitmaps_png';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
@@ -129,14 +129,14 @@ export function DialogGlobalEditTeardrops({
   );
 
   const entry = (b: UNIT_BINDER): JSX.Element => (
-    <input
-      className="ze-search"
+    <TextCtrl
       value={b.GetText()}
-      disabled={!specOn}
-      onChange={(e) => {
-        b.SetText(e.target.value);
+      onChange={(aValue) => {
+        b.SetText(aValue);
         redraw();
       }}
+      disabled={!specOn}
+      className="ze-search"
     />
   );
 

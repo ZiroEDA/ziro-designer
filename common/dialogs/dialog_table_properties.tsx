@@ -36,6 +36,7 @@
  * which of the two this is; the dialog only reports the choice.
  */
 
+import { TextCtrl } from '../wx/controls.js';
 import { useState, type JSX, type ReactNode } from 'react';
 import type { EdaIuScale } from '../eda_units.js';
 import { LINE_STYLE_NAMES } from '../stroke_params.js';
@@ -158,17 +159,16 @@ export function DialogTableProperties<T extends SharedTableValues>({
   const widthField = (key: WidthKey, enabled: boolean): JSX.Element => (
     <label className="row ze-tableprops-field">
       <span className="ze-tableprops-lbl">Width:</span>
-      <input
-        type="text"
-        className="ze-input ze-tableprops-width"
-        disabled={!enabled}
+      <TextCtrl
         value={typed[key] ?? String(iuScale.iuToMM(v[key]))}
-        onChange={(e) => {
-          setTyped((p) => ({ ...p, [key]: e.target.value }));
-          const n = Number(e.target.value);
+        onChange={(aValue) => {
+          setTyped((p) => ({ ...p, [key]: aValue }));
+          const n = Number(aValue);
           if (Number.isFinite(n)) set({ [key]: iuScale.mmToIU(n) } as Partial<T>);
         }}
         onBlur={() => setTyped((p) => ({ ...p, [key]: undefined as unknown as string }))}
+        disabled={!enabled}
+        className="ze-input ze-tableprops-width"
       />
       <span className="ze-muted ze-tableprops-unit">mm</span>
     </label>

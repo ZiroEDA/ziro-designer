@@ -7,7 +7,7 @@
  * only), the "Update Options" box with Check All / Uncheck All, the output
  * messages, then Update or Change / Close. Quasi-modal: OK runs and stays.
  */
-import { Button, StaticBox } from '@ziroeda/common/wx/controls.js';
+import { Button, StaticBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import type { ReportLine } from '@ziroeda/common/reporter.js';
@@ -76,14 +76,14 @@ export function DialogExchangeFootprints({
     key: 'm_specifiedRef' | 'm_specifiedValue' | 'm_specifiedID' | 'm_newID',
     mode: number | null,
   ): JSX.Element => (
-    <input
-      className="ze-search"
+    <TextCtrl
       value={dialog[key]}
-      onChange={(e) => {
-        dialog[key] = e.target.value;
+      onChange={(aValue) => {
+        dialog[key] = aValue;
         if (mode !== null) dialog.m_matchMode = mode;
         redraw();
       }}
+      className="ze-search"
     />
   );
 

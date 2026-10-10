@@ -8,6 +8,7 @@
  * info generator. Mirrors kicad/common/widgets/lib_tree.cpp (LIB_TREE); the
  * wxDataViewCtrl becomes a scrollable flex list here.
  */
+import { TextCtrl } from '../wx/controls.js';
 import {
   useCallback,
   useEffect,
@@ -1014,13 +1015,12 @@ export function LibTree({
           >
             <EditFindSymbolic />
           </button>
-          <input
-            ref={searchRef}
-            className="ze-search"
-            type="text"
-            placeholder="Filter"
+          <TextCtrl
             value={search}
-            onChange={(e) => onQueryText(e.target.value)}
+            onChange={(aValue) => onQueryText(aValue)}
+            className="ze-search"
+            hint="Filter"
+            inputRef={searchRef}
           />
           {/* ShowCancelButton only shows one while there is something to cancel:
               GtkSearchEntry hangs the secondary icon off a non-empty value. */}

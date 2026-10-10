@@ -23,7 +23,7 @@
  * is written exactly as KiCad writes them to disk; "Download a copy to this
  * computer" additionally streams the set out as a zip.
  */
-import { Button } from '@ziroeda/common/wx/controls.js';
+import { Button, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useMemo, useRef, useState, type JSX } from 'react';
 import { zipSync, zlibSync, strToU8 } from 'fflate';
 import { PCB_PLOTTER } from '../pcb_plotter.js';
@@ -594,26 +594,26 @@ export function DialogPcbPlot({
                 <legend style={legend}>Postscript Options</legend>
                 <div style={fieldRow}>
                   <span>X scale factor:</span>
-                  <input
-                    className="ze-search"
+                  <TextCtrl
                     value={fineX}
-                    onChange={(e) => setFineX(e.target.value)}
+                    onChange={(aValue) => setFineX(aValue)}
+                    className="ze-search"
                   />
                 </div>
                 <div style={fieldRow}>
                   <span>Y scale factor:</span>
-                  <input
-                    className="ze-search"
+                  <TextCtrl
                     value={fineY}
-                    onChange={(e) => setFineY(e.target.value)}
+                    onChange={(aValue) => setFineY(aValue)}
+                    className="ze-search"
                   />
                 </div>
                 <div style={fieldRow}>
                   <span>Track width correction:</span>
-                  <input
-                    className="ze-search"
+                  <TextCtrl
                     value={widthAdjust}
-                    onChange={(e) => setWidthAdjust(e.target.value)}
+                    onChange={(aValue) => setWidthAdjust(aValue)}
+                    className="ze-search"
                   />
                   <span className="ze-unit-label">{unitLabel(units)}</span>
                 </div>

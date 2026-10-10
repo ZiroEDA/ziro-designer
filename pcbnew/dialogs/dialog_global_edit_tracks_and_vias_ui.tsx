@@ -7,7 +7,7 @@
  * then "Action" (the specified values, or the net class / custom rule values),
  * then Apply and Close / Close.
  */
-import { RadioButton, StaticBox } from '@ziroeda/common/wx/controls.js';
+import { RadioButton, StaticBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { unitLabel } from '@ziroeda/common/eda_units.js';
@@ -93,13 +93,13 @@ export function DialogGlobalEditTracksAndVias({
 
   const sizeEntry = (b: UNIT_BINDER): JSX.Element => (
     <span className="ze-gettv-size">
-      <input
-        className="ze-search"
+      <TextCtrl
         value={b.GetText()}
-        onChange={(e) => {
-          b.SetText(e.target.value);
+        onChange={(aValue) => {
+          b.SetText(aValue);
           redraw();
         }}
+        className="ze-search"
       />
       <span className="unit">{unitLabel(b.GetUnits())}</span>
     </span>

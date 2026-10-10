@@ -11,6 +11,7 @@
  * button works in a sandboxed frame too.
  */
 
+import { TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useMemo, useRef, useState, type JSX } from 'react';
 import {
   formatRegulatorDataFile,
@@ -389,9 +390,9 @@ export function PanelRegulator(): JSX.Element {
     <>
       <input type="radio" name="reg-solve" checked={solve === id} onChange={() => setSolve(id)} />
       <span className="reg-label">{label}</span>
-      <input className="calc-input ro light" readOnly value={min} />
-      <input className="calc-input" value={typ} onChange={(e) => setTyp(e.target.value)} />
-      <input className="calc-input ro light" readOnly value={max} />
+      <TextCtrl value={min} readOnly className="calc-input ro light" />
+      <TextCtrl value={typ} onChange={(aValue) => setTyp(aValue)} className="calc-input" />
+      <TextCtrl value={max} readOnly className="calc-input ro light" />
       <span className="calc-unit">{unit}</span>
     </>
   );
@@ -551,20 +552,20 @@ export function PanelRegulator(): JSX.Element {
             <span className="reg-label" title={TIP_VREF}>
               Vref:
             </span>
-            <input
-              className="calc-input"
+            <TextCtrl
               value={vrefMin}
-              onChange={(e) => setVrefMin(e.target.value)}
-            />
-            <input
+              onChange={(aValue) => setVrefMin(aValue)}
               className="calc-input"
+            />
+            <TextCtrl
               value={vrefTyp}
-              onChange={(e) => setVrefTyp(e.target.value)}
-            />
-            <input
+              onChange={(aValue) => setVrefTyp(aValue)}
               className="calc-input"
+            />
+            <TextCtrl
               value={vrefMax}
-              onChange={(e) => setVrefMax(e.target.value)}
+              onChange={(aValue) => setVrefMax(aValue)}
+              className="calc-input"
             />
             <span className="calc-unit">V</span>
 
@@ -575,15 +576,15 @@ export function PanelRegulator(): JSX.Element {
                   Iadj:
                 </span>
                 <span />
-                <input
-                  className="calc-input"
+                <TextCtrl
                   value={iadjTyp}
-                  onChange={(e) => setIadjTyp(e.target.value)}
-                />
-                <input
+                  onChange={(aValue) => setIadjTyp(aValue)}
                   className="calc-input"
+                />
+                <TextCtrl
                   value={iadjMax}
-                  onChange={(e) => setIadjMax(e.target.value)}
+                  onChange={(aValue) => setIadjMax(aValue)}
+                  className="calc-input"
                 />
                 <span className="calc-unit">µA</span>
               </>
@@ -591,9 +592,9 @@ export function PanelRegulator(): JSX.Element {
 
             <span />
             <span className="reg-label">Overall tolerance:</span>
-            <input className="calc-input ro light" readOnly value={tolMin} />
+            <TextCtrl value={tolMin} readOnly className="calc-input ro light" />
             <span />
-            <input className="calc-input ro light" readOnly value={tolMax} />
+            <TextCtrl value={tolMax} readOnly className="calc-input ro light" />
             <span className="calc-unit">%</span>
           </div>
 

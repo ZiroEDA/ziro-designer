@@ -23,7 +23,7 @@
  * that ZiroEDA's document model does not carry yet.
  */
 
-import { Button, CheckBox, Combo } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, Combo, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useCallback, useRef, useState, type JSX } from 'react';
 import {
   buildFieldsReferences,
@@ -666,14 +666,13 @@ export function DialogSymbolFieldsTable({
     return (
       <div className="ze-sft-cell" style={{ paddingLeft: indent }}>
         {twisty}
-        <input
-          type="text"
-          className="ze-grid-input"
+        <TextCtrl
           value={value}
-          onChange={(e) => {
-            model.setValue(row, col, e.target.value);
+          onChange={(aValue) => {
+            model.setValue(row, col, aValue);
             redraw();
           }}
+          className="ze-grid-input"
         />
       </div>
     );
@@ -716,10 +715,9 @@ export function DialogSymbolFieldsTable({
                         >
                           <td className="ze-sft-name">{fieldName}</td>
                           <td>
-                            <input
-                              type="text"
+                            <TextCtrl
                               value={model.getColLabelValue(col)}
-                              onChange={(e) => setLabel(fieldName, e.target.value)}
+                              onChange={(aValue) => setLabel(fieldName, aValue)}
                             />
                           </td>
                           <td className="center">
@@ -810,11 +808,11 @@ export function DialogSymbolFieldsTable({
             <div className="ze-sft-page">
               {/* Filter | scope | grouping | regroup | options (bControls). */}
               <div className="ze-sft-controls">
-                <input
-                  className="ze-search ze-sft-filter"
-                  placeholder="Filter"
+                <TextCtrl
                   value={filter}
-                  onChange={(e) => onFilterText(e.target.value)}
+                  onChange={(aValue) => onFilterText(aValue)}
+                  className="ze-search ze-sft-filter"
+                  hint="Filter"
                 />
                 <span className="ze-sft-vsep" />
                 <Combo
@@ -940,31 +938,31 @@ export function DialogSymbolFieldsTable({
             <div className="ze-sft-page ze-sft-export">
               <div className="ze-sft-fmt">
                 <label>Field delimiter:</label>
-                <input
-                  className="ze-search"
+                <TextCtrl
                   value={fmt.fieldDelimiter === '\t' ? '\\t' : fmt.fieldDelimiter}
-                  onChange={(e) =>
-                    editFmt({ fieldDelimiter: e.target.value === '\\t' ? '\t' : e.target.value })
+                  onChange={(aValue) =>
+                    editFmt({ fieldDelimiter: aValue === '\\t' ? '\t' : aValue })
                   }
+                  className="ze-search"
                 />
                 <label>String delimiter:</label>
-                <input
-                  className="ze-search"
+                <TextCtrl
                   value={fmt.stringDelimiter}
-                  onChange={(e) => editFmt({ stringDelimiter: e.target.value })}
+                  onChange={(aValue) => editFmt({ stringDelimiter: aValue })}
+                  className="ze-search"
                 />
                 <label>Reference delimiter:</label>
-                <input
-                  className="ze-search"
+                <TextCtrl
                   value={fmt.refDelimiter}
-                  onChange={(e) => editFmt({ refDelimiter: e.target.value })}
+                  onChange={(aValue) => editFmt({ refDelimiter: aValue })}
+                  className="ze-search"
                 />
                 <label>Range delimiter:</label>
-                <input
-                  className="ze-search"
-                  title="Leave blank to disable ranges."
+                <TextCtrl
                   value={fmt.refRangeDelimiter}
-                  onChange={(e) => editFmt({ refRangeDelimiter: e.target.value })}
+                  onChange={(aValue) => editFmt({ refRangeDelimiter: aValue })}
+                  title="Leave blank to disable ranges."
+                  className="ze-search"
                 />
                 <CheckBox
                   label="Keep tabs"
@@ -1000,11 +998,11 @@ export function DialogSymbolFieldsTable({
               <div className="ze-sft-output">
                 <div className="ze-sft-outfile">
                   <label>Output file:</label>
-                  <input
-                    className="ze-search"
+                  <TextCtrl
                     value={outputFileName}
-                    placeholder={defaultBomFileName}
-                    onChange={(e) => setOutputFileName(e.target.value)}
+                    onChange={(aValue) => setOutputFileName(aValue)}
+                    className="ze-search"
+                    hint={defaultBomFileName}
                   />
                   <button
                     className="ze-gridbtn"

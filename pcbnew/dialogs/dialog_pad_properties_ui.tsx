@@ -14,7 +14,7 @@
  * The decision logic lives in `pcbnew/dialogs/dialog_pad_properties.ts`.
  */
 
-import { CheckBox, Combo } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, Combo, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { PadValues } from './dialog_pad_properties.js';
@@ -78,16 +78,15 @@ export function DialogPadProperties({
   const mmField = (label: string, key: LengthKey, disabled = false): JSX.Element => (
     <label className={disabled ? 'disabled' : ''}>
       <span className="ze-tvp-label">{label}</span>
-      <input
-        type="text"
-        className="ze-tvp-input"
+      <TextCtrl
         value={text[key] ?? pcbUnitText(v[key], units)}
-        disabled={disabled}
-        onChange={(e) => {
-          setText((p) => ({ ...p, [key]: e.target.value }));
-          const iu = pcbUnitValue(e.target.value, units);
+        onChange={(aValue) => {
+          setText((p) => ({ ...p, [key]: aValue }));
+          const iu = pcbUnitValue(aValue, units);
           if (Number.isFinite(iu)) set({ [key]: iu } as Partial<PadValues>);
         }}
+        disabled={disabled}
+        className="ze-tvp-input"
       />
       <span className="ze-unit-label">{unitLabel(units)}</span>
     </label>
@@ -99,13 +98,10 @@ export function DialogPadProperties({
     return (
       <label title={title}>
         <span className="ze-tvp-label">{label}</span>
-        <input
-          type="text"
-          className="ze-tvp-input"
-          placeholder="—"
+        <TextCtrl
           value={text[key] ?? (stored === null ? '' : pcbUnitText(stored, units))}
-          onChange={(e) => {
-            const s = e.target.value;
+          onChange={(aValue) => {
+            const s = aValue;
             setText((p) => ({ ...p, [key]: s }));
             if (s.trim() === '') {
               set({ [key]: null } as Partial<PadValues>);
@@ -114,6 +110,8 @@ export function DialogPadProperties({
             const iu = pcbUnitValue(s, units);
             if (Number.isFinite(iu)) set({ [key]: iu } as Partial<PadValues>);
           }}
+          className="ze-tvp-input"
+          hint="—"
         />
         <span className="ze-unit-label">{unitLabel(units)}</span>
       </label>
@@ -152,11 +150,10 @@ export function DialogPadProperties({
               <legend>Pad</legend>
               <label>
                 <span className="ze-tvp-label">Pad number:</span>
-                <input
-                  type="text"
-                  className="ze-tvp-input"
+                <TextCtrl
                   value={v.number}
-                  onChange={(e) => set({ number: e.target.value })}
+                  onChange={(aValue) => set({ number: aValue })}
+                  className="ze-tvp-input"
                 />
               </label>
               <label>
@@ -210,15 +207,14 @@ export function DialogPadProperties({
               </div>
               <label>
                 <span className="ze-tvp-label">Orientation:</span>
-                <input
-                  type="text"
-                  className="ze-tvp-input"
+                <TextCtrl
                   value={text.orientation ?? String(v.orientation)}
-                  onChange={(e) => {
-                    setText((p) => ({ ...p, orientation: e.target.value }));
-                    const n = Number(e.target.value);
+                  onChange={(aValue) => {
+                    setText((p) => ({ ...p, orientation: aValue }));
+                    const n = Number(aValue);
                     if (Number.isFinite(n)) set({ orientation: n });
                   }}
+                  className="ze-tvp-input"
                 />
                 <span className="ze-tvp-unit">deg</span>
               </label>
@@ -228,16 +224,15 @@ export function DialogPadProperties({
               </div>
               <label className={isRoundRect ? '' : 'disabled'}>
                 <span className="ze-tvp-label">Corner radius ratio:</span>
-                <input
-                  type="text"
-                  className="ze-tvp-input"
+                <TextCtrl
                   value={text.rratio ?? String(v.roundrectRatio)}
-                  disabled={!isRoundRect}
-                  onChange={(e) => {
-                    setText((p) => ({ ...p, rratio: e.target.value }));
-                    const n = Number(e.target.value);
+                  onChange={(aValue) => {
+                    setText((p) => ({ ...p, rratio: aValue }));
+                    const n = Number(aValue);
                     if (Number.isFinite(n)) set({ roundrectRatio: n });
                   }}
+                  disabled={!isRoundRect}
+                  className="ze-tvp-input"
                 />
                 <span className="ze-tvp-unit">×</span>
               </label>
@@ -305,18 +300,15 @@ export function DialogPadProperties({
               {overrideField('Solder paste clearance:', 'localSolderPasteMargin')}
               <label title="Solder paste clearance as a fraction of the pad size.">
                 <span className="ze-tvp-label">Paste clearance ratio:</span>
-                <input
-                  type="text"
-                  className="ze-tvp-input"
-                  placeholder="—"
+                <TextCtrl
                   value={
                     text.ratio ??
                     (v.localSolderPasteMarginRatio === null
                       ? ''
                       : String(v.localSolderPasteMarginRatio))
                   }
-                  onChange={(e) => {
-                    const s = e.target.value;
+                  onChange={(aValue) => {
+                    const s = aValue;
                     setText((p) => ({ ...p, ratio: s }));
                     if (s.trim() === '') {
                       set({ localSolderPasteMarginRatio: null });
@@ -325,6 +317,8 @@ export function DialogPadProperties({
                     const n = Number(s);
                     if (Number.isFinite(n)) set({ localSolderPasteMarginRatio: n });
                   }}
+                  className="ze-tvp-input"
+                  hint="—"
                 />
                 <span className="ze-tvp-unit">×</span>
               </label>

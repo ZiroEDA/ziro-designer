@@ -7,6 +7,7 @@
  * board-outline fix and its tolerance on a board, then "Changes to be
  * applied:" and OK / Cancel.
  */
+import { TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState, useSyncExternalStore } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { unitLabel } from '@ziroeda/common/eda_units.js';
@@ -72,12 +73,12 @@ export function DialogCleanupGraphics({
               <label className="lbl" htmlFor="ze-cleanupgfx-tol">
                 {dialog.m_tolerance.GetLabel()}
               </label>
-              <input
+              <TextCtrl
+                value={dialog.m_tolerance.GetText()}
+                onChange={(aValue) => dialog.SetToleranceText(aValue)}
+                onBlur={() => dialog.OnCheckBox()}
                 id="ze-cleanupgfx-tol"
                 className="ze-search"
-                value={dialog.m_tolerance.GetText()}
-                onChange={(e) => dialog.SetToleranceText(e.target.value)}
-                onBlur={() => dialog.OnCheckBox()}
               />
               <span className="unit">{unitLabel(dialog.m_tolerance.GetUnits())}</span>
             </div>

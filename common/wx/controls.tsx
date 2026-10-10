@@ -200,10 +200,13 @@ export function TextCtrl({
   readOnly,
   disabled,
   title,
+  hint,
   className,
   inputRef,
+  textAreaRef,
   id,
   ariaLabel,
+  autoFocus,
 }: {
   value: string;
   onChange?: (aValue: string) => void;
@@ -214,10 +217,14 @@ export function TextCtrl({
   readOnly?: boolean;
   disabled?: boolean;
   title?: string;
+  /** `wxTextEntry::SetHint`: the grey text an empty entry shows. */
+  hint?: string;
   className?: string;
-  inputRef?: Ref<HTMLInputElement & HTMLTextAreaElement>;
+  inputRef?: Ref<HTMLInputElement>;
+  textAreaRef?: Ref<HTMLTextAreaElement>;
   id?: string;
   ariaLabel?: string;
+  autoFocus?: boolean;
 }): JSX.Element {
   const common = {
     id,
@@ -226,14 +233,18 @@ export function TextCtrl({
     disabled,
     title,
     className,
+    placeholder: hint,
+    autoFocus,
+    // A GtkEntry does not spell-check.
+    spellCheck: false,
     'aria-label': ariaLabel,
-    ref: inputRef,
     onBlur,
     onChange: (e: { target: { value: string } }) => onChange?.(e.target.value),
   };
-  if (multiLine) return <textarea {...common} />;
+  if (multiLine) return <textarea ref={textAreaRef} {...common} />;
   return (
     <input
+      ref={inputRef}
       type="text"
       {...common}
       onKeyDown={(e) => {

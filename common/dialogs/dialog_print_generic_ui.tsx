@@ -31,7 +31,7 @@
  * cannot enumerate any - the browser's print dialog chooses the printer), and
  * Page Setup... (the browser's print dialog is the page setup).
  */
-import { CheckBox, RadioButton, StaticBox } from '../wx/controls.js';
+import { CheckBox, RadioButton, StaticBox, TextCtrl } from '../wx/controls.js';
 import type { JSX, ReactNode } from 'react';
 import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import { Combo } from '../widgets/wx_combobox.js';
@@ -131,15 +131,15 @@ export function DIALOG_PRINT_GENERIC({
                 className="ze-printdlg-radio"
                 onChange={() => onScaleMode('custom')}
               />
-              <input
-                className="ze-search ze-printdlg-customtext"
-                aria-label="Custom scale"
+              <TextCtrl
                 value={customScale}
-                onChange={(e) => {
+                onChange={(aValue) => {
                   // onSetCustomScale: typing selects the Custom radio.
-                  onCustomScale(e.target.value);
+                  onCustomScale(aValue);
                   onScaleMode('custom');
                 }}
+                className="ze-search ze-printdlg-customtext"
+                ariaLabel="Custom scale"
               />
             </div>
           </StaticBox>

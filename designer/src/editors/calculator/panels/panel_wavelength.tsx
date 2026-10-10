@@ -12,6 +12,7 @@
  * them" means (panel_wavelength.cpp:85-125).
  */
 
+import { TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import {
   STANDARD_EPSILON_R_LIST,
@@ -175,11 +176,10 @@ export function PanelWavelength(): JSX.Element {
       {rows.map((r) => (
         <div className="wl-row" key={r.row}>
           <span className="calc-field-label">{r.label}</span>
-          <input
-            className="calc-input"
+          <TextCtrl
             value={shown(r.row, r.si, r.units[r.unitIdx]?.mult ?? 1)}
-            spellCheck={false}
-            onChange={(e) => r.onText(e.target.value)}
+            onChange={(aValue) => r.onText(aValue)}
+            className="calc-input"
           />
           <Combo
             ariaLabel={r.label}
@@ -198,12 +198,7 @@ export function PanelWavelength(): JSX.Element {
         <span className="calc-field-label" title="relative permittivity (dielectric constant)">
           er:
         </span>
-        <input
-          className="calc-input"
-          value={er}
-          spellCheck={false}
-          onChange={(e) => setMedium(e.target.value, mur)}
-        />
+        <TextCtrl value={er} onChange={(aValue) => setMedium(aValue, mur)} className="calc-input" />
         {/* `new wxButton( ..., _("..."), ..., 0 )` — style ZERO
             (panel_wavelength_base.cpp:96). This is the ONLY "..." button in the
             launcher without wxBU_EXACTFIT; Cable Size's two, Via Size's two and
@@ -225,12 +220,7 @@ export function PanelWavelength(): JSX.Element {
         <span className="calc-field-label" title="relative permeability">
           mur:
         </span>
-        <input
-          className="calc-input"
-          value={mur}
-          spellCheck={false}
-          onChange={(e) => setMedium(er, e.target.value)}
-        />
+        <TextCtrl value={mur} onChange={(aValue) => setMedium(er, aValue)} className="calc-input" />
       </div>
 
       {picking && (

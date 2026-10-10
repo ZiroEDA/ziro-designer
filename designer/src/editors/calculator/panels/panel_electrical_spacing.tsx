@@ -9,6 +9,7 @@
  * and `panel_electrical_spacing_iec60664.cpp`.
  */
 
+import { TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useMemo, useState } from 'react';
 import {
   IPC2221_CASES,
@@ -93,11 +94,10 @@ function PanelIpc2221(): JSX.Element {
         />
         <hr className="calc-hr" />
         <span>Voltage &gt; 500 V:</span>
-        <input
-          className="calc-input"
+        <TextCtrl
           value={voltage}
-          spellCheck={false}
-          onChange={(e) => setVoltage(e.target.value)}
+          onChange={(aValue) => setVoltage(aValue)}
+          className="calc-input"
         />
         <button type="button" className="calc-btn" onClick={applyVoltage}>
           Update Values

@@ -10,6 +10,7 @@
  * Counterpart: KiCad `calculator_panels/panel_cable_size.cpp`.
  */
 
+import { TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX, type CSSProperties } from 'react';
 import {
   AWG_NAMES,
@@ -265,11 +266,10 @@ export function PanelCableSize(): JSX.Element {
               Conductor resistivity:
             </span>
             <span className="calc-cell">
-              <input
-                className="calc-input"
+              <TextCtrl
                 value={rho20Text}
-                spellCheck={false}
-                onChange={(e) => setRho20Text(e.target.value)}
+                onChange={(aValue) => setRho20Text(aValue)}
+                className="calc-input"
               />
               <button
                 type="button"
@@ -287,11 +287,10 @@ export function PanelCableSize(): JSX.Element {
               Temperature Coefficient:
             </span>
             <span className="calc-cell">
-              <input
-                className="calc-input"
+              <TextCtrl
                 value={alphaText}
-                spellCheck={false}
-                onChange={(e) => setAlphaText(e.target.value)}
+                onChange={(aValue) => setAlphaText(aValue)}
+                className="calc-input"
               />
               <button
                 type="button"
@@ -365,21 +364,15 @@ export function PanelCableSize(): JSX.Element {
             <span className="calc-field-label" title={TIP_CABLE_TEMP}>
               Cable temperature:
             </span>
-            <input
-              className="calc-input"
-              value={temp}
-              spellCheck={false}
-              onChange={(e) => setTemp(e.target.value)}
-            />
+            <TextCtrl value={temp} onChange={(aValue) => setTemp(aValue)} className="calc-input" />
             <span className="calc-unit">°C</span>
           </div>
           <div className="calc-field">
             <span className="calc-field-label">Current:</span>
-            <input
-              className="calc-input"
+            <TextCtrl
               value={current}
-              spellCheck={false}
-              onChange={(e) => setCurrent(e.target.value)}
+              onChange={(aValue) => setCurrent(aValue)}
+              className="calc-input"
             />
             <span className="calc-unit">A</span>
           </div>
@@ -387,11 +380,10 @@ export function PanelCableSize(): JSX.Element {
             <span className="calc-field-label" title={TIP_LENGTH}>
               Length:
             </span>
-            <input
-              className="calc-input"
+            <TextCtrl
               value={lengthText}
-              spellCheck={false}
-              onChange={(e) => setLengthText(e.target.value)}
+              onChange={(aValue) => setLengthText(aValue)}
+              className="calc-input"
             />
             <Combo
               style={{ minWidth: 62 }}

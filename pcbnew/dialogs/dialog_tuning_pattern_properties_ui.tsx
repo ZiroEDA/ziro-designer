@@ -16,7 +16,7 @@
  * branch, and the four controls' enabled state. This file is the widgets.
  */
 
-import { Button, CheckBox, RadioButton } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, RadioButton, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import {
   NULL_TUNING_CONSTRAINT,
@@ -112,12 +112,11 @@ export function DialogTuningPatternProperties({
             className="ze-tp-cell ze-tp-r0c0"
             onChange={() => set(tuningPatternRadioLengthSelected(v))}
           />
-          <input
-            className="ze-tp-cell ze-tp-r0c1"
-            type="text"
+          <TextCtrl
             value={v.targetLengthText}
+            onChange={(aValue) => set({ targetLengthText: aValue })}
             disabled={!enable.targetLengthEnabled}
-            onChange={(e) => set({ targetLengthText: e.target.value })}
+            className="ze-tp-cell ze-tp-r0c1"
           />
           <span className="ze-tp-cell ze-tp-r0c2 ze-unit-label">{unitLabel(units)}</span>
 
@@ -129,12 +128,11 @@ export function DialogTuningPatternProperties({
             className="ze-tp-cell ze-tp-r1c0"
             onChange={() => set(tuningPatternRadioDelaySelected(v))}
           />
-          <input
-            className="ze-tp-cell ze-tp-r1c1"
-            type="text"
+          <TextCtrl
             value={v.targetDelayText}
+            onChange={(aValue) => set({ targetDelayText: aValue })}
             disabled={!enable.targetDelayEnabled}
-            onChange={(e) => set({ targetDelayText: e.target.value })}
+            className="ze-tp-cell ze-tp-r1c1"
           />
           <span className="ze-tp-cell ze-tp-r1c2 ze-unit-label">ps</span>
 
@@ -152,29 +150,26 @@ export function DialogTuningPatternProperties({
           )}
 
           <span className="ze-tp-cell ze-tp-r5c0">Minimum amplitude (A):</span>
-          <input
-            className="ze-tp-cell ze-tp-r5c1"
-            type="text"
+          <TextCtrl
             value={pcbUnitText(v.minAmplitude, units)}
-            onChange={(e) => set({ minAmplitude: Number(e.target.value) || 0 })}
+            onChange={(aValue) => set({ minAmplitude: Number(aValue) || 0 })}
+            className="ze-tp-cell ze-tp-r5c1"
           />
           <span className="ze-tp-cell ze-tp-r5c2 ze-unit-label">{unitLabel(units)}</span>
           <span className="ze-tp-cell ze-tp-r5c4">Maximum amplitude (A):</span>
-          <input
-            className="ze-tp-cell ze-tp-r5c5"
-            type="text"
+          <TextCtrl
             value={pcbUnitText(v.maxAmplitude, units)}
-            onChange={(e) => set({ maxAmplitude: Number(e.target.value) || 0 })}
+            onChange={(aValue) => set({ maxAmplitude: Number(aValue) || 0 })}
+            className="ze-tp-cell ze-tp-r5c5"
           />
           <span className="ze-tp-cell ze-tp-r5c6 ze-unit-label">{unitLabel(units)}</span>
 
           <span className="ze-tp-cell ze-tp-r6c0">Spacing (s):</span>
-          <input
-            className="ze-tp-cell ze-tp-r6c1"
-            type="text"
-            title="Minimum spacing between adjacent tuning segments. The resulting spacing may be greater based on design rules."
+          <TextCtrl
             value={pcbUnitText(v.spacing, units)}
-            onChange={(e) => set({ spacing: Number(e.target.value) || 0 })}
+            onChange={(aValue) => set({ spacing: Number(aValue) || 0 })}
+            title="Minimum spacing between adjacent tuning segments. The resulting spacing may be greater based on design rules."
+            className="ze-tp-cell ze-tp-r6c1"
           />
           <span className="ze-tp-cell ze-tp-r6c2 ze-unit-label">{unitLabel(units)}</span>
 
@@ -187,11 +182,10 @@ export function DialogTuningPatternProperties({
             />
           </div>
           <span className="ze-tp-cell ze-tp-r8c4">Radius (r):</span>
-          <input
-            className="ze-tp-cell ze-tp-r8c5"
-            type="text"
+          <TextCtrl
             value={String(v.cornerRadiusPercentage)}
-            onChange={(e) => set({ cornerRadiusPercentage: Number(e.target.value) || 0 })}
+            onChange={(aValue) => set({ cornerRadiusPercentage: Number(aValue) || 0 })}
+            className="ze-tp-cell ze-tp-r8c5"
           />
           <span className="ze-tp-cell ze-tp-r8c6 ze-unit-label">%</span>
 

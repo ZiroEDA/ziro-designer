@@ -22,7 +22,7 @@
  * label and selector are hidden (`m_netLabel->Hide(); m_netSelector->Hide()`).
  */
 
-import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import type { ZoneValues } from './panel_zone_properties.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
@@ -102,15 +102,14 @@ export function PanelZoneProperties({
       <label className="lbl" htmlFor={`ze-cz-${key}`} title={title}>
         {label}
       </label>
-      <input
-        id={`ze-cz-${key}`}
-        type="text"
+      <TextCtrl
         value={text[key] ?? pcbUnitText(v[key] as number, units)}
-        onChange={(e) => {
-          setText((p) => ({ ...p, [key]: e.target.value }));
-          const iu = pcbUnitValue(e.target.value, units);
+        onChange={(aValue) => {
+          setText((p) => ({ ...p, [key]: aValue }));
+          const iu = pcbUnitValue(aValue, units);
           if (Number.isFinite(iu)) set({ [key]: iu } as Partial<ZoneValues>);
         }}
+        id={`ze-cz-${key}`}
       />
       <span className="unit">{unitLabel(units)}</span>
     </>
@@ -181,12 +180,7 @@ export function PanelZoneProperties({
         >
           Zone name:
         </label>
-        <input
-          id="ze-cz-name"
-          type="text"
-          value={v.name}
-          onChange={(e) => set({ name: e.target.value })}
-        />
+        <TextCtrl value={v.name} onChange={(aValue) => set({ name: aValue })} id="ze-cz-name" />
         {allowNetSpec && (
           <label className="lbl" htmlFor="ze-cz-net">
             Net name:
@@ -347,17 +341,14 @@ export function PanelZoneProperties({
                         <td>{layer}</td>
                         {(['x', 'y'] as const).map((axis) => (
                           <td key={axis}>
-                            <input
-                              type="text"
-                              disabled={!hatched}
-                              aria-label={`${layer} ${axis.toUpperCase()} Offset`}
+                            <TextCtrl
                               value={text[`${layer}:${axis}`] ?? pcbUnitText(off[axis], units)}
-                              onChange={(e) => {
+                              onChange={(aValue) => {
                                 setText((p) => ({
                                   ...p,
-                                  [`${layer}:${axis}`]: e.target.value,
+                                  [`${layer}:${axis}`]: aValue,
                                 }));
-                                const iu = pcbUnitValue(e.target.value, units);
+                                const iu = pcbUnitValue(aValue, units);
                                 if (!Number.isFinite(iu)) return;
                                 set({
                                   layerProperties: {
@@ -366,6 +357,8 @@ export function PanelZoneProperties({
                                   },
                                 });
                               }}
+                              disabled={!hatched}
+                              ariaLabel={`${layer} ${axis.toUpperCase()} Offset`}
                             />
                           </td>
                         ))}

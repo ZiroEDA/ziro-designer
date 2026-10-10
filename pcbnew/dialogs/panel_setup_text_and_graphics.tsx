@@ -26,7 +26,7 @@
  * entry lines up with the Precision choice. No SetFont anywhere in either panel.
  */
 
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useLayoutEffect, useRef, useState } from 'react';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
@@ -373,10 +373,10 @@ export function PanelPcbTextGraphics({ value, onChange }: Props): JSX.Element {
         />
         <span />
         <span className="ze-tg-dimright">Arrow length:</span>
-        <input
+        <TextCtrl
+          value={String(d.arrowLengthMM)}
+          onChange={(aValue) => setDim('arrowLengthMM', num(aValue))}
           className="ze-search"
-          value={d.arrowLengthMM}
-          onChange={(e) => setDim('arrowLengthMM', num(e.target.value))}
         />
         <span className="unit">mm</span>
 
@@ -389,10 +389,10 @@ export function PanelPcbTextGraphics({ value, onChange }: Props): JSX.Element {
         />
         <span />
         <span className="ze-tg-dimright">Extension line offset:</span>
-        <input
+        <TextCtrl
+          value={String(d.extLineOffsetMM)}
+          onChange={(aValue) => setDim('extLineOffsetMM', num(aValue))}
           className="ze-search"
-          value={d.extLineOffsetMM}
-          onChange={(e) => setDim('extLineOffsetMM', num(e.target.value))}
         />
         <span className="unit">mm</span>
       </div>

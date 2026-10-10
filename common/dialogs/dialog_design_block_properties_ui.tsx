@@ -25,7 +25,7 @@
  * The grid is a WX_GRID with GRID_TRICKS, rows selected whole, column 1
  * autosized (`SetupColumnAutosizer( 1 )`).
  */
-import { StaticBox } from '../wx/controls.js';
+import { StaticBox, TextCtrl } from '../wx/controls.js';
 import { useState, type JSX } from 'react';
 import type { DESIGN_BLOCK } from '../design_block.js';
 import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
@@ -154,19 +154,19 @@ export function DialogDesignBlockProperties({
       </div>
       <div className="ze-dbprops-props">
         <label htmlFor="ze-dbprops-name">Name:</label>
-        <input
+        <TextCtrl
+          value={name}
+          onChange={(aValue) => setName(aValue)}
+          readOnly={disableName}
           id="ze-dbprops-name"
           className="ze-input"
-          value={name}
-          readOnly={disableName}
-          onChange={(e) => setName(e.target.value)}
         />
         <label htmlFor="ze-dbprops-keywords">Keywords:</label>
-        <input
+        <TextCtrl
+          value={keywords}
+          onChange={(aValue) => setKeywords(aValue)}
           id="ze-dbprops-keywords"
           className="ze-input"
-          value={keywords}
-          onChange={(e) => setKeywords(e.target.value)}
         />
         <label htmlFor="ze-dbprops-description">Description:</label>
         <textarea

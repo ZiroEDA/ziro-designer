@@ -28,7 +28,7 @@
  * reads "Reset Version Control to Defaults" and has to have something to reset.
  */
 import type { JSX } from 'react';
-import { Check, Group } from '../../wx/controls.js';
+import { Check, Group, TextCtrl } from '../../wx/controls.js';
 import { SpinCtrl } from '../../widgets/spin_ctrl.js';
 import type { COMMON_SETTINGS_DRAFT } from '../../settings/common_settings.js';
 
@@ -91,28 +91,26 @@ export function PanelGitRepos({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Elem
           />
           <span />
           <span className="lbl">Author name:</span>
-          <input
-            className="ze-search"
-            type="text"
+          <TextCtrl
             value={git.authorName}
-            disabled
-            onChange={(e) =>
+            onChange={(aValue) =>
               upC((s) => {
-                s.git.authorName = e.target.value;
+                s.git.authorName = aValue;
               })
             }
+            disabled
+            className="ze-search"
           />
           <span className="lbl">Author e-mail:</span>
-          <input
-            className="ze-search"
-            type="text"
+          <TextCtrl
             value={git.authorEmail}
-            disabled
-            onChange={(e) =>
+            onChange={(aValue) =>
               upC((s) => {
-                s.git.authorEmail = e.target.value;
+                s.git.authorEmail = aValue;
               })
             }
+            disabled
+            className="ze-search"
           />
         </div>
       </Group>

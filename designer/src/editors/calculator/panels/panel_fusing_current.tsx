@@ -7,6 +7,7 @@
  * and Calculate. Counterpart: KiCad `calculator_panels/panel_fusing_current.cpp`.
  */
 
+import { TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { type FusingSolveFor, fusingCurrent, printfF } from '@ziroeda/pcb_calculator';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
@@ -48,12 +49,7 @@ function LenRow({
       <span className="calc-field-label">{label}</span>
       {/* Not read-only: KiCad's four value fields are plain wxTextCtrls and the
           solved one is simply overwritten (panel_fusing_current.cpp:162-199). */}
-      <input
-        className="calc-input"
-        value={text}
-        spellCheck={false}
-        onChange={(e) => onText(e.target.value)}
-      />
+      <TextCtrl value={text} onChange={(aValue) => onText(aValue)} className="calc-input" />
       <Combo
         style={{ minWidth: 62 }}
         value={String(unitIdx)}
@@ -91,12 +87,7 @@ function NumRow({
         onChange={() => onActive(solveFor)}
       />
       <span className="calc-field-label">{label}</span>
-      <input
-        className="calc-input"
-        value={value}
-        spellCheck={false}
-        onChange={(e) => onValue(e.target.value)}
-      />
+      <TextCtrl value={value} onChange={(aValue) => onValue(aValue)} className="calc-input" />
       <span className="calc-unit">{unit}</span>
     </>
   );
@@ -165,11 +156,10 @@ export function PanelFusingCurrent(): JSX.Element {
       <div className="fc-grid">
         <span />
         <span className="calc-field-label">Ambient temperature:</span>
-        <input
-          className="calc-input"
+        <TextCtrl
           value={ambient}
-          spellCheck={false}
-          onChange={(e) => setAmbient(e.target.value)}
+          onChange={(aValue) => setAmbient(aValue)}
+          className="calc-input"
         />
         <span className="calc-unit">°C</span>
 
@@ -177,11 +167,10 @@ export function PanelFusingCurrent(): JSX.Element {
         <span className="calc-field-label" title="Copper">
           Melting point:
         </span>
-        <input
-          className="calc-input"
+        <TextCtrl
           value={melting}
-          spellCheck={false}
-          onChange={(e) => setMelting(e.target.value)}
+          onChange={(aValue) => setMelting(aValue)}
+          className="calc-input"
         />
         <span className="calc-unit">°C</span>
 

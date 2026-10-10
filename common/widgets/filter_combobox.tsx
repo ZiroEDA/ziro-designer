@@ -27,6 +27,7 @@
  * parent dialog, which no dialog of ours listens for.
  */
 
+import { TextCtrl } from '../wx/controls.js';
 import {
   type CSSProperties,
   type JSX,
@@ -228,17 +229,16 @@ export function FilterComboCtrl({
           <label className="ze-filter-popup-label" htmlFor={`${ids}-filter`}>
             Filter:
           </label>
-          <input
-            ref={filterRef}
-            id={`${ids}-filter`}
-            type="text"
+          <TextCtrl
             value={filter}
-            onChange={(e) => {
+            onChange={(aValue) => {
               // `onFilterEdit`: rebuild, and select the first row.
-              const next = stripExcluded(e.target.value);
+              const next = stripExcluded(aValue);
               setFilter(next);
               setSelection(getListContent(trimFilter(next)).length > 0 ? 0 : -1);
             }}
+            id={`${ids}-filter`}
+            inputRef={filterRef}
           />
           <div id={`${ids}-list`} className="ze-filter-popup-list" role="listbox">
             {list.map((s, i) => (

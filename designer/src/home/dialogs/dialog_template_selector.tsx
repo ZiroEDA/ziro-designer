@@ -38,7 +38,7 @@
  * today, and both need a filesystem we do not have.
  */
 
-import { Button, Combo } from '@ziroeda/common/wx/controls.js';
+import { Button, Combo, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { settings } from '../../prefs/settings.js';
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { sanitizeProjectName } from '../new_project.js';
@@ -278,12 +278,11 @@ export function TemplateSelectorDialog({
               appears with the text. OnSearchCtrlCancel clears it. */}
             <div className="ze-tplsel-searchwrap">
               <span className="mag" aria-hidden="true" />
-              <input
-                className="ze-tplsel-search ze-bare"
-                type="text"
-                placeholder="Search"
+              <TextCtrl
                 value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
+                onChange={(aValue) => setSearchText(aValue)}
+                className="ze-tplsel-search ze-bare"
+                hint="Search"
               />
               {searchText !== '' && (
                 <span

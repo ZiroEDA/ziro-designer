@@ -20,7 +20,7 @@
  * Not `SingleChoiceDialog`: that one is `wxGetSingleChoice`, a different wx
  * dialog with no headers, no filter and no report columns.
  */
-import { Button } from '../wx/controls.js';
+import { Button, TextCtrl } from '../wx/controls.js';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { DialogShim } from '../dialog_shim.js';
 
@@ -93,15 +93,13 @@ export function EdaListDialog({
         {nameRow && (
           <label className="ze-list-dialog-name">
             <span>{nameRow.label}</span>
-            <input
+            <TextCtrl
+              value={name}
+              onChange={(aValue) =>
+                setName([...aValue].filter((c) => !nameRow.excludeChars.includes(c)).join(''))
+              }
               className="ze-search"
               autoFocus
-              value={name}
-              onChange={(e) =>
-                setName(
-                  [...e.target.value].filter((c) => !nameRow.excludeChars.includes(c)).join(''),
-                )
-              }
             />
           </label>
         )}

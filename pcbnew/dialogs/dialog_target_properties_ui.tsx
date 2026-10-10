@@ -15,6 +15,7 @@
  * The decisions are `dialog_target_properties.ts`; this is the controls. The
  * three distances are `UNIT_BINDER`s, so they show and read the frame's unit.
  */
+import { TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
@@ -82,11 +83,11 @@ export function DialogTargetProperties({
           <label className="lbl" htmlFor="ze-tgt-thickness">
             Thickness:
           </label>
-          <input
+          <TextCtrl
+            value={thickness}
+            onChange={(aValue) => setThickness(aValue)}
             id="ze-tgt-thickness"
             className="ze-search"
-            value={thickness}
-            onChange={(e) => setThickness(e.target.value)}
           />
           <span className="unit">{unitLabel(units)}</span>
 

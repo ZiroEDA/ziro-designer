@@ -445,7 +445,8 @@ describe('a save dialog opens with the Name box ready to type in', () => {
 
   it('focuses the Name entry when the dialog opens', () => {
     expect(CH).toContain('el.focus();');
-    expect(CH).toContain('ref={nameRef}');
+    // The Name box is a TextCtrl (wxTextCtrl), which takes the ref as inputRef.
+    expect(CH).toContain('inputRef={nameRef}');
   });
 
   it('selects the stem and leaves the extension out of it', () => {

@@ -16,7 +16,7 @@
  * the 12.5px headings, the 12px grid and the 11px units were all invented.
  */
 
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 
@@ -101,10 +101,10 @@ export function PanelPcbTuning({ value, onChange }: Props): JSX.Element {
       onChange({ ...value, [key]: { ...s, [k]: v } });
 
     const entry = (k: keyof TuningPattern): JSX.Element => (
-      <input
+      <TextCtrl
+        value={String(s[k] as number)}
+        onChange={(aValue) => set(k, num(aValue) as never)}
         className="ze-search"
-        value={s[k] as number}
-        onChange={(e) => set(k, num(e.target.value) as never)}
       />
     );
     // Column 1 of the flexgrid is a `wxBoxSizer( wxHORIZONTAL )` holding the

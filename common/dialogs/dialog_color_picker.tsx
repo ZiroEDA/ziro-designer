@@ -22,7 +22,7 @@
  * loops below are upstream's, transcribed.
  */
 
-import { Button } from '../wx/controls.js';
+import { Button, TextCtrl } from '../wx/controls.js';
 import type { CSSProperties, JSX } from 'react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Color4d, fromHSV, setFromHexString, toHSV, toHexString } from '../gal/color4d.js';
@@ -590,19 +590,19 @@ export function DialogColorPicker({
           className="ze-cp-preview ze-swatch unspecified"
           style={{ '--swatch-color': css(color) } as CSSProperties}
         />
-        <input
-          className="ze-search ze-cp-hex"
+        <TextCtrl
           value={hexText}
-          onChange={(e) => {
+          onChange={(aValue) => {
             // OnColorValueText: a string it will not parse leaves the colour
             // alone, so a half-typed "#1" is not an edit.
-            setHexText(e.target.value);
-            const parsed = setFromHexString(e.target.value);
+            setHexText(aValue);
+            const parsed = setFromHexString(aValue);
             if (parsed) {
               setColor(parsed);
               setHsv(toHSV(parsed, true));
             }
           }}
+          className="ze-search ze-cp-hex"
         />
         <span className="ze-cp-gap" />
         {defaultColor && (

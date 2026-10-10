@@ -16,6 +16,7 @@
  * only the controls.
  */
 
+import { TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { TrackViaValues } from './dialog_track_via_properties.js';
@@ -248,13 +249,12 @@ export function DialogTrackViaProperties({
   ): JSX.Element => (
     <label className={disabled ? 'disabled' : ''}>
       <span className="ze-tvp-label">{label}</span>
-      <input
-        type="text"
-        className="ze-tvp-input"
+      <TextCtrl
         value={value}
+        onChange={(aValue) => setValue(aValue)}
         disabled={disabled}
-        placeholder="—"
-        onChange={(e) => setValue(e.target.value)}
+        className="ze-tvp-input"
+        hint="—"
       />
       <span className="ze-tvp-unit">{unit}</span>
     </label>

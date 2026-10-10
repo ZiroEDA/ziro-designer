@@ -28,7 +28,7 @@
  * The full capture is in `~/chooser-image-measurements.md`.
  */
 
-import { Button, Combo } from '@ziroeda/common/wx/controls.js';
+import { Button, Combo, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TreeIcon } from '../home/project_tree_pane.js';
 import { treeIconFor } from '../home/project_tree.js';
@@ -593,12 +593,12 @@ export function FileChooser({
               {/* The entry goes insensitive with the button: a name typed into
                   a place nothing can be saved to is a name with nowhere to go,
                   and GTK does not offer to take one. */}
-              <input
-                ref={nameRef}
+              <TextCtrl
                 value={name}
+                onChange={(aValue) => setName(aValue)}
                 disabled={!placeWritable}
                 title={placeWritable ? undefined : 'This location cannot be saved to.'}
-                onChange={(e) => setName(e.target.value)}
+                inputRef={nameRef}
               />
             </div>
           ) : (
@@ -714,12 +714,12 @@ export function FileChooser({
                 </button>
               ) : null}
               {searching ? (
-                <input
+                <TextCtrl
+                  value={query}
+                  onChange={(aValue) => setQuery(aValue)}
                   className="ze-chooser-query"
                   autoFocus
-                  placeholder="Search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  hint="Search"
                 />
               ) : null}
             </div>

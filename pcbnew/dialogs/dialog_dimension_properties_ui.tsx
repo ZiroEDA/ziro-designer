@@ -24,7 +24,7 @@
  * value modes from the newer constraint system.
  */
 
-import { CheckBox, Combo } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, Combo, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { DimensionValues } from './dialog_dimension_properties.js';
@@ -82,16 +82,15 @@ export function DialogDimensionProperties({
   const mmField = (label: string, key: MmKey, disabled = false): JSX.Element => (
     <label>
       <span className="ze-tvp-label">{label}</span>
-      <input
-        type="text"
-        className="ze-tvp-input"
-        disabled={disabled}
+      <TextCtrl
         value={text[key] ?? pcbUnitText(v[key], units)}
-        onChange={(e) => {
-          setText((p) => ({ ...p, [key]: e.target.value }));
-          const iu = pcbUnitValue(e.target.value, units);
+        onChange={(aValue) => {
+          setText((p) => ({ ...p, [key]: aValue }));
+          const iu = pcbUnitValue(aValue, units);
           if (Number.isFinite(iu)) set({ [key]: iu } as Partial<DimensionValues>);
         }}
+        disabled={disabled}
+        className="ze-tvp-input"
       />
       <span className="ze-unit-label">{unitLabel(units)}</span>
     </label>
@@ -155,31 +154,28 @@ export function DialogDimensionProperties({
             />
             <label>
               <span className="ze-tvp-label">Value:</span>
-              <input
-                type="text"
-                className="ze-tvp-select"
-                disabled={v.overrideValue === undefined}
+              <TextCtrl
                 value={v.overrideValue ?? ''}
-                onChange={(e) => set({ overrideValue: e.target.value })}
+                onChange={(aValue) => set({ overrideValue: aValue })}
+                disabled={v.overrideValue === undefined}
+                className="ze-tvp-select"
               />
             </label>
             <div className="ze-tvp-row">
               <label>
                 <span className="ze-tvp-label">Prefix:</span>
-                <input
-                  type="text"
-                  className="ze-tvp-input"
+                <TextCtrl
                   value={v.prefix}
-                  onChange={(e) => set({ prefix: e.target.value })}
+                  onChange={(aValue) => set({ prefix: aValue })}
+                  className="ze-tvp-input"
                 />
               </label>
               <label>
                 <span className="ze-tvp-label">Suffix:</span>
-                <input
-                  type="text"
-                  className="ze-tvp-input"
+                <TextCtrl
                   value={v.suffix}
-                  onChange={(e) => set({ suffix: e.target.value })}
+                  onChange={(aValue) => set({ suffix: aValue })}
+                  className="ze-tvp-input"
                 />
               </label>
             </div>
@@ -200,14 +196,13 @@ export function DialogDimensionProperties({
             {mmField('Thickness:', 'textThickness')}
             <label>
               <span className="ze-tvp-label">Orientation:</span>
-              <input
-                type="text"
-                className="ze-tvp-input"
+              <TextCtrl
                 value={String(v.textOrientation)}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
+                onChange={(aValue) => {
+                  const n = Number(aValue);
                   if (Number.isFinite(n)) set({ textOrientation: n });
                 }}
+                className="ze-tvp-input"
               />
               <span className="ze-tvp-unit">°</span>
             </label>

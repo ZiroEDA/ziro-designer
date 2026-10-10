@@ -45,7 +45,7 @@
  * Layers with the layer bar as its icon), rendered as a read-only table whose
  * selected row is the one `m_viewZonesOverview->GetSelection()` returns.
  */
-import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useEffect, useRef, useState, useSyncExternalStore, type JSX } from 'react';
 import { ZONE_SETTINGS_BAG } from '../zone_settings_bag.js';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
@@ -430,14 +430,14 @@ function ZoneManagerBody({
           <div className="ze-zm-left">
             <div className="ze-zm-search">
               <span className="ze-zm-searchbox">
-                <input
-                  className="ze-search"
-                  aria-label="Filter"
+                <TextCtrl
                   value={view.GetFilterText()}
-                  onChange={(e) => {
-                    view.SetFilterText(e.target.value);
-                    dialog.OnFilterCtrlTextChange(e.target.value);
+                  onChange={(aValue) => {
+                    view.SetFilterText(aValue);
+                    dialog.OnFilterCtrlTextChange(aValue);
                   }}
+                  className="ze-search"
+                  ariaLabel="Filter"
                 />
                 {view.GetFilterText() !== '' && (
                   <button

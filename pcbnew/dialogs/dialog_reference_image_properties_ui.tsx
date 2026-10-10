@@ -53,7 +53,7 @@
  * recolour and re-encode in a place where nothing else touches a raster.
  */
 
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import {
@@ -123,16 +123,15 @@ export function DialogReferenceImageProperties({
   const posField = (label: string, key: 'x' | 'y', slot: string): JSX.Element => (
     <>
       <span className={`ze-refimg-lbl ze-refimg-${slot}-lbl`}>{label}</span>
-      <input
-        type="text"
-        className={`ze-input ze-refimg-${slot}-ctl`}
+      <TextCtrl
         value={shown(key, asText(v[key]))}
-        onChange={(e) => {
-          setTyping({ key, text: e.target.value });
-          const mm = parseUnitValue(e.target.value, units, pcbIUScale);
+        onChange={(aValue) => {
+          setTyping({ key, text: aValue });
+          const mm = parseUnitValue(aValue, units, pcbIUScale);
           if (Number.isFinite(mm)) set({ [key]: pcbMmToIU(mm) } as Partial<ImageValues>);
         }}
         onBlur={() => setTyping(null)}
+        className={`ze-input ze-refimg-${slot}-ctl`}
       />
       <span className={`ze-unit-label ze-refimg-${slot}-u`}>{unitLabel(units)}</span>
     </>
@@ -146,13 +145,11 @@ export function DialogReferenceImageProperties({
   const sizeField = (label: string, key: 'width' | 'height', slot: string): JSX.Element => (
     <>
       <span className={`ze-refimg-lbl ze-refimg-${slot}-lbl`}>{label}</span>
-      <input
-        type="text"
-        className={`ze-input ze-refimg-${slot}-ctl`}
+      <TextCtrl
         value={shown(key, asText(v[key]))}
-        onChange={(e) => {
-          setTyping({ key, text: e.target.value });
-          const mm = parseUnitValue(e.target.value, units, pcbIUScale);
+        onChange={(aValue) => {
+          setTyping({ key, text: aValue });
+          const mm = parseUnitValue(aValue, units, pcbIUScale);
           if (!Number.isFinite(mm)) return;
           const iu = pcbMmToIU(mm);
           setV((p) =>
@@ -160,6 +157,7 @@ export function DialogReferenceImageProperties({
           );
         }}
         onBlur={() => setTyping(null)}
+        className={`ze-input ze-refimg-${slot}-ctl`}
       />
     </>
   );

@@ -32,7 +32,7 @@
  * solderMaskMaterial / silkscreenMaterial).
  */
 
-import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useRef, useState, type JSX } from 'react';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
@@ -905,11 +905,11 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
             there is no separate label beside it, and the value is trimmed of
             trailing zeros rather than fixed at three decimals ("1.6 mm", not
             "1.620"). It is `wxTE_READONLY`. */}
-        <input
-          className="ze-search ze-stackup-thickness"
-          aria-label="Board thickness from stackup"
+        <TextCtrl
           value={stringFromValue(boardThickness, 'mm', true, pcbIUScale)}
           readOnly
+          className="ze-search ze-stackup-thickness"
+          ariaLabel="Board thickness from stackup"
         />
         {/* `bBottomSizer->Add( 10, 0, 0, wxEXPAND )` — a FIXED 10px gap, then
             Adjust; the growable spacer comes after it, which is what puts

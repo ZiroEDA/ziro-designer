@@ -19,7 +19,7 @@
  * and the preview beside all of it.
  */
 
-import { CheckBox, RadioButton } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, RadioButton, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import {
@@ -137,17 +137,16 @@ export function DialogBarcodeProperties({
   ): JSX.Element => (
     <label>
       <span className="ze-tvp-label">{label}</span>
-      <input
-        type="text"
-        className="ze-tvp-input"
-        disabled={!enabled}
+      <TextCtrl
         value={shown(key, pcbUnitText(value, units))}
-        onChange={(e) => {
-          setTyping({ key, text: e.target.value });
-          const iu = pcbUnitValue(e.target.value, units);
+        onChange={(aValue) => {
+          setTyping({ key, text: aValue });
+          const iu = pcbUnitValue(aValue, units);
           if (Number.isFinite(iu)) apply(iu);
         }}
         onBlur={() => setTyping(null)}
+        disabled={!enabled}
+        className="ze-tvp-input"
       />
       <span className="ze-unit-label">{unitLabel(units)}</span>
     </label>
@@ -167,11 +166,10 @@ export function DialogBarcodeProperties({
       <div className="ze-modal-body ze-tvp-body">
         <label className="ze-barcode-text">
           <span className="ze-tvp-label">Text:</span>
-          <input
-            type="text"
-            className="ze-tvp-input"
+          <TextCtrl
             value={v.text}
-            onChange={(e) => set({ text: e.target.value })}
+            onChange={(aValue) => set({ text: aValue })}
+            className="ze-tvp-input"
           />
         </label>
 
@@ -209,16 +207,15 @@ export function DialogBarcodeProperties({
             {mmField('Size Y:', 'h', v.height, (iu) => set({ height: iu }))}
             <label>
               <span className="ze-tvp-label">Orientation:</span>
-              <input
-                type="text"
-                className="ze-tvp-input"
+              <TextCtrl
                 value={shown('angle', String(v.angle))}
-                onChange={(e) => {
-                  setTyping({ key: 'angle', text: e.target.value });
-                  const n = Number(e.target.value);
+                onChange={(aValue) => {
+                  setTyping({ key: 'angle', text: aValue });
+                  const n = Number(aValue);
                   if (Number.isFinite(n)) set({ angle: n });
                 }}
                 onBlur={() => setTyping(null)}
+                className="ze-tvp-input"
               />
               <span className="ze-tvp-unit">deg</span>
             </label>

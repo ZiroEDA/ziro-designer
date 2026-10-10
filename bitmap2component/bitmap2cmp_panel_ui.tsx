@@ -10,7 +10,7 @@
  * Its stylesheet is `bitmap2cmp_panel.css`, which the window that hosts it
  * imports (the package does not compile CSS).
  */
-import { CheckBox, RadioButton } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, RadioButton, TextCtrl } from '@ziroeda/common/wx/controls.js';
 import { Fragment, type JSX, useEffect, useRef } from 'react';
 import { Slider } from '@ziroeda/common/widgets/slider.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
@@ -233,17 +233,15 @@ export function Bitmap2cmpPanel({ panel, dropTarget, version }: Bitmap2cmpPanelP
           <legend>Output Size</legend>
           <div className="imgc-sizerow">
             <span className="lbl">Size:</span>
-            <input
-              className="imgc-input ze-bare"
+            <TextCtrl
               value={panel.m_UnitSizeX}
-              onChange={(e) => panel.SetUnitSizeXText(e.target.value)}
-              spellCheck={false}
-            />
-            <input
+              onChange={(aValue) => panel.SetUnitSizeXText(aValue)}
               className="imgc-input ze-bare"
+            />
+            <TextCtrl
               value={panel.m_UnitSizeY}
-              onChange={(e) => panel.SetUnitSizeYText(e.target.value)}
-              spellCheck={false}
+              onChange={(aValue) => panel.SetUnitSizeYText(aValue)}
+              className="imgc-input ze-bare"
             />
             <Combo
               className="imgc-select"
