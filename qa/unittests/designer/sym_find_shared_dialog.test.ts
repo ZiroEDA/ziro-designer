@@ -327,7 +327,9 @@ describe('DIALOG_SCH_FIND is a SCH_BASE_FRAME facility', () => {
       .filter((f) => /from '[^']*dialogs\/dialog_sch_find\.js'/.test(readFileSync(f, 'utf8')))
       .map(repoPath)
       .sort();
+    // sch_base_frame.cpp includes dialogs/dialog_sch_find.h for ShowFindReplaceDialog.
     expect(importers).toEqual([
+      '/eeschema/sch_base_frame.ts',
       '/eeschema/sch_edit_frame_ui.tsx',
       '/eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
     ]);

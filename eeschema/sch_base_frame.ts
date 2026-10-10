@@ -23,6 +23,7 @@
  *   `GetLibraryItemsForListDialog`, ported below; the modal loop around it is
  *   the window's.
  */
+import type { DIALOG_SCH_FIND } from './dialogs/dialog_sch_find.js';
 import { IO_ERROR } from '@ziroeda/common/exceptions.js';
 import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { LIB_SYMBOL } from './lib_symbol.js';
@@ -98,19 +99,6 @@ export interface SCH_LIB_SYMBOL_SOURCE<S> {
 }
 
 /** `LEGACY_SYMBOL_LIB`, the `<project>-cache.lib` a V5 project carries: symbols by cache name. */
-/**
- * `DIALOG_SCH_FIND` (eeschema/dialogs/dialog_sch_find.h): the modeless Find / Find and Replace
- * dialog. The window owns it; the frame drives it through these.
- */
-export interface DIALOG_SCH_FIND {
-  SetFindEntries(aEntries: readonly string[], aFindString: string): void;
-  GetFindEntries(): string[];
-  SetReplaceEntries(aEntries: readonly string[]): void;
-  GetReplaceEntries(): string[];
-  Show(aShow: boolean): void;
-  Destroy(): void;
-}
-
 /** `new DIALOG_SCH_FIND( this, aData, …, aReplace ? wxFR_REPLACEDIALOG : 0 )`. */
 export type DIALOG_SCH_FIND_FACTORY = (
   aData: SCH_SEARCH_DATA,

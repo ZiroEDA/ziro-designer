@@ -7,10 +7,10 @@
  */
 import { resolve } from 'node:path';
 import type { WX_INFOBAR } from '@ziroeda/common/eda_base_frame.js';
-import type { SCH_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
+import { EDA_SEARCH_MATCH_MODE, type SCH_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
-import type { DIALOG_SCH_FIND } from '@ziroeda/eeschema/sch_base_frame.js';
+import { DIALOG_SCH_FIND } from '@ziroeda/eeschema/dialogs/dialog_sch_find.js';
 import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
 import { SCH_SELECTION_TOOL } from '@ziroeda/eeschema/tools/sch_selection_tool.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -50,20 +50,11 @@ function setUp() {
   };
   h.frame.SetInfoBar(infoBar);
 
-  const dialogs: { replace: boolean; findString: string; data: SCH_SEARCH_DATA }[] = [];
-  h.frame.SetFindReplaceDialogFactory((aData, aReplace): DIALOG_SCH_FIND => {
-    const d = { replace: aReplace, findString: '', data: aData };
-    dialogs.push(d);
-    return {
-      SetFindEntries: (_aEntries, aFindString) => {
-        d.findString = aFindString;
-      },
-      GetFindEntries: () => [],
-      SetReplaceEntries: () => {},
-      GetReplaceEntries: () => [],
-      Show: () => {},
-      Destroy: () => {},
-    };
+  const dialogs: { replace: boolean; dlg: DIALOG_SCH_FIND; data: SCH_SEARCH_DATA }[] = [];
+  h.frame.SetFindReplaceDialogFactory((aData, aReplace) => {
+    const dlg = new DIALOG_SCH_FIND(h.frame, aData, aReplace);
+    dialogs.push({ replace: aReplace, dlg, data: aData });
+    return dlg;
   });
 
   const text = (x: number, y: number, aText: string) => {
@@ -85,7 +76,7 @@ describe('SCH_FIND_REPLACE_TOOL', () => {
     h.mgr.RunAction(ACTIONS.find);
     h.mgr.RunAction(ACTIONS.findAndReplace);
 
-    expect(h.dialogs.map((d) => [d.replace, d.findString])).toEqual([
+    expect(h.dialogs.map((d) => [d.replace, d.dlg.GetControlValues().findString])).toEqual([
       [false, 'ZQX one'],
       [true, 'ZQX one'],
     ]);
@@ -214,5 +205,114 @@ describe('SCH_FIND_REPLACE_TOOL', () => {
 
     expect([a.GetText(), b.GetText()]).toEqual(['ok a', 'ZQX b']);
     expect(h.selected()[0] === b).toBe(true);
+  });
+});
+
+describe('DIALOG_SCH_FIND', () => {
+  const open = (aReplace: boolean) => {
+    const h = setUp();
+    h.mgr.RunAction(aReplace ? ACTIONS.findAndReplace : ACTIONS.find);
+    return { ...h, dlg: h.dialogs.at(-1)!.dlg };
+  };
+
+  it('typing and Find walk the matches through the tool, and the string goes to the top of the list', () => {
+    const h = open(false);
+    const a = h.text(0, 0, 'ZQX a');
+    const b = h.text(10, 0, 'ZQX b');
+    h.dlg.OnOptions({ currentSheetOnly: true });
+    h.dlg.OnSearchForText('ZQX');
+
+    h.dlg.OnFind();
+    const first = h.selected()[0];
+    h.dlg.OnFind();
+
+    expect(first === a && h.selected()[0] === b).toBe(true);
+    expect(h.data().findString).toBe('ZQX');
+    expect(h.dlg.GetFindEntries()).toEqual(['ZQX']);
+  });
+
+  it('Shift+F3 finds backwards', () => {
+    const h = open(false);
+    const a = h.text(0, 0, 'ZQX a');
+    const b = h.text(10, 0, 'ZQX b');
+    h.dlg.OnOptions({ currentSheetOnly: true });
+    h.dlg.OnSearchForText('ZQX');
+
+    h.dlg.OnFindKey(true);
+    const first = h.selected()[0];
+    h.dlg.OnFindKey(true);
+
+    expect(first === b && h.selected()[0] === a).toBe(true);
+  });
+
+  it('selection-only greys current-sheet-only and stops reading it', () => {
+    const h = open(false);
+    h.dlg.OnOptions({ currentSheetOnly: true });
+    h.dlg.OnOptions({ selectedOnly: true });
+    // A change to the greyed box is not read.
+    h.dlg.OnOptions({ currentSheetOnly: false });
+
+    expect(h.data().searchSelectedOnly).toBe(true);
+    expect(h.data().searchCurrentSheetOnly).toBe(true);
+
+    h.dlg.OnOptions({ selectedOnly: false });
+
+    expect(h.data().searchSelectedOnly).toBe(false);
+    expect(h.dlg.GetControlValues().searchCurrentSheetOnly).toBe(true);
+  });
+
+  it('a regular expression only counts in the replace dialog, where the box is shown', () => {
+    const find = open(false);
+    find.dlg.OnOptions({ regexMatch: true });
+    const replace = open(true);
+    replace.dlg.OnOptions({ regexMatch: true });
+
+    expect(find.data().matchMode).toBe(EDA_SEARCH_MATCH_MODE.PLAIN);
+    expect(replace.data().matchMode).toBe(EDA_SEARCH_MATCH_MODE.REGEX);
+  });
+
+  it('whole words wins over a regular expression', () => {
+    const h = open(true);
+    h.dlg.OnOptions({ regexMatch: true, wholeWord: true });
+
+    expect(h.data().matchMode).toBe(EDA_SEARCH_MATCH_MODE.WHOLEWORD);
+  });
+
+  it('Replace and Replace All run the tool with the typed replacement', () => {
+    const h = open(true);
+    const a = h.text(0, 0, 'ZQX a');
+    const b = h.text(10, 0, 'ZQX b');
+    h.dlg.OnOptions({ currentSheetOnly: true });
+    h.dlg.OnSearchForText('ZQX');
+    h.dlg.OnReplaceWithText('ok');
+
+    h.dlg.OnReplace(true);
+
+    expect([a.GetText(), b.GetText()]).toEqual(['ok a', 'ok b']);
+    expect(h.dlg.GetReplaceEntries()).toEqual(['ok']);
+  });
+
+  it('closing hands the histories back to the frame and reopening offers them', () => {
+    const h = open(false);
+    h.dlg.OnSearchForText('first');
+    h.dlg.OnCancel();
+
+    expect(h.frame.GetFindReplaceDialog()).toBe(null);
+    expect(h.frame.GetFindHistoryList()).toEqual(['first']);
+
+    h.mgr.RunAction(ACTIONS.find);
+
+    expect(h.dialogs.at(-1)!.dlg.GetControlValues().findString).toBe('first');
+  });
+
+  it('the history keeps ten entries', () => {
+    const h = open(false);
+    const dlg = h.dlg;
+    dlg.SetFindEntries(
+      Array.from({ length: 12 }, (_, i) => `s${i}`),
+      '',
+    );
+
+    expect(dlg.GetFindEntries().length).toBe(10);
   });
 });

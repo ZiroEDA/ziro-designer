@@ -116,9 +116,6 @@ import {
   type SelectionFilterOptions,
   type PasteMode,
   type PasteOptions,
-  findMatches,
-  replaceCommand,
-  defaultSearchData,
   annotateHierarchy,
   annotateSymbols,
   defaultAnnotateOptions,
@@ -134,7 +131,6 @@ import {
   subReference,
   type AnnotateDiff,
   type AnnotateSheet,
-  type SchSearchData,
   type AnnotateOptions,
   type ErcRunOptions,
   type ExternalPin,
@@ -254,7 +250,7 @@ import {
   parentPath,
   type SheetRef,
 } from './tools/sch_navigate_tool.js';
-import { DialogSchFind } from './dialogs/dialog_sch_find.js';
+import { DIALOG_SCH_FIND, DialogSchFind } from './dialogs/dialog_sch_find.js';
 import {
   DialogIncrementAnnotations,
   type IncrementAnnotationsResult,
@@ -1551,6 +1547,23 @@ export function SchematicEditor({
     schFrameRef.current = new SCH_EDIT_FRAME({
       // `DIALOG_xxx( this, … ).ShowModal()` for the live tools: each dialog KiCad names, by its C++
       // class. One not ported yet is cancelled, as with no window, and says so in the console.
+      // The AUI half of ToggleSearch / ToggleSchematicHierarchy / ToggleNetNavigator /
+      // ToggleProperties: the window's panes are its local toggles.
+      togglePane: (aPane) => {
+        const id = {
+          Search: 'showSearch',
+          SchematicHierarchy: 'showHierarchy',
+          NetNavigator: 'showNetNavigator',
+          Properties: 'showProperties',
+        }[aPane as string];
+        if (!id) return;
+        setLocalToggles((prev) => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+        });
+      },
       showModal: (aDialog, _aItems, aArg) => {
         if (aDialog === 'KICAD_MESSAGE_DIALOG')
           return ShowKicadMessageDialog(aArg as KICAD_MESSAGE_DIALOG_ARG);
@@ -2274,18 +2287,28 @@ export function SchematicEditor({
     });
   }, [flatSheets, pageNumberOf, sheetInstanceRefs]);
 
-  // Find / Find and Replace (SCH_FIND_REPLACE_TOOL): modeless dialog state
-  // (false, or which mode it opened in), the search settings, and a cursor
-  // over the matches across sheet instances in hierarchy order.
-  const [findOpen, setFindOpen] = useState<false | 'find' | 'replace'>(false);
-  const [searchData, setSearchData] = useState<SchSearchData>(defaultSearchData);
-  const [findStatus, setFindStatus] = useState('');
-  const findCursor = useRef(-1);
-  const lastMatch = useRef<{ id: string } | null>(null);
-  const openFindDialog = useCallback((mode: 'find' | 'replace') => {
-    setFindOpen(mode);
-    // Replace mode excludes reference designators from matches unless opted in.
-    setSearchData((d) => ({ ...d, searchAndReplace: mode === 'replace' }));
+  // DIALOG_SCH_FIND, modeless: SCH_BASE_FRAME::ShowFindReplaceDialog builds it through the
+  // factory installed here; SCH_FIND_REPLACE_TOOL does the finding and reports on the info bar.
+  const [findDialog, setFindDialog] = useState<DIALOG_SCH_FIND | null>(null);
+  const [, setFindTick] = useState(0);
+  useEffect(() => {
+    const frame = schFrameRef.current!;
+    frame.SetFindReplaceDialogFactory((aData, aReplace) => {
+      class WINDOW_DIALOG_SCH_FIND extends DIALOG_SCH_FIND {
+        override Show(aShow: boolean): void {
+          super.Show(aShow);
+          setFindDialog(this);
+          setFindTick((n) => n + 1);
+        }
+
+        override Destroy(): void {
+          super.Destroy();
+          setFindDialog((d) => (d === this ? null : d));
+        }
+      }
+      return new WINDOW_DIALOG_SCH_FIND(frame, aData, aReplace);
+    });
+    return () => frame.SetFindReplaceDialogFactory(null);
   }, []);
 
   // Annotate Schematic (SCH_EDIT_FRAME::AnnotateSymbols) dialog.
@@ -3676,12 +3699,6 @@ export function SchematicEditor({
       onOutputFile,
     ],
   );
-  useEffect(() => {
-    // Changed search settings restart the scan (upstream m_foundItemHighlight reset).
-    findCursor.current = -1;
-    lastMatch.current = null;
-    setFindStatus('');
-  }, [searchData]);
 
   // Load a schematic from raw .kicad_sch text: parse (lossless), fresh history,
   // clear transient state, and fit the view. Embedded lib_symbols render as-is.
@@ -4049,92 +4066,6 @@ export function SchematicEditor({
     const target = flatSheets.find((sh) => sh.file === file);
     if (target) switchSheet(target.path, file);
   });
-
-  // FindNext/FindPrevious (SCH_FIND_REPLACE_TOOL): collect matches over the
-  // sheet instances (hierarchy order, or just the current instance), advance
-  // the cursor with wrap-around, then jump: switch sheet, select, centre.
-  const doFind = useCallback(
-    (dir: 1 | -1) => {
-      const docs = new Map(project.current.docs);
-      if (doc) docs.set(currentFile, doc);
-      const sheets = searchData.searchCurrentSheetOnly
-        ? flatSheets.filter((s) => s.path === currentPath)
-        : flatSheets;
-      const all = sheets.flatMap((s) => {
-        const d = docs.get(s.file);
-        if (!d) return [];
-        // Selection scoping and net-name search only make sense on the sheet
-        // that owns the selection/netlist we have live (the current sheet).
-        const ctx = s.path === currentPath ? { selection, nets: netlist?.nets } : {};
-        return findMatches(d, libById, searchData, ctx).map((m) => ({ ...m, sheet: s }));
-      });
-      if (all.length === 0) {
-        findCursor.current = -1;
-        lastMatch.current = null;
-        setFindStatus(searchData.findString ? 'Not found' : '');
-        return;
-      }
-      findCursor.current =
-        findCursor.current === -1
-          ? dir === 1
-            ? 0
-            : all.length - 1
-          : (findCursor.current + dir + all.length) % all.length;
-      const m = all[findCursor.current]!;
-      lastMatch.current = { id: m.id };
-      if (m.sheet.path !== currentPath) switchSheet(m.sheet.path, m.sheet.file);
-      setSelection(new Set([m.id]));
-      // After a sheet switch the canvas fits first (rAF); centre on the frame after.
-      schFrameRef.current!.FocusOnLocation(m.pos);
-      setFindStatus(`${findCursor.current + 1} of ${all.length}`);
-    },
-    [
-      doc,
-      currentFile,
-      currentPath,
-      flatSheets,
-      libById,
-      searchData,
-      selection,
-      netlist,
-      switchSheet,
-    ],
-  );
-
-  // ReplaceAndFindNext: replace inside the current match, then find the next
-  // one against the post-replace document (next frame, after setDoc lands).
-  const doFindRef = useRef(doFind);
-  doFindRef.current = doFind;
-  const doReplaceNext = useCallback(() => {
-    if (!searchData.findString) return;
-    if (findCursor.current === -1 || !lastMatch.current) {
-      doFind(1);
-      return;
-    }
-    runCommand(replaceCommand(searchData, new Set([lastMatch.current.id])));
-    // The replaced item usually drops out of the match list; step the cursor
-    // back so the follow-up FindNext lands on the item after it.
-    findCursor.current = Math.max(-1, findCursor.current - 1);
-    lastMatch.current = null;
-    requestAnimationFrame(() => doFindRef.current(1));
-  }, [searchData, runCommand, doFind]);
-
-  // ReplaceAll: substitute in every matched item, on the current sheet only,
-  // or in every document of the project, each through its own undo history.
-  const doReplaceAll = useCallback(() => {
-    if (!searchData.findString) return;
-    // One entry over every sheet it reaches: `SCH_FIND_REPLACE_TOOL::ReplaceAll`
-    // runs a single SCH_COMMIT over the whole hierarchy and pushes it once.
-    const edit = new Map<string, EditCommand>([[currentFile, replaceCommand(searchData)]]);
-    if (!searchData.searchCurrentSheetOnly) {
-      for (const file of project.current.docs.keys())
-        if (file !== currentFile) edit.set(file, replaceCommand(searchData));
-    }
-    runProject(edit);
-    findCursor.current = -1;
-    lastMatch.current = null;
-    setFindStatus('');
-  }, [searchData, runCommand, currentFile, libById]);
 
   const openFile = useCallback(
     (file: File) => {
@@ -5588,8 +5519,8 @@ export function SchematicEditor({
         window.open('https://docs.ziroeda.com', '_blank', 'noopener,noreferrer');
       // Tools > Project Manager. One page here, so it lands where Close does.
       else if (id === 'showProjectManager') onExitToHome();
-      else if (id === 'find') openFindDialog('find');
-      else if (id === 'findReplace') openFindDialog('replace');
+      else if (id === 'find') runLiveAction(ACTIONS.find);
+      else if (id === 'findReplace') runLiveAction(ACTIONS.findAndReplace);
       else if (id === 'annotate') setAnnotateOpen(true);
       else if (id === 'incrementAnnotations') setIncrementAnnotationsOpen(true);
       else if (id === 'globalEditTextAndGraphics') runLiveAction(SCH_ACTIONS.editTextAndGraphics);
@@ -5881,10 +5812,10 @@ export function SchematicEditor({
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         duplicateSelection();
-      } else if (e.key === 'F3' && (findOpen || searchData.findString)) {
+      } else if (e.key === 'F3') {
         // ACTIONS::findNext / findPrevious (F3 / Shift+F3).
         e.preventDefault();
-        doFind(e.shiftKey ? -1 : 1);
+        runLiveAction(e.shiftKey ? ACTIONS.findPrevious : ACTIONS.findNext);
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u' && !e.shiftKey) {
         // ACTIONS::toggleUnits (Ctrl+U): COMMON_TOOLS::ToggleUnits, which remembers the last
         // imperial unit (m_imperialUnit).
@@ -6144,10 +6075,6 @@ export function SchematicEditor({
     placeInstance,
     pastePending,
     duplicateSelection,
-    findOpen,
-    searchData,
-    doFind,
-    openFindDialog,
     app,
     remapEvent,
     runLiveAction,
@@ -6860,29 +6787,44 @@ export function SchematicEditor({
                 }}
               />
             )}
-            {findOpen && (
+            {findDialog?.IsShown() && (
               <DialogSchFind
                 // `SCH_BASE_FRAME::ShowFindReplaceDialog` builds the same
                 // DIALOG_SCH_FIND in both frames; the dialog branches on the
                 // frame type itself, so this is the whole of the difference.
                 frame="FRAME_SCH"
-                data={searchData}
-                onChange={setSearchData}
-                onFindNext={() => doFind(1)}
-                onFindPrevious={() => doFind(-1)}
-                onClose={() => setFindOpen(false)}
-                status={findStatus}
-                replace={findOpen === 'replace'}
-                onReplace={doReplaceNext}
-                onReplaceAll={doReplaceAll}
-                // onShowSearchPanel runs ACTIONS::showSearch, which is a *toggle*
-                // upstream — so clicking a link labelled "Show search panel" with
-                // the panel already open closes it. We show it instead; the panel
-                // is the point of the link, and the divergence is one keystroke
-                // away from being undone either way.
-                onShowSearchPanel={() => {
-                  setLocalToggles((prev) => new Set(prev).add('showSearch'));
+                data={findDialog.GetControlValues()}
+                onChange={(next) => {
+                  const cur = findDialog.GetControlValues();
+                  if (next.findString !== cur.findString)
+                    findDialog.OnSearchForText(next.findString);
+                  else if (next.replaceString !== cur.replaceString)
+                    findDialog.OnReplaceWithText(next.replaceString);
+                  else
+                    findDialog.OnOptions({
+                      matchCase: next.matchCase,
+                      wholeWord: next.matchMode === 'wholeword',
+                      regexMatch: next.matchMode === 'regex',
+                      searchHiddenFields: next.searchAllFields,
+                      replaceReferences: next.replaceReferences,
+                      searchPins: next.searchAllPins,
+                      selectedOnly: next.searchSelectedOnly,
+                      currentSheetOnly: next.searchCurrentSheetOnly,
+                      searchNetNames: next.searchNetNames,
+                    });
+                  // wxEVT_IDLE follows the event.
+                  findDialog.OnIdle();
+                  setFindTick((n) => n + 1);
                 }}
+                onFindNext={() => findDialog.OnFind()}
+                onFindPrevious={() => findDialog.OnFindKey(true)}
+                onClose={() => findDialog.OnCancel()}
+                // DIALOG_SCH_FIND has no status line: the tool reports on the info bar.
+                status=""
+                replace={findDialog.IsReplaceDialog()}
+                onReplace={() => findDialog.OnReplace(false)}
+                onReplaceAll={() => findDialog.OnReplace(true)}
+                onShowSearchPanel={() => findDialog.onShowSearchPanel()}
               />
             )}
             {annotateOpen && (
