@@ -1,0 +1,58 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "0f2b2cd6-e6bf-43c8-9799-0d94bd6aeaf6")
+	(paper "A4")
+	(lib_symbols)
+	(wire
+		(pts
+			(xy 99.06 76.2) (xy 149.86 76.2)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d77317f0-3faa-41d0-b6e7-b87602b3ba1f")
+	)
+	(sheet
+		(at 149.86 88.9)
+		(size 50.8 38.1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "ebe4d4d7-3599-4233-8093-7c0422431db4")
+		(property "Sheetname" "S1"
+			(at 149.86 88.1884 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "hierarchy_sub.sch"
+			(at 149.86 127.5846 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+	)
+	(embedded_fonts no)
+)

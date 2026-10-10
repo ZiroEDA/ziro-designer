@@ -24,6 +24,8 @@ import { Pgm } from '@ziroeda/common/pgm_base.js';
 import { SCH_EDIT_FRAME, type SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { SCH_CLEANUP_FLAGS, SCHEMATIC } from '@ziroeda/eeschema/schematic.js';
 import { SCH_SCREENS } from '@ziroeda/eeschema/sch_screen.js';
+import type { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { SCH_FILE_T, SCH_IO_MGR } from '@ziroeda/eeschema/sch_io/sch_io_mgr.js';
 import type { SCH_IO as SCH_IO_BASE } from '@ziroeda/eeschema/sch_io/sch_io.js';
 import { SCH_IO_KICAD_SEXPR } from '@ziroeda/eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
@@ -163,9 +165,29 @@ function importMounted(
   // SaveProject (files-io.cpp:1352): every screen in SCH_SCREENS order, through its first
   // client sheet, skipping one with no file name. Two screens that share a file name (Altium's
   // repeated channels each load their own) both write it, and the later one is what is left.
+  // A screen whose file is not a .kicad_sch (an importer that kept the source's .sch) takes
+  // the new extension, and so does every sheet on it that names one (files-io.cpp:1357).
+  const withKiCadExt = (aPath: string): string => aPath.replace(/(\.[^./]*)?$/, '.kicad_sch');
   const screens = new SCH_SCREENS(schematic.Root());
   for (let i = 0; i < screens.GetCount(); i++) {
-    const name = basename(screens.GetScreen(i)!.GetFileName());
+    const screen = screens.GetScreen(i)!;
+    let fileName = screen.GetFileName();
+
+    if (fileName !== '' && !fileName.endsWith('.kicad_sch')) {
+      fileName = withKiCadExt(fileName);
+
+      for (const item of screen.Items().OfType(KICAD_T.SCH_SHEET_T)) {
+        const sheet = item as unknown as SCH_SHEET;
+        const sheetFile = sheet.GetFileName();
+
+        if (sheetFile !== '' && !sheetFile.endsWith('.kicad_sch'))
+          sheet.SetFileName(withKiCadExt(sheetFile));
+      }
+
+      screen.SetFileName(fileName);
+    }
+
+    const name = basename(fileName);
     if (name === '') continue;
     sheets.set(name, io.SaveSchematicFile(screens.GetSheet(i)!, schematic));
   }

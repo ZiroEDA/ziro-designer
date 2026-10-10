@@ -24,6 +24,7 @@ import { SCH_IO_EASYEDAPRO } from './easyedapro/sch_io_easyedapro.js';
 import { SCH_IO_ALTIUM } from './altium/sch_io_altium.js';
 import { SCH_IO_CADSTAR_ARCHIVE } from './cadstar/sch_io_cadstar_archive.js';
 import { SCH_IO_PADS } from './pads/sch_io_pads.js';
+import { SCH_IO_GEDA } from './geda/sch_io_geda.js';
 import { SCH_IO_EAGLE } from './eagle/sch_io_eagle.js';
 import type { SCH_IO as SCH_IO_BASE } from './sch_io.js';
 
@@ -80,6 +81,8 @@ export class SCH_IO_MGR {
         return new SCH_IO_CADSTAR_ARCHIVE();
       case SCH_FILE_T.SCH_PADS:
         return new SCH_IO_PADS();
+      case SCH_FILE_T.SCH_GEDA:
+        return new SCH_IO_GEDA();
       default:
         return null;
     }
