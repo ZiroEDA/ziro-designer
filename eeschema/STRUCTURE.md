@@ -36,19 +36,19 @@ files count as done - so read the "left" column as a floor. Decisions behind the
 
 | folder | KiCad | n/a | deferred | sim | to match | done | left | done % | extra kept | extra record model | extra unexplained |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| (root) | 96 | 1 | 1 | 0 | 94 | 88 | **6** | 93% | 6 | 7 | 2 |
+| (root) | 96 | 1 | 1 | 0 | 94 | 91 | **3** | 96% | 6 | 6 | 2 |
 | api | 2 | 2 | 0 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
-| browser | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 3 | 0 | 0 |
+| browser | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 3 | 1 | 0 |
 | connectivity | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 6 | 0 | 0 |
-| dialogs | 119 | 0 | 1 | 12 | 106 | 63 | **43** | 59% | 0 | 0 | 4 |
+| dialogs | 119 | 0 | 1 | 12 | 106 | 63 | **43** | 59% | 0 | 0 | 3 |
 | erc | 5 | 0 | 0 | 0 | 5 | 5 | **0** | 100% | 0 | 0 | 1 |
 | exporters | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 1 | 0 | 0 |
 | import_gfx | 4 | 0 | 0 | 0 | 4 | 4 | **0** | 100% | 0 | 1 | 1 |
 | libraries | 2 | 0 | 0 | 0 | 2 | 1 | **1** | 50% | 0 | 0 | 0 |
 | navlib | 2 | 2 | 0 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
 | netlist_exporters | 11 | 0 | 0 | 0 | 11 | 10 | **1** | 90% | 0 | 0 | 0 |
-| printing | 3 | 0 | 0 | 0 | 3 | 2 | **1** | 66% | 0 | 0 | 0 |
-| sch_io | 3 | 0 | 0 | 0 | 3 | 2 | **1** | 66% | 0 | 0 | 0 |
+| printing | 3 | 0 | 0 | 0 | 3 | 3 | **0** | 100% | 0 | 0 | 0 |
+| sch_io | 3 | 0 | 0 | 0 | 3 | 3 | **0** | 100% | 0 | 0 | 0 |
 | sch_io/altium | 3 | 0 | 3 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
 | sch_io/cadstar | 3 | 0 | 3 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
 | sch_io/database | 1 | 0 | 1 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
@@ -65,31 +65,28 @@ files count as done - so read the "left" column as a floor. Decisions behind the
 | sim | 61 | 0 | 0 | 61 | 0 | 0 | **0** | - | 0 | 0 | 1 |
 | sim/kibis | 2 | 0 | 0 | 2 | 0 | 0 | **0** | - | 0 | 0 | 0 |
 | symbol_editor | 11 | 0 | 0 | 0 | 11 | 5 | **6** | 45% | 0 | 5 | 4 |
-| sync_sheet_pin | 9 | 0 | 0 | 0 | 9 | 0 | **9** | 0% | 0 | 0 | 0 |
-| tools | 30 | 0 | 0 | 1 | 29 | 24 | **5** | 82% | 0 | 54 | 3 |
+| sync_sheet_pin | 9 | 0 | 0 | 0 | 9 | 9 | **0** | 100% | 0 | 0 | 0 |
+| tools | 30 | 0 | 0 | 1 | 29 | 24 | **5** | 82% | 0 | 33 | 3 |
 | widgets | 20 | 2 | 0 | 2 | 16 | 9 | **7** | 56% | 0 | 0 | 1 |
-| **total** | **408** | **7** | **23** | **78** | **300** | **220** | **80** | **73%** | **19** | **67** | **17** |
+| **total** | **408** | **7** | **23** | **78** | **300** | **234** | **66** | **78%** | **19** | **46** | **16** |
 
 ### Left to port
 
-- `(root)` (6): `bom_plugins`, `general`, `invoke_sch_dialog`, `save_project_utils`, `sch_preview_panel`, `sch_text_help_md`
+- `(root)` (3): `bom_plugins`, `invoke_sch_dialog`, `save_project_utils`
 - `dialogs` (43): `dialog_bom`, `dialog_bom_base`, `dialog_bom_help_md`, `dialog_choose_symbol`, `dialog_database_lib_settings`, `dialog_database_lib_settings_base`, `dialog_import_symbol_select`, `dialog_import_symbol_select_base`, `dialog_lib_edit_pin_table`, `dialog_lib_edit_pin_table_base`, `dialog_lib_fields_table`, `dialog_lib_fields_table_base`, `dialog_lib_new_symbol`, `dialog_lib_new_symbol_base`, `dialog_lib_symbol_properties`, `dialog_lib_symbol_properties_base`, `dialog_migrate_buses`, `dialog_migrate_buses_base`, `dialog_pin_properties`, `dialog_pin_properties_base`, `dialog_remote_symbol_config`, `dialog_rescue_each`, `dialog_rescue_each_base`, `dialog_symbol_chooser`, `dialog_symbol_remap`, `dialog_symbol_remap_base`, `dialog_update_symbol_fields`, `dialog_update_symbol_fields_base`, `panel_eeschema_color_settings`, `panel_eeschema_display_options`, `panel_eeschema_display_options_base`, `panel_eeschema_editing_options`, `panel_eeschema_editing_options_base`, `panel_sch_data_sources`, `panel_sym_color_settings`, `panel_sym_color_settings_base`, `panel_sym_display_options`, `panel_sym_display_options_base`, `panel_sym_editing_options`, `panel_sym_editing_options_base`, `panel_sym_lib_table`, `panel_sym_lib_table_base`, `pin_table_data_model`
 - `libraries` (1): `legacy_symbol_library`
 - `netlist_exporters` (1): `netlist`
-- `printing` (1): `sch_printout`
-- `sch_io` (1): `sch_io`
 - `symbol_editor` (6): `lib_logger`, `lib_symbol_library_manager`, `symbol_editor_import_export`, `symbol_editor_plotter`, `symbol_editor_undo_redo`, `symbol_saveas_type`
-- `sync_sheet_pin` (9): `dialog_sync_sheet_pins`, `dialog_sync_sheet_pins_base`, `panel_sync_sheet_pins`, `panel_sync_sheet_pins_base`, `sheet_synchronization_agent`, `sheet_synchronization_item`, `sheet_synchronization_model`, `sheet_synchronization_notifier`, `sync_sheet_pin_preference`
 - `tools` (5): `symbol_editor_control`, `symbol_editor_drawing_tools`, `symbol_editor_edit_tool`, `symbol_editor_move_tool`, `symbol_editor_pin_tool`
 - `widgets` (7): `hierarchy_pane`, `panel_remote_symbol`, `pinshape_combobox`, `pintype_combobox`, `symbol_filter_combobox`, `symbol_preview_widget`, `symbol_tree_pane`
 
 ### Extra: old record model (deleted as each consumer moves to the live model)
 
-`eeschema_app`, `hover_selection`, `import_gfx/graphics_importer_sch_mapping`, `index`, `net_overrides`, `sch_record_bridge`, `sch_script_api`, `symbol_editor/conditions`, `symbol_editor/edits`, `symbol_editor/symbol_editor_dialogs`, `symbol_editor/symbol_renderer`, `symbol_editor/toggles`, `tools/align_to_grid`, `tools/arrow_nudge`, `tools/bbox`, `tools/body_style`, `tools/boxselect`, `tools/build`, `tools/build-graphics`, `tools/change_text_type`, `tools/cleanup`, `tools/clipboard`, `tools/command`, `tools/connect`, `tools/directive_label`, `tools/edit_symbol_libid`, `tools/embedded`, `tools/global_edit_text_and_graphics`, `tools/hittest`, `tools/hop_over`, `tools/image_size`, `tools/import_sheet_pins`, `tools/intersheet_refs`, `tools/label_properties`, `tools/move`, `tools/mutate`, `tools/new_object_defaults`, `tools/page_settings`, `tools/pin_alternates`, `tools/point_editor`, `tools/post_move_cleanup`, `tools/properties`, `tools/repeat_item`, `tools/rule_area`, `tools/save_symbol_to_schematic`, `tools/scene_bbox`, `tools/sch_align_record`, `tools/sch_drag_start`, `tools/sch_get_node`, `tools/sch_request_selection`, `tools/sch_selection_filter`, `tools/sch_sheet_drop`, `tools/sch_sheet_pin_tool`, `tools/search_handlers`, `tools/select_connection`, `tools/set_attribute`, `tools/swap_items`, `tools/swap_pins`, `tools/symbol_from_schematic`, `tools/symbol_unit`, `tools/sync_sheet_pins`, `tools/table_cells`, `tools/table_edit`, `tools/table_layout`, `tools/transform`, `tools/unfold_bus`, `types`
+`browser/eeschema_app`, `hover_selection`, `import_gfx/graphics_importer_sch_mapping`, `index`, `net_overrides`, `sch_record_bridge`, `sch_script_api`, `symbol_editor/conditions`, `symbol_editor/edits`, `symbol_editor/symbol_editor_dialogs`, `symbol_editor/symbol_renderer`, `symbol_editor/toggles`, `tools/bbox`, `tools/build`, `tools/build-graphics`, `tools/cleanup`, `tools/clipboard`, `tools/command`, `tools/connect`, `tools/directive_label`, `tools/edit_symbol_libid`, `tools/hittest`, `tools/hop_over`, `tools/image_size`, `tools/intersheet_refs`, `tools/label_properties`, `tools/move`, `tools/mutate`, `tools/page_settings`, `tools/pin_alternates`, `tools/point_editor`, `tools/properties`, `tools/rule_area`, `tools/save_symbol_to_schematic`, `tools/scene_bbox`, `tools/sch_align_record`, `tools/sch_request_selection`, `tools/sch_selection_filter`, `tools/sch_sheet_pin_tool`, `tools/search_handlers`, `tools/symbol_from_schematic`, `tools/symbol_unit`, `tools/table_cells`, `tools/table_layout`, `tools/transform`, `types`
 
 ### Extra: no recorded reason yet (fold, rename or justify)
 
-`dialogs/dialog_increment_annotations`, `dialogs/dialog_sync_sheet_pins`, `dialogs/item_color`, `dialogs/panel_setup_severities`, `erc/marker_nav`, `import_gfx/image_format`, `sch_canvas`, `sim/sim_model_types`, `symbol_editor/cursors`, `symbol_editor/defaults`, `symbol_editor/grid`, `symbol_editor/symbol_edit_frame_app`, `toggles`, `tools/arc_edit`, `tools/assign_netclass`, `tools/index`, `widgets/net_navigator_panel`
+`dialogs/dialog_increment_annotations`, `dialogs/item_color`, `dialogs/panel_setup_severities`, `erc/marker_nav`, `import_gfx/image_format`, `sch_canvas`, `sim/sim_model_types`, `symbol_editor/cursors`, `symbol_editor/defaults`, `symbol_editor/grid`, `symbol_editor/symbol_edit_frame_app`, `toggles`, `tools/arc_edit`, `tools/assign_netclass`, `tools/index`, `widgets/net_navigator_panel`
 
 ### Root, 2026-10-10: what is left, and what is waiting on a decision
 
