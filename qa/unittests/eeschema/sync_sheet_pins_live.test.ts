@@ -118,6 +118,37 @@ describe('Synchronize Sheet Pins', () => {
     expect(book.GetPageImage(page)).toBe(SYNC_SHEET_PIN_PREFERENCE.ALL_MATCHED);
   });
 
+  it('matches a label and a pin only when the name and the shape both agree', () => {
+    const { h, sheet, sub, panel } = setUp();
+    h.frame.AddToScreen(label('MIX', LABEL_FLAG_SHAPE.L_OUTPUT, 3), sub);
+    // SetLabelShape carries a parented pin's shape to its labels (sch_label.cpp:319); a
+    // mismatch comes from a file, so the shape is set before the pin joins its sheet.
+    const pin = new SCH_SHEET_PIN(null, sheet.GetPosition(), 'MIX');
+    pin.SetShape(LABEL_FLAG_SHAPE.L_INPUT);
+    sheet.AddPin(pin);
+
+    panel.UpdateForms();
+
+    expect(names(panel, SHEET_SYNCHRONIZATION_MODEL.ASSOCIATED)).toEqual(['IN']);
+    expect(names(panel, SHEET_SYNCHRONIZATION_MODEL.HIRE_LABEL)).toContain('MIX');
+    expect(names(panel, SHEET_SYNCHRONIZATION_MODEL.SHEET_PIN)).toContain('MIX');
+  });
+
+  it('lists the labels once each, in natural order', () => {
+    const { h, sub, panel } = setUp();
+    for (const [t, x] of [
+      ['Z10', 5],
+      ['Z9', 6],
+      ['A', 7],
+      ['Z9', 8],
+    ] as const)
+      h.frame.AddToScreen(label(t, LABEL_FLAG_SHAPE.L_BIDI, x), sub);
+
+    panel.UpdateForms();
+
+    expect(names(panel, SHEET_SYNCHRONIZATION_MODEL.HIRE_LABEL)).toEqual(['A', 'OUT', 'Z9', 'Z10']);
+  });
+
   it('enables the template buttons only once a label and a pin are both picked', () => {
     const { panel } = setUp();
 
