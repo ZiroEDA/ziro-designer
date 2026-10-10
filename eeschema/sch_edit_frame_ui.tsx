@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { PANEL_EMBEDDED_FILES } from '@ziroeda/common/dialogs/panel_embedded_files.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { SCH_ACTIONS } from './tools/sch_actions.js';
+import { SCH_SELECTION_TOOL } from './tools/sch_selection_tool.js';
+import { SCH_DRAWING_TOOLS } from './tools/sch_drawing_tools.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import type { SCH_TEXT } from './sch_text.js';
 import type { SCH_TEXTBOX } from './sch_textbox.js';
 import type { SCH_SHEET_PIN } from './sch_sheet_pin.js';
@@ -72,10 +79,7 @@ import {
   SPIN_ANGLE,
   directiveNetclassAssignments,
   ruleAreaNetclassAssignments,
-  setAttribute,
   autoplaceFields,
-  attributeIsSet,
-  type Attribute,
   type LabelSpin,
   readSchematic,
   serializeSchematic,
@@ -89,7 +93,6 @@ import {
   refId,
   copySelectionText,
   parsePastedText,
-  boxSelect,
   selectionBBox,
   emptyBBox,
   type BBox,
@@ -112,8 +115,6 @@ import {
   selectionHasGroup,
   setSymbolsLockedCommand,
   expandSelectionToGroups,
-  getNode,
-  selectConnection,
   planNetclassAssignment,
   selectedNets,
   addNetclassAssignment,
@@ -140,7 +141,6 @@ import {
   annotateSymbols,
   defaultAnnotateOptions,
   incrementAnnotations,
-  globalEdit,
   symbolLibIdRows,
   orphanCandidates,
   libIdChangeCommand,
@@ -176,24 +176,11 @@ import {
   netNavigatorOrder,
   stepNetItem,
   type PcbFootprintData,
-  syncPinFromLabel,
-  syncLabelsFromPin,
-  deleteSyncLabels,
-  deleteSyncPins,
-  syncPlacementFor,
-  type SyncPlacement,
   buildSheetTree,
   repairPageNumbersOnLoad,
   sheetFile,
   findRootFile,
   addItems,
-  swapPinsCommand,
-  sharedPinSwapMessage,
-  busUnfoldMembers,
-  unfoldBus,
-  busForUnfolding,
-  swapItems,
-  repeatItems,
   makeImage,
   ProjectHistory,
   type Schematic,
@@ -294,7 +281,8 @@ import {
 } from './dialogs/dialog_increment_annotations.js';
 import {
   DialogGlobalEditTextAndGraphics,
-  type GlobalEditResult,
+  DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS,
+  type GLOBAL_EDIT_VALUES,
 } from './dialogs/dialog_global_edit_text_and_graphics.js';
 import { DIALOG_CHANGE_SYMBOLS, DialogChangeSymbols } from './dialogs/dialog_change_symbols.js';
 import type { DIALOG_CHANGE_SYMBOLS_MODE } from './tools/sch_edit_tool.js';
@@ -367,12 +355,6 @@ import {
   connectionName,
   equivalentBusNames,
   intersheetRefsText,
-  addEmbeddedFile,
-  embeddedFilesCommand,
-  getEmbeddedFileData,
-  listEmbeddedFiles,
-  removeEmbeddedFile,
-  setEmbedFonts,
   type IntersheetRefsConfig,
   type IntersheetSheet,
 } from './index.js';
@@ -381,10 +363,11 @@ import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common
 import { DialogExportNetlist } from './dialogs/dialog_export_netlist.js';
 import { DialogSymbolFieldsTable, type FieldsEdits } from './dialogs/dialog_symbol_fields_table.js';
 import { DialogPrint } from './printing/dialog_print.js';
+import { SCH_PRINTOUT } from './printing/sch_printout.js';
+import { wxPrinter } from '@ziroeda/common/wx/printer.js';
 import { DialogPlot, type PlotRequest } from './dialogs/dialog_plot_schematic.js';
 import {
   downloadBlob,
-  printSheets,
   plotPng,
   plotSvg,
   plotPdf,
@@ -404,7 +387,7 @@ import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
-import type { EESCHEMA_APP } from './eeschema_app.js';
+import type { EESCHEMA_APP } from './browser/eeschema_app.js';
 import {
   fastGridActionForKey,
   fastGridIndex,
@@ -419,7 +402,8 @@ import { LiveSchPropertiesPanel } from './widgets/sch_properties_panel_ui.js';
 import { SearchPanel } from './widgets/sch_search_pane.js';
 import { NetNavigatorPanel } from './widgets/net_navigator_panel.js';
 import { DialogUpdateFromPcb } from './dialogs/dialog_update_from_pcb.js';
-import { DialogSyncSheetPins, type SyncSheetEntry } from './dialogs/dialog_sync_sheet_pins.js';
+import type { DIALOG_SYNC_SHEET_PINS } from './sync_sheet_pin/dialog_sync_sheet_pins.js';
+import { DialogSyncSheetPins } from './sync_sheet_pin/dialog_sync_sheet_pins_ui.js';
 import {
   DIALOG_TABLE_PROPERTIES,
   DialogTableProperties,
@@ -533,12 +517,13 @@ function pickedFilePath(aFile: OpenedFile): string {
 const EMPTY_SCH =
   '(kicad_sch (version 20231120) (generator "ziroeda") (paper "A4")\n  (lib_symbols)\n)\n';
 
-const ATTRIBUTE_IDS: Record<string, Attribute> = {
-  attrSim: 'sim',
-  attrBom: 'bom',
-  attrBoard: 'board',
-  attrPosFiles: 'posFiles',
-  attrDnp: 'dnp',
+/** The Attributes submenu's rows: SCH_EDIT_TOOL::SetAttribute's five actions. */
+const ATTRIBUTE_IDS: Record<string, TOOL_ACTION> = {
+  attrSim: SCH_ACTIONS.setExcludeFromSim,
+  attrBom: SCH_ACTIONS.setExcludeFromBOM,
+  attrBoard: SCH_ACTIONS.setExcludeFromBoard,
+  attrPosFiles: SCH_ACTIONS.setExcludeFromPosFiles,
+  attrDnp: SCH_ACTIONS.setDNP,
 };
 
 const SETTINGS_TOGGLES = new Set([
@@ -1507,28 +1492,8 @@ export function SchematicEditor({
   const ercNav = useRef<ErcDialogNav | null>(null);
   /** A marker cross-probe waiting for the ERC dialog to exist (or to unfilter). */
   const pendingErcSelect = useRef<string | null>(null);
-  /** Tools > Sync Sheet Pins: which sub-sheets the dialog is showing. */
-  const [syncPinsOpen, setSyncPinsOpen] = useState<SyncSheetEntry[] | null>(null);
-  /**
-   * The file the dialog was opened over, kept separately from `currentFile`:
-   * "Add Hierarchical Labels" navigates into the sub-sheet to place them, and
-   * the dialog has to come back showing the sheet it was opened on, not
-   * whatever is on screen when the placement finishes. Upstream gets this for
-   * free — its panels hold sheet *paths*, not the active screen.
-   */
-  const syncParentFile = useRef<string>('');
-  /** Which page the dialog should reopen on after a placement. */
-  const syncPage = useRef(0);
-  /**
-   * `DIALOG_SYNC_SHEET_PINS`'s placement template queue: the rows an Add button
-   * armed, one placed per click, the dialog reopening when the last one lands
-   * (`CanPlaceMore` / `EndPlacement`).
-   */
-  const [syncPlacement, setSyncPlacement] = useState<SyncPlacement | null>(null);
-  const syncPlacementRef = useRef<SyncPlacement | null>(null);
-  syncPlacementRef.current = syncPlacement;
-  /** Where to navigate back to when a label placement finishes. */
-  const syncReturn = useRef<{ path: string; file: string } | null>(null);
+  /** DIALOG_SYNC_SHEET_PINS while it is open (SCH_DRAWING_TOOLS::m_dialogSyncSheetPin). */
+  const [syncDialog, setSyncDialog] = useState<DIALOG_SYNC_SHEET_PINS | null>(null);
   const [ercRunning, setErcRunning] = useState<readonly string[] | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   /**
@@ -1821,6 +1786,18 @@ export function SchematicEditor({
               resolve,
             }),
           );
+        }
+        if (aDialog === 'DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS') {
+          // `DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS dlg( m_frame ); dlg.ShowModal();`
+          const dlg = new DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS(schFrameRef.current!);
+          return new Promise<number>((resolve) =>
+            setGlobalEditDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
+          );
+        }
+        if (aDialog === 'DIALOG_SYNC_SHEET_PINS') {
+          // `m_dialogSyncSheetPin->Show( true )`: modeless, so the tool goes on at once.
+          setSyncDialog(aArg as DIALOG_SYNC_SHEET_PINS);
+          return wxID_OK;
         }
         console.warn(`${aDialog} is not ported to the live model yet`);
         return wxID_CANCEL;
@@ -2497,8 +2474,12 @@ export function SchematicEditor({
   const [annotateOpen, setAnnotateOpen] = useState(false);
   // SCH_ACTIONS::incrementAnnotations, a small dialog of its own.
   const [incrementAnnotationsOpen, setIncrementAnnotationsOpen] = useState(false);
-  // SCH_EDIT_TOOL::GlobalEdit (Edit Text & Graphics Properties).
-  const [globalEditOpen, setGlobalEditOpen] = useState(false);
+  // DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS on the live schematic (SCH_EDIT_TOOL::GlobalEdit).
+  const [globalEditDialog, setGlobalEditDialog] = useState<{
+    dlg: DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS;
+    shown: GLOBAL_EDIT_VALUES;
+    resolve: (aRetval: number) => void;
+  } | null>(null);
   // DIALOG_EDIT_SYMBOLS_LIBID (Bulk Edit Symbol Library Links).
   const [libIdsOpen, setLibIdsOpen] = useState(false);
   const [libIdErrors, setLibIdErrors] = useState<readonly string[]>([]);
@@ -3398,55 +3379,6 @@ export function SchematicEditor({
     [rawFiles, onPersistFiles, saveProjectSymLibTable, liveDocs, runProject],
   );
 
-  // Edit Text & Graphics Properties (SCH_EDIT_TOOL::GlobalEdit). The sweep runs
-  // over the whole hierarchy, as TransferDataFromWindow does — it walks every
-  // sheet path, not just the one on screen.
-  const runGlobalEdit = useCallback(
-    (r: GlobalEditResult) => {
-      const sheets = annotateSheets('all', false);
-      const libs = hierarchyLibs(sheets);
-      sheetBatch('Edit Text and Graphics', () => {
-        for (const sheet of sheets) {
-          // The net filter needs that sheet's own netlist; it is only computed
-          // when the filter is actually on.
-          const netOfItem = r.filters.net
-            ? (id: string): string | null => {
-                const nl = computeNetlist(sheet.doc, libs);
-                return connectionName(nl, id);
-              }
-            : undefined;
-          const next = globalEdit(sheet.doc, libs, {
-            scope: r.scope,
-            filters: {
-              ...r.filters,
-              ...(r.filters.selectedOnly && sheet.file === currentFile
-                ? { selected: selection }
-                : {}),
-              // "Selected items only" can only mean the sheet on screen; an
-              // off-screen sheet has no selection, so nothing there matches.
-              ...(r.filters.selectedOnly && sheet.file !== currentFile
-                ? { selected: new Set<string>() }
-                : {}),
-            },
-            action: r.action,
-            ...(netOfItem ? { netOfItem } : {}),
-          });
-          if (next === sheet.doc) continue;
-          applySheetDocument(sheet.file, next, 'Edit Text and Graphics');
-        }
-      });
-    },
-    [
-      annotateSheets,
-      hierarchyLibs,
-      applySheetDocument,
-      currentFile,
-      selection,
-      onProjectChange,
-      sheetBatch,
-    ],
-  );
-
   /**
    * Give a symbol being placed its reference, when KiCad would.
    *
@@ -3691,81 +3623,19 @@ export function SchematicEditor({
     return intersheetRefsFor(idx === -1 ? 1 : idx + 1);
   }, [intersheetRefsFor, sheetInstanceRefs, currentPath]);
 
-  // Print (DIALOG_PRINT): render every sheet of the hierarchy, one page per
-  // sheet instance in SCH_SHEET_LIST order, like SCH_PRINTOUT (sheet_count =
-  // Root().CountSheets()), optionally with a different colour theme
-  // (m_useColorTheme choice). NOTE: title-block page-number variables render
-  // per file (the drawing-sheet resolver is not yet instance-aware).
-  const printPages = useCallback(
-    (opts: PlotOpts): { sch: Schematic; opts: PlotOpts }[] => {
-      // Junction dots, dash ratios, label offsets and netclass visuals print
-      // at their Schematic Setup values, like the screen.
-      const o: PlotOpts = {
-        ...opts,
-        ...drawingDefaults,
-        ...(netOverrides ? { netOverrides } : {}),
-        ...(resolveTextVar ? { resolveTextVar } : {}),
-        ...(intersheetRefs ? { intersheetRefs } : {}),
-        ...(activeSheet ? { sheet: activeSheet } : {}),
-      };
-      const docs = liveDocs();
-      const refs = sheetInstanceRefs;
-      const pages = refs.flatMap((s, i) => {
-        const sch = docs.get(s.file);
-        if (!sch) return [];
-        // Per-instance title-block context (SCH_PRINTOUT sets the printed
-        // sheet's page number/count on the drawing-sheet painter).
-        const pageOpts: PlotOpts = {
-          ...o,
-          pageNumber: pageNumberOf(s.path) || String(i + 1),
-          sheetNumber: i + 1,
-          sheetCount: refs.length,
-          ...(s.path !== '/' ? { sheetName: s.name } : {}),
-          sheetPath: s.namePath,
-          ...((): Partial<PlotOpts> => {
-            const r = intersheetRefsFor(i + 1);
-            return r ? { intersheetRefs: r } : {};
-          })(),
-        };
-        return [{ sch, opts: pageOpts }];
-      });
-      // No hierarchy yet (fresh document): print the on-screen sheet.
-      return pages.length === 0 && doc ? [{ sch: doc, opts: o }] : pages;
-    },
-    [
-      doc,
-      activeSheet,
-      drawingDefaults,
-      netOverrides,
-      resolveTextVar,
-      liveDocs,
-      sheetInstanceRefs,
-      pageNumberOf,
-      intersheetRefs,
-      intersheetRefsFor,
-    ],
-  );
-
-  const doPrint = useCallback(
-    (opts: PlotOpts, themeId?: string) => {
-      const printTheme =
-        themeId && BUILTIN_THEMES[themeId] ? BUILTIN_THEMES[themeId]!.theme : theme;
-      printSheets(printPages(opts), printTheme, outputBaseName());
-      setPrintOpen(false);
-    },
-    [theme, outputBaseName, printPages],
-  );
-
-  // Print Preview (DIALOG_PRINT's Apply / OnPrintPreview): render into a new tab
-  // without auto-printing, and keep the dialog open so options can be adjusted.
-  const doPreview = useCallback(
-    (opts: PlotOpts, themeId?: string) => {
-      const printTheme =
-        themeId && BUILTIN_THEMES[themeId] ? BUILTIN_THEMES[themeId]!.theme : theme;
-      printSheets(printPages(opts), printTheme, outputBaseName(), true);
-    },
-    [theme, outputBaseName, printPages],
-  );
+  // Print (DIALOG_PRINT::TransferDataFromWindow): SavePrintOptions has run in the dialog, so
+  // SCH_PRINTOUT reads them from eeconfig(); wxPrinter draws its pages into the browser's print
+  // window on the paper TransferDataToWindow takes from the current screen's page settings.
+  const doPrint = useCallback(() => {
+    const frame = schFrameRef.current;
+    const pageInfo = frame?.GetScreen()?.GetPageSettings();
+    if (!frame || !pageInfo) return;
+    new wxPrinter().Print(new SCH_PRINTOUT(frame, 'Print Schematic'), {
+      x: pageInfo.GetWidthMils() / 1000,
+      y: pageInfo.GetHeightMils() / 1000,
+    });
+    setPrintOpen(false);
+  }, []);
 
   // Bulk Edit Symbol Fields: apply the changed cells across every sheet they
   // reach, as ONE entry — DIALOG_SYMBOL_FIELDS_TABLE builds a single SCH_COMMIT
@@ -5036,22 +4906,6 @@ export function SchematicEditor({
     };
   }, [doc, selection, runCommand, pasteOptions]);
 
-  // Select/Expand Connection (Ctrl+4 and the context menu). Each press widens
-  // the selection by one stage; the walk itself lives in eeschema.
-  const expandSelectionAlongConnection = useCallback(() => {
-    if (!doc || selection.size === 0) return;
-    setSelection(
-      new Set(
-        promote(
-          selectConnection(doc, libById, selection, {
-            passesFilter: (id) => filterIds(new Set([id])).size > 0,
-          }),
-        ),
-      ),
-    );
-    // biome-ignore lint/correctness/useExhaustiveDependencies: promote/filterIds read refs
-  }, [doc, libById, selection]);
-
   // Duplicate (Ctrl+D): copy to a local buffer and paste from it. KiCad anchors
   // the copy at the connection point closest to the cursor so it doesn't jump.
   const duplicateSelection = useCallback(() => {
@@ -5857,40 +5711,6 @@ export function SchematicEditor({
    * and had you type a name, which is the manual gesture upstream only offers
    * from the sync dialog, and which lets a pin and its label drift apart.
    */
-  /**
-   * The placement queue ran out (or was abandoned): put the tool away and bring
-   * the dialog back, on the sheet it was opened over.
-   *
-   *     m_frame->PopTool( aEvent );
-   *     m_toolMgr->RunAction( ACTIONS::selectionClear );
-   *     m_dialogSyncSheetPin->Show( true );
-   *
-   * and the same on escape, via `EndPlacement()`. The dialog is not rebuilt —
-   * `syncPinsOpen` was never cleared, only hidden while a placement was running
-   * — but its sub-sheet documents are re-read, since placing labels changed one.
-   */
-  const endSyncPlacement = useCallback(() => {
-    setSyncPlacement(null);
-    setActiveTool('select');
-    setPendingLabel(null);
-    const back = syncReturn.current;
-    syncReturn.current = null;
-    if (back) switchSheet(back.path, back.file);
-    setSyncPinsOpen((prev) =>
-      prev ? prev.map((e) => ({ ...e, sub: project.current.docs.get(e.file) ?? e.sub })) : prev,
-    );
-  }, [switchSheet]);
-
-  /**
-   * The document the sync dialog was opened over. Read from the project rather
-   * than taken as `doc`, because placing hierarchical labels navigates into the
-   * sub-sheet and the dialog still belongs to the sheet it was opened on.
-   */
-  const syncParent: Schematic | null = !syncPinsOpen
-    ? null
-    : syncParentFile.current === currentFile
-      ? doc
-      : (project.current.docs.get(syncParentFile.current) ?? null);
 
   /**
    * SCH_DRAWING_TOOLS::m_statusPopup: a tool's one popup, replaced by the next
@@ -5928,10 +5748,6 @@ export function SchematicEditor({
   gridSizeIURef.current = gridSizeIU;
 
   /** A label was dropped: take the next of a multi-label run, else stop. */
-  // What F1 repeats: the items the last placement produced
-  // (SCH_EDIT_FRAME::GetRepeatItems).
-  const repeatItemsRef = useRef<string[]>([]);
-
   /** The sheet as DIALOG_SHEET_PROPERTIES wants it: its fields as grid rows,
    *  its border and fill, this instance's page number and its attributes. */
   // Flush a cross-probe that arrived before the ERC dialog was on screen: the
@@ -5969,6 +5785,21 @@ export function SchematicEditor({
     }
     setNetclassPatterns(plan.patterns);
   }, [netlist, selection]);
+
+  /** A live TOOL_ACTION run on the frame's TOOL_MANAGER, for a hotkey the canvas did not take. */
+  const runLiveAction = useCallback((aAction: TOOL_ACTION) => {
+    schFrameRef.current?.GetToolManager()?.RunAction(aAction);
+  }, []);
+
+  /** ACTION_CONDITIONS::checkCondition of a live action, on the live selection. */
+  const liveChecked = useCallback((aAction: TOOL_ACTION): boolean => {
+    const mgr = schFrameRef.current?.GetToolManager();
+    const selection = mgr?.GetTool(SCH_SELECTION_TOOL)?.GetSelection();
+
+    if (!mgr || !selection) return false;
+
+    return mgr.GetActionManager().GetCondition(aAction)?.checkCondition(selection) ?? false;
+  }, []);
 
   const onTopAction = useCallback(
     (id: string) => {
@@ -6016,49 +5847,10 @@ export function SchematicEditor({
           else nav.excludeCurrent();
         });
       } else if (id === 'syncSheetPins' || id === 'syncAllSheetPins') {
-        // syncSheetPins acts on the selected sheet symbol, syncAllSheetsPins on
-        // every sheet of the open screen. Both need the sub-sheet's document,
-        // which only a loaded project has.
-        const d = docRef.current;
-        // The single-sheet form is `RequestSelection( { SCH_SHEET_T } )`, the
-        // list every other sheet command uses (sch_edit_tool.cpp:3403, :3430),
-        // so hovering a sheet is enough to open its Sync Sheet Pins.
-        const target = id === 'syncSheetPins' ? requestTarget(SheetItems) : new Set<string>();
-        const wanted =
-          id === 'syncSheetPins'
-            ? (d?.sheets
-                .map((sh, i) => ({ sh, i }))
-                .filter(({ sh, i }) => target.has(refId('sheet', sh.uuid, i))) ?? [])
-            : (d?.sheets.map((sh, i) => ({ sh, i })) ?? []);
-        const entries: SyncSheetEntry[] = [];
-        for (const { sh, i } of wanted) {
-          const file = sheetFile(sh);
-          const sub = file ? project.current.docs.get(file) : undefined;
-          if (!file || !sub) continue;
-          entries.push({
-            sheetIndex: i,
-            name: sh.fields.find((f) => f.key === 'Sheetname')?.value ?? file,
-            file,
-            sub,
-          });
-        }
-        if (entries.length === 0)
-          setInfoBar(
-            id === 'syncSheetPins'
-              ? 'Select a sheet whose file is part of this project.'
-              : 'This schematic has no sub-sheets loaded from the project.',
-          );
-        else {
-          // Which file the dialog belongs to, so it survives navigating away to
-          // place labels; and the page of the selected sheet, which upstream
-          // pre-selects (`SCH_SHEET* selectedSheet = … GetSelection().Front()`).
-          syncParentFile.current = currentFile;
-          const sel = entries.findIndex(({ sheetIndex }) =>
-            target.has(refId('sheet', d?.sheets[sheetIndex]?.uuid, sheetIndex)),
-          );
-          syncPage.current = sel >= 0 ? sel : 0;
-          setSyncPinsOpen(entries);
-        }
+        // SCH_DRAWING_TOOLS::SyncSheetsPins / SyncAllSheetsPins on the live tool.
+        runLiveAction(
+          id === 'syncSheetPins' ? SCH_ACTIONS.syncSheetPins : SCH_ACTIONS.syncAllSheetsPins,
+        );
       } else if (id === 'importSheet') {
         // `SCH_DRAWING_TOOLS::ImportSheet`. Upstream loads the file, selects
         // everything it brought in and moves it to the cursor — which is what
@@ -6092,20 +5884,7 @@ export function SchematicEditor({
       else if (id === 'assignFootprints') setAssignFpOpen(true);
       else if (id === 'showCalculator') onShowCalculator?.();
       // ACTIONS::selectAll, whose row carries Ctrl+A and dispatches from there.
-      else if (id === 'selectAll')
-        setDoc((d) => {
-          // Select All honors the Selection Filter (SCH_SELECTION_TOOL::SelectAll
-          // runs every item through itemPassesFilter).
-          if (d)
-            setSelection(
-              applySelectionFilter(
-                d,
-                boxSelect(d, libById, { x: 1e15, y: 1e15 }, { x: -1e15, y: -1e15 }),
-                selFilterRef.current,
-              ),
-            );
-          return d;
-        });
+      else if (id === 'selectAll') runLiveAction(ACTIONS.selectAll);
       else if (id === 'unselectAll') setSelection(new Set());
       // Group / Ungroup (SCH_GROUP_TOOL): members stay selected afterwards,
       // upstream selects the new group (= its members) / the freed members.
@@ -6134,22 +5913,7 @@ export function SchematicEditor({
             ),
           ),
         );
-      // `SCH_EDIT_TOOL::SwapPins` (`sch_edit_tool.cpp:1765-1900`). The
-      // preference is checked here too, not only on the menu entry: upstream's
-      // handler opens with the same test (`:1769-1770`), so a hotkey or a
-      // scripted call cannot get past it either.
-      else if (id === 'swapPins') {
-        if (!doc || !es.input.allow_unconstrained_pin_swaps) return;
-        const r = swapPinsCommand(doc, libById, [...selection], project.current.root);
-        if ('cmd' in r) {
-          runCommand(r.cmd);
-          // `if( selection.IsHover() ) RunAction( selectionClear )` — and the
-          // pins have moved, so the ids no longer name what was picked.
-          setSelection(new Set());
-        } else if (r.kind === 'shared') {
-          setInfoBar(sharedPinSwapMessage(r));
-        }
-      } else if (id === 'openPreferences') setPrefsOpen(true);
+      else if (id === 'openPreferences') setPrefsOpen(true);
       else if (id === 'close') onExitToHome();
       // ACTIONS::help — "Open product documentation in a web browser".
       else if (id === 'help')
@@ -6160,7 +5924,7 @@ export function SchematicEditor({
       else if (id === 'findReplace') openFindDialog('replace');
       else if (id === 'annotate') setAnnotateOpen(true);
       else if (id === 'incrementAnnotations') setIncrementAnnotationsOpen(true);
-      else if (id === 'globalEditTextAndGraphics') setGlobalEditOpen(true);
+      else if (id === 'globalEditTextAndGraphics') runLiveAction(SCH_ACTIONS.editTextAndGraphics);
       else if (id === 'rescueSymbols') void runRescueSymbols(true);
       else if (id === 'editSymbolLibraryLinks') {
         setLibIdErrors([]);
@@ -6169,14 +5933,12 @@ export function SchematicEditor({
         // The Embedded Files page lists the sheet's embedded_files section
         // (names + embed-fonts flag) fresh from the document on every open,
         // read-only until the zstd blobs can be decoded.
-        if (doc) {
-          const emb = listEmbeddedFiles(doc);
+        // PANEL_EMBEDDED_FILES( book, &m_frame->Schematic() ): the live schematic's files.
+        const schematic = schFrameRef.current?.Schematic();
+        if (schematic) {
           setSetup((prev) => ({
             ...prev,
-            embeddedFiles: {
-              files: emb.files.map((f) => ({ name: f.name, reference: f.reference })),
-              embedFonts: emb.embedFonts,
-            },
+            embeddedFiles: PANEL_EMBEDDED_FILES.TransferDataToWindow(schematic.GetEmbeddedFiles()),
           }));
         }
         setSetupOpen(true);
@@ -6233,16 +5995,14 @@ export function SchematicEditor({
       flatSheets,
       currentPath,
       switchSheet,
-      doc,
       netlist,
       selection,
-      libById,
       pageNumberOf,
       pasteOptions,
       withSelection,
-      requestTarget,
       applySelectionState,
       runRescueSymbols,
+      runLiveAction,
     ],
   );
 
@@ -6283,10 +6043,7 @@ export function SchematicEditor({
       // acts on the selection (SCH_EDIT_TOOL::SetAttribute).
       const attr = ATTRIBUTE_IDS[id];
       if (attr) {
-        if (doc) {
-          const cmd = setAttribute(doc, selection, attr);
-          if (cmd) runCommand(cmd);
-        }
+        runLiveAction(attr);
         return;
       }
       if (SETTINGS_TOGGLES.has(id)) {
@@ -6311,7 +6068,7 @@ export function SchematicEditor({
       setLocalToggles((prev) => applyToggle(prev, id));
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [doc, selection, runCommand, openPrefs, app],
+    [openPrefs, app, runLiveAction],
   );
 
   // Menus carry their shortcut as literal text, so a rebinding has to be
@@ -6329,6 +6086,7 @@ export function SchematicEditor({
    * event to the default and then comparing it with the override, so every
    * rebound command would answer to nothing.
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: doc and selection are the triggers: an edit or a selection change re-reads liveChecked's ticks
   const menusRaw = useMemo(
     () =>
       buildMenus(
@@ -6355,13 +6113,10 @@ export function SchematicEditor({
           showSearch: toggles.has('showSearch'),
           showHierarchy: toggles.has('showHierarchy'),
           showNetNavigator: toggles.has('showNetNavigator'),
-          // Each attribute shows checked only when everything the action would
-          // touch already carries it, the same test the action itself uses.
+          // Each attribute ticks by the check condition SCH_EDIT_TOOL::Init gives its action
+          // (attribDNPCond and friends), on the live selection.
           ...Object.fromEntries(
-            Object.entries(ATTRIBUTE_IDS).map(([id, a]) => [
-              id,
-              !!doc && attributeIsSet(doc, selection, a),
-            ]),
+            Object.entries(ATTRIBUTE_IDS).map(([id, a]) => [id, liveChecked(a)]),
           ),
         },
       ),
@@ -6376,6 +6131,7 @@ export function SchematicEditor({
       doc,
       selection,
       app,
+      liveChecked,
     ],
   );
   const menus = useMemo(
@@ -6457,43 +6213,11 @@ export function SchematicEditor({
         app.settings.updateEeschema((s) => {
           s.drawing.arc_edit_mode = incrementArcEditMode(s.drawing.arc_edit_mode as ArcEditMode);
         });
-      } else if (
-        e.key === 'Insert' &&
-        !e.altKey &&
-        !e.shiftKey &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        repeatItemsRef.current.length > 0 &&
-        doc
-      ) {
-        // SCH_ACTIONS::repeatDrawItem (Ins). sch_actions.cpp:757-759 binds F1
-        // inside `#if defined( __WXMAC__ )` and WXK_INSERT in the `#else`, so
-        // Ins is this platform's key and the only one bound. F1 used to be
-        // accepted here too, which is what made F1 ambiguous: it repeated when
-        // there was something to repeat and zoomed otherwise.
-        //
-        // The comment here used to say F1 "shares the key with
-        // ACTIONS::zoomInCenter; upstream resolves that by tool scope". Neither
-        // half held: `zoomInCenter` carries no hotkey at all (F1 belongs to
-        // `ACTIONS::zoomIn`), and upstream has no collision on either platform
-        // — macOS is repeat F1 / zoom Ctrl++, Linux is repeat Ins / zoom F1.
-        // The clash was ours, made by taking one branch for one action and the
-        // other branch for the other.
+      } else if (e.key === 'Insert' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        // SCH_ACTIONS::repeatDrawItem (Ins; F1 only on macOS, sch_actions.cpp:757-759), on the
+        // live tool as the canvas would have run it had it kept the focus.
         e.preventDefault();
-        const r = repeatItems(doc, repeatItemsRef.current, {
-          offset: {
-            x: mmToIU(es.drawing.default_repeat_offset_x * 0.0254),
-            y: mmToIU(es.drawing.default_repeat_offset_y * 0.0254),
-          },
-          labelIncrement: es.drawing.repeat_label_increment,
-        });
-        if (r) {
-          runCommand(r.command);
-          // The copies become the selection, and the next F1 repeats from them.
-          repeatItemsRef.current = r.ids;
-          setSelection(new Set(r.ids));
-          if (r.clampedAtZero) setError('Label value cannot go below zero');
-        }
+        runLiveAction(SCH_ACTIONS.repeatDrawItem);
       } else if (e.key === 'F1' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
         // ACTIONS::listHotKeys is AS_GLOBAL and HotkeyListHost binds Ctrl+F1
         // once, above every frame. The arm stays so the bare-F1 zoom below - a
@@ -6544,32 +6268,17 @@ export function SchematicEditor({
         // GridChangedByKeyEvent too (common/tool/common_tools.cpp:569-592).
         gridFeedbackRef.current();
       } else if (e.altKey && e.key === '3') {
-        // SCH_ACTIONS::selectNode (Alt+3): select the connection item under the
-        // cursor. The pick is GetNode's, connectable types only at growing
-        // thresholds, so a pin or a wire wins over the symbol body around it.
+        // SCH_ACTIONS::selectNode (Alt+3), on the live selection tool.
         e.preventDefault();
-        if (doc && cursorRef.current) {
-          // GetNode's widest threshold is max(HITTEST_THRESHOLD, grid size);
-          // with no pointer scale to hand here the grid is the threshold.
-          const grid = gridSizeToIU(
-            app.settings.eeschema.window.grid.sizes[app.settings.eeschema.window.grid.last_size_idx]
-              ?.x ?? '50 mil',
-          );
-          const node = getNode(doc, libById, cursorRef.current, grid);
-          if (node) setSelection(new Set(promote(filterIds(new Set([node.id])))));
-        }
+        runLiveAction(SCH_ACTIONS.selectNode);
       } else if ((e.ctrlKey || e.metaKey) && e.key === '4') {
-        // SCH_ACTIONS::selectConnection (Ctrl+4): widen the selection along the
-        // connection, one stage per press (junction, then pin, then everything).
+        // SCH_ACTIONS::selectConnection (Ctrl+4), on the live selection tool.
         e.preventDefault();
-        expandSelectionAlongConnection();
-      } else if (e.altKey && e.key.toLowerCase() === 's' && selection.size > 1) {
-        // SCH_ACTIONS::swap (Alt+S): the selection's positions cycle round.
+        runLiveAction(SCH_ACTIONS.selectConnection);
+      } else if (e.altKey && e.key.toLowerCase() === 's') {
+        // SCH_ACTIONS::swap (Alt+S), on the live edit tool.
         e.preventDefault();
-        if (doc) {
-          const cmd = swapItems(doc, selection);
-          if (cmd) runCommand(cmd);
-        }
+        runLiveAction(SCH_ACTIONS.swap);
       } else if (e.altKey && e.key === 'Backspace') {
         // SCH_ACTIONS::leaveSheet (Alt+Backspace), same as Navigate Up.
         e.preventDefault();
@@ -6581,8 +6290,7 @@ export function SchematicEditor({
         //
         //     if( m_dialogSyncSheetPin && m_dialogSyncSheetPin->CanPlaceMore() )
         //     { m_dialogSyncSheetPin->EndPlacement(); m_dialogSyncSheetPin->Show( true ); }
-        if (syncPlacementRef.current) endSyncPlacement();
-        else if (pastePending) setPastePending(null);
+        if (pastePending) setPastePending(null);
         else if (pendingImage) {
           setPendingImage(null);
           setActiveTool('select');
@@ -6698,29 +6406,12 @@ export function SchematicEditor({
           gridFeedbackRef.current();
           return;
         }
-        // C = Unfold from Bus (SCH_ACTIONS::unfoldBus) on the bus under the
-        // cursor. With one member it unfolds straight away; with several the
-        // choice belongs in BUS_UNFOLD_MENU, which is the context menu.
-        if (e.key.toLowerCase() === 'c' && doc && cursorRef.current) {
-          const bi = busForUnfolding(doc, cursorRef.current, mmToIU(2));
-          if (bi !== -1) {
-            const members = busUnfoldMembers(doc, bi, busAliases);
-            if (members.length === 1) {
-              e.preventDefault();
-              const out = unfoldBus(
-                doc,
-                bi,
-                cursorRef.current,
-                members[0]!,
-                mmToIU(es.drawing.default_text_size * 0.0254),
-              );
-              if (out) {
-                runCommand(out.command);
-                setActiveTool('drawWire');
-              }
-              return;
-            }
-          }
+        // C = Unfold from Bus (SCH_ACTIONS::unfoldBus): SCH_LINE_WIRE_BUS_TOOL::UnfoldBus offers
+        // the bus under the cursor's members, as the canvas would have run it.
+        if (e.key.toLowerCase() === 'c') {
+          e.preventDefault();
+          runLiveAction(SCH_ACTIONS.unfoldBus);
+          return;
         }
         // D = Show Datasheet (ACTIONS::showDatasheet), whose target is
         // `RequestSelection( { SCH_SYMBOL_T } )` and which clears a hover
@@ -6810,12 +6501,12 @@ export function SchematicEditor({
     doFind,
     openFindDialog,
     toggles,
-    endSyncPlacement,
     requestTarget,
     withSelection,
     finishCommand,
     app,
     remapEvent,
+    runLiveAction,
   ]);
 
   const fmt = (iu: number): string => {
@@ -7381,123 +7072,16 @@ export function SchematicEditor({
             )}
             {/* Hidden, not closed, while a placement queue is running: upstream
               calls Hide() and Show(true) around the placement tool. */}
-            {syncPinsOpen && !syncPlacement && syncParent && (
+            {syncDialog && (
               <DialogSyncSheetPins
-                parent={syncParent}
-                parentFile={syncParentFile.current}
-                initialPage={syncPage.current}
-                sheets={syncPinsOpen}
-                // Each direction writes a different file, which is why they
-                // go through the per-sheet applier rather than plain
-                // runCommand — and through `sheetBatch`, so the entry lands on
-                // the stack Ctrl+Z reaches from here rather than on the stack
-                // of a sheet the user is not looking at.
-                onUsePinTemplate={(entry, pin, label) => {
-                  const cmd = syncPinFromLabel(
-                    doc,
-                    { sheet: entry.sheetIndex, pin: pin.index },
-                    label,
-                  );
-                  if (!cmd) return;
-                  sheetBatch('Sync Sheet Pins', () =>
-                    applySheetCommand(syncParentFile.current, cmd),
-                  );
+                dlg={syncDialog}
+                onClose={() => {
+                  // The dialog's OnClose; the tool forgets it as its unique_ptr would.
+                  syncDialog.Hide();
+                  const tool = schFrameRef.current?.GetToolManager()?.GetTool(SCH_DRAWING_TOOLS);
+                  if (tool) tool.m_dialogSyncSheetPin = null;
+                  setSyncDialog(null);
                 }}
-                onUseLabelTemplate={(entry, label, pin) => {
-                  sheetBatch('Sync Sheet Pins', () =>
-                    applySheetCommand(entry.file, syncLabelsFromPin(label, pin)),
-                  );
-                  // The dialog reads the sub-sheet it was handed, so refresh it.
-                  // Safe to read `project.current.docs` here even though the
-                  // edit is folded in a `setDoc` updater: `doc`'s hook is
-                  // declared above this one, so its queue is drained first.
-                  setSyncPinsOpen((prev) =>
-                    prev
-                      ? prev.map((e) =>
-                          e.file === entry.file
-                            ? { ...e, sub: project.current.docs.get(e.file) ?? e.sub }
-                            : e,
-                        )
-                      : prev,
-                  );
-                }}
-                // `OnBtnAddSheetPinsClicked` → `PlaceSheetPin`: the panel goes
-                // away, the sheet symbol is selected and the pin tool runs with
-                // the chosen labels queued. One click places one pin.
-                onAddSheetPins={(entry, tmpl) => {
-                  const p = syncPlacementFor(
-                    'sheetPin',
-                    entry.sheetIndex,
-                    syncParentFile.current,
-                    tmpl,
-                  );
-                  if (!p) return;
-                  setSyncPlacement(p);
-                  // `SyncSelection( {}, nullptr, { sheet } )` — so the tool acts
-                  // on the sheet the page belongs to.
-                  const sh = doc.sheets[entry.sheetIndex];
-                  if (sh) setSelection(new Set([refId('sheet', sh.uuid, entry.sheetIndex)]));
-                  setActiveTool('sheetPin');
-                  setInfoBar(
-                    `Click the sheet border to place '${tmpl[0]!.text}'` +
-                      (tmpl.length > 1 ? ` (${tmpl.length} to place).` : '.'),
-                  );
-                }}
-                // `OnBtnAddLabelsClicked` → `PlaceHieraLable`: the label belongs
-                // to the sub-sheet's own document, so this changes sheet first
-                // (`RunAction( SCH_ACTIONS::changeSheet, &aPath )`) and comes back
-                // when the queue runs out.
-                onAddHierLabels={(entry, tmpl) => {
-                  const p = syncPlacementFor('hierLabel', entry.sheetIndex, entry.file, tmpl);
-                  if (!p) return;
-                  const target = flatSheets.find((f) => f.file === entry.file);
-                  if (!target) {
-                    setInfoBar(`Sheet file not in project: ${entry.file}`);
-                    return;
-                  }
-                  syncReturn.current = { path: currentPath, file: currentFile };
-                  switchSheet(target.path, target.file);
-                  setSyncPlacement(p);
-                  setActiveTool('placeHierLabel');
-                  setPendingLabel({
-                    kind: 'hierarchical_label',
-                    text: tmpl[0]!.text,
-                    shape: tmpl[0]!.shape,
-                    fontSize: setup.formatting.defaultTextSizeMils * IU_PER_MILS,
-                    angle: SPIN_ANGLE[lastLabel.current.spin],
-                    autoRotate: lastLabel.current.autoRotate,
-                    fields: [],
-                  });
-                  setInfoBar(
-                    `Click to place '${tmpl[0]!.text}' in ${entry.file}` +
-                      (tmpl.length > 1 ? ` (${tmpl.length} to place).` : '.'),
-                  );
-                }}
-                // The two delete buttons (`OnBtnRmPinsClicked` /
-                // `OnBtnRmLabelsClicked`), each writing its own half's file.
-                onDeletePins={(entry, indices) => {
-                  sheetBatch('Sync Sheet Pins', () =>
-                    applySheetCommand(
-                      syncParentFile.current,
-                      deleteSyncPins(entry.sheetIndex, indices),
-                    ),
-                  );
-                }}
-                onDeleteLabels={(entry, texts) => {
-                  sheetBatch('Sync Sheet Pins', () =>
-                    applySheetCommand(entry.file, deleteSyncLabels(texts)),
-                  );
-                  setSyncPinsOpen((prev) =>
-                    prev
-                      ? prev.map((e) =>
-                          e.file === entry.file
-                            ? { ...e, sub: project.current.docs.get(e.file) ?? e.sub }
-                            : e,
-                        )
-                      : prev,
-                  );
-                }}
-                onClose={() => setSyncPinsOpen(null)}
               />
             )}
             {symLibTableOpen && (
@@ -7737,14 +7321,15 @@ export function SchematicEditor({
                 }}
               />
             )}
-            {globalEditOpen && (
+            {globalEditDialog && (
               <DialogGlobalEditTextAndGraphics
-                hasSelection={selection.size > 0}
-                onOk={(r) => {
-                  setGlobalEditOpen(false);
-                  runGlobalEdit(r);
+                dlg={globalEditDialog.dlg}
+                initial={globalEditDialog.shown}
+                units={units}
+                onClose={() => {
+                  setGlobalEditDialog(null);
+                  globalEditDialog.resolve(wxID_OK);
                 }}
-                onCancel={() => setGlobalEditOpen(false)}
               />
             )}
             {incrementAnnotationsOpen && (
@@ -7816,7 +7401,6 @@ export function SchematicEditor({
               <DialogPrint
                 settings={app.settings}
                 onPrint={doPrint}
-                onPreview={doPreview}
                 themeId={es.appearance.color_theme}
                 onClose={() => setPrintOpen(false)}
               />
@@ -7866,27 +7450,20 @@ export function SchematicEditor({
                 value={setup}
                 onOk={(next) => {
                   commitSetup(next);
-                  // The Embedded Files page edits the document itself
-                  // (EMBEDDED_FILES lives in .kicad_sch, not the project file):
-                  // compress added files, drop removed ones, set the fonts flag.
-                  if (doc) {
-                    const cur = listEmbeddedFiles(doc);
-                    const keep = new Set(next.embeddedFiles.files.map((f) => f.name));
-                    const removed = cur.files.filter((f) => !keep.has(f.name)).map((f) => f.name);
-                    const added = next.embeddedFiles.files.filter((f) => f.pendingBytes);
-                    const fontsChanged = next.embeddedFiles.embedFonts !== cur.embedFonts;
-                    if (removed.length || added.length || fontsChanged) {
-                      const base = doc;
-                      void (async () => {
-                        let after = base;
-                        for (const name of removed) after = removeEmbeddedFile(after, name);
-                        for (const f of added)
-                          after = await addEmbeddedFile(after, f.name, f.pendingBytes!);
-                        if (fontsChanged)
-                          after = setEmbedFonts(after, next.embeddedFiles.embedFonts);
-                        runCommand(embeddedFilesCommand(after));
-                      })();
-                    }
+                  // The Embedded Files page edits the schematic itself (EMBEDDED_FILES lives in
+                  // the .kicad_sch, not the project file). Compressing an added file needs the
+                  // zstd codec, which only a board load has initialised so far.
+                  const frame = schFrameRef.current;
+                  if (frame) {
+                    void EMBEDDED_FILES.InitCodec().then(() => {
+                      if (
+                        PANEL_EMBEDDED_FILES.TransferDataFromWindow(
+                          next.embeddedFiles,
+                          frame.Schematic().GetEmbeddedFiles(),
+                        )
+                      )
+                        frame.OnModify();
+                    });
                   }
                   setSetupOpen(false);
                 }}
@@ -7894,15 +7471,17 @@ export function SchematicEditor({
                 onExportEmbedded={(files) => {
                   // onExportFiles: write every embedded file out, here as
                   // downloads; pending rows export their picked bytes directly.
-                  const base = doc;
-                  if (!base) return;
-                  void (async () => {
+                  const embedded = schFrameRef.current?.Schematic().GetEmbeddedFiles();
+                  if (!embedded) return;
+                  void EMBEDDED_FILES.InitCodec().then(() => {
                     for (const f of files) {
-                      const bytes =
-                        f.pendingBytes ?? (await getEmbeddedFileData(base, f.name))?.bytes;
+                      const file = f.pendingBytes ? null : embedded.GetEmbeddedFile(f.name);
+                      if (file && file.decompressedData.length === 0)
+                        EMBEDDED_FILES.DecompressAndDecode(file);
+                      const bytes = f.pendingBytes ?? file?.decompressedData;
                       if (bytes) downloadBlob(new Blob([bytes.slice().buffer]), f.name);
                     }
-                  })();
+                  });
                 }}
               />
             )}

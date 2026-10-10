@@ -4,8 +4,8 @@
 /**
  * SCH_PLOTTER: schematic print/plot output (was `designer/src/editors/schematic/
  * render/plot.ts`). Counterparts: `eeschema/sch_plotter.cpp`
- * (SCH_PLOTTER, the Plot dialog's file writers) and `eeschema/printing/
- * sch_printout.cpp` (SCH_PRINTOUT, the Print dialog's page rendering).
+ * (SCH_PLOTTER, the Plot dialog's file writers). Print is `printing/sch_printout.ts` on the
+ * live model now.
  *
  * Both reuse the on-screen schematic renderer: a sheet is drawn at page size
  * with the grid/cursor off and the drawing sheet + colours chosen by the
@@ -25,7 +25,6 @@ import type { LibSymbol, SchField, SchLabel, SchSymbol, Schematic } from './inde
 import { busJunctionIds } from './connectivity/bus.js';
 import type { WksSheet } from '@ziroeda/common';
 import type { Theme } from './sch_render_settings.js';
-import { KICAD_CLASSIC } from './sch_render_settings.js';
 import { renderSchematic, paperSizeIU, setVectorText } from './sch_painter.js';
 import type { RenderOpts } from './sch_render_settings.js';
 import { zlibSync } from 'fflate';
@@ -1097,67 +1096,6 @@ export function plotPs(
     new Blob([sheetToPs(sch, base, opts, name)], { type: 'application/postscript' }),
     `${name}.ps`,
   );
-}
-function escText(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-// ----- minimal single-image PDF ---------------------------------------------
-
-// ----- Print (browser) -------------------------------------------------------
-
-/** One page of a print job: a sheet document and its render options. */
-export interface PrintPage {
-  sch: Schematic;
-  opts: PlotOpts;
-}
-
-/**
- * Open the browser print flow for a multi-page job, SCH_PRINTOUT prints the
- * whole hierarchy, one page per sheet instance in SCH_SHEET_LIST order.
- * Colour output prints as-is; B&W forces the monochrome theme (outputTheme).
- * "Print" auto-opens the browser print flow once the last page has loaded;
- * "Print Preview" (KiCad's Apply) just shows the rendered pages. The page
- * orientation follows the first sheet (CSS `@page` is per-document, unlike
- * wxPrintout's per-page setup).
- */
-export function printSheets(
-  pages: readonly PrintPage[],
-  base: Theme,
-  title: string,
-  preview = false,
-): void {
-  if (pages.length === 0) return;
-  const dataUrls = pages.map(({ sch, opts }) =>
-    renderSheetToCanvas(sch, opts.color ? base : KICAD_CLASSIC, opts, 300).toDataURL('image/png'),
-  );
-  const first = pageIU(pages[0]!.sch);
-  const landscape = first.w >= first.h;
-  const win = window.open('', '_blank');
-  if (!win) return;
-  const onload = preview ? 'window.focus();' : 'window.focus();window.print();';
-  win.document.write(
-    `<!doctype html><html><head><title>${escText(title)}</title>` +
-      `<style>@page { size: ${landscape ? 'landscape' : 'portrait'}; margin: 0; }` +
-      `html,body { margin: 0; padding: 0; }` +
-      `img { display: block; width: 100%; height: auto; page-break-after: always; }` +
-      `img:last-child { page-break-after: auto; }</style></head>` +
-      `<body>${dataUrls
-        .map((u, i) => `<img src="${u}"${i === dataUrls.length - 1 ? ` onload="${onload}"` : ''}/>`)
-        .join('')}</body></html>`,
-  );
-  win.document.close();
-}
-
-/** Single-sheet convenience wrapper over printSheets. */
-export function printSheet(
-  sch: Schematic,
-  base: Theme,
-  opts: PlotOpts,
-  title: string,
-  preview = false,
-): void {
-  printSheets([{ sch, opts }], base, title, preview);
 }
 
 /**

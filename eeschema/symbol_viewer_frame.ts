@@ -13,7 +13,7 @@
  */
 import type { ReactNode } from 'react';
 import { EdaCombinedMatcher } from '@ziroeda/common';
-import type { EESCHEMA_SETTINGS_STORE } from './eeschema_app.js';
+import type { EESCHEMA_SETTINGS_STORE } from './browser/eeschema_app.js';
 import type { Theme } from './sch_render_settings.js';
 import type { LibSymbol } from './types.js';
 import {

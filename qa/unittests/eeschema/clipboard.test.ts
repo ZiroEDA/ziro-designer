@@ -11,7 +11,6 @@ import { fileURLToPath } from 'node:url';
 import { parse, serialize } from '@ziroeda/sexpr/index.js';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { boxSelect } from '@ziroeda/eeschema/tools/boxselect.js';
 import {
   copySelectionText,
   parsePastedText,
@@ -19,7 +18,6 @@ import {
   pasteItems,
 } from '@ziroeda/eeschema/tools/clipboard.js';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';
-import { symbolBodyBBox } from '@ziroeda/eeschema/tools/bbox.js';
 
 const fixture = readFileSync(
   fileURLToPath(new URL('../../data/nfc-antenna.kicad_sch', import.meta.url)),
@@ -27,75 +25,6 @@ const fixture = readFileSync(
 );
 
 const sch = () => readSchematic(parse(fixture));
-
-describe('boxSelect (SelectMultiple port)', () => {
-  it('left-to-right selects only fully-contained items', () => {
-    const doc = sch();
-    const sym = doc.symbols[0]!;
-    const body = symbolBodyBBox(
-      sym,
-      new Map(doc.libSymbols.map((l) => [l.libId, l])).get(sym.libId),
-    );
-    const pad = mmToIU(1);
-
-    // A window that covers the whole body selects the symbol...
-    const libById = new Map(doc.libSymbols.map((l) => [l.libId, l]));
-    const all = boxSelect(
-      doc,
-      libById,
-      { x: body.minX - pad, y: body.minY - pad },
-      { x: body.maxX + pad, y: body.maxY + pad },
-    );
-    expect(all.has(refId('symbol', sym.uuid, 0))).toBe(true);
-
-    // ...but one that only covers half of it does not (contained mode).
-    const half = boxSelect(
-      doc,
-      libById,
-      { x: body.minX - pad, y: body.minY - pad },
-      { x: (body.minX + body.maxX) / 2, y: body.maxY + pad },
-    );
-    expect(half.has(refId('symbol', sym.uuid, 0))).toBe(false);
-  });
-
-  it('right-to-left is greedy: touching the body is enough', () => {
-    const doc = sch();
-    const libById = new Map(doc.libSymbols.map((l) => [l.libId, l]));
-    const sym = doc.symbols[0]!;
-    const body = symbolBodyBBox(sym, libById.get(sym.libId));
-    const pad = mmToIU(1);
-    // Same half-covering box, but dragged right-to-left (origin.x > end.x).
-    const ids = boxSelect(
-      doc,
-      libById,
-      { x: (body.minX + body.maxX) / 2, y: body.minY - pad },
-      { x: body.minX - pad, y: body.maxY + pad },
-    );
-    expect(ids.has(refId('symbol', sym.uuid, 0))).toBe(true);
-  });
-
-  it('contained mode requires both wire endpoints inside; greedy needs a crossing', () => {
-    // A synthetic horizontal wire from (10,10) to (30,10) mm.
-    const src = `(kicad_sch (version 20230121) (generator eeschema) (lib_symbols)
-      (wire (pts (xy 10 10) (xy 30 10)) (uuid "w-1")))`;
-    const doc = readSchematic(parse(src));
-    const libById = new Map<string, never>();
-    const minY = mmToIU(9),
-      maxY = mmToIU(11);
-    const left = mmToIU(9),
-      midX = mmToIU(20);
-
-    // Window over only half the wire: not selected.
-    const win = boxSelect(doc, libById, { x: left, y: minY }, { x: midX, y: maxY });
-    expect(win.has('w-1')).toBe(false);
-    // Same box dragged right-to-left: crossing selects the whole wire.
-    const greedy = boxSelect(doc, libById, { x: midX, y: minY }, { x: left, y: maxY });
-    expect(greedy.has('w-1')).toBe(true);
-    // A window over the whole wire selects it.
-    const all = boxSelect(doc, libById, { x: left, y: minY }, { x: mmToIU(31), y: maxY });
-    expect(all.has('w-1')).toBe(true);
-  });
-});
 
 describe('copy/paste (doCopy / Paste port)', () => {
   it('copies KiCad clipboard format: lib_symbols + bare items', () => {

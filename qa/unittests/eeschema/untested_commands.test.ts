@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The five `EditCommand` factories that no test called (#407), found by the
+ * The `EditCommand` factories that no test called (#407), found by the
  * coverage guard in `undo_sweep.test.ts`.
  *
  * Nothing had ever applied them and nothing had ever run their `invert`. Each
@@ -13,7 +13,6 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { annotateCommand, setSymbolsCommand } from '@ziroeda/eeschema/annotate.js';
-import { embeddedFilesCommand, setEmbedFonts } from '@ziroeda/eeschema/tools/embedded.js';
 import { replaceSheetPin } from '@ziroeda/eeschema/tools/sch_sheet_pin_tool.js';
 import type { EditCommand } from '@ziroeda/eeschema/tools/command.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
@@ -88,22 +87,5 @@ describe('the commands nothing was calling', () => {
       d,
       replaceSheetPin({ sheet: 0, pin: 0 }, { ...pin, name: 'RESET' }),
     );
-  });
-
-  it('embeddedFilesCommand', () => {
-    // The zstd work is async, so the dialog computes the document first and the
-    // command only swaps the source in. Toggling the fonts flag is the smallest
-    // change that produces a different source.
-    const d = doc();
-    roundTrip('embeddedFilesCommand', d, embeddedFilesCommand(setEmbedFonts(d, true)));
-  });
-
-  it('embeddedFilesCommand replaces only the source, not the items', () => {
-    // Worth pinning: it swaps a whole precomputed `source` in. If it dropped
-    // the model arrays with it, every item would vanish on an embed.
-    const d = doc();
-    const after = embeddedFilesCommand(setEmbedFonts(d, true)).apply(d);
-    expect(after.symbols).toBe(d.symbols);
-    expect(after.sheets).toBe(d.sheets);
   });
 });

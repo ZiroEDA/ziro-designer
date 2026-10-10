@@ -402,6 +402,9 @@ export class UNIT_BINDER {
    * - here straight to the sink, the page's modal.
    */
   Validate(aMin: number, aMax: number, aUnits: EDA_UNITS): boolean {
+    // An indeterminate field ("-- leave unchanged --", "<...>") has no value to range-check.
+    if (this.IsIndeterminate()) return true;
+
     const scale = this.m_unitsProvider.GetIuScale();
     const desc = valueDescriptionFromLabel(this.m_label);
 

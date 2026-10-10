@@ -40,7 +40,7 @@ import type { LibIndexEntry } from '../libraries/symbol_library_adapter.js';
 import type { LibTreeItem } from '../lib_tree_item.js';
 import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js';
 import type { PickedSymbol } from '../picksymbol.js';
-import type { EESCHEMA_SETTINGS_STORE } from '../eeschema_app.js';
+import type { EESCHEMA_SETTINGS_STORE } from '../browser/eeschema_app.js';
 import {
   SYMBOL_TREE_MODEL_ADAPTER,
   populateFromSymbol,

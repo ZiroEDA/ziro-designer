@@ -118,7 +118,6 @@ function hardcodesUnits(file: string): string[] {
  * (dialog_sheet_pin_properties.cpp:44) while ours renders a literal "mm".
  */
 const KNOWN_HARDCODED = new Set([
-  'eeschema/dialog_global_edit_text_and_graphics.tsx',
   'eeschema/dialog_image_properties.tsx',
   'eeschema/dialog_line_properties.tsx',
   'eeschema/dialog_plot_schematic.tsx',

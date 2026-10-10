@@ -23,19 +23,17 @@
  *    disabled, and only rewrites `color_theme` when the use-theme box is
  *    checked.
  *
- * "Print" renders the current sheet into the browser's print flow.
+ * "Print" runs SCH_PRINTOUT through wxPrinter into the browser's print flow.
  */
 
 import { useState, type JSX } from 'react';
-import type { PlotOpts } from '../sch_plotter.js';
 import { BUILTIN_THEMES } from '../sch_render_settings.js';
-import type { EESCHEMA_SETTINGS_STORE } from '../eeschema_app.js';
+import type { EESCHEMA_SETTINGS_STORE } from '../browser/eeschema_app.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
-  onPrint: (opts: PlotOpts, themeId?: string) => void;
-  /** Print Preview (upstream Apply / OnPrintPreview): show the render without printing. */
-  onPreview?: (opts: PlotOpts, themeId?: string) => void;
+  /** TransferDataFromWindow's print, after SavePrintOptions: SCH_PRINTOUT reads the options back. */
+  onPrint: () => void;
   /** The editor's active theme id (used when a different print theme is off). */
   themeId?: string;
   onClose: () => void;
@@ -47,13 +45,7 @@ interface Props {
 // Note: KiCad's "Page Setup..." button (m_buttonPageSetup -> wxPageSetupDialog)
 // is intentionally omitted. On the web the browser's native print dialog already
 // controls paper size, orientation and margins for the print job.
-export function DialogPrint({
-  settings,
-  onPrint,
-  onPreview,
-  themeId,
-  onClose,
-}: Props): JSX.Element {
+export function DialogPrint({ settings, onPrint, themeId, onClose }: Props): JSX.Element {
   // TransferDataToWindow: seed from the saved printing.* options.
   const cfg = settings.eeschema.printing;
   const [color, setColor] = useState(!cfg.monochrome);
@@ -96,9 +88,9 @@ export function DialogPrint({
   // options on the way out as the dialog's own close does.
   useModalEscape(saveAndClose);
 
-  const run = (fn?: (opts: PlotOpts, themeId?: string) => void): void => {
+  const run = (): void => {
     savePrintOptions();
-    fn?.({ color, drawingSheet, background: color && background }, useTheme ? themeSel : undefined);
+    onPrint();
   };
 
   return (
@@ -171,17 +163,13 @@ export function DialogPrint({
           </select>
         </div>
         <div className="ze-modal-footer">
-          {/* Right-aligned by the footer's justify-content:flex-end.
-              KiCad std-button order (GTK): Print Preview (Apply), Close, Print (OK). */}
-          {onPreview && (
-            <button className="ze-btn" onClick={() => run(onPreview)}>
-              Print Preview
-            </button>
-          )}
+          {/* Right-aligned by the footer's justify-content:flex-end. KiCad std-button order
+              (GTK): Close, Print (OK); Print Preview (Apply) is hidden on __WXGTK__, whose
+              native print dialog previews. */}
           <button className="ze-btn" onClick={saveAndClose}>
             Close
           </button>
-          <button className="ze-btn primary" onClick={() => run(onPrint)}>
+          <button className="ze-btn primary" onClick={run}>
             Print
           </button>
         </div>

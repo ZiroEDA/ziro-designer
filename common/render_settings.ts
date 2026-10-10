@@ -100,6 +100,21 @@ export abstract class RENDER_SETTINGS {
   // backgrounds are not printed to avoid not visible items
   protected m_printLayers: LSET = new LSET();
 
+  /**
+   * The implicit copy-assignment operator (`*aDst = *aSrc`, e.g. SCH_PRINTOUT::PrintPage):
+   * every member copied, a container by value as a std::map / std::set / std::vector copies.
+   */
+  assign(aOther: this): void {
+    const dst = this as unknown as Record<string, unknown>;
+
+    for (const [key, value] of Object.entries(aOther as unknown as Record<string, unknown>)) {
+      if (value instanceof Map) dst[key] = new Map(value);
+      else if (value instanceof Set) dst[key] = new Set(value);
+      else if (Array.isArray(value)) dst[key] = value.slice();
+      else dst[key] = value;
+    }
+  }
+
   constructor() {
     // Set the default initial values
     this.m_activeLayer = PCB_LAYER_ID.F_Cu;

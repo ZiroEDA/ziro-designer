@@ -203,10 +203,8 @@ describe('the global-edit dialog', () => {
   it('appends "-- leave unchanged --" after the styles, not before', () => {
     // dialog_global_edit_text_and_graphics.cpp:96 appends INDETERMINATE_ACTION
     // to a choice already holding the five names (…_base.cpp:368).
-    const body = SRC.slice(SRC.indexOf('const lineStyleChoice'));
-    const styles = body.indexOf('LINE_STYLE_NAMES.map');
-    const indeterminate = body.indexOf('<option value={INDETERMINATE}>');
-    expect(styles).toBeGreaterThan(-1);
-    expect(indeterminate).toBeGreaterThan(styles);
+    expect(SRC).toContain(
+      'const LINE_STYLE_CHOICES = [...LINE_STYLE_NAMES.map((n) => n.label), INDETERMINATE_ACTION];',
+    );
   });
 });

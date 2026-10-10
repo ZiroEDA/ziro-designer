@@ -7833,6 +7833,89 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-lp-fmt-label {
   white-space: nowrap;
 }
+/* DIALOG_SYNC_SHEET_PINS / PANEL_SYNC_SHEET_PINS (sync_sheet_pin/*_base.cpp). bSizer3: pins,
+   labels, the button column, then the associated pairs; each list panel takes an equal share. */
+.ze-sync-panel {
+  display: flex;
+  min-width: 666px; /* [data] PANEL_SYNC_SHEET_PINS_BASE size wxSize( 666,414 ) */
+  min-height: 414px; /* [data] PANEL_SYNC_SHEET_PINS_BASE size wxSize( 666,414 ) */
+}
+.ze-sync-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin: 5px; /* [data] bSizer3->Add( m_panel11, 1, wxEXPAND | wxALL, 5 ) */
+}
+/* m_labelSymName / m_labelSheetName: wxALIGN_CENTER_HORIZONTAL | wxBORDER_THEME. */
+.ze-sync-caption {
+  text-align: center;
+  border: 1px solid var(--ctl-border);
+  /* wxBORDER_THEME draws the GTK frame, rounded about 5px (.ze-tplsel-card measured it). */
+  border-radius: 5px; /* [px] the wxBORDER_THEME corner traced for .ze-tplsel-card */
+}
+.ze-sync-list {
+  flex: 1;
+  overflow: auto;
+}
+/* bSizer13: a proportion-1 spacer above the buttons and a proportion-2 one below. */
+.ze-sync-buttons {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: 33%;
+}
+.ze-sync-buttons > * {
+  margin: 5px; /* [data] bSizer14->Add( m_btnUsePinAsTemplate, 0, wxALL|wxEXPAND, 5 ) */
+}
+/* bSizer8: a stretch spacer, the tip, Close. */
+.ze-sync-tip {
+  margin-right: auto;
+}
+
+/* DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS (dialog_global_edit_text_and_graphics_base.cpp).
+   bSizerTop: Scope beside Filter Items, the filters taking the slack. */
+.ze-ge-top {
+  display: flex;
+  gap: 10px; /* [data] bSizerTop: sbScope Add( wxRIGHT, 5 ) + sbFilters Add( wxLEFT, 5 ) */
+  align-items: stretch;
+}
+.ze-ge-top > :last-child {
+  flex: 1;
+}
+.ze-ge-scope {
+  display: flex;
+  flex-direction: column;
+}
+/* sbScope's spacers between the symbol, wire and sheet groups: Add( 0, 0, 0, wxTOP|wxBOTTOM, 5 ). */
+.ze-ge-gap {
+  height: 10px; /* [data] sbScope Add( 0, 0, 0, wxEXPAND|wxTOP|wxBOTTOM, 5 ) */
+}
+/* fgSizer: each filter's option beside its text, the text column growable. */
+.ze-ge-filters {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 4px 0; /* [data] fgSizer2 wxFlexGridSizer( 0, 2, 4, 0 ) */
+}
+/* fgSizer1: wxFlexGridSizer( 0, 6, 5, 0 ), AddGrowableCol 1, 3 and 5. */
+.ze-ge-action {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr auto 1fr;
+  align-items: center;
+  gap: 5px 0; /* [data] fgSizer1 wxFlexGridSizer( 0, 6, 5, 0 ) */
+}
+/* m_staticline1..5 span the row between the text controls and the line controls. */
+.ze-ge-rule {
+  grid-column: 1 / -1;
+  margin: 7px 0; /* [data] m_staticline1..5 Add( wxTOP|wxBOTTOM, 7 ) */
+}
+/* m_staticText12..16: KIUI::GetSmallInfoFont( this ).Italic(). */
+.ze-small-info {
+  font-size: var(--ui-font-size-small);
+}
+.ze-italic {
+  font-style: italic;
+}
 /* The font picker. `m_fontCtrl` is added with **wxEXPAND** in every dialog
    that carries one — `dialog_field_properties_base.cpp:146`,
    `dialog_label_properties_base.cpp:221`, `dialog_text_properties_base.cpp:97`

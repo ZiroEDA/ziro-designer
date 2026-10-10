@@ -218,6 +218,18 @@ describe('SCH_PAINTER: overlay passes that draw nothing skip the library copy', 
     copy.mockRestore();
   });
 
+  it('a selected symbol’s shadow pass goes on to the copy', () => {
+    const { p } = painter();
+    const sym = placed(libSymbol());
+    sym.SetSelected();
+    const copy = vi.spyOn(LIB_SYMBOL, 'copyOf');
+
+    p.Draw(sym, SCH_LAYER_ID.LAYER_SELECTION_SHADOWS);
+
+    expect(copy).toHaveBeenCalled();
+    copy.mockRestore();
+  });
+
   it('a selected pin on an unselected symbol still gets its shadow', () => {
     const { gal, p } = painter();
     const sym = placed(libSymbol());

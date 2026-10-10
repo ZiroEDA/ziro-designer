@@ -9,6 +9,11 @@
  *
  * Every dialog is the window's, through SCH_EDIT_FRAME::ShowModalDialog / EditSheetProperties.
  */
+import { DIALOG_SYNC_SHEET_PINS, PlaceItemKind } from '../sync_sheet_pin/dialog_sync_sheet_pins.js';
+import {
+  SHEET_SYNCHRONIZATION_AGENT,
+  SHEET_SYNCHRONIZATION_PLACEMENT,
+} from '../sync_sheet_pin/sheet_synchronization_agent.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { IGNORE_PARENT_GROUP, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import {
@@ -136,6 +141,8 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   m_lastNetClassFlagShape: LABEL_FLAG_SHAPE = LABEL_FLAG_SHAPE.F_ROUND;
   m_lastTextOrientation: SPIN_STYLE = new SPIN_STYLE(SPIN_STYLE.RIGHT);
   m_lastTextBold = false;
+  /// The Synchronize Sheet Pins dialog while it is open, and the templates it places from.
+  m_dialogSyncSheetPin: DIALOG_SYNC_SHEET_PINS | null = null;
   m_lastTextItalic = false;
   m_lastTextAngle: EDA_ANGLE = ANGLE_0;
   m_lastTextboxAngle: EDA_ANGLE = ANGLE_0;
@@ -1181,11 +1188,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     return pin;
   }
 
-  /**
-   * TwoClickPlace. The Sync Sheet Pins dialog's placement template (m_dialogSyncSheetPin) is not
-   * ported: that dialog is the window's, and it places through placeHierLabel / placeSheetPin as
-   * the plain tools do.
-   */
+  /** TwoClickPlace, with the Sync Sheet Pins dialog's placement templates (m_dialogSyncSheetPin). */
   *TwoClickPlace(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
     let item: SCH_ITEM | null = null;
     const controls = this.controls();
@@ -1289,7 +1292,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       const commit = new SCH_COMMIT(this.m_toolMgr!);
 
       // Main loop: keep receiving events
-      for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+      eventLoop: for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
         setCursor();
         grid.SetSnap(!evt.Modifier(MD_SHIFT));
         grid.SetUseGrid(this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
@@ -1340,117 +1343,168 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           evt.IsAction(ACTIONS.cursorClick) ||
           evt.IsAction(ACTIONS.cursorDblClick)
         ) {
-          // First click creates...
-          if (!item) {
-            this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+          PLACE_NEXT: for (;;) {
+            // First click creates...
+            if (!item) {
+              this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 
-            if (isText) {
-              item = yield* this.createNewText(cursorPos);
-              description = 'Add Text';
-            } else if (isHierLabel) {
-              yield* this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_HIERLABEL, itemsToPlace);
-              description = 'Add Hierarchical Label';
-            } else if (isNetLabel) {
-              yield* this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_LOCLABEL, itemsToPlace);
-              description = 'Add Label';
-            } else if (isGlobalLabel) {
-              yield* this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_GLOBLABEL, itemsToPlace);
-              description = 'Add Label';
-            } else if (isClassLabel) {
-              yield* this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_NETCLASS_REFS, itemsToPlace);
-              description = 'Add Label';
-            } else if (isSheetPin) {
-              const i: { value: EDA_ITEM | null } = { value: null };
+              if (isText) {
+                item = yield* this.createNewText(cursorPos);
+                description = 'Add Text';
+              } else if (isHierLabel) {
+                const template = this.m_dialogSyncSheetPin?.GetPlacementTemplate();
 
-              // If we didn't have a sheet selected, try to find one under the cursor
-              if (
-                !sheet &&
-                (yield* this.m_selectionTool!.SelectPoint(cursorPos, [KICAD_T.SCH_SHEET_T], i))
-              )
-                sheet = i.value instanceof SCH_SHEET ? i.value : null;
+                if (template) {
+                  const pin = template;
+                  const label = new SCH_HIERLABEL(cursorPos);
+                  const schematic = this.m_frame!.Schematic();
+                  label.SetText(pin.GetText());
+                  label.SetShape(pin.GetShape());
+                  label.SetAutoRotateOnPlacement(this.m_lastAutoLabelRotateOnPlacement);
+                  label.SetParent(schematic);
+                  label.SetBold(this.m_lastTextBold);
+                  label.SetItalic(this.m_lastTextItalic);
+                  label.SetSpinStyle(this.m_lastTextOrientation);
+                  label.SetTextSize({
+                    x: schematic.Settings().m_DefaultTextSize,
+                    y: schematic.Settings().m_DefaultTextSize,
+                  });
+                  label.SetFlags(IS_NEW | IS_MOVING);
+                  itemsToPlace.push(label);
+                } else {
+                  yield* this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_HIERLABEL, itemsToPlace);
+                }
 
-              if (!sheet) {
-                // STATUS_TEXT_POPUP "Click over a sheet." for 2 s: the infobar here.
-                this.m_frame!.ShowInfoBarMsg('Click over a sheet.');
-                item = null;
+                description = 'Add Hierarchical Label';
+              } else if (isNetLabel) {
+                yield* this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_LOCLABEL, itemsToPlace);
+                description = 'Add Label';
+              } else if (isGlobalLabel) {
+                yield* this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_GLOBLABEL, itemsToPlace);
+                description = 'Add Label';
+              } else if (isClassLabel) {
+                yield* this.createNewLabel(
+                  cursorPos,
+                  SCH_LAYER_ID.LAYER_NETCLASS_REFS,
+                  itemsToPlace,
+                );
+                description = 'Add Label';
+              } else if (isSheetPin) {
+                const i: { value: EDA_ITEM | null } = { value: null };
+
+                // If we didn't have a sheet selected, try to find one under the cursor
+                if (
+                  !sheet &&
+                  (yield* this.m_selectionTool!.SelectPoint(cursorPos, [KICAD_T.SCH_SHEET_T], i))
+                )
+                  sheet = i.value instanceof SCH_SHEET ? i.value : null;
+
+                if (!sheet) {
+                  // STATUS_TEXT_POPUP "Click over a sheet." for 2 s: the infobar here.
+                  this.m_frame!.ShowInfoBarMsg('Click over a sheet.');
+                  item = null;
+                } else if (this.m_dialogSyncSheetPin?.GetPlacementTemplate()) {
+                  // User is using the 'Sync Sheet Pins' tool
+                  item = this.createNewSheetPinFromLabel(
+                    sheet,
+                    cursorPos,
+                    this.m_dialogSyncSheetPin.GetPlacementTemplate()!,
+                  );
+                } else {
+                  // User is using the 'Place Sheet Pins' tool
+                  const label = this.importHierLabel(sheet);
+
+                  if (!label) {
+                    this.m_frame!.ShowInfoBarMsg('No new hierarchical labels found.');
+                    item = null;
+
+                    this.m_frame!.PopTool(aEvent);
+                    break eventLoop;
+                  }
+
+                  item = this.createNewSheetPinFromLabel(sheet, cursorPos, label);
+                }
+
+                description = 'Add Sheet Pin';
+              }
+
+              // If we started with a hotkey which has a position then warp back to that.
+              // Otherwise update to the current mouse position pinned inside the autoscroll
+              // boundaries.
+              if (evt.IsPrime() && !ignorePrimePosition) {
+                cursorPos = grid.Align(evt.Position());
+                controls.WarpMouseCursor(cursorPos, true);
               } else {
-                // User is using the 'Place Sheet Pins' tool
+                controls.PinCursorInsideNonAutoscrollArea(true);
+                cursorPos = controls.GetMousePosition();
+                cursorPos = grid.BestSnapAnchor(cursorPos, snapGrid, item);
+              }
+
+              if (itemsToPlace.length > 0) item = itemsToPlace.shift()!;
+
+              if (item) prepItemForPlacement(item, cursorPos);
+
+              if (this.m_frame!.GetMoveWarpsCursor()) controls.SetCursorPosition(cursorPos, false);
+
+              this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
+            } else {
+              // ... and second click places:
+              const placed: SCH_ITEM = item;
+              placed.ClearFlags(IS_MOVING);
+
+              if (placed.IsConnectable())
+                this.m_frame!.AutoRotateItem(this.m_frame!.GetScreen()!, placed);
+
+              if (isSheetPin && sheet) {
+                // Sheet pins are owned by their parent sheet.
+                commit.Modify(sheet, this.m_frame!.GetScreen());
+                sheet.AddPin(placed as SCH_SHEET_PIN);
+              } else {
+                this.m_frame!.SaveCopyForRepeatItem(placed);
+                this.m_frame!.AddToScreen(placed, this.m_frame!.GetScreen());
+                commit.Added(placed, this.m_frame!.GetScreen());
+              }
+
+              placed.AutoplaceFields(this.m_frame!.GetScreen(), AUTOPLACE_ALGO.AUTOPLACE_AUTO);
+
+              commit.Push(description);
+
+              this.m_view!.ClearPreview();
+
+              if (this.m_dialogSyncSheetPin?.GetPlacementTemplate()) {
+                this.m_dialogSyncSheetPin.EndPlaceItem(placed);
+
+                if (this.m_dialogSyncSheetPin.CanPlaceMore()) {
+                  item = null;
+                  continue PLACE_NEXT;
+                }
+
+                this.m_frame!.PopTool(aEvent);
+                this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+                this.m_dialogSyncSheetPin.Show(true);
+                break eventLoop;
+              }
+
+              item = null;
+
+              if (isSheetPin && sheet) {
                 const label = this.importHierLabel(sheet);
 
                 if (!label) {
                   this.m_frame!.ShowInfoBarMsg('No new hierarchical labels found.');
-                  item = null;
 
                   this.m_frame!.PopTool(aEvent);
-                  break;
+                  break eventLoop;
                 }
 
                 item = this.createNewSheetPinFromLabel(sheet, cursorPos, label);
+              } else if (itemsToPlace.length > 0) {
+                item = itemsToPlace.shift()!;
+                prepItemForPlacement(item, cursorPos);
               }
-
-              description = 'Add Sheet Pin';
             }
 
-            // If we started with a hotkey which has a position then warp back to that.
-            // Otherwise update to the current mouse position pinned inside the autoscroll
-            // boundaries.
-            if (evt.IsPrime() && !ignorePrimePosition) {
-              cursorPos = grid.Align(evt.Position());
-              controls.WarpMouseCursor(cursorPos, true);
-            } else {
-              controls.PinCursorInsideNonAutoscrollArea(true);
-              cursorPos = controls.GetMousePosition();
-              cursorPos = grid.BestSnapAnchor(cursorPos, snapGrid, item);
-            }
-
-            if (itemsToPlace.length > 0) item = itemsToPlace.shift()!;
-
-            if (item) prepItemForPlacement(item, cursorPos);
-
-            if (this.m_frame!.GetMoveWarpsCursor()) controls.SetCursorPosition(cursorPos, false);
-
-            this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
-          } else {
-            // ... and second click places:
-            const placed: SCH_ITEM = item;
-            placed.ClearFlags(IS_MOVING);
-
-            if (placed.IsConnectable())
-              this.m_frame!.AutoRotateItem(this.m_frame!.GetScreen()!, placed);
-
-            if (isSheetPin && sheet) {
-              // Sheet pins are owned by their parent sheet.
-              commit.Modify(sheet, this.m_frame!.GetScreen());
-              sheet.AddPin(placed as SCH_SHEET_PIN);
-            } else {
-              this.m_frame!.SaveCopyForRepeatItem(placed);
-              this.m_frame!.AddToScreen(placed, this.m_frame!.GetScreen());
-              commit.Added(placed, this.m_frame!.GetScreen());
-            }
-
-            placed.AutoplaceFields(this.m_frame!.GetScreen(), AUTOPLACE_ALGO.AUTOPLACE_AUTO);
-
-            commit.Push(description);
-
-            this.m_view!.ClearPreview();
-
-            item = null;
-
-            if (isSheetPin && sheet) {
-              const label = this.importHierLabel(sheet);
-
-              if (!label) {
-                this.m_frame!.ShowInfoBarMsg('No new hierarchical labels found.');
-
-                this.m_frame!.PopTool(aEvent);
-                break;
-              }
-
-              item = this.createNewSheetPinFromLabel(sheet, cursorPos, label);
-            } else if (itemsToPlace.length > 0) {
-              item = itemsToPlace.shift()!;
-              prepItemForPlacement(item, cursorPos);
-            }
+            break;
           }
         } else if (evt.IsClick(BUT_RIGHT)) {
           // Warp after context menu only if dragging...
@@ -1538,6 +1592,11 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       controls.CaptureCursor(false);
       controls.ForceCursorPosition(false);
       this.m_frame!.GetCanvas()?.SetCurrentCursor(KICURSOR.ARROW);
+
+      if (this.m_dialogSyncSheetPin?.CanPlaceMore()) {
+        this.m_dialogSyncSheetPin.EndPlacement();
+        this.m_dialogSyncSheetPin.Show(true);
+      }
 
       return 0;
     } finally {
@@ -3153,8 +3212,8 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   }
 
   /**
-   * `doSyncSheetsPins` (sch_drawing_tools.cpp:3616): DIALOG_SYNC_SHEET_PINS over \a aSheetPaths.
-   * The dialog and its SHEET_SYNCHRONIZATION_AGENT are the window's.
+   * `doSyncSheetsPins` (sch_drawing_tools.cpp:3616): DIALOG_SYNC_SHEET_PINS over \a aSheetPaths,
+   * its SHEET_SYNCHRONIZATION_AGENT committing through this tool. The window shows the dialog.
    */
   private doSyncSheetsPins(
     aSheetPaths: SCH_SHEET_PATH[],
@@ -3162,10 +3221,61 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   ): number {
     if (aSheetPaths.length === 0) return 0;
 
-    void this.m_frame!.ShowModalDialog('DIALOG_SYNC_SHEET_PINS', [], {
-      sheetPaths: aSheetPaths,
-      initialSheet: aInitialSheet,
-    });
+    const agent = new SHEET_SYNCHRONIZATION_AGENT(
+      (aItem, aPath, aModify) => {
+        const commit = new SCH_COMMIT(this.m_toolMgr!);
+
+        if (aItem instanceof SCH_SHEET_PIN) {
+          commit.Modify(aItem.GetParent()!, aPath.LastScreen());
+          aModify();
+          commit.Push('Modify sheet pin');
+        } else {
+          commit.Modify(aItem, aPath.LastScreen());
+          aModify();
+          commit.Push('Modify schematic item');
+        }
+
+        this.updateItem(aItem, true);
+        this.m_frame!.OnModify();
+      },
+      (aItem, aPath) => {
+        this.m_frame!.GetToolManager()!.RunAction(SCH_ACTIONS.changeSheet, aPath);
+        const selectionTool = this.m_selectionTool!; // m_toolMgr->GetTool<SCH_SELECTION_TOOL>()
+        selectionTool.UnbrightenItem(aItem);
+        selectionTool.AddItemToSel(aItem, true);
+        this.m_toolMgr!.RunAction(ACTIONS.doDelete);
+      },
+      (aItem, aPath, aOp, aTemplates) => {
+        const dialog = this.m_dialogSyncSheetPin!;
+
+        switch (aOp) {
+          case SHEET_SYNCHRONIZATION_PLACEMENT.PLACE_HIERLABEL: {
+            const sheet = aItem;
+            dialog.Hide();
+            dialog.PreparePlacementTemplate(sheet, PlaceItemKind.HIERLABEL, aTemplates);
+            this.m_frame!.GetToolManager()!.RunAction(SCH_ACTIONS.changeSheet, aPath);
+            this.m_toolMgr!.RunAction(SCH_ACTIONS.placeHierLabel);
+            break;
+          }
+
+          case SHEET_SYNCHRONIZATION_PLACEMENT.PLACE_SHEET_PIN: {
+            const sheet = aItem;
+            dialog.Hide();
+            dialog.PreparePlacementTemplate(sheet, PlaceItemKind.SHEET_PIN, aTemplates);
+            this.m_frame!.GetToolManager()!.RunAction(SCH_ACTIONS.changeSheet, aPath);
+            this.m_selectionTool!.SyncSelection(null, null, [sheet]);
+            this.m_toolMgr!.RunAction(SCH_ACTIONS.placeSheetPin);
+            break;
+          }
+        }
+      },
+      this.m_toolMgr,
+      this.m_frame,
+    );
+
+    this.m_dialogSyncSheetPin = new DIALOG_SYNC_SHEET_PINS(aSheetPaths, agent, aInitialSheet);
+    this.m_dialogSyncSheetPin.Show(true);
+    void this.m_frame!.ShowModalDialog('DIALOG_SYNC_SHEET_PINS', [], this.m_dialogSyncSheetPin);
     return 0;
   }
 

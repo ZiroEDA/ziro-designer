@@ -432,7 +432,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // DIALOG_SHEET_PROPERTIES rebuild. Rescanned.
   // 126 -> 122 (10-09): the record table-cell form's four inline gaps (8, 12, 8, 8) went with its
   // rebuild from dialog_tablecell_properties_base.cpp. Rescanned.
-  'editors/schematic': { colours: 16, metrics: 122 },
+  'editors/schematic': { colours: 16, metrics: 113 },
   // 166 -> 163 metrics on `editors/schematic`, moved here whole: cvpcb's
   // three windows left `editors/schematic/dialogs/` for the root `cvpcb/`
   // package (cvpcb/STRUCTURE.md's stage two). No colours moved (the five
@@ -1623,7 +1623,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1089 -> 1087 (10-09): `mobile`, the "Continue anyway" link.
     // 1087 -> 1081 (10-09, merged): `editors/schematic` 128 -> 122 - the record sheet-pin dialog's
     // gap, the record sheet form's two widths and the record table-cell form's four gaps.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1081);
+    // 1081 -> 1079 (10-10): `editors/schematic` 122 -> 120 - the record Edit Text and Graphics
+    // form's minWidth and size-field width, deleted with it.
+    // 1079 -> 1072 (10-10): `editors/schematic` 120 -> 113 - the record Sync Sheet Pins dialog's
+    // list heights, gaps and paddings, deleted with it.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1072);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

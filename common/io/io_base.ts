@@ -156,6 +156,11 @@ export abstract class IO_BASE {
     return this.GetLibraryDesc();
   }
 
+  /** Append the library options this IO accepts to `aListToAppendTo`, option name -> description. */
+  GetLibraryOptions(_aListToAppendTo: Map<string, string>): void {
+    // No global options to append
+  }
+
   CanReadLibrary(aFileName: string): boolean {
     const desc = this.GetLibraryDesc();
 

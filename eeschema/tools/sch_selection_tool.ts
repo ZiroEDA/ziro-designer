@@ -1687,11 +1687,12 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
 
     selectionBox.SetMaximum();
     view.Query(selectionBox, (viewItem) => {
-      const item = viewItem as SCH_ITEM;
+      // `static_cast<SCH_ITEM*>( viewItem )`, then `if( !item )`: the view also holds the
+      // selection group and the tools' preview groups, which are no SCH_ITEM - the cast is
+      // undefined for them upstream; here they are skipped, as UnselectAll's dynamic_cast does.
+      if (!(viewItem instanceof SCH_ITEM)) return true;
 
-      if (!item) return true;
-
-      collection.Append(item);
+      collection.Append(viewItem);
       return true;
     });
 
