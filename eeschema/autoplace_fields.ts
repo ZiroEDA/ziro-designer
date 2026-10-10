@@ -58,7 +58,31 @@ import {
   SYM_ORIENT_180,
   SYM_ORIENT_270,
 } from '@ziroeda/kimath/src/transform.js';
-import { mmToIU } from '@ziroeda/common/eda_units.js';
+import { mmToIU, schIUScale } from '@ziroeda/common/eda_units.js';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import {
+  GetFlippedHAlignment,
+  GR_TEXT_H_ALIGN_T,
+  GR_TEXT_V_ALIGN_T,
+  ToHAlignment,
+} from '@ziroeda/common/font/text_attributes.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import {
+  ANGLE_HORIZONTAL,
+  ANGLE_VERTICAL,
+  type EDA_ANGLE,
+} from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { currentEeschemaSettings } from './eeschema_settings.js';
+import { PIN_ORIENTATION } from '@ziroeda/common/pin_type.js';
+import type { SCH_FIELD } from './sch_field.js';
+import { AUTOPLACE_ALGO, type SCH_ITEM } from './sch_item.js';
+import type { SCH_LINE } from './sch_line.js';
+import type { SCH_PIN } from './sch_pin.js';
+import type { SCH_SCREEN } from './sch_screen.js';
+import type { SCH_SYMBOL } from './sch_symbol.js';
+import { type SYMBOL, SYMBOL_ORIENTATION_T } from './symbol.js';
 import { refId } from './tools/hittest.js';
 import type { Schematic } from './types.js';
 import type { EditCommand } from './tools/command.js';
@@ -1013,4 +1037,591 @@ export function autoplaceSheetFields(
       };
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// `AUTOPLACER` (autoplace_fields.cpp:80-760) on the live SYMBOL, which SCH_SYMBOL::AutoplaceFields
+// and LIB_SYMBOL::AutoplaceFields run - upstream defines both in this file too.
+// ---------------------------------------------------------------------------
+
+const LIVE_FIELD_PADDING = schIUScale.milsToIU(15); // arbitrarily chosen for aesthetics
+const LIVE_WIRE_V_SPACING = schIUScale.milsToIU(100);
+const LIVE_HPADDING = schIUScale.milsToIU(25); // arbitrarily chosen for aesthetics
+const LIVE_VPADDING = schIUScale.milsToIU(15); // arbitrarily chosen for aesthetics
+
+/** `round_n`: round up/down to the nearest multiple of n (integer division, as the template). */
+function round_n(value: number, n: number, aRoundUp: boolean): number {
+  if (value % n) return n * (Math.trunc(value / n) + (aRoundUp ? 1 : 0));
+  return value;
+}
+
+type SIDE = VECTOR2I;
+
+export enum COLLISION {
+  COLLIDE_NONE,
+  COLLIDE_OBJECTS,
+  COLLIDE_H_WIRES,
+}
+
+interface SIDE_AND_NPINS {
+  side: SIDE;
+  pins: number;
+}
+
+interface SIDE_AND_COLL {
+  side: SIDE;
+  collision: COLLISION;
+}
+
+const sideEq = (a: SIDE, b: SIDE): boolean => a.x === b.x && a.y === b.y;
+
+export class AUTOPLACER {
+  static readonly SIDE_TOP: SIDE = { x: 0, y: -1 };
+  static readonly SIDE_BOTTOM: SIDE = { x: 0, y: 1 };
+  static readonly SIDE_LEFT: SIDE = { x: -1, y: 0 };
+  static readonly SIDE_RIGHT: SIDE = { x: 1, y: 0 };
+
+  private readonly m_screen: SCH_SCREEN | null;
+  private readonly m_symbol: SYMBOL;
+  private readonly m_fields: SCH_FIELD[] = [];
+  private readonly m_colliders: SCH_ITEM[] = [];
+  private readonly m_symbol_bbox: BOX2I;
+  private m_fbox_size: VECTOR2I;
+  private readonly m_field_angle: EDA_ANGLE;
+  private readonly m_allow_rejustify: boolean;
+  private readonly m_align_to_grid: boolean;
+  private readonly m_is_power_symbol: boolean;
+
+  constructor(aSymbol: SYMBOL, aScreen: SCH_SCREEN | null) {
+    this.m_screen = aScreen;
+    this.m_symbol = aSymbol;
+    this.m_is_power_symbol = false;
+    this.m_symbol.GetFields(this.m_fields, /* aVisibleOnly */ true);
+
+    // Kiface().KifaceSettings(): the eeschema settings.
+    const cfg = currentEeschemaSettings();
+
+    this.m_allow_rejustify = cfg ? cfg.autoplace_fields.allow_rejustify : false;
+    this.m_align_to_grid = cfg ? cfg.autoplace_fields.align_to_grid : true;
+
+    // Fields always display horizontally after autoplace. For 90/270 rotated
+    // symbols, GetDrawRotation() flips the stored angle, so we store VERTICAL
+    // to counteract the transform and produce horizontal display.
+    this.m_field_angle = this.m_symbol.GetTransform().y1 ? ANGLE_VERTICAL : ANGLE_HORIZONTAL;
+
+    this.m_symbol_bbox = this.m_symbol.GetBodyBoundingBox();
+    this.m_fbox_size = this.computeFBoxSize(/* aDynamic */ true);
+
+    if (this.m_symbol.Type() === KICAD_T.SCH_SYMBOL_T)
+      this.m_is_power_symbol = !(this.m_symbol as SCH_SYMBOL).IsInNetlist();
+
+    if (aScreen) this.getPossibleCollisions(this.m_colliders);
+  }
+
+  /** Do the actual autoplacement. */
+  DoAutoplace(aAlgo: AUTOPLACE_ALGO): void {
+    let forceWireSpacing = false;
+    const sideandpins = this.chooseSideForFields(aAlgo === AUTOPLACE_ALGO.AUTOPLACE_MANUAL);
+    const field_side = sideandpins.side;
+    const fbox_pos = this.fieldBoxPlacement(sideandpins);
+    const field_box = new BOX2I(fbox_pos, this.m_fbox_size);
+
+    if (aAlgo === AUTOPLACE_ALGO.AUTOPLACE_MANUAL)
+      forceWireSpacing = this.fitFieldsBetweenWires(field_box, field_side);
+
+    // Move the fields
+    const last_y_coord = { value: field_box.GetTop() };
+
+    for (const field of this.m_fields) {
+      if (!field.IsVisible() || !field.CanAutoplace()) continue;
+
+      field.SetTextAngle(this.m_field_angle);
+
+      if (this.m_allow_rejustify) {
+        if (sideandpins.pins > 0) {
+          if (sideEq(field_side, AUTOPLACER.SIDE_TOP) || sideEq(field_side, AUTOPLACER.SIDE_BOTTOM))
+            this.justifyField(field, AUTOPLACER.SIDE_RIGHT);
+          else this.justifyField(field, AUTOPLACER.SIDE_TOP);
+        } else {
+          this.justifyField(field, field_side);
+        }
+      }
+
+      const pos = {
+        x: this.fieldHPlacement(field, field_box),
+        y: this.fieldVPlacement(field, field_box, last_y_coord, !forceWireSpacing),
+      };
+
+      if (this.m_align_to_grid) {
+        if (Math.abs(field_side.x) > 0)
+          pos.x = round_n(pos.x, schIUScale.milsToIU(50), field_side.x >= 0);
+
+        if (Math.abs(field_side.y) > 0)
+          pos.y = round_n(pos.y, schIUScale.milsToIU(50), field_side.y >= 0);
+      }
+
+      field.SetPosition(pos);
+    }
+  }
+
+  /** Compute and return the size of the fields' bounding box. */
+  protected computeFBoxSize(aDynamic: boolean): VECTOR2I {
+    let max_field_width = 0;
+    let total_height = 0;
+
+    for (const field of this.m_fields) {
+      if (!field.IsVisible() || !field.CanAutoplace()) continue;
+
+      // GetBoundingBox() applies both the field's text angle and the symbol
+      // transform.  Set the display angle so the combined rotation produces
+      // bounding box dimensions matching the final horizontal display, then
+      // restore the original angle.
+      const savedAngle = field.GetTextAngle();
+      field.SetTextAngle(this.m_field_angle);
+      const bbox = field.GetBoundingBox();
+      field.SetTextAngle(savedAngle);
+      const field_width = bbox.GetWidth();
+      const field_height = bbox.GetHeight();
+
+      max_field_width = Math.max(max_field_width, field_width);
+
+      if (!aDynamic) total_height += LIVE_WIRE_V_SPACING;
+      else if (this.m_align_to_grid)
+        total_height += round_n(field_height, schIUScale.milsToIU(50), true);
+      else total_height += field_height + LIVE_FIELD_PADDING;
+    }
+
+    return { x: max_field_width, y: total_height };
+  }
+
+  /** Return the side that a pin is on. */
+  protected getPinSide(aPin: SCH_PIN): SIDE {
+    const pin_orient = aPin.PinDrawOrient(this.m_symbol.GetTransform());
+
+    switch (pin_orient) {
+      case PIN_ORIENTATION.PIN_RIGHT:
+        return AUTOPLACER.SIDE_LEFT;
+      case PIN_ORIENTATION.PIN_LEFT:
+        return AUTOPLACER.SIDE_RIGHT;
+      case PIN_ORIENTATION.PIN_UP:
+        return AUTOPLACER.SIDE_BOTTOM;
+      case PIN_ORIENTATION.PIN_DOWN:
+        return AUTOPLACER.SIDE_TOP;
+      default:
+        return AUTOPLACER.SIDE_LEFT; // wxFAIL_MSG "Invalid pin orientation"
+    }
+  }
+
+  /** Count the number of pins on a side of the symbol. */
+  protected pinsOnSide(aSide: SIDE): number {
+    let pin_count = 0;
+
+    for (const each_pin of this.m_symbol.GetPins()) {
+      if (!each_pin.IsVisible() && !this.m_is_power_symbol) continue;
+
+      if (sideEq(this.getPinSide(each_pin), aSide)) ++pin_count;
+    }
+
+    return pin_count;
+  }
+
+  /**
+   * Populate a list of all drawing items that *may* collide with the fields. That is, all
+   * drawing items, including other fields, that are not the current symbol or its own fields.
+   */
+  protected getPossibleCollisions(aItems: SCH_ITEM[]): void {
+    if (!this.m_screen) return; // wxCHECK_RET
+
+    const symbolBox = this.m_symbol.GetBodyAndPinsBoundingBox();
+    const sides = this.getPreferredSides();
+
+    for (const side of sides) {
+      const box = new BOX2I(this.fieldBoxPlacement(side), this.m_fbox_size);
+      box.Merge(symbolBox);
+
+      for (const item of this.m_screen.Items().Overlapping(box)) {
+        if (item.Type() === KICAD_T.SCH_SYMBOL_T) {
+          const candidate = item as SCH_SYMBOL;
+
+          if ((candidate as unknown) === this.m_symbol) continue;
+
+          const fields: SCH_FIELD[] = [];
+          candidate.GetFields(fields, /* aVisibleOnly */ true);
+
+          for (const field of fields) aItems.push(field);
+        }
+
+        aItems.push(item);
+      }
+    }
+  }
+
+  /**
+   * Filter a list of possible colliders to include only those that actually collide
+   * with a given rectangle. Returns the new vector.
+   */
+  protected filterCollisions(aRect: BOX2I): SCH_ITEM[] {
+    const filtered: SCH_ITEM[] = [];
+
+    for (const item of this.m_colliders) {
+      const item_box =
+        item.Type() === KICAD_T.SCH_SYMBOL_T
+          ? (item as SCH_SYMBOL).GetBodyAndPinsBoundingBox()
+          : item.GetBoundingBox();
+
+      if (item_box.Intersects(aRect)) filtered.push(item);
+    }
+
+    return filtered;
+  }
+
+  /**
+   * Return a list with the preferred field sides for the symbol, in decreasing order of
+   * preference.
+   */
+  protected getPreferredSides(): SIDE_AND_NPINS[] {
+    const sides: SIDE_AND_NPINS[] = [
+      { side: AUTOPLACER.SIDE_RIGHT, pins: this.pinsOnSide(AUTOPLACER.SIDE_RIGHT) },
+      { side: AUTOPLACER.SIDE_TOP, pins: this.pinsOnSide(AUTOPLACER.SIDE_TOP) },
+      { side: AUTOPLACER.SIDE_LEFT, pins: this.pinsOnSide(AUTOPLACER.SIDE_LEFT) },
+      { side: AUTOPLACER.SIDE_BOTTOM, pins: this.pinsOnSide(AUTOPLACER.SIDE_BOTTOM) },
+    ];
+    const swap = (i: number, j: number): void => {
+      const t = sides[i]!;
+      sides[i] = sides[j]!;
+      sides[j] = t;
+    };
+
+    const orient = this.m_symbol.GetOrientation();
+    const orient_angle = orient & 0xff; // enum is a bitmask
+    const h_mirrored =
+      (orient & SYMBOL_ORIENTATION_T.SYM_MIRROR_X) !== 0 &&
+      (orient_angle === SYMBOL_ORIENTATION_T.SYM_ORIENT_0 ||
+        orient_angle === SYMBOL_ORIENTATION_T.SYM_ORIENT_180);
+    const w = this.m_symbol_bbox.GetWidth();
+    const h = this.m_symbol_bbox.GetHeight();
+
+    // The preferred-sides heuristics are a bit magical. These were determined mostly
+    // by trial and error.
+
+    if (this.m_is_power_symbol) {
+      // For power symbols, we generally want the label at the top first.
+      switch (orient_angle) {
+        case SYMBOL_ORIENTATION_T.SYM_ORIENT_0:
+          swap(0, 1);
+          swap(1, 3);
+          // TOP, BOTTOM, RIGHT, LEFT
+          break;
+        case SYMBOL_ORIENTATION_T.SYM_ORIENT_90:
+          swap(0, 2);
+          swap(1, 2);
+          // LEFT, RIGHT, TOP, BOTTOM
+          break;
+        case SYMBOL_ORIENTATION_T.SYM_ORIENT_180:
+          swap(0, 3);
+          // BOTTOM, TOP, LEFT, RIGHT
+          break;
+        case SYMBOL_ORIENTATION_T.SYM_ORIENT_270:
+          swap(1, 2);
+          // RIGHT, LEFT, TOP, BOTTOM
+          break;
+      }
+    } else {
+      // If the symbol is horizontally mirrored, swap left and right
+      if (h_mirrored) swap(0, 2);
+
+      // If the symbol is very long or is a power symbol, swap H and V
+      if (w / h > 3.0) {
+        swap(0, 1);
+        swap(1, 3);
+      }
+    }
+
+    return sides;
+  }
+
+  /** Compute the drawable area (inside the drawing sheet border) for collision detection. */
+  protected getDrawableArea(): BOX2I {
+    if (!this.m_screen) return new BOX2I();
+
+    const pageInfo = this.m_screen.GetPageSettings();
+    const dsModel = DS_DATA_MODEL.GetTheInstance();
+
+    const pageWidth = pageInfo.GetWidthIU(schIUScale.IU_PER_MILS);
+    const pageHeight = pageInfo.GetHeightIU(schIUScale.IU_PER_MILS);
+
+    const leftMargin = schIUScale.mmToIU(dsModel.GetLeftMargin());
+    const rightMargin = schIUScale.mmToIU(dsModel.GetRightMargin());
+    const topMargin = schIUScale.mmToIU(dsModel.GetTopMargin());
+    const bottomMargin = schIUScale.mmToIU(dsModel.GetBottomMargin());
+
+    const drawableArea = new BOX2I();
+    drawableArea.SetOrigin({ x: leftMargin, y: topMargin });
+    drawableArea.SetEnd({ x: pageWidth - rightMargin, y: pageHeight - bottomMargin });
+
+    return drawableArea;
+  }
+
+  /** Return a list of the sides where a field set would collide with another item. */
+  protected getCollidingSides(): SIDE_AND_COLL[] {
+    const sides = [
+      AUTOPLACER.SIDE_RIGHT,
+      AUTOPLACER.SIDE_TOP,
+      AUTOPLACER.SIDE_LEFT,
+      AUTOPLACER.SIDE_BOTTOM,
+    ];
+    const colliding: SIDE_AND_COLL[] = [];
+
+    const drawableArea = this.getDrawableArea();
+    const checkDrawableArea = drawableArea.GetWidth() > 0 && drawableArea.GetHeight() > 0;
+
+    // Iterate over all sides and find the ones that collide
+    for (const side of sides) {
+      const sideandpins: SIDE_AND_NPINS = { side, pins: this.pinsOnSide(side) };
+
+      const box = new BOX2I(this.fieldBoxPlacement(sideandpins), this.m_fbox_size);
+
+      let collision = COLLISION.COLLIDE_NONE;
+
+      // Check collision with drawing sheet boundary
+      if (checkDrawableArea && !drawableArea.Contains(box)) collision = COLLISION.COLLIDE_OBJECTS;
+
+      for (const collider of this.filterCollisions(box)) {
+        const line = collider.Type() === KICAD_T.SCH_LINE_T ? (collider as SCH_LINE) : null;
+
+        if (line && !side.x) {
+          const start = line.GetStartPoint();
+          const end = line.GetEndPoint();
+
+          if (start.y === end.y && collision !== COLLISION.COLLIDE_OBJECTS)
+            collision = COLLISION.COLLIDE_H_WIRES;
+          else collision = COLLISION.COLLIDE_OBJECTS;
+        } else {
+          collision = COLLISION.COLLIDE_OBJECTS;
+        }
+      }
+
+      if (collision !== COLLISION.COLLIDE_NONE) colliding.push({ side, collision });
+    }
+
+    return colliding;
+  }
+
+  /**
+   * Choose a side for the fields, filtered on only one side collision type.
+   * Removes the sides matching the filter from the list.
+   */
+  protected chooseSideFiltered(
+    aSides: SIDE_AND_NPINS[],
+    aCollidingSides: readonly SIDE_AND_COLL[],
+    aCollision: COLLISION,
+    aLastSelection: SIDE_AND_NPINS,
+  ): SIDE_AND_NPINS {
+    const sel = { ...aLastSelection };
+
+    let i = 0;
+
+    while (i < aSides.length) {
+      const it = aSides[i]!;
+      let collide = false;
+
+      for (const collision of aCollidingSides) {
+        if (sideEq(collision.side, it.side) && collision.collision === aCollision) collide = true;
+      }
+
+      if (!collide) {
+        ++i;
+      } else {
+        if (it.pins <= sel.pins) {
+          sel.pins = it.pins;
+          sel.side = it.side;
+        }
+
+        aSides.splice(i, 1);
+      }
+    }
+
+    return sel;
+  }
+
+  /** Look where a symbol's pins are to pick a side to put the fields on. */
+  protected chooseSideForFields(aAvoidCollisions: boolean): SIDE_AND_NPINS {
+    const sides = this.getPreferredSides();
+
+    sides.reverse();
+    let side: SIDE_AND_NPINS = { side: { x: 1, y: 0 }, pins: 0xffffffff }; // UINT_MAX
+
+    if (aAvoidCollisions) {
+      const colliding_sides = this.getCollidingSides();
+      side = this.chooseSideFiltered(sides, colliding_sides, COLLISION.COLLIDE_OBJECTS, side);
+      side = this.chooseSideFiltered(sides, colliding_sides, COLLISION.COLLIDE_H_WIRES, side);
+    }
+
+    for (let i = sides.length - 1; i >= 0; --i) {
+      if (!sides[i]!.pins) return sides[i]!;
+    }
+
+    for (const each_side of sides) {
+      if (each_side.pins <= side.pins) {
+        side.pins = each_side.pins;
+        side.side = each_side.side;
+      }
+    }
+
+    return side;
+  }
+
+  /**
+   * Set the justification of a field based on the side it's supposed to be on, taking
+   * into account whether the field will be displayed with flipped justification due to
+   * mirroring.
+   */
+  protected justifyField(aField: SCH_FIELD, aFieldSide: SIDE): void {
+    // Justification is set twice to allow IsHorizJustifyFlipped() to work correctly.
+    aField.SetHorizJustify(ToHAlignment(-aFieldSide.x));
+
+    if (aField.IsHorizJustifyFlipped())
+      aField.SetHorizJustify(GetFlippedHAlignment(aField.GetHorizJustify()));
+
+    aField.SetVertJustify(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER);
+  }
+
+  /** Return the position of the field bounding box. */
+  protected fieldBoxPlacement(aFieldSideAndPins: SIDE_AND_NPINS): VECTOR2I {
+    const fbox_center = { ...this.m_symbol_bbox.Centre() };
+    let offs_x = Math.trunc((this.m_symbol_bbox.GetWidth() + this.m_fbox_size.x) / 2);
+    let offs_y = Math.trunc((this.m_symbol_bbox.GetHeight() + this.m_fbox_size.y) / 2);
+
+    if (aFieldSideAndPins.side.x !== 0) offs_x += LIVE_HPADDING;
+    else if (aFieldSideAndPins.side.y !== 0) offs_y += LIVE_VPADDING;
+
+    fbox_center.x += aFieldSideAndPins.side.x * offs_x;
+    fbox_center.y += aFieldSideAndPins.side.y * offs_y;
+
+    let x = fbox_center.x - Math.trunc(this.m_fbox_size.x / 2);
+    let y = fbox_center.y - Math.trunc(this.m_fbox_size.y / 2);
+
+    const getPinsBox = (aSide: SIDE): BOX2I => {
+      const pinsBox = new BOX2I();
+
+      for (const each_pin of this.m_symbol.GetPins()) {
+        if (!each_pin.IsVisible() && !this.m_is_power_symbol) continue;
+
+        if (sideEq(this.getPinSide(each_pin), aSide)) pinsBox.Merge(each_pin.GetBoundingBox());
+      }
+
+      return pinsBox;
+    };
+
+    if (aFieldSideAndPins.pins > 0) {
+      const pinsBox = getPinsBox(aFieldSideAndPins.side);
+
+      if (
+        sideEq(aFieldSideAndPins.side, AUTOPLACER.SIDE_TOP) ||
+        sideEq(aFieldSideAndPins.side, AUTOPLACER.SIDE_BOTTOM)
+      ) {
+        x = pinsBox.GetRight() + LIVE_HPADDING * 2;
+      } else if (
+        sideEq(aFieldSideAndPins.side, AUTOPLACER.SIDE_RIGHT) ||
+        sideEq(aFieldSideAndPins.side, AUTOPLACER.SIDE_LEFT)
+      ) {
+        y = pinsBox.GetTop() - (this.m_fbox_size.y + LIVE_VPADDING * 2);
+      }
+    }
+
+    return { x, y };
+  }
+
+  /**
+   * Shift a field box up or down a bit to make the fields fit between some wires.
+   * Returns true if a shift was made.
+   */
+  protected fitFieldsBetweenWires(aBox: BOX2I, aSide: SIDE): boolean {
+    if (!sideEq(aSide, AUTOPLACER.SIDE_TOP) && !sideEq(aSide, AUTOPLACER.SIDE_BOTTOM)) return false;
+
+    const colliders = this.filterCollisions(aBox);
+
+    if (colliders.length === 0) return false;
+
+    // Find the offset of the wires for proper positioning
+    let offset = 0;
+
+    for (const item of colliders) {
+      if (item.Type() !== KICAD_T.SCH_LINE_T) return false;
+
+      const line = item as SCH_LINE;
+      const start = line.GetStartPoint();
+      const end = line.GetEndPoint();
+
+      if (start.y !== end.y) return false;
+
+      const this_offset =
+        Math.trunc((3 * LIVE_WIRE_V_SPACING) / 2) - (start.y % LIVE_WIRE_V_SPACING);
+
+      if (offset === 0) offset = this_offset;
+      else if (offset !== this_offset) return false;
+    }
+
+    // At this point we are recomputing the field box size. Do not
+    // return false after this point.
+    this.m_fbox_size = this.computeFBoxSize(/* aDynamic */ false);
+
+    const pos = { ...aBox.GetPosition() };
+
+    pos.y = round_n(pos.y, LIVE_WIRE_V_SPACING, sideEq(aSide, AUTOPLACER.SIDE_BOTTOM));
+
+    aBox.SetOrigin(pos);
+    return true;
+  }
+
+  /** Place a field horizontally, taking into account the field width and justification. */
+  protected fieldHPlacement(aField: SCH_FIELD, aFieldBox: BOX2I): number {
+    let field_hjust: number;
+
+    if (aField.IsHorizJustifyFlipped()) field_hjust = -aField.GetHorizJustify();
+    else field_hjust = aField.GetHorizJustify();
+
+    switch (field_hjust) {
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT:
+        return aFieldBox.GetLeft();
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER:
+        return aFieldBox.Centre().x;
+      case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT:
+        return aFieldBox.GetRight();
+      default:
+        return aFieldBox.Centre().x; // Most are centered
+    }
+  }
+
+  /**
+   * Place a field vertically. Because field vertical placements accumulate,
+   * this takes a position accumulator.
+   */
+  protected fieldVPlacement(
+    aField: SCH_FIELD,
+    _aFieldBox: BOX2I,
+    aAccumulatedPosition: { value: number },
+    aDynamic: boolean,
+  ): number {
+    let field_height: number;
+    let padding: number;
+
+    if (!aDynamic) {
+      field_height = Math.trunc(LIVE_WIRE_V_SPACING / 2);
+      padding = Math.trunc(LIVE_WIRE_V_SPACING / 2);
+    } else if (this.m_align_to_grid) {
+      field_height = aField.GetBoundingBox().GetHeight();
+      padding = round_n(field_height, schIUScale.milsToIU(50), true) - field_height;
+    } else {
+      field_height = aField.GetBoundingBox().GetHeight();
+      padding = LIVE_FIELD_PADDING;
+    }
+
+    const placement =
+      aAccumulatedPosition.value + Math.trunc(padding / 2) + Math.trunc(field_height / 2);
+
+    aAccumulatedPosition.value += padding + field_height;
+
+    return placement;
+  }
 }

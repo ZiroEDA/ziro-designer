@@ -6,6 +6,7 @@
  * `eeschema/lib_symbol.cpp` (LIB_SYMBOL).
  */
 
+import { AUTOPLACER } from './autoplace_fields.js';
 import {
   type INSPECTABLE_ITEM,
   PG_CHOICES,
@@ -53,7 +54,7 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { stdSort } from '@ziroeda/kimath/src/clipper2/clipper.core.js';
 import { DEFAULT_PIN_NAME_OFFSET } from './default_values.js';
 import { SCH_FIELD } from './sch_field.js';
-import { type AUTOPLACE_ALGO, BODY_STYLE, SCH_ITEM } from './sch_item.js';
+import { AUTOPLACE_ALGO, BODY_STYLE, SCH_ITEM } from './sch_item.js';
 import type { SCH_PIN } from './sch_pin.js';
 import type { SCH_SCREEN } from './sch_screen.js';
 import { SCH_SHAPE } from './sch_shape.js';
@@ -1392,8 +1393,22 @@ export class LIB_SYMBOL extends SYMBOL {
     }
   }
 
-  override AutoplaceFields(_aScreen: SCH_SCREEN | null, _aAlgo: AUTOPLACE_ALGO): void {
-    // Symbol-editor field autoplacement is the autoplacer's (autoplace_fields.cpp): pending.
+  /** `AutoplaceFields( aScreen, aAlgo )` (autoplace_fields.cpp:785). */
+  override AutoplaceFields(aScreen: SCH_SCREEN | null, aAlgo: AUTOPLACE_ALGO): void {
+    // wxFAIL_MSG for AUTOPLACE_MANUAL: "Manual autoplacement not supported for LIB_SYMBOLs".
+    const autoplacer = new AUTOPLACER(this, aScreen);
+    autoplacer.DoAutoplace(aAlgo);
+
+    switch (aAlgo) {
+      case AUTOPLACE_ALGO.AUTOPLACE_AUTO:
+        this.m_fieldsAutoplaced = AUTOPLACE_ALGO.AUTOPLACE_AUTO;
+        break;
+      case AUTOPLACE_ALGO.AUTOPLACE_MANUAL:
+        this.m_fieldsAutoplaced = AUTOPLACE_ALGO.AUTOPLACE_MANUAL;
+        break;
+      default:
+        break;
+    }
   }
 
   override RunOnChildren(aFunction: (aItem: SCH_ITEM) => void, _aMode: RECURSE_MODE): void {

@@ -10,6 +10,7 @@
  * `aInstancePath` is the sheet path's KIID path as the `(instances …)` records
  * key it: `/<root uuid>/<sheet uuids…>` (`SCH_SHEET_PATH::Path()`).
  */
+import { AUTOPLACER } from './autoplace_fields.js';
 import type { SCH_COMMIT } from './sch_commit.js';
 import { CollectOtherUnits } from './sch_collectors.js';
 import {
@@ -134,6 +135,7 @@ import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { LIB_SYMBOL } from './lib_symbol.js';
 import { FindField, NextFieldOrdinal, SCH_FIELD } from './sch_field.js';
 import {
+  AUTOPLACE_ALGO,
   BODY_STYLE,
   DANGLING_END_ITEM,
   DANGLING_END_ITEM_HELPER,
@@ -141,7 +143,7 @@ import {
   type SCH_ITEM,
 } from './sch_item.js';
 import { SCH_PIN, type SCH_PIN_ALT } from './sch_pin.js';
-import type { PICKED_SYMBOL } from './sch_screen.js';
+import type { PICKED_SYMBOL, SCH_SCREEN } from './sch_screen.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { SCH_SYMBOL_INSTANCE, SCH_SYMBOL_VARIANT } from './sch_sheet_path.js';
 import { SYMBOL, SYMBOL_ORIENTATION_PROP, SYMBOL_ORIENTATION_T } from './symbol.js';
@@ -1594,6 +1596,23 @@ export class SCH_SYMBOL extends SYMBOL {
   /** Return the bounding box of the symbol, including its pins and visible fields. */
   override GetBoundingBox(): BOX2I {
     return this.doGetBoundingBox(true, true);
+  }
+
+  /** `AutoplaceFields( aScreen, aAlgo )` (autoplace_fields.cpp:768). */
+  override AutoplaceFields(aScreen: SCH_SCREEN | null, aAlgo: AUTOPLACE_ALGO): void {
+    const autoplacer = new AUTOPLACER(this, aScreen);
+    autoplacer.DoAutoplace(aAlgo);
+
+    switch (aAlgo) {
+      case AUTOPLACE_ALGO.AUTOPLACE_AUTO:
+        this.m_fieldsAutoplaced = AUTOPLACE_ALGO.AUTOPLACE_AUTO;
+        break;
+      case AUTOPLACE_ALGO.AUTOPLACE_MANUAL:
+        this.m_fieldsAutoplaced = AUTOPLACE_ALGO.AUTOPLACE_MANUAL;
+        break;
+      default:
+        break; // wxFAIL_MSG "Unknown autoplace algorithm"
+    }
   }
 
   /** Return a bounding box for the symbol body but not the pins or fields. */

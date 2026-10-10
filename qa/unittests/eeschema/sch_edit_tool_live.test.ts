@@ -18,6 +18,8 @@ import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { type SCH_GLOBALLABEL, SCH_LABEL, SPIN_STYLE } from '@ziroeda/eeschema/sch_label.js';
 import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
+import { AUTOPLACE_ALGO } from '@ziroeda/eeschema/sch_item.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { SCH_JUNCTION } from '@ziroeda/eeschema/sch_junction.js';
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
@@ -184,6 +186,53 @@ describe('SCH_EDIT_TOOL', () => {
     h.mgr.RunAction(ACTIONS.doDelete);
     expect(value.IsVisible()).toBe(false);
     expect([...h.screen.Items().OfType(KICAD_T.SCH_SYMBOL_T)]).toContain(sym);
+  });
+
+  it('autoplaces a selected symbol\u2019s fields as one undo step, and marks them placed by hand', () => {
+    const h = setUp();
+    const sym = lone(h);
+    const ref = sym.GetField(FIELD_T.REFERENCE)!;
+    const far = { x: FAR, y: FAR };
+    ref.SetPosition(far);
+    sym.SetFieldsAutoplaced(AUTOPLACE_ALGO.AUTOPLACE_NONE);
+    const undo = h.frame.GetUndoCommandCount();
+    h.select(sym);
+
+    h.mgr.RunAction(SCH_ACTIONS.autoplaceFields);
+
+    expect(at(ref.GetPosition(), far)).toBe(false);
+    expect(sym.GetFieldsAutoplaced()).toBe(AUTOPLACE_ALGO.AUTOPLACE_MANUAL);
+    expect(h.frame.GetUndoCommandCount()).toBe(undo + 1);
+  });
+
+  it('re-autoplaces the fields of a rotated symbol whose fields were autoplaced', () => {
+    const h = setUp();
+    const sym = lone(h);
+    sym.SetFieldsAutoplaced(AUTOPLACE_ALGO.AUTOPLACE_AUTO);
+    const ref = sym.GetField(FIELD_T.REFERENCE)!;
+    ref.SetPosition({ x: FAR, y: FAR });
+    h.select(sym);
+
+    h.mgr.RunAction(SCH_ACTIONS.rotateCW);
+
+    expect(at(ref.GetPosition(), { x: FAR, y: FAR })).toBe(false);
+    // A copy: the bounding box may be the symbol's cache, which Inflate would change.
+    const box = sym.GetBodyAndPinsBoundingBox();
+    const near = new BOX2I(box.GetOrigin(), box.GetSize());
+    near.Inflate(50 * G);
+    expect(near.Contains(ref.GetPosition())).toBe(true);
+  });
+
+  it('autoplaces the symbol a selected field belongs to', () => {
+    const h = setUp();
+    const sym = lone(h);
+    const value = sym.GetField(FIELD_T.VALUE)!;
+    value.SetPosition({ x: FAR, y: FAR });
+    h.select(value);
+
+    h.mgr.RunAction(SCH_ACTIONS.autoplaceFields);
+
+    expect(at(value.GetPosition(), { x: FAR, y: FAR })).toBe(false);
   });
 
   it('swaps the positions of two labels in selection order', () => {
