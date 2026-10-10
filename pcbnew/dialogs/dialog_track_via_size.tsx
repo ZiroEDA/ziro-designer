@@ -26,7 +26,7 @@ import { useState, type JSX } from 'react';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '../pcb_track.js';
 import { VIA_DIMENSION } from '../board_design_settings.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
@@ -50,7 +50,6 @@ interface Props {
 
 export function DialogTrackViaSize({ value, units, onOk, onClose }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-  useModalEscape(onClose);
 
   // A `UNIT_BINDER` holds text and parses on commit; driving the model off
   // every keystroke rewrites "0." under the caret.
@@ -98,38 +97,29 @@ export function DialogTrackViaSize({ value, units, onOk, onClose }: Props): JSX.
   };
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-ctv-dialog">
-        <div className="ze-modal-header">
-          Track Width and Via Size
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-
-        {/* [data] `bSizes->Add( fgSizer1, 1, wxEXPAND|wxALL, 10 )`. */}
-        <div className="ze-modal-body ze-ctv-body">
-          {error && (
-            <div className="ze-pref-error" role="alert">
-              {error.message}
-            </div>
-          )}
-          <div className="ze-ctv-grid">
-            {row('Track width:', 'ze-ctv-track', trackWidth, setTrackWidth)}
-            {row('Via diameter:', 'ze-ctv-diameter', viaDiameter, setViaDiameter)}
-            {row('Via hole:', 'ze-ctv-drill', viaDrill, setViaDrill)}
+    <DialogShim title="Track Width and Via Size" onClose={onClose} className="ze-ctv-dialog">
+      {/* [data] `bSizes->Add( fgSizer1, 1, wxEXPAND|wxALL, 10 )`. */}
+      <div className="ze-modal-body ze-ctv-body">
+        {error && (
+          <div className="ze-pref-error" role="alert">
+            {error.message}
           </div>
-        </div>
-
-        <div className="ze-modal-footer">
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="primary" onClick={apply}>
-            OK
-          </button>
+        )}
+        <div className="ze-ctv-grid">
+          {row('Track width:', 'ze-ctv-track', trackWidth, setTrackWidth)}
+          {row('Via diameter:', 'ze-ctv-diameter', viaDiameter, setViaDiameter)}
+          {row('Via hole:', 'ze-ctv-drill', viaDrill, setViaDrill)}
         </div>
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <button type="button" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="primary" onClick={apply}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

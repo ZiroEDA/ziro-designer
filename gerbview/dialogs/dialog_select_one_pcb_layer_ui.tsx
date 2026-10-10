@@ -18,7 +18,7 @@
 
 import { Button, RadioButton } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import type { SELECT_LAYER_DIALOG } from './dialog_select_one_pcb_layer.js';
 
 export function DialogSelectOnePcbLayer({
@@ -31,50 +31,40 @@ export function DialogSelectOnePcbLayer({
 }): JSX.Element {
   const [selection, setSelection] = useState(dlg.m_layerRadioBox);
 
-  useModalEscape(() => onClose(false));
-
   const ok = (aSelection: number): void => {
     dlg.m_layerRadioBox = aSelection;
     onClose(dlg.TransferDataFromWindow());
   };
 
   return (
-    <div className="ze-modal-backdrop">
-      <div
-        className="ze-modal ze-selectlayer"
-        role="dialog"
-        aria-modal="true"
-        aria-label={dlg.m_title}
-      >
-        <div className="ze-modal-header">{dlg.m_title}</div>
-        <div className="ze-selectlayer-main">
-          <fieldset className="ze-props-group ze-selectlayer-box">
-            <legend>Layer</legend>
-            <div
-              className="ze-selectlayer-grid"
-              // [data] wxRA_SPECIFY_ROWS: the major dimension is the row count.
-              style={{ gridTemplateRows: `repeat(${dlg.GetMajorDimension()}, auto)` }}
-            >
-              {dlg.m_layerList.map((name, i) => (
-                <RadioButton
-                  key={`${dlg.m_layerId[i]}`}
-                  label={name}
-                  name="select-one-pcb-layer"
-                  checked={selection === i}
-                  onChange={() => {
-                    setSelection(i);
-                    ok(i);
-                  }}
-                />
-              ))}
-            </div>
-          </fieldset>
-          <div className="ze-selectlayer-buttons">
-            <Button label="OK" isDefault onClick={() => ok(selection)} />
-            <Button label="Cancel" onClick={() => onClose(false)} />
+    <DialogShim title={dlg.m_title} onClose={() => onClose(false)} className="ze-selectlayer">
+      <div className="ze-selectlayer-main">
+        <fieldset className="ze-props-group ze-selectlayer-box">
+          <legend>Layer</legend>
+          <div
+            className="ze-selectlayer-grid"
+            // [data] wxRA_SPECIFY_ROWS: the major dimension is the row count.
+            style={{ gridTemplateRows: `repeat(${dlg.GetMajorDimension()}, auto)` }}
+          >
+            {dlg.m_layerList.map((name, i) => (
+              <RadioButton
+                key={`${dlg.m_layerId[i]}`}
+                label={name}
+                name="select-one-pcb-layer"
+                checked={selection === i}
+                onChange={() => {
+                  setSelection(i);
+                  ok(i);
+                }}
+              />
+            ))}
           </div>
+        </fieldset>
+        <div className="ze-selectlayer-buttons">
+          <Button label="OK" isDefault onClick={() => ok(selection)} />
+          <Button label="Cancel" onClick={() => onClose(false)} />
         </div>
       </div>
-    </div>
+    </DialogShim>
   );
 }

@@ -17,7 +17,10 @@ import {
   type PointerEvent,
   type ReactNode,
   type RefObject,
+  type CSSProperties,
+  type Ref,
   useEffect,
+  useImperativeHandle,
   useLayoutEffect,
   useRef,
   useState,
@@ -342,6 +345,13 @@ export interface DialogShimProps {
   initialFocus?: RefObject<HTMLElement | null>;
   /** `m_hash_key`, for a dialog whose title varies; the title's key otherwise. */
   hashKey?: string;
+  /**
+   * A size the dialog states: `SetSize` / `SetMinSize` from its constructor's `aInitialSize`
+   * (data from its `_base.cpp`, never chrome). Position is DialogShim's own.
+   */
+  style?: CSSProperties;
+  /** The window element, for a dialog that measures or focuses it. */
+  frameRef?: Ref<HTMLDivElement>;
   children: ReactNode;
 }
 
@@ -371,9 +381,12 @@ export function DialogShim({
   className,
   initialFocus,
   hashKey,
+  style,
+  frameRef: outerFrameRef,
   children,
 }: DialogShimProps): JSX.Element {
   const frameRef = useRef<HTMLDivElement>(null);
+  useImperativeHandle(outerFrameRef, () => frameRef.current!, []);
   // The window's top-left; null until the first layout has placed it.
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const posRef = useRef(pos);
@@ -485,7 +498,7 @@ export function DialogShim({
       className={`ze-modal ze-shim${modeless ? ' ze-modeless' : ''}${className ? ` ${className}` : ''}`}
       // Where the window is: data the user put there, not chrome. Hidden for the one layout
       // before it is placed.
-      style={pos ? { left: pos.x, top: pos.y } : { visibility: 'hidden' }}
+      style={{ ...style, ...(pos ? { left: pos.x, top: pos.y } : { visibility: 'hidden' }) }}
       role="dialog"
       aria-modal={!modeless}
       aria-label={title}

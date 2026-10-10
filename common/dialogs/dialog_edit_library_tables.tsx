@@ -15,7 +15,7 @@
  * The dialog is resizable (wxRESIZE_BORDER).
  */
 import type { JSX, ReactNode } from 'react';
-import { StdDialogButtons } from '../dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import { useModalEscape } from '../dialog_shim.js';
 
 export function DIALOG_EDIT_LIBRARY_TABLES({
@@ -35,20 +35,11 @@ export function DIALOG_EDIT_LIBRARY_TABLES({
   onOK: () => void;
   onCancel: () => void;
 }): JSX.Element {
-  useModalEscape(onCancel);
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-libtables" role="dialog" aria-modal="true" aria-label={title}>
-        <div className="ze-modal-header">
-          {title}
-          <span className="x" title="Close" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        {infoBar}
-        <div className="ze-libtables-content">{children}</div>
-        <StdDialogButtons onCancel={onCancel} onOk={onOK} />
-      </div>
-    </div>
+    <DialogShim title={title} onClose={onCancel} className="ze-libtables">
+      {infoBar}
+      <div className="ze-libtables-content">{children}</div>
+      <StdDialogButtons onCancel={onCancel} onOk={onOK} />
+    </DialogShim>
   );
 }

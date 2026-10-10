@@ -44,7 +44,7 @@ import type { ZoneValues } from './panel_zone_properties.js';
 import { PanelZoneProperties } from './panel_zone_properties_ui.js';
 import type { ConversionBoxValues } from '../tools/convert_settings_dialog.js';
 import { ConversionSettingsBox } from '../tools/convert_settings_dialog_ui.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
 interface Props {
@@ -98,7 +98,6 @@ export function DialogCopperZones({
   onClose,
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-  useModalEscape(onClose);
 
   const [v, setV] = useState<ZoneValues>(initial);
   const set = (patch: Partial<ZoneValues>): void => setV((prev) => ({ ...prev, ...patch }));
@@ -113,73 +112,70 @@ export function DialogCopperZones({
   const accept = (): void => onApply(settled(), conv);
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-cz-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {conv
-            ? 'Convert to Copper Zone'
-            : teardrop
-              ? 'Legacy Teardrop Properties'
-              : 'Copper Zone Properties'}
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
+    <DialogShim
+      title={
+        conv
+          ? 'Convert to Copper Zone'
+          : teardrop
+            ? 'Legacy Teardrop Properties'
+            : 'Copper Zone Properties'
+      }
+      onClose={onClose}
+      className="ze-cz-dialog"
+    >
+      {conv && <ConversionSettingsBox values={conv} units={units} onChange={setConv} />}
 
-        {conv && <ConversionSettingsBox values={conv} units={units} onChange={setConv} />}
-
-        {/* bMainSizer, HORIZONTAL: bSizerLeft at proportion 0, m_sizerRight at 1. */}
-        <div className="ze-modal-body ze-cz-body">
-          <div className="ze-cz-layers">
-            <div className="ze-cz-layers-label">Layers:</div>
-            <div className="ze-cz-layer-list">
-              {layers.map((l) => (
-                <label key={l.name}>
-                  <input
-                    type="checkbox"
-                    checked={v.layers.includes(l.name)}
-                    onChange={(e) =>
-                      set({
-                        layers: e.target.checked
-                          ? [...v.layers, l.name]
-                          : v.layers.filter((x) => x !== l.name),
-                      })
-                    }
-                  />
-                  <span className="ze-layer-swatch" style={{ background: l.color }} />
-                  {l.name}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="ze-cz-right">
-            <PanelZoneProperties
-              values={v}
-              onChange={set}
-              units={units}
-              nets={nets}
-              teardrop={teardrop}
-            />
+      {/* bMainSizer, HORIZONTAL: bSizerLeft at proportion 0, m_sizerRight at 1. */}
+      <div className="ze-modal-body ze-cz-body">
+        <div className="ze-cz-layers">
+          <div className="ze-cz-layers-label">Layers:</div>
+          <div className="ze-cz-layer-list">
+            {layers.map((l) => (
+              <label key={l.name}>
+                <input
+                  type="checkbox"
+                  checked={v.layers.includes(l.name)}
+                  onChange={(e) =>
+                    set({
+                      layers: e.target.checked
+                        ? [...v.layers, l.name]
+                        : v.layers.filter((x) => x !== l.name),
+                    })
+                  }
+                />
+                <span className="ze-layer-swatch" style={{ background: l.color }} />
+                {l.name}
+              </label>
+            ))}
           </div>
         </div>
 
-        {/* bSizerbottom: the Zone Manager button, then a wxStdDialogButtonSizer
-            taking the slack — so GTK's order, Cancel then OK. */}
-        <div className="ze-cz-foot">
-          {existingZone && (
-            <Button
-              label="Open Zone Manager..."
-              disabled={!onOpenZoneManager}
-              onClick={() => onOpenZoneManager?.(settled())}
-            />
-          )}
-          <div className="ze-modal-footer">
-            <Button label="Cancel" onClick={onClose} />
-            <Button label="OK" isDefault onClick={accept} />
-          </div>
+        <div className="ze-cz-right">
+          <PanelZoneProperties
+            values={v}
+            onChange={set}
+            units={units}
+            nets={nets}
+            teardrop={teardrop}
+          />
         </div>
       </div>
-    </div>
+
+      {/* bSizerbottom: the Zone Manager button, then a wxStdDialogButtonSizer
+        taking the slack — so GTK's order, Cancel then OK. */}
+      <div className="ze-cz-foot">
+        {existingZone && (
+          <Button
+            label="Open Zone Manager..."
+            disabled={!onOpenZoneManager}
+            onClick={() => onOpenZoneManager?.(settled())}
+          />
+        )}
+        <div className="ze-modal-footer">
+          <Button label="Cancel" onClick={onClose} />
+          <Button label="OK" isDefault onClick={accept} />
+        </div>
+      </div>
+    </DialogShim>
   );
 }

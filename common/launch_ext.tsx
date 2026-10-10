@@ -42,7 +42,7 @@ import {
   colorThemeFromFile,
   type ColorThemeContents,
 } from './settings/color_theme_file.js';
-import { useModalEscape } from './dialog_shim.js';
+import { DialogShim } from './dialog_shim.js';
 import { OK_LABEL } from './confirm_types.js';
 
 // ---------------------------------------------------------------------------
@@ -190,7 +190,6 @@ export function ThemeFolderDialog({
   const inputRef = useRef<HTMLInputElement>(null);
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
-  useModalEscape(onClose);
 
   const readPicked = async (file: File): Promise<void> => {
     let parsed: unknown;
@@ -226,93 +225,92 @@ export function ThemeFolderDialog({
   };
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-choicedlg ze-themefolder" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">
-          {folderName ? `Color Themes — ${folderName}` : 'Color Themes'}
-        </div>
-        <div className="ze-choicedlg-body">
-          {folderName === undefined && (
-            /* Said once, plainly, rather than leaving the user to work out why
-               a button called "Open Theme Folder" produced a download. */
-            <div className="ze-choicedlg-message">
-              This browser will not open a folder, so themes are saved and loaded as files.
-            </div>
-          )}
-
-          <div
-            className="ze-choicedlg-list cols ze-themefolder-list"
-            role="table"
-            aria-label="Color theme files"
-          >
-            {folderFiles.map((f) => (
-              <div
-                className="ze-choicedlg-item cols ze-themefolder-row"
-                role="row"
-                key={`folder:${f.fileName}`}
-              >
-                <span role="cell" className="ze-themefolder-file">
-                  {f.fileName}
-                </span>
-                <span role="cell" className="ze-themefolder-name">
-                  {f.contents.name}
-                </span>
-                <button
-                  type="button"
-                  role="cell"
-                  className="ze-btn"
-                  onClick={() => {
-                    onImport(f.contents);
-                    onClose();
-                  }}
-                >
-                  Load
-                </button>
-              </div>
-            ))}
-            {files.map((f) => (
-              <div
-                className="ze-choicedlg-item cols ze-themefolder-row"
-                role="row"
-                key={`app:${f.fileName}`}
-              >
-                <span role="cell" className="ze-themefolder-file">
-                  {f.fileName}
-                </span>
-                <span role="cell" className="ze-themefolder-name">
-                  {f.name}
-                  {f.writable ? '' : ' (read-only)'}
-                </span>
-                <button type="button" role="cell" className="ze-btn" onClick={() => void put(f)}>
-                  {onWriteToFolder ? 'Save to folder' : 'Export'}
-                </button>
-              </div>
-            ))}
+    <DialogShim
+      title={folderName ? `Color Themes — ${folderName}` : 'Color Themes'}
+      onClose={onClose}
+      className="ze-choicedlg ze-themefolder"
+    >
+      <div className="ze-choicedlg-body">
+        {folderName === undefined && (
+          /* Said once, plainly, rather than leaving the user to work out why
+           a button called "Open Theme Folder" produced a download. */
+          <div className="ze-choicedlg-message">
+            This browser will not open a folder, so themes are saved and loaded as files.
           </div>
+        )}
 
-          {note !== '' && <div className="ze-choicedlg-message">{note}</div>}
-          {error !== '' && <div className="ze-themefolder-error">{error}</div>}
+        <div
+          className="ze-choicedlg-list cols ze-themefolder-list"
+          role="table"
+          aria-label="Color theme files"
+        >
+          {folderFiles.map((f) => (
+            <div
+              className="ze-choicedlg-item cols ze-themefolder-row"
+              role="row"
+              key={`folder:${f.fileName}`}
+            >
+              <span role="cell" className="ze-themefolder-file">
+                {f.fileName}
+              </span>
+              <span role="cell" className="ze-themefolder-name">
+                {f.contents.name}
+              </span>
+              <button
+                type="button"
+                role="cell"
+                className="ze-btn"
+                onClick={() => {
+                  onImport(f.contents);
+                  onClose();
+                }}
+              >
+                Load
+              </button>
+            </div>
+          ))}
+          {files.map((f) => (
+            <div
+              className="ze-choicedlg-item cols ze-themefolder-row"
+              role="row"
+              key={`app:${f.fileName}`}
+            >
+              <span role="cell" className="ze-themefolder-file">
+                {f.fileName}
+              </span>
+              <span role="cell" className="ze-themefolder-name">
+                {f.name}
+                {f.writable ? '' : ' (read-only)'}
+              </span>
+              <button type="button" role="cell" className="ze-btn" onClick={() => void put(f)}>
+                {onWriteToFolder ? 'Save to folder' : 'Export'}
+              </button>
+            </div>
+          ))}
         </div>
-        <div className="ze-choicedlg-buttons">
-          <input
-            ref={inputRef}
-            type="file"
-            accept="application/json,.json"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              // Cleared, so picking the same file twice fires twice.
-              e.target.value = '';
-              if (file) void readPicked(file);
-            }}
-          />
-          {/* With a folder open its files are listed above and loadable from
-              there; this stays for a theme that lives somewhere else. */}
-          <Button label="Import..." onClick={() => inputRef.current?.click()} />
-          <span className="ze-spacer" />
-          <Button label={OK_LABEL} onClick={onClose} />
-        </div>
+
+        {note !== '' && <div className="ze-choicedlg-message">{note}</div>}
+        {error !== '' && <div className="ze-themefolder-error">{error}</div>}
       </div>
-    </div>
+      <div className="ze-choicedlg-buttons">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            // Cleared, so picking the same file twice fires twice.
+            e.target.value = '';
+            if (file) void readPicked(file);
+          }}
+        />
+        {/* With a folder open its files are listed above and loadable from
+          there; this stays for a theme that lives somewhere else. */}
+        <Button label="Import..." onClick={() => inputRef.current?.click()} />
+        <span className="ze-spacer" />
+        <Button label={OK_LABEL} onClick={onClose} />
+      </div>
+    </DialogShim>
   );
 }

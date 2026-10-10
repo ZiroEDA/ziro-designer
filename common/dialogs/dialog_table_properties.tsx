@@ -40,7 +40,7 @@ import { useState, type JSX, type ReactNode } from 'react';
 import type { EdaIuScale } from '../eda_units.js';
 import { LINE_STYLE_NAMES } from '../stroke_params.js';
 import { Combo } from '../widgets/wx_combobox.js';
-import { StdDialogButtons } from '../dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import { useModalEscape } from '../dialog_shim.js';
 
 /**
@@ -129,7 +129,6 @@ export function DialogTableProperties<T extends SharedTableValues>({
 }: DialogTablePropertiesProps<T>): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const [v, setV] = useState<T>(initial);
   // The width fields are held as text while they are being typed, so a half
@@ -236,98 +235,90 @@ export function DialogTableProperties<T extends SharedTableValues>({
   );
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
+    <DialogShim title="Table Properties" onClose={onCancel} className="ze-label-dialog">
       {/* Wide, and only as tall as it needs to be: `.ze-modal` is 860x580 by
           default, which for this dialog meant a narrow box with the cell grid
           squeezed into it. The grid is the only thing that scrolls. */}
-      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Table Properties
-          <span className="x" title="Cancel" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
 
-        {/* `bColumns`, which is HORIZONTAL: the cell grid on the left and every
-            property on the right. This dialog stacked them, which is why it
-            needed container gaps to hold the stack apart — the six literals the
-            central-value ratchet was still carrying for it. */}
-        <div className="ze-label-dialog-body ze-tableprops-body">
-          {/* `m_gridSizer`, `SetMinSize( wxSize( 600,400 ) )`, proportion 1.
-              `minWidth: 0` on both this and the scroller: without it a flex
-              child is sized by its content, the scroll box grows to the full
-              width of the grid, and the overflow escapes to the dialog instead
-              of scrolling inside. */}
-          <div className="ze-tableprops-cells">
-            <span className="ze-tableprops-cellslabel">Cell contents:</span>
-            {/* The one scroller in the dialog, in both directions.
-                `width: max-content` is what makes that work: a table told to be
-                100% wide never overflows, it just divides the dialog between
-                however many columns there are, and forty columns leaves each
-                one too narrow to type into. */}
-            <div className="ze-tableprops-scroll" style={{ maxHeight: GRID_MAX_PX }}>
-              <table className="ze-props-grid ze-tableprops-grid">
-                <tbody>
-                  {v.cellText.map((line, row) => (
-                    <tr key={`row${row}`}>
-                      {/* The grid is fixed-shape: a cell has no identity
-                          beyond its position, so the position is the key. */}
-                      {line.map((cellValue, col) => (
-                        <td key={`col${col}`} style={{ width: cellPx[col] ?? MIN_CELL_PX }}>
-                          <input
-                            type="text"
-                            className="ze-input"
-                            style={{ width: cellPx[col] ?? MIN_CELL_PX }}
-                            value={cellValue}
-                            onChange={(e) => setCell(row, col, e.target.value)}
-                          />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* `bPropertiesSizer`, one `wxGridBagSizer( 3, 3 )` holding the layer
-              row, Locked, and both runs of line controls in sequence — not two
-              panels side by side, and not a group box in sight. */}
-          <div className="ze-tableprops-props">
-            {header?.(v, set)}
-            {lineRows(
-              <>
-                {checkbox('External border', 'borderExternal')}
-                {checkbox('Header border', 'borderHeader')}
-              </>,
-              'borderWidth',
-              'borderColor',
-              'borderStyle',
-              borderOn,
-            )}
-            {/* `bPropertiesSizer->Add( 0, 15, wxGBPosition( 6, 0 ), … )` — the
-                one gap between the two runs, and it is a spacer ITEM rather
-                than a sizer gap. */}
-            <div className="ze-tableprops-rungap" />
-            {lineRows(
-              <>
-                {checkbox('Row lines', 'separatorRows')}
-                {checkbox('Column lines', 'separatorCols')}
-              </>,
-              'separatorWidth',
-              'separatorColor',
-              'separatorStyle',
-              sepOn,
-            )}
+      {/* `bColumns`, which is HORIZONTAL: the cell grid on the left and every
+        property on the right. This dialog stacked them, which is why it
+        needed container gaps to hold the stack apart — the six literals the
+        central-value ratchet was still carrying for it. */}
+      <div className="ze-label-dialog-body ze-tableprops-body">
+        {/* `m_gridSizer`, `SetMinSize( wxSize( 600,400 ) )`, proportion 1.
+          `minWidth: 0` on both this and the scroller: without it a flex
+          child is sized by its content, the scroll box grows to the full
+          width of the grid, and the overflow escapes to the dialog instead
+          of scrolling inside. */}
+        <div className="ze-tableprops-cells">
+          <span className="ze-tableprops-cellslabel">Cell contents:</span>
+          {/* The one scroller in the dialog, in both directions.
+            `width: max-content` is what makes that work: a table told to be
+            100% wide never overflows, it just divides the dialog between
+            however many columns there are, and forty columns leaves each
+            one too narrow to type into. */}
+          <div className="ze-tableprops-scroll" style={{ maxHeight: GRID_MAX_PX }}>
+            <table className="ze-props-grid ze-tableprops-grid">
+              <tbody>
+                {v.cellText.map((line, row) => (
+                  <tr key={`row${row}`}>
+                    {/* The grid is fixed-shape: a cell has no identity
+                      beyond its position, so the position is the key. */}
+                    {line.map((cellValue, col) => (
+                      <td key={`col${col}`} style={{ width: cellPx[col] ?? MIN_CELL_PX }}>
+                        <input
+                          type="text"
+                          className="ze-input"
+                          style={{ width: cellPx[col] ?? MIN_CELL_PX }}
+                          value={cellValue}
+                          onChange={(e) => setCell(row, col, e.target.value)}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <StdDialogButtons
-          onCancel={onCancel}
-          onOk={() => onOk(v)}
-          {...(isNew ? { cancelTitle: 'Discard the table' } : {})}
-        />
+        {/* `bPropertiesSizer`, one `wxGridBagSizer( 3, 3 )` holding the layer
+          row, Locked, and both runs of line controls in sequence — not two
+          panels side by side, and not a group box in sight. */}
+        <div className="ze-tableprops-props">
+          {header?.(v, set)}
+          {lineRows(
+            <>
+              {checkbox('External border', 'borderExternal')}
+              {checkbox('Header border', 'borderHeader')}
+            </>,
+            'borderWidth',
+            'borderColor',
+            'borderStyle',
+            borderOn,
+          )}
+          {/* `bPropertiesSizer->Add( 0, 15, wxGBPosition( 6, 0 ), … )` — the
+            one gap between the two runs, and it is a spacer ITEM rather
+            than a sizer gap. */}
+          <div className="ze-tableprops-rungap" />
+          {lineRows(
+            <>
+              {checkbox('Row lines', 'separatorRows')}
+              {checkbox('Column lines', 'separatorCols')}
+            </>,
+            'separatorWidth',
+            'separatorColor',
+            'separatorStyle',
+            sepOn,
+          )}
+        </div>
       </div>
-    </div>
+
+      <StdDialogButtons
+        onCancel={onCancel}
+        onOk={() => onOk(v)}
+        {...(isNew ? { cancelTitle: 'Discard the table' } : {})}
+      />
+    </DialogShim>
   );
 }

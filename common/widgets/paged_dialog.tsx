@@ -21,7 +21,7 @@
 
 import { Button } from '../wx/controls.js';
 import { useEffect, useRef, useState, type JSX } from 'react';
-import { useModalEscape } from '../dialog_shim.js';
+import { DialogShim } from '../dialog_shim.js';
 import { usePagedDialogSize } from './paged_dialog_size.js';
 import { PagedDialogTree } from './wx_treebook.js';
 
@@ -122,7 +122,6 @@ export function PagedDialog({
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const order = enabledOrder(sections);
   const firstEnabled = order[0] ?? '';
@@ -208,83 +207,71 @@ export function PagedDialog({
     active?.resettable && active.label ? `Reset ${active.label} to Defaults` : 'Reset to Defaults';
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
+    <DialogShim title={title} onClose={onCancel} frameRef={dlgRef} className="ze-paged-dialog">
       {/* ONE size, for every page, for the dialog's whole life.
+    
+              `.ze-modal` is `width/height: max-content`, which tracks whichever
+              page is mounted, and Board Setup visibly re-sized itself on every row
+              of the tree — tall and narrow on Board Editor Layers, short and wide
+              on Constraints. So the size is stated, from the subclass's own
+              `aInitialSize`, and `.ze-paged-panel` is `min-width: 0` so a page
+              that wants more room scrolls instead of pushing the dialog wider.
+    
+              That is `.ze-prefs-dialog`'s answer, reached first and for the same
+              reason. See `paged_dialog_size.ts` for what upstream does instead and
+              why we do not. */}
 
-          `.ze-modal` is `width/height: max-content`, which tracks whichever
-          page is mounted, and Board Setup visibly re-sized itself on every row
-          of the tree — tall and narrow on Board Editor Layers, short and wide
-          on Constraints. So the size is stated, from the subclass's own
-          `aInitialSize`, and `.ze-paged-panel` is `min-width: 0` so a page
-          that wants more room scrolls instead of pushing the dialog wider.
-
-          That is `.ze-prefs-dialog`'s answer, reached first and for the same
-          reason. See `paged_dialog_size.ts` for what upstream does instead and
-          why we do not. */}
-      <div
-        className="ze-modal ze-paged-dialog"
-        ref={dlgRef}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="ze-modal-header">
-          {title}
-          <span className="x" title="Cancel" onClick={onCancel}>
-            ✕
-          </span>
+      {/* One wxInfoBar: SetError's message takes it over while it shows. */}
+      {(error ?? infoBar) && (
+        <div className="ze-paged-infobar" role={error ? 'alert' : undefined}>
+          {error ?? infoBar}
         </div>
+      )}
 
-        {/* One wxInfoBar: SetError's message takes it over while it shows. */}
-        {(error ?? infoBar) && (
-          <div className="ze-paged-infobar" role={error ? 'alert' : undefined}>
-            {error ?? infoBar}
-          </div>
-        )}
+      <div className="ze-modal-body">
+        <PagedDialogTree
+          sections={sections}
+          page={page}
+          collapsed={collapsed}
+          onToggleSection={toggleSection}
+          onSelect={setPage}
+          treeRef={treeRef}
+        />
 
-        <div className="ze-modal-body">
-          <PagedDialogTree
-            sections={sections}
-            page={page}
-            collapsed={collapsed}
-            onToggleSection={toggleSection}
-            onSelect={setPage}
-            treeRef={treeRef}
-          />
-
-          <div className="ze-paged-panel">
-            {active && !active.disabled ? (
-              active.render()
-            ) : (
-              // A greyed page. `--ze-muted` is not a token this stylesheet
-              // declares, so the `#888` fallback was what actually painted, at
-              // a font size nothing upstream states either.
-              <div className="ze-paged-unimplemented">This setup page is not implemented yet.</div>
-            )}
-          </div>
-        </div>
-
-        <div className="ze-modal-footer ze-paged-footer">
-          {showReset && (
-            // onResetButton: enabled only for resettable pages, exactly like
-            // KiCad; ResetPanel() restores the active page's slice to defaults.
-            <Button
-              label={resetLabel}
-              disabled={!(active?.resettable && active.onReset)}
-              title="Reset this page to defaults"
-              onClick={() => active?.onReset?.()}
-            />
+        <div className="ze-paged-panel">
+          {active && !active.disabled ? (
+            active.render()
+          ) : (
+            // A greyed page. `--ze-muted` is not a token this stylesheet
+            // declares, so the `#888` fallback was what actually painted, at
+            // a font size nothing upstream states either.
+            <div className="ze-paged-unimplemented">This setup page is not implemented yet.</div>
           )}
-          {auxiliaryAction && (
-            <Button
-              label={auxiliaryAction}
-              disabled={!onAuxiliaryAction}
-              onClick={onAuxiliaryAction}
-            />
-          )}
-          <div className="ze-paged-footer-spacer" />
-          <Button label="Cancel" onClick={onCancel} />
-          <Button label="OK" isDefault onClick={handleOk} />
         </div>
       </div>
-    </div>
+
+      <div className="ze-modal-footer ze-paged-footer">
+        {showReset && (
+          // onResetButton: enabled only for resettable pages, exactly like
+          // KiCad; ResetPanel() restores the active page's slice to defaults.
+          <Button
+            label={resetLabel}
+            disabled={!(active?.resettable && active.onReset)}
+            title="Reset this page to defaults"
+            onClick={() => active?.onReset?.()}
+          />
+        )}
+        {auxiliaryAction && (
+          <Button
+            label={auxiliaryAction}
+            disabled={!onAuxiliaryAction}
+            onClick={onAuxiliaryAction}
+          />
+        )}
+        <div className="ze-paged-footer-spacer" />
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault onClick={handleOk} />
+      </div>
+    </DialogShim>
   );
 }

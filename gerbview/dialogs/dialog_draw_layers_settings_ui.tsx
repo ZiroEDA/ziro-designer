@@ -19,7 +19,7 @@
 
 import { RadioButton } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { unitLabel } from '@ziroeda/common/eda_units.js';
 import {
   DIALOG_DRAW_LAYERS_SETTINGS,
@@ -40,8 +40,6 @@ export function DialogDrawLayersSettings({
   const [rotation, setRotation] = useState(dlg.m_tcRotation);
   const [scope, setScope] = useState(dlg.m_rbScope);
   const units = unitLabel(dlg.GetOffsetUnits());
-
-  useModalEscape(() => onClose(false));
 
   const ok = (): void => {
     dlg.m_tcOffsetX = offsetX;
@@ -81,40 +79,32 @@ export function DialogDrawLayersSettings({
   ];
 
   return (
-    <div className="ze-modal-backdrop">
-      <div
-        className="ze-modal ze-drawlayers"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Layers Settings"
-      >
-        <div className="ze-modal-header">Layers Settings</div>
-        <div className="ze-drawlayers-name">
-          <span className="ze-drawlayers-cell">Active layer name:</span>
-          <span className="ze-drawlayers-cell">{dlg.m_stLayerName}</span>
-        </div>
-        <div className="ze-drawlayers-grid">
-          {row('Offset X:', offsetX, setOffsetX, units)}
-          {row('Offset Y:', offsetY, setOffsetY, units)}
-          {/* UNIT_BINDER::SetUnits( DEGREES ) relabels the "dummy" to °. */}
-          {row('Rotate counterclockwise:', rotation, setRotation, unitLabel('degrees'))}
-        </div>
-        <div className="ze-drawlayers-line" />
-        <fieldset className="ze-props-group ze-drawlayers-scope">
-          <legend>Scope</legend>
-          {DRAW_LAYERS_SCOPE_CHOICES.map((c, i) => (
-            <RadioButton
-              key={c}
-              label={c}
-              name="drawlayers-scope"
-              checked={scope === i}
-              onChange={() => setScope(i)}
-            />
-          ))}
-        </fieldset>
-        <div className="ze-drawlayers-line" />
-        <StdDialogButtons onCancel={() => onClose(false)} onOk={ok} />
+    <DialogShim title="Layers Settings" onClose={() => onClose(false)} className="ze-drawlayers">
+      <div className="ze-drawlayers-name">
+        <span className="ze-drawlayers-cell">Active layer name:</span>
+        <span className="ze-drawlayers-cell">{dlg.m_stLayerName}</span>
       </div>
-    </div>
+      <div className="ze-drawlayers-grid">
+        {row('Offset X:', offsetX, setOffsetX, units)}
+        {row('Offset Y:', offsetY, setOffsetY, units)}
+        {/* UNIT_BINDER::SetUnits( DEGREES ) relabels the "dummy" to °. */}
+        {row('Rotate counterclockwise:', rotation, setRotation, unitLabel('degrees'))}
+      </div>
+      <div className="ze-drawlayers-line" />
+      <fieldset className="ze-props-group ze-drawlayers-scope">
+        <legend>Scope</legend>
+        {DRAW_LAYERS_SCOPE_CHOICES.map((c, i) => (
+          <RadioButton
+            key={c}
+            label={c}
+            name="drawlayers-scope"
+            checked={scope === i}
+            onChange={() => setScope(i)}
+          />
+        ))}
+      </fieldset>
+      <div className="ze-drawlayers-line" />
+      <StdDialogButtons onCancel={() => onClose(false)} onOk={ok} />
+    </DialogShim>
   );
 }

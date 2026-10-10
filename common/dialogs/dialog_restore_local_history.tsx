@@ -46,7 +46,7 @@ import {
   formatISOCombined,
   type Snapshot,
 } from '../local_history.js';
-import { useModalEscape } from '../dialog_shim.js';
+import { DialogShim } from '../dialog_shim.js';
 
 export function RestoreLocalHistoryDialog({
   snapshots,
@@ -58,7 +58,6 @@ export function RestoreLocalHistoryDialog({
   onResult: (snapshot: Snapshot | null) => void;
 }): JSX.Element {
   // wxID_CANCEL is in the button sizer, so Esc is the cancel answer.
-  useModalEscape(() => onResult(null));
 
   /** `m_selectedIndex`, which starts at `wxNOT_FOUND`. */
   const [selected, setSelected] = useState<number>(-1);
@@ -77,80 +76,76 @@ export function RestoreLocalHistoryDialog({
   };
 
   return (
-    <div className="ze-modal-backdrop">
-      <div
-        className="ze-modal ze-rlhist"
-        role="dialog"
-        aria-modal="true"
-        style={{ minWidth: RESTORE_DIALOG_MIN_WIDTH, minHeight: RESTORE_DIALOG_MIN_HEIGHT }}
-      >
-        <div className="ze-modal-header">{RESTORE_DIALOG_TITLE}</div>
-
-        <div className="ze-rlhist-body">
-          {/* wxLC_REPORT with three columns, and the widths KiCad declares. */}
-          <div className="ze-lhist-head cols3">
-            {RESTORE_LIST_COLUMNS.map((c) => (
-              <span key={c.key} className={c.key}>
-                {c.label}
-              </span>
-            ))}
-          </div>
-          {/* biome-ignore lint/a11y/noNoninteractiveTabindex: the list IS the control. */}
-          <div
-            ref={listRef}
-            className="ze-lhist-list rules"
-            role="listbox"
-            tabIndex={0}
-            aria-label={RESTORE_DIALOG_TITLE}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setSelected((i) => Math.min(snapshots.length - 1, i + 1));
-              } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                setSelected((i) => Math.max(0, i - 1));
-              } else if (e.key === 'Enter' && selected >= 0) {
-                e.preventDefault();
-                accept(selected);
-              }
-            }}
-          >
-            {snapshots.map((s, i) => (
-              // biome-ignore lint/a11y/useKeyWithClickEvents: the listbox owns the keys.
-              <div
-                key={s.id}
-                role="option"
-                aria-selected={i === selected}
-                className={`ze-lhist-row cols3${i === selected ? ' selected' : ''}`}
-                onClick={() => setSelected(i)}
-                onDoubleClick={() => accept(i)}
-              >
-                <span className="time">{formatISOCombined(s.at)}</span>
-                <span className="action">{s.title}</span>
-                <span className="count">{restoreCountText(s.changed.length)}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* m_details: wxTE_MULTILINE | wxTE_READONLY. */}
-          <textarea
-            className="ze-search ze-rlhist-details"
-            readOnly
-            value={chosen ? restoreDetailText(chosen) : ''}
-          />
+    <DialogShim
+      title={RESTORE_DIALOG_TITLE}
+      onClose={() => onResult(null)}
+      style={{ minWidth: RESTORE_DIALOG_MIN_WIDTH, minHeight: RESTORE_DIALOG_MIN_HEIGHT }}
+      className="ze-rlhist"
+    >
+      <div className="ze-rlhist-body">
+        {/* wxLC_REPORT with three columns, and the widths KiCad declares. */}
+        <div className="ze-lhist-head cols3">
+          {RESTORE_LIST_COLUMNS.map((c) => (
+            <span key={c.key} className={c.key}>
+              {c.label}
+            </span>
+          ))}
+        </div>
+        {/* biome-ignore lint/a11y/noNoninteractiveTabindex: the list IS the control. */}
+        <div
+          ref={listRef}
+          className="ze-lhist-list rules"
+          role="listbox"
+          tabIndex={0}
+          aria-label={RESTORE_DIALOG_TITLE}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              setSelected((i) => Math.min(snapshots.length - 1, i + 1));
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              setSelected((i) => Math.max(0, i - 1));
+            } else if (e.key === 'Enter' && selected >= 0) {
+              e.preventDefault();
+              accept(selected);
+            }
+          }}
+        >
+          {snapshots.map((s, i) => (
+            // biome-ignore lint/a11y/useKeyWithClickEvents: the listbox owns the keys.
+            <div
+              key={s.id}
+              role="option"
+              aria-selected={i === selected}
+              className={`ze-lhist-row cols3${i === selected ? ' selected' : ''}`}
+              onClick={() => setSelected(i)}
+              onDoubleClick={() => accept(i)}
+            >
+              <span className="time">{formatISOCombined(s.at)}</span>
+              <span className="action">{s.title}</span>
+              <span className="count">{restoreCountText(s.changed.length)}</span>
+            </div>
+          ))}
         </div>
 
-        {/* wxStdDialogButtonSizer: Restore is wxID_OK and starts disabled. */}
-        <div className="ze-choicedlg-buttons">
-          <Button label="Cancel" onClick={() => onResult(null)} />
-          <Button
-            label="Restore"
-            isDefault
-            disabled={!chosen}
-            onClick={() => selected >= 0 && accept(selected)}
-          />
-        </div>
+        {/* m_details: wxTE_MULTILINE | wxTE_READONLY. */}
+        <textarea
+          className="ze-search ze-rlhist-details"
+          readOnly
+          value={chosen ? restoreDetailText(chosen) : ''}
+        />
       </div>
-    </div>
+
+      {/* wxStdDialogButtonSizer: Restore is wxID_OK and starts disabled. */}
+      <div className="ze-choicedlg-buttons">
+        <Button label="Cancel" onClick={() => onResult(null)} />
+        <Button
+          label="Restore"
+          isDefault
+          disabled={!chosen}
+          onClick={() => selected >= 0 && accept(selected)}
+        />
+      </div>
+    </DialogShim>
   );
 }

@@ -34,7 +34,7 @@
 
 import { Button } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useLayoutEffect, useReducer, useRef, useState } from 'react';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { measureTextWidth } from '@ziroeda/common/widgets/text_ctrl_width.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { GERBER_DRAWLAYERS_COUNT } from '@ziroeda/common/layer_id.js';
@@ -59,8 +59,6 @@ export function DialogMapGerberLayersToPcb({
   const [, refresh] = useReducer((n: number) => n + 1, 0);
   const [goodWidth, setGoodWidth] = useState<number | undefined>(undefined);
   const firstMapped = useRef<HTMLSpanElement>(null);
-
-  useModalEscape(() => onClose(false));
 
   // `goodSize` (`:182-194`): the first mapped-layer text measured against
   // every label it could take, and that width given to all of them.
@@ -121,66 +119,58 @@ export function DialogMapGerberLayersToPcb({
   for (let ii = 0; ii < count; ii++) (ii < half ? left : right).push(...row(ii));
 
   return (
-    <div className="ze-modal-backdrop">
-      <div
-        className="ze-modal ze-mapgbr"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Layer Selection"
-      >
-        <div className="ze-modal-header">Layer Selection</div>
-        <div className="ze-mapgbr-upper">
-          <div className="ze-mapgbr-selection">
-            <span className="ze-mapgbr-cell">Layer selection:</span>
-            <div className="ze-mapgbr-list">
-              <span className="ze-mapgbr-indent" />
-              <div className="ze-mapgbr-grid">{left}</div>
-              {dlg.m_staticlineSepShown && <div className="ze-mapgbr-vline" />}
-              <div className="ze-mapgbr-grid">{right}</div>
-            </div>
-          </div>
-          <div className="ze-mapgbr-right">
-            <span className="ze-mapgbr-lyrcnt-label">Copper layers count:</span>
-            <Combo
-              className="ze-mapgbr-lyrcnt"
-              ariaLabel="Copper layers count:"
-              value={String(dlg.m_comboCopperLayersCount)}
-              options={COMBO_OPTIONS}
-              onChange={(v) => {
-                dlg.OnBrdLayersCountSelection(Number(v));
-                refresh();
-              }}
-            />
-            <span className="ze-mapgbr-stretch" />
-            <Button
-              label="Store Choice"
-              className="ze-mapgbr-button"
-              onClick={() => {
-                dlg.OnStoreSetup();
-                refresh();
-              }}
-            />
-            <Button
-              label="Get Stored Choice"
-              disabled={!dlg.m_buttonRetrieveEnabled}
-              className="ze-mapgbr-button"
-              onClick={() => {
-                dlg.OnGetSetup();
-                refresh();
-              }}
-            />
-            <Button
-              label="Reset"
-              className="ze-mapgbr-button"
-              onClick={() => {
-                dlg.OnResetClick();
-                refresh();
-              }}
-            />
+    <DialogShim title="Layer Selection" onClose={() => onClose(false)} className="ze-mapgbr">
+      <div className="ze-mapgbr-upper">
+        <div className="ze-mapgbr-selection">
+          <span className="ze-mapgbr-cell">Layer selection:</span>
+          <div className="ze-mapgbr-list">
+            <span className="ze-mapgbr-indent" />
+            <div className="ze-mapgbr-grid">{left}</div>
+            {dlg.m_staticlineSepShown && <div className="ze-mapgbr-vline" />}
+            <div className="ze-mapgbr-grid">{right}</div>
           </div>
         </div>
-        <StdDialogButtons onCancel={() => onClose(false)} onOk={ok} />
+        <div className="ze-mapgbr-right">
+          <span className="ze-mapgbr-lyrcnt-label">Copper layers count:</span>
+          <Combo
+            className="ze-mapgbr-lyrcnt"
+            ariaLabel="Copper layers count:"
+            value={String(dlg.m_comboCopperLayersCount)}
+            options={COMBO_OPTIONS}
+            onChange={(v) => {
+              dlg.OnBrdLayersCountSelection(Number(v));
+              refresh();
+            }}
+          />
+          <span className="ze-mapgbr-stretch" />
+          <Button
+            label="Store Choice"
+            className="ze-mapgbr-button"
+            onClick={() => {
+              dlg.OnStoreSetup();
+              refresh();
+            }}
+          />
+          <Button
+            label="Get Stored Choice"
+            disabled={!dlg.m_buttonRetrieveEnabled}
+            className="ze-mapgbr-button"
+            onClick={() => {
+              dlg.OnGetSetup();
+              refresh();
+            }}
+          />
+          <Button
+            label="Reset"
+            className="ze-mapgbr-button"
+            onClick={() => {
+              dlg.OnResetClick();
+              refresh();
+            }}
+          />
+        </div>
       </div>
-    </div>
+      <StdDialogButtons onCancel={() => onClose(false)} onOk={ok} />
+    </DialogShim>
   );
 }

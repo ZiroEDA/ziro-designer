@@ -29,7 +29,7 @@
  */
 import { Button } from '../wx/controls.js';
 import { type JSX, useState } from 'react';
-import { useModalEscape } from '../dialog_shim.js';
+import { DialogShim } from '../dialog_shim.js';
 import { MessageDialogError } from './dialog_message.js';
 import type { GridEntry } from '../settings/grid_settings_ui.js';
 import {
@@ -85,7 +85,6 @@ export function DialogGridSettings({
   onCancel,
 }: DialogGridSettingsProps): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-  useModalEscape(onCancel);
 
   /*
    * `TransferDataToWindow` (dialog_grid_settings.cpp:58-75).
@@ -152,80 +151,67 @@ export function DialogGridSettings({
   }
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div
-        className="ze-modal ze-gs"
-        role="dialog"
-        aria-modal="true"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="ze-modal-header">
-          {GRID_SETTINGS_TITLE}
-          <span className="x" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-gs-body">
-          <label className="ze-gs-label" htmlFor="ze-gs-name">
-            Name:
-          </label>
-          <input
-            id="ze-gs-name"
-            className="ze-search"
-            // `SetInitialFocus( m_textName )` (dialog_grid_settings.cpp:48).
-            // biome-ignore lint/a11y/noAutofocus: SetInitialFocus, upstream's own.
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.stopPropagation()}
-          />
-          <span className="ze-gs-unit">(optional)</span>
+    <DialogShim title={GRID_SETTINGS_TITLE} onClose={onCancel} className="ze-gs">
+      <div className="ze-gs-body">
+        <label className="ze-gs-label" htmlFor="ze-gs-name">
+          Name:
+        </label>
+        <input
+          id="ze-gs-name"
+          className="ze-search"
+          // `SetInitialFocus( m_textName )` (dialog_grid_settings.cpp:48).
+          // biome-ignore lint/a11y/noAutofocus: SetInitialFocus, upstream's own.
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.stopPropagation()}
+        />
+        <span className="ze-gs-unit">(optional)</span>
 
-          <label className="ze-gs-label" htmlFor="ze-gs-x">
-            X:
-          </label>
-          <input
-            id="ze-gs-x"
-            className="ze-search"
-            value={x}
-            onChange={(e) => setX(e.target.value)}
-            onKeyDown={(e) => e.stopPropagation()}
-          />
-          <span className="ze-gs-unit">{unitLabel(units)}</span>
+        <label className="ze-gs-label" htmlFor="ze-gs-x">
+          X:
+        </label>
+        <input
+          id="ze-gs-x"
+          className="ze-search"
+          value={x}
+          onChange={(e) => setX(e.target.value)}
+          onKeyDown={(e) => e.stopPropagation()}
+        />
+        <span className="ze-gs-unit">{unitLabel(units)}</span>
 
-          <span />
-          <label className="ze-gs-linked">
-            <input
-              type="checkbox"
-              checked={linked}
-              // `OnLinkedChecked`: `m_textY->Enable( !IsChecked() )` and
-              // nothing else — the Y value itself is left alone.
-              onChange={(e) => setLinked(e.target.checked)}
-            />
-            Linked
-          </label>
-          <span />
-
-          <label className="ze-gs-label" htmlFor="ze-gs-y">
-            Y:
-          </label>
+        <span />
+        <label className="ze-gs-linked">
           <input
-            id="ze-gs-y"
-            className="ze-search"
-            value={y}
-            disabled={linked}
-            onChange={(e) => setY(e.target.value)}
-            onKeyDown={(e) => e.stopPropagation()}
+            type="checkbox"
+            checked={linked}
+            // `OnLinkedChecked`: `m_textY->Enable( !IsChecked() )` and
+            // nothing else — the Y value itself is left alone.
+            onChange={(e) => setLinked(e.target.checked)}
           />
-          <span className="ze-gs-unit">{unitLabel(units)}</span>
-        </div>
-        {/* `wxStdDialogButtonSizer` — OK then Cancel, laid out by the platform;
-            every other dialog here renders it through `.ze-modal-footer`. */}
-        <div className="ze-modal-footer">
-          <Button label="Cancel" onClick={onCancel} />
-          <Button label="OK" isDefault onClick={accept} />
-        </div>
+          Linked
+        </label>
+        <span />
+
+        <label className="ze-gs-label" htmlFor="ze-gs-y">
+          Y:
+        </label>
+        <input
+          id="ze-gs-y"
+          className="ze-search"
+          value={y}
+          disabled={linked}
+          onChange={(e) => setY(e.target.value)}
+          onKeyDown={(e) => e.stopPropagation()}
+        />
+        <span className="ze-gs-unit">{unitLabel(units)}</span>
       </div>
-    </div>
+      {/* `wxStdDialogButtonSizer` — OK then Cancel, laid out by the platform;
+        every other dialog here renders it through `.ze-modal-footer`. */}
+      <div className="ze-modal-footer">
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault onClick={accept} />
+      </div>
+    </DialogShim>
   );
 }

@@ -26,7 +26,7 @@
  */
 import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
@@ -51,8 +51,6 @@ interface Props {
 }
 
 export function DialogPnsDiffPairDimensions({ value, units, onOk, onClose }: Props): JSX.Element {
-  useModalEscape(onClose);
-
   const [width, setWidth] = useState(() => pcbUnitText(value.width, units));
   const [gap, setGap] = useState(() => pcbUnitText(value.gap, units));
   const [viaGap, setViaGap] = useState(() => pcbUnitText(value.viaGap, units));
@@ -98,48 +96,39 @@ export function DialogPnsDiffPairDimensions({ value, units, onOk, onClose }: Pro
   };
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-dpd-dialog">
-        <div className="ze-modal-header">
-          Differential Pair Dimensions
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-
-        {/* [data] `bSizer7->Add( fgSizer1, 0, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */}
-        <div className="ze-modal-body ze-dpd-body">
-          {error && (
-            <div className="ze-pref-error" role="alert">
-              {error}
-            </div>
-          )}
-          <div className="ze-dpd-grid">
-            {row('Width:', 'ze-dpd-width', width, setWidth)}
-            {row('Track gap:', 'ze-dpd-gap', gap, setGap)}
-            {/* `updateCheckbox()` disables the row rather than hiding it, so the
-                value stays visible while it is not being used. */}
-            {row('Via gap:', 'ze-dpd-via-gap', viaGap, setViaGap, same)}
+    <DialogShim title="Differential Pair Dimensions" onClose={onClose} className="ze-dpd-dialog">
+      {/* [data] `bSizer7->Add( fgSizer1, 0, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */}
+      <div className="ze-modal-body ze-dpd-body">
+        {error && (
+          <div className="ze-pref-error" role="alert">
+            {error}
           </div>
-
-          {/* [data] `bSizer7->Add( m_viaTraceGapEqual, 0, wxALL|wxEXPAND, 10 )`. */}
-          <CheckBox
-            label="Via gap same as track gap"
-            checked={same}
-            className="ze-pref-check ze-dpd-same"
-            onChange={(aChecked) => setSame(aChecked)}
-          />
+        )}
+        <div className="ze-dpd-grid">
+          {row('Width:', 'ze-dpd-width', width, setWidth)}
+          {row('Track gap:', 'ze-dpd-gap', gap, setGap)}
+          {/* `updateCheckbox()` disables the row rather than hiding it, so the
+            value stays visible while it is not being used. */}
+          {row('Via gap:', 'ze-dpd-via-gap', viaGap, setViaGap, same)}
         </div>
 
-        <div className="ze-modal-footer">
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="primary" onClick={apply}>
-            OK
-          </button>
-        </div>
+        {/* [data] `bSizer7->Add( m_viaTraceGapEqual, 0, wxALL|wxEXPAND, 10 )`. */}
+        <CheckBox
+          label="Via gap same as track gap"
+          checked={same}
+          className="ze-pref-check ze-dpd-same"
+          onChange={(aChecked) => setSame(aChecked)}
+        />
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <button type="button" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="primary" onClick={apply}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

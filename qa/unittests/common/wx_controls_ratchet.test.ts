@@ -69,16 +69,16 @@ const BASELINE: Record<(typeof AREAS)[number], Record<Kind, number>> = {
   '3d-viewer': { button: 0, checkbox: 0, select: 0, frame: 0, radio: 0, entry: 0, sbox: 0 },
   ai: { button: 7, checkbox: 0, select: 0, frame: 1, radio: 0, entry: 2, sbox: 0 },
   bitmap2component: { button: 4, checkbox: 0, select: 0, frame: 0, radio: 0, entry: 3, sbox: 4 },
-  common: { button: 51, checkbox: 9, select: 0, frame: 15, radio: 2, entry: 44, sbox: 4 },
+  common: { button: 51, checkbox: 9, select: 0, frame: 7, radio: 2, entry: 44, sbox: 4 },
   cvpcb: { button: 0, checkbox: 0, select: 0, frame: 2, radio: 0, entry: 2, sbox: 0 },
-  designer: { button: 77, checkbox: 2, select: 4, frame: 4, radio: 5, entry: 66, sbox: 13 },
+  designer: { button: 77, checkbox: 2, select: 4, frame: 3, radio: 5, entry: 66, sbox: 13 },
   eeschema: { button: 24, checkbox: 29, select: 26, frame: 1, radio: 13, entry: 72, sbox: 38 },
-  gerbview: { button: 3, checkbox: 3, select: 0, frame: 3, radio: 0, entry: 2, sbox: 2 },
+  gerbview: { button: 3, checkbox: 3, select: 0, frame: 0, radio: 0, entry: 2, sbox: 2 },
   pagelayout_editor: { button: 4, checkbox: 0, select: 0, frame: 1, radio: 0, entry: 4, sbox: 1 },
   // +9 buttons, +6 checkboxes, +3 frames (10-10): pcb-exports' IPC-2581, ODB++ and VRML export
   // dialogs, merged in after being written before this ratchet existed; their session owns them
   // and moves them onto DialogShim. Not a licence: no other number here has ever gone up.
-  pcbnew: { button: 92, checkbox: 64, select: 16, frame: 8, radio: 4, entry: 121, sbox: 61 },
+  pcbnew: { button: 92, checkbox: 64, select: 16, frame: 5, radio: 4, entry: 121, sbox: 61 },
 };
 
 function tsxFiles(aDir: string, aOut: string[] = []): string[] {

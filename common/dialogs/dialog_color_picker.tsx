@@ -28,7 +28,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { type Color4d, fromHSV, setFromHexString, toHSV, toHexString } from '../gal/color4d.js';
 import { definedColorGrid } from './dialog_color_picker_colors.js';
 import { Slider } from '../widgets/slider.js';
-import { useModalEscape } from '../dialog_shim.js';
+import { DialogShim } from '../dialog_shim.js';
 import {
   loadColorPickerTab,
   saveColorPickerTab,
@@ -270,8 +270,6 @@ export function DialogColorPicker({
   const hsvOverRef = useRef<HTMLCanvasElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  useModalEscape(() => onDone(null));
-
   /** Both palettes are drawn on the dialog's own background (`GetBackgroundColour`). */
   useEffect(() => {
     // `GetBackgroundColour()` — the dialog's own, never a colour of this
@@ -399,242 +397,237 @@ export function DialogColorPicker({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={() => onDone(null)}>
-      <div
-        ref={rootRef}
-        className="ze-modal ze-cp"
-        onMouseDown={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label="Color Picker"
-      >
-        <div className="ze-modal-header">Color Picker</div>
+    <DialogShim
+      title="Color Picker"
+      onClose={() => onDone(null)}
+      frameRef={rootRef}
+      className="ze-cp"
+    >
+      {/* m_notebook (dialog_color_picker_base.cpp:21, :140-160). The same
+        wxNotebook tab strip the drawing sheet's properties pane draws, so
+        the same rule paints it. */}
+      <div className="ze-nb-tabs">
+        <button
+          type="button"
+          className={tab === 'free' ? 'active' : ''}
+          onClick={() => setTab('free')}
+        >
+          Color Picker
+        </button>
+        <button
+          type="button"
+          className={tab === 'defined' ? 'active' : ''}
+          onClick={() => setTab('defined')}
+        >
+          Defined Colors
+        </button>
+      </div>
 
-        {/* m_notebook (dialog_color_picker_base.cpp:21, :140-160). The same
-            wxNotebook tab strip the drawing sheet's properties pane draws, so
-            the same rule paints it. */}
-        <div className="ze-nb-tabs">
-          <button
-            type="button"
-            className={tab === 'free' ? 'active' : ''}
-            onClick={() => setTab('free')}
-          >
-            Color Picker
-          </button>
-          <button
-            type="button"
-            className={tab === 'defined' ? 'active' : ''}
-            onClick={() => setTab('defined')}
-          >
-            Defined Colors
-          </button>
-        </div>
+      <div className="ze-cp-upper">
+        {/* The notebook's page area. BOTH pages live here at once, one on top
+          of the other, because `wxBookCtrlBase::DoGetBestSize` sizes a book
+          to its LARGEST page rather than to the one showing — it only asks
+          the current page when `SetFitToCurrentPage( true )` has been
+          called, which in KiCad is PAGED_DIALOG's treebook and nothing
+          else. Rendering only the selected page gave the two tabs two
+          different dialog sizes. */}
+        <div className="ze-cp-book">
+          <div className="ze-cp-panels" hidden={tab !== 'free'}>
+            {/* sbSizerViewRGB */}
+            <fieldset className="ze-ds-group">
+              <legend>RGB</legend>
+              <div className="ze-cp-palette">
+                {/* biome-ignore lint/a11y/noStaticElementInteractions: wxStaticBitmap with a wxEVT_LEFT_DOWN handler */}
+                <canvas ref={rgbRef} width={PALETTE_SIZE} height={PALETTE_SIZE} />
+                <canvas
+                  ref={rgbOverRef}
+                  className="ze-cp-overlay"
+                  width={PALETTE_SIZE}
+                  height={PALETTE_SIZE}
+                  onMouseDown={onRgbPoint}
+                  onMouseMove={(e) => {
+                    if (e.buttons & 1) onRgbPoint(e);
+                  }}
+                />
+              </div>
+              <div className="ze-cp-spins">
+                {spin('Red:', color.r * 255, 255, (n) =>
+                  applyRgb({ ...color, r: Math.min(255, Math.max(0, n)) / 255 }),
+                )}
+                {spin('Green:', color.g * 255, 255, (n) =>
+                  applyRgb({ ...color, g: Math.min(255, Math.max(0, n)) / 255 }),
+                )}
+                {spin('Blue:', color.b * 255, 255, (n) =>
+                  applyRgb({ ...color, b: Math.min(255, Math.max(0, n)) / 255 }),
+                )}
+              </div>
+            </fieldset>
 
-        <div className="ze-cp-upper">
-          {/* The notebook's page area. BOTH pages live here at once, one on top
-              of the other, because `wxBookCtrlBase::DoGetBestSize` sizes a book
-              to its LARGEST page rather than to the one showing — it only asks
-              the current page when `SetFitToCurrentPage( true )` has been
-              called, which in KiCad is PAGED_DIALOG's treebook and nothing
-              else. Rendering only the selected page gave the two tabs two
-              different dialog sizes. */}
-          <div className="ze-cp-book">
-            <div className="ze-cp-panels" hidden={tab !== 'free'}>
-              {/* sbSizerViewRGB */}
-              <fieldset className="ze-ds-group">
-                <legend>RGB</legend>
-                <div className="ze-cp-palette">
-                  {/* biome-ignore lint/a11y/noStaticElementInteractions: wxStaticBitmap with a wxEVT_LEFT_DOWN handler */}
-                  <canvas ref={rgbRef} width={PALETTE_SIZE} height={PALETTE_SIZE} />
-                  <canvas
-                    ref={rgbOverRef}
-                    className="ze-cp-overlay"
-                    width={PALETTE_SIZE}
-                    height={PALETTE_SIZE}
-                    onMouseDown={onRgbPoint}
-                    onMouseMove={(e) => {
-                      if (e.buttons & 1) onRgbPoint(e);
-                    }}
-                  />
-                </div>
-                <div className="ze-cp-spins">
-                  {spin('Red:', color.r * 255, 255, (n) =>
-                    applyRgb({ ...color, r: Math.min(255, Math.max(0, n)) / 255 }),
-                  )}
-                  {spin('Green:', color.g * 255, 255, (n) =>
-                    applyRgb({ ...color, g: Math.min(255, Math.max(0, n)) / 255 }),
-                  )}
-                  {spin('Blue:', color.b * 255, 255, (n) =>
-                    applyRgb({ ...color, b: Math.min(255, Math.max(0, n)) / 255 }),
-                  )}
-                </div>
-              </fieldset>
-
-              {/* sbSizerViewHSV */}
-              <fieldset className="ze-ds-group">
-                <legend>HSV</legend>
-                <div className="ze-cp-hsvrow">
-                  <div className="ze-cp-hsvcol">
-                    <div className="ze-cp-palette">
-                      {/* biome-ignore lint/a11y/noStaticElementInteractions: wxStaticBitmap with a wxEVT_LEFT_DOWN handler */}
-                      <canvas ref={hsvRef} width={PALETTE_SIZE} height={PALETTE_SIZE} />
-                      <canvas
-                        ref={hsvOverRef}
-                        className="ze-cp-overlay"
-                        width={PALETTE_SIZE}
-                        height={PALETTE_SIZE}
-                        onMouseDown={onHsvPoint}
-                        onMouseMove={(e) => {
-                          if (e.buttons & 1) onHsvPoint(e);
-                        }}
-                      />
-                    </div>
-                    <div className="ze-cp-spins two">
-                      {/* wxSP_WRAP, 0..359 (dialog_color_picker_base.cpp:104). */}
-                      {spin(
-                        'Hue:',
-                        hsv.hue,
-                        359,
-                        (n) => applyHsv(((n % 360) + 360) % 360, hsv.sat, hsv.val, color.a),
-                        true,
-                      )}
-                      {/* 0..255, though m_sat is 0..1 — SetEditVals scales it. */}
-                      {spin('Saturation:', hsv.sat * 255, 255, (n) =>
-                        applyHsv(hsv.hue, Math.min(255, Math.max(0, n)) / 255, hsv.val, color.a),
-                      )}
-                    </div>
-                  </div>
-                  {/* bSizerBright: a vertical wxSL_INVERSE slider, 0..255. */}
-                  <div className="ze-cp-slidercol">
-                    <span>Value:</span>
-                    {/* `wxSL_INVERSE|wxSL_LABELS|wxSL_LEFT|wxSL_VERTICAL`, 0..255
-                        (dialog_color_picker_base.cpp:122). The shared wxSlider —
-                        a bare range input has none of the labels or the accent
-                        fill, which is what stood here. */}
-                    <Slider
-                      vertical
-                      labels
-                      ariaLabel="Value"
-                      min={0}
-                      max={255}
-                      value={Math.round(hsv.val * 255)}
-                      onChange={(n) => applyHsv(hsv.hue, hsv.sat, n / 255, color.a)}
+            {/* sbSizerViewHSV */}
+            <fieldset className="ze-ds-group">
+              <legend>HSV</legend>
+              <div className="ze-cp-hsvrow">
+                <div className="ze-cp-hsvcol">
+                  <div className="ze-cp-palette">
+                    {/* biome-ignore lint/a11y/noStaticElementInteractions: wxStaticBitmap with a wxEVT_LEFT_DOWN handler */}
+                    <canvas ref={hsvRef} width={PALETTE_SIZE} height={PALETTE_SIZE} />
+                    <canvas
+                      ref={hsvOverRef}
+                      className="ze-cp-overlay"
+                      width={PALETTE_SIZE}
+                      height={PALETTE_SIZE}
+                      onMouseDown={onHsvPoint}
+                      onMouseMove={(e) => {
+                        if (e.buttons & 1) onHsvPoint(e);
+                      }}
                     />
                   </div>
+                  <div className="ze-cp-spins two">
+                    {/* wxSP_WRAP, 0..359 (dialog_color_picker_base.cpp:104). */}
+                    {spin(
+                      'Hue:',
+                      hsv.hue,
+                      359,
+                      (n) => applyHsv(((n % 360) + 360) % 360, hsv.sat, hsv.val, color.a),
+                      true,
+                    )}
+                    {/* 0..255, though m_sat is 0..1 — SetEditVals scales it. */}
+                    {spin('Saturation:', hsv.sat * 255, 255, (n) =>
+                      applyHsv(hsv.hue, Math.min(255, Math.max(0, n)) / 255, hsv.val, color.a),
+                    )}
+                  </div>
                 </div>
-              </fieldset>
-            </div>
-
-            {/* m_panelDefinedColors: `m_fgridColor`, ten columns of swatches
-                filled by `initDefinedColors` (dialog_color_picker.cpp:167-246).
-                A caller that passes no CUSTOM_COLORS_LIST - which pl_editor's
-                swatch does - takes the ELSE branch and gets the default palette,
-                all 35 rows of colorRefs(). We had that `if` the wrong way round
-                and drew nothing, so the page was blank in every launcher.
-
-                It is a PAGE, not a branch: wx builds both pages once and keeps
-                them, so this one is laid out whether or not it is showing and
-                the book is the larger of the two. */}
-            <div className="ze-cp-defined" hidden={tab !== 'defined'}>
-              {definedColorGrid().map((ref) => (
-                <Fragment key={ref.name}>
-                  {/* `addSwatch` builds a wxStaticBitmap from the same
-                      COLOR_SWATCH::MakeBitmap the previews use, at
-                      SWATCH_SIZE_LARGE_DU and with no border - it is a bare
-                      bitmap, not the bordered COLOR_SWATCH widget. */}
-                  <button
-                    type="button"
-                    className="ze-swatch unspecified large"
-                    style={{ '--swatch-color': css(ref.color) } as CSSProperties}
-                    aria-label={ref.label}
-                    // buttColorClick: takes the swatch's r, g, b AND its a,
-                    // then recomputes hue/sat/val from it
-                    // (dialog_color_picker.cpp:603-618).
-                    onClick={() => applyRgb(ref.color)}
-                    // colorDClick posts wxID_OK (dialog_color_picker.cpp:621).
-                    onDoubleClick={() => onDone(ref.color)}
+                {/* bSizerBright: a vertical wxSL_INVERSE slider, 0..255. */}
+                <div className="ze-cp-slidercol">
+                  <span>Value:</span>
+                  {/* `wxSL_INVERSE|wxSL_LABELS|wxSL_LEFT|wxSL_VERTICAL`, 0..255
+                    (dialog_color_picker_base.cpp:122). The shared wxSlider —
+                    a bare range input has none of the labels or the accent
+                    fill, which is what stood here. */}
+                  <Slider
+                    vertical
+                    labels
+                    ariaLabel="Value"
+                    min={0}
+                    max={255}
+                    value={Math.round(hsv.val * 255)}
+                    onChange={(n) => applyHsv(hsv.hue, hsv.sat, n / 255, color.a)}
                   />
-                  <span>{ref.label}</span>
-                </Fragment>
-              ))}
-            </div>
+                </div>
+              </div>
+            </fieldset>
           </div>
 
-          {/* m_SizerTransparency, 0..100 and wxSL_INVERSE. */}
-          {allowOpacity && (
-            <div className="ze-cp-slidercol">
-              <span>Opacity:</span>
-              {/* The same control, 0..100 (dialog_color_picker_base.cpp:171). */}
-              <Slider
-                vertical
-                labels
-                ariaLabel="Opacity"
-                min={0}
-                max={100}
-                value={Math.round(color.a * 100)}
-                onChange={(n) => {
-                  const c = { ...color, a: n / 100 };
-                  setColor(c);
-                  setHexText(toHexString(c));
-                }}
-              />
-            </div>
-          )}
+          {/* m_panelDefinedColors: `m_fgridColor`, ten columns of swatches
+            filled by `initDefinedColors` (dialog_color_picker.cpp:167-246).
+            A caller that passes no CUSTOM_COLORS_LIST - which pl_editor's
+            swatch does - takes the ELSE branch and gets the default palette,
+            all 35 rows of colorRefs(). We had that `if` the wrong way round
+            and drew nothing, so the page was blank in every launcher.
+
+            It is a PAGE, not a branch: wx builds both pages once and keeps
+            them, so this one is laid out whether or not it is showing and
+            the book is the larger of the two. */}
+          <div className="ze-cp-defined" hidden={tab !== 'defined'}>
+            {definedColorGrid().map((ref) => (
+              <Fragment key={ref.name}>
+                {/* `addSwatch` builds a wxStaticBitmap from the same
+                  COLOR_SWATCH::MakeBitmap the previews use, at
+                  SWATCH_SIZE_LARGE_DU and with no border - it is a bare
+                  bitmap, not the bordered COLOR_SWATCH widget. */}
+                <button
+                  type="button"
+                  className="ze-swatch unspecified large"
+                  style={{ '--swatch-color': css(ref.color) } as CSSProperties}
+                  aria-label={ref.label}
+                  // buttColorClick: takes the swatch's r, g, b AND its a,
+                  // then recomputes hue/sat/val from it
+                  // (dialog_color_picker.cpp:603-618).
+                  onClick={() => applyRgb(ref.color)}
+                  // colorDClick posts wxID_OK (dialog_color_picker.cpp:621).
+                  onDoubleClick={() => onDone(ref.color)}
+                />
+                <span>{ref.label}</span>
+              </Fragment>
+            ))}
+          </div>
         </div>
 
-        <div className="ze-cp-buttons">
-          <span>Preview (old/new):</span>
-          {/* `updatePreview` builds both of these with COLOR_SWATCH's own
-              MakeBitmap (dialog_color_picker.cpp:128-140), so UNSPECIFIED
-              checkerboards here exactly as it does in a swatch. A plain
-              `rgba(0,0,0,0)` background showed the dialog through the square,
-              which reads as "no preview" rather than as "no colour". */}
-          <span
-            className="ze-cp-preview ze-swatch unspecified"
-            style={{ '--swatch-color': css(value) } as CSSProperties}
-          />
-          <span
-            className="ze-cp-preview ze-swatch unspecified"
-            style={{ '--swatch-color': css(color) } as CSSProperties}
-          />
-          <input
-            className="ze-search ze-cp-hex"
-            value={hexText}
-            onChange={(e) => {
-              // OnColorValueText: a string it will not parse leaves the colour
-              // alone, so a half-typed "#1" is not an edit.
-              setHexText(e.target.value);
-              const parsed = setFromHexString(e.target.value);
-              if (parsed) {
-                setColor(parsed);
-                setHsv(toHSV(parsed, true));
-              }
-            }}
-          />
-          <span className="ze-cp-gap" />
-          {defaultColor && (
-            <button
-              type="button"
-              className="ze-btn ze-cp-reset"
-              onClick={() => {
-                applyRgb(defaultColor);
+        {/* m_SizerTransparency, 0..100 and wxSL_INVERSE. */}
+        {allowOpacity && (
+          <div className="ze-cp-slidercol">
+            <span>Opacity:</span>
+            {/* The same control, 0..100 (dialog_color_picker_base.cpp:171). */}
+            <Slider
+              vertical
+              labels
+              ariaLabel="Opacity"
+              min={0}
+              max={100}
+              value={Math.round(color.a * 100)}
+              onChange={(n) => {
+                const c = { ...color, a: n / 100 };
+                setColor(c);
+                setHexText(toHexString(c));
               }}
-            >
-              {/* "Theme colors have a default value, and the Reset to Default
-                  button reverts to it. Local override colors have a default of
-                  UNSPECIFIED, which means 'use the theme color'. […] we change
-                  the label here because the action from the point of view of
-                  the user is slightly different." (dialog_color_picker.cpp:95-102) */}
-              {defaultColor.a === 0 ? 'Clear Color' : 'Reset to Default'}
-            </button>
-          )}
-          {/* m_sdbSizer: a wxStdDialogButtonSizer, so GTK's own order - Cancel
-              then OK - and OK is the affirmative default. */}
-          <div className="ze-modal-footer">
-            <Button label="Cancel" onClick={() => onDone(null)} />
-            <Button label="OK" isDefault onClick={() => onDone(color)} />
+            />
           </div>
+        )}
+      </div>
+
+      <div className="ze-cp-buttons">
+        <span>Preview (old/new):</span>
+        {/* `updatePreview` builds both of these with COLOR_SWATCH's own
+          MakeBitmap (dialog_color_picker.cpp:128-140), so UNSPECIFIED
+          checkerboards here exactly as it does in a swatch. A plain
+          `rgba(0,0,0,0)` background showed the dialog through the square,
+          which reads as "no preview" rather than as "no colour". */}
+        <span
+          className="ze-cp-preview ze-swatch unspecified"
+          style={{ '--swatch-color': css(value) } as CSSProperties}
+        />
+        <span
+          className="ze-cp-preview ze-swatch unspecified"
+          style={{ '--swatch-color': css(color) } as CSSProperties}
+        />
+        <input
+          className="ze-search ze-cp-hex"
+          value={hexText}
+          onChange={(e) => {
+            // OnColorValueText: a string it will not parse leaves the colour
+            // alone, so a half-typed "#1" is not an edit.
+            setHexText(e.target.value);
+            const parsed = setFromHexString(e.target.value);
+            if (parsed) {
+              setColor(parsed);
+              setHsv(toHSV(parsed, true));
+            }
+          }}
+        />
+        <span className="ze-cp-gap" />
+        {defaultColor && (
+          <button
+            type="button"
+            className="ze-btn ze-cp-reset"
+            onClick={() => {
+              applyRgb(defaultColor);
+            }}
+          >
+            {/* "Theme colors have a default value, and the Reset to Default
+              button reverts to it. Local override colors have a default of
+              UNSPECIFIED, which means 'use the theme color'. […] we change
+              the label here because the action from the point of view of
+              the user is slightly different." (dialog_color_picker.cpp:95-102) */}
+            {defaultColor.a === 0 ? 'Clear Color' : 'Reset to Default'}
+          </button>
+        )}
+        {/* m_sdbSizer: a wxStdDialogButtonSizer, so GTK's own order - Cancel
+          then OK - and OK is the affirmative default. */}
+        <div className="ze-modal-footer">
+          <Button label="Cancel" onClick={() => onDone(null)} />
+          <Button label="OK" isDefault onClick={() => onDone(color)} />
         </div>
       </div>
-    </div>
+    </DialogShim>
   );
 }

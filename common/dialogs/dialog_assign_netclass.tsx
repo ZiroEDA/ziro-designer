@@ -23,7 +23,7 @@
  * report and the note are in the info font (KIUI::GetInfoFont).
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { StdDialogButtons } from '../dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import { netclassPatternMatches } from '../eda_pattern_match.js';
 import { strNumCmp } from '../string_utils.js';
 import { Combo } from '../widgets/wx_combobox.js';
@@ -99,8 +99,6 @@ export function DialogAssignNetclass({
   onOk: (pattern: string, netClass: string) => void;
   onCancel: () => void;
 }): JSX.Element {
-  useModalEscape(onCancel);
-
   // TransferDataToWindow: Default first, then the project's classes; the first
   // non-Default one selected.
   const choices = useMemo(() => [DEFAULT_NETCLASS, ...netClasses], [netClasses]);
@@ -119,47 +117,39 @@ export function DialogAssignNetclass({
   const report = pattern === '' ? [] : ['<b>Currently matching nets:</b>', ...matches];
 
   return (
-    <div className="ze-modal-backdrop">
-      <div
-        className="ze-modal ze-assignnc"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Assign Netclass"
-      >
-        <div className="ze-modal-header">Assign Netclass</div>
-        <div className="ze-assignnc-upper">
-          <span className="ze-assignnc-patlabel">Pattern:</span>
-          <input
-            className="ze-search ze-assignnc-pattern"
-            aria-label="Pattern"
-            value={pattern}
-            onChange={(e) => setPattern(e.target.value)}
-            onKeyDown={(e) => e.stopPropagation()}
-          />
-          <span className="ze-assignnc-nclabel">Net class:</span>
-          <Combo
-            className="ze-assignnc-netclass"
-            value={netClass}
-            onChange={setNetClass}
-            options={choices.map((c) => ({ value: c, label: c }))}
-          />
-        </div>
-        <div className="ze-assignnc-lower">
-          <WX_HTML_REPORT_BOX className="ze-assignnc-matching" messages={report} />
-          <div className="ze-assignnc-info">
-            {frame === 'pcb'
-              ? 'Note: complete netclass assignments can be edited in Board Setup > Project.'
-              : 'Note: complete netclass assignments can be edited in Schematic Setup > Project.'}
-          </div>
-        </div>
-        <StdDialogButtons
-          onCancel={onCancel}
-          onOk={() => {
-            if (pattern === '') onCancel();
-            else onOk(pattern, netClass);
-          }}
+    <DialogShim title="Assign Netclass" onClose={onCancel} className="ze-assignnc">
+      <div className="ze-assignnc-upper">
+        <span className="ze-assignnc-patlabel">Pattern:</span>
+        <input
+          className="ze-search ze-assignnc-pattern"
+          aria-label="Pattern"
+          value={pattern}
+          onChange={(e) => setPattern(e.target.value)}
+          onKeyDown={(e) => e.stopPropagation()}
+        />
+        <span className="ze-assignnc-nclabel">Net class:</span>
+        <Combo
+          className="ze-assignnc-netclass"
+          value={netClass}
+          onChange={setNetClass}
+          options={choices.map((c) => ({ value: c, label: c }))}
         />
       </div>
-    </div>
+      <div className="ze-assignnc-lower">
+        <WX_HTML_REPORT_BOX className="ze-assignnc-matching" messages={report} />
+        <div className="ze-assignnc-info">
+          {frame === 'pcb'
+            ? 'Note: complete netclass assignments can be edited in Board Setup > Project.'
+            : 'Note: complete netclass assignments can be edited in Schematic Setup > Project.'}
+        </div>
+      </div>
+      <StdDialogButtons
+        onCancel={onCancel}
+        onOk={() => {
+          if (pattern === '') onCancel();
+          else onOk(pattern, netClass);
+        }}
+      />
+    </DialogShim>
   );
 }
