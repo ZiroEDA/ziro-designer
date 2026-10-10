@@ -25,6 +25,7 @@ import { SCH_IO_ALTIUM } from './altium/sch_io_altium.js';
 import { SCH_IO_CADSTAR_ARCHIVE } from './cadstar/sch_io_cadstar_archive.js';
 import { SCH_IO_PADS } from './pads/sch_io_pads.js';
 import { SCH_IO_GEDA } from './geda/sch_io_geda.js';
+import { SCH_IO_LTSPICE } from './ltspice/sch_io_ltspice.js';
 import { SCH_IO_EAGLE } from './eagle/sch_io_eagle.js';
 import type { SCH_IO as SCH_IO_BASE } from './sch_io.js';
 
@@ -83,6 +84,8 @@ export class SCH_IO_MGR {
         return new SCH_IO_PADS();
       case SCH_FILE_T.SCH_GEDA:
         return new SCH_IO_GEDA();
+      case SCH_FILE_T.SCH_LTSPICE:
+        return new SCH_IO_LTSPICE();
       default:
         return null;
     }
