@@ -12,7 +12,7 @@
  *
  * Moved verbatim out of `prefs/PreferencesDialog.tsx`; no behaviour change.
  */
-import type { JSX, ReactNode } from 'react';
+import type { JSX, ReactNode, Ref } from 'react';
 import { Combo } from '../widgets/wx_combobox.js';
 import { ColorSwatch } from '../widgets/color_swatch.js';
 import { SpinCtrl } from '../widgets/spin_ctrl.js';
@@ -134,6 +134,128 @@ export function CheckBox({
       />
       {label}
     </label>
+  );
+}
+
+/**
+ * `wxRadioButton`. The indicator is the shared drawn radio (`.ze-app input[type="radio"]`,
+ * measured off a live pcb_calculator) and the row is `.ze-check`, a GtkRadioButton being the
+ * same row as a GtkCheckButton. Buttons sharing `name` are one group (wxRB_GROUP).
+ */
+export function RadioButton({
+  label,
+  checked,
+  onChange,
+  name,
+  disabled,
+  title,
+  className,
+}: {
+  label: string;
+  checked: boolean;
+  /** Selecting it; a radio button is never unselected by its own click. */
+  onChange: () => void;
+  name?: string;
+  disabled?: boolean;
+  title?: string;
+  className?: string;
+}): JSX.Element {
+  return (
+    <label className={`ze-check${className ? ` ${className}` : ''}`} title={title}>
+      <input
+        type="radio"
+        name={name}
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => {
+          if (e.target.checked) onChange();
+        }}
+      />
+      {label}
+    </label>
+  );
+}
+
+/**
+ * `wxTextCtrl`. Its fill, border, radius, padding, font and height are the GTK entry's
+ * (`.ze-app input`, `--ctl-height`), so a call site states none of them. `onEnter` is
+ * `wxTE_PROCESS_ENTER`: the entry takes Enter itself; without it Enter goes on to the dialog's
+ * default button. `multiLine` is wxTE_MULTILINE. `readOnly` is SetEditable( false ), which keeps
+ * ordinary text; `disabled` is Enable( false ), which dims it.
+ */
+export function TextCtrl({
+  value,
+  onChange,
+  onEnter,
+  onBlur,
+  multiLine,
+  readOnly,
+  disabled,
+  title,
+  className,
+  inputRef,
+  id,
+  ariaLabel,
+}: {
+  value: string;
+  onChange?: (aValue: string) => void;
+  onEnter?: () => void;
+  /** wxEVT_KILL_FOCUS. */
+  onBlur?: () => void;
+  multiLine?: boolean;
+  readOnly?: boolean;
+  disabled?: boolean;
+  title?: string;
+  className?: string;
+  inputRef?: Ref<HTMLInputElement & HTMLTextAreaElement>;
+  id?: string;
+  ariaLabel?: string;
+}): JSX.Element {
+  const common = {
+    id,
+    value,
+    readOnly,
+    disabled,
+    title,
+    className,
+    'aria-label': ariaLabel,
+    ref: inputRef,
+    onBlur,
+    onChange: (e: { target: { value: string } }) => onChange?.(e.target.value),
+  };
+  if (multiLine) return <textarea {...common} />;
+  return (
+    <input
+      type="text"
+      {...common}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && onEnter) {
+          e.preventDefault();
+          onEnter();
+        }
+      }}
+    />
+  );
+}
+
+/**
+ * `wxStaticBoxSizer`'s box: `fieldset.ze-sbox` (staticbox_inset_probe: the label line on top, a
+ * 1 px frame in --ctl-border, the children flush inside). `className` is the sizer inside it.
+ */
+export function StaticBox({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: ReactNode;
+}): JSX.Element {
+  return (
+    <fieldset className={`ze-sbox${className ? ` ${className}` : ''}`}>
+      <legend>{label}</legend>
+      {children}
+    </fieldset>
   );
 }
 
