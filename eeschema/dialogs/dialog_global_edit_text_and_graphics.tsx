@@ -20,7 +20,7 @@ import { FONT } from '@ziroeda/common/font/font.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
 import { COLOR4D_UNSPECIFIED, type Color4d, color4dEquals } from '@ziroeda/common/gal/color4d.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
-import type { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
+import { type LINE_STYLE, LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
 import { unescapeString, wildCompareString } from '@ziroeda/common/string_utils.js';
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
@@ -52,15 +52,8 @@ let g_netFilter = '';
 const ORIENTATION_CHOICES = ['Right', 'Up', 'Left', 'Down', INDETERMINATE_ACTION];
 const H_ALIGN_CHOICES = ['Left', 'Center', 'Right', INDETERMINATE_ACTION];
 const V_ALIGN_CHOICES = ['Top', 'Center', 'Bottom', INDETERMINATE_ACTION];
-/** m_lineStyle's five names, then the constructor's `Append( INDETERMINATE_ACTION )`. */
-const LINE_STYLE_CHOICES = [
-  'Solid',
-  'Dashed',
-  'Dotted',
-  'Dash-Dot',
-  'Dash-Dot-Dot',
-  INDETERMINATE_ACTION,
-];
+/** m_lineStyle's five lineTypeNames, then the constructor's `Append( INDETERMINATE_ACTION )`. */
+const LINE_STYLE_CHOICES = [...LINE_STYLE_NAMES.map((n) => n.label), INDETERMINATE_ACTION];
 const TYPE_FILTER_CHOICES = ['Non-power symbols', 'Power symbols'];
 
 /** The 13 Scope check boxes. */
