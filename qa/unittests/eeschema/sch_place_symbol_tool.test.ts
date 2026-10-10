@@ -18,6 +18,10 @@ import { wxWriteFileSync } from '@ziroeda/common/wx/filefn.js';
 import { SCH_IO_KICAD_SEXPR_LIB_CACHE } from '@ziroeda/eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_lib_cache.js';
 import type { PICKED_SYMBOL } from '@ziroeda/eeschema/sch_screen.js';
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
+import {
+  EESCHEMA_DEFAULTS,
+  setEeschemaSettingsProvider,
+} from '@ziroeda/eeschema/eeschema_settings.js';
 import { SCH_ACTIONS } from '@ziroeda/eeschema/tools/sch_actions.js';
 import { SCH_SELECTION_TOOL } from '@ziroeda/eeschema/tools/sch_selection_tool.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -162,6 +166,61 @@ describe('SCH_DRAWING_TOOLS::PlaceSymbol', () => {
     click(h, P(12, 2));
     await flush();
     expect(placed(h, P(12, 2))).toHaveLength(0);
+  });
+});
+
+describe('drawing.new_power_symbols on a placed power symbol', () => {
+  const GND = () => libSymbol('GND.kicad_sym', 'GND', 'power:GND');
+  const pickGND = (): PICKED_SYMBOL => ({
+    LibId: new LIB_ID('power', 'GND'),
+    Unit: 0,
+    Convert: 1,
+    Fields: [],
+  });
+
+  function withPowerSymbols(aMode: 0 | 1 | 2): void {
+    const settings = {
+      ...EESCHEMA_DEFAULTS,
+      drawing: { ...EESCHEMA_DEFAULTS.drawing, new_power_symbols: aMode },
+    };
+    setEeschemaSettingsProvider(() => settings);
+  }
+
+  afterEach(() => setEeschemaSettingsProvider(() => EESCHEMA_DEFAULTS));
+
+  async function place(aPick: () => PICKED_SYMBOL, aLib: () => LIB_SYMBOL, aAt = P(8, 8)) {
+    const h = setUp(aPick, aLib);
+    h.h.mouse = P(0, 0);
+    h.mgr.RunAction(SCH_ACTIONS.placeSymbol);
+    await flush();
+    mouse(h, TA_MOUSE_MOTION, aAt);
+    click(h, aAt);
+    await flush();
+    h.mgr.RunAction(ACTIONS.cancelInteractive);
+    await flush();
+    h.mgr.RunAction(ACTIONS.cancelInteractive);
+    return placed(h, aAt)[0]!.GetLibSymbolRef()!;
+  }
+
+  it('keeps the definition’s own kind on Default', async () => {
+    withPowerSymbols(0);
+    const lib = await place(pickGND, GND);
+    expect([lib.IsGlobalPower(), lib.IsLocalPower()]).toEqual([true, false]);
+  });
+
+  it('makes a global power symbol local, and rewords its keywords and description', async () => {
+    withPowerSymbols(2);
+    const lib = await place(pickGND, GND);
+    expect(lib.IsLocalPower()).toBe(true);
+    expect(lib.GetKeyWords()).toBe('local power');
+    expect(lib.GetDescription()).toContain('local label');
+    expect(lib.GetDescription()).not.toContain('global label');
+  });
+
+  it('never makes an ordinary symbol a power symbol', async () => {
+    withPowerSymbols(2);
+    const lib = await place(pickR, R);
+    expect(lib.IsPower()).toBe(false);
   });
 });
 

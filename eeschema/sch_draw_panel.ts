@@ -43,7 +43,6 @@ import type {
   LabelKind,
   LabelShape,
   LibSymbol,
-  NewPowerSymbols,
   NewSheetDefaults,
   PastePayload,
   Schematic,

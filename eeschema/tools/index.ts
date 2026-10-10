@@ -16,7 +16,6 @@ export * from './rule_area.js';
 export * from './assign_netclass.js';
 export * from './search_handlers.js';
 export * from '../junction_helpers.js';
-export * from './new_object_defaults.js';
 export * from '../project_rescue.js';
 export * from '../sch_collectors.js';
 export * from '../widgets/sch_properties_panel.js';
