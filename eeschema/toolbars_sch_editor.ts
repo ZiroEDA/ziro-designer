@@ -273,6 +273,7 @@ export const GAL_ROUTED_IDS: ReadonlySet<string> = new Set([
   'placeGlobalLabel',
   'placeHierLabel',
   'changeSymbols',
+  'swapPins',
 ]);
 
 /** The TOOL_ACTION a routed toolbar id runs on the live canvas, or null for the record handler. */

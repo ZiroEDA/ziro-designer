@@ -51,7 +51,6 @@ import {
 } from '@ziroeda/eeschema/tools/mutate.js';
 import { moveItems } from '@ziroeda/eeschema/tools/move.js';
 import { transformItems } from '@ziroeda/eeschema/tools/transform.js';
-import { swapItems } from '@ziroeda/eeschema/tools/swap_items.js';
 import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';
 import type { EditCommand } from '@ziroeda/eeschema/tools/command.js';
 import type { LibGraphic, Schematic } from '@ziroeda/eeschema/types.js';
@@ -120,7 +119,6 @@ const CASES: [string, (d: Schematic) => EditCommand | null][] = [
     () => moveItems(new Set([cell(0)]), { x: 12700, y: 0 }),
   ],
   ['transformItems', () => transformItems(new Set(['s-1', 'l-1']), 'rotateCCW')],
-  ['swapItems', (d) => swapItems(d, new Set(['s-1', 's-2']))],
   [
     'replaceJunction',
     (d) => replaceJunction(0, { ...d.junctions[0]!, at: shift(d.junctions[0]!.at) }),

@@ -165,12 +165,11 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     // ACTIONS::toggleUnits and ACTIONS::cycleArcEditMode, neither with a row.
     "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u' && !e.shiftKey) {",
     "} else if ((e.ctrlKey || e.metaKey) && e.key === ' ') {",
-    // The two F1 arms. F1 is ACTIONS::zoomIn alone now -- repeatDrawItem is Ins
-    // off macOS and used to answer to F1 as well, which is what made the key
-    // ambiguous. The modifier reads are what keep Ctrl+F1, ACTIONS::listHotKeys,
-    // out of the zoom arm.
-    '!e.ctrlKey &&',
-    '!e.metaKey &&',
+    // SCH_ACTIONS::repeatDrawItem (Ins off macOS) - no row; run on the live tool.
+    "} else if (e.key === 'Insert' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {",
+    // The F1 arm. F1 is ACTIONS::zoomIn alone now -- repeatDrawItem used to answer to F1 as
+    // well, which is what made the key ambiguous. The modifier reads are what keep Ctrl+F1,
+    // ACTIONS::listHotKeys, out of the zoom arm.
     "} else if (e.key === 'F1' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {",
     // SCH_ACTIONS::editWithLibEdit - no row.
     "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e' && !e.shiftKey) {",

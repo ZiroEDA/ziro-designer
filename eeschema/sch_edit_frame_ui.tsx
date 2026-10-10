@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { SCH_ACTIONS } from './tools/sch_actions.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import type { SCH_TEXT } from './sch_text.js';
 import type { SCH_TEXTBOX } from './sch_textbox.js';
 import type { SCH_SHEET_PIN } from './sch_sheet_pin.js';
@@ -112,8 +114,6 @@ import {
   selectionHasGroup,
   setSymbolsLockedCommand,
   expandSelectionToGroups,
-  getNode,
-  selectConnection,
   planNetclassAssignment,
   selectedNets,
   addNetclassAssignment,
@@ -187,13 +187,6 @@ import {
   sheetFile,
   findRootFile,
   addItems,
-  swapPinsCommand,
-  sharedPinSwapMessage,
-  busUnfoldMembers,
-  unfoldBus,
-  busForUnfolding,
-  swapItems,
-  repeatItems,
   makeImage,
   ProjectHistory,
   type Schematic,
@@ -4975,22 +4968,6 @@ export function SchematicEditor({
     };
   }, [doc, selection, runCommand, pasteOptions]);
 
-  // Select/Expand Connection (Ctrl+4 and the context menu). Each press widens
-  // the selection by one stage; the walk itself lives in eeschema.
-  const expandSelectionAlongConnection = useCallback(() => {
-    if (!doc || selection.size === 0) return;
-    setSelection(
-      new Set(
-        promote(
-          selectConnection(doc, libById, selection, {
-            passesFilter: (id) => filterIds(new Set([id])).size > 0,
-          }),
-        ),
-      ),
-    );
-    // biome-ignore lint/correctness/useExhaustiveDependencies: promote/filterIds read refs
-  }, [doc, libById, selection]);
-
   // Duplicate (Ctrl+D): copy to a local buffer and paste from it. KiCad anchors
   // the copy at the connection point closest to the cursor so it doesn't jump.
   const duplicateSelection = useCallback(() => {
@@ -5867,10 +5844,6 @@ export function SchematicEditor({
   gridSizeIURef.current = gridSizeIU;
 
   /** A label was dropped: take the next of a multi-label run, else stop. */
-  // What F1 repeats: the items the last placement produced
-  // (SCH_EDIT_FRAME::GetRepeatItems).
-  const repeatItemsRef = useRef<string[]>([]);
-
   /** The sheet as DIALOG_SHEET_PROPERTIES wants it: its fields as grid rows,
    *  its border and fill, this instance's page number and its attributes. */
   // Flush a cross-probe that arrived before the ERC dialog was on screen: the
@@ -5908,6 +5881,11 @@ export function SchematicEditor({
     }
     setNetclassPatterns(plan.patterns);
   }, [netlist, selection]);
+
+  /** A live TOOL_ACTION run on the frame's TOOL_MANAGER, for a hotkey the canvas did not take. */
+  const runLiveAction = useCallback((aAction: TOOL_ACTION) => {
+    schFrameRef.current?.GetToolManager()?.RunAction(aAction);
+  }, []);
 
   const onTopAction = useCallback(
     (id: string) => {
@@ -6073,22 +6051,7 @@ export function SchematicEditor({
             ),
           ),
         );
-      // `SCH_EDIT_TOOL::SwapPins` (`sch_edit_tool.cpp:1765-1900`). The
-      // preference is checked here too, not only on the menu entry: upstream's
-      // handler opens with the same test (`:1769-1770`), so a hotkey or a
-      // scripted call cannot get past it either.
-      else if (id === 'swapPins') {
-        if (!doc || !es.input.allow_unconstrained_pin_swaps) return;
-        const r = swapPinsCommand(doc, libById, [...selection], project.current.root);
-        if ('cmd' in r) {
-          runCommand(r.cmd);
-          // `if( selection.IsHover() ) RunAction( selectionClear )` — and the
-          // pins have moved, so the ids no longer name what was picked.
-          setSelection(new Set());
-        } else if (r.kind === 'shared') {
-          setInfoBar(sharedPinSwapMessage(r));
-        }
-      } else if (id === 'openPreferences') setPrefsOpen(true);
+      else if (id === 'openPreferences') setPrefsOpen(true);
       else if (id === 'close') onExitToHome();
       // ACTIONS::help — "Open product documentation in a web browser".
       else if (id === 'help')
@@ -6396,43 +6359,11 @@ export function SchematicEditor({
         app.settings.updateEeschema((s) => {
           s.drawing.arc_edit_mode = incrementArcEditMode(s.drawing.arc_edit_mode as ArcEditMode);
         });
-      } else if (
-        e.key === 'Insert' &&
-        !e.altKey &&
-        !e.shiftKey &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        repeatItemsRef.current.length > 0 &&
-        doc
-      ) {
-        // SCH_ACTIONS::repeatDrawItem (Ins). sch_actions.cpp:757-759 binds F1
-        // inside `#if defined( __WXMAC__ )` and WXK_INSERT in the `#else`, so
-        // Ins is this platform's key and the only one bound. F1 used to be
-        // accepted here too, which is what made F1 ambiguous: it repeated when
-        // there was something to repeat and zoomed otherwise.
-        //
-        // The comment here used to say F1 "shares the key with
-        // ACTIONS::zoomInCenter; upstream resolves that by tool scope". Neither
-        // half held: `zoomInCenter` carries no hotkey at all (F1 belongs to
-        // `ACTIONS::zoomIn`), and upstream has no collision on either platform
-        // — macOS is repeat F1 / zoom Ctrl++, Linux is repeat Ins / zoom F1.
-        // The clash was ours, made by taking one branch for one action and the
-        // other branch for the other.
+      } else if (e.key === 'Insert' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        // SCH_ACTIONS::repeatDrawItem (Ins; F1 only on macOS, sch_actions.cpp:757-759), on the
+        // live tool as the canvas would have run it had it kept the focus.
         e.preventDefault();
-        const r = repeatItems(doc, repeatItemsRef.current, {
-          offset: {
-            x: mmToIU(es.drawing.default_repeat_offset_x * 0.0254),
-            y: mmToIU(es.drawing.default_repeat_offset_y * 0.0254),
-          },
-          labelIncrement: es.drawing.repeat_label_increment,
-        });
-        if (r) {
-          runCommand(r.command);
-          // The copies become the selection, and the next F1 repeats from them.
-          repeatItemsRef.current = r.ids;
-          setSelection(new Set(r.ids));
-          if (r.clampedAtZero) setError('Label value cannot go below zero');
-        }
+        runLiveAction(SCH_ACTIONS.repeatDrawItem);
       } else if (e.key === 'F1' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
         // ACTIONS::listHotKeys is AS_GLOBAL and HotkeyListHost binds Ctrl+F1
         // once, above every frame. The arm stays so the bare-F1 zoom below - a
@@ -6483,32 +6414,17 @@ export function SchematicEditor({
         // GridChangedByKeyEvent too (common/tool/common_tools.cpp:569-592).
         gridFeedbackRef.current();
       } else if (e.altKey && e.key === '3') {
-        // SCH_ACTIONS::selectNode (Alt+3): select the connection item under the
-        // cursor. The pick is GetNode's, connectable types only at growing
-        // thresholds, so a pin or a wire wins over the symbol body around it.
+        // SCH_ACTIONS::selectNode (Alt+3), on the live selection tool.
         e.preventDefault();
-        if (doc && cursorRef.current) {
-          // GetNode's widest threshold is max(HITTEST_THRESHOLD, grid size);
-          // with no pointer scale to hand here the grid is the threshold.
-          const grid = gridSizeToIU(
-            app.settings.eeschema.window.grid.sizes[app.settings.eeschema.window.grid.last_size_idx]
-              ?.x ?? '50 mil',
-          );
-          const node = getNode(doc, libById, cursorRef.current, grid);
-          if (node) setSelection(new Set(promote(filterIds(new Set([node.id])))));
-        }
+        runLiveAction(SCH_ACTIONS.selectNode);
       } else if ((e.ctrlKey || e.metaKey) && e.key === '4') {
-        // SCH_ACTIONS::selectConnection (Ctrl+4): widen the selection along the
-        // connection, one stage per press (junction, then pin, then everything).
+        // SCH_ACTIONS::selectConnection (Ctrl+4), on the live selection tool.
         e.preventDefault();
-        expandSelectionAlongConnection();
-      } else if (e.altKey && e.key.toLowerCase() === 's' && selection.size > 1) {
-        // SCH_ACTIONS::swap (Alt+S): the selection's positions cycle round.
+        runLiveAction(SCH_ACTIONS.selectConnection);
+      } else if (e.altKey && e.key.toLowerCase() === 's') {
+        // SCH_ACTIONS::swap (Alt+S), on the live edit tool.
         e.preventDefault();
-        if (doc) {
-          const cmd = swapItems(doc, selection);
-          if (cmd) runCommand(cmd);
-        }
+        runLiveAction(SCH_ACTIONS.swap);
       } else if (e.altKey && e.key === 'Backspace') {
         // SCH_ACTIONS::leaveSheet (Alt+Backspace), same as Navigate Up.
         e.preventDefault();
@@ -6637,29 +6553,12 @@ export function SchematicEditor({
           gridFeedbackRef.current();
           return;
         }
-        // C = Unfold from Bus (SCH_ACTIONS::unfoldBus) on the bus under the
-        // cursor. With one member it unfolds straight away; with several the
-        // choice belongs in BUS_UNFOLD_MENU, which is the context menu.
-        if (e.key.toLowerCase() === 'c' && doc && cursorRef.current) {
-          const bi = busForUnfolding(doc, cursorRef.current, mmToIU(2));
-          if (bi !== -1) {
-            const members = busUnfoldMembers(doc, bi, busAliases);
-            if (members.length === 1) {
-              e.preventDefault();
-              const out = unfoldBus(
-                doc,
-                bi,
-                cursorRef.current,
-                members[0]!,
-                mmToIU(es.drawing.default_text_size * 0.0254),
-              );
-              if (out) {
-                runCommand(out.command);
-                setActiveTool('drawWire');
-              }
-              return;
-            }
-          }
+        // C = Unfold from Bus (SCH_ACTIONS::unfoldBus): SCH_LINE_WIRE_BUS_TOOL::UnfoldBus offers
+        // the bus under the cursor's members, as the canvas would have run it.
+        if (e.key.toLowerCase() === 'c') {
+          e.preventDefault();
+          runLiveAction(SCH_ACTIONS.unfoldBus);
+          return;
         }
         // D = Show Datasheet (ACTIONS::showDatasheet), whose target is
         // `RequestSelection( { SCH_SYMBOL_T } )` and which clears a hover
@@ -6755,6 +6654,7 @@ export function SchematicEditor({
     finishCommand,
     app,
     remapEvent,
+    runLiveAction,
   ]);
 
   const fmt = (iu: number): string => {
