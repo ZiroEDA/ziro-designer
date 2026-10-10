@@ -2433,7 +2433,7 @@ export class PCB_PAINTER extends PAINTER {
         gal.SetIsStroke(false);
       }
 
-      const shapes = aShape.MakeEffectiveShapes(true);
+      const shapes = aShape.MakeEffectiveShapesForStroking();
 
       for (const shape of shapes) {
         STROKE_PARAMS.Stroke(

@@ -1,0 +1,110 @@
+UNITS=MM
+
+#
+#Feature attribute names
+#
+@0 .comp_mount_type
+
+#
+#Feature attribute text strings
+#
+# CMP 0
+CMP 0 137.16 -125.09 270.0 N C2 Footprints_C_Disc_D4.7mm_W2.5mm_P5.00mm ;0=2
+PRP Datasheet ''
+PRP Description ''
+PRP Value '680nF'
+TOP 0 137.16 -125.09 270.0 N 3 0 1
+TOP 1 137.16 -120.09 270.0 N 8 0 2
+#
+# CMP 1
+CMP 1 125.09 -93.98 0 N P5 Footprints_MountingHole_3.2mm_M3_DIN965_Pad ;0=2
+PRP Datasheet ''
+PRP Description ''
+PRP Value 'MOUNTING_HOLE'
+TOP 0 125.09 -93.98 0.0 N 10 0 1
+#
+# CMP 2
+CMP 1 169.54 -93.98 0 N P6 Footprints_MountingHole_3.2mm_M3_DIN965_Pad ;0=2
+PRP Datasheet ''
+PRP Description ''
+PRP Value 'MOUNTING_HOLE'
+TOP 0 169.54 -93.98 0.0 N 11 0 1
+#
+# CMP 3
+CMP 1 169.54 -132.72 0 N P7 Footprints_MountingHole_3.2mm_M3_DIN965_Pad ;0=2
+PRP Datasheet ''
+PRP Description ''
+PRP Value 'MOUNTING_HOLE'
+TOP 0 169.54 -132.72 0.0 N 12 0 1
+#
+# CMP 4
+CMP 2 136.27 -107.95 90.0 N R1 Footprints_R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal ;0=2
+PRP Datasheet ''
+PRP Description ''
+PRP Value '1.5K'
+TOP 0 136.27 -107.95 90.0 N 7 0 1
+TOP 1 136.27 -115.57 90.0 N 8 1 2
+#
+# CMP 5
+CMP 2 156.21 -95.88 180.0 N R2 Footprints_R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal ;0=2
+PRP Datasheet ''
+PRP Description ''
+PRP Value '1.5K'
+TOP 0 156.21 -95.88 180.0 N 9 0 1
+TOP 1 148.59 -95.88 180.0 N 1 0 2
+#
+# CMP 6
+CMP 2 164.47 -117.47 90.0 N R4 Footprints_R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal ;0=2
+PRP Datasheet ''
+PRP Description ''
+PRP Value '47K'
+TOP 0 164.47 -117.47 90.0 N 2 0 1
+TOP 1 164.47 -125.09 90.0 N 1 1 2
+#
+# CMP 7
+CMP 3 128.27 -112.78 90.0 N P2 Footprints_Altech_AK300_1x02_P5.00mm_45-Degree ;0=2
+PRP Datasheet ''
+PRP Description ''
+PRP Value 'OUT'
+TOP 0 128.27 -112.78 90.0 N 3 1 1
+TOP 1 128.27 -117.78 90.0 N 1 2 2
+#
+# CMP 8
+CMP 3 128.27 -100.71 90.0 N P3 Footprints_Altech_AK300_1x02_P5.00mm_45-Degree ;0=2
+PRP Datasheet ''
+PRP Description ''
+PRP Value 'POWER'
+TOP 0 128.27 -100.71 90.0 N 4 0 1
+TOP 1 128.27 -105.71 90.0 N 1 3 2
+#
+# CMP 9
+CMP 3 145.54 -131.19 0 N P4 Footprints_Altech_AK300_1x02_P5.00mm_45-Degree ;0=2
+PRP Datasheet ''
+PRP Description ''
+PRP Value 'CONN_2'
+TOP 0 145.54 -131.19 0.0 N 5 0 1
+TOP 1 150.54 -131.19 0.0 N 6 0 2
+#
+# CMP 10
+CMP 2 133.98 -125.09 180.0 N R3 Footprints_R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal ;0=2
+PRP Datasheet ''
+PRP Description ''
+PRP Value '100K'
+TOP 0 133.98 -125.09 180.0 N 3 2 1
+TOP 1 126.36 -125.09 180.0 N 1 4 2
+#
+# CMP 11
+CMP 3 166.37 -105.41 270.0 N P1 Footprints_Altech_AK300_1x02_P5.00mm_45-Degree ;0=2
+PRP Datasheet ''
+PRP Description ''
+PRP Value 'IN'
+TOP 0 166.37 -105.41 270.0 N 1 5 1
+TOP 1 166.37 -100.41 270.0 N 2 1 2
+#
+# CMP 12
+CMP 1 125.09 -132.72 0 N P8 Footprints_MountingHole_3.2mm_M3_DIN965_Pad ;0=2
+PRP Datasheet ''
+PRP Description ''
+PRP Value 'MOUNTING_HOLE'
+TOP 0 125.09 -132.72 0.0 N 13 0 1
+#

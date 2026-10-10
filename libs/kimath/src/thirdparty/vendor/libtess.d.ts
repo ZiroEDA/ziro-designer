@@ -3,6 +3,9 @@
  * polygon tesselator — the same libtess the C++ reaches through
  * `gluNewTess`/`gluTessVertex`. SGI Free Software License B 2.0; see
  * libtess-LICENSE.txt. `export default libtess` replaces the CommonJS tail.
+ *
+ * One patch: sweep.vertexWeights_ rounds the combine weights to float32, as SGI's GLfloat
+ * weights[4] are, so an intersection vertex lands where Mesa's libGLU puts it.
  */
 declare namespace libtess {
   const windingRule: {

@@ -22,7 +22,7 @@ import { FONT } from '@ziroeda/common/font/font.js';
 import { METRICS } from '@ziroeda/common/font/font_metrics.js';
 import { COLOR4D_UNSPECIFIED } from '@ziroeda/common/gal/color4d.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { IsCopperLayerLowerThan, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
 import { GetDefaultPlotExtension } from '@ziroeda/common/plotters/common_plot_functions.js';
@@ -166,6 +166,13 @@ const pairEq = (a: DRILL_LAYER_PAIR, b: DRILL_LAYER_PAIR): boolean =>
 
 const THROUGH: DRILL_LAYER_PAIR = [PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.B_Cu];
 
+/** `GENDRILL_WRITER_BASE::TOOL_SUMMARY`: which subset of m_toolListBuffer a summary covers. */
+export enum TOOL_SUMMARY {
+  PLATED, ///< Plated holes.
+  UNPLATED, ///< Non-plated holes, excluding backdrills.
+  BACKDRILL, ///< Backdrills, which are non-plated by construction.
+}
+
 export class DRILL_SPAN {
   m_StartLayer: PCB_LAYER_ID;
   m_EndLayer: PCB_LAYER_ID;
@@ -185,11 +192,17 @@ export class DRILL_SPAN {
   }
 
   TopLayer(): PCB_LAYER_ID {
-    return this.m_StartLayer < this.m_EndLayer ? this.m_StartLayer : this.m_EndLayer;
+    // B_Cu (id=2) is numerically less than inner layers (id>=4), but is physically
+    // at the bottom of the stack. Use IsCopperLayerLowerThan for correct ordering.
+    return IsCopperLayerLowerThan(this.m_StartLayer, this.m_EndLayer)
+      ? this.m_EndLayer
+      : this.m_StartLayer;
   }
 
   BottomLayer(): PCB_LAYER_ID {
-    return this.m_StartLayer < this.m_EndLayer ? this.m_EndLayer : this.m_StartLayer;
+    return IsCopperLayerLowerThan(this.m_StartLayer, this.m_EndLayer)
+      ? this.m_StartLayer
+      : this.m_EndLayer;
   }
 
   DrillStartLayer(): PCB_LAYER_ID {
@@ -438,7 +451,7 @@ export abstract class GENDRILL_WRITER_BASE {
     this.m_holeListBuffer = [];
     this.m_toolListBuffer = [];
 
-    // wxASSERT( aSpan.TopLayer() < aSpan.BottomLayer() );  // fix the caller
+    // wxASSERT( IsCopperLayerLowerThan( aSpan.BottomLayer(), aSpan.TopLayer() ) );  // fix the caller
 
     const computeStubLength = (
       aStartLayer: PCB_LAYER_ID,
@@ -469,12 +482,9 @@ export abstract class GENDRILL_WRITER_BASE {
             )
               return false;
 
-            const drillPair: DRILL_LAYER_PAIR = [
-              Math.min(aDrill.start, aDrill.end),
-              Math.max(aDrill.start, aDrill.end),
-            ];
+            const drillSpan = new DRILL_SPAN(aDrill.start, aDrill.end, true, false);
 
-            if (!pairEq(drillPair, aSpan.Pair())) return false;
+            if (!pairEq(drillSpan.Pair(), aSpan.Pair())) return false;
 
             if (aDrill.start !== aSpan.DrillStartLayer() || aDrill.end !== aSpan.DrillEndLayer())
               return false;
@@ -1229,7 +1239,8 @@ export abstract class GENDRILL_WRITER_BASE {
 
       msg += counts;
 
-      if (tool.m_Hole_NotPlated) msg += ' (not plated)';
+      // Backdrills carry the non-plated flag but are already called out as backdrills above
+      if (tool.m_Hole_NotPlated && !tool.m_IsBackdrill) msg += ' (not plated)';
 
       plotter.PlotText(
         { x: plotX, y },
@@ -1305,14 +1316,14 @@ export abstract class GENDRILL_WRITER_BASE {
       if (pairEq(span.Pair(), THROUGH) && !span.m_IsBackdrill) {
         out += '    plated through holes:\n';
         out += separator;
-        const summary = this.printToolSummary(false);
+        const summary = this.printToolSummary(TOOL_SUMMARY.PLATED);
         out += summary.text;
         totalHoleCount = summary.count;
         out += `    Total plated holes count ${totalHoleCount}\n`;
       } else if (span.m_IsBackdrill) {
         out += `    backdrill span: '${this.m_pcb.GetLayerName(span.DrillStartLayer())}' to '${this.m_pcb.GetLayerName(span.DrillEndLayer())}':\n`;
         out += separator;
-        const summary = this.printToolSummary(false);
+        const summary = this.printToolSummary(TOOL_SUMMARY.BACKDRILL);
         out += summary.text;
         totalHoleCount = summary.count;
         out += `    Total backdrilled holes count ${totalHoleCount}\n`;
@@ -1320,7 +1331,7 @@ export abstract class GENDRILL_WRITER_BASE {
         const pair = span.Pair();
         out += `    holes connecting layer pair: '${this.m_pcb.GetLayerName(pair[0])} and ${this.m_pcb.GetLayerName(pair[1])}' (${pair[0] === PCB_LAYER_ID.F_Cu || pair[1] === PCB_LAYER_ID.B_Cu ? 'blind' : 'buried'} vias):\n`;
         out += separator;
-        const summary = this.printToolSummary(false);
+        const summary = this.printToolSummary(TOOL_SUMMARY.PLATED);
         out += summary.text;
         totalHoleCount = summary.count;
         out += `    Total plated holes count ${totalHoleCount}\n`;
@@ -1344,7 +1355,7 @@ export abstract class GENDRILL_WRITER_BASE {
 
     out += '    unplated through holes:\n';
     out += separator;
-    const summary = this.printToolSummary(true);
+    const summary = this.printToolSummary(TOOL_SUMMARY.UNPLATED);
     out += summary.text;
     totalHoleCount = summary.count;
     out += `    Total unplated holes count ${totalHoleCount}\n`;
@@ -1387,16 +1398,21 @@ export abstract class GENDRILL_WRITER_BASE {
   }
 
   /** Print m_toolListBuffer[] tools and return the total hole count. */
-  protected printToolSummary(aSummaryNPTH: boolean): { text: string; count: number } {
+  protected printToolSummary(aSummary: TOOL_SUMMARY): { text: string; count: number } {
     let out = '';
     let totalHoleCount = 0;
 
     for (let ii = 0; ii < this.m_toolListBuffer.length; ii++) {
       const tool = this.m_toolListBuffer[ii]!;
 
-      if (aSummaryNPTH && !tool.m_Hole_NotPlated) continue;
+      // Backdrills set the non-plated flag, so they must be classified before it is read
+      const bucket = tool.m_IsBackdrill
+        ? TOOL_SUMMARY.BACKDRILL
+        : tool.m_Hole_NotPlated
+          ? TOOL_SUMMARY.UNPLATED
+          : TOOL_SUMMARY.PLATED;
 
-      if (!aSummaryNPTH && tool.m_Hole_NotPlated) continue;
+      if (bucket !== aSummary) continue;
 
       // List the tool number assigned to each drill in mm then in inches.
       const tool_number = ii + 1;

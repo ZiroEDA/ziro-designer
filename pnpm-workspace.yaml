@@ -11,6 +11,7 @@ packages:
   - "designer"
   - "ai"
   - "libs/*"
+  - "utils/*"
   - "bitmaps_png"
   - "qa"
   - "docs"

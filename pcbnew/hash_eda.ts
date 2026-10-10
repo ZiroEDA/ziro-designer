@@ -11,10 +11,11 @@
  * Upstream folds every field into a `size_t` with `hash_combine`; this port
  * folds the same fields, in the same order and under the same flags, into a
  * canonical string. Two items get equal strings exactly when they get equal
- * hashes (short of a 64-bit collision), which is every use the GenCAD
- * exporter makes of it. The numbers themselves are not reproduced: a format
- * that orders its output by hash value (IPC-2581, ODB++) needs the numeric
- * `std::hash` / `hash_combine` port.
+ * hashes (short of a 64-bit collision), which is every use the GenCAD and
+ * IPC-2581 exporters make of it: IPC-2581 keys its dictionaries by the hash but
+ * only looks them up, never walks them, so its numbering is insertion order.
+ * The numbers themselves are not reproduced; a format that ordered its output
+ * by hash value would need the numeric `std::hash` / `hash_combine` port.
  *
  * Kept from upstream as written: the start/end "sort" of a shape swaps when
  * `x` OR `y` is greater, which is not an ordering, so two lines drawn in

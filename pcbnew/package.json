@@ -12,6 +12,7 @@
     "@ziroeda/bitmaps_png": "workspace:*",
     "@ziroeda/common": "workspace:*",
     "@ziroeda/core": "workspace:*",
+    "@ziroeda/idftools": "workspace:*",
     "@ziroeda/kimath": "workspace:*",
     "@ziroeda/rectpack2d": "workspace:*",
     "@ziroeda/zint": "workspace:*",

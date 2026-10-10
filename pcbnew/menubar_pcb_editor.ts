@@ -160,14 +160,14 @@ export function buildPcbMenus(
           submenu: [
             { label: 'Specctra DSN...', action: () => h.action('exportSpecctraDSN') },
             { label: 'GenCAD...', action: () => h.action('exportGenCAD') },
-            { label: 'VRML...', disabled: dis },
+            { label: 'VRML...', action: () => h.action('exportVRML') },
             { label: 'IDFv3...', disabled: dis },
             { label: 'STEP/GLB/BREP/XAO/PLY/STL...', disabled: dis },
             {
               label: 'Footprint Association (.cmp) File...',
               action: () => h.action('exportCmpFile'),
             },
-            { label: 'Hyperlynx...', disabled: dis },
+            { label: 'Hyperlynx...', action: () => h.action('exportHyperlynx') },
             { sep: true },
             { label: 'Footprints...', disabled: dis },
           ],
@@ -178,8 +178,8 @@ export function buildPcbMenus(
           submenu: [
             { label: 'Gerbers (.gbr)...', disabled: dis },
             { label: 'Drill Files (.drl)...', action: () => h.action('generateDrillFiles') },
-            { label: 'IPC-2581 File (.xml)...', disabled: dis },
-            { label: 'ODB++ Output File...', disabled: dis },
+            { label: 'IPC-2581 File (.xml)...', action: () => h.action('generateIPC2581File') },
+            { label: 'ODB++ Output File...', action: () => h.action('generateODBPPFile') },
             {
               label: 'Component Placement (.pos, .gbr)...',
               action: () => h.action('generatePosFile'),

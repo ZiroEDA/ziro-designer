@@ -183,6 +183,82 @@ export class XNODE {
     this.m_lastChild = aChild;
   }
 
+  /**
+   * `wxXmlNode::InsertChild( child, followingNode )`: insert before `aFollowingNode`, one of
+   * this node's children, or append when it is null. False when it is not a child.
+   */
+  InsertChild(aChild: XNODE, aFollowingNode: XNODE | null): boolean {
+    if (!aFollowingNode) {
+      this.AddChild(aChild);
+      return true;
+    }
+
+    if (aFollowingNode.m_parent !== this) return false;
+
+    aChild.m_parent = this;
+    aChild.m_next = aFollowingNode;
+
+    if (this.m_children === aFollowingNode) {
+      this.m_children = aChild;
+      return true;
+    }
+
+    let prev = this.m_children;
+
+    while (prev && prev.m_next !== aFollowingNode) prev = prev.m_next;
+
+    if (!prev) return false;
+
+    prev.m_next = aChild;
+    return true;
+  }
+
+  /**
+   * `wxXmlNode::InsertChildAfter( child, precedingNode )`: insert after `aPrecedingNode`, one of
+   * this node's children, or first when it is null.
+   */
+  InsertChildAfter(aChild: XNODE, aPrecedingNode: XNODE | null): boolean {
+    aChild.m_parent = this;
+
+    if (!aPrecedingNode) {
+      aChild.m_next = this.m_children;
+      this.m_children = aChild;
+
+      if (!this.m_lastChild) this.m_lastChild = aChild;
+
+      return true;
+    }
+
+    if (aPrecedingNode.m_parent !== this) return false;
+
+    aChild.m_next = aPrecedingNode.m_next;
+    aPrecedingNode.m_next = aChild;
+
+    if (this.m_lastChild === aPrecedingNode) this.m_lastChild = aChild;
+
+    return true;
+  }
+
+  /** `wxXmlNode::RemoveChild( child )`: unlink one child; false when it is not one. */
+  RemoveChild(aChild: XNODE): boolean {
+    let prev: XNODE | null = null;
+
+    for (let n = this.m_children; n; prev = n, n = n.m_next) {
+      if (n !== aChild) continue;
+
+      if (prev) prev.m_next = n.m_next;
+      else this.m_children = n.m_next;
+
+      if (this.m_lastChild === n) this.m_lastChild = prev;
+
+      n.m_next = null;
+      n.m_parent = null;
+      return true;
+    }
+
+    return false;
+  }
+
   /** `wxXmlNode::GetAttribute( name, &value )`: the value, or null when there is none. */
   GetAttribute(aName: string): string | null {
     for (const a of this.m_attributes) if (a.GetName() === aName) return a.GetValueText();

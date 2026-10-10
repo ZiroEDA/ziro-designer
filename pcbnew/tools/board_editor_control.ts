@@ -21,6 +21,13 @@ import { RecreateCmpFile } from '../exporters/export_footprint_associations.js';
 import { BOARD_EDITOR_CONTROL_ExportGenCAD } from '../exporters/export_gencad.js';
 import { footprintAssignmentFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
+import { JOB_EXPORT_PCB_ODB, ODB_UNITS } from '@ziroeda/common/jobs/job_export_pcb_odb.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { Reporter } from '@ziroeda/common/reporter.js';
+import { GenerateODBPPFiles } from '../dialogs/dialog_export_odbpp.js';
+import { HYPERLYNX_EXPORTER } from '../exporters/export_hyperlynx.js';
+import { EXPORTER_VRML } from '../exporters/exporter_vrml.js';
+import type { ZONE_FILLER_TOOL } from './zone_filler_tool.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
@@ -957,6 +964,165 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /** `GenIPC2581File` (files.cpp:1247): the dialog is modal, the handler returns at once. */
+  GenIPC2581File(_aEvent: TOOL_EVENT): number {
+    void this.getEditFrame<PCB_EDIT_FRAME>().ShowExport2581Dialog();
+    return 0;
+  }
+
+  /**
+   * `GenerateODBPPFiles` (files.cpp:1257): the dialog's settings, out-of-date zones refilled so
+   * the export matches the layout, then DIALOG_EXPORT_ODBPP::GenerateODBPPFiles; whatever it
+   * reported is shown as an error.
+   */
+  GenerateODBPPFiles(_aEvent: TOOL_EVENT): number {
+    void this.generateODBPPFiles();
+    return 0;
+  }
+
+  private async generateODBPPFiles(): Promise<void> {
+    const frame = this.getEditFrame<PCB_EDIT_FRAME>();
+    const dlg = await frame.ShowExportOdbppDialog();
+
+    if (!dlg) return;
+
+    // Refill zones if they are out-of-date so the export matches the current layout.
+    const zoneFiller = this.m_toolMgr!.FindTool(
+      'pcbnew.ZoneFiller',
+    ) as unknown as ZONE_FILLER_TOOL | null;
+    await zoneFiller?.CheckAllZones(frame);
+
+    const board = frame.GetBoard()!;
+    const job = new JOB_EXPORT_PCB_ODB();
+
+    job.m_outputPath = dlg.outputPath;
+    job.m_filename = board.GetFileName();
+    job.m_compressionMode = dlg.compressFormat;
+    job.m_precision = dlg.precision;
+    job.m_units = dlg.units === 'mm' ? ODB_UNITS.MM : ODB_UNITS.INCH;
+
+    const reporter = new Reporter();
+
+    await GenerateODBPPFiles(
+      job,
+      board,
+      {
+        fileExists: (aPath) => frame.FileExists(aPath),
+        confirmOverwrite: async (aMessage) =>
+          (await frame.ShowKiDialog({
+            caption: 'Confirmation',
+            message: aMessage,
+            icon: 'warning',
+            labels: { ok: 'Overwrite' },
+          })) === 'ok',
+        write: (aPath, aBytes, aMime) => frame.WriteOutputFile(aPath, aBytes, aMime),
+      },
+      reporter,
+    );
+
+    if (reporter.lines.length > 0)
+      DisplayErrorMessage(reporter.lines.map((l) => l.message).join('\n'));
+  }
+
+  /**
+   * `ExportVRML` (dialog_export_vrml.cpp): <board>.wrl, the dialog, the origin (the user's, or
+   * the board's centre), then EXPORTER_VRML.
+   */
+  ExportVRML(_aEvent: TOOL_EVENT): number {
+    void this.exportVRML();
+    return 0;
+  }
+
+  private async exportVRML(): Promise<void> {
+    const frame = this.getEditFrame<PCB_EDIT_FRAME>();
+    const board = frame.GetBoard()!;
+
+    // Build default output file name
+    const fullName = board.GetFileName().split(/[\\/]/).pop() ?? '';
+    const dot = fullName.lastIndexOf('.');
+    const path0 = `${dot > 0 ? fullName.slice(0, dot) : fullName}.wrl`;
+
+    const dlg = await frame.ShowExportVrmlDialog(path0);
+
+    if (!dlg) return;
+
+    let aXRef: number;
+    let aYRef: number;
+
+    if (dlg.userDefinedOrigin) {
+      aXRef = dlg.xRefMM;
+      aYRef = dlg.yRefMM;
+    } else {
+      // Origin = board center:
+      const bbox = board.ComputeBoundingBox(true, true);
+      aXRef = pcbIUScale.iuToMM(bbox.GetCenter().x);
+      aYRef = pcbIUScale.iuToMM(bbox.GetCenter().y);
+    }
+
+    const messages: string[] = [];
+    const text = new EXPORTER_VRML(board).ExportVRML_File(
+      messages,
+      dlg.scale,
+      !dlg.noUnspecified,
+      !dlg.noDNP,
+      dlg.copyFiles,
+      dlg.useRelativePaths,
+      dlg.subdir3Dshapes,
+      aXRef,
+      aYRef,
+    );
+
+    // PCB_EDIT_FRAME::ExportVRML_File shows the messages; the handler then reports the failure.
+    if (messages.length > 0) DisplayErrorMessage(messages.join('\n'));
+
+    if (text === null) {
+      DisplayErrorMessage(`Failed to create file '${dlg.path}'.`);
+      return;
+    }
+
+    frame.WriteOutputFile(dlg.path, new TextEncoder().encode(text), 'model/vrml');
+  }
+
+  /**
+   * `ExportHyperlynx` (export_hyperlynx.cpp:669): the save dialog on <board>.hyp, the extension
+   * enforced, then HYPERLYNX_EXPORTER.
+   */
+  ExportHyperlynx(_aEvent: TOOL_EVENT): number {
+    void this.exportHyperlynx();
+    return 0;
+  }
+
+  private async exportHyperlynx(): Promise<void> {
+    const frame = this.getEditFrame<PCB_EDIT_FRAME>();
+    const board = frame.GetBoard()!;
+    const fullName = board.GetFileName().split(/[\\/]/).pop() ?? '';
+    const dot = fullName.lastIndexOf('.');
+    const fn = `${dot > 0 ? fullName.slice(0, dot) : fullName}.hyp`;
+
+    const dlg = await frame.ShowSaveFileDialog(
+      'Export Hyperlynx Layout',
+      fn,
+      { label: '*.hyp', extensions: ['hyp'] },
+      null,
+    );
+
+    if (!dlg) return;
+
+    // always enforce filename extension, user may not have entered it.
+    const base = dlg.path.substring(dlg.path.lastIndexOf('/') + 1);
+    const ext = base.lastIndexOf('.');
+    const path =
+      ext > 0 ? `${dlg.path.slice(0, dlg.path.length - base.length + ext)}.hyp` : `${dlg.path}.hyp`;
+
+    const exporter = new HYPERLYNX_EXPORTER();
+    exporter.SetBoard(board);
+    exporter.SetOutputFilename(path);
+    exporter.SetFileWriter((aPath, aData) =>
+      frame.WriteTextFile(aPath, new TextDecoder().decode(aData)),
+    );
+    exporter.Run();
+  }
+
   /** `GenD356File` (export_d356.cpp:437): the dialog is modal, the handler returns at once. */
   GenD356File(_aEvent: TOOL_EVENT): number {
     void BOARD_EDITOR_CONTROL_GenD356File(this.getEditFrame<PCB_EDIT_FRAME>());
@@ -1025,6 +1191,22 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GeneratePosFile),
       PCB_ACTIONS.generatePosFile.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenIPC2581File),
+      PCB_ACTIONS.generateIPC2581File.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ExportVRML),
+      PCB_ACTIONS.exportVRML.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ExportHyperlynx),
+      PCB_ACTIONS.exportHyperlynx.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenerateODBPPFiles),
+      PCB_ACTIONS.generateODBPPFile.MakeEvent(),
     );
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenD356File),

@@ -1133,6 +1133,18 @@ export abstract class EDA_SHAPE {
     return this.makeEffectiveShapes(aEdgeOnly);
   }
 
+  /**
+   * `MakeEffectiveShapesForStroking()` (10.0.6): what a dashed stroke walks. Stroke() has no
+   * Bezier primitive, so a Bezier is its flattened polyline as ONE chain - as loose segments the
+   * dash pattern would restart at every vertex. Everything else is MakeEffectiveShapes( true ).
+   */
+  MakeEffectiveShapesForStroking(): SHAPE[] {
+    if (this.m_shape === SHAPE_T.BEZIER)
+      return [new SHAPE_LINE_CHAIN(this.buildBezierToSegmentsPointsList(this.getMaxError()))];
+
+    return this.MakeEffectiveShapes(true);
+  }
+
   MakeEffectiveShapesForHitTesting(): SHAPE[] {
     return this.makeEffectiveShapes(false, false, true);
   }

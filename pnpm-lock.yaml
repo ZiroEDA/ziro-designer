@@ -435,6 +435,9 @@ importers:
       '@ziroeda/core':
         specifier: workspace:*
         version: link:../libs/core
+      '@ziroeda/idftools':
+        specifier: workspace:*
+        version: link:../utils/idftools
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
@@ -499,6 +502,9 @@ importers:
       '@ziroeda/gerbview':
         specifier: workspace:*
         version: link:../gerbview
+      '@ziroeda/idftools':
+        specifier: workspace:*
+        version: link:../utils/idftools
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
@@ -548,6 +554,15 @@ importers:
       react-dom:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
+
+  utils/idftools:
+    dependencies:
+      '@ziroeda/common':
+        specifier: workspace:*
+        version: link:../../common
+      '@ziroeda/kimath':
+        specifier: workspace:*
+        version: link:../../libs/kimath
 
 packages:
 

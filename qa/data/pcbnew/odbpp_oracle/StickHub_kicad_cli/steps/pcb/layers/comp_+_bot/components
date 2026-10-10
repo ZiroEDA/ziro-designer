@@ -1,0 +1,898 @@
+UNITS=MM
+
+#
+#Feature attribute names
+#
+@0 .comp_mount_type
+
+#
+#Feature attribute text strings
+#
+# CMP 0
+CMP 6 151.39 -88.34 315.0 M C36 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 150.92 -88.82 315.0 M 3 14 1
+TOP 1 151.87 -87.87 315.0 M 30 43 2
+#
+# CMP 1
+CMP 7 153.37 -92.34 135.0 M R7 footprints_R_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN '0402WGF4700TCE'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '470'
+TOP 0 153.69 -92.02 135.0 M 31 2 1
+TOP 1 153.05 -92.66 135.0 M 7 0 2
+#
+# CMP 2
+CMP 8 142.65 -104.60 270.0 M C32 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 142.65 -105.27 270.0 M 3 15 1
+TOP 1 142.65 -103.92 270.0 M 30 44 2
+#
+# CMP 3
+CMP 0 146.25 -107.20 90.0 M D23 footprints_D_0402 ;0=1
+PRP Datasheet ''
+PRP Description '0.5pF 3.3V'
+PRP MPN 'AR0521P1'
+PRP Value 'TVS'
+TOP 0 146.25 -106.75 90.0 M 30 45 1
+TOP 1 146.25 -107.65 90.0 M 4 1 2
+#
+# CMP 4
+CMP 6 150.69 -87.64 315.0 M C37 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 150.21 -88.11 315.0 M 3 16 1
+TOP 1 151.16 -87.16 315.0 M 30 46 2
+#
+# CMP 5
+CMP 9 154.96 -93.93 315.0 M C11 footprints_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP MPN '0402WGF1003TCE'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Tolerance '10%'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '0.1uF'
+PRP Voltage '16V'
+TOP 0 154.64 -94.25 315.0 M 1 0 1
+TOP 1 155.28 -93.62 315.0 M 30 47 2
+#
+# CMP 6
+CMP 7 147.89 -92.87 45.0 M R13 footprints_R_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN '0402WGF4700TCE'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '470'
+TOP 0 147.57 -92.56 45.0 M 37 2 1
+TOP 1 148.21 -93.19 45.0 M 13 0 2
+#
+# CMP 7
+CMP 10 154.90 -105.85 135.0 M U2 footprints_TDFN-8_1.5x2mm_Fused-Lead_JEDEC_MO-252_W2015D ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN 'SLG5NT1487VTR'
+PRP Value 'Dialog_SLG5NT1487V'
+TOP 0 154.81 -104.88 135.0 M 45 0 1
+TOP 1 155.17 -105.23 135.0 M 45 1 2
+TOP 2 155.64 -105.82 135.0 M 45 2 3
+TOP 3 154.87 -106.59 135.0 M 3 17 5
+TOP 4 154.28 -106.12 135.0 M 44 0 7
+TOP 5 153.93 -105.76 135.0 M 30 48 8
+#
+# CMP 8
+CMP 11 157.25 -100.25 0 M J9 footprints_1P-1.5x1.5 ;0=2
+PRP Datasheet ''
+PRP Description 'Not Populated'
+PRP Value 'EXTGND'
+TOP 0 157.25 -100.25 0.0 M 30 49 1
+#
+# CMP 9
+CMP 7 147.36 -93.40 45.0 M R4 footprints_R_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN '0402WGF1003TCE'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '100k'
+TOP 0 147.04 -93.09 45.0 M 2 0 1
+TOP 1 147.68 -93.72 45.0 M 42 0 2
+#
+# CMP 10
+CMP 9 155.75 -101.60 315.0 M C8 footprints_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP MPN '0402WGF1003TCE'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Tolerance '10%'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '0.1uF'
+PRP Voltage '16V'
+TOP 0 155.43 -101.92 315.0 M 2 1 1
+TOP 1 156.07 -101.28 315.0 M 30 50 2
+#
+# CMP 11
+CMP 7 148.95 -91.81 45.0 M R11 footprints_R_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN '0402WGF4700TCE'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '470'
+TOP 0 148.63 -91.49 45.0 M 35 2 1
+TOP 1 149.27 -92.13 45.0 M 11 0 2
+#
+# CMP 12
+CMP 9 146.05 -102.55 135.0 M C6 footprints_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP MPN '0402WGF1003TCE'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Tolerance '10%'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '0.1uF'
+PRP Voltage '16V'
+TOP 0 146.37 -102.23 135.0 M 2 2 1
+TOP 1 145.73 -102.87 135.0 M 30 51 2
+#
+# CMP 13
+CMP 9 144.18 -96.59 225.0 M C2 footprints_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP MPN '0402WGF1003TCE'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Tolerance '10%'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '0.1uF'
+PRP Voltage '16V'
+TOP 0 144.50 -96.90 225.0 M 43 0 1
+TOP 1 143.86 -96.27 225.0 M 30 52 2
+#
+# CMP 14
+CMP 7 147.80 -104.30 135.0 M R6 footprints_R_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN '0402WGF2701TCE'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '2.7k'
+TOP 0 148.12 -103.98 135.0 M 40 0 1
+TOP 1 147.48 -104.62 135.0 M 30 53 2
+#
+# CMP 15
+CMP 9 148.80 -105.30 135.0 M C4 footprints_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP MPN '0402WGF1003TCE'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Tolerance '10%'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '10uF 6.3V'
+PRP Voltage '16V'
+TOP 0 149.12 -104.98 135.0 M 1 1 1
+TOP 1 148.48 -105.62 135.0 M 30 54 2
+#
+# CMP 16
+CMP 0 155.90 -103.10 90.0 M D24 footprints_D_0402 ;0=1
+PRP Datasheet ''
+PRP Description 'D5V0H1B2LP-7B'
+PRP MPN 'D5V0H1B2LP-7B'
+PRP Value '5V'
+TOP 0 155.90 -102.65 90.0 M 30 55 1
+TOP 1 155.90 -103.55 90.0 M 45 3 2
+#
+# CMP 17
+CMP 13 149.15 -87.65 315.0 M D25 footprints_D_0402 ;0=1
+PRP Datasheet ''
+PRP Description 'D5V0H1B2LP-7B'
+PRP MPN 'D5V0H1B2LP-7B'
+PRP Value '5V'
+TOP 0 148.83 -87.97 315.0 M 30 56 1
+TOP 1 149.47 -87.33 315.0 M 3 18 2
+#
+# CMP 18
+CMP 7 155.49 -94.46 135.0 M R10 footprints_R_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN '0402WGF4700TCE'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '470'
+TOP 0 155.81 -94.15 135.0 M 34 2 1
+TOP 1 155.17 -94.78 135.0 M 10 0 2
+#
+# CMP 19
+CMP 7 144.71 -96.06 225.0 M R2 footprints_R_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN '0402WGF1003TCE'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '100k'
+TOP 0 145.03 -96.37 225.0 M 43 1 1
+TOP 1 144.39 -95.74 225.0 M 30 57 2
+#
+# CMP 20
+CMP 7 153.90 -92.87 135.0 M R8 footprints_R_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN '0402WGF4700TCE'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '470'
+TOP 0 154.22 -92.56 135.0 M 32 2 1
+TOP 1 153.58 -93.19 135.0 M 8 0 2
+#
+# CMP 21
+CMP 14 152.50 -107.75 180.0 M C28 footprints_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP MPN '0402WGF1003TCE'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Tolerance '10%'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '15nF'
+PRP Voltage '16V'
+TOP 0 152.95 -107.75 180.0 M 44 1 1
+TOP 1 152.05 -107.75 180.0 M 30 58 2
+#
+# CMP 22
+CMP 9 156.55 -95.53 315.0 M C3 footprints_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP MPN '0402WGF1003TCE'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Tolerance '10%'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '10uF 6.3V'
+PRP Voltage '16V'
+TOP 0 156.24 -95.84 315.0 M 2 3 1
+TOP 1 156.87 -95.21 315.0 M 30 59 2
+#
+# CMP 23
+CMP 9 148.30 -104.80 135.0 M C5 footprints_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP MPN '0402WGF1003TCE'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Tolerance '10%'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '0.1uF'
+PRP Voltage '16V'
+TOP 0 148.62 -104.48 135.0 M 2 4 1
+TOP 1 147.98 -105.12 135.0 M 30 60 2
+#
+# CMP 24
+CMP 6 153.75 -107.0 225.0 M C22 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 154.23 -107.48 225.0 M 3 19 1
+TOP 1 153.27 -106.52 225.0 M 30 61 2
+#
+# CMP 25
+CMP 6 151.20 -91.35 135.0 M C26 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 151.68 -90.87 135.0 M 3 20 1
+TOP 1 150.72 -91.83 135.0 M 30 62 2
+#
+# CMP 26
+CMP 6 150.49 -90.64 135.0 M C25 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 150.97 -90.17 135.0 M 3 21 1
+TOP 1 150.02 -91.12 135.0 M 30 63 2
+#
+# CMP 27
+CMP 18 151.0 -105.93 135.0 M Y1 footprints_Crystal_4-SMD_2.5x2mm ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN 'CM4012M00020T8188026'
+PRP Value '12MHz 50ppm 16-20pF'
+TOP 0 152.09 -105.82 135.0 M 0 1 PAD0
+TOP 1 151.10 -104.83 135.0 M 0 2 PAD1
+TOP 2 150.89 -107.02 135.0 M 0 3 PAD2
+TOP 3 149.90 -106.03 135.0 M 0 4 PAD3
+TOP 4 152.09 -105.82 135.0 M 28 0 1
+TOP 5 150.89 -107.02 135.0 M 30 64 2
+TOP 6 149.90 -106.03 135.0 M 29 0 3
+TOP 7 151.10 -104.83 135.0 M 30 65 4
+#
+# CMP 28
+CMP 6 152.81 -89.76 315.0 M C34 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 152.33 -90.23 315.0 M 3 22 1
+TOP 1 153.28 -89.28 315.0 M 30 66 2
+#
+# CMP 29
+CMP 8 144.15 -106.70 90.0 M C29 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 144.15 -106.02 90.0 M 3 23 1
+TOP 1 144.15 -107.38 90.0 M 30 67 2
+#
+# CMP 30
+CMP 7 148.42 -92.34 45.0 M R12 footprints_R_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN '0402WGF4700TCE'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '470'
+TOP 0 148.10 -92.02 45.0 M 36 2 1
+TOP 1 148.74 -92.66 45.0 M 12 0 2
+#
+# CMP 31
+CMP 0 147.10 -107.20 90.0 M D22 footprints_D_0402 ;0=1
+PRP Datasheet ''
+PRP Description '0.5pF 3.3V'
+PRP MPN 'AR0521P1'
+PRP Value 'TVS'
+TOP 0 147.10 -106.75 90.0 M 30 68 1
+TOP 1 147.10 -107.65 90.0 M 5 1 2
+#
+# CMP 32
+CMP 19 150.75 -98.75 135.0 M U1 footprints_LQFP-48_7x7mm_P0.5mm ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN 'XR22417CV48TR-F'
+PRP Value 'MaxLinear_XR22417-48'
+TOP 0 151.75 -93.86 135.0 M 6 14 1
+TOP 1 152.10 -94.22 135.0 M 47 0 2
+TOP 2 152.46 -94.57 135.0 M 7 1 3
+TOP 3 152.81 -94.92 135.0 M 8 1 4
+TOP 4 153.16 -95.28 135.0 M 9 0 5
+TOP 5 153.52 -95.63 135.0 M 1 2 6
+TOP 6 153.87 -95.98 135.0 M 10 1 7
+TOP 7 154.22 -96.34 135.0 M 3 24 8
+TOP 8 154.58 -96.69 135.0 M 2 5 9
+TOP 9 154.93 -97.04 135.0 M 30 69 10
+TOP 10 155.28 -97.40 135.0 M 21 2 11
+TOP 11 155.64 -97.75 135.0 M 20 2 12
+TOP 12 155.64 -99.75 135.0 M 19 2 13
+TOP 13 155.28 -100.10 135.0 M 18 2 14
+TOP 14 154.93 -100.46 135.0 M 2 6 15
+TOP 15 154.58 -100.81 135.0 M 17 2 16
+TOP 16 154.22 -101.16 135.0 M 16 2 17
+TOP 17 153.87 -101.52 135.0 M 15 2 18
+TOP 18 153.52 -101.87 135.0 M 14 2 19
+TOP 19 153.16 -102.22 135.0 M 2 7 20
+TOP 20 152.81 -102.58 135.0 M 1 3 21
+TOP 21 152.46 -102.93 135.0 M 28 1 22
+TOP 22 152.10 -103.28 135.0 M 29 1 23
+TOP 23 151.75 -103.64 135.0 M 30 70 24
+TOP 24 149.75 -103.64 135.0 M 1 4 25
+TOP 25 149.40 -103.28 135.0 M 2 8 26
+TOP 26 149.04 -102.93 135.0 M 40 1 27
+TOP 27 148.69 -102.58 135.0 M 1 5 28
+TOP 28 148.34 -102.22 135.0 M 5 2 29
+TOP 29 147.98 -101.87 135.0 M 4 2 30
+TOP 30 147.63 -101.52 135.0 M 2 9 31
+TOP 31 147.28 -101.16 135.0 M 23 2 32
+TOP 32 146.92 -100.81 135.0 M 22 2 33
+TOP 33 146.57 -100.46 135.0 M 25 2 34
+TOP 34 146.22 -100.10 135.0 M 24 2 35
+TOP 35 145.86 -99.75 135.0 M 2 10 36
+TOP 36 145.86 -97.75 135.0 M 27 2 37
+TOP 37 146.22 -97.40 135.0 M 26 2 38
+TOP 38 146.57 -97.04 135.0 M 30 71 39
+TOP 39 146.92 -96.69 135.0 M 39 0 40
+TOP 40 147.28 -96.34 135.0 M 43 2 41
+TOP 41 147.63 -95.98 135.0 M 2 11 42
+TOP 42 147.98 -95.63 135.0 M 41 0 43
+TOP 43 148.34 -95.28 135.0 M 46 0 44
+TOP 44 148.69 -94.92 135.0 M 42 1 45
+TOP 45 149.04 -94.57 135.0 M 13 1 46
+TOP 46 149.40 -94.22 135.0 M 12 1 47
+TOP 47 149.75 -93.86 135.0 M 11 1 48
+#
+# CMP 33
+CMP 20 157.25 -105.90 270.0 M JP1 footprints_JP-2_1.5x1.5 ;0=0
+PRP Datasheet ''
+PRP Description 'Not Populated'
+PRP Value 'EXTPWR'
+TOP 0 157.30 -106.88 0.0 M 38 1 1
+TOP 1 157.30 -104.92 0.0 M 45 4 2
+#
+# CMP 34
+CMP 7 145.77 -94.99 45.0 M R1 footprints_R_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN '0402WGF1002TCE'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '10k'
+TOP 0 145.45 -94.68 45.0 M 3 25 1
+TOP 1 146.09 -95.31 45.0 M 43 3 2
+#
+# CMP 35
+CMP 7 154.43 -93.40 135.0 M R9 footprints_R_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN '0402WGF4700TCE'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '470'
+TOP 0 154.75 -93.09 135.0 M 33 2 1
+TOP 1 154.11 -93.72 135.0 M 9 1 2
+#
+# CMP 36
+CMP 6 149.79 -89.94 135.0 M C24 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 150.26 -89.46 135.0 M 3 26 1
+TOP 1 149.31 -90.41 135.0 M 30 72 2
+#
+# CMP 37
+CMP 6 152.10 -89.05 315.0 M C35 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 151.62 -89.53 315.0 M 3 27 1
+TOP 1 152.58 -88.57 315.0 M 30 73 2
+#
+# CMP 38
+CMP 21 155.0 -80.0 180.0 M C38 footprints_CP_Elec_6.3x11_Board_Edge_Mirrored ;0=1
+PRP Datasheet ''
+PRP Description 'Not Populated'
+PRP Value '330uF 10V'
+PRP exclude_from_bom ''
+TOP 0 153.75 -82.25 180.0 M 3 28 1
+TOP 1 156.25 -82.25 180.0 M 30 74 2
+#
+# CMP 39
+CMP 9 144.56 -101.05 135.0 M C7 footprints_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP MPN '0402WGF1003TCE'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Tolerance '10%'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '0.1uF'
+PRP Voltage '16V'
+TOP 0 144.88 -100.73 135.0 M 2 12 1
+TOP 1 144.24 -101.37 135.0 M 30 75 2
+#
+# CMP 40
+CMP 9 156.02 -94.99 315.0 M C1 footprints_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP MPN '0402WGF1003TCE'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Tolerance '10%'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '1uF 10V'
+PRP Voltage '16V'
+TOP 0 155.70 -95.31 315.0 M 3 29 1
+TOP 1 156.34 -94.68 315.0 M 30 76 2
+#
+# CMP 41
+CMP 9 146.30 -94.46 225.0 M C9 footprints_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP MPN '0402WGF1003TCE'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Tolerance '10%'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '0.1uF'
+PRP Voltage '16V'
+TOP 0 146.62 -94.78 225.0 M 2 13 1
+TOP 1 145.98 -94.15 225.0 M 30 77 2
+#
+# CMP 42
+CMP 9 147.30 -103.80 135.0 M C13 footprints_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP MPN '0402WGF1003TCE'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Tolerance '10%'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '0.1uF'
+PRP Voltage '16V'
+TOP 0 147.62 -103.48 135.0 M 1 6 1
+TOP 1 146.98 -104.12 135.0 M 30 78 2
+#
+# CMP 43
+CMP 9 154.64 -103.35 45.0 M C10 footprints_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP MPN '0402WGF1003TCE'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Tolerance '10%'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '0.1uF'
+PRP Voltage '16V'
+TOP 0 154.32 -103.03 45.0 M 2 14 1
+TOP 1 154.96 -103.66 45.0 M 30 79 2
+#
+# CMP 44
+CMP 8 143.15 -106.70 90.0 M C31 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 143.15 -106.02 90.0 M 3 30 1
+TOP 1 143.15 -107.38 90.0 M 30 80 2
+#
+# CMP 45
+CMP 14 153.55 -104.35 90.0 M C12 footprints_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP MPN '0402WGF1003TCE'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Tolerance '10%'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '0.1uF'
+PRP Voltage '16V'
+TOP 0 153.55 -103.90 90.0 M 1 7 1
+TOP 1 153.55 -104.80 90.0 M 30 81 2
+#
+# CMP 46
+CMP 7 146.83 -93.93 45.0 M R5 footprints_R_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN '0402WGF1003TCE'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '100k'
+TOP 0 146.51 -93.62 45.0 M 2 15 1
+TOP 1 147.15 -94.25 45.0 M 41 1 2
+#
+# CMP 47
+CMP 8 143.65 -104.60 270.0 M C33 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 143.65 -105.27 270.0 M 3 31 1
+TOP 1 143.65 -103.92 270.0 M 30 82 2
+#
+# CMP 48
+CMP 8 145.15 -106.70 90.0 M C30 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 145.15 -106.02 90.0 M 3 32 1
+TOP 1 145.15 -107.38 90.0 M 30 83 2
+#
+# CMP 49
+CMP 7 145.24 -95.53 45.0 M R3 footprints_R_1005_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP MPN '0402WGF1003TCE'
+PRP USD_per_1 '0,08'
+PRP USD_per_1000 '0,024'
+PRP Value '100k'
+TOP 0 144.92 -95.21 45.0 M 2 16 1
+TOP 1 145.56 -95.84 45.0 M 39 1 2
+#
+# CMP 50
+CMP 6 151.91 -92.06 135.0 M C27 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 152.38 -91.58 135.0 M 3 33 1
+TOP 1 151.43 -92.53 135.0 M 30 84 2
+#
+# CMP 51
+CMP 6 149.08 -89.23 135.0 M C23 footprints_1608_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'GRM188R61A226ME15D'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '22uF 10V'
+PRP Voltage '16V'
+TOP 0 149.56 -88.75 135.0 M 3 34 1
+TOP 1 148.60 -89.71 135.0 M 30 85 2
+#
+# CMP 52
+CMP 22 157.25 -102.50 270.0 M C21 footprints_2012_C ;0=1
+PRP Datasheet ''
+PRP Description ''
+PRP Dielectric 'X7R'
+PRP Footprint_Density 'C'
+PRP Footprint_Library 'Capacitor_SMD'
+PRP MPN 'NM0805B104K101CEDN'
+PRP Package '1608'
+PRP Sim.Device 'C'
+PRP Sim.Params 'c=""'
+PRP Sim.Pins '1=+ 2=-'
+PRP Spice_Model '100n'
+PRP Spice_Netlist_Enabled 'Y'
+PRP Spice_Primitive 'C'
+PRP Tolerance '10%'
+PRP Value '0.1uF 100V'
+PRP Voltage '16V'
+TOP 0 157.25 -103.32 270.0 M 45 5 1
+TOP 1 157.25 -101.67 270.0 M 30 86 2
+#

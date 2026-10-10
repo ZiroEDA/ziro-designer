@@ -254,7 +254,13 @@ registry.Register(
   async () => new (await import('./altium/pcb_io_solidworks.js')).PCB_IO_SOLIDWORKS(),
 );
 
-// IPC-2581 and ODB++ register here upstream (export-only plugins).
+registry.Register(
+  PCB_FILE_T.IPC2581,
+  'IPC-2581',
+  async () => new (await import('./ipc2581/pcb_io_ipc2581.js')).PCB_IO_IPC2581(),
+);
+
+// ODB++ registers here upstream (an export-only plugin), not ported yet.
 
 registry.Register(
   PCB_FILE_T.PADS,
