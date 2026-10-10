@@ -141,8 +141,12 @@ def main():
         return os.path.dirname(s) or '(root)'
 
     folders = sorted(set(map(folder, k)) | set(map(folder, o)), key=lambda f: (f != '(root)', f))
-    print('| folder | KiCad | n/a | deferred | sim | to match | done | left | done % | extra kept | extra record model | extra unexplained |')
-    print('|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|')
+    # Table format (STRUCTURE.md "Parity" keeps it): the KiCad side, then what ours lacks
+    # ("less in ours", the files still to port) and what ours has beyond KiCad ("extra in
+    # ours"), the extras split by why they exist.
+    print('| folder | KiCad | n/a | deferred | sim | to match | done | left | done % '
+          '| less in ours | extra in ours | extra kept | extra record model | extra unexplained |')
+    print('|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|')
     for f in folders:
         kf = {s for s in k if folder(s) == f}
         if not (kf & target) and not [s for s in ex if folder(s) == f]:
@@ -152,11 +156,13 @@ def main():
         exf = [s for s in ex if folder(s) == f]
         pct = f'{100 * (len(tf) - len(lf)) // len(tf)}%' if tf else '-'
         print(f'| {f} | {len(kf)} | {len(kf & na)} | {len(kf & de)} | {len(kf & si)} | {len(tf)} | '
-              f'{len(tf) - len(lf)} | **{len(lf)}** | {pct} | {len([s for s in exf if s in kept])} | '
+              f'{len(tf) - len(lf)} | **{len(lf)}** | {pct} | {len(lf)} | {len(exf)} | '
+              f'{len([s for s in exf if s in kept])} | '
               f'{len([s for s in exf if s in rec])} | {len([s for s in exf if s in oth])} |')
     done = len(target) - len(left)
     print(f'| **total** | **{len(k)}** | **{len(na)}** | **{len(de)}** | **{len(si)}** | **{len(target)}** | '
-          f'**{done}** | **{len(left)}** | **{100 * done // len(target)}%** | **{len(kept)}** | '
+          f'**{done}** | **{len(left)}** | **{100 * done // len(target)}%** | **{len(left)}** | '
+          f'**{len(ex)}** | **{len(kept)}** | '
           f'**{len(rec)}** | **{len(oth)}** |')
     print()
     print('### Left to port\n')

@@ -37,28 +37,34 @@ files count as done - so read the "left" column as a floor. Decisions behind the
   preference panel, `simulator_control` tool and tuner widget. It needs ngspice built for the
   browser first.
 
-| folder | KiCad | n/a | deferred | sim | to match | done | left | done % | extra kept | extra record model | extra unexplained |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| (root) | 94 | 1 | 1 | 0 | 92 | 91 | **1** | 98% | 0 | 12 | 0 |
-| browser | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 5 | 1 | 0 |
-| connectivity | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 6 | 0 | 0 |
-| dialogs | 63 | 0 | 1 | 6 | 56 | 33 | **23** | 58% | 0 | 0 | 2 |
-| erc | 5 | 0 | 0 | 0 | 5 | 5 | **0** | 100% | 0 | 0 | 1 |
-| exporters | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 1 | 0 | 0 |
-| import_gfx | 3 | 0 | 0 | 0 | 3 | 3 | **0** | 100% | 0 | 1 | 1 |
-| libraries | 2 | 0 | 0 | 0 | 2 | 1 | **1** | 50% | 0 | 0 | 0 |
-| netlist_exporters | 11 | 0 | 0 | 0 | 11 | 10 | **1** | 90% | 0 | 0 | 0 |
-| printing | 2 | 0 | 0 | 0 | 2 | 2 | **0** | 100% | 0 | 0 | 0 |
-| sch_io | 3 | 0 | 0 | 0 | 3 | 3 | **0** | 100% | 0 | 0 | 0 |
-| sch_io/kicad_legacy | 3 | 0 | 0 | 0 | 3 | 3 | **0** | 100% | 0 | 0 | 0 |
-| sch_io/kicad_sexpr | 4 | 0 | 0 | 0 | 4 | 4 | **0** | 100% | 0 | 0 | 0 |
-| sch_io/sexpr | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 3 | 0 | 0 |
-| sim | 60 | 0 | 0 | 60 | 0 | 0 | **0** | - | 0 | 0 | 1 |
-| symbol_editor | 11 | 0 | 0 | 0 | 11 | 5 | **6** | 45% | 0 | 5 | 4 |
-| sync_sheet_pin | 7 | 0 | 0 | 0 | 7 | 7 | **0** | 100% | 0 | 0 | 0 |
-| tools | 30 | 0 | 0 | 1 | 29 | 24 | **5** | 82% | 0 | 33 | 3 |
-| widgets | 18 | 2 | 0 | 1 | 15 | 8 | **7** | 53% | 0 | 0 | 1 |
-| **total** | **343** | **7** | **23** | **70** | **243** | **199** | **44** | **81%** | **15** | **52** | **13** |
+**Table format (keep it):** one row per folder - `folder | KiCad | n/a | deferred | sim | to match |
+done | left | done % | less in ours | extra in ours | extra kept | extra record model | extra
+unexplained` - then a `total` row. *less in ours* is what KiCad has and we lack (the files still to
+port); *extra in ours* is every file we have that KiCad does not, split in the last three columns
+by why it exists. The probe prints exactly this.
+
+| folder | KiCad | n/a | deferred | sim | to match | done | left | done % | less in ours | extra in ours | extra kept | extra record model | extra unexplained |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| (root) | 94 | 1 | 1 | 0 | 92 | 91 | **1** | 98% | 1 | 12 | 0 | 12 | 0 |
+| browser | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 0 | 6 | 5 | 1 | 0 |
+| connectivity | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 0 | 6 | 6 | 0 | 0 |
+| dialogs | 63 | 0 | 1 | 6 | 56 | 33 | **23** | 58% | 23 | 2 | 0 | 0 | 2 |
+| erc | 5 | 0 | 0 | 0 | 5 | 5 | **0** | 100% | 0 | 1 | 0 | 0 | 1 |
+| exporters | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 0 | 1 | 1 | 0 | 0 |
+| import_gfx | 3 | 0 | 0 | 0 | 3 | 3 | **0** | 100% | 0 | 2 | 0 | 1 | 1 |
+| libraries | 2 | 0 | 0 | 0 | 2 | 1 | **1** | 50% | 1 | 0 | 0 | 0 | 0 |
+| netlist_exporters | 11 | 0 | 0 | 0 | 11 | 10 | **1** | 90% | 1 | 0 | 0 | 0 | 0 |
+| printing | 2 | 0 | 0 | 0 | 2 | 2 | **0** | 100% | 0 | 0 | 0 | 0 | 0 |
+| sch_io | 3 | 0 | 0 | 0 | 3 | 3 | **0** | 100% | 0 | 0 | 0 | 0 | 0 |
+| sch_io/kicad_legacy | 3 | 0 | 0 | 0 | 3 | 3 | **0** | 100% | 0 | 0 | 0 | 0 | 0 |
+| sch_io/kicad_sexpr | 4 | 0 | 0 | 0 | 4 | 4 | **0** | 100% | 0 | 0 | 0 | 0 | 0 |
+| sch_io/sexpr | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 0 | 3 | 3 | 0 | 0 |
+| sim | 60 | 0 | 0 | 60 | 0 | 0 | **0** | - | 0 | 1 | 0 | 0 | 1 |
+| symbol_editor | 11 | 0 | 0 | 0 | 11 | 5 | **6** | 45% | 6 | 9 | 0 | 5 | 4 |
+| sync_sheet_pin | 7 | 0 | 0 | 0 | 7 | 7 | **0** | 100% | 0 | 0 | 0 | 0 | 0 |
+| tools | 30 | 0 | 0 | 1 | 29 | 24 | **5** | 82% | 5 | 36 | 0 | 33 | 3 |
+| widgets | 18 | 2 | 0 | 1 | 15 | 8 | **7** | 53% | 7 | 1 | 0 | 0 | 1 |
+| **total** | **343** | **7** | **23** | **70** | **243** | **199** | **44** | **81%** | **44** | **80** | **15** | **52** | **13** |
 
 ### Left to port
 
