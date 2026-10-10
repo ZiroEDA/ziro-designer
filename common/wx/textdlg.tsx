@@ -60,7 +60,10 @@ export function WxTextEntryDialog({
                 setName(validator ? validator.Filter(e.target.value) : e.target.value)
               }
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && ok) onConfirm(name);
+                if (e.key === 'Enter' && ok) {
+                  e.preventDefault();
+                  onConfirm(name);
+                }
               }}
             />
           </label>

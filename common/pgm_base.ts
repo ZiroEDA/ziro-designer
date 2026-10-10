@@ -9,6 +9,7 @@
  * null, which the readers already handle.
  */
 
+import type { DialogControlValue } from './settings/common_settings.js';
 import { SENTRY } from './app_monitor.js';
 import { IO_ERROR } from './exceptions.js';
 import type { MOUSE_DRAG_ACTION } from './mouse_drag_action.js';
@@ -42,6 +43,17 @@ export interface COMMON_SETTINGS_LIKE {
   m_Env: COMMON_SETTINGS_ENVIRONMENT;
   /** `COMMON_SETTINGS::m_DoNotShowAgain` (include/settings/common_settings.h:161-169). */
   m_DoNotShowAgain: COMMON_SETTINGS_DO_NOT_SHOW_AGAIN;
+  /** `CsInternals()`: the dialogs' remembered state. Absent where nothing persists. */
+  CsInternals?(): COMMON_SETTINGS_INTERNALS;
+}
+
+/**
+ * `COMMON_SETTINGS_INTERNALS::m_dialogControlValues` (common_settings_internals.h:29), read and
+ * written through the settings store, since a write here must reach `common.json`.
+ */
+export interface COMMON_SETTINGS_INTERNALS {
+  GetDialogControlValue(aDialogKey: string, aControlKey: string): DialogControlValue | undefined;
+  SetDialogControlValue(aDialogKey: string, aControlKey: string, aValue: DialogControlValue): void;
 }
 
 /** `COMMON_SETTINGS::DO_NOT_SHOW_AGAIN`: the six persisted "Don't show again" flags. */

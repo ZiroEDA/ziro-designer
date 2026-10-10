@@ -474,7 +474,10 @@ export function PanelToolbarCustomization({
                           defaultValue={it.group_name ?? ''}
                           onKeyDown={(e) => {
                             e.stopPropagation();
-                            if (e.key === 'Enter') renameGroup(i, e.currentTarget.value);
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              renameGroup(i, e.currentTarget.value);
+                            }
                             if (e.key === 'Escape') setEditing(null);
                           }}
                           onBlur={(e) => renameGroup(i, e.currentTarget.value)}

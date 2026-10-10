@@ -383,6 +383,7 @@ export function SymbolLibraryBrowser({ app, onPick, onClose }: Props): JSX.Eleme
           e.preventDefault();
         }
       } else if (e.key === 'Enter' && previewSym) {
+        e.preventDefault();
         addToSchematic();
       }
     };

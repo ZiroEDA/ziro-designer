@@ -108,7 +108,10 @@ export function DialogImageProperties({
             onChange={(e) => setY(e.target.value)}
             onKeyDown={(e) => {
               e.stopPropagation();
-              if (e.key === 'Enter') submit();
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                submit();
+              }
             }}
           />
           <span className="ze-muted">mm</span>

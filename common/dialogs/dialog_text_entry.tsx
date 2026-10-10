@@ -60,7 +60,10 @@ export function WX_TEXT_ENTRY_DIALOG({
           onChange={(e) => setValue(validator ? validator.Filter(e.target.value) : e.target.value)}
           onKeyDown={(e) => {
             // The default button takes Enter, as a wxDialog's does.
-            if (e.key === 'Enter') onResult(value);
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              onResult(value);
+            }
             e.stopPropagation();
           }}
         />

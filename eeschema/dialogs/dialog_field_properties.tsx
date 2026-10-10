@@ -547,7 +547,10 @@ export function DialogFieldProperties({
 
   const enter = (e: React.KeyboardEvent): void => {
     e.stopPropagation();
-    if (e.key === 'Enter') submit();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submit();
+    }
   };
 
   return (

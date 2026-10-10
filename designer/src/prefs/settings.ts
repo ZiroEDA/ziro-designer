@@ -2751,7 +2751,13 @@ export class SettingsManager {
    * a change.
    */
   setDialogControl(dialogKey: string, controlKey: string, value: DialogControlValue): void {
-    if (this.common.dialog.controls[dialogKey]?.[controlKey] === value) return;
+    const stored = this.common.dialog.controls[dialogKey]?.[controlKey];
+    // The geometry is an object: unchanged means the same four numbers.
+    if (
+      stored === value ||
+      (typeof value === 'object' && JSON.stringify(stored) === JSON.stringify(value))
+    )
+      return;
     this.updateCommon((s) => {
       s.dialog.controls[dialogKey] ??= {};
       s.dialog.controls[dialogKey][controlKey] = value;

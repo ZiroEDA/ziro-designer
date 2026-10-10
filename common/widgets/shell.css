@@ -4840,14 +4840,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* Modeless Find dialog (DIALOG_SCH_FIND): floats over the canvas, top-right. */
 /* PCB Find dialog (DIALOG_FIND). Layout mirrors dialog_find_base.cpp:
    topSizer[ leftSizer | buttonSizer(vertical) ] / staticline / sizerStatus. */
-/* A modeless DIALOG_SHIM (common/dialog_shim.tsx, `Show()`): the window chrome is
-   `.ze-modal`'s; all this says is that it has no backdrop and opens centred over
-   the frame, as `Centre( wxBOTH )` puts it. */
-.ze-modeless {
+/* A modeless DIALOG_SHIM (common/dialog_shim.tsx, `Show()`): the window chrome and
+   the placement are DialogShim's; all this says is that it has no backdrop and sits
+   above the frame's panes. */
+/* DialogShim's window: placed at the left/top it computes (Centre( wxBOTH ), a saved
+   "__geometry", or where the user dragged it), not by the backdrop's centring. */
+.ze-shim {
   position: fixed;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+}
+/* A title bar is the window manager's: its text does not select, and a drag on it moves. */
+.ze-shim > .ze-modal-header {
+  user-select: none;
+  touch-action: none;
+}
+.ze-modeless {
   z-index: 60;
 }
 /* DRC Control (dialog_drc_base.cpp): the same DIALOG_SHIM chrome as the ERC

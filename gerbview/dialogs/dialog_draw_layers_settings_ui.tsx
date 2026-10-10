@@ -67,7 +67,10 @@ export function DialogDrawLayersSettings({
       value={aValue}
       onChange={(e) => aSet(e.target.value)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') ok();
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          ok();
+        }
         e.stopPropagation();
       }}
     />,

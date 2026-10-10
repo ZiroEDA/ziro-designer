@@ -102,7 +102,10 @@ export function DialogLineProperties(props: WireProps | JunctionProps): JSX.Elem
                 onChange={(e) => setWidth(e.target.value)}
                 onKeyDown={(e) => {
                   e.stopPropagation();
-                  if (e.key === 'Enter') submit();
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submit();
+                  }
                 }}
               />
               <span className="ze-muted" style={{ fontSize: 11 }}>
@@ -139,7 +142,10 @@ export function DialogLineProperties(props: WireProps | JunctionProps): JSX.Elem
                 onChange={(e) => setJunction(e.target.value)}
                 onKeyDown={(e) => {
                   e.stopPropagation();
-                  if (e.key === 'Enter') submit();
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submit();
+                  }
                 }}
               />
               <span className="ze-muted" style={{ fontSize: 11 }}>
@@ -161,7 +167,10 @@ export function DialogLineProperties(props: WireProps | JunctionProps): JSX.Elem
                 onChange={(e) => setDiameter(e.target.value)}
                 onKeyDown={(e) => {
                   e.stopPropagation();
-                  if (e.key === 'Enter') submit();
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submit();
+                  }
                 }}
               />
               <span className="ze-muted" style={{ fontSize: 11 }}>

@@ -401,7 +401,10 @@ export function NewSymbolDialog({
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
               e.stopPropagation();
-              if (e.key === 'Enter') submit();
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                submit();
+              }
             }}
           />
         </label>
@@ -849,7 +852,10 @@ export function SymbolTextDialog({
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               e.stopPropagation();
-              if (e.key === 'Enter') submit();
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                submit();
+              }
             }}
           />
         </label>

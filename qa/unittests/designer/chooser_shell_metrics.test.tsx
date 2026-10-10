@@ -59,8 +59,10 @@ function token(name: string): string | undefined {
  * of check that cannot fail.
  */
 function rule(selector: string): string {
-  const at = SHELL.indexOf(`${selector} {`);
-  if (at < 0) throw new Error(`no rule in shell.css for \`${selector}\``);
+  // At the start of a line: `.x > .ze-modal-header {` is a different rule from `.ze-modal-header {`.
+  const found = SHELL.indexOf(`\n${selector} {`);
+  if (found < 0) throw new Error(`no rule in shell.css for \`${selector}\``);
+  const at = found + 1;
   const end = SHELL.indexOf('\n}', at);
   return SHELL.slice(at + selector.length + 2, end).replace(/\/\*[\s\S]*?\*\//g, '');
 }

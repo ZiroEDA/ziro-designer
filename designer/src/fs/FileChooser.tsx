@@ -234,7 +234,10 @@ function EditRow({
             if (!abandoned.current) onCommit();
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') onCommit();
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              onCommit();
+            }
           }}
         />
       </span>
@@ -565,7 +568,10 @@ export function FileChooser({
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (editing !== null) return;
-          if (e.key === 'Enter') acceptNow();
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            acceptNow();
+          }
           // F2 renames and Delete deletes, which is what a file manager binds
           // them to and what the row's own buttons used to do.
           if (e.key === 'F2' && selected) {

@@ -68,7 +68,10 @@ export function DialogPositionRelativeModeless({
       onBlur={() => dialog.OnTextFocusLost(binder)}
       onKeyDown={(e) => {
         // The OK button is the dialog's default: Enter activates it.
-        if (e.key === 'Enter') dialog.OnOkClick();
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          dialog.OnOkClick();
+        }
       }}
     />
   );

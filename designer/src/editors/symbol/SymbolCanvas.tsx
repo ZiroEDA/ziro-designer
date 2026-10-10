@@ -1117,6 +1117,7 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
         drawStateRef.current = null;
         draw();
       } else if (e.key === 'Enter' && drawStateRef.current) {
+        e.preventDefault();
         const ds = drawStateRef.current;
         if (ds.tool === 'lines' || ds.tool === 'polygon') finishPoly(ds.tool === 'polygon');
       }

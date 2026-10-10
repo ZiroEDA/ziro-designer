@@ -228,7 +228,10 @@ export function DialogSheetPinProperties({
                   onChange={(e) => setSizeText(e.target.value)}
                   onKeyDown={(e) => {
                     e.stopPropagation();
-                    if (e.key === 'Enter') submit();
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      submit();
+                    }
                   }}
                 />
                 <span className="ze-lp-units">{unitLabel(units)}</span>

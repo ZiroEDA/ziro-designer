@@ -99,6 +99,7 @@ export function GridUnitCell({
         e.stopPropagation();
 
         if (e.key === 'Enter') {
+          e.preventDefault();
           commit();
         } else if (e.key === 'Escape') {
           setText(null);

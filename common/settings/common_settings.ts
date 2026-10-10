@@ -330,12 +330,21 @@ export interface CommonSettings {
  *
  * The one non-scalar upstream writes into the same map is the dialog's own
  * geometry, an `{x,y,w,h}` object under the reserved key `"__geometry"`
- * (dialog_shim.cpp:664-671, read back in `DIALOG_SHIM::Show`, :455-468). That
- * is not ported: a wxDialog is a top-level window the user drags and resizes
- * and ours are centred `.ze-modal` divs, so there is no position to remember.
- * When one becomes movable, geometry belongs here under that same key.
+ * (`DIALOG_SHIM::SaveControlState`, dialog_shim.cpp:700-707, read back in
+ * `DIALOG_SHIM::Show`, :489-505) - {@link DialogGeometry}, written by DialogShim.
  */
-export type DialogControlValue = boolean | number | string;
+export type DialogControlValue = boolean | number | string | DialogGeometry;
+
+/** `"__geometry"`: where the dialog was, and its size in DIP. */
+export interface DialogGeometry {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** The reserved control key the geometry is stored under. */
+export const DIALOG_GEOMETRY_KEY = '__geometry';
 
 /** dialog key -> control key -> value; `m_dialogControlValues`. */
 export type DialogControls = Record<string, Record<string, DialogControlValue>>;
@@ -506,6 +515,12 @@ export function migrateCommonSettings(s: CommonSettings, from: number): boolean 
  * defaults are `{}` and `deepMerge` keeps only keys the defaults already have,
  * so every stored dialog would be dropped on the way back in.
  */
+function isDialogGeometry(aVal: unknown): aVal is DialogGeometry {
+  if (typeof aVal !== 'object' || aVal === null) return false;
+  const g = aVal as Record<string, unknown>;
+  return ['x', 'y', 'w', 'h'].every((k) => typeof g[k] === 'number' && Number.isFinite(g[k]));
+}
+
 export function normalizeDialogControls(parsed: unknown): DialogControls {
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
   const out: DialogControls = {};
@@ -519,6 +534,11 @@ export function normalizeDialogControls(parsed: unknown): DialogControls {
         typeof ctrlVal === 'string'
       )
         controls[ctrlKey] = ctrlVal;
+      else if (ctrlKey === DIALOG_GEOMETRY_KEY && isDialogGeometry(ctrlVal)) {
+        // `g.value( "x", 0 )` ... read back field by field.
+        const { x, y, w, h } = ctrlVal;
+        controls[ctrlKey] = { x, y, w, h };
+      }
     }
     out[dlgKey] = controls;
   }

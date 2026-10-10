@@ -76,7 +76,10 @@ export function WX_MULTI_ENTRY_DIALOG({
                 value={state[i] as string}
                 onChange={(ev) => set(i, ev.target.value)}
                 onKeyDown={(ev) => {
-                  if (ev.key === 'Enter') ok();
+                  if (ev.key === 'Enter') {
+                    ev.preventDefault();
+                    ok();
+                  }
                   ev.stopPropagation();
                 }}
               />

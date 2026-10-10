@@ -11,7 +11,19 @@
  * (`dialog_shim_buttons`, `dialogs/dialog_size_hints`, `dialogs/modal_escape`,
  * `dialogs/use_modal_escape`).
  */
-import { type JSX, type PointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  type JSX,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import { PgmOrNull } from './pgm_base.js';
+import { DIALOG_GEOMETRY_KEY } from './settings/common_settings.js';
 import { Button } from './wx/controls.js';
 import { wasBrowserSuppressed } from './browser_hotkeys.js';
 
@@ -286,6 +298,33 @@ export function StdDialogButtons({
 // ---------------------------------------------------------------------------
 // The dialog window.
 
+/**
+ * `getDialogKeyFromTitle` (dialog_shim.cpp:85-101): the title, cut before a trailing
+ * parenthesised part, so "Footprint Properties (U3)" and "... (R1)" share one remembered state.
+ */
+export function getDialogKeyFromTitle(aTitle: string): string {
+  const parenPos = aTitle.lastIndexOf('(');
+
+  if (parenPos > 0) {
+    let end = parenPos;
+
+    while (end > 0 && aTitle[end - 1] === ' ') end--;
+
+    return aTitle.substring(0, end);
+  }
+
+  return aTitle;
+}
+
+/** A one-line text entry: what GTK's `activates-default` applies to. */
+function isSingleLineEntry(aEl: EventTarget | null): boolean {
+  if (!(aEl instanceof HTMLInputElement)) return false;
+  return ['', 'text', 'number', 'search', 'email', 'url', 'tel', 'password'].includes(aEl.type);
+}
+
+/** The height of the title bar a saved position must keep on screen (`FromDIP( 15 )`). */
+const TITLE_GRAB = 15; // [data] dialog_shim.cpp:549, the point tested inside the title bar
+
 export interface DialogShimProps {
   /** The window title (`SetTitle`), drawn centred in the title bar. */
   title: string;
@@ -299,6 +338,10 @@ export interface DialogShimProps {
   modeless?: boolean;
   /** The dialog's own layout class (its `_base.cpp` sizer tree), never its chrome. */
   className?: string;
+  /** `SetInitialFocus( aWindow )`; the dialog itself when absent. */
+  initialFocus?: RefObject<HTMLElement | null>;
+  /** `m_hash_key`, for a dialog whose title varies; the title's key otherwise. */
+  hashKey?: string;
   children: ReactNode;
 }
 
@@ -306,56 +349,149 @@ export interface DialogShimProps {
  * `DIALOG_SHIM`'s window: the class every KiCad dialog derives from, so no dialog draws its own
  * frame. The chrome - face, border, the two rounded top corners, the window shadow, the 37px
  * title bar - is `.ze-modal`'s and `.ze-modal-header`'s; a dialog supplies its title and its
- * sizer tree and nothing else.
+ * sizer tree and nothing else. What DIALOG_SHIM does on top of wxDialog:
  *
- * Like a window, it opens centred over its parent (`Centre( wxBOTH )`, which every `_base.cpp`
- * ends with) and moves by its title bar. A modal one does not close on a click outside it: the
- * desktop ignores that click, and so does KiCad.
+ * - `Show`: opens where it was last closed (`"__geometry"` in the common settings' dialog map),
+ *   else centred over the frame (`Centre( wxBOTH )`); re-centred if the title bar would land
+ *   off screen. `SaveControlState` writes the geometry back when it closes.
+ * - Moves by its title bar, like any window; a modal one ignores a click outside it, as the
+ *   desktop does.
+ * - Enter in a one-line entry presses the default button (GTK's `activates-default`), unless
+ *   the entry took the key itself (`wxTE_PROCESS_ENTER`: its handler calls preventDefault);
+ *   Ctrl+Enter, and Shift+Enter in a one-line entry, is wxID_OK from anywhere (`OnCharHook`,
+ *   dialog_shim.cpp:1789-1835).
+ * - On the first paint the text in every entry is selected (`SelectAllInTextCtrls`) and focus
+ *   goes to the initial target, or the dialog itself so its keys still work
+ *   (`forceInitialFocus`).
  */
 export function DialogShim({
   title,
   onClose,
   modeless = false,
   className,
+  initialFocus,
+  hashKey,
   children,
 }: DialogShimProps): JSX.Element {
-  // The window's position, as an offset from where Centre() put it.
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const frameRef = useRef<HTMLDivElement>(null);
+  // The window's top-left; null until the first layout has placed it.
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const posRef = useRef(pos);
+  posRef.current = pos;
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const key = hashKey ?? getDialogKeyFromTitle(title);
   useModalEscape(onClose, !modeless);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Show() runs once per showing; the key is read at that moment
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const r = frame.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const internals = PgmOrNull()?.GetCommonSettings()?.CsInternals?.() ?? null;
+    const saved = internals?.GetDialogControlValue(key, DIALOG_GEOMETRY_KEY);
+    let x = Math.round((vw - r.width) / 2);
+    let y = Math.round((vh - r.height) / 2);
+
+    if (typeof saved === 'object' && saved.w !== 0 && saved.h !== 0) {
+      // Re-center if the title bar would land on no display.
+      const grabX = saved.x + r.width / 2;
+      const grabY = saved.y + TITLE_GRAB;
+
+      if (grabX >= 0 && grabX < vw && grabY >= 0 && grabY < vh) {
+        x = saved.x;
+        y = saved.y;
+      }
+    }
+
+    setPos({ x, y });
+
+    // SelectAllInTextCtrls, then forceInitialFocus.
+    for (const input of frame.querySelectorAll('input')) {
+      if (isSingleLineEntry(input)) {
+        try {
+          input.setSelectionRange(0, input.value.length);
+        } catch {
+          /* a number entry has no selection API */
+        }
+      }
+    }
+
+    const target = initialFocus?.current;
+
+    if (target && target.offsetParent !== null) target.focus();
+    else if (!frame.contains(document.activeElement)) frame.focus();
+
+    return () => {
+      // SaveControlState: where it was and how big, as it closes.
+      const at = posRef.current;
+      const box = frame.getBoundingClientRect();
+
+      if (at && internals)
+        internals.SetDialogControlValue(key, DIALOG_GEOMETRY_KEY, {
+          x: at.x,
+          y: at.y,
+          w: Math.round(box.width),
+          h: Math.round(box.height),
+        });
+    };
+  }, []);
+
   const onTitleDown = (e: PointerEvent<HTMLDivElement>): void => {
-    if (e.button !== 0 || (e.target as HTMLElement).closest('.x')) return;
-    drag.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+    if (e.button !== 0 || !pos || (e.target as HTMLElement).closest('.x')) return;
+    drag.current = { x: e.clientX, y: e.clientY, ox: pos.x, oy: pos.y };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onTitleMove = (e: PointerEvent<HTMLDivElement>): void => {
     const d = drag.current;
-    if (d) setOffset({ x: d.ox + e.clientX - d.x, y: d.oy + e.clientY - d.y });
+    if (d) setPos({ x: d.ox + e.clientX - d.x, y: d.oy + e.clientY - d.y });
   };
   const onTitleUp = (): void => {
     drag.current = null;
   };
 
+  const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (e.defaultPrevented) return;
+
+    if (e.key === 'Escape' && modeless) {
+      e.preventDefault();
+      e.stopPropagation();
+      onClose();
+      return;
+    }
+
+    if (e.key !== 'Enter') return;
+
+    const entry = isSingleLineEntry(e.target);
+
+    // Enter in an entry, or Ctrl/Shift+Enter: the default button, wxID_OK.
+    if (!(entry || e.ctrlKey)) return;
+
+    const button = frameRef.current?.querySelector<HTMLButtonElement>(
+      '.ze-btn.primary:not(:disabled)',
+    );
+
+    if (!button) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    button.click();
+  };
+
   const frame = (
     <div
-      className={`ze-modal${modeless ? ' ze-modeless' : ''}${className ? ` ${className}` : ''}`}
-      // The offset is the user's drag, data rather than chrome.
-      style={{ translate: `${offset.x}px ${offset.y}px` }}
+      ref={frameRef}
+      className={`ze-modal ze-shim${modeless ? ' ze-modeless' : ''}${className ? ` ${className}` : ''}`}
+      // Where the window is: data the user put there, not chrome. Hidden for the one layout
+      // before it is placed.
+      style={pos ? { left: pos.x, top: pos.y } : { visibility: 'hidden' }}
       role="dialog"
       aria-modal={!modeless}
       aria-label={title}
+      tabIndex={-1}
       onMouseDown={(e) => e.stopPropagation()}
-      onKeyDown={
-        modeless
-          ? (e) => {
-              if (e.key !== 'Escape') return;
-              e.preventDefault();
-              e.stopPropagation();
-              onClose();
-            }
-          : undefined
-      }
+      onKeyDown={onKeyDown}
     >
       <div
         className="ze-modal-header"

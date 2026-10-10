@@ -227,7 +227,10 @@ export function ShareButton({
                     aria-label="Invite by email"
                     onChange={(e) => setInvitee(e.currentTarget.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') invite();
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        invite();
+                      }
                     }}
                   />
                   <Combo

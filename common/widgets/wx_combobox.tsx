@@ -330,7 +330,12 @@ export function TextCombo({
               setOpen(true);
             } else if (e.key === 'Enter') {
               setOpen(false);
-              onEnter?.();
+              // wxTE_PROCESS_ENTER: an entry with its own Enter takes the key; without one,
+              // Enter goes on to the dialog's default button (GTK's activates-default).
+              if (onEnter) {
+                e.preventDefault();
+                onEnter();
+              }
             }
           }}
         />

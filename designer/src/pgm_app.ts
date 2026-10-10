@@ -106,6 +106,12 @@ export function commonSettingsOf(): COMMON_SETTINGS_LIKE {
     m_Input,
     m_Env: s_env,
     m_DoNotShowAgain: { ...c.do_not_show_again },
+    CsInternals: () => ({
+      GetDialogControlValue: (aDialogKey, aControlKey) =>
+        settings.common.dialog.controls[aDialogKey]?.[aControlKey],
+      SetDialogControlValue: (aDialogKey, aControlKey, aValue) =>
+        settings.setDialogControl(aDialogKey, aControlKey, aValue),
+    }),
   };
 }
 

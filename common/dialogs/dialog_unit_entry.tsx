@@ -73,7 +73,10 @@ export function WX_UNIT_ENTRY_DIALOG({
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') ok();
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              ok();
+            }
             e.stopPropagation();
           }}
         />
@@ -125,7 +128,10 @@ export function WX_PT_ENTRY_DIALOG({
         value={value}
         onChange={(e) => set(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') ok();
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            ok();
+          }
           e.stopPropagation();
         }}
       />

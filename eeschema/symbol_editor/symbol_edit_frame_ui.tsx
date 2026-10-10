@@ -2918,6 +2918,7 @@ export function SymbolEditor({
                 onKeyDown={(e) => {
                   e.stopPropagation();
                   if (e.key === 'Enter' && newLibName.trim()) {
+                    e.preventDefault();
                     manager.current.createLibrary(newLibName.trim());
                     setSelectLibId(newLibName.trim());
                     setNewLibName(null);

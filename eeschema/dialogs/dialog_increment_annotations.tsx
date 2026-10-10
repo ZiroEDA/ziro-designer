@@ -74,7 +74,10 @@ export function DialogIncrementAnnotations({ onOk, onCancel }: Props): JSX.Eleme
             onChange={(e) => setStartRef(e.target.value)}
             onKeyDown={(e) => {
               e.stopPropagation();
-              if (e.key === 'Enter') submit();
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                submit();
+              }
             }}
           />
         </label>

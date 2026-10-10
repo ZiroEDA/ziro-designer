@@ -59,7 +59,10 @@ export function DialogOffsetItem({
       onBlur={() => dialog.OnTextFocusLost(binder)}
       onKeyDown={(e) => {
         // The OK button is the dialog's default: Enter activates it.
-        if (e.key === 'Enter') ok();
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          ok();
+        }
       }}
     />
   );

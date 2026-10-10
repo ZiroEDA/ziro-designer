@@ -1415,6 +1415,7 @@ export function DialogAssignFootprints({
     }
 
     if (e.key === 'Enter') {
+      e.preventDefault();
       // Whether there is anything to assign is Associate's own rule, not a
       // condition on the key: it ignores an empty footprint and otherwise
       // always advances to the next unassigned symbol.

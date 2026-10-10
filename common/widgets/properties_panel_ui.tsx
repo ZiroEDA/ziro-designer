@@ -366,8 +366,10 @@ function ValueCell<C>({
       onChange={(e) => setText(e.target.value)}
       onBlur={commitText}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') commitText();
-        else if (e.key === 'Escape') {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commitText();
+        } else if (e.key === 'Escape') {
           setText(display);
           setEditing(false);
         }

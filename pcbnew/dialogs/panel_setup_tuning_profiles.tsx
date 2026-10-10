@@ -787,7 +787,10 @@ function GlobalDelayField({
         onChange={(e) => setText(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') commit();
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          }
         }}
       />
       <span className="unit">{units === 'ps/in' ? 'ps/inch' : units}</span>

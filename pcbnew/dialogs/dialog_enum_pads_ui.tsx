@@ -69,7 +69,10 @@ export function DialogEnumPads({
             value={prefix}
             onChange={(e) => setPrefix(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') ok();
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                ok();
+              }
             }}
           />
           <label className="lbl" htmlFor="ze-enumpads-start">
