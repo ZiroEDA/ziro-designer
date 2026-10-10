@@ -34,6 +34,13 @@ function formatWildcardExt(aWildcard: string): string {
 /** What a plugin opens a path with: the file's bytes, or null when there is none. */
 export type IO_FILE_READER = (aPath: string) => Uint8Array | null;
 
+/**
+ * The names of the files in one folder (`wxDir::GetAllFiles( dir, …, wxDIR_FILES )`), or
+ * null when it cannot be listed: for the importers that look for a sibling file by name
+ * without knowing its exact case.
+ */
+export type IO_DIR_LISTER = (aDir: string) => string[] | null;
+
 /** `wxFileName( aPath ).GetExt()`: after the last dot of the last component. */
 export function fileNameExt(aPath: string): string {
   const name = aPath.substring(Math.max(aPath.lastIndexOf('/'), aPath.lastIndexOf('\\')) + 1);
@@ -110,6 +117,8 @@ export abstract class IO_BASE {
   protected m_progressReporter: PROGRESS_REPORTER | null = null;
   /** Where the plugin's paths are read from (see the file header). */
   protected m_readFile: IO_FILE_READER = () => null;
+  /** Where a folder's file names are listed from; none by default. */
+  protected m_listDir: IO_DIR_LISTER = () => null;
 
   protected constructor(aName: string) {
     this.m_name = aName;
@@ -134,6 +143,11 @@ export abstract class IO_BASE {
   /** The browser's file source; see the file header. */
   SetFileReader(aReader: IO_FILE_READER): void {
     this.m_readFile = aReader;
+  }
+
+  /** The folder lister to go with the file source; see IO_DIR_LISTER. */
+  SetDirLister(aLister: IO_DIR_LISTER): void {
+    this.m_listDir = aLister;
   }
 
   abstract GetLibraryDesc(): IO_FILE_DESC;

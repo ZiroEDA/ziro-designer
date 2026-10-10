@@ -12,7 +12,7 @@
  * the plugin's bare output.
  */
 import { basename, dirname, join } from 'node:path';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import type { CHOOSE_PROJECT_HANDLER } from '@ziroeda/common/io/common/plugin_common_choose_project.js';
 import { MEMORY_FILESYSTEM, wxMountFileSystem } from '@ziroeda/common/wx/filefn.js';
 import {
@@ -23,6 +23,7 @@ import {
 import { Pgm } from '@ziroeda/common/pgm_base.js';
 import { SCH_EDIT_FRAME, type SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { SCH_CLEANUP_FLAGS, SCHEMATIC } from '@ziroeda/eeschema/schematic.js';
+import { SCH_SCREENS } from '@ziroeda/eeschema/sch_screen.js';
 import { SCH_FILE_T, SCH_IO_MGR } from '@ziroeda/eeschema/sch_io/sch_io_mgr.js';
 import type { SCH_IO as SCH_IO_BASE } from '@ziroeda/eeschema/sch_io/sch_io.js';
 import { SCH_IO_KICAD_SEXPR } from '@ziroeda/eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
@@ -98,6 +99,14 @@ function importMounted(
     }
   });
 
+  pi.SetDirLister((d) => {
+    try {
+      return readdirSync(d);
+    } catch {
+      return null;
+    }
+  });
+
   const chooser = pi as SCH_IO_BASE & { RegisterCallback?: (h: CHOOSE_PROJECT_HANDLER) => void };
   chooser.RegisterCallback?.(aChoose);
 
@@ -129,11 +138,14 @@ function importMounted(
   const io = new SCH_IO_KICAD_SEXPR('eeschema');
   const sheets = new Map<string, string>();
 
-  // SaveProject: each screen once, through the first sheet path that reaches it.
-  for (const path of schematic.Hierarchy()) {
-    const screen = path.LastScreen()!;
-    const name = basename(screen.GetFileName());
-    if (!sheets.has(name)) sheets.set(name, io.SaveSchematicFile(path.Last()!, schematic));
+  // SaveProject (files-io.cpp:1352): every screen in SCH_SCREENS order, through its first
+  // client sheet, skipping one with no file name. Two screens that share a file name (Altium's
+  // repeated channels each load their own) both write it, and the later one is what is left.
+  const screens = new SCH_SCREENS(schematic.Root());
+  for (let i = 0; i < screens.GetCount(); i++) {
+    const name = basename(screens.GetScreen(i)!.GetFileName());
+    if (name === '') continue;
+    sheets.set(name, io.SaveSchematicFile(screens.GetSheet(i)!, schematic));
   }
 
   const root = io.SaveSchematicFile(schematic.GetTopLevelSheet()!, schematic);

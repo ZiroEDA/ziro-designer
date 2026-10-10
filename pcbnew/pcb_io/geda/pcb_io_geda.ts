@@ -264,9 +264,6 @@ function parseParameters(
 
 const eqNoCase = (a: string, b: string): boolean => wxCmpNoCase(a, b) === 0;
 
-/** Lists the file names in a directory, or null when it cannot be opened. */
-export type GEDA_DIRECTORY_LISTER = (aDirectory: string) => string[] | null;
-
 class GPCB_FPL_CACHE_ENTRY {
   constructor(
     private readonly m_filename: string,
@@ -689,7 +686,6 @@ function elementPin(footprint: FOOTPRINT, parameters: string[], conv_unit: numbe
 export class PCB_IO_GEDA extends PCB_IO {
   private m_cache: GPCB_FPL_CACHE | null = null;
   private m_ctl: number;
-  private m_listDir: GEDA_DIRECTORY_LISTER = () => null;
   private m_cachedFootprints: FOOTPRINT[] = [];
   /** `std::map<wxString, NETINFO_ITEM*>`. */
   private m_netMap = new Map<string, NETINFO_ITEM>();
@@ -718,11 +714,6 @@ export class PCB_IO_GEDA extends PCB_IO {
       [GedaPcbFootprintLibFileExtension],
       false,
     );
-  }
-
-  /** Where a library directory's file names come from (the browser has no `wxDir`). */
-  SetDirectoryLister(aLister: GEDA_DIRECTORY_LISTER): void {
-    this.m_listDir = aLister;
   }
 
   /** @internal the cache's `wxDir`. */

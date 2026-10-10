@@ -30,6 +30,7 @@ export enum wxImageResolution {
 /** `wxBitmapType`, the members the image code uses. */
 export enum wxBitmapType {
   wxBITMAP_TYPE_INVALID = 0,
+  wxBITMAP_TYPE_BMP = 1,
   wxBITMAP_TYPE_PNG = 15,
   wxBITMAP_TYPE_JPEG = 17,
   wxBITMAP_TYPE_ANY = 50,
@@ -56,6 +57,14 @@ function isPng(aData: Uint8Array): boolean {
 
   return true;
 }
+
+function isBmp(aData: Uint8Array): boolean {
+  return aData.length >= 2 && aData[0] === 0x42 && aData[1] === 0x4d; // "BM"
+}
+
+const le16 = (b: Uint8Array, off: number): number => b[off]! | (b[off + 1]! << 8);
+const le32 = (b: Uint8Array, off: number): number =>
+  b[off]! | (b[off + 1]! << 8) | (b[off + 2]! << 16) | (b[off + 3]! << 24);
 
 function isJpeg(aData: Uint8Array): boolean {
   return aData.length >= 3 && aData[0] === 0xff && aData[1] === 0xd8 && aData[2] === 0xff;
@@ -206,6 +215,8 @@ export class WX_IMAGE {
 
     if (isJpeg(aData)) return this.loadJpegHeader(aData);
 
+    if (isBmp(aData)) return this.loadBmp(aData);
+
     return false;
   }
 
@@ -214,6 +225,8 @@ export class WX_IMAGE {
     if (isPng(aData)) return wxBitmapType.wxBITMAP_TYPE_PNG;
 
     if (isJpeg(aData)) return wxBitmapType.wxBITMAP_TYPE_JPEG;
+
+    if (isBmp(aData)) return wxBitmapType.wxBITMAP_TYPE_BMP;
 
     return wxBitmapType.wxBITMAP_TYPE_INVALID;
   }
@@ -365,6 +378,90 @@ export class WX_IMAGE {
       out.m_rgb[i] = Math.trunc(out.m_rgb[i]! * 0.4 + aBrightness * (1.0 - 0.4));
 
     return out;
+  }
+
+  /**
+   * `wxBMPHandler::LoadFile`: a Windows DIB. Uncompressed 1, 4, 8, 24 and 32 bits per pixel
+   * are decoded; any other layout is read for its size and resolution only, as a JPEG is.
+   * The resolution is the header's pixels per metre over 100, in dots per centimetre.
+   */
+  private loadBmp(aData: Uint8Array): boolean {
+    if (aData.length < 54) return false;
+
+    const dataOffset = le32(aData, 10);
+    const dibSize = le32(aData, 14);
+
+    if (dibSize < 40) return false;
+
+    const width = le32(aData, 18);
+    const rawHeight = le32(aData, 22);
+    const bpp = le16(aData, 28);
+    const compression = le32(aData, 30);
+    const hres = le32(aData, 38);
+    const vres = le32(aData, 42);
+    const clrUsed = le32(aData, 46);
+    const topDown = rawHeight < 0;
+    const height = Math.abs(rawHeight);
+
+    if (width <= 0 || height === 0) return false;
+
+    if (hres > 0 && vres > 0) {
+      this.m_options.set(wxIMAGE_OPTION_RESOLUTIONUNIT, wxImageResolution.wxIMAGE_RESOLUTION_CM);
+      this.m_options.set(wxIMAGE_OPTION_RESOLUTIONX, Math.trunc(hres / 100));
+      this.m_options.set(wxIMAGE_OPTION_RESOLUTIONY, Math.trunc(vres / 100));
+    }
+
+    this.m_width = width;
+    this.m_height = height;
+    this.m_alpha = null;
+
+    const decodable = compression === 0 && [1, 4, 8, 24, 32].includes(bpp);
+    const stride = Math.ceil((width * bpp) / 32) * 4;
+
+    if (!decodable || dataOffset + stride * height > aData.length) {
+      this.m_rgb = null;
+      this.m_pixelsKnown = false;
+      return true;
+    }
+
+    const paletteOffset = 14 + dibSize;
+    const paletteSize = bpp <= 8 ? clrUsed || 1 << bpp : 0;
+    const rgb = new Uint8Array(width * height * 3);
+
+    for (let row = 0; row < height; row++) {
+      const y = topDown ? row : height - 1 - row;
+      const line = dataOffset + row * stride;
+
+      for (let x = 0; x < width; x++) {
+        const d = (y * width + x) * 3;
+        let b: number;
+        let g: number;
+        let r: number;
+
+        if (bpp >= 24) {
+          const p = line + x * (bpp / 8);
+          b = aData[p]!;
+          g = aData[p + 1]!;
+          r = aData[p + 2]!;
+        } else {
+          const bit = x * bpp;
+          const byte = aData[line + (bit >> 3)]!;
+          const index = (byte >> (8 - bpp - (bit & 7))) & ((1 << bpp) - 1);
+          const q = paletteOffset + Math.min(index, paletteSize - 1) * 4;
+          b = aData[q] ?? 0;
+          g = aData[q + 1] ?? 0;
+          r = aData[q + 2] ?? 0;
+        }
+
+        rgb[d] = r;
+        rgb[d + 1] = g;
+        rgb[d + 2] = b;
+      }
+    }
+
+    this.m_rgb = rgb;
+    this.m_pixelsKnown = true;
+    return true;
   }
 
   private loadJpegHeader(aData: Uint8Array): boolean {

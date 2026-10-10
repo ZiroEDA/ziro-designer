@@ -106,7 +106,7 @@ describe('PCB_IO_GEDA footprint library against kicad-cli 10.0.6', () => {
 
   function libIo(): PCB_IO_GEDA {
     const plugin = new PCB_IO_GEDA();
-    plugin.SetDirectoryLister((d) => (d === LIB ? readdirSync(`${DATA}${LIB}`) : null));
+    plugin.SetDirLister((d) => (d === LIB ? readdirSync(`${DATA}${LIB}`) : null));
     plugin.SetFileReader((p) =>
       p.startsWith(`${LIB}/`) ? new Uint8Array(readFileSync(`${DATA}${p}`)) : null,
     );
