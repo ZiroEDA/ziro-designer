@@ -35,7 +35,12 @@ describe('SCH_IO_EAGLE against eeschema 10.0.6', () => {
   beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
   afterEach(() => SetPgm(null));
 
-  it.each(['issue24483_pin_tag', 'aht20', 'eagle-import-testfile'])('%s', (aName) => {
+  it.each([
+    'issue24483_pin_tag',
+    'aht20',
+    'eagle-import-testfile',
+    'eagle-variant',
+  ])('%s', (aName) => {
     const kicadDir = join(DIR, aName, 'kicad');
     const ours = importThroughFrame(join(DIR, aName, `${aName}.sch`), SCH_FILE_T.SCH_EAGLE);
 

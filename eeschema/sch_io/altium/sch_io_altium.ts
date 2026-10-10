@@ -3924,11 +3924,11 @@ export class SCH_IO_ALTIUM extends SCH_IO {
     //Hide the image if it is owned by a component but the part id do not match
     if (component && component.currentpartid !== elem.ownerpartid) return;
 
-    // `( location + corner ) / 2`: VECTOR2<int>::operator/( int ) truncates.
+    // `( location + corner ) / 2`: VECTOR2 has only operator/( double ), which rounds.
     const center = add(
       {
-        x: Math.trunc((elem.location.x + elem.corner.x) / 2),
-        y: Math.trunc((elem.location.y + elem.corner.y) / 2),
+        x: KiROUND((elem.location.x + elem.corner.x) / 2),
+        y: KiROUND((elem.location.y + elem.corner.y) / 2),
       },
       this.m_sheetOffset,
     );
