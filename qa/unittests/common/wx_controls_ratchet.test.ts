@@ -72,7 +72,7 @@ const BASELINE: Record<(typeof AREAS)[number], Record<Kind, number>> = {
   common: { button: 104, checkbox: 15, select: 0, frame: 15, radio: 6, entry: 44, sbox: 9 },
   cvpcb: { button: 6, checkbox: 0, select: 0, frame: 2, radio: 0, entry: 2, sbox: 0 },
   designer: { button: 117, checkbox: 5, select: 4, frame: 4, radio: 13, entry: 66, sbox: 13 },
-  eeschema: { button: 110, checkbox: 74, select: 26, frame: 1, radio: 23, entry: 72, sbox: 38 },
+  eeschema: { button: 24, checkbox: 29, select: 26, frame: 1, radio: 23, entry: 72, sbox: 38 },
   gerbview: { button: 11, checkbox: 4, select: 0, frame: 3, radio: 2, entry: 2, sbox: 3 },
   pagelayout_editor: { button: 6, checkbox: 0, select: 0, frame: 1, radio: 0, entry: 4, sbox: 1 },
   // +9 buttons, +6 checkboxes, +3 frames (10-10): pcb-exports' IPC-2581, ODB++ and VRML export

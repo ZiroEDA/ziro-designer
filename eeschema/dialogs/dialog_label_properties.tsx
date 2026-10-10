@@ -27,6 +27,7 @@
  * Left out: the syntax-help window, which links to KiCad's documentation instead.
  */
 
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useReducer, useState } from 'react';
 import { DisplayErrorMessage, DisplayInfoMessage } from '@ziroeda/common/confirm.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
@@ -706,14 +707,12 @@ export function DialogLabelProperties({
         {dlg.m_hasTextEntry && (
           <div className="ze-lp-entry-row2">
             {dlg.IsMultilineAllowed() ? (
-              <label className="ze-lp-check">
-                <input
-                  type="checkbox"
-                  checked={multiLine}
-                  onChange={(e) => onMultiLabelCheck(e.target.checked)}
-                />
-                Multiple label input
-              </label>
+              <CheckBox
+                label="Multiple label input"
+                checked={multiLine}
+                className="ze-lp-check"
+                onChange={(v) => onMultiLabelCheck(v)}
+              />
             ) : (
               <span />
             )}
@@ -832,14 +831,12 @@ export function DialogLabelProperties({
                   />
                 ))}
                 {dlg.m_hasAutoRotate && (
-                  <label className="ze-lp-check ze-lp-auto">
-                    <input
-                      type="checkbox"
-                      checked={autoRotate}
-                      onChange={(e) => setAutoRotate(e.target.checked)}
-                    />
-                    Auto
-                  </label>
+                  <CheckBox
+                    label="Auto"
+                    checked={autoRotate}
+                    className="ze-lp-check ze-lp-auto"
+                    onChange={(v) => setAutoRotate(v)}
+                  />
                 )}
                 {!dlg.m_isDirective && <BitmapButtonSeparator />}
               </div>
@@ -871,12 +868,8 @@ export function DialogLabelProperties({
       </div>
 
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" onClick={submit}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault onClick={submit} />
       </div>
     </DialogShim>
   );

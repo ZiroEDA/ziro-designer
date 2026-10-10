@@ -41,6 +41,7 @@
  *   - `ShowModal` seeds the selection from the caller's current text (:131),
  *     so browsing a filled-in field starts on that symbol.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useCallback, useRef, useState } from 'react';
 import {
   PanelSymbolChooser,
@@ -112,12 +113,8 @@ export function SymbolChooserFrame({
       {/* The frame's bottom panel is a wxStdDialogButtonSizer and nothing
         else: no placement checkboxes. Cancel then OK is GTK's order. */}
       <div className="ze-modal-footer">
-        <button className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button className="ze-btn primary" onClick={accept}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault onClick={accept} />
       </div>
     </DialogShim>
   );

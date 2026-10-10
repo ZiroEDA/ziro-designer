@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import {
   PIN_SHAPE_ENTRIES,
   PIN_TYPE_ENTRIES,
@@ -258,31 +259,18 @@ export function PinPropertiesDialog({
           <MMField label="Name text size:" value={nameSize} onChange={setNameSize} />
           <MMField label="Number text size:" value={numSize} onChange={setNumSize} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={allUnits}
-                disabled={!multiUnit}
-                onChange={(e) => setAllUnits(e.target.checked)}
-              />{' '}
-              Common to all units in symbol
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={allBodies}
-                onChange={(e) => setAllBodies(e.target.checked)}
-              />{' '}
-              Common to all body styles (De Morgan)
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={visible}
-                onChange={(e) => setVisible(e.target.checked)}
-              />{' '}
-              Visible
-            </label>
+            <CheckBox
+              label="Common to all units in symbol"
+              checked={allUnits}
+              disabled={!multiUnit}
+              onChange={(v) => setAllUnits(v)}
+            />
+            <CheckBox
+              label="Common to all body styles (De Morgan)"
+              checked={allBodies}
+              onChange={(v) => setAllBodies(v)}
+            />
+            <CheckBox label="Visible" checked={visible} onChange={(v) => setVisible(v)} />
           </div>
         </div>
         <div style={{ flex: 1, minWidth: 280 }}>
@@ -294,12 +282,8 @@ export function PinPropertiesDialog({
         </div>
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" onClick={submit}>
-          {isNew ? 'OK' : 'OK'}
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label={isNew ? 'OK' : 'OK'} isDefault onClick={submit} />
       </div>
     </DialogShim>
   );
@@ -442,61 +426,43 @@ export function NewSymbolDialog({
             onKeyDown={(e) => e.stopPropagation()}
           />
         </label>
-        <label>
-          <input
-            type="checkbox"
-            disabled={derived || units < 2}
-            checked={interchangeable}
-            onChange={(e) => setInterchangeable(e.target.checked)}
-          />{' '}
-          All units are interchangeable
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            disabled={derived}
-            checked={deMorgan}
-            onChange={(e) => setDeMorgan(e.target.checked)}
-          />{' '}
-          Create symbol with alternate body style (De Morgan)
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            disabled={derived}
-            checked={power}
-            onChange={(e) => setPower(e.target.checked)}
-          />{' '}
-          Create symbol as power symbol
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            disabled={derived}
-            checked={exBom}
-            onChange={(e) => setExBom(e.target.checked)}
-          />{' '}
-          Exclude from schematic bill of materials
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            disabled={derived}
-            checked={exBoard}
-            onChange={(e) => setExBoard(e.target.checked)}
-          />{' '}
-          Exclude from board
-        </label>
+        <CheckBox
+          label="All units are interchangeable"
+          checked={interchangeable}
+          disabled={derived || units < 2}
+          onChange={(v) => setInterchangeable(v)}
+        />
+        <CheckBox
+          label="Create symbol with alternate body style (De Morgan)"
+          checked={deMorgan}
+          disabled={derived}
+          onChange={(v) => setDeMorgan(v)}
+        />
+        <CheckBox
+          label="Create symbol as power symbol"
+          checked={power}
+          disabled={derived}
+          onChange={(v) => setPower(v)}
+        />
+        <CheckBox
+          label="Exclude from schematic bill of materials"
+          checked={exBom}
+          disabled={derived}
+          onChange={(v) => setExBom(v)}
+        />
+        <CheckBox
+          label="Exclude from board"
+          checked={exBoard}
+          disabled={derived}
+          onChange={(v) => setExBoard(v)}
+        />
         <div style={{ borderTop: '1px solid #444', margin: '4px 0' }} />
-        <label>
-          <input
-            type="checkbox"
-            disabled={derived}
-            checked={nameInside}
-            onChange={(e) => setNameInside(e.target.checked)}
-          />{' '}
-          Pin name inside symbol body
-        </label>
+        <CheckBox
+          label="Pin name inside symbol body"
+          checked={nameInside}
+          disabled={derived}
+          onChange={(v) => setNameInside(v)}
+        />
         {nameInside && !derived && (
           <MMField
             label="Position of pin names from body:"
@@ -504,32 +470,22 @@ export function NewSymbolDialog({
             onChange={setPinTextPos}
           />
         )}
-        <label>
-          <input
-            type="checkbox"
-            disabled={derived}
-            checked={showPinNum}
-            onChange={(e) => setShowPinNum(e.target.checked)}
-          />{' '}
-          Show pin number text
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            disabled={derived}
-            checked={showPinName}
-            onChange={(e) => setShowPinName(e.target.checked)}
-          />{' '}
-          Show pin name text
-        </label>
+        <CheckBox
+          label="Show pin number text"
+          checked={showPinNum}
+          disabled={derived}
+          onChange={(v) => setShowPinNum(v)}
+        />
+        <CheckBox
+          label="Show pin name text"
+          checked={showPinName}
+          disabled={derived}
+          onChange={(v) => setShowPinName(v)}
+        />
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" onClick={submit}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault onClick={submit} />
       </div>
     </DialogShim>
   );
@@ -703,13 +659,9 @@ export function LibSymbolPropertiesDialog({
           </table>
         </div>
         <div className="ze-props-rowbtns">
-          <button type="button" className="ze-btn sm" title="Add field" onClick={addRow}>
-            +
-          </button>
+          <Button label="+" title="Add field" className="sm" onClick={addRow} />
           <span className="grow" />
-          <button type="button" className="ze-btn sm" title="Delete field" onClick={deleteRow}>
-            🗑
-          </button>
+          <Button label="🗑" title="Delete field" className="sm" onClick={deleteRow} />
         </div>
 
         <div className="ze-props-columns">
@@ -745,57 +697,34 @@ export function LibSymbolPropertiesDialog({
                 onKeyDown={(e) => e.stopPropagation()}
               />
             </label>
-            <label>
-              <input
-                type="checkbox"
-                disabled={units < 2}
-                checked={interchangeable}
-                onChange={(e) => setInterchangeable(e.target.checked)}
-              />{' '}
-              All units are interchangeable
-            </label>
-            <label>
-              <input type="checkbox" checked={power} onChange={(e) => setPower(e.target.checked)} />{' '}
-              Define as power symbol
-            </label>
+            <CheckBox
+              label="All units are interchangeable"
+              checked={interchangeable}
+              disabled={units < 2}
+              onChange={(v) => setInterchangeable(v)}
+            />
+            <CheckBox
+              label="Define as power symbol"
+              checked={power}
+              onChange={(v) => setPower(v)}
+            />
           </fieldset>
           <fieldset className="ze-props-group">
             <legend>Pin Text Options</legend>
-            <label>
-              <input
-                type="checkbox"
-                checked={showNums}
-                onChange={(e) => setShowNums(e.target.checked)}
-              />{' '}
-              Show pin number
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={showNames}
-                onChange={(e) => setShowNames(e.target.checked)}
-              />{' '}
-              Show pin name
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={nameInside}
-                onChange={(e) => setNameInside(e.target.checked)}
-              />{' '}
-              Place pin names inside
-            </label>
+            <CheckBox label="Show pin number" checked={showNums} onChange={(v) => setShowNums(v)} />
+            <CheckBox label="Show pin name" checked={showNames} onChange={(v) => setShowNames(v)} />
+            <CheckBox
+              label="Place pin names inside"
+              checked={nameInside}
+              onChange={(v) => setNameInside(v)}
+            />
             {nameInside && <MMField label="Position offset:" value={offset} onChange={setOffset} />}
           </fieldset>
         </div>
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" onClick={submit}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault onClick={submit} />
       </div>
     </DialogShim>
   );
@@ -861,23 +790,13 @@ export function SymbolTextDialog({
         </label>
         <MMField label="Text size:" value={size} onChange={setSize} />
         <div style={{ display: 'flex', gap: 16 }}>
-          <label>
-            <input type="checkbox" checked={bold} onChange={(e) => setBold(e.target.checked)} />{' '}
-            Bold
-          </label>
-          <label>
-            <input type="checkbox" checked={italic} onChange={(e) => setItalic(e.target.checked)} />{' '}
-            Italic
-          </label>
+          <CheckBox label="Bold" checked={bold} onChange={(v) => setBold(v)} />
+          <CheckBox label="Italic" checked={italic} onChange={(v) => setItalic(v)} />
         </div>
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" disabled={!text.trim()} onClick={submit}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault disabled={!text.trim()} onClick={submit} />
       </div>
     </DialogShim>
   );
@@ -942,16 +861,12 @@ export function ShapePropertiesDialog({
         </label>
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="ze-btn primary"
+        <Button label="Cancel" onClick={onCancel} />
+        <Button
+          label="OK"
+          isDefault
           onClick={() => onOk({ strokeWidth: width, strokeType: type, fillType: fill })}
-        >
-          OK
-        </button>
+        />
       </div>
     </DialogShim>
   );
@@ -1106,12 +1021,8 @@ export function PinTableDialog({
         </div>
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" onClick={submit}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault onClick={submit} />
       </div>
     </DialogShim>
   );
@@ -1214,9 +1125,7 @@ export function SymbolCheckDialog({
         )}
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn primary" onClick={onClose}>
-          Close
-        </button>
+        <Button label="Close" isDefault onClick={onClose} />
       </div>
     </DialogShim>
   );

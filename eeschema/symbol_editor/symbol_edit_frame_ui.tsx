@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
 import { iuToMM, SCH_IU_PER_MM } from '@ziroeda/common';
 import { parse } from '@ziroeda/sexpr';
@@ -2893,9 +2894,7 @@ export function SymbolEditor({
             </div>
           </div>
           <div className="ze-modal-footer">
-            <button type="button" className="ze-btn primary" onClick={() => setLibError(null)}>
-              OK
-            </button>
+            <Button label="OK" isDefault onClick={() => setLibError(null)} />
           </div>
         </DialogShim>
       )}
@@ -2929,12 +2928,10 @@ export function SymbolEditor({
             </div>
           </div>
           <div className="ze-modal-footer">
-            <button type="button" className="ze-btn" onClick={() => setNewLibName(null)}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="ze-btn primary"
+            <Button label="Cancel" onClick={() => setNewLibName(null)} />
+            <Button
+              label="Create"
+              isDefault
               disabled={!newLibName.trim()}
               onClick={() => {
                 manager.current.createLibrary(newLibName.trim());
@@ -2942,9 +2939,7 @@ export function SymbolEditor({
                 setNewLibName(null);
                 bump();
               }}
-            >
-              Create
-            </button>
+            />
           </div>
         </DialogShim>
       )}

@@ -21,6 +21,7 @@
  * asking first whether an absolute path should be made relative; the undo step is the caller's,
  * gated on the isUndoable out-parameter.
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useReducer, useState } from 'react';
 import { DisplayErrorMessage, ShowKicadMessageDialog } from '@ziroeda/common/confirm.js';
 import { ensureFileExtension } from '@ziroeda/common/common.js';
@@ -668,46 +669,38 @@ export function DialogSheetProperties({
                 onKeyDown={(e) => e.stopPropagation()}
               />
             </label>
-            <label className="ze-lp-check">
-              <input
-                type="checkbox"
-                checked={excludeFromSim}
-                onChange={(e) => setExcludeFromSim(e.target.checked)}
-              />
-              Exclude from simulation
-            </label>
-            <label
+            <CheckBox
+              label="Exclude from simulation"
+              checked={excludeFromSim}
               className="ze-lp-check"
+              onChange={(v) => setExcludeFromSim(v)}
+            />
+            <CheckBox
+              label="Exclude from bill of materials"
+              checked={excludeFromBom}
               title={
                 'This is useful for adding symbols for board footprints such as fiducials\n' +
                 'and logos that you do not want to appear in the bill of materials export'
               }
-            >
-              <input
-                type="checkbox"
-                checked={excludeFromBom}
-                onChange={(e) => setExcludeFromBom(e.target.checked)}
-              />
-              Exclude from bill of materials
-            </label>
-            <label
               className="ze-lp-check"
+              onChange={(v) => setExcludeFromBom(v)}
+            />
+            <CheckBox
+              label="Exclude from board"
+              checked={excludeFromBoard}
               title={
                 'This is useful for adding symbols that only get exported to the bill of materials but\n' +
                 'not required to layout the board such as mechanical fasteners and enclosures'
               }
-            >
-              <input
-                type="checkbox"
-                checked={excludeFromBoard}
-                onChange={(e) => setExcludeFromBoard(e.target.checked)}
-              />
-              Exclude from board
-            </label>
-            <label className="ze-lp-check">
-              <input type="checkbox" checked={dnp} onChange={(e) => setDnp(e.target.checked)} />
-              Do not populate
-            </label>
+              className="ze-lp-check"
+              onChange={(v) => setExcludeFromBoard(v)}
+            />
+            <CheckBox
+              label="Do not populate"
+              checked={dnp}
+              className="ze-lp-check"
+              onChange={(v) => setDnp(v)}
+            />
           </fieldset>
 
           <fieldset className="ze-lp-formatting">
@@ -754,12 +747,8 @@ export function DialogSheetProperties({
       <div className="ze-modal-footer">
         <span className="ze-sheetprops-pathlabel">Hierarchical path:</span>
         <span className="ze-sheetprops-path">{dlg.HierarchicalPath()}</span>
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" onClick={submit}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault onClick={submit} />
       </div>
     </DialogShim>
   );

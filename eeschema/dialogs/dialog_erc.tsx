@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { iuToMM } from '@ziroeda/common';
@@ -693,71 +694,62 @@ export function ErcDialog({
 
       <div className="ze-erc-footer">
         <span className="show-label">Show:</span>
-        <label className="chk">
-          <input
-            type="checkbox"
-            checked={showAll}
-            onChange={(e) =>
-              // DIALOG_ERC::OnSeverity (dialog_erc.cpp:1118-1129): the All box
-              // turns Errors on whichever way it is moved, and hands only
-              // Warnings and Exclusions its own new state.
-              {
-                setShowAll(e.target.checked);
-                setFilters({
-                  errors: true,
-                  warnings: e.target.checked,
-                  exclusions: e.target.checked,
-                });
-              }
+        <CheckBox
+          label="All"
+          checked={showAll}
+          className="chk"
+          onChange={(
+            v, // DIALOG_ERC::OnSeverity (dialog_erc.cpp:1118-1129): the All box
+          ) =>
+            // turns Errors on whichever way it is moved, and hands only
+            // Warnings and Exclusions its own new state.
+            {
+              setShowAll(v);
+              setFilters({
+                errors: true,
+                warnings: v,
+                exclusions: v,
+              });
             }
-          />
-          All
-        </label>
+          }
+        />
         <span className="gap-35" />
-        <label className="chk">
-          <input
-            type="checkbox"
-            checked={filters.errors}
-            onChange={(e) => setFilters({ ...filters, errors: e.target.checked })}
-          />
-          Errors
-        </label>
+        <CheckBox
+          label="Errors"
+          checked={filters.errors}
+          className="chk"
+          onChange={(v) => setFilters({ ...filters, errors: v })}
+        />
         {errorsBadge && <span className={`ze-badge ${errorsBadge.kind}`}>{errorsBadge.text}</span>}
         <span className="gap-25" />
-        <label className="chk">
-          <input
-            type="checkbox"
-            checked={filters.warnings}
-            onChange={(e) => setFilters({ ...filters, warnings: e.target.checked })}
-          />
-          Warnings
-        </label>
+        <CheckBox
+          label="Warnings"
+          checked={filters.warnings}
+          className="chk"
+          onChange={(v) => setFilters({ ...filters, warnings: v })}
+        />
         {warningsBadge && (
           <span className={`ze-badge ${warningsBadge.kind}`}>{warningsBadge.text}</span>
         )}
         <span className="gap-25" />
-        <label className="chk">
-          <input
-            type="checkbox"
-            checked={filters.exclusions}
-            onChange={(e) => setFilters({ ...filters, exclusions: e.target.checked })}
-          />
-          Exclusions
-        </label>
+        <CheckBox
+          label="Exclusions"
+          checked={filters.exclusions}
+          className="chk"
+          onChange={(v) => setFilters({ ...filters, exclusions: v })}
+        />
         {exclusionsBadge && (
           <span className={`ze-badge ${exclusionsBadge.kind}`}>{exclusionsBadge.text}</span>
         )}
         <span className="grow" />
-        <button
-          className="ze-btn"
+        <Button
+          label="Save..."
           disabled={!!running}
           onClick={(e) => {
             const r = (e.target as HTMLElement).getBoundingClientRect();
             setSaveMenu({ x: r.left, y: r.top });
           }}
-        >
-          Save...
-        </button>
+        />
       </div>
 
       {/* Both delete buttons are live except while a run is in flight, which is
@@ -766,8 +758,8 @@ export function ErcDialog({
           non-empty: RC_TREE_MODEL::DeleteItems answers Delete Marker with no
           current item by ringing the bell and returning (rc_item.cpp:664-668). */}
       <div className="ze-erc-buttons">
-        <button
-          className="ze-btn"
+        <Button
+          label="Delete Marker"
           disabled={!!running}
           onClick={() => {
             if (selected) {
@@ -775,22 +767,14 @@ export function ErcDialog({
               setSelected(null);
             }
           }}
-        >
-          Delete Marker
-        </button>
-        <button className="ze-btn" disabled={!!running} onClick={onDeleteAll}>
-          Delete All Markers
-        </button>
+        />
+        <Button label="Delete All Markers" disabled={!!running} onClick={onDeleteAll} />
         <span className="grow" />
-        <button
-          className="ze-btn"
+        <Button
+          label={running ? 'Cancel' : 'Close'}
           onClick={() => (running && onCancelRun ? onCancelRun() : onClose())}
-        >
-          {running ? 'Cancel' : 'Close'}
-        </button>
-        <button className="ze-btn primary" disabled={!!running} onClick={onRun}>
-          Run ERC
-        </button>
+        />
+        <Button label="Run ERC" isDefault disabled={!!running} onClick={onRun} />
       </div>
 
       {menu && (

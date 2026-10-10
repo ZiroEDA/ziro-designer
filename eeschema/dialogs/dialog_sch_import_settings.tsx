@@ -11,6 +11,7 @@
  * selected slices into its working state (onAuxiliaryAction).
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useRef, useState, type JSX } from 'react';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
@@ -88,9 +89,7 @@ export function DialogSchImportSettings({ onImport, onCancel }: Props): JSX.Elem
             value={fileName}
             onClick={() => fileInput.current?.click()}
           />
-          <button type="button" className="ze-btn" onClick={() => fileInput.current?.click()}>
-            Browse...
-          </button>
+          <Button label="Browse..." onClick={() => fileInput.current?.click()} />
           <input
             ref={fileInput}
             type="file"
@@ -112,18 +111,14 @@ export function DialogSchImportSettings({ onImport, onCancel }: Props): JSX.Elem
         ))}
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
         <span style={{ flex: 1 }} />
-        <button
-          type="button"
-          className="ze-btn primary"
+        <Button
+          label="Import Settings"
+          isDefault
           disabled={fileText === null}
           onClick={() => fileText !== null && onImport(fileText, opts)}
-        >
-          Import Settings
-        </button>
+        />
       </div>
     </DialogShim>
   );

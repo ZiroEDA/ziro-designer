@@ -17,6 +17,7 @@
  * and the double-click browse, which need a symbol chooser this dialog is not
  * handed; the new id is typed.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { isValidLibId, type LibIdRow } from '../index.js';
 import { DisplayInfoMessage } from '@ziroeda/common/confirm.js';
@@ -204,25 +205,18 @@ export function DialogEditSymbolsLibId({
           </div>
         </div>
         <div className="ze-modal-footer">
-          <button
-            type="button"
-            className="ze-btn"
-            onClick={() => void onClickOrphansButton()}
+          <Button
+            label="Map Orphans"
             disabled={orphanRows.length === 0}
             title={
               'If some symbols are orphaned (the linked symbol is not found anywhere),\n' +
               'try to find a candidate having the same name in one of loaded symbol libraries.'
             }
-          >
-            Map Orphans
-          </button>
+            onClick={() => void onClickOrphansButton()}
+          />
           <span style={{ flex: 1 }} />
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={() => void apply()}>
-            OK
-          </button>
+          <Button label="Cancel" onClick={onClose} />
+          <Button label="OK" isDefault onClick={() => void apply()} />
         </div>
       </DialogShim>
       {choice && (

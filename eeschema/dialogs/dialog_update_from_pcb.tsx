@@ -22,6 +22,7 @@
  * option that silently did nothing would be worse than its absence.
  */
 
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useMemo, useState, type JSX } from 'react';
 import {
   backAnnotate,
@@ -108,16 +109,12 @@ export function DialogUpdateFromPcb({
 
         <fieldset className="ze-props-group">
           <legend>Options</legend>
-          <label className="row">
-            <input
-              type="checkbox"
-              checked={opts.relinkFootprints}
-              onChange={(e) => set('relinkFootprints', e.target.checked)}
-            />
-            <span>
-              Re-link footprints to schematic symbols based on their reference designators
-            </span>
-          </label>
+          <CheckBox
+            label="Re-link footprints to schematic symbols based on their reference designators"
+            checked={opts.relinkFootprints}
+            className="row"
+            onChange={(v) => set('relinkFootprints', v)}
+          />
           {opts.relinkFootprints && (
             <div className="ze-muted" style={{ paddingLeft: 22 }}>
               Footprints are matched by reference rather than by the symbol they record. Needs a
@@ -149,14 +146,7 @@ export function DialogUpdateFromPcb({
         <button type="button" onClick={onClose}>
           Close
         </button>
-        <button
-          type="button"
-          className="ze-btn primary"
-          disabled={preview.changes === 0}
-          onClick={run}
-        >
-          Update Schematic
-        </button>
+        <Button label="Update Schematic" isDefault disabled={preview.changes === 0} onClick={run} />
       </div>
     </DialogShim>
   );

@@ -23,6 +23,7 @@
  * Not here: the Scintilla value editor and its auto-complete (a plain entry), and
  * `KIUI::SelectReferenceNumber` on first focus.
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { DisplayErrorMessage, DisplayInfoMessage } from '@ziroeda/common/confirm.js';
 import { ensureFileExtension } from '@ziroeda/common/common.js';
@@ -599,30 +600,26 @@ export function DialogFieldProperties({
 
         {/* bSizer9: the three checkboxes on ONE row, spaced apart. */}
         <div className="ze-fieldprops-checks">
-          <label className="chk">
-            <input
-              type="checkbox"
-              checked={visible}
-              onChange={(e) => setVisible(e.target.checked)}
-            />
-            Visible
-          </label>
-          <label className="chk" title="Show the field name in addition to its value">
-            <input
-              type="checkbox"
-              checked={nameVisible}
-              onChange={(e) => setNameVisible(e.target.checked)}
-            />
-            Show field name
-          </label>
-          <label className="chk" title="Allow automatic placement of this field in the schematic">
-            <input
-              type="checkbox"
-              checked={allowAutoplace}
-              onChange={(e) => setAllowAutoplace(e.target.checked)}
-            />
-            Allow automatic placement
-          </label>
+          <CheckBox
+            label="Visible"
+            checked={visible}
+            className="chk"
+            onChange={(v) => setVisible(v)}
+          />
+          <CheckBox
+            label="Show field name"
+            checked={nameVisible}
+            title="Show the field name in addition to its value"
+            className="chk"
+            onChange={(v) => setNameVisible(v)}
+          />
+          <CheckBox
+            label="Allow automatic placement"
+            checked={allowAutoplace}
+            title="Allow automatic placement of this field in the schematic"
+            className="chk"
+            onChange={(v) => setAllowAutoplace(v)}
+          />
         </div>
 
         {/* gbSizer1 row 0: m_fontLabel at (0,0), m_fontCtrl at (0,1) and the
@@ -697,12 +694,8 @@ export function DialogFieldProperties({
       </div>
       {/* m_sdbSizerButtons: GTK orders the standard sizer Cancel then OK. */}
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" onClick={submit}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault onClick={submit} />
       </div>
     </DialogShim>
   );

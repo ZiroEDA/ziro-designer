@@ -14,6 +14,7 @@
  * Not here: DIALOG_SIM_MODEL behind "Simulation Model..." (the simulator is not in this build),
  * PANEL_EMBEDDED_FILES' add / remove / export, and KIUI::SelectReferenceNumber on first focus.
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useReducer, useState } from 'react';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
@@ -887,14 +888,12 @@ export function DialogSymbolProperties({
   );
 
   const check = (aKey: keyof SYMBOL_DIALOG_VALUES, aLabel: string, aTip?: string): JSX.Element => (
-    <label className="ze-check" title={aTip}>
-      <input
-        type="checkbox"
-        checked={values[aKey] as boolean}
-        onChange={(e) => set(aKey, e.target.checked as never)}
-      />
-      {aLabel}
-    </label>
+    <CheckBox
+      label={aLabel}
+      checked={values[aKey] as boolean}
+      title={aTip}
+      onChange={(v) => set(aKey, v as never)}
+    />
   );
 
   const multiUnit = values.unit >= 0;
@@ -1089,37 +1088,25 @@ export function DialogSymbolProperties({
 
                 {/* buttonsSizer: a 20px gap before the one that acts on the library part. */}
                 <div className="ze-symprops-buttons">
-                  <button
-                    type="button"
-                    className="ze-btn"
+                  <Button
+                    label="Update Symbol from Library..."
                     onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_WANT_UPDATE_SYMBOL)}
-                  >
-                    Update Symbol from Library...
-                  </button>
-                  <button
-                    type="button"
-                    className="ze-btn"
+                  />
+                  <Button
+                    label="Change Symbol..."
                     onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_WANT_EXCHANGE_SYMBOL)}
-                  >
-                    Change Symbol...
-                  </button>
-                  <button
-                    type="button"
-                    className="ze-btn"
+                  />
+                  <Button
+                    label="Edit Symbol..."
                     disabled={!dlg.m_canEditSymbol}
                     onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_EDIT_SCHEMATIC_SYMBOL)}
-                  >
-                    Edit Symbol...
-                  </button>
+                  />
                   <span className="ze-symprops-btnsgap" />
-                  <button
-                    type="button"
-                    className="ze-btn"
+                  <Button
+                    label="Edit Library Symbol..."
                     disabled={!dlg.m_canEditSymbol}
                     onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_EDIT_LIBRARY_SYMBOL)}
-                  >
-                    Edit Library Symbol...
-                  </button>
+                  />
                 </div>
               </div>
             </div>
@@ -1140,27 +1127,20 @@ export function DialogSymbolProperties({
         />
         {/* m_spiceFieldsButton: hidden for a power symbol; DIALOG_SIM_MODEL is not ported. */}
         {!dlg.m_isPower && (
-          <button
-            type="button"
-            className="ze-btn"
+          <Button
+            label="Simulation Model..."
             disabled
             title="The simulator is not available in this build"
-          >
-            Simulation Model...
-          </button>
+          />
         )}
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="ze-btn primary"
+        <Button label="Cancel" onClick={onCancel} />
+        <Button
+          label="OK"
+          isDefault
           onClick={() => {
             if (dlg.TransferDataFromWindow(values)) onClose(wxID_OK);
           }}
-        >
-          OK
-        </button>
+        />
       </div>
     </DialogShim>
   );

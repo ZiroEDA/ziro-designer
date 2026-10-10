@@ -12,7 +12,7 @@
  *
  * Moved verbatim out of `prefs/PreferencesDialog.tsx`; no behaviour change.
  */
-import type { JSX, ReactNode, Ref } from 'react';
+import type { JSX, MouseEvent, ReactNode, Ref } from 'react';
 import { Combo } from '../widgets/wx_combobox.js';
 import { ColorSwatch } from '../widgets/color_swatch.js';
 import { SpinCtrl } from '../widgets/spin_ctrl.js';
@@ -84,7 +84,8 @@ export function Button({
   className,
 }: {
   label: string;
-  onClick?: () => void;
+  /** wxEVT_BUTTON; the event's target is GetEventObject(), e.g. to anchor a popup at it. */
+  onClick?: (aEvent: MouseEvent<HTMLButtonElement>) => void;
   isDefault?: boolean;
   disabled?: boolean;
   title?: string;

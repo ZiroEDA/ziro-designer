@@ -23,6 +23,7 @@
  * that ZiroEDA's document model does not carry yet.
  */
 
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useCallback, useRef, useState, type JSX } from 'react';
 import {
   buildFieldsReferences,
@@ -830,17 +831,13 @@ export function DialogSymbolFieldsTable({
                   ))}
                 </select>
                 <span className="ze-sft-vsep" />
-                <label
-                  className="ze-sft-check"
+                <CheckBox
+                  label="Group symbols"
+                  checked={groupSymbols}
                   title="Group symbols together based on common properties"
-                >
-                  <input
-                    type="checkbox"
-                    checked={groupSymbols}
-                    onChange={(e) => onGroupSymbols(e.target.checked)}
-                  />
-                  Group symbols
-                </label>
+                  className="ze-sft-check"
+                  onChange={(v) => onGroupSymbols(v)}
+                />
                 <span className="ze-sft-vsep" />
                 <button
                   className="ze-gridbtn"
@@ -976,22 +973,18 @@ export function DialogSymbolFieldsTable({
                   value={fmt.refRangeDelimiter}
                   onChange={(e) => editFmt({ refRangeDelimiter: e.target.value })}
                 />
-                <label className="span ze-sft-check">
-                  <input
-                    type="checkbox"
-                    checked={fmt.keepTabs}
-                    onChange={(e) => editFmt({ keepTabs: e.target.checked })}
-                  />
-                  Keep tabs
-                </label>
-                <label className="span ze-sft-check">
-                  <input
-                    type="checkbox"
-                    checked={fmt.keepLineBreaks}
-                    onChange={(e) => editFmt({ keepLineBreaks: e.target.checked })}
-                  />
-                  Keep line breaks
-                </label>
+                <CheckBox
+                  label="Keep tabs"
+                  checked={fmt.keepTabs}
+                  className="span ze-sft-check"
+                  onChange={(v) => editFmt({ keepTabs: v })}
+                />
+                <CheckBox
+                  label="Keep line breaks"
+                  checked={fmt.keepLineBreaks}
+                  className="span ze-sft-check"
+                  onChange={(v) => editFmt({ keepLineBreaks: v })}
+                />
                 <hr className="span" />
                 <label className="span">Format presets:</label>
                 <select
@@ -1055,18 +1048,10 @@ export function DialogSymbolFieldsTable({
             </button>
             <span className="ze-muted ze-sft-status">{status}</span>
             <span style={{ flex: 1 }} />
-            <button className="ze-btn" onClick={onExport}>
-              Export
-            </button>
-            <button className="ze-btn" onClick={onSaveAndContinue}>
-              Apply, Save Schematic &amp; Continue
-            </button>
-            <button className="ze-btn" onClick={onCancel}>
-              Cancel
-            </button>
-            <button className="ze-btn primary" onClick={onOk}>
-              OK
-            </button>
+            <Button label="Export" onClick={onExport} />
+            <Button label="Apply, Save Schematic &amp; Continue" onClick={onSaveAndContinue} />
+            <Button label="Cancel" onClick={onCancel} />
+            <Button label="OK" isDefault onClick={onOk} />
           </div>
         </div>
       </div>

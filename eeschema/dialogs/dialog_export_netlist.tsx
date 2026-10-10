@@ -15,6 +15,7 @@
  * (Custom command-line generators are a desktop-only feature and omitted.)
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { strToU8, zipSync } from 'fflate';
 import { RPT_SEVERITY_ACTION, RPT_SEVERITY_ERROR, type ReportLine } from '@ziroeda/common';
@@ -319,12 +320,8 @@ export function DialogExportNetlist({
         />
       </div>
       <div className="ze-modal-footer">
-        <button className="ze-btn" onClick={onClose}>
-          Close
-        </button>
-        <button className="ze-btn primary" onClick={doExport}>
-          Export Netlist
-        </button>
+        <Button label="Close" onClick={onClose} />
+        <Button label="Export Netlist" isDefault onClick={doExport} />
       </div>
     </DialogShim>
   );

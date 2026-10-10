@@ -13,6 +13,7 @@
  * (`eeschema/sch_base_frame.cpp`), the same `EDA_PANE().Name( "SelectionFilter" )`
  * both frames add.
  */
+import { CheckBox } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import type { SelectionFilterOptions } from '../tools/sch_selection_filter.js';
 import { selectionFilterAll } from '../tools/sch_selection_filter.js';
@@ -69,20 +70,19 @@ export function SelectionFilterPanel({
                 // biome-ignore lint/suspicious/noArrayIndexKey: a fixed grid slot
                 <span key={`empty-${r}-${c}`} />
               ) : (
-                <label key={cell.label} title={cell.tooltip}>
-                  <input
-                    type="checkbox"
-                    checked={cell.key === null ? all : filter[cell.key]}
-                    onChange={(e) =>
-                      onChange(
-                        cell.key === null
-                          ? setAllSelectionFilterCategories(filter, e.target.checked)
-                          : { ...filter, [cell.key]: e.target.checked },
-                      )
-                    }
-                  />
-                  {cell.label}
-                </label>
+                <CheckBox
+                  key={cell.label}
+                  label={cell.label}
+                  checked={cell.key === null ? all : filter[cell.key]}
+                  title={cell.tooltip}
+                  onChange={(v) =>
+                    onChange(
+                      cell.key === null
+                        ? setAllSelectionFilterCategories(filter, v)
+                        : { ...filter, [cell.key]: v },
+                    )
+                  }
+                />
               ),
             ),
           )}

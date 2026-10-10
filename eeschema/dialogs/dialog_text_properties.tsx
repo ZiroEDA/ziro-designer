@@ -27,6 +27,7 @@
  * so a file that names a face keeps it.
  */
 
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
@@ -244,14 +245,12 @@ export function DialogTextProperties({
         </div>
 
         <div className="ze-lp-entry-row2">
-          <label className="ze-lp-check">
-            <input
-              type="checkbox"
-              checked={excludeFromSim}
-              onChange={(e) => setExcludeFromSim(e.target.checked)}
-            />
-            Exclude from simulation
-          </label>
+          <CheckBox
+            label="Exclude from simulation"
+            checked={excludeFromSim}
+            className="ze-lp-check"
+            onChange={(v) => setExcludeFromSim(v)}
+          />
           <a
             className="ze-lp-syntax"
             href="https://docs.kicad.org/GetStarted#text"
@@ -355,14 +354,12 @@ export function DialogTextProperties({
                   onChange={(e) => setBorder(e.target.checked)}
                 />
                 Border
-                <label className="ze-lp-check ze-tp-fill">
-                  <input
-                    type="checkbox"
-                    checked={filled}
-                    onChange={(e) => setFilled(e.target.checked)}
-                  />
-                  Background fill
-                </label>
+                <CheckBox
+                  label="Background fill"
+                  checked={filled}
+                  className="ze-lp-check ze-tp-fill"
+                  onChange={(v) => setFilled(v)}
+                />
               </label>
 
               <span className="ze-lp-fmt-label">Width:</span>
@@ -396,10 +393,12 @@ export function DialogTextProperties({
           <div className="ze-tp-gap" />
 
           {/* m_hyperlinkCb + m_hyperlinkCombo: a sheet page or a URL. */}
-          <label className="ze-lp-check">
-            <input type="checkbox" checked={linkOn} onChange={(e) => setLinkOn(e.target.checked)} />
-            Link:
-          </label>
+          <CheckBox
+            label="Link:"
+            checked={linkOn}
+            className="ze-lp-check"
+            onChange={(v) => setLinkOn(v)}
+          />
           <div className="ze-lp-sizerow">
             <input
               className="ze-lp-value"
@@ -425,12 +424,8 @@ export function DialogTextProperties({
       </div>
 
       <div className="ze-modal-footer">
-        <button className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button className="ze-btn primary" disabled={!text.trim()} onClick={submit}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault disabled={!text.trim()} onClick={submit} />
       </div>
     </DialogShim>
   );

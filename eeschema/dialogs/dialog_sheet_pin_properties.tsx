@@ -10,6 +10,7 @@
  * SCH_COMMIT. The form below is the base sizer tree: Name (a wxComboBox) with Syntax help, then
  * the Shape radio box beside the Formatting box (font, bold, italic, text size, colour).
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
@@ -251,12 +252,8 @@ export function DialogSheetPinProperties({
       </div>
 
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="ze-btn primary" onClick={submit}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault onClick={submit} />
       </div>
     </DialogShim>
   );

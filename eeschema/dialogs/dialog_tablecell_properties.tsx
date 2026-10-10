@@ -20,6 +20,7 @@
  * "-- mixed values --" text, an unchecked alignment group, the colour book's popup page), and an
  * indeterminate control writes nothing. Not here: the Scintilla text-variable auto-complete.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
@@ -436,16 +437,13 @@ export function DialogTableCellProperties({
         </div>
       </div>
       <div className="ze-modal-footer">
-        <button
-          type="button"
-          className="ze-btn"
+        <Button
+          label="Edit Table..."
           title="Edit table properties and cell contents"
           onClick={() => {
             if (dlg.OnEditTable(v)) onClose(dlg.GetReturnValue());
           }}
-        >
-          Edit Table...
-        </button>
+        />
         <a
           className="ze-lp-syntax"
           href="https://docs.kicad.org/GetStarted#text"
@@ -454,18 +452,14 @@ export function DialogTableCellProperties({
         >
           Syntax help
         </a>
-        <button type="button" className="ze-btn" onClick={cancel}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="ze-btn primary"
+        <Button label="Cancel" onClick={cancel} />
+        <Button
+          label="OK"
+          isDefault
           onClick={() => {
             if (dlg.TransferDataFromWindow(v)) onClose(dlg.GetReturnValue());
           }}
-        >
-          OK
-        </button>
+        />
       </div>
     </DialogShim>
   );

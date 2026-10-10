@@ -26,6 +26,7 @@
  * anti-aliases).
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useMemo, useRef, useState, type JSX } from 'react';
 import { mmToIU, iuToMM, type ReportLine } from '@ziroeda/common';
 import type { PlotOpts, PlotPageSize } from '../sch_plotter.js';
@@ -489,15 +490,9 @@ export function DialogPlot({
       </div>
       <div className="ze-modal-footer">
         {/* KiCad std-button order (GTK): Plot Current Page (Apply), Close, Plot All Pages (OK). */}
-        <button className="ze-btn" onClick={() => doPlot(false)}>
-          Plot Current Page
-        </button>
-        <button className="ze-btn" onClick={onClose}>
-          Close
-        </button>
-        <button className="ze-btn primary" onClick={() => doPlot(true)}>
-          Plot All Pages
-        </button>
+        <Button label="Plot Current Page" onClick={() => doPlot(false)} />
+        <Button label="Close" onClick={onClose} />
+        <Button label="Plot All Pages" isDefault onClick={() => doPlot(true)} />
       </div>
     </DialogShim>
   );

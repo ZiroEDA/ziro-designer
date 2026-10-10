@@ -12,6 +12,7 @@
  * in a number (or a `?`) — there is nothing to increment otherwise, and
  * upstream simply returns without doing anything.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { isSplitNeeded } from '../index.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
@@ -115,12 +116,8 @@ export function DialogIncrementAnnotations({ onOk, onCancel }: Props): JSX.Eleme
         </label>
       </div>
       <div className="ze-modal-footer">
-        <button className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button className="ze-btn primary" onClick={submit}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault onClick={submit} />
       </div>
     </DialogShim>
   );

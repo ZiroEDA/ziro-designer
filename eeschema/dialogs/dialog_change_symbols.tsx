@@ -11,6 +11,7 @@
  * grid bag), a rule, Change mode's "New library identifier", the fields checklist beside the two
  * columns of Update Options, the WX_HTML_REPORT_PANEL, and Close / Update.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { Fragment, type JSX, useEffect, useReducer, useState } from 'react';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
@@ -876,20 +877,8 @@ export function DialogChangeSymbols({
               ))}
             </div>
             <div className="ze-chsym-selbtns">
-              <button
-                className="ze-btn"
-                type="button"
-                onClick={() => update(() => dlg.selectAll(true))}
-              >
-                Select All
-              </button>
-              <button
-                className="ze-btn"
-                type="button"
-                onClick={() => update(() => dlg.selectAll(false))}
-              >
-                Select None
-              </button>
+              <Button label="Select All" onClick={() => update(() => dlg.selectAll(true))} />
+              <Button label="Select None" onClick={() => update(() => dlg.selectAll(false))} />
             </div>
           </fieldset>
 
@@ -925,13 +914,10 @@ export function DialogChangeSymbols({
                 'Update/reset field positions',
                 'Update field positions',
               )}
-              <button
-                className="ze-btn"
-                type="button"
+              <Button
+                label="Check All Update Options"
                 onClick={() => update(() => dlg.checkAll(true))}
-              >
-                Check All Update Options
-              </button>
+              />
             </div>
             <div className="ze-chsym-optcol">
               {fixedOn('Update symbol shape and pins')}
@@ -958,13 +944,10 @@ export function DialogChangeSymbols({
                 'Reset custom power symbols',
                 'Reset custom power symbols',
               )}
-              <button
-                className="ze-btn"
-                type="button"
+              <Button
+                label="Uncheck All Update Options"
                 onClick={() => update(() => dlg.checkAll(false))}
-              >
-                Uncheck All Update Options
-              </button>
+              />
             </div>
           </fieldset>
         </div>
@@ -982,20 +965,16 @@ export function DialogChangeSymbols({
         </div>
       </div>
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={close}>
-          Close
-        </button>
-        <button
-          type="button"
-          className="ze-btn primary"
+        <Button label="Close" onClick={close} />
+        <Button
+          label={change ? 'Change' : 'Update'}
+          isDefault
           disabled={busy}
           onClick={() => {
             setBusy(true);
             void dlg.OnOkButtonClicked().finally(() => setBusy(false));
           }}
-        >
-          {change ? 'Change' : 'Update'}
-        </button>
+        />
       </div>
     </DialogShim>
   );

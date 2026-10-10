@@ -13,6 +13,7 @@
  * selection of wires usually carries the junctions between them, and having to
  * open a second dialog for them would be the odd behaviour.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import { WIRE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
@@ -200,12 +201,8 @@ export function DialogLineProperties(props: WireProps | JunctionProps): JSX.Elem
         >
           Reset to Defaults
         </button>
-        <button className="ze-btn" onClick={props.onCancel}>
-          Cancel
-        </button>
-        <button className="ze-btn primary" onClick={submit}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={props.onCancel} />
+        <Button label="OK" isDefault onClick={submit} />
       </div>
     </DialogShim>
   );

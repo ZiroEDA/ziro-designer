@@ -26,6 +26,7 @@
  * "Print" runs SCH_PRINTOUT through wxPrinter into the browser's print flow.
  */
 
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { BUILTIN_THEMES } from '../sch_render_settings.js';
 import type { EESCHEMA_SETTINGS_STORE } from '../browser/eeschema_app.js';
@@ -158,12 +159,8 @@ export function DialogPrint({ settings, onPrint, themeId, onClose }: Props): JSX
         {/* Right-aligned by the footer's justify-content:flex-end. KiCad std-button order
           (GTK): Close, Print (OK); Print Preview (Apply) is hidden on __WXGTK__, whose
           native print dialog previews. */}
-        <button className="ze-btn" onClick={saveAndClose}>
-          Close
-        </button>
-        <button className="ze-btn primary" onClick={run}>
-          Print
-        </button>
+        <Button label="Close" onClick={saveAndClose} />
+        <Button label="Print" isDefault onClick={run} />
       </div>
     </DialogShim>
   );

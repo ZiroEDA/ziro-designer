@@ -15,6 +15,7 @@
  * width of -1, KiCad's "no border at all", which is distinct from 0 meaning
  * "use the schematic default width".
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { FILL_MODE_NAMES, FILL_MODE_TOKENS, iuToMM, mmToIU } from '@ziroeda/common';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
@@ -145,10 +146,12 @@ export function DialogShapeProperties({
             (2,0) "Style:"  | (2,1) span 1x2  the style combo
             (3,0) span 1x2  m_helpLabel1                                */}
         <div className="ze-shapeprops-border">
-          <label className="row ze-shapeprops-span">
-            <input type="checkbox" checked={border} onChange={(e) => setBorder(e.target.checked)} />
-            <span>Border</span>
-          </label>
+          <CheckBox
+            label="Border"
+            checked={border}
+            className="row ze-shapeprops-span"
+            onChange={(v) => setBorder(v)}
+          />
 
           <span className="ze-shapeprops-lbl">Width:</span>
           {/* bSizer7: the entry, its units, then the Color label and swatch —
@@ -216,12 +219,8 @@ export function DialogShapeProperties({
         </div>
       </div>
       <div className="ze-modal-footer">
-        <button className="ze-btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button className="ze-btn primary" onClick={submit}>
-          OK
-        </button>
+        <Button label="Cancel" onClick={onCancel} />
+        <Button label="OK" isDefault onClick={submit} />
       </div>
     </DialogShim>
   );

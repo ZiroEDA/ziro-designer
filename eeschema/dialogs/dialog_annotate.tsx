@@ -10,6 +10,7 @@
  * Like upstream the dialog is modeless: annotating leaves it open so the
  * messages it just produced can be read.
  */
+import { Button } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import type { AnnotateOptions } from '../sch_reference_list.js';
 import type { ReportLine, Severity } from '@ziroeda/common';
@@ -274,16 +275,10 @@ export function DialogAnnotate({
         did not match while the report panel's Save (which does wear it)
         did. */}
       <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={() => onClear(scope, recursive)}>
-          Clear Annotation
-        </button>
+        <Button label="Clear Annotation" onClick={() => onClear(scope, recursive)} />
         <span className="ze-annotate-footgap" />
-        <button type="button" className="ze-btn" onClick={close}>
-          Close
-        </button>
-        <button type="button" className="ze-btn primary" onClick={() => onAnnotate(run)}>
-          Annotate
-        </button>
+        <Button label="Close" onClick={close} />
+        <Button label="Annotate" isDefault onClick={() => onAnnotate(run)} />
       </div>
     </DialogShim>
   );

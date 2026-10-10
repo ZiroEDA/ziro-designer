@@ -11,6 +11,7 @@
  * The class keeps upstream's members and methods; the wx controls are the values the form hands
  * TransferDataFromWindow, as DIALOG_TABLECELL_PROPERTIES does.
  */
+import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
@@ -543,10 +544,7 @@ export function DialogGlobalEditTextAndGraphics({
   };
 
   const check = (k: keyof GLOBAL_EDIT_SCOPE | 'selectedFilterOpt', label: string) => (
-    <label className="ze-check">
-      <input type="checkbox" checked={v[k]} onChange={(e) => set(k, e.target.checked)} />
-      {label}
-    </label>
+    <CheckBox label={label} checked={v[k]} onChange={(v) => set(k, v)} />
   );
 
   /** A filter's option and its text; typing ticks the option (OnReferenceFilterText & co). */
@@ -556,10 +554,7 @@ export function DialogGlobalEditTextAndGraphics({
     label: string,
   ) => (
     <>
-      <label className="ze-check">
-        <input type="checkbox" checked={v[opt]} onChange={(e) => set(opt, e.target.checked)} />
-        {label}
-      </label>
+      <CheckBox label={label} checked={v[opt]} onChange={(v) => set(opt, v)} />
       <input
         className="ze-lp-value"
         value={v[text]}
@@ -601,10 +596,7 @@ export function DialogGlobalEditTextAndGraphics({
     label: string,
   ) => (
     <>
-      <label className="ze-check">
-        <input type="checkbox" checked={v[on]} onChange={(e) => set(on, e.target.checked)} />
-        {label}
-      </label>
+      <CheckBox label={label} checked={v[on]} onChange={(v) => set(on, v)} />
       <span className="ze-lp-swatch-frame">
         <ColorSwatch
           className="ze-lp-swatch"
@@ -650,14 +642,11 @@ export function DialogGlobalEditTextAndGraphics({
               {filter('fieldnameFilterOpt', 'fieldnameFilter', 'By field name:')}
               {filter('referenceFilterOpt', 'referenceFilter', 'By parent reference designator:')}
               {filter('symbolFilterOpt', 'symbolFilter', 'By parent symbol library id:')}
-              <label className="ze-check">
-                <input
-                  type="checkbox"
-                  checked={v.typeFilterOpt}
-                  onChange={(e) => set('typeFilterOpt', e.target.checked)}
-                />
-                By parent symbol type:
-              </label>
+              <CheckBox
+                label="By parent symbol type:"
+                checked={v.typeFilterOpt}
+                onChange={(v) => set('typeFilterOpt', v)}
+              />
               {choice('typeFilter', TYPE_FILTER_CHOICES)}
               {filter('netFilterOpt', 'netFilter', 'By net:')}
               {check('selectedFilterOpt', 'Selected items only')}
@@ -727,15 +716,9 @@ export function DialogGlobalEditTextAndGraphics({
         </fieldset>
       </div>
       <div className="ze-modal-footer">
-        <button className="ze-btn" onClick={() => dlg.TransferDataFromWindow(v)}>
-          Apply
-        </button>
-        <button className="ze-btn" onClick={close}>
-          Cancel
-        </button>
-        <button className="ze-btn primary" onClick={ok}>
-          OK
-        </button>
+        <Button label="Apply" onClick={() => dlg.TransferDataFromWindow(v)} />
+        <Button label="Cancel" onClick={close} />
+        <Button label="OK" isDefault onClick={ok} />
       </div>
     </DialogShim>
   );
