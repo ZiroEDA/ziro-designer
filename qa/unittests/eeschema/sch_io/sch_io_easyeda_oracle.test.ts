@@ -72,38 +72,50 @@ function minus(a: readonly string[], b: readonly string[]): string[] {
   return out;
 }
 
+function expectSameAsEeschema(aName: string): void {
+  const ours = topLevelItems(
+    importThroughFrame(join(DIR, `${aName}.json`), SCH_FILE_T.SCH_EASYEDA),
+  ).map(pinsAsSet);
+  const kicad = topLevelItems(readFileSync(join(DIR, `${aName}.kicad_sch`), 'utf8')).map(pinsAsSet);
+
+  const isLib = (s: string) => s.startsWith('\t(lib_symbols');
+  expect(
+    minus(
+      ours.filter((s) => !isLib(s)),
+      kicad.filter((s) => !isLib(s)),
+    ),
+  ).toEqual([]);
+  expect(
+    minus(
+      kicad.filter((s) => !isLib(s)),
+      ours.filter((s) => !isLib(s)),
+    ),
+  ).toEqual([]);
+
+  const ourLib = libGraphics(ours.find(isLib)!);
+  const kicadLib = libGraphics(kicad.find(isLib)!);
+  expect(minus(ourLib, kicadLib)).toEqual([]);
+
+  const missing = minus(kicadLib, ourLib);
+  expect(
+    missing.every((g) => g.startsWith('\t\t\t\t(polyline') && g.includes('(color 85 136 255 1)')),
+  ).toBe(true);
+  expect(missing).toHaveLength(SKIPPED_SVG_POLYLINES);
+}
+
 describe('SCH_IO_EASYEDA against eeschema 10.0.6', () => {
   beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
   afterEach(() => SetPgm(null));
 
   it('imports the smart-watch schematic item for item as eeschema saved it', () => {
-    const ours = topLevelItems(
-      importThroughFrame(join(DIR, 'watch.json'), SCH_FILE_T.SCH_EASYEDA),
-    ).map(pinsAsSet);
-    const kicad = topLevelItems(readFileSync(join(DIR, 'watch.kicad_sch'), 'utf8')).map(pinsAsSet);
+    expectSameAsEeschema('watch');
+  });
 
-    const isLib = (s: string) => s.startsWith('\t(lib_symbols');
-    expect(
-      minus(
-        ours.filter((s) => !isLib(s)),
-        kicad.filter((s) => !isLib(s)),
-      ),
-    ).toEqual([]);
-    expect(
-      minus(
-        kicad.filter((s) => !isLib(s)),
-        ours.filter((s) => !isLib(s)),
-      ),
-    ).toEqual([]);
-
-    const ourLib = libGraphics(ours.find(isLib)!);
-    const kicadLib = libGraphics(kicad.find(isLib)!);
-    expect(minus(ourLib, kicadLib)).toEqual([]);
-
-    const missing = minus(kicadLib, ourLib);
-    expect(
-      missing.every((g) => g.startsWith('\t\t\t\t(polyline') && g.includes('(color 85 136 255 1)')),
-    ).toBe(true);
-    expect(missing).toHaveLength(SKIPPED_SVG_POLYLINES);
+  // The sample has only angle-0 net labels, three flag styles and no net port. The
+  // variant is the same file with every `N` label's angle and alignment cycled and
+  // every `F` flag cycled through the other styles (netPort included) and angles;
+  // watch_variants.kicad_sch is eeschema's import of it, not ours.
+  it('imports rotated net labels and every power-flag style as eeschema does', () => {
+    expectSameAsEeschema('watch_variants');
   });
 });
