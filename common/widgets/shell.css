@@ -4848,6 +4848,68 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-shim {
   position: fixed;
 }
+/* wxRESIZE_BORDER: the window's edges and corners resize it. GTK draws no grip, so these are
+   invisible bands straddling the frame's edge. */
+.ze-shim-grip {
+  position: absolute;
+  z-index: 1;
+  touch-action: none;
+}
+.ze-shim-grip.n,
+.ze-shim-grip.s {
+  left: 6px;
+  right: 6px;
+  height: 6px; /* [px] the band's reach - not a measured GTK number; the bands are invisible */
+}
+.ze-shim-grip.e,
+.ze-shim-grip.w {
+  top: 6px;
+  bottom: 6px;
+  width: 6px; /* [px] as above */
+}
+.ze-shim-grip.n {
+  top: -3px;
+  cursor: n-resize;
+}
+.ze-shim-grip.s {
+  bottom: -3px;
+  cursor: s-resize;
+}
+.ze-shim-grip.e {
+  right: -3px;
+  cursor: e-resize;
+}
+.ze-shim-grip.w {
+  left: -3px;
+  cursor: w-resize;
+}
+.ze-shim-grip.ne,
+.ze-shim-grip.nw,
+.ze-shim-grip.se,
+.ze-shim-grip.sw {
+  width: 9px; /* [px] the corner's reach, as above */
+  height: 9px;
+}
+.ze-shim-grip.ne {
+  top: -3px;
+  right: -3px;
+  cursor: ne-resize;
+}
+.ze-shim-grip.nw {
+  top: -3px;
+  left: -3px;
+  cursor: nw-resize;
+}
+.ze-shim-grip.se {
+  bottom: -3px;
+  right: -3px;
+  cursor: se-resize;
+}
+.ze-shim-grip.sw {
+  bottom: -3px;
+  left: -3px;
+  cursor: sw-resize;
+}
 /* A title bar is the window manager's: its text does not select, and a drag on it moves. */
 .ze-shim > .ze-modal-header {
   user-select: none;

@@ -679,7 +679,13 @@ export function DialogSymbolFieldsTable({
   };
 
   return (
-    <DialogShim title="Symbol Fields Table" onClose={onCancel} className="ze-fields-table">
+    <DialogShim
+      // DIALOG_SYMBOL_FIELDS_TABLE_BASE's style is wxDEFAULT_DIALOG_STYLE alone: no wxRESIZE_BORDER.
+      resizable={false}
+      title="Symbol Fields Table"
+      onClose={onCancel}
+      className="ze-fields-table"
+    >
       <div className="ze-sft-body">
         {/* Left panel: the view-controls grid, its buttons, and the presets. */}
         {!sidebarCollapsed && (

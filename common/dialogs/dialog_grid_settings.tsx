@@ -149,7 +149,13 @@ export function DialogGridSettings({
   }
 
   return (
-    <DialogShim title={GRID_SETTINGS_TITLE} onClose={onCancel} className="ze-gs">
+    <DialogShim
+      // DIALOG_GRID_SETTINGS_BASE's style is wxDEFAULT_DIALOG_STYLE alone: no wxRESIZE_BORDER.
+      resizable={false}
+      title={GRID_SETTINGS_TITLE}
+      onClose={onCancel}
+      className="ze-gs"
+    >
       <div className="ze-gs-body">
         <label className="ze-gs-label" htmlFor="ze-gs-name">
           Name:

@@ -346,6 +346,12 @@ export interface DialogShimProps {
   /** `m_hash_key`, for a dialog whose title varies; the title's key otherwise. */
   hashKey?: string;
   /**
+   * `wxRESIZE_BORDER`, which 138 of KiCad's 149 dialog bases carry in their default style; the
+   * few that do not (DIALOG_ASSIGN_NETCLASS, DIALOG_GRID_SETTINGS, the fields tables, ...) pass
+   * false. The fitted size is the minimum (`SetSizeHints` from the best size).
+   */
+  resizable?: boolean;
+  /**
    * A size the dialog states: `SetSize` / `SetMinSize` from its constructor's `aInitialSize`
    * (data from its `_base.cpp`, never chrome). Position is DialogShim's own.
    */
@@ -386,6 +392,7 @@ export function DialogShim({
   className,
   initialFocus,
   hashKey,
+  resizable = true,
   style,
   frameRef: outerFrameRef,
   onCharHook,
@@ -398,6 +405,21 @@ export function DialogShim({
   const posRef = useRef(pos);
   posRef.current = pos;
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  // The window's size once the user (or a saved geometry) has set one; null while it is the
+  // fitted size. `minSize` is that fitted size, the floor a resize stops at.
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
+  const minSize = useRef({ w: 0, h: 0 });
+  const resize = useRef<{
+    edge: string;
+    x: number;
+    y: number;
+    ox: number;
+    oy: number;
+    w: number;
+    h: number;
+  } | null>(null);
   const key = hashKey ?? getDialogKeyFromTitle(title);
   useModalEscape(onClose, !modeless);
 
@@ -413,7 +435,17 @@ export function DialogShim({
     let x = Math.round((vw - r.width) / 2);
     let y = Math.round((vh - r.height) / 2);
 
+    minSize.current = { w: Math.round(r.width), h: Math.round(r.height) };
+
     if (typeof saved === 'object' && saved.w !== 0 && saved.h !== 0) {
+      // `std::max( GetSize(), restoredSize )`: a saved size can grow the dialog, never shrink it
+      // below what its content needs.
+      if (resizable && (saved.w > r.width || saved.h > r.height))
+        setSize({
+          w: Math.max(saved.w, Math.round(r.width)),
+          h: Math.max(saved.h, Math.round(r.height)),
+        });
+
       // Re-center if the title bar would land on no display.
       const grabX = saved.x + r.width / 2;
       const grabY = saved.y + TITLE_GRAB;
@@ -470,6 +502,49 @@ export function DialogShim({
     drag.current = null;
   };
 
+  const onGripDown =
+    (aEdge: string) =>
+    (e: PointerEvent<HTMLDivElement>): void => {
+      const frame = frameRef.current;
+      if (e.button !== 0 || !pos || !frame) return;
+      const r = frame.getBoundingClientRect();
+      resize.current = {
+        edge: aEdge,
+        x: e.clientX,
+        y: e.clientY,
+        ox: pos.x,
+        oy: pos.y,
+        w: r.width,
+        h: r.height,
+      };
+      e.currentTarget.setPointerCapture(e.pointerId);
+      e.stopPropagation();
+    };
+  const onGripMove = (e: PointerEvent<HTMLDivElement>): void => {
+    const g = resize.current;
+    if (!g) return;
+    const dx = e.clientX - g.x;
+    const dy = e.clientY - g.y;
+    const min = minSize.current;
+    let { w, h } = g;
+    let { ox: x, oy: y } = g;
+    if (g.edge.includes('e')) w = Math.max(min.w, g.w + dx);
+    if (g.edge.includes('s')) h = Math.max(min.h, g.h + dy);
+    if (g.edge.includes('w')) {
+      w = Math.max(min.w, g.w - dx);
+      x = g.ox + (g.w - w);
+    }
+    if (g.edge.includes('n')) {
+      h = Math.max(min.h, g.h - dy);
+      y = g.oy + (g.h - h);
+    }
+    setSize({ w: Math.round(w), h: Math.round(h) });
+    setPos({ x: Math.round(x), y: Math.round(y) });
+  };
+  const onGripUp = (): void => {
+    resize.current = null;
+  };
+
   const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>): void => {
     onCharHook?.(e);
 
@@ -507,7 +582,11 @@ export function DialogShim({
       className={`ze-modal ze-shim${modeless ? ' ze-modeless' : ''}${className ? ` ${className}` : ''}`}
       // Where the window is: data the user put there, not chrome. Hidden for the one layout
       // before it is placed.
-      style={{ ...style, ...(pos ? { left: pos.x, top: pos.y } : { visibility: 'hidden' }) }}
+      style={{
+        ...style,
+        ...(size ? { width: size.w, height: size.h } : {}),
+        ...(pos ? { left: pos.x, top: pos.y } : { visibility: 'hidden' }),
+      }}
       role="dialog"
       aria-modal={!modeless}
       aria-label={title}
@@ -527,6 +606,16 @@ export function DialogShim({
         </span>
       </div>
       {children}
+      {resizable &&
+        (['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as const).map((edge) => (
+          <div
+            key={edge}
+            className={`ze-shim-grip ${edge}`}
+            onPointerDown={onGripDown(edge)}
+            onPointerMove={onGripMove}
+            onPointerUp={onGripUp}
+          />
+        ))}
     </div>
   );
 

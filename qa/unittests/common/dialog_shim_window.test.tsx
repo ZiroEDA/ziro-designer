@@ -234,6 +234,64 @@ describe('the geometry it remembers (__geometry)', () => {
     expect(dragged).toEqual({ left: `${cx() - 40}px`, top: `${cy() + 30}px` });
   });
 
+  const grip = (aEdge: string): HTMLElement => {
+    const el = screen.getByRole('dialog').querySelector(`.ze-shim-grip.${aEdge}`) as HTMLElement;
+    el.setPointerCapture = () => {};
+    return el;
+  };
+  const sizeOf = (): { w: string; h: string } => {
+    const el = screen.getByRole('dialog') as HTMLElement;
+    return { w: el.style.width, h: el.style.height };
+  };
+
+  it('wxRESIZE_BORDER: dragging the south-east corner grows it, and closing saves a geometry', () => {
+    const { unmount } = render(<Form onOk={() => {}} />);
+    act(() => {
+      fireEvent.pointerDown(grip('se'), { button: 0, clientX: 0, clientY: 0, pointerId: 1 });
+      fireEvent.pointerMove(grip('se'), { clientX: 50, clientY: 20, pointerId: 1 });
+      fireEvent.pointerUp(grip('se'), { pointerId: 1 });
+    });
+    expect(sizeOf()).toEqual({ w: `${W + 50}px`, h: `${H + 20}px` });
+    unmount();
+    // happy-dom measures through the mock, so the saved width is the mock's; that it is saved
+    // at all is what this checks (the size itself is pinned by the reopen test below).
+    expect(store.Sample?.__geometry).toBeDefined();
+  });
+
+  it('never shrinks below its fitted size (SetSizeHints), and the west edge moves the left side', () => {
+    render(<Form onOk={() => {}} />);
+    const left0 = (screen.getByRole('dialog') as HTMLElement).style.left;
+    act(() => {
+      fireEvent.pointerDown(grip('w'), { button: 0, clientX: 0, clientY: 0, pointerId: 1 });
+      fireEvent.pointerMove(grip('w'), { clientX: 80, clientY: 0, pointerId: 1 });
+      fireEvent.pointerUp(grip('w'), { pointerId: 1 });
+    });
+    expect(sizeOf().w).toBe(`${W}px`);
+    expect((screen.getByRole('dialog') as HTMLElement).style.left).toBe(left0);
+    act(() => {
+      fireEvent.pointerDown(grip('w'), { button: 0, clientX: 0, clientY: 0, pointerId: 1 });
+      fireEvent.pointerMove(grip('w'), { clientX: -40, clientY: 0, pointerId: 1 });
+      fireEvent.pointerUp(grip('w'), { pointerId: 1 });
+    });
+    expect(sizeOf().w).toBe(`${W + 40}px`);
+    expect((screen.getByRole('dialog') as HTMLElement).style.left).toBe(`${cx() - 40}px`);
+  });
+
+  it('reopens at a larger saved size, never a smaller one', () => {
+    store.Sample = { __geometry: { x: 10, y: 10, w: W + 100, h: H - 50 } };
+    render(<Form onOk={() => {}} />);
+    expect(sizeOf()).toEqual({ w: `${W + 100}px`, h: `${H}px` });
+  });
+
+  it('a dialog without wxRESIZE_BORDER has no grips', () => {
+    render(
+      <DialogShim title="Fixed" onClose={() => {}} resizable={false}>
+        <span>x</span>
+      </DialogShim>,
+    );
+    expect(screen.getByRole('dialog').querySelector('.ze-shim-grip')).toBeNull();
+  });
+
   it('re-centres when the saved title bar would be off screen', () => {
     store.Sample = { __geometry: { x: -5000, y: 20, w: 300, h: 200 } };
     render(<Form onOk={() => {}} />);

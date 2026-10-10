@@ -117,7 +117,13 @@ export function DialogAssignNetclass({
   const report = pattern === '' ? [] : ['<b>Currently matching nets:</b>', ...matches];
 
   return (
-    <DialogShim title="Assign Netclass" onClose={onCancel} className="ze-assignnc">
+    <DialogShim
+      // DIALOG_ASSIGN_NETCLASS_BASE's style is wxDEFAULT_DIALOG_STYLE alone: no wxRESIZE_BORDER.
+      resizable={false}
+      title="Assign Netclass"
+      onClose={onCancel}
+      className="ze-assignnc"
+    >
       <div className="ze-assignnc-upper">
         <span className="ze-assignnc-patlabel">Pattern:</span>
         <input
