@@ -82,6 +82,7 @@ export function Button({
   disabled,
   title,
   className,
+  buttonRef,
 }: {
   label: string;
   /** wxEVT_BUTTON; the event's target is GetEventObject(), e.g. to anchor a popup at it. */
@@ -90,9 +91,12 @@ export function Button({
   disabled?: boolean;
   title?: string;
   className?: string;
+  /** The button element, e.g. as a dialog's initialFocus. */
+  buttonRef?: Ref<HTMLButtonElement>;
 }): JSX.Element {
   return (
     <button
+      ref={buttonRef}
       type="button"
       className={`ze-btn${isDefault ? ' primary' : ''}${className ? ` ${className}` : ''}`}
       disabled={disabled}

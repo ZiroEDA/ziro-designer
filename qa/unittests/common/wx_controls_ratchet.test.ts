@@ -69,7 +69,7 @@ const BASELINE: Record<(typeof AREAS)[number], Record<Kind, number>> = {
   '3d-viewer': { button: 0, checkbox: 0, select: 0, frame: 0, radio: 0, entry: 0, sbox: 0 },
   ai: { button: 7, checkbox: 0, select: 0, frame: 1, radio: 0, entry: 2, sbox: 0 },
   bitmap2component: { button: 4, checkbox: 0, select: 0, frame: 0, radio: 0, entry: 3, sbox: 4 },
-  common: { button: 51, checkbox: 9, select: 0, frame: 7, radio: 2, entry: 44, sbox: 4 },
+  common: { button: 49, checkbox: 9, select: 0, frame: 2, radio: 2, entry: 44, sbox: 4 },
   cvpcb: { button: 0, checkbox: 0, select: 0, frame: 2, radio: 0, entry: 2, sbox: 0 },
   designer: { button: 77, checkbox: 2, select: 4, frame: 3, radio: 5, entry: 66, sbox: 13 },
   eeschema: { button: 24, checkbox: 29, select: 26, frame: 1, radio: 13, entry: 72, sbox: 38 },

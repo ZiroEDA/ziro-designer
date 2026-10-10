@@ -29,7 +29,7 @@ import { svgUrl } from '@ziroeda/bitmaps_png';
 import { GetVersionInfoData } from '../build_version.js';
 import { PRODUCT, aboutWindowTitle } from '../eda_base_frame_about_titles.js';
 import { MessageDialogOk } from '../dialogs/dialog_message.js';
-import { useModalEscape } from '../dialog_shim.js';
+import { DialogShim } from '../dialog_shim.js';
 import { HtmlWindow } from '../widgets/html_window.js';
 import type { ABOUT_APP_INFO, CONTRIBUTORS } from './aboutinfo.js';
 
@@ -134,19 +134,14 @@ export function DIALOG_ABOUT({
   reportBug: () => void;
   onClose: () => void;
 }): JSX.Element {
-  useModalEscape(onClose);
-
   // Built once per dialog, as the constructor builds them once.
   const [pages] = useState(() => createNotebooks(info, titleName));
   const [page, setPage] = useState(0);
   const [copied, setCopied] = useState(false);
   const [clipboardError, setClipboardError] = useState(false);
 
-  // SetFocus() on the dialog, and `m_btOk->SetDefault()`: Enter is OK.
-  const okRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    okRef.current?.focus();
-  }, []);
+  // SetFocus() on the dialog (dialog_about.cpp:120) is DialogShim's own initial focus, and
+  // `m_btOk->SetDefault()` makes Enter OK.
 
   // A GtkNotebook whose tabs overflow shows scroll arrows, and an arrow moves
   // to the previous or next page. The nine tabs are wider than the 750px
@@ -171,14 +166,8 @@ export function DIALOG_ABOUT({
   const appIcon = info.GetAppIcon();
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-about" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">
-          {aboutWindowTitle(titleName)}
-          <span className="x" title="Close" onClick={onClose}>
-            ✕
-          </span>
-        </div>
+    <>
+      <DialogShim title={aboutWindowTitle(titleName)} onClose={onClose} className="ze-about">
         <div className="ze-about-title">
           <span className="ze-about-spacer" />
           <span className="ze-about-bitmap">{appIcon !== '' && <img src={appIcon} alt="" />}</span>
@@ -253,11 +242,9 @@ export function DIALOG_ABOUT({
           </div>
         </div>
         <div className="ze-about-buttons">
-          <button ref={okRef} type="button" className="ze-btn default" onClick={onClose}>
-            OK
-          </button>
+          <Button label="OK" isDefault onClick={onClose} />
         </div>
-      </div>
+      </DialogShim>
       {clipboardError && (
         <MessageDialogOk
           caption="Clipboard Error"
@@ -266,6 +253,6 @@ export function DIALOG_ABOUT({
           onClose={() => setClipboardError(false)}
         />
       )}
-    </div>
+    </>
   );
 }

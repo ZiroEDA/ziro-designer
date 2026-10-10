@@ -19577,3 +19577,33 @@ fieldset.ze-pushpad-box {
 .ze-ncz .disabled {
   color: var(--ctl-fg-disabled);
 }
+
+/* HK_PROMPT_DIALOG (common/widgets/widget_hotkey_list.cpp:87-135), the sizer tree in
+   widget_hotkey_list.tsx. Every border is one Add()'s. */
+.ze-hkprompt {
+  display: flex;
+  flex-direction: column;
+}
+.ze-hkprompt-inst {
+  text-align: center; /* [data] wxALIGN_CENTRE_HORIZONTAL */
+  margin: 10px; /* [data] mainSizer->Add( inst_label, 0, wxALL, 10 ) */
+}
+.ze-hkprompt-line {
+  margin: 2px; /* [data] Add( new wxStaticLine( this ), 0, wxALL | wxEXPAND, 2 ) */
+}
+.ze-hkprompt-current {
+  display: grid;
+  grid-template-columns: max-content max-content; /* [data] wxFlexGridSizer( 2 ) */
+  align-items: center;
+  margin: 5px; /* [data] Add( panelDisplayCurrent, 0, wxALL | wxEXPAND, 5 ) */
+}
+.ze-hkprompt-current > span {
+  margin: 5px; /* [data] each label: wxALL | wxALIGN_CENTRE_VERTICAL, 5 */
+}
+.ze-hkprompt-bold {
+  font-weight: bold; /* [data] SetFont( GetFont().Bold() ) */
+}
+.ze-hkprompt-reset {
+  align-self: center; /* [data] wxALIGN_CENTRE_HORIZONTAL */
+  margin: 5px; /* [data] Add( resetButton, 0, wxALL | wxALIGN_CENTRE_HORIZONTAL, 5 ) */
+}

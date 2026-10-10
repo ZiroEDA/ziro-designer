@@ -115,6 +115,19 @@ describe('Enter and the default button', () => {
     expect(onOk).toHaveBeenCalledTimes(1);
   });
 
+  it('Enter on the window itself presses the default button (GtkWindow activate-default)', () => {
+    const onOk = vi.fn();
+    render(
+      <DialogShim title="Bare" onClose={() => {}}>
+        <Button label="OK" isDefault onClick={onOk} />
+      </DialogShim>,
+    );
+    const dlg = screen.getByRole('dialog');
+    expect(document.activeElement).toBe(dlg);
+    fireEvent.keyDown(dlg, { key: 'Enter' });
+    expect(onOk).toHaveBeenCalledTimes(1);
+  });
+
   it('a disabled default button is not pressed', () => {
     const onOk = vi.fn();
     render(<Form onOk={onOk} okDisabled />);

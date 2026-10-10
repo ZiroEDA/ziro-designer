@@ -12,12 +12,15 @@
  * overrides map, which is the `HOTKEY_STORE` both share upstream.
  */
 
-import { Button } from '../wx/controls.js';
+import { Button, StaticLine } from '../wx/controls.js';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { filterHotkeys, hotkeyConflicts, type HotkeySection } from '../hotkey_store.js';
 import { isBrowserReserved } from '../browser_hotkeys.js';
 import { comboFromEvent, isReservedHotkey } from '../hotkeys_basic_keys.js';
-import { useModalEscape } from '../dialog_shim.js';
+import { DialogShim } from '../dialog_shim.js';
+import { DisplayErrorMessage, ShowKicadMessageDialog } from '../confirm.js';
+import { wxNO_DEFAULT, wxYES_NO } from '../wx/defs.js';
+import { wxID_YES } from '../wx/menu.js';
 
 /** A row being rebound: HK_PROMPT_DIALOG's subject. */
 interface Prompt {
@@ -39,10 +42,6 @@ function HotkeyPrompt({
   onPick: (keys: string | null) => void;
   onCancel: () => void;
 }): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-  useModalEscape(onCancel);
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       // Modifiers alone are not a hotkey; upstream's MapKeypressToKeycode
@@ -50,7 +49,7 @@ function HotkeyPrompt({
       if (['Control', 'Shift', 'Alt', 'Meta', 'CapsLock', 'OS'].includes(e.key)) return;
       // Escape is not a hotkey being assigned, it is the dialog's Cancel -
       // "the ESC key was used to close the dialog" in PromptForKey. The modal
-      // stack owns it (see useModalEscape above), so leave it alone here
+      // dialog (DialogShim) owns it, so leave it alone here
       // rather than race that listener for it.
       if (e.key === 'Escape') return;
       e.preventDefault();
@@ -63,33 +62,27 @@ function HotkeyPrompt({
     return () => window.removeEventListener('keydown', onKey, true);
   }, [onPick]);
 
+  // HK_PROMPT_DIALOG's sizer tree (widget_hotkey_list.cpp:87-135); the borders are its Add()s.
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">Set Hotkey</div>
-        <div style={{ padding: '12px 16px' }}>
-          <div style={{ textAlign: 'center', marginBottom: 10 }}>
-            Press a new hotkey, or press Esc to cancel...
-          </div>
-          <hr style={{ border: 0, borderTop: '1px solid var(--ze-border, #444)' }} />
-          <table style={{ marginTop: 8 }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: '3px 10px 3px 0' }}>Command:</td>
-                <td style={{ fontWeight: 600 }}>{prompt.command}</td>
-              </tr>
-              <tr>
-                <td style={{ padding: '3px 10px 3px 0' }}>Current key:</td>
-                <td style={{ fontWeight: 600 }}>{prompt.current}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div style={{ textAlign: 'center', marginTop: 12 }}>
-            <Button label="Clear assigned hotkey" onClick={() => onPick(null)} />
-          </div>
-        </div>
+    <DialogShim title="Set Hotkey" onClose={onCancel} className="ze-hkprompt">
+      {/* inst_label, wxALIGN_CENTRE_HORIZONTAL: wxALL 10 */}
+      <span className="ze-hkprompt-inst">Press a new hotkey, or press Esc to cancel...</span>
+      {/* new wxStaticLine: wxALL|wxEXPAND 2 */}
+      <StaticLine className="ze-hkprompt-line" />
+      {/* panelDisplayCurrent: wxALL|wxEXPAND 5, a two-column wxFlexGridSizer */}
+      <div className="ze-hkprompt-current">
+        <span>Command:</span>
+        <span className="ze-hkprompt-bold">{prompt.command}</span>
+        <span>Current key:</span>
+        <span className="ze-hkprompt-bold">{prompt.current}</span>
       </div>
-    </div>
+      {/* resetButton: wxALL|wxALIGN_CENTRE_HORIZONTAL 5 */}
+      <Button
+        label="Clear assigned hotkey"
+        className="ze-hkprompt-reset"
+        onClick={() => onPick(null)}
+      />
+    </DialogShim>
   );
 }
 
@@ -114,17 +107,11 @@ export function WidgetHotkeyList({
   onSet,
 }: WidgetHotkeyListProps): JSX.Element {
   const [prompt, setPrompt] = useState<Prompt | null>(null);
-  const [conflict, setConflict] = useState<{ name: string; keys: string; message: string } | null>(
-    null,
-  );
-  const [error, setError] = useState<string | null>(null);
 
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts. Registered only while the dialog is up, so a
   // closed one does not sit on the stack swallowing the key.
   // The conflict box's Esc is its "No", the button that changes nothing.
-  useModalEscape(() => setConflict(null), conflict !== null);
-  useModalEscape(() => setError(null), error !== null);
   /** Every section starts expanded, as the tree does when the window opens. */
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   /**
@@ -145,17 +132,20 @@ export function WidgetHotkeyList({
       return;
     }
     if (isReservedHotkey(keys)) {
-      setError(`'${keys}' is a reserved hotkey and cannot be assigned.`);
+      DisplayErrorMessage(`'${keys}' is a reserved hotkey in KiCad and cannot be assigned.`);
       return;
     }
     // WIDGET_HOTKEY_LIST::resolveKeyConflicts — both bindings are kept, and only
     // one runs, so this warns rather than refusing.
     const taken = hotkeyConflicts(all, keys, name)[0];
     if (taken) {
-      setConflict({
-        name,
-        keys,
+      // KICAD_MESSAGE_DIALOG( …, wxYES_NO | wxNO_DEFAULT ).ShowModal() == wxID_YES.
+      void ShowKicadMessageDialog({
         message: `'${keys}' is already assigned to '${taken.command}' in section '${taken.section}'. Both bindings are kept, but only one runs per key press. Continue?`,
+        caption: 'Hotkey conflict',
+        style: wxYES_NO | wxNO_DEFAULT,
+      }).then((aAnswer) => {
+        if (aAnswer === wxID_YES) onSet(name, keys);
       });
       return;
     }
@@ -255,36 +245,6 @@ export function WidgetHotkeyList({
       </div>
 
       {prompt && <HotkeyPrompt prompt={prompt} onPick={pick} onCancel={() => setPrompt(null)} />}
-      {error && (
-        <div className="ze-modal-backdrop" onMouseDown={() => setError(null)}>
-          <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="ze-modal-header">Hotkeys</div>
-            <div style={{ padding: '12px 16px' }}>{error}</div>
-            <div className="ze-modal-footer">
-              <Button label="OK" isDefault onClick={() => setError(null)} />
-            </div>
-          </div>
-        </div>
-      )}
-      {conflict && (
-        <div className="ze-modal-backdrop" onMouseDown={() => setConflict(null)}>
-          <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="ze-modal-header">Hotkey conflict</div>
-            <div style={{ padding: '12px 16px' }}>{conflict.message}</div>
-            <div className="ze-modal-footer">
-              <Button label="No" onClick={() => setConflict(null)} />
-              <Button
-                label="Yes"
-                isDefault
-                onClick={() => {
-                  onSet(conflict.name, conflict.keys);
-                  setConflict(null);
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

@@ -39,7 +39,8 @@
  */
 
 import { useEffect, useRef, type JSX } from 'react';
-import { useModalEscape } from '../dialog_shim.js';
+import { DialogShim } from '../dialog_shim.js';
+import { Button } from '../wx/controls.js';
 
 /**
  * One message's markup, as `<li>` content.
@@ -93,47 +94,38 @@ export function HtmlMessageBox({
   className?: string;
   onClose: () => void;
 }): JSX.Element {
-  useModalEscape(onClose);
-
   // wxID_OK is the only button and has the focus, so Enter closes.
   const okRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    okRef.current?.focus();
-  }, []);
 
   return (
-    <div className="ze-modal-backdrop">
-      <div
-        className={`ze-modal ze-htmlmsg${className ? ` ${className}` : ''}`}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="ze-modal-header">{caption}</div>
-        <div className="ze-htmlmsg-body">
-          {html !== undefined ? (
-            // `AddHTML_Text`. The markup is ours; a report never reaches here.
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: a compiled-in constant, never a report
-            <div dangerouslySetInnerHTML={{ __html: html }} />
-          ) : (
-            <ul>
-              {(messages ?? []).map((msg, i) => (
-                // The messages are a report in order, and two files can fail
-                // the same way with the same text, so the index is the identity.
-                // biome-ignore lint/suspicious/noArrayIndexKey: report order IS the identity
-                <li key={i}>{htmlMessageParts(msg)}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-        {/* `m_sdbSizer1`, a wxStdDialogButtonSizer holding the one wxID_OK
+    <DialogShim
+      title={caption}
+      onClose={onClose}
+      initialFocus={okRef}
+      className={`ze-htmlmsg${className ? ` ${className}` : ''}`}
+    >
+      <div className="ze-htmlmsg-body">
+        {html !== undefined ? (
+          // `AddHTML_Text`. The markup is ours; a report never reaches here.
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: a compiled-in constant, never a report
+          <div dangerouslySetInnerHTML={{ __html: html }} />
+        ) : (
+          <ul>
+            {(messages ?? []).map((msg, i) => (
+              // The messages are a report in order, and two files can fail
+              // the same way with the same text, so the index is the identity.
+              // biome-ignore lint/suspicious/noArrayIndexKey: report order IS the identity
+              <li key={i}>{htmlMessageParts(msg)}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {/* `m_sdbSizer1`, a wxStdDialogButtonSizer holding the one wxID_OK
             (dialog_display_html_text_base.cpp:23-28): the shared right-aligned
             footer, not the native message box's full-width row. */}
-        <div className="ze-modal-footer">
-          <button ref={okRef} type="button" className="ze-btn default" onClick={onClose}>
-            OK
-          </button>
-        </div>
+      <div className="ze-modal-footer">
+        <Button label="OK" isDefault buttonRef={okRef} onClick={onClose} />
       </div>
-    </div>
+    </DialogShim>
   );
 }

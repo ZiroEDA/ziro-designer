@@ -478,8 +478,9 @@ export function DialogShim({
 
     const entry = isSingleLineEntry(e.target);
 
-    // Enter in an entry, or Ctrl/Shift+Enter: the default button, wxID_OK.
-    if (!(entry || e.ctrlKey)) return;
+    // Enter in an entry, on the window itself (GtkWindow binds Return to activate-default when
+    // no widget takes it), or Ctrl/Shift+Enter anywhere: the default button, wxID_OK.
+    if (!(entry || e.target === frameRef.current || e.ctrlKey)) return;
 
     const button = frameRef.current?.querySelector<HTMLButtonElement>(
       '.ze-btn.primary:not(:disabled)',

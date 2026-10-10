@@ -826,7 +826,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // colours and nine px. (8d09a787's `.ze-fp3d-icon` height, one unmarked px
   // that briefly put this at 684, now carries its [px] like the width beside it:
   // GRID_CELL_STATUS_ICON_RENDERER's wxART_BUTTON bitmap, 16 x 16.) Rescanned.
-  'common/widgets': { colours: 128, metrics: 658 },
+  'common/widgets': { colours: 127, metrics: 643 },
   'common/tool': { colours: 0, metrics: 1 },
   // metrics 0 -> 15 on 09-26: the stage-1 moves, 8 from `dialogs` and 7 from
   // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
@@ -1418,7 +1418,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // deleted with the way past the gate.
     // 278 -> 276 (10-10): pcbnew DIALOG_FIND's invented status and link greys, gone with its
     // CSS rebuilt from dialog_find_base.cpp.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(276);
+    // 276 -> 275 (10-10): HK_PROMPT_DIALOG's invented var(--ze-border, #444) separator.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(275);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1635,7 +1636,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // dialog_sch_find_base.cpp, every remaining number a [data] border.
     // 1065 -> 1054 (10-10): pcbnew DIALOG_FIND's guessed gaps, widths and 12px fonts, replaced
     // by its [data] borders.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1054);
+    // 1054 -> 1039 (10-10): common/widgets 658 -> 643 - HK_PROMPT_DIALOG's inline paddings and
+    // margins, replaced by its [data] Add() borders.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1039);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
