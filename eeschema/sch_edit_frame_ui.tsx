@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { PANEL_EMBEDDED_FILES } from '@ziroeda/common/dialogs/panel_embedded_files.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { SCH_ACTIONS } from './tools/sch_actions.js';
 import { SCH_SELECTION_TOOL } from './tools/sch_selection_tool.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
@@ -358,12 +360,6 @@ import {
   connectionName,
   equivalentBusNames,
   intersheetRefsText,
-  addEmbeddedFile,
-  embeddedFilesCommand,
-  getEmbeddedFileData,
-  listEmbeddedFiles,
-  removeEmbeddedFile,
-  setEmbedFonts,
   type IntersheetRefsConfig,
   type IntersheetSheet,
 } from './index.js';
@@ -6029,14 +6025,12 @@ export function SchematicEditor({
         // The Embedded Files page lists the sheet's embedded_files section
         // (names + embed-fonts flag) fresh from the document on every open,
         // read-only until the zstd blobs can be decoded.
-        if (doc) {
-          const emb = listEmbeddedFiles(doc);
+        // PANEL_EMBEDDED_FILES( book, &m_frame->Schematic() ): the live schematic's files.
+        const schematic = schFrameRef.current?.Schematic();
+        if (schematic) {
           setSetup((prev) => ({
             ...prev,
-            embeddedFiles: {
-              files: emb.files.map((f) => ({ name: f.name, reference: f.reference })),
-              embedFonts: emb.embedFonts,
-            },
+            embeddedFiles: PANEL_EMBEDDED_FILES.TransferDataToWindow(schematic.GetEmbeddedFiles()),
           }));
         }
         setSetupOpen(true);
@@ -6093,7 +6087,6 @@ export function SchematicEditor({
       flatSheets,
       currentPath,
       switchSheet,
-      doc,
       netlist,
       selection,
       pageNumberOf,
@@ -7659,27 +7652,20 @@ export function SchematicEditor({
                 value={setup}
                 onOk={(next) => {
                   commitSetup(next);
-                  // The Embedded Files page edits the document itself
-                  // (EMBEDDED_FILES lives in .kicad_sch, not the project file):
-                  // compress added files, drop removed ones, set the fonts flag.
-                  if (doc) {
-                    const cur = listEmbeddedFiles(doc);
-                    const keep = new Set(next.embeddedFiles.files.map((f) => f.name));
-                    const removed = cur.files.filter((f) => !keep.has(f.name)).map((f) => f.name);
-                    const added = next.embeddedFiles.files.filter((f) => f.pendingBytes);
-                    const fontsChanged = next.embeddedFiles.embedFonts !== cur.embedFonts;
-                    if (removed.length || added.length || fontsChanged) {
-                      const base = doc;
-                      void (async () => {
-                        let after = base;
-                        for (const name of removed) after = removeEmbeddedFile(after, name);
-                        for (const f of added)
-                          after = await addEmbeddedFile(after, f.name, f.pendingBytes!);
-                        if (fontsChanged)
-                          after = setEmbedFonts(after, next.embeddedFiles.embedFonts);
-                        runCommand(embeddedFilesCommand(after));
-                      })();
-                    }
+                  // The Embedded Files page edits the schematic itself (EMBEDDED_FILES lives in
+                  // the .kicad_sch, not the project file). Compressing an added file needs the
+                  // zstd codec, which only a board load has initialised so far.
+                  const frame = schFrameRef.current;
+                  if (frame) {
+                    void EMBEDDED_FILES.InitCodec().then(() => {
+                      if (
+                        PANEL_EMBEDDED_FILES.TransferDataFromWindow(
+                          next.embeddedFiles,
+                          frame.Schematic().GetEmbeddedFiles(),
+                        )
+                      )
+                        frame.OnModify();
+                    });
                   }
                   setSetupOpen(false);
                 }}
@@ -7687,15 +7673,17 @@ export function SchematicEditor({
                 onExportEmbedded={(files) => {
                   // onExportFiles: write every embedded file out, here as
                   // downloads; pending rows export their picked bytes directly.
-                  const base = doc;
-                  if (!base) return;
-                  void (async () => {
+                  const embedded = schFrameRef.current?.Schematic().GetEmbeddedFiles();
+                  if (!embedded) return;
+                  void EMBEDDED_FILES.InitCodec().then(() => {
                     for (const f of files) {
-                      const bytes =
-                        f.pendingBytes ?? (await getEmbeddedFileData(base, f.name))?.bytes;
+                      const file = f.pendingBytes ? null : embedded.GetEmbeddedFile(f.name);
+                      if (file && file.decompressedData.length === 0)
+                        EMBEDDED_FILES.DecompressAndDecode(file);
+                      const bytes = f.pendingBytes ?? file?.decompressedData;
                       if (bytes) downloadBlob(new Blob([bytes.slice().buffer]), f.name);
                     }
-                  })();
+                  });
                 }}
               />
             )}
