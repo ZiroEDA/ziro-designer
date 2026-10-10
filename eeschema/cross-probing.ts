@@ -46,7 +46,7 @@ import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import type { NetlistTextResult } from '@ziroeda/common/mail_sch_get_netlist.js';
 import { findProjectPro } from './project_settings.js';
 import { projectSymLibTable } from './project_sym_lib_table.js';
-import { GLOBAL_SYM_LIB_NICKNAMES } from './global_sym_lib_table.js';
+import { GLOBAL_SYM_LIB_NICKNAMES } from './browser/global_sym_lib_table.js';
 import { GNL_ALL, GNL_T } from './netlist_exporters/netlist_exporter_xml.js';
 import { NETLIST_EXPORTER_KICAD } from './netlist_exporters/netlist_exporter_kicad.js';
 import { LoadSchematic } from './eeschema_helpers.js';

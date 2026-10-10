@@ -18,8 +18,11 @@ on.
 
 ## Parity, 2026-10-10 (file level)
 
-Regenerate with `python3 qa/probes/eeschema_parity.py` (KiCad `.cpp`/`.h` pairs counted once;
-our `_ui.tsx` is the same file as its `.ts`; a KiCad `*_base` is covered when its dialog exists).
+Regenerate with `python3 qa/probes/eeschema_parity.py`. Counting (decided 2026-10-10): a KiCad
+`.cpp` and its header are one file; a header counts alone only with no `.cpp` beside it and code
+in it (declaration-only `invoke_sch_dialog.h` / `save_project_utils.h` do not); a wxFormBuilder
+`_base` folds into its dialog, and counts as the dialog when none derives from it; our `_ui.tsx`
+is the same file as its `.ts`. Folders with nothing to match (n/a, deferred, sim) are not shown.
 A file present is not a file complete - `GetMsgPanelInfo` was missing from 17 classes whose
 files count as done - so read the "left" column as a floor. Decisions behind the columns:
 
@@ -36,44 +39,31 @@ files count as done - so read the "left" column as a floor. Decisions behind the
 
 | folder | KiCad | n/a | deferred | sim | to match | done | left | done % | extra kept | extra record model | extra unexplained |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| (root) | 96 | 1 | 1 | 0 | 94 | 91 | **3** | 96% | 6 | 6 | 2 |
-| api | 2 | 2 | 0 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
-| browser | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 3 | 1 | 0 |
+| (root) | 94 | 1 | 1 | 0 | 92 | 91 | **1** | 98% | 0 | 12 | 0 |
+| browser | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 5 | 1 | 0 |
 | connectivity | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 6 | 0 | 0 |
-| dialogs | 119 | 0 | 1 | 12 | 106 | 63 | **43** | 59% | 0 | 0 | 3 |
+| dialogs | 63 | 0 | 1 | 6 | 56 | 33 | **23** | 58% | 0 | 0 | 2 |
 | erc | 5 | 0 | 0 | 0 | 5 | 5 | **0** | 100% | 0 | 0 | 1 |
 | exporters | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 1 | 0 | 0 |
-| import_gfx | 4 | 0 | 0 | 0 | 4 | 4 | **0** | 100% | 0 | 1 | 1 |
+| import_gfx | 3 | 0 | 0 | 0 | 3 | 3 | **0** | 100% | 0 | 1 | 1 |
 | libraries | 2 | 0 | 0 | 0 | 2 | 1 | **1** | 50% | 0 | 0 | 0 |
-| navlib | 2 | 2 | 0 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
 | netlist_exporters | 11 | 0 | 0 | 0 | 11 | 10 | **1** | 90% | 0 | 0 | 0 |
-| printing | 3 | 0 | 0 | 0 | 3 | 3 | **0** | 100% | 0 | 0 | 0 |
+| printing | 2 | 0 | 0 | 0 | 2 | 2 | **0** | 100% | 0 | 0 | 0 |
 | sch_io | 3 | 0 | 0 | 0 | 3 | 3 | **0** | 100% | 0 | 0 | 0 |
-| sch_io/altium | 3 | 0 | 3 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
-| sch_io/cadstar | 3 | 0 | 3 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
-| sch_io/database | 1 | 0 | 1 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
-| sch_io/eagle | 1 | 0 | 1 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
-| sch_io/easyeda | 2 | 0 | 2 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
-| sch_io/easyedapro | 2 | 0 | 2 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
-| sch_io/geda | 1 | 0 | 1 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
-| sch_io/http_lib | 1 | 0 | 1 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
 | sch_io/kicad_legacy | 3 | 0 | 0 | 0 | 3 | 3 | **0** | 100% | 0 | 0 | 0 |
 | sch_io/kicad_sexpr | 4 | 0 | 0 | 0 | 4 | 4 | **0** | 100% | 0 | 0 | 0 |
-| sch_io/ltspice | 3 | 0 | 3 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
-| sch_io/pads | 4 | 0 | 4 | 0 | 0 | 0 | **0** | - | 0 | 0 | 0 |
 | sch_io/sexpr | 0 | 0 | 0 | 0 | 0 | 0 | **0** | - | 3 | 0 | 0 |
-| sim | 61 | 0 | 0 | 61 | 0 | 0 | **0** | - | 0 | 0 | 1 |
-| sim/kibis | 2 | 0 | 0 | 2 | 0 | 0 | **0** | - | 0 | 0 | 0 |
+| sim | 60 | 0 | 0 | 60 | 0 | 0 | **0** | - | 0 | 0 | 1 |
 | symbol_editor | 11 | 0 | 0 | 0 | 11 | 5 | **6** | 45% | 0 | 5 | 4 |
-| sync_sheet_pin | 9 | 0 | 0 | 0 | 9 | 9 | **0** | 100% | 0 | 0 | 0 |
+| sync_sheet_pin | 7 | 0 | 0 | 0 | 7 | 7 | **0** | 100% | 0 | 0 | 0 |
 | tools | 30 | 0 | 0 | 1 | 29 | 24 | **5** | 82% | 0 | 33 | 3 |
-| widgets | 20 | 2 | 0 | 2 | 16 | 9 | **7** | 56% | 0 | 0 | 1 |
-| **total** | **408** | **7** | **23** | **78** | **300** | **234** | **66** | **78%** | **19** | **46** | **16** |
+| widgets | 18 | 2 | 0 | 1 | 15 | 8 | **7** | 53% | 0 | 0 | 1 |
+| **total** | **343** | **7** | **23** | **70** | **243** | **199** | **44** | **81%** | **15** | **52** | **13** |
 
 ### Left to port
 
-- `(root)` (3): `bom_plugins`, `invoke_sch_dialog`, `save_project_utils`
-- `dialogs` (43): `dialog_bom`, `dialog_bom_base`, `dialog_bom_help_md`, `dialog_choose_symbol`, `dialog_database_lib_settings`, `dialog_database_lib_settings_base`, `dialog_import_symbol_select`, `dialog_import_symbol_select_base`, `dialog_lib_edit_pin_table`, `dialog_lib_edit_pin_table_base`, `dialog_lib_fields_table`, `dialog_lib_fields_table_base`, `dialog_lib_new_symbol`, `dialog_lib_new_symbol_base`, `dialog_lib_symbol_properties`, `dialog_lib_symbol_properties_base`, `dialog_migrate_buses`, `dialog_migrate_buses_base`, `dialog_pin_properties`, `dialog_pin_properties_base`, `dialog_remote_symbol_config`, `dialog_rescue_each`, `dialog_rescue_each_base`, `dialog_symbol_chooser`, `dialog_symbol_remap`, `dialog_symbol_remap_base`, `dialog_update_symbol_fields`, `dialog_update_symbol_fields_base`, `panel_eeschema_color_settings`, `panel_eeschema_display_options`, `panel_eeschema_display_options_base`, `panel_eeschema_editing_options`, `panel_eeschema_editing_options_base`, `panel_sch_data_sources`, `panel_sym_color_settings`, `panel_sym_color_settings_base`, `panel_sym_display_options`, `panel_sym_display_options_base`, `panel_sym_editing_options`, `panel_sym_editing_options_base`, `panel_sym_lib_table`, `panel_sym_lib_table_base`, `pin_table_data_model`
+- `(root)` (1): `bom_plugins`
+- `dialogs` (23): `dialog_bom`, `dialog_bom_help_md`, `dialog_database_lib_settings`, `dialog_import_symbol_select`, `dialog_lib_edit_pin_table`, `dialog_lib_fields_table`, `dialog_lib_new_symbol`, `dialog_lib_symbol_properties`, `dialog_migrate_buses`, `dialog_pin_properties`, `dialog_remote_symbol_config`, `dialog_rescue_each`, `dialog_symbol_chooser`, `dialog_symbol_remap`, `dialog_update_symbol_fields`, `panel_eeschema_color_settings`, `panel_eeschema_display_options`, `panel_eeschema_editing_options`, `panel_sch_data_sources`, `panel_sym_color_settings`, `panel_sym_display_options`, `panel_sym_editing_options`, `panel_sym_lib_table`
 - `libraries` (1): `legacy_symbol_library`
 - `netlist_exporters` (1): `netlist`
 - `symbol_editor` (6): `lib_logger`, `lib_symbol_library_manager`, `symbol_editor_import_export`, `symbol_editor_plotter`, `symbol_editor_undo_redo`, `symbol_saveas_type`
@@ -82,11 +72,11 @@ files count as done - so read the "left" column as a floor. Decisions behind the
 
 ### Extra: old record model (deleted as each consumer moves to the live model)
 
-`browser/eeschema_app`, `hover_selection`, `import_gfx/graphics_importer_sch_mapping`, `index`, `net_overrides`, `sch_record_bridge`, `sch_script_api`, `symbol_editor/conditions`, `symbol_editor/edits`, `symbol_editor/symbol_editor_dialogs`, `symbol_editor/symbol_renderer`, `symbol_editor/toggles`, `tools/bbox`, `tools/build`, `tools/build-graphics`, `tools/cleanup`, `tools/clipboard`, `tools/command`, `tools/connect`, `tools/directive_label`, `tools/edit_symbol_libid`, `tools/hittest`, `tools/hop_over`, `tools/image_size`, `tools/intersheet_refs`, `tools/label_properties`, `tools/move`, `tools/mutate`, `tools/page_settings`, `tools/pin_alternates`, `tools/point_editor`, `tools/properties`, `tools/rule_area`, `tools/save_symbol_to_schematic`, `tools/scene_bbox`, `tools/sch_align_record`, `tools/sch_request_selection`, `tools/sch_selection_filter`, `tools/sch_sheet_pin_tool`, `tools/search_handlers`, `tools/symbol_from_schematic`, `tools/symbol_unit`, `tools/table_cells`, `tools/table_layout`, `tools/transform`, `types`
+`browser/eeschema_app`, `fieldbox`, `hover_selection`, `import_gfx/graphics_importer_sch_mapping`, `index`, `lib_tree_item`, `net_overrides`, `project`, `project_settings`, `project_sym_lib_table`, `sch_record_bridge`, `sch_script_api`, `symbol_editor/conditions`, `symbol_editor/edits`, `symbol_editor/symbol_editor_dialogs`, `symbol_editor/symbol_renderer`, `symbol_editor/toggles`, `toggles`, `tools/bbox`, `tools/build`, `tools/build-graphics`, `tools/cleanup`, `tools/clipboard`, `tools/command`, `tools/connect`, `tools/directive_label`, `tools/edit_symbol_libid`, `tools/hittest`, `tools/hop_over`, `tools/image_size`, `tools/intersheet_refs`, `tools/label_properties`, `tools/move`, `tools/mutate`, `tools/page_settings`, `tools/pin_alternates`, `tools/point_editor`, `tools/properties`, `tools/rule_area`, `tools/save_symbol_to_schematic`, `tools/scene_bbox`, `tools/sch_align_record`, `tools/sch_request_selection`, `tools/sch_selection_filter`, `tools/sch_sheet_pin_tool`, `tools/search_handlers`, `tools/symbol_from_schematic`, `tools/symbol_unit`, `tools/table_cells`, `tools/table_layout`, `tools/transform`, `types`
 
 ### Extra: no recorded reason yet (fold, rename or justify)
 
-`dialogs/dialog_increment_annotations`, `dialogs/item_color`, `dialogs/panel_setup_severities`, `erc/marker_nav`, `import_gfx/image_format`, `sch_canvas`, `sim/sim_model_types`, `symbol_editor/cursors`, `symbol_editor/defaults`, `symbol_editor/grid`, `symbol_editor/symbol_edit_frame_app`, `toggles`, `tools/arc_edit`, `tools/assign_netclass`, `tools/index`, `widgets/net_navigator_panel`
+`dialogs/item_color`, `dialogs/panel_setup_severities`, `erc/marker_nav`, `import_gfx/image_format`, `sim/sim_model_types`, `symbol_editor/cursors`, `symbol_editor/defaults`, `symbol_editor/grid`, `symbol_editor/symbol_edit_frame_app`, `tools/arc_edit`, `tools/assign_netclass`, `tools/index`, `widgets/net_navigator_panel`
 
 ### The 16 unexplained extras, 2026-10-10: where each belongs, for a decision
 

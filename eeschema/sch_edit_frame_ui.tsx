@@ -446,7 +446,7 @@ import { busJunctionIds as busJunctionIdsOf } from './connectivity/bus.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import { LIVE_SCHEMATIC_MIRROR, liveScreensToRecords } from './sch_record_bridge.js';
-import { createSchDrawPanel } from './sch_canvas.js';
+import { createSchDrawPanel } from './browser/sch_canvas.js';
 import type { SCH_DRAW_PANEL } from './sch_draw_panel.js';
 import { loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
 import { type SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';

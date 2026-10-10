@@ -59,14 +59,23 @@ KEPT = {
     'connectivity/bus', 'connectivity/dangling', 'connectivity/hierarchy', 'connectivity/index',
     'connectivity/nets', 'connectivity/segment_index', 'exporters/bom',
     'browser/project_sync_transport', 'browser/repair_source', 'browser/sch_diff',
+    'browser/global_sym_lib_table', 'browser/sch_canvas',
     'sch_io/sexpr/read-schematic', 'sch_io/sexpr/write-schematic', 'sch_io/sexpr/write-symbol-lib',
-    'project_settings', 'global_sym_lib_table', 'project_sym_lib_table', 'lib_tree_item',
-    'fieldbox', 'project',
 }
+
+
+# Old-model files that do not import types.ts: plain-data copies of a live class.
+#   project_settings - the Schematic Setup's .kicad_pro reader/writer; SCHEMATIC_SETTINGS,
+#                      ERC_SETTINGS and NET_SETTINGS (all ported) are KiCad's.
+#   toggles          - the window's left-toolbar state; KiCad reads frame settings through
+#                      EDITOR_CONDITIONS.
+OLD_MODEL = {'project_settings', 'toggles'}
 
 
 def is_record(stem):
     """An extra file of the old record model: it imports the record types (types.ts)."""
+    if stem in OLD_MODEL:
+        return True
     for e in ('.ts', '.tsx', '_ui.tsx'):
         p = os.path.join(O, stem + e)
         if os.path.exists(p):
@@ -77,10 +86,47 @@ def is_record(stem):
     return False
 
 
+# A header is counted on its own only when there is no .cpp beside it and it holds code
+# (a class, an enum, constants, a generated literal). Pure declarations of functions defined in
+# some other .cpp, and empty headers, are not files to port. wxFormBuilder `_base` files (an
+# .fbp beside them) fold into the dialog's own file, so they are not counted either.
+DECLARATION_ONLY = {'invoke_sch_dialog', 'save_project_utils'}
+
+
+def has_code(path):
+    text = open(path, errors='ignore').read()
+    text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)
+    lines = [l for l in text.split('\n')
+             if l.strip() and not l.strip().startswith(('//', '#include', '#pragma', '#ifndef', '#endif'))
+             and not re.match(r'\s*#define\s+\w+_H_?\s*$', l)]
+    return bool(lines)
+
+
+def is_form(s):
+    """wxFormBuilder output: `x_base` generated from `x.fbp` (or `x_base.fbp`)."""
+    return s.endswith('_base') and (os.path.exists(os.path.join(K, s[:-5] + '.fbp'))
+                                    or os.path.exists(os.path.join(K, s + '.fbp')))
+
+
+def kicad_stems():
+    all_cpp = stems(K, ('.cpp',))
+    cpp = {s for s in all_cpp if not is_form(s)}
+    # A form used directly, with no derived dialog (DIALOG_INCREMENT_ANNOTATIONS_BASE): the
+    # form is the dialog, so it counts under the dialog's name.
+    cpp |= {s[:-5] for s in all_cpp if is_form(s) and s[:-5] not in all_cpp}
+    hdr = set()
+    for s in stems(K, ('.h',)):
+        if s in cpp or is_form(s) or s in DECLARATION_ONLY:
+            continue
+        if has_code(os.path.join(K, s + '.h')):
+            hdr.add(s)
+    return cpp | hdr
+
+
 def main():
-    k = stems(K, ('.cpp', '.h'))
+    k = kicad_stems()
     o = stems(O, ('.ts', '.tsx'), True)
-    covered = {s for s in k if s.endswith('_base') and s[:-5] in o}
+    covered = set()
     na = {s for s in k if is_na(s)}
     de = {s for s in k if is_deferred(s)} - na
     si = {s for s in k if is_sim(s)} - na - de
@@ -99,6 +145,8 @@ def main():
     print('|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|')
     for f in folders:
         kf = {s for s in k if folder(s) == f}
+        if not (kf & target) and not [s for s in ex if folder(s) == f]:
+            continue  # n/a, deferred or sim only: not shown
         tf = kf & target
         lf = [s for s in left if folder(s) == f]
         exf = [s for s in ex if folder(s) == f]

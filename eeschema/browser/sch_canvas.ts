@@ -9,8 +9,8 @@
  */
 import { drawPanelWindow } from '@ziroeda/common/gal/gal_window.js';
 import { GAL_TYPE } from '@ziroeda/common/draw_panel_gal.js';
-import { SCH_DRAW_PANEL } from './sch_draw_panel.js';
-import type { SCH_EDIT_FRAME } from './sch_edit_frame.js';
+import { SCH_DRAW_PANEL } from '../sch_draw_panel.js';
+import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
 
 /**
  * The panel on the element, adopted by the frame as its canvas.
