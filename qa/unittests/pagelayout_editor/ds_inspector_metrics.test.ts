@@ -50,12 +50,22 @@ describe('the header row is wx’s fixed 30', () => {
   });
 });
 
+/** shell.css's `.ze-modal { ... }`, which every DialogShim window wears. */
+function modalRule(): string {
+  const css = readFileSync(new URL('../../../common/widgets/shell.css', import.meta.url), 'utf8');
+  const at = css.indexOf('\n.ze-modal {');
+  return css.slice(at, css.indexOf('\n}', at)).replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
 describe('the dialog is sized by its content', () => {
   it('has no fixed pixel width', () => {
     // `bSizerMain->Fit( this )` with wxSize( -1, -1 ), and every column
     // AutoSizeColumn'd (design_inspector.cpp:295-313).
-    expect(INSPECTOR).toContain("width: 'max-content'");
-    expect(INSPECTOR).not.toMatch(/style=\{\{ width: \d+, maxWidth/);
+    // The window is DialogShim, so the max-content width is `.ze-modal`'s own rule and the
+    // dialog states none.
+    expect(INSPECTOR).toContain('<DialogShim title={title} onClose={onClose}>');
+    expect(INSPECTOR).not.toMatch(/style=\{\{[^}]*\bwidth:/);
+    expect(modalRule()).toMatch(/\bwidth:\s*max-content;/);
   });
 
   it('does not cap the list at 60vh, which hid four of the rows', () => {
@@ -66,7 +76,7 @@ describe('the dialog is sized by its content', () => {
     // Not unbounded: a dialog taller than the display is not what wx produces
     // either. The cap is a screen limit, not a row limit.
     expect(INSPECTOR).toMatch(/maxHeight: '\d+vh'/);
-    expect(INSPECTOR).toContain("maxWidth: '92vw'");
+    expect(modalRule()).toMatch(/max-width:\s*92vw;/);
   });
 });
 

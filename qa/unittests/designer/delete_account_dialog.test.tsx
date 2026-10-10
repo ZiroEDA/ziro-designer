@@ -100,12 +100,13 @@ describe('DeleteAccountDialog', () => {
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: 'Delete ZiroEDA account' }));
 
-    expect(
-      screen.getByRole('dialog', { name: 'Delete account' }).querySelector('.ze-modal-header')
-        ?.textContent,
-    ).toContain('Password');
+    expect(screen.getByRole('dialog').querySelector('.ze-modal-header')?.textContent).toContain(
+      'Password',
+    );
     expect(onDelete).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'hunter22' } });
+    fireEvent.change(screen.getByLabelText('Password', { selector: 'input' }), {
+      target: { value: 'hunter22' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Authenticate' }));
     await waitFor(() => expect(onDelete).toHaveBeenCalledTimes(1));
     expect(onDelete).toHaveBeenCalledWith('hunter22', 'found_another_service', 'no rigid-flex');
@@ -127,9 +128,11 @@ describe('DeleteAccountDialog', () => {
     );
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: 'Delete ZiroEDA account' }));
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'wrong' } });
+    fireEvent.change(screen.getByLabelText('Password', { selector: 'input' }), {
+      target: { value: 'wrong' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Authenticate' }));
     await screen.findByText('Incorrect password or email not registered');
-    expect(screen.getByLabelText('Password')).toBeTruthy();
+    expect(screen.getByLabelText('Password', { selector: 'input' })).toBeTruthy();
   });
 });

@@ -31,7 +31,7 @@ import { useCallback, useEffect, useState, type FormEvent, type JSX } from 'reac
 import { cloudBackend } from '../cloud/cloudStore.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { DELETE_REASONS, validateDeleteAccountForm } from './delete_account_form.js';
 
 type Step = 'reason' | 'confirmation' | 'password';
@@ -68,8 +68,6 @@ export function DeleteAccountDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<SummaryPhase>({ state: 'loading' });
-
-  useModalEscape(onClose, !busy);
 
   const load = useCallback(async () => {
     setSummary({ state: 'loading' });
@@ -147,24 +145,15 @@ export function DeleteAccountDialog({
     busy || (step === 'confirmation' && !canConfirm) || (step === 'password' && !password);
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={busy ? undefined : onClose}>
-      <form
-        className="ze-modal ze-delete-account"
-        onMouseDown={(e) => e.stopPropagation()}
-        onSubmit={(e) => void submit(e)}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Delete account"
-      >
-        <div className="ze-modal-header">
-          {title}
-          {!busy && (
-            <span className="x" title="Close" onClick={onClose}>
-              ✕
-            </span>
-          )}
-        </div>
-
+    <DialogShim
+      title={title}
+      // Nothing closes it while a delete is in flight: the close box and Escape wait.
+      onClose={() => {
+        if (!busy) onClose();
+      }}
+      className="ze-delete-account"
+    >
+      <form onSubmit={(e) => void submit(e)}>
         <div className="ze-modal-body ze-delete-account-body">
           {subtitle && <div className="ze-delete-account-sub">{subtitle}</div>}
 
@@ -270,7 +259,7 @@ export function DeleteAccountDialog({
           {step !== 'reason' && <Button label="Back" disabled={busy} onClick={back} />}
         </StdDialogButtons>
       </form>
-    </div>
+    </DialogShim>
   );
 }
 

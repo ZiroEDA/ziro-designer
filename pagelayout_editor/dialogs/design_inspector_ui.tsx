@@ -13,7 +13,7 @@
 
 import { Button } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useReducer } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import {
   DIALOG_INSPECTOR,
   DS_INSPECTOR_BITMAP_SIZE,
@@ -63,7 +63,6 @@ export function DesignInspector({
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   /** `SelectRow`'s highlight follows the engine; a click repaints it. */
   const [, repaint] = useReducer((n: number) => n + 1, 0);
@@ -100,94 +99,81 @@ export function DesignInspector({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div
-        className="ze-modal"
-        /* `bSizerMain->Fit( this )` with `wxSize( -1, -1 )` — the dialog is
-           sized by its content, and the columns are AutoSizeColumn'd to theirs
-           (`design_inspector.cpp:295-313`). A fixed 720 made ours 180 px wider
-           than pl_editor's, which measures 543 on the same sheet. The viewport
-           cap stands in for the screen, which bounds wx's Fit() too. */
-        style={{ width: 'max-content', maxWidth: '92vw' }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="ze-modal-header">
-          {title}
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-        {/* Fit() again: every row, no inner scroller. 60vh capped ours at 27 of
+    <DialogShim title={title} onClose={onClose}>
+      {/* `bSizerMain->Fit( this )` with `wxSize( -1, -1 )`: the dialog is sized by its content,
+          and the columns are AutoSizeColumn'd to theirs (`design_inspector.cpp:295-313`). A
+          fixed 720 made ours 180 px wider than pl_editor's, which measures 543 on the same
+          sheet; .ze-modal's max-content width and viewport cap are that Fit(). */}
+      {/* Fit() again: every row, no inner scroller. 60vh capped ours at 27 of
             the 31 rows and scrolled the rest, where pl_editor shows all of them
             and grows the dialog to suit. */}
-        <div style={{ maxHeight: '80vh', overflow: 'auto' }} data-testid="ds-inspector">
-          <table className="ze-grid">
-            <thead>
-              {/* Sticky is the only thing this header adds to .ze-grid th: the
+      <div style={{ maxHeight: '80vh', overflow: 'auto' }} data-testid="ds-inspector">
+        <table className="ze-grid">
+          <thead>
+            {/* Sticky is the only thing this header adds to .ze-grid th: the
                   dialog scrolls its own body, so the column labels have to hold
                   station the way a wxGrid's do. */}
-              <tr style={{ position: 'sticky', top: 0 }}>
-                {/* The gutter carries no column label of its own. */}
-                <th className="ze-grid-rowlabel" style={gutter} />
-                {DS_INSPECTOR_COLUMNS.map((h) => (
-                  <th key={h}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => (
-                <tr
-                  key={row.number}
-                  className={dlg.GetSelectedRow() === i ? 'selected' : undefined}
-                  style={{ cursor: 'default' }}
-                  // DIALOG_INSPECTOR::onCellClicked
-                  // (design_inspector.cpp:338-354) selects the row, selects the
-                  // item in the editor and repopulates the properties frame.
-                  // It does NOT end the dialog: you walk the list row by row
-                  // with it open, watching the canvas behind it.
-                  //
-                  // The root row is `m_itemsList[0] == nullptr` (:238), and
-                  // onCellClicked returns early on it after selecting the row.
-                  onClick={() => {
-                    dlg.onCellClicked(i);
-                    repaint();
-                  }}
-                >
-                  <td className="ze-grid-text ze-grid-rowlabel" style={gutter}>
-                    {row.number}
-                  </td>
-                  {/* COL_BITMAP. `BitmapGridCellRenderer::Draw`
+            <tr style={{ position: 'sticky', top: 0 }}>
+              {/* The gutter carries no column label of its own. */}
+              <th className="ze-grid-rowlabel" style={gutter} />
+              {DS_INSPECTOR_COLUMNS.map((h) => (
+                <th key={h}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr
+                key={row.number}
+                className={dlg.GetSelectedRow() === i ? 'selected' : undefined}
+                style={{ cursor: 'default' }}
+                // DIALOG_INSPECTOR::onCellClicked
+                // (design_inspector.cpp:338-354) selects the row, selects the
+                // item in the editor and repopulates the properties frame.
+                // It does NOT end the dialog: you walk the list row by row
+                // with it open, watching the canvas behind it.
+                //
+                // The root row is `m_itemsList[0] == nullptr` (:238), and
+                // onCellClicked returns early on it after selecting the row.
+                onClick={() => {
+                  dlg.onCellClicked(i);
+                  repaint();
+                }}
+              >
+                <td className="ze-grid-text ze-grid-rowlabel" style={gutter}>
+                  {row.number}
+                </td>
+                {/* COL_BITMAP. `BitmapGridCellRenderer::Draw`
                       (design_inspector.cpp:359-366) blits the row's 12 x 12 XPM
                       at +5, +2 inside the cell. The table is
                       `inspector_icons.ts`, mirrored from the C++. */}
-                  <td className="ze-grid-text" style={bitmapCell}>
-                    <XpmBitmap icon={row.icon} />
-                  </td>
-                  <td className="ze-grid-text">{row.type}</td>
-                  <td className="ze-grid-text">{row.count}</td>
-                  <td className="ze-grid-text">{row.comment}</td>
-                  <td
-                    className="ze-grid-text"
-                    style={{
-                      whiteSpace: 'nowrap',
-                      maxWidth: 280,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {row.text}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="ze-modal-footer">
-          {/* m_sdbSizer holds exactly one button, wxID_CANCEL
-              (dialog_design_inspector_base.cpp:60-63). */}
-          <Button label="Cancel" onClick={onClose} />
-        </div>
+                <td className="ze-grid-text" style={bitmapCell}>
+                  <XpmBitmap icon={row.icon} />
+                </td>
+                <td className="ze-grid-text">{row.type}</td>
+                <td className="ze-grid-text">{row.count}</td>
+                <td className="ze-grid-text">{row.comment}</td>
+                <td
+                  className="ze-grid-text"
+                  style={{
+                    whiteSpace: 'nowrap',
+                    maxWidth: 280,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {row.text}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        {/* m_sdbSizer holds exactly one button, wxID_CANCEL
+              (dialog_design_inspector_base.cpp:60-63). */}
+        <Button label="Cancel" onClick={onClose} />
+      </div>
+    </DialogShim>
   );
 }

@@ -17,7 +17,7 @@
 import { Button } from '../wx/controls.js';
 import { useEffect, useState, type JSX, type Ref } from 'react';
 import { WX_HTML_REPORT_BOX } from '../widgets/wx_html_report_box.js';
-import { useModalEscape } from '../dialog_shim.js';
+import { DialogShim } from '../dialog_shim.js';
 import { Combo } from '../widgets/wx_combobox.js';
 import type {
   BOOK_REPORTER_PAGE,
@@ -42,17 +42,16 @@ export function DialogBookReporter({
   rootRef?: Ref<HTMLDivElement>;
 }): JSX.Element {
   const [page, setPage] = useState(0);
-  useModalEscape(onClose);
   const shown = Math.min(page, Math.max(0, pages.length - 1));
 
   return (
-    <div ref={rootRef} className="ze-modal ze-bookreporter" role="dialog" aria-label={title}>
-      <div className="ze-modal-header">
-        {title}
-        <span className="x" title="Close" onClick={onClose}>
-          ✕
-        </span>
-      </div>
+    <DialogShim
+      title={title}
+      onClose={onClose}
+      modeless
+      frameRef={rootRef}
+      className="ze-bookreporter"
+    >
       <div className="ze-nb-frame ze-bookreporter-notebook">
         <div className="ze-nb-tabs" role="tablist">
           {pages.map((p, i) => (
@@ -88,7 +87,7 @@ export function DialogBookReporter({
       <div className="ze-modal-footer ze-bookreporter-buttons">
         <Button label="OK" isDefault onClick={onClose} />
       </div>
-    </div>
+    </DialogShim>
   );
 }
 
