@@ -130,7 +130,7 @@ import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
 import { MAGNETIC_OPTIONS } from '../pcbnew_settings.js';
 import { arcSliceContainsPoint } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
-import { arcCenterI } from '@ziroeda/kimath/src/geometry/shape_arc.js';
+import { arcCenterI, truncVec } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 
 /** `SEG`, and the shape every segment type in this tree already has. */
 export interface GridSeg {
@@ -784,6 +784,11 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     c?: GRID_HELPER_GRIDS,
     d?: readonly BOARD_ITEM[],
   ): Vec2 {
+    // `const VECTOR2I& aOrigin`: callers pass GetMousePosition(), a VECTOR2D,
+    // which the conversion truncates. A fraction left in throws in the BigInt
+    // of TestSegmentHit.
+    a = truncVec(a);
+
     if (b instanceof LSET)
       return this.bestSnapAnchorLive(
         a,

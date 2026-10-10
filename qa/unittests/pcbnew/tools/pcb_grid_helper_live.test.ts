@@ -22,6 +22,8 @@ import { TEST_PCB_FRAME } from '../support/test_pcb_frame.js';
  * track (50,60)-(60,60) on F.Cu and another from its start down to (50,66);
  * a via at (70,60); a silkscreen line (50,70)-(60,70) - each 13 x 17 um
  * off the 0.1 mm grid, so that landing on one can never be a grid round.
+ * A diagonal track (100,100)-(110,105) sits apart: only a slanted segment
+ * reaches TestSegmentHit's general (BigInt) distance.
  */
 const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew")
   (general (thickness 1.6) (legacy_teardrops no))
@@ -34,6 +36,7 @@ const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew")
     (pad "1" smd rect (at 1 0) (size 1 1) (layers "F.Cu") (net 1 "N1") (uuid "00000000-0000-4000-8000-000000000011")))
   (segment (start 50.013 60.017) (end 60.013 60.017) (width 0.25) (layer "F.Cu") (net 1) (uuid "00000000-0000-4000-8000-000000000021"))
   (segment (start 50.013 60.017) (end 50.013 66.017) (width 0.25) (layer "F.Cu") (net 1) (uuid "00000000-0000-4000-8000-000000000022"))
+  (segment (start 100.013 100.017) (end 110.013 105.017) (width 0.25) (layer "F.Cu") (net 1) (uuid "00000000-0000-4000-8000-000000000023"))
   (via (at 70.013 60.017) (size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") (net 1) (uuid "00000000-0000-4000-8000-000000000031"))
   (gr_line (start 50.013 70.017) (end 60.013 70.017) (stroke (width 0.2) (type solid)) (layer "F.SilkS") (uuid "00000000-0000-4000-8000-000000000041"))
 )
@@ -120,6 +123,23 @@ describe('PCB_GRID_HELPER::BestSnapAnchor on the live BOARD (cpp:593)', () => {
   it('the middle of a track is an anchor too, but not a snappable one', () => {
     // `addAnchor( track->GetCenter(), ORIGIN, … )`: no SNAPPABLE flag.
     expect(snap(mm(55.03, 60.04))).not.toEqual(mm(55.013, 60.017));
+  });
+
+  it('a cursor between two IUs truncates to one, as VECTOR2I( VECTOR2D ) does', () => {
+    // The move tool passes GetMousePosition(), a VECTOR2D. On a slanted track,
+    // away from its anchors, the hover hit test ran on the fraction and threw
+    // in BigInt, which killed the move half way (a footprint left frozen).
+    mag.tracks = MAGNETIC_OPTIONS.CAPTURE_CURSOR_IN_TRACK_TOOL;
+    const at = mm(107.513, 103.767);
+    const want = JSON.stringify(snap(at));
+    grid = new PCB_GRID_HELPER(h.mgr, mag);
+    let got: string;
+    try {
+      got = JSON.stringify(snap({ x: at.x + 0.67, y: at.y + 0.4 }));
+    } catch (e) {
+      got = String(e);
+    }
+    expect(got).toBe(want);
   });
 });
 
