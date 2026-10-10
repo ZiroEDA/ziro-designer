@@ -4,6 +4,7 @@
 import { PANEL_EMBEDDED_FILES } from '@ziroeda/common/dialogs/panel_embedded_files.js';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { SCH_ACTIONS } from './tools/sch_actions.js';
+import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.js';
 import { SCH_SELECTION_TOOL } from './tools/sch_selection_tool.js';
 import { SCH_DRAWING_TOOLS } from './tools/sch_drawing_tools.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
@@ -426,7 +427,6 @@ import '@ziroeda/common/widgets/shell.css';
 import { schSymbolLibraryName } from './index.js';
 import { busJunctionIds as busJunctionIdsOf } from './connectivity/bus.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
-import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import { LIVE_SCHEMATIC_MIRROR, liveScreensToRecords } from './sch_record_bridge.js';
 import { createSchDrawPanel } from './browser/sch_canvas.js';
 import type { SCH_DRAW_PANEL } from './sch_draw_panel.js';
@@ -1202,7 +1202,20 @@ export function SchematicEditor({
     resolve: (aId: number) => void;
   } | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const [localToggles, setLocalToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
+  // The AUI panes shown (m_auimgr, which upstream's window owns too): aui.show_schematic_hierarchy
+  // and aui.show_properties default true, aui.show_search and aui.show_net_nav_panel false
+  // (eeschema_settings.cpp:246-247, 318-319, 297-301). [data]
+  const [localToggles, setLocalToggles] = useState<Set<string>>(
+    new Set(['showHierarchy', 'showProperties']),
+  );
+  // The frame's user units (UNITS_PROVIDER::GetUserUnits), read back after every units action.
+  const [frameUnits, setFrameUnits] = useState<StatusUnits>(
+    defaultUnitsToggle('eeschema') === 'unitsMm' ? 'mm' : 'mils',
+  );
+  const syncFrameUnits = useCallback(() => {
+    const u = schFrameRef.current?.GetUserUnits();
+    if (u === 'in' || u === 'mils' || u === 'mm') setFrameUnits(u);
+  }, []);
   // Collapsed nodes in the Schematic Hierarchy tree (HIERARCHY_TREE twisties),
   // keyed by SheetTreeNode.path; a node not in the set is expanded.
   const [collapsedSheets, setCollapsedSheets] = useState<Set<string>>(new Set());
@@ -1328,6 +1341,8 @@ export function SchematicEditor({
   // (Preferences and the left toolbar drive the same EESCHEMA_SETTINGS keys).
   const toggles = useMemo(() => {
     const t = new Set(localToggles);
+    // cond.Units( EDA_UNITS::... ): the units group checks the frame's units.
+    t.add(frameUnits === 'in' ? 'unitsInches' : frameUnits === 'mils' ? 'unitsMils' : 'unitsMm');
     if (es.window.grid.show) t.add('toggleGrid');
     if (es.window.grid.overrides_enabled) t.add('toggleGridOverrides');
     if (es.appearance.show_hidden_pins) t.add('toggleHiddenPins');
@@ -1348,25 +1363,14 @@ export function SchematicEditor({
     );
     if (es.annotation.automatic) t.add('annotateAuto');
     return t;
-  }, [localToggles, es]);
-  // Ctrl+U (ACTIONS::toggleUnits) returns to the last imperial unit, like
-  // COMMON_TOOLS::m_imperialUnit (initially inches).
-  const lastImperialRef = useRef<'unitsInches' | 'unitsMils'>('unitsInches');
-  useEffect(() => {
-    if (toggles.has('unitsInches')) lastImperialRef.current = 'unitsInches';
-    else if (toggles.has('unitsMils')) lastImperialRef.current = 'unitsMils';
-  }, [toggles]);
+  }, [localToggles, es, frameUnits]);
   // Selection Filter (SCH_SELECTION_FILTER_OPTIONS): gates which item types,
   // and locked items, the selection accepts.
   const [selFilter, setSelFilter] = useState<SelectionFilterOptions>(defaultSelectionFilter);
   // ACTIONS::toggleUnits / the imperial-unit pair, and the display's device
   // pixel ratio: both feed the live status panes, so they are resolved before
   // the readout that writes them.
-  const units: StatusUnits = toggles.has('unitsInches')
-    ? 'in'
-    : toggles.has('unitsMils')
-      ? 'mils'
-      : 'mm';
+  const units: StatusUnits = frameUnits;
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
   // HOTKEY_CYCLE_POPUP, this frame's one instance (EDA_DRAW_FRAME::m_hotkeyPopup).
@@ -4441,6 +4445,7 @@ export function SchematicEditor({
     if (!panel) return;
     schPanelRef.current = panel;
     frame.ActivateGalCanvas();
+    syncFrameUnits(); // LoadSettings has read system.units
     showLiveRef.current();
     return () => {
       panel.Destroy();
@@ -5859,10 +5864,30 @@ export function SchematicEditor({
         });
         return;
       }
-      setLocalToggles((prev) => applyToggle(prev, id));
+      // ACTIONS::inchesUnits / milsUnits / millimetersUnits: COMMON_TOOLS::SwitchUnits on the frame.
+      const unitAction =
+        id === 'unitsInches'
+          ? ACTIONS.inchesUnits
+          : id === 'unitsMils'
+            ? ACTIONS.milsUnits
+            : id === 'unitsMm'
+              ? ACTIONS.millimetersUnits
+              : null;
+      if (unitAction) {
+        runLiveAction(unitAction);
+        syncFrameUnits();
+        return;
+      }
+      // An AUI pane flips.
+      setLocalToggles((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [openPrefs, app, runLiveAction],
+    [openPrefs, app, runLiveAction, syncFrameUnits],
   );
 
   // Menus carry their shortcut as literal text, so a rebinding has to be
@@ -5994,11 +6019,11 @@ export function SchematicEditor({
         e.preventDefault();
         doFind(e.shiftKey ? -1 : 1);
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u' && !e.shiftKey) {
-        // ACTIONS::toggleUnits (Ctrl+U): imperial <-> metric, remembering the
-        // last imperial unit (COMMON_TOOLS m_imperialUnit, initially inches).
+        // ACTIONS::toggleUnits (Ctrl+U): COMMON_TOOLS::ToggleUnits, which remembers the last
+        // imperial unit (m_imperialUnit).
         e.preventDefault();
-        const imperial = toggles.has('unitsInches') || toggles.has('unitsMils');
-        onLeftToggle(imperial ? 'unitsMm' : lastImperialRef.current);
+        runLiveAction(ACTIONS.toggleUnits);
+        syncFrameUnits();
       } else if ((e.ctrlKey || e.metaKey) && e.key === ' ') {
         // ACTIONS::cycleArcEditMode (Ctrl+Space): switch to a different method
         // of editing arcs. The point editor reads the same preference, so this
@@ -6256,10 +6281,10 @@ export function SchematicEditor({
     searchData,
     doFind,
     openFindDialog,
-    toggles,
     app,
     remapEvent,
     runLiveAction,
+    syncFrameUnits,
   ]);
 
   const fmt = (iu: number): string => {

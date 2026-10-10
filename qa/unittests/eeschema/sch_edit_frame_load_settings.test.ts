@@ -13,6 +13,7 @@
 import type { COMMON_SETTINGS_LIKE } from '@ziroeda/common/pgm_base.js';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { GAL_ANTIALIASING_MODE } from '@ziroeda/common/gal/gal_display_options.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { schFrame, schToolHarness } from './support/sch_tool_harness.js';
 
@@ -70,5 +71,35 @@ describe('SCH_EDIT_FRAME::LoadSettings', () => {
     h.frame.LoadSettings(cfg);
 
     expect(h.frame.GetGalDisplayOptions().m_axesEnabled).toBe(false);
+  });
+
+  /**
+   * The frame's units, which the toolbar's units group and every dialog's UNIT_BINDER read:
+   * system.units' default is one branch of APP_SETTINGS_BASE (app_settings.cpp:228-238) and
+   * eeschema (filename "eeschema", eeschema_settings.cpp:177) is on its imperial side - mils.
+   */
+  it('opens in mils, the units the toolbar and the dialogs both read', () => {
+    SetPgm(new PGM_BASE(common(2), new SETTINGS_MANAGER()));
+    const h = schToolHarness(schFrame());
+
+    h.frame.LoadSettings(h.frame.config()!);
+
+    expect(h.frame.GetUserUnits()).toBe('mils');
+  });
+
+  it('switches its units through COMMON_TOOLS, and Ctrl+U returns to the last imperial unit', () => {
+    SetPgm(new PGM_BASE(common(2), new SETTINGS_MANAGER()));
+    const h = schToolHarness(schFrame());
+    const mgr = h.frame.GetToolManager()!;
+    h.frame.LoadSettings(h.frame.config()!);
+
+    mgr.RunAction(ACTIONS.millimetersUnits);
+    expect(h.frame.GetUserUnits()).toBe('mm');
+    mgr.RunAction(ACTIONS.inchesUnits);
+    expect(h.frame.GetUserUnits()).toBe('in');
+    mgr.RunAction(ACTIONS.toggleUnits);
+    expect(h.frame.GetUserUnits()).toBe('mm');
+    mgr.RunAction(ACTIONS.toggleUnits);
+    expect(h.frame.GetUserUnits()).toBe('in');
   });
 });

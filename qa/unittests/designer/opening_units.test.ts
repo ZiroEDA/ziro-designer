@@ -31,7 +31,6 @@ import {
   defaultUnits,
   defaultUnitsToggle,
 } from '@ziroeda/common/settings/app_settings_units.js';
-import { DEFAULT_TOGGLES as SCH_TOGGLES } from '@ziroeda/eeschema/toggles.js';
 import { DEFAULT_TOGGLES as SYM_TOGGLES } from '@ziroeda/eeschema/symbol_editor/toggles.js';
 import {
   ACTION_FOR_ID,
@@ -94,8 +93,9 @@ describe('the unit each frame actually boots with', () => {
    * fresh schematic opened reading `mm` where a real eeschema reads `mils`.
    */
   it('opens the schematic editor in mils', () => {
-    expect(bootUnit(SCH_TOGGLES)).toBe('unitsMils');
-    expect(SCH_TOGGLES.has('unitsMm')).toBe(false);
+    // The units are SCH_EDIT_FRAME's own now (sch_edit_frame_load_settings tests the frame);
+    // this is the branch the frame's LoadSettings reads.
+    expect(defaultUnitsToggle('eeschema')).toBe('unitsMils');
   });
 
   /**
@@ -143,6 +143,6 @@ describe('the unit each frame actually boots with', () => {
    * most, and they disagree upstream.
    */
   it('gives the schematic and the board different opening units', () => {
-    expect(bootUnit(SCH_TOGGLES)).not.toBe(defaultUnitsToggle('pcbnew'));
+    expect(defaultUnitsToggle('eeschema')).not.toBe(defaultUnitsToggle('pcbnew'));
   });
 });

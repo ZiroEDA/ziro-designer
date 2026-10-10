@@ -36,17 +36,13 @@ import {
   RADIO_GROUPS as FP_GROUPS,
 } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import {
-  applyToggle as schApplyToggle,
-  DEFAULT_TOGGLES as SCH_TOGGLES,
-  RADIO_GROUPS as SCH_GROUPS,
-} from '@ziroeda/eeschema/toggles.js';
-import {
   persistSymbolToggle,
   SYMBOL_SETTING_TOGGLES,
   symbolTogglesFromSettings,
 } from '@ziroeda/eeschema/symbol_editor/toggles.js';
 import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import { PCB_LEFT_TOOLBAR } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
+import { LEFT_TOOLBAR as SCH_LEFT_TOOLBAR_ENTRIES } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 
 const sorted = (s: Iterable<string>): string[] => [...s].sort();
 
@@ -177,45 +173,21 @@ describe("FOOTPRINT_EDIT_FRAME's opening toolbar state", () => {
   });
 });
 
-describe("SCH_EDIT_FRAME's opening toolbar state", () => {
+describe("SCH_EDIT_FRAME's units group", () => {
   /**
-   * Only what eeschema keeps in session state. Grid, crosshair, line mode,
-   * hidden pins/fields and auto-annotate are `EESCHEMA_SETTINGS` keys and are
-   * derived from the settings store each render, so they are not in this set.
-   *
-   *   unitsMils       filename "eeschema"                  app_settings.cpp:228-238
-   *                                                        eeschema_settings.cpp:177
-   *   showHierarchy   `aui.show_schematic_hierarchy` true  eeschema_settings.cpp:246-247
-   *   showProperties  `aui.show_properties` true           eeschema_settings.cpp:318-319
-   *
-   * `aui.show_search` (:297-298) and `aui.show_net_nav_panel` (:300-301) both
-   * default false, which is why neither pane is here.
-   */
-  it('is the two panes plus the unit, with search and the net navigator shut', () => {
-    expect(sorted(SCH_TOGGLES)).toEqual(['showHierarchy', 'showProperties', 'unitsMils']);
-  });
-
-  /**
-   * The units group leads with INCHES in eeschema
-   * (`toolbars_sch_editor.cpp:82-84`) and with millimetres in pcbnew
-   * (`toolbars_pcb_editor.cpp:165-167`). The order is what the button cycles
-   * through, so the two must not be shared. pcbnew's is its toolbar group's:
-   * the units are the frame's there, not a window toggle group.
+   * The units group leads with INCHES in eeschema (`toolbars_sch_editor.cpp:82-84`) and with
+   * millimetres in pcbnew (`toolbars_pcb_editor.cpp:165-167`). The units themselves are the
+   * frame's (sch_edit_frame_load_settings); the panes are the window's AUI state.
    */
   it('cycles its units group in eeschema order, not pcbnew order', () => {
-    expect(SCH_GROUPS[0]).toEqual(['unitsInches', 'unitsMils', 'unitsMm']);
+    const schUnits = SCH_LEFT_TOOLBAR_ENTRIES.find(
+      (e) => typeof e === 'object' && e !== null && 'group' in e && e.group === 'Units',
+    ) as { actions: { id: string }[] } | undefined;
+    expect(schUnits?.actions.map((a) => a.id)).toEqual(['unitsInches', 'unitsMils', 'unitsMm']);
     const pcbUnits = PCB_LEFT_TOOLBAR.find(
       (e) => typeof e === 'object' && e !== null && 'group' in e && e.group === 'Units',
     ) as { actions: { id: string }[] } | undefined;
     expect(pcbUnits?.actions.map((a) => a.id)).toEqual(['unitsMm', 'unitsInches', 'unitsMils']);
-  });
-
-  it('replaces the units group rather than adding to it', () => {
-    const inches = schApplyToggle(SCH_TOGGLES, 'unitsInches');
-    expect(sorted(inches)).toEqual(['showHierarchy', 'showProperties', 'unitsInches']);
-    expect(schApplyToggle(inches, 'unitsInches').has('unitsInches')).toBe(true);
-    expect(schApplyToggle(SCH_TOGGLES, 'showProperties').has('showProperties')).toBe(false);
-    expect(schApplyToggle(SCH_TOGGLES, 'showNetNavigator').has('showNetNavigator')).toBe(true);
   });
 });
 
@@ -248,7 +220,6 @@ const src = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
 describe.each([
-  ['../../eeschema/sch_edit_frame_ui.tsx', './toggles.js'],
   // footprint_editor_toggles.ts merged into footprint_edit_frame.ts (Stage A
   // of the pcbnew/ file-structure move): FOOTPRINT_EDIT_FRAME's toolbar
   // groups sit beside the rest of that class's ported state now, the same
