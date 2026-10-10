@@ -368,11 +368,8 @@ const WIRING: { name: string; anchor: string; seam: RegExp }[] = [
     anchor: "else if (id === 'copyAsText')",
     seam: /withSelection\(AnyItems,/,
   },
-  {
-    name: 'sync sheet pins',
-    anchor: "id === 'syncSheetPins' || id === 'syncAllSheetPins'",
-    seam: /requestTarget\(SheetItems\)/,
-  },
+  // Sync Sheet Pins runs the live SCH_DRAWING_TOOLS::SyncSheetsPins, which takes the selection's
+  // front or SelectPoint's sheet under the cursor as upstream does (sync_sheet_pins_live).
   {
     name: 'duplicate',
     anchor: 'const duplicateSelection = useCallback(',

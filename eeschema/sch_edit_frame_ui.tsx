@@ -5,6 +5,7 @@ import { PANEL_EMBEDDED_FILES } from '@ziroeda/common/dialogs/panel_embedded_fil
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { SCH_ACTIONS } from './tools/sch_actions.js';
 import { SCH_SELECTION_TOOL } from './tools/sch_selection_tool.js';
+import { SCH_DRAWING_TOOLS } from './tools/sch_drawing_tools.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import type { SCH_TEXT } from './sch_text.js';
@@ -175,12 +176,6 @@ import {
   netNavigatorOrder,
   stepNetItem,
   type PcbFootprintData,
-  syncPinFromLabel,
-  syncLabelsFromPin,
-  deleteSyncLabels,
-  deleteSyncPins,
-  syncPlacementFor,
-  type SyncPlacement,
   buildSheetTree,
   repairPageNumbersOnLoad,
   sheetFile,
@@ -407,7 +402,8 @@ import { LiveSchPropertiesPanel } from './widgets/sch_properties_panel_ui.js';
 import { SearchPanel } from './widgets/sch_search_pane.js';
 import { NetNavigatorPanel } from './widgets/net_navigator_panel.js';
 import { DialogUpdateFromPcb } from './dialogs/dialog_update_from_pcb.js';
-import { DialogSyncSheetPins, type SyncSheetEntry } from './dialogs/dialog_sync_sheet_pins.js';
+import type { DIALOG_SYNC_SHEET_PINS } from './sync_sheet_pin/dialog_sync_sheet_pins.js';
+import { DialogSyncSheetPins } from './sync_sheet_pin/dialog_sync_sheet_pins_ui.js';
 import {
   DIALOG_TABLE_PROPERTIES,
   DialogTableProperties,
@@ -1496,28 +1492,8 @@ export function SchematicEditor({
   const ercNav = useRef<ErcDialogNav | null>(null);
   /** A marker cross-probe waiting for the ERC dialog to exist (or to unfilter). */
   const pendingErcSelect = useRef<string | null>(null);
-  /** Tools > Sync Sheet Pins: which sub-sheets the dialog is showing. */
-  const [syncPinsOpen, setSyncPinsOpen] = useState<SyncSheetEntry[] | null>(null);
-  /**
-   * The file the dialog was opened over, kept separately from `currentFile`:
-   * "Add Hierarchical Labels" navigates into the sub-sheet to place them, and
-   * the dialog has to come back showing the sheet it was opened on, not
-   * whatever is on screen when the placement finishes. Upstream gets this for
-   * free — its panels hold sheet *paths*, not the active screen.
-   */
-  const syncParentFile = useRef<string>('');
-  /** Which page the dialog should reopen on after a placement. */
-  const syncPage = useRef(0);
-  /**
-   * `DIALOG_SYNC_SHEET_PINS`'s placement template queue: the rows an Add button
-   * armed, one placed per click, the dialog reopening when the last one lands
-   * (`CanPlaceMore` / `EndPlacement`).
-   */
-  const [syncPlacement, setSyncPlacement] = useState<SyncPlacement | null>(null);
-  const syncPlacementRef = useRef<SyncPlacement | null>(null);
-  syncPlacementRef.current = syncPlacement;
-  /** Where to navigate back to when a label placement finishes. */
-  const syncReturn = useRef<{ path: string; file: string } | null>(null);
+  /** DIALOG_SYNC_SHEET_PINS while it is open (SCH_DRAWING_TOOLS::m_dialogSyncSheetPin). */
+  const [syncDialog, setSyncDialog] = useState<DIALOG_SYNC_SHEET_PINS | null>(null);
   const [ercRunning, setErcRunning] = useState<readonly string[] | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   /**
@@ -1817,6 +1793,11 @@ export function SchematicEditor({
           return new Promise<number>((resolve) =>
             setGlobalEditDialog({ dlg, shown: dlg.TransferDataToWindow(), resolve }),
           );
+        }
+        if (aDialog === 'DIALOG_SYNC_SHEET_PINS') {
+          // `m_dialogSyncSheetPin->Show( true )`: modeless, so the tool goes on at once.
+          setSyncDialog(aArg as DIALOG_SYNC_SHEET_PINS);
+          return wxID_OK;
         }
         console.warn(`${aDialog} is not ported to the live model yet`);
         return wxID_CANCEL;
@@ -5730,40 +5711,6 @@ export function SchematicEditor({
    * and had you type a name, which is the manual gesture upstream only offers
    * from the sync dialog, and which lets a pin and its label drift apart.
    */
-  /**
-   * The placement queue ran out (or was abandoned): put the tool away and bring
-   * the dialog back, on the sheet it was opened over.
-   *
-   *     m_frame->PopTool( aEvent );
-   *     m_toolMgr->RunAction( ACTIONS::selectionClear );
-   *     m_dialogSyncSheetPin->Show( true );
-   *
-   * and the same on escape, via `EndPlacement()`. The dialog is not rebuilt —
-   * `syncPinsOpen` was never cleared, only hidden while a placement was running
-   * — but its sub-sheet documents are re-read, since placing labels changed one.
-   */
-  const endSyncPlacement = useCallback(() => {
-    setSyncPlacement(null);
-    setActiveTool('select');
-    setPendingLabel(null);
-    const back = syncReturn.current;
-    syncReturn.current = null;
-    if (back) switchSheet(back.path, back.file);
-    setSyncPinsOpen((prev) =>
-      prev ? prev.map((e) => ({ ...e, sub: project.current.docs.get(e.file) ?? e.sub })) : prev,
-    );
-  }, [switchSheet]);
-
-  /**
-   * The document the sync dialog was opened over. Read from the project rather
-   * than taken as `doc`, because placing hierarchical labels navigates into the
-   * sub-sheet and the dialog still belongs to the sheet it was opened on.
-   */
-  const syncParent: Schematic | null = !syncPinsOpen
-    ? null
-    : syncParentFile.current === currentFile
-      ? doc
-      : (project.current.docs.get(syncParentFile.current) ?? null);
 
   /**
    * SCH_DRAWING_TOOLS::m_statusPopup: a tool's one popup, replaced by the next
@@ -5900,49 +5847,10 @@ export function SchematicEditor({
           else nav.excludeCurrent();
         });
       } else if (id === 'syncSheetPins' || id === 'syncAllSheetPins') {
-        // syncSheetPins acts on the selected sheet symbol, syncAllSheetsPins on
-        // every sheet of the open screen. Both need the sub-sheet's document,
-        // which only a loaded project has.
-        const d = docRef.current;
-        // The single-sheet form is `RequestSelection( { SCH_SHEET_T } )`, the
-        // list every other sheet command uses (sch_edit_tool.cpp:3403, :3430),
-        // so hovering a sheet is enough to open its Sync Sheet Pins.
-        const target = id === 'syncSheetPins' ? requestTarget(SheetItems) : new Set<string>();
-        const wanted =
-          id === 'syncSheetPins'
-            ? (d?.sheets
-                .map((sh, i) => ({ sh, i }))
-                .filter(({ sh, i }) => target.has(refId('sheet', sh.uuid, i))) ?? [])
-            : (d?.sheets.map((sh, i) => ({ sh, i })) ?? []);
-        const entries: SyncSheetEntry[] = [];
-        for (const { sh, i } of wanted) {
-          const file = sheetFile(sh);
-          const sub = file ? project.current.docs.get(file) : undefined;
-          if (!file || !sub) continue;
-          entries.push({
-            sheetIndex: i,
-            name: sh.fields.find((f) => f.key === 'Sheetname')?.value ?? file,
-            file,
-            sub,
-          });
-        }
-        if (entries.length === 0)
-          setInfoBar(
-            id === 'syncSheetPins'
-              ? 'Select a sheet whose file is part of this project.'
-              : 'This schematic has no sub-sheets loaded from the project.',
-          );
-        else {
-          // Which file the dialog belongs to, so it survives navigating away to
-          // place labels; and the page of the selected sheet, which upstream
-          // pre-selects (`SCH_SHEET* selectedSheet = … GetSelection().Front()`).
-          syncParentFile.current = currentFile;
-          const sel = entries.findIndex(({ sheetIndex }) =>
-            target.has(refId('sheet', d?.sheets[sheetIndex]?.uuid, sheetIndex)),
-          );
-          syncPage.current = sel >= 0 ? sel : 0;
-          setSyncPinsOpen(entries);
-        }
+        // SCH_DRAWING_TOOLS::SyncSheetsPins / SyncAllSheetsPins on the live tool.
+        runLiveAction(
+          id === 'syncSheetPins' ? SCH_ACTIONS.syncSheetPins : SCH_ACTIONS.syncAllSheetsPins,
+        );
       } else if (id === 'importSheet') {
         // `SCH_DRAWING_TOOLS::ImportSheet`. Upstream loads the file, selects
         // everything it brought in and moves it to the cursor — which is what
@@ -6092,7 +6000,6 @@ export function SchematicEditor({
       pageNumberOf,
       pasteOptions,
       withSelection,
-      requestTarget,
       applySelectionState,
       runRescueSymbols,
       runLiveAction,
@@ -6383,8 +6290,7 @@ export function SchematicEditor({
         //
         //     if( m_dialogSyncSheetPin && m_dialogSyncSheetPin->CanPlaceMore() )
         //     { m_dialogSyncSheetPin->EndPlacement(); m_dialogSyncSheetPin->Show( true ); }
-        if (syncPlacementRef.current) endSyncPlacement();
-        else if (pastePending) setPastePending(null);
+        if (pastePending) setPastePending(null);
         else if (pendingImage) {
           setPendingImage(null);
           setActiveTool('select');
@@ -6595,7 +6501,6 @@ export function SchematicEditor({
     doFind,
     openFindDialog,
     toggles,
-    endSyncPlacement,
     requestTarget,
     withSelection,
     finishCommand,
@@ -7167,123 +7072,16 @@ export function SchematicEditor({
             )}
             {/* Hidden, not closed, while a placement queue is running: upstream
               calls Hide() and Show(true) around the placement tool. */}
-            {syncPinsOpen && !syncPlacement && syncParent && (
+            {syncDialog && (
               <DialogSyncSheetPins
-                parent={syncParent}
-                parentFile={syncParentFile.current}
-                initialPage={syncPage.current}
-                sheets={syncPinsOpen}
-                // Each direction writes a different file, which is why they
-                // go through the per-sheet applier rather than plain
-                // runCommand — and through `sheetBatch`, so the entry lands on
-                // the stack Ctrl+Z reaches from here rather than on the stack
-                // of a sheet the user is not looking at.
-                onUsePinTemplate={(entry, pin, label) => {
-                  const cmd = syncPinFromLabel(
-                    doc,
-                    { sheet: entry.sheetIndex, pin: pin.index },
-                    label,
-                  );
-                  if (!cmd) return;
-                  sheetBatch('Sync Sheet Pins', () =>
-                    applySheetCommand(syncParentFile.current, cmd),
-                  );
+                dlg={syncDialog}
+                onClose={() => {
+                  // The dialog's OnClose; the tool forgets it as its unique_ptr would.
+                  syncDialog.Hide();
+                  const tool = schFrameRef.current?.GetToolManager()?.GetTool(SCH_DRAWING_TOOLS);
+                  if (tool) tool.m_dialogSyncSheetPin = null;
+                  setSyncDialog(null);
                 }}
-                onUseLabelTemplate={(entry, label, pin) => {
-                  sheetBatch('Sync Sheet Pins', () =>
-                    applySheetCommand(entry.file, syncLabelsFromPin(label, pin)),
-                  );
-                  // The dialog reads the sub-sheet it was handed, so refresh it.
-                  // Safe to read `project.current.docs` here even though the
-                  // edit is folded in a `setDoc` updater: `doc`'s hook is
-                  // declared above this one, so its queue is drained first.
-                  setSyncPinsOpen((prev) =>
-                    prev
-                      ? prev.map((e) =>
-                          e.file === entry.file
-                            ? { ...e, sub: project.current.docs.get(e.file) ?? e.sub }
-                            : e,
-                        )
-                      : prev,
-                  );
-                }}
-                // `OnBtnAddSheetPinsClicked` → `PlaceSheetPin`: the panel goes
-                // away, the sheet symbol is selected and the pin tool runs with
-                // the chosen labels queued. One click places one pin.
-                onAddSheetPins={(entry, tmpl) => {
-                  const p = syncPlacementFor(
-                    'sheetPin',
-                    entry.sheetIndex,
-                    syncParentFile.current,
-                    tmpl,
-                  );
-                  if (!p) return;
-                  setSyncPlacement(p);
-                  // `SyncSelection( {}, nullptr, { sheet } )` — so the tool acts
-                  // on the sheet the page belongs to.
-                  const sh = doc.sheets[entry.sheetIndex];
-                  if (sh) setSelection(new Set([refId('sheet', sh.uuid, entry.sheetIndex)]));
-                  setActiveTool('sheetPin');
-                  setInfoBar(
-                    `Click the sheet border to place '${tmpl[0]!.text}'` +
-                      (tmpl.length > 1 ? ` (${tmpl.length} to place).` : '.'),
-                  );
-                }}
-                // `OnBtnAddLabelsClicked` → `PlaceHieraLable`: the label belongs
-                // to the sub-sheet's own document, so this changes sheet first
-                // (`RunAction( SCH_ACTIONS::changeSheet, &aPath )`) and comes back
-                // when the queue runs out.
-                onAddHierLabels={(entry, tmpl) => {
-                  const p = syncPlacementFor('hierLabel', entry.sheetIndex, entry.file, tmpl);
-                  if (!p) return;
-                  const target = flatSheets.find((f) => f.file === entry.file);
-                  if (!target) {
-                    setInfoBar(`Sheet file not in project: ${entry.file}`);
-                    return;
-                  }
-                  syncReturn.current = { path: currentPath, file: currentFile };
-                  switchSheet(target.path, target.file);
-                  setSyncPlacement(p);
-                  setActiveTool('placeHierLabel');
-                  setPendingLabel({
-                    kind: 'hierarchical_label',
-                    text: tmpl[0]!.text,
-                    shape: tmpl[0]!.shape,
-                    fontSize: setup.formatting.defaultTextSizeMils * IU_PER_MILS,
-                    angle: SPIN_ANGLE[lastLabel.current.spin],
-                    autoRotate: lastLabel.current.autoRotate,
-                    fields: [],
-                  });
-                  setInfoBar(
-                    `Click to place '${tmpl[0]!.text}' in ${entry.file}` +
-                      (tmpl.length > 1 ? ` (${tmpl.length} to place).` : '.'),
-                  );
-                }}
-                // The two delete buttons (`OnBtnRmPinsClicked` /
-                // `OnBtnRmLabelsClicked`), each writing its own half's file.
-                onDeletePins={(entry, indices) => {
-                  sheetBatch('Sync Sheet Pins', () =>
-                    applySheetCommand(
-                      syncParentFile.current,
-                      deleteSyncPins(entry.sheetIndex, indices),
-                    ),
-                  );
-                }}
-                onDeleteLabels={(entry, texts) => {
-                  sheetBatch('Sync Sheet Pins', () =>
-                    applySheetCommand(entry.file, deleteSyncLabels(texts)),
-                  );
-                  setSyncPinsOpen((prev) =>
-                    prev
-                      ? prev.map((e) =>
-                          e.file === entry.file
-                            ? { ...e, sub: project.current.docs.get(e.file) ?? e.sub }
-                            : e,
-                        )
-                      : prev,
-                  );
-                }}
-                onClose={() => setSyncPinsOpen(null)}
               />
             )}
             {symLibTableOpen && (
