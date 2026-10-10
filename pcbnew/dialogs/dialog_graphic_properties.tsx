@@ -20,7 +20,7 @@
  * `pcbnew/dialogs/dialog_shape_properties.ts`.
  */
 
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, Combo } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { TextValues } from './dialog_text_properties.js';
@@ -157,16 +157,14 @@ export function DialogShapeProperties({
             graphic can be hatched three ways as well as filled solid. */}
           <label>
             <span className="ze-tvp-label">Fill:</span>
-            <select
-              value={v.fillMode}
-              onChange={(e) => set({ fillMode: e.target.value as ShapeValues['fillMode'] })}
-            >
-              {FILL_MODES.map((value, i) => (
-                <option key={value} value={value}>
-                  {FILL_MODE_NAMES[i]}
-                </option>
-              ))}
-            </select>
+            <Combo
+              value={String(v.fillMode)}
+              options={FILL_MODES.map((value, i) => ({
+                value: String(value),
+                label: FILL_MODE_NAMES[i]!,
+              }))}
+              onChange={(aValue) => set({ fillMode: aValue as ShapeValues['fillMode'] })}
+            />
           </label>
         </fieldset>
 
@@ -174,17 +172,12 @@ export function DialogShapeProperties({
           <legend>Layer</legend>
           <label>
             <span className="ze-tvp-label">Layer:</span>
-            <select
+            <Combo
+              value={String(v.layer)}
+              options={layers.map((l) => ({ value: String(l), label: l }))}
               className="ze-tvp-select"
-              value={v.layer}
-              onChange={(e) => set({ layer: e.target.value })}
-            >
-              {layers.map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </select>
+              onChange={(aValue) => set({ layer: aValue })}
+            />
           </label>
           <div className="ze-tvp-sub">Technical Layers</div>
           <CheckBox

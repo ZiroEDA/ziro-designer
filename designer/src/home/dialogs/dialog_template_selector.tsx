@@ -38,7 +38,7 @@
  * today, and both need a filesystem we do not have.
  */
 
-import { Button } from '@ziroeda/common/wx/controls.js';
+import { Button, Combo } from '@ziroeda/common/wx/controls.js';
 import { settings } from '../../prefs/settings.js';
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { sanitizeProjectName } from '../new_project.js';
@@ -293,23 +293,18 @@ export function TemplateSelectorDialog({
                 />
               )}
             </div>
-            <select
+            <Combo
+              value={String(filterChoice)}
+              options={FILTERS.map((f, i) => ({ value: String(i), label: f }))}
               className="ze-tplsel-filter"
-              value={filterChoice}
-              onChange={(e) => {
-                const next = Number(e.target.value);
+              onChange={(aValue) => {
+                const next = Number(aValue);
                 setFilterChoice(next);
                 settings.updateKicad((k) => {
                   k.m_TemplateFilterChoice = next;
                 });
               }}
-            >
-              {FILTERS.map((f, i) => (
-                <option key={f} value={i}>
-                  {f}
-                </option>
-              ))}
-            </select>
+            />
 
             {/* bSizerBrowse - "Browse..." / "Clear" / the browsed-path label -
               is in KiCad master but not in the 10.0 that ships today:

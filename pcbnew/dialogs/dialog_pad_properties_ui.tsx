@@ -14,7 +14,7 @@
  * The decision logic lives in `pcbnew/dialogs/dialog_pad_properties.ts`.
  */
 
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, Combo } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { PadValues } from './dialog_pad_properties.js';
@@ -165,38 +165,40 @@ export function DialogPadProperties({
               </label>
               <label>
                 <span className="ze-tvp-label">Pad type:</span>
-                <select
+                <Combo
+                  value={String(v.type)}
+                  options={[
+                    { value: String('thru_hole'), label: 'Through-hole' },
+                    { value: String('smd'), label: 'SMD' },
+                    { value: String('connect'), label: 'Edge connector' },
+                    { value: String('np_thru_hole'), label: 'NPTH, mechanical' },
+                  ]}
                   className="ze-tvp-select"
-                  value={v.type}
-                  onChange={(e) => {
-                    const type = e.target.value as PadValues['type'];
+                  onChange={(aValue) => {
+                    const type = aValue as PadValues['type'];
                     // SMD pads have no hole; through-hole pads must have one.
                     set({
                       type,
                       hasHole: type === 'thru_hole' || type === 'np_thru_hole',
                     });
                   }}
-                >
-                  <option value="thru_hole">Through-hole</option>
-                  <option value="smd">SMD</option>
-                  <option value="connect">Edge connector</option>
-                  <option value="np_thru_hole">NPTH, mechanical</option>
-                </select>
+                />
               </label>
               <label>
                 <span className="ze-tvp-label">Pad shape:</span>
-                <select
+                <Combo
+                  value={String(v.shape)}
+                  options={[
+                    { value: String('circle'), label: 'Circular' },
+                    { value: String('oval'), label: 'Oval' },
+                    { value: String('rect'), label: 'Rectangular' },
+                    { value: String('trapezoid'), label: 'Trapezoidal' },
+                    { value: String('roundrect'), label: 'Rounded rectangle' },
+                    { value: String('custom'), label: 'Custom' },
+                  ]}
                   className="ze-tvp-select"
-                  value={v.shape}
-                  onChange={(e) => set({ shape: e.target.value as PadValues['shape'] })}
-                >
-                  <option value="circle">Circular</option>
-                  <option value="oval">Oval</option>
-                  <option value="rect">Rectangular</option>
-                  <option value="trapezoid">Trapezoidal</option>
-                  <option value="roundrect">Rounded rectangle</option>
-                  <option value="custom">Custom</option>
-                </select>
+                  onChange={(aValue) => set({ shape: aValue as PadValues['shape'] })}
+                />
               </label>
             </fieldset>
 
@@ -332,18 +334,19 @@ export function DialogPadProperties({
               <legend>Copper Zone Connection</legend>
               <label>
                 <span className="ze-tvp-label">Pad connection:</span>
-                <select
+                <Combo
+                  value={String(v.zoneConnection)}
+                  options={[
+                    { value: String('inherited'), label: 'Inherited' },
+                    { value: String('full'), label: 'Solid' },
+                    { value: String('thermal'), label: 'Thermal reliefs' },
+                    { value: String('none'), label: 'None' },
+                  ]}
                   className="ze-tvp-select"
-                  value={v.zoneConnection}
-                  onChange={(e) =>
-                    set({ zoneConnection: e.target.value as PadValues['zoneConnection'] })
+                  onChange={(aValue) =>
+                    set({ zoneConnection: aValue as PadValues['zoneConnection'] })
                   }
-                >
-                  <option value="inherited">Inherited</option>
-                  <option value="full">Solid</option>
-                  <option value="thermal">Thermal reliefs</option>
-                  <option value="none">None</option>
-                </select>
+                />
               </label>
               {overrideField('Thermal relief gap:', 'thermalGap')}
               {overrideField('Thermal spoke width:', 'thermalBridgeWidth')}

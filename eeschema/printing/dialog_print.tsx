@@ -26,7 +26,7 @@
  * "Print" runs SCH_PRINTOUT through wxPrinter into the browser's print flow.
  */
 
-import { Button } from '@ziroeda/common/wx/controls.js';
+import { Button, Combo } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { BUILTIN_THEMES } from '../sch_render_settings.js';
 import type { EESCHEMA_SETTINGS_STORE } from '../browser/eeschema_app.js';
@@ -107,14 +107,15 @@ export function DialogPrint({ settings, onPrint, themeId, onClose }: Props): JSX
         </label>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '6px 0' }}>
           <span style={{ fontSize: 12 }}>Output mode:</span>
-          <select
+          <Combo
+            value={String(color ? 'color' : 'bw')}
+            options={[
+              { value: String('color'), label: 'Color' },
+              { value: String('bw'), label: 'Black and White' },
+            ]}
             className="ze-select"
-            value={color ? 'color' : 'bw'}
-            onChange={(e) => onOutputChoice(e.target.value === 'color')}
-          >
-            <option value="color">Color</option>
-            <option value="bw">Black and White</option>
-          </select>
+            onChange={(aValue) => onOutputChoice(aValue === 'color')}
+          />
         </div>
         <label style={{ display: 'block', margin: '4px 0', paddingLeft: 20 }}>
           <input
@@ -134,7 +135,13 @@ export function DialogPrint({ settings, onPrint, themeId, onClose }: Props): JSX
           />{' '}
           Use a different color theme for printing:
         </label>
-        <select
+        <Combo
+          value={String(themeSel)}
+          options={Object.entries(BUILTIN_THEMES).map(([id, t]) => ({
+            value: String(id),
+            label: t.name,
+          }))}
+          disabled={!useTheme}
           className="ze-select"
           style={{
             width: '100%',
@@ -142,16 +149,8 @@ export function DialogPrint({ settings, onPrint, themeId, onClose }: Props): JSX
             marginLeft: 20,
             maxWidth: 'calc(100% - 20px)',
           }}
-          value={themeSel}
-          disabled={!useTheme}
-          onChange={(e) => setThemeSel(e.target.value)}
-        >
-          {Object.entries(BUILTIN_THEMES).map(([id, t]) => (
-            <option key={id} value={id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
+          onChange={(aValue) => setThemeSel(aValue)}
+        />
       </div>
       <div className="ze-modal-footer">
         {/* Right-aligned by the footer's justify-content:flex-end. KiCad std-button order

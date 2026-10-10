@@ -20,6 +20,7 @@
  * reference presentation, and simulator operating-point overlay precision/range.
  */
 
+import { Combo } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import {
   JUNCTION_DOT_SIZES,
@@ -111,18 +112,13 @@ export function PanelSetupFormatting({ value, onChange }: Props): JSX.Element {
   ): JSX.Element => (
     <>
       <span style={lab}>{label}</span>
-      <select
+      <Combo
+        value={String(byIndex ? (value[key] as number) : (value[key] as string))}
+        options={choices.map((c, i) => ({ value: String(byIndex ? i : c), label: c }))}
         className="ze-select"
         style={{ ...fill, gridColumn: '2 / 4' }}
-        value={byIndex ? (value[key] as number) : (value[key] as string)}
-        onChange={(e) => set(key, (byIndex ? Number(e.target.value) : e.target.value) as never)}
-      >
-        {choices.map((c, i) => (
-          <option key={c} value={byIndex ? i : c}>
-            {c}
-          </option>
-        ))}
-      </select>
+        onChange={(aValue) => set(key, (byIndex ? Number(aValue) : aValue) as never)}
+      />
     </>
   );
 

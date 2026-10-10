@@ -13,6 +13,7 @@
  * from mm to degrees. That is upstream's `updateDialogControls`, and it is why
  * the two values are held as plain numbers here rather than as a point.
  */
+import { Combo } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX, type Ref } from 'react';
 import {
   moveKeepsSelectionInBounds,
@@ -143,17 +144,12 @@ export function DialogMoveExact({
 
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
           <span style={{ width: 74, textAlign: 'right' }}>Anchor:</span>
-          <select
-            value={anchor}
-            onChange={(e) => setAnchor(e.target.value as RotationAnchor)}
+          <Combo
+            value={String(anchor)}
+            options={ANCHORS.map((a) => ({ value: String(a.id), label: a.label }))}
             style={{ flex: 1, fontSize: 12 }}
-          >
-            {ANCHORS.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.label}
-              </option>
-            ))}
-          </select>
+            onChange={(aValue) => setAnchor(aValue as RotationAnchor)}
+          />
         </label>
 
         {!inRange && (

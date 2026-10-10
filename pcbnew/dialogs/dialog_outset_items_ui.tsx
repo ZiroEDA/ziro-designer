@@ -12,6 +12,7 @@
  * pitch means nothing unless rounding is on, and the layer picker means nothing
  * while layers are being copied from the source.
  */
+import { Combo } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX, type Ref } from 'react';
 import type { OutsetSettings } from './dialog_outset_items.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
@@ -142,18 +143,13 @@ export function DialogOutsetItems({
         )}
         {row(
           'Layer:',
-          <select
-            value={s.layer}
+          <Combo
+            value={String(s.layer)}
+            options={layers.map((l) => ({ value: String(l), label: l }))}
             disabled={s.useSourceLayers}
-            onChange={(e) => setS({ ...s, layer: e.target.value })}
             style={{ flex: 1, fontSize: 12 }}
-          >
-            {layers.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </select>,
+            onChange={(aValue) => setS({ ...s, layer: aValue })}
+          />,
           s.useSourceLayers,
         )}
 

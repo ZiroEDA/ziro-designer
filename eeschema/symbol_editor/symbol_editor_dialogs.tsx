@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, Combo } from '@ziroeda/common/wx/controls.js';
 import {
   PIN_SHAPE_ENTRIES,
   PIN_TYPE_ENTRIES,
@@ -217,37 +217,39 @@ export function PinPropertiesDialog({
           </label>
           <label className="row">
             <span>Electrical type:</span>
-            <select className="ze-select" value={etype} onChange={(e) => setEtype(e.target.value)}>
-              {PIN_TYPE_ENTRIES.map(([tok, label]) => (
-                <option key={tok} value={tok}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            <Combo
+              value={String(etype)}
+              options={PIN_TYPE_ENTRIES.map(([tok, label]) => ({
+                value: String(tok),
+                label: label,
+              }))}
+              className="ze-select"
+              onChange={(aValue) => setEtype(aValue)}
+            />
           </label>
           <label className="row">
             <span>Graphic style:</span>
-            <select className="ze-select" value={shape} onChange={(e) => setShape(e.target.value)}>
-              {PIN_SHAPE_ENTRIES.map(([tok, label]) => (
-                <option key={tok} value={tok}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            <Combo
+              value={String(shape)}
+              options={PIN_SHAPE_ENTRIES.map(([tok, label]) => ({
+                value: String(tok),
+                label: label,
+              }))}
+              className="ze-select"
+              onChange={(aValue) => setShape(aValue)}
+            />
           </label>
           <label className="row">
             <span>Orientation:</span>
-            <select
+            <Combo
+              value={String(angle)}
+              options={PIN_ORIENTATION_NAMES.map(([a, label]) => ({
+                value: String(a),
+                label: label,
+              }))}
               className="ze-select"
-              value={angle}
-              onChange={(e) => setAngle(Number(e.target.value))}
-            >
-              {PIN_ORIENTATION_NAMES.map(([a, label]) => (
-                <option key={a} value={a}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              onChange={(aValue) => setAngle(Number(aValue))}
+            />
           </label>
           <MMField label="Position X:" value={posX} onChange={setPosX} />
           {/* Library space shows +Y up (the dialog negates the stored value). */}
@@ -834,15 +836,16 @@ export function ShapePropertiesDialog({
         </label>
         <label className="row">
           <span>Fill:</span>
-          <select
+          <Combo
+            value={String(fill)}
+            options={[
+              { value: String('none'), label: 'Do not fill' },
+              { value: String('outline'), label: 'Fill with body outline color' },
+              { value: String('background'), label: 'Fill with body background color' },
+            ]}
             className="ze-select"
-            value={fill}
-            onChange={(e) => setFill(e.target.value as ShapePropsResult['fillType'])}
-          >
-            <option value="none">Do not fill</option>
-            <option value="outline">Fill with body outline color</option>
-            <option value="background">Fill with body background color</option>
-          </select>
+            onChange={(aValue) => setFill(aValue as ShapePropsResult['fillType'])}
+          />
         </label>
       </div>
       <div className="ze-modal-footer">
@@ -933,43 +936,37 @@ export function PinTableDialog({
                     />
                   </td>
                   <td>
-                    <select
+                    <Combo
+                      value={String(r.pin.electricalType)}
+                      options={PIN_TYPE_ENTRIES.map(([tok, label]) => ({
+                        value: String(tok),
+                        label: label,
+                      }))}
                       className="ze-cell-select"
-                      value={r.pin.electricalType}
-                      onChange={(e) => patch(i, { electricalType: e.target.value })}
-                    >
-                      {PIN_TYPE_ENTRIES.map(([tok, label]) => (
-                        <option key={tok} value={tok}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(aValue) => patch(i, { electricalType: aValue })}
+                    />
                   </td>
                   <td>
-                    <select
+                    <Combo
+                      value={String(r.pin.shape)}
+                      options={PIN_SHAPE_ENTRIES.map(([tok, label]) => ({
+                        value: String(tok),
+                        label: label,
+                      }))}
                       className="ze-cell-select"
-                      value={r.pin.shape}
-                      onChange={(e) => patch(i, { shape: e.target.value })}
-                    >
-                      {PIN_SHAPE_ENTRIES.map(([tok, label]) => (
-                        <option key={tok} value={tok}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(aValue) => patch(i, { shape: aValue })}
+                    />
                   </td>
                   <td>
-                    <select
+                    <Combo
+                      value={String(r.pin.angle)}
+                      options={PIN_ORIENTATION_NAMES.map(([a, label]) => ({
+                        value: String(a),
+                        label: label,
+                      }))}
                       className="ze-cell-select"
-                      value={r.pin.angle}
-                      onChange={(e) => patch(i, { angle: Number(e.target.value) })}
-                    >
-                      {PIN_ORIENTATION_NAMES.map(([a, label]) => (
-                        <option key={a} value={a}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(aValue) => patch(i, { angle: Number(aValue) })}
+                    />
                   </td>
                   <td>
                     <span className="ze-cell-ro">{mmStr(r.pin.numberSize ?? 1.27 * MM)}</span>

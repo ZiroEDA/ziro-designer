@@ -16,7 +16,7 @@
  * cannot host yet, so those tabs explain that and list packages read-only.
  */
 
-import { Button } from '@ziroeda/common/wx/controls.js';
+import { Button, Combo } from '@ziroeda/common/wx/controls.js';
 import { useMemo, useState, type JSX } from 'react';
 import { settings } from '../prefs/settings.js';
 import { isRuntimeKind, latestVersion, pcm, pcmThemeId, usePcmVersion } from './pcmStore.js';
@@ -389,13 +389,11 @@ export function PluginManagerDialog({
       <div className="ze-pcm-repobar">
         <label>
           Repository:{' '}
-          <select value={activeRepo.url} onChange={(e) => setRepoUrl(e.target.value)}>
-            {repos.map((r) => (
-              <option key={r.url || '_default'} value={r.url}>
-                {r.name}
-              </option>
-            ))}
-          </select>
+          <Combo
+            value={String(activeRepo.url)}
+            options={repos.map((r) => ({ value: String(r.url), label: r.name }))}
+            onChange={(aValue) => setRepoUrl(aValue)}
+          />
         </label>
         <input
           className="ze-pcm-search"

@@ -26,7 +26,7 @@
  * anti-aliases).
  */
 
-import { Button } from '@ziroeda/common/wx/controls.js';
+import { Button, Combo } from '@ziroeda/common/wx/controls.js';
 import { useMemo, useRef, useState, type JSX } from 'react';
 import { mmToIU, iuToMM, type ReportLine } from '@ziroeda/common';
 import type { PlotOpts, PlotPageSize } from '../sch_plotter.js';
@@ -290,16 +290,17 @@ export function DialogPlot({
             <legend style={legend}>Options</legend>
             <div style={optGrid}>
               <span style={lab}>Page size:</span>
-              <select
+              <Combo
+                value={String(pageSize)}
+                options={[
+                  { value: String('auto'), label: 'Schematic size' },
+                  { value: String('A4'), label: 'A4' },
+                  { value: String('A'), label: 'A' },
+                ]}
                 className="ze-select"
                 style={ctrl2}
-                value={pageSize}
-                onChange={(e) => setPageSize(e.target.value as PlotPageSize)}
-              >
-                <option value="auto">Schematic size</option>
-                <option value="A4">A4</option>
-                <option value="A">A</option>
-              </select>
+                onChange={(aValue) => setPageSize(aValue as PlotPageSize)}
+              />
 
               <label
                 style={{ ...span3, ...row }}
@@ -316,31 +317,30 @@ export function DialogPlot({
               <div style={{ ...span3, height: 6 }} />
 
               <span style={lab}>Output mode:</span>
-              <select
+              <Combo
+                value={String(color ? 'color' : 'bw')}
+                options={[
+                  { value: String('color'), label: 'Color' },
+                  { value: String('bw'), label: 'Black and White' },
+                ]}
                 className="ze-select"
                 style={ctrl2}
-                value={color ? 'color' : 'bw'}
-                onChange={(e) => setColor(e.target.value === 'color')}
-              >
-                <option value="color">Color</option>
-                <option value="bw">Black and White</option>
-              </select>
+                onChange={(aValue) => setColor(aValue === 'color')}
+              />
 
               <span style={{ ...lab, opacity: color ? 1 : 0.5 }}>Color theme:</span>
-              <select
-                className="ze-select"
-                style={ctrl2}
-                value={themeSel}
+              <Combo
+                value={String(themeSel)}
+                options={Object.entries(BUILTIN_THEMES).map(([id, t]) => ({
+                  value: String(id),
+                  label: t.name,
+                }))}
                 disabled={!color}
                 title="Select the color theme to use for plotting"
-                onChange={(e) => setThemeSel(e.target.value)}
-              >
-                {Object.entries(BUILTIN_THEMES).map(([id, t]) => (
-                  <option key={id} value={id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
+                className="ze-select"
+                style={ctrl2}
+                onChange={(aValue) => setThemeSel(aValue)}
+              />
 
               <label
                 style={{ ...span3, ...row, opacity: bgAvailable ? 1 : 0.5 }}
@@ -412,16 +412,17 @@ export function DialogPlot({
               <legend style={legend}>DXF Options</legend>
               <div style={{ ...row, opacity: format === 'dxf' ? 1 : 0.5 }}>
                 <span style={lab}>Export units:</span>
-                <select
-                  className="ze-select"
-                  value={dxfUnits}
+                <Combo
+                  value={String(dxfUnits)}
+                  options={[
+                    { value: String('in'), label: 'Inches' },
+                    { value: String('mm'), label: 'Millimeters' },
+                  ]}
                   disabled={format !== 'dxf'}
                   title="The units to use for the exported DXF file"
-                  onChange={(e) => setDxfUnits(e.target.value as 'in' | 'mm')}
-                >
-                  <option value="in">Inches</option>
-                  <option value="mm">Millimeters</option>
-                </select>
+                  className="ze-select"
+                  onChange={(aValue) => setDxfUnits(aValue as 'in' | 'mm')}
+                />
               </div>
             </fieldset>
 

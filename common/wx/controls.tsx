@@ -14,6 +14,9 @@
  */
 import type { JSX, MouseEvent, ReactNode, Ref } from 'react';
 import { Combo } from '../widgets/wx_combobox.js';
+
+/** wxChoice and wxComboBox, part of the wx layer like the controls below. */
+export { Combo, TextCombo } from '../widgets/wx_combobox.js';
 import { ColorSwatch } from '../widgets/color_swatch.js';
 import { SpinCtrl } from '../widgets/spin_ctrl.js';
 import { parseColor4d, toCssColor } from '../gal/color4d.js';

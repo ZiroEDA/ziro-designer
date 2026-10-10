@@ -28,7 +28,7 @@
  * `$INSUNITS` is measured in — the header wins whenever there is one.
  */
 
-import { Button, RadioButton } from '@ziroeda/common/wx/controls.js';
+import { Button, Combo, RadioButton } from '@ziroeda/common/wx/controls.js';
 import { useMemo, useState, type JSX } from 'react';
 import { GRAPHICS_IMPORTER_SCH, type SchImportedItem } from './graphics_importer_sch.js';
 import { GRAPHICS_IMPORTER_LIB_SYMBOL } from './graphics_importer_lib_symbol.js';
@@ -299,20 +299,15 @@ export function DialogImportGfx({ onOk, onCancel, sink = 'sch' }: Props): JSX.El
           {num('Default line width:', 'lineWidthMM', params.lineWidthMM, 'mm', isDxf)}
           <label className="row">
             <span>Default units:</span>
-            <select
-              className="ze-input"
+            <Combo
+              value={String(params.dxfUnits)}
+              options={DXF_UNIT_CHOICES.map((u) => ({ value: String(u.value), label: u.label }))}
               disabled={!isDxf}
-              value={params.dxfUnits}
-              onChange={(e) =>
-                setParams((p) => ({ ...p, dxfUnits: Number(e.target.value) as DXF_IMPORT_UNITS }))
+              className="ze-input"
+              onChange={(aValue) =>
+                setParams((p) => ({ ...p, dxfUnits: Number(aValue) as DXF_IMPORT_UNITS }))
               }
-            >
-              {DXF_UNIT_CHOICES.map((u) => (
-                <option key={u.value} value={u.value}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
+            />
           </label>
         </fieldset>
       </div>

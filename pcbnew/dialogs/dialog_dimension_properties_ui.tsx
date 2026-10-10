@@ -24,7 +24,7 @@
  * value modes from the newer constraint system.
  */
 
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, Combo } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { DimensionValues } from './dialog_dimension_properties.js';
@@ -104,17 +104,12 @@ export function DialogDimensionProperties({
   ): JSX.Element => (
     <label>
       <span className="ze-tvp-label">{label}</span>
-      <select
+      <Combo
+        value={String(String(v[key]))}
+        options={options.map((o, i) => ({ value: String(String(i)), label: o }))}
         className="ze-tvp-select"
-        value={String(v[key])}
-        onChange={(e) => set({ [key]: Number(e.target.value) } as Partial<DimensionValues>)}
-      >
-        {options.map((o, i) => (
-          <option key={o} value={String(i)}>
-            {o}
-          </option>
-        ))}
-      </select>
+        onChange={(aValue) => set({ [key]: Number(aValue) } as Partial<DimensionValues>)}
+      />
     </label>
   );
 
@@ -138,17 +133,12 @@ export function DialogDimensionProperties({
           <legend>Dimension</legend>
           <label>
             <span className="ze-tvp-label">Layer:</span>
-            <select
+            <Combo
+              value={String(v.layer)}
+              options={layers.map((l) => ({ value: String(l), label: l }))}
               className="ze-tvp-select"
-              value={v.layer}
-              onChange={(e) => set({ layer: e.target.value })}
-            >
-              {layers.map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </select>
+              onChange={(aValue) => set({ layer: aValue })}
+            />
           </label>
         </fieldset>
 
@@ -243,16 +233,17 @@ export function DialogDimensionProperties({
           {show.arrowDirection && (
             <label>
               <span className="ze-tvp-label">Arrow direction:</span>
-              <select
+              <Combo
+                value={String(v.arrowDirection)}
+                options={[
+                  { value: String('inward'), label: 'Inward' },
+                  { value: String('outward'), label: 'Outward' },
+                ]}
                 className="ze-tvp-select"
-                value={v.arrowDirection}
-                onChange={(e) =>
-                  set({ arrowDirection: e.target.value === 'inward' ? 'inward' : 'outward' })
+                onChange={(aValue) =>
+                  set({ arrowDirection: aValue === 'inward' ? 'inward' : 'outward' })
                 }
-              >
-                <option value="inward">Inward</option>
-                <option value="outward">Outward</option>
-              </select>
+              />
             </label>
           )}
           {show.textFrame && choice('Text frame:', 'textFrame', TEXT_FRAMES)}

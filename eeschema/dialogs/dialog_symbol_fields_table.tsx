@@ -23,7 +23,7 @@
  * that ZiroEDA's document model does not carry yet.
  */
 
-import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, Combo } from '@ziroeda/common/wx/controls.js';
 import { useCallback, useRef, useState, type JSX } from 'react';
 import {
   buildFieldsReferences,
@@ -817,17 +817,12 @@ export function DialogSymbolFieldsTable({
                   onChange={(e) => onFilterText(e.target.value)}
                 />
                 <span className="ze-sft-vsep" />
-                <select
+                <Combo
+                  value={String(scope)}
+                  options={SCOPES.map((s) => ({ value: String(s.id), label: s.label }))}
                   className="ze-select ze-sft-scope"
-                  value={scope}
-                  onChange={(e) => onScope(e.target.value as FieldsScope)}
-                >
-                  {SCOPES.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(aValue) => onScope(aValue as FieldsScope)}
+                />
                 <span className="ze-sft-vsep" />
                 <CheckBox
                   label="Group symbols"

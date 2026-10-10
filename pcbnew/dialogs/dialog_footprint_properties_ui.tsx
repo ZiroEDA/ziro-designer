@@ -13,7 +13,7 @@
  * The decision logic lives in `pcbnew/dialogs/dialog_footprint_properties.ts`.
  */
 
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, Combo } from '@ziroeda/common/wx/controls.js';
 import { useRef, useState, type JSX, type ReactNode } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { FootprintValues } from './dialog_footprint_properties.js';
@@ -220,14 +220,15 @@ export function DialogFootprintProperties({
               </label>
               <label title="Changing the side flips the footprint (EDIT_TOOL::Flip).">
                 <span className="ze-tvp-label">Side:</span>
-                <select
+                <Combo
+                  value={String(v.side)}
+                  options={[
+                    { value: String('front'), label: 'Front' },
+                    { value: String('back'), label: 'Back' },
+                  ]}
                   className="ze-tvp-select"
-                  value={v.side}
-                  onChange={(e) => set({ side: e.target.value as FootprintValues['side'] })}
-                >
-                  <option value="front">Front</option>
-                  <option value="back">Back</option>
-                </select>
+                  onChange={(aValue) => set({ side: aValue as FootprintValues['side'] })}
+                />
               </label>
               {check('Locked', 'locked')}
             </fieldset>
@@ -236,17 +237,18 @@ export function DialogFootprintProperties({
               <legend>Fabrication Attributes</legend>
               <label>
                 <span className="ze-tvp-label">Footprint type:</span>
-                <select
+                <Combo
+                  value={String(v.footprintType)}
+                  options={[
+                    { value: String('through_hole'), label: 'Through hole' },
+                    { value: String('smd'), label: 'SMD' },
+                    { value: String('unspecified'), label: 'Unspecified' },
+                  ]}
                   className="ze-tvp-select"
-                  value={v.footprintType}
-                  onChange={(e) =>
-                    set({ footprintType: e.target.value as FootprintValues['footprintType'] })
+                  onChange={(aValue) =>
+                    set({ footprintType: aValue as FootprintValues['footprintType'] })
                   }
-                >
-                  <option value="through_hole">Through hole</option>
-                  <option value="smd">SMD</option>
-                  <option value="unspecified">Unspecified</option>
-                </select>
+                />
               </label>
               {check('Not in schematic', 'notInSchematic')}
               {check('Do not populate', 'doNotPopulate')}
@@ -312,18 +314,19 @@ export function DialogFootprintProperties({
               <legend>Pad Connections</legend>
               <label title="Default pad connection to zones for this footprint's pads.">
                 <span className="ze-tvp-label">Pad connection to zones:</span>
-                <select
+                <Combo
+                  value={String(v.zoneConnection)}
+                  options={[
+                    { value: String('inherited'), label: 'Use zone setting' },
+                    { value: String('full'), label: 'Solid' },
+                    { value: String('thermal'), label: 'Thermal relief' },
+                    { value: String('none'), label: 'None' },
+                  ]}
                   className="ze-tvp-select"
-                  value={v.zoneConnection}
-                  onChange={(e) =>
-                    set({ zoneConnection: e.target.value as FootprintValues['zoneConnection'] })
+                  onChange={(aValue) =>
+                    set({ zoneConnection: aValue as FootprintValues['zoneConnection'] })
                   }
-                >
-                  <option value="inherited">Use zone setting</option>
-                  <option value="full">Solid</option>
-                  <option value="thermal">Thermal relief</option>
-                  <option value="none">None</option>
-                </select>
+                />
               </label>
             </fieldset>
           </>

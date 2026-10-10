@@ -28,7 +28,7 @@
  * The full capture is in `~/chooser-image-measurements.md`.
  */
 
-import { Button } from '@ziroeda/common/wx/controls.js';
+import { Button, Combo } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TreeIcon } from '../home/project_tree_pane.js';
 import { treeIconFor } from '../home/project_tree.js';
@@ -808,13 +808,11 @@ export function FileChooser({
         <div className="ze-chooser-footer">
           <div className="ze-chooser-extra">{extra}</div>
           {filters && filters.length > 0 ? (
-            <select value={filter} onChange={(e) => setFilter(Number(e.target.value))}>
-              {filters.map((f, i) => (
-                <option key={f.label} value={i}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
+            <Combo
+              value={String(filter)}
+              options={filters.map((f, i) => ({ value: String(i), label: f.label }))}
+              onChange={(aValue) => setFilter(Number(aValue))}
+            />
           ) : null}
         </div>
       </div>

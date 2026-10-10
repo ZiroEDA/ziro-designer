@@ -11,6 +11,7 @@
  * eeschema/project_sync_transport.ts for `PeerRole` itself: `owner`
  * is never assigned here, only decided by the transport on connect.
  */
+import { Combo } from '@ziroeda/common/wx/controls.js';
 import { useEffect, useRef, type JSX } from 'react';
 import type { PeerRole, PresenceInfo } from '@ziroeda/eeschema/browser/project_sync_transport.js';
 import { peerColor } from '../sync/peerColor.js';
@@ -56,14 +57,15 @@ function PresenceRow({
         {isSelf ? ' (you)' : ''}
       </span>
       {onSetRole ? (
-        <select
+        <Combo
+          value={String(role)}
+          options={[
+            { value: String('editor'), label: 'Editor' },
+            { value: String('viewer'), label: 'Viewer' },
+          ]}
           className="ze-presence-role-select"
-          value={role}
-          onChange={(e) => onSetRole(e.target.value as 'editor' | 'viewer')}
-        >
-          <option value="editor">Editor</option>
-          <option value="viewer">Viewer</option>
-        </select>
+          onChange={(aValue) => onSetRole(aValue as 'editor' | 'viewer')}
+        />
       ) : (
         <span className="ze-presence-role">{ROLE_LABEL[role]}</span>
       )}

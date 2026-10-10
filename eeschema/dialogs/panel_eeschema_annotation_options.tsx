@@ -14,6 +14,7 @@
  * order, numbering start method, and refdes reuse).
  */
 
+import { Combo } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import { SYMBOL_UNIT_NOTATIONS, type AnnotationSettings } from '../schematic_settings.js';
 
@@ -58,18 +59,13 @@ export function PanelEeschemaAnnotationOptions({ value, onChange }: Props): JSX.
       <div style={{ ...radioRow, gap: 10 }}>
         <span>Symbol unit notation:</span>
         <span style={{ flex: 1 }} />
-        <select
+        <Combo
+          value={String(value.symbolUnitNotation)}
+          options={SYMBOL_UNIT_NOTATIONS.map((s, i) => ({ value: String(i), label: s }))}
           className="ze-select"
           style={{ minWidth: 90 }}
-          value={value.symbolUnitNotation}
-          onChange={(e) => set('symbolUnitNotation', Number(e.target.value))}
-        >
-          {SYMBOL_UNIT_NOTATIONS.map((s, i) => (
-            <option key={s} value={i}>
-              {s}
-            </option>
-          ))}
-        </select>
+          onChange={(aValue) => set('symbolUnitNotation', Number(aValue))}
+        />
       </div>
 
       {/* Order */}
