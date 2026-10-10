@@ -43,7 +43,6 @@ import { GetAssociatedDocument } from '@ziroeda/common/eda_doc.js';
 import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
 import { STATUS_TEXT_POPUP } from '@ziroeda/common/status_popup.js';
 import { Priority } from './connectivity/nets.js';
-import type { Vec2 } from '@ziroeda/kimath';
 import {
   ensureFileExtension,
   iuToMM,
@@ -76,10 +75,8 @@ import { ReadOnlyNotice } from '@ziroeda/common/widgets/wx_infobar.js';
 import {
   type ArcEditMode,
   incrementArcEditMode,
-  SPIN_ANGLE,
   directiveNetclassAssignments,
   ruleAreaNetclassAssignments,
-  autoplaceFields,
   type LabelSpin,
   readSchematic,
   serializeSchematic,
@@ -95,7 +92,6 @@ import {
   parsePastedText,
   selectionBBox,
   emptyBBox,
-  type BBox,
   isEmpty,
   instanceKey,
   getSheetPageNumber,
@@ -113,7 +109,6 @@ import {
   canAddToGroup,
   canRemoveFromGroup,
   selectionHasGroup,
-  setSymbolsLockedCommand,
   expandSelectionToGroups,
   planNetclassAssignment,
   selectedNets,
@@ -122,15 +117,6 @@ import {
   clickTarget,
   defaultSelectionFilter,
   type SelectionFilterOptions,
-  // SCH_SELECTION_TOOL::RequestSelection's aScanTypes tables: what each command
-  // will pick up from under the cursor, and what it trims a selection down to.
-  AnyItems,
-  AttributeItems,
-  RotatableItems,
-  SheetItems,
-  SymbolItems,
-  type ScanTypes,
-  getSelectedItemsAsText,
   type PasteMode,
   type PasteOptions,
   type PageSettings,
@@ -178,7 +164,6 @@ import {
   type PcbFootprintData,
   buildSheetTree,
   repairPageNumbersOnLoad,
-  sheetFile,
   findRootFile,
   addItems,
   makeImage,
@@ -249,7 +234,6 @@ import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { kicadSchematicWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { RIGHT_TOOLBAR_COMMANDS, SCH_DEFAULT_TOOLBARS } from './toolbars_sch_editor.js';
 import { MenuBar, ContextMenu, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
-import { clearHoverSelection, requestSelection, type HoverSelection } from './hover_selection.js';
 import { buildMenus } from './menubar.js';
 import {
   CONFIRMATION_CAPTION,
@@ -375,12 +359,10 @@ import {
   type PdfPlotSheet,
   plotDxf,
   plotPs,
-  pageIU,
   renderSheetToCanvas,
   type PlotOpts,
   type PlotSink,
 } from './sch_plotter.js';
-import { DEFAULT_SETUP } from '@ziroeda/common/drawing_sheet/types.js';
 import { BUILTIN_THEMES } from './sch_render_settings.js';
 import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
@@ -552,28 +534,6 @@ const SETTINGS_TOGGLES = new Set([
 function pageSettingsSeed(sch: Schematic): PageSettingsValue {
   const s = getPageSettings(sch);
   return pageSettingsValue(s.paper, s);
-}
-
-/**
- * `AUTOPLACER::getDrawableArea`: the page inside the drawing sheet's margins.
- * Autoplace treats a field box that would fall outside it as colliding, so a
- * symbol near the edge keeps its fields on the page.
- *
- * Resolving a paper name to a size belongs to the application rather than the
- * model, which is why the engine takes the rectangle instead of computing it.
- * The margins are the drawing sheet's; a project with a custom `.kicad_wks`
- * would take them from its setup, and the built-in sheet's 10 mm is used until
- * loading one is wired through.
- */
-function drawableArea(sch: Schematic): BBox {
-  const page = pageIU(sch);
-  const mm = (v: number): number => mmToIU(v);
-  return {
-    minX: mm(DEFAULT_SETUP.leftMargin),
-    minY: mm(DEFAULT_SETUP.topMargin),
-    maxX: page.w - mm(DEFAULT_SETUP.rightMargin),
-    maxY: page.h - mm(DEFAULT_SETUP.bottomMargin),
-  };
 }
 
 // The "Current Tool" status-bar field (EDA_DRAW_FRAME::DisplayToolMsg):
@@ -1033,11 +993,8 @@ export function SchematicEditor({
    * Held as the set itself rather than a flag, so it stops applying the moment
    * the selection becomes anything else.
    */
-  const [hoverSelection, setHoverSelection] = useState<ReadonlySet<string> | null>(null);
   const selectionRef = useRef<ReadonlySet<string>>(selection);
   selectionRef.current = selection;
-  const hoverSelectionRef = useRef<ReadonlySet<string> | null>(hoverSelection);
-  hoverSelectionRef.current = hoverSelection;
   // The item whose net is highlighted by the Highlight-Net tool (KiCad's
   // m_highlightedConn). Distinct from selection: plain selection is never a net
   // highlight in KiCad; it's the explicit highlight action that brightens a net.
@@ -1402,11 +1359,6 @@ export function SchematicEditor({
   // Selection Filter (SCH_SELECTION_FILTER_OPTIONS): gates which item types,
   // and locked items, the selection accepts.
   const [selFilter, setSelFilter] = useState<SelectionFilterOptions>(defaultSelectionFilter);
-  // The cursor and the viewport scale drive nothing but the three status-bar
-  // panes, and they change on every pointer event, so they are held in refs
-  // and pushed straight into that widget. Routing them through this frame's
-  // state would re-render the whole editor for every mouse move.
-  const cursorRef = useRef<Vec2 | null>(null);
   // ACTIONS::toggleUnits / the imperial-unit pair, and the display's device
   // pixel ratio: both feed the live status panes, so they are resolved before
   // the readout that writes them.
@@ -1914,8 +1866,6 @@ export function SchematicEditor({
   // types are dropped, so they can't be selected/moved/deleted.
   const selFilterRef = useRef(selFilter);
   selFilterRef.current = selFilter;
-  const filterIds = (ids: ReadonlySet<string>): ReadonlySet<string> =>
-    docRef.current ? applySelectionFilter(docRef.current, ids, selFilterRef.current) : ids;
 
   const onSelect = useCallback((raw: string | null, additive: boolean) => {
     // A selection does *not* clear the net highlight: upstream's highlightNet
@@ -1957,83 +1907,20 @@ export function SchematicEditor({
   const highlightConnRef = useRef<string | null>(null);
   highlightConnRef.current = highlightName;
 
-  /** Push a resolved selection state into both the state and its refs, so a
-   *  second command in the same tick reads what the first one left. */
-  const applySelectionState = useCallback((next: HoverSelection): void => {
-    if (next.selection !== selectionRef.current) {
-      selectionRef.current = next.selection;
-      setSelection(next.selection);
-    }
-    if (next.hover !== hoverSelectionRef.current) {
-      hoverSelectionRef.current = next.hover;
-      setHoverSelection(next.hover);
-    }
+  /** A live TOOL_ACTION run on the frame's TOOL_MANAGER, for a hotkey the canvas did not take. */
+  const runLiveAction = useCallback((aAction: TOOL_ACTION) => {
+    schFrameRef.current?.GetToolManager()?.RunAction(aAction);
   }, []);
 
-  /**
-   * `SCH_SELECTION_TOOL::RequestSelection` — the one place an editing command
-   * gets its target (sch_selection_tool.cpp:1945-1994).
-   *
-   * Every editor command that upstream routes through `RequestSelection` routes
-   * through here, which is why hovering an unselected symbol and pressing R
-   * rotates it, hovering one and pressing Delete deletes it, and so on: none of
-   * those is a per-command feature, they are all this function.
-   *
-   * `SelectPoint`'s own two follow-ups are supplied here because they need the
-   * editor's live settings: the Selection Filter (`clickTarget`) and group
-   * promotion.
-   */
-  const requestTarget = useCallback(
-    (scanTypes: ScanTypes): ReadonlySet<string> => {
-      const d = docRef.current;
-      if (!d) return new Set();
-      const before: HoverSelection = {
-        selection: selectionRef.current,
-        hover: hoverSelectionRef.current,
-      };
-      const req = requestSelection(
-        d,
-        before,
-        scanTypes,
-        // `GetCursorPosition( true )` + the collector, both of which are the
-        // canvas's: the editor knows neither the zoom nor the snapped cursor.
-        [],
-        (id) => {
-          const target = clickTarget(d, id, selFilterRef.current);
-          return target === null ? [] : promote(new Set([target]));
-        },
-      );
-      applySelectionState(req.state);
-      return req.target;
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [applySelectionState],
-  );
+  /** ACTION_CONDITIONS::checkCondition of a live action, on the live selection. */
+  const liveChecked = useCallback((aAction: TOOL_ACTION): boolean => {
+    const mgr = schFrameRef.current?.GetToolManager();
+    const selection = mgr?.GetTool(SCH_SELECTION_TOOL)?.GetSelection();
 
-  /** `if( selection.IsHover() ) RunAction( ACTIONS::selectionClear )`: the
-   *  disposable selection a command picked up is thrown away when it finishes. */
-  const finishCommand = useCallback((): void => {
-    applySelectionState(
-      clearHoverSelection({
-        selection: selectionRef.current,
-        hover: hoverSelectionRef.current,
-      }),
-    );
-  }, [applySelectionState]);
+    if (!mgr || !selection) return false;
 
-  /**
-   * Request → act → clear-if-hover: the shape every `SCH_EDIT_TOOL` handler
-   * has, so each command states only its scan types and its body.
-   */
-  const withSelection = useCallback(
-    (scanTypes: ScanTypes, act: (ids: ReadonlySet<string>) => void): void => {
-      const ids = requestTarget(scanTypes);
-      if (ids.size === 0) return;
-      act(ids);
-      finishCommand();
-    },
-    [requestTarget, finishCommand],
-  );
+    return mgr.GetActionManager().GetCondition(aAction)?.checkCondition(selection) ?? false;
+  }, []);
 
   /**
    * Fold a history step back into the project.
@@ -4906,64 +4793,8 @@ export function SchematicEditor({
     };
   }, [doc, selection, runCommand, pasteOptions]);
 
-  // Duplicate (Ctrl+D): copy to a local buffer and paste from it. KiCad anchors
-  // the copy at the connection point closest to the cursor so it doesn't jump.
-  const duplicateSelection = useCallback(() => {
-    // `SCH_EDITOR_CONTROL::doCopy( true )` (sch_editor_control.cpp:1654-1661):
-    // Duplicate copies `RequestSelection()` — unfiltered — and remembers
-    // whether that was a hover, so the original is dropped from the selection
-    // once the copy is on the cursor (:1772).
-    const ids = requestTarget(AnyItems);
-    const doc = docRef.current;
-    if (!doc || ids.size === 0) return;
-    // sch_edit_tool.cpp, DUPLICATE: the copy is re-annotated only when the
-    // toggle is on —
-    //
-    //   if( m_frame->eeconfig()->m_AnnotatePanel.automatic )
-    //   { ClearAnnotation(...); AnnotateSymbols( ANNOTATE_SELECTION, ... ); }
-    //
-    // and keeps the reference it was copied from otherwise, duplicate and all,
-    // which is the state the annotate check is there to report. This always
-    // re-annotated, so the toggle made no difference here either.
-    const payload = parsePastedText(
-      copySelectionText(doc, ids),
-      doc,
-      pasteOptions(es.annotation.automatic ? 'unique' : 'keep'),
-    );
-    if (!payload) return;
-    let refPoint = payload.refPoint;
-    const cursor = cursorRef.current;
-    if (cursor) {
-      let best = Infinity;
-      const consider = (p: Vec2): void => {
-        const d = (p.x - cursor.x) ** 2 + (p.y - cursor.y) ** 2;
-        if (d < best) {
-          best = d;
-          refPoint = p;
-        }
-      };
-      payload.batch.symbols.forEach((s) => consider(s.at));
-      payload.batch.lines.forEach((l) => {
-        consider(l.start);
-        consider(l.end);
-      });
-      payload.batch.junctions.forEach((j) => consider(j.at));
-      payload.batch.labels.forEach((l) => consider(l.at));
-      // Every kind the clipboard carries needs an anchor here, or duplicating a
-      // selection made only of these lands it at the payload's leftmost point
-      // instead of under the cursor.
-      payload.batch.busEntries.forEach((b) => consider(b.at));
-      payload.batch.noConnects.forEach((n) => consider(n.at));
-      payload.batch.textBoxes.forEach((t) => consider(t.start));
-      payload.batch.images.forEach((im) => consider(im.at));
-      payload.batch.directiveLabels.forEach((d) => consider(d.at));
-    }
-    setActiveTool('select');
-    setPastePending({ ...payload, refPoint });
-    // `m_duplicateIsHoverSelection`: the hover the copy was taken from is
-    // dropped now that the duplicate is the thing on the cursor.
-    finishCommand();
-  }, [es.annotation.automatic, pasteOptions, requestTarget, finishCommand]);
+  // Duplicate (Ctrl+D): SCH_EDITOR_CONTROL::Duplicate on the live tool.
+  const duplicateSelection = useCallback(() => runLiveAction(ACTIONS.duplicate), [runLiveAction]);
 
   // ----- ERC (Inspect > Electrical Rules Checker) ------------------------------
   /** The run's options: the hierarchy, the project settings and the libraries. */
@@ -5786,21 +5617,6 @@ export function SchematicEditor({
     setNetclassPatterns(plan.patterns);
   }, [netlist, selection]);
 
-  /** A live TOOL_ACTION run on the frame's TOOL_MANAGER, for a hotkey the canvas did not take. */
-  const runLiveAction = useCallback((aAction: TOOL_ACTION) => {
-    schFrameRef.current?.GetToolManager()?.RunAction(aAction);
-  }, []);
-
-  /** ACTION_CONDITIONS::checkCondition of a live action, on the live selection. */
-  const liveChecked = useCallback((aAction: TOOL_ACTION): boolean => {
-    const mgr = schFrameRef.current?.GetToolManager();
-    const selection = mgr?.GetTool(SCH_SELECTION_TOOL)?.GetSelection();
-
-    if (!mgr || !selection) return false;
-
-    return mgr.GetActionManager().GetCondition(aAction)?.checkCondition(selection) ?? false;
-  }, []);
-
   const onTopAction = useCallback(
     (id: string) => {
       // the canvas-editing actions run on the frame's TOOL_MANAGER (TRANSITIONAL, W2).
@@ -5900,19 +5716,6 @@ export function SchematicEditor({
           if (d && canRemoveFromGroup(d, sel)) runCommand(removeFromGroupCommand(sel));
           return sel;
         });
-      // Lock / Unlock / Toggle Lock: `SCH_EDIT_TOOL::SetAttribute`
-      // (sch_edit_tool.cpp:3530-3616), whose target is
-      // `RequestSelection( { SCH_SYMBOL_T, SCH_SHEET_T, SCH_RULE_AREA_T } )`
-      // and which clears a hover selection at :3614.
-      else if (id === 'lock' || id === 'unlock' || id === 'toggleLock')
-        withSelection(AttributeItems, (ids) =>
-          runCommand(
-            setSymbolsLockedCommand(
-              ids,
-              id === 'lock' ? 'lock' : id === 'unlock' ? 'unlock' : 'toggle',
-            ),
-          ),
-        );
       else if (id === 'openPreferences') setPrefsOpen(true);
       else if (id === 'close') onExitToHome();
       // ACTIONS::help — "Open product documentation in a web browser".
@@ -5966,15 +5769,8 @@ export function SchematicEditor({
       // clicks can't synthesize a trusted paste event).
       else if (id === 'cut') document.execCommand('cut');
       else if (id === 'copy') document.execCommand('copy');
-      // ACTIONS::copyAsText (SCH_EDITOR_CONTROL::CopyAsText,
-      // sch_editor_control.cpp:1840-1852): `RequestSelection()` with no filter,
-      // and `if( selection.IsHover() ) selectionClear` at :1849.
-      else if (id === 'copyAsText')
-        withSelection(AnyItems, (ids) => {
-          const d = docRef.current;
-          const text = d ? getSelectedItemsAsText(d, ids) : '';
-          if (text) void navigator.clipboard?.writeText(text);
-        });
+      // ACTIONS::copyAsText: SCH_EDITOR_CONTROL::CopyAsText on the live tool.
+      else if (id === 'copyAsText') runLiveAction(ACTIONS.copyAsText);
       else if (id === 'pasteSpecial') setPasteSpecialOpen(true);
     },
     [
@@ -5999,8 +5795,6 @@ export function SchematicEditor({
       selection,
       pageNumberOf,
       pasteOptions,
-      withSelection,
-      applySelectionState,
       runRescueSymbols,
       runLiveAction,
     ],
@@ -6413,54 +6207,17 @@ export function SchematicEditor({
           runLiveAction(SCH_ACTIONS.unfoldBus);
           return;
         }
-        // D = Show Datasheet (ACTIONS::showDatasheet), whose target is
-        // `RequestSelection( { SCH_SYMBOL_T } )` and which clears a hover
-        // selection afterwards (sch_editor_control.cpp:2845-2852).
-        if (e.key.toLowerCase() === 'd' && doc) {
-          const ids = requestTarget(SymbolItems);
-          const id = ids.size === 1 ? [...ids][0]! : null;
-          const sym =
-            id === null
-              ? undefined
-              : doc.symbols.find((sy, i) => refId('symbol', sy.uuid, i) === id);
-          if (sym) {
-            e.preventDefault();
-            const datasheet = sym.fields.find((f) => f.key === 'Datasheet')?.value ?? '';
-            // "~" is KiCad's "no datasheet", not a URL (sch_inspection_tool.cpp:511).
-            if (datasheet === '' || datasheet === '~') setError('No datasheet defined.');
-            else GetAssociatedDocument(datasheet, null);
-            finishCommand();
-            return;
-          }
+        // D = Show Datasheet: SCH_INSPECTION_TOOL::ShowDatasheet on the live tool.
+        if (e.key.toLowerCase() === 'd') {
+          e.preventDefault();
+          runLiveAction(ACTIONS.showDatasheet);
+          return;
         }
-        // O = Autoplace Fields (SCH_ACTIONS::autoplaceFields). Its target is
-        // `RequestSelection( RotatableItems )` (sch_edit_tool.cpp:2463) and it
-        // clears a hover selection at :2502.
+        // O = Autoplace Fields: SCH_EDIT_TOOL::AutoplaceFields on the live tool.
         if (e.key.toLowerCase() === 'o') {
-          // `withSelection` inlined rather than called, because O has to fall
-          // through to the menu accelerators when the request comes back empty
-          // — and asking the seam twice, once to decide that and once inside,
-          // would leave the outer scan types free to drift from the inner ones.
-          const ids = requestTarget(RotatableItems);
-          if (ids.size > 0) {
-            e.preventDefault();
-            const d = docRef.current;
-            if (d) {
-              const cmd = autoplaceFields(
-                d,
-                ids,
-                libById,
-                {
-                  allowRejustify: es.autoplace_fields.allow_rejustify,
-                  alignToGrid: es.autoplace_fields.align_to_grid,
-                },
-                drawableArea(d),
-              );
-              if (cmd) runCommand(cmd);
-            }
-            finishCommand();
-            return;
-          }
+          e.preventDefault();
+          runLiveAction(SCH_ACTIONS.autoplaceFields);
+          return;
         }
         // A, P, W, B, Z, Q, J, L, H, S, T and I used to be dispatched here
         // out of TOOL_HOTKEYS, and every one of them is also a Place menu row
@@ -6484,7 +6241,6 @@ export function SchematicEditor({
     selection,
     onUpdatePcb,
     editSymbolInEditor,
-    runCommand,
     activeTool,
     onToolSelect,
     onTopAction,
@@ -6501,9 +6257,6 @@ export function SchematicEditor({
     doFind,
     openFindDialog,
     toggles,
-    requestTarget,
-    withSelection,
-    finishCommand,
     app,
     remapEvent,
     runLiveAction,

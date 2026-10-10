@@ -26,9 +26,10 @@ const EDITOR = readFileSync(
 );
 
 describe('every paste path goes through pasteOptions()', () => {
-  it('has at least the four call sites paste is reachable from', () => {
-    // Ctrl+V, the Edit menu's Paste, Paste Special, Import Sheet, Duplicate.
-    expect([...EDITOR.matchAll(/parsePastedText\(/g)].length).toBeGreaterThanOrEqual(4);
+  it('has at least the three call sites paste is reachable from', () => {
+    // Ctrl+V, the Edit menu's Paste, Paste Special, Import Sheet. Duplicate runs the live
+    // SCH_EDITOR_CONTROL::Duplicate now.
+    expect([...EDITOR.matchAll(/parsePastedText\(/g)].length).toBeGreaterThanOrEqual(3);
   });
 
   it('and not one of them calls parsePastedText without them', () => {
@@ -37,7 +38,7 @@ describe('every paste path goes through pasteOptions()', () => {
     const calls = [...EDITOR.matchAll(/parsePastedText\((?:[^()]|\([^()]*\))*\)/g)].map(
       (m) => m[0],
     );
-    expect(calls.length).toBeGreaterThanOrEqual(4);
+    expect(calls.length).toBeGreaterThanOrEqual(3);
     for (const call of calls) expect(call, call).toContain('pasteOptions(');
   });
 });
