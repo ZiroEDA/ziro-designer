@@ -4,6 +4,11 @@
 import { PANEL_EMBEDDED_FILES } from '@ziroeda/common/dialogs/panel_embedded_files.js';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { SCH_ACTIONS } from './tools/sch_actions.js';
+import {
+  GetClipboardText,
+  SetClipboardFromPaste,
+  SetClipboardFromText,
+} from '@ziroeda/common/clipboard.js';
 import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.js';
 import { SCH_SELECTION_TOOL } from './tools/sch_selection_tool.js';
 import { SCH_DRAWING_TOOLS } from './tools/sch_drawing_tools.js';
@@ -85,11 +90,9 @@ import {
   serializeSymbolLib,
   type ProjectStep,
   type ProjectEdit,
-  deleteItems,
   computeNetlist,
   withCleanup,
   refId,
-  copySelectionText,
   parsePastedText,
   selectionBBox,
   emptyBBox,
@@ -105,10 +108,6 @@ import {
   bulkEditSymbolAttributesCommand,
   composeCommands,
   type SymbolAttrEdit,
-  addToGroupCommand,
-  removeFromGroupCommand,
-  canAddToGroup,
-  canRemoveFromGroup,
   selectionHasGroup,
   expandSelectionToGroups,
   planNetclassAssignment,
@@ -1755,6 +1754,10 @@ export function SchematicEditor({
           setSyncDialog(aArg as DIALOG_SYNC_SHEET_PINS);
           return wxID_OK;
         }
+        if (aDialog === 'DIALOG_PASTE_SPECIAL') {
+          const dlg = aArg as { pasteMode: PasteSpecialMode };
+          return new Promise<number>((resolve) => setPasteSpecialDialog({ dlg, resolve }));
+        }
         console.warn(`${aDialog} is not ported to the live model yet`);
         return wxID_CANCEL;
       },
@@ -2459,7 +2462,11 @@ export function SchematicEditor({
     return [...dirs];
   }, [rawFiles]);
   // Paste Special (DIALOG_PASTE_SPECIAL): pick the PASTE_MODE before pasting.
-  const [pasteSpecialOpen, setPasteSpecialOpen] = useState(false);
+  // DIALOG_PASTE_SPECIAL for the live SCH_EDITOR_CONTROL::Paste: its { pasteMode } and answer.
+  const [pasteSpecialDialog, setPasteSpecialDialog] = useState<{
+    dlg: { pasteMode: PasteSpecialMode };
+    resolve: (aRetval: number) => void;
+  } | null>(null);
   // Schematic Setup (DIALOG_SCHEMATIC_SETUP): project-scoped settings, incl. the
   // ERC severities + pin-conflict map that the ERC checker reads. (The setup
   // state itself is declared above the netlist memo, which consumes it.)
@@ -4747,46 +4754,32 @@ export function SchematicEditor({
     // Editors stay mounted behind display:none, only the visible frame may
     // own the document clipboard events (see App's activeView stamp).
     const hidden = (): boolean => (document.body.dataset.activeView ?? 'schematic') !== 'schematic';
+    const liveSelectionEmpty = (): boolean =>
+      schFrameRef.current?.GetToolManager()?.GetTool(SCH_SELECTION_TOOL)?.GetSelection().Empty() ??
+      true;
+    // SCH_EDITOR_CONTROL::Copy / Cut save through SaveClipboard; inside the browser's own
+    // event, what they saved goes on the system clipboard too (as pcbnew's frame does).
     const onCopy = (e: ClipboardEvent): void => {
-      if (hidden() || isTyping() || selection.size === 0 || !doc) return;
-      const text = copySelectionText(doc, selection);
-      // Nothing the clipboard can carry: leave the system clipboard alone
-      // rather than overwriting whatever is on it with an empty string.
-      if (text === '') return;
+      if (hidden() || isTyping() || liveSelectionEmpty()) return;
+      runLiveAction(ACTIONS.copy);
+      const text = GetClipboardText();
+      if (!text) return;
       e.clipboardData?.setData('text/plain', text);
       e.preventDefault();
     };
     const onCut = (e: ClipboardEvent): void => {
-      if (hidden() || isTyping() || selection.size === 0 || !doc) return;
-      // TEMPORARY DIVERGENCE from KiCad, whose Cut always succeeds because its
-      // copy carries sheets: SCH_EDITOR_CONTROL::doCopy stashes each sheet's
-      // screen in m_supplementaryClipboard (sch_editor_control.cpp:1667) and
-      // Paste rebuilds it (:2377-2472). We have not ported that yet, so
-      // `copySelectionText` writes `sheets: []` — cutting a sheet would delete
-      // it with nothing on the clipboard to paste back, and no undo path
-      // through the clipboard at all. Refuse the cut instead of destroying it.
-      // Delete this the moment the supplementary clipboard lands (finding 6 of
-      // the M2 clipboard audit; sheet paste is its own branch).
-      if (doc.sheets.some((sh, i) => selection.has(refId('sheet', sh.uuid, i)))) {
-        e.preventDefault();
-        setInfoBar('Cut cannot carry a sheet yet. Copy its contents, or use Delete.');
-        return;
-      }
-      const text = copySelectionText(doc, selection);
-      if (text === '') return;
+      if (hidden() || isTyping() || liveSelectionEmpty()) return;
+      runLiveAction(ACTIONS.cut);
+      const text = GetClipboardText();
+      if (!text) return;
       e.clipboardData?.setData('text/plain', text);
       e.preventDefault();
-      runCommand(deleteItems(doc, selection));
-      setSelection(new Set());
     };
+    // SCH_EDITOR_CONTROL::Paste reads the clipboard; the event's data becomes it first.
     const onPaste = (e: ClipboardEvent): void => {
-      if (hidden() || isTyping() || !doc) return;
-      const text = e.clipboardData?.getData('text/plain') ?? '';
-      const payload = parsePastedText(text, doc, pasteOptions());
-      if (!payload) return;
+      if (hidden() || isTyping() || !e.clipboardData) return;
       e.preventDefault();
-      setActiveTool('select');
-      setPastePending(payload);
+      void SetClipboardFromPaste(e.clipboardData).then(() => runLiveAction(ACTIONS.paste));
     };
     document.addEventListener('copy', onCopy);
     document.addEventListener('cut', onCut);
@@ -4796,7 +4789,8 @@ export function SchematicEditor({
       document.removeEventListener('cut', onCut);
       document.removeEventListener('paste', onPaste);
     };
-  }, [doc, selection, runCommand, pasteOptions]);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: isTyping reads the DOM at the event
+  }, [runLiveAction]);
 
   // Duplicate (Ctrl+D): SCH_EDITOR_CONTROL::Duplicate on the live tool.
   const duplicateSelection = useCallback(() => runLiveAction(ACTIONS.duplicate), [runLiveAction]);
@@ -5707,20 +5701,9 @@ export function SchematicEditor({
       // ACTIONS::selectAll, whose row carries Ctrl+A and dispatches from there.
       else if (id === 'selectAll') runLiveAction(ACTIONS.selectAll);
       else if (id === 'unselectAll') setSelection(new Set());
-      // Group / Ungroup (SCH_GROUP_TOOL): members stay selected afterwards,
-      // upstream selects the new group (= its members) / the freed members.
-      else if (id === 'addToGroup')
-        setSelection((sel) => {
-          const d = docRef.current;
-          if (d && canAddToGroup(d, sel)) runCommand(addToGroupCommand(sel));
-          return sel;
-        });
-      else if (id === 'removeFromGroup')
-        setSelection((sel) => {
-          const d = docRef.current;
-          if (d && canRemoveFromGroup(d, sel)) runCommand(removeFromGroupCommand(sel));
-          return sel;
-        });
+      // Add to Group / Remove from Group: GROUP_TOOL on the live selection.
+      else if (id === 'addToGroup') runLiveAction(ACTIONS.addToGroup);
+      else if (id === 'removeFromGroup') runLiveAction(ACTIONS.removeFromGroup);
       else if (id === 'openPreferences') setPrefsOpen(true);
       else if (id === 'close') onExitToHome();
       // ACTIONS::help — "Open product documentation in a web browser".
@@ -5776,7 +5759,15 @@ export function SchematicEditor({
       else if (id === 'copy') document.execCommand('copy');
       // ACTIONS::copyAsText: SCH_EDITOR_CONTROL::CopyAsText on the live tool.
       else if (id === 'copyAsText') runLiveAction(ACTIONS.copyAsText);
-      else if (id === 'pasteSpecial') setPasteSpecialOpen(true);
+      // ACTIONS::pasteSpecial: SCH_EDITOR_CONTROL::Paste asks the dialog itself. A menu row is
+      // a user gesture, so the system clipboard can be read in first.
+      else if (id === 'pasteSpecial')
+        void (navigator.clipboard?.readText() ?? Promise.resolve(''))
+          .catch(() => '')
+          .then((text) => {
+            if (text) SetClipboardFromText(text);
+            runLiveAction(ACTIONS.pasteSpecial);
+          });
     },
     [
       undo,
@@ -5785,7 +5776,6 @@ export function SchematicEditor({
       saveCurrSheetCopyAs,
       revert,
       promptOpen,
-      runCommand,
       runErcNow,
       onShowPcb,
       onUpdatePcb,
@@ -7183,35 +7173,18 @@ export function SchematicEditor({
                 onClose={() => setPrintOpen(false)}
               />
             )}
-            {pasteSpecialOpen && (
+            {pasteSpecialDialog && (
               <DialogPasteSpecial
-                /* `PASTE_MODE pasteMode = annotateAutomatic ?
-                   UNIQUE_ANNOTATIONS : REMOVE_ANNOTATIONS`
-                   (sch_editor_control.cpp:2203) — the schematic never opens on
-                   "keep". */
-                mode={es.annotation.automatic ? 'UNIQUE_ANNOTATIONS' : 'REMOVE_ANNOTATIONS'}
-                /* `SCH_EDITOR_CONTROL::Paste` never calls `HideClearNets()`, so
-                   the box is shown here as well — it just never reads it. */
+                mode={pasteSpecialDialog.dlg.pasteMode}
                 onOk={(chosen: PasteSpecialMode) => {
-                  const mode: PasteMode =
-                    chosen === 'UNIQUE_ANNOTATIONS'
-                      ? 'unique'
-                      : chosen === 'KEEP_ANNOTATIONS'
-                        ? 'keep'
-                        : 'remove';
-                  setPasteSpecialOpen(false);
-                  void navigator.clipboard?.readText().then((text) => {
-                    setDoc((d) => {
-                      const payload = d ? parsePastedText(text, d, pasteOptions(mode)) : null;
-                      if (payload) {
-                        setActiveTool('select');
-                        setPastePending(payload);
-                      }
-                      return d;
-                    });
-                  });
+                  pasteSpecialDialog.dlg.pasteMode = chosen;
+                  setPasteSpecialDialog(null);
+                  pasteSpecialDialog.resolve(wxID_OK);
                 }}
-                onCancel={() => setPasteSpecialOpen(false)}
+                onCancel={() => {
+                  setPasteSpecialDialog(null);
+                  pasteSpecialDialog.resolve(wxID_CANCEL);
+                }}
               />
             )}
             {plotOpen && (

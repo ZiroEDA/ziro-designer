@@ -26,10 +26,9 @@ const EDITOR = readFileSync(
 );
 
 describe('every paste path goes through pasteOptions()', () => {
-  it('has at least the three call sites paste is reachable from', () => {
-    // Ctrl+V, the Edit menu's Paste, Paste Special, Import Sheet. Duplicate runs the live
-    // SCH_EDITOR_CONTROL::Duplicate now.
-    expect([...EDITOR.matchAll(/parsePastedText\(/g)].length).toBeGreaterThanOrEqual(3);
+  it('has the one record call site left, Import Sheet', () => {
+    // Ctrl+V, Paste, Paste Special and Duplicate run the live SCH_EDITOR_CONTROL now.
+    expect([...EDITOR.matchAll(/parsePastedText\(/g)].length).toBeGreaterThanOrEqual(1);
   });
 
   it('and not one of them calls parsePastedText without them', () => {
@@ -38,7 +37,7 @@ describe('every paste path goes through pasteOptions()', () => {
     const calls = [...EDITOR.matchAll(/parsePastedText\((?:[^()]|\([^()]*\))*\)/g)].map(
       (m) => m[0],
     );
-    expect(calls.length).toBeGreaterThanOrEqual(3);
+    expect(calls.length).toBeGreaterThanOrEqual(1);
     for (const call of calls) expect(call, call).toContain('pasteOptions(');
   });
 });
@@ -65,42 +64,27 @@ describe('pasteOptions derives the mode from the annotation toggle', () => {
   });
 });
 
-describe('Cut refuses what the clipboard cannot carry', () => {
-  // A deliberate, temporary divergence from KiCad, whose Cut always succeeds
-  // because doCopy carries sheets in m_supplementaryClipboard (:1667) and Paste
-  // rebuilds them (:2377-2472). Until that lands, `copySelectionText` writes
-  // `sheets: []`, so a Ctrl+X on a sheet wrote an empty clipboard string, called
-  // preventDefault(), and then deleted the sheet: gone, with no paste path back.
-  const onCut = (): string => {
-    const i = EDITOR.indexOf('const onCut = (e: ClipboardEvent)');
-    expect(i, 'SchematicEditor must still install an onCut handler').toBeGreaterThan(-1);
+describe('the browser clipboard events run the live SCH_EDITOR_CONTROL', () => {
+  // Cut, Copy and Paste are the live tool's, as pcbnew's frame wires them: doCopy carries a cut
+  // sheet in m_supplementaryClipboard (:1667), so the record era's refusal to cut a sheet is gone.
+  const handler = (aName: string): string => {
+    const i = EDITOR.indexOf(`const ${aName} = (e: ClipboardEvent)`);
+    expect(i, `the frame must install ${aName}`).toBeGreaterThan(-1);
     return EDITOR.slice(i, EDITOR.indexOf('\n    };', i));
   };
 
-  it('bails out before deleting when the selection holds a sheet', () => {
-    const body = onCut();
-    const guard = body.indexOf("refId('sheet'");
-    const del = body.indexOf('runCommand(deleteItems');
-    expect(guard, 'onCut must test the selection for sheets').toBeGreaterThan(-1);
-    expect(del).toBeGreaterThan(-1);
-    expect(guard, 'the sheet guard must come before the delete').toBeLessThan(del);
-    expect(body.slice(guard, del)).toContain('return;');
+  it('copies and cuts through the live actions', () => {
+    expect(handler('onCopy')).toContain('runLiveAction(ACTIONS.copy)');
+    expect(handler('onCut')).toContain('runLiveAction(ACTIONS.cut)');
   });
 
-  it('and says so instead of failing silently', () => {
-    expect(onCut()).toContain('setInfoBar(');
+  it('pastes the event\u2019s clipboard through the live Paste', () => {
+    const body = handler('onPaste');
+    expect(body).toContain('SetClipboardFromPaste(e.clipboardData)');
+    expect(body).toContain('runLiveAction(ACTIONS.paste)');
   });
 
-  it('names the follow-up so nobody reads it as the target behaviour', () => {
-    expect(onCut()).toContain('TEMPORARY DIVERGENCE');
-    expect(onCut()).toContain('m_supplementaryClipboard');
-  });
-});
-
-describe('Copy leaves the system clipboard alone when it has nothing to say', () => {
-  it('does not overwrite it with an empty string', () => {
-    const i = EDITOR.indexOf('const onCopy = (e: ClipboardEvent)');
-    const body = EDITOR.slice(i, EDITOR.indexOf('\n    };', i));
-    expect(body).toContain("if (text === '') return;");
+  it('leaves the system clipboard alone when the copy saved nothing', () => {
+    expect(handler('onCopy')).toContain('if (!text) return;');
   });
 });
