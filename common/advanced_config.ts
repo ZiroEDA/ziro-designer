@@ -241,6 +241,12 @@ export class ADVANCED_CFG {
   m_PcbImportMinObjectSizeNm = 1000;
 
   /**
+   * Whether the fields of symbols the EAGLE schematic importer creates may be autoplaced.
+   * Setting name: "EagleImportFieldsCanAutoplace"; default true (advanced_config.cpp:352).
+   */
+  m_EagleImportFieldsCanAutoplace = true;
+
+  /**
    * The thinnest pen a plot (and the schematic's render settings) draws, in mm: 1 pixel at
    * 1200 dpi. Setting name: "MinPlotPenWidth"; default 0.0212 (advanced_config.cpp:256).
    */

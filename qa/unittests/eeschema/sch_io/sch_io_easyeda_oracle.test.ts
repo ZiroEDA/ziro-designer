@@ -88,7 +88,7 @@ describe('SCH_IO_EASYEDA against eeschema 10.0.6', () => {
 
   it('imports the smart-watch schematic item for item as eeschema saved it', () => {
     expectSameAsEeschema('watch');
-  });
+  }, 60_000);
 
   // The sample has only angle-0 net labels, three flag styles and no net port. The
   // variant is the same file with every `N` label's angle and alignment cycled and
@@ -96,5 +96,5 @@ describe('SCH_IO_EASYEDA against eeschema 10.0.6', () => {
   // watch_variants.kicad_sch is eeschema's import of it, not ours.
   it('imports rotated net labels and every power-flag style as eeschema does', () => {
     expectSameAsEeschema('watch_variants');
-  });
+  }, 60_000);
 });

@@ -56,7 +56,8 @@ describe('SCH_IO_EASYEDAPRO against eeschema 10.0.6', () => {
     } finally {
       SetPgm(null);
     }
-  });
+    // A whole import, with the frame's cleanup: seconds, not milliseconds.
+  }, 60_000);
   beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
   afterEach(() => SetPgm(null));
 

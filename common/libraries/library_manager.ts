@@ -405,6 +405,51 @@ export abstract class LIBRARY_MANAGER_ADAPTER {
     return { ok: false, error: new LIBRARY_ERROR(`Library ${aNickname} not found`) };
   }
 
+  /**
+   * `ReloadLibraryEntry( aNickname, aScope )` (library_manager.cpp:1537): forget a library
+   * that had been loaded and make its entry again from the table, so the next use reads the
+   * library afresh (after its file was rewritten). Upstream keeps the project and global
+   * libraries in two maps and reloads from the scope asked; ours are one map, so the entry is
+   * remade from the first of the asked scopes that has the row.
+   */
+  ReloadLibraryEntry(
+    aNickname: string,
+    aScope: LIBRARY_TABLE_SCOPE = LIBRARY_TABLE_SCOPE.BOTH,
+  ): void {
+    // Drain the async load before erasing.
+    this.abortLoad();
+
+    const known = this.m_libraries.get(aNickname);
+
+    if (!known?.plugin) return; // nothing was loaded: nothing to reload
+
+    this.m_libraries.delete(aNickname);
+
+    const scopes =
+      aScope === LIBRARY_TABLE_SCOPE.GLOBAL
+        ? [LIBRARY_TABLE_SCOPE.GLOBAL]
+        : aScope === LIBRARY_TABLE_SCOPE.PROJECT
+          ? [LIBRARY_TABLE_SCOPE.PROJECT]
+          : [LIBRARY_TABLE_SCOPE.PROJECT, LIBRARY_TABLE_SCOPE.GLOBAL];
+
+    for (const scope of scopes) {
+      const row = this.m_manager?.GetRow(this.Type(), aNickname, scope);
+
+      if (!row) continue;
+
+      const plugin = this.createPlugin(row);
+
+      if (!plugin.ok) return; // wxLogTrace: failed to reload
+
+      this.m_libraries.set(row.Nickname(), {
+        plugin: plugin.value,
+        row,
+        status: { load_status: LOAD_STATUS.LOADING },
+      });
+      return;
+    }
+  }
+
   /** `fetchIfLoaded`: the library, only when it loaded. */
   protected fetchIfLoaded(aNickname: string): LIB_DATA | undefined {
     const lib = this.m_libraries.get(aNickname);
