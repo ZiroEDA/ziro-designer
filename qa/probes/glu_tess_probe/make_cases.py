@@ -45,4 +45,15 @@ for rule in ('POS', 'NEG', 'ODD'):
                 else:
                     cs.append(rect(random.uniform(0, 20), random.uniform(0, 20), random.uniform(0.2, 6), random.uniform(0.2, 6), random.random() < 0.3))
             poly(rule, b, cs)
+# coincident vertices: stroke-text-like rectangles sharing corners on a grid, many per polygon,
+# so the initial sort (SGI's seeded quicksort) has long runs of equal keys
+for rule in ('POS', 'NEG', 'ODD'):
+    for b in (0, 1):
+        for k in range(4):
+            cs = []
+            for _ in range(random.randint(20, 60)):
+                x, y = random.randint(0, 12) * 0.5, random.randint(0, 12) * 0.5
+                w, h = random.choice([(0.5, 2), (2, 0.5), (1, 1), (0.5, 0.5)])
+                cs.append(rect(x, y, w, h, random.random() < 0.2))
+            poly(rule, b, cs)
 print('\n'.join(out))

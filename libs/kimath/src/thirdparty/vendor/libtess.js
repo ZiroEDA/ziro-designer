@@ -4395,12 +4395,54 @@ libtess.PriorityQ.prototype.init = function() {
   // TODO(bckenny): unstable sort means we may get slightly different polys in
   // different browsers, but only when passing in equal points
   // TODO(bckenny): make less awkward closure?
-  var comparator = (function(verts) {
-    return function(a, b) {
-      return libtess.geom.vertLeq(verts[a], verts[b]) ? 1 : -1;
-    };
-  })(this.verts_);
-  this.order_.sort(comparator);
+  // ZiroEDA: SGI's pqInit (priorityq.c) - a quicksort whose pivots come from a
+  // fixed pseudo-random sequence (unsigned long, 64-bit here as on Linux), with
+  // insertion sort below 11 keys. Equal vertices (coincident points, common in
+  // stroke text) end up wherever that particular sort leaves them, and the sweep
+  // follows the queue, so libtess.js's Array.sort gave a different tessellation.
+  var verts = this.verts_;
+  var order = this.order_;
+  var LEQ = function(x, y) { return libtess.geom.vertLeq(verts[x], verts[y]); };
+  var stack = [];
+  var seed = 2016473283n;
+  var MASK = (1n << 64n) - 1n;
+  var p, r, i, j, piv, t;
+
+  stack.push(0, this.size_ - 1);
+  while (stack.length > 0) {
+    r = stack.pop();
+    p = stack.pop();
+    while (r > p + 10) {
+      seed = (seed * 1539415821n + 1n) & MASK;
+      i = p + Number(seed % BigInt(r - p + 1));
+      piv = order[i];
+      order[i] = order[p];
+      order[p] = piv;
+      i = p - 1;
+      j = r + 1;
+      do {
+        do { ++i; } while (!LEQ(order[i], piv));  // GT( **i, *piv )
+        do { --j; } while (!LEQ(piv, order[j]));  // LT( **j, *piv )
+        t = order[i]; order[i] = order[j]; order[j] = t;
+      } while (i < j);
+      t = order[i]; order[i] = order[j]; order[j] = t;  // Undo last swap
+      if (i - p < r - j) {
+        stack.push(j + 1, r);
+        r = i - 1;
+      } else {
+        stack.push(p, i - 1);
+        p = j + 1;
+      }
+    }
+    // Insertion sort small lists
+    for (i = p + 1; i <= r; ++i) {
+      piv = order[i];
+      for (j = i; j > p && !LEQ(piv, order[j - 1]); --j) {  // LT( **(j-1), *piv )
+        order[j] = order[j - 1];
+      }
+      order[j] = piv;
+    }
+  }
 
   this.initialized_ = true;
   this.heap_.init();

@@ -1,0 +1,16 @@
+{
+  "name": "@ziroeda/idftools",
+  "version": "0.0.0",
+  "description": "KiCad's utils/idftools: the IDF3 library and VRML_LAYER, linked into pcbnew's VRML and IDF exporters.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ziroeda/common": "workspace:*",
+    "@ziroeda/kimath": "workspace:*"
+  }
+}
