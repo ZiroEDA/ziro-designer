@@ -19,9 +19,14 @@ import { LIBRARY_TABLE_PARSER } from '@ziroeda/common/libraries/library_table_pa
 import { KiCadSymbolLibFileExtension } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { wxReadFileSync } from '@ziroeda/common/wx/filefn.js';
 import { SCH_IO_KICAD_SEXPR } from './kicad_sexpr/sch_io_kicad_sexpr.js';
+import { SCH_IO_EASYEDA } from './easyeda/sch_io_easyeda.js';
+import type { SCH_IO as SCH_IO_BASE } from './sch_io.js';
 
-/** `SCH_IO`: the plugin interface; the s-expression plugin is the one implementation ported. */
-export type SCH_IO = SCH_IO_KICAD_SEXPR;
+/**
+ * `SCH_IO*`: a plugin. The s-expression plugin predates the `SCH_IO` base (sch_io/sch_io.ts)
+ * and stands on its own, so the type is either; the importers derive from the base.
+ */
+export type SCH_IO = SCH_IO_KICAD_SEXPR | SCH_IO_BASE;
 
 export enum SCH_FILE_T {
   SCH_KICAD, ///< The s-expression version of the schematic.
@@ -50,12 +55,16 @@ const SCH_FILE_T_vector: readonly SCH_FILE_T[] = Object.values(SCH_FILE_T).filte
 // biome-ignore lint/complexity/noStaticOnlyClass: SCH_IO_MGR is a class of statics upstream
 export class SCH_IO_MGR {
   /** `FindPlugin( aFileType )`: a new plugin for the type, or null when there is none. */
+  static FindPlugin(aFileType: SCH_FILE_T.SCH_KICAD): SCH_IO_KICAD_SEXPR | null;
+  static FindPlugin(aFileType: SCH_FILE_T): SCH_IO | null;
   static FindPlugin(aFileType: SCH_FILE_T): SCH_IO | null {
     // This implementation is subject to change, any magic is allowed here.
     // The public SCH_IO_MGR API is the only pertinent public information.
     switch (aFileType) {
       case SCH_FILE_T.SCH_KICAD:
         return new SCH_IO_KICAD_SEXPR();
+      case SCH_FILE_T.SCH_EASYEDA:
+        return new SCH_IO_EASYEDA();
       default:
         return null;
     }

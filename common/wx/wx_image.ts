@@ -105,15 +105,83 @@ export class WX_IMAGE {
   GetData(): Uint8Array | null {
     return this.m_rgb;
   }
-  GetAlpha(): Uint8Array | null {
-    return this.m_alpha;
+  /** `GetAlpha()`, the plane; `GetAlpha( x, y )`, one pixel's (0 with no plane, where wx asserts). */
+  GetAlpha(): Uint8Array | null;
+  GetAlpha(x: number, y: number): number;
+  GetAlpha(x?: number, y?: number): Uint8Array | null | number {
+    if (x === undefined || y === undefined) return this.m_alpha;
+    return this.m_alpha ? this.m_alpha[y * this.m_width + x]! : 0;
   }
   /**
    * `wxImage::SetAlpha( nullptr )`: give the image an alpha plane for the
    * caller to fill (wx leaves it uninitialised; it is zero here).
+   * `SetAlpha( x, y, alpha )`: one pixel's.
    */
-  SetAlpha(): void {
-    this.m_alpha = new Uint8Array(this.m_width * this.m_height);
+  SetAlpha(): void;
+  SetAlpha(x: number, y: number, aAlpha: number): void;
+  SetAlpha(x?: number, y?: number, aAlpha?: number): void {
+    if (x === undefined || y === undefined) {
+      this.m_alpha = new Uint8Array(this.m_width * this.m_height);
+      return;
+    }
+    if (this.m_alpha) this.m_alpha[y * this.m_width + x] = aAlpha! & 0xff;
+  }
+  /** `wxImage::GetRed( x, y )`. */
+  GetRed(x: number, y: number): number {
+    return this.m_rgb ? this.m_rgb[(y * this.m_width + x) * 3]! : 0;
+  }
+  /** `wxImage::GetGreen( x, y )`. */
+  GetGreen(x: number, y: number): number {
+    return this.m_rgb ? this.m_rgb[(y * this.m_width + x) * 3 + 1]! : 0;
+  }
+  /** `wxImage::GetBlue( x, y )`. */
+  GetBlue(x: number, y: number): number {
+    return this.m_rgb ? this.m_rgb[(y * this.m_width + x) * 3 + 2]! : 0;
+  }
+  /** `wxImage::SetRGB( x, y, r, g, b )`. */
+  SetRGB(x: number, y: number, r: number, g: number, b: number): void {
+    if (!this.m_rgb) return;
+    const i = (y * this.m_width + x) * 3;
+    this.m_rgb[i] = r & 0xff;
+    this.m_rgb[i + 1] = g & 0xff;
+    this.m_rgb[i + 2] = b & 0xff;
+  }
+  /**
+   * `wxImage::Rescale( width, height )` at the default `wxIMAGE_QUALITY_NORMAL`,
+   * i.e. `*this = Scale( ... )` through `ResampleNearest`: 16.16 fixed-point
+   * steps of `(old << 16) / new`, each target pixel taking the source pixel at
+   * the step's integer part (wx 3.2's image.cpp). The resolution options stay.
+   */
+  Rescale(aWidth: number, aHeight: number): this {
+    const oldW = this.m_width;
+    const oldH = this.m_height;
+    if (!this.m_rgb || aWidth <= 0 || aHeight <= 0 || (oldW === aWidth && oldH === aHeight))
+      return this;
+    const rgb = new Uint8Array(aWidth * aHeight * 3);
+    const alpha = this.m_alpha ? new Uint8Array(aWidth * aHeight) : null;
+    const xDelta = Math.floor((oldW * 65536) / aWidth);
+    const yDelta = Math.floor((oldH * 65536) / aHeight);
+    let y = 0;
+    let d = 0;
+    let da = 0;
+    for (let j = 0; j < aHeight; j++) {
+      const srcRow = Math.floor(y / 65536) * oldW;
+      let x = 0;
+      for (let i = 0; i < aWidth; i++) {
+        const src = srcRow + Math.floor(x / 65536);
+        rgb[d++] = this.m_rgb[src * 3]!;
+        rgb[d++] = this.m_rgb[src * 3 + 1]!;
+        rgb[d++] = this.m_rgb[src * 3 + 2]!;
+        if (alpha) alpha[da++] = this.m_alpha![src]!;
+        x += xDelta;
+      }
+      y += yDelta;
+    }
+    this.m_width = aWidth;
+    this.m_height = aHeight;
+    this.m_rgb = rgb;
+    this.m_alpha = alpha;
+    return this;
   }
   HasPixels(): boolean {
     return this.m_pixelsKnown;
