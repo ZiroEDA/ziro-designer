@@ -16,6 +16,11 @@ for f in b.GetFootprints():
     if f.GetReference() in ('U1', 'C1'):
         f.Flip(f.GetPosition(), pcbnew.FLIP_DIRECTION_TOP_BOTTOM)
 pcbnew.SaveBoard('../resave/ecc83-pp_flipped.kicad_pcb', b)
+# Load and save once more: a file's nets are numbered in the order they first appear, and the
+# flips moved U1 and C1 in the footprint order, so only the second save is what KiCad writes for
+# this file on every later save (the classes round-trip test needs that fixed point).
+b = pcbnew.LoadBoard('../resave/ecc83-pp_flipped.kicad_pcb')
+pcbnew.SaveBoard('../resave/ecc83-pp_flipped.kicad_pcb', b)
 PY
 rm -f ../resave/ecc83-pp_flipped.kicad_pro
 kicad-cli pcb export ipc2581 -o ecc83-pp_flipped.xml ../resave/ecc83-pp_flipped.kicad_pcb

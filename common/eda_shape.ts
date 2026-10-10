@@ -1134,18 +1134,15 @@ export abstract class EDA_SHAPE {
   }
 
   /**
-   * `EDA_SHAPE::MakeEffectiveShapesForStroking` (eda_shape.cpp:1961): the shapes a dashed outline
-   * is stroked along. Stroke() has no Bezier primitive, so it gets the flattened polyline. One
-   * chain, not loose segments, or the pattern restarts at every vertex.
+   * `MakeEffectiveShapesForStroking()` (10.0.6): what a dashed stroke walks. Stroke() has no
+   * Bezier primitive, so a Bezier is its flattened polyline as ONE chain - as loose segments the
+   * dash pattern would restart at every vertex. Everything else is MakeEffectiveShapes( true ).
    */
   MakeEffectiveShapesForStroking(): SHAPE[] {
-    switch (this.m_shape) {
-      case SHAPE_T.BEZIER:
-        return [new SHAPE_LINE_CHAIN(this.buildBezierToSegmentsPointsList(this.getMaxError()))];
+    if (this.m_shape === SHAPE_T.BEZIER)
+      return [new SHAPE_LINE_CHAIN(this.buildBezierToSegmentsPointsList(this.getMaxError()))];
 
-      default:
-        return this.MakeEffectiveShapes(true);
-    }
+    return this.MakeEffectiveShapes(true);
   }
 
   MakeEffectiveShapesForHitTesting(): SHAPE[] {

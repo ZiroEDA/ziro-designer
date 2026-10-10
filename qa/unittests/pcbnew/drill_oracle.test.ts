@@ -108,11 +108,11 @@ describe('drill files match kicad-cli byte for byte', () => {
   }
 });
 
-describe('a blind span ending on B.Cu (10.0.5 source; not in the 10.0.6 oracle)', () => {
-  // kicad-cli 10.0.6 names this file "-in2-back"; the 10.0.5 source this port
-  // follows orders a DRILL_SPAN by raw layer id, where B_Cu (2) < In2_Cu (6),
-  // so Pair() is (B_Cu, In2_Cu) and the name is "-back-in2". The FileFunction
-  // layers are sorted top-to-bottom either way: 3,4.
+describe('a blind span ending on B.Cu', () => {
+  // 10.0.6 orders a DRILL_SPAN by physical position (IsCopperLayerLowerThan), not by raw layer
+  // id, where B_Cu (2) < In2_Cu (6): Pair() is (In2_Cu, B_Cu) and the file is "-in2-back", as
+  // kicad-cli 10.0.6 names it (10.0.5 wrote "-back-in2"). FileFunction lists the layers top to
+  // bottom: 3,4.
   const BLIND = readFileSync(resolve(DIR, 'gerber_oracle.kicad_pcb'), 'utf8').replace(
     '  (zone (net 1)',
     '  (via blind (at 70 42) (size 0.6) (drill 0.3) (layers "In2.Cu" "B.Cu") (net 1) (uuid "a1b2c3d4-0000-4000-8000-000000000914"))\n  (zone (net 1)',
@@ -127,7 +127,7 @@ describe('a blind span ending on B.Cu (10.0.5 source; not in the 10.0.6 oracle)'
     writer.CreateDrillandMapFilesSet('', true, false);
 
     const text = new TextDecoder().decode(
-      writer.GetWrittenFiles().get('gerber_oracle-back-in2.drl'),
+      writer.GetWrittenFiles().get('gerber_oracle-in2-back.drl'),
     );
     expect(text).toContain('; #@! TF.FileFunction,Plated,3,4,Blind\n');
     expect(text).toContain('T1C0.300\n%\nG90\nG05\nT1\nX70.0Y-42.0\nM30\n');

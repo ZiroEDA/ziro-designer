@@ -330,8 +330,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // FOOTPRINT_EDIT_FRAME; its old canvas placeholder and prompt styles went.
   // 22 -> 20 (10-08): the footprint frames' old Canvas2D canvas
   // (`pcb_draw_panel_gal_ui.tsx`) went; they draw on PCB_DRAW_PANEL_GAL.
-  // metrics 114 -> 116 (10-10): pcb-exports' export dialogs, merged in; their session owns them.
-  'editors/pcb': { colours: 20, metrics: 116 },
+  'editors/pcb': { colours: 20, metrics: 114 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -1636,8 +1635,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // dialog_sch_find_base.cpp, every remaining number a [data] border.
     // 1065 -> 1054 (10-10): pcbnew DIALOG_FIND's guessed gaps, widths and 12px fonts, replaced
     // by its [data] borders.
-    // 1054 -> 1056 (10-10): the two editors/pcb literals the pcb-exports merge brought.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1056);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1054);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

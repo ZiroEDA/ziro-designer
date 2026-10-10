@@ -168,7 +168,9 @@ export function DialogExportVrml({
             style={{
               display: 'grid',
               gridTemplateColumns: 'auto 1fr auto',
+              // [data] `new wxFlexGridSizer( 0, 3, 3, 0 )`: a 3 px vgap.
               gap: 3,
+              // [data] `bSizerOptions->Add( fgSizerOptions, 0, wxEXPAND|wxRIGHT|wxLEFT, 20 )`.
               margin: '0 20px',
             }}
           >

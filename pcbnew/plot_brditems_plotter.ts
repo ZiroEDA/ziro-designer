@@ -810,7 +810,11 @@ export class BRDITEMS_PLOTTER extends PCB_PLOT_PARAMS {
     const font = aText.GetDrawFont(this.renderSettings());
     const shownText = aText.GetShownText(true);
 
-    if (shownText === '') return;
+    // A knockout text box plots its box even with no text (10.0.6).
+    const asItem = aText as unknown as { Type?(): KICAD_T };
+    const knockoutBox = aIsKnockout && asItem.Type?.() === KICAD_T.PCB_TEXTBOX_T;
+
+    if (shownText === '' && !knockoutBox) return;
 
     if (!this.m_layerMask.test(aLayer)) return;
 
@@ -1202,7 +1206,7 @@ export class BRDITEMS_PLOTTER extends PCB_PLOT_PARAMS {
           break;
       }
     } else {
-      const shapes = aShape.MakeEffectiveShapes(true);
+      const shapes = aShape.MakeEffectiveShapesForStroking();
       const renderSettings = this.m_plotter.RenderSettings();
 
       for (const shape of shapes) {

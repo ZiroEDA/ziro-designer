@@ -248,7 +248,11 @@ export function DialogExportOdbpp({ fileName, projectFolders = [], onClose }: Pr
             <span className="ze-genpos-label">Output file:</span>
             <input
               className="ze-search"
-              style={{ flex: 1, minWidth: 350 }}
+              style={{
+                flex: 1,
+                // [data] `m_outputFileName->SetMinSize( wxSize( 350,-1 ) )`.
+                minWidth: 350,
+              }}
               value={outputFileName}
               title={
                 'Enter a filename if you do not want to use default file names\n' +
