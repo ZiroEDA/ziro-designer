@@ -104,8 +104,6 @@ export function DialogTextProperties({
   onApply,
   onClose,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-
   const [v, setV] = useState<TextValues>(initial);
   // Held as text while typed, so a half-typed "0." is not rounded away under
   // the cursor.

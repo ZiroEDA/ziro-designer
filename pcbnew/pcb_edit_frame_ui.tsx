@@ -2689,9 +2689,6 @@ export function PcbEditor({
     details?: string;
   } | null>(null);
 
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts. An OK-only message box still cancels on Esc: wx sends
-  // wxID_CANCEL whether or not a Cancel button exists.
   const drcDialogRef = useRef<HTMLDivElement | null>(null);
   /**
    * The netlist text of the last `FetchNetlistFromSchematic`, which is what

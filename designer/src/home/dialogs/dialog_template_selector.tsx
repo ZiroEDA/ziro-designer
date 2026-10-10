@@ -524,9 +524,6 @@ export function DuplicateTemplateDialog({
   onCancel: () => void;
   onConfirm: (newId: string) => void;
 }): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [name, setName] = useState(`${source.id}_copy`);
   const clean = sanitizeProjectName(name);
   const clash = clean !== '' && taken.has(clean.toLowerCase());

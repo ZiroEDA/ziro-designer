@@ -97,8 +97,6 @@ export function DialogCopperZones({
   onOpenZoneManager,
   onClose,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-
   const [v, setV] = useState<ZoneValues>(initial);
   const set = (patch: Partial<ZoneValues>): void => setV((prev) => ({ ...prev, ...patch }));
 

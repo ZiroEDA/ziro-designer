@@ -45,9 +45,6 @@ interface JunctionProps {
 }
 
 export function DialogLineProperties(props: WireProps | JunctionProps): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const mm = (iu: number): string => (iu === 0 ? '0' : String(iuToMM(iu)));
   const [width, setWidth] = useState(props.kind === 'wire' ? mm(props.widthIU) : '0');
   const [style, setStyle] = useState(props.kind === 'wire' ? props.style : 'default');

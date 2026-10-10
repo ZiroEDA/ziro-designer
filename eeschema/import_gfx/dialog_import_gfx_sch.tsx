@@ -168,9 +168,6 @@ export function runImport(
 }
 
 export function DialogImportGfx({ onOk, onCancel, sink = 'sch' }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
   const [interactive, setInteractive] = useState(true);
   const [params, setParams] = useState<Params>(DEFAULT_PARAMS);

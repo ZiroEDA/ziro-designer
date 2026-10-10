@@ -69,9 +69,6 @@ export function PluginManagerDialog({
    */
   initialTab?: Tab;
 }): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   usePcmVersion();
   const [tab, setTab] = useState<Tab>(initialTab ?? 'library');
   const [repoUrl, setRepoUrl] = useState<string>('');

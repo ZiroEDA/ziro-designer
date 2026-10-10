@@ -61,9 +61,6 @@ export function DialogShapeProperties({
   onApply,
   onClose,
 }: ShapeProps): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   // A stroke with no style of its own selects Solid, since the combo cannot
   // express DEFAULT (dialog_shape_properties.cpp:1129-1132, `else SetSelection( 0 )`).
   const [v, setV] = useState<ShapeValues>({

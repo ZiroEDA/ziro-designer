@@ -120,9 +120,6 @@ export function DialogPcbPlot({
   onRunDrc,
   onClose,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   // m_layerList = board->GetEnabledLayers().UIOrder() (dialog_plot.cpp:285),
   // each row the board's name for the layer (:351).
   const layerNames = board

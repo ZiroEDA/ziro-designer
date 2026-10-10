@@ -30,9 +30,6 @@ export function EDA_REORDERABLE_LIST_DIALOG({
   onOk,
   onCancel,
 }: EDA_REORDERABLE_LIST_DIALOG_PROPS): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [enabledList, setEnabledList] = useState<string[]>([...enabled]);
   const [selAvailable, setSelAvailable] = useState<string | null>(null);
   const [selEnabled, setSelEnabled] = useState<string | null>(null);

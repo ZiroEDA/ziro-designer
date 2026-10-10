@@ -98,9 +98,6 @@ export function DialogPlot({
   onPlot,
   onClose,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [format, setFormat] = useState<PlotFormat>('pdf');
   const [pageSize, setPageSize] = useState<PlotPageSize>('auto');
   const [color, setColor] = useState(true);

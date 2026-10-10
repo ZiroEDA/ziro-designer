@@ -104,9 +104,7 @@ export function DialogAnnotate({
     onClose({ order: order === 'unsorted' ? 'x' : order, algo, startNumber });
   };
 
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts. Esc is the Close button, which saves the dialog's
-  // settings on the way out exactly as OnCancelClick does.
+  // DialogShim's onClose: Esc is the Close button, which saves the dialog's settings on the way out exactly as OnCancelClick does.
 
   const run: AnnotateRun = {
     scope,

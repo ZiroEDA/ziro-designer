@@ -159,9 +159,6 @@ export function DialogTextProperties({
   onOk,
   onCancel,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [text, setText] = useState(initial.text);
   const [bold, setBold] = useState(initial.bold);
   const [italic, setItalic] = useState(initial.italic);

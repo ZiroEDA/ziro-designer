@@ -34,7 +34,7 @@ import {
 import { type PrefsPageId } from '@ziroeda/common/frame_type.js';
 import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
 import { SENTRY } from '@ziroeda/common/app_monitor.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 /**
  * The Preferences dialog shell, the web mirror of KiCad's PAGED_DIALOG
@@ -103,10 +103,6 @@ export function PreferencesDialog({
    */
   frameOwner?: PrefsPageOwner;
 }): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-  useModalEscape(onClose);
-
   const [page, setPage] = useState<PrefsPageId>(initialPage ?? FIRST_PAGE);
   /**
    * Which sections start open. Exactly ONE can, and often none does.
@@ -470,30 +466,21 @@ export function PreferencesDialog({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      {/* ONE size, for every page. `.ze-modal` is `width: max-content` and
-          would track the current page, growing and shrinking as the user walks
-          the tree; `.ze-prefs-dialog` states the size instead and
-          `.ze-prefs-panel` is `min-width: 0`, so a page that wants more room
-          scrolls. That size is a measurement of the real Preferences and not
-          an `aInitialSize`: Preferences is not a PAGED_DIALOG subclass
-          upstream and has no such argument, which is also why this one needs
-          no ref. */}
-      <div
-        className="ze-modal ze-paged-dialog ze-prefs-dialog"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="ze-modal-header">
-          Preferences
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
+    <>
+      <DialogShim title="Preferences" onClose={onClose} className="ze-paged-dialog ze-prefs-dialog">
+        {/* ONE size, for every page. `.ze-modal` is `width: max-content` and
+                would track the current page, growing and shrinking as the user walks
+                the tree; `.ze-prefs-dialog` states the size instead and
+                `.ze-prefs-panel` is `min-width: 0`, so a page that wants more room
+                scrolls. That size is a measurement of the real Preferences and not
+                an `aInitialSize`: Preferences is not a PAGED_DIALOG subclass
+                upstream and has no such argument, which is also why this one needs
+                no ref. */}
         <div className="ze-prefs-body">
           {/* The SAME tree Board Setup and Schematic Setup draw. Upstream all
-              three are PAGED_DIALOGs over one wxTreebook, so none of them can
-              have a different tree; ours had two, and this one's parents were
-              dead headings with no expander and nothing to collapse. */}
+          three are PAGED_DIALOGs over one wxTreebook, so none of them can
+          have a different tree; ours had two, and this one's parents were
+          dead headings with no expander and nothing to collapse. */}
           <PagedDialogTree
             sections={treeSections}
             page={page}
@@ -511,24 +498,24 @@ export function PreferencesDialog({
             onClick={resetPage}
           />
           {/* No `m_openPrefsDirButton` (`common/widgets/paged_dialog.cpp:90-99`,
-              under `aShowOpenFolder`, which the Preferences dialog passes).
+          under `aShowOpenFolder`, which the Preferences dialog passes).
 
-              It was here, greyed. Greying is for a control we intend to back:
-              it tells the user the feature exists and is not ready. There is no
-              preferences directory in a browser and there will not be one -
-              settings are an account slice synced from localStorage - so the
-              button is not "not ready", it is not a control this application
-              has. It is removed, as every other browser-impossible control is.
-              */}
+          It was here, greyed. Greying is for a control we intend to back:
+          it tells the user the feature exists and is not ready. There is no
+          preferences directory in a browser and there will not be one -
+          settings are an account slice synced from localStorage - so the
+          button is not "not ready", it is not a control this application
+          has. It is removed, as every other browser-impossible control is.
+          */}
           <span style={{ flex: 1 }} />
           <Button label="Cancel" onClick={onClose} />
           <Button label="OK" isDefault onClick={() => ok()} />
         </div>
-      </div>
+      </DialogShim>
 
       {prompt !== null && (
         /* `wxOK | wxCANCEL | wxCENTER | wxICON_WARNING` with
-           `SetOKCancelLabels`. The words are the page's; this only shows them. */
+         `SetOKCancelLabels`. The words are the page's; this only shows them. */
         <MessageDialogYesNo
           caption={prompt.prompt.caption}
           message={prompt.prompt.message}
@@ -545,6 +532,6 @@ export function PreferencesDialog({
           }}
         />
       )}
-    </div>
+    </>
   );
 }

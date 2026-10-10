@@ -58,9 +58,6 @@ const MODES: readonly (readonly [PnsMode, string])[] = [
 ];
 
 export function DialogPnsSettings({ onClose, settings }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [v, setV] = useState<RoutingSettings>(() =>
     settings ? { ...settings } : readRoutingSettings(pcbnewLiveSettings().tools.pns),
   );

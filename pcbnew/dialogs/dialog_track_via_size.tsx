@@ -49,8 +49,6 @@ interface Props {
 }
 
 export function DialogTrackViaSize({ value, units, onOk, onClose }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-
   // A `UNIT_BINDER` holds text and parses on commit; driving the model off
   // every keystroke rewrites "0." under the caret.
   const [trackWidth, setTrackWidth] = useState(() => pcbUnitText(value.trackWidth, units));

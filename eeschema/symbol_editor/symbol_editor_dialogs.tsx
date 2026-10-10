@@ -104,9 +104,6 @@ export function PinPropertiesDialog({
   onOk: (r: PinDialogResult) => void;
   onCancel: () => void;
 }): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [name, setName] = useState(pin.name);
   const [number, setNumber] = useState(pin.number);
   const [etype, setEtype] = useState(pin.electricalType);
@@ -318,9 +315,6 @@ export function NewSymbolDialog({
   onOk: (r: NewSymbolResult) => void;
   onCancel: () => void;
 }): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [name, setName] = useState('');
   const [parent, setParent] = useState(inheritFrom ?? '');
   const [reference, setReference] = useState('U');
@@ -515,9 +509,6 @@ export function LibSymbolPropertiesDialog({
   onOk: (r: LibSymbolPropsResult) => void;
   onCancel: () => void;
 }): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   interface Row {
     key: string;
     value: string;
@@ -756,9 +747,6 @@ export function SymbolTextDialog({
   onOk: (r: { text: string; fontSize: number; bold: boolean; italic: boolean }) => void;
   onCancel: () => void;
 }): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [text, setText] = useState(initial?.text ?? '');
   const [size, setSize] = useState(initial?.fontSize ?? defaultFontSize ?? 1.27 * MM);
   const [bold, setBold] = useState(initial?.bold ?? false);
@@ -819,9 +807,6 @@ export function ShapePropertiesDialog({
   onOk: (r: ShapePropsResult) => void;
   onCancel: () => void;
 }): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [width, setWidth] = useState(initial.strokeWidth);
   const [type, setType] = useState<string>(lineStyleComboValue(initial.strokeType));
   const [fill, setFill] = useState<ShapePropsResult['fillType']>(
@@ -883,9 +868,6 @@ export function PinTableDialog({
   onOk: (next: LibSymbol) => void;
   onCancel: () => void;
 }): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   interface Row {
     unitIdx: number;
     pinIdx: number;
@@ -1107,9 +1089,6 @@ export function SymbolCheckDialog({
   symbol: LibSymbol;
   onClose: () => void;
 }): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const messages = useMemo(() => checkLibSymbol(symbol), [symbol]);
   return (
     <DialogShim title="Symbol Warnings" onClose={onClose} className="ze-label-dialog">

@@ -599,9 +599,6 @@ export function DialogPageSettings({
   onOk,
   onCancel,
 }: PageSettingsDialogProps): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const labels = pageSettingsLabels(frame);
   const preview = useMemo(() => previewColors(frame, blackBackground), [frame, blackBackground]);
   const pickerOn = wksPickerEnabled(frame);

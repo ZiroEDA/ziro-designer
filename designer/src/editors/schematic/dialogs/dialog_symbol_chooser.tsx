@@ -28,9 +28,6 @@ export function DialogSymbolChooser({
   onOk,
   onCancel,
 }: DialogSymbolChooserProps): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const panelRef = useRef<PanelSymbolChooserHandle>(null);
   const [itemCount, setItemCount] = useState(0);
 

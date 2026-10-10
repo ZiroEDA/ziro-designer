@@ -69,9 +69,6 @@ export function DialogPadProperties({
   onApply,
   onClose,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [tab, setTab] = useState<Tab>('general');
   const [v, setV] = useState<PadValues>(initial);
   const [text, setText] = useState<Record<string, string>>({});

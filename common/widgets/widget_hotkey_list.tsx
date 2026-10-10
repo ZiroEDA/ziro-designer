@@ -108,10 +108,6 @@ export function WidgetHotkeyList({
 }: WidgetHotkeyListProps): JSX.Element {
   const [prompt, setPrompt] = useState<Prompt | null>(null);
 
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts. Registered only while the dialog is up, so a
-  // closed one does not sit on the stack swallowing the key.
-  // The conflict box's Esc is its "No", the button that changes nothing.
   /** Every section starts expanded, as the tree does when the window opens. */
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   /**

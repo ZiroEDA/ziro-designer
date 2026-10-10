@@ -129,6 +129,12 @@ function modalVariants(): Set<string> {
       if (!names.includes('ze-modal')) continue;
       for (const c of names) if (c !== 'ze-modal') out.add(c);
     }
+    // A DialogShim renders `ze-modal` itself, so its className is a modal variant though the
+    // call site never writes `ze-modal` - without this the census went blind as dialogs moved.
+    for (const m of text.matchAll(/<DialogShim\b[^>]*?className=(?:"([^"]*)"|\{`([^`]*)`\})/g)) {
+      const names = (m[1] ?? m[2] ?? '').split(/[\s${}]+/).filter((c) => c && !c.startsWith('$'));
+      for (const c of names) out.add(c);
+    }
   }
   modalVariantsCache = out;
   return out;

@@ -100,8 +100,6 @@ export function DialogReferenceImageProperties({
   onApply,
   onClose,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-
   const [v, setV] = useState<ImageValues>(initial);
   // The raw text of whichever field has the caret, so it is not reformatted
   // out from under the typist.

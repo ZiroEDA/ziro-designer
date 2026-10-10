@@ -85,9 +85,6 @@ export function DialogShapeProperties({
   onOk,
   onCancel,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [border, setBorder] = useState(initial.border);
   const [width, setWidth] = useState(() =>
     initial.borderWidthIU <= 0 ? '0' : stringFromValue(iuToMM(initial.borderWidthIU), units, false),

@@ -224,8 +224,6 @@ export function DialogImportGraphics({
   onOk,
   onCancel,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
   const [params, setParams] = useState<Params>(DEFAULT_PARAMS);
   const [typed, setTyped] = useState<Record<string, string>>({});

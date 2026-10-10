@@ -81,9 +81,6 @@ export function DialogTrackViaProperties({
   onApply,
   onClose,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const seed = initial;
 
   // The dialog edits an arc's start and end like a straight track's

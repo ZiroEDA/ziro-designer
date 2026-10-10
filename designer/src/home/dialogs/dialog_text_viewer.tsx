@@ -18,9 +18,6 @@ export function TextViewerDialog({
   text: string;
   onClose: () => void;
 }): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   return (
     <DialogShim title={name} onClose={onClose}>
       <pre

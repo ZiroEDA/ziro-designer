@@ -96,9 +96,6 @@ export function DialogPasteSpecial({
   onOk,
   onCancel,
 }: DialogPasteSpecialProps): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [mode, setMode] = useState<PasteSpecialMode>(initialMode);
   const [clearNets, setClearNets] = useState(false);
 

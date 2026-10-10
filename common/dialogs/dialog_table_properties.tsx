@@ -127,9 +127,6 @@ export function DialogTableProperties<T extends SharedTableValues>({
   onOk,
   onCancel,
 }: DialogTablePropertiesProps<T>): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [v, setV] = useState<T>(initial);
   // The width fields are held as text while they are being typed, so a half
   // typed "0." is not rounded away under the cursor.

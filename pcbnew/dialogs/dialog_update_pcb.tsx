@@ -68,9 +68,6 @@ export function DialogUpdatePcb({
   onClose,
   designBlocksSupported = false,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [options, setOptions] = useState<UpdatePcbOptions>(DEFAULT_UPDATE_PCB_OPTIONS);
   const [messages, setMessages] = useState<readonly ReportLine[]>([]);
   const [severities, setSeverities] = useState<Severity>(RPT_SEVERITY_ALL);

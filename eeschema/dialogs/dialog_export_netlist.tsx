@@ -124,9 +124,6 @@ export function DialogExportNetlist({
   onOutputFile,
   onClose,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   // Project-relative output folder; '' is the project's own folder, matching
   // the Plot dialog's "Output directory".
   const [outputDir, setOutputDir] = useState('');

@@ -59,7 +59,7 @@ import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
 import { wxGridStringTable } from '@ziroeda/common/wx/grid.js';
 import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { MessageDialogError } from '@ziroeda/common/dialogs/dialog_message.js';
 import { equFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import type { ChooserFilter, OpenedFile } from '@ziroeda/common/wx/filedlg.js';
@@ -127,9 +127,6 @@ export function DialogConfigEquFiles({
   onSave,
   onClose,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-  useModalEscape(onClose);
-
   const [list, setList] = useState<EquFileList>({ files: [...equFiles], selection: [] });
   /** Files Add pulled in from outside the project, written on OK. */
   const [pending, setPending] = useState<ProjectFile[]>([]);
@@ -197,18 +194,12 @@ export function DialogConfigEquFiles({
   };
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-equfiles" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">
-          {equFilesDialogTitle(proName)}
-          <span className="x" title="Close" onClick={onClose}>
-            ✕
-          </span>
-        </div>
+    <>
+      <DialogShim title={equFilesDialogTitle(proName)} onClose={onClose} className="ze-equfiles">
         <div className="ze-modal-body ze-equfiles-body">
           <div className="ze-equfiles-label">Footprint association files:</div>
           {/* `wxLB_EXTENDED|wxLB_HSCROLL|wxLB_NEEDED_SB` with a 500 x 100
-              minimum (dialog_config_equfiles_base.cpp:29-30). */}
+          minimum (dialog_config_equfiles_base.cpp:29-30). */}
           <div className="ze-equfiles-list" role="listbox" aria-label="Footprint association files">
             {list.files.map((f, i) => (
               <div
@@ -223,7 +214,7 @@ export function DialogConfigEquFiles({
             ))}
           </div>
           {/* The button row, in the base class's order: the four on the left,
-              a fixed 20 px spacer, then Remove on its own. */}
+          a fixed 20 px spacer, then Remove on its own. */}
           <div className="ze-equfiles-buttons">
             <StdBitmapButton
               bitmap="small_folder"
@@ -257,7 +248,7 @@ export function DialogConfigEquFiles({
             Available path substitutions:
           </div>
           {/* `m_gridEnvVars`: a WX_GRID with no column or row labels
-              (`SetColLabelSize( 0 )`, `SetRowLabelSize( 0 )`), autosized. */}
+          (`SetColLabelSize( 0 )`, `SetRowLabelSize( 0 )`), autosized. */}
           <WxGridView
             grid={envGrid}
             colLabels={false}
@@ -269,11 +260,11 @@ export function DialogConfigEquFiles({
           <Button label="OK" isDefault onClick={() => onSave(list.files, pending)} />
           <Button label="Cancel" onClick={onClose} />
         </div>
-      </div>
+      </DialogShim>
 
       {/* `wxFileDialog( … FILEEXT::EquFileWildcard(), wxFD_DEFAULT_STYLE |
-          wxFD_MULTIPLE )` (`:216-217`) — over the account's tree, which is this
-          app's filesystem, with the local disk offered beside it. */}
+        wxFD_MULTIPLE )` (`:216-217`) — over the account's tree, which is this
+        app's filesystem, with the local disk offered beside it. */}
       {addOpen &&
         app.OpenFileDialog({
           title: 'Footprint Association File',
@@ -312,6 +303,6 @@ export function DialogConfigEquFiles({
         }}
       />
       {error !== null && <MessageDialogError message={error} onClose={() => setError(null)} />}
-    </div>
+    </>
   );
 }

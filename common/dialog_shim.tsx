@@ -352,6 +352,11 @@ export interface DialogShimProps {
   style?: CSSProperties;
   /** The window element, for a dialog that measures or focuses it. */
   frameRef?: Ref<HTMLDivElement>;
+  /**
+   * A subclass's `OnCharHook` override: it sees every key in the window first, and a key it
+   * consumes (preventDefault) does not reach DIALOG_SHIM::OnCharHook's Escape and Enter.
+   */
+  onCharHook?: (aEvent: ReactKeyboardEvent<HTMLDivElement>) => void;
   children: ReactNode;
 }
 
@@ -383,6 +388,7 @@ export function DialogShim({
   hashKey,
   style,
   frameRef: outerFrameRef,
+  onCharHook,
   children,
 }: DialogShimProps): JSX.Element {
   const frameRef = useRef<HTMLDivElement>(null);
@@ -465,6 +471,8 @@ export function DialogShim({
   };
 
   const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>): void => {
+    onCharHook?.(e);
+
     if (e.defaultPrevented) return;
 
     if (e.key === 'Escape' && modeless) {

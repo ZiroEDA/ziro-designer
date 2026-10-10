@@ -74,9 +74,6 @@ export function DialogDimensionProperties({
   onApply,
   onClose,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [v, setV] = useState<DimensionValues>(initial);
   const [text, setText] = useState<Record<string, string>>({});
   const set = (patch: Partial<DimensionValues>): void => setV((p) => ({ ...p, ...patch }));

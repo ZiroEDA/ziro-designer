@@ -84,8 +84,6 @@ export function DialogGridSettings({
   onOk,
   onCancel,
 }: DialogGridSettingsProps): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-
   /*
    * `TransferDataToWindow` (dialog_grid_settings.cpp:58-75).
    *

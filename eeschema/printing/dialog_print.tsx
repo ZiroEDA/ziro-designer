@@ -84,9 +84,7 @@ export function DialogPrint({ settings, onPrint, themeId, onClose }: Props): JSX
     onClose();
   };
 
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts. Esc is the Close button, which stores the print
-  // options on the way out as the dialog's own close does.
+  // DialogShim's onClose: Esc is the Close button, which stores the print options on the way out as the dialog's own close does.
 
   const run = (): void => {
     savePrintOptions();

@@ -98,8 +98,6 @@ export function DialogRuleAreaProperties({
   conversion = null,
   onClose,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-
   const [v, setV] = useState<RuleAreaValues>(initial);
   const [page, setPage] = useState<PlacementPage>(() => collectPlacementPage(initial, sources));
   // `m_areaPropertiesNb->SetSelection( 0 )`, then 1 when the area does nothing

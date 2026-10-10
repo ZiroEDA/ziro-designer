@@ -36,9 +36,6 @@ export function HotkeyListDialog({
    */
   const [edit, setEdit] = useState<HotkeyOverrides>(() => ({ ...overrides }));
 
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   /** DIALOG_LIST_HOTKEYS::TransferDataFromWindow, forwarded to the panel. */
   const onOk = (): void => {
     onApply(edit);

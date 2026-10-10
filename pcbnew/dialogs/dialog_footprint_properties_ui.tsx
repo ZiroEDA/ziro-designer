@@ -66,9 +66,6 @@ export function DialogFootprintProperties({
   onClose,
   model3d,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [tab, setTab] = useState<Tab>('general');
   const [v, setV] = useState<FootprintValues>(initial);
   const modelsApi = useRef<PANEL_3D_MODEL_API | null>(null);

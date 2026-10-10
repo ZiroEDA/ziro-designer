@@ -113,7 +113,10 @@ describe('PcbOneLayerSelector', () => {
     expect(onCancel).not.toHaveBeenCalled();
   });
 
-  it('clicking the backdrop cancels', () => {
+  // PCB_ONE_LAYER_SELECTOR is a plain ShowModal() (sel_layer.cpp:355) with no activate or
+  // focus-loss handler: a click outside it does nothing, as for every modal dialog; Escape is
+  // wxID_CANCEL.
+  it('ignores a click outside it, and Escape cancels', () => {
     const b = boardWithLayers(PCB_LAYER_ID.F_Cu);
     const onCancel = vi.fn();
     const { container } = render(
@@ -126,6 +129,8 @@ describe('PcbOneLayerSelector', () => {
       />,
     );
     fireEvent.mouseDown(container.querySelector('.ze-modal-backdrop')!);
+    expect(onCancel).not.toHaveBeenCalled();
+    fireEvent.keyDown(document, { key: 'Escape' });
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 

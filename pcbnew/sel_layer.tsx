@@ -239,8 +239,6 @@ export function PcbOneLayerSelector({
   onSelect,
   onCancel,
 }: PcbOneLayerSelectorProps): JSX.Element {
-  useModalEscape(onCancel);
-
   const { left, right } = useMemo(
     () => buildOneLayerSelectorLists(board, notAllowedLayersMask, theme),
     [board, notAllowedLayersMask, theme],
@@ -258,59 +256,51 @@ export function PcbOneLayerSelector({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={() => onCancel()}>
-      <div
-        className="ze-modal ze-one-layer-selector"
-        onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          // `onCharHook` (`sel_layer.cpp:236-253`): a bound layer hotkey
-          // selects and closes, same as a click; everything else falls
-          // through to the grid (Escape is `useModalEscape`, above).
-          const layer = layerForRowHotkey(e.key, left);
-          if (layer !== null) {
-            e.preventDefault();
-            onSelect(layer);
-          }
-        }}
-      >
-        <div className="ze-modal-header">
-          Select Layer
-          <span className="x" title="Cancel" onClick={() => onCancel()}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-modal-body ze-one-layer-selector-body">
-          {left.length > 0 && (
-            <div className="ze-grid-pane">
-              <WxGridView
-                grid={leftGrid.grid}
-                tricks={leftGrid.tricks}
-                colLabels={false}
-                className="ze-grid-no-lines"
-                ariaLabel="Copper layers"
-                columns={[{ width: SWATCH_COL_WIDTH }, { width: NAME_COL_WIDTH }, {}]}
-                renderCell={renderRow(left)}
-                onUpdate={() => {}}
-              />
-            </div>
-          )}
-          {right.length > 0 && (
-            <div className="ze-grid-pane">
-              <WxGridView
-                grid={rightGrid.grid}
-                tricks={rightGrid.tricks}
-                colLabels={false}
-                className="ze-grid-no-lines"
-                ariaLabel="Non-copper layers"
-                columns={[{ width: SWATCH_COL_WIDTH }, { width: NAME_COL_WIDTH }]}
-                renderCell={renderRow(right)}
-                onUpdate={() => {}}
-              />
-            </div>
-          )}
-        </div>
+    <DialogShim
+      title="Select Layer"
+      onClose={() => onCancel()}
+      className="ze-one-layer-selector"
+      onCharHook={(e) => {
+        // `onCharHook` (`sel_layer.cpp:236-253`): a bound layer hotkey selects and closes, same
+        // as a click; everything else goes on to the grid and DIALOG_SHIM.
+        const layer = layerForRowHotkey(e.key, left);
+        if (layer !== null) {
+          e.preventDefault();
+          onSelect(layer);
+        }
+      }}
+    >
+      <div className="ze-modal-body ze-one-layer-selector-body">
+        {left.length > 0 && (
+          <div className="ze-grid-pane">
+            <WxGridView
+              grid={leftGrid.grid}
+              tricks={leftGrid.tricks}
+              colLabels={false}
+              className="ze-grid-no-lines"
+              ariaLabel="Copper layers"
+              columns={[{ width: SWATCH_COL_WIDTH }, { width: NAME_COL_WIDTH }, {}]}
+              renderCell={renderRow(left)}
+              onUpdate={() => {}}
+            />
+          </div>
+        )}
+        {right.length > 0 && (
+          <div className="ze-grid-pane">
+            <WxGridView
+              grid={rightGrid.grid}
+              tricks={rightGrid.tricks}
+              colLabels={false}
+              className="ze-grid-no-lines"
+              ariaLabel="Non-copper layers"
+              columns={[{ width: SWATCH_COL_WIDTH }, { width: NAME_COL_WIDTH }]}
+              renderCell={renderRow(right)}
+              onUpdate={() => {}}
+            />
+          </div>
+        )}
       </div>
-    </div>
+    </DialogShim>
   );
 }
 

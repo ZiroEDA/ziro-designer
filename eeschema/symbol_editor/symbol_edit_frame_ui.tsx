@@ -467,11 +467,6 @@ export function SymbolEditor({
   /** DisplayErrorMessage for the MAIL_LIB_EDIT refusals below. */
   const [libError, setLibError] = useState<{ title: string; message: string } | null>(null);
 
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts. Registered only while the dialog is up, so a
-  // closed one does not sit on the stack swallowing the key.
-  // The error box is OK-only, and wx still sends wxID_CANCEL on Esc there.
-
   // `g_LastPin*` are process statics upstream, filled in from the settings file
   // on first use; ours are per-frame, seeded from the same file when the frame
   // opens. Either way a change on Editing Options reaches the next NEW pin and

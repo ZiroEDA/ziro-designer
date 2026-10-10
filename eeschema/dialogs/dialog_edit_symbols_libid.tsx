@@ -50,9 +50,6 @@ export function DialogEditSymbolsLibId({
   onClose,
   errors,
 }: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-
   const [gridRows, setGridRows] = useState<GridRow[]>(() =>
     rows.map((r) => ({ refs: r.references.join(', '), current: r.current, next: '' })),
   );
