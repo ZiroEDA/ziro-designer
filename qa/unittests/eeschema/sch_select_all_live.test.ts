@@ -13,6 +13,7 @@ import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
 import type { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
+import { SCH_SHEET_PIN } from '@ziroeda/eeschema/sch_sheet_pin.js';
 import { SCH_SELECTION_TOOL } from '@ziroeda/eeschema/tools/sch_selection_tool.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openProject, schToolHarness } from './support/sch_tool_harness.js';
@@ -38,7 +39,10 @@ describe('SCH_SELECTION_TOOL::SelectAll', () => {
     const symbols = [...screen.Items().OfType(KICAD_T.SCH_SYMBOL_T)];
     const wires = [...screen.Items().OfType(KICAD_T.SCH_LINE_T)] as SCH_LINE[];
     const sheets = [...screen.Items().OfType(KICAD_T.SCH_SHEET_T)] as SCH_SHEET[];
+    // The fixture's sheets have no pins; give one a pin, which the view does not hold.
+    sheets[0]!.AddPin(new SCH_SHEET_PIN(sheets[0]!, sheets[0]!.GetPosition(), 'P'));
     const pins = sheets.flatMap((s) => s.GetPins());
+    expect(pins.length).toBeGreaterThan(0);
     expect([symbols.length, wires.length, sheets.length].every((n) => n > 0)).toBe(true);
 
     mgr.RunAction(ACTIONS.selectAll);

@@ -70,7 +70,15 @@ function setUp() {
     return p;
   };
   pin('IN', LABEL_FLAG_SHAPE.L_INPUT, 2);
-  const outx = pin('OUTX', LABEL_FLAG_SHAPE.L_OUTPUT, 4);
+  // OUTX's shape differs from OUT's, set before the pin joins the sheet (SetLabelShape would
+  // carry a parented pin's shape to labels of the same name).
+  const outx = new SCH_SHEET_PIN(
+    null,
+    { x: sheet.GetPosition().x, y: sheet.GetPosition().y + 4 * G },
+    'OUTX',
+  );
+  outx.SetShape(LABEL_FLAG_SHAPE.L_BIDI);
+  sheet.AddPin(outx);
 
   const mgr = h.frame.GetToolManager()!;
   mgr.RunAction(SCH_ACTIONS.syncAllSheetsPins);
@@ -162,7 +170,7 @@ describe('Synchronize Sheet Pins', () => {
   });
 
   it('renames the pin after the label, in one undo step on the parent sheet', () => {
-    const { h, book, panel, outx } = setUp();
+    const { h, mgr, book, panel, outx } = setUp();
     const undo = h.frame.GetUndoCommandCount();
 
     pick(panel, SHEET_SYNCHRONIZATION_MODEL.HIRE_LABEL, 0);
@@ -170,7 +178,16 @@ describe('Synchronize Sheet Pins', () => {
     panel.OnBtnUseLabelAsTemplateClicked();
 
     expect(outx.GetText()).toBe('OUT');
+    expect(outx.GetShape()).toBe(LABEL_FLAG_SHAPE.L_OUTPUT);
     expect(h.frame.GetUndoCommandCount()).toBe(undo + 1);
+
+    // The commit staged the pin's sheet on the parent's screen, so undo puts the pin back.
+    mgr.RunAction(ACTIONS.undo);
+    const pinsAfterUndo = (
+      [...h.frame.GetScreen()!.Items().OfType(KICAD_T.SCH_SHEET_T)] as SCH_SHEET[]
+    ).flatMap((sh) => sh.GetPins().map((p) => p.GetText()));
+    expect(pinsAfterUndo).toContain('OUTX');
+    expect(pinsAfterUndo).not.toContain('OUT');
     expect(names(panel, SHEET_SYNCHRONIZATION_MODEL.ASSOCIATED)).toEqual(['IN', 'OUT']);
     expect(names(panel, SHEET_SYNCHRONIZATION_MODEL.HIRE_LABEL)).toEqual([]);
     expect(panel.HasUndefinedSheetPing()).toBe(true);
@@ -204,12 +221,14 @@ describe('Synchronize Sheet Pins', () => {
   });
 
   it('deletes a removed pin from its sheet', () => {
-    const { sheet, panel, outx } = setUp();
+    const { h, sheet, panel, outx } = setUp();
 
     pick(panel, SHEET_SYNCHRONIZATION_MODEL.SHEET_PIN, 0);
     panel.OnBtnRmPinsClicked();
 
     expect(sheet.GetPins()).not.toContain(outx);
+    // A pin lives on the parent sheet, so the delete ran there.
+    expect(h.frame.GetCurrentSheet().size()).toBe(1);
     expect(names(panel, SHEET_SYNCHRONIZATION_MODEL.SHEET_PIN)).toEqual([]);
   });
 
