@@ -18,14 +18,17 @@ sleep 1.5
 $E timeout 20 python3 "$HERE"/atspi_type.py "$F" > /dev/null 2>&1
 sleep 1.5
 ($E timeout 300 python3 "$HERE"/atspi_button.py Open > /dev/null 2>&1 &)
+# A file holding several PCB+Schematic combinations (EasyEDA Pro) asks which one:
+# DIALOG_IMPORT_CHOOSE_PROJECT preselects row 0, so OK imports the first.
+for i in $(seq 1 15); do sleep 1; xwininfo -root -tree 2>/dev/null | grep -q '"Choose Project to Import"' && { ($E timeout 600 python3 "$HERE"/atspi_button.py OK > /dev/null 2>&1 &); break; }; done
 # Wait for the import: the title loses "untitled".
 for i in $(seq 1 300); do sleep 1; xwininfo -root -tree 2>/dev/null | grep 'Schematic Editor": ("eeschema"' | grep -qv untitled && break; done
 sleep 3
-xwininfo -root -tree 2>/dev/null | grep '"' | grep '("eeschema"' | grep -v 'Schematic Editor\|200x200\|10x10' > "$D/dialogs.txt"
+xwininfo -root -tree 2>/dev/null | grep '"' | grep '("eeschema" "' | grep -v 'Schematic Editor":\|200x200\|10x10' > "$D/dialogs.txt"
 $E timeout 60 python3 "$HERE"/atspi_menu.py Save > /dev/null 2>&1 &
 for i in $(seq 1 60); do sleep 1; ls "$D"/*.kicad_sch > /dev/null 2>&1 && break; done
 sleep 2
-mkdir -p "$OUT"; cp "$D"/*.kicad_sch "$D"/*.kicad_pro "$OUT"/ 2>/dev/null; cp "$D/dialogs.txt" "$OUT"/
+mkdir -p "$OUT"; cp "$D"/*.kicad_sch "$D"/*.kicad_pro "$D"/*.kicad_sym "$D"/sym-lib-table "$OUT"/ 2>/dev/null; cp "$D/dialogs.txt" "$OUT"/
 for p in $(pgrep -x eeschema); do kill $p; done
 echo "oracle: $(ls "$OUT" | tr '\n' ' ')"; [ -s "$D/dialogs.txt" ] && { echo "dialogs left open:"; cat "$D/dialogs.txt"; }
 rm -rf "$D"
