@@ -181,7 +181,7 @@
     <Enterprise id="UNKNOWN" code="NONE"/>
     <Person name="UNKNOWN" enterpriseRef="UNKNOWN" roleRef="Owner"/>
   </LogisticHeader>
-  <HistoryRecord number="1" origination="2026-10-10T12:17:06" software="KiCad EDA" lastChange="2026-10-10T12:17:06">
+  <HistoryRecord number="1" origination="2026-10-10T14:31:25" software="KiCad EDA" lastChange="2026-10-10T14:31:25">
     <FileRevision fileRevisionId="1" comment="NO COMMENT" label="NO LABEL">
       <SoftwarePackage name="KiCad" revision="10.0.6" vendor="KiCad EDA">
         <Certification certificationStatus="SELFTEST"/>
@@ -10408,7 +10408,7 @@
     </CadData>
   </Ecad>
   <Avl name="Primary_Vendor_List">
-    <AvlHeader title="BOM" source="KiCad" author="OWNER" datetime="2026-10-10T12:17:06" version="1"/>
+    <AvlHeader title="BOM" source="KiCad" author="OWNER" datetime="2026-10-10T14:31:25" version="1"/>
     <AvlItem OEMDesignNumber="Footprints_C_Disc_D4.7mm_W2.5mm_P5.00mm_680nF"/>
     <AvlItem OEMDesignNumber="Footprints_MountingHole_3.2mm_M3_DIN965_Pad_MOUNTING_HOLE"/>
     <AvlItem OEMDesignNumber="Footprints_R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal_1.5K"/>
