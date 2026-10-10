@@ -198,6 +198,9 @@ import { wxPrinter } from '@ziroeda/common/wx/printer.js';
 import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { DialogPcbPlot } from './dialogs/dialog_plot.js';
 import { DialogGenFootprintPosition } from './dialogs/dialog_gen_footprint_position.js';
+import { DialogExport2581 } from './dialogs/dialog_export_2581.js';
+import { DialogExportOdbpp, type ODBPP_DIALOG_RESULT } from './dialogs/dialog_export_odbpp.js';
+import { DialogExportVrml, type VRML_DIALOG_RESULT } from './dialogs/dialog_export_vrml.js';
 import { DialogGendrill } from './dialogs/dialog_gendrill.js';
 import { DialogGencadExportOptions } from './dialogs/dialog_gencad_export_options_ui.js';
 import type { DIALOG_GENCAD_EXPORT_OPTIONS } from './dialogs/dialog_gencad_export_options.js';
@@ -359,7 +362,7 @@ import {
 } from './dialogs/dialog_track_via_properties.js';
 import { useKiDialog } from '@ziroeda/common/kidialog.js';
 import type { DIALOG_GLOBAL_EDIT_TEARDROPS } from './dialogs/dialog_global_edit_teardrops.js';
-import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
+import { DisplayErrorMessage, IsOK } from '@ziroeda/common/confirm.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { ARRAY_TOOL } from './tools/array_tool.js';
 import { PCB_SELECTION } from './tools/pcb_selection.js';
@@ -487,6 +490,7 @@ import {
   type FocusLike,
 } from '@ziroeda/common/browser_hotkeys.js';
 import { parseColor4d, toCssColor, type Color4d } from '@ziroeda/common/gal/color4d.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -1038,6 +1042,7 @@ export function PcbEditor({
   onBoardChange,
   registerAutosaveFlush,
   openNonce,
+  importFileRequest,
   shown = true,
   projectName,
   projectFiles,
@@ -1094,6 +1099,13 @@ export function PcbEditor({
    * changed identity.
    */
   openNonce?: number;
+  /**
+   * `MAIL_IMPORT_FILE` (`PCB_EDIT_FRAME::KiwayMailIn` -> `importFile`): the
+   * project manager's Import Non-KiCad Project hands this frame another
+   * format's board to open into the new project. One per `nonce`; it runs
+   * once the frame's own open has finished, or that open would replace it.
+   */
+  importFileRequest?: { path: string; bytes: Uint8Array; nonce: number } | null;
   /**
    * Whether this frame is the one on screen.
    *
@@ -2170,6 +2182,10 @@ export function PcbEditor({
     showSaveFileDialog: NonNullable<PCB_EDIT_FRAME_HOOKS['showSaveFileDialog']>;
     writeTextFile: (aPath: string, aText: string) => boolean;
     showGenFootprintPositionDialog: () => Promise<void>;
+    showExport2581Dialog: () => Promise<void>;
+    showExportOdbppDialog: () => Promise<ODBPP_DIALOG_RESULT | null>;
+    showExportVrmlDialog: (aPath: string) => Promise<VRML_DIALOG_RESULT | null>;
+    writeOutputFile: (aPath: string, aBytes: Uint8Array, aMime: string) => void;
     showGenDrillDialog: () => Promise<void>;
     showGencadExportOptionsDialog: (aDialog: DIALOG_GENCAD_EXPORT_OPTIONS) => Promise<boolean>;
     fileExists: (aPath: string) => boolean;
@@ -2290,6 +2306,11 @@ export function PcbEditor({
         drcWindowRef.current!.showSaveFileDialog(aTitle, aName, aWildcard, aCheckbox),
       writeTextFile: (aPath, aText) => drcWindowRef.current!.writeTextFile(aPath, aText),
       showGenFootprintPositionDialog: () => drcWindowRef.current!.showGenFootprintPositionDialog(),
+      showExport2581Dialog: () => drcWindowRef.current!.showExport2581Dialog(),
+      showExportOdbppDialog: () => drcWindowRef.current!.showExportOdbppDialog(),
+      showExportVrmlDialog: (aPath) => drcWindowRef.current!.showExportVrmlDialog(aPath),
+      writeOutputFile: (aPath, aBytes, aMime) =>
+        drcWindowRef.current!.writeOutputFile(aPath, aBytes, aMime),
       showGenDrillDialog: () => drcWindowRef.current!.showGenDrillDialog(),
       showGencadExportOptionsDialog: (aDialog) =>
         drcWindowRef.current!.showGencadExportOptionsDialog(aDialog),
@@ -2548,6 +2569,14 @@ export function PcbEditor({
   };
   /** DIALOG_GEN_FOOTPRINT_POSITION, while BOARD_EDITOR_CONTROL::GeneratePosFile shows it. */
   const [posFileDlg, setPosFileDlg] = useState<{ done: () => void } | null>(null);
+  const [ipc2581Dlg, setIpc2581Dlg] = useState<{ done: () => void } | null>(null);
+  const [vrmlDlg, setVrmlDlg] = useState<{
+    path: string;
+    resolve: (aResult: VRML_DIALOG_RESULT | null) => void;
+  } | null>(null);
+  const [odbppDlg, setOdbppDlg] = useState<{
+    resolve: (aResult: ODBPP_DIALOG_RESULT | null) => void;
+  } | null>(null);
   /** DIALOG_GENDRILL, while BOARD_EDITOR_CONTROL::GenerateDrillFiles shows it. */
   const [drillDlg, setDrillDlg] = useState<{ done: () => void } | null>(null);
   // DIALOG_GENCAD_EXPORT_OPTIONS while BOARD_EDITOR_CONTROL::ExportGenCAD shows it.
@@ -2706,6 +2735,97 @@ export function PcbEditor({
   const [importGfxDlg, setImportGfxDlg] = useState<{
     resolve: (aResult: IMPORT_GRAPHICS_RESULT | null) => void;
   } | null>(null);
+  /**
+   * `OpenProjectFiles( { file }, KICTL_NONKICAD_ONLY )` (files.cpp:476) for a
+   * file another format wrote: the importer builds the board
+   * (`ImportNonKicadBoard`), which replaces this one under the editor's file
+   * name - upstream keeps `previousBoardFileName` - and is modified, so the
+   * next save writes it into the project. Shared by File > Import > Non-KiCad
+   * Board File and the project manager's Import Non-KiCad Project
+   * (`MAIL_IMPORT_FILE` -> `importFile`, pcb_edit_frame.cpp), as upstream's two
+   * callers share OpenProjectFiles.
+   */
+  const importNonKicadFile = (aPath: string, aBytes: Uint8Array): void => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    void frame
+      .ImportNonKicadBoard(
+        aPath,
+        aBytes,
+        KICTL_NONKICAD_ONLY,
+        null,
+        (layers) =>
+          new Promise((resolve) =>
+            setMapLayersRequest({
+              layers,
+              done: (aMap, aKeep) => {
+                // `m_ImportKeepKiCadLayerNames = dlg.m_cbKeepKiCadLayerNames->GetValue()`
+                frame.GetPcbNewSettings().m_ImportKeepKiCadLayerNames = aKeep;
+                setMapLayersRequest(null);
+                resolve(aMap);
+              },
+            }),
+          ),
+      )
+      .then(({ board: kb, loadMessages, customRules }) => {
+        frame.Clear_Pcb();
+        frame.SetBoard(kb, false);
+        kb.BuildConnectivity();
+
+        // The `.kicad_dru` an importer writes beside the board (Eagle's class
+        // clearance matrix) becomes the project's rules file, as it does when
+        // KiCad then opens the board's project; persisted now, like Board Setup's.
+        let files = projectFilesNow();
+        const pro = findProjectPro(files, rootPro);
+
+        if (customRules !== '' && pro) {
+          const dru = findProjectDru(files, rootPro);
+          const name = dru?.name ?? druFileName(pro.name);
+          projectFileEditsRef.current.set(name, {
+            base: dru?.text ?? '',
+            text: customRules,
+          });
+          onPersistFiles?.([{ name, text: customRules }]);
+          files = dru
+            ? files.map((f) => (f === dru ? { name, text: customRules } : f))
+            : [...files, { name, text: customRules }];
+        }
+
+        syncProjectSettingsIntoBoard(
+          frame,
+          panelRef.current,
+          files,
+          rootPro,
+          false,
+          projectDirRef.current,
+        );
+        setBoardModel({ k: kb, fileName: fileNameRef.current });
+        setDirty(true);
+
+        if (loadMessages !== '') setInfoBarError(loadMessages.trimEnd());
+      })
+      .catch((e: unknown) =>
+        setInfoBarError(
+          `Error loading PCB '${aPath}'.\n${e instanceof Error ? e.message : String(e)}`,
+        ),
+      );
+  };
+
+  // `MAIL_IMPORT_FILE`, delivered once: after this frame's own open has
+  // claimed its file and finished (`parsedOpen` is the open, `loading` gone),
+  // or the 30 ms-deferred parse of the project's board would land on top of
+  // the imported one.
+  const importedNonce = useRef<number | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the request's nonce is the trigger; importNonKicadFile reads this render's frame through refs
+  useEffect(() => {
+    const req = importFileRequest;
+    if (!req || !shown || loading !== null) return;
+    if (importedNonce.current === req.nonce) return;
+    if (parsedOpen.current !== `${openNonce ?? 0} ${fileName}`) return;
+    importedNonce.current = req.nonce;
+    importNonKicadFile(req.path, req.bytes);
+  }, [importFileRequest?.nonce, shown, loading, openNonce, fileName]);
+
   /** File > Import > Non-KiCad Board File: the chooser's type combo while it is up. */
   const [nonKicadFilters, setNonKicadFilters] = useState<ChooserFilter[] | null>(null);
   // DIALOG_MAP_LAYERS::RunModal, asked for by a layer-mappable importer mid-load
@@ -2916,6 +3036,8 @@ export function PcbEditor({
 
   /** The open this frame has read: `openNonce` + file, set as the parse begins. */
   const parsedOpen = useRef<string | null>(null);
+  /** The project and file the frame last loaded, `/<project>/<file>`. */
+  const loadedWhich = useRef<string | null>(null);
   /** The board whose first paint closes the Load PCB dialog, while one is pending. */
   const firstPaintPendingRef = useRef<BoardHandle | null>(null);
   // The project folder, `/<projectName>`: read through a ref by the loads
@@ -2935,6 +3057,21 @@ export function PcbEditor({
       boardRef.current = emptyBoard;
       requestDrawRef.current();
     }
+    // A DIFFERENT board - another file, or another project's - goes onto a
+    // blank sheet, not over the last one. KiCad never shows the old board
+    // here: changing or closing the project closes every KIWAY_PLAYER
+    // (KICAD_MANAGER_FRAME::CloseProject), so pcbnew starts fresh. Ours keeps
+    // the frame alive between projects (it reopens in an instant), so it has
+    // to drop the board itself, or the "Load PCB" dialog sat over somebody
+    // else's board. A reopen of the SAME board keeps it up until the new
+    // parse lands, as above.
+    const which = `${projectDirRef.current}/${fileName}`;
+    if (loadedWhich.current !== null && loadedWhich.current !== which) {
+      boardRef.current = emptyBoard;
+      setBoard(emptyBoard);
+      requestDrawRef.current();
+    }
+    loadedWhich.current = which;
     // Not on screen: nothing to do yet. The open is read when the frame is
     // next shown, which re-runs this with `shown` true — see the prop.
     if (!shown) return;
@@ -2970,6 +3107,15 @@ export function PcbEditor({
       try {
         // The frame — and the dialog over it — painted before the read blocks.
         await keepRefreshing();
+        if (cancelled) return;
+        // A board with embedded files (KiCad 9+: fonts, models, worksheets)
+        // decompresses them as it parses, and the zstd codec is a wasm module
+        // that must be instantiated before anything synchronous asks for it -
+        // KiCad's is native and always ready. Only the importer path
+        // (files.ts) and the DRC worker did this, so a KiCad board with
+        // embedded files opened here failed with "InitCodec() has not
+        // completed" (kaminaris/GigaESC-TOLT, #640).
+        await EMBEDDED_FILES.InitCodec();
         if (cancelled) return;
         // `PROF_TIMER` + `wxLogTrace( traceAllegroPerf, ... )` in
         // OpenProjectFiles: the open's phases, under `WXTRACE=KICAD_ALLEGRO_PERF`.
@@ -4396,6 +4542,26 @@ export function PcbEditor({
       ),
     showGenFootprintPositionDialog: (): Promise<void> =>
       new Promise<void>((resolve) => setPosFileDlg({ done: resolve })),
+    showExport2581Dialog: (): Promise<void> =>
+      new Promise<void>((resolve) => setIpc2581Dlg({ done: resolve })),
+    showExportVrmlDialog: (aPath: string): Promise<VRML_DIALOG_RESULT | null> =>
+      new Promise<VRML_DIALOG_RESULT | null>((resolve) => setVrmlDlg({ path: aPath, resolve })),
+    showExportOdbppDialog: (): Promise<ODBPP_DIALOG_RESULT | null> =>
+      new Promise<ODBPP_DIALOG_RESULT | null>((resolve) => setOdbppDlg({ resolve })),
+    // A generated output takes the plot route: the file manager, or a download standalone.
+    writeOutputFile: (aPath: string, aBytes: Uint8Array, aMime: string): void => {
+      if (onOutputFile) {
+        onOutputFile(aPath, aBytes, aMime);
+        return;
+      }
+
+      const url = URL.createObjectURL(new Blob([aBytes as BlobPart], { type: aMime }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = aPath.split('/').pop() ?? aPath;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
     showGencadExportOptionsDialog: (aDialog: DIALOG_GENCAD_EXPORT_OPTIONS): Promise<boolean> =>
       new Promise<boolean>((resolve) => setGencadDlg({ dialog: aDialog, resolve })),
     // `wxFile::Exists`: a file of that project-relative path in the project.
@@ -6270,6 +6436,22 @@ export function PcbEditor({
         // BOARD_EDITOR_CONTROL::GeneratePosFile.
         runAction(PCB_ACTIONS.generatePosFile);
         break;
+      case 'exportVRML':
+        // BOARD_EDITOR_CONTROL::ExportVRML.
+        runAction(PCB_ACTIONS.exportVRML);
+        break;
+      case 'exportHyperlynx':
+        // BOARD_EDITOR_CONTROL::ExportHyperlynx.
+        runAction(PCB_ACTIONS.exportHyperlynx);
+        break;
+      case 'generateODBPPFile':
+        // BOARD_EDITOR_CONTROL::GenerateODBPPFiles.
+        runAction(PCB_ACTIONS.generateODBPPFile);
+        break;
+      case 'generateIPC2581File':
+        // BOARD_EDITOR_CONTROL::GenIPC2581File.
+        runAction(PCB_ACTIONS.generateIPC2581File);
+        break;
       case 'generateD356File':
         // BOARD_EDITOR_CONTROL::GenD356File.
         runAction(PCB_ACTIONS.generateD356File);
@@ -7295,67 +7477,7 @@ export function PcbEditor({
 
             if (!file || !frame) return;
 
-            void frame
-              .ImportNonKicadBoard(
-                file.path,
-                file.bytes,
-                KICTL_NONKICAD_ONLY,
-                null,
-                (layers) =>
-                  new Promise((resolve) =>
-                    setMapLayersRequest({
-                      layers,
-                      done: (aMap, aKeep) => {
-                        // `m_ImportKeepKiCadLayerNames = dlg.m_cbKeepKiCadLayerNames->GetValue()`
-                        frame.GetPcbNewSettings().m_ImportKeepKiCadLayerNames = aKeep;
-                        setMapLayersRequest(null);
-                        resolve(aMap);
-                      },
-                    }),
-                  ),
-              )
-              .then(({ board: kb, loadMessages, customRules }) => {
-                frame.Clear_Pcb();
-                frame.SetBoard(kb, false);
-                kb.BuildConnectivity();
-
-                // The `.kicad_dru` an importer writes beside the board (Eagle's class
-                // clearance matrix) becomes the project's rules file, as it does when
-                // KiCad then opens the board's project; persisted now, like Board Setup's.
-                let files = projectFilesNow();
-                const pro = findProjectPro(files, rootPro);
-
-                if (customRules !== '' && pro) {
-                  const dru = findProjectDru(files, rootPro);
-                  const name = dru?.name ?? druFileName(pro.name);
-                  projectFileEditsRef.current.set(name, {
-                    base: dru?.text ?? '',
-                    text: customRules,
-                  });
-                  onPersistFiles?.([{ name, text: customRules }]);
-                  files = dru
-                    ? files.map((f) => (f === dru ? { name, text: customRules } : f))
-                    : [...files, { name, text: customRules }];
-                }
-
-                syncProjectSettingsIntoBoard(
-                  frame,
-                  panelRef.current,
-                  files,
-                  rootPro,
-                  false,
-                  projectDirRef.current,
-                );
-                setBoardModel({ k: kb, fileName: fileNameRef.current });
-                setDirty(true);
-
-                if (loadMessages !== '') setInfoBarError(loadMessages.trimEnd());
-              })
-              .catch((e: unknown) =>
-                setInfoBarError(
-                  `Error loading PCB '${file.path}'.\n${e instanceof Error ? e.message : String(e)}`,
-                ),
-              );
+            importNonKicadFile(file.path, file.bytes);
           }}
         />
       )}
@@ -8126,6 +8248,43 @@ export function PcbEditor({
           onClose={() => {
             const done = posFileDlg.done;
             setPosFileDlg(null);
+            done();
+          }}
+        />
+      )}
+      {vrmlDlg && frameRef.current && (
+        <DialogExportVrml
+          initialPath={vrmlDlg.path}
+          unitsProvider={frameRef.current}
+          fileExists={(aPath) => frameRef.current?.FileExists(aPath) ?? false}
+          confirmOverwrite={() => IsOK('Are you sure you want to overwrite the existing file?')}
+          onClose={(aResult) => {
+            const resolve = vrmlDlg.resolve;
+            setVrmlDlg(null);
+            resolve(aResult);
+          }}
+        />
+      )}
+      {odbppDlg && (
+        <DialogExportOdbpp
+          fileName={fileName ?? ''}
+          projectFolders={projectFolders}
+          onClose={(aResult) => {
+            const resolve = odbppDlg.resolve;
+            setOdbppDlg(null);
+            resolve(aResult);
+          }}
+        />
+      )}
+      {ipc2581Dlg && frameRef.current?.GetBoard() && (
+        <DialogExport2581
+          board={frameRef.current.GetBoard()!}
+          fileName={fileName ?? ''}
+          projectFolders={projectFolders}
+          {...(onOutputFile ? { onOutputFile } : {})}
+          onClose={() => {
+            const done = ipc2581Dlg.done;
+            setIpc2581Dlg(null);
             done();
           }}
         />

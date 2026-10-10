@@ -48,6 +48,14 @@ export interface DemoMeta {
    * (an uncompressed object), `content-length` already is.
    */
   bundleRawBytes?: number;
+  /**
+   * The id the open was ASKED for, when it settled on a more specific one: a
+   * GitHub repository with several projects (#640) is asked for as
+   * `gh/<o>/<r>` and opens as `gh/<o>/<r>/tree/HEAD/<project>`. App matches
+   * its pending request against either, or the request would stay pending and
+   * every return home would download the project again.
+   */
+  requestedAs?: string;
 }
 
 const DEMOS_BASE = DEMOS_HOST;

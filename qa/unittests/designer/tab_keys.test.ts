@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ASK_TIMEOUT_MS,
   askSiblingsForMasterKey,
+  onSiblingKeyReady,
   serveMasterKey,
 } from '@ziroeda/designer/src/auth/tab_keys.js';
 
@@ -62,6 +63,37 @@ describe('tab_keys.ts: the hand-over', () => {
   });
 });
 
+describe('tab_keys.ts: a tab that starts holding the key says so (#639)', () => {
+  // Sign-up opens in a new tab; the tab that opened it got the session before
+  // the new one had made the keys, and must hear when it has them.
+  it('a waiting tab hears the account it waits for, and asking again then succeeds', async () => {
+    let heard = 0;
+    const stopListening = onSiblingKeyReady('user-1', () => heard++);
+    const stop = serveMasterKey('user-1', KEY);
+    try {
+      for (let i = 0; i < 50 && heard === 0; i++) await new Promise((r) => setTimeout(r, 10));
+      expect(heard).toBe(1);
+      expect(Array.from((await askSiblingsForMasterKey('user-1'))!)).toEqual(Array.from(KEY));
+    } finally {
+      stop();
+      stopListening();
+    }
+  });
+
+  it('does not hear another account', async () => {
+    let heard = 0;
+    const stopListening = onSiblingKeyReady('user-2', () => heard++);
+    const stop = serveMasterKey('user-1', KEY);
+    try {
+      await new Promise((r) => setTimeout(r, 100));
+      expect(heard).toBe(0);
+    } finally {
+      stop();
+      stopListening();
+    }
+  });
+});
+
 describe('AuthProvider.tsx: where the hand-over sits', () => {
   const src = read('auth/AuthProvider.tsx');
 
@@ -70,8 +102,53 @@ describe('AuthProvider.tsx: where the hand-over sits', () => {
     const locked = src.indexOf("setKeyState('locked')", ask);
     expect(ask).toBeGreaterThan(-1);
     expect(locked).toBeGreaterThan(ask);
-    // Its own copy first, so a tab with the key never waits on the channel.
-    expect(src).toMatch(/recallMasterKey\(\) \?\? \(await askSiblingsForMasterKey/);
+    // Its own copy first, then the device's, so a tab with the key never waits
+    // on the channel.
+    expect(src).toMatch(
+      /recallMasterKey\(\) \?\?\s*\(await recallFromDevice\(next\.user\.id\)\) \?\?\s*\(await askSiblingsForMasterKey/,
+    );
+  });
+
+  it('remembers the key on the device BEFORE serving it, so a tab that hears "ready" finds it there (#639)', () => {
+    const open = src.slice(
+      src.indexOf('const open = useCallback('),
+      src.indexOf('const finishSetup'),
+    );
+    const remember = open.indexOf('await rememberOnDevice(userId, unlocked.masterKey)');
+    expect(remember).toBeGreaterThan(-1);
+    expect(remember).toBeLessThan(open.indexOf('setKeys(unlocked);'));
+  });
+
+  it('a key that does not fit is forgotten on the device too', () => {
+    const settle = src.slice(src.indexOf('const settleKeys = useCallback('));
+    const bad = settle.slice(settle.indexOf("console.warn('Account keys:', err);"));
+    expect(bad.slice(0, bad.indexOf("setKeyState('locked')"))).toContain('void forgetOnDevice();');
+  });
+
+  it('the network failing is retried, never read as locked: locked signs the tab out now', () => {
+    const settle = src.slice(src.indexOf('const settleKeys = useCallback('));
+    const fetchFail = settle.slice(
+      settle.indexOf('wrapped = await fetchWrappedAccount(supabase, next.user.id);'),
+      settle.indexOf('if (!wrapped) {'),
+    );
+    expect(fetchFail).toContain('setTimeout(');
+    expect(fetchFail).not.toContain("setKeyState('locked')");
+  });
+
+  it('a tab coming back into view does not settle again: the app is not thrown away on a tab switch', () => {
+    // Supabase re-announces the same session as SIGNED_IN on visibilitychange.
+    const settle = src.slice(src.indexOf('const settleKeys = useCallback('));
+    const skip = settle.indexOf('if (openFor.current === next.user.id) return;');
+    expect(skip).toBeGreaterThan(-1);
+    expect(skip).toBeLessThan(settle.indexOf("setKeyState('loading')"));
+    expect(src).toContain('openFor.current = userId;');
+  });
+
+  it('sign-in, sign-up and the code check hold settling off while they make keys', () => {
+    expect(src).toMatch(/signIn: \(email, password\) =>\s*whileOpening\(/);
+    expect(src).toMatch(/signUp: \(email, password\) =>\s*whileOpening\(/);
+    expect(src).toMatch(/verifyOtp: \(email, token\) =>\s*whileOpening\(/);
+    expect(src).toContain('if (pendingSetup.current || openingRef.current) return;');
   });
 
   it('serves the key while it holds the account', () => {

@@ -4,6 +4,7 @@
 import { useEffect, useState, type FormEvent, type JSX } from 'react';
 import { RecoveryKeyContents } from './RecoveryKeyContents.js';
 import { useAuth } from './AuthProvider.js';
+import { primeLoginSecret } from './login_secret_cache.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { ACCOUNT_EXISTS_MESSAGE } from './signup_outcome.js';
 import { ZiroLogo } from '../ui/ZiroLogo.js';
@@ -75,7 +76,6 @@ export function SignInDialog({
     signIn,
     signUp,
     signOut,
-    unlock,
     resendSignupCode,
     verifyOtp,
     pendingRecoveryKey,
@@ -92,23 +92,21 @@ export function SignInDialog({
   const step = stepProp ?? localStep;
   const setStep = onStep ?? setLocalStep;
   // 'verify' is reached only from 'signup', so it shows the sign-up side.
-  // 'unlock' and 'recovery-key' are the signed-in half of the wall: the
-  // session is there, the keys are not in this tab yet (or the recovery key
-  // is waiting to be read), and the address says which. See AuthGate.
+  // 'recovery-key' is the signed-in half of the wall: a new account's
+  // recovery key, waiting to be read. (There was an 'unlock' step beside it; a
+  // returning user's key is remembered on the device now - device_key.ts.)
   // 'recover' is two screens under one address: asking for the email that a
   // reset link goes to, and - once that link has opened the app with a session
   // marked for recovery - the new password, with the recovery key beside it
   // when the account has keys to unwrap.
-  const mode: 'signup' | 'signin' | 'unlock' | 'recovery-key' | 'recover' =
+  const mode: 'signup' | 'signin' | 'recovery-key' | 'recover' =
     step === 'signup' || step === 'verify'
       ? 'signup'
-      : step === 'unlock'
-        ? 'unlock'
-        : step === 'recovery-key'
-          ? 'recovery-key'
-          : step === 'recover'
-            ? 'recover'
-            : 'signin';
+      : step === 'recovery-key'
+        ? 'recovery-key'
+        : step === 'recover'
+          ? 'recover'
+          : 'signin';
   const codeSent = step === 'verify';
   // `/verify` is a real address, so it can be reloaded or reached by Back — and
   // the code is verified against the address it was sent to, which lived only
@@ -137,6 +135,15 @@ export function SignInDialog({
   const [busy, setBusy] = useState(false);
 
   const strength = usePasswordStrength(password);
+
+  // Start the login secret's half second of Argon2id as soon as the two fields
+  // settle - a pause in typing, or the browser's autofill - so the submit finds
+  // it done (login_secret_cache.ts; it runs in a worker, so typing stays smooth).
+  useEffect(() => {
+    if (mode !== 'signin' && mode !== 'signup') return;
+    const t = setTimeout(() => primeLoginSecret(email, password), 300);
+    return () => clearTimeout(t);
+  }, [mode, email, password]);
   const [noRecoveryKey, setNoRecoveryKey] = useState(false);
 
   const run = async (fn: () => Promise<{ error: string | null }>): Promise<boolean> => {
@@ -187,11 +194,6 @@ export function SignInDialog({
   async function onSignIn(e: FormEvent) {
     e.preventDefault();
     if (await run(() => signIn(email, password))) close();
-  }
-
-  async function onUnlock(e: FormEvent) {
-    e.preventDefault();
-    if (await run(() => unlock(password))) close();
   }
 
   const [recoveryKeyText, setRecoveryKeyText] = useState('');
@@ -276,13 +278,11 @@ export function SignInDialog({
         aria-label={
           mode === 'signup'
             ? 'Create an account'
-            : mode === 'unlock'
-              ? 'Unlock your account'
-              : mode === 'recovery-key'
-                ? 'Your recovery key'
-                : mode === 'recover'
-                  ? 'Recover account'
-                  : 'Sign in'
+            : mode === 'recovery-key'
+              ? 'Your recovery key'
+              : mode === 'recover'
+                ? 'Recover account'
+                : 'Sign in'
         }
       >
         {!gate && (
@@ -301,15 +301,13 @@ export function SignInDialog({
               ? 'Confirm your email'
               : mode === 'signup'
                 ? 'Create your free ZiroEDA account'
-                : mode === 'unlock'
-                  ? 'Unlock your ZiroEDA account'
-                  : mode === 'recovery-key'
-                    ? 'Recovery key'
-                    : mode === 'recover'
-                      ? noRecoveryKey
-                        ? 'Sorry'
-                        : 'Recover account'
-                      : 'Sign in to ZiroEDA'}
+                : mode === 'recovery-key'
+                  ? 'Recovery key'
+                  : mode === 'recover'
+                    ? noRecoveryKey
+                      ? 'Sorry'
+                      : 'Recover account'
+                    : 'Sign in to ZiroEDA'}
           </div>
         </div>
 
@@ -389,53 +387,6 @@ export function SignInDialog({
           </form>
         )}
 
-        {mode === 'unlock' && (
-          <form onSubmit={onUnlock}>
-            <p className="ze-auth-note">
-              Signed in as <strong>{session?.user.email}</strong>. Your projects are encrypted;
-              enter your password to open them in this tab.
-            </p>
-            <label className="ze-auth-field">
-              <span>Password</span>
-              <input
-                type="password"
-                autoComplete="current-password"
-                required
-                autoFocus
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </label>
-            {error && <div className="ze-auth-error">{error}</div>}
-            <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
-              {busy ? 'Unlocking...' : 'Unlock'}
-            </button>
-            <div className="ze-auth-toggle">
-              <button
-                type="button"
-                className="ze-auth-switch"
-                disabled={busy}
-                onClick={() => {
-                  setError(null);
-                  setStep('recover');
-                }}
-              >
-                Forgot password
-              </button>
-            </div>
-            <div className="ze-auth-toggle">
-              Not you?{' '}
-              <button
-                type="button"
-                className="ze-auth-switch"
-                disabled={busy}
-                onClick={() => void signOut()}
-              >
-                Sign out
-              </button>
-            </div>
-          </form>
-        )}
         {mode === 'recovery-key' && pendingRecoveryKey && (
           <RecoveryKeyContents
             recoveryKey={pendingRecoveryKey}

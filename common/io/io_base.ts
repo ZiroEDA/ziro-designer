@@ -34,6 +34,12 @@ function formatWildcardExt(aWildcard: string): string {
 /** What a plugin opens a path with: the file's bytes, or null when there is none. */
 export type IO_FILE_READER = (aPath: string) => Uint8Array | null;
 
+/**
+ * Where a writing plugin puts a file (`wxFFileOutputStream( aPath )` upstream): the browser has
+ * no file system, so the caller installs one - a download, the project's in-memory files.
+ */
+export type IO_FILE_WRITER = (aPath: string, aData: Uint8Array) => void;
+
 /** `wxFileName( aPath ).GetExt()`: after the last dot of the last component. */
 export function fileNameExt(aPath: string): string {
   const name = aPath.substring(Math.max(aPath.lastIndexOf('/'), aPath.lastIndexOf('\\')) + 1);
@@ -110,6 +116,8 @@ export abstract class IO_BASE {
   protected m_progressReporter: PROGRESS_REPORTER | null = null;
   /** Where the plugin's paths are read from (see the file header). */
   protected m_readFile: IO_FILE_READER = () => null;
+  /** Where the plugin's output files go (see IO_FILE_WRITER); nowhere until one is set. */
+  protected m_writeFile: IO_FILE_WRITER = () => {};
 
   protected constructor(aName: string) {
     this.m_name = aName;
@@ -134,6 +142,11 @@ export abstract class IO_BASE {
   /** The browser's file source; see the file header. */
   SetFileReader(aReader: IO_FILE_READER): void {
     this.m_readFile = aReader;
+  }
+
+  /** The output side of the file source; see IO_FILE_WRITER. */
+  SetFileWriter(aWriter: IO_FILE_WRITER): void {
+    this.m_writeFile = aWriter;
   }
 
   abstract GetLibraryDesc(): IO_FILE_DESC;

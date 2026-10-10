@@ -40,6 +40,8 @@ const handlers = {
   showAbout: noop,
   showHotkeys: noop,
   openDemo: noop,
+  openFromGithub: noop,
+  importNonKicadProject: noop,
   hasProject: true,
   hasTextFileSelected: true,
   recent: [],
@@ -156,5 +158,50 @@ describe('the Tools menu', () => {
       if (i.sep) continue;
       expect(i.action, `${i.label} has no handler`).toBeDefined();
     }
+  });
+});
+
+describe('File > Open Project from GitHub... (#640)', () => {
+  it("sits in KICAD_MANAGER_ACTIONS::newFromRepository's slot, before Open Demo Project", () => {
+    // kicad/menubar.cpp:85-88: newFromRepository, then openDemoProject.
+    const labels = (buildManagerMenus(handlers).find((m) => m.label === 'File')?.items ?? []).map(
+      (i) => i.label,
+    );
+    const at = labels.indexOf('Open Project from GitHub...');
+    expect(at).toBe(labels.indexOf('New Project...') + 1);
+    expect(labels[at + 1]).toBe('Open Demo Project');
+  });
+
+  it('asks for the link', () => {
+    let asked = 0;
+    const item = buildManagerMenus({ ...handlers, openFromGithub: () => asked++ })
+      .find((m) => m.label === 'File')
+      ?.items.find((i) => i.label === 'Open Project from GitHub...');
+    item?.action?.();
+    expect(asked).toBe(1);
+  });
+});
+
+describe('File > Import Non-KiCad Project', () => {
+  it('every row is live and asks for its own format (KICAD_MANAGER_FRAME::OnImportXxx)', () => {
+    const asked: string[] = [];
+    const sub =
+      buildManagerMenus({ ...handlers, importNonKicadProject: (fmt) => asked.push(fmt) })
+        .find((m) => m.label === 'File')
+        ?.items.find((i) => i.label === 'Import Non-KiCad Project...')?.submenu ?? [];
+    expect(sub.map((i) => i.label)).toEqual([
+      'Altium Project...',
+      'CADSTAR Project...',
+      'EAGLE Project...',
+      'EasyEDA (JLCEDA) Std Backup...',
+      'EasyEDA (JLCEDA) Pro Project...',
+      'PADS Project...',
+      'gEDA / Lepton EDA Project...',
+    ]);
+    for (const item of sub) {
+      expect(item.disabled, item.label).toBeFalsy();
+      item.action?.();
+    }
+    expect(asked).toEqual(['altium', 'cadstar', 'eagle', 'easyeda', 'easyedapro', 'pads', 'geda']);
   });
 });

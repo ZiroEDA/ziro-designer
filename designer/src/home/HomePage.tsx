@@ -34,7 +34,27 @@ import {
 } from '../fs/chooser_places.js';
 import { useAuth } from '../auth/AuthProvider.js';
 import { authEnabled } from '../auth/supabaseClient.js';
-import { SignInDialog } from '../auth/SignIn.js';
+import { goToAuth } from '../auth/explore.js';
+import {
+  GithubOpenCancelled,
+  GithubOpenError,
+  githubIdFor,
+  githubSpecFromId,
+  githubSpecFromUrl,
+  isGithubId,
+  openGithubProject,
+} from './github_source.js';
+import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
+import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
+import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
+import {
+  IMPORT_FORMATS,
+  acceptFor,
+  importProjectFiles,
+  planImport,
+  type ImportFormat,
+} from './import_project.js';
+import type { AuthStep } from '../nav/route.js';
 import {
   syncAllProjects,
   pushProject,
@@ -186,6 +206,7 @@ export function HomePage({
   onOpenSchematic,
   onOpenProject,
   onOpenPcb,
+  onImportNonKicadBoard,
   onOpenSymbolEditor,
   onOpenFootprintEditor,
   onOpenCalculator,
@@ -209,6 +230,16 @@ export function HomePage({
     demo?: DemoMeta | null,
   ) => void;
   onOpenPcb?: (file: PickedHomeFile, files?: PickedHomeFile[]) => void;
+  /**
+   * Import Non-KiCad Project's board half: open the new project's board in the
+   * board editor and mail it the foreign file to import into it
+   * (`IMPORT_PROJ_HELPER::doImport` -> `MAIL_IMPORT_FILE`).
+   */
+  onImportNonKicadBoard?: (
+    board: PickedHomeFile,
+    files: PickedHomeFile[],
+    foreign: { path: string; bytes: Uint8Array },
+  ) => void;
   /** Launch the Symbol Editor (with the open project's libraries, if any).
    *  `startFile` is a `.kicad_sym` to open straight away (KiCad's MAIL_LIB_EDIT). */
   onOpenSymbolEditor?: (files?: PickedHomeFile[], startFile?: string) => void;
@@ -296,7 +327,8 @@ export function HomePage({
   // Guest-first: sign-in is offered, never forced. The dialog opens from the
   // header button or the local-only nudge; the nudge shows once the guest has
   // real work at stake (a saved project) and stays dismissed once closed.
-  const [signInOpen, setSignInOpen] = useState(false);
+  // Signing in or up is the full page, in a new tab (#639); this one stays.
+  const toAuth = (step: AuthStep): void => goToAuth(step);
   const [guestNudgeDismissed, setGuestNudgeDismissed] = useState(() => {
     try {
       return localStorage.getItem('ziro.guestNudgeDismissed') === '1';
@@ -314,6 +346,9 @@ export function HomePage({
   };
   const dirInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
+  /** File > Import Non-KiCad Project's chooser, and the format it was opened for. */
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const importFormatRef = useRef<ImportFormat | null>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   // The picked project's files (shown in the tree until the editor is launched).
   const [picked, setPicked] = useState<PickedHomeFile[] | null>(initialFiles ?? null);
@@ -648,12 +683,70 @@ export function HomePage({
     );
   };
 
+  /**
+   * `KICAD_MANAGER_FRAME::ImportNonKiCadProject` from the files chosen
+   * (home/import_project.ts decides; this does). The project is created
+   * (`CreateNewProject`, no stub files) and opened, then each half goes to the
+   * editor that imports it, as `IMPORT_PROJ_HELPER::ImportFiles` mails them.
+   */
+  const importNonKicad = async (aFormat: ImportFormat, aList: readonly File[]): Promise<void> => {
+    const picked = await Promise.all(
+      aList.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })),
+    );
+    const desc = IMPORT_FORMATS[aFormat];
+    const plan = planImport(aFormat, picked, new Set(saved.map((p) => p.name)));
+    if (!plan) {
+      DisplayErrorMessage(
+        `None of the files chosen is of the type ${desc.wildcard().label}.`,
+        `${desc.title}: choose the project file, together with the files it uses.`,
+      );
+      return;
+    }
+    if (plan.missing.length > 0) {
+      DisplayErrorMessage(
+        `${plan.input.name} names files that were not chosen: ${plan.missing.join(', ')}.`,
+        'Choose them together with the project file: a browser can only read the files it is given.',
+      );
+      return;
+    }
+    const files = importProjectFiles(plan);
+    await ingest(
+      files.map((f) => ({ name: f.name, bytesOf: async () => f.bytes! })),
+      true,
+    );
+    // The schematic importers are not on this branch yet (eeschema/sch_io);
+    // say what was and was not brought in rather than leave the sheet missing
+    // without a word.
+    if (plan.schematics.length > 0)
+      DisplayErrorMessage(
+        plan.board
+          ? `${desc.menuLabel.replace(/\.\.\.$/, '')} schematics cannot be imported yet, so only the board will be.`
+          : `${desc.menuLabel.replace(/\.\.\.$/, '')} schematics cannot be imported yet.`,
+      );
+    const board = files.find((f) => f.name.endsWith('.kicad_pcb'));
+    if (plan.board && board)
+      onImportNonKicadBoard?.(board, files, { path: plan.board.name, bytes: plan.board.bytes });
+  };
+
+  /** File > Open Project from GitHub...'s link dialog (#640). */
+  const [githubUrlOpen, setGithubUrlOpen] = useState(false);
+  /** A repository with several projects: the chooser, and who is waiting on it. */
+  const [githubChoice, setGithubChoice] = useState<{
+    projects: readonly string[];
+    resolve: (path: string | null) => void;
+  } | null>(null);
+
   const openDemoProject = async (
     id: string,
     view?: 'schematic' | 'pcb' | 'symbols' | 'footprints',
   ): Promise<void> => {
-    const d = demos.find((x) => x.id === id);
-    if (!d) return;
+    // A GitHub project is a demo whose id is its path (#640): the same road,
+    // fetched from the repository instead of the demo corpus.
+    const gh = isGithubId(id) ? githubSpecFromId(id) : null;
+    const known = gh ? null : demos.find((x) => x.id === id);
+    if (!gh && !known) return;
+    const what = gh ? `${gh.owner}/${gh.repo}` : known!.title;
+    const title = gh ? 'Open from GitHub' : 'Download Demo';
     // Demos open as themselves and are not persisted — see the `ingest(…, false)`
     // below and the reason written there. So an opened demo shows up under
     // neither Projects nor Recent, both of which list the account's store;
@@ -666,22 +759,42 @@ export function HomePage({
     // files - and both used to name the file in flight, so the line changed on
     // every one of 89 ticks and the card resized under it. A fraction is the
     // one thing both paths agree on, and the bar already carries it.
-    setLoading({
-      title: 'Download Demo',
-      label: { message: `Downloading demo: ${d.title}`, value: 0 },
-    });
+    const message = gh ? `Downloading ${what} from GitHub` : `Downloading demo: ${what}`;
+    setLoading({ title, label: { message, value: 0 } });
+    const progress = (done: number, total: number): void =>
+      setLoading({ title, label: { message, value: done / total } });
     let files: PickedHomeFile[];
+    let d: DemoMeta;
     try {
-      files = await openDemo(d, (done, total) =>
-        setLoading({
-          title: 'Download Demo',
-          label: { message: `Downloading demo: ${d.title}`, value: done / total },
-        }),
-      );
+      if (gh)
+        ({ files, meta: d } = await openGithubProject(gh, progress, undefined, (projects) => {
+          // The download gauge comes down while the chooser is up - it sat
+          // on top and covered the list - and goes back up once one is picked.
+          setLoading(null);
+          return new Promise((resolve) =>
+            setGithubChoice({
+              projects,
+              resolve: (path) => {
+                if (path) setLoading({ title, label: { message, value: 0 } });
+                resolve(path);
+              },
+            }),
+          );
+        }));
+      else {
+        d = known!;
+        files = await openDemo(d, progress);
+      }
     } catch (e) {
       // A demo is fetched over the network. Without this the throw escaped an
-      // async handler and the card simply did nothing when clicked.
-      window.alert(`Could not open that demo: ${e instanceof Error ? e.message : String(e)}`);
+      // async handler and the card simply did nothing when clicked. A GitHub
+      // open says why in words (the rate limit and when to retry, no such
+      // repository, no project in it): GithubOpenError's message is that.
+      if (e instanceof GithubOpenCancelled) return;
+      const why = e instanceof Error ? e.message : String(e);
+      DisplayErrorMessage(
+        e instanceof GithubOpenError ? why : `Could not open ${gh ? what : 'that demo'}: ${why}`,
+      );
       return;
     } finally {
       setLoading(null);
@@ -738,7 +851,8 @@ export function HomePage({
    */
   useEffect(() => {
     const id = openDemoRequest?.id;
-    if (!id || demos.length === 0) return;
+    // A GitHub project needs no demo list; a demo waits for it.
+    if (!id || (demos.length === 0 && !isGithubId(id))) return;
     if (demoSource?.id === id) return;
     void openDemoProject(id, openDemoRequest?.view);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1148,9 +1262,21 @@ export function HomePage({
   // KiCad writes, .kicad_pro, root .kicad_sch, .kicad_pcb), show it in the
   // manager tree, and persist it like an opened project. KiCad leaves the new
   // project in the manager; the user then launches an editor from a tile.
-  const openNewProjectDialog = (): void => {
+  /**
+   * Anything that makes or keeps a project needs an account (#639). Signed
+   * out, the action opens the sign-up page in a new tab instead; once signed
+   * in, the same click does what it says.
+   */
+  const accountFirst =
+    <A extends unknown[]>(fn: (...args: A) => void) =>
+    (...args: A): void => {
+      if (authEnabled && !session) toAuth('signup');
+      else fn(...args);
+    };
+
+  const openNewProjectDialog = accountFirst((): void => {
     setTplStep('template');
-  };
+  });
 
   // Upstream v10 NewProject flow: the template selector creates the project,
   // the built-in "Default" template scaffolds the three blank project files,
@@ -1498,7 +1624,7 @@ export function HomePage({
         void archiveProject();
         break;
       case 'unarchive':
-        zipInputRef.current?.click();
+        accountFirst(() => zipInputRef.current?.click())();
         break;
       case 'refresh':
         refreshSaved();
@@ -1841,7 +1967,16 @@ export function HomePage({
   const menus: Menu[] = buildManagerMenus({
     newProject: openNewProjectDialog,
     openProject: () => setOpenPrjOpen(true),
-    selectProjectFiles: () => filesInputRef.current?.click(),
+    selectProjectFiles: accountFirst(() => filesInputRef.current?.click()),
+    // Importing makes a project, so it is an account's (#639). The chooser has
+    // to open inside the click, so `accept` is set and it is clicked right here.
+    importNonKicadProject: accountFirst((aFormat: ImportFormat) => {
+      const input = importInputRef.current;
+      if (!input) return;
+      importFormatRef.current = aFormat;
+      input.accept = acceptFor(aFormat);
+      input.click();
+    }),
     openRecent: (id) => void openStored(id),
     clearRecent: () => void clearRecent(),
     closeProject: () => {
@@ -1850,9 +1985,9 @@ export function HomePage({
     },
     restoreLocalHistory: () => setRestoreListOpen(true),
     hasLocalHistory: history.length > 0,
-    saveAs: () => void saveAsProject(),
+    saveAs: accountFirst(() => void saveAsProject()),
     archiveProject: () => void archiveProject(),
-    unarchiveProject: () => zipInputRef.current?.click(),
+    unarchiveProject: accountFirst(() => zipInputRef.current?.click()),
     refresh: refreshSaved,
     toggleLocalHistory: () => setHistoryShown((v) => !v),
     localHistoryShown: historyShown,
@@ -1874,6 +2009,7 @@ export function HomePage({
     showAbout: () => setAboutOpen(true),
     showHotkeys: showHotkeyList,
     openDemo: (id) => void openDemoProject(id),
+    openFromGithub: () => setGithubUrlOpen(true),
     hasProject: !!picked,
     hasTextFileSelected: !!selectedTextFile,
     recent: saved,
@@ -1930,6 +2066,20 @@ export function HomePage({
         }}
       />
       <input
+        ref={importInputRef}
+        type="file"
+        multiple
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          // Copied first: a FileList is live, and clearing the value (so the
+          // same file can be chosen again) empties it.
+          const list = e.target.files ? [...e.target.files] : [];
+          const format = importFormatRef.current;
+          e.target.value = '';
+          if (list.length > 0 && format) void importNonKicad(format, list);
+        }}
+      />
+      <input
         ref={filesInputRef}
         type="file"
         multiple
@@ -1971,11 +2121,7 @@ export function HomePage({
               <ShareButton projectId={openProjectId} projectName={projName || 'this project'} />
             ) : null
           ) : authEnabled ? (
-            <button
-              type="button"
-              className="ze-account-signout"
-              onClick={() => setSignInOpen(true)}
-            >
+            <button type="button" className="ze-account-signout" onClick={() => toAuth('signin')}>
               Sign in
             </button>
           ) : null
@@ -1985,7 +2131,12 @@ export function HomePage({
       <div
         className="ze-home-body"
         onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => void onDropProject(e)}
+        onDrop={(e) => {
+          // Always: an explorer's drop must not fall through to the browser,
+          // which would navigate away to the dropped file.
+          e.preventDefault();
+          accountFirst(() => void onDropProject(e))();
+        }}
       >
         {/* far-left vertical toolbar */}
         <div className="ze-mgrbar">
@@ -2051,6 +2202,8 @@ export function HomePage({
             dirRoot={dirRoot}
             rootLabel={rootLabel}
             projectNames={projectNames}
+            // A project opened from GitHub is in a Git repository (#640).
+            showAllSchematics={!!demoSource && isGithubId(demoSource.id)}
             width={panelWidth}
             expanded={expanded}
             onToggleDir={toggleDir}
@@ -2370,12 +2523,45 @@ export function HomePage({
       )}
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
 
+      {githubUrlOpen && (
+        <WX_TEXT_ENTRY_DIALOG
+          caption="Open Project from GitHub"
+          label="GitHub repository link (a public repository):"
+          defaultValue="https://github.com/"
+          extraWidth
+          onResult={(value) => {
+            setGithubUrlOpen(false);
+            if (value === null) return;
+            const spec = githubSpecFromUrl(value);
+            if (!spec) {
+              DisplayErrorMessage(
+                `"${value.trim()}" is not a link to a GitHub repository.`,
+                'Paste the address of the repository from your browser, for example https://github.com/owner/repository',
+              );
+              return;
+            }
+            void openDemoProject(githubIdFor(spec));
+          }}
+        />
+      )}
+      {githubChoice && (
+        <SingleChoiceDialog
+          caption="Open Project from GitHub"
+          message="This repository holds several KiCad projects. Open which one?"
+          choices={githubChoice.projects.map((p) => ({ value: p, label: p }))}
+          onResult={(path) => {
+            githubChoice.resolve(path);
+            setGithubChoice(null);
+          }}
+        />
+      )}
+
       {/* Guest nudge: once there's real work at stake (a saved project) and no
           account, offer, never force, signing in so it's backed up. */}
-      {authEnabled && !session && !guestNudgeDismissed && saved.length > 0 && !signInOpen && (
+      {authEnabled && !session && !guestNudgeDismissed && saved.length > 0 && (
         <div className="ze-guest-nudge">
           <span>Your projects are saved on this device only.</span>
-          <button type="button" className="ze-btn primary" onClick={() => setSignInOpen(true)}>
+          <button type="button" className="ze-btn primary" onClick={() => toAuth('signin')}>
             Sign in to back them up
           </button>
           <span className="x" title="Dismiss" onClick={dismissGuestNudge}>
@@ -2383,8 +2569,6 @@ export function HomePage({
           </span>
         </div>
       )}
-
-      {signInOpen && <SignInDialog onClose={() => setSignInOpen(false)} />}
 
       {/* The outcome of following a share link. Its own pill rather than folded
           into the sync one: the reader deliberately clicked a link and is

@@ -15,13 +15,7 @@
 
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import type { PickedHomeFile } from './files.js';
-import {
-  basename,
-  inTreeAllowList,
-  isHiddenFile,
-  treeIconFor,
-  type DirNode,
-} from './project_tree.js';
+import { basename, isHiddenTreeNode, treeIconFor, type DirNode } from './project_tree.js';
 import { treeFileType } from './file_activation.js';
 import { type TreeMenuSelectionItem, projectTreeMenu } from './project_tree_menu.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
@@ -42,6 +36,7 @@ export function ProjectTreePane({
   dirRoot,
   rootLabel,
   projectNames,
+  showAllSchematics = false,
   width,
   expanded,
   onToggleDir,
@@ -63,6 +58,13 @@ export function ProjectTreePane({
    *  KiCad's getProjects(dir). A .kicad_sch shows only when its basename is one
    *  of these (the root sheet of some project); subsheets stay hidden. */
   projectNames: ReadonlySet<string>;
+  /**
+   * `showAllSchematics = m_TreeProject->GetGitRepo() != nullptr`
+   * (kicad/project_tree_pane.cpp:505): a project in a Git repository lists
+   * every sheet, so each one's changes can be seen. A project opened from
+   * GitHub (#640) is one.
+   */
+  showAllSchematics?: boolean;
   width: number;
   expanded: Set<string>;
   onToggleDir: (path: string) => void;
@@ -96,18 +98,8 @@ export function ProjectTreePane({
   // `filename != fn.GetFullName()`); every other file, including the other
   // projects' .kicad_pro, .kicad_sch and .kicad_pcb, stays visible, and their
   // .kicad_pro can be double-clicked to switch project.
-  const isHiddenNode = (name: string): boolean => {
-    const base = name.split(/[\\/]/).pop() ?? name;
-    if (/\.kicad_pro$/i.test(base)) return base === rootLabel;
-    if (/\.kicad_sch$/i.test(base)) {
-      const stem = base.replace(/\.kicad_sch$/i, '').toLowerCase();
-      return !projectNames.has(stem);
-    }
-    if (isHiddenFile(name)) return true;
-    // The tree is an allow list; anything not in s_allowedExtensionsToList is
-    // not shown at all (3D bodies among them - see inTreeAllowList).
-    return !inTreeAllowList(name);
-  };
+  const isHiddenNode = (name: string): boolean =>
+    isHiddenTreeNode(name, rootLabel, projectNames, showAllSchematics);
 
   // Right-click context menu (upstream popup, web-applicable subset).
   const [menu, setMenu] = useState<{ x: number; y: number; paths: Set<string> } | null>(null);

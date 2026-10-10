@@ -44,6 +44,9 @@ import { fileForFrame, type ProjectView, type Route } from './nav/route.js';
 import { installSettingsSync } from './cloud/settingsSync.js';
 import type { DemoMeta } from './home/demos.js';
 import { useAuth } from './auth/AuthProvider.js';
+import { authEnabled } from './auth/supabaseClient.js';
+import { goToAuth } from './auth/explore.js';
+import { isGithubId } from './home/github_id.js';
 import {
   reportCloudFailed,
   reportCloudOk,
@@ -468,6 +471,15 @@ export function App(): JSX.Element {
    * chunk) re-initialise from the user's work rather than from the file.
    */
   const [openNonce, setOpenNonce] = useState(0);
+  /**
+   * `MAIL_IMPORT_FILE` for the board editor: Import Non-KiCad Project's board,
+   * delivered once per nonce (PcbEditor.importFileRequest).
+   */
+  const [importFileRequest, setImportFileRequest] = useState<{
+    path: string;
+    bytes: Uint8Array;
+    nonce: number;
+  } | null>(null);
   /** Open a project: replace the file set, drop the previous one's edits, and
    *  tell the editors this is an open and not just a state change. */
   const openProjectFiles = useCallback((files: PickedFile[] | null) => {
@@ -691,9 +703,13 @@ export function App(): JSX.Element {
       // The request is mail, delivered once (KIWAY::ExpressMail). Left set, it
       // was re-read every time the manager mounted again - going home from the
       // demo's editor re-downloaded it and raised the editor straight back.
-      if (demo) setDemoRequest((r) => (r?.id === demo.id ? null : r));
+      // Either id: a GitHub open that settled on one project of several was
+      // asked for as the repository (DemoMeta.requestedAs).
+      const isThis = (id: string | undefined): boolean =>
+        !!demo && (id === demo.id || (!!demo.requestedAs && id === demo.requestedAs));
+      if (demo) setDemoRequest((r) => (isThis(r?.id) ? null : r));
       const pending = pendingDemoFrame.current;
-      if (demo && pending && pending.id === demo.id) {
+      if (demo && pending && isThis(pending.id)) {
         pendingDemoFrame.current = null;
         applyDemoFrame(pending.view, pending.child);
       }
@@ -1474,13 +1490,24 @@ export function App(): JSX.Element {
 
   /** KiCad shows "Schematic is read only." as a strip above the canvas; this is
    *  the same place and the same skin, plus the action that resolves it. */
-  const demoNotice = demoProject ? (
+  // Signed out (#639) there is no account to save a copy into: the strip's
+  // action opens the sign-up page in a new tab, and this tab - edits and all -
+  // turns signed in once that one has the keys, when "Save a copy" takes over.
+  // What it is, then the one fact that matters: a GitHub project (#640) says
+  // which repository, a demo says it is one.
+  const demoMessage =
+    demoSource && isGithubId(demoSource.id)
+      ? `${demoSource.title} from GitHub. Edits are not being saved.`
+      : 'Demo project. Edits are not being saved.';
+  const demoNotice = !demoProject ? null : authEnabled && !session ? (
     <ReadOnlyNotice
-      message="Demo project. Edits are not being saved."
-      actionLabel="Save a copy"
-      onAction={saveDemoCopy}
+      message={demoMessage}
+      actionLabel="Sign up to save"
+      onAction={() => goToAuth('signup')}
     />
-  ) : null;
+  ) : (
+    <ReadOnlyNotice message={demoMessage} actionLabel="Save a copy" onAction={saveDemoCopy} />
+  );
 
   /** File > Close Project, for the whole app: the editors drop the project too,
    *  not only the manager's tree. */
@@ -1753,6 +1780,15 @@ export function App(): JSX.Element {
           setSchMounted(true);
           setView('schematic');
         }}
+        onImportNonKicadBoard={(_board, files, foreign) => {
+          // The new project's board, opened as any project board is, and the
+          // foreign file mailed to it: `doImport( pcb, FRAME_PCB_EDITOR, type )`.
+          raiseOrOpen(files);
+          setStandalonePcb(null);
+          setImportFileRequest((r) => ({ ...foreign, nonce: (r?.nonce ?? 0) + 1 }));
+          setPcbMounted(true);
+          setView('pcb');
+        }}
         onOpenPcb={(file, files) => {
           if (files) {
             // The OPEN PROJECT's board (`onOpenPcb(pcbFile, picked)`), so
@@ -1918,6 +1954,7 @@ export function App(): JSX.Element {
                 onBoardChange={(text: string) => onProjectChange([{ name: boardFile.name, text }])}
                 registerAutosaveFlush={registerPcbFlush}
                 openNonce={openNonce}
+                importFileRequest={importFileRequest}
                 shown={view === 'pcb'}
                 onSaveBoard={(text: string) => {
                   const name = boardFile.name;

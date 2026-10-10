@@ -1,0 +1,25 @@
+UNITS=INCH
+#
+#Num Features
+#
+F 4
+
+#
+#Feature symbol names
+#
+$0 r5.0
+
+#
+#Feature attribute names
+#
+
+#
+#Feature attribute text strings
+#
+#
+#Layer features
+#
+L 4.7750 -3.550 4.7750 -5.3750 0 P 0 
+L 4.7750 -5.3750 6.8250 -5.3750 0 P 0 
+L 6.8250 -3.550 4.7750 -3.550 0 P 0 
+L 6.8250 -3.550 6.8250 -5.3750 0 P 0 

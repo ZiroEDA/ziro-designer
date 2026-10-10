@@ -1,0 +1,25 @@
+UNITS=INCH
+#
+#Num Features
+#
+F 4
+
+#
+#Feature symbol names
+#
+$0 donut_r226.3780x214.5669
+
+#
+#Feature attribute names
+#
+
+#
+#Feature attribute text strings
+#
+#
+#Layer features
+#
+P 4.9250 -3.70 0 P 0 8 0.0 
+P 6.6750 -3.70 0 P 0 8 0.0 
+P 6.6750 -5.2250 0 P 0 8 0.0 
+P 4.9250 -5.2250 0 P 0 8 0.0 

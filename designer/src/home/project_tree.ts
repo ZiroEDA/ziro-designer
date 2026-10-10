@@ -368,6 +368,38 @@ export function deleteTreeEntries(
 
 /** Text documents the in-app viewer can show (View > Open Text Viewer and the
  * tree's "Edit in a Text Viewer", the web take on upstream's text editor). */
+/**
+ * Whether the project tree leaves this file out -
+ * `PROJECT_TREE_PANE::addItemToProjectTree`'s early returns.
+ *
+ * - The open project's own `.kicad_pro` is the root row, not a child.
+ * - A `.kicad_sch` shows only when its name is one of the folder's projects
+ *   (`getProjects`), i.e. it is some project's root sheet; sub-sheets live in
+ *   the editor's hierarchy. Unless `showAllSchematics`
+ *   (`m_TreeProject->GetGitRepo() != nullptr`): in a Git repository every
+ *   sheet is listed, "so that modifications to each sheet can be observed
+ *   individually" (the manual, kicad.txt "Project tree").
+ * - Hidden files, and anything `s_allowedExtensionsToList` does not list.
+ */
+export function isHiddenTreeNode(
+  name: string,
+  rootLabel: string,
+  projectNames: ReadonlySet<string>,
+  showAllSchematics = false,
+): boolean {
+  const base = name.split(/[\\/]/).pop() ?? name;
+  if (/\.kicad_pro$/i.test(base)) return base === rootLabel;
+  if (/\.kicad_sch$/i.test(base)) {
+    if (showAllSchematics) return false;
+    const stem = base.replace(/\.kicad_sch$/i, '').toLowerCase();
+    return !projectNames.has(stem);
+  }
+  if (isHiddenFile(name)) return true;
+  // The tree is an allow list; anything not in s_allowedExtensionsToList is
+  // not shown at all (3D bodies among them - see inTreeAllowList).
+  return !inTreeAllowList(name);
+}
+
 export const isViewableTextFile = (name: string): boolean =>
   /\.(txt|md|rpt|net|cir|csv|log|pos|gbrjob|kicad_dru)$/i.test(name) ||
   /(^|\/)(fp|sym|design-block)-lib-table$/.test(name);

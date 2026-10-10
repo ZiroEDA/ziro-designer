@@ -1,0 +1,3038 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<IPC-2581 revision="C" xmlns="http://webstds.ipc.org/2581" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xsi:schemaLocation="http://webstds.ipc.org/2581 http://webstds.ipc.org/2581/IPC-2581C.xsd">
+  <Content roleRef="Owner">
+    <FunctionMode mode="ASSEMBLY"/>
+    <StepRef name="hatchpads_kicad_cli"/>
+    <LayerRef name="F.Cu"/>
+    <LayerRef name="DIELECTRIC_1"/>
+    <LayerRef name="B.Cu"/>
+    <BomRef name="hatchpads_kicad_cli_1"/>
+    <AvlRef name="Primary_Vendor_List"/>
+    <DictionaryColor/>
+    <DictionaryLineDesc units="MILLIMETER">
+      <EntryLineDesc id="LINE_1">
+        <LineDesc lineWidth="0.0" lineEnd="ROUND"/>
+      </EntryLineDesc>
+    </DictionaryLineDesc>
+    <DictionaryFillDesc units="MILLIMETER"/>
+    <DictionaryStandard units="MILLIMETER">
+      <EntryStandard id="CIRCLE_1">
+        <Circle diameter="2.0"/>
+      </EntryStandard>
+      <EntryStandard id="RECT_2">
+        <RectCenter width="2.0" height="2.60"/>
+      </EntryStandard>
+      <EntryStandard id="OVAL_3">
+        <Oval width="1.60" height="3.0"/>
+      </EntryStandard>
+      <EntryStandard id="RECT_4">
+        <RectCenter width="1.50" height="1.50"/>
+      </EntryStandard>
+      <EntryStandard id="ROUNDRECT_5">
+        <RectRound width="2.0" height="1.20" radius="0.30" upperRight="true" upperLeft="true" lowerRight="true" lowerLeft="true"/>
+      </EntryStandard>
+      <EntryStandard id="CIRCLE_6">
+        <Circle diameter="1.80"/>
+      </EntryStandard>
+      <EntryStandard id="CIRCLE_7">
+        <Circle diameter="0.80"/>
+      </EntryStandard>
+      <EntryStandard id="CIRCLE_8">
+        <Circle diameter="1.0"/>
+      </EntryStandard>
+      <EntryStandard id="CIRCLE_9">
+        <Circle diameter="1.20"/>
+      </EntryStandard>
+    </DictionaryStandard>
+    <DictionaryUser units="MILLIMETER">
+      <EntryUser id="UCIRCLE_1">
+        <UserSpecial>
+          <Circle diameter="1.414214">
+            <LineDesc lineWidth="0.10" lineEnd="ROUND"/>
+            <FillDesc fillProperty="HOLLOW"/>
+          </Circle>
+        </UserSpecial>
+      </EntryUser>
+      <EntryUser id="UCIRCLE_2">
+        <UserSpecial>
+          <Circle diameter="1.131370">
+            <LineDesc lineWidth="0.10" lineEnd="ROUND"/>
+            <FillDesc fillProperty="HOLLOW"/>
+          </Circle>
+        </UserSpecial>
+      </EntryUser>
+      <EntryUser id="UCIRCLE_3">
+        <UserSpecial>
+          <Circle diameter="0.80">
+            <LineDesc lineWidth="0.10" lineEnd="ROUND"/>
+            <FillDesc fillProperty="HOLLOW"/>
+          </Circle>
+        </UserSpecial>
+      </EntryUser>
+      <EntryUser id="UCIRCLE_4">
+        <UserSpecial>
+          <Circle diameter="1.0">
+            <LineDesc lineWidth="0.10" lineEnd="ROUND"/>
+            <FillDesc fillProperty="HOLLOW"/>
+          </Circle>
+        </UserSpecial>
+      </EntryUser>
+      <EntryUser id="UCIRCLE_5">
+        <UserSpecial>
+          <Circle diameter="1.20">
+            <LineDesc lineWidth="0.10" lineEnd="ROUND"/>
+            <FillDesc fillProperty="HOLLOW"/>
+          </Circle>
+        </UserSpecial>
+      </EntryUser>
+    </DictionaryUser>
+  </Content>
+  <LogisticHeader>
+    <Role id="Owner" roleFunction="SENDER"/>
+    <Enterprise id="UNKNOWN" code="NONE"/>
+    <Person name="UNKNOWN" enterpriseRef="UNKNOWN" roleRef="Owner"/>
+  </LogisticHeader>
+  <HistoryRecord number="1" origination="2026-10-10T11:30:01" software="KiCad EDA" lastChange="2026-10-10T11:30:01">
+    <FileRevision fileRevisionId="1" comment="NO COMMENT" label="NO LABEL">
+      <SoftwarePackage name="KiCad" revision="10.0.6" vendor="KiCad EDA">
+        <Certification certificationStatus="SELFTEST"/>
+      </SoftwarePackage>
+    </FileRevision>
+  </HistoryRecord>
+  <Bom name="hatchpads_kicad_cli_1">
+    <BomHeader revision="1.0" assembly="hatchpads_kicad_cli_2">
+      <StepRef name="hatchpads_kicad_cli"/>
+    </BomHeader>
+    <BomItem OEMDesignNumberRef="T_pads_pads" quantity="1" pinCount="6" category="ELECTRICAL">
+      <RefDes name="U1" packageRef="pads" populate="true" layerRef="F.Cu"/>
+      <Characteristics category="ELECTRICAL">
+        <Textual definitionSource="KICAD" textualCharacteristicName="Value" textualCharacteristicValue="pads"/>
+      </Characteristics>
+    </BomItem>
+  </Bom>
+  <Ecad name="Design">
+    <CadHeader units="MILLIMETER">
+      <Spec name="F.Cu_1">
+        <General type="MATERIAL">
+          <Property text="COPPER"/>
+        </General>
+        <Conductor type="CONDUCTIVITY">
+          <Property unit="SIEMENS/M" value="5.959E7"/>
+        </Conductor>
+      </Spec>
+      <Spec name="DIELECTRIC_1_1">
+        <General type="MATERIAL">
+          <Property text="FR4"/>
+          <Property text="Type : core"/>
+        </General>
+        <Dielectric type="DIELECTRIC_CONSTANT">
+          <Property value="4.50"/>
+        </Dielectric>
+        <Dielectric type="LOSS_TANGENT">
+          <Property value="0.020"/>
+        </Dielectric>
+      </Spec>
+      <Spec name="B.Cu_1">
+        <General type="MATERIAL">
+          <Property text="COPPER"/>
+        </General>
+        <Conductor type="CONDUCTIVITY">
+          <Property unit="SIEMENS/M" value="5.959E7"/>
+        </Conductor>
+      </Spec>
+    </CadHeader>
+    <CadData>
+      <Layer name="F.Cu" layerFunction="CONDUCTOR" polarity="POSITIVE" side="TOP"/>
+      <Layer name="DIELECTRIC_1" layerFunction="DIELCORE" polarity="POSITIVE" side="INTERNAL"/>
+      <Layer name="B.Cu" layerFunction="CONDUCTOR" polarity="POSITIVE" side="BOTTOM"/>
+      <Layer name="Edge.Cuts" layerFunction="BOARD_OUTLINE" polarity="POSITIVE" side="ALL"/>
+      <Layer name="Margin" layerFunction="DOCUMENT" polarity="POSITIVE" side="NONE"/>
+      <Layer name="B.Courtyard" layerFunction="COURTYARD" polarity="POSITIVE" side="BOTTOM"/>
+      <Layer name="F.Courtyard" layerFunction="COURTYARD" polarity="POSITIVE" side="TOP"/>
+      <Layer name="F.Cu_B.Cu" layerFunction="DRILL" polarity="POSITIVE" side="ALL">
+        <Span fromLayer="F.Cu" toLayer="B.Cu"/>
+      </Layer>
+      <Stackup name="Primary_Stackup" overallThickness="1.60" tolPlus="0.0" tolMinus="0.0" whereMeasured="MASK" stackupStatus="PROPOSED">
+        <StackupGroup name="Primary_Stackup_Group" thickness="1.60" tolPlus="0.0" tolMinus="0.0">
+          <StackupLayer layerOrGroupRef="F.Cu" thickness="0.0350" tolPlus="0.0" tolMinus="0.0" sequence="0">
+            <SpecRef id="F.Cu_1"/>
+          </StackupLayer>
+          <StackupLayer layerOrGroupRef="DIELECTRIC_1" thickness="1.530" tolPlus="0.0" tolMinus="0.0" sequence="1">
+            <SpecRef id="DIELECTRIC_1_1"/>
+          </StackupLayer>
+          <StackupLayer layerOrGroupRef="B.Cu" thickness="0.0350" tolPlus="0.0" tolMinus="0.0" sequence="2">
+            <SpecRef id="B.Cu_1"/>
+          </StackupLayer>
+        </StackupGroup>
+      </Stackup>
+      <Step name="hatchpads_kicad_cli" type="BOARD">
+        <NonstandardAttribute name="FOOTPRINT_COUNT" type="INTEGER" value="1"/>
+        <PadStackDef name="PADSTACK_7">
+          <PadstackHoleDef name="PH400000" diameter="0.40" platingStatus="VIA" plusTol="0.0" minusTol="0.0" x="0.0" y="0.0"/>
+          <PadstackPadDef layerRef="F.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <UserPrimitiveRef id="UCIRCLE_3"/>
+          </PadstackPadDef>
+          <PadstackPadDef layerRef="B.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <UserPrimitiveRef id="UCIRCLE_3"/>
+          </PadstackPadDef>
+        </PadStackDef>
+        <PadStackDef name="PADSTACK_8">
+          <PadstackHoleDef name="PH500000" diameter="0.50" platingStatus="VIA" plusTol="0.0" minusTol="0.0" x="0.0" y="0.0"/>
+          <PadstackPadDef layerRef="F.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <UserPrimitiveRef id="UCIRCLE_4"/>
+          </PadstackPadDef>
+          <PadstackPadDef layerRef="B.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <UserPrimitiveRef id="UCIRCLE_4"/>
+          </PadstackPadDef>
+        </PadStackDef>
+        <PadStackDef name="PADSTACK_9">
+          <PadstackHoleDef name="PH600000" diameter="0.60" platingStatus="VIA" plusTol="0.0" minusTol="0.0" x="0.0" y="0.0"/>
+          <PadstackPadDef layerRef="F.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <UserPrimitiveRef id="UCIRCLE_5"/>
+          </PadstackPadDef>
+          <PadstackPadDef layerRef="B.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <UserPrimitiveRef id="UCIRCLE_5"/>
+          </PadstackPadDef>
+        </PadStackDef>
+        <PadStackDef name="PADSTACK_6">
+          <PadstackHoleDef name="PTH1000000_1000000" diameter="1.0" platingStatus="PLATED" plusTol="0.0" minusTol="0.0" x="0.0" y="0.0"/>
+          <PadstackPadDef layerRef="F.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <UserPrimitiveRef id="UCIRCLE_1"/>
+          </PadstackPadDef>
+          <PadstackPadDef layerRef="B.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <UserPrimitiveRef id="UCIRCLE_1"/>
+          </PadstackPadDef>
+        </PadStackDef>
+        <PadStackDef name="PADSTACK_5">
+          <PadstackPadDef layerRef="F.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <StandardPrimitiveRef id="ROUNDRECT_5"/>
+          </PadstackPadDef>
+        </PadStackDef>
+        <PadStackDef name="PADSTACK_4">
+          <PadstackPadDef layerRef="F.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <StandardPrimitiveRef id="RECT_4"/>
+          </PadstackPadDef>
+        </PadStackDef>
+        <PadStackDef name="PADSTACK_3">
+          <PadstackHoleDef name="PTH800000_800000" diameter="0.80" platingStatus="PLATED" plusTol="0.0" minusTol="0.0" x="0.0" y="0.0"/>
+          <PadstackPadDef layerRef="F.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <UserPrimitiveRef id="UCIRCLE_2"/>
+          </PadstackPadDef>
+          <PadstackPadDef layerRef="B.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <UserPrimitiveRef id="UCIRCLE_2"/>
+          </PadstackPadDef>
+        </PadStackDef>
+        <PadStackDef name="PADSTACK_2">
+          <PadstackHoleDef name="PTH1000000_1000000" diameter="1.0" platingStatus="PLATED" plusTol="0.0" minusTol="0.0" x="0.0" y="0.0"/>
+          <PadstackPadDef layerRef="F.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <UserPrimitiveRef id="UCIRCLE_1"/>
+          </PadstackPadDef>
+          <PadstackPadDef layerRef="B.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <UserPrimitiveRef id="UCIRCLE_1"/>
+          </PadstackPadDef>
+        </PadStackDef>
+        <PadStackDef name="PADSTACK_1">
+          <PadstackHoleDef name="PTH1000000_1000000" diameter="1.0" platingStatus="PLATED" plusTol="0.0" minusTol="0.0" x="0.0" y="0.0"/>
+          <PadstackPadDef layerRef="F.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <UserPrimitiveRef id="UCIRCLE_1"/>
+          </PadstackPadDef>
+          <PadstackPadDef layerRef="B.Cu" padUse="REGULAR">
+            <Location x="0.0" y="0.0"/>
+            <UserPrimitiveRef id="UCIRCLE_1"/>
+          </PadstackPadDef>
+        </PadStackDef>
+        <Datum x="0.0" y="0.0"/>
+        <Package name="pads_1" type="OTHER" pinOne="1" pinOneOrientation="UPPER_LEFT">
+          <Outline>
+            <Polygon>
+              <PolyBegin x="-9.0" y="6.198912"/>
+              <PolyStepSegment x="-8.847759" y="6.566454"/>
+              <PolyStepSegment x="-8.566454" y="6.847759"/>
+              <PolyStepSegment x="-8.198912" y="7.0"/>
+              <PolyStepSegment x="7.703348" y="7.420144"/>
+              <PolyStepSegment x="8.010763" y="7.337773"/>
+              <PolyStepSegment x="8.263255" y="7.144029"/>
+              <PolyStepSegment x="9.122385" y="5.655972"/>
+              <PolyStepSegment x="9.163926" y="5.340434"/>
+              <PolyStepSegment x="8.750" y="-6.750"/>
+              <PolyStepSegment x="-7.0" y="-7.30"/>
+              <PolyStepSegment x="-9.0" y="-7.30"/>
+              <PolyStepSegment x="-9.0" y="6.198912"/>
+            </Polygon>
+            <LineDescRef id="LINE_1"/>
+          </Outline>
+          <PickupPoint x="0.0" y="0.0"/>
+          <Pin number="1" electricalType="ELECTRICAL" type="THRU">
+            <Location x="-8.0" y="6.0"/>
+            <StandardPrimitiveRef id="CIRCLE_1"/>
+          </Pin>
+          <Pin number="2" electricalType="ELECTRICAL" type="THRU">
+            <Location x="-8.0" y="-6.0"/>
+            <StandardPrimitiveRef id="RECT_2"/>
+          </Pin>
+          <Pin number="3" electricalType="ELECTRICAL" type="THRU">
+            <Xform rotation="30.0"/>
+            <Location x="8.0" y="6.0"/>
+            <StandardPrimitiveRef id="OVAL_3"/>
+          </Pin>
+          <Pin number="4" electricalType="ELECTRICAL" type="SURFACE">
+            <Location x="8.0" y="-6.0"/>
+            <StandardPrimitiveRef id="RECT_4"/>
+          </Pin>
+          <Pin number="5" electricalType="ELECTRICAL" type="SURFACE">
+            <Location x="0.0" y="0.0"/>
+            <StandardPrimitiveRef id="ROUNDRECT_5"/>
+          </Pin>
+          <Pin number="6" electricalType="ELECTRICAL" type="THRU">
+            <Location x="0.0" y="6.0"/>
+            <StandardPrimitiveRef id="CIRCLE_6"/>
+          </Pin>
+        </Package>
+        <Component refDes="U1" packageRef="pads_1" part="T_pads_pads" layerRef="F.Cu" mountType="OTHER">
+          <Location x="120.0" y="-120.0"/>
+        </Component>
+        <LayerFeature layerRef="F.Cu">
+          <Set net="GND" padUsage="VIA">
+            <Features>
+              <UserSpecial>
+                <Contour>
+                  <Polygon>
+                    <PolyBegin x="139.943039" y="-100.019685"/>
+                    <PolyStepSegment x="139.988794" y="-100.072489"/>
+                    <PolyStepSegment x="140.0" y="-100.1240"/>
+                    <PolyStepSegment x="140.0" y="-139.8760"/>
+                    <PolyStepSegment x="139.980315" y="-139.943039"/>
+                    <PolyStepSegment x="139.927511" y="-139.988794"/>
+                    <PolyStepSegment x="139.8760" y="-140.0"/>
+                    <PolyStepSegment x="100.1240" y="-140.0"/>
+                    <PolyStepSegment x="100.056961" y="-139.980315"/>
+                    <PolyStepSegment x="100.011206" y="-139.927511"/>
+                    <PolyStepSegment x="100.0" y="-139.8760"/>
+                    <PolyStepSegment x="100.0" y="-139.0020"/>
+                    <PolyStepSegment x="102.1240" y="-139.0020"/>
+                    <PolyStepSegment x="104.1260" y="-139.0020"/>
+                    <PolyStepSegment x="105.1240" y="-139.0020"/>
+                    <PolyStepSegment x="107.1260" y="-139.0020"/>
+                    <PolyStepSegment x="108.1240" y="-139.0020"/>
+                    <PolyStepSegment x="110.1260" y="-139.0020"/>
+                    <PolyStepSegment x="111.1240" y="-139.0020"/>
+                    <PolyStepSegment x="113.1260" y="-139.0020"/>
+                    <PolyStepSegment x="114.1240" y="-139.0020"/>
+                    <PolyStepSegment x="116.1260" y="-139.0020"/>
+                    <PolyStepSegment x="117.1240" y="-139.0020"/>
+                    <PolyStepSegment x="119.1260" y="-139.0020"/>
+                    <PolyStepSegment x="120.1240" y="-139.0020"/>
+                    <PolyStepSegment x="122.1260" y="-139.0020"/>
+                    <PolyStepSegment x="123.1240" y="-139.0020"/>
+                    <PolyStepSegment x="125.1260" y="-139.0020"/>
+                    <PolyStepSegment x="126.1240" y="-139.0020"/>
+                    <PolyStepSegment x="128.1260" y="-139.0020"/>
+                    <PolyStepSegment x="129.1240" y="-139.0020"/>
+                    <PolyStepSegment x="131.1260" y="-139.0020"/>
+                    <PolyStepSegment x="132.1240" y="-139.0020"/>
+                    <PolyStepSegment x="134.1260" y="-139.0020"/>
+                    <PolyStepSegment x="135.1240" y="-139.0020"/>
+                    <PolyStepSegment x="137.1260" y="-139.0020"/>
+                    <PolyStepSegment x="137.1260" y="-138.1240"/>
+                    <PolyStepSegment x="135.1240" y="-138.1240"/>
+                    <PolyStepSegment x="135.1240" y="-139.0020"/>
+                    <PolyStepSegment x="134.1260" y="-139.0020"/>
+                    <PolyStepSegment x="134.1260" y="-138.1240"/>
+                    <PolyStepSegment x="132.1240" y="-138.1240"/>
+                    <PolyStepSegment x="132.1240" y="-139.0020"/>
+                    <PolyStepSegment x="131.1260" y="-139.0020"/>
+                    <PolyStepSegment x="131.1260" y="-138.1240"/>
+                    <PolyStepSegment x="129.1240" y="-138.1240"/>
+                    <PolyStepSegment x="129.1240" y="-139.0020"/>
+                    <PolyStepSegment x="128.1260" y="-139.0020"/>
+                    <PolyStepSegment x="128.1260" y="-138.1240"/>
+                    <PolyStepSegment x="126.1240" y="-138.1240"/>
+                    <PolyStepSegment x="126.1240" y="-139.0020"/>
+                    <PolyStepSegment x="125.1260" y="-139.0020"/>
+                    <PolyStepSegment x="125.1260" y="-138.1240"/>
+                    <PolyStepSegment x="123.1240" y="-138.1240"/>
+                    <PolyStepSegment x="123.1240" y="-139.0020"/>
+                    <PolyStepSegment x="122.1260" y="-139.0020"/>
+                    <PolyStepSegment x="122.1260" y="-138.1240"/>
+                    <PolyStepSegment x="120.1240" y="-138.1240"/>
+                    <PolyStepSegment x="120.1240" y="-139.0020"/>
+                    <PolyStepSegment x="119.1260" y="-139.0020"/>
+                    <PolyStepSegment x="119.1260" y="-138.1240"/>
+                    <PolyStepSegment x="117.1240" y="-138.1240"/>
+                    <PolyStepSegment x="117.1240" y="-139.0020"/>
+                    <PolyStepSegment x="116.1260" y="-139.0020"/>
+                    <PolyStepSegment x="116.1260" y="-138.1240"/>
+                    <PolyStepSegment x="114.1240" y="-138.1240"/>
+                    <PolyStepSegment x="114.1240" y="-139.0020"/>
+                    <PolyStepSegment x="113.1260" y="-139.0020"/>
+                    <PolyStepSegment x="113.1260" y="-138.1240"/>
+                    <PolyStepSegment x="111.1240" y="-138.1240"/>
+                    <PolyStepSegment x="111.1240" y="-139.0020"/>
+                    <PolyStepSegment x="110.1260" y="-139.0020"/>
+                    <PolyStepSegment x="110.1260" y="-138.1240"/>
+                    <PolyStepSegment x="108.1240" y="-138.1240"/>
+                    <PolyStepSegment x="108.1240" y="-139.0020"/>
+                    <PolyStepSegment x="107.1260" y="-139.0020"/>
+                    <PolyStepSegment x="107.1260" y="-138.1240"/>
+                    <PolyStepSegment x="105.1240" y="-138.1240"/>
+                    <PolyStepSegment x="105.1240" y="-139.0020"/>
+                    <PolyStepSegment x="104.1260" y="-139.0020"/>
+                    <PolyStepSegment x="104.1260" y="-138.1240"/>
+                    <PolyStepSegment x="102.1240" y="-138.1240"/>
+                    <PolyStepSegment x="102.1240" y="-139.0020"/>
+                    <PolyStepSegment x="100.0" y="-139.0020"/>
+                    <PolyStepSegment x="100.0" y="-137.1260"/>
+                    <PolyStepSegment x="102.1240" y="-137.1260"/>
+                    <PolyStepSegment x="104.1260" y="-137.1260"/>
+                    <PolyStepSegment x="105.1240" y="-137.1260"/>
+                    <PolyStepSegment x="107.1260" y="-137.1260"/>
+                    <PolyStepSegment x="108.1240" y="-137.1260"/>
+                    <PolyStepSegment x="110.1260" y="-137.1260"/>
+                    <PolyStepSegment x="111.1240" y="-137.1260"/>
+                    <PolyStepSegment x="113.1260" y="-137.1260"/>
+                    <PolyStepSegment x="114.1240" y="-137.1260"/>
+                    <PolyStepSegment x="116.1260" y="-137.1260"/>
+                    <PolyStepSegment x="117.1240" y="-137.1260"/>
+                    <PolyStepSegment x="119.1260" y="-137.1260"/>
+                    <PolyStepSegment x="120.1240" y="-137.1260"/>
+                    <PolyStepSegment x="122.1260" y="-137.1260"/>
+                    <PolyStepSegment x="123.1240" y="-137.1260"/>
+                    <PolyStepSegment x="125.1260" y="-137.1260"/>
+                    <PolyStepSegment x="126.1240" y="-137.1260"/>
+                    <PolyStepSegment x="128.1260" y="-137.1260"/>
+                    <PolyStepSegment x="129.1240" y="-137.1260"/>
+                    <PolyStepSegment x="131.1260" y="-137.1260"/>
+                    <PolyStepSegment x="132.1240" y="-137.1260"/>
+                    <PolyStepSegment x="134.1260" y="-137.1260"/>
+                    <PolyStepSegment x="134.1260" y="-137.097896"/>
+                    <PolyStepSegment x="135.1240" y="-137.097896"/>
+                    <PolyStepSegment x="135.1240" y="-137.1260"/>
+                    <PolyStepSegment x="137.1260" y="-137.1260"/>
+                    <PolyStepSegment x="138.1240" y="-137.1260"/>
+                    <PolyStepSegment x="139.0020" y="-137.1260"/>
+                    <PolyStepSegment x="139.0020" y="-135.1240"/>
+                    <PolyStepSegment x="138.1240" y="-135.1240"/>
+                    <PolyStepSegment x="138.1240" y="-137.1260"/>
+                    <PolyStepSegment x="137.1260" y="-137.1260"/>
+                    <PolyStepSegment x="137.1260" y="-135.1240"/>
+                    <PolyStepSegment x="137.097897" y="-135.1240"/>
+                    <PolyStepSegment x="137.097246" y="-135.140545"/>
+                    <PolyStepSegment x="137.096959" y="-135.145406"/>
+                    <PolyStepSegment x="137.093882" y="-135.184485"/>
+                    <PolyStepSegment x="137.093405" y="-135.189331"/>
+                    <PolyStepSegment x="137.089944" y="-135.218564"/>
+                    <PolyStepSegment x="137.089277" y="-135.223383"/>
+                    <PolyStepSegment x="137.056048" y="-135.433185"/>
+                    <PolyStepSegment x="137.055192" y="-135.437979"/>
+                    <PolyStepSegment x="137.049443" y="-135.466880"/>
+                    <PolyStepSegment x="137.048398" y="-135.471641"/>
+                    <PolyStepSegment x="137.039245" y="-135.509758"/>
+                    <PolyStepSegment x="137.038018" y="-135.514463"/>
+                    <PolyStepSegment x="137.030025" y="-135.542805"/>
+                    <PolyStepSegment x="137.028611" y="-135.547465"/>
+                    <PolyStepSegment x="136.962974" y="-135.749473"/>
+                    <PolyStepSegment x="136.961380" y="-135.754069"/>
+                    <PolyStepSegment x="136.951195" y="-135.781680"/>
+                    <PolyStepSegment x="136.949423" y="-135.786210"/>
+                    <PolyStepSegment x="136.934425" y="-135.822426"/>
+                    <PolyStepSegment x="136.932471" y="-135.826892"/>
+                    <PolyStepSegment x="136.920129" y="-135.853666"/>
+                    <PolyStepSegment x="136.918003" y="-135.858051"/>
+                    <PolyStepSegment x="136.821560" y="-136.047332"/>
+                    <PolyStepSegment x="136.819264" y="-136.051628"/>
+                    <PolyStepSegment x="136.804873" y="-136.077324"/>
+                    <PolyStepSegment x="136.802413" y="-136.081521"/>
+                    <PolyStepSegment x="136.781931" y="-136.114946"/>
+                    <PolyStepSegment x="136.779306" y="-136.119046"/>
+                    <PolyStepSegment x="136.762938" y="-136.143544"/>
+                    <PolyStepSegment x="136.760152" y="-136.147542"/>
+                    <PolyStepSegment x="136.635289" y="-136.319399"/>
+                    <PolyStepSegment x="136.632349" y="-136.323282"/>
+                    <PolyStepSegment x="136.614112" y="-136.346415"/>
+                    <PolyStepSegment x="136.611024" y="-136.350178"/>
+                    <PolyStepSegment x="136.585566" y="-136.379985"/>
+                    <PolyStepSegment x="136.582331" y="-136.383625"/>
+                    <PolyStepSegment x="136.562338" y="-136.405253"/>
+                    <PolyStepSegment x="136.558964" y="-136.408762"/>
+                    <PolyStepSegment x="136.408762" y="-136.558964"/>
+                    <PolyStepSegment x="136.405253" y="-136.562338"/>
+                    <PolyStepSegment x="136.383625" y="-136.582331"/>
+                    <PolyStepSegment x="136.379985" y="-136.585566"/>
+                    <PolyStepSegment x="136.350178" y="-136.611024"/>
+                    <PolyStepSegment x="136.346415" y="-136.614112"/>
+                    <PolyStepSegment x="136.323282" y="-136.632349"/>
+                    <PolyStepSegment x="136.319399" y="-136.635289"/>
+                    <PolyStepSegment x="136.147542" y="-136.760152"/>
+                    <PolyStepSegment x="136.143544" y="-136.762938"/>
+                    <PolyStepSegment x="136.119046" y="-136.779306"/>
+                    <PolyStepSegment x="136.114946" y="-136.781931"/>
+                    <PolyStepSegment x="136.081521" y="-136.802413"/>
+                    <PolyStepSegment x="136.077324" y="-136.804873"/>
+                    <PolyStepSegment x="136.051628" y="-136.819264"/>
+                    <PolyStepSegment x="136.047332" y="-136.821560"/>
+                    <PolyStepSegment x="135.858051" y="-136.918003"/>
+                    <PolyStepSegment x="135.853666" y="-136.920129"/>
+                    <PolyStepSegment x="135.826892" y="-136.932471"/>
+                    <PolyStepSegment x="135.822426" y="-136.934425"/>
+                    <PolyStepSegment x="135.786210" y="-136.949423"/>
+                    <PolyStepSegment x="135.781680" y="-136.951195"/>
+                    <PolyStepSegment x="135.754069" y="-136.961380"/>
+                    <PolyStepSegment x="135.749473" y="-136.962974"/>
+                    <PolyStepSegment x="135.547465" y="-137.028611"/>
+                    <PolyStepSegment x="135.542805" y="-137.030025"/>
+                    <PolyStepSegment x="135.514463" y="-137.038018"/>
+                    <PolyStepSegment x="135.509758" y="-137.039245"/>
+                    <PolyStepSegment x="135.471641" y="-137.048398"/>
+                    <PolyStepSegment x="135.466880" y="-137.049443"/>
+                    <PolyStepSegment x="135.437979" y="-137.055192"/>
+                    <PolyStepSegment x="135.433185" y="-137.056048"/>
+                    <PolyStepSegment x="135.223383" y="-137.089277"/>
+                    <PolyStepSegment x="135.218564" y="-137.089944"/>
+                    <PolyStepSegment x="135.189331" y="-137.093405"/>
+                    <PolyStepSegment x="135.184485" y="-137.093882"/>
+                    <PolyStepSegment x="135.145406" y="-137.096959"/>
+                    <PolyStepSegment x="135.140545" y="-137.097246"/>
+                    <PolyStepSegment x="135.1240" y="-137.097896"/>
+                    <PolyStepSegment x="134.1260" y="-137.097896"/>
+                    <PolyStepSegment x="134.1260" y="-136.909876"/>
+                    <PolyStepSegment x="133.952668" y="-136.821560"/>
+                    <PolyStepSegment x="133.948372" y="-136.819264"/>
+                    <PolyStepSegment x="133.922676" y="-136.804873"/>
+                    <PolyStepSegment x="133.918479" y="-136.802413"/>
+                    <PolyStepSegment x="133.885054" y="-136.781931"/>
+                    <PolyStepSegment x="133.880954" y="-136.779306"/>
+                    <PolyStepSegment x="133.856456" y="-136.762938"/>
+                    <PolyStepSegment x="133.852458" y="-136.760152"/>
+                    <PolyStepSegment x="133.680601" y="-136.635289"/>
+                    <PolyStepSegment x="133.676718" y="-136.632349"/>
+                    <PolyStepSegment x="133.653585" y="-136.614112"/>
+                    <PolyStepSegment x="133.649822" y="-136.611024"/>
+                    <PolyStepSegment x="133.620015" y="-136.585566"/>
+                    <PolyStepSegment x="133.616375" y="-136.582331"/>
+                    <PolyStepSegment x="133.594747" y="-136.562338"/>
+                    <PolyStepSegment x="133.591238" y="-136.558964"/>
+                    <PolyStepSegment x="133.441036" y="-136.408762"/>
+                    <PolyStepSegment x="133.437662" y="-136.405253"/>
+                    <PolyStepSegment x="133.417669" y="-136.383625"/>
+                    <PolyStepSegment x="133.414434" y="-136.379985"/>
+                    <PolyStepSegment x="133.388976" y="-136.350178"/>
+                    <PolyStepSegment x="133.385888" y="-136.346415"/>
+                    <PolyStepSegment x="133.367651" y="-136.323282"/>
+                    <PolyStepSegment x="133.364711" y="-136.319399"/>
+                    <PolyStepSegment x="133.239848" y="-136.147542"/>
+                    <PolyStepSegment x="133.237062" y="-136.143544"/>
+                    <PolyStepSegment x="133.220694" y="-136.119046"/>
+                    <PolyStepSegment x="133.218069" y="-136.114946"/>
+                    <PolyStepSegment x="133.197587" y="-136.081521"/>
+                    <PolyStepSegment x="133.195127" y="-136.077324"/>
+                    <PolyStepSegment x="133.180736" y="-136.051628"/>
+                    <PolyStepSegment x="133.178440" y="-136.047332"/>
+                    <PolyStepSegment x="133.081997" y="-135.858051"/>
+                    <PolyStepSegment x="133.079871" y="-135.853666"/>
+                    <PolyStepSegment x="133.067529" y="-135.826892"/>
+                    <PolyStepSegment x="133.065575" y="-135.822426"/>
+                    <PolyStepSegment x="133.050577" y="-135.786210"/>
+                    <PolyStepSegment x="133.048805" y="-135.781680"/>
+                    <PolyStepSegment x="133.038620" y="-135.754069"/>
+                    <PolyStepSegment x="133.037026" y="-135.749473"/>
+                    <PolyStepSegment x="132.971389" y="-135.547465"/>
+                    <PolyStepSegment x="132.969975" y="-135.542805"/>
+                    <PolyStepSegment x="132.961982" y="-135.514463"/>
+                    <PolyStepSegment x="132.960755" y="-135.509758"/>
+                    <PolyStepSegment x="132.951602" y="-135.471641"/>
+                    <PolyStepSegment x="132.950557" y="-135.466880"/>
+                    <PolyStepSegment x="132.944808" y="-135.437979"/>
+                    <PolyStepSegment x="132.943952" y="-135.433185"/>
+                    <PolyStepSegment x="132.910723" y="-135.223383"/>
+                    <PolyStepSegment x="132.910056" y="-135.218564"/>
+                    <PolyStepSegment x="132.906595" y="-135.189331"/>
+                    <PolyStepSegment x="132.906118" y="-135.184485"/>
+                    <PolyStepSegment x="132.903041" y="-135.145406"/>
+                    <PolyStepSegment x="132.902754" y="-135.140545"/>
+                    <PolyStepSegment x="132.902103" y="-135.1240"/>
+                    <PolyStepSegment x="132.1240" y="-135.1240"/>
+                    <PolyStepSegment x="132.1240" y="-137.1260"/>
+                    <PolyStepSegment x="131.1260" y="-137.1260"/>
+                    <PolyStepSegment x="131.1260" y="-135.1240"/>
+                    <PolyStepSegment x="129.1240" y="-135.1240"/>
+                    <PolyStepSegment x="129.1240" y="-137.1260"/>
+                    <PolyStepSegment x="128.1260" y="-137.1260"/>
+                    <PolyStepSegment x="128.1260" y="-135.1240"/>
+                    <PolyStepSegment x="126.1240" y="-135.1240"/>
+                    <PolyStepSegment x="126.1240" y="-137.1260"/>
+                    <PolyStepSegment x="125.1260" y="-137.1260"/>
+                    <PolyStepSegment x="125.1260" y="-135.1240"/>
+                    <PolyStepSegment x="123.1240" y="-135.1240"/>
+                    <PolyStepSegment x="123.1240" y="-137.1260"/>
+                    <PolyStepSegment x="122.1260" y="-137.1260"/>
+                    <PolyStepSegment x="122.1260" y="-135.1240"/>
+                    <PolyStepSegment x="120.1240" y="-135.1240"/>
+                    <PolyStepSegment x="120.1240" y="-137.1260"/>
+                    <PolyStepSegment x="119.1260" y="-137.1260"/>
+                    <PolyStepSegment x="119.1260" y="-135.1240"/>
+                    <PolyStepSegment x="117.1240" y="-135.1240"/>
+                    <PolyStepSegment x="117.1240" y="-137.1260"/>
+                    <PolyStepSegment x="116.1260" y="-137.1260"/>
+                    <PolyStepSegment x="116.1260" y="-135.1240"/>
+                    <PolyStepSegment x="114.1240" y="-135.1240"/>
+                    <PolyStepSegment x="114.1240" y="-137.1260"/>
+                    <PolyStepSegment x="113.1260" y="-137.1260"/>
+                    <PolyStepSegment x="113.1260" y="-135.1240"/>
+                    <PolyStepSegment x="111.1240" y="-135.1240"/>
+                    <PolyStepSegment x="111.1240" y="-137.1260"/>
+                    <PolyStepSegment x="110.1260" y="-137.1260"/>
+                    <PolyStepSegment x="110.1260" y="-135.1240"/>
+                    <PolyStepSegment x="108.1240" y="-135.1240"/>
+                    <PolyStepSegment x="108.1240" y="-137.1260"/>
+                    <PolyStepSegment x="107.1260" y="-137.1260"/>
+                    <PolyStepSegment x="107.1260" y="-135.1240"/>
+                    <PolyStepSegment x="105.1240" y="-135.1240"/>
+                    <PolyStepSegment x="105.1240" y="-137.1260"/>
+                    <PolyStepSegment x="104.1260" y="-137.1260"/>
+                    <PolyStepSegment x="104.1260" y="-135.1240"/>
+                    <PolyStepSegment x="102.1240" y="-135.1240"/>
+                    <PolyStepSegment x="102.1240" y="-137.1260"/>
+                    <PolyStepSegment x="100.0" y="-137.1260"/>
+                    <PolyStepSegment x="100.0" y="-134.913389"/>
+                    <PolyStepSegment x="133.89950" y="-134.913389"/>
+                    <PolyStepSegment x="133.89950" y="-135.086610"/>
+                    <PolyStepSegment x="133.921162" y="-135.223383"/>
+                    <PolyStepSegment x="133.926598" y="-135.257701"/>
+                    <PolyStepSegment x="133.980127" y="-135.422445"/>
+                    <PolyStepSegment x="134.058768" y="-135.576788"/>
+                    <PolyStepSegment x="134.160586" y="-135.716928"/>
+                    <PolyStepSegment x="134.283072" y="-135.839414"/>
+                    <PolyStepSegment x="134.423212" y="-135.941232"/>
+                    <PolyStepSegment x="134.577555" y="-136.019873"/>
+                    <PolyStepSegment x="134.742299" y="-136.073402"/>
+                    <PolyStepSegment x="134.913389" y="-136.10050"/>
+                    <PolyStepSegment x="134.913390" y="-136.10050"/>
+                    <PolyStepSegment x="135.086610" y="-136.10050"/>
+                    <PolyStepSegment x="135.086611" y="-136.10050"/>
+                    <PolyStepSegment x="135.257701" y="-136.073402"/>
+                    <PolyStepSegment x="135.422445" y="-136.019873"/>
+                    <PolyStepSegment x="135.576788" y="-135.941232"/>
+                    <PolyStepSegment x="135.716928" y="-135.839414"/>
+                    <PolyStepSegment x="135.839414" y="-135.716928"/>
+                    <PolyStepSegment x="135.941232" y="-135.576788"/>
+                    <PolyStepSegment x="136.019873" y="-135.422445"/>
+                    <PolyStepSegment x="136.073402" y="-135.257701"/>
+                    <PolyStepSegment x="136.10050" y="-135.086611"/>
+                    <PolyStepSegment x="136.10050" y="-134.913389"/>
+                    <PolyStepSegment x="136.073402" y="-134.742299"/>
+                    <PolyStepSegment x="136.019873" y="-134.577555"/>
+                    <PolyStepSegment x="135.941232" y="-134.423212"/>
+                    <PolyStepSegment x="135.839414" y="-134.283072"/>
+                    <PolyStepSegment x="135.716928" y="-134.160586"/>
+                    <PolyStepSegment x="135.576788" y="-134.058768"/>
+                    <PolyStepSegment x="135.422445" y="-133.980127"/>
+                    <PolyStepSegment x="135.257701" y="-133.926598"/>
+                    <PolyStepSegment x="135.257699" y="-133.926597"/>
+                    <PolyStepSegment x="135.257698" y="-133.926597"/>
+                    <PolyStepSegment x="135.126271" y="-133.905781"/>
+                    <PolyStepSegment x="135.086611" y="-133.89950"/>
+                    <PolyStepSegment x="134.913389" y="-133.89950"/>
+                    <PolyStepSegment x="134.873728" y="-133.905781"/>
+                    <PolyStepSegment x="134.742302" y="-133.926597"/>
+                    <PolyStepSegment x="134.577552" y="-133.980128"/>
+                    <PolyStepSegment x="134.423211" y="-134.058768"/>
+                    <PolyStepSegment x="134.343256" y="-134.116859"/>
+                    <PolyStepSegment x="134.283072" y="-134.160586"/>
+                    <PolyStepSegment x="134.283070" y="-134.160588"/>
+                    <PolyStepSegment x="134.283069" y="-134.160588"/>
+                    <PolyStepSegment x="134.160588" y="-134.283069"/>
+                    <PolyStepSegment x="134.160588" y="-134.283070"/>
+                    <PolyStepSegment x="134.160586" y="-134.283072"/>
+                    <PolyStepSegment x="134.116859" y="-134.343256"/>
+                    <PolyStepSegment x="134.058768" y="-134.423211"/>
+                    <PolyStepSegment x="133.980128" y="-134.577552"/>
+                    <PolyStepSegment x="133.926597" y="-134.742302"/>
+                    <PolyStepSegment x="133.89950" y="-134.913389"/>
+                    <PolyStepSegment x="100.0" y="-134.913389"/>
+                    <PolyStepSegment x="100.0" y="-134.1260"/>
+                    <PolyStepSegment x="102.1240" y="-134.1260"/>
+                    <PolyStepSegment x="104.1260" y="-134.1260"/>
+                    <PolyStepSegment x="105.1240" y="-134.1260"/>
+                    <PolyStepSegment x="107.1260" y="-134.1260"/>
+                    <PolyStepSegment x="108.1240" y="-134.1260"/>
+                    <PolyStepSegment x="110.1260" y="-134.1260"/>
+                    <PolyStepSegment x="111.1240" y="-134.1260"/>
+                    <PolyStepSegment x="113.1260" y="-134.1260"/>
+                    <PolyStepSegment x="114.1240" y="-134.1260"/>
+                    <PolyStepSegment x="116.1260" y="-134.1260"/>
+                    <PolyStepSegment x="117.1240" y="-134.1260"/>
+                    <PolyStepSegment x="119.1260" y="-134.1260"/>
+                    <PolyStepSegment x="120.1240" y="-134.1260"/>
+                    <PolyStepSegment x="122.1260" y="-134.1260"/>
+                    <PolyStepSegment x="123.1240" y="-134.1260"/>
+                    <PolyStepSegment x="125.1260" y="-134.1260"/>
+                    <PolyStepSegment x="126.1240" y="-134.1260"/>
+                    <PolyStepSegment x="128.1260" y="-134.1260"/>
+                    <PolyStepSegment x="129.1240" y="-134.1260"/>
+                    <PolyStepSegment x="131.1260" y="-134.1260"/>
+                    <PolyStepSegment x="132.1240" y="-134.1260"/>
+                    <PolyStepSegment x="133.090123" y="-134.1260"/>
+                    <PolyStepSegment x="133.178440" y="-133.952668"/>
+                    <PolyStepSegment x="133.180736" y="-133.948372"/>
+                    <PolyStepSegment x="133.195127" y="-133.922676"/>
+                    <PolyStepSegment x="133.197587" y="-133.918479"/>
+                    <PolyStepSegment x="133.218069" y="-133.885054"/>
+                    <PolyStepSegment x="133.220694" y="-133.880954"/>
+                    <PolyStepSegment x="133.237062" y="-133.856456"/>
+                    <PolyStepSegment x="133.239848" y="-133.852458"/>
+                    <PolyStepSegment x="133.364711" y="-133.680601"/>
+                    <PolyStepSegment x="133.367651" y="-133.676718"/>
+                    <PolyStepSegment x="133.385888" y="-133.653585"/>
+                    <PolyStepSegment x="133.388976" y="-133.649822"/>
+                    <PolyStepSegment x="133.414434" y="-133.620015"/>
+                    <PolyStepSegment x="133.417669" y="-133.616375"/>
+                    <PolyStepSegment x="133.437662" y="-133.594747"/>
+                    <PolyStepSegment x="133.441036" y="-133.591238"/>
+                    <PolyStepSegment x="133.591238" y="-133.441036"/>
+                    <PolyStepSegment x="133.594747" y="-133.437662"/>
+                    <PolyStepSegment x="133.616375" y="-133.417669"/>
+                    <PolyStepSegment x="133.620015" y="-133.414434"/>
+                    <PolyStepSegment x="133.649822" y="-133.388976"/>
+                    <PolyStepSegment x="133.653585" y="-133.385888"/>
+                    <PolyStepSegment x="133.676718" y="-133.367651"/>
+                    <PolyStepSegment x="133.680601" y="-133.364711"/>
+                    <PolyStepSegment x="133.852458" y="-133.239848"/>
+                    <PolyStepSegment x="133.856456" y="-133.237062"/>
+                    <PolyStepSegment x="133.880954" y="-133.220694"/>
+                    <PolyStepSegment x="133.885054" y="-133.218069"/>
+                    <PolyStepSegment x="133.918479" y="-133.197587"/>
+                    <PolyStepSegment x="133.922676" y="-133.195127"/>
+                    <PolyStepSegment x="133.948372" y="-133.180736"/>
+                    <PolyStepSegment x="133.952668" y="-133.178440"/>
+                    <PolyStepSegment x="134.1260" y="-133.090123"/>
+                    <PolyStepSegment x="134.1260" y="-132.902103"/>
+                    <PolyStepSegment x="135.1240" y="-132.902103"/>
+                    <PolyStepSegment x="135.140545" y="-132.902754"/>
+                    <PolyStepSegment x="135.145406" y="-132.903041"/>
+                    <PolyStepSegment x="135.184485" y="-132.906118"/>
+                    <PolyStepSegment x="135.189331" y="-132.906595"/>
+                    <PolyStepSegment x="135.218564" y="-132.910056"/>
+                    <PolyStepSegment x="135.223383" y="-132.910723"/>
+                    <PolyStepSegment x="135.433185" y="-132.943952"/>
+                    <PolyStepSegment x="135.437979" y="-132.944808"/>
+                    <PolyStepSegment x="135.466880" y="-132.950557"/>
+                    <PolyStepSegment x="135.471641" y="-132.951602"/>
+                    <PolyStepSegment x="135.509758" y="-132.960755"/>
+                    <PolyStepSegment x="135.514463" y="-132.961982"/>
+                    <PolyStepSegment x="135.542805" y="-132.969975"/>
+                    <PolyStepSegment x="135.547465" y="-132.971389"/>
+                    <PolyStepSegment x="135.749473" y="-133.037026"/>
+                    <PolyStepSegment x="135.754069" y="-133.038620"/>
+                    <PolyStepSegment x="135.781680" y="-133.048805"/>
+                    <PolyStepSegment x="135.786210" y="-133.050577"/>
+                    <PolyStepSegment x="135.822426" y="-133.065575"/>
+                    <PolyStepSegment x="135.826892" y="-133.067529"/>
+                    <PolyStepSegment x="135.853666" y="-133.079871"/>
+                    <PolyStepSegment x="135.858051" y="-133.081997"/>
+                    <PolyStepSegment x="136.047332" y="-133.178440"/>
+                    <PolyStepSegment x="136.051628" y="-133.180736"/>
+                    <PolyStepSegment x="136.077324" y="-133.195127"/>
+                    <PolyStepSegment x="136.081521" y="-133.197587"/>
+                    <PolyStepSegment x="136.114946" y="-133.218069"/>
+                    <PolyStepSegment x="136.119046" y="-133.220694"/>
+                    <PolyStepSegment x="136.143544" y="-133.237062"/>
+                    <PolyStepSegment x="136.147542" y="-133.239848"/>
+                    <PolyStepSegment x="136.319399" y="-133.364711"/>
+                    <PolyStepSegment x="136.323282" y="-133.367651"/>
+                    <PolyStepSegment x="136.346415" y="-133.385888"/>
+                    <PolyStepSegment x="136.350178" y="-133.388976"/>
+                    <PolyStepSegment x="136.379985" y="-133.414434"/>
+                    <PolyStepSegment x="136.383625" y="-133.417669"/>
+                    <PolyStepSegment x="136.405253" y="-133.437662"/>
+                    <PolyStepSegment x="136.408762" y="-133.441036"/>
+                    <PolyStepSegment x="136.558964" y="-133.591238"/>
+                    <PolyStepSegment x="136.562338" y="-133.594747"/>
+                    <PolyStepSegment x="136.582331" y="-133.616375"/>
+                    <PolyStepSegment x="136.585566" y="-133.620015"/>
+                    <PolyStepSegment x="136.611024" y="-133.649822"/>
+                    <PolyStepSegment x="136.614112" y="-133.653585"/>
+                    <PolyStepSegment x="136.632349" y="-133.676718"/>
+                    <PolyStepSegment x="136.635289" y="-133.680601"/>
+                    <PolyStepSegment x="136.760152" y="-133.852458"/>
+                    <PolyStepSegment x="136.762938" y="-133.856456"/>
+                    <PolyStepSegment x="136.779306" y="-133.880954"/>
+                    <PolyStepSegment x="136.781931" y="-133.885054"/>
+                    <PolyStepSegment x="136.802413" y="-133.918479"/>
+                    <PolyStepSegment x="136.804873" y="-133.922676"/>
+                    <PolyStepSegment x="136.819264" y="-133.948372"/>
+                    <PolyStepSegment x="136.821560" y="-133.952668"/>
+                    <PolyStepSegment x="136.909877" y="-134.1260"/>
+                    <PolyStepSegment x="137.1260" y="-134.1260"/>
+                    <PolyStepSegment x="138.1240" y="-134.1260"/>
+                    <PolyStepSegment x="139.0020" y="-134.1260"/>
+                    <PolyStepSegment x="139.0020" y="-132.1240"/>
+                    <PolyStepSegment x="138.1240" y="-132.1240"/>
+                    <PolyStepSegment x="138.1240" y="-134.1260"/>
+                    <PolyStepSegment x="137.1260" y="-134.1260"/>
+                    <PolyStepSegment x="137.1260" y="-132.1240"/>
+                    <PolyStepSegment x="135.1240" y="-132.1240"/>
+                    <PolyStepSegment x="135.1240" y="-132.902103"/>
+                    <PolyStepSegment x="134.1260" y="-132.902103"/>
+                    <PolyStepSegment x="134.1260" y="-132.1240"/>
+                    <PolyStepSegment x="132.1240" y="-132.1240"/>
+                    <PolyStepSegment x="132.1240" y="-134.1260"/>
+                    <PolyStepSegment x="131.1260" y="-134.1260"/>
+                    <PolyStepSegment x="131.1260" y="-132.1240"/>
+                    <PolyStepSegment x="129.1240" y="-132.1240"/>
+                    <PolyStepSegment x="129.1240" y="-134.1260"/>
+                    <PolyStepSegment x="128.1260" y="-134.1260"/>
+                    <PolyStepSegment x="128.1260" y="-132.1240"/>
+                    <PolyStepSegment x="126.1240" y="-132.1240"/>
+                    <PolyStepSegment x="126.1240" y="-134.1260"/>
+                    <PolyStepSegment x="125.1260" y="-134.1260"/>
+                    <PolyStepSegment x="125.1260" y="-132.1240"/>
+                    <PolyStepSegment x="123.1240" y="-132.1240"/>
+                    <PolyStepSegment x="123.1240" y="-134.1260"/>
+                    <PolyStepSegment x="122.1260" y="-134.1260"/>
+                    <PolyStepSegment x="122.1260" y="-132.1240"/>
+                    <PolyStepSegment x="120.1240" y="-132.1240"/>
+                    <PolyStepSegment x="120.1240" y="-134.1260"/>
+                    <PolyStepSegment x="119.1260" y="-134.1260"/>
+                    <PolyStepSegment x="119.1260" y="-132.1240"/>
+                    <PolyStepSegment x="117.1240" y="-132.1240"/>
+                    <PolyStepSegment x="117.1240" y="-134.1260"/>
+                    <PolyStepSegment x="116.1260" y="-134.1260"/>
+                    <PolyStepSegment x="116.1260" y="-132.1240"/>
+                    <PolyStepSegment x="114.1240" y="-132.1240"/>
+                    <PolyStepSegment x="114.1240" y="-134.1260"/>
+                    <PolyStepSegment x="113.1260" y="-134.1260"/>
+                    <PolyStepSegment x="113.1260" y="-132.1240"/>
+                    <PolyStepSegment x="111.1240" y="-132.1240"/>
+                    <PolyStepSegment x="111.1240" y="-134.1260"/>
+                    <PolyStepSegment x="110.1260" y="-134.1260"/>
+                    <PolyStepSegment x="110.1260" y="-132.1240"/>
+                    <PolyStepSegment x="108.1240" y="-132.1240"/>
+                    <PolyStepSegment x="108.1240" y="-134.1260"/>
+                    <PolyStepSegment x="107.1260" y="-134.1260"/>
+                    <PolyStepSegment x="107.1260" y="-132.1240"/>
+                    <PolyStepSegment x="105.1240" y="-132.1240"/>
+                    <PolyStepSegment x="105.1240" y="-134.1260"/>
+                    <PolyStepSegment x="104.1260" y="-134.1260"/>
+                    <PolyStepSegment x="104.1260" y="-132.1240"/>
+                    <PolyStepSegment x="102.1240" y="-132.1240"/>
+                    <PolyStepSegment x="102.1240" y="-134.1260"/>
+                    <PolyStepSegment x="100.0" y="-134.1260"/>
+                    <PolyStepSegment x="100.0" y="-131.1260"/>
+                    <PolyStepSegment x="102.1240" y="-131.1260"/>
+                    <PolyStepSegment x="104.1260" y="-131.1260"/>
+                    <PolyStepSegment x="105.1240" y="-131.1260"/>
+                    <PolyStepSegment x="107.1260" y="-131.1260"/>
+                    <PolyStepSegment x="108.1240" y="-131.1260"/>
+                    <PolyStepSegment x="110.1260" y="-131.1260"/>
+                    <PolyStepSegment x="110.1260" y="-129.794554"/>
+                    <PolyStepSegment x="111.1240" y="-129.794554"/>
+                    <PolyStepSegment x="111.1240" y="-131.1260"/>
+                    <PolyStepSegment x="113.1260" y="-131.1260"/>
+                    <PolyStepSegment x="114.1240" y="-131.1260"/>
+                    <PolyStepSegment x="116.1260" y="-131.1260"/>
+                    <PolyStepSegment x="117.1240" y="-131.1260"/>
+                    <PolyStepSegment x="119.1260" y="-131.1260"/>
+                    <PolyStepSegment x="120.1240" y="-131.1260"/>
+                    <PolyStepSegment x="122.1260" y="-131.1260"/>
+                    <PolyStepSegment x="123.1240" y="-131.1260"/>
+                    <PolyStepSegment x="125.1260" y="-131.1260"/>
+                    <PolyStepSegment x="126.1240" y="-131.1260"/>
+                    <PolyStepSegment x="128.1260" y="-131.1260"/>
+                    <PolyStepSegment x="129.1240" y="-131.1260"/>
+                    <PolyStepSegment x="131.1260" y="-131.1260"/>
+                    <PolyStepSegment x="132.1240" y="-131.1260"/>
+                    <PolyStepSegment x="134.1260" y="-131.1260"/>
+                    <PolyStepSegment x="135.1240" y="-131.1260"/>
+                    <PolyStepSegment x="137.1260" y="-131.1260"/>
+                    <PolyStepSegment x="138.1240" y="-131.1260"/>
+                    <PolyStepSegment x="139.0020" y="-131.1260"/>
+                    <PolyStepSegment x="139.0020" y="-129.1240"/>
+                    <PolyStepSegment x="138.1240" y="-129.1240"/>
+                    <PolyStepSegment x="138.1240" y="-131.1260"/>
+                    <PolyStepSegment x="137.1260" y="-131.1260"/>
+                    <PolyStepSegment x="137.1260" y="-129.1240"/>
+                    <PolyStepSegment x="135.1240" y="-129.1240"/>
+                    <PolyStepSegment x="135.1240" y="-131.1260"/>
+                    <PolyStepSegment x="134.1260" y="-131.1260"/>
+                    <PolyStepSegment x="134.1260" y="-129.1240"/>
+                    <PolyStepSegment x="132.1240" y="-129.1240"/>
+                    <PolyStepSegment x="132.1240" y="-131.1260"/>
+                    <PolyStepSegment x="131.1260" y="-131.1260"/>
+                    <PolyStepSegment x="131.1260" y="-129.1240"/>
+                    <PolyStepSegment x="129.1240" y="-129.1240"/>
+                    <PolyStepSegment x="129.1240" y="-131.1260"/>
+                    <PolyStepSegment x="128.1260" y="-131.1260"/>
+                    <PolyStepSegment x="128.1260" y="-129.1240"/>
+                    <PolyStepSegment x="126.1240" y="-129.1240"/>
+                    <PolyStepSegment x="126.1240" y="-131.1260"/>
+                    <PolyStepSegment x="125.1260" y="-131.1260"/>
+                    <PolyStepSegment x="125.1260" y="-129.1240"/>
+                    <PolyStepSegment x="123.1240" y="-129.1240"/>
+                    <PolyStepSegment x="123.1240" y="-131.1260"/>
+                    <PolyStepSegment x="122.1260" y="-131.1260"/>
+                    <PolyStepSegment x="122.1260" y="-129.1240"/>
+                    <PolyStepSegment x="120.1240" y="-129.1240"/>
+                    <PolyStepSegment x="120.1240" y="-131.1260"/>
+                    <PolyStepSegment x="119.1260" y="-131.1260"/>
+                    <PolyStepSegment x="119.1260" y="-129.1240"/>
+                    <PolyStepSegment x="117.1240" y="-129.1240"/>
+                    <PolyStepSegment x="117.1240" y="-131.1260"/>
+                    <PolyStepSegment x="116.1260" y="-131.1260"/>
+                    <PolyStepSegment x="116.1260" y="-129.1240"/>
+                    <PolyStepSegment x="114.1240" y="-129.1240"/>
+                    <PolyStepSegment x="114.1240" y="-131.1260"/>
+                    <PolyStepSegment x="113.1260" y="-131.1260"/>
+                    <PolyStepSegment x="113.1260" y="-129.644813"/>
+                    <PolyStepSegment x="113.005481" y="-129.725342"/>
+                    <PolyStepSegment x="113.000338" y="-129.728599"/>
+                    <PolyStepSegment x="112.968745" y="-129.747535"/>
+                    <PolyStepSegment x="112.963448" y="-129.750535"/>
+                    <PolyStepSegment x="112.920227" y="-129.773636"/>
+                    <PolyStepSegment x="112.914792" y="-129.776372"/>
+                    <PolyStepSegment x="112.881512" y="-129.792112"/>
+                    <PolyStepSegment x="112.875948" y="-129.794578"/>
+                    <PolyStepSegment x="112.649563" y="-129.888349"/>
+                    <PolyStepSegment x="112.643885" y="-129.890540"/>
+                    <PolyStepSegment x="112.609215" y="-129.902945"/>
+                    <PolyStepSegment x="112.603436" y="-129.904854"/>
+                    <PolyStepSegment x="112.556539" y="-129.919080"/>
+                    <PolyStepSegment x="112.550672" y="-129.920703"/>
+                    <PolyStepSegment x="112.514952" y="-129.929650"/>
+                    <PolyStepSegment x="112.509015" y="-129.930983"/>
+                    <PolyStepSegment x="112.221995" y="-129.988075"/>
+                    <PolyStepSegment x="112.167673" y="-129.986742"/>
+                    <PolyStepSegment x="112.0" y="-129.944740"/>
+                    <PolyStepSegment x="111.832327" y="-129.986742"/>
+                    <PolyStepSegment x="111.778005" y="-129.988075"/>
+                    <PolyStepSegment x="111.490985" y="-129.930983"/>
+                    <PolyStepSegment x="111.485048" y="-129.929650"/>
+                    <PolyStepSegment x="111.449328" y="-129.920703"/>
+                    <PolyStepSegment x="111.443461" y="-129.919080"/>
+                    <PolyStepSegment x="111.396564" y="-129.904854"/>
+                    <PolyStepSegment x="111.390785" y="-129.902945"/>
+                    <PolyStepSegment x="111.356115" y="-129.890540"/>
+                    <PolyStepSegment x="111.350437" y="-129.888349"/>
+                    <PolyStepSegment x="111.124052" y="-129.794578"/>
+                    <PolyStepSegment x="111.1240" y="-129.794554"/>
+                    <PolyStepSegment x="110.1260" y="-129.794554"/>
+                    <PolyStepSegment x="110.1260" y="-129.1240"/>
+                    <PolyStepSegment x="108.1240" y="-129.1240"/>
+                    <PolyStepSegment x="108.1240" y="-131.1260"/>
+                    <PolyStepSegment x="107.1260" y="-131.1260"/>
+                    <PolyStepSegment x="107.1260" y="-129.1240"/>
+                    <PolyStepSegment x="105.1240" y="-129.1240"/>
+                    <PolyStepSegment x="105.1240" y="-131.1260"/>
+                    <PolyStepSegment x="104.1260" y="-131.1260"/>
+                    <PolyStepSegment x="104.1260" y="-129.1240"/>
+                    <PolyStepSegment x="102.1240" y="-129.1240"/>
+                    <PolyStepSegment x="102.1240" y="-131.1260"/>
+                    <PolyStepSegment x="100.0" y="-131.1260"/>
+                    <PolyStepSegment x="100.0" y="-128.30"/>
+                    <PolyStepSegment x="111.047084" y="-128.30"/>
+                    <PolyStepSegment x="111.118077" y="-128.471394"/>
+                    <PolyStepSegment x="111.118082" y="-128.471403"/>
+                    <PolyStepSegment x="111.226989" y="-128.634392"/>
+                    <PolyStepSegment x="111.226992" y="-128.634396"/>
+                    <PolyStepSegment x="111.365603" y="-128.773007"/>
+                    <PolyStepSegment x="111.365607" y="-128.773010"/>
+                    <PolyStepSegment x="111.528596" y="-128.881917"/>
+                    <PolyStepSegment x="111.528605" y="-128.881922"/>
+                    <PolyStepSegment x="111.709712" y="-128.956938"/>
+                    <PolyStepSegment x="111.709722" y="-128.956941"/>
+                    <PolyStepSegment x="111.749999" y="-128.964953"/>
+                    <PolyStepSegment x="111.750" y="-128.964953"/>
+                    <PolyStepSegment x="112.250" y="-128.964953"/>
+                    <PolyStepSegment x="112.290277" y="-128.956941"/>
+                    <PolyStepSegment x="112.290287" y="-128.956938"/>
+                    <PolyStepSegment x="112.471394" y="-128.881922"/>
+                    <PolyStepSegment x="112.471403" y="-128.881917"/>
+                    <PolyStepSegment x="112.634392" y="-128.773010"/>
+                    <PolyStepSegment x="112.634396" y="-128.773007"/>
+                    <PolyStepSegment x="112.773007" y="-128.634396"/>
+                    <PolyStepSegment x="112.773010" y="-128.634392"/>
+                    <PolyStepSegment x="112.881917" y="-128.471403"/>
+                    <PolyStepSegment x="112.881922" y="-128.471394"/>
+                    <PolyStepSegment x="112.952916" y="-128.30"/>
+                    <PolyStepSegment x="112.250" y="-128.30"/>
+                    <PolyStepSegment x="112.250" y="-128.964953"/>
+                    <PolyStepSegment x="111.750" y="-128.964953"/>
+                    <PolyStepSegment x="111.750" y="-128.30"/>
+                    <PolyStepSegment x="111.047084" y="-128.30"/>
+                    <PolyStepSegment x="100.0" y="-128.30"/>
+                    <PolyStepSegment x="100.0" y="-128.1260"/>
+                    <PolyStepSegment x="102.1240" y="-128.1260"/>
+                    <PolyStepSegment x="104.1260" y="-128.1260"/>
+                    <PolyStepSegment x="105.1240" y="-128.1260"/>
+                    <PolyStepSegment x="107.1260" y="-128.1260"/>
+                    <PolyStepSegment x="108.1240" y="-128.1260"/>
+                    <PolyStepSegment x="109.747099" y="-128.1260"/>
+                    <PolyStepSegment x="114.25290" y="-128.1260"/>
+                    <PolyStepSegment x="116.1260" y="-128.1260"/>
+                    <PolyStepSegment x="117.1240" y="-128.1260"/>
+                    <PolyStepSegment x="119.1260" y="-128.1260"/>
+                    <PolyStepSegment x="120.1240" y="-128.1260"/>
+                    <PolyStepSegment x="122.1260" y="-128.1260"/>
+                    <PolyStepSegment x="123.1240" y="-128.1260"/>
+                    <PolyStepSegment x="125.1260" y="-128.1260"/>
+                    <PolyStepSegment x="129.348798" y="-128.1260"/>
+                    <PolyStepSegment x="131.1260" y="-128.1260"/>
+                    <PolyStepSegment x="132.1240" y="-128.1260"/>
+                    <PolyStepSegment x="134.1260" y="-128.1260"/>
+                    <PolyStepSegment x="135.1240" y="-128.1260"/>
+                    <PolyStepSegment x="137.1260" y="-128.1260"/>
+                    <PolyStepSegment x="138.1240" y="-128.1260"/>
+                    <PolyStepSegment x="139.0020" y="-128.1260"/>
+                    <PolyStepSegment x="139.0020" y="-126.1240"/>
+                    <PolyStepSegment x="138.1240" y="-126.1240"/>
+                    <PolyStepSegment x="138.1240" y="-128.1260"/>
+                    <PolyStepSegment x="137.1260" y="-128.1260"/>
+                    <PolyStepSegment x="137.1260" y="-126.1240"/>
+                    <PolyStepSegment x="135.1240" y="-126.1240"/>
+                    <PolyStepSegment x="135.1240" y="-128.1260"/>
+                    <PolyStepSegment x="134.1260" y="-128.1260"/>
+                    <PolyStepSegment x="134.1260" y="-126.1240"/>
+                    <PolyStepSegment x="132.1240" y="-126.1240"/>
+                    <PolyStepSegment x="132.1240" y="-128.1260"/>
+                    <PolyStepSegment x="131.1260" y="-128.1260"/>
+                    <PolyStepSegment x="131.1260" y="-126.1240"/>
+                    <PolyStepSegment x="130.248499" y="-126.1240"/>
+                    <PolyStepSegment x="130.24850" y="-126.811248"/>
+                    <PolyStepSegment x="130.248455" y="-126.814572"/>
+                    <PolyStepSegment x="130.247916" y="-126.834673"/>
+                    <PolyStepSegment x="130.247783" y="-126.837993"/>
+                    <PolyStepSegment x="130.246351" y="-126.864680"/>
+                    <PolyStepSegment x="130.246129" y="-126.867989"/>
+                    <PolyStepSegment x="130.244519" y="-126.887982"/>
+                    <PolyStepSegment x="130.244208" y="-126.891285"/>
+                    <PolyStepSegment x="130.233038" y="-126.995175"/>
+                    <PolyStepSegment x="130.231971" y="-127.002843"/>
+                    <PolyStepSegment x="130.224064" y="-127.049029"/>
+                    <PolyStepSegment x="130.222519" y="-127.056619"/>
+                    <PolyStepSegment x="130.208174" y="-127.117330"/>
+                    <PolyStepSegment x="130.206158" y="-127.124809"/>
+                    <PolyStepSegment x="130.192550" y="-127.169672"/>
+                    <PolyStepSegment x="130.190071" y="-127.177012"/>
+                    <PolyStepSegment x="130.116413" y="-127.374502"/>
+                    <PolyStepSegment x="130.113025" y="-127.382682"/>
+                    <PolyStepSegment x="130.090767" y="-127.431419"/>
+                    <PolyStepSegment x="130.086805" y="-127.439333"/>
+                    <PolyStepSegment x="130.052628" y="-127.501923"/>
+                    <PolyStepSegment x="130.048110" y="-127.509537"/>
+                    <PolyStepSegment x="130.019146" y="-127.554604"/>
+                    <PolyStepSegment x="130.014098" y="-127.561874"/>
+                    <PolyStepSegment x="129.885114" y="-127.734173"/>
+                    <PolyStepSegment x="129.879561" y="-127.741064"/>
+                    <PolyStepSegment x="129.844481" y="-127.781549"/>
+                    <PolyStepSegment x="129.838449" y="-127.788028"/>
+                    <PolyStepSegment x="129.788028" y="-127.838449"/>
+                    <PolyStepSegment x="129.781549" y="-127.844481"/>
+                    <PolyStepSegment x="129.741064" y="-127.879561"/>
+                    <PolyStepSegment x="129.734173" y="-127.885114"/>
+                    <PolyStepSegment x="129.561874" y="-128.014098"/>
+                    <PolyStepSegment x="129.554604" y="-128.019146"/>
+                    <PolyStepSegment x="129.509537" y="-128.048110"/>
+                    <PolyStepSegment x="129.501923" y="-128.052628"/>
+                    <PolyStepSegment x="129.439333" y="-128.086805"/>
+                    <PolyStepSegment x="129.431419" y="-128.090767"/>
+                    <PolyStepSegment x="129.382682" y="-128.113025"/>
+                    <PolyStepSegment x="129.374502" y="-128.116413"/>
+                    <PolyStepSegment x="129.348798" y="-128.1260"/>
+                    <PolyStepSegment x="125.1260" y="-128.1260"/>
+                    <PolyStepSegment x="125.1260" y="-126.1240"/>
+                    <PolyStepSegment x="123.1240" y="-126.1240"/>
+                    <PolyStepSegment x="123.1240" y="-128.1260"/>
+                    <PolyStepSegment x="122.1260" y="-128.1260"/>
+                    <PolyStepSegment x="122.1260" y="-126.1240"/>
+                    <PolyStepSegment x="120.1240" y="-126.1240"/>
+                    <PolyStepSegment x="120.1240" y="-128.1260"/>
+                    <PolyStepSegment x="119.1260" y="-128.1260"/>
+                    <PolyStepSegment x="119.1260" y="-126.1240"/>
+                    <PolyStepSegment x="117.1240" y="-126.1240"/>
+                    <PolyStepSegment x="117.1240" y="-128.1260"/>
+                    <PolyStepSegment x="116.1260" y="-128.1260"/>
+                    <PolyStepSegment x="116.1260" y="-126.1240"/>
+                    <PolyStepSegment x="114.4980" y="-126.1240"/>
+                    <PolyStepSegment x="114.4980" y="-127.361177"/>
+                    <PolyStepSegment x="114.497956" y="-127.364491"/>
+                    <PolyStepSegment x="114.497420" y="-127.384539"/>
+                    <PolyStepSegment x="114.497287" y="-127.387855"/>
+                    <PolyStepSegment x="114.495858" y="-127.414542"/>
+                    <PolyStepSegment x="114.495636" y="-127.417856"/>
+                    <PolyStepSegment x="114.494023" y="-127.437905"/>
+                    <PolyStepSegment x="114.493711" y="-127.441217"/>
+                    <PolyStepSegment x="114.482545" y="-127.545069"/>
+                    <PolyStepSegment x="114.481478" y="-127.552738"/>
+                    <PolyStepSegment x="114.473572" y="-127.598916"/>
+                    <PolyStepSegment x="114.472028" y="-127.606501"/>
+                    <PolyStepSegment x="114.457685" y="-127.667212"/>
+                    <PolyStepSegment x="114.455668" y="-127.674694"/>
+                    <PolyStepSegment x="114.442058" y="-127.719564"/>
+                    <PolyStepSegment x="114.439579" y="-127.726905"/>
+                    <PolyStepSegment x="114.365966" y="-127.924270"/>
+                    <PolyStepSegment x="114.362577" y="-127.932452"/>
+                    <PolyStepSegment x="114.340312" y="-127.981202"/>
+                    <PolyStepSegment x="114.336348" y="-127.989119"/>
+                    <PolyStepSegment x="114.302161" y="-128.051721"/>
+                    <PolyStepSegment x="114.297643" y="-128.059336"/>
+                    <PolyStepSegment x="114.268673" y="-128.104407"/>
+                    <PolyStepSegment x="114.263624" y="-128.111677"/>
+                    <PolyStepSegment x="114.25290" y="-128.1260"/>
+                    <PolyStepSegment x="109.747099" y="-128.1260"/>
+                    <PolyStepSegment x="109.736351" y="-128.111644"/>
+                    <PolyStepSegment x="109.731301" y="-128.104370"/>
+                    <PolyStepSegment x="109.702327" y="-128.059286"/>
+                    <PolyStepSegment x="109.697808" y="-128.051670"/>
+                    <PolyStepSegment x="109.663631" y="-127.989076"/>
+                    <PolyStepSegment x="109.659670" y="-127.981163"/>
+                    <PolyStepSegment x="109.637418" y="-127.932437"/>
+                    <PolyStepSegment x="109.634031" y="-127.924260"/>
+                    <PolyStepSegment x="109.569035" y="-127.749999"/>
+                    <PolyStepSegment x="111.035046" y="-127.749999"/>
+                    <PolyStepSegment x="111.035047" y="-127.750"/>
+                    <PolyStepSegment x="112.964953" y="-127.750"/>
+                    <PolyStepSegment x="112.964953" y="-127.749999"/>
+                    <PolyStepSegment x="112.956941" y="-127.709722"/>
+                    <PolyStepSegment x="112.956938" y="-127.709712"/>
+                    <PolyStepSegment x="112.881922" y="-127.528605"/>
+                    <PolyStepSegment x="112.881917" y="-127.528596"/>
+                    <PolyStepSegment x="112.773010" y="-127.365607"/>
+                    <PolyStepSegment x="112.773007" y="-127.365603"/>
+                    <PolyStepSegment x="112.634396" y="-127.226992"/>
+                    <PolyStepSegment x="112.634392" y="-127.226989"/>
+                    <PolyStepSegment x="112.471403" y="-127.118082"/>
+                    <PolyStepSegment x="112.471394" y="-127.118077"/>
+                    <PolyStepSegment x="112.290285" y="-127.043060"/>
+                    <PolyStepSegment x="112.290279" y="-127.043058"/>
+                    <PolyStepSegment x="112.098019" y="-127.004815"/>
+                    <PolyStepSegment x="111.901981" y="-127.004815"/>
+                    <PolyStepSegment x="111.709720" y="-127.043058"/>
+                    <PolyStepSegment x="111.709714" y="-127.043060"/>
+                    <PolyStepSegment x="111.528605" y="-127.118077"/>
+                    <PolyStepSegment x="111.528596" y="-127.118082"/>
+                    <PolyStepSegment x="111.365607" y="-127.226989"/>
+                    <PolyStepSegment x="111.365603" y="-127.226992"/>
+                    <PolyStepSegment x="111.226992" y="-127.365603"/>
+                    <PolyStepSegment x="111.226989" y="-127.365607"/>
+                    <PolyStepSegment x="111.118082" y="-127.528596"/>
+                    <PolyStepSegment x="111.118077" y="-127.528605"/>
+                    <PolyStepSegment x="111.043061" y="-127.709712"/>
+                    <PolyStepSegment x="111.043058" y="-127.709722"/>
+                    <PolyStepSegment x="111.035046" y="-127.749999"/>
+                    <PolyStepSegment x="109.569035" y="-127.749999"/>
+                    <PolyStepSegment x="109.560422" y="-127.726907"/>
+                    <PolyStepSegment x="109.557942" y="-127.719565"/>
+                    <PolyStepSegment x="109.544332" y="-127.674694"/>
+                    <PolyStepSegment x="109.542316" y="-127.667214"/>
+                    <PolyStepSegment x="109.527972" y="-127.606503"/>
+                    <PolyStepSegment x="109.526428" y="-127.598916"/>
+                    <PolyStepSegment x="109.518522" y="-127.552738"/>
+                    <PolyStepSegment x="109.517455" y="-127.545069"/>
+                    <PolyStepSegment x="109.506289" y="-127.441217"/>
+                    <PolyStepSegment x="109.505977" y="-127.437905"/>
+                    <PolyStepSegment x="109.504364" y="-127.417856"/>
+                    <PolyStepSegment x="109.504142" y="-127.414542"/>
+                    <PolyStepSegment x="109.502713" y="-127.387855"/>
+                    <PolyStepSegment x="109.502580" y="-127.384539"/>
+                    <PolyStepSegment x="109.502044" y="-127.364491"/>
+                    <PolyStepSegment x="109.5020" y="-127.361177"/>
+                    <PolyStepSegment x="109.5020" y="-126.1240"/>
+                    <PolyStepSegment x="108.1240" y="-126.1240"/>
+                    <PolyStepSegment x="108.1240" y="-128.1260"/>
+                    <PolyStepSegment x="107.1260" y="-128.1260"/>
+                    <PolyStepSegment x="107.1260" y="-126.1240"/>
+                    <PolyStepSegment x="105.1240" y="-126.1240"/>
+                    <PolyStepSegment x="105.1240" y="-128.1260"/>
+                    <PolyStepSegment x="104.1260" y="-128.1260"/>
+                    <PolyStepSegment x="104.1260" y="-126.1240"/>
+                    <PolyStepSegment x="102.1240" y="-126.1240"/>
+                    <PolyStepSegment x="102.1240" y="-128.1260"/>
+                    <PolyStepSegment x="100.0" y="-128.1260"/>
+                    <PolyStepSegment x="100.0" y="-125.1260"/>
+                    <PolyStepSegment x="102.1240" y="-125.1260"/>
+                    <PolyStepSegment x="104.1260" y="-125.1260"/>
+                    <PolyStepSegment x="105.1240" y="-125.1260"/>
+                    <PolyStepSegment x="107.1260" y="-125.1260"/>
+                    <PolyStepSegment x="108.1240" y="-125.1260"/>
+                    <PolyStepSegment x="109.5020" y="-125.1260"/>
+                    <PolyStepSegment x="109.5020" y="-124.652155"/>
+                    <PolyStepSegment x="110.50" y="-124.652155"/>
+                    <PolyStepSegment x="110.50" y="-125.750"/>
+                    <PolyStepSegment x="111.566988" y="-125.750"/>
+                    <PolyStepSegment x="111.534075" y="-125.807007"/>
+                    <PolyStepSegment x="111.50" y="-125.934174"/>
+                    <PolyStepSegment x="111.50" y="-126.065826"/>
+                    <PolyStepSegment x="111.534075" y="-126.192993"/>
+                    <PolyStepSegment x="111.566988" y="-126.250"/>
+                    <PolyStepSegment x="110.50" y="-126.250"/>
+                    <PolyStepSegment x="110.50" y="-127.347844"/>
+                    <PolyStepSegment x="110.506401" y="-127.407372"/>
+                    <PolyStepSegment x="110.506402" y="-127.407376"/>
+                    <PolyStepSegment x="110.556647" y="-127.542090"/>
+                    <PolyStepSegment x="110.567067" y="-127.556008"/>
+                    <PolyStepSegment x="110.606880" y="-127.433480"/>
+                    <PolyStepSegment x="110.614326" y="-127.415504"/>
+                    <PolyStepSegment x="110.712656" y="-127.222521"/>
+                    <PolyStepSegment x="110.722823" y="-127.205931"/>
+                    <PolyStepSegment x="110.850127" y="-127.030711"/>
+                    <PolyStepSegment x="110.862764" y="-127.015915"/>
+                    <PolyStepSegment x="111.015915" y="-126.862764"/>
+                    <PolyStepSegment x="111.030711" y="-126.850127"/>
+                    <PolyStepSegment x="111.205931" y="-126.722823"/>
+                    <PolyStepSegment x="111.222521" y="-126.712656"/>
+                    <PolyStepSegment x="111.415506" y="-126.614325"/>
+                    <PolyStepSegment x="111.433483" y="-126.606879"/>
+                    <PolyStepSegment x="111.639469" y="-126.539950"/>
+                    <PolyStepSegment x="111.658389" y="-126.535408"/>
+                    <PolyStepSegment x="111.872306" y="-126.501527"/>
+                    <PolyStepSegment x="111.891704" y="-126.50"/>
+                    <PolyStepSegment x="112.108296" y="-126.50"/>
+                    <PolyStepSegment x="112.127694" y="-126.501527"/>
+                    <PolyStepSegment x="112.341610" y="-126.535408"/>
+                    <PolyStepSegment x="112.360530" y="-126.539950"/>
+                    <PolyStepSegment x="112.566516" y="-126.606879"/>
+                    <PolyStepSegment x="112.584493" y="-126.614325"/>
+                    <PolyStepSegment x="112.777478" y="-126.712656"/>
+                    <PolyStepSegment x="112.794068" y="-126.722823"/>
+                    <PolyStepSegment x="112.969288" y="-126.850127"/>
+                    <PolyStepSegment x="112.984084" y="-126.862764"/>
+                    <PolyStepSegment x="113.137235" y="-127.015915"/>
+                    <PolyStepSegment x="113.149872" y="-127.030711"/>
+                    <PolyStepSegment x="113.277176" y="-127.205931"/>
+                    <PolyStepSegment x="113.287343" y="-127.222521"/>
+                    <PolyStepSegment x="113.385674" y="-127.415505"/>
+                    <PolyStepSegment x="113.393120" y="-127.433482"/>
+                    <PolyStepSegment x="113.432930" y="-127.556008"/>
+                    <PolyStepSegment x="113.432931" y="-127.556008"/>
+                    <PolyStepSegment x="113.443353" y="-127.542089"/>
+                    <PolyStepSegment x="113.493596" y="-127.407379"/>
+                    <PolyStepSegment x="113.493598" y="-127.407372"/>
+                    <PolyStepSegment x="113.499999" y="-127.347844"/>
+                    <PolyStepSegment x="113.50" y="-127.347827"/>
+                    <PolyStepSegment x="113.50" y="-126.250"/>
+                    <PolyStepSegment x="112.433012" y="-126.250"/>
+                    <PolyStepSegment x="112.465925" y="-126.192993"/>
+                    <PolyStepSegment x="112.50" y="-126.065826"/>
+                    <PolyStepSegment x="112.50" y="-125.934174"/>
+                    <PolyStepSegment x="112.465925" y="-125.807007"/>
+                    <PolyStepSegment x="112.433012" y="-125.750"/>
+                    <PolyStepSegment x="113.50" y="-125.750"/>
+                    <PolyStepSegment x="113.50" y="-125.202135"/>
+                    <PolyStepSegment x="126.74950" y="-125.202135"/>
+                    <PolyStepSegment x="126.74950" y="-126.797870"/>
+                    <PolyStepSegment x="126.749501" y="-126.797876"/>
+                    <PolyStepSegment x="126.755908" y="-126.857483"/>
+                    <PolyStepSegment x="126.806202" y="-126.992328"/>
+                    <PolyStepSegment x="126.806206" y="-126.992335"/>
+                    <PolyStepSegment x="126.892452" y="-127.107544"/>
+                    <PolyStepSegment x="126.892455" y="-127.107547"/>
+                    <PolyStepSegment x="127.007664" y="-127.193793"/>
+                    <PolyStepSegment x="127.007671" y="-127.193797"/>
+                    <PolyStepSegment x="127.142517" y="-127.244091"/>
+                    <PolyStepSegment x="127.142516" y="-127.244091"/>
+                    <PolyStepSegment x="127.149444" y="-127.244835"/>
+                    <PolyStepSegment x="127.202127" y="-127.25050"/>
+                    <PolyStepSegment x="128.797872" y="-127.250499"/>
+                    <PolyStepSegment x="128.857483" y="-127.244091"/>
+                    <PolyStepSegment x="128.992331" y="-127.193796"/>
+                    <PolyStepSegment x="129.107546" y="-127.107546"/>
+                    <PolyStepSegment x="129.193796" y="-126.992331"/>
+                    <PolyStepSegment x="129.244091" y="-126.857483"/>
+                    <PolyStepSegment x="129.25050" y="-126.797873"/>
+                    <PolyStepSegment x="129.250499" y="-125.202128"/>
+                    <PolyStepSegment x="129.244091" y="-125.142517"/>
+                    <PolyStepSegment x="129.193796" y="-125.007669"/>
+                    <PolyStepSegment x="129.193795" y="-125.007668"/>
+                    <PolyStepSegment x="129.193793" y="-125.007664"/>
+                    <PolyStepSegment x="129.107547" y="-124.892455"/>
+                    <PolyStepSegment x="129.107544" y="-124.892452"/>
+                    <PolyStepSegment x="128.992335" y="-124.806206"/>
+                    <PolyStepSegment x="128.992328" y="-124.806202"/>
+                    <PolyStepSegment x="128.857482" y="-124.755908"/>
+                    <PolyStepSegment x="128.857483" y="-124.755908"/>
+                    <PolyStepSegment x="128.797883" y="-124.749501"/>
+                    <PolyStepSegment x="128.797881" y="-124.74950"/>
+                    <PolyStepSegment x="128.797873" y="-124.74950"/>
+                    <PolyStepSegment x="128.797864" y="-124.74950"/>
+                    <PolyStepSegment x="127.202129" y="-124.74950"/>
+                    <PolyStepSegment x="127.202123" y="-124.749501"/>
+                    <PolyStepSegment x="127.142516" y="-124.755908"/>
+                    <PolyStepSegment x="127.007671" y="-124.806202"/>
+                    <PolyStepSegment x="127.007664" y="-124.806206"/>
+                    <PolyStepSegment x="126.892455" y="-124.892452"/>
+                    <PolyStepSegment x="126.892452" y="-124.892455"/>
+                    <PolyStepSegment x="126.806206" y="-125.007664"/>
+                    <PolyStepSegment x="126.806202" y="-125.007671"/>
+                    <PolyStepSegment x="126.755908" y="-125.142517"/>
+                    <PolyStepSegment x="126.749501" y="-125.202116"/>
+                    <PolyStepSegment x="126.749501" y="-125.202123"/>
+                    <PolyStepSegment x="126.74950" y="-125.202135"/>
+                    <PolyStepSegment x="113.50" y="-125.202135"/>
+                    <PolyStepSegment x="113.50" y="-124.652172"/>
+                    <PolyStepSegment x="113.499999" y="-124.652155"/>
+                    <PolyStepSegment x="113.493598" y="-124.592627"/>
+                    <PolyStepSegment x="113.493596" y="-124.592620"/>
+                    <PolyStepSegment x="113.443354" y="-124.457913"/>
+                    <PolyStepSegment x="113.443350" y="-124.457906"/>
+                    <PolyStepSegment x="113.357190" y="-124.342812"/>
+                    <PolyStepSegment x="113.357187" y="-124.342809"/>
+                    <PolyStepSegment x="113.242093" y="-124.256649"/>
+                    <PolyStepSegment x="113.242086" y="-124.256645"/>
+                    <PolyStepSegment x="113.107379" y="-124.206403"/>
+                    <PolyStepSegment x="113.107372" y="-124.206401"/>
+                    <PolyStepSegment x="113.047844" y="-124.20"/>
+                    <PolyStepSegment x="112.250" y="-124.20"/>
+                    <PolyStepSegment x="112.250" y="-125.566988"/>
+                    <PolyStepSegment x="112.192993" y="-125.534075"/>
+                    <PolyStepSegment x="112.065826" y="-125.50"/>
+                    <PolyStepSegment x="111.934174" y="-125.50"/>
+                    <PolyStepSegment x="111.807007" y="-125.534075"/>
+                    <PolyStepSegment x="111.750" y="-125.566988"/>
+                    <PolyStepSegment x="111.750" y="-124.20"/>
+                    <PolyStepSegment x="110.952155" y="-124.20"/>
+                    <PolyStepSegment x="110.892627" y="-124.206401"/>
+                    <PolyStepSegment x="110.892620" y="-124.206403"/>
+                    <PolyStepSegment x="110.757913" y="-124.256645"/>
+                    <PolyStepSegment x="110.757906" y="-124.256649"/>
+                    <PolyStepSegment x="110.642812" y="-124.342809"/>
+                    <PolyStepSegment x="110.642809" y="-124.342812"/>
+                    <PolyStepSegment x="110.556649" y="-124.457906"/>
+                    <PolyStepSegment x="110.556645" y="-124.457913"/>
+                    <PolyStepSegment x="110.506403" y="-124.592620"/>
+                    <PolyStepSegment x="110.506401" y="-124.592627"/>
+                    <PolyStepSegment x="110.50" y="-124.652155"/>
+                    <PolyStepSegment x="109.5020" y="-124.652155"/>
+                    <PolyStepSegment x="109.5020" y="-124.638823"/>
+                    <PolyStepSegment x="109.502044" y="-124.635509"/>
+                    <PolyStepSegment x="109.502580" y="-124.615461"/>
+                    <PolyStepSegment x="109.502713" y="-124.612145"/>
+                    <PolyStepSegment x="109.504142" y="-124.585458"/>
+                    <PolyStepSegment x="109.504364" y="-124.582144"/>
+                    <PolyStepSegment x="109.505977" y="-124.562095"/>
+                    <PolyStepSegment x="109.506289" y="-124.558783"/>
+                    <PolyStepSegment x="109.517455" y="-124.454931"/>
+                    <PolyStepSegment x="109.518522" y="-124.447262"/>
+                    <PolyStepSegment x="109.526428" y="-124.401084"/>
+                    <PolyStepSegment x="109.527972" y="-124.393499"/>
+                    <PolyStepSegment x="109.542315" y="-124.332788"/>
+                    <PolyStepSegment x="109.544332" y="-124.325305"/>
+                    <PolyStepSegment x="109.557942" y="-124.280436"/>
+                    <PolyStepSegment x="109.560421" y="-124.273096"/>
+                    <PolyStepSegment x="109.634030" y="-124.075739"/>
+                    <PolyStepSegment x="109.637419" y="-124.067559"/>
+                    <PolyStepSegment x="109.659677" y="-124.018823"/>
+                    <PolyStepSegment x="109.663638" y="-124.010909"/>
+                    <PolyStepSegment x="109.697815" y="-123.948319"/>
+                    <PolyStepSegment x="109.702333" y="-123.940705"/>
+                    <PolyStepSegment x="109.731297" y="-123.895638"/>
+                    <PolyStepSegment x="109.736345" y="-123.888368"/>
+                    <PolyStepSegment x="109.865243" y="-123.716184"/>
+                    <PolyStepSegment x="109.870796" y="-123.709293"/>
+                    <PolyStepSegment x="109.8760" y="-123.703287"/>
+                    <PolyStepSegment x="114.1240" y="-123.703287"/>
+                    <PolyStepSegment x="114.129204" y="-123.709293"/>
+                    <PolyStepSegment x="114.134757" y="-123.716184"/>
+                    <PolyStepSegment x="114.263655" y="-123.888368"/>
+                    <PolyStepSegment x="114.268703" y="-123.895638"/>
+                    <PolyStepSegment x="114.297667" y="-123.940705"/>
+                    <PolyStepSegment x="114.302185" y="-123.948319"/>
+                    <PolyStepSegment x="114.336362" y="-124.010909"/>
+                    <PolyStepSegment x="114.340323" y="-124.018823"/>
+                    <PolyStepSegment x="114.362581" y="-124.067559"/>
+                    <PolyStepSegment x="114.365970" y="-124.075739"/>
+                    <PolyStepSegment x="114.439579" y="-124.273096"/>
+                    <PolyStepSegment x="114.442058" y="-124.280436"/>
+                    <PolyStepSegment x="114.455668" y="-124.325305"/>
+                    <PolyStepSegment x="114.457685" y="-124.332788"/>
+                    <PolyStepSegment x="114.472028" y="-124.393499"/>
+                    <PolyStepSegment x="114.473572" y="-124.401084"/>
+                    <PolyStepSegment x="114.481478" y="-124.447262"/>
+                    <PolyStepSegment x="114.482545" y="-124.454931"/>
+                    <PolyStepSegment x="114.493711" y="-124.558783"/>
+                    <PolyStepSegment x="114.494023" y="-124.562095"/>
+                    <PolyStepSegment x="114.495636" y="-124.582144"/>
+                    <PolyStepSegment x="114.495858" y="-124.585458"/>
+                    <PolyStepSegment x="114.497287" y="-124.612145"/>
+                    <PolyStepSegment x="114.497420" y="-124.615461"/>
+                    <PolyStepSegment x="114.497956" y="-124.635509"/>
+                    <PolyStepSegment x="114.4980" y="-124.638823"/>
+                    <PolyStepSegment x="114.4980" y="-125.1260"/>
+                    <PolyStepSegment x="116.1260" y="-125.1260"/>
+                    <PolyStepSegment x="117.1240" y="-125.1260"/>
+                    <PolyStepSegment x="119.1260" y="-125.1260"/>
+                    <PolyStepSegment x="120.1240" y="-125.1260"/>
+                    <PolyStepSegment x="122.1260" y="-125.1260"/>
+                    <PolyStepSegment x="123.1240" y="-125.1260"/>
+                    <PolyStepSegment x="125.1260" y="-125.1260"/>
+                    <PolyStepSegment x="125.1260" y="-124.254826"/>
+                    <PolyStepSegment x="126.1240" y="-124.254826"/>
+                    <PolyStepSegment x="126.155519" y="-124.218451"/>
+                    <PolyStepSegment x="126.161551" y="-124.211972"/>
+                    <PolyStepSegment x="126.211972" y="-124.161551"/>
+                    <PolyStepSegment x="126.218451" y="-124.155519"/>
+                    <PolyStepSegment x="126.258936" y="-124.120439"/>
+                    <PolyStepSegment x="126.265827" y="-124.114886"/>
+                    <PolyStepSegment x="126.438126" y="-123.985902"/>
+                    <PolyStepSegment x="126.445396" y="-123.980854"/>
+                    <PolyStepSegment x="126.490463" y="-123.951890"/>
+                    <PolyStepSegment x="126.498077" y="-123.947372"/>
+                    <PolyStepSegment x="126.560667" y="-123.913195"/>
+                    <PolyStepSegment x="126.568581" y="-123.909233"/>
+                    <PolyStepSegment x="126.617318" y="-123.886975"/>
+                    <PolyStepSegment x="126.625498" y="-123.883587"/>
+                    <PolyStepSegment x="126.822982" y="-123.809931"/>
+                    <PolyStepSegment x="126.830321" y="-123.807452"/>
+                    <PolyStepSegment x="126.875172" y="-123.793847"/>
+                    <PolyStepSegment x="126.876003" y="-123.793623"/>
+                    <PolyStepSegment x="129.1240" y="-123.793623"/>
+                    <PolyStepSegment x="129.124809" y="-123.793842"/>
+                    <PolyStepSegment x="129.169672" y="-123.807450"/>
+                    <PolyStepSegment x="129.177012" y="-123.809929"/>
+                    <PolyStepSegment x="129.374502" y="-123.883587"/>
+                    <PolyStepSegment x="129.382682" y="-123.886975"/>
+                    <PolyStepSegment x="129.431419" y="-123.909233"/>
+                    <PolyStepSegment x="129.439333" y="-123.913195"/>
+                    <PolyStepSegment x="129.501923" y="-123.947372"/>
+                    <PolyStepSegment x="129.509537" y="-123.951890"/>
+                    <PolyStepSegment x="129.554604" y="-123.980854"/>
+                    <PolyStepSegment x="129.561874" y="-123.985902"/>
+                    <PolyStepSegment x="129.734173" y="-124.114886"/>
+                    <PolyStepSegment x="129.741064" y="-124.120439"/>
+                    <PolyStepSegment x="129.781549" y="-124.155519"/>
+                    <PolyStepSegment x="129.788028" y="-124.161551"/>
+                    <PolyStepSegment x="129.838449" y="-124.211972"/>
+                    <PolyStepSegment x="129.844481" y="-124.218451"/>
+                    <PolyStepSegment x="129.879561" y="-124.258936"/>
+                    <PolyStepSegment x="129.885114" y="-124.265827"/>
+                    <PolyStepSegment x="130.014098" y="-124.438126"/>
+                    <PolyStepSegment x="130.019146" y="-124.445396"/>
+                    <PolyStepSegment x="130.048110" y="-124.490463"/>
+                    <PolyStepSegment x="130.052628" y="-124.498077"/>
+                    <PolyStepSegment x="130.086805" y="-124.560667"/>
+                    <PolyStepSegment x="130.090767" y="-124.568581"/>
+                    <PolyStepSegment x="130.113025" y="-124.617318"/>
+                    <PolyStepSegment x="130.116413" y="-124.625498"/>
+                    <PolyStepSegment x="130.190069" y="-124.822982"/>
+                    <PolyStepSegment x="130.192548" y="-124.830321"/>
+                    <PolyStepSegment x="130.206153" y="-124.875172"/>
+                    <PolyStepSegment x="130.208168" y="-124.882648"/>
+                    <PolyStepSegment x="130.222516" y="-124.943363"/>
+                    <PolyStepSegment x="130.224061" y="-124.950955"/>
+                    <PolyStepSegment x="130.231972" y="-124.997160"/>
+                    <PolyStepSegment x="130.233041" y="-125.004833"/>
+                    <PolyStepSegment x="130.244212" y="-125.108755"/>
+                    <PolyStepSegment x="130.244523" y="-125.112064"/>
+                    <PolyStepSegment x="130.245644" y="-125.1260"/>
+                    <PolyStepSegment x="131.1260" y="-125.1260"/>
+                    <PolyStepSegment x="132.1240" y="-125.1260"/>
+                    <PolyStepSegment x="134.1260" y="-125.1260"/>
+                    <PolyStepSegment x="135.1240" y="-125.1260"/>
+                    <PolyStepSegment x="137.1260" y="-125.1260"/>
+                    <PolyStepSegment x="138.1240" y="-125.1260"/>
+                    <PolyStepSegment x="139.0020" y="-125.1260"/>
+                    <PolyStepSegment x="139.0020" y="-123.1240"/>
+                    <PolyStepSegment x="138.1240" y="-123.1240"/>
+                    <PolyStepSegment x="138.1240" y="-125.1260"/>
+                    <PolyStepSegment x="137.1260" y="-125.1260"/>
+                    <PolyStepSegment x="137.1260" y="-123.1240"/>
+                    <PolyStepSegment x="135.1240" y="-123.1240"/>
+                    <PolyStepSegment x="135.1240" y="-125.1260"/>
+                    <PolyStepSegment x="134.1260" y="-125.1260"/>
+                    <PolyStepSegment x="134.1260" y="-123.1240"/>
+                    <PolyStepSegment x="132.1240" y="-123.1240"/>
+                    <PolyStepSegment x="132.1240" y="-125.1260"/>
+                    <PolyStepSegment x="131.1260" y="-125.1260"/>
+                    <PolyStepSegment x="131.1260" y="-123.1240"/>
+                    <PolyStepSegment x="129.1240" y="-123.1240"/>
+                    <PolyStepSegment x="129.1240" y="-123.793623"/>
+                    <PolyStepSegment x="126.876003" y="-123.793623"/>
+                    <PolyStepSegment x="126.882648" y="-123.791832"/>
+                    <PolyStepSegment x="126.943363" y="-123.777484"/>
+                    <PolyStepSegment x="126.950955" y="-123.775939"/>
+                    <PolyStepSegment x="126.997160" y="-123.768028"/>
+                    <PolyStepSegment x="127.004833" y="-123.766959"/>
+                    <PolyStepSegment x="127.108755" y="-123.755788"/>
+                    <PolyStepSegment x="127.112064" y="-123.755477"/>
+                    <PolyStepSegment x="127.132101" y="-123.753865"/>
+                    <PolyStepSegment x="127.135413" y="-123.753643"/>
+                    <PolyStepSegment x="127.162095" y="-123.752214"/>
+                    <PolyStepSegment x="127.165413" y="-123.752081"/>
+                    <PolyStepSegment x="127.185464" y="-123.751545"/>
+                    <PolyStepSegment x="127.188778" y="-123.751501"/>
+                    <PolyStepSegment x="128.1260" y="-123.75150"/>
+                    <PolyStepSegment x="128.1260" y="-123.1240"/>
+                    <PolyStepSegment x="126.1240" y="-123.1240"/>
+                    <PolyStepSegment x="126.1240" y="-124.254826"/>
+                    <PolyStepSegment x="125.1260" y="-124.254826"/>
+                    <PolyStepSegment x="125.1260" y="-123.1240"/>
+                    <PolyStepSegment x="123.1240" y="-123.1240"/>
+                    <PolyStepSegment x="123.1240" y="-125.1260"/>
+                    <PolyStepSegment x="122.1260" y="-125.1260"/>
+                    <PolyStepSegment x="122.1260" y="-123.1240"/>
+                    <PolyStepSegment x="120.1240" y="-123.1240"/>
+                    <PolyStepSegment x="120.1240" y="-125.1260"/>
+                    <PolyStepSegment x="119.1260" y="-125.1260"/>
+                    <PolyStepSegment x="119.1260" y="-123.1240"/>
+                    <PolyStepSegment x="117.1240" y="-123.1240"/>
+                    <PolyStepSegment x="117.1240" y="-125.1260"/>
+                    <PolyStepSegment x="116.1260" y="-125.1260"/>
+                    <PolyStepSegment x="116.1260" y="-123.1240"/>
+                    <PolyStepSegment x="114.1240" y="-123.1240"/>
+                    <PolyStepSegment x="114.1240" y="-123.703287"/>
+                    <PolyStepSegment x="109.8760" y="-123.703287"/>
+                    <PolyStepSegment x="109.905876" y="-123.668808"/>
+                    <PolyStepSegment x="109.911908" y="-123.662329"/>
+                    <PolyStepSegment x="109.962329" y="-123.611908"/>
+                    <PolyStepSegment x="109.968808" y="-123.605876"/>
+                    <PolyStepSegment x="110.009293" y="-123.570796"/>
+                    <PolyStepSegment x="110.016183" y="-123.565243"/>
+                    <PolyStepSegment x="110.1260" y="-123.483032"/>
+                    <PolyStepSegment x="110.1260" y="-123.1240"/>
+                    <PolyStepSegment x="108.1240" y="-123.1240"/>
+                    <PolyStepSegment x="108.1240" y="-125.1260"/>
+                    <PolyStepSegment x="107.1260" y="-125.1260"/>
+                    <PolyStepSegment x="107.1260" y="-123.1240"/>
+                    <PolyStepSegment x="105.1240" y="-123.1240"/>
+                    <PolyStepSegment x="105.1240" y="-125.1260"/>
+                    <PolyStepSegment x="104.1260" y="-125.1260"/>
+                    <PolyStepSegment x="104.1260" y="-123.1240"/>
+                    <PolyStepSegment x="102.1240" y="-123.1240"/>
+                    <PolyStepSegment x="102.1240" y="-125.1260"/>
+                    <PolyStepSegment x="100.0" y="-125.1260"/>
+                    <PolyStepSegment x="100.0" y="-122.1260"/>
+                    <PolyStepSegment x="102.1240" y="-122.1260"/>
+                    <PolyStepSegment x="104.1260" y="-122.1260"/>
+                    <PolyStepSegment x="105.1240" y="-122.1260"/>
+                    <PolyStepSegment x="107.1260" y="-122.1260"/>
+                    <PolyStepSegment x="108.1240" y="-122.1260"/>
+                    <PolyStepSegment x="110.1260" y="-122.1260"/>
+                    <PolyStepSegment x="111.1240" y="-122.1260"/>
+                    <PolyStepSegment x="113.1260" y="-122.1260"/>
+                    <PolyStepSegment x="114.1240" y="-122.1260"/>
+                    <PolyStepSegment x="116.1260" y="-122.1260"/>
+                    <PolyStepSegment x="117.1240" y="-122.1260"/>
+                    <PolyStepSegment x="119.1260" y="-122.1260"/>
+                    <PolyStepSegment x="120.1240" y="-122.1260"/>
+                    <PolyStepSegment x="122.1260" y="-122.1260"/>
+                    <PolyStepSegment x="123.1240" y="-122.1260"/>
+                    <PolyStepSegment x="125.1260" y="-122.1260"/>
+                    <PolyStepSegment x="126.1240" y="-122.1260"/>
+                    <PolyStepSegment x="128.1260" y="-122.1260"/>
+                    <PolyStepSegment x="129.1240" y="-122.1260"/>
+                    <PolyStepSegment x="131.1260" y="-122.1260"/>
+                    <PolyStepSegment x="132.1240" y="-122.1260"/>
+                    <PolyStepSegment x="134.1260" y="-122.1260"/>
+                    <PolyStepSegment x="135.1240" y="-122.1260"/>
+                    <PolyStepSegment x="137.1260" y="-122.1260"/>
+                    <PolyStepSegment x="138.1240" y="-122.1260"/>
+                    <PolyStepSegment x="139.0020" y="-122.1260"/>
+                    <PolyStepSegment x="139.0020" y="-120.1240"/>
+                    <PolyStepSegment x="138.1240" y="-120.1240"/>
+                    <PolyStepSegment x="138.1240" y="-122.1260"/>
+                    <PolyStepSegment x="137.1260" y="-122.1260"/>
+                    <PolyStepSegment x="137.1260" y="-120.1240"/>
+                    <PolyStepSegment x="135.1240" y="-120.1240"/>
+                    <PolyStepSegment x="135.1240" y="-122.1260"/>
+                    <PolyStepSegment x="134.1260" y="-122.1260"/>
+                    <PolyStepSegment x="134.1260" y="-120.1240"/>
+                    <PolyStepSegment x="132.1240" y="-120.1240"/>
+                    <PolyStepSegment x="132.1240" y="-122.1260"/>
+                    <PolyStepSegment x="131.1260" y="-122.1260"/>
+                    <PolyStepSegment x="131.1260" y="-120.1240"/>
+                    <PolyStepSegment x="129.1240" y="-120.1240"/>
+                    <PolyStepSegment x="129.1240" y="-122.1260"/>
+                    <PolyStepSegment x="128.1260" y="-122.1260"/>
+                    <PolyStepSegment x="128.1260" y="-120.1240"/>
+                    <PolyStepSegment x="126.1240" y="-120.1240"/>
+                    <PolyStepSegment x="126.1240" y="-122.1260"/>
+                    <PolyStepSegment x="125.1260" y="-122.1260"/>
+                    <PolyStepSegment x="125.1260" y="-120.1240"/>
+                    <PolyStepSegment x="123.1240" y="-120.1240"/>
+                    <PolyStepSegment x="123.1240" y="-122.1260"/>
+                    <PolyStepSegment x="122.1260" y="-122.1260"/>
+                    <PolyStepSegment x="122.1260" y="-120.1240"/>
+                    <PolyStepSegment x="120.1240" y="-120.1240"/>
+                    <PolyStepSegment x="120.1240" y="-122.1260"/>
+                    <PolyStepSegment x="119.1260" y="-122.1260"/>
+                    <PolyStepSegment x="119.1260" y="-120.1240"/>
+                    <PolyStepSegment x="117.1240" y="-120.1240"/>
+                    <PolyStepSegment x="117.1240" y="-122.1260"/>
+                    <PolyStepSegment x="116.1260" y="-122.1260"/>
+                    <PolyStepSegment x="116.1260" y="-120.1240"/>
+                    <PolyStepSegment x="114.1240" y="-120.1240"/>
+                    <PolyStepSegment x="114.1240" y="-122.1260"/>
+                    <PolyStepSegment x="113.1260" y="-122.1260"/>
+                    <PolyStepSegment x="113.1260" y="-120.1240"/>
+                    <PolyStepSegment x="111.1240" y="-120.1240"/>
+                    <PolyStepSegment x="111.1240" y="-122.1260"/>
+                    <PolyStepSegment x="110.1260" y="-122.1260"/>
+                    <PolyStepSegment x="110.1260" y="-120.1240"/>
+                    <PolyStepSegment x="108.1240" y="-120.1240"/>
+                    <PolyStepSegment x="108.1240" y="-122.1260"/>
+                    <PolyStepSegment x="107.1260" y="-122.1260"/>
+                    <PolyStepSegment x="107.1260" y="-120.1240"/>
+                    <PolyStepSegment x="105.1240" y="-120.1240"/>
+                    <PolyStepSegment x="105.1240" y="-122.1260"/>
+                    <PolyStepSegment x="104.1260" y="-122.1260"/>
+                    <PolyStepSegment x="104.1260" y="-120.1240"/>
+                    <PolyStepSegment x="102.1240" y="-120.1240"/>
+                    <PolyStepSegment x="102.1240" y="-122.1260"/>
+                    <PolyStepSegment x="100.0" y="-122.1260"/>
+                    <PolyStepSegment x="100.0" y="-119.1260"/>
+                    <PolyStepSegment x="102.1240" y="-119.1260"/>
+                    <PolyStepSegment x="104.1260" y="-119.1260"/>
+                    <PolyStepSegment x="105.1240" y="-119.1260"/>
+                    <PolyStepSegment x="107.1260" y="-119.1260"/>
+                    <PolyStepSegment x="108.1240" y="-119.1260"/>
+                    <PolyStepSegment x="110.1260" y="-119.1260"/>
+                    <PolyStepSegment x="111.1240" y="-119.1260"/>
+                    <PolyStepSegment x="113.1260" y="-119.1260"/>
+                    <PolyStepSegment x="114.1240" y="-119.1260"/>
+                    <PolyStepSegment x="116.1260" y="-119.1260"/>
+                    <PolyStepSegment x="117.1240" y="-119.1260"/>
+                    <PolyStepSegment x="119.1260" y="-119.1260"/>
+                    <PolyStepSegment x="120.1240" y="-119.1260"/>
+                    <PolyStepSegment x="122.1260" y="-119.1260"/>
+                    <PolyStepSegment x="123.1240" y="-119.1260"/>
+                    <PolyStepSegment x="125.1260" y="-119.1260"/>
+                    <PolyStepSegment x="126.1240" y="-119.1260"/>
+                    <PolyStepSegment x="128.1260" y="-119.1260"/>
+                    <PolyStepSegment x="129.1240" y="-119.1260"/>
+                    <PolyStepSegment x="131.1260" y="-119.1260"/>
+                    <PolyStepSegment x="132.1240" y="-119.1260"/>
+                    <PolyStepSegment x="134.1260" y="-119.1260"/>
+                    <PolyStepSegment x="135.1240" y="-119.1260"/>
+                    <PolyStepSegment x="137.1260" y="-119.1260"/>
+                    <PolyStepSegment x="138.1240" y="-119.1260"/>
+                    <PolyStepSegment x="139.0020" y="-119.1260"/>
+                    <PolyStepSegment x="139.0020" y="-117.1240"/>
+                    <PolyStepSegment x="138.1240" y="-117.1240"/>
+                    <PolyStepSegment x="138.1240" y="-119.1260"/>
+                    <PolyStepSegment x="137.1260" y="-119.1260"/>
+                    <PolyStepSegment x="137.1260" y="-117.1240"/>
+                    <PolyStepSegment x="135.1240" y="-117.1240"/>
+                    <PolyStepSegment x="135.1240" y="-119.1260"/>
+                    <PolyStepSegment x="134.1260" y="-119.1260"/>
+                    <PolyStepSegment x="134.1260" y="-117.1240"/>
+                    <PolyStepSegment x="132.1240" y="-117.1240"/>
+                    <PolyStepSegment x="132.1240" y="-119.1260"/>
+                    <PolyStepSegment x="131.1260" y="-119.1260"/>
+                    <PolyStepSegment x="131.1260" y="-117.1240"/>
+                    <PolyStepSegment x="129.1240" y="-117.1240"/>
+                    <PolyStepSegment x="129.1240" y="-119.1260"/>
+                    <PolyStepSegment x="128.1260" y="-119.1260"/>
+                    <PolyStepSegment x="128.1260" y="-117.1240"/>
+                    <PolyStepSegment x="126.1240" y="-117.1240"/>
+                    <PolyStepSegment x="126.1240" y="-119.1260"/>
+                    <PolyStepSegment x="125.1260" y="-119.1260"/>
+                    <PolyStepSegment x="125.1260" y="-117.1240"/>
+                    <PolyStepSegment x="123.1240" y="-117.1240"/>
+                    <PolyStepSegment x="123.1240" y="-119.1260"/>
+                    <PolyStepSegment x="122.1260" y="-119.1260"/>
+                    <PolyStepSegment x="122.1260" y="-117.1240"/>
+                    <PolyStepSegment x="120.1240" y="-117.1240"/>
+                    <PolyStepSegment x="120.1240" y="-119.1260"/>
+                    <PolyStepSegment x="119.1260" y="-119.1260"/>
+                    <PolyStepSegment x="119.1260" y="-117.1240"/>
+                    <PolyStepSegment x="117.1240" y="-117.1240"/>
+                    <PolyStepSegment x="117.1240" y="-119.1260"/>
+                    <PolyStepSegment x="116.1260" y="-119.1260"/>
+                    <PolyStepSegment x="116.1260" y="-117.1240"/>
+                    <PolyStepSegment x="114.1240" y="-117.1240"/>
+                    <PolyStepSegment x="114.1240" y="-119.1260"/>
+                    <PolyStepSegment x="113.1260" y="-119.1260"/>
+                    <PolyStepSegment x="113.1260" y="-117.1240"/>
+                    <PolyStepSegment x="111.1240" y="-117.1240"/>
+                    <PolyStepSegment x="111.1240" y="-119.1260"/>
+                    <PolyStepSegment x="110.1260" y="-119.1260"/>
+                    <PolyStepSegment x="110.1260" y="-117.1240"/>
+                    <PolyStepSegment x="108.1240" y="-117.1240"/>
+                    <PolyStepSegment x="108.1240" y="-119.1260"/>
+                    <PolyStepSegment x="107.1260" y="-119.1260"/>
+                    <PolyStepSegment x="107.1260" y="-117.1240"/>
+                    <PolyStepSegment x="105.1240" y="-117.1240"/>
+                    <PolyStepSegment x="105.1240" y="-119.1260"/>
+                    <PolyStepSegment x="104.1260" y="-119.1260"/>
+                    <PolyStepSegment x="104.1260" y="-117.1240"/>
+                    <PolyStepSegment x="102.1240" y="-117.1240"/>
+                    <PolyStepSegment x="102.1240" y="-119.1260"/>
+                    <PolyStepSegment x="100.0" y="-119.1260"/>
+                    <PolyStepSegment x="100.0" y="-116.1260"/>
+                    <PolyStepSegment x="102.1240" y="-116.1260"/>
+                    <PolyStepSegment x="104.1260" y="-116.1260"/>
+                    <PolyStepSegment x="105.1240" y="-116.1260"/>
+                    <PolyStepSegment x="107.1260" y="-116.1260"/>
+                    <PolyStepSegment x="108.1240" y="-116.1260"/>
+                    <PolyStepSegment x="110.1260" y="-116.1260"/>
+                    <PolyStepSegment x="110.1260" y="-115.651707"/>
+                    <PolyStepSegment x="110.103570" y="-115.631776"/>
+                    <PolyStepSegment x="109.902122" y="-115.354503"/>
+                    <PolyStepSegment x="109.899341" y="-115.350512"/>
+                    <PolyStepSegment x="109.882985" y="-115.326035"/>
+                    <PolyStepSegment x="109.880360" y="-115.321934"/>
+                    <PolyStepSegment x="109.859878" y="-115.288513"/>
+                    <PolyStepSegment x="109.857415" y="-115.284312"/>
+                    <PolyStepSegment x="109.843014" y="-115.258599"/>
+                    <PolyStepSegment x="109.840717" y="-115.254302"/>
+                    <PolyStepSegment x="109.716052" y="-115.009632"/>
+                    <PolyStepSegment x="109.713927" y="-115.005249"/>
+                    <PolyStepSegment x="109.701584" y="-114.978474"/>
+                    <PolyStepSegment x="109.699629" y="-114.974005"/>
+                    <PolyStepSegment x="109.684631" y="-114.937788"/>
+                    <PolyStepSegment x="109.682859" y="-114.933260"/>
+                    <PolyStepSegment x="109.672674" y="-114.905650"/>
+                    <PolyStepSegment x="109.671080" y="-114.901053"/>
+                    <PolyStepSegment x="109.586236" y="-114.639932"/>
+                    <PolyStepSegment x="109.584822" y="-114.635272"/>
+                    <PolyStepSegment x="109.576829" y="-114.606930"/>
+                    <PolyStepSegment x="109.575602" y="-114.602225"/>
+                    <PolyStepSegment x="109.566449" y="-114.564108"/>
+                    <PolyStepSegment x="109.565403" y="-114.559346"/>
+                    <PolyStepSegment x="109.559655" y="-114.530448"/>
+                    <PolyStepSegment x="109.55880" y="-114.525655"/>
+                    <PolyStepSegment x="109.515843" y="-114.254444"/>
+                    <PolyStepSegment x="109.515175" y="-114.249614"/>
+                    <PolyStepSegment x="109.511712" y="-114.220341"/>
+                    <PolyStepSegment x="109.511235" y="-114.215497"/>
+                    <PolyStepSegment x="109.508161" y="-114.176417"/>
+                    <PolyStepSegment x="109.507874" y="-114.171558"/>
+                    <PolyStepSegment x="109.506719" y="-114.142144"/>
+                    <PolyStepSegment x="109.506624" y="-114.137279"/>
+                    <PolyStepSegment x="109.506624" y="-114.1240"/>
+                    <PolyStepSegment x="108.1240" y="-114.1240"/>
+                    <PolyStepSegment x="108.1240" y="-116.1260"/>
+                    <PolyStepSegment x="107.1260" y="-116.1260"/>
+                    <PolyStepSegment x="107.1260" y="-114.1240"/>
+                    <PolyStepSegment x="105.1240" y="-114.1240"/>
+                    <PolyStepSegment x="105.1240" y="-116.1260"/>
+                    <PolyStepSegment x="104.1260" y="-116.1260"/>
+                    <PolyStepSegment x="104.1260" y="-114.1240"/>
+                    <PolyStepSegment x="102.1240" y="-114.1240"/>
+                    <PolyStepSegment x="102.1240" y="-116.1260"/>
+                    <PolyStepSegment x="100.0" y="-116.1260"/>
+                    <PolyStepSegment x="100.0" y="-113.882305"/>
+                    <PolyStepSegment x="110.504624" y="-113.882305"/>
+                    <PolyStepSegment x="110.504624" y="-114.117694"/>
+                    <PolyStepSegment x="110.541444" y="-114.350164"/>
+                    <PolyStepSegment x="110.614182" y="-114.574027"/>
+                    <PolyStepSegment x="110.721039" y="-114.783746"/>
+                    <PolyStepSegment x="110.721041" y="-114.783750"/>
+                    <PolyStepSegment x="110.780649" y="-114.865794"/>
+                    <PolyStepSegment x="110.780650" y="-114.865794"/>
+                    <PolyStepSegment x="111.517037" y="-114.129408"/>
+                    <PolyStepSegment x="111.534075" y="-114.192993"/>
+                    <PolyStepSegment x="111.599901" y="-114.307007"/>
+                    <PolyStepSegment x="111.692993" y="-114.400099"/>
+                    <PolyStepSegment x="111.807007" y="-114.465925"/>
+                    <PolyStepSegment x="111.870590" y="-114.482962"/>
+                    <PolyStepSegment x="111.134203" y="-115.219348"/>
+                    <PolyStepSegment x="111.134204" y="-115.219349"/>
+                    <PolyStepSegment x="111.216248" y="-115.278957"/>
+                    <PolyStepSegment x="111.425972" y="-115.385817"/>
+                    <PolyStepSegment x="111.649835" y="-115.458555"/>
+                    <PolyStepSegment x="111.882306" y="-115.495376"/>
+                    <PolyStepSegment x="112.117694" y="-115.495376"/>
+                    <PolyStepSegment x="112.350164" y="-115.458555"/>
+                    <PolyStepSegment x="112.574027" y="-115.385817"/>
+                    <PolyStepSegment x="112.713365" y="-115.314821"/>
+                    <PolyStepSegment x="114.1240" y="-115.314821"/>
+                    <PolyStepSegment x="114.1240" y="-116.1260"/>
+                    <PolyStepSegment x="116.1260" y="-116.1260"/>
+                    <PolyStepSegment x="117.1240" y="-116.1260"/>
+                    <PolyStepSegment x="118.889359" y="-116.1260"/>
+                    <PolyStepSegment x="123.1240" y="-116.1260"/>
+                    <PolyStepSegment x="125.1260" y="-116.1260"/>
+                    <PolyStepSegment x="130.073846" y="-116.1260"/>
+                    <PolyStepSegment x="131.1260" y="-116.1260"/>
+                    <PolyStepSegment x="132.1240" y="-116.1260"/>
+                    <PolyStepSegment x="134.1260" y="-116.1260"/>
+                    <PolyStepSegment x="135.1240" y="-116.1260"/>
+                    <PolyStepSegment x="137.1260" y="-116.1260"/>
+                    <PolyStepSegment x="138.1240" y="-116.1260"/>
+                    <PolyStepSegment x="139.0020" y="-116.1260"/>
+                    <PolyStepSegment x="139.0020" y="-114.1240"/>
+                    <PolyStepSegment x="138.1240" y="-114.1240"/>
+                    <PolyStepSegment x="138.1240" y="-116.1260"/>
+                    <PolyStepSegment x="137.1260" y="-116.1260"/>
+                    <PolyStepSegment x="137.1260" y="-114.1240"/>
+                    <PolyStepSegment x="135.1240" y="-114.1240"/>
+                    <PolyStepSegment x="135.1240" y="-116.1260"/>
+                    <PolyStepSegment x="134.1260" y="-116.1260"/>
+                    <PolyStepSegment x="134.1260" y="-114.1240"/>
+                    <PolyStepSegment x="132.1240" y="-114.1240"/>
+                    <PolyStepSegment x="132.1240" y="-116.1260"/>
+                    <PolyStepSegment x="131.1260" y="-116.1260"/>
+                    <PolyStepSegment x="131.1260" y="-114.1240"/>
+                    <PolyStepSegment x="130.596839" y="-114.1240"/>
+                    <PolyStepSegment x="130.623129" y="-114.247682"/>
+                    <PolyStepSegment x="130.624048" y="-114.252463"/>
+                    <PolyStepSegment x="130.629036" y="-114.281490"/>
+                    <PolyStepSegment x="130.629766" y="-114.286304"/>
+                    <PolyStepSegment x="130.634883" y="-114.325170"/>
+                    <PolyStepSegment x="130.635424" y="-114.330009"/>
+                    <PolyStepSegment x="130.638120" y="-114.359346"/>
+                    <PolyStepSegment x="130.638470" y="-114.364203"/>
+                    <PolyStepSegment x="130.651231" y="-114.607694"/>
+                    <PolyStepSegment x="130.651390" y="-114.612559"/>
+                    <PolyStepSegment x="130.651776" y="-114.642011"/>
+                    <PolyStepSegment x="130.651745" y="-114.646882"/>
+                    <PolyStepSegment x="130.650719" y="-114.686068"/>
+                    <PolyStepSegment x="130.650495" y="-114.690933"/>
+                    <PolyStepSegment x="130.648568" y="-114.720329"/>
+                    <PolyStepSegment x="130.648155" y="-114.725180"/>
+                    <PolyStepSegment x="130.622669" y="-114.967656"/>
+                    <PolyStepSegment x="130.622066" y="-114.972480"/>
+                    <PolyStepSegment x="130.617845" y="-115.001603"/>
+                    <PolyStepSegment x="130.617052" y="-115.006406"/>
+                    <PolyStepSegment x="130.609911" y="-115.044950"/>
+                    <PolyStepSegment x="130.608930" y="-115.049722"/>
+                    <PolyStepSegment x="130.602424" y="-115.078480"/>
+                    <PolyStepSegment x="130.601255" y="-115.083213"/>
+                    <PolyStepSegment x="130.538142" y="-115.318751"/>
+                    <PolyStepSegment x="130.536789" y="-115.323430"/>
+                    <PolyStepSegment x="130.528049" y="-115.351576"/>
+                    <PolyStepSegment x="130.526514" y="-115.356198"/>
+                    <PolyStepSegment x="130.513428" y="-115.393149"/>
+                    <PolyStepSegment x="130.511711" y="-115.397708"/>
+                    <PolyStepSegment x="130.50080" y="-115.425053"/>
+                    <PolyStepSegment x="130.498910" y="-115.429534"/>
+                    <PolyStepSegment x="130.399744" y="-115.652265"/>
+                    <PolyStepSegment x="130.397677" y="-115.656672"/>
+                    <PolyStepSegment x="130.384654" y="-115.683081"/>
+                    <PolyStepSegment x="130.382415" y="-115.687405"/>
+                    <PolyStepSegment x="130.363711" y="-115.721855"/>
+                    <PolyStepSegment x="130.361305" y="-115.726087"/>
+                    <PolyStepSegment x="130.346239" y="-115.751412"/>
+                    <PolyStepSegment x="130.343666" y="-115.755549"/>
+                    <PolyStepSegment x="130.210861" y="-115.960050"/>
+                    <PolyStepSegment x="130.208129" y="-115.964082"/>
+                    <PolyStepSegment x="130.191119" y="-115.988150"/>
+                    <PolyStepSegment x="130.188229" y="-115.992073"/>
+                    <PolyStepSegment x="130.164365" y="-116.023171"/>
+                    <PolyStepSegment x="130.161326" y="-116.026974"/>
+                    <PolyStepSegment x="130.142502" y="-116.049606"/>
+                    <PolyStepSegment x="130.139318" y="-116.053285"/>
+                    <PolyStepSegment x="130.073846" y="-116.1260"/>
+                    <PolyStepSegment x="125.1260" y="-116.1260"/>
+                    <PolyStepSegment x="125.1260" y="-114.1240"/>
+                    <PolyStepSegment x="123.1240" y="-114.1240"/>
+                    <PolyStepSegment x="123.1240" y="-116.1260"/>
+                    <PolyStepSegment x="118.889359" y="-116.1260"/>
+                    <PolyStepSegment x="118.795431" y="-116.078141"/>
+                    <PolyStepSegment x="118.791140" y="-116.075847"/>
+                    <PolyStepSegment x="118.765445" y="-116.061458"/>
+                    <PolyStepSegment x="118.761241" y="-116.058994"/>
+                    <PolyStepSegment x="118.727819" y="-116.038513"/>
+                    <PolyStepSegment x="118.723718" y="-116.035888"/>
+                    <PolyStepSegment x="118.699223" y="-116.019521"/>
+                    <PolyStepSegment x="118.695229" y="-116.016738"/>
+                    <PolyStepSegment x="118.485157" y="-115.864114"/>
+                    <PolyStepSegment x="118.481267" y="-115.861169"/>
+                    <PolyStepSegment x="118.458109" y="-115.842910"/>
+                    <PolyStepSegment x="118.454346" y="-115.839821"/>
+                    <PolyStepSegment x="118.424539" y="-115.814360"/>
+                    <PolyStepSegment x="118.42090" y="-115.811126"/>
+                    <PolyStepSegment x="118.399295" y="-115.791152"/>
+                    <PolyStepSegment x="118.395791" y="-115.787782"/>
+                    <PolyStepSegment x="118.212218" y="-115.604209"/>
+                    <PolyStepSegment x="118.208848" y="-115.600705"/>
+                    <PolyStepSegment x="118.188874" y="-115.57910"/>
+                    <PolyStepSegment x="118.185640" y="-115.575461"/>
+                    <PolyStepSegment x="118.160179" y="-115.545654"/>
+                    <PolyStepSegment x="118.157090" y="-115.541891"/>
+                    <PolyStepSegment x="118.138831" y="-115.518733"/>
+                    <PolyStepSegment x="118.135886" y="-115.514843"/>
+                    <PolyStepSegment x="117.983262" y="-115.304771"/>
+                    <PolyStepSegment x="117.980479" y="-115.300777"/>
+                    <PolyStepSegment x="117.964112" y="-115.276282"/>
+                    <PolyStepSegment x="117.961487" y="-115.272181"/>
+                    <PolyStepSegment x="117.941006" y="-115.238759"/>
+                    <PolyStepSegment x="117.938542" y="-115.234555"/>
+                    <PolyStepSegment x="117.924153" y="-115.208860"/>
+                    <PolyStepSegment x="117.921859" y="-115.204569"/>
+                    <PolyStepSegment x="117.803982" y="-114.973225"/>
+                    <PolyStepSegment x="117.801858" y="-114.968845"/>
+                    <PolyStepSegment x="117.789522" y="-114.942087"/>
+                    <PolyStepSegment x="117.787569" y="-114.937622"/>
+                    <PolyStepSegment x="117.772568" y="-114.901404"/>
+                    <PolyStepSegment x="117.770794" y="-114.896873"/>
+                    <PolyStepSegment x="117.76060" y="-114.869241"/>
+                    <PolyStepSegment x="117.759005" y="-114.864639"/>
+                    <PolyStepSegment x="117.678770" y="-114.617696"/>
+                    <PolyStepSegment x="117.677356" y="-114.613036"/>
+                    <PolyStepSegment x="117.669356" y="-114.584669"/>
+                    <PolyStepSegment x="117.668126" y="-114.579954"/>
+                    <PolyStepSegment x="117.658977" y="-114.541838"/>
+                    <PolyStepSegment x="117.657934" y="-114.537083"/>
+                    <PolyStepSegment x="117.652192" y="-114.508211"/>
+                    <PolyStepSegment x="117.651337" y="-114.503422"/>
+                    <PolyStepSegment x="117.610723" y="-114.246994"/>
+                    <PolyStepSegment x="117.610056" y="-114.242171"/>
+                    <PolyStepSegment x="117.606596" y="-114.212938"/>
+                    <PolyStepSegment x="117.606119" y="-114.20810"/>
+                    <PolyStepSegment x="117.603041" y="-114.169021"/>
+                    <PolyStepSegment x="117.602754" y="-114.164156"/>
+                    <PolyStepSegment x="117.601596" y="-114.134704"/>
+                    <PolyStepSegment x="117.60150" y="-114.129832"/>
+                    <PolyStepSegment x="117.60150" y="-114.1240"/>
+                    <PolyStepSegment x="117.1240" y="-114.1240"/>
+                    <PolyStepSegment x="117.1240" y="-116.1260"/>
+                    <PolyStepSegment x="116.1260" y="-116.1260"/>
+                    <PolyStepSegment x="116.1260" y="-114.1240"/>
+                    <PolyStepSegment x="114.493376" y="-114.1240"/>
+                    <PolyStepSegment x="114.493376" y="-114.137279"/>
+                    <PolyStepSegment x="114.493281" y="-114.142144"/>
+                    <PolyStepSegment x="114.492126" y="-114.171558"/>
+                    <PolyStepSegment x="114.491839" y="-114.176417"/>
+                    <PolyStepSegment x="114.488765" y="-114.215497"/>
+                    <PolyStepSegment x="114.488288" y="-114.220341"/>
+                    <PolyStepSegment x="114.484825" y="-114.249614"/>
+                    <PolyStepSegment x="114.484157" y="-114.254444"/>
+                    <PolyStepSegment x="114.44120" y="-114.525655"/>
+                    <PolyStepSegment x="114.440345" y="-114.530448"/>
+                    <PolyStepSegment x="114.434597" y="-114.559346"/>
+                    <PolyStepSegment x="114.433551" y="-114.564108"/>
+                    <PolyStepSegment x="114.424398" y="-114.602225"/>
+                    <PolyStepSegment x="114.423171" y="-114.606930"/>
+                    <PolyStepSegment x="114.415178" y="-114.635272"/>
+                    <PolyStepSegment x="114.413764" y="-114.639932"/>
+                    <PolyStepSegment x="114.328920" y="-114.901053"/>
+                    <PolyStepSegment x="114.327326" y="-114.905650"/>
+                    <PolyStepSegment x="114.317141" y="-114.933260"/>
+                    <PolyStepSegment x="114.315369" y="-114.937788"/>
+                    <PolyStepSegment x="114.300371" y="-114.974005"/>
+                    <PolyStepSegment x="114.298416" y="-114.978474"/>
+                    <PolyStepSegment x="114.286073" y="-115.005249"/>
+                    <PolyStepSegment x="114.283948" y="-115.009632"/>
+                    <PolyStepSegment x="114.159287" y="-115.254293"/>
+                    <PolyStepSegment x="114.156992" y="-115.258586"/>
+                    <PolyStepSegment x="114.142602" y="-115.284282"/>
+                    <PolyStepSegment x="114.140140" y="-115.288483"/>
+                    <PolyStepSegment x="114.1240" y="-115.314821"/>
+                    <PolyStepSegment x="112.713365" y="-115.314821"/>
+                    <PolyStepSegment x="112.783748" y="-115.278959"/>
+                    <PolyStepSegment x="112.865794" y="-115.219348"/>
+                    <PolyStepSegment x="112.865795" y="-115.219348"/>
+                    <PolyStepSegment x="112.129408" y="-114.482962"/>
+                    <PolyStepSegment x="112.192993" y="-114.465925"/>
+                    <PolyStepSegment x="112.307007" y="-114.400099"/>
+                    <PolyStepSegment x="112.400099" y="-114.307007"/>
+                    <PolyStepSegment x="112.465925" y="-114.192993"/>
+                    <PolyStepSegment x="112.482962" y="-114.129408"/>
+                    <PolyStepSegment x="113.219348" y="-114.865795"/>
+                    <PolyStepSegment x="113.219348" y="-114.865794"/>
+                    <PolyStepSegment x="113.278959" y="-114.783748"/>
+                    <PolyStepSegment x="113.385817" y="-114.574027"/>
+                    <PolyStepSegment x="113.458555" y="-114.350164"/>
+                    <PolyStepSegment x="113.495376" y="-114.117694"/>
+                    <PolyStepSegment x="113.495376" y="-113.889778"/>
+                    <PolyStepSegment x="118.59950" y="-113.889778"/>
+                    <PolyStepSegment x="118.59950" y="-114.110222"/>
+                    <PolyStepSegment x="118.604556" y="-114.142144"/>
+                    <PolyStepSegment x="118.633985" y="-114.327952"/>
+                    <PolyStepSegment x="118.702103" y="-114.537603"/>
+                    <PolyStepSegment x="118.702104" y="-114.537606"/>
+                    <PolyStepSegment x="118.802187" y="-114.734025"/>
+                    <PolyStepSegment x="118.931752" y="-114.912358"/>
+                    <PolyStepSegment x="118.931756" y="-114.912363"/>
+                    <PolyStepSegment x="119.087636" y="-115.068243"/>
+                    <PolyStepSegment x="119.087641" y="-115.068247"/>
+                    <PolyStepSegment x="119.243192" y="-115.181260"/>
+                    <PolyStepSegment x="119.265978" y="-115.197815"/>
+                    <PolyStepSegment x="119.376821" y="-115.254293"/>
+                    <PolyStepSegment x="119.462393" y="-115.297895"/>
+                    <PolyStepSegment x="119.462396" y="-115.297896"/>
+                    <PolyStepSegment x="119.540984" y="-115.323430"/>
+                    <PolyStepSegment x="119.672049" y="-115.366015"/>
+                    <PolyStepSegment x="119.889778" y="-115.40050"/>
+                    <PolyStepSegment x="119.889779" y="-115.40050"/>
+                    <PolyStepSegment x="120.110221" y="-115.40050"/>
+                    <PolyStepSegment x="120.110222" y="-115.40050"/>
+                    <PolyStepSegment x="120.327951" y="-115.366015"/>
+                    <PolyStepSegment x="120.537606" y="-115.297895"/>
+                    <PolyStepSegment x="120.734022" y="-115.197815"/>
+                    <PolyStepSegment x="120.912365" y="-115.068242"/>
+                    <PolyStepSegment x="121.068242" y="-114.912365"/>
+                    <PolyStepSegment x="121.197815" y="-114.734022"/>
+                    <PolyStepSegment x="121.297895" y="-114.537606"/>
+                    <PolyStepSegment x="121.366015" y="-114.327951"/>
+                    <PolyStepSegment x="121.40050" y="-114.110222"/>
+                    <PolyStepSegment x="121.40050" y="-113.889778"/>
+                    <PolyStepSegment x="121.366015" y="-113.672049"/>
+                    <PolyStepSegment x="121.297895" y="-113.462394"/>
+                    <PolyStepSegment x="121.297895" y="-113.462393"/>
+                    <PolyStepSegment x="121.245540" y="-113.359643"/>
+                    <PolyStepSegment x="126.346426" y="-113.359643"/>
+                    <PolyStepSegment x="126.346426" y="-113.359652"/>
+                    <PolyStepSegment x="126.357135" y="-113.563987"/>
+                    <PolyStepSegment x="126.357136" y="-113.563994"/>
+                    <PolyStepSegment x="126.399679" y="-113.764142"/>
+                    <PolyStepSegment x="126.473010" y="-113.955176"/>
+                    <PolyStepSegment x="126.473013" y="-113.955181"/>
+                    <PolyStepSegment x="126.749166" y="-114.433492"/>
+                    <PolyStepSegment x="126.749167" y="-114.433492"/>
+                    <PolyStepSegment x="127.601608" y="-113.941335"/>
+                    <PolyStepSegment x="127.60" y="-113.947339"/>
+                    <PolyStepSegment x="127.60" y="-114.052661"/>
+                    <PolyStepSegment x="127.627259" y="-114.154394"/>
+                    <PolyStepSegment x="127.679920" y="-114.245606"/>
+                    <PolyStepSegment x="127.754394" y="-114.320080"/>
+                    <PolyStepSegment x="127.845606" y="-114.372741"/>
+                    <PolyStepSegment x="127.851605" y="-114.374348"/>
+                    <PolyStepSegment x="126.999167" y="-114.866504"/>
+                    <PolyStepSegment x="126.999167" y="-114.866505"/>
+                    <PolyStepSegment x="127.275319" y="-115.344815"/>
+                    <PolyStepSegment x="127.275329" y="-115.344830"/>
+                    <PolyStepSegment x="127.404094" y="-115.503843"/>
+                    <PolyStepSegment x="127.404096" y="-115.503845"/>
+                    <PolyStepSegment x="127.556155" y="-115.640760"/>
+                    <PolyStepSegment x="127.556162" y="-115.640765"/>
+                    <PolyStepSegment x="127.727774" y="-115.752212"/>
+                    <PolyStepSegment x="127.727777" y="-115.752213"/>
+                    <PolyStepSegment x="127.914709" y="-115.835441"/>
+                    <PolyStepSegment x="127.914708" y="-115.835441"/>
+                    <PolyStepSegment x="128.112356" y="-115.88840"/>
+                    <PolyStepSegment x="128.315866" y="-115.909790"/>
+                    <PolyStepSegment x="128.520203" y="-115.899081"/>
+                    <PolyStepSegment x="128.520212" y="-115.899080"/>
+                    <PolyStepSegment x="128.720367" y="-115.856536"/>
+                    <PolyStepSegment x="128.771797" y="-115.836793"/>
+                    <PolyStepSegment x="128.771797" y="-115.836792"/>
+                    <PolyStepSegment x="127.941336" y="-114.398391"/>
+                    <PolyStepSegment x="127.947339" y="-114.40"/>
+                    <PolyStepSegment x="128.052661" y="-114.40"/>
+                    <PolyStepSegment x="128.154394" y="-114.372741"/>
+                    <PolyStepSegment x="128.245606" y="-114.320080"/>
+                    <PolyStepSegment x="128.320080" y="-114.245606"/>
+                    <PolyStepSegment x="128.372741" y="-114.154394"/>
+                    <PolyStepSegment x="128.374348" y="-114.148393"/>
+                    <PolyStepSegment x="129.204809" y="-115.586792"/>
+                    <PolyStepSegment x="129.247630" y="-115.552118"/>
+                    <PolyStepSegment x="129.384550" y="-115.400051"/>
+                    <PolyStepSegment x="129.495992" y="-115.228445"/>
+                    <PolyStepSegment x="129.579223" y="-115.041507"/>
+                    <PolyStepSegment x="129.632182" y="-114.843860"/>
+                    <PolyStepSegment x="129.653572" y="-114.640354"/>
+                    <PolyStepSegment x="129.653572" y="-114.640347"/>
+                    <PolyStepSegment x="129.642864" y="-114.436010"/>
+                    <PolyStepSegment x="129.642863" y="-114.436004"/>
+                    <PolyStepSegment x="129.600320" y="-114.235857"/>
+                    <PolyStepSegment x="129.526989" y="-114.044823"/>
+                    <PolyStepSegment x="129.526986" y="-114.044818"/>
+                    <PolyStepSegment x="129.250832" y="-113.566506"/>
+                    <PolyStepSegment x="129.250831" y="-113.566506"/>
+                    <PolyStepSegment x="128.398392" y="-114.058661"/>
+                    <PolyStepSegment x="128.40" y="-114.052661"/>
+                    <PolyStepSegment x="128.40" y="-113.947339"/>
+                    <PolyStepSegment x="128.372741" y="-113.845606"/>
+                    <PolyStepSegment x="128.320080" y="-113.754394"/>
+                    <PolyStepSegment x="128.245606" y="-113.679920"/>
+                    <PolyStepSegment x="128.154394" y="-113.627259"/>
+                    <PolyStepSegment x="128.148390" y="-113.625650"/>
+                    <PolyStepSegment x="129.000832" y="-113.133493"/>
+                    <PolyStepSegment x="129.000832" y="-113.133492"/>
+                    <PolyStepSegment x="128.724680" y="-112.655183"/>
+                    <PolyStepSegment x="128.724670" y="-112.655168"/>
+                    <PolyStepSegment x="128.595905" y="-112.496155"/>
+                    <PolyStepSegment x="128.595903" y="-112.496154"/>
+                    <PolyStepSegment x="128.443833" y="-112.359231"/>
+                    <PolyStepSegment x="128.443834" y="-112.359231"/>
+                    <PolyStepSegment x="128.272231" y="-112.247791"/>
+                    <PolyStepSegment x="128.272222" y="-112.247786"/>
+                    <PolyStepSegment x="128.085287" y="-112.164558"/>
+                    <PolyStepSegment x="127.887643" y="-112.111599"/>
+                    <PolyStepSegment x="127.684134" y="-112.090208"/>
+                    <PolyStepSegment x="127.479794" y="-112.100917"/>
+                    <PolyStepSegment x="127.479787" y="-112.100918"/>
+                    <PolyStepSegment x="127.279641" y="-112.143461"/>
+                    <PolyStepSegment x="127.228201" y="-112.163206"/>
+                    <PolyStepSegment x="128.058662" y="-113.601608"/>
+                    <PolyStepSegment x="128.052661" y="-113.60"/>
+                    <PolyStepSegment x="127.947339" y="-113.60"/>
+                    <PolyStepSegment x="127.845606" y="-113.627259"/>
+                    <PolyStepSegment x="127.754394" y="-113.679920"/>
+                    <PolyStepSegment x="127.679920" y="-113.754394"/>
+                    <PolyStepSegment x="127.627259" y="-113.845606"/>
+                    <PolyStepSegment x="127.625650" y="-113.851607"/>
+                    <PolyStepSegment x="126.795189" y="-112.413206"/>
+                    <PolyStepSegment x="126.795188" y="-112.413206"/>
+                    <PolyStepSegment x="126.752376" y="-112.447874"/>
+                    <PolyStepSegment x="126.752376" y="-112.447875"/>
+                    <PolyStepSegment x="126.615449" y="-112.599948"/>
+                    <PolyStepSegment x="126.504009" y="-112.771550"/>
+                    <PolyStepSegment x="126.504004" y="-112.771559"/>
+                    <PolyStepSegment x="126.420776" y="-112.958494"/>
+                    <PolyStepSegment x="126.367817" y="-113.156138"/>
+                    <PolyStepSegment x="126.346426" y="-113.359643"/>
+                    <PolyStepSegment x="121.245540" y="-113.359643"/>
+                    <PolyStepSegment x="121.197815" y="-113.265978"/>
+                    <PolyStepSegment x="121.118012" y="-113.156138"/>
+                    <PolyStepSegment x="121.096116" y="-113.1260"/>
+                    <PolyStepSegment x="123.1240" y="-113.1260"/>
+                    <PolyStepSegment x="125.1260" y="-113.1260"/>
+                    <PolyStepSegment x="125.1260" y="-111.628714"/>
+                    <PolyStepSegment x="129.1240" y="-111.628714"/>
+                    <PolyStepSegment x="129.278262" y="-111.767611"/>
+                    <PolyStepSegment x="129.281817" y="-111.770940"/>
+                    <PolyStepSegment x="129.302923" y="-111.791501"/>
+                    <PolyStepSegment x="129.306345" y="-111.794969"/>
+                    <PolyStepSegment x="129.333329" y="-111.823406"/>
+                    <PolyStepSegment x="129.336608" y="-111.8270"/>
+                    <PolyStepSegment x="129.356025" y="-111.849141"/>
+                    <PolyStepSegment x="129.359163" y="-111.852864"/>
+                    <PolyStepSegment x="129.512603" y="-112.042347"/>
+                    <PolyStepSegment x="129.515593" y="-112.046192"/>
+                    <PolyStepSegment x="129.533214" y="-112.069790"/>
+                    <PolyStepSegment x="129.536049" y="-112.073746"/>
+                    <PolyStepSegment x="129.558252" y="-112.106051"/>
+                    <PolyStepSegment x="129.560930" y="-112.110115"/>
+                    <PolyStepSegment x="129.576651" y="-112.135030"/>
+                    <PolyStepSegment x="129.579169" y="-112.139201"/>
+                    <PolyStepSegment x="129.965399" y="-112.808171"/>
+                    <PolyStepSegment x="129.980951" y="-112.853986"/>
+                    <PolyStepSegment x="129.981233" y="-112.856134"/>
+                    <PolyStepSegment x="129.982951" y="-112.857452"/>
+                    <PolyStepSegment x="130.014851" y="-112.893827"/>
+                    <PolyStepSegment x="130.148897" y="-113.1260"/>
+                    <PolyStepSegment x="131.1260" y="-113.1260"/>
+                    <PolyStepSegment x="132.1240" y="-113.1260"/>
+                    <PolyStepSegment x="134.1260" y="-113.1260"/>
+                    <PolyStepSegment x="135.1240" y="-113.1260"/>
+                    <PolyStepSegment x="137.1260" y="-113.1260"/>
+                    <PolyStepSegment x="138.1240" y="-113.1260"/>
+                    <PolyStepSegment x="139.0020" y="-113.1260"/>
+                    <PolyStepSegment x="139.0020" y="-111.1240"/>
+                    <PolyStepSegment x="138.1240" y="-111.1240"/>
+                    <PolyStepSegment x="138.1240" y="-113.1260"/>
+                    <PolyStepSegment x="137.1260" y="-113.1260"/>
+                    <PolyStepSegment x="137.1260" y="-111.1240"/>
+                    <PolyStepSegment x="135.1240" y="-111.1240"/>
+                    <PolyStepSegment x="135.1240" y="-113.1260"/>
+                    <PolyStepSegment x="134.1260" y="-113.1260"/>
+                    <PolyStepSegment x="134.1260" y="-111.1240"/>
+                    <PolyStepSegment x="132.1240" y="-111.1240"/>
+                    <PolyStepSegment x="132.1240" y="-113.1260"/>
+                    <PolyStepSegment x="131.1260" y="-113.1260"/>
+                    <PolyStepSegment x="131.1260" y="-111.1240"/>
+                    <PolyStepSegment x="129.1240" y="-111.1240"/>
+                    <PolyStepSegment x="129.1240" y="-111.628714"/>
+                    <PolyStepSegment x="125.1260" y="-111.628714"/>
+                    <PolyStepSegment x="125.1260" y="-111.1240"/>
+                    <PolyStepSegment x="123.1240" y="-111.1240"/>
+                    <PolyStepSegment x="123.1240" y="-113.1260"/>
+                    <PolyStepSegment x="121.096116" y="-113.1260"/>
+                    <PolyStepSegment x="121.068247" y="-113.087641"/>
+                    <PolyStepSegment x="121.068243" y="-113.087636"/>
+                    <PolyStepSegment x="120.912363" y="-112.931756"/>
+                    <PolyStepSegment x="120.912358" y="-112.931752"/>
+                    <PolyStepSegment x="120.734025" y="-112.802187"/>
+                    <PolyStepSegment x="120.734024" y="-112.802186"/>
+                    <PolyStepSegment x="120.734022" y="-112.802185"/>
+                    <PolyStepSegment x="120.671096" y="-112.770122"/>
+                    <PolyStepSegment x="120.537606" y="-112.702104"/>
+                    <PolyStepSegment x="120.537603" y="-112.702103"/>
+                    <PolyStepSegment x="120.327952" y="-112.633985"/>
+                    <PolyStepSegment x="120.202920" y="-112.614182"/>
+                    <PolyStepSegment x="120.110222" y="-112.59950"/>
+                    <PolyStepSegment x="119.889778" y="-112.59950"/>
+                    <PolyStepSegment x="119.817201" y="-112.610995"/>
+                    <PolyStepSegment x="119.672047" y="-112.633985"/>
+                    <PolyStepSegment x="119.462396" y="-112.702103"/>
+                    <PolyStepSegment x="119.462393" y="-112.702104"/>
+                    <PolyStepSegment x="119.265974" y="-112.802187"/>
+                    <PolyStepSegment x="119.087641" y="-112.931752"/>
+                    <PolyStepSegment x="119.087636" y="-112.931756"/>
+                    <PolyStepSegment x="118.931756" y="-113.087636"/>
+                    <PolyStepSegment x="118.931752" y="-113.087641"/>
+                    <PolyStepSegment x="118.802187" y="-113.265974"/>
+                    <PolyStepSegment x="118.702104" y="-113.462393"/>
+                    <PolyStepSegment x="118.702103" y="-113.462396"/>
+                    <PolyStepSegment x="118.633985" y="-113.672047"/>
+                    <PolyStepSegment x="118.620943" y="-113.754394"/>
+                    <PolyStepSegment x="118.59950" y="-113.889778"/>
+                    <PolyStepSegment x="113.495376" y="-113.889778"/>
+                    <PolyStepSegment x="113.495376" y="-113.882305"/>
+                    <PolyStepSegment x="113.458555" y="-113.649835"/>
+                    <PolyStepSegment x="113.385817" y="-113.425972"/>
+                    <PolyStepSegment x="113.278957" y="-113.216248"/>
+                    <PolyStepSegment x="113.219349" y="-113.134204"/>
+                    <PolyStepSegment x="113.219348" y="-113.134203"/>
+                    <PolyStepSegment x="112.482962" y="-113.870590"/>
+                    <PolyStepSegment x="112.465925" y="-113.807007"/>
+                    <PolyStepSegment x="112.400099" y="-113.692993"/>
+                    <PolyStepSegment x="112.307007" y="-113.599901"/>
+                    <PolyStepSegment x="112.192993" y="-113.534075"/>
+                    <PolyStepSegment x="112.129409" y="-113.517037"/>
+                    <PolyStepSegment x="112.865794" y="-112.780650"/>
+                    <PolyStepSegment x="112.865794" y="-112.780649"/>
+                    <PolyStepSegment x="112.783750" y="-112.721041"/>
+                    <PolyStepSegment x="112.783746" y="-112.721039"/>
+                    <PolyStepSegment x="112.713367" y="-112.685179"/>
+                    <PolyStepSegment x="114.1240" y="-112.685179"/>
+                    <PolyStepSegment x="114.140140" y="-112.711518"/>
+                    <PolyStepSegment x="114.142602" y="-112.715718"/>
+                    <PolyStepSegment x="114.156992" y="-112.741414"/>
+                    <PolyStepSegment x="114.159287" y="-112.745707"/>
+                    <PolyStepSegment x="114.283948" y="-112.990368"/>
+                    <PolyStepSegment x="114.286073" y="-112.994751"/>
+                    <PolyStepSegment x="114.298416" y="-113.021526"/>
+                    <PolyStepSegment x="114.300371" y="-113.025995"/>
+                    <PolyStepSegment x="114.315369" y="-113.062212"/>
+                    <PolyStepSegment x="114.317141" y="-113.066740"/>
+                    <PolyStepSegment x="114.327326" y="-113.094350"/>
+                    <PolyStepSegment x="114.328920" y="-113.098947"/>
+                    <PolyStepSegment x="114.337710" y="-113.1260"/>
+                    <PolyStepSegment x="116.1260" y="-113.1260"/>
+                    <PolyStepSegment x="117.1240" y="-113.1260"/>
+                    <PolyStepSegment x="117.762356" y="-113.1260"/>
+                    <PolyStepSegment x="117.770794" y="-113.103127"/>
+                    <PolyStepSegment x="117.772568" y="-113.098596"/>
+                    <PolyStepSegment x="117.787569" y="-113.062378"/>
+                    <PolyStepSegment x="117.789522" y="-113.057913"/>
+                    <PolyStepSegment x="117.801858" y="-113.031155"/>
+                    <PolyStepSegment x="117.803982" y="-113.026775"/>
+                    <PolyStepSegment x="117.921859" y="-112.795431"/>
+                    <PolyStepSegment x="117.924153" y="-112.791140"/>
+                    <PolyStepSegment x="117.938542" y="-112.765445"/>
+                    <PolyStepSegment x="117.941006" y="-112.761241"/>
+                    <PolyStepSegment x="117.961487" y="-112.727819"/>
+                    <PolyStepSegment x="117.964112" y="-112.723718"/>
+                    <PolyStepSegment x="117.980479" y="-112.699223"/>
+                    <PolyStepSegment x="117.983262" y="-112.695229"/>
+                    <PolyStepSegment x="118.135886" y="-112.485157"/>
+                    <PolyStepSegment x="118.138831" y="-112.481267"/>
+                    <PolyStepSegment x="118.157090" y="-112.458109"/>
+                    <PolyStepSegment x="118.160179" y="-112.454346"/>
+                    <PolyStepSegment x="118.185640" y="-112.424539"/>
+                    <PolyStepSegment x="118.188874" y="-112.42090"/>
+                    <PolyStepSegment x="118.208848" y="-112.399295"/>
+                    <PolyStepSegment x="118.212218" y="-112.395791"/>
+                    <PolyStepSegment x="118.395791" y="-112.212218"/>
+                    <PolyStepSegment x="118.399295" y="-112.208848"/>
+                    <PolyStepSegment x="118.42090" y="-112.188874"/>
+                    <PolyStepSegment x="118.424539" y="-112.185640"/>
+                    <PolyStepSegment x="118.454346" y="-112.160179"/>
+                    <PolyStepSegment x="118.458109" y="-112.157090"/>
+                    <PolyStepSegment x="118.481267" y="-112.138831"/>
+                    <PolyStepSegment x="118.485157" y="-112.135886"/>
+                    <PolyStepSegment x="118.695229" y="-111.983262"/>
+                    <PolyStepSegment x="118.699223" y="-111.980479"/>
+                    <PolyStepSegment x="118.723718" y="-111.964112"/>
+                    <PolyStepSegment x="118.727819" y="-111.961487"/>
+                    <PolyStepSegment x="118.761241" y="-111.941006"/>
+                    <PolyStepSegment x="118.765445" y="-111.938542"/>
+                    <PolyStepSegment x="118.791140" y="-111.924153"/>
+                    <PolyStepSegment x="118.795431" y="-111.921859"/>
+                    <PolyStepSegment x="119.026775" y="-111.803982"/>
+                    <PolyStepSegment x="119.031155" y="-111.801858"/>
+                    <PolyStepSegment x="119.057913" y="-111.789522"/>
+                    <PolyStepSegment x="119.062378" y="-111.787569"/>
+                    <PolyStepSegment x="119.098596" y="-111.772568"/>
+                    <PolyStepSegment x="119.103127" y="-111.770794"/>
+                    <PolyStepSegment x="119.1260" y="-111.762355"/>
+                    <PolyStepSegment x="119.1260" y="-111.60150"/>
+                    <PolyStepSegment x="120.1240" y="-111.60150"/>
+                    <PolyStepSegment x="120.129832" y="-111.60150"/>
+                    <PolyStepSegment x="120.134704" y="-111.601596"/>
+                    <PolyStepSegment x="120.164156" y="-111.602754"/>
+                    <PolyStepSegment x="120.169021" y="-111.603041"/>
+                    <PolyStepSegment x="120.20810" y="-111.606119"/>
+                    <PolyStepSegment x="120.212938" y="-111.606596"/>
+                    <PolyStepSegment x="120.242171" y="-111.610056"/>
+                    <PolyStepSegment x="120.246994" y="-111.610723"/>
+                    <PolyStepSegment x="120.503422" y="-111.651337"/>
+                    <PolyStepSegment x="120.508211" y="-111.652192"/>
+                    <PolyStepSegment x="120.537083" y="-111.657934"/>
+                    <PolyStepSegment x="120.541838" y="-111.658977"/>
+                    <PolyStepSegment x="120.579954" y="-111.668126"/>
+                    <PolyStepSegment x="120.584669" y="-111.669356"/>
+                    <PolyStepSegment x="120.613036" y="-111.677356"/>
+                    <PolyStepSegment x="120.617696" y="-111.678770"/>
+                    <PolyStepSegment x="120.864639" y="-111.759005"/>
+                    <PolyStepSegment x="120.869241" y="-111.76060"/>
+                    <PolyStepSegment x="120.896873" y="-111.770794"/>
+                    <PolyStepSegment x="120.901404" y="-111.772568"/>
+                    <PolyStepSegment x="120.937622" y="-111.787569"/>
+                    <PolyStepSegment x="120.942087" y="-111.789522"/>
+                    <PolyStepSegment x="120.968845" y="-111.801858"/>
+                    <PolyStepSegment x="120.973225" y="-111.803982"/>
+                    <PolyStepSegment x="121.204569" y="-111.921859"/>
+                    <PolyStepSegment x="121.208860" y="-111.924153"/>
+                    <PolyStepSegment x="121.234555" y="-111.938542"/>
+                    <PolyStepSegment x="121.238759" y="-111.941006"/>
+                    <PolyStepSegment x="121.272181" y="-111.961487"/>
+                    <PolyStepSegment x="121.276282" y="-111.964112"/>
+                    <PolyStepSegment x="121.300777" y="-111.980479"/>
+                    <PolyStepSegment x="121.304771" y="-111.983262"/>
+                    <PolyStepSegment x="121.514843" y="-112.135886"/>
+                    <PolyStepSegment x="121.518733" y="-112.138831"/>
+                    <PolyStepSegment x="121.541891" y="-112.157090"/>
+                    <PolyStepSegment x="121.545654" y="-112.160179"/>
+                    <PolyStepSegment x="121.575461" y="-112.185640"/>
+                    <PolyStepSegment x="121.57910" y="-112.188874"/>
+                    <PolyStepSegment x="121.600705" y="-112.208848"/>
+                    <PolyStepSegment x="121.604209" y="-112.212218"/>
+                    <PolyStepSegment x="121.787782" y="-112.395791"/>
+                    <PolyStepSegment x="121.791152" y="-112.399295"/>
+                    <PolyStepSegment x="121.811126" y="-112.42090"/>
+                    <PolyStepSegment x="121.814360" y="-112.424539"/>
+                    <PolyStepSegment x="121.839821" y="-112.454346"/>
+                    <PolyStepSegment x="121.842910" y="-112.458109"/>
+                    <PolyStepSegment x="121.861169" y="-112.481267"/>
+                    <PolyStepSegment x="121.864114" y="-112.485157"/>
+                    <PolyStepSegment x="122.016738" y="-112.695229"/>
+                    <PolyStepSegment x="122.019521" y="-112.699223"/>
+                    <PolyStepSegment x="122.035888" y="-112.723718"/>
+                    <PolyStepSegment x="122.038513" y="-112.727819"/>
+                    <PolyStepSegment x="122.058994" y="-112.761241"/>
+                    <PolyStepSegment x="122.061458" y="-112.765445"/>
+                    <PolyStepSegment x="122.075847" y="-112.791140"/>
+                    <PolyStepSegment x="122.078141" y="-112.795431"/>
+                    <PolyStepSegment x="122.1260" y="-112.889358"/>
+                    <PolyStepSegment x="122.1260" y="-111.1240"/>
+                    <PolyStepSegment x="120.1240" y="-111.1240"/>
+                    <PolyStepSegment x="120.1240" y="-111.60150"/>
+                    <PolyStepSegment x="119.1260" y="-111.60150"/>
+                    <PolyStepSegment x="119.1260" y="-111.1240"/>
+                    <PolyStepSegment x="117.1240" y="-111.1240"/>
+                    <PolyStepSegment x="117.1240" y="-113.1260"/>
+                    <PolyStepSegment x="116.1260" y="-113.1260"/>
+                    <PolyStepSegment x="116.1260" y="-111.1240"/>
+                    <PolyStepSegment x="114.1240" y="-111.1240"/>
+                    <PolyStepSegment x="114.1240" y="-112.685179"/>
+                    <PolyStepSegment x="112.713367" y="-112.685179"/>
+                    <PolyStepSegment x="112.574027" y="-112.614182"/>
+                    <PolyStepSegment x="112.350164" y="-112.541444"/>
+                    <PolyStepSegment x="112.117694" y="-112.504624"/>
+                    <PolyStepSegment x="111.882306" y="-112.504624"/>
+                    <PolyStepSegment x="111.649835" y="-112.541444"/>
+                    <PolyStepSegment x="111.425972" y="-112.614182"/>
+                    <PolyStepSegment x="111.216250" y="-112.721041"/>
+                    <PolyStepSegment x="111.134204" y="-112.780649"/>
+                    <PolyStepSegment x="111.134204" y="-112.780650"/>
+                    <PolyStepSegment x="111.870591" y="-113.517037"/>
+                    <PolyStepSegment x="111.807007" y="-113.534075"/>
+                    <PolyStepSegment x="111.692993" y="-113.599901"/>
+                    <PolyStepSegment x="111.599901" y="-113.692993"/>
+                    <PolyStepSegment x="111.534075" y="-113.807007"/>
+                    <PolyStepSegment x="111.517037" y="-113.870591"/>
+                    <PolyStepSegment x="110.780650" y="-113.134204"/>
+                    <PolyStepSegment x="110.780649" y="-113.134204"/>
+                    <PolyStepSegment x="110.721041" y="-113.216250"/>
+                    <PolyStepSegment x="110.614182" y="-113.425972"/>
+                    <PolyStepSegment x="110.541444" y="-113.649835"/>
+                    <PolyStepSegment x="110.504624" y="-113.882305"/>
+                    <PolyStepSegment x="100.0" y="-113.882305"/>
+                    <PolyStepSegment x="100.0" y="-113.1260"/>
+                    <PolyStepSegment x="102.1240" y="-113.1260"/>
+                    <PolyStepSegment x="104.1260" y="-113.1260"/>
+                    <PolyStepSegment x="105.1240" y="-113.1260"/>
+                    <PolyStepSegment x="107.1260" y="-113.1260"/>
+                    <PolyStepSegment x="108.1240" y="-113.1260"/>
+                    <PolyStepSegment x="109.662290" y="-113.1260"/>
+                    <PolyStepSegment x="109.671080" y="-113.098947"/>
+                    <PolyStepSegment x="109.672674" y="-113.094350"/>
+                    <PolyStepSegment x="109.682859" y="-113.066740"/>
+                    <PolyStepSegment x="109.684631" y="-113.062212"/>
+                    <PolyStepSegment x="109.699629" y="-113.025995"/>
+                    <PolyStepSegment x="109.701583" y="-113.021527"/>
+                    <PolyStepSegment x="109.713926" y="-112.994751"/>
+                    <PolyStepSegment x="109.716052" y="-112.990367"/>
+                    <PolyStepSegment x="109.840713" y="-112.745707"/>
+                    <PolyStepSegment x="109.843009" y="-112.741413"/>
+                    <PolyStepSegment x="109.857399" y="-112.715718"/>
+                    <PolyStepSegment x="109.859860" y="-112.711518"/>
+                    <PolyStepSegment x="109.880340" y="-112.678097"/>
+                    <PolyStepSegment x="109.882964" y="-112.673998"/>
+                    <PolyStepSegment x="109.899328" y="-112.649506"/>
+                    <PolyStepSegment x="109.902113" y="-112.645510"/>
+                    <PolyStepSegment x="110.103565" y="-112.368227"/>
+                    <PolyStepSegment x="110.1260" y="-112.348289"/>
+                    <PolyStepSegment x="110.1260" y="-111.662939"/>
+                    <PolyStepSegment x="111.1240" y="-111.662939"/>
+                    <PolyStepSegment x="111.360068" y="-111.586236"/>
+                    <PolyStepSegment x="111.364728" y="-111.584822"/>
+                    <PolyStepSegment x="111.393070" y="-111.576829"/>
+                    <PolyStepSegment x="111.397775" y="-111.575602"/>
+                    <PolyStepSegment x="111.435892" y="-111.566449"/>
+                    <PolyStepSegment x="111.440654" y="-111.565403"/>
+                    <PolyStepSegment x="111.469552" y="-111.559655"/>
+                    <PolyStepSegment x="111.474345" y="-111.55880"/>
+                    <PolyStepSegment x="111.745556" y="-111.515843"/>
+                    <PolyStepSegment x="111.750386" y="-111.515175"/>
+                    <PolyStepSegment x="111.779659" y="-111.511712"/>
+                    <PolyStepSegment x="111.784503" y="-111.511235"/>
+                    <PolyStepSegment x="111.823583" y="-111.508161"/>
+                    <PolyStepSegment x="111.828442" y="-111.507874"/>
+                    <PolyStepSegment x="111.857856" y="-111.506719"/>
+                    <PolyStepSegment x="111.862721" y="-111.506624"/>
+                    <PolyStepSegment x="112.137279" y="-111.506624"/>
+                    <PolyStepSegment x="112.142144" y="-111.506719"/>
+                    <PolyStepSegment x="112.171558" y="-111.507874"/>
+                    <PolyStepSegment x="112.176417" y="-111.508161"/>
+                    <PolyStepSegment x="112.215497" y="-111.511235"/>
+                    <PolyStepSegment x="112.220341" y="-111.511712"/>
+                    <PolyStepSegment x="112.249614" y="-111.515175"/>
+                    <PolyStepSegment x="112.254444" y="-111.515843"/>
+                    <PolyStepSegment x="112.525655" y="-111.55880"/>
+                    <PolyStepSegment x="112.530448" y="-111.559655"/>
+                    <PolyStepSegment x="112.559346" y="-111.565403"/>
+                    <PolyStepSegment x="112.564108" y="-111.566449"/>
+                    <PolyStepSegment x="112.602225" y="-111.575602"/>
+                    <PolyStepSegment x="112.606930" y="-111.576829"/>
+                    <PolyStepSegment x="112.635272" y="-111.584822"/>
+                    <PolyStepSegment x="112.639932" y="-111.586236"/>
+                    <PolyStepSegment x="112.901053" y="-111.671080"/>
+                    <PolyStepSegment x="112.905650" y="-111.672674"/>
+                    <PolyStepSegment x="112.933260" y="-111.682859"/>
+                    <PolyStepSegment x="112.937788" y="-111.684631"/>
+                    <PolyStepSegment x="112.974005" y="-111.699629"/>
+                    <PolyStepSegment x="112.978474" y="-111.701584"/>
+                    <PolyStepSegment x="113.005249" y="-111.713927"/>
+                    <PolyStepSegment x="113.009632" y="-111.716052"/>
+                    <PolyStepSegment x="113.1260" y="-111.775344"/>
+                    <PolyStepSegment x="113.1260" y="-111.1240"/>
+                    <PolyStepSegment x="111.1240" y="-111.1240"/>
+                    <PolyStepSegment x="111.1240" y="-111.662939"/>
+                    <PolyStepSegment x="110.1260" y="-111.662939"/>
+                    <PolyStepSegment x="110.1260" y="-111.1240"/>
+                    <PolyStepSegment x="108.1240" y="-111.1240"/>
+                    <PolyStepSegment x="108.1240" y="-113.1260"/>
+                    <PolyStepSegment x="107.1260" y="-113.1260"/>
+                    <PolyStepSegment x="107.1260" y="-111.1240"/>
+                    <PolyStepSegment x="105.1240" y="-111.1240"/>
+                    <PolyStepSegment x="105.1240" y="-113.1260"/>
+                    <PolyStepSegment x="104.1260" y="-113.1260"/>
+                    <PolyStepSegment x="104.1260" y="-111.1240"/>
+                    <PolyStepSegment x="102.1240" y="-111.1240"/>
+                    <PolyStepSegment x="102.1240" y="-113.1260"/>
+                    <PolyStepSegment x="100.0" y="-113.1260"/>
+                    <PolyStepSegment x="100.0" y="-110.1260"/>
+                    <PolyStepSegment x="102.1240" y="-110.1260"/>
+                    <PolyStepSegment x="104.1260" y="-110.1260"/>
+                    <PolyStepSegment x="105.1240" y="-110.1260"/>
+                    <PolyStepSegment x="107.1260" y="-110.1260"/>
+                    <PolyStepSegment x="108.1240" y="-110.1260"/>
+                    <PolyStepSegment x="110.1260" y="-110.1260"/>
+                    <PolyStepSegment x="111.1240" y="-110.1260"/>
+                    <PolyStepSegment x="113.1260" y="-110.1260"/>
+                    <PolyStepSegment x="114.1240" y="-110.1260"/>
+                    <PolyStepSegment x="116.1260" y="-110.1260"/>
+                    <PolyStepSegment x="117.1240" y="-110.1260"/>
+                    <PolyStepSegment x="119.1260" y="-110.1260"/>
+                    <PolyStepSegment x="120.1240" y="-110.1260"/>
+                    <PolyStepSegment x="122.1260" y="-110.1260"/>
+                    <PolyStepSegment x="123.1240" y="-110.1260"/>
+                    <PolyStepSegment x="125.1260" y="-110.1260"/>
+                    <PolyStepSegment x="126.1240" y="-110.1260"/>
+                    <PolyStepSegment x="128.1260" y="-110.1260"/>
+                    <PolyStepSegment x="129.1240" y="-110.1260"/>
+                    <PolyStepSegment x="131.1260" y="-110.1260"/>
+                    <PolyStepSegment x="132.1240" y="-110.1260"/>
+                    <PolyStepSegment x="134.1260" y="-110.1260"/>
+                    <PolyStepSegment x="135.1240" y="-110.1260"/>
+                    <PolyStepSegment x="137.1260" y="-110.1260"/>
+                    <PolyStepSegment x="138.1240" y="-110.1260"/>
+                    <PolyStepSegment x="139.0020" y="-110.1260"/>
+                    <PolyStepSegment x="139.0020" y="-108.1240"/>
+                    <PolyStepSegment x="138.1240" y="-108.1240"/>
+                    <PolyStepSegment x="138.1240" y="-110.1260"/>
+                    <PolyStepSegment x="137.1260" y="-110.1260"/>
+                    <PolyStepSegment x="137.1260" y="-108.1240"/>
+                    <PolyStepSegment x="135.1240" y="-108.1240"/>
+                    <PolyStepSegment x="135.1240" y="-110.1260"/>
+                    <PolyStepSegment x="134.1260" y="-110.1260"/>
+                    <PolyStepSegment x="134.1260" y="-108.1240"/>
+                    <PolyStepSegment x="132.1240" y="-108.1240"/>
+                    <PolyStepSegment x="132.1240" y="-110.1260"/>
+                    <PolyStepSegment x="131.1260" y="-110.1260"/>
+                    <PolyStepSegment x="131.1260" y="-108.1240"/>
+                    <PolyStepSegment x="129.1240" y="-108.1240"/>
+                    <PolyStepSegment x="129.1240" y="-110.1260"/>
+                    <PolyStepSegment x="128.1260" y="-110.1260"/>
+                    <PolyStepSegment x="128.1260" y="-108.1240"/>
+                    <PolyStepSegment x="126.1240" y="-108.1240"/>
+                    <PolyStepSegment x="126.1240" y="-110.1260"/>
+                    <PolyStepSegment x="125.1260" y="-110.1260"/>
+                    <PolyStepSegment x="125.1260" y="-108.1240"/>
+                    <PolyStepSegment x="123.1240" y="-108.1240"/>
+                    <PolyStepSegment x="123.1240" y="-110.1260"/>
+                    <PolyStepSegment x="122.1260" y="-110.1260"/>
+                    <PolyStepSegment x="122.1260" y="-108.1240"/>
+                    <PolyStepSegment x="120.1240" y="-108.1240"/>
+                    <PolyStepSegment x="120.1240" y="-110.1260"/>
+                    <PolyStepSegment x="119.1260" y="-110.1260"/>
+                    <PolyStepSegment x="119.1260" y="-108.1240"/>
+                    <PolyStepSegment x="117.1240" y="-108.1240"/>
+                    <PolyStepSegment x="117.1240" y="-110.1260"/>
+                    <PolyStepSegment x="116.1260" y="-110.1260"/>
+                    <PolyStepSegment x="116.1260" y="-108.1240"/>
+                    <PolyStepSegment x="114.1240" y="-108.1240"/>
+                    <PolyStepSegment x="114.1240" y="-110.1260"/>
+                    <PolyStepSegment x="113.1260" y="-110.1260"/>
+                    <PolyStepSegment x="113.1260" y="-108.1240"/>
+                    <PolyStepSegment x="111.1240" y="-108.1240"/>
+                    <PolyStepSegment x="111.1240" y="-110.1260"/>
+                    <PolyStepSegment x="110.1260" y="-110.1260"/>
+                    <PolyStepSegment x="110.1260" y="-108.1240"/>
+                    <PolyStepSegment x="108.1240" y="-108.1240"/>
+                    <PolyStepSegment x="108.1240" y="-110.1260"/>
+                    <PolyStepSegment x="107.1260" y="-110.1260"/>
+                    <PolyStepSegment x="107.1260" y="-108.1240"/>
+                    <PolyStepSegment x="105.1240" y="-108.1240"/>
+                    <PolyStepSegment x="105.1240" y="-110.1260"/>
+                    <PolyStepSegment x="104.1260" y="-110.1260"/>
+                    <PolyStepSegment x="104.1260" y="-108.1240"/>
+                    <PolyStepSegment x="102.1240" y="-108.1240"/>
+                    <PolyStepSegment x="102.1240" y="-110.1260"/>
+                    <PolyStepSegment x="100.0" y="-110.1260"/>
+                    <PolyStepSegment x="100.0" y="-107.1260"/>
+                    <PolyStepSegment x="102.1240" y="-107.1260"/>
+                    <PolyStepSegment x="104.1260" y="-107.1260"/>
+                    <PolyStepSegment x="104.1260" y="-106.874338"/>
+                    <PolyStepSegment x="105.1240" y="-106.874338"/>
+                    <PolyStepSegment x="105.1240" y="-107.1260"/>
+                    <PolyStepSegment x="107.1260" y="-107.1260"/>
+                    <PolyStepSegment x="108.1240" y="-107.1260"/>
+                    <PolyStepSegment x="110.1260" y="-107.1260"/>
+                    <PolyStepSegment x="111.1240" y="-107.1260"/>
+                    <PolyStepSegment x="113.1260" y="-107.1260"/>
+                    <PolyStepSegment x="114.1240" y="-107.1260"/>
+                    <PolyStepSegment x="116.1260" y="-107.1260"/>
+                    <PolyStepSegment x="117.1240" y="-107.1260"/>
+                    <PolyStepSegment x="119.1260" y="-107.1260"/>
+                    <PolyStepSegment x="120.1240" y="-107.1260"/>
+                    <PolyStepSegment x="122.1260" y="-107.1260"/>
+                    <PolyStepSegment x="123.1240" y="-107.1260"/>
+                    <PolyStepSegment x="125.1260" y="-107.1260"/>
+                    <PolyStepSegment x="126.1240" y="-107.1260"/>
+                    <PolyStepSegment x="128.1260" y="-107.1260"/>
+                    <PolyStepSegment x="129.1240" y="-107.1260"/>
+                    <PolyStepSegment x="131.1260" y="-107.1260"/>
+                    <PolyStepSegment x="132.1240" y="-107.1260"/>
+                    <PolyStepSegment x="134.1260" y="-107.1260"/>
+                    <PolyStepSegment x="135.1240" y="-107.1260"/>
+                    <PolyStepSegment x="137.1260" y="-107.1260"/>
+                    <PolyStepSegment x="138.1240" y="-107.1260"/>
+                    <PolyStepSegment x="139.0020" y="-107.1260"/>
+                    <PolyStepSegment x="139.0020" y="-105.1240"/>
+                    <PolyStepSegment x="138.1240" y="-105.1240"/>
+                    <PolyStepSegment x="138.1240" y="-107.1260"/>
+                    <PolyStepSegment x="137.1260" y="-107.1260"/>
+                    <PolyStepSegment x="137.1260" y="-105.1240"/>
+                    <PolyStepSegment x="135.1240" y="-105.1240"/>
+                    <PolyStepSegment x="135.1240" y="-107.1260"/>
+                    <PolyStepSegment x="134.1260" y="-107.1260"/>
+                    <PolyStepSegment x="134.1260" y="-105.1240"/>
+                    <PolyStepSegment x="132.1240" y="-105.1240"/>
+                    <PolyStepSegment x="132.1240" y="-107.1260"/>
+                    <PolyStepSegment x="131.1260" y="-107.1260"/>
+                    <PolyStepSegment x="131.1260" y="-105.1240"/>
+                    <PolyStepSegment x="129.1240" y="-105.1240"/>
+                    <PolyStepSegment x="129.1240" y="-107.1260"/>
+                    <PolyStepSegment x="128.1260" y="-107.1260"/>
+                    <PolyStepSegment x="128.1260" y="-105.1240"/>
+                    <PolyStepSegment x="126.1240" y="-105.1240"/>
+                    <PolyStepSegment x="126.1240" y="-107.1260"/>
+                    <PolyStepSegment x="125.1260" y="-107.1260"/>
+                    <PolyStepSegment x="125.1260" y="-105.1240"/>
+                    <PolyStepSegment x="123.1240" y="-105.1240"/>
+                    <PolyStepSegment x="123.1240" y="-107.1260"/>
+                    <PolyStepSegment x="122.1260" y="-107.1260"/>
+                    <PolyStepSegment x="122.1260" y="-105.1240"/>
+                    <PolyStepSegment x="120.1240" y="-105.1240"/>
+                    <PolyStepSegment x="120.1240" y="-107.1260"/>
+                    <PolyStepSegment x="119.1260" y="-107.1260"/>
+                    <PolyStepSegment x="119.1260" y="-105.1240"/>
+                    <PolyStepSegment x="117.1240" y="-105.1240"/>
+                    <PolyStepSegment x="117.1240" y="-107.1260"/>
+                    <PolyStepSegment x="116.1260" y="-107.1260"/>
+                    <PolyStepSegment x="116.1260" y="-105.1240"/>
+                    <PolyStepSegment x="114.1240" y="-105.1240"/>
+                    <PolyStepSegment x="114.1240" y="-107.1260"/>
+                    <PolyStepSegment x="113.1260" y="-107.1260"/>
+                    <PolyStepSegment x="113.1260" y="-105.1240"/>
+                    <PolyStepSegment x="111.1240" y="-105.1240"/>
+                    <PolyStepSegment x="111.1240" y="-107.1260"/>
+                    <PolyStepSegment x="110.1260" y="-107.1260"/>
+                    <PolyStepSegment x="110.1260" y="-105.1240"/>
+                    <PolyStepSegment x="108.1240" y="-105.1240"/>
+                    <PolyStepSegment x="108.1240" y="-107.1260"/>
+                    <PolyStepSegment x="107.1260" y="-107.1260"/>
+                    <PolyStepSegment x="107.1260" y="-105.1240"/>
+                    <PolyStepSegment x="106.874333" y="-105.1240"/>
+                    <PolyStepSegment x="106.885274" y="-105.167678"/>
+                    <PolyStepSegment x="106.886607" y="-105.2220"/>
+                    <PolyStepSegment x="106.835288" y="-105.479994"/>
+                    <PolyStepSegment x="106.833955" y="-105.485931"/>
+                    <PolyStepSegment x="106.825006" y="-105.521658"/>
+                    <PolyStepSegment x="106.823382" y="-105.527528"/>
+                    <PolyStepSegment x="106.809155" y="-105.574423"/>
+                    <PolyStepSegment x="106.807246" y="-105.580201"/>
+                    <PolyStepSegment x="106.794843" y="-105.614863"/>
+                    <PolyStepSegment x="106.792653" y="-105.620538"/>
+                    <PolyStepSegment x="106.706386" y="-105.828807"/>
+                    <PolyStepSegment x="106.703921" y="-105.834370"/>
+                    <PolyStepSegment x="106.688181" y="-105.867651"/>
+                    <PolyStepSegment x="106.685444" y="-105.873087"/>
+                    <PolyStepSegment x="106.662343" y="-105.916308"/>
+                    <PolyStepSegment x="106.659344" y="-105.921603"/>
+                    <PolyStepSegment x="106.640409" y="-105.953196"/>
+                    <PolyStepSegment x="106.637151" y="-105.958341"/>
+                    <PolyStepSegment x="106.511903" y="-106.145787"/>
+                    <PolyStepSegment x="106.508398" y="-106.150763"/>
+                    <PolyStepSegment x="106.486465" y="-106.180336"/>
+                    <PolyStepSegment x="106.482721" y="-106.185134"/>
+                    <PolyStepSegment x="106.451632" y="-106.223016"/>
+                    <PolyStepSegment x="106.447658" y="-106.227623"/>
+                    <PolyStepSegment x="106.422927" y="-106.254910"/>
+                    <PolyStepSegment x="106.418729" y="-106.259319"/>
+                    <PolyStepSegment x="106.259319" y="-106.418729"/>
+                    <PolyStepSegment x="106.254910" y="-106.422927"/>
+                    <PolyStepSegment x="106.227623" y="-106.447658"/>
+                    <PolyStepSegment x="106.223016" y="-106.451632"/>
+                    <PolyStepSegment x="106.185134" y="-106.482721"/>
+                    <PolyStepSegment x="106.180336" y="-106.486465"/>
+                    <PolyStepSegment x="106.150763" y="-106.508398"/>
+                    <PolyStepSegment x="106.145787" y="-106.511903"/>
+                    <PolyStepSegment x="105.958341" y="-106.637151"/>
+                    <PolyStepSegment x="105.953196" y="-106.640409"/>
+                    <PolyStepSegment x="105.921603" y="-106.659344"/>
+                    <PolyStepSegment x="105.916308" y="-106.662343"/>
+                    <PolyStepSegment x="105.873087" y="-106.685444"/>
+                    <PolyStepSegment x="105.867652" y="-106.688180"/>
+                    <PolyStepSegment x="105.834370" y="-106.703921"/>
+                    <PolyStepSegment x="105.828806" y="-106.706387"/>
+                    <PolyStepSegment x="105.620527" y="-106.792658"/>
+                    <PolyStepSegment x="105.614847" y="-106.794849"/>
+                    <PolyStepSegment x="105.580172" y="-106.807255"/>
+                    <PolyStepSegment x="105.574394" y="-106.809164"/>
+                    <PolyStepSegment x="105.527479" y="-106.823395"/>
+                    <PolyStepSegment x="105.521606" y="-106.825020"/>
+                    <PolyStepSegment x="105.485865" y="-106.833970"/>
+                    <PolyStepSegment x="105.479926" y="-106.835303"/>
+                    <PolyStepSegment x="105.221930" y="-106.886602"/>
+                    <PolyStepSegment x="105.167611" y="-106.885265"/>
+                    <PolyStepSegment x="105.1240" y="-106.874338"/>
+                    <PolyStepSegment x="104.1260" y="-106.874338"/>
+                    <PolyStepSegment x="104.1260" y="-106.684956"/>
+                    <PolyStepSegment x="104.083692" y="-106.662343"/>
+                    <PolyStepSegment x="104.078397" y="-106.659344"/>
+                    <PolyStepSegment x="104.046804" y="-106.640409"/>
+                    <PolyStepSegment x="104.041659" y="-106.637151"/>
+                    <PolyStepSegment x="103.854213" y="-106.511903"/>
+                    <PolyStepSegment x="103.849237" y="-106.508398"/>
+                    <PolyStepSegment x="103.819664" y="-106.486465"/>
+                    <PolyStepSegment x="103.814866" y="-106.482721"/>
+                    <PolyStepSegment x="103.776984" y="-106.451632"/>
+                    <PolyStepSegment x="103.772377" y="-106.447658"/>
+                    <PolyStepSegment x="103.745090" y="-106.422927"/>
+                    <PolyStepSegment x="103.740681" y="-106.418729"/>
+                    <PolyStepSegment x="103.581271" y="-106.259319"/>
+                    <PolyStepSegment x="103.577073" y="-106.254910"/>
+                    <PolyStepSegment x="103.552342" y="-106.227623"/>
+                    <PolyStepSegment x="103.548368" y="-106.223016"/>
+                    <PolyStepSegment x="103.517279" y="-106.185134"/>
+                    <PolyStepSegment x="103.513535" y="-106.180336"/>
+                    <PolyStepSegment x="103.491602" y="-106.150763"/>
+                    <PolyStepSegment x="103.488097" y="-106.145787"/>
+                    <PolyStepSegment x="103.362849" y="-105.958341"/>
+                    <PolyStepSegment x="103.359591" y="-105.953196"/>
+                    <PolyStepSegment x="103.340656" y="-105.921603"/>
+                    <PolyStepSegment x="103.337657" y="-105.916308"/>
+                    <PolyStepSegment x="103.314556" y="-105.873087"/>
+                    <PolyStepSegment x="103.311819" y="-105.867651"/>
+                    <PolyStepSegment x="103.296079" y="-105.834370"/>
+                    <PolyStepSegment x="103.293614" y="-105.828807"/>
+                    <PolyStepSegment x="103.207347" y="-105.620538"/>
+                    <PolyStepSegment x="103.205157" y="-105.614863"/>
+                    <PolyStepSegment x="103.192754" y="-105.580201"/>
+                    <PolyStepSegment x="103.190845" y="-105.574423"/>
+                    <PolyStepSegment x="103.176618" y="-105.527528"/>
+                    <PolyStepSegment x="103.174994" y="-105.521658"/>
+                    <PolyStepSegment x="103.166045" y="-105.485931"/>
+                    <PolyStepSegment x="103.164712" y="-105.479994"/>
+                    <PolyStepSegment x="103.118963" y="-105.250"/>
+                    <PolyStepSegment x="104.136515" y="-105.250"/>
+                    <PolyStepSegment x="104.138752" y="-105.261248"/>
+                    <PolyStepSegment x="104.138755" y="-105.261260"/>
+                    <PolyStepSegment x="104.206267" y="-105.424250"/>
+                    <PolyStepSegment x="104.206274" y="-105.424263"/>
+                    <PolyStepSegment x="104.304290" y="-105.570953"/>
+                    <PolyStepSegment x="104.304293" y="-105.570957"/>
+                    <PolyStepSegment x="104.429042" y="-105.695706"/>
+                    <PolyStepSegment x="104.429046" y="-105.695709"/>
+                    <PolyStepSegment x="104.575736" y="-105.793725"/>
+                    <PolyStepSegment x="104.575749" y="-105.793732"/>
+                    <PolyStepSegment x="104.738745" y="-105.861246"/>
+                    <PolyStepSegment x="104.750" y="-105.863484"/>
+                    <PolyStepSegment x="104.750" y="-105.863483"/>
+                    <PolyStepSegment x="105.250" y="-105.863483"/>
+                    <PolyStepSegment x="105.261254" y="-105.861246"/>
+                    <PolyStepSegment x="105.261255" y="-105.861246"/>
+                    <PolyStepSegment x="105.424250" y="-105.793732"/>
+                    <PolyStepSegment x="105.424263" y="-105.793725"/>
+                    <PolyStepSegment x="105.570953" y="-105.695709"/>
+                    <PolyStepSegment x="105.570957" y="-105.695706"/>
+                    <PolyStepSegment x="105.695706" y="-105.570957"/>
+                    <PolyStepSegment x="105.695709" y="-105.570953"/>
+                    <PolyStepSegment x="105.793725" y="-105.424263"/>
+                    <PolyStepSegment x="105.793732" y="-105.424250"/>
+                    <PolyStepSegment x="105.861244" y="-105.261260"/>
+                    <PolyStepSegment x="105.861247" y="-105.261248"/>
+                    <PolyStepSegment x="105.863485" y="-105.250"/>
+                    <PolyStepSegment x="105.250" y="-105.250"/>
+                    <PolyStepSegment x="105.250" y="-105.863483"/>
+                    <PolyStepSegment x="104.750" y="-105.863483"/>
+                    <PolyStepSegment x="104.750" y="-105.250"/>
+                    <PolyStepSegment x="104.136515" y="-105.250"/>
+                    <PolyStepSegment x="103.118963" y="-105.250"/>
+                    <PolyStepSegment x="103.113393" y="-105.2220"/>
+                    <PolyStepSegment x="103.114726" y="-105.167679"/>
+                    <PolyStepSegment x="103.125667" y="-105.1240"/>
+                    <PolyStepSegment x="102.1240" y="-105.1240"/>
+                    <PolyStepSegment x="102.1240" y="-107.1260"/>
+                    <PolyStepSegment x="100.0" y="-107.1260"/>
+                    <PolyStepSegment x="100.0" y="-104.749999"/>
+                    <PolyStepSegment x="104.136514" y="-104.749999"/>
+                    <PolyStepSegment x="104.136515" y="-104.750"/>
+                    <PolyStepSegment x="104.750" y="-104.750"/>
+                    <PolyStepSegment x="105.250" y="-104.750"/>
+                    <PolyStepSegment x="105.863485" y="-104.750"/>
+                    <PolyStepSegment x="105.863485" y="-104.749999"/>
+                    <PolyStepSegment x="105.861247" y="-104.738751"/>
+                    <PolyStepSegment x="105.861244" y="-104.738739"/>
+                    <PolyStepSegment x="105.793732" y="-104.575749"/>
+                    <PolyStepSegment x="105.793725" y="-104.575736"/>
+                    <PolyStepSegment x="105.695709" y="-104.429046"/>
+                    <PolyStepSegment x="105.695706" y="-104.429042"/>
+                    <PolyStepSegment x="105.570957" y="-104.304293"/>
+                    <PolyStepSegment x="105.570953" y="-104.304290"/>
+                    <PolyStepSegment x="105.424263" y="-104.206274"/>
+                    <PolyStepSegment x="105.424250" y="-104.206267"/>
+                    <PolyStepSegment x="105.261260" y="-104.138755"/>
+                    <PolyStepSegment x="105.261248" y="-104.138752"/>
+                    <PolyStepSegment x="105.250" y="-104.136514"/>
+                    <PolyStepSegment x="105.250" y="-104.750"/>
+                    <PolyStepSegment x="104.750" y="-104.750"/>
+                    <PolyStepSegment x="104.750" y="-104.136515"/>
+                    <PolyStepSegment x="104.749999" y="-104.136514"/>
+                    <PolyStepSegment x="104.738751" y="-104.138752"/>
+                    <PolyStepSegment x="104.738739" y="-104.138755"/>
+                    <PolyStepSegment x="104.575749" y="-104.206267"/>
+                    <PolyStepSegment x="104.575736" y="-104.206274"/>
+                    <PolyStepSegment x="104.429046" y="-104.304290"/>
+                    <PolyStepSegment x="104.429042" y="-104.304293"/>
+                    <PolyStepSegment x="104.304293" y="-104.429042"/>
+                    <PolyStepSegment x="104.304290" y="-104.429046"/>
+                    <PolyStepSegment x="104.206274" y="-104.575736"/>
+                    <PolyStepSegment x="104.206267" y="-104.575749"/>
+                    <PolyStepSegment x="104.138755" y="-104.738739"/>
+                    <PolyStepSegment x="104.138752" y="-104.738751"/>
+                    <PolyStepSegment x="104.136514" y="-104.749999"/>
+                    <PolyStepSegment x="100.0" y="-104.749999"/>
+                    <PolyStepSegment x="100.0" y="-104.1260"/>
+                    <PolyStepSegment x="102.1240" y="-104.1260"/>
+                    <PolyStepSegment x="103.315044" y="-104.1260"/>
+                    <PolyStepSegment x="103.337657" y="-104.083692"/>
+                    <PolyStepSegment x="103.340656" y="-104.078397"/>
+                    <PolyStepSegment x="103.359591" y="-104.046804"/>
+                    <PolyStepSegment x="103.362849" y="-104.041659"/>
+                    <PolyStepSegment x="103.488097" y="-103.854213"/>
+                    <PolyStepSegment x="103.491602" y="-103.849237"/>
+                    <PolyStepSegment x="103.513535" y="-103.819664"/>
+                    <PolyStepSegment x="103.517279" y="-103.814866"/>
+                    <PolyStepSegment x="103.548368" y="-103.776984"/>
+                    <PolyStepSegment x="103.552342" y="-103.772377"/>
+                    <PolyStepSegment x="103.577073" y="-103.745090"/>
+                    <PolyStepSegment x="103.581271" y="-103.740681"/>
+                    <PolyStepSegment x="103.740681" y="-103.581271"/>
+                    <PolyStepSegment x="103.745090" y="-103.577073"/>
+                    <PolyStepSegment x="103.772377" y="-103.552342"/>
+                    <PolyStepSegment x="103.776984" y="-103.548368"/>
+                    <PolyStepSegment x="103.814866" y="-103.517279"/>
+                    <PolyStepSegment x="103.819664" y="-103.513535"/>
+                    <PolyStepSegment x="103.849237" y="-103.491602"/>
+                    <PolyStepSegment x="103.854213" y="-103.488097"/>
+                    <PolyStepSegment x="104.041659" y="-103.362849"/>
+                    <PolyStepSegment x="104.046804" y="-103.359591"/>
+                    <PolyStepSegment x="104.078397" y="-103.340656"/>
+                    <PolyStepSegment x="104.083692" y="-103.337657"/>
+                    <PolyStepSegment x="104.1260" y="-103.315043"/>
+                    <PolyStepSegment x="104.1260" y="-103.125666"/>
+                    <PolyStepSegment x="105.1240" y="-103.125666"/>
+                    <PolyStepSegment x="105.167679" y="-103.114726"/>
+                    <PolyStepSegment x="105.2220" y="-103.113393"/>
+                    <PolyStepSegment x="105.479994" y="-103.164712"/>
+                    <PolyStepSegment x="105.485931" y="-103.166045"/>
+                    <PolyStepSegment x="105.521658" y="-103.174994"/>
+                    <PolyStepSegment x="105.527528" y="-103.176618"/>
+                    <PolyStepSegment x="105.574423" y="-103.190845"/>
+                    <PolyStepSegment x="105.580201" y="-103.192754"/>
+                    <PolyStepSegment x="105.614863" y="-103.205157"/>
+                    <PolyStepSegment x="105.620538" y="-103.207347"/>
+                    <PolyStepSegment x="105.828807" y="-103.293614"/>
+                    <PolyStepSegment x="105.834370" y="-103.296079"/>
+                    <PolyStepSegment x="105.867651" y="-103.311819"/>
+                    <PolyStepSegment x="105.873087" y="-103.314556"/>
+                    <PolyStepSegment x="105.916308" y="-103.337657"/>
+                    <PolyStepSegment x="105.921603" y="-103.340656"/>
+                    <PolyStepSegment x="105.953196" y="-103.359591"/>
+                    <PolyStepSegment x="105.958341" y="-103.362849"/>
+                    <PolyStepSegment x="106.145787" y="-103.488097"/>
+                    <PolyStepSegment x="106.150763" y="-103.491602"/>
+                    <PolyStepSegment x="106.180336" y="-103.513535"/>
+                    <PolyStepSegment x="106.185134" y="-103.517279"/>
+                    <PolyStepSegment x="106.223016" y="-103.548368"/>
+                    <PolyStepSegment x="106.227623" y="-103.552342"/>
+                    <PolyStepSegment x="106.254910" y="-103.577073"/>
+                    <PolyStepSegment x="106.259319" y="-103.581271"/>
+                    <PolyStepSegment x="106.418729" y="-103.740681"/>
+                    <PolyStepSegment x="106.422927" y="-103.745090"/>
+                    <PolyStepSegment x="106.447658" y="-103.772377"/>
+                    <PolyStepSegment x="106.451632" y="-103.776984"/>
+                    <PolyStepSegment x="106.482721" y="-103.814866"/>
+                    <PolyStepSegment x="106.486465" y="-103.819664"/>
+                    <PolyStepSegment x="106.508398" y="-103.849237"/>
+                    <PolyStepSegment x="106.511903" y="-103.854213"/>
+                    <PolyStepSegment x="106.637151" y="-104.041659"/>
+                    <PolyStepSegment x="106.640409" y="-104.046804"/>
+                    <PolyStepSegment x="106.659344" y="-104.078397"/>
+                    <PolyStepSegment x="106.662343" y="-104.083692"/>
+                    <PolyStepSegment x="106.684956" y="-104.1260"/>
+                    <PolyStepSegment x="107.1260" y="-104.1260"/>
+                    <PolyStepSegment x="108.1240" y="-104.1260"/>
+                    <PolyStepSegment x="110.1260" y="-104.1260"/>
+                    <PolyStepSegment x="111.1240" y="-104.1260"/>
+                    <PolyStepSegment x="113.1260" y="-104.1260"/>
+                    <PolyStepSegment x="114.1240" y="-104.1260"/>
+                    <PolyStepSegment x="116.1260" y="-104.1260"/>
+                    <PolyStepSegment x="117.1240" y="-104.1260"/>
+                    <PolyStepSegment x="119.1260" y="-104.1260"/>
+                    <PolyStepSegment x="120.1240" y="-104.1260"/>
+                    <PolyStepSegment x="122.1260" y="-104.1260"/>
+                    <PolyStepSegment x="123.1240" y="-104.1260"/>
+                    <PolyStepSegment x="125.1260" y="-104.1260"/>
+                    <PolyStepSegment x="126.1240" y="-104.1260"/>
+                    <PolyStepSegment x="128.1260" y="-104.1260"/>
+                    <PolyStepSegment x="129.1240" y="-104.1260"/>
+                    <PolyStepSegment x="131.1260" y="-104.1260"/>
+                    <PolyStepSegment x="132.1240" y="-104.1260"/>
+                    <PolyStepSegment x="134.1260" y="-104.1260"/>
+                    <PolyStepSegment x="135.1240" y="-104.1260"/>
+                    <PolyStepSegment x="137.1260" y="-104.1260"/>
+                    <PolyStepSegment x="138.1240" y="-104.1260"/>
+                    <PolyStepSegment x="139.0020" y="-104.1260"/>
+                    <PolyStepSegment x="139.0020" y="-102.1240"/>
+                    <PolyStepSegment x="138.1240" y="-102.1240"/>
+                    <PolyStepSegment x="138.1240" y="-104.1260"/>
+                    <PolyStepSegment x="137.1260" y="-104.1260"/>
+                    <PolyStepSegment x="137.1260" y="-102.1240"/>
+                    <PolyStepSegment x="135.1240" y="-102.1240"/>
+                    <PolyStepSegment x="135.1240" y="-104.1260"/>
+                    <PolyStepSegment x="134.1260" y="-104.1260"/>
+                    <PolyStepSegment x="134.1260" y="-102.1240"/>
+                    <PolyStepSegment x="132.1240" y="-102.1240"/>
+                    <PolyStepSegment x="132.1240" y="-104.1260"/>
+                    <PolyStepSegment x="131.1260" y="-104.1260"/>
+                    <PolyStepSegment x="131.1260" y="-102.1240"/>
+                    <PolyStepSegment x="129.1240" y="-102.1240"/>
+                    <PolyStepSegment x="129.1240" y="-104.1260"/>
+                    <PolyStepSegment x="128.1260" y="-104.1260"/>
+                    <PolyStepSegment x="128.1260" y="-102.1240"/>
+                    <PolyStepSegment x="126.1240" y="-102.1240"/>
+                    <PolyStepSegment x="126.1240" y="-104.1260"/>
+                    <PolyStepSegment x="125.1260" y="-104.1260"/>
+                    <PolyStepSegment x="125.1260" y="-102.1240"/>
+                    <PolyStepSegment x="123.1240" y="-102.1240"/>
+                    <PolyStepSegment x="123.1240" y="-104.1260"/>
+                    <PolyStepSegment x="122.1260" y="-104.1260"/>
+                    <PolyStepSegment x="122.1260" y="-102.1240"/>
+                    <PolyStepSegment x="120.1240" y="-102.1240"/>
+                    <PolyStepSegment x="120.1240" y="-104.1260"/>
+                    <PolyStepSegment x="119.1260" y="-104.1260"/>
+                    <PolyStepSegment x="119.1260" y="-102.1240"/>
+                    <PolyStepSegment x="117.1240" y="-102.1240"/>
+                    <PolyStepSegment x="117.1240" y="-104.1260"/>
+                    <PolyStepSegment x="116.1260" y="-104.1260"/>
+                    <PolyStepSegment x="116.1260" y="-102.1240"/>
+                    <PolyStepSegment x="114.1240" y="-102.1240"/>
+                    <PolyStepSegment x="114.1240" y="-104.1260"/>
+                    <PolyStepSegment x="113.1260" y="-104.1260"/>
+                    <PolyStepSegment x="113.1260" y="-102.1240"/>
+                    <PolyStepSegment x="111.1240" y="-102.1240"/>
+                    <PolyStepSegment x="111.1240" y="-104.1260"/>
+                    <PolyStepSegment x="110.1260" y="-104.1260"/>
+                    <PolyStepSegment x="110.1260" y="-102.1240"/>
+                    <PolyStepSegment x="108.1240" y="-102.1240"/>
+                    <PolyStepSegment x="108.1240" y="-104.1260"/>
+                    <PolyStepSegment x="107.1260" y="-104.1260"/>
+                    <PolyStepSegment x="107.1260" y="-102.1240"/>
+                    <PolyStepSegment x="105.1240" y="-102.1240"/>
+                    <PolyStepSegment x="105.1240" y="-103.125666"/>
+                    <PolyStepSegment x="104.1260" y="-103.125666"/>
+                    <PolyStepSegment x="104.1260" y="-102.1240"/>
+                    <PolyStepSegment x="102.1240" y="-102.1240"/>
+                    <PolyStepSegment x="102.1240" y="-104.1260"/>
+                    <PolyStepSegment x="100.0" y="-104.1260"/>
+                    <PolyStepSegment x="100.0" y="-100.1240"/>
+                    <PolyStepSegment x="100.019685" y="-100.056961"/>
+                    <PolyStepSegment x="100.072489" y="-100.011206"/>
+                    <PolyStepSegment x="100.1240" y="-100.0"/>
+                    <PolyStepSegment x="139.8760" y="-100.0"/>
+                    <PolyStepSegment x="139.943039" y="-100.019685"/>
+                  </Polygon>
+                </Contour>
+              </UserSpecial>
+            </Features>
+            <Pad padstackDefRef="PADSTACK_7">
+              <Location x="105.0" y="-105.0"/>
+              <StandardPrimitiveRef id="CIRCLE_7"/>
+            </Pad>
+            <Pad padstackDefRef="PADSTACK_8">
+              <Location x="112.0" y="-128.0"/>
+              <StandardPrimitiveRef id="CIRCLE_8"/>
+            </Pad>
+          </Set>
+          <Set net="GND">
+            <Pad padstackDefRef="PADSTACK_1">
+              <Location x="112.0" y="-114.0"/>
+              <StandardPrimitiveRef id="CIRCLE_1"/>
+              <PinRef componentRef="U1" pin="1"/>
+            </Pad>
+            <Pad padstackDefRef="PADSTACK_2">
+              <Location x="112.0" y="-126.0"/>
+              <StandardPrimitiveRef id="RECT_2"/>
+              <PinRef componentRef="U1" pin="2"/>
+            </Pad>
+            <Pad padstackDefRef="PADSTACK_3">
+              <Xform rotation="30.0"/>
+              <Location x="128.0" y="-114.0"/>
+              <StandardPrimitiveRef id="OVAL_3"/>
+              <PinRef componentRef="U1" pin="3"/>
+            </Pad>
+            <Pad padstackDefRef="PADSTACK_5">
+              <Location x="120.0" y="-120.0"/>
+              <StandardPrimitiveRef id="ROUNDRECT_5"/>
+              <PinRef componentRef="U1" pin="5"/>
+            </Pad>
+            <Pad padstackDefRef="PADSTACK_6">
+              <Location x="120.0" y="-114.0"/>
+              <StandardPrimitiveRef id="CIRCLE_6"/>
+              <PinRef componentRef="U1" pin="6"/>
+            </Pad>
+          </Set>
+          <Set net="SIG" padUsage="VIA">
+            <Pad padstackDefRef="PADSTACK_9">
+              <Location x="135.0" y="-135.0"/>
+              <StandardPrimitiveRef id="CIRCLE_9"/>
+            </Pad>
+          </Set>
+          <Set net="SIG">
+            <Pad padstackDefRef="PADSTACK_4">
+              <Location x="128.0" y="-126.0"/>
+              <StandardPrimitiveRef id="RECT_4"/>
+              <PinRef componentRef="U1" pin="4"/>
+            </Pad>
+          </Set>
+        </LayerFeature>
+        <LayerFeature layerRef="B.Cu">
+          <Set net="GND" padUsage="VIA">
+            <Features>
+              <UserSpecial>
+                <Line startX="105.0" startY="-105.0" endX="112.0" endY="-128.0">
+                  <LineDesc lineWidth="0.30" lineEnd="ROUND"/>
+                </Line>
+              </UserSpecial>
+            </Features>
+            <Pad padstackDefRef="PADSTACK_7">
+              <Location x="105.0" y="-105.0"/>
+              <StandardPrimitiveRef id="CIRCLE_7"/>
+            </Pad>
+            <Pad padstackDefRef="PADSTACK_8">
+              <Location x="112.0" y="-128.0"/>
+              <StandardPrimitiveRef id="CIRCLE_8"/>
+            </Pad>
+          </Set>
+          <Set net="GND">
+            <Pad padstackDefRef="PADSTACK_1">
+              <Location x="112.0" y="-114.0"/>
+              <StandardPrimitiveRef id="CIRCLE_1"/>
+              <PinRef componentRef="U1" pin="1"/>
+            </Pad>
+            <Pad padstackDefRef="PADSTACK_2">
+              <Location x="112.0" y="-126.0"/>
+              <StandardPrimitiveRef id="RECT_2"/>
+              <PinRef componentRef="U1" pin="2"/>
+            </Pad>
+            <Pad padstackDefRef="PADSTACK_3">
+              <Xform rotation="30.0"/>
+              <Location x="128.0" y="-114.0"/>
+              <StandardPrimitiveRef id="OVAL_3"/>
+              <PinRef componentRef="U1" pin="3"/>
+            </Pad>
+            <Pad padstackDefRef="PADSTACK_6">
+              <Location x="120.0" y="-114.0"/>
+              <StandardPrimitiveRef id="CIRCLE_6"/>
+              <PinRef componentRef="U1" pin="6"/>
+            </Pad>
+          </Set>
+          <Set net="SIG" padUsage="VIA">
+            <Features>
+              <UserSpecial>
+                <Line startX="135.0" startY="-135.0" endX="128.0" endY="-126.0">
+                  <LineDesc lineWidth="0.30" lineEnd="ROUND"/>
+                </Line>
+              </UserSpecial>
+            </Features>
+            <Pad padstackDefRef="PADSTACK_9">
+              <Location x="135.0" y="-135.0"/>
+              <StandardPrimitiveRef id="CIRCLE_9"/>
+            </Pad>
+          </Set>
+        </LayerFeature>
+        <LayerFeature layerRef="F.Cu_B.Cu">
+          <Set geometry="PADSTACK_7" net="GND">
+            <Hole name="H1" diameter="0.40" platingStatus="VIA" plusTol="0.0" minusTol="0.0" x="105.0" y="-105.0"/>
+          </Set>
+          <Set geometry="PADSTACK_8" net="GND">
+            <Hole name="H2" diameter="0.50" platingStatus="VIA" plusTol="0.0" minusTol="0.0" x="112.0" y="-128.0"/>
+          </Set>
+          <Set geometry="PADSTACK_9" net="SIG">
+            <Hole name="H3" diameter="0.60" platingStatus="VIA" plusTol="0.0" minusTol="0.0" x="135.0" y="-135.0"/>
+          </Set>
+          <Set geometry="PADSTACK_1" net="GND">
+            <Hole name="H4" diameter="1.0" platingStatus="PLATED" plusTol="0.0" minusTol="0.0" x="112.0" y="-114.0"/>
+          </Set>
+          <Set geometry="PADSTACK_2" net="GND">
+            <Hole name="H5" diameter="1.0" platingStatus="PLATED" plusTol="0.0" minusTol="0.0" x="112.0" y="-126.0"/>
+          </Set>
+          <Set geometry="PADSTACK_3" net="GND">
+            <Hole name="H6" diameter="0.80" platingStatus="PLATED" plusTol="0.0" minusTol="0.0" x="128.0" y="-114.0"/>
+          </Set>
+          <Set geometry="PADSTACK_6" net="GND">
+            <Hole name="H7" diameter="1.0" platingStatus="PLATED" plusTol="0.0" minusTol="0.0" x="120.0" y="-114.0"/>
+          </Set>
+        </LayerFeature>
+      </Step>
+    </CadData>
+  </Ecad>
+  <Avl name="Primary_Vendor_List">
+    <AvlHeader title="BOM" source="KiCad" author="OWNER" datetime="2026-10-10T11:30:01" version="1"/>
+    <AvlItem OEMDesignNumber="T_pads_pads"/>
+  </Avl>
+</IPC-2581>

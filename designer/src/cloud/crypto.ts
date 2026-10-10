@@ -177,6 +177,7 @@ export interface Pbkdf2Params {
 export const ARGON2ID = {
   OPS_SENSITIVE: 4,
   MEM_SENSITIVE_KIB: 1_048_576,
+  OPS_MODERATE: 3,
   MEM_MODERATE_KIB: 262_144,
   MEM_SENSITIVE_MIN_KIB: 131_072,
   OPS_INTERACTIVE: 2,
@@ -210,16 +211,20 @@ const argon2idReal: Argon2Fn = (password, salt, opsLimit, memLimitKiB) =>
  * A NEW account's key from its password: the parameters are chosen here, by
  * trying, and stored with the key so every later device derives the same.
  *
- * This is the reference design's ladder, as its core (shared by its web and
- * mobile apps) runs it now. The strength wanted is SENSITIVE — 4 passes over
- * 1 GiB — but a 1 GiB allocation is one browsers and phones often refuse, so
- * the first attempt is the same work in a MODERATE footprint: 16 passes over
- * 256 MiB. If the device cannot give even that, halve the memory and double
- * the passes and try again, so the WORK never changes and only the footprint
- * drops, down to the design's floor of 128 MiB, below which it refuses rather
- * than issue a weak key. The device that made the account decides once; a
- * weaker device signing in later must still manage what it chose, which is
- * why the floor is not lower.
+ * The strength is libsodium's MODERATE - 3 passes over 256 MiB, about 2 s in
+ * a browser here. It was the reference design's SENSITIVE (4 passes over 1 GiB,
+ * run as 16 over 256 MiB): about 12 s, on every sign-up and every sign-in on a
+ * new browser, behind a screen that looked hung (#639). MODERATE is still well
+ * above what password managers ship (Bitwarden: 3 passes over 64 MiB).
+ *
+ * The ladder is the reference design's: if the device cannot give 256 MiB,
+ * halve the memory and double the passes and try again, so the WORK never
+ * changes and only the footprint drops, down to the floor of 128 MiB, below
+ * which it refuses rather than issue a weak key. The device that made the
+ * account decides once; a weaker device signing in later must still manage
+ * what it chose, which is why the floor is not lower. Accounts made at the old
+ * strength are re-wrapped at this one on their next sign-in
+ * ({@link needsRewrap}).
  */
 export async function deriveNewKeyFromPassword(
   password: string,
@@ -227,8 +232,7 @@ export async function deriveNewKeyFromPassword(
 ): Promise<{ key: Uint8Array; params: Argon2idParams }> {
   const run = opts.argon2 ?? argon2idReal;
   const salt = randomBytes(16);
-  const factor = ARGON2ID.MEM_SENSITIVE_KIB / ARGON2ID.MEM_MODERATE_KIB;
-  let opsLimit = opts.opsLimit ?? ARGON2ID.OPS_SENSITIVE * factor;
+  let opsLimit = opts.opsLimit ?? ARGON2ID.OPS_MODERATE;
   let memLimitKiB = opts.memLimitKiB ?? ARGON2ID.MEM_MODERATE_KIB;
   // The start is always tried, so a caller (a test) may name one under the
   // floor; the DESCENT never goes under it.
@@ -499,6 +503,19 @@ export async function unlockWithPasswordKey(
 ): Promise<AccountKeys> {
   const masterKey = await decryptSecret(passwordKey, wrapped.encMasterKeyByPassword);
   return unlockWithMasterKey(masterKey, wrapped);
+}
+
+/** The work a new account's key is made with: passes x KiB. */
+export const KDF_TARGET_WORK = ARGON2ID.OPS_MODERATE * ARGON2ID.MEM_MODERATE_KIB;
+
+/**
+ * Whether an account's password wrap is at some strength other than today's -
+ * the old SENSITIVE work, or PBKDF2 - and should be made again, under the same
+ * password, the next time that password is in hand (a sign-in). A device that
+ * stepped down the ladder did the same WORK, so it is not re-wrapped.
+ */
+export function needsRewrap(kdf: KdfParams): boolean {
+  return !(kdf.name === 'argon2id' && kdf.opsLimit * kdf.memLimitKiB === KDF_TARGET_WORK);
 }
 
 /**

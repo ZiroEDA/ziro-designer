@@ -21,6 +21,7 @@ import {
   encodeRecoveryKey,
   loginSecret,
   rewrapWithNewPassword,
+  needsRewrap,
   unlockWithMasterKey,
   unlockWithPassword,
   unlockWithRecoveryKey,
@@ -34,7 +35,9 @@ import {
   rememberMasterKey,
   storeWrappedAccount,
 } from './account_keys.js';
-import { askSiblingsForMasterKey, serveMasterKey } from './tab_keys.js';
+import { askSiblingsForMasterKey, onSiblingKeyReady, serveMasterKey } from './tab_keys.js';
+import { forgetOnDevice, recallFromDevice, rememberOnDevice } from './device_key.js';
+import { forgetPrimedLoginSecret, loginSecretFor } from './login_secret_cache.js';
 import { setSessionKeys } from '../cloud/session_keys.js';
 import { ACCOUNT_EXISTS_MESSAGE, signUpOutcome } from './signup_outcome.js';
 import { setLocalVaultFromMasterKey } from '../home/local_vault.js';
@@ -71,6 +74,12 @@ interface AuthContextValue {
   loading: boolean;
   /** See {@link KeyState}. */
   keyState: KeyState;
+  /**
+   * A sign-in, sign-up or code check in this tab is turning the password into
+   * keys - seconds of Argon2id. The session can exist before that ends; the
+   * gate keeps the form up (busy) rather than showing anything else.
+   */
+  opening: boolean;
   /** The unlocked account's keys, while `keyState` is `unlocked`. */
   keys: AccountKeys | null;
   /**
@@ -90,8 +99,6 @@ interface AuthContextValue {
   recoveryKeyMnemonic: () => Promise<string | null>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string) => Promise<SignUpResult>;
-  /** Open a `locked` account with its password, or set up a `none` one. */
-  unlock: (password: string) => Promise<{ error: string | null }>;
   /**
    * A forgotten password, in two halves that answer two different questions.
    *
@@ -119,7 +126,12 @@ interface AuthContextValue {
     newPassword: string,
     recoveryKey: string | null,
   ) => Promise<{ error: string | null }>;
-  signOut: () => Promise<void>;
+  /**
+   * Sign out. `local` ends only this browser's session - what a tab with no
+   * key anywhere does, so the sign-in that follows is one step - where the
+   * default ends it on every device, as the user's own Sign out should.
+   */
+  signOut: (scope?: 'global' | 'local') => Promise<void>;
   /**
    * Delete this account and everything under it, then sign out.
    *
@@ -168,6 +180,9 @@ const describe = (message: string): string =>
 
 export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
   const [session, setSession] = useState<Session | null>(null);
+  /** The session now, for a retry scheduled under an older one. */
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
   // Only "loading" while we resolve an existing session from Supabase.
   const [loading, setLoading] = useState<boolean>(authEnabled);
   const [keyState, setKeyState] = useState<KeyState>('absent');
@@ -189,8 +204,36 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     made: Promise<{ keys: AccountKeys; wrapped: WrappedAccount }>;
   } | null>(null);
 
+  /** The account whose keys this tab holds, while it holds them. */
+  const openFor = useRef<string | null>(null);
+  /**
+   * Set for the whole of a sign-in, sign-up or code check here (see `opening`):
+   * the session event lands mid-way, and settling keys then would find none
+   * yet and sign the tab out - there is no unlock step to fall back to.
+   */
+  const openingRef = useRef(false);
+  const [opening, setOpening] = useState(false);
+  const whileOpening = useCallback(async <T,>(fn: () => Promise<T>): Promise<T> => {
+    openingRef.current = true;
+    setOpening(true);
+    try {
+      return await fn();
+    } finally {
+      openingRef.current = false;
+      setOpening(false);
+    }
+  }, []);
+
   const open = useCallback(async (unlocked: AccountKeys, userId: string) => {
+    openFor.current = userId;
+    forgetPrimedLoginSecret();
     rememberMasterKey(unlocked.masterKey);
+    // On the device too, so the next visit is let straight in (device_key.ts),
+    // and BEFORE `setKeys` - which starts serving siblings and announces the key
+    // - so a tab that hears the announcement can also find it here.
+    await rememberOnDevice(userId, unlocked.masterKey).catch((e: unknown) =>
+      console.warn('device key not remembered:', e),
+    );
     // The sync layer is not React: hand it the keys the same moment. And the
     // local store's vault key is derived from the master key, so the store
     // opens with the account and seals whatever it still holds in the clear.
@@ -227,34 +270,60 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       if (!supabase || !next) {
         // No session, so the key in this tab is of no use and should not
         // outlive it: a sign-out in another tab ends here too.
+        openFor.current = null;
         forgetMasterKey();
+        void forgetOnDevice();
         setKeyState('absent');
         setKeys(null);
         setSessionKeys(null);
         void setLocalVaultFromMasterKey(null);
         return;
       }
-      if (pendingSetup.current) return;
+      if (pendingSetup.current || openingRef.current) return;
+      // This tab holds this account's keys already. Supabase re-announces the
+      // same session as SIGNED_IN whenever the tab comes back into view
+      // (GoTrueClient._recoverAndRefresh on visibilitychange); settling again
+      // dropped to `loading`, the gate swapped the app for the splash, and the
+      // open project was thrown away and downloaded again on every tab switch.
+      if (openFor.current === next.user.id) return;
       setKeyState('loading');
+      let wrapped: WrappedAccount | null;
       try {
-        const wrapped = await fetchWrappedAccount(supabase, next.user.id);
+        wrapped = await fetchWrappedAccount(supabase, next.user.id);
+      } catch (err) {
+        // The network, not the key. `locked` now signs the tab out (there is
+        // no unlock step to send it to), and a blip must not do that: stay on
+        // the splash and ask again.
+        console.warn('Account keys (retrying):', err);
+        setTimeout(() => {
+          if (sessionRef.current?.user.id === next.user.id) void settleKeysRef.current(next);
+        }, 3000);
+        return;
+      }
+      try {
         if (!wrapped) {
           setKeyState('none');
           return;
         }
-        // This tab's own copy first; failing that, a sibling tab's. Only when
-        // neither has it does the wall ask for the password.
-        const masterKey = recallMasterKey() ?? (await askSiblingsForMasterKey(next.user.id));
+        // Only when none of them has it is the tab `locked`, which AuthGate
+        // answers by signing this tab out: the sign-in is one step.
+        // This tab's copy, then this device's, then a sibling tab's.
+        const masterKey =
+          recallMasterKey() ??
+          (await recallFromDevice(next.user.id)) ??
+          (await askSiblingsForMasterKey(next.user.id));
         if (!masterKey) {
           setKeyState('locked');
           return;
         }
         await open(await unlockWithMasterKey(masterKey, wrapped), next.user.id);
       } catch (err) {
-        // A stale or foreign key in the tab, or the network: the password can
-        // always open it, so `locked` is the honest answer, not an error.
+        // A stale or foreign key: it did not open the stored account. Forget
+        // it everywhere it was kept; signing in again opens it.
         console.warn('Account keys:', err);
+        openFor.current = null;
         forgetMasterKey();
+        void forgetOnDevice();
         setSessionKeys(null);
         void setLocalVaultFromMasterKey(null);
         setKeyState('locked');
@@ -262,6 +331,8 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     },
     [open],
   );
+  const settleKeysRef = useRef(settleKeys);
+  settleKeysRef.current = settleKeys;
 
   useEffect(() => {
     if (!supabase) return;
@@ -303,9 +374,21 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     return serveMasterKey(userId, keys.masterKey);
   }, [keys, userId]);
 
-  const signOut = useCallback(async () => {
+  // Missing keys for a session another tab is still setting up: the account
+  // was signed up or in over there (#639), and this tab asked before that tab
+  // had the key, or before the account's keys were even stored. When it says
+  // it has them, settle again - from `none` the stored account is there now,
+  // from `locked` the sibling answers.
+  useEffect(() => {
+    if (!session || (keyState !== 'none' && keyState !== 'locked')) return;
+    return onSiblingKeyReady(session.user.id, () => void settleKeys(session));
+  }, [session, keyState, settleKeys]);
+
+  const signOut = useCallback(async (scope: 'global' | 'local' = 'global') => {
     if (!supabase) return;
+    openFor.current = null;
     forgetMasterKey();
+    await forgetOnDevice();
     setSessionKeys(null);
     void setLocalVaultFromMasterKey(null);
     setKeys(null);
@@ -313,7 +396,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     setPendingRecoveryKey(null);
     setRecovering(false);
     pendingSetup.current = null;
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope });
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -321,76 +404,80 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       session,
       loading,
       keyState,
+      opening,
       keys,
       pendingRecoveryKey,
       acknowledgeRecoveryKey: () => setPendingRecoveryKey(null),
       recoveryKeyMnemonic: async () => (keys ? encodeRecoveryKey(keys.recoveryKey) : null),
-      async signIn(email, password) {
-        if (!supabase) return { error: 'Auth is not configured.' };
-        // The server is given a value derived from the password, never the
-        // password: see `loginSecret`. It can check it and recover nothing.
-        const secret = await loginSecret(email, password);
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password: secret });
-        if (error) return { error: describe(error.message) };
-        const userId = data.user?.id;
-        if (!userId) return { error: 'Signed in without a session.' };
-        try {
-          const wrapped = await fetchWrappedAccount(supabase, userId);
-          if (wrapped) {
-            // The server accepted the login secret, so the password is right and
-            // this unwrap cannot fail on it; if it does, the row is damaged, and
-            // that is worth seeing rather than "wrong password".
-            await open(await unlockWithPassword(password, wrapped), userId);
-          } else {
-            // A sign-up that ended before its keys were stored, or an account
-            // from before encryption: make them now, under the same password.
-            await finishSetup(userId, await createAccount(password));
-          }
-          return { error: null };
-        } catch (err) {
-          return { error: err instanceof Error ? err.message : String(err) };
-        }
-      },
-      async signUp(email, password) {
-        if (!supabase) return { error: 'Auth is not configured.', needsConfirm: false };
-        const secret = await loginSecret(email, password);
-        const { data, error } = await supabase.auth.signUp({ email, password: secret });
-        if (error) return { error: error.message, needsConfirm: false };
-        const outcome = signUpOutcome(data);
-        if (outcome === 'exists') return { error: ACCOUNT_EXISTS_MESSAGE, needsConfirm: false };
-        // Start on the keys now; the code is going to take a while to arrive.
-        const made = createAccount(password).catch((err: unknown) => {
-          throw new Error(
-            /cannot derive/.test(String(err))
-              ? "Your browser was unable to generate a strong key that meets ZiroEDA's encryption standards, please try another browser"
-              : String(err),
-          );
-        });
-        pendingSetup.current = { email, made };
-        const needsConfirm = outcome === 'confirm';
-        if (!needsConfirm && data.user) {
-          // Confirmation is off on this server: the session is here already.
+      signIn: (email, password) =>
+        whileOpening(async () => {
+          if (!supabase) return { error: 'Auth is not configured.' };
+          // The server is given a value derived from the password, never the
+          // password: see `loginSecret`. It can check it and recover nothing.
+          // Usually already derived while the form was filled in.
+          const secret = await loginSecretFor(email, password);
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password: secret,
+          });
+          if (error) return { error: describe(error.message) };
+          const userId = data.user?.id;
+          if (!userId) return { error: 'Signed in without a session.' };
           try {
-            await finishSetup(data.user.id, await made);
-          } finally {
-            pendingSetup.current = null;
+            const wrapped = await fetchWrappedAccount(supabase, userId);
+            if (wrapped) {
+              // The server accepted the login secret, so the password is right and
+              // this unwrap cannot fail on it; if it does, the row is damaged, and
+              // that is worth seeing rather than "wrong password".
+              const unlocked = await unlockWithPassword(password, wrapped);
+              await open(unlocked, userId);
+              // Made at an older strength (12 s of Argon2id): make it again at
+              // today's, under the same password, while it is in hand - once,
+              // behind the open account, so this sign-in waits no longer.
+              if (needsRewrap(wrapped.kdf)) {
+                const client = supabase;
+                void rewrapWithNewPassword(unlocked.masterKey, password, wrapped)
+                  .then((next) => storeWrappedAccount(client, userId, next))
+                  .catch((e: unknown) => console.warn('account key not re-wrapped:', e));
+              }
+            } else {
+              // A sign-up that ended before its keys were stored, or an account
+              // from before encryption: make them now, under the same password.
+              await finishSetup(userId, await createAccount(password));
+            }
+            return { error: null };
+          } catch (err) {
+            return { error: err instanceof Error ? err.message : String(err) };
           }
-        }
-        return { error: null, needsConfirm };
-      },
-      async unlock(password) {
-        if (!supabase || !session) return { error: 'Not signed in.' };
-        try {
-          const wrapped = await fetchWrappedAccount(supabase, session.user.id);
-          if (wrapped) await open(await unlockWithPassword(password, wrapped), session.user.id);
-          else await finishSetup(session.user.id, await createAccount(password));
-          return { error: null };
-        } catch {
-          // The AEAD tag did not verify: the only way that happens with the
-          // stored row intact is the wrong password.
-          return { error: 'Incorrect password' };
-        }
-      },
+        }),
+      signUp: (email, password) =>
+        whileOpening(async () => {
+          if (!supabase) return { error: 'Auth is not configured.', needsConfirm: false };
+          const secret = await loginSecretFor(email, password);
+          const { data, error } = await supabase.auth.signUp({ email, password: secret });
+          if (error) return { error: error.message, needsConfirm: false };
+          const outcome = signUpOutcome(data);
+          if (outcome === 'exists') return { error: ACCOUNT_EXISTS_MESSAGE, needsConfirm: false };
+          // Start on the keys now; the code is going to take a while to arrive.
+          const made = createAccount(password).catch((err: unknown) => {
+            throw new Error(
+              /cannot derive/.test(String(err))
+                ? "Your browser was unable to generate a strong key that meets ZiroEDA's encryption standards, please try another browser"
+                : String(err),
+            );
+          });
+          pendingSetup.current = { email, made };
+          const needsConfirm = outcome === 'confirm';
+          if (!needsConfirm && data.user) {
+            // Confirmation is off on this server: the session is here already.
+            try {
+              await finishSetup(data.user.id, await made);
+            } finally {
+              pendingSetup.current = null;
+            }
+          }
+          return { error: null, needsConfirm };
+        }),
       async requestPasswordReset(email) {
         if (!supabase) return { error: 'Auth is not configured.' };
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -491,35 +578,39 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         const { error } = await supabase.auth.resend({ type: 'signup', email });
         return { error: error?.message ?? null };
       },
-      async verifyOtp(email, token) {
-        if (!supabase) return { error: 'Auth is not configured.' };
-        // `signup`, not `email`: this code confirms a newly created account's
-        // address rather than standing in for a password.
-        const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
-        if (error) return { error: error.message };
-        const pending = pendingSetup.current;
-        const userId = data.user?.id;
-        if (pending && userId) {
-          try {
-            await finishSetup(userId, await pending.made);
-          } catch (err) {
-            return { error: err instanceof Error ? err.message : String(err) };
-          } finally {
-            pendingSetup.current = null;
+      verifyOtp: (email, token) =>
+        whileOpening(async () => {
+          if (!supabase) return { error: 'Auth is not configured.' };
+          // `signup`, not `email`: this code confirms a newly created account's
+          // address rather than standing in for a password.
+          const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
+          if (error) return { error: error.message };
+          const pending = pendingSetup.current;
+          const userId = data.user?.id;
+          if (pending && userId) {
+            try {
+              await finishSetup(userId, await pending.made);
+            } catch (err) {
+              return { error: err instanceof Error ? err.message : String(err) };
+            } finally {
+              pendingSetup.current = null;
+            }
+          } else if (userId) {
+            // The keys were being made in another tab, or the page was reloaded on
+            // the verify step and the password is gone with it: the wall will ask
+            // for it and set up then. After this call: `whileOpening` holds
+            // settling off until it returns.
+            setTimeout(() => void settleKeys(data.session), 0);
           }
-        } else if (userId) {
-          // The keys were being made in another tab, or the page was reloaded on
-          // the verify step and the password is gone with it: the wall will ask
-          // for it and set up then.
-          void settleKeys(data.session);
-        }
-        return { error: null };
-      },
+          return { error: null };
+        }),
     }),
     [
       session,
       loading,
       keyState,
+      opening,
+      whileOpening,
       keys,
       pendingRecoveryKey,
       recovering,

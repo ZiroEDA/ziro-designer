@@ -288,3 +288,31 @@ export const JsonFileExtension = 'json';
 /** `FILEEXT::KiCadDesignBlockLibPathWildcard` (:383-387). */
 export const kicadDesignBlockLibPathWildcard = (): ChooserFilter =>
   fileFilter('KiCad design block library paths', [KiCadDesignBlockLibPathExtension]);
+
+/** `FILEEXT::AltiumProjectFilesWildcard` (`wildcards_and_files_ext.cpp:288-291`). */
+export const altiumProjectFilesWildcard = (): ChooserFilter =>
+  fileFilter('Altium Project files', ['PrjPcb']);
+
+/** `FILEEXT::CadstarArchiveFilesWildcard` (`:294-297`). */
+export const cadstarArchiveFilesWildcard = (): ChooserFilter =>
+  fileFilter('CADSTAR Archive files', ['csa', 'cpa']);
+
+/** `FILEEXT::EagleFilesWildcard` (`:300-303`). */
+export const eagleFilesWildcard = (): ChooserFilter =>
+  fileFilter('Eagle XML files', ['sch', 'brd']);
+
+/** `FILEEXT::PADSProjectFilesWildcard` (`:306-309`). */
+export const padsProjectFilesWildcard = (): ChooserFilter =>
+  fileFilter('PADS ASCII files', ['asc', 'txt']);
+
+/** `FILEEXT::GedaProjectFilesWildcard` (`:312-315`). */
+export const gedaProjectFilesWildcard = (): ChooserFilter =>
+  fileFilter('gEDA / Lepton EDA project files', ['prj', 'sch', 'pcb']);
+
+/** `FILEEXT::EasyEdaArchiveWildcard` (`:344-347`). */
+export const easyEdaArchiveWildcard = (): ChooserFilter =>
+  fileFilter('EasyEDA (JLCEDA) Std backup archive', ['zip']);
+
+/** `FILEEXT::EasyEdaProFileWildcard` (`:350-353`). */
+export const easyEdaProFileWildcard = (): ChooserFilter =>
+  fileFilter('EasyEDA (JLCEDA) Pro files', ['epro', 'zip']);

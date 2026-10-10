@@ -18,6 +18,22 @@ import {
   storeWrappedAccount,
 } from '@ziroeda/designer/src/auth/account_keys.js';
 import { createAccount } from '@ziroeda/designer/src/cloud/crypto.js';
+import { gateView, type GateState } from '@ziroeda/designer/src/auth/explore.js';
+
+/** A signed-in user who never explored, in the state given: AuthGate's decision. */
+const signedIn = (st: Partial<GateState>) =>
+  gateView({
+    authEnabled: true,
+    loading: false,
+    hasSession: true,
+    keyState: 'unlocked',
+    pendingRecoveryKey: false,
+    recovering: false,
+    explorable: true,
+    signedOutHere: false,
+    opening: false,
+    ...st,
+  });
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
@@ -89,7 +105,7 @@ describe('AuthProvider: the server never gets the password', () => {
 
   it('every Supabase auth call that takes a password is given the login secret', () => {
     // Positive: both calls pass `password: secret`.
-    expect(SRC).toContain('signInWithPassword({ email, password: secret })');
+    expect(SRC).toMatch(/signInWithPassword\(\{\s*email,\s*password: secret,?\s*\}\)/);
     expect(SRC).toContain('signUp({ email, password: secret })');
     // Negative: no auth call is handed `password` itself, under any spelling.
     expect(SRC).not.toMatch(/auth\.\w+\(\{[^}]*\bpassword\b\s*[,}]/);
@@ -99,17 +115,39 @@ describe('AuthProvider: the server never gets the password', () => {
   });
 
   it('a sign-up starts making its keys before the code is typed, and stores them when the session exists', () => {
-    const signUp = SRC.slice(SRC.indexOf('async signUp('), SRC.indexOf('async unlock('));
+    const signUp = SRC.slice(
+      SRC.indexOf('signUp: (email, password) =>'),
+      SRC.indexOf('async requestPasswordReset('),
+    );
     expect(signUp).toContain('const made = createAccount(password).catch(');
     expect(signUp).toContain('pendingSetup.current = { email, made };');
-    const verify = SRC.slice(SRC.indexOf('async verifyOtp('));
+    const verify = SRC.slice(SRC.indexOf('verifyOtp: (email, token) =>'));
     expect(verify).toContain('await finishSetup(userId, await pending.made);');
   });
 
+  it('a sign-in re-wraps an account made at an older strength, behind the open account (#639)', () => {
+    const signIn = SRC.slice(
+      SRC.indexOf('signIn: (email, password) =>'),
+      SRC.indexOf('signUp: (email, password) =>'),
+    );
+    const opened = signIn.indexOf('await open(unlocked, userId);');
+    const rewrap = signIn.indexOf('if (needsRewrap(wrapped.kdf)) {');
+    expect(opened).toBeGreaterThan(-1);
+    // After the open, so the sign-in waits no longer for it...
+    expect(rewrap).toBeGreaterThan(opened);
+    // ...not awaited, and stored when done.
+    expect(signIn).toContain('void rewrapWithNewPassword(unlocked.masterKey, password, wrapped)');
+    expect(signIn).toContain('storeWrappedAccount(client, userId, next)');
+  });
+
   it('a sign-in with no stored keys sets them up under the same password rather than failing', () => {
-    const signIn = SRC.slice(SRC.indexOf('async signIn('), SRC.indexOf('async signUp('));
+    const signIn = SRC.slice(
+      SRC.indexOf('signIn: (email, password) =>'),
+      SRC.indexOf('signUp: (email, password) =>'),
+    );
     expect(signIn).toContain('await finishSetup(userId, await createAccount(password));');
-    expect(signIn).toContain('await open(await unlockWithPassword(password, wrapped), userId);');
+    expect(signIn).toContain('const unlocked = await unlockWithPassword(password, wrapped);');
+    expect(signIn).toContain('await open(unlocked, userId);');
   });
 
   it('the recovery key is queued for the wall the moment the keys are stored', () => {
@@ -144,8 +182,8 @@ describe('AuthProvider: the server never gets the password', () => {
   it('the reset link lands on /recover, and the wall holds until recovery is done', () => {
     expect(SRC).toContain('redirectTo: `${window.location.origin}/recover`,');
     expect(SRC).toContain("if (event === 'PASSWORD_RECOVERY') setRecovering(true);");
-    const gate = read('auth/AuthGate.tsx');
-    expect(gate).toMatch(/!session \|\|\s*recovering \|\|/);
+    // AuthGate's decision lives in gateView (auth/explore.ts) since #639.
+    expect(signedIn({ recovering: true }).view).toBe('wall');
   });
 
   it('signing out forgets the master key in the tab', () => {
@@ -154,7 +192,12 @@ describe('AuthProvider: the server never gets the password', () => {
     expect(start).toBeGreaterThan(-1);
     const out = SRC.slice(start, SRC.indexOf('const value = useMemo', start));
     expect(out).toContain('forgetMasterKey();');
-    expect(out.indexOf('forgetMasterKey')).toBeLessThan(out.indexOf('supabase.auth.signOut()'));
+    expect(out.indexOf('forgetMasterKey')).toBeLessThan(out.indexOf('supabase.auth.signOut('));
+    // And the device's copy (#639), before the session ends.
+    expect(out.indexOf('await forgetOnDevice();')).toBeGreaterThan(-1);
+    expect(out.indexOf('await forgetOnDevice();')).toBeLessThan(
+      out.indexOf('supabase.auth.signOut('),
+    );
   });
 
   it('deleting the account authenticates again, removes the blobs first, and ends in sign-out', () => {
@@ -203,13 +246,9 @@ describe('the screens say what the reference design says', () => {
     expect(provider).toContain('cancelRecovery: () => setRecovering(false),');
   });
 
-  it('the unlock screen offers Forgot password, as the reference credentials page does', () => {
-    const unlock = SIGNIN.slice(
-      SIGNIN.indexOf("{mode === 'unlock' && ("),
-      SIGNIN.indexOf("{mode === 'recovery-key' &&"),
-    );
-    expect(unlock).toContain('Forgot password');
-    expect(unlock).toContain("setStep('recover');");
+  it('there is no unlock screen (#639): a returning user is let in by the key kept on the device', () => {
+    expect(SIGNIN).not.toContain("mode === 'unlock'");
+    expect(read('nav/route.ts')).not.toMatch(/'unlock'/);
   });
 
   it('the recovery key can be seen again from the account menu, for whoever chose later', () => {
@@ -234,7 +273,7 @@ describe('the screens say what the reference design says', () => {
 
   it("the errors are the reference design's words", () => {
     const provider = read('auth/AuthProvider.tsx');
-    expect(provider).toContain("'Incorrect password'");
+    // ('Incorrect password' was the unlock screen's, which is gone - #639.)
     expect(provider).toContain("'Incorrect password or email not registered'");
     expect(provider).toContain("'Incorrect recovery key'");
     expect(SIGNIN).toContain("Passwords don't match");
@@ -249,7 +288,9 @@ describe('AuthGate: the wall stands until the keys are in the tab', () => {
     // The real app blurred behind the wall loaded the project and put its
     // file names in the DOM under a CSS blur, readable with devtools before
     // any password. Only the sign-in panel and the backdrop are rendered.
-    const walled = SRC.slice(SRC.indexOf('if (gated) {'), SRC.indexOf('return <>{children}</>'));
+    const start = SRC.indexOf("if (g.view === 'wall') {");
+    expect(start).toBeGreaterThan(-1);
+    const walled = SRC.slice(start, SRC.indexOf('return <>{children}</>', start));
     expect(walled).toContain('<GateBackdrop />');
     expect(walled).not.toContain('{children}');
     const backdrop = read('auth/GateBackdrop.tsx');
@@ -262,20 +303,39 @@ describe('AuthGate: the wall stands until the keys are in the tab', () => {
     );
   });
 
-  it('holds on locked, on none, and while the recovery key waits to be read', () => {
-    expect(SRC).toMatch(
-      /!session \|\|\s*recovering \|\|\s*keyState === 'locked' \|\|\s*keyState === 'none' \|\|\s*pendingRecoveryKey !== null/,
+  it('holds while the recovery key waits to be read, and on recovery', () => {
+    expect(signedIn({ pendingRecoveryKey: true }).view).toBe('wall');
+    expect(signedIn({ recovering: true, keyState: 'locked' }).view).toBe('wall');
+    expect(signedIn({ hasSession: false, keyState: 'absent', explorable: false }).view).toBe(
+      'wall',
     );
+    expect(signedIn({}).view).toBe('app');
   });
 
-  it('sends a signed-in visitor to unlock, or to the recovery key first', () => {
+  it('a session with no key anywhere is signed out here, not walled: no unlock step (#639)', () => {
+    for (const keyState of ['locked', 'none'] as const) {
+      const v = signedIn({ keyState });
+      expect(v.view).toBe('splash');
+      expect(v.signOutHere).toBe(true);
+      expect(v.routeToWall).toBe(false);
+    }
+    expect(signedIn({}).signOutHere).toBe(false);
+    // ...in this browser only: the default sign-out would end every device's.
+    expect(SRC).toContain("if (g.signOutHere) void signOut('local');");
+    expect(read('auth/AuthProvider.tsx')).toContain('await supabase.auth.signOut({ scope });');
+  });
+
+  it('sends a signed-in visitor to recovery, or to the recovery key', () => {
     expect(SRC).toMatch(
-      /const wallStep: AuthStep = !session\s*\? 'signup'\s*: recovering\s*\? 'recover'\s*: pendingRecoveryKey\s*\? 'recovery-key'\s*: 'unlock';/,
+      /const wallStep: AuthStep = !session \? 'signup' : recovering \? 'recover' : 'recovery-key';/,
     );
   });
 
   it('does not send anyone onward while the keys are still being asked for', () => {
-    expect(SRC).toContain("const settling = !!session && keyState === 'loading';");
-    expect(SRC).toContain('if (!session || gated || settling || restored.current) return;');
+    const loading = signedIn({ keyState: 'loading' });
+    expect(loading.view).toBe('splash');
+    expect(loading.routeToWall).toBe(false);
+    // The onward restore waits until the gate would draw the app.
+    expect(SRC).toContain("if (!session || g.view !== 'app' || restored.current) return;");
   });
 });
