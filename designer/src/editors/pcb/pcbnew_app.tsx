@@ -33,6 +33,13 @@ import {
 import { loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { loadLibraryFootprint } from './footprint_lib_adapter_app.js';
 import { preloadBoardLibraries } from './preload.js';
+import { formatSchematicNetlist } from '@ziroeda/eeschema/cross-probing.js';
+import { setHeadlessNetlistProvider } from '@ziroeda/pcbnew/browser/headless_netlist.js';
+
+// PCB_EDIT_FRAME::FetchNetlistFromSchematic's headless answer, what an off-screen SCH_EDIT_FRAME
+// would send back: pcbnew may not import eeschema, so the app wires it in. Here, with the board
+// editor it serves, rather than at startup - it carries SCH_EDIT_FRAME and its tools.
+setHeadlessNetlistProvider(formatSchematicNetlist);
 import { cleanup3dCache } from './model_cache.js';
 import { installPgm, reloadUserColorSettings } from './pcb_canvas.js';
 import { addNetclassAssignment } from '@ziroeda/eeschema/tools/assign_netclass.js';
