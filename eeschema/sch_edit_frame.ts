@@ -108,6 +108,7 @@ import type { SCH_CONNECTION } from './sch_connection.js';
 import { COMMON_CONTROL } from '@ziroeda/common/tool/common_control.js';
 import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
 import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
+import type { wxEvent } from '@ziroeda/common/wx/wx_event.js';
 import { ZOOM_TOOL } from '@ziroeda/common/tool/zoom_tool.js';
 import { PICKER_TOOL } from '@ziroeda/common/tool/picker_tool.js';
 import { SCH_SELECTION_TOOL } from './tools/sch_selection_tool.js';
@@ -655,7 +656,15 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
       this,
     );
     // m_actions = new SCH_ACTIONS(): the actions are static members here (tools/sch_actions.ts).
-    this.m_toolDispatcher = new TOOL_DISPATCHER(this.m_toolManager);
+    // The frame's wxEVT_IDLE (SCH_BASE_FRAME::OnIdle) follows each canvas event:
+    // a page has no idle event of its own.
+    const frame = this;
+    this.m_toolDispatcher = new (class extends TOOL_DISPATCHER {
+      override DispatchWxEvent(aEvent: wxEvent): void {
+        super.DispatchWxEvent(aEvent);
+        frame.OnIdle();
+      }
+    })(this.m_toolManager);
 
     // Register tools
     this.m_toolManager.RegisterTool(new COMMON_CONTROL());

@@ -522,6 +522,22 @@ export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
     this.m_findReplaceData = new SCH_SEARCH_DATA();
   }
 
+  /**
+   * The frame's `wxEVT_IDLE` handler (sch_base_frame.cpp:135-146): "Handle
+   * cursor adjustments. While we can get motion and key events through
+   * wxWidgets, we can't get modifier-key-up events." A page has no idle event;
+   * the frame calls this after each canvas event, as PCB_BASE_EDIT_FRAME does.
+   */
+  OnIdle(): void {
+    if (this.m_toolManager) {
+      const selTool = this.m_toolManager.FindTool('common.InteractiveSelection') as unknown as {
+        OnIdle(): void;
+      } | null;
+
+      if (selTool) selTool.OnIdle();
+    }
+  }
+
   override GetOriginTransforms(): ORIGIN_TRANSFORMS {
     return this.m_originTransforms;
   }
