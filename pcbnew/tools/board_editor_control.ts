@@ -22,9 +22,11 @@ import { BOARD_EDITOR_CONTROL_ExportGenCAD } from '../exporters/export_gencad.js
 import { footprintAssignmentFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { JOB_EXPORT_PCB_ODB, ODB_UNITS } from '@ziroeda/common/jobs/job_export_pcb_odb.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { Reporter } from '@ziroeda/common/reporter.js';
 import { GenerateODBPPFiles } from '../dialogs/dialog_export_odbpp.js';
 import { HYPERLYNX_EXPORTER } from '../exporters/export_hyperlynx.js';
+import { EXPORTER_VRML } from '../exporters/exporter_vrml.js';
 import type { ZONE_FILLER_TOOL } from './zone_filler_tool.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
@@ -1023,6 +1025,65 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
   }
 
   /**
+   * `ExportVRML` (dialog_export_vrml.cpp): <board>.wrl, the dialog, the origin (the user's, or
+   * the board's centre), then EXPORTER_VRML.
+   */
+  ExportVRML(_aEvent: TOOL_EVENT): number {
+    void this.exportVRML();
+    return 0;
+  }
+
+  private async exportVRML(): Promise<void> {
+    const frame = this.getEditFrame<PCB_EDIT_FRAME>();
+    const board = frame.GetBoard()!;
+
+    // Build default output file name
+    const fullName = board.GetFileName().split(/[\\/]/).pop() ?? '';
+    const dot = fullName.lastIndexOf('.');
+    const path0 = `${dot > 0 ? fullName.slice(0, dot) : fullName}.wrl`;
+
+    const dlg = await frame.ShowExportVrmlDialog(path0);
+
+    if (!dlg) return;
+
+    let aXRef: number;
+    let aYRef: number;
+
+    if (dlg.userDefinedOrigin) {
+      aXRef = dlg.xRefMM;
+      aYRef = dlg.yRefMM;
+    } else {
+      // Origin = board center:
+      const bbox = board.ComputeBoundingBox(true, true);
+      aXRef = pcbIUScale.iuToMM(bbox.GetCenter().x);
+      aYRef = pcbIUScale.iuToMM(bbox.GetCenter().y);
+    }
+
+    const messages: string[] = [];
+    const text = new EXPORTER_VRML(board).ExportVRML_File(
+      messages,
+      dlg.scale,
+      !dlg.noUnspecified,
+      !dlg.noDNP,
+      dlg.copyFiles,
+      dlg.useRelativePaths,
+      dlg.subdir3Dshapes,
+      aXRef,
+      aYRef,
+    );
+
+    // PCB_EDIT_FRAME::ExportVRML_File shows the messages; the handler then reports the failure.
+    if (messages.length > 0) DisplayErrorMessage(messages.join('\n'));
+
+    if (text === null) {
+      DisplayErrorMessage(`Failed to create file '${dlg.path}'.`);
+      return;
+    }
+
+    frame.WriteOutputFile(dlg.path, new TextEncoder().encode(text), 'model/vrml');
+  }
+
+  /**
    * `ExportHyperlynx` (export_hyperlynx.cpp:669): the save dialog on <board>.hyp, the extension
    * enforced, then HYPERLYNX_EXPORTER.
    */
@@ -1134,6 +1195,10 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenIPC2581File),
       PCB_ACTIONS.generateIPC2581File.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ExportVRML),
+      PCB_ACTIONS.exportVRML.MakeEvent(),
     );
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ExportHyperlynx),

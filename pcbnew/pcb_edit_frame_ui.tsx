@@ -200,6 +200,7 @@ import { DialogPcbPlot } from './dialogs/dialog_plot.js';
 import { DialogGenFootprintPosition } from './dialogs/dialog_gen_footprint_position.js';
 import { DialogExport2581 } from './dialogs/dialog_export_2581.js';
 import { DialogExportOdbpp, type ODBPP_DIALOG_RESULT } from './dialogs/dialog_export_odbpp.js';
+import { DialogExportVrml, type VRML_DIALOG_RESULT } from './dialogs/dialog_export_vrml.js';
 import { DialogGendrill } from './dialogs/dialog_gendrill.js';
 import { DialogGencadExportOptions } from './dialogs/dialog_gencad_export_options_ui.js';
 import type { DIALOG_GENCAD_EXPORT_OPTIONS } from './dialogs/dialog_gencad_export_options.js';
@@ -361,7 +362,7 @@ import {
 } from './dialogs/dialog_track_via_properties.js';
 import { useKiDialog } from '@ziroeda/common/kidialog.js';
 import type { DIALOG_GLOBAL_EDIT_TEARDROPS } from './dialogs/dialog_global_edit_teardrops.js';
-import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
+import { DisplayErrorMessage, IsOK } from '@ziroeda/common/confirm.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { ARRAY_TOOL } from './tools/array_tool.js';
 import { PCB_SELECTION } from './tools/pcb_selection.js';
@@ -2183,6 +2184,7 @@ export function PcbEditor({
     showGenFootprintPositionDialog: () => Promise<void>;
     showExport2581Dialog: () => Promise<void>;
     showExportOdbppDialog: () => Promise<ODBPP_DIALOG_RESULT | null>;
+    showExportVrmlDialog: (aPath: string) => Promise<VRML_DIALOG_RESULT | null>;
     writeOutputFile: (aPath: string, aBytes: Uint8Array, aMime: string) => void;
     showGenDrillDialog: () => Promise<void>;
     showGencadExportOptionsDialog: (aDialog: DIALOG_GENCAD_EXPORT_OPTIONS) => Promise<boolean>;
@@ -2306,6 +2308,7 @@ export function PcbEditor({
       showGenFootprintPositionDialog: () => drcWindowRef.current!.showGenFootprintPositionDialog(),
       showExport2581Dialog: () => drcWindowRef.current!.showExport2581Dialog(),
       showExportOdbppDialog: () => drcWindowRef.current!.showExportOdbppDialog(),
+      showExportVrmlDialog: (aPath) => drcWindowRef.current!.showExportVrmlDialog(aPath),
       writeOutputFile: (aPath, aBytes, aMime) =>
         drcWindowRef.current!.writeOutputFile(aPath, aBytes, aMime),
       showGenDrillDialog: () => drcWindowRef.current!.showGenDrillDialog(),
@@ -2567,6 +2570,10 @@ export function PcbEditor({
   /** DIALOG_GEN_FOOTPRINT_POSITION, while BOARD_EDITOR_CONTROL::GeneratePosFile shows it. */
   const [posFileDlg, setPosFileDlg] = useState<{ done: () => void } | null>(null);
   const [ipc2581Dlg, setIpc2581Dlg] = useState<{ done: () => void } | null>(null);
+  const [vrmlDlg, setVrmlDlg] = useState<{
+    path: string;
+    resolve: (aResult: VRML_DIALOG_RESULT | null) => void;
+  } | null>(null);
   const [odbppDlg, setOdbppDlg] = useState<{
     resolve: (aResult: ODBPP_DIALOG_RESULT | null) => void;
   } | null>(null);
@@ -4538,6 +4545,8 @@ export function PcbEditor({
       new Promise<void>((resolve) => setPosFileDlg({ done: resolve })),
     showExport2581Dialog: (): Promise<void> =>
       new Promise<void>((resolve) => setIpc2581Dlg({ done: resolve })),
+    showExportVrmlDialog: (aPath: string): Promise<VRML_DIALOG_RESULT | null> =>
+      new Promise<VRML_DIALOG_RESULT | null>((resolve) => setVrmlDlg({ path: aPath, resolve })),
     showExportOdbppDialog: (): Promise<ODBPP_DIALOG_RESULT | null> =>
       new Promise<ODBPP_DIALOG_RESULT | null>((resolve) => setOdbppDlg({ resolve })),
     // A generated output takes the plot route: the file manager, or a download standalone.
@@ -6428,6 +6437,10 @@ export function PcbEditor({
         // BOARD_EDITOR_CONTROL::GeneratePosFile.
         runAction(PCB_ACTIONS.generatePosFile);
         break;
+      case 'exportVRML':
+        // BOARD_EDITOR_CONTROL::ExportVRML.
+        runAction(PCB_ACTIONS.exportVRML);
+        break;
       case 'exportHyperlynx':
         // BOARD_EDITOR_CONTROL::ExportHyperlynx.
         runAction(PCB_ACTIONS.exportHyperlynx);
@@ -8241,6 +8254,19 @@ export function PcbEditor({
             const done = posFileDlg.done;
             setPosFileDlg(null);
             done();
+          }}
+        />
+      )}
+      {vrmlDlg && frameRef.current && (
+        <DialogExportVrml
+          initialPath={vrmlDlg.path}
+          unitsProvider={frameRef.current}
+          fileExists={(aPath) => frameRef.current?.FileExists(aPath) ?? false}
+          confirmOverwrite={() => IsOK('Are you sure you want to overwrite the existing file?')}
+          onClose={(aResult) => {
+            const resolve = vrmlDlg.resolve;
+            setVrmlDlg(null);
+            resolve(aResult);
           }}
         />
       )}
