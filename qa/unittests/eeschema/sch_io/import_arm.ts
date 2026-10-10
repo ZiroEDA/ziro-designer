@@ -13,6 +13,13 @@
  */
 import { basename, dirname, join } from 'node:path';
 import { readFileSync } from 'node:fs';
+import type { CHOOSE_PROJECT_HANDLER } from '@ziroeda/common/io/common/plugin_common_choose_project.js';
+import { MEMORY_FILESYSTEM, wxMountFileSystem } from '@ziroeda/common/wx/filefn.js';
+import {
+  LIBRARY_TABLE,
+  LIBRARY_TABLE_SCOPE,
+  LIBRARY_TABLE_TYPE,
+} from '@ziroeda/common/libraries/library_table.js';
 import { Pgm } from '@ziroeda/common/pgm_base.js';
 import { SCH_EDIT_FRAME, type SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { SCH_CLEANUP_FLAGS, SCHEMATIC } from '@ziroeda/eeschema/schematic.js';
@@ -27,16 +34,56 @@ const hooks: SCH_EDIT_FRAME_HOOKS = {
   getNetlist: () => null,
 };
 
+/** What an import left behind, as the editor's File > Save writes it. */
+export interface IMPORTED {
+  /** The root sheet's `.kicad_sch`. */
+  root: string;
+  /** Every screen's `.kicad_sch`, by its file name (the root's included). */
+  sheets: Map<string, string>;
+  /** What the plugin itself wrote beside the project (a symbol library, sym-lib-table). */
+  written: MEMORY_FILESYSTEM;
+}
+
 /**
- * Import \a aFile (absolute) as \a aType into a project named after it, beside it, and
- * return the root sheet's `.kicad_sch` text as the editor's save writes it.
+ * Import \a aFile (absolute) as \a aType into a project named after it, beside it.
+ *
+ * \a aChoose answers DIALOG_IMPORT_CHOOSE_PROJECT for a plugin that asks; KiCad's
+ * preselects row 0, so the oracle runs (which press OK) take the first.
  */
-export function importThroughFrame(aFile: string, aType: SCH_FILE_T): string {
+export function importThroughFrame(
+  aFile: string,
+  aType: SCH_FILE_T,
+  aChoose: CHOOSE_PROJECT_HANDLER = (aDescs) => aDescs.slice(0, 1),
+): IMPORTED {
   const dir = dirname(aFile);
+  const written = new MEMORY_FILESYSTEM();
+  const unmount = wxMountFileSystem(dir, written);
+  try {
+    return importMounted(aFile, aType, aChoose, dir, written);
+  } finally {
+    unmount();
+  }
+}
+
+function importMounted(
+  aFile: string,
+  aType: SCH_FILE_T,
+  aChoose: CHOOSE_PROJECT_HANDLER,
+  dir: string,
+  written: MEMORY_FILESYSTEM,
+): IMPORTED {
   const projectName = basename(aFile).replace(/\.[^.]*$/, '');
   Pgm()
     .GetSettingsManager()
     .LoadProject(join(dir, `${projectName}.kicad_pro`), null);
+
+  // `LIBRARY_MANAGER::LoadProjectTables`: a project with no sym-lib-table on disk still
+  // has its table, empty, at the path a save would write.
+  const symTable = LIBRARY_TABLE.Empty(LIBRARY_TABLE_SCOPE.PROJECT, LIBRARY_TABLE_TYPE.SYMBOL);
+  symTable.SetPath(join(dir, 'sym-lib-table'));
+  Pgm()
+    .GetLibraryManager()
+    .SetTable(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.PROJECT, symTable);
 
   const frame = new SCH_EDIT_FRAME(hooks);
   // `std::make_unique<SCHEMATIC>( &Prj() )`
@@ -50,6 +97,9 @@ export function importThroughFrame(aFile: string, aType: SCH_FILE_T): string {
       return null;
     }
   });
+
+  const chooser = pi as SCH_IO_BASE & { RegisterCallback?: (h: CHOOSE_PROJECT_HANDLER) => void };
+  chooser.RegisterCallback?.(aChoose);
 
   const loadedSheet = pi.LoadSchematicFile(aFile, newSchematic, null, null);
 
@@ -76,10 +126,19 @@ export function importThroughFrame(aFile: string, aType: SCH_FILE_T): string {
 
   frame.SetSheetNumberAndCount();
 
-  return new SCH_IO_KICAD_SEXPR('eeschema').SaveSchematicFile(
-    schematic.GetTopLevelSheet()!,
-    schematic,
-  );
+  const io = new SCH_IO_KICAD_SEXPR('eeschema');
+  const sheets = new Map<string, string>();
+
+  // SaveProject: each screen once, through the first sheet path that reaches it.
+  for (const path of schematic.Hierarchy()) {
+    const screen = path.LastScreen()!;
+    const name = basename(screen.GetFileName());
+    if (!sheets.has(name)) sheets.set(name, io.SaveSchematicFile(path.Last()!, schematic));
+  }
+
+  const root = io.SaveSchematicFile(schematic.GetTopLevelSheet()!, schematic);
+
+  return { root, sheets, written };
 }
 
 /** One `.kicad_sch` as a multiset of its top-level items, UUIDs and instance paths normalised. */
@@ -91,6 +150,8 @@ export function topLevelItems(aText: string): string[] {
   const items: string[] = [];
   let cur: string[] | null = null;
   for (const ln of txt.split('\n').slice(1)) {
+    // The file's own closing parenthesis belongs to no item.
+    if (ln === ')') break;
     if (/^\t\(/.test(ln)) {
       if (cur) items.push(cur.join('\n'));
       cur = [ln];
@@ -98,6 +159,32 @@ export function topLevelItems(aText: string): string[] {
   }
   if (cur) items.push(cur.join('\n'));
   return items.sort();
+}
+
+/**
+ * An instance's `(pin "n" (uuid U))` lines, sorted. The writer prints `GetRawPins()`,
+ * which a freshly placed symbol fills from `std::set<SCH_PIN*> unassignedLibPins` in
+ * `SCH_SYMBOL::UpdatePins` (sch_symbol.cpp:398): pointer order, i.e. wherever the heap
+ * put the flattened copy's pins. Ours is library order; the SET must still match.
+ */
+export function pinsAsSet(aItem: string): string {
+  if (!aItem.startsWith('\t(symbol')) return aItem;
+  const re = /\n\t\t\(pin "[^"]*"\n\t\t\t\(uuid U\)\n\t\t\)/g;
+  const pins = aItem.match(re) ?? [];
+  return aItem.replace(re, '') + [...pins].sort().join('');
+}
+
+/** a - b as multisets. */
+export function minus(a: readonly string[], b: readonly string[]): string[] {
+  const left = new Map<string, number>();
+  for (const x of b) left.set(x, (left.get(x) ?? 0) + 1);
+  const out: string[] = [];
+  for (const x of a) {
+    const n = left.get(x) ?? 0;
+    if (n > 0) left.set(x, n - 1);
+    else out.push(x);
+  }
+  return out;
 }
 
 export { SCH_FILE_T };

@@ -319,8 +319,13 @@ export interface POINT_INFO {
   hasBusEntry: boolean;
   /// True if there is a bus entry at the point and it connects to more than one wire
   hasBusEntryToMultipleWires: boolean;
+  /// True if there is a bus entry at the point and three or more bus segments fork there
+  hasBusEntryToMultipleBuses: boolean;
   /// True if there is a bus at the point
   hasBusAtPoint: boolean;
+  /// True when an explicit junction dot is permitted here, meaning a junction that is free of a
+  /// bus entry or where the entry coincides with a genuine wire or bus fork.
+  AllowsExplicitJunction(): boolean;
 }
 
 /**
@@ -340,12 +345,25 @@ export function AnalyzePoint(
     hasExplicitJunctionDot: false,
     hasBusEntry: false,
     hasBusEntryToMultipleWires: false,
+    hasBusEntryToMultipleBuses: false,
     hasBusAtPoint: false,
+    AllowsExplicitJunction() {
+      return (
+        this.isJunction &&
+        (!this.hasBusEntry || this.hasBusEntryToMultipleWires || this.hasBusEntryToMultipleBuses)
+      );
+    },
   };
 
   const breakLines = [false, false];
   const exitAngles = [new Set<number>(), new Set<number>()];
   const midPointLines: SCH_LINE_E3[][] = [[], []];
+
+  // Synthetic bus angles injected by entries, subtracted later to find genuine bus directions
+  let busEntryBusAngles = 0;
+
+  // Bus segments terminating here; a real fork ends at least one bus, a crossing ends none
+  let busEndpointSegments = 0;
 
   // A pair of lines is considered connected if they share an endpoint.  This is the list
   // of the other items that can connect.
@@ -390,11 +408,34 @@ export function AnalyzePoint(
 
   if (mergedLines.length + filtered.size() < 2) return info;
 
-  // Merge any overlapping lines to ensure that we are only counting unique lines
+  // Skip collinear merging when enough distinct endpoints already meet here.
+  // Merging would turn an N-way stub junction (e.g. LTspice four-wire cross:
+  // two opposite stubs on each axis) into an unmarked mid-segment crossing
+  // and hide the needed junction.
+  const preMergeWireExits = new Set<number>();
+  const preMergeBusExits = new Set<number>();
+
+  for (const line of mergedLines) {
+    const s = line.GetStartPoint();
+    const e = line.GetEndPoint();
+
+    if (s.x === e.x && s.y === e.y) continue;
+
+    if (!line.IsConnected(aPosition)) continue;
+
+    if (line.GetLayer() === SCH_LAYER_ID_E3.LAYER_WIRE)
+      preMergeWireExits.add(line.GetAngleFrom(aPosition));
+    else if (line.GetLayer() === SCH_LAYER_ID_E3.LAYER_BUS)
+      preMergeBusExits.add(line.GetAngleFrom(aPosition));
+  }
+
+  const keepStubJunction = preMergeWireExits.size >= 3 || preMergeBusExits.size >= 3;
+
+  // Merge collinear wire segments
   let merged = false;
 
   do {
-    if (info.hasExplicitJunctionDot || aBreakCrossings) break;
+    if (info.hasExplicitJunctionDot || aBreakCrossings || keepStubJunction) break;
 
     merged = false;
 
@@ -441,6 +482,8 @@ export function AnalyzePoint(
         if (line.IsConnected(aPosition)) {
           breakLines[layer] = true;
           exitAngles[layer]!.add(line.GetAngleFrom(aPosition));
+
+          if (layer === BUSES) busEndpointSegments++;
         } else if (line.HitTest(aPosition, -1)) {
           if (aBreakCrossings) breakLines[layer] = true;
 
@@ -457,6 +500,7 @@ export function AnalyzePoint(
         if (item.IsConnected(aPosition)) {
           breakLines[BUSES] = true;
           exitAngles[BUSES]!.add(uniqueAngle++);
+          busEntryBusAngles++;
           breakLines[WIRES] = true;
           exitAngles[WIRES]!.add(uniqueAngle++);
           info.hasBusEntry = true;
@@ -506,6 +550,11 @@ export function AnalyzePoint(
     // Any more wires must be multiple wires, but any more buses means a wire
     // crossing at the bus entry root.
     info.hasBusEntryToMultipleWires = exitAngles[WIRES]!.size > 2 && exitAngles[BUSES]!.size === 1;
+
+    // Drop the entry's own synthetic angle; three real directions with a terminating bus is
+    // a fork, while crossings with no terminating bus must not be auto-joined
+    const realBusAngles = exitAngles[BUSES]!.size - busEntryBusAngles;
+    info.hasBusEntryToMultipleBuses = realBusAngles >= 3 && busEndpointSegments >= 1;
   }
 
   // Any three things of the same type is a junction of some sort

@@ -809,8 +809,7 @@ export class SCH_EASYEDA_PARSER extends EASYEDA_PARSER_BASE {
 
     this.m_relOrigin = { x: aOrigin.x, y: aOrigin.y };
 
-    const symbolName =
-      get_opt(aParams, 'name') ?? get_opt(aParams, 'spiceSymbolName') ?? 'Unknown';
+    const symbolName = get_opt(aParams, 'name') ?? get_opt(aParams, 'spiceSymbolName') ?? 'Unknown';
     const symbolPrefix = get_opt(aParams, 'pre') ?? get_opt(aParams, 'spicePre') ?? '';
 
     const libId = EasyEdaToKiCadLibID('', symbolName);

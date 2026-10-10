@@ -27,20 +27,12 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
-import { importThroughFrame, SCH_FILE_T, topLevelItems } from './import_arm.js';
+import { importThroughFrame, minus, pinsAsSet, SCH_FILE_T, topLevelItems } from './import_arm.js';
 
 const DIR = resolve(__dirname, '../../../data/eeschema/import_oracle/easyeda');
 
 /** The SVG logo's polylines eeschema imported and we do not: the nine blue ones in watch.kicad_sch. */
 const SKIPPED_SVG_POLYLINES = 9;
-
-/** An instance's `(pin "n" (uuid U))` lines, sorted: their order is heap order upstream. */
-function pinsAsSet(aItem: string): string {
-  if (!aItem.startsWith('\t(symbol')) return aItem;
-  const re = /\n\t\t\(pin "[^"]*"\n\t\t\t\(uuid U\)\n\t\t\)/g;
-  const pins = aItem.match(re) ?? [];
-  return aItem.replace(re, '') + [...pins].sort().join('');
-}
 
 /** `(lib_symbols ...)`'s drawn items, one string per `\t\t\t\t(...)` block. */
 function libGraphics(aLibSymbols: string): string[] {
@@ -59,22 +51,9 @@ function libGraphics(aLibSymbols: string): string[] {
   return out;
 }
 
-/** a - b as multisets. */
-function minus(a: readonly string[], b: readonly string[]): string[] {
-  const left = new Map<string, number>();
-  for (const x of b) left.set(x, (left.get(x) ?? 0) + 1);
-  const out: string[] = [];
-  for (const x of a) {
-    const n = left.get(x) ?? 0;
-    if (n > 0) left.set(x, n - 1);
-    else out.push(x);
-  }
-  return out;
-}
-
 function expectSameAsEeschema(aName: string): void {
   const ours = topLevelItems(
-    importThroughFrame(join(DIR, `${aName}.json`), SCH_FILE_T.SCH_EASYEDA),
+    importThroughFrame(join(DIR, `${aName}.json`), SCH_FILE_T.SCH_EASYEDA).root,
   ).map(pinsAsSet);
   const kicad = topLevelItems(readFileSync(join(DIR, `${aName}.kicad_sch`), 'utf8')).map(pinsAsSet);
 
