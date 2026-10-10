@@ -42,7 +42,7 @@ import {
   DXF_IMPORT_UNITS,
 } from '@ziroeda/common/import_gfx/dxf_import_plugin.js';
 import type { LibGraphic, SchLabel } from '../index.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
   /**
@@ -169,7 +169,6 @@ export function runImport(
 export function DialogImportGfx({ onOk, onCancel, sink = 'sch' }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
   const [interactive, setInteractive] = useState(true);
@@ -239,105 +238,96 @@ export function DialogImportGfx({ onOk, onCancel, sink = 'sch' }: Props): JSX.El
       : '';
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Import Vector Graphics
-          <span className="x" title="Cancel" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
+    <DialogShim title="Import Vector Graphics" onClose={onCancel} className="ze-label-dialog">
+      <div
+        className="ze-label-dialog-body"
+        style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+      >
+        <label className="row">
+          <span>File:</span>
+          <input
+            type="file"
+            className="ze-input"
+            accept={acceptedExtensions()}
+            onChange={(e) => void choose(e.target.files?.[0])}
+          />
+        </label>
 
-        <div
-          className="ze-label-dialog-body"
-          style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
-        >
+        {imported && (
+          <div className={imported.error || empty ? 'ze-error' : 'ze-muted'}>
+            {imported.error ??
+              (empty
+                ? // `wxMessageBox( _( "No graphic items found in file." ) );`
+                  'No graphic items found in file.'
+                : `${count} item(s)${drawn}`)}
+          </div>
+        )}
+
+        {/* `ReportMsg` collects what the file held and the import could not
+          carry; upstream shows it in the dialog's report panel. */}
+        {imported?.notes.map((n) => (
+          <div key={n} className="ze-warning">
+            {n}
+          </div>
+        ))}
+
+        <fieldset>
+          <legend>Placement</legend>
           <label className="row">
-            <span>File:</span>
-            <input
-              type="file"
-              className="ze-input"
-              accept={acceptedExtensions()}
-              onChange={(e) => void choose(e.target.files?.[0])}
-            />
+            <input type="radio" checked={interactive} onChange={() => setInteractive(true)} />
+            <span>Interactive placement</span>
           </label>
+          <label className="row">
+            <input type="radio" checked={!interactive} onChange={() => setInteractive(false)} />
+            <span>At</span>
+          </label>
+          <div style={{ display: 'flex', gap: 16 }}>
+            {num('X:', 'x', params.originMM.x, 'mm', !interactive)}
+            {num('Y:', 'y', params.originMM.y, 'mm', !interactive)}
+          </div>
+        </fieldset>
 
-          {imported && (
-            <div className={imported.error || empty ? 'ze-error' : 'ze-muted'}>
-              {imported.error ??
-                (empty
-                  ? // `wxMessageBox( _( "No graphic items found in file." ) );`
-                    'No graphic items found in file.'
-                  : `${count} item(s)${drawn}`)}
-            </div>
-          )}
+        <fieldset>
+          <legend>Import Parameters</legend>
+          {num('Import scale:', 'scale', params.scale, '')}
+        </fieldset>
 
-          {/* `ReportMsg` collects what the file held and the import could not
-              carry; upstream shows it in the dialog's report panel. */}
-          {imported?.notes.map((n) => (
-            <div key={n} className="ze-warning">
-              {n}
-            </div>
-          ))}
-
-          <fieldset>
-            <legend>Placement</legend>
-            <label className="row">
-              <input type="radio" checked={interactive} onChange={() => setInteractive(true)} />
-              <span>Interactive placement</span>
-            </label>
-            <label className="row">
-              <input type="radio" checked={!interactive} onChange={() => setInteractive(false)} />
-              <span>At</span>
-            </label>
-            <div style={{ display: 'flex', gap: 16 }}>
-              {num('X:', 'x', params.originMM.x, 'mm', !interactive)}
-              {num('Y:', 'y', params.originMM.y, 'mm', !interactive)}
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend>Import Parameters</legend>
-            {num('Import scale:', 'scale', params.scale, '')}
-          </fieldset>
-
-          <fieldset>
-            <legend>DXF Parameters</legend>
-            {num('Default line width:', 'lineWidthMM', params.lineWidthMM, 'mm', isDxf)}
-            <label className="row">
-              <span>Default units:</span>
-              <select
-                className="ze-input"
-                disabled={!isDxf}
-                value={params.dxfUnits}
-                onChange={(e) =>
-                  setParams((p) => ({ ...p, dxfUnits: Number(e.target.value) as DXF_IMPORT_UNITS }))
-                }
-              >
-                {DXF_UNIT_CHOICES.map((u) => (
-                  <option key={u.value} value={u.value}>
-                    {u.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </fieldset>
-        </div>
-
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="ze-btn primary"
-            disabled={!imported || empty || !!imported.error}
-            onClick={() => imported && onOk(imported.graphics, imported.labels, interactive)}
-          >
-            OK
-          </button>
-        </div>
+        <fieldset>
+          <legend>DXF Parameters</legend>
+          {num('Default line width:', 'lineWidthMM', params.lineWidthMM, 'mm', isDxf)}
+          <label className="row">
+            <span>Default units:</span>
+            <select
+              className="ze-input"
+              disabled={!isDxf}
+              value={params.dxfUnits}
+              onChange={(e) =>
+                setParams((p) => ({ ...p, dxfUnits: Number(e.target.value) as DXF_IMPORT_UNITS }))
+              }
+            >
+              {DXF_UNIT_CHOICES.map((u) => (
+                <option key={u.value} value={u.value}>
+                  {u.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </fieldset>
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="ze-btn primary"
+          disabled={!imported || empty || !!imported.error}
+          onClick={() => imported && onOk(imported.graphics, imported.labels, interactive)}
+        >
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

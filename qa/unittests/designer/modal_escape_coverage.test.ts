@@ -97,7 +97,11 @@ const FILES = [
   src: readFileSync(path, 'utf8'),
 }));
 
-const modalFiles = FILES.filter((f) => BACKDROPS.some((c) => f.src.includes(c)));
+/** A modal DialogShim: it renders the backdrop and registers its `onClose` with the stack. */
+const MODAL_SHIM = /<DialogShim\b(?![^>]*\bmodeless\b)/;
+const modalFiles = FILES.filter(
+  (f) => BACKDROPS.some((c) => f.src.includes(c)) || MODAL_SHIM.test(f.src),
+);
 
 describe('every modal gets wxDialog Esc', () => {
   it('finds the modals in the first place', () => {
@@ -110,7 +114,10 @@ describe('every modal gets wxDialog Esc', () => {
     // No exemptions. `ui/ProgressDialog.tsx` — WX_PROGRESS_REPORTER, a
     // wxProgressDialog rather than a DIALOG_SHIM — used to be one: it had no
     // Cancel. It has PR_CAN_ABORT's now, and Esc is that button's wxID_CANCEL.
-    const missing = modalFiles.filter((f) => !/\buseModalEscape\(/.test(f.src)).map((f) => f.rel);
+    // A DialogShim registers its own `onClose`.
+    const missing = modalFiles
+      .filter((f) => !/\buseModalEscape\(/.test(f.src) && !MODAL_SHIM.test(f.src))
+      .map((f) => f.rel);
     expect(missing, 'these render a modal backdrop and never ask for Esc').toEqual([]);
   });
 
@@ -140,11 +147,15 @@ describe('every modal gets wxDialog Esc', () => {
 });
 
 describe('what the registered cancel means', () => {
-  /** The argument of the first `useModalEscape(...)` in a file. */
+  /** What a file registers: each `useModalEscape(...)` argument and each modal DialogShim's `onClose`. */
   const registered = (rel: string): string[] => {
     const f = FILES.find((x) => x.rel === rel);
     expect(f, `${rel} must exist`).toBeDefined();
-    return [...f!.src.matchAll(/\buseModalEscape\(([^;]*)\);/g)].map((m) => m[1]!.trim());
+    const hooks = [...f!.src.matchAll(/\buseModalEscape\(([^;]*)\);/g)].map((m) => m[1]!.trim());
+    const shims = [...f!.src.matchAll(/<DialogShim\b([^>]*)>/g)]
+      .filter((m) => !/\bmodeless\b/.test(m[1]!))
+      .map((m) => /\bonClose=\{([^{}]*)\}/.exec(m[1]!)?.[1]?.trim() ?? '');
+    return [...hooks, ...shims];
   };
 
   it('is the Cancel button, not the close, where the two differ', () => {

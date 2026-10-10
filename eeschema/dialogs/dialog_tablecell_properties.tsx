@@ -22,7 +22,7 @@
  */
 import { type JSX, useState } from 'react';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { FONT } from '@ziroeda/common/font/font.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
 import { COLOR4D_UNSPECIFIED, type Color4d, color4dEquals } from '@ziroeda/common/gal/color4d.js';
@@ -313,8 +313,6 @@ export function DialogTableCellProperties({
 }): JSX.Element {
   const cancel = (): void => onClose(TABLECELL_PROPS_RETVALUE.TABLECELL_PROPS_CANCEL);
 
-  useModalEscape(cancel);
-
   const [v, setValues] = useState(initial);
   const set = <K extends keyof TABLECELL_DIALOG_VALUES>(
     k: K,
@@ -357,128 +355,118 @@ export function DialogTableCellProperties({
     );
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={cancel}>
-      <div className="ze-modal ze-label-props" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Table Cell Properties
-          <span className="x" title="Cancel" onClick={cancel}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-modal-body ze-lp-body">
-          {dlg.ShowsOverrideNote() && (
-            <div className="ze-infobar">
-              Note: individual item colors overridden in Preferences.
+    <DialogShim title="Table Cell Properties" onClose={cancel} className="ze-label-props">
+      <div className="ze-modal-body ze-lp-body">
+        {dlg.ShowsOverrideNote() && (
+          <div className="ze-infobar">Note: individual item colors overridden in Preferences.</div>
+        )}
+        {/* bSizer16: the cell text beside the formatting column. */}
+        <div className="ze-lp-options">
+          <div className="ze-lp-entry">
+            <span className="ze-lp-caption">Cell contents:</span>
+            <textarea
+              className="ze-lp-value ze-lp-multiline"
+              rows={8}
+              value={v.text}
+              autoFocus
+              onChange={(e) => set('text', e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+          </div>
+
+          <div className="ze-lp-fmt-grid">
+            <span className="ze-lp-fmt-label" title="Horizontal alignment">
+              Horizontal alignment:
+            </span>
+            <div className="ze-lp-iconbar">
+              {H_BUTTONS.map((b) => (
+                <BitmapButton
+                  key={b.bitmap}
+                  bitmap={b.bitmap}
+                  tooltip={b.tip}
+                  checked={v.hAlign === b.align}
+                  onClick={() => set('hAlign', b.align)}
+                />
+              ))}
             </div>
-          )}
-          {/* bSizer16: the cell text beside the formatting column. */}
-          <div className="ze-lp-options">
-            <div className="ze-lp-entry">
-              <span className="ze-lp-caption">Cell contents:</span>
-              <textarea
-                className="ze-lp-value ze-lp-multiline"
-                rows={8}
-                value={v.text}
-                autoFocus
-                onChange={(e) => set('text', e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
+            <span className="ze-lp-fmt-label" title="Vertical alignment">
+              Vertical alignment:
+            </span>
+            <div className="ze-lp-iconbar">
+              {V_BUTTONS.map((b) => (
+                <BitmapButton
+                  key={b.bitmap}
+                  bitmap={b.bitmap}
+                  tooltip={b.tip}
+                  checked={v.vAlign === b.align}
+                  onClick={() => set('vAlign', b.align)}
+                />
+              ))}
             </div>
 
-            <div className="ze-lp-fmt-grid">
-              <span className="ze-lp-fmt-label" title="Horizontal alignment">
-                Horizontal alignment:
-              </span>
-              <div className="ze-lp-iconbar">
-                {H_BUTTONS.map((b) => (
-                  <BitmapButton
-                    key={b.bitmap}
-                    bitmap={b.bitmap}
-                    tooltip={b.tip}
-                    checked={v.hAlign === b.align}
-                    onClick={() => set('hAlign', b.align)}
-                  />
-                ))}
-              </div>
-              <span className="ze-lp-fmt-label" title="Vertical alignment">
-                Vertical alignment:
-              </span>
-              <div className="ze-lp-iconbar">
-                {V_BUTTONS.map((b) => (
-                  <BitmapButton
-                    key={b.bitmap}
-                    bitmap={b.bitmap}
-                    tooltip={b.tip}
-                    checked={v.vAlign === b.align}
-                    onClick={() => set('vAlign', b.align)}
-                  />
-                ))}
-              </div>
-
-              <span className="ze-lp-fmt-label">Font:</span>
-              <FontChoice face={v.face ?? ''} onChange={(face) => set('face', face)} />
-              <span className="ze-lp-fmt-label">Size:</span>
-              <div className="ze-lp-sizerow">
-                {numBox('textSize')}
-                <span className="ze-lp-units">{unitLabel(units)}</span>
-              </div>
-              <span className="ze-lp-fmt-label">Style:</span>
-              <div className="ze-lp-sizerow">
-                <TriStateCheck label="Bold" value={v.bold} onChange={(x) => set('bold', x)} />
-                <TriStateCheck label="Italic" value={v.italic} onChange={(x) => set('italic', x)} />
-              </div>
-
-              <span className="ze-lp-fmt-label">Text color:</span>
-              {colorBook('textColorSet', 'textColor')}
-              <span className="ze-lp-fmt-label">Background fill:</span>
-              {colorBook('fillColorSet', 'fillColor')}
-
-              {/* gMarginsSizer: three columns - label, top, units / left, -, right / bottom. */}
-              <span className="ze-lp-fmt-label">Cell margins:</span>
-              <div className="ze-lp-sizerow">
-                {numBox('marginTop')}
-                <span className="ze-lp-units">{unitLabel(units)}</span>
-              </div>
-              {numBox('marginLeft')}
-              {numBox('marginRight')}
-              <span />
-              {numBox('marginBottom')}
+            <span className="ze-lp-fmt-label">Font:</span>
+            <FontChoice face={v.face ?? ''} onChange={(face) => set('face', face)} />
+            <span className="ze-lp-fmt-label">Size:</span>
+            <div className="ze-lp-sizerow">
+              {numBox('textSize')}
+              <span className="ze-lp-units">{unitLabel(units)}</span>
             </div>
+            <span className="ze-lp-fmt-label">Style:</span>
+            <div className="ze-lp-sizerow">
+              <TriStateCheck label="Bold" value={v.bold} onChange={(x) => set('bold', x)} />
+              <TriStateCheck label="Italic" value={v.italic} onChange={(x) => set('italic', x)} />
+            </div>
+
+            <span className="ze-lp-fmt-label">Text color:</span>
+            {colorBook('textColorSet', 'textColor')}
+            <span className="ze-lp-fmt-label">Background fill:</span>
+            {colorBook('fillColorSet', 'fillColor')}
+
+            {/* gMarginsSizer: three columns - label, top, units / left, -, right / bottom. */}
+            <span className="ze-lp-fmt-label">Cell margins:</span>
+            <div className="ze-lp-sizerow">
+              {numBox('marginTop')}
+              <span className="ze-lp-units">{unitLabel(units)}</span>
+            </div>
+            {numBox('marginLeft')}
+            {numBox('marginRight')}
+            <span />
+            {numBox('marginBottom')}
           </div>
         </div>
-        <div className="ze-modal-footer">
-          <button
-            type="button"
-            className="ze-btn"
-            title="Edit table properties and cell contents"
-            onClick={() => {
-              if (dlg.OnEditTable(v)) onClose(dlg.GetReturnValue());
-            }}
-          >
-            Edit Table...
-          </button>
-          <a
-            className="ze-lp-syntax"
-            href="https://docs.kicad.org/GetStarted#text"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Syntax help
-          </a>
-          <button type="button" className="ze-btn" onClick={cancel}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="ze-btn primary"
-            onClick={() => {
-              if (dlg.TransferDataFromWindow(v)) onClose(dlg.GetReturnValue());
-            }}
-          >
-            OK
-          </button>
-        </div>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button
+          type="button"
+          className="ze-btn"
+          title="Edit table properties and cell contents"
+          onClick={() => {
+            if (dlg.OnEditTable(v)) onClose(dlg.GetReturnValue());
+          }}
+        >
+          Edit Table...
+        </button>
+        <a
+          className="ze-lp-syntax"
+          href="https://docs.kicad.org/GetStarted#text"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Syntax help
+        </a>
+        <button type="button" className="ze-btn" onClick={cancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="ze-btn primary"
+          onClick={() => {
+            if (dlg.TransferDataFromWindow(v)) onClose(dlg.GetReturnValue());
+          }}
+        >
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

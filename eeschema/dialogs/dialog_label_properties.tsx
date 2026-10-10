@@ -29,7 +29,7 @@
 
 import { type JSX, useReducer, useState } from 'react';
 import { DisplayErrorMessage, DisplayInfoMessage } from '@ziroeda/common/confirm.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import type { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import { FONT } from '@ziroeda/common/font/font.js';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
@@ -634,8 +634,6 @@ export function DialogLabelProperties({
   onOk: (aValues: LABEL_DIALOG_VALUES) => void;
   onCancel: () => void;
 }): JSX.Element {
-  useModalEscape(onCancel);
-
   const [, redraw] = useReducer((n: number) => n + 1, 0);
   const [text, setText] = useState(initial.text);
   const [multiLine, setMultiLine] = useState(initial.multiLine);
@@ -668,227 +666,218 @@ export function DialogLabelProperties({
   const shapes = dlg.m_isDirective ? FLAG_SHAPES : LABEL_SHAPES;
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-label-props" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {dlg.m_title}
-          <span className="x" title="Cancel" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
+    <DialogShim title={dlg.m_title} onClose={onCancel} className="ze-label-props">
+      <div className="ze-modal-body ze-lp-body">
+        {/* m_textEntrySizer: the label caption and its value control. */}
+        {dlg.m_hasTextEntry && (
+          <div className="ze-lp-entry">
+            <span className="ze-lp-caption">Label:</span>
+            {multiLine ? (
+              <textarea
+                className="ze-lp-value ze-lp-multiline"
+                rows={4}
+                value={text}
+                autoFocus
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+            ) : dlg.m_hasCombo ? (
+              <TextCombo
+                className="ze-lp-value"
+                value={text}
+                options={dlg.ExistingLabels()}
+                onChange={setText}
+                onEnter={submit}
+                autoFocus
+              />
+            ) : (
+              <input
+                className="ze-lp-value"
+                value={text}
+                autoFocus
+                title="Enter the text to be used within the schematic"
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={enter}
+              />
+            )}
+          </div>
+        )}
 
-        <div className="ze-modal-body ze-lp-body">
-          {/* m_textEntrySizer: the label caption and its value control. */}
-          {dlg.m_hasTextEntry && (
-            <div className="ze-lp-entry">
-              <span className="ze-lp-caption">Label:</span>
-              {multiLine ? (
-                <textarea
-                  className="ze-lp-value ze-lp-multiline"
-                  rows={4}
-                  value={text}
-                  autoFocus
-                  onChange={(e) => setText(e.target.value)}
-                  onKeyDown={(e) => e.stopPropagation()}
-                />
-              ) : dlg.m_hasCombo ? (
-                <TextCombo
-                  className="ze-lp-value"
-                  value={text}
-                  options={dlg.ExistingLabels()}
-                  onChange={setText}
-                  onEnter={submit}
-                  autoFocus
-                />
-              ) : (
+        {dlg.m_hasTextEntry && (
+          <div className="ze-lp-entry-row2">
+            {dlg.IsMultilineAllowed() ? (
+              <label className="ze-lp-check">
                 <input
-                  className="ze-lp-value"
-                  value={text}
-                  autoFocus
-                  title="Enter the text to be used within the schematic"
-                  onChange={(e) => setText(e.target.value)}
+                  type="checkbox"
+                  checked={multiLine}
+                  onChange={(e) => onMultiLabelCheck(e.target.checked)}
+                />
+                Multiple label input
+              </label>
+            ) : (
+              <span />
+            )}
+            <a
+              className="ze-lp-syntax"
+              href="https://docs.kicad.org/GetStarted#labels"
+              target="_blank"
+              rel="noreferrer"
+              title="Show syntax help window"
+            >
+              Syntax help
+            </a>
+          </div>
+        )}
+
+        {/* sbFields: the label's own fields, on FIELDS_GRID_TABLE. */}
+        <fieldset className="ze-lp-fields">
+          <legend>Fields</legend>
+          <div className="ze-lp-grid-wrap">
+            <WxGridView
+              grid={dlg.Grid()}
+              columns={GRID_COLUMNS}
+              flexCol={FIELDS_DATA_COL_ORDER.FDC_VALUE}
+              ariaLabel="Fields"
+            />
+          </div>
+          <div className="ze-lp-fieldbtns">
+            <BitmapButton
+              bitmap="small_plus"
+              tooltip="Add field"
+              onClick={() => {
+                dlg.OnAddField();
+                redraw();
+              }}
+            />
+            <BitmapButton
+              bitmap="small_up"
+              tooltip="Move up"
+              onClick={() => {
+                dlg.OnMoveUp();
+                redraw();
+              }}
+            />
+            <BitmapButton
+              bitmap="small_down"
+              tooltip="Move down"
+              onClick={() => {
+                dlg.OnMoveDown();
+                redraw();
+              }}
+            />
+            <span className="ze-lp-gap" />
+            <BitmapButton
+              bitmap="small_trash"
+              tooltip="Delete field"
+              onClick={() => {
+                dlg.OnDeleteField();
+                redraw();
+              }}
+            />
+          </div>
+        </fieldset>
+
+        {/* optionsSizer: Shape beside Formatting. */}
+        <div className="ze-lp-options">
+          {dlg.m_hasShape && (
+            <fieldset className="ze-lp-shape">
+              <legend>Shape</legend>
+              {shapes.map((s) => (
+                <label key={s.shape}>
+                  <input
+                    type="radio"
+                    name="ze-lp-shape"
+                    checked={shape === s.shape}
+                    onChange={() => setShape(s.shape)}
+                  />
+                  {s.label}
+                </label>
+              ))}
+            </fieldset>
+          )}
+
+          <fieldset className="ze-lp-formatting">
+            <legend>Formatting</legend>
+            <div className="ze-lp-fmt-grid">
+              <span className="ze-lp-fmt-label">
+                {dlg.m_isDirective ? 'Orientation:' : 'Font:'}
+              </span>
+              {dlg.m_isDirective ? <span /> : <FontChoice face={face} onChange={setFace} />}
+              <div className="ze-lp-iconbar">
+                {!dlg.m_isDirective && (
+                  <>
+                    <BitmapButtonSeparator />
+                    <BitmapButton
+                      bitmap="text_bold"
+                      tooltip="Bold"
+                      checked={bold}
+                      onClick={() => setBold(!bold)}
+                    />
+                    <BitmapButton
+                      bitmap="text_italic"
+                      tooltip="Italic"
+                      checked={italic}
+                      onClick={() => setItalic(!italic)}
+                    />
+                    <BitmapButtonSeparator />
+                  </>
+                )}
+                {dlg.m_spinBitmaps.map((bitmap, i) => (
+                  <BitmapButton
+                    key={bitmap}
+                    bitmap={bitmap}
+                    tooltip=""
+                    checked={spinButton === i}
+                    onClick={() => setSpinButton(i)}
+                  />
+                ))}
+                {dlg.m_hasAutoRotate && (
+                  <label className="ze-lp-check ze-lp-auto">
+                    <input
+                      type="checkbox"
+                      checked={autoRotate}
+                      onChange={(e) => setAutoRotate(e.target.checked)}
+                    />
+                    Auto
+                  </label>
+                )}
+                {!dlg.m_isDirective && <BitmapButtonSeparator />}
+              </div>
+
+              <span className="ze-lp-fmt-label">
+                {dlg.m_isDirective ? 'Pin length:' : 'Text size:'}
+              </span>
+              <div className="ze-lp-sizerow">
+                <input
+                  className="ze-lp-size"
+                  value={size}
+                  onChange={(e) => setSize(e.target.value)}
                   onKeyDown={enter}
                 />
-              )}
-            </div>
-          )}
-
-          {dlg.m_hasTextEntry && (
-            <div className="ze-lp-entry-row2">
-              {dlg.IsMultilineAllowed() ? (
-                <label className="ze-lp-check">
-                  <input
-                    type="checkbox"
-                    checked={multiLine}
-                    onChange={(e) => onMultiLabelCheck(e.target.checked)}
+                <span className="ze-lp-units">{unitLabel(units)}</span>
+                <span className="ze-lp-colorlabel">Color:</span>
+                <span className="ze-lp-swatch-frame">
+                  <ColorSwatch
+                    className="ze-lp-swatch"
+                    label="Text color"
+                    color={color}
+                    onChange={setColor}
                   />
-                  Multiple label input
-                </label>
-              ) : (
-                <span />
-              )}
-              <a
-                className="ze-lp-syntax"
-                href="https://docs.kicad.org/GetStarted#labels"
-                target="_blank"
-                rel="noreferrer"
-                title="Show syntax help window"
-              >
-                Syntax help
-              </a>
-            </div>
-          )}
-
-          {/* sbFields: the label's own fields, on FIELDS_GRID_TABLE. */}
-          <fieldset className="ze-lp-fields">
-            <legend>Fields</legend>
-            <div className="ze-lp-grid-wrap">
-              <WxGridView
-                grid={dlg.Grid()}
-                columns={GRID_COLUMNS}
-                flexCol={FIELDS_DATA_COL_ORDER.FDC_VALUE}
-                ariaLabel="Fields"
-              />
-            </div>
-            <div className="ze-lp-fieldbtns">
-              <BitmapButton
-                bitmap="small_plus"
-                tooltip="Add field"
-                onClick={() => {
-                  dlg.OnAddField();
-                  redraw();
-                }}
-              />
-              <BitmapButton
-                bitmap="small_up"
-                tooltip="Move up"
-                onClick={() => {
-                  dlg.OnMoveUp();
-                  redraw();
-                }}
-              />
-              <BitmapButton
-                bitmap="small_down"
-                tooltip="Move down"
-                onClick={() => {
-                  dlg.OnMoveDown();
-                  redraw();
-                }}
-              />
-              <span className="ze-lp-gap" />
-              <BitmapButton
-                bitmap="small_trash"
-                tooltip="Delete field"
-                onClick={() => {
-                  dlg.OnDeleteField();
-                  redraw();
-                }}
-              />
+                </span>
+              </div>
             </div>
           </fieldset>
-
-          {/* optionsSizer: Shape beside Formatting. */}
-          <div className="ze-lp-options">
-            {dlg.m_hasShape && (
-              <fieldset className="ze-lp-shape">
-                <legend>Shape</legend>
-                {shapes.map((s) => (
-                  <label key={s.shape}>
-                    <input
-                      type="radio"
-                      name="ze-lp-shape"
-                      checked={shape === s.shape}
-                      onChange={() => setShape(s.shape)}
-                    />
-                    {s.label}
-                  </label>
-                ))}
-              </fieldset>
-            )}
-
-            <fieldset className="ze-lp-formatting">
-              <legend>Formatting</legend>
-              <div className="ze-lp-fmt-grid">
-                <span className="ze-lp-fmt-label">
-                  {dlg.m_isDirective ? 'Orientation:' : 'Font:'}
-                </span>
-                {dlg.m_isDirective ? <span /> : <FontChoice face={face} onChange={setFace} />}
-                <div className="ze-lp-iconbar">
-                  {!dlg.m_isDirective && (
-                    <>
-                      <BitmapButtonSeparator />
-                      <BitmapButton
-                        bitmap="text_bold"
-                        tooltip="Bold"
-                        checked={bold}
-                        onClick={() => setBold(!bold)}
-                      />
-                      <BitmapButton
-                        bitmap="text_italic"
-                        tooltip="Italic"
-                        checked={italic}
-                        onClick={() => setItalic(!italic)}
-                      />
-                      <BitmapButtonSeparator />
-                    </>
-                  )}
-                  {dlg.m_spinBitmaps.map((bitmap, i) => (
-                    <BitmapButton
-                      key={bitmap}
-                      bitmap={bitmap}
-                      tooltip=""
-                      checked={spinButton === i}
-                      onClick={() => setSpinButton(i)}
-                    />
-                  ))}
-                  {dlg.m_hasAutoRotate && (
-                    <label className="ze-lp-check ze-lp-auto">
-                      <input
-                        type="checkbox"
-                        checked={autoRotate}
-                        onChange={(e) => setAutoRotate(e.target.checked)}
-                      />
-                      Auto
-                    </label>
-                  )}
-                  {!dlg.m_isDirective && <BitmapButtonSeparator />}
-                </div>
-
-                <span className="ze-lp-fmt-label">
-                  {dlg.m_isDirective ? 'Pin length:' : 'Text size:'}
-                </span>
-                <div className="ze-lp-sizerow">
-                  <input
-                    className="ze-lp-size"
-                    value={size}
-                    onChange={(e) => setSize(e.target.value)}
-                    onKeyDown={enter}
-                  />
-                  <span className="ze-lp-units">{unitLabel(units)}</span>
-                  <span className="ze-lp-colorlabel">Color:</span>
-                  <span className="ze-lp-swatch-frame">
-                    <ColorSwatch
-                      className="ze-lp-swatch"
-                      label="Text color"
-                      color={color}
-                      onChange={setColor}
-                    />
-                  </span>
-                </div>
-              </div>
-            </fieldset>
-          </div>
-        </div>
-
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={submit}>
-            OK
-          </button>
         </div>
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="ze-btn primary" onClick={submit}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

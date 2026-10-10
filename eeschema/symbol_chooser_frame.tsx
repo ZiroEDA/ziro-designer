@@ -48,7 +48,7 @@ import {
   type PanelSymbolChooserHandle,
 } from './widgets/panel_symbol_chooser.js';
 import { type PickedSymbol } from './picksymbol.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 export interface SymbolChooserFrameProps {
   /** What the panel reaches in the app (`PANEL_SYMBOL_CHOOSER_APP`). */
@@ -78,8 +78,6 @@ export function SymbolChooserFrame({
   onOk,
   onCancel,
 }: SymbolChooserFrameProps): JSX.Element {
-  useModalEscape(onCancel);
-
   const panelRef = useRef<PanelSymbolChooserHandle>(null);
   const [itemCount, setItemCount] = useState(0);
   const title = `Symbol Chooser (${itemCount} items loaded)`;
@@ -93,42 +91,34 @@ export function SymbolChooserFrame({
   }, [onOk, onCancel]);
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-symbol-chooser" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {title}
-          <span className="x" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-modal-body">
-          <PanelSymbolChooser
-            app={app}
-            ref={panelRef}
-            // `false` for aShowFootprints, hardcoded at the call site (:87) —
-            // NOT the Preferences value. This is the whole difference in the
-            // panel's look between the two hosts.
-            showFootprints={false}
-            historyList={historyList}
-            // `std::vector<PICKED_SYMBOL> dummyAlreadyPlaced;` — the frame
-            // never shows an "Already Placed" group.
-            alreadyPlaced={[]}
-            preselect={preselect}
-            onAccept={accept}
-            onItemCountChanged={setItemCount}
-          />
-        </div>
-        {/* The frame's bottom panel is a wxStdDialogButtonSizer and nothing
-            else: no placement checkboxes. Cancel then OK is GTK's order. */}
-        <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button className="ze-btn primary" onClick={accept}>
-            OK
-          </button>
-        </div>
+    <DialogShim title={title} onClose={onCancel} className="ze-symbol-chooser">
+      <div className="ze-modal-body">
+        <PanelSymbolChooser
+          app={app}
+          ref={panelRef}
+          // `false` for aShowFootprints, hardcoded at the call site (:87) —
+          // NOT the Preferences value. This is the whole difference in the
+          // panel's look between the two hosts.
+          showFootprints={false}
+          historyList={historyList}
+          // `std::vector<PICKED_SYMBOL> dummyAlreadyPlaced;` — the frame
+          // never shows an "Already Placed" group.
+          alreadyPlaced={[]}
+          preselect={preselect}
+          onAccept={accept}
+          onItemCountChanged={setItemCount}
+        />
       </div>
-    </div>
+      {/* The frame's bottom panel is a wxStdDialogButtonSizer and nothing
+        else: no placement checkboxes. Cancel then OK is GTK's order. */}
+      <div className="ze-modal-footer">
+        <button className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="ze-btn primary" onClick={accept}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

@@ -58,7 +58,7 @@ const BASELINE: Record<(typeof AREAS)[number], Record<Kind, number>> = {
   common: { button: 104, checkbox: 15, select: 0, frame: 29 },
   cvpcb: { button: 6, checkbox: 0, select: 0, frame: 2 },
   designer: { button: 120, checkbox: 5, select: 4, frame: 8 },
-  eeschema: { button: 110, checkbox: 74, select: 26, frame: 34 },
+  eeschema: { button: 110, checkbox: 74, select: 26, frame: 1 },
   gerbview: { button: 11, checkbox: 4, select: 0, frame: 3 },
   pagelayout_editor: { button: 6, checkbox: 0, select: 0, frame: 1 },
   pcbnew: { button: 138, checkbox: 131, select: 16, frame: 50 },

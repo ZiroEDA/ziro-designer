@@ -45,7 +45,7 @@ import {
 } from '@ziroeda/common/stroke_params.js';
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { FILL_T } from '@ziroeda/common/eda_shape.js';
 import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import { FONT } from '@ziroeda/common/font/font.js';
@@ -160,7 +160,6 @@ export function DialogTextProperties({
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const [text, setText] = useState(initial.text);
   const [bold, setBold] = useState(initial.bold);
@@ -227,222 +226,213 @@ export function DialogTextProperties({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-text-props" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {isBox ? 'Text Box Properties' : 'Text Properties'}
-          <span className="x" title="Cancel" onClick={onCancel}>
-            ✕
-          </span>
+    <DialogShim
+      title={isBox ? 'Text Box Properties' : 'Text Properties'}
+      onClose={onCancel}
+      className="ze-text-props"
+    >
+      <div className="ze-modal-body ze-tp-body">
+        <div className="ze-tp-entry">
+          <span className="ze-lp-fmt-label">Text:</span>
+          <textarea
+            ref={textRef}
+            className="ze-lp-value ze-tp-text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+          />
         </div>
 
-        <div className="ze-modal-body ze-tp-body">
-          <div className="ze-tp-entry">
-            <span className="ze-lp-fmt-label">Text:</span>
-            <textarea
-              ref={textRef}
-              className="ze-lp-value ze-tp-text"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
+        <div className="ze-lp-entry-row2">
+          <label className="ze-lp-check">
+            <input
+              type="checkbox"
+              checked={excludeFromSim}
+              onChange={(e) => setExcludeFromSim(e.target.checked)}
+            />
+            Exclude from simulation
+          </label>
+          <a
+            className="ze-lp-syntax"
+            href="https://docs.kicad.org/GetStarted#text"
+            target="_blank"
+            rel="noreferrer"
+            title="Show syntax help window"
+          >
+            Syntax help
+          </a>
+        </div>
+
+        <div className="ze-tp-grid">
+          {/* m_textEntrySizer row 2, left empty at SetEmptyCellSize's 6px. */}
+          <div className="ze-tp-gap" />
+
+          <span className="ze-lp-fmt-label">Font:</span>
+          {/* The shared FontChoice, which is `Combo` — our owner-drawn
+            combo, as FONT_CHOICE is wxOwnerDrawnComboBox. This was a
+            hand-rolled `<select>` saying the same thing in its own words. */}
+          {/* Row 3 of m_textEntrySizer holds BOTH: the font control at
+            (3,1) spanning two columns and `bSizeCtrlSizer` at (3,3)
+            spanning three (`dialog_text_properties_base.cpp:97,178`). The
+            bar was a direct grid child here, so `.ze-lp-iconbar`'s
+            `grid-column: 1 / -1` threw it onto a row of its own; nesting
+            it beside the font in one flex row is what the field dialog
+            already does. */}
+          <div className="ze-lp-sizerow">
+            <FontChoice face={face} onChange={setFace} />
+            <div className="ze-lp-iconbar">
+              <BitmapButtonSeparator />
+              <BitmapButton
+                bitmap="text_bold"
+                tooltip="Bold"
+                checked={bold}
+                onClick={() => setBold(!bold)}
+              />
+              <BitmapButton
+                bitmap="text_italic"
+                tooltip="Italic"
+                checked={italic}
+                onClick={() => setItalic(!italic)}
+              />
+              <BitmapButtonSeparator />
+              {H_BUTTONS.map((b) => (
+                <BitmapButton
+                  key={b.value}
+                  bitmap={b.icon}
+                  tooltip={b.title}
+                  checked={hAlign === b.value}
+                  onClick={() => setHAlign(b.value)}
+                />
+              ))}
+              <BitmapButtonSeparator />
+              {V_BUTTONS.map((b) => (
+                <BitmapButton
+                  key={b.value}
+                  bitmap={b.icon}
+                  tooltip={b.title}
+                  checked={vAlign === b.value}
+                  onClick={() => setVAlign(b.value)}
+                />
+              ))}
+              <BitmapButtonSeparator />
+              <BitmapButton
+                bitmap="text_horizontal"
+                tooltip="Horizontal"
+                checked={angle === 0}
+                onClick={() => setAngle(0)}
+              />
+              <BitmapButton
+                bitmap="text_vertical"
+                tooltip="Vertical"
+                checked={angle === 90}
+                onClick={() => setAngle(90)}
+              />
+              <BitmapButtonSeparator />
+            </div>
+          </div>
+
+          <span className="ze-lp-fmt-label">Text size:</span>
+          <div className="ze-lp-sizerow">
+            <input
+              className="ze-lp-size"
+              value={sizeText}
+              onChange={(e) => setSizeText(e.target.value)}
               onKeyDown={(e) => e.stopPropagation()}
             />
+            <span className="ze-lp-units">{unitLabel(units)}</span>
+            <span className="ze-lp-colorlabel">Color:</span>
+            <Swatch color={color} onChange={setColor} title="Text color" />
           </div>
 
-          <div className="ze-lp-entry-row2">
-            <label className="ze-lp-check">
-              <input
-                type="checkbox"
-                checked={excludeFromSim}
-                onChange={(e) => setExcludeFromSim(e.target.checked)}
-              />
-              Exclude from simulation
-            </label>
-            <a
-              className="ze-lp-syntax"
-              href="https://docs.kicad.org/GetStarted#text"
-              target="_blank"
-              rel="noreferrer"
-              title="Show syntax help window"
-            >
-              Syntax help
-            </a>
-          </div>
-
-          <div className="ze-tp-grid">
-            {/* m_textEntrySizer row 2, left empty at SetEmptyCellSize's 6px. */}
-            <div className="ze-tp-gap" />
-
-            <span className="ze-lp-fmt-label">Font:</span>
-            {/* The shared FontChoice, which is `Combo` — our owner-drawn
-                combo, as FONT_CHOICE is wxOwnerDrawnComboBox. This was a
-                hand-rolled `<select>` saying the same thing in its own words. */}
-            {/* Row 3 of m_textEntrySizer holds BOTH: the font control at
-                (3,1) spanning two columns and `bSizeCtrlSizer` at (3,3)
-                spanning three (`dialog_text_properties_base.cpp:97,178`). The
-                bar was a direct grid child here, so `.ze-lp-iconbar`'s
-                `grid-column: 1 / -1` threw it onto a row of its own; nesting
-                it beside the font in one flex row is what the field dialog
-                already does. */}
-            <div className="ze-lp-sizerow">
-              <FontChoice face={face} onChange={setFace} />
-              <div className="ze-lp-iconbar">
-                <BitmapButtonSeparator />
-                <BitmapButton
-                  bitmap="text_bold"
-                  tooltip="Bold"
-                  checked={bold}
-                  onClick={() => setBold(!bold)}
+          {isBox && (
+            <>
+              {/* row 5, empty. */}
+              <div className="ze-tp-gap" />
+              <label className="ze-lp-check ze-tp-span">
+                <input
+                  type="checkbox"
+                  checked={border}
+                  onChange={(e) => setBorder(e.target.checked)}
                 />
-                <BitmapButton
-                  bitmap="text_italic"
-                  tooltip="Italic"
-                  checked={italic}
-                  onClick={() => setItalic(!italic)}
-                />
-                <BitmapButtonSeparator />
-                {H_BUTTONS.map((b) => (
-                  <BitmapButton
-                    key={b.value}
-                    bitmap={b.icon}
-                    tooltip={b.title}
-                    checked={hAlign === b.value}
-                    onClick={() => setHAlign(b.value)}
-                  />
-                ))}
-                <BitmapButtonSeparator />
-                {V_BUTTONS.map((b) => (
-                  <BitmapButton
-                    key={b.value}
-                    bitmap={b.icon}
-                    tooltip={b.title}
-                    checked={vAlign === b.value}
-                    onClick={() => setVAlign(b.value)}
-                  />
-                ))}
-                <BitmapButtonSeparator />
-                <BitmapButton
-                  bitmap="text_horizontal"
-                  tooltip="Horizontal"
-                  checked={angle === 0}
-                  onClick={() => setAngle(0)}
-                />
-                <BitmapButton
-                  bitmap="text_vertical"
-                  tooltip="Vertical"
-                  checked={angle === 90}
-                  onClick={() => setAngle(90)}
-                />
-                <BitmapButtonSeparator />
-              </div>
-            </div>
-
-            <span className="ze-lp-fmt-label">Text size:</span>
-            <div className="ze-lp-sizerow">
-              <input
-                className="ze-lp-size"
-                value={sizeText}
-                onChange={(e) => setSizeText(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-              <span className="ze-lp-units">{unitLabel(units)}</span>
-              <span className="ze-lp-colorlabel">Color:</span>
-              <Swatch color={color} onChange={setColor} title="Text color" />
-            </div>
-
-            {isBox && (
-              <>
-                {/* row 5, empty. */}
-                <div className="ze-tp-gap" />
-                <label className="ze-lp-check ze-tp-span">
+                Border
+                <label className="ze-lp-check ze-tp-fill">
                   <input
                     type="checkbox"
-                    checked={border}
-                    onChange={(e) => setBorder(e.target.checked)}
+                    checked={filled}
+                    onChange={(e) => setFilled(e.target.checked)}
                   />
-                  Border
-                  <label className="ze-lp-check ze-tp-fill">
-                    <input
-                      type="checkbox"
-                      checked={filled}
-                      onChange={(e) => setFilled(e.target.checked)}
-                    />
-                    Background fill
-                  </label>
+                  Background fill
                 </label>
+              </label>
 
-                <span className="ze-lp-fmt-label">Width:</span>
-                <div className="ze-lp-sizerow">
-                  <input
-                    className="ze-lp-size"
-                    value={borderWidth}
-                    disabled={!border}
-                    onChange={(e) => setBorderWidth(e.target.value)}
-                    onKeyDown={(e) => e.stopPropagation()}
-                  />
-                  <span className="ze-lp-units">{unitLabel(units)}</span>
-                  <span className="ze-lp-colorlabel">Color:</span>
-                  <Swatch color={borderColor} onChange={setBorderColor} title="Border color" />
-                  <span className="ze-lp-colorlabel">Fill color:</span>
-                  <Swatch color={fillColor} onChange={setFillColor} title="Fill color" />
-                </div>
-
-                <span className="ze-lp-fmt-label">Style:</span>
-                <Combo
-                  className="ze-lp-font"
-                  value={borderStyle}
+              <span className="ze-lp-fmt-label">Width:</span>
+              <div className="ze-lp-sizerow">
+                <input
+                  className="ze-lp-size"
+                  value={borderWidth}
                   disabled={!border}
-                  options={LINE_STYLE_NAMES.map((s) => ({ value: s.value, label: s.label }))}
-                  onChange={(v) => setBorderStyle(v as LineStyleToken)}
+                  onChange={(e) => setBorderWidth(e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
                 />
-              </>
-            )}
+                <span className="ze-lp-units">{unitLabel(units)}</span>
+                <span className="ze-lp-colorlabel">Color:</span>
+                <Swatch color={borderColor} onChange={setBorderColor} title="Border color" />
+                <span className="ze-lp-colorlabel">Fill color:</span>
+                <Swatch color={fillColor} onChange={setFillColor} title="Fill color" />
+              </div>
 
-            {/* row 9, empty — the band above the Link row. */}
-            <div className="ze-tp-gap" />
+              <span className="ze-lp-fmt-label">Style:</span>
+              <Combo
+                className="ze-lp-font"
+                value={borderStyle}
+                disabled={!border}
+                options={LINE_STYLE_NAMES.map((s) => ({ value: s.value, label: s.label }))}
+                onChange={(v) => setBorderStyle(v as LineStyleToken)}
+              />
+            </>
+          )}
 
-            {/* m_hyperlinkCb + m_hyperlinkCombo: a sheet page or a URL. */}
-            <label className="ze-lp-check">
-              <input
-                type="checkbox"
-                checked={linkOn}
-                onChange={(e) => setLinkOn(e.target.checked)}
-              />
-              Link:
-            </label>
-            <div className="ze-lp-sizerow">
-              <input
-                className="ze-lp-value"
-                list="ze-text-links"
-                disabled={!linkOn}
-                placeholder="#3, https://…"
-                value={link}
-                onChange={(e) => setLink(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-              <datalist id="ze-text-links">
-                {(pages ?? []).map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-                <option value="file://" />
-                <option value="http://" />
-                <option value="https://" />
-              </datalist>
-            </div>
+          {/* row 9, empty — the band above the Link row. */}
+          <div className="ze-tp-gap" />
+
+          {/* m_hyperlinkCb + m_hyperlinkCombo: a sheet page or a URL. */}
+          <label className="ze-lp-check">
+            <input type="checkbox" checked={linkOn} onChange={(e) => setLinkOn(e.target.checked)} />
+            Link:
+          </label>
+          <div className="ze-lp-sizerow">
+            <input
+              className="ze-lp-value"
+              list="ze-text-links"
+              disabled={!linkOn}
+              placeholder="#3, https://…"
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+            <datalist id="ze-text-links">
+              {(pages ?? []).map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+              <option value="file://" />
+              <option value="http://" />
+              <option value="https://" />
+            </datalist>
           </div>
         </div>
-
-        <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button className="ze-btn primary" disabled={!text.trim()} onClick={submit}>
-            OK
-          </button>
-        </div>
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <button className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="ze-btn primary" disabled={!text.trim()} onClick={submit}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }
 

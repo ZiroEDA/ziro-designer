@@ -29,7 +29,7 @@
 import { useState, type JSX } from 'react';
 import { BUILTIN_THEMES } from '../sch_render_settings.js';
 import type { EESCHEMA_SETTINGS_STORE } from '../browser/eeschema_app.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
   /** TransferDataFromWindow's print, after SavePrintOptions: SCH_PRINTOUT reads the options back. */
@@ -86,7 +86,6 @@ export function DialogPrint({ settings, onPrint, themeId, onClose }: Props): JSX
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts. Esc is the Close button, which stores the print
   // options on the way out as the dialog's own close does.
-  useModalEscape(saveAndClose);
 
   const run = (): void => {
     savePrintOptions();
@@ -94,86 +93,78 @@ export function DialogPrint({ settings, onPrint, themeId, onClose }: Props): JSX
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={saveAndClose}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Print
-          <span className="x" title="Cancel" onClick={saveAndClose}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-modal-body" style={{ display: 'block', padding: '10px 14px' }}>
-          <label
-            style={{ display: 'block', margin: '4px 0' }}
-            title="Print (or not) the Frame references."
-          >
-            <input
-              type="checkbox"
-              checked={drawingSheet}
-              onChange={(e) => setDrawingSheet(e.target.checked)}
-            />{' '}
-            Print drawing sheet
-          </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '6px 0' }}>
-            <span style={{ fontSize: 12 }}>Output mode:</span>
-            <select
-              className="ze-select"
-              value={color ? 'color' : 'bw'}
-              onChange={(e) => onOutputChoice(e.target.value === 'color')}
-            >
-              <option value="color">Color</option>
-              <option value="bw">Black and White</option>
-            </select>
-          </div>
-          <label style={{ display: 'block', margin: '4px 0', paddingLeft: 20 }}>
-            <input
-              type="checkbox"
-              checked={background}
-              disabled={!color}
-              onChange={(e) => setBackground(e.target.checked)}
-            />{' '}
-            Print background color
-          </label>
-          <div style={{ height: 6 }} />
-          <label style={{ display: 'block', margin: '4px 0', fontSize: 12.5 }}>
-            <input
-              type="checkbox"
-              checked={useTheme}
-              onChange={(e) => setUseTheme(e.target.checked)}
-            />{' '}
-            Use a different color theme for printing:
-          </label>
+    <DialogShim title="Print" onClose={saveAndClose}>
+      <div className="ze-modal-body" style={{ display: 'block', padding: '10px 14px' }}>
+        <label
+          style={{ display: 'block', margin: '4px 0' }}
+          title="Print (or not) the Frame references."
+        >
+          <input
+            type="checkbox"
+            checked={drawingSheet}
+            onChange={(e) => setDrawingSheet(e.target.checked)}
+          />{' '}
+          Print drawing sheet
+        </label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '6px 0' }}>
+          <span style={{ fontSize: 12 }}>Output mode:</span>
           <select
             className="ze-select"
-            style={{
-              width: '100%',
-              boxSizing: 'border-box',
-              marginLeft: 20,
-              maxWidth: 'calc(100% - 20px)',
-            }}
-            value={themeSel}
-            disabled={!useTheme}
-            onChange={(e) => setThemeSel(e.target.value)}
+            value={color ? 'color' : 'bw'}
+            onChange={(e) => onOutputChoice(e.target.value === 'color')}
           >
-            {Object.entries(BUILTIN_THEMES).map(([id, t]) => (
-              <option key={id} value={id}>
-                {t.name}
-              </option>
-            ))}
+            <option value="color">Color</option>
+            <option value="bw">Black and White</option>
           </select>
         </div>
-        <div className="ze-modal-footer">
-          {/* Right-aligned by the footer's justify-content:flex-end. KiCad std-button order
-              (GTK): Close, Print (OK); Print Preview (Apply) is hidden on __WXGTK__, whose
-              native print dialog previews. */}
-          <button className="ze-btn" onClick={saveAndClose}>
-            Close
-          </button>
-          <button className="ze-btn primary" onClick={run}>
-            Print
-          </button>
-        </div>
+        <label style={{ display: 'block', margin: '4px 0', paddingLeft: 20 }}>
+          <input
+            type="checkbox"
+            checked={background}
+            disabled={!color}
+            onChange={(e) => setBackground(e.target.checked)}
+          />{' '}
+          Print background color
+        </label>
+        <div style={{ height: 6 }} />
+        <label style={{ display: 'block', margin: '4px 0', fontSize: 12.5 }}>
+          <input
+            type="checkbox"
+            checked={useTheme}
+            onChange={(e) => setUseTheme(e.target.checked)}
+          />{' '}
+          Use a different color theme for printing:
+        </label>
+        <select
+          className="ze-select"
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            marginLeft: 20,
+            maxWidth: 'calc(100% - 20px)',
+          }}
+          value={themeSel}
+          disabled={!useTheme}
+          onChange={(e) => setThemeSel(e.target.value)}
+        >
+          {Object.entries(BUILTIN_THEMES).map(([id, t]) => (
+            <option key={id} value={id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        {/* Right-aligned by the footer's justify-content:flex-end. KiCad std-button order
+          (GTK): Close, Print (OK); Print Preview (Apply) is hidden on __WXGTK__, whose
+          native print dialog previews. */}
+        <button className="ze-btn" onClick={saveAndClose}>
+          Close
+        </button>
+        <button className="ze-btn primary" onClick={run}>
+          Print
+        </button>
+      </div>
+    </DialogShim>
   );
 }

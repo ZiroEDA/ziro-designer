@@ -17,7 +17,7 @@ import { PIN_ORIENTATION_NAMES, drawPin, MM } from './symbol_renderer.js';
 import { allPins, unitCount, hasAlternateBodyStyle } from './edits.js';
 import { KICAD_CLASSIC } from '../sch_render_settings.js';
 import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/stroke_params.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 /**
  * The Symbol Editor's dialogs, ported from KiCad:
@@ -105,7 +105,6 @@ export function PinPropertiesDialog({
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const [name, setName] = useState(pin.name);
   const [number, setNumber] = useState(pin.number);
@@ -196,129 +195,113 @@ export function PinPropertiesDialog({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-props-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Pin Properties
-          <span className="x" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-props-body" style={{ display: 'flex', gap: 16 }}>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label className="row">
-              <span>Pin name:</span>
-              <input
-                className="ze-search"
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-            </label>
-            <label className="row">
-              <span>Pin number:</span>
-              <input
-                className="ze-search"
-                value={number}
-                onChange={(e) => setNumber(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-            </label>
-            <label className="row">
-              <span>Electrical type:</span>
-              <select
-                className="ze-select"
-                value={etype}
-                onChange={(e) => setEtype(e.target.value)}
-              >
-                {PIN_TYPE_ENTRIES.map(([tok, label]) => (
-                  <option key={tok} value={tok}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="row">
-              <span>Graphic style:</span>
-              <select
-                className="ze-select"
-                value={shape}
-                onChange={(e) => setShape(e.target.value)}
-              >
-                {PIN_SHAPE_ENTRIES.map(([tok, label]) => (
-                  <option key={tok} value={tok}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="row">
-              <span>Orientation:</span>
-              <select
-                className="ze-select"
-                value={angle}
-                onChange={(e) => setAngle(Number(e.target.value))}
-              >
-                {PIN_ORIENTATION_NAMES.map(([a, label]) => (
-                  <option key={a} value={a}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <MMField label="Position X:" value={posX} onChange={setPosX} />
-            {/* Library space shows +Y up (the dialog negates the stored value). */}
-            <MMField label="Position Y:" value={-posY} onChange={(iu) => setPosY(-iu)} />
-            <MMField label="Pin length:" value={length} onChange={setLength} />
-            <MMField label="Name text size:" value={nameSize} onChange={setNameSize} />
-            <MMField label="Number text size:" value={numSize} onChange={setNumSize} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={allUnits}
-                  disabled={!multiUnit}
-                  onChange={(e) => setAllUnits(e.target.checked)}
-                />{' '}
-                Common to all units in symbol
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={allBodies}
-                  onChange={(e) => setAllBodies(e.target.checked)}
-                />{' '}
-                Common to all body styles (De Morgan)
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={visible}
-                  onChange={(e) => setVisible(e.target.checked)}
-                />{' '}
-                Visible
-              </label>
-            </div>
-          </div>
-          <div style={{ flex: 1, minWidth: 280 }}>
-            <canvas
-              ref={canvasRef}
-              className="ze-preview-canvas"
-              style={{ width: '100%', height: '100%', minHeight: 240 }}
+    <DialogShim title="Pin Properties" onClose={onCancel} className="ze-props-dialog">
+      <div className="ze-props-body" style={{ display: 'flex', gap: 16 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label className="row">
+            <span>Pin name:</span>
+            <input
+              className="ze-search"
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
             />
+          </label>
+          <label className="row">
+            <span>Pin number:</span>
+            <input
+              className="ze-search"
+              value={number}
+              onChange={(e) => setNumber(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+          </label>
+          <label className="row">
+            <span>Electrical type:</span>
+            <select className="ze-select" value={etype} onChange={(e) => setEtype(e.target.value)}>
+              {PIN_TYPE_ENTRIES.map(([tok, label]) => (
+                <option key={tok} value={tok}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="row">
+            <span>Graphic style:</span>
+            <select className="ze-select" value={shape} onChange={(e) => setShape(e.target.value)}>
+              {PIN_SHAPE_ENTRIES.map(([tok, label]) => (
+                <option key={tok} value={tok}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="row">
+            <span>Orientation:</span>
+            <select
+              className="ze-select"
+              value={angle}
+              onChange={(e) => setAngle(Number(e.target.value))}
+            >
+              {PIN_ORIENTATION_NAMES.map(([a, label]) => (
+                <option key={a} value={a}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <MMField label="Position X:" value={posX} onChange={setPosX} />
+          {/* Library space shows +Y up (the dialog negates the stored value). */}
+          <MMField label="Position Y:" value={-posY} onChange={(iu) => setPosY(-iu)} />
+          <MMField label="Pin length:" value={length} onChange={setLength} />
+          <MMField label="Name text size:" value={nameSize} onChange={setNameSize} />
+          <MMField label="Number text size:" value={numSize} onChange={setNumSize} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+            <label>
+              <input
+                type="checkbox"
+                checked={allUnits}
+                disabled={!multiUnit}
+                onChange={(e) => setAllUnits(e.target.checked)}
+              />{' '}
+              Common to all units in symbol
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={allBodies}
+                onChange={(e) => setAllBodies(e.target.checked)}
+              />{' '}
+              Common to all body styles (De Morgan)
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={visible}
+                onChange={(e) => setVisible(e.target.checked)}
+              />{' '}
+              Visible
+            </label>
           </div>
         </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={submit}>
-            {isNew ? 'OK' : 'OK'}
-          </button>
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <canvas
+            ref={canvasRef}
+            className="ze-preview-canvas"
+            style={{ width: '100%', height: '100%', minHeight: 240 }}
+          />
         </div>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="ze-btn primary" onClick={submit}>
+          {isNew ? 'OK' : 'OK'}
+        </button>
+      </div>
+    </DialogShim>
   );
 }
 
@@ -353,7 +336,6 @@ export function NewSymbolDialog({
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const [name, setName] = useState('');
   const [parent, setParent] = useState(inheritFrom ?? '');
@@ -400,165 +382,153 @@ export function NewSymbolDialog({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          New Symbol
-          <span className="x" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div
-          className="ze-label-dialog-body"
-          style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
-        >
-          {error && (
-            <div className="ze-props-error" onClick={() => setError(null)}>
-              {error}
-            </div>
-          )}
-          <label className="row">
-            <span>Symbol name:</span>
-            <input
-              className="ze-search"
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Enter') submit();
-              }}
-            />
-          </label>
-          <label className="row">
-            <span>Derive from symbol:</span>
-            <select
-              className="ze-select"
-              value={parent}
-              onChange={(e) => setParent(e.target.value)}
-            >
-              <option value="">&lt;none&gt;</option>
-              {symbolNames.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="row">
-            <span>Default reference designator:</span>
-            <input
-              className="ze-search"
-              disabled={derived}
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-          </label>
-          <label className="row">
-            <span>Number of units per package:</span>
-            <input
-              className="ze-search"
-              type="number"
-              min={1}
-              max={64}
-              disabled={derived}
-              value={units}
-              onChange={(e) => setUnits(Math.max(1, Number(e.target.value) || 1))}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              disabled={derived || units < 2}
-              checked={interchangeable}
-              onChange={(e) => setInterchangeable(e.target.checked)}
-            />{' '}
-            All units are interchangeable
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              disabled={derived}
-              checked={deMorgan}
-              onChange={(e) => setDeMorgan(e.target.checked)}
-            />{' '}
-            Create symbol with alternate body style (De Morgan)
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              disabled={derived}
-              checked={power}
-              onChange={(e) => setPower(e.target.checked)}
-            />{' '}
-            Create symbol as power symbol
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              disabled={derived}
-              checked={exBom}
-              onChange={(e) => setExBom(e.target.checked)}
-            />{' '}
-            Exclude from schematic bill of materials
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              disabled={derived}
-              checked={exBoard}
-              onChange={(e) => setExBoard(e.target.checked)}
-            />{' '}
-            Exclude from board
-          </label>
-          <div style={{ borderTop: '1px solid #444', margin: '4px 0' }} />
-          <label>
-            <input
-              type="checkbox"
-              disabled={derived}
-              checked={nameInside}
-              onChange={(e) => setNameInside(e.target.checked)}
-            />{' '}
-            Pin name inside symbol body
-          </label>
-          {nameInside && !derived && (
-            <MMField
-              label="Position of pin names from body:"
-              value={pinTextPos}
-              onChange={setPinTextPos}
-            />
-          )}
-          <label>
-            <input
-              type="checkbox"
-              disabled={derived}
-              checked={showPinNum}
-              onChange={(e) => setShowPinNum(e.target.checked)}
-            />{' '}
-            Show pin number text
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              disabled={derived}
-              checked={showPinName}
-              onChange={(e) => setShowPinName(e.target.checked)}
-            />{' '}
-            Show pin name text
-          </label>
-        </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={submit}>
-            OK
-          </button>
-        </div>
+    <DialogShim title="New Symbol" onClose={onCancel} className="ze-label-dialog">
+      <div
+        className="ze-label-dialog-body"
+        style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+      >
+        {error && (
+          <div className="ze-props-error" onClick={() => setError(null)}>
+            {error}
+          </div>
+        )}
+        <label className="row">
+          <span>Symbol name:</span>
+          <input
+            className="ze-search"
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') submit();
+            }}
+          />
+        </label>
+        <label className="row">
+          <span>Derive from symbol:</span>
+          <select className="ze-select" value={parent} onChange={(e) => setParent(e.target.value)}>
+            <option value="">&lt;none&gt;</option>
+            {symbolNames.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="row">
+          <span>Default reference designator:</span>
+          <input
+            className="ze-search"
+            disabled={derived}
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+          />
+        </label>
+        <label className="row">
+          <span>Number of units per package:</span>
+          <input
+            className="ze-search"
+            type="number"
+            min={1}
+            max={64}
+            disabled={derived}
+            value={units}
+            onChange={(e) => setUnits(Math.max(1, Number(e.target.value) || 1))}
+            onKeyDown={(e) => e.stopPropagation()}
+          />
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            disabled={derived || units < 2}
+            checked={interchangeable}
+            onChange={(e) => setInterchangeable(e.target.checked)}
+          />{' '}
+          All units are interchangeable
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            disabled={derived}
+            checked={deMorgan}
+            onChange={(e) => setDeMorgan(e.target.checked)}
+          />{' '}
+          Create symbol with alternate body style (De Morgan)
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            disabled={derived}
+            checked={power}
+            onChange={(e) => setPower(e.target.checked)}
+          />{' '}
+          Create symbol as power symbol
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            disabled={derived}
+            checked={exBom}
+            onChange={(e) => setExBom(e.target.checked)}
+          />{' '}
+          Exclude from schematic bill of materials
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            disabled={derived}
+            checked={exBoard}
+            onChange={(e) => setExBoard(e.target.checked)}
+          />{' '}
+          Exclude from board
+        </label>
+        <div style={{ borderTop: '1px solid #444', margin: '4px 0' }} />
+        <label>
+          <input
+            type="checkbox"
+            disabled={derived}
+            checked={nameInside}
+            onChange={(e) => setNameInside(e.target.checked)}
+          />{' '}
+          Pin name inside symbol body
+        </label>
+        {nameInside && !derived && (
+          <MMField
+            label="Position of pin names from body:"
+            value={pinTextPos}
+            onChange={setPinTextPos}
+          />
+        )}
+        <label>
+          <input
+            type="checkbox"
+            disabled={derived}
+            checked={showPinNum}
+            onChange={(e) => setShowPinNum(e.target.checked)}
+          />{' '}
+          Show pin number text
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            disabled={derived}
+            checked={showPinName}
+            onChange={(e) => setShowPinName(e.target.checked)}
+          />{' '}
+          Show pin name text
+        </label>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="ze-btn primary" onClick={submit}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }
 
@@ -588,7 +558,6 @@ export function LibSymbolPropertiesDialog({
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   interface Row {
     key: string;
@@ -679,167 +648,153 @@ export function LibSymbolPropertiesDialog({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-props-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Library Symbol Properties
-          <span className="x" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-props-body">
-          {error && (
-            <div className="ze-props-error" onClick={() => setError(null)}>
-              {error}, click to dismiss
-            </div>
-          )}
-          <div className="ze-props-grid-wrap">
-            <table className="ze-props-grid">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Value</th>
-                  <th>Show</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, i) => (
-                  <tr key={i} className={i === selRow ? 'sel' : ''} onClick={() => setSelRow(i)}>
-                    <td>
-                      {MANDATORY.has(row.key) ? (
-                        <span className="ze-cell-ro">{row.key}</span>
-                      ) : (
-                        <input
-                          className="ze-cell-input"
-                          value={row.key}
-                          onChange={(e) => patchRow(i, { key: e.target.value })}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        />
-                      )}
-                    </td>
-                    <td>
+    <DialogShim title="Library Symbol Properties" onClose={onCancel} className="ze-props-dialog">
+      <div className="ze-props-body">
+        {error && (
+          <div className="ze-props-error" onClick={() => setError(null)}>
+            {error}, click to dismiss
+          </div>
+        )}
+        <div className="ze-props-grid-wrap">
+          <table className="ze-props-grid">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Value</th>
+                <th>Show</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => (
+                <tr key={i} className={i === selRow ? 'sel' : ''} onClick={() => setSelRow(i)}>
+                  <td>
+                    {MANDATORY.has(row.key) ? (
+                      <span className="ze-cell-ro">{row.key}</span>
+                    ) : (
                       <input
                         className="ze-cell-input"
-                        value={row.value}
-                        onChange={(e) => patchRow(i, { value: e.target.value })}
+                        value={row.key}
+                        onChange={(e) => patchRow(i, { key: e.target.value })}
                         onKeyDown={(e) => e.stopPropagation()}
                       />
-                    </td>
-                    <td className="c">
-                      <input
-                        type="checkbox"
-                        checked={!row.hidden}
-                        onChange={(e) => patchRow(i, { hidden: !e.target.checked })}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="ze-props-rowbtns">
-            <button type="button" className="ze-btn sm" title="Add field" onClick={addRow}>
-              +
-            </button>
-            <span className="grow" />
-            <button type="button" className="ze-btn sm" title="Delete field" onClick={deleteRow}>
-              🗑
-            </button>
-          </div>
-
-          <div className="ze-props-columns">
-            <fieldset className="ze-props-group">
-              <legend>General</legend>
-              <label className="row">
-                <span>Symbol name:</span>
-                <input
-                  className="ze-search"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => e.stopPropagation()}
-                />
-              </label>
-              <label className="row">
-                <span>Keywords:</span>
-                <input
-                  className="ze-search"
-                  value={keywords}
-                  onChange={(e) => setKeywords(e.target.value)}
-                  onKeyDown={(e) => e.stopPropagation()}
-                />
-              </label>
-              <label className="row">
-                <span>Number of units:</span>
-                <input
-                  className="ze-search"
-                  type="number"
-                  min={1}
-                  max={64}
-                  value={units}
-                  onChange={(e) => setUnits(Math.max(1, Number(e.target.value) || 1))}
-                  onKeyDown={(e) => e.stopPropagation()}
-                />
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  disabled={units < 2}
-                  checked={interchangeable}
-                  onChange={(e) => setInterchangeable(e.target.checked)}
-                />{' '}
-                All units are interchangeable
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={power}
-                  onChange={(e) => setPower(e.target.checked)}
-                />{' '}
-                Define as power symbol
-              </label>
-            </fieldset>
-            <fieldset className="ze-props-group">
-              <legend>Pin Text Options</legend>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={showNums}
-                  onChange={(e) => setShowNums(e.target.checked)}
-                />{' '}
-                Show pin number
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={showNames}
-                  onChange={(e) => setShowNames(e.target.checked)}
-                />{' '}
-                Show pin name
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={nameInside}
-                  onChange={(e) => setNameInside(e.target.checked)}
-                />{' '}
-                Place pin names inside
-              </label>
-              {nameInside && (
-                <MMField label="Position offset:" value={offset} onChange={setOffset} />
-              )}
-            </fieldset>
-          </div>
+                    )}
+                  </td>
+                  <td>
+                    <input
+                      className="ze-cell-input"
+                      value={row.value}
+                      onChange={(e) => patchRow(i, { value: e.target.value })}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    />
+                  </td>
+                  <td className="c">
+                    <input
+                      type="checkbox"
+                      checked={!row.hidden}
+                      onChange={(e) => patchRow(i, { hidden: !e.target.checked })}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
+        <div className="ze-props-rowbtns">
+          <button type="button" className="ze-btn sm" title="Add field" onClick={addRow}>
+            +
           </button>
-          <button type="button" className="ze-btn primary" onClick={submit}>
-            OK
+          <span className="grow" />
+          <button type="button" className="ze-btn sm" title="Delete field" onClick={deleteRow}>
+            🗑
           </button>
+        </div>
+
+        <div className="ze-props-columns">
+          <fieldset className="ze-props-group">
+            <legend>General</legend>
+            <label className="row">
+              <span>Symbol name:</span>
+              <input
+                className="ze-search"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+            </label>
+            <label className="row">
+              <span>Keywords:</span>
+              <input
+                className="ze-search"
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+            </label>
+            <label className="row">
+              <span>Number of units:</span>
+              <input
+                className="ze-search"
+                type="number"
+                min={1}
+                max={64}
+                value={units}
+                onChange={(e) => setUnits(Math.max(1, Number(e.target.value) || 1))}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                disabled={units < 2}
+                checked={interchangeable}
+                onChange={(e) => setInterchangeable(e.target.checked)}
+              />{' '}
+              All units are interchangeable
+            </label>
+            <label>
+              <input type="checkbox" checked={power} onChange={(e) => setPower(e.target.checked)} />{' '}
+              Define as power symbol
+            </label>
+          </fieldset>
+          <fieldset className="ze-props-group">
+            <legend>Pin Text Options</legend>
+            <label>
+              <input
+                type="checkbox"
+                checked={showNums}
+                onChange={(e) => setShowNums(e.target.checked)}
+              />{' '}
+              Show pin number
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={showNames}
+                onChange={(e) => setShowNames(e.target.checked)}
+              />{' '}
+              Show pin name
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={nameInside}
+                onChange={(e) => setNameInside(e.target.checked)}
+              />{' '}
+              Place pin names inside
+            </label>
+            {nameInside && <MMField label="Position offset:" value={offset} onChange={setOffset} />}
+          </fieldset>
         </div>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="ze-btn primary" onClick={submit}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }
 
@@ -871,7 +826,6 @@ export function SymbolTextDialog({
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const [text, setText] = useState(initial?.text ?? '');
   const [size, setSize] = useState(initial?.fontSize ?? defaultFontSize ?? 1.27 * MM);
@@ -881,57 +835,45 @@ export function SymbolTextDialog({
     if (text.trim() !== '') onOk({ text, fontSize: size, bold, italic });
   };
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Text Properties
-          <span className="x" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div
-          className="ze-label-dialog-body"
-          style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
-        >
-          <label className="row">
-            <span>Text:</span>
-            <input
-              className="ze-search"
-              autoFocus
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Enter') submit();
-              }}
-            />
+    <DialogShim title="Text Properties" onClose={onCancel} className="ze-label-dialog">
+      <div
+        className="ze-label-dialog-body"
+        style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+      >
+        <label className="row">
+          <span>Text:</span>
+          <input
+            className="ze-search"
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') submit();
+            }}
+          />
+        </label>
+        <MMField label="Text size:" value={size} onChange={setSize} />
+        <div style={{ display: 'flex', gap: 16 }}>
+          <label>
+            <input type="checkbox" checked={bold} onChange={(e) => setBold(e.target.checked)} />{' '}
+            Bold
           </label>
-          <MMField label="Text size:" value={size} onChange={setSize} />
-          <div style={{ display: 'flex', gap: 16 }}>
-            <label>
-              <input type="checkbox" checked={bold} onChange={(e) => setBold(e.target.checked)} />{' '}
-              Bold
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={italic}
-                onChange={(e) => setItalic(e.target.checked)}
-              />{' '}
-              Italic
-            </label>
-          </div>
-        </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" disabled={!text.trim()} onClick={submit}>
-            OK
-          </button>
+          <label>
+            <input type="checkbox" checked={italic} onChange={(e) => setItalic(e.target.checked)} />{' '}
+            Italic
+          </label>
         </div>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="ze-btn primary" disabled={!text.trim()} onClick={submit}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }
 
@@ -954,7 +896,6 @@ export function ShapePropertiesDialog({
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const [width, setWidth] = useState(initial.strokeWidth);
   const [type, setType] = useState<string>(lineStyleComboValue(initial.strokeType));
@@ -962,59 +903,51 @@ export function ShapePropertiesDialog({
     initial.fillType === 'outline' || initial.fillType === 'background' ? initial.fillType : 'none',
   );
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Drawing Properties
-          <span className="x" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div
-          className="ze-label-dialog-body"
-          style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
-        >
-          <MMField label="Line width:" value={width} onChange={setWidth} />
-          <label className="row">
-            <span>Line style:</span>
-            <select className="ze-select" value={type} onChange={(e) => setType(e.target.value)}>
-              {/* The symbol editor opens the same DIALOG_SHAPE_PROPERTIES as
-                  eeschema (dialog_shape_properties.cpp:60), whose combo is
-                  lineTypeNames alone — five entries, no "Default". */}
-              {LINE_STYLE_NAMES.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="row">
-            <span>Fill:</span>
-            <select
-              className="ze-select"
-              value={fill}
-              onChange={(e) => setFill(e.target.value as ShapePropsResult['fillType'])}
-            >
-              <option value="none">Do not fill</option>
-              <option value="outline">Fill with body outline color</option>
-              <option value="background">Fill with body background color</option>
-            </select>
-          </label>
-        </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="ze-btn primary"
-            onClick={() => onOk({ strokeWidth: width, strokeType: type, fillType: fill })}
+    <DialogShim title="Drawing Properties" onClose={onCancel} className="ze-label-dialog">
+      <div
+        className="ze-label-dialog-body"
+        style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+      >
+        <MMField label="Line width:" value={width} onChange={setWidth} />
+        <label className="row">
+          <span>Line style:</span>
+          <select className="ze-select" value={type} onChange={(e) => setType(e.target.value)}>
+            {/* The symbol editor opens the same DIALOG_SHAPE_PROPERTIES as
+              eeschema (dialog_shape_properties.cpp:60), whose combo is
+              lineTypeNames alone — five entries, no "Default". */}
+            {LINE_STYLE_NAMES.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="row">
+          <span>Fill:</span>
+          <select
+            className="ze-select"
+            value={fill}
+            onChange={(e) => setFill(e.target.value as ShapePropsResult['fillType'])}
           >
-            OK
-          </button>
-        </div>
+            <option value="none">Do not fill</option>
+            <option value="outline">Fill with body outline color</option>
+            <option value="background">Fill with body background color</option>
+          </select>
+        </label>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="ze-btn primary"
+          onClick={() => onOk({ strokeWidth: width, strokeType: type, fillType: fill })}
+        >
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }
 
@@ -1031,7 +964,6 @@ export function PinTableDialog({
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   interface Row {
     unitIdx: number;
@@ -1059,131 +991,123 @@ export function PinTableDialog({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-props-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Pin Table
-          <span className="x" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-props-body">
-          <div className="ze-props-grid-wrap" style={{ maxHeight: 420 }}>
-            <table className="ze-props-grid">
-              <thead>
-                <tr>
-                  <th>Number</th>
-                  <th>Name</th>
-                  <th>Electrical Type</th>
-                  <th>Graphic Style</th>
-                  <th>Orientation</th>
-                  <th>Number Size</th>
-                  <th>Name Size</th>
-                  <th>Length</th>
-                  <th>X</th>
-                  <th>Y</th>
-                  <th>Visible</th>
+    <DialogShim title="Pin Table" onClose={onCancel} className="ze-props-dialog">
+      <div className="ze-props-body">
+        <div className="ze-props-grid-wrap" style={{ maxHeight: 420 }}>
+          <table className="ze-props-grid">
+            <thead>
+              <tr>
+                <th>Number</th>
+                <th>Name</th>
+                <th>Electrical Type</th>
+                <th>Graphic Style</th>
+                <th>Orientation</th>
+                <th>Number Size</th>
+                <th>Name Size</th>
+                <th>Length</th>
+                <th>X</th>
+                <th>Y</th>
+                <th>Visible</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={`${r.unitIdx}:${r.pinIdx}`}>
+                  <td>
+                    <input
+                      className="ze-cell-input"
+                      value={r.pin.number}
+                      onChange={(e) => patch(i, { number: e.target.value })}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="ze-cell-input"
+                      value={r.pin.name}
+                      onChange={(e) => patch(i, { name: e.target.value })}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    />
+                  </td>
+                  <td>
+                    <select
+                      className="ze-cell-select"
+                      value={r.pin.electricalType}
+                      onChange={(e) => patch(i, { electricalType: e.target.value })}
+                    >
+                      {PIN_TYPE_ENTRIES.map(([tok, label]) => (
+                        <option key={tok} value={tok}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      className="ze-cell-select"
+                      value={r.pin.shape}
+                      onChange={(e) => patch(i, { shape: e.target.value })}
+                    >
+                      {PIN_SHAPE_ENTRIES.map(([tok, label]) => (
+                        <option key={tok} value={tok}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      className="ze-cell-select"
+                      value={r.pin.angle}
+                      onChange={(e) => patch(i, { angle: Number(e.target.value) })}
+                    >
+                      {PIN_ORIENTATION_NAMES.map(([a, label]) => (
+                        <option key={a} value={a}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <span className="ze-cell-ro">{mmStr(r.pin.numberSize ?? 1.27 * MM)}</span>
+                  </td>
+                  <td>
+                    <span className="ze-cell-ro">{mmStr(r.pin.nameSize ?? 1.27 * MM)}</span>
+                  </td>
+                  <td>
+                    <span className="ze-cell-ro">{mmStr(r.pin.length)}</span>
+                  </td>
+                  <td>
+                    <span className="ze-cell-ro">{mmStr(r.pin.at.x)}</span>
+                  </td>
+                  <td>
+                    <span className="ze-cell-ro">{mmStr(-r.pin.at.y)}</span>
+                  </td>
+                  <td className="c">
+                    <input
+                      type="checkbox"
+                      checked={!r.pin.hidden}
+                      onChange={(e) => patch(i, { hidden: !e.target.checked })}
+                    />
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr key={`${r.unitIdx}:${r.pinIdx}`}>
-                    <td>
-                      <input
-                        className="ze-cell-input"
-                        value={r.pin.number}
-                        onChange={(e) => patch(i, { number: e.target.value })}
-                        onKeyDown={(e) => e.stopPropagation()}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        className="ze-cell-input"
-                        value={r.pin.name}
-                        onChange={(e) => patch(i, { name: e.target.value })}
-                        onKeyDown={(e) => e.stopPropagation()}
-                      />
-                    </td>
-                    <td>
-                      <select
-                        className="ze-cell-select"
-                        value={r.pin.electricalType}
-                        onChange={(e) => patch(i, { electricalType: e.target.value })}
-                      >
-                        {PIN_TYPE_ENTRIES.map(([tok, label]) => (
-                          <option key={tok} value={tok}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <select
-                        className="ze-cell-select"
-                        value={r.pin.shape}
-                        onChange={(e) => patch(i, { shape: e.target.value })}
-                      >
-                        {PIN_SHAPE_ENTRIES.map(([tok, label]) => (
-                          <option key={tok} value={tok}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <select
-                        className="ze-cell-select"
-                        value={r.pin.angle}
-                        onChange={(e) => patch(i, { angle: Number(e.target.value) })}
-                      >
-                        {PIN_ORIENTATION_NAMES.map(([a, label]) => (
-                          <option key={a} value={a}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <span className="ze-cell-ro">{mmStr(r.pin.numberSize ?? 1.27 * MM)}</span>
-                    </td>
-                    <td>
-                      <span className="ze-cell-ro">{mmStr(r.pin.nameSize ?? 1.27 * MM)}</span>
-                    </td>
-                    <td>
-                      <span className="ze-cell-ro">{mmStr(r.pin.length)}</span>
-                    </td>
-                    <td>
-                      <span className="ze-cell-ro">{mmStr(r.pin.at.x)}</span>
-                    </td>
-                    <td>
-                      <span className="ze-cell-ro">{mmStr(-r.pin.at.y)}</span>
-                    </td>
-                    <td className="c">
-                      <input
-                        type="checkbox"
-                        checked={!r.pin.hidden}
-                        onChange={(e) => patch(i, { hidden: !e.target.checked })}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="ze-muted" style={{ padding: '6px 2px' }}>
-            {rows.length} pins
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={submit}>
-            OK
-          </button>
+        <div className="ze-muted" style={{ padding: '6px 2px' }}>
+          {rows.length} pins
         </div>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="ze-btn primary" onClick={submit}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }
 
@@ -1268,35 +1192,26 @@ export function SymbolCheckDialog({
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   const messages = useMemo(() => checkLibSymbol(symbol), [symbol]);
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Symbol Warnings
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-label-dialog-body" style={{ maxHeight: 360, overflowY: 'auto' }}>
-          {messages.length === 0 ? (
-            <div className="ze-muted">No issues found.</div>
-          ) : (
-            messages.map((m, i) => (
-              <div key={i} style={{ padding: '4px 0', borderBottom: '1px solid #333' }}>
-                {m}
-              </div>
-            ))
-          )}
-        </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn primary" onClick={onClose}>
-            Close
-          </button>
-        </div>
+    <DialogShim title="Symbol Warnings" onClose={onClose} className="ze-label-dialog">
+      <div className="ze-label-dialog-body" style={{ maxHeight: 360, overflowY: 'auto' }}>
+        {messages.length === 0 ? (
+          <div className="ze-muted">No issues found.</div>
+        ) : (
+          messages.map((m, i) => (
+            <div key={i} style={{ padding: '4px 0', borderBottom: '1px solid #333' }}>
+              {m}
+            </div>
+          ))
+        )}
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn primary" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </DialogShim>
   );
 }

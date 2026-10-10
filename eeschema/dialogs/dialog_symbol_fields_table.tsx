@@ -44,7 +44,7 @@ import {
   type BomPreset,
   type BomPresets,
 } from '../schematic_settings.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 /** Changed cells, grouped by sheet file then symbol refId. */
 export type FieldsEdits = FieldsTableEdits['fields'];
@@ -556,7 +556,6 @@ export function DialogSymbolFieldsTable({
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts. Esc is the Cancel button, which asks before discarding
   // edited fields exactly as OnCancel does.
-  useModalEscape(onCancel);
 
   const onExport = (): void => {
     if (
@@ -682,412 +681,395 @@ export function DialogSymbolFieldsTable({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-fields-table" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Symbol Fields Table
-          <span className="x" title="Cancel" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-
-        <div className="ze-sft-body">
-          {/* Left panel: the view-controls grid, its buttons, and the presets. */}
-          {!sidebarCollapsed && (
-            <>
-              <div className="ze-sft-left" style={{ width: sashPos }}>
-                <div className="ze-grid-pane ze-sft-fields-pane">
-                  <table className="ze-grid ze-sft-fields">
-                    <colgroup>
-                      <col />
-                      <col />
-                      {/* OnSizeViewControlsGrid: the two flag columns are as
-                          wide as their labels + COLUMN_MARGIN, the rest splits. */}
-                      <col style={{ width: 66 }} />
-                      <col style={{ width: 74 }} />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th>Field</th>
-                        <th>BOM Name</th>
-                        <th>Include</th>
-                        <th>Group By</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {order.map((fieldName, i) => {
-                        const col = colOf(fieldName);
-                        if (col === -1) return null;
-                        return (
-                          <tr
-                            key={fieldName}
-                            className={i === selField ? 'selected' : undefined}
-                            onMouseDown={() => setSelField(i)}
-                          >
-                            <td className="ze-sft-name">{fieldName}</td>
-                            <td>
-                              <input
-                                type="text"
-                                value={model.getColLabelValue(col)}
-                                onChange={(e) => setLabel(fieldName, e.target.value)}
-                              />
-                            </td>
-                            <td className="center">
-                              <input
-                                type="checkbox"
-                                checked={model.getShowColumn(col)}
-                                onChange={(e) => setShow(fieldName, e.target.checked)}
-                              />
-                            </td>
-                            <td className="center">
-                              <input
-                                type="checkbox"
-                                checked={model.getGroupColumn(col)}
-                                onChange={(e) => setGroupBy(fieldName, e.target.checked)}
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="ze-grid-btns">
-                  <button className="ze-gridbtn" title="Add a new field" onClick={addField}>
-                    <Icon name="plus" />
-                  </button>
-                  <button
-                    className="ze-gridbtn"
-                    title="Rename selected field"
-                    onClick={renameField}
-                  >
-                    <Icon name="annotate" />
-                  </button>
-                  <span style={{ width: 15 }} />
-                  <button
-                    className="ze-gridbtn"
-                    title="Remove selected field"
-                    onClick={removeField}
-                  >
-                    <Icon name="delete" />
-                  </button>
-                </div>
-                <div className="ze-sft-presets">
-                  <hr />
-                  <label>View presets:</label>
-                  <select value={presetName} onChange={(e) => onPresetChoice(e.target.value)}>
-                    {presetName === SEPARATOR && <option value={SEPARATOR}>{SEPARATOR}</option>}
-                    {allPresets.map((p) => (
-                      <option key={p.name} value={p.name}>
-                        {p.name}
-                      </option>
-                    ))}
-                    <option value={SEPARATOR}>{SEPARATOR}</option>
-                    <option value={SAVE_PRESET}>{SAVE_PRESET}</option>
-                    <option value={DELETE_PRESET}>{DELETE_PRESET}</option>
-                  </select>
-                </div>
+    <DialogShim title="Symbol Fields Table" onClose={onCancel} className="ze-fields-table">
+      <div className="ze-sft-body">
+        {/* Left panel: the view-controls grid, its buttons, and the presets. */}
+        {!sidebarCollapsed && (
+          <>
+            <div className="ze-sft-left" style={{ width: sashPos }}>
+              <div className="ze-grid-pane ze-sft-fields-pane">
+                <table className="ze-grid ze-sft-fields">
+                  <colgroup>
+                    <col />
+                    <col />
+                    {/* OnSizeViewControlsGrid: the two flag columns are as
+                      wide as their labels + COLUMN_MARGIN, the rest splits. */}
+                    <col style={{ width: 66 }} />
+                    <col style={{ width: 74 }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>Field</th>
+                      <th>BOM Name</th>
+                      <th>Include</th>
+                      <th>Group By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {order.map((fieldName, i) => {
+                      const col = colOf(fieldName);
+                      if (col === -1) return null;
+                      return (
+                        <tr
+                          key={fieldName}
+                          className={i === selField ? 'selected' : undefined}
+                          onMouseDown={() => setSelField(i)}
+                        >
+                          <td className="ze-sft-name">{fieldName}</td>
+                          <td>
+                            <input
+                              type="text"
+                              value={model.getColLabelValue(col)}
+                              onChange={(e) => setLabel(fieldName, e.target.value)}
+                            />
+                          </td>
+                          <td className="center">
+                            <input
+                              type="checkbox"
+                              checked={model.getShowColumn(col)}
+                              onChange={(e) => setShow(fieldName, e.target.checked)}
+                            />
+                          </td>
+                          <td className="center">
+                            <input
+                              type="checkbox"
+                              checked={model.getGroupColumn(col)}
+                              onChange={(e) => setGroupBy(fieldName, e.target.checked)}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              {/* The splitter sash (wxSP_LIVE_UPDATE, minimum pane 120). */}
-              <div
-                className="ze-sft-sash"
-                onMouseDown={(e) => {
-                  const startX = e.clientX;
-                  const startW = sashPos;
-                  const move = (ev: MouseEvent): void =>
-                    setSashPos(Math.max(120, startW + ev.clientX - startX));
-                  const up = (): void => {
-                    window.removeEventListener('mousemove', move);
-                    window.removeEventListener('mouseup', up);
-                  };
-                  window.addEventListener('mousemove', move);
-                  window.addEventListener('mouseup', up);
-                }}
-              />
-            </>
-          )}
-
-          {/* Right panel: the Edit / Export notebook over the dialog buttons. */}
-          <div className="ze-sft-right">
-            <div className="ze-sft-tabs">
-              <div
-                className={`ze-sft-tab${tab === 'edit' ? ' active' : ''}`}
-                onClick={() => showTab('edit')}
-              >
-                Edit
+              <div className="ze-grid-btns">
+                <button className="ze-gridbtn" title="Add a new field" onClick={addField}>
+                  <Icon name="plus" />
+                </button>
+                <button className="ze-gridbtn" title="Rename selected field" onClick={renameField}>
+                  <Icon name="annotate" />
+                </button>
+                <span style={{ width: 15 }} />
+                <button className="ze-gridbtn" title="Remove selected field" onClick={removeField}>
+                  <Icon name="delete" />
+                </button>
               </div>
-              <div
-                className={`ze-sft-tab${tab === 'export' ? ' active' : ''}`}
-                onClick={() => showTab('export')}
-              >
-                Export
+              <div className="ze-sft-presets">
+                <hr />
+                <label>View presets:</label>
+                <select value={presetName} onChange={(e) => onPresetChoice(e.target.value)}>
+                  {presetName === SEPARATOR && <option value={SEPARATOR}>{SEPARATOR}</option>}
+                  {allPresets.map((p) => (
+                    <option key={p.name} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                  <option value={SEPARATOR}>{SEPARATOR}</option>
+                  <option value={SAVE_PRESET}>{SAVE_PRESET}</option>
+                  <option value={DELETE_PRESET}>{DELETE_PRESET}</option>
+                </select>
               </div>
             </div>
+            {/* The splitter sash (wxSP_LIVE_UPDATE, minimum pane 120). */}
+            <div
+              className="ze-sft-sash"
+              onMouseDown={(e) => {
+                const startX = e.clientX;
+                const startW = sashPos;
+                const move = (ev: MouseEvent): void =>
+                  setSashPos(Math.max(120, startW + ev.clientX - startX));
+                const up = (): void => {
+                  window.removeEventListener('mousemove', move);
+                  window.removeEventListener('mouseup', up);
+                };
+                window.addEventListener('mousemove', move);
+                window.addEventListener('mouseup', up);
+              }}
+            />
+          </>
+        )}
 
-            {tab === 'edit' ? (
-              <div className="ze-sft-page">
-                {/* Filter | scope | grouping | regroup | options (bControls). */}
-                <div className="ze-sft-controls">
+        {/* Right panel: the Edit / Export notebook over the dialog buttons. */}
+        <div className="ze-sft-right">
+          <div className="ze-sft-tabs">
+            <div
+              className={`ze-sft-tab${tab === 'edit' ? ' active' : ''}`}
+              onClick={() => showTab('edit')}
+            >
+              Edit
+            </div>
+            <div
+              className={`ze-sft-tab${tab === 'export' ? ' active' : ''}`}
+              onClick={() => showTab('export')}
+            >
+              Export
+            </div>
+          </div>
+
+          {tab === 'edit' ? (
+            <div className="ze-sft-page">
+              {/* Filter | scope | grouping | regroup | options (bControls). */}
+              <div className="ze-sft-controls">
+                <input
+                  className="ze-search ze-sft-filter"
+                  placeholder="Filter"
+                  value={filter}
+                  onChange={(e) => onFilterText(e.target.value)}
+                />
+                <span className="ze-sft-vsep" />
+                <select
+                  className="ze-select ze-sft-scope"
+                  value={scope}
+                  onChange={(e) => onScope(e.target.value as FieldsScope)}
+                >
+                  {SCOPES.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="ze-sft-vsep" />
+                <label
+                  className="ze-sft-check"
+                  title="Group symbols together based on common properties"
+                >
                   <input
-                    className="ze-search ze-sft-filter"
-                    placeholder="Filter"
-                    value={filter}
-                    onChange={(e) => onFilterText(e.target.value)}
+                    type="checkbox"
+                    checked={groupSymbols}
+                    onChange={(e) => onGroupSymbols(e.target.checked)}
                   />
-                  <span className="ze-sft-vsep" />
-                  <select
-                    className="ze-select ze-sft-scope"
-                    value={scope}
-                    onChange={(e) => onScope(e.target.value as FieldsScope)}
-                  >
-                    {SCOPES.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.label}
-                      </option>
+                  Group symbols
+                </label>
+                <span className="ze-sft-vsep" />
+                <button
+                  className="ze-gridbtn"
+                  title="Regroup symbols"
+                  onClick={() => {
+                    model.rebuildRows();
+                    redraw();
+                  }}
+                >
+                  <Icon name="zoomRedraw" />
+                </button>
+                <button
+                  className="ze-gridbtn"
+                  title="Options"
+                  onClick={() => setMenuOpen((o) => !o)}
+                >
+                  <Icon name="setup" />
+                </button>
+                {menuOpen && (
+                  <div className="ze-sft-menu" onMouseLeave={() => setMenuOpen(false)}>
+                    <div
+                      onClick={() => {
+                        model.setExcludeDNP(!model.getExcludeDNP());
+                        model.rebuildRows();
+                        afterChange();
+                      }}
+                    >
+                      <span className="tick">{model.getExcludeDNP() ? '' : '✓'}</span>
+                      Include &lsquo;DNP&rsquo; Symbols
+                    </div>
+                    <div
+                      onClick={() => {
+                        model.setIncludeExcludedFromBOM(!model.getIncludeExcludedFromBOM());
+                        model.rebuildRows();
+                        afterChange();
+                      }}
+                    >
+                      <span className="tick">{model.getIncludeExcludedFromBOM() ? '✓' : ''}</span>
+                      Include &lsquo;Exclude from BOM&rsquo; Symbols
+                    </div>
+                    <hr />
+                    {(
+                      [
+                        ['highlight', 'Highlight on Cross-probe'],
+                        ['select', 'Select on Cross-probe'],
+                      ] as const
+                    ).map(([mode, label]) => (
+                      <div
+                        key={mode}
+                        onClick={() => setCrossProbe(crossProbe === mode ? 'none' : mode)}
+                      >
+                        <span className="tick">{crossProbe === mode ? '✓' : ''}</span>
+                        {label}
+                      </div>
                     ))}
-                  </select>
-                  <span className="ze-sft-vsep" />
-                  <label
-                    className="ze-sft-check"
-                    title="Group symbols together based on common properties"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={groupSymbols}
-                      onChange={(e) => onGroupSymbols(e.target.checked)}
-                    />
-                    Group symbols
-                  </label>
-                  <span className="ze-sft-vsep" />
+                  </div>
+                )}
+              </div>
+
+              {/* The fields table itself. */}
+              <div className="ze-grid-pane ze-sft-table-pane">
+                <table className="ze-grid ze-sft-table">
+                  <colgroup>
+                    {shownCols.map((col) => (
+                      <col key={columns[col]!.fieldName} style={{ width: colWidth(col) }} />
+                    ))}
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      {shownCols.map((col) => (
+                        <th
+                          key={columns[col]!.fieldName}
+                          title="Sort by this column"
+                          onClick={() => onColSort(col)}
+                        >
+                          {model.getColLabelValue(col)}
+                          {model.getSortCol() === col ? (model.getSortAsc() ? ' ▲' : ' ▼') : ''}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((group, row) => (
+                      <tr
+                        key={`${group.refs[0]?.file}\0${group.refs[0]?.id}\0${row}`}
+                        className={row === selRow ? 'selected' : undefined}
+                        onMouseDown={() => onRowClick(row)}
+                      >
+                        {shownCols.map((col) => (
+                          <td key={columns[col]!.fieldName}>{renderCell(row, col)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                    {rows.length === 0 && (
+                      <tr>
+                        <td colSpan={Math.max(1, shownCols.length)} className="ze-sft-empty">
+                          No symbols, place and annotate symbols first.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            /* Export page (gbExport): options left, output + preview right. */
+            <div className="ze-sft-page ze-sft-export">
+              <div className="ze-sft-fmt">
+                <label>Field delimiter:</label>
+                <input
+                  className="ze-search"
+                  value={fmt.fieldDelimiter === '\t' ? '\\t' : fmt.fieldDelimiter}
+                  onChange={(e) =>
+                    editFmt({ fieldDelimiter: e.target.value === '\\t' ? '\t' : e.target.value })
+                  }
+                />
+                <label>String delimiter:</label>
+                <input
+                  className="ze-search"
+                  value={fmt.stringDelimiter}
+                  onChange={(e) => editFmt({ stringDelimiter: e.target.value })}
+                />
+                <label>Reference delimiter:</label>
+                <input
+                  className="ze-search"
+                  value={fmt.refDelimiter}
+                  onChange={(e) => editFmt({ refDelimiter: e.target.value })}
+                />
+                <label>Range delimiter:</label>
+                <input
+                  className="ze-search"
+                  title="Leave blank to disable ranges."
+                  value={fmt.refRangeDelimiter}
+                  onChange={(e) => editFmt({ refRangeDelimiter: e.target.value })}
+                />
+                <label className="span ze-sft-check">
+                  <input
+                    type="checkbox"
+                    checked={fmt.keepTabs}
+                    onChange={(e) => editFmt({ keepTabs: e.target.checked })}
+                  />
+                  Keep tabs
+                </label>
+                <label className="span ze-sft-check">
+                  <input
+                    type="checkbox"
+                    checked={fmt.keepLineBreaks}
+                    onChange={(e) => editFmt({ keepLineBreaks: e.target.checked })}
+                  />
+                  Keep line breaks
+                </label>
+                <hr className="span" />
+                <label className="span">Format presets:</label>
+                <select
+                  className="ze-select span"
+                  value={fmtName}
+                  onChange={(e) => onFmtChoice(e.target.value)}
+                >
+                  {fmtName === SEPARATOR && <option value={SEPARATOR}>{SEPARATOR}</option>}
+                  {allFmtPresets.map((p) => (
+                    <option key={p.name} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                  <option value={SEPARATOR}>{SEPARATOR}</option>
+                  <option value={SAVE_PRESET}>{SAVE_PRESET}</option>
+                  <option value={DELETE_PRESET}>{DELETE_PRESET}</option>
+                </select>
+              </div>
+
+              <div className="ze-sft-output">
+                <div className="ze-sft-outfile">
+                  <label>Output file:</label>
+                  <input
+                    className="ze-search"
+                    value={outputFileName}
+                    placeholder={defaultBomFileName}
+                    onChange={(e) => setOutputFileName(e.target.value)}
+                  />
                   <button
                     className="ze-gridbtn"
-                    title="Regroup symbols"
-                    onClick={() => {
-                      model.rebuildRows();
-                      redraw();
-                    }}
+                    title="Use the default output file"
+                    onClick={() => setOutputFileName(defaultBomFileName)}
+                  >
+                    <Icon name="folder" />
+                  </button>
+                </div>
+                <div className="ze-sft-previewrow">
+                  <label>Preview:</label>
+                  <span style={{ flex: 1 }} />
+                  <button
+                    className="ze-gridbtn"
+                    title="Refresh preview"
+                    onClick={() => refreshPreview()}
                   >
                     <Icon name="zoomRedraw" />
                   </button>
-                  <button
-                    className="ze-gridbtn"
-                    title="Options"
-                    onClick={() => setMenuOpen((o) => !o)}
-                  >
-                    <Icon name="setup" />
-                  </button>
-                  {menuOpen && (
-                    <div className="ze-sft-menu" onMouseLeave={() => setMenuOpen(false)}>
-                      <div
-                        onClick={() => {
-                          model.setExcludeDNP(!model.getExcludeDNP());
-                          model.rebuildRows();
-                          afterChange();
-                        }}
-                      >
-                        <span className="tick">{model.getExcludeDNP() ? '' : '✓'}</span>
-                        Include &lsquo;DNP&rsquo; Symbols
-                      </div>
-                      <div
-                        onClick={() => {
-                          model.setIncludeExcludedFromBOM(!model.getIncludeExcludedFromBOM());
-                          model.rebuildRows();
-                          afterChange();
-                        }}
-                      >
-                        <span className="tick">{model.getIncludeExcludedFromBOM() ? '✓' : ''}</span>
-                        Include &lsquo;Exclude from BOM&rsquo; Symbols
-                      </div>
-                      <hr />
-                      {(
-                        [
-                          ['highlight', 'Highlight on Cross-probe'],
-                          ['select', 'Select on Cross-probe'],
-                        ] as const
-                      ).map(([mode, label]) => (
-                        <div
-                          key={mode}
-                          onClick={() => setCrossProbe(crossProbe === mode ? 'none' : mode)}
-                        >
-                          <span className="tick">{crossProbe === mode ? '✓' : ''}</span>
-                          {label}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
-
-                {/* The fields table itself. */}
-                <div className="ze-grid-pane ze-sft-table-pane">
-                  <table className="ze-grid ze-sft-table">
-                    <colgroup>
-                      {shownCols.map((col) => (
-                        <col key={columns[col]!.fieldName} style={{ width: colWidth(col) }} />
-                      ))}
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        {shownCols.map((col) => (
-                          <th
-                            key={columns[col]!.fieldName}
-                            title="Sort by this column"
-                            onClick={() => onColSort(col)}
-                          >
-                            {model.getColLabelValue(col)}
-                            {model.getSortCol() === col ? (model.getSortAsc() ? ' ▲' : ' ▼') : ''}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((group, row) => (
-                        <tr
-                          key={`${group.refs[0]?.file}\0${group.refs[0]?.id}\0${row}`}
-                          className={row === selRow ? 'selected' : undefined}
-                          onMouseDown={() => onRowClick(row)}
-                        >
-                          {shownCols.map((col) => (
-                            <td key={columns[col]!.fieldName}>{renderCell(row, col)}</td>
-                          ))}
-                        </tr>
-                      ))}
-                      {rows.length === 0 && (
-                        <tr>
-                          <td colSpan={Math.max(1, shownCols.length)} className="ze-sft-empty">
-                            No symbols, place and annotate symbols first.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                <textarea className="ze-sft-preview" readOnly value={preview} />
               </div>
-            ) : (
-              /* Export page (gbExport): options left, output + preview right. */
-              <div className="ze-sft-page ze-sft-export">
-                <div className="ze-sft-fmt">
-                  <label>Field delimiter:</label>
-                  <input
-                    className="ze-search"
-                    value={fmt.fieldDelimiter === '\t' ? '\\t' : fmt.fieldDelimiter}
-                    onChange={(e) =>
-                      editFmt({ fieldDelimiter: e.target.value === '\\t' ? '\t' : e.target.value })
-                    }
-                  />
-                  <label>String delimiter:</label>
-                  <input
-                    className="ze-search"
-                    value={fmt.stringDelimiter}
-                    onChange={(e) => editFmt({ stringDelimiter: e.target.value })}
-                  />
-                  <label>Reference delimiter:</label>
-                  <input
-                    className="ze-search"
-                    value={fmt.refDelimiter}
-                    onChange={(e) => editFmt({ refDelimiter: e.target.value })}
-                  />
-                  <label>Range delimiter:</label>
-                  <input
-                    className="ze-search"
-                    title="Leave blank to disable ranges."
-                    value={fmt.refRangeDelimiter}
-                    onChange={(e) => editFmt({ refRangeDelimiter: e.target.value })}
-                  />
-                  <label className="span ze-sft-check">
-                    <input
-                      type="checkbox"
-                      checked={fmt.keepTabs}
-                      onChange={(e) => editFmt({ keepTabs: e.target.checked })}
-                    />
-                    Keep tabs
-                  </label>
-                  <label className="span ze-sft-check">
-                    <input
-                      type="checkbox"
-                      checked={fmt.keepLineBreaks}
-                      onChange={(e) => editFmt({ keepLineBreaks: e.target.checked })}
-                    />
-                    Keep line breaks
-                  </label>
-                  <hr className="span" />
-                  <label className="span">Format presets:</label>
-                  <select
-                    className="ze-select span"
-                    value={fmtName}
-                    onChange={(e) => onFmtChoice(e.target.value)}
-                  >
-                    {fmtName === SEPARATOR && <option value={SEPARATOR}>{SEPARATOR}</option>}
-                    {allFmtPresets.map((p) => (
-                      <option key={p.name} value={p.name}>
-                        {p.name}
-                      </option>
-                    ))}
-                    <option value={SEPARATOR}>{SEPARATOR}</option>
-                    <option value={SAVE_PRESET}>{SAVE_PRESET}</option>
-                    <option value={DELETE_PRESET}>{DELETE_PRESET}</option>
-                  </select>
-                </div>
-
-                <div className="ze-sft-output">
-                  <div className="ze-sft-outfile">
-                    <label>Output file:</label>
-                    <input
-                      className="ze-search"
-                      value={outputFileName}
-                      placeholder={defaultBomFileName}
-                      onChange={(e) => setOutputFileName(e.target.value)}
-                    />
-                    <button
-                      className="ze-gridbtn"
-                      title="Use the default output file"
-                      onClick={() => setOutputFileName(defaultBomFileName)}
-                    >
-                      <Icon name="folder" />
-                    </button>
-                  </div>
-                  <div className="ze-sft-previewrow">
-                    <label>Preview:</label>
-                    <span style={{ flex: 1 }} />
-                    <button
-                      className="ze-gridbtn"
-                      title="Refresh preview"
-                      onClick={() => refreshPreview()}
-                    >
-                      <Icon name="zoomRedraw" />
-                    </button>
-                  </div>
-                  <textarea className="ze-sft-preview" readOnly value={preview} />
-                </div>
-              </div>
-            )}
-
-            {/* bButtonsSizer: sidebar toggle, stretch, Export, Apply, Cancel/OK. */}
-            <div className="ze-modal-footer ze-sft-footer">
-              <button
-                className="ze-gridbtn"
-                title={sidebarCollapsed ? 'Expand left panel' : 'Collapse left panel'}
-                onClick={() => setSidebarCollapsed((c) => !c)}
-              >
-                <Icon name={sidebarCollapsed ? 'navFwd' : 'navBack'} />
-              </button>
-              <span className="ze-muted ze-sft-status">{status}</span>
-              <span style={{ flex: 1 }} />
-              <button className="ze-btn" onClick={onExport}>
-                Export
-              </button>
-              <button className="ze-btn" onClick={onSaveAndContinue}>
-                Apply, Save Schematic &amp; Continue
-              </button>
-              <button className="ze-btn" onClick={onCancel}>
-                Cancel
-              </button>
-              <button className="ze-btn primary" onClick={onOk}>
-                OK
-              </button>
             </div>
+          )}
+
+          {/* bButtonsSizer: sidebar toggle, stretch, Export, Apply, Cancel/OK. */}
+          <div className="ze-modal-footer ze-sft-footer">
+            <button
+              className="ze-gridbtn"
+              title={sidebarCollapsed ? 'Expand left panel' : 'Collapse left panel'}
+              onClick={() => setSidebarCollapsed((c) => !c)}
+            >
+              <Icon name={sidebarCollapsed ? 'navFwd' : 'navBack'} />
+            </button>
+            <span className="ze-muted ze-sft-status">{status}</span>
+            <span style={{ flex: 1 }} />
+            <button className="ze-btn" onClick={onExport}>
+              Export
+            </button>
+            <button className="ze-btn" onClick={onSaveAndContinue}>
+              Apply, Save Schematic &amp; Continue
+            </button>
+            <button className="ze-btn" onClick={onCancel}>
+              Cancel
+            </button>
+            <button className="ze-btn primary" onClick={onOk}>
+              OK
+            </button>
           </div>
         </div>
       </div>
-    </div>
+    </DialogShim>
   );
 }

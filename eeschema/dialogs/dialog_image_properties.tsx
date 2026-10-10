@@ -17,7 +17,7 @@ import { CheckValues, PANEL_IMAGE_EDITOR } from '@ziroeda/common/dialogs/panel_i
 import { MessageDialogError, MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { SCH_COMMIT } from '../sch_commit.js';
 import type { SCH_BITMAP } from '../sch_bitmap.js';
 import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
@@ -52,7 +52,6 @@ export function DialogImageProperties({
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const [x, setX] = useState(String(iuToMM(at.x)));
   const [y, setY] = useState(String(iuToMM(at.y)));
@@ -76,76 +75,68 @@ export function DialogImageProperties({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Image Properties
-          <span className="x" title="Cancel" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div
-          className="ze-label-dialog-body"
-          style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
-        >
-          {/* PANEL_IMAGE_EDITOR (common/dialogs), as DIALOG_IMAGE_PROPERTIES embeds it. */}
-          <PANEL_IMAGE_EDITOR
-            data={data}
-            scaleText={scale}
-            onScaleText={setScale}
-            ppi={ppi}
-            onGreyscale={setData}
+    <DialogShim title="Image Properties" onClose={onCancel} className="ze-label-dialog">
+      <div
+        className="ze-label-dialog-body"
+        style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+      >
+        {/* PANEL_IMAGE_EDITOR (common/dialogs), as DIALOG_IMAGE_PROPERTIES embeds it. */}
+        <PANEL_IMAGE_EDITOR
+          data={data}
+          scaleText={scale}
+          onScaleText={setScale}
+          ppi={ppi}
+          onGreyscale={setData}
+        />
+        <label className="row">
+          <span>Position X:</span>
+          <input
+            className="ze-search"
+            style={{ width: 90 }}
+            value={x}
+            onChange={(e) => setX(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
           />
-          <label className="row">
-            <span>Position X:</span>
-            <input
-              className="ze-search"
-              style={{ width: 90 }}
-              value={x}
-              onChange={(e) => setX(e.target.value)}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-            <span className="ze-muted">mm</span>
-          </label>
-          <label className="row">
-            <span>Position Y:</span>
-            <input
-              className="ze-search"
-              style={{ width: 90 }}
-              value={y}
-              onChange={(e) => setY(e.target.value)}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Enter') submit();
-              }}
-            />
-            <span className="ze-muted">mm</span>
-          </label>
-        </div>
-        {error && <MessageDialogError message={error} onClose={() => setError(null)} />}
-        {confirm && (
-          // IsOK( host, msg ) (confirm.cpp:278-298).
-          <MessageDialogYesNo
-            caption="Confirmation"
-            icon="question"
-            defaultButton="yes"
-            message={confirm}
-            onResult={(r) => {
-              setConfirm(null);
-              if (r === 'yes') accept(Number(scale));
+          <span className="ze-muted">mm</span>
+        </label>
+        <label className="row">
+          <span>Position Y:</span>
+          <input
+            className="ze-search"
+            style={{ width: 90 }}
+            value={y}
+            onChange={(e) => setY(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') submit();
             }}
           />
-        )}
-        <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button className="ze-btn primary" onClick={submit}>
-            OK
-          </button>
-        </div>
+          <span className="ze-muted">mm</span>
+        </label>
       </div>
-    </div>
+      {error && <MessageDialogError message={error} onClose={() => setError(null)} />}
+      {confirm && (
+        // IsOK( host, msg ) (confirm.cpp:278-298).
+        <MessageDialogYesNo
+          caption="Confirmation"
+          icon="question"
+          defaultButton="yes"
+          message={confirm}
+          onResult={(r) => {
+            setConfirm(null);
+            if (r === 'yes') accept(Number(scale));
+          }}
+        />
+      )}
+      <div className="ze-modal-footer">
+        <button className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="ze-btn primary" onClick={submit}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }
 

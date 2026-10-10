@@ -34,7 +34,7 @@ import { BUILTIN_THEMES } from '../sch_render_settings.js';
 import type { EESCHEMA_SETTINGS_STORE } from '../browser/eeschema_app.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 export type PlotFormat = 'ps' | 'pdf' | 'svg' | 'dxf' | 'png';
 
@@ -99,7 +99,6 @@ export function DialogPlot({
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   const [format, setFormat] = useState<PlotFormat>('pdf');
   const [pageSize, setPageSize] = useState<PlotPageSize>('auto');
@@ -206,310 +205,300 @@ export function DialogPlot({
   });
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Plot Schematic Options
-          <span className="x" title="Cancel" onClick={onClose}>
-            ✕
-          </span>
-        </div>
+    <DialogShim title="Plot Schematic Options" onClose={onClose}>
+      <div
+        className="ze-modal-body"
+        style={{ display: 'block', padding: '10px 14px', overflow: 'auto' }}
+      >
+        {/* Output directory (upstream bOutputDir): a folder in the project. */}
         <div
-          className="ze-modal-body"
-          style={{ display: 'block', padding: '10px 14px', overflow: 'auto' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}
+          onMouseDown={() => setBrowseOpen(false)}
         >
-          {/* Output directory (upstream bOutputDir): a folder in the project. */}
-          <div
-            style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}
-            onMouseDown={() => setBrowseOpen(false)}
-          >
-            <span style={lab}>Output directory:</span>
-            <input
-              className="ze-search"
-              style={{ flex: 1 }}
-              value={outputDir}
-              placeholder="Project folder"
-              title="Folder inside the project for the plotted files (relative to the project). Files appear in the file manager, where you can download them."
-              onChange={(e) => setOutputDir(e.target.value)}
-            />
-            <div style={{ position: 'relative' }}>
-              <button
-                className="ze-btn sm"
-                title="Select output directory"
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  setBrowseOpen((v) => !v);
+          <span style={lab}>Output directory:</span>
+          <input
+            className="ze-search"
+            style={{ flex: 1 }}
+            value={outputDir}
+            placeholder="Project folder"
+            title="Folder inside the project for the plotted files (relative to the project). Files appear in the file manager, where you can download them."
+            onChange={(e) => setOutputDir(e.target.value)}
+          />
+          <div style={{ position: 'relative' }}>
+            <button
+              className="ze-btn sm"
+              title="Select output directory"
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                setBrowseOpen((v) => !v);
+              }}
+            >
+              <Icon name="folder" size={14} />
+            </button>
+            {browseOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  zIndex: 20,
+                  minWidth: 180,
+                  marginTop: 2,
+                  background: 'var(--chrome-bg2)',
+                  border: '1px solid var(--chrome-border)',
+                  borderRadius: 3,
+                  fontSize: 12,
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
                 }}
+                onMouseDown={(e) => e.stopPropagation()}
               >
-                <Icon name="folder" size={14} />
-              </button>
-              {browseOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    zIndex: 20,
-                    minWidth: 180,
-                    marginTop: 2,
-                    background: 'var(--chrome-bg2)',
-                    border: '1px solid var(--chrome-border)',
-                    borderRadius: 3,
-                    fontSize: 12,
-                    boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
-                  }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  {['', ...folders].map((f) => (
-                    <div
-                      key={f || '.'}
-                      className="ze-menu-item"
-                      style={{ padding: '4px 12px', cursor: 'default' }}
-                      onClick={() => {
-                        setOutputDir(f);
-                        setBrowseOpen(false);
-                      }}
-                    >
-                      {f || 'Project folder'}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                {['', ...folders].map((f) => (
+                  <div
+                    key={f || '.'}
+                    className="ze-menu-item"
+                    style={{ padding: '4px 12px', cursor: 'default' }}
+                    onClick={() => {
+                      setOutputDir(f);
+                      setBrowseOpen(false);
+                    }}
+                  >
+                    {f || 'Project folder'}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+        </div>
 
-          {/* Three columns (upstream m_optionsSizer): Output Format and Options
-              take their natural width; the right column grows to fill. */}
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <fieldset style={{ ...group, flex: '0 0 130px' }}>
-              <legend style={legend}>Output Format</legend>
-              {FORMATS.map((f) => (
-                <label key={f.id} style={check()}>
-                  <input
-                    type="radio"
-                    name="pfmt"
-                    checked={format === f.id}
-                    onChange={() => setFormat(f.id)}
-                  />{' '}
-                  {f.label}
-                </label>
-              ))}
+        {/* Three columns (upstream m_optionsSizer): Output Format and Options
+          take their natural width; the right column grows to fill. */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <fieldset style={{ ...group, flex: '0 0 130px' }}>
+            <legend style={legend}>Output Format</legend>
+            {FORMATS.map((f) => (
+              <label key={f.id} style={check()}>
+                <input
+                  type="radio"
+                  name="pfmt"
+                  checked={format === f.id}
+                  onChange={() => setFormat(f.id)}
+                />{' '}
+                {f.label}
+              </label>
+            ))}
+          </fieldset>
+
+          <fieldset style={{ ...group, flex: '0 0 250px' }}>
+            <legend style={legend}>Options</legend>
+            <div style={optGrid}>
+              <span style={lab}>Page size:</span>
+              <select
+                className="ze-select"
+                style={ctrl2}
+                value={pageSize}
+                onChange={(e) => setPageSize(e.target.value as PlotPageSize)}
+              >
+                <option value="auto">Schematic size</option>
+                <option value="A4">A4</option>
+                <option value="A">A</option>
+              </select>
+
+              <label
+                style={{ ...span3, ...row }}
+                title="Plot the drawing sheet border and title block"
+              >
+                <input
+                  type="checkbox"
+                  checked={drawingSheet}
+                  onChange={(e) => setDrawingSheet(e.target.checked)}
+                />{' '}
+                Plot drawing sheet
+              </label>
+
+              <div style={{ ...span3, height: 6 }} />
+
+              <span style={lab}>Output mode:</span>
+              <select
+                className="ze-select"
+                style={ctrl2}
+                value={color ? 'color' : 'bw'}
+                onChange={(e) => setColor(e.target.value === 'color')}
+              >
+                <option value="color">Color</option>
+                <option value="bw">Black and White</option>
+              </select>
+
+              <span style={{ ...lab, opacity: color ? 1 : 0.5 }}>Color theme:</span>
+              <select
+                className="ze-select"
+                style={ctrl2}
+                value={themeSel}
+                disabled={!color}
+                title="Select the color theme to use for plotting"
+                onChange={(e) => setThemeSel(e.target.value)}
+              >
+                {Object.entries(BUILTIN_THEMES).map(([id, t]) => (
+                  <option key={id} value={id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+
+              <label
+                style={{ ...span3, ...row, opacity: bgAvailable ? 1 : 0.5 }}
+                title="Plot the background color if the output format supports it"
+              >
+                <input
+                  type="checkbox"
+                  checked={bgAvailable && background}
+                  disabled={!bgAvailable}
+                  onChange={(e) => setBackground(e.target.checked)}
+                />{' '}
+                Plot background color
+              </label>
+
+              <div style={{ ...span3, height: 6 }} />
+
+              <span style={{ ...lab, opacity: penEnabled ? 1 : 0.5 }}>Minimum line width:</span>
+              <input
+                className="ze-search"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                value={minWidthMm}
+                disabled={!penEnabled}
+                title="Selection of the default pen thickness used to draw items, when their thickness is set to 0."
+                onChange={(e) => setMinWidthMm(e.target.value)}
+              />
+              <span className="ze-muted" style={{ fontSize: 11, opacity: penEnabled ? 1 : 0.5 }}>
+                mm
+              </span>
+            </div>
+          </fieldset>
+
+          {/* Right column: the format groups + Other Options (bOptionsRight). */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <fieldset style={group}>
+              <legend style={legend}>PDF Options</legend>
+              <label style={check(format !== 'pdf')}>
+                <input
+                  type="checkbox"
+                  checked={pdfPropertyPopups}
+                  disabled={format !== 'pdf'}
+                  onChange={(e) => setPdfPropertyPopups(e.target.checked)}
+                />{' '}
+                Generate property popups
+              </label>
+              <label style={check(format !== 'pdf')}>
+                <input
+                  type="checkbox"
+                  checked={pdfHierarchicalLinks}
+                  disabled={format !== 'pdf'}
+                  onChange={(e) => setPdfHierarchicalLinks(e.target.checked)}
+                />{' '}
+                Generate clickable links for hierarchical elements
+              </label>
+              <label
+                style={check(format !== 'pdf')}
+                title="Generate PDF document properties from AUTHOR and SUBJECT text variables"
+              >
+                <input
+                  type="checkbox"
+                  checked={pdfMetadata}
+                  disabled={format !== 'pdf'}
+                  onChange={(e) => setPdfMetadata(e.target.checked)}
+                />{' '}
+                Generate metadata from AUTHOR &amp; SUBJECT variables
+              </label>
             </fieldset>
 
-            <fieldset style={{ ...group, flex: '0 0 250px' }}>
-              <legend style={legend}>Options</legend>
-              <div style={optGrid}>
-                <span style={lab}>Page size:</span>
+            <fieldset style={group}>
+              <legend style={legend}>DXF Options</legend>
+              <div style={{ ...row, opacity: format === 'dxf' ? 1 : 0.5 }}>
+                <span style={lab}>Export units:</span>
                 <select
                   className="ze-select"
-                  style={ctrl2}
-                  value={pageSize}
-                  onChange={(e) => setPageSize(e.target.value as PlotPageSize)}
+                  value={dxfUnits}
+                  disabled={format !== 'dxf'}
+                  title="The units to use for the exported DXF file"
+                  onChange={(e) => setDxfUnits(e.target.value as 'in' | 'mm')}
                 >
-                  <option value="auto">Schematic size</option>
-                  <option value="A4">A4</option>
-                  <option value="A">A</option>
+                  <option value="in">Inches</option>
+                  <option value="mm">Millimeters</option>
                 </select>
-
-                <label
-                  style={{ ...span3, ...row }}
-                  title="Plot the drawing sheet border and title block"
-                >
-                  <input
-                    type="checkbox"
-                    checked={drawingSheet}
-                    onChange={(e) => setDrawingSheet(e.target.checked)}
-                  />{' '}
-                  Plot drawing sheet
-                </label>
-
-                <div style={{ ...span3, height: 6 }} />
-
-                <span style={lab}>Output mode:</span>
-                <select
-                  className="ze-select"
-                  style={ctrl2}
-                  value={color ? 'color' : 'bw'}
-                  onChange={(e) => setColor(e.target.value === 'color')}
-                >
-                  <option value="color">Color</option>
-                  <option value="bw">Black and White</option>
-                </select>
-
-                <span style={{ ...lab, opacity: color ? 1 : 0.5 }}>Color theme:</span>
-                <select
-                  className="ze-select"
-                  style={ctrl2}
-                  value={themeSel}
-                  disabled={!color}
-                  title="Select the color theme to use for plotting"
-                  onChange={(e) => setThemeSel(e.target.value)}
-                >
-                  {Object.entries(BUILTIN_THEMES).map(([id, t]) => (
-                    <option key={id} value={id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-
-                <label
-                  style={{ ...span3, ...row, opacity: bgAvailable ? 1 : 0.5 }}
-                  title="Plot the background color if the output format supports it"
-                >
-                  <input
-                    type="checkbox"
-                    checked={bgAvailable && background}
-                    disabled={!bgAvailable}
-                    onChange={(e) => setBackground(e.target.checked)}
-                  />{' '}
-                  Plot background color
-                </label>
-
-                <div style={{ ...span3, height: 6 }} />
-
-                <span style={{ ...lab, opacity: penEnabled ? 1 : 0.5 }}>Minimum line width:</span>
-                <input
-                  className="ze-search"
-                  style={{ width: '100%', boxSizing: 'border-box' }}
-                  value={minWidthMm}
-                  disabled={!penEnabled}
-                  title="Selection of the default pen thickness used to draw items, when their thickness is set to 0."
-                  onChange={(e) => setMinWidthMm(e.target.value)}
-                />
-                <span className="ze-muted" style={{ fontSize: 11, opacity: penEnabled ? 1 : 0.5 }}>
-                  mm
-                </span>
               </div>
             </fieldset>
 
-            {/* Right column: the format groups + Other Options (bOptionsRight). */}
-            <div
-              style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}
-            >
+            {format === 'png' && (
               <fieldset style={group}>
-                <legend style={legend}>PDF Options</legend>
-                <label style={check(format !== 'pdf')}>
+                <legend style={legend}>PNG Options</legend>
+                <div style={row}>
+                  <span style={lab}>DPI:</span>
                   <input
-                    type="checkbox"
-                    checked={pdfPropertyPopups}
-                    disabled={format !== 'pdf'}
-                    onChange={(e) => setPdfPropertyPopups(e.target.checked)}
-                  />{' '}
-                  Generate property popups
-                </label>
-                <label style={check(format !== 'pdf')}>
-                  <input
-                    type="checkbox"
-                    checked={pdfHierarchicalLinks}
-                    disabled={format !== 'pdf'}
-                    onChange={(e) => setPdfHierarchicalLinks(e.target.checked)}
-                  />{' '}
-                  Generate clickable links for hierarchical elements
-                </label>
-                <label
-                  style={check(format !== 'pdf')}
-                  title="Generate PDF document properties from AUTHOR and SUBJECT text variables"
-                >
-                  <input
-                    type="checkbox"
-                    checked={pdfMetadata}
-                    disabled={format !== 'pdf'}
-                    onChange={(e) => setPdfMetadata(e.target.checked)}
-                  />{' '}
-                  Generate metadata from AUTHOR &amp; SUBJECT variables
-                </label>
-              </fieldset>
-
-              <fieldset style={group}>
-                <legend style={legend}>DXF Options</legend>
-                <div style={{ ...row, opacity: format === 'dxf' ? 1 : 0.5 }}>
-                  <span style={lab}>Export units:</span>
-                  <select
-                    className="ze-select"
-                    value={dxfUnits}
-                    disabled={format !== 'dxf'}
-                    title="The units to use for the exported DXF file"
-                    onChange={(e) => setDxfUnits(e.target.value as 'in' | 'mm')}
-                  >
-                    <option value="in">Inches</option>
-                    <option value="mm">Millimeters</option>
-                  </select>
+                    className="ze-search"
+                    type="number"
+                    style={{ width: 90 }}
+                    value={dpi}
+                    min={72}
+                    max={2400}
+                    onChange={(e) =>
+                      setDpi(Math.max(72, Math.min(2400, Number(e.target.value) || 300)))
+                    }
+                  />
                 </div>
               </fieldset>
+            )}
 
-              {format === 'png' && (
-                <fieldset style={group}>
-                  <legend style={legend}>PNG Options</legend>
-                  <div style={row}>
-                    <span style={lab}>DPI:</span>
-                    <input
-                      className="ze-search"
-                      type="number"
-                      style={{ width: 90 }}
-                      value={dpi}
-                      min={72}
-                      max={2400}
-                      onChange={(e) =>
-                        setDpi(Math.max(72, Math.min(2400, Number(e.target.value) || 300)))
-                      }
-                    />
-                  </div>
-                </fieldset>
-              )}
-
-              <fieldset style={group}>
-                <legend style={legend}>Other Options</legend>
-                <label
-                  style={check(!canOpenAfter)}
-                  title="Open the plotted file in a new browser tab after a successful plot (current page only)"
-                >
-                  <input
-                    type="checkbox"
-                    checked={openAfter && canOpenAfter}
-                    disabled={!canOpenAfter}
-                    onChange={(e) => setOpenAfter(e.target.checked)}
-                  />{' '}
-                  Open file after plot
-                </label>
-                <label
-                  style={check()}
-                  title="Plots always land in the project's file manager; check this to also download them to this computer."
-                >
-                  <input
-                    type="checkbox"
-                    checked={downloadCopy}
-                    onChange={(e) => setDownloadCopy(e.target.checked)}
-                  />{' '}
-                  Download a copy to this computer
-                </label>
-              </fieldset>
-            </div>
-          </div>
-
-          {/* Output Messages (WX_HTML_REPORT_PANEL). */}
-          <div style={{ marginTop: 12 }}>
-            <HtmlReportPanel
-              lines={messages}
-              fileName="report.txt"
-              minHeight={120}
-              visibleSeverities={severities}
-              onVisibleSeveritiesChange={setSeverities}
-            />
+            <fieldset style={group}>
+              <legend style={legend}>Other Options</legend>
+              <label
+                style={check(!canOpenAfter)}
+                title="Open the plotted file in a new browser tab after a successful plot (current page only)"
+              >
+                <input
+                  type="checkbox"
+                  checked={openAfter && canOpenAfter}
+                  disabled={!canOpenAfter}
+                  onChange={(e) => setOpenAfter(e.target.checked)}
+                />{' '}
+                Open file after plot
+              </label>
+              <label
+                style={check()}
+                title="Plots always land in the project's file manager; check this to also download them to this computer."
+              >
+                <input
+                  type="checkbox"
+                  checked={downloadCopy}
+                  onChange={(e) => setDownloadCopy(e.target.checked)}
+                />{' '}
+                Download a copy to this computer
+              </label>
+            </fieldset>
           </div>
         </div>
-        <div className="ze-modal-footer">
-          {/* KiCad std-button order (GTK): Plot Current Page (Apply), Close, Plot All Pages (OK). */}
-          <button className="ze-btn" onClick={() => doPlot(false)}>
-            Plot Current Page
-          </button>
-          <button className="ze-btn" onClick={onClose}>
-            Close
-          </button>
-          <button className="ze-btn primary" onClick={() => doPlot(true)}>
-            Plot All Pages
-          </button>
+
+        {/* Output Messages (WX_HTML_REPORT_PANEL). */}
+        <div style={{ marginTop: 12 }}>
+          <HtmlReportPanel
+            lines={messages}
+            fileName="report.txt"
+            minHeight={120}
+            visibleSeverities={severities}
+            onVisibleSeveritiesChange={setSeverities}
+          />
         </div>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        {/* KiCad std-button order (GTK): Plot Current Page (Apply), Close, Plot All Pages (OK). */}
+        <button className="ze-btn" onClick={() => doPlot(false)}>
+          Plot Current Page
+        </button>
+        <button className="ze-btn" onClick={onClose}>
+          Close
+        </button>
+        <button className="ze-btn primary" onClick={() => doPlot(true)}>
+          Plot All Pages
+        </button>
+      </div>
+    </DialogShim>
   );
 }

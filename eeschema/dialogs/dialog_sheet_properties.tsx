@@ -24,7 +24,7 @@
 import { type JSX, useReducer, useState } from 'react';
 import { DisplayErrorMessage, ShowKicadMessageDialog } from '@ziroeda/common/confirm.js';
 import { ensureFileExtension } from '@ziroeda/common/common.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { type Color4d, color4dEquals } from '@ziroeda/common/gal/color4d.js';
 import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
 import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
@@ -593,8 +593,6 @@ export function DialogSheetProperties({
   onOk: (aValues: SHEET_DIALOG_VALUES) => void;
   onCancel: () => void;
 }): JSX.Element {
-  useModalEscape(onCancel);
-
   const [, redraw] = useReducer((n: number) => n + 1, 0);
   const [borderWidth, setBorderWidth] = useState(initial.borderWidth);
   const [borderColor, setBorderColor] = useState(initial.borderColor);
@@ -630,150 +628,139 @@ export function DialogSheetProperties({
   );
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-label-props" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Sheet Properties
-          <span className="x" title="Cancel" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
+    <DialogShim title="Sheet Properties" onClose={onCancel} className="ze-label-props">
+      <div className="ze-modal-body ze-lp-body">
+        {dlg.ShowsOverrideNote() && (
+          <div className="ze-infobar">Note: individual item colors overridden in Preferences.</div>
+        )}
 
-        <div className="ze-modal-body ze-lp-body">
-          {dlg.ShowsOverrideNote() && (
-            <div className="ze-infobar">
-              Note: individual item colors overridden in Preferences.
-            </div>
-          )}
+        {/* sbFields */}
+        <fieldset className="ze-lp-fields">
+          <legend>Fields</legend>
+          <div className="ze-lp-grid-wrap">
+            <WxGridView
+              grid={dlg.Grid()}
+              columns={GRID_COLUMNS}
+              flexCol={FIELDS_DATA_COL_ORDER.FDC_VALUE}
+              ariaLabel="Fields"
+              onUpdate={redraw}
+            />
+          </div>
+          <div className="ze-lp-fieldbtns">
+            {button('small_plus', 'Add field', () => dlg.OnAddField())}
+            {button('small_up', 'Move up', () => dlg.OnMoveUp())}
+            {button('small_down', 'Move down', () => dlg.OnMoveDown())}
+            <span className="ze-lp-gap" />
+            {button('small_trash', 'Delete field', () => dlg.OnDeleteField())}
+          </div>
+        </fieldset>
 
-          {/* sbFields */}
-          <fieldset className="ze-lp-fields">
-            <legend>Fields</legend>
-            <div className="ze-lp-grid-wrap">
-              <WxGridView
-                grid={dlg.Grid()}
-                columns={GRID_COLUMNS}
-                flexCol={FIELDS_DATA_COL_ORDER.FDC_VALUE}
-                ariaLabel="Fields"
-                onUpdate={redraw}
+        {/* bSizer5: Attributes beside Style. */}
+        <div className="ze-lp-options">
+          <fieldset className="ze-lp-shape">
+            <legend>Attributes</legend>
+            <label className="ze-lp-check">
+              Page number:
+              <input
+                className="ze-lp-size"
+                value={pageNumber}
+                onChange={(e) => setPageNumber(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
               />
-            </div>
-            <div className="ze-lp-fieldbtns">
-              {button('small_plus', 'Add field', () => dlg.OnAddField())}
-              {button('small_up', 'Move up', () => dlg.OnMoveUp())}
-              {button('small_down', 'Move down', () => dlg.OnMoveDown())}
-              <span className="ze-lp-gap" />
-              {button('small_trash', 'Delete field', () => dlg.OnDeleteField())}
-            </div>
+            </label>
+            <label className="ze-lp-check">
+              <input
+                type="checkbox"
+                checked={excludeFromSim}
+                onChange={(e) => setExcludeFromSim(e.target.checked)}
+              />
+              Exclude from simulation
+            </label>
+            <label
+              className="ze-lp-check"
+              title={
+                'This is useful for adding symbols for board footprints such as fiducials\n' +
+                'and logos that you do not want to appear in the bill of materials export'
+              }
+            >
+              <input
+                type="checkbox"
+                checked={excludeFromBom}
+                onChange={(e) => setExcludeFromBom(e.target.checked)}
+              />
+              Exclude from bill of materials
+            </label>
+            <label
+              className="ze-lp-check"
+              title={
+                'This is useful for adding symbols that only get exported to the bill of materials but\n' +
+                'not required to layout the board such as mechanical fasteners and enclosures'
+              }
+            >
+              <input
+                type="checkbox"
+                checked={excludeFromBoard}
+                onChange={(e) => setExcludeFromBoard(e.target.checked)}
+              />
+              Exclude from board
+            </label>
+            <label className="ze-lp-check">
+              <input type="checkbox" checked={dnp} onChange={(e) => setDnp(e.target.checked)} />
+              Do not populate
+            </label>
           </fieldset>
 
-          {/* bSizer5: Attributes beside Style. */}
-          <div className="ze-lp-options">
-            <fieldset className="ze-lp-shape">
-              <legend>Attributes</legend>
-              <label className="ze-lp-check">
-                Page number:
+          <fieldset className="ze-lp-formatting">
+            <legend>Style</legend>
+            <div className="ze-lp-fmt-grid">
+              <span className="ze-lp-fmt-label">Border</span>
+              <span className="ze-lp-fmt-label">Fill</span>
+              <div className="ze-lp-sizerow">
+                <span className="ze-lp-fmt-label">Width:</span>
                 <input
                   className="ze-lp-size"
-                  value={pageNumber}
-                  onChange={(e) => setPageNumber(e.target.value)}
+                  value={borderWidth}
+                  onChange={(e) => setBorderWidth(e.target.value)}
                   onKeyDown={(e) => e.stopPropagation()}
                 />
-              </label>
-              <label className="ze-lp-check">
-                <input
-                  type="checkbox"
-                  checked={excludeFromSim}
-                  onChange={(e) => setExcludeFromSim(e.target.checked)}
-                />
-                Exclude from simulation
-              </label>
-              <label
-                className="ze-lp-check"
-                title={
-                  'This is useful for adding symbols for board footprints such as fiducials\n' +
-                  'and logos that you do not want to appear in the bill of materials export'
-                }
-              >
-                <input
-                  type="checkbox"
-                  checked={excludeFromBom}
-                  onChange={(e) => setExcludeFromBom(e.target.checked)}
-                />
-                Exclude from bill of materials
-              </label>
-              <label
-                className="ze-lp-check"
-                title={
-                  'This is useful for adding symbols that only get exported to the bill of materials but\n' +
-                  'not required to layout the board such as mechanical fasteners and enclosures'
-                }
-              >
-                <input
-                  type="checkbox"
-                  checked={excludeFromBoard}
-                  onChange={(e) => setExcludeFromBoard(e.target.checked)}
-                />
-                Exclude from board
-              </label>
-              <label className="ze-lp-check">
-                <input type="checkbox" checked={dnp} onChange={(e) => setDnp(e.target.checked)} />
-                Do not populate
-              </label>
-            </fieldset>
-
-            <fieldset className="ze-lp-formatting">
-              <legend>Style</legend>
-              <div className="ze-lp-fmt-grid">
-                <span className="ze-lp-fmt-label">Border</span>
-                <span className="ze-lp-fmt-label">Fill</span>
-                <div className="ze-lp-sizerow">
-                  <span className="ze-lp-fmt-label">Width:</span>
-                  <input
-                    className="ze-lp-size"
-                    value={borderWidth}
-                    onChange={(e) => setBorderWidth(e.target.value)}
-                    onKeyDown={(e) => e.stopPropagation()}
+                <span className="ze-lp-units">{unitLabel(units)}</span>
+                <span className="ze-lp-colorlabel">Color:</span>
+                <span className="ze-lp-swatch-frame">
+                  <ColorSwatch
+                    className="ze-lp-swatch"
+                    label="Border color"
+                    color={borderColor}
+                    onChange={setBorderColor}
                   />
-                  <span className="ze-lp-units">{unitLabel(units)}</span>
-                  <span className="ze-lp-colorlabel">Color:</span>
-                  <span className="ze-lp-swatch-frame">
-                    <ColorSwatch
-                      className="ze-lp-swatch"
-                      label="Border color"
-                      color={borderColor}
-                      onChange={setBorderColor}
-                    />
-                  </span>
-                </div>
-                <div className="ze-lp-sizerow">
-                  <span className="ze-lp-colorlabel">Color:</span>
-                  <span className="ze-lp-swatch-frame">
-                    <ColorSwatch
-                      className="ze-lp-swatch"
-                      label="Fill color"
-                      color={backgroundColor}
-                      onChange={setBackgroundColor}
-                    />
-                  </span>
-                </div>
+                </span>
               </div>
-            </fieldset>
-          </div>
-        </div>
-
-        {/* m_sizerBottom: the hierarchical path beside the standard buttons. */}
-        <div className="ze-modal-footer">
-          <span className="ze-sheetprops-pathlabel">Hierarchical path:</span>
-          <span className="ze-sheetprops-path">{dlg.HierarchicalPath()}</span>
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={submit}>
-            OK
-          </button>
+              <div className="ze-lp-sizerow">
+                <span className="ze-lp-colorlabel">Color:</span>
+                <span className="ze-lp-swatch-frame">
+                  <ColorSwatch
+                    className="ze-lp-swatch"
+                    label="Fill color"
+                    color={backgroundColor}
+                    onChange={setBackgroundColor}
+                  />
+                </span>
+              </div>
+            </div>
+          </fieldset>
         </div>
       </div>
-    </div>
+
+      {/* m_sizerBottom: the hierarchical path beside the standard buttons. */}
+      <div className="ze-modal-footer">
+        <span className="ze-sheetprops-pathlabel">Hierarchical path:</span>
+        <span className="ze-sheetprops-path">{dlg.HierarchicalPath()}</span>
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="ze-btn primary" onClick={submit}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

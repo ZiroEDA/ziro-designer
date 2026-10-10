@@ -39,7 +39,7 @@ import {
   RPT_SEVERITY_WARNING,
   type ReportLine,
 } from '@ziroeda/common/reporter.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
   doc: Schematic;
@@ -78,7 +78,6 @@ export function DialogUpdateFromPcb({
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   const [opts, setOpts] = useState<BackAnnotateOptions>(() => defaultBackAnnotateOptions());
   const [severities, setSeverities] = useState(RPT_SEVERITY_ALL);
@@ -100,73 +99,65 @@ export function DialogUpdateFromPcb({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Update Schematic from PCB
-          <span className="x" title="Cancel" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-        <div
-          className="ze-label-dialog-body"
-          style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
-        >
-          {boardName && <div className="ze-muted">Board: {boardName}</div>}
+    <DialogShim title="Update Schematic from PCB" onClose={onClose}>
+      <div
+        className="ze-label-dialog-body"
+        style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+      >
+        {boardName && <div className="ze-muted">Board: {boardName}</div>}
 
-          <fieldset className="ze-props-group">
-            <legend>Options</legend>
-            <label className="row">
+        <fieldset className="ze-props-group">
+          <legend>Options</legend>
+          <label className="row">
+            <input
+              type="checkbox"
+              checked={opts.relinkFootprints}
+              onChange={(e) => set('relinkFootprints', e.target.checked)}
+            />
+            <span>
+              Re-link footprints to schematic symbols based on their reference designators
+            </span>
+          </label>
+          {opts.relinkFootprints && (
+            <div className="ze-muted" style={{ paddingLeft: 22 }}>
+              Footprints are matched by reference rather than by the symbol they record. Needs a
+              fully annotated schematic.
+            </div>
+          )}
+          {SWITCHES.map((s) => (
+            <label className="row" key={s.key}>
               <input
                 type="checkbox"
-                checked={opts.relinkFootprints}
-                onChange={(e) => set('relinkFootprints', e.target.checked)}
+                checked={Boolean(opts[s.key])}
+                onChange={(e) => set(s.key, e.target.checked)}
               />
-              <span>
-                Re-link footprints to schematic symbols based on their reference designators
-              </span>
+              <span>{s.label}</span>
             </label>
-            {opts.relinkFootprints && (
-              <div className="ze-muted" style={{ paddingLeft: 22 }}>
-                Footprints are matched by reference rather than by the symbol they record. Needs a
-                fully annotated schematic.
-              </div>
-            )}
-            {SWITCHES.map((s) => (
-              <label className="row" key={s.key}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(opts[s.key])}
-                  onChange={(e) => set(s.key, e.target.checked)}
-                />
-                <span>{s.label}</span>
-              </label>
-            ))}
-          </fieldset>
+          ))}
+        </fieldset>
 
-          <HtmlReportPanel
-            label="Changes to be applied:"
-            lines={toLines(preview.messages)}
-            fileName="back-annotate.txt"
-            visibleSeverities={severities}
-            onVisibleSeveritiesChange={setSeverities}
-            minHeight={180}
-          />
-        </div>
-        <div className="ze-modal-footer">
-          <button type="button" onClick={onClose}>
-            Close
-          </button>
-          <button
-            type="button"
-            className="ze-btn primary"
-            disabled={preview.changes === 0}
-            onClick={run}
-          >
-            Update Schematic
-          </button>
-        </div>
+        <HtmlReportPanel
+          label="Changes to be applied:"
+          lines={toLines(preview.messages)}
+          fileName="back-annotate.txt"
+          visibleSeverities={severities}
+          onVisibleSeveritiesChange={setSeverities}
+          minHeight={180}
+        />
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" onClick={onClose}>
+          Close
+        </button>
+        <button
+          type="button"
+          className="ze-btn primary"
+          disabled={preview.changes === 0}
+          onClick={run}
+        >
+          Update Schematic
+        </button>
+      </div>
+    </DialogShim>
   );
 }

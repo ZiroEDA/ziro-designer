@@ -12,7 +12,7 @@
  */
 
 import { useRef, useState, type JSX } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 export interface SchImportOptions {
   formatting: boolean;
@@ -63,7 +63,6 @@ interface Props {
 export function DialogSchImportSettings({ onImport, onCancel }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const [opts, setOpts] = useState<SchImportOptions>(defaultSchImportOptions);
   const [fileName, setFileName] = useState('');
@@ -77,66 +76,55 @@ export function DialogSchImportSettings({ onImport, onCancel }: Props): JSX.Elem
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Import Settings from a Project
-          <span className="x" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-modal-body" style={{ padding: '10px 14px' }}>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-            <span style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>Import from:</span>
-            <input
-              className="ze-search"
-              style={{ flex: 1 }}
-              readOnly
-              placeholder="Choose a .kicad_pro file..."
-              value={fileName}
-              onClick={() => fileInput.current?.click()}
-            />
-            <button type="button" className="ze-btn" onClick={() => fileInput.current?.click()}>
-              Browse...
-            </button>
-            <input
-              ref={fileInput}
-              type="file"
-              accept=".kicad_pro"
-              style={{ display: 'none' }}
-              onChange={(e) => pick(e.target.files?.[0])}
-            />
-          </div>
-          <div style={{ fontSize: 12.5, marginBottom: 4 }}>Import:</div>
-          {ROWS.map((r) => (
-            <label
-              key={r.key}
-              style={{ display: 'block', margin: '3px 0 3px 10px', fontSize: 12.5 }}
-            >
-              <input
-                type="checkbox"
-                checked={opts[r.key]}
-                onChange={(e) => setOpts((o) => ({ ...o, [r.key]: e.target.checked }))}
-              />{' '}
-              {r.label}
-            </label>
-          ))}
-        </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
+    <DialogShim title="Import Settings from a Project" onClose={onCancel}>
+      <div className="ze-modal-body" style={{ padding: '10px 14px' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+          <span style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>Import from:</span>
+          <input
+            className="ze-search"
+            style={{ flex: 1 }}
+            readOnly
+            placeholder="Choose a .kicad_pro file..."
+            value={fileName}
+            onClick={() => fileInput.current?.click()}
+          />
+          <button type="button" className="ze-btn" onClick={() => fileInput.current?.click()}>
+            Browse...
           </button>
-          <span style={{ flex: 1 }} />
-          <button
-            type="button"
-            className="ze-btn primary"
-            disabled={fileText === null}
-            onClick={() => fileText !== null && onImport(fileText, opts)}
-          >
-            Import Settings
-          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".kicad_pro"
+            style={{ display: 'none' }}
+            onChange={(e) => pick(e.target.files?.[0])}
+          />
         </div>
+        <div style={{ fontSize: 12.5, marginBottom: 4 }}>Import:</div>
+        {ROWS.map((r) => (
+          <label key={r.key} style={{ display: 'block', margin: '3px 0 3px 10px', fontSize: 12.5 }}>
+            <input
+              type="checkbox"
+              checked={opts[r.key]}
+              onChange={(e) => setOpts((o) => ({ ...o, [r.key]: e.target.checked }))}
+            />{' '}
+            {r.label}
+          </label>
+        ))}
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <span style={{ flex: 1 }} />
+        <button
+          type="button"
+          className="ze-btn primary"
+          disabled={fileText === null}
+          onClick={() => fileText !== null && onImport(fileText, opts)}
+        >
+          Import Settings
+        </button>
+      </div>
+    </DialogShim>
   );
 }

@@ -24,7 +24,7 @@ import {
   lineStyleComboValue,
   type LineStyleToken,
 } from '@ziroeda/common/stroke_params.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import {
   parseUnitValueDouble,
@@ -86,7 +86,6 @@ export function DialogShapeProperties({
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const [border, setBorder] = useState(initial.border);
   const [width, setWidth] = useState(() =>
@@ -135,108 +134,96 @@ export function DialogShapeProperties({
   );
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {shapeName} Properties
-          <span className="x" title="Cancel" onClick={onCancel}>
-            ✕
+    <DialogShim title={`${shapeName} Properties`} onClose={onCancel} className="ze-label-dialog">
+      {/* `bColumns`, horizontal (dialog_shape_properties_base.cpp:69):
+        the border grid at proportion 9, a 15 px spacer, then `m_fillBook`.
+        Two columns — this was one stacked list of six rows. */}
+      <div className="ze-label-dialog-body ze-shapeprops">
+        {/* `m_borderSizer`, a wxGridBagSizer( 3, 3 ):
+            (0,0) span 1x2  Border
+            (1,0) "Width:"  | (1,1) span 1x2  [entry][units] Color: [swatch]
+            (2,0) "Style:"  | (2,1) span 1x2  the style combo
+            (3,0) span 1x2  m_helpLabel1                                */}
+        <div className="ze-shapeprops-border">
+          <label className="row ze-shapeprops-span">
+            <input type="checkbox" checked={border} onChange={(e) => setBorder(e.target.checked)} />
+            <span>Border</span>
+          </label>
+
+          <span className="ze-shapeprops-lbl">Width:</span>
+          {/* bSizer7: the entry, its units, then the Color label and swatch —
+            all on ONE row, which is why Color sits beside Width upstream
+            and not on a row of its own. */}
+          <div className="ze-shapeprops-widthrow">
+            <input
+              className="ze-search"
+              disabled={!border}
+              value={width}
+              onChange={(e) => setWidth(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+            <span className="ze-muted">{unitLabel(units)}</span>
+            <span className="ze-shapeprops-colorlbl">Color:</span>
+            {swatch(borderColor, setBorderColor, border)}
+          </div>
+
+          <span className="ze-shapeprops-lbl">Style:</span>
+          <Combo
+            ariaLabel="Style"
+            disabled={!border}
+            value={style}
+            onChange={(v) => setStyle(v as LineStyleToken)}
+            // `m_borderStyleCombo` is a wxBitmapComboBox, and each row is
+            // `Append( lineStyleDesc.name, KiBitmapBundle( lineStyleDesc.bitmap ) )`
+            // (dialog_shape_properties.cpp:61) — the stroke drawn beside its
+            // name. The bitmap is half of `lineTypeNames`; we were using only
+            // the other half.
+            options={LINE_STYLE_NAMES.map((x) => ({
+              value: x.value,
+              label: x.label,
+              ...(x.bitmap ? { bitmap: x.bitmap } : {}),
+            }))}
+          />
+
+          {/* m_helpLabel1 (base.cpp:125), at (3,0) span 1x2. We did not have
+            it at all. */}
+          <span className="ze-help-label ze-shapeprops-span">
+            Set border width to 0 to use schematic&apos;s default line width.
           </span>
         </div>
-        {/* `bColumns`, horizontal (dialog_shape_properties_base.cpp:69):
-            the border grid at proportion 9, a 15 px spacer, then `m_fillBook`.
-            Two columns — this was one stacked list of six rows. */}
-        <div className="ze-label-dialog-body ze-shapeprops">
-          {/* `m_borderSizer`, a wxGridBagSizer( 3, 3 ):
-                (0,0) span 1x2  Border
-                (1,0) "Width:"  | (1,1) span 1x2  [entry][units] Color: [swatch]
-                (2,0) "Style:"  | (2,1) span 1x2  the style combo
-                (3,0) span 1x2  m_helpLabel1                                */}
-          <div className="ze-shapeprops-border">
-            <label className="row ze-shapeprops-span">
-              <input
-                type="checkbox"
-                checked={border}
-                onChange={(e) => setBorder(e.target.checked)}
-              />
-              <span>Border</span>
-            </label>
 
-            <span className="ze-shapeprops-lbl">Width:</span>
-            {/* bSizer7: the entry, its units, then the Color label and swatch —
-                all on ONE row, which is why Color sits beside Width upstream
-                and not on a row of its own. */}
-            <div className="ze-shapeprops-widthrow">
-              <input
-                className="ze-search"
-                disabled={!border}
-                value={width}
-                onChange={(e) => setWidth(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-              <span className="ze-muted">{unitLabel(units)}</span>
-              <span className="ze-shapeprops-colorlbl">Color:</span>
-              {swatch(borderColor, setBorderColor, border)}
-            </div>
+        {/* m_fillBook's schematic page: `m_fillSizer`, also a
+          wxGridBagSizer( 3, 3 ) — "Fill:" over "Fill color:". */}
+        <div className="ze-shapeprops-fill">
+          <span className="ze-shapeprops-lbl">Fill:</span>
+          <Combo
+            ariaLabel="Fill"
+            value={fillType}
+            onChange={(v) => setFillType(v)}
+            options={FILL_MODES.map((f) => ({ value: f.value, label: f.label }))}
+          />
 
-            <span className="ze-shapeprops-lbl">Style:</span>
-            <Combo
-              ariaLabel="Style"
-              disabled={!border}
-              value={style}
-              onChange={(v) => setStyle(v as LineStyleToken)}
-              // `m_borderStyleCombo` is a wxBitmapComboBox, and each row is
-              // `Append( lineStyleDesc.name, KiBitmapBundle( lineStyleDesc.bitmap ) )`
-              // (dialog_shape_properties.cpp:61) — the stroke drawn beside its
-              // name. The bitmap is half of `lineTypeNames`; we were using only
-              // the other half.
-              options={LINE_STYLE_NAMES.map((x) => ({
-                value: x.value,
-                label: x.label,
-                ...(x.bitmap ? { bitmap: x.bitmap } : {}),
-              }))}
-            />
+          {/* The colour label and swatch are disabled with the fill itself
+            (onFillChoice), since there is nothing for a colour to apply to. */}
+          <span className="ze-shapeprops-lbl">Fill color:</span>
+          {swatch(fillColor, setFillColor, filled)}
 
-            {/* m_helpLabel1 (base.cpp:125), at (3,0) span 1x2. We did not have
-                it at all. */}
-            <span className="ze-help-label ze-shapeprops-span">
-              Set border width to 0 to use schematic&apos;s default line width.
-            </span>
-          </div>
-
-          {/* m_fillBook's schematic page: `m_fillSizer`, also a
-              wxGridBagSizer( 3, 3 ) — "Fill:" over "Fill color:". */}
-          <div className="ze-shapeprops-fill">
-            <span className="ze-shapeprops-lbl">Fill:</span>
-            <Combo
-              ariaLabel="Fill"
-              value={fillType}
-              onChange={(v) => setFillType(v)}
-              options={FILL_MODES.map((f) => ({ value: f.value, label: f.label }))}
-            />
-
-            {/* The colour label and swatch are disabled with the fill itself
-                (onFillChoice), since there is nothing for a colour to apply to. */}
-            <span className="ze-shapeprops-lbl">Fill color:</span>
-            {swatch(fillColor, setFillColor, filled)}
-
-            {/* m_helpLabel2 (base.cpp:172), added `wxTOP|wxRIGHT, 8`. Plural
-                "colors" here because this page has two of them. */}
-            <span className="ze-help-label ze-shapeprops-span">
-              Clear colors to use Schematic Editor colors.
-            </span>
-          </div>
-        </div>
-        <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button className="ze-btn primary" onClick={submit}>
-            OK
-          </button>
+          {/* m_helpLabel2 (base.cpp:172), added `wxTOP|wxRIGHT, 8`. Plural
+            "colors" here because this page has two of them. */}
+          <span className="ze-help-label ze-shapeprops-span">
+            Clear colors to use Schematic Editor colors.
+          </span>
         </div>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="ze-btn primary" onClick={submit}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }
 

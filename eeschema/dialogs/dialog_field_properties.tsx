@@ -26,7 +26,7 @@
 import { type JSX, useState } from 'react';
 import { DisplayErrorMessage, DisplayInfoMessage } from '@ziroeda/common/confirm.js';
 import { ensureFileExtension } from '@ziroeda/common/common.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import { FONT } from '@ziroeda/common/font/font.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
@@ -510,8 +510,6 @@ export function DialogFieldProperties({
   onOk: (aValues: FIELD_DIALOG_VALUES) => void;
   onCancel: () => void;
 }): JSX.Element {
-  useModalEscape(onCancel);
-
   const [text, setText] = useState(initial.text);
   const [unit, setUnit] = useState(initial.unit);
   const [face, setFace] = useState(initial.face);
@@ -553,164 +551,156 @@ export function DialogFieldProperties({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {dlg.GetTitle()}
-          <span className="x" title="Cancel" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-label-dialog-body">
-          {/* bTextValueBoxSizer: m_textLabel wears the field's own name. */}
-          <label className="row">
-            <span>{dlg.m_label}</span>
+    <DialogShim title={dlg.GetTitle()} onClose={onCancel} className="ze-label-dialog">
+      <div className="ze-label-dialog-body">
+        {/* bTextValueBoxSizer: m_textLabel wears the field's own name. */}
+        <label className="row">
+          <span>{dlg.m_label}</span>
+          <input
+            className="ze-search"
+            // biome-ignore lint/a11y/noAutofocus: SetInitialFocus( m_TextCtrl )
+            autoFocus
+            value={text}
+            disabled={!dlg.m_textEnabled}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={enter}
+          />
+          {dlg.m_showSelectButton && (
+            <StdBitmapButton
+              bitmap="small_library"
+              title="Select footprint"
+              tooltip={null}
+              onClick={() => {
+                void dlg.OnTextValueSelectButtonClick(text).then((fpid) => {
+                  if (fpid !== null) setText(fpid);
+                });
+              }}
+            />
+          )}
+          {dlg.m_showUnitSelector && (
+            <>
+              <span className="ze-fieldprops-unit">Unit:</span>
+              <Combo
+                value={String(unit)}
+                options={dlg.m_unitChoices.map((c, i) => ({ value: String(i), label: c }))}
+                onChange={(v) => setUnit(Number(v))}
+              />
+            </>
+          )}
+        </label>
+        {dlg.ShowsNote() && (
+          <div className="ze-fieldprops-note">
+            Sheet filename can only be modified in Sheet Properties dialog.
+          </div>
+        )}
+
+        {/* bSizer9: the three checkboxes on ONE row, spaced apart. */}
+        <div className="ze-fieldprops-checks">
+          <label className="chk">
             <input
-              className="ze-search"
-              // biome-ignore lint/a11y/noAutofocus: SetInitialFocus( m_TextCtrl )
-              autoFocus
-              value={text}
-              disabled={!dlg.m_textEnabled}
-              onChange={(e) => setText(e.target.value)}
+              type="checkbox"
+              checked={visible}
+              onChange={(e) => setVisible(e.target.checked)}
+            />
+            Visible
+          </label>
+          <label className="chk" title="Show the field name in addition to its value">
+            <input
+              type="checkbox"
+              checked={nameVisible}
+              onChange={(e) => setNameVisible(e.target.checked)}
+            />
+            Show field name
+          </label>
+          <label className="chk" title="Allow automatic placement of this field in the schematic">
+            <input
+              type="checkbox"
+              checked={allowAutoplace}
+              onChange={(e) => setAllowAutoplace(e.target.checked)}
+            />
+            Allow automatic placement
+          </label>
+        </div>
+
+        {/* gbSizer1 row 0: m_fontLabel at (0,0), m_fontCtrl at (0,1) and the
+          formatting bar at (0,3) — one row, not three. */}
+        <div className="ze-lp-fmt-grid">
+          <span className="ze-lp-fmt-label">Font:</span>
+          <div className="ze-lp-sizerow">
+            <FontChoice face={face} onChange={setFace} />
+            <TextFormatBar
+              bold={bold}
+              onBold={setBold}
+              italic={italic}
+              onItalic={setItalic}
+              hAlign={hAlign}
+              onHAlign={setHAlign}
+              vAlign={vAlign}
+              onVAlign={setVAlign}
+              angle={vertical ? 90 : 0}
+              onAngle={(a) => setVertical(a === 90)}
+            />
+          </div>
+
+          {/* gbSizer1 row 1: bSizer71 — size, its units, Color: and the swatch. */}
+          <span className="ze-lp-fmt-label">Text size:</span>
+          <div className="ze-lp-sizerow">
+            <input
+              className="ze-lp-size"
+              value={size}
+              onChange={(e) => setSize(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+            <span className="ze-lp-units">{unitLabel(units)}</span>
+            <span className="ze-lp-colorlabel">Color:</span>
+            {/* m_panelBorderColor1, the wxBORDER_SIMPLE panel COLOR_SWATCH
+              sits in; the swatch itself draws with wxTRANSPARENT_PEN. */}
+            <span className="ze-lp-swatch-frame">
+              <ColorSwatch
+                className="ze-lp-swatch"
+                label="Color"
+                color={color}
+                onChange={setColor}
+              />
+            </span>
+          </div>
+
+          {/* gbSizer1 leaves row 2 empty at SetEmptyCellSize's 10 px: the
+            size row is row 1 and Position X is row 3. */}
+          <div className="ze-fieldprops-gap" />
+
+          <span className="ze-lp-fmt-label">Position X:</span>
+          <div className="ze-lp-sizerow">
+            <input
+              className="ze-lp-size"
+              value={posX}
+              onChange={(e) => setPosX(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+            <span className="ze-lp-units">{unitLabel(units)}</span>
+          </div>
+
+          <span className="ze-lp-fmt-label">Position Y:</span>
+          <div className="ze-lp-sizerow">
+            <input
+              className="ze-lp-size"
+              value={posY}
+              onChange={(e) => setPosY(e.target.value)}
               onKeyDown={enter}
             />
-            {dlg.m_showSelectButton && (
-              <StdBitmapButton
-                bitmap="small_library"
-                title="Select footprint"
-                tooltip={null}
-                onClick={() => {
-                  void dlg.OnTextValueSelectButtonClick(text).then((fpid) => {
-                    if (fpid !== null) setText(fpid);
-                  });
-                }}
-              />
-            )}
-            {dlg.m_showUnitSelector && (
-              <>
-                <span className="ze-fieldprops-unit">Unit:</span>
-                <Combo
-                  value={String(unit)}
-                  options={dlg.m_unitChoices.map((c, i) => ({ value: String(i), label: c }))}
-                  onChange={(v) => setUnit(Number(v))}
-                />
-              </>
-            )}
-          </label>
-          {dlg.ShowsNote() && (
-            <div className="ze-fieldprops-note">
-              Sheet filename can only be modified in Sheet Properties dialog.
-            </div>
-          )}
-
-          {/* bSizer9: the three checkboxes on ONE row, spaced apart. */}
-          <div className="ze-fieldprops-checks">
-            <label className="chk">
-              <input
-                type="checkbox"
-                checked={visible}
-                onChange={(e) => setVisible(e.target.checked)}
-              />
-              Visible
-            </label>
-            <label className="chk" title="Show the field name in addition to its value">
-              <input
-                type="checkbox"
-                checked={nameVisible}
-                onChange={(e) => setNameVisible(e.target.checked)}
-              />
-              Show field name
-            </label>
-            <label className="chk" title="Allow automatic placement of this field in the schematic">
-              <input
-                type="checkbox"
-                checked={allowAutoplace}
-                onChange={(e) => setAllowAutoplace(e.target.checked)}
-              />
-              Allow automatic placement
-            </label>
+            <span className="ze-lp-units">{unitLabel(units)}</span>
           </div>
-
-          {/* gbSizer1 row 0: m_fontLabel at (0,0), m_fontCtrl at (0,1) and the
-              formatting bar at (0,3) — one row, not three. */}
-          <div className="ze-lp-fmt-grid">
-            <span className="ze-lp-fmt-label">Font:</span>
-            <div className="ze-lp-sizerow">
-              <FontChoice face={face} onChange={setFace} />
-              <TextFormatBar
-                bold={bold}
-                onBold={setBold}
-                italic={italic}
-                onItalic={setItalic}
-                hAlign={hAlign}
-                onHAlign={setHAlign}
-                vAlign={vAlign}
-                onVAlign={setVAlign}
-                angle={vertical ? 90 : 0}
-                onAngle={(a) => setVertical(a === 90)}
-              />
-            </div>
-
-            {/* gbSizer1 row 1: bSizer71 — size, its units, Color: and the swatch. */}
-            <span className="ze-lp-fmt-label">Text size:</span>
-            <div className="ze-lp-sizerow">
-              <input
-                className="ze-lp-size"
-                value={size}
-                onChange={(e) => setSize(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-              <span className="ze-lp-units">{unitLabel(units)}</span>
-              <span className="ze-lp-colorlabel">Color:</span>
-              {/* m_panelBorderColor1, the wxBORDER_SIMPLE panel COLOR_SWATCH
-                  sits in; the swatch itself draws with wxTRANSPARENT_PEN. */}
-              <span className="ze-lp-swatch-frame">
-                <ColorSwatch
-                  className="ze-lp-swatch"
-                  label="Color"
-                  color={color}
-                  onChange={setColor}
-                />
-              </span>
-            </div>
-
-            {/* gbSizer1 leaves row 2 empty at SetEmptyCellSize's 10 px: the
-                size row is row 1 and Position X is row 3. */}
-            <div className="ze-fieldprops-gap" />
-
-            <span className="ze-lp-fmt-label">Position X:</span>
-            <div className="ze-lp-sizerow">
-              <input
-                className="ze-lp-size"
-                value={posX}
-                onChange={(e) => setPosX(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-              <span className="ze-lp-units">{unitLabel(units)}</span>
-            </div>
-
-            <span className="ze-lp-fmt-label">Position Y:</span>
-            <div className="ze-lp-sizerow">
-              <input
-                className="ze-lp-size"
-                value={posY}
-                onChange={(e) => setPosY(e.target.value)}
-                onKeyDown={enter}
-              />
-              <span className="ze-lp-units">{unitLabel(units)}</span>
-            </div>
-          </div>
-        </div>
-        {/* m_sdbSizerButtons: GTK orders the standard sizer Cancel then OK. */}
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={submit}>
-            OK
-          </button>
         </div>
       </div>
-    </div>
+      {/* m_sdbSizerButtons: GTK orders the standard sizer Cancel then OK. */}
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="ze-btn primary" onClick={submit}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

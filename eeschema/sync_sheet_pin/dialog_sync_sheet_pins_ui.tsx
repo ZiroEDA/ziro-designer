@@ -8,7 +8,7 @@
  * user places from it, and comes back when the placement ends.
  */
 import { type JSX, useEffect, useReducer } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import type { DIALOG_SYNC_SHEET_PINS } from './dialog_sync_sheet_pins.js';
 import { PanelSyncSheetPins } from './panel_sync_sheet_pins_ui.js';
@@ -24,7 +24,6 @@ export function DialogSyncSheetPins({
   const book = dlg.m_notebook;
 
   useEffect(() => book.AddRefreshListener(tick), [book]);
-  useModalEscape(onClose);
 
   if (!dlg.IsShown()) return null;
 
@@ -32,39 +31,35 @@ export function DialogSyncSheetPins({
   const page = book.GetSelection();
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-sync-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Synchronize sheet pins and hierarchical labels
-          <span className="x" title="Close" onClick={onClose}>
-            ✕
-          </span>
+    <DialogShim
+      title="Synchronize sheet pins and hierarchical labels"
+      onClose={onClose}
+      className="ze-sync-dialog"
+    >
+      <div className="ze-modal-body">
+        <div className="ze-erc-tabs">
+          {Array.from({ length: book.GetPageCount() }, (_, i) => (
+            <div
+              key={i}
+              className={`tab${i === page ? ' active' : ''}`}
+              onClick={() => book.SetSelection(i)}
+            >
+              {images[book.GetPageImage(i)] && <Icon name={images[book.GetPageImage(i)]!} />}{' '}
+              {book.GetPageText(i)}
+            </div>
+          ))}
         </div>
-        <div className="ze-modal-body">
-          <div className="ze-erc-tabs">
-            {Array.from({ length: book.GetPageCount() }, (_, i) => (
-              <div
-                key={i}
-                className={`tab${i === page ? ' active' : ''}`}
-                onClick={() => book.SetSelection(i)}
-              >
-                {images[book.GetPageImage(i)] && <Icon name={images[book.GetPageImage(i)]!} />}{' '}
-                {book.GetPageText(i)}
-              </div>
-            ))}
-          </div>
-          {page >= 0 && <PanelSyncSheetPins key={page} panel={book.GetPage(page)} />}
-        </div>
-        <div className="ze-modal-footer">
-          <span className="ze-sync-tip">
-            Changes made in this dialog occur immediately, use Undo in each affected document to
-            undo them
-          </span>
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Close
-          </button>
-        </div>
+        {page >= 0 && <PanelSyncSheetPins key={page} panel={book.GetPage(page)} />}
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <span className="ze-sync-tip">
+          Changes made in this dialog occur immediately, use Undo in each affected document to undo
+          them
+        </span>
+        <button type="button" className="ze-btn" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </DialogShim>
   );
 }

@@ -20,7 +20,7 @@
 import { type JSX, useState } from 'react';
 import { isValidLibId, type LibIdRow } from '../index.js';
 import { DisplayInfoMessage } from '@ziroeda/common/confirm.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
 import { wxGridSelectionModes } from '@ziroeda/common/wx/grid.js';
 import { useStringGrid, WxGridView } from '@ziroeda/common/wx/grid_ui.js';
@@ -51,7 +51,6 @@ export function DialogEditSymbolsLibId({
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   const [gridRows, setGridRows] = useState<GridRow[]>(() =>
     rows.map((r) => ({ refs: r.references.join(', '), current: r.current, next: '' })),
@@ -151,93 +150,81 @@ export function DialogEditSymbolsLibId({
 
   return (
     <>
-      <div className="ze-modal-backdrop" onMouseDown={onClose}>
+      <DialogShim title="Symbol Library References" onClose={onClose} className="ze-label-dialog">
         <div
-          className="ze-modal ze-label-dialog"
-          style={{ minWidth: 680 }}
-          onMouseDown={(e) => e.stopPropagation()}
+          className="ze-label-dialog-body"
+          style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
         >
-          <div className="ze-modal-header">
-            Symbol Library References
-            <span className="x" title="Close" onClick={onClose}>
-              ✕
-            </span>
-          </div>
-          <div
-            className="ze-label-dialog-body"
-            style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
-          >
-            {errors.length > 0 && (
-              <div className="ze-props-error">
-                {errors.map((e) => (
-                  <div key={e}>{e}</div>
-                ))}
-              </div>
-            )}
-            {/* `m_grid->SetMinSize( wxSize( -1, 300 ) )`. */}
-            <div
-              className="ze-grid-pane"
-              style={{
-                // [data] m_grid->SetMinSize( wxSize( -1, 300 ) ) (_base.cpp:51)
-                minHeight: 300,
-                maxHeight: '55vh',
-              }}
-            >
-              <WxGridView
-                grid={grid}
-                tricks={tricks}
-                columns={[{ width: 280 }, { width: 280 }, { width: 280 }]}
-                flexCol={COL_NEW_LIBID}
-                onUpdate={onUpdate}
-                ariaLabel="Symbol library references"
-                renderCell={(row, col, value) => {
-                  // `m_autoWrapRenderer` on the references.
-                  if (col === COL_REFS)
-                    return (
-                      <span className="ze-grid-text" style={{ whiteSpace: 'normal' }}>
-                        {value}
-                      </span>
-                    );
-
-                  // An orphan's id: `font.MakeBold(); font.MakeItalic()`.
-                  if (col === COL_CURR_LIBID && rows[row]?.orphan)
-                    return (
-                      <span
-                        className="ze-grid-text"
-                        style={{ fontWeight: 'bold', fontStyle: 'italic' }}
-                      >
-                        {value}
-                      </span>
-                    );
-
-                  return null;
-                }}
-              />
+          {errors.length > 0 && (
+            <div className="ze-props-error">
+              {errors.map((e) => (
+                <div key={e}>{e}</div>
+              ))}
             </div>
-          </div>
-          <div className="ze-modal-footer">
-            <button
-              type="button"
-              className="ze-btn"
-              onClick={() => void onClickOrphansButton()}
-              disabled={orphanRows.length === 0}
-              title={
-                'If some symbols are orphaned (the linked symbol is not found anywhere),\n' +
-                'try to find a candidate having the same name in one of loaded symbol libraries.'
-              }
-            >
-              Map Orphans
-            </button>
-            <span style={{ flex: 1 }} />
-            <button type="button" className="ze-btn" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="button" className="ze-btn primary" onClick={() => void apply()}>
-              OK
-            </button>
+          )}
+          {/* `m_grid->SetMinSize( wxSize( -1, 300 ) )`. */}
+          <div
+            className="ze-grid-pane"
+            style={{
+              // [data] m_grid->SetMinSize( wxSize( -1, 300 ) ) (_base.cpp:51)
+              minHeight: 300,
+              maxHeight: '55vh',
+            }}
+          >
+            <WxGridView
+              grid={grid}
+              tricks={tricks}
+              columns={[{ width: 280 }, { width: 280 }, { width: 280 }]}
+              flexCol={COL_NEW_LIBID}
+              onUpdate={onUpdate}
+              ariaLabel="Symbol library references"
+              renderCell={(row, col, value) => {
+                // `m_autoWrapRenderer` on the references.
+                if (col === COL_REFS)
+                  return (
+                    <span className="ze-grid-text" style={{ whiteSpace: 'normal' }}>
+                      {value}
+                    </span>
+                  );
+
+                // An orphan's id: `font.MakeBold(); font.MakeItalic()`.
+                if (col === COL_CURR_LIBID && rows[row]?.orphan)
+                  return (
+                    <span
+                      className="ze-grid-text"
+                      style={{ fontWeight: 'bold', fontStyle: 'italic' }}
+                    >
+                      {value}
+                    </span>
+                  );
+
+                return null;
+              }}
+            />
           </div>
         </div>
-      </div>
+        <div className="ze-modal-footer">
+          <button
+            type="button"
+            className="ze-btn"
+            onClick={() => void onClickOrphansButton()}
+            disabled={orphanRows.length === 0}
+            title={
+              'If some symbols are orphaned (the linked symbol is not found anywhere),\n' +
+              'try to find a candidate having the same name in one of loaded symbol libraries.'
+            }
+          >
+            Map Orphans
+          </button>
+          <span style={{ flex: 1 }} />
+          <button type="button" className="ze-btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="ze-btn primary" onClick={() => void apply()}>
+            OK
+          </button>
+        </div>
+      </DialogShim>
       {choice && (
         <SingleChoiceDialog
           caption={`Candidates count ${choice.candidates.length} `}

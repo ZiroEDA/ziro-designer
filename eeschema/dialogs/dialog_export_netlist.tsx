@@ -31,7 +31,7 @@ import { loadProjectSchematic, symbolLibraryUri } from '../cross-probing.js';
 import { WriteNetListText } from '../netlist_exporters/netlist_generator.js';
 import { generateSpiceModelNetlist } from '../netlist_exporters/netlist_exporter_spice_model.js';
 import type { SCHEMATIC } from '../schematic.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
   doc: Schematic;
@@ -125,7 +125,6 @@ export function DialogExportNetlist({
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   // Project-relative output folder; '' is the project's own folder, matching
   // the Plot dialog's "Output directory".
@@ -238,103 +237,95 @@ export function DialogExportNetlist({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Export Netlist
-          <span className="x" title="Cancel" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-erc-tabs" style={{ padding: '6px 10px 0' }}>
-          {TABS.map((t) => (
-            <div
-              key={t.id}
-              className={`tab${tab === t.id ? ' active' : ''}`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-            </div>
-          ))}
-        </div>
-        <div className="ze-modal-body" style={{ display: 'block', padding: '14px' }}>
-          <p className="ze-muted" style={{ fontSize: 12.5, margin: '0 0 8px' }}>
-            {active.note}
-          </p>
-          <div style={{ fontSize: 12 }}>
-            Output file: <code>{active.ext === '' ? baseName : `${baseName}.${active.ext}`}</code>
+    <DialogShim title="Export Netlist" onClose={onClose}>
+      <div className="ze-erc-tabs" style={{ padding: '6px 10px 0' }}>
+        {TABS.map((t) => (
+          <div
+            key={t.id}
+            className={`tab${tab === t.id ? ' active' : ''}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
           </div>
-          {(tab === 'spice' || tab === 'spicemodel') && spiceErrors.length > 0 && (
-            <div style={{ color: 'var(--ze-error, #c33)', marginTop: 4 }}>
-              {spiceErrors.map((e) => (
-                <div key={e}>{e}</div>
-              ))}
-            </div>
-          )}
-          {tab === 'spice' && (
-            <div style={{ marginTop: 10, display: 'grid', gap: 4, fontSize: 12.5 }}>
-              <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <input
-                  type="checkbox"
-                  checked={saveAllVoltages}
-                  onChange={(e) => setSaveAllVoltages(e.target.checked)}
-                />
-                Save all voltages
-              </label>
-              <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <input
-                  type="checkbox"
-                  checked={saveAllCurrents}
-                  onChange={(e) => setSaveAllCurrents(e.target.checked)}
-                />
-                Save all currents
-              </label>
-              <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <input
-                  type="checkbox"
-                  checked={saveAllDissipations}
-                  onChange={(e) => setSaveAllDissipations(e.target.checked)}
-                />
-                Save all power dissipations
-              </label>
-            </div>
-          )}
-          {/* Output directory, project-relative, as the Plot dialog has. */}
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
-            Output directory:
-            <input
-              list="ze-netlist-folders"
-              value={outputDir}
-              placeholder="(project folder)"
-              onChange={(e) => setOutputDir(e.target.value)}
-              style={{ flex: 1 }}
-            />
-            <datalist id="ze-netlist-folders">
-              {projectFolders.map((f) => (
-                <option key={f} value={f} />
-              ))}
-            </datalist>
-          </label>
-        </div>
-        {/* Output Messages (WX_HTML_REPORT_PANEL), as the other exporters have. */}
-        <div style={{ padding: '0 10px 8px' }}>
-          <HtmlReportPanel
-            lines={messages}
-            fileName="netlist-report.txt"
-            minHeight={90}
-            visibleSeverities={severities}
-            onVisibleSeveritiesChange={setSeverities}
-          />
-        </div>
-        <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onClose}>
-            Close
-          </button>
-          <button className="ze-btn primary" onClick={doExport}>
-            Export Netlist
-          </button>
-        </div>
+        ))}
       </div>
-    </div>
+      <div className="ze-modal-body" style={{ display: 'block', padding: '14px' }}>
+        <p className="ze-muted" style={{ fontSize: 12.5, margin: '0 0 8px' }}>
+          {active.note}
+        </p>
+        <div style={{ fontSize: 12 }}>
+          Output file: <code>{active.ext === '' ? baseName : `${baseName}.${active.ext}`}</code>
+        </div>
+        {(tab === 'spice' || tab === 'spicemodel') && spiceErrors.length > 0 && (
+          <div style={{ color: 'var(--ze-error, #c33)', marginTop: 4 }}>
+            {spiceErrors.map((e) => (
+              <div key={e}>{e}</div>
+            ))}
+          </div>
+        )}
+        {tab === 'spice' && (
+          <div style={{ marginTop: 10, display: 'grid', gap: 4, fontSize: 12.5 }}>
+            <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input
+                type="checkbox"
+                checked={saveAllVoltages}
+                onChange={(e) => setSaveAllVoltages(e.target.checked)}
+              />
+              Save all voltages
+            </label>
+            <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input
+                type="checkbox"
+                checked={saveAllCurrents}
+                onChange={(e) => setSaveAllCurrents(e.target.checked)}
+              />
+              Save all currents
+            </label>
+            <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input
+                type="checkbox"
+                checked={saveAllDissipations}
+                onChange={(e) => setSaveAllDissipations(e.target.checked)}
+              />
+              Save all power dissipations
+            </label>
+          </div>
+        )}
+        {/* Output directory, project-relative, as the Plot dialog has. */}
+        <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
+          Output directory:
+          <input
+            list="ze-netlist-folders"
+            value={outputDir}
+            placeholder="(project folder)"
+            onChange={(e) => setOutputDir(e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <datalist id="ze-netlist-folders">
+            {projectFolders.map((f) => (
+              <option key={f} value={f} />
+            ))}
+          </datalist>
+        </label>
+      </div>
+      {/* Output Messages (WX_HTML_REPORT_PANEL), as the other exporters have. */}
+      <div style={{ padding: '0 10px 8px' }}>
+        <HtmlReportPanel
+          lines={messages}
+          fileName="netlist-report.txt"
+          minHeight={90}
+          visibleSeverities={severities}
+          onVisibleSeveritiesChange={setSeverities}
+        />
+      </div>
+      <div className="ze-modal-footer">
+        <button className="ze-btn" onClick={onClose}>
+          Close
+        </button>
+        <button className="ze-btn primary" onClick={doExport}>
+          Export Netlist
+        </button>
+      </div>
+    </DialogShim>
   );
 }

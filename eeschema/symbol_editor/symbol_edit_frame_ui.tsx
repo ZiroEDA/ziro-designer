@@ -119,7 +119,7 @@ import {
 import { type SymbolConditions, symbolConditions, symbolToolbarDisabledIds } from './conditions.js';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
 import { kicadSymbolLibWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
@@ -470,8 +470,6 @@ export function SymbolEditor({
   // ui/modal_escape.ts. Registered only while the dialog is up, so a
   // closed one does not sit on the stack swallowing the key.
   // The error box is OK-only, and wx still sends wxID_CANCEL on Esc there.
-  useModalEscape(() => setNewLibName(null), newLibName !== null);
-  useModalEscape(() => setLibError(null), libError !== null);
 
   // `g_LastPin*` are process statics upstream, filled in from the settings file
   // on first use; ours are per-frame, seeded from the same file when the frame
@@ -2884,78 +2882,70 @@ export function SymbolEditor({
       )}
 
       {libError && (
-        <div className="ze-modal-backdrop" onMouseDown={() => setLibError(null)}>
-          <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="ze-modal-header">
-              {libError.title}
-              <span className="x" onClick={() => setLibError(null)}>
-                ✕
-              </span>
-            </div>
-            <div className="ze-label-dialog-body">
-              <div style={{ whiteSpace: 'pre-wrap', maxWidth: 460, fontSize: 12 }}>
-                {libError.message}
-              </div>
-            </div>
-            <div className="ze-modal-footer">
-              <button type="button" className="ze-btn primary" onClick={() => setLibError(null)}>
-                OK
-              </button>
+        <DialogShim
+          title={libError.title}
+          onClose={() => setLibError(null)}
+          className="ze-label-dialog"
+        >
+          <div className="ze-label-dialog-body">
+            <div style={{ whiteSpace: 'pre-wrap', maxWidth: 460, fontSize: 12 }}>
+              {libError.message}
             </div>
           </div>
-        </div>
+          <div className="ze-modal-footer">
+            <button type="button" className="ze-btn primary" onClick={() => setLibError(null)}>
+              OK
+            </button>
+          </div>
+        </DialogShim>
       )}
 
       {newLibName !== null && (
-        <div className="ze-modal-backdrop" onMouseDown={() => setNewLibName(null)}>
-          <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="ze-modal-header">
-              New Library
-              <span className="x" onClick={() => setNewLibName(null)}>
-                ✕
-              </span>
-            </div>
-            <div className="ze-label-dialog-body">
-              <div className="row">
-                <span>Name</span>
-                <input
-                  className="ze-search"
-                  autoFocus
-                  placeholder="MyLibrary"
-                  value={newLibName}
-                  onChange={(e) => setNewLibName(e.target.value)}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === 'Enter' && newLibName.trim()) {
-                      manager.current.createLibrary(newLibName.trim());
-                      setSelectLibId(newLibName.trim());
-                      setNewLibName(null);
-                      bump();
-                    }
-                  }}
-                />
-              </div>
-            </div>
-            <div className="ze-modal-footer">
-              <button type="button" className="ze-btn" onClick={() => setNewLibName(null)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="ze-btn primary"
-                disabled={!newLibName.trim()}
-                onClick={() => {
-                  manager.current.createLibrary(newLibName.trim());
-                  setSelectLibId(newLibName.trim());
-                  setNewLibName(null);
-                  bump();
+        <DialogShim
+          title="New Library"
+          onClose={() => setNewLibName(null)}
+          className="ze-label-dialog"
+        >
+          <div className="ze-label-dialog-body">
+            <div className="row">
+              <span>Name</span>
+              <input
+                className="ze-search"
+                autoFocus
+                placeholder="MyLibrary"
+                value={newLibName}
+                onChange={(e) => setNewLibName(e.target.value)}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Enter' && newLibName.trim()) {
+                    manager.current.createLibrary(newLibName.trim());
+                    setSelectLibId(newLibName.trim());
+                    setNewLibName(null);
+                    bump();
+                  }
                 }}
-              >
-                Create
-              </button>
+              />
             </div>
           </div>
-        </div>
+          <div className="ze-modal-footer">
+            <button type="button" className="ze-btn" onClick={() => setNewLibName(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="ze-btn primary"
+              disabled={!newLibName.trim()}
+              onClick={() => {
+                manager.current.createLibrary(newLibName.trim());
+                setSelectLibId(newLibName.trim());
+                setNewLibName(null);
+                bump();
+              }}
+            >
+              Create
+            </button>
+          </div>
+        </DialogShim>
       )}
 
       {/* The frame's one KIDIALOG. */}

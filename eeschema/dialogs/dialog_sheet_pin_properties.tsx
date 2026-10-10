@@ -12,7 +12,7 @@
  */
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { FONT } from '@ziroeda/common/font/font.js';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { ESCAPE_CONTEXT, EscapeString, unescapeString } from '@ziroeda/common/string_utils.js';
@@ -132,8 +132,6 @@ export function DialogSheetPinProperties({
   onOk: (aValues: SHEET_PIN_DIALOG_VALUES) => void;
   onCancel: () => void;
 }): JSX.Element {
-  useModalEscape(onCancel);
-
   const [name, setName] = useState(initial.name);
   const [face, setFace] = useState(initial.face);
   const [bold, setBold] = useState(initial.bold);
@@ -157,109 +155,106 @@ export function DialogSheetPinProperties({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-label-props" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">Sheet Pin Properties</div>
-        <div className="ze-modal-body ze-lp-body">
-          {/* fgSizer2: Name: and its wxComboBox, Syntax help under it. */}
-          <div className="ze-lp-entry">
-            <span className="ze-lp-caption">Name:</span>
-            <TextCombo
-              className="ze-lp-value"
-              value={name}
-              options={initial.names}
-              onChange={setName}
-              onEnter={submit}
-              autoFocus
-            />
-          </div>
-          <div className="ze-lp-entry-row2">
-            <a
-              className="ze-lp-syntax"
-              href="https://docs.kicad.org/GetStarted#labels"
-              target="_blank"
-              rel="noreferrer"
-              title="Show syntax help window"
-            >
-              Syntax help
-            </a>
-          </div>
-
-          {/* optionsSizer: the Shape radio box beside the Formatting box. */}
-          <div className="ze-lp-options">
-            <fieldset className="ze-lp-shape">
-              <legend>Shape</legend>
-              {SHAPES.map((s) => (
-                <label key={s.shape}>
-                  <input
-                    type="radio"
-                    name="ze-spp-shape"
-                    checked={shape === s.shape}
-                    onChange={() => setShape(s.shape)}
-                  />
-                  {s.label}
-                </label>
-              ))}
-            </fieldset>
-
-            <fieldset className="ze-lp-formatting">
-              <legend>Formatting</legend>
-              <div className="ze-lp-fmt-grid">
-                <span className="ze-lp-fmt-label">Font:</span>
-                <FontChoice face={face} onChange={setFace} />
-                <div className="ze-lp-iconbar">
-                  <BitmapButtonSeparator />
-                  <BitmapButton
-                    bitmap="text_bold"
-                    tooltip="Bold"
-                    checked={bold}
-                    onClick={() => setBold(!bold)}
-                  />
-                  <BitmapButton
-                    bitmap="text_italic"
-                    tooltip="Italic"
-                    checked={italic}
-                    onClick={() => setItalic(!italic)}
-                  />
-                  <BitmapButtonSeparator />
-                </div>
-
-                <span className="ze-lp-fmt-label">Text size:</span>
-                <div className="ze-lp-sizerow">
-                  <input
-                    className="ze-lp-size"
-                    value={sizeText}
-                    onChange={(e) => setSizeText(e.target.value)}
-                    onKeyDown={(e) => {
-                      e.stopPropagation();
-                      if (e.key === 'Enter') submit();
-                    }}
-                  />
-                  <span className="ze-lp-units">{unitLabel(units)}</span>
-                  <span className="ze-lp-colorlabel">Color:</span>
-                  <span className="ze-lp-swatch-frame">
-                    <ColorSwatch
-                      className="ze-lp-swatch"
-                      label="Text color"
-                      color={color}
-                      onChange={setColor}
-                    />
-                  </span>
-                </div>
-              </div>
-            </fieldset>
-          </div>
+    <DialogShim title="Sheet Pin Properties" onClose={onCancel} className="ze-label-props">
+      <div className="ze-modal-body ze-lp-body">
+        {/* fgSizer2: Name: and its wxComboBox, Syntax help under it. */}
+        <div className="ze-lp-entry">
+          <span className="ze-lp-caption">Name:</span>
+          <TextCombo
+            className="ze-lp-value"
+            value={name}
+            options={initial.names}
+            onChange={setName}
+            onEnter={submit}
+            autoFocus
+          />
+        </div>
+        <div className="ze-lp-entry-row2">
+          <a
+            className="ze-lp-syntax"
+            href="https://docs.kicad.org/GetStarted#labels"
+            target="_blank"
+            rel="noreferrer"
+            title="Show syntax help window"
+          >
+            Syntax help
+          </a>
         </div>
 
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={submit}>
-            OK
-          </button>
+        {/* optionsSizer: the Shape radio box beside the Formatting box. */}
+        <div className="ze-lp-options">
+          <fieldset className="ze-lp-shape">
+            <legend>Shape</legend>
+            {SHAPES.map((s) => (
+              <label key={s.shape}>
+                <input
+                  type="radio"
+                  name="ze-spp-shape"
+                  checked={shape === s.shape}
+                  onChange={() => setShape(s.shape)}
+                />
+                {s.label}
+              </label>
+            ))}
+          </fieldset>
+
+          <fieldset className="ze-lp-formatting">
+            <legend>Formatting</legend>
+            <div className="ze-lp-fmt-grid">
+              <span className="ze-lp-fmt-label">Font:</span>
+              <FontChoice face={face} onChange={setFace} />
+              <div className="ze-lp-iconbar">
+                <BitmapButtonSeparator />
+                <BitmapButton
+                  bitmap="text_bold"
+                  tooltip="Bold"
+                  checked={bold}
+                  onClick={() => setBold(!bold)}
+                />
+                <BitmapButton
+                  bitmap="text_italic"
+                  tooltip="Italic"
+                  checked={italic}
+                  onClick={() => setItalic(!italic)}
+                />
+                <BitmapButtonSeparator />
+              </div>
+
+              <span className="ze-lp-fmt-label">Text size:</span>
+              <div className="ze-lp-sizerow">
+                <input
+                  className="ze-lp-size"
+                  value={sizeText}
+                  onChange={(e) => setSizeText(e.target.value)}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === 'Enter') submit();
+                  }}
+                />
+                <span className="ze-lp-units">{unitLabel(units)}</span>
+                <span className="ze-lp-colorlabel">Color:</span>
+                <span className="ze-lp-swatch-frame">
+                  <ColorSwatch
+                    className="ze-lp-swatch"
+                    label="Text color"
+                    color={color}
+                    onChange={setColor}
+                  />
+                </span>
+              </div>
+            </div>
+          </fieldset>
         </div>
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="ze-btn primary" onClick={submit}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

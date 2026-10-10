@@ -16,7 +16,7 @@
  */
 import { type JSX, useReducer, useState } from 'react';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { PIN_NUMBERS } from '@ziroeda/common/pin_numbers.js';
 import { strNumCmp, unescapeString } from '@ziroeda/common/string_utils.js';
 import {
@@ -864,8 +864,6 @@ export function DialogSymbolProperties({
   onClose: (aRetval: number) => void;
   onCancel: () => void;
 }): JSX.Element {
-  useModalEscape(onCancel);
-
   const [, redraw] = useReducer((n: number) => n + 1, 0);
   const [tab, setTab] = useState<'general' | 'pins'>('general');
   const [values, setValues] = useState(initial);
@@ -903,276 +901,267 @@ export function DialogSymbolProperties({
   const multiBodyStyle = values.bodyStyle >= 0;
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-symprops" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {dlg.m_title}
-          <span className="x" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
+    <DialogShim title={dlg.m_title} onClose={onCancel} className="ze-symprops">
+      <div className="ze-symprops-body">
+        {/* m_notebook1: a wxNotebook keeps every page, so the dialog fits the largest. */}
+        <div className="ze-nb-frame">
+          <div className="ze-nb-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'general'}
+              className={tab === 'general' ? 'active' : ''}
+              onClick={() => setTab('general')}
+            >
+              General
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'pins'}
+              className={tab === 'pins' ? 'active' : ''}
+              disabled={dlg.m_pinsDisabled}
+              title={
+                dlg.m_pinsDisabled
+                  ? 'Alternate pin assignments are not available for symbols with multiple body styles.'
+                  : undefined
+              }
+              onClick={() => {
+                // OnPageChanging: a pending cell edit must commit first.
+                if (dlg.FieldsGrid().CommitPendingChanges()) setTab('pins');
+              }}
+            >
+              Pin Functions
+            </button>
+          </div>
 
-        <div className="ze-symprops-body">
-          {/* m_notebook1: a wxNotebook keeps every page, so the dialog fits the largest. */}
-          <div className="ze-nb-frame">
-            <div className="ze-nb-tabs" role="tablist">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'general'}
-                className={tab === 'general' ? 'active' : ''}
-                onClick={() => setTab('general')}
-              >
-                General
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'pins'}
-                className={tab === 'pins' ? 'active' : ''}
-                disabled={dlg.m_pinsDisabled}
-                title={
-                  dlg.m_pinsDisabled
-                    ? 'Alternate pin assignments are not available for symbols with multiple body styles.'
-                    : undefined
-                }
-                onClick={() => {
-                  // OnPageChanging: a pending cell edit must commit first.
-                  if (dlg.FieldsGrid().CommitPendingChanges()) setTab('pins');
-                }}
-              >
-                Pin Functions
-              </button>
+          <div className="ze-nb-body">
+            <div
+              className="ze-symprops-page"
+              aria-hidden={tab !== 'pins'}
+              data-nbhide={tab !== 'pins' ? '' : undefined}
+            >
+              <div className="ze-grid-pane ze-symprops-pin-pane">
+                {dlg.PinModel() && (
+                  <WxGridView
+                    grid={dlg.PinGrid()}
+                    columns={PIN_COLUMNS}
+                    ariaLabel="Pin functions"
+                    onUpdate={redraw}
+                  />
+                )}
+              </div>
             </div>
 
-            <div className="ze-nb-body">
-              <div
-                className="ze-symprops-page"
-                aria-hidden={tab !== 'pins'}
-                data-nbhide={tab !== 'pins' ? '' : undefined}
-              >
-                <div className="ze-grid-pane ze-symprops-pin-pane">
-                  {dlg.PinModel() && (
-                    <WxGridView
-                      grid={dlg.PinGrid()}
-                      columns={PIN_COLUMNS}
-                      ariaLabel="Pin functions"
-                      onUpdate={redraw}
-                    />
-                  )}
+            <div
+              className="ze-symprops-page"
+              aria-hidden={tab !== 'general'}
+              data-nbhide={tab !== 'general' ? '' : undefined}
+            >
+              {/* sbFields */}
+              <fieldset className="ze-ds-group ze-symprops-fields">
+                <legend>Fields</legend>
+                <div className="ze-grid-pane ze-symprops-grid-pane">
+                  <WxGridView
+                    grid={dlg.FieldsGrid()}
+                    columns={FIELD_COLUMNS}
+                    flexCol={FIELDS_DATA_COL_ORDER.FDC_VALUE}
+                    ariaLabel="Fields"
+                    onUpdate={redraw}
+                  />
                 </div>
-              </div>
 
-              <div
-                className="ze-symprops-page"
-                aria-hidden={tab !== 'general'}
-                data-nbhide={tab !== 'general' ? '' : undefined}
-              >
-                {/* sbFields */}
-                <fieldset className="ze-ds-group ze-symprops-fields">
-                  <legend>Fields</legend>
-                  <div className="ze-grid-pane ze-symprops-grid-pane">
-                    <WxGridView
-                      grid={dlg.FieldsGrid()}
-                      columns={FIELD_COLUMNS}
-                      flexCol={FIELDS_DATA_COL_ORDER.FDC_VALUE}
-                      ariaLabel="Fields"
-                      onUpdate={redraw}
+                {/* bButtonSize: add, up, down, a 20px spacer, delete. */}
+                <div className="ze-grid-btns">
+                  {button('small_plus', 'Add field', () => dlg.OnAddField())}
+                  {button('small_up', 'Move up', () => dlg.OnMoveUp())}
+                  {button('small_down', 'Move down', () => dlg.OnMoveDown())}
+                  <span className="ze-symprops-btngap" />
+                  {button('small_trash', 'Delete field', () => dlg.OnDeleteField())}
+                </div>
+              </fieldset>
+
+              {/* bLowerSizer: General | Attributes | buttons. */}
+              <div className="ze-symprops-lower">
+                <fieldset className="ze-ds-group ze-symprops-general">
+                  <legend>General</legend>
+                  <div className="ze-symprops-gb">
+                    <label
+                      className={multiUnit ? 'ze-symprops-lbl' : 'ze-symprops-lbl disabled'}
+                      htmlFor="ze-symprops-unit"
+                    >
+                      Unit:
+                    </label>
+                    <Combo
+                      id="ze-symprops-unit"
+                      ariaLabel="Unit"
+                      disabled={!multiUnit}
+                      value={String(values.unit)}
+                      onChange={(v) => {
+                        set('unit', Number(v));
+                        dlg.OnUnitChoice(Number(v));
+                        redraw();
+                      }}
+                      options={dlg.m_unitChoices.map((c, i) => ({ value: String(i), label: c }))}
+                    />
+
+                    <label
+                      className={multiBodyStyle ? 'ze-symprops-lbl' : 'ze-symprops-lbl disabled'}
+                      htmlFor="ze-symprops-bodystyle"
+                    >
+                      Body style:
+                    </label>
+                    <Combo
+                      id="ze-symprops-bodystyle"
+                      ariaLabel="Body style"
+                      disabled={!multiBodyStyle}
+                      value={String(values.bodyStyle)}
+                      onChange={(v) => set('bodyStyle', Number(v))}
+                      options={dlg.m_bodyStyleChoices.map((c, i) => ({
+                        value: String(i),
+                        label: c,
+                      }))}
+                    />
+
+                    {/* gbSizer1 leaves row 2 empty at SetEmptyCellSize( -1, 12 ). */}
+                    <span className="ze-symprops-gbgap" />
+
+                    <label className="ze-symprops-lbl" htmlFor="ze-symprops-angle">
+                      Angle:
+                    </label>
+                    <Combo
+                      id="ze-symprops-angle"
+                      ariaLabel="Angle"
+                      value={String(values.orientation)}
+                      onChange={(v) => set('orientation', Number(v))}
+                      options={['0', '+90', '-90', '180'].map((label, i) => ({
+                        value: String(i),
+                        label,
+                      }))}
+                    />
+
+                    <label className="ze-symprops-lbl" htmlFor="ze-symprops-mirror">
+                      Mirror:
+                    </label>
+                    <Combo
+                      id="ze-symprops-mirror"
+                      ariaLabel="Mirror"
+                      value={String(values.mirror)}
+                      onChange={(v) => set('mirror', Number(v))}
+                      options={['Not mirrored', 'Around X axis', 'Around Y axis'].map(
+                        (label, i) => ({ value: String(i), label }),
+                      )}
                     />
                   </div>
 
-                  {/* bButtonSize: add, up, down, a 20px spacer, delete. */}
-                  <div className="ze-grid-btns">
-                    {button('small_plus', 'Add field', () => dlg.OnAddField())}
-                    {button('small_up', 'Move up', () => dlg.OnMoveUp())}
-                    {button('small_down', 'Move down', () => dlg.OnMoveDown())}
-                    <span className="ze-symprops-btngap" />
-                    {button('small_trash', 'Delete field', () => dlg.OnDeleteField())}
+                  {/* bSizer11, inside the General box. */}
+                  <div className="ze-symprops-pinchecks">
+                    {check('showPinNumbers', 'Show pin numbers', 'Show or hide pin numbers')}
+                    {check('showPinNames', 'Show pin names', 'Show or hide pin names')}
                   </div>
                 </fieldset>
 
-                {/* bLowerSizer: General | Attributes | buttons. */}
-                <div className="ze-symprops-lower">
-                  <fieldset className="ze-ds-group ze-symprops-general">
-                    <legend>General</legend>
-                    <div className="ze-symprops-gb">
-                      <label
-                        className={multiUnit ? 'ze-symprops-lbl' : 'ze-symprops-lbl disabled'}
-                        htmlFor="ze-symprops-unit"
-                      >
-                        Unit:
-                      </label>
-                      <Combo
-                        id="ze-symprops-unit"
-                        ariaLabel="Unit"
-                        disabled={!multiUnit}
-                        value={String(values.unit)}
-                        onChange={(v) => {
-                          set('unit', Number(v));
-                          dlg.OnUnitChoice(Number(v));
-                          redraw();
-                        }}
-                        options={dlg.m_unitChoices.map((c, i) => ({ value: String(i), label: c }))}
-                      />
+                {/* sbAttributes: simulation, a 10px spacer, BOM, board, position files, DNP. */}
+                <fieldset className="ze-ds-group ze-symprops-attrs">
+                  <legend>Attributes</legend>
+                  {check('excludeFromSim', 'Exclude from simulation')}
+                  <span className="ze-symprops-attrgap" />
+                  {check(
+                    'excludeFromBom',
+                    'Exclude from bill of materials',
+                    'This is useful for adding symbols for board footprints such as fiducials\n' +
+                      'and logos that you do not want to appear in the bill of materials export',
+                  )}
+                  {check(
+                    'excludeFromBoard',
+                    'Exclude from board',
+                    'This is useful for adding symbols that only get exported to the bill of materials but\n' +
+                      'not required to layout the board such as mechanical fasteners and enclosures',
+                  )}
+                  {check(
+                    'excludeFromPosFiles',
+                    'Exclude from position files',
+                    'This is useful for adding symbols that should not be included in the \n' +
+                      'exported position files used for pick and place machines',
+                  )}
+                  {check('dnp', 'Do not populate')}
+                </fieldset>
 
-                      <label
-                        className={multiBodyStyle ? 'ze-symprops-lbl' : 'ze-symprops-lbl disabled'}
-                        htmlFor="ze-symprops-bodystyle"
-                      >
-                        Body style:
-                      </label>
-                      <Combo
-                        id="ze-symprops-bodystyle"
-                        ariaLabel="Body style"
-                        disabled={!multiBodyStyle}
-                        value={String(values.bodyStyle)}
-                        onChange={(v) => set('bodyStyle', Number(v))}
-                        options={dlg.m_bodyStyleChoices.map((c, i) => ({
-                          value: String(i),
-                          label: c,
-                        }))}
-                      />
-
-                      {/* gbSizer1 leaves row 2 empty at SetEmptyCellSize( -1, 12 ). */}
-                      <span className="ze-symprops-gbgap" />
-
-                      <label className="ze-symprops-lbl" htmlFor="ze-symprops-angle">
-                        Angle:
-                      </label>
-                      <Combo
-                        id="ze-symprops-angle"
-                        ariaLabel="Angle"
-                        value={String(values.orientation)}
-                        onChange={(v) => set('orientation', Number(v))}
-                        options={['0', '+90', '-90', '180'].map((label, i) => ({
-                          value: String(i),
-                          label,
-                        }))}
-                      />
-
-                      <label className="ze-symprops-lbl" htmlFor="ze-symprops-mirror">
-                        Mirror:
-                      </label>
-                      <Combo
-                        id="ze-symprops-mirror"
-                        ariaLabel="Mirror"
-                        value={String(values.mirror)}
-                        onChange={(v) => set('mirror', Number(v))}
-                        options={['Not mirrored', 'Around X axis', 'Around Y axis'].map(
-                          (label, i) => ({ value: String(i), label }),
-                        )}
-                      />
-                    </div>
-
-                    {/* bSizer11, inside the General box. */}
-                    <div className="ze-symprops-pinchecks">
-                      {check('showPinNumbers', 'Show pin numbers', 'Show or hide pin numbers')}
-                      {check('showPinNames', 'Show pin names', 'Show or hide pin names')}
-                    </div>
-                  </fieldset>
-
-                  {/* sbAttributes: simulation, a 10px spacer, BOM, board, position files, DNP. */}
-                  <fieldset className="ze-ds-group ze-symprops-attrs">
-                    <legend>Attributes</legend>
-                    {check('excludeFromSim', 'Exclude from simulation')}
-                    <span className="ze-symprops-attrgap" />
-                    {check(
-                      'excludeFromBom',
-                      'Exclude from bill of materials',
-                      'This is useful for adding symbols for board footprints such as fiducials\n' +
-                        'and logos that you do not want to appear in the bill of materials export',
-                    )}
-                    {check(
-                      'excludeFromBoard',
-                      'Exclude from board',
-                      'This is useful for adding symbols that only get exported to the bill of materials but\n' +
-                        'not required to layout the board such as mechanical fasteners and enclosures',
-                    )}
-                    {check(
-                      'excludeFromPosFiles',
-                      'Exclude from position files',
-                      'This is useful for adding symbols that should not be included in the \n' +
-                        'exported position files used for pick and place machines',
-                    )}
-                    {check('dnp', 'Do not populate')}
-                  </fieldset>
-
-                  {/* buttonsSizer: a 20px gap before the one that acts on the library part. */}
-                  <div className="ze-symprops-buttons">
-                    <button
-                      type="button"
-                      className="ze-btn"
-                      onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_WANT_UPDATE_SYMBOL)}
-                    >
-                      Update Symbol from Library...
-                    </button>
-                    <button
-                      type="button"
-                      className="ze-btn"
-                      onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_WANT_EXCHANGE_SYMBOL)}
-                    >
-                      Change Symbol...
-                    </button>
-                    <button
-                      type="button"
-                      className="ze-btn"
-                      disabled={!dlg.m_canEditSymbol}
-                      onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_EDIT_SCHEMATIC_SYMBOL)}
-                    >
-                      Edit Symbol...
-                    </button>
-                    <span className="ze-symprops-btnsgap" />
-                    <button
-                      type="button"
-                      className="ze-btn"
-                      disabled={!dlg.m_canEditSymbol}
-                      onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_EDIT_LIBRARY_SYMBOL)}
-                    >
-                      Edit Library Symbol...
-                    </button>
-                  </div>
+                {/* buttonsSizer: a 20px gap before the one that acts on the library part. */}
+                <div className="ze-symprops-buttons">
+                  <button
+                    type="button"
+                    className="ze-btn"
+                    onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_WANT_UPDATE_SYMBOL)}
+                  >
+                    Update Symbol from Library...
+                  </button>
+                  <button
+                    type="button"
+                    className="ze-btn"
+                    onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_WANT_EXCHANGE_SYMBOL)}
+                  >
+                    Change Symbol...
+                  </button>
+                  <button
+                    type="button"
+                    className="ze-btn"
+                    disabled={!dlg.m_canEditSymbol}
+                    onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_EDIT_SCHEMATIC_SYMBOL)}
+                  >
+                    Edit Symbol...
+                  </button>
+                  <span className="ze-symprops-btnsgap" />
+                  <button
+                    type="button"
+                    className="ze-btn"
+                    disabled={!dlg.m_canEditSymbol}
+                    onClick={() => end(SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_EDIT_LIBRARY_SYMBOL)}
+                  >
+                    Edit Library Symbol...
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* bSizerBottom, outside the notebook. */}
-        <div className="ze-modal-footer ze-symprops-foot">
-          <span className="ze-symprops-libid-label">Library link:</span>
-          <input
-            className="ze-symprops-libid ze-bare"
-            readOnly
-            aria-readonly="true"
-            aria-label="Library link"
-            value={dlg.m_libraryId}
-            title={dlg.m_libraryId}
-          />
-          {/* m_spiceFieldsButton: hidden for a power symbol; DIALOG_SIM_MODEL is not ported. */}
-          {!dlg.m_isPower && (
-            <button
-              type="button"
-              className="ze-btn"
-              disabled
-              title="The simulator is not available in this build"
-            >
-              Simulation Model...
-            </button>
-          )}
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
+      {/* bSizerBottom, outside the notebook. */}
+      <div className="ze-modal-footer ze-symprops-foot">
+        <span className="ze-symprops-libid-label">Library link:</span>
+        <input
+          className="ze-symprops-libid ze-bare"
+          readOnly
+          aria-readonly="true"
+          aria-label="Library link"
+          value={dlg.m_libraryId}
+          title={dlg.m_libraryId}
+        />
+        {/* m_spiceFieldsButton: hidden for a power symbol; DIALOG_SIM_MODEL is not ported. */}
+        {!dlg.m_isPower && (
           <button
             type="button"
-            className="ze-btn primary"
-            onClick={() => {
-              if (dlg.TransferDataFromWindow(values)) onClose(wxID_OK);
-            }}
+            className="ze-btn"
+            disabled
+            title="The simulator is not available in this build"
           >
-            OK
+            Simulation Model...
           </button>
-        </div>
+        )}
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="ze-btn primary"
+          onClick={() => {
+            if (dlg.TransferDataFromWindow(values)) onClose(wxID_OK);
+          }}
+        >
+          OK
+        </button>
       </div>
-    </div>
+    </DialogShim>
   );
 }

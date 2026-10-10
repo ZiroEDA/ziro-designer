@@ -14,7 +14,7 @@
  */
 import { useState, type JSX } from 'react';
 import { isSplitNeeded } from '../index.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 export interface IncrementAnnotationsResult {
   startRef: string;
@@ -31,7 +31,6 @@ interface Props {
 export function DialogIncrementAnnotations({ onOk, onCancel }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const [startRef, setStartRef] = useState('');
   const [increment, setIncrement] = useState('1');
@@ -55,79 +54,71 @@ export function DialogIncrementAnnotations({ onOk, onCancel }: Props): JSX.Eleme
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Increment Annotations From
-          <span className="x" title="Cancel" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div
-          className="ze-label-dialog-body"
-          style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
-        >
-          {error && (
-            <div className="ze-props-error" onClick={() => setError(null)}>
-              {error}, click to dismiss
-            </div>
-          )}
-          <label className="row">
-            <span>Start reference designator:</span>
-            <input
-              className="ze-search"
-              // biome-ignore lint/a11y/noAutofocus: SetInitialFocus( m_FirstRefDes )
-              autoFocus
-              value={startRef}
-              onChange={(e) => setStartRef(e.target.value)}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Enter') submit();
-              }}
-            />
-          </label>
-          <label className="row">
-            <span>Increment by:</span>
-            <input
-              className="ze-search"
-              style={{ width: 80 }}
-              type="number"
-              min={1}
-              max={64}
-              value={increment}
-              onChange={(e) => setIncrement(e.target.value)}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-          </label>
-          <div style={{ height: 10 }} />
-          <label className="row">
-            <input
-              type="radio"
-              name="ze-incr-scope"
-              checked={!allSheets}
-              onChange={() => setAllSheets(false)}
-            />
-            <span>Current sheet only</span>
-          </label>
-          <label className="row">
-            <input
-              type="radio"
-              name="ze-incr-scope"
-              checked={allSheets}
-              onChange={() => setAllSheets(true)}
-            />
-            <span>All sheets</span>
-          </label>
-        </div>
-        <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button className="ze-btn primary" onClick={submit}>
-            OK
-          </button>
-        </div>
+    <DialogShim title="Increment Annotations From" onClose={onCancel} className="ze-label-dialog">
+      <div
+        className="ze-label-dialog-body"
+        style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+      >
+        {error && (
+          <div className="ze-props-error" onClick={() => setError(null)}>
+            {error}, click to dismiss
+          </div>
+        )}
+        <label className="row">
+          <span>Start reference designator:</span>
+          <input
+            className="ze-search"
+            // biome-ignore lint/a11y/noAutofocus: SetInitialFocus( m_FirstRefDes )
+            autoFocus
+            value={startRef}
+            onChange={(e) => setStartRef(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') submit();
+            }}
+          />
+        </label>
+        <label className="row">
+          <span>Increment by:</span>
+          <input
+            className="ze-search"
+            style={{ width: 80 }}
+            type="number"
+            min={1}
+            max={64}
+            value={increment}
+            onChange={(e) => setIncrement(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+          />
+        </label>
+        <div style={{ height: 10 }} />
+        <label className="row">
+          <input
+            type="radio"
+            name="ze-incr-scope"
+            checked={!allSheets}
+            onChange={() => setAllSheets(false)}
+          />
+          <span>Current sheet only</span>
+        </label>
+        <label className="row">
+          <input
+            type="radio"
+            name="ze-incr-scope"
+            checked={allSheets}
+            onChange={() => setAllSheets(true)}
+          />
+          <span>All sheets</span>
+        </label>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="ze-btn primary" onClick={submit}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

@@ -12,7 +12,7 @@
  * columns of Update Options, the WX_HTML_REPORT_PANEL, and Close / Update.
  */
 import { Fragment, type JSX, useEffect, useReducer, useState } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import {
   GetRefDesNumber,
@@ -706,8 +706,6 @@ export function DialogChangeSymbols({
     onClose();
   };
 
-  useModalEscape(close);
-
   const [, redraw] = useReducer((n: number) => n + 1, 0);
   const [severities, setSeverities] = useState<number>(RPT_SEVERITY_ALL);
   const [busy, setBusy] = useState(false);
@@ -770,239 +768,235 @@ export function DialogChangeSymbols({
     });
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={close}>
-      <div className="ze-modal ze-chsym" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {change ? 'Change Symbols' : 'Update Symbols from Library'}
-          <span className="x" title="Close" onClick={close}>
-            ✕
-          </span>
+    <DialogShim
+      title={change ? 'Change Symbols' : 'Update Symbols from Library'}
+      onClose={close}
+      className="ze-chsym"
+    >
+      <div className="ze-label-dialog-body ze-chsym-body">
+        {/* m_matchSizer: a two-column wxGridBagSizer, radios left, entries right. */}
+        <div className="ze-chsym-match">
+          {MATCH_ROWS.map((m) => {
+            if (m.match === CHANGE_SYMBOLS_MATCH.SELECTION && !dlg.HasSymbol()) return null;
+            // m_matchSizer->FindItem( m_matchAll )->Show( false ) in Change mode.
+            if (m.match === CHANGE_SYMBOLS_MATCH.ALL && change) return null;
+            const label = change ? m.change : m.update;
+            return (
+              <Fragment key={m.match}>
+                <label className={m.entry ? 'ze-chsym-mrad' : 'ze-chsym-mrad ze-chsym-mspan'}>
+                  <input
+                    type="radio"
+                    name="ze-change-symbols-scope"
+                    checked={dlg.m_match === m.match}
+                    onChange={() => {
+                      dlg.m_match = m.match;
+                      void dlg.updateFieldsList();
+                    }}
+                  />
+                  <span>{label}</span>
+                </label>
+                {m.entry && (
+                  <div className="ze-chsym-mentry">
+                    <input
+                      className="ze-search"
+                      aria-label={label}
+                      value={entryValue(m.entry)}
+                      onChange={(e) => setEntry(m.entry!, e.target.value)}
+                      // onMatchTextKillFocus / onMatchIDKillFocus
+                      onBlur={() => void dlg.updateFieldsList()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    />
+                    {m.entry === 'id' && (
+                      <button
+                        type="button"
+                        className="ze-gridbtn"
+                        title="Browse for symbol"
+                        aria-label="Browse for symbol"
+                        onClick={() => void dlg.LaunchSymbolBrowser(false)}
+                      >
+                        <Icon name="smallLibrary" size={14} />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </Fragment>
+            );
+          })}
         </div>
-        <div className="ze-label-dialog-body ze-chsym-body">
-          {/* m_matchSizer: a two-column wxGridBagSizer, radios left, entries right. */}
-          <div className="ze-chsym-match">
-            {MATCH_ROWS.map((m) => {
-              if (m.match === CHANGE_SYMBOLS_MATCH.SELECTION && !dlg.HasSymbol()) return null;
-              // m_matchSizer->FindItem( m_matchAll )->Show( false ) in Change mode.
-              if (m.match === CHANGE_SYMBOLS_MATCH.ALL && change) return null;
-              const label = change ? m.change : m.update;
-              return (
-                <Fragment key={m.match}>
-                  <label className={m.entry ? 'ze-chsym-mrad' : 'ze-chsym-mrad ze-chsym-mspan'}>
-                    <input
-                      type="radio"
-                      name="ze-change-symbols-scope"
-                      checked={dlg.m_match === m.match}
-                      onChange={() => {
-                        dlg.m_match = m.match;
-                        void dlg.updateFieldsList();
-                      }}
-                    />
-                    <span>{label}</span>
-                  </label>
-                  {m.entry && (
-                    <div className="ze-chsym-mentry">
-                      <input
-                        className="ze-search"
-                        aria-label={label}
-                        value={entryValue(m.entry)}
-                        onChange={(e) => setEntry(m.entry!, e.target.value)}
-                        // onMatchTextKillFocus / onMatchIDKillFocus
-                        onBlur={() => void dlg.updateFieldsList()}
-                        onKeyDown={(e) => e.stopPropagation()}
-                      />
-                      {m.entry === 'id' && (
-                        <button
-                          type="button"
-                          className="ze-gridbtn"
-                          title="Browse for symbol"
-                          aria-label="Browse for symbol"
-                          onClick={() => void dlg.LaunchSymbolBrowser(false)}
-                        >
-                          <Icon name="smallLibrary" size={14} />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </Fragment>
-              );
-            })}
-          </div>
 
-          {/* m_staticline1 */}
-          <hr className="ze-chsym-rule" />
+        {/* m_staticline1 */}
+        <hr className="ze-chsym-rule" />
 
-          {change && (
-            <label className="ze-chsym-newid">
-              <span>New library identifier:</span>
-              <input
-                className="ze-search"
-                value={dlg.m_newId}
-                onChange={(e) =>
-                  update(() => {
-                    dlg.m_newId = e.target.value;
-                  })
-                }
-                // onNewLibIDKillFocus
-                onBlur={() => void dlg.updateFieldsList()}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-              <button
-                type="button"
-                className="ze-gridbtn"
-                title="Browse for new symbol"
-                aria-label="Browse for new symbol"
-                onClick={() => void dlg.LaunchSymbolBrowser(true)}
-              >
-                <Icon name="smallLibrary" size={14} />
-              </button>
-            </label>
-          )}
-
-          {/* bSizerUpdate: the fields box at proportion 2, the options box at 4. */}
-          <div className="ze-chsym-update">
-            <fieldset className="ze-props-group ze-chsym-fields">
-              <legend>{change ? 'Update Fields' : 'Update/Reset Fields'}</legend>
-              {/* m_fieldsBox, a wxCheckListBox. */}
-              <div className="ze-checklistbox ze-chsym-fieldbox">
-                {dlg.m_fieldsBox.map((row) => (
-                  <label className="row" key={row.name}>
-                    <input
-                      type="checkbox"
-                      checked={row.checked}
-                      onChange={(e) =>
-                        update(() => {
-                          row.checked = e.target.checked;
-                        })
-                      }
-                    />
-                    <span>{row.name}</span>
-                  </label>
-                ))}
-              </div>
-              <div className="ze-chsym-selbtns">
-                <button
-                  className="ze-btn"
-                  type="button"
-                  onClick={() => update(() => dlg.selectAll(true))}
-                >
-                  Select All
-                </button>
-                <button
-                  className="ze-btn"
-                  type="button"
-                  onClick={() => update(() => dlg.selectAll(false))}
-                >
-                  Select None
-                </button>
-              </div>
-            </fieldset>
-
-            <fieldset className="ze-props-group ze-chsym-options">
-              <legend>Update Options</legend>
-              {/* m_updateOptionsSizer is wxHORIZONTAL - bSizer8 then bSizer9. */}
-              <div className="ze-chsym-optcol">
-                {check(
-                  'm_removeExtraBox',
-                  'Remove fields if not in library symbol',
-                  'Remove fields if not in new symbol',
-                  'Removes fields that do not occur in the original library symbols',
-                )}
-                {check(
-                  'm_resetEmptyFields',
-                  'Reset fields if empty in library symbol',
-                  'Reset fields if empty in new symbol',
-                )}
-                <div className="ze-chsym-optgap" />
-                {check('m_resetFieldText', 'Update/reset field text', 'Update field text')}
-                {check(
-                  'm_resetFieldVisibilities',
-                  'Update/reset field visibilities',
-                  'Update field visibilities',
-                )}
-                {check(
-                  'm_resetFieldEffects',
-                  'Update/reset field text sizes and styles',
-                  'Update field sizes and styles',
-                )}
-                {check(
-                  'm_resetFieldPositions',
-                  'Update/reset field positions',
-                  'Update field positions',
-                )}
-                <button
-                  className="ze-btn"
-                  type="button"
-                  onClick={() => update(() => dlg.checkAll(true))}
-                >
-                  Check All Update Options
-                </button>
-              </div>
-              <div className="ze-chsym-optcol">
-                {fixedOn('Update symbol shape and pins')}
-                {fixedOn('Update keywords and footprint filters')}
-                <div className="ze-chsym-optgap" />
-                {check(
-                  'm_resetPinTextVisibility',
-                  'Update/reset pin name/number visibilities',
-                  'Update pin name/number visibilities',
-                )}
-                {check(
-                  'm_resetAlternatePin',
-                  'Reset alternate pin functions',
-                  'Reset alternate pin functions',
-                )}
-                <div className="ze-chsym-optgap" />
-                {check(
-                  'm_resetAttributes',
-                  'Update/reset symbol attributes',
-                  'Update symbol attributes',
-                )}
-                {check(
-                  'm_resetCustomPower',
-                  'Reset custom power symbols',
-                  'Reset custom power symbols',
-                )}
-                <button
-                  className="ze-btn"
-                  type="button"
-                  onClick={() => update(() => dlg.checkAll(false))}
-                >
-                  Uncheck All Update Options
-                </button>
-              </div>
-            </fieldset>
-          </div>
-
-          {/* m_messagePanel, a WX_HTML_REPORT_PANEL. */}
-          <div className="ze-chsym-msgs">
-            <HtmlReportPanel
-              label="Output Messages"
-              lines={dlg.m_messagePanel.lines}
-              fileName="report.txt"
-              visibleSeverities={severities}
-              onVisibleSeveritiesChange={setSeverities}
-              minHeight={0}
+        {change && (
+          <label className="ze-chsym-newid">
+            <span>New library identifier:</span>
+            <input
+              className="ze-search"
+              value={dlg.m_newId}
+              onChange={(e) =>
+                update(() => {
+                  dlg.m_newId = e.target.value;
+                })
+              }
+              // onNewLibIDKillFocus
+              onBlur={() => void dlg.updateFieldsList()}
+              onKeyDown={(e) => e.stopPropagation()}
             />
-          </div>
+            <button
+              type="button"
+              className="ze-gridbtn"
+              title="Browse for new symbol"
+              aria-label="Browse for new symbol"
+              onClick={() => void dlg.LaunchSymbolBrowser(true)}
+            >
+              <Icon name="smallLibrary" size={14} />
+            </button>
+          </label>
+        )}
+
+        {/* bSizerUpdate: the fields box at proportion 2, the options box at 4. */}
+        <div className="ze-chsym-update">
+          <fieldset className="ze-props-group ze-chsym-fields">
+            <legend>{change ? 'Update Fields' : 'Update/Reset Fields'}</legend>
+            {/* m_fieldsBox, a wxCheckListBox. */}
+            <div className="ze-checklistbox ze-chsym-fieldbox">
+              {dlg.m_fieldsBox.map((row) => (
+                <label className="row" key={row.name}>
+                  <input
+                    type="checkbox"
+                    checked={row.checked}
+                    onChange={(e) =>
+                      update(() => {
+                        row.checked = e.target.checked;
+                      })
+                    }
+                  />
+                  <span>{row.name}</span>
+                </label>
+              ))}
+            </div>
+            <div className="ze-chsym-selbtns">
+              <button
+                className="ze-btn"
+                type="button"
+                onClick={() => update(() => dlg.selectAll(true))}
+              >
+                Select All
+              </button>
+              <button
+                className="ze-btn"
+                type="button"
+                onClick={() => update(() => dlg.selectAll(false))}
+              >
+                Select None
+              </button>
+            </div>
+          </fieldset>
+
+          <fieldset className="ze-props-group ze-chsym-options">
+            <legend>Update Options</legend>
+            {/* m_updateOptionsSizer is wxHORIZONTAL - bSizer8 then bSizer9. */}
+            <div className="ze-chsym-optcol">
+              {check(
+                'm_removeExtraBox',
+                'Remove fields if not in library symbol',
+                'Remove fields if not in new symbol',
+                'Removes fields that do not occur in the original library symbols',
+              )}
+              {check(
+                'm_resetEmptyFields',
+                'Reset fields if empty in library symbol',
+                'Reset fields if empty in new symbol',
+              )}
+              <div className="ze-chsym-optgap" />
+              {check('m_resetFieldText', 'Update/reset field text', 'Update field text')}
+              {check(
+                'm_resetFieldVisibilities',
+                'Update/reset field visibilities',
+                'Update field visibilities',
+              )}
+              {check(
+                'm_resetFieldEffects',
+                'Update/reset field text sizes and styles',
+                'Update field sizes and styles',
+              )}
+              {check(
+                'm_resetFieldPositions',
+                'Update/reset field positions',
+                'Update field positions',
+              )}
+              <button
+                className="ze-btn"
+                type="button"
+                onClick={() => update(() => dlg.checkAll(true))}
+              >
+                Check All Update Options
+              </button>
+            </div>
+            <div className="ze-chsym-optcol">
+              {fixedOn('Update symbol shape and pins')}
+              {fixedOn('Update keywords and footprint filters')}
+              <div className="ze-chsym-optgap" />
+              {check(
+                'm_resetPinTextVisibility',
+                'Update/reset pin name/number visibilities',
+                'Update pin name/number visibilities',
+              )}
+              {check(
+                'm_resetAlternatePin',
+                'Reset alternate pin functions',
+                'Reset alternate pin functions',
+              )}
+              <div className="ze-chsym-optgap" />
+              {check(
+                'm_resetAttributes',
+                'Update/reset symbol attributes',
+                'Update symbol attributes',
+              )}
+              {check(
+                'm_resetCustomPower',
+                'Reset custom power symbols',
+                'Reset custom power symbols',
+              )}
+              <button
+                className="ze-btn"
+                type="button"
+                onClick={() => update(() => dlg.checkAll(false))}
+              >
+                Uncheck All Update Options
+              </button>
+            </div>
+          </fieldset>
         </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={close}>
-            Close
-          </button>
-          <button
-            type="button"
-            className="ze-btn primary"
-            disabled={busy}
-            onClick={() => {
-              setBusy(true);
-              void dlg.OnOkButtonClicked().finally(() => setBusy(false));
-            }}
-          >
-            {change ? 'Change' : 'Update'}
-          </button>
+
+        {/* m_messagePanel, a WX_HTML_REPORT_PANEL. */}
+        <div className="ze-chsym-msgs">
+          <HtmlReportPanel
+            label="Output Messages"
+            lines={dlg.m_messagePanel.lines}
+            fileName="report.txt"
+            visibleSeverities={severities}
+            onVisibleSeveritiesChange={setSeverities}
+            minHeight={0}
+          />
         </div>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={close}>
+          Close
+        </button>
+        <button
+          type="button"
+          className="ze-btn primary"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            void dlg.OnOkButtonClicked().finally(() => setBusy(false));
+          }}
+        >
+          {change ? 'Change' : 'Update'}
+        </button>
+      </div>
+    </DialogShim>
   );
 }

@@ -13,7 +13,7 @@
  */
 import { type JSX, useState } from 'react';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import { FILL_T } from '@ziroeda/common/eda_shape.js';
 import { FONT } from '@ziroeda/common/font/font.js';
@@ -538,8 +538,6 @@ export function DialogGlobalEditTextAndGraphics({
     onClose();
   };
 
-  useModalEscape(close);
-
   const ok = (): void => {
     if (dlg.TransferDataFromWindow(v)) close();
   };
@@ -623,134 +621,122 @@ export function DialogGlobalEditTextAndGraphics({
   const empty = <span />;
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={close}>
-      <div className="ze-modal ze-label-props" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Edit Text and Graphic Properties
-          <span className="x" title="Cancel" onClick={close}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-modal-body ze-lp-body">
-          {/* bSizerTop: Scope beside Filter Items. */}
-          <div className="ze-ge-top">
-            <fieldset className="ze-props-group ze-ge-scope">
-              <legend>Scope</legend>
-              {check('references', 'Reference designators')}
-              {check('values', 'Values')}
-              {check('otherFields', 'Other symbol fields')}
-              <span className="ze-ge-gap" />
-              {check('wires', 'Wires & wire labels')}
-              {check('buses', 'Buses & bus labels')}
-              {check('globalLabels', 'Global labels')}
-              {check('hierLabels', 'Hierarchical labels')}
-              {check('labelFields', 'Label fields')}
-              <span className="ze-ge-gap" />
-              {check('sheetTitles', 'Sheet titles')}
-              {check('sheetFields', 'Other sheet fields')}
-              {check('sheetPins', 'Sheet pins')}
-              {check('sheetBorders', 'Sheet borders & backgrounds')}
-              <span className="ze-ge-gap" />
-              {check('schTextAndGraphics', 'Schematic text & graphics')}
-            </fieldset>
-            <fieldset className="ze-props-group">
-              <legend>Filter Items</legend>
-              <div className="ze-ge-filters">
-                {filter('fieldnameFilterOpt', 'fieldnameFilter', 'By field name:')}
-                {filter('referenceFilterOpt', 'referenceFilter', 'By parent reference designator:')}
-                {filter('symbolFilterOpt', 'symbolFilter', 'By parent symbol library id:')}
-                <label className="ze-check">
-                  <input
-                    type="checkbox"
-                    checked={v.typeFilterOpt}
-                    onChange={(e) => set('typeFilterOpt', e.target.checked)}
-                  />
-                  By parent symbol type:
-                </label>
-                {choice('typeFilter', TYPE_FILTER_CHOICES)}
-                {filter('netFilterOpt', 'netFilter', 'By net:')}
-                {check('selectedFilterOpt', 'Selected items only')}
-              </div>
-            </fieldset>
-          </div>
-
-          {/* sbAction: fgSizer1, six columns, the growable 1, 3 and 5. */}
+    <DialogShim title="Edit Text and Graphic Properties" onClose={close} className="ze-label-props">
+      <div className="ze-modal-body ze-lp-body">
+        {/* bSizerTop: Scope beside Filter Items. */}
+        <div className="ze-ge-top">
+          <fieldset className="ze-props-group ze-ge-scope">
+            <legend>Scope</legend>
+            {check('references', 'Reference designators')}
+            {check('values', 'Values')}
+            {check('otherFields', 'Other symbol fields')}
+            <span className="ze-ge-gap" />
+            {check('wires', 'Wires & wire labels')}
+            {check('buses', 'Buses & bus labels')}
+            {check('globalLabels', 'Global labels')}
+            {check('hierLabels', 'Hierarchical labels')}
+            {check('labelFields', 'Label fields')}
+            <span className="ze-ge-gap" />
+            {check('sheetTitles', 'Sheet titles')}
+            {check('sheetFields', 'Other sheet fields')}
+            {check('sheetPins', 'Sheet pins')}
+            {check('sheetBorders', 'Sheet borders & backgrounds')}
+            <span className="ze-ge-gap" />
+            {check('schTextAndGraphics', 'Schematic text & graphics')}
+          </fieldset>
           <fieldset className="ze-props-group">
-            <legend>Set To</legend>
-            <div className="ze-ge-action">
-              <span className="ze-lp-fmt-label">Font:</span>
-              <FontChoice face={v.font} indeterminate onChange={(f) => set('font', f)} />
-              {empty}
-              {empty}
-              {swatch('setTextColor', 'textColor', 'Text color:')}
-
-              <span className="ze-lp-fmt-label">Text size:</span>
-              {size('textSize')}
-              {empty}
-              <TriStateCheck label="Bold" value={v.bold} onChange={(x) => set('bold', x)} />
-              <TriStateCheck label="Italic" value={v.italic} onChange={(x) => set('italic', x)} />
-
-              <span className="ze-lp-fmt-label">Orientation:</span>
-              {choice('orientation', ORIENTATION_CHOICES)}
-              {note('(labels only)')}
-              {empty}
-              {empty}
-              {empty}
-
-              <span className="ze-lp-fmt-label">H Align:</span>
-              {choice('hAlign', H_ALIGN_CHOICES)}
-              {note('(fields only)')}
-              {empty}
-              <TriStateCheck
-                label="Visible"
-                value={v.visible}
-                onChange={(x) => set('visible', x)}
-              />
-              {note('(fields only)')}
-
-              <span className="ze-lp-fmt-label">V Align:</span>
-              {choice('vAlign', V_ALIGN_CHOICES)}
-              {note('(fields only)')}
-              {empty}
-              <TriStateCheck
-                label="Show field name"
-                value={v.showFieldNames}
-                onChange={(x) => set('showFieldNames', x)}
-              />
-              {note('(fields only)')}
-
-              <hr className="ze-ge-rule" />
-
-              <span className="ze-lp-fmt-label">Line width:</span>
-              {size('lineWidth')}
-              {empty}
-              {swatch('setColor', 'color', 'Line color:')}
-
-              <span className="ze-lp-fmt-label">Line style:</span>
-              {choice('lineStyle', LINE_STYLE_CHOICES)}
-              {empty}
-              {empty}
-              {swatch('setFillColor', 'fillColor', 'Fill color:')}
-
-              <span className="ze-lp-fmt-label">Junction size:</span>
-              {size('junctionSize')}
-              {empty}
-              {swatch('setDotColor', 'dotColor', 'Junction color:')}
+            <legend>Filter Items</legend>
+            <div className="ze-ge-filters">
+              {filter('fieldnameFilterOpt', 'fieldnameFilter', 'By field name:')}
+              {filter('referenceFilterOpt', 'referenceFilter', 'By parent reference designator:')}
+              {filter('symbolFilterOpt', 'symbolFilter', 'By parent symbol library id:')}
+              <label className="ze-check">
+                <input
+                  type="checkbox"
+                  checked={v.typeFilterOpt}
+                  onChange={(e) => set('typeFilterOpt', e.target.checked)}
+                />
+                By parent symbol type:
+              </label>
+              {choice('typeFilter', TYPE_FILTER_CHOICES)}
+              {filter('netFilterOpt', 'netFilter', 'By net:')}
+              {check('selectedFilterOpt', 'Selected items only')}
             </div>
           </fieldset>
         </div>
-        <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={() => dlg.TransferDataFromWindow(v)}>
-            Apply
-          </button>
-          <button className="ze-btn" onClick={close}>
-            Cancel
-          </button>
-          <button className="ze-btn primary" onClick={ok}>
-            OK
-          </button>
-        </div>
+
+        {/* sbAction: fgSizer1, six columns, the growable 1, 3 and 5. */}
+        <fieldset className="ze-props-group">
+          <legend>Set To</legend>
+          <div className="ze-ge-action">
+            <span className="ze-lp-fmt-label">Font:</span>
+            <FontChoice face={v.font} indeterminate onChange={(f) => set('font', f)} />
+            {empty}
+            {empty}
+            {swatch('setTextColor', 'textColor', 'Text color:')}
+
+            <span className="ze-lp-fmt-label">Text size:</span>
+            {size('textSize')}
+            {empty}
+            <TriStateCheck label="Bold" value={v.bold} onChange={(x) => set('bold', x)} />
+            <TriStateCheck label="Italic" value={v.italic} onChange={(x) => set('italic', x)} />
+
+            <span className="ze-lp-fmt-label">Orientation:</span>
+            {choice('orientation', ORIENTATION_CHOICES)}
+            {note('(labels only)')}
+            {empty}
+            {empty}
+            {empty}
+
+            <span className="ze-lp-fmt-label">H Align:</span>
+            {choice('hAlign', H_ALIGN_CHOICES)}
+            {note('(fields only)')}
+            {empty}
+            <TriStateCheck label="Visible" value={v.visible} onChange={(x) => set('visible', x)} />
+            {note('(fields only)')}
+
+            <span className="ze-lp-fmt-label">V Align:</span>
+            {choice('vAlign', V_ALIGN_CHOICES)}
+            {note('(fields only)')}
+            {empty}
+            <TriStateCheck
+              label="Show field name"
+              value={v.showFieldNames}
+              onChange={(x) => set('showFieldNames', x)}
+            />
+            {note('(fields only)')}
+
+            <hr className="ze-ge-rule" />
+
+            <span className="ze-lp-fmt-label">Line width:</span>
+            {size('lineWidth')}
+            {empty}
+            {swatch('setColor', 'color', 'Line color:')}
+
+            <span className="ze-lp-fmt-label">Line style:</span>
+            {choice('lineStyle', LINE_STYLE_CHOICES)}
+            {empty}
+            {empty}
+            {swatch('setFillColor', 'fillColor', 'Fill color:')}
+
+            <span className="ze-lp-fmt-label">Junction size:</span>
+            {size('junctionSize')}
+            {empty}
+            {swatch('setDotColor', 'dotColor', 'Junction color:')}
+          </div>
+        </fieldset>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button className="ze-btn" onClick={() => dlg.TransferDataFromWindow(v)}>
+          Apply
+        </button>
+        <button className="ze-btn" onClick={close}>
+          Cancel
+        </button>
+        <button className="ze-btn primary" onClick={ok}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }
