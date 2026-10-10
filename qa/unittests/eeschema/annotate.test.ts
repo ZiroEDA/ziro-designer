@@ -13,10 +13,7 @@ import {
   REFDES_TRACKER,
   annotateHierarchy,
   annotateSymbols,
-  annotationReport,
   checkAnnotation,
-  clearAnnotationCommand,
-  clearAnnotationReport,
   splitReference,
   isSplitNeeded,
   incrementAnnotations,
@@ -284,34 +281,9 @@ describe('annotateHierarchy, regroup symbol units', () => {
 
 // The Annotation Messages panel's content (AnnotateSymbols' report loop and
 // SCH_REFERENCE_LIST::CheckAnnotation).
-describe('annotation messages', () => {
+describe('CheckAnnotation', () => {
   const doc = readSchematic(parse(SCH));
   const libById = new Map(doc.libSymbols.map((l) => [l.libId, l]));
-
-  it('words each line by whether the symbol was annotated before', () => {
-    const symbols = annotateSymbols(doc, libById, opts({ order: 'x' }));
-    const lines = annotationReport([{ before: doc, after: { ...doc, symbols } }], libById);
-    expect(lines.map((l) => l.message)).toEqual([
-      'Annotated 10k as R3.', // was R? (x=100)
-      'Annotated 10k as R1.', // was R? (x=50)
-    ]);
-    // R2 was already annotated and did not move, so it produced no line.
-    expect(lines).toHaveLength(2);
-  });
-
-  it('reports a renumber as an update', () => {
-    const symbols = annotateSymbols(doc, libById, opts({ resetExisting: true, order: 'x' }));
-    const lines = annotationReport([{ before: doc, after: { ...doc, symbols } }], libById);
-    expect(lines.map((l) => l.message)).toContain('Updated 10k from R2 to R3.');
-  });
-
-  it('clear annotation reports only the symbols that were annotated', () => {
-    // DeleteAnnotation's clearSymbolAnnotation reports (and clears) a symbol
-    // only when IsAnnotated, the two R? here were never annotated.
-    const after = clearAnnotationCommand('all').apply(doc);
-    const lines = clearAnnotationReport([{ before: doc, after }], libById);
-    expect(lines.map((l) => l.message)).toEqual(['Cleared annotation for 10k.']);
-  });
 
   it('CheckAnnotation flags an unannotated symbol and a duplicate', () => {
     expect(checkAnnotation([doc], libById)[0]!.message).toBe('Item not annotated: R?');
@@ -329,21 +301,6 @@ describe('annotation messages', () => {
   it('a fully annotated schematic reports nothing', () => {
     const symbols = annotateSymbols(doc, libById, opts({ resetExisting: true, order: 'x' }));
     expect(checkAnnotation([{ ...doc, symbols }], libById)).toHaveLength(0);
-  });
-});
-
-describe('clearAnnotationCommand', () => {
-  const doc = readSchematic(parse(SCH));
-  it('resets references to prefix + ? and leaves power symbols', () => {
-    const after = clearAnnotationCommand('all').apply(doc);
-    expect(after.symbols.filter((s) => refOf(s) === 'R?')).toHaveLength(3);
-    expect(refOf(after.symbols.find((s) => s.uuid === 'u-p')!)).toBe('#PWR01');
-  });
-  it('is undoable', () => {
-    const cmd = clearAnnotationCommand('all');
-    const after = cmd.apply(doc);
-    const undone = cmd.invert(doc).apply(after);
-    expect(undone.symbols.map(refOf)).toEqual(doc.symbols.map(refOf));
   });
 });
 

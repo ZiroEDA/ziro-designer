@@ -17,22 +17,13 @@
  * references instead of getting a set per instance.
  */
 
-import type { SchSymbol, Schematic, LibSymbol } from './types.js';
+import type { SchSymbol, Schematic } from './types.js';
 import type { EditCommand } from './tools/command.js';
-import { refId } from './tools/hittest.js';
-import { Reporter, RPT_SEVERITY_ACTION, type ReportLine } from '@ziroeda/common/reporter.js';
 import {
-  annotateSymbols,
   referenceOf,
   splitReference,
   setFieldValue,
-  unitCount,
-  symValue,
-  refOf,
-  isAnnotated,
-  defaultSubReference,
   type AnnotateOptions,
-  type AnnotateScope,
 } from './sch_reference_list.js';
 
 export const defaultAnnotateOptions = (): AnnotateOptions => ({
@@ -43,58 +34,6 @@ export const defaultAnnotateOptions = (): AnnotateOptions => ({
   startNumber: 0,
   sheetNumber: 1,
 });
-
-/** Annotate as an undoable command (SCH_EDIT_FRAME::AnnotateSymbols + commit). */
-export function annotateCommand(
-  libById: ReadonlyMap<string, LibSymbol>,
-  opts: AnnotateOptions,
-  selectedIds?: ReadonlySet<string>,
-): EditCommand {
-  return {
-    label: 'Annotate Schematic',
-    apply(doc: Schematic): Schematic {
-      const symbols = annotateSymbols(doc, libById, opts, selectedIds);
-      return symbols === doc.symbols ? doc : { ...doc, symbols };
-    },
-    invert(before: Schematic): EditCommand {
-      return restoreSymbols(before.symbols);
-    },
-  };
-}
-
-/**
- * Clear Annotation (SCH_EDIT_FRAME::DeleteAnnotation): reset each in-scope
- * non-power symbol's reference to its bare prefix + '?'. Undoable.
- */
-export function clearAnnotationCommand(
-  scope: AnnotateScope,
-  selectedIds?: ReadonlySet<string>,
-): EditCommand {
-  return {
-    label: 'Clear Annotation',
-    apply(doc: Schematic): Schematic {
-      let changed = false;
-      const symbols = doc.symbols.map((sym, i) => {
-        if (scope === 'selection' && !selectedIds?.has(refId('symbol', sym.uuid, i))) return sym;
-        const ref = referenceOf(sym);
-        if (!ref) return sym;
-        const { prefix } = splitReference(ref.value);
-        if (prefix.startsWith('#')) return sym;
-        const cleared = `${prefix}?`;
-        if (ref.value === cleared) return sym;
-        changed = true;
-        return {
-          ...sym,
-          fields: sym.fields.map((f) => (f.key === 'Reference' ? setFieldValue(f, cleared) : f)),
-        };
-      });
-      return changed ? { ...doc, symbols } : doc;
-    },
-    invert(before: Schematic): EditCommand {
-      return restoreSymbols(before.symbols);
-    },
-  };
-}
 
 function restoreSymbols(symbols: readonly SchSymbol[]): EditCommand {
   return {
@@ -177,92 +116,6 @@ export function incrementAnnotations(
   });
   return changed ? out : symbols;
 }
-
-// ----- reporting (the Annotation Messages panel) -----------------------------
-
-/** A sheet before/after an annotation pass, for building its messages. */
-export interface AnnotateDiff {
-  before: Schematic;
-  after: Schematic;
-}
-
-/**
- * The Annotation Messages of a completed pass (AnnotateSymbols' report loop):
- * one ACTION line per symbol whose reference changed, worded by whether the
- * symbol had been annotated before.
- */
-export function annotationReport(
-  diffs: readonly AnnotateDiff[],
-  libById: ReadonlyMap<string, LibSymbol>,
-  subReference: (unit: number) => string = defaultSubReference,
-): ReportLine[] {
-  const reporter = new Reporter();
-  for (const { before, after } of diffs) {
-    after.symbols.forEach((sym, i) => {
-      const prevSym = before.symbols[i];
-      if (!prevSym) return;
-      const newRefBase = refOf(sym);
-      const prevRefBase = refOf(prevSym);
-      if (splitReference(newRefBase).prefix.startsWith('#')) return;
-      const multiUnit = unitCount(sym.libId, libById) > 1;
-      const sub = multiUnit ? subReference(sym.unit) : '';
-      const newRef = `${newRefBase}${sub}`;
-      const value = symValue(sym);
-
-      if (isAnnotated(prevRefBase)) {
-        const prevRef = `${prevRefBase}${sub}`;
-        if (newRef === prevRef) return;
-        reporter.report(
-          multiUnit
-            ? `Updated ${value} (unit ${sub}) from ${prevRef} to ${newRef}.`
-            : `Updated ${value} from ${prevRef} to ${newRef}.`,
-          RPT_SEVERITY_ACTION,
-        );
-      } else {
-        if (newRefBase === prevRefBase) return;
-        reporter.report(
-          multiUnit
-            ? `Annotated ${value} (unit ${sub}) as ${newRef}.`
-            : `Annotated ${value} as ${newRef}.`,
-          RPT_SEVERITY_ACTION,
-        );
-      }
-    });
-  }
-  return reporter.lines;
-}
-
-/** DeleteAnnotation's messages: one ACTION line per symbol actually cleared. */
-export function clearAnnotationReport(
-  diffs: readonly AnnotateDiff[],
-  libById: ReadonlyMap<string, LibSymbol>,
-  subReference: (unit: number) => string = defaultSubReference,
-): ReportLine[] {
-  const reporter = new Reporter();
-  for (const { before, after } of diffs) {
-    after.symbols.forEach((sym, i) => {
-      const prevSym = before.symbols[i];
-      if (!prevSym || refOf(sym) === refOf(prevSym)) return;
-      const value = symValue(sym);
-      reporter.report(
-        unitCount(sym.libId, libById) > 1
-          ? `Cleared annotation for ${value} (unit ${subReference(sym.unit)}).`
-          : `Cleared annotation for ${value}.`,
-        RPT_SEVERITY_ACTION,
-      );
-    });
-  }
-  return reporter.lines;
-}
-
-// ---------------------------------------------------------------------------
-// The live model: `annotate.cpp`'s SCH_EDIT_FRAME members, mixed into SCH_EDIT_FRAME as
-// files-io.ts' are. Everything above is the record model's, until S7.
-//
-// No SCH_SELECTION_TOOL on the live model yet (stage S5), so the selection these read is
-// empty: ANNOTATE_SELECTION finds nothing, and no selected sheet joins a recursive scope.
-// Left to the window: DIALOG_ERC::UpdateAnnotationWarning and UpdateNetHighlightStatus.
-// ---------------------------------------------------------------------------
 
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';

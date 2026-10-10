@@ -12,7 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { annotateCommand, setSymbolsCommand } from '@ziroeda/eeschema/annotate.js';
+import { setSymbolsCommand } from '@ziroeda/eeschema/annotate.js';
 import { replaceSheetPin } from '@ziroeda/eeschema/tools/sch_sheet_pin_tool.js';
 import type { EditCommand } from '@ziroeda/eeschema/tools/command.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
@@ -62,14 +62,6 @@ function roundTrip(name: string, before: Schematic, cmd: EditCommand): void {
 }
 
 describe('the commands nothing was calling', () => {
-  it('annotateCommand', () => {
-    const d = doc();
-    roundTrip('annotateCommand', d, annotateCommand(libById, ANNOTATE_ALL));
-    // And it did the thing: R? becomes a real reference.
-    const after = annotateCommand(libById, ANNOTATE_ALL).apply(d);
-    expect(after.symbols[0]!.fields.find((f) => f.key === 'Reference')!.value).not.toBe('R?');
-  });
-
   it('setSymbolsCommand', () => {
     const d = doc();
     const symbols = d.symbols.map((s) => ({

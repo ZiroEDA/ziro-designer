@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { Reporter } from '@ziroeda/common/reporter.js';
+import { ANNOTATE_ALGO_T, ANNOTATE_ORDER_T, ANNOTATE_SCOPE_T } from './sch_reference_list.js';
+import { SYMBOL_FILTER } from './sch_sheet_path.js';
 import { PANEL_EMBEDDED_FILES } from '@ziroeda/common/dialogs/panel_embedded_files.js';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { SCH_ACTIONS } from './tools/sch_actions.js';
@@ -18,7 +21,7 @@ import type { SCH_TEXT } from './sch_text.js';
 import type { SCH_TEXTBOX } from './sch_textbox.js';
 import type { SCH_SHEET_PIN } from './sch_sheet_pin.js';
 import type { SCH_LABEL_BASE } from './sch_label.js';
-import type { SCH_COMMIT } from './sch_commit.js';
+import { SCH_COMMIT } from './sch_commit.js';
 import type { SCH_FIELD } from './sch_field.js';
 import type { SCH_SHEET } from './sch_sheet.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
@@ -116,20 +119,13 @@ import {
   type SelectionFilterOptions,
   type PasteMode,
   type PasteOptions,
-  annotateHierarchy,
   annotateSymbols,
   defaultAnnotateOptions,
   incrementAnnotations,
   symbolLibIdRows,
   orphanCandidates,
   libIdChangeCommand,
-  annotationReport,
-  checkAnnotation,
-  clearAnnotationCommand,
-  clearAnnotationReport,
   setSymbolsCommand,
-  subReference,
-  type AnnotateDiff,
   type AnnotateSheet,
   type AnnotateOptions,
   type ErcRunOptions,
@@ -316,7 +312,7 @@ import {
   writeEquivalenceFilesText,
   writeSchematicSetupText,
 } from './project_settings.js';
-import { IU_PER_MILS, resolveEffectiveNetClass, subpartSettings } from './schematic_settings.js';
+import { IU_PER_MILS, resolveEffectiveNetClass } from './schematic_settings.js';
 import { netClassHumanReadableName } from '@ziroeda/common/project/net_settings.js';
 import type { PdfNetInfo } from './sch_plotter.js';
 import type { Netlist } from './connectivity/nets.js';
@@ -512,6 +508,23 @@ const SETTINGS_TOGGLES = new Set([
 
 /** ERC_TESTER::TestDuplicateSheetNames, the guard the highlight tools run
  *  before picking (sheet names compare case-insensitively upstream). */
+/** The dialog's option names onto ANNOTATE_SCOPE_T / ANNOTATE_ORDER_T / ANNOTATE_ALGO_T. */
+const ANNOTATE_SCOPE_OF: Record<AnnotateOptions['scope'], ANNOTATE_SCOPE_T> = {
+  all: ANNOTATE_SCOPE_T.ANNOTATE_ALL,
+  current_sheet: ANNOTATE_SCOPE_T.ANNOTATE_CURRENT_SHEET,
+  selection: ANNOTATE_SCOPE_T.ANNOTATE_SELECTION,
+};
+const ANNOTATE_ORDER_OF: Record<AnnotateOptions['order'], ANNOTATE_ORDER_T> = {
+  x: ANNOTATE_ORDER_T.SORT_BY_X_POSITION,
+  y: ANNOTATE_ORDER_T.SORT_BY_Y_POSITION,
+  unsorted: ANNOTATE_ORDER_T.UNSORTED,
+};
+const ANNOTATE_ALGO_OF: Record<AnnotateOptions['algo'], ANNOTATE_ALGO_T> = {
+  incremental: ANNOTATE_ALGO_T.INCREMENTAL_BY_REF,
+  sheet_100: ANNOTATE_ALGO_T.SHEET_NUMBER_X_100,
+  sheet_1000: ANNOTATE_ALGO_T.SHEET_NUMBER_X_1000,
+};
+
 // The "Current Tool" status-bar field (EDA_DRAW_FRAME::DisplayToolMsg):
 // TOOLS_HOLDER::PushTool shows the active action's FriendlyName; the idle
 // selection tool reads "Select item(s)". Names from sch_actions.cpp /
@@ -3249,101 +3262,61 @@ export function SchematicEditor({
   const annotatePlacementRef = useRef(annotatePlacement);
   annotatePlacementRef.current = annotatePlacement;
 
-  // Annotate (SCH_EDIT_FRAME::AnnotateSymbols): one numbering pass across the
-  // sheets in scope, then the report loop and CheckAnnotate's final control.
-  // The REFDES_TRACKER is deserialized from schematic.used_designators, gated
-  // by the project's reuse_designators, and persists back after the run.
+  /** Every live screen, handed back to the window's records after a multi-sheet live edit. */
+  const adoptAllLiveScreens = useCallback((): void => {
+    const frame = schFrameRef.current;
+    if (!frame) return;
+    const all: SCH_SCREEN[] = [];
+    const screens = new SCH_SCREENS(frame.Schematic().Root());
+    for (let sc = screens.GetFirst(); sc; sc = screens.GetNext()) all.push(sc);
+    adoptLiveScreensRef.current(all);
+  }, []);
+
+  // DIALOG_ANNOTATE::OnAnnotateClick (dialog_annotate.cpp:245-264): one SCH_COMMIT over the
+  // live schematic, SCH_EDIT_FRAME::AnnotateSymbols reporting into the message panel, pushed as
+  // one undo step. The REFDES_TRACKER is the live SCHEMATIC_SETTINGS' (loaded from
+  // schematic.used_designators); the project settings still write the file, so its new state
+  // goes back there.
   const runAnnotate = useCallback(
     (opts: AnnotateRun) => {
-      const tracker = new REFDES_TRACKER();
-      tracker.Deserialize(setup.usedDesignators);
-      tracker.SetReuseRefDes(setup.annotation.allowReuse);
+      const frame = schFrameRef.current;
+      if (!frame) return;
+      const commit = new SCH_COMMIT(frame);
+      const reporter = new Reporter();
+      frame.AnnotateSymbols(
+        commit,
+        ANNOTATE_SCOPE_OF[opts.scope],
+        ANNOTATE_ORDER_OF[opts.order],
+        ANNOTATE_ALGO_OF[opts.algo],
+        opts.recursive,
+        opts.startNumber,
+        opts.resetExisting,
+        opts.resetExisting && opts.regroupUnits === true,
+        true,
+        reporter,
+        SYMBOL_FILTER.SYMBOL_FILTER_NON_POWER,
+      );
+      commit.Push('Annotate');
+      adoptAllLiveScreens();
+      setAnnotateMessages([...reporter.lines]);
 
-      const sheets = annotateSheets(opts.scope, opts.recursive);
-      const libs = hierarchyLibs(sheets);
-      const subRef = (unit: number): string =>
-        subReference(unit, subpartSettings(setup.annotation), false);
-      const updated = annotateHierarchy(sheets, libs, { ...opts, tracker }, selection);
-
-      const diffs: AnnotateDiff[] = [];
-      sheetBatch('Annotate Schematic', () => {
-        for (const sheet of sheets) {
-          const symbols = updated.get(sheet.file);
-          if (!symbols) continue;
-          applySheetSymbols(sheet.file, symbols, 'Annotate Schematic');
-          diffs.push({ before: sheet.doc, after: { ...sheet.doc, symbols } });
-        }
-      });
-
-      const lines = [...annotationReport(diffs, libs, subRef)];
-      // The final control runs over the sheets that were in scope, as upstream's
-      // CheckAnnotate does, against the post-annotation documents.
-      const checked = sheets
-        .filter((s) => s.scope !== 'out')
-        .map((s) => {
-          const symbols = updated.get(s.file);
-          return symbols ? { ...s.doc, symbols } : s.doc;
-        });
-      const errors = checkAnnotation(checked, libs, subRef);
-      lines.push(...errors);
-      if (errors.length === 0)
-        lines.push({
-          message: 'Annotation complete.',
-          severity: RPT_SEVERITY_ACTION,
-          location: 'tail',
-        });
-      setAnnotateMessages(lines);
-
-      const usedDesignators = tracker.Serialize();
+      const usedDesignators = frame.Schematic().Settings().m_refDesTracker?.Serialize() ?? '';
       if (usedDesignators !== setup.usedDesignators) commitSetup({ ...setup, usedDesignators });
     },
-    [
-      annotateSheets,
-      hierarchyLibs,
-      applySheetSymbols,
-      sheetBatch,
-      onProjectChange,
-      selection,
-      setup,
-      commitSetup,
-    ],
+    [adoptAllLiveScreens, setup, commitSetup],
   );
 
-  // Clear Annotation (SCH_EDIT_FRAME::DeleteAnnotation): the same scope walk,
-  // resetting each in-scope symbol's reference to its bare prefix + '?'.
+  // DIALOG_ANNOTATE::OnClearAnnotationClick (:266-272): SCH_EDIT_FRAME::DeleteAnnotation.
   const runClearAnnotation = useCallback(
     (scope: AnnotateOptions['scope'], recursive: boolean) => {
-      const sheets = annotateSheets(scope, recursive);
-      const libs = hierarchyLibs(sheets);
-      const diffs: AnnotateDiff[] = [];
-      sheetBatch('Clear Annotation', () => {
-        for (const sheet of sheets) {
-          if (sheet.scope === 'out') continue;
-          const cmd = clearAnnotationCommand(
-            sheet.scope === 'selected' ? 'selection' : 'all',
-            selection,
-          );
-          const next = cmd.apply(sheet.doc);
-          if (next === sheet.doc) continue;
-          applySheetSymbols(sheet.file, next.symbols, 'Clear Annotation');
-          diffs.push({ before: sheet.doc, after: next });
-        }
-      });
-      setAnnotateMessages(
-        clearAnnotationReport(diffs, libs, (unit) =>
-          subReference(unit, subpartSettings(setup.annotation), false),
-        ),
-      );
+      const frame = schFrameRef.current;
+      if (!frame) return;
+      const reporter = new Reporter();
+      frame.DeleteAnnotation(ANNOTATE_SCOPE_OF[scope], recursive, reporter);
+      adoptAllLiveScreens();
+      setAnnotateMessages([...reporter.lines]);
     },
-    [
-      annotateSheets,
-      hierarchyLibs,
-      applySheetSymbols,
-      sheetBatch,
-      onProjectChange,
-      selection,
-      setup.annotation,
-    ],
+    [adoptAllLiveScreens],
   );
 
   // Drawing defaults shared by every output (screen, print, plot), derived
