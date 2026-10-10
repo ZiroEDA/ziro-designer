@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 /**
- * PCB_IO_IPC2581 against `kicad-cli pcb export ipc2581` (KiCad 10.0.6) on seven boards
+ * PCB_IO_IPC2581 against `kicad-cli pcb export ipc2581` (KiCad 10.0.6) on eight boards
  * (qa/data/pcbnew/ipc2581_oracle/regen.sh): revision C in millimetres, and one revision B board in
  * inches at four decimals.
  *
