@@ -82,6 +82,26 @@ describe('SCH_PRINTOUT', () => {
     expect(frame.GetCurrentSheet().PathHumanReadable()).toBe(before);
   });
 
+  it('orders the pages by page number, not by hierarchy', () => {
+    const frame = setUp();
+    // Hierarchy order is root, vertical, horizontal; give the vertical instance page 9.
+    const vertical = frame
+      .Schematic()
+      .Hierarchy()
+      .find((p) => p.PathHumanReadable() === '/ampli_ht_vertical/')!;
+    vertical.SetPageNumber('9');
+    const out = new RECORDING_PRINTOUT(frame);
+
+    for (let page = 1; page <= 3; ++page) out.OnPrintPage(page);
+
+    expect(out.pages.map((p) => p.current)).toEqual([
+      '/',
+      '/ampli_ht_horizontal/',
+      '/ampli_ht_vertical/',
+    ]);
+    expect(out.pages.map((p) => p.pageNumber)).toEqual(['1', '3', '9']);
+  });
+
   it('refuses a page outside the hierarchy', () => {
     const frame = setUp();
     const out = new RECORDING_PRINTOUT(frame);
