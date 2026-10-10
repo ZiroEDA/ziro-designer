@@ -1,0 +1,4 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "hierarchy") (type "KiCad") (uri "${KIPRJMOD}/hierarchy.kicad_sym") (options "") (descr ""))
+)

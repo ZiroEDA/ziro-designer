@@ -1,0 +1,13 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "2fc057f0-e73e-43e6-b13a-4912ce1d6d59")
+	(paper "A")
+	(title_block
+		(title "Simple Test")
+		(rev "A")
+	)
+	(lib_symbols)
+	(embedded_fonts no)
+)

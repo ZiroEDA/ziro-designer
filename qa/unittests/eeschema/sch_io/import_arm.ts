@@ -55,13 +55,35 @@ export function importThroughFrame(
   aFile: string,
   aType: SCH_FILE_T,
   aChoose: CHOOSE_PROJECT_HANDLER = (aDescs) => aDescs.slice(0, 1),
+  aGlobalSymLibs: Readonly<Record<string, string>> = {},
 ): IMPORTED {
   const dir = dirname(aFile);
   const written = new MEMORY_FILESYSTEM();
   const unmount = wxMountFileSystem(dir, written);
+
+  // The global symbol library table of a KiCad install: each nickname's .kicad_sym, read from
+  // disk into a mount of its own. UpdateSymbolLinks resolves `power:GND` and the like here.
+  const globalDir = '/kicad-global-symbols';
+  const globals = new MEMORY_FILESYSTEM();
+  const unmountGlobals = wxMountFileSystem(globalDir, globals);
+  const globalTable = LIBRARY_TABLE.Empty(LIBRARY_TABLE_SCOPE.GLOBAL, LIBRARY_TABLE_TYPE.SYMBOL);
+
+  for (const [nickname, path] of Object.entries(aGlobalSymLibs)) {
+    globals.Write(`${nickname}.kicad_sym`, new Uint8Array(readFileSync(path)));
+    const row = globalTable.InsertRow();
+    row.SetNickname(nickname);
+    row.SetURI(`${globalDir}/${nickname}.kicad_sym`);
+    row.SetType('KiCad');
+  }
+
+  Pgm()
+    .GetLibraryManager()
+    .SetTable(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.GLOBAL, globalTable);
+
   try {
     return importMounted(aFile, aType, aChoose, dir, written);
   } finally {
+    unmountGlobals();
     unmount();
   }
 }

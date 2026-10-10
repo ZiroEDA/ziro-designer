@@ -1,0 +1,12 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "45c17379-bc28-4b27-a28d-5718793961f0")
+	(paper "A")
+	(title_block
+		(title "Symbol Test")
+	)
+	(lib_symbols)
+	(embedded_fonts no)
+)

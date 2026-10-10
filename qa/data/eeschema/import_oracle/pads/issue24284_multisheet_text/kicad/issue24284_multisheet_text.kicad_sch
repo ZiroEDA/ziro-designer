@@ -1,0 +1,151 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "e74949e1-8fba-46c6-8e60-0043d296f3a8")
+	(paper "A4")
+	(title_block
+		(title "Multi Sheet Text Test")
+		(rev "A")
+	)
+	(lib_symbols)
+	(sheet
+		(at 12.7 12.7)
+		(size 50.8 38.1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "3f0fcc69-2640-42db-9714-e8ce294b6867")
+		(property "Sheetname" "Page1"
+			(at 12.7 11.9884 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "issue24284_multisheet_text_sheet1.kicad_sch"
+			(at 12.7 51.3846 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "issue24284_multisheet_text"
+				(path "/e74949e1-8fba-46c6-8e60-0043d296f3a8"
+					(page "1")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 76.2 12.7)
+		(size 50.8 38.1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "7c7e88e5-6b0e-4840-a976-3ea5299834aa")
+		(property "Sheetname" "Page2"
+			(at 76.2 11.9884 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "issue24284_multisheet_text_sheet2.kicad_sch"
+			(at 76.2 51.3846 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "issue24284_multisheet_text"
+				(path "/e74949e1-8fba-46c6-8e60-0043d296f3a8"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 12.7 63.5)
+		(size 50.8 38.1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "8017a619-51b2-4d79-aa97-b410a6ee784c")
+		(property "Sheetname" "Page3"
+			(at 12.7 62.7884 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "issue24284_multisheet_text_sheet3.kicad_sch"
+			(at 12.7 102.1846 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "issue24284_multisheet_text"
+				(path "/e74949e1-8fba-46c6-8e60-0043d296f3a8"
+					(page "3")
+				)
+			)
+		)
+	)
+	(embedded_fonts no)
+)

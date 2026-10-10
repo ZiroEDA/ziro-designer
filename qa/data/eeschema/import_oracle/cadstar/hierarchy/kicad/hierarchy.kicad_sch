@@ -1,0 +1,1131 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "242ef78a-46ce-4933-935c-7f239803cc27")
+	(paper "User" 295.2496 215.9508)
+	(lib_symbols
+		(symbol "RES-DUAL_1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at -5.08 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 2.0108 1.6933)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "1k"
+				(at 5.08 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 2.0108 1.6933)
+					)
+					(justify right)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Part Name" "RES-DUAL"
+				(at 0 -2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.5081 1.27)
+					)
+					(justify top)
+				)
+			)
+			(property "Supplier" "Ziro Parts"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 2.0108 1.6933)
+					)
+					(justify right bottom)
+				)
+			)
+			(symbol "RES-DUAL_1_1_0"
+				(polyline
+					(pts
+						(xy -15.24 0) (xy -10.16 0)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -10.16 2.54) (xy -10.16 -2.54)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -10.16 -2.54) (xy 10.16 -2.54)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 10.16 2.54) (xy -10.16 2.54)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 10.16 0) (xy 15.24 0)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 10.16 -2.54) (xy 10.16 2.54)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(text "R"
+					(at -1 -2.1272 0)
+					(effects
+						(font
+							(size 3.0162 2.54)
+						)
+						(justify left bottom)
+					)
+				)
+				(pin input line
+					(at -15.24 0 0)
+					(length 5.08)
+					(name ""
+						(effects
+							(font
+								(size 1.0054 1.0054)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.5081 1.5081)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 15.24 0 180)
+					(length 5.08)
+					(name ""
+						(effects
+							(font
+								(size 3.0163 3.0163)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.0054 1.0054)
+							)
+						)
+					)
+				)
+			)
+			(symbol "RES-DUAL_1_2_0"
+				(polyline
+					(pts
+						(xy -15.24 0) (xy -10.16 0)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -10.16 2.54) (xy -10.16 -2.54)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -10.16 -2.54) (xy 10.16 -2.54)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 10.16 2.54) (xy -10.16 2.54)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 10.16 0) (xy 15.24 0)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 10.16 -2.54) (xy 10.16 2.54)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(text "R"
+					(at -1 -2.1272 0)
+					(effects
+						(font
+							(size 3.0162 2.54)
+						)
+						(justify left bottom)
+					)
+				)
+				(pin input line
+					(at -15.24 0 0)
+					(length 5.08)
+					(name ""
+						(effects
+							(font
+								(size 1.0054 1.0054)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.5081 1.5081)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 15.24 0 180)
+					(length 5.08)
+					(name ""
+						(effects
+							(font
+								(size 3.0163 3.0163)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.0054 1.0054)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "hierarchy:RES-DUAL"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at -5.08 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 2.0108 1.6933)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "1k"
+				(at 5.08 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 2.0108 1.6933)
+					)
+					(justify right)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Part Name" "RES-DUAL"
+				(at 0 -2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.5081 1.27)
+					)
+					(justify top)
+				)
+			)
+			(property "Supplier" "Ziro Parts"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 2.0108 1.6933)
+					)
+					(justify right bottom)
+				)
+			)
+			(symbol "RES-DUAL_1_0"
+				(polyline
+					(pts
+						(xy -7.62 0) (xy -5.08 0)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -5.08 1.27) (xy -5.08 -1.27)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -5.08 -1.27) (xy 5.08 -1.27)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.08 1.27) (xy -5.08 1.27)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.08 0) (xy 7.62 0)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.08 -1.27) (xy 5.08 1.27)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(text "R"
+					(at -0.5 -1.0636 0)
+					(effects
+						(font
+							(size 1.5081 1.27)
+						)
+						(justify left bottom)
+					)
+				)
+				(pin input line
+					(at -7.62 0 0)
+					(length 2.54)
+					(name ""
+						(effects
+							(font
+								(size 1.0054 1.0054)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.5081 1.5081)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name ""
+						(effects
+							(font
+								(size 3.0163 3.0163)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.0054 1.0054)
+							)
+						)
+					)
+				)
+			)
+			(symbol "RES-DUAL_2_0"
+				(polyline
+					(pts
+						(xy -7.62 0) (xy -5.08 0)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -5.08 1.27) (xy -5.08 -1.27)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -5.08 -1.27) (xy 5.08 -1.27)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.08 1.27) (xy -5.08 1.27)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.08 0) (xy 7.62 0)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.08 -1.27) (xy 5.08 1.27)
+					)
+					(stroke
+						(width 0.0254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(text "R"
+					(at -0.5 -1.0636 0)
+					(effects
+						(font
+							(size 1.5081 1.27)
+						)
+						(justify left bottom)
+					)
+				)
+				(pin input line
+					(at -7.62 0 0)
+					(length 2.54)
+					(name ""
+						(effects
+							(font
+								(size 1.0054 1.0054)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.5081 1.5081)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name ""
+						(effects
+							(font
+								(size 3.0163 3.0163)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.0054 1.0054)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(text "On every sheet"
+		(exclude_from_sim no)
+		(at 17.62 199.0314 0)
+		(effects
+			(font
+				(size 2.0108 1.6933)
+			)
+			(justify left bottom)
+		)
+		(uuid "4300cdf8-4ad0-4fc5-a017-fcf643d30d7e")
+	)
+	(text "Top only"
+		(exclude_from_sim no)
+		(at 21.7079 25.2475 90)
+		(effects
+			(font
+				(size 3.0163 2.54)
+				(thickness 0.508)
+				(bold yes)
+				(italic yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "697aef2a-94b6-4c23-a238-1d959e4fb5d0")
+	)
+	(text "Ziro test board"
+		(exclude_from_sim no)
+		(at 209.62 177.5043 0)
+		(effects
+			(font
+				(size 3.0163 2.54)
+				(thickness 0.508)
+				(bold yes)
+				(italic yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "8290ec46-8fe7-4813-9194-8bb63da954eb")
+	)
+	(text "Rev A"
+		(exclude_from_sim no)
+		(at 211.9644 186.28 90)
+		(effects
+			(font
+				(size 2.0108 1.6933)
+			)
+			(justify right bottom)
+		)
+		(uuid "92fbe7dd-b487-48a6-96e3-008a33d2a8f1")
+	)
+	(text "Sub Circuit"
+		(exclude_from_sim no)
+		(at 127.62 66.4914 0)
+		(effects
+			(font
+				(size 2.0108 1.6933)
+			)
+			(justify left bottom)
+		)
+		(uuid "cc16966c-a190-48ab-85ab-5da23602873c")
+	)
+	(wire
+		(pts
+			(xy 75.24 88.28) (xy 127.62 88.28)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "37eec41a-0651-4d5d-8283-8bc6a6004966")
+	)
+	(polyline
+		(pts
+			(xy 207.62 188.28) (xy 287.62 188.28)
+		)
+		(stroke
+			(width 0.0254)
+			(type solid)
+		)
+		(uuid "7e585ef2-1f17-4303-a0ef-213f65d1c31a")
+	)
+	(polyline
+		(pts
+			(xy 207.62 178.28) (xy 287.62 178.28)
+		)
+		(stroke
+			(width 0.0254)
+			(type solid)
+		)
+		(uuid "8070f82e-7f18-4409-8554-6006d158fd1f")
+	)
+	(wire
+		(pts
+			(xy 187.62 98.28) (xy 207.94 98.28)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "88b9b610-ff26-4e44-9866-bff26d4f5a23")
+	)
+	(polyline
+		(pts
+			(xy 287.62 188.28) (xy 287.62 168.28)
+		)
+		(stroke
+			(width 0.0254)
+			(type solid)
+		)
+		(uuid "8ccced65-0abc-4c37-bd9b-4657168933fd")
+	)
+	(wire
+		(pts
+			(xy 37.62 88.28) (xy 60 88.28)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "aaa70129-e849-47d9-a933-b25be9896377")
+	)
+	(polyline
+		(pts
+			(xy 287.62 168.28) (xy 207.62 168.28)
+		)
+		(stroke
+			(width 0.0254)
+			(type solid)
+		)
+		(uuid "ad90e76b-9256-430b-8e7c-d584275f9fc1")
+	)
+	(polyline
+		(pts
+			(xy 207.62 168.28) (xy 207.62 188.28)
+		)
+		(stroke
+			(width 0.0254)
+			(type solid)
+		)
+		(uuid "f2ef0e7c-0d8b-4cc7-8922-d537b3d3bc95")
+	)
+	(label "LINK_OUT"
+		(at 207.94 98.28 180)
+		(effects
+			(font
+				(size 2.0108 1.6933)
+			)
+			(justify right bottom)
+		)
+		(uuid "e3fbb17d-eb8a-4dfb-90c7-cbcc7de579d0")
+	)
+	(global_label "EXT"
+		(shape input)
+		(at 37.62 88.28 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 2.0108 1.6933)
+			)
+			(justify left)
+		)
+		(uuid "6ea84cdc-9225-4f21-be56-9647aa2b8bf6")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 46.6458 88.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+	)
+	(symbol
+		(lib_id "hierarchy:RES-DUAL")
+		(at 67.62 88.28 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "03ea0fa0-4e8c-49ae-b180-be2bf8c5e362")
+		(property "Reference" "RN1"
+			(at 62.54 85.74 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.0108 1.6933)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Value" "1k"
+			(at 72.7 85.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.0108 1.6933)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 67.62 88.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 67.62 88.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 67.62 88.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Part Name" "RES-DUAL"
+			(at 7.62 208.28 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.5081 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier" "Ziro Parts"
+			(at 67.62 88.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.0108 1.6933)
+				)
+				(justify right bottom)
+			)
+		)
+		(pin "1"
+			(uuid "7dc717f7-ee8d-4ec5-b298-2639eea7fdef")
+		)
+		(pin "2"
+			(uuid "a459a97c-2b4c-4a21-b425-4018ebd36199")
+		)
+		(pin "3"
+			(uuid "fbec5d98-cb7c-4e6d-9632-8b686621c717")
+		)
+		(pin "4"
+			(uuid "026d14c1-1d3d-4827-a56a-000eb340ca70")
+		)
+		(instances
+			(project "hierarchy"
+				(path "/242ef78a-46ce-4933-935c-7f239803cc27"
+					(reference "RN1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "RES-DUAL_1")
+		(lib_id "hierarchy:RES-DUAL")
+		(at 67.62 148.28 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "8a88ed9e-9141-4fa1-9e4d-feb8770b419e")
+		(property "Reference" "R9"
+			(at 67.62 143.2 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.0108 1.6933)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Value" "1k"
+			(at 72.7 145.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.0108 1.6933)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 67.62 148.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 67.62 148.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 67.62 148.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Part Name" "RES-DUAL"
+			(at 7.62 208.28 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.5081 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier" "Ziro Parts"
+			(at 67.62 148.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.0108 1.6933)
+				)
+				(justify right bottom)
+			)
+		)
+		(pin "1"
+			(uuid "d450708e-ebe1-48b3-8a0e-fcff4c0a938b")
+		)
+		(pin "2"
+			(uuid "7fd9b688-fb8a-41e0-8a6d-e0aa7cb33ed7")
+		)
+		(pin "3"
+			(uuid "bc272bde-3111-42e4-bf64-b09511033e36")
+		)
+		(pin "4"
+			(uuid "1e972a28-2695-4038-a04f-ca79b9f66f7f")
+		)
+		(instances
+			(project "hierarchy"
+				(path "/242ef78a-46ce-4933-935c-7f239803cc27"
+					(reference "R9")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(sheet
+		(at 127.62 68.28)
+		(size 60 40)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "e32b029d-226f-4c0b-b54c-56b60374185f")
+		(property "Sheetname" "Sub Circuit"
+			(at 127.62 67.5684 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "hierarchy_02.kicad_sch"
+			(at 127.62 108.8646 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "LINK_IN" passive
+			(at 127.62 88.28 180)
+			(uuid "b720f7a4-b036-462b-95c7-dc6f433dbbad")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "LINK_OUT" passive
+			(at 187.62 98.28 0)
+			(uuid "baacb234-26a4-45eb-b8fe-237f3e997bdb")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(instances
+			(project "hierarchy"
+				(path "/242ef78a-46ce-4933-935c-7f239803cc27"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)

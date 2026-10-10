@@ -288,3 +288,9 @@ export const JsonFileExtension = 'json';
 /** `FILEEXT::KiCadDesignBlockLibPathWildcard` (:383-387). */
 export const kicadDesignBlockLibPathWildcard = (): ChooserFilter =>
   fileFilter('KiCad design block library paths', [KiCadDesignBlockLibPathExtension]);
+
+/** `FILEEXT::CadstarSchematicFileExtension` (:140). [data] */
+export const CadstarSchematicFileExtension = 'csa';
+
+/** `FILEEXT::CadstarPartsLibraryFileExtension` (:141). [data] */
+export const CadstarPartsLibraryFileExtension = 'lib';

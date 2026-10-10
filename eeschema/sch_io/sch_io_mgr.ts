@@ -22,6 +22,8 @@ import { SCH_IO_KICAD_SEXPR } from './kicad_sexpr/sch_io_kicad_sexpr.js';
 import { SCH_IO_EASYEDA } from './easyeda/sch_io_easyeda.js';
 import { SCH_IO_EASYEDAPRO } from './easyedapro/sch_io_easyedapro.js';
 import { SCH_IO_ALTIUM } from './altium/sch_io_altium.js';
+import { SCH_IO_CADSTAR_ARCHIVE } from './cadstar/sch_io_cadstar_archive.js';
+import { SCH_IO_PADS } from './pads/sch_io_pads.js';
 import { SCH_IO_EAGLE } from './eagle/sch_io_eagle.js';
 import type { SCH_IO as SCH_IO_BASE } from './sch_io.js';
 
@@ -74,6 +76,10 @@ export class SCH_IO_MGR {
         return new SCH_IO_EAGLE();
       case SCH_FILE_T.SCH_ALTIUM:
         return new SCH_IO_ALTIUM();
+      case SCH_FILE_T.SCH_CADSTAR_ARCHIVE:
+        return new SCH_IO_CADSTAR_ARCHIVE();
+      case SCH_FILE_T.SCH_PADS:
+        return new SCH_IO_PADS();
       default:
         return null;
     }
