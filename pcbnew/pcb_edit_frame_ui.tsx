@@ -198,6 +198,7 @@ import { wxPrinter } from '@ziroeda/common/wx/printer.js';
 import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { DialogPcbPlot } from './dialogs/dialog_plot.js';
 import { DialogGenFootprintPosition } from './dialogs/dialog_gen_footprint_position.js';
+import { DialogExport2581 } from './dialogs/dialog_export_2581.js';
 import { DialogGendrill } from './dialogs/dialog_gendrill.js';
 import { DialogGencadExportOptions } from './dialogs/dialog_gencad_export_options_ui.js';
 import type { DIALOG_GENCAD_EXPORT_OPTIONS } from './dialogs/dialog_gencad_export_options.js';
@@ -2179,6 +2180,7 @@ export function PcbEditor({
     showSaveFileDialog: NonNullable<PCB_EDIT_FRAME_HOOKS['showSaveFileDialog']>;
     writeTextFile: (aPath: string, aText: string) => boolean;
     showGenFootprintPositionDialog: () => Promise<void>;
+    showExport2581Dialog: () => Promise<void>;
     showGenDrillDialog: () => Promise<void>;
     showGencadExportOptionsDialog: (aDialog: DIALOG_GENCAD_EXPORT_OPTIONS) => Promise<boolean>;
     fileExists: (aPath: string) => boolean;
@@ -2299,6 +2301,7 @@ export function PcbEditor({
         drcWindowRef.current!.showSaveFileDialog(aTitle, aName, aWildcard, aCheckbox),
       writeTextFile: (aPath, aText) => drcWindowRef.current!.writeTextFile(aPath, aText),
       showGenFootprintPositionDialog: () => drcWindowRef.current!.showGenFootprintPositionDialog(),
+      showExport2581Dialog: () => drcWindowRef.current!.showExport2581Dialog(),
       showGenDrillDialog: () => drcWindowRef.current!.showGenDrillDialog(),
       showGencadExportOptionsDialog: (aDialog) =>
         drcWindowRef.current!.showGencadExportOptionsDialog(aDialog),
@@ -2557,6 +2560,7 @@ export function PcbEditor({
   };
   /** DIALOG_GEN_FOOTPRINT_POSITION, while BOARD_EDITOR_CONTROL::GeneratePosFile shows it. */
   const [posFileDlg, setPosFileDlg] = useState<{ done: () => void } | null>(null);
+  const [ipc2581Dlg, setIpc2581Dlg] = useState<{ done: () => void } | null>(null);
   /** DIALOG_GENDRILL, while BOARD_EDITOR_CONTROL::GenerateDrillFiles shows it. */
   const [drillDlg, setDrillDlg] = useState<{ done: () => void } | null>(null);
   // DIALOG_GENCAD_EXPORT_OPTIONS while BOARD_EDITOR_CONTROL::ExportGenCAD shows it.
@@ -4523,6 +4527,8 @@ export function PcbEditor({
       ),
     showGenFootprintPositionDialog: (): Promise<void> =>
       new Promise<void>((resolve) => setPosFileDlg({ done: resolve })),
+    showExport2581Dialog: (): Promise<void> =>
+      new Promise<void>((resolve) => setIpc2581Dlg({ done: resolve })),
     showGencadExportOptionsDialog: (aDialog: DIALOG_GENCAD_EXPORT_OPTIONS): Promise<boolean> =>
       new Promise<boolean>((resolve) => setGencadDlg({ dialog: aDialog, resolve })),
     // `wxFile::Exists`: a file of that project-relative path in the project.
@@ -6397,6 +6403,10 @@ export function PcbEditor({
         // BOARD_EDITOR_CONTROL::GeneratePosFile.
         runAction(PCB_ACTIONS.generatePosFile);
         break;
+      case 'generateIPC2581File':
+        // BOARD_EDITOR_CONTROL::GenIPC2581File.
+        runAction(PCB_ACTIONS.generateIPC2581File);
+        break;
       case 'generateD356File':
         // BOARD_EDITOR_CONTROL::GenD356File.
         runAction(PCB_ACTIONS.generateD356File);
@@ -8197,6 +8207,19 @@ export function PcbEditor({
           onClose={() => {
             const done = posFileDlg.done;
             setPosFileDlg(null);
+            done();
+          }}
+        />
+      )}
+      {ipc2581Dlg && frameRef.current?.GetBoard() && (
+        <DialogExport2581
+          board={frameRef.current.GetBoard()!}
+          fileName={fileName ?? ''}
+          projectFolders={projectFolders}
+          {...(onOutputFile ? { onOutputFile } : {})}
+          onClose={() => {
+            const done = ipc2581Dlg.done;
+            setIpc2581Dlg(null);
             done();
           }}
         />

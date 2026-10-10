@@ -957,6 +957,12 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /** `GenIPC2581File` (files.cpp:1247): the dialog is modal, the handler returns at once. */
+  GenIPC2581File(_aEvent: TOOL_EVENT): number {
+    void this.getEditFrame<PCB_EDIT_FRAME>().ShowExport2581Dialog();
+    return 0;
+  }
+
   /** `GenD356File` (export_d356.cpp:437): the dialog is modal, the handler returns at once. */
   GenD356File(_aEvent: TOOL_EVENT): number {
     void BOARD_EDITOR_CONTROL_GenD356File(this.getEditFrame<PCB_EDIT_FRAME>());
@@ -1025,6 +1031,10 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GeneratePosFile),
       PCB_ACTIONS.generatePosFile.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenIPC2581File),
+      PCB_ACTIONS.generateIPC2581File.MakeEvent(),
     );
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenD356File),

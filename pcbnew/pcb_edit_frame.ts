@@ -753,6 +753,7 @@ export interface PCB_EDIT_FRAME_HOOKS extends PCB_BASE_EDIT_FRAME_DIALOG_HOOKS {
   fileExists?(aPath: string): boolean;
   /** `DIALOG_GEN_FOOTPRINT_POSITION dlg( this ); dlg.ShowModal()`. */
   showGenFootprintPositionDialog?(): Promise<void>;
+  showExport2581Dialog?(): Promise<void>;
   /** `DIALOG_PRINT_PCBNEW::ShowModal`: resolves when the dialog is closed. */
   showPrintDialog?(aDialog: DIALOG_PRINT_PCBNEW): Promise<void>;
   /** `ShowTargetOptionsDialog`: DIALOG_TARGET_PROPERTIES, modal. */
@@ -1400,6 +1401,11 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** `DIALOG_GEN_FOOTPRINT_POSITION::ShowModal` for BOARD_EDITOR_CONTROL::GeneratePosFile. */
   ShowGenFootprintPositionDialog(): Promise<void> {
     return this.hooks.showGenFootprintPositionDialog?.() ?? Promise.resolve();
+  }
+
+  /** `DIALOG_EXPORT_2581::ShowModal` for BOARD_EDITOR_CONTROL::GenIPC2581File. */
+  ShowExport2581Dialog(): Promise<void> {
+    return this.hooks.showExport2581Dialog?.() ?? Promise.resolve();
   }
 
   /** `dlg.ShowModal()` for PCB_CONTROL::Print. */
