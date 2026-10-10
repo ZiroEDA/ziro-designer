@@ -1587,7 +1587,8 @@ export class PCB_SELECTION_TOOL extends SELECTION_TOOL {
         evt.IsClick(BUT_LEFT) ||
         evt.IsAction(ACTIONS.cursorClick)
       ) {
-        points.Append(evt.Position());
+        // Append( const VECTOR2I& ): the VECTOR2D position truncates.
+        points.Append(toVECTOR2I(evt.Position()));
       } else if (
         evt.IsDblClick(BUT_LEFT) ||
         evt.IsAction(ACTIONS.cursorDblClick) ||

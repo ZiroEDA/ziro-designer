@@ -49,7 +49,7 @@
 
 import { segIntersectLines, segSquaredDistanceToPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import { circleIntersectLine } from '@ziroeda/kimath/src/geometry/circle.js';
-import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { type ANCHOR, ANCHOR_FLAGS, GRID_HELPER } from '@ziroeda/common/tool/grid_helper.js';
 import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
@@ -130,7 +130,7 @@ import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
 import { MAGNETIC_OPTIONS } from '../pcbnew_settings.js';
 import { arcSliceContainsPoint } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
-import { arcCenterI, truncVec } from '@ziroeda/kimath/src/geometry/shape_arc.js';
+import { arcCenterI } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 
 /** `SEG`, and the shape every segment type in this tree already has. */
 export interface GridSeg {
@@ -787,7 +787,7 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     // `const VECTOR2I& aOrigin`: callers pass GetMousePosition(), a VECTOR2D,
     // which the conversion truncates. A fraction left in throws in the BigInt
     // of TestSegmentHit.
-    a = truncVec(a);
+    a = toVECTOR2I(a);
 
     if (b instanceof LSET)
       return this.bestSnapAnchorLive(

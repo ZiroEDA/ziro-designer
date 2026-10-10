@@ -120,6 +120,7 @@ const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generato
   (via (at 40 10) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1) (uuid "${U(24)}"))
   (segment (start 40 10) (end 50 10) (width 0.25) (layer "B.Cu") (net 1) (uuid "${U(25)}"))
   (segment (start 100 100) (end 110 100) (width 0.25) (layer "F.Cu") (locked yes) (net 2) (uuid "${U(26)}"))
+  (segment (start 150 150) (end 160 155) (width 0.25) (layer "F.Cu") (net 0) (uuid "${U(27)}"))
 )
 `;
 
@@ -369,6 +370,22 @@ describe('PCB_SELECTION_TOOL::SelectRectArea / SelectMultiple (:1264-1597)', () 
   it('right to left selects what the box touches', () => {
     drag(h, mm(31, 11), mm(25, 9));
     expect(selectedUuids(h)).toEqual([U(21), U(23)]);
+  });
+
+  it('a box between two IUs selects as its truncated corners, as SELECTION_AREA holds VECTOR2I', () => {
+    // The drag hands VECTOR2D positions; a fraction left in the box threw in a
+    // hit test and left the tool m_multiple, the window cursor stuck for good.
+    const frac = (p: Vec2): Vec2 => ({ x: p.x + 0.67, y: p.y + 0.4 });
+    let err = '';
+    try {
+      drag(h, frac(mm(157, 156)), frac(mm(153, 150)));
+    } catch (e) {
+      err = String(e);
+    }
+    expect(err).toBe('');
+    expect(selectedUuids(h)).toEqual([U(27)]);
+    click(h, mm(15, 50));
+    expect(selectedUuids(h)).toEqual([U(12)]);
   });
 
   it('a box around a whole group selects the group', () => {
