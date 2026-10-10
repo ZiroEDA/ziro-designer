@@ -93,13 +93,14 @@ describe('SCH_EDIT_FRAME::LoadSettings', () => {
     const mgr = h.frame.GetToolManager()!;
     h.frame.LoadSettings(h.frame.config()!);
 
-    mgr.RunAction(ACTIONS.millimetersUnits);
-    expect(h.frame.GetUserUnits()).toBe('mm');
     mgr.RunAction(ACTIONS.inchesUnits);
     expect(h.frame.GetUserUnits()).toBe('in');
-    mgr.RunAction(ACTIONS.toggleUnits);
+    mgr.RunAction(ACTIONS.milsUnits); // the imperial unit Ctrl+U remembers is now mils
+    mgr.RunAction(ACTIONS.millimetersUnits);
     expect(h.frame.GetUserUnits()).toBe('mm');
     mgr.RunAction(ACTIONS.toggleUnits);
-    expect(h.frame.GetUserUnits()).toBe('in');
+    expect(h.frame.GetUserUnits()).toBe('mils');
+    mgr.RunAction(ACTIONS.toggleUnits);
+    expect(h.frame.GetUserUnits()).toBe('mm');
   });
 });
