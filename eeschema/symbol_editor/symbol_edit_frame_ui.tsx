@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
 import { iuToMM, SCH_IU_PER_MM } from '@ziroeda/common';
 import { parse } from '@ziroeda/sexpr';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
@@ -1090,6 +1091,11 @@ export function SymbolEditor({
   const [findOpen, setFindOpen] = useState<false | 'find' | 'replace'>(false);
   const [searchData, setSearchData] = useState<SchSearchData>(defaultSearchData);
   const [findStatus, setFindStatus] = useState('');
+  useEffect(() => {
+    if (!findStatus) return;
+    const t = setTimeout(() => setFindStatus(''), 2000);
+    return () => clearTimeout(t);
+  }, [findStatus]);
   const findCursor = useRef(-1);
   const lastMatch = useRef<SymbolItemRef | null>(null);
 
@@ -1147,7 +1153,8 @@ export function SymbolEditor({
       lastMatch.current = { kind: m.kind, unitIdx: m.unitIdx, itemIdx: m.itemIdx };
       setSelection(new Set([matchId(m)]));
       controller.current?.centerOn(m.pos);
-      setFindStatus(`${findCursor.current + 1} of ${all.length}`);
+      // FindNext's symbol arm reports nothing on a hit.
+      setFindStatus('');
     },
     [workSymbol, searchData, selectedRefs],
   );
@@ -2679,6 +2686,8 @@ export function SymbolEditor({
           style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         >
           {readOnlyNotice}
+          {/* `ShowFindReplaceStatus( msg, 2000 )`: the frame's info bar, for two seconds. */}
+          {findStatus && <Infobar message={findStatus} closable />}
           <div className="ze-canvas-wrap">
             <SymbolCanvas
               ref={controller}
@@ -2830,7 +2839,6 @@ export function SymbolEditor({
           onFindNext={() => doFind(1)}
           onFindPrevious={() => doFind(-1)}
           onClose={() => setFindOpen(false)}
-          status={findStatus}
           replace={findOpen === 'replace'}
           onReplace={doReplaceNext}
           onReplaceAll={doReplaceAll}

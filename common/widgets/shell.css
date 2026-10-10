@@ -4841,14 +4841,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* PCB Find dialog (DIALOG_FIND). Layout mirrors dialog_find_base.cpp:
    topSizer[ leftSizer | buttonSizer(vertical) ] / staticline / sizerStatus. */
 .ze-find-dialog {
+  /* A modeless dialog: the window chrome (face, border, the two rounded top
+     corners, the shadow) is `.ze-modal`'s, which it wears; all this says is
+     that it floats over the canvas instead of sitting on a backdrop. */
   position: absolute;
   top: 12px;
   right: 12px;
-  /* DIALOG_FIND states no size: bMainSizer->Fit( this ). */
-  width: max-content;
-  background: var(--chrome-bg);
-  border: 1px solid var(--chrome-border);
-  box-shadow: var(--popup-shadow);
   z-index: 60;
 }
 /* DRC Control (dialog_drc_base.cpp): the same DIALOG_SHIM chrome as the ERC
@@ -4986,45 +4984,117 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   cursor: default;
 }
 
-/* Schematic Find / Find and Replace (DIALOG_SCH_FIND) reuses the PCB find
-   shell but has its own two-column input grid and 3-column option grid-bag. */
-.ze-schfind-dialog {
-  /* `m_comboFind->SetMinSize( wxSize( 220,-1 ) )`
-     (eeschema/dialogs/dialog_sch_find_base.cpp:37) — the one stated number in
-     the file, and the only reason this shell is wider than pcbnew's. */
+/* ---------------------------------------------------------------------------
+   DIALOG_SCH_FIND (dialog_sch_find_base.cpp), the sizer tree in
+   eeschema/dialogs/dialog_sch_find.tsx. The chrome (face, caption, border) is
+   the modeless `.ze-find-dialog`'s and is not restated; every margin here is
+   one Add()'s own border.
+
+   mainSizer (V)
+     topSizer (H)                    1, wxEXPAND, no border
+       leftSizer (V)                 1, wxEXPAND|wxALL 5
+         leftGridSizer (3, 2, 3, 3)  0, wxALL|wxEXPAND 5, column 1 growable
+         gbSizer2 (0, 20), empty 8   1, wxEXPAND|wxTOP 5
+       rightSizer (V)                0, wxALL|wxEXPAND 6
+     bSizer6 (V)                     0, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT 5
+       m_staticline1                 wxEXPAND|wxTOP|wxBOTTOM 5
+       m_searchPanelLink             wxBOTTOM|wxRIGHT|wxLEFT|wxALIGN_RIGHT 5 */
+.ze-schfind-main {
+  display: flex;
+  flex-direction: column;
 }
-.ze-schfind-dialog .ze-schfind-inputs .ze-search {
-  min-width: 220px;
+.ze-schfind-top {
+  display: flex;
 }
-/* leftGridSizer( 3, 2 ), label | combo, second column growable. */
-.ze-schfind-inputs {
+.ze-schfind-left {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  margin: 5px; /* [data] leftSizer: wxALL 5 */
+}
+.ze-schfind-grid {
   display: grid;
   grid-template-columns: max-content 1fr;
   align-items: center;
-  column-gap: 8px;
-  row-gap: 6px;
+  gap: 3px; /* [data] wxFlexGridSizer( 3, 2, 3, 3 ) */
+  margin: 5px; /* [data] leftGridSizer: wxALL 5 */
 }
-.ze-schfind-inputs .ze-search {
-  min-width: 220px;
-  width: 100%;
+.ze-schfind-replace-label {
+  margin-right: 5px; /* [data] m_staticReplace: wxRIGHT 5 */
 }
-/* gbSizer2 = wxGridBagSizer( 0, 20 ), 3 columns, hgap 20. */
-.ze-schfind-scope {
+.ze-schfind-combo {
+  min-width: 220px; /* [data] m_comboFind->SetMinSize( wxSize( 220, -1 ) ) */
+}
+.ze-schfind-options {
   display: grid;
-  grid-template-columns: auto auto 1fr;
-  column-gap: 20px;
-  row-gap: 5px;
-  font-size: 12px;
+  grid-template-columns: repeat(3, max-content);
+  column-gap: 20px; /* [data] wxGridBagSizer( 0, 20 ) */
+  margin-top: 5px; /* [data] gbSizer2: wxTOP 5 */
 }
-.ze-schfind-scope label {
+.ze-schfind-options .ze-check {
+  margin: 0 5px 5px; /* [data] every box: wxBOTTOM|wxRIGHT|wxLEFT 5 */
+}
+.ze-schfind-options .r0 {
+  grid-row: 1;
+}
+.ze-schfind-options .r2 {
+  grid-row: 3;
+}
+.ze-schfind-options .r3 {
+  grid-row: 4;
+}
+.ze-schfind-options .r4 {
+  grid-row: 5;
+}
+.ze-schfind-options .r5 {
+  grid-row: 6;
+}
+.ze-schfind-options .r6 {
+  grid-row: 7;
+}
+.ze-schfind-options .c0 {
+  grid-column: 1;
+}
+.ze-schfind-options .c1 {
+  grid-column: 2;
+}
+.ze-schfind-options .c2 {
+  grid-column: 3;
+}
+.ze-schfind-options .span2 {
+  grid-column: 1 / span 2;
+}
+.ze-schfind-options .span3 {
+  grid-column: 1 / span 3;
+}
+.ze-schfind-empty {
+  grid-row: 2;
+  grid-column: 1;
+  height: 8px; /* [data] SetEmptyCellSize( wxSize( -1, 8 ) ) */
+}
+.ze-schfind-buttons {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
+  flex-direction: column;
+  margin: 6px; /* [data] rightSizer: wxALL 6 */
 }
-/* Empty spacer row (SetEmptyCellSize height 8). */
-.ze-schfind-gap {
-  height: 3px;
+.ze-schfind-buttons .ze-btn {
+  margin: 0 6px 6px; /* [data] Replace, Replace All, Close: wxBOTTOM|wxLEFT|wxRIGHT 6 */
+}
+.ze-schfind-buttons .ze-btn:first-child {
+  margin-top: 6px; /* [data] m_buttonFind: wxALL 6 */
+}
+.ze-schfind-foot {
+  display: flex;
+  flex-direction: column;
+  margin: 0 5px 5px; /* [data] bSizer6: wxBOTTOM|wxRIGHT|wxLEFT 5 */
+}
+.ze-schfind-line {
+  border-top: 1px solid var(--chrome-border); /* [css] a wxStaticLine is a GtkSeparator: `separator { min-height: 1px }` */
+  margin: 5px 0; /* [data] m_staticline1: wxTOP|wxBOTTOM 5 */
+}
+.ze-schfind-link {
+  align-self: flex-end; /* [data] wxALIGN_RIGHT */
+  margin: 0 5px 5px; /* [data] wxBOTTOM|wxRIGHT|wxLEFT 5 */
 }
 
 /* Annotate Schematic dialog (DIALOG_ANNOTATE). */

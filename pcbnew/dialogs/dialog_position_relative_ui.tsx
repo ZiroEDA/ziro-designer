@@ -77,7 +77,7 @@ export function DialogPositionRelativeModeless({
 
   return (
     <div
-      className="ze-find-dialog ze-posrel"
+      className="ze-modal ze-find-dialog ze-posrel"
       role="dialog"
       aria-label={DIALOG_POSITION_RELATIVE_TITLE}
       onMouseDown={(e) => e.stopPropagation()}

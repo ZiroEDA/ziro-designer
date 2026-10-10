@@ -6819,8 +6819,9 @@ export function SchematicEditor({
                 onFindNext={() => findDialog.OnFind()}
                 onFindPrevious={() => findDialog.OnFindKey(true)}
                 onClose={() => findDialog.OnCancel()}
-                // DIALOG_SCH_FIND has no status line: the tool reports on the info bar.
-                status=""
+                findStrings={findDialog.GetFindComboStrings()}
+                replaceStrings={findDialog.GetReplaceEntries()}
+                canReplace={findDialog.CanReplace()}
                 replace={findDialog.IsReplaceDialog()}
                 onReplace={() => findDialog.OnReplace(false)}
                 onReplaceAll={() => findDialog.OnReplace(true)}

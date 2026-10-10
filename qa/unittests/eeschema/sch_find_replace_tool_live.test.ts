@@ -261,13 +261,13 @@ describe('DIALOG_SCH_FIND', () => {
     expect(h.dlg.GetControlValues().searchCurrentSheetOnly).toBe(true);
   });
 
-  it('a regular expression only counts in the replace dialog, where the box is shown', () => {
+  it('a regular expression counts in Find as well as Find and Replace: the base never hides the box', () => {
     const find = open(false);
     find.dlg.OnOptions({ regexMatch: true });
     const replace = open(true);
     replace.dlg.OnOptions({ regexMatch: true });
 
-    expect(find.data().matchMode).toBe(EDA_SEARCH_MATCH_MODE.PLAIN);
+    expect(find.data().matchMode).toBe(EDA_SEARCH_MATCH_MODE.REGEX);
     expect(replace.data().matchMode).toBe(EDA_SEARCH_MATCH_MODE.REGEX);
   });
 

@@ -826,7 +826,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // colours and nine px. (8d09a787's `.ze-fp3d-icon` height, one unmarked px
   // that briefly put this at 684, now carries its [px] like the width beside it:
   // GRID_CELL_STATUS_ICON_RENDERER's wxART_BUTTON bitmap, 16 x 16.) Rescanned.
-  'common/widgets': { colours: 130, metrics: 675 },
+  'common/widgets': { colours: 130, metrics: 669 },
   'common/tool': { colours: 0, metrics: 1 },
   // metrics 0 -> 15 on 09-26: the stage-1 moves, 8 from `dialogs` and 7 from
   // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
@@ -1629,7 +1629,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // list heights, gaps and paddings, deleted with it.
     // 1072 -> 1071 (10-10): `editors/schematic` 113 -> 112 - the window's own page-number
     // dialog, replaced by SCH_EDIT_TOOL::EditPageNumber's text entry.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1071);
+    // 1071 -> 1065 (10-10): `common/widgets` 675 -> 669 - DIALOG_SCH_FIND's CSS rebuilt from
+    // dialog_sch_find_base.cpp, every remaining number a [data] border.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1065);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

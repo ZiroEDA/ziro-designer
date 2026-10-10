@@ -52,7 +52,7 @@
  * — four option boxes gone, pin search forced ON rather than merely defaulted,
  * and the separator plus the "Show search panel" link gone with them. What is
  * left in that frame is Match case, Whole words only, Regular Expression,
- * Include hidden fields, and (replace mode only) the current-selection scope.
+ * Include hidden fields and the current-selection scope.
  *
  * Layout mirrors the base sizers exactly:
  *
@@ -66,11 +66,12 @@
  * hidden in both modes, so they are omitted here. "Replace with:", the
  * "Replace matches in reference designators" option, and the Replace /
  * Replace All buttons appear only in Find and Replace mode
- * (wxFR_REPLACEDIALOG). Enter / F3 = find, Shift+Enter / Shift+F3 = reverse,
- * Esc = close. Options whose engines we don't have yet (net names, the
- * search panel) are greyed in place.
+ * (wxFR_REPLACEDIALOG). Enter = Find, F3 / Shift+F3 = OnCharHook, Esc = close.
  */
-import { useEffect, useRef, useState, type JSX } from 'react';
+import { useEffect, useRef, type JSX } from 'react';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { KeyNameFromKeyCode } from '@ziroeda/common/hotkeys_basic.js';
+import { TextCombo } from '@ziroeda/common/widgets/wx_combobox.js';
 import type { MatchMode, SchSearchData } from '../tools/sch_find_replace_tool.js';
 import type { SCH_FIND_REPLACE_TOOL } from '../tools/sch_find_replace_tool.js';
 import type { SCH_BASE_FRAME } from '../sch_base_frame.js';
@@ -92,12 +93,15 @@ interface Props {
   onFindNext: () => void;
   onFindPrevious: () => void;
   onClose: () => void;
-  /** "1 of 12" style status; empty until a search ran. */
-  status: string;
-  /** Replace mode (Find and Replace): shows the replace row and buttons. */
+  /** Replace mode (wxFR_REPLACEDIALOG): the replace row, its option and buttons. */
   replace?: boolean;
   onReplace?: () => void;
   onReplaceAll?: () => void;
+  /** m_comboFind / m_comboReplace's drop-down lists: the frame's histories. */
+  findStrings?: readonly string[];
+  replaceStrings?: readonly string[];
+  /** `OnUpdateReplaceUI`: Replace is enabled only with a current match. */
+  canReplace?: boolean;
   /**
    * `DIALOG_SCH_FIND::onShowSearchPanel`. Absent in the symbol editor, where
    * upstream hides the link (and the separator above it) outright.
@@ -112,20 +116,17 @@ export function DialogSchFind({
   onFindNext,
   onFindPrevious,
   onClose,
-  status,
   replace,
   onReplace,
   onReplaceAll,
+  findStrings = [],
+  replaceStrings = [],
+  canReplace = true,
   onShowSearchPanel,
 }: Props): JSX.Element {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [text, setText] = useState(data.findString);
   const symbolEditor = frame === 'FRAME_SCH_SYMBOL_EDITOR';
-
-  useEffect(() => {
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, []);
+  // DIALOG_SHIM: Escape is wxID_CANCEL, which OnCancel turns into a close.
+  useModalEscape(onClose);
 
   // `m_findReplaceData->searchAllPins = true;` — the CONSTRUCTOR sets the flag
   // for this frame, it does not merely tick a box, so a symbol's pins are
@@ -139,205 +140,199 @@ export function DialogSchFind({
     if (symbolEditor && !data.searchAllPins) onChange({ ...data, searchAllPins: true });
   }, [symbolEditor, data, onChange]);
 
-  const commitText = (value: string): void => {
-    setText(value);
-    onChange({ ...data, findString: value });
-  };
   const setMode = (mode: MatchMode, on: boolean): void =>
     onChange({ ...data, matchMode: on ? mode : 'plain' });
 
+  const check = (
+    label: string,
+    checked: boolean,
+    set: (on: boolean) => void,
+    className: string,
+    disabled = false,
+  ) => (
+    <label className={`ze-check ${className}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => set(e.target.checked)}
+      />
+      {label}
+    </label>
+  );
+
+  // `ACTIONS::showSearch.GetHotKey()` appended as " (%s)" (dialog_sch_find.cpp:83-87).
+  const hotkey = ACTIONS.showSearch.GetHotKey();
+  const linkLabel = `Show search panel${hotkey ? ` (${KeyNameFromKeyCode(hotkey)})` : ''}`;
+
   return (
-    <div className="ze-find-dialog ze-schfind-dialog" onMouseDown={(e) => e.stopPropagation()}>
+    <div
+      className="ze-modal ze-find-dialog ze-schfind"
+      onMouseDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        // OnCharHook: F3 / Shift+F3 search from the dialog's own string.
+        if (e.key === 'F3') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.shiftKey) onFindPrevious();
+          else onFindNext();
+        }
+      }}
+    >
       <div className="ze-modal-header">
         {replace ? 'Find and Replace' : 'Find'}
-        <span className="x" onClick={onClose}>
+        <span className="x" title="Close" onClick={onClose}>
           ✕
         </span>
       </div>
-      <div className="ze-find-body">
-        {/* topSizer: left content (grows) + button column (right) */}
-        <div className="ze-find-top">
-          <div className="ze-find-left">
-            {/* leftGridSizer: label | combo, second column growable */}
-            <div className="ze-schfind-inputs">
-              <span>Search for:</span>
-              <input
-                ref={inputRef}
-                className="ze-search"
-                value={text}
-                placeholder="Text with optional wildcards"
-                onChange={(e) => commitText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (e.shiftKey) onFindPrevious();
-                    else onFindNext();
-                  } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    onClose();
-                  }
-                }}
+      {/* mainSizer (V) */}
+      <div className="ze-schfind-main">
+        {/* topSizer (H), proportion 1 */}
+        <div className="ze-schfind-top">
+          {/* leftSizer (V), 1, wxEXPAND|wxALL 5 */}
+          <div className="ze-schfind-left">
+            {/* leftGridSizer( 3, 2, 3, 3 ), column 1 growable; wxALL|wxEXPAND 5 */}
+            <div className="ze-schfind-grid">
+              <span className="ze-schfind-label">Search for:</span>
+              <TextCombo
+                className="ze-schfind-combo"
+                // m_comboFind->SetToolTip( _( "Text with optional wildcards" ) )
+                title="Text with optional wildcards"
+                value={data.findString}
+                options={findStrings}
+                autoFocus
+                onChange={(v) => onChange({ ...data, findString: v })}
+                // wxTE_PROCESS_ENTER: OnSearchForEnter is OnFind.
+                onEnter={onFindNext}
               />
               {replace && (
                 <>
-                  <span>Replace with:</span>
-                  <input
-                    className="ze-search"
+                  <span className="ze-schfind-label ze-schfind-replace-label">Replace with:</span>
+                  <TextCombo
+                    className="ze-schfind-combo"
                     value={data.replaceString}
-                    onChange={(e) => onChange({ ...data, replaceString: e.target.value })}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        onReplace?.();
-                      } else if (e.key === 'Escape') {
-                        e.preventDefault();
-                        onClose();
-                      }
-                    }}
+                    options={replaceStrings}
+                    onChange={(v) => onChange({ ...data, replaceString: v })}
+                    // OnReplaceWithEnter is OnFind too.
+                    onEnter={onFindNext}
                   />
                 </>
               )}
             </div>
-            {/* gbSizer2: 3-column grid-bag of search options (hgap 20). */}
-            <div className="ze-schfind-scope">
-              <label style={{ gridColumn: 1 }}>
-                <input
-                  type="checkbox"
-                  checked={data.matchCase}
-                  onChange={(e) => onChange({ ...data, matchCase: e.target.checked })}
-                />
-                Match case
-              </label>
-              <label style={{ gridColumn: 2 }}>
-                <input
-                  type="checkbox"
-                  checked={data.matchMode === 'wholeword'}
-                  onChange={(e) => setMode('wholeword', e.target.checked)}
-                />
-                Whole words only
-              </label>
-              <label style={{ gridColumn: 3 }}>
-                <input
-                  type="checkbox"
-                  checked={data.matchMode === 'regex'}
-                  onChange={(e) => setMode('regex', e.target.checked)}
-                />
-                Regular Expression
-              </label>
-              {/* gbSizer2 row 1 is an empty 8px spacer row. */}
-              <div className="ze-schfind-gap" style={{ gridColumn: '1 / -1' }} />
-              {/* `m_cbSearchPins->Hide()` — forced on and hidden in the
-                  Symbol Editor, where every symbol pin is always searched. */}
-              {!symbolEditor && (
-                <label style={{ gridColumn: '1 / -1' }}>
-                  <input
-                    type="checkbox"
-                    checked={data.searchAllPins}
-                    onChange={(e) => onChange({ ...data, searchAllPins: e.target.checked })}
-                  />
-                  Search pin names and numbers
-                </label>
+            {/* gbSizer2 = wxGridBagSizer( 0, 20 ), empty cell height 8; 1, wxEXPAND|wxTOP 5.
+                Each box is wxBOTTOM|wxRIGHT|wxLEFT 5. */}
+            <div className="ze-schfind-options">
+              {check(
+                'Match case',
+                data.matchCase,
+                (on) => onChange({ ...data, matchCase: on }),
+                'r0 c0',
               )}
-              <label style={{ gridColumn: '1 / -1' }}>
-                <input
-                  type="checkbox"
-                  checked={data.searchAllFields}
-                  onChange={(e) => onChange({ ...data, searchAllFields: e.target.checked })}
-                />
-                Include hidden fields
-              </label>
-              {/* `m_cbCurrentSheetOnly->Hide()` — a symbol has no sheets. */}
-              {!symbolEditor && (
-                <label style={{ gridColumn: '1 / -1' }}>
-                  <input
-                    type="checkbox"
-                    checked={data.searchCurrentSheetOnly}
-                    disabled={data.searchSelectedOnly}
-                    onChange={(e) =>
-                      onChange({ ...data, searchCurrentSheetOnly: e.target.checked })
-                    }
-                  />
-                  Search the current sheet only
-                </label>
+              {check(
+                'Whole words only',
+                data.matchMode === 'wholeword',
+                (on) => setMode('wholeword', on),
+                'r0 c1',
               )}
-              <label style={{ gridColumn: '1 / -1' }}>
-                <input
-                  type="checkbox"
-                  checked={data.searchSelectedOnly}
-                  onChange={(e) => onChange({ ...data, searchSelectedOnly: e.target.checked })}
-                />
-                Search the current selection only
-              </label>
-              {/* `m_cbReplaceReferences->Hide()` — the Reference field of a
-                  LIB_SYMBOL never matches at all (`sch_field.cpp:637-641`). */}
-              {replace && !symbolEditor && (
-                <label style={{ gridColumn: '1 / -1' }}>
-                  <input
-                    type="checkbox"
-                    checked={data.replaceReferences}
-                    onChange={(e) => onChange({ ...data, replaceReferences: e.target.checked })}
-                  />
-                  Replace matches in reference designators
-                </label>
+              {check(
+                'Regular Expression',
+                data.matchMode === 'regex',
+                (on) => setMode('regex', on),
+                'r0 c2',
               )}
-              {/* Last in the box, as dialog_sch_find_base.cpp orders it: it
-                  comes after the replace option, not beside the pin search.
-                  `m_cbSearchNetNames->Hide()` in the Symbol Editor — the walk
-                  there passes `aSheet = nullptr`, so there is no connection to
-                  read a net name off (`sch_pin.cpp:514-523`). */}
-              {!symbolEditor && (
-                <label style={{ gridColumn: '1 / -1' }}>
-                  <input
-                    type="checkbox"
-                    checked={data.searchNetNames}
-                    onChange={(e) => onChange({ ...data, searchNetNames: e.target.checked })}
-                  />
-                  Search net names
-                </label>
+              {/* Row 1 is empty: SetEmptyCellSize( wxSize( -1, 8 ) ). */}
+              <span className="ze-schfind-empty" />
+              {!symbolEditor &&
+                check(
+                  'Search pin names and numbers',
+                  data.searchAllPins,
+                  (on) => onChange({ ...data, searchAllPins: on }),
+                  'r2 c0 span2',
+                )}
+              {!symbolEditor &&
+                check(
+                  'Search net names',
+                  data.searchNetNames,
+                  (on) => onChange({ ...data, searchNetNames: on }),
+                  'r2 c2',
+                )}
+              {check(
+                'Include hidden fields',
+                data.searchAllFields,
+                (on) => onChange({ ...data, searchAllFields: on }),
+                'r3 c0 span3',
               )}
+              {!symbolEditor &&
+                check(
+                  'Search the current sheet only',
+                  data.searchCurrentSheetOnly,
+                  (on) => onChange({ ...data, searchCurrentSheetOnly: on }),
+                  'r4 c0 span3',
+                  data.searchSelectedOnly,
+                )}
+              {check(
+                'Search the current selection only',
+                data.searchSelectedOnly,
+                (on) => onChange({ ...data, searchSelectedOnly: on }),
+                'r5 c0 span3',
+              )}
+              {replace &&
+                !symbolEditor &&
+                check(
+                  'Replace matches in reference designators',
+                  data.replaceReferences,
+                  (on) => onChange({ ...data, replaceReferences: on }),
+                  'r6 c0 span3',
+                )}
             </div>
           </div>
-          {/* rightSizer: vertical button stack. */}
-          <div className="ze-find-buttons">
-            <button type="button" className="primary" onClick={onFindNext}>
+          {/* rightSizer (V), 0, wxALL|wxEXPAND 6 */}
+          <div className="ze-schfind-buttons">
+            {/* m_buttonFind->SetDefault(); wxALL|wxEXPAND 6 */}
+            <button type="button" className="ze-btn primary" onClick={onFindNext}>
               Find
             </button>
             {replace && (
-              <button type="button" onClick={onReplace}>
+              <button
+                type="button"
+                className="ze-btn"
+                disabled={!data.findString || !canReplace}
+                onClick={onReplace}
+              >
                 Replace
               </button>
             )}
             {replace && (
-              <button type="button" onClick={onReplaceAll}>
+              <button
+                type="button"
+                className="ze-btn"
+                disabled={!data.findString}
+                onClick={onReplaceAll}
+              >
                 Replace All
               </button>
             )}
-            <button type="button" onClick={onClose}>
+            <button type="button" className="ze-btn" onClick={onClose}>
               Close
             </button>
           </div>
         </div>
-        {/* `m_staticline1->Hide()` in the Symbol Editor, with the link. */}
-        {!symbolEditor && <div className="ze-find-sep" />}
-        {/* bSizer6: status + "Show search panel" link. */}
-        <div className="ze-find-status">
-          <span className="status">{status}</span>
-          {/* `m_searchPanelLink->Hide()` — that frame has no search panel. */}
-          {!symbolEditor && onShowSearchPanel && (
-            // The label carries the action's hotkey, as upstream appends
-            // KeyNameFromKeyCode( ACTIONS::showSearch.GetHotKey() ) to it.
-            <button
-              type="button"
-              className="ze-find-panellink"
-              onClick={() => {
-                onShowSearchPanel();
-                onClose();
-              }}
-            >
-              Show search panel (Ctrl+G)
-            </button>
-          )}
-        </div>
+        {/* bSizer6 (V), wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT 5. `m_staticline1->Hide()` and
+            `m_searchPanelLink->Hide()` in the Symbol Editor. */}
+        {!symbolEditor && (
+          <div className="ze-schfind-foot">
+            <div className="ze-schfind-line" />
+            {onShowSearchPanel && (
+              <button
+                type="button"
+                className="ze-hyperlink ze-schfind-link"
+                onClick={onShowSearchPanel}
+              >
+                {linkLabel}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -514,7 +509,8 @@ export class DIALOG_SCH_FIND {
     if (c.currentSheetOnlyEnabled) data.searchCurrentSheetOnly = c.currentSheetOnly;
 
     if (c.wholeWord) data.matchMode = EDA_SEARCH_MATCH_MODE.WHOLEWORD;
-    else if (this.m_replace && c.regexMatch) data.matchMode = EDA_SEARCH_MATCH_MODE.REGEX;
+    // m_checkRegexMatch->IsShown(): the base never hides it, so in both modes and both frames.
+    else if (c.regexMatch) data.matchMode = EDA_SEARCH_MATCH_MODE.REGEX;
     else data.matchMode = EDA_SEARCH_MATCH_MODE.PLAIN;
 
     if (c.selectedOnly) {
@@ -554,6 +550,11 @@ export class DIALOG_SCH_FIND {
 
     if (!aAll) this.m_findReplaceTool.ReplaceAndFindNext(ACTIONS.replaceAndFindNext.MakeEvent());
     else this.m_findReplaceTool.ReplaceAll(ACTIONS.replaceAll.MakeEvent());
+  }
+
+  /** m_comboFind->GetStrings() as it stands, for the drop-down. */
+  GetFindComboStrings(): readonly string[] {
+    return this.m_findStrings;
   }
 
   GetFindEntries(): string[] {

@@ -51,7 +51,7 @@ export function DialogPcbFind({ dialog, onClose }: Props): JSX.Element {
   };
 
   return (
-    <div className="ze-find-dialog" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="ze-modal ze-find-dialog" onMouseDown={(e) => e.stopPropagation()}>
       <div className="ze-modal-header">
         Find
         <span className="x" onClick={onClose}>
