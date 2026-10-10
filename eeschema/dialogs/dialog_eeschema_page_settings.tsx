@@ -36,6 +36,11 @@
 
 import type { JSX } from 'react';
 import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings.js';
+import { pageSettingsValue, toPaperToken } from '@ziroeda/common/dialogs/dialog_page_settings.js';
+import { type PAGE_INFO, pageInfoOfPaper, paperOfPageInfo } from '@ziroeda/common/page_info.js';
+import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
+import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
+import { type SCH_SCREEN, SCH_SCREENS } from '../sch_screen.js';
 import {
   COMMENT_COUNT,
   type PageExportFlags,
@@ -184,4 +189,88 @@ export function DialogEeschemaPageSettings({
       onCancel={onCancel}
     />
   );
+}
+
+/**
+ * DIALOG_EESCHEMA_PAGE_SETTINGS's transfer from the window over the live schematic: the base
+ * DIALOG_PAGES_SETTINGS::TransferDataFromWindow writes the page and the title block into the
+ * frame's screen, then `onSavePageSettings` (dialog_eeschema_page_settings.cpp:134-190) copies
+ * what each "Export to other sheets" box asks for into every other screen.
+ */
+export class DIALOG_EESCHEMA_PAGE_SETTINGS {
+  private readonly m_parent: SCH_EDIT_FRAME;
+  private readonly m_screen: SCH_SCREEN;
+
+  constructor(aParent: SCH_EDIT_FRAME) {
+    this.m_parent = aParent;
+    this.m_screen = aParent.GetScreen()!;
+  }
+
+  /** What the form opens on: the screen's page and title block. */
+  TransferDataToWindow(): PageSettingsValue {
+    const tb = this.m_screen.GetTitleBlock();
+
+    return pageSettingsValue(paperOfPageInfo(this.m_screen.GetPageSettings()), {
+      title: tb.GetTitle(),
+      date: tb.GetDate(),
+      rev: tb.GetRevision(),
+      company: tb.GetCompany(),
+      comments: Array.from({ length: 9 }, (_, i) => tb.GetComment(i)),
+    });
+  }
+
+  /** `GetPageCount()` / `GetVirtualPageNumber()` for the sheet tallies. */
+  SheetTallies(): { count: number; number: number } {
+    return {
+      count: this.m_screen.GetPageCount(),
+      number: this.m_screen.GetVirtualPageNumber(),
+    };
+  }
+
+  TransferDataFromWindow(aValue: PageSettingsValue, aExports: PageExportFlags): boolean {
+    const pageInfo = pageInfoOfPaper(toPaperToken(aValue), this.m_screen.GetPageSettings());
+    const tb = new TITLE_BLOCK();
+    tb.SetTitle(aValue.title);
+    tb.SetDate(aValue.date);
+    tb.SetRevision(aValue.rev);
+    tb.SetCompany(aValue.company);
+    aValue.comments.forEach((c, i) => tb.SetComment(i, c));
+
+    this.m_screen.SetPageSettings(pageInfo);
+    this.m_screen.SetTitleBlock(tb);
+
+    return this.onSavePageSettings(pageInfo, tb, aExports);
+  }
+
+  protected onSavePageSettings(
+    aPageInfo: PAGE_INFO,
+    aTb: TITLE_BLOCK,
+    aExports: PageExportFlags,
+  ): boolean {
+    // Exports settings to other sheets if requested:
+    const ScreenList = new SCH_SCREENS(this.m_parent.Schematic().Root());
+
+    // Update page info and/or title blocks for all screens
+    for (let screen = ScreenList.GetFirst(); screen; screen = ScreenList.GetNext()) {
+      if (screen === this.m_screen) continue;
+
+      if (aExports.paper) screen.SetPageSettings(aPageInfo);
+
+      const tb2 = screen.GetTitleBlock();
+
+      if (aExports.rev) tb2.SetRevision(aTb.GetRevision());
+
+      if (aExports.date) tb2.SetDate(aTb.GetDate());
+
+      if (aExports.title) tb2.SetTitle(aTb.GetTitle());
+
+      if (aExports.company) tb2.SetCompany(aTb.GetCompany());
+
+      for (let i = 0; i < 9; i++) if (aExports.comments[i]) tb2.SetComment(i, aTb.GetComment(i));
+
+      screen.SetTitleBlock(tb2);
+    }
+
+    return true;
+  }
 }

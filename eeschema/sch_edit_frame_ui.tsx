@@ -100,9 +100,6 @@ import {
   instanceKey,
   getSheetPageNumber,
   getRootPageNumber,
-  setSheetPageNumberCommand,
-  setRootPageNumberCommand,
-  setPageSettingsCommand,
   getPageSettings,
   bulkEditFieldsCommand,
   bulkEditSymbolAttributesCommand,
@@ -119,7 +116,6 @@ import {
   type SelectionFilterOptions,
   type PasteMode,
   type PasteOptions,
-  type PageSettings,
   findMatches,
   replaceCommand,
   defaultSearchData,
@@ -273,13 +269,10 @@ import type { DIALOG_CHANGE_SYMBOLS_MODE } from './tools/sch_edit_tool.js';
 import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import { DialogLineProperties } from './dialogs/dialog_line_properties.js';
-import { DialogEeschemaPageSettings } from './dialogs/dialog_eeschema_page_settings.js';
 import {
-  pageSettingsValue,
-  toPaperToken,
-  type PageExportFlags,
-  type PageSettingsValue,
-} from '@ziroeda/common/dialogs/dialog_page_settings.js';
+  DIALOG_EESCHEMA_PAGE_SETTINGS,
+  DialogEeschemaPageSettings,
+} from './dialogs/dialog_eeschema_page_settings.js';
 // `DIALOG_PASTE_SPECIAL` is a `common/dialogs/` dialog upstream, built by
 // eeschema AND pcbnew, so it is one module here too rather than a copy under
 // this editor's own `dialogs/`. `SCH_EDITOR_CONTROL::Paste` supplies the two
@@ -523,18 +516,6 @@ const SETTINGS_TOGGLES = new Set([
 
 /** ERC_TESTER::TestDuplicateSheetNames, the guard the highlight tools run
  *  before picking (sheet names compare case-insensitively upstream). */
-/**
- * The Page Settings dialog's seed value for a document.
- *
- * `TransferDataToWindow` builds it from `m_parent->GetPageSettings()` and
- * `m_parent->GetTitleBlock()` (dialog_page_settings.cpp:120, :72); ours has to
- * split the stored `(paper …)` token into PAGE_INFO's three pieces first.
- */
-function pageSettingsSeed(sch: Schematic): PageSettingsValue {
-  const s = getPageSettings(sch);
-  return pageSettingsValue(s.paper, s);
-}
-
 // The "Current Tool" status-bar field (EDA_DRAW_FRAME::DisplayToolMsg):
 // TOOLS_HOLDER::PushTool shows the active action's FriendlyName; the idle
 // selection tool reads "Select item(s)". Names from sch_actions.cpp /
@@ -1168,19 +1149,6 @@ export function SchematicEditor({
   } | null>(null);
   // Unfold from Bus leaves the wire tool drawing away from the new entry
   // (SCH_LINE_WIRE_BUS_TOOL continues into its drawing loop).
-  // Editing the current sheet's page number (SCH_ACTIONS::editPageNumber).
-  // The page-number dialog. `sheet` is the selected sheet's index and uuid when
-  // the edit targets a *sub*-sheet from the context menu; without it the open
-  // sheet's own page number is edited, which is what the Edit menu does.
-  const [pageEdit, setPageEdit] = useState<{
-    page: string;
-    sheet?: { index: number; uuid: string };
-  } | null>(null);
-
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts. Registered only while the dialog is up, so a
-  // closed one does not sit on the stack swallowing the key.
-  useModalEscape(() => setPageEdit(null), pageEdit !== null);
   // Editing a wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES) or a junction's
   // diameter (DIALOG_JUNCTION_PROPS).
   // A bus entry opens the same DIALOG_WIRE_BUS_PROPERTIES a wire does: upstream
@@ -1758,6 +1726,10 @@ export function SchematicEditor({
           const dlg = aArg as { pasteMode: PasteSpecialMode };
           return new Promise<number>((resolve) => setPasteSpecialDialog({ dlg, resolve }));
         }
+        if (aDialog === 'DIALOG_EESCHEMA_PAGE_SETTINGS') {
+          const dlg = new DIALOG_EESCHEMA_PAGE_SETTINGS(schFrameRef.current!);
+          return new Promise<number>((resolve) => setPageDialog({ dlg, resolve }));
+        }
         console.warn(`${aDialog} is not ported to the live model yet`);
         return wxID_CANCEL;
       },
@@ -2143,10 +2115,6 @@ export function SchematicEditor({
     navTool.current.cleanHistory(new Set(flatSheets.map((s) => s.path)));
   }, [flatSheets]);
 
-  // Bumped after editing a page number in a sheet's *parent* document, so any
-  // page-number display refreshes even though `doc`/`currentFile` didn't change.
-  const [, forcePageRefresh] = useState(0);
-
   // Live documents with the on-screen sheet's edits folded in.
   const liveDocs = useCallback((): Map<string, Schematic> => {
     const docs = new Map(project.current.docs);
@@ -2306,50 +2274,6 @@ export function SchematicEditor({
     });
   }, [flatSheets, pageNumberOf, sheetInstanceRefs]);
 
-  // Set the current sheet's page number (SCH_ACTIONS::editPageNumber →
-  // SCH_SHEET_PATH::SetPageNumber). The root edits its own document; a sub-sheet
-  // edits its object in the *parent* document (through that doc's own history).
-  const editPageNumber = useCallback(
-    (page: string, target?: { index: number; uuid: string }) => {
-      // SCH_EDIT_TOOL::EditPageNumber with a sheet selected edits *that*
-      // sheet's instance under the open sheet, not the open sheet's own:
-      //
-      //   SCH_SHEET_PATH instance = m_frame->GetCurrentSheet();
-      //   instance.push_back( sheet );
-      //
-      // so the path is the current one with the selected sheet pushed on.
-      if (target) {
-        const docs = liveDocs();
-        const rootUuid = docs.get(project.current.root)?.uuid;
-        if (!rootUuid) return;
-        const chain = [...currentPath.split('/').filter(Boolean), target.uuid];
-        runCommand(setSheetPageNumberCommand(target.index, instanceKey(rootUuid, chain), page));
-        return;
-      }
-      if (currentPath === '/') {
-        runCommand(setRootPageNumberCommand(page));
-        return;
-      }
-      const docs = liveDocs();
-      const rootUuid = docs.get(project.current.root)?.uuid;
-      if (!rootUuid) return;
-      const chain = currentPath.split('/').filter(Boolean);
-      const ownUuid = chain[chain.length - 1];
-      const parent = flatSheets.find((s) => s.path === (parentPath(currentPath) ?? '/'));
-      const parentFile = parent?.file ?? project.current.root;
-      const parentDoc = parentFile === currentFile ? doc : project.current.docs.get(parentFile);
-      if (!parentDoc) return;
-      const sheetIndex = parentDoc.sheets.findIndex((s) => s.uuid === ownUuid);
-      if (sheetIndex === -1) return;
-      const cmd = setSheetPageNumberCommand(sheetIndex, instanceKey(rootUuid, chain), page);
-      // The sheet object lives in the PARENT document, which may not be the one
-      // on screen. One entry either way: the stack is the project's.
-      runProject(new Map([[parentFile, cmd]]));
-      if (parentFile !== currentFile) forcePageRefresh((n) => n + 1);
-    },
-    [currentPath, currentFile, doc, flatSheets, liveDocs, runProject],
-  );
-
   // Find / Find and Replace (SCH_FIND_REPLACE_TOOL): modeless dialog state
   // (false, or which mode it opened in), the search settings, and a cursor
   // over the matches across sheet instances in hierarchy order.
@@ -2387,7 +2311,11 @@ export function SchematicEditor({
    */
   // Page Settings (DIALOG_PAGES_SETTINGS), Print (DIALOG_PRINT) and Plot
   // (DIALOG_PLOT_SCHEMATIC) dialogs, open flags.
-  const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
+  // DIALOG_EESCHEMA_PAGE_SETTINGS for the live SCH_EDITOR_CONTROL::PageSetup.
+  const [pageDialog, setPageDialog] = useState<{
+    dlg: DIALOG_EESCHEMA_PAGE_SETTINGS;
+    resolve: (aRetval: number) => void;
+  } | null>(null);
   // Raw project files (kept for the .kicad_pro drawing-sheet reference and the
   // project's .kicad_wks files); reseeded whenever a project is (re)opened.
   const [rawFiles, setRawFiles] = useState<PickedFile[]>(() => initialProject ?? []);
@@ -2594,20 +2522,10 @@ export function SchematicEditor({
   // the dialog stays open showing them (WX_HTML_REPORT_PANEL).
   const [annotateMessages, setAnnotateMessages] = useState<readonly ReportLine[]>([]);
 
-  // Page Settings (DIALOG_PAGES_SETTINGS::onOK): write paper + title block back
-  // through an undoable command; fields with "Export to other sheets" checked
-  // are copied into every other sheet file (upstream's OnOkClick loop), via
-  // the same cross-document pattern as the bulk field edits.
-  const applyPageSettings = useCallback(
-    (next: PageSettings, exports: PageExportFlags, sheet: WksSheet | null, sheetName: string) => {
-      runCommand(setPageSettingsCommand(next));
-      // The ticks themselves are persisted by DIALOG_EESCHEMA_PAGE_SETTINGS —
-      // its destructor, which is `onStoreExports` at the call site. They are a
-      // preference rather than one-shot dialog state: `InitSheet` consults them
-      // when a *new* sheet is created, so a project that wants its title
-      // carried onto every sheet only says so once.
-      // Adopt the chosen drawing sheet (name '' = built-in default) and persist
-      // it into .kicad_pro (schematic.page_layout_descr_file), like KiCad.
+  // The drawing sheet the Page Settings dialog chose (name '' = the built-in default): adopted
+  // for the view and persisted into .kicad_pro (schematic.page_layout_descr_file), like KiCad.
+  const adoptDrawingSheet = useCallback(
+    (sheet: WksSheet | null, sheetName: string) => {
       setSheetOverride({ name: sheetName, sheet });
       setRawFiles((prev) => {
         const pro = prev.find((f) => /\.kicad_pro$/i.test(f.name));
@@ -2620,49 +2538,8 @@ export function SchematicEditor({
         onPersistFiles?.([changed]);
         return prev.map((f) => (f.name === pro.name ? changed : f));
       });
-      const anyExport =
-        exports.paper ||
-        exports.date ||
-        exports.rev ||
-        exports.title ||
-        exports.company ||
-        exports.comments.some(Boolean);
-      if (anyExport) {
-        const changedFiles: PickedFile[] = [];
-        for (const [file, target] of project.current.docs) {
-          if (file === currentFile) continue;
-          const cur = getPageSettings(target);
-          const merged: PageSettings = {
-            paper: exports.paper ? next.paper : cur.paper,
-            date: exports.date ? next.date : cur.date,
-            rev: exports.rev ? next.rev : cur.rev,
-            title: exports.title ? next.title : cur.title,
-            company: exports.company ? next.company : cur.company,
-            comments: cur.comments.map((c, i) =>
-              exports.comments[i] ? (next.comments[i] ?? c) : c,
-            ),
-          };
-          // No undo entry for the exported sheets, because upstream makes
-          // none: `onSavePageSettings` walks `SCH_SCREENS` and calls
-          // `SetPageSettings` / `SetTitleBlock` on each other screen straight
-          // out (`dialog_eeschema_page_settings.cpp:134-180`), while the only
-          // thing on the undo list is the `DS_PROXY_UNDO_ITEM` for THIS screen
-          // pushed before the dialog opened (`sch_editor_control.cpp:503-509`).
-          // Ctrl+Z after exporting a title to twelve sheets takes back this
-          // sheet's page settings and leaves the other twelve as they now are.
-          const updated = withCleanup(setPageSettingsCommand(merged), libById).apply(target);
-          project.current.docs.set(file, updated);
-          try {
-            changedFiles.push({ name: file, text: serializeSchematic(updated) });
-          } catch {
-            /* skip a bad sheet */
-          }
-        }
-        if (changedFiles.length) onProjectChange?.(changedFiles);
-      }
-      setPageSettingsOpen(false);
     },
-    [runCommand, currentFile, onProjectChange, onPersistFiles, libById],
+    [onPersistFiles],
   );
 
   // A base file name for a printed/plotted output (KiCad names plots after the
@@ -5733,10 +5610,11 @@ export function SchematicEditor({
           }));
         }
         setSetupOpen(true);
-      } else if (id === 'pageSettings') setPageSettingsOpen(true);
+      } else if (id === 'pageSettings') runLiveAction(ACTIONS.pageSettings);
       else if (id === 'print') setPrintOpen(true);
       else if (id === 'plot') setPlotOpen(true);
-      else if (id === 'editPageNumber') setPageEdit({ page: pageNumberOf(currentPath) });
+      // SCH_EDIT_TOOL::EditPageNumber asks through TextEntryDialog.
+      else if (id === 'editPageNumber') runLiveAction(SCH_ACTIONS.editPageNumber);
       // Hierarchy navigation (SCH_NAVIGATE_TOOL). Back/Forward move the history
       // cursor without pushing; Up and Previous/Next go through changeSheet.
       else if (id === 'navBack' || id === 'navFwd') {
@@ -5788,7 +5666,6 @@ export function SchematicEditor({
       switchSheet,
       netlist,
       selection,
-      pageNumberOf,
       pasteOptions,
       runRescueSymbols,
       runLiveAction,
@@ -7109,7 +6986,7 @@ export function SchematicEditor({
                 onCancel={() => setIncrementAnnotationsOpen(false)}
               />
             )}
-            {pageSettingsOpen && doc && (
+            {pageDialog && (
               // DIALOG_EESCHEMA_PAGE_SETTINGS, not DIALOG_PAGES_SETTINGS: the
               // base class hides the sheet tallies and all fourteen "Export to
               // other sheets" boxes (dialog_page_settings.cpp:169-185) and this
@@ -7117,15 +6994,10 @@ export function SchematicEditor({
               // (dialog_eeschema_page_settings.cpp:87-102). pcbnew and
               // pl_editor open the base class and get neither.
               <DialogEeschemaPageSettings
-                // `m_customSizeX( aParent, … )` — a UNIT_BINDER over the FRAME
-                // (dialog_page_settings.cpp:65-66), so the two custom-size
-                // fields read in the schematic frame's own unit. A fresh
-                // eeschema is in MILS (app_settings.cpp:228-238), which is why
-                // real eeschema shows mils where ours said "mm".
                 units={units}
-                value={pageSettingsSeed(doc)}
-                sheetCount={flatSheets.length}
-                sheetNumber={Number(pageNumberOf(currentPath)) || 1}
+                value={pageDialog.dlg.TransferDataToWindow()}
+                sheetCount={pageDialog.dlg.SheetTallies().count}
+                sheetNumber={pageDialog.dlg.SheetTallies().number}
                 wksFileName={sheetRefName}
                 sheet={activeSheet}
                 projectDir={projectName ? `/${projectName}` : null}
@@ -7147,22 +7019,32 @@ export function SchematicEditor({
                     cfg.page_settings.export_comments = [...next.comments];
                   })
                 }
-                onOk={(next, exports, drawingSheet, drawingSheetName) =>
-                  applyPageSettings(
-                    {
-                      paper: toPaperToken(next),
-                      title: next.title,
-                      date: next.date,
-                      rev: next.rev,
-                      company: next.company,
-                      comments: next.comments,
-                    },
-                    exports,
-                    drawingSheet,
-                    drawingSheetName,
-                  )
-                }
-                onCancel={() => setPageSettingsOpen(false)}
+                onOk={(next, exports, drawingSheet, drawingSheetName) => {
+                  pageDialog.dlg.TransferDataFromWindow(next, exports);
+                  // Exported fields changed other screens; the window's records follow them
+                  // until saving reads the live model.
+                  const exported =
+                    exports.paper ||
+                    exports.date ||
+                    exports.rev ||
+                    exports.title ||
+                    exports.company ||
+                    exports.comments.some(Boolean);
+                  const frame = schFrameRef.current;
+                  if (exported && frame) {
+                    const all: SCH_SCREEN[] = [];
+                    const screens = new SCH_SCREENS(frame.Schematic().Root());
+                    for (let sc = screens.GetFirst(); sc; sc = screens.GetNext()) all.push(sc);
+                    adoptLiveScreensRef.current(all);
+                  }
+                  adoptDrawingSheet(drawingSheet, drawingSheetName);
+                  setPageDialog(null);
+                  pageDialog.resolve(wxID_OK);
+                }}
+                onCancel={() => {
+                  setPageDialog(null);
+                  pageDialog.resolve(wxID_CANCEL);
+                }}
               />
             )}
             {printOpen && (
@@ -7600,56 +7482,6 @@ export function SchematicEditor({
             junctionDialog.resolve(wxID_CANCEL);
           }}
         />
-      )}
-
-      {/* Edit Sheet Page Number (SCH_ACTIONS::editPageNumber). */}
-      {pageEdit && (
-        <div className="ze-modal-backdrop" onMouseDown={() => setPageEdit(null)}>
-          <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="ze-modal-header">
-              Edit Sheet Page Number
-              <span className="x" title="Cancel" onClick={() => setPageEdit(null)}>
-                ✕
-              </span>
-            </div>
-            <div
-              className="ze-label-dialog-body"
-              style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
-            >
-              <label className="row">
-                <span>Page number</span>
-                <input
-                  className="ze-search"
-                  autoFocus
-                  value={pageEdit.page}
-                  onChange={(e) => setPageEdit({ page: e.target.value })}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === 'Enter') {
-                      editPageNumber(pageEdit.page.trim(), pageEdit.sheet);
-                      setPageEdit(null);
-                    }
-                  }}
-                />
-              </label>
-            </div>
-            <div className="ze-modal-footer">
-              <button className="ze-btn" onClick={() => setPageEdit(null)}>
-                Cancel
-              </button>
-              <button
-                className="ze-btn primary"
-                disabled={!pageEdit.page.trim()}
-                onClick={() => {
-                  editPageNumber(pageEdit.page.trim(), pageEdit.sheet);
-                  setPageEdit(null);
-                }}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* DIALOG_SHEET_PROPERTIES on a live sheet (SCH_EDIT_FRAME::EditSheetProperties). */}
