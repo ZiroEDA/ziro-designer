@@ -1,0 +1,66 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "a385ab60-7c31-4757-ae8a-c1f00f47824e")
+	(paper "A4")
+	(lib_symbols)
+	(circle
+		(center 127 71.12)
+		(radius 12.7)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(fill
+			(type none)
+		)
+		(uuid "10b1963c-3464-4e58-b255-4962a6275005")
+	)
+	(rectangle
+		(start 101.6 96.52)
+		(end 152.4 121.92)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(fill
+			(type none)
+		)
+		(uuid "c5c24772-bb6a-469c-9819-c49d069631cb")
+	)
+	(arc
+		(start 165.1 71.12)
+		(mid 177.8 58.42)
+		(end 190.5 71.12)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(fill
+			(type none)
+		)
+		(uuid "f18ca0fa-77cb-477a-9951-783381f7b8d4")
+	)
+	(polyline
+		(pts
+			(xy 101.6 147.32) (xy 152.4 147.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1b301ff5-d461-4ede-8a24-6449915ca7dc")
+	)
+	(wire
+		(pts
+			(xy 101.6 147.32) (xy 101.6 96.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8af2983a-f2c5-42d0-98d8-3b0239486d7f")
+	)
+	(embedded_fonts no)
+)

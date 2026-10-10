@@ -1,0 +1,7624 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "044037f0-f25b-41e7-8218-d30e002d1a97")
+	(paper "User" 452.4248 305.0794)
+	(lib_symbols
+		(symbol "generic-power_1"
+			(power global)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "#PWR"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "3.3Volt"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "generic-power_1_0_0"
+				(polyline
+					(pts
+						(xy 1.27 5.08) (xy 8.89 5.08)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin power_in line
+					(at 5.08 0 90)
+					(length 5.08)
+					(name "3.3Volt"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "zpowerMeter-geda-import:BT136"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "BT136_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "zpowerMeter-geda-import:CC2530Module"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "CC2530Module_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "zpowerMeter-geda-import:CS5463"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "CS5463_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "zpowerMeter-geda-import:DS1117-3_3"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "DS1117-3_3_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "zpowerMeter-geda-import:MOC3021"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "MOC3021_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "zpowerMeter-geda-import:capacitor-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "capacitor-1_0_0"
+				(polyline
+					(pts
+						(xy 10.16 10.16) (xy 10.16 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 12.7 10.16) (xy 12.7 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 22.86 5.08 180)
+					(length 5.08)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 5.08 0)
+					(length 5.08)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "zpowerMeter-geda-import:generic-power"
+			(power global)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "#PWR"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "5Volt"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "generic-power_0_0"
+				(polyline
+					(pts
+						(xy 1.27 5.08) (xy 8.89 5.08)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin power_in line
+					(at 5.08 0 90)
+					(length 5.08)
+					(name "5Volt"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "zpowerMeter-geda-import:gnd-1"
+			(power global)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "#PWR"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "GND"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "gnd-1_0_0"
+				(polyline
+					(pts
+						(xy 1.27 7.62) (xy 8.89 7.62)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.54 5.08) (xy 7.62 5.08)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.81 2.54) (xy 6.35 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin power_in line
+					(at 5.08 15.24 270)
+					(length 7.62)
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "zpowerMeter-geda-import:led-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "led-1_0_0"
+				(polyline
+					(pts
+						(xy 10.16 7.62) (xy 10.16 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 10.16 7.62) (xy 12.7 5.08)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 10.16 5.08) (xy 5.08 5.08)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 11.43 5.08)
+					(radius 5.08)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 12.7 7.62) (xy 12.7 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 12.7 5.08) (xy 10.16 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 12.7 5.08) (xy 17.78 5.08)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 5.08 0)
+					(length 5.08)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 22.86 5.08 180)
+					(length 5.08)
+					(name "K"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "zpowerMeter-geda-import:resistor-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "resistor-1_0_0"
+				(rectangle
+					(start 5.08 7.62)
+					(end 17.78 2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 22.86 5.08 180)
+					(length 5.08)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 5.08 0)
+					(length 5.08)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "zpowerMeter-geda-import:switch-spst-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "switch-spst-1_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "zpowerMeter-geda-import:terminal-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "terminal-1_0_0"
+				(rectangle
+					(start 5.08 7.62)
+					(end 10.16 2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 5.08 5.08 180)
+					(length 5.08)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "zpowerMeter-geda-import:xtal"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "xtal_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(rectangle
+		(start 142.24 262.89)
+		(end 180.34 278.13)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(fill
+			(type none)
+		)
+		(uuid "2921e8f4-af31-41db-9306-3298dd461d2e")
+	)
+	(rectangle
+		(start 101.6 153.67)
+		(end 127 171.45)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(fill
+			(type none)
+		)
+		(uuid "abd7e914-52a3-4705-8837-983e9867f91f")
+	)
+	(text "BT136"
+		(exclude_from_sim no)
+		(at 93.98 196.85 0)
+		(effects
+			(font
+				(size 3.048 3.048)
+			)
+			(justify left bottom)
+		)
+		(uuid "23d95818-7b4a-44f3-ba72-623c1e96e474")
+	)
+	(text "LED DRIVER"
+		(exclude_from_sim no)
+		(at 144.78 273.05 0)
+		(effects
+			(font
+				(size 3.048 3.048)
+			)
+			(justify left bottom)
+		)
+		(uuid "3df11b63-5b0a-4857-93d1-5ab539881180")
+	)
+	(text "POWER LINE 220V"
+		(exclude_from_sim no)
+		(at 33.02 194.31 0)
+		(effects
+			(font
+				(size 3.048 3.048)
+			)
+			(justify left bottom)
+		)
+		(uuid "6e1d5c4f-a411-463f-a938-73506827af97")
+	)
+	(text "AC-DC\n5Volt"
+		(exclude_from_sim no)
+		(at 106.68 168.91 0)
+		(effects
+			(font
+				(size 3.048 3.048)
+			)
+			(justify left bottom)
+		)
+		(uuid "b1665e16-a0e3-460b-aac5-2e86afc31074")
+	)
+	(junction
+		(at 350.52 44.45)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "1c39ad56-b647-4612-bb23-1411b23a3db9")
+	)
+	(junction
+		(at 378.46 44.45)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "22a23123-7ab1-4f0a-96b0-40ac16512007")
+	)
+	(junction
+		(at 401.32 125.73)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "35772197-6c39-4eef-83f8-fd7eeb298630")
+	)
+	(junction
+		(at 154.94 146.05)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "3c0f49ce-11df-4ee8-bb05-d565d089bfe2")
+	)
+	(junction
+		(at 271.78 57.15)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "3ec27c41-ed57-429f-98e8-f286d817b553")
+	)
+	(junction
+		(at 233.68 113.03)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4c35a316-5cad-48af-851c-ae817ce8c795")
+	)
+	(junction
+		(at 175.26 95.25)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4eab5c81-9d59-4713-a34a-f46a43f4246d")
+	)
+	(junction
+		(at 378.46 52.07)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4ece6e65-db02-42cf-9e82-10b8247b4c24")
+	)
+	(junction
+		(at 78.74 184.15)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "5073014c-21e7-4713-972b-6dd8600d8d60")
+	)
+	(junction
+		(at 297.18 120.65)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "536a9e0d-c393-4dc1-a60d-b20cb06359fb")
+	)
+	(junction
+		(at 365.76 143.51)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "8b7fecc2-ef45-4acf-84e9-b9889f793d3e")
+	)
+	(junction
+		(at 271.78 113.03)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "93c1237a-90aa-42a7-8baa-74c038914279")
+	)
+	(junction
+		(at 233.68 85.09)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9f945fd4-37f0-4bed-a1e4-6c1582296ed2")
+	)
+	(junction
+		(at 314.96 120.65)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "a396df90-a2b3-48cb-89a7-b0100b4e4e49")
+	)
+	(junction
+		(at 314.96 146.05)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "aa9f95b2-da17-4605-97bf-fda63a6a02cb")
+	)
+	(junction
+		(at 289.56 57.15)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "cbf4b99a-5357-4404-a0b6-0d372cba8476")
+	)
+	(junction
+		(at 101.6 201.93)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "da57cf12-34b5-4469-8308-1fc25ec6fab9")
+	)
+	(junction
+		(at 289.56 113.03)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "dc36a73d-7335-4aa1-9867-d84dba3c1284")
+	)
+	(junction
+		(at 365.76 151.13)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "e0d6e874-4305-47fa-90fa-e9d0412fb8d0")
+	)
+	(junction
+		(at 314.96 171.45)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ecbd90a8-0588-4944-a374-547a577f7b5e")
+	)
+	(junction
+		(at 289.56 85.09)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f12899f3-225d-4624-9194-438187877450")
+	)
+	(junction
+		(at 297.18 171.45)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f9fc0e26-1e22-4449-ae77-9f766089d3f4")
+	)
+	(junction
+		(at 137.16 146.05)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "fd538e1c-e61a-4c20-88db-621a92883ce0")
+	)
+	(wire
+		(pts
+			(xy 180.34 265.43) (xy 200.66 265.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "022a6826-5657-49ff-b78f-bef63a39cc90")
+	)
+	(wire
+		(pts
+			(xy 289.56 113.03) (xy 289.56 110.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "047113da-3a91-48a4-a368-11d1d33fc4c8")
+	)
+	(wire
+		(pts
+			(xy 175.26 95.25) (xy 175.26 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "04bd97bd-fec6-4d5f-a2e8-f4dcf15d7693")
+	)
+	(wire
+		(pts
+			(xy 101.6 184.15) (xy 78.74 184.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "04f16a52-ba88-450a-be9b-84aab55d54dd")
+	)
+	(wire
+		(pts
+			(xy 271.78 92.71) (xy 271.78 113.03)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "04f2f57c-ee72-41c0-838e-26561b2afe07")
+	)
+	(wire
+		(pts
+			(xy 373.38 44.45) (xy 373.38 49.53)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0738e5d0-df73-43be-8b5b-413b4878c118")
+	)
+	(wire
+		(pts
+			(xy 121.92 62.23) (xy 144.78 62.23)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "075b1c4c-e867-4571-850f-0ef42c8a57ec")
+	)
+	(wire
+		(pts
+			(xy 233.68 120.65) (xy 233.68 110.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0809d346-29a9-485a-aa4f-5cc0cf952350")
+	)
+	(wire
+		(pts
+			(xy 342.9 207.01) (xy 337.82 207.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "085c0271-c4a1-400e-a7f3-90e14e884af1")
+	)
+	(wire
+		(pts
+			(xy 200.66 95.25) (xy 200.66 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0d90d803-8022-41e2-aa05-dd31cd71d076")
+	)
+	(wire
+		(pts
+			(xy 332.74 87.63) (xy 312.42 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0fe534e9-dbb9-4882-879d-4d07dd437b95")
+	)
+	(wire
+		(pts
+			(xy 271.78 171.45) (xy 261.62 171.45)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1819becd-c7a0-4d38-a1ea-01f613806175")
+	)
+	(wire
+		(pts
+			(xy 383.54 260.35) (xy 383.54 283.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "18ca4171-2c34-4abf-b4e4-d7abb6d4ee5c")
+	)
+	(wire
+		(pts
+			(xy 383.54 283.21) (xy 368.3 283.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1bf6981a-d894-42d8-9b4f-bd9c44318036")
+	)
+	(wire
+		(pts
+			(xy 137.16 229.87) (xy 121.92 229.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1d4c8bbb-1036-4bdd-956d-cee0a7943a56")
+	)
+	(wire
+		(pts
+			(xy 101.6 207.01) (xy 101.6 184.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "207ff337-37a0-4021-9933-15db6c66d520")
+	)
+	(wire
+		(pts
+			(xy 378.46 44.45) (xy 434.34 44.45)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "21a06a58-9775-4151-aecf-4e466d07a72c")
+	)
+	(wire
+		(pts
+			(xy 88.9 171.45) (xy 88.9 209.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "255a7f3d-e7ae-4027-a3c9-d023364bd6b6")
+	)
+	(wire
+		(pts
+			(xy 342.9 209.55) (xy 342.9 207.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2ab4180a-c470-4667-bc50-74d4c2273a2c")
+	)
+	(wire
+		(pts
+			(xy 289.56 87.63) (xy 289.56 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2b4c8992-18e9-461e-9d1e-768a4d4d5109")
+	)
+	(wire
+		(pts
+			(xy 345.44 283.21) (xy 337.82 283.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2d408e8d-5314-42de-9a13-984d1118e9b0")
+	)
+	(wire
+		(pts
+			(xy 297.18 85.09) (xy 289.56 85.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "300bb656-2de6-458d-947e-dc0456ab7f9c")
+	)
+	(wire
+		(pts
+			(xy 322.58 146.05) (xy 314.96 146.05)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "303f46a1-15a6-4f9c-9025-75c5b8329d8b")
+	)
+	(wire
+		(pts
+			(xy 121.92 49.53) (xy 121.92 52.07)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3074c566-1702-41c7-9e6f-95f16b73488e")
+	)
+	(wire
+		(pts
+			(xy 314.96 148.59) (xy 314.96 143.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3137e303-7730-464f-a8ea-d45b7f2d0a6f")
+	)
+	(wire
+		(pts
+			(xy 137.16 133.35) (xy 137.16 156.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "325e6612-e3e7-4204-8f1a-57e612608c3c")
+	)
+	(wire
+		(pts
+			(xy 223.52 260.35) (xy 241.3 260.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "32c5c371-fc20-4212-9d75-8e48f26e2baa")
+	)
+	(wire
+		(pts
+			(xy 55.88 57.15) (xy 27.94 57.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "396a11c4-ea6d-4980-be91-5581da68ddc6")
+	)
+	(wire
+		(pts
+			(xy 210.82 95.25) (xy 200.66 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "39a56de6-6f4d-411f-873d-a215d4d3f09e")
+	)
+	(wire
+		(pts
+			(xy 386.08 52.07) (xy 378.46 52.07)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3ae3b961-dd92-47b6-bd35-8583dfebc8df")
+	)
+	(wire
+		(pts
+			(xy 302.26 107.95) (xy 302.26 57.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3b48afb3-2160-4680-956d-7aad89037774")
+	)
+	(wire
+		(pts
+			(xy 434.34 97.79) (xy 434.34 44.45)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3dc2fa76-65df-480b-ab57-8aa46cebecf0")
+	)
+	(wire
+		(pts
+			(xy 284.48 283.21) (xy 264.16 283.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3dca595b-2255-4232-851c-2fcb4fd22b0a")
+	)
+	(wire
+		(pts
+			(xy 403.86 97.79) (xy 396.24 97.79)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3e884ce6-5253-4af3-b63b-666f790eb00a")
+	)
+	(wire
+		(pts
+			(xy 396.24 125.73) (xy 401.32 125.73)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "41141ae9-60e5-46a5-b033-9dacb4907d13")
+	)
+	(wire
+		(pts
+			(xy 78.74 156.21) (xy 101.6 156.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "411d5cb7-39db-4fd5-90e2-6e99c3d43e90")
+	)
+	(wire
+		(pts
+			(xy 312.42 77.47) (xy 312.42 62.23)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "415f8399-de3d-4544-b329-d6a3f678442b")
+	)
+	(wire
+		(pts
+			(xy 368.3 260.35) (xy 383.54 260.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "43a007be-13ca-4f4c-aede-64d62a1ba569")
+	)
+	(wire
+		(pts
+			(xy 330.2 125.73) (xy 330.2 171.45)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4604ce29-b306-462e-b344-e4500190f021")
+	)
+	(wire
+		(pts
+			(xy 121.92 95.25) (xy 180.34 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "46d67e79-6c0f-4b1c-8903-45ce64d7d18a")
+	)
+	(wire
+		(pts
+			(xy 322.58 148.59) (xy 322.58 146.05)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "52e4c2cd-4bdc-4d40-b449-9d4222bc2a42")
+	)
+	(wire
+		(pts
+			(xy 134.62 168.91) (xy 127 168.91)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5333be10-5625-4705-b97f-9bfe2b590886")
+	)
+	(wire
+		(pts
+			(xy 292.1 207.01) (xy 274.32 207.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "592847ee-808b-4265-9419-4f3bb5da092e")
+	)
+	(wire
+		(pts
+			(xy 401.32 151.13) (xy 365.76 151.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "598709d7-6f0e-4cf8-956a-f62d378330de")
+	)
+	(wire
+		(pts
+			(xy 337.82 260.35) (xy 345.44 260.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5ed1d90d-df84-4475-b920-1207af41cdf1")
+	)
+	(wire
+		(pts
+			(xy 210.82 49.53) (xy 210.82 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5f838c74-53f1-4465-8890-b63a23584f84")
+	)
+	(wire
+		(pts
+			(xy 297.18 133.35) (xy 297.18 120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "60a1eebe-68fa-42b7-bf71-cfc1e88899fa")
+	)
+	(wire
+		(pts
+			(xy 132.08 201.93) (xy 137.16 201.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6128708c-6024-4eac-8a42-7e5e16436987")
+	)
+	(wire
+		(pts
+			(xy 88.9 168.91) (xy 101.6 168.91)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "65427d7a-8f85-4b80-b5b8-6dbb4c3aabc4")
+	)
+	(wire
+		(pts
+			(xy 43.18 209.55) (xy 88.9 209.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "683e38c4-4cdf-4802-8e4a-1743d4fcbf6d")
+	)
+	(wire
+		(pts
+			(xy 332.74 97.79) (xy 312.42 97.79)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "68d65057-142a-4a5b-ad4b-e79b9d1c0958")
+	)
+	(wire
+		(pts
+			(xy 264.16 260.35) (xy 279.4 260.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6a2e0a8f-6352-45eb-8571-b75552048936")
+	)
+	(wire
+		(pts
+			(xy 127 156.21) (xy 137.16 156.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6ba228af-f235-43ed-a03d-21f8bce65587")
+	)
+	(wire
+		(pts
+			(xy 297.18 87.63) (xy 297.18 85.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "70aac708-6677-497c-ba12-2b55c0fddedf")
+	)
+	(wire
+		(pts
+			(xy 134.62 168.91) (xy 134.62 176.53)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "71900a6b-c2f8-409d-a2a7-cf7d2b0051f3")
+	)
+	(wire
+		(pts
+			(xy 152.4 153.67) (xy 152.4 133.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "73de48aa-93fc-4f70-a8b8-53bfa86ec4db")
+	)
+	(wire
+		(pts
+			(xy 200.66 265.43) (xy 200.66 260.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7767bc37-cdd6-4cab-b239-a1913da36b78")
+	)
+	(wire
+		(pts
+			(xy 408.94 52.07) (xy 411.48 52.07)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "784a1f08-b3de-4bec-822c-de133907bb41")
+	)
+	(wire
+		(pts
+			(xy 55.88 67.31) (xy 30.48 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "79af158a-5b95-4434-97e5-5ccf62648e86")
+	)
+	(wire
+		(pts
+			(xy 144.78 133.35) (xy 144.78 146.05)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7f5c8d39-4881-47bb-b36e-7251fb9cbfbb")
+	)
+	(wire
+		(pts
+			(xy 109.22 201.93) (xy 101.6 201.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8257fc30-a62f-40af-b6d2-76a5476c443f")
+	)
+	(wire
+		(pts
+			(xy 121.92 229.87) (xy 121.92 227.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "85a1a5c9-08dc-4307-93a7-8e5c28b819af")
+	)
+	(wire
+		(pts
+			(xy 73.66 184.15) (xy 78.74 184.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8b81bbfd-7352-4da3-a6e3-091ef23d5076")
+	)
+	(wire
+		(pts
+			(xy 401.32 128.27) (xy 401.32 120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8daf1c12-c157-48c2-ac5c-377fa9f29285")
+	)
+	(wire
+		(pts
+			(xy 213.36 201.93) (xy 220.98 201.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8e87bb7e-eb6f-451d-ae71-423a1e4e7ae8")
+	)
+	(wire
+		(pts
+			(xy 289.56 57.15) (xy 289.56 59.69)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "929750d4-ed6d-4c43-92f6-72d42f690ba1")
+	)
+	(wire
+		(pts
+			(xy 55.88 87.63) (xy 30.48 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "946ac3b9-dc98-4eaa-8c44-c96dedde9528")
+	)
+	(wire
+		(pts
+			(xy 233.68 57.15) (xy 233.68 46.99)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "94c147d9-61cb-4182-ba8f-8b57bc84955e")
+	)
+	(wire
+		(pts
+			(xy 175.26 64.77) (xy 175.26 69.85)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "970dbb7c-e635-40e5-b31d-a4a460982ce8")
+	)
+	(wire
+		(pts
+			(xy 119.38 143.51) (xy 119.38 146.05)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9777de05-fbe3-4d98-91f6-a76f8e39ce7b")
+	)
+	(wire
+		(pts
+			(xy 93.98 120.65) (xy 93.98 123.19)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9ad72e68-42a2-4b6d-9e4d-c2a03b1272bf")
+	)
+	(wire
+		(pts
+			(xy 43.18 184.15) (xy 50.8 184.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9d130d63-93b6-42d9-b4fa-00525506264a")
+	)
+	(wire
+		(pts
+			(xy 55.88 52.07) (xy 27.94 52.07)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9dbfa659-fd91-4be3-bbdd-566d297233e2")
+	)
+	(wire
+		(pts
+			(xy 332.74 82.55) (xy 312.42 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9e02ff71-e459-4062-b114-eb3e1f693850")
+	)
+	(wire
+		(pts
+			(xy 78.74 275.59) (xy 142.24 275.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a0f6f133-a682-499a-8d36-66ffa277066c")
+	)
+	(wire
+		(pts
+			(xy 119.38 146.05) (xy 137.16 146.05)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a1cb1c54-6040-4199-83eb-06801c5ec0e7")
+	)
+	(wire
+		(pts
+			(xy 243.84 201.93) (xy 264.16 201.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a247be26-aff3-4af2-81c3-545e82783af1")
+	)
+	(wire
+		(pts
+			(xy 350.52 54.61) (xy 350.52 41.91)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a59f7717-eabb-40a1-97f5-6dd0d050a5c7")
+	)
+	(wire
+		(pts
+			(xy 294.64 171.45) (xy 330.2 171.45)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ac9673c6-1ab3-4a00-ab1e-0e51a939e3c5")
+	)
+	(wire
+		(pts
+			(xy 365.76 153.67) (xy 365.76 143.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "accb1240-3a7a-4b46-9c33-b6b4a2297f3e")
+	)
+	(wire
+		(pts
+			(xy 297.18 156.21) (xy 297.18 171.45)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "adcd730a-de95-4946-bd3f-aee1ad32e03e")
+	)
+	(wire
+		(pts
+			(xy 144.78 49.53) (xy 190.5 49.53)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "adf99e86-5812-4eb4-aadb-daa73ae14c8f")
+	)
+	(wire
+		(pts
+			(xy 426.72 97.79) (xy 434.34 97.79)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "aedecbf9-b3df-4eb3-a062-6f2854bbf405")
+	)
+	(wire
+		(pts
+			(xy 271.78 69.85) (xy 271.78 57.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b026a807-b075-4742-bea7-2021b8ca4c8b")
+	)
+	(wire
+		(pts
+			(xy 332.74 72.39) (xy 332.74 62.23)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b11b1f30-e70a-40f3-8387-b550b096c9ac")
+	)
+	(wire
+		(pts
+			(xy 294.64 120.65) (xy 332.74 120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b285a13f-0d65-49b1-85cc-26aa5962706e")
+	)
+	(wire
+		(pts
+			(xy 350.52 143.51) (xy 378.46 143.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b3f66693-b364-4369-aa70-c3651515b305")
+	)
+	(wire
+		(pts
+			(xy 251.46 57.15) (xy 302.26 57.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b65a4cf7-6386-42a8-946f-f83f66273596")
+	)
+	(wire
+		(pts
+			(xy 261.62 113.03) (xy 332.74 113.03)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ba990678-1f5d-486e-b1b2-43dfc12a0a2c")
+	)
+	(wire
+		(pts
+			(xy 251.46 85.09) (xy 251.46 57.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c0d9bd84-3457-4d1b-8f5d-54595b1d6d2f")
+	)
+	(wire
+		(pts
+			(xy 55.88 62.23) (xy 30.48 62.23)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c130edfb-a1b8-44f2-8e47-d097ed5fe8a5")
+	)
+	(wire
+		(pts
+			(xy 101.6 265.43) (xy 142.24 265.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c3aac4e0-da3f-44ae-90b1-532248fc7e4d")
+	)
+	(wire
+		(pts
+			(xy 101.6 232.41) (xy 101.6 265.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c3e1bf00-bc57-48ea-8ae4-d54e70f8916b")
+	)
+	(wire
+		(pts
+			(xy 332.74 107.95) (xy 302.26 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c4d7174e-b6dd-4005-8414-96254978acdb")
+	)
+	(wire
+		(pts
+			(xy 91.44 29.21) (xy 91.44 36.83)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c58f7f3a-b55e-4f92-8e43-787edc7bb514")
+	)
+	(wire
+		(pts
+			(xy 411.48 52.07) (xy 411.48 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cb420759-7003-4ee4-a63f-063631674cd2")
+	)
+	(wire
+		(pts
+			(xy 180.34 275.59) (xy 200.66 275.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cc9f3ce8-3e3e-4725-89d8-66aa8e588214")
+	)
+	(wire
+		(pts
+			(xy 401.32 120.65) (xy 396.24 120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d0ec905f-edc2-4f22-a60a-d9ea010b64f9")
+	)
+	(wire
+		(pts
+			(xy 312.42 77.47) (xy 332.74 77.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e009f2f4-0a66-46da-b7ba-530b56e93028")
+	)
+	(wire
+		(pts
+			(xy 241.3 283.21) (xy 223.52 283.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e0b5dbf9-8338-40a3-885c-d87552d5b60c")
+	)
+	(wire
+		(pts
+			(xy 332.74 125.73) (xy 330.2 125.73)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e2d43105-d1a1-4602-8c16-2704048bb530")
+	)
+	(wire
+		(pts
+			(xy 233.68 120.65) (xy 271.78 120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e51b8a01-a350-4b5e-9ef5-71224cc4429c")
+	)
+	(wire
+		(pts
+			(xy 218.44 229.87) (xy 218.44 234.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e996181b-8709-46e8-b1b4-c2edf974aebd")
+	)
+	(wire
+		(pts
+			(xy 302.26 260.35) (xy 314.96 260.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ea0447c0-4eb1-4202-ac72-e4ea4c5fa437")
+	)
+	(wire
+		(pts
+			(xy 378.46 54.61) (xy 378.46 41.91)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ebc6089a-94a5-48e9-a959-9e89feac2b6b")
+	)
+	(wire
+		(pts
+			(xy 233.68 113.03) (xy 238.76 113.03)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ed64afeb-acea-45a1-8ab3-caaf1002ddee")
+	)
+	(wire
+		(pts
+			(xy 213.36 229.87) (xy 218.44 229.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ee933593-b55f-4cef-83eb-80a36eb58a8c")
+	)
+	(wire
+		(pts
+			(xy 144.78 62.23) (xy 144.78 49.53)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "eeac866a-f3fa-4510-a771-a5230df7f0d1")
+	)
+	(wire
+		(pts
+			(xy 55.88 77.47) (xy 30.48 77.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ef07d049-e651-452d-8985-e4b3859aa90b")
+	)
+	(wire
+		(pts
+			(xy 200.66 275.59) (xy 200.66 283.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f3c5cd57-aada-47fa-ab5d-8c5f8a881aca")
+	)
+	(wire
+		(pts
+			(xy 233.68 85.09) (xy 251.46 85.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f3e10f8f-ebd1-419a-982f-06bfd1c7f268")
+	)
+	(wire
+		(pts
+			(xy 332.74 92.71) (xy 312.42 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f6dc6025-3775-48ce-97ec-e5676741e90f")
+	)
+	(wire
+		(pts
+			(xy 233.68 87.63) (xy 233.68 80.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f81120fe-9a98-4035-b595-c4006c580344")
+	)
+	(wire
+		(pts
+			(xy 144.78 146.05) (xy 172.72 146.05)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f9aa2528-5f9a-4038-8b8a-f9d789b65805")
+	)
+	(wire
+		(pts
+			(xy 78.74 275.59) (xy 78.74 156.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fafcfc77-5246-46d8-aae5-f1956732f637")
+	)
+	(wire
+		(pts
+			(xy 314.96 283.21) (xy 307.34 283.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fc25d208-5161-4a09-b766-1ec1aef0dcd1")
+	)
+	(label "LIGHT_ON"
+		(at 55.88 52.07 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "4e0f0bee-20fb-48a5-99d5-2b8cb8e21626")
+	)
+	(label "P1_A"
+		(at 43.18 184.15 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "5483cbaa-51bf-47a2-bbf7-5d5afde16f03")
+	)
+	(label "SDI"
+		(at 55.88 67.31 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "5c84b106-6ad6-4517-830a-28a07df5ec8c")
+	)
+	(label "\\_CS"
+		(at 55.88 87.63 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "68b4954b-4a67-41fb-a2db-9a1d2bdb0459")
+	)
+	(label "SDO"
+		(at 332.74 87.63 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "6bb8fd8d-01c5-4a21-a745-cc8457c0eda0")
+	)
+	(label "POWER"
+		(at 132.08 265.43 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "7556d448-9da1-4c8a-b263-d59990c8328d")
+	)
+	(label "\\_CS"
+		(at 332.74 97.79 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "8126940a-33d2-401b-a4b7-047b5f7fe89d")
+	)
+	(label "P1_B"
+		(at 73.66 184.15 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "8183a247-1c76-4b9d-b69c-2d9ba026eabd")
+	)
+	(label "LIGHT_ON"
+		(at 243.84 201.93 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "914fd2b7-0ed7-43e3-82c1-d31f50f59da7")
+	)
+	(label "5Volts"
+		(at 134.62 156.21 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "9de5577f-0f8e-4dfa-bf90-63027e4cdf80")
+	)
+	(label "LED"
+		(at 292.1 207.01 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "9f84651e-6fe2-4e74-a349-ffa2e2cd4415")
+	)
+	(label "P2"
+		(at 233.68 57.15 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "a20c4137-da3f-428f-aeea-4d54edb58d9a")
+	)
+	(label "P1_B"
+		(at 233.68 120.65 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "a58b8cae-5ddb-4b6c-9063-a84bfb3160d8")
+	)
+	(label "SCK"
+		(at 55.88 77.47 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "aba4b8e4-8896-4316-8ca5-54aca7a0a46f")
+	)
+	(label "PLUS"
+		(at 187.96 265.43 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "abf8f67f-ad05-46a9-aa5f-031db5c4a1bb")
+	)
+	(label "SDO"
+		(at 55.88 62.23 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "b70199a1-23da-4bc7-8ffb-9a31f016b6d9")
+	)
+	(label "POWER"
+		(at 91.44 168.91 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "b75f564d-0026-4398-a804-c857b9d45a18")
+	)
+	(label "MINUX"
+		(at 187.96 275.59 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "b76dcd62-f2d3-4ba8-a828-05e28c18130b")
+	)
+	(label "GND"
+		(at 134.62 168.91 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "ba41f372-038a-4470-beb7-8efbd4e66871")
+	)
+	(label "SDI"
+		(at 332.74 92.71 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "ba589b97-d12f-4bdc-a5e9-965575852187")
+	)
+	(label "POWER"
+		(at 91.44 156.21 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "ca7cfacb-f625-477a-a5e3-aea1acd2244c")
+	)
+	(label "SCLK"
+		(at 332.74 82.55 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "d0f16cc9-c780-4ba2-a477-a8024706f1b9")
+	)
+	(label "LED"
+		(at 55.88 57.15 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "d228c1c7-10e2-4383-8723-ece279e2fcfb")
+	)
+	(label "P1_A"
+		(at 271.78 171.45 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "d7c3fe70-cd72-4e21-bd37-b6a9c2e777bd")
+	)
+	(label "P2"
+		(at 43.18 209.55 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "f3762cbb-788c-44ca-beba-593ff9695af1")
+	)
+	(label "POWER"
+		(at 132.08 275.59 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "fb36c34e-d3d8-456a-af2c-026255588f59")
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:resistor-1")
+		(at 292.1 209.55 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "01b84847-61df-4515-93bb-fa55150c21d6")
+		(property "Reference" "R7"
+			(at 297.18 201.93 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "220"
+			(at 297.18 212.09 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 292.1 209.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 292.1 209.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 292.1 209.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "66008762-8723-4ad1-a96e-b560b22a02ef")
+		)
+		(pin "1"
+			(uuid "05cdfc65-7b86-4015-9994-d0519a442d43")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "R7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:resistor-1")
+		(at 271.78 123.19 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "04a09cbe-6071-45e3-9107-4cc0999c3baf")
+		(property "Reference" "R2"
+			(at 271.78 125.73 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "1k"
+			(at 281.94 125.73 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0805"
+			(at 271.78 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 271.78 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 271.78 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "49eb6bc1-b195-4ea9-a2d2-a73a47861cea")
+		)
+		(pin "1"
+			(uuid "3171b9cf-5791-4395-847a-52434df76987")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "R2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "generic-power_1")
+		(lib_id "zpowerMeter-geda-import:generic-power")
+		(at 167.64 146.05 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "076fd19f-a01d-4026-b073-38aba9cc73c6")
+		(property "Reference" "#PWR0004"
+			(at 167.64 146.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "3.3Volt"
+			(at 167.64 146.05 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 167.64 146.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 167.64 146.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 167.64 146.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "46c24999-b9dc-4307-b3a3-80651eaa25f4")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0004")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:gnd-1")
+		(at 91.44 130.81 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "08e21eef-f088-4165-bf13-16915ac01c44")
+		(property "Reference" "#PWR0005"
+			(at 91.44 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 91.44 130.81 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 91.44 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 91.44 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 91.44 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "60727b22-9028-43c7-94f7-577d2ccfb4ac")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0005")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:led-1")
+		(at 345.44 265.43 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "0926a95c-b99d-42bb-88b7-88a3d01b1dbf")
+		(property "Reference" "LED?"
+			(at 350.52 255.27 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 345.44 265.43 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 345.44 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 345.44 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 345.44 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "73be9487-3bb3-40df-bdca-7c4410ab8158")
+		)
+		(pin "1"
+			(uuid "63cf08c4-01df-4365-912a-32518410dea7")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "LED?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:gnd-1")
+		(at 294.64 95.25 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "2319cdf7-68a7-4170-82b8-7831d1a1fbd3")
+		(property "Reference" "#PWR0016"
+			(at 294.64 95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 294.64 95.25 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 294.64 95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 294.64 95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 294.64 95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "80c3fc31-8a5f-474b-85a3-600603f44cb9")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0016")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "generic-power_1")
+		(lib_id "zpowerMeter-geda-import:generic-power")
+		(at 170.18 64.77 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "24ce4c1a-8f69-438f-8ad7-4aba22ff3a31")
+		(property "Reference" "#PWR0007"
+			(at 170.18 64.77 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "3.3Volt"
+			(at 170.18 64.77 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 170.18 64.77 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 170.18 64.77 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 170.18 64.77 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "22a267a4-8e5e-4ec8-8026-d507b4344f46")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0007")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:led-1")
+		(at 200.66 265.43 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "28853f18-8404-45a3-974c-646bda46118d")
+		(property "Reference" "LED?"
+			(at 205.74 255.27 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 200.66 265.43 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 200.66 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 200.66 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 200.66 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "01a61928-adea-472e-aa3e-de7acf588721")
+		)
+		(pin "2"
+			(uuid "9a08dab9-4b7b-4ebe-a0f6-ab543d9ac02c")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "LED?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:resistor-1")
+		(at 236.22 110.49 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "2d702ccd-7045-4da6-9e1e-53ccaca6bfee")
+		(property "Reference" "R4"
+			(at 238.76 110.49 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "1k"
+			(at 238.76 100.33 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 236.22 110.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 236.22 110.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 236.22 110.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ca6c9ab9-f2de-4ff1-ba5f-c0ced557d575")
+		)
+		(pin "2"
+			(uuid "4a90958b-91c0-4658-86bf-7ca488ec4089")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "R4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:terminal-1")
+		(at 20.32 186.69 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "2ede341a-d9e4-4464-9809-8e37cf5e04f2")
+		(property "Reference" "T?"
+			(at 26.67 185.42 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 20.32 186.69 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "CONNECTOR 1 1"
+			(at 20.32 186.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 20.32 186.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 20.32 186.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "9733c442-b3ae-4fd7-8b68-2b77a6d6acf0")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "T?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:CC2530Module")
+		(at 55.88 120.65 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "3042feb2-5b57-431f-b202-ed1b4275c59d")
+		(property "Reference" "?"
+			(at 55.88 120.65 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 55.88 120.65 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "DIP24"
+			(at 55.88 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 55.88 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 55.88 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:gnd-1")
+		(at 132.08 184.15 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "35d32cf0-5dfb-44ce-be17-ca9e19547720")
+		(property "Reference" "#PWR0001"
+			(at 132.08 184.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 132.08 184.15 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 132.08 184.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 132.08 184.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 132.08 184.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "d7954303-88a7-4897-a37b-0636e2a38f71")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0001")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:DS1117-3_3")
+		(at 132.08 133.35 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "37fe9c60-d6b2-46da-96e1-92f1a3e7d78e")
+		(property "Reference" "?"
+			(at 132.08 133.35 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 132.08 133.35 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "SOT-223"
+			(at 132.08 133.35 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 132.08 133.35 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 132.08 133.35 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:capacitor-1")
+		(at 294.64 110.49 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "40659992-382c-4fbf-8767-4e5b13be8f60")
+		(property "Reference" "C7"
+			(at 287.02 100.33 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 294.64 110.49 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 294.64 110.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 294.64 110.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 294.64 110.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "433efc4a-4c8e-4bda-abc9-2d3a2523aceb")
+		)
+		(pin "2"
+			(uuid "0f24dcd9-9fec-486a-8834-6834c0c0c1b2")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "C7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:switch-spst-1")
+		(at 180.34 95.25 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "42f546f5-a036-486b-9a9a-8b3efcb6cbd5")
+		(property "Reference" "S?"
+			(at 187.96 87.63 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 180.34 95.25 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 180.34 95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 180.34 95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 180.34 95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "S?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:resistor-1")
+		(at 50.8 186.69 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "43623a57-bb31-47b0-b89e-1ccb870f9f75")
+		(property "Reference" "R1"
+			(at 55.88 179.07 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "0.04"
+			(at 55.88 189.23 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "2512"
+			(at 50.8 186.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 50.8 186.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 50.8 186.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "93ce31b7-1caf-4566-ab5d-465c9ec58e1d")
+		)
+		(pin "1"
+			(uuid "9718d246-4143-4624-ae9c-43223cee9eda")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "R1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:gnd-1")
+		(at 320.04 156.21 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "46e031ee-da45-4f5d-8f10-e26a2cd5005d")
+		(property "Reference" "#PWR0015"
+			(at 320.04 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 320.04 156.21 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 320.04 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 320.04 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 320.04 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "5c75eba1-76f5-4b29-b153-8a29bd4196af")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0015")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:capacitor-1")
+		(at 294.64 82.55 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "54328845-e553-44b4-9421-3b5cd1049646")
+		(property "Reference" "C8"
+			(at 287.02 72.39 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 294.64 82.55 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 294.64 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 294.64 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 294.64 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "eac0eab6-9556-4d5f-92a0-abb52e3a346d")
+		)
+		(pin "1"
+			(uuid "c73e7254-81fa-4d6c-ab73-b3c9c363c26d")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "C8")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:capacitor-1")
+		(at 320.04 143.51 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "550aa5ae-157a-4fe3-9d4f-4a4b78a5eee0")
+		(property "Reference" "C5"
+			(at 312.42 133.35 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "220p"
+			(at 314.96 128.27 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 320.04 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 320.04 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 320.04 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "bf0bc545-ae13-4aae-be44-a1189c834ce1")
+		)
+		(pin "2"
+			(uuid "e7c6bdce-a227-4f33-bd18-aa00f90020e4")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "C5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:led-1")
+		(at 241.3 265.43 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "569bedd5-a838-4e46-96ba-eb7b9132bb11")
+		(property "Reference" "LED?"
+			(at 248.92 255.27 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 241.3 265.43 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 241.3 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 241.3 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 241.3 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "e2f2e7ed-3562-4929-93d7-edc51a0fee78")
+		)
+		(pin "2"
+			(uuid "26cc3b4e-fdf9-4b61-bb74-b46c9c18f523")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "LED?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "generic-power_1")
+		(lib_id "zpowerMeter-geda-import:generic-power")
+		(at 86.36 29.21 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "5be31098-6934-45e0-aa37-8dc022086beb")
+		(property "Reference" "#PWR0006"
+			(at 86.36 29.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "3.3Volt"
+			(at 86.36 29.21 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 86.36 29.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 86.36 29.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 86.36 29.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "818f4129-b30b-4934-bc88-e7d8eae7b216")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0006")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:capacitor-1")
+		(at 320.04 171.45 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "600cf375-5113-40e5-824a-73314e0730da")
+		(property "Reference" "C4"
+			(at 312.42 161.29 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "220p"
+			(at 314.96 156.21 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 320.04 171.45 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 320.04 171.45 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 320.04 171.45 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "a64d8bdc-4760-4966-8ea5-a556b22610a8")
+		)
+		(pin "1"
+			(uuid "ac078391-e456-42d8-b82c-1f03aa07a46c")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "C4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:gnd-1")
+		(at 149.86 161.29 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "65cfef14-3809-476b-916b-d111621c2f21")
+		(property "Reference" "#PWR0003"
+			(at 149.86 161.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 149.86 161.29 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 149.86 161.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 149.86 161.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 149.86 161.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "89c3ac69-9b07-4fc5-a249-1bd5957acfc3")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0003")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:led-1")
+		(at 368.3 288.29 0)
+		(mirror y)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "6c3de8e7-d48a-4554-a735-cce4e2b86d5c")
+		(property "Reference" "LED?"
+			(at 363.22 278.13 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 368.3 288.29 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 368.3 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 368.3 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 368.3 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "118c25ad-6684-4554-b43b-3f77c213b8bc")
+		)
+		(pin "2"
+			(uuid "e891ab84-15fe-4af5-b31c-df4019cdb27e")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "LED?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:capacitor-1")
+		(at 350.52 49.53 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "7c100b74-c44f-4d27-924b-85fc00a7b27f")
+		(property "Reference" "C1"
+			(at 355.6 41.91 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "100n"
+			(at 350.52 49.53 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 350.52 49.53 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 350.52 49.53 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 350.52 49.53 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "5abf5cd8-e461-44dc-8ab9-481e71b94d22")
+		)
+		(pin "1"
+			(uuid "56a175b6-bb58-43fe-a7fc-e9d37740f5a8")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "C1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "generic-power_1")
+		(lib_id "zpowerMeter-geda-import:generic-power")
+		(at 139.7 26.67 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "7c36bd18-20f0-4a4a-b61e-b7b96542e8b6")
+		(property "Reference" "#PWR0018"
+			(at 139.7 26.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "3.3Volt"
+			(at 139.7 26.67 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 139.7 26.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 139.7 26.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 139.7 26.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "27a43f02-bf60-47ef-81e4-0044eef82e26")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0018")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:resistor-1")
+		(at 403.86 100.33 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "83d791fd-3d1b-461e-a113-9ef6d33443cb")
+		(property "Reference" "R?"
+			(at 408.94 92.71 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "150"
+			(at 408.94 102.87 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 403.86 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 403.86 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 403.86 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "f4eff555-fd9b-4930-a492-a6b7fdad2a99")
+		)
+		(pin "2"
+			(uuid "583632ab-b23f-4a01-9420-42ae6f151cbe")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "R?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:resistor-1")
+		(at 177.8 92.71 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "84bb23c5-375c-4756-af15-45d03ae61166")
+		(property "Reference" "R8"
+			(at 170.18 87.63 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 177.8 92.71 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 177.8 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 177.8 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 177.8 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "c7d95694-f428-4c99-80f1-87de46523eae")
+		)
+		(pin "2"
+			(uuid "4cadd65f-ebc9-45e4-bdd5-095a69b7065e")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "R8")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:resistor-1")
+		(at 220.98 204.47 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "860867cd-f024-4487-9699-95679ae020f9")
+		(property "Reference" "R7"
+			(at 226.06 196.85 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "70"
+			(at 226.06 207.01 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 220.98 204.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 220.98 204.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 220.98 204.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "7d08518b-9ffc-4a56-bb58-ce610a0797af")
+		)
+		(pin "1"
+			(uuid "1897c15e-6088-4327-87f2-6461f49f0a01")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "R7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:resistor-1")
+		(at 238.76 115.57 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "87a47126-0b2a-40cb-b8d8-b94da2707bb5")
+		(property "Reference" "R3"
+			(at 246.38 107.95 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "1k"
+			(at 251.46 110.49 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0805"
+			(at 238.76 115.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 238.76 115.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 238.76 115.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "92c8fa03-0aa7-4a8d-9c60-1c2a36b593d2")
+		)
+		(pin "1"
+			(uuid "a89f3a50-21e4-4147-a624-a8dd04cb26bf")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "R3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:resistor-1")
+		(at 271.78 173.99 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "94194db6-7f2d-4f30-a630-ebc762adef29")
+		(property "Reference" "R1"
+			(at 274.32 166.37 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "1k"
+			(at 284.48 166.37 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 271.78 173.99 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 271.78 173.99 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 271.78 173.99 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "edb15cc7-1c76-4f9f-907c-2bf5b790302b")
+		)
+		(pin "2"
+			(uuid "483a2c17-8d25-4de0-92e3-f137ac090f24")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "R1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:resistor-1")
+		(at 236.22 80.01 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "9be33638-9cb0-4aae-9ccd-5bfa35b43d8c")
+		(property "Reference" "R5"
+			(at 238.76 80.01 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "2M"
+			(at 238.76 69.85 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 236.22 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 236.22 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 236.22 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "2ccdf4e6-037f-48d0-9280-009d770d2270")
+		)
+		(pin "1"
+			(uuid "33a5454c-4b01-403b-b06c-5c89fbddd533")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "R5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:gnd-1")
+		(at 370.84 57.15 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "9cb2feb8-0bf6-4286-94f2-33bfb6badebd")
+		(property "Reference" "#PWR0014"
+			(at 370.84 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 370.84 57.15 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 370.84 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 370.84 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 370.84 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b99f5805-6442-4984-b35a-d3a25bb478fb")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0014")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:led-1")
+		(at 307.34 288.29 0)
+		(mirror y)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "9e6b242e-0b4d-43bd-93fb-fbb8da34adc8")
+		(property "Reference" "LED?"
+			(at 302.26 278.13 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 307.34 288.29 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 307.34 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 307.34 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 307.34 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "23692082-6564-4f30-b4ed-f65b2097fe7f")
+		)
+		(pin "2"
+			(uuid "9310ca9f-4305-419a-9036-c1d99c1408ff")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "LED?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:xtal")
+		(at 332.74 52.07 180)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a1cac63b-9e32-430b-805b-b32b85710c2e")
+		(property "Reference" "X1"
+			(at 332.867 63.5 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "4.096Mhz"
+			(at 312.42 57.15 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "dip2"
+			(at 332.74 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 332.74 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 332.74 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "X1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:BT136")
+		(at 121.92 232.41 0)
+		(mirror y)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "af488ad1-e6c7-4a20-9ac8-219cbea9fdff")
+		(property "Reference" "?"
+			(at 121.92 232.41 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 121.92 232.41 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "TO92"
+			(at 121.92 232.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 121.92 232.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 121.92 232.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:resistor-1")
+		(at 147.32 49.53 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "b4620108-e39b-43ac-9c3f-335dc091aa0a")
+		(property "Reference" "R8"
+			(at 139.7 44.45 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 147.32 49.53 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 147.32 49.53 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 147.32 49.53 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 147.32 49.53 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "024631a2-cbaf-45bb-a321-f0b2c15e8a73")
+		)
+		(pin "2"
+			(uuid "11271a2c-2a18-4d4e-94a5-5c61ebc542f2")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "R8")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:led-1")
+		(at 279.4 265.43 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "b6a60929-4776-437c-afe4-953eee129cda")
+		(property "Reference" "LED?"
+			(at 287.02 255.27 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 279.4 265.43 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 279.4 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 279.4 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 279.4 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "57007467-5061-4047-9b0d-4caebfe8428c")
+		)
+		(pin "1"
+			(uuid "5a9db9a9-8559-4bb8-9038-0dfc830043e9")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "LED?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:gnd-1")
+		(at 408.94 62.23 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "bab97dc8-ed16-44fa-95bf-44892f2aa974")
+		(property "Reference" "#PWR0013"
+			(at 408.94 62.23 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 408.94 62.23 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 408.94 62.23 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 408.94 62.23 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 408.94 62.23 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ab847d83-0e36-4f1f-a989-2ef2a2a40412")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0013")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "generic-power_1")
+		(lib_id "zpowerMeter-geda-import:generic-power")
+		(at 373.38 41.91 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "be9a1e5a-244a-4219-b6fd-cb0a84324eac")
+		(property "Reference" "#PWR0011"
+			(at 373.38 41.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "3.3Volt"
+			(at 373.38 41.91 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 373.38 41.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 373.38 41.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 373.38 41.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "8c1a5ea9-9e4c-4793-ae0b-1fbd2711b74e")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0011")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:generic-power")
+		(at 114.3 143.51 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "c3105096-46a4-4c83-aefc-061c3361edaf")
+		(property "Reference" "#PWR0002"
+			(at 114.3 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "5Volt"
+			(at 114.3 143.51 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 114.3 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 114.3 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 114.3 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a4ffe893-391f-40ad-a134-4979fefd4294")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0002")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:capacitor-1")
+		(at 302.26 156.21 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d11ba3c5-57af-4999-9297-72f4c98c5439")
+		(property "Reference" "?"
+			(at 302.26 156.21 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "22n"
+			(at 297.18 140.97 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "1812"
+			(at 302.26 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 302.26 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 302.26 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "5085a920-ca43-4f9a-ba5d-7dc9266082ec")
+		)
+		(pin "2"
+			(uuid "cbe730f1-aba4-476d-8460-ad58c6edf213")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:switch-spst-1")
+		(at 190.5 49.53 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d307f5c6-cbdc-45e9-9282-9ff8bd663fa3")
+		(property "Reference" "S?"
+			(at 198.12 41.91 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 190.5 49.53 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 190.5 49.53 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 190.5 49.53 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 190.5 49.53 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "S?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:led-1")
+		(at 264.16 288.29 0)
+		(mirror y)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d4c53564-9b78-4471-af97-46cacc131986")
+		(property "Reference" "LED?"
+			(at 259.08 278.13 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 264.16 288.29 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 264.16 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 264.16 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 264.16 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "792de3ba-a9c8-4225-9719-2b1500dbbcd3")
+		)
+		(pin "1"
+			(uuid "131e2eb6-93bf-4493-b165-94a2690542e1")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "LED?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:MOC3021")
+		(at 213.36 234.95 0)
+		(mirror y)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d7147f86-405c-46b0-8fce-d5c5677d20a2")
+		(property "Reference" "?"
+			(at 213.36 234.95 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 213.36 234.95 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "DIP6"
+			(at 213.36 234.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 213.36 234.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 213.36 234.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:gnd-1")
+		(at 215.9 242.57 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d98d57c9-a601-4684-9f60-bbd45a3c69dc")
+		(property "Reference" "#PWR0009"
+			(at 215.9 242.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 215.9 242.57 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 215.9 242.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 215.9 242.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 215.9 242.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "3c66788f-c9b3-4b71-88ef-578639bfe392")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0009")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:led-1")
+		(at 223.52 288.29 0)
+		(mirror y)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "db06e2bc-c169-4f2f-b6ee-28d736d15d3d")
+		(property "Reference" "LED?"
+			(at 218.44 275.59 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 223.52 288.29 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 223.52 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 223.52 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 223.52 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "42a15fc9-6f26-4487-b9a1-10be13462af7")
+		)
+		(pin "2"
+			(uuid "8f088fd4-202c-47f1-a1e7-6fdb50a31e3a")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "LED?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:capacitor-1")
+		(at 386.08 57.15 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "db9b6c58-7264-4546-afc0-33ed9838c7c6")
+		(property "Reference" "C2"
+			(at 391.16 52.07 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "100n"
+			(at 386.08 57.15 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 386.08 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 386.08 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 386.08 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "7d8c0044-3d48-4e8c-aa2e-4217dd30c51c")
+		)
+		(pin "2"
+			(uuid "a70662d0-56f8-4d53-a7d3-40a1f1338e5e")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "C2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:resistor-1")
+		(at 109.22 204.47 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e91ea9a9-02d4-4a08-9f9f-90ed8ba8f483")
+		(property "Reference" "R?"
+			(at 114.3 196.85 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "360"
+			(at 114.3 207.01 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "1206"
+			(at 109.22 204.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 109.22 204.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 109.22 204.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "279255fb-a412-40d2-93ef-c0fceaf8afbb")
+		)
+		(pin "2"
+			(uuid "e96fe904-a31c-46ea-a78a-f87ff6a53b0a")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "R?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:capacitor-1")
+		(at 276.86 92.71 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e9ba1de6-0e90-48d1-a9f8-71ca81d38dc1")
+		(property "Reference" "C9"
+			(at 269.24 82.55 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "22n"
+			(at 271.78 77.47 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "1812"
+			(at 276.86 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 276.86 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 276.86 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a9342d33-0238-48c7-8f2a-501a43ba0a2d")
+		)
+		(pin "2"
+			(uuid "66d87406-41a6-4165-af19-e76759de7763")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "C9")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:CS5463")
+		(at 332.74 148.59 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "ef85199e-0e87-4767-9ec7-4d95fceebc0b")
+		(property "Reference" "?"
+			(at 332.74 148.59 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 332.74 148.59 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "24LSSOP"
+			(at 332.74 148.59 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 332.74 148.59 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 332.74 148.59 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:generic-power")
+		(at 345.44 41.91 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f2a143b8-a9a8-4a8b-aaf9-60e07699a4a6")
+		(property "Reference" "#PWR0012"
+			(at 345.44 41.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "5Volt"
+			(at 345.44 41.91 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 345.44 41.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 345.44 41.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 345.44 41.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "13a9126e-404a-42e4-a495-60ec3e3ded30")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0012")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:led-1")
+		(at 337.82 288.29 0)
+		(mirror y)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f435c90d-261f-4c6d-98be-7c60f685f10e")
+		(property "Reference" "LED?"
+			(at 332.74 278.13 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 337.82 288.29 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 337.82 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 337.82 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 337.82 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "3e9ddfa0-659c-4dc5-ba21-27796f5d5751")
+		)
+		(pin "1"
+			(uuid "48953634-a2fb-453e-bc27-a2e6586b9583")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "LED?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:gnd-1")
+		(at 363.22 161.29 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f4f8f6eb-0ef0-4b81-b99e-22a4f337bee7")
+		(property "Reference" "#PWR0010"
+			(at 363.22 161.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 363.22 161.29 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 363.22 161.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 363.22 161.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 363.22 161.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "5a0aab70-c6ca-4e62-bd61-fae8341607ff")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0010")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:led-1")
+		(at 314.96 212.09 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f5b8bc92-54b9-4dba-8b4d-b55d2b0b5240")
+		(property "Reference" "LED?"
+			(at 322.58 201.93 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 314.96 212.09 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 314.96 212.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 314.96 212.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 314.96 212.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "f1a62f6a-f51e-4388-943a-7efdf89253c3")
+		)
+		(pin "2"
+			(uuid "5afffea2-c663-4c36-94a7-efbb33703b51")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "LED?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:gnd-1")
+		(at 198.12 113.03 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f886335d-666b-4dad-8d53-404af3b3cf2a")
+		(property "Reference" "#PWR0008"
+			(at 198.12 113.03 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 198.12 113.03 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 198.12 113.03 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 198.12 113.03 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 198.12 113.03 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "6ce0827c-8848-4b05-8b54-e5ccea0fa9ce")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0008")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:gnd-1")
+		(at 340.36 217.17 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f9983ed2-7432-4744-bc73-45fdc085d970")
+		(property "Reference" "#PWR0017"
+			(at 340.36 217.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 340.36 217.17 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 340.36 217.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 340.36 217.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 340.36 217.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "5dc32cb5-a346-4068-94d7-79f195daa2cd")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "#PWR0017")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:led-1")
+		(at 314.96 265.43 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "fd24635e-d9d9-4dec-a1d8-3a3110165b4b")
+		(property "Reference" "LED?"
+			(at 320.04 255.27 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 314.96 265.43 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 314.96 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 314.96 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 314.96 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "68bfa8ce-d91f-4af0-8e8e-8e8b62e338a4")
+		)
+		(pin "2"
+			(uuid "2a9265ad-f7f3-4a8b-8304-7a2b057fb338")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "LED?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:terminal-1")
+		(at 20.32 212.09 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "fdd0aa38-3ba6-4cd3-a1c1-340217fa5d54")
+		(property "Reference" "T?"
+			(at 26.67 210.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 20.32 212.09 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "CONNECTOR 1 1"
+			(at 20.32 212.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 20.32 212.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 20.32 212.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "d857b50e-31b3-4830-b7c2-ca8c02c839b5")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "T?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "zpowerMeter-geda-import:capacitor-1")
+		(at 406.4 151.13 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "ffaf2fc5-c7d3-41d4-9b2a-4dbb31f27c8b")
+		(property "Reference" "C3"
+			(at 398.78 140.97 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "100n"
+			(at 401.32 135.89 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 406.4 151.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 406.4 151.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 406.4 151.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "8e70b194-fe09-48fd-9707-4c66f807dc36")
+		)
+		(pin "2"
+			(uuid "ccd7b6fb-8971-427b-b22a-e00761aab62d")
+		)
+		(instances
+			(project "zpowerMeter"
+				(path "/044037f0-f25b-41e7-8218-d30e002d1a97"
+					(reference "C3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(embedded_fonts no)
+)

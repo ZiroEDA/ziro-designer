@@ -22,6 +22,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { SCH_IO_GEDA } from '@ziroeda/eeschema/sch_io/geda/sch_io_geda.js';
 import { importThroughFrame, minus, pinsAsSet, SCH_FILE_T, topLevelItems } from './import_arm.js';
 
 const DIR = resolve(__dirname, '../../../data/eeschema/import_oracle/geda');
@@ -46,4 +47,20 @@ describe('SCH_IO_GEDA against eeschema 10.0.6', () => {
       expect(minus(kicad, mine), `${sheet}: items only KiCad's`).toEqual([]);
     }
   }, 60_000);
+});
+
+describe('SCH_IO_GEDA refuses what eeschema refuses', () => {
+  // KiCad's own negative samples: eeschema's importer declines both, so it writes nothing.
+  it.each(['legacy_kicad', 'random'])('%s', (aName) => {
+    const pi = new SCH_IO_GEDA();
+    pi.SetFileReader((p) => {
+      try {
+        return new Uint8Array(readFileSync(p));
+      } catch {
+        return null;
+      }
+    });
+
+    expect(pi.CanReadSchematicFile(join(DIR, 'input', `${aName}.sch`))).toBe(false);
+  });
 });
