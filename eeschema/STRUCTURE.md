@@ -88,6 +88,27 @@ files count as done - so read the "left" column as a floor. Decisions behind the
 
 `dialogs/dialog_increment_annotations`, `dialogs/item_color`, `dialogs/panel_setup_severities`, `erc/marker_nav`, `import_gfx/image_format`, `sch_canvas`, `sim/sim_model_types`, `symbol_editor/cursors`, `symbol_editor/defaults`, `symbol_editor/grid`, `symbol_editor/symbol_edit_frame_app`, `toggles`, `tools/arc_edit`, `tools/assign_netclass`, `tools/index`, `widgets/net_navigator_panel`
 
+### The 16 unexplained extras, 2026-10-10: where each belongs, for a decision
+
+| file (ours) | KiCad home | proposal |
+|---|---|---|
+| `dialogs/dialog_increment_annotations` | `dialogs/dialog_increment_annotations_base.cpp` - upstream has no derived class; SCH_EDITOR_CONTROL::IncrementAnnotations builds the `_BASE` dialog itself (sch_editor_control.cpp:2917) | rename to `dialog_increment_annotations_base`, as upstream |
+| `dialogs/item_color` | none: our record colour <-> COLOR4D conversion | delete with the record model |
+| `dialogs/panel_setup_severities` | `common/dialogs/panel_setup_severities.cpp` (shared) | fold into the common panel (pcbnew uses it already) |
+| `erc/marker_nav` | `RC_TREE_MODEL::PrevMarker` / `NextMarker` (common/rc_item.cpp) | move to `common/rc_item.ts` |
+| `import_gfx/image_format` | none: guesses the format of an embedded bitmap's bytes, which wxImage does upstream | keep as a browser helper (`browser/`) |
+| `sim/sim_model_types` | `sim/sim_model.cpp` (`SIM_MODEL::ReadTypeFromFields` / `InferSimModel`) | goes with the sim port (deferred); ERC's TestSimModelIssues uses it until then |
+| `symbol_editor/cursors` | none: the cursor CSS a tool shows | fold into the tools' SetCurrentCursor, as eeschema's canvas does |
+| `symbol_editor/defaults` | `SYMBOL_EDITOR_SETTINGS::m_Defaults` read where an item is made | delete with the symbol editor's live switch |
+| `symbol_editor/grid` | `EDA_DRAW_FRAME::GetNearestGridPosition` on the GAL grid | delete with the symbol editor's live switch |
+| `symbol_editor/symbol_edit_frame_app` | none: what the program gives the window, as `browser/eeschema_app` | move to `browser/`, as `eeschema_app` |
+| `tools/arc_edit` | `enum class ARC_EDIT_MODE` in `include/settings/app_settings.h` | move the enum to `common/settings/app_settings.ts` |
+| `tools/assign_netclass` | the `getNetNamePattern` lambda of SCH_EDITOR_CONTROL::AssignNetclass (sch_editor_control.cpp:1183) | fold into `sch_editor_control.ts` with the live AssignNetclass |
+| `tools/index` | none: a barrel | delete when the record tools it re-exports are gone |
+| `widgets/net_navigator_panel` | `SCH_EDIT_FRAME::RefreshNetNavigator` (net_navigator.cpp) and the frame's wxTreeCtrl | the view half of `net_navigator.ts`; rename `net_navigator_ui.tsx` |
+| `sch_canvas` | the canvas half of SCH_EDIT_FRAME's constructor | see the root table |
+| `toggles` | frame settings read by EDITOR_CONDITIONS | see the root table |
+
 ### Root, 2026-10-10: what is left, and what is waiting on a decision
 
 Ported this pass: `general.ts`, `sch_text_help_md.ts`, `sch_preview_panel.ts`. Moved:
