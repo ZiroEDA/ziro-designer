@@ -37,7 +37,7 @@ import {
   type RoutingSettings,
 } from '../router/pns_routing_settings.js';
 import { pcbnewLiveSettings, updatePcbnewLiveSettings } from '../browser/pcbnew_live_settings.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
   onClose: () => void;
@@ -59,7 +59,6 @@ const MODES: readonly (readonly [PnsMode, string])[] = [
 export function DialogPnsSettings({ onClose, settings }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   const [v, setV] = useState<RoutingSettings>(() =>
     settings ? { ...settings } : readRoutingSettings(pcbnewLiveSettings().tools.pns),
@@ -114,102 +113,93 @@ export function DialogPnsSettings({ onClose, settings }: Props): JSX.Element {
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-pns-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Interactive Router Settings
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
+    <DialogShim title="Interactive Router Settings" onClose={onClose} className="ze-pns-dialog">
+      <div className="ze-modal-body ze-update-pcb-body ze-pns-body">
+        <fieldset className="ze-pns-mode">
+          <legend>Mode</legend>
 
-        <div className="ze-modal-body ze-update-pcb-body ze-pns-body">
-          <fieldset className="ze-pns-mode">
-            <legend>Mode</legend>
+          {radio(...MODES[0]!)}
+          {check('Free angle mode', v.freeAngleMode, (b) => set({ freeAngleMode: b }), '', {
+            sub: true,
+            disabled: !enabled.freeAngleMode,
+          })}
+          {check(
+            'Allow DRC violations',
+            v.allowDrcViolations,
+            (b) => set({ allowDrcViolations: b }),
+            '(Highlight collisions mode only) - allows one to establish a track even if is violating the DRC rules.',
+            { sub: true, disabled: !enabled.violateDrc },
+          )}
 
-            {radio(...MODES[0]!)}
-            {check('Free angle mode', v.freeAngleMode, (b) => set({ freeAngleMode: b }), '', {
-              sub: true,
-              disabled: !enabled.freeAngleMode,
-            })}
-            {check(
-              'Allow DRC violations',
-              v.allowDrcViolations,
-              (b) => set({ allowDrcViolations: b }),
-              '(Highlight collisions mode only) - allows one to establish a track even if is violating the DRC rules.',
-              { sub: true, disabled: !enabled.violateDrc },
-            )}
+          {radio(...MODES[1]!)}
+          {check(
+            'Shove vias',
+            v.shoveVias,
+            (b) => set({ shoveVias: b }),
+            'When disabled, vias are treated as un-movable objects and hugged instead of shoved.',
+            { sub: true, disabled: !enabled.shoveVias },
+          )}
+          {check(
+            'Jump over obstacles',
+            v.jumpOverObstacles,
+            (b) => set({ jumpOverObstacles: b }),
+            'When enabled, the router tries to move colliding tracks behind solid obstacles (e.g. pads) instead of "reflecting" back the collision',
+            { sub: true, disabled: !enabled.jumpOverObstacles },
+          )}
 
-            {radio(...MODES[1]!)}
-            {check(
-              'Shove vias',
-              v.shoveVias,
-              (b) => set({ shoveVias: b }),
-              'When disabled, vias are treated as un-movable objects and hugged instead of shoved.',
-              { sub: true, disabled: !enabled.shoveVias },
-            )}
-            {check(
-              'Jump over obstacles',
-              v.jumpOverObstacles,
-              (b) => set({ jumpOverObstacles: b }),
-              'When enabled, the router tries to move colliding tracks behind solid obstacles (e.g. pads) instead of "reflecting" back the collision',
-              { sub: true, disabled: !enabled.jumpOverObstacles },
-            )}
+          {radio(...MODES[2]!)}
+        </fieldset>
 
-            {radio(...MODES[2]!)}
-          </fieldset>
-
-          <fieldset className="ze-pns-options">
-            <legend>General Options</legend>
-            {check(
-              'Remove redundant tracks',
-              v.removeLoops,
-              (b) => set({ removeLoops: b }),
-              'If the new track has the same connection as an already existing track, the old track is removed.',
-            )}
-            {check(
-              'Optimize pad connections',
-              v.smartPads,
-              (b) => set({ smartPads: b }),
-              'When enabled, the router tries to break out pads/vias in a clean way, avoiding acute angles and jagged breakout tracks.',
-            )}
-            {check(
-              'Smooth dragged segments',
-              v.smoothDraggedSegments,
-              (b) => set({ smoothDraggedSegments: b }),
-              'When enabled, the router attempts to merge several jagged segments into a single straight one (dragging mode).',
-            )}
-            {/* "Suggest track finish" sits here upstream, hidden. */}
-            {check(
-              'Optimize entire track being dragged',
-              v.optimizeEntireDraggedTrack,
-              (b) => set({ optimizeEntireDraggedTrack: b }),
-              'When enabled, the entire portion of the track that is visible on the screen will be optimized and re-routed when a segment is dragged.  When disabled, only the area near the segment being dragged will be optimized.',
-            )}
-            {check(
-              'Use mouse path to set track posture',
-              v.autoPosture,
-              (b) => set({ autoPosture: b }),
-              'When enabled, the posture of tracks will be guided by how the mouse is moved from the starting location',
-            )}
-            {check(
-              'Fix all segments on click',
-              v.fixAllSegments,
-              (b) => set({ fixAllSegments: b }),
-              'When enabled, all track segments will be fixed in place up to the cursor location.  When disabled, the last segment (closest to the cursor) will remain free and follow the cursor.',
-            )}
-          </fieldset>
-        </div>
-
-        <div className="ze-modal-footer">
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="primary" onClick={apply}>
-            OK
-          </button>
-        </div>
+        <fieldset className="ze-pns-options">
+          <legend>General Options</legend>
+          {check(
+            'Remove redundant tracks',
+            v.removeLoops,
+            (b) => set({ removeLoops: b }),
+            'If the new track has the same connection as an already existing track, the old track is removed.',
+          )}
+          {check(
+            'Optimize pad connections',
+            v.smartPads,
+            (b) => set({ smartPads: b }),
+            'When enabled, the router tries to break out pads/vias in a clean way, avoiding acute angles and jagged breakout tracks.',
+          )}
+          {check(
+            'Smooth dragged segments',
+            v.smoothDraggedSegments,
+            (b) => set({ smoothDraggedSegments: b }),
+            'When enabled, the router attempts to merge several jagged segments into a single straight one (dragging mode).',
+          )}
+          {/* "Suggest track finish" sits here upstream, hidden. */}
+          {check(
+            'Optimize entire track being dragged',
+            v.optimizeEntireDraggedTrack,
+            (b) => set({ optimizeEntireDraggedTrack: b }),
+            'When enabled, the entire portion of the track that is visible on the screen will be optimized and re-routed when a segment is dragged.  When disabled, only the area near the segment being dragged will be optimized.',
+          )}
+          {check(
+            'Use mouse path to set track posture',
+            v.autoPosture,
+            (b) => set({ autoPosture: b }),
+            'When enabled, the posture of tracks will be guided by how the mouse is moved from the starting location',
+          )}
+          {check(
+            'Fix all segments on click',
+            v.fixAllSegments,
+            (b) => set({ fixAllSegments: b }),
+            'When enabled, all track segments will be fixed in place up to the cursor location.  When disabled, the last segment (closest to the cursor) will remain free and follow the cursor.',
+          )}
+        </fieldset>
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <button type="button" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="primary" onClick={apply}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

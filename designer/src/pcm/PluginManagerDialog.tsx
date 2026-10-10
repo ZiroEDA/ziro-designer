@@ -22,7 +22,7 @@ import { isRuntimeKind, latestVersion, pcm, pcmThemeId, usePcmVersion } from './
 import { themeFromLayerCss } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { PackageKind, PackageState, RepoPackage, Repository } from './types.js';
 import './pcm.css';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 type Tab = PackageKind | 'installed' | 'pending';
 
@@ -70,7 +70,6 @@ export function PluginManagerDialog({
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   usePcmVersion();
   const [tab, setTab] = useState<Tab>(initialTab ?? 'library');
@@ -396,100 +395,91 @@ export function PluginManagerDialog({
   ];
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-pcm-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Plugin and Content Manager
-          <span className="x" title="Close" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-
-        {/* repository selector + add-by-URL + search (KiCad's repository chooser) */}
-        <div className="ze-pcm-repobar">
-          <label>
-            Repository:{' '}
-            <select value={activeRepo.url} onChange={(e) => setRepoUrl(e.target.value)}>
-              {repos.map((r) => (
-                <option key={r.url || '_default'} value={r.url}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </label>
+    <DialogShim title="Plugin and Content Manager" onClose={onClose} className="ze-pcm-dialog">
+      {/* repository selector + add-by-URL + search (KiCad's repository chooser) */}
+      <div className="ze-pcm-repobar">
+        <label>
+          Repository:{' '}
+          <select value={activeRepo.url} onChange={(e) => setRepoUrl(e.target.value)}>
+            {repos.map((r) => (
+              <option key={r.url || '_default'} value={r.url}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <input
+          className="ze-pcm-search"
+          type="search"
+          placeholder="Search packages..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <div className="ze-pcm-addrepo">
           <input
-            className="ze-pcm-search"
-            type="search"
-            placeholder="Search packages..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            type="text"
+            placeholder="Add repository by URL..."
+            value={addingUrl}
+            onChange={(e) => setAddingUrl(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && void addRepo()}
           />
-          <div className="ze-pcm-addrepo">
-            <input
-              type="text"
-              placeholder="Add repository by URL..."
-              value={addingUrl}
-              onChange={(e) => setAddingUrl(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && void addRepo()}
-            />
+          <button
+            type="button"
+            className="ze-btn sm"
+            disabled={busy || !addingUrl.trim()}
+            onClick={() => void addRepo()}
+          >
+            Add
+          </button>
+          {activeRepo.url && (
             <button
               type="button"
               className="ze-btn sm"
-              disabled={busy || !addingUrl.trim()}
-              onClick={() => void addRepo()}
+              title="Remove this repository"
+              onClick={() => {
+                pcm.removeRepository(activeRepo.url);
+                setRepoUrl('');
+              }}
             >
-              Add
+              Remove
             </button>
-            {activeRepo.url && (
-              <button
-                type="button"
-                className="ze-btn sm"
-                title="Remove this repository"
-                onClick={() => {
-                  pcm.removeRepository(activeRepo.url);
-                  setRepoUrl('');
-                }}
-              >
-                Remove
-              </button>
-            )}
-          </div>
-        </div>
-        {repoError && <div className="ze-pcm-error">{repoError}</div>}
-
-        {/* tabs */}
-        <div className="ze-pcm-tabs">
-          {allTabs.map(([id, label]) => (
-            <button
-              type="button"
-              key={id}
-              className={`ze-pcm-tab${tab === id ? ' active' : ''}`}
-              onClick={() => setTab(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="ze-modal-body ze-pcm-body">{body()}</div>
-
-        <div className="ze-modal-footer ze-pcm-footer">
-          <span className="ze-pcm-status">{status ?? ''}</span>
-          {pendingCount > 0 && (
-            <>
-              <button type="button" className="ze-btn sm" onClick={() => pcm.discardPending()}>
-                Discard Pending
-              </button>
-              <button type="button" className="ze-btn primary" onClick={applyPending}>
-                Apply Pending Changes ({pendingCount})
-              </button>
-            </>
           )}
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Close
-          </button>
         </div>
       </div>
-    </div>
+      {repoError && <div className="ze-pcm-error">{repoError}</div>}
+
+      {/* tabs */}
+      <div className="ze-pcm-tabs">
+        {allTabs.map(([id, label]) => (
+          <button
+            type="button"
+            key={id}
+            className={`ze-pcm-tab${tab === id ? ' active' : ''}`}
+            onClick={() => setTab(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="ze-modal-body ze-pcm-body">{body()}</div>
+
+      <div className="ze-modal-footer ze-pcm-footer">
+        <span className="ze-pcm-status">{status ?? ''}</span>
+        {pendingCount > 0 && (
+          <>
+            <button type="button" className="ze-btn sm" onClick={() => pcm.discardPending()}>
+              Discard Pending
+            </button>
+            <button type="button" className="ze-btn primary" onClick={applyPending}>
+              Apply Pending Changes ({pendingCount})
+            </button>
+          </>
+        )}
+        <button type="button" className="ze-btn" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </DialogShim>
   );
 }

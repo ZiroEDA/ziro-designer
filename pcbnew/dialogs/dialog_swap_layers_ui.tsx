@@ -13,7 +13,7 @@
  * The two columns share the grid's width (adjustGridColumns).
  */
 import { type JSX, useEffect, useState } from 'react';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { WX_GRID, WX_GRID_TABLE_BASE } from '@ziroeda/common/widgets/wx_grid.js';
 import {
@@ -91,8 +91,6 @@ export function DialogSwapLayers({
   copperLayerCount: number;
   onResult: (aOk: boolean) => void;
 }): JSX.Element {
-  useModalEscape(() => onResult(false));
-
   const [grid] = useState(() => {
     const g = new WX_GRID();
     g.SetTable(new LAYER_GRID_TABLE(dialog), true, wxGridSelectionModes.wxGridSelectCells);
@@ -133,20 +131,17 @@ export function DialogSwapLayers({
   };
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-swaplayers" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">Swap Layers</div>
-        <div className="ze-modal-body ze-swaplayers-body">
-          <WxGridView
-            grid={grid}
-            rowLabels={false}
-            flexCol={1}
-            className="ze-swaplayers-grid"
-            ariaLabel="Swap layers"
-          />
-        </div>
-        <StdDialogButtons onOk={ok} onCancel={() => onResult(false)} />
+    <DialogShim title="Swap Layers" onClose={() => onResult(false)} className="ze-swaplayers">
+      <div className="ze-modal-body ze-swaplayers-body">
+        <WxGridView
+          grid={grid}
+          rowLabels={false}
+          flexCol={1}
+          className="ze-swaplayers-grid"
+          ariaLabel="Swap layers"
+        />
       </div>
-    </div>
+      <StdDialogButtons onOk={ok} onCancel={() => onResult(false)} />
+    </DialogShim>
   );
 }

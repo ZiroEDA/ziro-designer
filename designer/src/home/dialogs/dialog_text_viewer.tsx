@@ -6,7 +6,7 @@
  * the OS text editor). Shows a project text file in a monospace modal. */
 
 import type { JSX } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 export function TextViewerDialog({
   name,
@@ -19,37 +19,28 @@ export function TextViewerDialog({
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {name}
-          <span className="x" title="Close" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-        <pre
-          style={{
-            margin: 0,
-            padding: 12,
-            maxHeight: '60vh',
-            overflow: 'auto',
-            fontSize: 12,
-            lineHeight: 1.45,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-        >
-          {text}
-        </pre>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn primary" onClick={onClose}>
-            Close
-          </button>
-        </div>
+    <DialogShim title={name} onClose={onClose}>
+      <pre
+        style={{
+          margin: 0,
+          padding: 12,
+          maxHeight: '60vh',
+          overflow: 'auto',
+          fontSize: 12,
+          lineHeight: 1.45,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+        }}
+      >
+        {text}
+      </pre>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn primary" onClick={onClose}>
+          Close
+        </button>
       </div>
-    </div>
+    </DialogShim>
   );
 }

@@ -55,7 +55,7 @@ import {
 } from '@ziroeda/common/jobs/job_export_pcb_pos.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import {
   RPT_SEVERITY_ACTION,
   RPT_SEVERITY_ERROR,
@@ -101,8 +101,6 @@ export function DialogGenFootprintPosition({
   onOutputFile,
   onClose,
 }: Props): JSX.Element {
-  useModalEscape(onClose);
-
   const variantNames = board.GetVariantNamesForUI();
   const [variant] = useState(0); // greyed: see the file comment.
   const [outputDir, setOutputDir] = useState('');
@@ -318,191 +316,183 @@ export function DialogGenFootprintPosition({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Generate Placement Files
-          <span className="x" title="Close" onClick={onClose}>
-            ✕
-          </span>
+    <DialogShim title="Generate Placement Files" onClose={onClose}>
+      <div className="ze-modal-body" style={{ display: 'block', overflow: 'auto' }}>
+        <div
+          className="ze-genpos-field"
+          title="Not wired: place_file_exporter.ts does not filter by variant yet."
+        >
+          <span className="ze-genpos-label">Design variant:</span>
+          <Combo
+            value={String(variant)}
+            options={variantNames.map((n, i) => ({ value: String(i), label: n }))}
+            onChange={() => {}}
+            disabled
+            style={{ flex: 1 }}
+            ariaLabel="Design variant"
+          />
         </div>
-        <div className="ze-modal-body" style={{ display: 'block', overflow: 'auto' }}>
-          <div
-            className="ze-genpos-field"
-            title="Not wired: place_file_exporter.ts does not filter by variant yet."
-          >
-            <span className="ze-genpos-label">Design variant:</span>
+        <div className="ze-genpos-row" onMouseDown={() => setBrowseOpen(false)}>
+          <span className="ze-genpos-label">Output directory:</span>
+          <input
+            className="ze-search"
+            style={{ flex: 1 }}
+            value={outputDir}
+            placeholder="Project folder"
+            title="Folder inside the project for the placement files (relative to the project). They appear in the file manager, where you can download them."
+            onChange={(e) => setOutputDir(e.target.value)}
+          />
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className="ze-btn sm"
+              title="Select output directory"
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                setBrowseOpen((v) => !v);
+              }}
+            >
+              <Icon name="folder" size={14} />
+            </button>
+            {browseOpen && (
+              <div className="ze-folder-browse-popup" onMouseDown={(e) => e.stopPropagation()}>
+                {[
+                  '',
+                  ...[...new Set(projectFolders.filter(Boolean))].sort((a, b) =>
+                    a.localeCompare(b),
+                  ),
+                ].map((f) => (
+                  <div
+                    key={f || '.'}
+                    className="ze-menu-item ze-folder-browse-item"
+                    onClick={() => {
+                      setOutputDir(f);
+                      setBrowseOpen(false);
+                    }}
+                  >
+                    {f || 'Project folder'}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="ze-genpos-formatrow">
+          <div className="ze-genpos-field">
+            <span>Format:</span>
             <Combo
-              value={String(variant)}
-              options={variantNames.map((n, i) => ({ value: String(i), label: n }))}
-              onChange={() => {}}
-              disabled
-              style={{ flex: 1 }}
-              ariaLabel="Design variant"
+              value={format}
+              options={FORMAT_CHOICES}
+              onChange={changeFormat}
+              ariaLabel="Format"
             />
           </div>
-          <div className="ze-genpos-row" onMouseDown={() => setBrowseOpen(false)}>
-            <span className="ze-genpos-label">Output directory:</span>
-            <input
-              className="ze-search"
-              style={{ flex: 1 }}
-              value={outputDir}
-              placeholder="Project folder"
-              title="Folder inside the project for the placement files (relative to the project). They appear in the file manager, where you can download them."
-              onChange={(e) => setOutputDir(e.target.value)}
-            />
-            <div style={{ position: 'relative' }}>
-              <button
-                type="button"
-                className="ze-btn sm"
-                title="Select output directory"
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  setBrowseOpen((v) => !v);
-                }}
-              >
-                <Icon name="folder" size={14} />
-              </button>
-              {browseOpen && (
-                <div className="ze-folder-browse-popup" onMouseDown={(e) => e.stopPropagation()}>
-                  {[
-                    '',
-                    ...[...new Set(projectFolders.filter(Boolean))].sort((a, b) =>
-                      a.localeCompare(b),
-                    ),
-                  ].map((f) => (
-                    <div
-                      key={f || '.'}
-                      className="ze-menu-item ze-folder-browse-item"
-                      onClick={() => {
-                        setOutputDir(f);
-                        setBrowseOpen(false);
-                      }}
-                    >
-                      {f || 'Project folder'}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="ze-genpos-formatrow">
-            <div className="ze-genpos-field">
-              <span>Format:</span>
-              <Combo
-                value={format}
-                options={FORMAT_CHOICES}
-                onChange={changeFormat}
-                ariaLabel="Format"
-              />
-            </div>
-            <div className="ze-genpos-field">
-              <span>Units:</span>
-              <Combo
-                value={units}
-                options={UNITS_CHOICES}
-                onChange={setUnits}
-                disabled={isGerber}
-                ariaLabel="Units"
-              />
-            </div>
-          </div>
-
-          <div className="ze-genpos-checks">
-            <label className="ze-check">
-              <input
-                type="checkbox"
-                checked={onlySMD}
-                disabled={!onlySMDEnabled}
-                onChange={(e) => setOnlySMD(e.target.checked)}
-              />
-              Include only SMD footprints
-            </label>
-            <label className="ze-check">
-              <input
-                type="checkbox"
-                checked={excludeTH}
-                disabled={!excludeTHEnabled}
-                onChange={(e) => setExcludeTH(e.target.checked)}
-              />
-              Exclude all footprints with through hole pads
-            </label>
-            <label className="ze-check">
-              <input
-                type="checkbox"
-                checked={excludeDNP}
-                disabled={!excludeDNPEnabled}
-                onChange={(e) => setExcludeDNP(e.target.checked)}
-              />
-              Exclude all footprints with the Do Not Populate flag set
-            </label>
-            <label className="ze-check">
-              <input
-                type="checkbox"
-                checked={excludeBOM}
-                disabled={!excludeBOMEnabled}
-                onChange={(e) => setExcludeBOM(e.target.checked)}
-              />
-              Exclude all footprints with the Exclude from BOM flag set
-            </label>
-            <label className="ze-check">
-              <input
-                type="checkbox"
-                checked={includeBoardEdge}
-                disabled={!isGerber}
-                onChange={(e) => setIncludeBoardEdge(e.target.checked)}
-              />
-              Include board edge layer
-            </label>
-            <label className="ze-check">
-              <input
-                type="checkbox"
-                checked={useDrillPlaceOrigin}
-                onChange={(e) => setUseDrillPlaceOrigin(e.target.checked)}
-              />
-              Use drill/place file origin
-            </label>
-            <label className="ze-check">
-              <input
-                type="checkbox"
-                checked={negateX}
-                disabled={!negateXEnabled}
-                onChange={(e) => setNegateX(e.target.checked)}
-              />
-              Use negative X coordinates for footprints on bottom layer
-            </label>
-            <label className="ze-check">
-              <input
-                type="checkbox"
-                checked={singleFile}
-                disabled={isGerber}
-                onChange={(e) => setSingleFile(e.target.checked)}
-              />
-              Generate single file with both front and back positions
-            </label>
-          </div>
-
-          <div className="ze-genpos-report">
-            <HtmlReportPanel
-              lines={messages}
-              fileName="report.txt"
-              minHeight={120}
-              visibleSeverities={severities}
-              onVisibleSeveritiesChange={setSeverities}
+          <div className="ze-genpos-field">
+            <span>Units:</span>
+            <Combo
+              value={units}
+              options={UNITS_CHOICES}
+              onChange={setUnits}
+              disabled={isGerber}
+              ariaLabel="Units"
             />
           </div>
         </div>
 
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Close
-          </button>
-          <button type="button" className="ze-btn primary" onClick={generate}>
-            Generate Position File
-          </button>
+        <div className="ze-genpos-checks">
+          <label className="ze-check">
+            <input
+              type="checkbox"
+              checked={onlySMD}
+              disabled={!onlySMDEnabled}
+              onChange={(e) => setOnlySMD(e.target.checked)}
+            />
+            Include only SMD footprints
+          </label>
+          <label className="ze-check">
+            <input
+              type="checkbox"
+              checked={excludeTH}
+              disabled={!excludeTHEnabled}
+              onChange={(e) => setExcludeTH(e.target.checked)}
+            />
+            Exclude all footprints with through hole pads
+          </label>
+          <label className="ze-check">
+            <input
+              type="checkbox"
+              checked={excludeDNP}
+              disabled={!excludeDNPEnabled}
+              onChange={(e) => setExcludeDNP(e.target.checked)}
+            />
+            Exclude all footprints with the Do Not Populate flag set
+          </label>
+          <label className="ze-check">
+            <input
+              type="checkbox"
+              checked={excludeBOM}
+              disabled={!excludeBOMEnabled}
+              onChange={(e) => setExcludeBOM(e.target.checked)}
+            />
+            Exclude all footprints with the Exclude from BOM flag set
+          </label>
+          <label className="ze-check">
+            <input
+              type="checkbox"
+              checked={includeBoardEdge}
+              disabled={!isGerber}
+              onChange={(e) => setIncludeBoardEdge(e.target.checked)}
+            />
+            Include board edge layer
+          </label>
+          <label className="ze-check">
+            <input
+              type="checkbox"
+              checked={useDrillPlaceOrigin}
+              onChange={(e) => setUseDrillPlaceOrigin(e.target.checked)}
+            />
+            Use drill/place file origin
+          </label>
+          <label className="ze-check">
+            <input
+              type="checkbox"
+              checked={negateX}
+              disabled={!negateXEnabled}
+              onChange={(e) => setNegateX(e.target.checked)}
+            />
+            Use negative X coordinates for footprints on bottom layer
+          </label>
+          <label className="ze-check">
+            <input
+              type="checkbox"
+              checked={singleFile}
+              disabled={isGerber}
+              onChange={(e) => setSingleFile(e.target.checked)}
+            />
+            Generate single file with both front and back positions
+          </label>
+        </div>
+
+        <div className="ze-genpos-report">
+          <HtmlReportPanel
+            lines={messages}
+            fileName="report.txt"
+            minHeight={120}
+            visibleSeverities={severities}
+            onVisibleSeveritiesChange={setSeverities}
+          />
         </div>
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onClose}>
+          Close
+        </button>
+        <button type="button" className="ze-btn primary" onClick={generate}>
+          Generate Position File
+        </button>
+      </div>
+    </DialogShim>
   );
 }

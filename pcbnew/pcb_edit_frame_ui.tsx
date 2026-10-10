@@ -478,7 +478,7 @@ import { yieldToEventLoop } from '@ziroeda/common/yield_to_event_loop.js';
 import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import {
@@ -2663,7 +2663,6 @@ export function PcbEditor({
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts. An OK-only message box still cancels on Esc: wx sends
   // wxID_CANCEL whether or not a Cancel button exists.
-  useModalEscape(() => setUpdatePcbError(null), updatePcbError !== null);
   const drcDialogRef = useRef<HTMLDivElement | null>(null);
   /**
    * The netlist text of the last `FetchNetlistFromSchematic`, which is what
@@ -7551,26 +7550,22 @@ export function PcbEditor({
       />
       <ProgressDialog title="Load PCB" label={loading} />
       {updatePcbError && (
-        <div className="ze-modal-backdrop" onMouseDown={() => setUpdatePcbError(null)}>
-          <div className="ze-modal ze-message-dialog" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="ze-modal-header">
-              Update PCB from Schematic
-              <span className="x" onClick={() => setUpdatePcbError(null)}>
-                ✕
-              </span>
-            </div>
-            <div className="ze-modal-body ze-message-body">
-              <p>{updatePcbError.message}</p>
-              {updatePcbError.details && <pre>{updatePcbError.details}</pre>}
-            </div>
-            <div className="ze-modal-footer">
-              <span style={{ flex: 1 }} />
-              <button type="button" className="primary" onClick={() => setUpdatePcbError(null)}>
-                OK
-              </button>
-            </div>
+        <DialogShim
+          title="Update PCB from Schematic"
+          onClose={() => setUpdatePcbError(null)}
+          className="ze-message-dialog"
+        >
+          <div className="ze-modal-body ze-message-body">
+            <p>{updatePcbError.message}</p>
+            {updatePcbError.details && <pre>{updatePcbError.details}</pre>}
           </div>
-        </div>
+          <div className="ze-modal-footer">
+            <span style={{ flex: 1 }} />
+            <button type="button" className="primary" onClick={() => setUpdatePcbError(null)}>
+              OK
+            </button>
+          </div>
+        </DialogShim>
       )}
       {updatePcb && (
         <DialogUpdatePcb

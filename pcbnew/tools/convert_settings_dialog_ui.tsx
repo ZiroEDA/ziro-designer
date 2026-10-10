@@ -7,7 +7,7 @@
  * `convert_settings_dialog.ts`; every border here is the C++ sizer's Add().
  */
 import { type JSX, useState } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { CONVERT_STRATEGY } from '../pcbnew_settings.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
@@ -81,8 +81,6 @@ export function ConvertSettingsDialog({
   /** OK (after the transfer) or Cancel. */
   onClose: (aOk: boolean) => void;
 }): JSX.Element {
-  useModalEscape(() => onClose(false));
-
   const [v, setV] = useState<ConvertSettingsValues>(() => dialog.TransferDataToWindow());
   const set = (patch: Partial<ConvertSettingsValues>): void => setV((p) => ({ ...p, ...patch }));
   const hull = CONVERT_SETTINGS_DIALOG.HullParamsEnabled(v);
@@ -101,82 +99,73 @@ export function ConvertSettingsDialog({
   );
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={() => onClose(false)}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Conversion Settings
-          <span className="x" onClick={() => onClose(false)}>
-            ✕
-          </span>
-        </div>
-
-        {/* mainSizer->Add( topSizer, 1, wxALL|wxEXPAND, 10 ) */}
-        <div style={{ margin: ADD_ALL_10, display: 'flex', flexDirection: 'column' }}>
+    <DialogShim title="Conversion Settings" onClose={() => onClose(false)}>
+      {/* mainSizer->Add( topSizer, 1, wxALL|wxEXPAND, 10 ) */}
+      <div style={{ margin: ADD_ALL_10, display: 'flex', flexDirection: 'column' }}>
+        {' '}
+        {shown.copyLineWidth &&
+          radio('Copy line width of first object', CONVERT_STRATEGY.COPY_LINEWIDTH)}
+        {shown.centerline && (
+          <>
+            <div style={{ height: SPACER_6 }} />
+            {radio('Use centerlines', CONVERT_STRATEGY.CENTERLINE)}
+          </>
+        )}
+        {shown.boundingHull && (
+          <>
+            <div style={{ height: SPACER_6 }} />
+            {radio('Create bounding hull', CONVERT_STRATEGY.BOUNDING_HULL)}
+            <div style={{ height: SPACER_2 }} />
+            {/* topSizer->Add( hullParamsSizer, 0, wxLEFT, 26 ) */}
+            <div style={{ marginLeft: HULL_INDENT, display: 'flex', alignItems: 'center' }}>
+              {' '}
+              <UnitRow
+                label="Gap:"
+                value={v.gap}
+                units={units}
+                disabled={!hull}
+                onChange={(gap) => set({ gap })}
+              />
+              <div style={{ width: SPACER_18 }} />
+              <UnitRow
+                label="Line width:"
+                value={v.lineWidth}
+                units={units}
+                disabled={!hull}
+                onChange={(lineWidth) => set({ lineWidth })}
+              />
+            </div>
+            <div style={{ height: SPACER_15 }} />
+          </>
+        )}
+        {/* topSizer->Add( m_cbDeleteOriginals, 0, wxALL, 5 ) */}
+        <label className="ze-check" style={{ margin: ADD_ALL_5 }}>
           {' '}
-          {shown.copyLineWidth &&
-            radio('Copy line width of first object', CONVERT_STRATEGY.COPY_LINEWIDTH)}
-          {shown.centerline && (
-            <>
-              <div style={{ height: SPACER_6 }} />
-              {radio('Use centerlines', CONVERT_STRATEGY.CENTERLINE)}
-            </>
-          )}
-          {shown.boundingHull && (
-            <>
-              <div style={{ height: SPACER_6 }} />
-              {radio('Create bounding hull', CONVERT_STRATEGY.BOUNDING_HULL)}
-              <div style={{ height: SPACER_2 }} />
-              {/* topSizer->Add( hullParamsSizer, 0, wxLEFT, 26 ) */}
-              <div style={{ marginLeft: HULL_INDENT, display: 'flex', alignItems: 'center' }}>
-                {' '}
-                <UnitRow
-                  label="Gap:"
-                  value={v.gap}
-                  units={units}
-                  disabled={!hull}
-                  onChange={(gap) => set({ gap })}
-                />
-                <div style={{ width: SPACER_18 }} />
-                <UnitRow
-                  label="Line width:"
-                  value={v.lineWidth}
-                  units={units}
-                  disabled={!hull}
-                  onChange={(lineWidth) => set({ lineWidth })}
-                />
-              </div>
-              <div style={{ height: SPACER_15 }} />
-            </>
-          )}
-          {/* topSizer->Add( m_cbDeleteOriginals, 0, wxALL, 5 ) */}
-          <label className="ze-check" style={{ margin: ADD_ALL_5 }}>
-            {' '}
-            <input
-              type="checkbox"
-              checked={v.deleteOriginals}
-              onChange={(e) => set({ deleteOriginals: e.target.checked })}
-            />
-            Delete source objects after conversion
-          </label>
-        </div>
-
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={() => onClose(false)}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="ze-btn primary"
-            onClick={() => {
-              dialog.TransferDataFromWindow(v);
-              onClose(true);
-            }}
-          >
-            OK
-          </button>
-        </div>
+          <input
+            type="checkbox"
+            checked={v.deleteOriginals}
+            onChange={(e) => set({ deleteOriginals: e.target.checked })}
+          />
+          Delete source objects after conversion
+        </label>
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={() => onClose(false)}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="ze-btn primary"
+          onClick={() => {
+            dialog.TransferDataFromWindow(v);
+            onClose(true);
+          }}
+        >
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }
 

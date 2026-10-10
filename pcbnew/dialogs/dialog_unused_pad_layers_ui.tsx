@@ -8,7 +8,7 @@
  */
 import { type JSX, useState } from 'react';
 import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import type { DIALOG_UNUSED_PAD_LAYERS } from './dialog_unused_pad_layers.js';
 
 type Box = 'm_cbVias' | 'm_cbPads' | 'm_cbSelectedOnly' | 'm_cbPreserveExternalLayers';
@@ -21,7 +21,6 @@ export function DialogUnusedPadLayers({
   onClose: () => void;
 }): JSX.Element {
   const [, setTick] = useState(0);
-  useModalEscape(onClose);
 
   const box = (key: Box, label: string, cls: string): JSX.Element => (
     <label className={`ze-check ${cls}`}>
@@ -38,35 +37,32 @@ export function DialogUnusedPadLayers({
   );
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-unusedpads" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">Remove Unused Pads</div>
-        <div className="ze-modal-body ze-unusedpads-body">
-          <div className="ze-unusedpads-boxes">
-            {box('m_cbVias', 'Vias', 'all5')}
-            {box('m_cbPads', 'Pads', 'brl5')}
-            <span className="ze-unusedpads-gap" />
-            {box('m_cbSelectedOnly', 'Selected only', 'bl5')}
-            {box('m_cbPreserveExternalLayers', 'Keep outside layers', 'l5')}
-          </div>
-          <div className="ze-unusedpads-preview">
-            <img alt="" src={KiBitmapBundle(dialog.GetImage())} />
-          </div>
+    <DialogShim title="Remove Unused Pads" onClose={onClose} className="ze-unusedpads">
+      <div className="ze-modal-body ze-unusedpads-body">
+        <div className="ze-unusedpads-boxes">
+          {box('m_cbVias', 'Vias', 'all5')}
+          {box('m_cbPads', 'Pads', 'brl5')}
+          <span className="ze-unusedpads-gap" />
+          {box('m_cbSelectedOnly', 'Selected only', 'bl5')}
+          {box('m_cbPreserveExternalLayers', 'Keep outside layers', 'l5')}
         </div>
-        <StdDialogButtons
-          okLabel="Remove Unused Layers"
-          onOk={() => {
-            dialog.OnOK();
-            onClose();
-          }}
-          onApply={() => {
-            dialog.OnApply();
-            onClose();
-          }}
-          applyLabel="Restore All Layers"
-          onCancel={onClose}
-        />
+        <div className="ze-unusedpads-preview">
+          <img alt="" src={KiBitmapBundle(dialog.GetImage())} />
+        </div>
       </div>
-    </div>
+      <StdDialogButtons
+        okLabel="Remove Unused Layers"
+        onOk={() => {
+          dialog.OnOK();
+          onClose();
+        }}
+        onApply={() => {
+          dialog.OnApply();
+          onClose();
+        }}
+        applyLabel="Restore All Layers"
+        onCancel={onClose}
+      />
+    </DialogShim>
   );
 }

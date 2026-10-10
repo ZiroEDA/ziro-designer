@@ -44,7 +44,7 @@
  * regardless, so hover never changes what a click selects.
  */
 import { type CSSProperties, type JSX, useEffect, useMemo, useState } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { hotkeyListKey } from '@ziroeda/common/tool/action_menu_key_names.js';
 import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
 import { LSET } from '@ziroeda/common/lset.js';
@@ -581,115 +581,107 @@ export function SelectCopperLayerPairDialog({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-copper-layer-pair" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Select Copper Layer Pair
-          <span className="x" title="Cancel" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-modal-body ze-copper-layer-pair-body">
-          <div className="ze-copper-layer-pair-col">
-            <div className="ze-copper-layer-pair-label">Top/Front layer:</div>
-            <div className="ze-grid-pane">
-              <WxGridView
-                grid={leftGrid}
-                tricks={leftTricks}
-                colLabels={false}
-                className="ze-grid-no-lines"
-                ariaLabel="Top layer"
-                columns={CU_PAIR_COL_WIDTHS.map((width) => ({ width }))}
-                renderCell={renderCopperCell(
-                  leftTable,
-                  (r) => leftTable.GetLayers()[r] === currentPair.GetLayerA(),
-                )}
-              />
-            </div>
+    <DialogShim title="Select Copper Layer Pair" onClose={onClose} className="ze-copper-layer-pair">
+      <div className="ze-modal-body ze-copper-layer-pair-body">
+        <div className="ze-copper-layer-pair-col">
+          <div className="ze-copper-layer-pair-label">Top/Front layer:</div>
+          <div className="ze-grid-pane">
+            <WxGridView
+              grid={leftGrid}
+              tricks={leftTricks}
+              colLabels={false}
+              className="ze-grid-no-lines"
+              ariaLabel="Top layer"
+              columns={CU_PAIR_COL_WIDTHS.map((width) => ({ width }))}
+              renderCell={renderCopperCell(
+                leftTable,
+                (r) => leftTable.GetLayers()[r] === currentPair.GetLayerA(),
+              )}
+            />
           </div>
-          <div className="ze-copper-layer-pair-col">
-            <div className="ze-copper-layer-pair-label">Bottom/Back layer:</div>
-            <div className="ze-grid-pane">
-              <WxGridView
-                grid={rightGrid}
-                tricks={rightTricks}
-                colLabels={false}
-                className="ze-grid-no-lines"
-                ariaLabel="Bottom layer"
-                columns={CU_PAIR_COL_WIDTHS.map((width) => ({ width }))}
-                renderCell={renderCopperCell(
-                  rightTable,
-                  (r) => rightTable.GetLayers()[r] === currentPair.GetLayerB(),
-                )}
-              />
-            </div>
+        </div>
+        <div className="ze-copper-layer-pair-col">
+          <div className="ze-copper-layer-pair-label">Bottom/Back layer:</div>
+          <div className="ze-grid-pane">
+            <WxGridView
+              grid={rightGrid}
+              tricks={rightTricks}
+              colLabels={false}
+              className="ze-grid-no-lines"
+              ariaLabel="Bottom layer"
+              columns={CU_PAIR_COL_WIDTHS.map((width) => ({ width }))}
+              renderCell={renderCopperCell(
+                rightTable,
+                (r) => rightTable.GetLayers()[r] === currentPair.GetLayerB(),
+              )}
+            />
+          </div>
+        </div>
+        <button
+          type="button"
+          className="ze-gridbtn ze-copper-layer-pair-add"
+          title="Add current pair to presets"
+          onClick={onAddToPresets}
+        >
+          <Icon name="arrowRight" />
+        </button>
+        <fieldset className="ze-copper-layer-pair-presets">
+          <legend>Copper Layer Pair Presets</legend>
+          <div className="ze-grid-pane">
+            <WxGridView
+              grid={presetsGrid}
+              tricks={presetsTricks}
+              flexCol={PRESETS_USERNAME_COL}
+              columns={PRESETS_COL_WIDTHS.map((width) => ({ width }))}
+              ariaLabel="Copper layer pair presets"
+              renderCell={(aRow, aCol, aValue) => {
+                if (aCol === 0)
+                  return (
+                    <input
+                      type="checkbox"
+                      checked={aValue === '1'}
+                      onChange={(e) => {
+                        presetsTable.SetValue(aRow, 0, e.target.checked ? '1' : '0');
+                        presetsGrid.ForceRefresh();
+                      }}
+                    />
+                  );
+                if (aCol === 1) {
+                  const info = dialogSettings.GetLayerPairs()[aRow];
+                  if (!info) return null;
+                  const pair = info.GetLayerPair();
+                  return (
+                    <span
+                      className="ze-copper-layer-pair-icon"
+                      style={layerPairIconStyle(
+                        layerSwatch(pair.GetLayerA(), theme),
+                        layerSwatch(pair.GetLayerB(), theme),
+                      )}
+                    />
+                  );
+                }
+                return null;
+              }}
+            />
           </div>
           <button
             type="button"
-            className="ze-gridbtn ze-copper-layer-pair-add"
-            title="Add current pair to presets"
-            onClick={onAddToPresets}
+            className="ze-gridbtn ze-copper-layer-pair-delete"
+            title="Delete selected presets"
+            onClick={onDeleteSelectedPresets}
           >
-            <Icon name="arrowRight" />
+            <Icon name="delete" />
           </button>
-          <fieldset className="ze-copper-layer-pair-presets">
-            <legend>Copper Layer Pair Presets</legend>
-            <div className="ze-grid-pane">
-              <WxGridView
-                grid={presetsGrid}
-                tricks={presetsTricks}
-                flexCol={PRESETS_USERNAME_COL}
-                columns={PRESETS_COL_WIDTHS.map((width) => ({ width }))}
-                ariaLabel="Copper layer pair presets"
-                renderCell={(aRow, aCol, aValue) => {
-                  if (aCol === 0)
-                    return (
-                      <input
-                        type="checkbox"
-                        checked={aValue === '1'}
-                        onChange={(e) => {
-                          presetsTable.SetValue(aRow, 0, e.target.checked ? '1' : '0');
-                          presetsGrid.ForceRefresh();
-                        }}
-                      />
-                    );
-                  if (aCol === 1) {
-                    const info = dialogSettings.GetLayerPairs()[aRow];
-                    if (!info) return null;
-                    const pair = info.GetLayerPair();
-                    return (
-                      <span
-                        className="ze-copper-layer-pair-icon"
-                        style={layerPairIconStyle(
-                          layerSwatch(pair.GetLayerA(), theme),
-                          layerSwatch(pair.GetLayerB(), theme),
-                        )}
-                      />
-                    );
-                  }
-                  return null;
-                }}
-              />
-            </div>
-            <button
-              type="button"
-              className="ze-gridbtn ze-copper-layer-pair-delete"
-              title="Delete selected presets"
-              onClick={onDeleteSelectedPresets}
-            >
-              <Icon name="delete" />
-            </button>
-          </fieldset>
-        </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={onOK}>
-            OK
-          </button>
-        </div>
+        </fieldset>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="ze-btn primary" onClick={onOK}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

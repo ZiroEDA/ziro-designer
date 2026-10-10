@@ -54,7 +54,7 @@ import {
   sortTemplates,
   truncateDescription,
 } from './template_selector.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 export type { TemplateCategory } from './template_selector.js';
 export { applyFilter, sortTemplates, truncateDescription } from './template_selector.js';
@@ -535,47 +535,38 @@ export function DuplicateTemplateDialog({
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const [name, setName] = useState(`${source.id}_copy`);
   const clean = sanitizeProjectName(name);
   const clash = clean !== '' && taken.has(clean.toLowerCase());
   const ok = clean !== '' && !clash;
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-newprjfolder" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Duplicate Template
-          <span className="x" title="Cancel" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-modal-body ze-newprjfolder-body">
-          <label>
-            <span>Enter name for the new template:</span>
-            <input
-              className="ze-search"
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && ok) onConfirm(clean);
-              }}
-            />
-          </label>
-          {clash && (
-            <div className="ze-tplsel-nameerr">A template named “{clean}” already exists.</div>
-          )}
-        </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn" disabled={!ok} onClick={() => onConfirm(clean)}>
-            OK
-          </button>
-        </div>
+    <DialogShim title="Duplicate Template" onClose={onCancel} className="ze-newprjfolder">
+      <div className="ze-modal-body ze-newprjfolder-body">
+        <label>
+          <span>Enter name for the new template:</span>
+          <input
+            className="ze-search"
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && ok) onConfirm(clean);
+            }}
+          />
+        </label>
+        {clash && (
+          <div className="ze-tplsel-nameerr">A template named “{clean}” already exists.</div>
+        )}
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="ze-btn" disabled={!ok} onClick={() => onConfirm(clean)}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

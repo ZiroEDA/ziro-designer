@@ -9,7 +9,7 @@
  * the hatch's orientation, width, gap and smoothing), then OK / Cancel.
  */
 import { type JSX, useState } from 'react';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
@@ -59,8 +59,6 @@ export function DialogNonCopperZonesProperties({
   const [texts, setTexts] = useState<Partial<Record<LengthKey, string>>>({});
   const [error, setError] = useState<string | null>(null);
 
-  useModalEscape(() => onResult(false));
-
   const set = (patch: Partial<NonCopperZoneValues>): void => setV((p) => ({ ...p, ...patch }));
   const hatch = v.fillMode === 'hatch';
 
@@ -85,136 +83,137 @@ export function DialogNonCopperZonesProperties({
   ];
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-ncz" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">Non Copper Zone Properties</div>
-        <div className="ze-modal-body ze-ncz-upper">
-          <div className="ze-ncz-left">
-            <span className="ze-ncz-layers-label">Layers</span>
-            <div className="ze-ncz-layer-list">
-              {layers.map((l) => (
-                <label key={l.name} className="ze-check">
-                  <input
-                    type="checkbox"
-                    checked={v.layers.includes(l.name)}
-                    onChange={(e) =>
-                      set({
-                        layers: e.target.checked
-                          ? [...v.layers, l.name]
-                          : v.layers.filter((x) => x !== l.name),
-                      })
-                    }
-                  />
-                  <span className="ze-layer-swatch" style={{ background: l.color }} />
-                  {l.name}
-                </label>
-              ))}
-            </div>
-          </div>
-          <div className="ze-ncz-middle">
-            <fieldset className="ze-sbox ze-ncz-shape">
-              <legend>Shape</legend>
-              <div className="ze-ncz-grid">
-                <label className="ze-check ze-ncz-locked">
-                  <input
-                    type="checkbox"
-                    checked={v.locked}
-                    onChange={(e) => set({ locked: e.target.checked })}
-                  />
-                  Locked
-                </label>
-                <span className="ze-ncz-gap" />
-                <span className="lbl">Outline style:</span>
-                <Combo
-                  value={v.hatchStyle}
-                  options={OUTLINE_STYLES.map((o) => ({ value: o.value, label: o.label }))}
-                  onChange={(x: string) =>
-                    set({ hatchStyle: x as NonCopperZoneValues['hatchStyle'] })
+    <DialogShim
+      title="Non Copper Zone Properties"
+      onClose={() => onResult(false)}
+      className="ze-ncz"
+    >
+      <div className="ze-modal-body ze-ncz-upper">
+        <div className="ze-ncz-left">
+          <span className="ze-ncz-layers-label">Layers</span>
+          <div className="ze-ncz-layer-list">
+            {layers.map((l) => (
+              <label key={l.name} className="ze-check">
+                <input
+                  type="checkbox"
+                  checked={v.layers.includes(l.name)}
+                  onChange={(e) =>
+                    set({
+                      layers: e.target.checked
+                        ? [...v.layers, l.name]
+                        : v.layers.filter((x) => x !== l.name),
+                    })
                   }
                 />
-                <span />
-                {length('hatchPitch', 'Outline hatch pitch:')}
-                {length('minThickness', 'Minimum width:')}
-                <span className="lbl">Corner smoothing:</span>
-                <Combo
-                  value={v.cornerSmoothing}
-                  options={SMOOTHING.map((o) => ({ value: o.value, label: o.label }))}
-                  onChange={(x: string) =>
-                    set({ cornerSmoothing: x as NonCopperZoneValues['cornerSmoothing'] })
-                  }
-                />
-                <span />
-                {length(
-                  'cornerRadius',
-                  // OnUpdateUI: "Chamfer distance:" for a chamfer, else "Fillet radius:".
-                  v.cornerSmoothing === 'chamfer' ? 'Chamfer distance:' : 'Fillet radius:',
-                  v.cornerSmoothing !== 'none',
-                )}
-              </div>
-            </fieldset>
-            <fieldset className="ze-sbox ze-ncz-fill">
-              <legend>Fill</legend>
-              <div className="ze-ncz-grid">
-                <span className="lbl">Fill type:</span>
-                <Combo
-                  value={v.fillMode}
-                  options={FILL_TYPES.map((o) => ({ value: o.value, label: o.label }))}
-                  onChange={(x: string) => set({ fillMode: x as NonCopperZoneValues['fillMode'] })}
-                />
-                <span />
-                <span className={`lbl${hatch ? '' : ' disabled'}`}>Orientation:</span>
-                <input
-                  className="ze-search"
-                  disabled={!hatch}
-                  value={String(v.hatchOrientation)}
-                  onChange={(e) => {
-                    const d = Number(e.target.value);
-                    if (Number.isFinite(d)) set({ hatchOrientation: d });
-                  }}
-                />
-                <span className={`unit${hatch ? '' : ' disabled'}`}>degree</span>
-                {length('hatchThickness', 'Hatch width:', hatch)}
-                {length('hatchGap', 'Hatch gap:', hatch)}
-                <span className={`lbl${hatch ? '' : ' disabled'}`}>Smoothing effort:</span>
-                <input
-                  className="ze-search"
-                  type="number"
-                  min={0}
-                  max={3}
-                  disabled={!hatch}
-                  value={v.hatchSmoothingLevel}
-                  onChange={(e) => set({ hatchSmoothingLevel: Number(e.target.value) })}
-                />
-                <span />
-                <span className={`lbl${hatch ? '' : ' disabled'}`}>Smoothing amount:</span>
-                <input
-                  className="ze-search"
-                  type="number"
-                  min={0}
-                  max={1}
-                  step={0.1}
-                  disabled={!hatch}
-                  value={v.hatchSmoothingValue}
-                  onChange={(e) => set({ hatchSmoothingValue: Number(e.target.value) })}
-                />
-                <span />
-              </div>
-            </fieldset>
+                <span className="ze-layer-swatch" style={{ background: l.color }} />
+                {l.name}
+              </label>
+            ))}
           </div>
         </div>
-        {error && <div className="ze-prefs-error">{error}</div>}
-        <StdDialogButtons
-          onOk={() => {
-            const r = dialog.TransferDataFromWindow(v);
-            if (!r.ok) {
-              setError(r.message ?? 'A value is out of range.');
-              return;
-            }
-            onResult(true);
-          }}
-          onCancel={() => onResult(false)}
-        />
+        <div className="ze-ncz-middle">
+          <fieldset className="ze-sbox ze-ncz-shape">
+            <legend>Shape</legend>
+            <div className="ze-ncz-grid">
+              <label className="ze-check ze-ncz-locked">
+                <input
+                  type="checkbox"
+                  checked={v.locked}
+                  onChange={(e) => set({ locked: e.target.checked })}
+                />
+                Locked
+              </label>
+              <span className="ze-ncz-gap" />
+              <span className="lbl">Outline style:</span>
+              <Combo
+                value={v.hatchStyle}
+                options={OUTLINE_STYLES.map((o) => ({ value: o.value, label: o.label }))}
+                onChange={(x: string) =>
+                  set({ hatchStyle: x as NonCopperZoneValues['hatchStyle'] })
+                }
+              />
+              <span />
+              {length('hatchPitch', 'Outline hatch pitch:')}
+              {length('minThickness', 'Minimum width:')}
+              <span className="lbl">Corner smoothing:</span>
+              <Combo
+                value={v.cornerSmoothing}
+                options={SMOOTHING.map((o) => ({ value: o.value, label: o.label }))}
+                onChange={(x: string) =>
+                  set({ cornerSmoothing: x as NonCopperZoneValues['cornerSmoothing'] })
+                }
+              />
+              <span />
+              {length(
+                'cornerRadius',
+                // OnUpdateUI: "Chamfer distance:" for a chamfer, else "Fillet radius:".
+                v.cornerSmoothing === 'chamfer' ? 'Chamfer distance:' : 'Fillet radius:',
+                v.cornerSmoothing !== 'none',
+              )}
+            </div>
+          </fieldset>
+          <fieldset className="ze-sbox ze-ncz-fill">
+            <legend>Fill</legend>
+            <div className="ze-ncz-grid">
+              <span className="lbl">Fill type:</span>
+              <Combo
+                value={v.fillMode}
+                options={FILL_TYPES.map((o) => ({ value: o.value, label: o.label }))}
+                onChange={(x: string) => set({ fillMode: x as NonCopperZoneValues['fillMode'] })}
+              />
+              <span />
+              <span className={`lbl${hatch ? '' : ' disabled'}`}>Orientation:</span>
+              <input
+                className="ze-search"
+                disabled={!hatch}
+                value={String(v.hatchOrientation)}
+                onChange={(e) => {
+                  const d = Number(e.target.value);
+                  if (Number.isFinite(d)) set({ hatchOrientation: d });
+                }}
+              />
+              <span className={`unit${hatch ? '' : ' disabled'}`}>degree</span>
+              {length('hatchThickness', 'Hatch width:', hatch)}
+              {length('hatchGap', 'Hatch gap:', hatch)}
+              <span className={`lbl${hatch ? '' : ' disabled'}`}>Smoothing effort:</span>
+              <input
+                className="ze-search"
+                type="number"
+                min={0}
+                max={3}
+                disabled={!hatch}
+                value={v.hatchSmoothingLevel}
+                onChange={(e) => set({ hatchSmoothingLevel: Number(e.target.value) })}
+              />
+              <span />
+              <span className={`lbl${hatch ? '' : ' disabled'}`}>Smoothing amount:</span>
+              <input
+                className="ze-search"
+                type="number"
+                min={0}
+                max={1}
+                step={0.1}
+                disabled={!hatch}
+                value={v.hatchSmoothingValue}
+                onChange={(e) => set({ hatchSmoothingValue: Number(e.target.value) })}
+              />
+              <span />
+            </div>
+          </fieldset>
+        </div>
       </div>
-    </div>
+      {error && <div className="ze-prefs-error">{error}</div>}
+      <StdDialogButtons
+        onOk={() => {
+          const r = dialog.TransferDataFromWindow(v);
+          if (!r.ok) {
+            setError(r.message ?? 'A value is out of range.');
+            return;
+          }
+          onResult(true);
+        }}
+        onCancel={() => onResult(false)}
+      />
+    </DialogShim>
   );
 }

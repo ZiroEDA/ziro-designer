@@ -32,7 +32,7 @@
  * just chosen with Browse.
  */
 import { useRef, useState, type JSX } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import {
   RPT_SEVERITY_ERROR,
@@ -131,8 +131,6 @@ export function DialogImportNetlist({
   /** `m_netlistPath`, the last path found to exist. */
   const pathRef = useRef(netlistName);
 
-  useModalEscape(() => onClose(pathRef.current), !browsing && message === null);
-
   const textOf = (aPath: string): string | null => chosen.current.get(aPath) ?? readFile(aPath);
 
   /** `loadNetlist( aDryRun )`. */
@@ -195,95 +193,96 @@ export function DialogImportNetlist({
   );
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-import-netlist" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">Import Netlist</div>
-        <div className="ze-modal-body ze-import-netlist-body">
-          <div className="ze-import-netlist-file">
-            <label htmlFor="ze-import-netlist-name">Netlist file:</label>
-            <input
-              id="ze-import-netlist-name"
-              className="ze-search"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <button
-              type="button"
-              className="ze-btn ze-import-netlist-browse"
-              title="Browse"
-              aria-label="Browse"
-              onClick={() => setBrowsing(true)}
-            >
-              ...
-            </button>
-          </div>
-          <div className="ze-import-netlist-upper">
-            <fieldset className="ze-sbox ze-import-netlist-link">
-              <legend>Link Method</legend>
-              {/* The tooltip is the radio box's own. */}
-              <div title="Select whether to update footprint references to match their currently-assigned symbols, or to re-assign footprints to symbols which match their current references.">
-                <Radio
-                  name="ze-import-netlist-link"
-                  value={options.matchByReference ? 1 : 0}
-                  options={[
-                    [0, 'Link footprints using component tstamps (unique ids)'],
-                    [1, 'Link footprints using reference designators'],
-                  ]}
-                  onChange={(v) => change({ matchByReference: v === 1 })}
-                />
-              </div>
-            </fieldset>
-            <fieldset className="ze-sbox ze-import-netlist-options">
-              <legend>Options</legend>
-              {check('deleteExtraFootprints', 'Delete footprints with no components in netlist')}
-              {check('updateFootprints', 'Replace footprints with those specified in netlist')}
-              {check('transferGroups', 'Group footprints based on symbol group')}
-              {check('overrideLocks', 'Delete/replace footprints even if locked')}
-              {check('deleteShortingTracks', 'Delete tracks shorting multiple nets')}
-            </fieldset>
-          </div>
-          <div className="ze-import-netlist-lower">
-            <HtmlReportPanel
-              label={label}
-              lines={lines}
-              fileName="report.txt"
-              visibleSeverities={severities}
-              onVisibleSeveritiesChange={setSeverities}
-              minHeight={250}
-              sorted
-            />
-          </div>
-        </div>
-        {/* `wxStdDialogButtonSizer` on GTK: Cancel, Apply, then the affirmative. */}
-        <div className="ze-modal-footer">
-          <span className="ze-sdb-spacer" />
-          <button type="button" className="ze-btn" onClick={() => onClose(pathRef.current)}>
-            Close
-          </button>
-          <button type="button" className="ze-btn" onClick={updatePcb}>
-            Update PCB
-          </button>
-          <button type="button" className="ze-btn primary" onClick={() => onFilenameChanged(true)}>
-            Load and Test Netlist
-          </button>
-        </div>
-        {browsing && (
-          <WxFileDialog
-            title="Import Netlist"
-            filters={[NETLIST_FILE_FILTER]}
-            onDone={(file) => {
-              setBrowsing(false);
-
-              if (!file) return;
-
-              chosen.current.set(file.path, file.text);
-              setName(file.path);
-              onFilenameChanged(false, file.path);
-            }}
+    <DialogShim
+      title="Import Netlist"
+      onClose={() => onClose(pathRef.current)}
+      className="ze-import-netlist"
+    >
+      <div className="ze-modal-body ze-import-netlist-body">
+        <div className="ze-import-netlist-file">
+          <label htmlFor="ze-import-netlist-name">Netlist file:</label>
+          <input
+            id="ze-import-netlist-name"
+            className="ze-search"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
           />
-        )}
-        {message !== null && <MessageDialogOk message={message} onClose={() => setMessage(null)} />}
+          <button
+            type="button"
+            className="ze-btn ze-import-netlist-browse"
+            title="Browse"
+            aria-label="Browse"
+            onClick={() => setBrowsing(true)}
+          >
+            ...
+          </button>
+        </div>
+        <div className="ze-import-netlist-upper">
+          <fieldset className="ze-sbox ze-import-netlist-link">
+            <legend>Link Method</legend>
+            {/* The tooltip is the radio box's own. */}
+            <div title="Select whether to update footprint references to match their currently-assigned symbols, or to re-assign footprints to symbols which match their current references.">
+              <Radio
+                name="ze-import-netlist-link"
+                value={options.matchByReference ? 1 : 0}
+                options={[
+                  [0, 'Link footprints using component tstamps (unique ids)'],
+                  [1, 'Link footprints using reference designators'],
+                ]}
+                onChange={(v) => change({ matchByReference: v === 1 })}
+              />
+            </div>
+          </fieldset>
+          <fieldset className="ze-sbox ze-import-netlist-options">
+            <legend>Options</legend>
+            {check('deleteExtraFootprints', 'Delete footprints with no components in netlist')}
+            {check('updateFootprints', 'Replace footprints with those specified in netlist')}
+            {check('transferGroups', 'Group footprints based on symbol group')}
+            {check('overrideLocks', 'Delete/replace footprints even if locked')}
+            {check('deleteShortingTracks', 'Delete tracks shorting multiple nets')}
+          </fieldset>
+        </div>
+        <div className="ze-import-netlist-lower">
+          <HtmlReportPanel
+            label={label}
+            lines={lines}
+            fileName="report.txt"
+            visibleSeverities={severities}
+            onVisibleSeveritiesChange={setSeverities}
+            minHeight={250}
+            sorted
+          />
+        </div>
       </div>
-    </div>
+      {/* `wxStdDialogButtonSizer` on GTK: Cancel, Apply, then the affirmative. */}
+      <div className="ze-modal-footer">
+        <span className="ze-sdb-spacer" />
+        <button type="button" className="ze-btn" onClick={() => onClose(pathRef.current)}>
+          Close
+        </button>
+        <button type="button" className="ze-btn" onClick={updatePcb}>
+          Update PCB
+        </button>
+        <button type="button" className="ze-btn primary" onClick={() => onFilenameChanged(true)}>
+          Load and Test Netlist
+        </button>
+      </div>
+      {browsing && (
+        <WxFileDialog
+          title="Import Netlist"
+          filters={[NETLIST_FILE_FILTER]}
+          onDone={(file) => {
+            setBrowsing(false);
+
+            if (!file) return;
+
+            chosen.current.set(file.path, file.text);
+            setName(file.path);
+            onFilenameChanged(false, file.path);
+          }}
+        />
+      )}
+      {message !== null && <MessageDialogOk message={message} onClose={() => setMessage(null)} />}
+    </DialogShim>
   );
 }

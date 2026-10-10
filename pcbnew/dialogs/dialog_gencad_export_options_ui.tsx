@@ -17,7 +17,7 @@
  */
 
 import { type JSX, useEffect, useState } from 'react';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import {
   type DIALOG_GENCAD_EXPORT_OPTIONS,
@@ -38,8 +38,6 @@ export function DialogGencadExportOptions({
   const [, setTick] = useState(0);
   const changed = (): void => setTick((t) => t + 1);
 
-  useModalEscape(() => onResult(false));
-
   useEffect(() => {
     dialog.TransferDataToWindow();
     changed();
@@ -52,56 +50,53 @@ export function DialogGencadExportOptions({
   };
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-gencad" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">{dialog.m_title}</div>
-        <div className="ze-modal-body ze-gencad-body">
-          <div className="ze-gencad-file">
-            <label htmlFor="ze-gencad-output">Output File:</label>
-            <input
-              id="ze-gencad-output"
-              className="ze-search"
-              title="Enter a filename if you do not want to use default file names"
-              value={dialog.m_outputFileName}
-              onChange={(e) => {
-                dialog.m_outputFileName = e.target.value;
-                changed();
-              }}
-            />
-            <button
-              type="button"
-              className="ze-btn sm"
-              aria-label="Browse"
-              onClick={() => {
-                void onBrowse().then((aPath) => {
-                  if (aPath === null) return;
+    <DialogShim title={dialog.m_title} onClose={() => onResult(false)} className="ze-gencad">
+      <div className="ze-modal-body ze-gencad-body">
+        <div className="ze-gencad-file">
+          <label htmlFor="ze-gencad-output">Output File:</label>
+          <input
+            id="ze-gencad-output"
+            className="ze-search"
+            title="Enter a filename if you do not want to use default file names"
+            value={dialog.m_outputFileName}
+            onChange={(e) => {
+              dialog.m_outputFileName = e.target.value;
+              changed();
+            }}
+          />
+          <button
+            type="button"
+            className="ze-btn sm"
+            aria-label="Browse"
+            onClick={() => {
+              void onBrowse().then((aPath) => {
+                if (aPath === null) return;
 
-                  dialog.m_outputFileName = aPath;
-                  changed();
-                });
-              }}
-            >
-              <Icon name="folder" size={14} />
-            </button>
-          </div>
-          <div className="ze-gencad-opts">
-            {GENCAD_EXPORT_OPT_LABELS.map(([opt, label]) => (
-              <label key={opt} className="ze-check">
-                <input
-                  type="checkbox"
-                  checked={dialog.GetOption(opt)}
-                  onChange={(e) => {
-                    dialog.SetOption(opt, e.target.checked);
-                    changed();
-                  }}
-                />
-                {label}
-              </label>
-            ))}
-          </div>
+                dialog.m_outputFileName = aPath;
+                changed();
+              });
+            }}
+          >
+            <Icon name="folder" size={14} />
+          </button>
         </div>
-        <StdDialogButtons onCancel={() => onResult(false)} onOk={ok} />
+        <div className="ze-gencad-opts">
+          {GENCAD_EXPORT_OPT_LABELS.map(([opt, label]) => (
+            <label key={opt} className="ze-check">
+              <input
+                type="checkbox"
+                checked={dialog.GetOption(opt)}
+                onChange={(e) => {
+                  dialog.SetOption(opt, e.target.checked);
+                  changed();
+                }}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
       </div>
-    </div>
+      <StdDialogButtons onCancel={() => onResult(false)} onOk={ok} />
+    </DialogShim>
   );
 }

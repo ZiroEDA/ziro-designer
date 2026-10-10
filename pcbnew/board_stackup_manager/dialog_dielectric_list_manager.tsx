@@ -39,7 +39,7 @@
  * one place that decides; this component only ever closes.
  */
 import { useState, type JSX } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import type { DIELECTRIC_SUBSTRATE_LIST } from './dielectric_material.js';
 
 /** One row of the material list, as the `wxListCtrl` shows it, and the draft fields. */
@@ -76,8 +76,6 @@ export function DialogDielectricMaterial({
   const [draft, setDraft] = useState<Substrate>({ name: '', epsilonR: '1', lossTan: '0' });
   const [rows, setRows] = useState<Substrate[]>(() => substrateRows(materialList));
   const [sel, setSel] = useState(-1);
-
-  useModalEscape(() => onSubmit(null), true);
 
   // `onListItemSelected`: the row's values into the three text controls.
   const selectMaterial = (idx: number): void => {
@@ -121,78 +119,70 @@ export function DialogDielectricMaterial({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={() => onSubmit(null)} style={{ zIndex: 60 }}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Dielectric Material Characteristics
-          <span className="x" title="Close" onClick={() => onSubmit(null)}>
-            ✕
-          </span>
+    <DialogShim title="Dielectric Material Characteristics" onClose={() => onSubmit(null)}>
+      <div className="ze-modal-body ze-dielmat-body">
+        <div className="ze-dielmat-grid">
+          <span>Material:</span>
+          <input
+            className="ze-search"
+            value={draft.name}
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          />
+          <span>Epsilon R:</span>
+          <input
+            className="ze-search"
+            value={draft.epsilonR}
+            onChange={(e) => setDraft({ ...draft, epsilonR: e.target.value })}
+          />
+          <span>Loss Tan:</span>
+          <input
+            className="ze-search"
+            value={draft.lossTan}
+            onChange={(e) => setDraft({ ...draft, lossTan: e.target.value })}
+          />
         </div>
-        <div className="ze-modal-body ze-dielmat-body">
-          <div className="ze-dielmat-grid">
-            <span>Material:</span>
-            <input
-              className="ze-search"
-              value={draft.name}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            />
-            <span>Epsilon R:</span>
-            <input
-              className="ze-search"
-              value={draft.epsilonR}
-              onChange={(e) => setDraft({ ...draft, epsilonR: e.target.value })}
-            />
-            <span>Loss Tan:</span>
-            <input
-              className="ze-search"
-              value={draft.lossTan}
-              onChange={(e) => setDraft({ ...draft, lossTan: e.target.value })}
-            />
-          </div>
-          <div
-            className="ze-grid-pane ze-dielmat-list"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Delete') {
-                e.preventDefault();
-                deleteMaterial();
-              }
-            }}
-          >
-            <table className="ze-grid">
-              <thead>
-                <tr>
-                  <th>Material</th>
-                  <th>Epsilon R</th>
-                  <th>Loss Tan</th>
+        <div
+          className="ze-grid-pane ze-dielmat-list"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Delete') {
+              e.preventDefault();
+              deleteMaterial();
+            }
+          }}
+        >
+          <table className="ze-grid">
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Epsilon R</th>
+                <th>Loss Tan</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((m, idx) => (
+                <tr
+                  key={`${idx}:${m.name}`}
+                  className={idx === sel ? 'selected' : undefined}
+                  onClick={() => selectMaterial(idx)}
+                >
+                  <td>{m.name}</td>
+                  <td>{m.epsilonR}</td>
+                  <td>{m.lossTan}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((m, idx) => (
-                  <tr
-                    key={`${idx}:${m.name}`}
-                    className={idx === sel ? 'selected' : undefined}
-                    onClick={() => selectMaterial(idx)}
-                  >
-                    <td>{m.name}</td>
-                    <td>{m.epsilonR}</td>
-                    <td>{m.lossTan}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={() => onSubmit(null)}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={commit}>
-            OK
-          </button>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={() => onSubmit(null)}>
+          Cancel
+        </button>
+        <button type="button" className="ze-btn primary" onClick={commit}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

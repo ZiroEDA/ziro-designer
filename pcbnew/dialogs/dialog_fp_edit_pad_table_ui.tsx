@@ -20,7 +20,7 @@
  * dialog is already `Destroy()`ed (a cancelled one has put the pads back).
  */
 import { type JSX, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
 import {
   COL_SHAPE,
@@ -59,8 +59,6 @@ export function DialogFpEditPadTable({
     onClose();
   };
 
-  useModalEscape(cancel);
-
   // `InitDialog`: TransferDataToWindow, once
   // biome-ignore lint/correctness/useExhaustiveDependencies: the dialog is the one object this window is made for
   useLayoutEffect(() => {
@@ -97,42 +95,39 @@ export function DialogFpEditPadTable({
   }, [dialog]);
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-padtable" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">{DIALOG_FP_EDIT_PAD_TABLE_TITLE}</div>
-        <div className="ze-modal-body ze-padtable-body">
-          <div className="ze-padtable-summary">
-            <span className="lbl l5">Pad numbers:</span>
-            <span
-              className="ze-padtable-ellipsis r5"
-              title={dialog.m_pin_numbers_summaryToolTip || undefined}
-            >
-              {dialog.m_pin_numbers_summary}
-            </span>
-            <span className="stretch" />
-            <span className="lbl l10">Pad count:</span>
-            <span className="r5">{dialog.m_pin_count}</span>
-            <span className="stretch" />
-            <span className="lbl l10">Duplicate pads:</span>
-            <span
-              className="ze-padtable-ellipsis r5"
-              title={dialog.m_duplicate_pinsToolTip || undefined}
-            >
-              {dialog.m_duplicate_pins}
-            </span>
-          </div>
-          <div className="ze-grid-pane ze-padtable-grid" ref={paneRef}>
-            <WxGridView
-              grid={dialog.m_grid}
-              tricks={dialog.m_tricks}
-              columns={dialog.GetColumnWidths().map((width) => ({ width }))}
-              ariaLabel="Pads"
-              onUpdate={() => dialog.OnUpdateUI()}
-            />
-          </div>
+    <DialogShim title={DIALOG_FP_EDIT_PAD_TABLE_TITLE} onClose={cancel} className="ze-padtable">
+      <div className="ze-modal-body ze-padtable-body">
+        <div className="ze-padtable-summary">
+          <span className="lbl l5">Pad numbers:</span>
+          <span
+            className="ze-padtable-ellipsis r5"
+            title={dialog.m_pin_numbers_summaryToolTip || undefined}
+          >
+            {dialog.m_pin_numbers_summary}
+          </span>
+          <span className="stretch" />
+          <span className="lbl l10">Pad count:</span>
+          <span className="r5">{dialog.m_pin_count}</span>
+          <span className="stretch" />
+          <span className="lbl l10">Duplicate pads:</span>
+          <span
+            className="ze-padtable-ellipsis r5"
+            title={dialog.m_duplicate_pinsToolTip || undefined}
+          >
+            {dialog.m_duplicate_pins}
+          </span>
         </div>
-        <StdDialogButtons onCancel={cancel} onOk={ok} />
+        <div className="ze-grid-pane ze-padtable-grid" ref={paneRef}>
+          <WxGridView
+            grid={dialog.m_grid}
+            tricks={dialog.m_tricks}
+            columns={dialog.GetColumnWidths().map((width) => ({ width }))}
+            ariaLabel="Pads"
+            onUpdate={() => dialog.OnUpdateUI()}
+          />
+        </div>
       </div>
-    </div>
+      <StdDialogButtons onCancel={cancel} onOk={ok} />
+    </DialogShim>
   );
 }

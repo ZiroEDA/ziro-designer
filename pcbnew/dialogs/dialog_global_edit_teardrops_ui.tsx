@@ -9,7 +9,7 @@
  */
 import { type JSX, useEffect, useState } from 'react';
 import { svgUrl } from '@ziroeda/bitmaps_png';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { unitLabel } from '@ziroeda/common/eda_units.js';
 import { NetSelector } from '@ziroeda/common/widgets/net_selector.js';
 import type { UNIT_BINDER } from '@ziroeda/common/widgets/unit_binder.js';
@@ -61,8 +61,6 @@ export function DialogGlobalEditTeardrops({
     dialog.OnClose();
     onClose();
   };
-
-  useModalEscape(close);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the dialog is the trigger; redraw only bumps a counter
   useEffect(() => {
@@ -152,163 +150,160 @@ export function DialogGlobalEditTeardrops({
   const src = svgUrl('teardrops', 'teardrop_sizes');
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-getd" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">Edit Teardrops</div>
-        <div className="ze-modal-body">
-          <div className="ze-getd-top">
-            <fieldset className="ze-sbox ze-getd-scope">
-              <legend>Scope</legend>
-              {box('m_pthPads', 'PTH pads')}
-              {box('m_smdPads', 'SMD pads')}
-              {box('m_vias', 'Vias')}
-              <label className="ze-check all5">
-                <input
-                  type="checkbox"
-                  checked={dialog.m_trackToTrack}
-                  onChange={(e) => {
-                    dialog.OnTrackToTrack(e.target.checked);
-                    redraw();
-                  }}
-                />
-                Track to track
-              </label>
-            </fieldset>
-            <fieldset className="ze-sbox ze-getd-filters">
-              <legend>Filter Items</legend>
-              <div className="ze-getd-filter-grid">
-                {box('m_netFilterOpt', 'Filter items by net:', '', !filtersOn)}
-                <NetSelector
-                  netInfo={nets}
-                  netcode={dialog.m_netFilter}
-                  disabled={!filtersOn}
-                  onChange={(net) => {
-                    dialog.m_netFilter = net;
-                    dialog.m_netFilterOpt = true; // OnNetFilterSelect
-                    redraw();
-                  }}
-                />
-                {box('m_netclassFilterOpt', 'Filter items by net class:', '', !filtersOn)}
-                <Combo
-                  value={dialog.m_netclassFilter}
-                  disabled={!filtersOn}
-                  options={dialog.m_netclassNames.map((n) => ({ value: n, label: n }))}
-                  onChange={(v: string) => {
-                    dialog.m_netclassFilter = v;
-                    dialog.m_netclassFilterOpt = true; // OnNetclassFilterSelect
-                    redraw();
-                  }}
-                />
-                <span className="ze-getd-gap" />
-                <span className="ze-getd-gap" />
-                {box('m_layerFilterOpt', 'Filter items by layer:', '', !filtersOn)}
-                <Combo
-                  value={String(dialog.m_layerFilter)}
-                  disabled={!filtersOn}
-                  options={layers.map((l) => ({
-                    value: String(l.layer),
-                    label: l.label,
-                    swatch: l.swatch,
-                  }))}
-                  onChange={(v: string) => {
-                    dialog.m_layerFilter = Number(v);
-                    dialog.m_layerFilterOpt = true; // OnLayerFilterSelect
-                    redraw();
-                  }}
-                />
-              </div>
-              {box('m_roundPadsFilter', 'Round pads only', 'top5', !filtersOn)}
-              {box('m_existingFilter', 'Existing teardrops only', 'top5', !filtersOn)}
-              {box('m_selectedItemsFilter', 'Selected items only', 'all5', !filtersOn)}
-            </fieldset>
-          </div>
-          <fieldset className="ze-sbox ze-getd-action">
-            <legend>Action</legend>
-            {radio(
-              TEARDROP_ACTION.REMOVE,
-              'Remove teardrops',
-              'Remove teardrops according to filtering options',
-            )}
-            {radio(
-              TEARDROP_ACTION.REMOVE_ALL,
-              'Remove all teardrops',
-              'Remove all teardrops, regardless of filtering options',
-            )}
-            <div className="ze-getd-addrow">
-              {radio(TEARDROP_ACTION.ADD_DEFAULTS, labels.addTeardrops)}
-              <button
-                type="button"
-                className="ze-hyperlink"
-                onClick={() => {
-                  dialog.OnClose();
-                  onShowBoardSetup();
+    <DialogShim title="Edit Teardrops" onClose={close} className="ze-getd">
+      <div className="ze-modal-body">
+        <div className="ze-getd-top">
+          <fieldset className="ze-sbox ze-getd-scope">
+            <legend>Scope</legend>
+            {box('m_pthPads', 'PTH pads')}
+            {box('m_smdPads', 'SMD pads')}
+            {box('m_vias', 'Vias')}
+            <label className="ze-check all5">
+              <input
+                type="checkbox"
+                checked={dialog.m_trackToTrack}
+                onChange={(e) => {
+                  dialog.OnTrackToTrack(e.target.checked);
+                  redraw();
                 }}
-              >
-                Edit default values in Board Setup
-              </button>
+              />
+              Track to track
+            </label>
+          </fieldset>
+          <fieldset className="ze-sbox ze-getd-filters">
+            <legend>Filter Items</legend>
+            <div className="ze-getd-filter-grid">
+              {box('m_netFilterOpt', 'Filter items by net:', '', !filtersOn)}
+              <NetSelector
+                netInfo={nets}
+                netcode={dialog.m_netFilter}
+                disabled={!filtersOn}
+                onChange={(net) => {
+                  dialog.m_netFilter = net;
+                  dialog.m_netFilterOpt = true; // OnNetFilterSelect
+                  redraw();
+                }}
+              />
+              {box('m_netclassFilterOpt', 'Filter items by net class:', '', !filtersOn)}
+              <Combo
+                value={dialog.m_netclassFilter}
+                disabled={!filtersOn}
+                options={dialog.m_netclassNames.map((n) => ({ value: n, label: n }))}
+                onChange={(v: string) => {
+                  dialog.m_netclassFilter = v;
+                  dialog.m_netclassFilterOpt = true; // OnNetclassFilterSelect
+                  redraw();
+                }}
+              />
+              <span className="ze-getd-gap" />
+              <span className="ze-getd-gap" />
+              {box('m_layerFilterOpt', 'Filter items by layer:', '', !filtersOn)}
+              <Combo
+                value={String(dialog.m_layerFilter)}
+                disabled={!filtersOn}
+                options={layers.map((l) => ({
+                  value: String(l.layer),
+                  label: l.label,
+                  swatch: l.swatch,
+                }))}
+                onChange={(v: string) => {
+                  dialog.m_layerFilter = Number(v);
+                  dialog.m_layerFilterOpt = true; // OnLayerFilterSelect
+                  redraw();
+                }}
+              />
             </div>
-            {radio(TEARDROP_ACTION.SPECIFIED, labels.specifiedValues)}
-            <div className="ze-getd-specified">
-              <div className="ze-getd-cols">
-                <div className="ze-getd-col">
-                  {tri(
-                    'm_cbPreferZoneConnection',
-                    'Prefer zone connection',
-                    'Do not create teardrops on tracks connected to pads that are also connected to a copper zone.',
-                  )}
-                  {tri(
-                    'm_cbTeardropsUseNextTrack',
-                    'Allow teardrops to span two track segments',
-                    'Allows a teardrop to extend over the first 2 connected track segments if the first track segment is too short to accommodate the best length.',
-                  )}
-                </div>
-                <div className="ze-getd-col right">
-                  <div className="ze-getd-hd">
-                    <span className="lbl">{dialog.m_teardropHDPercent.GetLabel()}</span>
-                    {entry(dialog.m_teardropHDPercent)}
-                    <span className="unit">%</span>
-                  </div>
-                  <span className="ze-getd-hint">(as a percentage of pad/via minor dimension)</span>
-                </div>
-              </div>
-              <div className="ze-getd-shape">
-                <div className="ze-getd-bitmap">
-                  {src && <img src={src} alt="" aria-hidden="true" />}
-                </div>
-                <div className="ze-getd-grid">
-                  <span className="lbl">{dialog.m_teardropLenPercent.GetLabel()}</span>
-                  {entry(dialog.m_teardropLenPercent)}
-                  {pctOf('d')}
-                  <span className="lbl">{dialog.m_teardropMaxLen.GetLabel()}</span>
-                  {entry(dialog.m_teardropMaxLen)}
-                  <span className="unit">{unitLabel(dialog.m_teardropMaxLen.GetUnits())}</span>
-                  <span className="ze-getd-gap" />
-                  <span />
-                  <span />
-                  <span className="lbl">{dialog.m_teardropHeightPercent.GetLabel()}</span>
-                  {entry(dialog.m_teardropHeightPercent)}
-                  {pctOf('d')}
-                  <span className="lbl">{dialog.m_teardropMaxHeight.GetLabel()}</span>
-                  {entry(dialog.m_teardropMaxHeight)}
-                  <span className="unit">{unitLabel(dialog.m_teardropMaxHeight.GetUnits())}</span>
-                  <span className="ze-getd-curved">{tri('m_curvedEdges', 'Curved edges')}</span>
-                </div>
-              </div>
-            </div>
+            {box('m_roundPadsFilter', 'Round pads only', 'top5', !filtersOn)}
+            {box('m_existingFilter', 'Existing teardrops only', 'top5', !filtersOn)}
+            {box('m_selectedItemsFilter', 'Selected items only', 'all5', !filtersOn)}
           </fieldset>
         </div>
-        <StdDialogButtons
-          okLabel="Apply and Close"
-          cancelLabel="Close"
-          onOk={() => {
-            if (dialog.TransferDataFromWindow()) {
-              onApplied();
-              close();
-            }
-          }}
-          onCancel={close}
-        />
+        <fieldset className="ze-sbox ze-getd-action">
+          <legend>Action</legend>
+          {radio(
+            TEARDROP_ACTION.REMOVE,
+            'Remove teardrops',
+            'Remove teardrops according to filtering options',
+          )}
+          {radio(
+            TEARDROP_ACTION.REMOVE_ALL,
+            'Remove all teardrops',
+            'Remove all teardrops, regardless of filtering options',
+          )}
+          <div className="ze-getd-addrow">
+            {radio(TEARDROP_ACTION.ADD_DEFAULTS, labels.addTeardrops)}
+            <button
+              type="button"
+              className="ze-hyperlink"
+              onClick={() => {
+                dialog.OnClose();
+                onShowBoardSetup();
+              }}
+            >
+              Edit default values in Board Setup
+            </button>
+          </div>
+          {radio(TEARDROP_ACTION.SPECIFIED, labels.specifiedValues)}
+          <div className="ze-getd-specified">
+            <div className="ze-getd-cols">
+              <div className="ze-getd-col">
+                {tri(
+                  'm_cbPreferZoneConnection',
+                  'Prefer zone connection',
+                  'Do not create teardrops on tracks connected to pads that are also connected to a copper zone.',
+                )}
+                {tri(
+                  'm_cbTeardropsUseNextTrack',
+                  'Allow teardrops to span two track segments',
+                  'Allows a teardrop to extend over the first 2 connected track segments if the first track segment is too short to accommodate the best length.',
+                )}
+              </div>
+              <div className="ze-getd-col right">
+                <div className="ze-getd-hd">
+                  <span className="lbl">{dialog.m_teardropHDPercent.GetLabel()}</span>
+                  {entry(dialog.m_teardropHDPercent)}
+                  <span className="unit">%</span>
+                </div>
+                <span className="ze-getd-hint">(as a percentage of pad/via minor dimension)</span>
+              </div>
+            </div>
+            <div className="ze-getd-shape">
+              <div className="ze-getd-bitmap">
+                {src && <img src={src} alt="" aria-hidden="true" />}
+              </div>
+              <div className="ze-getd-grid">
+                <span className="lbl">{dialog.m_teardropLenPercent.GetLabel()}</span>
+                {entry(dialog.m_teardropLenPercent)}
+                {pctOf('d')}
+                <span className="lbl">{dialog.m_teardropMaxLen.GetLabel()}</span>
+                {entry(dialog.m_teardropMaxLen)}
+                <span className="unit">{unitLabel(dialog.m_teardropMaxLen.GetUnits())}</span>
+                <span className="ze-getd-gap" />
+                <span />
+                <span />
+                <span className="lbl">{dialog.m_teardropHeightPercent.GetLabel()}</span>
+                {entry(dialog.m_teardropHeightPercent)}
+                {pctOf('d')}
+                <span className="lbl">{dialog.m_teardropMaxHeight.GetLabel()}</span>
+                {entry(dialog.m_teardropMaxHeight)}
+                <span className="unit">{unitLabel(dialog.m_teardropMaxHeight.GetUnits())}</span>
+                <span className="ze-getd-curved">{tri('m_curvedEdges', 'Curved edges')}</span>
+              </div>
+            </div>
+          </div>
+        </fieldset>
       </div>
-    </div>
+      <StdDialogButtons
+        okLabel="Apply and Close"
+        cancelLabel="Close"
+        onOk={() => {
+          if (dialog.TransferDataFromWindow()) {
+            onApplied();
+            close();
+          }
+        }}
+        onCancel={close}
+      />
+    </DialogShim>
   );
 }

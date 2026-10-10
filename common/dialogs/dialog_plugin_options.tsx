@@ -22,7 +22,7 @@
  * autosized with a 72 px floor and column 1 takes the rest (`onUpdateUI`).
  */
 import { useState, type JSX } from 'react';
-import { StdDialogButtons } from '../dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import { formatLibraryTableOptions, parseLibraryTableOptions } from '../libraries/library_table.js';
 import { HtmlWindow } from '../widgets/html_window.js';
 import { StdBitmapButton } from '../widgets/std_bitmap_button.js';
@@ -85,7 +85,6 @@ export function DIALOG_PLUGIN_OPTIONS({
 }): JSX.Element {
   const [rows, setRows] = useState<Row[]>(() => pluginOptionsRows(formattedOptions));
   const [choice, setChoice] = useState<string | null>(null);
-  useModalEscape(() => onResult(null));
 
   const { grid, tricks, onUpdate } = useStringGrid<Row>({
     labels: ['Option', 'Value'],
@@ -121,88 +120,89 @@ export function DIALOG_PLUGIN_OPTIONS({
   };
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-pluginopts" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">{`Options for Library '${nickname}'`}</div>
-        <div className="ze-pluginopts-upper">
-          <fieldset className="ze-sbox ze-pluginopts-grid">
-            <legend>Plugin Options</legend>
-            <div className="ze-grid-pane ze-pluginopts-gridpane">
-              <WxGridView
-                grid={grid}
-                tricks={tricks}
-                columns={[{ width: 72 }]}
-                flexCol={1}
-                onUpdate={onUpdate}
-                ariaLabel="Plugin options"
-              />
-            </div>
-            <div className="ze-grid-btns">
-              <StdBitmapButton
-                bitmap="small_plus"
-                title="Add row"
-                tooltip={null}
-                onClick={() => grid.OnAddRow(() => [appendRow(grid), 0])}
-              />
-              <span className="ze-pluginopts-btngap" />
-              <StdBitmapButton
-                bitmap="small_trash"
-                title="Delete row"
-                tooltip={null}
-                onClick={() => grid.OnDeleteRows((row) => grid.DeleteRows(row, 1))}
-              />
-            </div>
-          </fieldset>
-          <fieldset className="ze-sbox ze-pluginopts-choices">
-            <legend>Option Choices</legend>
-            <div
-              className="ze-checklistbox ze-pluginopts-list"
-              role="listbox"
-              aria-label="Option Choices"
-              title="Options supported by current plugin"
-            >
-              {choices.map((c) => (
-                <div
-                  key={c}
-                  role="option"
-                  aria-selected={c === choice}
-                  className={`ze-pluginopts-choice${c === choice ? ' selected' : ''}`}
-                  onClick={() => setChoice(c)}
-                  onDoubleClick={() => {
-                    setChoice(c);
-                    appendOption(c);
-                  }}
-                >
-                  {c}
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              className="ze-btn ze-pluginopts-append"
-              onClick={() => grid.OnAddRow(() => [appendOption(), -1])}
-            >
-              {'<<    Append Selected Option'}
-            </button>
-            <span className="ze-pluginopts-spacer" />
-            <HtmlWindow className="ze-pluginopts-html" html={help} />
-          </fieldset>
-        </div>
-        <StdDialogButtons
-          onCancel={() => onResult(null)}
-          onOk={() => {
-            if (!grid.CommitPendingChanges()) return;
-            onResult(
-              pluginOptionsResult(
-                Array.from({ length: grid.GetNumberRows() }, (_, r) => ({
-                  name: grid.GetCellValue(r, 0),
-                  value: grid.GetCellValue(r, 1),
-                })),
-              ),
-            );
-          }}
-        />
+    <DialogShim
+      title={`Options for Library '${nickname}'`}
+      onClose={() => onResult(null)}
+      className="ze-pluginopts"
+    >
+      <div className="ze-pluginopts-upper">
+        <fieldset className="ze-sbox ze-pluginopts-grid">
+          <legend>Plugin Options</legend>
+          <div className="ze-grid-pane ze-pluginopts-gridpane">
+            <WxGridView
+              grid={grid}
+              tricks={tricks}
+              columns={[{ width: 72 }]}
+              flexCol={1}
+              onUpdate={onUpdate}
+              ariaLabel="Plugin options"
+            />
+          </div>
+          <div className="ze-grid-btns">
+            <StdBitmapButton
+              bitmap="small_plus"
+              title="Add row"
+              tooltip={null}
+              onClick={() => grid.OnAddRow(() => [appendRow(grid), 0])}
+            />
+            <span className="ze-pluginopts-btngap" />
+            <StdBitmapButton
+              bitmap="small_trash"
+              title="Delete row"
+              tooltip={null}
+              onClick={() => grid.OnDeleteRows((row) => grid.DeleteRows(row, 1))}
+            />
+          </div>
+        </fieldset>
+        <fieldset className="ze-sbox ze-pluginopts-choices">
+          <legend>Option Choices</legend>
+          <div
+            className="ze-checklistbox ze-pluginopts-list"
+            role="listbox"
+            aria-label="Option Choices"
+            title="Options supported by current plugin"
+          >
+            {choices.map((c) => (
+              <div
+                key={c}
+                role="option"
+                aria-selected={c === choice}
+                className={`ze-pluginopts-choice${c === choice ? ' selected' : ''}`}
+                onClick={() => setChoice(c)}
+                onDoubleClick={() => {
+                  setChoice(c);
+                  appendOption(c);
+                }}
+              >
+                {c}
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="ze-btn ze-pluginopts-append"
+            onClick={() => grid.OnAddRow(() => [appendOption(), -1])}
+          >
+            {'<<    Append Selected Option'}
+          </button>
+          <span className="ze-pluginopts-spacer" />
+          <HtmlWindow className="ze-pluginopts-html" html={help} />
+        </fieldset>
       </div>
-    </div>
+      <StdDialogButtons
+        onCancel={() => onResult(null)}
+        onOk={() => {
+          if (!grid.CommitPendingChanges()) return;
+          onResult(
+            pluginOptionsResult(
+              Array.from({ length: grid.GetNumberRows() }, (_, r) => ({
+                name: grid.GetCellValue(r, 0),
+                value: grid.GetCellValue(r, 1),
+              })),
+            ),
+          );
+        }}
+      />
+    </DialogShim>
   );
 }

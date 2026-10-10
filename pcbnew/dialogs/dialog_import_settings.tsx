@@ -23,7 +23,7 @@
  * imports is preserved-opaque board data this clone does not model yet.
  */
 import { useRef, useState, type JSX } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 /** One checkbox per importable group (DIALOG_IMPORT_SETTINGS_BASE order). */
 export interface ImportSettingsOpts {
@@ -75,7 +75,6 @@ interface Props {
 export function DialogImportSettings({ onImport, onClose }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   const [files, setFiles] = useState<{ name: string; text: string }[]>(g_lastFiles);
   const [opts, setOpts] = useState<ImportSettingsOpts>(emptyImportOpts);
@@ -120,67 +119,59 @@ export function DialogImportSettings({ onImport, onClose }: Props): JSX.Element 
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose} style={{ zIndex: 60 }}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Import Settings
-          <span className="x" title="Close" onClick={onClose}>
-            ✕
-          </span>
+    <DialogShim title="Import Settings" onClose={onClose}>
+      <div className="ze-modal-body" style={{ display: 'block', padding: '10px 14px' }}>
+        <div style={{ fontSize: 12.5, marginBottom: 4 }}>Import from:</div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10 }}>
+          <input
+            className="ze-search"
+            style={{ flex: 1, minWidth: 0, boxSizing: 'border-box' }}
+            readOnly
+            value={files.map((f) => f.name).join(', ')}
+            placeholder="Select the other project's .kicad_pcb + .kicad_pro files"
+          />
+          <button type="button" className="ze-btn sm" onClick={() => fileInput.current?.click()}>
+            Browse...
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".kicad_pcb,.kicad_pro,.kicad_dru"
+            multiple
+            style={{ display: 'none' }}
+            onChange={(e) => void onPick(e.target.files)}
+          />
         </div>
-        <div className="ze-modal-body" style={{ display: 'block', padding: '10px 14px' }}>
-          <div style={{ fontSize: 12.5, marginBottom: 4 }}>Import from:</div>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10 }}>
-            <input
-              className="ze-search"
-              style={{ flex: 1, minWidth: 0, boxSizing: 'border-box' }}
-              readOnly
-              value={files.map((f) => f.name).join(', ')}
-              placeholder="Select the other project's .kicad_pcb + .kicad_pro files"
-            />
-            <button type="button" className="ze-btn sm" onClick={() => fileInput.current?.click()}>
-              Browse...
-            </button>
-            <input
-              ref={fileInput}
-              type="file"
-              accept=".kicad_pcb,.kicad_pro,.kicad_dru"
-              multiple
-              style={{ display: 'none' }}
-              onChange={(e) => void onPick(e.target.files)}
-            />
-          </div>
 
-          <div style={{ fontSize: 12.5, margin: '4px 0 6px' }}>Import:</div>
-          {GROUPS.map((g) => (
-            <label key={g.key} style={check}>
-              <input type="checkbox" checked={opts[g.key]} onChange={() => toggle(g.key)} />
-              {g.label}
-            </label>
-          ))}
-        </div>
-        <div className="ze-modal-footer">
-          <button
-            type="button"
-            className="ze-btn"
-            style={{ marginRight: 'auto' }}
-            onClick={selectAll}
-          >
-            {selectAllNext && !allChecked ? 'Select All' : 'Deselect All'}
-          </button>
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="ze-btn primary"
-            disabled={!anyChecked || files.length === 0}
-            onClick={() => onImport(files, opts)}
-          >
-            Import Settings
-          </button>
-        </div>
+        <div style={{ fontSize: 12.5, margin: '4px 0 6px' }}>Import:</div>
+        {GROUPS.map((g) => (
+          <label key={g.key} style={check}>
+            <input type="checkbox" checked={opts[g.key]} onChange={() => toggle(g.key)} />
+            {g.label}
+          </label>
+        ))}
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button
+          type="button"
+          className="ze-btn"
+          style={{ marginRight: 'auto' }}
+          onClick={selectAll}
+        >
+          {selectAllNext && !allChecked ? 'Select All' : 'Deselect All'}
+        </button>
+        <button type="button" className="ze-btn" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="ze-btn primary"
+          disabled={!anyChecked || files.length === 0}
+          onClick={() => onImport(files, opts)}
+        >
+          Import Settings
+        </button>
+      </div>
+    </DialogShim>
   );
 }

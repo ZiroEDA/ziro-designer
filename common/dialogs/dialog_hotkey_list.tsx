@@ -11,7 +11,7 @@
 import { useState, type JSX } from 'react';
 import { PanelHotkeysEditor } from './panel_hotkeys_editor.js';
 import type { HotkeyOverrides, HotkeySection } from '../hotkey_store.js';
-import { useModalEscape } from '../dialog_shim.js';
+import { DialogShim } from '../dialog_shim.js';
 
 export function HotkeyListDialog({
   actions,
@@ -37,7 +37,6 @@ export function HotkeyListDialog({
 
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   /** DIALOG_LIST_HOTKEYS::TransferDataFromWindow, forwarded to the panel. */
   const onOk = (): void => {
@@ -46,29 +45,20 @@ export function HotkeyListDialog({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-hotkeys" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Hotkey List
-          <span className="x" title="Close" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-
-        <div className="ze-modal-body ze-hotkeys-body">
-          {/* PANEL_HOTKEYS_EDITOR( aParent, this, true ) - the same panel the
-              Preferences page shows, built read-only. */}
-          <PanelHotkeysEditor actions={actions} readOnly overrides={edit} onChange={setEdit}>
-            {/* sdb_sizer, added to the panel's GetBottomSizer(). */}
-            <button type="button" className="ze-btn" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="button" className="ze-btn" onClick={onOk}>
-              OK
-            </button>
-          </PanelHotkeysEditor>
-        </div>
+    <DialogShim title="Hotkey List" onClose={onClose} className="ze-hotkeys">
+      <div className="ze-modal-body ze-hotkeys-body">
+        {/* PANEL_HOTKEYS_EDITOR( aParent, this, true ) - the same panel the
+          Preferences page shows, built read-only. */}
+        <PanelHotkeysEditor actions={actions} readOnly overrides={edit} onChange={setEdit}>
+          {/* sdb_sizer, added to the panel's GetBottomSizer(). */}
+          <button type="button" className="ze-btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="ze-btn" onClick={onOk}>
+            OK
+          </button>
+        </PanelHotkeysEditor>
       </div>
-    </div>
+    </DialogShim>
   );
 }

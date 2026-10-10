@@ -54,7 +54,7 @@ import {
   doNotShowAgainAnswer,
   rememberDoNotShowAgain,
 } from './kidialog_do_not_show.js';
-import { useModalEscape } from './dialog_shim.js';
+import { DialogShim } from './dialog_shim.js';
 
 /** `ShowCheckBox( _( "Do not show again" ), false )` (`kidialog.cpp:57`). [data] */
 export const DO_NOT_SHOW_AGAIN_LABEL = 'Do not show again';
@@ -97,7 +97,6 @@ export function KiDialog({
 }): JSX.Element {
   const [checked, setChecked] = useState(false);
   // wxOK|wxCANCEL has a Cancel button, so Esc is that button.
-  useModalEscape(() => onResult('cancel', checked));
 
   const defaultRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -109,46 +108,43 @@ export function KiDialog({
   const buttons = okCancelButtons(request.labels);
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-kidialog" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">{request.caption}</div>
-        <div className="ze-kidialog-body">
-          <DialogIcon icon={request.icon} className="ze-kidialog-icon" />
-          <div className="ze-kidialog-text">
-            <div className="ze-kidialog-message">{request.message}</div>
-            {request.extendedMessage && (
-              <div className="ze-kidialog-extended">{request.extendedMessage}</div>
-            )}
-          </div>
-        </div>
-        {request.doNotShowKey !== undefined && (
-          <label className="ze-pref-check ze-kidialog-check">
-            <input
-              type="checkbox"
-              checked={checked}
-              onChange={(e) => setChecked(e.target.checked)}
-            />
-            {DO_NOT_SHOW_AGAIN_LABEL}
-          </label>
-        )}
-        {/* `wxStaticLine`, which the generic dialog puts above the buttons and
-            the native message box has not got at all. */}
-        <div className="ze-kidialog-line" />
-        <div className="ze-kidialog-buttons">
-          {buttons.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              className={`ze-btn${b.isDefault ? ' primary' : ''}`}
-              ref={b.isDefault ? defaultRef : undefined}
-              onClick={() => onResult(b.id, checked)}
-            >
-              {b.label}
-            </button>
-          ))}
+    <DialogShim
+      title={request.caption}
+      onClose={() => onResult('cancel', checked)}
+      className="ze-kidialog"
+    >
+      <div className="ze-kidialog-body">
+        <DialogIcon icon={request.icon} className="ze-kidialog-icon" />
+        <div className="ze-kidialog-text">
+          <div className="ze-kidialog-message">{request.message}</div>
+          {request.extendedMessage && (
+            <div className="ze-kidialog-extended">{request.extendedMessage}</div>
+          )}
         </div>
       </div>
-    </div>
+      {request.doNotShowKey !== undefined && (
+        <label className="ze-pref-check ze-kidialog-check">
+          <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
+          {DO_NOT_SHOW_AGAIN_LABEL}
+        </label>
+      )}
+      {/* `wxStaticLine`, which the generic dialog puts above the buttons and
+        the native message box has not got at all. */}
+      <div className="ze-kidialog-line" />
+      <div className="ze-kidialog-buttons">
+        {buttons.map((b) => (
+          <button
+            key={b.id}
+            type="button"
+            className={`ze-btn${b.isDefault ? ' primary' : ''}`}
+            ref={b.isDefault ? defaultRef : undefined}
+            onClick={() => onResult(b.id, checked)}
+          >
+            {b.label}
+          </button>
+        ))}
+      </div>
+    </DialogShim>
   );
 }
 

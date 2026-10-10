@@ -35,7 +35,7 @@
  */
 import { useState, type JSX } from 'react';
 import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { LayerName, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { INPUT_LAYER_DESC } from '../pcb_io/common/plugin_common_layer_mapping.js';
@@ -314,8 +314,6 @@ export function DialogMapLayers({
     onDone(dlg.m_matched_layers_map, keep);
   };
 
-  useModalEscape(finish, !error);
-
   const add = (): void => {
     setUnmatchedSel(dlg.AddMappings(unmatchedSel, kicadSel[0] ?? -1));
     setMatchedSel([]);
@@ -329,105 +327,102 @@ export function DialogMapLayers({
   };
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-maplayers" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">Import Layer Mapping</div>
-        <div className="ze-modal-body ze-maplayers-body">
-          <div className="ze-maplayers-top">
-            <fieldset className="ze-sbox ze-maplayers-box ze-maplayers-unmatched">
-              <legend>Unmatched Layers</legend>
-              <div className="ze-maplayers-fg">
-                <span className="ze-maplayers-lbl">Imported Layers</span>
-                <span className="ze-maplayers-lbl">KiCad Layers</span>
-                <LayerList
-                  ariaLabel="Unmatched imported layers"
-                  rows={dlg.m_unmatched_rows.map((r) => [r])}
-                  selected={unmatchedSel}
-                  onSelect={(s) => setUnmatchedSel(s)}
-                  onActivate={add}
-                />
-                {/* wxLC_SINGLE_SEL */}
-                <LayerList
-                  ariaLabel="KiCad layers"
-                  rows={dlg.m_kicad_rows.map((r) => [r.name])}
-                  selected={kicadSel}
-                  onSelect={(_s, anchor) => setKicadSel([anchor])}
-                  onActivate={add}
-                />
-              </div>
-            </fieldset>
-            <div className="ze-maplayers-arrows">
-              <button
-                type="button"
-                className="ze-maplayers-add"
-                title="Add selected layers to matched layers list."
-                onClick={add}
-              >
-                &gt;
-              </button>
-              <button
-                type="button"
-                className="ze-maplayers-remove"
-                title="Remove selected layers from matched layers list."
-                onClick={() => remove(matchedSel)}
-              >
-                &lt;
-              </button>
-              <button
-                type="button"
-                className="ze-maplayers-removeall"
-                title="Remove all matched layers."
-                onClick={() => remove('all')}
-              >
-                &lt;&lt;
-              </button>
-            </div>
-            <fieldset className="ze-sbox ze-maplayers-box ze-maplayers-matched">
-              <legend>Matched Layers</legend>
+    <DialogShim title="Import Layer Mapping" onClose={finish} className="ze-maplayers">
+      <div className="ze-modal-body ze-maplayers-body">
+        <div className="ze-maplayers-top">
+          <fieldset className="ze-sbox ze-maplayers-box ze-maplayers-unmatched">
+            <legend>Unmatched Layers</legend>
+            <div className="ze-maplayers-fg">
+              <span className="ze-maplayers-lbl">Imported Layers</span>
+              <span className="ze-maplayers-lbl">KiCad Layers</span>
               <LayerList
-                ariaLabel="Matched layers"
-                columns={['Imported Layer', 'KiCad Layer']}
-                rows={dlg.m_matched_rows.map((r) => [r.imported, r.kicad])}
-                selected={matchedSel}
-                onSelect={(s) => setMatchedSel(s)}
-                onActivate={() => remove(matchedSel)}
+                ariaLabel="Unmatched imported layers"
+                rows={dlg.m_unmatched_rows.map((r) => [r])}
+                selected={unmatchedSel}
+                onSelect={(s) => setUnmatchedSel(s)}
+                onActivate={add}
               />
-            </fieldset>
-          </div>
-          <div className="ze-maplayers-bottom">
+              {/* wxLC_SINGLE_SEL */}
+              <LayerList
+                ariaLabel="KiCad layers"
+                rows={dlg.m_kicad_rows.map((r) => [r.name])}
+                selected={kicadSel}
+                onSelect={(_s, anchor) => setKicadSel([anchor])}
+                onActivate={add}
+              />
+            </div>
+          </fieldset>
+          <div className="ze-maplayers-arrows">
             <button
               type="button"
-              title="Automatically match any unmatched layers to their KiCad equivalent."
-              onClick={() => {
-                dlg.OnAutoMatchLayersClicked();
-                setUnmatchedSel([]);
-                refresh();
-              }}
+              className="ze-maplayers-add"
+              title="Add selected layers to matched layers list."
+              onClick={add}
             >
-              Auto-Match Layers
+              &gt;
             </button>
-            <label
-              className="ze-pref-check"
-              title="If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+            <button
+              type="button"
+              className="ze-maplayers-remove"
+              title="Remove selected layers from matched layers list."
+              onClick={() => remove(matchedSel)}
             >
-              <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} />
-              Keep KiCad layer names
-            </label>
-            <span className="ze-sdb-spacer" />
-            <button type="button" className="ze-btn primary" onClick={finish}>
-              OK
+              &lt;
+            </button>
+            <button
+              type="button"
+              className="ze-maplayers-removeall"
+              title="Remove all matched layers."
+              onClick={() => remove('all')}
+            >
+              &lt;&lt;
             </button>
           </div>
+          <fieldset className="ze-sbox ze-maplayers-box ze-maplayers-matched">
+            <legend>Matched Layers</legend>
+            <LayerList
+              ariaLabel="Matched layers"
+              columns={['Imported Layer', 'KiCad Layer']}
+              rows={dlg.m_matched_rows.map((r) => [r.imported, r.kicad])}
+              selected={matchedSel}
+              onSelect={(s) => setMatchedSel(s)}
+              onActivate={() => remove(matchedSel)}
+            />
+          </fieldset>
         </div>
-        {error && (
-          <MessageDialogOk
-            caption="Unmatched Layers"
-            icon="error"
-            message={UNMATCHED_REQUIRED_MESSAGE}
-            onClose={() => setError(false)}
-          />
-        )}
+        <div className="ze-maplayers-bottom">
+          <button
+            type="button"
+            title="Automatically match any unmatched layers to their KiCad equivalent."
+            onClick={() => {
+              dlg.OnAutoMatchLayersClicked();
+              setUnmatchedSel([]);
+              refresh();
+            }}
+          >
+            Auto-Match Layers
+          </button>
+          <label
+            className="ze-pref-check"
+            title="If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+          >
+            <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} />
+            Keep KiCad layer names
+          </label>
+          <span className="ze-sdb-spacer" />
+          <button type="button" className="ze-btn primary" onClick={finish}>
+            OK
+          </button>
+        </div>
       </div>
-    </div>
+      {error && (
+        <MessageDialogOk
+          caption="Unmatched Layers"
+          icon="error"
+          message={UNMATCHED_REQUIRED_MESSAGE}
+          onClose={() => setError(false)}
+        />
+      )}
+    </DialogShim>
   );
 }

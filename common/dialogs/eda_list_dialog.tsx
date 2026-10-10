@@ -21,7 +21,7 @@
  * dialog with no headers, no filter and no report columns.
  */
 import { useEffect, useRef, useState, type JSX } from 'react';
-import { useModalEscape } from '../dialog_shim.js';
+import { DialogShim } from '../dialog_shim.js';
 
 export interface EdaListRow {
   /** Handed back to `onResult`; `GetTextSelection()` is the first column. */
@@ -62,8 +62,6 @@ export function EdaListDialog({
   /** `null` on Cancel — `GetTextSelection()` empty. */
   onResult: (value: string | null, name?: string) => void;
 }): JSX.Element {
-  useModalEscape(() => onResult(null));
-
   const [filter, setFilter] = useState('');
   const [name, setName] = useState(nameRow?.value ?? '');
   const [sel, setSel] = useState<string>(() => initialValue ?? rows[0]?.value ?? '');
@@ -89,89 +87,81 @@ export function EdaListDialog({
     onResult(shown.some((r) => r.value === sel) ? sel : null, nameRow ? name.trim() : undefined);
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={() => onResult(null)}>
-      <div className="ze-modal ze-list-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {title}
-          <span className="x" title="Cancel" onClick={() => onResult(null)}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-modal-body ze-list-dialog-body">
-          {nameRow && (
-            <label className="ze-list-dialog-name">
-              <span>{nameRow.label}</span>
-              <input
-                className="ze-search"
-                autoFocus
-                value={name}
-                onChange={(e) =>
-                  setName(
-                    [...e.target.value].filter((c) => !nameRow.excludeChars.includes(c)).join(''),
-                  )
-                }
-              />
-            </label>
-          )}
-          <div className="ze-list-dialog-label">{listLabel}</div>
-          {/* `wxLC_REPORT|wxLC_HRULES|wxLC_VRULES|wxBORDER_SIMPLE` — the same
-              report list `.ze-grid` already draws for every other WX_GRID in
-              the app, so the rules and the header come from there. */}
-          <div className="ze-grid-pane ze-list-dialog-list" ref={listRef}>
-            <table className="ze-grid">
-              <thead>
-                <tr>
-                  {headers.map((h) => (
-                    <th key={h}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((r) => (
-                  <tr
-                    key={r.value}
-                    aria-selected={r.value === sel}
-                    className={r.value === sel ? 'selected' : undefined}
-                    onMouseDown={() => setSel(r.value)}
-                    onDoubleClick={() => onResult(r.value, nameRow ? name.trim() : undefined)}
-                  >
-                    {r.cells.map((c, i) => (
-                      <td key={headers[i] ?? i}>{c}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {showFilter && (
+    <DialogShim title={title} onClose={() => onResult(null)} className="ze-list-dialog">
+      <div className="ze-modal-body ze-list-dialog-body">
+        {nameRow && (
+          <label className="ze-list-dialog-name">
+            <span>{nameRow.label}</span>
             <input
               className="ze-search"
-              value={filter}
-              placeholder="Filter"
-              onChange={(e) => setFilter(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowDown') move(1);
-                else if (e.key === 'ArrowUp') move(-1);
-                else return;
-                e.preventDefault();
-              }}
+              autoFocus
+              value={name}
+              onChange={(e) =>
+                setName(
+                  [...e.target.value].filter((c) => !nameRow.excludeChars.includes(c)).join(''),
+                )
+              }
             />
-          )}
+          </label>
+        )}
+        <div className="ze-list-dialog-label">{listLabel}</div>
+        {/* `wxLC_REPORT|wxLC_HRULES|wxLC_VRULES|wxBORDER_SIMPLE` — the same
+          report list `.ze-grid` already draws for every other WX_GRID in
+          the app, so the rules and the header come from there. */}
+        <div className="ze-grid-pane ze-list-dialog-list" ref={listRef}>
+          <table className="ze-grid">
+            <thead>
+              <tr>
+                {headers.map((h) => (
+                  <th key={h}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((r) => (
+                <tr
+                  key={r.value}
+                  aria-selected={r.value === sel}
+                  className={r.value === sel ? 'selected' : undefined}
+                  onMouseDown={() => setSel(r.value)}
+                  onDoubleClick={() => onResult(r.value, nameRow ? name.trim() : undefined)}
+                >
+                  {r.cells.map((c, i) => (
+                    <td key={headers[i] ?? i}>{c}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={() => onResult(null)}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="ze-btn primary"
-            disabled={shown.length === 0}
-            onClick={accept}
-          >
-            {okLabel}
-          </button>
-        </div>
+        {showFilter && (
+          <input
+            className="ze-search"
+            value={filter}
+            placeholder="Filter"
+            onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') move(1);
+              else if (e.key === 'ArrowUp') move(-1);
+              else return;
+              e.preventDefault();
+            }}
+          />
+        )}
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={() => onResult(null)}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="ze-btn primary"
+          disabled={shown.length === 0}
+          onClick={accept}
+        >
+          {okLabel}
+        </button>
+      </div>
+    </DialogShim>
   );
 }

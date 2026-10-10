@@ -18,7 +18,7 @@
  * OK, `1` for Apply, `wxID_CANCEL` otherwise.
  */
 import { type JSX, useState } from 'react';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import {
   DIALOG_PUSH_PAD_PROPERTIES_TITLE,
   PUSH_PAD_APPLY_LABEL,
@@ -47,45 +47,44 @@ export function DialogPushPadProperties({
   dialog: DIALOG_PUSH_PAD_PROPERTIES;
   onResult: (aReturnCode: number) => void;
 }): JSX.Element {
-  useModalEscape(() => onResult(wxID_CANCEL));
-
   // the check boxes are the dialog's own fields; a counter redraws after one is toggled
   const [, redraw] = useState(0);
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-pushpad" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">{DIALOG_PUSH_PAD_PROPERTIES_TITLE}</div>
-        <div className="ze-modal-body ze-pushpad-body">
-          <div className="ze-pushpad-left">
-            <fieldset className="ze-sbox ze-pushpad-box">
-              <legend>Options</legend>
-              {FILTERS.map(({ key, label }) => (
-                <label key={key} className="ze-pushpad-cb">
-                  <input
-                    type="checkbox"
-                    checked={dialog[key]}
-                    onChange={(e) => {
-                      dialog[key] = e.target.checked;
-                      redraw((n) => n + 1);
-                    }}
-                  />
-                  {label}
-                </label>
-              ))}
-            </fieldset>
-          </div>
+    <DialogShim
+      title={DIALOG_PUSH_PAD_PROPERTIES_TITLE}
+      onClose={() => onResult(wxID_CANCEL)}
+      className="ze-pushpad"
+    >
+      <div className="ze-modal-body ze-pushpad-body">
+        <div className="ze-pushpad-left">
+          <fieldset className="ze-sbox ze-pushpad-box">
+            <legend>Options</legend>
+            {FILTERS.map(({ key, label }) => (
+              <label key={key} className="ze-pushpad-cb">
+                <input
+                  type="checkbox"
+                  checked={dialog[key]}
+                  onChange={(e) => {
+                    dialog[key] = e.target.checked;
+                    redraw((n) => n + 1);
+                  }}
+                />
+                {label}
+              </label>
+            ))}
+          </fieldset>
         </div>
-        <StdDialogButtons
-          onCancel={() => onResult(wxID_CANCEL)}
-          onOk={() => onResult(dialog.PadPropertiesAccept('ok'))}
-          okLabel={PUSH_PAD_OK_LABEL}
-          onApply={
-            dialog.m_applyShown ? () => onResult(dialog.PadPropertiesAccept('apply')) : undefined
-          }
-          applyLabel={PUSH_PAD_APPLY_LABEL}
-        />
       </div>
-    </div>
+      <StdDialogButtons
+        onCancel={() => onResult(wxID_CANCEL)}
+        onOk={() => onResult(dialog.PadPropertiesAccept('ok'))}
+        okLabel={PUSH_PAD_OK_LABEL}
+        onApply={
+          dialog.m_applyShown ? () => onResult(dialog.PadPropertiesAccept('apply')) : undefined
+        }
+        applyLabel={PUSH_PAD_APPLY_LABEL}
+      />
+    </DialogShim>
   );
 }

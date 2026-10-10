@@ -65,7 +65,7 @@ import { pngPixelSize, pngPPI } from '@ziroeda/common/wx/png_meta.js';
 import { CheckValues, PANEL_IMAGE_EDITOR } from '@ziroeda/common/dialogs/panel_image_editor.js';
 import { MessageDialogError, MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { parseUnitValue, stringFromValue, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
@@ -100,7 +100,6 @@ export function DialogReferenceImageProperties({
   onClose,
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-  useModalEscape(onClose);
 
   const [v, setV] = useState<ImageValues>(initial);
   // The raw text of whichever field has the caret, so it is not reformatted
@@ -167,87 +166,78 @@ export function DialogReferenceImageProperties({
   );
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-refimg-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Reference Image Properties
-          <span className="x" title="Cancel" onClick={onClose}>
-            ✕
-          </span>
-        </div>
+    <DialogShim title="Reference Image Properties" onClose={onClose} className="ze-refimg-dialog">
+      <div className="ze-modal-body ze-refimg-body">
+        {/* `bMargins`, which is everything but the buttons. */}
+        <div className="ze-refimg-margins">
+          {/* `gbSizer1 = new wxGridBagSizer( 3, 5 )`, three columns, growable
+            column 1. Not one Add() in it names a border flag, so no cell
+            carries a margin — only the 3/5 gaps separate them. */}
+          <div className="ze-refimg-grid">
+            {posField('Position X:', 'x', 'px')}
+            {posField('Position Y:', 'y', 'py')}
 
-        <div className="ze-modal-body ze-refimg-body">
-          {/* `bMargins`, which is everything but the buttons. */}
-          <div className="ze-refimg-margins">
-            {/* `gbSizer1 = new wxGridBagSizer( 3, 5 )`, three columns, growable
-                column 1. Not one Add() in it names a border flag, so no cell
-                carries a margin — only the 3/5 gaps separate them. */}
-            <div className="ze-refimg-grid">
-              {posField('Position X:', 'x', 'px')}
-              {posField('Position Y:', 'y', 'py')}
-
-              <span className="ze-refimg-lbl ze-refimg-layer-lbl">Associated layer:</span>
-              {/* `m_LayerSelectionCtrl` is a PCB_LAYER_BOX_SELECTOR: every entry
-                  carries its layer's colour swatch. */}
-              <Combo
-                className="ze-refimg-layer"
-                value={v.layer}
-                onChange={(layer) => set({ layer })}
-                options={layers.map((l) => ({ value: l, label: l, swatch: layerColor(l) }))}
-              />
-              {/* Width's unit, at `wxGBPosition( 2, 2 )` — this row, not its
-                  own. See the header. */}
-              <span className="ze-unit-label ze-refimg-w-u">{unitLabel(units)}</span>
-
-              {sizeField('Height:', 'height', 'h')}
-              <span className="ze-unit-label ze-refimg-h-u">{unitLabel(units)}</span>
-
-              {sizeField('Width:', 'width', 'w')}
-
-              <label className="ze-refimg-check ze-refimg-locked">
-                <input
-                  type="checkbox"
-                  checked={v.locked}
-                  onChange={(e) => set({ locked: e.target.checked })}
-                />
-                Locked
-              </label>
-            </div>
-
-            {/* `m_imageSizer`, holding PANEL_IMAGE_EDITOR (common/dialogs). */}
-            <PANEL_IMAGE_EDITOR
-              data={v.data ?? image.data}
-              scaleText={shown('scale', String(v.scale))}
-              onScaleText={(text) => {
-                setTyping({ key: 'scale', text });
-                const n = Number(text);
-                if (Number.isFinite(n)) setV((p) => sizeForScale(image, p, n));
-              }}
-              ppi={pngPPI(v.data ?? image.data)}
-              onGreyscale={(data) => set({ data })}
+            <span className="ze-refimg-lbl ze-refimg-layer-lbl">Associated layer:</span>
+            {/* `m_LayerSelectionCtrl` is a PCB_LAYER_BOX_SELECTOR: every entry
+              carries its layer's colour swatch. */}
+            <Combo
+              className="ze-refimg-layer"
+              value={v.layer}
+              onChange={(layer) => set({ layer })}
+              options={layers.map((l) => ({ value: l, label: l, swatch: layerColor(l) }))}
             />
-          </div>
-        </div>
+            {/* Width's unit, at `wxGBPosition( 2, 2 )` — this row, not its
+              own. See the header. */}
+            <span className="ze-unit-label ze-refimg-w-u">{unitLabel(units)}</span>
 
-        <StdDialogButtons onCancel={onClose} onOk={onOk} />
-        {checkError && (
-          <MessageDialogError message={checkError} onClose={() => setCheckError(null)} />
-        )}
-        {checkConfirm && (
-          // IsOK( host, msg ) (confirm.cpp:278-298): "Confirmation", the
-          // question icon, Yes as the default.
-          <MessageDialogYesNo
-            caption="Confirmation"
-            icon="question"
-            defaultButton="yes"
-            message={checkConfirm}
-            onResult={(r) => {
-              setCheckConfirm(null);
-              if (r === 'yes') onApply(v);
+            {sizeField('Height:', 'height', 'h')}
+            <span className="ze-unit-label ze-refimg-h-u">{unitLabel(units)}</span>
+
+            {sizeField('Width:', 'width', 'w')}
+
+            <label className="ze-refimg-check ze-refimg-locked">
+              <input
+                type="checkbox"
+                checked={v.locked}
+                onChange={(e) => set({ locked: e.target.checked })}
+              />
+              Locked
+            </label>
+          </div>
+
+          {/* `m_imageSizer`, holding PANEL_IMAGE_EDITOR (common/dialogs). */}
+          <PANEL_IMAGE_EDITOR
+            data={v.data ?? image.data}
+            scaleText={shown('scale', String(v.scale))}
+            onScaleText={(text) => {
+              setTyping({ key: 'scale', text });
+              const n = Number(text);
+              if (Number.isFinite(n)) setV((p) => sizeForScale(image, p, n));
             }}
+            ppi={pngPPI(v.data ?? image.data)}
+            onGreyscale={(data) => set({ data })}
           />
-        )}
+        </div>
       </div>
-    </div>
+
+      <StdDialogButtons onCancel={onClose} onOk={onOk} />
+      {checkError && (
+        <MessageDialogError message={checkError} onClose={() => setCheckError(null)} />
+      )}
+      {checkConfirm && (
+        // IsOK( host, msg ) (confirm.cpp:278-298): "Confirmation", the
+        // question icon, Yes as the default.
+        <MessageDialogYesNo
+          caption="Confirmation"
+          icon="question"
+          defaultButton="yes"
+          message={checkConfirm}
+          onResult={(r) => {
+            setCheckConfirm(null);
+            if (r === 'yes') onApply(v);
+          }}
+        />
+      )}
+    </DialogShim>
   );
 }

@@ -32,7 +32,7 @@
  * Page Setup... (the browser's print dialog is the page setup).
  */
 import type { JSX, ReactNode } from 'react';
-import { StdDialogButtons } from '../dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import { Combo } from '../widgets/wx_combobox.js';
 import { useModalEscape } from '../dialog_shim.js';
 import type { PrintScaleMode } from './dialog_print_generic.js';
@@ -76,90 +76,85 @@ export function DIALOG_PRINT_GENERIC({
   /** wxID_CANCEL, relabelled "Close" (`onCancelButtonClick` saves first). */
   onClose: () => void;
 }): JSX.Element {
-  useModalEscape(onClose);
-
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-printdlg" role="dialog" aria-modal="true" aria-label="Print">
-        <div className="ze-modal-header">Print</div>
-        <div className="ze-printdlg-upper">
-          {leading}
-          <div className="ze-printdlg-rightcol">
-            <fieldset className="ze-sbox ze-printdlg-options">
-              <legend>Options</legend>
-              <div className="ze-printdlg-optgrid">
-                <span className="ze-printdlg-label">Output mode:</span>
-                <Combo
-                  className="ze-printdlg-choice"
-                  value={blackWhite ? 'bw' : 'color'}
-                  onChange={(v) => onBlackWhite(v === 'bw')}
-                  options={[
-                    { value: 'color', label: 'Color' },
-                    { value: 'bw', label: 'Black and white' },
-                  ]}
-                />
-                {titleBlockShown && (
-                  <label className="ze-check ze-printdlg-span" title="Print Frame references.">
-                    <input
-                      type="checkbox"
-                      checked={titleBlock}
-                      onChange={(e) => onTitleBlock(e.target.checked)}
-                    />
-                    Print drawing sheet
-                  </label>
-                )}
-                {extraOptions}
-              </div>
-            </fieldset>
-            <fieldset className="ze-sbox ze-printdlg-scale">
-              <legend>Scale</legend>
-              <label className="ze-check ze-printdlg-radio">
-                <input
-                  type="radio"
-                  name="ze-print-scale"
-                  checked={scaleMode === '1:1'}
-                  onChange={() => onScaleMode('1:1')}
-                />
-                1:1
-              </label>
-              <span className="ze-printdlg-gap5" />
-              <label className="ze-check ze-printdlg-radio">
-                <input
-                  type="radio"
-                  name="ze-print-scale"
-                  checked={scaleMode === 'fit'}
-                  onChange={() => onScaleMode('fit')}
-                />
-                Fit to page
-              </label>
-              <span className="ze-printdlg-gap3" />
-              <div className="ze-printdlg-custom">
-                <label className="ze-check ze-printdlg-radio">
+    <DialogShim title="Print" onClose={onClose} className="ze-printdlg">
+      <div className="ze-printdlg-upper">
+        {leading}
+        <div className="ze-printdlg-rightcol">
+          <fieldset className="ze-sbox ze-printdlg-options">
+            <legend>Options</legend>
+            <div className="ze-printdlg-optgrid">
+              <span className="ze-printdlg-label">Output mode:</span>
+              <Combo
+                className="ze-printdlg-choice"
+                value={blackWhite ? 'bw' : 'color'}
+                onChange={(v) => onBlackWhite(v === 'bw')}
+                options={[
+                  { value: 'color', label: 'Color' },
+                  { value: 'bw', label: 'Black and white' },
+                ]}
+              />
+              {titleBlockShown && (
+                <label className="ze-check ze-printdlg-span" title="Print Frame references.">
                   <input
-                    type="radio"
-                    name="ze-print-scale"
-                    checked={scaleMode === 'custom'}
-                    onChange={() => onScaleMode('custom')}
+                    type="checkbox"
+                    checked={titleBlock}
+                    onChange={(e) => onTitleBlock(e.target.checked)}
                   />
-                  Custom:
+                  Print drawing sheet
                 </label>
+              )}
+              {extraOptions}
+            </div>
+          </fieldset>
+          <fieldset className="ze-sbox ze-printdlg-scale">
+            <legend>Scale</legend>
+            <label className="ze-check ze-printdlg-radio">
+              <input
+                type="radio"
+                name="ze-print-scale"
+                checked={scaleMode === '1:1'}
+                onChange={() => onScaleMode('1:1')}
+              />
+              1:1
+            </label>
+            <span className="ze-printdlg-gap5" />
+            <label className="ze-check ze-printdlg-radio">
+              <input
+                type="radio"
+                name="ze-print-scale"
+                checked={scaleMode === 'fit'}
+                onChange={() => onScaleMode('fit')}
+              />
+              Fit to page
+            </label>
+            <span className="ze-printdlg-gap3" />
+            <div className="ze-printdlg-custom">
+              <label className="ze-check ze-printdlg-radio">
                 <input
-                  className="ze-search ze-printdlg-customtext"
-                  aria-label="Custom scale"
-                  value={customScale}
-                  onChange={(e) => {
-                    // onSetCustomScale: typing selects the Custom radio.
-                    onCustomScale(e.target.value);
-                    onScaleMode('custom');
-                  }}
+                  type="radio"
+                  name="ze-print-scale"
+                  checked={scaleMode === 'custom'}
+                  onChange={() => onScaleMode('custom')}
                 />
-              </div>
-            </fieldset>
-          </div>
+                Custom:
+              </label>
+              <input
+                className="ze-search ze-printdlg-customtext"
+                aria-label="Custom scale"
+                value={customScale}
+                onChange={(e) => {
+                  // onSetCustomScale: typing selects the Custom radio.
+                  onCustomScale(e.target.value);
+                  onScaleMode('custom');
+                }}
+              />
+            </div>
+          </fieldset>
         </div>
-        {infoText && <div className="ze-printdlg-info">{infoText}</div>}
-        <StdDialogButtons okLabel="Print" cancelLabel="Close" onCancel={onClose} onOk={onPrint} />
       </div>
-    </div>
+      {infoText && <div className="ze-printdlg-info">{infoText}</div>}
+      <StdDialogButtons okLabel="Print" cancelLabel="Close" onCancel={onClose} onOk={onPrint} />
+    </DialogShim>
   );
 }

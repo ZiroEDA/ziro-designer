@@ -17,7 +17,7 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import type { ReportLine, Severity } from '@ziroeda/common';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 /** The option set BOARD_NETLIST_UPDATER is driven with (the dialog's checkboxes). */
 export interface UpdatePcbOptions {
@@ -69,7 +69,6 @@ export function DialogUpdatePcb({
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   const [options, setOptions] = useState<UpdatePcbOptions>(DEFAULT_UPDATE_PCB_OPTIONS);
   const [messages, setMessages] = useState<readonly ReportLine[]>([]);
@@ -131,77 +130,73 @@ export function DialogUpdatePcb({
   );
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-update-pcb-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Update PCB from Schematic
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-modal-body ze-update-pcb-body">
-          <fieldset>
-            <legend>Options</legend>
-            {checkbox(
-              'relinkFootprints',
-              'Re-link footprints to schematic symbols based on their reference designators',
-              {
-                title:
-                  'Normally footprints are linked to their symbols via their Unique IDs.  Select this option only if you want to reset the footprint linkages based on their reference designators.',
-              },
-            )}
-            {checkbox('transferGroups', 'Group footprints based on symbol group')}
-            {checkbox('applyDesignBlockLayouts', 'Apply design block layouts to new groups', {
-              disabled: !applyLayoutsEnabled,
-              title: designBlocksSupported
-                ? "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
-                : 'Design blocks are not supported yet.',
-            })}
-          </fieldset>
-
-          <fieldset>
-            <legend>Update Footprints</legend>
-            {checkbox('updateFootprints', 'Replace footprints with those specified by symbols', {
+    <DialogShim
+      title="Update PCB from Schematic"
+      onClose={onClose}
+      className="ze-update-pcb-dialog"
+    >
+      <div className="ze-modal-body ze-update-pcb-body">
+        <fieldset>
+          <legend>Options</legend>
+          {checkbox(
+            'relinkFootprints',
+            'Re-link footprints to schematic symbols based on their reference designators',
+            {
               title:
-                "Normally footprints on the board should be changed to match footprint assignment changes made in the schematic. Uncheck this only if you don't want to change existing footprints on the board.",
-            })}
-            {checkbox('deleteExtraFootprints', 'Delete footprints with no symbols', {
-              title:
-                'Remove from the board unlocked footprints which are not linked to a schematic symbol.',
-            })}
-            {checkbox('overrideLocks', 'Override locks')}
-          </fieldset>
+                'Normally footprints are linked to their symbols via their Unique IDs.  Select this option only if you want to reset the footprint linkages based on their reference designators.',
+            },
+          )}
+          {checkbox('transferGroups', 'Group footprints based on symbol group')}
+          {checkbox('applyDesignBlockLayouts', 'Apply design block layouts to new groups', {
+            disabled: !applyLayoutsEnabled,
+            title: designBlocksSupported
+              ? "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+              : 'Design blocks are not supported yet.',
+          })}
+        </fieldset>
 
-          <fieldset>
-            <legend>Update Fields</legend>
-            {checkbox('updateFields', 'Update footprint fields from symbols')}
-            {checkbox('removeExtraFields', 'Remove footprint fields not found in symbols')}
-          </fieldset>
+        <fieldset>
+          <legend>Update Footprints</legend>
+          {checkbox('updateFootprints', 'Replace footprints with those specified by symbols', {
+            title:
+              "Normally footprints on the board should be changed to match footprint assignment changes made in the schematic. Uncheck this only if you don't want to change existing footprints on the board.",
+          })}
+          {checkbox('deleteExtraFootprints', 'Delete footprints with no symbols', {
+            title:
+              'Remove from the board unlocked footprints which are not linked to a schematic symbol.',
+          })}
+          {checkbox('overrideLocks', 'Override locks')}
+        </fieldset>
 
-          <HtmlReportPanel
-            label={label}
-            lines={messages}
-            fileName="report.txt"
-            visibleSeverities={severities}
-            onVisibleSeveritiesChange={setSeverities}
-            minHeight={300}
-            sorted
-          />
-        </div>
-        {/* `m_sdbSizer1`, a wxStdDialogButtonSizer: GTK's order, and both of
-            them ordinary wxButtons. They were BARE `<button type="button">`s, so they took
-            the user-agent's control font and padding instead of `.ze-btn` -
-            the shared rule that states what a wxButton is once for the app. */}
-        <div className="ze-modal-footer">
-          <span style={{ flex: 1 }} />
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Close
-          </button>
-          <button type="button" className="ze-btn primary" disabled={!okEnabled} onClick={update}>
-            Update PCB
-          </button>
-        </div>
+        <fieldset>
+          <legend>Update Fields</legend>
+          {checkbox('updateFields', 'Update footprint fields from symbols')}
+          {checkbox('removeExtraFields', 'Remove footprint fields not found in symbols')}
+        </fieldset>
+
+        <HtmlReportPanel
+          label={label}
+          lines={messages}
+          fileName="report.txt"
+          visibleSeverities={severities}
+          onVisibleSeveritiesChange={setSeverities}
+          minHeight={300}
+          sorted
+        />
       </div>
-    </div>
+      {/* `m_sdbSizer1`, a wxStdDialogButtonSizer: GTK's order, and both of
+        them ordinary wxButtons. They were BARE `<button type="button">`s, so they took
+        the user-agent's control font and padding instead of `.ze-btn` -
+        the shared rule that states what a wxButton is once for the app. */}
+      <div className="ze-modal-footer">
+        <span style={{ flex: 1 }} />
+        <button type="button" className="ze-btn" onClick={onClose}>
+          Close
+        </button>
+        <button type="button" className="ze-btn primary" disabled={!okEnabled} onClick={update}>
+          Update PCB
+        </button>
+      </div>
+    </DialogShim>
   );
 }

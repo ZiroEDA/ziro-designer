@@ -16,7 +16,7 @@
  * `wxID_CANCEL`.
  */
 import { type JSX, type Ref, useEffect, useRef, useSyncExternalStore } from 'react';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import type { UNIT_BINDER } from '@ziroeda/common/widgets/unit_binder.js';
 import { DIALOG_OFFSET_ITEM_TITLE, type DIALOG_OFFSET_ITEM } from './dialog_offset_item.js';
 
@@ -33,8 +33,6 @@ export function DialogOffsetItem({
   );
 
   const xRef = useRef<HTMLInputElement>(null);
-
-  useModalEscape(() => onResult(false));
 
   // `TransferDataToWindow()` when the dialog opens, then `SetInitialFocus( m_xEntry )`.
   useEffect(() => {
@@ -67,53 +65,54 @@ export function DialogOffsetItem({
   );
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-offset" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">{DIALOG_OFFSET_ITEM_TITLE}</div>
-        <div className="ze-modal-body ze-offset-body">
-          <div className="ze-offset-grid">
-            <label className="lbl r1" htmlFor="ze-offset-x">
-              {dialog.GetXLabel()}
-            </label>
-            {entry(dialog.m_xOffset, 'ze-offset-x', 'r1', xRef)}
-            <span className="unit1">{dialog.GetXUnitLabel()}</span>
-            <span className="spacer s1" />
-            <button
-              type="button"
-              className="ze-btn r1"
-              title={dialog.m_clearXToolTip}
-              onClick={() => dialog.OnClear('x')}
-            >
-              Reset
-            </button>
-
-            <label className="lbl r2l" htmlFor="ze-offset-y">
-              {dialog.GetYLabel()}
-            </label>
-            {entry(dialog.m_yOffset, 'ze-offset-y', 'r2')}
-            <span className="unit2">{dialog.GetYUnitLabel()}</span>
-            <span className="spacer r2s" />
-            <button
-              type="button"
-              className="ze-btn r2"
-              title={dialog.m_clearYToolTip}
-              onClick={() => dialog.OnClear('y')}
-            >
-              Reset
-            </button>
-          </div>
-        </div>
-        <StdDialogButtons onCancel={() => onResult(false)} onOk={ok}>
-          <label>
-            <input
-              type="checkbox"
-              checked={dialog.m_polarCoords}
-              onChange={(e) => dialog.OnPolarChanged(e.target.checked)}
-            />
-            Use polar coordinates
+    <DialogShim
+      title={DIALOG_OFFSET_ITEM_TITLE}
+      onClose={() => onResult(false)}
+      className="ze-offset"
+    >
+      <div className="ze-modal-body ze-offset-body">
+        <div className="ze-offset-grid">
+          <label className="lbl r1" htmlFor="ze-offset-x">
+            {dialog.GetXLabel()}
           </label>
-        </StdDialogButtons>
+          {entry(dialog.m_xOffset, 'ze-offset-x', 'r1', xRef)}
+          <span className="unit1">{dialog.GetXUnitLabel()}</span>
+          <span className="spacer s1" />
+          <button
+            type="button"
+            className="ze-btn r1"
+            title={dialog.m_clearXToolTip}
+            onClick={() => dialog.OnClear('x')}
+          >
+            Reset
+          </button>
+
+          <label className="lbl r2l" htmlFor="ze-offset-y">
+            {dialog.GetYLabel()}
+          </label>
+          {entry(dialog.m_yOffset, 'ze-offset-y', 'r2')}
+          <span className="unit2">{dialog.GetYUnitLabel()}</span>
+          <span className="spacer r2s" />
+          <button
+            type="button"
+            className="ze-btn r2"
+            title={dialog.m_clearYToolTip}
+            onClick={() => dialog.OnClear('y')}
+          >
+            Reset
+          </button>
+        </div>
       </div>
-    </div>
+      <StdDialogButtons onCancel={() => onResult(false)} onOk={ok}>
+        <label>
+          <input
+            type="checkbox"
+            checked={dialog.m_polarCoords}
+            onChange={(e) => dialog.OnPolarChanged(e.target.checked)}
+          />
+          Use polar coordinates
+        </label>
+      </StdDialogButtons>
+    </DialogShim>
   );
 }

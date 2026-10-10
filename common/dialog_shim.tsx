@@ -343,6 +343,7 @@ export function DialogShim({
       // The offset is the user's drag, data rather than chrome.
       style={{ translate: `${offset.x}px ${offset.y}px` }}
       role="dialog"
+      aria-modal={!modeless}
       aria-label={title}
       onMouseDown={(e) => e.stopPropagation()}
       onKeyDown={

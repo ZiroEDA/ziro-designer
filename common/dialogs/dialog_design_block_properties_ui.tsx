@@ -27,7 +27,7 @@
  */
 import { useState, type JSX } from 'react';
 import type { DESIGN_BLOCK } from '../design_block.js';
-import { StdDialogButtons, useModalEscape } from '../dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import { StdBitmapButton } from '../widgets/std_bitmap_button.js';
 import type { WX_GRID } from '../widgets/wx_grid.js';
 import { wxGridSelectionModes } from '../wx/grid.js';
@@ -62,7 +62,6 @@ export function DialogDesignBlockProperties({
   const [rows, setRows] = useState<Row[]>(() =>
     initial.fields.map(([n, v]) => ({ name: n, value: v })),
   );
-  useModalEscape(() => onClose(false));
 
   const { grid, tricks, onUpdate } = useStringGrid<Row>({
     labels: ['Name', 'Value'],
@@ -104,79 +103,80 @@ export function DialogDesignBlockProperties({
   };
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-dbprops" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">Design Block Properties</div>
-        <div className="ze-dbprops-margins">
-          <fieldset className="ze-sbox ze-dbprops-fields">
-            <legend>Default Fields</legend>
-            <div className="ze-grid-pane ze-dbprops-gridpane">
-              <WxGridView
-                grid={grid}
-                tricks={tricks}
-                columns={[{ width: 120 }]}
-                flexCol={1}
-                onUpdate={onUpdate}
-                ariaLabel="Default Fields"
-              />
-            </div>
-            <div className="ze-grid-btns ze-dbprops-btns">
-              <StdBitmapButton
-                bitmap="small_plus"
-                title="Add field"
-                tooltip={null}
-                onClick={() => onAddField(grid)}
-              />
-              <StdBitmapButton
-                bitmap="small_up"
-                title="Move up"
-                tooltip={null}
-                onClick={() => grid.OnMoveRowUp((row) => grid.SwapRows(row, row - 1))}
-              />
-              <StdBitmapButton
-                bitmap="small_down"
-                title="Move down"
-                tooltip={null}
-                // Upstream binds Move Down to `OnMoveRowUp` with a +1 swap
-                // (dialog_design_block_properties.cpp:135-142).
-                onClick={() => grid.OnMoveRowUp((row) => grid.SwapRows(row, row + 1))}
-              />
-              <span className="ze-dbprops-btngap" />
-              <StdBitmapButton
-                bitmap="small_trash"
-                title="Delete field"
-                tooltip={null}
-                onClick={() => grid.OnDeleteRows((row) => grid.DeleteRows(row, 1))}
-              />
-            </div>
-          </fieldset>
-        </div>
-        <div className="ze-dbprops-props">
-          <label htmlFor="ze-dbprops-name">Name:</label>
-          <input
-            id="ze-dbprops-name"
-            className="ze-input"
-            value={name}
-            readOnly={disableName}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <label htmlFor="ze-dbprops-keywords">Keywords:</label>
-          <input
-            id="ze-dbprops-keywords"
-            className="ze-input"
-            value={keywords}
-            onChange={(e) => setKeywords(e.target.value)}
-          />
-          <label htmlFor="ze-dbprops-description">Description:</label>
-          <textarea
-            id="ze-dbprops-description"
-            className="ze-input"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-        <StdDialogButtons onCancel={() => onClose(false)} onOk={onOk} />
+    <DialogShim
+      title="Design Block Properties"
+      onClose={() => onClose(false)}
+      className="ze-dbprops"
+    >
+      <div className="ze-dbprops-margins">
+        <fieldset className="ze-sbox ze-dbprops-fields">
+          <legend>Default Fields</legend>
+          <div className="ze-grid-pane ze-dbprops-gridpane">
+            <WxGridView
+              grid={grid}
+              tricks={tricks}
+              columns={[{ width: 120 }]}
+              flexCol={1}
+              onUpdate={onUpdate}
+              ariaLabel="Default Fields"
+            />
+          </div>
+          <div className="ze-grid-btns ze-dbprops-btns">
+            <StdBitmapButton
+              bitmap="small_plus"
+              title="Add field"
+              tooltip={null}
+              onClick={() => onAddField(grid)}
+            />
+            <StdBitmapButton
+              bitmap="small_up"
+              title="Move up"
+              tooltip={null}
+              onClick={() => grid.OnMoveRowUp((row) => grid.SwapRows(row, row - 1))}
+            />
+            <StdBitmapButton
+              bitmap="small_down"
+              title="Move down"
+              tooltip={null}
+              // Upstream binds Move Down to `OnMoveRowUp` with a +1 swap
+              // (dialog_design_block_properties.cpp:135-142).
+              onClick={() => grid.OnMoveRowUp((row) => grid.SwapRows(row, row + 1))}
+            />
+            <span className="ze-dbprops-btngap" />
+            <StdBitmapButton
+              bitmap="small_trash"
+              title="Delete field"
+              tooltip={null}
+              onClick={() => grid.OnDeleteRows((row) => grid.DeleteRows(row, 1))}
+            />
+          </div>
+        </fieldset>
       </div>
-    </div>
+      <div className="ze-dbprops-props">
+        <label htmlFor="ze-dbprops-name">Name:</label>
+        <input
+          id="ze-dbprops-name"
+          className="ze-input"
+          value={name}
+          readOnly={disableName}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <label htmlFor="ze-dbprops-keywords">Keywords:</label>
+        <input
+          id="ze-dbprops-keywords"
+          className="ze-input"
+          value={keywords}
+          onChange={(e) => setKeywords(e.target.value)}
+        />
+        <label htmlFor="ze-dbprops-description">Description:</label>
+        <textarea
+          id="ze-dbprops-description"
+          className="ze-input"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+      <StdDialogButtons onCancel={() => onClose(false)} onOk={onOk} />
+    </DialogShim>
   );
 }

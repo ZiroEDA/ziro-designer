@@ -8,7 +8,7 @@
  * shown read-only from Board Setup), then Apply and Close / Close.
  */
 import { type JSX, useEffect, useState } from 'react';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { unitLabel } from '@ziroeda/common/eda_units.js';
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
 import { INDETERMINATE_ACTION } from '@ziroeda/common/widgets/ui_common.js';
@@ -71,8 +71,6 @@ export function DialogGlobalEditTextAndGraphics({
     dialog.OnClose();
     onClose();
   };
-
-  useModalEscape(close);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the dialog is the trigger; redraw only bumps a counter
   useEffect(() => {
@@ -147,201 +145,196 @@ export function DialogGlobalEditTextAndGraphics({
   const board = dialog.m_isBoardEditor;
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-getg" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">Edit Text and Graphic Properties</div>
-        <div className="ze-modal-body">
-          <div className="ze-getg-top">
-            <fieldset className="ze-sbox ze-getg-scope">
-              <legend>Scope</legend>
-              <div className="ze-getg-scope-grid">
-                {box('m_references', 'Reference designators')}
-                {board ? box('m_boardGraphics', 'PCB graphic items') : <span />}
-                {box('m_values', 'Values')}
-                {board ? box('m_boardText', 'PCB text items') : <span />}
-                {box('m_otherFootprintFields', 'Other footprint fields')}
-                {board ? box('m_boardDimensions', 'PCB dimensions') : <span />}
-                {box('m_footprintGraphics', fp.graphics, 'top5')}
-                <span />
-                {box('m_footprintTexts', fp.texts)}
-                <span />
-                {box('m_footprintDimensions', fp.dimensions)}
-              </div>
-            </fieldset>
-            <fieldset className="ze-sbox ze-getg-filters">
-              <legend>Filter Items</legend>
-              <div className="ze-getg-filter-grid">
-                {box('m_layerFilterOpt', 'By layer:')}
-                <Combo
-                  value={String(dialog.m_layerFilter)}
-                  options={layers.map((l) => ({
-                    value: String(l.layer),
-                    label: l.label,
-                    swatch: l.swatch,
-                  }))}
-                  onChange={(v: string) => {
-                    dialog.m_layerFilter = Number(v);
-                    dialog.m_layerFilterOpt = true; // OnLayerFilterSelect
-                    redraw();
-                  }}
-                />
-                {board && box('m_referenceFilterOpt', 'By parent reference designator:')}
-                {board && (
-                  <input
-                    className="ze-search"
-                    value={dialog.m_referenceFilter}
-                    onChange={(e) => {
-                      dialog.m_referenceFilter = e.target.value;
-                      dialog.m_referenceFilterOpt = true; // OnReferenceFilterText
-                      redraw();
-                    }}
-                  />
-                )}
-                {board && box('m_footprintFilterOpt', 'By parent footprint library link:')}
-                {board && (
-                  <input
-                    className="ze-search"
-                    value={dialog.m_footprintFilter}
-                    onChange={(e) => {
-                      dialog.m_footprintFilter = e.target.value;
-                      dialog.m_footprintFilterOpt = true; // OnFootprintFilterText
-                      redraw();
-                    }}
-                  />
-                )}
-              </div>
-              {box('m_selectedItemsFilter', 'Selected items only', 'all5')}
-            </fieldset>
-          </div>
-          <fieldset className="ze-sbox ze-getg-action">
-            <legend>Action</legend>
-            <label className="ze-radio">
-              <input
-                type="radio"
-                name="ze-getg-action"
-                checked={on}
-                onChange={() => {
-                  dialog.m_setToSpecifiedValues = true;
-                  redraw();
-                }}
-              />
-              Set to specified values:
-            </label>
-            <div className="ze-getg-values">
-              <span className="lbl">Layer:</span>
-              <Combo
-                value={String(dialog.m_LayerCtrl)}
-                disabled={!on}
-                options={[
-                  { value: String(-1), label: INDETERMINATE_ACTION },
-                  ...layers.map((l) => ({
-                    value: String(l.layer),
-                    label: l.label,
-                    swatch: l.swatch,
-                  })),
-                ]}
-                onChange={(v: string) => {
-                  dialog.m_LayerCtrl = Number(v);
-                  redraw();
-                }}
-              />
+    <DialogShim title="Edit Text and Graphic Properties" onClose={close} className="ze-getg">
+      <div className="ze-modal-body">
+        <div className="ze-getg-top">
+          <fieldset className="ze-sbox ze-getg-scope">
+            <legend>Scope</legend>
+            <div className="ze-getg-scope-grid">
+              {box('m_references', 'Reference designators')}
+              {board ? box('m_boardGraphics', 'PCB graphic items') : <span />}
+              {box('m_values', 'Values')}
+              {board ? box('m_boardText', 'PCB text items') : <span />}
+              {box('m_otherFootprintFields', 'Other footprint fields')}
+              {board ? box('m_boardDimensions', 'PCB dimensions') : <span />}
+              {box('m_footprintGraphics', fp.graphics, 'top5')}
               <span />
-              {tri('m_visible', 'Visible  (fields only)', !on)}
-              {entry(dialog.m_lineWidth, !on)}
-              <span className="ze-getg-font">
-                <span className="lbl">Font:</span>
-                <FontChoice
-                  face={dialog.m_fontCtrl === 'Default Font' ? '' : dialog.m_fontCtrl}
-                  indeterminate
-                  disabled={!on}
-                  onChange={(face) => {
-                    dialog.m_fontCtrl = face === '' ? 'Default Font' : face;
-                    redraw();
-                  }}
-                />
-              </span>
-              {entry(dialog.m_textWidth, !on, () => dialog.OnTextSize())}
-              {tri('m_bold', 'Bold', !on)}
-              {entry(dialog.m_textHeight, !on, () => dialog.OnTextSize())}
-              {tri('m_italic', 'Italic', !on)}
-              {entry(dialog.m_thickness, !dialog.ThicknessEnabled())}
-              <span className="ze-getg-auto">
-                <label className="ze-check" title="Use the default thickness for the text size">
-                  <input
-                    type="checkbox"
-                    checked={dialog.m_autoTextThickness}
-                    disabled={!on}
-                    onChange={(e) => {
-                      dialog.OnAutoTextThickness(e.target.checked);
-                      redraw();
-                    }}
-                  />
-                  Auto
-                </label>
-                {tri('m_keepUpright', 'Keep upright', !on)}
-              </span>
+              {box('m_footprintTexts', fp.texts)}
               <span />
-              <span />
-              <span />
-              {box('m_centerOnFP', 'Center on footprint', '', !on)}
+              {box('m_footprintDimensions', fp.dimensions)}
             </div>
-            <label className="ze-radio">
-              <input
-                type="radio"
-                name="ze-getg-action"
-                checked={!on}
-                onChange={() => {
-                  dialog.m_setToSpecifiedValues = false;
+          </fieldset>
+          <fieldset className="ze-sbox ze-getg-filters">
+            <legend>Filter Items</legend>
+            <div className="ze-getg-filter-grid">
+              {box('m_layerFilterOpt', 'By layer:')}
+              <Combo
+                value={String(dialog.m_layerFilter)}
+                options={layers.map((l) => ({
+                  value: String(l.layer),
+                  label: l.label,
+                  swatch: l.swatch,
+                }))}
+                onChange={(v: string) => {
+                  dialog.m_layerFilter = Number(v);
+                  dialog.m_layerFilterOpt = true; // OnLayerFilterSelect
                   redraw();
                 }}
               />
-              {dialog.LayerDefaultsLabel()}
-            </label>
-            <table className="ze-getg-defaults" aria-disabled={on}>
-              <thead>
-                <tr>
-                  <th />
-                  <th>Line Thickness</th>
-                  <th>Text Width</th>
-                  <th>Text Height</th>
-                  <th>Text Thickness</th>
-                  <th>Italic</th>
-                  <th>Keep Upright</th>
-                </tr>
-              </thead>
-              <tbody>
-                {defaults.map((r) => (
-                  <tr key={r.name}>
-                    <td>{r.name}</td>
-                    <td>{r.line}</td>
-                    <td>{r.width}</td>
-                    <td>{r.height}</td>
-                    <td>{r.thickness}</td>
-                    <td className="c">{r.italic === null ? '' : r.italic ? '✓' : ''}</td>
-                    <td className="c">{r.upright === null ? '' : r.upright ? '✓' : ''}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              {board && box('m_referenceFilterOpt', 'By parent reference designator:')}
+              {board && (
+                <input
+                  className="ze-search"
+                  value={dialog.m_referenceFilter}
+                  onChange={(e) => {
+                    dialog.m_referenceFilter = e.target.value;
+                    dialog.m_referenceFilterOpt = true; // OnReferenceFilterText
+                    redraw();
+                  }}
+                />
+              )}
+              {board && box('m_footprintFilterOpt', 'By parent footprint library link:')}
+              {board && (
+                <input
+                  className="ze-search"
+                  value={dialog.m_footprintFilter}
+                  onChange={(e) => {
+                    dialog.m_footprintFilter = e.target.value;
+                    dialog.m_footprintFilterOpt = true; // OnFootprintFilterText
+                    redraw();
+                  }}
+                />
+              )}
+            </div>
+            {box('m_selectedItemsFilter', 'Selected items only', 'all5')}
           </fieldset>
-          {error && <div className="ze-prefs-error">{error}</div>}
         </div>
-        <StdDialogButtons
-          okLabel="Apply and Close"
-          cancelLabel="Close"
-          onOk={() => {
-            const bad = dialog.ValidationError();
-            if (bad !== null) {
-              setError(
-                `${bad.replace(/:$/, '')} must be between the minimum and maximum text size.`,
-              );
-              return;
-            }
-            if (dialog.TransferDataFromWindow()) close();
-          }}
-          onCancel={close}
-        />
+        <fieldset className="ze-sbox ze-getg-action">
+          <legend>Action</legend>
+          <label className="ze-radio">
+            <input
+              type="radio"
+              name="ze-getg-action"
+              checked={on}
+              onChange={() => {
+                dialog.m_setToSpecifiedValues = true;
+                redraw();
+              }}
+            />
+            Set to specified values:
+          </label>
+          <div className="ze-getg-values">
+            <span className="lbl">Layer:</span>
+            <Combo
+              value={String(dialog.m_LayerCtrl)}
+              disabled={!on}
+              options={[
+                { value: String(-1), label: INDETERMINATE_ACTION },
+                ...layers.map((l) => ({
+                  value: String(l.layer),
+                  label: l.label,
+                  swatch: l.swatch,
+                })),
+              ]}
+              onChange={(v: string) => {
+                dialog.m_LayerCtrl = Number(v);
+                redraw();
+              }}
+            />
+            <span />
+            {tri('m_visible', 'Visible  (fields only)', !on)}
+            {entry(dialog.m_lineWidth, !on)}
+            <span className="ze-getg-font">
+              <span className="lbl">Font:</span>
+              <FontChoice
+                face={dialog.m_fontCtrl === 'Default Font' ? '' : dialog.m_fontCtrl}
+                indeterminate
+                disabled={!on}
+                onChange={(face) => {
+                  dialog.m_fontCtrl = face === '' ? 'Default Font' : face;
+                  redraw();
+                }}
+              />
+            </span>
+            {entry(dialog.m_textWidth, !on, () => dialog.OnTextSize())}
+            {tri('m_bold', 'Bold', !on)}
+            {entry(dialog.m_textHeight, !on, () => dialog.OnTextSize())}
+            {tri('m_italic', 'Italic', !on)}
+            {entry(dialog.m_thickness, !dialog.ThicknessEnabled())}
+            <span className="ze-getg-auto">
+              <label className="ze-check" title="Use the default thickness for the text size">
+                <input
+                  type="checkbox"
+                  checked={dialog.m_autoTextThickness}
+                  disabled={!on}
+                  onChange={(e) => {
+                    dialog.OnAutoTextThickness(e.target.checked);
+                    redraw();
+                  }}
+                />
+                Auto
+              </label>
+              {tri('m_keepUpright', 'Keep upright', !on)}
+            </span>
+            <span />
+            <span />
+            <span />
+            {box('m_centerOnFP', 'Center on footprint', '', !on)}
+          </div>
+          <label className="ze-radio">
+            <input
+              type="radio"
+              name="ze-getg-action"
+              checked={!on}
+              onChange={() => {
+                dialog.m_setToSpecifiedValues = false;
+                redraw();
+              }}
+            />
+            {dialog.LayerDefaultsLabel()}
+          </label>
+          <table className="ze-getg-defaults" aria-disabled={on}>
+            <thead>
+              <tr>
+                <th />
+                <th>Line Thickness</th>
+                <th>Text Width</th>
+                <th>Text Height</th>
+                <th>Text Thickness</th>
+                <th>Italic</th>
+                <th>Keep Upright</th>
+              </tr>
+            </thead>
+            <tbody>
+              {defaults.map((r) => (
+                <tr key={r.name}>
+                  <td>{r.name}</td>
+                  <td>{r.line}</td>
+                  <td>{r.width}</td>
+                  <td>{r.height}</td>
+                  <td>{r.thickness}</td>
+                  <td className="c">{r.italic === null ? '' : r.italic ? '✓' : ''}</td>
+                  <td className="c">{r.upright === null ? '' : r.upright ? '✓' : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </fieldset>
+        {error && <div className="ze-prefs-error">{error}</div>}
       </div>
-    </div>
+      <StdDialogButtons
+        okLabel="Apply and Close"
+        cancelLabel="Close"
+        onOk={() => {
+          const bad = dialog.ValidationError();
+          if (bad !== null) {
+            setError(`${bad.replace(/:$/, '')} must be between the minimum and maximum text size.`);
+            return;
+          }
+          if (dialog.TransferDataFromWindow()) close();
+        }}
+        onCancel={close}
+      />
+    </DialogShim>
   );
 }

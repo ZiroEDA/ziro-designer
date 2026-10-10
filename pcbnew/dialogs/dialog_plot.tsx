@@ -48,7 +48,7 @@ import {
 } from '@ziroeda/common';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js';
 
@@ -121,7 +121,6 @@ export function DialogPcbPlot({
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   // m_layerList = board->GetEnabledLayers().UIOrder() (dialog_plot.cpp:285),
   // each row the board's name for the layer (:351).
@@ -373,392 +372,380 @@ export function DialogPcbPlot({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Plot
-          <span className="x" title="Close" onClick={onClose}>
-            ✕
-          </span>
+    <DialogShim title="Plot" onClose={onClose}>
+      <div
+        className="ze-modal-body"
+        style={{ display: 'block', padding: '10px 14px', overflow: 'auto' }}
+      >
+        {/* Plot format + output directory (upstream's top rows). */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <span style={lab}>Plot format:</span>
+          <Combo value={formatSel} options={PLOT_FORMATS} onChange={setFormatSel} />
         </div>
         <div
-          className="ze-modal-body"
-          style={{ display: 'block', padding: '10px 14px', overflow: 'auto' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}
+          onMouseDown={() => setBrowseOpen(false)}
         >
-          {/* Plot format + output directory (upstream's top rows). */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <span style={lab}>Plot format:</span>
-            <Combo value={formatSel} options={PLOT_FORMATS} onChange={setFormatSel} />
-          </div>
-          <div
-            style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}
-            onMouseDown={() => setBrowseOpen(false)}
-          >
-            <span style={lab}>Output directory:</span>
-            <input
-              className="ze-search"
-              style={{ flex: 1 }}
-              value={outputDir}
-              placeholder="Project folder"
-              title="Folder inside the project for the plot files (relative to the project). They appear in the file manager, where you can download them."
-              onChange={(e) => setOutputDir(e.target.value)}
-            />
-            <div style={{ position: 'relative' }}>
-              <button
-                type="button"
-                className="ze-btn sm"
-                title="Select output directory"
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  setBrowseOpen((v) => !v);
-                }}
-              >
-                <Icon name="folder" size={14} />
-              </button>
-              {browseOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    zIndex: 20,
-                    minWidth: 180,
-                    marginTop: 2,
-                    background: 'var(--chrome-bg2)',
-                    border: '1px solid var(--chrome-border)',
-                    borderRadius: 3,
-                    fontSize: 12,
-                    boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
-                  }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  {['', ...folders].map((f) => (
-                    <div
-                      key={f || '.'}
-                      className="ze-menu-item"
-                      style={{ padding: '4px 12px', cursor: 'default' }}
-                      onClick={() => {
-                        setOutputDir(f);
-                        setBrowseOpen(false);
-                      }}
-                    >
-                      {f || 'Project folder'}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            {/* Include Layers */}
-            <fieldset
-              style={{ ...box, flex: '0 0 200px', display: 'flex', flexDirection: 'column' }}
+          <span style={lab}>Output directory:</span>
+          <input
+            className="ze-search"
+            style={{ flex: 1 }}
+            value={outputDir}
+            placeholder="Project folder"
+            title="Folder inside the project for the plot files (relative to the project). They appear in the file manager, where you can download them."
+            onChange={(e) => setOutputDir(e.target.value)}
+          />
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className="ze-btn sm"
+              title="Select output directory"
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                setBrowseOpen((v) => !v);
+              }}
             >
-              <legend style={legend}>Include Layers</legend>
-              <div className="ze-grid-pane" style={{ height: 300, padding: '4px 6px' }}>
-                {layerNames.map((l) => (
-                  <label key={l} style={{ ...check, margin: '3px 0' }}>
-                    <input type="checkbox" checked={checked.has(l)} onChange={() => toggle(l)} />
-                    {displayName.get(l) ?? l}
-                  </label>
+              <Icon name="folder" size={14} />
+            </button>
+            {browseOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  zIndex: 20,
+                  minWidth: 180,
+                  marginTop: 2,
+                  background: 'var(--chrome-bg2)',
+                  border: '1px solid var(--chrome-border)',
+                  borderRadius: 3,
+                  fontSize: 12,
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                {['', ...folders].map((f) => (
+                  <div
+                    key={f || '.'}
+                    className="ze-menu-item"
+                    style={{ padding: '4px 12px', cursor: 'default' }}
+                    onClick={() => {
+                      setOutputDir(f);
+                      setBrowseOpen(false);
+                    }}
+                  >
+                    {f || 'Project folder'}
+                  </div>
                 ))}
               </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          {/* Include Layers */}
+          <fieldset style={{ ...box, flex: '0 0 200px', display: 'flex', flexDirection: 'column' }}>
+            <legend style={legend}>Include Layers</legend>
+            <div className="ze-grid-pane" style={{ height: 300, padding: '4px 6px' }}>
+              {layerNames.map((l) => (
+                <label key={l} style={{ ...check, margin: '3px 0' }}>
+                  <input type="checkbox" checked={checked.has(l)} onChange={() => toggle(l)} />
+                  {displayName.get(l) ?? l}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {/* Options */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <fieldset style={box}>
+              <legend style={legend}>General Options</legend>
+              {format !== PLOT_FORMAT.GERBER && (
+                <label style={check}>
+                  <input
+                    type="checkbox"
+                    checked={plotSheet}
+                    onChange={(e) => setPlotSheet(e.target.checked)}
+                  />
+                  Plot drawing sheet
+                </label>
+              )}
+              <div style={fieldRow}>
+                <span>Drill marks:</span>
+                <Combo
+                  value={format === PLOT_FORMAT.GERBER ? '0' : drillSel}
+                  options={DRILL_CHOICES}
+                  onChange={setDrillSel}
+                  disabled={format === PLOT_FORMAT.GERBER}
+                />
+              </div>
+              <div style={fieldRow}>
+                <span>Scaling:</span>
+                <Combo
+                  value={format === PLOT_FORMAT.GERBER ? '1' : scaleSel}
+                  options={SCALE_CHOICES}
+                  onChange={setScaleSel}
+                  disabled={format === PLOT_FORMAT.GERBER}
+                />
+              </div>
+              <label
+                style={check}
+                title="Use the drill/place file origin as the coordinate origin for plotted files"
+              >
+                <input
+                  type="checkbox"
+                  checked={format !== PLOT_FORMAT.POST && useAuxOrigin}
+                  disabled={format === PLOT_FORMAT.POST}
+                  onChange={(e) => setUseAuxOrigin(e.target.checked)}
+                />
+                Use drill/place file origin
+              </label>
+              <label style={check}>
+                <input
+                  type="checkbox"
+                  checked={format !== PLOT_FORMAT.GERBER && format !== PLOT_FORMAT.DXF && mirror}
+                  disabled={format === PLOT_FORMAT.GERBER || format === PLOT_FORMAT.DXF}
+                  onChange={(e) => setMirror(e.target.checked)}
+                />
+                Mirrored plot
+              </label>
+              <label style={check}>
+                <input
+                  type="checkbox"
+                  checked={format !== PLOT_FORMAT.GERBER && format !== PLOT_FORMAT.DXF && negative}
+                  disabled={format === PLOT_FORMAT.GERBER || format === PLOT_FORMAT.DXF}
+                  onChange={(e) => setNegative(e.target.checked)}
+                />
+                Negative plot
+              </label>
+              <label
+                style={check}
+                title="Plot files always land in the project's file manager; check this to also download them here."
+              >
+                <input
+                  type="checkbox"
+                  checked={downloadCopy}
+                  onChange={(e) => setDownloadCopy(e.target.checked)}
+                />
+                Download a copy to this computer
+              </label>
             </fieldset>
 
-            {/* Options */}
-            <div style={{ flex: 1, minWidth: 0 }}>
+            {format === PLOT_FORMAT.GERBER && (
               <fieldset style={box}>
-                <legend style={legend}>General Options</legend>
-                {format !== PLOT_FORMAT.GERBER && (
-                  <label style={check}>
-                    <input
-                      type="checkbox"
-                      checked={plotSheet}
-                      onChange={(e) => setPlotSheet(e.target.checked)}
-                    />
-                    Plot drawing sheet
-                  </label>
-                )}
+                <legend style={legend}>Gerber Options</legend>
+                <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <label
+                      style={check}
+                      title={
+                        'Use Protel Gerber extensions (.GBL, .GTL, etc...)\nNo longer recommended. The official extension is .gbr'
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={protel}
+                        onChange={(e) => setProtel(e.target.checked)}
+                      />
+                      Use Protel filename extensions
+                    </label>
+                    <label
+                      style={check}
+                      title={
+                        'Generate a Gerber job file that contains info about the board,\nand the list of generated Gerber plot files'
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={jobFile}
+                        onChange={(e) => setJobFile(e.target.checked)}
+                      />
+                      Generate Gerber job file
+                    </label>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={fieldRow}>
+                      <span>Coordinate format:</span>
+                      <Combo
+                        style={{ flex: 1 }}
+                        value={String(coordDigits)}
+                        options={COORD_CHOICES}
+                        onChange={(v) => setCoordDigits(Number(v) as 5 | 6)}
+                      />
+                    </div>
+                    <label
+                      style={check}
+                      title={
+                        'Use X2 Gerber file format.\nInclude mainly X2 attributes in Gerber headers.\nIf not checked, use X1 format.\nIn X1 format, these attributes are included as comments in files.'
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={useX2}
+                        onChange={(e) => setUseX2(e.target.checked)}
+                      />
+                      Use extended X2 format (recommended)
+                    </label>
+                  </div>
+                </div>
+              </fieldset>
+            )}
+
+            {format === PLOT_FORMAT.POST && (
+              <fieldset style={box}>
+                <legend style={legend}>Postscript Options</legend>
                 <div style={fieldRow}>
-                  <span>Drill marks:</span>
-                  <Combo
-                    value={format === PLOT_FORMAT.GERBER ? '0' : drillSel}
-                    options={DRILL_CHOICES}
-                    onChange={setDrillSel}
-                    disabled={format === PLOT_FORMAT.GERBER}
+                  <span>X scale factor:</span>
+                  <input
+                    className="ze-search"
+                    value={fineX}
+                    onChange={(e) => setFineX(e.target.value)}
                   />
                 </div>
                 <div style={fieldRow}>
-                  <span>Scaling:</span>
-                  <Combo
-                    value={format === PLOT_FORMAT.GERBER ? '1' : scaleSel}
-                    options={SCALE_CHOICES}
-                    onChange={setScaleSel}
-                    disabled={format === PLOT_FORMAT.GERBER}
+                  <span>Y scale factor:</span>
+                  <input
+                    className="ze-search"
+                    value={fineY}
+                    onChange={(e) => setFineY(e.target.value)}
                   />
                 </div>
-                <label
-                  style={check}
-                  title="Use the drill/place file origin as the coordinate origin for plotted files"
-                >
+                <div style={fieldRow}>
+                  <span>Track width correction:</span>
                   <input
-                    type="checkbox"
-                    checked={format !== PLOT_FORMAT.POST && useAuxOrigin}
-                    disabled={format === PLOT_FORMAT.POST}
-                    onChange={(e) => setUseAuxOrigin(e.target.checked)}
+                    className="ze-search"
+                    value={widthAdjust}
+                    onChange={(e) => setWidthAdjust(e.target.value)}
                   />
-                  Use drill/place file origin
-                </label>
+                  <span className="ze-unit-label">{unitLabel(units)}</span>
+                </div>
+              </fieldset>
+            )}
+
+            {format === PLOT_FORMAT.DXF && (
+              <fieldset style={box}>
+                <legend style={legend}>DXF Options</legend>
                 <label style={check}>
                   <input
                     type="checkbox"
-                    checked={format !== PLOT_FORMAT.GERBER && format !== PLOT_FORMAT.DXF && mirror}
-                    disabled={format === PLOT_FORMAT.GERBER || format === PLOT_FORMAT.DXF}
-                    onChange={(e) => setMirror(e.target.checked)}
+                    checked={dxfContours}
+                    onChange={(e) => setDxfContours(e.target.checked)}
                   />
-                  Mirrored plot
+                  Plot graphic items using their contours
                 </label>
+                <div style={fieldRow}>
+                  <span>Export units:</span>
+                  <Combo value={dxfUnits} options={DXF_UNIT_CHOICES} onChange={setDxfUnits} />
+                </div>
                 <label style={check}>
                   <input
                     type="checkbox"
-                    checked={
-                      format !== PLOT_FORMAT.GERBER && format !== PLOT_FORMAT.DXF && negative
-                    }
-                    disabled={format === PLOT_FORMAT.GERBER || format === PLOT_FORMAT.DXF}
-                    onChange={(e) => setNegative(e.target.checked)}
+                    checked={dxfSingle}
+                    onChange={(e) => setDxfSingle(e.target.checked)}
                   />
-                  Negative plot
-                </label>
-                <label
-                  style={check}
-                  title="Plot files always land in the project's file manager; check this to also download them here."
-                >
-                  <input
-                    type="checkbox"
-                    checked={downloadCopy}
-                    onChange={(e) => setDownloadCopy(e.target.checked)}
-                  />
-                  Download a copy to this computer
+                  Single document
                 </label>
               </fieldset>
+            )}
 
-              {format === PLOT_FORMAT.GERBER && (
-                <fieldset style={box}>
-                  <legend style={legend}>Gerber Options</legend>
-                  <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <label
-                        style={check}
-                        title={
-                          'Use Protel Gerber extensions (.GBL, .GTL, etc...)\nNo longer recommended. The official extension is .gbr'
-                        }
-                      >
-                        <input
-                          type="checkbox"
-                          checked={protel}
-                          onChange={(e) => setProtel(e.target.checked)}
-                        />
-                        Use Protel filename extensions
-                      </label>
-                      <label
-                        style={check}
-                        title={
-                          'Generate a Gerber job file that contains info about the board,\nand the list of generated Gerber plot files'
-                        }
-                      >
-                        <input
-                          type="checkbox"
-                          checked={jobFile}
-                          onChange={(e) => setJobFile(e.target.checked)}
-                        />
-                        Generate Gerber job file
-                      </label>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={fieldRow}>
-                        <span>Coordinate format:</span>
-                        <Combo
-                          style={{ flex: 1 }}
-                          value={String(coordDigits)}
-                          options={COORD_CHOICES}
-                          onChange={(v) => setCoordDigits(Number(v) as 5 | 6)}
-                        />
-                      </div>
-                      <label
-                        style={check}
-                        title={
-                          'Use X2 Gerber file format.\nInclude mainly X2 attributes in Gerber headers.\nIf not checked, use X1 format.\nIn X1 format, these attributes are included as comments in files.'
-                        }
-                      >
-                        <input
-                          type="checkbox"
-                          checked={useX2}
-                          onChange={(e) => setUseX2(e.target.checked)}
-                        />
-                        Use extended X2 format (recommended)
-                      </label>
-                    </div>
-                  </div>
-                </fieldset>
-              )}
+            {format === PLOT_FORMAT.SVG && (
+              <fieldset style={box}>
+                <legend style={legend}>SVG Options</legend>
+                <div style={fieldRow}>
+                  <span>Precision:</span>
+                  <SpinCtrl value={svgPrecision} min={3} max={6} onChange={setSvgPrecision} />
+                </div>
+                <div style={fieldRow}>
+                  <span>Output mode:</span>
+                  <Combo value={svgBw} options={COLOR_CHOICES} onChange={setSvgBw} />
+                </div>
+                <label style={check}>
+                  <input
+                    type="checkbox"
+                    checked={svgFit}
+                    onChange={(e) => setSvgFit(e.target.checked)}
+                  />
+                  Fit page to board
+                </label>
+              </fieldset>
+            )}
 
-              {format === PLOT_FORMAT.POST && (
-                <fieldset style={box}>
-                  <legend style={legend}>Postscript Options</legend>
-                  <div style={fieldRow}>
-                    <span>X scale factor:</span>
-                    <input
-                      className="ze-search"
-                      value={fineX}
-                      onChange={(e) => setFineX(e.target.value)}
-                    />
-                  </div>
-                  <div style={fieldRow}>
-                    <span>Y scale factor:</span>
-                    <input
-                      className="ze-search"
-                      value={fineY}
-                      onChange={(e) => setFineY(e.target.value)}
-                    />
-                  </div>
-                  <div style={fieldRow}>
-                    <span>Track width correction:</span>
-                    <input
-                      className="ze-search"
-                      value={widthAdjust}
-                      onChange={(e) => setWidthAdjust(e.target.value)}
-                    />
-                    <span className="ze-unit-label">{unitLabel(units)}</span>
-                  </div>
-                </fieldset>
-              )}
-
-              {format === PLOT_FORMAT.DXF && (
-                <fieldset style={box}>
-                  <legend style={legend}>DXF Options</legend>
-                  <label style={check}>
-                    <input
-                      type="checkbox"
-                      checked={dxfContours}
-                      onChange={(e) => setDxfContours(e.target.checked)}
-                    />
-                    Plot graphic items using their contours
-                  </label>
-                  <div style={fieldRow}>
-                    <span>Export units:</span>
-                    <Combo value={dxfUnits} options={DXF_UNIT_CHOICES} onChange={setDxfUnits} />
-                  </div>
-                  <label style={check}>
-                    <input
-                      type="checkbox"
-                      checked={dxfSingle}
-                      onChange={(e) => setDxfSingle(e.target.checked)}
-                    />
-                    Single document
-                  </label>
-                </fieldset>
-              )}
-
-              {format === PLOT_FORMAT.SVG && (
-                <fieldset style={box}>
-                  <legend style={legend}>SVG Options</legend>
-                  <div style={fieldRow}>
-                    <span>Precision:</span>
-                    <SpinCtrl value={svgPrecision} min={3} max={6} onChange={setSvgPrecision} />
-                  </div>
-                  <div style={fieldRow}>
-                    <span>Output mode:</span>
-                    <Combo value={svgBw} options={COLOR_CHOICES} onChange={setSvgBw} />
-                  </div>
-                  <label style={check}>
-                    <input
-                      type="checkbox"
-                      checked={svgFit}
-                      onChange={(e) => setSvgFit(e.target.checked)}
-                    />
-                    Fit page to board
-                  </label>
-                </fieldset>
-              )}
-
-              {format === PLOT_FORMAT.PDF && (
-                <fieldset style={box}>
-                  <legend style={legend}>PDF Options</legend>
-                  <div style={fieldRow}>
-                    <span>Output mode:</span>
-                    <Combo value={pdfBw} options={COLOR_CHOICES} onChange={setPdfBw} />
-                  </div>
-                  <label style={check}>
-                    <input
-                      type="checkbox"
-                      checked={pdfFront}
-                      onChange={(e) => setPdfFront(e.target.checked)}
-                    />
-                    Generate property popups for front footprints
-                  </label>
-                  <label style={check}>
-                    <input
-                      type="checkbox"
-                      checked={pdfBack}
-                      onChange={(e) => setPdfBack(e.target.checked)}
-                    />
-                    Generate property popups for back footprints
-                  </label>
-                  <label style={check}>
-                    <input
-                      type="checkbox"
-                      checked={pdfMetadata}
-                      onChange={(e) => setPdfMetadata(e.target.checked)}
-                    />
-                    Generate metadata from AUTHOR &amp; SUBJECT variables
-                  </label>
-                  <label style={check}>
-                    <input
-                      type="checkbox"
-                      checked={pdfSingle}
-                      onChange={(e) => setPdfSingle(e.target.checked)}
-                    />
-                    Single document
-                  </label>
-                </fieldset>
-              )}
-            </div>
+            {format === PLOT_FORMAT.PDF && (
+              <fieldset style={box}>
+                <legend style={legend}>PDF Options</legend>
+                <div style={fieldRow}>
+                  <span>Output mode:</span>
+                  <Combo value={pdfBw} options={COLOR_CHOICES} onChange={setPdfBw} />
+                </div>
+                <label style={check}>
+                  <input
+                    type="checkbox"
+                    checked={pdfFront}
+                    onChange={(e) => setPdfFront(e.target.checked)}
+                  />
+                  Generate property popups for front footprints
+                </label>
+                <label style={check}>
+                  <input
+                    type="checkbox"
+                    checked={pdfBack}
+                    onChange={(e) => setPdfBack(e.target.checked)}
+                  />
+                  Generate property popups for back footprints
+                </label>
+                <label style={check}>
+                  <input
+                    type="checkbox"
+                    checked={pdfMetadata}
+                    onChange={(e) => setPdfMetadata(e.target.checked)}
+                  />
+                  Generate metadata from AUTHOR &amp; SUBJECT variables
+                </label>
+                <label style={check}>
+                  <input
+                    type="checkbox"
+                    checked={pdfSingle}
+                    onChange={(e) => setPdfSingle(e.target.checked)}
+                  />
+                  Single document
+                </label>
+              </fieldset>
+            )}
           </div>
-
-          {/* Output Messages (WX_HTML_REPORT_PANEL). */}
-          <HtmlReportPanel
-            lines={messages}
-            fileName="report.txt"
-            minHeight={90}
-            visibleSeverities={severities}
-            onVisibleSeveritiesChange={setSeverities}
-          />
         </div>
 
-        {/* DIALOG_PLOT std-button row (GTK): Generate Drill Files (Apply),
-            Close (Cancel), Plot (OK); Run DRC… on the far left. */}
-        <div className="ze-modal-footer">
-          <button
-            type="button"
-            className="ze-btn"
-            style={{ marginRight: 'auto' }}
-            disabled={!onRunDrc}
-            onClick={() => onRunDrc?.()}
-          >
-            Run DRC...
-          </button>
-          <button type="button" className="ze-btn" onClick={drill}>
-            Generate Drill Files...
-          </button>
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Close
-          </button>
-          <button type="button" className="ze-btn primary" onClick={plot}>
-            Plot
-          </button>
-        </div>
+        {/* Output Messages (WX_HTML_REPORT_PANEL). */}
+        <HtmlReportPanel
+          lines={messages}
+          fileName="report.txt"
+          minHeight={90}
+          visibleSeverities={severities}
+          onVisibleSeveritiesChange={setSeverities}
+        />
       </div>
-    </div>
+
+      {/* DIALOG_PLOT std-button row (GTK): Generate Drill Files (Apply),
+        Close (Cancel), Plot (OK); Run DRC… on the far left. */}
+      <div className="ze-modal-footer">
+        <button
+          type="button"
+          className="ze-btn"
+          style={{ marginRight: 'auto' }}
+          disabled={!onRunDrc}
+          onClick={() => onRunDrc?.()}
+        >
+          Run DRC...
+        </button>
+        <button type="button" className="ze-btn" onClick={drill}>
+          Generate Drill Files...
+        </button>
+        <button type="button" className="ze-btn" onClick={onClose}>
+          Close
+        </button>
+        <button type="button" className="ze-btn primary" onClick={plot}>
+          Plot
+        </button>
+      </div>
+    </DialogShim>
   );
 }

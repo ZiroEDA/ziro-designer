@@ -50,7 +50,7 @@ import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { TextValues } from './dialog_text_properties.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
 import {
   TextFormatBar,
@@ -104,7 +104,6 @@ export function DialogTextProperties({
   onClose,
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-  useModalEscape(onClose);
 
   const [v, setV] = useState<TextValues>(initial);
   // Held as text while typed, so a half-typed "0." is not rounded away under
@@ -146,124 +145,115 @@ export function DialogTextProperties({
   );
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-textprops-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Text Properties
-          <span className="x" title="Cancel" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-
-        <div className="ze-modal-body ze-textprops-body">
-          {/* `m_MultiLineSizer`: the label, the control, then the link the .cpp
-              appends to this same sizer (`:107`) — all three inside the one box
-              `bMainSizer` adds with `wxALL, 10`. */}
-          <div className="ze-txt-multiline">
-            <span className="ze-txt-caption">Text:</span>
-            <textarea
-              className="ze-input ze-txt-text"
-              // biome-ignore lint/a11y/noAutofocus: `SetInitialFocus( m_MultiLineText )`
-              autoFocus
-              value={v.text}
-              onChange={(e) => set({ text: e.target.value })}
-            />
-            {/* `m_syntaxHelp`, a wxHyperlinkCtrl (`:104-107`), bound to
-                `onSyntaxHelp` -> `PCB_TEXT::ShowSyntaxHelp`. */}
-            <button
-              type="button"
-              className="ze-hyperlink ze-txt-syntax"
-              onClick={() => setSyntaxHelp(true)}
-            >
-              Syntax help
-            </button>
-          </div>
-
-          {/* One wxGridBagSizer( 2, 3 ), seven columns, growable 1 and 5. */}
-          <div className="ze-txt-grid">
-            {/* `m_cbLocked` at `( 0, 0 )`, spanning three columns. */}
-            <label className="ze-txt-check ze-txt-locked">
-              <input
-                type="checkbox"
-                checked={v.locked}
-                onChange={(e) => set({ locked: e.target.checked })}
-              />
-              Locked
-            </label>
-
-            <span className="ze-txt-lbl ze-txt-layer-lbl">Layer:</span>
-            {/* `m_LayerSelectionCtrl` is a PCB_LAYER_BOX_SELECTOR: every entry
-                carries its layer's colour swatch. This was a native `<select>`,
-                which has neither the swatch nor the frame's chrome. */}
-            <Combo
-              className="ze-txt-layer"
-              value={v.layer}
-              onChange={(layer) => set({ layer })}
-              options={layers.map((l) => ({ value: l, label: l, swatch: layerColor(l) }))}
-            />
-            {/* `bSizer7` at `( 1, 4 )`. Knockout is all of it for a board text:
-                Keep upright and Show are hidden (`:163-164`). */}
-            <label className="ze-txt-check ze-txt-knockout">
-              <input
-                type="checkbox"
-                checked={v.knockout}
-                onChange={(e) => set({ knockout: e.target.checked })}
-              />
-              Knockout
-            </label>
-
-            {/* `m_fontLabel` at `( 2, 0 )` and `m_fontCtrl` at `( 2, 1 )`
-                spanning two. `FONT_CHOICE` is a wxOwnerDrawnComboBox, which is
-                what `Combo` is; the shared `FontChoice` builds it with the
-                entries the generated bases spell. */}
-            <span className="ze-txt-lbl ze-txt-font-lbl">Font:</span>
-            <div className="ze-txt-font">
-              <FontChoice face={v.face} onChange={(face) => set({ face })} />
-            </div>
-            {/* `( 2, 4 )`, spanning three. */}
-            <div className="ze-txt-bar">
-              <TextFormatBar
-                bold={v.bold}
-                onBold={(bold) => set({ bold })}
-                italic={v.italic}
-                onItalic={(italic) => set({ italic })}
-                hAlign={v.hJustify as HAlign}
-                onHAlign={(h) => set({ hJustify: h })}
-                vAlign={v.vJustify as VAlign}
-                onVAlign={(vv) => set({ vJustify: vv })}
-                mirrored={v.mirrored}
-                onMirrored={(mirrored) => set({ mirrored })}
-              />
-            </div>
-
-            {mmField('Width:', 'width', 'w')}
-            {mmField('Position X:', 'x', 'px')}
-
-            {mmField('Height:', 'height', 'h')}
-            {mmField('Position Y:', 'y', 'py')}
-
-            {mmField('Thickness:', 'thickness', 't')}
-            <span className="ze-txt-lbl ze-txt-orient-lbl">Orientation:</span>
-            <Combo
-              className="ze-txt-orient"
-              value={orientationLabel(v.orientation)}
-              onChange={(next) => set({ orientation: Number(next) })}
-              options={ORIENTATIONS.map((o) => ({ value: o.toFixed(1), label: o.toFixed(1) }))}
-            />
-          </div>
-        </div>
-
-        {/* `SetupStandardButtons()` with no override, so the button is OK. */}
-        <StdDialogButtons onCancel={onClose} onOk={() => onApply(v)} />
-        {syntaxHelp && (
-          <HtmlMessageBox
-            caption="Syntax Help"
-            className="ze-syntaxhelp"
-            html={PCB_TEXT_SYNTAX_HELP}
-            onClose={() => setSyntaxHelp(false)}
+    <DialogShim title="Text Properties" onClose={onClose} className="ze-textprops-dialog">
+      <div className="ze-modal-body ze-textprops-body">
+        {/* `m_MultiLineSizer`: the label, the control, then the link the .cpp
+          appends to this same sizer (`:107`) — all three inside the one box
+          `bMainSizer` adds with `wxALL, 10`. */}
+        <div className="ze-txt-multiline">
+          <span className="ze-txt-caption">Text:</span>
+          <textarea
+            className="ze-input ze-txt-text"
+            // biome-ignore lint/a11y/noAutofocus: `SetInitialFocus( m_MultiLineText )`
+            autoFocus
+            value={v.text}
+            onChange={(e) => set({ text: e.target.value })}
           />
-        )}
+          {/* `m_syntaxHelp`, a wxHyperlinkCtrl (`:104-107`), bound to
+            `onSyntaxHelp` -> `PCB_TEXT::ShowSyntaxHelp`. */}
+          <button
+            type="button"
+            className="ze-hyperlink ze-txt-syntax"
+            onClick={() => setSyntaxHelp(true)}
+          >
+            Syntax help
+          </button>
+        </div>
+
+        {/* One wxGridBagSizer( 2, 3 ), seven columns, growable 1 and 5. */}
+        <div className="ze-txt-grid">
+          {/* `m_cbLocked` at `( 0, 0 )`, spanning three columns. */}
+          <label className="ze-txt-check ze-txt-locked">
+            <input
+              type="checkbox"
+              checked={v.locked}
+              onChange={(e) => set({ locked: e.target.checked })}
+            />
+            Locked
+          </label>
+
+          <span className="ze-txt-lbl ze-txt-layer-lbl">Layer:</span>
+          {/* `m_LayerSelectionCtrl` is a PCB_LAYER_BOX_SELECTOR: every entry
+            carries its layer's colour swatch. This was a native `<select>`,
+            which has neither the swatch nor the frame's chrome. */}
+          <Combo
+            className="ze-txt-layer"
+            value={v.layer}
+            onChange={(layer) => set({ layer })}
+            options={layers.map((l) => ({ value: l, label: l, swatch: layerColor(l) }))}
+          />
+          {/* `bSizer7` at `( 1, 4 )`. Knockout is all of it for a board text:
+            Keep upright and Show are hidden (`:163-164`). */}
+          <label className="ze-txt-check ze-txt-knockout">
+            <input
+              type="checkbox"
+              checked={v.knockout}
+              onChange={(e) => set({ knockout: e.target.checked })}
+            />
+            Knockout
+          </label>
+
+          {/* `m_fontLabel` at `( 2, 0 )` and `m_fontCtrl` at `( 2, 1 )`
+            spanning two. `FONT_CHOICE` is a wxOwnerDrawnComboBox, which is
+            what `Combo` is; the shared `FontChoice` builds it with the
+            entries the generated bases spell. */}
+          <span className="ze-txt-lbl ze-txt-font-lbl">Font:</span>
+          <div className="ze-txt-font">
+            <FontChoice face={v.face} onChange={(face) => set({ face })} />
+          </div>
+          {/* `( 2, 4 )`, spanning three. */}
+          <div className="ze-txt-bar">
+            <TextFormatBar
+              bold={v.bold}
+              onBold={(bold) => set({ bold })}
+              italic={v.italic}
+              onItalic={(italic) => set({ italic })}
+              hAlign={v.hJustify as HAlign}
+              onHAlign={(h) => set({ hJustify: h })}
+              vAlign={v.vJustify as VAlign}
+              onVAlign={(vv) => set({ vJustify: vv })}
+              mirrored={v.mirrored}
+              onMirrored={(mirrored) => set({ mirrored })}
+            />
+          </div>
+
+          {mmField('Width:', 'width', 'w')}
+          {mmField('Position X:', 'x', 'px')}
+
+          {mmField('Height:', 'height', 'h')}
+          {mmField('Position Y:', 'y', 'py')}
+
+          {mmField('Thickness:', 'thickness', 't')}
+          <span className="ze-txt-lbl ze-txt-orient-lbl">Orientation:</span>
+          <Combo
+            className="ze-txt-orient"
+            value={orientationLabel(v.orientation)}
+            onChange={(next) => set({ orientation: Number(next) })}
+            options={ORIENTATIONS.map((o) => ({ value: o.toFixed(1), label: o.toFixed(1) }))}
+          />
+        </div>
       </div>
-    </div>
+
+      {/* `SetupStandardButtons()` with no override, so the button is OK. */}
+      <StdDialogButtons onCancel={onClose} onOk={() => onApply(v)} />
+      {syntaxHelp && (
+        <HtmlMessageBox
+          caption="Syntax Help"
+          className="ze-syntaxhelp"
+          html={PCB_TEXT_SYNTAX_HELP}
+          onClose={() => setSyntaxHelp(false)}
+        />
+      )}
+    </DialogShim>
   );
 }

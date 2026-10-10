@@ -15,7 +15,7 @@
 
 import { type JSX, type ReactNode, useRef, useState } from 'react';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
 import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import { type PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -164,8 +164,6 @@ export function DialogFootprintPropertiesFpEditor({
   onClose,
   model3d,
 }: DialogFootprintPropertiesFpEditorProps): JSX.Element {
-  useModalEscape(() => onClose(false));
-
   const [initial] = useState(() => dialog.TransferDataToWindow());
   const [v, setV] = useState<FootprintFpEditorValues>(initial);
   const [page, setPage] = useState<Page>('general');
@@ -319,318 +317,311 @@ export function DialogFootprintPropertiesFpEditor({
   );
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={() => onClose(false)}>
-      <div className="ze-modal ze-fpfe-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Footprint Properties
-          <span className="x" title="Cancel" onClick={() => onClose(false)}>
-            ✕
-          </span>
-        </div>
+    <DialogShim
+      title="Footprint Properties"
+      onClose={() => onClose(false)}
+      className="ze-fpfe-dialog"
+    >
+      <div className="ze-tabbar ze-fpprops-tabs">
+        {tab('general', 'General')}
+        {tab('layers', 'Layers')}
+        {tab('clearances', 'Clearance Overrides')}
+        {tab('padConnections', 'Pad Connections')}
+        {model3d && tab('models3d', '3D Models')}
+      </div>
 
-        <div className="ze-tabbar ze-fpprops-tabs">
-          {tab('general', 'General')}
-          {tab('layers', 'Layers')}
-          {tab('clearances', 'Clearance Overrides')}
-          {tab('padConnections', 'Pad Connections')}
-          {model3d && tab('models3d', '3D Models')}
-        </div>
-
-        <div className="ze-modal-body ze-fpfe-body">
-          <div hidden={page !== 'general'}>
-            <fieldset className="ze-fpfe-box">
-              <legend>Fields</legend>
-              <div className="ze-grid-pane ze-fpfe-fields">
-                <WxGridView
-                  grid={fields.grid}
-                  tricks={fields.tricks}
-                  flexCol={1}
-                  ariaLabel="Fields"
-                />
-              </div>
-              {addDelete(
-                fields,
-                'Add field',
-                'Delete field',
-                () =>
-                  fields.grid.OnAddRow(() => {
-                    fields.table.push_back(dialog.MakeNewField(fields.table.GetFields()));
-                    fields.table.AppendRows(1);
-                    return [fields.table.GetNumberRows() - 1, 0];
-                  }),
-                false,
-                (aRow) => {
-                  const refusal = dialog.CanDeleteField(aRow, fields.table.GetFields());
-                  if (refusal) DisplayErrorMessage(refusal);
-                  return refusal === null;
-                },
-              )}
-            </fieldset>
-            <div className="ze-fpfe-columns">
-              <fieldset className="ze-fpfe-box ze-fpfe-grow">
-                <legend>Metadata</legend>
-                <div className="ze-fpfe-grid2">
-                  <span className="ze-fpfe-label">Footprint name:</span>
-                  <input
-                    type="text"
-                    className="ze-fpfe-input"
-                    value={v.footprintName}
-                    onChange={(e) => set({ footprintName: e.target.value })}
-                  />
-                  <span className="ze-fpfe-label">Description:</span>
-                  <input
-                    type="text"
-                    className="ze-fpfe-input"
-                    value={v.description}
-                    onChange={(e) => set({ description: e.target.value })}
-                  />
-                  <span className="ze-fpfe-label">Keywords:</span>
-                  <input
-                    type="text"
-                    className="ze-fpfe-input"
-                    value={v.keywords}
-                    onChange={(e) => set({ keywords: e.target.value })}
-                  />
-                </div>
-              </fieldset>
-              <fieldset className="ze-fpfe-box">
-                <legend>Fabrication Attributes</legend>
-                <div className="ze-fpfe-row">
-                  <span className="ze-fpfe-label">Component type:</span>
-                  <Combo
-                    value={String(v.componentType)}
-                    options={COMPONENT_TYPES.map((label, i) => ({ value: String(i), label }))}
-                    onChange={(s) =>
-                      set({ componentType: Number(s) as FootprintFpEditorValues['componentType'] })
-                    }
-                  />
-                </div>
-                {check('Not in schematic', 'boardOnly')}
-                {check('Exclude from position files', 'excludeFromPosFiles')}
-                {check('Exclude from bill of materials', 'excludeFromBOM')}
-                {check('Do not populate', 'dnp')}
-              </fieldset>
+      <div className="ze-modal-body ze-fpfe-body">
+        <div hidden={page !== 'general'}>
+          <fieldset className="ze-fpfe-box">
+            <legend>Fields</legend>
+            <div className="ze-grid-pane ze-fpfe-fields">
+              <WxGridView
+                grid={fields.grid}
+                tricks={fields.tricks}
+                flexCol={1}
+                ariaLabel="Fields"
+              />
             </div>
-          </div>
-
-          <div hidden={page !== 'layers'} className="ze-fpfe-columns">
-            <fieldset className="ze-fpfe-box ze-fpfe-grow">
-              <legend>Custom Layers</legend>
-              {check('Use custom stackup', 'customLayers')}
-              <div className="ze-fpfe-row">
-                <span className="ze-fpfe-label">Copper layers</span>
-                <Combo
-                  disabled={!v.customLayers}
-                  value={String(v.copperLayerCountSel)}
-                  options={Array.from({ length: 16 }, (_, i) => ({
-                    value: String(i),
-                    label: String((i + 1) * 2),
-                  }))}
-                  onChange={(s) => set({ copperLayerCountSel: Number(s) })}
-                />
-              </div>
-              <fieldset className="ze-fpfe-box">
-                <legend>User Layers</legend>
-                <div className="ze-grid-pane ze-fpfe-layers">
-                  <WxGridView
-                    grid={customLayers.grid}
-                    tricks={customLayers.tricks}
-                    colLabels={false}
-                    columns={[{ width: 180 }]}
-                    ariaLabel="User layers"
-                  />
-                </div>
-                {addDelete(
-                  customLayers,
-                  'Add user layer',
-                  'Delete user layer',
-                  () =>
-                    customLayers.grid.OnAddRow(() => {
-                      customLayers.table.m_layers.push(
-                        DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR.NextUserLayer(
-                          customLayers.table.m_layers,
-                        ),
-                      );
-                      customLayers.table.AppendRows(1);
-                      return [customLayers.table.GetNumberRows() - 1, 0];
-                    }),
-                  !v.customLayers,
-                )}
-              </fieldset>
-            </fieldset>
-            <fieldset className="ze-fpfe-box ze-fpfe-grow">
-              <legend>Private Layers</legend>
-              <div className="ze-grid-pane ze-fpfe-layers">
-                <WxGridView
-                  grid={privateLayers.grid}
-                  tricks={privateLayers.tricks}
-                  colLabels={false}
-                  columns={[{ width: 180 }]}
-                  ariaLabel="Private layers"
-                />
-              </div>
-              {addDelete(privateLayers, 'Add private layer', 'Delete private layer', () =>
-                privateLayers.grid.OnAddRow(() => {
-                  privateLayers.table.m_layers.push(
-                    DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR.NextUserLayer(
-                      privateLayers.table.m_layers,
-                    ),
-                  );
-                  privateLayers.table.AppendRows(1);
-                  return [privateLayers.table.GetNumberRows() - 1, 0];
+            {addDelete(
+              fields,
+              'Add field',
+              'Delete field',
+              () =>
+                fields.grid.OnAddRow(() => {
+                  fields.table.push_back(dialog.MakeNewField(fields.table.GetFields()));
+                  fields.table.AppendRows(1);
+                  return [fields.table.GetNumberRows() - 1, 0];
                 }),
-              )}
-            </fieldset>
-          </div>
-
-          <div hidden={page !== 'clearances'}>
-            <fieldset className="ze-fpfe-box">
-              <legend>Clearances</legend>
-              <div className="ze-fpfe-note">Leave values blank to use netclass values.</div>
-              <div className="ze-fpfe-grid3">
-                {overrideField(
-                  'Pad clearance:',
-                  'localClearance',
-                  'This is the local net clearance for all pads of this footprint.\nIf 0, the Netclass values are used.\nThis value can be overridden on a pad-by-pad basis in the Local\nClearance and Settings tab of Pad Properties.',
-                )}
-                {overrideField(
-                  'Solder mask expansion:',
-                  'localSolderMaskMargin',
-                  'This is the local clearance between pads and the solder mask for \nthis footprint.\nIf 0, the global value is used.\nThis value can be overridden on a pad-by-pad basis in the Local\nClearance and Settings tab of Pad Properties.',
-                )}
-                <span className="ze-fpfe-span3">
-                  {check(
-                    'Allow bridged solder mask apertures between pads',
-                    'allowSolderMaskBridges',
-                  )}
-                </span>
-                {overrideField(
-                  'Solder paste clearance:',
-                  'localSolderPasteMargin',
-                  'Solder paste clearance relative to pad size.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nThis value can be superseded by local values for a footprint or a pad.',
-                )}
-                <span className="ze-fpfe-label">Solder paste relative clearance:</span>
+              false,
+              (aRow) => {
+                const refusal = dialog.CanDeleteField(aRow, fields.table.GetFields());
+                if (refusal) DisplayErrorMessage(refusal);
+                return refusal === null;
+              },
+            )}
+          </fieldset>
+          <div className="ze-fpfe-columns">
+            <fieldset className="ze-fpfe-box ze-fpfe-grow">
+              <legend>Metadata</legend>
+              <div className="ze-fpfe-grid2">
+                <span className="ze-fpfe-label">Footprint name:</span>
                 <input
                   type="text"
                   className="ze-fpfe-input"
-                  value={
-                    text.ratio ??
-                    (v.localSolderPasteMarginRatio === null
-                      ? ''
-                      : String(v.localSolderPasteMarginRatio * 100))
-                  }
-                  onChange={(e) => {
-                    const s = e.target.value;
-                    setText((p) => ({ ...p, ratio: s }));
-                    if (s.trim() === '') return set({ localSolderPasteMarginRatio: null });
-                    const n = Number(s);
-                    if (Number.isFinite(n)) set({ localSolderPasteMarginRatio: n / 100 });
-                  }}
+                  value={v.footprintName}
+                  onChange={(e) => set({ footprintName: e.target.value })}
                 />
-                <span className="ze-unit-label">%</span>
-              </div>
-              <div className="ze-fpfe-note">
-                Note: solder mask and paste values are used only for pads on copper layers.
+                <span className="ze-fpfe-label">Description:</span>
+                <input
+                  type="text"
+                  className="ze-fpfe-input"
+                  value={v.description}
+                  onChange={(e) => set({ description: e.target.value })}
+                />
+                <span className="ze-fpfe-label">Keywords:</span>
+                <input
+                  type="text"
+                  className="ze-fpfe-input"
+                  value={v.keywords}
+                  onChange={(e) => set({ keywords: e.target.value })}
+                />
               </div>
             </fieldset>
             <fieldset className="ze-fpfe-box">
-              <legend>Courtyards</legend>
-              {check(
-                'Exempt from courtyard requirement',
-                'allowMissingCourtyard',
-                'Will not generate "missing courtyard" DRC violations',
-              )}
-            </fieldset>
-          </div>
-
-          <div hidden={page !== 'padConnections'}>
-            <fieldset className="ze-fpfe-box">
-              <legend>Connection to Copper Zones</legend>
+              <legend>Fabrication Attributes</legend>
               <div className="ze-fpfe-row">
-                <span className="ze-fpfe-label">Pad connection to zones:</span>
+                <span className="ze-fpfe-label">Component type:</span>
                 <Combo
-                  value={String(v.zoneConnection)}
-                  options={['Use zone setting', 'Solid', 'Thermal relief', 'None'].map(
-                    (label, i) => ({
-                      value: String(i),
-                      label,
-                    }),
-                  )}
+                  value={String(v.componentType)}
+                  options={COMPONENT_TYPES.map((label, i) => ({ value: String(i), label }))}
                   onChange={(s) =>
-                    set({ zoneConnection: Number(s) as FootprintFpEditorValues['zoneConnection'] })
+                    set({ componentType: Number(s) as FootprintFpEditorValues['componentType'] })
                   }
                 />
               </div>
-            </fieldset>
-            <fieldset className="ze-fpfe-box">
-              <legend>Net Ties</legend>
-              <div className="ze-fpfe-label">Pad groups allowed to short different nets:</div>
-              <div className="ze-grid-pane ze-fpfe-groups">
-                <WxGridView
-                  grid={netTies.grid}
-                  tricks={netTies.tricks}
-                  colLabels={false}
-                  columns={[{ width: 320 }]}
-                  ariaLabel="Net tie pad groups"
-                />
-              </div>
-              {addDelete(netTies, 'Add net-tie group', 'Remove net-tie group', () =>
-                netTies.grid.OnAddRow(() => {
-                  netTies.table.AppendRows(1);
-                  return [netTies.table.GetNumberRows() - 1, 0];
-                }),
-              )}
-            </fieldset>
-            <fieldset className="ze-fpfe-box">
-              <legend>Jumpers</legend>
-              {check(
-                'All pads with duplicate numbers are jumpers',
-                'duplicatePadsAreJumpers',
-                'When enabled, this footprint can have more than one pad with the same number, and pads with the same number will be considered to be jumpered together internally.',
-              )}
-              <div className="ze-fpfe-label">Explicit jumper pad groups:</div>
-              <div className="ze-grid-pane ze-fpfe-groups">
-                <WxGridView
-                  grid={jumpers.grid}
-                  tricks={jumpers.tricks}
-                  colLabels={false}
-                  columns={[{ width: 320 }]}
-                  ariaLabel="Jumper pad groups"
-                />
-              </div>
-              {addDelete(jumpers, 'Add jumper group', 'Remove jumper group', () =>
-                jumpers.grid.OnAddRow(() => {
-                  jumpers.table.AppendRows(1);
-                  return [jumpers.table.GetNumberRows() - 1, 0];
-                }),
-              )}
+              {check('Not in schematic', 'boardOnly')}
+              {check('Exclude from position files', 'excludeFromPosFiles')}
+              {check('Exclude from bill of materials', 'excludeFromBOM')}
+              {check('Do not populate', 'dnp')}
             </fieldset>
           </div>
+        </div>
 
-          {/* Mounted for the dialog's life, so the list survives a change of page. */}
-          {model3d && (
-            <div className="ze-fp3d-host" hidden={page !== 'models3d'}>
-              <PanelFpProperties3dModel
-                footprint={model3d.footprint}
-                host={model3d.host}
-                renderPreview={model3d.renderPreview}
-                pickModel={model3d.pickModel}
-                apiRef={modelsApi}
+        <div hidden={page !== 'layers'} className="ze-fpfe-columns">
+          <fieldset className="ze-fpfe-box ze-fpfe-grow">
+            <legend>Custom Layers</legend>
+            {check('Use custom stackup', 'customLayers')}
+            <div className="ze-fpfe-row">
+              <span className="ze-fpfe-label">Copper layers</span>
+              <Combo
+                disabled={!v.customLayers}
+                value={String(v.copperLayerCountSel)}
+                options={Array.from({ length: 16 }, (_, i) => ({
+                  value: String(i),
+                  label: String((i + 1) * 2),
+                }))}
+                onChange={(s) => set({ copperLayerCountSel: Number(s) })}
               />
             </div>
-          )}
+            <fieldset className="ze-fpfe-box">
+              <legend>User Layers</legend>
+              <div className="ze-grid-pane ze-fpfe-layers">
+                <WxGridView
+                  grid={customLayers.grid}
+                  tricks={customLayers.tricks}
+                  colLabels={false}
+                  columns={[{ width: 180 }]}
+                  ariaLabel="User layers"
+                />
+              </div>
+              {addDelete(
+                customLayers,
+                'Add user layer',
+                'Delete user layer',
+                () =>
+                  customLayers.grid.OnAddRow(() => {
+                    customLayers.table.m_layers.push(
+                      DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR.NextUserLayer(
+                        customLayers.table.m_layers,
+                      ),
+                    );
+                    customLayers.table.AppendRows(1);
+                    return [customLayers.table.GetNumberRows() - 1, 0];
+                  }),
+                !v.customLayers,
+              )}
+            </fieldset>
+          </fieldset>
+          <fieldset className="ze-fpfe-box ze-fpfe-grow">
+            <legend>Private Layers</legend>
+            <div className="ze-grid-pane ze-fpfe-layers">
+              <WxGridView
+                grid={privateLayers.grid}
+                tricks={privateLayers.tricks}
+                colLabels={false}
+                columns={[{ width: 180 }]}
+                ariaLabel="Private layers"
+              />
+            </div>
+            {addDelete(privateLayers, 'Add private layer', 'Delete private layer', () =>
+              privateLayers.grid.OnAddRow(() => {
+                privateLayers.table.m_layers.push(
+                  DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR.NextUserLayer(privateLayers.table.m_layers),
+                );
+                privateLayers.table.AppendRows(1);
+                return [privateLayers.table.GetNumberRows() - 1, 0];
+              }),
+            )}
+          </fieldset>
         </div>
 
-        <div className="ze-modal-footer">
-          <span style={{ flex: 1 }} />
-          <button type="button" onClick={() => onClose(false)}>
-            Cancel
-          </button>
-          <button type="button" className="primary" onClick={() => void onOk()}>
-            OK
-          </button>
+        <div hidden={page !== 'clearances'}>
+          <fieldset className="ze-fpfe-box">
+            <legend>Clearances</legend>
+            <div className="ze-fpfe-note">Leave values blank to use netclass values.</div>
+            <div className="ze-fpfe-grid3">
+              {overrideField(
+                'Pad clearance:',
+                'localClearance',
+                'This is the local net clearance for all pads of this footprint.\nIf 0, the Netclass values are used.\nThis value can be overridden on a pad-by-pad basis in the Local\nClearance and Settings tab of Pad Properties.',
+              )}
+              {overrideField(
+                'Solder mask expansion:',
+                'localSolderMaskMargin',
+                'This is the local clearance between pads and the solder mask for \nthis footprint.\nIf 0, the global value is used.\nThis value can be overridden on a pad-by-pad basis in the Local\nClearance and Settings tab of Pad Properties.',
+              )}
+              <span className="ze-fpfe-span3">
+                {check(
+                  'Allow bridged solder mask apertures between pads',
+                  'allowSolderMaskBridges',
+                )}
+              </span>
+              {overrideField(
+                'Solder paste clearance:',
+                'localSolderPasteMargin',
+                'Solder paste clearance relative to pad size.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nThis value can be superseded by local values for a footprint or a pad.',
+              )}
+              <span className="ze-fpfe-label">Solder paste relative clearance:</span>
+              <input
+                type="text"
+                className="ze-fpfe-input"
+                value={
+                  text.ratio ??
+                  (v.localSolderPasteMarginRatio === null
+                    ? ''
+                    : String(v.localSolderPasteMarginRatio * 100))
+                }
+                onChange={(e) => {
+                  const s = e.target.value;
+                  setText((p) => ({ ...p, ratio: s }));
+                  if (s.trim() === '') return set({ localSolderPasteMarginRatio: null });
+                  const n = Number(s);
+                  if (Number.isFinite(n)) set({ localSolderPasteMarginRatio: n / 100 });
+                }}
+              />
+              <span className="ze-unit-label">%</span>
+            </div>
+            <div className="ze-fpfe-note">
+              Note: solder mask and paste values are used only for pads on copper layers.
+            </div>
+          </fieldset>
+          <fieldset className="ze-fpfe-box">
+            <legend>Courtyards</legend>
+            {check(
+              'Exempt from courtyard requirement',
+              'allowMissingCourtyard',
+              'Will not generate "missing courtyard" DRC violations',
+            )}
+          </fieldset>
         </div>
+
+        <div hidden={page !== 'padConnections'}>
+          <fieldset className="ze-fpfe-box">
+            <legend>Connection to Copper Zones</legend>
+            <div className="ze-fpfe-row">
+              <span className="ze-fpfe-label">Pad connection to zones:</span>
+              <Combo
+                value={String(v.zoneConnection)}
+                options={['Use zone setting', 'Solid', 'Thermal relief', 'None'].map(
+                  (label, i) => ({
+                    value: String(i),
+                    label,
+                  }),
+                )}
+                onChange={(s) =>
+                  set({ zoneConnection: Number(s) as FootprintFpEditorValues['zoneConnection'] })
+                }
+              />
+            </div>
+          </fieldset>
+          <fieldset className="ze-fpfe-box">
+            <legend>Net Ties</legend>
+            <div className="ze-fpfe-label">Pad groups allowed to short different nets:</div>
+            <div className="ze-grid-pane ze-fpfe-groups">
+              <WxGridView
+                grid={netTies.grid}
+                tricks={netTies.tricks}
+                colLabels={false}
+                columns={[{ width: 320 }]}
+                ariaLabel="Net tie pad groups"
+              />
+            </div>
+            {addDelete(netTies, 'Add net-tie group', 'Remove net-tie group', () =>
+              netTies.grid.OnAddRow(() => {
+                netTies.table.AppendRows(1);
+                return [netTies.table.GetNumberRows() - 1, 0];
+              }),
+            )}
+          </fieldset>
+          <fieldset className="ze-fpfe-box">
+            <legend>Jumpers</legend>
+            {check(
+              'All pads with duplicate numbers are jumpers',
+              'duplicatePadsAreJumpers',
+              'When enabled, this footprint can have more than one pad with the same number, and pads with the same number will be considered to be jumpered together internally.',
+            )}
+            <div className="ze-fpfe-label">Explicit jumper pad groups:</div>
+            <div className="ze-grid-pane ze-fpfe-groups">
+              <WxGridView
+                grid={jumpers.grid}
+                tricks={jumpers.tricks}
+                colLabels={false}
+                columns={[{ width: 320 }]}
+                ariaLabel="Jumper pad groups"
+              />
+            </div>
+            {addDelete(jumpers, 'Add jumper group', 'Remove jumper group', () =>
+              jumpers.grid.OnAddRow(() => {
+                jumpers.table.AppendRows(1);
+                return [jumpers.table.GetNumberRows() - 1, 0];
+              }),
+            )}
+          </fieldset>
+        </div>
+
+        {/* Mounted for the dialog's life, so the list survives a change of page. */}
+        {model3d && (
+          <div className="ze-fp3d-host" hidden={page !== 'models3d'}>
+            <PanelFpProperties3dModel
+              footprint={model3d.footprint}
+              host={model3d.host}
+              renderPreview={model3d.renderPreview}
+              pickModel={model3d.pickModel}
+              apiRef={modelsApi}
+            />
+          </div>
+        )}
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <span style={{ flex: 1 }} />
+        <button type="button" onClick={() => onClose(false)}>
+          Cancel
+        </button>
+        <button type="button" className="primary" onClick={() => void onOk()}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

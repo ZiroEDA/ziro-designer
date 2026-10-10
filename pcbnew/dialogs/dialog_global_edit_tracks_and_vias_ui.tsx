@@ -8,7 +8,7 @@
  * then Apply and Close / Close.
  */
 import { type JSX, useEffect, useState } from 'react';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { unitLabel } from '@ziroeda/common/eda_units.js';
 import { INDETERMINATE_ACTION } from '@ziroeda/common/widgets/ui_common.js';
 import type { UNIT_BINDER } from '@ziroeda/common/widgets/unit_binder.js';
@@ -57,8 +57,6 @@ export function DialogGlobalEditTracksAndVias({
     dialog.OnClose();
     onClose();
   };
-
-  useModalEscape(close);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the dialog is the trigger; redraw only bumps a counter
   useEffect(() => {
@@ -110,145 +108,142 @@ export function DialogGlobalEditTracksAndVias({
   const off = !dialog.ActionControlsEnabled();
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-gettv" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">Set Track and Via Properties</div>
-        <div className="ze-modal-body">
-          <div className="ze-gettv-top">
-            <fieldset className="ze-sbox ze-gettv-scope">
-              <legend>Scope</legend>
-              {box('m_tracks', 'Tracks', 'brl5')}
-              <span className="ze-gettv-gap10" />
-              <label className="ze-check brl5">
-                <input
-                  type="checkbox"
-                  checked={vias === true}
-                  ref={(el) => {
-                    if (el) el.indeterminate = vias === null;
-                  }}
-                  onChange={(e) => {
-                    dialog.OnVias(e.target.checked);
-                    redraw();
-                  }}
-                />
-                Vias
-              </label>
-              {box('m_throughVias', 'Through vias', 'l20')}
-              {box('m_microVias', 'Microvias', 'l20 t3')}
-              {box('m_blindVias', 'Blind vias', 'l20 t3')}
-              {box('m_buriedVias', 'Buried vias', 'l20 t3')}
-            </fieldset>
-            <fieldset className="ze-sbox ze-gettv-filters">
-              <legend>Filter Items</legend>
-              <div className="ze-gettv-filter-grid">
-                {box('m_netFilterOpt', 'Filter items by net:')}
-                <NetSelector
-                  netInfo={nets}
-                  netcode={dialog.m_netFilter}
-                  onChange={(net) => {
-                    dialog.m_netFilter = net;
-                    redraw();
-                  }}
-                />
-                {box('m_netclassFilterOpt', 'Filter items by net class:')}
-                <Combo
-                  value={dialog.m_netclassFilter}
-                  options={dialog.m_netclassNames.map((n) => ({ value: n, label: n }))}
-                  onChange={(v: string) => {
-                    dialog.m_netclassFilter = v;
-                    redraw();
-                  }}
-                />
-                {box('m_layerFilterOpt', 'Filter items by layer:')}
-                <Combo
-                  value={String(dialog.m_layerFilter)}
-                  options={layers.map((l) => ({
-                    value: String(l.layer),
-                    label: l.label,
-                    swatch: l.swatch,
-                  }))}
-                  onChange={(v: string) => {
-                    dialog.m_layerFilter = Number(v);
-                    redraw();
-                  }}
-                />
-                {box('m_filterByTrackWidth', 'Filter tracks by width:')}
-                {sizeEntry(dialog.m_trackWidthFilter)}
-                {box('m_filterByViaSize', 'Filter vias by diameter:')}
-                {sizeEntry(dialog.m_viaSizeFilter)}
-              </div>
-              {box('m_selectedItemsFilter', 'Selected items only', 'all5')}
-            </fieldset>
-          </div>
-          <fieldset className="ze-sbox ze-gettv-action">
-            <legend>Action</legend>
-            <label className="ze-radio">
+    <DialogShim title="Set Track and Via Properties" onClose={close} className="ze-gettv">
+      <div className="ze-modal-body">
+        <div className="ze-gettv-top">
+          <fieldset className="ze-sbox ze-gettv-scope">
+            <legend>Scope</legend>
+            {box('m_tracks', 'Tracks', 'brl5')}
+            <span className="ze-gettv-gap10" />
+            <label className="ze-check brl5">
               <input
-                type="radio"
-                name="ze-gettv-action"
-                checked={dialog.m_setToSpecifiedValues}
-                onChange={() => {
-                  dialog.m_setToSpecifiedValues = true;
+                type="checkbox"
+                checked={vias === true}
+                ref={(el) => {
+                  if (el) el.indeterminate = vias === null;
+                }}
+                onChange={(e) => {
+                  dialog.OnVias(e.target.checked);
                   redraw();
                 }}
               />
-              Set to specified values:
+              Vias
             </label>
-            <div className="ze-gettv-action-grid">
-              <span className="lbl">Layer:</span>
+            {box('m_throughVias', 'Through vias', 'l20')}
+            {box('m_microVias', 'Microvias', 'l20 t3')}
+            {box('m_blindVias', 'Blind vias', 'l20 t3')}
+            {box('m_buriedVias', 'Buried vias', 'l20 t3')}
+          </fieldset>
+          <fieldset className="ze-sbox ze-gettv-filters">
+            <legend>Filter Items</legend>
+            <div className="ze-gettv-filter-grid">
+              {box('m_netFilterOpt', 'Filter items by net:')}
+              <NetSelector
+                netInfo={nets}
+                netcode={dialog.m_netFilter}
+                onChange={(net) => {
+                  dialog.m_netFilter = net;
+                  redraw();
+                }}
+              />
+              {box('m_netclassFilterOpt', 'Filter items by net class:')}
               <Combo
-                value={String(dialog.m_layerCtrl)}
-                disabled={off}
-                options={[
-                  { value: String(-1), label: INDETERMINATE_ACTION },
-                  ...layers.map((l) => ({
-                    value: String(l.layer),
-                    label: l.label,
-                    swatch: l.swatch,
-                  })),
-                ]}
+                value={dialog.m_netclassFilter}
+                options={dialog.m_netclassNames.map((n) => ({ value: n, label: n }))}
                 onChange={(v: string) => {
-                  dialog.m_layerCtrl = Number(v);
+                  dialog.m_netclassFilter = v;
                   redraw();
                 }}
               />
-              <span className="lbl">Track width:</span>
-              {choice(dialog.m_trackWidthCtrl, off)}
-              <span className="lbl">Via size:</span>
-              {choice(dialog.m_viaSizesCtrl, off)}
-              <span className="lbl">Via annular rings:</span>
-              {choice(dialog.m_annularRingsCtrl, off)}
-              <span
-                className="lbl"
-                title="Select which protection feature according to IPC-4761 the via should have."
-              >
-                Via protection features:
-              </span>
-              {choice(dialog.m_protectionFeatures, off)}
+              {box('m_layerFilterOpt', 'Filter items by layer:')}
+              <Combo
+                value={String(dialog.m_layerFilter)}
+                options={layers.map((l) => ({
+                  value: String(l.layer),
+                  label: l.label,
+                  swatch: l.swatch,
+                }))}
+                onChange={(v: string) => {
+                  dialog.m_layerFilter = Number(v);
+                  redraw();
+                }}
+              />
+              {box('m_filterByTrackWidth', 'Filter tracks by width:')}
+              {sizeEntry(dialog.m_trackWidthFilter)}
+              {box('m_filterByViaSize', 'Filter vias by diameter:')}
+              {sizeEntry(dialog.m_viaSizeFilter)}
             </div>
-            <label className="ze-radio">
-              <input
-                type="radio"
-                name="ze-gettv-action"
-                checked={!dialog.m_setToSpecifiedValues}
-                onChange={() => {
-                  dialog.m_setToSpecifiedValues = false;
-                  redraw();
-                }}
-              />
-              Set to net class / custom rule values
-            </label>
+            {box('m_selectedItemsFilter', 'Selected items only', 'all5')}
           </fieldset>
         </div>
-        <StdDialogButtons
-          okLabel="Apply and Close"
-          cancelLabel="Close"
-          onOk={() => {
-            if (dialog.TransferDataFromWindow()) close();
-          }}
-          onCancel={close}
-        />
+        <fieldset className="ze-sbox ze-gettv-action">
+          <legend>Action</legend>
+          <label className="ze-radio">
+            <input
+              type="radio"
+              name="ze-gettv-action"
+              checked={dialog.m_setToSpecifiedValues}
+              onChange={() => {
+                dialog.m_setToSpecifiedValues = true;
+                redraw();
+              }}
+            />
+            Set to specified values:
+          </label>
+          <div className="ze-gettv-action-grid">
+            <span className="lbl">Layer:</span>
+            <Combo
+              value={String(dialog.m_layerCtrl)}
+              disabled={off}
+              options={[
+                { value: String(-1), label: INDETERMINATE_ACTION },
+                ...layers.map((l) => ({
+                  value: String(l.layer),
+                  label: l.label,
+                  swatch: l.swatch,
+                })),
+              ]}
+              onChange={(v: string) => {
+                dialog.m_layerCtrl = Number(v);
+                redraw();
+              }}
+            />
+            <span className="lbl">Track width:</span>
+            {choice(dialog.m_trackWidthCtrl, off)}
+            <span className="lbl">Via size:</span>
+            {choice(dialog.m_viaSizesCtrl, off)}
+            <span className="lbl">Via annular rings:</span>
+            {choice(dialog.m_annularRingsCtrl, off)}
+            <span
+              className="lbl"
+              title="Select which protection feature according to IPC-4761 the via should have."
+            >
+              Via protection features:
+            </span>
+            {choice(dialog.m_protectionFeatures, off)}
+          </div>
+          <label className="ze-radio">
+            <input
+              type="radio"
+              name="ze-gettv-action"
+              checked={!dialog.m_setToSpecifiedValues}
+              onChange={() => {
+                dialog.m_setToSpecifiedValues = false;
+                redraw();
+              }}
+            />
+            Set to net class / custom rule values
+          </label>
+        </fieldset>
       </div>
-    </div>
+      <StdDialogButtons
+        okLabel="Apply and Close"
+        cancelLabel="Close"
+        onOk={() => {
+          if (dialog.TransferDataFromWindow()) close();
+        }}
+        onCancel={close}
+      />
+    </DialogShim>
   );
 }

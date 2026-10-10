@@ -47,7 +47,7 @@
  */
 import { useEffect, useRef, useState, useSyncExternalStore, type JSX } from 'react';
 import { ZONE_SETTINGS_BAG } from '../zone_settings_bag.js';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import { toCss } from '@ziroeda/common/gal/color4d.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
@@ -364,8 +364,6 @@ function ZoneManagerBody({
     onResult(ok, ok ? dialog.GetRepourOnClose() : false);
   };
 
-  useModalEscape(() => close(false));
-
   // `OnIdle`'s `m_viewZonesOverview->SetFocus()`: the tree view takes the focus
   // and, with nothing selected, GTK selects the first row.
   const model = dialog.GetModel();
@@ -411,250 +409,246 @@ function ZoneManagerBody({
   const swatch = (layer: PCB_LAYER_ID): string => toCss(colors.GetColor(layer));
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-zm" role="dialog" aria-modal="true" aria-label="Zone Manager">
-        <div className="ze-modal-header">Zone Manager</div>
-
-        {/* m_sizerTop */}
-        <div
-          className="ze-zm-top"
-          onKeyDown={(e) => {
-            // `OnDialogCharHook`: WXK_UP / WXK_DOWN navigate the zone selection,
-            // whichever control has the focus.
-            if (e.key === 'ArrowUp') {
-              e.preventDefault();
-              dialog.NavigateZoneSelection(-1);
-            } else if (e.key === 'ArrowDown') {
-              e.preventDefault();
-              dialog.NavigateZoneSelection(1);
-            }
-          }}
-        >
-          <div className="ze-zm-list">
-            <div className="ze-zm-left">
-              <div className="ze-zm-search">
-                <span className="ze-zm-searchbox">
-                  <input
-                    className="ze-search"
-                    aria-label="Filter"
-                    value={view.GetFilterText()}
-                    onChange={(e) => {
-                      view.SetFilterText(e.target.value);
-                      dialog.OnFilterCtrlTextChange(e.target.value);
+    <DialogShim title="Zone Manager" onClose={() => close(false)} className="ze-zm">
+      {/* m_sizerTop */}
+      <div
+        className="ze-zm-top"
+        onKeyDown={(e) => {
+          // `OnDialogCharHook`: WXK_UP / WXK_DOWN navigate the zone selection,
+          // whichever control has the focus.
+          if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            dialog.NavigateZoneSelection(-1);
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            dialog.NavigateZoneSelection(1);
+          }
+        }}
+      >
+        <div className="ze-zm-list">
+          <div className="ze-zm-left">
+            <div className="ze-zm-search">
+              <span className="ze-zm-searchbox">
+                <input
+                  className="ze-search"
+                  aria-label="Filter"
+                  value={view.GetFilterText()}
+                  onChange={(e) => {
+                    view.SetFilterText(e.target.value);
+                    dialog.OnFilterCtrlTextChange(e.target.value);
+                  }}
+                />
+                {view.GetFilterText() !== '' && (
+                  <button
+                    type="button"
+                    className="ze-zm-searchcancel"
+                    aria-label="Clear filter"
+                    onClick={() => {
+                      view.SetFilterText('');
+                      dialog.OnFilterCtrlCancel();
                     }}
-                  />
-                  {view.GetFilterText() !== '' && (
-                    <button
-                      type="button"
-                      className="ze-zm-searchcancel"
-                      aria-label="Clear filter"
-                      onClick={() => {
-                        view.SetFilterText('');
-                        dialog.OnFilterCtrlCancel();
-                      }}
-                    >
-                      ✕
-                    </button>
-                  )}
-                </span>
-                <span className="ze-zm-gap10" />
-                <label className="ze-zm-check">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    onChange={(e) => dialog.OnFilterFieldCheckBox('name', e.target.checked)}
-                  />
-                  Name
-                </label>
-                <label className="ze-zm-check2">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    onChange={(e) => dialog.OnFilterFieldCheckBox('net', e.target.checked)}
-                  />
-                  Net
-                </label>
-              </div>
-
-              <div className="ze-zm-layerrow">
-                <label className="ze-zm-layerlabel" htmlFor="ze-zm-layer">
-                  Layer:
-                </label>
-                <Combo
-                  id="ze-zm-layer"
-                  value={String(layerIndex)}
-                  options={[
-                    { value: '0', label: 'All Layers' },
-                    ...layerSel.map((c, i) => ({ value: String(i + 1), label: c.name })),
-                  ]}
-                  onChange={(v) => {
-                    const i = Number(v);
-                    setLayerIndex(i);
-                    // `sel <= 0` is UNDEFINED_LAYER; otherwise the entry's client data.
-                    dialog.OnLayerFilterChanged(i <= 0 ? null : layerSel[i - 1]!.layer);
-                  }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </span>
+              <span className="ze-zm-gap10" />
+              <label className="ze-zm-check">
+                <input
+                  type="checkbox"
+                  defaultChecked
+                  onChange={(e) => dialog.OnFilterFieldCheckBox('name', e.target.checked)}
                 />
-              </div>
+                Name
+              </label>
+              <label className="ze-zm-check2">
+                <input
+                  type="checkbox"
+                  defaultChecked
+                  onChange={(e) => dialog.OnFilterFieldCheckBox('net', e.target.checked)}
+                />
+                Net
+              </label>
+            </div>
 
-              <div className="ze-zm-table">
-                <table className="ze-grid ze-zm-grid" ref={table} tabIndex={0}>
-                  <thead>
-                    <tr>
-                      {COLUMNS.map((c) => (
-                        <th key={c}>{columnNames.get(c)}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row) => (
-                      <tr
-                        key={row}
-                        data-row={row}
-                        className={selection === row ? 'selected' : ''}
-                        onClick={() => {
-                          view.Select(row);
-                          dialog.OnDataViewCtrlSelectionChanged(row);
-                        }}
-                      >
-                        {COLUMNS.map((c) => {
-                          const cell = model.GetValueByRow(row, c);
+            <div className="ze-zm-layerrow">
+              <label className="ze-zm-layerlabel" htmlFor="ze-zm-layer">
+                Layer:
+              </label>
+              <Combo
+                id="ze-zm-layer"
+                value={String(layerIndex)}
+                options={[
+                  { value: '0', label: 'All Layers' },
+                  ...layerSel.map((c, i) => ({ value: String(i + 1), label: c.name })),
+                ]}
+                onChange={(v) => {
+                  const i = Number(v);
+                  setLayerIndex(i);
+                  // `sel <= 0` is UNDEFINED_LAYER; otherwise the entry's client data.
+                  dialog.OnLayerFilterChanged(i <= 0 ? null : layerSel[i - 1]!.layer);
+                }}
+              />
+            </div>
 
-                          return (
-                            <td key={c}>
-                              {cell && 'icon' in cell && (
-                                <span className="ze-zm-layerbar" aria-hidden="true">
-                                  {cell.icon.map((r, i) => (
-                                    <span
-                                      key={i}
-                                      style={{ height: r.h, background: toCss(r.color) }}
-                                    />
-                                  ))}
-                                </span>
-                              )}
-                              {cell?.text ?? ''}
-                            </td>
-                          );
-                        })}
-                      </tr>
+            <div className="ze-zm-table">
+              <table className="ze-grid ze-zm-grid" ref={table} tabIndex={0}>
+                <thead>
+                  <tr>
+                    {COLUMNS.map((c) => (
+                      <th key={c}>{columnNames.get(c)}</th>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="ze-zm-oprow">
-                {(
-                  [
-                    ['small_top', () => dialog.OnMoveTopClick()],
-                    ['small_up', () => dialog.OnMoveUpClick()],
-                    ['small_down', () => dialog.OnMoveDownClick()],
-                    ['small_bottom', () => dialog.OnMoveBottomClick()],
-                  ] as const
-                ).map(([bitmap, click]) => (
-                  <span key={bitmap} className="ze-zm-opbtn">
-                    <StdBitmapButton
-                      bitmap={bitmap}
-                      title={bitmap.slice(6)}
-                      tooltip="Top zone has the highest priority. When a zone is inside another zone, if its priority is higher, its outlines are removed from the other zone."
-                      disabled={!moveEnabled}
-                      onClick={click}
-                    />
-                  </span>
-                ))}
-                <span className="ze-zm-gap10" />
-                <span className="ze-zm-opbtn">
-                  <StdBitmapButton
-                    bitmap="small_sort_desc"
-                    title="Auto-assign"
-                    tooltip="Automatically assign zone priorities based on connectivity analysis of overlapping regions."
-                    disabled={!moveEnabled}
-                    onClick={() => dialog.OnAutoAssignClick()}
-                  />
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="ze-zm-zone">
-            <div className="ze-zm-props">
-              {values ? (
-                <PanelZoneProperties
-                  key={keyOf(zoneKey)}
-                  values={values}
-                  onChange={(patch) => panel.SetValues(patch)}
-                  units={units}
-                  nets={nets}
-                  allowNetSpec={panel.IsNetSpecAllowed()}
-                  teardrop={panel.IsTeardrop()}
-                />
-              ) : (
-                <fieldset disabled className="ze-zm-noprops" />
-              )}
-            </div>
-            <div className="ze-zm-preview">
-              <div className="ze-zm-nb">
-                <div className="ze-nb-tabs">
-                  {notebookHost.m_pages.map((page, i) => (
-                    <button
-                      key={page.GetLayer()}
-                      type="button"
-                      className={i === notebookHost.m_selection ? 'active' : ''}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr
+                      key={row}
+                      data-row={row}
+                      className={selection === row ? 'selected' : ''}
                       onClick={() => {
-                        // `wxNotebook`'s own tab click, then `OnPageChanged`.
-                        notebook.SetSelection(i);
-                        notebookHost.m_selection = i;
-                        notebookHost.ShowSelected();
-                        notebook.OnPageChanged();
+                        view.Select(row);
+                        dialog.OnDataViewCtrlSelectionChanged(row);
                       }}
                     >
-                      <span
-                        className="ze-zm-tabswatch"
-                        style={{ background: swatch(page.GetLayer() as PCB_LAYER_ID) }}
-                      />
-                      {frame.GetBoard().GetLayerName(page.GetLayer() as PCB_LAYER_ID)}
-                    </button>
+                      {COLUMNS.map((c) => {
+                        const cell = model.GetValueByRow(row, c);
+
+                        return (
+                          <td key={c}>
+                            {cell && 'icon' in cell && (
+                              <span className="ze-zm-layerbar" aria-hidden="true">
+                                {cell.icon.map((r, i) => (
+                                  <span
+                                    key={i}
+                                    style={{ height: r.h, background: toCss(r.color) }}
+                                  />
+                                ))}
+                              </span>
+                            )}
+                            {cell?.text ?? ''}
+                          </td>
+                        );
+                      })}
+                    </tr>
                   ))}
-                </div>
-                <div
-                  className="ze-zm-nbpages"
-                  ref={(el) => {
-                    if (el && pagesEl.parentElement !== el) el.appendChild(pagesEl);
-                  }}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="ze-zm-oprow">
+              {(
+                [
+                  ['small_top', () => dialog.OnMoveTopClick()],
+                  ['small_up', () => dialog.OnMoveUpClick()],
+                  ['small_down', () => dialog.OnMoveDownClick()],
+                  ['small_bottom', () => dialog.OnMoveBottomClick()],
+                ] as const
+              ).map(([bitmap, click]) => (
+                <span key={bitmap} className="ze-zm-opbtn">
+                  <StdBitmapButton
+                    bitmap={bitmap}
+                    title={bitmap.slice(6)}
+                    tooltip="Top zone has the highest priority. When a zone is inside another zone, if its priority is higher, its outlines are removed from the other zone."
+                    disabled={!moveEnabled}
+                    onClick={click}
+                  />
+                </span>
+              ))}
+              <span className="ze-zm-gap10" />
+              <span className="ze-zm-opbtn">
+                <StdBitmapButton
+                  bitmap="small_sort_desc"
+                  title="Auto-assign"
+                  tooltip="Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+                  disabled={!moveEnabled}
+                  onClick={() => dialog.OnAutoAssignClick()}
                 />
-              </div>
+              </span>
             </div>
           </div>
         </div>
 
-        <hr className="ze-zm-line" />
-
-        {/* m_sizerBottom */}
-        <div className="ze-zm-bottom">
-          <label className="ze-zm-repour" title="Refill zones after changes made on board">
-            <input
-              type="checkbox"
-              checked={view.GetRepourOnClose()}
-              onChange={(e) => view.SetRepour(e.target.checked)}
-            />
-            Refill zones
-          </label>
-          <span className="ze-zm-stretch" />
-          <button
-            type="button"
-            className="ze-btn ze-zm-update"
-            title="Update filled areas shown in dialog, according to the new current settings"
-            onClick={() => dialog.OnUpdateDisplayedZonesClick()}
-          >
-            Update Displayed Zones
-          </button>
-          <StdDialogButtons
-            onCancel={() => close(false)}
-            onOk={() => {
-              dialog.OnOk();
-              close(true);
-            }}
-          />
+        <div className="ze-zm-zone">
+          <div className="ze-zm-props">
+            {values ? (
+              <PanelZoneProperties
+                key={keyOf(zoneKey)}
+                values={values}
+                onChange={(patch) => panel.SetValues(patch)}
+                units={units}
+                nets={nets}
+                allowNetSpec={panel.IsNetSpecAllowed()}
+                teardrop={panel.IsTeardrop()}
+              />
+            ) : (
+              <fieldset disabled className="ze-zm-noprops" />
+            )}
+          </div>
+          <div className="ze-zm-preview">
+            <div className="ze-zm-nb">
+              <div className="ze-nb-tabs">
+                {notebookHost.m_pages.map((page, i) => (
+                  <button
+                    key={page.GetLayer()}
+                    type="button"
+                    className={i === notebookHost.m_selection ? 'active' : ''}
+                    onClick={() => {
+                      // `wxNotebook`'s own tab click, then `OnPageChanged`.
+                      notebook.SetSelection(i);
+                      notebookHost.m_selection = i;
+                      notebookHost.ShowSelected();
+                      notebook.OnPageChanged();
+                    }}
+                  >
+                    <span
+                      className="ze-zm-tabswatch"
+                      style={{ background: swatch(page.GetLayer() as PCB_LAYER_ID) }}
+                    />
+                    {frame.GetBoard().GetLayerName(page.GetLayer() as PCB_LAYER_ID)}
+                  </button>
+                ))}
+              </div>
+              <div
+                className="ze-zm-nbpages"
+                ref={(el) => {
+                  if (el && pagesEl.parentElement !== el) el.appendChild(pagesEl);
+                }}
+              />
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+
+      <hr className="ze-zm-line" />
+
+      {/* m_sizerBottom */}
+      <div className="ze-zm-bottom">
+        <label className="ze-zm-repour" title="Refill zones after changes made on board">
+          <input
+            type="checkbox"
+            checked={view.GetRepourOnClose()}
+            onChange={(e) => view.SetRepour(e.target.checked)}
+          />
+          Refill zones
+        </label>
+        <span className="ze-zm-stretch" />
+        <button
+          type="button"
+          className="ze-btn ze-zm-update"
+          title="Update filled areas shown in dialog, according to the new current settings"
+          onClick={() => dialog.OnUpdateDisplayedZonesClick()}
+        >
+          Update Displayed Zones
+        </button>
+        <StdDialogButtons
+          onCancel={() => close(false)}
+          onOk={() => {
+            dialog.OnOk();
+            close(true);
+          }}
+        />
+      </div>
+    </DialogShim>
   );
 }

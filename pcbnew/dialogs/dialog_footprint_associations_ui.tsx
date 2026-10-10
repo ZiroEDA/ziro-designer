@@ -15,7 +15,7 @@ import { useMemo, type JSX } from 'react';
 import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
 import { wxGridStringTable } from '@ziroeda/common/wx/grid.js';
 import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import type { AssociationRow } from './dialog_footprint_associations.js';
 import {
   buildLibraryAssociationRows,
@@ -54,8 +54,6 @@ export function DialogFootprintAssociations({
   adapter: FOOTPRINT_LIBRARY_ADAPTER | null;
   onClose: () => void;
 }): JSX.Element {
-  useModalEscape(onClose);
-
   const libraryRows = useMemo(
     () => buildLibraryAssociationRows(footprint, adapter),
     [footprint, adapter],
@@ -66,38 +64,39 @@ export function DialogFootprintAssociations({
   const symbolGrid = useInfoGrid(symbolRows);
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-footprint-associations" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">Footprint Associations</div>
-        <div className="ze-modal-body">
-          {/* `SetFont( KIUI::GetStatusFont( this ) )`: a no-op off macOS
-              (getGUIFont( win, 0 ) is the window's own font there), so this
-              is plain chrome text — no bold/size class to invent. */}
-          <div className="assoc-label">Library Association</div>
-          <WxGridView
-            grid={libraryGrid}
-            columns={LIBRARY_COLUMNS}
-            rowLabels={false}
-            colLabels={false}
-            ariaLabel="Library association"
-          />
+    <DialogShim
+      title="Footprint Associations"
+      onClose={onClose}
+      className="ze-footprint-associations"
+    >
+      <div className="ze-modal-body">
+        {/* `SetFont( KIUI::GetStatusFont( this ) )`: a no-op off macOS
+          (getGUIFont( win, 0 ) is the window's own font there), so this
+          is plain chrome text — no bold/size class to invent. */}
+        <div className="assoc-label">Library Association</div>
+        <WxGridView
+          grid={libraryGrid}
+          columns={LIBRARY_COLUMNS}
+          rowLabels={false}
+          colLabels={false}
+          ariaLabel="Library association"
+        />
 
-          <div className="assoc-label">Schematic Association</div>
-          <WxGridView
-            grid={symbolGrid}
-            columns={LIBRARY_COLUMNS}
-            rowLabels={false}
-            colLabels={false}
-            ariaLabel="Schematic association"
-          />
-        </div>
-        <div className="ze-modal-footer">
-          {/* `m_sdbControlSizer`: wxID_OK alone, no Cancel — the dialog never writes. */}
-          <button type="button" className="ze-btn default" onClick={onClose} autoFocus>
-            OK
-          </button>
-        </div>
+        <div className="assoc-label">Schematic Association</div>
+        <WxGridView
+          grid={symbolGrid}
+          columns={LIBRARY_COLUMNS}
+          rowLabels={false}
+          colLabels={false}
+          ariaLabel="Schematic association"
+        />
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        {/* `m_sdbControlSizer`: wxID_OK alone, no Cancel — the dialog never writes. */}
+        <button type="button" className="ze-btn default" onClick={onClose} autoFocus>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

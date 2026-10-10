@@ -16,7 +16,7 @@
  * three distances are `UNIT_BINDER`s, so they show and read the frame's unit.
  */
 import { useState, type JSX } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
@@ -36,8 +36,6 @@ export function DialogTargetProperties({
   onApply: (v: TargetValues) => TransferResult;
   onClose: () => void;
 }): JSX.Element {
-  useModalEscape(onClose);
-
   // A `UNIT_BINDER` holds text and parses on commit.
   const [size, setSize] = useState(() => pcbUnitText(initial.size, units));
   const [thickness, setThickness] = useState(() => pcbUnitText(initial.thickness, units));
@@ -59,62 +57,59 @@ export function DialogTargetProperties({
   };
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-tgt-dialog" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">Alignment Target Properties</div>
-        <div className="ze-modal-body ze-tgt-body">
-          {error && (
-            <div className="ze-pref-error" role="alert">
-              {error}
-            </div>
-          )}
-          <div className="ze-tgt-grid">
-            <label className="lbl" htmlFor="ze-tgt-size">
-              Size:
-            </label>
-            {/* `SetInitialFocus( m_sizeCtrl )`. */}
-            <input
-              id="ze-tgt-size"
-              className="ze-search"
-              value={size}
-              onChange={(e) => setSize(e.target.value)}
-              // biome-ignore lint/a11y/noAutofocus: SetInitialFocus( m_sizeCtrl )
-              autoFocus
-            />
-            <span className="unit">{unitLabel(units)}</span>
-
-            <label className="lbl" htmlFor="ze-tgt-thickness">
-              Thickness:
-            </label>
-            <input
-              id="ze-tgt-thickness"
-              className="ze-search"
-              value={thickness}
-              onChange={(e) => setThickness(e.target.value)}
-            />
-            <span className="unit">{unitLabel(units)}</span>
-
-            <span className="lbl">Shape:</span>
-            <Combo
-              value={String(shape)}
-              options={TARGET_SHAPE_CHOICES.map(([value, label]) => ({
-                value: String(value),
-                label,
-              }))}
-              onChange={(v) => setShape(v === '1' ? 1 : 0)}
-              ariaLabel="Shape"
-            />
+    <DialogShim title="Alignment Target Properties" onClose={onClose} className="ze-tgt-dialog">
+      <div className="ze-modal-body ze-tgt-body">
+        {error && (
+          <div className="ze-pref-error" role="alert">
+            {error}
           </div>
-        </div>
-        <div className="ze-modal-footer">
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="primary" onClick={apply}>
-            OK
-          </button>
+        )}
+        <div className="ze-tgt-grid">
+          <label className="lbl" htmlFor="ze-tgt-size">
+            Size:
+          </label>
+          {/* `SetInitialFocus( m_sizeCtrl )`. */}
+          <input
+            id="ze-tgt-size"
+            className="ze-search"
+            value={size}
+            onChange={(e) => setSize(e.target.value)}
+            // biome-ignore lint/a11y/noAutofocus: SetInitialFocus( m_sizeCtrl )
+            autoFocus
+          />
+          <span className="unit">{unitLabel(units)}</span>
+
+          <label className="lbl" htmlFor="ze-tgt-thickness">
+            Thickness:
+          </label>
+          <input
+            id="ze-tgt-thickness"
+            className="ze-search"
+            value={thickness}
+            onChange={(e) => setThickness(e.target.value)}
+          />
+          <span className="unit">{unitLabel(units)}</span>
+
+          <span className="lbl">Shape:</span>
+          <Combo
+            value={String(shape)}
+            options={TARGET_SHAPE_CHOICES.map(([value, label]) => ({
+              value: String(value),
+              label,
+            }))}
+            onChange={(v) => setShape(v === '1' ? 1 : 0)}
+            ariaLabel="Shape"
+          />
         </div>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="primary" onClick={apply}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

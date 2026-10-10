@@ -27,7 +27,7 @@
  * nothing raises this dialog until that page grows it.
  */
 import { useState, type JSX } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { WxCollapsiblePane } from '@ziroeda/common/widgets/wx_collapsible_pane.js';
 
 export function DialogItemsList({
@@ -48,47 +48,42 @@ export function DialogItemsList({
   /** `ShowModal() == wxID_OK`. */
   onResult: (ok: boolean) => void;
 }): JSX.Element {
-  useModalEscape(() => onResult(false));
-
   // A wxCollapsiblePane opens collapsed.
   const [collapsed, setCollapsed] = useState(true);
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-items-list" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">{title}</div>
-        <div className="ze-modal-body ze-items-list-body">
-          <div className="ze-items-list-message">{message}</div>
-          <div className="ze-items-list-pane">
-            <WxCollapsiblePane label={detailsLabel} collapsed={collapsed} onChange={setCollapsed}>
-              <div className="ze-grid-pane ze-items-list-list">
-                <table className="ze-grid">
-                  <tbody>
-                    {items.map((text, i) => (
-                      // wxLC_SINGLE_SEL: a row select; the callback fires on selection.
-                      <tr
-                        // biome-ignore lint/suspicious/noArrayIndexKey: rows are the caller's ordered list
-                        key={i}
-                        onMouseDown={() => onSelect?.(i)}
-                      >
-                        <td>{text}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </WxCollapsiblePane>
-          </div>
-        </div>
-        <div className="ze-modal-footer ze-items-list-foot">
-          <button type="button" onClick={() => onResult(false)}>
-            Cancel
-          </button>
-          <button type="button" className="primary" onClick={() => onResult(true)}>
-            OK
-          </button>
+    <DialogShim title={title} onClose={() => onResult(false)} className="ze-items-list">
+      <div className="ze-modal-body ze-items-list-body">
+        <div className="ze-items-list-message">{message}</div>
+        <div className="ze-items-list-pane">
+          <WxCollapsiblePane label={detailsLabel} collapsed={collapsed} onChange={setCollapsed}>
+            <div className="ze-grid-pane ze-items-list-list">
+              <table className="ze-grid">
+                <tbody>
+                  {items.map((text, i) => (
+                    // wxLC_SINGLE_SEL: a row select; the callback fires on selection.
+                    <tr
+                      // biome-ignore lint/suspicious/noArrayIndexKey: rows are the caller's ordered list
+                      key={i}
+                      onMouseDown={() => onSelect?.(i)}
+                    >
+                      <td>{text}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </WxCollapsiblePane>
         </div>
       </div>
-    </div>
+      <div className="ze-modal-footer ze-items-list-foot">
+        <button type="button" onClick={() => onResult(false)}>
+          Cancel
+        </button>
+        <button type="button" className="primary" onClick={() => onResult(true)}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

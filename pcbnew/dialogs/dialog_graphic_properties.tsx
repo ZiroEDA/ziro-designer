@@ -28,7 +28,7 @@ import { FILL_MODES, shapePointsUsed } from './dialog_shape_properties.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/stroke_params.js';
 import { FILL_MODE_NAMES } from '@ziroeda/common/eda_shape.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
@@ -62,7 +62,6 @@ export function DialogShapeProperties({
 }: ShapeProps): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   // A stroke with no style of its own selects Solid, since the combo cannot
   // express DEFAULT (dialog_shape_properties.cpp:1129-1132, `else SetSelection( 0 )`).
@@ -108,151 +107,142 @@ export function DialogShapeProperties({
   );
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-graphic-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Shape Properties
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
+    <DialogShim title="Shape Properties" onClose={onClose} className="ze-graphic-dialog">
+      <div className="ze-modal-body ze-update-pcb-body ze-tvp-body">
+        <fieldset>
+          <legend>Geometry</legend>
+          {used.center && point('Center', 'center')}
+          {used.start && point('Start', 'start')}
+          {used.mid && point('Mid', 'mid')}
+          {used.end && point(shape === SHAPE_T.CIRCLE ? 'Radius point' : 'End', 'end')}
+          {!used.start && !used.end && !used.center && (
+            <div className="ze-tvp-note" style={{ marginLeft: 0 }}>
+              A polygon's corners are edited on the canvas, not here.
+            </div>
+          )}
+        </fieldset>
 
-        <div className="ze-modal-body ze-update-pcb-body ze-tvp-body">
-          <fieldset>
-            <legend>Geometry</legend>
-            {used.center && point('Center', 'center')}
-            {used.start && point('Start', 'start')}
-            {used.mid && point('Mid', 'mid')}
-            {used.end && point(shape === SHAPE_T.CIRCLE ? 'Radius point' : 'End', 'end')}
-            {!used.start && !used.end && !used.center && (
-              <div className="ze-tvp-note" style={{ marginLeft: 0 }}>
-                A polygon's corners are edited on the canvas, not here.
-              </div>
-            )}
-          </fieldset>
-
-          <fieldset>
-            <legend>Stroke &amp; Fill</legend>
-            <label>
-              <span className="ze-tvp-label">Line width:</span>
-              <input
-                type="text"
-                className="ze-tvp-input"
-                value={text.lineWidth ?? pcbUnitText(v.lineWidth, units)}
-                onChange={(e) => {
-                  setText('lineWidth', e.target.value);
-                  const iu = pcbUnitValue(e.target.value, units);
-                  if (Number.isFinite(iu)) set({ lineWidth: iu });
-                }}
-              />
-              <span className="ze-unit-label">{unitLabel(units)}</span>
-            </label>
-            <label>
-              <span className="ze-tvp-label">Line style:</span>
-              <select
-                className="ze-tvp-select"
-                value={v.strokeType}
-                onChange={(e) => set({ strokeType: e.target.value as ShapeValues['strokeType'] })}
-              >
-                {/* lineTypeNames — pcbnew/dialogs/dialog_shape_properties.cpp:1024.
-                    Five entries; the board's shape dialog has no "Default". */}
-                {LINE_STYLE_NAMES.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {/* `m_fillCtrl` is a wxChoice over UI_FILL_MODE
-                (dialog_shape_properties.cpp:1108, :1192), not a checkbox: a board
-                graphic can be hatched three ways as well as filled solid. */}
-            <label>
-              <span className="ze-tvp-label">Fill:</span>
-              <select
-                value={v.fillMode}
-                onChange={(e) => set({ fillMode: e.target.value as ShapeValues['fillMode'] })}
-              >
-                {FILL_MODES.map((value, i) => (
-                  <option key={value} value={value}>
-                    {FILL_MODE_NAMES[i]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </fieldset>
-
-          <fieldset>
-            <legend>Layer</legend>
-            <label>
-              <span className="ze-tvp-label">Layer:</span>
-              <select
-                className="ze-tvp-select"
-                value={v.layer}
-                onChange={(e) => set({ layer: e.target.value })}
-              >
-                {layers.map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="ze-tvp-sub">Technical Layers</div>
-            <label>
-              <input
-                type="checkbox"
-                checked={v.hasMask}
-                onChange={(e) => set({ hasMask: e.target.checked })}
-              />
-              Solder mask
-            </label>
-            <label
-              className={v.hasMask ? '' : 'disabled'}
-              title="Local clearance between the shape and the solder mask opening. Leave blank to use the Board Setup value."
+        <fieldset>
+          <legend>Stroke &amp; Fill</legend>
+          <label>
+            <span className="ze-tvp-label">Line width:</span>
+            <input
+              type="text"
+              className="ze-tvp-input"
+              value={text.lineWidth ?? pcbUnitText(v.lineWidth, units)}
+              onChange={(e) => {
+                setText('lineWidth', e.target.value);
+                const iu = pcbUnitValue(e.target.value, units);
+                if (Number.isFinite(iu)) set({ lineWidth: iu });
+              }}
+            />
+            <span className="ze-unit-label">{unitLabel(units)}</span>
+          </label>
+          <label>
+            <span className="ze-tvp-label">Line style:</span>
+            <select
+              className="ze-tvp-select"
+              value={v.strokeType}
+              onChange={(e) => set({ strokeType: e.target.value as ShapeValues['strokeType'] })}
             >
-              <span className="ze-tvp-label">Expansion:</span>
-              <input
-                type="text"
-                className="ze-tvp-input"
-                placeholder="—"
-                disabled={!v.hasMask}
-                value={
-                  text.maskMargin ?? (v.maskMargin === null ? '' : pcbUnitText(v.maskMargin, units))
-                }
-                onChange={(e) => {
-                  const s = e.target.value;
-                  setText('maskMargin', s);
-                  if (s.trim() === '') {
-                    set({ maskMargin: null });
-                    return;
-                  }
-                  const iu = pcbUnitValue(s, units);
-                  if (Number.isFinite(iu)) set({ maskMargin: iu });
-                }}
-              />
-              <span className="ze-unit-label">{unitLabel(units)}</span>
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={v.locked}
-                onChange={(e) => set({ locked: e.target.checked })}
-              />
-              Locked
-            </label>
-          </fieldset>
-        </div>
+              {/* lineTypeNames — pcbnew/dialogs/dialog_shape_properties.cpp:1024.
+                Five entries; the board's shape dialog has no "Default". */}
+              {LINE_STYLE_NAMES.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {/* `m_fillCtrl` is a wxChoice over UI_FILL_MODE
+            (dialog_shape_properties.cpp:1108, :1192), not a checkbox: a board
+            graphic can be hatched three ways as well as filled solid. */}
+          <label>
+            <span className="ze-tvp-label">Fill:</span>
+            <select
+              value={v.fillMode}
+              onChange={(e) => set({ fillMode: e.target.value as ShapeValues['fillMode'] })}
+            >
+              {FILL_MODES.map((value, i) => (
+                <option key={value} value={value}>
+                  {FILL_MODE_NAMES[i]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </fieldset>
 
-        <div className="ze-modal-footer">
-          <span style={{ flex: 1 }} />
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="primary" onClick={() => onApply(v)}>
-            OK
-          </button>
-        </div>
+        <fieldset>
+          <legend>Layer</legend>
+          <label>
+            <span className="ze-tvp-label">Layer:</span>
+            <select
+              className="ze-tvp-select"
+              value={v.layer}
+              onChange={(e) => set({ layer: e.target.value })}
+            >
+              {layers.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="ze-tvp-sub">Technical Layers</div>
+          <label>
+            <input
+              type="checkbox"
+              checked={v.hasMask}
+              onChange={(e) => set({ hasMask: e.target.checked })}
+            />
+            Solder mask
+          </label>
+          <label
+            className={v.hasMask ? '' : 'disabled'}
+            title="Local clearance between the shape and the solder mask opening. Leave blank to use the Board Setup value."
+          >
+            <span className="ze-tvp-label">Expansion:</span>
+            <input
+              type="text"
+              className="ze-tvp-input"
+              placeholder="—"
+              disabled={!v.hasMask}
+              value={
+                text.maskMargin ?? (v.maskMargin === null ? '' : pcbUnitText(v.maskMargin, units))
+              }
+              onChange={(e) => {
+                const s = e.target.value;
+                setText('maskMargin', s);
+                if (s.trim() === '') {
+                  set({ maskMargin: null });
+                  return;
+                }
+                const iu = pcbUnitValue(s, units);
+                if (Number.isFinite(iu)) set({ maskMargin: iu });
+              }}
+            />
+            <span className="ze-unit-label">{unitLabel(units)}</span>
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={v.locked}
+              onChange={(e) => set({ locked: e.target.checked })}
+            />
+            Locked
+          </label>
+        </fieldset>
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <span style={{ flex: 1 }} />
+        <button type="button" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="primary" onClick={() => onApply(v)}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

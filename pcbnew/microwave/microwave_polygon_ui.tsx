@@ -30,7 +30,7 @@
  * already handed over, but a read that fails is reported the same way.
  */
 import { useRef, useState, type JSX } from 'react';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { unitEntryText, unitEntryValue } from '@ziroeda/common/dialogs/dialog_unit_entry.js';
 import type { EdaIuScale } from '@ziroeda/common/eda_units.js';
 import { unitLabel, type EdaUnits } from '@ziroeda/common/widgets/unit_binder.js';
@@ -66,7 +66,6 @@ export function MwavePolygonalShapeDlg({
     dlg.current!.OnCancelClick();
     onResult(false);
   };
-  useModalEscape(cancel);
 
   const ok = (): void => {
     const d = dlg.current!;
@@ -110,50 +109,47 @@ export function MwavePolygonalShapeDlg({
   );
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-mwave" role="dialog" aria-modal="true" aria-label="Complex Shape">
-        <div className="ze-modal-header">Complex Shape</div>
-        <div className="ze-mwave-top">
-          <fieldset className="ze-sbox ze-mwave-shape">
-            <legend>Shape</legend>
-            {SHAPE_LIST.map((label, i) => (
-              <label key={label} className="ze-mwave-radio">
-                <input
-                  type="radio"
-                  name="ze-mwave-shape"
-                  checked={shape === i}
-                  onChange={() => setShape(i)}
-                />
-                {label}
-              </label>
-            ))}
-          </fieldset>
-          <fieldset className="ze-sbox ze-mwave-size">
-            <legend>Size</legend>
-            {sizeRow('X:', sizeX, setSizeX)}
-            {sizeRow('Y:', sizeY, setSizeY)}
-          </fieldset>
-        </div>
-        {error && <div className="ze-mwave-error">{error}</div>}
-        <StdDialogButtons onOk={ok} onCancel={cancel}>
-          <button
-            type="button"
-            className="ze-btn ze-mwave-read"
-            onClick={() => file.current?.click()}
-          >
-            Read Shape Description File...
-          </button>
-          <input
-            ref={file}
-            type="file"
-            hidden
-            onChange={(e) => {
-              readFile(e.target.files?.[0]);
-              e.target.value = '';
-            }}
-          />
-        </StdDialogButtons>
+    <DialogShim title="Complex Shape" onClose={cancel} className="ze-mwave">
+      <div className="ze-mwave-top">
+        <fieldset className="ze-sbox ze-mwave-shape">
+          <legend>Shape</legend>
+          {SHAPE_LIST.map((label, i) => (
+            <label key={label} className="ze-mwave-radio">
+              <input
+                type="radio"
+                name="ze-mwave-shape"
+                checked={shape === i}
+                onChange={() => setShape(i)}
+              />
+              {label}
+            </label>
+          ))}
+        </fieldset>
+        <fieldset className="ze-sbox ze-mwave-size">
+          <legend>Size</legend>
+          {sizeRow('X:', sizeX, setSizeX)}
+          {sizeRow('Y:', sizeY, setSizeY)}
+        </fieldset>
       </div>
-    </div>
+      {error && <div className="ze-mwave-error">{error}</div>}
+      <StdDialogButtons onOk={ok} onCancel={cancel}>
+        <button
+          type="button"
+          className="ze-btn ze-mwave-read"
+          onClick={() => file.current?.click()}
+        >
+          Read Shape Description File...
+        </button>
+        <input
+          ref={file}
+          type="file"
+          hidden
+          onChange={(e) => {
+            readFile(e.target.files?.[0]);
+            e.target.value = '';
+          }}
+        />
+      </StdDialogButtons>
+    </DialogShim>
   );
 }

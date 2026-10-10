@@ -16,7 +16,7 @@ import {
 import { SYMBOL_CHOOSER_APP } from '../symbol_chooser_app.js';
 import type { DialogSymbolChooserProps } from '@ziroeda/eeschema/picksymbol.js';
 import { useDialogControl } from '../../../ui/useDialogControl.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 export function DialogSymbolChooser({
   powerFilter = false,
@@ -29,7 +29,6 @@ export function DialogSymbolChooser({
 }: DialogSymbolChooserProps): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const panelRef = useRef<PanelSymbolChooserHandle>(null);
   const [itemCount, setItemCount] = useState(0);
@@ -63,56 +62,48 @@ export function DialogSymbolChooser({
   }, [onOk, keepSymbol, placeAllUnits]);
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-symbol-chooser" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {title}
-          <span className="x" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-modal-body">
-          <PanelSymbolChooser
-            app={SYMBOL_CHOOSER_APP}
-            ref={panelRef}
-            powerFilter={powerFilter}
-            showFootprints={showFootprints}
-            historyList={historyList}
-            alreadyPlaced={alreadyPlaced}
-            getPlacedLibSymbol={getPlacedLibSymbol}
-            onAccept={accept}
-            onItemCountChanged={setItemCount}
-          />
-        </div>
-        <div className="ze-modal-footer ze-chooser-footer">
-          <label className="ze-check" title="Keep the symbol selected for subsequent clicks.">
-            <input
-              type="checkbox"
-              checked={keepSymbol}
-              onChange={(e) => setKeepSymbol(e.target.checked)}
-            />
-            Place repeated copies
-          </label>
-          <label className="ze-check" title="Sequentially place all units of the symbol.">
-            <input
-              type="checkbox"
-              checked={placeAllUnits}
-              onChange={(e) => setPlaceAllUnits(e.target.checked)}
-            />
-            Place all units
-          </label>
-          <span className="ze-chooser-footer-spacer" />
-          {/* Cancel then OK, the order wxStdDialogButtonSizer lays out on GTK
-              and the order every other dialog here already uses. This one had
-              them the other way round. */}
-          <button className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button className="ze-btn primary" onClick={accept}>
-            OK
-          </button>
-        </div>
+    <DialogShim title={title} onClose={onCancel} className="ze-symbol-chooser">
+      <div className="ze-modal-body">
+        <PanelSymbolChooser
+          app={SYMBOL_CHOOSER_APP}
+          ref={panelRef}
+          powerFilter={powerFilter}
+          showFootprints={showFootprints}
+          historyList={historyList}
+          alreadyPlaced={alreadyPlaced}
+          getPlacedLibSymbol={getPlacedLibSymbol}
+          onAccept={accept}
+          onItemCountChanged={setItemCount}
+        />
       </div>
-    </div>
+      <div className="ze-modal-footer ze-chooser-footer">
+        <label className="ze-check" title="Keep the symbol selected for subsequent clicks.">
+          <input
+            type="checkbox"
+            checked={keepSymbol}
+            onChange={(e) => setKeepSymbol(e.target.checked)}
+          />
+          Place repeated copies
+        </label>
+        <label className="ze-check" title="Sequentially place all units of the symbol.">
+          <input
+            type="checkbox"
+            checked={placeAllUnits}
+            onChange={(e) => setPlaceAllUnits(e.target.checked)}
+          />
+          Place all units
+        </label>
+        <span className="ze-chooser-footer-spacer" />
+        {/* Cancel then OK, the order wxStdDialogButtonSizer lays out on GTK
+          and the order every other dialog here already uses. This one had
+          them the other way round. */}
+        <button className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="ze-btn primary" onClick={accept}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

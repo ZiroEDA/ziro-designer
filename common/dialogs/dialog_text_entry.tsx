@@ -19,7 +19,7 @@
  * 300 px minimum, or 700 with `aExtraWidth`; the std buttons wxALL 5.
  */
 import { useState, type JSX } from 'react';
-import { StdDialogButtons } from '../dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import type { wxTextValidator } from '../validators.js';
 import { useModalEscape } from '../dialog_shim.js';
 
@@ -45,33 +45,27 @@ export function WX_TEXT_ENTRY_DIALOG({
   onResult: (value: string | null) => void;
 }): JSX.Element {
   const [value, setValue] = useState(defaultValue);
-  useModalEscape(() => onResult(null));
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-textentry" role="dialog" aria-modal="true" aria-label={caption}>
-        <div className="ze-modal-header">{caption}</div>
-        <div className="ze-textentry-body">
-          {label !== '' && <div className="ze-textentry-label">{label}</div>}
-          <input
-            className={`ze-search ze-textentry-ctrl${extraWidth ? ' extra' : ''}`}
-            // `SetInitialFocus( m_textCtrl )`.
-            // biome-ignore lint/a11y/noAutofocus: SetInitialFocus, upstream's own.
-            autoFocus
-            aria-label={label || caption}
-            value={value}
-            onChange={(e) =>
-              setValue(validator ? validator.Filter(e.target.value) : e.target.value)
-            }
-            onKeyDown={(e) => {
-              // The default button takes Enter, as a wxDialog's does.
-              if (e.key === 'Enter') onResult(value);
-              e.stopPropagation();
-            }}
-          />
-        </div>
-        <StdDialogButtons onCancel={() => onResult(null)} onOk={() => onResult(value)} />
+    <DialogShim title={caption} onClose={() => onResult(null)} className="ze-textentry">
+      <div className="ze-textentry-body">
+        {label !== '' && <div className="ze-textentry-label">{label}</div>}
+        <input
+          className={`ze-search ze-textentry-ctrl${extraWidth ? ' extra' : ''}`}
+          // `SetInitialFocus( m_textCtrl )`.
+          // biome-ignore lint/a11y/noAutofocus: SetInitialFocus, upstream's own.
+          autoFocus
+          aria-label={label || caption}
+          value={value}
+          onChange={(e) => setValue(validator ? validator.Filter(e.target.value) : e.target.value)}
+          onKeyDown={(e) => {
+            // The default button takes Enter, as a wxDialog's does.
+            if (e.key === 'Enter') onResult(value);
+            e.stopPropagation();
+          }}
+        />
       </div>
-    </div>
+      <StdDialogButtons onCancel={() => onResult(null)} onOk={() => onResult(value)} />
+    </DialogShim>
   );
 }

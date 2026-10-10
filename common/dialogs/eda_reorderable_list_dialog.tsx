@@ -9,7 +9,7 @@
  * _( "Select Columns" ), ... )` (widgets/lib_tree.cpp:1105).
  */
 import { useState } from 'react';
-import { useModalEscape } from '../dialog_shim.js';
+import { DialogShim } from '../dialog_shim.js';
 
 export interface EDA_REORDERABLE_LIST_DIALOG_PROPS {
   /** `aTitle`. */
@@ -31,7 +31,6 @@ export function EDA_REORDERABLE_LIST_DIALOG({
 }: EDA_REORDERABLE_LIST_DIALOG_PROPS): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const [enabledList, setEnabledList] = useState<string[]>([...enabled]);
   const [selAvailable, setSelAvailable] = useState<string | null>(null);
@@ -69,73 +68,65 @@ export function EDA_REORDERABLE_LIST_DIALOG({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-select-columns" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {title}
-          <span className="x" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-modal-body ze-reorderable">
-          <div className="ze-reorderable-col">
-            <label>Available:</label>
-            <div className="ze-reorderable-list">
-              {availableList.map((c) => (
-                <div
-                  key={c}
-                  className={`row${c === selAvailable ? ' active' : ''}`}
-                  onClick={() => setSelAvailable(c)}
-                  onDoubleClick={() => {
-                    setSelAvailable(c);
-                    setEnabledList((prev) => [...prev, c]);
-                  }}
-                >
-                  {c}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="ze-reorderable-buttons">
-            <button type="button" className="ze-btn" title="Add" onClick={add}>
-              &gt;
-            </button>
-            <button type="button" className="ze-btn" title="Remove" onClick={remove}>
-              &lt;
-            </button>
-          </div>
-          <div className="ze-reorderable-col wide">
-            <label>Enabled:</label>
-            <div className="ze-reorderable-list">
-              {enabledList.map((c) => (
-                <div
-                  key={c}
-                  className={`row${c === selEnabled ? ' active' : ''}`}
-                  onClick={() => setSelEnabled(c)}
-                >
-                  {c}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="ze-reorderable-buttons">
-            <button type="button" className="ze-btn" title="Move up" onClick={() => move(-1)}>
-              ▲
-            </button>
-            <button type="button" className="ze-btn" title="Move down" onClick={() => move(1)}>
-              ▼
-            </button>
+    <DialogShim title={title} onClose={onCancel} className="ze-select-columns">
+      <div className="ze-modal-body ze-reorderable">
+        <div className="ze-reorderable-col">
+          <label>Available:</label>
+          <div className="ze-reorderable-list">
+            {availableList.map((c) => (
+              <div
+                key={c}
+                className={`row${c === selAvailable ? ' active' : ''}`}
+                onClick={() => setSelAvailable(c)}
+                onDoubleClick={() => {
+                  setSelAvailable(c);
+                  setEnabledList((prev) => [...prev, c]);
+                }}
+              >
+                {c}
+              </div>
+            ))}
           </div>
         </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn primary" onClick={() => onOk(enabledList)}>
-            OK
+        <div className="ze-reorderable-buttons">
+          <button type="button" className="ze-btn" title="Add" onClick={add}>
+            &gt;
           </button>
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
+          <button type="button" className="ze-btn" title="Remove" onClick={remove}>
+            &lt;
+          </button>
+        </div>
+        <div className="ze-reorderable-col wide">
+          <label>Enabled:</label>
+          <div className="ze-reorderable-list">
+            {enabledList.map((c) => (
+              <div
+                key={c}
+                className={`row${c === selEnabled ? ' active' : ''}`}
+                onClick={() => setSelEnabled(c)}
+              >
+                {c}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="ze-reorderable-buttons">
+          <button type="button" className="ze-btn" title="Move up" onClick={() => move(-1)}>
+            ▲
+          </button>
+          <button type="button" className="ze-btn" title="Move down" onClick={() => move(1)}>
+            ▼
           </button>
         </div>
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn primary" onClick={() => onOk(enabledList)}>
+          OK
+        </button>
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </DialogShim>
   );
 }

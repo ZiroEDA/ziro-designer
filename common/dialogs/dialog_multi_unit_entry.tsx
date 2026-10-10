@@ -14,7 +14,7 @@
  * 5; a checkbox spans the three at wxALL 5; the std buttons wxALL|wxEXPAND 5.
  */
 import { useState, type JSX } from 'react';
-import { StdDialogButtons } from '../dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import type { EdaIuScale } from '../eda_units.js';
 import { unitLabel, type EdaUnits } from '../widgets/unit_binder.js';
 import { unitEntryText, unitEntryValue } from './dialog_unit_entry.js';
@@ -51,7 +51,6 @@ export function WX_MULTI_ENTRY_DIALOG({
         : e.value.CHECKBOX,
     ),
   );
-  useModalEscape(() => onResult(null));
   const set = (i: number, v: string | boolean): void =>
     setState((s) => s.map((x, j) => (j === i ? v : x)));
   const ok = (): void =>
@@ -64,41 +63,38 @@ export function WX_MULTI_ENTRY_DIALOG({
     );
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-multientry" role="dialog" aria-modal="true" aria-label={caption}>
-        <div className="ze-modal-header">{caption}</div>
-        <div className="ze-multientry-grid">
-          {entries.map((e, i) =>
-            'UNIT_BOUND' in e.value ? (
-              <div key={e.label} className="ze-multientry-row">
-                <span className="ze-unitentry-label">{e.label}</span>
-                <input
-                  className="ze-search ze-multientry-ctrl"
-                  aria-label={e.label}
-                  title={e.tooltip}
-                  value={state[i] as string}
-                  onChange={(ev) => set(i, ev.target.value)}
-                  onKeyDown={(ev) => {
-                    if (ev.key === 'Enter') ok();
-                    ev.stopPropagation();
-                  }}
-                />
-                <span className="ze-unitentry-unit">{unitLabel(units)}</span>
-              </div>
-            ) : (
-              <label key={e.label} className="ze-check ze-multientry-check" title={e.tooltip}>
-                <input
-                  type="checkbox"
-                  checked={state[i] as boolean}
-                  onChange={(ev) => set(i, ev.target.checked)}
-                />
-                {e.label}
-              </label>
-            ),
-          )}
-        </div>
-        <StdDialogButtons onCancel={() => onResult(null)} onOk={ok} />
+    <DialogShim title={caption} onClose={() => onResult(null)} className="ze-multientry">
+      <div className="ze-multientry-grid">
+        {entries.map((e, i) =>
+          'UNIT_BOUND' in e.value ? (
+            <div key={e.label} className="ze-multientry-row">
+              <span className="ze-unitentry-label">{e.label}</span>
+              <input
+                className="ze-search ze-multientry-ctrl"
+                aria-label={e.label}
+                title={e.tooltip}
+                value={state[i] as string}
+                onChange={(ev) => set(i, ev.target.value)}
+                onKeyDown={(ev) => {
+                  if (ev.key === 'Enter') ok();
+                  ev.stopPropagation();
+                }}
+              />
+              <span className="ze-unitentry-unit">{unitLabel(units)}</span>
+            </div>
+          ) : (
+            <label key={e.label} className="ze-check ze-multientry-check" title={e.tooltip}>
+              <input
+                type="checkbox"
+                checked={state[i] as boolean}
+                onChange={(ev) => set(i, ev.target.checked)}
+              />
+              {e.label}
+            </label>
+          ),
+        )}
       </div>
-    </div>
+      <StdDialogButtons onCancel={() => onResult(null)} onOk={ok} />
+    </DialogShim>
   );
 }

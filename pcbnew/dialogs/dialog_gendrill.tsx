@@ -47,7 +47,7 @@ import { DRILL_PRECISION, ZEROS_FMT } from '../exporters/gendrill_writer_base.js
 import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
   board: BOARD;
@@ -106,8 +106,6 @@ export function DialogGendrill({
   onOutputFile,
   onClose,
 }: Props): JSX.Element {
-  useModalEscape(onClose);
-
   const [initial] = useState(() => board.GetPlotOptions());
   const [outputDir, setOutputDir] = useState(() => initial.GetOutputDirectory());
   const [browseOpen, setBrowseOpen] = useState(false);
@@ -234,229 +232,218 @@ export function DialogGendrill({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Generate Drill Files
-          <span className="x" title="Close" onClick={onClose}>
-            ✕
-          </span>
+    <DialogShim title="Generate Drill Files" onClose={onClose}>
+      <div className="ze-modal-body" style={{ display: 'block', overflow: 'auto' }}>
+        <div className="ze-gendrill-upper" onMouseDown={() => setBrowseOpen(false)}>
+          <span>Output folder:</span>
+          <input
+            className="ze-search"
+            style={{ flex: 1 }}
+            value={outputDir}
+            placeholder="Project folder"
+            title="Folder inside the project for the drill/map files (relative to the project). They appear in the file manager, where you can download them."
+            onChange={(e) => setOutputDir(e.target.value)}
+          />
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className="ze-btn sm"
+              title="Select output folder"
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                setBrowseOpen((v) => !v);
+              }}
+            >
+              <Icon name="folder" size={14} />
+            </button>
+            {browseOpen && (
+              <div className="ze-folder-browse-popup" onMouseDown={(e) => e.stopPropagation()}>
+                {[
+                  '',
+                  ...[...new Set(projectFolders.filter(Boolean))].sort((a, b) =>
+                    a.localeCompare(b),
+                  ),
+                ].map((f) => (
+                  <div
+                    key={f || '.'}
+                    className="ze-menu-item ze-folder-browse-item"
+                    onClick={() => {
+                      setOutputDir(f);
+                      setBrowseOpen(false);
+                    }}
+                  >
+                    {f || 'Project folder'}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="ze-modal-body" style={{ display: 'block', overflow: 'auto' }}>
-          <div className="ze-gendrill-upper" onMouseDown={() => setBrowseOpen(false)}>
-            <span>Output folder:</span>
-            <input
-              className="ze-search"
-              style={{ flex: 1 }}
-              value={outputDir}
-              placeholder="Project folder"
-              title="Folder inside the project for the drill/map files (relative to the project). They appear in the file manager, where you can download them."
-              onChange={(e) => setOutputDir(e.target.value)}
-            />
-            <div style={{ position: 'relative' }}>
-              <button
-                type="button"
-                className="ze-btn sm"
-                title="Select output folder"
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  setBrowseOpen((v) => !v);
-                }}
+
+        <div className="ze-gendrill-columns" style={{ display: 'flex', alignItems: 'flex-start' }}>
+          {/* bLeftCol: "Format" is a wxStaticText + wxStaticLine, not a box. */}
+          <div className="ze-gendrill-col" style={{ flex: 1 }}>
+            <div className="ze-gendrill-headline">Format</div>
+            <hr className="ze-gendrill-rule" />
+            <label className="ze-check">
+              <input
+                type="radio"
+                name="ze-gendrill-fmt"
+                checked={excellonSelected}
+                onChange={() => setFormat('excellon')}
+              />
+              Excellon
+            </label>
+            <div className="ze-gendrill-suboptions">
+              <label
+                className="ze-check"
+                title={'Not recommended.\nUsed mostly by users who make the boards themselves.'}
               >
-                <Icon name="folder" size={14} />
-              </button>
-              {browseOpen && (
-                <div className="ze-folder-browse-popup" onMouseDown={(e) => e.stopPropagation()}>
-                  {[
-                    '',
-                    ...[...new Set(projectFolders.filter(Boolean))].sort((a, b) =>
-                      a.localeCompare(b),
-                    ),
-                  ].map((f) => (
-                    <div
-                      key={f || '.'}
-                      className="ze-menu-item ze-folder-browse-item"
-                      onClick={() => {
-                        setOutputDir(f);
-                        setBrowseOpen(false);
-                      }}
-                    >
-                      {f || 'Project folder'}
-                    </div>
-                  ))}
-                </div>
-              )}
+                <input
+                  type="checkbox"
+                  checked={mirror}
+                  disabled={!excellonSelected}
+                  onChange={(e) => setMirror(e.target.checked)}
+                />
+                Mirror Y axis
+              </label>
+              <label
+                className="ze-check"
+                title={
+                  'Not recommended.\nOnly use it for board houses which do not accept fully featured headers.'
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={minimal}
+                  disabled={!excellonSelected}
+                  onChange={(e) => setMinimal(e.target.checked)}
+                />
+                Minimal header
+              </label>
+              <label
+                className="ze-check"
+                title={
+                  'Not recommended.\nOnly use for board houses which ask for merged PTH and NPTH into a single file.'
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={mergePTHNPTH}
+                  disabled={!excellonSelected}
+                  onChange={(e) => setMergePTHNPTH(e.target.checked)}
+                />
+                PTH and NPTH in single file
+              </label>
+              <label className="ze-check">
+                <input
+                  type="checkbox"
+                  checked={altDrillMode}
+                  disabled={!excellonSelected}
+                  onChange={(e) => setAltDrillMode(e.target.checked)}
+                />
+                Use alternate drill mode for oval holes
+              </label>
+            </div>
+            <label className="ze-check">
+              <input
+                type="radio"
+                name="ze-gendrill-fmt"
+                checked={!excellonSelected}
+                onChange={() => setFormat('gerberx2')}
+              />
+              Gerber X2
+            </label>
+            <div className="ze-gendrill-suboptions">
+              <label className="ze-check">
+                <input
+                  type="checkbox"
+                  checked={generateTenting}
+                  disabled={excellonSelected}
+                  onChange={(e) => setGenerateTenting(e.target.checked)}
+                />
+                Generate tenting layers
+              </label>
+            </div>
+            <div className="ze-gendrill-genmap">
+              <label className="ze-check">
+                <input
+                  type="checkbox"
+                  checked={generateMap}
+                  onChange={(e) => setGenerateMap(e.target.checked)}
+                />
+                Generate map:
+              </label>
+              <Combo
+                value={mapFormat}
+                options={MAP_CHOICES}
+                onChange={setMapFormat}
+                disabled={!generateMap}
+                ariaLabel="Generate map format"
+              />
             </div>
           </div>
 
-          <div
-            className="ze-gendrill-columns"
-            style={{ display: 'flex', alignItems: 'flex-start' }}
-          >
-            {/* bLeftCol: "Format" is a wxStaticText + wxStaticLine, not a box. */}
-            <div className="ze-gendrill-col" style={{ flex: 1 }}>
-              <div className="ze-gendrill-headline">Format</div>
-              <hr className="ze-gendrill-rule" />
-              <label className="ze-check">
-                <input
-                  type="radio"
-                  name="ze-gendrill-fmt"
-                  checked={excellonSelected}
-                  onChange={() => setFormat('excellon')}
-                />
-                Excellon
-              </label>
-              <div className="ze-gendrill-suboptions">
-                <label
-                  className="ze-check"
-                  title={'Not recommended.\nUsed mostly by users who make the boards themselves.'}
-                >
-                  <input
-                    type="checkbox"
-                    checked={mirror}
-                    disabled={!excellonSelected}
-                    onChange={(e) => setMirror(e.target.checked)}
-                  />
-                  Mirror Y axis
-                </label>
-                <label
-                  className="ze-check"
-                  title={
-                    'Not recommended.\nOnly use it for board houses which do not accept fully featured headers.'
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    checked={minimal}
-                    disabled={!excellonSelected}
-                    onChange={(e) => setMinimal(e.target.checked)}
-                  />
-                  Minimal header
-                </label>
-                <label
-                  className="ze-check"
-                  title={
-                    'Not recommended.\nOnly use for board houses which ask for merged PTH and NPTH into a single file.'
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    checked={mergePTHNPTH}
-                    disabled={!excellonSelected}
-                    onChange={(e) => setMergePTHNPTH(e.target.checked)}
-                  />
-                  PTH and NPTH in single file
-                </label>
-                <label className="ze-check">
-                  <input
-                    type="checkbox"
-                    checked={altDrillMode}
-                    disabled={!excellonSelected}
-                    onChange={(e) => setAltDrillMode(e.target.checked)}
-                  />
-                  Use alternate drill mode for oval holes
-                </label>
-              </div>
-              <label className="ze-check">
-                <input
-                  type="radio"
-                  name="ze-gendrill-fmt"
-                  checked={!excellonSelected}
-                  onChange={() => setFormat('gerberx2')}
-                />
-                Gerber X2
-              </label>
-              <div className="ze-gendrill-suboptions">
-                <label className="ze-check">
-                  <input
-                    type="checkbox"
-                    checked={generateTenting}
-                    disabled={excellonSelected}
-                    onChange={(e) => setGenerateTenting(e.target.checked)}
-                  />
-                  Generate tenting layers
-                </label>
-              </div>
-              <div className="ze-gendrill-genmap">
-                <label className="ze-check">
-                  <input
-                    type="checkbox"
-                    checked={generateMap}
-                    onChange={(e) => setGenerateMap(e.target.checked)}
-                  />
-                  Generate map:
-                </label>
-                <Combo
-                  value={mapFormat}
-                  options={MAP_CHOICES}
-                  onChange={setMapFormat}
-                  disabled={!generateMap}
-                  ariaLabel="Generate map format"
-                />
-              </div>
+          {/* bRightCol: "Options" is a wxStaticText + wxStaticLine too. */}
+          <div className="ze-gendrill-col" style={{ flex: '0 0 240px' }}>
+            <div className="ze-gendrill-headline">Options</div>
+            <hr className="ze-gendrill-rule" />
+            <div className="ze-gendrill-optrow">
+              <span className="ze-gendrill-optlabel">Origin:</span>
+              <Combo
+                value={origin}
+                options={ORIGIN_CHOICES}
+                onChange={setOrigin}
+                style={{ flex: 1 }}
+                ariaLabel="Origin"
+              />
             </div>
-
-            {/* bRightCol: "Options" is a wxStaticText + wxStaticLine too. */}
-            <div className="ze-gendrill-col" style={{ flex: '0 0 240px' }}>
-              <div className="ze-gendrill-headline">Options</div>
-              <hr className="ze-gendrill-rule" />
-              <div className="ze-gendrill-optrow">
-                <span className="ze-gendrill-optlabel">Origin:</span>
-                <Combo
-                  value={origin}
-                  options={ORIGIN_CHOICES}
-                  onChange={setOrigin}
-                  style={{ flex: 1 }}
-                  ariaLabel="Origin"
-                />
-              </div>
-              <div className="ze-gendrill-optrow">
-                <span className="ze-gendrill-optlabel">Units:</span>
-                <Combo
-                  value={units}
-                  options={UNITS_CHOICES}
-                  onChange={setUnits}
-                  disabled={!excellonSelected}
-                  style={{ flex: 1 }}
-                  ariaLabel="Units"
-                />
-              </div>
-              <div className="ze-gendrill-optrow">
-                <span className="ze-gendrill-optlabel">Zeros:</span>
-                <Combo
-                  value={zeros}
-                  options={ZEROS_CHOICES}
-                  onChange={setZeros}
-                  disabled={!excellonSelected}
-                  style={{ flex: 1 }}
-                  ariaLabel="Zeros"
-                />
-              </div>
-              <div className="ze-gendrill-optrow" style={{ opacity: precisionEnabled ? 1 : 0.5 }}>
-                <span className="ze-gendrill-optlabel">Precision:</span>
-                <span>{precisionStr}</span>
-              </div>
+            <div className="ze-gendrill-optrow">
+              <span className="ze-gendrill-optlabel">Units:</span>
+              <Combo
+                value={units}
+                options={UNITS_CHOICES}
+                onChange={setUnits}
+                disabled={!excellonSelected}
+                style={{ flex: 1 }}
+                ariaLabel="Units"
+              />
+            </div>
+            <div className="ze-gendrill-optrow">
+              <span className="ze-gendrill-optlabel">Zeros:</span>
+              <Combo
+                value={zeros}
+                options={ZEROS_CHOICES}
+                onChange={setZeros}
+                disabled={!excellonSelected}
+                style={{ flex: 1 }}
+                ariaLabel="Zeros"
+              />
+            </div>
+            <div className="ze-gendrill-optrow" style={{ opacity: precisionEnabled ? 1 : 0.5 }}>
+              <span className="ze-gendrill-optlabel">Precision:</span>
+              <span>{precisionStr}</span>
             </div>
           </div>
-
-          <fieldset className="ze-sbox ze-gendrill-messages">
-            <legend>Messages</legend>
-            <textarea readOnly value={messages.join('\n')} />
-          </fieldset>
         </div>
 
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn ze-gendrill-report-btn" onClick={generateReport}>
-            Generate Report File...
-          </button>
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Close
-          </button>
-          <button type="button" className="ze-btn primary" onClick={generate}>
-            Generate
-          </button>
-        </div>
+        <fieldset className="ze-sbox ze-gendrill-messages">
+          <legend>Messages</legend>
+          <textarea readOnly value={messages.join('\n')} />
+        </fieldset>
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn ze-gendrill-report-btn" onClick={generateReport}>
+          Generate Report File...
+        </button>
+        <button type="button" className="ze-btn" onClick={onClose}>
+          Close
+        </button>
+        <button type="button" className="ze-btn primary" onClick={generate}>
+          Generate
+        </button>
+      </div>
+    </DialogShim>
   );
 }

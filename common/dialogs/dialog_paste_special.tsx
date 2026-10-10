@@ -25,7 +25,7 @@
  */
 
 import { useState, type JSX } from 'react';
-import { useModalEscape } from '../dialog_shim.js';
+import { DialogShim } from '../dialog_shim.js';
 
 import { PASTE_MODES, type PasteSpecialMode } from './dialog_paste_special_types.js';
 
@@ -97,7 +97,6 @@ export function DialogPasteSpecial({
 }: DialogPasteSpecialProps): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onCancel);
 
   const [mode, setMode] = useState<PasteSpecialMode>(initialMode);
   const [clearNets, setClearNets] = useState(false);
@@ -109,50 +108,42 @@ export function DialogPasteSpecial({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Paste Special
-          <span className="x" title="Cancel" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-modal-body ze-paste-special-body">
-          {/* The wxRadioBox's own label, which is its group box's legend. */}
-          <fieldset className="ze-props-group">
-            <legend>Reference Designators</legend>
-            {PASTE_MODES.map((m) => (
-              <label key={m} title={tooltip(m)}>
-                <input
-                  type="radio"
-                  name="pastemode"
-                  checked={mode === m}
-                  onChange={() => setMode(m)}
-                />{' '}
-                {OPTION_LABELS[m]}
-              </label>
-            ))}
-          </fieldset>
-          {showClearNets && (
-            <label title="Remove the net information from all connected items before pasting">
+    <DialogShim title="Paste Special" onClose={onCancel}>
+      <div className="ze-modal-body ze-paste-special-body">
+        {/* The wxRadioBox's own label, which is its group box's legend. */}
+        <fieldset className="ze-props-group">
+          <legend>Reference Designators</legend>
+          {PASTE_MODES.map((m) => (
+            <label key={m} title={tooltip(m)}>
               <input
-                type="checkbox"
-                checked={clearNets}
-                onChange={(e) => setClearNets(e.target.checked)}
+                type="radio"
+                name="pastemode"
+                checked={mode === m}
+                onChange={() => setMode(m)}
               />{' '}
-              Clear net assignments
+              {OPTION_LABELS[m]}
             </label>
-          )}
-        </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={() => onOk(mode, clearNets)}>
-            OK
-          </button>
-        </div>
+          ))}
+        </fieldset>
+        {showClearNets && (
+          <label title="Remove the net information from all connected items before pasting">
+            <input
+              type="checkbox"
+              checked={clearNets}
+              onChange={(e) => setClearNets(e.target.checked)}
+            />{' '}
+            Clear net assignments
+          </label>
+        )}
       </div>
-    </div>
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="ze-btn primary" onClick={() => onOk(mode, clearNets)}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

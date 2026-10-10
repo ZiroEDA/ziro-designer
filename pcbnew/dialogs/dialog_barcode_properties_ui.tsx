@@ -30,7 +30,7 @@ import {
   type BarcodeValues,
 } from './dialog_barcode_properties.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
@@ -108,8 +108,6 @@ export function DialogBarcodeProperties({
   onApply,
   onClose,
 }: Props): JSX.Element {
-  useModalEscape(onClose);
-
   const [v, setV] = useState<BarcodeValues>(initial);
   const [typing, setTyping] = useState<{ key: string; text: string } | null>(null);
   const [error, setError] = useState('');
@@ -164,155 +162,146 @@ export function DialogBarcodeProperties({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-barcode-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Barcode Properties
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
+    <DialogShim title="Barcode Properties" onClose={onClose} className="ze-barcode-dialog">
+      <div className="ze-modal-body ze-tvp-body">
+        <label className="ze-barcode-text">
+          <span className="ze-tvp-label">Text:</span>
+          <input
+            type="text"
+            className="ze-tvp-input"
+            value={v.text}
+            onChange={(e) => set({ text: e.target.value })}
+          />
+        </label>
 
-        <div className="ze-modal-body ze-tvp-body">
-          <label className="ze-barcode-text">
-            <span className="ze-tvp-label">Text:</span>
-            <input
-              type="text"
-              className="ze-tvp-input"
-              value={v.text}
-              onChange={(e) => set({ text: e.target.value })}
-            />
-          </label>
-
-          <div className="ze-barcode-columns">
-            <div className="ze-barcode-checks">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={v.locked}
-                  onChange={(e) => set({ locked: e.target.checked })}
-                />
-                Locked
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={v.knockout}
-                  onChange={(e) => set({ knockout: e.target.checked })}
-                />
-                Knockout
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={v.showText}
-                  onChange={(e) => set({ showText: e.target.checked })}
-                />
-                Show text
-              </label>
-            </div>
-
-            <div className="ze-barcode-grid">
-              <label>
-                <span className="ze-tvp-label">Layer:</span>
-                <Combo
-                  value={v.layer}
-                  options={layers.map((l) => ({ value: l, label: l, swatch: layerColor(l) }))}
-                  onChange={(layer) => set({ layer })}
-                />
-              </label>
-              {mmField('Position X:', 'x', v.at.x, (iu) => set({ at: { ...v.at, x: iu } }))}
-              {mmField('Position Y:', 'y', v.at.y, (iu) => set({ at: { ...v.at, y: iu } }))}
-              {mmField('Size X:', 'w', v.width, (iu) => set({ width: iu }))}
-              {mmField('Size Y:', 'h', v.height, (iu) => set({ height: iu }))}
-              <label>
-                <span className="ze-tvp-label">Orientation:</span>
-                <input
-                  type="text"
-                  className="ze-tvp-input"
-                  value={shown('angle', String(v.angle))}
-                  onChange={(e) => {
-                    setTyping({ key: 'angle', text: e.target.value });
-                    const n = Number(e.target.value);
-                    if (Number.isFinite(n)) set({ angle: n });
-                  }}
-                  onBlur={() => setTyping(null)}
-                />
-                <span className="ze-tvp-unit">deg</span>
-              </label>
-              {mmField(
-                'Text size:',
-                'ts',
-                v.textHeight,
-                (iu) => set({ textHeight: iu }),
-                ui.textSizeEnabled,
-              )}
-              {mmField(
-                'Min margin X:',
-                'mx',
-                v.margin.x,
-                (iu) => set({ margin: { ...v.margin, x: iu } }),
-                ui.marginsEnabled,
-              )}
-              {mmField(
-                'Min margin Y:',
-                'my',
-                v.margin.y,
-                (iu) => set({ margin: { ...v.margin, y: iu } }),
-                ui.marginsEnabled,
-              )}
-            </div>
-
-            <div className="ze-barcode-radios">
-              <fieldset>
-                <legend>Code</legend>
-                {BARCODE_KIND_CHOICES.map((c) => (
-                  <label key={c.value}>
-                    <input
-                      type="radio"
-                      name="ze-barcode-kind"
-                      checked={v.kind === c.value}
-                      onChange={() => set({ kind: c.value })}
-                    />
-                    {c.label}
-                  </label>
-                ))}
-              </fieldset>
-              <fieldset disabled={!ui.eccEnabled}>
-                <legend>Error Correction</legend>
-                {BARCODE_ECC_CHOICES.map((c) => (
-                  <label key={c.value}>
-                    <input
-                      type="radio"
-                      name="ze-barcode-ecc"
-                      disabled={c.value === 'H' && !ui.eccHEnabled}
-                      checked={v.ecc === c.value}
-                      onChange={() => set({ ecc: c.value })}
-                    />
-                    {c.label}
-                  </label>
-                ))}
-              </fieldset>
-            </div>
-
-            <canvas ref={canvasRef} className="ze-barcode-preview" width={260} height={260} />
+        <div className="ze-barcode-columns">
+          <div className="ze-barcode-checks">
+            <label>
+              <input
+                type="checkbox"
+                checked={v.locked}
+                onChange={(e) => set({ locked: e.target.checked })}
+              />
+              Locked
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={v.knockout}
+                onChange={(e) => set({ knockout: e.target.checked })}
+              />
+              Knockout
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={v.showText}
+                onChange={(e) => set({ showText: e.target.checked })}
+              />
+              Show text
+            </label>
           </div>
 
-          {/* `wxMessageBox( m_dummyBarcode->GetLastError(), _( "Barcode Error" ) )` —
-              shown on OK rather than while typing, so a half-entered string is
-              not nagged about. */}
-          {error ? <div className="ze-barcode-error">{error}</div> : null}
+          <div className="ze-barcode-grid">
+            <label>
+              <span className="ze-tvp-label">Layer:</span>
+              <Combo
+                value={v.layer}
+                options={layers.map((l) => ({ value: l, label: l, swatch: layerColor(l) }))}
+                onChange={(layer) => set({ layer })}
+              />
+            </label>
+            {mmField('Position X:', 'x', v.at.x, (iu) => set({ at: { ...v.at, x: iu } }))}
+            {mmField('Position Y:', 'y', v.at.y, (iu) => set({ at: { ...v.at, y: iu } }))}
+            {mmField('Size X:', 'w', v.width, (iu) => set({ width: iu }))}
+            {mmField('Size Y:', 'h', v.height, (iu) => set({ height: iu }))}
+            <label>
+              <span className="ze-tvp-label">Orientation:</span>
+              <input
+                type="text"
+                className="ze-tvp-input"
+                value={shown('angle', String(v.angle))}
+                onChange={(e) => {
+                  setTyping({ key: 'angle', text: e.target.value });
+                  const n = Number(e.target.value);
+                  if (Number.isFinite(n)) set({ angle: n });
+                }}
+                onBlur={() => setTyping(null)}
+              />
+              <span className="ze-tvp-unit">deg</span>
+            </label>
+            {mmField(
+              'Text size:',
+              'ts',
+              v.textHeight,
+              (iu) => set({ textHeight: iu }),
+              ui.textSizeEnabled,
+            )}
+            {mmField(
+              'Min margin X:',
+              'mx',
+              v.margin.x,
+              (iu) => set({ margin: { ...v.margin, x: iu } }),
+              ui.marginsEnabled,
+            )}
+            {mmField(
+              'Min margin Y:',
+              'my',
+              v.margin.y,
+              (iu) => set({ margin: { ...v.margin, y: iu } }),
+              ui.marginsEnabled,
+            )}
+          </div>
+
+          <div className="ze-barcode-radios">
+            <fieldset>
+              <legend>Code</legend>
+              {BARCODE_KIND_CHOICES.map((c) => (
+                <label key={c.value}>
+                  <input
+                    type="radio"
+                    name="ze-barcode-kind"
+                    checked={v.kind === c.value}
+                    onChange={() => set({ kind: c.value })}
+                  />
+                  {c.label}
+                </label>
+              ))}
+            </fieldset>
+            <fieldset disabled={!ui.eccEnabled}>
+              <legend>Error Correction</legend>
+              {BARCODE_ECC_CHOICES.map((c) => (
+                <label key={c.value}>
+                  <input
+                    type="radio"
+                    name="ze-barcode-ecc"
+                    disabled={c.value === 'H' && !ui.eccHEnabled}
+                    checked={v.ecc === c.value}
+                    onChange={() => set({ ecc: c.value })}
+                  />
+                  {c.label}
+                </label>
+              ))}
+            </fieldset>
+          </div>
+
+          <canvas ref={canvasRef} className="ze-barcode-preview" width={260} height={260} />
         </div>
 
-        <div className="ze-modal-footer">
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="primary" onClick={ok}>
-            OK
-          </button>
-        </div>
+        {/* `wxMessageBox( m_dummyBarcode->GetLastError(), _( "Barcode Error" ) )` —
+          shown on OK rather than while typing, so a half-entered string is
+          not nagged about. */}
+        {error ? <div className="ze-barcode-error">{error}</div> : null}
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <button type="button" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="primary" onClick={ok}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

@@ -29,7 +29,7 @@ import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { DimensionValues } from './dialog_dimension_properties.js';
 import type { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { dimensionDialogFields } from './dialog_dimension_properties.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
@@ -75,7 +75,6 @@ export function DialogDimensionProperties({
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   const [v, setV] = useState<DimensionValues>(initial);
   const [text, setText] = useState<Record<string, string>>({});
@@ -138,153 +137,143 @@ export function DialogDimensionProperties({
   const manual = v.textPositionMode === 2;
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-graphic-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Dimension Properties
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
+    <DialogShim title="Dimension Properties" onClose={onClose} className="ze-graphic-dialog">
+      <div className="ze-modal-body ze-update-pcb-body ze-tvp-body">
+        <fieldset>
+          <legend>Dimension</legend>
+          <label>
+            <span className="ze-tvp-label">Layer:</span>
+            <select
+              className="ze-tvp-select"
+              value={v.layer}
+              onChange={(e) => set({ layer: e.target.value })}
+            >
+              {layers.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </label>
+        </fieldset>
 
-        <div className="ze-modal-body ze-update-pcb-body ze-tvp-body">
+        {show.format && (
           <fieldset>
-            <legend>Dimension</legend>
-            <label>
-              <span className="ze-tvp-label">Layer:</span>
-              <select
-                className="ze-tvp-select"
-                value={v.layer}
-                onChange={(e) => set({ layer: e.target.value })}
-              >
-                {layers.map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
+            <legend>Format</legend>
+            {/* The checkbox is the mode; the box alone cannot tell an empty
+              override from an absent one. */}
+            <label title="Show this text instead of the measured value.">
+              <input
+                type="checkbox"
+                checked={v.overrideValue !== undefined}
+                onChange={(e) => set({ overrideValue: e.target.checked ? '' : undefined })}
+              />
+              Override value
             </label>
-          </fieldset>
-
-          {show.format && (
-            <fieldset>
-              <legend>Format</legend>
-              {/* The checkbox is the mode; the box alone cannot tell an empty
-                  override from an absent one. */}
-              <label title="Show this text instead of the measured value.">
-                <input
-                  type="checkbox"
-                  checked={v.overrideValue !== undefined}
-                  onChange={(e) => set({ overrideValue: e.target.checked ? '' : undefined })}
-                />
-                Override value
-              </label>
+            <label>
+              <span className="ze-tvp-label">Value:</span>
+              <input
+                type="text"
+                className="ze-tvp-select"
+                disabled={v.overrideValue === undefined}
+                value={v.overrideValue ?? ''}
+                onChange={(e) => set({ overrideValue: e.target.value })}
+              />
+            </label>
+            <div className="ze-tvp-row">
               <label>
-                <span className="ze-tvp-label">Value:</span>
-                <input
-                  type="text"
-                  className="ze-tvp-select"
-                  disabled={v.overrideValue === undefined}
-                  value={v.overrideValue ?? ''}
-                  onChange={(e) => set({ overrideValue: e.target.value })}
-                />
-              </label>
-              <div className="ze-tvp-row">
-                <label>
-                  <span className="ze-tvp-label">Prefix:</span>
-                  <input
-                    type="text"
-                    className="ze-tvp-input"
-                    value={v.prefix}
-                    onChange={(e) => set({ prefix: e.target.value })}
-                  />
-                </label>
-                <label>
-                  <span className="ze-tvp-label">Suffix:</span>
-                  <input
-                    type="text"
-                    className="ze-tvp-input"
-                    value={v.suffix}
-                    onChange={(e) => set({ suffix: e.target.value })}
-                  />
-                </label>
-              </div>
-              {choice('Units:', 'units', UNITS)}
-              {choice('Units format:', 'unitsFormat', FORMATS)}
-              {choice('Precision:', 'precision', PRECISIONS)}
-              {check('Suppress trailing zeroes', 'suppressZeroes')}
-            </fieldset>
-          )}
-
-          {show.text && (
-            <fieldset>
-              <legend>Text</legend>
-              <div className="ze-tvp-row">
-                {mmField('Width:', 'textWidth')}
-                {mmField('Height:', 'textHeight')}
-              </div>
-              {mmField('Thickness:', 'textThickness')}
-              <label>
-                <span className="ze-tvp-label">Orientation:</span>
+                <span className="ze-tvp-label">Prefix:</span>
                 <input
                   type="text"
                   className="ze-tvp-input"
-                  value={String(v.textOrientation)}
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    if (Number.isFinite(n)) set({ textOrientation: n });
-                  }}
+                  value={v.prefix}
+                  onChange={(e) => set({ prefix: e.target.value })}
                 />
-                <span className="ze-tvp-unit">°</span>
               </label>
-              {check('Bold', 'bold')}
-              {check('Italic', 'italic')}
-              {check('Mirrored', 'mirrored')}
-              {check('Keep aligned with dimension', 'keepTextAligned')}
-              {show.textPositionMode &&
-                choice('Position mode:', 'textPositionMode', POSITION_MODES)}
-              {/* Only Manual owns the position; otherwise the geometry places it. */}
-              <div className="ze-tvp-row">
-                {mmField('Position X:', 'textX', !manual)}
-                {mmField('Position Y:', 'textY', !manual)}
-              </div>
-            </fieldset>
-          )}
-
-          <fieldset>
-            <legend>Dimension line</legend>
-            {mmField('Line thickness:', 'lineThickness')}
-            {show.arrowLength && mmField('Arrow length:', 'arrowLength')}
-            {show.extensionOffset && mmField('Extension line offset:', 'extensionOffset')}
-            {show.extensionOvershoot && mmField('Extension line overshoot:', 'extensionOvershoot')}
-            {show.arrowDirection && (
               <label>
-                <span className="ze-tvp-label">Arrow direction:</span>
-                <select
-                  className="ze-tvp-select"
-                  value={v.arrowDirection}
-                  onChange={(e) =>
-                    set({ arrowDirection: e.target.value === 'inward' ? 'inward' : 'outward' })
-                  }
-                >
-                  <option value="inward">Inward</option>
-                  <option value="outward">Outward</option>
-                </select>
+                <span className="ze-tvp-label">Suffix:</span>
+                <input
+                  type="text"
+                  className="ze-tvp-input"
+                  value={v.suffix}
+                  onChange={(e) => set({ suffix: e.target.value })}
+                />
               </label>
-            )}
-            {show.textFrame && choice('Text frame:', 'textFrame', TEXT_FRAMES)}
+            </div>
+            {choice('Units:', 'units', UNITS)}
+            {choice('Units format:', 'unitsFormat', FORMATS)}
+            {choice('Precision:', 'precision', PRECISIONS)}
+            {check('Suppress trailing zeroes', 'suppressZeroes')}
           </fieldset>
-        </div>
+        )}
 
-        <div className="ze-modal-footer">
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="primary" onClick={() => onApply(v)}>
-            OK
-          </button>
-        </div>
+        {show.text && (
+          <fieldset>
+            <legend>Text</legend>
+            <div className="ze-tvp-row">
+              {mmField('Width:', 'textWidth')}
+              {mmField('Height:', 'textHeight')}
+            </div>
+            {mmField('Thickness:', 'textThickness')}
+            <label>
+              <span className="ze-tvp-label">Orientation:</span>
+              <input
+                type="text"
+                className="ze-tvp-input"
+                value={String(v.textOrientation)}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  if (Number.isFinite(n)) set({ textOrientation: n });
+                }}
+              />
+              <span className="ze-tvp-unit">°</span>
+            </label>
+            {check('Bold', 'bold')}
+            {check('Italic', 'italic')}
+            {check('Mirrored', 'mirrored')}
+            {check('Keep aligned with dimension', 'keepTextAligned')}
+            {show.textPositionMode && choice('Position mode:', 'textPositionMode', POSITION_MODES)}
+            {/* Only Manual owns the position; otherwise the geometry places it. */}
+            <div className="ze-tvp-row">
+              {mmField('Position X:', 'textX', !manual)}
+              {mmField('Position Y:', 'textY', !manual)}
+            </div>
+          </fieldset>
+        )}
+
+        <fieldset>
+          <legend>Dimension line</legend>
+          {mmField('Line thickness:', 'lineThickness')}
+          {show.arrowLength && mmField('Arrow length:', 'arrowLength')}
+          {show.extensionOffset && mmField('Extension line offset:', 'extensionOffset')}
+          {show.extensionOvershoot && mmField('Extension line overshoot:', 'extensionOvershoot')}
+          {show.arrowDirection && (
+            <label>
+              <span className="ze-tvp-label">Arrow direction:</span>
+              <select
+                className="ze-tvp-select"
+                value={v.arrowDirection}
+                onChange={(e) =>
+                  set({ arrowDirection: e.target.value === 'inward' ? 'inward' : 'outward' })
+                }
+              >
+                <option value="inward">Inward</option>
+                <option value="outward">Outward</option>
+              </select>
+            </label>
+          )}
+          {show.textFrame && choice('Text frame:', 'textFrame', TEXT_FRAMES)}
+        </fieldset>
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <button type="button" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="primary" onClick={() => onApply(v)}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

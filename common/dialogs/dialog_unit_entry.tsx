@@ -24,7 +24,7 @@ import {
   unitLabel,
   type EdaUnits,
 } from '../widgets/unit_binder.js';
-import { useModalEscape } from '../dialog_shim.js';
+import { DialogShim } from '../dialog_shim.js';
 
 /** A UNIT_BINDER's text for a value in IU. */
 export function unitEntryText(aValueIU: number, aUnits: EdaUnits, aIuScale: EdaIuScale): string {
@@ -55,36 +55,32 @@ export function WX_UNIT_ENTRY_DIALOG({
   onResult: (valueIU: number | null) => void;
 }): JSX.Element {
   const [text, setText] = useState(() => unitEntryText(defaultValue, units, iuScale));
-  useModalEscape(() => onResult(null));
   const ok = (): void => {
     const v = unitEntryValue(text, units, iuScale);
     onResult(Number.isFinite(v) ? v : 0);
   };
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-unitentry" role="dialog" aria-modal="true" aria-label={caption}>
-        <div className="ze-modal-header">{caption}</div>
-        <div className="ze-unitentry-content">
-          <span className="ze-unitentry-label">{label}</span>
-          <input
-            className="ze-search ze-unitentry-ctrl"
-            aria-label={label}
-            // `SetInitialFocus( m_textCtrl )`.
-            // biome-ignore lint/a11y/noAutofocus: SetInitialFocus, upstream's own.
-            autoFocus
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') ok();
-              e.stopPropagation();
-            }}
-          />
-          <span className="ze-unitentry-unit">{unitLabel(units)}</span>
-        </div>
-        <StdDialogButtons onCancel={() => onResult(null)} onOk={ok} />
+    <DialogShim title={caption} onClose={() => onResult(null)} className="ze-unitentry">
+      <div className="ze-unitentry-content">
+        <span className="ze-unitentry-label">{label}</span>
+        <input
+          className="ze-search ze-unitentry-ctrl"
+          aria-label={label}
+          // `SetInitialFocus( m_textCtrl )`.
+          // biome-ignore lint/a11y/noAutofocus: SetInitialFocus, upstream's own.
+          autoFocus
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') ok();
+            e.stopPropagation();
+          }}
+        />
+        <span className="ze-unitentry-unit">{unitLabel(units)}</span>
       </div>
-    </div>
+      <StdDialogButtons onCancel={() => onResult(null)} onOk={ok} />
+    </DialogShim>
   );
 }
 
@@ -115,7 +111,6 @@ export function WX_PT_ENTRY_DIALOG({
 }): JSX.Element {
   const [x, setX] = useState(() => unitEntryText(defaultValue.x, units, iuScale));
   const [y, setY] = useState(() => unitEntryText(defaultValue.y, units, iuScale));
-  useModalEscape(() => onResult(null));
   const read = (t: string): number => {
     const v = unitEntryValue(t, units, iuScale);
     return Number.isFinite(v) ? v : 0;
@@ -139,26 +134,23 @@ export function WX_PT_ENTRY_DIALOG({
   );
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-unitentry" role="dialog" aria-modal="true" aria-label={caption}>
-        <div className="ze-modal-header">{caption}</div>
-        {row(labelX, x, setX)}
-        {row(labelY, y, setY)}
-        <StdDialogButtons onCancel={() => onResult(null)} onOk={ok}>
-          {showResetButton && (
-            <button
-              type="button"
-              className="ze-btn"
-              onClick={() => {
-                setX(unitEntryText(0, units, iuScale));
-                setY(unitEntryText(0, units, iuScale));
-              }}
-            >
-              Reset
-            </button>
-          )}
-        </StdDialogButtons>
-      </div>
-    </div>
+    <DialogShim title={caption} onClose={() => onResult(null)} className="ze-unitentry">
+      {row(labelX, x, setX)}
+      {row(labelY, y, setY)}
+      <StdDialogButtons onCancel={() => onResult(null)} onOk={ok}>
+        {showResetButton && (
+          <button
+            type="button"
+            className="ze-btn"
+            onClick={() => {
+              setX(unitEntryText(0, units, iuScale));
+              setY(unitEntryText(0, units, iuScale));
+            }}
+          >
+            Reset
+          </button>
+        )}
+      </StdDialogButtons>
+    </DialogShim>
   );
 }

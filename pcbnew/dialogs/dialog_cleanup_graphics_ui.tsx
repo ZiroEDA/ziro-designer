@@ -8,7 +8,7 @@
  * applied:" and OK / Cancel.
  */
 import { type JSX, useEffect, useState, useSyncExternalStore } from 'react';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { unitLabel } from '@ziroeda/common/eda_units.js';
 import { RcTreeView } from '@ziroeda/common/widgets/rc_tree_view.js';
 import type { DIALOG_CLEANUP_GRAPHICS } from './dialog_cleanup_graphics.js';
@@ -29,8 +29,6 @@ export function DialogCleanupGraphics({
       }),
     () => version,
   );
-
-  useModalEscape(onClose);
 
   useEffect(() => {
     dialog.TransferDataToWindow();
@@ -57,55 +55,51 @@ export function DialogCleanupGraphics({
   const fpEditor = dialog.m_isFootprintEditor;
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-cleanupgfx" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">Cleanup Graphics</div>
-        <div className="ze-modal-body ze-cleanupgfx-body">
-          <div className="ze-cleanupgfx-upper">
-            {opt('m_createRectanglesOpt', 'Merge lines into rectangles', 'all5')}
-            {opt('m_deleteRedundantOpt', 'Delete redundant graphics', 'all5')}
-            {fpEditor && opt('m_mergePadsOpt', 'Merge overlapping graphics into pads', 'trl5')}
-            {fpEditor && (
-              <div className="ze-cleanupgfx-hint">
-                (Pads which appear in a Net Tie pad group will not be considered for merging.)
-              </div>
-            )}
-            {!fpEditor &&
-              opt('m_fixBoardOutlines', 'Fix discontinuities in board outlines', 'all5')}
-            {!fpEditor && (
-              <div className="ze-cleanupgfx-tolerance">
-                <label className="lbl" htmlFor="ze-cleanupgfx-tol">
-                  {dialog.m_tolerance.GetLabel()}
-                </label>
-                <input
-                  id="ze-cleanupgfx-tol"
-                  className="ze-search"
-                  value={dialog.m_tolerance.GetText()}
-                  onChange={(e) => dialog.SetToleranceText(e.target.value)}
-                  onBlur={() => dialog.OnCheckBox()}
-                />
-                <span className="unit">{unitLabel(dialog.m_tolerance.GetUnits())}</span>
-              </div>
-            )}
-          </div>
-          <div className="ze-cleanupgfx-lower">
-            <div className="ze-cleanup-label">Changes to be applied:</div>
-            <RcTreeView
-              model={dialog.m_changesTreeModel}
-              view={dialog.m_changesView}
-              onDoubleClick={(node) => dialog.OnSelectItem(node)}
-              testId="cleanupgfx-changes"
-            />
-          </div>
+    <DialogShim title="Cleanup Graphics" onClose={onClose} className="ze-cleanupgfx">
+      <div className="ze-modal-body ze-cleanupgfx-body">
+        <div className="ze-cleanupgfx-upper">
+          {opt('m_createRectanglesOpt', 'Merge lines into rectangles', 'all5')}
+          {opt('m_deleteRedundantOpt', 'Delete redundant graphics', 'all5')}
+          {fpEditor && opt('m_mergePadsOpt', 'Merge overlapping graphics into pads', 'trl5')}
+          {fpEditor && (
+            <div className="ze-cleanupgfx-hint">
+              (Pads which appear in a Net Tie pad group will not be considered for merging.)
+            </div>
+          )}
+          {!fpEditor && opt('m_fixBoardOutlines', 'Fix discontinuities in board outlines', 'all5')}
+          {!fpEditor && (
+            <div className="ze-cleanupgfx-tolerance">
+              <label className="lbl" htmlFor="ze-cleanupgfx-tol">
+                {dialog.m_tolerance.GetLabel()}
+              </label>
+              <input
+                id="ze-cleanupgfx-tol"
+                className="ze-search"
+                value={dialog.m_tolerance.GetText()}
+                onChange={(e) => dialog.SetToleranceText(e.target.value)}
+                onBlur={() => dialog.OnCheckBox()}
+              />
+              <span className="unit">{unitLabel(dialog.m_tolerance.GetUnits())}</span>
+            </div>
+          )}
         </div>
-        <StdDialogButtons
-          okLabel={dialog.GetOKLabel()}
-          onOk={() => {
-            if (dialog.TransferDataFromWindow()) onClose();
-          }}
-          onCancel={onClose}
-        />
+        <div className="ze-cleanupgfx-lower">
+          <div className="ze-cleanup-label">Changes to be applied:</div>
+          <RcTreeView
+            model={dialog.m_changesTreeModel}
+            view={dialog.m_changesView}
+            onDoubleClick={(node) => dialog.OnSelectItem(node)}
+            testId="cleanupgfx-changes"
+          />
+        </div>
       </div>
-    </div>
+      <StdDialogButtons
+        okLabel={dialog.GetOKLabel()}
+        onOk={() => {
+          if (dialog.TransferDataFromWindow()) onClose();
+        }}
+        onCancel={onClose}
+      />
+    </DialogShim>
   );
 }

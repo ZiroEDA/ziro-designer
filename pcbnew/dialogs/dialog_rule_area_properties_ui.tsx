@@ -45,7 +45,7 @@ import {
   type RuleAreaValues,
 } from './dialog_rule_area_properties.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import type { PlacementSourceType } from './dialog_rule_area_properties.js';
@@ -98,7 +98,6 @@ export function DialogRuleAreaProperties({
   onClose,
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-  useModalEscape(onClose);
 
   const [v, setV] = useState<RuleAreaValues>(initial);
   const [page, setPage] = useState<PlacementPage>(() => collectPlacementPage(initial, sources));
@@ -171,186 +170,173 @@ export function DialogRuleAreaProperties({
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-rule-area-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {conv ? 'Convert to Rule Area' : 'Rule Area Properties'}
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
+    <DialogShim
+      title={conv ? 'Convert to Rule Area' : 'Rule Area Properties'}
+      onClose={onClose}
+      className="ze-rule-area-dialog"
+    >
+      {conv && (
+        <>
+          <ConversionSettingsBox values={conv} units={units} onChange={setConv} />
+          {/* the wxStaticLine, Insert( 1, line, 0, wxLEFT|wxRIGHT|wxEXPAND, 10 ) */}
+          <div
+            style={{
+              height: 1,
+              margin: CONVERSION_BOX_LINE_MARGIN,
+              background: 'var(--gtk-separator)',
+            }}
+          />
+        </>
+      )}
 
-        {conv && (
-          <>
-            <ConversionSettingsBox values={conv} units={units} onChange={setConv} />
-            {/* the wxStaticLine, Insert( 1, line, 0, wxLEFT|wxRIGHT|wxEXPAND, 10 ) */}
-            <div
-              style={{
-                height: 1,
-                margin: CONVERSION_BOX_LINE_MARGIN,
-                background: 'var(--gtk-separator)',
-              }}
-            />
-          </>
-        )}
-
-        <div className="ze-modal-body ze-rule-area-body">
-          {/* bLayersListSizer, proportion 4 — a wxDataViewListCtrl of
-              checkbox + colour swatch + layer name. */}
-          <div className="ze-rule-area-layers">
-            <div className="ze-rule-area-layers-label">Layers:</div>
-            <div className="ze-rule-area-layer-list">
-              {layers.map((l) => (
-                <label key={l.name}>
-                  <input
-                    type="checkbox"
-                    checked={v.layers.includes(l.name)}
-                    onChange={(e) =>
-                      set({
-                        layers: e.target.checked
-                          ? [...v.layers, l.name]
-                          : v.layers.filter((x) => x !== l.name),
-                      })
-                    }
-                  />
-                  <span className="ze-layer-swatch" style={{ background: l.color }} />
-                  {l.name}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* bSizerRight, proportion 7. */}
-          <div className="ze-rule-area-right">
-            <label
-              className="ze-rule-area-name"
-              title="A unique name for this rule area for use in DRC rules"
-            >
-              <span>Area name:</span>
-              <input type="text" value={v.name} onChange={(e) => set({ name: e.target.value })} />
-            </label>
-            <label className="ze-rule-area-locked">
-              <input
-                type="checkbox"
-                checked={v.locked}
-                onChange={(e) => set({ locked: e.target.checked })}
-              />
-              Locked
-            </label>
-
-            {/* m_areaPropertiesNb, the same wxNotebook tab strip every other
-                notebook here draws, so the same shared rule paints it. */}
-            <div className="ze-rule-area-nb">
-              <div className="ze-nb-tabs">
-                {/* `AddPage( m_keepoutProperties, _( "Keepouts" ), true )`. */}
-                <button
-                  type="button"
-                  className={tab === 0 ? 'active' : ''}
-                  onClick={() => setTab(0)}
-                >
-                  Keepouts
-                </button>
-                <button
-                  type="button"
-                  className={tab === 1 ? 'active' : ''}
-                  onClick={() => setTab(1)}
-                >
-                  Placement
-                </button>
-              </div>
-
-              <div className="ze-rule-area-page">
-                {tab === 0 ? (
-                  <div className="ze-rule-area-keepouts">
-                    {keepout(
-                      'Keep out tracks',
-                      'doNotAllowTracks',
-                      'Prevent tracks from routing into this area',
-                    )}
-                    {keepout(
-                      'Keep out vias',
-                      'doNotAllowVias',
-                      'Prevent vias from being placed in this area',
-                    )}
-                    {keepout(
-                      'Keep out pads',
-                      'doNotAllowPads',
-                      'Raise a DRC error if a pad overlaps this area',
-                    )}
-                    {keepout(
-                      'Keep out zone fills',
-                      'doNotAllowCopperPour',
-                      'Zones will not fill copper into this area',
-                    )}
-                    {keepout(
-                      'Keep out footprints',
-                      'doNotAllowFootprints',
-                      'Raise a DRC error if a footprint courtyard overlaps this area',
-                    )}
-                  </div>
-                ) : (
-                  <div className="ze-rule-area-placement">
-                    {PLACEMENT_RADIOS.map((r) => (
-                      <div key={r.label}>
-                        <label>
-                          <input
-                            type="radio"
-                            name="ze-rule-area-placement"
-                            checked={page.enabled === r.type}
-                            onChange={() => setPage((p) => withPlacementRadio(p, r.type))}
-                          />
-                          {r.label}
-                        </label>
-                        {r.type !== null && combo(r.type)}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* gbSizer1, BELOW the notebook rather than on a page. */}
-            <div className="ze-rule-area-outline">
-              <label>
-                <span>Outline display:</span>
-                <Combo
-                  value={v.hatchStyle}
-                  options={OUTLINE_DISPLAY.map((o) => ({ value: o.value, label: o.label }))}
-                  onChange={(value) => set({ hatchStyle: value as RuleAreaValues['hatchStyle'] })}
-                />
-              </label>
-              <label title="Distance between parallel lines used for hatching the area">
-                <span>Outline hatch pitch:</span>
+      <div className="ze-modal-body ze-rule-area-body">
+        {/* bLayersListSizer, proportion 4 — a wxDataViewListCtrl of
+          checkbox + colour swatch + layer name. */}
+        <div className="ze-rule-area-layers">
+          <div className="ze-rule-area-layers-label">Layers:</div>
+          <div className="ze-rule-area-layer-list">
+            {layers.map((l) => (
+              <label key={l.name}>
                 <input
-                  type="text"
-                  value={pitchText ?? pcbUnitText(v.hatchPitch, units)}
-                  onChange={(e) => {
-                    setPitchText(e.target.value);
-                    const iu = pcbUnitValue(e.target.value, units);
-                    if (Number.isFinite(iu)) set({ hatchPitch: iu });
-                  }}
+                  type="checkbox"
+                  checked={v.layers.includes(l.name)}
+                  onChange={(e) =>
+                    set({
+                      layers: e.target.checked
+                        ? [...v.layers, l.name]
+                        : v.layers.filter((x) => x !== l.name),
+                    })
+                  }
                 />
-                <span className="ze-unit-label">{unitLabel(units)}</span>
+                <span className="ze-layer-swatch" style={{ background: l.color }} />
+                {l.name}
               </label>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* `DisplayError( this, … )` is a modal of its own upstream; a line in
-            the dialog is the nearest a browser gets without a second modal. */}
-        {error !== null && <div className="ze-rule-area-error">{error}</div>}
+        {/* bSizerRight, proportion 7. */}
+        <div className="ze-rule-area-right">
+          <label
+            className="ze-rule-area-name"
+            title="A unique name for this rule area for use in DRC rules"
+          >
+            <span>Area name:</span>
+            <input type="text" value={v.name} onChange={(e) => set({ name: e.target.value })} />
+          </label>
+          <label className="ze-rule-area-locked">
+            <input
+              type="checkbox"
+              checked={v.locked}
+              onChange={(e) => set({ locked: e.target.checked })}
+            />
+            Locked
+          </label>
 
-        {/* m_sdbSizerButtons: a wxStdDialogButtonSizer, so GTK's own order —
-            Cancel then OK — and OK is the affirmative default. */}
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" onClick={accept}>
-            OK
-          </button>
+          {/* m_areaPropertiesNb, the same wxNotebook tab strip every other
+            notebook here draws, so the same shared rule paints it. */}
+          <div className="ze-rule-area-nb">
+            <div className="ze-nb-tabs">
+              {/* `AddPage( m_keepoutProperties, _( "Keepouts" ), true )`. */}
+              <button type="button" className={tab === 0 ? 'active' : ''} onClick={() => setTab(0)}>
+                Keepouts
+              </button>
+              <button type="button" className={tab === 1 ? 'active' : ''} onClick={() => setTab(1)}>
+                Placement
+              </button>
+            </div>
+
+            <div className="ze-rule-area-page">
+              {tab === 0 ? (
+                <div className="ze-rule-area-keepouts">
+                  {keepout(
+                    'Keep out tracks',
+                    'doNotAllowTracks',
+                    'Prevent tracks from routing into this area',
+                  )}
+                  {keepout(
+                    'Keep out vias',
+                    'doNotAllowVias',
+                    'Prevent vias from being placed in this area',
+                  )}
+                  {keepout(
+                    'Keep out pads',
+                    'doNotAllowPads',
+                    'Raise a DRC error if a pad overlaps this area',
+                  )}
+                  {keepout(
+                    'Keep out zone fills',
+                    'doNotAllowCopperPour',
+                    'Zones will not fill copper into this area',
+                  )}
+                  {keepout(
+                    'Keep out footprints',
+                    'doNotAllowFootprints',
+                    'Raise a DRC error if a footprint courtyard overlaps this area',
+                  )}
+                </div>
+              ) : (
+                <div className="ze-rule-area-placement">
+                  {PLACEMENT_RADIOS.map((r) => (
+                    <div key={r.label}>
+                      <label>
+                        <input
+                          type="radio"
+                          name="ze-rule-area-placement"
+                          checked={page.enabled === r.type}
+                          onChange={() => setPage((p) => withPlacementRadio(p, r.type))}
+                        />
+                        {r.label}
+                      </label>
+                      {r.type !== null && combo(r.type)}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* gbSizer1, BELOW the notebook rather than on a page. */}
+          <div className="ze-rule-area-outline">
+            <label>
+              <span>Outline display:</span>
+              <Combo
+                value={v.hatchStyle}
+                options={OUTLINE_DISPLAY.map((o) => ({ value: o.value, label: o.label }))}
+                onChange={(value) => set({ hatchStyle: value as RuleAreaValues['hatchStyle'] })}
+              />
+            </label>
+            <label title="Distance between parallel lines used for hatching the area">
+              <span>Outline hatch pitch:</span>
+              <input
+                type="text"
+                value={pitchText ?? pcbUnitText(v.hatchPitch, units)}
+                onChange={(e) => {
+                  setPitchText(e.target.value);
+                  const iu = pcbUnitValue(e.target.value, units);
+                  if (Number.isFinite(iu)) set({ hatchPitch: iu });
+                }}
+              />
+              <span className="ze-unit-label">{unitLabel(units)}</span>
+            </label>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* `DisplayError( this, … )` is a modal of its own upstream; a line in
+        the dialog is the nearest a browser gets without a second modal. */}
+      {error !== null && <div className="ze-rule-area-error">{error}</div>}
+
+      {/* m_sdbSizerButtons: a wxStdDialogButtonSizer, so GTK's own order —
+        Cancel then OK — and OK is the affirmative default. */}
+      <div className="ze-modal-footer">
+        <button type="button" className="ze-btn" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="ze-btn primary" onClick={accept}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }

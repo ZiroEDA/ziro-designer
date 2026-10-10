@@ -17,7 +17,7 @@
  * is `wxID_OK` after `TransferDataFromWindow()`.
  */
 import { type JSX, useEffect, useRef, useState } from 'react';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { SpinCtrl } from '@ziroeda/common/widgets/spin_ctrl.js';
 import { DIALOG_ENUM_PADS_TITLE, type DIALOG_ENUM_PADS } from './dialog_enum_pads.js';
 
@@ -28,8 +28,6 @@ export function DialogEnumPads({
   dialog: DIALOG_ENUM_PADS;
   onResult: (aOk: boolean) => void;
 }): JSX.Element {
-  useModalEscape(() => onResult(false));
-
   const [prefix, setPrefix] = useState(dialog.m_padPrefix);
   const [start, setStart] = useState(dialog.m_padStartNum);
   const [step, setStep] = useState(dialog.m_padNumStep);
@@ -49,41 +47,42 @@ export function DialogEnumPads({
   };
 
   return (
-    <div className="ze-modal-backdrop">
-      <div className="ze-modal ze-enumpads" role="dialog" aria-modal="true">
-        <div className="ze-modal-header">{DIALOG_ENUM_PADS_TITLE}</div>
-        <div className="ze-modal-body ze-enumpads-body">
-          <div className="ze-enumpads-info">
-            Pad names are restricted to 4 characters (including number).
-          </div>
-          <div className="ze-enumpads-gap" />
-          <div className="ze-enumpads-grid">
-            <label className="lbl" htmlFor="ze-enumpads-prefix">
-              Pad name prefix:
-            </label>
-            <input
-              id="ze-enumpads-prefix"
-              ref={prefixRef}
-              className="ze-search"
-              maxLength={4}
-              value={prefix}
-              onChange={(e) => setPrefix(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') ok();
-              }}
-            />
-            <label className="lbl" htmlFor="ze-enumpads-start">
-              First pad number:
-            </label>
-            <SpinCtrl id="ze-enumpads-start" value={start} onChange={setStart} min={0} max={999} />
-            <label className="lbl" htmlFor="ze-enumpads-step">
-              Numbering step:
-            </label>
-            <SpinCtrl id="ze-enumpads-step" value={step} onChange={setStep} min={0} max={999} />
-          </div>
+    <DialogShim
+      title={DIALOG_ENUM_PADS_TITLE}
+      onClose={() => onResult(false)}
+      className="ze-enumpads"
+    >
+      <div className="ze-modal-body ze-enumpads-body">
+        <div className="ze-enumpads-info">
+          Pad names are restricted to 4 characters (including number).
         </div>
-        <StdDialogButtons onCancel={() => onResult(false)} onOk={ok} />
+        <div className="ze-enumpads-gap" />
+        <div className="ze-enumpads-grid">
+          <label className="lbl" htmlFor="ze-enumpads-prefix">
+            Pad name prefix:
+          </label>
+          <input
+            id="ze-enumpads-prefix"
+            ref={prefixRef}
+            className="ze-search"
+            maxLength={4}
+            value={prefix}
+            onChange={(e) => setPrefix(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') ok();
+            }}
+          />
+          <label className="lbl" htmlFor="ze-enumpads-start">
+            First pad number:
+          </label>
+          <SpinCtrl id="ze-enumpads-start" value={start} onChange={setStart} min={0} max={999} />
+          <label className="lbl" htmlFor="ze-enumpads-step">
+            Numbering step:
+          </label>
+          <SpinCtrl id="ze-enumpads-step" value={step} onChange={setStep} min={0} max={999} />
+        </div>
       </div>
-    </div>
+      <StdDialogButtons onCancel={() => onResult(false)} onOk={ok} />
+    </DialogShim>
   );
 }

@@ -68,7 +68,7 @@ import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js'
 import type { TextBoxValues } from './dialog_textbox_properties.js';
 import { LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
 import {
   TextFormatBar,
@@ -135,7 +135,6 @@ export function DialogTextBoxProperties({
   onClose,
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-  useModalEscape(onClose);
 
   const [v, setV] = useState<TextBoxValues>(initial);
   // Width fields are held as text while typed, so a half-typed "0." is not
@@ -184,135 +183,126 @@ export function DialogTextBoxProperties({
   );
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-textboxprops-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Text Box Properties
-          <span className="x" title="Cancel" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-
-        <div className="ze-modal-body ze-textboxprops-body">
-          {/* `m_MultiLineSizer`: the label, the control, then the link the .cpp
-              appends to this same sizer (`:90`) — all three inside the one box
-              `bMainSizer` adds with `wxALL, 10`. */}
-          <div className="ze-tbp-multiline">
-            <span className="ze-tbp-caption">Text:</span>
-            <textarea
-              className="ze-input ze-tbp-text"
-              value={v.text}
-              onChange={(e) => set({ text: e.target.value })}
-            />
-            {/* `m_syntaxHelp`, a wxHyperlinkCtrl (`:87-90`), bound to
-                `onSyntaxHelp` -> `PCB_TEXT::ShowSyntaxHelp`. */}
-            <button
-              type="button"
-              className="ze-hyperlink ze-tbp-syntax"
-              onClick={() => setSyntaxHelp(true)}
-            >
-              Syntax help
-            </button>
-          </div>
-
-          {/* One wxGridBagSizer( 3, 3 ), seven columns, `AddGrowableCol( 3 )`.
-              Each cell states its own `wxGBPosition` in shell.css. */}
-          <div className="ze-tbp-grid">
-            {/* `m_cbLocked` at `( 0, 0 )`, spanning three columns — it is IN the
-                gridbag, not above it. */}
-            <label className="ze-tbp-check ze-tbp-locked">
-              <input
-                type="checkbox"
-                checked={v.locked}
-                onChange={(e) => set({ locked: e.target.checked })}
-              />
-              Locked
-            </label>
-
-            <span className="ze-tbp-lbl ze-tbp-layer-lbl">Layer:</span>
-            {/* `m_LayerSelectionCtrl` is a PCB_LAYER_BOX_SELECTOR: every entry
-                carries its layer's colour swatch. */}
-            <Combo
-              className="ze-tbp-layer"
-              value={v.layer}
-              onChange={(layer) => set({ layer })}
-              options={layers.map((l) => ({ value: l, label: l, swatch: layerColor(l) }))}
-            />
-            <span className="ze-tbp-lbl ze-tbp-orient-lbl">Orientation:</span>
-            <Combo
-              className="ze-tbp-orient"
-              value={orientationLabel(v.orientation)}
-              onChange={(next) => set({ orientation: Number(next) })}
-              options={ORIENTATIONS.map((o) => ({ value: o.toFixed(1), label: o.toFixed(1) }))}
-            />
-
-            {/* `m_fontLabel` at `( 3, 0 )` and `m_fontCtrl` at `( 3, 1 )`
-                spanning three, then the bar at `( 3, 4 )`. */}
-            <span className="ze-tbp-lbl ze-tbp-font-lbl">Font:</span>
-            <div className="ze-tbp-font">
-              <FontChoice face={v.face} onChange={(face) => set({ face })} />
-            </div>
-            <div className="ze-tbp-bar">
-              <TextFormatBar
-                bold={v.bold}
-                onBold={(bold) => set({ bold })}
-                italic={v.italic}
-                onItalic={(italic) => set({ italic })}
-                hAlign={v.horizJustify as HAlign}
-                onHAlign={(h) => set({ horizJustify: h })}
-                vAlign={v.vertJustify as VAlign}
-                onVAlign={(vv) => set({ vertJustify: vv })}
-                mirrored={v.mirrored}
-                onMirrored={(mirrored) => set({ mirrored })}
-              />
-            </div>
-
-            {mmField('Text width:', 'width', 'w')}
-            <label className="ze-tbp-check ze-tbp-border">
-              <input
-                type="checkbox"
-                checked={v.border}
-                onChange={(e) => set({ border: e.target.checked })}
-              />
-              Border
-            </label>
-
-            {mmField('Text height:', 'height', 'h')}
-            {mmField('Border width:', 'borderWidth', 'bw', !v.border)}
-
-            {mmField('Thickness:', 'thickness', 't')}
-            <span className={`ze-tbp-lbl ze-tbp-style-lbl${v.border ? '' : ' disabled'}`}>
-              Border style:
-            </span>
-            {/* `m_borderStyleCombo` is a wxBitmapComboBox: the stroke is drawn
-                beside its name. */}
-            <Combo
-              className="ze-tbp-borderstyle"
-              disabled={!v.border}
-              value={v.borderStyle}
-              onChange={(next) => set({ borderStyle: next as LineStyleToken })}
-              options={LINE_STYLE_NAMES.map((s) => ({
-                value: s.value,
-                label: s.label,
-                ...(s.bitmap ? { bitmap: s.bitmap } : {}),
-              }))}
-            />
-          </div>
-        </div>
-
-        {/* `SetupStandardButtons()` (`:161`) takes no label override, so the
-            affirmative button reads OK whether the box is being placed or
-            edited. "Create" was ours. */}
-        <StdDialogButtons onCancel={onClose} onOk={() => onApply(v)} />
-        {syntaxHelp && (
-          <HtmlMessageBox
-            caption="Syntax Help"
-            className="ze-syntaxhelp"
-            html={PCB_TEXT_SYNTAX_HELP}
-            onClose={() => setSyntaxHelp(false)}
+    <DialogShim title="Text Box Properties" onClose={onClose} className="ze-textboxprops-dialog">
+      <div className="ze-modal-body ze-textboxprops-body">
+        {/* `m_MultiLineSizer`: the label, the control, then the link the .cpp
+          appends to this same sizer (`:90`) — all three inside the one box
+          `bMainSizer` adds with `wxALL, 10`. */}
+        <div className="ze-tbp-multiline">
+          <span className="ze-tbp-caption">Text:</span>
+          <textarea
+            className="ze-input ze-tbp-text"
+            value={v.text}
+            onChange={(e) => set({ text: e.target.value })}
           />
-        )}
+          {/* `m_syntaxHelp`, a wxHyperlinkCtrl (`:87-90`), bound to
+            `onSyntaxHelp` -> `PCB_TEXT::ShowSyntaxHelp`. */}
+          <button
+            type="button"
+            className="ze-hyperlink ze-tbp-syntax"
+            onClick={() => setSyntaxHelp(true)}
+          >
+            Syntax help
+          </button>
+        </div>
+
+        {/* One wxGridBagSizer( 3, 3 ), seven columns, `AddGrowableCol( 3 )`.
+          Each cell states its own `wxGBPosition` in shell.css. */}
+        <div className="ze-tbp-grid">
+          {/* `m_cbLocked` at `( 0, 0 )`, spanning three columns — it is IN the
+            gridbag, not above it. */}
+          <label className="ze-tbp-check ze-tbp-locked">
+            <input
+              type="checkbox"
+              checked={v.locked}
+              onChange={(e) => set({ locked: e.target.checked })}
+            />
+            Locked
+          </label>
+
+          <span className="ze-tbp-lbl ze-tbp-layer-lbl">Layer:</span>
+          {/* `m_LayerSelectionCtrl` is a PCB_LAYER_BOX_SELECTOR: every entry
+            carries its layer's colour swatch. */}
+          <Combo
+            className="ze-tbp-layer"
+            value={v.layer}
+            onChange={(layer) => set({ layer })}
+            options={layers.map((l) => ({ value: l, label: l, swatch: layerColor(l) }))}
+          />
+          <span className="ze-tbp-lbl ze-tbp-orient-lbl">Orientation:</span>
+          <Combo
+            className="ze-tbp-orient"
+            value={orientationLabel(v.orientation)}
+            onChange={(next) => set({ orientation: Number(next) })}
+            options={ORIENTATIONS.map((o) => ({ value: o.toFixed(1), label: o.toFixed(1) }))}
+          />
+
+          {/* `m_fontLabel` at `( 3, 0 )` and `m_fontCtrl` at `( 3, 1 )`
+            spanning three, then the bar at `( 3, 4 )`. */}
+          <span className="ze-tbp-lbl ze-tbp-font-lbl">Font:</span>
+          <div className="ze-tbp-font">
+            <FontChoice face={v.face} onChange={(face) => set({ face })} />
+          </div>
+          <div className="ze-tbp-bar">
+            <TextFormatBar
+              bold={v.bold}
+              onBold={(bold) => set({ bold })}
+              italic={v.italic}
+              onItalic={(italic) => set({ italic })}
+              hAlign={v.horizJustify as HAlign}
+              onHAlign={(h) => set({ horizJustify: h })}
+              vAlign={v.vertJustify as VAlign}
+              onVAlign={(vv) => set({ vertJustify: vv })}
+              mirrored={v.mirrored}
+              onMirrored={(mirrored) => set({ mirrored })}
+            />
+          </div>
+
+          {mmField('Text width:', 'width', 'w')}
+          <label className="ze-tbp-check ze-tbp-border">
+            <input
+              type="checkbox"
+              checked={v.border}
+              onChange={(e) => set({ border: e.target.checked })}
+            />
+            Border
+          </label>
+
+          {mmField('Text height:', 'height', 'h')}
+          {mmField('Border width:', 'borderWidth', 'bw', !v.border)}
+
+          {mmField('Thickness:', 'thickness', 't')}
+          <span className={`ze-tbp-lbl ze-tbp-style-lbl${v.border ? '' : ' disabled'}`}>
+            Border style:
+          </span>
+          {/* `m_borderStyleCombo` is a wxBitmapComboBox: the stroke is drawn
+            beside its name. */}
+          <Combo
+            className="ze-tbp-borderstyle"
+            disabled={!v.border}
+            value={v.borderStyle}
+            onChange={(next) => set({ borderStyle: next as LineStyleToken })}
+            options={LINE_STYLE_NAMES.map((s) => ({
+              value: s.value,
+              label: s.label,
+              ...(s.bitmap ? { bitmap: s.bitmap } : {}),
+            }))}
+          />
+        </div>
       </div>
-    </div>
+
+      {/* `SetupStandardButtons()` (`:161`) takes no label override, so the
+        affirmative button reads OK whether the box is being placed or
+        edited. "Create" was ours. */}
+      <StdDialogButtons onCancel={onClose} onOk={() => onApply(v)} />
+      {syntaxHelp && (
+        <HtmlMessageBox
+          caption="Syntax Help"
+          className="ze-syntaxhelp"
+          html={PCB_TEXT_SYNTAX_HELP}
+          onClose={() => setSyntaxHelp(false)}
+        />
+      )}
+    </DialogShim>
   );
 }

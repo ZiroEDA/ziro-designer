@@ -19,7 +19,7 @@
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { TrackViaValues } from './dialog_track_via_properties.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { NetSelector } from '@ziroeda/common/widgets/net_selector.js';
 import { INDETERMINATE_STATE } from '@ziroeda/common/widgets/ui_common.js';
 
@@ -83,7 +83,6 @@ export function DialogTrackViaProperties({
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
-  useModalEscape(onClose);
 
   const seed = initial;
 
@@ -312,134 +311,125 @@ export function DialogTrackViaProperties({
   } Properties`;
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-tvp-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {title}
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
+    <DialogShim title={title} onClose={onClose} className="ze-tvp-dialog">
+      <div className="ze-modal-body ze-update-pcb-body ze-tvp-body">
+        <fieldset>
+          <legend>Common</legend>
+          <label>
+            <span className="ze-tvp-label">Net:</span>
+            {/* NET_SELECTOR, with INDETERMINATE_STATE only for a selection
+              whose nets differ (dialog_track_via_properties.cpp:765-775). */}
+            <NetSelector
+              netInfo={nets}
+              netcode={net === '' ? -1 : Number(net)}
+              indeterminateString={seed.net === undefined ? INDETERMINATE_STATE : ''}
+              onChange={(code) => setNet(code === -1 ? '' : String(code))}
+            />
+          </label>
+          {tri(locked, setLocked, 'Locked')}
+        </fieldset>
 
-        <div className="ze-modal-body ze-update-pcb-body ze-tvp-body">
+        {hasTracks && (
           <fieldset>
-            <legend>Common</legend>
-            <label>
-              <span className="ze-tvp-label">Net:</span>
-              {/* NET_SELECTOR, with INDETERMINATE_STATE only for a selection
-                  whose nets differ (dialog_track_via_properties.cpp:765-775). */}
-              <NetSelector
-                netInfo={nets}
-                netcode={net === '' ? -1 : Number(net)}
-                indeterminateString={seed.net === undefined ? INDETERMINATE_STATE : ''}
-                onChange={(code) => setNet(code === -1 ? '' : String(code))}
-              />
-            </label>
-            {tri(locked, setLocked, 'Locked')}
-          </fieldset>
-
-          {hasTracks && (
-            <fieldset>
-              <legend>Tracks</legend>
-              <div className="ze-tvp-row">
-                {field('Start X:', startX, setStartX, 'mm', !hasStraightTracks)}
-                {field('Y:', startY, setStartY, 'mm', !hasStraightTracks)}
-              </div>
-              <div className="ze-tvp-row">
-                {field('End X:', endX, setEndX, 'mm', !hasStraightTracks)}
-                {field('Y:', endY, setEndY, 'mm', !hasStraightTracks)}
-              </div>
-              {trackWidths.length > 0 &&
-                choice(
-                  'Pre-defined sizes:',
-                  '',
-                  (s) => {
-                    if (s !== '') setTrackWidth(String(pcbIuToMM(Number(s))));
-                  },
-                  trackWidths.map((w) => ({ value: String(w), label: `${pcbIuToMM(w)} mm` })),
-                )}
-              {field('Track width:', trackWidth, setTrackWidth, 'mm')}
-              {choice('Layer:', layer, setLayer, layerOptions)}
-
-              <div className="ze-tvp-sub">Technical Layers</div>
-              {tri(hasMask, setHasMask, 'Solder mask')}
-              {field('Expansion:', maskMargin, setMaskMargin, 'mm', hasMask === false)}
-              <div className="ze-tvp-note">
-                Local clearance between the track and the solder mask opening. Leave blank to use
-                the Board Setup value.
-              </div>
-            </fieldset>
-          )}
-
-          {hasVias && (
-            <fieldset>
-              <legend>Vias</legend>
-              <div className="ze-tvp-row">
-                {field('Position X:', viaX, setViaX, 'mm')}
-                {field('Y:', viaY, setViaY, 'mm')}
-              </div>
-              {viaSizes.length > 0 &&
-                choice(
-                  'Pre-defined sizes:',
-                  '',
-                  (s) => {
-                    if (s === '') return;
-                    const size = viaSizes[Number(s)];
-                    if (!size) return;
-                    setViaDiameter(String(pcbIuToMM(size.diameter)));
-                    setViaDrill(String(pcbIuToMM(size.drill)));
-                  },
-                  viaSizes.map((v, i) => ({
-                    value: String(i),
-                    label: `${pcbIuToMM(v.diameter)} / ${pcbIuToMM(v.drill)} mm`,
-                  })),
-                )}
-              {field('Via diameter:', viaDiameter, setViaDiameter, 'mm')}
-              {field('Via hole:', viaDrill, setViaDrill, 'mm')}
-              {choice('Via type:', viaType, setViaType, [
-                { value: 'through', label: 'Through' },
-                { value: 'micro', label: 'Micro' },
-                { value: 'blind', label: 'Blind' },
-                { value: 'buried', label: 'Buried' },
-              ])}
-              {choice('Start layer:', startLayer, setStartLayer, layerOptions)}
-              {choice('End layer:', endLayer, setEndLayer, layerOptions)}
-            </fieldset>
-          )}
-
-          {hasVias && (
-            <fieldset>
-              <legend>Teardrops</legend>
-              {tri(tdEnabled, setTdEnabled, "Add teardrops on via's track connections")}
-              {tri(
-                tdTwoTracks,
-                setTdTwoTracks,
-                'Allow teardrops to span two track segments',
-                'Allows a teardrop to extend over the first 2 connected track segments if the first track segment is too short to accommodate the best length.',
+            <legend>Tracks</legend>
+            <div className="ze-tvp-row">
+              {field('Start X:', startX, setStartX, 'mm', !hasStraightTracks)}
+              {field('Y:', startY, setStartY, 'mm', !hasStraightTracks)}
+            </div>
+            <div className="ze-tvp-row">
+              {field('End X:', endX, setEndX, 'mm', !hasStraightTracks)}
+              {field('Y:', endY, setEndY, 'mm', !hasStraightTracks)}
+            </div>
+            {trackWidths.length > 0 &&
+              choice(
+                'Pre-defined sizes:',
+                '',
+                (s) => {
+                  if (s !== '') setTrackWidth(String(pcbIuToMM(Number(s))));
+                },
+                trackWidths.map((w) => ({ value: String(w), label: `${pcbIuToMM(w)} mm` })),
               )}
-              {field('Maximum track width:', tdFilter, setTdFilter, '%')}
-              <div className="ze-tvp-note">
-                Tracks which are similar in size to the via do not need teardrops.
-              </div>
-              {field('Best length:', tdBestLen, setTdBestLen, '%')}
-              {field('Maximum length:', tdMaxLen, setTdMaxLen, 'mm')}
-              {field('Best width:', tdBestWidth, setTdBestWidth, '%')}
-              {field('Maximum width:', tdMaxWidth, setTdMaxWidth, 'mm')}
-              {tri(tdCurved, setTdCurved, 'Curved edges')}
-            </fieldset>
-          )}
-        </div>
+            {field('Track width:', trackWidth, setTrackWidth, 'mm')}
+            {choice('Layer:', layer, setLayer, layerOptions)}
 
-        <div className="ze-modal-footer">
-          <span style={{ flex: 1 }} />
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="primary" onClick={apply}>
-            OK
-          </button>
-        </div>
+            <div className="ze-tvp-sub">Technical Layers</div>
+            {tri(hasMask, setHasMask, 'Solder mask')}
+            {field('Expansion:', maskMargin, setMaskMargin, 'mm', hasMask === false)}
+            <div className="ze-tvp-note">
+              Local clearance between the track and the solder mask opening. Leave blank to use the
+              Board Setup value.
+            </div>
+          </fieldset>
+        )}
+
+        {hasVias && (
+          <fieldset>
+            <legend>Vias</legend>
+            <div className="ze-tvp-row">
+              {field('Position X:', viaX, setViaX, 'mm')}
+              {field('Y:', viaY, setViaY, 'mm')}
+            </div>
+            {viaSizes.length > 0 &&
+              choice(
+                'Pre-defined sizes:',
+                '',
+                (s) => {
+                  if (s === '') return;
+                  const size = viaSizes[Number(s)];
+                  if (!size) return;
+                  setViaDiameter(String(pcbIuToMM(size.diameter)));
+                  setViaDrill(String(pcbIuToMM(size.drill)));
+                },
+                viaSizes.map((v, i) => ({
+                  value: String(i),
+                  label: `${pcbIuToMM(v.diameter)} / ${pcbIuToMM(v.drill)} mm`,
+                })),
+              )}
+            {field('Via diameter:', viaDiameter, setViaDiameter, 'mm')}
+            {field('Via hole:', viaDrill, setViaDrill, 'mm')}
+            {choice('Via type:', viaType, setViaType, [
+              { value: 'through', label: 'Through' },
+              { value: 'micro', label: 'Micro' },
+              { value: 'blind', label: 'Blind' },
+              { value: 'buried', label: 'Buried' },
+            ])}
+            {choice('Start layer:', startLayer, setStartLayer, layerOptions)}
+            {choice('End layer:', endLayer, setEndLayer, layerOptions)}
+          </fieldset>
+        )}
+
+        {hasVias && (
+          <fieldset>
+            <legend>Teardrops</legend>
+            {tri(tdEnabled, setTdEnabled, "Add teardrops on via's track connections")}
+            {tri(
+              tdTwoTracks,
+              setTdTwoTracks,
+              'Allow teardrops to span two track segments',
+              'Allows a teardrop to extend over the first 2 connected track segments if the first track segment is too short to accommodate the best length.',
+            )}
+            {field('Maximum track width:', tdFilter, setTdFilter, '%')}
+            <div className="ze-tvp-note">
+              Tracks which are similar in size to the via do not need teardrops.
+            </div>
+            {field('Best length:', tdBestLen, setTdBestLen, '%')}
+            {field('Maximum length:', tdMaxLen, setTdMaxLen, 'mm')}
+            {field('Best width:', tdBestWidth, setTdBestWidth, '%')}
+            {field('Maximum width:', tdMaxWidth, setTdMaxWidth, 'mm')}
+            {tri(tdCurved, setTdCurved, 'Curved edges')}
+          </fieldset>
+        )}
       </div>
-    </div>
+
+      <div className="ze-modal-footer">
+        <span style={{ flex: 1 }} />
+        <button type="button" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="primary" onClick={apply}>
+          OK
+        </button>
+      </div>
+    </DialogShim>
   );
 }
