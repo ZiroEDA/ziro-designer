@@ -205,7 +205,11 @@ describe('DialogPositionRelativeModeless (dialog_position_relative_base.cpp)', (
     fireEvent.click(screen.getByText('✕'));
     expect(dlg.IsShown()).toBe(false);
     act(() => dlg.Show(true));
+    // A modeless dialog: Escape on the canvas is the tool's, not the dialog's.
     fireEvent.keyDown(document, { key: 'Escape' });
+    expect(dlg.IsShown()).toBe(true);
+    // With the focus in the dialog it is wxID_CANCEL.
+    fireEvent.keyDown(input('ze-posrel-x'), { key: 'Escape' });
     expect(dlg.IsShown()).toBe(false);
     expect(posrel.moves).toEqual([]);
   });

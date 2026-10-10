@@ -2,7 +2,8 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The form helpers every Preferences panel is built from.
+ * The wx controls every dialog is built from, and the bordered form helpers the Preferences
+ * panels add on top of them.
  *
  * Upstream these are wxFormBuilder-emitted wxCheckBox / wxSpinCtrl / wxChoice /
  * wxStaticBoxSizer / COLOR_SWATCH inside `common/dialogs/`, shared by every
@@ -66,6 +67,115 @@ export function Check({
       />
       {label}
     </label>
+  );
+}
+
+/**
+ * `wxButton`. The face, edge, height and minimum width are `.ze-btn`'s, measured off a real
+ * dialog; `isDefault` is `SetDefault()` - the button Enter activates. `className` is for the
+ * caller's sizer border only, never the button's own look.
+ */
+export function Button({
+  label,
+  onClick,
+  isDefault,
+  disabled,
+  title,
+  className,
+}: {
+  label: string;
+  onClick?: () => void;
+  isDefault?: boolean;
+  disabled?: boolean;
+  title?: string;
+  className?: string;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      className={`ze-btn${isDefault ? ' primary' : ''}${className ? ` ${className}` : ''}`}
+      disabled={disabled}
+      title={title}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+}
+
+/**
+ * `wxCheckBox` in a dialog. The indicator is the shared checkbox rule and the row is
+ * `.ze-check` (a GtkCheckButton's height and indicator spacing); `className` carries the
+ * caller's sizer position and border only. The Preferences panels' bordered variant is
+ * {@link Check}.
+ */
+export function CheckBox({
+  label,
+  checked,
+  onChange,
+  disabled,
+  title,
+  className,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (aChecked: boolean) => void;
+  disabled?: boolean;
+  title?: string;
+  className?: string;
+}): JSX.Element {
+  return (
+    <label className={`ze-check${className ? ` ${className}` : ''}`} title={title}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      {label}
+    </label>
+  );
+}
+
+/** `wxStaticLine`: a GtkSeparator, horizontal unless `vertical` (wxLI_VERTICAL). */
+export function StaticLine({
+  vertical,
+  className,
+}: {
+  vertical?: boolean;
+  className?: string;
+}): JSX.Element {
+  return (
+    <div
+      className={`ze-staticline${vertical ? ' vertical' : ''}${className ? ` ${className}` : ''}`}
+    />
+  );
+}
+
+/** `wxHyperlinkCtrl`: a GtkLinkButton in the theme's link colour, on the dialog's own font. */
+export function HyperlinkCtrl({
+  label,
+  onClick,
+  disabled,
+  title,
+  className,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  title?: string;
+  className?: string;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      className={`ze-hyperlink${className ? ` ${className}` : ''}`}
+      disabled={disabled}
+      title={title}
+      onClick={onClick}
+    >
+      {label}
+    </button>
   );
 }
 

@@ -69,7 +69,8 @@
  * (wxFR_REPLACEDIALOG). Enter = Find, F3 / Shift+F3 = OnCharHook, Esc = close.
  */
 import { useEffect, useRef, type JSX } from 'react';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim } from '@ziroeda/common/dialog_shim.js';
+import { Button, CheckBox, HyperlinkCtrl, StaticLine } from '@ziroeda/common/wx/controls.js';
 import { KeyNameFromKeyCode } from '@ziroeda/common/hotkeys_basic.js';
 import { TextCombo } from '@ziroeda/common/widgets/wx_combobox.js';
 import type { MatchMode, SchSearchData } from '../tools/sch_find_replace_tool.js';
@@ -125,8 +126,6 @@ export function DialogSchFind({
   onShowSearchPanel,
 }: Props): JSX.Element {
   const symbolEditor = frame === 'FRAME_SCH_SYMBOL_EDITOR';
-  // DIALOG_SHIM: Escape is wxID_CANCEL, which OnCancel turns into a close.
-  useModalEscape(onClose);
 
   // `m_findReplaceData->searchAllPins = true;` — the CONSTRUCTOR sets the flag
   // for this frame, it does not merely tick a box, so a symbol's pins are
@@ -150,15 +149,13 @@ export function DialogSchFind({
     className: string,
     disabled = false,
   ) => (
-    <label className={`ze-check ${className}`}>
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => set(e.target.checked)}
-      />
-      {label}
-    </label>
+    <CheckBox
+      label={label}
+      checked={checked}
+      onChange={set}
+      className={className}
+      disabled={disabled}
+    />
   );
 
   // `ACTIONS::showSearch.GetHotKey()` appended as " (%s)" (dialog_sch_find.cpp:83-87).
@@ -166,27 +163,25 @@ export function DialogSchFind({
   const linkLabel = `Show search panel${hotkey ? ` (${KeyNameFromKeyCode(hotkey)})` : ''}`;
 
   return (
-    <div
-      className="ze-modal ze-find-dialog ze-schfind"
-      onMouseDown={(e) => e.stopPropagation()}
-      onKeyDown={(e) => {
-        // OnCharHook: F3 / Shift+F3 search from the dialog's own string.
-        if (e.key === 'F3') {
-          e.preventDefault();
-          e.stopPropagation();
-          if (e.shiftKey) onFindPrevious();
-          else onFindNext();
-        }
-      }}
+    <DialogShim
+      title={replace ? 'Find and Replace' : 'Find'}
+      onClose={onClose}
+      modeless
+      className="ze-schfind"
     >
-      <div className="ze-modal-header">
-        {replace ? 'Find and Replace' : 'Find'}
-        <span className="x" title="Close" onClick={onClose}>
-          ✕
-        </span>
-      </div>
       {/* mainSizer (V) */}
-      <div className="ze-schfind-main">
+      <div
+        className="ze-schfind-main"
+        onKeyDown={(e) => {
+          // OnCharHook: F3 / Shift+F3 search from the dialog's own string.
+          if (e.key === 'F3') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.shiftKey) onFindPrevious();
+            else onFindNext();
+          }
+        }}
+      >
         {/* topSizer (H), proportion 1 */}
         <div className="ze-schfind-top">
           {/* leftSizer (V), 1, wxEXPAND|wxALL 5 */}
@@ -289,52 +284,36 @@ export function DialogSchFind({
           {/* rightSizer (V), 0, wxALL|wxEXPAND 6 */}
           <div className="ze-schfind-buttons">
             {/* m_buttonFind->SetDefault(); wxALL|wxEXPAND 6 */}
-            <button type="button" className="ze-btn primary" onClick={onFindNext}>
-              Find
-            </button>
+            <Button label="Find" isDefault onClick={onFindNext} />
             {replace && (
-              <button
-                type="button"
-                className="ze-btn"
+              <Button
+                label="Replace"
                 disabled={!data.findString || !canReplace}
                 onClick={onReplace}
-              >
-                Replace
-              </button>
+              />
             )}
             {replace && (
-              <button
-                type="button"
-                className="ze-btn"
-                disabled={!data.findString}
-                onClick={onReplaceAll}
-              >
-                Replace All
-              </button>
+              <Button label="Replace All" disabled={!data.findString} onClick={onReplaceAll} />
             )}
-            <button type="button" className="ze-btn" onClick={onClose}>
-              Close
-            </button>
+            <Button label="Close" onClick={onClose} />
           </div>
         </div>
         {/* bSizer6 (V), wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT 5. `m_staticline1->Hide()` and
             `m_searchPanelLink->Hide()` in the Symbol Editor. */}
         {!symbolEditor && (
           <div className="ze-schfind-foot">
-            <div className="ze-schfind-line" />
+            <StaticLine className="ze-schfind-line" />
             {onShowSearchPanel && (
-              <button
-                type="button"
-                className="ze-hyperlink ze-schfind-link"
+              <HyperlinkCtrl
+                label={linkLabel}
+                className="ze-schfind-link"
                 onClick={onShowSearchPanel}
-              >
-                {linkLabel}
-              </button>
+              />
             )}
           </div>
         )}
       </div>
-    </div>
+    </DialogShim>
   );
 }
 

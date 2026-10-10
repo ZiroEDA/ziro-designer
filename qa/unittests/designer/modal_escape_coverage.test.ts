@@ -130,6 +130,9 @@ describe('every modal gets wxDialog Esc', () => {
     // behind runs *as well as* the stack, so Esc closes two dialogs at once.
     const stray = modalFiles
       .filter((f) => !OWNS_A_CANVAS.includes(f.rel))
+      // DIALOG_SHIM itself: its one Escape branch is the MODELESS window's, which acts only
+      // while that dialog has the focus - a modal one goes through the stack like any other.
+      .filter((f) => f.rel !== '../../common/dialog_shim.tsx')
       .filter((f) => /=== 'Escape'|!== 'Escape'/.test(f.src))
       .map((f) => f.rel);
     expect(stray, 'a modal file with its own Escape branch').toEqual([]);

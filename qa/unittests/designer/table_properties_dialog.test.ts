@@ -137,15 +137,20 @@ describe('the standard button row', () => {
     expect(comp.indexOf('{cancelLabel}')).toBeLessThan(comp.indexOf('{okLabel}'));
   });
 
-  it('gives every button the shared class and never lets one be a submit', () => {
+  it('builds every button from the shared wxButton, which is never a submit', () => {
     // Cancel, OK, and the optional wxID_APPLY button PAD_TOOL's Push Pad
     // Properties dialog needs (c71099d4).
     const comp = read('../../common/dialog_shim.tsx');
-    const tags = comp.match(/<button[^>]*>/g) ?? [];
-    expect(tags).toHaveLength(3);
-    for (const tag of tags) expect(tag).toContain('type="button"');
-    for (const tag of tags) expect(tag).toMatch(/className="ze-btn( primary)?"/);
-    expect(comp).toContain('className="ze-btn primary"');
+    const row = comp.slice(comp.indexOf('export function StdDialogButtons('));
+    const uses = row.slice(0, row.indexOf('\n}\n')).match(/<Button\b[^>]*\/>/g) ?? [];
+    expect(uses).toHaveLength(3);
+    // OK alone is the default button (SetAffirmativeButton).
+    expect(uses.filter((u) => /\bisDefault\b/.test(u))).toEqual([uses[2]]);
+    const button = read('../../common/wx/controls.tsx');
+    const tag =
+      button.slice(button.indexOf('export function Button(')).match(/<button[^>]*>/)?.[0] ?? '';
+    expect(tag).toContain('type="button"');
+    expect(tag).toContain("`ze-btn${isDefault ? ' primary' : ''}");
   });
 
   it('puts Apply between Cancel and OK, as GTK Realize() does', () => {

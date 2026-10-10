@@ -11,7 +11,8 @@
  * (`dialog_shim_buttons`, `dialogs/dialog_size_hints`, `dialogs/modal_escape`,
  * `dialogs/use_modal_escape`).
  */
-import { type JSX, type ReactNode, useEffect, useRef } from 'react';
+import { type JSX, type PointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { Button } from './wx/controls.js';
 import { wasBrowserSuppressed } from './browser_hotkeys.js';
 
 // ---------------------------------------------------------------------------
@@ -275,17 +276,100 @@ export function StdDialogButtons({
     <div className="ze-modal-footer">
       {children}
       {children ? <span className="ze-sdb-spacer" /> : null}
-      <button type="button" className="ze-btn" title={cancelTitle} onClick={onCancel}>
-        {cancelLabel}
-      </button>
-      {onApply ? (
-        <button type="button" className="ze-btn" onClick={onApply}>
-          {applyLabel}
-        </button>
-      ) : null}
-      <button type="button" className="ze-btn primary" disabled={okDisabled} onClick={onOk}>
-        {okLabel}
-      </button>
+      <Button label={cancelLabel} title={cancelTitle} onClick={onCancel} />
+      {onApply ? <Button label={applyLabel} onClick={onApply} /> : null}
+      <Button label={okLabel} isDefault disabled={okDisabled} onClick={onOk} />
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// The dialog window.
+
+export interface DialogShimProps {
+  /** The window title (`SetTitle`), drawn centred in the title bar. */
+  title: string;
+  /** The title bar's close button, and Escape: `wxID_CANCEL`. */
+  onClose: () => void;
+  /**
+   * `Show()` rather than `ShowModal()` / `ShowQuasiModal()`: no backdrop, the frame behind
+   * stays live, and Escape acts only while the dialog has the focus - on the canvas it is the
+   * tool's cancel, not the dialog's.
+   */
+  modeless?: boolean;
+  /** The dialog's own layout class (its `_base.cpp` sizer tree), never its chrome. */
+  className?: string;
+  children: ReactNode;
+}
+
+/**
+ * `DIALOG_SHIM`'s window: the class every KiCad dialog derives from, so no dialog draws its own
+ * frame. The chrome - face, border, the two rounded top corners, the window shadow, the 37px
+ * title bar - is `.ze-modal`'s and `.ze-modal-header`'s; a dialog supplies its title and its
+ * sizer tree and nothing else.
+ *
+ * Like a window, it opens centred over its parent (`Centre( wxBOTH )`, which every `_base.cpp`
+ * ends with) and moves by its title bar. A modal one does not close on a click outside it: the
+ * desktop ignores that click, and so does KiCad.
+ */
+export function DialogShim({
+  title,
+  onClose,
+  modeless = false,
+  className,
+  children,
+}: DialogShimProps): JSX.Element {
+  // The window's position, as an offset from where Centre() put it.
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  useModalEscape(onClose, !modeless);
+
+  const onTitleDown = (e: PointerEvent<HTMLDivElement>): void => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest('.x')) return;
+    drag.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onTitleMove = (e: PointerEvent<HTMLDivElement>): void => {
+    const d = drag.current;
+    if (d) setOffset({ x: d.ox + e.clientX - d.x, y: d.oy + e.clientY - d.y });
+  };
+  const onTitleUp = (): void => {
+    drag.current = null;
+  };
+
+  const frame = (
+    <div
+      className={`ze-modal${modeless ? ' ze-modeless' : ''}${className ? ` ${className}` : ''}`}
+      // The offset is the user's drag, data rather than chrome.
+      style={{ translate: `${offset.x}px ${offset.y}px` }}
+      role="dialog"
+      aria-label={title}
+      onMouseDown={(e) => e.stopPropagation()}
+      onKeyDown={
+        modeless
+          ? (e) => {
+              if (e.key !== 'Escape') return;
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }
+          : undefined
+      }
+    >
+      <div
+        className="ze-modal-header"
+        onPointerDown={onTitleDown}
+        onPointerMove={onTitleMove}
+        onPointerUp={onTitleUp}
+      >
+        {title}
+        <span className="x" title="Close" onClick={onClose}>
+          ✕
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+
+  return modeless ? frame : <div className="ze-modal-backdrop">{frame}</div>;
 }

@@ -22,8 +22,9 @@
  * MODELESS: it is drawn while `dialog.IsShown()`, over the canvas, which stays
  * live (the picker buttons hide it and the picker brings it back).
  */
+import { Button, CheckBox, StaticLine } from '@ziroeda/common/wx/controls.js';
 import { type JSX, type Ref, useEffect, useRef, useSyncExternalStore } from 'react';
-import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import type { UNIT_BINDER } from '@ziroeda/common/widgets/unit_binder.js';
 import {
   DIALOG_POSITION_RELATIVE_TITLE,
@@ -43,9 +44,6 @@ export function DialogPositionRelativeModeless({
   const shown = dialog.IsShown();
   const xRef = useRef<HTMLInputElement>(null);
   const raised = dialog.GetRaiseCount();
-
-  // Esc is wxID_CANCEL, which hides a modeless dialog.
-  useModalEscape(() => dialog.OnCancel(), shown);
 
   // `SetInitialFocus( m_xEntry )`, and `Raise(); SetFocus()` when the picker returns.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `raised` is the trigger, the effect does not read it
@@ -76,43 +74,28 @@ export function DialogPositionRelativeModeless({
   );
 
   return (
-    <div
-      className="ze-modal ze-find-dialog ze-posrel"
-      role="dialog"
-      aria-label={DIALOG_POSITION_RELATIVE_TITLE}
-      onMouseDown={(e) => e.stopPropagation()}
+    <DialogShim
+      title={DIALOG_POSITION_RELATIVE_TITLE}
+      onClose={() => dialog.OnCancel()}
+      modeless
+      className="ze-posrel"
     >
-      <div className="ze-modal-header">
-        {DIALOG_POSITION_RELATIVE_TITLE}
-        <span className="x" onClick={() => dialog.OnCancel()}>
-          ✕
-        </span>
-      </div>
       <div className="ze-posrel-body">
         <div className="ze-posrel-upper">
           <div className="ze-posrel-info">{dialog.m_referenceInfo}</div>
           <div className="ze-posrel-buttons">
-            <button type="button" className="ze-btn" onClick={() => dialog.OnUseUserOriginClick()}>
-              Use Local Origin
-            </button>
-            <button type="button" className="ze-btn" onClick={() => dialog.OnUseGridOriginClick()}>
-              Use Grid Origin
-            </button>
-            <button
-              type="button"
-              className="ze-btn"
+            <Button label="Use Local Origin" onClick={() => dialog.OnUseUserOriginClick()} />
+            <Button label="Use Grid Origin" onClick={() => dialog.OnUseGridOriginClick()} />
+            <Button
+              label="Select Item..."
               title={
                 'Click and select a board item.\nThe anchor position will be the position of the selected item.'
               }
               onClick={() => dialog.OnSelectItemClick()}
-            >
-              Select Item...
-            </button>
-            <button type="button" className="ze-btn" onClick={() => dialog.OnSelectPointClick()}>
-              Select Point...
-            </button>
+            />
+            <Button label="Select Point..." onClick={() => dialog.OnSelectPointClick()} />
           </div>
-          <div className="ze-posrel-line" />
+          <StaticLine className="ze-posrel-line" />
         </div>
 
         <div className="ze-posrel-grid">
@@ -122,14 +105,12 @@ export function DialogPositionRelativeModeless({
           {entry(dialog.m_xOffset, 'ze-posrel-x', 'r1', xRef)}
           <span className="unit">{dialog.GetXUnitLabel()}</span>
           <span className="spacer r1" />
-          <button
-            type="button"
-            className="ze-btn r1"
+          <Button
+            label="Reset"
+            className="r1"
             title={dialog.m_clearXToolTip}
             onClick={() => dialog.OnClear('x')}
-          >
-            Reset
-          </button>
+          />
 
           <label className="lbl r2l" htmlFor="ze-posrel-y">
             {dialog.GetYLabel()}
@@ -137,26 +118,21 @@ export function DialogPositionRelativeModeless({
           {entry(dialog.m_yOffset, 'ze-posrel-y', 'r2')}
           <span className="unit">{dialog.GetYUnitLabel()}</span>
           <span className="spacer r2s" />
-          <button
-            type="button"
-            className="ze-btn r2"
+          <Button
+            label="Reset"
+            className="r2"
             title={dialog.m_clearYToolTip}
             onClick={() => dialog.OnClear('y')}
-          >
-            Reset
-          </button>
+          />
         </div>
       </div>
       <StdDialogButtons onCancel={() => dialog.OnCancel()} onOk={() => dialog.OnOkClick()}>
-        <label>
-          <input
-            type="checkbox"
-            checked={dialog.m_polarCoords}
-            onChange={(e) => dialog.OnPolarChanged(e.target.checked)}
-          />
-          Use polar coordinates
-        </label>
+        <CheckBox
+          label="Use polar coordinates"
+          checked={dialog.m_polarCoords}
+          onChange={(on) => dialog.OnPolarChanged(on)}
+        />
       </StdDialogButtons>
-    </div>
+    </DialogShim>
   );
 }

@@ -4840,13 +4840,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* Modeless Find dialog (DIALOG_SCH_FIND): floats over the canvas, top-right. */
 /* PCB Find dialog (DIALOG_FIND). Layout mirrors dialog_find_base.cpp:
    topSizer[ leftSizer | buttonSizer(vertical) ] / staticline / sizerStatus. */
-.ze-find-dialog {
-  /* A modeless dialog: the window chrome (face, border, the two rounded top
-     corners, the shadow) is `.ze-modal`'s, which it wears; all this says is
-     that it floats over the canvas instead of sitting on a backdrop. */
-  position: absolute;
-  top: 12px;
-  right: 12px;
+/* A modeless DIALOG_SHIM (common/dialog_shim.tsx, `Show()`): the window chrome is
+   `.ze-modal`'s; all this says is that it has no backdrop and opens centred over
+   the frame, as `Centre( wxBOTH )` puts it. */
+.ze-modeless {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   z-index: 60;
 }
 /* DRC Control (dialog_drc_base.cpp): the same DIALOG_SHIM chrome as the ERC
@@ -4895,99 +4896,85 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-erc-subrow.comment {
   font-style: italic;
 }
-.ze-find-body {
-  padding: 10px;
+/* ---------------------------------------------------------------------------
+   DIALOG_FIND (pcbnew/dialogs/dialog_find_base.cpp), the sizer tree in
+   pcbnew/dialogs/dialog_find_ui.tsx. The chrome is DIALOG_SHIM's; every margin
+   here is one Add()'s own border.
+
+   bSizer10 (V)
+     topSizer (H)                       0, wxALL|wxEXPAND 5
+       leftSizer (V)                    1, wxEXPAND
+         bSizer8 (H)                    label wxALL 5, combo 1, wxALL|wxEXPAND 5
+         sizerOptions (H)               boxes wxALL 5, stretch spacers between
+         spacer 0 x 5
+         sizerInclude (0, 2, 6, 20)     wxEXPAND|wxALL 5
+       buttonSizer (V)                  each button wxALL|wxEXPAND 5
+     staticline                         wxEXPAND|wxALL 5
+     sizerStatus (H)                    wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT 5 */
+.ze-pcbfind-main {
   display: flex;
   flex-direction: column;
 }
-/* topSizer (wxHORIZONTAL): content grows, button column fixed on the right. */
-.ze-find-top {
+.ze-pcbfind-top {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  margin: 5px; /* [data] topSizer: wxALL 5 */
 }
-.ze-find-left {
-  flex: 1;
-  min-width: 0;
+.ze-pcbfind-left {
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
-/* bSizer8: "Search for:" + combo (combo grows). */
-.ze-find-searchrow {
+.ze-pcbfind-search {
   display: flex;
   align-items: center;
-  gap: 8px;
 }
-.ze-find-searchrow > span {
-  flex: 0 0 auto;
+.ze-pcbfind-label {
+  margin: 5px; /* [data] searchStringLabel: wxALL 5 */
 }
-.ze-find-searchrow .ze-search {
+.ze-pcbfind-combo {
   flex: 1;
-  min-width: 0;
+  margin: 5px; /* [data] m_searchCombo: wxALL 5 */
 }
-/* sizerOptions (wxHORIZONTAL with stretch spacers): modifiers spread across. */
-.ze-find-modifiers {
+.ze-pcbfind-options {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
 }
-/* sizerInclude = wxFlexGridSizer( 0, 2, 6, 20 ): 2 columns, vgap 6, hgap 20. */
-.ze-find-scope {
+.ze-pcbfind-options .ze-check {
+  margin: 5px; /* [data] each option: wxALL 5 */
+}
+.ze-pcbfind-stretch {
+  flex: 1; /* [data] the stretch spacer, Add( 0, 0, 1, wxEXPAND ) */
+}
+.ze-pcbfind-include {
   display: grid;
-  grid-template-columns: max-content max-content;
-  column-gap: 20px;
-  row-gap: 6px;
-  font-size: 12px;
+  grid-template-columns: repeat(2, max-content);
+  gap: 6px 20px; /* [data] wxFlexGridSizer( 0, 2, 6, 20 ) */
+  margin: 10px 5px 5px; /* [data] the 5px spacer above, then wxALL 5 */
 }
-.ze-find-modifiers label,
-.ze-find-scope label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-/* buttonSizer (wxVERTICAL, each button wxEXPAND). */
-.ze-find-buttons {
+.ze-pcbfind-buttons {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-  flex: 0 0 auto;
-  min-width: 118px;
 }
-.ze-find-buttons button {
-  width: 100%;
+.ze-pcbfind-buttons .ze-btn {
+  margin: 5px; /* [data] each button: wxALL|wxEXPAND 5 */
 }
-/* staticline separator. */
-.ze-find-sep {
-  height: 1px;
-  background: var(--chrome-border);
-  margin: 10px 0;
+.ze-pcbfind-line {
+  margin: 5px; /* [data] staticline: wxEXPAND|wxALL 5 */
 }
-/* sizerStatus: status text (left) + "Show search panel" link (right). */
-.ze-find-status {
+.ze-pcbfind-status {
   display: flex;
   align-items: center;
-  gap: 8px;
+  margin: 0 5px 5px; /* [data] sizerStatus: wxBOTTOM|wxRIGHT|wxLEFT 5 */
 }
-.ze-find-status .status {
-  flex: 1;
-  color: #8a8c90;
-  font-size: 12px;
-}
-.ze-find-panellink {
-  font-size: 12px;
-  color: #6b7684;
-  cursor: default;
+.ze-pcbfind-statustext,
+.ze-pcbfind-link {
+  margin: 0 5px 5px; /* [data] m_status, m_searchPanelLink: wxBOTTOM|wxRIGHT|wxLEFT 5 */
 }
 
 /* ---------------------------------------------------------------------------
    DIALOG_SCH_FIND (dialog_sch_find_base.cpp), the sizer tree in
    eeschema/dialogs/dialog_sch_find.tsx. The chrome (face, caption, border) is
-   the modeless `.ze-find-dialog`'s and is not restated; every margin here is
+   DIALOG_SHIM's (`.ze-modal`) and is not restated; every margin here is
    one Add()'s own border.
 
    mainSizer (V)
@@ -5089,7 +5076,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin: 0 5px 5px; /* [data] bSizer6: wxBOTTOM|wxRIGHT|wxLEFT 5 */
 }
 .ze-schfind-line {
-  border-top: 1px solid var(--chrome-border); /* [css] a wxStaticLine is a GtkSeparator: `separator { min-height: 1px }` */
   margin: 5px 0; /* [data] m_staticline1: wxTOP|wxBOTTOM 5 */
 }
 .ze-schfind-link {
@@ -16721,6 +16707,17 @@ td.ze-grid-bool {
    has one control: the panels that grew their own `.ze-link` each picked a blue
    that no GTK theme here produces, and picked a font size as well, where the
    real control is the dialog's own font in the theme's link colour. */
+/* wxStaticLine (common/wx/controls.tsx StaticLine): a GtkSeparator, whose
+   colour is the measured --gtk-separator - it darkens whatever it is drawn on. */
+.ze-staticline {
+  height: 1px; /* [css] Yaru `separator { min-height: 1px }` */
+  background: var(--gtk-separator);
+}
+.ze-staticline.vertical {
+  height: auto;
+  width: 1px; /* [css] Yaru `separator { min-width: 1px }` */
+  align-self: stretch;
+}
 .ze-hyperlink {
   background: none;
   border: none;
@@ -18768,8 +18765,7 @@ fieldset.ze-import-netlist-options {
 /* ---------------------------------------------------------------------------
    DIALOG_POSITION_RELATIVE (dialog_position_relative_base.cpp), the sizer tree
    in dialog_position_relative_ui.tsx. Every margin is that Add()'s own border;
-   the chrome (face, caption, border) is the modeless `.ze-find-dialog`'s, which
-   it is wearing, and is not restated.
+   the chrome (face, caption, border) is DIALOG_SHIM's, and is not restated.
 
    bMainSizer (V)
      bUpperSizer (V)            wxEXPAND|wxALL 5
@@ -18807,8 +18803,6 @@ fieldset.ze-import-netlist-options {
 }
 .ze-posrel-line {
   margin-top: 5px; /* [data] `bUpperSizer->Add( bSizer6, 0, wxEXPAND|wxTOP, 5 )`. */
-  height: 1px; /* [css] a wxStaticLine is a GtkSeparator: `separator { min-width: 1px }`. */
-  background: var(--gtk-separator);
 }
 .ze-posrel-grid,
 .ze-offset-grid {
