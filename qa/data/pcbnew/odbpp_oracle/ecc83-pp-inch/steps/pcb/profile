@@ -1,0 +1,17 @@
+UNITS=INCH
+#
+#Num Features
+#
+F 1
+#
+#Layer features
+#
+S P 0 
+OB 6.8250 -3.550 I
+OS 6.8250 -3.550
+OS 6.8250 -5.3750
+OS 4.7750 -5.3750
+OS 4.7750 -3.550
+OS 6.8250 -3.550
+OE
+SE

@@ -1,0 +1,20 @@
+H optimize n staggered n
+$1 GND
+$2 SIG
+#
+#Netlist points
+#
+1 0.40 105.0 -105.0 B e c staggered 0 0 0 v
+1 0.50 112.0 -128.0 B e c staggered 0 0 0 v
+1 1.0 112.0 -114.0 B e e staggered 0 0 0
+1 1.0 112.0 -126.0 B e e staggered 0 0 0
+1 0.80 128.0 -114.0 B e e staggered 0 0 0
+1 0 120.0 -120.0 T 2.0 1.20 e s
+1 1.0 120.0 -114.0 B e e staggered 0 0 0
+1 0 116.0 -120.0 T 1.0 1.0 e s
+1 0 124.0 -120.0 T 1.0 1.0 e s
+1 0 124.0 -124.0 T 1.0 1.0 e s
+1 0 116.0 -124.0 T 1.0 1.0 e s
+2 0.60 135.0 -135.0 B e c staggered 0 0 0 v
+2 0 128.0 -126.0 T 1.50 1.50 e s
+2 0 116.0 -117.0 T 0.80 0.80 e s
