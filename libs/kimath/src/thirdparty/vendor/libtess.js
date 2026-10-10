@@ -916,10 +916,14 @@ libtess.mesh.deleteMesh = function(mesh) {
 libtess.mesh.makeEdgePair_ = function(eNext) {
   var e = new libtess.GluHalfEdge();
   var eSym = new libtess.GluHalfEdge();
+  // ZiroEDA: SGI allocates the pair as one struct, so e < eSym, and it links the
+  // new pair before the FIRST half of eNext's pair (the pointer compare below).
+  // libtess.js skipped it; firstOfPair_ stands in for the address order.
+  e.firstOfPair_ = true;
 
-  // TODO(bckenny): how do we ensure this? see above comment in jsdoc
   // Make sure eNext points to the first edge of the edge pair
   // if (eNext->Sym < eNext ) { eNext = eNext->Sym; }
+  if (!eNext.firstOfPair_) { eNext = eNext.sym; }
 
   // NOTE(bckenny): check this for bugs in current implementation!
 
@@ -1394,49 +1398,160 @@ libtess.render = {};
  * @param {boolean} flagEdges
  */
 libtess.render.renderMesh = function(tess, mesh, flagEdges) {
-  var beginCallbackCalled = false;
+  // ZiroEDA: SGI's __gl_renderMesh (render.c), which libtess.js had replaced with
+  // one GL_TRIANGLES batch. Each unmarked inside face goes out in the largest
+  // fan or strip of unmarked faces through it; the faces that join neither are
+  // collected on a trail and rendered last as GL_TRIANGLES. KiCad's VRML_LAYER
+  // numbers vertices in the order the callbacks give them, so the grouping is
+  // part of its output.
+  var f;
+  var lonelyTriList = null;
 
-  // TODO(bckenny): edgeState needs to be boolean, but !== on first call
-  // force edge state output for first vertex
-  var edgeState = -1;
+  var marked = function(face) { return !face.inside || face.marked; };
 
-  // We examine all faces in an arbitrary order. Whenever we find
-  // an inside triangle f, we render f.
-  // NOTE(bckenny): go backwards through face list to match original libtess
-  // triangle order
-  for (var f = mesh.fHead.prev; f !== mesh.fHead; f = f.prev) {
-    if (f.inside) {
-      // We're going to emit a triangle, so call begin callback once
-      if (!beginCallbackCalled) {
-        tess.callBeginCallback(libtess.primitiveType.GL_TRIANGLES);
-        beginCallbackCalled = true;
-      }
+  var maximumFan = function(eOrig) {
+    var size = 0;
+    var trail = null;
+    var e;
 
-      // check that face has only three edges
-      var e = f.anEdge;
-      // Loop once for each edge (there will always be 3 edges)
-      do {
-        if (flagEdges) {
-          // Set the "edge state" to true just before we output the
-          // first vertex of each edge on the polygon boundary.
-          var newState = !e.rFace().inside ? 1 : 0; // TODO(bckenny): total hack to get edgeState working. fix me.
-          if (edgeState !== newState) {
-            edgeState = newState;
-            // TODO(bckenny): edgeState should be boolean now
-            tess.callEdgeFlagCallback(!!edgeState);
-          }
-        }
+    for (e = eOrig; !marked(e.lFace); e = e.oNext) {
+      e.lFace.trail = trail; trail = e.lFace; e.lFace.marked = true;
+      ++size;
+    }
+    for (e = eOrig; !marked(e.rFace()); e = e.oPrev()) {
+      var rf = e.rFace();
+      rf.trail = trail; trail = rf; rf.marked = true;
+      ++size;
+    }
+    var eStart = e;
+    while (trail !== null) { trail.marked = false; trail = trail.trail; }
+    return {size: size, eStart: eStart, render: renderFan};
+  };
 
-        // emit vertex
-        tess.callVertexCallback(e.org.data);
+  var maximumStrip = function(eOrig) {
+    var headSize = 0;
+    var tailSize = 0;
+    var trail = null;
+    var e, eTail, eHead;
 
-        e = e.lNext;
-      } while (e !== f.anEdge);
+    for (e = eOrig; !marked(e.lFace); ++tailSize, e = e.oNext) {
+      e.lFace.trail = trail; trail = e.lFace; e.lFace.marked = true;
+      ++tailSize;
+      e = e.dPrev();
+      if (marked(e.lFace)) break;
+      e.lFace.trail = trail; trail = e.lFace; e.lFace.marked = true;
+    }
+    eTail = e;
+
+    for (e = eOrig; !marked(e.rFace()); ++headSize, e = e.dNext()) {
+      var rf = e.rFace();
+      rf.trail = trail; trail = rf; rf.marked = true;
+      ++headSize;
+      e = e.oPrev();
+      if (marked(e.rFace())) break;
+      rf = e.rFace();
+      rf.trail = trail; trail = rf; rf.marked = true;
+    }
+    eHead = e;
+
+    var size = tailSize + headSize;
+    var eStart;
+    if ((tailSize & 1) === 0) {
+      eStart = eTail.sym;
+    } else if ((headSize & 1) === 0) {
+      eStart = eHead;
+    } else {
+      // Both sides have odd length, we must shorten one of them.
+      --size;
+      eStart = eHead.oNext;
+    }
+    while (trail !== null) { trail.marked = false; trail = trail.trail; }
+    return {size: size, eStart: eStart, render: renderStrip};
+  };
+
+  var renderTriangle = function(e, size) {
+    e.lFace.trail = lonelyTriList; lonelyTriList = e.lFace; e.lFace.marked = true;
+  };
+
+  var renderFan = function(e, size) {
+    tess.callBeginCallback(libtess.primitiveType.GL_TRIANGLE_FAN);
+    tess.callVertexCallback(e.org.data);
+    tess.callVertexCallback(e.dst().data);
+
+    while (!marked(e.lFace)) {
+      e.lFace.marked = true;
+      --size;
+      e = e.oNext;
+      tess.callVertexCallback(e.dst().data);
+    }
+    tess.callEndCallback();
+  };
+
+  var renderStrip = function(e, size) {
+    tess.callBeginCallback(libtess.primitiveType.GL_TRIANGLE_STRIP);
+    tess.callVertexCallback(e.org.data);
+    tess.callVertexCallback(e.dst().data);
+
+    while (!marked(e.lFace)) {
+      e.lFace.marked = true;
+      --size;
+      e = e.dPrev();
+      tess.callVertexCallback(e.org.data);
+      if (marked(e.lFace)) break;
+
+      e.lFace.marked = true;
+      --size;
+      e = e.oNext;
+      tess.callVertexCallback(e.dst().data);
+    }
+    tess.callEndCallback();
+  };
+
+  var renderMaximumFaceGroup = function(fOrig) {
+    var e = fOrig.anEdge;
+    var max = {size: 1, eStart: e, render: renderTriangle};
+    var newFace;
+
+    if (!flagEdges) {
+      newFace = maximumFan(e); if (newFace.size > max.size) { max = newFace; }
+      newFace = maximumFan(e.lNext); if (newFace.size > max.size) { max = newFace; }
+      newFace = maximumFan(e.lPrev()); if (newFace.size > max.size) { max = newFace; }
+
+      newFace = maximumStrip(e); if (newFace.size > max.size) { max = newFace; }
+      newFace = maximumStrip(e.lNext); if (newFace.size > max.size) { max = newFace; }
+      newFace = maximumStrip(e.lPrev()); if (newFace.size > max.size) { max = newFace; }
+    }
+    max.render(max.eStart, max.size);
+  };
+
+  for (f = mesh.fHead.next; f !== mesh.fHead; f = f.next) {
+    f.marked = false;
+  }
+  for (f = mesh.fHead.next; f !== mesh.fHead; f = f.next) {
+    if (f.inside && !f.marked) {
+      renderMaximumFaceGroup(f);
     }
   }
 
-  // only call end callback if begin was called
-  if (beginCallbackCalled) {
+  if (lonelyTriList !== null) {
+    // RenderLonelyTriangles
+    var edgeState = -1;
+    tess.callBeginCallback(libtess.primitiveType.GL_TRIANGLES);
+
+    for (f = lonelyTriList; f !== null; f = f.trail) {
+      var e = f.anEdge;
+      do {
+        if (flagEdges) {
+          var newState = !e.rFace().inside ? 1 : 0;
+          if (edgeState !== newState) {
+            edgeState = newState;
+            tess.callEdgeFlagCallback(!!edgeState);
+          }
+        }
+        tess.callVertexCallback(e.org.data);
+        e = e.lNext;
+      } while (e !== f.anEdge);
+    }
     tess.callEndCallback();
   }
 };
@@ -2029,8 +2144,10 @@ libtess.sweep.vertexWeights_ = function(isect, org, dst, weights, weightIndex) {
   // 2) better way? manually inline into getIntersectData? supply two two-length tmp arrays?
   var i0 = weightIndex;
   var i1 = weightIndex + 1;
-  weights[i0] = 0.5 * t2 / (t1 + t2);
-  weights[i1] = 0.5 * t1 / (t1 + t2);
+  // ZiroEDA: SGI declares the weights GLfloat (sweep.c GetIntersectData), so they are
+  // rounded to float32 before they place the vertex; libtess.js kept them double.
+  weights[i0] = Math.fround(0.5 * t2 / (t1 + t2));
+  weights[i1] = Math.fround(0.5 * t1 / (t1 + t2));
   isect.coords[0] += weights[i0] * org.coords[0] + weights[i1] * dst.coords[0];
   isect.coords[1] += weights[i0] * org.coords[1] + weights[i1] * dst.coords[1];
   isect.coords[2] += weights[i0] * org.coords[2] + weights[i1] * dst.coords[2];
@@ -4084,6 +4201,8 @@ libtess.GluMesh = function() {
   this.eHeadSym = new libtess.GluHalfEdge();
 
   // TODO(bckenny): better way to pair these?
+  // ZiroEDA: GLUmesh declares eHead before eHeadSym, so eHead is the first half.
+  this.eHead.firstOfPair_ = true;
   this.eHead.sym = this.eHeadSym;
   this.eHeadSym.sym = this.eHead;
 };
