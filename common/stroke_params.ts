@@ -148,9 +148,11 @@ import { ClipLine } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { type SHAPE, SHAPE_TYPE, SHAPE_TYPE_asString } from '@ziroeda/kimath/src/geometry/shape.js';
 import type { SHAPE_ARC } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import type { SHAPE_RECT } from '@ziroeda/kimath/src/geometry/shape_rect.js';
+import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { SHAPE_SEGMENT } from '@ziroeda/kimath/src/geometry/shape_segment.js';
 import type { SHAPE_SIMPLE } from '@ziroeda/kimath/src/geometry/shape_simple.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { hypot } from '@ziroeda/kimath/src/math/libm.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { type Color4d, COLOR4D_UNSPECIFIED } from './gal/color4d.js';
@@ -388,6 +390,69 @@ export class STROKE_PARAMS {
           const seg = poly.GetSegment(ii);
           const line = new SHAPE_SEGMENT(seg.A, seg.B);
           STROKE_PARAMS.Stroke(line, aLineStyle, aWidth, aRenderSettings, aStroker);
+        }
+
+        break;
+      }
+
+      case SHAPE_TYPE.SH_LINE_CHAIN: {
+        const chain = aShape as SHAPE_LINE_CHAIN;
+
+        let patternLength = 0.0;
+
+        for (let ii = 0; ii < wrapAround; ++ii) patternLength += strokes[ii]!;
+
+        // A zero-width shape makes every element zero long, and the walk would never advance.
+        if (patternLength <= 0.0) break;
+
+        let element = 0;
+        let remaining = strokes[0]!;
+
+        for (let ii = 0; ii < chain.SegmentCount(); ++ii) {
+          const seg = chain.CSegment(ii);
+          const segX = seg.B.x - seg.A.x;
+          const segY = seg.B.y - seg.A.y;
+          // VECTOR2D::EuclideanNorm: |x|*sqrt2 at 45 degrees, |y| / |x| on an axis, else hypot.
+          const segLength =
+            Math.abs(segX) === Math.abs(segY)
+              ? Math.abs(segX) * Math.SQRT2
+              : segX === 0
+                ? Math.abs(segY)
+                : segY === 0
+                  ? Math.abs(segX)
+                  : hypot(segX, segY);
+
+          if (segLength === 0.0) continue;
+
+          // The pattern carries across the vertices, so calculations MUST be done in
+          // doubles to keep from accumulating rounding errors along the chain.
+          const stepX = segX / segLength;
+          const stepY = segY / segLength;
+          let startX = seg.A.x;
+          let startY = seg.A.y;
+          let walked = 0.0;
+
+          while (walked < segLength) {
+            const length = Math.min(remaining, segLength - walked);
+            const nextX = startX + stepX * length;
+            const nextY = startY + stepY * length;
+
+            if (element % 2 === 0)
+              aStroker(
+                { x: KiROUND(startX), y: KiROUND(startY) },
+                { x: KiROUND(nextX), y: KiROUND(nextY) },
+              );
+
+            walked += length;
+            remaining -= length;
+            startX = nextX;
+            startY = nextY;
+
+            if (remaining <= 0.0) {
+              element++;
+              remaining = strokes[element % wrapAround]!;
+            }
+          }
         }
 
         break;
