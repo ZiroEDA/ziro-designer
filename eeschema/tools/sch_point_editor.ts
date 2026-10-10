@@ -40,7 +40,7 @@ import { KIGEOM_GetSegsInDirection } from '@ziroeda/kimath/src/geometry/shape_ut
 import { SEG } from '@ziroeda/kimath/src/geometry/seg.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { INT_MAX } from '@ziroeda/kimath/src/math/util.js';
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { Directions } from '@ziroeda/kimath/src/geometry/direction45.js';
 import { ARC_LOW_DEF_MM } from '@ziroeda/kimath/src/base_units.js';
 import type { SCH_BASE_FRAME } from '../sch_base_frame.js';
@@ -1346,7 +1346,9 @@ export class SCH_POINT_EDITOR extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
 
     if (shape.GetShape() !== SHAPE_T.POLY) return false;
 
-    const cursorPos = this.controls().GetCursorPosition(false);
+    // `VECTOR2I cursorPos = GetCursorPosition( false )`: the raw position is a VECTOR2D, cast on
+    // assignment; a slanted polygon edge's hit test needs the integer point.
+    const cursorPos = toVECTOR2I(this.controls().GetCursorPosition(false));
     const threshold = this.getView()!.ToWorld(EDIT_POINT.POINT_SIZE);
 
     return shape.HitTest(cursorPos, Math.trunc(threshold));
