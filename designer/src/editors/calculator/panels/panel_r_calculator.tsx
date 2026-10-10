@@ -14,6 +14,7 @@
  * below carrying `r_calculator_help.md` verbatim.
  */
 
+import { RadioButton } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import {
   ESERIES,
@@ -125,15 +126,14 @@ export function PanelRCalculator(): JSX.Element {
           <hr className="calc-hr" />
           <div className="rc-series">
             {R_SERIES.map((e) => (
-              <label key={e.id} className="calc-radio">
-                <input
-                  type="radio"
-                  name="rcalc-serie"
-                  checked={serie === e.id}
-                  onChange={() => setSerie(e.id)}
-                />
-                {e.name}
-              </label>
+              <RadioButton
+                key={e.id}
+                label={e.name}
+                name="rcalc-serie"
+                checked={serie === e.id}
+                className="calc-radio"
+                onChange={() => setSerie(e.id)}
+              />
             ))}
           </div>
         </fieldset>

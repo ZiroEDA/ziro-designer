@@ -24,7 +24,7 @@
  * `include/dialogs/dialog_paste_special.h:33-38`, not in eeschema or pcbnew.
  */
 
-import { Button, CheckBox } from '../wx/controls.js';
+import { Button, CheckBox, RadioButton } from '../wx/controls.js';
 import { useState, type JSX } from 'react';
 import { DialogShim } from '../dialog_shim.js';
 
@@ -115,15 +115,14 @@ export function DialogPasteSpecial({
         <fieldset className="ze-props-group">
           <legend>Reference Designators</legend>
           {PASTE_MODES.map((m) => (
-            <label key={m} title={tooltip(m)}>
-              <input
-                type="radio"
-                name="pastemode"
-                checked={mode === m}
-                onChange={() => setMode(m)}
-              />{' '}
-              {OPTION_LABELS[m]}
-            </label>
+            <RadioButton
+              key={m}
+              label={OPTION_LABELS[m]}
+              name="pastemode"
+              checked={mode === m}
+              title={tooltip(m)}
+              onChange={() => setMode(m)}
+            />
           ))}
         </fieldset>
         {showClearNets && (

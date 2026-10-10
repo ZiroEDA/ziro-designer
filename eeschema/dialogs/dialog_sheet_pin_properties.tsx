@@ -10,7 +10,7 @@
  * SCH_COMMIT. The form below is the base sizer tree: Name (a wxComboBox) with Syntax help, then
  * the Shape radio box beside the Formatting box (font, bold, italic, text size, colour).
  */
-import { Button } from '@ziroeda/common/wx/controls.js';
+import { Button, RadioButton } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
@@ -187,15 +187,13 @@ export function DialogSheetPinProperties({
           <fieldset className="ze-lp-shape">
             <legend>Shape</legend>
             {SHAPES.map((s) => (
-              <label key={s.shape}>
-                <input
-                  type="radio"
-                  name="ze-spp-shape"
-                  checked={shape === s.shape}
-                  onChange={() => setShape(s.shape)}
-                />
-                {s.label}
-              </label>
+              <RadioButton
+                key={s.shape}
+                label={s.label}
+                name="ze-spp-shape"
+                checked={shape === s.shape}
+                onChange={() => setShape(s.shape)}
+              />
             ))}
           </fieldset>
 

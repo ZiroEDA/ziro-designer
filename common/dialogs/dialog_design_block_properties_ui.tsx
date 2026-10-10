@@ -25,6 +25,7 @@
  * The grid is a WX_GRID with GRID_TRICKS, rows selected whole, column 1
  * autosized (`SetupColumnAutosizer( 1 )`).
  */
+import { StaticBox } from '../wx/controls.js';
 import { useState, type JSX } from 'react';
 import type { DESIGN_BLOCK } from '../design_block.js';
 import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
@@ -109,8 +110,7 @@ export function DialogDesignBlockProperties({
       className="ze-dbprops"
     >
       <div className="ze-dbprops-margins">
-        <fieldset className="ze-sbox ze-dbprops-fields">
-          <legend>Default Fields</legend>
+        <StaticBox label="Default Fields" className="ze-dbprops-fields">
           <div className="ze-grid-pane ze-dbprops-gridpane">
             <WxGridView
               grid={grid}
@@ -150,7 +150,7 @@ export function DialogDesignBlockProperties({
               onClick={() => grid.OnDeleteRows((row) => grid.DeleteRows(row, 1))}
             />
           </div>
-        </fieldset>
+        </StaticBox>
       </div>
       <div className="ze-dbprops-props">
         <label htmlFor="ze-dbprops-name">Name:</label>

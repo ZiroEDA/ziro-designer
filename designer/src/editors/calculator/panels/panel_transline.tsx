@@ -30,6 +30,7 @@
  * upstream's 0.2 and 0.2.
  */
 
+import { RadioButton } from '@ziroeda/common/wx/controls.js';
 import {
   CONDUCTOR_RESISTIVITIES,
   LOSS_TANGENTS,
@@ -762,10 +763,14 @@ export function PanelTransline(): JSX.Element {
               (panel_transline_base.cpp:33-35). */}
           <Group title="Transmission Line Type" className="calc-radiobox tl-types">
             {LINE_TYPE_ORDER.map((t) => (
-              <label key={t} className="calc-radio">
-                <input type="radio" name="tl-type" checked={type === t} onChange={() => pick(t)} />
-                {TRANSLINES[t].name}
-              </label>
+              <RadioButton
+                key={t}
+                label={TRANSLINES[t].name}
+                name="tl-type"
+                checked={type === t}
+                className="calc-radio"
+                onChange={() => pick(t)}
+              />
             ))}
           </Group>
           {/* m_translineBitmap: KiBitmapBundle( m_BitmapName ), centred, 10 px

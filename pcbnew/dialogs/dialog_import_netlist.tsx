@@ -41,7 +41,7 @@ import {
   type Severity,
 } from '@ziroeda/common/reporter.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
-import { Button, Check, Radio } from '@ziroeda/common/wx/controls.js';
+import { Button, Check, Radio, StaticBox } from '@ziroeda/common/wx/controls.js';
 import { WxFileDialog, type ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 
 /** `FILEEXT::NetlistFileWildcard()`. */
@@ -218,8 +218,7 @@ export function DialogImportNetlist({
           </button>
         </div>
         <div className="ze-import-netlist-upper">
-          <fieldset className="ze-sbox ze-import-netlist-link">
-            <legend>Link Method</legend>
+          <StaticBox label="Link Method" className="ze-import-netlist-link">
             {/* The tooltip is the radio box's own. */}
             <div title="Select whether to update footprint references to match their currently-assigned symbols, or to re-assign footprints to symbols which match their current references.">
               <Radio
@@ -232,15 +231,14 @@ export function DialogImportNetlist({
                 onChange={(v) => change({ matchByReference: v === 1 })}
               />
             </div>
-          </fieldset>
-          <fieldset className="ze-sbox ze-import-netlist-options">
-            <legend>Options</legend>
+          </StaticBox>
+          <StaticBox label="Options" className="ze-import-netlist-options">
             {check('deleteExtraFootprints', 'Delete footprints with no components in netlist')}
             {check('updateFootprints', 'Replace footprints with those specified in netlist')}
             {check('transferGroups', 'Group footprints based on symbol group')}
             {check('overrideLocks', 'Delete/replace footprints even if locked')}
             {check('deleteShortingTracks', 'Delete tracks shorting multiple nets')}
-          </fieldset>
+          </StaticBox>
         </div>
         <div className="ze-import-netlist-lower">
           <HtmlReportPanel

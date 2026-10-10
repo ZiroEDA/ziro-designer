@@ -16,7 +16,7 @@
  * one is OK: `OnLayerSelected` posts wxID_OK (`:163-166`).
  */
 
-import { Button } from '@ziroeda/common/wx/controls.js';
+import { Button, RadioButton } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import type { SELECT_LAYER_DIALOG } from './dialog_select_one_pcb_layer.js';
@@ -56,18 +56,16 @@ export function DialogSelectOnePcbLayer({
               style={{ gridTemplateRows: `repeat(${dlg.GetMajorDimension()}, auto)` }}
             >
               {dlg.m_layerList.map((name, i) => (
-                <label key={`${dlg.m_layerId[i]}`}>
-                  <input
-                    type="radio"
-                    name="select-one-pcb-layer"
-                    checked={selection === i}
-                    onChange={() => {
-                      setSelection(i);
-                      ok(i);
-                    }}
-                  />
-                  {name}
-                </label>
+                <RadioButton
+                  key={`${dlg.m_layerId[i]}`}
+                  label={name}
+                  name="select-one-pcb-layer"
+                  checked={selection === i}
+                  onChange={() => {
+                    setSelection(i);
+                    ok(i);
+                  }}
+                />
               ))}
             </div>
           </fieldset>

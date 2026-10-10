@@ -6,6 +6,7 @@
  * Delete" beside "Filter Settings", the "Layer Filter" radio box below, then
  * OK / Cancel. The lock filters grey out while their item box is clear.
  */
+import { RadioButton, StaticBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import type { DIALOG_GLOBAL_DELETION } from './dialog_global_deletion.js';
@@ -46,8 +47,7 @@ export function DialogGlobalDeletion({
     <DialogShim title="Delete Items" onClose={() => onResult(false)} className="ze-globaldel">
       <div className="ze-modal-body">
         <div className="ze-globaldel-upper">
-          <fieldset className="ze-sbox ze-globaldel-items">
-            <legend>Items to Delete</legend>
+          <StaticBox label="Items to Delete" className="ze-globaldel-items">
             {box('m_delZones', 'Zones', 'brl5')}
             {box('m_delTexts', 'Text', 'brl5')}
             {box('m_delBoardEdges', 'Board outlines', 'brl5')}
@@ -57,9 +57,8 @@ export function DialogGlobalDeletion({
             {box('m_delTeardrops', 'Teardrops', 'brl5')}
             {box('m_delMarkers', 'Markers', 'brl5')}
             {box('m_delAll', 'Clear board', 'brl5')}
-          </fieldset>
-          <fieldset className="ze-sbox ze-globaldel-filter">
-            <legend>Filter Settings</legend>
+          </StaticBox>
+          <StaticBox label="Filter Settings" className="ze-globaldel-filter">
             <div className="ze-globaldel-filter-grid">
               {box('m_drawingFilterLocked', 'Locked graphics', 'rl5', drawings)}
               {box('m_drawingFilterUnlocked', 'Unlocked graphics', 'brl5', drawings)}
@@ -70,23 +69,22 @@ export function DialogGlobalDeletion({
               {box('m_viaFilterLocked', 'Locked vias', 'rl5', tracks)}
               {box('m_viaFilterUnlocked', 'Unlocked vias', 'rl5', tracks)}
             </div>
-          </fieldset>
+          </StaticBox>
         </div>
         <fieldset className="ze-sbox ze-globaldel-layers" role="radiogroup">
           <legend>Layer Filter</legend>
           {dialog.m_layerOptionLabels.map((label, i) => (
-            <label key={label} className="ze-radio">
-              <input
-                type="radio"
-                name="ze-globaldel-layer"
-                checked={dialog.m_rbLayersOption === i}
-                onChange={() => {
-                  dialog.m_rbLayersOption = i;
-                  setTick((t) => t + 1);
-                }}
-              />
-              {label}
-            </label>
+            <RadioButton
+              key={label}
+              label={label}
+              name="ze-globaldel-layer"
+              checked={dialog.m_rbLayersOption === i}
+              className="ze-radio"
+              onChange={() => {
+                dialog.m_rbLayersOption = i;
+                setTick((t) => t + 1);
+              }}
+            />
           ))}
         </fieldset>
       </div>

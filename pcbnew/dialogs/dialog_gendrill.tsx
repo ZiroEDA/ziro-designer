@@ -38,7 +38,7 @@
  * manager, falling back to a browser download when the board is standalone
  * (`plot-print-cloud-output` memory).
  */
-import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, RadioButton, StaticBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import type { BOARD } from '../board.js';
 import { PCB_PLOT_PARAMS } from '../pcb_plot_params.js';
@@ -286,15 +286,12 @@ export function DialogGendrill({
           <div className="ze-gendrill-col" style={{ flex: 1 }}>
             <div className="ze-gendrill-headline">Format</div>
             <hr className="ze-gendrill-rule" />
-            <label className="ze-check">
-              <input
-                type="radio"
-                name="ze-gendrill-fmt"
-                checked={excellonSelected}
-                onChange={() => setFormat('excellon')}
-              />
-              Excellon
-            </label>
+            <RadioButton
+              label="Excellon"
+              name="ze-gendrill-fmt"
+              checked={excellonSelected}
+              onChange={() => setFormat('excellon')}
+            />
             <div className="ze-gendrill-suboptions">
               <CheckBox
                 label="Mirror Y axis"
@@ -328,15 +325,12 @@ export function DialogGendrill({
                 onChange={(aChecked) => setAltDrillMode(aChecked)}
               />
             </div>
-            <label className="ze-check">
-              <input
-                type="radio"
-                name="ze-gendrill-fmt"
-                checked={!excellonSelected}
-                onChange={() => setFormat('gerberx2')}
-              />
-              Gerber X2
-            </label>
+            <RadioButton
+              label="Gerber X2"
+              name="ze-gendrill-fmt"
+              checked={!excellonSelected}
+              onChange={() => setFormat('gerberx2')}
+            />
             <div className="ze-gendrill-suboptions">
               <CheckBox
                 label="Generate tenting layers"
@@ -404,10 +398,9 @@ export function DialogGendrill({
           </div>
         </div>
 
-        <fieldset className="ze-sbox ze-gendrill-messages">
-          <legend>Messages</legend>
+        <StaticBox label="Messages" className="ze-gendrill-messages">
           <textarea readOnly value={messages.join('\n')} />
-        </fieldset>
+        </StaticBox>
       </div>
 
       <div className="ze-modal-footer">

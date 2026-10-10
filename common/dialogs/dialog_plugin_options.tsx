@@ -21,6 +21,7 @@
  * The grid is a WX_GRID with GRID_TRICKS, rows selected whole; column 0 is
  * autosized with a 72 px floor and column 1 takes the rest (`onUpdateUI`).
  */
+import { StaticBox } from '../wx/controls.js';
 import { useState, type JSX } from 'react';
 import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import { formatLibraryTableOptions, parseLibraryTableOptions } from '../libraries/library_table.js';
@@ -126,8 +127,7 @@ export function DIALOG_PLUGIN_OPTIONS({
       className="ze-pluginopts"
     >
       <div className="ze-pluginopts-upper">
-        <fieldset className="ze-sbox ze-pluginopts-grid">
-          <legend>Plugin Options</legend>
+        <StaticBox label="Plugin Options" className="ze-pluginopts-grid">
           <div className="ze-grid-pane ze-pluginopts-gridpane">
             <WxGridView
               grid={grid}
@@ -153,9 +153,8 @@ export function DIALOG_PLUGIN_OPTIONS({
               onClick={() => grid.OnDeleteRows((row) => grid.DeleteRows(row, 1))}
             />
           </div>
-        </fieldset>
-        <fieldset className="ze-sbox ze-pluginopts-choices">
-          <legend>Option Choices</legend>
+        </StaticBox>
+        <StaticBox label="Option Choices" className="ze-pluginopts-choices">
           <div
             className="ze-checklistbox ze-pluginopts-list"
             role="listbox"
@@ -187,7 +186,7 @@ export function DIALOG_PLUGIN_OPTIONS({
           </button>
           <span className="ze-pluginopts-spacer" />
           <HtmlWindow className="ze-pluginopts-html" html={help} />
-        </fieldset>
+        </StaticBox>
       </div>
       <StdDialogButtons
         onCancel={() => onResult(null)}

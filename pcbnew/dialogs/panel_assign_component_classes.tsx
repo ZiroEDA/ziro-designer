@@ -17,7 +17,7 @@
  * `.ze-pref-group-title`, which draws the wxStaticLine this had inline.
  */
 
-import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, RadioButton } from '@ziroeda/common/wx/controls.js';
 import type { JSX } from 'react';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
@@ -156,24 +156,20 @@ export function PanelPcbComponentClasses({ value, onChange }: Props): JSX.Elemen
                 </div>
 
                 <div className="ze-pref-radiorow">
-                  <label className="ze-pref-radio">
-                    <input
-                      type="radio"
-                      name={`match-${i}`}
-                      checked={a.matchMode === 'all'}
-                      onChange={() => setAssignment(i, { matchMode: 'all' })}
-                    />
-                    Match all
-                  </label>
-                  <label className="ze-pref-radio">
-                    <input
-                      type="radio"
-                      name={`match-${i}`}
-                      checked={a.matchMode === 'any'}
-                      onChange={() => setAssignment(i, { matchMode: 'any' })}
-                    />
-                    Match any
-                  </label>
+                  <RadioButton
+                    label="Match all"
+                    name={`match-${i}`}
+                    checked={a.matchMode === 'all'}
+                    className="ze-pref-radio"
+                    onChange={() => setAssignment(i, { matchMode: 'all' })}
+                  />
+                  <RadioButton
+                    label="Match any"
+                    name={`match-${i}`}
+                    checked={a.matchMode === 'any'}
+                    className="ze-pref-radio"
+                    onChange={() => setAssignment(i, { matchMode: 'any' })}
+                  />
                 </div>
 
                 {/* Condition rows */}

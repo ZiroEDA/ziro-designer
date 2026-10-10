@@ -28,7 +28,7 @@
  * `$INSUNITS` is measured in — the header wins whenever there is one.
  */
 
-import { Button } from '@ziroeda/common/wx/controls.js';
+import { Button, RadioButton } from '@ziroeda/common/wx/controls.js';
 import { useMemo, useState, type JSX } from 'react';
 import { GRAPHICS_IMPORTER_SCH, type SchImportedItem } from './graphics_importer_sch.js';
 import { GRAPHICS_IMPORTER_LIB_SYMBOL } from './graphics_importer_lib_symbol.js';
@@ -274,14 +274,18 @@ export function DialogImportGfx({ onOk, onCancel, sink = 'sch' }: Props): JSX.El
 
         <fieldset>
           <legend>Placement</legend>
-          <label className="row">
-            <input type="radio" checked={interactive} onChange={() => setInteractive(true)} />
-            <span>Interactive placement</span>
-          </label>
-          <label className="row">
-            <input type="radio" checked={!interactive} onChange={() => setInteractive(false)} />
-            <span>At</span>
-          </label>
+          <RadioButton
+            label="Interactive placement"
+            checked={interactive}
+            className="row"
+            onChange={() => setInteractive(true)}
+          />
+          <RadioButton
+            label="At"
+            checked={!interactive}
+            className="row"
+            onChange={() => setInteractive(false)}
+          />
           <div style={{ display: 'flex', gap: 16 }}>
             {num('X:', 'x', params.originMM.x, 'mm', !interactive)}
             {num('Y:', 'y', params.originMM.y, 'mm', !interactive)}

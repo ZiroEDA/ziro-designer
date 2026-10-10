@@ -41,6 +41,7 @@
  * frames also construct. It is ported alongside, in
  * `widgets/panel_selection_filter.tsx`.
  */
+import { RadioButton } from '@ziroeda/common/wx/controls.js';
 import { useMemo, useRef, useState, type JSX } from 'react';
 import { COLOR4D_UNSPECIFIED, parseColor4d } from '@ziroeda/common/gal/color4d.js';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
@@ -511,65 +512,53 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
               Net colors:
             </div>
             <div className="ze-radio-row ze-radio-gap">
-              <label title="Net and netclass colors are shown on all copper items">
-                <input
-                  type="radio"
-                  name="ze-netcolor"
-                  checked={nets.netColorMode === 'all'}
-                  onChange={() => nets.onNetColorMode('all')}
-                />
-                All
-              </label>
-              <label title="Net and netclass colors are shown on the ratsnest only">
-                <input
-                  type="radio"
-                  name="ze-netcolor"
-                  checked={nets.netColorMode === 'ratsnest'}
-                  onChange={() => nets.onNetColorMode('ratsnest')}
-                />
-                Ratsnest
-              </label>
-              <label title="Net and netclass colors are not shown">
-                <input
-                  type="radio"
-                  name="ze-netcolor"
-                  checked={nets.netColorMode === 'off'}
-                  onChange={() => nets.onNetColorMode('off')}
-                />
-                None
-              </label>
+              <RadioButton
+                label="All"
+                name="ze-netcolor"
+                checked={nets.netColorMode === 'all'}
+                title="Net and netclass colors are shown on all copper items"
+                onChange={() => nets.onNetColorMode('all')}
+              />
+              <RadioButton
+                label="Ratsnest"
+                name="ze-netcolor"
+                checked={nets.netColorMode === 'ratsnest'}
+                title="Net and netclass colors are shown on the ratsnest only"
+                onChange={() => nets.onNetColorMode('ratsnest')}
+              />
+              <RadioButton
+                label="None"
+                name="ze-netcolor"
+                checked={nets.netColorMode === 'off'}
+                title="Net and netclass colors are not shown"
+                onChange={() => nets.onNetColorMode('off')}
+              />
             </div>
             <div className="ze-info ze-inset" title="Choose which ratsnest lines to display">
               Ratsnest display:
             </div>
             <div className="ze-radio-row ze-radio-gap">
-              <label title="Show ratsnest lines to items on all layers">
-                <input
-                  type="radio"
-                  name="ze-ratsmode"
-                  checked={nets.ratsnestMode === 'all'}
-                  onChange={() => nets.onRatsnestMode('all')}
-                />
-                All
-              </label>
-              <label title="Show ratsnest lines to items on visible layers">
-                <input
-                  type="radio"
-                  name="ze-ratsmode"
-                  checked={nets.ratsnestMode === 'visible'}
-                  onChange={() => nets.onRatsnestMode('visible')}
-                />
-                Visible layers
-              </label>
-              <label title="Hide all ratsnest lines">
-                <input
-                  type="radio"
-                  name="ze-ratsmode"
-                  checked={nets.ratsnestMode === 'off'}
-                  onChange={() => nets.onRatsnestMode('off')}
-                />
-                None
-              </label>
+              <RadioButton
+                label="All"
+                name="ze-ratsmode"
+                checked={nets.ratsnestMode === 'all'}
+                title="Show ratsnest lines to items on all layers"
+                onChange={() => nets.onRatsnestMode('all')}
+              />
+              <RadioButton
+                label="Visible layers"
+                name="ze-ratsmode"
+                checked={nets.ratsnestMode === 'visible'}
+                title="Show ratsnest lines to items on visible layers"
+                onChange={() => nets.onRatsnestMode('visible')}
+              />
+              <RadioButton
+                label="None"
+                name="ze-ratsmode"
+                checked={nets.ratsnestMode === 'off'}
+                title="Hide all ratsnest lines"
+                onChange={() => nets.onRatsnestMode('off')}
+              />
             </div>
           </WxCollapsiblePane>
         )}
@@ -589,33 +578,27 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
                   (appearance_controls.cpp:1944-1951). */}
             <div className="ze-info">Inactive layers (H):</div>
             <div className="ze-radio-row">
-              <label title="Inactive layers will be shown in full color">
-                <input
-                  type="radio"
-                  name="ze-hc"
-                  checked={contrast === 'normal'}
-                  onChange={() => onContrast('normal')}
-                />
-                Normal
-              </label>
-              <label title="Inactive layers will be dimmed">
-                <input
-                  type="radio"
-                  name="ze-hc"
-                  checked={contrast === 'dim'}
-                  onChange={() => onContrast('dim')}
-                />
-                Dim
-              </label>
-              <label title="Inactive layers will be hidden">
-                <input
-                  type="radio"
-                  name="ze-hc"
-                  checked={contrast === 'hide'}
-                  onChange={() => onContrast('hide')}
-                />
-                Hide
-              </label>
+              <RadioButton
+                label="Normal"
+                name="ze-hc"
+                checked={contrast === 'normal'}
+                title="Inactive layers will be shown in full color"
+                onChange={() => onContrast('normal')}
+              />
+              <RadioButton
+                label="Dim"
+                name="ze-hc"
+                checked={contrast === 'dim'}
+                title="Inactive layers will be dimmed"
+                onChange={() => onContrast('dim')}
+              />
+              <RadioButton
+                label="Hide"
+                name="ze-hc"
+                checked={contrast === 'hide'}
+                title="Inactive layers will be hidden"
+                onChange={() => onContrast('hide')}
+              />
             </div>
             <hr className="ze-hr" />
             <label>

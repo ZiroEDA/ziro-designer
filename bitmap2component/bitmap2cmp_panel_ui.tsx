@@ -10,7 +10,7 @@
  * Its stylesheet is `bitmap2cmp_panel.css`, which the window that hosts it
  * imports (the package does not compile CSS).
  */
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, RadioButton } from '@ziroeda/common/wx/controls.js';
 import { Fragment, type JSX, useEffect, useRef } from 'react';
 import { Slider } from '@ziroeda/common/widgets/slider.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
@@ -289,15 +289,13 @@ export function Bitmap2cmpPanel({ panel, dropTarget, version }: Bitmap2cmpPanelP
           <div className="imgc-formats">
             {FORMATS.map((f) => (
               <Fragment key={f.id}>
-                <label className="imgc-radio">
-                  <input
-                    type="radio"
-                    name="imgc-format"
-                    checked={panel.getOutputFormat() === f.id}
-                    onChange={() => panel.SelectFormat(f.id)}
-                  />
-                  {f.label}
-                </label>
+                <RadioButton
+                  label={f.label}
+                  name="imgc-format"
+                  checked={panel.getOutputFormat() === f.id}
+                  className="imgc-radio"
+                  onChange={() => panel.SelectFormat(f.id)}
+                />
                 {f.id === FOOTPRINT_FMT && (
                   <div className={`imgc-layerrow${panel.m_layerEnabled ? '' : ' disabled'}`}>
                     <span className="lbl">Layer:</span>

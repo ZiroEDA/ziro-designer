@@ -17,6 +17,7 @@
  * Title `_("Layers Settings")` (`_base.h:64`).
  */
 
+import { RadioButton } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { unitLabel } from '@ziroeda/common/eda_units.js';
@@ -102,15 +103,13 @@ export function DialogDrawLayersSettings({
         <fieldset className="ze-props-group ze-drawlayers-scope">
           <legend>Scope</legend>
           {DRAW_LAYERS_SCOPE_CHOICES.map((c, i) => (
-            <label key={c}>
-              <input
-                type="radio"
-                name="drawlayers-scope"
-                checked={scope === i}
-                onChange={() => setScope(i)}
-              />{' '}
-              {c}
-            </label>
+            <RadioButton
+              key={c}
+              label={c}
+              name="drawlayers-scope"
+              checked={scope === i}
+              onChange={() => setScope(i)}
+            />
           ))}
         </fieldset>
         <div className="ze-drawlayers-line" />

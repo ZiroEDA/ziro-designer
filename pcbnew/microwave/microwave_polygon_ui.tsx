@@ -29,7 +29,7 @@
  * `File not found` (`wxFopen` failing) cannot happen for a file the browser has
  * already handed over, but a read that fails is reported the same way.
  */
-import { Button } from '@ziroeda/common/wx/controls.js';
+import { Button, RadioButton, StaticBox } from '@ziroeda/common/wx/controls.js';
 import { useRef, useState, type JSX } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { unitEntryText, unitEntryValue } from '@ziroeda/common/dialogs/dialog_unit_entry.js';
@@ -112,25 +112,22 @@ export function MwavePolygonalShapeDlg({
   return (
     <DialogShim title="Complex Shape" onClose={cancel} className="ze-mwave">
       <div className="ze-mwave-top">
-        <fieldset className="ze-sbox ze-mwave-shape">
-          <legend>Shape</legend>
+        <StaticBox label="Shape" className="ze-mwave-shape">
           {SHAPE_LIST.map((label, i) => (
-            <label key={label} className="ze-mwave-radio">
-              <input
-                type="radio"
-                name="ze-mwave-shape"
-                checked={shape === i}
-                onChange={() => setShape(i)}
-              />
-              {label}
-            </label>
+            <RadioButton
+              key={label}
+              label={label}
+              name="ze-mwave-shape"
+              checked={shape === i}
+              className="ze-mwave-radio"
+              onChange={() => setShape(i)}
+            />
           ))}
-        </fieldset>
-        <fieldset className="ze-sbox ze-mwave-size">
-          <legend>Size</legend>
+        </StaticBox>
+        <StaticBox label="Size" className="ze-mwave-size">
           {sizeRow('X:', sizeX, setSizeX)}
           {sizeRow('Y:', sizeY, setSizeY)}
-        </fieldset>
+        </StaticBox>
       </div>
       {error && <div className="ze-mwave-error">{error}</div>}
       <StdDialogButtons onOk={ok} onCancel={cancel}>

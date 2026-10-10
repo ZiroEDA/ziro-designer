@@ -14,7 +14,7 @@
  *    generic options.
  */
 
-import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, StaticBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { DIALOG_PRINT_GENERIC } from '@ziroeda/common/dialogs/dialog_print_generic_ui.js';
 import type { DIALOG_PRINT_GERBVIEW } from './dialog_print_gerbview.js';
@@ -66,8 +66,7 @@ export function DialogPrintGerbview({
         changed();
       }}
       leading={
-        <fieldset className="ze-sbox ze-printdlg-layers">
-          <legend>Include Layers</legend>
+        <StaticBox label="Include Layers" className="ze-printdlg-layers">
           <div className="ze-gbrprint-lists">
             {dlg.m_layerLists.map((list, li) => (
               <div
@@ -113,7 +112,7 @@ export function DialogPrintGerbview({
               }}
             />
           </div>
-        </fieldset>
+        </StaticBox>
       }
       extraOptions={
         <CheckBox

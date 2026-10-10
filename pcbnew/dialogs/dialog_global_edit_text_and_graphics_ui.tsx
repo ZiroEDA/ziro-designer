@@ -7,7 +7,7 @@
  * side by side, then "Action" (the specified values, or the layer defaults
  * shown read-only from Board Setup), then Apply and Close / Close.
  */
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, RadioButton, StaticBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { unitLabel } from '@ziroeda/common/eda_units.js';
@@ -149,8 +149,7 @@ export function DialogGlobalEditTextAndGraphics({
     <DialogShim title="Edit Text and Graphic Properties" onClose={close} className="ze-getg">
       <div className="ze-modal-body">
         <div className="ze-getg-top">
-          <fieldset className="ze-sbox ze-getg-scope">
-            <legend>Scope</legend>
+          <StaticBox label="Scope" className="ze-getg-scope">
             <div className="ze-getg-scope-grid">
               {box('m_references', 'Reference designators')}
               {board ? box('m_boardGraphics', 'PCB graphic items') : <span />}
@@ -164,9 +163,8 @@ export function DialogGlobalEditTextAndGraphics({
               <span />
               {box('m_footprintDimensions', fp.dimensions)}
             </div>
-          </fieldset>
-          <fieldset className="ze-sbox ze-getg-filters">
-            <legend>Filter Items</legend>
+          </StaticBox>
+          <StaticBox label="Filter Items" className="ze-getg-filters">
             <div className="ze-getg-filter-grid">
               {box('m_layerFilterOpt', 'By layer:')}
               <Combo
@@ -208,22 +206,19 @@ export function DialogGlobalEditTextAndGraphics({
               )}
             </div>
             {box('m_selectedItemsFilter', 'Selected items only', 'all5')}
-          </fieldset>
+          </StaticBox>
         </div>
-        <fieldset className="ze-sbox ze-getg-action">
-          <legend>Action</legend>
-          <label className="ze-radio">
-            <input
-              type="radio"
-              name="ze-getg-action"
-              checked={on}
-              onChange={() => {
-                dialog.m_setToSpecifiedValues = true;
-                redraw();
-              }}
-            />
-            Set to specified values:
-          </label>
+        <StaticBox label="Action" className="ze-getg-action">
+          <RadioButton
+            label="Set to specified values:"
+            name="ze-getg-action"
+            checked={on}
+            className="ze-radio"
+            onChange={() => {
+              dialog.m_setToSpecifiedValues = true;
+              redraw();
+            }}
+          />
           <div className="ze-getg-values">
             <span className="lbl">Layer:</span>
             <Combo
@@ -280,18 +275,16 @@ export function DialogGlobalEditTextAndGraphics({
             <span />
             {box('m_centerOnFP', 'Center on footprint', '', !on)}
           </div>
-          <label className="ze-radio">
-            <input
-              type="radio"
-              name="ze-getg-action"
-              checked={!on}
-              onChange={() => {
-                dialog.m_setToSpecifiedValues = false;
-                redraw();
-              }}
-            />
-            {dialog.LayerDefaultsLabel()}
-          </label>
+          <RadioButton
+            label={dialog.LayerDefaultsLabel()}
+            name="ze-getg-action"
+            checked={!on}
+            className="ze-radio"
+            onChange={() => {
+              dialog.m_setToSpecifiedValues = false;
+              redraw();
+            }}
+          />
           <table className="ze-getg-defaults" aria-disabled={on}>
             <thead>
               <tr>
@@ -318,7 +311,7 @@ export function DialogGlobalEditTextAndGraphics({
               ))}
             </tbody>
           </table>
-        </fieldset>
+        </StaticBox>
         {error && <div className="ze-prefs-error">{error}</div>}
       </div>
       <StdDialogButtons

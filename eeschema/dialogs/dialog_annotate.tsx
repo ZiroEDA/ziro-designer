@@ -10,7 +10,7 @@
  * Like upstream the dialog is modeless: annotating leaves it open so the
  * messages it just produced can be read.
  */
-import { Button } from '@ziroeda/common/wx/controls.js';
+import { Button, RadioButton } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import type { AnnotateOptions } from '../sch_reference_list.js';
 import type { ReportLine, Severity } from '@ziroeda/common';
@@ -185,24 +185,18 @@ export function DialogAnnotate({
 
           <fieldset>
             <legend>Options</legend>
-            <label>
-              <input
-                type="radio"
-                name="ze-annotate-reset"
-                checked={!reset}
-                onChange={() => setReset(false)}
-              />
-              Keep existing annotations
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="ze-annotate-reset"
-                checked={reset}
-                onChange={() => setReset(true)}
-              />
-              Reset existing annotations
-            </label>
+            <RadioButton
+              label="Keep existing annotations"
+              name="ze-annotate-reset"
+              checked={!reset}
+              onChange={() => setReset(false)}
+            />
+            <RadioButton
+              label="Reset existing annotations"
+              name="ze-annotate-reset"
+              checked={reset}
+              onChange={() => setReset(true)}
+            />
             {/* OnOptionChanged: only meaningful when resetting. */}
             <label className={reset ? '' : 'disabled'}>
               <input
@@ -234,24 +228,18 @@ export function DialogAnnotate({
                 onFocus={() => setAlgo('incremental')}
               />
             </label>
-            <label>
-              <input
-                type="radio"
-                name="ze-annotate-algo"
-                checked={algo === 'sheet_100'}
-                onChange={() => setAlgo('sheet_100')}
-              />
-              First free after sheet number X 100
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="ze-annotate-algo"
-                checked={algo === 'sheet_1000'}
-                onChange={() => setAlgo('sheet_1000')}
-              />
-              First free after sheet number X 1000
-            </label>
+            <RadioButton
+              label="First free after sheet number X 100"
+              name="ze-annotate-algo"
+              checked={algo === 'sheet_100'}
+              onChange={() => setAlgo('sheet_100')}
+            />
+            <RadioButton
+              label="First free after sheet number X 1000"
+              name="ze-annotate-algo"
+              checked={algo === 'sheet_1000'}
+              onChange={() => setAlgo('sheet_1000')}
+            />
           </fieldset>
         </div>
 

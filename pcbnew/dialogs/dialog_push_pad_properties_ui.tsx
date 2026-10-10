@@ -17,7 +17,7 @@
  * which this window renders. `onResult` is what `ShowModal()` returns: `0` for
  * OK, `1` for Apply, `wxID_CANCEL` otherwise.
  */
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, StaticBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import {
@@ -59,8 +59,7 @@ export function DialogPushPadProperties({
     >
       <div className="ze-modal-body ze-pushpad-body">
         <div className="ze-pushpad-left">
-          <fieldset className="ze-sbox ze-pushpad-box">
-            <legend>Options</legend>
+          <StaticBox label="Options" className="ze-pushpad-box">
             {FILTERS.map(({ key, label }) => (
               <CheckBox
                 key={key}
@@ -73,7 +72,7 @@ export function DialogPushPadProperties({
                 }}
               />
             ))}
-          </fieldset>
+          </StaticBox>
         </div>
       </div>
       <StdDialogButtons

@@ -27,7 +27,7 @@
  * Left out: the syntax-help window, which links to KiCad's documentation instead.
  */
 
-import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, RadioButton } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useReducer, useState } from 'react';
 import { DisplayErrorMessage, DisplayInfoMessage } from '@ziroeda/common/confirm.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
@@ -782,15 +782,13 @@ export function DialogLabelProperties({
             <fieldset className="ze-lp-shape">
               <legend>Shape</legend>
               {shapes.map((s) => (
-                <label key={s.shape}>
-                  <input
-                    type="radio"
-                    name="ze-lp-shape"
-                    checked={shape === s.shape}
-                    onChange={() => setShape(s.shape)}
-                  />
-                  {s.label}
-                </label>
+                <RadioButton
+                  key={s.shape}
+                  label={s.label}
+                  name="ze-lp-shape"
+                  checked={shape === s.shape}
+                  onChange={() => setShape(s.shape)}
+                />
               ))}
             </fieldset>
           )}

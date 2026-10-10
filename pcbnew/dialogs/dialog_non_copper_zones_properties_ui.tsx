@@ -8,7 +8,7 @@
  * corner smoothing and its distance) and the Fill box (solid or hatch, and
  * the hatch's orientation, width, gap and smoothing), then OK / Cancel.
  */
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, StaticBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
@@ -113,8 +113,7 @@ export function DialogNonCopperZonesProperties({
           </div>
         </div>
         <div className="ze-ncz-middle">
-          <fieldset className="ze-sbox ze-ncz-shape">
-            <legend>Shape</legend>
+          <StaticBox label="Shape" className="ze-ncz-shape">
             <div className="ze-ncz-grid">
               <CheckBox
                 label="Locked"
@@ -150,9 +149,8 @@ export function DialogNonCopperZonesProperties({
                 v.cornerSmoothing !== 'none',
               )}
             </div>
-          </fieldset>
-          <fieldset className="ze-sbox ze-ncz-fill">
-            <legend>Fill</legend>
+          </StaticBox>
+          <StaticBox label="Fill" className="ze-ncz-fill">
             <div className="ze-ncz-grid">
               <span className="lbl">Fill type:</span>
               <Combo
@@ -198,7 +196,7 @@ export function DialogNonCopperZonesProperties({
               />
               <span />
             </div>
-          </fieldset>
+          </StaticBox>
         </div>
       </div>
       {error && <div className="ze-prefs-error">{error}</div>}

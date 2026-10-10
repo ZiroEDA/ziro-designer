@@ -7,7 +7,7 @@
  * only), the "Update Options" box with Check All / Uncheck All, the output
  * messages, then Update or Change / Close. Quasi-modal: OK runs and stays.
  */
-import { Button } from '@ziroeda/common/wx/controls.js';
+import { Button, StaticBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import type { ReportLine } from '@ziroeda/common/reporter.js';
@@ -143,8 +143,7 @@ export function DialogExchangeFootprints({
             </div>
           </div>
         )}
-        <fieldset className="ze-sbox ze-xfp-options">
-          <legend>Update Options</legend>
+        <StaticBox label="Update Options" className="ze-xfp-options">
           <div className="ze-xfp-col left">
             {box('m_removeExtraBox', 'Remove text items if not in library footprint', 'top')}
             {box('m_resetTextItemLayers', L.resetTextItemLayers, '')}
@@ -175,7 +174,7 @@ export function DialogExchangeFootprints({
               }}
             />
           </div>
-        </fieldset>
+        </StaticBox>
         <div className="ze-xfp-messages">
           <HtmlReportPanel
             lines={lines}

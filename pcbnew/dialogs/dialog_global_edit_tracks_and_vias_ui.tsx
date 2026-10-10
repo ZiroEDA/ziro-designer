@@ -7,6 +7,7 @@
  * then "Action" (the specified values, or the net class / custom rule values),
  * then Apply and Close / Close.
  */
+import { RadioButton, StaticBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { unitLabel } from '@ziroeda/common/eda_units.js';
@@ -111,8 +112,7 @@ export function DialogGlobalEditTracksAndVias({
     <DialogShim title="Set Track and Via Properties" onClose={close} className="ze-gettv">
       <div className="ze-modal-body">
         <div className="ze-gettv-top">
-          <fieldset className="ze-sbox ze-gettv-scope">
-            <legend>Scope</legend>
+          <StaticBox label="Scope" className="ze-gettv-scope">
             {box('m_tracks', 'Tracks', 'brl5')}
             <span className="ze-gettv-gap10" />
             <label className="ze-check brl5">
@@ -133,9 +133,8 @@ export function DialogGlobalEditTracksAndVias({
             {box('m_microVias', 'Microvias', 'l20 t3')}
             {box('m_blindVias', 'Blind vias', 'l20 t3')}
             {box('m_buriedVias', 'Buried vias', 'l20 t3')}
-          </fieldset>
-          <fieldset className="ze-sbox ze-gettv-filters">
-            <legend>Filter Items</legend>
+          </StaticBox>
+          <StaticBox label="Filter Items" className="ze-gettv-filters">
             <div className="ze-gettv-filter-grid">
               {box('m_netFilterOpt', 'Filter items by net:')}
               <NetSelector
@@ -174,22 +173,19 @@ export function DialogGlobalEditTracksAndVias({
               {sizeEntry(dialog.m_viaSizeFilter)}
             </div>
             {box('m_selectedItemsFilter', 'Selected items only', 'all5')}
-          </fieldset>
+          </StaticBox>
         </div>
-        <fieldset className="ze-sbox ze-gettv-action">
-          <legend>Action</legend>
-          <label className="ze-radio">
-            <input
-              type="radio"
-              name="ze-gettv-action"
-              checked={dialog.m_setToSpecifiedValues}
-              onChange={() => {
-                dialog.m_setToSpecifiedValues = true;
-                redraw();
-              }}
-            />
-            Set to specified values:
-          </label>
+        <StaticBox label="Action" className="ze-gettv-action">
+          <RadioButton
+            label="Set to specified values:"
+            name="ze-gettv-action"
+            checked={dialog.m_setToSpecifiedValues}
+            className="ze-radio"
+            onChange={() => {
+              dialog.m_setToSpecifiedValues = true;
+              redraw();
+            }}
+          />
           <div className="ze-gettv-action-grid">
             <span className="lbl">Layer:</span>
             <Combo
@@ -222,19 +218,17 @@ export function DialogGlobalEditTracksAndVias({
             </span>
             {choice(dialog.m_protectionFeatures, off)}
           </div>
-          <label className="ze-radio">
-            <input
-              type="radio"
-              name="ze-gettv-action"
-              checked={!dialog.m_setToSpecifiedValues}
-              onChange={() => {
-                dialog.m_setToSpecifiedValues = false;
-                redraw();
-              }}
-            />
-            Set to net class / custom rule values
-          </label>
-        </fieldset>
+          <RadioButton
+            label="Set to net class / custom rule values"
+            name="ze-gettv-action"
+            checked={!dialog.m_setToSpecifiedValues}
+            className="ze-radio"
+            onChange={() => {
+              dialog.m_setToSpecifiedValues = false;
+              redraw();
+            }}
+          />
+        </StaticBox>
       </div>
       <StdDialogButtons
         okLabel="Apply and Close"

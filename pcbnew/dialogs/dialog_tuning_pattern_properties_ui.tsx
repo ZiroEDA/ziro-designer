@@ -16,7 +16,7 @@
  * branch, and the four controls' enabled state. This file is the widgets.
  */
 
-import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, RadioButton } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import {
   NULL_TUNING_CONSTRAINT,
@@ -104,16 +104,14 @@ export function DialogTuningPatternProperties({
         <div className={`ze-tuning-pattern-legend ze-tuning-pattern-legend-${mode}`} />
 
         <div className="ze-tuning-pattern-grid">
-          <label className="ze-tp-cell ze-tp-r0c0">
-            <input
-              type="radio"
-              name="ze-tp-domain"
-              checked={v.lengthSelected}
-              disabled={!enable.radioLengthEnabled}
-              onChange={() => set(tuningPatternRadioLengthSelected(v))}
-            />
-            {label.length}
-          </label>
+          <RadioButton
+            label={label.length}
+            name="ze-tp-domain"
+            checked={v.lengthSelected}
+            disabled={!enable.radioLengthEnabled}
+            className="ze-tp-cell ze-tp-r0c0"
+            onChange={() => set(tuningPatternRadioLengthSelected(v))}
+          />
           <input
             className="ze-tp-cell ze-tp-r0c1"
             type="text"
@@ -123,16 +121,14 @@ export function DialogTuningPatternProperties({
           />
           <span className="ze-tp-cell ze-tp-r0c2 ze-unit-label">{unitLabel(units)}</span>
 
-          <label className="ze-tp-cell ze-tp-r1c0">
-            <input
-              type="radio"
-              name="ze-tp-domain"
-              checked={!v.lengthSelected}
-              disabled={!enable.radioDelayEnabled}
-              onChange={() => set(tuningPatternRadioDelaySelected(v))}
-            />
-            {label.delay}
-          </label>
+          <RadioButton
+            label={label.delay}
+            name="ze-tp-domain"
+            checked={!v.lengthSelected}
+            disabled={!enable.radioDelayEnabled}
+            className="ze-tp-cell ze-tp-r1c0"
+            onChange={() => set(tuningPatternRadioDelaySelected(v))}
+          />
           <input
             className="ze-tp-cell ze-tp-r1c1"
             type="text"

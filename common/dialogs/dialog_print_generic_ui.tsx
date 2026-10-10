@@ -31,7 +31,7 @@
  * cannot enumerate any - the browser's print dialog chooses the printer), and
  * Page Setup... (the browser's print dialog is the page setup).
  */
-import { CheckBox } from '../wx/controls.js';
+import { CheckBox, RadioButton, StaticBox } from '../wx/controls.js';
 import type { JSX, ReactNode } from 'react';
 import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import { Combo } from '../widgets/wx_combobox.js';
@@ -82,8 +82,7 @@ export function DIALOG_PRINT_GENERIC({
       <div className="ze-printdlg-upper">
         {leading}
         <div className="ze-printdlg-rightcol">
-          <fieldset className="ze-sbox ze-printdlg-options">
-            <legend>Options</legend>
+          <StaticBox label="Options" className="ze-printdlg-options">
             <div className="ze-printdlg-optgrid">
               <span className="ze-printdlg-label">Output mode:</span>
               <Combo
@@ -106,39 +105,32 @@ export function DIALOG_PRINT_GENERIC({
               )}
               {extraOptions}
             </div>
-          </fieldset>
-          <fieldset className="ze-sbox ze-printdlg-scale">
-            <legend>Scale</legend>
-            <label className="ze-check ze-printdlg-radio">
-              <input
-                type="radio"
-                name="ze-print-scale"
-                checked={scaleMode === '1:1'}
-                onChange={() => onScaleMode('1:1')}
-              />
-              1:1
-            </label>
+          </StaticBox>
+          <StaticBox label="Scale" className="ze-printdlg-scale">
+            <RadioButton
+              label="1:1"
+              name="ze-print-scale"
+              checked={scaleMode === '1:1'}
+              className="ze-printdlg-radio"
+              onChange={() => onScaleMode('1:1')}
+            />
             <span className="ze-printdlg-gap5" />
-            <label className="ze-check ze-printdlg-radio">
-              <input
-                type="radio"
-                name="ze-print-scale"
-                checked={scaleMode === 'fit'}
-                onChange={() => onScaleMode('fit')}
-              />
-              Fit to page
-            </label>
+            <RadioButton
+              label="Fit to page"
+              name="ze-print-scale"
+              checked={scaleMode === 'fit'}
+              className="ze-printdlg-radio"
+              onChange={() => onScaleMode('fit')}
+            />
             <span className="ze-printdlg-gap3" />
             <div className="ze-printdlg-custom">
-              <label className="ze-check ze-printdlg-radio">
-                <input
-                  type="radio"
-                  name="ze-print-scale"
-                  checked={scaleMode === 'custom'}
-                  onChange={() => onScaleMode('custom')}
-                />
-                Custom:
-              </label>
+              <RadioButton
+                label="Custom:"
+                name="ze-print-scale"
+                checked={scaleMode === 'custom'}
+                className="ze-printdlg-radio"
+                onChange={() => onScaleMode('custom')}
+              />
               <input
                 className="ze-search ze-printdlg-customtext"
                 aria-label="Custom scale"
@@ -150,7 +142,7 @@ export function DIALOG_PRINT_GENERIC({
                 }}
               />
             </div>
-          </fieldset>
+          </StaticBox>
         </div>
       </div>
       {infoText && <div className="ze-printdlg-info">{infoText}</div>}

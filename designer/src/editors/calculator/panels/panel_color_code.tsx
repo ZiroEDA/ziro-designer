@@ -25,6 +25,7 @@
  * (`ToleranceSelection`, panel_color_code.cpp:75-83).
  */
 
+import { RadioButton } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import { Group } from '../fields.js';
 import { useCalcSaveSettings } from '../calc_settings.js';
@@ -74,14 +75,20 @@ export function PanelColorCode(): JSX.Element {
           the row with wxALL 8 (base:19-20). */}
       <div className="cc-opts">
         <Group title="Tolerance" className="calc-radiobox cc-tolbox">
-          <label className="calc-radio">
-            <input type="radio" name="cc-tol" checked={!tol2} onChange={() => setTol2(false)} />
-            10% / 5%
-          </label>
-          <label className="calc-radio">
-            <input type="radio" name="cc-tol" checked={tol2} onChange={() => setTol2(true)} />
-            &lt;= 2%
-          </label>
+          <RadioButton
+            label="10% / 5%"
+            name="cc-tol"
+            checked={!tol2}
+            className="calc-radio"
+            onChange={() => setTol2(false)}
+          />
+          <RadioButton
+            label="&lt;= 2%"
+            name="cc-tol"
+            checked={tol2}
+            className="calc-radio"
+            onChange={() => setTol2(true)}
+          />
         </Group>
       </div>
       <div className="cc-chart">

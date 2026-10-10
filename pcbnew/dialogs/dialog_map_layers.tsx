@@ -33,7 +33,7 @@
  * Wired: `PCB_EDIT_FRAME::ImportNonKicadBoard` (files.ts) registers it for a
  * mappable plugin, as `OpenProjectFiles` does (`files.cpp:642-649`).
  */
-import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, StaticBox } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
@@ -331,8 +331,7 @@ export function DialogMapLayers({
     <DialogShim title="Import Layer Mapping" onClose={finish} className="ze-maplayers">
       <div className="ze-modal-body ze-maplayers-body">
         <div className="ze-maplayers-top">
-          <fieldset className="ze-sbox ze-maplayers-box ze-maplayers-unmatched">
-            <legend>Unmatched Layers</legend>
+          <StaticBox label="Unmatched Layers" className="ze-maplayers-box ze-maplayers-unmatched">
             <div className="ze-maplayers-fg">
               <span className="ze-maplayers-lbl">Imported Layers</span>
               <span className="ze-maplayers-lbl">KiCad Layers</span>
@@ -352,7 +351,7 @@ export function DialogMapLayers({
                 onActivate={add}
               />
             </div>
-          </fieldset>
+          </StaticBox>
           <div className="ze-maplayers-arrows">
             <button
               type="button"
@@ -379,8 +378,7 @@ export function DialogMapLayers({
               &lt;&lt;
             </button>
           </div>
-          <fieldset className="ze-sbox ze-maplayers-box ze-maplayers-matched">
-            <legend>Matched Layers</legend>
+          <StaticBox label="Matched Layers" className="ze-maplayers-box ze-maplayers-matched">
             <LayerList
               ariaLabel="Matched layers"
               columns={['Imported Layer', 'KiCad Layer']}
@@ -389,7 +387,7 @@ export function DialogMapLayers({
               onSelect={(s) => setMatchedSel(s)}
               onActivate={() => remove(matchedSel)}
             />
-          </fieldset>
+          </StaticBox>
         </div>
         <div className="ze-maplayers-bottom">
           <button

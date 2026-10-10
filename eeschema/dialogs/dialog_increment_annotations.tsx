@@ -12,7 +12,7 @@
  * in a number (or a `?`) — there is nothing to increment otherwise, and
  * upstream simply returns without doing anything.
  */
-import { Button } from '@ziroeda/common/wx/controls.js';
+import { Button, RadioButton } from '@ziroeda/common/wx/controls.js';
 import { useState, type JSX } from 'react';
 import { isSplitNeeded } from '../index.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
@@ -96,24 +96,20 @@ export function DialogIncrementAnnotations({ onOk, onCancel }: Props): JSX.Eleme
           />
         </label>
         <div style={{ height: 10 }} />
-        <label className="row">
-          <input
-            type="radio"
-            name="ze-incr-scope"
-            checked={!allSheets}
-            onChange={() => setAllSheets(false)}
-          />
-          <span>Current sheet only</span>
-        </label>
-        <label className="row">
-          <input
-            type="radio"
-            name="ze-incr-scope"
-            checked={allSheets}
-            onChange={() => setAllSheets(true)}
-          />
-          <span>All sheets</span>
-        </label>
+        <RadioButton
+          label="Current sheet only"
+          name="ze-incr-scope"
+          checked={!allSheets}
+          className="row"
+          onChange={() => setAllSheets(false)}
+        />
+        <RadioButton
+          label="All sheets"
+          name="ze-incr-scope"
+          checked={allSheets}
+          className="row"
+          onChange={() => setAllSheets(true)}
+        />
       </div>
       <div className="ze-modal-footer">
         <Button label="Cancel" onClick={onCancel} />

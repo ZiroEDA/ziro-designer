@@ -7,7 +7,7 @@
  * Board Setup link, and the specified values (tri-state boxes and five
  * UNIT_BINDERs beside the teardrop_sizes bitmap) - then Apply and Close / Close.
  */
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, RadioButton, StaticBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState } from 'react';
 import { svgUrl } from '@ziroeda/bitmaps_png';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
@@ -115,18 +115,17 @@ export function DialogGlobalEditTeardrops({
   };
 
   const radio = (action: TEARDROP_ACTION, label: string, tooltip?: string): JSX.Element => (
-    <label className="ze-radio" title={tooltip}>
-      <input
-        type="radio"
-        name="ze-getd-action"
-        checked={dialog.m_action === action}
-        onChange={() => {
-          dialog.m_action = action;
-          redraw();
-        }}
-      />
-      {label}
-    </label>
+    <RadioButton
+      label={label}
+      name="ze-getd-action"
+      checked={dialog.m_action === action}
+      title={tooltip}
+      className="ze-radio"
+      onChange={() => {
+        dialog.m_action = action;
+        redraw();
+      }}
+    />
   );
 
   const entry = (b: UNIT_BINDER): JSX.Element => (
@@ -154,8 +153,7 @@ export function DialogGlobalEditTeardrops({
     <DialogShim title="Edit Teardrops" onClose={close} className="ze-getd">
       <div className="ze-modal-body">
         <div className="ze-getd-top">
-          <fieldset className="ze-sbox ze-getd-scope">
-            <legend>Scope</legend>
+          <StaticBox label="Scope" className="ze-getd-scope">
             {box('m_pthPads', 'PTH pads')}
             {box('m_smdPads', 'SMD pads')}
             {box('m_vias', 'Vias')}
@@ -168,9 +166,8 @@ export function DialogGlobalEditTeardrops({
                 redraw();
               }}
             />
-          </fieldset>
-          <fieldset className="ze-sbox ze-getd-filters">
-            <legend>Filter Items</legend>
+          </StaticBox>
+          <StaticBox label="Filter Items" className="ze-getd-filters">
             <div className="ze-getd-filter-grid">
               {box('m_netFilterOpt', 'Filter items by net:', '', !filtersOn)}
               <NetSelector
@@ -215,10 +212,9 @@ export function DialogGlobalEditTeardrops({
             {box('m_roundPadsFilter', 'Round pads only', 'top5', !filtersOn)}
             {box('m_existingFilter', 'Existing teardrops only', 'top5', !filtersOn)}
             {box('m_selectedItemsFilter', 'Selected items only', 'all5', !filtersOn)}
-          </fieldset>
+          </StaticBox>
         </div>
-        <fieldset className="ze-sbox ze-getd-action">
-          <legend>Action</legend>
+        <StaticBox label="Action" className="ze-getd-action">
           {radio(
             TEARDROP_ACTION.REMOVE,
             'Remove teardrops',
@@ -290,7 +286,7 @@ export function DialogGlobalEditTeardrops({
               </div>
             </div>
           </div>
-        </fieldset>
+        </StaticBox>
       </div>
       <StdDialogButtons
         okLabel="Apply and Close"

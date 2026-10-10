@@ -47,6 +47,7 @@
  * (`panel_sym_color_settings.cpp:56`) where `PANEL_COLOR_SETTINGS` goes through
  * `GetSettingsDropdownName` and adds "(read-only)".
  */
+import { RadioButton } from '@ziroeda/common/wx/controls.js';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { measureTextWidth } from '@ziroeda/common/widgets/text_ctrl_width.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
@@ -96,33 +97,29 @@ export function PanelSymbolEditorColorSettings({ ctx }: { ctx: PrefsContext }): 
   }, [options]);
   return (
     <div className="ze-sym-colors" ref={rowRef}>
-      <label className="ze-pref-radio">
-        <input
-          type="radio"
+      <RadioButton
+        label="Use schematic editor color theme"
+        name={GROUP}
+        checked={useEeschema}
+        className="ze-pref-radio"
+        onChange={() =>
+          upSym((s) => {
+            s.use_eeschema_color_settings = true;
+          })
+        }
+      />
+      <div className="ze-sym-colors-row">
+        <RadioButton
+          label="Use theme:"
           name={GROUP}
-          checked={useEeschema}
+          checked={!useEeschema}
+          className="ze-pref-radio"
           onChange={() =>
             upSym((s) => {
-              s.use_eeschema_color_settings = true;
+              s.use_eeschema_color_settings = false;
             })
           }
         />
-        Use schematic editor color theme
-      </label>
-      <div className="ze-sym-colors-row">
-        <label className="ze-pref-radio">
-          <input
-            type="radio"
-            name={GROUP}
-            checked={!useEeschema}
-            onChange={() =>
-              upSym((s) => {
-                s.use_eeschema_color_settings = false;
-              })
-            }
-          />
-          Use theme:
-        </label>
         {/* `OnThemeChanged` is one line — `m_themeRB->SetValue( true )`
             (`panel_sym_color_settings.cpp:89-92`) — so picking a theme SELECTS
             the second radio. Without it the choice could be changed while the

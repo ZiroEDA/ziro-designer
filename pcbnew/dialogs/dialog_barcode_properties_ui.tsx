@@ -19,7 +19,7 @@
  * and the preview beside all of it.
  */
 
-import { CheckBox } from '@ziroeda/common/wx/controls.js';
+import { CheckBox, RadioButton } from '@ziroeda/common/wx/controls.js';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import {
@@ -249,30 +249,26 @@ export function DialogBarcodeProperties({
             <fieldset>
               <legend>Code</legend>
               {BARCODE_KIND_CHOICES.map((c) => (
-                <label key={c.value}>
-                  <input
-                    type="radio"
-                    name="ze-barcode-kind"
-                    checked={v.kind === c.value}
-                    onChange={() => set({ kind: c.value })}
-                  />
-                  {c.label}
-                </label>
+                <RadioButton
+                  key={c.value}
+                  label={c.label}
+                  name="ze-barcode-kind"
+                  checked={v.kind === c.value}
+                  onChange={() => set({ kind: c.value })}
+                />
               ))}
             </fieldset>
             <fieldset disabled={!ui.eccEnabled}>
               <legend>Error Correction</legend>
               {BARCODE_ECC_CHOICES.map((c) => (
-                <label key={c.value}>
-                  <input
-                    type="radio"
-                    name="ze-barcode-ecc"
-                    disabled={c.value === 'H' && !ui.eccHEnabled}
-                    checked={v.ecc === c.value}
-                    onChange={() => set({ ecc: c.value })}
-                  />
-                  {c.label}
-                </label>
+                <RadioButton
+                  key={c.value}
+                  label={c.label}
+                  name="ze-barcode-ecc"
+                  checked={v.ecc === c.value}
+                  disabled={c.value === 'H' && !ui.eccHEnabled}
+                  onChange={() => set({ ecc: c.value })}
+                />
               ))}
             </fieldset>
           </div>

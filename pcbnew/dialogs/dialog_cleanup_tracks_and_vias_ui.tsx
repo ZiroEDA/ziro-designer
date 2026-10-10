@@ -7,6 +7,7 @@
  * "Changes to be applied:" (the RC tree) and "Progress:" (the report), then
  * Build Changes / Update PCB and Cancel.
  */
+import { StaticBox } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useEffect, useState, useSyncExternalStore } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { NetSelector } from '@ziroeda/common/widgets/net_selector.js';
@@ -94,8 +95,7 @@ export function DialogCleanupTracksAndVias({
     <DialogShim title="Cleanup Tracks &amp; Vias" onClose={onClose} className="ze-cleanup">
       <div className="ze-modal-body ze-cleanup-body">
         <div className="ze-cleanup-top">
-          <fieldset className="ze-sbox ze-cleanup-actions">
-            <legend>Actions</legend>
+          <StaticBox label="Actions" className="ze-cleanup-actions">
             {opt('m_cbRefillZones', 'Refill zones before and after cleanup')}
             <span className="ze-cleanup-gap12" />
             {opt(
@@ -133,9 +133,8 @@ export function DialogCleanupTracksAndVias({
               'Delete tracks that have both start and end positions inside of a pad',
               'all5',
             )}
-          </fieldset>
-          <fieldset className="ze-sbox ze-cleanup-filters">
-            <legend>Filter Items</legend>
+          </StaticBox>
+          <StaticBox label="Filter Items" className="ze-cleanup-filters">
             <div className="ze-cleanup-filter-grid">
               {opt('m_netFilterOpt', 'Filter items by net:')}
               <NetSelector
@@ -172,7 +171,7 @@ export function DialogCleanupTracksAndVias({
               />
             </div>
             {opt('m_selectedItemsFilter', 'Selected items only', undefined, 'all5')}
-          </fieldset>
+          </StaticBox>
         </div>
         <div className="ze-cleanup-output">
           {dialog.m_outputPage === 0 ? (

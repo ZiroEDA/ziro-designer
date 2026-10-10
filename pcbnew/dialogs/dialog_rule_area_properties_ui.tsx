@@ -26,7 +26,7 @@
  * the caller passes the values in rather than a zone.
  */
 
-import { Button, CheckBox } from '@ziroeda/common/wx/controls.js';
+import { Button, CheckBox, RadioButton } from '@ziroeda/common/wx/controls.js';
 import type { ConversionBoxValues } from '../tools/convert_settings_dialog.js';
 import {
   CONVERSION_BOX_LINE_MARGIN,
@@ -276,15 +276,12 @@ export function DialogRuleAreaProperties({
                 <div className="ze-rule-area-placement">
                   {PLACEMENT_RADIOS.map((r) => (
                     <div key={r.label}>
-                      <label>
-                        <input
-                          type="radio"
-                          name="ze-rule-area-placement"
-                          checked={page.enabled === r.type}
-                          onChange={() => setPage((p) => withPlacementRadio(p, r.type))}
-                        />
-                        {r.label}
-                      </label>
+                      <RadioButton
+                        label={r.label}
+                        name="ze-rule-area-placement"
+                        checked={page.enabled === r.type}
+                        onChange={() => setPage((p) => withPlacementRadio(p, r.type))}
+                      />
                       {r.type !== null && combo(r.type)}
                     </div>
                   ))}

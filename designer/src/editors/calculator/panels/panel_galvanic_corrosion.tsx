@@ -13,6 +13,7 @@
  * symbols and full names; the threshold field is in mV and defaults to 0.
  */
 
+import { RadioButton } from '@ziroeda/common/wx/controls.js';
 import { type JSX, useState } from 'react';
 import {
   CORROSION_METALS,
@@ -124,24 +125,20 @@ export function PanelGalvanicCorrosion(): JSX.Element {
         <div className="gc-rule" />
         <div className="calc-field">
           <span>Material names:</span>
-          <label className="calc-radio">
-            <input
-              type="radio"
-              name="gc-names"
-              checked={symbolic}
-              onChange={() => setSymbolic(true)}
-            />
-            Chemical symbols
-          </label>
-          <label className="calc-radio">
-            <input
-              type="radio"
-              name="gc-names"
-              checked={!symbolic}
-              onChange={() => setSymbolic(false)}
-            />
-            Names
-          </label>
+          <RadioButton
+            label="Chemical symbols"
+            name="gc-names"
+            checked={symbolic}
+            className="calc-radio"
+            onChange={() => setSymbolic(true)}
+          />
+          <RadioButton
+            label="Names"
+            name="gc-names"
+            checked={!symbolic}
+            className="calc-radio"
+            onChange={() => setSymbolic(false)}
+          />
         </div>
       </div>
     </div>
