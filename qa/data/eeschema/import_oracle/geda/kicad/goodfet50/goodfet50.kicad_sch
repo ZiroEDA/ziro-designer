@@ -1,0 +1,3243 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "77f388bc-369f-4083-b33c-f60a64693cd9")
+	(paper "User" 449.6562 312.3946)
+	(lib_symbols
+		(symbol "goodfet50-geda-import:capacitor-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "capacitor-1_0_0"
+				(polyline
+					(pts
+						(xy 10.16 10.16) (xy 10.16 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 12.7 10.16) (xy 12.7 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 22.86 5.08 180)
+					(length 5.08)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 5.08 0)
+					(length 5.08)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "goodfet50-geda-import:connector2-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "connector2-1_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "goodfet50-geda-import:crystal-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "crystal-1_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "goodfet50-geda-import:header14-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "header14-1_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "goodfet50-geda-import:led-2"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "led-2_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "goodfet50-geda-import:micro-usb"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "micro-usb_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "goodfet50-geda-import:msp430f550x-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "msp430f550x-1_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "goodfet50-geda-import:resistor-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "resistor-1_0_0"
+				(rectangle
+					(start 5.08 7.62)
+					(end 17.78 2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 22.86 5.08 180)
+					(length 5.08)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 5.08 0)
+					(length 5.08)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(text "TheQUUX!"
+		(exclude_from_sim no)
+		(at 373.38 294.64 0)
+		(effects
+			(font
+				(size 2.032 2.032)
+			)
+			(justify left bottom)
+		)
+		(uuid "54f49422-da6f-48c9-81d8-eb3a58e5fffc")
+	)
+	(text "GoodFET 50"
+		(exclude_from_sim no)
+		(at 345.44 271.78 0)
+		(effects
+			(font
+				(size 5.08 5.08)
+			)
+		)
+		(uuid "7ca86cf9-a65f-483d-b6a5-73d5559c4e6a")
+	)
+	(text "C"
+		(exclude_from_sim no)
+		(at 373.38 287.02 0)
+		(effects
+			(font
+				(size 2.032 2.032)
+			)
+			(justify left bottom)
+		)
+		(uuid "c7145f40-72fc-42b5-8ea5-757f51b56668")
+	)
+	(junction
+		(at 45.72 198.12)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "04ce4128-c5fb-4f82-9470-6439037ff71d")
+	)
+	(junction
+		(at 152.4 137.16)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "16b83fc7-099b-42be-8ad4-dc4c80ebbff1")
+	)
+	(junction
+		(at 96.52 198.12)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "55801a49-d924-4239-b6d6-122e8d2088c5")
+	)
+	(junction
+		(at 406.4 119.38)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "74becc47-fed8-41f7-b35b-e331d3f92b8f")
+	)
+	(junction
+		(at 231.14 274.32)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "76b0bd51-b0a8-4f24-9695-daf6d4d854b1")
+	)
+	(junction
+		(at 71.12 215.9)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "bfc4c853-b3ba-4c4a-a907-337863c88b12")
+	)
+	(junction
+		(at 231.14 264.16)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "dea36e67-9b3e-4b47-9974-9b3c73f3ff1c")
+	)
+	(wire
+		(pts
+			(xy 396.24 119.38) (xy 431.8 119.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "00389a2a-fcb5-4117-9917-53d3773da948")
+	)
+	(wire
+		(pts
+			(xy 78.74 198.12) (xy 111.76 198.12)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "03dc661b-73c5-4b5c-af38-6d4e7385675d")
+	)
+	(wire
+		(pts
+			(xy 426.72 149.86) (xy 396.24 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0550ac05-bfd8-4b63-9d69-0b34aaf91ab9")
+	)
+	(wire
+		(pts
+			(xy 198.12 264.16) (xy 170.18 264.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "07e8f4ee-aaaf-4edd-9bbd-bea1d909cbc5")
+	)
+	(wire
+		(pts
+			(xy 406.4 109.22) (xy 406.4 119.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0a4a3286-3bf2-4f29-ac1f-b4e4f1e04418")
+	)
+	(wire
+		(pts
+			(xy 106.68 137.16) (xy 154.94 137.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0c1e0ba6-deaa-47ee-9f42-733ceabc6e75")
+	)
+	(wire
+		(pts
+			(xy 360.68 160.02) (xy 330.2 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0d03c108-c669-4d28-b2e5-ca4e61572312")
+	)
+	(wire
+		(pts
+			(xy 154.94 121.92) (xy 152.4 121.92)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0fa38bff-09cc-41c1-8d10-41c9b85078cd")
+	)
+	(wire
+		(pts
+			(xy 132.08 109.22) (xy 106.68 109.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "11b392be-77c5-495a-b390-dad5919ac2f4")
+	)
+	(wire
+		(pts
+			(xy 152.4 121.92) (xy 152.4 137.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "130c4647-2b93-4e68-9e45-c069bf85a328")
+	)
+	(wire
+		(pts
+			(xy 231.14 254) (xy 231.14 284.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "145a2c2b-1272-4b26-bbd7-bf4e9f7d3c59")
+	)
+	(wire
+		(pts
+			(xy 45.72 215.9) (xy 45.72 198.12)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1c928cf4-ddee-4ec7-9aed-dc870a091c64")
+	)
+	(wire
+		(pts
+			(xy 299.72 228.6) (xy 269.24 228.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "243a82db-2a65-48ac-b7a3-0adcc310ea7f")
+	)
+	(wire
+		(pts
+			(xy 269.24 76.2) (xy 289.56 76.2)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2a5853e7-2f86-4cf5-a155-64649e12386a")
+	)
+	(wire
+		(pts
+			(xy 220.98 274.32) (xy 231.14 274.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2a5af110-3de4-4db1-a2ce-b7fdcaa5d9f8")
+	)
+	(wire
+		(pts
+			(xy 96.52 215.9) (xy 96.52 198.12)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2d6e716b-3605-4469-a0f7-4217419a104d")
+	)
+	(wire
+		(pts
+			(xy 220.98 264.16) (xy 231.14 264.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "309bd59e-5df2-4d9c-9727-2c957b423740")
+	)
+	(wire
+		(pts
+			(xy 302.26 198.12) (xy 269.24 198.12)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "360daa20-1186-4837-ad89-8a0d3ca4d100")
+	)
+	(wire
+		(pts
+			(xy 269.24 99.06) (xy 289.56 99.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "371abd35-cc94-42f0-b621-6e5719b1ff01")
+	)
+	(wire
+		(pts
+			(xy 269.24 60.96) (xy 302.26 60.96)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "400095d7-9e9e-4a35-bff5-fac7656c987e")
+	)
+	(wire
+		(pts
+			(xy 269.24 190.5) (xy 299.72 190.5)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "42a6b4b8-e2ff-496e-8ee4-b1ffbb057c6f")
+	)
+	(wire
+		(pts
+			(xy 22.86 198.12) (xy 60.96 198.12)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "46e2aa38-1463-4bae-a49b-1e70210223bd")
+	)
+	(wire
+		(pts
+			(xy 154.94 213.36) (xy 124.46 213.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "482afe8a-e042-4dcf-bcc0-3684b240d497")
+	)
+	(wire
+		(pts
+			(xy 396.24 170.18) (xy 426.72 170.18)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4966ab0b-0fd1-47ab-aaae-c4c05741a6f6")
+	)
+	(wire
+		(pts
+			(xy 53.34 261.62) (xy 27.94 261.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "546d214a-6bea-4bab-a9e2-302cd4b66469")
+	)
+	(wire
+		(pts
+			(xy 132.08 129.54) (xy 132.08 109.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "560b362d-f7fe-4d1c-9f9b-d9832eda60c6")
+	)
+	(wire
+		(pts
+			(xy 269.24 213.36) (xy 289.56 213.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "56a49d5d-81a4-4166-ae94-765bf13ca442")
+	)
+	(wire
+		(pts
+			(xy 198.12 284.48) (xy 170.18 284.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5a11c63f-e292-4e1a-8c80-f791d58f8930")
+	)
+	(wire
+		(pts
+			(xy 109.22 144.78) (xy 154.94 144.78)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5a9ab7a8-c0f6-497b-b972-a3c2a9e6720f")
+	)
+	(wire
+		(pts
+			(xy 330.2 149.86) (xy 360.68 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5b003ec2-6cb9-4979-ac54-9e84e9e3cc40")
+	)
+	(wire
+		(pts
+			(xy 76.2 35.56) (xy 101.6 35.56)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5fc7c342-6b61-423f-8f22-e4ca1a19130e")
+	)
+	(wire
+		(pts
+			(xy 302.26 53.34) (xy 269.24 53.34)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6ee11e70-9aa7-4ab1-bcd8-d0bdb3696ccd")
+	)
+	(wire
+		(pts
+			(xy 269.24 68.58) (xy 289.56 68.58)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "70d8a443-acef-4880-8590-737111936278")
+	)
+	(wire
+		(pts
+			(xy 304.8 99.06) (xy 297.18 99.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "710ac59c-5dfd-4a9c-85f0-3c6c0b2158be")
+	)
+	(wire
+		(pts
+			(xy 154.94 228.6) (xy 124.46 228.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7284f6d6-cfdc-49cb-9e38-b7eacace5d41")
+	)
+	(wire
+		(pts
+			(xy 76.2 43.18) (xy 101.6 43.18)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "729cb4a9-c6d6-4cc1-b5ba-42831640c83a")
+	)
+	(wire
+		(pts
+			(xy 71.12 238.76) (xy 71.12 215.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "76b7c036-bd79-4bcf-bc23-ae8c8007d229")
+	)
+	(wire
+		(pts
+			(xy 101.6 50.8) (xy 76.2 50.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "771ae8a4-2211-4409-87ca-35f90b67bb86")
+	)
+	(wire
+		(pts
+			(xy 360.68 139.7) (xy 330.2 139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "79d574e6-bacf-473b-af0d-a5709594313b")
+	)
+	(wire
+		(pts
+			(xy 154.94 99.06) (xy 109.22 99.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7c8971f8-d351-4da9-97b7-13f47fd8e944")
+	)
+	(wire
+		(pts
+			(xy 269.24 121.92) (xy 289.56 121.92)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7ea34987-8ab1-45f1-882c-1a2a3f27cc06")
+	)
+	(wire
+		(pts
+			(xy 132.08 129.54) (xy 154.94 129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8112dad8-944d-40eb-b581-eea9f293f175")
+	)
+	(wire
+		(pts
+			(xy 297.18 99.06) (xy 297.18 91.44)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "87379cf9-f5a5-4ad2-aff2-70e98f41f8d0")
+	)
+	(wire
+		(pts
+			(xy 269.24 106.68) (xy 289.56 106.68)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "87821578-d806-4981-97e7-12f9c16bb707")
+	)
+	(wire
+		(pts
+			(xy 269.24 83.82) (xy 297.18 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "87aec3ec-e319-4e2d-adad-2c5bfac1b925")
+	)
+	(wire
+		(pts
+			(xy 360.68 119.38) (xy 330.2 119.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "884a26c2-5eec-4088-b0fe-ce5fed7aeeae")
+	)
+	(wire
+		(pts
+			(xy 360.68 109.22) (xy 330.2 109.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "897e2c0c-85ad-488f-aacc-23f9233679bd")
+	)
+	(wire
+		(pts
+			(xy 154.94 220.98) (xy 124.46 220.98)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8c3256d7-85f5-4332-96dc-d4855422d1f7")
+	)
+	(wire
+		(pts
+			(xy 269.24 205.74) (xy 289.56 205.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8c9f21fa-63d6-49b8-933a-bccce66df5ff")
+	)
+	(wire
+		(pts
+			(xy 101.6 66.04) (xy 76.2 66.04)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8cc0786d-75be-4596-b07f-742e3fe5db54")
+	)
+	(wire
+		(pts
+			(xy 220.98 254) (xy 231.14 254)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8d4b6537-495e-41c3-8185-520197d0bcdf")
+	)
+	(wire
+		(pts
+			(xy 297.18 83.82) (xy 297.18 76.2)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8fcec869-120c-480d-8457-ec0f8edeeee5")
+	)
+	(wire
+		(pts
+			(xy 297.18 76.2) (xy 304.8 76.2)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "91f40795-0ad5-4c51-9d69-354d8e67e4d2")
+	)
+	(wire
+		(pts
+			(xy 269.24 91.44) (xy 297.18 91.44)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "97c4cd0b-6005-41af-a8ab-0b08571f4c4d")
+	)
+	(wire
+		(pts
+			(xy 198.12 254) (xy 170.18 254)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9a65fd92-4825-4d20-8a59-235f9f44988e")
+	)
+	(wire
+		(pts
+			(xy 101.6 281.94) (xy 76.2 281.94)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a39b1780-0e23-4937-8d90-1d8fc43f5f68")
+	)
+	(wire
+		(pts
+			(xy 109.22 167.64) (xy 154.94 167.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a41c21ae-b062-4b0d-9684-84f2d09c8dc4")
+	)
+	(wire
+		(pts
+			(xy 269.24 30.48) (xy 289.56 30.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a5838db6-a977-44be-a524-7f99af39bf62")
+	)
+	(wire
+		(pts
+			(xy 312.42 30.48) (xy 332.74 30.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a99bd29d-5df3-4f36-bb41-db8108a6ac59")
+	)
+	(wire
+		(pts
+			(xy 289.56 129.54) (xy 269.24 129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ad5299ec-16fe-4448-af23-bdc6ef521c8d")
+	)
+	(wire
+		(pts
+			(xy 299.72 220.98) (xy 269.24 220.98)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b4489721-73f8-4c70-a176-2b76cdd8fab0")
+	)
+	(wire
+		(pts
+			(xy 269.24 114.3) (xy 289.56 114.3)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b71edb63-287d-48fa-af1c-f962cdbc8b3c")
+	)
+	(wire
+		(pts
+			(xy 106.68 111.76) (xy 106.68 109.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b76b791c-dd40-4e0c-9151-ebc52a67eeb8")
+	)
+	(wire
+		(pts
+			(xy 396.24 160.02) (xy 426.72 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b7faab3f-17fe-4c8b-bb6d-9d8147870b9d")
+	)
+	(wire
+		(pts
+			(xy 396.24 139.7) (xy 426.72 139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c0adab45-de44-4b8f-aba1-d16a60c78798")
+	)
+	(wire
+		(pts
+			(xy 360.68 129.54) (xy 330.2 129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c733ba45-d699-4fa4-9708-7c4585ccc58b")
+	)
+	(wire
+		(pts
+			(xy 302.26 167.64) (xy 269.24 167.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c9dceebf-ef19-4357-985e-1c602312ac5d")
+	)
+	(wire
+		(pts
+			(xy 198.12 274.32) (xy 170.18 274.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ce3033c0-09ad-49c6-95e3-03c21706096a")
+	)
+	(wire
+		(pts
+			(xy 53.34 281.94) (xy 27.94 281.94)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cec4ae0f-4e3c-45f1-8329-2b8426a4666e")
+	)
+	(wire
+		(pts
+			(xy 269.24 137.16) (xy 289.56 137.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cf274908-431f-4126-b379-610473095d5a")
+	)
+	(wire
+		(pts
+			(xy 106.68 137.16) (xy 106.68 134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d3b7aa0a-90d3-460d-916a-6e326e67e825")
+	)
+	(wire
+		(pts
+			(xy 231.14 284.48) (xy 220.98 284.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d50b7094-0543-4389-8a2a-3e9ddd877799")
+	)
+	(wire
+		(pts
+			(xy 269.24 160.02) (xy 302.26 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d8965663-5443-4081-9c50-3cf397cb9674")
+	)
+	(wire
+		(pts
+			(xy 109.22 160.02) (xy 154.94 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d9a42c56-f7b9-4a6a-9ffe-d4940deb8d35")
+	)
+	(wire
+		(pts
+			(xy 109.22 175.26) (xy 154.94 175.26)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e564a5e1-5007-4766-921a-2a4968507484")
+	)
+	(wire
+		(pts
+			(xy 396.24 109.22) (xy 406.4 109.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "eb99508e-def8-439f-b517-3aba9adb124c")
+	)
+	(wire
+		(pts
+			(xy 73.66 215.9) (xy 68.58 215.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f29f5480-0958-4257-873c-21572c6e161c")
+	)
+	(wire
+		(pts
+			(xy 76.2 261.62) (xy 101.6 261.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fb4e516b-6847-410b-9696-66e7d7ecb41f")
+	)
+	(label "GND"
+		(at 269.24 83.82 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "07eec981-1300-4c28-b3e7-cecc68a97264")
+	)
+	(label "XTI"
+		(at 269.24 76.2 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "093c6e93-cf4d-4a09-8533-16c807487f22")
+	)
+	(label "+3V3"
+		(at 269.24 205.74 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "0b3c70a7-624a-4bc2-b779-c3243edbc316")
+	)
+	(label "+5V"
+		(at 76.2 35.56 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "0c84be7d-f5b3-43bb-b5fb-74a187f8501b")
+	)
+	(label "+3V3"
+		(at 269.24 99.06 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "114dfc25-499b-497e-b63b-80da09b67f35")
+	)
+	(label "+5V"
+		(at 269.24 106.68 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "11c319f0-6d8b-418b-9879-87f31c135328")
+	)
+	(label "P1.2"
+		(at 198.12 264.16 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "19f360b3-6552-455f-81f3-c9da692beab3")
+	)
+	(label "+5V"
+		(at 76.2 261.62 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "1cc121a1-dab6-4f63-bd95-2f230f423cd0")
+	)
+	(label "PUR"
+		(at 269.24 121.92 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "1f331d40-1a88-4b1f-995b-3aadd693b238")
+	)
+	(label "TEST"
+		(at 396.24 139.7 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "239989f5-7917-49e5-8e6c-36115ec7fa53")
+	)
+	(label "RXD1"
+		(at 396.24 160.02 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "26793b41-a484-4da8-abef-fe483c24aa81")
+	)
+	(label "TDO"
+		(at 360.68 109.22 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "298796c4-e966-4430-b799-40382e89d49e")
+	)
+	(label "+3V3"
+		(at 269.24 30.48 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "2dab3f65-7d83-4143-8da8-143ee2876c83")
+	)
+	(label "SCLK1"
+		(at 302.26 198.12 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "2e46c7bd-0ed3-4cdc-a39b-2153c2895614")
+	)
+	(label "GND"
+		(at 106.68 137.16 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "3700a781-1123-4e62-a110-c55f8ad393ad")
+	)
+	(label "+3V3"
+		(at 132.08 129.54 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "3cd9f682-68fc-4d92-9189-8ac6977c3083")
+	)
+	(label "TMS"
+		(at 360.68 129.54 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "3df91b91-17ff-40ca-bdb8-faeab1e9d122")
+	)
+	(label "USBDP"
+		(at 289.56 129.54 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "416e24ec-f4b6-4e7b-a498-9f69aaaadfb2")
+	)
+	(label "GND"
+		(at 269.24 137.16 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "428e1fe4-83fc-49fa-8e9a-1be551828df6")
+	)
+	(label "TMS"
+		(at 299.72 228.6 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "44b77a86-3f4d-4819-9beb-0444770b12ce")
+	)
+	(label "USBDP"
+		(at 53.34 281.94 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "47a5b28c-0d34-4997-a028-c5a5d0e6049d")
+	)
+	(label "GND"
+		(at 53.34 261.62 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "5e0b96ca-324f-46f4-9f28-33fe0ace0724")
+	)
+	(label "+3V3"
+		(at 101.6 281.94 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "6ab212d7-ddfc-4df8-8554-02bcd252485f")
+	)
+	(label "XTO"
+		(at 269.24 68.58 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "6b3b8197-8998-4a85-819a-889127a4bdaf")
+	)
+	(label "USBDM"
+		(at 76.2 43.18 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "7545063a-e98a-4bd5-826a-f7b27d39f196")
+	)
+	(label "TDI"
+		(at 154.94 228.6 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "78544dff-1708-4e2f-a147-0f9e56296139")
+	)
+	(label "GND"
+		(at 269.24 213.36 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "78d56861-4300-430b-8b45-2614876b1912")
+	)
+	(label "TCK"
+		(at 360.68 139.7 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "7bfac522-655c-45a8-965d-1a311d0180d0")
+	)
+	(label "RST"
+		(at 360.68 160.02 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "830dc343-d124-43e5-8f1c-59eb85682181")
+	)
+	(label "TXD1"
+		(at 302.26 167.64 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "85cf511e-2d79-410f-a37c-897f8e9683bc")
+	)
+	(label "P1.3"
+		(at 198.12 274.32 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "8bf20ba1-5c18-400e-9c5c-33d63f73df65")
+	)
+	(label "GND"
+		(at 330.2 149.86 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "8d2eb6bf-26cf-42bb-a5d5-61256f6c91a5")
+	)
+	(label "SCLK1"
+		(at 426.72 149.86 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "8d837191-8146-4b82-a5c8-dc3a241719ad")
+	)
+	(label "RXD1"
+		(at 269.24 160.02 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "a2029408-5355-4620-878c-58061206bdb8")
+	)
+	(label "XTI"
+		(at 78.74 198.12 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "aebe90a7-46a1-4cd6-ab94-bcad44146fd0")
+	)
+	(label "TEST"
+		(at 269.24 190.5 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "b336cf61-87af-4b26-ad4c-f13cb1a39049")
+	)
+	(label "TCK"
+		(at 299.72 220.98 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "b3714953-6094-45ae-a1d9-b51fab001685")
+	)
+	(label "XTO"
+		(at 22.86 198.12 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "b4b88dc5-f4f3-451b-8453-83250a2f22f6")
+	)
+	(label "GND"
+		(at 71.12 238.76 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "b68f3a79-ed96-4fef-aeb9-bf665ccd272d")
+	)
+	(label "TDI"
+		(at 360.68 119.38 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "ba7e4d65-a980-424c-8089-5ec3f6961b73")
+	)
+	(label "TDO"
+		(at 154.94 220.98 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "bc4f4fa6-e356-41a1-830c-14cc3e827451")
+	)
+	(label "TXD1"
+		(at 396.24 170.18 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "bfa2160e-a85d-4de1-8d50-ba3aaafef3d8")
+	)
+	(label "USBDM"
+		(at 269.24 114.3 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "c45b097e-d0b7-49ca-942a-10d04f59f3d9")
+	)
+	(label "P1.1"
+		(at 198.12 254 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "cc58cbdd-3bbf-4628-accd-3c749ed129fc")
+	)
+	(label "RST"
+		(at 154.94 213.36 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "cc940093-eed8-4dae-a948-279462605c67")
+	)
+	(label "GND"
+		(at 312.42 30.48 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "d126b67b-0683-4f78-bf1f-bd949ec6845e")
+	)
+	(label "USBDP"
+		(at 101.6 50.8 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "d13bdf79-18e5-4d68-8cca-eb6eb35ef044")
+	)
+	(label "P1.1"
+		(at 109.22 160.02 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "d524e3e1-75df-46db-991d-525387549dbe")
+	)
+	(label "GND"
+		(at 101.6 66.04 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "e64979d3-d541-4e27-a102-293f8e0ed46f")
+	)
+	(label "P1.3"
+		(at 109.22 175.26 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "ea97bb21-a46a-4b73-88f4-e11dfd1c443a")
+	)
+	(label "GND"
+		(at 198.12 284.48 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "f7d931b7-cdf5-46eb-88f1-ad7b932b3fb6")
+	)
+	(label "+3V3"
+		(at 396.24 119.38 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "f9b92520-b50a-4a0f-bac6-8b20805fa32d")
+	)
+	(label "P1.2"
+		(at 109.22 167.64 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "fbf4725e-aff1-4c50-8254-21e3a2acc5e4")
+	)
+	(label "+3V3"
+		(at 154.94 99.06 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "fe256b78-373c-43d3-a566-0413c54c66cc")
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:micro-usb")
+		(at 22.86 76.2 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "25c3ffc3-1bf7-49a2-a747-d848adb89d9c")
+		(property "Reference" "U1"
+			(at 68.58 25.4 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 22.86 76.2 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "USB_MICRO_B"
+			(at 22.86 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 22.86 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 22.86 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "U1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:resistor-1")
+		(at 53.34 284.48 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "25e6b0d3-ff7e-46a2-a08e-db5c4fb73f25")
+		(property "Reference" "R1"
+			(at 58.42 276.86 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "1k"
+			(at 58.42 289.56 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 53.34 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 53.34 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 53.34 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "f0bc7b47-bc77-44f5-b50c-1f7d664f8925")
+		)
+		(pin "2"
+			(uuid "654f56a5-3f98-4a40-a51b-1638611e7c74")
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "R1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:resistor-1")
+		(at 198.12 287.02 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "571a8dbe-7367-4ff2-b7c9-0860308c8bd6")
+		(property "Reference" "R2"
+			(at 203.2 279.4 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "330"
+			(at 203.2 292.1 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 198.12 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 198.12 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 198.12 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "c444b74c-0939-4a49-8035-d27c9b0190dc")
+		)
+		(pin "1"
+			(uuid "a9941bf9-d0cf-4bdd-8985-91ba2b4d66ca")
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "R2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:capacitor-1")
+		(at 289.56 35.56 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "5c2a4639-0f4c-4c59-acaf-323eda1169a1")
+		(property "Reference" "C4"
+			(at 294.64 22.86 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "0.1uF"
+			(at 294.64 40.64 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 289.56 35.56 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 289.56 35.56 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 289.56 35.56 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "78e7c200-92e0-4bf5-90c4-294df10ba242")
+		)
+		(pin "2"
+			(uuid "d5845f83-1a92-4229-ac53-a3cd41a5e79d")
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "C4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:header14-1")
+		(at 360.68 175.26 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "628e3b1e-2339-44d7-9e03-b4e2a23d1985")
+		(property "Reference" "J1"
+			(at 375.92 101.6 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 360.68 175.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "14.fp"
+			(at 360.68 175.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 360.68 175.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 360.68 175.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "J1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:crystal-1")
+		(at 60.96 200.66 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "750527a6-c29d-4041-b750-657a2daf2872")
+		(property "Reference" "X1"
+			(at 66.04 193.04 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 60.96 200.66 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "HC49"
+			(at 60.96 200.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 60.96 200.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 60.96 200.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "X1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:led-2")
+		(at 198.12 276.86 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "8ad7aaa3-f707-4e85-9508-fae19723e004")
+		(property "Reference" "D3"
+			(at 218.44 269.24 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 198.12 276.86 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 198.12 276.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 198.12 276.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 198.12 276.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "D3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:led-2")
+		(at 198.12 256.54 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a5ebe0c9-45fe-4e74-bc7d-5e92c87e6785")
+		(property "Reference" "D1"
+			(at 218.44 248.92 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 198.12 256.54 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 198.12 256.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 198.12 256.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 198.12 256.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "D1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:capacitor-1")
+		(at 111.76 134.62 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "b5350e2a-4ddd-424b-a2aa-b35c88bea2b6")
+		(property "Reference" "C3"
+			(at 99.06 129.54 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "0.1uF"
+			(at 116.84 129.54 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 111.76 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 111.76 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 111.76 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "3fcb224d-e7cf-4fb0-aa14-81a658620176")
+		)
+		(pin "2"
+			(uuid "1f97f5aa-5def-4e6d-a208-8805fc331cfb")
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "C3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:capacitor-1")
+		(at 45.72 220.98 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "c1c3ea20-7daa-4e48-99f9-442dc676b9fd")
+		(property "Reference" "C1"
+			(at 50.8 208.28 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "22pF"
+			(at 50.8 226.06 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 45.72 220.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 45.72 220.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 45.72 220.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "144ff6bc-231b-4c09-9ab1-bb92eea1ce5d")
+		)
+		(pin "2"
+			(uuid "d0ec62db-c11d-43a5-ae2f-a27fe6a90ac6")
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "C1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:capacitor-1")
+		(at 53.34 266.7 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "c2ed5767-8974-43a7-89b2-1328ee37a390")
+		(property "Reference" "C5"
+			(at 58.42 254 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "0.1uF"
+			(at 58.42 271.78 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 53.34 266.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 53.34 266.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 53.34 266.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "847a6fe2-24c8-448d-ab00-70ff8232e022")
+		)
+		(pin "1"
+			(uuid "f41fe62d-7802-4979-ab1f-ba78a93fd71b")
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "C5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:capacitor-1")
+		(at 309.88 99.06 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "c8372173-dec7-40ed-81fd-6cec3ba23336")
+		(property "Reference" "C6"
+			(at 297.18 93.98 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "0.1uF"
+			(at 314.96 93.98 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 309.88 99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 309.88 99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 309.88 99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "11b8f479-d91f-4009-ae53-da013599d789")
+		)
+		(pin "2"
+			(uuid "7e7ec182-81cb-4ee4-9c87-ec55503e830c")
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "C6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:capacitor-1")
+		(at 73.66 220.98 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d15e683f-cb30-4b10-98fe-eeea6637675f")
+		(property "Reference" "C2"
+			(at 78.74 208.28 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "22pF"
+			(at 78.74 226.06 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 73.66 220.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 73.66 220.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 73.66 220.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "bb9c9ca6-40f6-4e5f-ac3d-b35627a18ab9")
+		)
+		(pin "1"
+			(uuid "c624f9b7-446b-4dfd-901f-ee5b0ef66664")
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "C2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:connector2-1")
+		(at 345.44 48.26 180)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f2cf0461-1d5d-4550-bf98-afc02b000e95")
+		(property "Reference" "SBW"
+			(at 345.44 68.58 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 345.44 48.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "HEADER2_1"
+			(at 345.44 48.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 345.44 48.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 345.44 48.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "SBW")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:msp430f550x-1")
+		(at 154.94 236.22 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f5d6ed33-4263-4c74-a516-684cd8a0c5c8")
+		(property "Reference" "U3"
+			(at 261.62 43.18 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 154.94 236.22 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "LQFP48_7"
+			(at 154.94 236.22 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 154.94 236.22 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 154.94 236.22 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "U3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "goodfet50-geda-import:led-2")
+		(at 198.12 266.7 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "fbbdc8e5-5b35-4466-a6e1-3c12dc31e894")
+		(property "Reference" "D2"
+			(at 218.44 259.08 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 198.12 266.7 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 198.12 266.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 198.12 266.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 198.12 266.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "goodfet50"
+				(path "/77f388bc-369f-4083-b33c-f60a64693cd9"
+					(reference "D2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(embedded_fonts no)
+)

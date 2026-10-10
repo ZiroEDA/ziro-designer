@@ -1,0 +1,45 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "802f8c25-22be-4d6e-aafa-8b9547f555f9")
+	(paper "A4")
+	(lib_symbols)
+	(bezier
+		(pts
+			(xy 147.32 101.6) (xy 149.86 96.52) (xy 154.94 96.52) (xy 157.48 101.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(fill
+			(type none)
+		)
+		(uuid "11ae8da9-9d4f-4729-9fad-8c39a57950cf")
+	)
+	(bezier
+		(pts
+			(xy 137.16 111.76) (xy 139.7 109.22) (xy 142.24 109.22) (xy 144.78 111.76)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(fill
+			(type none)
+		)
+		(uuid "abc1af37-22ee-4b61-871c-4e08c6bf7756")
+	)
+	(polyline
+		(pts
+			(xy 157.48 101.6) (xy 157.48 106.68)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "860b95cd-f8f9-4c10-afdb-414f0bc1a4cd")
+	)
+	(embedded_fonts no)
+)

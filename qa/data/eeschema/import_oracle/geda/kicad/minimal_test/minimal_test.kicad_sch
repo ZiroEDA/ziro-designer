@@ -1,0 +1,468 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "dc07da93-ec5b-42de-916e-079601643442")
+	(paper "A4")
+	(lib_symbols
+		(symbol "minimal_test-geda-import:capacitor-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "capacitor-1_0_0"
+				(polyline
+					(pts
+						(xy 10.16 10.16) (xy 10.16 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 12.7 10.16) (xy 12.7 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 22.86 5.08 180)
+					(length 5.08)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 5.08 0)
+					(length 5.08)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "minimal_test-geda-import:resistor-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "resistor-1_0_0"
+				(rectangle
+					(start 5.08 7.62)
+					(end 17.78 2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 22.86 5.08 180)
+					(length 5.08)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 5.08 0)
+					(length 5.08)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(wire
+		(pts
+			(xy 129.54 78.74) (xy 104.14 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4a6051c1-4e24-4c96-bfa0-e3978a789358")
+	)
+	(wire
+		(pts
+			(xy 193.04 116.84) (xy 193.04 142.24)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4ae45c0e-6d0e-4f9e-b601-8bfbe288423e")
+	)
+	(wire
+		(pts
+			(xy 193.04 78.74) (xy 193.04 93.98)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4bcbbc2e-b68a-4654-833c-6a261a1dba34")
+	)
+	(wire
+		(pts
+			(xy 177.8 78.74) (xy 193.04 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cba10c38-f051-4c31-b5b0-bb13bb13af67")
+	)
+	(label "GND"
+		(at 193.04 116.84 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "38fb5578-05e3-4399-9116-fe779b370d71")
+	)
+	(label "MID"
+		(at 193.04 78.74 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "5104002f-2b74-4572-acb7-ea96e7c8bd50")
+	)
+	(label "INPUT"
+		(at 129.54 78.74 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "798d1708-8951-4f5c-95d5-96f5f4a285ae")
+	)
+	(symbol
+		(lib_id "minimal_test-geda-import:resistor-1")
+		(at 129.54 78.74 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "16f3df01-0ccd-42ee-a58e-1b27755f8e14")
+		(property "Reference" "R1"
+			(at 137.16 68.58 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "10k"
+			(at 137.16 86.36 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0805"
+			(at 129.54 78.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 129.54 78.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 129.54 78.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "f269729f-93a5-4710-ba07-1c25588f2156")
+		)
+		(pin "2"
+			(uuid "c99feb65-9f74-45ab-a456-57e0b8ab411a")
+		)
+		(instances
+			(project "minimal_test"
+				(path "/dc07da93-ec5b-42de-916e-079601643442"
+					(reference "R1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "minimal_test-geda-import:capacitor-1")
+		(at 193.04 116.84 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "875828ea-5211-4ca2-9112-c523d41bdcad")
+		(property "Reference" "C1"
+			(at 175.26 111.76 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "100nF"
+			(at 167.64 111.76 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 193.04 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 193.04 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 193.04 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "cd21fc83-54dd-499b-859f-d47831e39be0")
+		)
+		(pin "2"
+			(uuid "c4af22a4-5d3d-41a3-8b90-0736a9dd1ac3")
+		)
+		(instances
+			(project "minimal_test"
+				(path "/dc07da93-ec5b-42de-916e-079601643442"
+					(reference "C1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(embedded_fonts no)
+)

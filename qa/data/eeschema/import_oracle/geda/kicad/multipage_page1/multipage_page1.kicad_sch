@@ -1,0 +1,28 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "62d88102-c13f-420e-a1d4-b2f3272257c3")
+	(paper "A4")
+	(lib_symbols)
+	(wire
+		(pts
+			(xy 124.46 104.14) (xy 175.26 104.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e9b7e383-f349-486d-8f04-bcd7c0ba08ad")
+	)
+	(label "NET_A"
+		(at 124.46 104.14 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "12961388-6457-4786-8144-38d90aaba700")
+	)
+	(embedded_fonts no)
+)

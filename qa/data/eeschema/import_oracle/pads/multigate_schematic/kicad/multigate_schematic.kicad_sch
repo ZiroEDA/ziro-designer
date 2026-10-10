@@ -1,0 +1,450 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "5ee95a2d-2e97-442a-b1f1-d77ff43b2436")
+	(paper "C")
+	(title_block
+		(title "multigate_test.sch")
+	)
+	(lib_symbols
+		(symbol "pads_import:TL082"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_locked" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "TL082_1_0"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 20.32) (xy 15.24 10.16) (xy 0 0)
+					)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin input line
+					(at 20.32 10.16 180)
+					(length 5.08)
+					(name "O"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -5.08 5.08 0)
+					(length 5.08)
+					(name "I-"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -5.08 15.24 0)
+					(length 5.08)
+					(name "I+"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin unspecified line
+					(at 7.62 20.32 270)
+					(length 5.08)
+					(name "V-"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin unspecified line
+					(at 7.62 0 90)
+					(length 5.08)
+					(name "V+"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(symbol "TL082_2_0"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 20.32) (xy 15.24 10.16) (xy 0 0)
+					)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin input line
+					(at -5.08 15.24 0)
+					(length 5.08)
+					(name "I+"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -5.08 5.08 0)
+					(length 5.08)
+					(name "I-"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 20.32 10.16 180)
+					(length 5.08)
+					(name "O"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(symbol
+		(lib_id "pads_import:TL082")
+		(at 127 254 0)
+		(unit 2)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "857aa5f1-6d77-4c09-9860-b7acb4b7e601")
+		(property "Reference" "U1"
+			(at 143.51 250.698 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.1684)
+					(thickness 0.254)
+				)
+				(justify bottom)
+			)
+		)
+		(property "Value" "TL082"
+			(at 143.51 251.46 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.1684)
+					(thickness 0.254)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 127 254 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 127 254 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 127 254 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ea07b462-d51c-4317-9026-1cc876a4a60c")
+		)
+		(pin "2"
+			(uuid "d4621d30-e461-4805-8371-7d13f76321e9")
+		)
+		(pin "3"
+			(uuid "847e551e-046d-4eb9-8bcb-8e84795b778f")
+		)
+		(pin "4"
+			(uuid "6897d9de-c3df-4a7d-b019-d8bd9e525d93")
+		)
+		(pin "8"
+			(uuid "ee3d0bbf-76f0-4f4e-8604-2ffd2d326f27")
+		)
+		(pin "5"
+			(uuid "9411f63e-073f-4ecc-9bc7-af4edb1da67c")
+		)
+		(pin "6"
+			(uuid "b825a71c-6125-41b1-8000-569ef297d98c")
+		)
+		(pin "7"
+			(uuid "1356daeb-0f7c-44ed-b4e3-dbba54e377f9")
+		)
+		(instances
+			(project "multigate_schematic"
+				(path "/5ee95a2d-2e97-442a-b1f1-d77ff43b2436"
+					(reference "U1")
+					(unit 2)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "pads_import:TL082")
+		(at 127 304.8 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "866d873b-6dce-493e-a615-8134eea9f989")
+		(property "Reference" "U1"
+			(at 143.51 301.498 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.1684)
+					(thickness 0.254)
+				)
+				(justify bottom)
+			)
+		)
+		(property "Value" "TL082"
+			(at 143.51 302.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.1684)
+					(thickness 0.254)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 127 304.8 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 127 304.8 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 127 304.8 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "2e2a8c27-cf15-46a5-b49e-d77f50324686")
+		)
+		(pin "2"
+			(uuid "aab05b6d-410c-4ef8-a823-a05beaf10d1e")
+		)
+		(pin "3"
+			(uuid "56f36602-7d2a-4cd8-9e31-1bc72f4e8436")
+		)
+		(pin "4"
+			(uuid "071ce397-4e88-4344-8fd6-4f952ec2236a")
+		)
+		(pin "8"
+			(uuid "88c5ddab-aaeb-4600-b600-9c9e3045c899")
+		)
+		(pin "5"
+			(uuid "2612bc4e-c516-4cbd-a320-2fa50fd9af1e")
+		)
+		(pin "6"
+			(uuid "00979193-0ef8-46fb-a3c0-80ffeb885a34")
+		)
+		(pin "7"
+			(uuid "3c4dd384-ecad-4ec1-9fcd-f73ef68bd498")
+		)
+		(instances
+			(project "multigate_schematic"
+				(path "/5ee95a2d-2e97-442a-b1f1-d77ff43b2436"
+					(reference "U1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(embedded_fonts no)
+)

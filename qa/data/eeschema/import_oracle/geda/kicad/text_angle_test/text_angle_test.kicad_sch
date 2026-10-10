@@ -1,0 +1,64 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "b00ad028-fc1f-4ddf-99c2-7ad4d6d4e402")
+	(paper "A4")
+	(lib_symbols)
+	(text "Angled45"
+		(exclude_from_sim no)
+		(at 99.06 162.56 90)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left bottom)
+		)
+		(uuid "0f201a1f-e9cc-47b3-ab61-7dc4a338995c")
+	)
+	(text "Angled200"
+		(exclude_from_sim no)
+		(at 149.86 111.76 180)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left bottom)
+		)
+		(uuid "18dab409-f5bf-4e62-b095-5c655ed52f6d")
+	)
+	(text "Exact90"
+		(exclude_from_sim no)
+		(at 200.66 60.96 90)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left bottom)
+		)
+		(uuid "969ac820-b1ec-4254-9a72-9359d23daba1")
+	)
+	(text "Angled315"
+		(exclude_from_sim no)
+		(at 175.26 86.36 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left bottom)
+		)
+		(uuid "b6783c16-3882-4b47-9c26-e90d6d45ec15")
+	)
+	(text "Angled135"
+		(exclude_from_sim no)
+		(at 124.46 137.16 180)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left bottom)
+		)
+		(uuid "f54305d8-d1b1-42c1-af01-3c01db84810c")
+	)
+	(embedded_fonts no)
+)

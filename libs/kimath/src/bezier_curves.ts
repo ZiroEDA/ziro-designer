@@ -13,6 +13,9 @@
  */
 
 import { KiROUND } from './math/util.js';
+import { ANGLE_0, ANGLE_360, EDA_ANGLE, EDA_ANGLE_T } from './geometry/eda_angle.js';
+import type { ELLIPSE } from './geometry/ellipse.js';
+import { RotatePointD } from './trigo.js';
 import type { Vec2, VECTOR2I } from './math/vector2.js';
 
 const sub = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x - b.x, y: a.y - b.y });
@@ -348,4 +351,83 @@ export class BezierPoly {
   getPoly(maxError: number): VECTOR2I[] {
     return this.getPolyD(maxError).map((p) => ({ x: KiROUND(p.x), y: KiROUND(p.y) }));
   }
+}
+
+/** `template <typename T> class BEZIER`: one cubic segment's four points. */
+export interface BEZIER {
+  Start: Vec2;
+  C1: Vec2;
+  C2: Vec2;
+  End: Vec2;
+}
+
+/**
+ * `TransformEllipseToBeziers` (bezier_curves.cpp:603): KiCad has no native ellipse, so an
+ * ellipse or elliptical arc becomes cubic Beziers that hug it - at least four per full turn.
+ *
+ * The geometry is done in double throughout; \a aInteger is `T = int`, whose `BEZIER<int>`
+ * takes each point through VECTOR2's casting constructor: truncated toward zero.
+ */
+export function TransformEllipseToBeziers(aEllipse: ELLIPSE, aInteger: boolean): BEZIER[] {
+  const aBeziers: BEZIER[] = [];
+
+  let arcAngle = aEllipse.EndAngle.sub(aEllipse.StartAngle).negate();
+
+  if (arcAngle.ge(ANGLE_0)) arcAngle = arcAngle.sub(ANGLE_360);
+
+  /// Minimum number of Beziers to use for a full circle to keep error manageable.
+  const minBeziersPerCircle = 4;
+
+  /// The number of Beziers needed for the given arc
+  const numBeziers = Math.trunc(
+    Math.ceil(Math.abs(arcAngle.AsRadians() / ((2 * Math.PI) / minBeziersPerCircle))),
+  );
+
+  /// Angle occupied by each Bezier
+  const angleIncrement = arcAngle.AsRadians() / numBeziers;
+
+  // k = 4/3 * tan(θ/4), where θ is the angle of the arc. In our case, θ=angleIncrement
+  const theta = angleIncrement;
+  const k = (4 / 3) * Math.tan(theta / 4);
+
+  const first: BEZIER = {
+    Start: { x: 1, y: 0 },
+    C1: { x: 1, y: k },
+    C2: {
+      x: Math.cos(theta) + k * Math.sin(theta),
+      y: Math.sin(theta) - k * Math.cos(theta),
+    },
+    End: { x: Math.cos(theta), y: Math.sin(theta) },
+  };
+
+  const transformPoint = (aPoint: Vec2, aAngle: number): Vec2 => {
+    // Bring to the actual starting angle
+    let p = RotatePointD(
+      aPoint,
+      new EDA_ANGLE(aAngle - aEllipse.StartAngle.AsRadians(), EDA_ANGLE_T.RADIANS_T).negate(),
+    );
+
+    // Then scale to the major and minor radiuses of the ellipse
+    p = { x: p.x * aEllipse.MajorRadius, y: p.y * aEllipse.MinorRadius };
+
+    // Now rotate to the ellipse coordinate system
+    p = RotatePointD(p, aEllipse.Rotation.negate());
+
+    // And finally offset to the center location of the ellipse
+    return { x: p.x + aEllipse.Center.x, y: p.y + aEllipse.Center.y };
+  };
+
+  const out = (p: Vec2): Vec2 =>
+    aInteger ? { x: Math.trunc(p.x) + 0, y: Math.trunc(p.y) + 0 } : p;
+
+  for (let i = 0; i < numBeziers; i++) {
+    aBeziers.push({
+      Start: out(transformPoint(first.Start, i * angleIncrement)),
+      C1: out(transformPoint(first.C1, i * angleIncrement)),
+      C2: out(transformPoint(first.C2, i * angleIncrement)),
+      End: out(transformPoint(first.End, i * angleIncrement)),
+    });
+  }
+
+  return aBeziers;
 }

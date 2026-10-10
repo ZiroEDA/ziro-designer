@@ -1,0 +1,42 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "d7af86dc-a0ba-49cc-aad6-34f553349cb6")
+	(paper "A")
+	(title_block
+		(title "Signal Test")
+	)
+	(lib_symbols)
+	(wire
+		(pts
+			(xy 50.8 165.1) (xy 50.8 139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "199c562f-281e-45c7-b7ff-1991de1573cf")
+	)
+	(wire
+		(pts
+			(xy 25.4 165.1) (xy 127 165.1)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "34ddee28-d912-4791-b1f1-4ee2452409a5")
+	)
+	(wire
+		(pts
+			(xy 139.7 165.1) (xy 152.4 165.1)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "feb62cce-e3a1-487d-8e86-1893271a256b")
+	)
+	(embedded_fonts no)
+)

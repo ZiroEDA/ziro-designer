@@ -1,0 +1,4522 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "94fcb513-a193-4332-af8e-c2b1cddcac6b")
+	(paper "User" 394.1826 301.2694)
+	(lib_symbols
+		(symbol "powermeter-geda-import:BT136"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "BT136_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "powermeter-geda-import:CS5463"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "CS5463_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "powermeter-geda-import:DS1117-3_3"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "DS1117-3_3_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "powermeter-geda-import:MOC3021"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "MOC3021_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "powermeter-geda-import:capacitor-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "capacitor-1_0_0"
+				(polyline
+					(pts
+						(xy 10.16 10.16) (xy 10.16 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 12.7 10.16) (xy 12.7 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 22.86 5.08 180)
+					(length 5.08)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 5.08 0)
+					(length 5.08)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "powermeter-geda-import:resistor-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "resistor-1_0_0"
+				(rectangle
+					(start 5.08 7.62)
+					(end 17.78 2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 22.86 5.08 180)
+					(length 5.08)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 5.08 0)
+					(length 5.08)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "powermeter-geda-import:terminal-1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "terminal-1_0_0"
+				(rectangle
+					(start 5.08 7.62)
+					(end 10.16 2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 5.08 5.08 180)
+					(length 5.08)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "powermeter-geda-import:xtal"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "xtal_0_0"
+				(rectangle
+					(start -2.54 2.54)
+					(end 2.54 -2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(text "LINE_IN"
+		(exclude_from_sim no)
+		(at 60.96 255.27 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left bottom)
+		)
+		(uuid "1563bf26-ed58-42ac-9351-59aaecd41479")
+	)
+	(junction
+		(at 231.14 135.89)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "04e129c1-276c-43c5-81ce-23255126cb6e")
+	)
+	(junction
+		(at 375.92 118.11)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "14a65935-63cd-4c5c-88ce-2e5bcd43b754")
+	)
+	(junction
+		(at 274.32 194.31)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "15aa9ba0-1000-47c7-81af-2bbde934f1ed")
+	)
+	(junction
+		(at 231.14 82.55)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2e28e7b3-773e-4083-90ba-2f416c7b76ae")
+	)
+	(junction
+		(at 261.62 166.37)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "30d96d72-8092-43f0-ac4a-c3387f573ea6")
+	)
+	(junction
+		(at 210.82 143.51)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "3f90a1dc-ef13-4f7e-9530-6807d4e4310f")
+	)
+	(junction
+		(at 170.18 125.73)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4dc790a9-a65c-4207-9810-fa756825a698")
+	)
+	(junction
+		(at 213.36 125.73)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "63817961-2b5f-4fce-9e16-c0d1e6b2af76")
+	)
+	(junction
+		(at 170.18 143.51)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "709450c0-f85f-4920-ae1a-16853d16584d")
+	)
+	(junction
+		(at 119.38 250.19)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9a993621-1ad5-4234-aaf9-2b5b7bd787a2")
+	)
+	(junction
+		(at 213.36 82.55)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "af535fba-ead6-4f53-91c3-73cace60355f")
+	)
+	(junction
+		(at 274.32 166.37)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "d8804ddb-9182-4a85-9090-760ffaabe996")
+	)
+	(junction
+		(at 170.18 92.71)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "e10eaff7-aaee-4c63-a9d0-a9618d484f41")
+	)
+	(junction
+		(at 261.62 143.51)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "fdbf3f15-229f-4c65-8e56-2a98454d7971")
+	)
+	(wire
+		(pts
+			(xy 180.34 143.51) (xy 162.56 143.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0101375f-ac76-40e1-883e-f0998092605f")
+	)
+	(wire
+		(pts
+			(xy 264.16 171.45) (xy 261.62 166.37)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "018bb73e-b3f9-4cfe-b21a-c334a9529bb5")
+	)
+	(wire
+		(pts
+			(xy 279.4 100.33) (xy 251.46 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0406b686-60c3-4192-aceb-9b66d5fcacd2")
+	)
+	(wire
+		(pts
+			(xy 60.96 128.27) (xy 86.36 128.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0550d26b-712d-4c4b-b168-eca07303ea1a")
+	)
+	(wire
+		(pts
+			(xy 208.28 125.73) (xy 213.36 125.73)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "065de871-08dc-43f2-a8b5-8ae6f1e6bd7e")
+	)
+	(wire
+		(pts
+			(xy 325.12 54.61) (xy 327.66 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "086bca95-8a27-43ef-8323-f3f6201dc8da")
+	)
+	(wire
+		(pts
+			(xy 203.2 143.51) (xy 279.4 143.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0e2bad52-af1e-47e2-b4a0-b427251ffe47")
+	)
+	(wire
+		(pts
+			(xy 231.14 113.03) (xy 231.14 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "10c44bc5-84b5-4040-a57d-897ac4106de7")
+	)
+	(wire
+		(pts
+			(xy 325.12 77.47) (xy 325.12 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "126338bc-88b4-4253-ae1f-93b097b5a693")
+	)
+	(wire
+		(pts
+			(xy 342.9 115.57) (xy 353.06 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "134a818e-9a7f-46d7-a3c8-82e7abd94059")
+	)
+	(wire
+		(pts
+			(xy 116.84 105.41) (xy 119.38 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "14a9a46c-99aa-446b-9d3a-6bc0a5526f85")
+	)
+	(wire
+		(pts
+			(xy 119.38 232.41) (xy 119.38 250.19)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1891b1c4-34c4-406e-a303-0ebb49f59615")
+	)
+	(wire
+		(pts
+			(xy 60.96 250.19) (xy 83.82 250.19)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "19060cfd-8605-4f39-97c5-8ff197742c4a")
+	)
+	(wire
+		(pts
+			(xy 147.32 229.87) (xy 147.32 207.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "22fdb57a-74ac-4a0b-85cc-64de20f6e48e")
+	)
+	(wire
+		(pts
+			(xy 353.06 115.57) (xy 353.06 113.03)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2408559d-016f-4f63-b9fb-53feb0a63610")
+	)
+	(wire
+		(pts
+			(xy 276.86 166.37) (xy 276.86 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "29efa2b1-49b6-4d97-9ad4-a26f4e3fe370")
+	)
+	(wire
+		(pts
+			(xy 279.4 130.81) (xy 241.3 130.81)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2ab8d374-edc3-4804-bd30-1749954a4a78")
+	)
+	(wire
+		(pts
+			(xy 297.18 54.61) (xy 294.64 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2b3a415f-def8-4540-a386-e4db45f0bcbe")
+	)
+	(wire
+		(pts
+			(xy 60.96 181.61) (xy 86.36 181.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2c2db8a5-d75d-4242-aaf8-4e11a725dcfc")
+	)
+	(wire
+		(pts
+			(xy 213.36 118.11) (xy 213.36 135.89)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "360451e5-b212-40ce-9c5f-385d63dca5ab")
+	)
+	(wire
+		(pts
+			(xy 60.96 80.01) (xy 91.44 80.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "378e39cb-fcdd-48a2-beb4-b8e61bfc8437")
+	)
+	(wire
+		(pts
+			(xy 241.3 130.81) (xy 241.3 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3eec9ddf-aa92-43dd-995d-b56032b784c2")
+	)
+	(wire
+		(pts
+			(xy 187.96 82.55) (xy 241.3 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4d3abc2d-42b5-4245-a6bc-91ba0a5ae395")
+	)
+	(wire
+		(pts
+			(xy 213.36 95.25) (xy 213.36 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4d41b98c-43e3-486f-b6ab-2d7b93eb8fc5")
+	)
+	(wire
+		(pts
+			(xy 279.4 120.65) (xy 256.54 120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4f213e83-23a2-48a1-b9ee-b67114c8e064")
+	)
+	(wire
+		(pts
+			(xy 297.18 77.47) (xy 297.18 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "54996ff5-ea00-47fd-b344-eeb05866a57e")
+	)
+	(wire
+		(pts
+			(xy 147.32 130.81) (xy 147.32 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "57d000d7-fc84-4c15-87a9-129ee8697c20")
+	)
+	(wire
+		(pts
+			(xy 139.7 57.15) (xy 139.7 77.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "59915aab-b337-4385-b9cf-785f1de6ad7f")
+	)
+	(wire
+		(pts
+			(xy 132.08 57.15) (xy 132.08 77.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5bd89f07-0d66-4f6c-b958-b54f5224df4b")
+	)
+	(wire
+		(pts
+			(xy 60.96 278.13) (xy 180.34 278.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "60ee904b-d3f6-4c5f-8fb9-5baf4c561fd4")
+	)
+	(wire
+		(pts
+			(xy 297.18 166.37) (xy 337.82 166.37)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "633ca42f-c27a-44c6-9200-205042b7b735")
+	)
+	(wire
+		(pts
+			(xy 170.18 62.23) (xy 170.18 49.53)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "63ba7eea-16a9-41d3-8841-1362a2710ad3")
+	)
+	(wire
+		(pts
+			(xy 274.32 171.45) (xy 274.32 166.37)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "65edffaa-4b1a-414b-8476-3fa1bb72e34e")
+	)
+	(wire
+		(pts
+			(xy 170.18 143.51) (xy 170.18 120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6bf57606-6b55-4fd0-87b6-e4407a76e5ab")
+	)
+	(wire
+		(pts
+			(xy 210.82 181.61) (xy 210.82 194.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "71ac2114-7f66-41aa-91f5-20616876e9ef")
+	)
+	(wire
+		(pts
+			(xy 187.96 82.55) (xy 187.96 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7916793a-1efe-4fb1-b6ae-13f74d309338")
+	)
+	(wire
+		(pts
+			(xy 342.9 148.59) (xy 342.9 143.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7c4aeb30-cb87-4c21-844f-375fa304e9fd")
+	)
+	(wire
+		(pts
+			(xy 350.52 54.61) (xy 363.22 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "819737b7-d025-4acd-adae-06f7bf51efbe")
+	)
+	(wire
+		(pts
+			(xy 60.96 153.67) (xy 86.36 153.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "881d37fa-8071-472d-8c0c-fd86174cab47")
+	)
+	(wire
+		(pts
+			(xy 60.96 26.67) (xy 88.9 26.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8dcaabdd-8c94-4183-9731-8cafc9a226bc")
+	)
+	(wire
+		(pts
+			(xy 60.96 209.55) (xy 86.36 209.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8fbbf540-b330-4715-a25c-234170280ecb")
+	)
+	(wire
+		(pts
+			(xy 187.96 92.71) (xy 170.18 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9f4f5cfd-ecd9-452e-b9db-647d41182939")
+	)
+	(wire
+		(pts
+			(xy 106.68 250.19) (xy 127 250.19)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9fd6dc21-c8e4-44c2-8a36-930f5d41acdd")
+	)
+	(wire
+		(pts
+			(xy 185.42 125.73) (xy 170.18 125.73)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a197a4d6-3dd2-497d-9582-6320658ba2b7")
+	)
+	(wire
+		(pts
+			(xy 353.06 120.65) (xy 342.9 120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a2566b5f-3d5f-40e3-a0ae-33fefdf2b137")
+	)
+	(wire
+		(pts
+			(xy 213.36 135.89) (xy 279.4 135.89)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a3ca004f-563f-4a9f-95a2-a126fea63985")
+	)
+	(wire
+		(pts
+			(xy 119.38 209.55) (xy 119.38 207.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a3dee57b-50ef-498b-bbb3-be625d909af5")
+	)
+	(wire
+		(pts
+			(xy 279.4 105.41) (xy 256.54 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a5f8a271-9d19-45d2-acf5-7f602a18fe01")
+	)
+	(wire
+		(pts
+			(xy 360.68 166.37) (xy 360.68 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "aa806aac-0f5c-481e-bf67-7aaf3f3bd184")
+	)
+	(wire
+		(pts
+			(xy 261.62 166.37) (xy 276.86 166.37)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ad4de543-b11b-4e3e-a6f8-afa68724c4ca")
+	)
+	(wire
+		(pts
+			(xy 238.76 166.37) (xy 226.06 166.37)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "afc5db83-6ecd-43a2-b5ab-264d0a14f27f")
+	)
+	(wire
+		(pts
+			(xy 124.46 57.15) (xy 124.46 77.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b1006f94-0ab6-444a-94d1-76a8488e93e0")
+	)
+	(wire
+		(pts
+			(xy 279.4 110.49) (xy 256.54 110.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b1b60906-968d-482e-96cd-37f3e853a957")
+	)
+	(wire
+		(pts
+			(xy 152.4 250.19) (xy 180.34 250.19)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bd56fcf1-2b76-4fcc-9cba-cf4ec8554c49")
+	)
+	(wire
+		(pts
+			(xy 60.96 105.41) (xy 93.98 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c11d3a6d-5295-4acf-9242-9ed72917f65e")
+	)
+	(wire
+		(pts
+			(xy 60.96 52.07) (xy 88.9 52.07)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ca116e1f-ae82-491e-a2f5-43b9625fa205")
+	)
+	(wire
+		(pts
+			(xy 210.82 143.51) (xy 210.82 158.75)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d36d6239-1085-4db1-9427-ba8d7eef9dda")
+	)
+	(wire
+		(pts
+			(xy 297.18 194.31) (xy 297.18 166.37)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dc72be1b-3961-4f99-8f4e-3d6b05fddcce")
+	)
+	(wire
+		(pts
+			(xy 360.68 148.59) (xy 342.9 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dcc3f99f-da31-450c-9997-d37bf2a048e4")
+	)
+	(wire
+		(pts
+			(xy 375.92 120.65) (xy 375.92 113.03)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "def891ec-ec51-4851-8b92-c91aaa1ff901")
+	)
+	(wire
+		(pts
+			(xy 279.4 148.59) (xy 276.86 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dfee9a43-1f5d-4cb5-bed6-031b5bd6519b")
+	)
+	(wire
+		(pts
+			(xy 251.46 100.33) (xy 251.46 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e2cc1c03-685f-4f4c-a449-ca5a7cb4cd03")
+	)
+	(wire
+		(pts
+			(xy 271.78 54.61) (xy 256.54 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e522a16d-06ee-40e7-9bf1-dd5f057f1c32")
+	)
+	(wire
+		(pts
+			(xy 279.4 95.25) (xy 271.78 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "eb8a697f-e3f0-42a9-a06e-bd436a73e86d")
+	)
+	(wire
+		(pts
+			(xy 271.78 95.25) (xy 271.78 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ebe173d3-b6fa-4963-869f-a8b2218e71eb")
+	)
+	(wire
+		(pts
+			(xy 210.82 194.31) (xy 297.18 194.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ebea1b1a-abf7-48c5-b3cd-6c12f45e175e")
+	)
+	(wire
+		(pts
+			(xy 119.38 105.41) (xy 119.38 130.81)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ef1ba4d6-34a4-45f5-a2d3-21600b4862b6")
+	)
+	(wire
+		(pts
+			(xy 170.18 85.09) (xy 170.18 97.79)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fa21a022-e421-45cf-a4f1-49f2cf4f2d69")
+	)
+	(wire
+		(pts
+			(xy 279.4 115.57) (xy 256.54 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fdfa18d8-7999-4571-b7d2-1afd93b04d32")
+	)
+	(label "P1_B"
+		(at 106.68 250.19 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "020bceea-8ea2-4168-aa71-cce3485d22db")
+	)
+	(label "CS"
+		(at 279.4 120.65 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "0a9fc4dd-3887-45b7-8508-8df55cf17deb")
+	)
+	(label "GND"
+		(at 297.18 166.37 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "0d85f981-de66-4690-9739-466a83b3f807")
+	)
+	(label "CS"
+		(at 60.96 209.55 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "1ef30b60-a3d3-4b03-baf1-864304ba4cd5")
+	)
+	(label "GND"
+		(at 147.32 130.81 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "1fd76b8a-88a6-4439-a837-c4e279a1f831")
+	)
+	(label "5v"
+		(at 60.96 26.67 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "21b2d706-2830-42ff-9744-732e0347b808")
+	)
+	(label "P1_A"
+		(at 60.96 250.19 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "23aa02ce-9668-4ac7-9584-9c46470bdfd6")
+	)
+	(label "5v"
+		(at 139.7 57.15 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "2dd721f4-8d22-4f99-b757-79ea0ba41820")
+	)
+	(label "3v"
+		(at 325.12 77.47 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "32e0a1b0-bff2-4ee6-965b-6fff91c8fa51")
+	)
+	(label "SDI"
+		(at 60.96 153.67 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "50ce16e5-b4ba-4d83-aeed-4ba0bd6106fd")
+	)
+	(label "SDO"
+		(at 279.4 110.49 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "5336ce32-aab2-458b-9145-9a511ba72106")
+	)
+	(label "GND"
+		(at 271.78 54.61 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "62119263-2d9f-4122-a4ca-98b43e1990e4")
+	)
+	(label "GND"
+		(at 124.46 57.15 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "68862ea3-a027-42e6-a68e-35094692b955")
+	)
+	(label "3v"
+		(at 60.96 80.01 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "72407e15-6690-4135-b9b1-5fa78985e392")
+	)
+	(label "5v"
+		(at 375.92 120.65 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "724f2cc7-c0cd-4514-a357-eb19f17febc0")
+	)
+	(label "GND"
+		(at 60.96 52.07 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "76435180-9369-44fc-af48-b50ac794db38")
+	)
+	(label "P1_A"
+		(at 238.76 166.37 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "7b7f9116-bdb8-4eaf-be65-5e7fcec6db5e")
+	)
+	(label "SDI"
+		(at 279.4 115.57 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "7c0a785e-5b7d-4eaf-ab92-9454ebe15ddf")
+	)
+	(label "P2"
+		(at 60.96 278.13 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "86944f09-cf95-49e8-a59e-b1fbde901376")
+	)
+	(label "GND"
+		(at 350.52 54.61 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "acf280c4-f9bd-4cea-8e68-f5e246b3abb4")
+	)
+	(label "3v"
+		(at 132.08 57.15 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "ade6c07b-2036-4950-bd7f-9be0246277f3")
+	)
+	(label "GND"
+		(at 231.14 113.03 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "b85d189a-5acb-40b5-8544-38efbb962a62")
+	)
+	(label "SCLK"
+		(at 279.4 105.41 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "b9bdabb0-e2b9-4dc8-8a37-e566dd90a587")
+	)
+	(label "5v"
+		(at 297.18 77.47 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "bb270e79-46f3-4170-9b87-6f63ec0b7c1f")
+	)
+	(label "P2"
+		(at 170.18 62.23 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "cd886e1e-c4ef-4c3d-86c7-2ddbbdddd3b2")
+	)
+	(label "P1_B"
+		(at 180.34 143.51 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "d1f15b25-2998-41e7-8110-d66b5f015e69")
+	)
+	(label "SCLK"
+		(at 60.96 128.27 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "df70e65f-68ff-4fd9-b14a-10d263d69c4b")
+	)
+	(label "SDO"
+		(at 60.96 181.61 0)
+		(effects
+			(font
+				(size 0.635 0.635)
+			)
+		)
+		(uuid "df710dbe-9e4a-4044-9e34-b09b2f2848d1")
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:resistor-1")
+		(at 172.72 120.65 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "0e183a07-178c-4b28-b341-6eb0610a816a")
+		(property "Reference" "R8"
+			(at 165.1 107.95 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "100"
+			(at 167.64 120.65 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0805"
+			(at 172.72 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 172.72 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 172.72 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "09bce484-6244-4877-b46a-f49049564cfa")
+		)
+		(pin "2"
+			(uuid "dad7c8c6-856c-4aa0-99de-193d9764ecee")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "R8")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:capacitor-1")
+		(at 218.44 118.11 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "18df5734-6870-4458-802d-bdf4851aa345")
+		(property "Reference" "C9"
+			(at 205.74 113.03 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "22nF"
+			(at 208.28 113.03 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "1812"
+			(at 218.44 118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 218.44 118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 218.44 118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "e42265c5-be5d-4c81-b163-d5536d805bd8")
+		)
+		(pin "2"
+			(uuid "7256c58c-d7c4-4b22-a793-dac9669d5cb3")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "C9")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:DS1117-3_3")
+		(at 119.38 57.15 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "22446793-3305-4c67-884c-e05402d2d0e3")
+		(property "Reference" "U2"
+			(at 111.76 36.83 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 119.38 57.15 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "SOT223"
+			(at 119.38 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 119.38 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 119.38 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "U2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:terminal-1")
+		(at 38.1 184.15 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "249add05-fb10-4b00-b9b2-f0ccd025b73c")
+		(property "Reference" "T7"
+			(at 49.53 177.8 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "SDO"
+			(at 35.56 184.15 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "PAD20"
+			(at 38.1 184.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 38.1 184.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 38.1 184.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "85f2b959-1fe5-487a-a960-01ae9f0a524e")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "T7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:terminal-1")
+		(at 38.1 156.21 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "27448454-0ebd-4b7a-9c1f-a06c18b92953")
+		(property "Reference" "T6"
+			(at 49.53 149.86 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "SDI"
+			(at 35.56 156.21 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "PAD20"
+			(at 38.1 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 38.1 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 38.1 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b40ea5b4-6867-4d08-bb6f-5b816a69a6b5")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "T6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:resistor-1")
+		(at 83.82 252.73 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "37b9ae8a-3c6f-426c-8394-612500172c3e")
+		(property "Reference" "R3"
+			(at 88.9 245.11 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "0.5"
+			(at 93.98 247.65 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "1206"
+			(at 83.82 252.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 83.82 252.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 83.82 252.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "2abbe036-c0e7-4b9f-ad9d-0edeac6f663f")
+		)
+		(pin "1"
+			(uuid "80e1d6b9-0fb9-469d-bca9-03ee63f89f60")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "R3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:terminal-1")
+		(at 38.1 29.21 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "40b47e39-6a97-405f-b1c2-4288e5af9168")
+		(property "Reference" "T13"
+			(at 52.07 22.86 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "5V"
+			(at 40.64 29.21 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "PAD40"
+			(at 38.1 29.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 38.1 29.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 38.1 29.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "549423df-cea5-40b5-9b81-d5c0b23b5ce4")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "T13")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:CS5463")
+		(at 279.4 171.45 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "4183ba32-e9b6-4fb6-aa1e-0cbaaea3b5ef")
+		(property "Reference" "U1"
+			(at 279.4 171.45 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 279.4 171.45 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "SSOP24"
+			(at 279.4 171.45 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 279.4 171.45 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 279.4 171.45 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "U1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:capacitor-1")
+		(at 271.78 59.69 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "4250c6f6-5949-4d7e-83c0-6ca462eb567b")
+		(property "Reference" "C4"
+			(at 276.86 46.99 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "100nf"
+			(at 271.78 52.07 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 271.78 59.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 271.78 59.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 271.78 59.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "32e106aa-fe2e-4c6b-b424-ef79fbcc0437")
+		)
+		(pin "2"
+			(uuid "8d2b638c-37c4-429b-a396-a9f5bba03922")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "C4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:resistor-1")
+		(at 121.92 232.41 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "51638cd5-6272-4d21-8beb-b0433911ff7a")
+		(property "Reference" "R4"
+			(at 114.3 227.33 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "360"
+			(at 116.84 219.71 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "1206"
+			(at 121.92 232.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 121.92 232.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 121.92 232.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "57c755e7-ec20-44ef-a9f4-4af4ad6b5f24")
+		)
+		(pin "2"
+			(uuid "86f7ceb2-b9c5-4b1e-bfc8-97b63fd07435")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "R4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:resistor-1")
+		(at 172.72 85.09 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "51a10efc-26e8-49d1-898f-5dc65bd44498")
+		(property "Reference" "R9"
+			(at 165.1 72.39 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "200k"
+			(at 167.64 90.17 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0805"
+			(at 172.72 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 172.72 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 172.72 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "7f19c4c2-7f4c-4739-9296-7b9b4c2fc1fb")
+		)
+		(pin "1"
+			(uuid "388c657a-eae1-4324-807f-945aaeded5b7")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "R9")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:terminal-1")
+		(at 38.1 54.61 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "5bbe42ce-3e5f-4edc-92a3-ee6b83decbd3")
+		(property "Reference" "T2"
+			(at 49.53 48.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 35.56 54.61 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "PAD40"
+			(at 38.1 54.61 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 38.1 54.61 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 38.1 54.61 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ec5f7d17-28ce-46fd-94e2-c214ad485272")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "T2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:xtal")
+		(at 251.46 97.79 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "5c05c97d-d059-4160-a8c3-b90491ee55bd")
+		(property "Reference" "X1"
+			(at 256.413 96.52 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 251.46 97.79 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "HC49SMD"
+			(at 251.46 97.79 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 251.46 97.79 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 251.46 97.79 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "X1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:terminal-1")
+		(at 38.1 82.55 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "6012bbd0-5036-4aec-a465-64d60cf544d8")
+		(property "Reference" "T3"
+			(at 49.53 76.2 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "3v"
+			(at 35.56 82.55 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "PAD40"
+			(at 38.1 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 38.1 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 38.1 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "1d500275-37da-4ecb-bd4a-c6a924993d4c")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "T3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:capacitor-1")
+		(at 236.22 135.89 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "839edcb1-715b-4970-bbf4-75b0b2bd3910")
+		(property "Reference" "C7"
+			(at 223.52 130.81 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "220p"
+			(at 226.06 130.81 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 236.22 135.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 236.22 135.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 236.22 135.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "3f13c4aa-9991-4bfc-89e6-87552434f030")
+		)
+		(pin "2"
+			(uuid "eb01b2f6-5554-4adf-a8b6-b8c34a37b6ef")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "C7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:terminal-1")
+		(at 38.1 130.81 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "87c11427-e33e-4b3a-b994-702db1491f37")
+		(property "Reference" "T5"
+			(at 49.53 124.46 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "SCLK"
+			(at 35.56 130.81 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "PAD20"
+			(at 38.1 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 38.1 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 38.1 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "4e2c2e64-0b61-4662-b806-cb8fdb246077")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "T5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:terminal-1")
+		(at 38.1 107.95 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "8918a1ee-8778-41af-a7aa-162e721dece9")
+		(property "Reference" "T4"
+			(at 49.53 101.6 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "ON"
+			(at 35.56 107.95 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "PAD20"
+			(at 38.1 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 38.1 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 38.1 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "56a5ce09-2566-4d0f-83e7-e592c65045fe")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "T4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:BT136")
+		(at 152.4 229.87 270)
+		(mirror x)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "8aab6eb5-ac77-4a20-879e-6dfebd5cff7d")
+		(property "Reference" "T1"
+			(at 152.4 229.87 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 152.4 229.87 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "TO252"
+			(at 152.4 229.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 152.4 229.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 152.4 229.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "T1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:capacitor-1")
+		(at 279.4 194.31 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "8dd55d4a-ec33-4964-a746-39b4eb0e8146")
+		(property "Reference" "C2"
+			(at 266.7 189.23 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "220p"
+			(at 269.24 189.23 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 279.4 194.31 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 279.4 194.31 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 279.4 194.31 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "d04ac0b5-1a13-4cb0-8db5-72a32468a7e8")
+		)
+		(pin "1"
+			(uuid "7b7ffabc-47a9-41f5-b524-55ea5e5ff4c7")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "C2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:resistor-1")
+		(at 238.76 168.91 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "9bca22ff-6ae3-4ebb-8310-8357860c2491")
+		(property "Reference" "R10"
+			(at 236.22 171.45 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "1k"
+			(at 238.76 163.83 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0805"
+			(at 238.76 168.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 238.76 168.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 238.76 168.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "cda55a1e-0735-456b-b9d8-b28e631cfc10")
+		)
+		(pin "2"
+			(uuid "e26290c7-0094-4d45-a599-de6c39a4c37d")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "R10")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:resistor-1")
+		(at 180.34 146.05 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a015cadd-4387-4581-a9d2-f3151b9c0a1b")
+		(property "Reference" "R6"
+			(at 185.42 138.43 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "1k"
+			(at 180.34 140.97 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0805"
+			(at 180.34 146.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 180.34 146.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 180.34 146.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "ef9b5e3f-20fe-4917-b5eb-be7726b56bca")
+		)
+		(pin "1"
+			(uuid "14fec2a1-c97d-4c58-a91d-32476450530d")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "R6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:resistor-1")
+		(at 93.98 107.95 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a4d4353a-4c4e-4fb7-bd3a-00361a0a748d")
+		(property "Reference" "R5"
+			(at 99.06 100.33 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "100"
+			(at 91.44 102.87 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0805"
+			(at 93.98 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 93.98 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 93.98 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "23291b7a-6c71-46b9-a0d8-a9c54af00359")
+		)
+		(pin "1"
+			(uuid "95200c34-e937-47f9-abf3-ad45953e8f04")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "R5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:capacitor-1")
+		(at 327.66 59.69 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a90cdf97-b9cd-4672-9d3c-658e611e71b4")
+		(property "Reference" "C5"
+			(at 332.74 46.99 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "100nF"
+			(at 325.12 52.07 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 327.66 59.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 327.66 59.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 327.66 59.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "d72e1cfe-59e5-4cce-b0e3-69f47f5a2a15")
+		)
+		(pin "1"
+			(uuid "9d7a487c-59c0-411a-89c7-2f0cec88c4f3")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "C5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:terminal-1")
+		(at 38.1 252.73 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "b96aac7d-f001-405c-b745-48ac97ce0f1f")
+		(property "Reference" "T9"
+			(at 49.53 246.38 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "LINE_IN"
+			(at 27.94 252.73 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "PAD60"
+			(at 38.1 252.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 38.1 252.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 38.1 252.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "fdd97fb9-ca1b-4e8b-bb2b-e9284b5d85c6")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "T9")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:terminal-1")
+		(at 38.1 212.09 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "c10e980d-d777-4396-b7c6-790aef8b9c5b")
+		(property "Reference" "T8"
+			(at 49.53 205.74 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "CS"
+			(at 35.56 212.09 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "PAD20"
+			(at 38.1 212.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 38.1 212.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 38.1 212.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b246ca9e-1411-4039-a4ac-eba44d1c0f79")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "T8")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:terminal-1")
+		(at 203.2 247.65 180)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "c80e6e5b-b62d-45a7-ba2e-373a1cf7bafe")
+		(property "Reference" "T11"
+			(at 191.77 254 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "LINE_OUT"
+			(at 205.74 247.65 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "PAD60"
+			(at 203.2 247.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 203.2 247.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 203.2 247.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ca06bee1-26d0-4cb3-b8af-b7d304d1720e")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "T11")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:MOC3021")
+		(at 152.4 130.81 270)
+		(mirror x)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "cef32306-9756-470d-85d8-8114caa14cd6")
+		(property "Reference" "U3"
+			(at 152.4 130.81 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 152.4 130.81 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "730C-04"
+			(at 152.4 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 152.4 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 152.4 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "U3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:terminal-1")
+		(at 203.2 275.59 180)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d8fa4cd2-c31b-4344-9f74-23e5076f2a85")
+		(property "Reference" "T12"
+			(at 191.77 281.94 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "NEUTRE"
+			(at 205.74 275.59 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "PAD60"
+			(at 203.2 275.59 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 203.2 275.59 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 203.2 275.59 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "c1e9f3d6-77be-4fb0-8bff-55c8c912d245")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "T12")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:capacitor-1")
+		(at 236.22 105.41 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "dc883e49-a935-4334-af0d-b350de5da556")
+		(property "Reference" "C8"
+			(at 223.52 100.33 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "220p"
+			(at 226.06 100.33 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 236.22 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 236.22 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 236.22 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "4a1293e6-6bae-4946-abb5-c5a437fbb111")
+		)
+		(pin "1"
+			(uuid "5c9a4a3d-ee7d-4e75-9182-e3636a154d7e")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "C8")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:terminal-1")
+		(at 38.1 280.67 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "ddcc25d9-ce5a-468a-a9f7-d1b70378a0bb")
+		(property "Reference" "T10"
+			(at 49.53 274.32 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "NEUTRE"
+			(at 27.94 280.67 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "PAD60"
+			(at 38.1 280.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 38.1 280.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 38.1 280.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "f4b1851c-d659-462b-85c2-52c9b72ca44d")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "T10")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:capacitor-1")
+		(at 266.7 166.37 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "de5a38a7-e58c-492d-84bc-935474e39ea4")
+		(property "Reference" "C1"
+			(at 254 161.29 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "22nF"
+			(at 256.54 161.29 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "1812"
+			(at 266.7 166.37 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 266.7 166.37 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 266.7 166.37 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "4a48bf48-2c33-471d-bffe-e985b4669607")
+		)
+		(pin "1"
+			(uuid "970c204c-49db-440e-b247-e3e5689ff62c")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "C1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:resistor-1")
+		(at 185.42 128.27 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e1c46ff1-15d5-428f-bbcb-09a77ecbf393")
+		(property "Reference" "R7"
+			(at 190.5 120.65 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "1k"
+			(at 185.42 123.19 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0805"
+			(at 185.42 128.27 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 185.42 128.27 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 185.42 128.27 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "277b62a4-83c6-45c4-8516-5e7dfb4278f1")
+		)
+		(pin "1"
+			(uuid "994f5ec3-ba2c-48f8-aa4c-2b6e0adff9ff")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "R7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:resistor-1")
+		(at 353.06 123.19 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e1d8341a-63d4-4f3e-ba0c-261d2f2bcb4d")
+		(property "Reference" "R1"
+			(at 360.68 120.65 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "150"
+			(at 353.06 123.19 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0805"
+			(at 353.06 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 353.06 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 353.06 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "fa38eeab-87ff-47a8-93b3-7d1a2a2aef40")
+		)
+		(pin "2"
+			(uuid "77fcfb12-83fc-4433-82f4-ecd8b1281977")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "R1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:capacitor-1")
+		(at 215.9 181.61 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f00cca90-4da4-46d4-b869-26bf96bfaeee")
+		(property "Reference" "C3"
+			(at 203.2 176.53 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "220pF"
+			(at 215.9 181.61 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 215.9 181.61 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 215.9 181.61 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 215.9 181.61 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "2f4347e3-9f53-425e-8f35-4878201157fb")
+		)
+		(pin "2"
+			(uuid "3d91b387-e6e5-4c84-a00a-2da76edf434b")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "C3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:resistor-1")
+		(at 353.06 115.57 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f3e9ccd2-5a47-4d34-8cde-82491fbd8c02")
+		(property "Reference" "R2"
+			(at 358.14 107.95 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "1k"
+			(at 353.06 110.49 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0805"
+			(at 353.06 115.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 353.06 115.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 353.06 115.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "e900ca01-8d8c-4796-b3f5-5c8ca78a6d31")
+		)
+		(pin "2"
+			(uuid "b997f9f5-16e0-4c5b-a864-dac633bbd3ed")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "R2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "powermeter-geda-import:capacitor-1")
+		(at 337.82 171.45 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f8e77fe2-780c-45eb-ba53-f78167068ffd")
+		(property "Reference" "C6"
+			(at 342.9 158.75 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Value" "100nF"
+			(at 337.82 171.45 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.54 2.54)
+				)
+			)
+		)
+		(property "Footprint" "0603"
+			(at 337.82 171.45 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 337.82 171.45 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 337.82 171.45 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a7118dac-7ff0-46b5-b9b0-7ff6f262f71a")
+		)
+		(pin "2"
+			(uuid "1e1e539d-ff6f-4571-a24f-94665b945f00")
+		)
+		(instances
+			(project "powermeter"
+				(path "/94fcb513-a193-4332-af8e-c2b1cddcac6b"
+					(reference "C6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(embedded_fonts no)
+)

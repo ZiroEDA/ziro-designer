@@ -1,0 +1,57 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "53cade5c-6c13-48ac-853b-523d414252a9")
+	(paper "A4")
+	(lib_symbols)
+	(bus_entry
+		(at 175.26 66.04)
+		(size -2.54 2.54)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1895dacd-2936-4d5a-8733-10c02382e1cd")
+	)
+	(bus_entry
+		(at 175.26 116.84)
+		(size -2.54 2.54)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "85250c4c-4fe0-409e-9519-bbe07de57f8e")
+	)
+	(wire
+		(pts
+			(xy 172.72 68.58) (xy 124.46 66.04)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "699491e8-3322-4c6b-9da6-a77a0da27388")
+	)
+	(bus
+		(pts
+			(xy 175.26 167.64) (xy 175.26 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d4800941-4cf6-4ace-9150-6fdafae8870c")
+	)
+	(wire
+		(pts
+			(xy 172.72 119.38) (xy 124.46 116.84)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e36e1af5-78d2-45c9-877c-69593a096288")
+	)
+	(embedded_fonts no)
+)

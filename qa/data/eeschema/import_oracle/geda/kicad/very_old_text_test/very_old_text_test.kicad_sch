@@ -1,0 +1,30 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "3df784b5-6d5f-467b-8de9-f6cc1dd61033")
+	(paper "A4")
+	(lib_symbols)
+	(text "Old Text"
+		(exclude_from_sim no)
+		(at 154.94 104.14 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left bottom)
+		)
+		(uuid "e199043b-5401-47f1-9433-6c015334ecf1")
+	)
+	(wire
+		(pts
+			(xy 154.94 101.6) (xy 129.54 101.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a6d69aee-b0a6-4ef8-b01c-d591274067cd")
+	)
+	(embedded_fonts no)
+)

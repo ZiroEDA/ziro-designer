@@ -1,35 +1,22 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-// What wxSplit actually does, asked of wxWidgets rather than guessed.
-//
-// `NETINFO_LIST::RebuildDisplayNetnames` splits a net name on '/' with
-// wxSplit's DEFAULT escape character, which is '\\'. A net name may contain a
-// backslash — EscapeString(CTX_NETNAME) escapes '/' and drops newlines and
-// nothing else — so the escape is reachable, and the port has to match whatever
-// wx does with it, including the empty-token cases.
-#include <wx/string.h>
+// What wxSplit( s, sep ) returns with the default '\\' escape, on this machine's wx.
+// Build: g++ wxsplit_probe.cpp $(wx-config --cxxflags --libs base) -o wxsplit_probe
 #include <wx/arrstr.h>
+#include <wx/init.h>
 #include <cstdio>
-
-static void show( const char* label, const wxString& s )
-{
-    wxArrayString parts = wxSplit( s, '/' );
-    printf( "%-28s %-22s -> %zu [", label, ( "\"" + s + "\"" ).ToStdString().c_str(),
-            (size_t) parts.GetCount() );
-    for( size_t i = 0; i < parts.GetCount(); ++i )
-        printf( "%s\"%s\"", i ? ", " : "", parts[i].ToStdString().c_str() );
-    printf( "]\n" );
-}
 
 int main()
 {
-    show( "leading slash", "/Sheet1/SDA" );
-    show( "no slash", "GND" );
-    show( "empty", "" );
-    show( "trailing slash", "/Sheet1/" );
-    show( "double slash", "/a//b" );
-    show( "backslash before sep", "/Sheet\\/SDA" );
-    show( "backslash elsewhere", "/She\\et/SDA" );
-    show( "trailing backslash", "/Sheet\\" );
-    show( "only a slash", "/" );
-    return 0;
+    wxInitializer init;
+    const char* cases[] = { "SYMBOL Misc\\\\jumper -752 -240 M0", "a\\ b c", "a\\\\ b", "x\\y z", "a  b ", "" };
+
+    for( const char* c : cases )
+    {
+        wxArrayString t = wxSplit( wxString( c ), ' ' );
+        printf( "[%s] ->", c );
+
+        for( const wxString& s : t )
+            printf( " <%s>", (const char*) s.utf8_str() );
+
+        printf( "\n" );
+    }
 }

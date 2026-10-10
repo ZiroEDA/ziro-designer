@@ -727,6 +727,54 @@ export function setFromHexString(text: string): Color4d | null {
 }
 
 /**
+ * `COLOR4D::SetFromWxString` (`color4d.cpp:131`): whatever `wxColour::Set( str )`
+ * accepts - wx 3.2's `wxColourBase::FromString` (colourcmn.cpp). Its `#RRGGBB`
+ * form is the hex one `setFromHexString` has already taken by the time this is
+ * asked; the CSS-like `RGB( r, g, b )` / `RGBA( r, g, b, a )` form is here, each
+ * channel clipped to 0..255 and the alpha `wxRound( a * 255 )`. Colour NAMES
+ * (`wxTheColourDatabase->Find`) are not ported: a name is refused.
+ */
+export function setFromWxString(text: string): Color4d | null {
+  if (text === '') return null;
+
+  const clip = (v: number): number => Math.min(255, Math.max(0, v));
+
+  if (text.slice(0, 3).toUpperCase() === 'RGB') {
+    // `wxSscanf( … "( %d , %d , %d , %f )" … )`: whitespace around each token, anything
+    // after the closing parenthesis ignored.
+    const int = '\\s*([-+]?\\d+)\\s*';
+    const flt = '\\s*([-+]?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][-+]?\\d+)?)\\s*';
+    const isRgba = text.length > 3 && (text[3] === 'a' || text[3] === 'A');
+    const m = isRgba
+      ? new RegExp(`^\\s*\\(${int},${int},${int},${flt}\\)`).exec(text.slice(4))
+      : new RegExp(`^\\s*\\(${int},${int},${int}\\)`).exec(text.slice(3));
+
+    if (!m) return null;
+
+    const alpha = isRgba ? Math.round(Number(m[4]) * 255) : 255;
+
+    return {
+      r: clip(Number(m[1])) / 255,
+      g: clip(Number(m[2])) / 255,
+      b: clip(Number(m[3])) / 255,
+      a: clip(alpha) / 255,
+    };
+  }
+
+  if (text[0] === '#' && text.length === 7) return setFromHexString(text);
+
+  return null;
+}
+
+/**
+ * `COLOR4D( const wxString& aColorStr )` (`color4d.cpp:114`): the hex form, else
+ * wxColour's; a string neither reads leaves the default members, opaque black.
+ */
+export function colorFromString(aColorStr: string): Color4d {
+  return setFromHexString(aColorStr) ?? setFromWxString(aColorStr) ?? { r: 0, g: 0, b: 0, a: 1 };
+}
+
+/**
  * `COLOR4D::LegacyMix`: blend two colours by OR-ing their 8-bit channels, the
  * alpha the mean of the two.
  */

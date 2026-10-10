@@ -1,0 +1,42 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "3a88f22f-09ea-49d8-afcf-453d097c7d84")
+	(paper "A")
+	(lib_symbols)
+	(text "PAGE 2 OF 3"
+		(exclude_from_sim no)
+		(at 25.4 190.5 0)
+		(effects
+			(font
+				(size 1.905 1.7526)
+				(thickness 0.254)
+			)
+			(justify left bottom)
+		)
+		(uuid "1ca47db5-65a8-46d1-9a90-a728da056236")
+	)
+	(text "TEXT ON SHEET 2"
+		(exclude_from_sim no)
+		(at 50.8 190.5 0)
+		(effects
+			(font
+				(size 1.905 1.7526)
+				(thickness 0.254)
+			)
+			(justify left bottom)
+		)
+		(uuid "d5672df5-0e95-4221-9e20-897e3216a05c")
+	)
+	(polyline
+		(pts
+			(xy 2.54 213.36) (xy 5.08 213.36)
+		)
+		(stroke
+			(width 0.254)
+			(type dash)
+		)
+		(uuid "b1f99606-5c23-4574-ab68-1889cdead2db")
+	)
+)

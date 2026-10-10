@@ -1,0 +1,17 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "ceee7b78-884e-49c6-92ca-38ec9a9c072b")
+	(paper "A4")
+	(lib_symbols)
+	(image
+		(at 146.05 102.87)
+		(scale 75.0148)
+		(uuid "699eba3a-e3f6-449f-9b47-effd73745e2d")
+		(data "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGP4z8AARAwQCgAf7gP9"
+			"i18U1AAAAABJRU5ErkJggg=="
+		)
+	)
+	(embedded_fonts no)
+)

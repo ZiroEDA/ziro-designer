@@ -1,0 +1,2768 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "1cb30146-f7fc-4408-9f57-a89eabd59f26")
+	(paper "A4")
+	(lib_symbols
+		(symbol "ltspice:GND"
+			(power global)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "GND_0_0"
+				(polyline
+					(pts
+						(xy 1.27 0) (xy -1.27 0) (xy 0 -1.1938) (xy 1.27 0) (xy -1.27 0) (xy 0 -1.1938)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin power_in line
+					(at 0 0 0)
+					(length 0.0005)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "ltspice:g"
+			(pin_numbers
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "g_0_0"
+				(polyline
+					(pts
+						(xy -3.5052 -3.5052) (xy -3.5052 -2.8702)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -3.175 -3.175) (xy -3.81 -3.175)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -3.175 -5.715) (xy -3.81 -5.715)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 -2.54) (xy -3.81 -2.54)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 -6.35) (xy -3.81 -6.35)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.905 -2.8702) (xy -2.54 -2.54)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.905 -6.0452) (xy -2.54 -6.35)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 -1.905) (xy 0 -1.27)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 -3.175) (xy -0.3302 -4.1402)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 -3.175) (xy 0.3302 -4.1402)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 -4.445)
+					(radius 2.54)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 -5.715) (xy 0 -4.1402)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 -6.985) (xy 0 -7.62)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.3302 -4.1402) (xy -0.3302 -4.1402)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 -7.62 0)
+					(length 0.0005)
+					(name "+"
+						(effects
+							(font
+								(size 0 0)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -1.27 0)
+					(length 0.0005)
+					(name "-"
+						(effects
+							(font
+								(size 0 0)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -3.81 -2.54 0)
+					(length 0.0005)
+					(name "NC+"
+						(effects
+							(font
+								(size 0 0)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -3.81 -6.35 0)
+					(length 0.0005)
+					(name "NC-"
+						(effects
+							(font
+								(size 0 0)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "ltspice:res"
+			(pin_numbers
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "res_0_0"
+				(polyline
+					(pts
+						(xy 0 -3.81) (xy 2.54 -2.54)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 -6.35) (xy 2.54 -5.08)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 -1.905) (xy 1.27 -1.27)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 -6.985) (xy 0 -6.35)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 -7.62) (xy 1.27 -6.985)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.54 -2.54) (xy 1.27 -1.905)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.54 -5.08) (xy 0 -3.81)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 1.27 -1.27 0)
+					(length 0.0005)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 1.27 -7.62 0)
+					(length 0.0005)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "ltspice:voltage"
+			(pin_numbers
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "voltage_0_0"
+				(polyline
+					(pts
+						(xy 0 -1.905) (xy 0 -1.27)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 -3.5052) (xy 0 -2.2352)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 -4.445)
+					(radius 2.54)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 -6.985) (xy 0 -7.62)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.635 -2.8702) (xy -0.635 -2.8702)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.635 -6.0452) (xy -0.635 -6.0452)
+					)
+					(stroke
+						(width 0.1524)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 -1.27 0)
+					(length 0.0005)
+					(name "+"
+						(effects
+							(font
+								(size 0 0)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -7.62 0)
+					(length 0.0005)
+					(name "-"
+						(effects
+							(font
+								(size 0 0)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(rectangle
+		(start 137.16 86.36)
+		(end 179.07 118.745)
+		(stroke
+			(width 0.1524)
+			(type dot)
+		)
+		(fill
+			(type none)
+		)
+		(uuid "036e492f-9307-4337-b785-8c0aa01c366e")
+	)
+	(text ".include ltspice_cmp/standard.dio\n.include ltspice_cmp/standard.bjt\n.include ltspice_cmp/standard.jft\n.include ltspice_cmp/standard.mos\n\n.subckt pwl_file outp outn file=\"\" timerelative=1\nAfs %vd([outp outn]) filesrc\n.model filesrc filesource (file={file} amploffset=[0] amplscale=[1] timeoffset=0 timescale=1 timerelative={timerelative})\n.ends\n"
+		(exclude_from_sim no)
+		(at 0 0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "0fe5f27b-e2c8-4bac-b663-8373d77050c3")
+	)
+	(text ".param N=4 ; turns ratio"
+		(exclude_from_sim no)
+		(at 148.59 117.475 0)
+		(effects
+			(font
+				(size 1.0668 1.0668)
+			)
+			(justify left)
+		)
+		(uuid "85c34720-7269-49d3-b499-0a7ce191e536")
+	)
+	(text "This example schematic is supplied for informational/educational purposes only."
+		(exclude_from_sim no)
+		(at 152.4 123.19 0)
+		(effects
+			(font
+				(size 0.9144 0.9144)
+			)
+			(justify top)
+		)
+		(uuid "972ecc09-d477-4ff4-96a2-66167eebfe64")
+	)
+	(text ".tran 5u 50m"
+		(exclude_from_sim no)
+		(at 175.26 120.65 0)
+		(effects
+			(font
+				(size 1.0668 1.0668)
+			)
+			(justify left)
+		)
+		(uuid "c9c55a7b-c3bc-4886-a9fe-d8dc29e65121")
+	)
+	(text "A ideal transformer with two windings.\nWinding ratio specified with parameter N"
+		(exclude_from_sim no)
+		(at 158.115 92.075 0)
+		(effects
+			(font
+				(size 1.0668 1.0668)
+			)
+			(justify bottom)
+		)
+		(uuid "e112a573-c67f-4b01-9cec-910f5b3ae38f")
+	)
+	(junction
+		(at 146.05 107.95)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2c545057-6723-4eb2-bef0-0c3cb2381c6b")
+	)
+	(junction
+		(at 157.48 96.52)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4d0d2b0d-52eb-45ee-958f-d3c50b272a07")
+	)
+	(junction
+		(at 168.91 107.95)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4e4a046f-5044-451a-bbd8-e296a34e7ee8")
+	)
+	(junction
+		(at 157.48 104.14)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "880be3a9-26b1-4a3a-951a-deb2185b3abd")
+	)
+	(junction
+		(at 176.53 111.76)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9a691b27-f42a-4ab9-bfad-3e5a8086f2eb")
+	)
+	(junction
+		(at 142.24 111.76)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b4c409c2-089f-4088-8e72-60725835fd80")
+	)
+	(wire
+		(pts
+			(xy 182.88 111.76) (xy 176.53 111.76)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "13a98e81-d54b-409d-98b1-353db1cc49b1")
+	)
+	(wire
+		(pts
+			(xy 176.53 111.76) (xy 168.91 111.76)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "14876777-59a0-4191-921e-f58b90bd5919")
+	)
+	(wire
+		(pts
+			(xy 146.05 93.98) (xy 142.24 93.98)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "1a8c2612-5edc-44c9-9954-6c6d5d0b3b4d")
+	)
+	(wire
+		(pts
+			(xy 165.1 104.14) (xy 157.48 104.14)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "1ed225df-08cc-460f-9cd7-3c2cc146ab0a")
+	)
+	(wire
+		(pts
+			(xy 149.86 114.3) (xy 149.86 113.03)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "213ee47c-3849-4edb-abed-54b39db04d2e")
+	)
+	(wire
+		(pts
+			(xy 157.48 114.3) (xy 157.48 113.03)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "214ac535-7f9e-4a65-8997-8632a11d1e63")
+	)
+	(wire
+		(pts
+			(xy 119.38 107.95) (xy 106.68 107.95)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "22cc7112-51b5-491a-ac00-82cce1c131c3")
+	)
+	(wire
+		(pts
+			(xy 165.1 114.3) (xy 165.1 113.03)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "232934c9-2ad3-4c42-8961-03067ccdab31")
+	)
+	(wire
+		(pts
+			(xy 142.24 111.76) (xy 142.24 93.98)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "2ae50a51-cc1e-46df-bd10-43f74c3f0900")
+	)
+	(wire
+		(pts
+			(xy 157.48 96.52) (xy 149.86 96.52)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "2b509e2a-02b8-4fdf-9a74-c22f18704c2a")
+	)
+	(wire
+		(pts
+			(xy 146.05 111.76) (xy 142.24 111.76)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "2f7a290b-c45c-433a-953d-66fdfc23e968")
+	)
+	(wire
+		(pts
+			(xy 157.48 104.14) (xy 157.48 96.52)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "427c96c2-b2c2-4084-af01-fd0e989da130")
+	)
+	(wire
+		(pts
+			(xy 165.1 96.52) (xy 157.48 96.52)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "4546392c-0ab3-4912-a090-f53507ec554e")
+	)
+	(wire
+		(pts
+			(xy 157.48 104.14) (xy 149.86 104.14)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "5771e1d6-ec90-487a-a724-4a98407168e5")
+	)
+	(wire
+		(pts
+			(xy 142.24 111.76) (xy 133.35 111.76)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "6d962cae-5f81-472f-9846-3d5e301fc3e6")
+	)
+	(wire
+		(pts
+			(xy 168.91 95.25) (xy 168.91 93.98)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "781ae06f-0d87-446d-b77e-d59fdcf02ce3")
+	)
+	(wire
+		(pts
+			(xy 106.68 116.84) (xy 106.68 115.57)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "7c38e0fd-b4e1-4535-a6bc-9f308e50dafe")
+	)
+	(wire
+		(pts
+			(xy 176.53 93.98) (xy 168.91 93.98)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "7e7aa936-3384-49b4-866b-aeb06ec83d03")
+	)
+	(wire
+		(pts
+			(xy 190.5 109.22) (xy 190.5 107.95)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "930e0342-72b7-4fa4-9ccc-789114105b4a")
+	)
+	(wire
+		(pts
+			(xy 125.73 107.95) (xy 146.05 107.95)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "95310d15-f890-486c-b070-0f149542de59")
+	)
+	(wire
+		(pts
+			(xy 106.68 109.22) (xy 106.68 107.95)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "9cee5231-7cc7-43bf-8ea9-666c8aa1bbf5")
+	)
+	(wire
+		(pts
+			(xy 176.53 111.76) (xy 176.53 93.98)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "a665a470-40ee-4cc0-a3b2-a4b489cce68c")
+	)
+	(wire
+		(pts
+			(xy 190.5 107.95) (xy 168.91 107.95)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "a7836295-7781-4c54-a56e-200d88274c9e")
+	)
+	(wire
+		(pts
+			(xy 157.48 106.68) (xy 157.48 104.14)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "bc6b890a-44ec-4b2b-ab78-67bde7b92255")
+	)
+	(wire
+		(pts
+			(xy 149.86 106.68) (xy 149.86 104.14)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "ca90cd48-b3d9-4bd9-905c-dfe47f3e5008")
+	)
+	(wire
+		(pts
+			(xy 165.1 106.68) (xy 165.1 104.14)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "e48db166-8455-40d9-a116-4bff71f11717")
+	)
+	(wire
+		(pts
+			(xy 168.91 107.95) (xy 168.91 101.6)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "e67c897c-ae73-4d73-aba5-98a432a7f9ae")
+	)
+	(wire
+		(pts
+			(xy 146.05 95.25) (xy 146.05 93.98)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "ed29c827-2741-4bf5-bc90-3c348471e6c7")
+	)
+	(wire
+		(pts
+			(xy 190.5 116.84) (xy 190.5 115.57)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "ef2d3af6-7f83-49be-92ef-b74122122a81")
+	)
+	(wire
+		(pts
+			(xy 146.05 107.95) (xy 146.05 101.6)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "f32faace-e82f-46b2-9afe-0f966b685d07")
+	)
+	(global_label "IN"
+		(shape bidirectional)
+		(at 133.35 107.95 90)
+		(effects
+			(font
+				(size 1.0668 1.0668)
+			)
+			(justify left)
+		)
+		(uuid "5ae0791a-fb83-43d3-8956-9d5a27f403c8")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 133.35 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+	)
+	(global_label "OUT"
+		(shape bidirectional)
+		(at 190.5 107.95 90)
+		(effects
+			(font
+				(size 1.0668 1.0668)
+			)
+			(justify left)
+		)
+		(uuid "dd611624-9748-4d5d-a5bc-3f8e6e159cef")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 190.5 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:GND")
+		(at 157.48 114.3 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "40acebe1-9a61-41b5-bc2a-a7aef0e94252")
+		(property "Reference" "#GND005"
+			(at 157.48 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "0"
+			(at 157.48 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 157.48 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 157.48 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 157.48 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin ""
+			(uuid "9026598e-97fd-4649-a3db-394c23020a3e")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "#GND005")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:g")
+		(at 146.05 93.98 0)
+		(mirror y)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "548d23fd-43db-4333-84c8-bef647759750")
+		(property "Reference" "G3"
+			(at 146.8374 94.7674 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "1"
+			(at 147.32 102.235 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 146.05 93.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 146.05 93.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 146.05 93.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Device" "G"
+			(at 146.05 93.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Params" "gain=${VALUE}"
+			(at 146.05 93.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "6bd6a2f6-3540-41fc-a9a5-acce1518791f")
+		)
+		(pin "2"
+			(uuid "73ca37b5-ff42-4626-8498-ec99890633f1")
+		)
+		(pin "3"
+			(uuid "09327b22-3451-4263-950d-18b2536674b5")
+		)
+		(pin "4"
+			(uuid "38c77813-9332-4ed1-99f8-ff2593f05c64")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "G3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:GND")
+		(at 165.1 100.33 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "57a1c2ad-2d25-43de-97bb-94ef96413437")
+		(property "Reference" "#GND004"
+			(at 165.1 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "0"
+			(at 165.1 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 165.1 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 165.1 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 165.1 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin ""
+			(uuid "697f4a23-7d5d-4749-b54e-acdda9fcf81e")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "#GND004")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:GND")
+		(at 149.86 114.3 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "6043f9bb-ecd8-4168-8041-dd32bc5698b2")
+		(property "Reference" "#GND002"
+			(at 149.86 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "0"
+			(at 149.86 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 149.86 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 149.86 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 149.86 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin ""
+			(uuid "80ef7b9c-f477-4957-b28f-165dd20558ee")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "#GND002")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:voltage")
+		(at 106.68 107.95 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "6bbdcadf-b1db-4932-836d-af9d89515e6a")
+		(property "Reference" "V1"
+			(at 108.585 109.22 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "SINE(0 170 60)"
+			(at 108.585 115.57 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 106.68 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 106.68 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 106.68 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Device" "SPICE"
+			(at 106.68 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Params" "type=\"V\" model=\"${VALUE}\" "
+			(at 106.68 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "cf16b0a9-65cb-43ce-9a4e-05d333ddc86f")
+		)
+		(pin "1"
+			(uuid "34ebb409-3b42-4e18-9f6a-4872556aab24")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "V1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:GND")
+		(at 149.86 100.33 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "7553d745-0ba1-419d-86ba-c29489e2908b")
+		(property "Reference" "#GND003"
+			(at 149.86 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "0"
+			(at 149.86 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 149.86 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 149.86 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 149.86 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin ""
+			(uuid "83fade76-248d-4f3b-a0c5-ef9045d640d2")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "#GND003")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:res")
+		(at 156.21 105.41 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "7cd2192d-29c8-4f52-be20-da79374b19ab")
+		(property "Reference" "R2"
+			(at 159.0802 108.585 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "1G"
+			(at 159.0802 111.4552 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 156.21 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 156.21 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 156.21 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Device" "R"
+			(at 156.21 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Params" "R=${VALUE}"
+			(at 156.21 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "7d7b37d0-86d3-46b1-8bbd-cd2236626799")
+		)
+		(pin "2"
+			(uuid "32437fb7-cc95-4c2b-8fdb-c60bd1097b13")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "R2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:res")
+		(at 118.11 106.68 90)
+		(mirror x)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "8b176d6e-56d0-41f1-a30b-acbcbe04a3d9")
+		(property "Reference" "RIN"
+			(at 122.555 106.68 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify bottom)
+			)
+		)
+		(property "Value" "1"
+			(at 122.555 109.22 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify top)
+			)
+		)
+		(property "Footprint" ""
+			(at 118.11 106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 118.11 106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 118.11 106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Device" "R"
+			(at 118.11 106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Params" "R=${VALUE}"
+			(at 118.11 106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "1b171ad0-6704-42ff-ab4c-f8b7ea4d3ebd")
+		)
+		(pin "2"
+			(uuid "88b813ab-f892-4b53-8362-a8be6fd663bc")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "RIN")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:g")
+		(at 165.1 105.41 0)
+		(mirror y)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a2881e02-45cd-4230-8019-368d83145bb8")
+		(property "Reference" "G2"
+			(at 165.8874 106.1212 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "{N}"
+			(at 166.2938 113.03 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 165.1 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 165.1 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 165.1 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Device" "G"
+			(at 165.1 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Params" "gain=${VALUE}"
+			(at 165.1 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a14d4514-456d-4471-bd69-2475715b2950")
+		)
+		(pin "2"
+			(uuid "c9d13d7a-1e44-483c-9373-6612f9b7b4c5")
+		)
+		(pin "3"
+			(uuid "1e1ef3dd-9628-41cd-b1c4-afcd966addba")
+		)
+		(pin "4"
+			(uuid "8a0c8561-d7a5-47b3-bc81-589857b27c39")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "G2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:GND")
+		(at 190.5 116.84 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a6ca7585-bd5a-438e-a10c-743735726df4")
+		(property "Reference" "#GND008"
+			(at 190.5 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "0"
+			(at 190.5 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 190.5 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 190.5 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 190.5 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin ""
+			(uuid "8fa8fc6b-8267-49de-8b13-3ef1b404e34f")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "#GND008")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:GND")
+		(at 165.1 114.3 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "aae1078d-0236-4ddd-9218-6ea996de0687")
+		(property "Reference" "#GND001"
+			(at 165.1 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "0"
+			(at 165.1 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 165.1 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 165.1 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 165.1 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin ""
+			(uuid "0a536407-d638-43fc-be94-6d202a7a83a8")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "#GND001")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:res")
+		(at 189.23 107.95 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "aff6c5b0-b6c9-4de7-96c8-b01907043527")
+		(property "Reference" "RLOAD"
+			(at 192.1002 111.125 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100"
+			(at 192.1002 113.9952 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 189.23 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 189.23 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 189.23 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Device" "R"
+			(at 189.23 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Params" "R=${VALUE}"
+			(at 189.23 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "2e95fe2a-ea18-436b-a655-63b14c1cc15a")
+		)
+		(pin "2"
+			(uuid "0e42b2db-58ff-4ad7-909a-159dfa2dabbe")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "RLOAD")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:GND")
+		(at 133.35 111.76 270)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "b4199471-7540-4c85-8758-3dc268a289d1")
+		(property "Reference" "#GND006"
+			(at 133.35 111.76 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "0"
+			(at 133.35 111.76 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 133.35 111.76 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 133.35 111.76 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 133.35 111.76 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin ""
+			(uuid "522f0667-f6c4-451a-b0b0-672de082052a")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "#GND006")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:GND")
+		(at 106.68 116.84 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "c28b39d2-192a-4d51-9876-40d058adf9e4")
+		(property "Reference" "#GND000"
+			(at 106.68 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "0"
+			(at 106.68 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 106.68 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 106.68 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 106.68 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin ""
+			(uuid "f5b4e894-30f6-4112-bf09-7886cfd5618c")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "#GND000")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:GND")
+		(at 182.88 111.76 90)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "c8b5ad1d-2afe-43f4-9808-be6744f42829")
+		(property "Reference" "#GND007"
+			(at 182.88 111.76 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "0"
+			(at 182.88 111.76 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 182.88 111.76 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 182.88 111.76 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 182.88 111.76 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin ""
+			(uuid "7f262d53-6959-451a-beab-e7c3890ee845")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "#GND007")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:g")
+		(at 168.91 93.98 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e3d8ee91-0bef-4dc1-ac96-7a2185136f46")
+		(property "Reference" "G4"
+			(at 169.9514 95.4024 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "{N}"
+			(at 169.8752 102.0064 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 168.91 93.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 168.91 93.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 168.91 93.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Device" "G"
+			(at 168.91 93.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Params" "gain=${VALUE}"
+			(at 168.91 93.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "22556a0b-3045-4549-bc9c-cb456fb4f5e4")
+		)
+		(pin "2"
+			(uuid "8c412bc6-1bc8-461c-bc49-697d9cdee33b")
+		)
+		(pin "3"
+			(uuid "328f572c-da35-4a8e-921b-ee36f1dfd63b")
+		)
+		(pin "4"
+			(uuid "9700caa3-322f-4a1f-a721-a02d3e5340e6")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "G4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ltspice:g")
+		(at 149.86 105.41 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e6b957fe-2539-4c24-b335-79c4e1832105")
+		(property "Reference" "G1"
+			(at 151.765 106.68 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "1"
+			(at 151.765 113.03 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.0668 1.0668)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 149.86 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 149.86 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 149.86 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Device" "G"
+			(at 149.86 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Params" "gain=${VALUE}"
+			(at 149.86 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "9b874083-a20e-4b61-a6da-f975c01cced9")
+		)
+		(pin "2"
+			(uuid "eb3f7a1b-6665-43e1-8777-5bd785f1d832")
+		)
+		(pin "3"
+			(uuid "bd7f4481-7d53-423f-8536-283a71a2d2c7")
+		)
+		(pin "4"
+			(uuid "dfdde429-348b-423f-bfc3-6e2712fdc210")
+		)
+		(instances
+			(project "IdealTransformer"
+				(path "/1cb30146-f7fc-4408-9f57-a89eabd59f26"
+					(reference "G1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(embedded_fonts no)
+)

@@ -40,6 +40,13 @@ export type IO_FILE_READER = (aPath: string) => Uint8Array | null;
  */
 export type IO_FILE_WRITER = (aPath: string, aData: Uint8Array) => void;
 
+/**
+ * The names of the files in one folder (`wxDir::GetAllFiles( dir, …, wxDIR_FILES )`), or
+ * null when it cannot be listed: for the importers that look for a sibling file by name
+ * without knowing its exact case.
+ */
+export type IO_DIR_LISTER = (aDir: string) => string[] | null;
+
 /** `wxFileName( aPath ).GetExt()`: after the last dot of the last component. */
 export function fileNameExt(aPath: string): string {
   const name = aPath.substring(Math.max(aPath.lastIndexOf('/'), aPath.lastIndexOf('\\')) + 1);
@@ -118,6 +125,8 @@ export abstract class IO_BASE {
   protected m_readFile: IO_FILE_READER = () => null;
   /** Where the plugin's output files go (see IO_FILE_WRITER); nowhere until one is set. */
   protected m_writeFile: IO_FILE_WRITER = () => {};
+  /** Where a folder's file names are listed from; none by default. */
+  protected m_listDir: IO_DIR_LISTER = () => null;
 
   protected constructor(aName: string) {
     this.m_name = aName;
@@ -147,6 +156,11 @@ export abstract class IO_BASE {
   /** The output side of the file source; see IO_FILE_WRITER. */
   SetFileWriter(aWriter: IO_FILE_WRITER): void {
     this.m_writeFile = aWriter;
+  }
+
+  /** The folder lister to go with the file source; see IO_DIR_LISTER. */
+  SetDirLister(aLister: IO_DIR_LISTER): void {
+    this.m_listDir = aLister;
   }
 
   abstract GetLibraryDesc(): IO_FILE_DESC;

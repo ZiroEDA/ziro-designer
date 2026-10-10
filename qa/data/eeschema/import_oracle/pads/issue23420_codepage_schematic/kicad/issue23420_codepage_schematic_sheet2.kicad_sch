@@ -1,0 +1,266 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "83d983da-a137-4875-8a61-e141f1078f12")
+	(paper "A1")
+	(lib_symbols
+		(symbol "pads_import:BOM-1"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "BOM-1_0_0"
+				(rectangle
+					(start 0 0)
+					(end 15.24 5.08)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 15.24 0)
+					(end 30.48 5.08)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 30.48 0)
+					(end 45.72 5.08)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 45.72 0)
+					(end 248.92 5.08)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 248.92 0)
+					(end 294.64 5.08)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin unspecified line
+					(at 0 0 0)
+					(length 0)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(symbol
+		(lib_id "pads_import:BOM-1")
+		(at 316.23 221.8944 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "8644ff3b-6dac-4012-a5d1-8934ee703a55")
+		(property "Reference" "A1"
+			(at 323.7484 219.3544 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.0955 1.9278)
+					(thickness 0.254)
+				)
+				(justify bottom)
+			)
+		)
+		(property "Value" "A-KVA148036-SN-PLATE-20X6"
+			(at 338.9884 219.3544 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 2.0955 1.9278)
+					(thickness 0.254)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 316.23 221.8944 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 316.23 221.8944 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "TYPE LABEL, 20x6mm"
+			(at 316.23 221.8944 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "WATTAGE/ VOLTAGE" "pc"
+			(at 354.2284 219.3544 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 4.191 4.191)
+				)
+			)
+		)
+		(property "DESCRIPTION_CZ" ""
+			(at 316.23 221.8944 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "KV2CODE" "KVA148036"
+			(at 316.23 221.8944 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "1a727227-e7f4-425a-be91-14e466f45004")
+		)
+		(instances
+			(project "issue23420_codepage_schematic"
+				(path "/c10fcee5-24b3-4e94-a489-a14bb368ab60"
+					(reference "A1")
+					(unit 1)
+				)
+				(path "/c10fcee5-24b3-4e94-a489-a14bb368ab60/9dcbc21b-980e-44f3-8821-e43e0aee4be4"
+					(reference "A1")
+					(unit 1)
+				)
+			)
+		)
+	)
+)

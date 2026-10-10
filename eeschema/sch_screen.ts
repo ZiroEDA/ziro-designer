@@ -846,25 +846,21 @@ export class SCH_SCREEN extends BASE_SCREEN {
   IsExplicitJunction(aPosition: VECTOR2I): boolean {
     const info = AnalyzePoint(this.Items(), aPosition, false);
 
-    return info.isJunction && (!info.hasBusEntry || info.hasBusEntryToMultipleWires);
+    return info.AllowsExplicitJunction();
   }
 
   /** Indicate that a junction dot is necessary at the given location, and does not yet exist. */
   IsExplicitJunctionNeeded(aPosition: VECTOR2I): boolean {
     const info = AnalyzePoint(this.Items(), aPosition, false);
 
-    return (
-      info.isJunction &&
-      (!info.hasBusEntry || info.hasBusEntryToMultipleWires) &&
-      !info.hasExplicitJunctionDot
-    );
+    return info.AllowsExplicitJunction() && !info.hasExplicitJunctionDot;
   }
 
   /** Indicate that a junction dot may be placed at the given location. */
   IsExplicitJunctionAllowed(aPosition: VECTOR2I): boolean {
     const info = AnalyzePoint(this.Items(), aPosition, true);
 
-    return info.isJunction && (!info.hasBusEntry || info.hasBusEntryToMultipleWires);
+    return info.AllowsExplicitJunction();
   }
 
   /**

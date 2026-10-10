@@ -1,0 +1,29 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "b522cc93-e168-440d-80b4-b40f89354aab")
+	(paper "A4")
+	(lib_symbols)
+	(polyline
+		(pts
+			(xy 152.4 91.44) (xy 165.1 91.44)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "20dd33e0-389d-449b-aa11-cfb2a44049c7")
+	)
+	(polyline
+		(pts
+			(xy 127 116.84) (xy 139.7 116.84)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6c8b708c-14c8-44f4-ad5a-1f59d5cb0f1d")
+	)
+	(embedded_fonts no)
+)

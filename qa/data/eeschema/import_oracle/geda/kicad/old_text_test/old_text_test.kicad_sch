@@ -1,0 +1,30 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "3de96e09-9aac-4a10-b68f-2e5ccfdc7733")
+	(paper "A4")
+	(lib_symbols)
+	(text "Hello World"
+		(exclude_from_sim no)
+		(at 152.4 104.14 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left bottom)
+		)
+		(uuid "28d6481c-4535-45cb-ac6b-d542a18450ff")
+	)
+	(wire
+		(pts
+			(xy 152.4 101.6) (xy 127 101.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c41a7a19-792a-42bc-87c5-3697bef8d057")
+	)
+	(embedded_fonts no)
+)

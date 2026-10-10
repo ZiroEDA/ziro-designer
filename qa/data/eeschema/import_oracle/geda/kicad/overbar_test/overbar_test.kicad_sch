@@ -1,0 +1,75 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "ed067272-4520-447d-88b4-b0c53eb35399")
+	(paper "A4")
+	(lib_symbols)
+	(text "~{ACTIVE}"
+		(exclude_from_sim no)
+		(at 132.08 137.16 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left bottom)
+		)
+		(uuid "04f3f667-bb54-4e79-9a23-30516769bb8b")
+	)
+	(text "~{CS} and ~{WR}"
+		(exclude_from_sim no)
+		(at 132.08 73.66 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left bottom)
+		)
+		(uuid "23a5ba7a-7363-4b16-ac19-5c37f58b6525")
+	)
+	(text "ACTIVE ~{HIGH}"
+		(exclude_from_sim no)
+		(at 132.08 111.76 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left bottom)
+		)
+		(uuid "88c8be22-8cee-433d-8bb9-002c21779710")
+	)
+	(text "DATA~{LOW}"
+		(exclude_from_sim no)
+		(at 132.08 124.46 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left bottom)
+		)
+		(uuid "8dcd52a0-f14a-4810-9bf3-9b537ba40cd0")
+	)
+	(text "No overbar here"
+		(exclude_from_sim no)
+		(at 132.08 86.36 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left bottom)
+		)
+		(uuid "9c62f633-1392-44c3-8ac1-f810f1fdd9c6")
+	)
+	(text "\\backslash"
+		(exclude_from_sim no)
+		(at 132.08 99.06 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left bottom)
+		)
+		(uuid "9ee91625-320c-451f-8896-47f49c6ce760")
+	)
+	(embedded_fonts no)
+)

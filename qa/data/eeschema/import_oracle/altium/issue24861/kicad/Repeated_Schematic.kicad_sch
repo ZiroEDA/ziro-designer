@@ -1,0 +1,1087 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "bcebff9d-228f-4d81-8a9c-338d36fac1cd")
+	(paper "A4")
+	(lib_symbols
+		(symbol "DUO_Con:CCVA2,5/5-G-5,08P26THR"
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "CCVA2,5/5-G-5,08P26THR 7polig 5.08mm Raster"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "*CCVA2,5/5-G-5,08P26THR*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "CCVA2,5/5-G-5,08P26THR_1_0"
+				(polyline
+					(pts
+						(xy -4.826 1.27) (xy -4.826 -1.27)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -4.826 -1.27) (xy -4.826 -3.81)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -4.826 -3.81) (xy -4.826 -6.35)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -4.826 -6.35) (xy -4.826 -8.89)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -4.826 -8.89) (xy -4.826 -11.43)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start -4.408 -1.1453)
+					(mid -4.8259 -0.0167)
+					(end -4.4292 1.1196)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start -4.408 -3.6853)
+					(mid -4.8259 -2.5567)
+					(end -4.4292 -1.4204)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start -4.408 -6.2253)
+					(mid -4.8259 -5.0967)
+					(end -4.4292 -3.9604)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start -4.408 -8.7653)
+					(mid -4.8259 -7.6367)
+					(end -4.4292 -6.5004)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start -4.408 -11.3053)
+					(mid -4.8259 -10.1767)
+					(end -4.4292 -9.0404)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start -2.413 0.127)
+					(end -4.318 -0.127)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(rectangle
+					(start -2.413 -2.413)
+					(end -4.318 -2.667)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(rectangle
+					(start -2.413 -4.953)
+					(end -4.318 -5.207)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(rectangle
+					(start -2.413 -7.493)
+					(end -4.318 -7.747)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(rectangle
+					(start -2.413 -10.033)
+					(end -4.318 -10.287)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.032 1.27) (xy -4.826 1.27)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.032 -1.27) (xy -4.826 -1.27)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.032 -1.27) (xy -2.032 1.27)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.032 -3.81) (xy -4.826 -3.81)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.032 -3.81) (xy -2.032 -1.27)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.032 -6.35) (xy -4.826 -6.35)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.032 -6.35) (xy -2.032 -3.81)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.032 -8.89) (xy -4.826 -8.89)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.032 -8.89) (xy -2.032 -6.35)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.032 -11.43) (xy -4.826 -11.43)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.032 -11.43) (xy -2.032 -8.89)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 191 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 180)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -2.54 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -5.08 180)
+					(length 2.54)
+					(name "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -7.62 180)
+					(length 2.54)
+					(name "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -10.16 180)
+					(length 2.54)
+					(name "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "Repeated_Schematic-altium-import:GND_BAR"
+			(power global)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "#PWR"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "GND"
+				(at 0 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name 'GND'"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "power-flag"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "GND_BAR_0_0"
+				(polyline
+					(pts
+						(xy -1.27 -2.54) (xy 1.27 -2.54)
+					)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 -2.54)
+					)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin power_in line
+					(at 0 0 0)
+					(length 0)
+					(hide yes)
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(no_connect
+		(at 95 97.6272)
+		(uuid "100fd7d6-070d-4847-88b4-3360318b56e9")
+	)
+	(wire
+		(pts
+			(xy 95 92.5472) (xy 125 92.5472)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "07c6140b-16f7-4f0a-a992-a7a4d7db16af")
+	)
+	(wire
+		(pts
+			(xy 95 90.0072) (xy 160 90.0072)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "238306e4-7191-4ab5-8c36-1b7f958bc0bf")
+	)
+	(wire
+		(pts
+			(xy 95 95.0872) (xy 120 95.0872)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "27f5ddd3-05aa-4545-9f2b-4dca24ba2150")
+	)
+	(wire
+		(pts
+			(xy 120 95.0872) (xy 120 150.0072)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2ee2598a-67b0-4753-b3ec-ba98aedb037c")
+	)
+	(wire
+		(pts
+			(xy 95 100.1672) (xy 100 100.1672)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "65ef5626-f2a3-4695-a27c-d318f9b42bad")
+	)
+	(wire
+		(pts
+			(xy 100 100.1672) (xy 100 105.0072)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7a516b01-9ea0-4709-b827-00b4833e6327")
+	)
+	(wire
+		(pts
+			(xy 125 92.5472) (xy 125 120.0072)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ca61acff-517b-459f-80b3-70945e662583")
+	)
+	(wire
+		(pts
+			(xy 125 120.0072) (xy 160 120.0072)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dd1de42a-58a5-4e16-a249-839b6b970224")
+	)
+	(wire
+		(pts
+			(xy 120 150.0072) (xy 160 150.0072)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e0dee496-8442-4a95-b102-1f8c716b25de")
+	)
+	(symbol
+		(lib_id "DUO_Con:CCVA2,5/5-G-5,08P26THR")
+		(at 95 90.0072 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "4ad4f2a0-90f4-407b-a2e3-ab92490392b0")
+		(property "Reference" "CON1"
+			(at 89.92 88.4832 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Value" "CCVA2,5/5-G-5,08P26THR"
+			(at 70 105.0072 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "CCVA2,5/5-G-5,08P26THR"
+			(at 95 90.0072 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 95 90.0072 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CCVA2,5/5-G-5,08P26THR 7polig 5.08mm Raster"
+			(at 95 90.0072 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "BE-NR" "BE-30-00271"
+			(at 95 90.0072 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "FOOTPRINT" "CCVA2,5/5-G-5,08P26THR"
+			(at 95 90.0072 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(pin "1"
+			(uuid "ae8193dc-3ede-4812-929d-cf59569bae8f")
+		)
+		(pin "5"
+			(uuid "41ca1012-8ac2-4d3a-bda8-b7d32633e53f")
+		)
+		(pin "4"
+			(uuid "4f2b1216-ffee-422b-9551-8ad369dd6f88")
+		)
+		(pin "2"
+			(uuid "3146857c-02b9-4529-90df-f4956766c9a2")
+		)
+		(pin "3"
+			(uuid "006d7dbe-8e6a-4a24-9a28-5864402dba82")
+		)
+		(instances
+			(project "Repeated_Schematic"
+				(path "/bcebff9d-228f-4d81-8a9c-338d36fac1cd"
+					(reference "CON1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Repeated_Schematic-altium-import:GND_BAR")
+		(at 100 105.0072 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "75027178-17ed-4881-9465-5387b7c65edb")
+		(property "Reference" "#PWR?"
+			(at 100 105.0072 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 100 108.8172 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 100 105.0072 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 100 105.0072 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 100 105.0072 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin ""
+			(uuid "8f343d49-7772-48f7-9e49-ae272cad5453")
+		)
+		(instances
+			(project "Repeated_Schematic"
+				(path "/bcebff9d-228f-4d81-8a9c-338d36fac1cd"
+					(reference "#PWR?")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(sheet
+		(at 160 110.0072)
+		(size 40 20)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0)
+			(type solid)
+			(color 128 0 0 1)
+		)
+		(fill
+			(color 128 255 128 1)
+		)
+		(uuid "57d38b18-9593-4632-8818-7521e9e3fef8")
+		(property "Sheetname" "CH2"
+			(at 160 107.4672 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Channel.kicad_sch"
+			(at 160 110.0072 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(pin "Input" input
+			(at 160 120.0072 180)
+			(uuid "ab4202b1-bedd-4525-a06f-43320d07a1ff")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(instances
+			(project "Repeated_Schematic"
+				(path "/bcebff9d-228f-4d81-8a9c-338d36fac1cd"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 160 80.0072)
+		(size 40 20)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0)
+			(type solid)
+			(color 128 0 0 1)
+		)
+		(fill
+			(color 128 255 128 1)
+		)
+		(uuid "902b1f7b-c927-47c1-adf4-0c4854a1d8f8")
+		(property "Sheetname" "CH1"
+			(at 160 77.4672 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Channel.kicad_sch"
+			(at 160 80.0072 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(pin "Input" input
+			(at 160 90.0072 180)
+			(uuid "ca3161f5-1f53-4d26-8820-5183d026d62e")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(instances
+			(project "Repeated_Schematic"
+				(path "/bcebff9d-228f-4d81-8a9c-338d36fac1cd"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 160 140.0072)
+		(size 40 20)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0)
+			(type solid)
+			(color 128 0 0 1)
+		)
+		(fill
+			(color 128 255 128 1)
+		)
+		(uuid "e2503c36-1a4e-4dd0-98ce-849c08c7bb94")
+		(property "Sheetname" "CH3"
+			(at 160 137.4672 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Channel.kicad_sch"
+			(at 160 140.0072 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(pin "Input" input
+			(at 160 150.0072 180)
+			(uuid "2a176523-267f-4924-9dbd-0cd0d4e4c1e1")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(instances
+			(project "Repeated_Schematic"
+				(path "/bcebff9d-228f-4d81-8a9c-338d36fac1cd"
+					(page "4")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)

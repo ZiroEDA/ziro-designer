@@ -118,7 +118,7 @@ import type { SCH_GLOBALLABEL } from './sch_label.js';
 import type { SCHEMATIC_HOLDER } from './schematic_holder.js';
 import { AUTOPLACE_ALGO, type SCH_ITEM } from './sch_item.js';
 import { SCH_COMMIT } from './sch_commit.js';
-import type { SCH_JUNCTION } from './sch_junction.js';
+import { SCH_JUNCTION } from './sch_junction.js';
 import type { SCH_LINE } from './sch_line.js';
 import type { SCH_NO_CONNECT } from './sch_no_connect.js';
 import { SELECTED_BY_DRAG, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
@@ -1132,6 +1132,35 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
   /** `GetSchematicHolder()`. */
   GetSchematicHolder(): SCHEMATIC_HOLDER | null {
     return this.m_schematicHolder;
+  }
+
+  /**
+   * `SCHEMATIC::FixupJunctionsAfterImport` (schematic.cpp:1267): on every screen, a junction
+   * wherever one is needed and the wires broken at it. Returns how many were added.
+   */
+  FixupJunctionsAfterImport(): number {
+    const screens = new SCH_SCREENS(this.Root());
+    let count = 0;
+
+    for (let screen = screens.GetFirst(); screen; screen = screens.GetNext()) {
+      const allItems: EDA_ITEM_E3[] = [...screen.Items()];
+
+      // Add missing junctions and breakup wires as needed
+      for (const point of screen.GetNeededJunctions(allItems)) {
+        count++;
+
+        const junction = new SCH_JUNCTION(point);
+        screen.Append(junction);
+
+        // Breakup wires
+        for (const wire of screen.GetBusesAndWires(point, true)) {
+          const newSegment = wire.NonGroupAware_BreakAt(point);
+          screen.Append(newSegment);
+        }
+      }
+    }
+
+    return count;
   }
 
   /**

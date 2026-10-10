@@ -316,3 +316,9 @@ export const easyEdaArchiveWildcard = (): ChooserFilter =>
 /** `FILEEXT::EasyEdaProFileWildcard` (`:350-353`). */
 export const easyEdaProFileWildcard = (): ChooserFilter =>
   fileFilter('EasyEDA (JLCEDA) Pro files', ['epro', 'zip']);
+
+/** `FILEEXT::CadstarSchematicFileExtension` (:140). [data] */
+export const CadstarSchematicFileExtension = 'csa';
+
+/** `FILEEXT::CadstarPartsLibraryFileExtension` (:141). [data] */
+export const CadstarPartsLibraryFileExtension = 'lib';
