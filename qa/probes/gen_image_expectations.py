@@ -33,13 +33,13 @@ def ask(path):
 
 expected = {'load': {}, 'truncations': {}}
 for name in sorted(os.listdir(d)):
-    if name.endswith(('.bmp', '.gif')):
+    if name.endswith(('.bmp', '.gif', '.png')):
         expected['load'][name] = ask(os.path.join(d, name))
 
 # every cut of one file of each kind either fails or loads what wx makes of it
 for name in ['b8_rle.bmp', 'b24.bmp', 'b8_rle_delta.bmp', 'b4_rle_delta.bmp', 'b32_rgb_alpha.bmp',
              'g_interlaced.gif', 'g_animated.gif', 'g_large_noise.gif',
-             'g_anim_local.gif', 'g_comment.gif']:
+             'g_anim_local.gif', 'g_comment.gif', 'p_interlaced.png', 'p_rgba16.png', 'p_palette_trns_many.png']:
     data = open(os.path.join(d, name), 'rb').read()
     cuts = {}
     for n in sorted({2, 10, 30, 54, 60, 100, len(data) // 2, len(data) - 1}):

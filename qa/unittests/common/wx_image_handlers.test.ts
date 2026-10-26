@@ -25,6 +25,7 @@ import {
   wxIMAGE_OPTION_RESOLUTIONX,
   wxIMAGE_OPTION_RESOLUTIONY,
 } from '@ziroeda/wx/wx_image.js';
+import { BITMAP_BASE } from '@ziroeda/common/bitmap_base.js';
 import { describe, expect, it } from 'vitest';
 
 const DATA = resolve(__dirname, '../../data/wx/image');
@@ -109,6 +110,22 @@ describe('wxBMPHandler', () => {
   });
 });
 
+const pngs = Object.entries(EXPECTED.load).filter(([n]) => n.endsWith('.png'));
+
+describe('wxPNGHandler', () => {
+  it.each(pngs)('%s loads as wx loads it', (aName, aWant) => {
+    expectOutcome(file(aName), aWant);
+  });
+
+  const cuts = Object.entries(EXPECTED.truncations)
+    .filter(([n]) => n.endsWith('.png'))
+    .flatMap(([n, c]) => Object.entries(c).map(([len, want]) => [n, Number(len), want] as const));
+
+  it.each(cuts)('%s cut to %i bytes: what wx makes of it', (aName, aLength, aWant) => {
+    expectOutcome(file(aName).slice(0, aLength), aWant);
+  });
+});
+
 describe('the mask through WX_IMAGE', () => {
   /** A 3 x 1 image: pink (the mask colour), (2, 0, 0) and (0, 0, 3), masked on pink. */
   function masked(): WX_IMAGE {
@@ -149,5 +166,27 @@ describe('the mask through WX_IMAGE', () => {
     const image = masked();
     image.Create(2, 2);
     expect(image.HasMask()).toBe(false);
+  });
+});
+
+describe('BITMAP_BASE::updatePPI on what the handlers set', () => {
+  const ppi = (aName: string) => {
+    const bitmap = new BITMAP_BASE();
+    expect(bitmap.ReadImageFile(file(aName))).toBe(true);
+    return bitmap.GetPPI();
+  };
+
+  it('a unitless pHYs is taken as dots per inch, a per-metre one through dots per cm', () => {
+    // wxPNGHandler: PNG_RESOLUTION_UNKNOWN keeps 72 x 72 with unit NONE, and updatePPI takes any
+    // dpiX > 1 that is not per-cm as it is; 300 dpi was written as 11811 px/m, wx 118 /cm,
+    // KiROUND( 118 * 2.54 ) = 300.
+    expect(ppi('p_phys_unit0.png')).toBe(72);
+    expect(ppi('p_rgb_300dpi.png')).toBe(300);
+  });
+
+  it('a BMP has its pixels per metre in dots per cm too', () => {
+    // b24_300dpi.bmp: 11811 px/m -> 118 /cm -> 300; b24_os2.bmp, a v1 header: no resolution
+    expect(ppi('b24_300dpi.bmp')).toBe(300);
+    expect(ppi('b24_os2.bmp')).toBe(300);
   });
 });

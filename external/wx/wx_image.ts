@@ -729,13 +729,23 @@ export class WX_IMAGE {
           const resY = be32(body, 4);
           const unitType = body[8]!;
 
-          // wxPNGHandler: PNG_RESOLUTION_METER -> dots per cm, an integer division
+          // wxPNGHandler::LoadFile: PNG_RESOLUTION_METER -> dots per cm, kept as a string to two
+          // places, which GetOptionInt reads back as the integer part; any other unit
+          // (PNG_RESOLUTION_UNKNOWN, or one wx warns about and falls through from) -> the
+          // values as they are, unit NONE - which BITMAP_BASE::updatePPI then takes as dpi.
           if (unitType === 1) {
             this.m_options.set(wxIMAGE_OPTION_RESOLUTIONX, Math.trunc(resX / 100));
             this.m_options.set(wxIMAGE_OPTION_RESOLUTIONY, Math.trunc(resY / 100));
             this.m_options.set(
               wxIMAGE_OPTION_RESOLUTIONUNIT,
               wxImageResolution.wxIMAGE_RESOLUTION_CM,
+            );
+          } else {
+            this.m_options.set(wxIMAGE_OPTION_RESOLUTIONX, resX);
+            this.m_options.set(wxIMAGE_OPTION_RESOLUTIONY, resY);
+            this.m_options.set(
+              wxIMAGE_OPTION_RESOLUTIONUNIT,
+              wxImageResolution.wxIMAGE_RESOLUTION_NONE,
             );
           }
 
