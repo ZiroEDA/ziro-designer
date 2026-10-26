@@ -104,6 +104,7 @@ const COLOR4D = (r: number, g: number, b: number, a: number): Color4d => ({ r, g
 
 /** `wxALPHA_OPAQUE` / `wxALPHA_TRANSPARENT`. */
 const wxALPHA_OPAQUE = 255;
+const wxALPHA_TRANSPARENT = 0;
 
 /// Definitions for the command recorder
 export enum GRAPHICS_COMMAND {
@@ -737,11 +738,9 @@ export class CAIRO_GAL_BASE extends GAL {
   /**
    * @copydoc GAL::DrawBitmap()
    *
-   * The pixels come from the BITMAP_BASE's `wxImage` (`WX_IMAGE`). Two gaps
-   * against the C++: a JPEG's pixels are not decoded by `WX_IMAGE`, so a JPEG
-   * image draws nothing here; and `WX_IMAGE` has no mask colour, so the
-   * `HasMask()` branch cannot arise. The canvas takes straight alpha, so the
-   * premultiply step (`r * a / 0xFF`) is the browser's.
+   * The pixels come from the BITMAP_BASE's `wxImage` (`WX_IMAGE`). The canvas
+   * takes straight alpha, so the premultiply step (`r * a / 0xFF`) is the
+   * browser's.
    */
   override DrawBitmap(aBitmap: BITMAP_BASE, alphaBlend = 1.0): void {
     cairo_save(this.cr);
@@ -771,6 +770,10 @@ export class CAIRO_GAL_BASE extends GAL {
 
     if (rgb && w > 0 && h > 0) {
       const alpha = bm_pix_buffer!.GetAlpha();
+      const mask_color =
+        (bm_pix_buffer!.GetMaskRed() << 16) |
+        (bm_pix_buffer!.GetMaskGreen() << 8) |
+        bm_pix_buffer!.GetMaskBlue();
       const pix = image.backing.ctx.createImageData(w, h);
       const pix_buffer = pix.data;
 
@@ -784,6 +787,8 @@ export class CAIRO_GAL_BASE extends GAL {
           let a = wxALPHA_OPAQUE;
 
           if (bm_pix_buffer!.HasAlpha()) a = alpha![i]!;
+          else if (bm_pix_buffer!.HasMask() && ((r << 16) | (g << 8) | b) === mask_color)
+            a = wxALPHA_TRANSPARENT;
 
           pix_buffer[i * 4] = r;
           pix_buffer[i * 4 + 1] = g;

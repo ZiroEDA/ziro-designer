@@ -24,6 +24,8 @@ import { inflateZlib } from './inflate.js';
 import { zlibSync } from 'fflate';
 import { PNG_SIGNATURE, pngChunk, pngCrc32 } from './imagpng.js';
 import type { IMAGJPEG_MODULE } from './jpeg/imagjpeg_wasm.js';
+import { wxMemoryInputStream } from './mstream.js';
+import { wxGIFHandlerCanRead, wxGIFHandlerLoadFile } from './imaggif.js';
 
 /** `wxImageResolution`. */
 export enum wxImageResolution {
@@ -37,6 +39,7 @@ export enum wxBitmapType {
   wxBITMAP_TYPE_INVALID = 0,
   wxBITMAP_TYPE_BMP = 1,
   wxBITMAP_TYPE_PNG = 15,
+  wxBITMAP_TYPE_GIF = 13,
   wxBITMAP_TYPE_JPEG = 17,
   wxBITMAP_TYPE_ANY = 50,
 }
@@ -116,24 +119,27 @@ const put32 = (b: Uint8Array, off: number, v: number): void => {
   b[off + 3] = v & 0xff;
 };
 
-function isPng(aData: Uint8Array): boolean {
-  if (aData.length < 8) return false;
+/** `wxPNGHandler::DoCanRead`: four bytes, "\x89PNG" - libpng checks the rest when it loads. */
+function canReadPng(aData: Uint8Array): boolean {
+  if (aData.length < 4) return false;
 
-  for (let i = 0; i < 8; i++) if (aData[i] !== PNG_SIGNATURE[i]) return false;
+  for (let i = 0; i < 4; i++) if (aData[i] !== PNG_SIGNATURE[i]) return false;
 
   return true;
 }
 
-function isBmp(aData: Uint8Array): boolean {
-  return aData.length >= 2 && aData[0] === 0x42 && aData[1] === 0x4d; // "BM"
+/** `wxBMPHandler::DoCanRead`: `ReadAll` two bytes, "BM". */
+function canReadBmp(aData: Uint8Array): boolean {
+  return aData.length >= 2 && aData[0] === 0x42 && aData[1] === 0x4d;
 }
 
 const le16 = (b: Uint8Array, off: number): number => b[off]! | (b[off + 1]! << 8);
 const le32 = (b: Uint8Array, off: number): number =>
   b[off]! | (b[off + 1]! << 8) | (b[off + 2]! << 16) | (b[off + 3]! << 24);
 
-function isJpeg(aData: Uint8Array): boolean {
-  return aData.length >= 3 && aData[0] === 0xff && aData[1] === 0xd8 && aData[2] === 0xff;
+/** `wxJPEGHandler::DoCanRead`: two bytes, FF D8 - not three. */
+function canReadJpeg(aData: Uint8Array): boolean {
+  return aData.length >= 2 && aData[0] === 0xff && aData[1] === 0xd8;
 }
 
 /** `wxImage`. */
@@ -145,6 +151,10 @@ export class WX_IMAGE {
   private m_options = new Map<string, number>();
   private m_pixelsKnown = false; // false for a BMP layout read for its size only
   private m_type = wxBitmapType.wxBITMAP_TYPE_INVALID;
+  private m_hasMask = false;
+  private m_maskRed = 0;
+  private m_maskGreen = 0;
+  private m_maskBlue = 0;
 
   constructor();
   constructor(aWidth: number, aHeight: number);
@@ -158,6 +168,10 @@ export class WX_IMAGE {
       this.m_options = new Map(a.m_options);
       this.m_pixelsKnown = a.m_pixelsKnown;
       this.m_type = a.m_type;
+      this.m_hasMask = a.m_hasMask;
+      this.m_maskRed = a.m_maskRed;
+      this.m_maskGreen = a.m_maskGreen;
+      this.m_maskBlue = a.m_maskBlue;
     } else if (a !== undefined) {
       this.m_width = a;
       this.m_height = aHeight!;
@@ -219,6 +233,43 @@ export class WX_IMAGE {
     this.m_alpha = null;
     this.m_options = new Map();
     this.m_pixelsKnown = true;
+    this.m_hasMask = false;
+  }
+
+  /** `wxImage::Create( width, height )`: a black image, no alpha, no mask, no options. */
+  Create(aWidth: number, aHeight: number): boolean {
+    this.SetData(new Uint8Array(aWidth * aHeight * 3), aWidth, aHeight);
+    return this.IsOk();
+  }
+
+  HasMask(): boolean {
+    return this.m_hasMask;
+  }
+  /** `wxImage::SetMask( hasMask )`. */
+  SetMask(aMask = true): void {
+    this.m_hasMask = aMask;
+  }
+  /** `wxImage::SetMaskColour( r, g, b )`: the colour that is transparent, and a mask on. */
+  SetMaskColour(aRed: number, aGreen: number, aBlue: number): void {
+    this.m_maskRed = aRed;
+    this.m_maskGreen = aGreen;
+    this.m_maskBlue = aBlue;
+    this.m_hasMask = true;
+  }
+  GetMaskRed(): number {
+    return this.m_maskRed;
+  }
+  GetMaskGreen(): number {
+    return this.m_maskGreen;
+  }
+  GetMaskBlue(): number {
+    return this.m_maskBlue;
+  }
+
+  /** `wxImage::MakeEmptyClone`'s share of a copy: the mask colour, when there is one. */
+  private copyMaskTo(aImage: WX_IMAGE): WX_IMAGE {
+    if (this.m_hasMask) aImage.SetMaskColour(this.m_maskRed, this.m_maskGreen, this.m_maskBlue);
+    return aImage;
   }
   /**
    * `wxImage::Mirror( horizontally )`: a copy flipped left to right, or with \a aHorizontally
@@ -248,7 +299,7 @@ export class WX_IMAGE {
       }
     }
 
-    return image;
+    return this.copyMaskTo(image);
   }
   /** `wxImage::GetRed( x, y )`. */
   GetRed(x: number, y: number): number {
@@ -322,28 +373,37 @@ export class WX_IMAGE {
   }
 
   /**
-   * `wxImage::LoadFile( wxInputStream&, wxBitmapType )`: the type is detected
-   * from the signature.
+   * `wxImage::LoadFile( stream, wxBITMAP_TYPE_ANY )`: each handler in `wxInitAllImageHandlers`'
+   * order - BMP (built in), PNG, JPEG, GIF - is asked `CanRead`, and the first that can read the
+   * stream and loads it wins. A handler that accepts the signature but fails to load passes the
+   * stream on to the next (`handler->CanRead( stream ) && DoLoad( ... )`).
    */
   LoadFile(aData: Uint8Array): boolean {
-    const type = isPng(aData)
-      ? wxBitmapType.wxBITMAP_TYPE_PNG
-      : isJpeg(aData)
-        ? wxBitmapType.wxBITMAP_TYPE_JPEG
-        : isBmp(aData)
-          ? wxBitmapType.wxBITMAP_TYPE_BMP
-          : wxBitmapType.wxBITMAP_TYPE_INVALID;
-    const ok =
-      type === wxBitmapType.wxBITMAP_TYPE_PNG
-        ? this.loadPng(aData)
-        : type === wxBitmapType.wxBITMAP_TYPE_JPEG
-          ? this.loadJpeg(aData)
-          : type === wxBitmapType.wxBITMAP_TYPE_BMP && this.loadBmp(aData);
+    const handlers: [
+      wxBitmapType,
+      (aData: Uint8Array) => boolean,
+      (aData: Uint8Array) => boolean,
+    ][] = [
+      [wxBitmapType.wxBITMAP_TYPE_BMP, canReadBmp, (d) => this.loadBmp(d)],
+      [wxBitmapType.wxBITMAP_TYPE_PNG, canReadPng, (d) => this.loadPng(d)],
+      [wxBitmapType.wxBITMAP_TYPE_JPEG, canReadJpeg, (d) => this.loadJpeg(d)],
+      [
+        wxBitmapType.wxBITMAP_TYPE_GIF,
+        (d) => wxGIFHandlerCanRead(new wxMemoryInputStream(d)),
+        (d) => wxGIFHandlerLoadFile(this, new wxMemoryInputStream(d), -1),
+      ],
+    ];
 
-    // wxImage::DoLoad: m_refData->m_type = handler.GetType()
-    if (ok) this.m_type = type;
+    for (const [type, canRead, load] of handlers) {
+      if (canRead(aData) && load(aData)) {
+        // wxImage::DoLoad: m_refData->m_type = handler.GetType()
+        this.m_type = type;
+        return true;
+      }
+    }
 
-    return ok;
+    // "Unknown image data format."
+    return false;
   }
 
   /** `wxImage::GetType`: the type of the handler that loaded it, or INVALID. */
@@ -392,7 +452,9 @@ export class WX_IMAGE {
 
     const w = this.m_width;
     const h = this.m_height;
-    const bpp = this.m_alpha ? 4 : 3;
+    // bUseAlpha: an alpha plane, or a mask, which the RGBA rows carry as alpha 0
+    const useAlpha = this.m_alpha !== null || this.m_hasMask;
+    const bpp = useAlpha ? 4 : 3;
     const stride = w * bpp;
     const raw = new Uint8Array(h * (stride + 1));
 
@@ -407,7 +469,19 @@ export class WX_IMAGE {
         raw[d + 1] = this.m_rgb[s + 1]!;
         raw[d + 2] = this.m_rgb[s + 2]!;
 
-        if (this.m_alpha) raw[d + 3] = this.m_alpha[y * w + x]!;
+        if (useAlpha) {
+          let uchAlpha = this.m_alpha ? this.m_alpha[y * w + x]! : 255;
+
+          if (
+            this.m_hasMask &&
+            this.m_rgb[s] === this.m_maskRed &&
+            this.m_rgb[s + 1] === this.m_maskGreen &&
+            this.m_rgb[s + 2] === this.m_maskBlue
+          )
+            uchAlpha = 0;
+
+          raw[d + 3] = uchAlpha;
+        }
       }
     }
 
@@ -415,7 +489,7 @@ export class WX_IMAGE {
     put32(ihdr, 0, w);
     put32(ihdr, 4, h);
     ihdr[8] = 8;
-    ihdr[9] = this.m_alpha ? 6 : 2;
+    ihdr[9] = useAlpha ? 6 : 2;
     ihdr[10] = 0;
     ihdr[11] = 0;
     ihdr[12] = 0;
@@ -495,12 +569,13 @@ export class WX_IMAGE {
       }
     }
 
-    return out;
+    return this.copyMaskTo(out);
   }
 
   /**
-   * `wxImage::ConvertToGreyscale( 0.299, 0.587, 0.114 )`: `wxColour::MakeGrey`,
-   * a truncating cast of the weighted sum.
+   * `wxImage::ConvertToGreyscale( 0.299, 0.587, 0.114 )`: `wxColour::MakeGrey` on every pixel
+   * but the mask colour's - `(wxByte)wxRound( luma )`, halves away from zero, as
+   * `qa/probes/wximage_greyscale_probe.cpp` measured for all 2^24 colours.
    */
   ConvertToGreyscale(): WX_IMAGE {
     const out = new WX_IMAGE(this);
@@ -508,9 +583,17 @@ export class WX_IMAGE {
     if (!out.m_rgb) throw new Error('wxImage::ConvertToGreyscale: the pixels are not decoded');
 
     for (let i = 0; i < out.m_rgb.length; i += 3) {
-      const grey = Math.trunc(
-        0.299 * out.m_rgb[i]! + 0.587 * out.m_rgb[i + 1]! + 0.114 * out.m_rgb[i + 2]!,
-      );
+      // DoMakeGrey: a masked pixel keeps its colour, so it stays transparent
+      if (
+        out.m_hasMask &&
+        out.m_rgb[i] === out.m_maskRed &&
+        out.m_rgb[i + 1] === out.m_maskGreen &&
+        out.m_rgb[i + 2] === out.m_maskBlue
+      )
+        continue;
+
+      const luma = 0.299 * out.m_rgb[i]! + 0.587 * out.m_rgb[i + 1]! + 0.114 * out.m_rgb[i + 2]!;
+      const grey = Math.round(luma) & 0xff; // wxRound: luma >= 0, so halves go up
       out.m_rgb[i] = grey;
       out.m_rgb[i + 1] = grey;
       out.m_rgb[i + 2] = grey;
@@ -666,6 +749,11 @@ export class WX_IMAGE {
   }
 
   private loadPng(aData: Uint8Array): boolean {
+    // png_read_info checks the whole signature; CanRead looked at four bytes of it
+    if (aData.length < 8) return false;
+
+    for (let i = 0; i < 8; i++) if (aData[i] !== PNG_SIGNATURE[i]) return false;
+
     let pos = 8;
     let width = 0;
     let height = 0;

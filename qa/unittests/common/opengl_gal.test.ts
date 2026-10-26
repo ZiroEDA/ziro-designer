@@ -9,6 +9,8 @@
  * the GPU managers upload and draw. The GPU itself is the browser's; the
  * shaders compile there, and that is where the picture is checked.
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
 import {
@@ -237,7 +239,11 @@ class MockGL {
   }
   bindTexture(): void {}
   activeTexture(): void {}
-  texImage2D(): void {}
+  /** Every texture upload: the arguments texImage2D was given. */
+  textures: unknown[][] = [];
+  texImage2D(...aArgs: unknown[]): void {
+    this.textures.push(aArgs);
+  }
   texParameteri(): void {}
   pixelStorei(): void {}
   copyTexSubImage2D(): void {}
@@ -502,5 +508,42 @@ describe('GL_FIXED_FUNCTION', () => {
     expect(ff.modelViewProjection()[12]).not.toBeCloseTo(mvp[12]!, 6);
     ff.glPopMatrix();
     expect(ff.modelViewProjection()[12]).toBeCloseTo(mvp[12]!, 6);
+  });
+});
+
+describe('GL_BITMAP_CACHE', () => {
+  it('uploads a masked image as RGBA, the mask colour transparent and the rest opaque', async () => {
+    // GL_BITMAP_CACHE::cacheBitmap's HasMask() branch: wxALPHA_TRANSPARENT where the pixel is
+    // the mask colour. A transparent GIF loads as bright pink plus a mask of it.
+    const { BITMAP_BASE } = await import('@ziroeda/common/bitmap_base.js');
+    const bytes = new Uint8Array(
+      readFileSync(resolve(__dirname, '../../data/wx/image/g_transparent.gif')),
+    );
+    const bitmap = new BITMAP_BASE();
+    expect(bitmap.ReadImageFile(bytes)).toBe(true);
+    const image = bitmap.GetImageData()!;
+    expect(image.HasMask()).toBe(true);
+
+    const { gal, gl } = makeGal();
+    GAL_DRAWING_CONTEXT(gal, () => gal.DrawBitmap(bitmap));
+
+    const upload = gl.textures.find((u) => u[2] === GL.RGBA8 && u[3] === image.GetWidth());
+    expect(upload).toBeDefined();
+    const rgba = upload![8] as Uint8Array;
+    const rgb = image.GetData()!;
+    let transparent = 0;
+
+    for (let px = 0; px < image.GetWidth() * image.GetHeight(); px++) {
+      const masked = rgb[px * 3] === 255 && rgb[px * 3 + 1] === 0 && rgb[px * 3 + 2] === 255;
+      expect([rgba[px * 4], rgba[px * 4 + 1], rgba[px * 4 + 2]]).toEqual([
+        rgb[px * 3],
+        rgb[px * 3 + 1],
+        rgb[px * 3 + 2],
+      ]);
+      expect(rgba[px * 4 + 3]).toBe(masked ? 0 : 255);
+      if (masked) transparent++;
+    }
+
+    expect(transparent).toBeGreaterThan(0);
   });
 });

@@ -1,0 +1,709 @@
+{
+ "load": {
+  "b1.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    37,
+    37,
+    2
+   ],
+   "rgbSha256": "610bbad216595e5d5f1413921567af15b8e2c84bea9f8c69ab686cce709b1714",
+   "alphaSha256": null
+  },
+  "b16_555.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    2
+   ],
+   "rgbSha256": "88b9e3344655c34aba186265722d9704b43963bbfed08a406f732c70f0a52495",
+   "alphaSha256": null
+  },
+  "b16_565.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    2
+   ],
+   "rgbSha256": "27abdcfb61ce800461d61c9e81ac70cad3a497768717b6a47bd59b34a778fdef",
+   "alphaSha256": null
+  },
+  "b24.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    37,
+    37,
+    2
+   ],
+   "rgbSha256": "6b2e4a54756e907f0747cf91e8dafcb9568d732b624d510f30b3c856845caa81",
+   "alphaSha256": null
+  },
+  "b24_300dpi.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    118,
+    118,
+    2
+   ],
+   "rgbSha256": "6b2e4a54756e907f0747cf91e8dafcb9568d732b624d510f30b3c856845caa81",
+   "alphaSha256": null
+  },
+  "b24_bmp3.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    2
+   ],
+   "rgbSha256": "6b2e4a54756e907f0747cf91e8dafcb9568d732b624d510f30b3c856845caa81",
+   "alphaSha256": null
+  },
+  "b24_os2.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "6b2e4a54756e907f0747cf91e8dafcb9568d732b624d510f30b3c856845caa81",
+   "alphaSha256": null
+  },
+  "b24_topdown.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    2
+   ],
+   "rgbSha256": "6b2e4a54756e907f0747cf91e8dafcb9568d732b624d510f30b3c856845caa81",
+   "alphaSha256": null
+  },
+  "b24_v4.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    2
+   ],
+   "rgbSha256": "6b2e4a54756e907f0747cf91e8dafcb9568d732b624d510f30b3c856845caa81",
+   "alphaSha256": null
+  },
+  "b32_alpha.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    2
+   ],
+   "rgbSha256": "6b2e4a54756e907f0747cf91e8dafcb9568d732b624d510f30b3c856845caa81",
+   "alphaSha256": null
+  },
+  "b4.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    2
+   ],
+   "rgbSha256": "678f0f49713a98e53a52355e62d7401ae43cc0b2034667c82e965f89b27a0599",
+   "alphaSha256": null
+  },
+  "b4_pil.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    37,
+    37,
+    2
+   ],
+   "rgbSha256": "e17118b82f408486fb0bca25c9233222c2f7528ee0dc97a460a588ba72988c85",
+   "alphaSha256": null
+  },
+  "b4_rle.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    2
+   ],
+   "rgbSha256": "4a70332252860c3a354d9c470a070148d2d9a50b189eea6c35cb67b2cd67b5b4",
+   "alphaSha256": null
+  },
+  "b8.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    37,
+    37,
+    2
+   ],
+   "rgbSha256": "f0f983e672e9a3f6689a2873cf6c56349f898ebde969468ca3d57d04e66a1840",
+   "alphaSha256": null
+  },
+  "b8_rle.bmp": {
+   "width": 23,
+   "height": 13,
+   "type": 1,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    2
+   ],
+   "rgbSha256": "49527d31a0fafddb4506f3c5da7fca1651caa9cfc3805a49ef379693f3c1df7d",
+   "alphaSha256": null
+  },
+  "g_1x1.gif": {
+   "width": 1,
+   "height": 1,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "548bc09067e6887cec8edbe2ee9f5be9d103fc542bc34cd1c2a54274fccc4bbf",
+   "alphaSha256": null
+  },
+  "g_87a.gif": {
+   "width": 17,
+   "height": 9,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "94e65a093f5d25472cb2c5ac2fc854b0d768ca7a916a07004cc45f8ff666edf9",
+   "alphaSha256": null
+  },
+  "g_87a_bad_second_frame.gif": {
+   "width": 20,
+   "height": 12,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "4e6cf759ee0a80f5eb9211bed6d944d32c58499a43631e3827c4edf4cd679330",
+   "alphaSha256": null
+  },
+  "g_anim_first_frame_short.gif": {
+   "width": 20,
+   "height": 11,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "ae603756d7d9aada99afc1cf0afd60767165f6090ac7d2ccb279f144212f26b2",
+   "alphaSha256": null
+  },
+  "g_anim_local.gif": {
+   "width": 20,
+   "height": 12,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "4e6cf759ee0a80f5eb9211bed6d944d32c58499a43631e3827c4edf4cd679330",
+   "alphaSha256": null
+  },
+  "g_animated.gif": {
+   "width": 23,
+   "height": 13,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "4cb6109d3ce54abfa59bb748717862fc51d11f5bbdd738187238a3203a89c4a0",
+   "alphaSha256": null
+  },
+  "g_comment.gif": {
+   "width": 9,
+   "height": 5,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "9856676025d0479500a4b7d24636c22104796d23f3eefdc7396796d02f8fa2f0",
+   "alphaSha256": null
+  },
+  "g_interlaced.gif": {
+   "width": 23,
+   "height": 13,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "4cb6109d3ce54abfa59bb748717862fc51d11f5bbdd738187238a3203a89c4a0",
+   "alphaSha256": null
+  },
+  "g_interlaced_h1.gif": {
+   "width": 6,
+   "height": 1,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "7463cfb7938b4090f99dbec804ba0cb68b55c9433523fc48b7187c0263eb06d7",
+   "alphaSha256": null
+  },
+  "g_interlaced_h2.gif": {
+   "width": 6,
+   "height": 2,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "bb2e93a374a5f5c6b10ebd70ac4f5b9ad4692e67f6203959a35a0143245f2c33",
+   "alphaSha256": null
+  },
+  "g_interlaced_h3.gif": {
+   "width": 6,
+   "height": 3,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "3638c81494e238b9ab70a76625d2cb1e7dd3817bd4e9d11f124de05706408e8a",
+   "alphaSha256": null
+  },
+  "g_interlaced_h5.gif": {
+   "width": 6,
+   "height": 5,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "f8bf02dfdba424702187fb841dcf6ac03d4010bd47386f1d078ac53229d80237",
+   "alphaSha256": null
+  },
+  "g_interlaced_h9.gif": {
+   "width": 6,
+   "height": 9,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "2a327378f1c7d6c6dfb249a5659a0e6476dee747776b6aa4a043aa6286cb8a87",
+   "alphaSha256": null
+  },
+  "g_interlaced_overrun.gif": {
+   "width": 6,
+   "height": 1,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "1878cb5c516817ffb13082427fc6ecc11d5d240a103c49dfcb747e8bd4704174",
+   "alphaSha256": null
+  },
+  "g_large_noise.gif": {
+   "width": 300,
+   "height": 200,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "4661467f50fdd73288fa0f4fea0e65706b37220015efd9f535df7b99f9ae3855",
+   "alphaSha256": null
+  },
+  "g_one_row_short.gif": {
+   "width": 300,
+   "height": 199,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "6045a6563c162d8b7c584b3c15bf36bddc387ffb8d1406c24aa531bd8d31e076",
+   "alphaSha256": null
+  },
+  "g_pink_transparent.gif": {
+   "width": 15,
+   "height": 7,
+   "type": 13,
+   "mask": [
+    255,
+    0,
+    255
+   ],
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "d31eef05ea6d15a65f6cb4e587281ea2e186fe57edab2ed111439a509db9addd",
+   "alphaSha256": null
+  },
+  "g_plain.gif": {
+   "width": 23,
+   "height": 13,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "4cb6109d3ce54abfa59bb748717862fc51d11f5bbdd738187238a3203a89c4a0",
+   "alphaSha256": null
+  },
+  "g_progressive_no.gif": {
+   "width": 23,
+   "height": 13,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "4cb6109d3ce54abfa59bb748717862fc51d11f5bbdd738187238a3203a89c4a0",
+   "alphaSha256": null
+  },
+  "g_screen_too_small.gif": {
+   "width": 20,
+   "height": 12,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "4e6cf759ee0a80f5eb9211bed6d944d32c58499a43631e3827c4edf4cd679330",
+   "alphaSha256": null
+  },
+  "g_transparent.gif": {
+   "width": 23,
+   "height": 13,
+   "type": 13,
+   "mask": [
+    255,
+    0,
+    255
+   ],
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "09449c3b488516a01afac477ba5fd64cee86f1bebad8a47258dd32e92e2d8faf",
+   "alphaSha256": null
+  },
+  "g_zero_length_block.gif": {
+   "width": 300,
+   "height": 200,
+   "type": 13,
+   "mask": null,
+   "resolution": [
+    0,
+    0,
+    0
+   ],
+   "rgbSha256": "eef3fc0866a6d78c5f4d495c557ec426f3a81d98c584b9a12313fd2cb4b0ec13",
+   "alphaSha256": null
+  }
+ },
+ "truncations": {
+  "b8_rle.bmp": {
+   "2": null,
+   "10": null,
+   "30": null,
+   "54": null,
+   "60": null,
+   "100": null,
+   "830": null,
+   "1659": {
+    "width": 23,
+    "height": 13,
+    "type": 1,
+    "mask": null,
+    "resolution": [
+     0,
+     0,
+     2
+    ],
+    "rgbSha256": "49527d31a0fafddb4506f3c5da7fca1651caa9cfc3805a49ef379693f3c1df7d",
+    "alphaSha256": null
+   }
+  },
+  "b24.bmp": {
+   "2": null,
+   "10": null,
+   "30": null,
+   "54": null,
+   "60": null,
+   "100": null,
+   "495": null,
+   "989": {
+    "width": 23,
+    "height": 13,
+    "type": 1,
+    "mask": null,
+    "resolution": [
+     37,
+     37,
+     2
+    ],
+    "rgbSha256": "6b2e4a54756e907f0747cf91e8dafcb9568d732b624d510f30b3c856845caa81",
+    "alphaSha256": null
+   }
+  },
+  "g_interlaced.gif": {
+   "2": null,
+   "10": null,
+   "30": null,
+   "54": null,
+   "60": null,
+   "100": null,
+   "234": {
+    "width": 23,
+    "height": 13,
+    "type": 13,
+    "mask": null,
+    "resolution": [
+     0,
+     0,
+     0
+    ],
+    "rgbSha256": "08557667b222620cc62dcd59ef5bf366e20b9620a56269feb1d1f276aa04b819",
+    "alphaSha256": null
+   },
+   "468": {
+    "width": 23,
+    "height": 13,
+    "type": 13,
+    "mask": null,
+    "resolution": [
+     0,
+     0,
+     0
+    ],
+    "rgbSha256": "4cb6109d3ce54abfa59bb748717862fc51d11f5bbdd738187238a3203a89c4a0",
+    "alphaSha256": null
+   }
+  },
+  "g_animated.gif": {
+   "2": null,
+   "10": null,
+   "30": null,
+   "54": null,
+   "60": null,
+   "100": null,
+   "480": {
+    "width": 23,
+    "height": 13,
+    "type": 13,
+    "mask": null,
+    "resolution": [
+     0,
+     0,
+     0
+    ],
+    "rgbSha256": "08557667b222620cc62dcd59ef5bf366e20b9620a56269feb1d1f276aa04b819",
+    "alphaSha256": null
+   },
+   "960": {
+    "width": 23,
+    "height": 13,
+    "type": 13,
+    "mask": null,
+    "resolution": [
+     0,
+     0,
+     0
+    ],
+    "rgbSha256": "4cb6109d3ce54abfa59bb748717862fc51d11f5bbdd738187238a3203a89c4a0",
+    "alphaSha256": null
+   }
+  },
+  "g_large_noise.gif": {
+   "2": null,
+   "10": null,
+   "30": null,
+   "54": null,
+   "60": null,
+   "100": null,
+   "41562": {
+    "width": 300,
+    "height": 200,
+    "type": 13,
+    "mask": null,
+    "resolution": [
+     0,
+     0,
+     0
+    ],
+    "rgbSha256": "9716b2767d884e5de3d0ecc39c04c1b733797cbd27e15cf60e535afccf536c0d",
+    "alphaSha256": null
+   },
+   "83123": {
+    "width": 300,
+    "height": 200,
+    "type": 13,
+    "mask": null,
+    "resolution": [
+     0,
+     0,
+     0
+    ],
+    "rgbSha256": "4661467f50fdd73288fa0f4fea0e65706b37220015efd9f535df7b99f9ae3855",
+    "alphaSha256": null
+   }
+  },
+  "g_anim_local.gif": {
+   "2": null,
+   "10": null,
+   "30": null,
+   "54": null,
+   "60": null,
+   "100": null,
+   "1047": null,
+   "2093": {
+    "width": 20,
+    "height": 12,
+    "type": 13,
+    "mask": null,
+    "resolution": [
+     0,
+     0,
+     0
+    ],
+    "rgbSha256": "4e6cf759ee0a80f5eb9211bed6d944d32c58499a43631e3827c4edf4cd679330",
+    "alphaSha256": null
+   }
+  },
+  "g_comment.gif": {
+   "2": null,
+   "10": null,
+   "30": null,
+   "48": null,
+   "54": null,
+   "60": {
+    "width": 9,
+    "height": 5,
+    "type": 13,
+    "mask": null,
+    "resolution": [
+     0,
+     0,
+     0
+    ],
+    "rgbSha256": "3f438226bcd8a2a334748adc9b80024765493487686f23d8ec784e028c5301f8",
+    "alphaSha256": null
+   },
+   "96": {
+    "width": 9,
+    "height": 5,
+    "type": 13,
+    "mask": null,
+    "resolution": [
+     0,
+     0,
+     0
+    ],
+    "rgbSha256": "9856676025d0479500a4b7d24636c22104796d23f3eefdc7396796d02f8fa2f0",
+    "alphaSha256": null
+   },
+   "100": {
+    "width": 9,
+    "height": 5,
+    "type": 13,
+    "mask": null,
+    "resolution": [
+     0,
+     0,
+     0
+    ],
+    "rgbSha256": "9856676025d0479500a4b7d24636c22104796d23f3eefdc7396796d02f8fa2f0",
+    "alphaSha256": null
+   }
+  }
+ }
+}

@@ -192,23 +192,41 @@ class GL_BITMAP_CACHE {
 
     if (!srcP) return null;
 
-    if (imgData.HasAlpha()) {
+    if (imgData.HasAlpha() || imgData.HasMask()) {
       bmp.size = bmp.w * bmp.h * 4;
       const buf = new Uint8Array(bmp.size);
-      const srcAlpha = imgData.GetAlpha()!;
       const pxCount = bmp.w * bmp.h;
 
-      for (let px = 0; px < pxCount; px++) {
-        buf[px * 4] = srcP[px * 3]!;
-        buf[px * 4 + 1] = srcP[px * 3 + 1]!;
-        buf[px * 4 + 2] = srcP[px * 3 + 2]!;
-        buf[px * 4 + 3] = srcAlpha[px]!;
+      if (imgData.HasAlpha()) {
+        const srcAlpha = imgData.GetAlpha()!;
+
+        for (let px = 0; px < pxCount; px++) {
+          buf[px * 4] = srcP[px * 3]!;
+          buf[px * 4 + 1] = srcP[px * 3 + 1]!;
+          buf[px * 4 + 2] = srcP[px * 3 + 2]!;
+          buf[px * 4 + 3] = srcAlpha[px]!;
+        }
+      } else if (imgData.HasMask()) {
+        const maskRed = imgData.GetMaskRed();
+        const maskGreen = imgData.GetMaskGreen();
+        const maskBlue = imgData.GetMaskBlue();
+
+        for (let px = 0; px < pxCount; px++) {
+          const r = srcP[px * 3]!;
+          const g = srcP[px * 3 + 1]!;
+          const b = srcP[px * 3 + 2]!;
+
+          buf[px * 4] = r;
+          buf[px * 4 + 1] = g;
+          buf[px * 4 + 2] = b;
+          // wxALPHA_TRANSPARENT : wxALPHA_OPAQUE
+          buf[px * 4 + 3] = r === maskRed && g === maskGreen && b === maskBlue ? 0 : 255;
+        }
       }
 
       gl.bindTexture(gl.TEXTURE_2D, textureID);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, bmp.w, bmp.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, buf);
     } else {
-      // imgData.HasMask(): WX_IMAGE carries no colour-key mask, its decoders yield alpha
       bmp.size = bmp.w * bmp.h * 3;
 
       gl.bindTexture(gl.TEXTURE_2D, textureID);
