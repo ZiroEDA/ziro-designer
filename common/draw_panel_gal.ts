@@ -14,6 +14,7 @@
  */
 
 import type { BITMAP_BASE } from './bitmap_base.js';
+import { BITMAP_IMAGE_DECODER } from './gal/bitmap_image_decoder.js';
 import type { EDA_DRAW_FRAME } from './eda_draw_frame.js';
 import { FRAME_T } from './frame_type.js';
 import { KICURSOR } from './gal/cursors.js';
@@ -264,6 +265,9 @@ export class EDA_DRAW_PANEL_GAL
   private m_scrollThumb: VECTOR2I = { x: 0, y: 0 };
   private m_scrollPos: VECTOR2I = { x: 0, y: 0 };
 
+  /// Ours: decodes the images `WX_IMAGE` cannot (GetBitmapImage); made on first use.
+  private m_bitmapDecoder: BITMAP_IMAGE_DECODER | null = null;
+
   constructor(
     aParentWindow: DRAW_PANEL_GAL_PARENT | EDA_DRAW_FRAME | null,
     aWindow: DRAW_PANEL_GAL_WINDOW,
@@ -393,6 +397,8 @@ export class EDA_DRAW_PANEL_GAL
     this.m_viewControls?.Destroy();
     this.m_viewControls = null;
     this.m_view = null;
+    this.m_bitmapDecoder?.Destroy();
+    this.m_bitmapDecoder = null;
     this.m_gal = null; // Ensure OnShow is not called
   }
 
@@ -565,8 +571,21 @@ export class EDA_DRAW_PANEL_GAL
     return this.window.GetBitmapFontImage();
   }
 
+  /**
+   * The pixels of an image `WX_IMAGE` read for its size only (a JPEG): the window's, when it
+   * supplies them, else the browser's decoder (bitmap_image_decoder.ts). Null until they are
+   * ready; the decoder repaints the panel when they are.
+   */
   GetBitmapImage(aBitmap: BITMAP_BASE): TexImageSource | null {
-    return this.window.GetBitmapImage ? this.window.GetBitmapImage(aBitmap) : null;
+    if (this.window.GetBitmapImage) return this.window.GetBitmapImage(aBitmap);
+
+    // A bitmap layer is non-cached, so a repaint of that target is enough to draw it.
+    this.m_bitmapDecoder ??= new BITMAP_IMAGE_DECODER(() => {
+      this.m_view?.MarkTargetDirty(RENDER_TARGET.TARGET_NONCACHED);
+      this.Refresh();
+    });
+
+    return this.m_bitmapDecoder.Get(aBitmap);
   }
 
   // ------------------------------------------------------------------

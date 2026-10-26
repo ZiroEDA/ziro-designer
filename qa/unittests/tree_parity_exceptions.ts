@@ -113,6 +113,8 @@ export const TREE_EXCEPTIONS: Record<string, string> = {
     "UNAUDITED: no KiCad file of this name - port it under KiCad's name, fold it into its owner, or justify it here",
   'common/fp_lib_table.ts':
     "UNAUDITED: no KiCad file of this name - port it under KiCad's name, fold it into its owner, or justify it here",
+  'common/gal/bitmap_image_decoder.ts':
+    "browser-only: the JPEG decode KiCad gets from wxImage's libjpeg handler, done by the browser's createImageBitmap because WX_IMAGE has no JPEG decoder; asynchronous, so it is the canvas's (EDA_DRAW_PANEL_GAL::GetBitmapImage), not WX_IMAGE's",
   'common/gal/gal_window.ts':
     "UNAUDITED: no KiCad file of this name - port it under KiCad's name, fold it into its owner, or justify it here",
   'common/gal/kicursors.ts':

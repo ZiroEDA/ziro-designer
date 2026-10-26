@@ -170,6 +170,16 @@ class GL_BITMAP_CACHE {
       return null;
     }
 
+    const srcP = imgData.GetData();
+
+    // Ours: a JPEG's pixels are not decoded by WX_IMAGE, which libjpeg does for wxImage. The
+    // canvas decodes them instead (EDA_DRAW_PANEL_GAL::GetBitmapImage); null until it has, and
+    // nothing is cached meanwhile, so the next frame asks again. Checked before a texture is
+    // taken, so the wait does not use one up.
+    const decoded = srcP ? null : (this.canvas.GetBitmapImage?.(aBitmap) ?? null);
+
+    if (!srcP && !decoded) return null;
+
     const bmp: CACHED_BITMAP = {
       id: null as unknown as WebGLTexture,
       w: imgWidth,
@@ -188,11 +198,13 @@ class GL_BITMAP_CACHE {
 
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
 
-    const srcP = imgData.GetData();
+    if (decoded) {
+      // RGB, as the RGB plane of an opaque image is uploaded below: a JPEG has no alpha.
+      bmp.size = bmp.w * bmp.h * 3;
 
-    if (!srcP) return null;
-
-    if (imgData.HasAlpha()) {
+      gl.bindTexture(gl.TEXTURE_2D, textureID);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB8, gl.RGB, gl.UNSIGNED_BYTE, decoded);
+    } else if (srcP && imgData.HasAlpha()) {
       bmp.size = bmp.w * bmp.h * 4;
       const buf = new Uint8Array(bmp.size);
       const srcAlpha = imgData.GetAlpha()!;
@@ -207,7 +219,7 @@ class GL_BITMAP_CACHE {
 
       gl.bindTexture(gl.TEXTURE_2D, textureID);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, bmp.w, bmp.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, buf);
-    } else {
+    } else if (srcP) {
       // imgData.HasMask(): WX_IMAGE carries no colour-key mask, its decoders yield alpha
       bmp.size = bmp.w * bmp.h * 3;
 

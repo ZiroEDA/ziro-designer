@@ -25,6 +25,8 @@ import {
   VERTEX_SIZE,
 } from '@ziroeda/common/gal/opengl/vertex_common.js';
 import { MATRIX3x3D } from '@ziroeda/kimath/src/math/matrix3x3.js';
+import { BITMAP_BASE } from '@ziroeda/common/bitmap_base.js';
+import { WX_IMAGE } from '@ziroeda/wx/wx_image.js';
 
 /** The WebGL2 constants the GAL reaches for. */
 const GL = {
@@ -502,5 +504,79 @@ describe('GL_FIXED_FUNCTION', () => {
     expect(ff.modelViewProjection()[12]).not.toBeCloseTo(mvp[12]!, 6);
     ff.glPopMatrix();
     expect(ff.modelViewProjection()[12]).toBeCloseTo(mvp[12]!, 6);
+  });
+});
+
+describe('GL_BITMAP_CACHE and a JPEG (ours)', () => {
+  /** SOI and a baseline SOF0 header: what WX_IMAGE needs to read a JPEG's size, and no more. */
+  const jpeg = new Uint8Array([
+    0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x03, 0x00, 0x04, 0x03, 0x01, 0x22, 0x00, 0x02,
+    0x11, 0x01, 0x03, 0x11, 0x01, 0xff, 0xd9,
+  ]);
+
+  /** A GAL whose canvas answers GetBitmapImage with `decoded()`, recording textures and uploads. */
+  function galWithDecoder(decoded: () => TexImageSource | null) {
+    const gl = new MockGL();
+    const uploads: unknown[][] = [];
+    let textures = 0;
+    const createTexture = gl.createTexture.bind(gl);
+    gl.createTexture = () => {
+      textures++;
+      return createTexture();
+    };
+    gl.texImage2D = (...args: unknown[]) => void uploads.push(args);
+    const asked: BITMAP_BASE[] = [];
+    const canvas: OPENGL_GAL_CANVAS = {
+      gl: gl as unknown as WebGL2RenderingContext,
+      GetScaleFactor: () => 1,
+      GetNativePixelSize: () => ({ x: 800, y: 600 }),
+      GetClientSize: () => ({ x: 800, y: 600 }),
+      IsShownOnScreen: () => true,
+      Refresh: () => {},
+      SetCursor: () => {},
+      PostPaint: () => {},
+      GetBitmapFontImage: () => ({}) as unknown as TexImageSource,
+      GetBitmapImage: (aBitmap) => {
+        asked.push(aBitmap);
+        return decoded();
+      },
+    };
+    const gal = new OPENGL_GAL(new GAL_DISPLAY_OPTIONS(), canvas);
+    const cache = (gal as unknown as { m_bitmapCache: { RequestBitmap(b: BITMAP_BASE): unknown } })
+      .m_bitmapCache;
+    return { cache, uploads, asked, textures: () => textures };
+  }
+
+  it('waits without a texture while the canvas decodes, then uploads its pixels as RGB', () => {
+    let ready: TexImageSource | null = null;
+    const { cache, uploads, asked, textures } = galWithDecoder(() => ready);
+    const bitmap = new BITMAP_BASE();
+    expect(bitmap.ReadImageFile(jpeg)).toBe(true);
+
+    expect(cache.RequestBitmap(bitmap)).toBeNull();
+    expect(asked).toEqual([bitmap]);
+    expect(textures()).toBe(0);
+    expect(uploads).toHaveLength(0);
+
+    ready = { width: 4, height: 3 } as unknown as TexImageSource;
+
+    expect(cache.RequestBitmap(bitmap)).not.toBeNull();
+    expect(textures()).toBe(1);
+    expect(uploads).toEqual([[GL.TEXTURE_2D, 0, GL.RGB8, GL.RGB, GL.UNSIGNED_BYTE, ready]]);
+
+    // Cached now: neither decoded nor uploaded again.
+    cache.RequestBitmap(bitmap);
+    expect(asked).toHaveLength(2);
+    expect(uploads).toHaveLength(1);
+  });
+
+  it('does not ask the canvas for an image whose pixels WX_IMAGE decoded itself', () => {
+    const { cache, uploads, asked } = galWithDecoder(() => null);
+    const bitmap = new BITMAP_BASE();
+    bitmap.SetImage(new WX_IMAGE(4, 3));
+
+    expect(cache.RequestBitmap(bitmap)).not.toBeNull();
+    expect(asked).toHaveLength(0);
+    expect(uploads[0]!.slice(0, 3)).toEqual([GL.TEXTURE_2D, 0, GL.RGB8]);
   });
 });
