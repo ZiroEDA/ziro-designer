@@ -177,12 +177,15 @@ const serverSees = (): string =>
 
 describe('what the server sees', () => {
   it('is not the name, not a path, not a byte of a file, not a plaintext hash', async () => {
+    // A name base64 cannot spell: `_` and `-` are outside its alphabet. With plain 'Amp' the
+    // ciphertext itself said "Amp" now and then (enc_meta ...NdAmpcJoa...) and the test failed.
+    const name = 'Amp_power-stage';
     await cloudUpsert(
       OWNER,
-      project({ 'amp.kicad_sch': 'SCHEMATIC BYTES', 'amp.kicad_pcb': 'BOARD BYTES' }),
+      project({ 'amp.kicad_sch': 'SCHEMATIC BYTES', 'amp.kicad_pcb': 'BOARD BYTES' }, { name }),
     );
     const seen = serverSees();
-    expect(seen).not.toContain('Amp');
+    expect(seen).not.toContain(name);
     expect(seen).not.toContain('kicad_sch');
     expect(seen).not.toContain('SCHEMATIC');
     expect(seen).not.toContain('BOARD');
