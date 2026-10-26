@@ -47,6 +47,8 @@ const EXCUSED: Record<string, string> = {
   classifyError: 'used inside its own module; exported for its own test',
   // Test-only reset for module-level state, named so.
   resetRecordLocksForTests: 'test-only, and says so in the name',
+  // The same, for requestPersistentStorage's once-a-session latch.
+  resetPersistentStorageRequestForTests: 'test-only, and says so in the name',
 };
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));

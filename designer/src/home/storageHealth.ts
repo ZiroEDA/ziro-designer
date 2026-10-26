@@ -248,3 +248,32 @@ export function runTx<T>(
     t.onerror = () => reject(t.error);
   });
 }
+
+// ----- keeping it -------------------------------------------------------------
+
+let s_persistAsked = false;
+
+/**
+ * Ask the browser to keep this site's storage (`navigator.storage.persist()`): without an account,
+ * this device's IndexedDB is the only copy of a project, and "best-effort" storage is what a browser
+ * evicts under disk pressure. Asked once a session, at the first project saved - the moment there
+ * is work to lose - because Firefox puts up a prompt for it, which on page load would only be noise.
+ * Never in the way: a browser without the API, or one that says no, leaves the save as it was.
+ */
+export function requestPersistentStorage(): void {
+  if (s_persistAsked) return;
+  s_persistAsked = true;
+
+  const storage = typeof navigator === 'undefined' ? undefined : navigator.storage;
+
+  if (!storage?.persist) return;
+
+  void (storage.persisted?.() ?? Promise.resolve(false))
+    .then((already) => (already ? true : storage.persist()))
+    .catch(() => false);
+}
+
+/** For tests: forget that it was asked. */
+export function resetPersistentStorageRequestForTests(): void {
+  s_persistAsked = false;
+}

@@ -9,6 +9,14 @@
   /* Data likewise: ente's `avatarTextColor` (avatar.ts), the initial on an
      avatar disc. */
   --avatar-fg: #fff;
+  /* Ours, not ente's (it has no signed-out avatar): the ring and glyph the account button wears
+     with no address to pick a colour from - a neutral grey, so it reads as "nobody" rather than
+     as a person's colour. [data] */
+  --avatar-guest-fg: #b4b7bc;
+  /* Data: Excalidraw's `--color-success-contrast` (packages/excalidraw/css/theme.scss). Its
+     encrypted shield is drawn in its primary purple; ours is the same shield (ui/EncryptedIcon.tsx)
+     in Excalidraw's own green instead, the colour that reads as "safe" on our dark chrome. */
+  --encrypted-icon-fg: #65bb6a;
   /* GTK dark chrome greys, sampled off a live KiCad 10 project-manager window
      on this machine (Ubuntu/Yaru dark). KiCad paints none of these itself -
      they come from wxSystemSettings / the GTK theme - so a screenshot of the
@@ -5488,6 +5496,29 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-weight: bold;
   cursor: pointer;
 }
+/* Signed out: no disc, only its outline - the bar button's own 1px border, drawn in the neutral
+   colour the glyph inside it takes too. Stated at (0,3,0) so the bar's hover, which repaints the
+   border, cannot take the ring away. */
+.ze-mgrbar .ze-account-avatar.guest {
+  color: var(--avatar-guest-fg);
+  border-color: currentColor;
+}
+/* The shield in the bottom-right corner (designer/src/ui/EncryptedIcon.tsx). Excalidraw's
+   `.encrypted-icon` is a 1.2rem glyph in its primary colour, 0.6em off the right edge. Fixed
+   rather than a flex item of the status bar, so nothing the bar shows (library loading, say)
+   can push it in from the corner; centred on the bar's height. */
+.ze-encrypted-icon {
+  position: fixed;
+  right: 0.6em;
+  bottom: calc((var(--statusbar-height) - 1.2rem) / 2);
+  z-index: 210;
+  display: flex;
+  color: var(--encrypted-icon-fg);
+}
+.ze-encrypted-icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
 /* Fills the button, whatever the provider's picture happens to measure --
    Google serves a square, but nothing about the URL promises one, and `cover`
    crops rather than distorting a face. */
@@ -8477,32 +8508,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-
-/* Guest nudge (bottom-left, dismissible): local-only work, offer cloud backup. */
-.ze-guest-nudge {
-  position: fixed;
-  left: 16px;
-  bottom: 16px;
-  z-index: 250;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  font-size: 12px;
-  color: #fff;
-  background: var(--chrome-bg);
-  border: 1px solid var(--chrome-border);
-  border-radius: 8px;
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
-}
-.ze-guest-nudge .x {
-  cursor: default;
-  color: var(--chrome-fg-muted);
-  padding: 0 2px;
-}
-.ze-guest-nudge .x:hover {
-  color: var(--chrome-fg);
 }
 
 /* ---- Account chip in the menu bar ---- */
@@ -13717,6 +13722,23 @@ td.ze-grid-bool {
 }
 .ze-chat-handle:active {
   cursor: grabbing;
+}
+/* The bubble's close x, on its upper-right rim, always there. Ours; the chrome's own face,
+   border and ink, like every other popup surface. */
+.ze-chat-close {
+  position: absolute;
+  top: -4px; /* [art] ours: the badge overlaps the bubble's rim; the chat has no KiCad counterpart */
+  right: -4px; /* [art] ours, the same overlap */
+  width: 18px; /* [art] ours: the badge disc */
+  height: 18px; /* [art] ours: the badge disc */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--chrome-border);
+  background: var(--chrome-bg);
+  color: var(--chrome-fg);
+  cursor: default;
 }
 
 /* Cross-tab presence badge (designer/src/sync/) — no upstream KiCad

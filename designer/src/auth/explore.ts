@@ -1,24 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 /**
- * Signed out, you are in the app (#639), the way EasyEDA does it.
- *
- * A visitor with no account lands in the project manager and can open the
- * demos (GitHub projects later) and the standalone tools, and play with them -
- * nothing is kept. Anything that makes or keeps a project opens the full-page
- * sign-up (`/signup`) in a NEW tab, as EasyEDA does: the tab they were in keeps
- * what they had open, and turns signed-in when the new tab has the keys. A
- * project in an account (`/p/<uid>`) is behind the wall.
+ * Signed out, you are in the app - all of it. An account is optional: a project is made, opened,
+ * saved and kept on this device without one, the way Excalidraw works; signing in adds the
+ * account's copy, other devices and sharing (the sync pushes this device's projects up at
+ * sign-in, sealing them under the account first - projectStore's sealLocalStore). The sign-up and
+ * sign-in pages open in a NEW tab: the tab they were in keeps what it had open, and turns signed in
+ * when the new tab has the keys.
  */
 import { HOME, type AuthStep, type Route } from '../nav/route.js';
 
 /**
- * Where a visitor with no account may be: everything that needs no account -
- * home, the demos, the standalone tools. Not a project in an account, and not
- * the wall itself.
+ * Where a visitor with no account may be: everywhere but the wall itself - home, the demos, the
+ * tools and their own projects. A project this browser does not have (someone's link before the
+ * sync has brought it down) lands on home, signed in or out (App's openByUid).
  */
 export function explorerMayVisit(aRoute: Route): boolean {
-  return aRoute.kind === 'home' || aRoute.kind === 'demo' || aRoute.kind === 'tool';
+  return aRoute.kind !== 'auth';
 }
 
 /** Where the visitor was heading before the wall replaced the address. */

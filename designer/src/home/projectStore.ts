@@ -22,6 +22,7 @@ import {
   probeStorage,
   reportStorageFailure,
   reportStorageOk,
+  requestPersistentStorage,
   runTx,
   setStorageRecheck,
   type StorageStatus,
@@ -409,6 +410,8 @@ export async function saveProject(
   /** Marks the record as a user-data folder rather than a project. */
   userDir?: string,
 ): Promise<string> {
+  // A project on this device is now work the browser must not evict.
+  if (!userDir) requestPersistentStorage();
   const now = Date.now();
   const pid = id ?? crypto.randomUUID?.() ?? `p${now}-${Math.random().toString(36).slice(2)}`;
   const gzFiles = await Promise.all(

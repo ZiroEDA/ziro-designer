@@ -25,9 +25,10 @@ describe('explorerMayVisit', () => {
     expect(explorerMayVisit({ kind: 'tool', tool: 'calculator' })).toBe(true);
   });
 
-  it('keeps a project in an account behind the wall', () => {
-    expect(explorerMayVisit({ kind: 'project', uid: 'abc', view: 'pcb' })).toBe(false);
-    expect(explorerMayVisit({ kind: 'project', uid: 'abc', view: 'manager' })).toBe(false);
+  // An account is optional: a project is made and kept on this device without one.
+  it('lets a visitor with no account open a project, in any frame', () => {
+    expect(explorerMayVisit({ kind: 'project', uid: 'abc', view: 'pcb' })).toBe(true);
+    expect(explorerMayVisit({ kind: 'project', uid: 'abc', view: 'manager' })).toBe(true);
   });
 
   it('does not treat the wall itself as a place to be let into', () => {
@@ -52,7 +53,7 @@ describe('gateView, signed out', () => {
     expect(gateView(out)).toMatchObject({ view: 'app', routeToWall: false });
   });
 
-  it('a project in an account, or the sign-up page itself, is the wall', () => {
+  it('the sign-up page itself is the wall', () => {
     expect(gateView({ ...out, explorable: false })).toMatchObject({
       view: 'wall',
       routeToWall: true,

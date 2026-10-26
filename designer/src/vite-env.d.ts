@@ -11,6 +11,8 @@ interface ImportMetaEnv {
   readonly VITE_SYMBOLS_URL?: string;
   /** Full hosted footprint-library base URL (R2); falls back to bundled /footprints. */
   readonly VITE_FOOTPRINTS_URL?: string;
+  /** The community chat (Discord invite) the account menu offers; absent, no row - a self-hoster's choice. */
+  readonly VITE_COMMUNITY_CHAT_URL?: string;
 }
 
 interface ImportMeta {

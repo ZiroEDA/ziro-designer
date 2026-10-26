@@ -17,31 +17,31 @@ import { useRoute } from '../nav/useRoute.js';
 import { HOME, type AuthStep } from '../nav/route.js';
 
 /**
- * Sign-in wall. When Supabase auth is configured, a visitor with no account is
- * IN the app (#639, the way EasyEDA does it): the project manager, the demos and
- * the tools, nothing kept. The wall is for what needs an account - a project in
- * one (`/p/<uid>`), and creating or keeping anything, which opens the
- * full-page `/signup` in a new tab (auth/explore.ts `goToAuth`). The manager's chrome is
- * rendered blurred and inert behind the sign-in panel (GateBackdrop - NOT the
- * real app, which would load the project).
+ * Sign-in wall. When Supabase auth is configured, an account is still OPTIONAL: a visitor with
+ * none is in the whole app - the project manager, the demos, the tools, and their own projects,
+ * made and kept on this device (auth/explore.ts). The wall is only the sign-up / sign-in page the
+ * visitor asked for, which opens full-page in a new tab (`goToAuth`); the manager's chrome is
+ * rendered blurred and inert behind it (GateBackdrop - NOT the real app, which would load the
+ * project).
  *
- * (Guest-first entry was tried before, as a guest who could create projects on
- * this device, and almost nobody signed in: the account never meant anything.
- * Here an account is the ONLY way to create or keep a project, so it does.)
+ * (This has changed twice: guest-first, then account-first (#639) because "almost nobody signed in", then
+ * account-optional again because the account was the users' main complaint - a mail from a user
+ * and the Hackaday comments: nobody wants to sign up to try a tool, nor keep their projects only
+ * on our server. The account now has to earn its keep: the account copy, other devices, sharing.)
  *
  * ### The wall is in the address, like everywhere else in the app
  *
  * `/signup`, `/signin` and `/verify` are real routes, so the step you are on
  * survives a reload and Back moves between them. Two things that took care:
  *
- *  - **Where you were heading is remembered, not encoded.** Landing on
- *    `/p/<uid>/pcb` signed out replaces the address with `/signup` and puts the
- *    project route in `sessionStorage`; signing in restores it. It is not a
+ *  - **Where you were heading is remembered, not encoded.** When the wall
+ *    takes over an address (an account part-way through its recovery steps),
+ *    the route it replaced goes in `sessionStorage`, and finishing restores it. It is not a
  *    `?next=` parameter, because a redirect target that arrives in the URL is
  *    an open-redirect waiting to be pointed somewhere else.
  *  - **`replace`, never push, on the way in.** The destination must not become
- *    a Back target: pressing Back from `/signup` would land on a project the
- *    visitor cannot open, which bounces straight back to `/signup`.
+ *    a Back target: pressing Back from the wall would land on the address it
+ *    replaced, which bounces straight back to the wall.
  *
  * When auth is disabled (no Supabase env vars) the app runs fully offline and
  * this gate is a passthrough.

@@ -30,10 +30,16 @@ const DELAY_MS = 500;
 export { buttonTooltipFor, tooltipFor } from '../tool/tool_action_tooltip.js';
 
 export function TooltipLayer(): JSX.Element | null {
-  /** `cx` is the *centre* the box wants to sit under, not its left edge. */
-  const [tip, setTip] = useState<{ text: string; cx: number; y: number } | null>(null);
+  /**
+   * `cx` is the *centre* the box wants to sit under, not its left edge; `y` is
+   * where it goes below the element, `above` the element's own top edge, for
+   * when there is no room below.
+   */
+  const [tip, setTip] = useState<{ text: string; cx: number; y: number; above: number } | null>(
+    null,
+  );
   const boxRef = useRef<HTMLDivElement>(null);
-  const [left, setLeft] = useState<number | null>(null);
+  const [placed, setPlaced] = useState<{ left: number; top: number } | null>(null);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -93,8 +99,8 @@ export function TooltipLayer(): JSX.Element | null {
       const r = el.getBoundingClientRect();
       const cx = r.left + r.width / 2;
       const y = r.bottom + 6;
-      setLeft(null);
-      timer = setTimeout(() => setTip({ text, cx, y }), DELAY_MS);
+      setPlaced(null);
+      timer = setTimeout(() => setTip({ text, cx, y, above: r.top - 6 }), DELAY_MS);
     };
 
     document.addEventListener('mouseover', onOver, true);
@@ -116,7 +122,9 @@ export function TooltipLayer(): JSX.Element | null {
   }, []);
 
   // Centre it, then pull it back inside the viewport once its real width is
-  // known. Done in a layout effect so the corrected position is the first one
+  // known; and flip it above the element when it would run off the bottom,
+  // which is what GTK does with a tooltip on a widget at the foot of the
+  // screen (the status bar's). Done in a layout effect so the corrected position is the first one
   // painted - centring in CSS alone cannot clamp, because the box's width is
   // not known until it has been laid out.
   // biome-ignore lint/correctness/useHookAtTopLevel: the early return below is
@@ -125,8 +133,12 @@ export function TooltipLayer(): JSX.Element | null {
     const el = boxRef.current;
     if (!el || !tip) return;
     const w = el.offsetWidth;
+    const h = el.offsetHeight;
     const max = window.innerWidth - w - 4;
-    setLeft(Math.max(4, Math.min(tip.cx - w / 2, Math.max(4, max))));
+    setPlaced({
+      left: Math.max(4, Math.min(tip.cx - w / 2, Math.max(4, max))),
+      top: tip.y + h > window.innerHeight - 4 ? Math.max(4, tip.above - h) : tip.y,
+    });
   }, [tip]);
 
   if (!tip) return null;
@@ -137,7 +149,11 @@ export function TooltipLayer(): JSX.Element | null {
       className="ze-tooltip"
       // Before the measure lands, park it off-centre-left rather than flashing
       // at x=0: one frame at worst, and only on the very first tooltip.
-      style={{ left: left ?? tip.cx, top: tip.y, visibility: left === null ? 'hidden' : 'visible' }}
+      style={{
+        left: placed?.left ?? tip.cx,
+        top: placed?.top ?? tip.y,
+        visibility: placed === null ? 'hidden' : 'visible',
+      }}
       role="tooltip"
     >
       {tip.text}

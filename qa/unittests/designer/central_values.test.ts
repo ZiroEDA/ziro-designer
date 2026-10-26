@@ -869,7 +869,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // .ze-sft-* block, gone with its live port.
   // metrics 488 -> 485 (10-24): the modal .ze-lib-viewer* block out, the library browsers' shared
   // .ze-palette-* panes in (moved from pcbnew's own footprint_viewer_frame_ui.css). Rescanned.
-  'common/widgets': { colours: 113, metrics: 485 },
+  // colours 113 -> 111, metrics 485 -> 480 (10-26): the guest "Sign in to back them up" nudge's
+  // rules out; the encrypted shield and the chat bubble's close badge in, marked. Rescanned.
+  'common/widgets': { colours: 111, metrics: 480 },
   // 10-10: metrics 1 -> 0, the menu drawing's one literal went to external/wx with it.
   'common/tool': { colours: 0, metrics: 0 },
   // metrics 0 -> 15 on 09-26: the stage-1 moves, 8 from `dialogs` and 7 from
@@ -1493,7 +1495,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 251 -> 248 (10-15): the common/widgets row above.
     // 248 -> 247 (10-20): the editors/schematic row above.
     // 247 -> 245 (10-23): the editors/symbol row above.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(245);
+    // 245 -> 243 (10-26): the common/widgets row above (the guest nudge). Rescanned.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(243);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1741,7 +1744,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 701 -> 686 (10-23): the editors/symbol row above.
     // 686 -> 681 (10-24): the editors/schematic and common/widgets rows above. Rescanned.
     // 681 -> 680 (10-26): the editors/schematic row above (the Net Navigator). Rescanned.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(680);
+    // 680 -> 675 (10-26): the common/widgets row above (the guest nudge). Rescanned.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(675);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

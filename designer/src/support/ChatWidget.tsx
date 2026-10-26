@@ -51,8 +51,15 @@
  * is left to grab it back by. Opening clamps the frame so the panel stays on
  * screen wherever the bubble is; closing puts it back. The position is kept
  * in localStorage, like every other preference.
+ *
+ * ### Closing it
+ *
+ * The bubble has an x on its rim. Closed, the frame is not mounted at all, and
+ * stays closed across reloads, until Help > Support Chat brings it back (the
+ * row is in every frame's Help menu: common/eda_base_frame_help_menu.ts).
  */
 import { useCallback, useEffect, useRef, useState, type JSX, type PointerEvent } from 'react';
+import { setSupportChatOpener } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { useAuth } from '../auth/AuthProvider.js';
 import type { Route } from '../nav/route.js';
 import { useRoute } from '../nav/useRoute.js';
@@ -67,6 +74,33 @@ const WIDGET_URL: string | undefined = import.meta.env.VITE_CHAT_WIDGET_URL;
 const VERSION: string = import.meta.env.VITE_APP_VERSION ?? 'dev';
 
 const POS_KEY = 'ziro.chat.pos';
+const HIDDEN_KEY = 'ziro.chat.hidden';
+
+/**
+ * The mounted widget's answer to Help > Support Chat. Registered with the Help
+ * menu when this module loads, not when the widget mounts: a frame builds its
+ * menu bar in its first render, which is before any effect of ours has run, so
+ * a row registered from an effect would be missing from it.
+ */
+const s_show: { current: (() => void) | null } = { current: null };
+if (WIDGET_URL) setSupportChatOpener(() => s_show.current?.());
+
+function loadHidden(): boolean {
+  try {
+    return localStorage.getItem(HIDDEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function storeHidden(aHidden: boolean): void {
+  try {
+    if (aHidden) localStorage.setItem(HIDDEN_KEY, '1');
+    else localStorage.removeItem(HIDDEN_KEY);
+  } catch {
+    // no storage: closed for the session
+  }
+}
 
 /**
  * Crisp's geometry inside the frame, all [data] from the widget as it renders
@@ -139,6 +173,7 @@ export function ChatWidget(): JSX.Element | null {
   const frame = useRef<HTMLIFrameElement>(null);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<Pos>(loadPos);
+  const [hidden, setHidden] = useState(loadHidden);
   const drag = useRef<{ start: Pos; origin: Pos; moved: boolean } | null>(null);
 
   const email = session?.user?.email ?? '';
@@ -173,6 +208,18 @@ export function ChatWidget(): JSX.Element | null {
   }, [origin, email, screen]);
 
   useEffect(identify, [identify]);
+
+  // Help > Support Chat: closed, the bubble comes back; shown but folded, the
+  // conversation opens; already open, there is nothing to do. Read through a
+  // ref, because the menu row was built once, against the opener below.
+  s_show.current = () => {
+    if (hidden) {
+      storeHidden(false);
+      setHidden(false);
+    } else if (!open && origin) {
+      frame.current?.contentWindow?.postMessage({ type: 'ziro-chat-toggle' }, origin);
+    }
+  };
 
   // The address is fixed on first render on purpose. `screen` changes every
   // time the user moves between frames, and a changed src RELOADS the iframe,
@@ -213,7 +260,7 @@ export function ChatWidget(): JSX.Element | null {
     if (origin) frame.current?.contentWindow?.postMessage({ type: 'ziro-chat-toggle' }, origin);
   };
 
-  if (!WIDGET_URL) return null;
+  if (!WIDGET_URL || hidden) return null;
 
   // Open, the panel rises from the bubble; if the bubble was dragged past
   // where the panel fits - up, left, or off an edge - slide the frame just
@@ -257,7 +304,21 @@ export function ChatWidget(): JSX.Element | null {
           onPointerCancel={() => {
             drag.current = null;
           }}
-        />
+        >
+          {/* Its own pointerdown never reaches the handle, so pressing it is not
+              the start of a drag and releasing it is not a click on the bubble. */}
+          <span
+            className="ze-chat-close"
+            title="Close (Help > Support Chat brings it back)"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => {
+              storeHidden(true);
+              setHidden(true);
+            }}
+          >
+            ✕
+          </span>
+        </div>
       )}
     </>
   );

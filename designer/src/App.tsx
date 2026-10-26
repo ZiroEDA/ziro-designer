@@ -48,8 +48,6 @@ import { fileForFrame, type ProjectView, type Route } from './nav/route.js';
 import { installSettingsSync } from './cloud/settingsSync.js';
 import type { DemoMeta } from './home/demos.js';
 import { useAuth } from './auth/AuthProvider.js';
-import { authEnabled } from './auth/supabaseClient.js';
-import { goToAuth } from './auth/explore.js';
 import { isGithubId } from './home/github_id.js';
 import {
   reportCloudFailed,
@@ -1570,22 +1568,14 @@ export function App(): JSX.Element {
 
   /** KiCad shows "Schematic is read only." as a strip above the canvas; this is
    *  the same place and the same skin, plus the action that resolves it. */
-  // Signed out (#639) there is no account to save a copy into: the strip's
-  // action opens the sign-up page in a new tab, and this tab - edits and all -
-  // turns signed in once that one has the keys, when "Save a copy" takes over.
+  // "Save a copy" keeps it on this device, signed in or out; an account adds its own copy.
   // What it is, then the one fact that matters: a GitHub project (#640) says
   // which repository, a demo says it is one.
   const demoMessage =
     demoSource && isGithubId(demoSource.id)
       ? `${demoSource.title} from GitHub. Edits are not being saved.`
       : 'Demo project. Edits are not being saved.';
-  const demoNotice = !demoProject ? null : authEnabled && !session ? (
-    <ReadOnlyNotice
-      message={demoMessage}
-      actionLabel="Sign up to save"
-      onAction={() => goToAuth('signup')}
-    />
-  ) : (
+  const demoNotice = !demoProject ? null : (
     <ReadOnlyNotice message={demoMessage} actionLabel="Save a copy" onAction={saveDemoCopy} />
   );
 

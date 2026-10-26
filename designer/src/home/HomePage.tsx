@@ -11,6 +11,11 @@ import { preloadBundle } from '../libraryPreload.js';
 import { MenuBar, type Menu } from '@ziroeda/wx/menu_ui.js';
 import { HomeLink } from '../ui/HomeLink.js';
 import { AccountButton } from '../ui/AccountButton.js';
+import { EncryptedIcon } from '../ui/EncryptedIcon.js';
+import { URL_GET_INVOLVED } from '@ziroeda/common/tool/common_control.js';
+
+/** The community chat the account menu offers (VITE_COMMUNITY_CHAT_URL); unset, no row. */
+const COMMUNITY_CHAT_URL = import.meta.env.VITE_COMMUNITY_CHAT_URL || undefined;
 import { adoptProjectKey, projectKeyFor } from '../cloud/session_keys.js';
 import { RecoveryKeyDialog } from '../auth/RecoveryKeyDialog.js';
 import { DeleteAccountDialog } from '../auth/DeleteAccountDialog.js';
@@ -325,26 +330,10 @@ export function HomePage({
   const [deletingAccount, setDeletingAccount] = useState(false);
   /** The recovery key, shown again from the account menu; null when closed. */
   const [shownRecoveryKey, setShownRecoveryKey] = useState<string | null>(null);
-  // Guest-first: sign-in is offered, never forced. The dialog opens from the
-  // header button or the local-only nudge; the nudge shows once the guest has
-  // real work at stake (a saved project) and stays dismissed once closed.
-  // Signing in or up is the full page, in a new tab (#639); this one stays.
+  // Guest-first: sign-in is offered, never pressed on anyone. Its one way in is the account
+  // menu's row; no banner asks a signed-out person to back their work up - they know an account
+  // exists. Signing in or up is the full page, in a new tab (#639); this one stays.
   const toAuth = (step: AuthStep): void => goToAuth(step);
-  const [guestNudgeDismissed, setGuestNudgeDismissed] = useState(() => {
-    try {
-      return localStorage.getItem('ziro.guestNudgeDismissed') === '1';
-    } catch {
-      return false;
-    }
-  });
-  const dismissGuestNudge = (): void => {
-    setGuestNudgeDismissed(true);
-    try {
-      localStorage.setItem('ziro.guestNudgeDismissed', '1');
-    } catch {
-      /* storage blocked, dismiss for this session only */
-    }
-  };
   const dirInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
   /** File > Import Non-KiCad Project's chooser, and the format it was opened for. */
@@ -1272,21 +1261,11 @@ export function HomePage({
   // KiCad writes, .kicad_pro, root .kicad_sch, .kicad_pcb), show it in the
   // manager tree, and persist it like an opened project. KiCad leaves the new
   // project in the manager; the user then launches an editor from a tile.
-  /**
-   * Anything that makes or keeps a project needs an account (#639). Signed
-   * out, the action opens the sign-up page in a new tab instead; once signed
-   * in, the same click does what it says.
-   */
-  const accountFirst =
-    <A extends unknown[]>(fn: (...args: A) => void) =>
-    (...args: A): void => {
-      if (authEnabled && !session) toAuth('signup');
-      else fn(...args);
-    };
-
-  const openNewProjectDialog = accountFirst((): void => {
+  // Signed out or in, a project is made and kept the same way: on this device, and in the account
+  // as well once there is one (the sync pushes this device's projects up at sign-in).
+  const openNewProjectDialog = (): void => {
     setTplStep('template');
-  });
+  };
 
   // Upstream v10 NewProject flow: the template selector creates the project,
   // the built-in "Default" template scaffolds the three blank project files,
@@ -1634,7 +1613,7 @@ export function HomePage({
         void archiveProject();
         break;
       case 'unarchive':
-        accountFirst(() => zipInputRef.current?.click())();
+        zipInputRef.current?.click();
         break;
       case 'refresh':
         refreshSaved();
@@ -1979,16 +1958,15 @@ export function HomePage({
   const menus: Menu[] = buildManagerMenus({
     newProject: openNewProjectDialog,
     openProject: () => setOpenPrjOpen(true),
-    selectProjectFiles: accountFirst(() => filesInputRef.current?.click()),
-    // Importing makes a project, so it is an account's (#639). The chooser has
-    // to open inside the click, so `accept` is set and it is clicked right here.
-    importNonKicadProject: accountFirst((aFormat: ImportFormat) => {
+    selectProjectFiles: () => filesInputRef.current?.click(),
+    // The chooser has to open inside the click, so `accept` is set and it is clicked right here.
+    importNonKicadProject: (aFormat: ImportFormat) => {
       const input = importInputRef.current;
       if (!input) return;
       importFormatRef.current = aFormat;
       input.accept = acceptFor(aFormat);
       input.click();
-    }),
+    },
     openRecent: (id) => void openStored(id),
     clearRecent: () => void clearRecent(),
     closeProject: () => {
@@ -1997,9 +1975,9 @@ export function HomePage({
     },
     restoreLocalHistory: () => setRestoreListOpen(true),
     hasLocalHistory: history.length > 0,
-    saveAs: accountFirst(() => void saveAsProject()),
+    saveAs: () => void saveAsProject(),
     archiveProject: () => void archiveProject(),
-    unarchiveProject: accountFirst(() => zipInputRef.current?.click()),
+    unarchiveProject: () => zipInputRef.current?.click(),
     refresh: refreshSaved,
     toggleLocalHistory: () => setHistoryShown((v) => !v),
     localHistoryShown: historyShown,
@@ -2127,15 +2105,11 @@ export function HomePage({
         // LOCKFILE on the project directory, which a browser has no equivalent
         // of - "you cannot save to this" is the part that survives.)
         title={managerTitle(picked ? projName : null, PRODUCT, demoOpen)}
+        // No sign-in prompt in the title bar: an account is optional, and its one place is the
+        // account button at the foot of the left bar, signed in or out.
         titleRight={
-          session ? (
-            openProjectId ? (
-              <ShareButton projectId={openProjectId} projectName={projName || 'this project'} />
-            ) : null
-          ) : authEnabled ? (
-            <button type="button" className="ze-account-signout" onClick={() => toAuth('signin')}>
-              Sign in
-            </button>
+          session && openProjectId ? (
+            <ShareButton projectId={openProjectId} projectName={projName || 'this project'} />
           ) : null
         }
       />
@@ -2147,7 +2121,7 @@ export function HomePage({
           // Always: an explorer's drop must not fall through to the browser,
           // which would navigate away to the dropped file.
           e.preventDefault();
-          accountFirst(() => void onDropProject(e))();
+          void onDropProject(e);
         }}
       >
         {/* far-left vertical toolbar */}
@@ -2172,7 +2146,7 @@ export function HomePage({
               account button does. A deliberate divergence: upstream has this
               bar and has nothing like this in it, because a KiCad frame has no
               account to show. */}
-          {session && (
+          {session ? (
             <AccountButton
               email={session.user.email ?? ''}
               photoUrl={profilePhotoUrl(session.user.user_metadata)}
@@ -2183,6 +2157,16 @@ export function HomePage({
                 });
               }}
               onDeleteAccount={() => setDeletingAccount(true)}
+              chatUrl={COMMUNITY_CHAT_URL}
+              sourceUrl={URL_GET_INVOLVED}
+            />
+          ) : (
+            <AccountButton
+              email={null}
+              // A build without accounts (a self-hosted one, say) has nothing to sign in to.
+              onSignIn={authEnabled ? () => toAuth('signin') : undefined}
+              chatUrl={COMMUNITY_CHAT_URL}
+              sourceUrl={URL_GET_INVOLVED}
             />
           )}
           {shownRecoveryKey && (
@@ -2337,6 +2321,7 @@ export function HomePage({
             "saved" unconditionally is furniture, and it stayed reassuring while
             an hour of edits sat on one machine. It is quiet in the steady state
             and loud when a write fails, so nothing is lost by dropping this. */}
+        <EncryptedIcon />
       </KiStatusBar>
 
       {openPrjOpen && (
@@ -2560,18 +2545,6 @@ export function HomePage({
             setGithubChoice(null);
           }}
         />
-      )}
-
-      {/* Guest nudge: once there's real work at stake (a saved project) and no
-          account, offer, never force, signing in so it's backed up. */}
-      {authEnabled && !session && !guestNudgeDismissed && saved.length > 0 && (
-        <div className="ze-guest-nudge">
-          <span>Your projects are saved on this device only.</span>
-          <Button label="Sign in to back them up" isDefault onClick={() => toAuth('signin')} />
-          <span className="x" title="Dismiss" onClick={dismissGuestNudge}>
-            ✕
-          </span>
-        </div>
       )}
 
       {/* The outcome of following a share link. Its own pill rather than folded

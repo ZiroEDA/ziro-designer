@@ -37,7 +37,8 @@
  * settled: ACTIONS::donate is not carried, because a donation prompt for
  * another project belongs in that project's Help menu rather than ours; and
  * every link points at our own documentation and repository, for the same
- * reason.
+ * reason. One row is ours alone: Support Chat, after Report Bug, which brings
+ * back the chat bubble once it has been closed (see `setSupportChatOpener`).
  */
 import { PRODUCT } from './eda_base_frame_about_titles.js';
 import type { Menu, MenuItem } from '@ziroeda/wx/menu.js';
@@ -60,6 +61,18 @@ export interface HelpMenuHandlers {
 }
 
 const SEP: MenuItem = { sep: true };
+
+/**
+ * How to bring the support chat up, registered by the app's chat widget
+ * (designer/src/support/ChatWidget.tsx) while it is mounted. Null - a build
+ * with no chat configured - and the Help menu has no Support Chat row, rather
+ * than a row that does nothing.
+ */
+let s_showSupportChat: (() => void) | null = null;
+
+export function setSupportChatOpener(aOpen: (() => void) | null): void {
+  s_showSupportChat = aOpen;
+}
 
 const openExternal = (url: string) => (): void => {
   window.open(url, '_blank', 'noopener,noreferrer');
@@ -144,6 +157,8 @@ function helpMenu(r: {
         label: 'Report Bug',
         action: r.reportBug,
       },
+      // Ours, no upstream row: the closed chat bubble comes back from here.
+      ...(s_showSupportChat ? [{ label: 'Support Chat', action: s_showSupportChat }] : []),
       SEP,
       { label: ABOUT_LABEL, action: r.showAbout },
     ],
