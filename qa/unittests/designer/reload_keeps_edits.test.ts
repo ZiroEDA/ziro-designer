@@ -229,8 +229,14 @@ describe('the manager raises an open project; it does not re-open it', () => {
       /onOpenProject=\{\(files, start, demo\) => \{\s*raiseOrOpen\(files, start\);/,
     );
     // Plus Import Non-KiCad Project's board half (onImportNonKicadBoard), which
-    // opens the new project's board the way the board launcher does.
-    expect(APP.match(/raiseOrOpen\(files\);/g)?.length).toBe(4);
+    // opens the new project's board the way the board launcher does, and
+    // Preferences > Manage Symbol / Footprint Libraries: COMMON_CONTROL::
+    // ShowLibraryTable works on the project already loaded, so the manager's
+    // project is raised into the editors' set, never re-read.
+    expect(APP.match(/raiseOrOpen\(files\);/g)?.length).toBe(5);
+    expect(APP).toMatch(
+      /onShowLibraryTable=\{\(kind, files\) => \{[^}]*?raiseOrOpen\(files\);\s*setLibTableDialog\(kind\);/,
+    );
   });
 
   it('the manager is rendered beside the frames, never instead of them', () => {
