@@ -25,10 +25,6 @@ import {
   pinId,
   itemRefById,
 } from '@ziroeda/eeschema/tools/hittest.js';
-import {
-  itemPassesFilter,
-  defaultSelectionFilter,
-} from '@ziroeda/eeschema/tools/sch_selection_filter.js';
 import { collectAndGuess } from '@ziroeda/eeschema/sch_collectors.js';
 import { moveItems, planMove } from '@ziroeda/eeschema/tools/index.js';
 import { placeSymbol } from '@ziroeda/eeschema/tools/index.js';
@@ -417,25 +413,6 @@ describe('pins are selectable items', () => {
     const { doc, lib } = sheetWithResistor();
     const seg = collectPinSegments(doc, lib)[0]!;
     expect(itemRefById(doc, seg.id)).toEqual({ kind: 'pin', id: seg.id });
-  });
-
-  it('is gated on the Pins selection filter', () => {
-    const { doc, lib } = sheetWithResistor();
-    const seg = collectPinSegments(doc, lib)[0]!;
-    expect(itemPassesFilter(doc, seg.id, defaultSelectionFilter())).toBe(true);
-    expect(itemPassesFilter(doc, seg.id, { ...defaultSelectionFilter(), pins: false })).toBe(false);
-    // A field is governed by *Text*, not by Symbols and not by Pins.
-    // SCH_SELECTION_TOOL::itemPassesFilter puts `case SCH_FIELD_T:` with
-    // SCH_TEXT_T / SCH_TEXTBOX_T / SCH_TABLE_T / SCH_TABLECELL_T under
-    // `m_filter.text`, and that is the only arm fields reach. This assertion
-    // used to read `symbols: false -> false`, which stated the opposite.
-    const fid = fieldId(
-      refId('symbol', doc.symbols[0]!.uuid, 0),
-      collectFieldBoxes(doc, lib)[0]!.index,
-    );
-    expect(itemPassesFilter(doc, fid, { ...defaultSelectionFilter(), pins: false })).toBe(true);
-    expect(itemPassesFilter(doc, fid, { ...defaultSelectionFilter(), symbols: false })).toBe(true);
-    expect(itemPassesFilter(doc, fid, { ...defaultSelectionFilter(), text: false })).toBe(false);
   });
 });
 

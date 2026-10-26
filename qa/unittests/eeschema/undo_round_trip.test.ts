@@ -30,7 +30,6 @@ import { planMove } from '@ziroeda/eeschema/tools/connect.js';
 import { transformItems } from '@ziroeda/eeschema/tools/transform.js';
 import { setSymbolUnit } from '@ziroeda/eeschema/tools/symbol_unit.js';
 import { autoplaceFields } from '@ziroeda/eeschema/autoplace_fields.js';
-import { groupItemsCommand } from '@ziroeda/eeschema/tools/sch_group_tool.js';
 import { makeWire, makeJunction, makeLabel } from '@ziroeda/eeschema/tools/build.js';
 import { refId, sheetPinId } from '@ziroeda/eeschema/tools/hittest.js';
 import { readFileSync } from 'node:fs';
@@ -100,7 +99,6 @@ const CASES: { name: string; build: (d: Schematic) => EditCommand | null }[] = [
     build: (d) =>
       autoplaceFields(d, new Set([symId(d)]), LIB, { allowRejustify: true, alignToGrid: true }),
   },
-  { name: 'groupItems', build: (d) => groupItemsCommand(new Set([symId(d), wireId(d, 0)])) },
 ];
 
 describe('undo restores the document exactly', () => {

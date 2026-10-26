@@ -32,8 +32,7 @@ import { SCH_REFERENCE_LIST } from './sch_reference_list.js';
 import { SCH_SCREEN } from './sch_screen.js';
 import { SYMBOL_FILTER, type SCH_SHEET_PATH } from './sch_sheet_path.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
-import type { LibSymbol, SchLabel, Schematic, Vec2 } from './types.js';
-import { iuToMM } from '@ziroeda/common';
+import type { LibSymbol, Schematic, Vec2 } from './types.js';
 import {
   refId,
   type ItemRef,
@@ -447,97 +446,6 @@ function graphicHitInfo(
     }
     default:
       return null;
-  }
-}
-
-const ellipsize = (s: string, n = 36): string => (s.length > n ? `${s.slice(0, n)}…` : s);
-
-const mm = (iu: number): string => `${iuToMM(iu).toFixed(2)} mm`;
-
-const labelDescription = (l: SchLabel): string => {
-  switch (l.kind) {
-    case 'global_label':
-      return `Global Label '${ellipsize(l.text)}'`;
-    case 'hierarchical_label':
-      return `Hierarchical Label '${ellipsize(l.text)}'`;
-    case 'text':
-      return `Graphic Text '${ellipsize(l.text)}'`;
-    default:
-      return `Label '${ellipsize(l.text)}'`;
-  }
-};
-
-/** The Clarify Selection row text, each item's GetItemDescription. */
-export function describeItem(
-  sch: Schematic,
-  libById: Map<string, LibSymbol>,
-  ref: ItemRef,
-): string {
-  const find = <T>(arr: readonly T[], uuid: (t: T, i: number) => string): T | undefined => {
-    for (let i = 0; i < arr.length; i++) if (uuid(arr[i]!, i) === ref.id) return arr[i]!;
-    return undefined;
-  };
-  switch (ref.kind) {
-    case 'symbol': {
-      const s = find(sch.symbols, (t, i) => refId('symbol', t.uuid, i));
-      if (!s) return 'Symbol';
-      const r = s.fields.find((f) => f.key === 'Reference')?.value ?? '?';
-      const name = s.libId.split(':').pop() ?? s.libId;
-      return `Symbol ${ellipsize(r)} [${ellipsize(name)}]`;
-    }
-    case 'line': {
-      const l = find(sch.lines, (t, i) => refId('line', t.uuid, i));
-      if (!l) return 'Wire';
-      const len = mm(Math.hypot(l.end.x - l.start.x, l.end.y - l.start.y));
-      const orient =
-        l.start.x === l.end.x ? 'Vertical ' : l.start.y === l.end.y ? 'Horizontal ' : '';
-      const kind = l.kind === 'bus' ? 'Bus' : l.kind === 'wire' ? 'Wire' : 'Graphic Line';
-      return `${orient}${kind}, length ${len}`;
-    }
-    case 'junction':
-      return 'Junction';
-    case 'noconnect':
-      return 'No Connect';
-    case 'label': {
-      const l = find(sch.labels, (t, i) => refId('label', t.uuid, i));
-      return l ? labelDescription(l) : 'Label';
-    }
-    case 'sheet': {
-      const sh = find(sch.sheets, (t, i) => refId('sheet', t.uuid, i));
-      const name = sh?.fields.find((f) => f.key === 'Sheetname')?.value ?? '';
-      return `Hierarchical Sheet '${ellipsize(name)}'`;
-    }
-    case 'busentry':
-      return 'Bus to wire entry';
-    case 'image':
-      return 'Bitmap Image';
-    case 'graphic': {
-      const idx = Number(/^graphic:idx:(\d+)$/.exec(ref.id)?.[1] ?? -1);
-      const g = sch.graphics[idx];
-      if (!g) return 'Graphic';
-      switch (g.kind) {
-        case 'rectangle':
-          return 'Rectangle';
-        case 'circle':
-          return `Circle, radius ${mm(g.radius)}`;
-        case 'arc':
-          return 'Arc';
-        case 'bezier':
-          return 'Bezier Curve';
-        case 'text':
-          return `Graphic Text '${ellipsize(g.text ?? '')}'`;
-        default:
-          return 'Polyline';
-      }
-    }
-    case 'textbox': {
-      const tb = find(sch.textBoxes, (t, i) => refId('textbox', t.uuid, i));
-      return `Text box '${ellipsize(tb?.text ?? '')}'`;
-    }
-    case 'table':
-      return 'Table';
-    default:
-      return ref.kind;
   }
 }
 

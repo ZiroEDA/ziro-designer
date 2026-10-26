@@ -12,8 +12,8 @@ import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { addItems, makeWire, makeJunction, makeLabel } from '@ziroeda/eeschema/tools/index.js';
-import { collectAndGuess, describeItem } from '@ziroeda/eeschema/sch_collectors.js';
+import { addItems, makeWire, makeJunction } from '@ziroeda/eeschema/tools/index.js';
+import { collectAndGuess } from '@ziroeda/eeschema/sch_collectors.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
 
@@ -66,21 +66,6 @@ describe('collectAndGuess', () => {
     const cands = collectAndGuess(sch, new Map(), at(30.1, 20), ACC);
     expect(cands.length).toBe(2);
     expect(new Set(cands.map((c) => c.kind))).toEqual(new Set(['textbox', 'noconnect']));
-  });
-
-  it('describes items with KiCad wording', () => {
-    const sch = addItems({
-      lines: [makeWire(at(0, 0), at(20, 0))],
-      labels: [makeLabel('label', 'NETX', at(0, 0))],
-      junctions: [makeJunction(at(10, 0))],
-    }).apply(EMPTY());
-    // (12, 0.1) is past the junction dot's radius, so the wire wins there.
-    const wireRef = collectAndGuess(sch, new Map(), at(12, 0.1), ACC)[0]!;
-    expect(describeItem(sch, new Map(), wireRef)).toBe('Horizontal Wire, length 20.00 mm');
-    const jRef = collectAndGuess(sch, new Map(), at(10, 0), ACC)[0]!;
-    expect(describeItem(sch, new Map(), jRef)).toBe('Junction');
-    const labelRef = collectAndGuess(sch, new Map(), at(0, -1), ACC)[0]!;
-    expect(describeItem(sch, new Map(), labelRef)).toBe("Label 'NETX'");
   });
 });
 

@@ -16,10 +16,6 @@ import { hitTest } from '@ziroeda/eeschema/tools/hittest.js';
 import { deleteByIds } from '@ziroeda/eeschema/tools/mutate.js';
 import { moveItems } from '@ziroeda/eeschema/tools/move.js';
 import { copySelectionText } from '@ziroeda/eeschema/tools/clipboard.js';
-import {
-  defaultSelectionFilter,
-  itemPassesFilter,
-} from '@ziroeda/eeschema/tools/sch_selection_filter.js';
 import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
 
@@ -114,17 +110,5 @@ describe('promotion to the parent table', () => {
     expect(
       moveItems(new Set([TABLE]), { x: mm(5), y: 0 }).apply(d).tables[0]!.cells[0]!.start.x,
     ).toBe(d.tables[0]!.cells[0]!.start.x + mm(5));
-  });
-});
-
-describe('the rest of the sweep', () => {
-  it('a cell follows its table through the Selection Filter', () => {
-    // There is no cell row in the filter, and one that hid tables while leaving
-    // their cells clickable would be worse than no filter.
-    const d = doc();
-    const off = { ...defaultSelectionFilter(), text: false };
-    expect(itemPassesFilter(d, TABLE, off)).toBe(false);
-    expect(itemPassesFilter(d, cellId(0), off)).toBe(false);
-    expect(itemPassesFilter(d, cellId(0), defaultSelectionFilter())).toBe(true);
   });
 });

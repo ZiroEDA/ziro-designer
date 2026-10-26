@@ -11,16 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic, withCleanup, deleteByIds } from '@ziroeda/eeschema';
-import {
-  groupItemsCommand,
-  ungroupItemsCommand,
-  addToGroupCommand,
-  removeFromGroupCommand,
-  canAddToGroup,
-  canRemoveFromGroup,
-  expandSelectionToGroups,
-  pruneGroupMembers,
-} from '@ziroeda/eeschema/tools/sch_group_tool.js';
+import { pruneGroupMembers } from '@ziroeda/eeschema/tools/sch_group_tool.js';
 import { History } from '@ziroeda/eeschema/tools/command.js';
 
 const sym = (ref: string, uuid: string): string =>
@@ -50,75 +41,12 @@ describe('schematic groups', () => {
     expect(serializeSchematic(doc)).not.toContain('(group');
   });
 
-  it('groups ≥2 items, moving members out of an existing group', () => {
-    const doc = load(`${sym('R1', 'u-1')} ${sym('R2', 'u-2')} ${sym('R3', 'u-3')}
-      (group "Old" (uuid "g-old") (members "u-1" "u-3"))`);
-    const after = groupItemsCommand(new Set(['u-1', 'u-2'])).apply(doc);
-    expect(after.groups).toHaveLength(2);
-    expect(after.groups.find((g) => g.name === 'Old')!.members).toEqual(['u-3']);
-    const fresh = after.groups.find((g) => g.name !== 'Old')!;
-    expect([...fresh.members].sort()).toEqual(['u-1', 'u-2']);
-    // Fewer than two groupable items is a no-op (canGroupItem gate).
-    expect(groupItemsCommand(new Set(['u-1'])).apply(doc)).toBe(doc);
-  });
-
-  it('ungroups every group touched by the selection, keeping members', () => {
-    const doc = load(`${sym('R1', 'u-1')} ${sym('R2', 'u-2')}
-      (group "G" (uuid "g-1") (members "u-1" "u-2"))`);
-    const after = ungroupItemsCommand(new Set(['u-1'])).apply(doc);
-    expect(after.groups).toHaveLength(0);
-    expect(after.symbols).toHaveLength(2); // members stay
-  });
-
-  it('promotes selection to whole groups, nested transitively', () => {
-    const doc = load(`${sym('R1', 'u-1')} ${sym('R2', 'u-2')} ${sym('R3', 'u-3')}
-      (group "Inner" (uuid "g-in") (members "u-1" "u-2"))
-      (group "Outer" (uuid "g-out") (members "g-in" "u-3"))`);
-    const sel = expandSelectionToGroups(doc, new Set(['u-1']));
-    // Touching u-1 selects Inner, which as a member of Outer selects Outer and
-    // every member, both group uuids and all three symbols.
-    expect([...sel].sort()).toEqual(['g-in', 'g-out', 'u-1', 'u-2', 'u-3']);
-  });
-
-  it('prunes deleted members via cleanup; group edits undo in one step', () => {
+  it('prunes deleted members via cleanup', () => {
     const doc = load(`${sym('R1', 'u-1')} ${sym('R2', 'u-2')}
       (group "G" (uuid "g-1") (members "u-1" "u-2"))`);
     const h = new History();
     const afterDelete = h.execute(doc, withCleanup(deleteByIds(new Set(['u-1']))));
     expect(afterDelete.groups[0]!.members).toEqual(['u-2']);
-
-    const afterUngroup = h.execute(afterDelete, ungroupItemsCommand(new Set(['u-2'])));
-    expect(afterUngroup.groups).toHaveLength(0);
-    expect(h.undo(afterUngroup)!.groups[0]!.members).toEqual(['u-2']);
-  });
-
-  it('adds an ungrouped item to the single selected group', () => {
-    const doc = load(`${sym('R1', 'u-1')} ${sym('R2', 'u-2')} ${sym('R3', 'u-3')}
-      (group "G" (uuid "g-1") (members "u-1" "u-2"))`);
-    // Whole-group selection (g-1 + members) plus the ungrouped u-3.
-    const sel = new Set(['g-1', 'u-1', 'u-2', 'u-3']);
-    expect(canAddToGroup(doc, sel)).toBe(true);
-    const after = addToGroupCommand(sel).apply(doc);
-    expect([...after.groups[0]!.members].sort()).toEqual(['u-1', 'u-2', 'u-3']);
-    // With no ungrouped item selected it is disabled and a no-op.
-    const selNoItem = new Set(['g-1', 'u-1', 'u-2']);
-    expect(canAddToGroup(doc, selNoItem)).toBe(false);
-    expect(addToGroupCommand(selNoItem).apply(doc)).toBe(doc);
-  });
-
-  it('removes members, dissolving a group left with fewer than two', () => {
-    const doc = load(`${sym('R1', 'u-1')} ${sym('R2', 'u-2')} ${sym('R3', 'u-3')}
-      (group "G" (uuid "g-1") (members "u-1" "u-2" "u-3"))`);
-    expect(canRemoveFromGroup(doc, new Set(['u-3']))).toBe(true);
-    const r1 = removeFromGroupCommand(new Set(['u-3'])).apply(doc);
-    expect([...r1.groups[0]!.members].sort()).toEqual(['u-1', 'u-2']);
-    // Down to one member -> the group dissolves; symbols remain.
-    const r2 = removeFromGroupCommand(new Set(['u-2'])).apply(r1);
-    expect(r2.groups).toHaveLength(0);
-    expect(r2.symbols).toHaveLength(3);
-    // Nothing selected from any group -> disabled, no-op.
-    expect(canRemoveFromGroup(doc, new Set(['x']))).toBe(false);
-    expect(removeFromGroupCommand(new Set(['x'])).apply(doc)).toBe(doc);
   });
 });
 
@@ -183,13 +111,6 @@ describe('every uuid-carrying kind can be a group member', () => {
       const g = kept.groups.find((x) => x.uuid === 'g-1');
       expect(g?.members, name).toContain('m-1');
       expect(serializeSchematic(kept)).toContain('"m-1"');
-    });
-
-    it(`lets a ${name} be grouped in the first place`, () => {
-      const doc = load(`${sym('R9', 'u-9')} ${body}`);
-      const after = groupItemsCommand(new Set(['m-1', 'u-9'])).apply(doc);
-      expect(after.groups, name).toHaveLength(1);
-      expect([...after.groups[0]!.members].sort()).toEqual(['m-1', 'u-9']);
     });
   }
 

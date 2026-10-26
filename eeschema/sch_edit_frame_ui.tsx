@@ -121,9 +121,6 @@ import {
   getRootPageNumber,
   getPageSettings,
   selectionHasGroup,
-  expandSelectionToGroups,
-  applySelectionFilter,
-  clickTarget,
   defaultSelectionFilter,
   type SelectionFilterOptions,
   annotateSymbols,
@@ -150,8 +147,6 @@ import {
   type LabelShape,
   type PastePayload,
   type SheetTreeNode,
-  type ItemRef,
-  describeItem,
 } from './index.js';
 import type { PendingLabel } from './sch_draw_panel.js';
 import {
@@ -1171,14 +1166,6 @@ export function SchematicEditor({
   // kind rather than an edit of their own.
   // Right-click selection context menu (SCH_SELECTION_TOOL's TOOL_MENU):
   // client-space position plus the hit-tested item, or null when closed.
-  // Clarify Selection (SCH_SELECTION_TOOL::doSelectionMenu): an ambiguous
-  // click lists every candidate; picking a row selects it.
-  const [clarify, setClarify] = useState<{
-    x: number;
-    y: number;
-    items: ItemRef[];
-    additive: boolean;
-  } | null>(null);
   // Editing an existing label's text/shape (DIALOG_LABEL_PROPERTIES).
   // Editing a hierarchical sheet's name/file (DIALOG_SHEET_PROPERTIES).
   // Sheet Properties (DIALOG_SHEET_PROPERTIES); the dialog reads the sheet
@@ -2014,48 +2001,6 @@ export function SchematicEditor({
    * `gridSizeIU` is derived far below and these callbacks are built once.
    */
   const gridSizeIURef = useRef(0);
-  // Group promotion (SCH_SELECTION_TOOL): clicking a member selects its whole
-  // group, so every selection result expands through the document's groups.
-  const promote = (ids: ReadonlySet<string>): ReadonlySet<string> =>
-    docRef.current ? expandSelectionToGroups(docRef.current, ids) : ids;
-
-  // The Selection Filter narrows a raw hit before it can enter the selection
-  // (SCH_SELECTION_TOOL::itemPassesFilter): locked items and disabled item
-  // types are dropped, so they can't be selected/moved/deleted.
-  const selFilterRef = useRef(selFilter);
-  selFilterRef.current = selFilter;
-
-  const onSelect = useCallback((raw: string | null, additive: boolean) => {
-    // A selection does *not* clear the net highlight: upstream's highlightNet
-    // never touches the selection and vice versa, the highlight lives until
-    // Esc, `~`, or a highlight-tool click on empty space.
-    setSelection((prev) => {
-      if (raw === null) return additive ? prev : new Set();
-      // The Selection Filter narrows a click before it can enter the selection.
-      // A filtered-out hit behaves like empty space, except for a pin with the
-      // Pins toggle off, which stands for the symbol that owns it
-      // (SCH_SELECTION_TOOL::collectSelectable).
-      const doc = docRef.current;
-      const id = doc ? clickTarget(doc, raw, selFilterRef.current) : raw;
-      if (id === null) return additive ? prev : new Set();
-      if (additive) {
-        const next = new Set(prev);
-        if (next.has(id)) {
-          // Toggling a grouped member off removes its whole group.
-          for (const m of promote(new Set([id]))) next.delete(m);
-        } else for (const m of promote(new Set([id]))) next.add(m);
-        return next;
-      }
-      return new Set(promote(new Set([id])));
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Live values for the highlight callback, kept in refs so the canvas prop
-  // stays stable across renders.
-  const netlistRef = useRef(netlist);
-  netlistRef.current = netlist;
-
   /** A live TOOL_ACTION run on the frame's TOOL_MANAGER, for a hotkey the canvas did not take. */
   const runLiveAction = useCallback((aAction: TOOL_ACTION) => {
     schFrameRef.current?.GetToolManager()?.RunAction(aAction);
@@ -5899,20 +5844,6 @@ export function SchematicEditor({
                   // the close half runs once the row's handler has.
                   queueMicrotask(close);
                 }}
-              />
-            )}
-            {clarify && doc && (
-              <ContextMenu
-                x={clarify.x}
-                y={clarify.y}
-                items={clarify.items.map((ref) => ({
-                  label: describeItem(doc, libById, ref),
-                  action: () => {
-                    onSelect(ref.id, clarify.additive);
-                    setClarify(null);
-                  },
-                }))}
-                onClose={() => setClarify(null)}
               />
             )}
             {updateFromPcbDialog && schFrameRef.current && (
