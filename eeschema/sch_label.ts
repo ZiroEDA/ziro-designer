@@ -6,7 +6,7 @@
  * `SCH_LABEL_BASE` and its kinds `SCH_LABEL`, `SCH_DIRECTIVE_LABEL`, `SCH_GLOBALLABEL`
  * and `SCH_HIERLABEL` (also the base of `SCH_SHEET_PIN`).
  *
- * Not here: `Plot`, `GetMenuImage`, `Serialize`/`Deserialize`, the
+ * Not here: `GetMenuImage`, `Serialize`/`Deserialize`, the
  * `*_DESC` property registrations. Anything that asks a `SCH_CONNECTION` (the net name
  * text variables, `${OP}`, net-name search, the net-class colour) waits on the connection
  * graph (E3 part 2) and answers as KiCad does for an item with no connection.
@@ -24,12 +24,20 @@ import {
 } from '@ziroeda/common/properties/property.js';
 import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 import type { EDA_ITEM, INSPECTOR, OutStr } from '@ziroeda/common/eda_item.js';
-import { INSPECT_RESULT, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import { INSPECT_RESULT, type RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { EDA_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
 import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
-import { COLOR4D_UNSPECIFIED, type Color4d, color4dEquals } from '@ziroeda/common/gal/color4d.js';
+import {
+  COLOR4D_UNSPECIFIED,
+  COLOR4D_WHITE,
+  type Color4d,
+  color4dEquals,
+  desaturate,
+  mix,
+} from '@ziroeda/common/gal/color4d.js';
+import { FILL_T, type PLOTTER, plotterFont } from '@ziroeda/common/plotters/plotter.js';
 import { IncrementString } from '@ziroeda/common/increment.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
@@ -69,12 +77,13 @@ import {
   DANGLING_END_ITEM,
   DANGLING_END_ITEM_HELPER,
   DANGLING_END_T,
-  SCH_ITEM,
+  type SCH_ITEM,
 } from './sch_item.js';
 import type { SCH_RULE_AREA } from './sch_rule_area.js';
 import type { SCH_SCREEN } from './sch_screen.js';
 import type { SCH_SHEET } from './sch_sheet.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import type { SCH_PLOT_OPTS } from './sch_plotter.js';
 import { SCH_TEXT } from './sch_text.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
@@ -426,20 +435,19 @@ export abstract class SCH_LABEL_BASE extends SCH_TEXT {
 
     try {
       if (this.Type() === KICAD_T.SCH_HIER_LABEL_T) {
-        const label = this;
-        const parent = label.GetParent();
+        const parent = this.GetParent();
         const screen =
           parent && parent.Type() === KICAD_T.SCH_SCREEN_T
             ? (parent as unknown as SCH_SCREEN)
             : null;
 
         if (screen) {
-          const text = label.GetText();
+          const text = this.GetText();
 
           for (const item of screen.Items().OfType(KICAD_T.SCH_HIER_LABEL_T)) {
             const other = item as SCH_LABEL_BASE;
 
-            if (other !== label && other.GetText() === text) other.SetLabelShape(aShape);
+            if (other !== this && other.GetText() === text) other.SetLabelShape(aShape);
           }
 
           for (const sheetPath of screen.GetClientSheetPaths()) {
@@ -453,11 +461,10 @@ export abstract class SCH_LABEL_BASE extends SCH_TEXT {
           }
         }
       } else if (this.Type() === KICAD_T.SCH_SHEET_PIN_T) {
-        const pin = this;
-        const parent = pin.GetParent() as unknown as SCH_SHEET | null;
+        const parent = this.GetParent() as unknown as SCH_SHEET | null;
 
         if (parent) {
-          const text = pin.GetText();
+          const text = this.GetText();
           const screen = parent.GetScreen();
 
           if (screen) {
@@ -469,7 +476,7 @@ export abstract class SCH_LABEL_BASE extends SCH_TEXT {
           }
 
           for (const other of parent.GetPins()) {
-            if ((other as SCH_LABEL_BASE) !== pin && other.GetText() === text)
+            if ((other as SCH_LABEL_BASE) !== this && other.GetText() === text)
               other.SetLabelShape(aShape);
           }
         }
@@ -1011,6 +1018,149 @@ export abstract class SCH_LABEL_BASE extends SCH_TEXT {
     _Pos: VECTOR2I,
   ): void {
     aPoints.length = 0;
+  }
+
+  override Plot(
+    aPlotter: PLOTTER,
+    aBackground: boolean,
+    aPlotOpts: SCH_PLOT_OPTS,
+    aUnit: number,
+    aBodyStyle: number,
+    aOffset: VECTOR2I,
+    aDimmed: boolean,
+  ): void {
+    // `static std::vector<VECTOR2I> s_poly`: a buffer reused between calls, nothing more.
+    const s_poly: VECTOR2I[] = [];
+
+    const sheet = this.Schematic()!.CurrentSheet();
+    const settings = this.getRenderSettings(aPlotter);
+    const connection = this.Connection();
+    const layer = connection?.IsBus() ? SCH_LAYER_ID.LAYER_BUS : this.m_layer;
+    let color = settings.GetLayerColor(layer);
+    let penWidth = this.GetEffectiveTextPenWidth(settings.GetDefaultPenWidth());
+    let bg = settings.GetBackgroundColor();
+
+    if (color4dEquals(bg, COLOR4D_UNSPECIFIED) || !aPlotter.GetColorMode()) bg = COLOR4D_WHITE;
+
+    if (aPlotter.GetColorMode() && !color4dEquals(this.GetLabelColor(), COLOR4D_UNSPECIFIED))
+      color = this.GetLabelColor();
+
+    // `if( color.m_text && Schematic() )`: a colour held as a text variable is not carried by our
+    // COLOR4D (color4d.ts), so there is nothing to resolve.
+
+    if (aDimmed) {
+      color = desaturate(color);
+      color = mix(color, bg, 0.5);
+    }
+
+    penWidth = Math.max(penWidth, settings.GetMinPenWidth());
+    aPlotter.SetCurrentLineWidth(penWidth);
+
+    const font = plotterFont(this.GetDrawFont(settings), this.GetFontMetrics());
+
+    const offset = this.GetSchematicTextOffset(settings);
+    const textpos = { x: this.GetTextPos().x + offset.x, y: this.GetTextPos().y + offset.y };
+    this.CreateGraphicShape(settings, s_poly, this.GetTextPos());
+
+    const attrs = this.GetAttributes().clone();
+    attrs.m_StrokeWidth = penWidth;
+    attrs.m_Multiline = false;
+
+    if (aBackground) {
+      // No filled shapes (yet)
+    } else {
+      aPlotter.PlotText(
+        textpos,
+        color,
+        this.GetShownText(sheet, true),
+        attrs,
+        font,
+        this.GetFontMetrics(),
+      );
+
+      if (aPlotter.GetColorMode()) {
+        // For the graphic shape use the override color or the layer color, but not the
+        // net/netclass color.
+        let shapeColor: Color4d;
+
+        if (!color4dEquals(this.GetTextColor(), COLOR4D_UNSPECIFIED))
+          shapeColor = this.GetTextColor();
+        else shapeColor = settings.GetLayerColor(this.m_layer);
+
+        if (aDimmed) {
+          shapeColor = desaturate(shapeColor);
+          shapeColor = mix(shapeColor, bg, 0.5);
+        }
+
+        aPlotter.SetColor(shapeColor);
+      }
+
+      if (this.GetShape() === LABEL_FLAG_SHAPE.F_DOT) {
+        aPlotter.MoveTo(s_poly[0]!);
+        aPlotter.LineTo(s_poly[1]!);
+        aPlotter.PenFinish();
+
+        const diameter = Math.hypot(s_poly[2]!.x - s_poly[1]!.x, s_poly[2]!.y - s_poly[1]!.y) * 2;
+        aPlotter.FilledCircle(s_poly[2]!, Math.trunc(diameter), null);
+      } else if (this.GetShape() === LABEL_FLAG_SHAPE.F_ROUND) {
+        aPlotter.MoveTo(s_poly[0]!);
+        aPlotter.LineTo(s_poly[1]!);
+        aPlotter.PenFinish();
+
+        const diameter = Math.hypot(s_poly[2]!.x - s_poly[1]!.x, s_poly[2]!.y - s_poly[1]!.y) * 2;
+        aPlotter.ThickCircle(s_poly[2]!, Math.trunc(diameter), penWidth, null);
+      } else {
+        if (s_poly.length > 0) aPlotter.PlotPoly(s_poly, FILL_T.NO_FILL, penWidth, null);
+      }
+
+      // Make sheet pins and hierarchical labels clickable hyperlinks
+      let linkAlreadyPlotted = false;
+      // `SCH_SHEET_PATH path = *sheet;`, a copy. Through the instance's own class: a value import
+      // of sch_sheet_path here closes an import cycle back to this file.
+      const copyOf = (aPath: SCH_SHEET_PATH): SCH_SHEET_PATH =>
+        new (aPath.constructor as new (aOther: SCH_SHEET_PATH) => SCH_SHEET_PATH)(aPath);
+      const bodyBBox = this.GetBodyBoundingBox(settings);
+
+      if (aPlotOpts.m_PDFHierarchicalLinks) {
+        if (this.Type() === KICAD_T.SCH_HIER_LABEL_T) {
+          if (sheet.size() >= 2) {
+            const path = copyOf(sheet);
+            path.pop_back();
+            aPlotter.HyperlinkBox(bodyBBox, EDA_TEXT.GotoPageHref(path.GetPageNumber()));
+            linkAlreadyPlotted = true;
+          }
+        } else if (this.Type() === KICAD_T.SCH_SHEET_PIN_T) {
+          const path = copyOf(sheet);
+          const parent = this.m_parent as unknown as SCH_SHEET;
+          path.push_back(parent);
+          aPlotter.HyperlinkBox(bodyBBox, EDA_TEXT.GotoPageHref(path.GetPageNumber()));
+          linkAlreadyPlotted = true;
+        }
+      }
+
+      // Plot attributes to a hypertext menu
+      if (aPlotOpts.m_PDFPropertyPopups && !linkAlreadyPlotted) {
+        const properties: string[] = [];
+
+        if (connection) {
+          properties.push(`!Net = ${connection.Name()}`);
+          properties.push(
+            `!Resolved netclass = ${this.GetEffectiveNetClass()?.GetHumanReadableName() ?? ''}`,
+          );
+        }
+
+        for (const field of this.GetFields())
+          properties.push(`!${field.GetName()} = ${field.GetShownText(false)}`);
+
+        if (properties.length > 0) aPlotter.HyperlinkMenu(bodyBBox, properties);
+      }
+
+      if (this.Type() === KICAD_T.SCH_HIER_LABEL_T)
+        aPlotter.Bookmark(bodyBBox, this.GetShownText(false), 'Hierarchical Labels');
+    }
+
+    for (const field of this.m_fields)
+      field.Plot(aPlotter, aBackground, aPlotOpts, aUnit, aBodyStyle, aOffset, aDimmed);
   }
 
   GetLabelBoxExpansion(aSettings: RENDER_SETTINGS | null = null): number {
