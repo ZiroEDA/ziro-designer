@@ -14,7 +14,12 @@ import hashlib, json, os, subprocess, sys
 d, oracle = sys.argv[1:3]
 
 def ask(path):
-    r = subprocess.run([oracle, path], capture_output=True, check=True).stdout
+    run = subprocess.run([oracle, path], capture_output=True)
+    if run.returncode < 0:
+        # wx itself crashed on it - KiCad would too; the port must only come back
+        return 'crash'
+    run.check_returncode()
+    r = run.stdout
     nl = r.index(b'\n')
     head = r[:nl].decode()
     if head == 'fail':
@@ -32,7 +37,8 @@ for name in sorted(os.listdir(d)):
         expected['load'][name] = ask(os.path.join(d, name))
 
 # every cut of one file of each kind either fails or loads what wx makes of it
-for name in ['b8_rle.bmp', 'b24.bmp', 'g_interlaced.gif', 'g_animated.gif', 'g_large_noise.gif',
+for name in ['b8_rle.bmp', 'b24.bmp', 'b8_rle_delta.bmp', 'b4_rle_delta.bmp', 'b32_rgb_alpha.bmp',
+             'g_interlaced.gif', 'g_animated.gif', 'g_large_noise.gif',
              'g_anim_local.gif', 'g_comment.gif']:
     data = open(os.path.join(d, name), 'rb').read()
     cuts = {}

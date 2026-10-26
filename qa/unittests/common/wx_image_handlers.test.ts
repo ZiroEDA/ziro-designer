@@ -10,6 +10,11 @@
  *
  * GIF: wxGIFDecoder and wxGIFHandler - a transparent index is bright pink plus a mask of it, an
  * animation is its first frame, a truncated stream keeps the rows it got.
+ *
+ * BMP: wxBMPHandler::LoadDib and LoadBMPData - 1, 4 and 8 bits through the palette, RLE4 and
+ * RLE8, 16 bits as 555 or by bitfields, 24, and 32 with alpha only when some pixel is not fully
+ * transparent (a bitfields file's alpha mask is read and never used); OS/2 headers; bottom-up
+ * and top-down; pixels per metre over 100 as dots per centimetre.
  */
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -33,10 +38,20 @@ interface LOADED {
   rgbSha256: string;
   alphaSha256: string | null;
 }
+/** What wx made of it: the image, null for a load that failed, or 'crash' where wx itself
+ *  crashed (an RLE delta that leaves the image writes before wx's buffer - KiCad would crash). */
+type OUTCOME = LOADED | null | 'crash';
+
 const EXPECTED = JSON.parse(readFileSync(`${DATA}/expected.json`, 'utf8')) as {
-  load: Record<string, LOADED | null>;
-  truncations: Record<string, Record<string, LOADED | null>>;
+  load: Record<string, OUTCOME>;
+  truncations: Record<string, Record<string, OUTCOME>>;
 };
+
+/** Against wx's outcome: the same image or failure, or for a crash, only a return. */
+function expectOutcome(aData: Uint8Array, aWant: OUTCOME) {
+  if (aWant === 'crash') expect(() => loaded(aData)).not.toThrow();
+  else expect(loaded(aData)).toEqual(aWant);
+}
 
 const sha256 = (aBytes: Uint8Array) => createHash('sha256').update(aBytes).digest('hex');
 const file = (aName: string) => new Uint8Array(readFileSync(`${DATA}/${aName}`));
@@ -66,7 +81,7 @@ const gifs = Object.entries(EXPECTED.load).filter(([n]) => n.endsWith('.gif'));
 
 describe('wxGIFHandler', () => {
   it.each(gifs)('%s loads as wx loads it', (aName, aWant) => {
-    expect(loaded(file(aName))).toEqual(aWant);
+    expectOutcome(file(aName), aWant);
   });
 
   const cuts = Object.entries(EXPECTED.truncations)
@@ -74,7 +89,23 @@ describe('wxGIFHandler', () => {
     .flatMap(([n, c]) => Object.entries(c).map(([len, want]) => [n, Number(len), want] as const));
 
   it.each(cuts)('%s cut to %i bytes: what wx makes of it', (aName, aLength, aWant) => {
-    expect(loaded(file(aName).slice(0, aLength))).toEqual(aWant);
+    expectOutcome(file(aName).slice(0, aLength), aWant);
+  });
+});
+
+const bmps = Object.entries(EXPECTED.load).filter(([n]) => n.endsWith('.bmp'));
+
+describe('wxBMPHandler', () => {
+  it.each(bmps)('%s loads as wx loads it', (aName, aWant) => {
+    expectOutcome(file(aName), aWant);
+  });
+
+  const cuts = Object.entries(EXPECTED.truncations)
+    .filter(([n]) => n.endsWith('.bmp'))
+    .flatMap(([n, c]) => Object.entries(c).map(([len, want]) => [n, Number(len), want] as const));
+
+  it.each(cuts)('%s cut to %i bytes: what wx makes of it', (aName, aLength, aWant) => {
+    expectOutcome(file(aName).slice(0, aLength), aWant);
   });
 });
 

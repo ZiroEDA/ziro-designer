@@ -170,7 +170,8 @@ export class BITMAP_BASE {
   DrawBitmap(aDC: wxDC, aPos: VECTOR2I, aBackgroundColor: Color4d): void {
     const image = this.m_image;
 
-    if (!image?.HasPixels()) return;
+    // if( m_bitmap == nullptr ): rebuildBitmap makes one whenever there is an image
+    if (!image) return;
 
     const pos = { x: aPos.x, y: aPos.y };
     const size = this.GetSize();

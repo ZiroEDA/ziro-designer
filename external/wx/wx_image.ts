@@ -3,11 +3,15 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The part of `wxImage` that `BITMAP_BASE` uses: an RGB plane, an optional
- * alpha plane, the resolution options, `LoadFile`/`SaveFile` for PNG,
- * `Rotate90`, `Mirror` and `ConvertToGreyscale`.
+ * alpha plane, a mask colour, the resolution options, `LoadFile` for the
+ * handlers `wxInitAllImageHandlers` registers that KiCad's image dialogs
+ * offer (BMP, PNG, JPEG, GIF), `SaveFile` for PNG and JPEG, `Rotate90`,
+ * `Mirror` and `ConvertToGreyscale`.
  *
- * PNG is decoded here (every colour type, bit depth and Adam7) and encoded
- * with `imagpng.ts`. JPEG goes through `wxJPEGHandler`'s own libjpeg calls,
+ * BMP is wx's own reader (`imagbmp.ts`), GIF wx's own decoder
+ * (`gifdecod.ts`, `imaggif.ts`), both read through a `wxMemoryInputStream`
+ * as BITMAP_BASE reads. PNG is decoded here (every colour type, bit depth and
+ * Adam7) and encoded with `imagpng.ts`. JPEG goes through `wxJPEGHandler`'s own libjpeg calls,
  * compiled with the libjpeg-turbo KiCad links (`jpeg/`), so its pixels, its
  * CMYK conversion and its re-encoding are the ones KiCad gets. That module is
  * instantiated once, asynchronously, by `wxInitAllImageHandlers` - as KiCad's
@@ -26,6 +30,7 @@ import { PNG_SIGNATURE, pngChunk, pngCrc32 } from './imagpng.js';
 import type { IMAGJPEG_MODULE } from './jpeg/imagjpeg_wasm.js';
 import { wxMemoryInputStream } from './mstream.js';
 import { wxGIFHandlerCanRead, wxGIFHandlerLoadFile } from './imaggif.js';
+import { wxBMPHandlerLoadFile } from './imagbmp.js';
 
 /** `wxImageResolution`. */
 export enum wxImageResolution {
@@ -133,10 +138,6 @@ function canReadBmp(aData: Uint8Array): boolean {
   return aData.length >= 2 && aData[0] === 0x42 && aData[1] === 0x4d;
 }
 
-const le16 = (b: Uint8Array, off: number): number => b[off]! | (b[off + 1]! << 8);
-const le32 = (b: Uint8Array, off: number): number =>
-  b[off]! | (b[off + 1]! << 8) | (b[off + 2]! << 16) | (b[off + 3]! << 24);
-
 /** `wxJPEGHandler::DoCanRead`: two bytes, FF D8 - not three. */
 function canReadJpeg(aData: Uint8Array): boolean {
   return aData.length >= 2 && aData[0] === 0xff && aData[1] === 0xd8;
@@ -149,7 +150,6 @@ export class WX_IMAGE {
   private m_rgb: Uint8Array | null = null; // 3 bytes per pixel, row-major
   private m_alpha: Uint8Array | null = null; // 1 byte per pixel, or none
   private m_options = new Map<string, number>();
-  private m_pixelsKnown = false; // false for a BMP layout read for its size only
   private m_type = wxBitmapType.wxBITMAP_TYPE_INVALID;
   private m_hasMask = false;
   private m_maskRed = 0;
@@ -166,7 +166,6 @@ export class WX_IMAGE {
       this.m_rgb = a.m_rgb ? new Uint8Array(a.m_rgb) : null;
       this.m_alpha = a.m_alpha ? new Uint8Array(a.m_alpha) : null;
       this.m_options = new Map(a.m_options);
-      this.m_pixelsKnown = a.m_pixelsKnown;
       this.m_type = a.m_type;
       this.m_hasMask = a.m_hasMask;
       this.m_maskRed = a.m_maskRed;
@@ -176,7 +175,6 @@ export class WX_IMAGE {
       this.m_width = a;
       this.m_height = aHeight!;
       this.m_rgb = new Uint8Array(a * aHeight! * 3);
-      this.m_pixelsKnown = true;
     }
   }
 
@@ -192,7 +190,7 @@ export class WX_IMAGE {
   HasAlpha(): boolean {
     return this.m_alpha !== null;
   }
-  /** The RGB plane; null for a BMP layout read for its size only. */
+  /** The RGB plane; null for an image that was never created or loaded. */
   GetData(): Uint8Array | null {
     return this.m_rgb;
   }
@@ -232,14 +230,29 @@ export class WX_IMAGE {
     this.m_rgb = aRgb;
     this.m_alpha = null;
     this.m_options = new Map();
-    this.m_pixelsKnown = true;
     this.m_hasMask = false;
   }
 
   /** `wxImage::Create( width, height )`: a black image, no alpha, no mask, no options. */
   Create(aWidth: number, aHeight: number): boolean {
-    this.SetData(new Uint8Array(aWidth * aHeight * 3), aWidth, aHeight);
+    // wxCHECK_MSG( width > 0 && height > 0 ), and a malloc that fails
+    if (!(aWidth > 0 && aHeight > 0)) return false;
+
+    let rgb: Uint8Array;
+
+    try {
+      rgb = new Uint8Array(aWidth * aHeight * 3);
+    } catch {
+      return false;
+    }
+
+    this.SetData(rgb, aWidth, aHeight);
     return this.IsOk();
+  }
+
+  /** `wxImage::ClearAlpha`: no alpha plane. */
+  ClearAlpha(): void {
+    this.m_alpha = null;
   }
 
   HasMask(): boolean {
@@ -358,10 +371,6 @@ export class WX_IMAGE {
     this.m_alpha = alpha;
     return this;
   }
-  HasPixels(): boolean {
-    return this.m_pixelsKnown;
-  }
-
   GetOptionInt(aName: string): number {
     return this.m_options.get(aName) ?? 0;
   }
@@ -384,7 +393,11 @@ export class WX_IMAGE {
       (aData: Uint8Array) => boolean,
       (aData: Uint8Array) => boolean,
     ][] = [
-      [wxBitmapType.wxBITMAP_TYPE_BMP, canReadBmp, (d) => this.loadBmp(d)],
+      [
+        wxBitmapType.wxBITMAP_TYPE_BMP,
+        canReadBmp,
+        (d) => wxBMPHandlerLoadFile(this, new wxMemoryInputStream(d)),
+      ],
       [wxBitmapType.wxBITMAP_TYPE_PNG, canReadPng, (d) => this.loadPng(d)],
       [wxBitmapType.wxBITMAP_TYPE_JPEG, canReadJpeg, (d) => this.loadJpeg(d)],
       [
@@ -620,90 +633,6 @@ export class WX_IMAGE {
   }
 
   /**
-   * `wxBMPHandler::LoadFile`: a Windows DIB. Uncompressed 1, 4, 8, 24 and 32 bits per pixel
-   * are decoded; any other layout is read for its size and resolution only, as a JPEG is.
-   * The resolution is the header's pixels per metre over 100, in dots per centimetre.
-   */
-  private loadBmp(aData: Uint8Array): boolean {
-    if (aData.length < 54) return false;
-
-    const dataOffset = le32(aData, 10);
-    const dibSize = le32(aData, 14);
-
-    if (dibSize < 40) return false;
-
-    const width = le32(aData, 18);
-    const rawHeight = le32(aData, 22);
-    const bpp = le16(aData, 28);
-    const compression = le32(aData, 30);
-    const hres = le32(aData, 38);
-    const vres = le32(aData, 42);
-    const clrUsed = le32(aData, 46);
-    const topDown = rawHeight < 0;
-    const height = Math.abs(rawHeight);
-
-    if (width <= 0 || height === 0) return false;
-
-    if (hres > 0 && vres > 0) {
-      this.m_options.set(wxIMAGE_OPTION_RESOLUTIONUNIT, wxImageResolution.wxIMAGE_RESOLUTION_CM);
-      this.m_options.set(wxIMAGE_OPTION_RESOLUTIONX, Math.trunc(hres / 100));
-      this.m_options.set(wxIMAGE_OPTION_RESOLUTIONY, Math.trunc(vres / 100));
-    }
-
-    this.m_width = width;
-    this.m_height = height;
-    this.m_alpha = null;
-
-    const decodable = compression === 0 && [1, 4, 8, 24, 32].includes(bpp);
-    const stride = Math.ceil((width * bpp) / 32) * 4;
-
-    if (!decodable || dataOffset + stride * height > aData.length) {
-      this.m_rgb = null;
-      this.m_pixelsKnown = false;
-      return true;
-    }
-
-    const paletteOffset = 14 + dibSize;
-    const paletteSize = bpp <= 8 ? clrUsed || 1 << bpp : 0;
-    const rgb = new Uint8Array(width * height * 3);
-
-    for (let row = 0; row < height; row++) {
-      const y = topDown ? row : height - 1 - row;
-      const line = dataOffset + row * stride;
-
-      for (let x = 0; x < width; x++) {
-        const d = (y * width + x) * 3;
-        let b: number;
-        let g: number;
-        let r: number;
-
-        if (bpp >= 24) {
-          const p = line + x * (bpp / 8);
-          b = aData[p]!;
-          g = aData[p + 1]!;
-          r = aData[p + 2]!;
-        } else {
-          const bit = x * bpp;
-          const byte = aData[line + (bit >> 3)]!;
-          const index = (byte >> (8 - bpp - (bit & 7))) & ((1 << bpp) - 1);
-          const q = paletteOffset + Math.min(index, paletteSize - 1) * 4;
-          b = aData[q] ?? 0;
-          g = aData[q + 1] ?? 0;
-          r = aData[q + 2] ?? 0;
-        }
-
-        rgb[d] = r;
-        rgb[d + 1] = g;
-        rgb[d + 2] = b;
-      }
-    }
-
-    this.m_rgb = rgb;
-    this.m_pixelsKnown = true;
-    return true;
-  }
-
-  /**
    * `wxJPEGHandler::LoadFile` (imagjpeg.cpp:226): libjpeg decodes to RGB (CMYK
    * through `wx_cmyk_to_rgb`), and a JFIF marker's density becomes the
    * resolution options, its unit as libjpeg numbers it - 0, "aspect ratio
@@ -731,7 +660,6 @@ export class WX_IMAGE {
     this.m_rgb = jpeg.HEAPU8.slice(data, data + jpeg._wxjpeg_size());
     this.m_alpha = null;
     this.m_options = new Map();
-    this.m_pixelsKnown = true;
 
     // set up resolution if available: it's part of optional JFIF APP0 chunk
     if (jpeg._wxjpeg_saw_jfif()) {
@@ -992,7 +920,6 @@ export class WX_IMAGE {
     this.m_height = height;
     this.m_rgb = rgb;
     this.m_alpha = alpha;
-    this.m_pixelsKnown = true;
 
     return true;
   }
