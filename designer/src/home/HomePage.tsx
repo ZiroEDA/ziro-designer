@@ -227,6 +227,8 @@ export function HomePage({
   onCloseProject,
   openDemoRequest,
   onSwitchProject,
+  onShowLibraryTable,
+  projectWrites,
 }: {
   onOpenSchematic: () => void;
   onOpenProject?: (
@@ -325,6 +327,13 @@ export function HomePage({
   onDemoStateChange?: (demo: DemoMeta | null) => void;
   /** Switch the active project (double-clicking another .kicad_pro in the tree). */
   onSwitchProject?: (proFullName: string) => void;
+  /**
+   * Preferences > Manage Symbol / Footprint Libraries: COMMON_CONTROL::ShowLibraryTable, which
+   * puts the program's library table dialog up over this project (App's LibraryTableHost).
+   */
+  onShowLibraryTable?: (aKind: 'symbol' | 'footprint', aFiles: PickedHomeFile[]) => void;
+  /** Files the program wrote into the open project (App's writeProjectFiles), newest batch. */
+  projectWrites?: { files: { name: string; text: string }[]; nonce: number } | null;
 }): JSX.Element {
   const { session, signOut, recoveryKeyMnemonic, keyState, deleteAccount } = useAuth();
   const [deletingAccount, setDeletingAccount] = useState(false);
@@ -342,6 +351,23 @@ export function HomePage({
   const zipInputRef = useRef<HTMLInputElement>(null);
   // The picked project's files (shown in the tree until the editor is launched).
   const [picked, setPicked] = useState<PickedHomeFile[] | null>(initialFiles ?? null);
+
+  // The tree's file watcher: a file the program wrote into this project joins the tree, or
+  // replaces the one of its name, as it lands.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the nonce is the event; the batch rides with it
+  useEffect(() => {
+    const batch = projectWrites?.files;
+    if (!batch?.length) return;
+
+    setPicked((prev) =>
+      prev
+        ? [
+            ...prev.filter((f) => !batch.some((n) => n.name === f.name)),
+            ...batch.map((f) => ({ ...f })),
+          ]
+        : prev,
+    );
+  }, [projectWrites?.nonce]);
 
   /**
    * `KICAD_MANAGER_FRAME`'s own preload — `CallAfter` on project open, both
@@ -1996,6 +2022,9 @@ export function HomePage({
     openCalculator: () => onOpenCalculator?.(),
     openDrawingSheetEditor: () => onOpenDrawingSheetEditor?.(),
     openPreferences: () => setPrefsOpen(true),
+    showLibraryTable: (aKind) => {
+      if (picked) onShowLibraryTable?.(aKind, picked);
+    },
     showAbout: () => setAboutOpen(true),
     showHotkeys: showHotkeyList,
     openDemo: (id) => void openDemoProject(id),
@@ -2393,8 +2422,14 @@ export function HomePage({
           onOk={(t) => {
             if (!t) {
               // KICAD_MANAGER_CONTROL::NewProject's own answer when the dialog
-              // returns wxID_OK with no template chosen.
-              window.alert('No project template was selected.  Cannot generate new project.');
+              // returns wxID_OK with no template chosen: wxMessageBox( ..., _( "Error" ),
+              // wxOK | wxICON_ERROR ), the program's message box, never the browser's alert,
+              // which stops the whole page until it is answered. The selector has already
+              // ended (ShowModal returned) by then, and NewProject returns -1.
+              setTplStep('none');
+              DisplayErrorMessage(
+                'No project template was selected.  Cannot generate new project.',
+              );
               return;
             }
             // settings->m_RecentTemplates: erase the duplicate, insert at the

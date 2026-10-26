@@ -37,6 +37,7 @@ const handlers = {
   openCalculator: noop,
   openDrawingSheetEditor: noop,
   openPreferences: noop,
+  showLibraryTable: noop,
   showAbout: noop,
   showHotkeys: noop,
   openDemo: noop,
@@ -203,5 +204,41 @@ describe('File > Import Non-KiCad Project', () => {
       item.action?.();
     }
     expect(asked).toEqual(['altium', 'cadstar', 'eagle', 'easyeda', 'easyedapro', 'pads', 'geda']);
+  });
+});
+
+describe('Preferences > Manage Symbol / Footprint Libraries', () => {
+  type Handlers = Parameters<typeof buildManagerMenus>[0];
+  const prefs = (h: Partial<Handlers>) =>
+    buildManagerMenus({ ...handlers, ...h }).find((m) => m.label === 'Preferences')?.items ?? [];
+  const row = (h: Partial<Handlers>, label: string) => prefs(h).find((i) => i.label === label);
+
+  it('opens the library table, as ACTIONS::showSymbolLibTable / showFootprintLibTable do', () => {
+    // kicad/menubar.cpp: prefsMenu->Add( ACTIONS::showSymbolLibTable ); ...FootprintLibTable );
+    // COMMON_CONTROL::ShowLibraryTable puts the table up over the open project.
+    const asked: string[] = [];
+    const h = {
+      showLibraryTable: (k: 'symbol' | 'footprint') => {
+        asked.push(k);
+      },
+    };
+
+    const sym = row(h, 'Manage Symbol Libraries...');
+    const fp = row(h, 'Manage Footprint Libraries...');
+    expect(sym?.disabled).toBe(false);
+    expect(fp?.disabled).toBe(false);
+
+    sym!.action!();
+    fp!.action!();
+    expect(asked).toEqual(['symbol', 'footprint']);
+  });
+
+  it('waits for a project, since the table it writes is the project table', () => {
+    for (const label of ['Manage Symbol Libraries...', 'Manage Footprint Libraries...'])
+      expect(row({ hasProject: false }, label)?.disabled, label).toBe(true);
+  });
+
+  it('keeps Design Block Libraries greyed until its table dialog is ported', () => {
+    expect(row({}, 'Manage Design Block Libraries...')?.disabled).toBe(true);
   });
 });

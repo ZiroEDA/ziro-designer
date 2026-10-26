@@ -1363,12 +1363,22 @@ export function App(): JSX.Element {
    * the library table naming it - where the editor's Save and Add Library write upstream: the
    * project's own folder. A demo takes it for the session only, as its other edits.
    */
+  /**
+   * The files the program wrote into the open project, for the project manager: KiCad's tree
+   * watches the project folder (TREE_PROJECT_FRAME's file watcher), so a library a table dialog
+   * brings in shows the moment it lands. The manager merges each batch into its tree.
+   */
+  const [projectWrites, setProjectWrites] = useState<{
+    files: { name: string; text: string }[];
+    nonce: number;
+  } | null>(null);
   const writeProjectFiles = useCallback(
     (files: { name: string; text: string }[]) => {
       if (files.length === 0) return;
       setProjectFiles((prev) =>
         prev ? [...prev.filter((f) => !files.some((n) => n.name === f.name)), ...files] : prev,
       );
+      setProjectWrites((w) => ({ files, nonce: (w?.nonce ?? 0) + 1 }));
       if (!demoProject) persistFilesNow(files);
     },
     [demoProject, persistFilesNow],
@@ -1847,6 +1857,12 @@ export function App(): JSX.Element {
         activePro={activeProName ?? undefined}
         activeDemo={demoSource}
         onSwitchProject={switchProject}
+        projectWrites={projectWrites}
+        onShowLibraryTable={(kind, files) => {
+          // The tables write into the open project, so the manager's project is the one open.
+          raiseOrOpen(files);
+          setLibTableDialog(kind);
+        }}
         onCloseProject={closeProject}
         onOpenSchematic={() => {
           openProjectFiles(null);

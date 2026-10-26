@@ -800,6 +800,7 @@ function managerFixture(hasProject: boolean) {
     openCalculator: spy('openCalculator'),
     openDrawingSheetEditor: spy('openDrawingSheetEditor'),
     openPreferences: spy('openPreferences'),
+    showLibraryTable: spy('showLibraryTable'),
     showAbout: spy('showAbout'),
     showHotkeys: spy('showHotkeys'),
     openDemo: spy('openDemo'),

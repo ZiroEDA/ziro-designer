@@ -241,6 +241,7 @@ function managerItems(): MenuItem[] {
       openCalculator: noop,
       openDrawingSheetEditor: noop,
       openPreferences: noop,
+      showLibraryTable: noop,
       showAbout: noop,
       showHotkeys: noop,
       openDemo: noop,
