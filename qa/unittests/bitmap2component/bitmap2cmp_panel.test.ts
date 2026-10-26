@@ -9,7 +9,10 @@
  * this machine (qa/probes/wximage_*_probe.cpp) — never from what the port
  * prints. Where a derivation is not obvious it is spelled out beside the value.
  */
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { WX_IMAGE, wxInitAllImageHandlers } from '@ziroeda/wx/wx_image.js';
+import { pngChunk } from '@ziroeda/wx/imagpng.js';
+import { wxStringToDouble } from '@ziroeda/wx/wxstring.js';
 import type { MessageDialogIcon, YesNoResult } from '@ziroeda/common/confirm_types.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
@@ -24,90 +27,101 @@ import {
   SYMBOL_FMT,
   bitmap2cmpSchemaVersion,
   migrateLastModLayer,
-  wxStringToDouble,
   type BITMAP2CMP_FRAME,
   type BITMAP2CMP_FRAME_UI,
   type IMAGE_FILE,
 } from '@ziroeda/bitmap2component';
 
 /* ---------------------------------------------------------------------- */
-/* fixtures: file bytes carrying only what wx reads from the header        */
+/* fixtures: real image files, which wxImage::LoadFile decodes              */
 
-function be32(v: number): number[] {
-  return [(v >>> 24) & 0xff, (v >>> 16) & 0xff, (v >>> 8) & 0xff, v & 0xff];
+type RGBA = [number, number, number, number];
+
+/** A PNG of \a w x \a h pixels from a per-pixel function; an alpha plane when any is < 255. */
+function pngOf(w: number, h: number, px: (x: number, y: number) => RGBA): Uint8Array {
+  const rgb = new Uint8Array(w * h * 3);
+  const alpha = new Uint8Array(w * h);
+
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const [r, g, b, a] = px(x, y);
+      rgb.set([r, g, b], (y * w + x) * 3);
+      alpha[y * w + x] = a;
+    }
+
+  const image = new WX_IMAGE();
+  image.SetData(rgb, w, h);
+
+  if (alpha.some((a) => a < 255)) image.SetAlpha(alpha);
+
+  return image.SaveFilePng()!;
 }
 
-/** A PNG signature and, optionally, a pHYs chunk. The pixels come from `rgba`. */
-function pngBytes(phys?: { x: number; y: number; unit: number }): Uint8Array {
-  const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-  const ihdr = [...be32(13), 0x49, 0x48, 0x44, 0x52, ...new Array(13).fill(0), 0, 0, 0, 0];
-  const chunk = phys
-    ? [...be32(9), 0x70, 0x48, 0x59, 0x73, ...be32(phys.x), ...be32(phys.y), phys.unit, 0, 0, 0, 0]
-    : [];
-  const idat = [...be32(0), 0x49, 0x44, 0x41, 0x54, 0, 0, 0, 0];
-  return new Uint8Array([...sig, ...ihdr, ...chunk, ...idat]);
-}
-
-/** A JPEG with a JFIF APP0 segment. */
-function jpegBytes(units: number, dx: number, dy: number): Uint8Array {
-  return new Uint8Array([
-    0xff,
-    0xd8,
-    0xff,
-    0xe0,
-    0x00,
-    0x10,
-    0x4a,
-    0x46,
-    0x49,
-    0x46,
-    0x00,
-    0x01,
-    0x01,
-    units,
-    dx >> 8,
-    dx & 0xff,
-    dy >> 8,
-    dy & 0xff,
-    0,
-    0,
-    0xff,
-    0xd9,
-  ]);
-}
-
-/** A BMP with a BITMAPINFOHEADER carrying the pixels-per-metre. */
-function bmpBytes(ppm: number): Uint8Array {
-  const b = new Uint8Array(14 + 40);
-  b[0] = 0x42;
-  b[1] = 0x4d;
-  const dv = new DataView(b.buffer);
-  dv.setUint32(14 + 24, ppm, true);
-  dv.setUint32(14 + 28, ppm, true);
-  return b;
-}
-
-const gifBytes = (): Uint8Array => new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0, 0]);
-
-/** RGBA pixels from a per-pixel function. */
-function rgba(
-  w: number,
-  h: number,
-  px: (x: number, y: number) => [number, number, number, number],
-): IMAGE_FILE['rgba'] {
-  const data = new Uint8ClampedArray(w * h * 4);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) data.set(px(x, y), (y * w + x) * 4);
-  return { data, width: w, height: h };
+/** \a png with a pHYs chunk of exactly these values put in after its IHDR. */
+function withPhys(png: Uint8Array, x: number, y: number, unit: number): Uint8Array {
+  const body = new Uint8Array(9);
+  const dv = new DataView(body.buffer);
+  dv.setUint32(0, x);
+  dv.setUint32(4, y);
+  body[8] = unit;
+  const ihdrEnd = 8 + 8 + 13 + 4;
+  const chunk = pngChunk('pHYs', body);
+  return new Uint8Array([...png.subarray(0, ihdrEnd), ...chunk, ...png.subarray(ihdrEnd)]);
 }
 
 /** 24 x 24, a black square filling [6,18)^2 on white: the README's square. */
-const square24 = (bytes = pngBytes()): IMAGE_FILE => ({
-  name: 'logo.png',
-  bytes,
-  rgba: rgba(24, 24, (x, y) =>
-    x >= 6 && x < 18 && y >= 6 && y < 18 ? [0, 0, 0, 255] : [255, 255, 255, 255],
-  ),
-});
+const squarePx = (x: number, y: number): RGBA =>
+  x >= 6 && x < 18 && y >= 6 && y < 18 ? [0, 0, 0, 255] : [255, 255, 255, 255];
+const squarePng = (): Uint8Array => pngOf(24, 24, squarePx);
+
+/** The square as a JPEG whose JFIF APP0 says \a units, \a dx x \a dy (libjpeg's layout). */
+function jpegWithJfif(units: number, dx: number, dy: number): Uint8Array {
+  const image = new WX_IMAGE();
+  image.LoadFile(squarePng());
+  const jpg = image.SaveFileJpeg()!;
+  jpg[13] = units;
+  jpg.set([dx >> 8, dx & 0xff, dy >> 8, dy & 0xff], 14);
+  return jpg;
+}
+
+/** The square as a 24-bit BMP with \a ppm pixels per metre. */
+function bmpWithPpm(ppm: number): Uint8Array {
+  const w = 24;
+  const h = 24;
+  const stride = w * 3;
+  const b = new Uint8Array(14 + 40 + stride * h);
+  const dv = new DataView(b.buffer);
+  b.set([0x42, 0x4d]);
+  dv.setUint32(2, b.length, true);
+  dv.setUint32(10, 54, true);
+  dv.setUint32(14, 40, true);
+  dv.setInt32(18, w, true);
+  dv.setInt32(22, h, true);
+  dv.setUint16(26, 1, true);
+  dv.setUint16(28, 24, true);
+  dv.setUint32(14 + 24, ppm, true);
+  dv.setUint32(14 + 28, ppm, true);
+
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const [r, g, bl] = squarePx(x, h - 1 - y); // bottom-up
+      b.set([bl, g, r], 54 + y * stride + x * 3);
+    }
+
+  return b;
+}
+
+/** The classic 1 x 1 transparent GIF: index 0 is the transparent colour. */
+const transparentGif = (): Uint8Array =>
+  new Uint8Array([
+    0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 1, 0, 1, 0, 0x80, 0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0x21,
+    0xf9, 4, 1, 0, 0, 0, 0, 0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 2, 0x44, 1, 0, 0x3b,
+  ]);
+
+const square24 = (bytes = squarePng()): IMAGE_FILE => ({ name: 'logo.png', bytes });
+
+// PGM_BASE::InitPgm registers the image handlers before any frame opens a file.
+beforeAll(() => wxInitAllImageHandlers());
 
 /* ---------------------------------------------------------------------- */
 /* a window stand-in                                                       */
@@ -306,44 +320,44 @@ describe('the image resolution wx hands OpenProjectFiles', () => {
 
   it('PNG pHYs in metres: wx gives trunc( ppm / 100 ) per cm, KiCad KiROUND( x 2.54 ): 72 DPI reads 71', () => {
     // 2835 ppm -> wx 28 (measured) -> KiROUND( 71.12 ) = 71
-    expect(ppi(pngBytes({ x: 2835, y: 2835, unit: 1 }))).toEqual(['71', '71']);
+    expect(ppi(withPhys(squarePng(), 2835, 2835, 1))).toEqual(['71', '71']);
     // 11811 -> 118 -> 299.72 -> 300; 3780 -> 37 -> 93.98 -> 94; 7874 -> 78 -> 198.12 -> 198
-    expect(ppi(pngBytes({ x: 11811, y: 11811, unit: 1 }))).toEqual(['300', '300']);
-    expect(ppi(pngBytes({ x: 3780, y: 7874, unit: 1 }))).toEqual(['94', '198']);
+    expect(ppi(withPhys(squarePng(), 11811, 11811, 1))).toEqual(['300', '300']);
+    expect(ppi(withPhys(squarePng(), 3780, 7874, 1))).toEqual(['94', '198']);
   });
 
   it('PNG pHYs of unknown unit is passed through as-is, and taken as DPI when both exceed 1', () => {
-    expect(ppi(pngBytes({ x: 5, y: 7, unit: 0 }))).toEqual(['5', '7']);
+    expect(ppi(withPhys(squarePng(), 5, 7, 0))).toEqual(['5', '7']);
   });
 
   it('no resolution at all is DEFAULT_DPI', () => {
-    expect(ppi(pngBytes())).toEqual([String(DEFAULT_DPI), String(DEFAULT_DPI)]);
+    expect(ppi(squarePng())).toEqual([String(DEFAULT_DPI), String(DEFAULT_DPI)]);
   });
 
   it('JPEG JFIF: inches as-is, cm x 2.54, and a unitless density as-is too', () => {
-    expect(ppi(jpegBytes(1, 72, 72))).toEqual(['72', '72']);
-    expect(ppi(jpegBytes(2, 118, 118))).toEqual(['300', '300']);
-    expect(ppi(jpegBytes(0, 72, 72))).toEqual(['72', '72']);
+    expect(ppi(jpegWithJfif(1, 72, 72))).toEqual(['72', '72']);
+    expect(ppi(jpegWithJfif(2, 118, 118))).toEqual(['300', '300']);
+    expect(ppi(jpegWithJfif(0, 72, 72))).toEqual(['72', '72']);
     // 1 x 1 is not > 1: DEFAULT_DPI
-    expect(ppi(jpegBytes(0, 1, 1))).toEqual(['300', '300']);
+    expect(ppi(jpegWithJfif(0, 1, 1))).toEqual(['300', '300']);
   });
 
   it('BMP pixels per metre, as PNG: 3780 is 94', () => {
-    expect(ppi(bmpBytes(3780))).toEqual(['94', '94']);
+    expect(ppi(bmpWithPpm(3780))).toEqual(['94', '94']);
   });
 
   it("refuses a format wx has no handler for, with wx's own words", () => {
     const { ui, frame } = makeFrame();
-    const webp = { ...square24(), bytes: new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0]) };
+    const webp = { name: 'a.webp', bytes: new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0]) };
     expect(frame.OpenProjectFiles([webp])).toBe(false);
     expect(ui.messages[0]!.message).toContain('Unknown image data format.');
   });
 });
 
 describe('greyscale and black & white', () => {
-  const grey = (px: [number, number, number, number], bytes = pngBytes()): number => {
+  const grey = (px: RGBA): number => {
     const { frame } = makeFrame();
-    frame.OpenProjectFiles([{ name: 'a.png', bytes, rgba: rgba(1, 1, () => px) }]);
+    frame.OpenProjectFiles([{ name: 'a.png', bytes: pngOf(1, 1, () => px) }]);
     return frame.GetPanel().m_Greyscale_Image!.GetGreen(0, 0);
   };
 
@@ -355,9 +369,9 @@ describe('greyscale and black & white', () => {
   });
 
   it('binarize: threshold 50 is 127 grey levels, the alpha cut 0.7 * 127 = 88, both truncated', () => {
-    const bw = (px: [number, number, number, number]): number => {
+    const bw = (px: RGBA): number => {
       const { frame } = makeFrame();
-      frame.OpenProjectFiles([{ name: 'a.png', bytes: pngBytes(), rgba: rgba(1, 1, () => px) }]);
+      frame.OpenProjectFiles([{ name: 'a.png', bytes: pngOf(1, 1, () => px) }]);
       return frame.GetPanel().m_NB_Image!.GetGreen(0, 0);
     };
     expect(bw([126, 126, 126, 255])).toBe(0);
@@ -370,13 +384,12 @@ describe('greyscale and black & white', () => {
     // wximage_transparency_probe: wx turns a GIF transparency into a mask, and
     // OpenProjectFiles paints masked pixels white; negateGreyscaleImage then
     // makes them 0, which binarize keeps (there is no alpha to gate them).
-    const gif = { name: 't.gif', bytes: gifBytes(), rgba: rgba(1, 1, () => [0, 0, 0, 0]) };
     const { frame } = makeFrame({ negative: true });
-    frame.OpenProjectFiles([gif]);
+    frame.OpenProjectFiles([{ name: 't.gif', bytes: transparentGif() }]);
     expect(frame.GetPanel().m_NB_Image!.GetGreen(0, 0)).toBe(0);
     // the same transparent pixel in a PNG is alpha, and alpha gates it out
     const { frame: f2 } = makeFrame({ negative: true });
-    f2.OpenProjectFiles([{ ...gif, name: 't.png', bytes: pngBytes() }]);
+    f2.OpenProjectFiles([{ name: 't.png', bytes: pngOf(1, 1, () => [0, 0, 0, 0]) }]);
     expect(f2.GetPanel().m_NB_Image!.GetGreen(0, 0)).toBe(255);
   });
 
@@ -384,7 +397,7 @@ describe('greyscale and black & white', () => {
     const bpp = (a: number): string => {
       const { frame } = makeFrame();
       frame.OpenProjectFiles([
-        { name: 'a.png', bytes: pngBytes(), rgba: rgba(2, 1, (x) => [0, 0, 0, x ? a : 255]) },
+        { name: 'a.png', bytes: pngOf(2, 1, (x) => [0, 0, 0, x ? a : 255]) },
       ]);
       return frame.GetPanel().m_BPPValue;
     };
@@ -521,7 +534,7 @@ describe('exports', () => {
 
   it('shows the converter\'s report in a box captioned "Errors"', () => {
     const { ui, frame } = makeFrame({ last_format: FOOTPRINT_FMT });
-    const blank = { ...square24(), rgba: rgba(4, 4, () => [255, 255, 255, 255]) };
+    const blank = square24(pngOf(4, 4, () => [255, 255, 255, 255]));
     frame.OpenProjectFiles([blank]);
     frame.GetPanel().OnExportToFile();
     expect(ui.messages).toEqual([
@@ -582,7 +595,7 @@ describe('the frame: open, title, status bar, history', () => {
 
   it('a failed load still takes the file name (m_srcFileName is set first)', () => {
     const { ui, frame } = makeFrame();
-    const bad = { name: 'bad.png', bytes: new Uint8Array(4), rgba: null };
+    const bad = { name: 'bad.png', bytes: new Uint8Array(4) };
     expect(frame.OpenProjectFiles([bad])).toBe(false);
     expect(frame.GetTitle()).toBe('bad.png — Image Converter');
     expect(ui.history).toEqual([]);
@@ -608,7 +621,7 @@ describe('DROP_FILE', () => {
     const { ui, frame } = makeFrame();
     frame.OpenProjectFiles([square24()]);
     ui.answer = 'no';
-    const other = { ...square24(), rgba: rgba(10, 5, () => [0, 0, 0, 255]) };
+    const other = square24(pngOf(10, 5, () => [0, 0, 0, 255]));
     expect(await frame.GetDropTarget().OnDropFiles([other])).toBe(false);
     expect(ui.questions).toEqual(['There is already a file loaded. Do you want to replace it?']);
     // KICAD_MESSAGE_DIALOG( ..., cap, wxYES_NO | wxICON_QUESTION | wxYES_DEFAULT )

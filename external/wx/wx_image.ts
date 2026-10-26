@@ -53,6 +53,10 @@ export const wxIMAGE_OPTION_RESOLUTIONX = 'ResolutionX';
 export const wxIMAGE_OPTION_RESOLUTIONY = 'ResolutionY';
 export const wxIMAGE_OPTION_RESOLUTIONUNIT = 'ResolutionUnit';
 export const wxIMAGE_OPTION_RESOLUTION = 'Resolution';
+
+/** `wxALPHA_TRANSPARENT` / `wxALPHA_OPAQUE` (wx/image.h). */
+export const wxALPHA_TRANSPARENT = 0;
+export const wxALPHA_OPAQUE = 255;
 export const wxIMAGE_OPTION_QUALITY = 'quality';
 
 /** wxJPEGHandler's libjpeg, once `wxInitAllImageHandlers` has instantiated it. */
@@ -248,6 +252,11 @@ export class WX_IMAGE {
 
     this.SetData(rgb, aWidth, aHeight);
     return this.IsOk();
+  }
+
+  /** `wxImage::Copy`: an image of its own, as a deep copy. */
+  Copy(): WX_IMAGE {
+    return new WX_IMAGE(this);
   }
 
   /** `wxImage::ClearAlpha`: no alpha plane. */
@@ -974,4 +983,13 @@ function unfilter(aType: number, aLine: Uint8Array, aPrev: Uint8Array, aBpp: num
     default:
       throw new Error(`PNG: unknown filter type ${aType}`);
   }
+}
+
+/**
+ * `wxBitmap( image ).GetDepth()` on wxGTK: 32 with an alpha channel, 24 without. Probed against
+ * wxGTK 3.2 for bitmap2component's BPP readout: an RGBA PNG opaque everywhere reports 24, one
+ * with a transparent or half-transparent pixel 32 - wx's PNG handler drops an all-opaque plane.
+ */
+export function wxBitmapDepth(aImage: WX_IMAGE): number {
+  return aImage.HasAlpha() ? 32 : 24;
 }

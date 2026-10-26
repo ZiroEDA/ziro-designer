@@ -29,7 +29,7 @@ import {
   SYMBOL_FMT,
   type OUTPUT_FMT_ID,
 } from './bitmap2component.js';
-import type { wxImage } from './wx.js';
+import type { WX_IMAGE } from '@ziroeda/wx/wx_image.js';
 
 /** The Output Format radios, in `fgSizer2` order, with the Layer row after Footprint. [data] */
 const FORMATS: { id: OUTPUT_FMT_ID; label: string }[] = [
@@ -45,32 +45,10 @@ const THRESHOLD_TOOLTIP =
 
 /**
  * Read a file the browser hands over (the file dialog or a drop) into what
- * `OpenProjectFiles` takes: its bytes, and the browser's decode of them, or
- * null where the browser cannot decode it at all.
+ * `OpenProjectFiles` takes: its name and its bytes, which wxImage::LoadFile decodes.
  */
 export async function readImageFile(aFile: Blob & { name: string }): Promise<IMAGE_FILE> {
-  const bytes = new Uint8Array(await aFile.arrayBuffer());
-
-  try {
-    const bmp = await createImageBitmap(new Blob([bytes], { type: aFile.type }));
-    const cv = document.createElement('canvas');
-    cv.width = bmp.width;
-    cv.height = bmp.height;
-    const cx = cv.getContext('2d');
-
-    if (!cx) return { name: aFile.name, bytes, rgba: null };
-
-    cx.drawImage(bmp, 0, 0);
-    bmp.close();
-    const img = cx.getImageData(0, 0, cv.width, cv.height);
-    return {
-      name: aFile.name,
-      bytes,
-      rgba: { data: img.data, width: img.width, height: img.height },
-    };
-  } catch {
-    return { name: aFile.name, bytes, rgba: null };
-  }
+  return { name: aFile.name, bytes: new Uint8Array(await aFile.arrayBuffer()) };
 }
 
 /**
@@ -79,7 +57,7 @@ export async function readImageFile(aFile: Blob & { name: string }): Promise<IMA
  * pane, so the preview is 1:1 and the pane scrolls. A masked pixel, and an
  * alpha one, show the page through.
  */
-function paintPage(cv: HTMLCanvasElement | null, bmp: wxImage | null): void {
+function paintPage(cv: HTMLCanvasElement | null, bmp: WX_IMAGE | null): void {
   if (!cv || !bmp || !bmp.IsOk()) return;
 
   const w = bmp.GetWidth();

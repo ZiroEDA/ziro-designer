@@ -21,6 +21,7 @@
  * the canvas holds the pixels.
  */
 
+import { wxALPHA_OPAQUE, wxALPHA_TRANSPARENT } from '@ziroeda/wx/wx_image.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
@@ -101,10 +102,6 @@ import { CAIRO_COMPOSITOR } from './cairo_compositor.js';
 const { TARGET_CACHED, TARGET_NONCACHED, TARGET_OVERLAY, TARGET_TEMP } = RENDER_TARGET;
 
 const COLOR4D = (r: number, g: number, b: number, a: number): Color4d => ({ r, g, b, a });
-
-/** `wxALPHA_OPAQUE` / `wxALPHA_TRANSPARENT`. */
-const wxALPHA_OPAQUE = 255;
-const wxALPHA_TRANSPARENT = 0;
 
 /// Definitions for the command recorder
 export enum GRAPHICS_COMMAND {

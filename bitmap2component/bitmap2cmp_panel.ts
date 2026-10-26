@@ -36,15 +36,15 @@ import {
   type STRING_BUFFER,
 } from './bitmap2component.js';
 import {
+  WX_IMAGE,
   wxALPHA_OPAQUE,
   wxBitmapDepth,
   wxIMAGE_OPTION_RESOLUTIONUNIT,
   wxIMAGE_OPTION_RESOLUTIONX,
   wxIMAGE_OPTION_RESOLUTIONY,
-  wxIMAGE_RESOLUTION_CM,
-  wxImage,
-  wxStringToDouble,
-} from './wx.js';
+  wxImageResolution,
+} from '@ziroeda/wx/wx_image.js';
+import { wxStringToDouble } from '@ziroeda/wx/wxstring.js';
 
 /** the image DPI used in formats that do not define a DPI [data] */
 export const DEFAULT_DPI = 300;
@@ -231,17 +231,12 @@ export interface BITMAP2CMP_PANEL_UI {
   Refresh(): void;
 }
 
-/** A file handed to `OpenProjectFiles`: its name and its bytes, decoded or not. */
+/** A file handed to `OpenProjectFiles`: its name and its bytes, which wxImage::LoadFile reads. */
 export interface IMAGE_FILE {
   /** The full name, as the file chooser or the drop gives it. */
   name: string;
   /** The file's bytes. */
   bytes: Uint8Array;
-  /**
-   * The browser's decode (a canvas's RGBA), or null when it could not
-   * decode the file at all.
-   */
-  rgba: { data: Uint8ClampedArray; width: number; height: number } | null;
 }
 
 export class BITMAP2CMP_PANEL {
@@ -283,13 +278,13 @@ export class BITMAP2CMP_PANEL {
   m_buttonExportClipboardEnabled = true;
 
   /* ---- BITMAP2CMP_PANEL's own members ---- */
-  m_Pict_Image: wxImage | null = null;
+  m_Pict_Image: WX_IMAGE | null = null;
   /** `m_Pict_Bitmap`: the image, and its depth as `wxBitmap` reports it. */
-  m_Pict_Bitmap: { image: wxImage; depth: number } | null = null;
-  m_Greyscale_Image: wxImage | null = null;
-  m_Greyscale_Bitmap: wxImage | null = null;
-  m_NB_Image: wxImage | null = null;
-  m_BN_Bitmap: wxImage | null = null;
+  m_Pict_Bitmap: { image: WX_IMAGE; depth: number } | null = null;
+  m_Greyscale_Image: WX_IMAGE | null = null;
+  m_Greyscale_Bitmap: WX_IMAGE | null = null;
+  m_NB_Image: WX_IMAGE | null = null;
+  m_BN_Bitmap: WX_IMAGE | null = null;
   private m_outputSizeX = new IMAGE_SIZE();
   private m_outputSizeY = new IMAGE_SIZE();
   private m_negative: boolean;
@@ -375,11 +370,9 @@ export class BITMAP2CMP_PANEL {
     this.m_Pict_Image = null;
 
     const file = aFileSet[0]!;
-    const image = file.rgba
-      ? wxImage.Load(file.bytes, file.rgba.data, file.rgba.width, file.rgba.height)
-      : null;
+    const image = new WX_IMAGE();
 
-    if (!image) {
+    if (!image.LoadFile(file.bytes)) {
       // LoadFile has its own UI, no need for further failure notification here
       this.m_ui.MessageBox(
         `Unknown image data format.\nFailed to load image from file "${file.name}".`,
@@ -398,7 +391,10 @@ export class BITMAP2CMP_PANEL {
     let imageDPIy = image.GetOptionInt(wxIMAGE_OPTION_RESOLUTIONY);
 
     if (imageDPIx > 1 && imageDPIy > 1) {
-      if (image.GetOptionInt(wxIMAGE_OPTION_RESOLUTIONUNIT) === wxIMAGE_RESOLUTION_CM) {
+      if (
+        image.GetOptionInt(wxIMAGE_OPTION_RESOLUTIONUNIT) ===
+        wxImageResolution.wxIMAGE_RESOLUTION_CM
+      ) {
         imageDPIx = KiROUNDInt(imageDPIx * 2.54);
         imageDPIy = KiROUNDInt(imageDPIy * 2.54);
       }

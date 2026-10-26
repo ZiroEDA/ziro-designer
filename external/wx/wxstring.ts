@@ -52,3 +52,31 @@ export function wxMatches(aText: string, aPattern: string): boolean {
 
   return new RegExp(`^${re}$`, 'u').test(aText);
 }
+
+/**
+ * `wxString::ToDouble( &val )`: `strtod` over the whole string. True only when
+ * the scan reaches the end of a non-empty string and no over- or underflow
+ * (ERANGE) occurred. Returns the value, or null for false. Leading blanks are
+ * skipped, trailing ones are not; `inf`, `infinity` and `nan` convert, as C's
+ * strtod converts them.
+ */
+export function wxStringToDouble(aText: string): number | null {
+  const m =
+    /^[ \t\n\v\f\r]*([+-]?)(?:(inf(?:inity)?|nan)|((?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?))$/i.exec(
+      aText,
+    );
+
+  if (!m) return null;
+
+  const sign = m[1] === '-' ? -1 : 1;
+
+  if (m[2]) return /^nan$/i.test(m[2]) ? Number.NaN : sign * Infinity;
+
+  const v = sign * Number(m[3]);
+
+  if (!Number.isFinite(v)) return null; // overflow: ERANGE
+
+  if (v === 0 && /[1-9]/.test(m[3]!.split(/[eE]/)[0]!)) return null; // underflow: ERANGE
+
+  return v;
+}

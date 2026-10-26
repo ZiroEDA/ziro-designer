@@ -11,4 +11,3 @@ export * from './bitmap2cmp_panel.js';
 export * from './bitmap2cmp_frame.js';
 export * from './bitmap2cmp_control.js';
 export * from './bitmap2cmp_main.js';
-export * from './wx.js';

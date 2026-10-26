@@ -11,12 +11,8 @@
  * We don't build the `easyeda`/`easyedapro` `sch_io` plugins (see
  * `eeschema/STRUCTURE.md`: only `kicad_legacy` and `kicad_sexpr` are ported),
  * so this has no caller here either — ported so the quantize/trace math
- * exists once a raster-embedding importer does. `ConvertImageToPolygons`
- * takes a minimal structural `ImportRasterImage` rather than the `wxImage`
- * class `bitmap2component/wx.ts` keeps (that class has no `SetAlpha`, and
- * pulling `bitmap2component` in as an `eeschema` dependency for one shape
- * would run the wrong direction); a real caller adapts its own decoded image
- * to this shape.
+ * exists once a raster-embedding importer does. It takes the shared
+ * `wxImage` (`WX_IMAGE`), as the C++ takes `wxImage&`.
  *
  * `ConvertSVGToLibShapes` (gfx_import_utils.cpp:146) is not ported: it isn't
  * even declared in `gfx_import_utils.h` upstream and has zero callers
@@ -33,23 +29,7 @@ import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-
-/**
- * The minimal `wxImage` surface `ConvertImageToPolygons` reads/writes: pixel
- * dimensions, an RGB(A) getter/setter per pixel, and whether the image has an
- * alpha channel at all.
- */
-export interface ImportRasterImage {
-  GetWidth(): number;
-  GetHeight(): number;
-  HasAlpha(): boolean;
-  GetRed(x: number, y: number): number;
-  GetGreen(x: number, y: number): number;
-  GetBlue(x: number, y: number): number;
-  GetAlpha(x: number, y: number): number;
-  SetRGB(x: number, y: number, r: number, g: number, b: number): void;
-  SetAlpha(x: number, y: number, a: number): void;
-}
+import type { WX_IMAGE } from '@ziroeda/wx/wx_image.js';
 
 /**
  * `ConvertImageToPolygons` (gfx_import_utils.cpp:31): quantize `img`'s
@@ -60,7 +40,7 @@ export interface ImportRasterImage {
  * matching the C++ `uint32_t` map key.
  */
 export function ConvertImageToPolygons(
-  img: ImportRasterImage,
+  img: WX_IMAGE,
   pixelScale: Vec2,
 ): Map<number, SHAPE_POLY_SET> {
   const hasAlpha = img.HasAlpha();
@@ -141,7 +121,7 @@ export function ConvertImageToPolygons(
 export function ConvertImageToLibShapes(
   aSymbol: LIB_SYMBOL,
   unit: number,
-  img: ImportRasterImage,
+  img: WX_IMAGE,
   pixelScale: Vec2,
   offset: Vec2,
 ): void {

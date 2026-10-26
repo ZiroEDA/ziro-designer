@@ -15,6 +15,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { type JSX, useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { WX_IMAGE } from '@ziroeda/wx/wx_image.js';
 import type { YesNoResult } from '@ziroeda/common/confirm_types.js';
 import {
   CreateKiWindow,
@@ -28,16 +29,14 @@ import { Bitmap2cmpPanel } from '@ziroeda/bitmap2component/bitmap2cmp_panel_ui.j
 
 afterEach(cleanup);
 
-const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]);
-
+/** 24 x 24, a black square filling [6,18)^2 on white, as a real PNG. */
 function square(): IMAGE_FILE {
-  const data = new Uint8ClampedArray(24 * 24 * 4);
-  for (let y = 0; y < 24; y++)
-    for (let x = 0; x < 24; x++) {
-      const on = x >= 6 && x < 18 && y >= 6 && y < 18;
-      data.set(on ? [0, 0, 0, 255] : [255, 255, 255, 255], (y * 24 + x) * 4);
-    }
-  return { name: 'logo.png', bytes: PNG, rgba: { data, width: 24, height: 24 } };
+  const rgb = new Uint8Array(24 * 24 * 3).fill(255);
+  for (let y = 6; y < 18; y++)
+    for (let x = 6; x < 18; x++) rgb.fill(0, (y * 24 + x) * 3, (y * 24 + x) * 3 + 3);
+  const image = new WX_IMAGE();
+  image.SetData(rgb, 24, 24);
+  return { name: 'logo.png', bytes: image.SaveFilePng()! };
 }
 
 /** The window, as ImageConverter.tsx hosts it: a frame and a version counter. */

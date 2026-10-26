@@ -265,8 +265,7 @@ file's own doc comment) — that's a UI-wiring gap, not a missing port:
   whole. Still nothing produces the brace-wrapped multi-line pin-number
   string it lays out.
 - `gfx_import_utils.ts` (`ConvertImageToPolygons`/`ConvertImageToLibShapes`):
-  ported against a minimal structural `ImportRasterImage` interface, not
-  `bitmap2component/wx.ts`'s `wxImage`. `ConvertSVGToLibShapes` is not
+  ported on the shared `WX_IMAGE`. `ConvertSVGToLibShapes` is not
   ported — undeclared in the upstream header and callerless there too.
 - `symbol_checker.ts` (`CheckLibSymbol`/`CheckDuplicatePins`/
   `CheckLibSymbolGraphics`): ported whole, reusing `LIB_SYMBOL.GetLogicalPins`

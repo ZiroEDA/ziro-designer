@@ -40,7 +40,6 @@ export const TREE_EXCEPTIONS: Record<string, string> = {
     "UNAUDITED: no KiCad file of this name - port it under KiCad's name, fold it into its owner, or justify it here",
   '3d-viewer/viewer3d_types.ts':
     "UNAUDITED: no KiCad file of this name - port it under KiCad's name, fold it into its owner, or justify it here",
-  'bitmap2component/wx.ts': 'MISPLACED: not KiCad code (wx) - fold into external/wx',
   'common/bitmap_store_actions.ts':
     "UNAUDITED: no KiCad file of this name - port it under KiCad's name, fold it into its owner, or justify it here",
   'common/browser_hotkeys.ts':

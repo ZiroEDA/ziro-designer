@@ -12,6 +12,7 @@
  */
 
 import { type wxMemoryInputStream, wxInvalidOffset, wxSeekMode, wxStreamError } from './mstream.js';
+import { wxALPHA_TRANSPARENT } from './wx_image.js';
 
 /** What `LoadBMPData` does to the image: wxImage's Create, alpha, mask and options. */
 export interface BMP_IMAGE_SINK {
@@ -31,7 +32,6 @@ const BI_RLE8 = 1;
 const BI_RLE4 = 2;
 const BI_BITFIELDS = 3;
 
-const wxALPHA_TRANSPARENT = 0;
 const wxIMAGE_RESOLUTION_CM = 2;
 
 interface BMPPalette {
