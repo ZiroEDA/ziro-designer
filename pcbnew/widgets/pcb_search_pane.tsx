@@ -21,9 +21,7 @@
  */
 
 import { type JSX, useEffect, useMemo, useRef, useState } from 'react';
-import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
-import { SEARCH_PANE, SEARCH_PANE_SELECTION_ZOOM } from '@ziroeda/common/settings/app_settings.js';
-import { SearchPane } from '@ziroeda/common/widgets/search_pane.js';
+import { SearchPane, searchPaneConfig } from '@ziroeda/common/widgets/search_pane.js';
 import type { SearchPaneMenuState } from '@ziroeda/common/widgets/search_pane_types.js';
 import { type BOARD, BOARD_LISTENER } from '../board.js';
 import type { BOARD_ITEM } from '../board_item.js';
@@ -145,22 +143,6 @@ interface Props {
   onMenuStateChange: (next: SearchPaneMenuState) => void;
   /** The units label; a change is `EDA_EVT_UNITS_CHANGED`. */
   units: string;
-}
-
-/** `menuState` as the `m_SearchPane` settings the handlers read from `config()`. */
-function searchPaneConfig(aMenu: SearchPaneMenuState): Pick<APP_SETTINGS_BASE, 'm_SearchPane'> {
-  const pane = new SEARCH_PANE();
-
-  pane.selection_zoom =
-    aMenu.selectionZoom === 'zoom'
-      ? SEARCH_PANE_SELECTION_ZOOM.ZOOM
-      : aMenu.selectionZoom === 'pan'
-        ? SEARCH_PANE_SELECTION_ZOOM.PAN
-        : SEARCH_PANE_SELECTION_ZOOM.NONE;
-  pane.search_hidden_fields = aMenu.searchHiddenFields;
-  pane.search_metadata = aMenu.searchMetadata;
-
-  return { m_SearchPane: pane };
 }
 
 export function PcbSearchPane({

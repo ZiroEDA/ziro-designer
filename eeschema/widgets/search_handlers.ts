@@ -2,208 +2,520 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `eeschema/widgets/search_handlers.cpp` + `sch_search_pane.cpp`: the four
- * `SCH_SEARCH_HANDLER` subclasses `SCH_SEARCH_PANE`'s constructor adds, in
- * this order — `SYMBOL_SEARCH_HANDLER`, `POWER_SEARCH_HANDLER`,
- * `TEXT_SEARCH_HANDLER`, `LABEL_SEARCH_HANDLER` — over the common
- * `SEARCH_HANDLER` contract (`common/widgets/search_pane.tsx`).
+ * `eeschema/widgets/search_handlers.cpp`: `SCH_SEARCH_HANDLER` and the five handlers
+ * `SCH_SEARCH_PANE` adds - symbols, power symbols, text, labels and groups - over the live
+ * SCHEMATIC, on the common `SEARCH_HANDLER` contract (`common/widgets/search_pane_types.ts`).
  *
- * The four share one implementation here (`SchSearchHandler`) because they
- * share one implementation upstream too: every `Search()` override calls the
- * same `FindAll` and differs only in its predicate and its columns, and the
- * predicates already live, tested, in `eeschema/tools/search_handlers.ts`
- * (`searchSchematic` classifies every hit into exactly one of `SearchKind`,
- * which the four handlers below only need to filter by). `Sort` and
- * `GetResultCell` are `SCH_SEARCH_HANDLER`'s own shared bodies
- * (search_handlers.cpp:69-100, :49-63) and are one method here for the same
- * reason.
- *
- * ## `GROUP_SEARCH_HANDLER` is not ported
- *
- * Upstream adds a fifth handler for `SCH_GROUP`. This engine's selection
- * model has no group entry: `ItemRef['kind']` (`eeschema/tools/hittest.ts`)
- * has no `'group'`, because `scene_bbox.ts` groups carry no geometry or
- * selectable identity of their own — "each member already contributes its
- * own box, so giving the group one too would double-count". A "Groups" tab
- * could still list hits, but `SelectItems` would have nothing on the canvas
- * to select or pan to: a tab that searches but cannot act on its own results
- * is worse than the honest gap, so it is left out rather than half-built.
- *
- * ## Wiring, not upstream
- *
- * `SelectItems` upstream reaches through `m_frame` for the tool manager, the
- * config and the canvas. This has none of those, so the callbacks and the
- * live selection it needs are handed in as `SchSearchWiring`, read through a
- * ref so the four handler objects stay the same instances across a
- * selection change — matching upstream's handlers, which are constructed
- * once and live for the frame's lifetime, not rebuilt on every pick.
+ * Every handler walks each screen's client sheet paths (`FindAll`), matches with the items' own
+ * `Matches( SCH_SEARCH_DATA )`, and `SelectItems` goes through the frame's tool manager:
+ * `changeSheet` to the hits' sheet when they share one, `selectItems`, then the pan or zoom the
+ * search pane's settings ask for.
  */
+
+import { EDA_SEARCH_MATCH_MODE, SCH_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
+import { SEARCH_PANE_SELECTION_ZOOM } from '@ziroeda/common/settings/app_settings.js';
 import { strNumCmp } from '@ziroeda/common/string_utils.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import type { SearchColumn, SearchHandler } from '@ziroeda/common/widgets/search_pane_types.js';
-import type { LibSymbol, Schematic, Vec2 } from '../types.js';
-import {
-  hitsOfKind,
-  searchSchematic,
-  type SearchHit,
-  type SearchKind,
-  type ValueFormatter,
-} from '../tools/search_handlers.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { SCH_GROUP } from '../sch_group.js';
+import type { SCH_ITEM } from '../sch_item.js';
+import type { SCH_LABEL_BASE } from '../sch_label.js';
+import { SCH_SCREENS } from '../sch_screen.js';
+import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
+import type { SCH_SYMBOL } from '../sch_symbol.js';
+import type { SCH_TEXT } from '../sch_text.js';
+import type { SCH_TEXTBOX } from '../sch_textbox.js';
+import type { SCHEMATIC } from '../schematic.js';
+import { SCH_ACTIONS } from '../tools/sch_actions.js';
 
-/**
- * `GetColumns()`'s `std::tuple<wxString, int, wxListColumnFormat>` for the
- * columns this engine actually produces cells for
- * (`eeschema/tools/search_handlers.ts`'s `SEARCH_COLUMNS`, which is missing
- * `Page` and the symbol tab's attribute/library columns — "the panel has
- * nowhere to put them yet"). Proportions and alignment are upstream's own
- * values for the columns kept, not renormalised or invented
- * (search_handlers.cpp:160-172, 259-263, 334-338, 422-426).
- */
-const COLUMNS: Record<SearchKind, readonly SearchColumn[]> = {
-  symbol: [
-    { name: 'Reference', proportion: 2, align: 'left' },
-    { name: 'Value', proportion: 6, align: 'left' },
-    { name: 'Footprint', proportion: 10, align: 'left' },
-    { name: 'X', proportion: 3, align: 'center' },
-    { name: 'Y', proportion: 3, align: 'center' },
-  ],
-  power: [
-    { name: 'Reference', proportion: 2, align: 'left' },
-    { name: 'Value', proportion: 6, align: 'left' },
-    { name: 'X', proportion: 3, align: 'center' },
-    { name: 'Y', proportion: 3, align: 'center' },
-  ],
-  text: [
-    { name: 'Type', proportion: 2, align: 'left' },
-    { name: 'Text', proportion: 12, align: 'left' },
-    { name: 'X', proportion: 3, align: 'center' },
-    { name: 'Y', proportion: 3, align: 'center' },
-  ],
-  label: [
-    { name: 'Type', proportion: 2, align: 'left' },
-    { name: 'Name', proportion: 6, align: 'left' },
-    { name: 'X', proportion: 3, align: 'center' },
-    { name: 'Y', proportion: 3, align: 'center' },
-  ],
-};
-
-/** `_HKI(...)` — `AddSearcher`'s order, `sch_search_pane.cpp:37-41`. */
-const SPEC: readonly { name: string; kind: SearchKind }[] = [
-  { name: 'Symbols', kind: 'symbol' },
-  { name: 'Power', kind: 'power' },
-  { name: 'Text', kind: 'text' },
-  { name: 'Labels', kind: 'label' },
-];
-
-/**
- * What `SCH_SEARCH_HANDLER::SelectItems` reaches through `m_frame` for
- * (search_handlers.cpp:103-154): the live selection, the pan/zoom setting,
- * and the callbacks that stand in for `ACTIONS::selectItems` /
- * `centerSelection` / `zoomFitSelection`.
- */
-export interface SchSearchWiring {
-  /** `APP_SETTINGS_BASE::SEARCH_PANE::selection_zoom`. */
-  selectionZoom: 'none' | 'pan' | 'zoom';
-  /** `ACTIONS::selectItems`. */
-  onSelect: (id: string) => void;
-  /** `ACTIONS::centerSelection`, only for `selectionZoom === 'pan'`. */
-  onCenter?: (id: string, at: Vec2) => void;
-  /** `ACTIONS::zoomFitSelection`, only for `selectionZoom === 'zoom'`. */
-  onZoomFit?: (id: string, at: Vec2) => void;
-  /** `ACTIONS::selectionClear`, run when the row list is empty. */
-  onClearSelection?: () => void;
-  /** The editor's live selection — see `SearchHandler.isRowSelected`. */
-  selection?: ReadonlySet<string>;
+/** `SCH_EDIT_FRAME`, as far as `search_handlers.cpp` reads it. */
+export interface SchSearchFrame {
+  Schematic(): SCHEMATIC;
+  GetCurrentSheet(): SCH_SHEET_PATH;
+  GetToolManager(): TOOL_MANAGER | null;
+  /** `UNITS_PROVIDER::MessageTextFromValue( aValue )`. */
+  MessageTextFromValue(aValue: number): string;
+  /** `config()->m_SearchPane`. */
+  config(): Pick<APP_SETTINGS_BASE, 'm_SearchPane'>;
+  /** `GetCanvas()->Refresh( false )`. */
+  GetCanvas(): { Refresh(aEraseBackground?: boolean): void } | null;
 }
 
-/** `SCH_SEARCH_HANDLER`. One instance per tab, sharing `Search`'s predicate. */
-class SchSearchHandler implements SearchHandler {
-  private hitlist: SearchHit[] = [];
+/** `SCH_SEARCH_HIT`. */
+interface SCH_SEARCH_HIT {
+  item: SCH_ITEM;
+  sheetPath: SCH_SHEET_PATH;
+}
+
+const col = (name: string, proportion: number, align: SearchColumn['align']): SearchColumn => ({
+  name,
+  proportion,
+  align,
+});
+
+/** `SCH_SEARCH_HANDLER`: the shared FindAll, Sort, SelectItems and ActivateItem. */
+abstract class SCH_SEARCH_HANDLER implements SearchHandler {
+  protected m_hitlist: SCH_SEARCH_HIT[] = [];
 
   constructor(
     readonly name: string,
-    private readonly kind: SearchKind,
     readonly columns: readonly SearchColumn[],
-    private readonly runSearch: (query: string) => readonly SearchHit[],
-    private readonly wiring: { current: SchSearchWiring },
+    protected readonly m_frame: SchSearchFrame,
   ) {}
 
-  /** `SYMBOL_SEARCH_HANDLER::Search` &c: `FindAll` then the tab's predicate. */
-  search(query: string): number {
-    this.hitlist = hitsOfKind(this.runSearch(query), this.kind);
-    return this.hitlist.length;
+  abstract search(aQuery: string): number;
+
+  /** `getResultCell( aHit, aCol )`. */
+  protected abstract getResultCellOfHit(aHit: SCH_SEARCH_HIT, aCol: number): string;
+
+  /** `GetResultCell( aRow, aCol )`. */
+  getResultCell(aRow: number, aCol: number): string {
+    const hit = this.m_hitlist[aRow];
+    return hit ? this.getResultCellOfHit(hit, aCol) : '';
   }
 
-  /** `SCH_SEARCH_HANDLER::GetResultCell` (search_handlers.cpp:49-63). */
-  getResultCell(row: number, col: number): string {
-    return this.hitlist[row]?.cells[col] ?? '';
+  /** The `SCH_SEARCH_DATA` every `Search()` builds. */
+  protected searchData(aQuery: string): SCH_SEARCH_DATA {
+    const settings = this.m_frame.config().m_SearchPane;
+    const frp = new SCH_SEARCH_DATA();
+    frp.searchAllFields = settings.search_hidden_fields;
+    frp.searchMetadata = settings.search_metadata;
+    frp.findString = aQuery;
+    // Try to handle whatever the user throws at us (substring, wildcards, regex, etc.)
+    frp.matchMode = EDA_SEARCH_MATCH_MODE.PERMISSIVE;
+    frp.searchCurrentSheetOnly = false;
+    return frp;
   }
 
-  /** `SCH_SEARCH_HANDLER::Sort` (search_handlers.cpp:69-100). */
-  sort(col: number, ascending: boolean, selection: readonly number[]): number[] {
-    const selected = new Set(
-      selection.map((i) => this.hitlist[i]).filter((h): h is SearchHit => h !== undefined),
-    );
-    // "Provide a stable order by sorting on first column if no sort column
-    // provided."
-    const c = Math.max(0, col);
-    const cellOf = (h: SearchHit): string => h.cells[c] ?? '';
+  /** `FindAll( aCollector )`: every item of every screen, once per sheet path that shows it. */
+  protected FindAll(aCollector: (aItem: SCH_ITEM, aSheet: SCH_SHEET_PATH) => boolean): void {
+    const screens = new SCH_SCREENS(this.m_frame.Schematic().Root());
+    const paths: SCH_SHEET_PATH[] = [];
 
-    this.hitlist = [...this.hitlist].sort((a, b) =>
-      ascending ? strNumCmp(cellOf(a), cellOf(b), true) : strNumCmp(cellOf(b), cellOf(a), true),
-    );
+    this.m_hitlist = [];
 
-    const remapped: number[] = [];
-    this.hitlist.forEach((h, i) => {
-      if (selected.has(h)) remapped.push(i);
-    });
-    return remapped;
-  }
+    screens.BuildClientSheetPathList();
 
-  /**
-   * `SCH_SEARCH_HANDLER::SelectItems` (search_handlers.cpp:103-154), minus
-   * the "all hits on the same sheet" branch: this engine searches one open
-   * sheet at a time (`eeschema/tools/search_handlers.ts` walks `sch`
-   * directly, not a whole hierarchy of screens), so every hit is already on
-   * it.
-   */
-  selectItems(rows: readonly number[]): void {
-    const wiring = this.wiring.current;
-    const hits = rows.map((r) => this.hitlist[r]).filter((h): h is SearchHit => h !== undefined);
-
-    if (hits.length === 0) {
-      wiring.onClearSelection?.();
-      return;
+    for (let screen = screens.GetFirst(); screen; screen = screens.GetNext()) {
+      for (const sheet of screen.GetClientSheetPaths()) paths.push(sheet);
     }
 
-    const hit = hits[0]!;
-    wiring.onSelect(hit.id);
-
-    if (wiring.selectionZoom === 'pan') wiring.onCenter?.(hit.id, hit.at);
-    else if (wiring.selectionZoom === 'zoom') wiring.onZoomFit?.(hit.id, hit.at);
+    for (const sheet of paths) {
+      for (const item of sheet.LastScreen()!.Items()) {
+        if (aCollector(item, sheet)) this.m_hitlist.push({ item, sheetPath: sheet });
+      }
+    }
   }
 
-  /** The cross-highlight superset — see `SearchHandler.isRowSelected`. */
-  isRowSelected(row: number): boolean {
-    const hit = this.hitlist[row];
-    return hit !== undefined && (this.wiring.current.selection?.has(hit.id) ?? false);
+  /** `Sort( aCol, aAscending, aSelection )`: the selection is remapped to the sorted rows. */
+  sort(aCol: number, aAscending: boolean, aSelection: readonly number[]): number[] {
+    const selection: SCH_ITEM[] = [];
+
+    for (let i = 0; i < this.m_hitlist.length; ++i) {
+      if (aSelection.includes(i)) selection.push(this.m_hitlist[i]!.item);
+    }
+
+    // Provide a stable order by sorting on first column if no sort column provided.
+    const c = Math.max(0, aCol);
+
+    // std::sort is not stable; Array.prototype.sort is, which only ever tightens the order where
+    // StrNumCmp reports equal.
+    this.m_hitlist.sort((a, b) =>
+      aAscending
+        ? strNumCmp(this.getResultCellOfHit(a, c), this.getResultCellOfHit(b, c), true)
+        : strNumCmp(this.getResultCellOfHit(b, c), this.getResultCellOfHit(a, c), true),
+    );
+
+    const out: number[] = [];
+
+    for (let i = 0; i < this.m_hitlist.length; ++i) {
+      if (selection.includes(this.m_hitlist[i]!.item)) out.push(i);
+    }
+
+    return out;
+  }
+
+  /** `SelectItems( aItemRows )`. */
+  selectItems(aItemRows: readonly number[]): void {
+    const mgr = this.m_frame.GetToolManager();
+    const selectedItems: EDA_ITEM[] = [];
+    const selectedHits: SCH_SEARCH_HIT[] = [];
+
+    mgr?.RunAction(ACTIONS.selectionClear);
+
+    for (const row of aItemRows) {
+      if (row >= 0 && row < this.m_hitlist.length) {
+        selectedHits.push(this.m_hitlist[row]!);
+        selectedItems.push(this.m_hitlist[row]!.item);
+      }
+    }
+
+    if (selectedHits.length === 0) return;
+
+    // r.sheetPath == selectedHits.front().sheetPath: the same SCH_SHEET_PATH object
+    const first = selectedHits[0]!.sheetPath;
+    const allHitsOnSamePage = selectedHits.slice(1).every((r) => r.sheetPath === first);
+    const settings = this.m_frame.config().m_SearchPane;
+
+    if (allHitsOnSamePage) {
+      if (!this.m_frame.GetCurrentSheet().equals(first))
+        mgr?.RunAction<SCH_SHEET_PATH>(SCH_ACTIONS.changeSheet, first);
+
+      if (selectedItems.length) mgr?.RunAction<EDA_ITEM[]>(ACTIONS.selectItems, selectedItems);
+
+      switch (settings.selection_zoom) {
+        case SEARCH_PANE_SELECTION_ZOOM.PAN:
+          mgr?.RunAction(ACTIONS.centerSelection);
+          break;
+        case SEARCH_PANE_SELECTION_ZOOM.ZOOM:
+          mgr?.RunAction(ACTIONS.zoomFitSelection);
+          break;
+        case SEARCH_PANE_SELECTION_ZOOM.NONE:
+          break;
+      }
+
+      this.m_frame.GetCanvas()?.Refresh(false);
+    }
+  }
+
+  /** `ActivateItem( aItemRow )`. */
+  activateItem(aItemRow: number): void {
+    this.selectItems([aItemRow]);
+    this.m_frame.GetToolManager()?.RunAction(SCH_ACTIONS.properties);
+  }
+
+  protected pos(aValue: number): string {
+    return this.m_frame.MessageTextFromValue(aValue);
   }
 }
 
-/**
- * `SCH_SEARCH_PANE`'s constructor: one `SchSearchHandler` per tab, in
- * upstream's order, sharing one `runSearch` closure over the open sheet.
- */
-export function makeSchSearchHandlers(
-  doc: Schematic,
-  libById: ReadonlyMap<string, LibSymbol>,
-  fmt: ValueFormatter,
-  searchHiddenFields: boolean,
-  wiring: { current: SchSearchWiring },
-): SearchHandler[] {
-  const runSearch = (query: string): SearchHit[] =>
-    searchSchematic(doc, libById, query, searchHiddenFields, fmt);
+/** `SYMBOL_SEARCH_HANDLER`. */
+class SYMBOL_SEARCH_HANDLER extends SCH_SEARCH_HANDLER {
+  constructor(aFrame: SchSearchFrame) {
+    super(
+      'Symbols',
+      [
+        col('Reference', 2, 'left'),
+        col('Value', 6, 'left'),
+        col('Footprint', 10, 'left'),
+        col('Page', 1, 'center'),
+        col('X', 3, 'center'),
+        col('Y', 3, 'center'),
+        col('Excl. Sim', 2, 'center'),
+        col('Excl. BOM', 2, 'center'),
+        col('Excl. Board', 2, 'center'),
+        col('Excl. Pos Files', 2, 'center'),
+        col('DNP', 2, 'center'),
+        col('Library Link', 8, 'left'),
+        col('Library Description', 10, 'left'),
+      ],
+      aFrame,
+    );
+  }
 
-  return SPEC.map(
-    ({ name, kind }) => new SchSearchHandler(name, kind, COLUMNS[kind], runSearch, wiring),
-  );
+  search(aQuery: string): number {
+    this.m_hitlist = [];
+    const frp = this.searchData(aQuery);
+
+    this.FindAll((item, sheet) => {
+      if (item && item.Type() === KICAD_T.SCH_SYMBOL_T) {
+        const sym = item as SCH_SYMBOL;
+
+        // IsPower depends on non-missing lib symbol association
+        if (!sym.IsMissingLibSymbol() && sym.IsPower()) return false;
+
+        for (const field of sym.GetFields()) {
+          if (frp.findString === '' || field.Matches(frp, sheet)) return true;
+        }
+      }
+
+      return false;
+    });
+
+    return this.m_hitlist.length;
+  }
+
+  protected getResultCellOfHit(aHit: SCH_SEARCH_HIT, aCol: number): string {
+    if (aHit.item.Type() !== KICAD_T.SCH_SYMBOL_T) return '';
+
+    const sym = aHit.item as SCH_SYMBOL;
+    const mark = (aOn: boolean) => (aOn ? 'X' : ' ');
+
+    switch (aCol) {
+      case 0:
+        return sym.GetRef(aHit.sheetPath, true);
+      case 1:
+        return sym.GetField(FIELD_T.VALUE)!.GetShownText(aHit.sheetPath, false);
+      case 2:
+        return sym.GetField(FIELD_T.FOOTPRINT)!.GetShownText(aHit.sheetPath, false);
+      case 3:
+        return aHit.sheetPath.GetPageNumber();
+      case 4:
+        return this.pos(sym.GetPosition().x);
+      case 5:
+        return this.pos(sym.GetPosition().y);
+      case 6:
+        return mark(sym.ResolveExcludedFromSim());
+      case 7:
+        return mark(sym.ResolveExcludedFromBOM());
+      case 8:
+        return mark(sym.ResolveExcludedFromBoard());
+      case 9:
+        return mark(sym.ResolveExcludedFromPosFiles());
+      case 10:
+        return mark(sym.ResolveDNP(aHit.sheetPath, this.m_frame.Schematic().GetCurrentVariant()));
+      case 11:
+        return sym.GetLibId().Format();
+      case 12:
+        return sym.GetShownDescription();
+    }
+
+    return '';
+  }
+}
+
+/** `POWER_SEARCH_HANDLER`. */
+class POWER_SEARCH_HANDLER extends SCH_SEARCH_HANDLER {
+  constructor(aFrame: SchSearchFrame) {
+    super(
+      'Power',
+      [
+        col('Reference', 2, 'left'),
+        col('Value', 6, 'left'),
+        col('Page', 1, 'center'),
+        col('X', 3, 'center'),
+        col('Y', 3, 'center'),
+      ],
+      aFrame,
+    );
+  }
+
+  search(aQuery: string): number {
+    this.m_hitlist = [];
+    const frp = this.searchData(aQuery);
+
+    this.FindAll((item, sheet) => {
+      if (item && item.Type() === KICAD_T.SCH_SYMBOL_T) {
+        const sym = item as SCH_SYMBOL;
+
+        // IsPower depends on non-missing lib symbol association
+        if (sym.IsMissingLibSymbol() || !sym.IsPower()) return false;
+
+        for (const field of sym.GetFields()) {
+          if (frp.findString === '' || field.Matches(frp, sheet)) return true;
+        }
+      }
+
+      return false;
+    });
+
+    return this.m_hitlist.length;
+  }
+
+  protected getResultCellOfHit(aHit: SCH_SEARCH_HIT, aCol: number): string {
+    if (aHit.item.Type() !== KICAD_T.SCH_SYMBOL_T) return '';
+
+    const sym = aHit.item as SCH_SYMBOL;
+
+    switch (aCol) {
+      case 0:
+        return sym.GetRef(aHit.sheetPath, true);
+      case 1:
+        return sym.GetField(FIELD_T.VALUE)!.GetShownText(aHit.sheetPath, false);
+      case 2:
+        return aHit.sheetPath.GetPageNumber();
+      case 3:
+        return this.pos(sym.GetPosition().x);
+      case 4:
+        return this.pos(sym.GetPosition().y);
+    }
+
+    return '';
+  }
+}
+
+/** `TEXT_SEARCH_HANDLER`. */
+class TEXT_SEARCH_HANDLER extends SCH_SEARCH_HANDLER {
+  constructor(aFrame: SchSearchFrame) {
+    super(
+      'Text',
+      [
+        col('Type', 2, 'left'),
+        col('Text', 12, 'left'),
+        col('Page', 1, 'center'),
+        col('X', 3, 'center'),
+        col('Y', 3, 'center'),
+      ],
+      aFrame,
+    );
+  }
+
+  search(aQuery: string): number {
+    this.m_hitlist = [];
+    const frp = this.searchData(aQuery);
+
+    this.FindAll((item, sheet) => {
+      if (item.Type() === KICAD_T.SCH_TEXT_T || item.Type() === KICAD_T.SCH_TEXTBOX_T) {
+        if (frp.findString === '' || item.Matches(frp, sheet)) return true;
+      }
+
+      return false;
+    });
+
+    return this.m_hitlist.length;
+  }
+
+  protected getResultCellOfHit(aHit: SCH_SEARCH_HIT, aCol: number): string {
+    const type = aHit.item.Type();
+
+    if (type !== KICAD_T.SCH_TEXT_T && type !== KICAD_T.SCH_TEXTBOX_T) return '';
+
+    const txt = aHit.item as SCH_TEXT | SCH_TEXTBOX;
+
+    switch (aCol) {
+      case 0:
+        return type === KICAD_T.SCH_TEXT_T ? 'Text' : 'Text Box';
+      case 1:
+        return txt.GetShownText(false);
+      case 2:
+        return aHit.sheetPath.GetPageNumber();
+      case 3:
+        return this.pos(txt.GetPosition().x);
+      case 4:
+        return this.pos(txt.GetPosition().y);
+    }
+
+    return '';
+  }
+}
+
+/** `LABEL_SEARCH_HANDLER`. */
+class LABEL_SEARCH_HANDLER extends SCH_SEARCH_HANDLER {
+  constructor(aFrame: SchSearchFrame) {
+    super(
+      'Labels',
+      [
+        col('Type', 2, 'left'),
+        col('Name', 6, 'left'),
+        col('Page', 2, 'center'),
+        col('X', 3, 'center'),
+        col('Y', 3, 'center'),
+      ],
+      aFrame,
+    );
+  }
+
+  search(aQuery: string): number {
+    this.m_hitlist = [];
+    const frp = this.searchData(aQuery);
+
+    this.FindAll((item, sheet) => {
+      if (item.IsType([KICAD_T.SCH_LABEL_LOCATE_ANY_T])) {
+        const lbl = item as SCH_LABEL_BASE;
+
+        if (frp.findString === '' || lbl.Matches(frp, sheet)) return true;
+      }
+
+      return false;
+    });
+
+    return this.m_hitlist.length;
+  }
+
+  protected getResultCellOfHit(aHit: SCH_SEARCH_HIT, aCol: number): string {
+    if (!aHit.item.IsType([KICAD_T.SCH_LABEL_LOCATE_ANY_T])) return '';
+
+    const lbl = aHit.item as SCH_LABEL_BASE;
+
+    if (aCol === 0) {
+      switch (lbl.Type()) {
+        case KICAD_T.SCH_LABEL_T:
+          return 'Local';
+        case KICAD_T.SCH_GLOBAL_LABEL_T:
+          return 'Global';
+        case KICAD_T.SCH_HIER_LABEL_T:
+          return 'Hierarchical';
+        case KICAD_T.SCH_DIRECTIVE_LABEL_T:
+          return 'Directive';
+      }
+    } else if (aCol === 1) {
+      return lbl.GetShownText(false);
+    } else if (aCol === 2) {
+      return aHit.sheetPath.GetPageNumber();
+    } else if (aCol === 3) {
+      return this.pos(lbl.GetPosition().x);
+    } else if (aCol === 4) {
+      return this.pos(lbl.GetPosition().y);
+    }
+
+    return '';
+  }
+}
+
+/** `GROUP_SEARCH_HANDLER`. */
+class GROUP_SEARCH_HANDLER extends SCH_SEARCH_HANDLER {
+  constructor(aFrame: SchSearchFrame) {
+    super(
+      'Groups',
+      [
+        col('Name', 6, 'left'),
+        col('Page', 2, 'center'),
+        col('X', 3, 'center'),
+        col('Y', 3, 'center'),
+      ],
+      aFrame,
+    );
+  }
+
+  search(aQuery: string): number {
+    this.m_hitlist = [];
+    const frp = this.searchData(aQuery);
+
+    this.FindAll((item, sheet) => {
+      if (item.IsType([KICAD_T.SCH_GROUP_T])) {
+        const group = item as SCH_GROUP;
+
+        if (frp.findString === '' || group.Matches(frp, sheet)) return true;
+      }
+
+      return false;
+    });
+
+    return this.m_hitlist.length;
+  }
+
+  protected getResultCellOfHit(aHit: SCH_SEARCH_HIT, aCol: number): string {
+    if (aHit.item.Type() !== KICAD_T.SCH_GROUP_T) return '';
+
+    const group = aHit.item as SCH_GROUP;
+
+    switch (aCol) {
+      case 0:
+        return group.GetName();
+      case 1:
+        return aHit.sheetPath.GetPageNumber();
+      case 2:
+        return this.pos(group.GetPosition().x);
+      case 3:
+        return this.pos(group.GetPosition().y);
+    }
+
+    return '';
+  }
+}
+
+/** The handlers `SCH_SEARCH_PANE`'s constructor adds, in its order. */
+export function makeSchSearchHandlers(aFrame: SchSearchFrame): SearchHandler[] {
+  return [
+    new SYMBOL_SEARCH_HANDLER(aFrame),
+    new POWER_SEARCH_HANDLER(aFrame),
+    new TEXT_SEARCH_HANDLER(aFrame),
+    new LABEL_SEARCH_HANDLER(aFrame),
+    new GROUP_SEARCH_HANDLER(aFrame),
+  ];
 }

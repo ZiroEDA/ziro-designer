@@ -288,10 +288,9 @@ export interface CommonSettings {
      * — library links, descriptions and keywords. `PARAM<bool>` default is
      * `false` (app_settings.cpp:215-216).
      *
-     * The schematic search engine (`eeschema/tools/search_handlers.ts`) does
-     * not yet consult it: it has no metadata columns to match against, so the
-     * setting round-trips but toggling it changes no result today — a real,
-     * documented gap rather than an invented one.
+     * The schematic search pane hands it to `SCH_SEARCH_DATA`
+     * (`eeschema/widgets/search_handlers.ts`), and `SCH_FIELD::Matches` then
+     * tries the parent symbol's library link, description and keywords.
      */
     search_metadata: boolean;
   };

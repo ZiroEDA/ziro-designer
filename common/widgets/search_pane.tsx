@@ -47,6 +47,8 @@ import { ContextMenu } from '@ziroeda/wx/menu_ui.js';
 import type { MenuItem } from '@ziroeda/wx/menu.js';
 import { SearchPaneTab } from './search_pane_tab.js';
 import type { SearchHandler, SearchPaneMenuState } from './search_pane_types.js';
+import type { APP_SETTINGS_BASE } from '../settings/app_settings.js';
+import { SEARCH_PANE, SEARCH_PANE_SELECTION_ZOOM } from '../settings/app_settings.js';
 
 /**
  * The data types (`SearchColumnAlign`, `SearchColumn`, `SearchHandler`,
@@ -212,3 +214,24 @@ export function SearchPane({
 
 /** Re-exported so a caller does not also need `search_pane_tab.js` directly. */
 export { SearchPaneTab } from './search_pane_tab.js';
+
+/**
+ * `menuState` as the `config()->m_SearchPane` the handlers read: `SEARCH_PANE_MENU` keeps its
+ * state in `APP_SETTINGS_BASE::SEARCH_PANE`, which every editor's handlers then read back.
+ */
+export function searchPaneConfig(
+  aMenu: SearchPaneMenuState,
+): Pick<APP_SETTINGS_BASE, 'm_SearchPane'> {
+  const pane = new SEARCH_PANE();
+
+  pane.selection_zoom =
+    aMenu.selectionZoom === 'zoom'
+      ? SEARCH_PANE_SELECTION_ZOOM.ZOOM
+      : aMenu.selectionZoom === 'pan'
+        ? SEARCH_PANE_SELECTION_ZOOM.PAN
+        : SEARCH_PANE_SELECTION_ZOOM.NONE;
+  pane.search_hidden_fields = aMenu.searchHiddenFields;
+  pane.search_metadata = aMenu.searchMetadata;
+
+  return { m_SearchPane: pane };
+}

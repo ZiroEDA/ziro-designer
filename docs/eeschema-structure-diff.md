@@ -17,7 +17,6 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 | ours | KiCad (`eeschema/` unless noted) |
 |---|---|
 | `dialogs/dialog_sync_sheet_pins.tsx` | `sync_sheet_pin/dialog_sync_sheet_pins.cpp` |
-| `tools/search_handlers.ts` | `widgets/search_handlers.cpp` |
 
 ## DIALOG
 

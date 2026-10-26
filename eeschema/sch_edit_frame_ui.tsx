@@ -371,7 +371,7 @@ import { useHotkeyCyclePopup } from '@ziroeda/common/dialogs/hotkey_cycle_popup_
 import type { RenderOpts } from './sch_render_settings.js';
 import type { InputPrefs } from '@ziroeda/common/view/wx_view_controls.js';
 import { LiveSchPropertiesPanel } from './widgets/sch_properties_panel_ui.js';
-import { SearchPanel } from './widgets/sch_search_pane.js';
+import { SchSearchPane } from './widgets/sch_search_pane.js';
 import { NetNavigatorPanel } from './widgets/net_navigator_panel.js';
 import { DIALOG_UPDATE_FROM_PCB } from './dialogs/dialog_update_from_pcb.js';
 import { setHeadlessPcbNetlistProvider } from './browser/headless_pcb_netlist.js';
@@ -6291,37 +6291,25 @@ export function SchematicEditor({
                 <div className="ze-panel">
                   <div className="ze-panel-header">Search</div>
                   <div className="ze-panel-body">
-                    <SearchPanel
-                      doc={doc}
-                      libById={libById}
-                      fmt={fmt}
-                      menuState={{
-                        selectionZoom: app.settings.common.search_pane.selection_zoom,
-                        searchHiddenFields: app.settings.common.search_pane.search_hidden_fields,
-                        searchMetadata: app.settings.common.search_pane.search_metadata,
-                      }}
-                      onMenuStateChange={(next) =>
-                        app.settings.updateCommon((c) => {
-                          c.search_pane.selection_zoom = next.selectionZoom;
-                          c.search_pane.search_hidden_fields = next.searchHiddenFields;
-                          c.search_pane.search_metadata = next.searchMetadata;
-                        })
-                      }
-                      selection={selection}
-                      onClearSelection={() => setSelection(new Set())}
-                      onSelect={(id) => setSelection(new Set([id]))}
-                      onCenter={(_id, at) => schFrameRef.current!.FocusOnLocation(at)}
-                      onZoomFit={(id) => {
-                        // ACTIONS::zoomFitSelection, the same extent walk the View
-                        // menu's Zoom to Selected Objects uses.
-                        const box = doc ? selectionBBox(doc, new Set([id]), libById) : emptyBBox();
-                        if (!isEmpty(box))
-                          schFrameRef.current!.FocusOnLocation({
-                            x: (box.minX + box.maxX) / 2,
-                            y: (box.minY + box.maxY) / 2,
-                          });
-                      }}
-                    />
+                    {schFrameRef.current && (
+                      <SchSearchPane
+                        frame={schFrameRef.current}
+                        schematic={schFrameRef.current.Schematic()}
+                        units={units}
+                        menuState={{
+                          selectionZoom: app.settings.common.search_pane.selection_zoom,
+                          searchHiddenFields: app.settings.common.search_pane.search_hidden_fields,
+                          searchMetadata: app.settings.common.search_pane.search_metadata,
+                        }}
+                        onMenuStateChange={(next) =>
+                          app.settings.updateCommon((c) => {
+                            c.search_pane.selection_zoom = next.selectionZoom;
+                            c.search_pane.search_hidden_fields = next.searchHiddenFields;
+                            c.search_pane.search_metadata = next.searchMetadata;
+                          })
+                        }
+                      />
+                    )}
                   </div>
                 </div>
               </div>
