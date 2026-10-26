@@ -7,9 +7,12 @@
  * `Rotate90`, `Mirror` and `ConvertToGreyscale`.
  *
  * PNG is decoded here (every colour type, bit depth and Adam7) and encoded
- * with `imagpng.ts`. A JPEG is read for its size and JFIF density only —
- * there is no JPEG decoder here, so a JPEG's pixels cannot be transformed;
- * `wxJPEGHandler` would decode them through libjpeg.
+ * with `imagpng.ts`. JPEG goes through `wxJPEGHandler`'s own libjpeg calls,
+ * compiled with the libjpeg-turbo KiCad links (`jpeg/`), so its pixels, its
+ * CMYK conversion and its re-encoding are the ones KiCad gets. That module is
+ * instantiated once, asynchronously, by `wxInitAllImageHandlers` - as KiCad's
+ * `PGM_BASE::InitPgm` registers the handlers before any image is read; until
+ * then a JPEG has no handler and does not load, as in wx.
  *
  * wx's PNG handler turns a `pHYs` in metres into dots per centimetre with an
  * integer division (`resX /= 100`), which is what makes a 3937 px/m (100 dpi)
@@ -20,6 +23,7 @@
 import { inflateZlib } from './inflate.js';
 import { zlibSync } from 'fflate';
 import { PNG_SIGNATURE, pngChunk, pngCrc32 } from './imagpng.js';
+import type { IMAGJPEG_MODULE } from './jpeg/imagjpeg_wasm.js';
 
 /** `wxImageResolution`. */
 export enum wxImageResolution {
@@ -40,6 +44,67 @@ export enum wxBitmapType {
 export const wxIMAGE_OPTION_RESOLUTIONX = 'ResolutionX';
 export const wxIMAGE_OPTION_RESOLUTIONY = 'ResolutionY';
 export const wxIMAGE_OPTION_RESOLUTIONUNIT = 'ResolutionUnit';
+export const wxIMAGE_OPTION_RESOLUTION = 'Resolution';
+export const wxIMAGE_OPTION_QUALITY = 'quality';
+
+/** wxJPEGHandler's libjpeg, once `wxInitAllImageHandlers` has instantiated it. */
+let s_jpeg: IMAGJPEG_MODULE | null = null;
+let s_jpegInit: Promise<void> | null = null;
+
+/**
+ * `wxInitAllImageHandlers`: register the image handlers. Only the JPEG one needs
+ * work - instantiating its WebAssembly - and a browser will not do that
+ * synchronously, so this is the one image call to await. Idempotent.
+ *
+ * Imported here rather than at the top: libjpeg is ~130 kB gzipped, and as a chunk
+ * of its own it loads beside the app instead of inside its first bundle.
+ */
+export function wxInitAllImageHandlers(): Promise<void> {
+  s_jpegInit ??= import('./jpeg/imagjpeg_wasm.js')
+    .then(({ default: createImagJpeg }) => createImagJpeg())
+    .then((aModule) => {
+      s_jpeg = aModule;
+    });
+
+  return s_jpegInit;
+}
+
+/**
+ * `wxImageHandler::GetResolutionFromOptions` (image.cpp:3486): the resolution
+ * X and Y options, or the single Resolution one, and their unit - inches when
+ * none is given.
+ */
+function GetResolutionFromOptions(aImage: WX_IMAGE): {
+  unit: wxImageResolution;
+  x: number;
+  y: number;
+} {
+  let x: number;
+  let y: number;
+
+  if (
+    aImage.HasOption(wxIMAGE_OPTION_RESOLUTIONX) &&
+    aImage.HasOption(wxIMAGE_OPTION_RESOLUTIONY)
+  ) {
+    x = aImage.GetOptionInt(wxIMAGE_OPTION_RESOLUTIONX);
+    y = aImage.GetOptionInt(wxIMAGE_OPTION_RESOLUTIONY);
+  } else if (aImage.HasOption(wxIMAGE_OPTION_RESOLUTION)) {
+    x = y = aImage.GetOptionInt(wxIMAGE_OPTION_RESOLUTION);
+  } else {
+    // no resolution options specified
+    return { unit: wxImageResolution.wxIMAGE_RESOLUTION_NONE, x: 0, y: 0 };
+  }
+
+  // get the resolution unit too
+  let resUnit = aImage.GetOptionInt(wxIMAGE_OPTION_RESOLUTIONUNIT);
+
+  if (!resUnit) {
+    // this is the default
+    resUnit = wxImageResolution.wxIMAGE_RESOLUTION_INCHES;
+  }
+
+  return { unit: resUnit, x, y };
+}
 
 const be32 = (b: Uint8Array, off: number): number =>
   ((b[off]! << 24) | (b[off + 1]! << 16) | (b[off + 2]! << 8) | b[off + 3]!) >>> 0;
@@ -78,7 +143,7 @@ export class WX_IMAGE {
   private m_rgb: Uint8Array | null = null; // 3 bytes per pixel, row-major
   private m_alpha: Uint8Array | null = null; // 1 byte per pixel, or none
   private m_options = new Map<string, number>();
-  private m_pixelsKnown = false; // false for a JPEG: the size is read, the pixels are not
+  private m_pixelsKnown = false; // false for a BMP layout read for its size only
 
   constructor();
   constructor(aWidth: number, aHeight: number);
@@ -111,7 +176,7 @@ export class WX_IMAGE {
   HasAlpha(): boolean {
     return this.m_alpha !== null;
   }
-  /** The RGB plane; null for a JPEG, whose pixels are not decoded here. */
+  /** The RGB plane; null for a BMP layout read for its size only. */
   GetData(): Uint8Array | null {
     return this.m_rgb;
   }
@@ -261,7 +326,7 @@ export class WX_IMAGE {
   LoadFile(aData: Uint8Array): boolean {
     if (isPng(aData)) return this.loadPng(aData);
 
-    if (isJpeg(aData)) return this.loadJpegHeader(aData);
+    if (isJpeg(aData)) return this.loadJpeg(aData);
 
     if (isBmp(aData)) return this.loadBmp(aData);
 
@@ -277,6 +342,38 @@ export class WX_IMAGE {
     if (isBmp(aData)) return wxBitmapType.wxBITMAP_TYPE_BMP;
 
     return wxBitmapType.wxBITMAP_TYPE_INVALID;
+  }
+
+  /**
+   * `wxImage::SaveFile( wxOutputStream&, wxBITMAP_TYPE_JPEG )` (imagjpeg.cpp:400):
+   * libjpeg's defaults, the quality option when there is one, and the
+   * resolution options as the JFIF density. The alpha plane is not written.
+   */
+  SaveFileJpeg(): Uint8Array | null {
+    const jpeg = s_jpeg;
+
+    if (!jpeg || !this.IsOk() || !this.m_rgb) return null;
+
+    const quality = this.HasOption(wxIMAGE_OPTION_QUALITY)
+      ? this.GetOptionInt(wxIMAGE_OPTION_QUALITY)
+      : -1;
+    const res = GetResolutionFromOptions(this);
+    const ptr = jpeg._wxjpeg_alloc(this.m_rgb.length);
+    jpeg.HEAPU8.set(this.m_rgb, ptr);
+
+    const ok =
+      jpeg._wxjpeg_save(ptr, this.m_width, this.m_height, quality, res.unit, res.x, res.y) === 1;
+
+    jpeg._wxjpeg_free(ptr);
+
+    if (!ok) return null;
+
+    const data = jpeg._wxjpeg_data();
+    const out = jpeg.HEAPU8.slice(data, data + jpeg._wxjpeg_size());
+
+    jpeg._wxjpeg_release();
+
+    return out;
   }
 
   /**
@@ -516,65 +613,49 @@ export class WX_IMAGE {
     return true;
   }
 
-  private loadJpegHeader(aData: Uint8Array): boolean {
-    // JFIF APP0 density and the SOFn frame header.
-    let pos = 2;
+  /**
+   * `wxJPEGHandler::LoadFile` (imagjpeg.cpp:226): libjpeg decodes to RGB (CMYK
+   * through `wx_cmyk_to_rgb`), and a JFIF marker's density becomes the
+   * resolution options, its unit as libjpeg numbers it - 0, "aspect ratio
+   * only", included.
+   */
+  private loadJpeg(aData: Uint8Array): boolean {
+    const jpeg = s_jpeg;
 
-    while (pos + 4 <= aData.length) {
-      if (aData[pos] !== 0xff) return false;
+    // wxImage::LoadFile finds no handler for the type: wxInitAllImageHandlers has not run.
+    if (!jpeg) return false;
 
-      const marker = aData[pos + 1]!;
-      const len = (aData[pos + 2]! << 8) | aData[pos + 3]!;
+    const ptr = jpeg._wxjpeg_alloc(aData.length);
+    jpeg.HEAPU8.set(aData, ptr);
 
-      if (marker === 0xe0 && pos + 4 + 14 <= aData.length) {
-        // "JFIF\0", version, units, Xdensity, Ydensity
-        if (
-          aData[pos + 4] === 0x4a &&
-          aData[pos + 5] === 0x46 &&
-          aData[pos + 6] === 0x49 &&
-          aData[pos + 7] === 0x46
-        ) {
-          const units = aData[pos + 11]!;
-          const xd = (aData[pos + 12]! << 8) | aData[pos + 13]!;
-          const yd = (aData[pos + 14]! << 8) | aData[pos + 15]!;
+    const ok = jpeg._wxjpeg_load(ptr, aData.length) === 1;
 
-          // wxJPEGHandler: density_unit 1 = dots/inch, 2 = dots/cm
-          if (units === 1 || units === 2) {
-            this.m_options.set(wxIMAGE_OPTION_RESOLUTIONX, xd);
-            this.m_options.set(wxIMAGE_OPTION_RESOLUTIONY, yd);
-            this.m_options.set(
-              wxIMAGE_OPTION_RESOLUTIONUNIT,
-              units === 1
-                ? wxImageResolution.wxIMAGE_RESOLUTION_INCHES
-                : wxImageResolution.wxIMAGE_RESOLUTION_CM,
-            );
-          }
-        }
-      }
+    jpeg._wxjpeg_free(ptr);
 
-      if (
-        (marker >= 0xc0 && marker <= 0xc3) ||
-        (marker >= 0xc5 && marker <= 0xc7) ||
-        (marker >= 0xc9 && marker <= 0xcb) ||
-        (marker >= 0xcd && marker <= 0xcf)
-      ) {
-        if (pos + 9 > aData.length) return false;
+    if (!ok) return false;
 
-        this.m_height = (aData[pos + 5]! << 8) | aData[pos + 6]!;
-        this.m_width = (aData[pos + 7]! << 8) | aData[pos + 8]!;
-        this.m_rgb = null;
-        this.m_alpha = null;
-        this.m_pixelsKnown = false;
+    const data = jpeg._wxjpeg_data();
 
-        return this.m_width > 0 && this.m_height > 0;
-      }
+    this.m_width = jpeg._wxjpeg_width();
+    this.m_height = jpeg._wxjpeg_height();
+    this.m_rgb = jpeg.HEAPU8.slice(data, data + jpeg._wxjpeg_size());
+    this.m_alpha = null;
+    this.m_options = new Map();
+    this.m_pixelsKnown = true;
 
-      if (marker === 0xd9 || marker === 0xda) return false;
+    // set up resolution if available: it's part of optional JFIF APP0 chunk
+    if (jpeg._wxjpeg_saw_jfif()) {
+      this.SetOption(wxIMAGE_OPTION_RESOLUTIONX, jpeg._wxjpeg_x_density());
+      this.SetOption(wxIMAGE_OPTION_RESOLUTIONY, jpeg._wxjpeg_y_density());
 
-      pos += 2 + len;
+      // we use the same values for this option as libjpeg so we don't need
+      // any conversion here
+      this.SetOption(wxIMAGE_OPTION_RESOLUTIONUNIT, jpeg._wxjpeg_density_unit());
     }
 
-    return false;
+    jpeg._wxjpeg_release();
+
+    return true;
   }
 
   private loadPng(aData: Uint8Array): boolean {

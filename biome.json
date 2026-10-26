@@ -16,6 +16,7 @@
       "!common/newstroke_font.ts",
       "!designer/src/render/gl/vendor",
       "!libs/kimath/src/thirdparty/vendor",
+      "!external/wx/jpeg/imagjpeg_wasm.js",
       "!docs/email-templates"
     ]
   },

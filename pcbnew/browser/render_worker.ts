@@ -36,6 +36,7 @@ import type { PCB_PAINTER } from '../pcb_painter.js';
 import { PCBNEW_SETTINGS } from '../pcbnew_settings.js';
 import { ApplyProjectToBoard, type DRC_JOB_REQUEST, loadBoardForDrc } from './drc_job.js';
 import { DRC_ENGINE } from '../drc/drc_engine.js';
+import { wxInitAllImageHandlers } from '@ziroeda/wx/wx_image.js';
 import {
   ApplyRenderViewBatch,
   RECORDED_LAYERS,
@@ -209,6 +210,8 @@ if (g.WorkerGlobalScope !== undefined) {
 
   const init = async (msg: Extract<RENDER_WORKER_REQUEST, { t: 'init' }>): Promise<void> => {
     await EMBEDDED_FILES.InitCodec();
+    // The board's reference images decode as it is parsed; a worker is a program of its own.
+    await wxInitAllImageHandlers();
 
     const font = await loadBitmapFontImage();
     const t0 = performance.now();

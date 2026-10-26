@@ -321,12 +321,11 @@ export class BITMAP_BASE {
     if (!this.m_imageData || this.m_imageData.length === 0) {
       // If m_imageData is empty, use wxImage::Save() method to write m_image contents to
       // the stream.
-      if (this.m_imageType === wxBitmapType.wxBITMAP_TYPE_JPEG) {
-        // wxImage::SaveFile( stream, wxBITMAP_TYPE_JPEG ): no JPEG encoder here.
-        return null;
-      }
+      if (!this.m_image) return null;
 
-      return this.m_image ? this.m_image.SaveFilePng() : null;
+      return this.m_imageType === wxBitmapType.wxBITMAP_TYPE_JPEG
+        ? this.m_image.SaveFileJpeg()
+        : this.m_image.SaveFilePng();
     } else {
       // Write the contents of m_imageData to the stream.
       return this.m_imageData;
@@ -481,9 +480,10 @@ export class BITMAP_BASE {
    */
   private updateImageDataBuffer(): void {
     if (this.m_image) {
-      if (this.m_imageType === wxBitmapType.wxBITMAP_TYPE_JPEG) return; // no JPEG encoder here
-
-      const bytes = this.m_image.SaveFilePng();
+      const bytes =
+        this.m_imageType === wxBitmapType.wxBITMAP_TYPE_JPEG
+          ? this.m_image.SaveFileJpeg()
+          : this.m_image.SaveFilePng();
 
       if (!bytes) return;
 

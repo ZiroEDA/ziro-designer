@@ -1,0 +1,172 @@
+{
+  "libjpegTurbo": "2.1.5-2ubuntu2",
+  "decode": {
+    "baseline_420.jpg": {
+      "width": 37,
+      "height": 23,
+      "rgbSha256": "98a03746c75d706ed5c2ca75878d00a00b55f4bc5d1cbd53e90369bad6bfaa31",
+      "sawJFIF": true,
+      "densityUnit": 0,
+      "xDensity": 1,
+      "yDensity": 1
+    },
+    "baseline_444.jpg": {
+      "width": 37,
+      "height": 23,
+      "rgbSha256": "b56ba43d38c8ae69cb602895b80790192ace90d80afc24e8385d6470b2759381",
+      "sawJFIF": true,
+      "densityUnit": 0,
+      "xDensity": 1,
+      "yDensity": 1
+    },
+    "progressive_422.jpg": {
+      "width": 37,
+      "height": 23,
+      "rgbSha256": "af0c7219f26857b09ce7d89c3eda1389098b46b751ea54a725454ad39dd0f5ce",
+      "sawJFIF": true,
+      "densityUnit": 0,
+      "xDensity": 1,
+      "yDensity": 1
+    },
+    "grey.jpg": {
+      "width": 37,
+      "height": 23,
+      "rgbSha256": "a0cf5e6eaf7b5ee73a61597f3c781cf8b5d7f93cd02deb317745e63967d4ffde",
+      "sawJFIF": true,
+      "densityUnit": 0,
+      "xDensity": 1,
+      "yDensity": 1
+    },
+    "cmyk.jpg": {
+      "width": 37,
+      "height": 23,
+      "rgbSha256": "f5f28fe451c71025e2f2acc1d672a3d84e25c4cb42875414778652c38644952d",
+      "sawJFIF": false,
+      "densityUnit": 0,
+      "xDensity": 1,
+      "yDensity": 1
+    },
+    "exif_rotate90.jpg": {
+      "width": 129,
+      "height": 77,
+      "rgbSha256": "f8c17f970ad4b2bd5758280168c3ca6761b9f47bf729fee1296377432382c898",
+      "sawJFIF": true,
+      "densityUnit": 0,
+      "xDensity": 1,
+      "yDensity": 1
+    },
+    "jfif_unitless_72.jpg": {
+      "width": 37,
+      "height": 23,
+      "rgbSha256": "98a03746c75d706ed5c2ca75878d00a00b55f4bc5d1cbd53e90369bad6bfaa31",
+      "sawJFIF": true,
+      "densityUnit": 0,
+      "xDensity": 72,
+      "yDensity": 72
+    },
+    "jfif_cm_118.jpg": {
+      "width": 37,
+      "height": 23,
+      "rgbSha256": "98a03746c75d706ed5c2ca75878d00a00b55f4bc5d1cbd53e90369bad6bfaa31",
+      "sawJFIF": true,
+      "densityUnit": 2,
+      "xDensity": 118,
+      "yDensity": 118
+    },
+    "truncated.jpg": {
+      "width": 129,
+      "height": 77,
+      "rgbSha256": "4663418ebdceb6de778cc9b2bc6d344af8aaa9664a16d133635a488558d4b24c",
+      "sawJFIF": true,
+      "densityUnit": 0,
+      "xDensity": 1,
+      "yDensity": 1
+    }
+  },
+  "encode": {
+    "defaults_37x23": {
+      "width": 37,
+      "height": 23,
+      "args": [],
+      "length": 1245,
+      "sha256": "1be0629ebedb429538fc3d77795315e4b3752a5e222a2c8d553c252dfd596e5d"
+    },
+    "defaults_64x48": {
+      "width": 64,
+      "height": 48,
+      "args": [],
+      "length": 2361,
+      "sha256": "52f9d21811003e2eb03e0364b45a1dbe49a6383781c303a5989c497e52c9e27d"
+    },
+    "quality90_37x23": {
+      "width": 37,
+      "height": 23,
+      "args": [
+        "90"
+      ],
+      "length": 1567,
+      "sha256": "66919e3e1c952a754a34855262d87dfa1131c7e69d5b691fa11217ea0c6414db"
+    },
+    "inches300_37x23": {
+      "width": 37,
+      "height": 23,
+      "args": [
+        "-1",
+        "1",
+        "300",
+        "300"
+      ],
+      "length": 1245,
+      "sha256": "253cae43060b01e3ea13329dd2659508f56849578b27e04ee3b6608e983846d7"
+    },
+    "cm118_37x23": {
+      "width": 37,
+      "height": 23,
+      "args": [
+        "-1",
+        "2",
+        "118",
+        "118"
+      ],
+      "length": 1245,
+      "sha256": "72fd157e98de0a0b885d6f229d165160d102a69365c2ddf063b35335d94a0c16"
+    },
+    "unitless72_37x23": {
+      "width": 37,
+      "height": 23,
+      "args": [
+        "-1",
+        "1",
+        "72",
+        "72"
+      ],
+      "length": 1245,
+      "sha256": "6c12a1819f06fe1cd21878563217a16928c9ef8239b2d10fe7bd3d995c1c2aa2"
+    },
+    "single150_37x23": {
+      "width": 37,
+      "height": 23,
+      "args": [
+        "-1",
+        "1",
+        "150",
+        "150"
+      ],
+      "length": 1245,
+      "sha256": "b732c66818db431fd131d3e5d6806bef5c492ef4cc4dcea526b7673b1df5604c"
+    }
+  },
+  "truncationsOf": "baseline_420.jpg",
+  "truncations": {
+    "2": null,
+    "4": null,
+    "10": null,
+    "20": null,
+    "100": null,
+    "200": null,
+    "400": null,
+    "600": null,
+    "800": "970b8834a7d6c7a2799fd65fd7f74e34025f55121925893399a090e321a92443",
+    "1000": "21f0ca88973e736fe00cb6da82fc34890abf1da3e5714d5a6479adb7f0bcda3f"
+  }
+}

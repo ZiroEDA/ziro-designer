@@ -27,6 +27,7 @@ import { installOverlayScrollbars } from '@ziroeda/common/widgets/overlay_scroll
 import { installDialogSizeHints } from '@ziroeda/common/dialog_shim.js';
 import { SetFileDialog, SetSaveFileDialog } from '@ziroeda/wx/filedlg.js';
 import { InitPgm } from './pgm_app.js';
+import { wxInitAllImageHandlers } from '@ziroeda/wx/wx_image.js';
 import { OpenFileDialog } from './fs/OpenFileDialog.js';
 import { SaveAsDialog } from './fs/SaveAsDialog.js';
 import { installOutlineFontProvider } from '@ziroeda/common/font/outline_fonts.js';
@@ -132,36 +133,43 @@ if (missing.length > 0) {
   //                   about whether or not the user is signed in, but inside the
   //                   gate, so a turned-away phone isn't warned about an app it
   //                   is not running.
-  createRoot(root).render(
-    <StrictMode>
-      <ErrorBoundary>
-        <DesktopGate>
-          <AuthProvider>
-            <AuthGate>
-              <App />
-            </AuthGate>
-            {/* Inside AuthProvider so it can name the account on a
-                conversation, and OUTSIDE AuthGate so it is reachable on the
-                sign-in wall too -- somebody who cannot get in is exactly the
-                person who needs support, and the wall is where they are
-                stuck. It loads nothing itself: see support/ChatWidget.tsx for
-                why the vendor's script is kept in another origin. */}
-            <ChatWidget />
-          </AuthProvider>
-          <StorageBanner />
-          {/* One tooltip layer for the whole document. It draws every tooltip
-              in the app, including the ~460 plain `title` attributes across the
-              editors and dialogs, by borrowing the attribute for the duration
-              of the hover (see ui/Tooltip.tsx). Mounted here rather than inside
-              App because App returns early for the restore screen and for the
-              project manager, so a layer in its final return never reaches
-              either of them. */}
-          <TooltipLayer />
-          {/* ACTIONS::listHotKeys is AS_GLOBAL: one dialog and one Ctrl+F1, above
-            every frame, rather than a copy in each editor. */}
-          <HotkeyListHost />
-        </DesktopGate>
-      </ErrorBoundary>
-    </StrictMode>,
-  );
+  // The image handlers InitPgm registered come first: an image decodes as its file is read, so
+  // they are ready before any frame can open one. A handler that cannot load is reported and the
+  // app comes up without it, as wx does with an image type it has no handler for.
+  void wxInitAllImageHandlers()
+    .catch((aError: unknown) => console.error('wxInitAllImageHandlers:', aError))
+    .then(() => {
+      createRoot(root).render(
+        <StrictMode>
+          <ErrorBoundary>
+            <DesktopGate>
+              <AuthProvider>
+                <AuthGate>
+                  <App />
+                </AuthGate>
+                {/* Inside AuthProvider so it can name the account on a
+                  conversation, and OUTSIDE AuthGate so it is reachable on the
+                  sign-in wall too -- somebody who cannot get in is exactly the
+                  person who needs support, and the wall is where they are
+                  stuck. It loads nothing itself: see support/ChatWidget.tsx for
+                  why the vendor's script is kept in another origin. */}
+                <ChatWidget />
+              </AuthProvider>
+              <StorageBanner />
+              {/* One tooltip layer for the whole document. It draws every tooltip
+                in the app, including the ~460 plain `title` attributes across the
+                editors and dialogs, by borrowing the attribute for the duration
+                of the hover (see ui/Tooltip.tsx). Mounted here rather than inside
+                App because App returns early for the restore screen and for the
+                project manager, so a layer in its final return never reaches
+                either of them. */}
+              <TooltipLayer />
+              {/* ACTIONS::listHotKeys is AS_GLOBAL: one dialog and one Ctrl+F1, above
+              every frame, rather than a copy in each editor. */}
+              <HotkeyListHost />
+            </DesktopGate>
+          </ErrorBoundary>
+        </StrictMode>,
+      );
+    });
 }

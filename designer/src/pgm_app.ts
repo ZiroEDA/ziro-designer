@@ -33,6 +33,7 @@ import { colorSettingsById } from './prefs/color_settings_list.js';
 import { type MouseDragAction, type ScrollModifier, settings } from './prefs/settings.js';
 import { setCustomCursorsEnabledProvider } from '@ziroeda/common/gal/kicursors.js';
 import { setColorSettingsByIdProvider } from '@ziroeda/pcbnew/pcbTheme.js';
+import { wxInitAllImageHandlers } from '@ziroeda/wx/wx_image.js';
 import {
   commonInputPrefsFromSettings,
   setCommonInputPrefsProvider,
@@ -169,6 +170,10 @@ export function InitPgm(): PGM_BASE {
     // prefs/settings.ts built its files on it at module load, so PGM_BASE
     // adopts that one rather than starting an empty second manager.
     pgm = new PGM_BASE(commonSettingsOf(), settings.manager);
+
+    // pgm_base.cpp:358. Started here, awaited by main.tsx before the first frame: the JPEG
+    // handler's libjpeg is WebAssembly, which a browser instantiates asynchronously.
+    void wxInitAllImageHandlers();
 
     // Set up built-in environment variables (and override them from the system
     // environment if set), then put them in the environment (loadCommonSettings).
