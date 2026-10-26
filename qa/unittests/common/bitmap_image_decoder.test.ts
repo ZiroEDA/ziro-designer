@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { BITMAP_BASE } from '@ziroeda/common/bitmap_base.js';
-import { BITMAP_IMAGE_DECODER } from '@ziroeda/common/gal/bitmap_image_decoder.js';
+import { BITMAP_IMAGE_DECODER } from '@ziroeda/common/draw_panel_gal.js';
 import { wxBitmapType } from '@ziroeda/wx/wx_image.js';
 
 /** The smallest stream `WX_IMAGE` takes for a JPEG: SOI and a baseline SOF0 frame header. */
