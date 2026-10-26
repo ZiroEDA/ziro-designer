@@ -67,6 +67,8 @@ import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
+import type { PLOTTER } from '@ziroeda/common/plotters/plotter.js';
+import type { SCH_PLOT_OPTS } from './sch_plotter.js';
 
 /**
  * `WIRE_STYLE`: the same values as `LINE_STYLE`, but "default" is exposed in the wire
@@ -382,6 +384,64 @@ export class SCH_LINE extends SCH_ITEM {
    * @return the style that the line should be drawn in
    * this might be set on the line or inherited from the line's netclass
    */
+  override Plot(
+    aPlotter: PLOTTER,
+    aBackground: boolean,
+    aPlotOpts: SCH_PLOT_OPTS,
+    _aUnit: number,
+    _aBodyStyle: number,
+    _aOffset: VECTOR2I,
+    _aDimmed: boolean,
+  ): void {
+    if (aBackground) return;
+
+    const renderSettings = this.getRenderSettings(aPlotter);
+    const penWidth = this.GetEffectivePenWidth(renderSettings);
+    let color = this.GetLineColor();
+
+    if (sameColor4d(color, COLOR4D_UNSPECIFIED))
+      color = renderSettings.GetLayerColor(this.GetLayer());
+
+    // `if( color.m_text && Schematic() )`: a colour held as a text variable is not carried by our
+    // COLOR4D (color4d.ts), so there is nothing to resolve.
+
+    aPlotter.SetColor(color);
+
+    aPlotter.SetCurrentLineWidth(penWidth);
+    aPlotter.SetDash(penWidth, this.GetEffectiveLineStyle());
+
+    aPlotter.MoveTo(this.m_start);
+    aPlotter.FinishTo(this.m_end);
+
+    aPlotter.SetDash(penWidth, LINE_STYLE.SOLID);
+
+    // Plot attributes to a hypertext menu
+    const properties: string[] = [];
+    const bbox = this.GetBoundingBox();
+    bbox.Inflate(penWidth * 3);
+
+    if (aPlotOpts.m_PDFPropertyPopups) {
+      if (this.GetLayer() === SCH_LAYER_ID.LAYER_WIRE) {
+        const connection = this.Connection();
+
+        if (connection) {
+          properties.push(`!Net = ${connection.Name()}`);
+          properties.push(
+            `!Resolved netclass = ${this.GetEffectiveNetClass()?.GetHumanReadableName() ?? ''}`,
+          );
+        }
+      } else if (this.GetLayer() === SCH_LAYER_ID.LAYER_BUS) {
+        const connection = this.Connection();
+
+        if (connection) {
+          for (const member of connection.Members()) properties.push(`!${member.Name()}`);
+        }
+      }
+
+      if (properties.length) aPlotter.HyperlinkMenu(bbox, properties);
+    }
+  }
+
   GetEffectiveLineStyle(): LINE_STYLE {
     if (this.m_stroke.GetLineStyle() !== LINE_STYLE.DEFAULT)
       this.m_lastResolvedLineStyle = this.m_stroke.GetLineStyle();

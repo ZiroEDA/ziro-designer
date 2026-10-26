@@ -37,6 +37,7 @@ import { plotterRenderSettings } from '@ziroeda/common/render_settings.js';
 import {
   DXF_UNITS,
   FILL_T,
+  PLOT_FORMAT,
   type PLOTTER,
   plotterPageInfo,
 } from '@ziroeda/common/plotters/plotter.js';
@@ -71,6 +72,17 @@ import {
   symbolBodyBBox,
   type BBox,
 } from './tools/bbox.js';
+import type { SCHEMATIC } from './schematic.js';
+import { SCH_SHEET_LIST, type SCH_SHEET_PATH } from './sch_sheet_path.js';
+import type { SCH_SCREEN } from './sch_screen.js';
+import type { SCH_RENDER_SETTINGS } from './sch_render_settings.js';
+import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import {
+  type Reporter,
+  RPT_SEVERITY_ACTION,
+  RPT_SEVERITY_ERROR,
+  RPT_SEVERITY_INFO,
+} from '@ziroeda/common/reporter.js';
 
 const MM = 10000; // IU per mm (matches the renderer)
 
@@ -1341,5 +1353,226 @@ function plotPdfAnnotations(
       };
       if (!isEmpty(b)) plotter.HyperlinkMenu(box(b), properties);
     });
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// SCH_PLOTTER (sch_plotter.cpp) on the live schematic: each item plots itself through
+// SCH_SCREEN::Plot, as KiCad's does.
+// ---------------------------------------------------------------------------------------------
+
+/** `PageFormatReq`. */
+export enum PageFormatReq {
+  PAGE_SIZE_AUTO,
+  PAGE_SIZE_A4,
+  PAGE_SIZE_A,
+}
+
+/** One plotted file: its name and its contents. Plots download here, so nothing is written. */
+export interface SCH_PLOT_OUTPUT {
+  fileName: string;
+  text: string;
+}
+
+/** `SCH_PLOTTER`. */
+export class SCH_PLOTTER {
+  /** The files this plot made, in the order they were plotted. */
+  readonly m_outputs: SCH_PLOT_OUTPUT[] = [];
+
+  private m_lastOutputFilePath = '';
+
+  /**
+   * Ours: the date every plotter stamps into its output. KiCad takes the clock; a test passes the
+   * date of the file it compares with.
+   */
+  m_plotDate: Date | null = null;
+
+  constructor(private readonly m_schematic: SCHEMATIC) {}
+
+  GetLastOutputFilePath(): string {
+    return this.m_lastOutputFilePath;
+  }
+
+  /** `SCH_PLOTTER::Plot( aPlotFormat, aPlotOpts, aRenderSettings, aReporter )`. */
+  Plot(
+    aPlotFormat: PLOT_FORMAT,
+    aPlotOpts: SCH_PLOT_OPTS,
+    aRenderSettings: SCH_RENDER_SETTINGS,
+    aReporter: Reporter | null = null,
+  ): void {
+    switch (aPlotFormat) {
+      case PLOT_FORMAT.SVG:
+        this.createSVGFiles(aPlotOpts, aRenderSettings, aReporter);
+        break;
+      default:
+        // PDF, PS and DXF: the next stage of the live plot port
+        break;
+    }
+  }
+
+  /** `createPlotFileName`: the sheet's file name with the format's extension. */
+  private createPlotFileName(
+    aPlotOpts: SCH_PLOT_OPTS,
+    aPlotFileName: string,
+    aExt: string,
+  ): string {
+    const dir = aPlotOpts.m_outputDirectory;
+    const name = `${aPlotFileName}.${aExt}`;
+    return dir === '' ? name : `${dir.replace(/\/$/, '')}/${name}`;
+  }
+
+  /** `createSVGFiles`: one SVG per sheet plotted. */
+  private createSVGFiles(
+    aPlotOpts: SCH_PLOT_OPTS,
+    aRenderSettings: SCH_RENDER_SETTINGS,
+    aReporter: Reporter | null,
+  ): void {
+    const oldsheetpath = this.m_schematic.CurrentSheet();
+    let sheetList: SCH_SHEET_PATH[];
+
+    if (aPlotOpts.m_plotAll) {
+      const list = new SCH_SHEET_LIST();
+      list.BuildSheetList(this.m_schematic.Root(), true);
+      list.SortByPageNumbers();
+
+      // remove the non-selected pages if we are in plot pages mode
+      if (aPlotOpts.m_plotPages.length > 0) list.TrimToPageNumbers(aPlotOpts.m_plotPages);
+
+      sheetList = [...list];
+    } else {
+      // in Eeschema, this prints the current page
+      sheetList = [this.m_schematic.CurrentSheet()];
+    }
+
+    for (const sheet of sheetList) {
+      this.m_schematic.SetCurrentSheet(sheet);
+      this.m_schematic.CurrentSheet().UpdateAllScreenReferences();
+      this.m_schematic.SetSheetNumberAndCount();
+
+      const screen = this.m_schematic.CurrentSheet().LastScreen()!;
+
+      // The sub sheet can be in a sub_hierarchy, but we plot the file in the main project folder
+      // (or the folder specified by the caller), so replace separators to create a unique
+      // filename:
+      const fname = this.m_schematic.GetUniqueFilenameForCurrentSheet().replace(/[/\\]/g, '_');
+      const plotFileName = this.createPlotFileName(aPlotOpts, fname, 'svg');
+
+      this.m_lastOutputFilePath = plotFileName;
+
+      if (!this.plotOneSheetSVG(plotFileName, screen, aRenderSettings, aPlotOpts))
+        aReporter?.Report(`Failed to create file '${plotFileName}'.`, RPT_SEVERITY_ERROR);
+      else aReporter?.Report(`Plotted to '${plotFileName}'.`, RPT_SEVERITY_ACTION);
+    }
+
+    aReporter?.ReportTail('Done.', RPT_SEVERITY_INFO);
+
+    this.restoreEnvironment(oldsheetpath);
+  }
+
+  /** `plotOneSheetSVG`. */
+  private plotOneSheetSVG(
+    aFileName: string,
+    aScreen: SCH_SCREEN,
+    aRenderSettings: SCH_RENDER_SETTINGS,
+    aPlotOpts: SCH_PLOT_OPTS,
+  ): boolean {
+    // Adjust page size and scaling requests
+    const actualPage = aScreen.GetPageSettings(); // page size selected in schematic
+    let plotPage: PAGE_INFO;
+
+    switch (aPlotOpts.m_pageSizeSelect) {
+      case PageFormatReq.PAGE_SIZE_A:
+        plotPage = new PAGE_INFO();
+        plotPage.SetType('A');
+        plotPage.SetPortrait(actualPage.IsPortrait());
+        break;
+
+      case PageFormatReq.PAGE_SIZE_A4:
+        plotPage = new PAGE_INFO();
+        plotPage.SetType('A4');
+        plotPage.SetPortrait(actualPage.IsPortrait());
+        break;
+
+      default:
+        plotPage = actualPage;
+        break;
+    }
+
+    const plotter = new SVG_PLOTTER();
+    plotter.SetRenderSettings(aRenderSettings);
+    plotter.SetPageSettings(plotPage);
+    plotter.SetColorMode(!aPlotOpts.m_blackAndWhite);
+    const plot_offset = { x: 0, y: 0 };
+
+    const scalex = plotPage.GetWidthMils() / actualPage.GetWidthMils();
+    const scaley = plotPage.GetHeightMils() / actualPage.GetHeightMils();
+    const scale = Math.min(scalex, scaley);
+
+    // Currently, plot units are in decimil
+    plotter.SetViewport(plot_offset, schIUScale.IU_PER_MILS / 10, scale, false);
+
+    // Init :
+    plotter.SetCreator('Eeschema-SVG');
+
+    if (!plotter.OpenFile(aFileName)) return false;
+
+    plotter.StartPlot(
+      this.m_schematic.CurrentSheet().GetPageNumber(),
+      this.m_plotDate ?? new Date(),
+    );
+
+    if (aPlotOpts.m_useBackgroundColor && plotter.GetColorMode()) {
+      plotter.SetColor(aRenderSettings.GetLayerColor(SCH_LAYER_ID.LAYER_SCHEMATIC_BACKGROUND));
+
+      // Use page size selected in schematic to know the schematic bg area
+      const end = {
+        x: actualPage.GetWidthIU(schIUScale.IU_PER_MILS),
+        y: actualPage.GetHeightIU(schIUScale.IU_PER_MILS),
+      };
+
+      plotter.Rect({ x: 0, y: 0 }, end, FILL_T.FILLED_SHAPE, 1.0, 0);
+    }
+
+    if (aPlotOpts.m_plotDrawingSheet) {
+      const sheetName = this.m_schematic.CurrentSheet().Last()!.GetName();
+      const sheetPath = this.m_schematic.CurrentSheet().PathHumanReadable();
+      const color = aRenderSettings.GetLayerColor(SCH_LAYER_ID.LAYER_SCHEMATIC_DRAWINGSHEET);
+
+      const sch = aScreen.Schematic()!;
+      const variantName = sch.GetCurrentVariant();
+      const variantDesc = sch.GetVariantDescription(variantName);
+
+      PlotDrawingSheet(
+        plotter,
+        sch.Project(),
+        aScreen.GetTitleBlock(),
+        actualPage,
+        sch.GetProperties(),
+        aScreen.GetPageNumber(),
+        aScreen.GetPageCount(),
+        sheetName,
+        sheetPath,
+        aScreen.GetFileName(),
+        plotter.GetColorMode() ? color : COLOR4D_BLACK,
+        aScreen.GetVirtualPageNumber() === 1,
+        variantName,
+        variantDesc,
+      );
+    }
+
+    aScreen.Plot(plotter, aPlotOpts);
+
+    plotter.EndPlot();
+    this.m_outputs.push({ fileName: aFileName, text: plotter.text() });
+
+    return true;
+  }
+
+  /** `restoreEnvironment( nullptr, aOldsheetpath )`: back to the sheet the plot started on. */
+  private restoreEnvironment(aOldsheetpath: SCH_SHEET_PATH): void {
+    // Restore the previous sheet
+    this.m_schematic.SetCurrentSheet(aOldsheetpath);
+    this.m_schematic.CurrentSheet().UpdateAllScreenReferences();
+    this.m_schematic.SetSheetNumberAndCount();
   }
 }

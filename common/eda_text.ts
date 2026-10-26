@@ -123,6 +123,15 @@ function recursiveDescent(aNode: NODE): boolean {
  * function names (accessors) that to not collide with function names likely to be seen
  * in the combined derived classes.
  */
+/**
+ * `dynamic_cast<EDA_TEXT*>( aItem )`: EDA_TEXT is a mixin here, so `instanceof` cannot answer;
+ * the text-bearing items are the ones that answer `GetText`.
+ */
+export function asEdaText(aItem: unknown): EDA_TEXT | null {
+  const text = aItem as Partial<EDA_TEXT> | null;
+  return text && typeof text.GetText === 'function' ? (text as EDA_TEXT) : null;
+}
+
 export class EDA_TEXT {
   /**
    * `dynamic_cast<EDA_TEXT*>( x )`: EDA_TEXT is a mixin here, so `instanceof`

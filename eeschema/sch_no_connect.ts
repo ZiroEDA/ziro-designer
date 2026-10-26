@@ -21,6 +21,8 @@ import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { DEFAULT_NOCONNECT_SIZE } from './default_values.js';
 import { DANGLING_END_ITEM, DANGLING_END_T, SCH_ITEM } from './sch_item.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import type { PLOTTER } from '@ziroeda/common/plotters/plotter.js';
+import type { SCH_PLOT_OPTS } from './sch_plotter.js';
 
 const samePt = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 
@@ -51,6 +53,35 @@ export class SCH_NO_CONNECT extends SCH_ITEM {
 
   override GetClass(): string {
     return 'SCH_NO_CONNECT';
+  }
+
+  override Plot(
+    aPlotter: PLOTTER,
+    aBackground: boolean,
+    aPlotOpts: SCH_PLOT_OPTS,
+    _aUnit: number,
+    _aBodyStyle: number,
+    _aOffset: VECTOR2I,
+    _aDimmed: boolean,
+  ): void {
+    if (aBackground) return;
+
+    const delta = Math.trunc(this.GetSize() / 2);
+    const pX = this.m_pos.x;
+    const pY = this.m_pos.y;
+    const penWidth = this.GetEffectivePenWidth(this.getRenderSettings(aPlotter));
+
+    const color = this.getRenderSettings(aPlotter).GetLayerColor(SCH_LAYER_ID.LAYER_NOCONNECT);
+
+    // `if( color.m_text && Schematic() )`: a colour held as a text variable is not carried by our
+    // COLOR4D (color4d.ts), so there is nothing to resolve.
+
+    aPlotter.SetCurrentLineWidth(penWidth);
+    aPlotter.SetColor(color);
+    aPlotter.MoveTo({ x: pX - delta, y: pY - delta });
+    aPlotter.FinishTo({ x: pX + delta, y: pY + delta });
+    aPlotter.MoveTo({ x: pX + delta, y: pY - delta });
+    aPlotter.FinishTo({ x: pX - delta, y: pY + delta });
   }
 
   GetSize(): number {

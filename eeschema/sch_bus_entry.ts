@@ -40,6 +40,8 @@ import { WIRE_STYLE } from './sch_line.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import type { PLOTTER } from '@ziroeda/common/plotters/plotter.js';
+import type { SCH_PLOT_OPTS } from './sch_plotter.js';
 
 /** `TARGET_BUSENTRY_RADIUS`: circle diameter drawn at the ends. */
 export const TARGET_BUSENTRY_RADIUS = schIUScale.milsToIU(12);
@@ -172,6 +174,40 @@ export abstract class SCH_BUS_ENTRY_BASE extends SCH_ITEM {
   SetLineStyle(aStyle: LINE_STYLE): void {
     this.m_stroke.SetLineStyle(aStyle);
     this.m_lastResolvedLineStyle = aStyle;
+  }
+
+  override Plot(
+    aPlotter: PLOTTER,
+    aBackground: boolean,
+    aPlotOpts: SCH_PLOT_OPTS,
+    _aUnit: number,
+    _aBodyStyle: number,
+    _aOffset: VECTOR2I,
+    _aDimmed: boolean,
+  ): void {
+    if (aBackground) return;
+
+    const renderSettings = this.getRenderSettings(aPlotter);
+
+    const color = color4dEquals(this.GetBusEntryColor(), COLOR4D_UNSPECIFIED)
+      ? renderSettings.GetLayerColor(this.m_layer)
+      : this.GetBusEntryColor();
+
+    // `if( color.m_text && Schematic() )`: a colour held as a text variable is not carried by our
+    // COLOR4D (color4d.ts), so there is nothing to resolve.
+
+    let penWidth =
+      this.GetPenWidth() === 0 ? renderSettings.GetDefaultPenWidth() : this.GetPenWidth();
+
+    penWidth = Math.max(penWidth, renderSettings.GetMinPenWidth());
+
+    aPlotter.SetCurrentLineWidth(penWidth);
+    aPlotter.SetColor(color);
+    aPlotter.SetDash(penWidth, this.GetEffectiveLineStyle());
+    aPlotter.MoveTo(this.m_pos);
+    aPlotter.FinishTo(this.GetEnd());
+
+    aPlotter.SetDash(penWidth, LINE_STYLE.SOLID);
   }
 
   GetEffectiveLineStyle(): LINE_STYLE {

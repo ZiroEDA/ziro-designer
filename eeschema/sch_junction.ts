@@ -46,6 +46,9 @@ import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
+import type { PLOTTER } from '@ziroeda/common/plotters/plotter.js';
+import type { SCH_PLOT_OPTS } from './sch_plotter.js';
+import { FILL_T } from '@ziroeda/common/eda_shape.js';
 
 const samePt = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 
@@ -226,6 +229,30 @@ export class SCH_JUNCTION extends SCH_ITEM {
 
   override IsPointClickableAnchor(_aPos: VECTOR2I): boolean {
     return false;
+  }
+
+  override Plot(
+    aPlotter: PLOTTER,
+    aBackground: boolean,
+    aPlotOpts: SCH_PLOT_OPTS,
+    _aUnit: number,
+    _aBodyStyle: number,
+    _aOffset: VECTOR2I,
+    _aDimmed: boolean,
+  ): void {
+    if (aBackground) return;
+
+    const settings = this.getRenderSettings(aPlotter);
+    let color = this.GetJunctionColor();
+
+    if (color4dEquals(color, COLOR4D_UNSPECIFIED)) color = settings.GetLayerColor(this.GetLayer());
+
+    // `if( color.m_text && Schematic() )`: a colour held as a text variable is not carried by our
+    // COLOR4D (color4d.ts), so there is nothing to resolve.
+
+    aPlotter.SetColor(color);
+
+    aPlotter.Circle(this.m_pos, this.GetEffectiveDiameter(), FILL_T.FILLED_SHAPE, 0);
   }
 
   GetEffectiveDiameter(): number {

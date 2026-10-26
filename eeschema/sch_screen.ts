@@ -12,6 +12,7 @@
  * RC_ITEM) and connection-graph recalculation.
  */
 
+import { stdSort } from '@ziroeda/clipper2/clipper.core.js';
 import type { SCH_COMMIT } from './sch_commit.js';
 import { BASE_SCREEN } from '@ziroeda/common/base_screen.js';
 import { IO_ERROR } from '@ziroeda/common/exceptions.js';
@@ -31,7 +32,7 @@ import {
   STRUCT_DELETED,
 } from '@ziroeda/common/eda_item_flags.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
-import type { SCH_SHAPE } from './sch_shape.js';
+import { SCH_SHAPE } from './sch_shape.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { type KIID_PATH, newKiid, type KIID } from '@ziroeda/common/kiid.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -56,7 +57,7 @@ import type { BUS_ALIAS } from './bus_alias.js';
 import { type SCH_LABEL_BASE, SPIN_STYLE } from './sch_label.js';
 import type { SCH_BUS_WIRE_ENTRY } from './sch_bus_entry.js';
 import { GetPinSpinStyle } from './symb_transforms_utils.js';
-import type { SCH_LINE } from './sch_line.js';
+import { SCH_LINE } from './sch_line.js';
 import type { SCH_PIN } from './sch_pin.js';
 import { EE_RTREE } from './sch_rtree.js';
 import type { SCH_SHEET } from './sch_sheet.js';
@@ -69,6 +70,12 @@ import type {
 } from './sch_sheet_path.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
 import type { SCHEMATIC } from './schematic.js';
+import type { PLOTTER } from '@ziroeda/common/plotters/plotter.js';
+import type { SCH_PLOT_OPTS } from './sch_plotter.js';
+import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
+import { DEFAULT_LINE_WIDTH_MILS } from './default_values.js';
+import { SCH_FIELD } from './sch_field.js';
+import type { SCH_RENDER_SETTINGS } from './sch_render_settings.js';
 
 export { EE_RTREE, type EE_RTREE_LIKE } from './sch_rtree.js';
 
@@ -274,6 +281,172 @@ export class SCH_SCREEN extends BASE_SCREEN {
 
   SetAuxOrigin(aPosition: VECTOR2I): void {
     this.m_aux_origin = { ...aPosition };
+  }
+
+  /**
+   * `SCH_SCREEN::Plot( aPlotter, aPlotOpts[, aItems] )` (sch_screen.cpp): every item, or \a aItems,
+   * in screen-drawing order - bitmaps first, then the rest sorted by type and layer as background
+   * and again as foreground (wires and buses broken at their hop-overs when asked), then the
+   * fields, pins and DNP marks of the symbols that overlap another, and the junctions last.
+   */
+  Plot(aPlotter: PLOTTER, aPlotOpts: SCH_PLOT_OPTS, aItems?: readonly SCH_ITEM[]): void {
+    // Ensure links are up to date, even if a library was reloaded for some reason:
+    const items = aItems ?? [...this.Items()];
+    const junctions: SCH_ITEM[] = [];
+    const bitmaps: SCH_ITEM[] = [];
+    const symbols: SCH_SYMBOL[] = [];
+    const other: SCH_ITEM[] = [];
+    let hopOverScale = 0.0;
+    let defaultLineWidth = schIUScale.milsToIU(DEFAULT_LINE_WIDTH_MILS);
+
+    if (items.length && items[0]!.Schematic()) {
+      hopOverScale = items[0]!.Schematic()!.Settings().GetHopOverScale();
+      defaultLineWidth = items[0]!.Schematic()!.Settings().m_DefaultLineWidth;
+    }
+
+    for (const item of items) {
+      if (item.IsMoving()) continue;
+
+      if (item.Type() === KICAD_T.SCH_JUNCTION_T) junctions.push(item);
+      else if (item.Type() === KICAD_T.SCH_BITMAP_T) bitmaps.push(item);
+      else other.push(item);
+
+      // Where the symbols overlap each other, we need to plot the text items a second time to get
+      // them on top of the overlapping element. This collection is in addition to the symbols
+      // already collected in `other`
+      if (item.Type() === KICAD_T.SCH_SYMBOL_T) {
+        for (const sym of this.m_rtree.Overlapping(KICAD_T.SCH_SYMBOL_T, item.GetBoundingBox())) {
+          if (sym !== item) {
+            symbols.push(item as SCH_SYMBOL);
+            break;
+          }
+        }
+      }
+    }
+
+    /// Sort to ensure plot-order consistency with screen drawing. std::sort is not stable, and
+    /// the order it leaves equal items in is the order KiCad plots them, so it is libstdc++'s.
+    stdSort(other, (a, b) => {
+      if (a.Type() === b.Type()) return a.GetLayer() > b.GetLayer();
+
+      return a.Type() > b.Type();
+    });
+
+    const renderSettings = aPlotter.RenderSettings() as unknown as SCH_RENDER_SETTINGS;
+    const background = true;
+
+    // Bitmaps are drawn first to ensure they are in the background
+    for (const item of bitmaps) {
+      aPlotter.SetCurrentLineWidth(item.GetEffectivePenWidth(renderSettings));
+      item.Plot(aPlotter, background, aPlotOpts, 0, 0, { x: 0, y: 0 }, false);
+    }
+
+    // Plot the background items
+    for (const item of other) {
+      aPlotter.SetCurrentLineWidth(item.GetEffectivePenWidth(renderSettings));
+      item.Plot(aPlotter, background, aPlotOpts, 0, 0, { x: 0, y: 0 }, false);
+    }
+
+    // Plot the foreground items
+    for (const item of other) {
+      const lineWidth = item.GetEffectivePenWidth(renderSettings);
+      aPlotter.SetCurrentLineWidth(lineWidth);
+
+      if (item.Type() !== KICAD_T.SCH_LINE_T) {
+        item.Plot(aPlotter, !background, aPlotOpts, 0, 0, { x: 0, y: 0 }, false);
+      } else {
+        const aLine = item as SCH_LINE;
+
+        if ((!aLine.IsWire() && !aLine.IsBus()) || !aPlotOpts.m_plotHopOver) {
+          item.Plot(aPlotter, !background, aPlotOpts, 0, 0, { x: 0, y: 0 }, false);
+        } else {
+          const arcRadius = defaultLineWidth * hopOverScale;
+          const curr_wire_shape = aLine.BuildWireWithHopShape(this, arcRadius);
+
+          // The hop pieces are standalone copies/shapes without the connection map, so resolve
+          // the net-class color and style from the original wire and reuse them.
+          const lineColor = aLine.GetLineColor();
+          const lineStyle = aLine.GetEffectiveLineStyle();
+
+          for (let ii = 1; ii < curr_wire_shape.length; ii++) {
+            const start = { x: curr_wire_shape[ii - 1]!.x, y: curr_wire_shape[ii - 1]!.y };
+
+            // This is the start point of a segment: there are always 2 points in list for one
+            if (curr_wire_shape[ii - 1]!.z === 0) {
+              const end = { x: curr_wire_shape[ii]!.x, y: curr_wire_shape[ii]!.y };
+
+              const curr_line = SCH_LINE.copyOf(aLine);
+              curr_line.SetStartPoint(start);
+              curr_line.SetEndPoint(end);
+              curr_line.SetLineColor(lineColor);
+              curr_line.SetLineStyle(lineStyle);
+              curr_line.Plot(aPlotter, !background, aPlotOpts, 0, 0, { x: 0, y: 0 }, false);
+            } else {
+              // This is the start point of a arc: there are always 3 points in list for one
+              const arc_middle = { x: curr_wire_shape[ii]!.x, y: curr_wire_shape[ii]!.y };
+              ii++;
+              const arc_end = { x: curr_wire_shape[ii]!.x, y: curr_wire_shape[ii]!.y };
+              ii++;
+
+              const arc = new SCH_SHAPE(SHAPE_T.ARC, aLine.GetLayer(), lineWidth);
+
+              arc.SetArcGeometry(start, arc_middle, arc_end);
+              // Hop are a small arc, so use a solid line style gives best results
+              arc.SetLineStyle(LINE_STYLE.SOLID);
+              arc.SetLineColor(lineColor);
+              arc.Plot(aPlotter, !background, aPlotOpts, 0, 0, { x: 0, y: 0 }, false);
+            }
+          }
+        }
+      }
+    }
+
+    // After plotting the symbols as a group above (in `other`), we need to overplot the pins and
+    // symbols to ensure that they are always visible
+    const savedTransform = renderSettings.m_Transform;
+
+    const variant = this.Schematic()!.GetCurrentVariant();
+    const sheet = this.Schematic()!.CurrentSheet();
+
+    for (const sym of symbols) {
+      renderSettings.m_Transform = sym.GetTransform();
+      aPlotter.SetCurrentLineWidth(sym.GetEffectivePenWidth(renderSettings));
+
+      const dnp = sym.GetDNP(sheet, variant);
+
+      for (const original of sym.GetFields()) {
+        const field = SCH_FIELD.copyOf(original); // for( SCH_FIELD field : sym->GetFields() )
+        field.ClearRenderCache();
+        field.Plot(
+          aPlotter,
+          false,
+          aPlotOpts,
+          sym.GetUnit(),
+          sym.GetBodyStyle(),
+          { x: 0, y: 0 },
+          dnp,
+        );
+
+        if (
+          sym.IsSymbolLikePowerLocalLabel() &&
+          field.GetId() === FIELD_T.VALUE &&
+          (field.IsVisible() || field.IsForceVisible())
+        ) {
+          sym.PlotLocalPowerIconShape(aPlotter);
+        }
+      }
+
+      sym.PlotPins(aPlotter, dnp);
+
+      if (dnp) sym.PlotDNP(aPlotter);
+    }
+
+    renderSettings.m_Transform = savedTransform;
+
+    for (const item of junctions) {
+      aPlotter.SetCurrentLineWidth(item.GetEffectivePenWidth(renderSettings));
+      item.Plot(aPlotter, !background, aPlotOpts, 0, 0, { x: 0, y: 0 }, false);
+    }
   }
 
   GetTitleBlock(): TITLE_BLOCK {

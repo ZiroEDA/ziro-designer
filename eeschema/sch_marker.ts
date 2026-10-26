@@ -13,7 +13,7 @@
 import type { EDA_DRAW_FRAME_LIKE, EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import type { EDA_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
-import type { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { asEdaText } from '@ziroeda/common/eda_text.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { type KIID, KIID_PATH, kiidFromString, niluuid } from '@ziroeda/common/kiid.js';
@@ -42,12 +42,6 @@ import type { SCH_SYMBOL } from './sch_symbol.js';
 
 /// Factor to convert the maker unit shape to internal units:
 const SCALING_FACTOR = schIUScale.mmToIU(0.15);
-
-/** `dynamic_cast<EDA_TEXT*>`: the text-bearing items answer `GetText`. */
-function asText(aItem: EDA_ITEM | null): EDA_TEXT | null {
-  const text = aItem as Partial<EDA_TEXT> | null;
-  return text && typeof text.GetText === 'function' ? (text as EDA_TEXT) : null;
-}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (MARKER_BASE mixin)
 export interface SCH_MARKER extends MARKER_BASE {}
@@ -138,7 +132,7 @@ export class SCH_MARKER extends SCH_ITEM {
     ) {
       const sch_item = this.Schematic()!.ResolveItem(erc.GetMainItemID());
       const parent = (sch_item?.GetParent() ?? null) as SCH_ITEM | null;
-      const text_item = asText(sch_item);
+      const text_item = asEdaText(sch_item);
 
       // SCH_FIELDs and SCH_ITEMs inside LIB_SYMBOLs don't have persistent KIIDs.  So the
       // exclusion must refer to the parent's KIID, and include the text of the original text
@@ -201,7 +195,7 @@ export class SCH_MARKER extends SCH_ITEM {
 
         // Check fields and pins for a match
         parent?.RunOnChildren((child: SCH_ITEM) => {
-          const text_item = asText(child);
+          const text_item = asEdaText(child);
 
           if (text_item && text_item.GetText() === prop(4)) uuid = child.m_Uuid;
         }, RECURSE_MODE.NO_RECURSE);
@@ -212,7 +206,7 @@ export class SCH_MARKER extends SCH_ITEM {
             if (child.Type() === KICAD_T.SCH_FIELD_T) {
               // Match only on SCH_SYMBOL fields, not LIB_SYMBOL fields.
             } else {
-              const text_item = asText(child);
+              const text_item = asEdaText(child);
 
               if (text_item && text_item.GetText() === prop(4)) uuid = child.m_Uuid;
             }

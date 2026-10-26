@@ -86,8 +86,7 @@ export function AddHierarchicalReference(
 // `SCH_SYMBOL`, the live-model class (eeschema stage E3). The three functions above
 // are the record model's; the class is ported alongside, file-for-file.
 //
-// Pending, marked in place: Plot/PlotPins/PlotDNP/PlotLocalPowerIconShape (the
-// plotters), GetMsgPanelInfo, SyncOtherUnits (SCH_COMMIT), AutoplaceFields (the
+// Pending, marked in place: GetMsgPanelInfo, SyncOtherUnits (SCH_COMMIT), AutoplaceFields (the
 // autoplacer on the live model), and the SIM_LIB_MGR half of `${OP…}`.
 //
 // `UpdatePins` keys its sets on `SCH_PIN*` upstream, so which spare pin is reused
@@ -147,6 +146,13 @@ import type { PICKED_SYMBOL, SCH_SCREEN } from './sch_screen.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { SCH_SYMBOL_INSTANCE, SCH_SYMBOL_VARIANT } from './sch_sheet_path.js';
 import { SYMBOL, SYMBOL_ORIENTATION_PROP, SYMBOL_ORIENTATION_T } from './symbol.js';
+import type { PLOTTER } from '@ziroeda/common/plotters/plotter.js';
+import { SCH_PLOT_OPTS } from './sch_plotter.js';
+import { asEdaText } from '@ziroeda/common/eda_text.js';
+import { IS_DANGLING } from '@ziroeda/common/eda_item_flags.js';
+import { DEFAULT_LINE_WIDTH_MILS } from './default_values.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import { ANGLE_HORIZONTAL, ANGLE_VERTICAL } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 
 /** `toUTFTildaText`: every control character and space becomes '~'. */
 export function toUTFTildaText(txt: string): string {
@@ -167,6 +173,32 @@ const transformKey = (t: TRANSFORM): string => `${t.x1},${t.y1},${t.x2},${t.y2}`
 /**
  * Schematic symbol object.
  */
+/** `plotLocalPowerIcon` (sch_symbol.cpp:3437): the icon's Béziers and dot, through the plotter. */
+function plotLocalPowerIcon(aPlotter: PLOTTER, aPos: Vec2, aSize: number, aRotate: boolean): void {
+  const lineWidth = aSize / 10.0;
+
+  const shapeList: SCH_SHAPE[] = [];
+  SCH_SYMBOL.BuildLocalPowerIconShape(shapeList, aPos, aSize, lineWidth, aRotate);
+  const tolerance = 100; // approx error to approximate a Bezier curve by segments
+
+  for (const shape of shapeList) {
+    // Currently there are only 2 shapes: BEZIER and CIRCLE
+    const filled = shape.GetFillMode() === FILL_T.NO_FILL ? FILL_T.NO_FILL : FILL_T.FILLED_SHAPE;
+
+    if (shape.GetShape() === SHAPE_T.BEZIER)
+      aPlotter.BezierCurve(
+        shape.GetStart(),
+        shape.GetBezierC1(),
+        shape.GetBezierC2(),
+        shape.GetEnd(),
+        tolerance,
+        lineWidth,
+      );
+    else if (shape.GetShape() === SHAPE_T.CIRCLE)
+      aPlotter.Circle(shape.getCenter(), shape.GetRadius() * 2, filled, lineWidth);
+  }
+}
+
 export class SCH_SYMBOL extends SYMBOL {
   private m_pos!: VECTOR2I;
   private m_lib_id!: LIB_ID; ///< Name and library the symbol was loaded from, i.e. 74xx:74LS00.
@@ -3133,7 +3165,229 @@ export class SCH_SYMBOL extends SYMBOL {
     return KIGEOM_BoxHitTestChain(a as SHAPE_LINE_CHAIN, this.GetBodyBoundingBox(), b as boolean);
   }
 
-  /** `Plot`, `PlotPins`, `PlotLocalPowerIconShape`, `PlotDNP`: pending (the plotters). */
+  /**
+   * `SCH_SYMBOL::Plot`: the library symbol copied, its pins carrying this symbol's names, types,
+   * shapes and dangling state and its texts resolved through a field, plotted in this symbol's
+   * transform, background then foreground, with the fields; then the DNP cross, the PDF property
+   * popup and the "Symbols" bookmark.
+   */
+  override Plot(
+    aPlotter: PLOTTER,
+    aBackground: boolean,
+    aPlotOpts: SCH_PLOT_OPTS,
+    _aUnit: number,
+    _aBodyStyle: number,
+    _aOffset: VECTOR2I,
+    _aDimmed: boolean,
+  ): void {
+    if (aBackground) return;
+
+    if (this.m_part) {
+      const libPins = this.m_part.GetGraphicalPins(this.GetUnit(), this.GetBodyStyle());
+
+      // Copy the source so we can re-orient and translate it.
+      const tempSymbol = LIB_SYMBOL.copyOf(this.m_part);
+      const tempPins = tempSymbol.GetGraphicalPins(this.GetUnit(), this.GetBodyStyle());
+
+      // Copy the pin info from the symbol to the temp pins
+      for (let i = 0; i < tempPins.length; ++i) {
+        const symbolPin = this.GetPin(libPins[i]!);
+        const tempPin = tempPins[i]!;
+
+        if (!symbolPin) continue;
+
+        tempPin.SetName(symbolPin.GetShownName());
+        tempPin.SetType(symbolPin.GetType());
+        tempPin.SetShape(symbolPin.GetShape());
+
+        if (symbolPin.IsDangling()) tempPin.SetFlags(IS_DANGLING);
+      }
+
+      for (const item of tempSymbol.GetDrawItems()) {
+        const text = asEdaText(item);
+
+        if (text) {
+          // Use SCH_FIELD's text resolver
+          const dummy = new SCH_FIELD(this, FIELD_T.USER);
+          dummy.SetText(text.GetText());
+          text.SetText(dummy.GetShownText(false));
+        }
+      }
+
+      const renderSettings = this.getRenderSettings(aPlotter);
+      const savedTransform = renderSettings.m_Transform;
+      renderSettings.m_Transform = this.GetTransform();
+      aPlotter.StartBlock(null);
+
+      const variant = this.Schematic()!.GetCurrentVariant();
+      const sheet = this.Schematic()!.CurrentSheet();
+      const dnp = this.GetDNP(sheet, variant);
+
+      for (const local_background of [true, false]) {
+        tempSymbol.Plot(
+          aPlotter,
+          local_background,
+          aPlotOpts,
+          this.GetUnit(),
+          this.GetBodyStyle(),
+          this.m_pos,
+          dnp,
+        );
+
+        for (const original of this.m_fields) {
+          const field = SCH_FIELD.copyOf(original); // for( SCH_FIELD field : m_fields ): a copy
+          field.ClearRenderCache();
+          field.Plot(
+            aPlotter,
+            local_background,
+            aPlotOpts,
+            this.GetUnit(),
+            this.GetBodyStyle(),
+            this.m_pos,
+            dnp,
+          );
+
+          if (
+            this.IsSymbolLikePowerLocalLabel() &&
+            field.GetId() === FIELD_T.VALUE &&
+            (field.IsVisible() || field.IsForceVisible())
+          ) {
+            this.PlotLocalPowerIconShape(aPlotter);
+          }
+        }
+      }
+
+      if (dnp) this.PlotDNP(aPlotter);
+
+      // Plot attributes to a hypertext menu
+      if (aPlotOpts.m_PDFPropertyPopups) {
+        const properties: string[] = [];
+
+        for (const field of this.GetFields()) {
+          const text_field = field.GetShownText(sheet, false, 0, variant);
+
+          if (text_field === '') continue;
+
+          properties.push(`!${field.GetName()} = ${text_field}`);
+        }
+
+        if (this.m_part.GetKeyWords() !== '')
+          properties.push(`!Keywords = ${this.m_part.GetKeyWords()}`);
+
+        aPlotter.HyperlinkMenu(this.GetBoundingBox(), properties);
+      }
+
+      aPlotter.EndBlock(null);
+      renderSettings.m_Transform = savedTransform;
+
+      if (!this.m_part.IsPower())
+        aPlotter.Bookmark(this.GetBoundingBox(), this.GetRef(sheet), 'Symbols');
+    }
+  }
+
+  /** `SCH_SYMBOL::PlotPins`: the pins alone, over the symbol, as SCH_SCREEN::Plot overplots them. */
+  PlotPins(aPlotter: PLOTTER, aDnp: boolean): void {
+    if (this.m_part) {
+      const renderSettings = this.getRenderSettings(aPlotter);
+      const savedTransform = renderSettings.m_Transform;
+      renderSettings.m_Transform = this.GetTransform();
+
+      const libPins = this.m_part.GetGraphicalPins(this.GetUnit(), this.GetBodyStyle());
+
+      // Copy the source to stay const
+      const tempSymbol = LIB_SYMBOL.copyOf(this.m_part);
+      const tempPins = tempSymbol.GetGraphicalPins(this.GetUnit(), this.GetBodyStyle());
+      const plotOpts = new SCH_PLOT_OPTS();
+
+      // Copy the pin info from the symbol to the temp pins
+      for (let i = 0; i < tempPins.length; ++i) {
+        const symbolPin = this.GetPin(libPins[i]!);
+        const tempPin = tempPins[i]!;
+
+        if (!symbolPin) continue;
+
+        tempPin.SetName(symbolPin.GetShownName());
+        tempPin.SetType(symbolPin.GetType());
+        tempPin.SetShape(symbolPin.GetShape());
+        tempPin.Plot(
+          aPlotter,
+          false,
+          plotOpts,
+          this.GetUnit(),
+          this.GetBodyStyle(),
+          this.m_pos,
+          aDnp,
+        );
+      }
+
+      renderSettings.m_Transform = savedTransform;
+    }
+  }
+
+  /** `SCH_SYMBOL::PlotDNP`: the do-not-populate cross over the body, past it by a margin. */
+  PlotDNP(aPlotter: PLOTTER): void {
+    const bbox = this.GetBodyBoundingBox();
+    const pins = this.GetBodyAndPinsBoundingBox();
+    const margins = {
+      x: Math.max(bbox.GetX() - pins.GetX(), pins.GetEnd().x - bbox.GetEnd().x),
+      y: Math.max(bbox.GetY() - pins.GetY(), pins.GetEnd().y - bbox.GetEnd().y),
+    };
+    const strokeWidth = Math.trunc(3.0 * schIUScale.milsToIU(DEFAULT_LINE_WIDTH_MILS));
+
+    margins.x = Math.max(margins.x * 0.6, margins.y * 0.3);
+    margins.y = Math.max(margins.y * 0.6, margins.x * 0.3);
+    bbox.Inflate(KiROUND(margins.x), KiROUND(margins.y));
+
+    const renderSettings = this.getRenderSettings(aPlotter);
+    aPlotter.SetColor(renderSettings.GetLayerColor(SCH_LAYER_ID.LAYER_DNP_MARKER));
+
+    aPlotter.ThickSegment(bbox.GetOrigin(), bbox.GetEnd(), strokeWidth, null);
+
+    const o = bbox.GetOrigin();
+    aPlotter.ThickSegment(
+      { x: o.x + bbox.GetWidth(), y: o.y },
+      { x: o.x, y: o.y + bbox.GetHeight() },
+      strokeWidth,
+      null,
+    );
+  }
+
+  /** `SCH_SYMBOL::PlotLocalPowerIconShape`: the local-power flag beside the value. */
+  PlotLocalPowerIconShape(aPlotter: PLOTTER): void {
+    const field = this.GetField(FIELD_T.VALUE)!;
+
+    // Plot the local power pin indicator icon shape
+    const bbox = field.GetBoundingBox();
+
+    // Calculate the text orientation according to the parent orientation.
+    let orient = field.GetTextAngle();
+
+    if (this.GetTransform().y1) {
+      // Rotate symbol 90 degrees.
+      if (orient.IsHorizontal()) orient = ANGLE_VERTICAL;
+      else orient = ANGLE_HORIZONTAL;
+    }
+
+    const rotated = !orient.IsHorizontal();
+
+    let pos: Vec2;
+    let size = bbox.GetHeight() / 1.5;
+
+    if (rotated) {
+      pos = {
+        x: bbox.GetRight() - bbox.GetWidth() / 6.0,
+        y: bbox.GetBottom() + bbox.GetWidth() / 2.0,
+      };
+      size = bbox.GetWidth() / 1.5;
+    } else {
+      pos = {
+        x: bbox.GetLeft() - bbox.GetHeight() / 2.0,
+        y: bbox.GetBottom() - bbox.GetHeight() / 6.0,
+      };
+    }
+
+    plotLocalPowerIcon(aPlotter, pos, size, rotated);
+  }
 
   override IsPointClickableAnchor(aPos: VECTOR2I): boolean {
     for (const pin of this.m_pins) {
@@ -3191,8 +3445,8 @@ export class SCH_SYMBOL extends SYMBOL {
     aHorizontal: boolean,
   ): void {
     const layer = SCH_LAYER_ID.LAYER_DEVICE; //dummy param
-    // VECTOR2I( VECTOR2D ) rounds (KiROUND), as each setter below converts.
-    const I = (p: Vec2): VECTOR2I => ({ x: Math.round(p.x), y: Math.round(p.y) });
+    // VECTOR2I( VECTOR2D ) truncates (vector2d.h: a static_cast), as each setter below converts.
+    const I = (p: Vec2): VECTOR2I => ({ x: Math.trunc(p.x), y: Math.trunc(p.y) });
 
     const x_right = aSize / 1.6180339887;
     const x_middle = x_right / 2.0;
@@ -3222,7 +3476,7 @@ export class SCH_SYMBOL extends SYMBOL {
 
     const dot = new SCH_SHAPE(SHAPE_T.CIRCLE, layer, 0, FILL_T.FILLED_SHAPE);
     dot.SetCenter(I({ x: (leftPt.x + rightPt.x) / 2.0, y: (leftPt.y + rightPt.y) / 2.0 }));
-    dot.SetRadius(Math.round(aSize / 15.0));
+    dot.SetRadius(Math.trunc(aSize / 15.0)); // SetRadius( int ) truncates too
     aShapeList.push(dot);
 
     for (const shape of aShapeList) {

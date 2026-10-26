@@ -47,7 +47,6 @@ import {
   type JUNCTION_DIALOG_VALUES,
 } from './dialogs/dialog_junction_props.js';
 import type { SCH_JUNCTION } from './sch_junction.js';
-import { color4dToItemColor, itemColorToColor4d } from './dialogs/item_color.js';
 import { type ChooserFilter, WxFileDialog, wxFileDialogGetPath } from '@ziroeda/wx/filedlg.js';
 import { WxTextEntryDialog } from '@ziroeda/wx/textdlg.js';
 import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
@@ -113,9 +112,6 @@ import {
   computeNetlist,
   withCleanup,
   refId,
-  selectionBBox,
-  emptyBBox,
-  isEmpty,
   instanceKey,
   getSheetPageNumber,
   getRootPageNumber,
@@ -125,15 +121,8 @@ import {
   type SelectionFilterOptions,
   annotateSymbols,
   defaultAnnotateOptions,
-  setSymbolsCommand,
   type AnnotateSheet,
   type AnnotateOptions,
-  computeHierarchyNetlist,
-  enumeratePins,
-  ERC_ITEMS,
-  type LibPin,
-  electricalPinTypeGetText,
-  pinShapeGetText,
   buildSheetTree,
   repairPageNumbersOnLoad,
   findRootFile,
@@ -188,7 +177,6 @@ import {
   readLegacyProject,
 } from './sch_io/kicad_legacy/sch_io_kicad_legacy.js';
 import {
-  projectSymbolLibraries,
   projectSymLibTable,
   projectSymLibTablePath,
   serializeSymLibTable,
@@ -316,7 +304,7 @@ import {
   writeEquivalenceFilesText,
   writeSchematicSetupText,
 } from './project_settings.js';
-import { IU_PER_MILS, resolveEffectiveNetClass } from './schematic_settings.js';
+import { resolveEffectiveNetClass } from './schematic_settings.js';
 import { netClassHumanReadableName } from '@ziroeda/common/project/net_settings.js';
 import type { PdfNetInfo } from './sch_plotter.js';
 import type { Netlist } from './connectivity/nets.js';
@@ -415,9 +403,7 @@ import { DockSash } from '@ziroeda/wx/wx_aui_sash.js';
 import { loadOutlineFontsFor } from '@ziroeda/common/font/outline_fonts.js';
 import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 import '@ziroeda/common/widgets/shell.css';
-import { schSymbolLibraryName } from './index.js';
 import { busJunctionIds as busJunctionIdsOf } from './connectivity/bus.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import {
   LIVE_SCHEMATIC_MIRROR,
   liveScreensToRecords,

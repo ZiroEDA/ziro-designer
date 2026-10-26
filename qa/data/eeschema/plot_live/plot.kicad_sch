@@ -1,0 +1,460 @@
+(kicad_sch (version 20250114) (generator "eeschema") (generator_version "9.0") (uuid "91a7c000-0000-4000-8000-000000000001") (paper "A4")
+	(lib_symbols
+(symbol "Device:R"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "R"
+				(at 2.032 0 90)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "R"
+				(at 0 0 90)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at -1.778 0 90)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Resistor"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "R res resistor"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "R_*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "R_0_1"
+				(rectangle
+					(start -1.016 -2.54)
+					(end 1.016 2.54)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "R_1_1"
+				(pin passive line
+					(at 0 3.81 270)
+					(length 1.27)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -3.81 90)
+					(length 1.27)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+(symbol "power:GND"
+			(power global)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "#PWR"
+				(at 0 -6.35 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "GND"
+				(at 0 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "GND_0_1"
+	(polyline
+					(pts
+						(xy 0 0) (xy 0 -1.27) (xy 1.27 -1.27) (xy 0 -2.54) (xy -1.27 -1.27) (xy 0 -1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "GND_1_1"
+				(pin power_in line
+					(at 0 0 270)
+					(length 0)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+(symbol "power:GNDL"
+			(power local)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "#PWR"
+				(at 0 -6.35 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "GND"
+				(at 0 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "GNDL_0_1"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 -1.27) (xy 1.27 -1.27) (xy 0 -2.54) (xy -1.27 -1.27) (xy 0 -1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "GNDL_1_1"
+				(pin power_in line
+					(at 0 0 270)
+					(length 0)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+)
+	(symbol (lib_id "Device:R") (at 50.8 50.8 0) (unit 1) (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no) (uuid "91a7c000-0000-4000-8000-000000000010")
+		(property "Reference" "R1" (at 53.34 49.53 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Value" "10k" (at 53.34 52.07 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Footprint" "" (at 50.8 50.8 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Datasheet" "" (at 50.8 50.8 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(instances (project "plot" (path "/91a7c000-0000-4000-8000-000000000001" (reference "R1") (unit 1))))
+	)
+	(symbol (lib_id "Device:R") (at 76.2 76.2 90) (unit 1) (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no) (uuid "91a7c000-0000-4000-8000-000000000011")
+		(property "Reference" "R2" (at 78.74 74.93 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Value" "4k7" (at 78.74 77.47 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Footprint" "" (at 76.2 76.2 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Datasheet" "" (at 76.2 76.2 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(instances (project "plot" (path "/91a7c000-0000-4000-8000-000000000001" (reference "R2") (unit 1))))
+	)
+	(symbol (lib_id "Device:R") (at 101.6 50.8 0) (unit 1) (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp yes) (uuid "91a7c000-0000-4000-8000-000000000012")
+		(property "Reference" "R3" (at 104.14 49.53 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Value" "1k" (at 104.14 52.07 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Footprint" "" (at 101.6 50.8 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Datasheet" "" (at 101.6 50.8 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(instances (project "plot" (path "/91a7c000-0000-4000-8000-000000000001" (reference "R3") (unit 1))))
+	)
+	(symbol (lib_id "Device:R") (at 50.8 88.9 180) (mirror y) (unit 1) (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no) (uuid "91a7c000-0000-4000-8000-000000000013")
+		(property "Reference" "R4" (at 53.34 87.63 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Value" "220" (at 53.34 90.17 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Footprint" "" (at 50.8 88.9 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Datasheet" "" (at 50.8 88.9 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(instances (project "plot" (path "/91a7c000-0000-4000-8000-000000000001" (reference "R4") (unit 1))))
+	)
+	(symbol (lib_id "power:GND") (at 76.2 101.6 0) (unit 1) (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no) (uuid "91a7c000-0000-4000-8000-000000000014")
+		(property "Reference" "#PWR01" (at 78.74 100.33 0) (effects (font (size 1.27 1.27)) (hide yes) (justify left)))
+		(property "Value" "GND" (at 78.74 102.87 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Footprint" "" (at 76.2 101.6 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Datasheet" "" (at 76.2 101.6 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(instances (project "plot" (path "/91a7c000-0000-4000-8000-000000000001" (reference "#PWR01") (unit 1))))
+	)
+	(symbol (lib_id "Device:R") (at 52.07 50.8 0) (unit 1) (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no) (uuid "91a7c000-0000-4000-8000-000000000015")
+		(property "Reference" "R5" (at 54.61 49.53 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Value" "47" (at 54.61 52.07 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Footprint" "" (at 52.07 50.8 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Datasheet" "" (at 52.07 50.8 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(instances (project "plot" (path "/91a7c000-0000-4000-8000-000000000001" (reference "R5") (unit 1))))
+	)
+	(symbol (lib_id "power:GNDL") (at 101.6 101.6 0) (unit 1) (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no) (uuid "91a7c000-0000-4000-8000-000000000016")
+		(property "Reference" "#PWR02" (at 101.6 107.95 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Value" "AGND" (at 101.6 105.41 0) (effects (font (size 1.27 1.27))))
+		(property "Footprint" "" (at 101.6 101.6 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Datasheet" "" (at 101.6 101.6 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(instances (project "plot" (path "/91a7c000-0000-4000-8000-000000000001" (reference "#PWR02") (unit 1))))
+	)
+	(symbol (lib_id "Device:R") (at 102.87 50.8 0) (unit 1) (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no) (uuid "91a7c000-0000-4000-8000-000000000017")
+		(property "Reference" "R6" (at 105.41 49.53 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Value" "100" (at 105.41 52.07 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Footprint" "" (at 102.87 50.8 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Datasheet" "" (at 102.87 50.8 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(instances (project "plot" (path "/91a7c000-0000-4000-8000-000000000001" (reference "R6") (unit 1))))
+	)
+	(symbol (lib_id "Device:R") (at 101.6 99.06 0) (unit 1) (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no) (uuid "91a7c000-0000-4000-8000-000000000018")
+		(property "Reference" "R7" (at 104.14 97.79 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Value" "330" (at 104.14 100.33 0) (effects (font (size 1.27 1.27)) (justify left)))
+		(property "Footprint" "" (at 101.6 99.06 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Datasheet" "" (at 101.6 99.06 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(instances (project "plot" (path "/91a7c000-0000-4000-8000-000000000001" (reference "R7") (unit 1))))
+	)
+	(wire (pts (xy 50.8 46.99) (xy 50.8 38.1)) (stroke (width 0) (type default)) (uuid "91a7c000-0000-4000-8000-000000000020"))
+	(wire (pts (xy 50.8 38.1) (xy 101.6 38.1)) (stroke (width 0) (type default)) (uuid "91a7c000-0000-4000-8000-000000000021"))
+	(wire (pts (xy 76.2 38.1) (xy 76.2 30.48)) (stroke (width 0) (type default)) (uuid "91a7c000-0000-4000-8000-000000000022"))
+	(wire (pts (xy 101.6 38.1) (xy 101.6 46.99)) (stroke (width 0) (type default)) (uuid "91a7c000-0000-4000-8000-000000000023"))
+	(wire (pts (xy 80.01 76.2) (xy 88.9 76.2)) (stroke (width 0.3048) (type dash)) (uuid "91a7c000-0000-4000-8000-000000000024"))
+	(wire (pts (xy 72.39 76.2) (xy 63.5 76.2)) (stroke (width 0) (type dot) (color 200 0 0 1)) (uuid "91a7c000-0000-4000-8000-000000000025"))
+	(wire (pts (xy 76.2 90) (xy 76.2 101.6)) (stroke (width 0) (type default)) (uuid "91a7c000-0000-4000-8000-000000000026"))
+	(wire (pts (xy 88.9 30.48) (xy 88.9 45.72)) (stroke (width 0) (type dash)) (uuid "91a7c000-0000-4000-8000-000000000027"))
+	(junction (at 76.2 38.1) (diameter 0) (color 0 0 0 0) (uuid "91a7c000-0000-4000-8000-000000000030"))
+	(junction (at 63.5 76.2) (diameter 1.6) (color 0 0 255 1) (uuid "91a7c000-0000-4000-8000-000000000031"))
+	(no_connect (at 50.8 54.61) (uuid "91a7c000-0000-4000-8000-000000000032"))
+	(no_connect (at 101.6 54.61) (uuid "91a7c000-0000-4000-8000-000000000033"))
+	(bus (pts (xy 139.7 25.4) (xy 139.7 76.2)) (stroke (width 0) (type default)) (uuid "91a7c000-0000-4000-8000-000000000040"))
+	(bus_entry (at 139.7 38.1) (size 2.54 2.54) (stroke (width 0) (type default)) (uuid "91a7c000-0000-4000-8000-000000000041"))
+	(bus_entry (at 139.7 50.8) (size -2.54 2.54) (stroke (width 0) (type default)) (uuid "91a7c000-0000-4000-8000-000000000042"))
+	(wire (pts (xy 142.24 40.64) (xy 152.4 40.64)) (stroke (width 0) (type default)) (uuid "91a7c000-0000-4000-8000-000000000043"))
+	(bus_entry (at 139.7 63.5) (size 2.54 2.54) (stroke (width 0.01) (type default)) (uuid "91a7c000-0000-4000-8000-000000000044"))
+	(polyline (pts (xy 25.4 120) (xy 60 120) (xy 60 135)) (stroke (width 0.254) (type dash_dot)) (fill (type none)) (uuid "91a7c000-0000-4000-8000-000000000050"))
+	(rectangle (start 80 115) (end 100 130) (stroke (width 0) (type default)) (fill (type color) (color 0 120 0 0.3)) (uuid "91a7c000-0000-4000-8000-000000000051"))
+	(circle (center 120 125) (radius 6) (stroke (width 0.1524) (type solid)) (fill (type none)) (uuid "91a7c000-0000-4000-8000-000000000052"))
+	(text "Plot me" (exclude_from_sim no) (at 25.4 25.4 0) (effects (font (size 1.27 1.27)) (justify left bottom)) (uuid "91a7c000-0000-4000-8000-000000000053"))
+	(sheet_instances (path "/" (page "1")))
+	(embedded_fonts no)
+)
