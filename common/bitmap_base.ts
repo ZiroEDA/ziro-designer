@@ -286,9 +286,9 @@ export class BITMAP_BASE {
     // Load the image from the buffer into new_image
     if (!new_image.LoadFile(this.m_imageData)) return false;
 
-    // wxImage::LoadFile( stream, wxBITMAP_TYPE_ANY ) leaves the detected type with the handler;
-    // SaveImageData keys on JPEG vs everything else.
-    this.m_imageType = WX_IMAGE.DetectType(this.m_imageData);
+    // m_imageType is not set here, nor anywhere else in KiCad 10.0.6 (SetImageType has no
+    // caller): it stays wxBITMAP_TYPE_INVALID, so an edited image, a JPEG included, is
+    // re-encoded as a PNG by SaveImageData.
 
     return this.SetImage(new_image);
   }

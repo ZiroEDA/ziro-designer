@@ -144,6 +144,7 @@ export class WX_IMAGE {
   private m_alpha: Uint8Array | null = null; // 1 byte per pixel, or none
   private m_options = new Map<string, number>();
   private m_pixelsKnown = false; // false for a BMP layout read for its size only
+  private m_type = wxBitmapType.wxBITMAP_TYPE_INVALID;
 
   constructor();
   constructor(aWidth: number, aHeight: number);
@@ -156,6 +157,7 @@ export class WX_IMAGE {
       this.m_alpha = a.m_alpha ? new Uint8Array(a.m_alpha) : null;
       this.m_options = new Map(a.m_options);
       this.m_pixelsKnown = a.m_pixelsKnown;
+      this.m_type = a.m_type;
     } else if (a !== undefined) {
       this.m_width = a;
       this.m_height = aHeight!;
@@ -324,24 +326,29 @@ export class WX_IMAGE {
    * from the signature.
    */
   LoadFile(aData: Uint8Array): boolean {
-    if (isPng(aData)) return this.loadPng(aData);
+    const type = isPng(aData)
+      ? wxBitmapType.wxBITMAP_TYPE_PNG
+      : isJpeg(aData)
+        ? wxBitmapType.wxBITMAP_TYPE_JPEG
+        : isBmp(aData)
+          ? wxBitmapType.wxBITMAP_TYPE_BMP
+          : wxBitmapType.wxBITMAP_TYPE_INVALID;
+    const ok =
+      type === wxBitmapType.wxBITMAP_TYPE_PNG
+        ? this.loadPng(aData)
+        : type === wxBitmapType.wxBITMAP_TYPE_JPEG
+          ? this.loadJpeg(aData)
+          : type === wxBitmapType.wxBITMAP_TYPE_BMP && this.loadBmp(aData);
 
-    if (isJpeg(aData)) return this.loadJpeg(aData);
+    // wxImage::DoLoad: m_refData->m_type = handler.GetType()
+    if (ok) this.m_type = type;
 
-    if (isBmp(aData)) return this.loadBmp(aData);
-
-    return false;
+    return ok;
   }
 
-  /** The type `wxImage::LoadFile` would have detected. */
-  static DetectType(aData: Uint8Array): wxBitmapType {
-    if (isPng(aData)) return wxBitmapType.wxBITMAP_TYPE_PNG;
-
-    if (isJpeg(aData)) return wxBitmapType.wxBITMAP_TYPE_JPEG;
-
-    if (isBmp(aData)) return wxBitmapType.wxBITMAP_TYPE_BMP;
-
-    return wxBitmapType.wxBITMAP_TYPE_INVALID;
+  /** `wxImage::GetType`: the type of the handler that loaded it, or INVALID. */
+  GetType(): wxBitmapType {
+    return this.m_type;
   }
 
   /**

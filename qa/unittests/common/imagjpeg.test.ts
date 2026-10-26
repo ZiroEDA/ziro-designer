@@ -13,7 +13,8 @@
  * - A JFIF marker's density becomes the resolution options whatever its unit, 0 included, so
  *   BITMAP_BASE::updatePPI reads 72 PPI from a unitless 72 x 72.
  * - SaveFile writes the same stream libjpeg's defaults write, with the quality option and the
- *   resolution options as the JFIF density, and a rotated JPEG is saved as a JPEG.
+ *   resolution options as the JFIF density. BITMAP_BASE reaches it only through SetImageType,
+ *   which nothing in KiCad 10.0.6 calls: an edited JPEG is re-encoded as a PNG.
  */
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -21,6 +22,7 @@ import { resolve } from 'node:path';
 import { BITMAP_BASE } from '@ziroeda/common/bitmap_base.js';
 import {
   WX_IMAGE,
+  wxBitmapType,
   wxImageResolution,
   wxInitAllImageHandlers,
   wxIMAGE_OPTION_QUALITY,
@@ -133,7 +135,7 @@ describe('BITMAP_BASE on a JPEG', () => {
     );
   });
 
-  it('keeps the bytes it read until the image changes, then saves it as a JPEG', () => {
+  it('keeps the bytes it read until the image changes, then saves it as a PNG', () => {
     const bytes = file('baseline_420.jpg');
     const bitmap = new BITMAP_BASE();
     bitmap.ReadImageFile(bytes);
@@ -141,14 +143,16 @@ describe('BITMAP_BASE on a JPEG', () => {
 
     bitmap.Rotate(false);
     const saved = bitmap.SaveImageData()!;
-    // SaveImageData re-encodes through wxImage::SaveFile( wxBITMAP_TYPE_JPEG ): a JFIF stream
-    expect([...saved.slice(0, 4)]).toEqual([0xff, 0xd8, 0xff, 0xe0]);
+    // ReadImageFile never sets m_imageType, so it is INVALID and SaveImageData takes the PNG
+    // branch: KiCad turns a rotated photo into a PNG.
+    expect(bitmap.GetImageType()).toBe(wxBitmapType.wxBITMAP_TYPE_INVALID);
+    expect([...saved.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
 
-    // ...and reading it back gives the rotated size, a JPEG still.
+    // ...and reading it back gives the rotated size.
     const again = new WX_IMAGE();
     expect(again.LoadFile(saved)).toBe(true);
     expect([again.GetWidth(), again.GetHeight()]).toEqual([23, 37]);
-    expect(WX_IMAGE.DetectType(saved)).toBe(WX_IMAGE.DetectType(bytes));
+    expect(again.GetType()).toBe(wxBitmapType.wxBITMAP_TYPE_PNG);
   });
 });
 
@@ -156,13 +160,15 @@ describe('BITMAP_BASE::LoadLegacyData on a JPEG', () => {
   it('re-encodes the hex block as the image type says, a JPEG here', () => {
     // updateImageDataBuffer's only caller: SaveFile( wxBITMAP_TYPE_JPEG ) when the type is JPEG
     const bitmap = new BITMAP_BASE();
-    bitmap.SetImageType(WX_IMAGE.DetectType(file('baseline_420.jpg')));
+    bitmap.SetImageType(wxBitmapType.wxBITMAP_TYPE_JPEG);
     const hex = [...file('baseline_420.jpg')].map((b) => b.toString(16).padStart(2, '0')).join(' ');
     expect(bitmap.LoadLegacyData([hex, 'EndData'][Symbol.iterator]()).ok).toBe(true);
 
     const saved = bitmap.SaveImageData()!;
     expect([...saved.slice(0, 4)]).toEqual([0xff, 0xd8, 0xff, 0xe0]);
-    expect(WX_IMAGE.DetectType(saved)).toBe(WX_IMAGE.DetectType(file('baseline_420.jpg')));
+    const again = new WX_IMAGE();
+    expect(again.LoadFile(saved)).toBe(true);
+    expect(again.GetType()).toBe(wxBitmapType.wxBITMAP_TYPE_JPEG);
   });
 });
 
