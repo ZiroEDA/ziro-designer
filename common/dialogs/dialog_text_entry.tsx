@@ -21,7 +21,15 @@
 import { useRef, useState, type JSX } from 'react';
 import { StaticText, TextCtrl } from '@ziroeda/wx/controls.js';
 import { BoxSizer, SizerItem } from '@ziroeda/wx/sizer.js';
-import { wxALL, wxEXPAND, wxLEFT, wxRIGHT, wxTOP, wxVERTICAL } from '@ziroeda/wx/defs.js';
+import {
+  wxALL,
+  wxEXPAND,
+  wxHORIZONTAL,
+  wxLEFT,
+  wxRIGHT,
+  wxTOP,
+  wxVERTICAL,
+} from '@ziroeda/wx/defs.js';
 import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import type { wxTextValidator } from '../validators.js';
 
@@ -31,6 +39,7 @@ export function WX_TEXT_ENTRY_DIALOG({
   defaultValue = '',
   extraWidth = false,
   hint,
+  notes,
   validator,
   onResult,
 }: {
@@ -44,6 +53,12 @@ export function WX_TEXT_ENTRY_DIALOG({
   extraWidth?: boolean;
   /** `m_textCtrl->SetHint( aHint )`: the grey example an empty entry shows. */
   hint?: string;
+  /**
+   * Points under the entry, one line each. Not upstream's: a web caller whose entry needs
+   * explaining (what a link may be, and what it opens) says it here, where it is read after the
+   * entry rather than as a paragraph in front of it.
+   */
+  notes?: readonly string[];
   /** `SetTextValidator`. */
   validator?: wxTextValidator;
   /** `GetValue()` on wxID_OK; `null` on wxID_CANCEL. */
@@ -78,6 +93,20 @@ export function WX_TEXT_ENTRY_DIALOG({
                 onChange={(v) => setValue(validator ? validator.Filter(v) : v)}
               />
             </SizerItem>
+            {/* Each point an item bordered as the rest are, so they stand apart as points: the
+                bullet in a column of its own, so a point's second line starts under its text. */}
+            {notes?.map((note) => (
+              <SizerItem key={note} flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
+                <BoxSizer orient={wxHORIZONTAL}>
+                  <SizerItem flag={wxRIGHT} border={5}>
+                    <StaticText label={'\u2022'} />
+                  </SizerItem>
+                  <SizerItem proportion={1}>
+                    <StaticText label={note} wrap={extraWidth ? 700 : 300} />
+                  </SizerItem>
+                </BoxSizer>
+              </SizerItem>
+            ))}
           </BoxSizer>
         </SizerItem>
       </BoxSizer>

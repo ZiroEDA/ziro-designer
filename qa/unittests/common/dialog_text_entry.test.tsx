@@ -65,6 +65,20 @@ describe('WX_TEXT_ENTRY_DIALOG', () => {
     expect(onResult.mock.calls).toEqual([['why'], ['why'], [null]]);
   });
 
+  it('puts its notes under the entry, one point each', () => {
+    render(
+      <WX_TEXT_ENTRY_DIALOG
+        label="Link:"
+        caption="C"
+        notes={['one.', 'two.']}
+        onResult={() => {}}
+      />,
+    );
+    const one = screen.getByText('one.');
+    expect(screen.getByText('two.')).toBeTruthy();
+    expect(entry().compareDocumentPosition(one) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('applies its validator as the text is typed', () => {
     render(
       <WX_TEXT_ENTRY_DIALOG

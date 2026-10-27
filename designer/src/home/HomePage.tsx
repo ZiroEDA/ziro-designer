@@ -2573,9 +2573,16 @@ export function HomePage({
       {githubUrlOpen && (
         <WX_TEXT_ENTRY_DIALOG
           caption="Open Project from GitHub"
-          label={
-            'Paste a link from GitHub: a public repository, a folder in it, or a KiCad file in it. A repository or folder opens its KiCad project; a schematic or board link opens its project in that editor. It opens read-only; "Save a copy" keeps one of your own.'
-          }
+          label="GitHub link:"
+          // What to paste for what you want, for someone who has never done it: the address
+          // bar's link while looking at the thing on GitHub, in each case.
+          notes={[
+            'A whole repository: paste its main page, github.com/owner/repository. If it holds several KiCad projects, you choose one.',
+            'One project in a repository: open the folder on GitHub that holds its .kicad_pro, and paste that link.',
+            'A schematic or a board: open the .kicad_sch or .kicad_pcb file on GitHub and paste its link. Its project opens in that editor.',
+            'Another branch or tag: switch to it on GitHub first, then copy the link.',
+            'The repository must be public. Projects open read-only; "Save a copy" keeps one of your own.',
+          ]}
           hint="https://github.com/owner/repository"
           extraWidth
           onResult={(value) => {
