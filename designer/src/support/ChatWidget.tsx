@@ -199,8 +199,12 @@ export function ChatWidget(): JSX.Element | null {
 
   // Identify on load and whenever the account or the frame changes, so a
   // conversation started five minutes in still says where it started.
+  // Not before the frame has loaded the widget: until then it is still the
+  // initial about:blank, which has this page's origin, and the post throws
+  // "target origin ... does not match". Its onLoad identifies it once it is.
+  const loaded = useRef(false);
   const identify = useCallback(() => {
-    if (!origin) return;
+    if (!origin || !loaded.current) return;
     frame.current?.contentWindow?.postMessage(
       { type: 'ziro-chat-identify', email, screen, version: VERSION },
       origin,
@@ -282,7 +286,10 @@ export function ChatWidget(): JSX.Element | null {
         ref={frame}
         title="ZiroEDA support chat"
         src={src}
-        onLoad={identify}
+        onLoad={() => {
+          loaded.current = true;
+          identify();
+        }}
         className={`ze-chat-frame${open ? ' open' : ''}`}
         style={{ transform: translate }}
         // Only what the widget needs: scripts and its own storage to run at all,

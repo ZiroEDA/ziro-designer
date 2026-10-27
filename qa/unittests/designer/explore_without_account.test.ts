@@ -15,6 +15,7 @@ import {
   closeIfOpenedByApp,
   type GateState,
   type OpenedWindow,
+  wallRedirect,
 } from '@ziroeda/designer/src/auth/explore.js';
 
 describe('explorerMayVisit', () => {
@@ -220,5 +221,32 @@ describe('gateView: the tab that opened sign-up keeps its app while the other ta
       { hasSession: true, keyState: 'unlocked', pendingRecoveryKey: true, explorable: false },
     ]);
     expect(views[1]!.view).toBe('wall');
+  });
+});
+
+describe('wallRedirect', () => {
+  // 2026-10-28: a sign-up's code confirmed, the account made, and the wall up
+  // for the recovery key - with the address still on /verify, so the code form
+  // stayed, and a second Confirm said "Token has expired or is invalid".
+  it('takes a signed-in wall off the code step onto the recovery key', () => {
+    expect(wallRedirect({ kind: 'auth', step: 'verify' }, true, true, 'recovery-key')).toBe(
+      'recovery-key',
+    );
+    expect(wallRedirect({ kind: 'auth', step: 'signin' }, true, true, 'recovery-key')).toBe(
+      'recovery-key',
+    );
+  });
+
+  it('leaves a wall alone on its own step, or while signed out, or when it is down', () => {
+    expect(wallRedirect({ kind: 'auth', step: 'recovery-key' }, true, true, 'recovery-key')).toBe(
+      null,
+    );
+    expect(wallRedirect({ kind: 'auth', step: 'verify' }, true, false, 'signup')).toBe(null);
+    expect(wallRedirect({ kind: 'auth', step: 'verify' }, false, true, 'recovery-key')).toBe(null);
+  });
+
+  it('puts a page that is walled onto the wall', () => {
+    expect(wallRedirect({ kind: 'home' }, true, true, 'recovery-key')).toBe('recovery-key');
+    expect(wallRedirect({ kind: 'home' }, false, true, 'recovery-key')).toBe(null);
   });
 });

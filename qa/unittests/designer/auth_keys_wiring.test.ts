@@ -225,7 +225,7 @@ describe('the screens say what the reference design says', () => {
       'If you forget your password, the only way you can recover your data is with this key.',
     );
     expect(CONTENTS).toContain("We don't store this key, so please save this in a safe place");
-    expect(CONTENTS).toContain("laterLabel = 'Do this later'");
+    expect(CONTENTS).toContain('label="Do this later"');
     expect(CONTENTS).toContain('Save Key');
     expect(CONTENTS).toContain("a.download = 'ziroeda-recovery-key.txt';");
   });
@@ -257,6 +257,13 @@ describe('the screens say what the reference design says', () => {
     const home = read('home/HomePage.tsx');
     expect(home).toContain('onRecoveryKey={() => {');
     expect(home).toContain('<RecoveryKeyDialog words={shownRecoveryKey}');
+    // Shown again, it says what the sign-up screen said, and saves the same file.
+    const dialog = read('auth/RecoveryKeyDialog.tsx');
+    expect(dialog).toContain(
+      'If you forget your password, the only way you can recover your data is with this key.',
+    );
+    expect(dialog).toContain("We don't store this key, so please save this in a safe place");
+    expect(dialog).toContain('useRecoveryKeyActions(words, onClose)');
     const provider = read('auth/AuthProvider.tsx');
     expect(provider).toContain(
       'recoveryKeyMnemonic: async () => (keys ? encodeRecoveryKey(keys.recoveryKey) : null),',

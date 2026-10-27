@@ -10,6 +10,7 @@ import {
   gateView,
   rememberDestination,
   takeDestination,
+  wallRedirect,
 } from './explore.js';
 import { GateBackdrop } from './GateBackdrop.js';
 import { SignInDialog } from './SignIn.js';
@@ -76,12 +77,14 @@ export function AuthGate({ children }: { children: ReactNode }): JSX.Element {
     if (g.signOutHere) void signOut('local');
   }, [g.signOutHere, signOut]);
 
-  // Walled: put the wall in the address, keeping where they were headed.
+  // Walled: put the wall in the address, keeping where they were headed - and,
+  // signed in, its signed-in step (wallRedirect).
   useEffect(() => {
-    if (!g.routeToWall || route.kind === 'auth') return;
-    rememberDestination(route);
-    navigate({ kind: 'auth', step: wallStep }, { replace: true });
-  }, [g.routeToWall, route, navigate, wallStep]);
+    const step = wallRedirect(route, g.routeToWall, !!session, wallStep);
+    if (!step) return;
+    if (route.kind !== 'auth') rememberDestination(route);
+    navigate({ kind: 'auth', step }, { replace: true });
+  }, [g.routeToWall, route, navigate, wallStep, session]);
 
   // Through the wall while standing on it: go where they were headed.
   useEffect(() => {

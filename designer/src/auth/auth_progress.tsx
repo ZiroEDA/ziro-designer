@@ -72,11 +72,6 @@ export function progressPercent(aProgress: AuthProgress, aNow: number): number {
   return Math.round(((aProgress.step - 1 + within) / aProgress.steps) * 100);
 }
 
-/** The stage whose words take the most room: the one the panel's space is kept for. */
-export const LONGEST_STAGE: AuthStage = Object.values(AUTH_STAGE).reduce((a, b) =>
-  b.why.length + b.label.length > a.why.length + a.label.length ? b : a,
-);
-
 /** One stage, drawn: its name and step, the bar, and why it is there. */
 function StageView({
   stage,
@@ -101,10 +96,11 @@ function StageView({
 }
 
 /**
- * The stage being run, its step, a bar that fills, and why it is worth the wait - in a space
- * kept for it whether or not one runs: the form is centred, so a panel that came and went, or
- * grew and shrank between stages, moved the email and password with it. An invisible copy of the
- * longest stage holds the space (the status bar's `.ze-size-template`), the live one over it.
+ * The stage being run, its step, a bar that fills, and why it is worth the wait - hung below the
+ * form rather than in it (`.ze-auth-progress`, an anchor with nothing in flow): the form is
+ * centred, so a panel that came and went, or grew and shrank between stages, moved the email and
+ * password with it. Space kept for it instead, under an invisible copy of the longest stage, left
+ * a hole between the form's error and its button whenever nothing ran - which is nearly always.
  */
 export function AuthProgressPanel({ progress }: { progress: AuthProgress | null }): JSX.Element {
   const [now, setNow] = useState(() => performance.now());
@@ -121,9 +117,6 @@ export function AuthProgressPanel({ progress }: { progress: AuthProgress | null 
 
   return (
     <div className="ze-auth-progress" role="status" aria-live="polite">
-      <div className="ze-size-template" aria-hidden="true">
-        <StageView stage={LONGEST_STAGE} step={3} steps={3} percent={0} />
-      </div>
       {progress && (
         <StageView
           stage={progress.stage}

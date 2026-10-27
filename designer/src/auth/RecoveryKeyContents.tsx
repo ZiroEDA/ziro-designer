@@ -6,24 +6,23 @@
  *
  * The words are the reference design's, because they are the right ones: the
  * first sentence says what the key is FOR, the second says why it has to be
- * saved now, and the two buttons are the two honest answers. "Save Key"
- * writes a text file, since a file in Downloads survives the tab in a way a
- * clipboard does not; Copy is beside the words for the people whose safe
- * place is a password manager.
+ * saved now, and Save Key and "Do this later" are the two honest answers.
+ * Save Key writes a text file, since a file in Downloads survives the tab in a
+ * way a clipboard does not; Copy is beside them for the people whose safe
+ * place is a password manager. (Copy sat inside the words, top right, over
+ * the first line's last word.)
  */
 import { Button } from '@ziroeda/wx/controls.js';
 import { useState, type JSX } from 'react';
 
-export function RecoveryKeyContents({
-  recoveryKey,
-  onLater,
-  laterLabel = 'Do this later',
-}: {
-  recoveryKey: string;
-  /** "Do this later" (or Close, when shown again from the account menu). */
-  onLater: () => void;
-  laterLabel?: string;
-}): JSX.Element {
+/**
+ * Copy and Save Key, for whichever surface shows the key: the sign-up wall's page, or the account
+ * menu's dialog. Save Key writes `ziroeda-recovery-key.txt` and then calls `onSaved`.
+ */
+export function useRecoveryKeyActions(
+  recoveryKey: string,
+  onSaved: () => void,
+): { copied: boolean; copy: () => Promise<void>; save: () => void } {
   const [copied, setCopied] = useState(false);
 
   const copy = async (): Promise<void> => {
@@ -44,25 +43,42 @@ export function RecoveryKeyContents({
     a.download = 'ziroeda-recovery-key.txt';
     a.click();
     URL.revokeObjectURL(url);
-    onLater();
+    onSaved();
   };
 
+  return { copied, copy, save };
+}
+
+export function RecoveryKeyContents({
+  recoveryKey,
+  onLater,
+}: {
+  recoveryKey: string;
+  /** "Do this later", and after Save Key. */
+  onLater: () => void;
+}): JSX.Element {
+  const { copied, copy, save } = useRecoveryKeyActions(recoveryKey, onLater);
+
+  // A form, for the auth forms' spacing between its blocks; Save Key is its submit.
   return (
-    <div>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        save();
+      }}
+    >
       <p className="ze-auth-note">
         If you forget your password, the only way you can recover your data is with this key.
       </p>
       <div className="ze-auth-recovery-key" aria-label="Recovery key">
         {recoveryKey}
-        <button type="button" className="ze-auth-recovery-copy" onClick={() => void copy()}>
-          {copied ? 'Copied' : 'Copy'}
-        </button>
       </div>
       <p className="ze-auth-note">We don't store this key, so please save this in a safe place</p>
       <div className="ze-auth-recovery-actions">
-        <Button label={laterLabel} onClick={onLater} />
+        <Button label={copied ? 'Copied' : 'Copy'} onClick={() => void copy()} />
+        <Button label="Do this later" onClick={onLater} />
         <Button label="Save Key" isDefault className="ze-auth-submit" onClick={save} />
       </div>
-    </div>
+    </form>
   );
 }

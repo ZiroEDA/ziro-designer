@@ -176,3 +176,22 @@ export function gateView(s: GateState): GateView {
   if (gated) return { view: 'wall', routeToWall: true, signedOutHere, signOutHere: false };
   return { view: 'app', routeToWall: false, signedOutHere, signOutHere: false };
 }
+
+/**
+ * Where the wall must move the address, or null to leave it: off any page onto
+ * the wall's own step, remembering the page (`rememberDestination`), and - with
+ * a session - from a signed-out step onto the signed-in one. A sign-up's code,
+ * confirmed, left the address on `/verify` while the wall stayed up for the new
+ * recovery key, so the form still asked for the code, already used: nothing
+ * seemed to happen, and a second Confirm said the token was invalid.
+ */
+export function wallRedirect(
+  aRoute: Route,
+  aRouteToWall: boolean,
+  aHasSession: boolean,
+  aWallStep: AuthStep,
+): AuthStep | null {
+  if (!aRouteToWall) return null;
+  if (aRoute.kind !== 'auth') return aWallStep;
+  return aHasSession && aRoute.step !== aWallStep ? aWallStep : null;
+}

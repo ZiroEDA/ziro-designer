@@ -8439,40 +8439,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   line-height: 1.5;
 }
 /* The recovery key, shown once. Monospace so the groups can be read back
-   character by character, and selectable in one drag. */
+   character by character, and selectable in one drag. The words wrap whole: a
+   word split across two lines reads as two words. */
 .ze-auth-recovery-key {
   font-family: ui-monospace, Menlo, Consolas, monospace;
   font-size: var(--ui-font-size);
   line-height: 1.6;
-  word-break: break-all;
+  overflow-wrap: anywhere;
   user-select: all;
   background: var(--field-bg);
   color: var(--chrome-fg);
   border: 1px solid var(--ctl-border);
   border-radius: 6px; /* [css] the same radius the auth entries use */
   padding: 9px var(--field-pad-x); /* [css] the auth entry's padding */
-  margin: var(--field-pad-x) 0;
-}
-.ze-auth-recovery-key {
-  position: relative;
-}
-/* Copy sits inside the block, top right, as the reference design's code block
-   carries its copy control; padding on the right keeps the last words clear
-   of it. */
-.ze-auth-recovery-key .ze-auth-recovery-copy {
-  position: absolute;
-  top: var(--field-pad-x);
-  right: var(--field-pad-x);
-  font: inherit;
-  font-size: var(--ui-font-size);
-  color: var(--chrome-fg-muted);
-  background: transparent;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-}
-.ze-auth-recovery-key .ze-auth-recovery-copy:hover {
-  color: var(--chrome-fg);
 }
 .ze-auth-recovery-actions {
   display: flex;
@@ -10162,14 +10141,15 @@ textarea.ze-ds-textedit {
 }
 /* The sign-in progress panel (designer/src/auth/auth_progress.tsx): the same template, so the
    centred form keeps its height whether a stage runs or not. */
+/* The sign-in progress (auth/auth_progress.tsx): the form's last item, with nothing in flow - so
+   it is never a hole in the form - and the stage hung from it, below the form, out of flow - so it
+   never moves the centred form either. The form's own gap sets it off. */
 .ze-auth-progress {
-  display: grid;
+  position: relative;
 }
 .ze-auth-progress > * {
-  grid-area: 1 / 1;
-}
-.ze-auth-progress > .ze-size-template {
-  visibility: hidden;
+  position: absolute;
+  inset: 0 0 auto;
 }
 
 /* wxAuiNotebook tabs (external/wx/aui_notebook_ui.tsx), the library table dialog's tables.
