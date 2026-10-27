@@ -12,9 +12,7 @@ import type { JSX } from 'react';
 import type { LIB_TABLE_BASE_PROPS } from '@ziroeda/common/dialogs/lib_table_panel.js';
 import { SplitButton } from '@ziroeda/common/widgets/split_button.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
-import { StaticText } from '@ziroeda/wx/controls.js';
 import {
-  wxALL,
   wxBOTTOM,
   wxEXPAND,
   wxHORIZONTAL,
@@ -68,15 +66,8 @@ export function PANEL_FP_LIB_TABLE_BASE(p: LIB_TABLE_BASE_PROPS): JSX.Element {
           <Spacer width={20} height={0} proportion={1} flag={wxEXPAND} border={5} />
         </BoxSizer>
       </SizerItem>
-      <SizerItem flag={wxTOP | wxRIGHT | wxLEFT | wxEXPAND} border={8}>
-        <StaticText label="Available path substitutions:" />
-      </SizerItem>
-      <Spacer width={0} height={2} flag={wxEXPAND} border={5} />
-      <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-        <div title="This is a read-only table which shows pertinent environment variables.">
-          {p.m_path_subs_grid}
-        </div>
-      </SizerItem>
+      {/* No "Available path substitutions:": a library's place is its page, not a path (see
+          lib_table_panel.tsx), so there is nothing to substitute. */}
     </BoxSizer>
   );
 }

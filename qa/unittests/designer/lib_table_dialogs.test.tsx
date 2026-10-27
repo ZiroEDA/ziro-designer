@@ -81,7 +81,16 @@ describe('Manage Symbol Libraries', () => {
     expect(cellText(0, 7)).toBe('mine');
     fireEvent.click(tabs[0]!);
     expect(cellText(1, 3)).toBe('power');
-    expect(cellText(1, 4)).toBe('https://libs/power.kicad_sym');
+    // No Library Path, Library Format or Options: the page is the library's place.
+    // COL_STATUS's label is wxS( " " ) (lib_table_grid_data_model.cpp:386); the last is the filler.
+    expect([...document.querySelectorAll('th')].map((t) => t.textContent)).toEqual([
+      ' ',
+      'Enable',
+      'Show',
+      'Nickname',
+      'Description',
+      '',
+    ]);
   });
 
   it('puts the warning button on a row whose file is not in the project', () => {
@@ -126,11 +135,13 @@ describe('Manage Symbol Libraries', () => {
     expect(document.querySelector('td[data-row="2"]')).toBeNull();
   });
 
-  it('opens the options editor on a double-click in Options', () => {
+  it('draws no cell of the path, format or options columns', () => {
     openSym();
-    const options = document.querySelector('td[data-row="0"][data-col="6"]')!;
-    fireEvent.mouseDown(options, { button: 0, detail: 2 });
-    expect(screen.getByText("Options for Library 'proj'")).toBeTruthy();
+    // COL_URI 4, COL_TYPE 5, COL_OPTIONS 6: hidden, so nothing to type a path into or
+    // double-click for DIALOG_PLUGIN_OPTIONS.
+    for (const col of [4, 5, 6])
+      expect(document.querySelector(`td[data-col="${col}"]`), `column ${col}`).toBeNull();
+    expect(cellText(0, 7)).toBe('mine');
   });
 });
 
@@ -176,12 +187,7 @@ describe("Manage Symbol Libraries, with the user's global table", () => {
     openSym();
     fireEvent.click(screen.getAllByRole('tab')[0]!);
 
-    expect([cellText(0, 3), cellText(0, 5), cellText(1, 3), cellText(1, 7)]).toEqual([
-      'KiCad',
-      'Table',
-      'Mine',
-      'my parts',
-    ]);
+    expect([cellText(0, 3), cellText(1, 3), cellText(1, 7)]).toEqual(['KiCad', 'Mine', 'my parts']);
     // LIBRARY_TABLE_OK: a nested table whose file is there gets the button that opens it.
     expect(document.querySelector('td[data-row="0"][data-col="0"]')?.getAttribute('title')).toBe(
       'Open library table',
@@ -445,7 +451,6 @@ describe('Manage Footprint Libraries', () => {
       await browse();
 
       expect(cellText(1, 3)).toBe('MyParts');
-      expect(cellText(1, 4)).toBe('${KIPRJMOD}/MyParts.pretty');
       fireEvent.click(screen.getByRole('button', { name: 'OK' }));
       expect(onSave).toHaveBeenCalledWith(
         [

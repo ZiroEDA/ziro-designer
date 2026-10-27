@@ -46,8 +46,6 @@ import {
   type UnsavedChangesResult,
 } from '../confirm.js';
 import { UnsavedChangesDialog } from './dialog_unsaved_changes.js';
-import { ENV_VAR } from '../env_vars.js';
-import { GRID_TRICKS } from '../grid_tricks.js';
 import { LIB_ID } from '../lib_id.js';
 import { LIB_TABLE_GRID_TRICKS } from '../lib_table_grid_tricks.js';
 import {
@@ -57,6 +55,7 @@ import {
 } from '../lib_table_notebook_panel.js';
 import {
   COL_NICKNAME,
+  COL_OPTIONS,
   COL_TYPE,
   COL_URI,
   COL_VISIBLE,
@@ -81,12 +80,8 @@ import {
 import { PgmOrNull } from '../pgm_base.js';
 import type { KICAD_SETTINGS } from '../settings/kicad_settings.js';
 import { wxICON_ERROR, wxOK } from '@ziroeda/wx/defs.js';
-import { PROJECT_VAR_NAME } from '../project.js';
-import { WX_GRID } from '../widgets/wx_grid.js';
+import type { WX_GRID } from '../widgets/wx_grid.js';
 import { wxAuiNotebook } from '@ziroeda/wx/aui_notebook.js';
-import { wxGridStringTable } from '@ziroeda/wx/grid.js';
-import { WxGridView } from '@ziroeda/wx/grid_ui.js';
-import { wxGetEnv } from '@ziroeda/wx/utils.js';
 import { wxReadFileSync } from '@ziroeda/wx/filefn.js';
 
 /** `m_pluginChoices`: the formats this build reads (see the file comment). */
@@ -118,7 +113,6 @@ export interface LIB_TABLE_BASE_PROPS {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onDelete: () => void;
-  m_path_subs_grid: ReactNode;
 }
 
 export interface LibTablePanelSpec {
@@ -250,33 +244,6 @@ class WEB_GRID_TRICKS extends LIB_TABLE_GRID_TRICKS {
   }
 }
 
-/**
- * `populateEnvironReadOnlyTable`: every `${VAR}` / `$(VAR)` the pages' URIs
- * use, plus KIPRJMOD and the versioned library directory, with their values.
- */
-function environVars(aNotebook: LIB_TABLE_NOTEBOOK, aDirVarBase: string): [string, string][] {
-  const re = /\$\{(.+?)\}|\$\((.+?)\)/g;
-  const unique = new Set<string>();
-
-  for (let page = 0; page < aNotebook.GetPageCount(); ++page) {
-    const model = aNotebook.GetPage(page).GetModel();
-
-    for (let row = 0; row < model.GetNumberRows(); ++row)
-      for (const m of model.GetValue(row, COL_URI).matchAll(re)) unique.add(m[1] ?? m[2] ?? '');
-  }
-
-  // Make sure this special environment variable shows up even if it was
-  // not used yet.  It is automatically set by KiCad to the directory holding
-  // the current project.
-  unique.add(PROJECT_VAR_NAME);
-  unique.add(ENV_VAR.GetVersionedEnvVarName(aDirVarBase));
-
-  // std::set< wxString >: ordered.
-  return [...unique]
-    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
-    .map((name) => [`\${${name}}`, wxGetEnv(name) ?? '']);
-}
-
 export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
   const specRef = useRef(spec);
   specRef.current = spec;
@@ -286,7 +253,7 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
   const [, bump] = useReducer((n: number) => n + 1, 0);
   const bumpRef = useRef(bump);
 
-  const [{ notebook, addTable, setPageTable, pathSubsGrid, pathSubsTricks }] = useState(() => {
+  const [{ notebook, addTable, setPageTable }] = useState(() => {
     const nb: LIB_TABLE_NOTEBOOK = new wxAuiNotebook<LIB_TABLE_NOTEBOOK_PANEL>();
     const adapter = new WEB_LIBRARY_ADAPTER(spec.type, {
       checkRow: (r) => specRef.current.checkRow(r),
@@ -340,6 +307,13 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
 
       // TransferDataToWindow: no visibility control for footprint libraries.
       if (!spec.supportsVisibilityColumn) grid.HideCol(COL_VISIBLE);
+
+      // Web delta: a library lives in the account (the Global page) or in the project (the
+      // Project page), and the program names its file, so there is no path to show or type, no
+      // format but KiCad's and no plugin to give options to. The table files keep all three.
+      grid.HideCol(COL_URI);
+      grid.HideCol(COL_TYPE);
+      grid.HideCol(COL_OPTIONS);
     };
 
     addTable(spec.globalTable, 'Global Libraries');
@@ -348,19 +322,10 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
 
     nb.SetSelection(nb.GetPageCount() - 1);
 
-    // m_path_subs_grid: a two-column WX_GRID, EnableEditing( false ), GRID_TRICKS.
-    const subs = new WX_GRID();
-    subs.SetTable(new wxGridStringTable(0, 2), true);
-    subs.SetColLabelValue(0, 'Name');
-    subs.SetColLabelValue(1, 'Value');
-    subs.EnableEditing(false);
-
     return {
       notebook: nb,
       addTable,
       setPageTable,
-      pathSubsGrid: subs,
-      pathSubsTricks: new GRID_TRICKS(subs),
     };
   });
 
@@ -487,20 +452,6 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
     },
     [],
   );
-
-  // populateEnvironReadOnlyTable, filled as the constructor does.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: filled once, as upstream's constructor does
-  useLayoutEffect(() => {
-    const vars = environVars(notebook, spec.dirVarBase);
-    pathSubsGrid.BeginBatch();
-    pathSubsGrid.ClearRows();
-    pathSubsGrid.AppendRows(vars.length);
-    vars.forEach(([name, value], row) => {
-      pathSubsGrid.SetCellValue(row, 0, name);
-      pathSubsGrid.SetCellValue(row, 1, value);
-    });
-    pathSubsGrid.EndBatch();
-  }, []);
 
   // Redraw when the page changes.
   useLayoutEffect(() => notebook.AddRefreshListener(bump), [notebook]);
@@ -655,18 +606,6 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
         // onPageChange: m_resetGlobal->Enable( m_notebook->GetSelection() == 0 ), with the
         // manager's table to reset.
         resetEnabled={notebook.GetSelection() === 0 && !!PgmOrNull()?.GetLibraryManager()}
-        m_path_subs_grid={
-          // SetColLabelSize( 0 ), SetRowLabelSize( 0 ); column 1 takes the rest
-          // (adjustPathSubsGridColumns).
-          <WxGridView
-            grid={pathSubsGrid}
-            tricks={pathSubsTricks}
-            colLabels={false}
-            columns={[{ width: 72 }, { width: 120 }]}
-            flexCol={1}
-            ariaLabel="Available path substitutions"
-          />
-        }
       />
 
       {unsaved && <UnsavedChangesDialog message={unsaved.message} onResult={unsaved.answer} />}
