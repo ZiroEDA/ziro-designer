@@ -29,7 +29,8 @@ import {
   LIBRARY_TABLE_TYPE,
 } from '@ziroeda/common/libraries/library_table.js';
 import { PATHS } from '@ziroeda/common/paths.js';
-import { SetMessageDialogPresenter } from '@ziroeda/common/confirm.js';
+import { SetMessageDialogPresenter, SetQuestionPresenter } from '@ziroeda/common/confirm.js';
+import { KICAD_SETTINGS } from '@ziroeda/common/settings/kicad_settings.js';
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
 import { PGM_BASE, Pgm, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { LoadGlobalSymbolTables } from '@ziroeda/eeschema/libraries/symbol_library_adapter.js';
@@ -168,6 +169,7 @@ describe("Manage Symbol Libraries, with the user's global table", () => {
     for (const u of unmounts) u();
     SetPgm(null);
     SetMessageDialogPresenter(async () => wxID_CANCEL);
+    SetQuestionPresenter(async () => false);
   });
 
   it("shows the user's table, its chain to the stock table a row of it that opens", () => {
@@ -231,6 +233,83 @@ describe("Manage Symbol Libraries, with the user's global table", () => {
     expect(stored()).not.toContain('"Mine"');
     expect(onSave).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // SYMBOL_GRID_TRICKS::openTable / PANEL_SYM_LIB_TABLE::OpenTable: the stock table chained by
+  // the "KiCad" row, read-only, on a closable page of its own; its Show kept as an override
+  // (LIB_TABLE_NOTEBOOK_PANEL::SaveOverrides) under the table's path, as kicad.json keeps it.
+  it('opens the KiCad row as a read-only page, and keeps a library hidden there', async () => {
+    const kicad = Pgm().GetSettingsManager().RegisterSettings(new KICAD_SETTINGS());
+    const { onClose } = openSym();
+    fireEvent.click(screen.getAllByRole('tab')[0]!);
+    fireEvent.mouseDown(document.querySelector('td[data-row="0"][data-col="0"]')!, { button: 0 });
+
+    const tabs = () => screen.getAllByRole('tab').map((t) => t.textContent);
+    expect(tabs()).toEqual(['Global Libraries', 'Project Specific Libraries', 'KiCad (read-only)']);
+    expect([cellText(0, 3), cellText(1, 3)]).toEqual(['Device', 'power']);
+    // Read-only: rows cannot be added, but Show changes.
+    fireEvent.click(screen.getByRole('button', { name: 'Add empty row to table' }));
+    expect(document.querySelector('td[data-row="2"]')).toBeNull();
+    fireEvent.mouseDown(document.querySelector('td[data-row="0"][data-col="2"]')!, { button: 0 });
+    expect(tabs()[2]).toBe('KiCad (read-only) *');
+
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    expect(
+      Object.fromEntries(
+        kicad.m_LibOverrides.get(LIBRARY_MANAGER.StockTablePath(LIBRARY_TABLE_TYPE.SYMBOL)) ?? [],
+      ),
+    ).toEqual({ Device: { disabled: false, hidden: true } });
+    // Read again, the global tables carry it.
+    const device = Pgm()
+      .GetLibraryManager()
+      .Rows(LIBRARY_TABLE_TYPE.SYMBOL)
+      .find((r) => r.Nickname() === 'Device');
+    expect(device?.Hidden()).toBe(true);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the KiCad page from its tab, the fixed pages having no close button', () => {
+    Pgm().GetSettingsManager().RegisterSettings(new KICAD_SETTINGS());
+    openSym();
+    expect(screen.queryAllByRole('button', { name: /^Close / })).toEqual([]);
+    fireEvent.click(screen.getAllByRole('tab')[0]!);
+    fireEvent.mouseDown(document.querySelector('td[data-row="0"][data-col="0"]')!, { button: 0 });
+
+    const close = screen.getAllByRole('button', { name: /^Close / });
+    expect(close.map((b) => b.getAttribute('aria-label'))).toEqual(['Close KiCad (read-only)']);
+    fireEvent.click(close[0]!);
+
+    return vi.waitFor(() =>
+      expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
+        'Global Libraries',
+        'Project Specific Libraries',
+      ]),
+    );
+  });
+
+  // PANEL_SYM_LIB_TABLE::onReset: the global table made again with only the stock table chained,
+  // and read back - asked first, since the user's rows go.
+  it('resets the global table to the KiCad row alone', async () => {
+    const asked: string[] = [];
+    SetQuestionPresenter(async (aMessage) => {
+      asked.push(aMessage);
+      return true;
+    });
+    openSym();
+    const reset = screen.getByRole('button', { name: 'Reset Libraries' });
+    // m_resetGlobal->Enable( GetSelection() == 0 ): the project page is the one shown first.
+    expect(reset.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(screen.getAllByRole('tab')[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Libraries' }));
+
+    await vi.waitFor(() => expect(cellText(1, 3)).toBe(''));
+    expect(asked).toEqual([
+      'This action will reset your global library table on disk and cannot be undone.',
+    ]);
+    expect(cellText(0, 3)).toBe('KiCad');
+    expect(stored()).not.toContain('"Mine"');
+    expect(globalNames()).toEqual(['Device', 'power']);
   });
 
   it('writes nothing for OK on an unchanged global table', () => {

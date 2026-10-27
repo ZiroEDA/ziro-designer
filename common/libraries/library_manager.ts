@@ -28,6 +28,7 @@ import {
 } from '@ziroeda/wx/filefn.js';
 import { PATHS } from '../paths.js';
 import type { PROJECT } from '../project.js';
+import type { KICAD_SETTINGS } from '../settings/kicad_settings.js';
 import {
   LIBRARY_ERROR,
   type LIBRARY_RESULT,
@@ -49,10 +50,11 @@ import {
  * A `Table` row names another table file, whose libraries count as the row's
  * table's own (`loadNestedTables`, `Rows`): how KiCad 10's global table chains
  * the stock one.
- *
- * [gap] `ApplyLibOverrides` (the `kicad` settings' per-library overrides on a
- * read-only table) is not ported.
  */
+/** `GetAppSettings<KICAD_SETTINGS>( "kicad" )`. */
+const kicadSettings = (): KICAD_SETTINGS | null =>
+  PgmOrNull()?.GetSettingsManager().GetAppSettings<KICAD_SETTINGS>('kicad') ?? null;
+
 export class LIBRARY_MANAGER {
   private readonly m_tables = new Map<LIBRARY_TABLE_TYPE, LIBRARY_TABLE>();
   private readonly m_projectTables = new Map<LIBRARY_TABLE_TYPE, LIBRARY_TABLE>();
@@ -307,13 +309,81 @@ export class LIBRARY_MANAGER {
           row.SetErrorDescription(child.ErrorDescription());
         }
 
-        // applyLibOverrides( *child ): not ported (see the class comment).
+        this.applyLibOverrides(child);
 
         this.m_childTables.set(row.URI(), child);
       }
     };
 
     processOneTable(aRootTable);
+  }
+
+  /**
+   * `ApplyLibOverrides( aTable )`: the Enable / Show the user gave a read-only table's rows,
+   * from the `kicad` settings' `libraries.overrides`, keyed by the table's path.
+   */
+  ApplyLibOverrides(aTable: LIBRARY_TABLE): void {
+    if (!aTable.IsReadOnly()) return;
+
+    const settings = kicadSettings();
+
+    if (!settings) return;
+
+    const overrides = settings.m_LibOverrides.get(aTable.Path());
+
+    if (!overrides) return;
+
+    for (const row of aTable.Rows()) {
+      const over = overrides.get(row.Nickname());
+
+      if (over) {
+        row.SetDisabled(over.disabled);
+        row.SetHidden(over.hidden);
+      }
+    }
+  }
+
+  private applyLibOverrides(aTable: LIBRARY_TABLE): void {
+    this.ApplyLibOverrides(aTable);
+  }
+
+  /** `SetLibOverride( aTablePath, aNickname, aDisabled, aHidden )`. */
+  SetLibOverride(
+    aTablePath: string,
+    aNickname: string,
+    aDisabled: boolean,
+    aHidden: boolean,
+  ): void {
+    const settings = kicadSettings();
+
+    if (!settings) return; // wxCHECK
+
+    if (!aDisabled && !aHidden) {
+      this.ClearLibOverride(aTablePath, aNickname);
+      return;
+    }
+
+    let libs = settings.m_LibOverrides.get(aTablePath);
+
+    if (!libs) {
+      libs = new Map();
+      settings.m_LibOverrides.set(aTablePath, libs);
+    }
+
+    libs.set(aNickname, { disabled: aDisabled, hidden: aHidden });
+  }
+
+  /** `ClearLibOverride( aTablePath, aNickname )`. */
+  ClearLibOverride(aTablePath: string, aNickname: string): void {
+    const settings = kicadSettings();
+
+    if (!settings) return; // wxCHECK
+
+    const libs = settings.m_LibOverrides.get(aTablePath);
+
+    if (!libs) return;
+
+    libs.delete(aNickname);
   }
 
   /** `Table( aType, aScope )`: the table itself, or null. */

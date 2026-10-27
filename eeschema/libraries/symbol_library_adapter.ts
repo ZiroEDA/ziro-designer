@@ -246,7 +246,7 @@ export async function loadIndex(): Promise<LibIndexEntry[]> {
 
         return hosted;
       });
-  const hosted = await indexPromise;
+  const hosted = listedLibraries(await indexPromise);
   const table = tableLibraryEntries();
 
   if (table.length === 0) return hosted;
@@ -258,6 +258,27 @@ export async function loadIndex(): Promise<LibIndexEntry[]> {
   for (const e of table) if (!seen.has(e.name)) merged.push(e);
 
   return merged;
+}
+
+/**
+ * The hosted libraries the symbol tables list: `AddLibraries` takes only the manager's rows that
+ * are neither disabled nor hidden (symbol_tree_model_adapter.cpp:116-123), so a hosted library
+ * whose row is unticked - or whose chain row, the stock table's "KiCad", is - is not listed. With
+ * no program (a test, a worker) there are no tables, and the hosted set is the whole list.
+ */
+function listedLibraries(aHosted: LibIndexEntry[]): LibIndexEntry[] {
+  const mgr = PgmOrNull()?.GetLibraryManager();
+
+  if (!mgr?.Table(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.GLOBAL)) return aHosted;
+
+  const listed = new Set(
+    mgr
+      .Rows(LIBRARY_TABLE_TYPE.SYMBOL)
+      .filter((r) => !r.Disabled() && !r.Hidden())
+      .map((r) => r.Nickname()),
+  );
+
+  return aHosted.filter((e) => listed.has(e.name));
 }
 
 /** The items of the table libraries read by the last {@link tableLibraryEntries}. */

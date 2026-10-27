@@ -54,7 +54,7 @@ import {
   LIBRARY_TABLE_SCOPE,
   LIBRARY_TABLE_TYPE,
 } from '@ziroeda/common/libraries/library_table.js';
-import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
+import { type LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import { Pgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
@@ -1052,45 +1052,18 @@ export function SymbolEditor({
   useEffect(() => {
     const mgr = frame.GetLibManager();
     const rows = Pgm().GetLibraryManager().Rows(LIBRARY_TABLE_TYPE.SYMBOL);
-    treeAdapter.tree.children.length = 0;
 
-    for (const libName of mgr.GetLibraryNames()) {
-      const hosted = hostedIndex.current.get(libName);
-      const row = rows.find((r) => r.Nickname() === libName);
-      const libNode = treeAdapter.addLibrary(
-        libName,
-        hosted?.descr || row?.Description() || '',
-        false,
-      );
-      const loaded: string[] = [];
-      mgr.GetSymbolNames(libName, loaded);
-      const names = new Set([...loaded, ...(hosted?.symbols ?? [])]);
-
-      for (const name of names) {
-        const sym = mgr.SymbolExists(name, libName) ? mgr.GetSymbol(name, libName) : null;
-        const item = new LibTreeNode();
-        item.type = LibTreeNodeType.ITEM;
-        item.parent = libNode;
-        item.name = name;
-        item.libNickname = libName;
-        item.libItemName = name;
-        // `LIB_SYMBOL::IsRoot`, which GetAttr italicises on.
-        item.isRoot = sym ? sym.IsRoot() : true;
-        item.isPower = sym?.IsPower() ?? false;
-        item.desc = sym?.GetDescription() ?? '';
-        item.sourceSearchTerms = [
-          { text: libName.toLowerCase(), score: 4 },
-          { text: name.toLowerCase(), score: 8 },
-          { text: `${libName}:${name}`.toLowerCase(), score: 16 },
-        ];
-        item.rebuildSearchTerms(treeAdapter.getShownColumns());
-        libNode.children.push(item);
-      }
-
-      treeAdapter.finishLibrary(libNode);
-    }
-
-    treeAdapter.tree.assignIntrinsicRanks();
+    treeAdapter.Sync({
+      libraryNames: () => mgr.GetLibraryNames(),
+      row: (lib) => rows.find((r) => r.Nickname() === lib),
+      hosted: (lib) => hostedIndex.current.get(lib),
+      symbolNames: (lib) => {
+        const loaded: string[] = [];
+        mgr.GetSymbolNames(lib, loaded);
+        return loaded;
+      },
+      symbol: (lib, name) => (mgr.SymbolExists(name, lib) ? mgr.GetSymbol(name, lib) : null),
+    });
     setTreeNonce((n) => n + 1);
   }, [treeRevision, treeAdapter, frame]);
 

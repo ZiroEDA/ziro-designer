@@ -10182,7 +10182,8 @@ textarea.ze-ds-textedit {
   visibility: hidden;
 }
 
-/* Notebook tabs (wxNotebook pages), the library table dialog's two tables. */
+/* wxAuiNotebook tabs (external/wx/aui_notebook_ui.tsx), the library table dialog's tables.
+   [drift] The metrics below are not wxAuiGenericTabArt's; measuring them is still to do. */
 .ze-tabbar {
   display: flex;
   gap: 2px;
@@ -10203,6 +10204,21 @@ textarea.ze-ds-textedit {
   background: var(--chrome-bg);
   border-bottom: 1px solid var(--chrome-bg);
   font-weight: 600;
+}
+/* A tab is its label's button and, on a closable page, the close button: both are the tab's
+   own drawing, so neither brings a user-agent face or font. */
+.ze-tabbar .ze-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ze-tabbar .ze-tab > button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: default;
 }
 
 /* "Loading libraries" feedback (library_loading.ts): the hosted set arrives

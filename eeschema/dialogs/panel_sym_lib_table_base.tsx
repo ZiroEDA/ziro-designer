@@ -12,8 +12,9 @@ import type { JSX } from 'react';
 import type { LIB_TABLE_BASE_PROPS } from '@ziroeda/common/dialogs/lib_table_panel.js';
 import { SplitButton } from '@ziroeda/common/widgets/split_button.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
-import { StaticText } from '@ziroeda/wx/controls.js';
+import { Button, StaticText } from '@ziroeda/wx/controls.js';
 import {
+  wxALIGN_CENTER_VERTICAL,
   wxALL,
   wxBOTTOM,
   wxEXPAND,
@@ -66,6 +67,13 @@ export function PANEL_SYM_LIB_TABLE_BASE(p: LIB_TABLE_BASE_PROPS): JSX.Element {
             />
           </SizerItem>
           <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
+          <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
+            <Button
+              label="Reset Libraries"
+              onClick={() => p.onReset?.()}
+              disabled={!p.resetEnabled}
+            />
+          </SizerItem>
         </BoxSizer>
       </SizerItem>
       <Spacer width={0} height={5} flag={wxEXPAND} border={5} />

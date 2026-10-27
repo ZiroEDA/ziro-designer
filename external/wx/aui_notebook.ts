@@ -20,6 +20,23 @@ export class wxAuiNotebook<PAGE> {
     return true;
   }
 
+  /**
+   * `DeletePage( page )`. The selected page going, `RemovePage` keeps the same tab index - the
+   * page that slid into it - or the last one when it was the last.
+   */
+  DeletePage(aPage: number): boolean {
+    if (aPage < 0 || aPage >= this.m_pages.length) return false;
+
+    this.m_pages.splice(aPage, 1);
+
+    if (this.m_selection > aPage) this.m_selection -= 1;
+    else if (this.m_selection === aPage)
+      this.m_selection = Math.min(aPage, this.m_pages.length - 1);
+
+    this.Refresh();
+    return true;
+  }
+
   GetPageCount(): number {
     return this.m_pages.length;
   }

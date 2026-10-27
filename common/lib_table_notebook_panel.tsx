@@ -12,13 +12,16 @@
  * selected page's grid, the status column's buttons drawn as the shared
  * `.ze-gridbtn`.
  *
- * Not here: `TableModified`, `SaveTable`, `SaveOverrides` and `GetCanClose`,
- * which serve a closable page - a nested table opened from a `Table` row, read
- * from and saved to its own file. The browser's library-table dialogs open no
- * nested table (see their `openTable`), so no page is ever closable.
+ * `TableModified`, `SaveTable`, `SaveOverrides` and `GetCanClose` serve a
+ * closable page: a nested table opened from a `Table` row, read from and saved
+ * to its own file - or, read-only (the stock table), its rows' Enable and Show
+ * kept as the `kicad` settings' overrides.
  */
 import { type JSX, useLayoutEffect, useReducer } from 'react';
+import { ShowKicadMessageDialog } from './confirm.js';
 import type { GRID_TRICKS } from './grid_tricks.js';
+import { LIBRARY_TABLE, LIBRARY_TABLE_SCOPE } from './libraries/library_table.js';
+import { PgmOrNull } from './pgm_base.js';
 import {
   COL_OPTIONS,
   COL_TYPE,
@@ -28,6 +31,9 @@ import {
 import { GRID_BITMAP_BUTTON_RENDERER } from './widgets/grid_button.js';
 import { WX_GRID } from './widgets/wx_grid.js';
 import type { wxAuiNotebook } from '@ziroeda/wx/aui_notebook.js';
+import { AuiNotebookView } from '@ziroeda/wx/aui_notebook_ui.js';
+import { wxICON_ERROR, wxOK } from '@ziroeda/wx/defs.js';
+import { wxReadFileSync } from '@ziroeda/wx/filefn.js';
 import { wxEVT_GRID_CELL_CHANGING, type wxGridEvent } from '@ziroeda/wx/grid.js';
 import { type GRID_COLUMN_VIEW, WxGridView } from '@ziroeda/wx/grid_ui.js';
 
@@ -133,6 +139,108 @@ export class LIB_TABLE_NOTEBOOK_PANEL {
   }
 
   /**
+   * `TableModified()`: whether the page's table differs from its file. A read-only table is
+   * compared with the file as loaded with the stored overrides, and only its Enable and Show.
+   */
+  TableModified(): boolean {
+    const table = this.GetModel().Table();
+    const bytes = wxReadFileSync(table.Path());
+    const sourceTable = LIBRARY_TABLE.FromFile(
+      table.Path(),
+      bytes ? new TextDecoder().decode(bytes) : null,
+      LIBRARY_TABLE_SCOPE.GLOBAL,
+    );
+
+    if (table.IsReadOnly()) {
+      // Apply stored overrides to the source table so we compare against the
+      // "loaded with overrides" state, not the raw on-disk state.
+      PgmOrNull()?.GetLibraryManager().ApplyLibOverrides(sourceTable);
+
+      if (sourceTable.Rows().length !== table.Rows().length) return false;
+
+      for (let i = 0; i < table.Rows().length; ++i) {
+        const current = table.Rows()[i]!;
+        const source = sourceTable.Rows()[i]!;
+
+        if (current.Disabled() !== source.Disabled() || current.Hidden() !== source.Hidden())
+          return true;
+      }
+
+      return false;
+    }
+
+    return !table.equals(sourceTable);
+  }
+
+  /** `SaveTable()`: the page's table to its file, or a read-only one's overrides. */
+  SaveTable(): boolean {
+    const table = this.GetModel().Table();
+
+    if (table.IsReadOnly()) {
+      const retVal = this.SaveOverrides();
+
+      if (retVal) this.ClearDirty();
+
+      return retVal;
+    }
+
+    let retVal = true;
+    const saved = table.Save();
+
+    if (!saved.ok) {
+      void ShowKicadMessageDialog({
+        message: `Error saving nested library table:\n\n${saved.error.message}`,
+        caption: 'File Save Error',
+        style: wxOK | wxICON_ERROR,
+      });
+
+      retVal = false;
+    }
+
+    if (retVal) this.ClearDirty();
+
+    return retVal;
+  }
+
+  /** `SaveOverrides()`: each row's Enable / Show into the library manager's overrides. */
+  SaveOverrides(): boolean {
+    const table = this.GetModel().Table();
+    const tablePath = table.Path();
+    const libMgr = PgmOrNull()?.GetLibraryManager();
+
+    if (!libMgr) return true;
+
+    for (const row of table.Rows()) {
+      if (row.Disabled() || row.Hidden())
+        libMgr.SetLibOverride(tablePath, row.Nickname(), row.Disabled(), row.Hidden());
+      else libMgr.ClearLibOverride(tablePath, row.Nickname());
+    }
+
+    return true;
+  }
+
+  /**
+   * `GetCanClose()`: false keeps the page open. \a aHandleUnsavedChanges is
+   * `HandleUnsavedChanges( this, aMessage, aSaveFunction )`, which the window asks.
+   */
+  async GetCanClose(
+    aHandleUnsavedChanges: (aMessage: string, aSave: () => boolean) => Promise<boolean>,
+  ): Promise<boolean> {
+    if (!this.GetGrid().CommitPendingChanges()) return false;
+
+    if (this.TableModified()) {
+      if (
+        !(await aHandleUnsavedChanges('Save changes to nested library table?', () =>
+          this.SaveTable(),
+        ))
+      )
+        return false;
+    }
+
+    return true;
+  }
+
+  /**
    * `onGridCellChanging`: a Library Path, Format or Options edit is written
    * into the table and the row rechecked at once, so the status button is
    * right before the change is even applied.
@@ -164,9 +272,12 @@ export class LIB_TABLE_NOTEBOOK_PANEL {
 /** The notebook's tabs over its selected page's grid. */
 export function LibTableNotebookView({
   notebook,
+  onPageClose,
   ariaLabel,
 }: {
   notebook: LIB_TABLE_NOTEBOOK;
+  /** `onNotebookPageCloseRequest` on page \a aPage. */
+  onPageClose?: (aPage: number) => void;
   ariaLabel?: string;
 }): JSX.Element {
   const [, bump] = useReducer((n: number) => n + 1, 0);
@@ -178,28 +289,16 @@ export function LibTableNotebookView({
   const grid = page?.GetGrid() ?? null;
 
   return (
-    // The wxAuiNotebook is one window: its tab row, then the page.
-    <div className="ze-libtable-notebook">
-      <div className="ze-tabbar" role="tablist">
-        {Array.from({ length: notebook.GetPageCount() }, (_, i) => (
-          <button
-            // biome-ignore lint/suspicious/noArrayIndexKey: a page is its index in the notebook
-            key={i}
-            type="button"
-            role="tab"
-            aria-selected={i === selection}
-            className={`ze-tab${i === selection ? ' active' : ''}`}
-            onClick={() => {
-              // A pending edit is committed before the page changes, as
-              // wxGrid's focus loss does.
-              grid?.CommitPendingChanges(true);
-              notebook.SetSelection(i);
-            }}
-          >
-            {notebook.GetPageText(i)}
-          </button>
-        ))}
-      </div>
+    <AuiNotebookView
+      notebook={notebook}
+      className="ze-libtable-notebook"
+      // WX_AUI_TAB_ART::DrawTab: no close button on a page that is not closable.
+      closable={(i) => notebook.GetPage(i).GetClosable()}
+      // A pending edit is committed before the page changes, as wxGrid's focus loss does.
+      onPageChanging={() => grid?.CommitPendingChanges(true)}
+      {...(onPageClose ? { onPageClose } : {})}
+      {...(ariaLabel ? { ariaLabel } : {})}
+    >
       {page && grid && (
         <div className="ze-grid-pane" style={{ flex: 1, minHeight: 0 }}>
           <WxGridView
@@ -222,6 +321,6 @@ export function LibTableNotebookView({
           />
         </div>
       )}
-    </div>
+    </AuiNotebookView>
   );
 }

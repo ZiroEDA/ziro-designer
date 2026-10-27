@@ -19,11 +19,10 @@
  *
  * Web deltas, all about files the browser cannot reach:
  *
- *  - The global table is the hosted library set: a LIBRARY_TABLE the dialog
- *    builds, read-only, so no row can be added, moved, removed or edited.
- *    Upstream lets a read-only table's Enable / Show change and saves them as
- *    overrides (`SaveOverrides`); nothing here reads such overrides, so those
- *    two refuse too rather than change what nothing honours.
+ *  - Before the library manager has a global table, the global page is the
+ *    hosted library set alone: a LIBRARY_TABLE the dialog builds, with no
+ *    file, so nothing on it changes - not even Enable / Show, which upstream
+ *    keeps as overrides against the table's file.
  *  - "Add Existing" is a list of the project's library files not yet in the
  *    table, and the file dialog upstream's SPLIT_BUTTON opens, onto the
  *    computer: what it picks is copied into the project on OK.
@@ -32,16 +31,21 @@
  *  - The Library Format choice offers "KiCad" only: the one format the
  *    browser reads (upstream lists every IO plugin it was built with). A row
  *    in another format keeps its text.
- *  - A `Table` row cannot be opened (no nested table is read), so no closable
- *    page ever appears; Reset Libraries and Migrate Libraries act on the
- *    global table and legacy files on disk, and are not here.
+ *  - Migrate Libraries converts legacy files on disk, and is not here.
  *  - The page shown first is the project's, as this dialog always opened.
  */
 import { type JSX, type ReactNode, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import type { MenuItem } from '@ziroeda/wx/menu.js';
 import { DIALOG_EDIT_LIBRARY_TABLES } from './dialog_edit_library_tables.js';
 import { DIALOG_PLUGIN_OPTIONS } from './dialog_plugin_options.js';
-import { DisplayInfoMessage, ShowKicadMessageDialog } from '../confirm.js';
+import {
+  DisplayInfoMessage,
+  handleUnsavedChanges,
+  IsOK,
+  ShowKicadMessageDialog,
+  type UnsavedChangesResult,
+} from '../confirm.js';
+import { UnsavedChangesDialog } from './dialog_unsaved_changes.js';
 import { ENV_VAR } from '../env_vars.js';
 import { GRID_TRICKS } from '../grid_tricks.js';
 import { LIB_ID } from '../lib_id.js';
@@ -59,6 +63,7 @@ import {
   LIB_TABLE_GRID_DATA_MODEL,
 } from '../libraries/lib_table_grid_data_model.js';
 import {
+  LIBRARY_MANAGER,
   LIBRARY_MANAGER_ADAPTER,
   type LIB_DATA,
   type LIB_STATUS,
@@ -74,6 +79,7 @@ import {
   type LIBRARY_TABLE_TYPE,
 } from '../libraries/library_table.js';
 import { PgmOrNull } from '../pgm_base.js';
+import type { KICAD_SETTINGS } from '../settings/kicad_settings.js';
 import { wxICON_ERROR, wxOK } from '@ziroeda/wx/defs.js';
 import { PROJECT_VAR_NAME } from '../project.js';
 import { WX_GRID } from '../widgets/wx_grid.js';
@@ -81,6 +87,7 @@ import { wxAuiNotebook } from '@ziroeda/wx/aui_notebook.js';
 import { wxGridStringTable } from '@ziroeda/wx/grid.js';
 import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import { wxGetEnv } from '@ziroeda/wx/utils.js';
+import { wxReadFileSync } from '@ziroeda/wx/filefn.js';
 
 /** `m_pluginChoices`: the formats this build reads (see the file comment). */
 const PLUGIN_CHOICES = ['KiCad'];
@@ -105,6 +112,9 @@ export interface LIB_TABLE_BASE_PROPS {
   onAppend: () => void;
   /** m_browseButton's menu: the project's libraries no row names yet. */
   browseMenu: MenuItem[];
+  /** m_resetGlobal's `onReset`, and whether it is enabled (the global page is the one shown). */
+  onReset?: () => void;
+  resetEnabled?: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onDelete: () => void;
@@ -213,6 +223,7 @@ class WEB_GRID_TRICKS extends LIB_TABLE_GRID_TRICKS {
     private readonly m_preamble: string,
     private readonly m_visibility: boolean,
     private readonly m_onOptionsEditor: (aGrid: WX_GRID, aRow: number) => void,
+    private readonly m_onOpenTable: (aRow: LIBRARY_TABLE_ROW) => void,
   ) {
     super(aGrid, aAddHandler);
     this.SetTooltipEnable(0 /* COL_STATUS */);
@@ -225,9 +236,9 @@ class WEB_GRID_TRICKS extends LIB_TABLE_GRID_TRICKS {
     if (tbl.GetNumberRows() > aRow) this.m_onOptionsEditor(this.m_grid, aRow);
   }
 
-  /** No nested table can be read here: upstream's message for one that failed to load. */
-  protected openTable(_aRow: LIBRARY_TABLE_ROW): void {
-    void DisplayInfoMessage('Unable to load library table.');
+  /** `openTable( aRow )`: the panel reads the nested table and opens it on a page of its own. */
+  protected openTable(aRow: LIBRARY_TABLE_ROW): void {
+    this.m_onOpenTable(aRow);
   }
 
   protected getTablePreamble(): string {
@@ -275,7 +286,7 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
   const [, bump] = useReducer((n: number) => n + 1, 0);
   const bumpRef = useRef(bump);
 
-  const [{ notebook, pathSubsGrid, pathSubsTricks }] = useState(() => {
+  const [{ notebook, addTable, setPageTable, pathSubsGrid, pathSubsTricks }] = useState(() => {
     const nb: LIB_TABLE_NOTEBOOK = new wxAuiNotebook<LIB_TABLE_NOTEBOOK_PANEL>();
     const adapter = new WEB_LIBRARY_ADAPTER(spec.type, {
       checkRow: (r) => specRef.current.checkRow(r),
@@ -283,14 +294,15 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
     });
 
     // AddTable( table, title, closable ).
-    const addTable = (aTable: LIBRARY_TABLE, aTitle: string): void => {
-      LIB_TABLE_NOTEBOOK_PANEL.AddTable(nb, aTitle, false);
-
-      const panel = nb.GetPage(nb.GetPageCount() - 1);
+    /** A page's grid onto \a aTable: its model, the rows checked, the cursor on the first. */
+    const setPageTable = (panel: LIB_TABLE_NOTEBOOK_PANEL, aTable: LIBRARY_TABLE): void => {
       const grid = panel.GetGrid();
-      const model = aTable.IsReadOnly()
-        ? new HOSTED_LIB_TABLE_GRID_DATA_MODEL(aTable, adapter, PLUGIN_CHOICES)
-        : new LIB_TABLE_GRID_DATA_MODEL(aTable, adapter, PLUGIN_CHOICES);
+      // The hosted set standing in for a global table has no file to keep overrides against;
+      // a read-only table read from one (the stock table) takes Enable and Show as upstream's.
+      const model =
+        aTable.IsReadOnly() && aTable.Path() === ''
+          ? new HOSTED_LIB_TABLE_GRID_DATA_MODEL(aTable, adapter, PLUGIN_CHOICES)
+          : new LIB_TABLE_GRID_DATA_MODEL(aTable, adapter, PLUGIN_CHOICES);
 
       grid.SetTable(model, true);
       model.RecheckRows();
@@ -300,6 +312,20 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
         bumpRef.current();
       });
 
+      if (grid.GetNumberRows() > 0) {
+        grid.SetGridCursor(0, COL_NICKNAME);
+        grid.SelectRow(0);
+      }
+    };
+
+    const addTable = (aTable: LIBRARY_TABLE, aTitle: string, aClosable = false): void => {
+      LIB_TABLE_NOTEBOOK_PANEL.AddTable(nb, aTitle, aClosable);
+
+      const panel = nb.GetPage(nb.GetPageCount() - 1);
+      const grid = panel.GetGrid();
+
+      setPageTable(panel, aTable);
+
       // add Cut, Copy, and Paste to wxGrids
       panel.PushEventHandler(
         new WEB_GRID_TRICKS(
@@ -308,13 +334,9 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
           spec.preamble,
           spec.supportsVisibilityColumn,
           (g, row) => setOptions({ grid: g, row }),
+          (row) => openTableRef.current(row),
         ),
       );
-
-      if (grid.GetNumberRows() > 0) {
-        grid.SetGridCursor(0, COL_NICKNAME);
-        grid.SelectRow(0);
-      }
 
       // TransferDataToWindow: no visibility control for footprint libraries.
       if (!spec.supportsVisibilityColumn) grid.HideCol(COL_VISIBLE);
@@ -333,8 +355,130 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
     subs.SetColLabelValue(1, 'Value');
     subs.EnableEditing(false);
 
-    return { notebook: nb, pathSubsGrid: subs, pathSubsTricks: new GRID_TRICKS(subs) };
+    return {
+      notebook: nb,
+      addTable,
+      setPageTable,
+      pathSubsGrid: subs,
+      pathSubsTricks: new GRID_TRICKS(subs),
+    };
   });
+
+  /** The pages always there: the global table's and, with a project open, the project's. */
+  const fixedPages = spec.projectTable ? 2 : 1;
+
+  /**
+   * `PANEL_SYM_LIB_TABLE::OpenTable( aTable, aTitle )`: a nested table on a closable page of its
+   * own, or the page it already has.
+   */
+  const OpenTable = (aTable: LIBRARY_TABLE, aTitle: string): void => {
+    let tabTitle = aTitle;
+
+    if (aTable.IsReadOnly()) tabTitle += ' (read-only)';
+
+    for (let ii = fixedPages; ii < notebook.GetPageCount(); ++ii) {
+      if (notebook.GetPageText(ii) === tabTitle) {
+        notebook.ChangeSelection(ii);
+        return;
+      }
+    }
+
+    addTable(aTable, tabTitle, true);
+    notebook.ChangeSelection(notebook.GetPageCount() - 1);
+  };
+
+  /** `SYMBOL_GRID_TRICKS::openTable` / `FP_GRID_TRICKS::openTable`. */
+  const openTableRef = useRef((_aRow: LIBRARY_TABLE_ROW): void => {});
+  openTableRef.current = (aRow) => {
+    const manager = PgmOrNull()?.GetLibraryManager();
+    const path = manager?.GetFullURI(aRow, true) ?? aRow.URI();
+    const bytes = wxReadFileSync(path);
+    const child = LIBRARY_TABLE.FromFile(
+      path,
+      bytes ? new TextDecoder().decode(bytes) : null,
+      LIBRARY_TABLE_SCOPE.GLOBAL,
+      spec.type,
+    );
+
+    if (!child.IsOk()) {
+      void DisplayInfoMessage('Unable to load library table.');
+    } else {
+      manager?.ApplyLibOverrides(child);
+      OpenTable(child, aRow.Nickname());
+    }
+  };
+
+  /**
+   * `onReset`: the global table made again as a new install has it - the stock table chained -
+   * and read back. Upstream does this at once, whether or not the dialog is then cancelled.
+   */
+  const onReset = async (): Promise<void> => {
+    if (!cur_grid().CommitPendingChanges()) return;
+
+    const manager = PgmOrNull()?.GetLibraryManager();
+    const panel0 = notebook.GetPage(0);
+
+    if (!manager) return;
+
+    // No need to prompt to preserve an empty table
+    if (
+      panel0.GetGrid().GetNumberRows() > 0 &&
+      !(await IsOK(
+        'This action will reset your global library table on disk and cannot be undone.',
+      ))
+    )
+      return;
+
+    LIBRARY_MANAGER.CreateGlobalTable(spec.type, true);
+
+    // Go ahead and reload here because this action takes place even if the dialog is canceled
+    manager.LoadGlobalTables([spec.type]);
+
+    const newTable = manager.Table(spec.type, LIBRARY_TABLE_SCOPE.GLOBAL);
+
+    if (!newTable) return; // wxASSERT
+
+    setPageTable(panel0, newTable);
+    panel0.ClearDirty();
+    bump();
+  };
+
+  /** The "Save changes to nested library table?" question a closing page asks, while it is up. */
+  const [unsaved, setUnsaved] = useState<{
+    message: string;
+    answer: (aResult: UnsavedChangesResult) => void;
+  } | null>(null);
+
+  /** `onNotebookPageCloseRequest`: a closable page closes once it says it can. */
+  const onPageClose = (aPage: number): void => {
+    const panel = notebook.GetPage(aPage);
+
+    if (!panel.GetClosable()) return;
+
+    void panel
+      .GetCanClose(
+        (aMessage, aSave) =>
+          new Promise<boolean>((resolve) =>
+            setUnsaved({
+              message: aMessage,
+              answer: (aResult) => {
+                setUnsaved(null);
+                resolve(handleUnsavedChanges(aResult, aSave));
+              },
+            }),
+          ),
+      )
+      .then((aCanClose) => {
+        if (!aCanClose) return;
+
+        const index = notebook.GetPageIndex(panel);
+
+        if (index < 0) return;
+
+        panel.Destroy();
+        notebook.DeletePage(index);
+      });
+  };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the pages and grids are made once
   useLayoutEffect(
@@ -424,7 +568,13 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
     const globalTable = manager?.Table(spec.type, LIBRARY_TABLE_SCOPE.GLOBAL);
     const globalModel = notebook.GetPage(0).GetModel();
 
-    if (manager && globalTable === spec.globalTable && !globalModel.Table().equals(globalTable)) {
+    // The hosted set standing in (no file) is not the user's table, and is never written over it.
+    if (
+      manager &&
+      globalTable &&
+      globalModel.Table().Path() !== '' &&
+      !globalModel.Table().equals(globalTable)
+    ) {
       const saved = globalModel.Table().Save();
 
       if (!saved.ok)
@@ -433,6 +583,30 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
           caption: 'File Save Error',
           style: wxOK | wxICON_ERROR,
         });
+
+      manager.LoadGlobalTables([spec.type]);
+    }
+
+    // The nested pages: a changed one saved - a read-only one's Enable and Show as overrides -
+    // and the global tables read again, which applies them.
+    let nestedChanged = false;
+
+    for (let ii = 0; ii < notebook.GetPageCount(); ++ii) {
+      const panel = notebook.GetPage(ii);
+
+      if (panel.GetClosable() && panel.TableModified()) {
+        panel.SaveTable();
+        nestedChanged = true;
+      }
+    }
+
+    if (manager && nestedChanged) {
+      // Web delta: KiCad writes kicad.json, where the overrides are kept, at exit; a page can be
+      // closed instead, so it is written now.
+      const settingsMgr = PgmOrNull()?.GetSettingsManager();
+      const kicad = settingsMgr?.GetAppSettings<KICAD_SETTINGS>('kicad');
+
+      if (settingsMgr && kicad) settingsMgr.Save(kicad);
 
       manager.LoadGlobalTables([spec.type]);
     }
@@ -448,7 +622,13 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
   return (
     <DIALOG_EDIT_LIBRARY_TABLES title={spec.title} onCancel={spec.onClose} onOK={onOK}>
       <spec.Base
-        m_notebook={<LibTableNotebookView notebook={notebook} ariaLabel={spec.title} />}
+        m_notebook={
+          <LibTableNotebookView
+            notebook={notebook}
+            onPageClose={onPageClose}
+            ariaLabel={spec.title}
+          />
+        }
         onAppend={() => LIB_TABLE_GRID_TRICKS.AppendRowHandler(cur_grid())}
         browseMenu={[
           ...(browse
@@ -471,6 +651,10 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
         onMoveUp={() => LIB_TABLE_GRID_TRICKS.MoveUpHandler(cur_grid())}
         onMoveDown={() => LIB_TABLE_GRID_TRICKS.MoveDownHandler(cur_grid())}
         onDelete={() => LIB_TABLE_GRID_TRICKS.DeleteRowHandler(cur_grid())}
+        onReset={() => void onReset()}
+        // onPageChange: m_resetGlobal->Enable( m_notebook->GetSelection() == 0 ), with the
+        // manager's table to reset.
+        resetEnabled={notebook.GetSelection() === 0 && !!PgmOrNull()?.GetLibraryManager()}
         m_path_subs_grid={
           // SetColLabelSize( 0 ), SetRowLabelSize( 0 ); column 1 takes the rest
           // (adjustPathSubsGridColumns).
@@ -484,6 +668,8 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
           />
         }
       />
+
+      {unsaved && <UnsavedChangesDialog message={unsaved.message} onResult={unsaved.answer} />}
 
       {options && optionsRow && optionsRow.GetNumberRows() > options.row && (
         // optionsEditor: the KiCad s-expression plugin appends no choices

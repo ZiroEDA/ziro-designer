@@ -39,8 +39,7 @@
  * hooks are methods here for the same reason.
  */
 
-import type { LibTreeNode } from '@ziroeda/common/lib_tree_model.js';
-import { LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import {
   LibTreeModelAdapter,
   type LibTreeNodeAttr,
@@ -66,9 +65,81 @@ export interface SymbolTreeSource {
   currentLibId: () => string;
 }
 
+/** A library table row, as far as `Sync` asks it. */
+export interface SymbolTreeRow {
+  Disabled(): boolean;
+  Hidden(): boolean;
+  Description(): string;
+}
+
+/** A symbol the library manager holds, as far as a tree item shows it. */
+export interface SymbolTreeSymbol {
+  IsRoot(): boolean;
+  IsPower(): boolean;
+  GetDescription(): string;
+}
+
+/** What `Sync` reads: the library manager, the table rows, and the hosted index beside them. */
+export interface SymbolTreeLibraries {
+  /** `m_libMgr->GetLibraryNames()`. */
+  libraryNames(): readonly string[];
+  /** `adapter->GetRow( name )`. */
+  row(library: string): SymbolTreeRow | undefined;
+  /** The hosted index's entry: its symbols before the library is read, and its description. */
+  hosted(library: string): { symbols: readonly string[]; descr: string } | undefined;
+  /** `m_libMgr->GetSymbolNames( library )`: the symbols already read. */
+  symbolNames(library: string): readonly string[];
+  /** `m_libMgr->GetSymbol( name, library )`, when it has it. */
+  symbol(library: string, name: string): SymbolTreeSymbol | null;
+}
+
 export class SymbolTreeSynchronizingAdapter extends LibTreeModelAdapter {
   constructor(private readonly src: SymbolTreeSource) {
     super();
+  }
+
+  /**
+   * `Sync( aForceRefresh, aProgressCallback )` (`:76-157`), rebuilding rather than updating in
+   * place: a node for every library the manager has, none for one whose row is missing,
+   * disabled or hidden (`:113-121`), its symbols the ones read and those the hosted index names.
+   */
+  Sync(aLibs: SymbolTreeLibraries): void {
+    this.tree.children.length = 0;
+
+    for (const libName of aLibs.libraryNames()) {
+      const row = aLibs.row(libName);
+
+      if (!row || row.Disabled() || row.Hidden()) continue;
+
+      const hosted = aLibs.hosted(libName);
+      const libNode = this.addLibrary(libName, hosted?.descr || row.Description() || '', false);
+      const names = new Set([...aLibs.symbolNames(libName), ...(hosted?.symbols ?? [])]);
+
+      for (const name of names) {
+        const sym = aLibs.symbol(libName, name);
+        const item = new LibTreeNode();
+        item.type = LibTreeNodeType.ITEM;
+        item.parent = libNode;
+        item.name = name;
+        item.libNickname = libName;
+        item.libItemName = name;
+        // `LIB_SYMBOL::IsRoot`, which GetAttr italicises on.
+        item.isRoot = sym ? sym.IsRoot() : true;
+        item.isPower = sym?.IsPower() ?? false;
+        item.desc = sym?.GetDescription() ?? '';
+        item.sourceSearchTerms = [
+          { text: libName.toLowerCase(), score: 4 },
+          { text: name.toLowerCase(), score: 8 },
+          { text: `${libName}:${name}`.toLowerCase(), score: 16 },
+        ];
+        item.rebuildSearchTerms(this.getShownColumns());
+        libNode.children.push(item);
+      }
+
+      this.finishLibrary(libNode);
+    }
+
+    this.tree.assignIntrinsicRanks();
   }
 
   /**

@@ -201,3 +201,42 @@ describe('the row face', () => {
     expect(a.nodeAttr(unitNode('Device', 'R'))).toEqual({});
   });
 });
+
+/**
+ * `Sync` (symbol_tree_synchronizing_adapter.cpp:76-157): a library node for every library the
+ * manager has but one whose row is gone, disabled or hidden (`:113-121`) - the eeschema manual's
+ * "do not appear in any library browsers" for Enable, and an unchecked Show's hiding.
+ */
+describe('SYMBOL_TREE_SYNCHRONIZING_ADAPTER::Sync', () => {
+  const row = (aDisabled = false, aHidden = false, aDescr = '') => ({
+    Disabled: () => aDisabled,
+    Hidden: () => aHidden,
+    Description: () => aDescr,
+  });
+  const rows: Record<string, ReturnType<typeof row>> = {
+    Device: row(false, false, 'Generic parts'),
+    Valve: row(false, true),
+    Relay: row(true, false),
+  };
+  const sync = () => {
+    const a = new SymbolTreeSynchronizingAdapter(source());
+    a.Sync({
+      libraryNames: () => ['Device', 'Gone', 'Relay', 'Valve'],
+      row: (lib) => rows[lib],
+      hosted: (lib) => (lib === 'Device' ? { symbols: ['R', 'C'], descr: '' } : undefined),
+      symbolNames: () => [],
+      symbol: () => null,
+    });
+    return a;
+  };
+
+  it('leaves out a library whose row is missing, disabled or hidden', () => {
+    expect(sync().tree.children.map((n) => n.name)).toEqual(['Device']);
+  });
+
+  it("lists a library's symbols from the hosted index before it is read", () => {
+    const device = sync().tree.children[0]!;
+    expect(device.desc).toBe('Generic parts');
+    expect(device.children.map((n) => n.name).sort()).toEqual(['C', 'R']);
+  });
+});

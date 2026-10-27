@@ -103,6 +103,38 @@ describe('KICAD_SETTINGS', () => {
     expect(back.m_TemplateWindowSize).toEqual({ x: 640, y: 480 });
   });
 
+  // libraries.overrides (kicad_settings.cpp:95-157): table path, then nickname, then only the
+  // flags that are set; an entry with neither is not written.
+  it('reads and writes the library overrides as kicad.json has them', () => {
+    const json = {
+      libraries: {
+        overrides: {
+          '/usr/share/kicad/template/sym-lib-table': {
+            Valve: { hidden: true },
+            Relay: { disabled: true, hidden: true },
+          },
+        },
+      },
+    };
+    const k = new KICAD_SETTINGS();
+    k.LoadFromJson(json);
+    expect(
+      Object.fromEntries(k.m_LibOverrides.get('/usr/share/kicad/template/sym-lib-table')!),
+    ).toEqual({
+      Valve: { disabled: false, hidden: true },
+      Relay: { disabled: true, hidden: true },
+    });
+    expect((k.SaveToJson() as typeof json).libraries).toEqual(json.libraries);
+
+    k.m_LibOverrides.get('/usr/share/kicad/template/sym-lib-table')!.set('Valve', {
+      disabled: false,
+      hidden: false,
+    });
+    expect((k.SaveToJson() as typeof json).libraries.overrides).toEqual({
+      '/usr/share/kicad/template/sym-lib-table': { Relay: { disabled: true, hidden: true } },
+    });
+  });
+
   it('skips an unreadable size rather than failing the file', () => {
     const k = new KICAD_SETTINGS();
     k.LoadFromJson({ template: { window: { size: { w: 1 } }, filter: 3 } });

@@ -15,6 +15,7 @@ import {
 } from '@ziroeda/common/libraries/library_table.js';
 import { PATHS } from '@ziroeda/common/paths.js';
 import { PGM_BASE, Pgm, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { KICAD_SETTINGS } from '@ziroeda/common/settings/kicad_settings.js';
 import {
   configureSymbolLibraryAdapter,
   isHostedSymbolLibraryRow,
@@ -156,5 +157,85 @@ describe('the symbol index', () => {
     } finally {
       unmountSymbols();
     }
+  });
+});
+
+/**
+ * What the chooser lists is the manager's enabled, shown rows (`AddLibraries`, eeschema manual:
+ * "Inactive libraries ... do not appear in any library browsers"; an unchecked Show hides one):
+ * the hosted set is filtered by them, not listed whole beside them.
+ */
+describe('the symbol index, through the tables', () => {
+  const hostedIndex = () =>
+    configureSymbolLibraryAdapter({
+      symbolsBase: () => '',
+      fetchIndex: () =>
+        Promise.resolve([
+          { name: 'Device', count: 1, symbols: ['R'] },
+          { name: 'power', count: 1, symbols: ['GND'] },
+        ]),
+      trackLoad: (_aLabel, aWork) => aWork,
+      loadLibraryItemsPooled: () => Promise.resolve([]),
+    });
+
+  it('leaves out a stock library the user hid in the KiCad tab (ApplyLibOverrides)', async () => {
+    hostedIndex();
+    const kicad = Pgm().GetSettingsManager().RegisterSettings(new KICAD_SETTINGS());
+    kicad.m_LibOverrides.set(
+      LIBRARY_MANAGER.StockTablePath(SYM),
+      new Map([['Device', { disabled: false, hidden: true }]]),
+    );
+
+    LoadGlobalSymbolTables(['Device', 'power']);
+
+    // The nested stock table took the override as it was read (loadNestedTables).
+    expect(globalRows().map((r) => [r.Nickname(), r.Hidden()])).toEqual([
+      ['Device', true],
+      ['power', false],
+    ]);
+    expect((await loadIndex()).map((e) => e.name)).not.toContain('Device');
+  });
+
+  // ApplyLibOverrides: `if( !aTable.IsReadOnly() ) return;` - a writable table keeps its own
+  // Enable and Show in its file, so an override filed under its path is not read.
+  it("leaves the user's own, writable table to its file, whatever overrides say", () => {
+    const kicad = Pgm().GetSettingsManager().RegisterSettings(new KICAD_SETTINGS());
+    const userTable = LIBRARY_MANAGER.DefaultGlobalTablePath(SYM);
+    kicad.m_LibOverrides.set(userTable, new Map([['Mine', { disabled: true, hidden: true }]]));
+    cfg.Write(
+      'sym-lib-table',
+      new TextEncoder().encode(`(sym_lib_table
+  (version 7)
+  (lib (name "Mine")(type "KiCad")(uri "/Symbols/Mine.kicad_sym")(options "")(descr ""))
+)
+`),
+    );
+    const table = LIBRARY_TABLE.FromFile(
+      userTable,
+      dec.decode(wxReadFileSync(userTable)!),
+      LIBRARY_TABLE_SCOPE.GLOBAL,
+    );
+
+    Pgm().GetLibraryManager().ApplyLibOverrides(table);
+
+    expect(table.Rows().map((r) => [r.Nickname(), r.Disabled(), r.Hidden()])).toEqual([
+      ['Mine', false, false],
+    ]);
+  });
+
+  it('lists no stock library once the KiCad row chaining them is disabled', async () => {
+    hostedIndex();
+    cfg.Write(
+      'sym-lib-table',
+      new TextEncoder().encode(`(sym_lib_table
+  (version 7)
+  (lib (name "KiCad")(type "Table")(uri "${LIBRARY_MANAGER.StockTableReferenceURI(SYM)}")(options "")(descr "")(disabled))
+)
+`),
+    );
+
+    LoadGlobalSymbolTables(['Device', 'power']);
+
+    expect(await loadIndex()).toEqual([]);
   });
 });

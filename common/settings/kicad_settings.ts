@@ -10,8 +10,7 @@
  * (common/settings/app_settings.ts) and the project manager reads none of its
  * members. The params are upstream's, path for path, except the ones for
  * things this port does not have: the Plugin and Content Manager (`pcm.*`), the
- * update check (`system.*update*`), and the library overrides
- * (`libraries.overrides`, which belong to the library tables).
+ * update check (`system.*update*`).
  */
 
 import type { wxPoint } from '@ziroeda/wx/dc.js';
@@ -27,6 +26,20 @@ import {
 import { JSON_SETTINGS, SETTINGS_LOC } from './json_settings.js';
 import type { JsonValue } from './json_settings_internals.js';
 import { PARAM, PARAM_LAMBDA, PARAM_LIST, ref } from './parameters.js';
+
+/**
+ * `LIB_OVERRIDE`: per-library override flags for libraries in read-only nested tables. These are
+ * keyed by the table file path and library nickname so they survive table updates while
+ * preserving user choices.
+ */
+export interface LIB_OVERRIDE {
+  disabled: boolean;
+  hidden: boolean;
+}
+
+/** `is_object()`. */
+const isObject = (aValue: JsonValue | undefined): aValue is { [key: string]: JsonValue } =>
+  typeof aValue === 'object' && aValue !== null && !Array.isArray(aValue);
 
 ///! Update the schema version whenever a migration is required
 const kicadSchemaVersion = 0;
@@ -48,6 +61,9 @@ export class KICAD_SETTINGS extends JSON_SETTINGS {
 
   m_RecentTemplates: string[] = [];
   m_TemplateFilterChoice = 0;
+
+  /** Table path, then nickname: the Enable / Show a read-only nested table's rows were given. */
+  m_LibOverrides = new Map<string, Map<string, LIB_OVERRIDE>>();
 
   constructor() {
     super('kicad', SETTINGS_LOC.USER, kicadSchemaVersion);
@@ -97,5 +113,57 @@ export class KICAD_SETTINGS extends JSON_SETTINGS {
     );
 
     this.addParam(new PARAM<number>('template.filter', ref(this, 'm_TemplateFilterChoice'), 0));
+
+    this.addParam(
+      new PARAM_LAMBDA<JsonValue>(
+        'libraries.overrides',
+        () => {
+          const js: Record<string, JsonValue> = {};
+
+          for (const [tablePath, libs] of this.m_LibOverrides) {
+            const tableJs: Record<string, JsonValue> = {};
+
+            for (const [nickname, override_] of libs) {
+              const entry: Record<string, JsonValue> = {};
+
+              if (override_.disabled) entry.disabled = true;
+
+              if (override_.hidden) entry.hidden = true;
+
+              if (Object.keys(entry).length > 0) tableJs[nickname] = entry;
+            }
+
+            if (Object.keys(tableJs).length > 0) js[tablePath] = tableJs;
+          }
+
+          return js;
+        },
+        (aObj) => {
+          this.m_LibOverrides.clear();
+
+          if (!isObject(aObj)) return;
+
+          for (const [tablePath, tableObj] of Object.entries(aObj)) {
+            if (!isObject(tableObj)) continue;
+
+            const libs = new Map<string, LIB_OVERRIDE>();
+            this.m_LibOverrides.set(tablePath, libs);
+
+            for (const [nickname, entry] of Object.entries(tableObj)) {
+              if (!isObject(entry)) continue;
+
+              const override_: LIB_OVERRIDE = { disabled: false, hidden: false };
+
+              if (typeof entry.disabled === 'boolean') override_.disabled = entry.disabled;
+
+              if (typeof entry.hidden === 'boolean') override_.hidden = entry.hidden;
+
+              libs.set(nickname, override_);
+            }
+          }
+        },
+        {},
+      ),
+    );
   }
 }
