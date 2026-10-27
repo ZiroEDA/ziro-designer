@@ -156,6 +156,11 @@ export function DeleteAccountDialog({
       className="ze-delete-account"
     >
       <form onSubmit={(e) => void submit(e)}>
+        {/* The address, for the password manager on the password step (ente's hidden email
+            input). Not laid out, so not in the sizer. */}
+        {step === 'password' && (
+          <input type="email" name="email" autoComplete="username" value={email} readOnly hidden />
+        )}
         {/* bMainSizer: a wxFormBuilder column, each item bordered 5 as KiCad's are, the entries
             wxEXPAND; at least the reference's dialog wide - ente's MUI "xs" - so a label and a
             reason fit on a line rather than the narrowest control deciding the width. */}
@@ -258,15 +263,6 @@ export function DeleteAccountDialog({
 
               {step === 'password' && (
                 <>
-                  {/* The address, for the password manager (ente's hidden email input). */}
-                  <input
-                    type="email"
-                    name="email"
-                    autoComplete="username"
-                    value={email}
-                    readOnly
-                    hidden
-                  />
                   <SizerItem flag={wxTOP | wxLEFT | wxRIGHT} border={5}>
                     <label htmlFor="ze-delete-password">Password</label>
                   </SizerItem>
