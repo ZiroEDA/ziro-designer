@@ -77,7 +77,7 @@ const BASELINE: Record<(typeof AREAS)[number], Record<Kind, number>> = {
   // 8 -> 9 and radio 2 -> 3 are the Preferences kit's Check/Radio, out of the exempt wx layer into
   // common/dialogs/pref_controls.tsx - not new controls, now counted; the sweep deletes the kit.
   // entry 22 -> 21 (10-21): EDA_LIST_DIALOG's filter and name boxes are TextCtrls.
-  common: { button: 42, checkbox: 8, select: 0, frame: 1, radio: 3, entry: 21, sbox: 4 },
+  common: { button: 41, checkbox: 8, select: 0, frame: 1, radio: 3, entry: 21, sbox: 4 },
   cvpcb: { button: 0, checkbox: 0, select: 0, frame: 1, radio: 0, entry: 1, sbox: 0 },
   designer: { button: 76, checkbox: 2, select: 0, frame: 0, radio: 5, entry: 25, sbox: 13 },
   // checkbox 15 -> 12 (10-15): the record Symbol Fields Table's grid checkboxes.

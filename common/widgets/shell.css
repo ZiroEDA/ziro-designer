@@ -10210,7 +10210,6 @@ textarea.ze-ds-textedit {
 .ze-tabbar .ze-tab {
   display: flex;
   align-items: center;
-  gap: 6px;
 }
 .ze-tabbar .ze-tab > button {
   font: inherit;
