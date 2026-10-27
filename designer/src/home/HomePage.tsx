@@ -2202,17 +2202,19 @@ export function HomePage({
               sourceUrl={URL_GET_INVOLVED}
             />
           )}
-          {shownRecoveryKey && (
-            <RecoveryKeyDialog words={shownRecoveryKey} onClose={() => setShownRecoveryKey(null)} />
-          )}
-          {deletingAccount && session && (
-            <DeleteAccountDialog
-              email={session.user.email ?? ''}
-              onClose={() => setDeletingAccount(false)}
-              onDelete={deleteAccount}
-            />
-          )}
         </div>
+        {/* The account's dialogs: the frame's, not the bar's - inside the bar, its icon-button
+            rule (.ze-mgrbar button) took their buttons' frames and widths. */}
+        {shownRecoveryKey && (
+          <RecoveryKeyDialog words={shownRecoveryKey} onClose={() => setShownRecoveryKey(null)} />
+        )}
+        {deletingAccount && session && (
+          <DeleteAccountDialog
+            email={session.user.email ?? ''}
+            onClose={() => setDeletingAccount(false)}
+            onDelete={deleteAccount}
+          />
+        )}
 
         {/* The left dock. Upstream puts BOTH panes in it, same direction, same
             layer, same row:
