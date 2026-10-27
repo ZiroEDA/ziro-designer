@@ -237,16 +237,10 @@ export class SCH_IO_KICAD_SEXPR_LIB_CACHE extends SCH_IO_LIB_CACHE {
     };
 
     const writeFile = (aPath: string, aSymbols: LIB_SYMBOL[]): void => {
-      const formatter = new PRETTIFIED_STRING_FORMATTER();
-
-      SCH_IO_KICAD_SEXPR_LIB_CACHE.formatLibraryHeader(formatter, aGenerator);
-
-      for (const symbol of aSymbols) SCH_IO_KICAD_SEXPR_LIB_CACHE.SaveSymbol(symbol, formatter);
-
-      formatter.Print(')');
+      const text = SCH_IO_KICAD_SEXPR_LIB_CACHE.FormatLibrary(aSymbols, aGenerator);
 
       // PRETTIFIED_FILE_OUTPUTFORMATTER's destructor: a file it cannot write is an IO_ERROR.
-      if (!wxWriteFileSync(aPath, new TextEncoder().encode(formatter.Finish())))
+      if (!wxWriteFileSync(aPath, new TextEncoder().encode(text)))
         throw new IO_ERROR(`Cannot open file '${aPath}'.`);
     };
 
@@ -708,6 +702,23 @@ export class SCH_IO_KICAD_SEXPR_LIB_CACHE extends SCH_IO_LIB_CACHE {
 
       symbol.SetLibParent(parent);
     }
+  }
+
+  /**
+   * A library file's text: the header, \a aSymbols, the closing paren, prettified - what
+   * `Save` writes into `PRETTIFIED_FILE_OUTPUTFORMATTER`. With none, the empty library
+   * `CreateLibrary` makes.
+   */
+  static FormatLibrary(aSymbols: readonly LIB_SYMBOL[], aGenerator = GENERATOR_DEFAULT): string {
+    const formatter = new PRETTIFIED_STRING_FORMATTER();
+
+    SCH_IO_KICAD_SEXPR_LIB_CACHE.formatLibraryHeader(formatter, aGenerator);
+
+    for (const symbol of aSymbols) SCH_IO_KICAD_SEXPR_LIB_CACHE.SaveSymbol(symbol, formatter);
+
+    formatter.Print(')');
+
+    return formatter.Finish();
   }
 
   /**

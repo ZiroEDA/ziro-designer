@@ -34,7 +34,6 @@ import {
 } from '@ziroeda/common/libraries/library_table.js';
 import { findProjectFile } from '@ziroeda/common/project_paths.js';
 import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
-import { wxFileExists } from '@ziroeda/wx/filefn.js';
 import { fpLibRowsOf, type FpLibRow } from '@ziroeda/common/fp_lib_table.js';
 import {
   AddSymbolLibraryToProject,
@@ -45,9 +44,14 @@ import {
 import {
   hostedLibraryTable,
   LIB_LOADED,
+  type LIB_TABLE_SCOPE,
   LibTablePanel,
   libNotFound,
 } from '@ziroeda/common/dialogs/lib_table_panel.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { SCH_IO_KICAD_SEXPR_LIB_CACHE } from '@ziroeda/eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_lib_cache.js';
+import { wxDirEnumerate, wxFileExists, wxWriteFileSync } from '@ziroeda/wx/filefn.js';
+import { USER_DIRS } from '../fs/chooser_places.js';
 
 import { PANEL_SYM_LIB_TABLE_BASE } from '@ziroeda/eeschema/dialogs/panel_sym_lib_table_base.js';
 interface Props {
@@ -73,6 +77,15 @@ const SYM_LIB_TABLE_ANCHOR = /(^|\/)sym-lib-table$/i;
 
 /** A `${KIPRJMOD}` / `$(KIPRJMOD)` reference: the only kind a project file can answer. */
 const isProjectRelative = (aUri: string): boolean => /^\$[{(]KIPRJMOD[})]/i.test(aUri);
+
+/** The account's Symbols folder, `GetDefaultUserSymbolsPath()`'s: where a global library lives. */
+const ACCOUNT_SYMBOLS = USER_DIRS.symbols;
+
+/** A row naming a library in the account's folder. */
+const isAccountLibrary = (aUri: string): boolean => aUri.startsWith(`${ACCOUNT_SYMBOLS}/`);
+
+/** A new library's text: `CreateLibrary`'s empty file. */
+const emptyLibrary = (): string => SCH_IO_KICAD_SEXPR_LIB_CACHE.FormatLibrary([]);
 
 /** The project's `sym-lib-table` as a LIBRARY_TABLE; an empty one when there is none. */
 function projectTableOf(files: NonNullable<Props['projectFiles']>): LIBRARY_TABLE {
@@ -100,8 +113,18 @@ export function DialogSymLibTable({
   onSave,
   onClose,
 }: Props): JSX.Element {
-  /** The library files "Add Existing" took off the computer, held until OK. */
+  /** The library files "Add Existing" took off the computer for the project, held until OK. */
   const staged = useRef<{ name: string; text: string }[]>([]);
+  /** Those it took for the account's folder, by the path each will have there. */
+  const stagedGlobal = useRef<{ path: string; text: string }[]>([]);
+  /**
+   * The paths handed to rows the add button made: the new libraries OK creates. A row whose
+   * file has gone missing is not one of them, and keeps its "not found".
+   */
+  const newLibraries = useRef(new Set<string>());
+  /** Whether an account library's file is there, or held to be written on OK. */
+  const accountFileExists = (aPath: string): boolean =>
+    wxFileExists(aPath) || stagedGlobal.current.some((f) => f.path === aPath);
   /** The project's files as they will be on OK: the checks and the list see the held ones. */
   const files = (): readonly { name: string; text: string }[] => [
     ...(projectFiles ?? []),
@@ -133,9 +156,28 @@ export function DialogSymLibTable({
   };
 
   /** `browseLibrariesHandler`: `.kicad_sym` files on the computer, held for OK. */
-  const pick = async () => {
+  const pick = async (aScope: LIB_TABLE_SCOPE) => {
     const picked = await chooseFiles();
     const rows: { name: string; uri: string; label: string }[] = [];
+
+    // The Global page's: the file goes into the account's folder, under its own name.
+    if (aScope === 'global') {
+      for (const file of picked) {
+        const path = `${ACCOUNT_SYMBOLS}/${file.name}`;
+        const libName = file.name.replace(/\.kicad_sym$/i, '');
+
+        // SYMBOL_EDIT_FRAME::AddLibraryFile's refusal of a name already taken.
+        if (accountFileExists(path)) {
+          DisplayErrorMessage(`Library '${libName}' already exists.`);
+          continue;
+        }
+
+        stagedGlobal.current = [...stagedGlobal.current, { path, text: await file.text() }];
+        rows.push({ name: LIB_ID.FixIllegalChars(libName, true), uri: path, label: file.name });
+      }
+
+      return rows;
+    }
 
     for (const file of picked) {
       const added = AddSymbolLibraryToProject(
@@ -158,13 +200,51 @@ export function DialogSymLibTable({
     return rows;
   };
 
-  /** The held files some row of \a aRows still names: the ones OK writes. */
+  /**
+   * The project files OK writes with the table: the held ones some row of \a aRows still names,
+   * and an empty library for each row the add button made whose file the project lacks.
+   */
   const kept = (aRows: readonly FpLibRow[]) => {
     const names = new Set(aRows.map((r) => rowSymLibName(r).toLowerCase()).filter(Boolean));
-
-    return staged.current.filter((f) =>
+    const held = staged.current.filter((f) =>
       names.has((f.name.split('/').pop() ?? '').replace(/\.kicad_sym$/i, '').toLowerCase()),
     );
+    const tablePath = projectSymLibTablePath(projectFiles ?? []);
+    const dir = tablePath.includes('/') ? tablePath.slice(0, tablePath.lastIndexOf('/') + 1) : '';
+    const created = aRows
+      .filter(
+        (r) =>
+          newLibraries.current.has(r.uri) && !findProjectFile(files(), r.uri, SYM_LIB_TABLE_ANCHOR),
+      )
+      .map((r) => ({
+        name: `${dir}${r.uri.replace(/^\$[{(]KIPRJMOD[})]\//i, '')}`,
+        text: emptyLibrary(),
+      }));
+
+    return [...held, ...created];
+  };
+
+  /**
+   * OK, before the global table is saved: each account library a row names that is not there
+   * yet - one Add Existing took off the computer, or a new one the add button made - written.
+   */
+  const writeAccountLibraries = (aRows: readonly LIBRARY_TABLE_ROW[]): void => {
+    for (const row of aRows) {
+      const path = row.URI();
+
+      if (!isAccountLibrary(path) || wxFileExists(path)) continue;
+
+      const held = stagedGlobal.current.find((f) => f.path === path)?.text;
+      const text = held ?? (newLibraries.current.has(path) ? emptyLibrary() : null);
+
+      if (text === null) continue;
+
+      if (!wxWriteFileSync(path, new TextEncoder().encode(text)))
+        DisplayErrorMessage(
+          `Could not create the library file '${path}'.\n` +
+            'Make sure you have write permissions and try again.',
+        );
+    }
   };
 
   return (
@@ -187,6 +267,11 @@ export function DialogSymLibTable({
       }
       projectTable={projectFiles ? projectTableOf(projectFiles) : undefined}
       checkRow={(row) => {
+        if (row.Type() === 'KiCad' && isAccountLibrary(row.URI()))
+          return accountFileExists(row.URI())
+            ? LIB_LOADED
+            : libNotFound(`Library '${row.URI()}' not found.`);
+
         if (row.Type() !== 'KiCad' || !isProjectRelative(row.URI())) return undefined;
 
         // SCH_IO_KICAD_SEXPR_LIB_CACHE::Load: "Library '%s' not found."
@@ -198,7 +283,21 @@ export function DialogSymLibTable({
           : // The user's table chaining the stock one: a file the program's mounts answer.
             wxFileExists(PgmOrNull()?.GetLibraryManager().GetFullURI(row, true) ?? row.URI())
       }
-      existing={(rows) => {
+      existing={(rows, scope) => {
+        // The account's folder: its libraries no row of the global table names yet.
+        if (scope === 'global') {
+          const named = new Set(rows.map((r) => r.URI()));
+
+          return (wxDirEnumerate(ACCOUNT_SYMBOLS) ?? [])
+            .filter((e) => !e.isDir && /\.kicad_sym$/i.test(e.name))
+            .filter((e) => !named.has(`${ACCOUNT_SYMBOLS}/${e.name}`))
+            .map((e) => ({
+              name: e.name.replace(/\.kicad_sym$/i, ''),
+              uri: `${ACCOUNT_SYMBOLS}/${e.name}`,
+              label: e.name,
+            }));
+        }
+
         // A file whose name a row's `.kicad_sym` already has is registered.
         const registered = new Set(
           rows.map((r) =>
@@ -220,6 +319,16 @@ export function DialogSymLibTable({
           }));
       }}
       browse={{ label: 'KiCad from Computer...', pick }}
+      newLibraryUri={(scope, nickname) => {
+        const uri =
+          scope === 'global'
+            ? `${ACCOUNT_SYMBOLS}/${nickname}.kicad_sym`
+            : `\${KIPRJMOD}/${nickname}.kicad_sym`;
+
+        newLibraries.current.add(uri);
+        return uri;
+      }}
+      beforeGlobalSave={writeAccountLibraries}
       onSave={(table) => {
         const rows = fpLibRowsOf(table);
         onSave(rows, kept(rows));

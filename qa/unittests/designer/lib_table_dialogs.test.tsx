@@ -17,6 +17,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const pickedFolder = vi.hoisted(() => ({
   value: null as null | { name: string; files: { path: string; bytes: Uint8Array }[] },
 }));
+// "KiCad from Computer...": the files the test hands the browser's picker.
+const pickedFiles = vi.hoisted(() => ({ value: [] as File[] }));
+vi.mock('@ziroeda/designer/src/fs/open_file_dialog.js', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  openFileDialog: async () => pickedFiles.value,
+}));
 vi.mock('@ziroeda/wx/dirdlg.js', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   ChooseLocalFolder: async () => pickedFolder.value,
@@ -25,11 +31,16 @@ import { DialogFpLibTable } from '@ziroeda/pcbnew/dialogs/panel_fp_lib_table.js'
 import { DialogSymLibTable } from '@ziroeda/designer/src/widgets/dialog_sym_lib_table.js';
 import { LIBRARY_MANAGER } from '@ziroeda/common/libraries/library_manager.js';
 import {
+  LIBRARY_TABLE,
   LIBRARY_TABLE_SCOPE,
   LIBRARY_TABLE_TYPE,
 } from '@ziroeda/common/libraries/library_table.js';
 import { PATHS } from '@ziroeda/common/paths.js';
-import { SetMessageDialogPresenter, SetQuestionPresenter } from '@ziroeda/common/confirm.js';
+import {
+  SetErrorPresenter,
+  SetMessageDialogPresenter,
+  SetQuestionPresenter,
+} from '@ziroeda/common/confirm.js';
 import { KICAD_SETTINGS } from '@ziroeda/common/settings/kicad_settings.js';
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
 import { PGM_BASE, Pgm, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
@@ -227,9 +238,9 @@ describe("Manage Symbol Libraries, with the user's global table", () => {
     const tabs = screen.getAllByRole('tab');
     expect(tabs.map((t) => t.textContent)).toEqual(['Global Libraries']);
     expect(tabs[0]!.getAttribute('aria-selected')).toBe('true');
-    // Add Existing brings a library into the project: with none, it has nothing to offer.
+    // Add Existing on the Global page brings a library into the account, project or none.
     expect(screen.getByRole('button', { name: 'Add Existing' }).hasAttribute('disabled')).toBe(
-      true,
+      false,
     );
 
     fireEvent.mouseDown(document.querySelector('td[data-row="1"][data-col="3"]')!, { button: 0 });
@@ -445,6 +456,18 @@ describe('Manage Footprint Libraries', () => {
       });
     };
 
+    // Footprint libraries have no place in the account yet, so the Global page offers the
+    // computer nothing, rather than an item that adds what nothing would keep.
+    it("is the Project page's alone", () => {
+      open(vi.fn());
+      fireEvent.click(screen.getByRole('button', { name: 'Add Existing' }));
+      expect(screen.getByText('KiCad (folder) from Computer...')).toBeTruthy();
+      fireEvent.click(screen.getAllByRole('tab')[0]!);
+      expect(screen.getByRole('button', { name: 'Add Existing' }).hasAttribute('disabled')).toBe(
+        true,
+      );
+    });
+
     it('adds the folder as a project row, and OK writes its footprints with the table', async () => {
       const onSave = vi.fn();
       open(onSave);
@@ -479,5 +502,148 @@ describe('Manage Footprint Libraries', () => {
         [],
       );
     });
+  });
+});
+
+/**
+ * A library's place is its page: the Global page's is the account's Symbols folder, the Project
+ * page's the project. The add button's row becomes a new, empty library there, named by its
+ * nickname; "KiCad from Computer..." copies a file there; Add Existing lists the folder's
+ * libraries no row names. Each file is written on OK, and only those.
+ */
+describe('Manage Symbol Libraries, a library in its place', () => {
+  let unmounts: (() => void)[] = [];
+  let SYMBOLS: MEMORY_FILESYSTEM;
+  const userTablePath = () => LIBRARY_MANAGER.DefaultGlobalTablePath(LIBRARY_TABLE_TYPE.SYMBOL);
+  const stored = () => new TextDecoder().decode(wxReadFileSync(userTablePath())!);
+  /** The stored global table's rows, as nickname and path. */
+  const storedRows = () =>
+    LIBRARY_TABLE.FromFile(userTablePath(), stored(), LIBRARY_TABLE_SCOPE.GLOBAL)
+      .Rows()
+      .map((r) => [r.Nickname(), r.URI(), r.Type()]);
+  const account = (aName: string) => {
+    const bytes = wxReadFileSync(`/Symbols/${aName}`);
+    return bytes ? new TextDecoder().decode(bytes) : null;
+  };
+  const typeNickname = (aRow: number, aName: string) => {
+    const input = document.querySelector(
+      `td[data-row="${aRow}"][data-col="3"] input`,
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: aName } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+  };
+
+  beforeEach(() => {
+    SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER()));
+    const cfg = new MEMORY_FILESYSTEM();
+    SYMBOLS = new MEMORY_FILESYSTEM();
+    unmounts = [
+      wxMountFileSystem(PATHS.GetUserSettingsPath(), cfg),
+      wxMountFileSystem('/Symbols', SYMBOLS),
+    ];
+    cfg.Write(
+      'sym-lib-table',
+      new TextEncoder().encode(`(sym_lib_table
+  (version 7)
+  (lib (name "KiCad")(type "Table")(uri "${LIBRARY_MANAGER.StockTableReferenceURI(LIBRARY_TABLE_TYPE.SYMBOL)}")(options "")(descr ""))
+  (lib (name "Mine")(type "KiCad")(uri "/Symbols/Mine.kicad_sym")(options "")(descr "my parts"))
+)
+`),
+    );
+    LoadGlobalSymbolTables(['Device', 'power']);
+    pickedFiles.value = [];
+  });
+
+  afterEach(() => {
+    for (const u of unmounts) u();
+    SetPgm(null);
+    SetMessageDialogPresenter(async () => wxID_CANCEL);
+    SetErrorPresenter(() => {});
+  });
+
+  it("makes the add button's row a new library in the account", () => {
+    openSym();
+    fireEvent.click(screen.getAllByRole('tab')[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Add empty row to table' }));
+    typeNickname(2, 'NewParts');
+
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    expect(storedRows()).toContainEqual(['NewParts', '/Symbols/NewParts.kicad_sym', 'KiCad']);
+    expect(account('NewParts.kicad_sym')).toMatch(/^\(kicad_symbol_lib\s+\(version \d+\)/);
+  });
+
+  it('copies a library off the computer into the account, on OK', async () => {
+    pickedFiles.value = [new File(['(kicad_symbol_lib)'], 'Picked.kicad_sym')];
+    openSym();
+    fireEvent.click(screen.getAllByRole('tab')[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Add Existing' }));
+    fireEvent.click(screen.getByText('KiCad from Computer...'));
+    await vi.waitFor(() => expect(cellText(2, 3)).toBe('Picked'));
+    expect(account('Picked.kicad_sym')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    expect(account('Picked.kicad_sym')).toBe('(kicad_symbol_lib)');
+    expect(storedRows()).toContainEqual(['Picked', '/Symbols/Picked.kicad_sym', 'KiCad']);
+  });
+
+  it('refuses a library whose name the account already has', async () => {
+    const errors: string[] = [];
+    SetErrorPresenter((aText) => errors.push(aText));
+    SYMBOLS.Write('Mine.kicad_sym', new TextEncoder().encode('(kicad_symbol_lib)'));
+    pickedFiles.value = [new File(['(kicad_symbol_lib)'], 'Mine.kicad_sym')];
+    openSym();
+    fireEvent.click(screen.getAllByRole('tab')[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Add Existing' }));
+    fireEvent.click(screen.getByText('KiCad from Computer...'));
+
+    await vi.waitFor(() => expect(errors).toEqual(["Library 'Mine' already exists."]));
+    expect(document.querySelector('td[data-row="2"]')).toBeNull();
+  });
+
+  it("offers the account's libraries no row names", () => {
+    SYMBOLS.Write('Mine.kicad_sym', new TextEncoder().encode('(kicad_symbol_lib)'));
+    SYMBOLS.Write('Other.kicad_sym', new TextEncoder().encode('(kicad_symbol_lib)'));
+    openSym();
+    fireEvent.click(screen.getAllByRole('tab')[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Add Existing' }));
+
+    expect(screen.queryByText('Mine.kicad_sym')).toBeNull();
+    fireEvent.click(screen.getByText('Other.kicad_sym'));
+    expect(cellText(2, 3)).toBe('Other');
+  });
+
+  it('leaves a row whose file has gone missing as it is, not found', () => {
+    openSym();
+    fireEvent.click(screen.getAllByRole('tab')[0]!);
+    // Mine.kicad_sym is not in the folder.
+    expect(document.querySelector('td[data-row="1"][data-col="0"]')?.getAttribute('title')).toBe(
+      "Library '/Symbols/Mine.kicad_sym' not found.",
+    );
+    fireEvent.mouseDown(document.querySelector('td[data-row="1"][data-col="1"]')!, { button: 0 });
+
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    expect(account('Mine.kicad_sym')).toBeNull();
+  });
+
+  it("makes the add button's row on the Project page a new library in the project", () => {
+    const { onSave } = openSym();
+    fireEvent.click(screen.getByRole('button', { name: 'Add empty row to table' }));
+    typeNickname(2, 'Board');
+
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const [rows, files] = onSave.mock.calls[0]!;
+    expect(rows.map((r: { name: string; uri: string }) => [r.name, r.uri])).toEqual([
+      ['proj', '${KIPRJMOD}/proj.kicad_sym'],
+      ['gone', '${KIPRJMOD}/gone.kicad_sym'],
+      ['Board', '${KIPRJMOD}/Board.kicad_sym'],
+    ]);
+    // Only the new one: "gone" stays missing.
+    expect(files.map((f: { name: string }) => f.name)).toEqual(['demo/Board.kicad_sym']);
+    expect(files[0].text).toMatch(/^\(kicad_symbol_lib\s+\(version \d+\)/);
   });
 });

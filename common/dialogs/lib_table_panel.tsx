@@ -115,6 +115,9 @@ export interface LIB_TABLE_BASE_PROPS {
   onDelete: () => void;
 }
 
+/** The two places a library lives: the Global Libraries page's and the project's. */
+export type LIB_TABLE_SCOPE = 'global' | 'project';
+
 export interface LibTablePanelSpec {
   /** DIALOG_EDIT_LIBRARY_TABLES' title: "Symbol Libraries", "Footprint Libraries". */
   title: string;
@@ -143,13 +146,31 @@ export interface LibTablePanelSpec {
   checkRow: (aRow: LIBRARY_TABLE_ROW) => LIB_STATUS | undefined;
   /** Whether a nested table's file exists, for `createPlugin`'s Table row. */
   nestedTableExists: (aRow: LIBRARY_TABLE_ROW) => boolean;
-  /** The project's library files no row of the project table registers: "Add Existing"'s list. */
-  existing: (aRows: readonly LIBRARY_TABLE_ROW[]) => readonly ExistingLibrary[];
+  /**
+   * The library files of \a aScope's place - the account's folder, the project - that no row of
+   * \a aRows registers: "Add Existing"'s list for that page.
+   */
+  existing: (
+    aRows: readonly LIBRARY_TABLE_ROW[],
+    aScope: LIB_TABLE_SCOPE,
+  ) => readonly ExistingLibrary[];
   /**
    * `browseLibrariesHandler`'s file dialog: libraries picked off the computer, which the dialog
-   * holds and writes into the project with the table on OK. Each comes back as a row to add.
+   * holds and writes into \a aScope's place on OK. Each comes back as a row to add.
    */
-  browse?: { label: string; pick: () => Promise<readonly ExistingLibrary[]> };
+  browse?: {
+    label: string;
+    pick: (aScope: LIB_TABLE_SCOPE) => Promise<readonly ExistingLibrary[]>;
+    /** The pages it serves; all of them when absent. */
+    scopes?: readonly LIB_TABLE_SCOPE[];
+  };
+  /**
+   * The path a row added with the add button gets from its nickname: a new, empty library in
+   * \a aScope's place, which OK makes. Absent, the row keeps whatever path it was given.
+   */
+  newLibraryUri?: (aScope: LIB_TABLE_SCOPE, aNickname: string) => string;
+  /** OK, before the global table is saved: the library files its rows name, written. */
+  beforeGlobalSave?: (aRows: readonly LIBRARY_TABLE_ROW[]) => void;
   /** OK with a changed project table. */
   onSave: (aTable: LIBRARY_TABLE) => void;
   onClose: () => void;
@@ -461,9 +482,18 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
     notebook.GetPage(notebook.GetSelection()).GetModel();
 
   const projectModel = spec.projectTable ? notebook.GetPage(1).GetModel() : null;
-  // Both lists bring a library into the project, so with none open there is neither.
-  const unregistered = projectModel ? spec.existing(projectModel.Table().Rows()) : [];
-  const browse = projectModel ? spec.browse : undefined;
+
+  /** The place the page \a aPage's libraries live; none for a nested table's page. */
+  const scopeOf = (aPage: number): LIB_TABLE_SCOPE | null =>
+    aPage === 0 ? 'global' : aPage === 1 && projectModel ? 'project' : null;
+
+  // Add Existing brings a library into the shown page's place: none for a nested table's page.
+  const curScope = scopeOf(notebook.GetSelection());
+  const unregistered = curScope ? spec.existing(cur_model().Table().Rows(), curScope) : [];
+  const browse =
+    curScope && (!spec.browse?.scopes || spec.browse.scopes.includes(curScope))
+      ? spec.browse
+      : undefined;
 
   /** `browseLibrariesHandler`, over the project's own files. */
   const addExisting = (aLib: ExistingLibrary): void => {
@@ -513,6 +543,29 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
   const onOK = (): void => {
     if (!cur_grid().CommitPendingChanges()) return;
 
+    // A row the add button made has a nickname and no path, which verifyTables would silently
+    // drop ("Silently nuke rows that have no library URI"): its path is its new library's.
+    if (spec.newLibraryUri) {
+      for (let page = 0; page < notebook.GetPageCount(); ++page) {
+        const scope = scopeOf(page);
+        const model = notebook.GetPage(page).GetModel();
+
+        if (!scope) continue;
+
+        for (let row = 0; row < model.GetNumberRows(); ++row) {
+          const nick = model.GetValue(row, COL_NICKNAME).trim();
+
+          if (nick !== '' && model.GetValue(row, COL_URI).trim() === '') {
+            model.SetValue(row, COL_URI, spec.newLibraryUri(scope, nick));
+
+            // Its format, which upstream's row is given in Library Format: the one there is.
+            if (model.GetValue(row, COL_TYPE).trim() === '')
+              model.SetValue(row, COL_TYPE, PLUGIN_CHOICES[0]!);
+          }
+        }
+      }
+    }
+
     if (!verifyTables()) return;
 
     const manager = PgmOrNull()?.GetLibraryManager();
@@ -526,6 +579,8 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
       globalModel.Table().Path() !== '' &&
       !globalModel.Table().equals(globalTable)
     ) {
+      spec.beforeGlobalSave?.(globalModel.Table().Rows());
+
       const saved = globalModel.Table().Save();
 
       if (!saved.ok)
@@ -587,7 +642,7 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
                 {
                   label: browse.label,
                   action: () => {
-                    void browse.pick().then((libs) => {
+                    void browse.pick(curScope!).then((libs) => {
                       for (const lib of libs) addExisting(lib);
                     });
                   },

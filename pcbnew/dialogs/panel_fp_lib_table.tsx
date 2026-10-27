@@ -177,7 +177,9 @@ export function DialogFpLibTable({
       nestedTableExists={(row) =>
         isProjectRelative(row.URI()) && !!findProjectFile(files(), row.URI(), FP_LIB_TABLE_ANCHOR)
       }
-      existing={(rows) => {
+      existing={(rows, scope) => {
+        if (scope !== 'project') return [];
+
         // A folder whose name a row's `.pretty` already has is registered.
         const registered = new Set(
           rows.map((r) =>
@@ -198,7 +200,8 @@ export function DialogFpLibTable({
             label: `${d.dir}.pretty`,
           }));
       }}
-      browse={{ label: 'KiCad (folder) from Computer...', pick }}
+      // Footprint libraries in the account are not here yet: a folder only joins the project.
+      browse={{ label: 'KiCad (folder) from Computer...', pick, scopes: ['project'] }}
       onSave={(table) => {
         const rows = fpLibRowsOf(table);
         onSave(rows, kept(rows));
