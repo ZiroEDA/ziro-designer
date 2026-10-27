@@ -46,6 +46,7 @@ export function PANEL_SYM_LIB_TABLE_BASE(p: LIB_TABLE_BASE_PROPS): JSX.Element {
           <SizerItem flag={wxTOP | wxBOTTOM | wxRIGHT} border={5}>
             <SplitButton
               label="Add Existing"
+              bitmap="small_folder"
               onClick={() => {}}
               clickOpensMenu
               menu={p.browseMenu}

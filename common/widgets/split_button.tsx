@@ -28,13 +28,20 @@
  * flattening the seam into one slab.
  */
 import { Button } from '@ziroeda/wx/controls.js';
+import { StdBitmapButton } from './std_bitmap_button.js';
 import { useRef, useState, type JSX } from 'react';
 import { ContextMenu } from '@ziroeda/wx/menu_ui.js';
 import type { MenuItem } from '@ziroeda/wx/menu.js';
 
 export interface SplitButtonProps {
-  /** The label the wide half carries; `SetLabel( … )`. */
+  /** The label the wide half carries; `SetLabel( … )`. With a bitmap, its tooltip. */
   label: string;
+  /**
+   * `SetBitmap( KiBitmapBundle( … ) )`: OnPaint then draws the bitmap in the wide half and not the
+   * label (`:290-307`), and the library panels size that half as their bitmap buttons are
+   * (`m_browseButton->SetMinSize( m_append_button->GetSize() )`) - so it IS one of them.
+   */
+  bitmap?: string;
   /** `wxEVT_BUTTON` — the wide half, which never opens the menu. */
   onClick: () => void;
   /** The rows of `GetSplitButtonMenu()`, in order. */
@@ -51,6 +58,7 @@ export interface SplitButtonProps {
 
 export function SplitButton({
   label,
+  bitmap,
   onClick,
   menu,
   disabled,
@@ -65,12 +73,23 @@ export function SplitButton({
   };
 
   return (
-    <span className="ze-splitbtn">
-      <Button label={label} disabled={disabled} onClick={clickOpensMenu ? openMenu : onClick} />
+    <span className={`ze-splitbtn${bitmap ? ' bitmap' : ''}`}>
+      {bitmap ? (
+        <StdBitmapButton
+          bitmap={bitmap}
+          title={label}
+          disabled={disabled}
+          onClick={clickOpensMenu ? openMenu : onClick}
+        />
+      ) : (
+        <Button label={label} disabled={disabled} onClick={clickOpensMenu ? openMenu : onClick} />
+      )}
       <button
         ref={arrowRef}
         type="button"
-        className="ze-btn ze-splitbtn-arrow"
+        // Both halves are the same push button (OnPaint draws each with DrawPushButton): with a
+        // bitmap that is the bitmap buttons' face and height, the arrow keeping its own width.
+        className={`${bitmap ? 'ze-gridbtn' : 'ze-btn'} ze-splitbtn-arrow`}
         aria-label={menuLabel}
         aria-haspopup="menu"
         aria-expanded={at !== null}

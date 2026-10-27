@@ -1650,6 +1650,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      would otherwise fall back to `auto` and turn into an I-beam over text. */
   cursor: default;
 }
+/* A `.ze-app` with no box of its own, for a window App opens over whichever frame asked (the
+   library tables): the root's font and every element rule under `.ze-app` reach it, while the
+   window places itself. */
+.ze-app.ze-app-detached {
+  display: contents;
+}
 
 /* Menu bar */
 .ze-menubar {

@@ -2125,14 +2125,19 @@ export function App(): JSX.Element {
         </div>
       )}
       {libTableDialog && (
-        <Suspense fallback={null}>
-          <LibraryTableHost
-            kind={libTableDialog}
-            projectFiles={projectFiles ?? null}
-            onWrite={writeProjectFiles}
-            onClose={() => setLibTableDialog(null)}
-          />
-        </Suspense>
+        // Opened over whichever frame asked, from here, so under no frame's `.ze-app` - and the
+        // shell's element rules are all under it: the grid's check boxes were the browser's blue
+        // ones. A root of its own, with no box (`.ze-app-detached`).
+        <div className="ze-app ze-app-detached">
+          <Suspense fallback={null}>
+            <LibraryTableHost
+              kind={libTableDialog}
+              projectFiles={projectFiles ?? null}
+              onWrite={writeProjectFiles}
+              onClose={() => setLibTableDialog(null)}
+            />
+          </Suspense>
+        </div>
       )}
       {calcMounted && (
         <div style={frameStyle(view === 'calculator')}>

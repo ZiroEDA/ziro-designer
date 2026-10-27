@@ -10,6 +10,7 @@
  * file, OK writes only a changed table, and a double-click in Options opens
  * DIALOG_PLUGIN_OPTIONS (LIB_TABLE_GRID_TRICKS::handleDoubleClick).
  */
+import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -242,6 +243,14 @@ describe("Manage Symbol Libraries, with the user's global table", () => {
     expect(screen.getByRole('button', { name: 'Add Existing' }).hasAttribute('disabled')).toBe(
       false,
     );
+    // m_browseButton->SetBitmap( small_folder ): the folder drawn, the label only its tooltip,
+    // and the arrow half the same bitmap-button face.
+    const browse = screen.getByRole('button', { name: 'Add Existing' });
+    expect(browse.querySelector('img')?.getAttribute('src')).toBe(bitmapUrl('small_folder'));
+    expect(bitmapUrl('small_folder')).not.toBe(bitmapUrl('small_plus'));
+    expect(browse.textContent).toBe('');
+    expect(browse.getAttribute('title')).toBe('Add Existing');
+    expect(browse.nextElementSibling?.className).toBe('ze-gridbtn ze-splitbtn-arrow');
 
     fireEvent.mouseDown(document.querySelector('td[data-row="1"][data-col="3"]')!, { button: 0 });
     fireEvent.click(screen.getByRole('button', { name: 'Remove library from table' }));
