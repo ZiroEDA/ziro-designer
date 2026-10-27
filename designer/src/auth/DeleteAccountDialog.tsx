@@ -169,7 +169,7 @@ export function DeleteAccountDialog({
             <BoxSizer orient={wxVERTICAL}>
               {subtitle && (
                 <SizerItem flag={wxALL} border={5}>
-                  <StaticText label={subtitle} wrap={420} />
+                  <StaticText label={subtitle} />
                 </SizerItem>
               )}
 

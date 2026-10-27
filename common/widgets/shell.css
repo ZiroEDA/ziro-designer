@@ -11031,9 +11031,19 @@ textarea.ze-ds-textedit {
    sizer fills its page: the book sizes every page to itself. Without the pages, DRC's running
    report got 22px of a 369px page and the test steps were never seen. */
 .ze-shim > .ze-sizer,
+.ze-shim > form > .ze-sizer,
 .ze-nb-body > .ze-nb-page > .ze-sizer,
 .ze-simplebook > .ze-simplebook-page > .ze-sizer,
 .ze-wxsplitter-pane > .ze-sizer {
+  flex: 1 0 auto;
+}
+/* A dialog whose body is a <form> (Enter submits it, a password manager files its entry): the
+   form stands where the top sizer would, filling the window, its sizer filling it and the
+   buttons after - a page shorter than the window leaves its space above the buttons, as a
+   wxSimplebook's does, not below them. */
+.ze-shim > form {
+  display: flex;
+  flex-direction: column;
   flex: 1 0 auto;
 }
 /* wxStaticBoxSizer: the inner sizer flush inside the frame (GetBordersForSizer). */
