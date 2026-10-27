@@ -135,7 +135,9 @@ export async function ensureProjectKeyFor(
 ): Promise<{ key: Uint8Array; unsaved: boolean }> {
   const existing = await projectKeyFor(backend, userId, projectUid);
   if (existing) {
-    console.info(`key ${projectUid.slice(0, 8)}: reusing ${await fingerprint(existing)}`);
+    console.info(
+      `Encryption: ${projectUid.slice(0, 8)} opened with its own key (fingerprint ${await fingerprint(existing)})`,
+    );
     return { key: existing, unsaved: false };
   }
   // Both checks stay here rather than moving to the save: a locked account or
@@ -145,7 +147,9 @@ export async function ensureProjectKeyFor(
   if (!backend.putProjectKey) throw new Error('this backend cannot hold project keys');
   const key = newProjectKey();
   projectKeys.set(projectUid, key);
-  console.info(`key ${projectUid.slice(0, 8)}: MINTED ${await fingerprint(key)}`);
+  console.info(
+    `Encryption: a new key made on this device for ${projectUid.slice(0, 8)} (fingerprint ${await fingerprint(key)})`,
+  );
   return { key, unsaved: true };
 }
 

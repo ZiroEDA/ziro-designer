@@ -401,9 +401,10 @@ export async function syncAllProjects(
 
   // One line saying what this pass decided, because "it did nothing" and "it
   // was never asked" look identical from outside and the difference is the
-  // whole diagnosis. Cheap: one log per sync, not per project.
+  // whole diagnosis. Cheap: one log per sync, not per project. Worded for whoever opens the
+  // console worried about their designs: what is backed up, where, and that it is encrypted.
   console.info(
-    `sync: ${localMeta.length} local, ${cloudMeta.length} in the cloud, ${ops.length} transfer(s) queued`,
+    `Backup: ${localMeta.length} on this device, ${cloudMeta.length} in your account, ${ops.length} to bring up to date. Files are encrypted on this device before they are sent; only you can open them.`,
   );
   if (ops.length > 0) onProgress?.(0, ops.length);
   await mapLimit(ops, PROJECT_CONCURRENCY, (run) => run());
@@ -411,7 +412,10 @@ export async function syncAllProjects(
   // encrypted; until then this returns null and touches nothing.
   try {
     const swept = await sweepPlaintextBlobs(userId);
-    if (swept) console.info(`removed ${swept} plaintext blob(s) left from before encryption`);
+    if (swept)
+      console.info(
+        `Backup: deleted ${swept} unencrypted file(s) left in your account from before encryption; everything there is encrypted now.`,
+      );
   } catch (e) {
     console.warn('plaintext sweep did not run:', e);
   }

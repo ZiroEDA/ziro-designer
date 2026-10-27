@@ -79,6 +79,10 @@ const dec = new TextDecoder();
 /** The stored index, or an empty one when the user has never pushed. */
 export async function readIndex(backend: CloudBackend, userId: string): Promise<TemplateIndex> {
   try {
+    // Asked first: Supabase answers a missing object with a 400, which the browser prints in red
+    // with the account's storage path - read by whoever opens the console as something wrong with
+    // their data, when it only means a first run, with nothing written yet.
+    if (!(await backend.hasObject(templateIndexPath(userId)))) return { version: 1, templates: [] };
     const bytes = await backend.getObject(templateIndexPath(userId));
     const parsed = JSON.parse(dec.decode(bytes)) as TemplateIndex;
     if (parsed && Array.isArray(parsed.templates)) return parsed;

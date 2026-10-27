@@ -11,8 +11,10 @@
  * is indistinguishable from one that simply had not arrived yet.
  */
 import { describe, expect, it } from 'vitest';
+import type { CloudBackend } from '@ziroeda/designer/src/cloud/backend.js';
 import {
   mergeIndexes,
+  readIndex,
   templateIndexPath,
   type TemplateIndexEntry,
 } from '@ziroeda/designer/src/cloud/templateSync.js';
@@ -127,5 +129,40 @@ describe('mergeIndexes', () => {
 
   it('handles both sides empty', () => {
     expect(mergeIndexes([], [])).toEqual([]);
+  });
+});
+
+describe('readIndex', () => {
+  const backendWith = (stored: Map<string, Uint8Array>, fetched: string[]) =>
+    ({
+      hasObject: async (path: string) => stored.has(path),
+      getObject: async (path: string) => {
+        fetched.push(path);
+        const bytes = stored.get(path);
+        if (!bytes) throw new Error('400 Object not found');
+        return bytes;
+      },
+    }) as unknown as CloudBackend;
+
+  // A missing object is a 400 from Supabase, printed in red with the account's storage path: on a
+  // new account it read as something going wrong with their data.
+  it('does not fetch an index that was never written', async () => {
+    const fetched: string[] = [];
+    const index = await readIndex(backendWith(new Map(), fetched), 'u1');
+    expect(index.templates).toEqual([]);
+    expect(fetched).toEqual([]);
+  });
+
+  it('reads the index that is there', async () => {
+    const fetched: string[] = [];
+    const stored = new Map([
+      [
+        templateIndexPath('u1'),
+        new TextEncoder().encode(JSON.stringify({ version: 1, templates: [entry('a', 5)] })),
+      ],
+    ]);
+    const index = await readIndex(backendWith(stored, fetched), 'u1');
+    expect(index.templates.map((t) => t.id)).toEqual(['a']);
+    expect(fetched).toEqual([templateIndexPath('u1')]);
   });
 });

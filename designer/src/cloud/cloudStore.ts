@@ -918,9 +918,12 @@ async function commitEncrypted(
     }
   }
 
-  const step = (what: string): void => console.info(`push "${p.name}": ${what}`);
+  // Each stage in words a worried reader can check: what goes, that it is encrypted first, and
+  // that it goes to their own account.
+  const step = (what: string): void =>
+    console.info(`Backing up "${p.name}" to your account: ${what}`);
   step(
-    `${manifest.length} file(s) in the manifest, base ${base}, ${keyUnsaved ? 'fresh key' : 'stored key'}`,
+    `${manifest.length} file(s) to check, ${base === 0 ? 'first backup' : `last backed up as version ${base}`}, ${keyUnsaved ? 'a new encryption key made for it on this device' : 'with its own encryption key'}`,
   );
   const uploaded: EncFileEntry[] = [];
   // Bounded, not `Promise.all`. Each file in flight is held three times over:
@@ -978,7 +981,9 @@ async function commitEncrypted(
     );
   }
 
-  step(`${uploaded.length} uploaded, ${entries.length - uploaded.length} reused; verifying`);
+  step(
+    `${uploaded.length} encrypted on this device and sent, ${entries.length - uploaded.length} unchanged; checking the copy`,
+  );
   // Commit-verify, as the plaintext path does: a store that accepted an
   // upload and dropped it must not be pointed at by a row.
   const missing = (
@@ -1004,7 +1009,7 @@ async function commitEncrypted(
     files: entries.map((e) => ({ name: '', hash: e.blobId, size: e.encSize })),
     enc_meta: await sealMeta(key, { v: 1, name: p.name, files: entries }),
   };
-  step('verified; committing');
+  step('copy checked; saving it');
   const version = await be.commitProject(row, base);
   if (version === null) throw new StaleBaseError(p.id);
 
@@ -1014,7 +1019,7 @@ async function commitEncrypted(
   // opens on this tab, where the key is still cached, and nowhere else ever
   // again. Failing the push says so while the key can still be saved by a
   // retry, which reuses the cached key rather than minting a second one.
-  step(`committed as version ${version}; saving key`);
+  step(`saved as version ${version}; storing its key, locked with your account's key`);
   if (keyUnsaved) await saveProjectKeyFor(be, me, uid);
 
   try {
@@ -1022,7 +1027,7 @@ async function commitEncrypted(
   } catch (e) {
     console.warn(`project history not recorded for "${p.name}":`, e);
   }
-  step('done');
+  step('done, encrypted');
   return { manifest, version, uid };
 }
 
