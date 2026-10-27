@@ -21,6 +21,7 @@
  * saying so has gated nothing.
  */
 
+import { PATHS } from '@ziroeda/common/paths.js';
 import { listProjects } from '../home/projectStore.js';
 import type { ChooserPlace } from './chooser_types.js';
 import { listFileSystem } from './list_fs.js';
@@ -142,7 +143,7 @@ export function recentFileSystem(below: FileSystem): FileSystem {
  */
 export const USER_DIRS = {
   templates: '/Templates',
-  symbols: '/Symbols',
+  symbols: PATHS.GetDefaultUserSymbolsPath(),
   footprints: '/Footprints',
   models3d: '/3D Models',
 } as const;

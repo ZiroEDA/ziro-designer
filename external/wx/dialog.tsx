@@ -259,6 +259,21 @@ export function Dialog({
   } | null>(null);
   useModalEscape(onClose, !modeless);
 
+  /** A showing whose `onShown` waits for the frame to be placed. */
+  const shownPending = useRef(false);
+  const onShownRef = useRef(onShown);
+  onShownRef.current = onShown;
+
+  // The frame placed, so visible: what is shown now can take the focus (forceInitialFocus).
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+
+    if (!pos || !frame || !shownPending.current) return;
+
+    shownPending.current = false;
+    onShownRef.current?.(frame);
+  }, [pos]);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: Show() runs once per showing; the hooks are read at that moment
   useLayoutEffect(() => {
     const frame = frameRef.current;
@@ -295,7 +310,9 @@ export function Dialog({
     }
 
     setPos({ x, y });
-    onShown?.(frame);
+    // onShown once the frame is placed and so visible (below): until then it is
+    // `visibility: hidden`, and a hidden control takes no focus.
+    shownPending.current = true;
 
     return () => {
       const at = posRef.current;

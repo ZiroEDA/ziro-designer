@@ -49,6 +49,11 @@ import {
 import type { SCH_JUNCTION } from './sch_junction.js';
 import { type ChooserFilter, WxFileDialog, wxFileDialogGetPath } from '@ziroeda/wx/filedlg.js';
 import { WxTextEntryDialog } from '@ziroeda/wx/textdlg.js';
+import {
+  type FILEDLG_HOOK_NEW_LIBRARY,
+  FileDlgHookNewLibraryControls,
+  type wxFileDialogCustomizeHook,
+} from '@ziroeda/common/widgets/filedlg_hook_new_library.js';
 import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
 import { wxFD_FILE_MUST_EXIST, wxFD_OPEN, wxFD_SAVE } from '@ziroeda/wx/defs.js';
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
@@ -1584,6 +1589,13 @@ export function SchematicEditor({
     schFrameRef.current?.CommonSettingsChanged();
   }, [theme]);
   /** `wxTextEntryDialog` for the live tools while it is up. */
+  /** A library's name being asked for (SCH_BASE_FRAME::AskLibraryName), with its hook. */
+  const [libraryNameRequest, setLibraryNameRequest] = useState<{
+    title: string;
+    name: string;
+    hook?: wxFileDialogCustomizeHook;
+    resolve: (aName: string | null) => void;
+  } | null>(null);
   const [textEntryRequest, setTextEntryRequest] = useState<{
     message: string;
     caption: string;
@@ -1920,6 +1932,15 @@ export function SchematicEditor({
       textEntry: (aMessage, aCaption, aValue) =>
         new Promise((resolve) =>
           setTextEntryRequest({ message: aMessage, caption: aCaption, value: aValue, resolve }),
+        ),
+      askLibraryName: (aTitle, aDefaultName, aHook) =>
+        new Promise((resolve) =>
+          setLibraryNameRequest({
+            title: aTitle,
+            name: aDefaultName,
+            ...(aHook ? { hook: aHook } : {}),
+            resolve,
+          }),
         ),
       fileDialog: (aTitle, aDefaultDir, _aDefaultFile, aWildcard, aStyle, aCustomizeHook) => {
         // The project's picker opens files; naming a new one to write is not ported yet.
@@ -6366,6 +6387,31 @@ export function SchematicEditor({
         />
       )}
 
+      {libraryNameRequest && (
+        <WxTextEntryDialog
+          caption={libraryNameRequest.title}
+          message="Library name:"
+          value={libraryNameRequest.name}
+          {...(libraryNameRequest.hook &&
+          (libraryNameRequest.hook as Partial<FILEDLG_HOOK_NEW_LIBRARY>).kind === 'new_library'
+            ? {
+                extra: (
+                  <FileDlgHookNewLibraryControls
+                    hook={libraryNameRequest.hook as FILEDLG_HOOK_NEW_LIBRARY}
+                  />
+                ),
+              }
+            : {})}
+          onCancel={() => {
+            libraryNameRequest.resolve(null);
+            setLibraryNameRequest(null);
+          }}
+          onConfirm={(aName) => {
+            libraryNameRequest.resolve(aName);
+            setLibraryNameRequest(null);
+          }}
+        />
+      )}
       {textEntryRequest && (
         <WxTextEntryDialog
           caption={textEntryRequest.caption}

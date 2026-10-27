@@ -7,6 +7,7 @@
  * it), Save As with its library-table options, Save All's question per library, and the symbol
  * that came from the schematic.
  */
+import { MEMORY_FILESYSTEM, wxMountFileSystem } from '@ziroeda/wx/filefn.js';
 import { SetErrorPresenter, type UnsavedChangesResult } from '@ziroeda/common/confirm.js';
 import {
   LIBRARY_TABLE_SCOPE,
@@ -35,7 +36,7 @@ let unsavedAnswer: UnsavedChangesResult = 'cancel';
 let savedToSchematic: string[] = [];
 let schematicOpen = (_aOpen: boolean): void => {};
 /** What the Save As file dialog answers, and the option its radio buttons leave set. */
-let saveAsPath: string | null = null;
+let saveAsName: string | null = null;
 let saveAsOption = SYMBOL_SAVEAS_TYPE.NORMAL_SAVE_AS;
 
 const prop = (aName: string, aValue: string) =>
@@ -48,7 +49,7 @@ function setUp(aLib?: string) {
   unsavedAsked = [];
   unsavedAnswer = 'cancel';
   savedToSchematic = [];
-  saveAsPath = null;
+  saveAsName = null;
   saveAsOption = SYMBOL_SAVEAS_TYPE.NORMAL_SAVE_AS;
   SetErrorPresenter((aText, aExtra) => errors.push(aExtra ? `${aText} | ${aExtra}` : aText));
   t = symbolEditHarness(aLib, {
@@ -60,11 +61,13 @@ function setUp(aLib?: string) {
       unsavedAsked.push(aMessage);
       return unsavedAnswer;
     },
-    fileDialog: async (_title, _dir, _file, _wild, _style, aHook) => {
+    // Save As names the copy (SCH_BASE_FRAME::LibraryFileBrowser's web delta); the hook's
+    // choice of table is its place.
+    askLibraryName: async (_title, _name, aHook) => {
       (aHook as SYMBOL_LIBRARY_SAVE_AS_FILEDLG_HOOK | undefined)?.TransferDataFromCustomControls(
         saveAsOption,
       );
-      return saveAsPath;
+      return saveAsName;
     },
   });
   const kiway = new KIWAY({
@@ -186,29 +189,55 @@ describe('SYMBOL_EDIT_FRAME saving', () => {
     setUp();
     await t.frame.LoadSymbol(new LIB_ID('mine', 'U'), 1, 1);
 
-    saveAsPath = null;
-    expect(await t.frame.saveLibrary('mine', true)).toBe(false);
-    expect(text('copy.kicad_sym')).toBeNull();
+    // Joining no table, the copy goes in the account's Symbols folder.
+    const symbols = new MEMORY_FILESYSTEM();
+    const unmount = wxMountFileSystem('/Symbols', symbols);
 
-    saveAsPath = '/libs/copy';
-    expect(await t.frame.saveLibrary('mine', true)).toBe(true);
-    // No extension given: .kicad_sym added.
-    expect(text('copy.kicad_sym')).toContain('(symbol "U"');
+    try {
+      saveAsName = null;
+      expect(await t.frame.saveLibrary('mine', true)).toBe(false);
+      expect(symbols.Read('copy.kicad_sym')).toBeNull();
+
+      saveAsName = 'copy';
+      expect(await t.frame.saveLibrary('mine', true)).toBe(true);
+      expect(new TextDecoder().decode(symbols.Read('copy.kicad_sym')!)).toContain('(symbol "U"');
+    } finally {
+      unmount();
+    }
   });
 
   it('Save As with "Add new project library table entry" adds the library to the project table', async () => {
     setUp();
     await t.frame.LoadSymbol(new LIB_ID('mine', 'U'), 1, 1);
-    saveAsPath = '/libs/copy.kicad_sym';
+    saveAsName = 'copy';
     saveAsOption = SYMBOL_SAVEAS_TYPE.ADD_PROJECT_TABLE_ENTRY;
 
+    // A project open at /libs, its table a file there: the project's place.
+    t.fs.Write(
+      'sym-lib-table',
+      new TextEncoder().encode(
+        Pgm()
+          .GetLibraryManager()
+          .Table(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.PROJECT)!
+          .FormatForSave(),
+      ),
+    );
+    Pgm().GetSettingsManager().LoadProject('/libs/proj.kicad_pro', {});
+    SymbolLibAdapter(t.frame.Prj()).LoadOne('mine');
+
     expect(await t.frame.saveLibrary('mine', true)).toBe(true);
+    expect(text('copy.kicad_sym')).toContain('(symbol "U"');
 
     const table = Pgm()
       .GetLibraryManager()
       .Table(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.PROJECT)!;
     expect(table.HasRow('copy')).toBe(true);
-    expect(SymbolLibAdapter(t.frame.Prj()).HasLibrary('copy')).toBe(true);
+    // The project just opened, its adapter loads on demand: the row loads.
+    const adapter = SymbolLibAdapter(t.frame.Prj());
+    // Its row names it as KiCad's, from the file: a ${KIPRJMOD} path guessed nothing.
+    expect(table.Row('copy')?.Type()).toBe('KiCad');
+    adapter.LoadOne('copy');
+    expect(adapter.HasLibrary('copy')).toBe(true);
   });
 
   it('a library that is not in the table cannot be saved in place', async () => {

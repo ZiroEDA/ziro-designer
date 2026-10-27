@@ -129,23 +129,30 @@ describe('SelectLibrary', () => {
         arg.textSelection = 'mine';
         return wxID_OK;
       },
-      fileDialog: (_aTitle, _aDir, aFile, _aWildcard, _aStyle, aHook) => {
-        expect(aFile).toBe('Library.kicad_sym');
+      // SCH_BASE_FRAME::LibraryFileBrowser asks for a name; the hook's table - the project's, its
+      // default here - is the place.
+      askLibraryName: async (_aTitle, aDefaultName, aHook) => {
+        expect(aDefaultName).toBe('');
         hook = aHook as FILEDLG_HOOK_NEW_LIBRARY;
-        return '/libs/mine';
+        return 'mine';
       },
     });
+    // The project folder as the app has it, writable; the harness mounts the oracle read-only.
+    const unmountProject = wxMountFileSystem('/complex_hierarchy', new MEMORY_FILESYSTEM());
 
-    expect(await h.frame.SelectLibrary('T', 'L')).toBe('mine');
+    try {
+      expect(await h.frame.SelectLibrary('T', 'L')).toBe('mine');
+    } finally {
+      unmountProject();
+    }
     expect(asks).toBe(2);
     expect(hook!.kind).toBe('new_library');
-    expect(wxFileExists('/libs/mine.kicad_sym')).toBe(true);
     const table = Pgm()
       .GetLibraryManager()
       .Table(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.PROJECT)!;
-    expect(table.Row('mine')?.URI()).toBe('/libs/mine.kicad_sym');
+    expect(table.Row('mine')?.URI()).toBe('${KIPRJMOD}/mine.kicad_sym');
     expect(table.Row('mine')?.Type()).toBe('KiCad');
-    expect(h.frame.Prj().GetRString(RSTRING_T.SCH_LIB_PATH)).toBe('/libs');
+    expect(h.frame.Prj().GetRString(RSTRING_T.SCH_LIB_PATH)).toBe('/complex_hierarchy');
   });
 
   it('the extra check boxes come back with the values the dialog left', async () => {

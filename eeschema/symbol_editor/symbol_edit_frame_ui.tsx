@@ -73,11 +73,13 @@ import type { GRID_TEXT_BUTTON_HOST } from '@ziroeda/common/widgets/grid_text_bu
 import { Combo } from '@ziroeda/wx/combobox.js';
 import { wxFD_FILE_MUST_EXIST, wxFD_OPEN, wxFD_SAVE } from '@ziroeda/wx/defs.js';
 import {
+  ChooseLocalFile,
   type ChooserFilter,
   WxFileDialog,
   wxFileDialogGetPath,
   WxSaveFileDialog,
 } from '@ziroeda/wx/filedlg.js';
+import { WxTextEntryDialog } from '@ziroeda/wx/textdlg.js';
 import {
   type FILEDLG_HOOK_NEW_LIBRARY,
   FileDlgHookNewLibraryControls,
@@ -334,6 +336,26 @@ export function SymbolEditor({
     done: (aFpid: string | null) => void;
   } | null>(null);
   /** `wxFileDialog( this, ... )`, until it closes; `save` for wxFD_SAVE. */
+  /** A library's name being asked for (SCH_BASE_FRAME::AskLibraryName), with its hook. */
+  const [libraryNameRequest, setLibraryNameRequest] = useState<{
+    title: string;
+    name: string;
+    hook?: wxFileDialogCustomizeHook;
+    resolve: (aName: string | null) => void;
+  } | null>(null);
+  const askLibraryName = (
+    aTitle: string,
+    aDefaultName: string,
+    aHook?: wxFileDialogCustomizeHook,
+  ): Promise<string | null> =>
+    new Promise((resolve) =>
+      setLibraryNameRequest({
+        title: aTitle,
+        name: aDefaultName,
+        ...(aHook ? { hook: aHook } : {}),
+        resolve,
+      }),
+    );
   const [fileDialogRequest, setFileDialogRequest] = useState<{
     title: string;
     defaultDir: string;
@@ -630,6 +652,25 @@ export function SymbolEditor({
               resolve,
             }),
           ),
+        askLibraryName,
+        // Off the computer; with the table to choose (a project open), named and placed in the
+        // same window New Library uses.
+        chooseLocalLibraryFile: async (aTitle, aWildcard, aHook) => {
+          const file = await ChooseLocalFile(
+            typeof aWildcard === 'string' ? [] : (aWildcard as readonly ChooserFilter[]),
+          );
+
+          if (!file || !aHook) return file;
+
+          const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')) : '';
+          const name = await askLibraryName(
+            aTitle,
+            file.name.slice(0, file.name.length - ext.length),
+            aHook,
+          );
+
+          return name === null ? null : { name: `${name}${ext}`, text: file.text };
+        },
         unsavedChangesDialog: (aMessage) =>
           new Promise((resolve) => setUnsaved({ message: aMessage, done: resolve })),
         syncLibraries: () => bumpTree(),
@@ -1449,6 +1490,24 @@ export function SymbolEditor({
       <SchFindDialogHost frame={frame} frameType="FRAME_SCH_SYMBOL_EDITOR" />
 
       {/* The symbols kind is PATHS::GetDefaultUserSymbolsPath()'s folder, where a library goes. */}
+      {libraryNameRequest && (
+        <WxTextEntryDialog
+          caption={libraryNameRequest.title}
+          message="Library name:"
+          value={libraryNameRequest.name}
+          {...(libraryNameRequest.hook
+            ? { extra: customizeHookControls(libraryNameRequest.hook) }
+            : {})}
+          onCancel={() => {
+            libraryNameRequest.resolve(null);
+            setLibraryNameRequest(null);
+          }}
+          onConfirm={(aName) => {
+            libraryNameRequest.resolve(aName);
+            setLibraryNameRequest(null);
+          }}
+        />
+      )}
       {fileDialogRequest?.save && (
         // wxFD_SAVE: a library to write, in the account's Symbols folder unless the frame names one.
         <WxSaveFileDialog

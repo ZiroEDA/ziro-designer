@@ -127,9 +127,13 @@ export namespace PATHS {
     return appendDir(GetStockEDALibraryPath(), 'template');
   }
 
-  /** `GetDefaultUserSymbolsPath`: no trailing separator (`GetPath()`). */
+  /**
+   * `GetDefaultUserSymbolsPath`: no trailing separator (`GetPath()`). Web delta: the account's
+   * Symbols folder, which every project sees and the account syncs - upstream's
+   * `<documents>/kicad/<ver>/symbols` has no disk to be on.
+   */
   export function GetDefaultUserSymbolsPath(): string {
-    return appendDir(getUserDocumentPath(), 'symbols').replace(/\/$/, '');
+    return '/Symbols';
   }
 
   export function GetDefaultUserFootprintsPath(): string {

@@ -199,7 +199,7 @@ import {
   KiCadSymbolLibFileExtension,
   kicadSymbolLibWildcard,
 } from '@ziroeda/common/wildcards_and_files_ext.js';
-import { wxFD_OVERWRITE_PROMPT, wxFD_SAVE } from '@ziroeda/wx/defs.js';
+import { wxFD_SAVE } from '@ziroeda/wx/defs.js';
 import { wxFileExists, wxIsDirWritable } from '@ziroeda/wx/filefn.js';
 import { wxID_CANCEL, wxID_HIGHEST, wxID_NO, wxID_OK } from '@ziroeda/wx/menu.js';
 import { LIB_SYMBOL } from '../lib_symbol.js';
@@ -694,28 +694,41 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
 
     if (aNewFile) {
       // Get a new name for the library
-      const default_path = prj.GetRString(RSTRING_T.SCH_LIB_PATH);
       const saveAsHook = new SYMBOL_LIBRARY_SAVE_AS_FILEDLG_HOOK(type);
 
-      const path = await this.FileDialog(
+      // Web delta: a name, not a path (SCH_BASE_FRAME::LibraryFileBrowser). The hook's choice of
+      // table is the file's place - the project for a project entry or one replaced there, the
+      // account's Symbols folder otherwise - and a name the place has is refused, not written
+      // over.
+      const name = await this.AskLibraryName(
         `Save Library '${aLibrary}' As...`,
-        default_path,
-        `${aLibrary}.${KiCadSymbolLibFileExtension}`,
-        kicadSymbolLibWildcard(),
-        wxFD_SAVE | wxFD_OVERWRITE_PROMPT,
+        aLibrary,
         saveAsHook,
       );
 
-      if (path === null) return false;
+      if (name === null) return false;
+
+      const option = saveAsHook.GetOption();
+      const replacedInProject =
+        option === SYMBOL_SAVEAS_TYPE.REPLACE_TABLE_ENTRY &&
+        Pgm()
+          .GetLibraryManager()
+          .Rows(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.PROJECT)
+          .some((r) => r.Nickname() === aLibrary);
+      // With no project open there is no project folder: the account's, as for a new library.
+      const inProject =
+        (option === SYMBOL_SAVEAS_TYPE.ADD_PROJECT_TABLE_ENTRY || replacedInProject) &&
+        prj.GetProjectPath() !== '';
+      const path = `${(inProject ? prj.GetProjectPath() : this.UserSymbolsPath()).replace(/\/+$/, '')}/${name}.${KiCadSymbolLibFileExtension}`;
+
+      if (wxFileExists(path)) {
+        DisplayErrorMessage(`Library '${name}' already exists.`);
+        return false;
+      }
 
       fn = path;
 
       prj.SetRString(RSTRING_T.SCH_LIB_PATH, fn.slice(0, Math.max(0, fn.lastIndexOf('/'))));
-
-      // if( fn.GetExt().IsEmpty() ) fn.SetExt( FILEEXT::KiCadSymbolLibFileExtension );
-      const leaf = fn.slice(fn.lastIndexOf('/') + 1);
-
-      if (!leaf.includes('.')) fn = `${fn}.${KiCadSymbolLibFileExtension}`;
 
       type = saveAsHook.GetOption();
     } else {

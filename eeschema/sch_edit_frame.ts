@@ -45,7 +45,10 @@ import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
 import { wxDirExists, wxFileExists, wxIsDirWritable, wxWriteFileSync } from '@ziroeda/wx/filefn.js';
 import type { SCHEMATIC_SETTINGS } from './schematic_settings.js';
 import type { FILEDLG_HOOK_SAVE_PROJECT } from './files-io.js';
-import type { FILEDLG_HOOK_NEW_LIBRARY } from '@ziroeda/common/widgets/filedlg_hook_new_library.js';
+import type {
+  FILEDLG_HOOK_NEW_LIBRARY,
+  wxFileDialogCustomizeHook,
+} from '@ziroeda/common/widgets/filedlg_hook_new_library.js';
 import type { FILEDLG_IMPORT_SHEET_CONTENTS } from './widgets/sch_design_block_pane.js';
 
 /** The customize hooks a file dialog of this frame can carry; the window tells them apart. */
@@ -328,6 +331,12 @@ export interface SCH_EDIT_FRAME_HOOKS {
     aStyle: number,
     aCustomizeHook?: FILEDLG_HOOK,
   ): string | null | Promise<string | null>;
+  /** {@link SCH_BASE_FRAME.AskLibraryName}: a new library's name, the hook's controls beside it. */
+  askLibraryName?(
+    aTitle: string,
+    aDefaultName: string,
+    aHook?: wxFileDialogCustomizeHook,
+  ): Promise<string | null>;
 }
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
@@ -1741,6 +1750,14 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
     // Rebuild the sheet view (draw area and any other items):
     this.DisplayCurrentSheet();
+  }
+
+  override AskLibraryName(
+    aTitle: string,
+    aDefaultName: string,
+    aHook?: wxFileDialogCustomizeHook,
+  ): Promise<string | null> {
+    return this.hooks.askLibraryName?.(aTitle, aDefaultName, aHook) ?? Promise.resolve(null);
   }
 
   /** See SCH_EDIT_FRAME_HOOKS.fileDialog. */

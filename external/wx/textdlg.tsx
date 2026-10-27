@@ -15,7 +15,7 @@
  *
  * It was `dialog_add_color_theme.tsx`, written for that one caller.
  */
-import { useState, type JSX } from 'react';
+import { useRef, useState, type JSX, type ReactNode } from 'react';
 import { Dialog } from './dialog.js';
 import { CANCEL_LABEL, OK_LABEL } from './stockitem.js';
 import type { wxTextValidator } from './valtext.js';
@@ -25,6 +25,7 @@ export function WxTextEntryDialog({
   message,
   value = '',
   validator,
+  extra,
   onCancel,
   onConfirm,
 }: {
@@ -36,10 +37,16 @@ export function WxTextEntryDialog({
   value?: string;
   /** `SetTextValidator`: characters it excludes cannot be typed. */
   validator?: wxTextValidator;
+  /**
+   * Controls under the entry: a `wxFileDialogCustomizeHook`'s, where the entry stands for a file
+   * dialog that names a file (SCH_BASE_FRAME::LibraryFileBrowser).
+   */
+  extra?: ReactNode;
   onCancel: () => void;
   onConfirm: (text: string) => void;
 }): JSX.Element {
   const [name, setName] = useState(value);
+  const entryRef = useRef<HTMLInputElement>(null);
 
   const ok = name !== '';
 
@@ -50,14 +57,20 @@ export function WxTextEntryDialog({
       onClose={onCancel}
       resizable={false}
       className="ze-newprjfolder ze-addtheme"
+      // The entry has the focus, its text selected, so typing replaces it. Once shown: the frame
+      // is measured hidden first, and a hidden entry takes no focus (`autoFocus` never did).
+      onShown={() => {
+        entryRef.current?.focus();
+        entryRef.current?.select();
+      }}
     >
       <div className="ze-modal-body ze-newprjfolder-body">
         {/* biome-ignore lint/a11y/noLabelWithoutControl: the input is the control. */}
         <label>
           <span>{message}</span>
           <input
+            ref={entryRef}
             className="ze-search"
-            autoFocus
             value={name}
             onChange={(e) => setName(validator ? validator.Filter(e.target.value) : e.target.value)}
             onKeyDown={(e) => {
@@ -68,6 +81,7 @@ export function WxTextEntryDialog({
             }}
           />
         </label>
+        {extra}
       </div>
       <div className="ze-modal-footer">
         <button type="button" className="ze-btn" onClick={onCancel}>

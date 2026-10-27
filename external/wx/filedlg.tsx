@@ -130,3 +130,34 @@ export function wxFileDialogGetPath(aFile: OpenedFile): string {
   s_pickedFiles.Write(name, aFile.bytes);
   return `${PICKED_FILES_DIR}/${name}`;
 }
+
+/**
+ * A file off the computer, for `wxFileDialog( …, wxFD_OPEN )` where the file is the user's and
+ * not the account's: the browser's own file `<input>`, limited to \a aFilters' extensions. Its
+ * name and text, or null for `wxID_CANCEL`. The sibling of dirdlg.tsx's `ChooseLocalFolder`.
+ */
+export function ChooseLocalFile(
+  aFilters: readonly ChooserFilter[],
+): Promise<{ name: string; text: string } | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    // An empty extension list is "All files": no accept.
+    if (aFilters.every((f) => f.extensions.length > 0))
+      input.accept = [...new Set(aFilters.flatMap((f) => f.extensions.map((e) => `.${e}`)))].join(
+        ',',
+      );
+    input.addEventListener('cancel', () => resolve(null));
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+
+      if (!file) {
+        resolve(null);
+        return;
+      }
+
+      void file.text().then((text) => resolve({ name: file.name, text }));
+    });
+    input.click();
+  });
+}

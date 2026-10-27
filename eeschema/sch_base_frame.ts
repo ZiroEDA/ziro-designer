@@ -52,9 +52,14 @@ import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { LIBRARY_TABLE_SCOPE } from '@ziroeda/common/libraries/library_table.js';
 import { RSTRING_T } from '@ziroeda/common/project.js';
 import {
+  type FILEDLG_HOOK_NEW_LIBRARY,
   GetUseGlobalTable,
   MakeFileDlgHookNewLibrary,
+  type wxFileDialogCustomizeHook,
 } from '@ziroeda/common/widgets/filedlg_hook_new_library.js';
+import { PATHS } from '@ziroeda/common/paths.js';
+import type { ChooserFilter } from '@ziroeda/wx/filedlg.js';
+import { wxFileExists, wxWriteFileSync } from '@ziroeda/wx/filefn.js';
 import {
   KiCadSymbolLibFileExtension,
   kicadSymbolLibWildcard,
@@ -206,6 +211,110 @@ export function GetLibraryItemsForListDialog(
 }
 
 export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
+  /**
+   * `EDA_DRAW_FRAME::LibraryFileBrowser`, for a symbol library. Web delta: a library is named, not
+   * placed. Its place follows the table it joins - the account's Symbols folder for the global
+   * table (GetDefaultUserSymbolsPath()'s), the project for the project's - so New asks for a
+   * name and Add for a file off the computer, which is copied there; \a aFilename comes back as
+   * that path. The new-library hook's two buttons stay, and only with a project open. A name the
+   * place already has is refused rather than written over (a file dialog's overwrite prompt).
+   */
+  override async LibraryFileBrowser(
+    aTitle: string,
+    doOpen: boolean,
+    aFilename: { value: string },
+    wildcard: string | readonly ChooserFilter[],
+    ext: string,
+    isDirectory = false,
+    aFileDlgHook?: wxFileDialogCustomizeHook,
+  ): Promise<boolean> {
+    if (isDirectory)
+      return super.LibraryFileBrowser(
+        aTitle,
+        doOpen,
+        aFilename,
+        wildcard,
+        ext,
+        isDirectory,
+        aFileDlgHook,
+      );
+
+    const projectOpen = PgmOrNull()?.GetSettingsManager().IsProjectOpenNotDummy() ?? false;
+    const hook = projectOpen ? aFileDlgHook : undefined;
+
+    // With no project there is only the global table to join.
+    if (!projectOpen && aFileDlgHook && 'useGlobalTable' in aFileDlgHook)
+      (aFileDlgHook as FILEDLG_HOOK_NEW_LIBRARY).useGlobalTable = true;
+
+    const place = (): string => {
+      const global =
+        !hook || !('useGlobalTable' in hook) || GetUseGlobalTable(hook as FILEDLG_HOOK_NEW_LIBRARY);
+
+      return (global ? this.UserSymbolsPath() : this.Prj().GetProjectPath()).replace(/\/+$/, '');
+    };
+    const refuse = (aPath: string): boolean => {
+      const leaf = aPath.slice(aPath.lastIndexOf('/') + 1);
+      DisplayErrorMessage(`Library '${leaf.replace(/\.[^.]*$/, '')}' already exists.`);
+      return false;
+    };
+
+    if (doOpen) {
+      const file = await this.ChooseLocalLibraryFile(aTitle, wildcard, hook);
+
+      if (!file) return false;
+
+      const path = `${place()}/${file.name}`;
+
+      if (wxFileExists(path)) return refuse(path);
+
+      if (!wxWriteFileSync(path, new TextEncoder().encode(file.text))) {
+        DisplayErrorMessage(`Could not write the library file '${path}'.`);
+        return false;
+      }
+
+      aFilename.value = path;
+      return true;
+    }
+
+    const leaf = aFilename.value.slice(aFilename.value.lastIndexOf('/') + 1);
+    const name = await this.AskLibraryName(aTitle, leaf.replace(/\.[^.]*$/, ''), hook);
+
+    if (!name) return false;
+
+    const path = `${place()}/${name}.${ext}`;
+
+    if (wxFileExists(path)) return refuse(path);
+
+    aFilename.value = path;
+    return true;
+  }
+
+  /** The account's Symbols folder: `PATHS::GetDefaultUserSymbolsPath()`. */
+  UserSymbolsPath(): string {
+    return PATHS.GetDefaultUserSymbolsPath();
+  }
+
+  /**
+   * A new library's name, with \a aHook's controls beside it; null is Cancel. The frame's window
+   * asks; with none there is no answer.
+   */
+  AskLibraryName(
+    _aTitle: string,
+    _aDefaultName: string,
+    _aHook?: wxFileDialogCustomizeHook,
+  ): Promise<string | null> {
+    return Promise.resolve(null);
+  }
+
+  /** A library file off the computer, \a aHook's controls with it; null is Cancel. */
+  ChooseLocalLibraryFile(
+    _aTitle: string,
+    _aWildcard: string | readonly ChooserFilter[],
+    _aHook?: wxFileDialogCustomizeHook,
+  ): Promise<{ name: string; text: string } | null> {
+    return Promise.resolve(null);
+  }
+
   /**
    * `GetLibSymbol( aLibId, aUseCacheLib, aShowErrorMsg )` (sch_base_frame.cpp:282). Async in the
    * browser: a hosted library symbol is fetched into the download folder before KiCad's reader

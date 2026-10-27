@@ -133,6 +133,18 @@ export interface SYMBOL_EDIT_FRAME_HOOKS {
     aStyle: number,
     aCustomizeHook?: wxFileDialogCustomizeHook,
   ): Promise<string | null>;
+  /** {@link SCH_BASE_FRAME.AskLibraryName}: a new library's name, the hook's controls beside it. */
+  askLibraryName?(
+    aTitle: string,
+    aDefaultName: string,
+    aHook?: wxFileDialogCustomizeHook,
+  ): Promise<string | null>;
+  /** {@link SCH_BASE_FRAME.ChooseLocalLibraryFile}: a library file off the computer. */
+  chooseLocalLibraryFile?(
+    aTitle: string,
+    aWildcard: string | readonly ChooserFilter[],
+    aHook?: wxFileDialogCustomizeHook,
+  ): Promise<{ name: string; text: string } | null>;
   /** `SyncLibraries( aShowProgress, aPreloadCancelled, aForceRefresh )`: the tree rebuilt. */
   syncLibraries?(aShowProgress: boolean, aPreloadCancelled: boolean, aForceRefresh: string): void;
   /** `m_treePane->GetLibTree()->RefreshLibTree()`. */
@@ -454,6 +466,22 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
     );
   }
 
+  override AskLibraryName(
+    aTitle: string,
+    aDefaultName: string,
+    aHook?: wxFileDialogCustomizeHook,
+  ): Promise<string | null> {
+    return this.hooks.askLibraryName?.(aTitle, aDefaultName, aHook) ?? Promise.resolve(null);
+  }
+
+  override ChooseLocalLibraryFile(
+    aTitle: string,
+    aWildcard: string | readonly ChooserFilter[],
+    aHook?: wxFileDialogCustomizeHook,
+  ): Promise<{ name: string; text: string } | null> {
+    return this.hooks.chooseLocalLibraryFile?.(aTitle, aWildcard, aHook) ?? Promise.resolve(null);
+  }
+
   /** A generated output, handed to the window to download. */
   override WriteOutputFile(aPath: string, aBytes: Uint8Array, aMime: string): void {
     this.hooks.writeOutputFile?.(aPath, aBytes, aMime);
@@ -761,7 +789,11 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
     );
 
     row.SetURI(normalizedPath);
-    row.SetType(SCH_IO_MGR.ShowType(SCH_IO_MGR.GuessPluginTypeFromLibPath(normalizedPath)));
+    // Deviation, an upstream bug: the type is guessed from the file itself. Upstream guesses from
+    // `normalizedPath`, and for the project table that is `${KIPRJMOD}/…`, which
+    // CanReadLibrary's FileExists does not expand: the row gets "Unknown SCH_FILE_T value: 12"
+    // and its library never loads.
+    row.SetType(SCH_IO_MGR.ShowType(SCH_IO_MGR.GuessPluginTypeFromLibPath(aLibFile)));
 
     const result = table.Save();
 
