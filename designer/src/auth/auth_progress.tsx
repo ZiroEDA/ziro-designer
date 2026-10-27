@@ -87,7 +87,7 @@ export function AuthProgressPanel({ progress }: { progress: AuthProgress }): JSX
   return (
     <div className="ze-auth-field" role="status" aria-live="polite">
       <span>
-        {progress.stage.label}… (step {progress.step} of {progress.steps})
+        {progress.stage.label}... (step {progress.step} of {progress.steps})
       </span>
       <Gauge value={progressPercent(progress, now)} range={100} />
       <p className="ze-auth-note">{progress.stage.why}</p>
