@@ -527,6 +527,13 @@ export function LoadGlobalSymbolTables(aHostedNames: readonly string[]): void {
 
   if (!manager.Table(SYMBOL, LIBRARY_TABLE_SCOPE.GLOBAL))
     manager.SetTable(SYMBOL, LIBRARY_TABLE_SCOPE.GLOBAL, stock);
+
+  // Upstream the global tables are in before any project opens, so the project's preload
+  // (PreloadLibraries -> AsyncLoad) loads their rows with its own. Here they come in with the
+  // index, after a project has opened: the adapter that preloaded without them loads them now.
+  // Without it LoadSymbol (which reads only loaded libraries, fetchIfLoaded) answered nothing
+  // for a library of the user's own - listed in Choose Symbol, and never placed.
+  manager.Adapter(SYMBOL)?.AsyncLoad();
 }
 
 const hostedFiles = new Map<string, Promise<string | null>>();

@@ -23,6 +23,7 @@ import {
   loadIndex,
 } from '@ziroeda/eeschema/libraries/symbol_library_adapter.js';
 import { MEMORY_FILESYSTEM, wxMountFileSystem, wxReadFileSync } from '@ziroeda/wx/filefn.js';
+import { SymbolLibAdapter } from '@ziroeda/eeschema/project_sch.js';
 
 const SYM = LIBRARY_TABLE_TYPE.SYMBOL;
 const dec = new TextDecoder();
@@ -52,6 +53,45 @@ const stored = (): LIBRARY_TABLE =>
   );
 
 describe('LoadGlobalSymbolTables', () => {
+  // 2026-10-28: a symbol of the user's own library, listed in Choose Symbol, placed nothing. The
+  // project's preload (AsyncLoad) runs when it opens, before the index - and so the global
+  // tables - are in, and LoadSymbol reads only libraries already loaded.
+  it("loads the user's own libraries into an adapter that preloaded before them", () => {
+    const device = `(kicad_symbol_lib (version 20241209) (generator "qa")
+  (symbol "R" (in_bom yes) (on_board yes)
+    (property "Reference" "R" (at 0 0 0) (effects (font (size 1.27 1.27))))
+    (property "Value" "R" (at 0 0 0) (effects (font (size 1.27 1.27))))
+    (symbol "R_0_1" (rectangle (start -1.016 -2.54) (end 1.016 2.54)
+      (stroke (width 0.254) (type default)) (fill (type none))))
+  )
+)
+`;
+    const symbols = new MEMORY_FILESYSTEM();
+    const unmountSymbols = wxMountFileSystem('/Symbols', symbols);
+    try {
+      symbols.Write('Mine.kicad_sym', new TextEncoder().encode(device));
+      LoadGlobalSymbolTables(['Device']);
+      const table = stored();
+      const mine = table.InsertRow();
+      mine.SetNickname('Mine');
+      mine.SetType('KiCad');
+      mine.SetURI('/Symbols/Mine.kicad_sym');
+      expect(table.Save().ok).toBe(true);
+
+      // A fresh program: the project opens and preloads, then the index brings the tables.
+      SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER()));
+      const adapter = SymbolLibAdapter(null);
+      adapter.AsyncLoad();
+      expect(adapter.LoadSymbol('Mine', 'R')).toBeNull();
+
+      LoadGlobalSymbolTables(['Device']);
+
+      expect(adapter.LoadSymbol('Mine', 'R')?.GetName()).toBe('R');
+    } finally {
+      unmountSymbols();
+    }
+  });
+
   it("writes the user's table on first run, and the hosted libraries come through its chain", () => {
     LoadGlobalSymbolTables(['Device', 'power']);
 
