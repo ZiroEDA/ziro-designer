@@ -28,7 +28,7 @@ const BASELINE: Record<string, number> = {
   // on its _base pairs, pref_controls is its only user.
   // 154 -> 153 (10-15): the library tables on their bases.
   // 153 -> 149 (10-21): EDA_LIST_DIALOG's pair; the .ze-list-dialog-* block, laid out by its sizers.
-  common: 149, // -11 (10-11): the shared Table Properties form, replaced by one pair per editor
+  common: 146, // -3 (10-28): WX_TEXT_ENTRY_DIALOG's .ze-textentry rules, now its sizer. -11 (10-11): the shared Table Properties form, replaced by one pair per editor
   cvpcb: 8,
   designer: 138,
   // 114 -> 122 (10-11): not new CSS. ze-lp-* classes the old Table Cell and Label forms shared
