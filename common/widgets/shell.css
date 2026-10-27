@@ -5660,7 +5660,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   justify-content: center;
 }
-.ze-modal-header .x {
+.ze-modal-header .x,
+.ze-msgdlg-title .x {
   position: absolute;
   right: 8px;
   top: 50%;
@@ -5669,7 +5670,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 0 6px;
   color: #9a9ca0;
 }
-.ze-modal-header .x:hover {
+.ze-modal-header .x:hover,
+.ze-msgdlg-title .x:hover {
   color: var(--chrome-fg);
 }
 .ze-modal-body {
@@ -11491,6 +11493,7 @@ fieldset.ze-sbox > legend {
    font-weight: bold }`. [px] the label is 18 tall with a 6 px margin above and
    below, so the bar is 30. */
 .ze-msgdlg-title {
+  position: relative; /* the close box's frame (.x) */
   box-sizing: border-box;
   height: 30px; /* [px] title label 18 + 6 + 6 */
   padding: 6px 18px; /* [px] label margin 6; [css] .titlebar 6 + .title 12 */

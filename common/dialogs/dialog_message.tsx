@@ -153,6 +153,7 @@ export function MessageDialogYesNo({
   defaultButton,
   labels,
   onResult,
+  onClose,
 }: {
   /** The window title — `KICAD_MESSAGE_DIALOG`'s third argument. */
   caption: string;
@@ -167,9 +168,14 @@ export function MessageDialogYesNo({
   /** `SetYesNoLabels`. Omitted, the two buttons are GTK's stock Yes and No. */
   labels?: { yes?: string; no?: string };
   onResult: (result: YesNoResult) => void;
+  /**
+   * The title bar's close box, and Esc: neither answer. Absent, there is no close box and Esc
+   * is the negative answer, as a wxMessageDialog with no wxCANCEL has it.
+   */
+  onClose?: () => void;
 }): JSX.Element {
   // No wxCANCEL in the style word, so Esc is the negative answer.
-  useModalEscape(() => onResult('no'));
+  useModalEscape(() => (onClose ? onClose() : onResult('no')));
 
   const defaultRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -181,7 +187,15 @@ export function MessageDialogYesNo({
     // asking is that one of the two answers is given.
     <div className="ze-modal-backdrop">
       <div className="ze-modal ze-msgdlg" role="dialog" aria-modal="true">
-        <div className="ze-msgdlg-title">{caption}</div>
+        <div className="ze-msgdlg-title">
+          {caption}
+          {onClose && (
+            // The dialog frame's own close box (external/wx/dialog.tsx).
+            <span className="x" title="Close" onClick={onClose}>
+              ✕
+            </span>
+          )}
+        </div>
         <div className="ze-msgdlg-body">
           <DialogIcon icon={icon} />
           <div className="ze-msgdlg-text">

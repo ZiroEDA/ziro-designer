@@ -155,10 +155,7 @@ import { normalize as normalizePath, segments } from '../fs/path.js';
 import { EllipsizedField } from '@ziroeda/common/widgets/wx_ellipsized_static_text_ui.js';
 import { managerTitle, projectStatusText } from './manager_frame.js';
 import { type LauncherId, showPlayerRefusal } from './show_player.js';
-import {
-  MessageDialogOk,
-  MessageDialogYesNoCancel,
-} from '@ziroeda/common/dialogs/dialog_message.js';
+import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { INFO_CAPTION } from '@ziroeda/common/confirm_types.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { buttonTooltipFor, tooltipFor } from '@ziroeda/common/widgets/tooltip.js';
@@ -473,8 +470,8 @@ export function HomePage({
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   /**
    * ShowPlayer's refusal (show_player.ts). Upstream's DisplayInfoMessage has OK alone; here its
-   * sentence keeps two of the buttons it points at - File > New Project and Open Project - so
-   * the way on is one click rather than a menu to find.
+   * sentence keeps the two buttons it points at - File > New Project and Open Project - so the
+   * way on is one click rather than a menu to find, and the close box dismisses it.
    */
   const [noProjectMessage, setNoProjectMessage] = useState<string | null>(null);
   /**
@@ -2540,7 +2537,7 @@ export function HomePage({
         <ShowAboutDialog title={ABOUT_TITLES.manager} onClose={() => setAboutOpen(false)} />
       )}
       {noProjectMessage !== null && (
-        <MessageDialogYesNoCancel
+        <MessageDialogYesNo
           caption={INFO_CAPTION}
           message={noProjectMessage}
           icon="information"
@@ -2549,8 +2546,9 @@ export function HomePage({
           onResult={(aResult) => {
             setNoProjectMessage(null);
             if (aResult === 'yes') openNewProjectDialog();
-            else if (aResult === 'no') setOpenPrjOpen(true);
+            else setOpenPrjOpen(true);
           }}
+          onClose={() => setNoProjectMessage(null)}
         />
       )}
       {infoMessage !== null && (
