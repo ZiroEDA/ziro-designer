@@ -155,7 +155,10 @@ import { normalize as normalizePath, segments } from '../fs/path.js';
 import { EllipsizedField } from '@ziroeda/common/widgets/wx_ellipsized_static_text_ui.js';
 import { managerTitle, projectStatusText } from './manager_frame.js';
 import { type LauncherId, showPlayerRefusal } from './show_player.js';
-import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
+import {
+  MessageDialogOk,
+  MessageDialogYesNoCancel,
+} from '@ziroeda/common/dialogs/dialog_message.js';
 import { INFO_CAPTION } from '@ziroeda/common/confirm_types.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { buttonTooltipFor, tooltipFor } from '@ziroeda/common/widgets/tooltip.js';
@@ -469,6 +472,12 @@ export function HomePage({
    */
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   /**
+   * ShowPlayer's refusal (show_player.ts). Upstream's DisplayInfoMessage has OK alone; here its
+   * sentence keeps two of the buttons it points at - File > New Project and Open Project - so
+   * the way on is one click rather than a menu to find.
+   */
+  const [noProjectMessage, setNoProjectMessage] = useState<string | null>(null);
+  /**
    * `KICAD_MANAGER_CONTROL::ShowPlayer`: refuse with a message box, or go.
    *
    * One function, because upstream has one — the launcher tile and the Tools
@@ -478,7 +487,7 @@ export function HomePage({
   const runLauncher = (id: LauncherId, launch: () => void): void => {
     const refusal = showPlayerRefusal(id, !!picked);
     if (refusal !== null) {
-      setInfoMessage(refusal);
+      setNoProjectMessage(refusal);
       return;
     }
     launch();
@@ -2529,6 +2538,20 @@ export function HomePage({
       {/* KiCad's "Load Schematic" progress dialog, web-style. */}
       {aboutOpen && (
         <ShowAboutDialog title={ABOUT_TITLES.manager} onClose={() => setAboutOpen(false)} />
+      )}
+      {noProjectMessage !== null && (
+        <MessageDialogYesNoCancel
+          caption={INFO_CAPTION}
+          message={noProjectMessage}
+          icon="information"
+          defaultButton="yes"
+          labels={{ yes: 'New Project...', no: 'Open Project...' }}
+          onResult={(aResult) => {
+            setNoProjectMessage(null);
+            if (aResult === 'yes') openNewProjectDialog();
+            else if (aResult === 'no') setOpenPrjOpen(true);
+          }}
+        />
       )}
       {infoMessage !== null && (
         <MessageDialogOk
