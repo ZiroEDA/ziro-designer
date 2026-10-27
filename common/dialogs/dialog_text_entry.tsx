@@ -18,10 +18,12 @@
  * hidden when the label is empty; `m_textCtrl` wxEXPAND|wxALL 5 with a
  * 300 px minimum, or 700 with `aExtraWidth`; the std buttons wxALL 5.
  */
-import { useState, type JSX } from 'react';
+import { useRef, useState, type JSX } from 'react';
+import { StaticText, TextCtrl } from '@ziroeda/wx/controls.js';
+import { BoxSizer, SizerItem } from '@ziroeda/wx/sizer.js';
+import { wxALL, wxEXPAND, wxLEFT, wxRIGHT, wxTOP, wxVERTICAL } from '@ziroeda/wx/defs.js';
 import { DialogShim, StdDialogButtons } from '../dialog_shim.js';
 import type { wxTextValidator } from '../validators.js';
-import { useModalEscape } from '../dialog_shim.js';
 
 export function WX_TEXT_ENTRY_DIALOG({
   label,
@@ -45,29 +47,34 @@ export function WX_TEXT_ENTRY_DIALOG({
   onResult: (value: string | null) => void;
 }): JSX.Element {
   const [value, setValue] = useState(defaultValue);
+  const textCtrl = useRef<HTMLInputElement>(null);
 
+  // `SetInitialFocus( m_textCtrl )`: DIALOG_SHIM gives it the focus once the dialog is shown. An
+  // `autoFocus` here ran while the frame was still measured hidden, so it never took, and the
+  // frame had the focus instead.
   return (
-    <DialogShim title={caption} onClose={() => onResult(null)} className="ze-textentry">
-      <div className="ze-textentry-body">
-        {label !== '' && <div className="ze-textentry-label">{label}</div>}
-        <input
-          className={`ze-search ze-textentry-ctrl${extraWidth ? ' extra' : ''}`}
-          // `SetInitialFocus( m_textCtrl )`.
-          // biome-ignore lint/a11y/noAutofocus: SetInitialFocus, upstream's own.
-          autoFocus
-          aria-label={label || caption}
-          value={value}
-          onChange={(e) => setValue(validator ? validator.Filter(e.target.value) : e.target.value)}
-          onKeyDown={(e) => {
-            // The default button takes Enter, as a wxDialog's does.
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              onResult(value);
-            }
-            e.stopPropagation();
-          }}
-        />
-      </div>
+    <DialogShim title={caption} onClose={() => onResult(null)} initialFocus={textCtrl}>
+      <BoxSizer orient={wxVERTICAL}>
+        <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
+          <BoxSizer orient={wxVERTICAL}>
+            {label !== '' && (
+              <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
+                <StaticText label={label} />
+              </SizerItem>
+            )}
+            {/* m_textCtrl->SetMinSize( wxSize( aExtraWidth ? 700 : 300, -1 ) ) */}
+            <SizerItem flag={wxEXPAND | wxALL} border={5} minSize={[extraWidth ? 700 : 300, -1]}>
+              <TextCtrl
+                inputRef={textCtrl}
+                ariaLabel={label || caption}
+                value={value}
+                // No wxTE_PROCESS_ENTER: Enter goes on to the dialog, whose default button is OK.
+                onChange={(v) => setValue(validator ? validator.Filter(v) : v)}
+              />
+            </SizerItem>
+          </BoxSizer>
+        </SizerItem>
+      </BoxSizer>
       <StdDialogButtons onCancel={() => onResult(null)} onOk={() => onResult(value)} />
     </DialogShim>
   );

@@ -7,7 +7,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
 import { FOOTPRINT_NAME_VALIDATOR } from '@ziroeda/common/validators.js';
@@ -34,15 +34,25 @@ describe('WX_TEXT_ENTRY_DIALOG', () => {
     const { container, unmount } = render(
       <WX_TEXT_ENTRY_DIALOG label="" caption="C" onResult={() => {}} />,
     );
-    expect(container.ownerDocument.querySelector('.ze-textentry-label')).toBeNull();
+    expect(container.ownerDocument.querySelector('.ze-modal')?.textContent).not.toContain('Name:');
     unmount();
     render(<WX_TEXT_ENTRY_DIALOG label="Name:" caption="C" onResult={() => {}} />);
     expect(screen.getByText('Name:')).toBeTruthy();
   });
 
-  it('widens the entry for aExtraWidth', () => {
+  it('gives the entry its 300 px minimum, or 700 for aExtraWidth', () => {
+    const { unmount } = render(<WX_TEXT_ENTRY_DIALOG label="" caption="C" onResult={() => {}} />);
+    expect((entry().parentElement as HTMLElement).style.minWidth).toBe('300px');
+    unmount();
     render(<WX_TEXT_ENTRY_DIALOG label="" caption="C" extraWidth onResult={() => {}} />);
-    expect(entry().classList.contains('extra')).toBe(true);
+    expect((entry().parentElement as HTMLElement).style.minWidth).toBe('700px');
+  });
+
+  // SetInitialFocus( m_textCtrl ). Open Project from GitHub came up with the frame focused (its
+  // border lit) and the link had to be clicked into before it could be pasted.
+  it('gives the entry the focus once it is shown', async () => {
+    render(<WX_TEXT_ENTRY_DIALOG label="Link:" caption="C" onResult={() => {}} />);
+    await waitFor(() => expect(document.activeElement).toBe(entry()));
   });
 
   it('OK returns the text, Enter too, and Cancel returns null', () => {

@@ -203,21 +203,57 @@ export async function openGithubProject(
   const lfs = (p: string): string =>
     `https://media.githubusercontent.com/media/${encodeURIComponent(spec.owner)}/${encodeURIComponent(spec.repo)}/${encodeURIComponent(ref)}/${encodePath(p)}`;
 
+  // The gauge counts bytes as they arrive, not files as they finish: a board can be most of a
+  // project's weight, and on a slow line a bar that moved per file stood still for minutes on it
+  // and read as a hang. The tree states every blob's size; a tree without them counts files.
+  const totalBytes = wanted.reduce((n, e) => n + (e.size ?? 0), 0);
+  let received = 0;
   let done = 0;
+  const report = (path: string): void => {
+    if (totalBytes > 0) onProgress?.(Math.min(received, totalBytes), totalBytes, path);
+    else onProgress?.(done, wanted.length, path);
+  };
+  const readBody = async (res: Response, path: string): Promise<Uint8Array> => {
+    const reader = res.body?.getReader();
+    if (!reader) {
+      const all = new Uint8Array(await res.arrayBuffer());
+      received += all.length;
+      report(path);
+      return all;
+    }
+    const chunks: Uint8Array[] = [];
+    let length = 0;
+    for (;;) {
+      const { done: end, value } = await reader.read();
+      if (end) break;
+      chunks.push(value);
+      length += value.length;
+      received += value.length;
+      report(path);
+    }
+    const all = new Uint8Array(length);
+    let at = 0;
+    for (const c of chunks) {
+      all.set(c, at);
+      at += c.length;
+    }
+    return all;
+  };
+
   const files = await mapLimit(wanted, FETCH_CONCURRENCY, async (e) => {
     let res = await fetchFn(raw(e.path));
     if (!res.ok)
       throw new GithubOpenError(`Could not fetch ${e.path} from GitHub (${res.status}).`);
-    let bytes = new Uint8Array(await res.arrayBuffer());
+    let bytes = await readBody(res, e.path);
     // An LFS-tracked file comes back as its pointer; the bytes are on the media host.
     if (bytes.length < 1024 && isLfsPointer(dec.decode(bytes))) {
       res = await fetchFn(lfs(e.path));
       if (!res.ok)
         throw new GithubOpenError(`Could not fetch ${e.path} from GitHub's LFS (${res.status}).`);
-      bytes = new Uint8Array(await res.arrayBuffer());
+      bytes = await readBody(res, e.path);
     }
     done += 1;
-    onProgress?.(done, wanted.length, e.path);
+    report(e.path);
     const file: PickedHomeFile = {
       name: `${base}/${e.path.slice(dir.length)}`,
       text: projectFileText(bytes),

@@ -273,6 +273,37 @@ describe('openGithubProject', () => {
     expect(files[0]!.name).toBe('r/a.kicad_pro');
   });
 
+  // 2026-10-28: a 6 MB board on a 50 KB/s line held the bar still for two minutes - it counted
+  // finished files - and the open looked hung.
+  it('the gauge counts bytes as they arrive, not files as they finish', async () => {
+    const half = new Uint8Array(500).fill(32);
+    let pull = 0;
+    const board = new Response(
+      new ReadableStream<Uint8Array>({
+        pull(c) {
+          if (pull++ < 2) c.enqueue(half);
+          else c.close();
+        },
+      }),
+    );
+    const gh = github({
+      [TREE]: json({
+        tree: [
+          { path: 'a.kicad_pro', type: 'blob', size: 2 },
+          { path: 'a.kicad_pcb', type: 'blob', size: 1000 },
+        ],
+      }),
+      [`${RAW}a.kicad_pro`]: new Response('{}'),
+      [`${RAW}a.kicad_pcb`]: board,
+    });
+    const seen: [number, number][] = [];
+    await openGithubProject({ owner: 'o', repo: 'r' }, (d, t) => seen.push([d, t]), gh.fetch);
+    expect(seen.every(([, t]) => t === 1002)).toBe(true);
+    // Half the board in, before it is whole: the bar moved while the file was still coming.
+    expect(seen.some(([d]) => d >= 500 && d < 1000)).toBe(true);
+    expect(seen.at(-1)![0]).toBe(1002);
+  });
+
   it('an LFS pointer is followed to the media host', async () => {
     const gh = github({
       [TREE]: json({ tree: [blob('a.kicad_pro'), blob('a.kicad_pcb')] }),
