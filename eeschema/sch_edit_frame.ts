@@ -13,6 +13,7 @@
  * live items: the frame methods `SCH_COMMIT` and `schematic_undo_redo.ts`
  * (`SCH_UNDO_REDO_MIXIN`, mixed in below) need.
  */
+import { eeschemaKifaceSettings, storeEeschemaKifaceSettings } from './eeschema_settings.js';
 import { IsOK } from '@ziroeda/common/confirm.js';
 import { IS_MOVING, SKIP_STRUCT, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
 import { IsPointOnSegment } from '@ziroeda/kimath/src/trigo.js';
@@ -1750,6 +1751,15 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
     // Rebuild the sheet view (draw area and any other items):
     this.DisplayCurrentSheet();
+  }
+
+  /**
+   * The frame's idle pass after a canvas event or a command, and what a tool changed in config()
+   * (COMMON_TOOLS' grid: Show Grid, the current grid) saved, as the settings manager does.
+   */
+  override OnIdle(): void {
+    super.OnIdle();
+    storeEeschemaKifaceSettings(eeschemaKifaceSettings());
   }
 
   override AskLibraryName(

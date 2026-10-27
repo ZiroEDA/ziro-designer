@@ -475,8 +475,6 @@ const ATTRIBUTE_IDS: Record<string, TOOL_ACTION> = {
 };
 
 const SETTINGS_TOGGLES = new Set([
-  'toggleGrid',
-  'toggleGridOverrides',
   'toggleHiddenPins',
   'toggleHiddenFields',
   'crosshairSmall',
@@ -2010,7 +2008,11 @@ export function SchematicEditor({
   const gridSizeIURef = useRef(0);
   /** A live TOOL_ACTION run on the frame's TOOL_MANAGER, for a hotkey the canvas did not take. */
   const runLiveAction = useCallback((aAction: TOOL_ACTION) => {
-    schFrameRef.current?.GetToolManager()?.RunAction(aAction);
+    const frame = schFrameRef.current;
+    frame?.GetToolManager()?.RunAction(aAction);
+    // wxEVT_IDLE follows a menu command as it follows a canvas event: what the action wrote into
+    // the frame's settings (COMMON_TOOLS' grid) is stored there.
+    frame?.OnIdle();
   }, []);
 
   /** ACTION_CONDITIONS::checkCondition of a live action, on the live selection. */
@@ -4937,10 +4939,7 @@ export function SchematicEditor({
       }
       if (SETTINGS_TOGGLES.has(id)) {
         app.settings.updateEeschema((s) => {
-          if (id === 'toggleGrid') s.window.grid.show = !s.window.grid.show;
-          else if (id === 'toggleGridOverrides')
-            s.window.grid.overrides_enabled = !s.window.grid.overrides_enabled;
-          else if (id === 'toggleHiddenPins')
+          if (id === 'toggleHiddenPins')
             s.appearance.show_hidden_pins = !s.appearance.show_hidden_pins;
           else if (id === 'toggleHiddenFields')
             s.appearance.show_hidden_fields = !s.appearance.show_hidden_fields;
@@ -4952,6 +4951,13 @@ export function SchematicEditor({
           else if (id === 'lineMode45') s.drawing.line_mode = 2;
           else if (id === 'annotateAuto') s.annotation.automatic = !s.annotation.automatic;
         });
+        return;
+      }
+      // ACTIONS::toggleGrid / toggleGridOverrides: COMMON_TOOLS::ToggleGrid on the frame, which
+      // sets the window's grid.show and the GAL's grid together and redraws. Through the app's
+      // settings alone, the canvas - the GAL's - kept its grid until a reload.
+      if (id === 'toggleGrid' || id === 'toggleGridOverrides') {
+        runLiveAction(id === 'toggleGrid' ? ACTIONS.toggleGrid : ACTIONS.toggleGridOverrides);
         return;
       }
       // ACTIONS::inchesUnits / milsUnits / millimetersUnits: COMMON_TOOLS::SwitchUnits on the frame.

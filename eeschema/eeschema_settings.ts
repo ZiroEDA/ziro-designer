@@ -10,6 +10,7 @@
 import {
   APP_SETTINGS_BASE,
   loadAppSettingsBase,
+  storeAppSettingsBase,
   loadWindowSettings,
   WINDOW_SETTINGS,
 } from '@ziroeda/common/settings/app_settings.js';
@@ -685,6 +686,15 @@ let unregistered: EESCHEMA_SETTINGS | null = null;
  * registered with the settings manager as "eeschema", reloaded in place from the live
  * `eeschema.json` on every ask (`JSON_SETTINGS::Load`) so a changed preference is seen.
  */
+/** The slice each EESCHEMA_SETTINGS object was last loaded from or stored into. */
+const loadedFrom = new WeakMap<EESCHEMA_SETTINGS, EeschemaSettings>();
+
+/**
+ * `GetAppSettings<EESCHEMA_SETTINGS>( "eeschema" )`: one object, reloaded in place when the live
+ * slice changes (`JSON_SETTINGS::Load`) - and only then, or what a tool wrote into it
+ * (COMMON_TOOLS' grid: ToggleGrid, GridPreset) would be thrown away by the next ask. The symbol
+ * editor's `symbolEditorKifaceSettings` is the same.
+ */
 export function eeschemaKifaceSettings(): EESCHEMA_SETTINGS {
   const mgr = PgmOrNull()?.GetSettingsManager() ?? null;
   let s = mgr?.GetAppSettings<EESCHEMA_SETTINGS>('eeschema') ?? null;
@@ -700,7 +710,24 @@ export function eeschemaKifaceSettings(): EESCHEMA_SETTINGS {
   }
 
   const slice = currentEeschemaSettings();
-  loadAppSettingsBase(s, slice);
-  loadWindowSettings(s.m_LibViewPanel.window, slice.lib_view.window);
+
+  if (loadedFrom.get(s) !== slice) {
+    loadAppSettingsBase(s, slice);
+    loadWindowSettings(s.m_LibViewPanel.window, slice.lib_view.window);
+    loadedFrom.set(s, slice);
+  }
+
   return s;
+}
+
+/**
+ * `JSON_SETTINGS::Store` of \a aSettings: what the frame and its tools changed in the object, into
+ * `eeschema.json` - written only when something moved.
+ */
+export function storeEeschemaKifaceSettings(aSettings: EESCHEMA_SETTINGS): void {
+  if (!storeAppSettingsBase(aSettings, structuredClone(currentEeschemaSettings()))) return;
+
+  updateEeschemaSettings((json) => void storeAppSettingsBase(aSettings, json));
+  // The slice now holds the object's values: no reload is owed.
+  loadedFrom.set(aSettings, currentEeschemaSettings());
 }

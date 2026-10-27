@@ -425,14 +425,16 @@ describe('LoadSettings / SaveSettings (:791-839)', () => {
 
   it("keeps its own window settings, lib_view.window, not the schematic editor's", () => {
     const own = sized(500);
-    own.grid.last_size_idx = 4;
+    // An index of its four grids (COMMON_TOOLS clamps one past them, as upstream's does), and not
+    // the schematic editor's.
+    own.grid.last_size_idx = 2;
     useSettings({ window: own });
     t = symbolViewerHarness();
     const cfg = eeschemaKifaceSettings();
 
     expect(t.frame.GetWindowSettings(cfg) === cfg.m_LibViewPanel.window).toBe(true);
-    expect(cfg.m_LibViewPanel.window.grid.last_size_idx).toBe(4);
-    expect(cfg.m_Window.grid.last_size_idx).not.toBe(4);
+    expect(cfg.m_LibViewPanel.window.grid.last_size_idx).toBe(2);
+    expect(cfg.m_Window.grid.last_size_idx).not.toBe(2);
   });
 
   /**
