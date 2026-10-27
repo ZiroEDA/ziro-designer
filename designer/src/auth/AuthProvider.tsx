@@ -39,11 +39,8 @@ import { askSiblingsForMasterKey, onSiblingKeyReady, serveMasterKey } from './ta
 import { forgetOnDevice, recallFromDevice, rememberOnDevice } from './device_key.js';
 import { forgetPrimedLoginSecret, loginSecretFor } from './login_secret_cache.js';
 import { setSessionKeys } from '../cloud/session_keys.js';
-import {
-  ACCOUNT_EXISTS_MESSAGE,
-  INCORRECT_PASSWORD_MESSAGE,
-  signUpOutcome,
-} from './signup_outcome.js';
+import { AUTH_STAGE, type AuthProgress, type AuthStage } from './auth_progress.js';
+import { ACCOUNT_EXISTS_MESSAGE, describeAuthError, signUpOutcome } from './signup_outcome.js';
 import { setLocalVaultFromMasterKey } from '../home/local_vault.js';
 import { forgetLocalProjectsOf, sealLocalStore } from '../home/projectStore.js';
 import { cloudBackend } from '../cloud/cloudStore.js';
@@ -163,6 +160,8 @@ interface AuthContextValue {
   resendSignupCode: (email: string) => Promise<{ error: string | null }>;
   /** Verify the emailed sign-up code; a session starts on success. */
   verifyOtp: (email: string, token: string) => Promise<{ error: string | null }>;
+  /** The stage a sign-in, sign-up or code check is at, while one runs (auth_progress.tsx). */
+  progress: AuthProgress | null;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -177,8 +176,7 @@ const REMOVE_BATCH = 100;
 const STORAGE_CONCURRENCY = 4;
 
 /** Supabase's wording for a refused password, with the fact it hides restored. */
-const describe = (message: string): string =>
-  /invalid login credentials/i.test(message) ? INCORRECT_PASSWORD_MESSAGE : message;
+const describe = describeAuthError;
 
 export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
   const [session, setSession] = useState<Session | null>(null);
@@ -215,6 +213,11 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
    */
   const openingRef = useRef(false);
   const [opening, setOpening] = useState(false);
+  const [progress, setProgress] = useState<AuthProgress | null>(null);
+  /** Step \a aStep of \a aSteps begins: \a aStage. */
+  const stage = useCallback((aStep: number, aSteps: number, aStage: AuthStage): void => {
+    setProgress({ stage: aStage, step: aStep, steps: aSteps, startedAt: performance.now() });
+  }, []);
   const whileOpening = useCallback(async <T,>(fn: () => Promise<T>): Promise<T> => {
     openingRef.current = true;
     setOpening(true);
@@ -223,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     } finally {
       openingRef.current = false;
       setOpening(false);
+      setProgress(null);
     }
   }, []);
 
@@ -407,6 +411,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       loading,
       keyState,
       opening,
+      progress,
       keys,
       pendingRecoveryKey,
       acknowledgeRecoveryKey: () => setPendingRecoveryKey(null),
@@ -417,7 +422,9 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
           // The server is given a value derived from the password, never the
           // password: see `loginSecret`. It can check it and recover nothing.
           // Usually already derived while the form was filled in.
+          stage(1, 3, AUTH_STAGE.secure);
           const secret = await loginSecretFor(email, password);
+          stage(2, 3, AUTH_STAGE.check);
           const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password: secret,
@@ -431,6 +438,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
               // The server accepted the login secret, so the password is right and
               // this unwrap cannot fail on it; if it does, the row is damaged, and
               // that is worth seeing rather than "wrong password".
+              stage(3, 3, AUTH_STAGE.unlock);
               const unlocked = await unlockWithPassword(password, wrapped);
               await open(unlocked, userId);
               // Made at an older strength (12 s of Argon2id): make it again at
@@ -445,19 +453,22 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
             } else {
               // A sign-up that ended before its keys were stored, or an account
               // from before encryption: make them now, under the same password.
+              stage(3, 3, AUTH_STAGE.keys);
               await finishSetup(userId, await createAccount(password));
             }
             return { error: null };
           } catch (err) {
-            return { error: err instanceof Error ? err.message : String(err) };
+            return { error: describe(err instanceof Error ? err.message : String(err)) };
           }
         }),
       signUp: (email, password) =>
         whileOpening(async () => {
           if (!supabase) return { error: 'Auth is not configured.', needsConfirm: false };
+          stage(1, 2, AUTH_STAGE.secure);
           const secret = await loginSecretFor(email, password);
+          stage(2, 2, AUTH_STAGE.create);
           const { data, error } = await supabase.auth.signUp({ email, password: secret });
-          if (error) return { error: error.message, needsConfirm: false };
+          if (error) return { error: describe(error.message), needsConfirm: false };
           const outcome = signUpOutcome(data);
           if (outcome === 'exists') return { error: ACCOUNT_EXISTS_MESSAGE, needsConfirm: false };
           // Start on the keys now; the code is going to take a while to arrive.
@@ -585,15 +596,17 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
           if (!supabase) return { error: 'Auth is not configured.' };
           // `signup`, not `email`: this code confirms a newly created account's
           // address rather than standing in for a password.
+          stage(1, 2, AUTH_STAGE.confirm);
           const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
-          if (error) return { error: error.message };
+          if (error) return { error: describe(error.message) };
           const pending = pendingSetup.current;
           const userId = data.user?.id;
           if (pending && userId) {
             try {
+              stage(2, 2, AUTH_STAGE.keys);
               await finishSetup(userId, await pending.made);
             } catch (err) {
-              return { error: err instanceof Error ? err.message : String(err) };
+              return { error: describe(err instanceof Error ? err.message : String(err)) };
             } finally {
               pendingSetup.current = null;
             }
@@ -612,6 +625,8 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       loading,
       keyState,
       opening,
+      progress,
+      stage,
       whileOpening,
       keys,
       pendingRecoveryKey,

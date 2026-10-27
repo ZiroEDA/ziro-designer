@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { AuthProgressPanel } from './auth_progress.js';
 import { Button } from '@ziroeda/wx/controls.js';
 import { useEffect, useState, type FormEvent, type JSX } from 'react';
 import { RecoveryKeyContents } from './RecoveryKeyContents.js';
@@ -86,6 +87,7 @@ export function SignInDialog({
     cancelRecovery,
     requestPasswordReset,
     completeRecovery,
+    progress,
   } = useAuth();
   // Controlled by the route when the gate owns it, local otherwise. One `step`
   // drives everything below, so the address and the form cannot disagree.
@@ -332,6 +334,7 @@ export function SignInDialog({
               />
             </label>
             {error && <div className="ze-auth-error">{error}</div>}
+            {busy && progress && <AuthProgressPanel progress={progress} />}
             <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
               {busy ? 'Verifying...' : 'Confirm'}
             </button>
@@ -365,8 +368,9 @@ export function SignInDialog({
               />
             </label>
             {error && <div className="ze-auth-error">{error}</div>}
+            {busy && progress && <AuthProgressPanel progress={progress} />}
             <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
-              {busy ? 'Generating encryption keys...' : 'Create account'}
+              {busy ? 'Creating account...' : 'Create account'}
             </button>
             <p className="ze-auth-note ze-auth-warn">
               Your password encrypts your projects. We cannot reset it or read your designs without
@@ -542,6 +546,7 @@ export function SignInDialog({
                 No recovery key is needed.
               </p>
             )}
+            {busy && progress && <AuthProgressPanel progress={progress} />}
             <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
               {busy ? 'Signing in...' : 'Sign in'}
             </button>

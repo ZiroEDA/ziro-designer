@@ -289,9 +289,9 @@ describe('the screens say what the reference design says', () => {
     expect(read('auth/signup_outcome.ts')).toContain(
       "INCORRECT_PASSWORD_MESSAGE = 'Incorrect password or email not registered'",
     );
-    expect(provider).toMatch(
-      /invalid login credentials\/i\.test\(message\) \? INCORRECT_PASSWORD_MESSAGE/,
-    );
+    // The mapping is describeAuthError's (signup_outcome.test.ts runs it); the provider's errors
+    // go through it.
+    expect(provider).toContain('const describe = describeAuthError;');
     expect(provider).toContain("'Incorrect recovery key'");
     expect(SIGNIN).toContain("Passwords don't match");
     expect(SIGNIN).toContain("'Generating encryption keys...'");

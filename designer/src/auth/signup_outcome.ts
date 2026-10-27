@@ -46,3 +46,23 @@ export const ACCOUNT_EXISTS_MESSAGE = 'Email already registered';
  * recovery key because the account has no keys yet (`completeRecovery`).
  */
 export const INCORRECT_PASSWORD_MESSAGE = 'Incorrect password or email not registered';
+
+/**
+ * A request that never reached the server, in plain words. Each browser says it its own way -
+ * Firefox "NetworkError when attempting to fetch resource. (<host>)", Chrome "Failed to fetch",
+ * Safari "Load failed" - and every one of them read as the app being broken.
+ */
+export const NETWORK_ERROR_MESSAGE =
+  "Couldn't reach ZiroEDA's server. Check your internet connection and try again.";
+
+/** What an auth call's error says to the person who made it. */
+export function describeAuthError(aMessage: string): string {
+  if (/invalid login credentials/i.test(aMessage)) return INCORRECT_PASSWORD_MESSAGE;
+
+  if (
+    /NetworkError when attempting to fetch|Failed to fetch|Load failed|fetch failed/i.test(aMessage)
+  )
+    return NETWORK_ERROR_MESSAGE;
+
+  return aMessage;
+}

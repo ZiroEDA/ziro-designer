@@ -196,7 +196,7 @@ export type Argon2Fn = (
   memLimitKiB: number,
 ) => Promise<Uint8Array>;
 
-const argon2idReal: Argon2Fn = (password, salt, opsLimit, memLimitKiB) =>
+const argon2idHere: Argon2Fn = (password, salt, opsLimit, memLimitKiB) =>
   argon2id({
     password,
     salt,
@@ -206,6 +206,46 @@ const argon2idReal: Argon2Fn = (password, salt, opsLimit, memLimitKiB) =>
     hashLength: KEY_BYTES,
     outputType: 'binary',
   });
+
+/**
+ * Argon2id in a worker of its own (argon2_worker.ts), so the page keeps drawing - a progress bar
+ * that moves - while seconds of it run. In place where there is no page to keep alive (inside a
+ * worker already, a test) or no worker to be had (a locked-down page). The same function either
+ * way, so the same bytes.
+ */
+const argon2idReal: Argon2Fn = (password, salt, opsLimit, memLimitKiB) => {
+  if (typeof document === 'undefined' || typeof Worker !== 'function')
+    return argon2idHere(password, salt, opsLimit, memLimitKiB);
+
+  let worker: Worker;
+  try {
+    // The `new URL(..., import.meta.url)` form is what the bundler emits as its own chunk.
+    worker = new Worker(new URL('./argon2_worker.js', import.meta.url), { type: 'module' });
+  } catch {
+    return argon2idHere(password, salt, opsLimit, memLimitKiB);
+  }
+
+  return new Promise<Uint8Array>((resolve, reject) => {
+    worker.onmessage = (e: MessageEvent<{ key?: Uint8Array; error?: string }>) => {
+      worker.terminate();
+      if (e.data.key) resolve(e.data.key);
+      else reject(new Error(e.data.error ?? 'argon2id failed'));
+    };
+    worker.onerror = () => {
+      // Could not start: here, as it always ran.
+      worker.terminate();
+      argon2idHere(password, salt, opsLimit, memLimitKiB).then(resolve, reject);
+    };
+    worker.postMessage({
+      password,
+      salt,
+      opsLimit,
+      memLimitKiB,
+      parallelism: ARGON2ID.PARALLELISM,
+      hashLength: KEY_BYTES,
+    });
+  });
+};
 
 /**
  * A NEW account's key from its password: the parameters are chosen here, by
