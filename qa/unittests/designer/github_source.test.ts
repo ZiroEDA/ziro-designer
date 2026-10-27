@@ -169,6 +169,10 @@ describe('which project, which files', () => {
     const projects = ['top.kicad_pro', 'hw/a.kicad_pro', 'hw/b/c.kicad_pro'];
     expect(pickProject(projects)).toBe('top.kicad_pro');
     expect(pickProject(projects, 'hw')).toBe('hw/a.kicad_pro');
+    // A schematic's or a board's link: the project in its folder, or the nearest above.
+    expect(pickProject(projects, 'hw/a.kicad_sch')).toBe('hw/a.kicad_pro');
+    expect(pickProject(projects, 'hw/sheets/power.kicad_sch')).toBe('hw/a.kicad_pro');
+    expect(pickProject(projects, 'top.kicad_pcb')).toBe('top.kicad_pro');
     expect(pickProject(projects, 'hw/b/c.kicad_pro')).toBe('hw/b/c.kicad_pro');
     expect(pickProject(projects, 'nope')).toBeNull();
     expect(pickProject(projects, 'hw/missing.kicad_pro')).toBeNull();

@@ -30,6 +30,7 @@ export function WX_TEXT_ENTRY_DIALOG({
   caption,
   defaultValue = '',
   extraWidth = false,
+  hint,
   validator,
   onResult,
 }: {
@@ -41,6 +42,8 @@ export function WX_TEXT_ENTRY_DIALOG({
   defaultValue?: string;
   /** `aExtraWidth`: the entry's minimum is 700 rather than 300. */
   extraWidth?: boolean;
+  /** `m_textCtrl->SetHint( aHint )`: the grey example an empty entry shows. */
+  hint?: string;
   /** `SetTextValidator`. */
   validator?: wxTextValidator;
   /** `GetValue()` on wxID_OK; `null` on wxID_CANCEL. */
@@ -59,7 +62,9 @@ export function WX_TEXT_ENTRY_DIALOG({
           <BoxSizer orient={wxVERTICAL}>
             {label !== '' && (
               <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
-                <StaticText label={label} />
+                {/* Wrapped at the entry's minimum, so a label that explains is a paragraph
+                    over the entry rather than a line that widens the dialog. */}
+                <StaticText label={label} wrap={extraWidth ? 700 : 300} />
               </SizerItem>
             )}
             {/* m_textCtrl->SetMinSize( wxSize( aExtraWidth ? 700 : 300, -1 ) ) */}
@@ -67,6 +72,7 @@ export function WX_TEXT_ENTRY_DIALOG({
               <TextCtrl
                 inputRef={textCtrl}
                 ariaLabel={label || caption}
+                hint={hint}
                 value={value}
                 // No wxTE_PROCESS_ENTER: Enter goes on to the dialog, whose default button is OK.
                 onChange={(v) => setValue(validator ? validator.Filter(v) : v)}

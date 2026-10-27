@@ -2573,7 +2573,10 @@ export function HomePage({
       {githubUrlOpen && (
         <WX_TEXT_ENTRY_DIALOG
           caption="Open Project from GitHub"
-          label="GitHub repository link (a public repository):"
+          label={
+            'Paste a link from GitHub: a public repository, a folder in it, or a KiCad file in it. A repository or folder opens its KiCad project; a schematic or board link opens its project in that editor. It opens read-only; "Save a copy" keeps one of your own.'
+          }
+          hint="https://github.com/owner/repository"
           extraWidth
           onResult={(value) => {
             setGithubUrlOpen(false);
@@ -2586,7 +2589,13 @@ export function HomePage({
               );
               return;
             }
-            void openDemoProject(githubIdFor(spec));
+            // A schematic's or a board's link: its project, in that editor.
+            const view = spec.path?.endsWith('.kicad_sch')
+              ? 'schematic'
+              : spec.path?.endsWith('.kicad_pcb')
+                ? 'pcb'
+                : undefined;
+            void openDemoProject(githubIdFor(spec), view);
           }}
         />
       )}

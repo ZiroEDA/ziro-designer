@@ -66,6 +66,16 @@ export function kicadProjectsIn(tree: readonly TreeEntry[]): string[] {
 export function pickProject(projects: readonly string[], path?: string): string | null {
   if (!path) return projects[0] ?? null;
   if (path.endsWith('.kicad_pro')) return projects.includes(path) ? path : null;
+  // A schematic or a board: the project it belongs to, the one in its folder - or, for a sheet
+  // kept in a subfolder, the nearest folder above that has one.
+  if (/\.kicad_(sch|pcb)$/.test(path)) {
+    const dirOf = (p: string): string => p.slice(0, Math.max(0, p.lastIndexOf('/')));
+    for (let dir = dirOf(path); ; dir = dirOf(dir)) {
+      const here = projects.find((p) => dirOf(p) === dir);
+      if (here) return here;
+      if (dir === '') return null;
+    }
+  }
   const under = `${path.replace(/\/$/, '')}/`;
   return projects.find((p) => p.startsWith(under)) ?? null;
 }
@@ -183,9 +193,11 @@ export async function openGithubProject(
   }
   if (!pro)
     throw new GithubOpenError(
-      spec.path
-        ? `There is no KiCad project (.kicad_pro) at ${spec.path} in ${where}.`
-        : `${where} has no KiCad project (.kicad_pro) in it.`,
+      spec.path && /\.kicad_(sch|pcb)$/.test(spec.path)
+        ? `${spec.path} in ${where} has no KiCad project (.kicad_pro) in its folder or above it.`
+        : spec.path
+          ? `There is no KiCad project (.kicad_pro) at ${spec.path} in ${where}.`
+          : `${where} has no KiCad project (.kicad_pro) in it.`,
     );
   const wanted = filesForProject(tree, pro);
   if (wanted.length > MAX_FILES)
