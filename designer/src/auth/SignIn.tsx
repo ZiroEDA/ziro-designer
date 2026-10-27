@@ -3,7 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { AuthProgressPanel } from './auth_progress.js';
 import { Button } from '@ziroeda/wx/controls.js';
-import { useEffect, useState, type FormEvent, type JSX } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type JSX } from 'react';
 import { RecoveryKeyContents } from './RecoveryKeyContents.js';
 import { useAuth } from './AuthProvider.js';
 import { primeLoginSecret } from './login_secret_cache.js';
@@ -148,8 +148,17 @@ export function SignInDialog({
     return () => clearTimeout(t);
   }, [mode, email, password]);
   const [noRecoveryKey, setNoRecoveryKey] = useState(false);
+  // "Resend code" answered: without a word, it looked as if nothing happened,
+  // and the old code - dead once the new one is sent - was typed again.
+  const [resent, setResent] = useState(false);
 
+  // Held from the press, not from the next render: two presses of Enter in one
+  // frame both read `busy` false, and a sign-up sent twice mails two codes, the
+  // first of them dead on arrival.
+  const inFlight = useRef(false);
   const run = async (fn: () => Promise<{ error: string | null }>): Promise<boolean> => {
+    if (inFlight.current) return false;
+    inFlight.current = true;
     setError(null);
     setBusy(true);
     try {
@@ -157,12 +166,14 @@ export function SignInDialog({
       if (error) setError(error);
       return !error;
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
 
   async function onSignUp(e: FormEvent) {
     e.preventDefault();
+    if (inFlight.current) return;
     if (password !== confirm) {
       setError("Passwords don't match");
       return;
@@ -173,6 +184,8 @@ export function SignInDialog({
       setError('Please choose a stronger password.');
       return;
     }
+    if (inFlight.current) return;
+    inFlight.current = true;
     setError(null);
     setEmailError(null);
     setBusy(true);
@@ -190,6 +203,7 @@ export function SignInDialog({
         setStep('verify');
       } else close();
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }
@@ -334,6 +348,11 @@ export function SignInDialog({
               />
             </label>
             {error && <div className="ze-auth-error">{error}</div>}
+            {resent && !error && (
+              <p className="ze-auth-note" role="status">
+                A new code is on its way. Use the newest email: it replaces the code before it.
+              </p>
+            )}
             <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
               {busy ? 'Verifying...' : 'Confirm'}
             </button>
@@ -342,7 +361,9 @@ export function SignInDialog({
                 type="button"
                 className="ze-auth-switch"
                 disabled={busy}
-                onClick={() => void run(() => resendSignupCode(email))}
+                onClick={() =>
+                  void run(() => resendSignupCode(email)).then((sent) => setResent(sent))
+                }
               >
                 Resend code
               </button>
