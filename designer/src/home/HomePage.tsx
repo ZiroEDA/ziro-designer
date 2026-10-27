@@ -2574,7 +2574,6 @@ export function HomePage({
         <WX_TEXT_ENTRY_DIALOG
           caption="Open Project from GitHub"
           label="GitHub repository link (a public repository):"
-          defaultValue="https://github.com/"
           extraWidth
           onResult={(value) => {
             setGithubUrlOpen(false);

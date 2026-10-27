@@ -19,11 +19,15 @@ export interface GithubSpec {
 const NAME = /^[A-Za-z0-9_.-]{1,100}$/;
 const REF = /^[A-Za-z0-9_.\-]{1,250}$/;
 
-/** The app's id for a GitHub project: the address path, without the leading slash. */
+/**
+ * The app's id for a GitHub project: the address path, without the leading slash. An address,
+ * so the folder's segments are percent-encoded, as GitHub's own are: `Example-Qwiic Micro
+ * Breakout` is `Example-Qwiic%20Micro%20Breakout`, and {@link githubSpecFromId} turns it back.
+ */
 export function githubIdFor(spec: GithubSpec): string {
   let id = `gh/${spec.owner}/${spec.repo}`;
   if (spec.ref || spec.path) id += `/tree/${spec.ref ?? 'HEAD'}`;
-  if (spec.path) id += `/${spec.path}`;
+  if (spec.path) id += `/${spec.path.split('/').map(encodeURIComponent).join('/')}`;
   return id;
 }
 
@@ -38,9 +42,18 @@ export function githubSpecFromId(id: string): GithubSpec | null {
   if (!owner || !repo || !NAME.test(owner) || !NAME.test(repo)) return null;
   if (tree === undefined) return { owner, repo };
   if (tree !== 'tree' || !ref || !REF.test(ref)) return null;
-  // No `..`, no empty segment: the path is a place in the repository, nothing more.
-  if (rest.some((p) => p === '' || p === '.' || p === '..')) return null;
-  return { owner, repo, ref, ...(rest.length ? { path: rest.join('/') } : {}) };
+  // The address's segments are percent-encoded (a folder with a space in its name arrives as
+  // `%20`, from GitHub's link and from our own address); the spec holds the repository's names.
+  let names: string[];
+  try {
+    names = rest.map(decodeURIComponent);
+  } catch {
+    return null;
+  }
+  // No `..`, no empty segment, no `/` smuggled in as %2F: the path is a place in the
+  // repository, nothing more.
+  if (names.some((p) => p === '' || p === '.' || p === '..' || p.includes('/'))) return null;
+  return { owner, repo, ref, ...(names.length ? { path: names.join('/') } : {}) };
 }
 
 /**

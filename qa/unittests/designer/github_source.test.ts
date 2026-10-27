@@ -78,6 +78,28 @@ describe('the GitHub id and address', () => {
     expect(githubSpecFromUrl('not a url')).toBeNull();
   });
 
+  // 2026-10-28: GitHub's link to a folder with spaces in its name came back as "There is no
+  // KiCad project (.kicad_pro) at Example-Qwiic%20Micro%20Breakout".
+  it('takes a folder with a space in its name as the folder, not its %20', () => {
+    const url =
+      'https://github.com/sparkfun/SparkFun_Default_KiCad_Setup/tree/main/Example-Qwiic%20Micro%20Breakout';
+    const spec = githubSpecFromUrl(url)!;
+    expect(spec.path).toBe('Example-Qwiic Micro Breakout');
+    // And back to an address that parses to the same folder.
+    const id = githubIdFor(spec);
+    expect(id).toBe(
+      'gh/sparkfun/SparkFun_Default_KiCad_Setup/tree/main/Example-Qwiic%20Micro%20Breakout',
+    );
+    expect(githubSpecFromId(id)).toEqual(spec);
+    expect(parseRoute(`${AT}/${id}`)).toEqual({ kind: 'demo', id });
+  });
+
+  it('refuses a path that is not a place in the repository once decoded', () => {
+    expect(githubSpecFromId('gh/o/r/tree/main/a%2F..%2Fb')).toBeNull();
+    expect(githubSpecFromId('gh/o/r/tree/main/%2E%2E')).toBeNull();
+    expect(githubSpecFromId('gh/o/r/tree/main/bad%E0%A4')).toBeNull();
+  });
+
   it('/gh/... is a demo route whose id is its path; a frame sits behind /-/', () => {
     expect(parseRoute(`${AT}/gh/kaminaris/GigaESC-TOLT`)).toEqual({
       kind: 'demo',
