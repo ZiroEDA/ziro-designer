@@ -16,6 +16,7 @@ import {
   serializeSymLibTable,
 } from '@ziroeda/eeschema/project_sym_lib_table.js';
 import { DialogFpLibTable } from '@ziroeda/pcbnew/dialogs/panel_fp_lib_table.js';
+import { loadIndex } from '../editors/schematic/symbols/index.js';
 import { fetchLibraryIndex, libraryBase } from '../libraryHosts.js';
 import { DialogSymLibTable } from './dialog_sym_lib_table.js';
 
@@ -33,20 +34,30 @@ export function LibraryTableHost({
   /** The project table and the libraries brought in, into the open project. */
   onWrite: (files: ProjectFile[]) => void;
   onClose: () => void;
-}): JSX.Element {
-  const hosted = kind === 'symbol' ? 'symbols' : 'footprints';
-  // The global table's stand-in: the hosted library set, by nickname.
-  const [globalLibraries, setGlobalLibraries] = useState<readonly string[]>([]);
+}): JSX.Element | null {
+  // The global table's stand-in: the hosted library set, by nickname. Upstream the global tables
+  // are loaded at program start (PGM_KICAD::OnPgmInit), so the dialog never opens before them;
+  // here they wait on the hosted index, and the dialog, whose pages are built once, waits too.
+  // For symbols, loadIndex also reads the user's own table into the library manager.
+  const [globalLibraries, setGlobalLibraries] = useState<readonly string[] | null>(null);
 
   useEffect(() => {
     let live = true;
-    void fetchLibraryIndex<{ name: string }>(hosted)
+    const names =
+      kind === 'symbol'
+        ? loadIndex().then(() => fetchLibraryIndex<{ name: string }>('symbols'))
+        : fetchLibraryIndex<{ name: string }>('footprints');
+
+    void names
       .then((index) => live && setGlobalLibraries(index.map((l) => l.name)))
-      .catch(() => {});
+      // An index that cannot be had leaves the global page empty rather than no dialog at all.
+      .catch(() => live && setGlobalLibraries([]));
     return () => {
       live = false;
     };
-  }, [hosted]);
+  }, [kind]);
+
+  if (!globalLibraries) return null;
 
   // onSave comes only for a changed project table, so `projectFiles` is a project's there.
   if (kind === 'symbol')
