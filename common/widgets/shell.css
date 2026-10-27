@@ -11288,6 +11288,10 @@ fieldset.ze-sbox > legend {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* [data] Its rows never size the dialog: qa/probes/libtable_fit_probe.cpp has wx keep
+     DIALOG_EDIT_LIBRARY_TABLES at 1010 x 649 for 1 row and for 155 (notebook best size
+     1555 x 4560), m_contentPanel's 1000 x 600 minimum alone deciding, the grid scrolling. */
+  contain: size;
 }
 .ze-libtable-notebook > .ze-tabbar {
   flex: 0 0 auto;

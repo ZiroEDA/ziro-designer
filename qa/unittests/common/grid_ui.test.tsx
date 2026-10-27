@@ -75,6 +75,37 @@ describe('the grid window', () => {
     ]);
   });
 
+  // PANEL_SYM_LIB_TABLE's path substitutions: SetColLabelSize( 0 ), Name its content, Value the
+  // rest (adjustPathSubsGridColumns). With no label row the widths ride on the columns.
+  it('gives a grid with no label row the same column widths', () => {
+    const g = new WX_GRID();
+    g.SetTable(new wxGridStringTable(1, 2), true);
+    const view = render(
+      <WxGridView
+        grid={g}
+        colLabels={false}
+        columns={[{ width: 72 }, { width: 120 }]}
+        flexCol={1}
+        ariaLabel="grid"
+      />,
+    );
+    expect(view.container.querySelector('thead')).toBeNull();
+    const cols = [...view.container.querySelectorAll('colgroup > col')] as HTMLElement[];
+    expect(cols.map((c) => c.style.width)).toEqual(['72px', '']);
+
+    // No flexible column: the filler's column takes the slack.
+    view.rerender(
+      <WxGridView
+        grid={g}
+        colLabels={false}
+        columns={[{ width: 72 }, { width: 120 }]}
+        ariaLabel="grid"
+      />,
+    );
+    const fixed = [...view.container.querySelectorAll('colgroup > col')] as HTMLElement[];
+    expect(fixed.map((c) => c.style.width)).toEqual(['72px', '120px', '']);
+  });
+
   it('opens the editor on a click, when the button comes up', () => {
     const { g, cell } = setup();
     fireEvent.mouseDown(cell(1, 1), { button: 0 });

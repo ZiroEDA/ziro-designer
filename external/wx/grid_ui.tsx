@@ -484,6 +484,20 @@ export function WxGridView({
       ? grid.IsInSelection(aRow, 0)
       : shownCols.length > 0 && shownCols.every((c) => grid.IsInSelection(aRow, c));
 
+  /**
+   * A column's width. The slack goes to the one column with no width: the flexible one, or else
+   * the filler. Every other column is max( stated, content ) - `1px` is "its content" - so the
+   * table asks for the sum of its columns, as the wxGrid's best size does, and nothing is a
+   * percentage: a `100%` cell makes an auto table claim every pixel it is offered, which is what
+   * stretched Footprint Properties across the screen.
+   */
+  const colWidth = (c: number): { width: number } | undefined => {
+    if (c === slackCol) return undefined;
+    const width = columns[c]?.width ?? grid.GetStatedColSize(c);
+    if (width) return { width };
+    return fixedColumns ? undefined : { width: 1 };
+  };
+
   const table = (
     <table
       ref={tableRef}
@@ -500,6 +514,18 @@ export function WxGridView({
         if (e.target === e.currentTarget) onKey(e, null);
       }}
     >
+      {/* SetColLabelSize( 0 ): no label row to carry the widths, so the columns do; without
+          them the table spread its width by content, and the path substitutions' Name took all
+          but a sliver of it from Value. */}
+      {!colLabels && (
+        <colgroup>
+          {rowLabels && <col style={rowLabelSize ? { width: rowLabelSize } : undefined} />}
+          {shownCols.map((c) => (
+            <col key={c} style={colWidth(c)} />
+          ))}
+          {slackCol === undefined && <col />}
+        </colgroup>
+      )}
       {colLabels && (
         <thead>
           <tr>
@@ -513,18 +539,7 @@ export function WxGridView({
               <th
                 key={c}
                 className={columns[c]?.center ? 'c' : undefined}
-                style={(() => {
-                  // The slack goes to the one column with no width: the flexible one, or
-                  // else the filler. Every other column is max( stated, content ) - `1px`
-                  // is "its content" - so the table asks for the sum of its columns, as
-                  // the wxGrid's best size does, and nothing is a percentage: a `100%`
-                  // cell makes an auto table claim every pixel it is offered, which is
-                  // what stretched Footprint Properties across the screen.
-                  if (c === slackCol) return undefined;
-                  const width = columns[c]?.width ?? grid.GetStatedColSize(c);
-                  if (width) return { width };
-                  return fixedColumns ? undefined : { width: 1 };
-                })()}
+                style={colWidth(c)}
                 onClick={(e) => {
                   grid.ProcessEvent(
                     new wxGridEvent(wxEVT_GRID_LABEL_LEFT_CLICK, grid, -1, c, modifiersOf(e)),
