@@ -225,17 +225,31 @@ describe('Preferences > Manage Symbol / Footprint Libraries', () => {
 
     const sym = row(h, 'Manage Symbol Libraries...');
     const fp = row(h, 'Manage Footprint Libraries...');
-    expect(sym?.disabled).toBe(false);
-    expect(fp?.disabled).toBe(false);
+    expect(sym?.disabled).toBeFalsy();
+    expect(fp?.disabled).toBeFalsy();
 
     sym!.action!();
     fp!.action!();
     expect(asked).toEqual(['symbol', 'footprint']);
   });
 
-  it('waits for a project, since the table it writes is the project table', () => {
-    for (const label of ['Manage Symbol Libraries...', 'Manage Footprint Libraries...'])
-      expect(row({ hasProject: false }, label)?.disabled, label).toBe(true);
+  // kicad/menubar.cpp adds both with no condition, and setupUIConditions gives them none: with
+  // no project open the dialog shows the global table alone.
+  it('is there with no project open too', () => {
+    const asked: string[] = [];
+    const h = {
+      hasProject: false,
+      showLibraryTable: (k: 'symbol' | 'footprint') => {
+        asked.push(k);
+      },
+    };
+
+    for (const label of ['Manage Symbol Libraries...', 'Manage Footprint Libraries...']) {
+      const item = row(h, label);
+      expect(item?.disabled, label).toBeFalsy();
+      item!.action!();
+    }
+    expect(asked).toEqual(['symbol', 'footprint']);
   });
 
   it('keeps Design Block Libraries greyed until its table dialog is ported', () => {

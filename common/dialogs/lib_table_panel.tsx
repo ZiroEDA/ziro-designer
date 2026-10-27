@@ -126,8 +126,12 @@ export interface LibTablePanelSpec {
    * or the hosted libraries alone, read-only, where the manager has none.
    */
   globalTable: LIBRARY_TABLE;
-  /** The project table, a working copy of which the project page edits. */
-  projectTable: LIBRARY_TABLE;
+  /**
+   * The project table, a working copy of which the project page edits. Absent with no project
+   * open: `LIBRARY_MANAGER::Table( PROJECT )` has no value, and the panel adds the global page
+   * alone.
+   */
+  projectTable?: LIBRARY_TABLE;
   /**
    * The adapter's load of one row (`LoadOne` through the plugin): undefined
    * when the row is nothing this page can check.
@@ -317,7 +321,9 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
     };
 
     addTable(spec.globalTable, 'Global Libraries');
-    addTable(spec.projectTable, 'Project Specific Libraries');
+
+    if (spec.projectTable) addTable(spec.projectTable, 'Project Specific Libraries');
+
     nb.SetSelection(nb.GetPageCount() - 1);
 
     // m_path_subs_grid: a two-column WX_GRID, EnableEditing( false ), GRID_TRICKS.
@@ -359,8 +365,10 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
   const cur_model = (): LIB_TABLE_GRID_DATA_MODEL =>
     notebook.GetPage(notebook.GetSelection()).GetModel();
 
-  const projectModel = notebook.GetPage(1).GetModel();
-  const unregistered = spec.existing(projectModel.Table().Rows());
+  const projectModel = spec.projectTable ? notebook.GetPage(1).GetModel() : null;
+  // Both lists bring a library into the project, so with none open there is neither.
+  const unregistered = projectModel ? spec.existing(projectModel.Table().Rows()) : [];
+  const browse = projectModel ? spec.browse : undefined;
 
   /** `browseLibrariesHandler`, over the project's own files. */
   const addExisting = (aLib: ExistingLibrary): void => {
@@ -429,9 +437,9 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
       manager.LoadGlobalTables([spec.type]);
     }
 
-    const table = projectModel.Table();
+    const table = projectModel?.Table();
 
-    if (!table.equals(spec.projectTable)) spec.onSave(table);
+    if (table && spec.projectTable && !table.equals(spec.projectTable)) spec.onSave(table);
     else spec.onClose();
   };
 
@@ -443,12 +451,12 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
         m_notebook={<LibTableNotebookView notebook={notebook} ariaLabel={spec.title} />}
         onAppend={() => LIB_TABLE_GRID_TRICKS.AppendRowHandler(cur_grid())}
         browseMenu={[
-          ...(spec.browse
+          ...(browse
             ? [
                 {
-                  label: spec.browse.label,
+                  label: browse.label,
                   action: () => {
-                    void spec.browse!.pick().then((libs) => {
+                    void browse.pick().then((libs) => {
                       for (const lib of libs) addExisting(lib);
                     });
                   },

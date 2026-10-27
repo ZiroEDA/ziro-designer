@@ -312,19 +312,10 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
            Removed rather than greyed, like every other control this application
            cannot have. Greying says "not ready yet"; this one is not a promise
            the app can keep. */
-        /* Upstream adds the two tables with no condition: KiCad edits the global table when no
-           project is open. Ours is the hosted library set, which nobody edits, so with no project
-           there is nothing for the dialog to write and the rows wait for one. */
-        {
-          label: 'Manage Symbol Libraries...',
-          action: () => h.showLibraryTable('symbol'),
-          disabled: !h.hasProject,
-        },
-        {
-          label: 'Manage Footprint Libraries...',
-          action: () => h.showLibraryTable('footprint'),
-          disabled: !h.hasProject,
-        },
+        /* Upstream adds the two tables with no condition: with no project open the dialog shows
+           the global table alone, which is the user's own. */
+        { label: 'Manage Symbol Libraries...', action: () => h.showLibraryTable('symbol') },
+        { label: 'Manage Footprint Libraries...', action: () => h.showLibraryTable('footprint') },
         // DIALOG_DESIGN_BLOCK_LIBRARY_TABLE is not ported yet.
         { label: 'Manage Design Block Libraries...', disabled: true },
         { label: 'Preferences...', shortcut: 'Ctrl+,', action: h.openPreferences },

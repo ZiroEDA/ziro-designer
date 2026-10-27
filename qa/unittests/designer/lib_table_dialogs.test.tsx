@@ -202,6 +202,37 @@ describe("Manage Symbol Libraries, with the user's global table", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  // PANEL_SYM_LIB_TABLE's constructor adds the project page only when LIBRARY_MANAGER::Table(
+  // PROJECT ) has a value, which it has not with no project open.
+  it('shows the global table alone with no project open, and saves it', () => {
+    const onSave = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <DialogSymLibTable
+        projectFiles={null}
+        globalLibraries={['Device', 'power']}
+        globalBase="https://libs"
+        onSave={onSave}
+        onClose={onClose}
+      />,
+    );
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((t) => t.textContent)).toEqual(['Global Libraries']);
+    expect(tabs[0]!.getAttribute('aria-selected')).toBe('true');
+    // Add Existing brings a library into the project: with none, it has nothing to offer.
+    expect(screen.getByRole('button', { name: 'Add Existing' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+
+    fireEvent.mouseDown(document.querySelector('td[data-row="1"][data-col="3"]')!, { button: 0 });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove library from table' }));
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    expect(stored()).not.toContain('"Mine"');
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('writes nothing for OK on an unchanged global table', () => {
     const { onClose } = openSym();
     const before = stored();

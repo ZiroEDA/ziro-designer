@@ -51,8 +51,11 @@ import {
 
 import { PANEL_FP_LIB_TABLE_BASE } from './panel_fp_lib_table_base.js';
 interface Props {
-  /** The open project's files (footprints, the table, the `.kicad_pro`). */
-  projectFiles: readonly { name: string; text: string }[];
+  /**
+   * The open project's files (footprints, the table, the `.kicad_pro`); null with no project open, which shows the
+   * global table alone.
+   */
+  projectFiles: readonly { name: string; text: string }[] | null;
   /** Nicknames of the hosted (global) libraries. */
   globalLibraries: readonly string[];
   /** Where the hosted libraries are served from (their "Library Path"). */
@@ -72,7 +75,7 @@ const FP_LIB_TABLE_ANCHOR = /(^|\/)fp-lib-table$/i;
 const isProjectRelative = (aUri: string): boolean => /^\$[{(]KIPRJMOD[})]/i.test(aUri);
 
 /** The project's `fp-lib-table` as a LIBRARY_TABLE; an empty one when there is none. */
-function projectTableOf(files: Props['projectFiles']): LIBRARY_TABLE {
+function projectTableOf(files: NonNullable<Props['projectFiles']>): LIBRARY_TABLE {
   const path = projectFpLibTablePath(files);
   const file = files.find((f) => f.name === path);
 
@@ -101,7 +104,7 @@ export function DialogFpLibTable({
   const staged = useRef<{ name: string; text: string }[]>([]);
   /** The project's files as they will be on OK: the checks and the list see the held ones. */
   const files = (): readonly { name: string; text: string }[] => [
-    ...projectFiles,
+    ...(projectFiles ?? []),
     ...staged.current,
   ];
 
@@ -162,7 +165,7 @@ export function DialogFpLibTable({
         globalLibraries,
         (name) => `${globalBase}/${name}.pretty`,
       )}
-      projectTable={projectTableOf(projectFiles)}
+      projectTable={projectFiles ? projectTableOf(projectFiles) : undefined}
       checkRow={(row) => {
         if (row.Type() !== 'KiCad' || !isProjectRelative(row.URI())) return undefined;
 

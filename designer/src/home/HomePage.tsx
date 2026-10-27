@@ -331,7 +331,7 @@ export function HomePage({
    * Preferences > Manage Symbol / Footprint Libraries: COMMON_CONTROL::ShowLibraryTable, which
    * puts the program's library table dialog up over this project (App's LibraryTableHost).
    */
-  onShowLibraryTable?: (aKind: 'symbol' | 'footprint', aFiles: PickedHomeFile[]) => void;
+  onShowLibraryTable?: (aKind: 'symbol' | 'footprint', aFiles: PickedHomeFile[] | null) => void;
   /** Files the program wrote into the open project (App's writeProjectFiles), newest batch. */
   projectWrites?: { files: { name: string; text: string }[]; nonce: number } | null;
 }): JSX.Element {
@@ -2022,9 +2022,7 @@ export function HomePage({
     openCalculator: () => onOpenCalculator?.(),
     openDrawingSheetEditor: () => onOpenDrawingSheetEditor?.(),
     openPreferences: () => setPrefsOpen(true),
-    showLibraryTable: (aKind) => {
-      if (picked) onShowLibraryTable?.(aKind, picked);
-    },
+    showLibraryTable: (aKind) => onShowLibraryTable?.(aKind, picked ?? null),
     showAbout: () => setAboutOpen(true),
     showHotkeys: showHotkeyList,
     openDemo: (id) => void openDemoProject(id),

@@ -1860,7 +1860,8 @@ export function App(): JSX.Element {
         projectWrites={projectWrites}
         onShowLibraryTable={(kind, files) => {
           // The tables write into the open project, so the manager's project is the one open.
-          raiseOrOpen(files);
+          // With none, the dialog shows the global table alone.
+          if (files) raiseOrOpen(files);
           setLibTableDialog(kind);
         }}
         onCloseProject={closeProject}
@@ -2123,11 +2124,11 @@ export function App(): JSX.Element {
           </Frozen>
         </div>
       )}
-      {libTableDialog && projectFiles && (
+      {libTableDialog && (
         <Suspense fallback={null}>
           <LibraryTableHost
             kind={libTableDialog}
-            projectFiles={projectFiles}
+            projectFiles={projectFiles ?? null}
             onWrite={writeProjectFiles}
             onClose={() => setLibTableDialog(null)}
           />

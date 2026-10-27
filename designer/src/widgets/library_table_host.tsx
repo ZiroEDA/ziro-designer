@@ -28,7 +28,8 @@ export function LibraryTableHost({
   onClose,
 }: {
   kind: 'symbol' | 'footprint';
-  projectFiles: readonly ProjectFile[];
+  /** The open project's files; null with none open, when only the global table shows. */
+  projectFiles: readonly ProjectFile[] | null;
   /** The project table and the libraries brought in, into the open project. */
   onWrite: (files: ProjectFile[]) => void;
   onClose: () => void;
@@ -47,6 +48,7 @@ export function LibraryTableHost({
     };
   }, [hosted]);
 
+  // onSave comes only for a changed project table, so `projectFiles` is a project's there.
   if (kind === 'symbol')
     return (
       <DialogSymLibTable
@@ -55,7 +57,7 @@ export function LibraryTableHost({
         globalBase={libraryBase.symbols}
         onSave={(rows, files) => {
           onWrite([
-            { name: projectSymLibTablePath(projectFiles), text: serializeSymLibTable(rows) },
+            { name: projectSymLibTablePath(projectFiles ?? []), text: serializeSymLibTable(rows) },
             ...files,
           ]);
           onClose();
@@ -71,7 +73,7 @@ export function LibraryTableHost({
       globalBase={libraryBase.footprints}
       onSave={(rows, files) => {
         onWrite([
-          { name: projectFpLibTablePath(projectFiles), text: serializeFpLibTable(rows) },
+          { name: projectFpLibTablePath(projectFiles ?? []), text: serializeFpLibTable(rows) },
           ...files,
         ]);
         onClose();
