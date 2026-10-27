@@ -8236,31 +8236,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    so two stacked items sit 10 px apart and the first is 5 px in from the
    frame. Nothing else is stated: the width is the sizer's over the widest
    control (the reason list), the fonts and faces are the controls' own. */
-.ze-delete-account-body {
-  flex-direction: column;
-  padding: var(--wx-border);
-}
-.ze-delete-account-body > * {
-  margin: var(--wx-border);
-}
-.ze-delete-account-sub {
-  color: var(--chrome-fg-muted);
-}
-.ze-delete-account-label {
-  display: block;
-}
-.ze-delete-account textarea {
-  resize: vertical;
-}
 .ze-delete-account-error {
   color: var(--critical);
-}
-.ze-delete-account-summary {
-  display: flex;
-  flex-direction: column;
-}
-.ze-delete-account-row b {
-  font-weight: 600;
 }
 .ze-required {
   color: var(--critical);
@@ -10181,6 +10158,17 @@ textarea.ze-ds-textedit {
   white-space: nowrap;
 }
 .ze-statusbar .cell.sized > .ze-size-template {
+  visibility: hidden;
+}
+/* The sign-in progress panel (designer/src/auth/auth_progress.tsx): the same template, so the
+   centred form keeps its height whether a stage runs or not. */
+.ze-auth-progress {
+  display: grid;
+}
+.ze-auth-progress > * {
+  grid-area: 1 / 1;
+}
+.ze-auth-progress > .ze-size-template {
   visibility: hidden;
 }
 

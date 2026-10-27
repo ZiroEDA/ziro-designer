@@ -334,7 +334,7 @@ export function SignInDialog({
               />
             </label>
             {error && <div className="ze-auth-error">{error}</div>}
-            {busy && progress && <AuthProgressPanel progress={progress} />}
+            <AuthProgressPanel progress={busy ? progress : null} />
             <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
               {busy ? 'Verifying...' : 'Confirm'}
             </button>
@@ -368,7 +368,7 @@ export function SignInDialog({
               />
             </label>
             {error && <div className="ze-auth-error">{error}</div>}
-            {busy && progress && <AuthProgressPanel progress={progress} />}
+            <AuthProgressPanel progress={busy ? progress : null} />
             <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
               {busy ? 'Creating account...' : 'Create account'}
             </button>
@@ -546,7 +546,7 @@ export function SignInDialog({
                 No recovery key is needed.
               </p>
             )}
-            {busy && progress && <AuthProgressPanel progress={progress} />}
+            <AuthProgressPanel progress={busy ? progress : null} />
             <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
               {busy ? 'Signing in...' : 'Sign in'}
             </button>

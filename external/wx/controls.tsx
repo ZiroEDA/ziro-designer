@@ -271,8 +271,14 @@ export function TextCtrl({
   maxLength,
   foregroundColour,
   minWidthText,
+  password,
+  autoComplete,
 }: {
   value: string;
+  /** wxTE_PASSWORD: the characters hidden. */
+  password?: boolean;
+  /** What a password manager may fill it with (the browser's `autocomplete`). */
+  autoComplete?: string;
   /**
    * `SetMinSize( GetTextExtent( text ) )`: the whole control exactly as wide as that text would
    * be, as the stackup's fields are.
@@ -321,7 +327,8 @@ export function TextCtrl({
   const input = (
     <input
       ref={inputRef}
-      type="text"
+      type={password ? 'password' : 'text'}
+      {...(autoComplete ? { autoComplete } : {})}
       {...common}
       onKeyDown={(e) => {
         if (e.key === 'Enter' && onEnter) {

@@ -79,7 +79,7 @@ const BASELINE: Record<(typeof AREAS)[number], Record<Kind, number>> = {
   // entry 22 -> 21 (10-21): EDA_LIST_DIALOG's filter and name boxes are TextCtrls.
   common: { button: 41, checkbox: 8, select: 0, frame: 1, radio: 3, entry: 21, sbox: 4 },
   cvpcb: { button: 0, checkbox: 0, select: 0, frame: 1, radio: 0, entry: 1, sbox: 0 },
-  designer: { button: 76, checkbox: 2, select: 0, frame: 0, radio: 5, entry: 25, sbox: 13 },
+  designer: { button: 76, checkbox: 2, select: 0, frame: 0, radio: 5, entry: 23, sbox: 13 },
   // checkbox 15 -> 12 (10-15): the record Symbol Fields Table's grid checkboxes.
   // 10-20: checkbox 12 -> 11, the schematic Plot dialog's 'Download a copy' box went with the
   // project route (plots download now); button 9 -> 8, its output-folder browse went too.

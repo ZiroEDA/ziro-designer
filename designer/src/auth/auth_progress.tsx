@@ -72,25 +72,66 @@ export function progressPercent(aProgress: AuthProgress, aNow: number): number {
   return Math.round(((aProgress.step - 1 + within) / aProgress.steps) * 100);
 }
 
-/** The stage being run, its step, a bar that fills, and why it is worth the wait. */
-export function AuthProgressPanel({ progress }: { progress: AuthProgress }): JSX.Element {
+/** The stage whose words take the most room: the one the panel's space is kept for. */
+export const LONGEST_STAGE: AuthStage = Object.values(AUTH_STAGE).reduce((a, b) =>
+  b.why.length + b.label.length > a.why.length + a.label.length ? b : a,
+);
+
+/** One stage, drawn: its name and step, the bar, and why it is there. */
+function StageView({
+  stage,
+  step,
+  steps,
+  percent,
+}: {
+  stage: AuthStage;
+  step: number;
+  steps: number;
+  percent: number;
+}): JSX.Element {
+  return (
+    <div className="ze-auth-field">
+      <span>
+        {stage.label}... (step {step} of {steps})
+      </span>
+      <Gauge value={percent} range={100} />
+      <p className="ze-auth-note">{stage.why}</p>
+    </div>
+  );
+}
+
+/**
+ * The stage being run, its step, a bar that fills, and why it is worth the wait - in a space
+ * kept for it whether or not one runs: the form is centred, so a panel that came and went, or
+ * grew and shrank between stages, moved the email and password with it. An invisible copy of the
+ * longest stage holds the space (the status bar's `.ze-size-template`), the live one over it.
+ */
+export function AuthProgressPanel({ progress }: { progress: AuthProgress | null }): JSX.Element {
   const [now, setNow] = useState(() => performance.now());
 
   useEffect(() => {
+    if (!progress) return;
+
     let frame = requestAnimationFrame(function tick() {
       setNow(performance.now());
       frame = requestAnimationFrame(tick);
     });
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [progress]);
 
   return (
-    <div className="ze-auth-field" role="status" aria-live="polite">
-      <span>
-        {progress.stage.label}... (step {progress.step} of {progress.steps})
-      </span>
-      <Gauge value={progressPercent(progress, now)} range={100} />
-      <p className="ze-auth-note">{progress.stage.why}</p>
+    <div className="ze-auth-progress" role="status" aria-live="polite">
+      <div className="ze-size-template" aria-hidden="true">
+        <StageView stage={LONGEST_STAGE} step={3} steps={3} percent={0} />
+      </div>
+      {progress && (
+        <StageView
+          stage={progress.stage}
+          step={progress.step}
+          steps={progress.steps}
+          percent={progressPercent(progress, now)}
+        />
+      )}
     </div>
   );
 }

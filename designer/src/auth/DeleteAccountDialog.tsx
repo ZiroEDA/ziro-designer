@@ -26,7 +26,9 @@
  * sizer's over the widest control, which is the reason list. The one colour
  * is `--critical`, which is ente's.
  */
-import { Button, CheckBox } from '@ziroeda/wx/controls.js';
+import { Button, CheckBox, StaticText, TextCtrl } from '@ziroeda/wx/controls.js';
+import { BoxSizer, SizerItem } from '@ziroeda/wx/sizer.js';
+import { wxALL, wxBOTTOM, wxEXPAND, wxLEFT, wxRIGHT, wxTOP, wxVERTICAL } from '@ziroeda/wx/defs.js';
 import { useCallback, useEffect, useState, type FormEvent, type JSX } from 'react';
 import { cloudBackend } from '../cloud/cloudStore.js';
 import { Combo } from '@ziroeda/wx/combobox.js';
@@ -154,101 +156,141 @@ export function DeleteAccountDialog({
       className="ze-delete-account"
     >
       <form onSubmit={(e) => void submit(e)}>
-        <div className="ze-modal-body ze-delete-account-body">
-          {subtitle && <div className="ze-delete-account-sub">{subtitle}</div>}
-
-          {step === 'reason' && (
-            <>
-              <label className="ze-delete-account-label" htmlFor="ze-delete-reason">
-                Reason for leaving <b className="ze-required">*</b>
-              </label>
-              <Combo
-                id="ze-delete-reason"
-                ariaLabel="Reason for leaving"
-                value={reason}
-                onChange={setReason}
-                options={[
-                  { value: '', label: 'Select a reason', disabled: true },
-                  ...DELETE_REASONS,
-                ]}
-              />
-              {touched && errors.reason && (
-                <div className="ze-delete-account-error">{errors.reason}</div>
+        {/* bMainSizer: a wxFormBuilder column, each item bordered 5 as KiCad's are, the entries
+            wxEXPAND; at least the reference's dialog wide - ente's MUI "xs" - so a label and a
+            reason fit on a line rather than the narrowest control deciding the width. */}
+        <BoxSizer orient={wxVERTICAL}>
+          <SizerItem flag={wxEXPAND | wxALL} border={5} minSize={[444, -1]}>
+            <BoxSizer orient={wxVERTICAL}>
+              {subtitle && (
+                <SizerItem flag={wxALL} border={5}>
+                  <StaticText label={subtitle} wrap={420} />
+                </SizerItem>
               )}
-              <label className="ze-delete-account-label" htmlFor="ze-delete-feedback">
-                Anything else? <b className="ze-required">*</b>
-              </label>
-              <textarea
-                id="ze-delete-feedback"
-                rows={5}
-                value={feedback}
-                placeholder="Share your feedback here"
-                onChange={(e) => setFeedback(e.target.value)}
-              />
-              {touched && errors.feedback && (
-                <div className="ze-delete-account-error">{errors.feedback}</div>
-              )}
-            </>
-          )}
 
-          {step === 'confirmation' && (
-            <>
-              <div className="ze-delete-account-summary" aria-live="polite">
-                {summary.state === 'loading' && <div>Loading...</div>}
-                {summary.state === 'failed' && (
-                  <>
-                    <div className="ze-delete-account-error">
-                      Couldn't load your data counts. Try again to review what will be deleted.
-                    </div>
-                    <Button label="Try again" onClick={() => void load()} />
-                  </>
-                )}
-                {summary.state === 'ready' && (
-                  <>
-                    <SummaryRow count={summary.summary.projects} one="project" other="projects" />
-                    <SummaryRow
-                      count={summary.summary.people}
-                      one="person loses access"
-                      other="people lose access"
+              {step === 'reason' && (
+                <>
+                  <SizerItem flag={wxTOP | wxLEFT | wxRIGHT} border={5}>
+                    <label htmlFor="ze-delete-reason">
+                      Reason for leaving <b className="ze-required">*</b>
+                    </label>
+                  </SizerItem>
+                  <SizerItem flag={wxEXPAND | wxALL} border={5}>
+                    <Combo
+                      id="ze-delete-reason"
+                      ariaLabel="Reason for leaving"
+                      value={reason}
+                      onChange={setReason}
+                      options={[
+                        { value: '', label: 'Select a reason', disabled: true },
+                        ...DELETE_REASONS,
+                      ]}
                     />
-                  </>
-                )}
-              </div>
-              <CheckBox
-                label="I understand this deletes my account and all its data."
-                checked={accepted}
-                disabled={summary.state !== 'ready'}
-                onChange={(aChecked) => setAccepted(aChecked)}
-              />
-            </>
-          )}
+                  </SizerItem>
+                  {touched && errors.reason && (
+                    <SizerItem flag={wxLEFT | wxRIGHT} border={5}>
+                      <span className="ze-delete-account-error">{errors.reason}</span>
+                    </SizerItem>
+                  )}
+                  <SizerItem flag={wxTOP | wxLEFT | wxRIGHT} border={5}>
+                    <label htmlFor="ze-delete-feedback">
+                      Anything else? <b className="ze-required">*</b>
+                    </label>
+                  </SizerItem>
+                  <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5} minSize={[-1, 120]}>
+                    <TextCtrl
+                      multiLine
+                      id="ze-delete-feedback"
+                      value={feedback}
+                      hint="Share your feedback here"
+                      onChange={setFeedback}
+                    />
+                  </SizerItem>
+                  {touched && errors.feedback && (
+                    <SizerItem flag={wxLEFT | wxRIGHT | wxBOTTOM} border={5}>
+                      <span className="ze-delete-account-error">{errors.feedback}</span>
+                    </SizerItem>
+                  )}
+                </>
+              )}
 
-          {step === 'password' && (
-            <>
-              <input
-                type="email"
-                name="email"
-                autoComplete="username"
-                value={email}
-                readOnly
-                hidden
-              />
-              <label className="ze-delete-account-label" htmlFor="ze-delete-password">
-                Password
-              </label>
-              <input
-                id="ze-delete-password"
-                type="password"
-                autoComplete="current-password"
-                autoFocus
-                value={password}
-                disabled={busy}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              {error && <div className="ze-delete-account-error">{error}</div>}
-            </>
-          )}
-        </div>
+              {step === 'confirmation' && (
+                <>
+                  <SizerItem flag={wxALL} border={5}>
+                    <div aria-live="polite">
+                      {summary.state === 'loading' && <StaticText label="Loading..." />}
+                      {summary.state === 'failed' && (
+                        <span className="ze-delete-account-error">
+                          Couldn't load your data counts. Try again to review what will be deleted.
+                        </span>
+                      )}
+                      {summary.state === 'ready' && (
+                        <>
+                          <SummaryRow
+                            count={summary.summary.projects}
+                            one="project"
+                            other="projects"
+                          />
+                          <SummaryRow
+                            count={summary.summary.people}
+                            one="person loses access"
+                            other="people lose access"
+                          />
+                        </>
+                      )}
+                    </div>
+                  </SizerItem>
+                  {summary.state === 'failed' && (
+                    <SizerItem flag={wxLEFT | wxRIGHT | wxBOTTOM} border={5}>
+                      <Button label="Try again" onClick={() => void load()} />
+                    </SizerItem>
+                  )}
+                  <SizerItem flag={wxALL} border={5}>
+                    <CheckBox
+                      label="I understand this deletes my account and all its data."
+                      checked={accepted}
+                      disabled={summary.state !== 'ready'}
+                      onChange={(aChecked) => setAccepted(aChecked)}
+                    />
+                  </SizerItem>
+                </>
+              )}
+
+              {step === 'password' && (
+                <>
+                  {/* The address, for the password manager (ente's hidden email input). */}
+                  <input
+                    type="email"
+                    name="email"
+                    autoComplete="username"
+                    value={email}
+                    readOnly
+                    hidden
+                  />
+                  <SizerItem flag={wxTOP | wxLEFT | wxRIGHT} border={5}>
+                    <label htmlFor="ze-delete-password">Password</label>
+                  </SizerItem>
+                  <SizerItem flag={wxEXPAND | wxALL} border={5}>
+                    <TextCtrl
+                      password
+                      autoComplete="current-password"
+                      id="ze-delete-password"
+                      autoFocus
+                      value={password}
+                      disabled={busy}
+                      onChange={setPassword}
+                    />
+                  </SizerItem>
+                  {error && (
+                    <SizerItem flag={wxLEFT | wxRIGHT | wxBOTTOM} border={5}>
+                      <span className="ze-delete-account-error">{error}</span>
+                    </SizerItem>
+                  )}
+                </>
+              )}
+            </BoxSizer>
+          </SizerItem>
+        </BoxSizer>
 
         <StdDialogButtons
           onCancel={onClose}
@@ -266,7 +308,7 @@ export function DeleteAccountDialog({
 /** One line of the summary: `{{count, number}} photo & video` in ente. */
 function SummaryRow({ count, one, other }: { count: number; one: string; other: string }) {
   return (
-    <div className="ze-delete-account-row">
+    <div>
       <b>{count.toLocaleString()}</b> {count === 1 ? one : other}
     </div>
   );
