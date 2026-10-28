@@ -56,14 +56,37 @@ import {
   type wxFileDialogCustomizeHook,
 } from '@ziroeda/common/widgets/filedlg_hook_new_library.js';
 import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
-import { wxFD_FILE_MUST_EXIST, wxFD_OPEN, wxFD_SAVE } from '@ziroeda/wx/defs.js';
+import {
+  wxCANCEL,
+  wxFD_FILE_MUST_EXIST,
+  wxFD_OPEN,
+  wxFD_SAVE,
+  wxICON_WARNING,
+  wxOK,
+} from '@ziroeda/wx/defs.js';
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
 import {
+  DisplayErrorMessage as DbDisplayErrorMessage,
   handleUnsavedChanges,
+  IsOK as DbIsOK,
   type KICAD_MESSAGE_DIALOG_ARG,
+  OKOrCancelDialog as DbOKOrCancelDialog,
   ShowKicadMessageDialog,
   type UnsavedChangesResult,
 } from '@ziroeda/common/confirm.js';
+import { DialogDesignBlockProperties } from '@ziroeda/common/dialogs/dialog_design_block_properties_ui.js';
+import type { DESIGN_BLOCK } from '@ziroeda/common/design_block.js';
+import {
+  GetUseGlobalTable,
+  MakeFileDlgHookNewLibrary,
+} from '@ziroeda/common/widgets/filedlg_hook_new_library.js';
+import { PATHS } from '@ziroeda/common/paths.js';
+import { KiCadDesignBlockLibPathExtension } from '@ziroeda/common/wildcards_and_files_ext.js';
+import { SCH_DESIGN_BLOCK_PANE } from './widgets/sch_design_block_pane.js';
+import { SchDesignBlockPane } from './widgets/sch_design_block_pane_ui.js';
+import { SchDesignBlockPreviewWidget } from './widgets/sch_design_block_preview_widget.js';
+import { SCH_DESIGN_BLOCK_CONTROL } from './tools/sch_design_block_control.js';
+import { eeschemaKifaceSettings } from './eeschema_settings.js';
 import { UnsavedChangesDialog } from '@ziroeda/common/dialogs/dialog_unsaved_changes.js';
 import { EdaListDialog } from '@ziroeda/common/dialogs/eda_list_dialog.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
@@ -1578,6 +1601,98 @@ export function SchematicEditor({
     [connDoc, libById, busAliases],
   );
   const schFrameRef = useRef<SCH_EDIT_FRAME | null>(null);
+  /** `DIALOG_DESIGN_BLOCK_PROPERTIES`, open: `ShowModal() == wxID_OK`. */
+  const [dbProperties, setDbProperties] = useState<{
+    designBlock: DESIGN_BLOCK;
+    disableName: boolean;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
+  /**
+   * `m_designBlocksPane` (sch_edit_frame.cpp:257): `new SCH_DESIGN_BLOCK_PANE( this, nullptr,
+   * m_designBlockHistoryList )`, its modals answered by this window, its placement options
+   * `eeschema.json`'s `design_block_chooser.*`.
+   */
+  const [designBlocksPane] = useState(
+    () =>
+      new SCH_DESIGN_BLOCK_PANE(
+        {
+          DesignBlockLibs: () => schFrameRef.current!.Prj().DesignBlockLibs(),
+          GetLibraryManager: () => Pgm().GetLibraryManager(),
+          NormalizePath: (aPath) => aPath,
+          ShowInfoBarError: (aMsg) => schFrameRef.current?.ShowInfoBarError(aMsg),
+          SetStatusText: (aMsg) => schFrameRef.current?.SetStatusText(aMsg),
+        },
+        {
+          IsOK: (aMessage) => DbIsOK(aMessage),
+          OKOrCancel: async (aMessage, aDetail, aOKLabel) =>
+            (await DbOKOrCancelDialog('Confirmation', aMessage, aDetail, aOKLabel)) === wxID_OK,
+          ConfirmOverwriteLibrary: async (aMessage) =>
+            (await ShowKicadMessageDialog({
+              message: aMessage,
+              caption: 'Warning',
+              style: wxOK | wxCANCEL | wxICON_WARNING,
+              okLabel: 'Overwrite',
+            })) === wxID_OK,
+          DisplayError: (aMessage, aDetail) => DbDisplayErrorMessage(aMessage, aDetail ?? ''),
+          GetTextFromUser: (aMessage, aTitle) =>
+            new Promise<string | null>((resolve) =>
+              setTextEntryRequest({ message: aMessage, caption: aTitle, value: '', resolve }),
+            ),
+          // `LibraryFileBrowser( …, false, …, FILEDLG_HOOK_NEW_LIBRARY )`. Web delta, as the symbol
+          // and footprint editors': a library is named, not placed - the account's Design Blocks
+          // folder for the global table, the project for the project's.
+          NewLibraryBrowser: async (aTitle) => {
+            const frame = schFrameRef.current!;
+            const projectOpen = frame.Prj().GetProjectPath() !== '';
+            const hook = MakeFileDlgHookNewLibrary(!projectOpen);
+            const name = await frame.AskLibraryName(aTitle, '', projectOpen ? hook : undefined);
+
+            if (!name) return null;
+
+            const global = !projectOpen || GetUseGlobalTable(hook);
+            const place = global
+              ? PATHS.GetDefaultUserDesignBlocksPath()
+              : frame.Prj().GetProjectPath().replace(/\/+$/, '');
+
+            return { path: `${place}/${name}.${KiCadDesignBlockLibPathExtension}`, global };
+          },
+          DesignBlockProperties: (aDesignBlock, aDisableName) =>
+            new Promise<boolean>((resolve) =>
+              setDbProperties((prev) => {
+                prev?.resolve(false);
+                return { designBlock: aDesignBlock, disableName: aDisableName, resolve };
+              }),
+            ),
+        },
+        [],
+        () => {
+          const panel = eeschemaKifaceSettings().m_DesignBlockChooserPanel;
+          return {
+            repeated_placement: panel.repeated_placement,
+            place_as_group: panel.place_as_group,
+            place_as_sheet: panel.place_as_sheet,
+            keep_annotations: panel.keep_annotations,
+          };
+        },
+        (aOptions) => {
+          Object.assign(eeschemaKifaceSettings().m_DesignBlockChooserPanel, aOptions);
+        },
+      ),
+  );
+  /** `m_DesignBlockChooserPanel.sort_mode` / `sash_pos_v`, `m_LibTree.open_libs`, the dock's width. */
+  const [dbSortMode, setDbSortMode] = useState(0);
+  const [dbSashPosV, setDbSashPosV] = useState(-1);
+  const [dbOpenLibs, setDbOpenLibs] = useState<readonly string[]>([]);
+  // defaultDesignBlocksPaneInfo: BestSize( 300, 200 ), MinSize( 240, 60 ). [data]
+  const [dbPaneWidth, setDbPaneWidth] = useState(300);
+  useEffect(() => {
+    const frame = schFrameRef.current;
+    if (!frame) return;
+    frame.m_designBlocksPane = designBlocksPane;
+    return () => {
+      frame.m_designBlocksPane = null;
+    };
+  }, [designBlocksPane]);
   /**
    * `KIWAY::CommonSettingsChanged` after a Preferences OK: SCH_BASE_FRAME::CommonSettingsChanged
    * looks the colour theme up again and hands it to the canvas's painter. The settings
@@ -1696,6 +1811,7 @@ export function SchematicEditor({
           SchematicHierarchy: 'showHierarchy',
           NetNavigator: 'showNetNavigator',
           Properties: 'showProperties',
+          DesignBlocks: 'showDesignBlocks',
         }[aPane as string];
         if (!id) return;
         setLocalToggles((prev) => {
@@ -3927,8 +4043,16 @@ export function SchematicEditor({
         setSetup(readSchematicSetup(next, rootPro ?? undefined));
       }
     });
-    return wxMountFileSystem(`/${name}`, fs);
-  }, [rawFiles, projectName, onPersistFiles, rootPro]);
+    const unmount = wxMountFileSystem(`/${name}`, fs);
+    // LIBRARY_MANAGER::LoadProjectTables for the design block table, which the pane lists: the
+    // project's design-block-lib-table is on the mount now.
+    Pgm().GetLibraryManager().LoadProjectTables(`/${name}`, [LIBRARY_TABLE_TYPE.DESIGN_BLOCK]);
+    // PGM_BASE::PreloadDesignBlockLibraries, as a project opens: every row loaded, so the pane
+    // lists its blocks and a save into one finds it (SaveDesignBlock reads loaded libraries only).
+    schFrameRef.current?.Prj().DesignBlockLibs().AsyncLoad();
+    designBlocksPane.RefreshLibs();
+    return unmount;
+  }, [rawFiles, projectName, onPersistFiles, rootPro, designBlocksPane]);
   const liveMirrorRef = useRef<LIVE_SCHEMATIC_MIRROR | null>(null);
   const inEditLiveRef = useRef(false);
   const adoptLiveScreensRef = useRef<(aScreens: Iterable<SCH_SCREEN>) => void>(() => {});
@@ -6339,6 +6463,60 @@ export function SchematicEditor({
           activeTool={activeTool}
           onActivate={onRightToolbar}
         />
+
+        {/* The Design Blocks pane: Right().Layer( 3 ), outside the right toolbar
+            (defaultDesignBlocksPaneInfo, eeschema_settings.cpp:132-151). */}
+        {toggles.has('showDesignBlocks') && (
+          <>
+            <DockSash
+              edge="left"
+              width={dbPaneWidth}
+              min={240}
+              max={800}
+              onResize={setDbPaneWidth}
+            />
+            <SchDesignBlockPane
+              pane={designBlocksPane}
+              libs={schFrameRef.current!.Prj().DesignBlockLibs()}
+              manager={Pgm().GetLibraryManager()}
+              pinned={schFrameRef.current!.Prj().GetProjectFile().m_PinnedDesignBlockLibs}
+              width={dbPaneWidth}
+              onClose={() => onLeftToggle('showDesignBlocks')}
+              onChosen={() => runLiveAction(SCH_ACTIONS.placeDesignBlock)}
+              renderPreview={(aDesignBlock) => (
+                <SchDesignBlockPreviewWidget designBlock={aDesignBlock} theme={theme} />
+              )}
+              sortMode={dbSortMode}
+              sashPosV={dbSashPosV}
+              onSortModeChanged={setDbSortMode}
+              onSashPosVChanged={setDbSashPosV}
+              openLibs={dbOpenLibs}
+              onToggleLibrary={(aNode, aOpen) =>
+                setDbOpenLibs((prev) =>
+                  aOpen
+                    ? [...prev.filter((n) => n !== aNode.libNickname), aNode.libNickname]
+                    : prev.filter((n) => n !== aNode.libNickname),
+                )
+              }
+              // LIB_TREE::onItemContextMenu with SCH_DESIGN_BLOCK_CONTROL as the adapter's
+              // context menu tool: its menu, evaluated for the row the tree selected.
+              onItemContextMenu={(aNode) => {
+                const frame = schFrameRef.current!;
+                // The row under the pointer is the current one, as the tree selected it.
+                designBlocksPane.SetCurrentTreeNode(aNode);
+                const tool = frame.GetToolManager()!.GetTool(SCH_DESIGN_BLOCK_CONTROL);
+
+                if (!tool) return;
+
+                const menu = tool.GetToolMenu().GetMenu();
+                menu.Evaluate(frame.GetCurrentSelection());
+                menu.UpdateAll();
+                menu.ClearDirty();
+                frame.PopupMenu(menu, () => {});
+              }}
+            />
+          </>
+        )}
       </div>
 
       {/* EDA_DRAW_FRAME hosts a message panel above the 8-field status bar:
@@ -6417,6 +6595,17 @@ export function SchematicEditor({
             libraryNameRequest.resolve(aName);
             setLibraryNameRequest(null);
           }}
+        />
+      )}
+      {dbProperties && (
+        <DialogDesignBlockProperties
+          designBlock={dbProperties.designBlock}
+          disableName={dbProperties.disableName}
+          onClose={(ok) => {
+            setDbProperties(null);
+            dbProperties.resolve(ok);
+          }}
+          showError={(m) => DbDisplayErrorMessage(m)}
         />
       )}
       {textEntryRequest && (

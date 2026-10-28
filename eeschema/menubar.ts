@@ -202,7 +202,8 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
             // config, which is off by default — so its absence here was not
             // drift. We always have connectivity, so it is always offered.
             chk('Net Navigator', 'showNetNavigator'),
-            stubChk('Design Blocks'),
+            // SCH_ACTIONS::showDesignBlockPanel (menubar.cpp:187): the Design Blocks dock.
+            chk('Design Blocks', 'showDesignBlocks'),
             stubChk('Remote Symbols'),
           ],
         },

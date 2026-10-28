@@ -72,3 +72,35 @@ describe('MAIL_SCH_GET_ITEM', () => {
     expect(getItem(frame, unknown)).toBe(unknown);
   });
 });
+
+/**
+ * MAIL_RELOAD_LIB (cross-probing.cpp:1145-1151): InvokeEditDesignBlockLibTable sends it after the
+ * table changed, and the Design Blocks pane lists the libraries again.
+ */
+describe('MAIL_RELOAD_LIB', () => {
+  it('refreshes the Design Blocks pane', () => {
+    const { frame } = setUp();
+    let refreshed = 0;
+    frame.m_designBlocksPane = {
+      RefreshLibs: () => {
+        refreshed++;
+      },
+    } as unknown as NonNullable<SCH_EDIT_FRAME['m_designBlocksPane']>;
+
+    frame.KiwayMailIn(
+      new KIWAY_MAIL_EVENT(FRAME_T.FRAME_SCH, MAIL_T.MAIL_RELOAD_LIB, { value: '' }),
+    );
+
+    expect(refreshed).toBe(1);
+  });
+
+  it('is a no-op with no pane', () => {
+    const { frame } = setUp();
+    frame.m_designBlocksPane = null;
+    expect(() =>
+      frame.KiwayMailIn(
+        new KIWAY_MAIL_EVENT(FRAME_T.FRAME_SCH, MAIL_T.MAIL_RELOAD_LIB, { value: '' }),
+      ),
+    ).not.toThrow();
+  });
+});

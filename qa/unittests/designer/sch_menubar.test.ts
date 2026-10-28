@@ -164,7 +164,7 @@ describe('no entry is silently inert', () => {
       'Footprint Assignments...',
       'Drawing to Clipboard',
       'Symbols...',
-      'Design Blocks',
+      // "Design Blocks" used to be greyed here: the pane is docked now (10-28).
       'Remote Symbols',
       'Show Directive Labels',
       'Show ERC Errors',

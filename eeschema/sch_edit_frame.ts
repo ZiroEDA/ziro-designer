@@ -2137,6 +2137,12 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
         this.ExecuteRemoteCommand(payload);
         break;
 
+      // A library table changed (InvokeEditDesignBlockLibTable): the Design Blocks pane lists
+      // the libraries again (cross-probing.cpp:1145-1151).
+      case MAIL_T.MAIL_RELOAD_LIB:
+        this.m_designBlocksPane?.RefreshLibs();
+        break;
+
       // biome-ignore lint/suspicious/noFallthroughSwitchClause: KI_FALLTHROUGH, as upstream
       case MAIL_T.MAIL_SELECTION:
         if (!this.hooks.crossProbingSettings().on_selection) break;

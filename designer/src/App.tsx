@@ -80,6 +80,7 @@ import {
 import { settings } from './prefs/settings.js';
 import { LoadGlobalDesignBlockTables } from '@ziroeda/common/design_block_library_adapter.js';
 import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { LIBRARY_TABLE_TYPE } from '@ziroeda/common/libraries/library_table.js';
 import { mountUserLibraryTables } from './prefs/user_library_tables.js';
 import { warmLibraryIndexes } from './libraryHosts.js';
 import '@ziroeda/common/widgets/shell.css';
@@ -2221,7 +2222,21 @@ export function App(): JSX.Element {
               onWrite={writeProjectFiles}
               loadEmptyFolders={loadProjectEmptyFolders}
               onMakeFolders={makeProjectFolders}
-              onClose={() => setLibTableDialog(null)}
+              onClose={() => {
+                // InvokeEditDesignBlockLibTable's tail: "Trigger a load of any new block
+                // libraries" (PreloadDesignBlockLibraries), and the frames that list them told.
+                if (libTableDialog === 'designBlock') {
+                  PgmOrNull()
+                    ?.GetLibraryManager()
+                    .Adapter(LIBRARY_TABLE_TYPE.DESIGN_BLOCK)
+                    ?.AsyncLoad();
+                  kiway.ExpressMail(FRAME_T.FRAME_SCH, MAIL_T.MAIL_RELOAD_LIB, { value: '' });
+                  kiway.ExpressMail(FRAME_T.FRAME_PCB_EDITOR, MAIL_T.MAIL_RELOAD_LIB, {
+                    value: '',
+                  });
+                }
+                setLibTableDialog(null);
+              }}
             />
           </Suspense>
         </div>
