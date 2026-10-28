@@ -47,6 +47,8 @@ import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
 import { PGM_BASE, Pgm, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { LoadGlobalSymbolTables } from '@ziroeda/eeschema/libraries/symbol_library_adapter.js';
 import { LoadGlobalFootprintTables } from '@ziroeda/pcbnew/footprint_library_adapter.js';
+import { LoadGlobalDesignBlockTables } from '@ziroeda/common/design_block_library_adapter.js';
+import { DialogDesignBlockLibTable } from '@ziroeda/common/dialogs/panel_design_block_lib_table.js';
 import { MEMORY_FILESYSTEM, wxMountFileSystem, wxReadFileSync } from '@ziroeda/wx/filefn.js';
 
 afterEach(cleanup);
@@ -842,5 +844,103 @@ describe('Manage Footprint Libraries, a library in the account', () => {
     openFpGlobal();
     fireEvent.click(screen.getByRole('button', { name: 'Add Existing' }));
     expect(screen.getByText('Old.pretty')).toBeTruthy();
+  });
+});
+
+/**
+ * Manage Design Block Libraries (PANEL_DESIGN_BLOCK_LIB_TABLE): the user's own global table - no
+ * stock libraries, so no KiCad row - its libraries `.kicad_blocks` folders in the account's Design
+ * Blocks folder, and the project's in the project. The add button's row is a new, empty one there.
+ */
+describe('Manage Design Block Libraries', () => {
+  let unmounts: (() => void)[] = [];
+  let BLOCKS: MEMORY_FILESYSTEM;
+  const DB = LIBRARY_TABLE_TYPE.DESIGN_BLOCK;
+  const userTablePath = () => LIBRARY_MANAGER.DefaultGlobalTablePath(DB);
+  const storedRows = () =>
+    LIBRARY_TABLE.FromFile(
+      userTablePath(),
+      new TextDecoder().decode(wxReadFileSync(userTablePath())!),
+      LIBRARY_TABLE_SCOPE.GLOBAL,
+    )
+      .Rows()
+      .map((r) => [r.Nickname(), r.URI(), r.Type()]);
+  const dbFiles = [
+    { name: 'ecc/ecc.kicad_pro', text: '{}' },
+    { name: 'ecc/old.kicad_blocks/amp.kicad_block/amp.kicad_sch', text: '(kicad_sch)' },
+  ];
+  const openDb = (aFiles: typeof dbFiles | null = dbFiles) => {
+    const onSave = vi.fn();
+    render(<DialogDesignBlockLibTable projectFiles={aFiles} onSave={onSave} onClose={vi.fn()} />);
+    return onSave;
+  };
+  const typeNew = (aRow: number, aName: string) => {
+    fireEvent.click(screen.getByRole('button', { name: 'Add empty row to table' }));
+    const input = document.querySelector(
+      `td[data-row="${aRow}"][data-col="3"] input`,
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: aName } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+  };
+
+  beforeEach(() => {
+    SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER()));
+    BLOCKS = new MEMORY_FILESYSTEM();
+    unmounts = [
+      wxMountFileSystem(PATHS.GetUserSettingsPath(), new MEMORY_FILESYSTEM()),
+      wxMountFileSystem('/Design Blocks', BLOCKS),
+    ];
+    LoadGlobalDesignBlockTables();
+  });
+
+  afterEach(() => {
+    for (const u of unmounts) u();
+    SetPgm(null);
+    SetErrorPresenter(() => {});
+  });
+
+  it('starts with an empty global table of the user, with the Show column', () => {
+    expect(storedRows()).toEqual([]);
+    openDb(null);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Global Libraries']);
+    expect(screen.queryByText('Show')).toBeTruthy();
+  });
+
+  it("makes the Global page's new row a library in the account, on OK", () => {
+    openDb(null);
+    typeNew(0, 'MyBlocks');
+    expect(BLOCKS.DirExists('MyBlocks.kicad_blocks')).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    expect(storedRows()).toEqual([['MyBlocks', '/Design Blocks/MyBlocks.kicad_blocks', 'KiCad']]);
+    expect(BLOCKS.DirExists('MyBlocks.kicad_blocks')).toBe(true);
+    expect(
+      Pgm()
+        .GetLibraryManager()
+        .Rows(DB, LIBRARY_TABLE_SCOPE.GLOBAL)
+        .map((r) => r.Nickname()),
+    ).toEqual(['MyBlocks']);
+  });
+
+  it("makes the Project page's new row a library in the project, its folder made on OK", () => {
+    const onSave = openDb();
+    typeNew(0, 'Mine');
+
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const [table, folders] = onSave.mock.calls[0]!;
+    expect(table.name).toBe('ecc/design-block-lib-table');
+    expect(table.text).toMatch(/^\(design_block_lib_table/);
+    expect(table.text).toContain('(name "Mine")');
+    expect(table.text).toContain('${KIPRJMOD}/Mine.kicad_blocks');
+    expect(folders).toEqual(['ecc/Mine.kicad_blocks']);
+  });
+
+  it("offers the project's library folders no row names under Add Existing", () => {
+    openDb();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Existing' }));
+    expect(screen.getByText('old.kicad_blocks')).toBeTruthy();
   });
 });

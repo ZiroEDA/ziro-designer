@@ -28,6 +28,7 @@
  *     template     GetUserTemplatesPath()           paths.cpp:355
  *     symbols      GetDefaultUserSymbolsPath()      paths.cpp:82
  *     footprints   GetDefaultUserFootprintsPath()   paths.cpp:93
+ *     blocks       GetDefaultUserDesignBlocksPath() paths.cpp:104
  *     3dmodels     GetDefaultUser3DModelsPath()     paths.cpp:115
  */
 import { describe, expect, it } from 'vitest';
@@ -44,6 +45,7 @@ const ids = (places: readonly { id: string }[]): string[] => places.map((p) => p
 describe('the folders are KiCad’s own, by name', () => {
   it('has one per kind a user makes, and no others', () => {
     expect(Object.keys(USER_DIRS).sort()).toStrictEqual([
+      'designBlocks',
       'footprints',
       'models3d',
       'symbols',
@@ -136,6 +138,7 @@ describe('every kind gets its own row', () => {
       templates: '/Templates',
       symbols: '/Symbols',
       footprints: '/Footprints',
+      designBlocks: '/Design Blocks',
       models3d: '/3D Models',
     };
     for (const kind of Object.keys(expected) as AssetKind[]) {

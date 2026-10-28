@@ -16,6 +16,7 @@ import {
   projectSymLibTablePath,
   serializeSymLibTable,
 } from '@ziroeda/eeschema/project_sym_lib_table.js';
+import { DialogDesignBlockLibTable } from '@ziroeda/common/dialogs/panel_design_block_lib_table.js';
 import { DialogFpLibTable } from '@ziroeda/pcbnew/dialogs/panel_fp_lib_table.js';
 import { loadIndex } from '../editors/schematic/symbols/index.js';
 import { fetchLibraryIndex, libraryBase } from '../libraryHosts.js';
@@ -31,7 +32,7 @@ export function LibraryTableHost({
   onMakeFolders,
   onClose,
 }: {
-  kind: 'symbol' | 'footprint';
+  kind: 'symbol' | 'footprint' | 'designBlock';
   /** The open project's files; null with none open, when only the global table shows. */
   projectFiles: readonly ProjectFile[] | null;
   /** The project table and the libraries brought in, into the open project. */
@@ -49,7 +50,7 @@ export function LibraryTableHost({
   const [globalLibraries, setGlobalLibraries] = useState<readonly HOSTED_LIBRARY[] | null>(null);
   // A footprint library is a folder, and the project's empty ones are kept beside its files.
   const [emptyFolders, setEmptyFolders] = useState<readonly string[] | null>(
-    kind === 'footprint' && loadEmptyFolders ? null : [],
+    kind !== 'symbol' && loadEmptyFolders ? null : [],
   );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: read once, as the dialog opens
@@ -66,6 +67,12 @@ export function LibraryTableHost({
   }, []);
 
   useEffect(() => {
+    // Design block libraries have no hosted set: the global table is the user's alone.
+    if (kind === 'designBlock') {
+      setGlobalLibraries([]);
+      return;
+    }
+
     let live = true;
     // The symbol index carries each library's stock-table description; the footprint index's
     // `descr` is per footprint, a list, and its libraries' own are not in it.
@@ -90,6 +97,20 @@ export function LibraryTableHost({
   if (!globalLibraries || !emptyFolders) return null;
 
   // onSave comes only for a changed project table, so `projectFiles` is a project's there.
+  if (kind === 'designBlock')
+    return (
+      <DialogDesignBlockLibTable
+        projectFiles={projectFiles}
+        emptyFolders={emptyFolders}
+        onSave={(table, folders) => {
+          onWrite([table]);
+          if (folders.length > 0) onMakeFolders?.(folders);
+          onClose();
+        }}
+        onClose={onClose}
+      />
+    );
+
   if (kind === 'symbol')
     return (
       <DialogSymLibTable

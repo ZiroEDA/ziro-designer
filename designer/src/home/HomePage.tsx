@@ -331,7 +331,10 @@ export function HomePage({
    * Preferences > Manage Symbol / Footprint Libraries: COMMON_CONTROL::ShowLibraryTable, which
    * puts the program's library table dialog up over this project (App's LibraryTableHost).
    */
-  onShowLibraryTable?: (aKind: 'symbol' | 'footprint', aFiles: PickedHomeFile[] | null) => void;
+  onShowLibraryTable?: (
+    aKind: 'symbol' | 'footprint' | 'designBlock',
+    aFiles: PickedHomeFile[] | null,
+  ) => void;
   /** Files the program wrote into the open project (App's writeProjectFiles), newest batch. */
   projectWrites?: { files: { name: string; text: string }[]; nonce: number } | null;
 }): JSX.Element {

@@ -145,6 +145,7 @@ export const USER_DIRS = {
   templates: '/Templates',
   symbols: PATHS.GetDefaultUserSymbolsPath(),
   footprints: PATHS.GetDefaultUserFootprintsPath(),
+  designBlocks: PATHS.GetDefaultUserDesignBlocksPath(),
   models3d: '/3D Models',
 } as const;
 
@@ -245,5 +246,6 @@ const KIND_LABELS: Record<AssetKind, string> = {
   templates: 'Templates',
   symbols: 'Symbols',
   footprints: 'Footprints',
+  designBlocks: 'Design Blocks',
   models3d: '3D Models',
 };

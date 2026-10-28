@@ -34,6 +34,14 @@ export function mountUserFootprintsFolder(aStore: FileSystem): Promise<() => voi
   return mountUserLibraryFolder(aStore, USER_DIRS.footprints);
 }
 
+/**
+ * Mount the account's Design Blocks folder the same way: a design block library is a
+ * `.kicad_blocks` folder there, each block a `.kicad_block` folder in it.
+ */
+export function mountUserDesignBlocksFolder(aStore: FileSystem): Promise<() => void> {
+  return mountUserLibraryFolder(aStore, USER_DIRS.designBlocks);
+}
+
 /** Mount the account folder \a root from \a aStore at its own path, every write going back. */
 async function mountUserLibraryFolder(aStore: FileSystem, root: string): Promise<() => void> {
   const fs = new MEMORY_FILESYSTEM();

@@ -23,8 +23,8 @@ import type { LIB_ID } from './lib_id.js';
 import {
   type LIB_DATA,
   type LIB_STATUS,
+  LIBRARY_MANAGER,
   LIBRARY_MANAGER_ADAPTER,
-  type LIBRARY_MANAGER,
   LOAD_STATUS,
 } from './libraries/library_manager.js';
 import {
@@ -289,3 +289,18 @@ PROJECT.s_designBlockLibsFactory = () => {
 
   return mgr.Adapter(LIBRARY_TABLE_TYPE.DESIGN_BLOCK) as DESIGN_BLOCK_LIBRARY_ADAPTER;
 };
+
+/**
+ * The program's global design block table, as `PGM_KICAD::OnPgmInit` loads every global table at
+ * start: the user's own, in the settings path - written empty the first time, since an install
+ * here ships no stock design block libraries for a KiCad row to chain (`CreateGlobalTable(
+ * DESIGN_BLOCK, false )`) - read into the library manager.
+ */
+export function LoadGlobalDesignBlockTables(): void {
+  const DESIGN_BLOCK = LIBRARY_TABLE_TYPE.DESIGN_BLOCK;
+
+  if (!LIBRARY_MANAGER.IsTableValid(LIBRARY_MANAGER.DefaultGlobalTablePath(DESIGN_BLOCK)))
+    LIBRARY_MANAGER.CreateGlobalTable(DESIGN_BLOCK, false);
+
+  Pgm().GetLibraryManager().LoadGlobalTables([DESIGN_BLOCK]);
+}

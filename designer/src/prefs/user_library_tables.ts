@@ -7,7 +7,7 @@
  * them as files - `LoadGlobalTables`, `CreateGlobalTable`, a table's `Save()` - so they are mounted
  * there, each backed by its settings slice, which is what the account syncs.
  *
- * The symbol and footprint tables; the design-block table is still the hosted one.
+ * The symbol, footprint and design block tables.
  */
 import { LIBRARY_MANAGER } from '@ziroeda/common/libraries/library_manager.js';
 import { LIBRARY_TABLE_TYPE } from '@ziroeda/common/libraries/library_table.js';
@@ -20,6 +20,8 @@ export interface USER_LIBRARY_TABLE_SETTINGS {
   setSymLibTable(aText: string): void;
   readonly fpLibTable: string;
   setFpLibTable(aText: string): void;
+  readonly designBlockLibTable: string;
+  setDesignBlockLibTable(aText: string): void;
   subscribe(aListener: () => void): () => void;
 }
 
@@ -40,6 +42,12 @@ export function mountUserLibraryTables(aSettings: USER_LIBRARY_TABLE_SETTINGS): 
       name: LIBRARY_MANAGER.TableFileName(LIBRARY_TABLE_TYPE.FOOTPRINT),
       text: () => aSettings.fpLibTable,
       set: (aText: string) => aSettings.setFpLibTable(aText),
+      shown: '',
+    },
+    {
+      name: LIBRARY_MANAGER.TableFileName(LIBRARY_TABLE_TYPE.DESIGN_BLOCK),
+      text: () => aSettings.designBlockLibTable,
+      set: (aText: string) => aSettings.setDesignBlockLibTable(aText),
       shown: '',
     },
   ];

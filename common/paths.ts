@@ -144,8 +144,12 @@ export namespace PATHS {
     return '/Footprints';
   }
 
+  /**
+   * `GetDefaultUserDesignBlocksPath`. Web delta, as the symbols' and footprints': the account's
+   * Design Blocks folder, where a global design block library (a `.kicad_blocks`) lives.
+   */
   export function GetDefaultUserDesignBlocksPath(): string {
-    return appendDir(getUserDocumentPath(), 'blocks').replace(/\/$/, '');
+    return '/Design Blocks';
   }
 
   export function GetDefaultUser3DModelsPath(): string {

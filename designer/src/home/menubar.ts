@@ -58,7 +58,7 @@ export interface ManagerMenuHandlers {
   openDrawingSheetEditor: () => void;
   openPreferences: () => void;
   /** ACTIONS::showSymbolLibTable / showFootprintLibTable (COMMON_CONTROL::ShowLibraryTable). */
-  showLibraryTable: (aKind: 'symbol' | 'footprint') => void;
+  showLibraryTable: (aKind: 'symbol' | 'footprint' | 'designBlock') => void;
   showAbout: () => void;
   /** ACTIONS::listHotKeys. */
   showHotkeys: () => void;
@@ -316,8 +316,10 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
            the global table alone, which is the user's own. */
         { label: 'Manage Symbol Libraries...', action: () => h.showLibraryTable('symbol') },
         { label: 'Manage Footprint Libraries...', action: () => h.showLibraryTable('footprint') },
-        // DIALOG_DESIGN_BLOCK_LIBRARY_TABLE is not ported yet.
-        { label: 'Manage Design Block Libraries...', disabled: true },
+        {
+          label: 'Manage Design Block Libraries...',
+          action: () => h.showLibraryTable('designBlock'),
+        },
         { label: 'Preferences...', shortcut: 'Ctrl+,', action: h.openPreferences },
         SEP,
         setLanguageMenuItem({ current: h.language, onSelect: h.setLanguage }),

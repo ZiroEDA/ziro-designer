@@ -308,6 +308,7 @@ describe('the same workspace on another device', () => {
     });
     a.setSymLibTable('(sym_lib_table (version 7))');
     a.setFpLibTable('(fp_lib_table (version 7))');
+    a.setDesignBlockLibTable('(design_block_lib_table (version 7))');
 
     const up = await syncSettings(USER, { manager: a });
     expect(up.error).toBeUndefined();
@@ -329,6 +330,7 @@ describe('the same workspace on another device', () => {
     expect(b.plEditor.system.units).toBe('mm');
     expect(b.fpEdit.window.lib_width).toBe(321);
     expect(b.fpLibTable).toBe('(fp_lib_table (version 7))');
+    expect(b.designBlockLibTable).toBe('(design_block_lib_table (version 7))');
     expect(b.pcbCalculator.track_width.current).toBe('4.5');
     expect(b.bitmap2cmp.threshold).toBe(73);
     expect(b.symbolEditor.window.grid.last_size_idx).toBe(3);
@@ -912,6 +914,7 @@ describe('the per-slice stamps', () => {
     // The global symbol and footprint library tables, written as a save of the file writes it.
     a.setSymLibTable('');
     a.setFpLibTable('');
+    a.setDesignBlockLibTable('');
 
     // Written out rather than compared against `SETTINGS_SLICES`. Comparing the
     // list to itself is an expectation computed by calling the code under test:
@@ -936,6 +939,8 @@ describe('the per-slice stamps', () => {
       'colors.themes',
       'colors.user',
       'common',
+      // The user's global design block library table, `DefaultGlobalTablePath( DESIGN_BLOCK )`.
+      'design-block-lib-table',
       'eeschema',
       'eeschema-toolbars',
       // The user's global footprint library table, `DefaultGlobalTablePath( FOOTPRINT )`, the same.

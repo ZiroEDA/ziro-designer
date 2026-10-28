@@ -20,9 +20,11 @@ const dec = new TextDecoder();
 const enc = new TextEncoder();
 
 /** A settings slice holding \a aText, recording every write and able to change under the mount. */
-function slice(aText: string, aFpText = '') {
+function slice(aText: string, aFpText = '', aDbText = '') {
   let text = aText;
   let fpText = aFpText;
+  let dbText = aDbText;
+  const dbWrites: string[] = [];
   const writes: string[] = [];
   const fpWrites: string[] = [];
   const listeners = new Set<() => void>();
@@ -43,6 +45,14 @@ function slice(aText: string, aFpText = '') {
       fpWrites.push(aNew);
       for (const l of listeners) l();
     },
+    get designBlockLibTable() {
+      return dbText;
+    },
+    setDesignBlockLibTable(aNew: string) {
+      dbText = aNew;
+      dbWrites.push(aNew);
+      for (const l of listeners) l();
+    },
     subscribe(aListener) {
       listeners.add(aListener);
       return () => listeners.delete(aListener);
@@ -52,6 +62,7 @@ function slice(aText: string, aFpText = '') {
     settings,
     writes,
     fpWrites,
+    dbWrites,
     /** How many listen to the slice. */
     listening: () => listeners.size,
     /** Another device's change, arriving through the account. */
@@ -79,6 +90,19 @@ describe('mountUserLibraryTables, the footprint table', () => {
     wxWriteFileSync(FP_PATH, enc.encode(saved));
     expect(s.fpWrites).toEqual([saved]);
     expect(s.writes).toEqual([]);
+  });
+
+  it('mounts the design block table as its own file too', () => {
+    const DB_PATH = LIBRARY_MANAGER.DefaultGlobalTablePath(LIBRARY_TABLE_TYPE.DESIGN_BLOCK);
+    const s = slice(TABLE, '', '(design_block_lib_table (version 7))');
+    unmount = mountUserLibraryTables(s.settings);
+    expect(dec.decode(wxReadFileSync(DB_PATH)!)).toBe('(design_block_lib_table (version 7))');
+
+    const saved = '(design_block_lib_table (version 7) (lib (name "Mine")))';
+    wxWriteFileSync(DB_PATH, enc.encode(saved));
+    expect(s.dbWrites).toEqual([saved]);
+    expect(s.writes).toEqual([]);
+    expect(s.fpWrites).toEqual([]);
   });
 
   it('has no footprint table file until the slice holds one', () => {

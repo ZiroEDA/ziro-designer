@@ -1918,6 +1918,8 @@ export const SETTINGS_SLICES = [
   'sym-lib-table',
   // The user's global footprint library table, `DefaultGlobalTablePath( FOOTPRINT )`, the same way.
   'fp-lib-table',
+  // And the design block one, `DefaultGlobalTablePath( DESIGN_BLOCK )`.
+  'design-block-lib-table',
 ] as const;
 
 export type SettingsSlice = (typeof SETTINGS_SLICES)[number];
@@ -2349,6 +2351,8 @@ interface SliceValues {
   'sym-lib-table': { table: string };
   /** The table's text; empty until `LIBRARY_MANAGER::CreateGlobalTable` writes it. */
   'fp-lib-table': { table: string };
+  /** The table's text; empty until `LIBRARY_MANAGER::CreateGlobalTable` writes it. */
+  'design-block-lib-table': { table: string };
 }
 
 /** `deepMerge` over a fresh copy of the defaults: a fixed-shape file. */
@@ -2404,6 +2408,10 @@ const SLICE_NORMALIZE: { [K in SettingsSlice]: (stored: unknown) => SliceValues[
     return { table: typeof table === 'string' ? table : '' };
   },
   'fp-lib-table': (stored) => {
+    const table = (stored as { table?: unknown } | undefined)?.table;
+    return { table: typeof table === 'string' ? table : '' };
+  },
+  'design-block-lib-table': (stored) => {
     const table = (stored as { table?: unknown } | undefined)?.table;
     return { table: typeof table === 'string' ? table : '' };
   },
@@ -2911,6 +2919,16 @@ export class SettingsManager {
   /** Write the user's global footprint library table: what a save of that file does. */
   setFpLibTable(aText: string): void {
     this.replace('fp-lib-table', { table: aText });
+  }
+
+  /** The user's global design block library table, as text (`design-block-lib-table`). */
+  get designBlockLibTable(): string {
+    return this.files['design-block-lib-table'].value.table;
+  }
+
+  /** Write the user's global design block library table: what a save of that file does. */
+  setDesignBlockLibTable(aText: string): void {
+    this.replace('design-block-lib-table', { table: aText });
   }
 
   resetCommon(): void {

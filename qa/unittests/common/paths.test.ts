@@ -20,7 +20,7 @@ describe('PATHS', () => {
     expect(PATHS.GetDefaultUserFootprintsPath()).toBe('/Footprints');
     expect(PATHS.GetDefaultUser3DModelsPath()).toBe('/.local/share/kicad/10.0/3dmodels');
     expect(PATHS.GetDefaultUserProjectsPath()).toBe('/.local/share/kicad/10.0/projects');
-    expect(PATHS.GetDefaultUserDesignBlocksPath()).toBe('/.local/share/kicad/10.0/blocks');
+    expect(PATHS.GetDefaultUserDesignBlocksPath()).toBe('/Design Blocks');
     expect(PATHS.GetUserPluginsPath()).toBe('/.local/share/kicad/10.0/plugins');
     expect(PATHS.GetUserScriptingPath()).toBe('/.local/share/kicad/10.0/scripting');
     expect(PATHS.GetLogsPath()).toBe('/.local/share/kicad/10.0/logs');

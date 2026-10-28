@@ -72,8 +72,14 @@ import {
 } from './sw_update.js';
 import { installCommonAppearance } from './ui/common_appearance.js';
 import { projectStoreFileSystem } from './fs/project_store_fs.js';
-import { mountUserFootprintsFolder, mountUserSymbolsFolder } from './fs/user_symbols_mount.js';
+import {
+  mountUserDesignBlocksFolder,
+  mountUserFootprintsFolder,
+  mountUserSymbolsFolder,
+} from './fs/user_symbols_mount.js';
 import { settings } from './prefs/settings.js';
+import { LoadGlobalDesignBlockTables } from '@ziroeda/common/design_block_library_adapter.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import { mountUserLibraryTables } from './prefs/user_library_tables.js';
 import { warmLibraryIndexes } from './libraryHosts.js';
 import '@ziroeda/common/widgets/shell.css';
@@ -447,9 +453,15 @@ export function App(): JSX.Element {
   }, [userId]);
 
   // The user's global library tables, files in the settings path backed by their synced slices.
-  useEffect(() => mountUserLibraryTables(settings), []);
+  useEffect(() => {
+    const unmount = mountUserLibraryTables(settings);
+    // The global design block table is the program's from the start (PGM_KICAD::OnPgmInit's
+    // LoadGlobalTables); the symbol and footprint ones wait for their hosted index.
+    if (PgmOrNull()) LoadGlobalDesignBlockTables();
+    return unmount;
+  }, []);
 
-  // The account's Symbols and Footprints folders, where a library saved or dropped into the
+  // The account's Symbols, Footprints and Design Blocks folders, where a library saved or dropped into the
   // account lives and a table row names it from any project: one mount each for the app, read
   // again for each account.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the account is the trigger; the store follows it
@@ -460,6 +472,7 @@ export function App(): JSX.Element {
     for (const [mount, what] of [
       [mountUserSymbolsFolder, 'Symbols'],
       [mountUserFootprintsFolder, 'Footprints'],
+      [mountUserDesignBlocksFolder, 'Design Blocks'],
     ] as const) {
       mount(projectStoreFileSystem())
         .then((u) => {
@@ -627,7 +640,9 @@ export function App(): JSX.Element {
    */
   const [demoProject, setDemoProject] = useState(false);
   /** Manage Symbol / Footprint Libraries, raised through KIWAY::CreateKiWindow. */
-  const [libTableDialog, setLibTableDialog] = useState<'symbol' | 'footprint' | null>(null);
+  const [libTableDialog, setLibTableDialog] = useState<
+    'symbol' | 'footprint' | 'designBlock' | null
+  >(null);
   /**
    * The demo's manifest, when one is open.
    *
@@ -1734,12 +1749,15 @@ export function App(): JSX.Element {
       },
       HasProjectManager: () => true,
       ShowProjectManager: goHome,
-      // `CreateKiWindow( DIALOG_SCH_LIBRARY_TABLE / DIALOG_PCB_LIBRARY_TABLE )`: the library
+      // `CreateKiWindow( DIALOG_SCH_LIBRARY_TABLE / DIALOG_PCB_LIBRARY_TABLE /
+      // DIALOG_DESIGN_BLOCK_LIBRARY_TABLE )`: the library
       // tables, which COMMON_CONTROL::ShowLibraryTable raises from any frame. Configure Paths
       // is not here (no disk to point a path at).
       CreateKiWindow: (aClassId) => {
         if (aClassId === FRAME_T.DIALOG_SCH_LIBRARY_TABLE) setLibTableDialog('symbol');
         else if (aClassId === FRAME_T.DIALOG_PCB_LIBRARY_TABLE) setLibTableDialog('footprint');
+        else if (aClassId === FRAME_T.DIALOG_DESIGN_BLOCK_LIBRARY_TABLE)
+          setLibTableDialog('designBlock');
         else return false;
 
         return true;

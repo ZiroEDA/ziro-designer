@@ -218,7 +218,7 @@ describe('Preferences > Manage Symbol / Footprint Libraries', () => {
     // COMMON_CONTROL::ShowLibraryTable puts the table up over the open project.
     const asked: string[] = [];
     const h = {
-      showLibraryTable: (k: 'symbol' | 'footprint') => {
+      showLibraryTable: (k: 'symbol' | 'footprint' | 'designBlock') => {
         asked.push(k);
       },
     };
@@ -239,20 +239,20 @@ describe('Preferences > Manage Symbol / Footprint Libraries', () => {
     const asked: string[] = [];
     const h = {
       hasProject: false,
-      showLibraryTable: (k: 'symbol' | 'footprint') => {
+      showLibraryTable: (k: 'symbol' | 'footprint' | 'designBlock') => {
         asked.push(k);
       },
     };
 
-    for (const label of ['Manage Symbol Libraries...', 'Manage Footprint Libraries...']) {
+    for (const label of [
+      'Manage Symbol Libraries...',
+      'Manage Footprint Libraries...',
+      'Manage Design Block Libraries...',
+    ]) {
       const item = row(h, label);
       expect(item?.disabled, label).toBeFalsy();
       item!.action!();
     }
-    expect(asked).toEqual(['symbol', 'footprint']);
-  });
-
-  it('keeps Design Block Libraries greyed until its table dialog is ported', () => {
-    expect(row({}, 'Manage Design Block Libraries...')?.disabled).toBe(true);
+    expect(asked).toEqual(['symbol', 'footprint', 'designBlock']);
   });
 });

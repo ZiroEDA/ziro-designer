@@ -532,7 +532,7 @@ export async function saveProject(
  * list for the same reason.
  */
 /**
- * The ids of the four folders — fixed UUIDs, one per kind.
+ * The ids of the account folders — fixed UUIDs, one per kind.
  *
  * Fixed, so the same folder is the same row on every device the account signs
  * in from, and the sync converges instead of making a second Templates. Safe to
@@ -592,12 +592,14 @@ export const USER_DIR_IDS: Record<string, string> = {
   symbols: '9a7c1e40-0000-4000-8000-000000000002',
   footprints: '9a7c1e40-0000-4000-8000-000000000003',
   models3d: '9a7c1e40-0000-4000-8000-000000000004',
+  // The account's Design Blocks folder (10-28): its design block libraries.
+  designBlocks: '9a7c1e40-0000-4000-8000-000000000005',
 };
 
 /**
  * Which folder a record is, from its id or from what this side already knows.
  *
- * The id half is what survives a pull: the cloud carries no marker, so the four
+ * The id half is what survives a pull: the cloud carries no marker, so the
  * fixed UUIDs are the only thing that says a row is a folder rather than a
  * board. The local half covers a record whose id is the per-owner derived one,
  * which no lookup can reverse.
