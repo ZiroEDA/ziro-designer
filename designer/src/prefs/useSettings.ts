@@ -176,13 +176,25 @@ export function resolveTheme(): Theme {
  * to the settings version is what gives us that repaint.
  */
 export function usePlEditorColors(): DsRenderColors {
-  // Memoised on the theme id and the settings version so the returned object is
-  // reference-stable between settings writes: the canvas lists it in `draw`'s
-  // dependencies, and a fresh object every render would re-arm the redraw
-  // effect on every render.
-  const version = useSettingsVersion();
+  // Memoised on what the colours are made of (themeInputs): the canvas lists the object in
+  // `draw`'s dependencies, so a new one on an unrelated settings write redrew the sheet.
+  useSettingsVersion();
   const id = settings.plEditor.appearance.color_theme;
-  return useMemo(() => dsLoadColors(resolveThemeById(id)), [id, version]);
+  const { userColors, userThemes } = themeInputs();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the user tables are what resolveThemeById reads
+  return useMemo(() => dsLoadColors(resolveThemeById(id)), [id, userColors, userThemes]);
+}
+
+/**
+ * What a theme is made of besides its id: the user's own colours (`colors.user`) and the themes
+ * "New Theme..." made (`colors.themes`). Each is replaced, never mutated, when written, so their
+ * identities change exactly when a colour does - unlike the settings version, which counts every
+ * write of every slice: a pane's dock position, a grid toggle, a library table. KiCad reloads
+ * colours only in CommonSettingsChanged, after Preferences changed them; a theme object keyed on
+ * the version made every such write recache the whole canvas.
+ */
+function themeInputs(): { userColors: unknown; userThemes: unknown } {
+  return { userColors: settings.userColors, userThemes: settings.userThemes };
 }
 
 /**
@@ -205,27 +217,28 @@ export function usePlEditorColors(): DsRenderColors {
  * first branch unconditionally and the choice could not exist.
  */
 export function useSymbolEditorTheme(): Theme {
-  // One object per settings version, as useSchematicTheme: the Symbol Editor runs
+  // One object per set of colours (themeInputs), as useSchematicTheme: the Symbol Editor runs
   // CommonSettingsChanged - RebuildView, so ResetTools - whenever its theme changes, and a fresh
-  // object on each render dropped the armed tool on the click that armed it.
-  const version = useSettingsVersion();
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `version` is the trigger - the theme is read from the store it counts
-  return useMemo(() => {
-    const cfg = settings.symbolEditor;
-    return resolveThemeById(
-      cfg.use_eeschema_color_settings
-        ? settings.eeschema.appearance.color_theme
-        : cfg.appearance.color_theme,
-    );
-  }, [version]);
+  // object dropped the armed tool on the click that armed it, or on any settings write.
+  useSettingsVersion();
+  const cfg = settings.symbolEditor;
+  const id = cfg.use_eeschema_color_settings
+    ? settings.eeschema.appearance.color_theme
+    : cfg.appearance.color_theme;
+  const { userColors, userThemes } = themeInputs();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the user tables are what resolveThemeById reads
+  return useMemo(() => resolveThemeById(id), [id, userColors, userThemes]);
 }
 
 export function useSchematicTheme(): Theme {
-  // One object per settings version: a theme with a file (wDark, the default) is rebuilt by
-  // every resolveTheme() call, and the schematic frame raises CommonSettingsChanged - every
-  // colour reloaded, every item recached - whenever the theme it is handed changes. A fresh
-  // object on each render did that on every click.
-  const version = useSettingsVersion();
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `version` is the trigger - resolveTheme reads the store it counts
-  return useMemo(() => resolveTheme(), [version]);
+  // One object per set of colours (themeInputs): a theme with a file (wDark, the default) is
+  // rebuilt by every resolveTheme() call, and the schematic frame raises CommonSettingsChanged -
+  // every colour reloaded, every item recached - whenever the theme it is handed changes. A fresh
+  // object on each render did that on every click; one per settings version did it on every
+  // settings write (a pane opened, a grid toggled), a second and more on a large sheet.
+  useSettingsVersion();
+  const id = settings.eeschema.appearance.color_theme;
+  const { userColors, userThemes } = themeInputs();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the user tables are what resolveTheme reads
+  return useMemo(() => resolveTheme(), [id, userColors, userThemes]);
 }
