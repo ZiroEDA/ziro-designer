@@ -253,6 +253,7 @@ import {
 } from './dialogs/dialog_tablecell_properties.js';
 import {
   SchNavigateTool,
+  firstInstanceOf,
   flattenHierarchy,
   parentPath,
   type SheetRef,
@@ -3748,9 +3749,13 @@ export function SchematicEditor({
           );
         history.current.clear();
         setCurrentFile(start);
-        // Home-tree opens the root; deeper instances are entered from the canvas.
-        setCurrentPath('/');
-        navTool.current.resetHistory('/');
+        // A sub-sheet opened from the project tree: the root opens and MAIL_SCH_NAVIGATE_TO_SHEET
+        // changes to the first instance of that file (project_tree_item.cpp:274-299), so the
+        // sheet path is that instance's, not the root's - the hierarchy highlights the sheet shown.
+        const startPath =
+          start === root ? '/' : (firstInstanceOf(buildSheetTree(docs, root), start) ?? '/');
+        setCurrentPath(startPath);
+        navTool.current.resetHistory(startPath);
         setDoc(docs.get(start)!);
         resetTransient();
         resetErc();

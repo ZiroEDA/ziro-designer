@@ -41,6 +41,15 @@ export function flattenHierarchy(root: SheetTreeNode): SheetRef[] {
   return out;
 }
 
+/**
+ * `MAIL_SCH_NAVIGATE_TO_SHEET` (eeschema/cross-probing.cpp:1166-1183): the first sheet path in
+ * `Hierarchy()` order whose screen is \a aFile - the instance a project-tree double-click on a
+ * sub-sheet lands on (kicad/project_tree_item.cpp:274-299) - or null when no sheet uses it.
+ */
+export function firstInstanceOf(aRoot: SheetTreeNode, aFile: string): string | null {
+  return flattenHierarchy(aRoot).find((s) => s.file === aFile)?.path ?? null;
+}
+
 /** Parent instance path (SCH_SHEET_PATH::pop_back): "/a/b/" → "/a/"; the root
  *  has no parent (CanGoUp() is false on a top-level sheet). */
 export function parentPath(path: string): string | null {
