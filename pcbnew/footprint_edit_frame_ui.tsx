@@ -36,7 +36,20 @@ import { CONFIRM_REVERT_EXTENDED, DisplayErrorMessage } from '@ziroeda/common/co
 import {
   AddFootprintLibraryToProject,
   projectFpLibTablePath,
+  serializeFpLibTable,
 } from '@ziroeda/common/fp_lib_table.js';
+import {
+  LIBRARY_TABLE_SCOPE,
+  LIBRARY_TABLE_TYPE,
+} from '@ziroeda/common/libraries/library_table.js';
+import { PATHS } from '@ziroeda/common/paths.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { wxDirExists, wxMkdir } from '@ziroeda/wx/filefn.js';
+import {
+  FileDlgHookNewLibraryControls,
+  type FILEDLG_HOOK_NEW_LIBRARY,
+  MakeFileDlgHookNewLibrary,
+} from '@ziroeda/common/widgets/filedlg_hook_new_library.js';
 import { ChooseLocalFolder } from '@ziroeda/wx/dirdlg.js';
 import { UnsavedChangesDialog } from '@ziroeda/common/dialogs/dialog_unsaved_changes.js';
 import { EdaListDialog } from '@ziroeda/common/dialogs/eda_list_dialog.js';
@@ -308,6 +321,7 @@ export function FootprintEditFrame({
   initialProject,
   kiway,
   onWriteProjectFiles,
+  onMakeProjectFolders,
   onOutputFile,
 }: {
   app: FOOTPRINT_EDIT_FRAME_APP;
@@ -320,6 +334,8 @@ export function FootprintEditFrame({
    * `fp-lib-table`, where Save and Add Library write them upstream. None without a project.
    */
   onWriteProjectFiles?: ((files: { name: string; text: string }[]) => void) | undefined;
+  /** New, empty folders in the open project: a new library's `.pretty`, before its first footprint. */
+  onMakeProjectFolders?: ((folders: string[]) => void) | undefined;
   /** A generated output (File > Export > View as PNG): the program downloads it. */
   onOutputFile?: ((name: string, bytes: Uint8Array, mime: string) => void) | undefined;
 }): JSX.Element {
@@ -327,6 +343,8 @@ export function FootprintEditFrame({
   projectRef.current = initialProject;
   const writeRef = useRef(onWriteProjectFiles);
   writeRef.current = onWriteProjectFiles;
+  const makeFoldersRef = useRef(onMakeProjectFolders);
+  makeFoldersRef.current = onMakeProjectFolders;
   const outputRef = useRef(onOutputFile);
   outputRef.current = onOutputFile;
   const fpCfg = app.useFpEditSettings();
@@ -392,7 +410,8 @@ export function FootprintEditFrame({
     kind: 'import';
     done: (f: OpenedFile | null) => void;
   }>(null);
-  const [newLibName, setNewLibName] = useState(false);
+  /** File > New Library: the name being asked for, with the global/project table choice. */
+  const [newLibrary, setNewLibrary] = useState<FILEDLG_HOOK_NEW_LIBRARY | null>(null);
   const [unsaved, setUnsaved] = useState<{
     message: string;
     done: (r: UnsavedChangesResult) => void;
@@ -1051,13 +1070,83 @@ export function FootprintEditFrame({
     write(result.files);
   }, []);
 
+  /**
+   * `createNewLibrary` + `AddLibrary` (footprint_libraries_utils.cpp:319-580): an empty `.pretty`
+   * made in the table's place - the account's Footprints folder for the global table, the project
+   * for the project's - and a row for it added and saved. The library's nickname, or null.
+   */
+  const createNewLibrary = (aName: string, aGlobal: boolean): string | null => {
+    if (aName === '') return null;
+
+    if (store.HasLibrary(aName)) {
+      DisplayErrorMessage(`Library ${aName} already exists.`);
+      return null;
+    }
+
+    if (aGlobal) {
+      const manager = PgmOrNull()?.GetLibraryManager();
+      const table = manager?.Table(LIBRARY_TABLE_TYPE.FOOTPRINT, LIBRARY_TABLE_SCOPE.GLOBAL);
+      const libPath = `${PATHS.GetDefaultUserFootprintsPath()}/${aName}.pretty`;
+
+      if (!manager || !table || table.IsReadOnly()) return null;
+
+      if (wxDirExists(libPath)) {
+        DisplayErrorMessage(`Library ${libPath} already exists.`);
+        return null;
+      }
+
+      // PCB_IO_KICAD_SEXPR::CreateLibrary
+      if (!wxMkdir(libPath)) {
+        DisplayErrorMessage(`Cannot create the library folder '${libPath}'.`);
+        return null;
+      }
+
+      const row = table.InsertRow();
+      row.SetNickname(aName);
+      row.SetURI(libPath);
+      row.SetType('KiCad');
+
+      const saved = table.Save();
+
+      if (!saved.ok) {
+        DisplayErrorMessage(`Error saving library table:\n\n${saved.error.message}`);
+        return null;
+      }
+
+      // Reload the table, and with it the store's global libraries.
+      manager.LoadGlobalTables([LIBRARY_TABLE_TYPE.FOOTPRINT]);
+      return aName;
+    }
+
+    const write = writeRef.current;
+
+    if (!write) return null;
+
+    const files = projectRef.current ?? [];
+    const tablePath = projectFpLibTablePath(files);
+    const rows = [
+      ...projectFpLibTable(files),
+      { name: aName, type: 'KiCad', uri: `\${KIPRJMOD}/${aName}.pretty`, options: '', descr: '' },
+    ];
+    const tableFile = { name: tablePath, text: serializeFpLibTable(rows) };
+
+    write([tableFile]);
+    makeFoldersRef.current?.([
+      `${tablePath.slice(0, tablePath.lastIndexOf('/') + 1)}${aName}.pretty`,
+    ]);
+    // The row is a library now; the project's own re-read follows the write.
+    store.SetProjectLibraries([...files.filter((f) => f.name !== tablePath), tableFile]);
+    return aName;
+  };
+
   const onMenuAction = useCallback(
     (id: string) => {
       switch (id) {
         case 'newLibrary':
-          // PCB_CONTROL::AddLibrary -> CreateNewLibrary: not ported; a library
-          // here is a project folder made by name.
-          setNewLibName(true);
+          // PCB_BASE_EDIT_FRAME::CreateNewLibrary: LibraryFileBrowser with the new-library
+          // hook (FILEDLG_HOOK_NEW_LIBRARY( isGlobal = false )). Web delta, as the symbol
+          // editor's: a library is named, not placed - its folder is its table's place.
+          setNewLibrary(MakeFileDlgHookNewLibrary(false));
           return;
         case 'addLibrary':
           // `PCB_BASE_EDIT_FRAME::AddLibrary`: LibraryFileBrowser with isDirectory, the library
@@ -1458,16 +1547,20 @@ export function FootprintEditFrame({
         />
       )}
 
-      {newLibName && (
+      {newLibrary && (
         <WxTextEntryDialog
-          caption="New Library"
-          message="Name:"
-          onCancel={() => setNewLibName(false)}
+          caption="New Footprint Library"
+          message="Library name:"
+          // The table choice only with a project to add to; without one, the global table.
+          {...(writeRef.current
+            ? { extra: <FileDlgHookNewLibraryControls hook={newLibrary} /> }
+            : {})}
+          onCancel={() => setNewLibrary(null)}
           onConfirm={(name) => {
-            setNewLibName(false);
-            const n = name.trim();
+            const global = !writeRef.current || newLibrary.useGlobalTable;
+            setNewLibrary(null);
+            const n = createNewLibrary(name.trim(), global);
             if (!n) return;
-            store.CreateLibrary(n);
             setSelectLibId(n);
             setTreeSel({ lib: n, name: null });
             frame.SyncLibraryTree(true);

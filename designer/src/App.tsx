@@ -2184,6 +2184,7 @@ export function App(): JSX.Element {
                 initialProject={projectFiles}
                 kiway={kiway}
                 onWriteProjectFiles={projectFiles ? writeProjectFiles : undefined}
+                onMakeProjectFolders={projectFiles ? makeProjectFolders : undefined}
                 onOutputFile={onOutputFile}
               />
             </Suspense>
