@@ -49,7 +49,7 @@ import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import type { LAYER_ITEM_PAIR } from '@ziroeda/common/view/view.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { SNAP_RANGE } from '../default_values.js';
 import type { SCH_GROUP } from '../sch_group.js';
 import { SCH_ITEM } from '../sch_item.js';
@@ -737,6 +737,10 @@ export class EE_GRID_HELPER extends GRID_HELPER {
     aGrid: GRID_HELPER_GRIDS,
     aSkip: SCH_ITEM | SCH_SELECTION | null = null,
   ): VECTOR2I {
+    // `const VECTOR2I& aOrigin`: callers pass the event's position, a VECTOR2D, which the
+    // conversion truncates. A fraction left in throws in the BigInt of IsPointOnSegment.
+    aOrigin = toVECTOR2I(aOrigin);
+
     let skipItems: SCH_SELECTION;
 
     if (aSkip instanceof SCH_SELECTION) {

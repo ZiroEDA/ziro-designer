@@ -119,3 +119,18 @@ it('the fast grids are the file’s, and the cycle swaps between them', () => {
   mgr.RunAction(ACTIONS.gridFastCycle);
   expect(galGrid()).toBe(size(0));
 });
+
+/**
+ * EE_GRID_HELPER::BestSnapAnchor takes a VECTOR2I: the event's VECTOR2D is truncated on the way
+ * in. With the grid off the origin comes back as it went in, and a fraction left there threw in
+ * the BigInt of IsPointOnSegment while a bus was drawn (Sentry JAVASCRIPT-REACT-14).
+ */
+it('snaps from the truncated point, so a fraction never comes back', () => {
+  t = symbolEditHarness();
+  const helper = new EE_GRID_HELPER(t.frame.GetToolManager()!);
+  helper.SetUseGrid(false);
+  helper.SetSnap(false);
+  expect(
+    helper.BestSnapAnchor({ x: 326369.38, y: -1270.7 }, GRID_HELPER_GRIDS.GRID_WIRES, null),
+  ).toEqual({ x: 326369, y: -1270 });
+});
