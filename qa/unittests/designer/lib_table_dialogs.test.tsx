@@ -810,6 +810,7 @@ describe('Manage Footprint Libraries, a library in the account', () => {
     for (const u of unmounts) u();
     SetPgm(null);
     SetErrorPresenter(() => {});
+    SetQuestionPresenter(async () => false);
   });
 
   it("shows the user's table, its KiCad row chaining the hosted set", () => {
@@ -844,6 +845,37 @@ describe('Manage Footprint Libraries, a library in the account', () => {
     openFpGlobal();
     fireEvent.click(screen.getByRole('button', { name: 'Add Existing' }));
     expect(screen.getByText('Old.pretty')).toBeTruthy();
+  });
+
+  // m_resetGlobal (panel_fp_lib_table_base.cpp:58): the user's table made again with the KiCad
+  // row alone, as a new install has it.
+  it('resets the global table to the KiCad row alone', async () => {
+    const asked: string[] = [];
+    SetQuestionPresenter(async (aMessage) => {
+      asked.push(aMessage);
+      return true;
+    });
+    openFpGlobal();
+    fireEvent.click(screen.getByRole('button', { name: 'Add empty row to table' }));
+    const input = document.querySelector(
+      'td[data-row="1"][data-col="3"] input',
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'MyFP' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    cleanup();
+    expect(storedRows().map((r) => r[0])).toEqual(['KiCad', 'MyFP']);
+
+    openFpGlobal();
+    const reset = screen.getByRole('button', { name: 'Reset Libraries' });
+    expect(reset.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(reset);
+
+    await vi.waitFor(() => expect(storedRows().map((r) => r[0])).toEqual(['KiCad']));
+    expect(asked).toEqual([
+      'This action will reset your global library table on disk and cannot be undone.',
+    ]);
+    expect(cellText(0, 3)).toBe('KiCad');
   });
 });
 

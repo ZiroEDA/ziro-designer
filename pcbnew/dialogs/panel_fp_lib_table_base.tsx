@@ -5,14 +5,17 @@
  * `PANEL_FP_LIB_TABLE_BASE` (pcbnew/dialogs/panel_fp_lib_table_base.cpp): the tables' notebook, the row buttons, and the read-only grid of path
  * substitutions. PANEL_FP_LIB_TABLE fills it through the shared LibTablePanel (common/dialogs/lib_table_panel.tsx).
  *
- * Web deltas: m_resetGlobal ("Reset Libraries") and m_migrate_libs_button ("Migrate Libraries") are left
- * out, because the global table is the hosted library set and cannot be reset or migrated here.
+ * Web delta: m_migrate_libs_button ("Migrate Libraries") is left out - there is no older library
+ * format here to migrate from. m_resetGlobal ("Reset Libraries") is the symbol panel's: the global
+ * table is the user's own, chaining the hosted set, and Reset makes it again as a new install has it.
  */
 import type { JSX } from 'react';
 import type { LIB_TABLE_BASE_PROPS } from '@ziroeda/common/dialogs/lib_table_panel.js';
 import { SplitButton } from '@ziroeda/common/widgets/split_button.js';
 import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
 import {
+  wxALIGN_CENTER_VERTICAL,
+  wxALL,
   wxBOTTOM,
   wxEXPAND,
   wxHORIZONTAL,
@@ -22,6 +25,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { Button } from '@ziroeda/wx/controls.js';
 
 export function PANEL_FP_LIB_TABLE_BASE(p: LIB_TABLE_BASE_PROPS): JSX.Element {
   return (
@@ -65,6 +69,13 @@ export function PANEL_FP_LIB_TABLE_BASE(p: LIB_TABLE_BASE_PROPS): JSX.Element {
             />
           </SizerItem>
           <Spacer width={20} height={0} proportion={1} flag={wxEXPAND} border={5} />
+          <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
+            <Button
+              label="Reset Libraries"
+              onClick={() => p.onReset?.()}
+              disabled={!p.resetEnabled}
+            />
+          </SizerItem>
         </BoxSizer>
       </SizerItem>
       {/* No "Available path substitutions:": a library's place is its page, not a path (see
