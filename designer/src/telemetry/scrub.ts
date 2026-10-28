@@ -21,6 +21,9 @@
  *   - **Console breadcrumbs are dropped wholesale.** That is where bulk project
  *     data would leak, our own crash log includes a React component stack,
  *     which can embed props.
+ *   - **Email addresses are always redacted.** A click breadcrumb records the
+ *     element's label and title, and the account button's are the signed-in
+ *     address ("Account: name@example.com"); one reached a report on 10-28.
  *   - **Message text is otherwise preserved** and length-capped. A net name may
  *     survive inside a message; that is the accepted cost of reports being
  *     useful. Anyone who objects can switch reporting off.
@@ -77,9 +80,16 @@ const BARE_FILE_RE = new RegExp(String.raw`[\w\-.()[\]]+\.(${EXT})\b`, 'gi');
 /** A path segment leading to a file: redact the directories with it. */
 const PATH_FILE_RE = new RegExp(String.raw`[^\s'"\`]*/[^\s'"\`]*\.(${EXT})\b`, 'gi');
 
-/** Redact file names and cap length, keeping the extension for diagnosis. */
+/**
+ * An email address: a domain whose last label is letters, so a package path - `react-dom@18.3.1`,
+ * `@sentry+core@8.68.0` - which reports carry in every stack, is not one.
+ */
+const EMAIL_RE = /[\w.+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b/g;
+
+/** Redact file names and email addresses, and cap length, keeping a file's extension. */
 export function scrubText(text: string): string {
   const redacted = text
+    .replace(EMAIL_RE, '<email>')
     .replace(QUOTED_FILE_RE, (_m, q: string, ext: string) => `${q}<redacted>.${lower(ext)}${q}`)
     .replace(PATH_FILE_RE, (_m, ext: string) => `<redacted>.${lower(ext)}`)
     .replace(BARE_FILE_RE, (_m, ext: string) => `<redacted>.${lower(ext)}`);

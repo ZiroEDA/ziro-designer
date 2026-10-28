@@ -150,6 +150,40 @@ describe('scrubEvent', () => {
     expect(out.request?.query_string).toBeUndefined();
   });
 
+  // 10-28: a click breadcrumb carried the account button's label, the signed-in address.
+  it('redacts an email address in a click breadcrumb, and leaves package paths alone', () => {
+    const out = scrubEvent({
+      breadcrumbs: [
+        {
+          category: 'ui.click',
+          message:
+            'button.ze-account-avatar[aria-label="Account: jane.doe+cad@mail.example.co.uk"][title="jane.doe+cad@mail.example.co.uk"]',
+        },
+      ],
+      exception: {
+        values: [
+          {
+            type: 'TypeError',
+            value: 'x',
+            stacktrace: {
+              frames: [
+                { filename: '../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/x.js' },
+                { filename: '../node_modules/.pnpm/@sentry+core@8.68.0/helpers.js' },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    expect(out.breadcrumbs?.[0]?.message).toBe(
+      'button.ze-account-avatar[aria-label="Account: <email>"][title="<email>"]',
+    );
+    expect(out.exception?.values?.[0]?.stacktrace?.frames?.map((f) => f.filename)).toEqual([
+      '../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/x.js',
+      '../node_modules/.pnpm/@sentry+core@8.68.0/helpers.js',
+    ]);
+  });
+
   it('never forwards extras or user identity', () => {
     const out = scrubEvent(event());
     expect(out.extra).toBeUndefined();
