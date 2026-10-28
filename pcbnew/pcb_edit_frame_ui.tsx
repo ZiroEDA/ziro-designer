@@ -2622,6 +2622,24 @@ export function PcbEditor({
   const [plotDlgOpen, setPlotDlgOpen] = useState(false);
   const projectFilesRef = useRef(projectFiles);
   projectFilesRef.current = projectFiles;
+
+  // `PROJECT_PCB::FootprintLibAdapter( &Prj() )`: the project's footprint libraries - its
+  // fp-lib-table's rows and their .kicad_mod files - are the adapter's beside the hosted ones,
+  // for Add Footprint's chooser and the placing. Keyed on those files alone, so an edit to the
+  // board does not re-read them.
+  const projectFootprintLibsKey = useMemo(
+    () =>
+      (projectFiles ?? [])
+        .filter((f) => /(^|\/)fp-lib-table$|\.kicad_mod$/i.test(f.name))
+        .map((f) => `${f.name}\n${f.text}`)
+        .sort()
+        .join('\0'),
+    [projectFiles],
+  );
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the key is the trigger; the files are read through the ref
+  useEffect(() => {
+    app.setProjectFootprintLibraries?.(projectFilesRef.current ?? []);
+  }, [projectFootprintLibsKey, app]);
   // Board Setup (DIALOG_BOARD_SETUP). Hydrated from the project's .kicad_pro
   // + the board file's setup sections + the .kicad_dru; committed back to all
   // three on OK (see commitBoardSetup below).

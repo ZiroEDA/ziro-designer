@@ -82,6 +82,52 @@ describe('SetProjectLibraries (ProjectChanged)', () => {
   });
 });
 
+describe('ProjectIndex: the project libraries as the chooser lists them', () => {
+  it('names each footprint with its unique pads, description and keywords, read off its file', () => {
+    const withDocs = `(footprint "C_0402"
+  (layer "F.Cu") (descr "Capacitor, 0402") (tags "capacitor cap")
+  (pad "1" smd rect (at -0.5 0) (size 0.5 0.5) (layers "F.Cu"))
+  (pad "2" smd rect (at 0.5 0) (size 0.5 0.5) (layers "F.Cu"))
+  (pad "2" smd rect (at 0.5 0.5) (size 0.5 0.5) (layers "F.Cu"))
+  (pad "" np_thru_hole circle (at 0 1) (size 1 1) (drill 1) (layers "*.Cu")))`;
+    store.SetProjectLibraries([
+      {
+        name: 'b/fp-lib-table',
+        text: '(fp_lib_table (version 7) (lib (name "Mine")(type "KiCad")(uri "${KIPRJMOD}/mine.pretty")(options "")(descr "")))',
+      },
+      { name: 'b/mine.pretty/C_0402.kicad_mod', text: withDocs },
+    ]);
+
+    // The hosted libraries are the index's own; only the project's are read here.
+    expect(store.ProjectIndex()).toEqual([
+      {
+        name: 'Mine',
+        footprints: ['C_0402'],
+        // "1" and "2": the repeated number counts once, the unnumbered hole not at all.
+        pads: [2],
+        descr: ['Capacitor, 0402'],
+        tags: ['capacitor cap'],
+      },
+    ]);
+  });
+});
+
+describe('a project library named as a hosted one', () => {
+  it('hides it while the project is open, and gives it back when the project goes', () => {
+    store.SetProjectLibraries([
+      {
+        name: 'b/fp-lib-table',
+        text: '(fp_lib_table (version 7) (lib (name "Resistor_SMD")(type "KiCad")(uri "${KIPRJMOD}/r.pretty")(options "")(descr "")))',
+      },
+      { name: 'b/r.pretty/Mine.kicad_mod', text: FP_TEXT('Mine') },
+    ]);
+    expect(store.GetFootprintNames('Resistor_SMD')).toEqual(['Mine']);
+
+    store.SetProjectLibraries([]);
+    expect(store.GetFootprintNames('Resistor_SMD')).toEqual(['R_0402', 'R_0805']);
+  });
+});
+
 describe('reading', () => {
   it("a project footprint loads under the row's nickname, named by its file", () => {
     expect(store.GetFootprintNames('Proj')).toEqual(['R_0603']);

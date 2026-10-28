@@ -30,8 +30,11 @@ import {
   useUserColors,
   useUserThemes,
 } from '../../prefs/useSettings.js';
-import { loadFootprintIndex } from '../../widgets/footprint_list.js';
-import { loadLibraryFootprint } from './footprint_lib_adapter_app.js';
+import {
+  footprintChooserIndex,
+  loadLibraryFootprint,
+  setProjectFootprintLibraries,
+} from './footprint_lib_adapter_app.js';
 import { preloadBoardLibraries } from './preload.js';
 import { formatSchematicNetlist } from '@ziroeda/eeschema/cross-probing.js';
 import { setHeadlessNetlistProvider } from '@ziroeda/pcbnew/browser/headless_netlist.js';
@@ -84,8 +87,9 @@ export function usePcbnewApp(): PCBNEW_APP {
 
       useToolbarEntries,
 
-      loadFootprintIndex,
+      loadFootprintIndex: footprintChooserIndex,
       loadFootprint: loadLibraryFootprint,
+      setProjectFootprintLibraries,
       preloadBoardLibraries,
       cleanup3dCache,
 

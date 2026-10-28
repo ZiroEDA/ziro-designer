@@ -12,7 +12,8 @@
 import type { LIBRARY_TABLE } from '@ziroeda/common/libraries/library_table.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { projectFpLibTable, projectLibraryNickname } from '@ziroeda/common/fp_lib_table.js';
-import { FOOTPRINT } from './footprint.js';
+import { DO_NOT_INCLUDE_NPTH, FOOTPRINT } from './footprint.js';
+import type { FootprintIndexLibrary } from './footprint_info_impl.js';
 import {
   FLIP_DIRECTION,
   FormatFootprintForLibrary,
@@ -161,6 +162,8 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
    * `LIBRARY_EDITOR_CONTROL::changeSelectedPinStatus`.
    */
   private readonly m_pinned = new Set<string>();
+  /** The global libraries a project library of the same nickname hides, until it goes. */
+  private readonly m_shadowed = new Map<string, FOOTPRINT_LIBRARY_STORE_LIB>();
   /** Bumped on every change, so a window can re-read the rows. */
   revision = 0;
 
@@ -194,6 +197,11 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
 
     // FP_CACHE::Load: each file's name is the footprint's (`fn.GetName()`).
     for (const e of aEntries) texts.set(fpNameOf(e.fileName), e.text);
+
+    // The project table's row is the one the nickname finds (LIBRARY_MANAGER::GetRow looks in
+    // the project table first); the global library it shadows comes back with the project gone.
+    const shadowed = this.m_libs.get(aNickname);
+    if (shadowed?.scope === 'global') this.m_shadowed.set(aNickname, shadowed);
 
     this.m_libs.set(aNickname, {
       nickname: aNickname,
@@ -240,9 +248,50 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
     }
   }
 
+  /**
+   * The project's libraries as the chooser's index lists a library: each footprint's name, and
+   * the unique pad count, description and keywords `FOOTPRINT_LIST::ReadFootprintFiles` reads off
+   * it (`FOOTPRINT_INFO_IMPL::load`). A project's footprints are its own files, so all are read.
+   */
+  ProjectIndex(): FootprintIndexLibrary[] {
+    const index: FootprintIndexLibrary[] = [];
+
+    for (const lib of this.m_libs.values()) {
+      if (lib.scope !== 'project') continue;
+
+      const footprints: string[] = [];
+      const pads: number[] = [];
+      const descr: string[] = [];
+      const tags: string[] = [];
+
+      for (const name of lib.names) {
+        let fp: FOOTPRINT | null = null;
+
+        try {
+          fp = this.LoadFootprint(lib.nickname, name, false);
+        } catch {
+          // A file that does not parse is listed by name, as a failed load is.
+        }
+
+        footprints.push(name);
+        pads.push(fp?.GetUniquePadCount(DO_NOT_INCLUDE_NPTH) ?? 0);
+        descr.push(fp?.GetLibDescription() ?? '');
+        tags.push(fp?.GetKeywords() ?? '');
+      }
+
+      index.push({ name: lib.nickname, footprints, pads, descr, tags });
+    }
+
+    return index;
+  }
+
   /** `FOOTPRINT_EDIT_FRAME::ProjectChanged`: the closed project's rows go. */
   DropProjectLibraries(): void {
     for (const [name, lib] of this.m_libs) if (lib.scope === 'project') this.m_libs.delete(name);
+
+    for (const [name, lib] of this.m_shadowed) this.m_libs.set(name, lib);
+
+    this.m_shadowed.clear();
 
     this.touch();
   }

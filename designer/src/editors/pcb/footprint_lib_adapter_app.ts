@@ -11,6 +11,7 @@ import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { IFACE as CVPCB_IFACE } from '@ziroeda/cvpcb/cvpcb.js';
 import { cvpcbKiface, setCvpcbKiface } from './cvpcb_kiface.js';
 import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 import {
   FOOTPRINT_LIBRARY_STORE,
   type FOOTPRINT_LIBRARY_STORE_IO,
@@ -67,6 +68,29 @@ export function hostedFootprintLibs(): Promise<FOOTPRINT_LIBRARY_STORE> {
     if (!cvpcbKiface()) setCvpcbKiface(new CVPCB_IFACE(store));
     return store;
   });
+}
+
+/**
+ * The open project's footprint libraries, into the program's store: `PROJECT_PCB::
+ * FootprintLibAdapter( &Prj() )` is the project's adapter, its table's rows beside the global
+ * ones, for every window that asks it.
+ */
+export function setProjectFootprintLibraries(
+  aFiles: readonly { name: string; text: string }[],
+): void {
+  void hostedFootprintLibs().then((store) => store.SetProjectLibraries(aFiles));
+}
+
+/**
+ * The libraries a footprint chooser lists: the project's, read off their files, and the hosted
+ * index's - less a hosted one a project library of the same nickname hides.
+ */
+export async function footprintChooserIndex(): Promise<FootprintIndexLibrary[]> {
+  const [hosted, store] = await Promise.all([loadFootprintIndex(), hostedFootprintLibs()]);
+  const project = store.ProjectIndex();
+  const shadowed = new Set(project.map((l) => l.name));
+
+  return [...project, ...hosted.filter((l) => !shadowed.has(l.name))];
 }
 
 /**

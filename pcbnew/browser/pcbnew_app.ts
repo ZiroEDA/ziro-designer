@@ -142,6 +142,12 @@ export interface PCBNEW_APP {
    * aKeepUUID )` by "Library:Name": a copy the frame owns, or null.
    */
   loadFootprint(libId: string, aKeepUUID?: boolean): Promise<FOOTPRINT | null>;
+  /**
+   * `PROJECT_PCB::FootprintLibAdapter( &Prj() )` follows the project: its `fp-lib-table`'s
+   * libraries, read from \a aFiles, join the hosted ones that `loadFootprintIndex` and
+   * `loadFootprint` answer from.
+   */
+  setProjectFootprintLibraries?(aFiles: readonly { name: string; text: string }[]): void;
   preloadBoardLibraries(aBoard: BOARD): void;
   cleanup3dCache(clearCacheInterval: number): Promise<number>;
 
