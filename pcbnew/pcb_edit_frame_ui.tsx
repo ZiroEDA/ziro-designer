@@ -26,6 +26,14 @@ import { KICTL_NONKICAD_ONLY } from '@ziroeda/common/kiway_player.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
 import { EDA_VIEW_SWITCHER } from '@ziroeda/common/dialogs/eda_view_switcher.js';
 import { WxTextEntryDialog } from '@ziroeda/wx/textdlg.js';
+import { PATHS } from '@ziroeda/common/paths.js';
+import {
+  type FILEDLG_HOOK_NEW_LIBRARY,
+  FileDlgHookNewLibraryControls,
+  MakeFileDlgHookNewLibrary,
+} from '@ziroeda/common/widgets/filedlg_hook_new_library.js';
+import { KiCadDesignBlockLibPathExtension } from '@ziroeda/common/wildcards_and_files_ext.js';
+import { PCB_DESIGN_BLOCK_CONTROL } from './tools/pcb_design_block_control.js';
 import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
 import { Pgm, PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import type { PCBNEW_SETTINGS } from './pcbnew_settings.js';
@@ -2907,9 +2915,27 @@ export function PcbEditor({
           })) === DB_wxID_OK,
         DisplayError: (aMessage, aDetail) => DisplayErrorMessage(aMessage, aDetail ?? ''),
         GetTextFromUser: (aMessage, aTitle) => mwWindowRef.current!.textEntry(aMessage, aTitle, ''),
-        // `LibraryFileBrowser( …, false /* save */, … )`: naming a new library to write is the
-        // save-style file dialog, which no frame here has yet, so it answers Cancel.
-        NewLibraryBrowser: () => Promise.resolve(null),
+        // `LibraryFileBrowser( …, false, …, FILEDLG_HOOK_NEW_LIBRARY )`. Web delta, as the
+        // schematic's: a library is named, not placed - the account's Design Blocks folder for
+        // the global table, the project for the project's.
+        NewLibraryBrowser: (aTitle) =>
+          new Promise((resolve) => {
+            const projectOpen = frameRef.current!.Prj().GetProjectPath() !== '';
+            setDbNewLibrary({
+              title: aTitle,
+              hook: projectOpen ? MakeFileDlgHookNewLibrary(false) : null,
+              resolve: (aName, aGlobal) => {
+                if (!aName) return resolve(null);
+                const place = aGlobal
+                  ? PATHS.GetDefaultUserDesignBlocksPath()
+                  : frameRef.current!.Prj().GetProjectPath().replace(/\/+$/, '');
+                resolve({
+                  path: `${place}/${aName}.${KiCadDesignBlockLibPathExtension}`,
+                  global: aGlobal,
+                });
+              },
+            });
+          }),
         DesignBlockProperties: (aDesignBlock, aDisableName) =>
           new Promise<boolean>((resolve) =>
             setDbProperties((prev) => {
@@ -2932,6 +2958,12 @@ export function PcbEditor({
       },
     );
   });
+  /** The design block pane's New Library name, with the global/project table choice. */
+  const [dbNewLibrary, setDbNewLibrary] = useState<{
+    title: string;
+    hook: FILEDLG_HOOK_NEW_LIBRARY | null;
+    resolve: (aName: string | null, aGlobal: boolean) => void;
+  } | null>(null);
   /** `m_DesignBlockChooserPanel.sort_mode` / `sash_pos_v` and `m_LibTree.open_libs`. */
   const [dbSortMode, setDbSortMode] = useState(0);
   const [dbSashPosV, setDbSashPosV] = useState(-1);
@@ -2960,6 +2992,8 @@ export function PcbEditor({
     if (tablesChanged || tablesPaneRef.current !== designBlocksPane) {
       tablesPaneRef.current = designBlocksPane;
       Pgm().GetLibraryManager().LoadProjectTables(dir, [LIBRARY_TABLE_TYPE.DESIGN_BLOCK]);
+      // PGM_BASE::PreloadDesignBlockLibraries: every row loaded, so a save into one finds it.
+      frameRef.current?.Prj().DesignBlockLibs().AsyncLoad();
       designBlocksPane.RefreshLibs();
     }
   }, [projectFiles, projectName, onPersistFiles, designBlocksPane]);
@@ -7519,6 +7553,21 @@ export function PcbEditor({
                     : prev.filter((n) => n !== aNode.libNickname),
                 )
               }
+              // LIB_TREE::onItemContextMenu with PCB_DESIGN_BLOCK_CONTROL as the adapter's
+              // context menu tool: its menu, evaluated for the row under the pointer.
+              onItemContextMenu={(aNode) => {
+                const frame = frameRef.current!;
+                const tool = frame.GetToolManager()!.GetTool(PCB_DESIGN_BLOCK_CONTROL);
+
+                if (!tool) return;
+
+                designBlocksPane.SetCurrentTreeNode(aNode);
+                const menu = tool.GetToolMenu().GetMenu();
+                menu.Evaluate(frame.GetCurrentSelection());
+                menu.UpdateAll();
+                menu.ClearDirty();
+                frame.PopupMenu(menu, () => {});
+              }}
             />
           </>
         )}
@@ -8601,6 +8650,26 @@ export function PcbEditor({
           onClose={() => {
             setHtmlMessage(null);
             htmlMessage.resolve();
+          }}
+        />
+      )}
+      {dbNewLibrary && (
+        <WxTextEntryDialog
+          caption={dbNewLibrary.title}
+          message="Library name:"
+          {...(dbNewLibrary.hook
+            ? { extra: <FileDlgHookNewLibraryControls hook={dbNewLibrary.hook} /> }
+            : {})}
+          onCancel={() => {
+            setDbNewLibrary(null);
+            dbNewLibrary.resolve(null, false);
+          }}
+          onConfirm={(aName) => {
+            setDbNewLibrary(null);
+            dbNewLibrary.resolve(
+              aName.trim(),
+              !dbNewLibrary.hook || dbNewLibrary.hook.useGlobalTable,
+            );
           }}
         />
       )}

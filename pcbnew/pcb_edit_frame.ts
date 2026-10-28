@@ -2421,6 +2421,12 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
         this.ExecuteRemoteCommand(payload);
         break;
 
+      // A library table changed: the Design Blocks pane lists the libraries again
+      // (cross-probing.cpp:859-861).
+      case MAIL_T.MAIL_RELOAD_LIB:
+        this.m_designBlocksPane?.RefreshLibs();
+        break;
+
       // biome-ignore lint/suspicious/noFallthroughSwitchClause: KI_FALLTHROUGH, as upstream
       case MAIL_T.MAIL_SELECTION:
         if (!this.hooks.settings().m_CrossProbing.on_selection) break;
