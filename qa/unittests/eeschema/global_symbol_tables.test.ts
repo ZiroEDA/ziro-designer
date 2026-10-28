@@ -70,7 +70,7 @@ describe('LoadGlobalSymbolTables', () => {
     const unmountSymbols = wxMountFileSystem('/Symbols', symbols);
     try {
       symbols.Write('Mine.kicad_sym', new TextEncoder().encode(device));
-      LoadGlobalSymbolTables(['Device']);
+      LoadGlobalSymbolTables([{ name: 'Device' }]);
       const table = stored();
       const mine = table.InsertRow();
       mine.SetNickname('Mine');
@@ -84,7 +84,7 @@ describe('LoadGlobalSymbolTables', () => {
       adapter.AsyncLoad();
       expect(adapter.LoadSymbol('Mine', 'R')).toBeNull();
 
-      LoadGlobalSymbolTables(['Device']);
+      LoadGlobalSymbolTables([{ name: 'Device' }]);
 
       expect(adapter.LoadSymbol('Mine', 'R')?.GetName()).toBe('R');
     } finally {
@@ -93,7 +93,7 @@ describe('LoadGlobalSymbolTables', () => {
   });
 
   it("writes the user's table on first run, and the hosted libraries come through its chain", () => {
-    LoadGlobalSymbolTables(['Device', 'power']);
+    LoadGlobalSymbolTables([{ name: 'Device' }, { name: 'power' }]);
 
     expect(
       stored()
@@ -105,7 +105,7 @@ describe('LoadGlobalSymbolTables', () => {
   });
 
   it("keeps the user's own rows, which are not hosted, across a reload", () => {
-    LoadGlobalSymbolTables(['Device']);
+    LoadGlobalSymbolTables([{ name: 'Device' }]);
     const table = stored();
     const mine = table.InsertRow();
     mine.SetNickname('Mine');
@@ -113,7 +113,7 @@ describe('LoadGlobalSymbolTables', () => {
     mine.SetURI('/Symbols/Mine.kicad_sym');
     expect(table.Save().ok).toBe(true);
 
-    LoadGlobalSymbolTables(['Device', 'power']);
+    LoadGlobalSymbolTables([{ name: 'Device' }, { name: 'power' }]);
 
     expect(globalRows().map((r) => r.Nickname())).toEqual(['Device', 'power', 'Mine']);
     expect(
@@ -134,7 +134,7 @@ describe('LoadGlobalSymbolTables', () => {
     LoadGlobalSymbolTables([]);
 
     // The index lists every library it read, "Mine" included.
-    LoadGlobalSymbolTables(['Device', 'Mine']);
+    LoadGlobalSymbolTables([{ name: 'Device' }, { name: 'Mine' }]);
 
     const mineRows = globalRows().filter((r) => r.Nickname() === 'Mine');
     expect(mineRows.length).toBe(1);
@@ -147,7 +147,7 @@ describe('LoadGlobalSymbolTables', () => {
     unmount();
     unmount = () => {};
 
-    LoadGlobalSymbolTables(['Device']);
+    LoadGlobalSymbolTables([{ name: 'Device' }]);
 
     expect(globalRows().map((r) => r.Nickname())).toEqual(['Device']);
     expect(Pgm().GetLibraryManager().Table(SYM, LIBRARY_TABLE_SCOPE.GLOBAL)!.IsReadOnly()).toBe(
@@ -185,7 +185,15 @@ describe('the symbol index', () => {
       );
       configureSymbolLibraryAdapter({
         symbolsBase: () => '',
-        fetchIndex: () => Promise.resolve([{ name: 'Device', count: 1, symbols: ['R'] }]),
+        fetchIndex: () =>
+          Promise.resolve([
+            {
+              name: 'Device',
+              count: 1,
+              symbols: ['R'],
+              descr: 'Generic symbols for common devices',
+            },
+          ]),
         trackLoad: (_aLabel, aWork) => aWork,
         loadLibraryItemsPooled: () => Promise.resolve([]),
       });
@@ -194,6 +202,12 @@ describe('the symbol index', () => {
 
       expect(index.map((e) => e.name)).toEqual(['Device', 'Mine']);
       expect(globalRows().map((r) => r.Nickname())).toEqual(['Device', 'Mine']);
+      // The stock row has the index's description, as template/sym-lib-table's has; the user's
+      // own row keeps its file's.
+      expect(globalRows().map((r) => r.Description())).toEqual([
+        'Generic symbols for common devices',
+        '',
+      ]);
     } finally {
       unmountSymbols();
     }
@@ -226,7 +240,7 @@ describe('the symbol index, through the tables', () => {
       new Map([['Device', { disabled: false, hidden: true }]]),
     );
 
-    LoadGlobalSymbolTables(['Device', 'power']);
+    LoadGlobalSymbolTables([{ name: 'Device' }, { name: 'power' }]);
 
     // The nested stock table took the override as it was read (loadNestedTables).
     expect(globalRows().map((r) => [r.Nickname(), r.Hidden()])).toEqual([
@@ -274,7 +288,7 @@ describe('the symbol index, through the tables', () => {
 `),
     );
 
-    LoadGlobalSymbolTables(['Device', 'power']);
+    LoadGlobalSymbolTables([{ name: 'Device' }, { name: 'power' }]);
 
     expect(await loadIndex()).toEqual([]);
   });

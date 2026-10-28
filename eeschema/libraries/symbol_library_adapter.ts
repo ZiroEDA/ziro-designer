@@ -41,6 +41,7 @@ import {
   LIBRARY_TABLE_TYPE,
 } from '@ziroeda/common/libraries/library_table.js';
 import {
+  type HOSTED_LIBRARY,
   hostedLibraryTable,
   SetStockLibraryTable,
 } from '@ziroeda/common/libraries/library_manager.js';
@@ -242,7 +243,7 @@ export async function loadIndex(): Promise<LibIndexEntry[]> {
         // PGM_KICAD::OnPgmInit's `GetLibraryManager().LoadGlobalTables()` (kicad.cpp:295): the
         // global table is the program's from the start, for every window. Here it can only be
         // read once the hosted set, its stock table, is known - the first time the index is in.
-        if (PgmOrNull()) LoadGlobalSymbolTables(hosted.map((e) => e.name));
+        if (PgmOrNull()) LoadGlobalSymbolTables(hosted);
 
         return hosted;
       });
@@ -501,7 +502,7 @@ export function isHostedSymbolLibraryRow(aRow: { URI(): string }): boolean {
  * (`CreateGlobalTable( SYMBOL, true )`) - loaded into the library manager. With nowhere to keep a user table (no settings path mounted: a test, a
  * worker), the stock table is the global one, as it was before there were user tables.
  */
-export function LoadGlobalSymbolTables(aHostedNames: readonly string[]): void {
+export function LoadGlobalSymbolTables(aHosted: readonly HOSTED_LIBRARY[]): void {
   const SYMBOL = LIBRARY_TABLE_TYPE.SYMBOL;
   const manager = Pgm().GetLibraryManager();
 
@@ -514,7 +515,7 @@ export function LoadGlobalSymbolTables(aHostedNames: readonly string[]): void {
   );
   const stock = hostedLibraryTable(
     SYMBOL,
-    aHostedNames.filter((n) => !ownRows.has(n)),
+    aHosted.filter((l) => !ownRows.has(l.name)),
     hostedSymbolLibraryUri,
   );
 

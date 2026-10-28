@@ -118,7 +118,11 @@ describe('the symbol chooser’s libraries', () => {
       .SetTable(
         LIBRARY_TABLE_TYPE.SYMBOL,
         LIBRARY_TABLE_SCOPE.GLOBAL,
-        hostedLibraryTable(LIBRARY_TABLE_TYPE.SYMBOL, ['Connector'], hostedSymbolLibraryUri),
+        hostedLibraryTable(
+          LIBRARY_TABLE_TYPE.SYMBOL,
+          [{ name: 'Connector' }],
+          hostedSymbolLibraryUri,
+        ),
       );
     const connector = (await loadIndex()).find((e) => e.name === 'Connector');
     expect(connector?.symbols).toEqual(['Conn_01x02']);

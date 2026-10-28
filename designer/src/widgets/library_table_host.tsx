@@ -10,6 +10,7 @@
  * "Add Existing" brought in off the computer - into the project.
  */
 import { type JSX, useEffect, useState } from 'react';
+import type { HOSTED_LIBRARY } from '@ziroeda/common/libraries/library_manager.js';
 import { projectFpLibTablePath, serializeFpLibTable } from '@ziroeda/common/fp_lib_table.js';
 import {
   projectSymLibTablePath,
@@ -35,21 +36,27 @@ export function LibraryTableHost({
   onWrite: (files: ProjectFile[]) => void;
   onClose: () => void;
 }): JSX.Element | null {
-  // The global table's stand-in: the hosted library set, by nickname. Upstream the global tables
+  // The global table's stand-in: the hosted library set, by nickname (and, for symbols, description). Upstream the global tables
   // are loaded at program start (PGM_KICAD::OnPgmInit), so the dialog never opens before them;
   // here they wait on the hosted index, and the dialog, whose pages are built once, waits too.
   // For symbols, loadIndex also reads the user's own table into the library manager.
-  const [globalLibraries, setGlobalLibraries] = useState<readonly string[] | null>(null);
+  const [globalLibraries, setGlobalLibraries] = useState<readonly HOSTED_LIBRARY[] | null>(null);
 
   useEffect(() => {
     let live = true;
-    const names =
+    // The symbol index carries each library's stock-table description; the footprint index's
+    // `descr` is per footprint, a list, and its libraries' own are not in it.
+    const libraries: Promise<HOSTED_LIBRARY[]> =
       kind === 'symbol'
-        ? loadIndex().then(() => fetchLibraryIndex<{ name: string }>('symbols'))
-        : fetchLibraryIndex<{ name: string }>('footprints');
+        ? loadIndex()
+            .then(() => fetchLibraryIndex<HOSTED_LIBRARY>('symbols'))
+            .then((index) => index.map(({ name, descr }) => ({ name, descr })))
+        : fetchLibraryIndex<{ name: string }>('footprints').then((index) =>
+            index.map(({ name }) => ({ name })),
+          );
 
-    void names
-      .then((index) => live && setGlobalLibraries(index.map((l) => l.name)))
+    void libraries
+      .then((index) => live && setGlobalLibraries(index))
       // An index that cannot be had leaves the global page empty rather than no dialog at all.
       .catch(() => live && setGlobalLibraries([]));
     return () => {

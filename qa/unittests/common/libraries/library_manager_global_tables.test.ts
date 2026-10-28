@@ -41,7 +41,7 @@ beforeEach(() => {
   unmount = wxMountFileSystem(PATHS.GetUserSettingsPath(), cfg);
   SetStockLibraryTable(
     SYM,
-    hostedLibraryTable(SYM, ['Device', 'power'], (n) => `/hosted/${n}`),
+    hostedLibraryTable(SYM, [{ name: 'Device' }, { name: 'power' }], (n) => `/hosted/${n}`),
   );
 });
 
@@ -129,6 +129,27 @@ describe('LoadGlobalTables', () => {
   it('leaves no global table when the user has none', () => {
     Pgm().GetLibraryManager().LoadGlobalTables([SYM]);
     expect(Pgm().GetLibraryManager().Table(SYM, LIBRARY_TABLE_SCOPE.GLOBAL)).toBeNull();
+  });
+});
+
+describe('hostedLibraryTable', () => {
+  it("gives each row its library's description, which the stock table file keeps", () => {
+    SetStockLibraryTable(
+      SYM,
+      hostedLibraryTable(
+        SYM,
+        [{ name: 'Device', descr: 'Generic symbols for common devices' }, { name: 'power' }],
+        (n) => `/hosted/${n}`,
+      ),
+    );
+    LIBRARY_MANAGER.CreateGlobalTable(SYM, true);
+    Pgm().GetLibraryManager().LoadGlobalTables([SYM]);
+
+    const rows = Pgm().GetLibraryManager().Rows(SYM, LIBRARY_TABLE_SCOPE.GLOBAL);
+    expect(rows.map((r) => [r.Nickname(), r.Description()])).toEqual([
+      ['Device', 'Generic symbols for common devices'],
+      ['power', ''],
+    ]);
   });
 });
 

@@ -19,6 +19,8 @@
  * is the hosted library set and read-only; "Add Existing" lists the `.pretty`
  * folders already in the project instead of opening a directory picker.
  */
+import { footprintLibraryDescription } from '@ziroeda/common/lib_table_descriptions.js';
+import type { HOSTED_LIBRARY } from '@ziroeda/common/libraries/library_manager.js';
 import { type JSX, useRef } from 'react';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { ChooseLocalFolder } from '@ziroeda/wx/dirdlg.js';
@@ -56,8 +58,8 @@ interface Props {
    * global table alone.
    */
   projectFiles: readonly { name: string; text: string }[] | null;
-  /** Nicknames of the hosted (global) libraries. */
-  globalLibraries: readonly string[];
+  /** The hosted (global) libraries: nicknames and descriptions. */
+  globalLibraries: readonly HOSTED_LIBRARY[];
   /** Where the hosted libraries are served from (their "Library Path"). */
   globalBase: string;
   /**
@@ -162,7 +164,11 @@ export function DialogFpLibTable({
       dirVarBase="FOOTPRINT_DIR"
       globalTable={hostedLibraryTable(
         LIBRARY_TABLE_TYPE.FOOTPRINT,
-        globalLibraries,
+        // The footprint index has no library descriptions; template/fp-lib-table's are mirrored.
+        globalLibraries.map(({ name, descr }) => ({
+          name,
+          descr: descr ?? footprintLibraryDescription(name),
+        })),
         (name) => `${globalBase}/${name}.pretty`,
       )}
       projectTable={projectFiles ? projectTableOf(projectFiles) : undefined}

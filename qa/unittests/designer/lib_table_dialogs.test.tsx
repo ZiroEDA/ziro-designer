@@ -70,7 +70,7 @@ function openSym(onSave = vi.fn(), onClose = vi.fn()) {
   render(
     <DialogSymLibTable
       projectFiles={symFiles}
-      globalLibraries={['Device', 'power']}
+      globalLibraries={[{ name: 'Device' }, { name: 'power' }]}
       globalBase="https://libs"
       onSave={onSave}
       onClose={onClose}
@@ -94,14 +94,14 @@ describe('Manage Symbol Libraries', () => {
     fireEvent.click(tabs[0]!);
     expect(cellText(1, 3)).toBe('power');
     // No Library Path, Library Format or Options: the page is the library's place.
-    // COL_STATUS's label is wxS( " " ) (lib_table_grid_data_model.cpp:386); the last is the filler.
+    // COL_STATUS's label is wxS( " " ) (lib_table_grid_data_model.cpp:386). No filler after
+    // Description: it is the flexible column, and takes the slack a filler would.
     expect([...document.querySelectorAll('th')].map((t) => t.textContent)).toEqual([
       ' ',
       'Enable',
       'Show',
       'Nickname',
       'Description',
-      '',
     ]);
   });
 
@@ -155,6 +155,15 @@ describe('Manage Symbol Libraries', () => {
       expect(document.querySelector(`td[data-col="${col}"]`), `column ${col}`).toBeNull();
     expect(cellText(0, 7)).toBe('mine');
   });
+
+  // The hidden Library Path column spans the page upstream; here Description, the last column
+  // shown, takes the width the others leave (SetupColumnAutosizer's flexible column).
+  it('gives the width the other columns leave to Description', () => {
+    openSym();
+    const flex = [...document.querySelectorAll('td.ze-grid-flexcol')];
+    expect(flex.length).toBeGreaterThan(0);
+    for (const td of flex) expect(td.getAttribute('data-col')).toBe('7');
+  });
 });
 
 /**
@@ -185,7 +194,11 @@ describe("Manage Symbol Libraries, with the user's global table", () => {
 )
 `),
     );
-    LoadGlobalSymbolTables(['Device', 'power']);
+    // The index's `descr`, template/sym-lib-table's for Device; power's left out.
+    LoadGlobalSymbolTables([
+      { name: 'Device', descr: 'Generic symbols for common devices' },
+      { name: 'power' },
+    ]);
   });
 
   afterEach(() => {
@@ -230,7 +243,7 @@ describe("Manage Symbol Libraries, with the user's global table", () => {
     render(
       <DialogSymLibTable
         projectFiles={null}
-        globalLibraries={['Device', 'power']}
+        globalLibraries={[{ name: 'Device' }, { name: 'power' }]}
         globalBase="https://libs"
         onSave={onSave}
         onClose={onClose}
@@ -273,6 +286,8 @@ describe("Manage Symbol Libraries, with the user's global table", () => {
     const tabs = () => screen.getAllByRole('tab').map((t) => t.textContent);
     expect(tabs()).toEqual(['Global Libraries', 'Project Specific Libraries', 'KiCad (read-only)']);
     expect([cellText(0, 3), cellText(1, 3)]).toEqual(['Device', 'power']);
+    // COL_DESCR: each library's own description, from the index, as the stock table has it.
+    expect([cellText(0, 7), cellText(1, 7)]).toEqual(['Generic symbols for common devices', '']);
     // Read-only: rows cannot be added, but Show changes.
     fireEvent.click(screen.getByRole('button', { name: 'Add empty row to table' }));
     expect(document.querySelector('td[data-row="2"]')).toBeNull();
@@ -358,7 +373,7 @@ describe("Manage Symbol Libraries, with the user's global table", () => {
     });
     Pgm().GetLibraryManager().SetTable(LIBRARY_TABLE_TYPE.SYMBOL, LIBRARY_TABLE_SCOPE.GLOBAL, null);
     openSym();
-    LoadGlobalSymbolTables(['Device', 'power']);
+    LoadGlobalSymbolTables([{ name: 'Device' }, { name: 'power' }]);
     const before = stored();
 
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
@@ -420,7 +435,7 @@ describe('Manage Footprint Libraries', () => {
     render(
       <DialogFpLibTable
         projectFiles={fpFiles}
-        globalLibraries={['Resistor_SMD']}
+        globalLibraries={[{ name: 'Resistor_SMD' }]}
         globalBase="https://fp"
         onSave={onSave}
         onClose={vi.fn()}
@@ -437,6 +452,22 @@ describe('Manage Footprint Libraries', () => {
     expect(onSave).toHaveBeenCalledWith([], []);
   });
 
+  // The footprint index has no library descriptions: template/fp-lib-table's, mirrored.
+  it("shows each hosted library's description, KiCad's own", () => {
+    render(
+      <DialogFpLibTable
+        projectFiles={fpFiles}
+        globalLibraries={[{ name: 'Resistor_SMD' }]}
+        globalBase="https://fp"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getAllByRole('tab')[0]!);
+    expect(cellText(0, 3)).toBe('Resistor_SMD');
+    expect(cellText(0, 7)).toBe('Resistor footprints, surface mount (SMD)');
+  });
+
   describe('"Add Existing" from the computer', () => {
     const enc = new TextEncoder();
     const open = (onSave: ReturnType<typeof vi.fn>) => {
@@ -450,7 +481,7 @@ describe('Manage Footprint Libraries', () => {
       render(
         <DialogFpLibTable
           projectFiles={fpFiles}
-          globalLibraries={['Resistor_SMD']}
+          globalLibraries={[{ name: 'Resistor_SMD' }]}
           globalBase="https://fp"
           onSave={onSave}
           onClose={vi.fn()}
@@ -559,7 +590,7 @@ describe('Manage Symbol Libraries, a library in its place', () => {
 )
 `),
     );
-    LoadGlobalSymbolTables(['Device', 'power']);
+    LoadGlobalSymbolTables([{ name: 'Device' }, { name: 'power' }]);
     pickedFiles.value = [];
   });
 

@@ -100,6 +100,7 @@
  * measurement it came from.
  */
 
+import type { HOSTED_LIBRARY } from '@ziroeda/common/libraries/library_manager.js';
 import { Button } from '@ziroeda/wx/controls.js';
 import {
   useEffect,
@@ -252,7 +253,7 @@ export interface CVPCB_APP extends CvpcbDisplayFootprintsApp, CvpcbEquFilesApp {
   /** Preferences > Manage Footprint Libraries (`pcbnew/dialogs/panel_fp_lib_table.tsx`). */
   DialogFpLibTable(props: {
     projectFiles: readonly ProjectFile[];
-    globalLibraries: readonly string[];
+    globalLibraries: readonly HOSTED_LIBRARY[];
     globalBase: string;
     onSave: (rows: FpLibRow[], files: { name: string; text: string }[]) => void;
     onClose: () => void;
@@ -1670,7 +1671,7 @@ export function DialogAssignFootprints({
           onSaveLibTable &&
           app.DialogFpLibTable({
             projectFiles: projectFootprints ?? [],
-            globalLibraries: hostedIndex.map((l) => l.name),
+            globalLibraries: hostedIndex.map(({ name }) => ({ name })),
             globalBase: app.footprintsBase(),
             onSave: (next, files) => {
               onSaveLibTable(next, files);

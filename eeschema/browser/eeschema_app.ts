@@ -15,6 +15,7 @@
 import type { ForwardRefExoticComponent, ReactNode, RefAttributes } from 'react';
 import type { CommonSettings } from '@ziroeda/common/settings/common_settings.js';
 import type { FpLibRow } from '@ziroeda/common/fp_lib_table.js';
+import type { HOSTED_LIBRARY } from '@ziroeda/common/libraries/library_manager.js';
 import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 import type { ChooserFilter, OpenedFile } from '@ziroeda/wx/filedlg.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
@@ -78,6 +79,8 @@ export interface EeschemaFootprintIndexLibrary {
 export interface EeschemaSymbolIndexLibrary {
   name: string;
   symbols: readonly string[];
+  /** The library's stock-table description (`LibIndexEntry.descr`). */
+  descr?: string;
 }
 
 /** A loaded footprint, as far as ERC's pad tests read it. */
@@ -108,7 +111,7 @@ export interface EESCHEMA_APP {
   /** Preferences > Manage Symbol Libraries (`PANEL_SYM_LIB_TABLE`). */
   DialogSymLibTable: (props: {
     projectFiles: readonly { name: string; text: string }[];
-    globalLibraries: readonly string[];
+    globalLibraries: readonly HOSTED_LIBRARY[];
     globalBase: string;
     onSave: (rows: FpLibRow[], files: { name: string; text: string }[]) => void;
     onClose: () => void;

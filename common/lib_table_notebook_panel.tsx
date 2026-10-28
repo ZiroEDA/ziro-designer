@@ -23,6 +23,7 @@ import type { GRID_TRICKS } from './grid_tricks.js';
 import { LIBRARY_TABLE, LIBRARY_TABLE_SCOPE } from './libraries/library_table.js';
 import { PgmOrNull } from './pgm_base.js';
 import {
+  COL_DESCR,
   COL_OPTIONS,
   COL_TYPE,
   COL_URI,
@@ -306,6 +307,10 @@ export function LibTableNotebookView({
             grid={grid}
             {...(page.GetTricks() ? { tricks: page.GetTricks()! } : {})}
             columns={COLUMN_SIZES}
+            // Web delta: upstream the Library Path column, autosized to the longest path, spans
+            // the page. It is hidden here (no path to show), so Description, the last shown,
+            // takes what the others leave, as `SetupColumnAutosizer( COL_DESCR )` would.
+            flexCol={COL_DESCR}
             renderCell={(aRow, aCol) => {
               const renderer = grid.GetCellRenderer(aRow, aCol);
 

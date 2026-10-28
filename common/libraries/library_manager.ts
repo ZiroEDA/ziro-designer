@@ -922,19 +922,29 @@ export abstract class LIBRARY_MANAGER_ADAPTER {
  */
 let s_stock: MEMORY_FILESYSTEM | null = null;
 
+/**
+ * A library of the hosted set, as its index lists it: the nickname, and the description its row
+ * carries in the stock table (`template/sym-lib-table`'s `descr`, "4xxx series symbols").
+ */
+export interface HOSTED_LIBRARY {
+  name: string;
+  descr?: string;
+}
+
 /** The hosted library set as a LIBRARY_TABLE: read-only, "KiCad" rows. */
 export function hostedLibraryTable(
   aType: LIBRARY_TABLE_TYPE,
-  aNames: readonly string[],
+  aLibraries: readonly HOSTED_LIBRARY[],
   aUriOf: (aName: string) => string,
 ): LIBRARY_TABLE {
   const table = LIBRARY_TABLE.Empty(LIBRARY_TABLE_SCOPE.GLOBAL, aType);
 
-  for (const name of aNames) {
+  for (const { name, descr } of aLibraries) {
     const row = table.InsertRow();
     row.SetNickname(name);
     row.SetType('KiCad');
     row.SetURI(aUriOf(name));
+    if (descr) row.SetDescription(descr);
   }
 
   table.SetReadOnly();

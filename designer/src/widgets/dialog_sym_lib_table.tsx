@@ -53,6 +53,7 @@ import { SCH_IO_KICAD_SEXPR_LIB_CACHE } from '@ziroeda/eeschema/sch_io/kicad_sex
 import { wxDirEnumerate, wxFileExists, wxWriteFileSync } from '@ziroeda/wx/filefn.js';
 import { USER_DIRS } from '../fs/chooser_places.js';
 
+import type { HOSTED_LIBRARY } from '@ziroeda/common/libraries/library_manager.js';
 import { PANEL_SYM_LIB_TABLE_BASE } from '@ziroeda/eeschema/dialogs/panel_sym_lib_table_base.js';
 interface Props {
   /**
@@ -60,8 +61,8 @@ interface Props {
    * global table alone.
    */
   projectFiles: readonly { name: string; text: string }[] | null;
-  /** Nicknames of the hosted (global) libraries. */
-  globalLibraries: readonly string[];
+  /** The hosted (global) libraries: nicknames and descriptions. */
+  globalLibraries: readonly HOSTED_LIBRARY[];
   /** Where the hosted libraries are served from (their "Library Path"). */
   globalBase: string;
   /**
@@ -183,7 +184,7 @@ export function DialogSymLibTable({
       const added = AddSymbolLibraryToProject(
         files(),
         { name: file.name, text: await file.text() },
-        globalLibraries,
+        globalLibraries.map((l) => l.name),
       );
 
       if (!added.ok) {

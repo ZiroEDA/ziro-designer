@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import type { HOSTED_LIBRARY } from '@ziroeda/common/libraries/library_manager.js';
 import { Reporter } from '@ziroeda/common/reporter.js';
 import type { INCREMENT_ANNOTATIONS_VALUES } from './tools/sch_editor_control.js';
 import { ANNOTATE_ALGO_T, ANNOTATE_ORDER_T, ANNOTATE_SCOPE_T } from './sch_reference_list.js';
@@ -2547,14 +2548,14 @@ export function SchematicEditor({
     [rawFiles, onPersistFiles],
   );
   const [symLibTableOpen, setSymLibTableOpen] = useState(false);
-  /** The hosted library nicknames, the global table's stand-in in the dialog.
+  /** The hosted libraries, the global table's stand-in in the dialog.
    *  Fetched when it first opens; the ERC cache is not reused because a run
    *  merges the project's own rows into it. */
-  const [hostedSymbolLibs, setHostedSymbolLibs] = useState<readonly string[]>([]);
+  const [hostedSymbolLibs, setHostedSymbolLibs] = useState<readonly HOSTED_LIBRARY[]>([]);
   useEffect(() => {
     if (!symLibTableOpen || hostedSymbolLibs.length > 0) return;
     void loadIndex()
-      .then((index) => setHostedSymbolLibs(index.map((lib) => lib.name)))
+      .then((index) => setHostedSymbolLibs(index.map(({ name, descr }) => ({ name, descr }))))
       .catch(() => setHostedSymbolLibs([]));
   }, [symLibTableOpen, hostedSymbolLibs.length, loadIndex]);
 
