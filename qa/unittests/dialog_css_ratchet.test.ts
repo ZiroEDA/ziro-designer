@@ -30,7 +30,7 @@ const BASELINE: Record<string, number> = {
   // 153 -> 149 (10-21): EDA_LIST_DIALOG's pair; the .ze-list-dialog-* block, laid out by its sizers.
   common: 146, // -3 (10-28): WX_TEXT_ENTRY_DIALOG's .ze-textentry rules, now its sizer. -11 (10-11): the shared Table Properties form, replaced by one pair per editor
   cvpcb: 8,
-  designer: 138,
+  designer: 137, // -1 (10-28): Duplicate Template is WxTextEntryDialog, as upstream's wxTextEntryDialog
   // 114 -> 122 (10-11): not new CSS. ze-lp-* classes the old Table Cell and Label forms shared
   // are Text / Sheet Properties' alone now (ze-lp-entry, -syntax, -fields, -shape, -options...),
   // and go with those dialogs; the ones nothing uses any more were deleted.

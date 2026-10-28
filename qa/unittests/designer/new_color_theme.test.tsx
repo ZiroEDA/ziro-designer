@@ -146,7 +146,7 @@ function chooseTheme(label: string): void {
 }
 
 const nameField = (): HTMLInputElement =>
-  document.querySelector('.ze-newprjfolder-body input') as HTMLInputElement;
+  document.querySelector('.ze-modal input') as HTMLInputElement;
 
 describe('New Theme..., end to end on the page', () => {
   it('opens the prompt rather than selecting a theme called that', () => {

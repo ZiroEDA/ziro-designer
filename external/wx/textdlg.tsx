@@ -14,11 +14,24 @@
  * closed - which is when upstream gives it.
  *
  * It was `dialog_add_color_theme.tsx`, written for that one caller.
+ *
+ * Laid out as wx's generic one (`wxTextEntryDialog::Create`, src/generic/textdlgg.cpp): the
+ * message with a double border, the entry - `wxSize( 300, -1 )` - expanded with a triple border at
+ * its sides, and the buttons. It was a label row of its own CSS, the message beside the entry, and a
+ * long one wrapped into a column; the customize hook's controls went beside it too, not under it.
  */
 import { useRef, useState, type JSX, type ReactNode } from 'react';
+import { TextCtrl, StaticText } from './controls.js';
+import { wxALL, wxEXPAND, wxLEFT, wxRIGHT, wxVERTICAL } from './defs.js';
 import { Dialog } from './dialog.js';
-import { CANCEL_LABEL, OK_LABEL } from './stockitem.js';
+import { BoxSizer, SizerItem, StdDialogButtonSizer } from './sizer.js';
 import type { wxTextValidator } from './valtext.js';
+
+/** `wxSizerFlags::DoubleBorder()` / `TripleBorder()`: twice and three times the default 5. */
+const DOUBLE_BORDER = 10;
+const TRIPLE_BORDER = 15;
+/** The entry's `wxSize( 300, wxDefaultCoord )`. */
+const ENTRY_WIDTH = 300;
 
 export function WxTextEntryDialog({
   caption,
@@ -56,7 +69,6 @@ export function WxTextEntryDialog({
       title={caption}
       onClose={onCancel}
       resizable={false}
-      className="ze-newprjfolder ze-addtheme"
       // The entry has the focus, its text selected, so typing replaces it. Once shown: the frame
       // is measured hidden first, and a hidden entry takes no focus (`autoFocus` never did).
       onShown={() => {
@@ -64,33 +76,32 @@ export function WxTextEntryDialog({
         entryRef.current?.select();
       }}
     >
-      <div className="ze-modal-body ze-newprjfolder-body">
-        {/* biome-ignore lint/a11y/noLabelWithoutControl: the input is the control. */}
-        <label>
-          <span>{message}</span>
-          <input
-            ref={entryRef}
-            className="ze-search"
+      <BoxSizer orient={wxVERTICAL}>
+        <SizerItem flag={wxALL} border={DOUBLE_BORDER}>
+          <StaticText label={message} />
+        </SizerItem>
+        <SizerItem
+          flag={wxEXPAND | wxLEFT | wxRIGHT}
+          border={TRIPLE_BORDER}
+          minSize={[ENTRY_WIDTH, -1]}
+        >
+          <TextCtrl
+            inputRef={entryRef}
+            ariaLabel={message}
             value={name}
-            onChange={(e) => setName(validator ? validator.Filter(e.target.value) : e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && ok) {
-                e.preventDefault();
-                onConfirm(name);
-              }
+            onChange={(v) => setName(validator ? validator.Filter(v) : v)}
+            onEnter={() => {
+              if (ok) onConfirm(name);
             }}
           />
-        </label>
-        {extra}
-      </div>
-      <div className="ze-modal-footer">
-        <button type="button" className="ze-btn" onClick={onCancel}>
-          {CANCEL_LABEL}
-        </button>
-        <button type="button" className="ze-btn" disabled={!ok} onClick={() => onConfirm(name)}>
-          {OK_LABEL}
-        </button>
-      </div>
+        </SizerItem>
+        {extra !== undefined && (
+          <SizerItem flag={wxEXPAND | wxLEFT | wxRIGHT} border={TRIPLE_BORDER}>
+            {extra}
+          </SizerItem>
+        )}
+      </BoxSizer>
+      <StdDialogButtonSizer onCancel={onCancel} onOk={() => onConfirm(name)} okDisabled={!ok} />
     </Dialog>
   );
 }

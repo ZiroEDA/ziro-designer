@@ -42,6 +42,9 @@ import { Button, Combo, TextCtrl } from '@ziroeda/wx/controls.js';
 import { settings } from '../../prefs/settings.js';
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { sanitizeProjectName } from '../new_project.js';
+import { WxTextEntryDialog } from '@ziroeda/wx/textdlg.js';
+import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
+import { PATHS } from '@ziroeda/common/paths.js';
 import type { TemplateMeta } from '../templates.js';
 // SetTemplate's fallback when the template has no meta/icon.png:
 //   bundle = KiBitmapBundleDef( BITMAPS::icon_kicad, c_bitmapSizes[0] );  // 48
@@ -503,9 +506,8 @@ export function TemplateSelectorDialog({
  *     wxTextEntryDialog nameDlg( m_dialog, _( "Enter name for the new template:" ),
  *                                _( "Duplicate Template" ), srcTemplateName + _( "_copy" ) );
  *
- * Upstream refuses an empty name with "Template name cannot be empty."; a name
- * already in the list is refused here too, because two templates sharing a
- * directory name is exactly what a filesystem would have prevented.
+ * Upstream refuses an empty name with "Template name cannot be empty." and a taken one with
+ * "Directory '%s' already exists." (the folder it would make), each after the dialog closed.
  */
 export function DuplicateTemplateDialog({
   source,
@@ -518,36 +520,32 @@ export function DuplicateTemplateDialog({
   onCancel: () => void;
   onConfirm: (newId: string) => void;
 }): JSX.Element {
-  const [name, setName] = useState(`${source.id}_copy`);
-  const clean = sanitizeProjectName(name);
-  const clash = clean !== '' && taken.has(clean.toLowerCase());
-  const ok = clean !== '' && !clash;
   return (
-    <DialogShim title="Duplicate Template" onClose={onCancel} className="ze-newprjfolder">
-      <div className="ze-modal-body ze-newprjfolder-body">
-        <label>
-          <span>Enter name for the new template:</span>
-          <input
-            className="ze-search"
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && ok) {
-                e.preventDefault();
-                onConfirm(clean);
-              }
-            }}
-          />
-        </label>
-        {clash && (
-          <div className="ze-tplsel-nameerr">A template named “{clean}” already exists.</div>
-        )}
-      </div>
-      <div className="ze-modal-footer">
-        <Button label="Cancel" onClick={onCancel} />
-        <Button label="OK" disabled={!ok} onClick={() => onConfirm(clean)} />
-      </div>
-    </DialogShim>
+    <WxTextEntryDialog
+      caption="Duplicate Template"
+      message="Enter name for the new template:"
+      value={`${source.id}_copy`}
+      onCancel={onCancel}
+      onConfirm={(text) => {
+        const clean = sanitizeProjectName(text);
+
+        // After the dialog, as upstream answers: the error, and nothing duplicated.
+        if (clean === '') {
+          onCancel();
+          DisplayErrorMessage('Template name cannot be empty.');
+          return;
+        }
+
+        if (taken.has(clean.toLowerCase())) {
+          onCancel();
+          DisplayErrorMessage(
+            `Directory '${PATHS.GetUserTemplatesPath().replace(/\/+$/, '')}/${clean}' already exists.`,
+          );
+          return;
+        }
+
+        onConfirm(clean);
+      }}
+    />
   );
 }
