@@ -22,13 +22,23 @@ export const UPDATE_CHECK_MS = 60 * 60 * 1000;
 let waiting: ServiceWorker | null = null;
 const listeners = new Set<() => void>();
 let watching = false;
+let stale = false;
+let watchingStale = false;
 
 /** The new version's worker, installed and waiting; null while there is none. */
 export function updateWaiting(): ServiceWorker | null {
   return waiting;
 }
 
-/** `useSyncExternalStore`'s subscribe: told when a new version is waiting. */
+/**
+ * Whether one of this build's lazy chunks failed to load: a deploy since the tab opened has taken
+ * its files off the server, so there is a newer version whether or not its worker is waiting yet.
+ */
+export function buildIsStale(): boolean {
+  return stale;
+}
+
+/** `useSyncExternalStore`'s subscribe: told when a new version is waiting, or the build is stale. */
 export function subscribeUpdate(aListener: () => void): () => void {
   listeners.add(aListener);
   return () => listeners.delete(aListener);
@@ -40,6 +50,42 @@ export function applyUpdate(): boolean {
 
   waiting.postMessage({ type: 'SKIP_WAITING' });
   return true;
+}
+
+/**
+ * Reload Now: the waiting worker takes over, and the page reloads when it has; with none waiting
+ * yet, \a aReload reloads the page itself.
+ */
+export function reloadOntoNewBuild(aReload: () => void): void {
+  if (!applyUpdate()) aReload();
+}
+
+/**
+ * Watch \a aWindow for a lazy chunk that will not load - Vite's `vite:preloadError`, which its
+ * dynamic-import wrapper sends for the import itself as well as for its preloads.
+ *
+ * The precache holds only files under its size cap, so the biggest chunks (the 3D viewer's) come
+ * from the network, and a deploy since the tab opened has removed them: the host answers the old
+ * hash with `index.html`, "not a valid JavaScript MIME type". The build is then stale: the window
+ * offers the new version as it offers a waiting one, and \a aContainer is asked for its sw.js now
+ * rather than at the hourly check, so the new worker is likely waiting by the time it is taken.
+ */
+export function watchForStaleBuild(
+  aWindow: Pick<EventTarget, 'addEventListener'>,
+  aContainer: ServiceWorkerContainer | null,
+): void {
+  if (watchingStale) return;
+
+  watchingStale = true;
+
+  aWindow.addEventListener('vite:preloadError', () => {
+    if (stale) return;
+
+    stale = true;
+    for (const listener of listeners) listener();
+
+    aContainer?.ready.then((aRegistration) => aRegistration.update()).catch(() => {});
+  });
 }
 
 /**
@@ -96,9 +142,11 @@ export function watchForUpdate(
     .catch(() => {});
 }
 
-/** For the tests: forget the watch and the waiting worker. */
+/** For the tests: forget the watches, the waiting worker and the stale build. */
 export function resetUpdateWatchForTests(): void {
   watching = false;
   waiting = null;
+  stale = false;
+  watchingStale = false;
   listeners.clear();
 }

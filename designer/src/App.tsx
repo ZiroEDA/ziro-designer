@@ -59,7 +59,15 @@ import {
 } from './home/save_state.js';
 import { SaveIndicator } from './ui/SaveIndicator.js';
 import { Infobar, ReadOnlyNotice } from '@ziroeda/common/widgets/wx_infobar.js';
-import { applyUpdate, subscribeUpdate, updateWaiting, watchForUpdate } from './sw_update.js';
+import {
+  applyUpdate,
+  buildIsStale,
+  reloadOntoNewBuild,
+  subscribeUpdate,
+  updateWaiting,
+  watchForStaleBuild,
+  watchForUpdate,
+} from './sw_update.js';
 import { installCommonAppearance } from './ui/common_appearance.js';
 import { projectStoreFileSystem } from './fs/project_store_fs.js';
 import { mountUserSymbolsFolder } from './fs/user_symbols_mount.js';
@@ -1591,17 +1599,23 @@ export function App(): JSX.Element {
 
   // A new version, downloaded and waiting (sw_update.ts). On the launcher nothing is open, so it
   // takes over at once; over an editor it is offered on the editor's WX_INFOBAR strip, ahead of
-  // the demo's own message, which comes back when this one is closed.
-  const updateReady = useSyncExternalStore(subscribeUpdate, () => updateWaiting() !== null);
+  // the demo's own message, which comes back when this one is closed. A lazy chunk that will not
+  // load means the same - a deploy took this build's files away - so it is offered too.
+  const updateReady = useSyncExternalStore(
+    subscribeUpdate,
+    () => updateWaiting() !== null || buildIsStale(),
+  );
   const flushSavesRef = useRef(flushSaves);
   flushSavesRef.current = flushSaves;
-  useEffect(() => {
-    if (!('serviceWorker' in navigator)) return;
-    watchForUpdate(navigator.serviceWorker, () => {
-      flushSavesRef.current();
-      window.location.reload();
-    });
+  const reloadPage = useCallback(() => {
+    flushSavesRef.current();
+    window.location.reload();
   }, []);
+  useEffect(() => {
+    const container = 'serviceWorker' in navigator ? navigator.serviceWorker : null;
+    watchForStaleBuild(window, container);
+    if (container) watchForUpdate(container, reloadPage);
+  }, [reloadPage]);
   useEffect(() => {
     if (updateReady && view === 'home') applyUpdate();
   }, [updateReady, view]);
@@ -1612,7 +1626,7 @@ export function App(): JSX.Element {
         icon="information"
         message="A new version of ZiroEDA is available."
         actionLabel="Reload Now"
-        onAction={applyUpdate}
+        onAction={() => reloadOntoNewBuild(reloadPage)}
         closable
         onClose={() => setUpdateClosed(true)}
       />

@@ -10,10 +10,13 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   applyUpdate,
+  buildIsStale,
+  reloadOntoNewBuild,
   resetUpdateWatchForTests,
   subscribeUpdate,
   UPDATE_CHECK_MS,
   updateWaiting,
+  watchForStaleBuild,
   watchForUpdate,
 } from '@ziroeda/designer/src/sw_update.js';
 
@@ -178,6 +181,75 @@ describe('applyUpdate', () => {
   });
 });
 
+/** A window that can send Vite's event. */
+function makeWindow() {
+  const target = new EventTarget();
+  return { target, chunkFailed: () => target.dispatchEvent(new Event('vite:preloadError')) };
+}
+
+describe('watchForStaleBuild', () => {
+  it('a chunk that will not load makes the build stale, and says so to the subscribers once', () => {
+    const w = makeWindow();
+    const heard = vi.fn();
+    subscribeUpdate(heard);
+    watchForStaleBuild(w.target, null);
+    expect(buildIsStale()).toBe(false);
+
+    w.chunkFailed();
+    w.chunkFailed();
+
+    expect(buildIsStale()).toBe(true);
+    expect(heard).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks the browser for the new sw.js at once, not at the hourly check', async () => {
+    const w = makeWindow();
+    const c = makeContainer({ controlled: true });
+    watchForStaleBuild(w.target, c.container);
+
+    w.chunkFailed();
+    await settle();
+
+    expect(c.registration.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('is not stale until a chunk fails', async () => {
+    const c = makeContainer({ controlled: true });
+    watchForStaleBuild(makeWindow().target, c.container);
+    await settle();
+
+    expect(buildIsStale()).toBe(false);
+    expect(c.registration.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('reloadOntoNewBuild', () => {
+  it('hands over to the waiting worker, which reloads the page when it has taken over', async () => {
+    const waiting = new FakeWorker();
+    const c = makeContainer({ controlled: true, waiting });
+    watchForUpdate(
+      c.container,
+      () => {},
+      () => {},
+    );
+    await settle();
+    const reload = vi.fn();
+
+    reloadOntoNewBuild(reload);
+
+    expect(waiting.posted).toEqual([{ type: 'SKIP_WAITING' }]);
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('reloads the page itself while no worker is waiting', () => {
+    const reload = vi.fn();
+
+    reloadOntoNewBuild(reload);
+
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('the app', () => {
   const APP = readFileSync(
     fileURLToPath(new URL('../../../designer/src/App.tsx', import.meta.url)),
@@ -186,6 +258,12 @@ describe('the app', () => {
 
   it('takes a waiting version at once on the launcher, where nothing is open', () => {
     expect(APP).toMatch(/if \(updateReady && view === 'home'\) applyUpdate\(\);/);
+  });
+
+  it('offers a stale build as it offers a waiting version, and Reload Now takes either', () => {
+    expect(APP).toMatch(/\(\) => updateWaiting\(\) !== null \|\| buildIsStale\(\),/);
+    expect(APP).toMatch(/watchForStaleBuild\(window, container\);/);
+    expect(APP).toMatch(/onAction=\{\(\) => reloadOntoNewBuild\(reloadPage\)\}/);
   });
 
   it("offers it on every editor's info bar, ahead of the demo's message", () => {
