@@ -221,9 +221,13 @@ describe('the manager raises an open project; it does not re-open it', () => {
     const raise = body(APP, 'raiseOrOpen');
     // Same set: names AND text, so a file the manager changed is a real open.
     expect(raise).toMatch(/f\.name === shown\[i\]!\.name && f\.text === shown\[i\]!\.text/);
-    // A different startFile is a real open too.
-    expect(raise).toMatch(/\(start \?\? null\) === startFileRef\.current/);
-    expect(raise).toMatch(/if \(same\) return;\s*openProjectFiles\(files\);/);
+    // A different startFile on the same set is not an open: project_tree_item.cpp:283-293 mails
+    // the running editor MAIL_SCH_NAVIGATE_TO_SHEET, and only a sheet it cannot find opens.
+    expect(raise).not.toMatch(/\(start \?\? null\) === startFileRef\.current/);
+    expect(raise).toMatch(/if \(!same\) \{\s*openProjectFiles\(files\);\s*return;\s*\}/);
+    expect(raise).toMatch(
+      /ExpressMail\(FRAME_T\.FRAME_SCH, MAIL_T\.MAIL_SCH_NAVIGATE_TO_SHEET, packet\);\s*if \(packet\.value === ''\) openProjectFiles\(files\);/,
+    );
     // The four project launchers go through it; only "no project" opens do not.
     expect(APP).toMatch(
       /onOpenProject=\{\(files, start, demo\) => \{\s*raiseOrOpen\(files, start\);/,

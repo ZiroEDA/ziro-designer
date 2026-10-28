@@ -1860,8 +1860,10 @@ export function HomePage({
     }
     runActivation(activationForFile(file.name, projectFileContext(file.name, projectFileName)), {
       loadProject: onSwitchProject ? () => onSwitchProject(file.name) : undefined,
-      // One editor for all three schematic branches; see ActivationHandlers.
-      editSchematic: () => launchSchematic(basename(file.name)),
+      // One editor for all three schematic branches; see ActivationHandlers. The root sheet is
+      // `editSchematic`, which raises the editor on whatever sheet it shows.
+      editSchematic: (activation) =>
+        launchSchematic(activation.kind === 'editSchematic' ? undefined : basename(file.name)),
       editPcb: onOpenPcb ? () => onOpenPcb(file, files) : undefined,
       editSymbol: onOpenSymbolEditor ? () => onOpenSymbolEditor(files, file.name) : undefined,
       editFootprint: onOpenFootprintEditor

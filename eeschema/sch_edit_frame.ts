@@ -2223,6 +2223,35 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
         break;
 
+      // A sub-sheet activated in the project tree while this frame holds the project
+      // (project_tree_item.cpp:274-299): change to its first instance, nothing reloaded.
+      case MAIL_T.MAIL_SCH_NAVIGATE_TO_SHEET: {
+        // TRANSITIONAL: the live schematic is built when first asked for.
+        if (this.hooks.syncLiveSchematic && !this.hooks.syncLiveSchematic()) {
+          mail.SetPayload('');
+          break;
+        }
+
+        // The manager names the sheet by its project-relative name; the window keeps every
+        // sheet beside the project file, by its file name.
+        const targetFile = payload.startsWith('/')
+          ? payload
+          : `${this.Prj().GetProjectPath()}${payload.split('/').pop()!}`;
+
+        for (const sheetPath of this.Schematic().Hierarchy()) {
+          const screen = sheetPath.LastScreen();
+
+          if (screen && screen.GetFileName() === targetFile) {
+            this.m_toolManager?.RunAction(SCH_ACTIONS.changeSheet, sheetPath);
+            mail.SetPayload('success');
+            return;
+          }
+        }
+
+        mail.SetPayload('');
+        break;
+      }
+
       case MAIL_T.MAIL_SCH_GET_NETLIST: {
         if (!this.hooks.syncLiveSchematic) {
           // TRANSITIONAL: the record model's netlist, until the window keeps a live schematic.

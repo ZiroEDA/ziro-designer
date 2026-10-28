@@ -2353,9 +2353,13 @@ export function SchematicEditor({
   }, [sheetTree]);
 
   const navTool = useRef(new SchNavigateTool());
+  // UpdateHierarchyNavigator's CleanHistory (sch_edit_frame.cpp:1398): when the hierarchy
+  // changes, not on every sheet change - it puts the cursor at the end, which would undo Back.
+  // flatSheets is rebuilt on each change of sheet; the paths it holds are what matter.
+  const sheetPathsKey = flatSheets.map((s) => s.path).join('\n');
   useEffect(() => {
-    navTool.current.cleanHistory(new Set(flatSheets.map((s) => s.path)));
-  }, [flatSheets]);
+    navTool.current.cleanHistory(new Set(sheetPathsKey.split('\n')));
+  }, [sheetPathsKey]);
 
   // Live documents with the on-screen sheet's edits folded in.
   const liveDocs = useCallback((): Map<string, Schematic> => {
@@ -3755,7 +3759,9 @@ export function SchematicEditor({
         const startPath =
           start === root ? '/' : (firstInstanceOf(buildSheetTree(docs, root), start) ?? '/');
         setCurrentPath(startPath);
-        navTool.current.resetHistory(startPath);
+        // The root opened first and changeSheet pushed the sheet: Back returns to the root.
+        navTool.current.resetHistory('/');
+        navTool.current.pushToHistory(startPath);
         setDoc(docs.get(start)!);
         resetTransient();
         resetErc();

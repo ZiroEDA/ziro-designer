@@ -601,8 +601,8 @@ export function App(): JSX.Element {
    * "Already open" is: the set the manager was given is the set it hands back
    * — same names, same text. Text is compared, not just names, so a file the
    * manager itself changed (an import over an existing name, a rename) is
-   * still a real open. A different `startFile` is a real open too: the
-   * caller wants a particular sheet, and only the load path takes one.
+   * still a real open. A different `startFile` on the same set is a sheet
+   * change, not an open.
    */
   const raiseOrOpen = useCallback(
     (files: PickedFile[], start?: string | null): void => {
@@ -610,10 +610,19 @@ export function App(): JSX.Element {
       const same =
         shown !== null &&
         shown.length === files.length &&
-        (start ?? null) === startFileRef.current &&
         files.every((f, i) => f.name === shown[i]!.name && f.text === shown[i]!.text);
-      if (same) return;
-      openProjectFiles(files);
+      if (!same) {
+        openProjectFiles(files);
+        return;
+      }
+      if (!start) return;
+      // A sub-sheet of the project the schematic editor already holds: `ExpressMail(
+      // FRAME_SCH, MAIL_SCH_NAVIGATE_TO_SHEET, fullFileName )` (project_tree_item.cpp:292),
+      // and the editor changes sheets. Mail to an editor not built yet is dropped; it opens on
+      // `startFile` when shown; the reply is cleared for a sheet it cannot find, which opens.
+      const packet = { value: start };
+      kiwayRef.current?.ExpressMail(FRAME_T.FRAME_SCH, MAIL_T.MAIL_SCH_NAVIGATE_TO_SHEET, packet);
+      if (packet.value === '') openProjectFiles(files);
     },
     [openProjectFiles],
   );
