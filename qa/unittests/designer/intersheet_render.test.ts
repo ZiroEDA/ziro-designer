@@ -10,7 +10,7 @@
  */
 
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { sheetToSvg } from '@ziroeda/eeschema/sch_plotter.js';
@@ -43,9 +43,17 @@ const firstX = (path: string): number => {
 
 describe('inter-sheet references in the render pipeline', () => {
   it('draws nothing extra when the resolver is off', () => {
-    const off1 = sheetToSvg(DOC, KICAD_CLASSIC, BASE);
-    const off2 = sheetToSvg(DOC, KICAD_CLASSIC, { ...BASE });
-    expect(off1).toBe(off2);
+    // The plot's <title> carries the time it was made: two plots either side of a second's
+    // tick differed there, and nowhere else.
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-28T04:32:32Z') });
+    try {
+      const off1 = sheetToSvg(DOC, KICAD_CLASSIC, BASE);
+      vi.setSystemTime(new Date('2026-10-28T04:32:33Z'));
+      const off2 = sheetToSvg(DOC, KICAD_CLASSIC, { ...BASE });
+      expect(off1.replace(/ date [^<]*/, '')).toBe(off2.replace(/ date [^<]*/, ''));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('adds glyph strokes for the refs text when on, more for longer lists', () => {
