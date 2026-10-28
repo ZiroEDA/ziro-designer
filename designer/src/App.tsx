@@ -30,10 +30,12 @@ import type { EditorKind } from '@ziroeda/eeschema/browser/project_sync_transpor
 import {
   storageAvailable,
   cloudIdentityOf,
+  listEmptyFolders,
   listProjects,
   loadProject,
   localIdForCloudUid,
   saveProject,
+  setEmptyFolders,
   updateProjectFiles,
 } from './home/projectStore.js';
 import { listSnapshots, readSnapshot, recordSnapshot } from './home/local_history_store.js';
@@ -1349,6 +1351,50 @@ export function App(): JSX.Element {
     }
   }, [openProjectFiles]);
 
+  /** The open project's record in the store, found by name as persistFilesNow finds it. */
+  const openProjectRecordId = useCallback(async (): Promise<string | null> => {
+    const cur = projectFilesRef.current;
+    if (!cur || !storageAvailable()) return null;
+    return (await listProjects()).find((p) => p.name === projectNameOf(cur))?.id ?? null;
+  }, []);
+
+  /** A demo's empty folders: kept for the session, as its other edits are. */
+  const demoEmptyFolders = useRef<string[]>([]);
+  const openProjectName = projectFiles ? projectNameOf(projectFiles) : null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: another project is the trigger
+  useEffect(() => {
+    demoEmptyFolders.current = [];
+  }, [openProjectName]);
+
+  /** The open project's empty folders, by the names its files have. */
+  const loadProjectEmptyFolders = useCallback(async (): Promise<readonly string[]> => {
+    if (demoProject) return demoEmptyFolders.current;
+    const id = await openProjectRecordId();
+    return id ? listEmptyFolders(id) : [];
+  }, [demoProject, openProjectRecordId]);
+
+  /**
+   * New, empty folders in the open project: a footprint library's `.pretty`, which
+   * PCB_IO_KICAD_SEXPR::CreateLibrary makes before its first footprint.
+   */
+  const makeProjectFolders = useCallback(
+    (folders: string[]) => {
+      if (demoProject) {
+        demoEmptyFolders.current = [...new Set([...demoEmptyFolders.current, ...folders])];
+        return;
+      }
+      void (async () => {
+        const id = await openProjectRecordId();
+        if (!id) return;
+        const empty = await listEmptyFolders(id);
+        await setEmptyFolders(id, [...new Set([...empty, ...folders])]);
+      })().catch(() => {
+        /* storage disabled */
+      });
+    },
+    [demoProject, openProjectRecordId],
+  );
+
   const persistFilesNow = useCallback((files: PickedFile[]) => {
     const cur = projectFilesRef.current;
     if (!cur || files.length === 0 || !storageAvailable()) return;
@@ -2148,6 +2194,8 @@ export function App(): JSX.Element {
               kind={libTableDialog}
               projectFiles={projectFiles ?? null}
               onWrite={writeProjectFiles}
+              loadEmptyFolders={loadProjectEmptyFolders}
+              onMakeFolders={makeProjectFolders}
               onClose={() => setLibTableDialog(null)}
             />
           </Suspense>

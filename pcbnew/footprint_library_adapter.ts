@@ -11,6 +11,7 @@
  */
 import type { LIBRARY_TABLE } from '@ziroeda/common/libraries/library_table.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { projectFpLibTable, projectLibraryNickname } from '@ziroeda/common/fp_lib_table.js';
 import { FOOTPRINT } from './footprint.js';
 import {
   FLIP_DIRECTION,
@@ -202,6 +203,41 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
       texts,
     });
     this.touch();
+  }
+
+  /**
+   * The project's libraries, as `ProjectChanged` re-reads them: the closed project's go, and each
+   * row of \a aFiles' `fp-lib-table` naming a `${KIPRJMOD}` `.pretty` is a library, with the
+   * `.kicad_mod` files the project holds in that folder - none yet for a new one, which the
+   * table's add button made and its first saved footprint fills.
+   */
+  SetProjectLibraries(aFiles: readonly { name: string; text: string }[]): void {
+    this.DropProjectLibraries();
+
+    const byDir = new Map<string, { fileName: string; text: string }[]>();
+
+    for (const f of aFiles) {
+      if (!/\.kicad_mod$/i.test(f.name)) continue;
+
+      const norm = f.name.replace(/\\/g, '/');
+      const m = /([^/]+)\.pretty\//i.exec(norm);
+      const dir = m ? `${m[1]}.pretty` : norm.split('/').slice(0, -1).join('/') || 'Project';
+      const list = byDir.get(dir) ?? [];
+      list.push({ fileName: norm.split('/').pop()!, text: f.text });
+      byDir.set(dir, list);
+    }
+
+    const libRows = projectFpLibTable(aFiles);
+
+    for (const [dir, entries] of byDir) {
+      const name = projectLibraryNickname(libRows, `${dir}/x.kicad_mod`);
+      if (name) this.AddProjectLibrary(name, dir, entries);
+    }
+
+    for (const row of libRows) {
+      const dir = /^\$[{(]KIPRJMOD[})]\/(?:.*\/)?([^/]+\.pretty)\/?$/i.exec(row.uri)?.[1];
+      if (dir && !this.m_libs.has(row.name)) this.AddProjectLibrary(row.name, dir, []);
+    }
   }
 
   /** `FOOTPRINT_EDIT_FRAME::ProjectChanged`: the closed project's rows go. */

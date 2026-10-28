@@ -449,7 +449,7 @@ describe('Manage Footprint Libraries', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove library from table' }));
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     // No rows, and no library brought in off the computer to write with them.
-    expect(onSave).toHaveBeenCalledWith([], []);
+    expect(onSave).toHaveBeenCalledWith([], [], []);
   });
 
   // The footprint index has no library descriptions: template/fp-lib-table's, mirrored.
@@ -466,6 +466,79 @@ describe('Manage Footprint Libraries', () => {
     fireEvent.click(screen.getAllByRole('tab')[0]!);
     expect(cellText(0, 3)).toBe('Resistor_SMD');
     expect(cellText(0, 7)).toBe('Resistor footprints, surface mount (SMD)');
+  });
+
+  const openFp = (aFiles = fpFiles, aEmptyFolders?: string[]) => {
+    const onSave = vi.fn();
+    render(
+      <DialogFpLibTable
+        projectFiles={aFiles}
+        globalLibraries={[{ name: 'Resistor_SMD' }]}
+        globalBase="https://fp"
+        {...(aEmptyFolders ? { emptyFolders: aEmptyFolders } : {})}
+        onSave={onSave}
+        onClose={vi.fn()}
+      />,
+    );
+    return onSave;
+  };
+  const warned = (aRow: number) =>
+    document.querySelector(`td[data-row="${aRow}"][data-col="0"] img`) !== null;
+
+  // PCB_IO_KICAD_SEXPR::CreateLibrary makes the `.pretty`; with no path to type, the add
+  // button's row is a new library in the project, its folder made empty on OK.
+  it("makes the add button's row on the Project page a new, empty library", () => {
+    const onSave = openFp();
+    fireEvent.click(screen.getByRole('button', { name: 'Add empty row to table' }));
+    const input = document.querySelector(
+      'td[data-row="1"][data-col="3"] input',
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'MyFP' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const [rows, files, folders] = onSave.mock.calls[0]!;
+    expect(rows.map((r: { name: string; uri: string }) => [r.name, r.uri])).toEqual([
+      ['Footprints', '${KIPRJMOD}/footprints.pretty'],
+      ['MyFP', '${KIPRJMOD}/MyFP.pretty'],
+    ]);
+    expect(files).toEqual([]);
+    expect(folders).toEqual(['ecc/MyFP.pretty']);
+  });
+
+  it('makes no folder for a row the project already has a folder for', () => {
+    const onSave = openFp();
+    fireEvent.click(screen.getByRole('button', { name: 'Add empty row to table' }));
+    const input = document.querySelector(
+      'td[data-row="1"][data-col="3"] input',
+    ) as HTMLInputElement;
+    // spares.pretty holds S.kicad_mod: the row names a library that is there already.
+    fireEvent.change(input, { target: { value: 'spares' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    const [rows, , folders] = onSave.mock.calls[0]!;
+    expect(rows.map((r: { uri: string }) => r.uri)).toContain('${KIPRJMOD}/spares.pretty');
+    expect(folders).toEqual([]);
+  });
+
+  it('takes an empty folder of the project for the library, not a missing one', () => {
+    const table = `(fp_lib_table
+  (version 7)
+  (lib (name "MyFP")(type "KiCad")(uri "\${KIPRJMOD}/MyFP.pretty")(options "")(descr ""))
+)`;
+    const files = [
+      { name: 'ecc/ecc.kicad_pro', text: '{}' },
+      { name: 'ecc/fp-lib-table', text: table },
+    ];
+    openFp(files);
+    expect(warned(0)).toBe(true);
+    cleanup();
+
+    openFp(files, ['ecc/MyFP.pretty']);
+    expect(warned(0)).toBe(false);
   });
 
   describe('"Add Existing" from the computer', () => {
@@ -521,6 +594,7 @@ describe('Manage Footprint Libraries', () => {
           expect.objectContaining({ name: 'MyParts', uri: '${KIPRJMOD}/MyParts.pretty' }),
         ],
         [{ name: 'ecc/MyParts.pretty/R_0603.kicad_mod', text: '(footprint "R_0603")' }],
+        [],
       );
     });
 
@@ -539,6 +613,7 @@ describe('Manage Footprint Libraries', () => {
           expect.objectContaining({ name: 'Footprints' }),
           expect.objectContaining({ name: 'spares' }),
         ],
+        [],
         [],
       );
     });

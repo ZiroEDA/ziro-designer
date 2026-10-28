@@ -44,6 +44,44 @@ beforeEach(() => {
   store.AddGlobalLibrary('Resistor_SMD', ['R_0402', 'R_0805']);
 });
 
+describe('SetProjectLibraries (ProjectChanged)', () => {
+  const TABLE = `(fp_lib_table
+  (version 7)
+  (lib (name "Mine")(type "KiCad")(uri "\${KIPRJMOD}/mine.pretty")(options "")(descr ""))
+  (lib (name "New")(type "KiCad")(uri "\${KIPRJMOD}/New.pretty")(options "")(descr ""))
+)`;
+  const project = [
+    { name: 'b/b.kicad_pro', text: '{}' },
+    { name: 'b/fp-lib-table', text: TABLE },
+    { name: 'b/mine.pretty/C_0402.kicad_mod', text: FP_TEXT('C_0402') },
+    // A folder no row names is not a library.
+    { name: 'b/loose.pretty/X.kicad_mod', text: FP_TEXT('X') },
+  ];
+
+  it("registers each row of the project's table, with the footprints its folder holds", () => {
+    store.SetProjectLibraries(project);
+
+    expect(store.GetFootprintNames('Mine')).toEqual(['C_0402']);
+    expect(store.HasLibrary('loose')).toBe(false);
+    // The previous project's library went; the hosted ones stay.
+    expect(store.HasLibrary('Proj')).toBe(false);
+    expect(store.HasLibrary('Resistor_SMD')).toBe(true);
+  });
+
+  it('a row whose folder holds no footprint yet is an empty library, saved into like any', () => {
+    store.SetProjectLibraries(project);
+
+    expect(store.HasLibrary('New')).toBe(true);
+    expect(store.GetFootprintNames('New')).toEqual([]);
+    expect(store.IsFootprintLibWritable('New')).toBe(true);
+
+    const fp = store.LoadFootprint('Mine', 'C_0402', false)!;
+    store.SaveFootprint('New', fp);
+    expect(written.map(([dir, file]) => `${dir}/${file}`)).toEqual(['New.pretty/C_0402.kicad_mod']);
+    expect(store.GetFootprintNames('New')).toEqual(['C_0402']);
+  });
+});
+
 describe('reading', () => {
   it("a project footprint loads under the row's nickname, named by its file", () => {
     expect(store.GetFootprintNames('Proj')).toEqual(['R_0603']);

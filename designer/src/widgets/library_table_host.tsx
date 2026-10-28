@@ -27,6 +27,8 @@ export function LibraryTableHost({
   kind,
   projectFiles,
   onWrite,
+  loadEmptyFolders,
+  onMakeFolders,
   onClose,
 }: {
   kind: 'symbol' | 'footprint';
@@ -34,6 +36,10 @@ export function LibraryTableHost({
   projectFiles: readonly ProjectFile[] | null;
   /** The project table and the libraries brought in, into the open project. */
   onWrite: (files: ProjectFile[]) => void;
+  /** The open project's empty folders, by the names its files have; none without a project. */
+  loadEmptyFolders?: () => Promise<readonly string[]>;
+  /** New, empty folders in the open project: a new footprint library's `.pretty`. */
+  onMakeFolders?: (folders: string[]) => void;
   onClose: () => void;
 }): JSX.Element | null {
   // The global table's stand-in: the hosted library set, by nickname (and, for symbols, description). Upstream the global tables
@@ -41,6 +47,23 @@ export function LibraryTableHost({
   // here they wait on the hosted index, and the dialog, whose pages are built once, waits too.
   // For symbols, loadIndex also reads the user's own table into the library manager.
   const [globalLibraries, setGlobalLibraries] = useState<readonly HOSTED_LIBRARY[] | null>(null);
+  // A footprint library is a folder, and the project's empty ones are kept beside its files.
+  const [emptyFolders, setEmptyFolders] = useState<readonly string[] | null>(
+    kind === 'footprint' && loadEmptyFolders ? null : [],
+  );
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: read once, as the dialog opens
+  useEffect(() => {
+    if (emptyFolders) return;
+    let live = true;
+
+    void loadEmptyFolders!()
+      .then((folders) => live && setEmptyFolders(folders))
+      .catch(() => live && setEmptyFolders([]));
+    return () => {
+      live = false;
+    };
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -64,7 +87,7 @@ export function LibraryTableHost({
     };
   }, [kind]);
 
-  if (!globalLibraries) return null;
+  if (!globalLibraries || !emptyFolders) return null;
 
   // onSave comes only for a changed project table, so `projectFiles` is a project's there.
   if (kind === 'symbol')
@@ -89,11 +112,13 @@ export function LibraryTableHost({
       projectFiles={projectFiles}
       globalLibraries={globalLibraries}
       globalBase={libraryBase.footprints}
-      onSave={(rows, files) => {
+      emptyFolders={emptyFolders}
+      onSave={(rows, files, folders) => {
         onWrite([
           { name: projectFpLibTablePath(projectFiles ?? []), text: serializeFpLibTable(rows) },
           ...files,
         ]);
+        if (folders.length > 0) onMakeFolders?.(folders);
         onClose();
       }}
       onClose={onClose}

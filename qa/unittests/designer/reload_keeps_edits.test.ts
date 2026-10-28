@@ -338,7 +338,8 @@ describe('the manager raises an open project; it does not re-open it', () => {
       // The footprint frame's libraries: the store and the frame are one per
       // mount, so the project key is the only trigger; SyncLibraryTree is what
       // drops a selection whose library went (`footprint_edit_frame.cpp:1149`).
-      const { code, deps } = effectAround(FP, 'store.DropProjectLibraries()');
+      // SetProjectLibraries drops the closed project's rows and reads the new one's.
+      const { code, deps } = effectAround(FP, 'store.SetProjectLibraries(');
       expect(deps, 'footprint').toBe('[projectLibsKey, store, frame]');
       expect(code, 'footprint').toMatch(/frame\.SyncLibraryTree\(true\)/);
     }

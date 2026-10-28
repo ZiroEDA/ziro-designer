@@ -63,10 +63,16 @@ interface Props {
   /** Where the hosted libraries are served from (their "Library Path"). */
   globalBase: string;
   /**
-   * OK: the project table's new rows, and the library folders "Add Existing" took off the
-   * computer that a row still names - to be written into the project with the table.
+   * The project's folders that hold no file (the project store's `emptyFolders`), by the same
+   * project-relative names its files have: a new library's `.pretty` before its first footprint.
    */
-  onSave: (rows: FpLibRow[], files: { name: string; text: string }[]) => void;
+  emptyFolders?: readonly string[];
+  /**
+   * OK: the project table's new rows; the library folders "Add Existing" took off the computer
+   * that a row still names, to be written into the project with the table; and the new, empty
+   * libraries' folders the add button made (`PCB_IO_KICAD_SEXPR::CreateLibrary`'s directory).
+   */
+  onSave: (rows: FpLibRow[], files: { name: string; text: string }[], folders: string[]) => void;
   onClose: () => void;
 }
 
@@ -99,27 +105,33 @@ export function DialogFpLibTable({
   projectFiles,
   globalLibraries,
   globalBase,
+  emptyFolders = [],
   onSave,
   onClose,
 }: Props): JSX.Element {
   /** The folders "Add Existing" took off the computer, held until OK. */
   const staged = useRef<{ name: string; text: string }[]>([]);
+  /** The new libraries' folders the add button made, by project-relative name, until OK. */
+  const made = useRef(new Set<string>());
   /** The project's files as they will be on OK: the checks and the list see the held ones. */
   const files = (): readonly { name: string; text: string }[] => [
     ...(projectFiles ?? []),
     ...staged.current,
   ];
 
-  /** Whether the project holds a file under the row's `.pretty` folder. */
-  const dirExists = (aRow: LIBRARY_TABLE_ROW): boolean => {
-    const dir = projectRelativePath(aRow.URI(), projectRoot(files(), FP_LIB_TABLE_ANCHOR))
-      .replace(/\/+$/, '')
-      .toLowerCase();
+  /** The row's `.pretty` folder, by the project-relative name its files would have. */
+  const folderOf = (aUri: string): string =>
+    projectRelativePath(aUri, projectRoot(files(), FP_LIB_TABLE_ANCHOR)).replace(/\/+$/, '');
 
-    return (
-      dir !== '' &&
-      files().some((f) => f.name.replace(/\\/g, '/').toLowerCase().startsWith(`${dir}/`))
-    );
+  /** Whether the row's `.pretty` folder is in the project: holding a file, or an empty one. */
+  const dirExists = (aRow: LIBRARY_TABLE_ROW): boolean => {
+    const dir = folderOf(aRow.URI()).toLowerCase();
+
+    if (dir === '') return false;
+
+    if ([...emptyFolders, ...made.current].some((d) => d.toLowerCase() === dir)) return true;
+
+    return files().some((f) => f.name.replace(/\\/g, '/').toLowerCase().startsWith(`${dir}/`));
   };
 
   /** `browseLibrariesHandler`: a `.pretty` folder on the computer, held for OK. */
@@ -208,9 +220,24 @@ export function DialogFpLibTable({
       }}
       // Footprint libraries in the account are not here yet: a folder only joins the project.
       browse={{ label: 'KiCad (folder) from Computer...', pick, scopes: ['project'] }}
+      newLibraryUri={(scope, nickname) => {
+        // The Global page is the hosted set, read only: no row is added to it.
+        if (scope !== 'project') return '';
+
+        const uri = `\${KIPRJMOD}/${nickname}.pretty`;
+        made.current.add(folderOf(uri));
+        return uri;
+      }}
       onSave={(table) => {
         const rows = fpLibRowsOf(table);
-        onSave(rows, kept(rows));
+        const named = new Set(rows.map((r) => folderOf(r.uri).toLowerCase()));
+        // A made folder no row names any more, or one a held library now fills, is not made.
+        const folders = [...made.current].filter(
+          (d) =>
+            named.has(d.toLowerCase()) &&
+            !files().some((f) => f.name.toLowerCase().startsWith(`${d.toLowerCase()}/`)),
+        );
+        onSave(rows, kept(rows), folders);
       }}
       onClose={onClose}
     />

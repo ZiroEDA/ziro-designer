@@ -43,7 +43,7 @@ import { EdaListDialog } from '@ziroeda/common/dialogs/eda_list_dialog.js';
 import type { LIB_TREE } from '@ziroeda/common/eda_draw_frame.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import type { FILENAME_RESOLVER } from '@ziroeda/common/filename_resolver.js';
-import { projectFpLibTable, projectLibraryNickname } from '@ziroeda/common/fp_lib_table.js';
+import { projectFpLibTable } from '@ziroeda/common/fp_lib_table.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { useKiDialog } from '@ziroeda/common/kidialog.js';
@@ -755,28 +755,7 @@ export function FootprintEditFrame({
    */
   // biome-ignore lint/correctness/useExhaustiveDependencies: the key is the project's library content; initialProject is read through it
   useEffect(() => {
-    store.DropProjectLibraries();
-
-    const byDir = new Map<string, { fileName: string; text: string }[]>();
-
-    for (const f of initialProject ?? []) {
-      if (!/\.kicad_mod$/i.test(f.name)) continue;
-
-      const norm = f.name.replace(/\\/g, '/');
-      const m = /([^/]+)\.pretty\//i.exec(norm);
-      const dir = m ? `${m[1]}.pretty` : norm.split('/').slice(0, -1).join('/') || 'Project';
-      const list = byDir.get(dir) ?? [];
-      list.push({ fileName: norm.split('/').pop()!, text: f.text });
-      byDir.set(dir, list);
-    }
-
-    const libRows = projectFpLibTable(initialProject ?? []);
-
-    for (const [dir, entries] of byDir) {
-      const name = projectLibraryNickname(libRows, `${dir}/x.kicad_mod`);
-      if (name) store.AddProjectLibrary(name, dir, entries);
-    }
-
+    store.SetProjectLibraries(initialProject ?? []);
     frame.SyncLibraryTree(true);
   }, [projectLibsKey, store, frame]);
 
