@@ -216,6 +216,11 @@ export interface FOOTPRINT_EDIT_FRAME_APP {
   libraryIo: Pick<FOOTPRINT_LIBRARY_STORE_IO, 'footprintText' | 'flipLeftRight'>;
   /** The hosted footprint library set's base URL (its `index.json`). */
   footprintsBase(): string;
+  /**
+   * The hosted set's index, with the program's global footprint table loaded once it is in
+   * (the user's table chaining the hosted set, which the store lists from).
+   */
+  loadFootprintIndex(): Promise<readonly { name: string; footprints: readonly string[] }[]>;
   /** `Pgm()` installed: the painter and the view controls read it. */
   installPgm(): void;
   /** `Pgm().GetCommonSettings()` as the GAL display options read it. */
@@ -772,17 +777,18 @@ export function FootprintEditFrame({
     };
   }, [kiway, frame]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the base URL is the trigger; the store and frame are stable
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount is the trigger; the store and frame are stable
   useEffect(() => {
-    // The hosted libraries: names up front, files fetched on demand.
-    fetch(`${app.footprintsBase()}/index.json`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((idx: { name: string; footprints: string[] }[]) => {
+    // The hosted libraries: names up front, files fetched on demand. Which are listed, with the
+    // user's own, is the global table's say, loaded with the index.
+    app
+      .loadFootprintIndex()
+      .then((idx) => {
         for (const lib of idx) store.AddGlobalLibrary(lib.name, lib.footprints);
         frame.SyncLibraryTree(true);
       })
       .catch(() => bumpTree());
-  }, [app.footprintsBase]);
+  }, []);
 
   // `MAIL_FP_EDIT`: find the file's library, select it in the tree, load it.
   fpEditRef.current = (aFile: string): void => {

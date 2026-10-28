@@ -213,6 +213,7 @@ export class MEMORY_FILESYSTEM implements wxWritableFileSystemMount {
   private readonly m_files = new Map<string, Uint8Array>();
   private readonly m_mtimes = new Map<string, number>();
   private m_writeListener: ((aRelPath: string, aData: Uint8Array) => void) | null = null;
+  private m_mkdirListener: ((aRelDir: string) => void) | null = null;
   /** Directories made with `Mkdir`, which exist even while empty. */
   private readonly m_dirs = new Set<string>();
 
@@ -236,9 +237,17 @@ export class MEMORY_FILESYSTEM implements wxWritableFileSystemMount {
   Mkdir(aRelDir: string): boolean {
     const bare = aRelDir.replace(/\/+$/, '');
 
-    if (bare !== '') this.m_dirs.add(bare);
+    if (bare !== '' && !this.m_dirs.has(bare)) {
+      this.m_dirs.add(bare);
+      this.m_mkdirListener?.(bare);
+    }
 
     return true;
+  }
+
+  /** Be told of each new directory, as SetWriteListener is of each write: an empty one included. */
+  SetMkdirListener(aListener: ((aRelDir: string) => void) | null): void {
+    this.m_mkdirListener = aListener;
   }
 
   List(aRelDir: string): { name: string; isDir: boolean }[] | null {

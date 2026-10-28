@@ -11,20 +11,33 @@
  * Deployments serve the full KiCad footprint set from the same hosted bucket
  * as the symbol libraries (FOOTPRINTS_BASE / VITE_FOOTPRINTS_URL).
  */
+import { footprintLibraryDescription } from '@ziroeda/common/lib_table_descriptions.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { LoadGlobalFootprintTables } from '@ziroeda/pcbnew/footprint_library_adapter.js';
 import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 import { fetchLibraryIndex } from '../libraryHosts.js';
 import { trackLibraryLoad } from './library_loading.js';
 
 let indexPromise: Promise<FootprintIndexLibrary[]> | null = null;
 
-/** Load the footprint-library index (library → footprint names). */
+/**
+ * Load the footprint-library index (library → footprint names). The first time it is in, the
+ * program's global footprint table is too (`PGM_KICAD::OnPgmInit`'s `LoadGlobalTables`): the
+ * user's table chaining the hosted set, which can only be written once the set is known.
+ */
 export function loadFootprintIndex(): Promise<FootprintIndexLibrary[]> {
   if (!indexPromise) {
     indexPromise = trackLibraryLoad(
       'footprints',
       'Loading footprint libraries...',
       fetchLibraryIndex<FootprintIndexLibrary>('footprints'),
-    );
+    ).then((index) => {
+      if (PgmOrNull())
+        LoadGlobalFootprintTables(
+          index.map((l) => ({ name: l.name, descr: footprintLibraryDescription(l.name) })),
+        );
+      return index;
+    });
   }
   return indexPromise;
 }

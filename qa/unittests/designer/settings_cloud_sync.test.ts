@@ -307,6 +307,7 @@ describe('the same workspace on another device', () => {
       s.appearance.page_type = 'A4';
     });
     a.setSymLibTable('(sym_lib_table (version 7))');
+    a.setFpLibTable('(fp_lib_table (version 7))');
 
     const up = await syncSettings(USER, { manager: a });
     expect(up.error).toBeUndefined();
@@ -327,6 +328,7 @@ describe('the same workspace on another device', () => {
     expect(b.pcbnew.printing.scale).toBe(2.5);
     expect(b.plEditor.system.units).toBe('mm');
     expect(b.fpEdit.window.lib_width).toBe(321);
+    expect(b.fpLibTable).toBe('(fp_lib_table (version 7))');
     expect(b.pcbCalculator.track_width.current).toBe('4.5');
     expect(b.bitmap2cmp.threshold).toBe(73);
     expect(b.symbolEditor.window.grid.last_size_idx).toBe(3);
@@ -907,8 +909,9 @@ describe('the per-slice stamps', () => {
     a.updateToolbars('fpedit', () => undefined);
     a.updateToolbars('3d_viewer', () => undefined);
     a.updateViewer3d(() => undefined);
-    // The global symbol library table, written as a save of that file writes it.
+    // The global symbol and footprint library tables, written as a save of the file writes it.
     a.setSymLibTable('');
+    a.setFpLibTable('');
 
     // Written out rather than compared against `SETTINGS_SLICES`. Comparing the
     // list to itself is an expectation computed by calling the code under test:
@@ -935,6 +938,8 @@ describe('the per-slice stamps', () => {
       'common',
       'eeschema',
       'eeschema-toolbars',
+      // The user's global footprint library table, `DefaultGlobalTablePath( FOOTPRINT )`, the same.
+      'fp-lib-table',
       'fpedit',
       'fpedit-toolbars',
       // `gerbview.json` and `gerbview-toolbars.json`, the Gerber Viewer's own

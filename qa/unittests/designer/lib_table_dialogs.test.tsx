@@ -46,6 +46,7 @@ import { KICAD_SETTINGS } from '@ziroeda/common/settings/kicad_settings.js';
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
 import { PGM_BASE, Pgm, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { LoadGlobalSymbolTables } from '@ziroeda/eeschema/libraries/symbol_library_adapter.js';
+import { LoadGlobalFootprintTables } from '@ziroeda/pcbnew/footprint_library_adapter.js';
 import { MEMORY_FILESYSTEM, wxMountFileSystem, wxReadFileSync } from '@ziroeda/wx/filefn.js';
 
 afterEach(cleanup);
@@ -760,5 +761,86 @@ describe('Manage Symbol Libraries, a library in its place', () => {
     // Only the new one: "gone" stays missing.
     expect(files.map((f: { name: string }) => f.name)).toEqual(['demo/Board.kicad_sym']);
     expect(files[0].text).toMatch(/^\(kicad_symbol_lib\s+\(version \d+\)/);
+  });
+});
+
+/**
+ * The footprint table's Global page is the user's own table, chaining the hosted set: a library of
+ * their own is a `.pretty` folder in the account's Footprints folder. The add button's row is a new,
+ * empty one there, made on OK; Add Existing lists the folders no row names.
+ */
+describe('Manage Footprint Libraries, a library in the account', () => {
+  let unmounts: (() => void)[] = [];
+  let FOOTPRINTS: MEMORY_FILESYSTEM;
+  const FP = LIBRARY_TABLE_TYPE.FOOTPRINT;
+  const userTablePath = () => LIBRARY_MANAGER.DefaultGlobalTablePath(FP);
+  const storedRows = () =>
+    LIBRARY_TABLE.FromFile(
+      userTablePath(),
+      new TextDecoder().decode(wxReadFileSync(userTablePath())!),
+      LIBRARY_TABLE_SCOPE.GLOBAL,
+    )
+      .Rows()
+      .map((r) => [r.Nickname(), r.URI(), r.Type()]);
+  const openFpGlobal = () =>
+    render(
+      <DialogFpLibTable
+        projectFiles={null}
+        globalLibraries={[{ name: 'Resistor_SMD' }]}
+        globalBase="https://fp"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+  beforeEach(() => {
+    SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER()));
+    FOOTPRINTS = new MEMORY_FILESYSTEM();
+    FOOTPRINTS.Write('Old.pretty/X.kicad_mod', new TextEncoder().encode('(footprint "X")'));
+    unmounts = [
+      wxMountFileSystem(PATHS.GetUserSettingsPath(), new MEMORY_FILESYSTEM()),
+      wxMountFileSystem('/Footprints', FOOTPRINTS),
+    ];
+    LoadGlobalFootprintTables([{ name: 'Resistor_SMD' }]);
+  });
+
+  afterEach(() => {
+    for (const u of unmounts) u();
+    SetPgm(null);
+    SetErrorPresenter(() => {});
+  });
+
+  it("shows the user's table, its KiCad row chaining the hosted set", () => {
+    openFpGlobal();
+    expect(cellText(0, 3)).toBe('KiCad');
+  });
+
+  it("makes the add button's row a new, empty library in the account, on OK", () => {
+    openFpGlobal();
+    fireEvent.click(screen.getByRole('button', { name: 'Add empty row to table' }));
+    const input = document.querySelector(
+      'td[data-row="1"][data-col="3"] input',
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'MyFP' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+    expect(FOOTPRINTS.DirExists('MyFP.pretty')).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    expect(storedRows()).toContainEqual(['MyFP', '/Footprints/MyFP.pretty', 'KiCad']);
+    expect(FOOTPRINTS.DirExists('MyFP.pretty')).toBe(true);
+    // Read again, the global tables list it.
+    expect(
+      Pgm()
+        .GetLibraryManager()
+        .Rows(FP, LIBRARY_TABLE_SCOPE.GLOBAL)
+        .map((r) => r.Nickname()),
+    ).toContain('MyFP');
+  });
+
+  it("offers the account's folders no row names under Add Existing", () => {
+    openFpGlobal();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Existing' }));
+    expect(screen.getByText('Old.pretty')).toBeTruthy();
   });
 });

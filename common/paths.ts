@@ -136,8 +136,12 @@ export namespace PATHS {
     return '/Symbols';
   }
 
+  /**
+   * `GetDefaultUserFootprintsPath`. Web delta, as the symbols': the account's Footprints folder,
+   * where a global footprint library (a `.pretty`) lives for every project.
+   */
   export function GetDefaultUserFootprintsPath(): string {
-    return appendDir(getUserDocumentPath(), 'footprints').replace(/\/$/, '');
+    return '/Footprints';
   }
 
   export function GetDefaultUserDesignBlocksPath(): string {

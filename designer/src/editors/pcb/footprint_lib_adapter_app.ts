@@ -82,15 +82,16 @@ export function setProjectFootprintLibraries(
 }
 
 /**
- * The libraries a footprint chooser lists: the project's, read off their files, and the hosted
- * index's - less a hosted one a project library of the same nickname hides.
+ * The libraries a footprint chooser lists: the project's and the user's own, read off their files,
+ * and the hosted index's that the global table lists - less one a library of the same nickname
+ * hides.
  */
 export async function footprintChooserIndex(): Promise<FootprintIndexLibrary[]> {
   const [hosted, store] = await Promise.all([loadFootprintIndex(), hostedFootprintLibs()]);
-  const project = store.ProjectIndex();
-  const shadowed = new Set(project.map((l) => l.name));
+  const own = store.OwnIndex();
+  const shadowed = new Set(own.map((l) => l.name));
 
-  return [...project, ...hosted.filter((l) => !shadowed.has(l.name))];
+  return [...own, ...hosted.filter((l) => !shadowed.has(l.name) && store.HasLibrary(l.name))];
 }
 
 /**

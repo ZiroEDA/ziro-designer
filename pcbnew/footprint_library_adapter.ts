@@ -9,7 +9,26 @@
  * test) implements this interface over its own library store and hands it to
  * the BOARD in place of `PROJECT_PCB::FootprintLibAdapter( GetProject() )`.
  */
-import type { LIBRARY_TABLE } from '@ziroeda/common/libraries/library_table.js';
+import {
+  type HOSTED_LIBRARY,
+  hostedLibraryTable,
+  LIBRARY_MANAGER,
+  SetStockLibraryTable,
+} from '@ziroeda/common/libraries/library_manager.js';
+import {
+  type LIBRARY_TABLE,
+  LIBRARY_TABLE_SCOPE,
+  LIBRARY_TABLE_TYPE,
+} from '@ziroeda/common/libraries/library_table.js';
+import { Pgm, PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import {
+  wxDirEnumerate,
+  wxDirExists,
+  wxIsDirWritable,
+  wxReadFileSync,
+  wxRemoveFile,
+  wxWriteFileSync,
+} from '@ziroeda/wx/filefn.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { projectFpLibTable, projectLibraryNickname } from '@ziroeda/common/fp_lib_table.js';
 import { DO_NOT_INCLUDE_NPTH, FOOTPRINT } from './footprint.js';
@@ -136,9 +155,11 @@ export interface FOOTPRINT_LIBRARY_STORE_LIB {
   /**
    * Hosted libraries are read only (`FP_CACHE::IsWritable` is false for a
    * directory the user cannot write, as an installed library's is); the
-   * project's and the ones made with New Library are not.
+   * project's and the ones made with New Library are not. A `user` library is
+   * a row of the user's own global table naming a `.pretty` folder on a mounted
+   * file system - the account's Footprints folder - read and written there.
    */
-  readonly scope: 'global' | 'project';
+  readonly scope: 'global' | 'project' | 'user';
   /** Footprint names, known before any file is fetched (from index.json). */
   readonly names: string[];
   /** `.kicad_mod` text by footprint name, for the files fetched or written so far. */
@@ -164,6 +185,10 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
   private readonly m_pinned = new Set<string>();
   /** The global libraries a project library of the same nickname hides, until it goes. */
   private readonly m_shadowed = new Map<string, FOOTPRINT_LIBRARY_STORE_LIB>();
+  /** The hosted libraries' footprint names, from the index: the stock table's libraries. */
+  private readonly m_hosted = new Map<string, readonly string[]>();
+  /** The library manager's global footprint table the global libraries were last read from. */
+  private m_globalTable: LIBRARY_TABLE | null | undefined = undefined;
   /** Bumped on every change, so a window can re-read the rows. */
   revision = 0;
 
@@ -173,18 +198,109 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
     this.revision++;
   }
 
-  /** A global library by name, its files fetched on demand. */
+  /**
+   * A hosted library by name, its files fetched on demand: one of the stock table's. Whether it is
+   * listed is the global table's say (an unticked KiCad row, a disabled library), read in
+   * {@link syncGlobal}; with no global table loaded, every hosted library is.
+   */
   AddGlobalLibrary(aNickname: string, aNames: readonly string[]): void {
-    if (this.m_libs.has(aNickname)) return;
+    if (this.m_hosted.has(aNickname)) return;
 
-    this.m_libs.set(aNickname, {
-      nickname: aNickname,
-      dir: `${aNickname}.pretty`,
-      scope: 'global',
-      names: [...aNames],
-      texts: new Map(),
-    });
+    this.m_hosted.set(aNickname, [...aNames]);
+    // Read the global libraries again, with this one among the hosted.
+    this.m_globalTable = undefined;
     this.touch();
+  }
+
+  /**
+   * The global libraries, as `LIBRARY_MANAGER::Rows( FOOTPRINT, GLOBAL )` has them: read again
+   * whenever the manager's global table is another (LoadGlobalTables replaces it, as the
+   * library table dialog's OK does). A hosted row is listed with the index's names; a user row
+   * naming a `.pretty` folder on a mounted file system is listed with the files in it. A disabled
+   * row - or every row under a disabled KiCad chain row - is not listed at all.
+   */
+  private syncGlobal(): void {
+    const manager = PgmOrNull()?.GetLibraryManager();
+    const table = manager?.Table(LIBRARY_TABLE_TYPE.FOOTPRINT, LIBRARY_TABLE_SCOPE.GLOBAL) ?? null;
+
+    if (table === this.m_globalTable) return;
+
+    this.m_globalTable = table;
+
+    const wanted = new Map<string, FOOTPRINT_LIBRARY_STORE_LIB>();
+    const hosted = (aNickname: string, aNames: readonly string[]): FOOTPRINT_LIBRARY_STORE_LIB => {
+      // A library already read keeps the files it fetched.
+      const had = this.m_libs.get(aNickname) ?? this.m_shadowed.get(aNickname);
+
+      return had?.scope === 'global'
+        ? had
+        : {
+            nickname: aNickname,
+            dir: `${aNickname}.pretty`,
+            scope: 'global',
+            names: [...aNames],
+            texts: new Map(),
+          };
+    };
+
+    if (!table || !manager) {
+      for (const [nickname, names] of this.m_hosted) wanted.set(nickname, hosted(nickname, names));
+    } else {
+      for (const row of manager.Rows(LIBRARY_TABLE_TYPE.FOOTPRINT, LIBRARY_TABLE_SCOPE.GLOBAL)) {
+        if (row.Disabled()) continue;
+
+        const nickname = row.Nickname();
+
+        if (isHostedFootprintLibraryRow(row)) {
+          const names = this.m_hosted.get(nickname);
+
+          if (names) wanted.set(nickname, hosted(nickname, names));
+        } else if (row.Type() === 'KiCad' && wxDirExists(row.URI())) {
+          const names = (wxDirEnumerate(row.URI()) ?? [])
+            .filter((e) => !e.isDir && /\.kicad_mod$/i.test(e.name))
+            .map((e) => fpNameOf(e.name));
+
+          wanted.set(nickname, {
+            nickname,
+            dir: row.URI(),
+            scope: 'user',
+            names,
+            texts: new Map(),
+          });
+        }
+      }
+    }
+
+    // Out with the global libraries no row lists now, in with the ones listed, under any project
+    // library of the same nickname.
+    for (const [name, lib] of this.m_libs)
+      if (lib.scope !== 'project' && !wanted.has(name)) this.m_libs.delete(name);
+
+    for (const name of [...this.m_shadowed.keys()])
+      if (!wanted.has(name)) this.m_shadowed.delete(name);
+
+    for (const [name, lib] of wanted) {
+      if (this.m_libs.get(name)?.scope === 'project') this.m_shadowed.set(name, lib);
+      else this.m_libs.set(name, lib);
+    }
+
+    this.touch();
+  }
+
+  /** A footprint's file text if the store can read it now: held, or in a user library's folder. */
+  private textNow(aLib: FOOTPRINT_LIBRARY_STORE_LIB, aName: string): string | undefined {
+    let text = aLib.texts.get(aName);
+
+    if (text === undefined && aLib.scope === 'user') {
+      const data = wxReadFileSync(`${aLib.dir}/${aName}.kicad_mod`);
+
+      if (data) {
+        text = new TextDecoder().decode(data);
+        aLib.texts.set(aName, text);
+      }
+    }
+
+    return text;
   }
 
   /** A project library, from the `.kicad_mod` files of one of its `.pretty` folders. */
@@ -249,15 +365,18 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
   }
 
   /**
-   * The project's libraries as the chooser's index lists a library: each footprint's name, and
-   * the unique pad count, description and keywords `FOOTPRINT_LIST::ReadFootprintFiles` reads off
-   * it (`FOOTPRINT_INFO_IMPL::load`). A project's footprints are its own files, so all are read.
+   * The libraries the store reads itself - the project's, and the user's own global ones - as the
+   * chooser's index lists a library: each footprint's name, and the unique pad count, description
+   * and keywords `FOOTPRINT_LIST::ReadFootprintFiles` reads off it (`FOOTPRINT_INFO_IMPL::load`).
+   * Their footprints are files in hand, so all are read; the hosted set has its own index.
    */
-  ProjectIndex(): FootprintIndexLibrary[] {
+  OwnIndex(): FootprintIndexLibrary[] {
+    this.syncGlobal();
+
     const index: FootprintIndexLibrary[] = [];
 
     for (const lib of this.m_libs.values()) {
-      if (lib.scope !== 'project') continue;
+      if (lib.scope === 'global') continue;
 
       const footprints: string[] = [];
       const pads: number[] = [];
@@ -310,6 +429,8 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
 
   /** `GetLibraryNames()`: pinned libraries first, then the rest, each by name. */
   GetLibraryNames(): string[] {
+    this.syncGlobal();
+
     const byName = (a: string, b: string): number => a.toLowerCase().localeCompare(b.toLowerCase());
     const all = [...this.m_libs.keys()];
 
@@ -320,6 +441,7 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
   }
 
   Library(aNickname: string): FOOTPRINT_LIBRARY_STORE_LIB | undefined {
+    this.syncGlobal();
     return this.m_libs.get(aNickname);
   }
 
@@ -335,6 +457,8 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
   }
 
   GetRow(aNickname: string): LIBRARY_TABLE_ROW | null {
+    this.syncGlobal();
+
     const lib = this.m_libs.get(aNickname);
 
     if (!lib) return null;
@@ -349,10 +473,12 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
   }
 
   HasLibrary(aNickname: string, _aCheckEnabled = false): boolean {
+    this.syncGlobal();
     return this.m_libs.has(aNickname);
   }
 
   IsLibraryLoaded(aNickname: string): boolean {
+    this.syncGlobal();
     return this.m_libs.has(aNickname);
   }
 
@@ -368,20 +494,24 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
   }
 
   GetFootprintNames(aNickname: string, _aBestEfforts = false): string[] {
+    this.syncGlobal();
     return [...(this.m_libs.get(aNickname)?.names ?? [])];
   }
 
   FootprintExists(aNickname: string, aName: string): boolean {
+    this.syncGlobal();
     return this.m_libs.get(aNickname)?.names.includes(aName) ?? false;
   }
 
   /** The footprint's file text, fetching a hosted one the first time. */
   async FootprintText(aNickname: string, aName: string): Promise<string | null> {
+    this.syncGlobal();
+
     const lib = this.m_libs.get(aNickname);
 
     if (!lib || !lib.names.includes(aName)) return null;
 
-    let text = lib.texts.get(aName);
+    let text = this.textNow(lib, aName);
 
     if (text === undefined && lib.scope === 'global') {
       try {
@@ -402,7 +532,10 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
    * that does not keep its UUIDs is a `Duplicate`.
    */
   LoadFootprint(aNickname: string, aName: string, aKeepUUID: boolean): FOOTPRINT | null {
-    const text = this.m_libs.get(aNickname)?.texts.get(aName);
+    this.syncGlobal();
+
+    const lib = this.m_libs.get(aNickname);
+    const text = lib ? this.textNow(lib, aName) : undefined;
 
     if (text === undefined) return null;
 
@@ -448,7 +581,13 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
 
   /** `IsFootprintLibWritable( aNickname )`. */
   IsFootprintLibWritable(aNickname: string): boolean {
-    return this.m_libs.get(aNickname)?.scope === 'project';
+    this.syncGlobal();
+
+    const lib = this.m_libs.get(aNickname);
+
+    if (lib?.scope === 'user') return wxIsDirWritable(lib.dir);
+
+    return lib?.scope === 'project';
   }
 
   /**
@@ -458,6 +597,8 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
    * the library is unknown or read only, or `!aOverwrite` and it exists.
    */
   SaveFootprint(aNickname: string, aFootprint: FOOTPRINT, aOverwrite = true): SAVE_T {
+    this.syncGlobal();
+
     const lib = this.m_libs.get(aNickname);
 
     if (!lib) return SAVE_T.SAVE_SKIPPED;
@@ -468,7 +609,7 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
 
     // FootprintSave throws "Library '%s' is read only."; the adapter catches
     // every IO_ERROR it raises and answers SAVE_SKIPPED.
-    if (lib.scope !== 'project') return SAVE_T.SAVE_SKIPPED;
+    if (!this.IsFootprintLibWritable(aNickname)) return SAVE_T.SAVE_SKIPPED;
 
     // I need my own copy for the cache
     const footprint = FOOTPRINT.copyOfFootprint(aFootprint);
@@ -483,7 +624,11 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
 
     if (!lib.names.includes(footprintName)) lib.names.push(footprintName);
 
-    this.m_io.writeFootprintFile?.(lib.dir, `${footprintName}.kicad_mod`, text);
+    // A user library's folder is a mounted one: FootprintSave's write, there.
+    if (lib.scope === 'user')
+      wxWriteFileSync(`${lib.dir}/${footprintName}.kicad_mod`, new TextEncoder().encode(text));
+    else this.m_io.writeFootprintFile?.(lib.dir, `${footprintName}.kicad_mod`, text);
+
     this.touch();
 
     return SAVE_T.SAVE_OK;
@@ -491,19 +636,73 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
 
   /** `DeleteFootprint( aNickname, aFootprintName )` -> `FootprintDelete`. */
   DeleteFootprint(aNickname: string, aFootprintName: string): void {
+    this.syncGlobal();
+
     const lib = this.m_libs.get(aNickname);
 
     if (!lib) return;
 
     // FootprintDelete throws "Library '%s' is read only." and FP_CACHE::Remove
     // "Library '%s' has no footprint '%s'."; the adapter catches both.
-    if (lib.scope !== 'project' || !lib.names.includes(aFootprintName)) return;
+    if (!this.IsFootprintLibWritable(aNickname) || !lib.names.includes(aFootprintName)) return;
 
     lib.names.splice(lib.names.indexOf(aFootprintName), 1);
     lib.texts.delete(aFootprintName);
-    this.m_io.removeFootprintFile?.(lib.dir, `${aFootprintName}.kicad_mod`);
+
+    if (lib.scope === 'user') wxRemoveFile(`${lib.dir}/${aFootprintName}.kicad_mod`);
+    else this.m_io.removeFootprintFile?.(lib.dir, `${aFootprintName}.kicad_mod`);
     this.touch();
   }
+}
+
+/**
+ * The stock table's row URI for a hosted library. Its files are fetched by nickname, never read
+ * at a path; the folder only marks the row as the hosted set's.
+ */
+export const FOOTPRINT_HOSTED_DIR = '/.kicad-footprints';
+
+export function hostedFootprintLibraryUri(aNickname: string): string {
+  return `${FOOTPRINT_HOSTED_DIR}/${aNickname}.pretty`;
+}
+
+/** Whether \a aRow is a hosted library's: its URI is in the hosted folder. */
+export function isHostedFootprintLibraryRow(aRow: { URI(): string }): boolean {
+  return aRow.URI().startsWith(`${FOOTPRINT_HOSTED_DIR}/`);
+}
+
+/**
+ * The program's global footprint table, as PGM_BASE has it from the start (`LoadGlobalTables`,
+ * kicad.cpp): the hosted set is the stock table, and the user's global table chains it - written
+ * with that one row the first time, the first-run dialog's default (`CreateGlobalTable( FOOTPRINT,
+ * true )`). With nowhere to keep a user table (no settings path mounted), the stock table is the
+ * global one. LoadGlobalSymbolTables' footprint twin.
+ */
+export function LoadGlobalFootprintTables(aHosted: readonly HOSTED_LIBRARY[]): void {
+  const FOOTPRINT = LIBRARY_TABLE_TYPE.FOOTPRINT;
+  const manager = Pgm().GetLibraryManager();
+
+  // The index lists every hosted library; one the user's tables already name is theirs.
+  const ownRows = new Set(
+    manager
+      .Rows(FOOTPRINT)
+      .filter((r) => !isHostedFootprintLibraryRow(r))
+      .map((r) => r.Nickname()),
+  );
+  const stock = hostedLibraryTable(
+    FOOTPRINT,
+    aHosted.filter((l) => !ownRows.has(l.name)),
+    hostedFootprintLibraryUri,
+  );
+
+  SetStockLibraryTable(FOOTPRINT, stock);
+
+  if (!LIBRARY_MANAGER.IsTableValid(LIBRARY_MANAGER.DefaultGlobalTablePath(FOOTPRINT)))
+    LIBRARY_MANAGER.CreateGlobalTable(FOOTPRINT, true);
+
+  manager.LoadGlobalTables([FOOTPRINT]);
+
+  if (!manager.Table(FOOTPRINT, LIBRARY_TABLE_SCOPE.GLOBAL))
+    manager.SetTable(FOOTPRINT, LIBRARY_TABLE_SCOPE.GLOBAL, stock);
 }
 
 /** `FOOTPRINT_LIBRARY_ADAPTER::SAVE_T`. */

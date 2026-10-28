@@ -1916,6 +1916,8 @@ export const SETTINGS_SLICES = [
   // a file in `PATHS::GetUserSettingsPath()` beside the settings, which is what this set is. The
   // value is the table's text, mounted there by prefs/user_library_tables.ts.
   'sym-lib-table',
+  // The user's global footprint library table, `DefaultGlobalTablePath( FOOTPRINT )`, the same way.
+  'fp-lib-table',
 ] as const;
 
 export type SettingsSlice = (typeof SETTINGS_SLICES)[number];
@@ -2345,6 +2347,8 @@ interface SliceValues {
   'gerbview-toolbars': ToolbarSettings;
   /** The table's text; empty until `LIBRARY_MANAGER::CreateGlobalTable` writes it. */
   'sym-lib-table': { table: string };
+  /** The table's text; empty until `LIBRARY_MANAGER::CreateGlobalTable` writes it. */
+  'fp-lib-table': { table: string };
 }
 
 /** `deepMerge` over a fresh copy of the defaults: a fixed-shape file. */
@@ -2396,6 +2400,10 @@ const SLICE_NORMALIZE: { [K in SettingsSlice]: (stored: unknown) => SliceValues[
   gerbview: mergedWithGrids(GERBVIEW_DEFAULTS),
   'gerbview-toolbars': normalizeToolbarSettings,
   'sym-lib-table': (stored) => {
+    const table = (stored as { table?: unknown } | undefined)?.table;
+    return { table: typeof table === 'string' ? table : '' };
+  },
+  'fp-lib-table': (stored) => {
     const table = (stored as { table?: unknown } | undefined)?.table;
     return { table: typeof table === 'string' ? table : '' };
   },
@@ -2893,6 +2901,16 @@ export class SettingsManager {
   /** Write the user's global symbol library table: what a save of that file does. */
   setSymLibTable(aText: string): void {
     this.replace('sym-lib-table', { table: aText });
+  }
+
+  /** The user's global footprint library table, as text (`fp-lib-table`). */
+  get fpLibTable(): string {
+    return this.files['fp-lib-table'].value.table;
+  }
+
+  /** Write the user's global footprint library table: what a save of that file does. */
+  setFpLibTable(aText: string): void {
+    this.replace('fp-lib-table', { table: aText });
   }
 
   resetCommon(): void {

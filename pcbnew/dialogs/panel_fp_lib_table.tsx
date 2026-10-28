@@ -24,6 +24,9 @@ import type { HOSTED_LIBRARY } from '@ziroeda/common/libraries/library_manager.j
 import { type JSX, useRef } from 'react';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { ChooseLocalFolder } from '@ziroeda/wx/dirdlg.js';
+import { wxDirEnumerate, wxDirExists, wxFileExists, wxMkdir } from '@ziroeda/wx/filefn.js';
+import { PATHS } from '@ziroeda/common/paths.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import {
   LIBRARY_TABLE,
   LIBRARY_TABLE_SCOPE,
@@ -79,6 +82,12 @@ interface Props {
 /** The `fp-lib-table` anchors `${KIPRJMOD}` for a folder with no `.kicad_pro`. */
 const FP_LIB_TABLE_ANCHOR = /(^|\/)fp-lib-table$/i;
 
+/** The account's Footprints folder: a global library of the user's own is a `.pretty` in it. */
+const ACCOUNT_FOOTPRINTS = PATHS.GetDefaultUserFootprintsPath();
+
+/** Whether \a aUri names a library in the account's Footprints folder. */
+const isAccountLibrary = (aUri: string): boolean => aUri.startsWith(`${ACCOUNT_FOOTPRINTS}/`);
+
 /** A `${KIPRJMOD}` / `$(KIPRJMOD)` reference: the only kind a project file can answer. */
 const isProjectRelative = (aUri: string): boolean => /^\$[{(]KIPRJMOD[})]/i.test(aUri);
 
@@ -113,6 +122,26 @@ export function DialogFpLibTable({
   const staged = useRef<{ name: string; text: string }[]>([]);
   /** The new libraries' folders the add button made, by project-relative name, until OK. */
   const made = useRef(new Set<string>());
+  /** The account folders the add button's rows on the Global page name: made on OK. */
+  const madeGlobal = useRef(new Set<string>());
+
+  /**
+   * OK, before the global table is saved: each account library a new row names, made
+   * (PCB_IO_KICAD_SEXPR::CreateLibrary's empty `.pretty`).
+   */
+  const makeAccountLibraries = (aRows: readonly LIBRARY_TABLE_ROW[]): void => {
+    for (const row of aRows) {
+      const path = row.URI();
+
+      if (!madeGlobal.current.has(path) || wxDirExists(path)) continue;
+
+      if (!wxMkdir(path))
+        DisplayErrorMessage(
+          `Could not create the library folder '${path}'.\n` +
+            'Make sure you have write permissions and try again.',
+        );
+    }
+  };
   /** The project's files as they will be on OK: the checks and the list see the held ones. */
   const files = (): readonly { name: string; text: string }[] => [
     ...(projectFiles ?? []),
@@ -174,17 +203,30 @@ export function DialogFpLibTable({
       preamble="(fp_lib_table"
       supportsVisibilityColumn={false}
       dirVarBase="FOOTPRINT_DIR"
-      globalTable={hostedLibraryTable(
-        LIBRARY_TABLE_TYPE.FOOTPRINT,
-        // The footprint index has no library descriptions; template/fp-lib-table's are mirrored.
-        globalLibraries.map(({ name, descr }) => ({
-          name,
-          descr: descr ?? footprintLibraryDescription(name),
-        })),
-        (name) => `${globalBase}/${name}.pretty`,
-      )}
+      // The program's global table - the user's own, chaining the hosted set - once it is loaded;
+      // the hosted set alone before then.
+      globalTable={
+        PgmOrNull()
+          ?.GetLibraryManager()
+          .Table(LIBRARY_TABLE_TYPE.FOOTPRINT, LIBRARY_TABLE_SCOPE.GLOBAL) ??
+        hostedLibraryTable(
+          LIBRARY_TABLE_TYPE.FOOTPRINT,
+          // The footprint index has no library descriptions; template/fp-lib-table's are mirrored.
+          globalLibraries.map(({ name, descr }) => ({
+            name,
+            descr: descr ?? footprintLibraryDescription(name),
+          })),
+          (name) => `${globalBase}/${name}.pretty`,
+        )
+      }
       projectTable={projectFiles ? projectTableOf(projectFiles) : undefined}
       checkRow={(row) => {
+        // FP_CACHE::Load: "Footprint library '%s' not found."
+        if (row.Type() === 'KiCad' && isAccountLibrary(row.URI()))
+          return wxDirExists(row.URI()) || madeGlobal.current.has(row.URI())
+            ? LIB_LOADED
+            : libNotFound(`Footprint library '${row.URI()}' not found.`);
+
         if (row.Type() !== 'KiCad' || !isProjectRelative(row.URI())) return undefined;
 
         // PCB_IO_KICAD_SEXPR's FP_CACHE::Load: "Footprint library '%s' not found."
@@ -193,10 +235,25 @@ export function DialogFpLibTable({
           : libNotFound(`Footprint library '${row.URI()}' not found.`);
       }}
       nestedTableExists={(row) =>
-        isProjectRelative(row.URI()) && !!findProjectFile(files(), row.URI(), FP_LIB_TABLE_ANCHOR)
+        isProjectRelative(row.URI())
+          ? !!findProjectFile(files(), row.URI(), FP_LIB_TABLE_ANCHOR)
+          : // The user's table chaining the stock one: a file the program's mounts answer.
+            wxFileExists(PgmOrNull()?.GetLibraryManager().GetFullURI(row, true) ?? row.URI())
       }
       existing={(rows, scope) => {
-        if (scope !== 'project') return [];
+        // The account's folder: its libraries no row of the global table names yet.
+        if (scope === 'global') {
+          const named = new Set(rows.map((r) => r.URI()));
+
+          return (wxDirEnumerate(ACCOUNT_FOOTPRINTS) ?? [])
+            .filter((e) => e.isDir && /\.pretty$/i.test(e.name))
+            .filter((e) => !named.has(`${ACCOUNT_FOOTPRINTS}/${e.name}`))
+            .map((e) => ({
+              name: e.name.replace(/\.pretty$/i, ''),
+              uri: `${ACCOUNT_FOOTPRINTS}/${e.name}`,
+              label: e.name,
+            }));
+        }
 
         // A folder whose name a row's `.pretty` already has is registered.
         const registered = new Set(
@@ -221,13 +278,18 @@ export function DialogFpLibTable({
       // Footprint libraries in the account are not here yet: a folder only joins the project.
       browse={{ label: 'KiCad (folder) from Computer...', pick, scopes: ['project'] }}
       newLibraryUri={(scope, nickname) => {
-        // The Global page is the hosted set, read only: no row is added to it.
-        if (scope !== 'project') return '';
+        // A global library of the user's own is a folder in the account's Footprints.
+        if (scope === 'global') {
+          const uri = `${ACCOUNT_FOOTPRINTS}/${nickname}.pretty`;
+          madeGlobal.current.add(uri);
+          return uri;
+        }
 
         const uri = `\${KIPRJMOD}/${nickname}.pretty`;
         made.current.add(folderOf(uri));
         return uri;
       }}
+      beforeGlobalSave={makeAccountLibraries}
       onSave={(table) => {
         const rows = fpLibRowsOf(table);
         const named = new Set(rows.map((r) => folderOf(r.uri).toLowerCase()));

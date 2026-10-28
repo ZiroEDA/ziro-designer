@@ -15,9 +15,9 @@ afterEach(() => {
 
 describe('PATHS', () => {
   it('puts the user folders under <documents>/kicad/10.0, with no separator', () => {
-    // Web delta: the account's Symbols folder, where a global symbol library lives.
+    // Web delta: the account's Symbols and Footprints folders, where a global library lives.
     expect(PATHS.GetDefaultUserSymbolsPath()).toBe('/Symbols');
-    expect(PATHS.GetDefaultUserFootprintsPath()).toBe('/.local/share/kicad/10.0/footprints');
+    expect(PATHS.GetDefaultUserFootprintsPath()).toBe('/Footprints');
     expect(PATHS.GetDefaultUser3DModelsPath()).toBe('/.local/share/kicad/10.0/3dmodels');
     expect(PATHS.GetDefaultUserProjectsPath()).toBe('/.local/share/kicad/10.0/projects');
     expect(PATHS.GetDefaultUserDesignBlocksPath()).toBe('/.local/share/kicad/10.0/blocks');

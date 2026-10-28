@@ -12,6 +12,7 @@ import { useMemo, type JSX } from 'react';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { installPgm } from '../pcb/pcb_canvas.js';
 import { FP_LIBRARY_IO, footprintsBase } from '../pcb/footprint_lib_adapter_app.js';
+import { loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { commonSettingsOf } from '../../pgm_app.js';
 import {
   FootprintEditFrame,
@@ -54,6 +55,7 @@ export function useFootprintEditFrameApp(): FOOTPRINT_EDIT_FRAME_APP {
 
       libraryIo: FP_LIBRARY_IO,
       footprintsBase,
+      loadFootprintIndex,
       installPgm,
       commonSettingsOf,
 

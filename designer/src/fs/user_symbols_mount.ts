@@ -22,8 +22,20 @@ import type { FileSystem } from './filesystem.js';
  *
  * @return the unmount, which leaves the store as the writes made it.
  */
-export async function mountUserSymbolsFolder(aStore: FileSystem): Promise<() => void> {
-  const root = USER_DIRS.symbols;
+export function mountUserSymbolsFolder(aStore: FileSystem): Promise<() => void> {
+  return mountUserLibraryFolder(aStore, USER_DIRS.symbols);
+}
+
+/**
+ * Mount the account's Footprints folder, `/Footprints`, the same way: a footprint library is a
+ * `.pretty` folder of `.kicad_mod` files there, named by a row of the user's global table.
+ */
+export function mountUserFootprintsFolder(aStore: FileSystem): Promise<() => void> {
+  return mountUserLibraryFolder(aStore, USER_DIRS.footprints);
+}
+
+/** Mount the account folder \a root from \a aStore at its own path, every write going back. */
+async function mountUserLibraryFolder(aStore: FileSystem, root: string): Promise<() => void> {
   const fs = new MEMORY_FILESYSTEM();
 
   const load = async (aDir: string): Promise<void> => {
@@ -39,12 +51,19 @@ export async function mountUserSymbolsFolder(aStore: FileSystem): Promise<() => 
     }
   };
 
-  // A new account has no Symbols folder until something is put in it.
+  // A new account has no such folder until something is put in it.
   if (await aStore.stat(root)) await load(root);
 
   fs.SetWriteListener((aRel, aData) => {
     aStore.write(`${root}/${aRel}`, aData).catch((e: unknown) => {
       console.warn(`Could not save ${root}/${aRel} to the account:`, e);
+    });
+  });
+
+  // An empty library is an empty folder (CreateLibrary's `.pretty`): made in the account too.
+  fs.SetMkdirListener((aRel) => {
+    aStore.mkdir(`${root}/${aRel}`).catch(() => {
+      // Already there: the first file in it would have made it anyway.
     });
   });
 

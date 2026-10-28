@@ -7,50 +7,69 @@
  * them as files - `LoadGlobalTables`, `CreateGlobalTable`, a table's `Save()` - so they are mounted
  * there, each backed by its settings slice, which is what the account syncs.
  *
- * The symbol table only, so far: the footprint and design-block tables are still the hosted ones.
+ * The symbol and footprint tables; the design-block table is still the hosted one.
  */
 import { LIBRARY_MANAGER } from '@ziroeda/common/libraries/library_manager.js';
 import { LIBRARY_TABLE_TYPE } from '@ziroeda/common/libraries/library_table.js';
 import { PATHS } from '@ziroeda/common/paths.js';
 import { MEMORY_FILESYSTEM, wxMountFileSystem } from '@ziroeda/wx/filefn.js';
 
-/** What the mount asks of the settings: the table's text, and a change to it. */
+/** What the mount asks of the settings: each table's text, and a change to it. */
 export interface USER_LIBRARY_TABLE_SETTINGS {
   readonly symLibTable: string;
   setSymLibTable(aText: string): void;
+  readonly fpLibTable: string;
+  setFpLibTable(aText: string): void;
   subscribe(aListener: () => void): () => void;
 }
 
-/** Mount the user's global symbol library table, following the slice as the account changes it. */
+/** Mount the user's global library tables, following the slices as the account changes them. */
 export function mountUserLibraryTables(aSettings: USER_LIBRARY_TABLE_SETTINGS): () => void {
   const fs = new MEMORY_FILESYSTEM();
-  const name = LIBRARY_MANAGER.TableFileName(LIBRARY_TABLE_TYPE.SYMBOL);
   const enc = new TextEncoder();
   const dec = new TextDecoder();
-  let shown = '';
+  // Each table's file, with its slice's text and how a save reaches the slice.
+  const tables = [
+    {
+      name: LIBRARY_MANAGER.TableFileName(LIBRARY_TABLE_TYPE.SYMBOL),
+      text: () => aSettings.symLibTable,
+      set: (aText: string) => aSettings.setSymLibTable(aText),
+      shown: '',
+    },
+    {
+      name: LIBRARY_MANAGER.TableFileName(LIBRARY_TABLE_TYPE.FOOTPRINT),
+      text: () => aSettings.fpLibTable,
+      set: (aText: string) => aSettings.setFpLibTable(aText),
+      shown: '',
+    },
+  ];
   let refreshing = false;
 
-  // The slice into the file: at mount, and when the account brings another device's change.
+  // The slices into the files: at mount, and when the account brings another device's change.
   const refresh = (): void => {
-    const text = aSettings.symLibTable;
+    for (const t of tables) {
+      const text = t.text();
 
-    if (text === shown) return;
+      if (text === t.shown) continue;
 
-    shown = text;
-    refreshing = true;
+      t.shown = text;
+      refreshing = true;
 
-    if (text === '') fs.Remove(name);
-    else fs.Write(name, enc.encode(text));
+      if (text === '') fs.Remove(t.name);
+      else fs.Write(t.name, enc.encode(text));
 
-    refreshing = false;
+      refreshing = false;
+    }
   };
 
-  // The file into the slice: a save of the table.
+  // A file into its slice: a save of the table.
   fs.SetWriteListener((aRel, aData) => {
-    if (refreshing || aRel !== name) return;
+    const t = tables.find((x) => x.name === aRel);
 
-    shown = dec.decode(aData);
-    aSettings.setSymLibTable(shown);
+    if (refreshing || !t) return;
+
+    t.shown = dec.decode(aData);
+    t.set(t.shown);
   });
 
   refresh();

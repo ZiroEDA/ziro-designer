@@ -72,7 +72,7 @@ import {
 } from './sw_update.js';
 import { installCommonAppearance } from './ui/common_appearance.js';
 import { projectStoreFileSystem } from './fs/project_store_fs.js';
-import { mountUserSymbolsFolder } from './fs/user_symbols_mount.js';
+import { mountUserFootprintsFolder, mountUserSymbolsFolder } from './fs/user_symbols_mount.js';
 import { settings } from './prefs/settings.js';
 import { mountUserLibraryTables } from './prefs/user_library_tables.js';
 import { warmLibraryIndexes } from './libraryHosts.js';
@@ -449,23 +449,29 @@ export function App(): JSX.Element {
   // The user's global library tables, files in the settings path backed by their synced slices.
   useEffect(() => mountUserLibraryTables(settings), []);
 
-  // The account's Symbols folder, where a symbol library saved or dropped into the account lives
-  // and a table row names it from any project: one mount for the app, read again for each account.
+  // The account's Symbols and Footprints folders, where a library saved or dropped into the
+  // account lives and a table row names it from any project: one mount each for the app, read
+  // again for each account.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the account is the trigger; the store follows it
   useEffect(() => {
-    let unmount: (() => void) | null = null;
+    const unmounts: (() => void)[] = [];
     let cancelled = false;
 
-    mountUserSymbolsFolder(projectStoreFileSystem())
-      .then((u) => {
-        if (cancelled) u();
-        else unmount = u;
-      })
-      .catch((e: unknown) => console.warn('Symbols folder not mounted:', e));
+    for (const [mount, what] of [
+      [mountUserSymbolsFolder, 'Symbols'],
+      [mountUserFootprintsFolder, 'Footprints'],
+    ] as const) {
+      mount(projectStoreFileSystem())
+        .then((u) => {
+          if (cancelled) u();
+          else unmounts.push(u);
+        })
+        .catch((e: unknown) => console.warn(`${what} folder not mounted:`, e));
+    }
 
     return () => {
       cancelled = true;
-      unmount?.();
+      for (const u of unmounts) u();
     };
   }, [userId]);
 

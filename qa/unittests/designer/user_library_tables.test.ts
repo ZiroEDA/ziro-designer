@@ -20,9 +20,11 @@ const dec = new TextDecoder();
 const enc = new TextEncoder();
 
 /** A settings slice holding \a aText, recording every write and able to change under the mount. */
-function slice(aText: string) {
+function slice(aText: string, aFpText = '') {
   let text = aText;
+  let fpText = aFpText;
   const writes: string[] = [];
+  const fpWrites: string[] = [];
   const listeners = new Set<() => void>();
   const settings: USER_LIBRARY_TABLE_SETTINGS = {
     get symLibTable() {
@@ -33,6 +35,14 @@ function slice(aText: string) {
       writes.push(aNew);
       for (const l of listeners) l();
     },
+    get fpLibTable() {
+      return fpText;
+    },
+    setFpLibTable(aNew: string) {
+      fpText = aNew;
+      fpWrites.push(aNew);
+      for (const l of listeners) l();
+    },
     subscribe(aListener) {
       listeners.add(aListener);
       return () => listeners.delete(aListener);
@@ -41,6 +51,7 @@ function slice(aText: string) {
   return {
     settings,
     writes,
+    fpWrites,
     /** How many listen to the slice. */
     listening: () => listeners.size,
     /** Another device's change, arriving through the account. */
@@ -53,6 +64,28 @@ function slice(aText: string) {
 
 let unmount: () => void = () => {};
 afterEach(() => unmount());
+
+describe('mountUserLibraryTables, the footprint table', () => {
+  const FP_PATH = LIBRARY_MANAGER.DefaultGlobalTablePath(LIBRARY_TABLE_TYPE.FOOTPRINT);
+  const FP_TABLE = '(fp_lib_table (version 7))';
+
+  it('shows each slice as its own file, and a save of one reaches only its slice', () => {
+    const s = slice(TABLE, FP_TABLE);
+    unmount = mountUserLibraryTables(s.settings);
+    expect(dec.decode(wxReadFileSync(FP_PATH)!)).toBe(FP_TABLE);
+    expect(dec.decode(wxReadFileSync(PATH)!)).toBe(TABLE);
+
+    const saved = '(fp_lib_table (version 7) (lib (name "Mine")))';
+    wxWriteFileSync(FP_PATH, enc.encode(saved));
+    expect(s.fpWrites).toEqual([saved]);
+    expect(s.writes).toEqual([]);
+  });
+
+  it('has no footprint table file until the slice holds one', () => {
+    unmount = mountUserLibraryTables(slice(TABLE).settings);
+    expect(wxFileExists(FP_PATH)).toBe(false);
+  });
+});
 
 describe('mountUserLibraryTables', () => {
   it('shows the stored table as the file in the settings path', () => {

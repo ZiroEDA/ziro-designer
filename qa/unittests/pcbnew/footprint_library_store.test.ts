@@ -82,7 +82,7 @@ describe('SetProjectLibraries (ProjectChanged)', () => {
   });
 });
 
-describe('ProjectIndex: the project libraries as the chooser lists them', () => {
+describe('OwnIndex: the project libraries as the chooser lists them', () => {
   it('names each footprint with its unique pads, description and keywords, read off its file', () => {
     const withDocs = `(footprint "C_0402"
   (layer "F.Cu") (descr "Capacitor, 0402") (tags "capacitor cap")
@@ -99,7 +99,7 @@ describe('ProjectIndex: the project libraries as the chooser lists them', () => 
     ]);
 
     // The hosted libraries are the index's own; only the project's are read here.
-    expect(store.ProjectIndex()).toEqual([
+    expect(store.OwnIndex()).toEqual([
       {
         name: 'Mine',
         footprints: ['C_0402'],

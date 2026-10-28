@@ -144,7 +144,7 @@ export function recentFileSystem(below: FileSystem): FileSystem {
 export const USER_DIRS = {
   templates: '/Templates',
   symbols: PATHS.GetDefaultUserSymbolsPath(),
-  footprints: '/Footprints',
+  footprints: PATHS.GetDefaultUserFootprintsPath(),
   models3d: '/3D Models',
 } as const;
 
