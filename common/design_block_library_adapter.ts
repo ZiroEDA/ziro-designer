@@ -21,11 +21,13 @@ import {
 import { IO_ERROR } from './exceptions.js';
 import type { LIB_ID } from './lib_id.js';
 import {
+  hostedLibraryTable,
   type LIB_DATA,
   type LIB_STATUS,
   LIBRARY_MANAGER,
   LIBRARY_MANAGER_ADAPTER,
   LOAD_STATUS,
+  SetStockLibraryTable,
 } from './libraries/library_manager.js';
 import {
   LIBRARY_ERROR,
@@ -292,15 +294,22 @@ PROJECT.s_designBlockLibsFactory = () => {
 
 /**
  * The program's global design block table, as `PGM_KICAD::OnPgmInit` loads every global table at
- * start: the user's own, in the settings path - written empty the first time, since an install
- * here ships no stock design block libraries for a KiCad row to chain (`CreateGlobalTable(
- * DESIGN_BLOCK, false )`) - read into the library manager.
+ * start: the user's own, in the settings path, read into the library manager. The first time it
+ * is written as the start wizard writes every table (`STARTWIZARD_PROVIDER_LIBRARIES::
+ * ApplyDefaults` -> `CreateGlobalTable( type, true )`): one KiCad row chaining the stock table.
+ * KiCad's own design block library (kicad/libraries/kicad-design-blocks) has no blocks yet, so
+ * the stock table is empty - the row is there for when it does.
  */
 export function LoadGlobalDesignBlockTables(): void {
   const DESIGN_BLOCK = LIBRARY_TABLE_TYPE.DESIGN_BLOCK;
 
+  SetStockLibraryTable(
+    DESIGN_BLOCK,
+    hostedLibraryTable(DESIGN_BLOCK, [], () => ''),
+  );
+
   if (!LIBRARY_MANAGER.IsTableValid(LIBRARY_MANAGER.DefaultGlobalTablePath(DESIGN_BLOCK)))
-    LIBRARY_MANAGER.CreateGlobalTable(DESIGN_BLOCK, false);
+    LIBRARY_MANAGER.CreateGlobalTable(DESIGN_BLOCK, true);
 
   Pgm().GetLibraryManager().LoadGlobalTables([DESIGN_BLOCK]);
 }

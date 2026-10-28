@@ -12,8 +12,8 @@
  * As the symbol and footprint tables have it, a library's place is its page: the Global page is
  * the user's own table, its libraries in the account's Design Blocks folder; the Project page's are
  * in the project. The add button's row is a new, empty `.kicad_blocks` there
- * (DESIGN_BLOCK_IO::CreateLibrary's directory), made on OK. There are no stock design block
- * libraries, so no KiCad row and no Reset Libraries.
+ * (DESIGN_BLOCK_IO::CreateLibrary's directory), made on OK. The Global page's KiCad row chains
+ * the stock table, empty until KiCad ships design blocks; upstream's panel has no Reset Libraries.
  */
 import type { JSX } from 'react';
 import { useRef } from 'react';

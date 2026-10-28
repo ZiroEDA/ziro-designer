@@ -931,21 +931,32 @@ describe('Manage Design Block Libraries', () => {
     SetErrorPresenter(() => {});
   });
 
-  it('starts with an empty global table of the user, with the Show column', () => {
-    expect(storedRows()).toEqual([]);
+  // STARTWIZARD_PROVIDER_LIBRARIES::ApplyDefaults: CreateGlobalTable( type, true ) for every table,
+  // design blocks too - the KiCad row, chaining a stock table that has no libraries yet.
+  it("starts with the user's table holding the KiCad row alone, with the Show column", () => {
+    expect(storedRows()).toEqual([['KiCad', LIBRARY_MANAGER.StockTableReferenceURI(DB), 'Table']]);
+    expect(Pgm().GetLibraryManager().Rows(DB, LIBRARY_TABLE_SCOPE.GLOBAL)).toEqual([]);
     openDb(null);
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Global Libraries']);
+    expect(cellText(0, 3)).toBe('KiCad');
+    // The stock table it chains is there, empty: the row is not "Nested table ... not found".
+    expect(
+      document.querySelector('td[data-row="0"][data-col="0"]')?.getAttribute('title') ?? '',
+    ).not.toMatch(/not found/);
     expect(screen.queryByText('Show')).toBeTruthy();
   });
 
   it("makes the Global page's new row a library in the account, on OK", () => {
     openDb(null);
-    typeNew(0, 'MyBlocks');
+    typeNew(1, 'MyBlocks');
     expect(BLOCKS.DirExists('MyBlocks.kicad_blocks')).toBe(false);
 
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
 
-    expect(storedRows()).toEqual([['MyBlocks', '/Design Blocks/MyBlocks.kicad_blocks', 'KiCad']]);
+    expect(storedRows()).toEqual([
+      ['KiCad', LIBRARY_MANAGER.StockTableReferenceURI(DB), 'Table'],
+      ['MyBlocks', '/Design Blocks/MyBlocks.kicad_blocks', 'KiCad'],
+    ]);
     expect(BLOCKS.DirExists('MyBlocks.kicad_blocks')).toBe(true);
     expect(
       Pgm()
