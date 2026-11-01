@@ -11,6 +11,7 @@
 
 /** The `WXK_*` key codes, for the users of these events. */
 export { WXK } from './wx_keycodes.js';
+import { WXK } from './wx_keycodes.js';
 
 /** `wxEventType`: an integer per event kind, `wxNewEventType()` allocates. */
 export type wxEventType = number;
@@ -860,10 +861,14 @@ export function wxSetKeyState(aKey: number, aDown: boolean): void {
 }
 
 /**
- * `wxGetMouseState()`: the pointer's button state as the platform knows it
- * now, not as an event carried it. GTK asks the display server; the page's
- * equivalent is a window-level, capture-phase watch of every pointer event
- * (`dom_events.ts`), fed in through {@link wxSetMouseButtons}.
+ * `wxGetMouseState()`: the pointer's button state and the modifier keys as the
+ * platform knows them now, not as an event carried them. GTK asks the display
+ * server for one mask holding both (`GDK_BUTTON*_MASK`, `GDK_SHIFT_MASK`,
+ * `GDK_CONTROL_MASK`, `GDK_MOD1_MASK`); the page's equivalent is a window-level,
+ * capture-phase watch of every pointer event (`dom_events.ts`), fed in through
+ * {@link wxSetMouseButtons}, and the modifier state every DOM event records for
+ * {@link wxGetKeyState}. The selection tools' idle handlers read Shift, Ctrl and
+ * Alt here to show the add / remove / toggle cursors.
  */
 let s_mouseButtons = 0;
 
@@ -874,6 +879,11 @@ export function wxGetMouseState(): wxMouseState {
   state.SetMiddleDown((s_mouseButtons & 4) !== 0);
   state.SetAux1Down((s_mouseButtons & 8) !== 0);
   state.SetAux2Down((s_mouseButtons & 16) !== 0);
+  state.SetShiftDown(wxGetKeyState(WXK.WXK_SHIFT));
+  state.SetControlDown(wxGetKeyState(WXK.WXK_CONTROL));
+  // On GTK WXK_RAW_CONTROL is WXK_CONTROL.
+  state.SetRawControlDown(wxGetKeyState(WXK.WXK_CONTROL));
+  state.SetAltDown(wxGetKeyState(WXK.WXK_ALT));
   return state;
 }
 

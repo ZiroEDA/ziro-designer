@@ -35,8 +35,7 @@ import {
 } from '@ziroeda/common/tool/tool_event.js';
 import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
 import type { VIEW_CONTROLS } from '@ziroeda/common/view/view_controls.js';
-import { wxGetKeyState } from '@ziroeda/wx/wx_event.js';
-import { WXK } from '@ziroeda/wx/wx_keycodes.js';
+import { wxGetMouseState } from '@ziroeda/wx/wx_event.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { toVECTOR2I, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PL_EDITOR_FRAME } from '../pl_editor_frame.js';
@@ -195,12 +194,12 @@ export class PL_SELECTION_TOOL extends SELECTION_TOOL {
   }
 
   private *disambiguateCursor(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
-    // wxGetMouseState()'s modifiers: the platform's key state, which the
-    // panel feeds from every DOM event (wx/wx_event.ts).
+    const keyboardState = wxGetMouseState();
+
     this.setModifiersState(
-      wxGetKeyState(WXK.WXK_SHIFT),
-      wxGetKeyState(WXK.WXK_CONTROL),
-      wxGetKeyState(WXK.WXK_ALT),
+      keyboardState.ShiftDown(),
+      keyboardState.ControlDown(),
+      keyboardState.AltDown(),
     );
 
     this.m_skip_heuristics = true;
