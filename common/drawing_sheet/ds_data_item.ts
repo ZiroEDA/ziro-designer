@@ -11,7 +11,11 @@
 
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import type { Vec2 as VECTOR2D, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import {
+  toVECTOR2I,
+  type Vec2 as VECTOR2D,
+  type VECTOR2I,
+} from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint, RotatePointD } from '@ziroeda/kimath/src/trigo.js';
 import type { BITMAP_BASE } from '../bitmap_base.js';
 import type { Color4d } from '../gal/color4d.js';
@@ -558,14 +562,12 @@ export class DS_DATA_ITEM_POLYGONS extends DS_DATA_ITEM {
       return;
     }
 
-    const asInt = (p: VECTOR2D): VECTOR2I => ({ x: Math.trunc(p.x), y: Math.trunc(p.y) });
-
-    let pos = RotatePoint(asInt(this.m_Corners[0]!), this.m_Orient);
+    let pos = RotatePoint(toVECTOR2I(this.m_Corners[0]!), this.m_Orient);
     this.m_minCoord = { x: pos.x, y: pos.y };
     this.m_maxCoord = { x: pos.x, y: pos.y };
 
     for (let ii = 1; ii < this.m_Corners.length; ii++) {
-      pos = RotatePoint(asInt(this.m_Corners[ii]!), this.m_Orient);
+      pos = RotatePoint(toVECTOR2I(this.m_Corners[ii]!), this.m_Orient);
 
       if (this.m_minCoord.x > pos.x) this.m_minCoord.x = pos.x;
 

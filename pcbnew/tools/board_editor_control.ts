@@ -34,7 +34,7 @@ import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
 import { type RESET_REASON, RESET_REASON as RESET } from '@ziroeda/common/tool/tool_base.js';
 import { UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
 import type { VIEW } from '@ziroeda/common/view/view.js';
-import type { Vec2 as VECTOR2D } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type Vec2 as VECTOR2D } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
@@ -756,7 +756,7 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
             controls.WarpMouseCursor(cursorPos, true);
           } else {
             controls.PinCursorInsideNonAutoscrollArea(true);
-            cursorPos = controls.GetMousePosition();
+            cursorPos = toVECTOR2I(controls.GetMousePosition());
           }
 
           this.m_placingFootprint = true;

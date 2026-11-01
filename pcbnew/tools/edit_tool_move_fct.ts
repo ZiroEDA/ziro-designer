@@ -27,7 +27,11 @@ import { FLIP_DIRECTION } from '@ziroeda/kimath/src/core/mirror.js';
 import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { BOX2D, type BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import type { Vec2 as VECTOR2D, Vec2 as VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import {
+  toVECTOR2I,
+  type Vec2 as VECTOR2D,
+  type Vec2 as VECTOR2I,
+} from '@ziroeda/kimath/src/math/vector2.js';
 import { SpreadFootprints } from '../autorouter/spread_footprints.js';
 import { BOARD_COMMIT } from '../board_commit.js';
 import type { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
@@ -45,10 +49,6 @@ import { SYNCRONOUS_TOOL_STATE as STS } from '@ziroeda/common/tool/tool_event.js
 
 const VIEW_UPDATE_GEOMETRY = VIEW_UPDATE_FLAGS.GEOMETRY;
 
-/** `VECTOR2I( VECTOR2D )`: the casting constructor truncates. */
-function toI(aPt: VECTOR2D): VECTOR2I {
-  return { x: Math.trunc(aPt.x), y: Math.trunc(aPt.y) };
-}
 import { PCB_ACTIONS } from './pcb_actions.js';
 import { IsZoneFillAction } from './pcb_picker_tool.js';
 import { PCB_GRID_HELPER } from './pcb_grid_helper.js';
@@ -736,7 +736,7 @@ export class EDIT_TOOL_MOVE_FCT {
     const board = editFrame.GetBoard()!;
     const controls = this.controls();
     const originalCursorPos = controls.GetCursorPosition();
-    const originalMousePos = controls.GetMousePosition();
+    const originalMousePos = toVECTOR2I(controls.GetMousePosition());
     let statusPopup: STATUS_TEXT_POPUP | null = null;
     let itemIdx = 0;
 
@@ -1035,7 +1035,7 @@ export class EDIT_TOOL_MOVE_FCT {
               lastArrowKeyAction = action;
             }
           } else {
-            const mousePos = controls.GetMousePosition();
+            const mousePos = toVECTOR2I(controls.GetMousePosition());
 
             this.m_cursor = grid.BestSnapAnchor(mousePos, layers, selectionGrid, sel_items);
           }
@@ -1148,7 +1148,7 @@ export class EDIT_TOOL_MOVE_FCT {
             }
           }
 
-          this.m_cursor = toI(controls.GetCursorPosition());
+          this.m_cursor = toVECTOR2I(controls.GetCursorPosition());
 
           if (selection.HasReferencePoint()) {
             // start moving with the reference point attached to the cursor
@@ -1217,7 +1217,7 @@ export class EDIT_TOOL_MOVE_FCT {
 
               grid.SetAuxAxes(true, dragOrigin);
 
-              if (!editFrame.GetMoveWarpsCursor()) this.m_cursor = toI(originalCursorPos);
+              if (!editFrame.GetMoveWarpsCursor()) this.m_cursor = toVECTOR2I(originalCursorPos);
               else this.m_cursor = dragOrigin;
             }
 

@@ -67,7 +67,7 @@ import type { PnsSolid } from './pns_solid.js';
 import type { PnsVia } from './pns_via.js';
 import type { Seg } from './pns_line.js';
 import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
-import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
 import { MAGNETIC_OPTIONS } from '../pcbnew_settings.js';
 
@@ -756,7 +756,7 @@ export abstract class PNS_TOOL_BASE extends PCB_TOOL_BASE {
 
     if (aEvent.Modifier(MD_CTRL) && aEvent.Modifier(MD_SHIFT)) {
       this.m_startItem = null;
-      this.m_startSnapPoint = controls.GetMousePosition();
+      this.m_startSnapPoint = toVECTOR2I(controls.GetMousePosition());
       controls.ForceCursorPosition(true, this.m_startSnapPoint);
       return;
     }
@@ -789,7 +789,7 @@ export abstract class PNS_TOOL_BASE extends PCB_TOOL_BASE {
 
     controls.ForceCursorPosition(false);
 
-    let mousePos = GetClampedCoords(controls.GetMousePosition(), PNS_COORDS_PADDING);
+    let mousePos = toVECTOR2I(GetClampedCoords(controls.GetMousePosition(), PNS_COORDS_PADDING));
 
     if (router.getState() === PnsRouterState.ROUTE_TRACK && aEvent.IsDrag()) {
       // If the user is moving the mouse quickly while routing then clicks will come in as

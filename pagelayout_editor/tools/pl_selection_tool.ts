@@ -38,7 +38,7 @@ import type { VIEW_CONTROLS } from '@ziroeda/common/view/view_controls.js';
 import { wxGetKeyState } from '@ziroeda/wx/wx_event.js';
 import { WXK } from '@ziroeda/wx/wx_keycodes.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PL_EDITOR_FRAME } from '../pl_editor_frame.js';
 import { PL_ACTIONS } from './pl_actions.js';
 import { PL_POINT_EDITOR } from './pl_point_editor.js';
@@ -107,7 +107,7 @@ export class PL_SELECTION_TOOL extends SELECTION_TOOL {
         const pt_tool = this.m_toolMgr!.GetTool(PL_POINT_EDITOR);
 
         if (frame.ToolStackIsEmpty() && pt_tool && !pt_tool.HasPoint()) {
-          this.m_originalCursor = this.m_toolMgr!.GetMousePosition();
+          this.m_originalCursor = toVECTOR2I(this.m_toolMgr!.GetMousePosition());
           this.m_disambiguateTimer.StartOnce(ADVANCED_CFG.GetCfg().m_DisambiguationMenuDelay);
         }
       }

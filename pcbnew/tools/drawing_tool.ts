@@ -85,6 +85,7 @@ import {
   vectorSnapped90,
 } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import {
+  toVECTOR2I,
   add,
   equal,
   sub,
@@ -913,7 +914,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
               controls.WarpMouseCursor(cursorPos, true);
             } else {
               controls.PinCursorInsideNonAutoscrollArea(true);
-              cursorPos = controls.GetMousePosition();
+              cursorPos = toVECTOR2I(controls.GetMousePosition());
             }
 
             this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
@@ -1309,7 +1310,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
                 this.getViewControls()!.WarpMouseCursor(cursorPos, true);
               } else {
                 controls.PinCursorInsideNonAutoscrollArea(true);
-                cursorPos = controls.GetMousePosition();
+                cursorPos = toVECTOR2I(controls.GetMousePosition());
               }
 
               cursorPos = controls.GetMousePosition(true);
@@ -1780,9 +1781,9 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
             }
           }
 
-          let cursorPos: VECTOR2I = evt.HasPosition()
-            ? evt.Position()
-            : controls.GetMousePosition();
+          let cursorPos: VECTOR2I = toVECTOR2I(
+            evt.HasPosition() ? evt.Position() : controls.GetMousePosition(),
+          );
           cursorPos = GetClampedCoords(
             grid.BestSnapAnchor(cursorPos, null, GRID_HELPER_GRIDS.GRID_GRAPHICS),
             DRAWING_COORDS_PADDING,
@@ -2208,9 +2209,9 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
               this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping(),
             );
 
-            let cursorPos: VECTOR2I = evt.HasPosition()
-              ? evt.Position()
-              : controls.GetMousePosition();
+            let cursorPos: VECTOR2I = toVECTOR2I(
+              evt.HasPosition() ? evt.Position() : controls.GetMousePosition(),
+            );
             cursorPos = GetClampedCoords(
               grid.BestSnapAnchor(cursorPos, layers, GRID_HELPER_GRIDS.GRID_GRAPHICS),
               DRAWING_COORDS_PADDING,
@@ -2692,7 +2693,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     let cancelled = false;
     const screen = this.m_frame!.GetScreen()!;
     let isLocalOriginSet = screen.m_LocalOrigin.x !== 0 || screen.m_LocalOrigin.y !== 0;
-    let cursorPos: VECTOR2I = this.m_controls!.GetMousePosition();
+    let cursorPos: VECTOR2I = toVECTOR2I(this.m_controls!.GetMousePosition());
 
     const setCursor = (): void => {
       this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.PENCIL);
@@ -3608,7 +3609,7 @@ class VIA_PLACER extends INTERACTIVE_PLACER_BASE {
     // grid-snapped, so that we can get the cursor within snap-range of snap points.
     // If we don't get a snap, the via will be left as it is (i.e. maybe grid-snapped).
     const viewControls = this.frame().GetCanvas()!.GetViewControls()!;
-    const position = viewControls.GetMousePosition();
+    const position = toVECTOR2I(viewControls.GetMousePosition());
 
     if (settings.tracks !== MAGNETIC_OPTIONS.NO_EFFECT && this.m_gridHelper.GetSnap()) {
       const track = this.findTrack(via, position);
@@ -3849,7 +3850,7 @@ class POINT_PLACER extends INTERACTIVE_PLACER_BASE {
     this.m_gridHelper.SetUseGrid(!(this.m_modifiers & MD_CTRL));
 
     const viewControls = this.m_drawingTool.GetManager()!.GetViewControls()!;
-    const position = viewControls.GetMousePosition();
+    const position = toVECTOR2I(viewControls.GetMousePosition());
 
     const cursorPos = this.m_gridHelper.BestSnapAnchor(position, aItem.GetLayerSet());
     viewControls.ForceCursorPosition(true, cursorPos);

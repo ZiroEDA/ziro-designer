@@ -68,7 +68,7 @@ import { wxBell } from '@ziroeda/wx/utils.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ANGLE_0, type EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SEG } from '@ziroeda/kimath/src/geometry/seg.js';
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { type SCH_BUS_ENTRY_BASE, SCH_BUS_WIRE_ENTRY } from '../sch_bus_entry.js';
 import { SCH_COMMIT } from '../sch_commit.js';
 import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
@@ -824,7 +824,9 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
       this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 
-      cursorPos = aEvent.HasPosition() ? aEvent.Position() : controls.GetMousePosition();
+      cursorPos = toVECTOR2I(
+        aEvent.HasPosition() ? aEvent.Position() : controls.GetMousePosition(),
+      );
 
       this.m_frame!.PushTool(aEvent);
 
@@ -854,7 +856,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         grid.SetSnap(!evt.Modifier(MD_SHIFT));
         grid.SetUseGrid(this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
 
-        cursorPos = evt.IsPrime() ? evt.Position() : controls.GetMousePosition();
+        cursorPos = toVECTOR2I(evt.IsPrime() ? evt.Position() : controls.GetMousePosition());
         cursorPos = grid.BestSnapAnchor(cursorPos, grid.GetItemGrid(previewItem), null);
         controls.ForceCursorPosition(true, cursorPos);
 
@@ -1299,7 +1301,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         grid.SetSnap(!evt.Modifier(MD_SHIFT));
         grid.SetUseGrid(this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
 
-        let cursorPos = controls.GetMousePosition();
+        let cursorPos = toVECTOR2I(controls.GetMousePosition());
         cursorPos = grid.BestSnapAnchor(cursorPos, snapGrid, item);
         controls.ForceCursorPosition(true, cursorPos);
 
@@ -1438,7 +1440,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
                 controls.WarpMouseCursor(cursorPos, true);
               } else {
                 controls.PinCursorInsideNonAutoscrollArea(true);
-                cursorPos = controls.GetMousePosition();
+                cursorPos = toVECTOR2I(controls.GetMousePosition());
                 cursorPos = grid.BestSnapAnchor(cursorPos, snapGrid, item);
               }
 
@@ -2375,7 +2377,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
               controls.WarpMouseCursor(cursorPos, true);
             } else {
               controls.PinCursorInsideNonAutoscrollArea(true);
-              cursorPos = controls.GetMousePosition();
+              cursorPos = toVECTOR2I(controls.GetMousePosition());
             }
 
             this.m_mruPath = fullFilename.slice(0, Math.max(0, fullFilename.lastIndexOf('/')));
@@ -3439,7 +3441,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     let sheet = front instanceof SCH_SHEET ? front : null;
 
     if (!sheet) {
-      const cursorPos = this.controls().GetMousePosition();
+      const cursorPos = toVECTOR2I(this.controls().GetMousePosition());
       const i: { value: EDA_ITEM | null } = { value: null };
 
       yield* this.m_selectionTool!.SelectPoint(cursorPos, [KICAD_T.SCH_SHEET_T], i);

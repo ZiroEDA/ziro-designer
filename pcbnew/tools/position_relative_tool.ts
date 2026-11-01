@@ -33,7 +33,7 @@ import type { VIEW_CONTROLS } from '@ziroeda/common/view/view_controls.js';
 import { RULER_ITEM } from '@ziroeda/common/preview_items/ruler_item.js';
 import { TWO_POINT_GEOMETRY_MANAGER } from '@ziroeda/common/preview_items/two_point_geom_manager.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
-import type { Vec2 as VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type Vec2 as VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOARD_COMMIT } from '../board_commit.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import { DIALOG_OFFSET_ITEM, type OFFSET_VECTOR } from '../dialogs/dialog_offset_item.js';
@@ -317,7 +317,7 @@ export class POSITION_RELATIVE_TOOL extends PCB_TOOL_BASE {
       setCursor();
       grid.SetSnap(!evt.Modifier(MD_SHIFT));
       grid.SetUseGrid(view.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
-      let cursorPos = evt.HasPosition() ? evt.Position() : controls.GetMousePosition();
+      let cursorPos = toVECTOR2I(evt.HasPosition() ? evt.Position() : controls.GetMousePosition());
       setPopupPosition();
 
       if (!evt.IsActivate() && !evt.IsCancelInteractive()) {

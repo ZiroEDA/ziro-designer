@@ -21,7 +21,7 @@ import { TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_interactive.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
-import type { Vec2 as VECTOR2D } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type Vec2 as VECTOR2D } from '@ziroeda/kimath/src/math/vector2.js';
 import { SCH_COLLECTOR } from '../sch_collectors.js';
 import { SCH_COMMIT } from '../sch_commit.js';
 import type { SCH_BASE_FRAME } from '../sch_base_frame.js';
@@ -115,7 +115,7 @@ export abstract class SCH_TOOL_BASE<T extends SCH_BASE_FRAME> extends TOOL_INTER
     // Incrementing multiple types at once seems confusing though it would work.
     if (!allSameType) return 0;
 
-    const mousePosition = this.getViewControls()!.GetMousePosition();
+    const mousePosition = toVECTOR2I(this.getViewControls()!.GetMousePosition());
 
     const incrementer = new STRING_INCREMENTER();
     // In schematics, it's probably less common to be operating

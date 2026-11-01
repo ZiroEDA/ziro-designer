@@ -30,8 +30,8 @@
 import { DIALOG_PNS_DIFF_PAIR_DIMENSIONS } from '../dialogs/dialog_pns_diff_pair_dimensions.js';
 import { DIALOG_TRACK_VIA_SIZE } from '../dialogs/dialog_track_via_size.js';
 import type { BOARD_DESIGN_SETTINGS, DIFF_PAIR_DIMENSION } from '../board_design_settings.js';
-import { VIA_DIMENSION } from '../board_design_settings.js';
-import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import type { VIA_DIMENSION } from '../board_design_settings.js';
+import { toVECTOR2I, type Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { PNS_KICAD_IFACE, boardLayerFromPnsLayer } from './pns_kicad_iface.js';
 import type { COMMIT_HOST, PnsDesignSettings } from './pns_kicad_iface.js';
 import type { BOARD } from '../board.js';
@@ -44,7 +44,7 @@ import type { PnsSegment } from './pns_segment.js';
 import { PnsVia } from './pns_via.js';
 import {
   PNS_HEAD_TRACE,
-  PnsRouter,
+  type PnsRouter,
   PnsRouterMode,
   PnsRouterState,
   sizesAddLayerPair,
@@ -2008,7 +2008,8 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
 
         const dragger = router.getDragger();
 
-        if (dragger) updateDragStatus(view, dragger, this.m_toolMgr!.GetMousePosition());
+        if (dragger)
+          updateDragStatus(view, dragger, toVECTOR2I(this.m_toolMgr!.GetMousePosition()));
       } else if (evt.IsClick(BUT_LEFT)) {
         const forceFinish = false;
         const forceCommit = evt.Modifier(MD_CTRL) !== 0;
@@ -2494,8 +2495,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
             statusItem.SetHint(
               `(${KeyNameFromKeyCode(MD_CTRL + PSEUDO_WXK_CLICK)} to commit anyway.)`,
             );
-            const at = this.m_toolMgr!.GetMousePosition();
-            statusItem.SetPosition({ x: Math.round(at.x), y: Math.round(at.y) });
+            statusItem.SetPosition(toVECTOR2I(this.m_toolMgr!.GetMousePosition()));
             view.AddToPreview(statusItem);
           }
         }

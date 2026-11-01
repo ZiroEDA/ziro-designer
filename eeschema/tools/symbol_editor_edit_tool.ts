@@ -37,7 +37,7 @@ import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
 import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
 import { UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { LIB_SYMBOL } from '../lib_symbol.js';
 import { SCH_COMMIT } from '../sch_commit.js';
 import { SCH_IO_KICAD_SEXPR } from '../sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
@@ -512,7 +512,7 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
           const pin = item as SCH_PIN;
 
           // Mouse, not cursor, as grid points may well not be under any text
-          const mousePos = this.m_toolMgr!.GetMousePosition();
+          const mousePos = toVECTOR2I(this.m_toolMgr!.GetMousePosition());
           const layout = pin.GetLayoutCache();
 
           let mouseOverNumber = false;
@@ -1248,9 +1248,7 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     // Nuke the selection for later rebuilding.  This does *not* clear the flags on any items;
     // it just clears the SELECTION's reference to them.
     selTool.GetSelection().Clear();
-    {
-      this.m_frame!.GetSymbolFromUndoList();
-    }
+    this.m_frame!.GetSymbolFromUndoList();
     selTool.RebuildSelection();
 
     return 0;
@@ -1262,9 +1260,7 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     // Nuke the selection for later rebuilding.  This does *not* clear the flags on any items;
     // it just clears the SELECTION's reference to them.
     selTool.GetSelection().Clear();
-    {
-      this.m_frame!.GetSymbolFromRedoList();
-    }
+    this.m_frame!.GetSymbolFromRedoList();
     selTool.RebuildSelection();
 
     return 0;

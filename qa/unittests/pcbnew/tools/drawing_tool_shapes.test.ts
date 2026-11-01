@@ -825,6 +825,31 @@ describe('DRAWING_TOOL::DrawVia (drawing_tool.cpp:3686-4407)', () => {
     expect(vias()[0]!.GetPosition()).toEqual(mm(30, 50));
   });
 
+  it('the pointer over a slanted track is a whole point: `const VECTOR2I position` (:4169)', () => {
+    // VIA_PLACER::SnapItem takes the mouse position into a VECTOR2I, which truncates. With the
+    // raw double, findTrack's TestSegmentHit reached SEG::SquaredDistance's 64-bit arithmetic
+    // with a fraction and threw "can't be converted to BigInt" (Sentry 157832627). A slanted
+    // track, because an axis-aligned one takes TestSegmentHit's shortcut and never gets there.
+    const t = new PCB_TRACK(h.board);
+    t.SetStart(mm(10, 10));
+    t.SetEnd(mm(50, 37));
+    t.SetWidth(0.25 * MM);
+    t.SetLayer(PCB_LAYER_ID.F_Cu);
+    t.SetNetCode(1);
+    const commit = new BOARD_COMMIT(h.frame);
+    commit.Add(t);
+    commit.Push('track');
+
+    start(PCB_ACTIONS.drawVia);
+    const near = { x: 30 * MM + 0.30383343, y: 23.5 * MM + 0.7 };
+    expect(() => move(near)).not.toThrow();
+    expect(() => click(near)).not.toThrow();
+    expect(vias()).toHaveLength(1);
+    expect(vias()[0]!.GetNetCode()).toBe(1);
+    const at = vias()[0]!.GetPosition();
+    expect(Number.isInteger(at.x) && Number.isInteger(at.y)).toBe(true);
+  });
+
   it('places repeatedly: the tool stays for the next via (:4404 IPO_REPEAT)', () => {
     start(PCB_ACTIONS.drawVia);
     click(mm(80, 80));

@@ -22,7 +22,7 @@ import type { VIEW_CONTROLS } from '@ziroeda/common/view/view_controls.js';
 import type { EDA_ITEM_FLAGS } from '@ziroeda/common/eda_item_flags.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
-import type { Vec2 as VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type Vec2 as VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { RESET_REASON, TOOL_ID } from '@ziroeda/common/tool/tool_base.js';
 import { TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_interactive.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
@@ -238,7 +238,7 @@ export abstract class PCB_TOOL_BASE extends TOOL_INTERACTIVE {
 
       grid.SetSnap(false); // Interactive placement tools need to set their own item snaps
       grid.SetUseGrid(this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
-      let cursorPos = controls.GetMousePosition();
+      let cursorPos = toVECTOR2I(controls.GetMousePosition());
 
       if (!evt.IsActivate() && !evt.IsCancelInteractive()) {
         cursorPos = grid.BestSnapAnchor(cursorPos, null);

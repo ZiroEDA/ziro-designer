@@ -570,11 +570,11 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
         } else if (this.pointEditorHasPoint()) {
           // Distinguish point editor from selection modification by checking modifiers
           if (this.hasModifier()) {
-            this.m_originalCursor = this.m_toolMgr!.GetMousePosition();
+            this.m_originalCursor = toVECTOR2I(this.m_toolMgr!.GetMousePosition());
             this.m_disambiguateTimer.StartOnce(ADVANCED_CFG.GetCfg().m_DisambiguationMenuDelay);
           }
         } else {
-          this.m_originalCursor = this.m_toolMgr!.GetMousePosition();
+          this.m_originalCursor = toVECTOR2I(this.m_toolMgr!.GetMousePosition());
           this.m_disambiguateTimer.StartOnce(ADVANCED_CFG.GetCfg().m_DisambiguationMenuDelay);
         }
       }
@@ -926,7 +926,7 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
         rolloverItem = this.m_frame!.ResolveItem(rolloverItemId) as SCH_ITEM | null;
 
         if (rolloverItem) {
-          rolloverItem.SetIsRollover(true, this.controls().GetMousePosition());
+          rolloverItem.SetIsRollover(true, toVECTOR2I(this.controls().GetMousePosition()));
 
           if (
             rolloverItem.Type() === KICAD_T.SCH_FIELD_T ||
@@ -2294,7 +2294,7 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
       }
 
       area.SetPoly(points);
-      area.GetPoly().Append(this.m_toolMgr!.GetMousePosition());
+      area.GetPoly().Append(toVECTOR2I(this.m_toolMgr!.GetMousePosition()));
       area.SetAdditive(this.m_drag_additive);
       area.SetSubtractive(this.m_drag_subtractive);
       area.SetExclusiveOr(false);

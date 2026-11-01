@@ -568,7 +568,7 @@ export class PCB_SELECTION_TOOL extends SELECTION_TOOL {
         ) as unknown as PCB_POINT_EDITOR_LIKE | null;
 
         if (this.m_frame!.ToolStackIsEmpty() && pt_tool && !pt_tool.HasPoint()) {
-          this.m_originalCursor = this.m_toolMgr!.GetMousePosition();
+          this.m_originalCursor = toVECTOR2I(this.m_toolMgr!.GetMousePosition());
           this.m_disambiguateTimer.StartOnce(ADVANCED_CFG.GetCfg().m_DisambiguationMenuDelay);
         }
       } else if (evt.IsClick(BUT_LEFT)) {
@@ -1622,7 +1622,7 @@ export class PCB_SELECTION_TOOL extends SELECTION_TOOL {
       }
 
       area.SetPoly(points);
-      area.GetPoly().Append(this.m_toolMgr!.GetMousePosition());
+      area.GetPoly().Append(toVECTOR2I(this.m_toolMgr!.GetMousePosition()));
       area.SetAdditive(this.m_additive);
       area.SetSubtractive(this.m_subtractive);
       area.SetExclusiveOr(false);

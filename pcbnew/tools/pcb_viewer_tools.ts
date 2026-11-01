@@ -26,6 +26,7 @@ import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
 import { PCB_GRID_HELPER } from './pcb_grid_helper.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
+import { toVECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 
 export class PCB_VIEWER_TOOLS extends PCB_TOOL_BASE {
   /** `m_isDefaultTool`: true in the viewers, where the measure tool is the idle tool. */
@@ -143,7 +144,7 @@ export class PCB_VIEWER_TOOLS extends PCB_TOOL_BASE {
       setCursor();
       grid.SetSnap(!evt.Modifier(MD_SHIFT));
       grid.SetUseGrid(view.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
-      let cursorPos = evt.HasPosition() ? evt.Position() : controls.GetMousePosition();
+      let cursorPos = toVECTOR2I(evt.HasPosition() ? evt.Position() : controls.GetMousePosition());
 
       if (!evt.IsActivate() && !evt.IsCancelInteractive()) {
         // If we are switching, the canvas may not be valid any more

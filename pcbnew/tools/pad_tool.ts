@@ -44,7 +44,7 @@ import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import type { VIEW_CONTROLS } from '@ziroeda/common/view/view_controls.js';
 import { KeyNameFromKeyCode } from '@ziroeda/common/hotkeys_basic.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
-import type { Vec2 as VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type Vec2 as VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOARD_COMMIT } from '../board_commit.js';
 import type { BOARD } from '../board.js';
@@ -480,7 +480,7 @@ export class PAD_TOOL extends PCB_TOOL_BASE {
     for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
       setCursor();
 
-      const mousePos = this.controls().GetMousePosition();
+      const mousePos = toVECTOR2I(this.controls().GetMousePosition());
       const cursorPos = grid.SnapToPad(mousePos, pads);
       this.controls().ForceCursorPosition(true, cursorPos);
 
@@ -713,7 +713,7 @@ export class PAD_TOOL extends PCB_TOOL_BASE {
         const settings = this.m_frame.GetMagneticItemsSettings();
         const pad = aItem as PAD;
         const viewControls = this.m_padTool.getViewControls() as unknown as VIEW_CONTROLS;
-        const position = viewControls.GetMousePosition();
+        const position = toVECTOR2I(viewControls.GetMousePosition());
         const ignored_items: BOARD_ITEM[] = [pad];
 
         if (settings.pads === MAGNETIC_OPTIONS.NO_EFFECT)
