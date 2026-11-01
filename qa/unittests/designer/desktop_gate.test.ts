@@ -22,6 +22,8 @@ interface Device {
   anyFine: boolean;
   /** The device's screen, CSS px, `[width, height]`; a desktop monitor when omitted. */
   screen?: [number, number];
+  /** Page zoom: the window's outer width over its inner width; 1 when omitted. */
+  zoom?: number;
 }
 
 /** Install a `window.matchMedia` that answers as `d` would. */
@@ -37,6 +39,8 @@ function asDevice(d: Device): void {
   (globalThis as { window?: unknown }).window = {
     matchMedia: (q: string) => ({ matches: answer(q) }),
     screen: { width: sw, height: sh },
+    outerWidth: Math.round(d.width * (d.zoom ?? 1)),
+    innerWidth: d.width,
   };
 }
 
@@ -108,6 +112,34 @@ describe('isSmallTouchDevice', () => {
   it('never gates a narrow desktop window, cramped is not unusable', () => {
     asDevice({ width: 800, pointer: 'fine', anyFine: true });
     expect(isSmallTouchDevice()).toBe(false);
+  });
+
+  it('never gates a 1366x768 laptop at 125% display scaling', () => {
+    // Its screen is 1093x614 CSS px: under the 768 floor this started with.
+    asDevice({ width: 1093, pointer: 'fine', anyFine: true, screen: [1093, 614] });
+    expect(isSmallTouchDevice()).toBe(false);
+  });
+
+  it('never gates a 1920x1080 laptop at 150% scaling', () => {
+    asDevice({ width: 1280, pointer: 'fine', anyFine: true, screen: [1280, 720] });
+    expect(isSmallTouchDevice()).toBe(false);
+  });
+
+  it('never gates a laptop because its browser is zoomed in', () => {
+    // 1920x1080 at 125% is 1536x864; at 150% page zoom the page sees 1024x576.
+    asDevice({ width: 1024, pointer: 'fine', anyFine: true, screen: [1024, 576], zoom: 1.5 });
+    expect(isSmallTouchDevice()).toBe(false);
+  });
+
+  it('gates a phone in "desktop site" mode, whose page is wider than its window', () => {
+    asDevice({
+      width: 980,
+      pointer: 'coarse',
+      anyFine: false,
+      screen: [412, 915],
+      zoom: 412 / 980,
+    });
+    expect(isSmallTouchDevice()).toBe(true);
   });
 
   it('does not gate when matchMedia is unavailable', () => {

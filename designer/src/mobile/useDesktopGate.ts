@@ -52,12 +52,27 @@ const matches = (q: string): boolean => {
  * which the app does not run at all: every phone, whatever pointer it claims
  * and however its browser window is sized. A desktop window dragged narrow is
  * not a small screen, so it is not gated.
+ *
+ * Phones top out near 480. Laptops come in well above, but not above 768, the
+ * floor this started at: display scaling shrinks a screen's CSS size, so a
+ * 1366x768 panel at 125% is 1093x614 and a 1920x1080 one at 150% is 1280x720,
+ * and both were turned away as phones.
  */
-const PHONE_SCREEN_SIDE = 768;
+const PHONE_SCREEN_SIDE = 600;
+
+/**
+ * The browser's page zoom, which divides the screen's CSS size as well: the
+ * window's size in device-independent px over the page's in CSS px. A phone's
+ * window is its page, or narrower in "desktop site" mode, so it reads 1 or less.
+ */
+const pageZoom = (): number => {
+  const { outerWidth, innerWidth } = window;
+  return outerWidth > 0 && innerWidth > 0 ? outerWidth / innerWidth : 1;
+};
 
 const smallScreen = (): boolean => {
   try {
-    return Math.min(window.screen.width, window.screen.height) < PHONE_SCREEN_SIDE;
+    return Math.min(window.screen.width, window.screen.height) * pageZoom() < PHONE_SCREEN_SIDE;
   } catch {
     return false; // no screen object (non-browser): never gate
   }
@@ -88,8 +103,11 @@ export function useDesktopGate(): { gated: boolean } {
       if (l.addEventListener) l.addEventListener('change', onChange);
       else l.addListener?.(onChange);
     }
+    // A change of page zoom resizes the page without crossing a media query.
+    window.addEventListener('resize', onChange);
     onChange(); // catch a rotation that happened between first paint and effect
     return () => {
+      window.removeEventListener('resize', onChange);
       for (const l of lists) {
         if (l.removeEventListener) l.removeEventListener('change', onChange);
         else l.removeListener?.(onChange);
