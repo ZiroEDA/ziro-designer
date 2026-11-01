@@ -55,15 +55,18 @@ interface CursorSpec {
  * `cursors_defs` (`common/gal/cursors.cpp:114-322`), for the KICURSORs this
  * port's tools ask for. [data]
  *
- * MOVING and PLACE take the `#else` half of their `#ifdef __WINDOWS__` — the
- * `*_black` art — because that is the branch a Linux KiCad compiles.
- *
- * Upstream's table has five more: VOLTAGE_PROBE, CURRENT_PROBE and TUNE belong
- * to the simulator, and ADD / SUBTRACT / XOR / ZOOM_OUT to tools this port does
- * not have. They are absent rather than unvendored-but-listed, so the store and
- * `scripts/vendor-cursors.mjs`'s list say the same thing.
+ * Every entry upstream has. MOVING, WARNING, PLACE and the simulator's three
+ * take the `#else` half of their `#ifdef __WINDOWS__` — the `*_black` art —
+ * because that is the branch a Linux KiCad compiles. The store and
+ * `designer/scripts/vendor-cursors.mjs`'s list say the same thing.
  */
 const STORE = {
+  /** cursors.cpp:114-120 — the simulator's voltage probe; `voltage_probe_black_xpm` off Windows. */
+  VOLTAGE_PROBE: { file: 'voltage_probe_black', x: 1, y: 31 },
+  /** cursors.cpp:121-127 */
+  CURRENT_PROBE: { file: 'current_probe_black', x: 4, y: 27 },
+  /** cursors.cpp:128-134 */
+  TUNE: { file: 'cursor_tune_black', x: 1, y: 30 },
   /** cursors.cpp:135-141 */
   PENCIL: { file: 'cursor-pencil', x: 4, y: 27 },
   /** cursors.cpp:142-168 — an item travelling with the pointer. */
@@ -75,6 +78,14 @@ const STORE = {
   /** cursors.cpp:200-206 — ACTIONS::measureTool. */
   MEASURE: { file: 'cursor-measure', x: 4, y: 4 },
   /**
+   * cursors.cpp:207-227 — what the selection tools show while Shift, Ctrl or
+   * Shift+Ctrl is held over an empty canvas (`SCH_SELECTION_TOOL::OnIdle`,
+   * `PCB_SELECTION_TOOL::OnIdle`): add to, remove from, or toggle the selection.
+   */
+  ADD: { file: 'cursor-add', x: 7, y: 7 },
+  SUBTRACT: { file: 'cursor-subtract', x: 7, y: 7 },
+  XOR: { file: 'cursor-xor', x: 7, y: 7 },
+  /**
    * cursors.cpp:228-234 — ACTIONS::zoomTool's rubber band.
    *
    * The hotspot is (6, 6), not (7, 7). Both this table and the test that
@@ -83,6 +94,8 @@ const STORE = {
    * KiCad puts it and nothing could tell.
    */
   ZOOM_IN: { file: 'cursor-zoom-in', x: 6, y: 6 },
+  /** cursors.cpp:234-240 */
+  ZOOM_OUT: { file: 'cursor-zoom-out', x: 6, y: 6 },
   /** cursors.cpp:241-247 */
   LABEL_NET: { file: 'cursor-label-net', x: 7, y: 7 },
   /** cursors.cpp:248-254 */
@@ -114,11 +127,11 @@ const STORE = {
 /**
  * `KICURSOR`, as far as this port goes.
  *
- * ARROW and BULLSEYE are in the union and NOT in {@link STORE}, exactly as
- * upstream: neither has an entry in `cursors_defs`; both are served by
+ * ARROW, BULLSEYE and HAND are in the union and NOT in {@link STORE}, exactly
+ * as upstream: none has an entry in `cursors_defs`; all are served by
  * `GetStockCursor` instead.
  */
-export type KiCursor = keyof typeof STORE | 'ARROW' | 'BULLSEYE';
+export type KiCursor = keyof typeof STORE | 'ARROW' | 'BULLSEYE' | 'HAND';
 
 /**
  * `wxCURSOR_BULLSEYE` in CSS — what this desktop draws for `GDK_TARGET`.
@@ -141,6 +154,17 @@ export type KiCursor = keyof typeof STORE | 'ARROW' | 'BULLSEYE';
 const BULLSEYE_HOTSPOT = '11 11';
 
 /**
+ * `wxCURSOR_HAND` in CSS — what this desktop draws for `GDK_HAND2`.
+ *
+ * `SCH_SELECTION_TOOL` asks for `KICURSOR::HAND` over a clickable link
+ * (`sch_selection_tool.cpp:1196-1199`: the rollover item has hovered hypertext). `GetStockCursor` answers
+ * `wxCURSOR_HAND`, GTK's `IsStockCursorOk` keeps it, and wxGTK builds it as
+ * `GDK_HAND2`. `qa/probes/stock_cursor_probe.py HAND2` makes that call; this is
+ * its answer: 24x24, hotspot (8, 5). [px] One size, as for BULLSEYE.
+ */
+const HAND_HOTSPOT = '8 5';
+
+/**
  * Every name the store answers, so a test can ask "is this string one of
  * KiCad's cursors?" without reaching into `STORE` itself.
  */
@@ -148,6 +172,7 @@ export const KICURSOR_NAMES: readonly KiCursor[] = [
   ...(Object.keys(STORE) as (keyof typeof STORE)[]),
   'ARROW',
   'BULLSEYE',
+  'HAND',
 ];
 
 /**
@@ -180,6 +205,10 @@ function stockCursor(name: KiCursor): string | null {
     // crosshair here would be our invention. It is what this port showed for
     // both pickers before the probe was run.
     return png ? `url(${png}) ${BULLSEYE_HOTSPOT}, ${STOCK_CURSOR}` : STOCK_CURSOR;
+  }
+  if (name === 'HAND') {
+    const png = kicadBitmapUrl('cursors', 'stock-hand2.png');
+    return png ? `url(${png}) ${HAND_HOTSPOT}, ${STOCK_CURSOR}` : STOCK_CURSOR;
   }
   return null;
 }
@@ -277,9 +306,12 @@ export function kiCursor(name: KiCursor): string {
   const stock = stockCursor(name);
   if (!customCursorsEnabled()) return stock ?? STOCK_CURSOR;
   if (stock !== null) return stock;
-  // Everything past the two `GetStockCursor` calls is `storeGetBundle`, which
-  // is only ever reached for a KICURSOR that HAS a `cursors_defs` entry.
-  const spec: CursorSpec = STORE[name as keyof typeof STORE];
+  // Everything past the two `GetStockCursor` calls is `storeGetBundle`. A
+  // KICURSOR with no `cursors_defs` entry gets its `static const
+  // wxCursorBundle invalid` (cursors.cpp:380-385): no cursor of its own, so
+  // the window's default.
+  const spec: CursorSpec | undefined = STORE[name as keyof typeof STORE];
+  if (!spec) return STOCK_CURSOR;
   const one = kicadBitmapUrl('cursors', `${spec.file}.png`);
   const two = kicadBitmapUrl('cursors', `${spec.file}64.png`);
   if (!one) return STOCK_CURSOR;

@@ -9,7 +9,8 @@
  * together with their hotspots. An XPM is a bitmap, so there is no path to
  * trace and no reason to redraw one: the pixels convert exactly. This script
  * reads the XPMs from the pinned reference tree and writes byte-faithful PNGs
- * into `src/assets/cursors/`, which `ui/kicursors.ts` then globs.
+ * into `bitmaps_png/sources/cursors/`, which `common/gal/kicursors.ts` reads
+ * through `bitmaps_png`'s glob.
  *
  *   node designer/scripts/vendor-cursors.mjs [path-to-kicad-source]
  *
@@ -24,29 +25,25 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const KICAD = process.argv[2] ?? '/home/akshay/kicad-reference';
 const SRC = join(KICAD, 'resources/bitmaps_png/cursors');
-const OUT = join(HERE, '../src/assets/cursors');
+const OUT = join(HERE, '../../bitmaps_png/sources/cursors');
 
 /**
  * The cursors ZiroEDA uses, by their `common/gal/cursors.cpp` file name.
  *
- * This is `cursors_defs` (`common/gal/cursors.cpp:114-322`) minus the entries
- * whose tools do not exist in this port. Upstream has ONE table and one
+ * This is `cursors_defs` (`common/gal/cursors.cpp:114-322`), every entry. Upstream has ONE table and one
  * `CURSOR_STORE` in front of every canvas, which is why a pencil in
  * pl_editor, in eeschema and in pcbnew is the same pencil; the list here is
- * the vendoring half of that single table and `ui/kicursors.ts` is the rest.
+ * the vendoring half of that single table and `common/gal/kicursors.ts` is the rest.
  *
  * Both variants of every entry: a 32x32 and the 64x64 KiCad swaps in on a
  * HiDPI display, which is what `image-set`'s `2x` descriptor asks the browser
  * for.
  *
- * MOVING and PLACE take the `#else` (non-Windows) branch of the
- * `#ifdef __WINDOWS__` in that table -- the `*_black` variants -- because that
- * is the branch a Linux KiCad compiles, and Linux is the parity target.
- *
- * Not vendored, because no tool in this port asks for them: VOLTAGE_PROBE,
- * CURRENT_PROBE and TUNE (the simulator's), ADD, SUBTRACT, XOR (pcbnew's zone
- * boolean pickers) and ZOOM_OUT. Add the pair here when the tool arrives --
- * not one of the pair.
+ * MOVING, WARNING, PLACE and the simulator's three (VOLTAGE_PROBE,
+ * CURRENT_PROBE, TUNE) take the `#else` (non-Windows) branch of the
+ * `#ifdef __WINDOWS__` around them -- the `*_black` variants -- because that
+ * is the branch a Linux KiCad compiles (cursors.cpp:28-36, 57-65, 69-82), and
+ * Linux is the parity target.
  */
 const WANTED = [
   // KICURSOR::PENCIL
@@ -101,6 +98,25 @@ const WANTED = [
   // swaps in while a drag would merge two nets.
   'cursor-warning-black',
   'cursor-warning-black64',
+  // KICURSOR::VOLTAGE_PROBE, the simulator's
+  'voltage_probe_black',
+  'voltage_probe_black64',
+  // KICURSOR::CURRENT_PROBE
+  'current_probe_black',
+  'current_probe_black64',
+  // KICURSOR::TUNE
+  'cursor_tune_black',
+  'cursor_tune_black64',
+  // KICURSOR::ADD, SUBTRACT, XOR: the selection tools' modifier cursors
+  'cursor-add',
+  'cursor-add64',
+  'cursor-subtract',
+  'cursor-subtract64',
+  'cursor-xor',
+  'cursor-xor64',
+  // KICURSOR::ZOOM_OUT
+  'cursor-zoom-out',
+  'cursor-zoom-out64',
 ];
 
 /** Named XPM colours that appear in these files alongside the #RRGGBB ones. */

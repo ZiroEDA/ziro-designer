@@ -16,7 +16,9 @@
  * the pencil tip is, and no screenshot comparison would show it.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { kiCursor } from '@ziroeda/common/gal/kicursors.js';
+import { kiCursor, type KiCursor } from '@ziroeda/common/gal/kicursors.js';
+import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
+import { cursorName } from '@ziroeda/common/gal/gal_window.js';
 import { settings } from '@ziroeda/designer/src/prefs/settings.js';
 import { boardToolCursor } from '@ziroeda/pcbnew/browser/cursors.js';
 import { toolCursor as schToolCursor } from '@ziroeda/designer/src/editors/schematic/cursors.js';
@@ -30,8 +32,9 @@ const SRC = readFileSync(path('../../../common/gal/kicursors.ts'), 'utf8');
 /**
  * `cursors_defs`, quoted from `common/gal/cursors.cpp:114-322`. [data]
  *
- * MOVING and PLACE are the `#else` half of their `#ifdef __WINDOWS__`, which
- * is what a Linux KiCad compiles.
+ * MOVING, WARNING, PLACE and the simulator's three are the `#else` half of
+ * their `#ifdef __WINDOWS__` (`cursors.cpp:28-36`, `:57-65`), which is what a
+ * Linux KiCad compiles.
  *
  * This is the WHOLE of what the app points with, in one table, because
  * upstream `CURSOR_STORE` is one table in front of every canvas. It used to
@@ -41,6 +44,16 @@ const SRC = readFileSync(path('../../../common/gal/kicursors.ts'), 'utf8');
  * agreeing with its own table.
  */
 const CURSORS_CPP: Record<string, { file: string; x: number; y: number }> = {
+  // `{ voltage_probe_xpm, { 1, 31 } }` etc. (cursors.cpp:114-134): the
+  // simulator's probes and tuner, `*_black` art off Windows.
+  VOLTAGE_PROBE: { file: 'voltage_probe_black', x: 1, y: 31 },
+  CURRENT_PROBE: { file: 'current_probe_black', x: 4, y: 27 },
+  TUNE: { file: 'cursor_tune_black', x: 1, y: 30 },
+  // `{ cursor_add_xpm, { 7, 7 } }` and its two siblings (cursors.cpp:207-227).
+  ADD: { file: 'cursor-add', x: 7, y: 7 },
+  SUBTRACT: { file: 'cursor-subtract', x: 7, y: 7 },
+  XOR: { file: 'cursor-xor', x: 7, y: 7 },
+  ZOOM_OUT: { file: 'cursor-zoom-out', x: 6, y: 6 },
   PENCIL: { file: 'cursor-pencil', x: 4, y: 27 },
   MOVING: { file: 'cursor-select-m-black', x: 1, y: 1 },
   REMOVE: { file: 'cursor-eraser', x: 4, y: 4 },
@@ -319,5 +332,72 @@ describe('KICURSOR::BULLSEYE is a stock cursor', () => {
 
   it('is what the net-highlight picker wears in eeschema', () => {
     expect(schToolCursor('highlightNet')).toBe(kiCursor('BULLSEYE'));
+  });
+});
+
+/**
+ * Every KICURSOR a tool can name resolves, because `SetCurrentCursor` takes
+ * any of them. ADD / SUBTRACT / XOR were left out of the store as belonging to
+ * "tools this port does not have" while SCH_SELECTION_TOOL::OnIdle already
+ * asked for them with Shift / Ctrl / Shift+Ctrl held: `STORE[name]` was
+ * undefined and the idle handler threw on `.file` (Sentry 157822773).
+ */
+describe('every KICURSOR resolves', () => {
+  const names = Object.keys(KICURSOR).filter((k) => Number.isNaN(Number(k)));
+
+  for (const name of names) {
+    it(`${name}`, () => {
+      const value = kiCursor(cursorName(KICURSOR[name as keyof typeof KICURSOR]));
+      expect(value).toMatch(/default$/);
+    });
+  }
+
+  it("the selection tools' modifier cursors draw KiCad's art", () => {
+    expect(kiCursor('ADD')).toContain('cursor-add.png');
+    expect(kiCursor('SUBTRACT')).toContain('cursor-subtract.png');
+    expect(kiCursor('XOR')).toContain('cursor-xor.png');
+  });
+
+  it("a cursor with no cursors_defs entry gets storeGetBundle's invalid bundle: the default", () => {
+    // `static const wxCursorBundle invalid; return invalid;` (cursors.cpp:380-385).
+    expect(kiCursor('NOT_A_CURSOR' as KiCursor)).toBe('default');
+  });
+});
+
+/**
+ * `KICURSOR::HAND`, over a hovered hyperlink (`sch_selection_tool.cpp:1196-1199`).
+ * `GetStockCursor` answers `wxCURSOR_HAND`, GTK keeps it, wxGTK builds
+ * `GDK_HAND2`: `qa/probes/stock_cursor_probe.py out.png HAND2` says 24x24,
+ * hotspot (8, 5).
+ */
+describe('KICURSOR::HAND is a stock cursor', () => {
+  const HAND = path('../../../bitmaps_png/sources/cursors/stock-hand2.png');
+
+  afterEach(() => {
+    settings.common.appearance.use_custom_cursors = true;
+  });
+
+  it('is the probe’s PNG at the probe’s hotspot, ending in the arrow', () => {
+    const candidates = kiCursor('HAND')
+      .split(/,(?![^()]*\))/)
+      .map((c) => c.trim());
+    expect(candidates).toHaveLength(2);
+    expect(candidates[0]).toMatch(/^url\(.*stock-hand2\.png\) 8 5$/);
+    expect(candidates[1]).toBe('default');
+  });
+
+  it('survives "Disable custom cursors", as every stock cursor does', () => {
+    settings.common.appearance.use_custom_cursors = false;
+    expect(kiCursor('HAND')).toContain('stock-hand2.png');
+  });
+
+  it('is vendored as the probe wrote it: a 24x24 PNG', () => {
+    const bytes = readFileSync(HAND);
+    expect(bytes.readUInt32BE(16)).toBe(24);
+    expect(bytes.readUInt32BE(20)).toBe(24);
+  });
+
+  it('stays out of cursors_defs, because it has no XPM there', () => {
+    expect(declared.HAND).toBeUndefined();
   });
 });

@@ -10,8 +10,15 @@ vendor, and nothing to derive: the picture is whatever this X server hands
 back for GDK_TARGET, which is the same call, on the same display, that the
 installed KiCad makes. This script makes that call and saves the answer.
 
-    python3 qa/probes/stock_cursor_probe.py            # prints size, hotspot, ASCII
-    python3 qa/probes/stock_cursor_probe.py out.png    # and writes the PNG
+    python3 qa/probes/stock_cursor_probe.py                  # prints size, hotspot, ASCII
+    python3 qa/probes/stock_cursor_probe.py out.png          # and writes the PNG
+    python3 qa/probes/stock_cursor_probe.py out.png HAND2    # another GdkCursorType
+
+`wxCURSOR_HAND` is the other stock cursor GTK keeps that a tool asks for
+(`KICURSOR::HAND`); wxGTK builds it as GDK_HAND2, and `stock-hand2.png` is
+this script's answer for that type. Measured 2026-11-02: 24x24, hotspot (8, 5).
+On a GNOME session, run with `GDK_BACKEND=x11 GSETTINGS_BACKEND=memory` if GIO
+aborts on the settings-daemon schema.
 
 `bitmaps_png/sources/cursors/stock-target.png` is that output, verbatim,
 and `ui/kicursors.ts` states its hotspot. Re-run rather than redraw it.
@@ -31,10 +38,11 @@ gi.require_version("Gdk", "3.0")
 from gi.repository import Gdk  # noqa: E402
 
 display = Gdk.Display.get_default()
-cursor = Gdk.Cursor.new_for_display(display, Gdk.CursorType.TARGET)
+kind = sys.argv[2] if len(sys.argv) > 2 else "TARGET"
+cursor = Gdk.Cursor.new_for_display(display, getattr(Gdk.CursorType, kind))
 image = cursor.get_image()
 if image is None:
-    sys.exit("GDK returned no image for GDK_TARGET")
+    sys.exit(f"GDK returned no image for GDK_{kind}")
 
 w, h = image.get_width(), image.get_height()
 print(f"display {display.get_name()}  {w}x{h}  hotspot ({image.get_option('x_hot')}, {image.get_option('y_hot')})")
