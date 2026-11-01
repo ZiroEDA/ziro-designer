@@ -30,7 +30,8 @@ import { PCB_SCREEN } from './pcb_screen.js';
 import { PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
-import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { DEFAULT_THEME, GetColorSettings, PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
@@ -773,6 +774,15 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   override OnModify(): void {
     super.OnModify();
     this.hooks.onModify?.();
+  }
+
+  /**
+   * `FOOTPRINT_EDIT_FRAME::GetColorSettings` (`footprint_edit_frame.cpp:877-881`): its own
+   * settings' theme, not PCB_BASE_EDIT_FRAME's, which is the board editor's.
+   */
+  override GetColorSettings(_aForceRefresh = false): COLOR_SETTINGS {
+    const cfg = this.GetFootprintEditorSettings();
+    return GetColorSettings(cfg ? cfg.m_ColorTheme : DEFAULT_THEME);
   }
 
   /** `FOOTPRINT_EDIT_FRAME::KiwayMailIn` (footprint_editor_utils.cpp:330). */

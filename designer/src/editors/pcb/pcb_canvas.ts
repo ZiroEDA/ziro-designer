@@ -16,8 +16,12 @@
  */
 
 import { commonSettingsOf, InitPgm } from '../../pgm_app.js';
-import { PGM_BASE, PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { type PGM_BASE, PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import { loadPcbnewSettings, pcbnewSettingsOf } from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import {
+  fpEditKifaceSettings,
+  loadFpEditSettings,
+} from '@ziroeda/pcbnew/footprint_editor_settings.js';
 import type { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { settings } from '../../prefs/settings.js';
 
@@ -43,6 +47,10 @@ export function installPgm(): PGM_BASE {
 
   if (existing) loadPcbnewSettings(existing, settings.pcbnew);
   else mgr.RegisterSettings('pcbnew', pcbnewSettingsOf(settings.pcbnew));
+
+  // And the footprint editor's, `GetAppSettings<FOOTPRINT_EDITOR_SETTINGS>( "fpedit" )`, which
+  // the footprint viewer paints with as well (FOOTPRINT_VIEWER_FRAME::GetColorSettings).
+  loadFpEditSettings(fpEditKifaceSettings(), settings.fpEdit);
 
   return pgm;
 }

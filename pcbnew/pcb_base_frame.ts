@@ -33,7 +33,7 @@ import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { CornerStrategy, SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import { BOX2D, BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { BOX2D, type BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { FOOTPRINT, FP_SMD } from './footprint.js';
 import { PCB_TEXT } from './pcb_text.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
@@ -71,6 +71,11 @@ export interface FOOTPRINT_EDITOR_SETTINGS_LIKE {
   m_DisplayInvertXAxis: boolean;
   m_DisplayInvertYAxis: boolean;
   m_AngleSnapMode: LEADER_MODE;
+  /**
+   * `APP_SETTINGS_BASE::m_ColorTheme`, `appearance.color_theme` (app_settings.cpp:282-284):
+   * the theme FOOTPRINT_EDIT_FRAME and FOOTPRINT_VIEWER_FRAME paint with.
+   */
+  m_ColorTheme: string;
   /** `m_ArcEditMode` (footprint_editor_settings.h:79); KEEP_CENTER_ADJUST_ANGLE_RADIUS when absent. */
   m_ArcEditMode?: ARC_EDIT_MODE;
   /**

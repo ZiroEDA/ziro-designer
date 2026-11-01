@@ -115,7 +115,7 @@ import {
 import {
   type FP_EDIT_JSON_SETTINGS_LIKE,
   fpEditKifaceSettings,
-  loadFpEditViewersDisplay,
+  loadFpEditSettings,
   storeFpEditViewersDisplay,
 } from './footprint_editor_settings.js';
 import { fpTargetOf } from './footprint_editor_utils.js';
@@ -607,11 +607,16 @@ export function FootprintEditFrame({
     });
     f.SetFootprintLibAdapter(store);
     // `GetAppSettings<FOOTPRINT_EDITOR_SETTINGS>( "fpedit" )` as loaded: its `pcb_display.*`,
-    // which the painter draws the frame with and the sketch toggles flip.
-    loadFpEditViewersDisplay(fpEditKifaceSettings(), app.fpEdit());
+    // which the painter draws the frame with and the sketch toggles flip, and the colour theme
+    // GetColorSettings answers.
+    loadFpEditSettings(fpEditKifaceSettings(), app.fpEdit());
     return f;
   });
   frameRef.current = frame;
+  // `JSON_SETTINGS::Load`: a preference changed in the slice reaches the object.
+  useEffect(() => {
+    loadFpEditSettings(fpEditKifaceSettings(), fpCfg);
+  }, [fpCfg]);
 
   // `LoadSettings` / `CommonSettingsChanged`: `GetDesignSettings() =
   // cfg->m_DesignSettings`, so a new footprint takes Preferences' defaults.

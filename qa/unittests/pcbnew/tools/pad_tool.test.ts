@@ -153,6 +153,7 @@ class PAD_FRAME extends TEST_PCB_FRAME implements PAD_TOOL_FRAME {
     m_DisplayInvertXAxis: false,
     m_DisplayInvertYAxis: false,
     m_AngleSnapMode: LeaderMode.DIRECT,
+    m_ColorTheme: '_builtin_default',
   };
 
   override GetFootprintEditorSettings(): FOOTPRINT_EDITOR_SETTINGS_LIKE {

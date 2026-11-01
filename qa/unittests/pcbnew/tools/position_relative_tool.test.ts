@@ -156,6 +156,7 @@ class POSREL_FP_FRAME extends POSREL_FRAME {
     m_DisplayInvertXAxis: true,
     m_DisplayInvertYAxis: false,
     m_AngleSnapMode: LeaderMode.DEG45,
+    m_ColorTheme: '_builtin_default',
   };
 
   override GetFootprintEditorSettings(): FOOTPRINT_EDITOR_SETTINGS_LIKE {

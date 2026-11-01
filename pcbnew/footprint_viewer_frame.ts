@@ -27,7 +27,8 @@ import { IS_NEW } from '@ziroeda/common/eda_item_flags.js';
 import { niluuid } from '@ziroeda/common/kiid.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
-import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { DEFAULT_THEME, GetColorSettings, PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { COMMON_CONTROL } from '@ziroeda/common/tool/common_control.js';
 import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
@@ -40,6 +41,7 @@ import { BOARD_COMMIT } from './board_commit.js';
 import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { FOOTPRINT_LIBRARY_ADAPTER } from './footprint_library_adapter.js';
+import { fpEditKifaceSettings } from './footprint_editor_settings.js';
 import { PCB_BASE_FRAME } from './pcb_base_frame.js';
 import { PCB_SCREEN } from './pcb_screen.js';
 import { PCBNEW_SETTINGS } from './pcbnew_settings.js';
@@ -568,6 +570,15 @@ export class FOOTPRINT_VIEWER_FRAME extends PCB_BASE_FRAME {
     } else {
       this.SetMsgPanel([]);
     }
+  }
+
+  /**
+   * `FOOTPRINT_VIEWER_FRAME::GetColorSettings` (`footprint_viewer_frame.cpp:872-875`): the
+   * Footprint Editor's theme, `GetAppSettings<FOOTPRINT_EDITOR_SETTINGS>( "fpedit" )`'s.
+   */
+  override GetColorSettings(_aForceRefresh = false): COLOR_SETTINGS {
+    const cfg = fpEditKifaceSettings();
+    return GetColorSettings(cfg ? cfg.m_ColorTheme : DEFAULT_THEME);
   }
 
   /** `FOOTPRINT_VIEWER_FRAME::KiwayMailIn` (`footprint_viewer_frame.cpp:973-984`). */

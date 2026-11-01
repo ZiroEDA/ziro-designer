@@ -48,6 +48,8 @@ export interface FP_EDIT_JSON_SETTINGS_LIKE {
     pad_fill: boolean;
     pad_numbers: boolean;
   };
+  /** `appearance.color_theme`, APP_SETTINGS_BASE's (app_settings.cpp:282-284). */
+  appearance: { color_theme: string };
   design_settings: {
     default_footprint_text_items: FP_TEXT_ITEM_LIKE[];
     default_footprint_layer_names: Record<string, string>;
@@ -313,6 +315,19 @@ export function loadFpEditViewersDisplay(
   v.m_DisplayTextFill = d.text_fill;
   v.m_DisplayPadFill = d.pad_fill;
   v.m_DisplayPadNumbers = d.pad_numbers;
+}
+
+/**
+ * `JSON_SETTINGS::Load` of `fpedit.json` into \a aSettings: the PARAMs this port's
+ * FOOTPRINT_EDITOR_SETTINGS declares - the `pcb_display.*` four and APP_SETTINGS_BASE's
+ * `appearance.color_theme`, which GetColorSettings reads.
+ */
+export function loadFpEditSettings(
+  aSettings: FOOTPRINT_EDITOR_SETTINGS,
+  aJson: Pick<FP_EDIT_JSON_SETTINGS_LIKE, 'pcb_display' | 'appearance'>,
+): void {
+  loadFpEditViewersDisplay(aSettings, aJson);
+  aSettings.m_ColorTheme = aJson.appearance.color_theme;
 }
 
 /** `JSON_SETTINGS::Store` of the same four, from \a aSettings into \a aJson. */

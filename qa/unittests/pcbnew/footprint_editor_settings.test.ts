@@ -78,7 +78,14 @@ describe('the Footprint Editor window', () => {
 
   it('loads the settings object from fpedit.json when it builds the frame', () => {
     expect(UI).toMatch(
-      /f\.SetFootprintLibAdapter\(store\);[\s\S]{0,300}loadFpEditViewersDisplay\(fpEditKifaceSettings\(\), app\.fpEdit\(\)\);\s*return f;/,
+      /f\.SetFootprintLibAdapter\(store\);[\s\S]{0,300}loadFpEditSettings\(fpEditKifaceSettings\(\), app\.fpEdit\(\)\);\s*return f;/,
+    );
+  });
+
+  it('reloads the settings object when a preference changes (JSON_SETTINGS::Load)', () => {
+    // GetColorSettings reads m_ColorTheme, so a theme chosen on the Colors page must reach it.
+    expect(UI).toMatch(
+      /useEffect\(\(\) => \{\s*loadFpEditSettings\(fpEditKifaceSettings\(\), fpCfg\);\s*\}, \[fpCfg\]\);/,
     );
   });
 
