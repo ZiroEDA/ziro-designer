@@ -113,6 +113,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'rea
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { SCH_EDIT_FRAME } from './sch_edit_frame.js';
+import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { parse } from '@ziroeda/sexpr';
 import {
   applySchematicPatch,
@@ -252,7 +253,6 @@ import {
   type TABLECELL_DIALOG_VALUES,
 } from './dialogs/dialog_tablecell_properties.js';
 import {
-  SchNavigateTool,
   firstInstanceOf,
   flattenHierarchy,
   parentPath,
@@ -2118,6 +2118,8 @@ export function SchematicEditor({
   // render behind.
   const currentFileRef = useRef(currentFile);
   currentFileRef.current = currentFile;
+  const currentPathRef = useRef(currentPath);
+  currentPathRef.current = currentPath;
   /**
    * `grid.GetGrid().x` for the rules that measure in grid squares — right now
    * only `SCH_SELECTION_TOOL::Main`'s right-click test. A ref because
@@ -2329,8 +2331,8 @@ export function SchematicEditor({
     return buildSheetTree(docs, project.current.root);
   }, [doc, currentFile]);
 
-  // Depth-first hierarchy order (virtual page numbers) + Back/Forward history
-  // (SCH_NAVIGATE_TOOL). Sheet edits prune dead history entries (CleanHistory).
+  // Depth-first hierarchy order (virtual page numbers). The Back/Forward history is the live
+  // SCH_NAVIGATE_TOOL's, which every sheet change goes through.
   const flatSheets = useMemo<SheetRef[]>(
     () => (sheetTree ? flattenHierarchy(sheetTree) : []),
     [sheetTree],
@@ -2352,14 +2354,12 @@ export function SchematicEditor({
     return refs;
   }, [sheetTree]);
 
-  const navTool = useRef(new SchNavigateTool());
-  // UpdateHierarchyNavigator's CleanHistory (sch_edit_frame.cpp:1398): when the hierarchy
-  // changes, not on every sheet change - it puts the cursor at the end, which would undo Back.
-  // flatSheets is rebuilt on each change of sheet; the paths it holds are what matter.
-  const sheetPathsKey = flatSheets.map((s) => s.path).join('\n');
-  useEffect(() => {
-    navTool.current.cleanHistory(new Set(sheetPathsKey.split('\n')));
-  }, [sheetPathsKey]);
+  /**
+   * A project opened on a sub-sheet (from the project tree) reaches it the way
+   * MAIL_SCH_NAVIGATE_TO_SHEET does (cross-probing.cpp:1166-1183): the root opens, then
+   * changeSheet, so Back returns to the root. The live model is built at the next showing.
+   */
+  const changeSheetOnShowRef = useRef(false);
 
   // Live documents with the on-screen sheet's edits folded in.
   const liveDocs = useCallback((): Map<string, Schematic> => {
@@ -3610,7 +3610,6 @@ export function SchematicEditor({
         history.current.clear();
         setCurrentFile(file);
         setCurrentPath('/');
-        navTool.current.resetHistory('/');
         setDoc(next);
         resetTransient();
         resetErc();
@@ -3760,8 +3759,7 @@ export function SchematicEditor({
           start === root ? '/' : (firstInstanceOf(buildSheetTree(docs, root), start) ?? '/');
         setCurrentPath(startPath);
         // The root opened first and changeSheet pushed the sheet: Back returns to the root.
-        navTool.current.resetHistory('/');
-        navTool.current.pushToHistory(startPath);
+        changeSheetOnShowRef.current = startPath !== '/';
         setDoc(docs.get(start)!);
         resetTransient();
         resetErc();
@@ -3893,10 +3891,7 @@ export function SchematicEditor({
   // the edited current sheet back into the project, swap in the target document
   // and its own undo history.
   const switchSheet = useCallback(
-    (path: string, file: string, pushHistory = true) => {
-      // Every sheet change lands in the Back/Forward history (changeSheet →
-      // pushToHistory); Back/Forward themselves move the cursor instead.
-      if (pushHistory) navTool.current.pushToHistory(path);
+    (path: string, file: string) => {
       // Always record which instance is active (path is unique per instance).
       setCurrentPath(path);
       // Two instances of the same file share one document, nothing to swap, just
@@ -3917,6 +3912,19 @@ export function SchematicEditor({
     },
     [doc, currentFile, resetTransient],
   );
+
+  /**
+   * HIERARCHY_PANE::onSelectSheetPath (hierarchy_pane.cpp:397): the clicked instance goes to
+   * SCH_ACTIONS::changeSheet, which records it in the Back/Forward history; the window follows
+   * the sheet the live frame then shows.
+   */
+  const changeSheetLive = useCallback((path: string) => {
+    const frame = schFrameRef.current;
+    const target = frame ? liveSheetPathOf(frame, path) : undefined;
+    if (!frame || !target) return;
+    frame.GetToolManager()!.RunAction(SCH_ACTIONS.changeSheet, target);
+    frame.OnIdle();
+  }, []);
 
   /**
    * The page-settings undo's navigation, run after the step has been folded in.
@@ -4247,18 +4255,26 @@ export function SchematicEditor({
     const had = schShownRef.current ? { scale: view.GetScale(), center: view.GetCenter() } : null;
     if (!syncLiveRef.current()) return;
     schShownRef.current = true;
-    const file = currentFileRef.current;
-    const path = frame
-      .Schematic()
-      .Hierarchy()
-      .find((p) => p.LastScreen()?.GetFileName().endsWith(`/${file}`));
+    // The instance the window shows, not merely the first one using its file.
+    const path = liveSheetPathOf(frame, currentPathRef.current);
+    const changeSheet = changeSheetOnShowRef.current;
+    changeSheetOnShowRef.current = false;
     showingLiveRef.current = true;
     try {
       if (path && !path.equals(frame.GetCurrentSheet())) {
         // SCH_NAVIGATE_TOOL::changeSheet: DisplayCurrentSheet clears the selection, so nothing
-        // selected on the sheet left behind comes along.
-        frame.SetCurrentSheet(path);
-        frame.DisplayCurrentSheet();
+        // selected on the sheet left behind comes along. A project opened on a sub-sheet goes
+        // through the tool itself, which records the step in its history.
+        if (changeSheet) {
+          // The root has opened and painted before the mail arrives; the paint is what stores
+          // its scroll centre (draw_panel_gal.cpp:273), which Back to the root returns to.
+          panel.DisplaySheet(frame.GetScreen());
+          panel.ForceRefresh();
+          frame.GetToolManager()!.RunAction(SCH_ACTIONS.changeSheet, path);
+        } else {
+          frame.SetCurrentSheet(path);
+          frame.DisplayCurrentSheet();
+        }
       } else panel.DisplaySheet(frame.GetScreen());
     } finally {
       showingLiveRef.current = false;
@@ -4371,8 +4387,7 @@ export function SchematicEditor({
     const sheetPath = frame.GetCurrentSheet();
     const screen = sheetPath.LastScreen();
     if (!screen) return;
-    let path = '/';
-    for (let i = 1; i < sheetPath.size(); i++) path += `${sheetPath.at(i)!.m_Uuid}/`;
+    const path = recordPathOf(sheetPath);
     const name = liveFilesRef.current.projectName;
     const dir = `/${name ?? project.current.root.replace(/\.[^.]*$/, '')}`;
     const absolute = screen.GetFileName().replace(/\\/g, '/');
@@ -4553,7 +4568,7 @@ export function SchematicEditor({
     const originalSheet = { path: currentPath, file: currentFile };
 
     // Step 2: to the root before asking, and without repainting first.
-    if (wasOnSubsheet && rootSheet) switchSheet(rootSheet.path, rootSheet.file, false);
+    if (wasOnSubsheet && rootSheet) switchSheet(rootSheet.path, rootSheet.file);
 
     setRevertPrompt({
       // schematic.GetFileName() — the first top-level sheet's file.
@@ -4561,7 +4576,7 @@ export function SchematicEditor({
       onNo: () => {
         setRevertPrompt(null);
         // Step 4: back to where they were.
-        if (wasOnSubsheet) switchSheet(originalSheet.path, originalSheet.file, false);
+        if (wasOnSubsheet) switchSheet(originalSheet.path, originalSheet.file);
       },
       onYes: () => {
         setRevertPrompt(null);
@@ -4974,21 +4989,13 @@ export function SchematicEditor({
       else if (id === 'plot') setPlotOpen(true);
       // SCH_EDIT_TOOL::EditPageNumber asks through TextEntryDialog.
       else if (id === 'editPageNumber') runLiveAction(SCH_ACTIONS.editPageNumber);
-      // Hierarchy navigation (SCH_NAVIGATE_TOOL). Back/Forward move the history
-      // cursor without pushing; Up and Previous/Next go through changeSheet.
-      else if (id === 'navBack' || id === 'navFwd') {
-        const p = id === 'navBack' ? navTool.current.back() : navTool.current.forward();
-        const target = p !== null ? flatSheets.find((s) => s.path === p) : undefined;
-        if (target) switchSheet(target.path, target.file, false);
-      } else if (id === 'navUp') {
-        const pp = parentPath(currentPath);
-        const target = pp !== null ? flatSheets.find((s) => s.path === pp) : undefined;
-        if (target) switchSheet(target.path, target.file);
-      } else if (id === 'navPrev' || id === 'navNext') {
-        const idx = flatSheets.findIndex((s) => s.path === currentPath);
-        const target = idx !== -1 ? flatSheets[idx + (id === 'navNext' ? 1 : -1)] : undefined;
-        if (target) switchSheet(target.path, target.file);
-      }
+      // Hierarchy navigation: SCH_NAVIGATE_TOOL's actions, on its one history. The window
+      // follows the sheet it shows (liveSheetChanged).
+      else if (id === 'navBack') runLiveAction(SCH_ACTIONS.navigateBack);
+      else if (id === 'navFwd') runLiveAction(SCH_ACTIONS.navigateForward);
+      else if (id === 'navUp') runLiveAction(SCH_ACTIONS.navigateUp);
+      else if (id === 'navPrev') runLiveAction(SCH_ACTIONS.navigatePrevious);
+      else if (id === 'navNext') runLiveAction(SCH_ACTIONS.navigateNext);
       // Menu Cut/Copy re-dispatch the native clipboard events our document
       // handlers already implement; Paste reads the async clipboard API (menu
       // clicks can't synthesize a trusted paste event).
@@ -5320,9 +5327,9 @@ export function SchematicEditor({
         e.preventDefault();
         runLiveAction(SCH_ACTIONS.swap);
       } else if (e.altKey && e.key === 'Backspace') {
-        // SCH_ACTIONS::leaveSheet (Alt+Backspace), same as Navigate Up.
+        // SCH_ACTIONS::leaveSheet (Alt+Backspace).
         e.preventDefault();
-        onTopAction('navUp');
+        runLiveAction(SCH_ACTIONS.leaveSheet);
       } else if (e.key === 'Escape') {
         // Abandoning a Sync Sheet Pins placement puts the rest of the queue
         // back and reopens the dialog, rather than leaving it half-placed with
@@ -5592,13 +5599,10 @@ export function SchematicEditor({
   const _title =
     currentFile !== DEFAULT_FILE ? currentFile : (fileName ?? doc.titleBlock?.title ?? 'Root');
 
-  // Hierarchy-navigation buttons grey out when there's nowhere to go, matching
-  // KiCad's SCH_NAVIGATE_TOOL enable conditions (CanGoBack/Forward, CanGoUp):
-  // on a flat/root schematic Navigate Up has no parent to enter, so it disables.
+  // Navigate Back / Up / Forward stay enabled: their conditions are commented out upstream
+  // because arrow-key hotkeys would fall through to another action (sch_edit_frame.cpp:931-939,
+  // kicad#14783); each bells when there is nowhere to go.
   const navDisabled = new Set<string>();
-  if (!navTool.current.canGoBack()) navDisabled.add('navBack');
-  if (!navTool.current.canGoForward()) navDisabled.add('navFwd');
-  if (parentPath(currentPath) === null) navDisabled.add('navUp');
   // The toolbar's Group / Ungroup grey out when they can't act (GROUP_TOOL::
   // update): Group needs >= 2 selected items, Ungroup needs a group in the
   // selection. Add / Remove are right-click-only, gated in the context menu.
@@ -5850,7 +5854,7 @@ export function SchematicEditor({
                                   sheetTree,
                                   0,
                                   currentPath,
-                                  switchSheet,
+                                  changeSheetLive,
                                   collapsedSheets,
                                   setCollapsedSheets,
                                   hierarchyNetMark,
@@ -7037,6 +7041,24 @@ export function SchematicEditor({
  * item shows its SELECTED image, `tree_sel` (the blue dot), where every other
  * row shows `tree_nosel`. wxGenericTreeCtrl has no hover state.
  */
+/**
+ * The window's record path of a live sheet instance: '/', then the uuid of each sheet below the
+ * top-level one ('/<uuid>/<uuid>/').
+ */
+function recordPathOf(aSheetPath: SCH_SHEET_PATH): string {
+  let path = '/';
+  for (let i = 1; i < aSheetPath.size(); i++) path += `${aSheetPath.at(i)!.m_Uuid}/`;
+  return path;
+}
+
+/** The live sheet instance whose record path is \a aPath. */
+function liveSheetPathOf(aFrame: SCH_EDIT_FRAME, aPath: string): SCH_SHEET_PATH | undefined {
+  return aFrame
+    .Schematic()
+    .Hierarchy()
+    .find((p) => recordPathOf(p) === aPath);
+}
+
 function renderSheetNode(
   node: SheetTreeNode,
   depth: number,

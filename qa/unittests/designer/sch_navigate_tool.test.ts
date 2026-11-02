@@ -2,14 +2,12 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Hierarchy navigation history (counterpart eeschema/tools/
- * sch_navigate_tool.cpp): Back/Forward move a cursor over visited sheet
- * instances; a sheet change truncates the forward tail; Up pops the
- * instance path; Previous/Next follow depth-first hierarchy order.
+ * The window's hierarchy helpers beside SCH_NAVIGATE_TOOL (sch_navigate_tool.cpp): the
+ * depth-first order Previous/Next follow, a file's first instance, and an instance's parent.
+ * The Back/Forward history itself is the live tool's (sch_navigate_history.test.ts).
  */
 import { describe, it, expect } from 'vitest';
 import {
-  SchNavigateTool,
   firstInstanceOf,
   flattenHierarchy,
   parentPath,
@@ -80,44 +78,5 @@ describe('parentPath', () => {
     expect(parentPath('/a/c/')).toBe('/a/');
     expect(parentPath('/a/')).toBe('/');
     expect(parentPath('/')).toBeNull();
-  });
-});
-
-describe('SchNavigateTool', () => {
-  it('walks back and forward over visited sheets without re-pushing', () => {
-    const nav = new SchNavigateTool();
-    nav.pushToHistory('/a/');
-    nav.pushToHistory('/a/c/');
-    expect(nav.canGoBack()).toBe(true);
-    expect(nav.back()).toBe('/a/');
-    expect(nav.back()).toBe('/');
-    expect(nav.back()).toBeNull(); // at the beginning, upstream wxBell()s
-    expect(nav.forward()).toBe('/a/');
-    expect(nav.forward()).toBe('/a/c/');
-    expect(nav.forward()).toBeNull();
-  });
-
-  it('a new sheet change truncates the forward tail (pushToHistory)', () => {
-    const nav = new SchNavigateTool();
-    nav.pushToHistory('/a/');
-    nav.pushToHistory('/a/c/');
-    nav.back(); // at /a/
-    nav.pushToHistory('/b/'); // erases /a/c/ from the forward tail
-    expect(nav.canGoForward()).toBe(false);
-    expect(nav.back()).toBe('/a/');
-    expect(nav.forward()).toBe('/b/');
-  });
-
-  it('skips consecutive duplicates and prunes deleted sheets (CleanHistory)', () => {
-    const nav = new SchNavigateTool();
-    nav.pushToHistory('/a/');
-    nav.pushToHistory('/a/'); // consecutive dup is not recorded
-    expect(nav.back()).toBe('/');
-    nav.forward();
-    nav.pushToHistory('/a/c/');
-    nav.pushToHistory('/b/');
-    nav.cleanHistory(new Set(['/', '/a/', '/b/'])); // /a/c/ was deleted
-    expect(nav.back()).toBe('/a/');
-    expect(nav.back()).toBe('/');
   });
 });

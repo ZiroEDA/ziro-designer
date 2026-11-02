@@ -22,7 +22,10 @@ import {
 import type { Schematic } from '@ziroeda/eeschema/types.js';
 import { getPageSettings, setPageSettingsCommand } from '@ziroeda/eeschema';
 import { parse } from '@ziroeda/sexpr/index.js';
+import { SCH_ACTIONS } from '@ziroeda/eeschema/tools/sch_actions.js';
+import { SCH_NAVIGATE_TOOL } from '@ziroeda/eeschema/tools/sch_navigate_tool.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { schFrame, schToolHarness } from './support/sch_tool_harness.js';
 
 const ORACLE = resolve(
   __dirname,
@@ -130,5 +133,47 @@ describe('the screens a live commit touched', () => {
     const symbol = [...screens.GetFirst()!.Items().OfType(KICAD_T.SCH_SYMBOL_T)][0] as SCH_ITEM;
     old.OnItemsChanged([symbol]);
     expect(mirror.TakeCommittedScreens().size).toBe(0);
+  });
+});
+
+describe('a rebuild and the Back/Forward history', () => {
+  /**
+   * The window kept a second history of its own because a rebuild reopens the project and
+   * OpenProjectFiles' ResetHistory wiped the live one - so Alt+Left (the live tool) and
+   * View > Navigate Back (the window's) disagreed. In KiCad an edit never touches the history.
+   */
+  it('survives a record edit: Back and Forward step through the same sheets after it', () => {
+    const h = schToolHarness(schFrame({}));
+    let project = records();
+    const mirror = new LIVE_SCHEMATIC_MIRROR(h.frame, () => project);
+    const first = mirror.get();
+    const mgr = h.frame.GetToolManager()!;
+    const hierarchy = () => h.frame.Schematic().Hierarchy();
+    const [root, a, b] = hierarchy();
+    h.frame.SetCurrentSheet(root!);
+    mgr.GetTool(SCH_NAVIGATE_TOOL)!.ResetHistory();
+
+    mgr.RunAction(SCH_ACTIONS.changeSheet, a);
+    mgr.RunAction(SCH_ACTIONS.changeSheet, b);
+    mgr.RunAction(SCH_ACTIONS.navigateBack);
+    expect(h.frame.GetCurrentSheet().equals(a!)).toBe(true);
+
+    // A sheet record the window edited: the mirror reopens the project.
+    project = {
+      ...project,
+      docs: new Map(project.docs).set(SHEETS[1]!, readSchematic(parse(pass1(SHEETS[1]!)))),
+    };
+    expect(mirror.get() !== first).toBe(true);
+    // The window shows the instance it was on (showLive), without a step of its own.
+    h.frame.SetCurrentSheet(hierarchy().find((p) => p.equals(a!))!);
+
+    const at = () => hierarchy().findIndex((p) => p.equals(h.frame.GetCurrentSheet()));
+    mgr.RunAction(SCH_ACTIONS.navigateBack);
+    expect(at()).toBe(0);
+    // The sheet shown is the new model's, not the one the rebuild threw away.
+    expect(h.frame.GetCurrentSheet().Last() === hierarchy()[0]!.Last()).toBe(true);
+    mgr.RunAction(SCH_ACTIONS.navigateForward);
+    mgr.RunAction(SCH_ACTIONS.navigateForward);
+    expect(at()).toBe(2);
   });
 });

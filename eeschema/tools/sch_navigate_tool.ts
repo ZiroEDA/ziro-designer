@@ -59,59 +59,6 @@ export function parentPath(path: string): string | null {
   return parts.length ? `/${parts.join('/')}/` : '/';
 }
 
-/** The Back/Forward history (m_navHistory + m_navIndex). Paths only, the
- *  file for a path comes from the flattened hierarchy at use time. */
-export class SchNavigateTool {
-  private history: string[] = ['/'];
-  private index = 0;
-
-  /** ResetHistory(): restart at the given (current) sheet. */
-  resetHistory(path: string): void {
-    this.history = [path];
-    this.index = 0;
-  }
-
-  /** CleanHistory(): drop entries that no longer exist in the hierarchy, and
-   *  collapse consecutive duplicates that removal creates. */
-  cleanHistory(valid: ReadonlySet<string>): void {
-    const kept: string[] = [];
-    for (const p of this.history) {
-      if (!valid.has(p)) continue;
-      if (kept.length > 0 && kept[kept.length - 1] === p) continue;
-      kept.push(p);
-    }
-    this.history = kept.length ? kept : ['/'];
-    this.index = this.history.length <= 1 ? 0 : this.history.length - 1;
-  }
-
-  canGoBack(): boolean {
-    return this.index > 0;
-  }
-
-  canGoForward(): boolean {
-    return this.index < this.history.length - 1;
-  }
-
-  /** Back(): move the cursor without re-pushing; null when at the beginning. */
-  back(): string | null {
-    return this.canGoBack() ? this.history[--this.index]! : null;
-  }
-
-  /** Forward(): move the cursor without re-pushing; null when at the end. */
-  forward(): string | null {
-    return this.canGoForward() ? this.history[++this.index]! : null;
-  }
-
-  /** pushToHistory(): a sheet change truncates any forward tail and appends
-   *  (skipping a consecutive duplicate of the tail entry). */
-  pushToHistory(path: string): void {
-    if (this.canGoForward()) this.history.length = this.index + 1;
-    if (this.history.length === 0 || this.history[this.history.length - 1] !== path)
-      this.history.push(path);
-    this.index = this.history.length - 1;
-  }
-}
-
 // -----------------------------------------------------------------------------------------------
 // SCH_NAVIGATE_TOOL (sch_navigate_tool.{h,cpp}) on the live model
 // -----------------------------------------------------------------------------------------------
@@ -159,6 +106,39 @@ export class SCH_NAVIGATE_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     if (this.m_navHistory.length <= 1) this.m_navIndex = 0;
     else this.m_navIndex = this.m_navHistory.length - 1;
+  }
+
+  /**
+   * TRANSITIONAL (deleted with eeschema/sch_record_bridge.ts at S7); no KiCad counterpart.
+   * The record bridge rebuilds the live model by reopening the project, and OpenProjectFiles'
+   * ResetHistory (files-io.cpp:840) forgets a history that an edit never touches in KiCad. The
+   * bridge takes it before the reopen and hands it back after, each entry found again by its
+   * KIID path (SCH_SHEET_PATH::operator==) in the new hierarchy; a sheet that is gone drops out.
+   */
+  TakeHistory(): { paths: SCH_SHEET_PATH[]; index: number } {
+    return { paths: this.m_navHistory, index: this.m_navIndex };
+  }
+
+  /** The other half of TakeHistory. */
+  RestoreHistory(aHistory: { paths: readonly SCH_SHEET_PATH[]; index: number }): void {
+    const sheets = this.m_frame!.Schematic().Hierarchy();
+    const kept: SCH_SHEET_PATH[] = [];
+    let index = 0;
+
+    aHistory.paths.forEach((old, i) => {
+      const found = sheets.find((s) => s.equals(old));
+
+      if (!found) return;
+
+      if (i <= aHistory.index) index = kept.length;
+
+      kept.push(found.Clone());
+    });
+
+    if (kept.length === 0) return; // OpenProjectFiles' ResetHistory stands
+
+    this.m_navHistory = kept;
+    this.m_navIndex = index;
   }
 
   HypertextCommand(aHref: string): void {

@@ -27,6 +27,7 @@ import type { PROJECT } from '@ziroeda/common/project.js';
 import { LoadSchematic } from './eeschema_helpers.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { SCH_MARKER } from './sch_marker.js';
+import { SCH_NAVIGATE_TOOL } from './tools/sch_navigate_tool.js';
 
 export interface RecordProject {
   /**
@@ -190,6 +191,10 @@ export class LIVE_SCHEMATIC_MIRROR {
         if (!prj.IsNullProject()) Pgm().GetSettingsManager().UnloadProject(prj);
       }
 
+      // A rebuild is not an open: the Back/Forward history rides across it.
+      const navigator = this.m_frame.GetToolManager()?.GetTool(SCH_NAVIGATE_TOOL);
+      const history = previous && navigator ? navigator.TakeHistory() : null;
+
       previous?.RemoveListener(this.m_listener);
       this.m_committed.clear();
       this.m_live = openRecordsLive(this.m_frame, project);
@@ -203,6 +208,8 @@ export class LIVE_SCHEMATIC_MIRROR {
         for (let screen = screens.GetFirst(); screen; screen = screens.GetNext()) {
           for (const marker of carried.get(screen.GetFileName()) ?? []) screen.Append(marker);
         }
+
+        if (history) navigator!.RestoreHistory(history);
 
         if (previous && previous !== this.m_live) this.m_onRebuilt(this.m_live);
       }
