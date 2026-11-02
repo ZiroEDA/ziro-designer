@@ -29,7 +29,7 @@ import { BUT_LEFT, EVENTS, type TOOL_EVENT } from '@ziroeda/common/tool/tool_eve
 import { SYNC_HANDLER, TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_interactive.js';
 import type { VIEW_CONTROLS } from '@ziroeda/common/view/view_controls.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PL_EDITOR_FRAME } from '../pl_editor_frame.js';
 import { PL_SELECTION_TOOL } from './pl_selection_tool.js';
 
@@ -223,7 +223,8 @@ export class PL_POINT_EDITOR extends TOOL_INTERACTIVE {
     let point = this.m_editedPoint;
     const view = this.getView()!;
 
-    if (aEvent.IsMotion()) point = this.m_editPoints!.FindPoint(aEvent.Position(), view);
+    if (aEvent.IsMotion())
+      point = this.m_editPoints!.FindPoint(toVECTOR2I(aEvent.Position()), view);
     else if (aEvent.IsDrag(BUT_LEFT))
       point = this.m_editPoints!.FindPoint(aEvent.DragOrigin(), view);
     else point = this.m_editPoints!.FindPoint(this.viewControls().GetCursorPosition(), view);

@@ -2147,7 +2147,7 @@ export class PCB_POINT_EDITOR extends PCB_TOOL_BASE {
     let hovered: EDIT_POINT | null = null;
 
     if (aEvent.IsMotion()) {
-      point = this.m_editPoints!.FindPoint(aEvent.Position(), view);
+      point = this.m_editPoints!.FindPoint(toVECTOR2I(aEvent.Position()), view);
       hovered = point;
     } else if (aEvent.IsDrag(BUT_LEFT)) {
       point = this.m_editPoints!.FindPoint(aEvent.DragOrigin(), view);
@@ -2466,7 +2466,7 @@ export class PCB_POINT_EDITOR extends PCB_TOOL_BASE {
         }
 
         if (this.m_angleSnapActive) {
-          this.m_stickyDisplacement = sub(evt.Position(), this.m_angleSnapPos);
+          this.m_stickyDisplacement = toVECTOR2I(sub(evt.Position(), this.m_angleSnapPos));
           const stickyLimit = KiROUND(view.ToWorld(5));
 
           if (EuclideanNorm(this.m_stickyDisplacement) > stickyLimit || evt.Modifier(MD_SHIFT))
@@ -2513,7 +2513,7 @@ export class PCB_POINT_EDITOR extends PCB_TOOL_BASE {
               if (snapped.x !== pos.x || snapped.y !== pos.y) {
                 this.m_angleSnapPos = snapped;
                 this.m_angleSnapActive = true;
-                this.m_stickyDisplacement = sub(evt.Position(), this.m_angleSnapPos);
+                this.m_stickyDisplacement = toVECTOR2I(sub(evt.Position(), this.m_angleSnapPos));
                 pos = this.m_angleSnapPos;
               }
             }

@@ -427,6 +427,14 @@ describe('DRAWING_TOOL::PlaceText (drawing_tool.cpp:933-1183)', () => {
     expect(texts()).toHaveLength(0);
   });
 
+  it('a hotkey warps the pointer back to its own position, as a whole point (:1135-1136)', async () => {
+    // `cursorPos = evt->Position()` stores the event's VECTOR2D in a VECTOR2I: truncated.
+    h.mouse = { x: 30 * MM + 0.6, y: 30 * MM + 0.4 };
+    h.mgr.RunAction(PCB_ACTIONS.placeText);
+    await flush();
+    expect(h.warped).toEqual(mm(30, 30));
+  });
+
   it('one undo step per text (:1121-1122)', async () => {
     const undo = h.frame.GetUndoCommandCount();
     start(PCB_ACTIONS.placeText);

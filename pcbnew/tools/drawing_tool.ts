@@ -910,7 +910,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
             // Otherwise update to the current mouse position pinned inside the autoscroll
             // boundaries.
             if (evt.IsPrime() && !ignorePrimePosition) {
-              cursorPos = evt.Position();
+              cursorPos = toVECTOR2I(evt.Position());
               controls.WarpMouseCursor(cursorPos, true);
             } else {
               controls.PinCursorInsideNonAutoscrollArea(true);
@@ -1306,7 +1306,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
               // Otherwise update to the current mouse position pinned inside the autoscroll
               // boundaries.
               if (evt.IsPrime() && !ignorePrimePosition) {
-                cursorPos = grid.Align(evt.Position());
+                cursorPos = grid.Align(toVECTOR2I(evt.Position()));
                 this.getViewControls()!.WarpMouseCursor(cursorPos, true);
               } else {
                 controls.PinCursorInsideNonAutoscrollArea(true);

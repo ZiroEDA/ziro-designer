@@ -22,7 +22,7 @@ import { KICURSOR } from '../gal/cursors.js';
 import { SELECTION_AREA } from '../preview_items/selection_area.js';
 import type { VIEW_CONTROLS } from '../view/view_controls.js';
 import { VIEW_UPDATE_FLAGS } from '../view/view_item.js';
-import type { Vec2 as VECTOR2D } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type Vec2 as VECTOR2D } from '@ziroeda/kimath/src/math/vector2.js';
 import { ACTIONS } from './actions.js';
 import { RESET_REASON } from './tool_base.js';
 import { BUT_LEFT, BUT_RIGHT, type TOOL_EVENT } from './tool_event.js';
@@ -219,7 +219,7 @@ export class ZOOM_TOOL extends TOOL_INTERACTIVE {
 
       if (evt.IsDrag(BUT_LEFT) || evt.IsDrag(BUT_RIGHT)) {
         area.SetOrigin(evt.DragOrigin());
-        area.SetEnd(evt.Position());
+        area.SetEnd(toVECTOR2I(evt.Position()));
         view.SetVisible(area, true);
         view.Update(area, VIEW_UPDATE_FLAGS.GEOMETRY);
       }

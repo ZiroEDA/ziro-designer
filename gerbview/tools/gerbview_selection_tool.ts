@@ -33,7 +33,7 @@ import {
 import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
 import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { GBR_NETINFO_TYPE } from '@ziroeda/common/gbr_netlist_metadata.js';
 import { GERBER_COLLECTOR } from '../gerber_collectors.js';
 import type { GERBER_DRAW_ITEM } from '../gerber_draw_item.js';
@@ -169,11 +169,11 @@ export class GERBVIEW_SELECTION_TOOL extends SELECTION_TOOL {
 
       // single click? Select single object
       if (evt.IsClick(BUT_LEFT)) {
-        yield* this.selectPoint(evt.Position());
+        yield* this.selectPoint(toVECTOR2I(evt.Position()));
       } else if (evt.IsClick(BUT_RIGHT)) {
         // right click? if there is any object - show the context menu
         if (this.m_selection.Empty()) {
-          yield* this.selectPoint(evt.Position());
+          yield* this.selectPoint(toVECTOR2I(evt.Position()));
           this.m_selection.SetIsHover(true);
         }
 

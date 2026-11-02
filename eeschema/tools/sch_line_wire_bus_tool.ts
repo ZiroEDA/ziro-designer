@@ -51,7 +51,11 @@ import { wxBell } from '@ziroeda/wx/utils.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { IsPointOnSegment } from '@ziroeda/kimath/src/trigo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import type { Vec2 as VECTOR2D, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import {
+  toVECTOR2I,
+  type Vec2 as VECTOR2D,
+  type VECTOR2I,
+} from '@ziroeda/kimath/src/math/vector2.js';
 import { id_eeschema_frm } from '../eeschema_id.js';
 import { PreviewJunctions } from '../junction_helpers.js';
 import { SCH_BUS_WIRE_ENTRY } from '../sch_bus_entry.js';
@@ -650,7 +654,7 @@ export class SCH_LINE_WIRE_BUS_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           this.getView()!.GetGAL()!.GetGridSnapping() && !aEvent.DisableGridSnapping(),
         );
 
-        const cursorPos = grid.BestSnapAnchor(aEvent.Position(), gridType, null);
+        const cursorPos = grid.BestSnapAnchor(toVECTOR2I(aEvent.Position()), gridType, null);
         this.startSegments(commit, params.layer, cursorPos, params.sourceSegment);
       }
 
@@ -1004,7 +1008,7 @@ export class SCH_LINE_WIRE_BUS_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
       const eventPosition = evt.HasPosition() ? evt.Position() : controls.GetMousePosition();
 
-      let cursorPos = grid.BestSnapAnchor(eventPosition, gridType, segment);
+      let cursorPos = grid.BestSnapAnchor(toVECTOR2I(eventPosition), gridType, segment);
       controls.ForceCursorPosition(true, cursorPos);
 
       // Need to handle change in H/V mode while drawing

@@ -750,7 +750,7 @@ export abstract class PNS_TOOL_BASE extends PCB_TOOL_BASE {
     );
     const gal = this.m_toolMgr!.GetView()!.GetGAL()!;
     const controls = this.controls();
-    let pos = aEvent.HasPosition() ? aEvent.Position() : this.m_startSnapPoint;
+    let pos = aEvent.HasPosition() ? toVECTOR2I(aEvent.Position()) : this.m_startSnapPoint;
 
     pos = GetClampedCoords(pos, PNS_COORDS_PADDING);
 

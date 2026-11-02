@@ -120,7 +120,7 @@ export class PL_SELECTION_TOOL extends SELECTION_TOOL {
         }
 
         this.m_disambiguateTimer.Stop();
-        yield* this.SelectPoint(evt.Position());
+        yield* this.SelectPoint(toVECTOR2I(evt.Position()));
       }
 
       // right click? if there is any object - show the context menu
@@ -129,7 +129,7 @@ export class PL_SELECTION_TOOL extends SELECTION_TOOL {
         const selectionCancelled = { value: false };
 
         if (this.m_selection.Empty()) {
-          yield* this.SelectPoint(evt.Position(), selectionCancelled);
+          yield* this.SelectPoint(toVECTOR2I(evt.Position()), selectionCancelled);
           this.m_selection.SetIsHover(true);
         }
 
@@ -152,7 +152,7 @@ export class PL_SELECTION_TOOL extends SELECTION_TOOL {
           yield* this.selectMultiple();
         } else {
           // Check if dragging has started within any of selected items bounding box
-          if (this.selectionContains(evt.Position())) {
+          if (this.selectionContains(toVECTOR2I(evt.Position()))) {
             // Yes -> run the move tool and wait till it finishes
             this.m_toolMgr!.RunAction('plEditor.InteractiveMove.move');
           } else {
@@ -178,7 +178,7 @@ export class PL_SELECTION_TOOL extends SELECTION_TOOL {
           !this.m_selection.Empty() &&
           frame.GetDragAction() === MOUSE_DRAG_ACTION.DRAG_SELECTED &&
           evt.HasPosition() &&
-          this.selectionContains(evt.Position())
+          this.selectionContains(toVECTOR2I(evt.Position()))
         ) {
           frame.GetCanvas()!.SetCurrentCursor(KICURSOR.MOVING);
         } else {
@@ -352,7 +352,7 @@ export class PL_SELECTION_TOOL extends SELECTION_TOOL {
 
         // Start drawing a selection box
         area.SetOrigin(evt.DragOrigin());
-        area.SetEnd(evt.Position());
+        area.SetEnd(toVECTOR2I(evt.Position()));
         area.SetAdditive(this.m_drag_additive);
         area.SetSubtractive(this.m_drag_subtractive);
         area.SetExclusiveOr(false);

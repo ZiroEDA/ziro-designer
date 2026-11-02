@@ -63,6 +63,8 @@ export interface TOOL_HARNESS<F extends TEST_PCB_FRAME> {
   forced: Vec2 | null;
   /** The last cursor shape a tool asked the canvas for. */
   shape?: KICURSOR;
+  /** Where a tool last warped the pointer to. */
+  warped?: Vec2;
   menus: ACTION_MENU[];
   /** Each shown menu's close, which the tool manager waits on. */
   menuCloses: (() => void)[];
@@ -124,6 +126,7 @@ export interface HARNESS_MOUSE {
   mouse: Vec2;
   forced: Vec2 | null;
   shape?: KICURSOR;
+  warped?: Vec2;
 }
 
 /**
@@ -183,7 +186,9 @@ export function harnessCanvas(
     ShowCursor: () => {},
     PinCursorInsideNonAutoscrollArea: () => {},
     CaptureCursor: () => {},
-    WarpMouseCursor: () => {},
+    WarpMouseCursor: (aPos: Vec2) => {
+      h.warped = { ...aPos };
+    },
     GetSettings: () => new VC_SETTINGS(),
     ApplySettings: () => {},
   } as unknown as TOOL_MANAGER_VIEW_CONTROLS;

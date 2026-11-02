@@ -25,7 +25,7 @@ import { BUT_LEFT, BUT_RIGHT, MD_SHIFT, type TOOL_EVENT } from '@ziroeda/common/
 import type { VIEW_CONTROLS } from '@ziroeda/common/view/view_controls.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ANGLE_HORIZONTAL, type EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { wxID_OK } from '@ziroeda/wx/menu.js';
 import { wxCENTER, wxOK } from '@ziroeda/wx/defs.js';
 import { GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
@@ -250,7 +250,7 @@ export class SYMBOL_EDITOR_DRAWING_TOOLS extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME
             // Otherwise update to the current mouse position pinned inside the autoscroll
             // boundaries.
             if (evt.IsPrime() && !ignorePrimePosition) {
-              cursorPos = grid.Align(evt.Position(), grid.GetItemGrid(item));
+              cursorPos = grid.Align(toVECTOR2I(evt.Position()), grid.GetItemGrid(item));
               controls.WarpMouseCursor(cursorPos, true);
             } else {
               controls.PinCursorInsideNonAutoscrollArea(true);

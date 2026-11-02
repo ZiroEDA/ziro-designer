@@ -448,7 +448,10 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
             // Otherwise update to the current mouse position pinned inside the autoscroll
             // boundaries.
             if (evt.IsPrime() && !ignorePrimePosition) {
-              cursorPos = grid.Align(evt.Position(), GRID_HELPER_GRIDS.GRID_CONNECTABLE);
+              cursorPos = grid.Align(
+                toVECTOR2I(evt.Position()),
+                GRID_HELPER_GRIDS.GRID_CONNECTABLE,
+              );
               controls.WarpMouseCursor(cursorPos, true);
             } else {
               controls.PinCursorInsideNonAutoscrollArea(true);
@@ -1436,7 +1439,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
               // Otherwise update to the current mouse position pinned inside the autoscroll
               // boundaries.
               if (evt.IsPrime() && !ignorePrimePosition) {
-                cursorPos = grid.Align(evt.Position());
+                cursorPos = grid.Align(toVECTOR2I(evt.Position()));
                 controls.WarpMouseCursor(cursorPos, true);
               } else {
                 controls.PinCursorInsideNonAutoscrollArea(true);
@@ -2373,7 +2376,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
             // Otherwise update to the current mouse position pinned inside the autoscroll
             // boundaries.
             if (evt.IsPrime() && !ignorePrimePosition) {
-              cursorPos = grid.Align(evt.Position());
+              cursorPos = grid.Align(toVECTOR2I(evt.Position()));
               controls.WarpMouseCursor(cursorPos, true);
             } else {
               controls.PinCursorInsideNonAutoscrollArea(true);

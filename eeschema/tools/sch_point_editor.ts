@@ -1077,7 +1077,7 @@ export class SCH_POINT_EDITOR extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     if (!this.m_editPoints) {
       point = null;
     } else if (aEvent.IsMotion()) {
-      point = this.m_editPoints.FindPoint(aEvent.Position(), this.getView()!);
+      point = this.m_editPoints.FindPoint(toVECTOR2I(aEvent.Position()), this.getView()!);
     } else if (aEvent.IsDrag(BUT_LEFT)) {
       point = this.m_editPoints.FindPoint(aEvent.DragOrigin(), this.getView()!);
     } else {

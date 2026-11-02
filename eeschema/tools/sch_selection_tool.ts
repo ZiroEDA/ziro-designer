@@ -595,10 +595,10 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
         const collector = new SCH_COLLECTOR();
         const rejected = new SCH_SELECTION_FILTER_OPTIONS();
 
-        this.CollectHits(collector, evt.Position());
+        this.CollectHits(collector, toVECTOR2I(evt.Position()));
         const preFilterCount = collector.GetCount();
         rejected.SetAll(false);
-        this.narrowSelection(collector, evt.Position(), false, false, rejected);
+        this.narrowSelection(collector, toVECTOR2I(evt.Position()), false, false, rejected);
 
         if (
           this.m_selection.GetSize() !== 0 &&
@@ -663,7 +663,7 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
 
             selCancelled = true;
           } else if (collector.At(0)!.HasHoveredHypertext()) {
-            collector.At(0)!.DoHypertextAction(this.m_frame!, evt.Position());
+            collector.At(0)!.DoHypertextAction(this.m_frame!, toVECTOR2I(evt.Position()));
             selCancelled = true;
           } else if (collector.At(0)!.IsBrightened()) {
             if (this.m_frame instanceof SCH_EDIT_FRAME) {
@@ -685,7 +685,7 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
 
           yield* this.selectPoint(
             collector,
-            evt.Position(),
+            toVECTOR2I(evt.Position()),
             null,
             null,
             this.m_additive,
@@ -702,7 +702,12 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
         // right click? if there is any object - show the context menu
         if (this.m_selection.Empty()) {
           this.ClearSelection();
-          yield* this.SelectPoint(evt.Position(), [KICAD_T.SCH_LOCATE_ANY_T], null, cancelled);
+          yield* this.SelectPoint(
+            toVECTOR2I(evt.Position()),
+            [KICAD_T.SCH_LOCATE_ANY_T],
+            null,
+            cancelled,
+          );
           this.m_selection.SetIsHover(true);
         }
         // If the cursor has moved off the bounding box of the selection by more than
@@ -714,14 +719,19 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
           !this.m_selection
             .GetBoundingBox()
             .Inflate(grid.GetGrid().x, grid.GetGrid().y)
-            .Contains(evt.Position())
+            .Contains(toVECTOR2I(evt.Position()))
         ) {
           const collector = new SCH_COLLECTOR();
 
-          if (this.CollectHits(collector, evt.Position(), [KICAD_T.SCH_LOCATE_ANY_T])) {
+          if (this.CollectHits(collector, toVECTOR2I(evt.Position()), [KICAD_T.SCH_LOCATE_ANY_T])) {
             this.ClearSelection();
 
-            yield* this.SelectPoint(evt.Position(), [KICAD_T.SCH_LOCATE_ANY_T], null, cancelled);
+            yield* this.SelectPoint(
+              toVECTOR2I(evt.Position()),
+              [KICAD_T.SCH_LOCATE_ANY_T],
+              null,
+              cancelled,
+            );
             this.m_selection.SetIsHover(true);
           }
         }
@@ -735,7 +745,7 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
         // double click? Display the properties window
         if (this.m_frame instanceof SCH_EDIT_FRAME) this.m_frame.ClearFocus();
 
-        if (this.m_selection.Empty()) yield* this.SelectPoint(evt.Position());
+        if (this.m_selection.Empty()) yield* this.SelectPoint(toVECTOR2I(evt.Position()));
 
         const item = this.m_selection.Front();
 
@@ -887,8 +897,8 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
 
         this.controls().ForceCursorPosition(false);
 
-        if (this.CollectHits(collector, evt.Position())) {
-          this.narrowSelection(collector, evt.Position(), false, false, null);
+        if (this.CollectHits(collector, toVECTOR2I(evt.Position()))) {
+          this.narrowSelection(collector, toVECTOR2I(evt.Position()), false, false, null);
 
           if (collector.GetCount() === 1 && !this.hasModifier()) {
             const autostartEvt = this.autostartEvent(evt, grid, collector.At(0)!);
@@ -1286,7 +1296,7 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
     aGrid: EE_GRID_HELPER,
     aItem: SCH_ITEM,
   ): OPT_TOOL_EVENT {
-    const pos = aGrid.BestSnapAnchor(aEvent.Position(), aGrid.GetItemGrid(aItem));
+    const pos = aGrid.BestSnapAnchor(toVECTOR2I(aEvent.Position()), aGrid.GetItemGrid(aItem));
 
     if (
       this.m_frame!.eeconfig()!.drawing.auto_start_wires &&
@@ -2194,7 +2204,7 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
 
         // Start drawing a selection box
         area.SetOrigin(evt.DragOrigin());
-        area.SetEnd(evt.Position());
+        area.SetEnd(toVECTOR2I(evt.Position()));
         area.SetAdditive(this.m_drag_additive);
         area.SetSubtractive(this.m_drag_subtractive);
         area.SetExclusiveOr(false);
@@ -2266,7 +2276,7 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
         evt.IsClick(BUT_LEFT) ||
         evt.IsAction(ACTIONS.cursorClick)
       ) {
-        points.Append(evt.Position());
+        points.Append(toVECTOR2I(evt.Position()));
       } else if (
         evt.IsDblClick(BUT_LEFT) ||
         evt.IsAction(ACTIONS.cursorDblClick) ||

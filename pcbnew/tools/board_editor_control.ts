@@ -752,7 +752,7 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
           // Otherwise update to the current mouse position pinned inside the autoscroll
           // boundaries.
           if (evt.IsPrime() && !ignorePrimePosition) {
-            cursorPos = evt.Position();
+            cursorPos = toVECTOR2I(evt.Position());
             controls.WarpMouseCursor(cursorPos, true);
           } else {
             controls.PinCursorInsideNonAutoscrollArea(true);

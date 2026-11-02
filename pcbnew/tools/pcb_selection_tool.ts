@@ -579,14 +579,14 @@ export class PCB_SELECTION_TOOL extends SELECTION_TOOL {
 
           // Single click? Select single object
           if (this.m_highlight_modifier && brd_editor) {
-            if (!this.toggleTableCellSelection(evt.Position()))
+            if (!this.toggleTableCellSelection(toVECTOR2I(evt.Position())))
               this.m_toolMgr!.RunAction(PCB_ACTIONS.highlightNet);
           } else {
             this.m_frame!.ClearFocus();
 
             // Mirrors eeschema's SCH_TABLE shift+click range select.
-            if (!this.extendTableCellSelectionTo(evt.Position())) {
-              yield* this.selectPoint(evt.Position());
+            if (!this.extendTableCellSelectionTo(toVECTOR2I(evt.Position()))) {
+              yield* this.selectPoint(toVECTOR2I(evt.Position()));
 
               // Anchor for a subsequent shift+click or shift+drag whose IsClick
               // jitter could otherwise promote into IsDrag, collapsing the range
@@ -604,7 +604,7 @@ export class PCB_SELECTION_TOOL extends SELECTION_TOOL {
         const selectionCancelled = { value: false };
 
         if (this.m_selection.Empty()) {
-          yield* this.selectPoint(evt.Position(), false, selectionCancelled);
+          yield* this.selectPoint(toVECTOR2I(evt.Position()), false, selectionCancelled);
           this.m_selection.SetIsHover(true);
         }
 
@@ -627,7 +627,7 @@ export class PCB_SELECTION_TOOL extends SELECTION_TOOL {
         // Double click? Display the properties window
         this.m_frame!.ClearFocus();
 
-        if (this.m_selection.Empty()) yield* this.selectPoint(evt.Position());
+        if (this.m_selection.Empty()) yield* this.selectPoint(toVECTOR2I(evt.Position()));
 
         if (
           this.m_selection.GetSize() === 1 &&
@@ -798,7 +798,7 @@ export class PCB_SELECTION_TOOL extends SELECTION_TOOL {
           dragAction === MOUSE_DRAG_ACTION.DRAG_SELECTED &&
           !this.m_selection.Empty() &&
           evt.HasPosition() &&
-          this.selectionContains(evt.Position())
+          this.selectionContains(toVECTOR2I(evt.Position()))
         ) {
           this.m_nonModifiedCursor = KICURSOR.MOVING;
         } else {
@@ -1493,7 +1493,7 @@ export class PCB_SELECTION_TOOL extends SELECTION_TOOL {
 
         // Start drawing a selection box
         area.SetOrigin(evt.DragOrigin());
-        area.SetEnd(evt.Position());
+        area.SetEnd(toVECTOR2I(evt.Position()));
         area.SetAdditive(this.m_drag_additive);
         area.SetSubtractive(this.m_drag_subtractive);
         area.SetExclusiveOr(false);
