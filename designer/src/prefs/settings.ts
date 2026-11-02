@@ -887,10 +887,12 @@ export interface FpEditSettings {
   appearance: {
     /**
      * `appearance.color_theme` -> `APP_SETTINGS_BASE::m_ColorTheme`
-     * (`common/settings/app_settings.cpp:282-284`). Written by the Colors page,
-     * and only on its "Use theme:" branch — `PANEL_FP_EDITOR_COLOR_SETTINGS`
-     * otherwise defers to pcbnew's, exactly as the symbol editor defers to
-     * eeschema's (see {@link FpEditSettings.use_board_editor_color_settings}).
+     * (`common/settings/app_settings.cpp:282-284`). Written by the Colors page
+     * on every OK (`PANEL_FP_EDITOR_COLOR_SETTINGS::TransferDataFromWindow`,
+     * `panel_fp_editor_color_settings.cpp:79-84`): unlike the symbol editor's
+     * `m_UseEeschemaColorSettings`, the footprint editor has no switch to borrow
+     * the board editor's theme, and its frames paint with this one
+     * (`FOOTPRINT_EDIT_FRAME::GetColorSettings`, `footprint_edit_frame.cpp:877-881`).
      */
     color_theme: string;
     /** `appearance.custom_toolbars` -> `APP_SETTINGS_BASE::m_CustomToolbars`
