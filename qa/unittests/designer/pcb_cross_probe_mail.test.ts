@@ -302,6 +302,19 @@ describe('the schematic syncing its selection to the board', () => {
     expect(env.synced).toEqual([[['FR1'], true, true]]);
   });
 
+  it('ignores a selection while the frame has no canvas (a panel not built, a lost context)', () => {
+    // Sentry JAVASCRIPT-REACT-1B: the board editor opened and left before its font atlas
+    // arrived, then a click in the schematic. With centring and zoom-to-fit on (the defaults),
+    // the sync's ZoomFitCrossProbeBBox read the absent canvas's client size.
+    const env = setup();
+    env.settings.m_CrossProbing.center_on_items = true;
+    env.settings.m_CrossProbing.zoom_to_fit = true;
+    env.frame.SetCanvas(null);
+    expect(() => env.select('$SELECT: 0,FR1')).not.toThrow();
+    expect(() => env.select('$SELECT: 0,FR2', true)).not.toThrow();
+    expect(env.synced).toEqual([]);
+  });
+
   it('refuses MAIL_SELECTION when on_selection is off, but not MAIL_SELECTION_FORCE', () => {
     // `case MAIL_SELECTION: if( !on_selection ) break; KI_FALLTHROUGH;`
     const env = setup();

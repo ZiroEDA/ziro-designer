@@ -2438,6 +2438,12 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
         // $SELECT: <mode 0 - only footprints, 1 - with connections>,<spec1>,<spec2>,<spec3>
         const prefix = '$SELECT: ';
 
+        // As ExecuteRemoteCommand: upstream's frame always has its canvas, and the sync's
+        // zoom-to-fit and FocusOnLocation read it unguarded. Ours has none before the panel is
+        // built (the font atlas still loading) or after a lost WebGL context, and a selection
+        // from the schematic then was a null dereference (Sentry JAVASCRIPT-REACT-1B).
+        if (!this.GetCanvas()) break;
+
         if (payload.startsWith(prefix)) {
           const del = ',';
           const paramStr = payload.substring(prefix.length);
