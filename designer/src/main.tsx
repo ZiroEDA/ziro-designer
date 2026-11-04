@@ -86,6 +86,19 @@ SetSaveFileDialog((p) => (
 // `textWidth` measures an outline face with the glyphs the renderer fills
 // (#154); until a face has loaded both sides fall back to the stroke font.
 installOutlineFontProvider();
+// The bitmap font atlas every GAL canvas waits for (1.2 MB), fetched at boot
+// rather than when the first editor mounts. An editor builds its canvas only
+// once the atlas has landed, and until then its frame has none - the window in
+// which Sentry REACT-1A and 1B crashed (11-04). Measured on production that
+// day: the fetch began with the board editor and took 1.2 s of the 3 s before
+// its canvas existed, on a fast line; on a school's shared Wi-Fi, many more.
+// The service worker precaches the same file, so this adds no transfer, and it
+// is a dynamic import so the cursor art behind gal_window stays out of this
+// chunk. A failed fetch is forgotten by loadBitmapFontImage, so the editor's
+// own call asks again.
+void import('@ziroeda/common/gal/gal_window.js')
+  .then((m) => m.loadBitmapFontImage())
+  .catch(() => undefined);
 // The real storage test, at boot. storageAvailable() only proves the API
 // exists; this proves a write/read/delete round-trip lands. Without it the
 // first a user hears of a full or read-only origin is a save failing mid-edit,
