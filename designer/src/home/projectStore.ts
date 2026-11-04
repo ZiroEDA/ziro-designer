@@ -1497,6 +1497,22 @@ export async function hasDivergedLocally(id: string): Promise<boolean> {
 }
 
 /**
+ * Whether pushing this record would carry anything the cloud does not already
+ * hold: its first push (it has never agreed with the cloud), or contents that
+ * differ from the last agreed ones (`divergedFrom`). The autosave push asks
+ * this first, because the schematic editor stores byte-identical files ~1 s
+ * after a project is merely opened - and every such push committed a new cloud
+ * version with "0 sent, N unchanged" (seen live 11-04: versions 8 to 14 of an
+ * untouched project, one per open and close).
+ */
+export async function hasContentToPush(id: string): Promise<boolean> {
+  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+  if (!r) return false;
+  if (!(r.syncedHashes ?? r.pushedHashes)) return true;
+  return divergedFrom(r);
+}
+
+/**
  * Whether this record's contents differ from the ones its last agreed cloud
  * version referenced.
  *

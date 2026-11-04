@@ -25,7 +25,7 @@ import {
   updateProjectFiles,
 } from '@ziroeda/designer/src/home/projectStore.js';
 import { setCloudBackend } from '@ziroeda/designer/src/cloud/cloudStore.js';
-import { syncAllProjects } from '@ziroeda/designer/src/cloud/sync.js';
+import { pushProject, syncAllProjects } from '@ziroeda/designer/src/cloud/sync.js';
 import type { CloudBackend, ProjectRow } from '@ziroeda/designer/src/cloud/backend.js';
 
 const USER = 'user-1';
@@ -95,6 +95,47 @@ const many = (n: number): { name: string; bytes: Uint8Array }[] =>
     name: `part${i}.kicad_mod`,
     bytes: text(`(footprint "P${i}")`),
   }));
+
+describe('the push an autosave triggers (pushProject onlyIfChanged)', () => {
+  it('commits nothing when the editor rewrote the same bytes (11-04: a version per open)', async () => {
+    const id = await saveProject('Amp', many(3));
+    await syncAllProjects(USER);
+    backend.calls.length = 0;
+
+    // The schematic editor, ~1 s after the project is opened: the same bytes again.
+    await updateProjectFiles(id, [{ name: 'part0.kicad_mod', bytes: text('(footprint "P0")') }]);
+    await pushProject(USER, id, { onlyIfChanged: true });
+
+    expect(backend.calls).toEqual([]);
+  });
+
+  it('still commits a real edit', async () => {
+    const id = await saveProject('Amp', many(3));
+    await syncAllProjects(USER);
+    backend.calls.length = 0;
+
+    await updateProjectFiles(id, [
+      { name: 'part0.kicad_mod', bytes: text('(footprint "EDITED")') },
+    ]);
+    await pushProject(USER, id, { onlyIfChanged: true });
+
+    expect(countOf('put')).toBe(1);
+  });
+
+  it('still makes the first push of a project the cloud has never seen', async () => {
+    const id = await saveProject('Amp', many(3));
+    await pushProject(USER, id, { onlyIfChanged: true });
+    expect(countOf('put')).toBe(1);
+  });
+
+  it('without the option (a rename) it pushes regardless', async () => {
+    const id = await saveProject('Amp', many(3));
+    await syncAllProjects(USER);
+    backend.calls.length = 0;
+    await pushProject(USER, id);
+    expect(countOf('put')).toBe(1);
+  });
+});
 
 describe('pushing a project again', () => {
   it('touches the store not at all when nothing changed', async () => {

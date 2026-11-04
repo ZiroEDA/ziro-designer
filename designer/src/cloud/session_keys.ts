@@ -133,11 +133,16 @@ export async function ensureProjectKeyFor(
   userId: string,
   projectUid: string,
 ): Promise<{ key: Uint8Array; unsaved: boolean }> {
+  // Said once per project per session, when the key is first fetched and opened - not on every
+  // push that finds it already in memory, which read in the console as a server round trip each
+  // time (11-04).
+  const fetched = !projectKeys.has(projectUid);
   const existing = await projectKeyFor(backend, userId, projectUid);
   if (existing) {
-    console.info(
-      `Encryption: ${projectUid.slice(0, 8)} opened with its own key (fingerprint ${await fingerprint(existing)})`,
-    );
+    if (fetched)
+      console.info(
+        `Encryption: ${projectUid.slice(0, 8)} opened with its own key (fingerprint ${await fingerprint(existing)})`,
+      );
     return { key: existing, unsaved: false };
   }
   // Both checks stay here rather than moving to the save: a locked account or

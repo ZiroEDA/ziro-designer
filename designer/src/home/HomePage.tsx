@@ -1280,7 +1280,9 @@ export function HomePage({
             );
             // Mirror to the cloud when signed in (best-effort, non-blocking).
             if (userId)
-              void pushProject(userId, pid).catch((e) => console.warn('Cloud push failed:', e));
+              void pushProject(userId, pid, { onlyIfChanged: true }).catch((e) =>
+                console.warn('Cloud push failed:', e),
+              );
           }
         } catch {
           /* storage disabled (private mode), the app still works */

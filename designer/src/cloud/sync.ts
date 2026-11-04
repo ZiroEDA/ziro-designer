@@ -57,6 +57,7 @@ import {
   listSyncMeta,
   localCopyName,
   markSynced,
+  hasContentToPush,
 } from '../home/projectStore.js';
 import { isManifestEntry, type ProjectRow } from './backend.js';
 import { sessionUnlocked } from './session_keys.js';
@@ -864,8 +865,20 @@ async function repairUnreadable(userId: string, ref: ProjectRef, cause: unknown)
  * answer is to reconcile this one project, which pulls and forks the local copy
  * aside if it too has changed. Nothing is lost either way.
  */
-export async function pushProject(userId: string, id: string): Promise<void> {
+export async function pushProject(
+  userId: string,
+  id: string,
+  opts: {
+    /**
+     * Push only when the files differ from what the cloud holds - for the pushes
+     * a *write* triggers, which include byte-identical rewrites. A rename changes
+     * no file and must still push, so it is opt-in.
+     */
+    onlyIfChanged?: boolean;
+  } = {},
+): Promise<void> {
   if (!cloudBackendInstalled()) return;
+  if (opts.onlyIfChanged && !(await hasContentToPush(id))) return;
   try {
     await pushOne(userId, id);
   } catch (e) {

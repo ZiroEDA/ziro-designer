@@ -1151,7 +1151,7 @@ export function App(): JSX.Element {
     if (!id || !uid) return;
     cloudTarget.current = null;
     reportCloudPending(true);
-    void pushProject(uid, id).then(
+    void pushProject(uid, id, { onlyIfChanged: true }).then(
       () => reportCloudOk(),
       (e: unknown) => {
         reportCloudFailed();
