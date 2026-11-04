@@ -409,25 +409,15 @@ export async function syncAllProjects(
   );
   if (ops.length > 0) onProgress?.(0, ops.length);
   await mapLimit(ops, PROJECT_CONCURRENCY, (run) => run());
-  // The last plaintext goes only when every project of the owner's is
-  // encrypted; until then this returns null and touches nothing.
-  //
-  // Once per user on this device, not after every pass: the sweep lists every
-  // folder of the account (each project, every blob shard), and once it has
-  // run with every project encrypted there is no plaintext left to find. Run
-  // on every sync it was hundreds of storage listings per pass per tab, which
-  // Supabase's slower listing (11-04) turned into a database outage.
-  if (plaintextSweptOnThisDevice(userId)) return result;
-  try {
-    const swept = await sweepPlaintextBlobs(userId);
-    if (swept !== null) markPlaintextSwept(userId);
-    if (swept)
-      console.info(
-        `Backup: deleted ${swept} unencrypted file(s) left in your account from before encryption; everything there is encrypted now.`,
-      );
-  } catch (e) {
-    console.warn('plaintext sweep did not run:', e);
-  }
+  // No plaintext sweep here any more (switched off 11-04). `sweepPlaintextBlobs`
+  // keeps every object a project's CURRENT manifest names and removes the rest
+  // - which includes every blob only a past version names, the objects
+  // `restoreFromHistory` exists to find. `cloudDelete` learned this the hard way
+  // and counts histories; the sweep did not, and ran at the end of every sync:
+  // on 11-04, 1,023 history references across 42 encrypted projects pointed at
+  // deleted objects. It can also race a push in another tab, removing blobs
+  // uploaded but not yet committed (3 current projects, 10-27 to 10-30). It
+  // comes back only when it counts histories and spares recent uploads.
   return result;
 }
 
@@ -696,28 +686,6 @@ async function refFor(localId: string): Promise<ProjectRef | null> {
  * The base comes from the row as it stands rather than from the local record,
  * whose own base is stale by definition -- that is what the conflict was.
  */
-const s_plaintextSwept = new Set<string>();
-const sweptKey = (aUserId: string): string => `ziro.plaintextSwept.${aUserId}`;
-
-/** Whether this device has already swept the user's plaintext (this page, or stored). */
-export function plaintextSweptOnThisDevice(aUserId: string): boolean {
-  if (s_plaintextSwept.has(aUserId)) return true;
-  try {
-    return localStorage.getItem(sweptKey(aUserId)) === '1';
-  } catch {
-    return false; // no storage: the page's own memory still holds it to once per load
-  }
-}
-
-function markPlaintextSwept(aUserId: string): void {
-  s_plaintextSwept.add(aUserId);
-  try {
-    localStorage.setItem(sweptKey(aUserId), '1');
-  } catch {
-    // private window, blocked storage: once per page load is the best on offer
-  }
-}
-
 /**
  * Remove an owner's plaintext blobs, once nothing refers to them.
  *

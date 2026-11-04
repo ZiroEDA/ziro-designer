@@ -38,10 +38,13 @@ import {
   resolveKeepMine,
   sweepPlaintextBlobs,
   syncAllProjects,
-  plaintextSweptOnThisDevice,
 } from '@ziroeda/designer/src/cloud/sync.js';
 import 'fake-indexeddb/auto';
-import { saveProject, setProjectOwner } from '@ziroeda/designer/src/home/projectStore.js';
+import {
+  saveProject,
+  setProjectOwner,
+  updateProjectFiles,
+} from '@ziroeda/designer/src/home/projectStore.js';
 
 const FAST = { opsLimit: 1, memLimitKiB: 1024 };
 const OWNER = 'user-owner';
@@ -578,23 +581,27 @@ describe('the sweep: the last plaintext goes only when nothing refers to it', ()
     expect(await sweepPlaintextBlobs(OWNER)).toBe(0);
   });
 
-  it('runs once per user on a device, not after every sync (the 11-04 outage)', async () => {
-    // Every pass listed every folder of the account; with Supabase's listing at
-    // ~6 s a call that took the database down for everyone.
+  it('is not run by a sync: it would take the blobs only past versions name (11-04)', async () => {
+    // The sweep keeps what CURRENT manifests name. A blob that only a past
+    // version names - what restoreFromHistory walks back to - would go, so a
+    // sync must not run it until it counts histories (cloudDelete does).
     let listings = 0;
     f.listObjects = async (prefix: string) => {
       listings += 1;
       return list(prefix);
     };
     setProjectOwner(OWNER);
-    await saveProject('Amp', [{ name: 'a.txt', bytes: new TextEncoder().encode('AAA') }]);
-    expect(plaintextSweptOnThisDevice(OWNER)).toBe(false);
+    const id = await saveProject('Amp', [
+      { name: 'a.txt', bytes: new TextEncoder().encode('AAA') },
+    ]);
     await syncAllProjects(OWNER);
-    expect(listings).toBe(1);
-    expect(plaintextSweptOnThisDevice(OWNER)).toBe(true);
+    // An edit: version 2 no longer names the first blob; version 1 still does.
+    await updateProjectFiles(id, [{ name: 'a.txt', bytes: new TextEncoder().encode('BBB') }]);
     await syncAllProjects(OWNER);
+    const before = f.objects.size;
     await syncAllProjects(OWNER);
-    expect(listings).toBe(1);
+    expect(listings).toBe(0);
+    expect(f.objects.size).toBe(before);
   });
 
   it('does nothing on a store that cannot list', async () => {
