@@ -410,8 +410,16 @@ export async function syncAllProjects(
   await mapLimit(ops, PROJECT_CONCURRENCY, (run) => run());
   // The last plaintext goes only when every project of the owner's is
   // encrypted; until then this returns null and touches nothing.
+  //
+  // Once per user on this device, not after every pass: the sweep lists every
+  // folder of the account (each project, every blob shard), and once it has
+  // run with every project encrypted there is no plaintext left to find. Run
+  // on every sync it was hundreds of storage listings per pass per tab, which
+  // Supabase's slower listing (11-04) turned into a database outage.
+  if (plaintextSweptOnThisDevice(userId)) return result;
   try {
     const swept = await sweepPlaintextBlobs(userId);
+    if (swept !== null) markPlaintextSwept(userId);
     if (swept)
       console.info(
         `Backup: deleted ${swept} unencrypted file(s) left in your account from before encryption; everything there is encrypted now.`,
@@ -687,6 +695,28 @@ async function refFor(localId: string): Promise<ProjectRef | null> {
  * The base comes from the row as it stands rather than from the local record,
  * whose own base is stale by definition -- that is what the conflict was.
  */
+const s_plaintextSwept = new Set<string>();
+const sweptKey = (aUserId: string): string => `ziro.plaintextSwept.${aUserId}`;
+
+/** Whether this device has already swept the user's plaintext (this page, or stored). */
+export function plaintextSweptOnThisDevice(aUserId: string): boolean {
+  if (s_plaintextSwept.has(aUserId)) return true;
+  try {
+    return localStorage.getItem(sweptKey(aUserId)) === '1';
+  } catch {
+    return false; // no storage: the page's own memory still holds it to once per load
+  }
+}
+
+function markPlaintextSwept(aUserId: string): void {
+  s_plaintextSwept.add(aUserId);
+  try {
+    localStorage.setItem(sweptKey(aUserId), '1');
+  } catch {
+    // private window, blocked storage: once per page load is the best on offer
+  }
+}
+
 /**
  * Remove an owner's plaintext blobs, once nothing refers to them.
  *

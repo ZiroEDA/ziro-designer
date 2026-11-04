@@ -38,6 +38,7 @@ import {
   resolveKeepMine,
   sweepPlaintextBlobs,
   syncAllProjects,
+  plaintextSweptOnThisDevice,
 } from '@ziroeda/designer/src/cloud/sync.js';
 import 'fake-indexeddb/auto';
 import { saveProject, setProjectOwner } from '@ziroeda/designer/src/home/projectStore.js';
@@ -575,6 +576,25 @@ describe('the sweep: the last plaintext goes only when nothing refers to it', ()
       expect(f.objects.has(`${OWNER}/blobs/${id.slice(0, 2)}/${id}`)).toBe(true);
     // Nothing left to do next time.
     expect(await sweepPlaintextBlobs(OWNER)).toBe(0);
+  });
+
+  it('runs once per user on a device, not after every sync (the 11-04 outage)', async () => {
+    // Every pass listed every folder of the account; with Supabase's listing at
+    // ~6 s a call that took the database down for everyone.
+    let listings = 0;
+    f.listObjects = async (prefix: string) => {
+      listings += 1;
+      return list(prefix);
+    };
+    setProjectOwner(OWNER);
+    await saveProject('Amp', [{ name: 'a.txt', bytes: new TextEncoder().encode('AAA') }]);
+    expect(plaintextSweptOnThisDevice(OWNER)).toBe(false);
+    await syncAllProjects(OWNER);
+    expect(listings).toBe(1);
+    expect(plaintextSweptOnThisDevice(OWNER)).toBe(true);
+    await syncAllProjects(OWNER);
+    await syncAllProjects(OWNER);
+    expect(listings).toBe(1);
   });
 
   it('does nothing on a store that cannot list', async () => {

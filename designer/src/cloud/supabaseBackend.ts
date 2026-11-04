@@ -48,6 +48,27 @@ function isAlreadyExists(error: { message?: string; statusCode?: string } | null
 /** So a database without the history migration says so once, not every save. */
 let warnedNoHistory = false;
 
+/**
+ * What `info( path )` says about whether an object exists. A missing object
+ * comes back as HTTP 400 with `{"statusCode":"404","code":"NoSuchKey"}` in the
+ * body (measured on production, 11-04; newer storage answers 404 itself). Any
+ * other failure is a failure to *ask*, not an answer: reporting "absent" would
+ * only cost a re-upload, but reporting "present" would let a commit reference
+ * an object nobody has seen - so it throws.
+ */
+export function statAnswer(
+  aPath: string,
+  aData: unknown,
+  aError: { message: string; status?: number; statusCode?: string } | null,
+): boolean {
+  if (!aError) return aData !== null && aData !== undefined;
+
+  if (aError.status === 404 || aError.statusCode === '404' || aError.statusCode === 'NoSuchKey')
+    return false;
+
+  throw new Error(`stat ${aPath}: ${aError.message}`);
+}
+
 export function supabaseBackend(): CloudBackend {
   const db = supabase;
   if (!db) throw new Error('supabaseBackend: Supabase is not configured');
@@ -283,29 +304,23 @@ export function supabaseBackend(): CloudBackend {
     },
 
     async hasObject(path) {
-      // Deliberately a listing, not `exists()`.
+      // `info()`: one row, looked up by its exact name.
       //
-      // `exists()` HEADs /object/<bucket>/<path>, which this project's storage
-      // answers with 400, and storage-js maps both 400 and 404 to "absent". So
-      // every blob read as missing: uploads were repeated, and then the commit
-      // verification refused every push, because nothing it had just stored
-      // could be found. A wrong answer here is far worse than a slow one.
+      // Not `exists()`: that HEADs the object and storage-js maps both 400 and
+      // 404 to "absent", and this project's storage answers a missing object
+      // with HTTP 400 (the 404 is in the body) - so an exists() that failed for
+      // any other reason also read as missing, and the commit verification
+      // refused every push. info() returns that body, and only NoSuchKey is
+      // "absent".
       //
-      // The listing is O(objects under the prefix) and returned 504 on accounts
-      // holding thousands of blobs. That is mitigated rather than solved: a push
-      // now asks only about blobs it has not already recorded as stored, so a
-      // project that has not changed asks nothing at all. Sharding the blob
-      // prefix by hash is the real fix and needs a read path that accepts both
-      // layouts.
-      const slash = path.lastIndexOf('/');
-      const dir = slash < 0 ? '' : path.slice(0, slash);
-      const base = path.slice(slash + 1);
-      const { data, error } = await store().list(dir, { search: base, limit: 1 });
-      // A failure to *ask* is not an answer. Reporting "absent" would send the
-      // caller into a re-upload, which is harmless; reporting "present" on an
-      // error would let a commit reference an object nobody has seen.
-      if (error) throw new Error(`stat ${path}: ${error.message}`);
-      return (data ?? []).some((o) => o.name === base);
+      // Not a listing (`list( dir, { search } )`) either, which this was until
+      // 11-04: Supabase's storage update moved list() onto a new
+      // storage.search that averaged 6.3 s a call here against 89 ms before,
+      // and with a push asking once per blob the database ran out of
+      // connections - every list answered 544, and nobody could back up.
+      // Measured on production the same day: info() 150-200 ms either way.
+      const { data, error } = await store().info(path);
+      return statAnswer(path, data, error);
     },
 
     async getProjectKey(projectUid) {
