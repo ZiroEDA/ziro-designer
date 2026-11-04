@@ -85,18 +85,36 @@ export interface GATED_DISPATCHER {
  * sits in SelectRectArea for good. So a release the window takes also resets
  * the dispatcher's button state, as `TOOL_DISPATCHER::ResetState` does when
  * the canvas loses the focus.
+ *
+ * And none of it while the frame has no canvas (`aHasCanvas`). KiCad's events come from
+ * EDA_DRAW_PANEL_GAL, so a tool never hears one without a canvas to draw on, and the tools call
+ * `GetCanvas()->...` unguarded (PCB_SELECTION_TOOL::OnIdle sets the cursor on every key). Ours
+ * also takes keys from the window, and the panel is gone before its first build and from a lost
+ * WebGL context until the restore rebuilds it: a key then was a null dereference (Sentry
+ * JAVASCRIPT-REACT-1A). The key is skipped, as the window's own chain would pass it on.
  */
 export function makeGatedDispatcher(
   aDispatcher: { DispatchWxEvent(aEvent: wxEvent): void; ResetState(): void },
   aToWindow: (aEvent: wxEvent) => boolean,
   aAfter: () => void = () => {},
+  aHasCanvas: () => boolean = () => true,
 ): GATED_DISPATCHER {
   return {
     DispatchToTools: (aEvent: wxEvent): void => {
+      if (!aHasCanvas()) {
+        aEvent.Skip();
+        return;
+      }
+
       aDispatcher.DispatchWxEvent(aEvent);
       aAfter();
     },
     DispatchWxEvent: (aEvent: wxEvent): void => {
+      if (!aHasCanvas()) {
+        aEvent.Skip();
+        return;
+      }
+
       if (aToWindow(aEvent)) {
         if (BUTTON_UP_EVENTS.includes(aEvent.GetEventType())) aDispatcher.ResetState();
 

@@ -2270,6 +2270,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
       dispatcher,
       (aEvent: wxEvent) => this.hooks.eventToWindow?.(aEvent) ?? false,
       () => this.OnIdle(),
+      () => this.GetCanvas() !== null,
     ) as unknown as TOOL_DISPATCHER;
 
     // TRANSITIONAL (#636): not a KiCad tool. The actions it hands the window -
