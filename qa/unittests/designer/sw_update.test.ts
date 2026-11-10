@@ -181,10 +181,23 @@ describe('applyUpdate', () => {
   });
 });
 
-/** A window that can send Vite's event. */
+/**
+ * A window that can send Vite's event, as its preload wrapper does: cancelable, the rejection as
+ * `payload`. `dispatchEvent` answers false when a listener cancelled it - Vite then goes on and
+ * imports the module rather than rethrowing.
+ */
 function makeWindow() {
   const target = new EventTarget();
-  return { target, chunkFailed: () => target.dispatchEvent(new Event('vite:preloadError')) };
+  const send = (aPayload?: Error): boolean =>
+    target.dispatchEvent(
+      Object.assign(new Event('vite:preloadError', { cancelable: true }), { payload: aPayload }),
+    );
+  return {
+    target,
+    chunkFailed: () =>
+      send(new TypeError('Failed to fetch dynamically imported module: /assets/eeschema_app-x.js')),
+    stylesheetFailed: () => send(new Error('Unable to preload CSS for /assets/props-x.css')),
+  };
 }
 
 describe('watchForStaleBuild', () => {
@@ -220,6 +233,42 @@ describe('watchForStaleBuild', () => {
 
     expect(buildIsStale()).toBe(false);
     expect(c.registration.update).not.toHaveBeenCalled();
+  });
+
+  it('a script that will not load fails its import: the event is left uncancelled', () => {
+    const w = makeWindow();
+    watchForStaleBuild(w.target, null, () => Promise.resolve(true));
+
+    expect(w.chunkFailed()).toBe(true);
+  });
+
+  it('a stylesheet that did not load is asked for again, and the import goes on without it (Sentry 1C)', async () => {
+    const w = makeWindow();
+    const retried: string[] = [];
+    watchForStaleBuild(w.target, null, (aHref) => {
+      retried.push(aHref);
+      return Promise.resolve(true);
+    });
+
+    expect(w.stylesheetFailed()).toBe(false);
+    await settle();
+
+    expect(retried).toEqual(['/assets/props-x.css']);
+    expect(buildIsStale()).toBe(false);
+  });
+
+  it('a stylesheet that fails again makes the build stale', async () => {
+    const w = makeWindow();
+    const heard = vi.fn();
+    subscribeUpdate(heard);
+    watchForStaleBuild(w.target, null, () => Promise.resolve(false));
+
+    w.stylesheetFailed();
+    expect(buildIsStale()).toBe(false);
+    await settle();
+
+    expect(buildIsStale()).toBe(true);
+    expect(heard).toHaveBeenCalledTimes(1);
   });
 });
 

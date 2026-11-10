@@ -69,22 +69,68 @@ export function reloadOntoNewBuild(aReload: () => void): void {
  * hash with `index.html`, "not a valid JavaScript MIME type". The build is then stale: the window
  * offers the new version as it offers a waiting one, and \a aContainer is asked for its sw.js now
  * rather than at the hourly check, so the new worker is likely waiting by the time it is taken.
+ *
+ * A stylesheet that did not load is not, by itself, a reason to fail the import. The editor
+ * chunks share small CSS chunks (the properties grid's, 2.7 kB), and one that failed on a blip -
+ * on production files the host still had, Sentry JAVASCRIPT-REACT-1C, seven visitors in five
+ * days - rejected the whole editor into the crash screen. Cancelling the event lets Vite's
+ * wrapper import the module anyway (it rethrows only an uncancelled one), and
+ * \a aRetryStylesheet asks for the sheet once more; only when that fails too is the build stale.
  */
 export function watchForStaleBuild(
   aWindow: Pick<EventTarget, 'addEventListener'>,
   aContainer: ServiceWorkerContainer | null,
+  aRetryStylesheet: (aHref: string) => Promise<boolean> = retryStylesheet,
 ): void {
   if (watchingStale) return;
 
   watchingStale = true;
 
-  aWindow.addEventListener('vite:preloadError', () => {
+  const markStale = (): void => {
     if (stale) return;
 
     stale = true;
     for (const listener of listeners) listener();
 
     aContainer?.ready.then((aRegistration) => aRegistration.update()).catch(() => {});
+  };
+
+  aWindow.addEventListener('vite:preloadError', (aEvent) => {
+    const href = failedStylesheet(aEvent);
+
+    if (href === null) {
+      markStale();
+      return;
+    }
+
+    aEvent.preventDefault();
+    void aRetryStylesheet(href).then((aLoaded) => {
+      if (!aLoaded) markStale();
+    });
+  });
+}
+
+/**
+ * The stylesheet a `vite:preloadError` is about - Vite's preload wrapper rejects a CSS dependency
+ * with `Unable to preload CSS for <href>` as the event's `payload` - or null for a script.
+ */
+function failedStylesheet(aEvent: Event): string | null {
+  const payload = (aEvent as Event & { payload?: unknown }).payload;
+
+  if (!(payload instanceof Error)) return null;
+
+  return /^Unable to preload CSS for (\S+)$/.exec(payload.message)?.[1] ?? null;
+}
+
+/** A fresh `<link rel="stylesheet">` for \a aHref; true once it has loaded, false if it fails. */
+function retryStylesheet(aHref: string): Promise<boolean> {
+  return new Promise((aResolve) => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = aHref;
+    link.addEventListener('load', () => aResolve(true));
+    link.addEventListener('error', () => aResolve(false));
+    document.head.appendChild(link);
   });
 }
 
