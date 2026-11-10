@@ -2700,7 +2700,15 @@ export class PnsLinePlacer {
 
         if ((neighbor as PnsSegment).width() !== (aItem as PnsSegment).width()) continue;
 
-        const testSeg = (neighbor as PnsSegment).seg();
+        // Upstream reads an ARC neighbour through `static_cast<const SEGMENT*>( neighbor )->Seg()`
+        // too. SEGMENT::Seg() returns its SHAPE_SEGMENT's first member, and an ARC holds a
+        // SHAPE_ARC at the same offset (both derive from SHAPE alone), whose first two members
+        // are m_start and m_mid: the release build compares SEG( start, mid ). A PnsArc has no
+        // seg(), and calling one threw mid-route (Sentry JAVASCRIPT-REACT-1G).
+        const testSeg: Seg =
+          neighbor.kind() === PnsKind.ARC_T
+            ? { a: (neighbor as PnsArc).cArc().p0, b: (neighbor as PnsArc).cArc().arcMid }
+            : (neighbor as PnsSegment).seg();
 
         if (segContainsSeg(refSeg, testSeg)) {
           const nA = aNode.findJointForItem(neighbor.anchor(0), neighbor);
