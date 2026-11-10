@@ -49,13 +49,38 @@ export interface GlobalHandlerOptions {
 /** "ResizeObserver loop limit exceeded" / "... completed with undelivered notifications." */
 const RESIZE_OBSERVER_LOOP = /^ResizeObserver loop /;
 
-/** The schemes a browser or an extension runs its own injected scripts under. */
+/**
+ * The schemes a browser or an extension runs its own injected scripts under. Safari shows an
+ * extension's script as `webkit-masked-url://hidden/`.
+ */
 const INJECTED_SCRIPT =
-  /^(iabjs|chrome-extension|moz-extension|safari-extension|safari-web-extension):/;
+  /^(iabjs|chrome-extension|moz-extension|safari-extension|safari-web-extension|webkit-masked-url):/;
+
+/** A path that names a script file: every frame of ours is in one (a built chunk, or a dev module). */
+const SCRIPT_FILE = /\.(m?js|jsx?|tsx?)$/;
+
+/**
+ * Whether \a aUrl is a script the page did not load from a file of ours: an injected scheme, or a
+ * page address itself. index.html carries no inline script, so a frame "at" a page - `/:230`,
+ * `/p/…/pcb:816` - is one a translator or an extension added to the document (Sentry 13 and 19,
+ * ko-KR and th-TH; 1F beside a `webkit-masked-url` frame).
+ */
+function isInjected(aUrl: string): boolean {
+  if (INJECTED_SCRIPT.test(aUrl)) return true;
+
+  if (!/^https?:/.test(aUrl)) return false;
+
+  try {
+    return !SCRIPT_FILE.test(new URL(aUrl).pathname);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Whether every frame of \a err's stack is a script the browser injected - an Android in-app
- * browser's `iabjs://` logger, an extension - so nothing of ours is in it to fix.
+ * browser's `iabjs://` logger, an extension, a page translator - so nothing of ours is in it to
+ * fix.
  */
 function fromInjectedScript(err: unknown): boolean {
   if (!(err instanceof Error) || !err.stack) return false;
@@ -69,7 +94,7 @@ function fromInjectedScript(err: unknown): boolean {
     )
     .filter((u): u is string => !!u);
 
-  return urls.length > 0 && urls.every((u) => INJECTED_SCRIPT.test(u));
+  return urls.length > 0 && urls.every(isInjected);
 }
 
 /** What an error is "the same as", for de-duplication. */

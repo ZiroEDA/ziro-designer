@@ -209,4 +209,38 @@ describe("a browser's own injected script", () => {
     h.target.fire('unhandledrejection', { reason: 'a string' });
     expect(h.captured.length).toBe(1);
   });
+
+  it('a script injected into the page itself - a translator - is not reported (Sentry 13, 19, 1F)', () => {
+    const reported = (aStack: string): boolean => {
+      const h = harness();
+      h.target.fire('error', { error: withStack(aStack), message: 'x' });
+      return h.captured.length === 1;
+    };
+    // index.html has no inline script, so a frame at a page address is not ours: the th-TH and
+    // ko-KR "Maximum call stack size exceeded" ran entirely at `/`.
+    expect(
+      reported(
+        'RangeError: Maximum call stack size exceeded.\n' +
+          '    at https://designer.ziroeda.com/:202:11\n' +
+          '    at xk (https://designer.ziroeda.com/:230:88)\n' +
+          '    at vk (https://designer.ziroeda.com/:230:140)',
+      ),
+    ).toBe(false);
+    // Safari: the de-DE `strings[key]` beside an extension's masked script and native code.
+    expect(
+      reported(
+        '@https://designer.ziroeda.com/p/abc/pcb:205:27\n' +
+          '[native code]\n' +
+          'h@webkit-masked-url://hidden/:72:356',
+      ),
+    ).toBe(false);
+    // One frame in a chunk of ours keeps it, as does a dev module.
+    expect(
+      reported(
+        'Error: x\n    at https://designer.ziroeda.com/:202:11\n' +
+          '    at ours (https://designer.ziroeda.com/assets/index-DOU2pZqU.js:2:4)',
+      ),
+    ).toBe(true);
+    expect(reported('fn@http://127.0.0.1:5199/@fs/home/x/pcbnew/board.ts?t=1:3:4')).toBe(true);
+  });
 });
