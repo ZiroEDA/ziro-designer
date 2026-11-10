@@ -24,6 +24,8 @@ import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { BUT_LEFT, TA_MOUSE_CLICK, TA_MOUSE_MOTION } from '@ziroeda/common/tool/tool_event.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import { PCB_TRACK } from '@ziroeda/pcbnew/pcb_track.js';
+import { BOARD_COMMIT } from '@ziroeda/pcbnew/board_commit.js';
 import { BOARD_EDITOR_CONTROL } from '@ziroeda/pcbnew/tools/board_editor_control.js';
 import { EDIT_TOOL } from '@ziroeda/pcbnew/tools/edit_tool.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
@@ -32,6 +34,7 @@ import { PCB_PICKER_TOOL } from '@ziroeda/pcbnew/tools/pcb_picker_tool.js';
 import {
   byUuid,
   U,
+  MM,
   mm,
   mouse,
   select,
@@ -224,6 +227,27 @@ describe('PCB_CONTROL::InteractiveDelete (:820-1008)', () => {
     start(ACTIONS.deleteTool);
     h.mgr.RunAction(ACTIONS.cancelInteractive);
     expect(h.frame.IsCurrentTool(ACTIONS.deleteTool)).toBe(false);
+  });
+
+  it('the pointer between two IU over a slanted track picks it: Collect takes `const VECTOR2I& aRefPos`', () => {
+    // The motion handler's `const VECTOR2D& aPos` reaches GENERAL_COLLECTOR::Collect, whose
+    // VECTOR2I parameter truncates it. With the raw double, PCB_TRACK::HitTest reached
+    // SEG::SquaredDistance's 64-bit arithmetic with a fraction and threw "cannot be converted
+    // to a BigInt" (Sentry JAVASCRIPT-REACT-1D). Slanted, because an axis-aligned track takes
+    // TestSegmentHit's shortcut and never gets there.
+    const t = new PCB_TRACK(h.board);
+    t.SetStart(mm(40, 40));
+    t.SetEnd(mm(60, 50));
+    t.SetWidth(0.25 * MM);
+    t.SetLayer(PCB_LAYER_ID.F_Cu);
+    const commit = new BOARD_COMMIT(h.frame);
+    commit.Add(t);
+    commit.Push('track');
+
+    start(ACTIONS.deleteTool);
+    const on = { x: 50 * MM + 0.6360296, y: 45 * MM + 0.30383343 };
+    expect(() => click(on)).not.toThrow();
+    expect(h.board.Tracks()).toHaveLength(0);
   });
 });
 

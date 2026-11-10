@@ -38,7 +38,7 @@ import {
 import { SYNC_HANDLER, TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_interactive.js';
 import type { VIEW_CONTROLS } from '@ziroeda/common/view/view_controls.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PL_EDITOR_FRAME } from '../pl_editor_frame.js';
 import { PL_ACTIONS } from './pl_actions.js';
 import type { PL_SELECTION } from './pl_selection.js';
@@ -499,7 +499,8 @@ export class PL_EDIT_TOOL extends TOOL_INTERACTIVE {
 
       for (const dataItem of PlDataModel().GetItems()) {
         for (const drawItem of dataItem.GetDrawItems()) {
-          if (drawItem.HitTest({ x: aPos.x, y: aPos.y }, threshold)) {
+          // `HitTest( const VECTOR2I& aPosition, ... )`: the picker's VECTOR2D truncates going in.
+          if (drawItem.HitTest(toVECTOR2I(aPos), threshold)) {
             item = drawItem;
             break;
           }

@@ -15,7 +15,7 @@ import { INSPECT_RESULT } from '@ziroeda/common/eda_item.js';
 import { IsBackLayer, IsFrontLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { LSET } from '@ziroeda/common/lset.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { toVECTOR2I, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { FOOTPRINT } from './footprint.js';
 import { UNCONNECTED_NET } from './netinfo.js';
 import { PAD_ATTRIB } from './padstack.js';
@@ -891,7 +891,12 @@ export class GENERAL_COLLECTOR extends PCB_COLLECTOR {
 
     // remember where the snapshot was taken from and pass refPos to
     // the Inspect() function.
-    this.SetRefPos(aRefPos);
+    //
+    // `const VECTOR2I& aRefPos`: a caller holding an event's VECTOR2D - the delete tool's
+    // motion handler, the inspection tools' pickers - goes through VECTOR2I's casting
+    // constructor, which truncates. Without it a fraction reached PCB_TRACK::HitTest's
+    // SEG::SquaredDistance and threw in BigInt (Sentry JAVASCRIPT-REACT-1D).
+    this.SetRefPos(toVECTOR2I(aRefPos));
 
     aItem.Visit(this.m_inspector, null, this.m_scanTypes);
 

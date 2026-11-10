@@ -112,4 +112,24 @@ describe('InteractiveDelete', () => {
     expect(model.GetItem(0)!.GetDrawItems()[0]!.IsBrightened()).toBe(false);
     expect(ys()).toEqual([50, 90]);
   });
+
+  it('a pointer between two IU over a slanted line brightens it: HitTest takes `const VECTOR2I&`', () => {
+    // The motion handler's `const VECTOR2D& aPos` goes into DS_DRAW_ITEM_BASE::HitTest's VECTOR2I,
+    // which truncates; a raw fraction reached TestSegmentHit's 64-bit SEG::SquaredDistance and
+    // threw in BigInt (the board's delete tool did, Sentry JAVASCRIPT-REACT-1D).
+    const h = makeHarness(EDA_UNITS_INT.MM);
+    model.ClearList();
+    const l = new DS_DATA_ITEM(DS_ITEM_TYPE.DS_SEGMENT);
+    l.SetStart(50, 50, CORNER_ANCHOR.LT_CORNER);
+    l.SetEnd(150, 100, CORNER_ANCHOR.LT_CORNER);
+    l.m_LineWidth = 0.0001;
+    model.Append(l);
+    h.frame.HardRedraw();
+    toolbar(h.mgr, ACTIONS.deleteTool);
+
+    // Half-way along the line on the page (the sheet's LT corner is 10 mm in), plus fractions.
+    const on = { x: 110000 + 0.6360296, y: 85000 + 0.30383343 };
+    expect(() => mouse(h.mgr, TA_MOUSE_MOTION, on, h)).not.toThrow();
+    expect(model.GetItem(0)!.GetDrawItems()[0]!.IsBrightened()).toBe(true);
+  });
 });
