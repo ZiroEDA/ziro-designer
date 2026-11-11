@@ -94,6 +94,7 @@ import {
   add,
   equal,
   sub,
+  toVECTOR2I,
 } from '@ziroeda/kimath/src/math/vector2.js';
 import { CalcArcCenterI, RotatePoint, TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
 import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
@@ -190,22 +191,32 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
     this.assignTrack(aOther as PCB_TRACK);
   }
 
+  // Every point a track holds is a VECTOR2I upstream, and every way in takes one - `const
+  // VECTOR2I&` or an `int` - so a VECTOR2D or a double handed in is truncated (vector2d.h's
+  // casting constructor) and a track never holds a fraction. Ours stored what came; a track
+  // with an end at 149312449.5 then threw in HitTest, whose SEG::SquaredDistance takes the
+  // ends into BigInt (Sentry JAVASCRIPT-REACT-1D).
   override Move(aMoveVector: VECTOR2I): void {
-    this.m_Start = add(this.m_Start, aMoveVector);
-    this.m_End = add(this.m_End, aMoveVector);
+    const move = toVECTOR2I(aMoveVector);
+    this.m_Start = add(this.m_Start, move);
+    this.m_End = add(this.m_End, move);
   }
 
   override Rotate(aRotCentre: VECTOR2I, aAngle: EDA_ANGLE): void {
-    this.m_Start = RotatePoint(this.m_Start, aRotCentre, aAngle);
-    this.m_End = RotatePoint(this.m_End, aRotCentre, aAngle);
+    const centre = toVECTOR2I(aRotCentre);
+    this.m_Start = RotatePoint(this.m_Start, centre, aAngle);
+    this.m_End = RotatePoint(this.m_End, centre, aAngle);
   }
 
   override Mirror(aCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
-    MIRROR(this.m_Start, aCentre, aFlipDirection);
-    MIRROR(this.m_End, aCentre, aFlipDirection);
+    const centre = toVECTOR2I(aCentre);
+    MIRROR(this.m_Start, centre, aFlipDirection);
+    MIRROR(this.m_End, centre, aFlipDirection);
   }
 
-  override Flip(aCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
+  override Flip(aFlipCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
+    const aCentre = toVECTOR2I(aFlipCentre);
+
     if (aFlipDirection === FLIP_DIRECTION.LEFT_RIGHT) {
       this.m_Start.x = aCentre.x - (this.m_Start.x - aCentre.x);
       this.m_End.x = aCentre.x - (this.m_End.x - aCentre.x);
@@ -218,7 +229,7 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
   }
 
   override SetPosition(aPos: VECTOR2I): void {
-    this.m_Start = { ...aPos };
+    this.m_Start = toVECTOR2I(aPos);
   }
   override GetPosition(): VECTOR2I {
     return this.m_Start;
@@ -238,24 +249,24 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
   }
 
   SetEnd(aEnd: VECTOR2I): void {
-    this.m_End = { ...aEnd };
+    this.m_End = toVECTOR2I(aEnd);
   }
   GetEnd(): VECTOR2I {
     return this.m_End;
   }
 
   SetStart(aStart: VECTOR2I): void {
-    this.m_Start = { ...aStart };
+    this.m_Start = toVECTOR2I(aStart);
   }
   GetStart(): VECTOR2I {
     return this.m_Start;
   }
 
   SetStartX(aX: number): void {
-    this.m_Start.x = aX;
+    this.m_Start.x = toVECTOR2I({ x: aX, y: 0 }).x;
   }
   SetStartY(aY: number): void {
-    this.m_Start.y = aY;
+    this.m_Start.y = toVECTOR2I({ x: 0, y: aY }).y;
   }
 
   GetStartX(): number {
@@ -266,10 +277,10 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
   }
 
   SetEndX(aX: number): void {
-    this.m_End.x = aX;
+    this.m_End.x = toVECTOR2I({ x: aX, y: 0 }).x;
   }
   SetEndY(aY: number): void {
-    this.m_End.y = aY;
+    this.m_End.y = toVECTOR2I({ x: 0, y: aY }).y;
   }
 
   GetEndX(): number {
@@ -932,25 +943,31 @@ export class PCB_ARC extends PCB_TRACK {
     return !!aItem && KICAD_T.PCB_ARC_T === aItem.Type();
   }
 
+  // Whole points in, as PCB_TRACK's (see there).
   override Move(aMoveVector: VECTOR2I): void {
-    this.m_Start = add(this.m_Start, aMoveVector);
-    this.m_Mid = add(this.m_Mid, aMoveVector);
-    this.m_End = add(this.m_End, aMoveVector);
+    const move = toVECTOR2I(aMoveVector);
+    this.m_Start = add(this.m_Start, move);
+    this.m_Mid = add(this.m_Mid, move);
+    this.m_End = add(this.m_End, move);
   }
 
   override Rotate(aRotCentre: VECTOR2I, aAngle: EDA_ANGLE): void {
-    this.m_Start = RotatePoint(this.m_Start, aRotCentre, aAngle);
-    this.m_End = RotatePoint(this.m_End, aRotCentre, aAngle);
-    this.m_Mid = RotatePoint(this.m_Mid, aRotCentre, aAngle);
+    const centre = toVECTOR2I(aRotCentre);
+    this.m_Start = RotatePoint(this.m_Start, centre, aAngle);
+    this.m_End = RotatePoint(this.m_End, centre, aAngle);
+    this.m_Mid = RotatePoint(this.m_Mid, centre, aAngle);
   }
 
   override Mirror(aCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
-    MIRROR(this.m_Start, aCentre, aFlipDirection);
-    MIRROR(this.m_End, aCentre, aFlipDirection);
-    MIRROR(this.m_Mid, aCentre, aFlipDirection);
+    const centre = toVECTOR2I(aCentre);
+    MIRROR(this.m_Start, centre, aFlipDirection);
+    MIRROR(this.m_End, centre, aFlipDirection);
+    MIRROR(this.m_Mid, centre, aFlipDirection);
   }
 
-  override Flip(aCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
+  override Flip(aFlipCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
+    const aCentre = toVECTOR2I(aFlipCentre);
+
     if (aFlipDirection === FLIP_DIRECTION.LEFT_RIGHT) {
       this.m_Start.x = aCentre.x - (this.m_Start.x - aCentre.x);
       this.m_End.x = aCentre.x - (this.m_End.x - aCentre.x);
@@ -965,14 +982,14 @@ export class PCB_ARC extends PCB_TRACK {
   }
 
   SetMid(aMid: VECTOR2I): void {
-    this.m_Mid = { ...aMid };
+    this.m_Mid = toVECTOR2I(aMid);
   }
   GetMid(): VECTOR2I {
     return this.m_Mid;
   }
 
   override SetPosition(aPos: VECTOR2I): void {
-    this.m_Start = { ...aPos };
+    this.m_Start = toVECTOR2I(aPos);
   }
 
   override GetPosition(): VECTOR2I {
@@ -2099,8 +2116,8 @@ export class PCB_VIA extends PCB_TRACK {
     return this.m_Start;
   }
   override SetPosition(aPoint: VECTOR2I): void {
-    this.m_Start = { ...aPoint };
-    this.m_End = { ...aPoint };
+    this.m_Start = toVECTOR2I(aPoint);
+    this.m_End = toVECTOR2I(aPoint);
   }
 
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
@@ -2351,7 +2368,9 @@ export class PCB_VIA extends PCB_TRACK {
     return PCB_VIA.LOD_SHOW;
   }
 
-  override Flip(aCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
+  override Flip(aFlipCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
+    const aCentre = toVECTOR2I(aFlipCentre);
+
     if (aFlipDirection === FLIP_DIRECTION.LEFT_RIGHT) {
       this.m_Start.x = aCentre.x - (this.m_Start.x - aCentre.x);
       this.m_End.x = aCentre.x - (this.m_End.x - aCentre.x);
