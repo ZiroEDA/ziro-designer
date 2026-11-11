@@ -63,8 +63,9 @@ const global = globalThis as unknown as { WorkerGlobalScope?: unknown };
 if (global.WorkerGlobalScope !== undefined) {
   const scope = globalThis as unknown as WorkerScope;
 
-  // A prewarmed worker waits for its job; the codec the parse needs is ready by then.
-  void EMBEDDED_FILES.InitCodec();
+  // A prewarmed worker waits for its job; the codec the parse needs is ready by then. A failed
+  // load is not remembered: the job's own `await InitCodec()` asks again and reports it.
+  EMBEDDED_FILES.InitCodec().catch(() => undefined);
 
   scope.onmessage = (e: MessageEvent<DRC_JOB_REQUEST | { fill: FILL_JOB_REQUEST }>): void => {
     let lastProgress = 0;

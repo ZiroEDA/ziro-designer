@@ -175,7 +175,8 @@ const g = globalThis as unknown as { WorkerGlobalScope?: unknown };
 
 if (g.WorkerGlobalScope !== undefined) {
   const scope = globalThis as unknown as WorkerScope;
-  const codec = EMBEDDED_FILES.InitCodec();
+  // Warmed now; each request awaits InitCodec() itself, so a load that failed is asked for again.
+  EMBEDDED_FILES.InitCodec().catch(() => undefined);
   /** The last board parsed, by its text: a reload that only shows or hides a layer reuses it. */
   let last: { text: string; board: BOARD } | null = null;
 
@@ -183,7 +184,7 @@ if (g.WorkerGlobalScope !== undefined) {
     const { id, boardText, bbox, opts } = e.data;
 
     try {
-      await codec;
+      await EMBEDDED_FILES.InitCodec();
 
       if (last?.text !== boardText) last = { text: boardText, board: ParseBoard(boardText) };
 

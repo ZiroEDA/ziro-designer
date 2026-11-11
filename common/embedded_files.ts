@@ -102,6 +102,64 @@ export type FILE_ADDED_CALLBACK = (aFile: EMBEDDED_FILE) => void;
 let zstdReady: Promise<void> | null = null;
 let zstdIsReady = false;
 
+/**
+ * The codec's wasm, fetched here rather than by the package, and asked for once more if the
+ * first try fails.
+ *
+ * Left to itself, the package's web `init()` fetches `zstd.wasm` and, when that fails, aborts
+ * inside a promise it never returns - an unhandled rejection (Sentry JAVASCRIPT-REACT-1N, a
+ * board opened from GitHub, 11-11) - while the promise `init()` does return waits for a
+ * runtime that never starts, so `await InitCodec()` hung the board's open for good. The run
+ * dependency it took is never released either, so a second `init()` could not recover. Handed
+ * the bytes, it compiles them with nothing left to fetch; a download that fails, or answers
+ * with something that is not wasm (a host serving `index.html` for a file a deploy removed),
+ * is an error here, before the module is touched, and the next caller can try again.
+ */
+export async function fetchCodecWasm(
+  aUrl: string,
+  aFetch: (aUrl: string, aInit: RequestInit) => Promise<Response> = fetch,
+): Promise<ArrayBuffer> {
+  let failure = '';
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await aFetch(aUrl, { credentials: 'same-origin' });
+
+      if (!response.ok) {
+        failure = `HTTP ${response.status}`;
+        continue;
+      }
+
+      const bytes = await response.arrayBuffer();
+
+      if (WebAssembly.validate(bytes)) return bytes;
+
+      failure = 'not a WebAssembly module';
+    } catch (e) {
+      failure = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  throw new Error(`The zstd codec could not be loaded (${failure})`);
+}
+
+/**
+ * Instantiate zstd. Under Node (the tests, the tools) the package's own build reads its wasm
+ * from disk and is used as it is; a page or a worker fetches the bytes first (see above).
+ */
+async function loadCodec(): Promise<void> {
+  const g = globalThis as { process?: { versions?: { node?: string } } };
+
+  if (g.process?.versions?.node) return zstdInit();
+
+  const url = new URL('./node_modules/@bokuweb/zstd-wasm/dist/web/zstd.wasm', import.meta.url);
+  const bytes = await fetchCodecWasm(url.href);
+
+  // The web build's `init( filePathOrBuf )` instantiates a buffer directly. The types resolve
+  // to the Node build's, whose `init()` takes nothing.
+  return (zstdInit as (aPathOrBuffer?: ArrayBuffer) => Promise<void>)(bytes);
+}
+
 /** `std::map<wxString, …>`: iteration in key order (`wxString` compares by code unit). */
 function sortedKeys(aMap: Map<string, EMBEDDED_FILE>): string[] {
   return [...aMap.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
@@ -188,9 +246,16 @@ export class EMBEDDED_FILES {
    */
   static InitCodec(): Promise<void> {
     if (!zstdReady) {
-      zstdReady = zstdInit().then(() => {
-        zstdIsReady = true;
-      });
+      zstdReady = loadCodec().then(
+        () => {
+          zstdIsReady = true;
+        },
+        (e: unknown) => {
+          // A codec that could not be loaded is not remembered: the next caller asks again.
+          zstdReady = null;
+          throw e;
+        },
+      );
     }
 
     return zstdReady;
