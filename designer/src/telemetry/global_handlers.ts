@@ -78,23 +78,35 @@ function isInjected(aUrl: string): boolean {
 }
 
 /**
+ * A V8 frame with no file at all: `at <anonymous>:1:1`. That is code the host handed to the page
+ * as a string - an Android WebView's `evaluateJavascript`, which is how an in-app browser calls
+ * into its own bridge. A built-in under a frame of ours reads `at Array.map (<anonymous>)`, and
+ * our own `eval` names its file, so neither is taken for one.
+ */
+const EVALUATED_BY_HOST = /^at (?:\S+ \()?<anonymous>(?::\d+){1,2}\)?$/;
+
+/**
  * Whether every frame of \a err's stack is a script the browser injected - an Android in-app
- * browser's `iabjs://` logger, an extension, a page translator - so nothing of ours is in it to
- * fix.
+ * browser's `iabjs://` logger or the string it evaluates in the page (Sentry 1P, Zalo's
+ * `zaloJSV2`), an extension, a page translator - so nothing of ours is in it to fix.
  */
 function fromInjectedScript(err: unknown): boolean {
   if (!(err instanceof Error) || !err.stack) return false;
 
+  const lines = err.stack.split('\n').map((line) => line.trim());
+
   // "at fn (url:line:col)" (V8) or "fn@url:line:col" (SpiderMonkey, JavaScriptCore).
-  const urls = err.stack
-    .split('\n')
-    .map(
-      (line) =>
-        /(?:\(|@|at )([a-z][a-z0-9+.-]*:[^\s)]*?)(?::\d+){1,2}\)?\s*$/i.exec(line.trim())?.[1],
-    )
+  const urls = lines
+    .map((line) => /(?:\(|@|at )([a-z][a-z0-9+.-]*:[^\s)]*?)(?::\d+){1,2}\)?\s*$/i.exec(line)?.[1])
     .filter((u): u is string => !!u);
 
-  return urls.length > 0 && urls.every(isInjected);
+  if (!urls.every(isInjected)) return false;
+  if (urls.length > 0) return true;
+
+  // No file in the stack at all: only when every frame is one the host evaluated.
+  const frames = lines.filter((line) => line.startsWith('at '));
+
+  return frames.length > 0 && frames.every((line) => EVALUATED_BY_HOST.test(line));
 }
 
 /** What an error is "the same as", for de-duplication. */

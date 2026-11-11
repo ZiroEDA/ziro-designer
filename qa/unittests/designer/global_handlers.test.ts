@@ -243,4 +243,31 @@ describe("a browser's own injected script", () => {
     ).toBe(true);
     expect(reported('fn@http://127.0.0.1:5199/@fs/home/x/pcbnew/board.ts?t=1:3:4')).toBe(true);
   });
+
+  it("a string the host app evaluates in the page is not reported (Sentry 1P, Zalo's webview)", () => {
+    const reported = (aStack: string): boolean => {
+      const h = harness();
+      h.target.fire('error', { error: withStack(aStack), message: 'x' });
+      return h.captured.length === 1;
+    };
+    // An Android WebView's evaluateJavascript: the only frame has no file.
+    expect(reported('ReferenceError: zaloJSV2 is not defined\n    at <anonymous>:1:1')).toBe(false);
+    expect(
+      reported(
+        'ReferenceError: x is not defined\n    at f (<anonymous>:3:9)\n    at <anonymous>:1:1',
+      ),
+    ).toBe(false);
+    // A built-in on its own names no position, and is not one; nor is a stack with a frame of
+    // ours under the evaluated one.
+    expect(reported('TypeError: x\n    at Array.map (<anonymous>)')).toBe(true);
+    expect(reported('TypeError: x\n    at JSON.parse (<anonymous>)\n    at <anonymous>:1:1')).toBe(
+      true,
+    );
+    expect(
+      reported(
+        'Error: x\n    at <anonymous>:1:1\n' +
+          '    at ours (https://designer.ziroeda.com/assets/index-DOU2pZqU.js:2:4)',
+      ),
+    ).toBe(true);
+  });
 });
