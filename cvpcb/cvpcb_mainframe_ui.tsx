@@ -201,6 +201,7 @@ import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { readEquFile } from './cvpcb_equ_files.js';
 import { DialogConfigEquFiles, type CvpcbEquFilesApp } from './dialogs/dialog_config_equfiles.js';
 import './cvpcb_mainframe_ui.css';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `false` back to `boolean`, `'x'` back to `string` — see `useDialogControl`'s
  *  own `Widened` (`ui/useDialogControl.ts`), which this mirrors. */
@@ -1484,7 +1485,7 @@ export function DialogAssignFootprints({
       >
         <div className="ze-modal-header">
           {WINDOW_TITLE}
-          <span className="x" title="Close" onClick={closeWindow}>
+          <span className="x" title={_('Close')} onClick={closeWindow}>
             ✕
           </span>
         </div>

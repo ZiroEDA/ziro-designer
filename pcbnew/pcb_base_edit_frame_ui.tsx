@@ -97,6 +97,7 @@ import {
   DialogFpEditPadTable,
 } from './dialogs/dialog_fp_edit_pad_table.js';
 import type { PCB_TABLE } from './pcb_table.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** [data] `.FloatingSize( 320, 360 )`, `.MinSize( 260, 200 )` (`pcb_base_edit_frame.cpp:452-454`). */
 export const VERTEX_EDITOR_FLOATING_SIZE = { width: 320, height: 360 } as const;
@@ -153,7 +154,7 @@ export function VertexEditorWindow({ pane, onClose }: VertexEditorWindowProps): 
           className="ze-pane-close"
           onMouseDown={(e) => e.stopPropagation()}
           onClick={onClose}
-          title="Close"
+          title={_('Close')}
         >
           ⊠
         </button>

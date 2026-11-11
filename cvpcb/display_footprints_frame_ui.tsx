@@ -64,6 +64,7 @@ import {
   DISPLAY_FP_LEFT_TOOLBAR,
   DISPLAY_FP_TOP_TOOLBAR,
 } from './toolbars_display_footprints.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * What this window draws with and cannot own itself: `Pgm()` for the canvas,
@@ -398,7 +399,7 @@ export function DisplayFootprintsFrame({
     >
       <div className="ze-modal-header ze-drag-handle" onPointerDown={dragStart}>
         {title}
-        <span className="x" title="Close" onClick={onClose}>
+        <span className="x" title={_('Close')} onClick={onClose}>
           ✕
         </span>
       </div>

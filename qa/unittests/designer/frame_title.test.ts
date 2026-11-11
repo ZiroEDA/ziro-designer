@@ -9,7 +9,7 @@
  * em dash with a space either side. Ours wrote an ASCII hyphen at six call
  * sites and the em dash at two.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
@@ -20,6 +20,8 @@ import {
   READ_ONLY_SUFFIX,
   UNSAVED_SUFFIX,
 } from '@ziroeda/common/use_document_title.js';
+import { schFrameTitle } from '@ziroeda/eeschema/sch_edit_frame.js';
+import { wxMsgCatalog, wxTranslations } from '@ziroeda/wx/translation.js';
 
 describe('the separator', () => {
   /** `wxT( " — " )`, U+2014 with one ASCII space either side. */
@@ -231,5 +233,33 @@ describe('the hyphen titles', () => {
   it('does not include the footprint editor window, now in pcbnew/', () => {
     const text = readFileSync(join(SRC, '../../pcbnew/footprint_edit_frame_ui.tsx'), 'utf8');
     expect([...text.matchAll(HYPHEN_TITLE)].length).toBe(0);
+  });
+});
+
+describe('in another language', () => {
+  // `title += wxT( " — " ) + _( "Schematic Editor" )` and `_( "[Read Only]" )`
+  // (sch_edit_frame.cpp:1840-1858): the frame's words translate, the file name does not.
+  afterEach(() => wxTranslations.Get().SetCatalog(null));
+
+  it('translates the frame name, the placeholder and the suffix, never the document', () => {
+    wxTranslations.Get().SetCatalog(
+      new wxMsgCatalog({
+        language: 'de',
+        nplurals: 2,
+        plural: 'n != 1',
+        messages: {
+          'Schematic Editor': 'Schaltplaneditor',
+          '[no schematic loaded]': '[kein Schaltplan geladen]',
+          '[Read Only]': '[Nur lesbar]',
+          ecc83: 'NOT A MESSAGE',
+        },
+      }),
+    );
+    expect(schFrameTitle({ fileName: 'ecc83.kicad_sch', readOnly: true }).full).toBe(
+      'ecc83 [Nur lesbar] — Schaltplaneditor',
+    );
+    expect(schFrameTitle({ fileName: '' }).full).toBe(
+      '[kein Schaltplan geladen] — Schaltplaneditor',
+    );
   });
 });

@@ -5816,7 +5816,7 @@ export function SchematicEditor({
                                 type="button"
                                 className="ze-pane-close"
                                 onClick={() => onLeftToggle('showNetNavigator')}
-                                title="Close"
+                                title={_('Close')}
                               >
                                 ⊠
                               </button>
@@ -5841,7 +5841,7 @@ export function SchematicEditor({
                                 type="button"
                                 className="ze-pane-close"
                                 onClick={() => onLeftToggle('showHierarchy')}
-                                title="Close"
+                                title={_('Close')}
                               >
                                 ⊠
                               </button>
@@ -5879,7 +5879,7 @@ export function SchematicEditor({
                                 type="button"
                                 className="ze-pane-close"
                                 onClick={() => onLeftToggle('showProperties')}
-                                title="Close"
+                                title={_('Close')}
                               >
                                 ⊠
                               </button>
@@ -5966,7 +5966,7 @@ export function SchematicEditor({
               {infoBar}
               <span
                 className="x"
-                title="Close"
+                title={_('Close')}
                 onClick={() => setInfoBar(null)}
                 style={{ marginLeft: 'auto', cursor: 'default' }}
               >
@@ -6575,7 +6575,8 @@ export function SchematicEditor({
           ),
           grid: gridMsg(messageTextFromValue(iuToMM(renderOpts.grid.sizeIU), units, SCH_IU_PER_MM)),
           units: unitsMsg(units),
-          tool: SCH_TOOL_MSGS[activeTool] ?? '',
+          // DisplayToolMsg( action->GetFriendlyName() ): the name is translated as it is shown.
+          tool: _(SCH_TOOL_MSGS[activeTool] ?? ''),
         }}
       />
 

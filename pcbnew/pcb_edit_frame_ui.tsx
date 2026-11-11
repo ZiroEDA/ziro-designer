@@ -10,6 +10,7 @@
  * viewer pipeline, layer/object controls and presets are fully functional.
  */
 
+import { _ } from '@ziroeda/wx/translation.js';
 import { ParseFootprintFile } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import type { PcbScriptApi } from './browser/pcb_script_api.js';
 import { routeHeadless } from './router/route_headless.js';
@@ -919,7 +920,7 @@ function DockedPane({ caption, testId, onClose, children }: DockedPaneProps): JS
     <div className="ze-panel" style={{ flex: '1 1 0', minWidth: 0 }} data-testid={testId}>
       <div className="ze-panel-header">
         <span>{caption}</span>
-        <button type="button" className="ze-pane-close" onClick={onClose} title="Close">
+        <button type="button" className="ze-pane-close" onClick={onClose} title={_('Close')}>
           ⊠
         </button>
       </div>
@@ -6909,7 +6910,8 @@ export function PcbEditor({
   const zoomSelValue: string | number = zoomPreset ?? (zoomCustom !== null ? 'custom' : 'auto');
   // Field 6 (EDA_DRAW_FRAME::DisplayToolMsg, the "Current Tool" panel): the
   // friendly name of the active right-toolbar tool, blank in the selection tool.
-  const toolMsg = PCB_TOOL_MSGS[activeTool] ?? '';
+  // DisplayToolMsg( action->GetFriendlyName() ): translated as it is shown.
+  const toolMsg = _(PCB_TOOL_MSGS[activeTool] ?? '');
   // Field 7 (DisplayConstraintsMsg). ROUTER_TOOL writes nothing there
   // (router_tool.cpp never calls DisplayConstraintsMsg); the hint this showed
   // while routing was the window's own. DRAWING_TOOL::UpdateStatusBar's
@@ -7177,7 +7179,7 @@ export function PcbEditor({
                     type="button"
                     className="ze-pane-close"
                     onClick={() => onLeftToggle('showProperties')}
-                    title="Close"
+                    title={_('Close')}
                   >
                     ⊠
                   </button>

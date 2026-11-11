@@ -56,7 +56,7 @@ export function SelectionFilterPanel({
       <div className="ze-panel-header">
         <span>{_('Selection Filter')}</span>
         {onClose && (
-          <button type="button" className="ze-pane-close" onClick={onClose} title="Close">
+          <button type="button" className="ze-pane-close" onClick={onClose} title={_('Close')}>
             ⊠
           </button>
         )}

@@ -192,7 +192,7 @@ export function MessageDialogYesNo({
           {_(caption)}
           {onClose && (
             // The dialog frame's own close box (external/wx/dialog.tsx).
-            <span className="x" title="Close" onClick={onClose}>
+            <span className="x" title={_('Close')} onClick={onClose}>
               ✕
             </span>
           )}

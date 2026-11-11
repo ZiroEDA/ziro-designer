@@ -86,7 +86,7 @@ export function SchDesignBlockPane({
       <div className="ze-panel grow">
         <div className="ze-panel-header">
           {_('Design Blocks')}
-          <span className="x" role="button" aria-label="Close" onClick={onClose}>
+          <span className="x" role="button" aria-label={_('Close')} onClick={onClose}>
             ✕
           </span>
         </div>

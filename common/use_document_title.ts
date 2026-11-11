@@ -19,6 +19,7 @@
 import { useEffect } from 'react';
 import { PRODUCT } from './eda_base_frame_about_titles.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The app name every title ends with, matching index.html's default. */
 export const APP_NAME = PRODUCT;
@@ -26,7 +27,7 @@ export const APP_NAME = PRODUCT;
 /** `*doc, Editor · ZiroEDA`, or `Editor · ZiroEDA` with no doc. */
 export function formatTitle(editor: string, doc?: string | null, modified = false): string {
   const name = doc?.trim();
-  const head = name ? `${modified ? '*' : ''}${name}, ${editor}` : editor;
+  const head = name ? `${modified ? '*' : ''}${name}, ${_(editor)}` : _(editor);
   return `${head} · ${APP_NAME}`;
 }
 
@@ -160,8 +161,12 @@ export const READ_ONLY_SUFFIX = _HKI('[Read Only]');
 export const UNSAVED_SUFFIX = _HKI('[Unsaved]');
 
 export function frameTitle(spec: FrameTitleSpec): FrameTitleParts {
+  // Every frame's UpdateTitle writes `_( "Schematic Editor" )`, `_( "[no schematic loaded]" )`
+  // and `_( "[Read Only]" )` where it composes them; the frames hand those here stored English
+  // (_HKI), so this is where they are translated. The document half is a name: data.
+  const frameName = _(spec.frameName);
   const doc = spec.document?.trim() ?? '';
-  const name = doc || (spec.placeholder ?? '');
+  const name = doc || (spec.placeholder ? _(spec.placeholder) : '');
 
   // No document and no placeholder: the frame name alone, no separator. This
   // is the branch Gerber Viewer and the Image Converter take, and it is why
@@ -172,13 +177,13 @@ export function frameTitle(spec: FrameTitleSpec): FrameTitleParts {
       modified: '',
       document: '',
       separator: '',
-      frameName: spec.frameName,
-      full: spec.frameName,
+      frameName,
+      full: frameName,
     };
   }
 
   // `title += wxS( " " ) + _( "[Read Only]" )` — the suffix owns its space.
-  const document = name + (spec.suffixes ?? []).map((s) => ` ${s}`).join('');
+  const document = name + (spec.suffixes ?? []).map((s) => ` ${_(s)}`).join('');
   // `if( IsContentModified() ) title = wxT( "*" );` then `title += ...` — no
   // space between the star and the name.
   const modified = spec.modified ? '*' : '';
@@ -187,7 +192,7 @@ export function frameTitle(spec: FrameTitleSpec): FrameTitleParts {
     modified,
     document,
     separator: FRAME_TITLE_SEPARATOR,
-    frameName: spec.frameName,
-    full: `${modified}${document}${FRAME_TITLE_SEPARATOR}${spec.frameName}`,
+    frameName,
+    full: `${modified}${document}${FRAME_TITLE_SEPARATOR}${frameName}`,
   };
 }

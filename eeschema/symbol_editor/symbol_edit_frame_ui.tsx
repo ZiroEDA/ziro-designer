@@ -1399,7 +1399,7 @@ export function SymbolEditor({
                       type="button"
                       className="ze-pane-close"
                       onClick={() => onToggle('showProperties')}
-                      title="Close"
+                      title={wxGetTranslation('Close')}
                     >
                       ⊠
                     </button>
