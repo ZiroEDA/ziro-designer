@@ -6,7 +6,8 @@
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run && vitest run -c vitest.pseudo.config.ts",
+    "test:pseudo": "vitest run -c vitest.pseudo.config.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
