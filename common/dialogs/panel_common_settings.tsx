@@ -60,6 +60,7 @@ import { Check, Group, Num, Radio, Sel } from './pref_controls.js';
 import { ZoomCorrectionCtrl, type ZoomCorrectionUnits } from '../widgets/zoom_correction_ctrl.js';
 import { useState } from 'react';
 import type { COMMON_SETTINGS_DRAFT } from '../settings/common_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The three sizes `PANEL_COMMON_SETTINGS`' radios write
@@ -87,14 +88,14 @@ export function PanelCommonSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JS
             `wxRIGHT 5`. The two radios above it are gone (header). Read by
             `GAL_DISPLAY_OPTIONS::ReadCommonConfig` when the PCB editor builds
             its canvas and again on every change (`CommonSettingsChanged`). */}
-        <Group title="Rendering Engine">
+        <Group title={_('Rendering Engine')}>
           <Sel
-            label="Antialiasing:"
+            label={_('Antialiasing:')}
             value={common.graphics.antialiasing_mode}
             options={[
-              [0, 'No Antialiasing'],
-              [1, 'Fast Antialiasing'],
-              [2, 'High Quality Antialiasing'],
+              [0, _('No Antialiasing')],
+              [1, _('Fast Antialiasing')],
+              [2, _('High Quality Antialiasing')],
             ]}
             onChange={(v) =>
               upC((s) => {
@@ -103,7 +104,7 @@ export function PanelCommonSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JS
             }
           />
         </Group>
-        <Group title="User Interface">
+        <Group title={_('User Interface')}>
           {/* No "Show icons in menus" row. `m_checkBoxIconsInMenus->Show(
               KIPLATFORM::UI::AllowIconsInMenus() )`
               (panel_common_settings.cpp:123), and the GTK port answers that by
@@ -138,8 +139,8 @@ export function PanelCommonSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JS
               control explains itself in the code, not in a tip KiCad does not
               have. */}
           <Check
-            label="Show scrollbars in editors"
-            title="This change takes effect when relaunching the editor."
+            label={_('Show scrollbars in editors')}
+            title={_('This change takes effect when relaunching the editor.')}
             checked={common.appearance.show_scrollbars}
             disabled
             onChange={(v) =>
@@ -157,8 +158,10 @@ export function PanelCommonSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JS
               not a promise the app can keep. The stored `input.focus_follow_sch_pcb`
               stays, because upstream's settings file has it. */}
           <Check
-            label="Show popup indicator when toggling settings with hotkeys"
-            title="When enabled, certain hotkeys that cycle between settings will show a popup indicator briefly to indicate the change in settings."
+            label={_('Show popup indicator when toggling settings with hotkeys')}
+            title={_(
+              'When enabled, certain hotkeys that cycle between settings will show a popup indicator briefly to indicate the change in settings.',
+            )}
             checked={common.input.hotkey_feedback}
             onChange={(v) =>
               upC((s) => {
@@ -167,8 +170,8 @@ export function PanelCommonSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JS
             }
           />
           <Check
-            label="Use alternating row colors in tables"
-            title="When enabled, use a different color for every other table row"
+            label={_('Use alternating row colors in tables')}
+            title={_('When enabled, use a different color for every other table row')}
             checked={common.appearance.grid_striping}
             onChange={(v) =>
               upC((s) => {
@@ -177,8 +180,8 @@ export function PanelCommonSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JS
             }
           />
           <Check
-            label="Disable custom cursors"
-            title="When enabled, KiCad will use default system cursors instead of custom ones"
+            label={_('Disable custom cursors')}
+            title={_('When enabled, KiCad will use default system cursors instead of custom ones')}
             checked={!common.appearance.use_custom_cursors}
             onChange={(v) =>
               upC((s) => {
@@ -192,7 +195,7 @@ export function PanelCommonSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JS
           <Radio
             row
             borders={['top']}
-            label="Icon theme:"
+            label={_('Icon theme:')}
             name="pref-icon-theme"
             value={common.appearance.icon_theme}
             /* Dead, and the only row on this page that is not merely
@@ -205,12 +208,12 @@ export function PanelCommonSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JS
                set. */
             disabled
             options={[
-              ['light', 'Light', 'Use icons designed for light window backgrounds'],
-              ['dark', 'Dark', 'Use icons designed for dark window backgrounds'],
+              ['light', _('Light'), _('Use icons designed for light window backgrounds')],
+              ['dark', _('Dark'), _('Use icons designed for dark window backgrounds')],
               [
                 'auto',
-                'Automatic',
-                'Automatically choose light or dark icons based on the system color theme',
+                _('Automatic'),
+                _('Automatically choose light or dark icons based on the system color theme'),
               ],
             ]}
             onChange={(v) =>
@@ -237,17 +240,17 @@ export function PanelCommonSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JS
           <Radio
             row
             borders={[]}
-            label="Toolbar icon size:"
+            label={_('Toolbar icon size:')}
             name="pref-toolbar-icon-size"
             value={common.appearance.toolbar_icon_size}
             options={[
-              [TOOLBAR_ICON_SIZES.small, 'Small', 'Use compact icons in the toolbars'],
+              [TOOLBAR_ICON_SIZES.small, _('Small'), _('Use compact icons in the toolbars')],
               [
                 TOOLBAR_ICON_SIZES.normal,
-                'Normal',
-                'Use the default KiCad icon size in the toolbars',
+                _('Normal'),
+                _('Use the default KiCad icon size in the toolbars'),
               ],
-              [TOOLBAR_ICON_SIZES.large, 'Large', 'Use larger icons in the toolbars'],
+              [TOOLBAR_ICON_SIZES.large, _('Large'), _('Use larger icons in the toolbars')],
             ]}
             onChange={(v) =>
               upC((s) => {
@@ -259,7 +262,7 @@ export function PanelCommonSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JS
               only row here that borders on both sides. */}
           <Num
             borders={['top', 'bottom']}
-            label="High-contrast mode dimming factor:"
+            label={_('High-contrast mode dimming factor:')}
             /* The field is a PERCENTAGE and the setting is a fraction —
                `panel_common_settings.cpp:330` shows `factor * 100.0f` and
                `:226` stores `dimmingPercent / 100.0f`. The `%` beside the box
@@ -298,7 +301,7 @@ export function PanelCommonSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JS
         {/* `m_scalingSizer->Add( m_zoomCorrectionCtrl, 1, wxEXPAND )`
             (panel_common_settings.cpp:120) — the group is the widget and
             nothing else. */}
-        <Group title="Scaling">
+        <Group title={_('Scaling')}>
           {/* `GAL::computeWorldScale` multiplies the world scale by it
               (`graphics_abstraction_layer.h:1073`), and ours does the same in
               `ui/status_format.ts` — the one place both directions of the
@@ -317,7 +320,7 @@ export function PanelCommonSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JS
             onUnitsChange={setZoomUnits}
           />
         </Group>
-        <Group title="Editing">
+        <Group title={_('Editing')}>
           {/* No "Warp mouse to anchor of moved object". Upstream a move begins
               by putting the POINTER on the item's anchor; a page cannot move
               the pointer at all outside Pointer Lock, which is a full-screen
@@ -336,8 +339,10 @@ export function PanelCommonSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JS
               a change to how every drawing tool STARTS, in each editor that has
               one -- not a flag one module can read. */}
           <Check
-            label="First hotkey selects tool"
-            title="If not checked, hotkeys will immediately perform an action even if the relevant tool was not previously selected."
+            label={_('First hotkey selects tool')}
+            title={_(
+              'If not checked, hotkeys will immediately perform an action even if the relevant tool was not previously selected.',
+            )}
             checked={!common.input.immediate_actions}
             disabled
             onChange={(v) =>

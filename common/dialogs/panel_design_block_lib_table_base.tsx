@@ -23,6 +23,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function PANEL_DESIGN_BLOCK_LIB_TABLE_BASE(p: LIB_TABLE_BASE_PROPS): JSX.Element {
   return (
@@ -37,13 +38,13 @@ export function PANEL_DESIGN_BLOCK_LIB_TABLE_BASE(p: LIB_TABLE_BASE_PROPS): JSX.
           <SizerItem flag={wxTOP | wxBOTTOM | wxRIGHT} border={5}>
             <StdBitmapButton
               bitmap="small_plus"
-              title="Add empty row to table"
+              title={_('Add empty row to table')}
               onClick={p.onAppend}
             />
           </SizerItem>
           <SizerItem flag={wxTOP | wxBOTTOM | wxRIGHT} border={5}>
             <SplitButton
-              label="Add Existing"
+              label={_('Add Existing')}
               bitmap="small_folder"
               onClick={() => {}}
               clickOpensMenu
@@ -52,16 +53,16 @@ export function PANEL_DESIGN_BLOCK_LIB_TABLE_BASE(p: LIB_TABLE_BASE_PROPS): JSX.
             />
           </SizerItem>
           <SizerItem flag={wxTOP | wxBOTTOM | wxRIGHT} border={5}>
-            <StdBitmapButton bitmap="small_up" title="Move up" onClick={p.onMoveUp} />
+            <StdBitmapButton bitmap="small_up" title={_('Move up')} onClick={p.onMoveUp} />
           </SizerItem>
           <SizerItem flag={wxTOP | wxBOTTOM | wxRIGHT} border={5}>
-            <StdBitmapButton bitmap="small_down" title="Move down" onClick={p.onMoveDown} />
+            <StdBitmapButton bitmap="small_down" title={_('Move down')} onClick={p.onMoveDown} />
           </SizerItem>
           <Spacer width={20} height={0} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxTOP | wxBOTTOM | wxRIGHT} border={5}>
             <StdBitmapButton
               bitmap="small_trash"
-              title="Remove library from table"
+              title={_('Remove library from table')}
               onClick={p.onDelete}
             />
           </SizerItem>

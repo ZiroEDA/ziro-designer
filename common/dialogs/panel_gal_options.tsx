@@ -30,6 +30,8 @@ import {
   type CrosshairMode,
 } from '../draw_panel_gal_grid_cursor.js';
 import type { GridSnapping } from '../draw_panel_gal_grid_cursor.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // ---------------------------------------------------------------------------
 // Folded in from gal_options.ts (09-26): upstream this is the same
@@ -50,7 +52,7 @@ export type { GridSnapping } from '../draw_panel_gal_grid_cursor.js';
  * `m_staticText1` and `m_stGridLabel` (`panel_gal_options_base.cpp:17` and
  * `:96`) — the panel's two headings, in order.
  */
-export const GAL_GROUP_TITLES = ['Grid Display', 'Cursor'] as const;
+export const GAL_GROUP_TITLES = [_HKI('Grid Display'), _HKI('Cursor')] as const;
 
 /**
  * The Grid Display group's four control labels, in wxFormBuilder's own order:
@@ -62,24 +64,24 @@ export const GAL_GROUP_TITLES = ['Grid Display', 'Cursor'] as const;
  * only the Cursor group below it.
  */
 export const GRID_DISPLAY_LABELS = [
-  'Style:',
-  'Grid thickness:',
-  'Minimum grid spacing:',
-  'Snap to grid:',
+  _HKI('Style:'),
+  _HKI('Grid thickness:'),
+  _HKI('Minimum grid spacing:'),
+  _HKI('Snap to grid:'),
 ] as const;
 
 /** `m_rbDots` / `m_rbLines` / `m_rbCrosses` (`panel_gal_options_base.cpp:31-38`). */
 export const GRID_STYLE_CHOICES: readonly (readonly [GridStyle, string])[] = [
-  ['dots', 'Dots'],
-  ['lines', 'Lines'],
-  ['crosses', 'Small crosses'],
+  ['dots', _HKI('Dots')],
+  ['lines', _HKI('Lines')],
+  ['crosses', _HKI('Small crosses')],
 ];
 
 /** `m_gridSnapOptionsChoices` (`panel_gal_options_base.cpp:77`). */
 export const GRID_SNAP_CHOICES: readonly (readonly [GridSnapping, string])[] = [
-  [0, 'Always'],
-  [1, 'When grid shown'],
-  [2, 'Never'],
+  [0, _HKI('Always')],
+  [1, _HKI('When grid shown')],
+  [2, _HKI('Never')],
 ];
 
 /**
@@ -175,7 +177,7 @@ export function PanelGalOptions({
         <Sel
           label={GRID_DISPLAY_LABELS[1]}
           value={win.grid.line_width}
-          unit="pixels"
+          unit={_('pixels')}
           options={GRID_THICKNESS_CHOICES.map(([v, l]) => [v, l] as [number, string])}
           onChange={(v) =>
             update((w) => {
@@ -186,7 +188,7 @@ export function PanelGalOptions({
         <Num
           label={GRID_DISPLAY_LABELS[2]}
           value={win.grid.min_spacing}
-          unit="pixels"
+          unit={_('pixels')}
           min={GRID_MIN_SPACING_RANGE.min}
           max={GRID_MIN_SPACING_RANGE.max}
           step={GRID_MIN_SPACING_RANGE.step}

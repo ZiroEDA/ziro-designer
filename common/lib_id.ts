@@ -7,6 +7,7 @@
  */
 
 import { PARSE_ERROR } from './dsnlexer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `checkLibNickname`: -1 when the field holds no ':', else its offset. */
 function checkLibNickname(aField: string): number {
@@ -207,7 +208,7 @@ export class LIB_ID {
 
       if (offset !== -1) {
         throw new PARSE_ERROR(
-          'Illegal character found in library nickname',
+          _('Illegal character found in library nickname'),
           aLibraryName,
           aLibraryName,
           0,

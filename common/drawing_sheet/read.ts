@@ -57,6 +57,7 @@ import {
   type WksXY,
   type WksOption,
 } from './types.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const CORNERS = new Set<WksCorner>(['ltcorner', 'rtcorner', 'lbcorner', 'rbcorner']);
 
@@ -601,7 +602,7 @@ export function DRAWING_SHEET_PARSER_Parse(aSheet: WksSheet, aLayout: DS_DATA_MO
         image.SetScale(it.scale);
 
         if (it.pngB64 !== '' && !image.ReadImageFile(base64ToBytes(it.pngB64)))
-          throw new Error('Failed to read image data.');
+          throw new Error(_('Failed to read image data.'));
 
         aLayout.Append(item);
         break;

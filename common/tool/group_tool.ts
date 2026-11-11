@@ -29,6 +29,7 @@ import type { SELECTION_TOOL } from './selection_tool.js';
 import type { RESET_REASON } from './tool_base.js';
 import { EVENTS, type TOOL_EVENT } from './tool_event.js';
 import { SYNC_HANDLER, TOOL_INTERACTIVE } from './tool_interactive.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The frame, with the one `EDA_BASE_FRAME` call not yet on our base class. */
 export type GROUP_TOOL_FRAME = EDA_DRAW_FRAME & {
@@ -117,7 +118,7 @@ export class GROUP_CONTEXT_MENU extends ACTION_MENU {
     super(true);
 
     this.SetIcon(BITMAPS.group); // fixme
-    this.SetTitle('Grouping');
+    this.SetTitle(_('Grouping'));
 
     this.Add(ACTIONS.group);
     this.Add(ACTIONS.ungroup);
@@ -232,7 +233,7 @@ export abstract class GROUP_TOOL extends TOOL_INTERACTIVE {
       }
     }
 
-    this.m_commit!.Push('Ungroup Items');
+    this.m_commit!.Push(_('Ungroup Items'));
 
     this.m_toolMgr!.RunAction<EDA_ITEMS>(ACTIONS.selectItems, toSelect);
 
@@ -288,7 +289,7 @@ export abstract class GROUP_TOOL extends TOOL_INTERACTIVE {
       }
     }
 
-    this.m_commit!.Push('Add Items to Group');
+    this.m_commit!.Push(_('Add Items to Group'));
 
     this.m_selectionTool!.AddItemToSel(group.AsEdaItem());
     this.m_toolMgr!.PostEvent(EVENTS.SelectedItemsModified);
@@ -329,7 +330,7 @@ export abstract class GROUP_TOOL extends TOOL_INTERACTIVE {
       }
     }
 
-    this.m_commit!.Push('Remove Group Items');
+    this.m_commit!.Push(_('Remove Group Items'));
 
     this.m_toolMgr!.PostEvent(EVENTS.SelectedItemsModified);
     this.m_frame!.OnModify();

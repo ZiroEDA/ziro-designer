@@ -10,6 +10,7 @@
  */
 import type { JSX, ReactNode } from 'react';
 import { DIALOG_PRINT_GENERIC_BASE } from './dialog_print_generic_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** dialog_print_generic.cpp:34-35. */
 export const MIN_SCALE = 0.01;
@@ -47,7 +48,7 @@ export function getScaleValue(
     return {
       scale: 1.0,
       reset: setScaleValue(1.0),
-      info: 'Warning: custom scale is not a number.',
+      info: _('Warning: custom scale is not a number.'),
     };
   }
 
@@ -124,8 +125,8 @@ export function DIALOG_PRINT_GENERIC({
       mainSizerInserts={mainSizerInserts}
       optionsSizerAdds={optionsSizerAdds}
       m_infoText={infoText}
-      okLabel="Print"
-      cancelLabel="Close"
+      okLabel={_('Print')}
+      cancelLabel={_('Close')}
       onOK={onPrint}
       onCancel={onClose}
     />

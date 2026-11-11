@@ -25,6 +25,7 @@ import { type DS_DATA_ITEM, TB_DEFAULT_TEXTSIZE } from './ds_data_item.js';
 import { DRAWING_SHEET_PARSER_Parse, parseDrawingSheet } from './read.js';
 import type { WksSheet } from './types.js';
 import { DS_DATA_MODEL_IO_Format, serializeDrawingSheet } from './write.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * Handle the graphic items list to draw/plot the frame and title block.
@@ -264,7 +265,7 @@ export class DS_DATA_MODEL {
       }
 
       if (aContents === null) {
-        if (aMsg) aMsg.value = 'File not found.';
+        if (aMsg) aMsg.value = _('File not found.');
 
         this.SetDefaultLayout();
         return false;
@@ -272,7 +273,7 @@ export class DS_DATA_MODEL {
     }
 
     if (aContents === null) {
-      if (aMsg) aMsg.value = 'File could not be opened.';
+      if (aMsg) aMsg.value = _('File could not be opened.');
 
       if (!aAppend) this.SetDefaultLayout();
 

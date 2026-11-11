@@ -8,6 +8,7 @@
  * keeps for itself. The per-frame registries stay with the frames.
  */
 import { NAMED_KEYS } from './tool/action_menu_hotkeys.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The parts of a KeyboardEvent the editor's handler reads. */
 export interface KeyLike {
@@ -93,8 +94,8 @@ const EVENT_KEYS: Readonly<Record<string, string>> = Object.fromEntries(
  */
 export function comboFromEvent(e: KeyLike): string {
   const parts: string[] = [];
-  if (e.ctrlKey || e.metaKey) parts.push('Ctrl');
-  if (e.altKey) parts.push('Alt');
+  if (e.ctrlKey || e.metaKey) parts.push(_('Ctrl'));
+  if (e.altKey) parts.push(_('Alt'));
 
   const named = KEY_NAMES[e.key];
   let key = named ?? e.key;
@@ -105,13 +106,13 @@ export function comboFromEvent(e: KeyLike): string {
   // the shifted character *is* the key ('?' rather than Shift+/), so naming
   // Shift as well would count it twice.
   const shiftNames = key.length > 1 || /^[A-Z0-9]$/.test(key);
-  if (e.shiftKey && shiftNames) parts.push('Shift');
+  if (e.shiftKey && shiftNames) parts.push(_('Shift'));
 
   parts.push(key);
   // Ctrl+Shift+X reads better than Ctrl+X+Shift; the modifier order above is
   // already Ctrl, Alt, Shift — reorder to the menus' Ctrl+Shift+Alt.
   const mods = parts.slice(0, -1);
-  const order = ['Ctrl', 'Shift', 'Alt'];
+  const order = [_('Ctrl'), _('Shift'), _('Alt')];
   mods.sort((a, b) => order.indexOf(a) - order.indexOf(b));
   return [...mods, parts[parts.length - 1]].join('+');
 }

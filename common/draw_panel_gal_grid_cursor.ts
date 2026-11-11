@@ -35,6 +35,7 @@
  * passes the colour its own theme resolved.
  */
 import { parseColor4d, toCss, withAlpha } from './index.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `KIGFX::GRID_STYLE` (include/gal/gal_display_options.h:46-51). */
 export type GridStyle = 'dots' | 'lines' | 'crosses';
@@ -55,9 +56,9 @@ export type CrosshairMode = 'small' | 'full' | '45';
  * "full window".
  */
 export const CROSSHAIR_MODE_CHOICES: readonly (readonly [CrosshairMode, string])[] = [
-  ['small', 'Small crosshairs'],
-  ['full', 'Full window crosshairs'],
-  ['45', '45 degree crosshairs'],
+  ['small', _HKI('Small crosshairs')],
+  ['full', _HKI('Full window crosshairs')],
+  ['45', _HKI('45 degree crosshairs')],
 ];
 
 /**
@@ -66,7 +67,7 @@ export const CROSSHAIR_MODE_CHOICES: readonly (readonly [CrosshairMode, string])
  * running the two together into one checkbox — as the Drawing Sheet Editor's
  * Preferences once did — makes the 45-degree mode unreachable.
  */
-export const ALWAYS_SHOW_CROSSHAIRS_LABEL = 'Always show crosshairs';
+export const ALWAYS_SHOW_CROSSHAIRS_LABEL = _HKI('Always show crosshairs');
 
 /**
  * `GAL::SetCoarseGrid( 10 )` from the GAL constructor

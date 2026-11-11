@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -78,7 +79,7 @@ function builtIn(
 
 export const BOM_PRESET = {
   DefaultEditing(): BOM_PRESET {
-    return builtIn('Default Editing', true, [
+    return builtIn(_HKI('Default Editing'), true, [
       field('Reference', 'Reference', true, false),
       field('${QUANTITY}', 'Qty', true, false),
       field('Value', 'Value', true, true),
@@ -93,7 +94,7 @@ export const BOM_PRESET = {
   },
 
   GroupedByValue(): BOM_PRESET {
-    return builtIn('Grouped By Value', false, [
+    return builtIn(_HKI('Grouped By Value'), false, [
       field('Reference', 'Reference', true, false),
       field('Value', 'Value', true, true),
       field('Datasheet', 'Datasheet', true, false),
@@ -104,7 +105,7 @@ export const BOM_PRESET = {
   },
 
   GroupedByValueFootprint(): BOM_PRESET {
-    return builtIn('Grouped By Value and Footprint', false, [
+    return builtIn(_HKI('Grouped By Value and Footprint'), false, [
       field('Reference', 'Reference', true, false),
       field('Value', 'Value', true, true),
       field('Datasheet', 'Datasheet', true, false),
@@ -115,7 +116,7 @@ export const BOM_PRESET = {
   },
 
   Attributes(): BOM_PRESET {
-    return builtIn('Attributes', true, [
+    return builtIn(_HKI('Attributes'), true, [
       field('Reference', 'Reference', true, false),
       field('Value', 'Value', true, true),
       field('Datasheet', 'Datasheet', false, false),
@@ -160,15 +161,15 @@ function fmt(
 
 export const BOM_FMT_PRESET = {
   CSV(): BOM_FMT_PRESET {
-    return fmt('CSV', ',', '"', ',', '');
+    return fmt(_HKI('CSV'), ',', '"', ',', '');
   },
 
   TSV(): BOM_FMT_PRESET {
-    return fmt('TSV', '\t', '', ',', '');
+    return fmt(_HKI('TSV'), '\t', '', ',', '');
   },
 
   Semicolons(): BOM_FMT_PRESET {
-    return fmt('Semicolons', ';', "'", ',', '');
+    return fmt(_HKI('Semicolons'), ';', "'", ',', '');
   },
 
   BuiltInPresets(): BOM_FMT_PRESET[] {

@@ -40,6 +40,7 @@ import {
   wxMOD_NONE,
   type wxUpdateUIEvent,
 } from '@ziroeda/wx/wx_event.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export const GRIDTRICKS_MAX_COL = 50;
 
@@ -325,20 +326,20 @@ export class GRID_TRICKS {
     aMenu.Append(
       GRIDTRICKS_ID_CUT,
       'Cut\tCtrl+X',
-      'Clear selected cells placing original contents on clipboard',
+      _('Clear selected cells placing original contents on clipboard'),
     );
-    aMenu.Append(GRIDTRICKS_ID_COPY, 'Copy\tCtrl+C', 'Copy selected cells to clipboard');
+    aMenu.Append(GRIDTRICKS_ID_COPY, 'Copy\tCtrl+C', _('Copy selected cells to clipboard'));
 
     if (this.m_multiCellEditEnabled) {
       aMenu.Append(
         GRIDTRICKS_ID_PASTE,
         'Paste\tCtrl+V',
-        'Paste clipboard cells to matrix at current cell',
+        _('Paste clipboard cells to matrix at current cell'),
       );
-      aMenu.Append(GRIDTRICKS_ID_DELETE, 'Delete\tDel', 'Clear contents of selected cells');
+      aMenu.Append(GRIDTRICKS_ID_DELETE, 'Delete\tDel', _('Clear contents of selected cells'));
     }
 
-    aMenu.Append(GRIDTRICKS_ID_SELECT, 'Select All\tCtrl+A', 'Select all cells');
+    aMenu.Append(GRIDTRICKS_ID_SELECT, 'Select All\tCtrl+A', _('Select all cells'));
 
     aMenu.Enable(GRIDTRICKS_ID_CUT, false);
     aMenu.Enable(GRIDTRICKS_ID_DELETE, false);

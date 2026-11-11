@@ -22,6 +22,7 @@ import { type VIEW_ITEM, VIEW_UPDATE_FLAGS, VIEW_VISIBILITY_FLAGS } from './view
 import { VIEW_OVERLAY } from './view_overlay.js';
 import { VIEW_RTREE } from './view_rtree.js';
 import { wxASSERT } from '@ziroeda/wx/wx_assert.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const { NONE, APPEARANCE, COLOR, GEOMETRY, LAYERS, INITIAL_ADD, REPAINT, ALL } = VIEW_UPDATE_FLAGS;
 const { VISIBLE, HIDDEN, OVERLAY_HIDDEN } = VIEW_VISIBILITY_FLAGS;
@@ -774,7 +775,7 @@ export class VIEW {
    * @param aMirrorY: when true, the Y axis is mirrored.
    */
   SetMirror(aMirrorX: boolean, aMirrorY: boolean): void {
-    wxASSERT(!aMirrorY, 'Mirroring for Y axis is not supported yet');
+    wxASSERT(!aMirrorY, _('Mirroring for Y axis is not supported yet'));
 
     this.m_mirrorX = aMirrorX;
     this.m_mirrorY = aMirrorY;

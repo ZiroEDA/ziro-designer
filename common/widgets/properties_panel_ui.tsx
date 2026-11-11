@@ -63,6 +63,8 @@ import { ColorSwatch } from './color_swatch.js';
 import { Combo } from '@ziroeda/wx/combobox.js';
 import { Icon } from './icons.js';
 import './properties_panel.css';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * One row of the grid.
@@ -122,7 +124,7 @@ export interface PropertyGridRow<C> {
  * `unspecifiedGroupCaption` (properties_panel.cpp:339): the group a property
  * registered without one falls into is captioned "Basic Properties".
  */
-export const UNSPECIFIED_GROUP_CAPTION = 'Basic Properties';
+export const UNSPECIFIED_GROUP_CAPTION = _HKI('Basic Properties');
 
 /**
  * What a colour cell commits.
@@ -143,7 +145,7 @@ export function colorCellValue(c: Parameters<typeof toHexString>[0]): string {
  * says so, one selected item is named by its TYPE, and several are counted.
  */
 export function propertiesPanelCaption(count: number, friendlyName?: string): string {
-  if (count === 0) return 'No objects selected';
+  if (count === 0) return _('No objects selected');
   if (count === 1) return friendlyName ?? '';
   return `${count} objects selected`;
 }
@@ -398,9 +400,11 @@ function ValueCell<C>({
         className="ze-grid-cellbtn"
         disabled={!onBrowse}
         title={
-          onBrowse ? 'Browse for footprint' : 'Browse for footprint — needs the Footprint Chooser'
+          onBrowse
+            ? _('Browse for footprint')
+            : 'Browse for footprint — needs the Footprint Chooser'
         }
-        aria-label="Browse for footprint"
+        aria-label={_('Browse for footprint')}
         onClick={() =>
           onBrowse?.(text, (picked) => {
             setText(picked);

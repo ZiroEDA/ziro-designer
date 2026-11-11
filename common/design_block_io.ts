@@ -36,6 +36,8 @@ import {
   wxRemoveDirTree,
   wxWriteFileSync,
 } from '@ziroeda/wx/filefn.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `KICTL_NONKICAD_ONLY` (io_mgr.h): only guess non-KiCad library types. */
 export const KICTL_NONKICAD_ONLY = 1 << 0;
@@ -83,7 +85,7 @@ export class DESIGN_BLOCK_IO {
   /** `GetLibraryDesc()`: a folder library, `.kicad_blocks`. */
   GetLibraryDesc(): { description: string; extensions: string[]; isFolder: boolean } {
     return {
-      description: 'KiCad Design Block folders',
+      description: _HKI('KiCad Design Block folders'),
       extensions: [KiCadDesignBlockLibPathExtension],
       isFolder: true,
     };
@@ -226,10 +228,10 @@ export class DESIGN_BLOCK_IO {
   DesignBlockSave(aLibraryPath: string, aDesignBlock: DESIGN_BLOCK): void {
     // Make sure we have a valid LIB_ID or we can't save the design block
     if (!aDesignBlock.GetLibId().IsValid())
-      throw new IO_ERROR('Design block does not have a valid library ID.');
+      throw new IO_ERROR(_('Design block does not have a valid library ID.'));
 
     if (aDesignBlock.GetSchematicFile() === '' && aDesignBlock.GetBoardFile() === '')
-      throw new IO_ERROR('Design block does not have a schematic or board file.');
+      throw new IO_ERROR(_('Design block does not have a schematic or board file.'));
 
     const schematicFile = aDesignBlock.GetSchematicFile();
     const boardFile = aDesignBlock.GetBoardFile();

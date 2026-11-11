@@ -13,6 +13,7 @@ import { useState, type JSX } from 'react';
 import { PanelHotkeysEditor } from './panel_hotkeys_editor.js';
 import type { HotkeyOverrides, HotkeySection } from '../hotkey_store.js';
 import { DialogShim } from '../dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function HotkeyListDialog({
   actions,
@@ -43,13 +44,13 @@ export function HotkeyListDialog({
   };
 
   return (
-    <DialogShim title="Hotkey List" onClose={onClose} className="ze-hotkeys">
+    <DialogShim title={_('Hotkey List')} onClose={onClose} className="ze-hotkeys">
       <div className="ze-modal-body ze-hotkeys-body">
         {/* PANEL_HOTKEYS_EDITOR( aParent, this, true ) - the same panel the
           Preferences page shows, built read-only. */}
         <PanelHotkeysEditor actions={actions} readOnly overrides={edit} onChange={setEdit}>
           {/* sdb_sizer, added to the panel's GetBottomSizer(). */}
-          <Button label="Cancel" onClick={onClose} />
+          <Button label={_('Cancel')} onClick={onClose} />
           <Button label="OK" onClick={onOk} />
         </PanelHotkeysEditor>
       </div>

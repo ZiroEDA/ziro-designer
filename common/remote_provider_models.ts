@@ -13,6 +13,7 @@ import {
   RemoteProviderJsonString,
   ValidateRemoteUrlSecurity,
 } from './remote_provider_utils.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export enum REMOTE_PROVIDER_ERROR_TYPE {
   NONE,
@@ -70,7 +71,7 @@ export class REMOTE_PROVIDER_OAUTH_SERVER_METADATA {
     metadata.revocation_endpoint = RemoteProviderJsonString(aJson, 'revocation_endpoint');
 
     if (metadata.authorization_endpoint === '' || metadata.token_endpoint === '') {
-      aError.value = 'OAuth metadata must include authorization_endpoint and token_endpoint.';
+      aError.value = _('OAuth metadata must include authorization_endpoint and token_endpoint.');
       return null;
     }
 
@@ -171,7 +172,7 @@ export class REMOTE_PROVIDER_PART_MANIFEST {
             asset.download_url,
             aAllowInsecureLocalhost,
             aError,
-            'assets[].download_url',
+            _('assets[].download_url'),
           )
         )
           return null;

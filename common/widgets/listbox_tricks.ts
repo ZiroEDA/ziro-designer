@@ -9,6 +9,7 @@
 import type { wxListBox } from '@ziroeda/wx/listbox.js';
 import { wxNOT_FOUND } from '@ziroeda/wx/listbox.js';
 import { GetClipboardUTF8, SaveClipboard } from '../clipboard.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The menu ids (listbox_tricks.h). */
 export enum LISTBOX_TRICKS_ID {
@@ -26,16 +27,16 @@ export const LISTBOX_TRICKS_MENU: readonly {
   accel: string;
   bitmap: string;
 }[] = [
-  { id: LISTBOX_TRICKS_ID.ID_COPY, label: 'Copy', accel: 'Ctrl+C', bitmap: 'copy' },
-  { id: LISTBOX_TRICKS_ID.ID_CUT, label: 'Cut', accel: 'Ctrl+X', bitmap: 'cut' },
-  { id: LISTBOX_TRICKS_ID.ID_PASTE, label: 'Paste', accel: 'Ctrl+V', bitmap: 'paste' },
+  { id: LISTBOX_TRICKS_ID.ID_COPY, label: _HKI('Copy'), accel: 'Ctrl+C', bitmap: 'copy' },
+  { id: LISTBOX_TRICKS_ID.ID_CUT, label: _HKI('Cut'), accel: 'Ctrl+X', bitmap: 'cut' },
+  { id: LISTBOX_TRICKS_ID.ID_PASTE, label: _HKI('Paste'), accel: 'Ctrl+V', bitmap: 'paste' },
   {
     id: LISTBOX_TRICKS_ID.ID_DUPLICATE,
-    label: 'Duplicate',
+    label: _HKI('Duplicate'),
     accel: 'Ctrl+D',
     bitmap: 'duplicate',
   },
-  { id: LISTBOX_TRICKS_ID.ID_DELETE, label: 'Delete', accel: 'Del', bitmap: 'trash' },
+  { id: LISTBOX_TRICKS_ID.ID_DELETE, label: _HKI('Delete'), accel: 'Del', bitmap: 'trash' },
 ];
 
 export class LISTBOX_TRICKS {

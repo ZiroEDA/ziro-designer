@@ -38,6 +38,7 @@ import {
   LIBRARY_TABLE_SCOPE,
   LIBRARY_TABLE_TYPE,
 } from './library_table.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `LIBRARY_MANAGER` (common/libraries/library_manager.{h,cpp}), the part an
@@ -204,7 +205,7 @@ export class LIBRARY_MANAGER {
       const chained = table.InsertRow();
       chained.SetType(LIBRARY_TABLE_ROW.TABLE_TYPE_NAME);
       chained.SetNickname('KiCad');
-      chained.SetDescription('KiCad Default Libraries');
+      chained.SetDescription(_('KiCad Default Libraries'));
       chained.SetURI(LIBRARY_MANAGER.StockTableReferenceURI(aType));
     }
 
@@ -291,7 +292,7 @@ export class LIBRARY_MANAGER {
 
         if (seenTables.has(file)) {
           row.SetOk(false);
-          row.SetErrorDescription('A reference to this library table already exists');
+          row.SetErrorDescription(_('A reference to this library table already exists'));
           continue;
         }
 

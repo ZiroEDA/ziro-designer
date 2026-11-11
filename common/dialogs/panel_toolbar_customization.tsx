@@ -61,6 +61,7 @@ import {
   type ToolbarSettings,
 } from '../tool/ui/toolbar_configuration.js';
 import type { MenuItem } from '@ziroeda/wx/menu.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A selected tree node: a top-level index, and a child index inside a group. */
 interface TreeSel {
@@ -258,7 +259,7 @@ export function PanelToolbarCustomization({
     if (insideGroup) return;
     // `_( "Group" )` (`:703`), the label a new group is created under and which
     // the user then edits in place.
-    insertTop({ type: 'TB_GROUP', group_name: 'Group', group_items: [] });
+    insertTop({ type: 'TB_GROUP', group_name: _('Group'), group_items: [] });
   };
 
   /** `onToolDelete` (`:834-853`): delete, then fall back to the previous row. */
@@ -356,7 +357,7 @@ export function PanelToolbarCustomization({
   const rowLabel = (it: ToolbarItemJson): string | null => {
     switch (it.type) {
       case 'SEPARATOR':
-        return 'Separator';
+        return _('Separator');
       case 'SPACER':
         // `wxString::Format( _( "Spacer: %i" ), item.m_Size )`.
         return `Spacer: ${it.size ?? 0}`;
@@ -377,13 +378,13 @@ export function PanelToolbarCustomization({
   const insertItems: MenuItem[] = [
     // `insertMenu->Append( ID_SPACER_MENU, _( "Insert Spacer" ) )` and
     // `ID_GROUP_MENU, _( "Insert Group" )` (`:158-159`).
-    { label: 'Insert Spacer', action: onInsertSpacer },
-    { label: 'Insert Group', action: onInsertGroup },
+    { label: _('Insert Spacer'), action: onInsertSpacer },
+    { label: _('Insert Group'), action: onInsertGroup },
   ];
 
   return (
     <div className="ze-tbcust">
-      <Check label="Customize toolbars" checked={custom} onChange={setCustom} />
+      <Check label={_('Customize toolbars')} checked={custom} onChange={setCustom} />
       <hr className="ze-tbcust-rule" />
 
       <div className="ze-tbcust-cols">
@@ -394,7 +395,7 @@ export function PanelToolbarCustomization({
               <select>, which paints the browser's chevron and its own popup. */}
           <div className="ze-tbcust-tbrow">
             <span className="lbl" id="ze-tbcust-tblabel">
-              Toolbar:
+              {_('Toolbar:')}
             </span>
             <Combo
               value={loc}
@@ -519,7 +520,7 @@ export function PanelToolbarCustomization({
             {/* SPLIT_BUTTON: the wide half runs `onSeparatorPress`, the arrow
                 half drops the two-row wxMenu (`:152-167`). */}
             <SplitButton
-              label="Insert Separator"
+              label={_('Insert Separator')}
               menuLabel="Insert"
               disabled={!enabled}
               onClick={onInsertSeparator}
@@ -528,14 +529,19 @@ export function PanelToolbarCustomization({
             {/* `m_btnToolMoveUp->Enable( false )` / `m_btnToolMoveDown->Enable(
                 false )` in the constructor, above `// TODO (ISM): Enable
                 draging` (`:188-190`). Dead upstream, so dead here. */}
-            <StdBitmapButton bitmap="small_up" title="Move up" disabled onClick={() => {}} />
-            <StdBitmapButton bitmap="small_down" title="Move down" disabled onClick={() => {}} />
+            <StdBitmapButton bitmap="small_up" title={_('Move up')} disabled onClick={() => {}} />
+            <StdBitmapButton
+              bitmap="small_down"
+              title={_('Move down')}
+              disabled
+              onClick={() => {}}
+            />
             {/* `bSizerToolbarBtns->Add( 20, 0, 0, 0, 5 )` — the fixed gap that
                 separates delete from the rest. [px] wxFormBuilder's own 20. */}
             <span className="ze-tbcust-gap" />
             <StdBitmapButton
               bitmap="small_trash"
-              title="Delete"
+              title={_('Delete')}
               disabled={!enabled || !sel}
               onClick={onDelete}
             />
@@ -565,8 +571,8 @@ export function PanelToolbarCustomization({
             <input
               className="ze-tplsel-nameinput ze-bare"
               type="text"
-              placeholder="Filter actions"
-              aria-label="Filter actions"
+              placeholder={_('Filter actions')}
+              aria-label={_('Filter actions')}
               value={filter}
               disabled={!enabled}
               onChange={(e) => {
@@ -582,7 +588,7 @@ export function PanelToolbarCustomization({
               <span className="cancel" title="Clear the filter" onClick={() => setFilter('')} />
             )}
           </div>
-          <ul className="ze-tbcust-list" aria-label="Actions">
+          <ul className="ze-tbcust-list" aria-label={_('Actions')}>
             {shown.map((e, i) => (
               <li key={e.name ?? `control:${e.control}`}>
                 {/* biome-ignore lint/a11y/useKeyWithClickEvents: a wxListCtrl row

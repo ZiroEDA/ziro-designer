@@ -68,7 +68,7 @@ describe('the Search pane fits the left dock', () => {
     // SEARCH_PANE_MENU (search_pane.cpp:40-117) is a popup, not a header
     // control competing for the same 222px row, so there is nothing left in
     // the header besides the search box and two fixed-size controls.
-    expect(PANE).toContain("label: 'Search Hidden Fields'");
+    expect(PANE).toContain("label: _('Search Hidden Fields')");
     expect(PANE).not.toContain('flexShrink');
   });
 });

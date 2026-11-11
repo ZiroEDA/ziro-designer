@@ -34,6 +34,7 @@ import {
   saveColorPickerTab,
   type ColorPickerTab,
 } from './dialog_color_picker_tab.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `m_RgbBitmap`/`m_HsvBitmap` are both built `wxSize( 264, 264 )` with a
@@ -398,7 +399,7 @@ export function DialogColorPicker({
 
   return (
     <DialogShim
-      title="Color Picker"
+      title={_('Color Picker')}
       onClose={() => onDone(null)}
       frameRef={rootRef}
       className="ze-cp"
@@ -412,14 +413,14 @@ export function DialogColorPicker({
           className={tab === 'free' ? 'active' : ''}
           onClick={() => setTab('free')}
         >
-          Color Picker
+          {_('Color Picker')}
         </button>
         <button
           type="button"
           className={tab === 'defined' ? 'active' : ''}
           onClick={() => setTab('defined')}
         >
-          Defined Colors
+          {_('Defined Colors')}
         </button>
       </div>
 
@@ -435,7 +436,7 @@ export function DialogColorPicker({
           <div className="ze-cp-panels" hidden={tab !== 'free'}>
             {/* sbSizerViewRGB */}
             <fieldset className="ze-ds-group">
-              <legend>RGB</legend>
+              <legend>{_('RGB')}</legend>
               <div className="ze-cp-palette">
                 {/* biome-ignore lint/a11y/noStaticElementInteractions: wxStaticBitmap with a wxEVT_LEFT_DOWN handler */}
                 <canvas ref={rgbRef} width={PALETTE_SIZE} height={PALETTE_SIZE} />
@@ -451,13 +452,13 @@ export function DialogColorPicker({
                 />
               </div>
               <div className="ze-cp-spins">
-                {spin('Red:', color.r * 255, 255, (n) =>
+                {spin(_('Red:'), color.r * 255, 255, (n) =>
                   applyRgb({ ...color, r: Math.min(255, Math.max(0, n)) / 255 }),
                 )}
-                {spin('Green:', color.g * 255, 255, (n) =>
+                {spin(_('Green:'), color.g * 255, 255, (n) =>
                   applyRgb({ ...color, g: Math.min(255, Math.max(0, n)) / 255 }),
                 )}
-                {spin('Blue:', color.b * 255, 255, (n) =>
+                {spin(_('Blue:'), color.b * 255, 255, (n) =>
                   applyRgb({ ...color, b: Math.min(255, Math.max(0, n)) / 255 }),
                 )}
               </div>
@@ -465,7 +466,7 @@ export function DialogColorPicker({
 
             {/* sbSizerViewHSV */}
             <fieldset className="ze-ds-group">
-              <legend>HSV</legend>
+              <legend>{_('HSV')}</legend>
               <div className="ze-cp-hsvrow">
                 <div className="ze-cp-hsvcol">
                   <div className="ze-cp-palette">
@@ -485,21 +486,21 @@ export function DialogColorPicker({
                   <div className="ze-cp-spins two">
                     {/* wxSP_WRAP, 0..359 (dialog_color_picker_base.cpp:104). */}
                     {spin(
-                      'Hue:',
+                      _('Hue:'),
                       hsv.hue,
                       359,
                       (n) => applyHsv(((n % 360) + 360) % 360, hsv.sat, hsv.val, color.a),
                       true,
                     )}
                     {/* 0..255, though m_sat is 0..1 — SetEditVals scales it. */}
-                    {spin('Saturation:', hsv.sat * 255, 255, (n) =>
+                    {spin(_('Saturation:'), hsv.sat * 255, 255, (n) =>
                       applyHsv(hsv.hue, Math.min(255, Math.max(0, n)) / 255, hsv.val, color.a),
                     )}
                   </div>
                 </div>
                 {/* bSizerBright: a vertical wxSL_INVERSE slider, 0..255. */}
                 <div className="ze-cp-slidercol">
-                  <span>Value:</span>
+                  <span>{_('Value:')}</span>
                   {/* `wxSL_INVERSE|wxSL_LABELS|wxSL_LEFT|wxSL_VERTICAL`, 0..255
                     (dialog_color_picker_base.cpp:122). The shared wxSlider —
                     a bare range input has none of the labels or the accent
@@ -556,12 +557,12 @@ export function DialogColorPicker({
         {/* m_SizerTransparency, 0..100 and wxSL_INVERSE. */}
         {allowOpacity && (
           <div className="ze-cp-slidercol">
-            <span>Opacity:</span>
+            <span>{_('Opacity:')}</span>
             {/* The same control, 0..100 (dialog_color_picker_base.cpp:171). */}
             <Slider
               vertical
               labels
-              ariaLabel="Opacity"
+              ariaLabel={_('Opacity')}
               min={0}
               max={100}
               value={Math.round(color.a * 100)}
@@ -576,7 +577,7 @@ export function DialogColorPicker({
       </div>
 
       <div className="ze-cp-buttons">
-        <span>Preview (old/new):</span>
+        <span>{_('Preview (old/new):')}</span>
         {/* `updatePreview` builds both of these with COLOR_SWATCH's own
           MakeBitmap (dialog_color_picker.cpp:128-140), so UNSPECIFIED
           checkerboards here exactly as it does in a swatch. A plain
@@ -618,13 +619,13 @@ export function DialogColorPicker({
               UNSPECIFIED, which means 'use the theme color'. […] we change
               the label here because the action from the point of view of
               the user is slightly different." (dialog_color_picker.cpp:95-102) */}
-            {defaultColor.a === 0 ? 'Clear Color' : 'Reset to Default'}
+            {defaultColor.a === 0 ? _('Clear Color') : _('Reset to Default')}
           </button>
         )}
         {/* m_sdbSizer: a wxStdDialogButtonSizer, so GTK's own order - Cancel
           then OK - and OK is the affirmative default. */}
         <div className="ze-modal-footer">
-          <Button label="Cancel" onClick={() => onDone(null)} />
+          <Button label={_('Cancel')} onClick={() => onDone(null)} />
           <Button label="OK" isDefault onClick={() => onDone(color)} />
         </div>
       </div>

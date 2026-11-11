@@ -4,6 +4,7 @@
 import type { JSX, ReactNode } from 'react';
 import type { CROSS_PROBING_SETTINGS } from '../settings/app_settings.js';
 import { Check, Group } from './pref_controls.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The "Cross-probing" group, written once because KiCad writes it twice: the
@@ -45,7 +46,7 @@ export function CrossProbingGroup({
 }): JSX.Element {
   const sch = peer === 'schematic';
   return (
-    <Group title="Cross-probing">
+    <Group title={_('Cross-probing')}>
       <Check
         label={`Select/highlight objects corresponding to ${sch ? 'schematic' : 'PCB'} selection`}
         title={`Highlight ${sch ? 'footprints' : 'symbols'} corresponding to selected ${
@@ -60,7 +61,7 @@ export function CrossProbingGroup({
         }
       />
       <Check
-        label="Center view on cross-probed items"
+        label={_('Center view on cross-probed items')}
         title={`Ensures that cross-probed ${
           sch ? 'footprints' : 'symbols'
         } are visible in the current view`}
@@ -73,7 +74,7 @@ export function CrossProbingGroup({
         }
       />
       <Check
-        label="Zoom to fit cross-probed items"
+        label={_('Zoom to fit cross-probed items')}
         checked={value.zoom_to_fit}
         disabled={disabled}
         onChange={(v) =>
@@ -83,7 +84,7 @@ export function CrossProbingGroup({
         }
       />
       <Check
-        label="Highlight cross-probed nets"
+        label={_('Highlight cross-probed nets')}
         title={`Highlight nets when they are highlighted in the ${
           sch ? 'schematic' : 'PCB'
         } editor`}
@@ -96,8 +97,8 @@ export function CrossProbingGroup({
         }
       />
       <Check
-        label="Flash cross-probed selection"
-        title="Temporarily flash the newly cross-probed selection 3 times"
+        label={_('Flash cross-probed selection')}
+        title={_('Temporarily flash the newly cross-probed selection 3 times')}
         checked={value.flash_selection}
         disabled={disabled}
         onChange={(v) =>

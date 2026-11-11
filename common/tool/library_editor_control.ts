@@ -26,6 +26,7 @@ import { SELECTION_CONDITIONS } from './selection_conditions.js';
 import type { RESET_REASON } from './tool_base.js';
 import type { TOOL_EVENT } from './tool_event.js';
 import { SYNC_HANDLER, TOOL_INTERACTIVE } from './tool_interactive.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `wxString::Trim( true ).Trim( false )`: wx's Trim strips `" \t\r\n"` (and
@@ -41,7 +42,7 @@ function wxTrimBoth(aText: string): string {
  * runs the validator on the trimmed text and stays open when it says no.
  */
 export class RENAME_DIALOG {
-  static readonly MESSAGE = 'New name:';
+  static readonly MESSAGE = _HKI('New name:');
 
   /**
    * @param m_validator may itself ask a modal question — FOOTPRINT_EDITOR_CONTROL's

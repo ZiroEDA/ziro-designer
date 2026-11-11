@@ -6,6 +6,7 @@ import { type JSX, useEffect, useRef, useState } from 'react';
 import type { ProgressSnapshot } from './progress_reporter_snapshot.js';
 import { PROGRESS_REPORTER_BASE } from './progress_reporter_base.js';
 import { useModalEscape } from '../dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * WX_PROGRESS_REPORTER's dialog (common/widgets/wx_progress_reporters.cpp:37-48),
@@ -139,7 +140,7 @@ function ProgressDialogWindow({
         </div>
         {onCancel && (
           <div className="ze-modal-footer">
-            <Button label="Cancel" disabled={cancelled} onClick={cancel} />
+            <Button label={_('Cancel')} disabled={cancelled} onClick={cancel} />
           </div>
         )}
       </div>

@@ -16,6 +16,7 @@ import { wxItemKind, type wxMenuEvent } from '@ziroeda/wx/menu.js';
 import { ACTION_MENU } from './action_menu.js';
 import { ACTIONS } from './actions.js';
 import type { TOOL_EVENT } from './tool_event.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** What GRID_MENU asks of `EDA_DRAW_FRAME`. */
 export interface GRID_MENU_PARENT {
@@ -38,7 +39,7 @@ export class GRID_MENU extends ACTION_MENU {
   }
 
   override UpdateTitle(): void {
-    this.SetTitle('Grid');
+    this.SetTitle(_('Grid'));
   }
 
   static BuildChoiceList(

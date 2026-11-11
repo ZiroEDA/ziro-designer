@@ -32,6 +32,7 @@ import { useModalEscape } from '../dialog_shim.js';
 import { wxGridSelectionModes } from '@ziroeda/wx/grid.js';
 import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import { useStringGrid } from '../widgets/wx_grid.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 /** INITIAL_HELP (dialog_plugin_options.cpp:35-37). */
 export const INITIAL_HELP =
@@ -89,7 +90,7 @@ export function DIALOG_PLUGIN_OPTIONS({
   const [choice, setChoice] = useState<string | null>(null);
 
   const { grid, tricks, onUpdate } = useStringGrid<Row>({
-    labels: ['Option', 'Value'],
+    labels: [wxGetTranslation('Option'), wxGetTranslation('Value')],
     mode: wxGridSelectionModes.wxGridSelectRows,
     rows,
     toCells: (r) => [r.name, r.value],
@@ -128,7 +129,7 @@ export function DIALOG_PLUGIN_OPTIONS({
       className="ze-pluginopts"
     >
       <div className="ze-pluginopts-upper">
-        <StaticBox label="Plugin Options" className="ze-pluginopts-grid">
+        <StaticBox label={wxGetTranslation('Plugin Options')} className="ze-pluginopts-grid">
           <div className="ze-grid-pane ze-pluginopts-gridpane">
             <WxGridView
               grid={grid}
@@ -149,18 +150,18 @@ export function DIALOG_PLUGIN_OPTIONS({
             <span className="ze-pluginopts-btngap" />
             <StdBitmapButton
               bitmap="small_trash"
-              title="Delete row"
+              title={wxGetTranslation('Delete row')}
               tooltip={null}
               onClick={() => grid.OnDeleteRows((row) => grid.DeleteRows(row, 1))}
             />
           </div>
         </StaticBox>
-        <StaticBox label="Option Choices" className="ze-pluginopts-choices">
+        <StaticBox label={wxGetTranslation('Option Choices')} className="ze-pluginopts-choices">
           <div
             className="ze-checklistbox ze-pluginopts-list"
             role="listbox"
-            aria-label="Option Choices"
-            title="Options supported by current plugin"
+            aria-label={wxGetTranslation('Option Choices')}
+            title={wxGetTranslation('Options supported by current plugin')}
           >
             {choices.map((c) => (
               <div
@@ -183,7 +184,7 @@ export function DIALOG_PLUGIN_OPTIONS({
             className="ze-btn ze-pluginopts-append"
             onClick={() => grid.OnAddRow(() => [appendOption(), -1])}
           >
-            {'<<    Append Selected Option'}
+            {wxGetTranslation('<<    Append Selected Option')}
           </button>
           <span className="ze-pluginopts-spacer" />
           <HtmlWindow className="ze-pluginopts-html" html={help} />

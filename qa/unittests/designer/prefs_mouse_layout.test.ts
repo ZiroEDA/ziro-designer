@@ -107,7 +107,8 @@ describe('Drag Gestures is a three-column flex grid', () => {
     expect(PANEL).toContain('Pan on mouse movement with key:');
     // `{ None, Alt, Ctrl, Shift }` (`:165`), in that order.
     expect(PANEL).toMatch(
-      /\['none', 'None'\],\s*\['alt', 'Alt'\],\s*\['ctrl', 'Ctrl'\],\s*\['shift', 'Shift'\]/,
+      // Stored English and translated where the choice draws them (_HKI).
+      /\['none', _HKI\('None'\)\],\s*\['alt', _HKI\('Alt'\)\],\s*\['ctrl', _HKI\('Ctrl'\)\],\s*\['shift', _HKI\('Shift'\)\]/,
     );
   });
 
@@ -261,7 +262,7 @@ describe('the rows nothing reads are disabled', () => {
     ['Zoom:', 'scroll_modifier_zoom'],
     ['Pan left/right:', 'scroll_modifier_pan_h'],
   ])('%s is live, and bound to %s', (label, setting) => {
-    const at = CODE.indexOf(`label="${label}"`);
+    const at = CODE.indexOf(`label={_('${label}')}`);
     expect(at, label).toBeGreaterThan(-1);
     const p = CODE.slice(at, CODE.indexOf('/>', at));
     expect(p, label).toContain(setting);

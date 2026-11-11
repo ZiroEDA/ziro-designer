@@ -40,6 +40,8 @@ import {
   validateUnitValue,
 } from '../widgets/unit_binder.js';
 import type { EdaIuScale } from '../eda_units.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `m_gridSizeX.Validate( 0.001, 1000.0, EDA_UNITS::MM )`
@@ -52,12 +54,12 @@ import type { EdaIuScale } from '../eda_units.js';
 const GRID_RANGE_MM = { min: 0.001, max: 1000.0 };
 
 /** `_( "Grid size X out of range." )` (`dialog_grid_settings.cpp:83`). */
-const X_OUT_OF_RANGE = 'Grid size X out of range.';
+const X_OUT_OF_RANGE = _HKI('Grid size X out of range.');
 /** `_( "Grid size Y out of range." )` (`dialog_grid_settings.cpp:89`). */
-const Y_OUT_OF_RANGE = 'Grid size Y out of range.';
+const Y_OUT_OF_RANGE = _HKI('Grid size Y out of range.');
 
 /** `DIALOG_GRID_SETTINGS_BASE`'s default title (`dialog_grid_settings_base.h:57`). */
-export const GRID_SETTINGS_TITLE = 'Grid Settings';
+export const GRID_SETTINGS_TITLE = _HKI('Grid Settings');
 
 export interface DialogGridSettingsProps {
   /**
@@ -158,7 +160,7 @@ export function DialogGridSettings({
     >
       <div className="ze-gs-body">
         <label className="ze-gs-label" htmlFor="ze-gs-name">
-          Name:
+          {_('Name:')}
         </label>
         <input
           id="ze-gs-name"
@@ -170,10 +172,10 @@ export function DialogGridSettings({
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.stopPropagation()}
         />
-        <span className="ze-gs-unit">(optional)</span>
+        <span className="ze-gs-unit">{_('(optional)')}</span>
 
         <label className="ze-gs-label" htmlFor="ze-gs-x">
-          X:
+          {_('X:')}
         </label>
         <input
           id="ze-gs-x"
@@ -193,12 +195,12 @@ export function DialogGridSettings({
             // nothing else — the Y value itself is left alone.
             onChange={(e) => setLinked(e.target.checked)}
           />
-          Linked
+          {_('Linked')}
         </label>
         <span />
 
         <label className="ze-gs-label" htmlFor="ze-gs-y">
-          Y:
+          {_('Y:')}
         </label>
         <input
           id="ze-gs-y"
@@ -213,7 +215,7 @@ export function DialogGridSettings({
       {/* `wxStdDialogButtonSizer` — OK then Cancel, laid out by the platform;
         every other dialog here renders it through `.ze-modal-footer`. */}
       <div className="ze-modal-footer">
-        <Button label="Cancel" onClick={onCancel} />
+        <Button label={_('Cancel')} onClick={onCancel} />
         <Button label="OK" isDefault onClick={accept} />
       </div>
     </DialogShim>

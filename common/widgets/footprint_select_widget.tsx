@@ -20,6 +20,7 @@
 import type { JSX } from 'react';
 import { FootprintChoice } from './footprint_choice.js';
 import type { OwnerDrawnItem } from '@ziroeda/wx/odcombo.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface FootprintSelectWidgetProps {
   /** The symbol's default footprint LIB_ID text ('' = none). */
@@ -56,7 +57,9 @@ export function footprintChoiceItems(
   defaultFootprint: string,
   items: readonly string[],
 ): OwnerDrawnItem[] {
-  const defaultLabel = defaultFootprint ? `[Default] ${defaultFootprint}` : 'No default footprint';
+  const defaultLabel = defaultFootprint
+    ? `[Default] ${defaultFootprint}`
+    : _('No default footprint');
 
   return [
     { label: defaultLabel, value: defaultFootprint },

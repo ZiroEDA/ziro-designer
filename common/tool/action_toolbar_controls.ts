@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -41,23 +42,23 @@ export const TOOLBAR_CONTROLS: Readonly<Record<string, ToolbarControlInfo>> = {
   // common/tool/action_toolbar.cpp:1222-1280
   gridSelect: {
     name: 'control.GridSelector',
-    uiName: 'Grid selector',
-    description: 'Grid Selection box',
+    uiName: _HKI('Grid selector'),
+    description: _HKI('Grid Selection box'),
   },
   zoomSelect: {
     name: 'control.ZoomSelector',
-    uiName: 'Zoom selector',
-    description: 'Zoom Selection box',
+    uiName: _HKI('Zoom selector'),
+    description: _HKI('Zoom Selection box'),
   },
   layerSelector: {
     name: 'control.LayerSelector',
-    uiName: 'Layer selector',
-    description: 'Control to select the layer',
+    uiName: _HKI('Layer selector'),
+    description: _HKI('Control to select the layer'),
   },
   overrideLocks: {
     name: 'control.OverrideLocks',
-    uiName: 'Override locks',
-    description: 'Allow moving of locked items with the mouse',
+    uiName: _HKI('Override locks'),
+    description: _HKI('Allow moving of locked items with the mouse'),
   },
   // action_toolbar.cpp:1262-1272. The Symbol Editor's top bar appends both
   // (`toolbars_symbol_editor.cpp:146-147`), and without them the Toolbars page
@@ -66,40 +67,40 @@ export const TOOLBAR_CONTROLS: Readonly<Record<string, ToolbarControlInfo>> = {
   // like, and it looks like a bug because it is one.
   unitSelector: {
     name: 'control.UnitSelector',
-    uiName: 'Symbol unit selector',
-    description: 'Displays the current unit',
+    uiName: _HKI('Symbol unit selector'),
+    description: _HKI('Displays the current unit'),
   },
   bodyStyleSelector: {
     name: 'control.BodyStyleSelector',
-    uiName: 'Symbol body style selector',
-    description: 'Displays the current body style',
+    uiName: _HKI('Symbol body style selector'),
+    description: _HKI('Displays the current body style'),
   },
   // pcbnew/toolbars_pcb_editor.cpp:127-138
   trackWidth: {
     name: 'control.PCBTrackWidth',
-    uiName: 'Track width selector',
-    description: 'Control to select the track width',
+    uiName: _HKI('Track width selector'),
+    description: _HKI('Control to select the track width'),
   },
   viaDiameter: {
     name: 'control.PCBViaDia',
-    uiName: 'Via diameter selector',
-    description: 'Control to select the via diameter',
+    uiName: _HKI('Via diameter selector'),
+    description: _HKI('Control to select the via diameter'),
   },
   currentVariant: {
     name: 'control.PCBCurrentVariant',
-    uiName: 'Current variant',
-    description: 'Control to select the current variant',
+    uiName: _HKI('Current variant'),
+    description: _HKI('Control to select the current variant'),
   },
   // pagelayout_editor/toolbars_pl_editor.cpp:176-183
   originSelector: {
     name: 'control.OriginSelector',
-    uiName: 'Origin selector',
-    description: 'Select the origin of the status bar coordinates',
+    uiName: _HKI('Origin selector'),
+    description: _HKI('Select the origin of the status bar coordinates'),
   },
   pageSelect: {
     name: 'control.PageSelect',
-    uiName: 'Page selector',
-    description: 'Select the page to simulate item displays',
+    uiName: _HKI('Page selector'),
+    description: _HKI('Select the page to simulate item displays'),
   },
 };
 

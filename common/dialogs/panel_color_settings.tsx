@@ -81,6 +81,8 @@ import type { Color4d } from '../index.js';
 import type { ColorThemeContents } from '../settings/color_theme_file.js';
 import { Sel } from './pref_controls.js';
 import { BUILTIN_THEMES } from '../settings/builtin_color_themes.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // ---------------------------------------------------------------------------
 // Folded in from ColorThemeChoice.tsx (09-26): upstream this is the same
@@ -126,7 +128,7 @@ const dropdownName = (name: string, readOnly: boolean): string =>
  * parameter here and not part of the list.
  */
 export const THEME_SEPARATOR = '---';
-export const NEW_THEME = 'New Theme...';
+export const NEW_THEME = _HKI('New Theme...');
 
 export function colorThemeOptions(
   installed: readonly { id: string; name: string }[],
@@ -409,7 +411,7 @@ export function PanelColorSettings({
         <div className="ze-colorpage-controls">
           <ColorThemeChoice
             installed={installedThemes}
-            label="Theme:"
+            label={_('Theme:')}
             /* `GetSettingsDropdownName` appends " (read-only)" to every theme
              whose file cannot be written (`panel_color_settings.cpp:391-398`). */
             markReadOnly
@@ -426,8 +428,10 @@ export function PanelColorSettings({
              THEME, so it is live only while a writable one is selected —
              `m_optOverrideColors->Enable( !settings->IsReadOnly() )`. */
             <Check
-              label="Override individual item colors"
-              title="Show all items in their default color even if they have specific colors set in their properties."
+              label={_('Override individual item colors')}
+              title={_(
+                'Show all items in their default color even if they have specific colors set in their properties.',
+              )}
               checked={overrideColors}
               disabled={!overrideColorsEnabled}
               onChange={(v) => onOverrideColorsChange?.(v)}
@@ -436,9 +440,9 @@ export function PanelColorSettings({
           <span className="ze-spacer" />
           {/* `m_btnOpenFolder`. */}
           <Button
-            label="Open Theme Folder"
+            label={_('Open Theme Folder')}
             disabled={!themeIo}
-            title="Open the folder containing color themes"
+            title={_('Open the folder containing color themes')}
             onClick={() => void openThemeFolder()}
           />
         </div>
@@ -468,8 +472,8 @@ export function PanelColorSettings({
       </div>
       {themeIo && naming && (
         <WxTextEntryDialog
-          caption="Add Color Theme"
-          message="New theme name:"
+          caption={_('Add Color Theme')}
+          message={_('New theme name:')}
           validator={new FOOTPRINT_NAME_VALIDATOR()}
           onCancel={() => setNaming(false)}
           onConfirm={(name) => {
@@ -493,7 +497,7 @@ export function PanelColorSettings({
         />
       )}
       {nameTaken && (
-        <MessageDialogOk message="Theme already exists!" onClose={() => setNameTaken(false)} />
+        <MessageDialogOk message={_('Theme already exists!')} onClose={() => setNameTaken(false)} />
       )}
       {themeIo && folderOpen && (
         <ThemeFolderDialog

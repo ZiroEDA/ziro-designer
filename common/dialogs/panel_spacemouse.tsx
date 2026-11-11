@@ -61,6 +61,7 @@ import type { JSX } from 'react';
 import { Check, Group } from './pref_controls.js';
 import { Slider } from '../widgets/slider.js';
 import type { COMMON_SETTINGS_DRAFT } from '../settings/common_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function PanelSpacemouse({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Element {
   const { common, upC } = ctx;
@@ -71,16 +72,16 @@ export function PanelSpacemouse({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.El
        ZERO, so the page takes its own best width and aligns left rather than
        stretching to the panel. The same construct as Mouse and Touchpad. */
     <div className="ze-pref-page-natural">
-      <Group title="Pan and Rotate">
+      <Group title={_('Pan and Rotate')}>
         <div className="ze-spacemouse-grid">
-          <span className="lbl">Rotation speed:</span>
+          <span className="lbl">{_('Rotation speed:')}</span>
           <Slider
             min={1}
             max={10}
             value={sm.rotate_speed}
             /* `m_rotationSpeed->SetToolTip(…)` (`:40`) — upstream's own words,
                odd as they are for a rotation control. */
-            title="How far to zoom in for each rotation of the mouse wheel"
+            title={_('How far to zoom in for each rotation of the mouse wheel')}
             ariaLabel="Rotation speed"
             disabled
             onChange={(v) =>
@@ -92,8 +93,8 @@ export function PanelSpacemouse({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.El
           {/* `wxGBSpan( 1, 2 )` — the checkboxes cross both columns. */}
           <div className="gb-span">
             <Check
-              label="Reverse rotation direction"
-              title="Swap the direction of rotation"
+              label={_('Reverse rotation direction')}
+              title={_('Swap the direction of rotation')}
               checked={sm.reverse_rotate}
               disabled
               onChange={(v) =>
@@ -105,12 +106,12 @@ export function PanelSpacemouse({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.El
           </div>
           {/* Row 2 of the grid bag sizer, which is empty. */}
           <div className="gb-empty" />
-          <span className="lbl">Pan speed:</span>
+          <span className="lbl">{_('Pan speed:')}</span>
           <Slider
             min={1}
             max={10}
             value={sm.pan_speed}
-            title="How fast to pan when moving an object off the edge of the screen"
+            title={_('How fast to pan when moving an object off the edge of the screen')}
             ariaLabel="Pan speed"
             disabled
             onChange={(v) =>
@@ -121,7 +122,7 @@ export function PanelSpacemouse({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.El
           />
           <div className="gb-span">
             <Check
-              label="Reverse vertical pan direction"
+              label={_('Reverse vertical pan direction')}
               checked={sm.reverse_pan_y}
               disabled
               onChange={(v) =>
@@ -135,7 +136,7 @@ export function PanelSpacemouse({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.El
               its own. */}
           <div className="gb-span gb-top3">
             <Check
-              label="Reverse horizontal pan direction"
+              label={_('Reverse horizontal pan direction')}
               checked={sm.reverse_pan_x}
               disabled
               onChange={(v) =>
@@ -149,7 +150,7 @@ export function PanelSpacemouse({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.El
           <div className="gb-empty" />
           <div className="gb-span">
             <Check
-              label="Reverse zoom direction"
+              label={_('Reverse zoom direction')}
               checked={sm.reverse_zoom}
               disabled
               onChange={(v) =>

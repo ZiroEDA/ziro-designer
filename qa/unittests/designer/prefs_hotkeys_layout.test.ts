@@ -64,7 +64,7 @@ describe('the list is the wxTreeListCtrl, at its declared widths', () => {
   it('names the columns as upstream names them', () => {
     expect(CODE).toContain('Command (double-click to edit)');
     // `readOnly` drops the instruction: `command_header = _( "Command" )`.
-    expect(CODE).toContain("readOnly ? 'Command'");
+    expect(CODE).toContain("readOnly ? _('Command')");
     for (const h of ['Hotkey', 'Alternate', 'Description']) expect(CODE).toContain(h);
   });
 

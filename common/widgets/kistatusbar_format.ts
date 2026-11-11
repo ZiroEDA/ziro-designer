@@ -23,6 +23,7 @@ import {
   PCB_IU_PER_MM,
   unitLabelText,
 } from '../index.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The DPI GAL assumes when it converts a view scale to a zoom factor
@@ -220,9 +221,9 @@ export function angleSnapModeOf(toggles: ReadonlySet<string>): AngleSnapMode {
 export function constraintsMsg(mode: AngleSnapMode): string {
   switch (mode) {
     case 'deg45':
-      return 'Constrain to H, V, 45';
+      return _('Constrain to H, V, 45');
     case 'deg90':
-      return 'Constrain to H, V';
+      return _('Constrain to H, V');
     default:
       return '';
   }

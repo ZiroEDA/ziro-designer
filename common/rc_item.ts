@@ -28,6 +28,7 @@ import {
 import { brightness as colorBrightness, type Color4d } from './gal/color4d.js';
 import type { UNITS_PROVIDER } from './units_provider.js';
 import { toUserUnit } from './eda_units.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * Provide a set of #RC_ITEMs (for populating a #RC_TREE_MODEL).
@@ -680,12 +681,12 @@ export class RC_TREE_MODEL {
 
           if (severity === RPT_SEVERITY_EXCLUSION) {
             if (this.m_editFrame.GetSeverity(rcItem.GetErrorCode()) === RPT_SEVERITY_WARNING)
-              msg = 'Excluded warning: ';
-            else msg = 'Excluded error: ';
+              msg = _('Excluded warning: ');
+            else msg = _('Excluded error: ');
           } else if (severity === RPT_SEVERITY_WARNING) {
-            msg = 'Warning: ';
+            msg = _('Warning: ');
           } else {
-            msg = 'Error: ';
+            msg = _('Error: ');
           }
         }
 
@@ -694,7 +695,7 @@ export class RC_TREE_MODEL {
 
       case RC_TREE_NODE_TYPE.MAIN_ITEM:
         if (marker && marker.GetMarkerType() === MARKER_T.MARKER_DRAWING_SHEET)
-          msg = 'Drawing Sheet';
+          msg = _('Drawing Sheet');
         else item = this.m_editFrame.ResolveItem(rcItem.GetMainItemID());
 
         break;

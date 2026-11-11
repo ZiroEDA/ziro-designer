@@ -146,6 +146,7 @@
 import { openModalCount } from '../dialog_shim.js';
 import { isTypingTarget, type FocusLike } from '../browser_hotkeys.js';
 import type { Menu, MenuItem } from '@ziroeda/wx/menu.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A parsed accelerator: the modifier set, and the key it wants. */
 export interface Accelerator {
@@ -170,8 +171,8 @@ export interface Accelerator {
  * accepted so a shortcut written either way dispatches.
  */
 export const NAMED_KEYS: Readonly<Record<string, string>> = {
-  del: 'Delete',
-  delete: 'Delete',
+  del: _HKI('Delete'),
+  delete: _HKI('Delete'),
   esc: 'Escape',
   escape: 'Escape',
   space: ' ',

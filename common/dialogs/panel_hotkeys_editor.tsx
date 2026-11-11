@@ -41,6 +41,7 @@ import type { HotkeyOverrides, HotkeySection } from '../hotkey_store.js';
 import { importOntoNames, parseHotkeyFile } from '../hotkeys_basic_file.js';
 import { WidgetHotkeyList } from '../widgets/widget_hotkey_list.js';
 import { ButtonRowPanel } from '../widgets/button_row_panel.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 interface Props {
   /**
@@ -125,7 +126,7 @@ export function PanelHotkeysEditor({
           ref={searchRef}
           className="ze-tplsel-nameinput ze-bare"
           type="text"
-          placeholder="Type filter text"
+          placeholder={_('Type filter text')}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           // The panel can live inside the editor, whose global handler would
@@ -147,14 +148,15 @@ export function PanelHotkeysEditor({
           <ButtonRowPanel
             left={[
               {
-                text: 'Undo All Changes',
-                tooltip: 'Undo all changes made so far in this dialog',
+                text: _('Undo All Changes'),
+                tooltip: _('Undo all changes made so far in this dialog'),
                 onClick: undoAllChanges,
               },
               {
-                text: 'Import Hotkeys...',
-                tooltip:
+                text: _('Import Hotkeys...'),
+                tooltip: _(
                   'Import hotkey definitions from an external file, replacing the current values',
+                ),
                 onClick: () => fileRef.current?.click(),
               },
             ]}

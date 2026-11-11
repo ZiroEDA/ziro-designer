@@ -32,6 +32,7 @@ import { MessageDialogOk } from '../dialogs/dialog_message.js';
 import { DialogShim } from '../dialog_shim.js';
 import { HtmlWindow } from '../widgets/html_window.js';
 import type { ABOUT_APP_INFO, CONTRIBUTORS } from './aboutinfo.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `enum class IMAGES`, in the order the constructor fills the image list. */
 export const IMAGES = {
@@ -101,20 +102,25 @@ export function createNotebooks(info: ABOUT_APP_INFO, untranslatedTitle: string)
     selectable: true,
   });
   return [
-    { caption: 'About', icon: IMAGES.INFORMATION, html: info.GetDescription(), selectable: false },
     {
-      caption: 'Version',
+      caption: _('About'),
+      icon: IMAGES.INFORMATION,
+      html: info.GetDescription(),
+      selectable: false,
+    },
+    {
+      caption: _('Version'),
       icon: IMAGES.VERSION,
       html: GetVersionInfoData(untranslatedTitle, true),
       selectable: true,
     },
-    byCategory('Developers', IMAGES.DEVELOPERS, info.GetDevelopers()),
-    byCategory('Doc Writers', IMAGES.DOCWRITERS, info.GetDocWriters()),
-    byCategory('Librarians', IMAGES.LIBRARIANS, info.GetLibrarians()),
-    byCategory('Artists', IMAGES.ARTISTS, info.GetArtists()),
-    byCategory('Translators', IMAGES.TRANSLATORS, info.GetTranslators()),
-    byCategory('Packagers', IMAGES.PACKAGERS, info.GetPackagers()),
-    { caption: 'License', icon: IMAGES.LICENSE, html: info.GetLicense(), selectable: false },
+    byCategory(_('Developers'), IMAGES.DEVELOPERS, info.GetDevelopers()),
+    byCategory(_('Doc Writers'), IMAGES.DOCWRITERS, info.GetDocWriters()),
+    byCategory(_('Librarians'), IMAGES.LIBRARIANS, info.GetLibrarians()),
+    byCategory(_('Artists'), IMAGES.ARTISTS, info.GetArtists()),
+    byCategory(_('Translators'), IMAGES.TRANSLATORS, info.GetTranslators()),
+    byCategory(_('Packagers'), IMAGES.PACKAGERS, info.GetPackagers()),
+    { caption: _('License'), icon: IMAGES.LICENSE, html: info.GetLicense(), selectable: false },
   ];
 }
 
@@ -173,18 +179,20 @@ export function DIALOG_ABOUT({
           <span className="ze-about-bitmap">{appIcon !== '' && <img src={appIcon} alt="" />}</span>
           <div className="ze-about-apptitle">
             <div className="ze-about-name">{titleName}</div>
-            <div className="ze-about-build">Version: {info.GetBuildVersion()}</div>
+            <div className="ze-about-build">
+              {_('Version:')} {info.GetBuildVersion()}
+            </div>
             <div className="ze-about-lib">{info.GetLibVersion()}</div>
           </div>
           <div className="ze-about-actions">
             <span className="ze-about-spacer" />
             <Button
-              label={copied ? 'Copied...' : 'Copy Version Info'}
+              label={copied ? _('Copied...') : _('Copy Version Info')}
               title={`Copy ${PRODUCT} version info to the clipboard`}
               onClick={onCopyVersionInfo}
             />
             <Button
-              label="Report Bug"
+              label={_('Report Bug')}
               title={`Report a problem with ${PRODUCT}`}
               onClick={reportBug}
             />
@@ -247,8 +255,8 @@ export function DIALOG_ABOUT({
       </DialogShim>
       {clipboardError && (
         <MessageDialogOk
-          caption="Clipboard Error"
-          message="Could not open clipboard to write version information."
+          caption={_('Clipboard Error')}
+          message={_('Could not open clipboard to write version information.')}
           icon="warning"
           onClose={() => setClipboardError(false)}
         />

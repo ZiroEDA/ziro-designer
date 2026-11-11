@@ -61,6 +61,8 @@
  * separate histories, when those branches land.
  */
 import type { MenuItem } from '@ziroeda/wx/menu.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `MAX_FILE_HISTORY_SIZE` (`include/id.h:50`). The hard ceiling the
@@ -83,17 +85,19 @@ export const MAX_FILE_HISTORY_SIZE = 99;
 export const DEFAULT_FILE_HISTORY_SIZE = 9;
 
 /** `m_clearText`'s default (`include/file_history.h:52`). */
-export const DEFAULT_CLEAR_TEXT = 'Clear Recent Files';
+export const DEFAULT_CLEAR_TEXT = _HKI('Clear Recent Files');
 
 /**
  * The `ID_FILE_LIST_EMPTY` placeholder's label (`file_history.cpp:151`).
  * Reachable only in theory — see (3) above.
  */
-export const NO_FILES_LABEL = 'No Files';
+export const NO_FILES_LABEL = _HKI('No Files');
 
 /** `EDA_BASE_FRAME::GetFileFromHistory`'s dialog, :1503-1509. */
 export const missingFileMessage = (name: string): string => `File '${name}' was not found.\n`;
-export const MISSING_FILE_EXTENDED = 'Do you want to remove it from list of recently opened files?';
+export const MISSING_FILE_EXTENDED = _HKI(
+  'Do you want to remove it from list of recently opened files?',
+);
 
 /**
  * One row. Upstream a row is a bare `wxString` path; a browser tab cannot
@@ -363,7 +367,7 @@ export function openRecentMenuItem(opts: OpenRecentMenuOptions): MenuItem {
   rows.push({ label: opts.clearText ?? DEFAULT_CLEAR_TEXT, action: opts.onClear });
 
   return {
-    label: 'Open Recent',
+    label: wxGetTranslation('Open Recent'),
     icon: 'recent',
     disabled: files.length === 0,
     submenu: rows,

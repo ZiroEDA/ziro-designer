@@ -18,6 +18,7 @@ import { SizerItem } from '@ziroeda/wx/sizer.js';
 import { wxMatches } from '@ziroeda/wx/utils.js';
 import { type JSX, useEffect, useRef, useState } from 'react';
 import { EDA_LIST_DIALOG_BASE } from './eda_list_dialog_base.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 /** `DEFAULT_SINGLE_COL_WIDTH` / `DEFAULT_COL_WIDTHS` (eda_list_dialog.cpp:37-38). [data] */
 const DEFAULT_SINGLE_COL_WIDTH = 260;
@@ -101,7 +102,7 @@ export function EdaListDialog({
   title,
   headers,
   rows,
-  listLabel = 'Items:',
+  listLabel = wxGetTranslation('Items:'),
   showFilter = false,
   sortList = false,
   initialValue,

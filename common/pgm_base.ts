@@ -17,7 +17,7 @@ import { PROJECT_VAR_NAME } from './project.js';
 import type { COMMON_SETTINGS_ENVIRONMENT } from './settings/common_settings.js';
 import { ENV_VAR_MAP } from './settings/environment.js';
 import { wxGetEnv, wxSetEnv } from '@ziroeda/wx/utils.js';
-import { wxMsgCatalog, type wxMsgCatalogData, wxTranslations } from '@ziroeda/wx/translation.js';
+import { _, type wxMsgCatalogData, wxMsgCatalog, wxTranslations } from '@ziroeda/wx/translation.js';
 import type { COLOR_SETTINGS } from './settings/color_settings.js';
 
 /** `COMMON_SETTINGS`, the slice the GAL, the panel and the view controls read. */
@@ -101,6 +101,7 @@ export interface COMMON_SETTINGS_INPUT {
 export { DEFAULT_THEME, SETTINGS_MANAGER } from './settings/settings_manager.js';
 import { SETTINGS_MANAGER } from './settings/settings_manager.js';
 import { LIBRARY_MANAGER } from './libraries/library_manager.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `::GetColorSettings( aName )`: `Pgm().GetSettingsManager().GetColorSettings( aName )`. */
 export function GetColorSettings(aName: string): COLOR_SETTINGS {
@@ -331,7 +332,7 @@ export const LanguagesList: readonly LanguageDescr[] = [
   {
     wxLang: 'wxLANGUAGE_DEFAULT',
     kiId: 'ID_LANGUAGE_DEFAULT',
-    label: 'Default',
+    label: _HKI('Default'),
     doNotTranslate: false,
     catalog: '',
   },
@@ -649,7 +650,7 @@ export const LanguagesList: readonly LanguageDescr[] = [
  * `system.language`'s default (common/settings/common_settings.cpp:355-356),
  * which is the first row of `LanguagesList`.
  */
-export const DEFAULT_LANGUAGE = 'Default';
+export const DEFAULT_LANGUAGE = _HKI('Default');
 
 /** The row a stored `system.language` names, as `SetLanguage` searches for it. */
 export function languageDescrOf(aLabel: string): LanguageDescr | undefined {
@@ -668,7 +669,7 @@ const descrOfCatalog = (aCatalog: string): LanguageDescr =>
 // biome-ignore format: a region list reads better packed
 const LATIN_AMERICAN_SPANISH = new Set([
   '419', 'MX', 'AR', 'BO', 'CL', 'CO', 'CR', 'CU', 'DO', 'EC', 'SV', 'GT', 'HN',
-  'NI', 'PA', 'PY', 'PE', 'PR', 'UY', 'VE', 'US',
+  'NI', _HKI('PA'), 'PY', 'PE', 'PR', 'UY', 'VE', 'US',
 ]);
 
 /**
@@ -778,7 +779,7 @@ export async function SetLanguage(
     data = await aLoad(descr.catalog);
   } catch (e) {
     if (s_requested === descr.catalog) translations.SetCatalog(null);
-    throw new Error('The KiCad language file for this language is not installed.', { cause: e });
+    throw new Error(_('The KiCad language file for this language is not installed.'), { cause: e });
   }
   // A later call asked for something else while this one was on the wire.
   if (s_requested !== descr.catalog) return descr;

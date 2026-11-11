@@ -35,6 +35,7 @@
  */
 
 import type { JSX } from 'react';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // The rule table the panel is built from, and its severities. This sat in a
 // separate `severity_items.ts` because qa could not compile `.tsx`; it can, and
@@ -96,9 +97,9 @@ interface Props {
 
 /** `wxString severities[] = { _( "Error" ), _( "Warning" ), _( "Ignore" ) }` (:44). */
 const LEVELS: { id: SetupSeverity; label: string }[] = [
-  { id: 'error', label: 'Error' },
-  { id: 'warning', label: 'Warning' },
-  { id: 'ignore', label: 'Ignore' },
+  { id: 'error', label: _HKI('Error') },
+  { id: 'warning', label: _HKI('Warning') },
+  { id: 'ignore', label: _HKI('Ignore') },
 ];
 
 export function PanelSetupSeverities({

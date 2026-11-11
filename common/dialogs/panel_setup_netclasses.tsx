@@ -56,6 +56,8 @@ import { pcbIUScale, schIUScale } from '../eda_units.js';
 import { COLOR4D_UNSPECIFIED, type Color4d } from '../gal/color4d.js';
 import { NETCLASS } from '../netclass.js';
 import type { NET_SETTINGS } from '../project/net_settings.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The CSS colour the grid edits; `COLOR4D::UNSPECIFIED` is the blank. */
 function colorToCss(c: Color4d): string {
@@ -97,7 +99,9 @@ export const PANEL_SETUP_NETCLASSES = {
       wireThickness: nc.HasWireWidth() ? numStr(schIUScale.iuToMils(nc.GetWireWidth())) : '',
       busThickness: nc.HasBusWidth() ? numStr(schIUScale.iuToMils(nc.GetBusWidth())) : '',
       color: colorToCss(nc.GetSchematicColor(true)),
-      lineStyle: nc.HasLineStyle() ? (LINE_STYLES[nc.GetLineStyle()] ?? 'Solid') : 'Solid',
+      lineStyle: nc.HasLineStyle()
+        ? (LINE_STYLES[nc.GetLineStyle()] ?? wxGetTranslation('Solid'))
+        : wxGetTranslation('Solid'),
     });
 
     const rest = [...aSettings.GetNetclasses().values()].sort(
@@ -195,21 +199,21 @@ interface Props {
 
 /** The netclass grid's columns, in `GRID_*` order (`panel_setup_netclasses.cpp:52-73`). */
 const GRID_COLS: { label: string; key: keyof NetClass }[] = [
-  { label: 'Name', key: 'name' },
-  { label: 'Clearance', key: 'clearance' },
-  { label: 'Track Width', key: 'trackWidth' },
-  { label: 'Via Size', key: 'viaSize' },
-  { label: 'Via Hole', key: 'viaHole' },
-  { label: 'uVia Size', key: 'uviaSize' },
-  { label: 'uVia Hole', key: 'uviaHole' },
-  { label: 'DP Width', key: 'dpWidth' },
-  { label: 'DP Gap', key: 'dpGap' },
-  { label: 'Tuning Profile', key: 'tuningProfile' },
-  { label: 'PCB Color', key: 'pcbColor' },
-  { label: 'Wire Thickness', key: 'wireThickness' },
-  { label: 'Bus Thickness', key: 'busThickness' },
-  { label: 'Color', key: 'color' },
-  { label: 'Line Style', key: 'lineStyle' },
+  { label: _HKI('Name'), key: 'name' },
+  { label: _HKI('Clearance'), key: 'clearance' },
+  { label: _HKI('Track Width'), key: 'trackWidth' },
+  { label: _HKI('Via Size'), key: 'viaSize' },
+  { label: _HKI('Via Hole'), key: 'viaHole' },
+  { label: _HKI('uVia Size'), key: 'uviaSize' },
+  { label: _HKI('uVia Hole'), key: 'uviaHole' },
+  { label: _HKI('DP Width'), key: 'dpWidth' },
+  { label: _HKI('DP Gap'), key: 'dpGap' },
+  { label: _HKI('Tuning Profile'), key: 'tuningProfile' },
+  { label: _HKI('PCB Color'), key: 'pcbColor' },
+  { label: _HKI('Wire Thickness'), key: 'wireThickness' },
+  { label: _HKI('Bus Thickness'), key: 'busThickness' },
+  { label: _HKI('Color'), key: 'color' },
+  { label: _HKI('Line Style'), key: 'lineStyle' },
 ];
 
 const GRID_NAME = 0;
@@ -219,7 +223,7 @@ const GRID_SCHEMATIC_COLOR = 13;
 const GRID_LINESTYLE = 14;
 
 /** `NETCLASS::Default`. */
-const DEFAULT_NETCLASS = 'Default';
+const DEFAULT_NETCLASS = _HKI('Default');
 
 export function PanelSetupNetclasses({
   value,
@@ -258,7 +262,7 @@ export function PanelSetupNetclasses({
   });
 
   const asg = useStringGrid<NetClassAssignment>({
-    labels: ['Pattern', 'Net Class'],
+    labels: [wxGetTranslation('Pattern'), wxGetTranslation('Net Class')],
     mode: wxGridSelectionModes.wxGridSelectRows,
     rows: value.assignments,
     toCells: (a) => [a.pattern, a.netClass],
@@ -309,11 +313,11 @@ export function PanelSetupNetclasses({
       const tmp = e.GetString().trim();
       let error: string | null = null;
 
-      if (tmp === '') error = 'Netclass must have a name.';
+      if (tmp === '') error = wxGetTranslation('Netclass must have a name.');
 
       for (let ii = 0; ii < g.GetNumberRows() && error === null; ii++)
         if (ii !== row && g.GetCellValue(ii, GRID_NAME).toLowerCase() === tmp.toLowerCase())
-          error = 'Netclass name already in use.';
+          error = wxGetTranslation('Netclass name already in use.');
 
       if (error !== null) {
         e.Veto();
@@ -392,7 +396,7 @@ export function PanelSetupNetclasses({
     g.OnDeleteRows(
       (row) => {
         if (row === g.GetNumberRows() - 1) {
-          DisplayErrorMessage('The default net class is required.');
+          DisplayErrorMessage(wxGetTranslation('The default net class is required.'));
           return false;
         }
 
@@ -437,13 +441,13 @@ export function PanelSetupNetclasses({
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Netclasses grid */}
-      <div className="ze-pref-group-title">Netclasses</div>
+      <div className="ze-pref-group-title">{wxGetTranslation('Netclasses')}</div>
       <div className="ze-grid-pane" style={{ flex: '1 1 55%', minHeight: 80 }}>
         <WxGridView
           grid={nc.grid}
           tricks={nc.tricks}
           onUpdate={nc.onUpdate}
-          ariaLabel="Netclasses"
+          ariaLabel={wxGetTranslation('Netclasses')}
           renderCell={(row, col, css) =>
             col === GRID_PCB_COLOR || col === GRID_SCHEMATIC_COLOR ? colorCell(row, col, css) : null
           }
@@ -459,7 +463,7 @@ export function PanelSetupNetclasses({
         />
         <StdBitmapButton
           bitmap="small_up"
-          title="Move up"
+          title={wxGetTranslation('Move up')}
           tooltip={null}
           onClick={() =>
             nc.grid.OnMoveRowUp(
@@ -471,7 +475,7 @@ export function PanelSetupNetclasses({
         />
         <StdBitmapButton
           bitmap="small_down"
-          title="Move down"
+          title={wxGetTranslation('Move down')}
           tooltip={null}
           onClick={() =>
             nc.grid.OnMoveRowDown(
@@ -492,14 +496,14 @@ export function PanelSetupNetclasses({
         {/* `m_colorDefaultHelpText`; pcbnew relabels it (`:176-181`). */}
         <span>
           {isEEschema
-            ? 'Set color to transparent to use KiCad default color.'
-            : 'Set color to transparent to use layer default color.'}
+            ? wxGetTranslation('Set color to transparent to use KiCad default color.')
+            : wxGetTranslation('Set color to transparent to use layer default color.')}
         </span>
         {/* `m_importColorsButton`, hidden in eeschema. Stubbed: it copies net
             colours from the schematic's netclass definitions. */}
         {!isEEschema && (
           <Button
-            label="Import colors from schematic"
+            label={wxGetTranslation('Import colors from schematic')}
             title="Not implemented yet"
             className="ze-nc-importcolors"
           />
@@ -507,7 +511,7 @@ export function PanelSetupNetclasses({
       </div>
 
       {/* Assignments grid */}
-      <div className="ze-pref-group-title">Netclass Assignments</div>
+      <div className="ze-pref-group-title">{wxGetTranslation('Netclass Assignments')}</div>
       <div className="ze-grid-pane" style={{ flex: '1 1 45%', minHeight: 60 }}>
         <WxGridView
           grid={asg.grid}

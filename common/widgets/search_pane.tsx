@@ -49,6 +49,7 @@ import { SearchPaneTab } from './search_pane_tab.js';
 import type { SearchHandler, SearchPaneMenuState } from './search_pane_types.js';
 import type { APP_SETTINGS_BASE } from '../settings/app_settings.js';
 import { SEARCH_PANE, SEARCH_PANE_SELECTION_ZOOM } from '../settings/app_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The data types (`SearchColumnAlign`, `SearchColumn`, `SearchHandler`,
@@ -95,8 +96,8 @@ export function SearchPane({
   const menu: MenuItem[] = useMemo(
     () => [
       {
-        label: 'Zoom to Selection',
-        tooltip: 'Toggle zooming to selections in the search pane',
+        label: _('Zoom to Selection'),
+        tooltip: _('Toggle zooming to selections in the search pane'),
         checked: menuState.selectionZoom === 'zoom',
         action: () =>
           onMenuStateChange({
@@ -105,8 +106,8 @@ export function SearchPane({
           }),
       },
       {
-        label: 'Pan to Selection',
-        tooltip: 'Toggle panning to selections in the search pane',
+        label: _('Pan to Selection'),
+        tooltip: _('Toggle panning to selections in the search pane'),
         checked: menuState.selectionZoom === 'pan',
         action: () =>
           onMenuStateChange({
@@ -116,7 +117,7 @@ export function SearchPane({
       },
       { sep: true },
       {
-        label: 'Search Hidden Fields',
+        label: _('Search Hidden Fields'),
         checked: menuState.searchHiddenFields,
         action: () =>
           onMenuStateChange({
@@ -125,8 +126,8 @@ export function SearchPane({
           }),
       },
       {
-        label: 'Search Metadata',
-        tooltip: 'Search library links, descriptions and keywords',
+        label: _('Search Metadata'),
+        tooltip: _('Search library links, descriptions and keywords'),
         checked: menuState.searchMetadata,
         action: () =>
           onMenuStateChange({ ...menuState, searchMetadata: !menuState.searchMetadata }),
@@ -157,7 +158,7 @@ export function SearchPane({
           // SEARCH_PANE::FocusSearch is called whenever ACTIONS::showSearch
           // shows the pane, and the pane mounts exactly then.
           autoFocus
-          placeholder="Search"
+          placeholder={_('Search')}
           value={query}
           style={{ flex: 1, minWidth: 0 }}
           onChange={(e) => setQuery(e.target.value)}

@@ -49,6 +49,8 @@ import { MessageDialogError } from './dialog_message.js';
 import { gridChoiceLabel, gridEquals, type GridEntry } from '../settings/grid_settings_ui.js';
 import type { EdaUnits } from '../widgets/unit_binder.js';
 import type { EdaIuScale } from '../index.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // ---------------------------------------------------------------------------
 // Folded in from grid_settings_rows.ts (09-26): upstream this is the same
@@ -70,7 +72,11 @@ export type GridFrameType =
  * `m_gridsLabel`, `m_staticText21`, `m_overridesLabel`
  * (`common/dialogs/panel_grid_settings_base.cpp:25`, `:67`, `:109`).
  */
-export const GRID_GROUP_TITLES = ['Grids', 'Fast Grid Switching', 'Grid Overrides'] as const;
+export const GRID_GROUP_TITLES = [
+  _HKI('Grids'),
+  _HKI('Fast Grid Switching'),
+  _HKI('Grid Overrides'),
+] as const;
 
 /**
  * `PANEL_GRID_SETTINGS::PANEL_GRID_SETTINGS`' visibility table
@@ -89,28 +95,28 @@ export const OVERRIDE_ROWS: Readonly<
   Record<GridFrameType, readonly (readonly [GridOverrideKey, string])[]>
 > = {
   FRAME_SCH: [
-    ['connected', 'Connected items:'],
-    ['wires', 'Wires:'],
-    ['text', 'Text:'],
-    ['graphics', 'Graphics:'],
+    ['connected', _HKI('Connected items:')],
+    ['wires', _HKI('Wires:')],
+    ['text', _HKI('Text:')],
+    ['graphics', _HKI('Graphics:')],
   ],
   FRAME_SCH_SYMBOL_EDITOR: [
-    ['connected', 'Connected items:'],
-    ['wires', 'Wires:'],
-    ['text', 'Text:'],
-    ['graphics', 'Graphics:'],
+    ['connected', _HKI('Connected items:')],
+    ['wires', _HKI('Wires:')],
+    ['text', _HKI('Text:')],
+    ['graphics', _HKI('Graphics:')],
   ],
   FRAME_PCB_EDITOR: [
-    ['connected', 'Footprints/pads:'],
-    ['wires', 'Tracks:'],
-    ['vias', 'Vias:'],
-    ['text', 'Text:'],
-    ['graphics', 'Graphics:'],
+    ['connected', _HKI('Footprints/pads:')],
+    ['wires', _HKI('Tracks:')],
+    ['vias', _HKI('Vias:')],
+    ['text', _HKI('Text:')],
+    ['graphics', _HKI('Graphics:')],
   ],
   FRAME_FOOTPRINT_EDITOR: [
-    ['connected', 'Pads:'],
-    ['text', 'Text:'],
-    ['graphics', 'Graphics:'],
+    ['connected', _HKI('Pads:')],
+    ['text', _HKI('Text:')],
+    ['graphics', _HKI('Graphics:')],
   ],
   // `m_overridesLabel->Show( false )` too (`:82-90`): the group has no rows and
   // no heading in gerbview.
@@ -119,8 +125,8 @@ export const OVERRIDE_ROWS: Readonly<
   // and wires gone with every non-schematic one. This is the Drawing Sheet
   // Editor's row.
   FRAME_PL_EDITOR: [
-    ['text', 'Text:'],
-    ['graphics', 'Graphics:'],
+    ['text', _HKI('Text:')],
+    ['graphics', _HKI('Graphics:')],
   ],
 };
 
@@ -522,7 +528,7 @@ export function PanelGridSettings({
             columns, the third being `m_grid1HotKey`, a wxStaticText the panel
             fills in with the action's own binding (`panel_grid_settings.cpp:94-98`). */}
             <Sel
-              label="Grid 1:"
+              label={_('Grid 1:')}
               unit={`(${fastGrid1Key})`}
               value={grid.fast_grid_1}
               options={grid.sizes.map((sz, i) => [i, label(sz)] as [number, string])}
@@ -533,7 +539,7 @@ export function PanelGridSettings({
               }
             />
             <Sel
-              label="Grid 2:"
+              label={_('Grid 2:')}
               unit={`(${fastGrid2Key})`}
               value={grid.fast_grid_2}
               options={grid.sizes.map((sz, i) => [i, label(sz)] as [number, string])}

@@ -9,6 +9,7 @@
  */
 import { type JSX, useState } from 'react';
 import { RadioButton } from '@ziroeda/wx/controls.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `wxFileDialogCustomizeHook`: what every customize hook shares. */
 export interface wxFileDialogCustomizeHook {
@@ -53,13 +54,13 @@ export function FileDlgHookNewLibraryControls({
     <>
       <RadioButton
         name="filedlg-hook-new-library"
-        label="Add new library to global library table"
+        label={_('Add new library to global library table')}
         checked={global}
         onChange={() => pick(true)}
       />
       <RadioButton
         name="filedlg-hook-new-library"
-        label="Add new library to project library table"
+        label={_('Add new library to project library table')}
         checked={!global}
         onChange={() => pick(false)}
       />

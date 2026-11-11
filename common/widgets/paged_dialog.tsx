@@ -24,6 +24,7 @@ import { useEffect, useRef, useState, type JSX } from 'react';
 import { DialogShim } from '../dialog_shim.js';
 import { usePagedDialogSize } from './paged_dialog_size.js';
 import { PagedDialogTree } from './wx_treebook.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PagedDialogPage {
   /** Stable page id (also the selection key). */
@@ -201,7 +202,9 @@ export function PagedDialog({
   const dlgRef = usePagedDialogSize(initialSize);
 
   const resetLabel =
-    active?.resettable && active.label ? `Reset ${active.label} to Defaults` : 'Reset to Defaults';
+    active?.resettable && active.label
+      ? `Reset ${active.label} to Defaults`
+      : _('Reset to Defaults');
 
   return (
     <DialogShim title={title} onClose={onCancel} frameRef={dlgRef} className="ze-paged-dialog">
@@ -266,7 +269,7 @@ export function PagedDialog({
           />
         )}
         <div className="ze-paged-footer-spacer" />
-        <Button label="Cancel" onClick={onCancel} />
+        <Button label={_('Cancel')} onClick={onCancel} />
         <Button label="OK" isDefault onClick={handleOk} />
       </div>
     </DialogShim>

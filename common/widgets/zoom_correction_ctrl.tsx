@@ -39,6 +39,7 @@ import { useEffect, useId, useRef, useState, type JSX } from 'react';
 import { Combo } from '@ziroeda/wx/combobox.js';
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
 import { GAL_SCREEN_DPI } from './kistatusbar_format.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `ADVANCED_CFG::m_ScreenDPI`, whose default is 91
@@ -228,7 +229,7 @@ export function ZoomCorrectionCtrl({
           max={1000}
           onChange={setPpi}
         />
-        <Button label="Detect" disabled={disabled} onClick={() => setPpi(detectScreenPpi())} />
+        <Button label={_('Detect')} disabled={disabled} onClick={() => setPpi(detectScreenPpi())} />
       </div>
 
       {/* `rulerSizer` (`:161-176`): the ruler, then the units choice at its

@@ -15,6 +15,7 @@
  */
 
 import { type JSX, type ReactNode, useEffect, useState } from 'react';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `FOOTPRINT_PREVIEW_PANEL_BASE` as the widget uses it: `DisplayFootprint`'s
@@ -82,7 +83,7 @@ export function FootprintPreviewWidget<FP>({
         panel.render(fp)
       ) : (
         <div className="ze-muted">
-          {!footprint || status !== 'missing' ? statusText : 'Footprint not found.'}
+          {!footprint || status !== 'missing' ? statusText : _('Footprint not found.')}
         </div>
       )}
     </div>

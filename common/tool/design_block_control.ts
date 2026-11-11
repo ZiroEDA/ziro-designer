@@ -22,6 +22,7 @@ import { SELECTION_CONDITIONS } from './selection_conditions.js';
 import type { RESET_REASON } from './tool_base.js';
 import type { TOOL_EVENT } from './tool_event.js';
 import { SYNC_HANDLER, TOOL_INTERACTIVE } from './tool_interactive.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `current->m_LibId`: the row's LIB_ID (a library row has no item name). */
 export function TreeNodeLibId(aNode: LibTreeNode): LIB_ID {
@@ -100,7 +101,7 @@ export abstract class DESIGN_BLOCK_CONTROL extends TOOL_INTERACTIVE {
 
   *NewLibrary(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
     const name = yield* this.RunMainStackModal(() =>
-      this.getDesignBlockPane()!.CreateNewDesignBlockLibrary('New Design Block Library'),
+      this.getDesignBlockPane()!.CreateNewDesignBlockLibrary(_('New Design Block Library')),
     );
 
     if (name) {

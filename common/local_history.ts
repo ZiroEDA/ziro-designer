@@ -7,6 +7,8 @@
  * app's; the savers only fill these.
  */
 import type { FORMAT_MODE } from './io/kicad/kicad_io_utils.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export interface HISTORY_FILE_DATA {
   relativePath: string; ///< Destination path relative to the project root
@@ -138,7 +140,7 @@ export function relativeTime(at: number, now: number): string {
   const minutes = Math.floor(elapsedMs / 60_000);
   const hours = Math.floor(elapsedMs / 3_600_000);
 
-  if (minutes < 1) return 'Moments ago';
+  if (minutes < 1) return _('Moments ago');
   if (minutes < 91) return `${minutes} minutes ago`;
   if (hours < 24) return `${hours} hours ago`;
   return new Date(at).toLocaleString();
@@ -224,9 +226,9 @@ export const restoredFromTitle = (hash: string): string => `Restored from ${hash
  * `SetYesNoLabels( _( "Restore" ), _( "Cancel" ) )`, so Cancel holds the focus
  * ring: the destructive answer is never the one Enter picks.
  */
-export const RESTORE_CAPTION = 'Restore Version';
-export const RESTORE_YES_LABEL = 'Restore';
-export const RESTORE_NO_LABEL = 'Cancel';
+export const RESTORE_CAPTION = _HKI('Restore Version');
+export const RESTORE_YES_LABEL = _HKI('Restore');
+export const RESTORE_NO_LABEL = _HKI('Cancel');
 export const RESTORE_EXTENDED =
   'Your current files are backed up first so you can undo the restore. Files ' +
   'that are not part of this version are left untouched.';
@@ -259,10 +261,10 @@ export function restoreConfirmMessage(at: number): string {
  *
  * [data] KiCad states the widths itself, as `FromDIP` pixels: 170 / 380 / 70.
  */
-export const RESTORE_DIALOG_TITLE = 'Restore Project from Local History...';
+export const RESTORE_DIALOG_TITLE = _HKI('Restore Project from Local History...');
 export const RESTORE_LIST_COLUMNS = [
-  { key: 'time', label: 'Time', width: 170 },
-  { key: 'action', label: 'Action', width: 380 },
+  { key: 'time', label: _HKI('Time'), width: 170 },
+  { key: 'action', label: _HKI('Action'), width: 380 },
   { key: 'count', label: 'Count', width: 70 },
 ] as const;
 

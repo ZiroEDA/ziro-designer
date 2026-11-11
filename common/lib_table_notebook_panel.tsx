@@ -37,6 +37,7 @@ import { wxICON_ERROR, wxOK } from '@ziroeda/wx/defs.js';
 import { wxReadFileSync } from '@ziroeda/wx/filefn.js';
 import { wxEVT_GRID_CELL_CHANGING, type wxGridEvent } from '@ziroeda/wx/grid.js';
 import { type GRID_COLUMN_VIEW, WxGridView } from '@ziroeda/wx/grid_ui.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export type LIB_TABLE_NOTEBOOK = wxAuiNotebook<LIB_TABLE_NOTEBOOK_PANEL>;
 
@@ -191,7 +192,7 @@ export class LIB_TABLE_NOTEBOOK_PANEL {
     if (!saved.ok) {
       void ShowKicadMessageDialog({
         message: `Error saving nested library table:\n\n${saved.error.message}`,
-        caption: 'File Save Error',
+        caption: _('File Save Error'),
         style: wxOK | wxICON_ERROR,
       });
 
@@ -231,7 +232,7 @@ export class LIB_TABLE_NOTEBOOK_PANEL {
 
     if (this.TableModified()) {
       if (
-        !(await aHandleUnsavedChanges('Save changes to nested library table?', () =>
+        !(await aHandleUnsavedChanges(_('Save changes to nested library table?'), () =>
           this.SaveTable(),
         ))
       )

@@ -42,7 +42,7 @@ export const ERROR_CAPTION = 'Error';
  * (`common/confirm.cpp:266-268`, with `icon = wxICON_INFORMATION`.) Like the
  * error box it is the same word on every call site, never the frame's name.
  */
-export const INFO_CAPTION = 'Information';
+export const INFO_CAPTION = _HKI('Information');
 
 /** The button the user pressed: `wxID_YES` / `wxID_NO`. */
 export type YesNoResult = 'yes' | 'no';
@@ -53,6 +53,7 @@ export type YesNoResult = 'yes' | 'no';
  * {@link yesNoButtons}: it renames the two buttons WITHOUT changing which is affirmative.
  */
 import { CANCEL_LABEL, NO_LABEL, OK_LABEL, YES_LABEL } from '@ziroeda/wx/stockitem.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 export { CANCEL_LABEL, NO_LABEL, OK_LABEL, YES_LABEL };
 
 /**

@@ -31,6 +31,7 @@ import { findProjectFile, projectRelativePath, projectRoot } from '../project_pa
 import { KiCadDesignBlockLibPathExtension } from '../wildcards_and_files_ext.js';
 import { wxDirEnumerate, wxDirExists, wxFileExists, wxMkdir } from '@ziroeda/wx/filefn.js';
 import { PANEL_DESIGN_BLOCK_LIB_TABLE_BASE } from './panel_design_block_lib_table_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 type ProjectFile = { name: string; text: string };
 
@@ -142,7 +143,7 @@ export function DialogDesignBlockLibTable({
   return (
     <LibTablePanel
       Base={PANEL_DESIGN_BLOCK_LIB_TABLE_BASE}
-      title="Design Block Libraries"
+      title={_('Design Block Libraries')}
       type={LIBRARY_TABLE_TYPE.DESIGN_BLOCK}
       preamble="(design_block_lib_table"
       supportsVisibilityColumn

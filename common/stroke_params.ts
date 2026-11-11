@@ -64,13 +64,18 @@ export interface LineStyleDesc {
  */
 export const LINE_STYLE_NAMES: readonly LineStyleDesc[] = [
   { style: LINE_STYLE.SOLID, value: 'solid', label: 'Solid', bitmap: 'stroke_solid' },
-  { style: LINE_STYLE.DASH, value: 'dash', label: 'Dashed', bitmap: 'stroke_dash' },
-  { style: LINE_STYLE.DOT, value: 'dot', label: 'Dotted', bitmap: 'stroke_dot' },
-  { style: LINE_STYLE.DASHDOT, value: 'dash_dot', label: 'Dash-Dot', bitmap: 'stroke_dashdot' },
+  { style: LINE_STYLE.DASH, value: 'dash', label: _HKI('Dashed'), bitmap: 'stroke_dash' },
+  { style: LINE_STYLE.DOT, value: 'dot', label: _HKI('Dotted'), bitmap: 'stroke_dot' },
+  {
+    style: LINE_STYLE.DASHDOT,
+    value: 'dash_dot',
+    label: _HKI('Dash-Dot'),
+    bitmap: 'stroke_dashdot',
+  },
   {
     style: LINE_STYLE.DASHDOTDOT,
     value: 'dash_dot_dot',
-    label: 'Dash-Dot-Dot',
+    label: _HKI('Dash-Dot-Dot'),
     bitmap: 'stroke_dashdotdot',
   },
 ];
@@ -163,6 +168,8 @@ import type { OUTPUTFORMATTER } from './richio.js';
 import { FormatDouble2Str } from './string_utils.js';
 import type { UNITS_PROVIDER } from './units_provider.js';
 import { MSG_PANEL_ITEM } from './widgets/msgpanel.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `LINE_STYLE_DESC`. */
 export interface LINE_STYLE_DESC_T {
@@ -178,10 +185,10 @@ export const lineTypeNames: ReadonlyMap<LINE_STYLE, LINE_STYLE_DESC_T> = new Map
   LINE_STYLE_DESC_T
 >([
   [LINE_STYLE.SOLID, { name: 'Solid', bitmap: 'stroke_solid' }],
-  [LINE_STYLE.DASH, { name: 'Dashed', bitmap: 'stroke_dash' }],
-  [LINE_STYLE.DOT, { name: 'Dotted', bitmap: 'stroke_dot' }],
-  [LINE_STYLE.DASHDOT, { name: 'Dash-Dot', bitmap: 'stroke_dashdot' }],
-  [LINE_STYLE.DASHDOTDOT, { name: 'Dash-Dot-Dot', bitmap: 'stroke_dashdotdot' }],
+  [LINE_STYLE.DASH, { name: _HKI('Dashed'), bitmap: 'stroke_dash' }],
+  [LINE_STYLE.DOT, { name: _HKI('Dotted'), bitmap: 'stroke_dot' }],
+  [LINE_STYLE.DASHDOT, { name: _HKI('Dash-Dot'), bitmap: 'stroke_dashdot' }],
+  [LINE_STYLE.DASHDOTDOT, { name: _HKI('Dash-Dot-Dot'), bitmap: 'stroke_dashdotdot' }],
 ]);
 
 const sameColor = (a: Color4d, b: Color4d): boolean =>
@@ -268,12 +275,12 @@ export class STROKE_PARAMS {
         }
       }
 
-      aList.push(new MSG_PANEL_ITEM('Line Style', msg));
+      aList.push(new MSG_PANEL_ITEM(_('Line Style'), msg));
     }
 
     if (aIncludeWidth)
       aList.push(
-        new MSG_PANEL_ITEM('Line Width', aUnitsProvider.MessageTextFromValue(this.GetWidth())),
+        new MSG_PANEL_ITEM(_('Line Width'), aUnitsProvider.MessageTextFromValue(this.GetWidth())),
       );
   }
 

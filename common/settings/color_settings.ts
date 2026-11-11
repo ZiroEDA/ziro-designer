@@ -35,6 +35,7 @@ import {
   SCHEMATIC_COLOR_KEYS,
   type ThemeLayerId,
 } from './color_theme_file.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The layer id a `builtin_color_themes.h` key names: the enum's own name, or
@@ -276,7 +277,7 @@ export class COLOR_SETTINGS {
     // Load(): we can just get the colors out of the param defaults for this one
 
     const classicTheme = new COLOR_SETTINGS(COLOR_SETTINGS.COLOR_BUILTIN_CLASSIC);
-    classicTheme.SetName('KiCad Classic');
+    classicTheme.SetName(_('KiCad Classic'));
     classicTheme.m_writeFile = false;
     classicTheme.m_params = []; // Disable load/store
 

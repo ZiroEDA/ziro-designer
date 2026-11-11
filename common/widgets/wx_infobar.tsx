@@ -7,6 +7,7 @@ import { type JSX, useState } from 'react';
 import informationIcon from '@ziroeda/bitmaps_png/sources/theme/dialog-information.png';
 import warningIcon from '@ziroeda/bitmaps_png/sources/theme/dialog-warning.png';
 import closeIcon from '@ziroeda/bitmaps_png/sources/theme/window-close.png';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `WX_INFOBAR` (common/widgets/wx_infobar.cpp), the strip above the canvas.
@@ -106,8 +107,8 @@ export function Infobar({
         <button
           type="button"
           className="ze-infobar-close"
-          title="Hide this message."
-          aria-label="Hide this message."
+          title={_('Hide this message.')}
+          aria-label={_('Hide this message.')}
           onClick={() => {
             setHiddenFor(message);
             onClose?.();

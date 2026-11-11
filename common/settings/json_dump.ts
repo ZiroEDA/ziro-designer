@@ -13,6 +13,7 @@
  * net_settings.cpp, tuning_profiles.cpp and project_local_settings.cpp).
  */
 import type { JsonValue } from './json_settings.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * [data] Keys whose value is a C++ `double` in the project and local-settings
@@ -98,7 +99,7 @@ const DOUBLE_KEYS: ReadonlySet<string> = new Set([
   'pads',
   'zones',
   'images',
-  'shapes',
+  _HKI('shapes'),
   // board_project_settings.cpp: VIEWPORT (BOX2D) and VIEWPORT3D (glm::mat4)
   'x',
   'y',

@@ -29,6 +29,7 @@ import { strNumCmp } from '../string_utils.js';
 import { Combo } from '@ziroeda/wx/combobox.js';
 import { WX_HTML_REPORT_BOX } from '../widgets/wx_html_report_box.js';
 import { useModalEscape } from '../dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `NETCLASS::Default`. */
 const DEFAULT_NETCLASS = 'Default';
@@ -114,7 +115,7 @@ export function DialogAssignNetclass({
     previewRef.current?.(matches);
   }, [matches]);
 
-  const report = pattern === '' ? [] : ['<b>Currently matching nets:</b>', ...matches];
+  const report = pattern === '' ? [] : [_('<b>Currently matching nets:</b>'), ...matches];
 
   return (
     <DialogShim
@@ -125,15 +126,15 @@ export function DialogAssignNetclass({
       className="ze-assignnc"
     >
       <div className="ze-assignnc-upper">
-        <span className="ze-assignnc-patlabel">Pattern:</span>
+        <span className="ze-assignnc-patlabel">{_('Pattern:')}</span>
         <input
           className="ze-search ze-assignnc-pattern"
-          aria-label="Pattern"
+          aria-label={_('Pattern')}
           value={pattern}
           onChange={(e) => setPattern(e.target.value)}
           onKeyDown={(e) => e.stopPropagation()}
         />
-        <span className="ze-assignnc-nclabel">Net class:</span>
+        <span className="ze-assignnc-nclabel">{_('Net class:')}</span>
         <Combo
           className="ze-assignnc-netclass"
           value={netClass}
@@ -146,7 +147,7 @@ export function DialogAssignNetclass({
         <div className="ze-assignnc-info">
           {frame === 'pcb'
             ? 'Note: complete netclass assignments can be edited in Board Setup > Project.'
-            : 'Note: complete netclass assignments can be edited in Schematic Setup > Project.'}
+            : _('Note: complete netclass assignments can be edited in Schematic Setup > Project.')}
         </div>
       </div>
       <StdDialogButtons

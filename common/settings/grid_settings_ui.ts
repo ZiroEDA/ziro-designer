@@ -18,6 +18,7 @@
  */
 
 import { messageTextFromValue, type StatusUnits, unitText } from '../widgets/kistatusbar_format.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** Which row of `DefaultGridSizeList()`'s switch a frame lands on. */
 export type GridApp =
@@ -375,7 +376,7 @@ export function gridFeedback(
  * them as grids.
  */
 export const GRID_LIST_SEPARATOR = '---';
-export const EDIT_GRIDS_LABEL = 'Edit Grids...';
+export const EDIT_GRIDS_LABEL = _HKI('Edit Grids...');
 
 /**
  * The `grid` slice `COMMON_TOOLS`' fast-grid actions read — as much of it as

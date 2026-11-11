@@ -39,6 +39,7 @@ import {
 import { Pgm } from './pgm_base.js';
 import { PROJECT } from './project.js';
 import { wxFileExists } from '@ziroeda/wx/filefn.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export enum SAVE_T {
   SAVE_OK,
@@ -82,7 +83,7 @@ export class DESIGN_BLOCK_LIBRARY_ADAPTER extends LIBRARY_MANAGER_ADAPTER {
 
     const plugin = DESIGN_BLOCK_IO_MGR.FindPlugin(type);
 
-    if (!plugin) return { ok: false, error: new LIBRARY_ERROR('Internal error') };
+    if (!plugin) return { ok: false, error: new LIBRARY_ERROR(_('Internal error')) };
 
     return { ok: true, value: plugin };
   }

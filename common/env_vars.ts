@@ -9,6 +9,7 @@
 import { GetMajorMinorPatchTuple } from './build_version.js';
 import type { ENV_VAR_MAP } from './settings/environment.js';
 import { wxGetEnv } from '@ziroeda/wx/utils.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export namespace ENV_VAR {
   /**
@@ -119,18 +120,18 @@ function initialiseEnvVarHelp(aMap: Map<string, string>): void {
 
   aMap.set(
     v('FOOTPRINT_DIR'),
-    'The base path of locally installed system footprint libraries (.pretty folders).',
+    _('The base path of locally installed system footprint libraries (.pretty folders).'),
   );
-  aMap.set(v('3DMODEL_DIR'), 'The base path of system footprint 3D shapes (.3Dshapes folders).');
-  aMap.set(v('SYMBOL_DIR'), 'The base path of the locally installed symbol libraries.');
-  aMap.set(v('TEMPLATE_DIR'), 'A directory containing project templates installed with KiCad.');
+  aMap.set(v('3DMODEL_DIR'), _('The base path of system footprint 3D shapes (.3Dshapes folders).'));
+  aMap.set(v('SYMBOL_DIR'), _('The base path of the locally installed symbol libraries.'));
+  aMap.set(v('TEMPLATE_DIR'), _('A directory containing project templates installed with KiCad.'));
   aMap.set(
     'KICAD_USER_TEMPLATE_DIR',
-    'Optional. Can be defined if you want to create your own project templates folder.',
+    _('Optional. Can be defined if you want to create your own project templates folder.'),
   );
   aMap.set(
     v('3RD_PARTY'),
-    'A directory containing 3rd party plugins, libraries and other downloadable content.',
+    _('A directory containing 3rd party plugins, libraries and other downloadable content.'),
   );
   aMap.set(
     'KIPRJMOD',
@@ -139,10 +140,13 @@ function initialiseEnvVarHelp(aMap: Map<string, string>): void {
       'to the currently loaded project.  For instance, ${KIPRJMOD}/libs/footprints.pretty can be ' +
       'defined as a folder containing a project specific footprint library named footprints.pretty.',
   );
-  aMap.set(v('SCRIPTING_DIR'), 'A directory containing system-wide scripts installed with KiCad.');
+  aMap.set(
+    v('SCRIPTING_DIR'),
+    _('A directory containing system-wide scripts installed with KiCad.'),
+  );
   aMap.set(
     v('USER_SCRIPTING_DIR'),
-    'A directory containing user-specific scripts installed with KiCad.',
+    _('A directory containing user-specific scripts installed with KiCad.'),
   );
 
   // Deprecated vars

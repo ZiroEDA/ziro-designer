@@ -16,6 +16,7 @@ import {
 } from '@ziroeda/wx/valtext.js';
 import { GetRefDesPrefix } from './refdes_utils.js';
 import { FIELD_T } from './template_fieldnames.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // `wxTextValidator` and its filter styles are wx's (external/wx/valtext.ts).
 export { wxFILTER_EMPTY, wxFILTER_EXCLUDE_CHAR_LIST, wxTextValidator };
@@ -105,13 +106,13 @@ export function GetFieldValidationErrorMessage(aFieldId: FIELD_T, aValue: string
   if (validator.HasFlag(wxFILTER_EMPTY) && aValue === '') {
     switch (aFieldId) {
       case FIELD_T.SHEET_NAME:
-        msg = 'A sheet must have a name.';
+        msg = _('A sheet must have a name.');
         break;
       case FIELD_T.SHEET_FILENAME:
-        msg = 'A sheet must have a file specified.';
+        msg = _('A sheet must have a file specified.');
         break;
       default:
-        msg = 'The value of the field cannot be empty.';
+        msg = _('The value of the field cannot be empty.');
         break;
     }
   }
@@ -121,10 +122,10 @@ export function GetFieldValidationErrorMessage(aFieldId: FIELD_T, aValue: string
 
     for (const excludeChar of validator.GetCharExcludes()) {
       if (aValue.includes(excludeChar)) {
-        if (excludeChar === '\r') badCharsFound.push('carriage return');
-        else if (excludeChar === '\n') badCharsFound.push('line feed');
-        else if (excludeChar === '\t') badCharsFound.push('tab');
-        else if (excludeChar === ' ') badCharsFound.push('space');
+        if (excludeChar === '\r') badCharsFound.push(_('carriage return'));
+        else if (excludeChar === '\n') badCharsFound.push(_('line feed'));
+        else if (excludeChar === '\t') badCharsFound.push(_('tab'));
+        else if (excludeChar === ' ') badCharsFound.push(_('space'));
         else badCharsFound.push(`'${excludeChar}'`);
       }
     }
@@ -134,8 +135,8 @@ export function GetFieldValidationErrorMessage(aFieldId: FIELD_T, aValue: string
 
       for (let i = 0; i < badCharsFound.length; i++) {
         if (badChars !== '') {
-          if (badCharsFound.length === 2) badChars += ' or ';
-          else if (i < badCharsFound.length - 2) badChars += ', or ';
+          if (badCharsFound.length === 2) badChars += _(' or ');
+          else if (i < badCharsFound.length - 2) badChars += _(', or ');
           else badChars += ', ';
         }
 
@@ -170,9 +171,9 @@ export function GetFieldValidationErrorMessage(aFieldId: FIELD_T, aValue: string
 
   if (msg === '') {
     if (aFieldId === FIELD_T.REFERENCE && aValue.includes('${'))
-      msg = 'The reference designator cannot contain text variable references';
+      msg = _('The reference designator cannot contain text variable references');
     else if (aFieldId === FIELD_T.REFERENCE && GetRefDesPrefix(aValue) === '')
-      msg = 'References must start with a letter.';
+      msg = _('References must start with a letter.');
   }
 
   return msg;

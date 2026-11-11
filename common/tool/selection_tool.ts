@@ -31,6 +31,7 @@ import {
   type TOOL_EVENT,
 } from './tool_event.js';
 import { TOOL_INTERACTIVE } from './tool_interactive.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export enum SELECTION_MODE {
   INSIDE_RECTANGLE,
@@ -365,10 +366,10 @@ export abstract class SELECTION_TOOL extends TOOL_INTERACTIVE {
       }
 
       menu.AppendSeparator();
-      menu.Add('Select &All\tA', limit + 1, BITMAPS.INVALID_BITMAP);
+      menu.Add(_('Select &All\tA'), limit + 1, BITMAPS.INVALID_BITMAP);
 
       if (!showMoreChoices && aCollector.HasAdditionalItems())
-        menu.Add('Show &More Choices...\tM', limit + 2, BITMAPS.INVALID_BITMAP);
+        menu.Add(_('Show &More Choices...\tM'), limit + 2, BITMAPS.INVALID_BITMAP);
 
       if (aCollector.m_MenuTitle.length) {
         menu.SetTitle(aCollector.m_MenuTitle);

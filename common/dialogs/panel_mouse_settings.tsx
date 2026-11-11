@@ -42,29 +42,31 @@ import { KiBitmapBundle } from '../bitmap.js';
 import { BITMAPS } from '@ziroeda/include/bitmaps/bitmaps_list.js';
 import type { COMMON_SETTINGS_DRAFT } from '../settings/common_settings.js';
 import type { MouseDragAction, ScrollModifier } from '../settings/common_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const mouseActionOpts: [MouseDragAction, string][] = [
-  ['select', 'Draw selection rectangle'],
-  ['drag_selected', 'Drag selected objects; otherwise draw selection rectangle'],
-  ['drag_any', 'Drag any object (selected or not)'],
+  ['select', _HKI('Draw selection rectangle')],
+  ['drag_selected', _HKI('Drag selected objects; otherwise draw selection rectangle')],
+  ['drag_any', _HKI('Drag any object (selected or not)')],
 ];
 const panZoomNone: [MouseDragAction, string][] = [
-  ['pan', 'Pan'],
-  ['zoom', 'Zoom'],
-  ['none', 'None'],
+  ['pan', _HKI('Pan')],
+  ['zoom', _HKI('Zoom')],
+  ['none', _HKI('None')],
 ];
 /** `m_choicePanMoveKeyChoices[] = { None, Alt, Ctrl, Shift }` (`:165`). */
 const panMoveKeyOpts: [ScrollModifier, string][] = [
-  ['none', 'None'],
-  ['alt', 'Alt'],
-  ['ctrl', 'Ctrl'],
-  ['shift', 'Shift'],
+  ['none', _HKI('None')],
+  ['alt', _HKI('Alt')],
+  ['ctrl', _HKI('Ctrl')],
+  ['shift', _HKI('Shift')],
 ];
 const scrollCols: [ScrollModifier, string][] = [
   ['none', '--'],
-  ['ctrl', 'Ctrl'],
-  ['shift', 'Shift'],
-  ['alt', 'Alt'],
+  ['ctrl', _HKI('Ctrl')],
+  ['shift', _HKI('Shift')],
+  ['alt', _HKI('Alt')],
 ];
 
 /**
@@ -129,7 +131,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
        them pinned to the far right edge, because a block element fills its
        parent. */
     <div className="ze-pref-page-natural">
-      <Group title="Pan and Zoom">
+      <Group title={_('Pan and Zoom')}>
         {/* `gbSizer1` — two columns of controls with `Add( 30, 0, wxGBPosition( 0, 1 ) )`
             between them. */}
         <div className="ze-mouse-panzoom">
@@ -141,8 +143,8 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
               reachable here and `wheelAction` implements neither: it zooms
               about the cursor whatever this says. */}
           <Check
-            label="Center and warp cursor on zoom"
-            title="Center the cursor on screen when zooming."
+            label={_('Center and warp cursor on zoom')}
+            title={_('Center the cursor on screen when zooming.')}
             checked={input.center_on_zoom}
             disabled
             onChange={(v) =>
@@ -162,8 +164,10 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
               canvas holds one. */}
           <div className="gb-col3">
             <Check
-              label="Automatically pan while moving object"
-              title="When drawing a track or moving an item, pan when approaching the edge of the display."
+              label={_('Automatically pan while moving object')}
+              title={_(
+                'When drawing a track or moving an item, pan when approaching the edge of the display.',
+              )}
               checked={input.auto_pan}
               onChange={(v) =>
                 upC((s) => {
@@ -190,8 +194,8 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
               the port. */}
           <div className="gb-span">
             <Check
-              label="Use zoom acceleration"
-              title="Zoom faster when scrolling quickly"
+              label={_('Use zoom acceleration')}
+              title={_('Zoom faster when scrolling quickly')}
               checked={input.zoom_acceleration}
               onChange={(v) =>
                 upC((s) => {
@@ -202,12 +206,12 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
           </div>
           {/* `m_zoomSizer` at (2,0): label, slider, "Automatic". */}
           <div className="ze-mouse-slider">
-            <span className="lbl">Zoom speed:</span>
+            <span className="lbl">{_('Zoom speed:')}</span>
             <Slider
               min={1}
               max={10}
               value={input.zoom_speed}
-              title="How far to zoom in for each rotation of the mouse wheel"
+              title={_('How far to zoom in for each rotation of the mouse wheel')}
               ariaLabel="Zoom speed"
               /* `m_zoomSpeed->Enable( !m_checkAutoZoomSpeed->GetValue() )`
                  (`panel_mouse_settings.cpp:56`, `:161`) — the checkbox beside
@@ -221,8 +225,8 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
               }
             />
             <Check
-              label="Automatic"
-              title="Pick the zoom speed automatically"
+              label={_('Automatic')}
+              title={_('Pick the zoom speed automatically')}
               checked={input.zoom_speed_auto}
               onChange={(v) =>
                 upC((s) => {
@@ -238,12 +242,12 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
               the outermost band -- so the slider changes how fast a cursor
               held well past the edge pans, and not the ease-in near it. */}
           <div className="ze-mouse-slider gb-col3">
-            <span className="lbl">Auto pan speed:</span>
+            <span className="lbl">{_('Auto pan speed:')}</span>
             <Slider
               min={1}
               max={10}
               value={input.auto_pan_acceleration}
-              title="How fast to pan when moving an object off the edge of the screen"
+              title={_('How fast to pan when moving an object off the edge of the screen')}
               ariaLabel="Auto pan speed"
               onChange={(v) =>
                 upC((s) => {
@@ -254,11 +258,11 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
           </div>
         </div>
       </Group>
-      <Group title="Drag Gestures">
+      <Group title={_('Drag Gestures')}>
         {/* `fgSizer1`, three columns: label, choice at wxEXPAND, and a
             proportion-1 spacer that absorbs the slack so the choices do not. */}
         <div className="ze-mouse-drag">
-          <span className="lbl">Left button drag:</span>
+          <span className="lbl">{_('Left button drag:')}</span>
           <Combo
             value={input.mouse_left}
             options={mouseActionOpts.map(([v, l]) => ({ value: v, label: l }))}
@@ -270,7 +274,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
             }
           />
           <span />
-          <span className="lbl">Middle button drag:</span>
+          <span className="lbl">{_('Middle button drag:')}</span>
           <Combo
             value={input.mouse_middle}
             options={panZoomNone.map(([v, l]) => ({ value: v, label: l }))}
@@ -282,7 +286,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
             }
           />
           <span />
-          <span className="lbl">Right button drag:</span>
+          <span className="lbl">{_('Right button drag:')}</span>
           <Combo
             value={input.mouse_right}
             options={panZoomNone.map(([v, l]) => ({ value: v, label: l }))}
@@ -301,7 +305,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
               greyed while our view controls only panned on a drag;
               `ui/view_controls.ts`'s `makeMotionPan` is that block now, and
               every canvas asks it first. */}
-          <span className="lbl">Pan on mouse movement with key:</span>
+          <span className="lbl">{_('Pan on mouse movement with key:')}</span>
           <Combo
             value={input.motion_pan_modifier}
             options={panMoveKeyOpts.map(([v, l]) => ({ value: v, label: l }))}
@@ -315,19 +319,19 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
           <span />
         </div>
       </Group>
-      <Group title="Scroll Gestures">
+      <Group title={_('Scroll Gestures')}>
         {/* `bMargins`: the settings at proportion 1, the two buttons at 0. */}
         <div className="ze-mouse-scroll">
           <div>
             {/* `bSizer4`: the label, then `m_scrollWarning` — hidden until two
                 rows claim one modifier. */}
             <div className="ze-mouse-scroll-head">
-              <span>Vertical touchpad or scroll wheel movement:</span>
+              <span>{_('Vertical touchpad or scroll wheel movement:')}</span>
               {warn && (
                 <img
                   src={KiBitmapBundle(BITMAPS.small_warning)}
                   alt=""
-                  title="Only one action can be assigned to each column"
+                  title={_('Only one action can be assigned to each column')}
                 />
               )}
             </div>
@@ -342,7 +346,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
               ))}
               <span />
               <ScrollRow
-                label="Zoom:"
+                label={_('Zoom:')}
                 name="scroll-zoom"
                 value={input.scroll_modifier_zoom}
                 onChange={(v) =>
@@ -352,7 +356,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
                 }
               />
               <Check
-                label="Reverse"
+                label={_('Reverse')}
                 checked={input.reverse_scroll_zoom}
                 onChange={(v) =>
                   upC((s) => {
@@ -361,7 +365,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
                 }
               />
               <ScrollRow
-                label="Pan up/down:"
+                label={_('Pan up/down:')}
                 name="scroll-panv"
                 value={input.scroll_modifier_pan_v}
                 onChange={(v) =>
@@ -372,7 +376,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
               />
               <span />
               <ScrollRow
-                label="Pan left/right:"
+                label={_('Pan left/right:')}
                 name="scroll-panh"
                 value={input.scroll_modifier_pan_h}
                 onChange={(v) =>
@@ -382,7 +386,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
                 }
               />
               <Check
-                label="Reverse"
+                label={_('Reverse')}
                 checked={input.reverse_scroll_pan_h}
                 onChange={(v) =>
                   upC((s) => {
@@ -399,8 +403,10 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
                 behaves the same way for the same reason, so the box stays as
                 upstream draws it. Greying it here would be OUR divergence. */}
             <Check
-              label="Pan left/right with horizontal movement"
-              title="Pan the canvas left and right when scrolling left to right on the touchpad"
+              label={_('Pan left/right with horizontal movement')}
+              title={_(
+                'Pan the canvas left and right when scrolling left to right on the touchpad',
+              )}
               checked={input.horizontal_pan}
               onChange={(v) =>
                 upC((s) => {
@@ -412,7 +418,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
           {/* `bSizerRight`: both buttons `wxEXPAND`, so they are one width. */}
           <div className="ze-pref-buttoncol">
             <Button
-              label="Reset to Mouse Defaults"
+              label={_('Reset to Mouse Defaults')}
               onClick={() =>
                 upC((s) => {
                   s.input.scroll_modifier_zoom = 'none';
@@ -425,7 +431,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
               }
             />
             <Button
-              label="Reset to Trackpad Defaults"
+              label={_('Reset to Trackpad Defaults')}
               onClick={() =>
                 upC((s) => {
                   s.input.scroll_modifier_zoom = 'ctrl';

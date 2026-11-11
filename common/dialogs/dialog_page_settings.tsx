@@ -68,6 +68,8 @@ import {
 } from '../index.js';
 import { toCssColor } from '../gal/color4d.js';
 import { BUILTIN_DEFAULT_THEME } from '../settings/builtin_color_themes.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** pcbnew's background and sheet ink: the default theme's two layers. */
 const PCB_BACKGROUND_COLOR = toCssColor(BUILTIN_DEFAULT_THEME.LAYER_PCB_BACKGROUND);
@@ -167,11 +169,15 @@ export interface PageSettingsLabels {
 export function pageSettingsLabels(frame: PageSettingsFrame): PageSettingsLabels {
   return frame === 'pl_editor'
     ? {
-        title: 'Preview Settings',
-        paper: 'Preview Paper',
-        titleBlock: 'Preview Title Block Data',
+        title: wxGetTranslation('Preview Settings'),
+        paper: wxGetTranslation('Preview Paper'),
+        titleBlock: wxGetTranslation('Preview Title Block Data'),
       }
-    : { title: 'Page Settings', paper: 'Paper', titleBlock: 'Title Block' };
+    : {
+        title: wxGetTranslation('Page Settings'),
+        paper: wxGetTranslation('Paper'),
+        titleBlock: wxGetTranslation('Title Block'),
+      };
 }
 
 /**
@@ -281,10 +287,10 @@ export interface TitleBlockRow {
 }
 
 export const TITLE_BLOCK_ROWS: readonly TitleBlockRow[] = [
-  { label: 'Issue Date:', field: 'date', comment: null, minWidth: 100 },
-  { label: 'Revision:', field: 'rev', comment: null, minWidth: 100 },
-  { label: 'Title:', field: 'title', comment: null, minWidth: 360 },
-  { label: 'Company:', field: 'company', comment: null, minWidth: 360 },
+  { label: _HKI('Issue Date:'), field: 'date', comment: null, minWidth: 100 },
+  { label: _HKI('Revision:'), field: 'rev', comment: null, minWidth: 100 },
+  { label: _HKI('Title:'), field: 'title', comment: null, minWidth: 360 },
+  { label: _HKI('Company:'), field: 'company', comment: null, minWidth: 360 },
   ...Array.from({ length: COMMENT_COUNT }, (_, i) => ({
     label: `Comment${i + 1}:`,
     field: `comment${i + 1}` as const,
@@ -512,8 +518,8 @@ export function previewColors(frame: PageSettingsFrame, blackBackground = false)
 
 /** `m_orientationComboBoxChoices` (dialog_page_settings_base.cpp:54). */
 const ORIENTATION_CHOICES: readonly ComboOption[] = [
-  { value: 'landscape', label: 'Landscape' },
-  { value: 'portrait', label: 'Portrait' },
+  { value: 'landscape', label: _HKI('Landscape') },
+  { value: 'portrait', label: _HKI('Portrait') },
 ];
 
 /** No preview item is ever selected. */
@@ -731,25 +737,25 @@ export function DialogPageSettings({
         onOrientation={(v) => set({ portrait: v === 'portrait' })}
         customSizeEnabled={customOn}
         m_userSizeYCtrl={{
-          label: 'Height:',
+          label: wxGetTranslation('Height:'),
           units,
           range,
           size: 1,
           value: s.customHeightMM,
           onCommit: (mm: number) => set({ customHeightMM: mm }),
           onError: setError,
-          title: 'Custom paper height.',
+          title: wxGetTranslation('Custom paper height.'),
           disabled: !customOn,
         }}
         m_userSizeXCtrl={{
-          label: 'Width:',
+          label: wxGetTranslation('Width:'),
           units,
           range,
           size: 1,
           value: s.customWidthMM,
           onCommit: (mm: number) => set({ customWidthMM: mm }),
           onError: setError,
-          title: 'Custom paper width.',
+          title: wxGetTranslation('Custom paper width.'),
           disabled: !customOn,
         }}
         exportsShown={exportsOn}
@@ -796,7 +802,7 @@ export function DialogPageSettings({
           DisplayErrorMessage if it will not parse. */}
       {browsing && (
         <WxFileDialog
-          title="Drawing Sheet File"
+          title={wxGetTranslation('Drawing Sheet File')}
           filters={[drawingSheetWildcard()]}
           kind="templates"
           projectDir={projectDir}

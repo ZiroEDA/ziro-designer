@@ -33,6 +33,7 @@
 
 import { buttonTooltipFor } from './tool_action_tooltip.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** One TOOL_ACTION's tooltip parts. */
 export interface ToolbarAction {
@@ -54,129 +55,148 @@ export interface ToolbarAction {
 export const EESCHEMA_TOOLBAR_ACTIONS: Readonly<Record<string, ToolbarAction>> = {
   findReplace: { name: 'Find and Replace', hotkey: 'Ctrl+Alt+F' },
   zoomFit: {
-    name: 'Zoom to Fit',
+    name: _HKI('Zoom to Fit'),
     hotkey: 'Home',
-    tip: 'Zoom to worksheet area if exists or edited object',
+    tip: _HKI('Zoom to worksheet area if exists or edited object'),
   },
-  symbolEditor: { name: 'Symbol Editor', tip: 'Create, delete and edit schematic symbols' },
-  symbolBrowser: { name: 'Symbol Library Browser' },
-  footprintEditor: { name: 'Footprint Editor', tip: 'Create, delete and edit board footprints' },
+  symbolEditor: {
+    name: _HKI('Symbol Editor'),
+    tip: _HKI('Create, delete and edit schematic symbols'),
+  },
+  symbolBrowser: { name: _HKI('Symbol Library Browser') },
+  footprintEditor: {
+    name: _HKI('Footprint Editor'),
+    tip: _HKI('Create, delete and edit board footprints'),
+  },
   unitsInches: { name: 'Inches' },
   unitsMils: { name: 'Mils' },
   unitsMm: { name: 'Millimeters' },
   crosshairSmall: {
-    name: 'Small crosshairs',
-    tip: 'Use small crosshairs aligned at 0 and 90 degrees',
+    name: _HKI('Small crosshairs'),
+    tip: _HKI('Use small crosshairs aligned at 0 and 90 degrees'),
   },
   crosshairFull: {
-    name: 'Full-Window Crosshairs',
-    tip: 'Display full-window crosshairs aligned at 0 and 90 degrees',
+    name: _HKI('Full-Window Crosshairs'),
+    tip: _HKI('Display full-window crosshairs aligned at 0 and 90 degrees'),
   },
   crosshair45: {
-    name: '45 Degree Crosshairs',
-    tip: 'Display full-window crosshairs aligned at 45 and 135 degrees',
+    name: _HKI('45 Degree Crosshairs'),
+    tip: _HKI('Display full-window crosshairs aligned at 45 and 135 degrees'),
   },
-  select: { name: 'Rectangle', tip: 'Set selection mode to use rectangle' },
-  selectLasso: { name: 'Lasso', tip: 'Set selection mode to use polygon lasso' },
+  select: { name: 'Rectangle', tip: _HKI('Set selection mode to use rectangle') },
+  selectLasso: { name: _HKI('Lasso'), tip: _HKI('Set selection mode to use polygon lasso') },
 
   // ---- eeschema/tools/sch_actions.cpp -----------------------------------
   schematicSetup: {
-    name: 'Schematic Setup...',
-    tip: 'Edit schematic setup including annotation styles and electrical rules',
+    name: _HKI('Schematic Setup...'),
+    tip: _HKI('Edit schematic setup including annotation styles and electrical rules'),
   },
   navBack: {
-    name: 'Navigate Back',
+    name: _HKI('Navigate Back'),
     hotkey: 'Alt+Left',
-    tip: 'Move backward in sheet navigation history',
+    tip: _HKI('Move backward in sheet navigation history'),
   },
-  navUp: { name: 'Navigate Up', hotkey: 'Alt+Up', tip: 'Navigate up one sheet in the hierarchy' },
+  navUp: {
+    name: _HKI('Navigate Up'),
+    hotkey: 'Alt+Up',
+    tip: _HKI('Navigate up one sheet in the hierarchy'),
+  },
   navFwd: {
-    name: 'Navigate Forward',
+    name: _HKI('Navigate Forward'),
     hotkey: 'Alt+Right',
-    tip: 'Move forward in sheet navigation history',
+    tip: _HKI('Move forward in sheet navigation history'),
   },
-  rotateCCW: { name: 'Rotate Counterclockwise', hotkey: 'R' },
-  rotateCW: { name: 'Rotate Clockwise', hotkey: 'Shift+R' },
+  rotateCCW: { name: _HKI('Rotate Counterclockwise'), hotkey: 'R' },
+  rotateCW: { name: _HKI('Rotate Clockwise'), hotkey: 'Shift+R' },
   mirrorV: {
-    name: 'Mirror Vertically',
+    name: _HKI('Mirror Vertically'),
     hotkey: 'Y',
-    tip: 'Flips selected item(s) from top to bottom',
+    tip: _HKI('Flips selected item(s) from top to bottom'),
   },
   mirrorH: {
-    name: 'Mirror Horizontally',
+    name: _HKI('Mirror Horizontally'),
     hotkey: 'X',
-    tip: 'Flips selected item(s) from left to right',
+    tip: _HKI('Flips selected item(s) from left to right'),
   },
   annotate: {
-    name: 'Annotate Schematic...',
-    tip: 'Fill in schematic symbol reference designators',
+    name: _HKI('Annotate Schematic...'),
+    tip: _HKI('Fill in schematic symbol reference designators'),
   },
-  erc: { name: 'Electrical Rules Checker', tip: 'Show the electrical rules checker window' },
+  erc: {
+    name: _HKI('Electrical Rules Checker'),
+    tip: _HKI('Show the electrical rules checker window'),
+  },
   simulator: {
-    name: 'Simulator',
-    tip: 'Show simulation window for running SPICE or IBIS simulations.',
+    name: _HKI('Simulator'),
+    tip: _HKI('Show simulation window for running SPICE or IBIS simulations.'),
   },
-  assignFootprints: { name: 'Assign Footprints...', tip: 'Run footprint assignment tool' },
+  assignFootprints: {
+    name: _HKI('Assign Footprints...'),
+    tip: _HKI('Run footprint assignment tool'),
+  },
   editSymbolFields: {
-    name: 'Bulk Edit Symbol Fields...',
-    tip: 'Edit a table of fields from all symbols in the schematic',
+    name: _HKI('Bulk Edit Symbol Fields...'),
+    tip: _HKI('Edit a table of fields from all symbols in the schematic'),
   },
   bom: {
-    name: 'Generate Bill of Materials...',
-    tip: 'Generate a bill of materials for the current schematic',
+    name: _HKI('Generate Bill of Materials...'),
+    tip: _HKI('Generate a bill of materials for the current schematic'),
   },
-  showPcbNew: { name: 'Switch to PCB Editor', tip: 'Open PCB in board editor' },
-  toggleHiddenPins: { name: 'Show Hidden Pins' },
+  showPcbNew: { name: _HKI('Switch to PCB Editor'), tip: _HKI('Open PCB in board editor') },
+  toggleHiddenPins: { name: _HKI('Show Hidden Pins') },
   // All three share one FriendlyName upstream and differ only in .Tooltip().
-  lineModeFree: { name: 'Line Mode for Wires and Buses', tip: 'Draw and drag at any angle' },
+  lineModeFree: {
+    name: _HKI('Line Mode for Wires and Buses'),
+    tip: _HKI('Draw and drag at any angle'),
+  },
   lineMode90: {
-    name: 'Line Mode for Wires and Buses',
-    tip: 'Constrain drawing and dragging to horizontal or vertical motions',
+    name: _HKI('Line Mode for Wires and Buses'),
+    tip: _HKI('Constrain drawing and dragging to horizontal or vertical motions'),
   },
   lineMode45: {
-    name: 'Line Mode for Wires and Buses',
-    tip: 'Constrain drawing and dragging to horizontal, vertical, or 45-degree angle motions',
+    name: _HKI('Line Mode for Wires and Buses'),
+    tip: _HKI('Constrain drawing and dragging to horizontal, vertical, or 45-degree angle motions'),
   },
   annotateAuto: {
-    name: 'Annotate Automatically',
-    tip: 'Toggle automatic annotation of new symbols',
+    name: _HKI('Annotate Automatically'),
+    tip: _HKI('Toggle automatic annotation of new symbols'),
   },
   showHierarchy: {
-    name: 'Hierarchy Navigator',
+    name: _HKI('Hierarchy Navigator'),
     hotkey: 'Ctrl+H',
-    tip: 'Show/hide the schematic sheet hierarchy navigator',
+    tip: _HKI('Show/hide the schematic sheet hierarchy navigator'),
   },
-  highlightNet: { name: 'Highlight Nets', tip: 'Highlight wires and pins of a net' },
-  placeSymbol: { name: 'Place Symbols', hotkey: 'A' },
-  placePower: { name: 'Place Power Symbols', hotkey: 'P' },
-  drawWire: { name: 'Draw Wires', hotkey: 'W' },
-  drawBus: { name: 'Draw Buses', hotkey: 'B' },
-  busEntry: { name: 'Place Wire to Bus Entries', hotkey: 'Z' },
-  noConnect: { name: 'Place No Connect Flags', hotkey: 'Q' },
-  junction: { name: 'Place Junctions', hotkey: 'J' },
-  placeLabel: { name: 'Place Net Labels', hotkey: 'L' },
-  placeClassLabel: { name: 'Place Directive Labels' },
-  placeGlobalLabel: { name: 'Place Global Labels', hotkey: 'Ctrl+L' },
-  placeHierLabel: { name: 'Place Hierarchical Labels', hotkey: 'H' },
-  drawRuleArea: { name: 'Draw Rule Areas' },
-  drawSheet: { name: 'Draw Hierarchical Sheets', hotkey: 'S' },
+  highlightNet: { name: _HKI('Highlight Nets'), tip: _HKI('Highlight wires and pins of a net') },
+  placeSymbol: { name: _HKI('Place Symbols'), hotkey: 'A' },
+  placePower: { name: _HKI('Place Power Symbols'), hotkey: 'P' },
+  drawWire: { name: _HKI('Draw Wires'), hotkey: 'W' },
+  drawBus: { name: _HKI('Draw Buses'), hotkey: 'B' },
+  busEntry: { name: _HKI('Place Wire to Bus Entries'), hotkey: 'Z' },
+  noConnect: { name: _HKI('Place No Connect Flags'), hotkey: 'Q' },
+  junction: { name: _HKI('Place Junctions'), hotkey: 'J' },
+  placeLabel: { name: _HKI('Place Net Labels'), hotkey: 'L' },
+  placeClassLabel: { name: _HKI('Place Directive Labels') },
+  placeGlobalLabel: { name: _HKI('Place Global Labels'), hotkey: 'Ctrl+L' },
+  placeHierLabel: { name: _HKI('Place Hierarchical Labels'), hotkey: 'H' },
+  drawRuleArea: { name: _HKI('Draw Rule Areas') },
+  drawSheet: { name: _HKI('Draw Hierarchical Sheets'), hotkey: 'S' },
   sheetPin: {
-    name: 'Place Pins from Sheet',
-    tip: 'Add sheet pins from existing hierarchical labels found on that sheet',
+    name: _HKI('Place Pins from Sheet'),
+    tip: _HKI('Add sheet pins from existing hierarchical labels found on that sheet'),
   },
   syncAllSheetPins: {
-    name: 'Sync All Sheet Pins...',
-    tip: 'Synchronize all sheet pins and hierarchical labels',
+    name: _HKI('Sync All Sheet Pins...'),
+    tip: _HKI('Synchronize all sheet pins and hierarchical labels'),
   },
-  placeText: { name: 'Draw Text', hotkey: 'T' },
-  textBox: { name: 'Draw Text Boxes' },
-  table: { name: 'Draw Tables' },
-  rectangle: { name: 'Draw Rectangles' },
-  circle: { name: 'Draw Circles' },
-  arc: { name: 'Draw Arcs' },
-  bezier: { name: 'Draw Bezier Curve' },
-  lines: { name: 'Draw Lines', hotkey: 'I' },
-  image: { name: 'Place Images' },
+  placeText: { name: _HKI('Draw Text'), hotkey: 'T' },
+  textBox: { name: _HKI('Draw Text Boxes') },
+  table: { name: _HKI('Draw Tables') },
+  rectangle: { name: _HKI('Draw Rectangles') },
+  circle: { name: _HKI('Draw Circles') },
+  arc: { name: _HKI('Draw Arcs') },
+  bezier: { name: _HKI('Draw Bezier Curve') },
+  lines: { name: _HKI('Draw Lines'), hotkey: 'I' },
+  image: { name: _HKI('Place Images') },
 };
 
 /**
@@ -199,58 +219,58 @@ export const COMMON_TOOLBAR_ACTIONS: Readonly<Record<string, ToolbarAction>> = {
   // lists "Show Grid", because `TOOLBAR_ACTIONS['symbol_editor']` does not
   // exist and the lookup never reached here.
   // ---- common/tool/actions.cpp ------------------------------------------
-  save: { name: 'Save', hotkey: 'Ctrl+S', tip: 'Save changes' },
+  save: { name: 'Save', hotkey: 'Ctrl+S', tip: _HKI('Save changes') },
   pageSettings: {
-    name: 'Page Settings...',
-    tip: 'Settings for paper size and title block info',
+    name: _HKI('Page Settings...'),
+    tip: _HKI('Settings for paper size and title block info'),
   },
-  print: { name: 'Print...', hotkey: 'Ctrl+P' },
-  plot: { name: 'Plot...' },
-  paste: { name: 'Paste', hotkey: 'Ctrl+V', tip: 'Paste item(s) from clipboard' },
+  print: { name: _HKI('Print...'), hotkey: 'Ctrl+P' },
+  plot: { name: _HKI('Plot...') },
+  paste: { name: 'Paste', hotkey: 'Ctrl+V', tip: _HKI('Paste item(s) from clipboard') },
   undo: { name: 'Undo', hotkey: 'Ctrl+Z' },
   // `#else` branch: Ctrl+Y off macOS (actions.cpp:292-302).
   redo: { name: 'Redo', hotkey: 'Ctrl+Y' },
   find: { name: 'Find', hotkey: 'Ctrl+F' },
   // `#else` branch: F5 off macOS (actions.cpp:705-716).
-  zoomRedraw: { name: 'Refresh', hotkey: 'F5' },
+  zoomRedraw: { name: _HKI('Refresh'), hotkey: 'F5' },
   // The toolbar carries zoomInCenter / zoomOutCenter, which declare no hotkey;
   // F1 / F2 belong to ACTIONS::zoomIn / zoomOut, a different pair of actions.
   zoomIn: { name: 'Zoom In' },
   zoomOut: { name: 'Zoom Out' },
   zoomFitObjects: {
-    name: 'Zoom to All Objects',
+    name: _HKI('Zoom to All Objects'),
     hotkey: 'Ctrl+Home',
-    tip: 'Zoom to all objects on screen',
+    tip: _HKI('Zoom to all objects on screen'),
   },
   zoomTool: {
-    name: 'Zoom to Selection Area',
+    name: _HKI('Zoom to Selection Area'),
     hotkey: 'Ctrl+F5',
-    tip: 'Zoom to an area selection created by a mouse drag',
+    tip: _HKI('Zoom to an area selection created by a mouse drag'),
   },
   group: {
-    name: 'Group Items',
-    tip: 'Group the selected items so that they are treated as a single item',
+    name: _HKI('Group Items'),
+    tip: _HKI('Group the selected items so that they are treated as a single item'),
   },
-  ungroup: { name: 'Ungroup Items', tip: 'Ungroup any selected groups' },
-  toggleGrid: { name: 'Show Grid', tip: 'Display background grid in the edit window' },
+  ungroup: { name: _HKI('Ungroup Items'), tip: _HKI('Ungroup any selected groups') },
+  toggleGrid: { name: _HKI('Show Grid'), tip: _HKI('Display background grid in the edit window') },
   toggleGridOverrides: {
-    name: 'Grid Overrides',
+    name: _HKI('Grid Overrides'),
     hotkey: 'Ctrl+Shift+G',
-    tip: 'Enables item-specific grids that override the current grid',
+    tip: _HKI('Enables item-specific grids that override the current grid'),
   },
-  showProperties: { name: 'Properties', tip: 'Show/hide the properties manager' },
-  delete: { name: 'Interactive Delete Tool', tip: 'Delete clicked items' },
+  showProperties: { name: _HKI('Properties'), tip: _HKI('Show/hide the properties manager') },
+  delete: { name: _HKI('Interactive Delete Tool'), tip: _HKI('Delete clicked items') },
   // actions.cpp:1095-1100. The FriendlyName is "Edit Grids...", NOT "Grid
   // Properties": the C++ identifier is `gridProperties` but the words the user
   // reads are not. `EDA_DRAW_FRAME::UpdateGridSelectBox` writes the same two
   // words as its own literal for the grid combo's last row
   // (`common/eda_draw_frame.cpp:466`) — upstream really does say it twice, and
   // ours transcribes the combo's copy separately in `ui/grid_settings.ts`.
-  gridProperties: { name: 'Edit Grids...', tip: 'Edit grid definitions' },
+  gridProperties: { name: _HKI('Edit Grids...'), tip: _HKI('Edit grid definitions') },
   // actions.cpp:1102-1107.
-  gridOrigin: { name: 'Grid Origin...', tip: 'Set the grid origin point' },
+  gridOrigin: { name: _HKI('Grid Origin...'), tip: _HKI('Set the grid origin point') },
   // actions.cpp:968-973. No `.Tooltip()`, so the button gets no second line.
-  showLibraryTree: { name: 'Library Tree' },
+  showLibraryTree: { name: _HKI('Library Tree') },
   // The eeschema ones the Symbol Editor's left toolbar and its Toolbars page
   // both draw. They live here rather than under `symbol` because
   // `SCH_ACTIONS::showHiddenPins` and friends are one object shared by the
@@ -258,13 +278,13 @@ export const COMMON_TOOLBAR_ACTIONS: Readonly<Record<string, ToolbarAction>> = {
   // object shared by every frame with a tree.
   // sch_actions.cpp:307-313.
   showElectricalTypes: {
-    name: 'Show Pin Electrical Types',
-    tip: 'Annotate pins with their electrical types',
+    name: _HKI('Show Pin Electrical Types'),
+    tip: _HKI('Annotate pins with their electrical types'),
   },
   // sch_actions.cpp:347-352. No `.Tooltip()`.
-  showHiddenPins: { name: 'Show Hidden Pins' },
+  showHiddenPins: { name: _HKI('Show Hidden Pins') },
   // sch_actions.cpp:354-359. No `.Tooltip()`.
-  showHiddenFields: { name: 'Show Hidden Fields' },
+  showHiddenFields: { name: _HKI('Show Hidden Fields') },
 };
 
 /**

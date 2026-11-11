@@ -44,6 +44,7 @@ import {
 } from './settings/color_theme_file.js';
 import { DialogShim } from './dialog_shim.js';
 import { OK_LABEL } from './confirm_types.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // ---------------------------------------------------------------------------
 // The folder's I/O: what was designer/src/fs/theme_folder.ts (09-26). It is
@@ -283,7 +284,7 @@ export function ThemeFolderDialog({
                 {f.writable ? '' : ' (read-only)'}
               </span>
               <button type="button" role="cell" className="ze-btn" onClick={() => void put(f)}>
-                {onWriteToFolder ? 'Save to folder' : 'Export'}
+                {onWriteToFolder ? 'Save to folder' : _('Export')}
               </button>
             </div>
           ))}

@@ -39,6 +39,7 @@ import {
   DesignBlockPropertiesToWindow,
   UNTITLED_FIELD,
 } from './dialog_design_block_properties.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 type Row = { name: string; value: string };
 
@@ -106,12 +107,12 @@ export function DialogDesignBlockProperties({
 
   return (
     <DialogShim
-      title="Design Block Properties"
+      title={wxGetTranslation('Design Block Properties')}
       onClose={() => onClose(false)}
       className="ze-dbprops"
     >
       <div className="ze-dbprops-margins">
-        <StaticBox label="Default Fields" className="ze-dbprops-fields">
+        <StaticBox label={wxGetTranslation('Default Fields')} className="ze-dbprops-fields">
           <div className="ze-grid-pane ze-dbprops-gridpane">
             <WxGridView
               grid={grid}
@@ -119,25 +120,25 @@ export function DialogDesignBlockProperties({
               columns={[{ width: 120 }]}
               flexCol={1}
               onUpdate={onUpdate}
-              ariaLabel="Default Fields"
+              ariaLabel={wxGetTranslation('Default Fields')}
             />
           </div>
           <div className="ze-grid-btns ze-dbprops-btns">
             <StdBitmapButton
               bitmap="small_plus"
-              title="Add field"
+              title={wxGetTranslation('Add field')}
               tooltip={null}
               onClick={() => onAddField(grid)}
             />
             <StdBitmapButton
               bitmap="small_up"
-              title="Move up"
+              title={wxGetTranslation('Move up')}
               tooltip={null}
               onClick={() => grid.OnMoveRowUp((row) => grid.SwapRows(row, row - 1))}
             />
             <StdBitmapButton
               bitmap="small_down"
-              title="Move down"
+              title={wxGetTranslation('Move down')}
               tooltip={null}
               // Upstream binds Move Down to `OnMoveRowUp` with a +1 swap
               // (dialog_design_block_properties.cpp:135-142).
@@ -146,7 +147,7 @@ export function DialogDesignBlockProperties({
             <span className="ze-dbprops-btngap" />
             <StdBitmapButton
               bitmap="small_trash"
-              title="Delete field"
+              title={wxGetTranslation('Delete field')}
               tooltip={null}
               onClick={() => grid.OnDeleteRows((row) => grid.DeleteRows(row, 1))}
             />
@@ -154,7 +155,7 @@ export function DialogDesignBlockProperties({
         </StaticBox>
       </div>
       <div className="ze-dbprops-props">
-        <label htmlFor="ze-dbprops-name">Name:</label>
+        <label htmlFor="ze-dbprops-name">{wxGetTranslation('Name:')}</label>
         <TextCtrl
           value={name}
           onChange={(aValue) => setName(aValue)}
@@ -162,14 +163,14 @@ export function DialogDesignBlockProperties({
           id="ze-dbprops-name"
           className="ze-input"
         />
-        <label htmlFor="ze-dbprops-keywords">Keywords:</label>
+        <label htmlFor="ze-dbprops-keywords">{wxGetTranslation('Keywords:')}</label>
         <TextCtrl
           value={keywords}
           onChange={(aValue) => setKeywords(aValue)}
           id="ze-dbprops-keywords"
           className="ze-input"
         />
-        <label htmlFor="ze-dbprops-description">Description:</label>
+        <label htmlFor="ze-dbprops-description">{wxGetTranslation('Description:')}</label>
         <textarea
           id="ze-dbprops-description"
           className="ze-input"

@@ -46,6 +46,8 @@ import {
 } from '../properties/property.js';
 import { PROPERTY_MANAGER } from '../properties/property_mgr.js';
 import type { UNITS_PROVIDER } from '../units_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** What the panel asks its `EDA_BASE_FRAME* m_frame`. */
 export interface PROPERTIES_PANEL_FRAME {
@@ -111,7 +113,7 @@ export interface PG_GROUP {
 }
 
 /** `unspecifiedGroupCaption` (:339). */
-export const UNSPECIFIED_GROUP_CAPTION = 'Basic Properties';
+export const UNSPECIFIED_GROUP_CAPTION = _HKI('Basic Properties');
 
 /**
  * `wxVariant::operator==` over the values a property getter returns: numbers,
@@ -250,7 +252,7 @@ export abstract class PROPERTIES_PANEL {
       this.m_displayed = [];
 
       if (aSelection.length === 0) {
-        this.m_caption = 'No objects selected';
+        this.m_caption = _('No objects selected');
         return;
       } else if (aSelection.length === 1) {
         this.m_caption = aSelection[0]!.GetFriendlyName();

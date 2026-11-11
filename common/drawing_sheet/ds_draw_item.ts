@@ -55,6 +55,7 @@ import {
   PAGE_OPTION,
 } from './ds_data_item.js';
 import { DS_DATA_MODEL } from './ds_data_model.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `COLOR4D::UNSPECIFIED`. */
 const COLOR4D_UNSPECIFIED: Color4d = { r: 0, g: 0, b: 0, a: 0 };
@@ -166,11 +167,11 @@ export abstract class DS_DRAW_ITEM_BASE extends EDA_ITEM {
 
     switch (dataItem.GetType()) {
       case DS_ITEM_TYPE.DS_SEGMENT:
-        aList.push(new MSG_PANEL_ITEM('Line', ''));
+        aList.push(new MSG_PANEL_ITEM(_('Line'), ''));
         break;
 
       case DS_ITEM_TYPE.DS_RECT:
-        aList.push(new MSG_PANEL_ITEM('Rectangle', ''));
+        aList.push(new MSG_PANEL_ITEM(_('Rectangle'), ''));
         break;
 
       case DS_ITEM_TYPE.DS_TEXT: {
@@ -178,13 +179,13 @@ export abstract class DS_DRAW_ITEM_BASE extends EDA_ITEM {
 
         // Don't use GetShownText(); we want to see the variable references here
         aList.push(
-          new MSG_PANEL_ITEM('Text', KIUI_EllipsizeStatusText(aFrame, textItem.GetText())),
+          new MSG_PANEL_ITEM(_('Text'), KIUI_EllipsizeStatusText(aFrame, textItem.GetText())),
         );
         break;
       }
 
       case DS_ITEM_TYPE.DS_POLYPOLYGON:
-        aList.push(new MSG_PANEL_ITEM('Imported Shape', ''));
+        aList.push(new MSG_PANEL_ITEM(_('Imported Shape'), ''));
         break;
 
       case DS_ITEM_TYPE.DS_BITMAP:
@@ -194,29 +195,29 @@ export abstract class DS_DRAW_ITEM_BASE extends EDA_ITEM {
 
     switch (dataItem.GetPage1Option()) {
       case PAGE_OPTION.FIRST_PAGE_ONLY:
-        msg = 'First Page Only';
+        msg = _('First Page Only');
         break;
       case PAGE_OPTION.SUBSEQUENT_PAGES:
-        msg = 'Subsequent Pages';
+        msg = _('Subsequent Pages');
         break;
       default:
-        msg = 'All Pages';
+        msg = _('All Pages');
         break;
     }
 
-    aList.push(new MSG_PANEL_ITEM('First Page Option', msg));
+    aList.push(new MSG_PANEL_ITEM(_('First Page Option'), msg));
 
     msg = messageTextFromValue(unityScale, 'unscaled', dataItem.m_RepeatCount);
-    aList.push(new MSG_PANEL_ITEM('Repeat Count', msg));
+    aList.push(new MSG_PANEL_ITEM(_('Repeat Count'), msg));
 
     msg = messageTextFromValue(unityScale, 'unscaled', dataItem.m_IncrementLabel);
-    aList.push(new MSG_PANEL_ITEM('Repeat Label Increment', msg));
+    aList.push(new MSG_PANEL_ITEM(_('Repeat Label Increment'), msg));
 
     msg = `(${aFrame.MessageTextFromValue(dataItem.m_IncrementVector.x)}, ${aFrame.MessageTextFromValue(dataItem.m_IncrementVector.y)})`;
 
-    aList.push(new MSG_PANEL_ITEM('Repeat Position Increment', msg));
+    aList.push(new MSG_PANEL_ITEM(_('Repeat Position Increment'), msg));
 
-    aList.push(new MSG_PANEL_ITEM('Comment', dataItem.m_Info));
+    aList.push(new MSG_PANEL_ITEM(_('Comment'), dataItem.m_Info));
   }
 }
 

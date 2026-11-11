@@ -23,6 +23,7 @@ import {
   type Severity,
 } from '../reporter.js';
 import { NumberBadge } from './number_badge.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The panel's own definition of "all" (wx_html_report_panel.cpp). */
 export const RPT_SEVERITY_ALL =
@@ -44,7 +45,7 @@ interface Props {
 }
 
 export function HtmlReportPanel({
-  label = 'Output Messages',
+  label = _('Output Messages'),
   lines,
   fileName = 'report.txt',
   visibleSeverities,
@@ -115,21 +116,23 @@ export function HtmlReportPanel({
             key={`${i}:${line.message}`}
             className={`ze-report-line ${severityClass(line.severity)}`}
           >
-            {line.severity === RPT_SEVERITY_ERROR && <span className="tag">Error: </span>}
-            {line.severity === RPT_SEVERITY_WARNING && <span className="tag">Warning: </span>}
+            {line.severity === RPT_SEVERITY_ERROR && <span className="tag">{_('Error:')} </span>}
+            {line.severity === RPT_SEVERITY_WARNING && (
+              <span className="tag">{_('Warning:')} </span>
+            )}
             {line.message}
           </div>
         ))}
       </div>
       <div className="ze-report-filters">
-        <span className="ze-report-show">Show:</span>
+        <span className="ze-report-show">{_('Show:')}</span>
         <label>
           <input
             type="checkbox"
             checked={visibleSeverities === RPT_SEVERITY_ALL}
             onChange={toggleAll}
           />
-          All
+          {_('All')}
         </label>
         <label>
           <input
@@ -137,7 +140,7 @@ export function HtmlReportPanel({
             checked={has(RPT_SEVERITY_ERROR)}
             onChange={() => toggle(RPT_SEVERITY_ERROR)}
           />
-          Errors
+          {_('Errors')}
         </label>
         <NumberBadge number={count(RPT_SEVERITY_ERROR)} severity={RPT_SEVERITY_ERROR} />
         <label>
@@ -146,7 +149,7 @@ export function HtmlReportPanel({
             checked={has(RPT_SEVERITY_WARNING)}
             onChange={() => toggle(RPT_SEVERITY_WARNING)}
           />
-          Warnings
+          {_('Warnings')}
         </label>
         <NumberBadge number={count(RPT_SEVERITY_WARNING)} severity={RPT_SEVERITY_WARNING} />
         <label>
@@ -155,7 +158,7 @@ export function HtmlReportPanel({
             checked={has(RPT_SEVERITY_ACTION)}
             onChange={() => toggle(RPT_SEVERITY_ACTION)}
           />
-          Actions
+          {_('Actions')}
         </label>
         <label>
           <input
@@ -163,10 +166,10 @@ export function HtmlReportPanel({
             checked={has(RPT_SEVERITY_INFO)}
             onChange={() => toggle(RPT_SEVERITY_INFO)}
           />
-          Infos
+          {_('Infos')}
         </label>
         <span className="ze-report-spacer" />
-        <Button label="Save..." onClick={save} />
+        <Button label={_('Save...')} onClick={save} />
       </div>
     </fieldset>
   );

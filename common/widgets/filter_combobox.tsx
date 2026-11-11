@@ -40,6 +40,7 @@ import {
   useState,
 } from 'react';
 import { useModalEscape } from '../dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `FILTER_COMBOPOPUP::getListContent`: the (sorted) string list, filtered by a
@@ -227,7 +228,7 @@ export function FilterComboCtrl({
           onKeyDown={onPopupKeyDown}
         >
           <label className="ze-filter-popup-label" htmlFor={`${ids}-filter`}>
-            Filter:
+            {_('Filter:')}
           </label>
           <TextCtrl
             value={filter}

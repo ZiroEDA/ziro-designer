@@ -39,6 +39,7 @@ import type { WX_GRID } from './widgets/wx_grid.js';
 import { type wxGridEvent, wxGridTableRequest } from '@ziroeda/wx/grid.js';
 import type { wxMenu, wxMenuEvent } from '@ziroeda/wx/menu.js';
 import { type wxKeyEvent, wxMOD_CONTROL } from '@ziroeda/wx/wx_event.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const LIB_TABLE_GRID_TRICKS_ACTIVATE_SELECTED = GRIDTRICKS_FIRST_CLIENT_ID;
 const LIB_TABLE_GRID_TRICKS_DEACTIVATE_SELECTED = GRIDTRICKS_FIRST_CLIENT_ID + 1;
@@ -130,14 +131,14 @@ export abstract class LIB_TABLE_GRID_TRICKS extends GRID_TRICKS {
 
         if (this.m_sel_row_count === 1 && adapter.SupportsConfigurationDialog(nickname)) {
           showSettings = true;
-          aMenu.Append(LIB_TABLE_GRID_TRICKS_LIBRARY_SETTINGS, 'Edit Settings...');
+          aMenu.Append(LIB_TABLE_GRID_TRICKS_LIBRARY_SETTINGS, _('Edit Settings...'));
         }
       }
     }
 
     if (firstRow.Type() === LIBRARY_TABLE_ROW.TABLE_TYPE_NAME) {
       showOpen = true;
-      aMenu.Append(LIB_TABLE_GRID_TRICKS_OPEN_TABLE, 'Open Library Table');
+      aMenu.Append(LIB_TABLE_GRID_TRICKS_OPEN_TABLE, _('Open Library Table'));
     }
 
     if (showSettings || showOpen) aMenu.AppendSeparator();
@@ -164,15 +165,16 @@ export abstract class LIB_TABLE_GRID_TRICKS extends GRID_TRICKS {
       if (showActivate && showDeactivate && showSetVisible && showUnsetVisible) break;
     }
 
-    if (showActivate) aMenu.Append(LIB_TABLE_GRID_TRICKS_ACTIVATE_SELECTED, 'Activate Selected');
+    if (showActivate) aMenu.Append(LIB_TABLE_GRID_TRICKS_ACTIVATE_SELECTED, _('Activate Selected'));
 
     if (showDeactivate)
-      aMenu.Append(LIB_TABLE_GRID_TRICKS_DEACTIVATE_SELECTED, 'Deactivate Selected');
+      aMenu.Append(LIB_TABLE_GRID_TRICKS_DEACTIVATE_SELECTED, _('Deactivate Selected'));
 
     if (this.supportsVisibilityColumn()) {
-      if (showSetVisible) aMenu.Append(LIB_TABLE_GRID_TRICKS_SET_VISIBLE, 'Set Visible Flag');
+      if (showSetVisible) aMenu.Append(LIB_TABLE_GRID_TRICKS_SET_VISIBLE, _('Set Visible Flag'));
 
-      if (showUnsetVisible) aMenu.Append(LIB_TABLE_GRID_TRICKS_UNSET_VISIBLE, 'Unset Visible Flag');
+      if (showUnsetVisible)
+        aMenu.Append(LIB_TABLE_GRID_TRICKS_UNSET_VISIBLE, _('Unset Visible Flag'));
     }
 
     if (
@@ -183,8 +185,8 @@ export abstract class LIB_TABLE_GRID_TRICKS extends GRID_TRICKS {
       showOptions = true;
       aMenu.Append(
         LIB_TABLE_GRID_TRICKS_OPTIONS_EDITOR,
-        'Edit Options...',
-        'Edit options for this library entry',
+        _('Edit Options...'),
+        _('Edit options for this library entry'),
       );
     }
 
@@ -455,7 +457,7 @@ export abstract class LIB_TABLE_GRID_TRICKS extends GRID_TRICKS {
         // Silently nuke rows that have no libraray URI
         model.DeleteRows(r, 1);
       } else if (!nick || illegalCh) {
-        if (!nick) msg = 'Library must have a nickname.';
+        if (!nick) msg = _('Library must have a nickname.');
         else msg = `Illegal character '${String.fromCodePoint(illegalCh)}' in nickname '${nick}'.`;
 
         aErrorHandler(r, COL_NICKNAME);

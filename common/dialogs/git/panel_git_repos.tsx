@@ -32,6 +32,7 @@ import { TextCtrl } from '@ziroeda/wx/controls.js';
 import { Check, Group } from '../pref_controls.js';
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
 import type { COMMON_SETTINGS_DRAFT } from '../../settings/common_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function PanelGitRepos({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Element {
   const { common, upC } = ctx;
@@ -43,7 +44,7 @@ export function PanelGitRepos({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Elem
           in no group at all. */}
       <div className="ze-git-enable">
         <Check
-          label="Enable Git tracking"
+          label={_('Enable Git tracking')}
           checked={git.enableGit}
           disabled
           onChange={(v) =>
@@ -53,11 +54,11 @@ export function PanelGitRepos({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Elem
           }
         />
       </div>
-      <Group title="Remote Tracking">
+      <Group title={_('Remote Tracking')}>
         {/* `gbUpdate = new wxGridBagSizer( 4, 5 )`: the label, the spin control
             and the units, in three cells. */}
         <div className="ze-git-update">
-          <span className="lbl">Update interval:</span>
+          <span className="lbl">{_('Update interval:')}</span>
           <SpinCtrl
             value={git.updatInterval}
             /* [data] `wxSpinCtrl( …, wxSP_ARROW_KEYS, 0, 60, 5 )`. */
@@ -71,17 +72,17 @@ export function PanelGitRepos({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Elem
               })
             }
           />
-          <span className="unit">minutes</span>
+          <span className="unit">{_('minutes')}</span>
         </div>
       </Group>
-      <Group title="Git Commit Data">
+      <Group title={_('Git Commit Data')}>
         {/* `fgSizer1 = new wxFlexGridSizer( 0, 2, 0, 0 )`: the checkbox takes
             the first cell of row 0 and an empty spacer the second, so the label
             column is as wide as the checkbox — which is why KiCad's two entries
             start well right of "Author name:". */}
         <div className="ze-git-commit">
           <Check
-            label="Use default values"
+            label={_('Use default values')}
             checked={git.useDefaultAuthor}
             disabled
             onChange={(v) =>
@@ -91,7 +92,7 @@ export function PanelGitRepos({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Elem
             }
           />
           <span />
-          <span className="lbl">Author name:</span>
+          <span className="lbl">{_('Author name:')}</span>
           <TextCtrl
             value={git.authorName}
             onChange={(aValue) =>
@@ -102,7 +103,7 @@ export function PanelGitRepos({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Elem
             disabled
             className="ze-search"
           />
-          <span className="lbl">Author e-mail:</span>
+          <span className="lbl">{_('Author e-mail:')}</span>
           <TextCtrl
             value={git.authorEmail}
             onChange={(aValue) =>

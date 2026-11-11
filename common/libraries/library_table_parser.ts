@@ -27,6 +27,7 @@
  * because a table written by KiCad and read back by us has to agree with KiCad.
  */
 import { LIBRARY_TABLE_TYPE } from './library_table.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `LIBRARY_TABLE_ROW_IR`. */
 export interface LIBRARY_TABLE_ROW_IR {
@@ -330,7 +331,7 @@ export class LIBRARY_TABLE_PARSER {
 
   /** `ParseBuffer( aBuffer )`. */
   ParseBuffer(aBuffer: string): LIBRARY_PARSE_RESULT {
-    return this.parse(aBuffer, 'An unexpected error occurred while reading library table');
+    return this.parse(aBuffer, _('An unexpected error occurred while reading library table'));
   }
 
   private parse(aText: string, aUnexpected: string): LIBRARY_PARSE_RESULT {

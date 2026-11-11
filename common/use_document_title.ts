@@ -18,6 +18,7 @@
 
 import { useEffect } from 'react';
 import { PRODUCT } from './eda_base_frame_about_titles.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The app name every title ends with, matching index.html's default. */
 export const APP_NAME = PRODUCT;
@@ -154,9 +155,9 @@ export interface FrameTitleSpec {
 }
 
 /** `_( "[Read Only]" )`, on frames 1, 2, 4, 7 and 11 of `docs/frame-titles.md`. */
-export const READ_ONLY_SUFFIX = '[Read Only]';
+export const READ_ONLY_SUFFIX = _HKI('[Read Only]');
 /** `_( "[Unsaved]" )`, on frames 1, 2, 4 and 7. */
-export const UNSAVED_SUFFIX = '[Unsaved]';
+export const UNSAVED_SUFFIX = _HKI('[Unsaved]');
 
 export function frameTitle(spec: FrameTitleSpec): FrameTitleParts {
   const doc = spec.document?.trim() ?? '';

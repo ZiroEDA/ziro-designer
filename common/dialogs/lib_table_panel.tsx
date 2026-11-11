@@ -83,6 +83,7 @@ import { wxICON_ERROR, wxOK } from '@ziroeda/wx/defs.js';
 import type { WX_GRID } from '../widgets/wx_grid.js';
 import { wxAuiNotebook } from '@ziroeda/wx/aui_notebook.js';
 import { wxReadFileSync } from '@ziroeda/wx/filefn.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `m_pluginChoices`: the formats this build reads (see the file comment). */
 const PLUGIN_CHOICES = ['KiCad'];
@@ -337,9 +338,9 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
       grid.HideCol(COL_OPTIONS);
     };
 
-    addTable(spec.globalTable, 'Global Libraries');
+    addTable(spec.globalTable, _('Global Libraries'));
 
-    if (spec.projectTable) addTable(spec.projectTable, 'Project Specific Libraries');
+    if (spec.projectTable) addTable(spec.projectTable, _('Project Specific Libraries'));
 
     nb.SetSelection(nb.GetPageCount() - 1);
 
@@ -387,7 +388,7 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
     );
 
     if (!child.IsOk()) {
-      void DisplayInfoMessage('Unable to load library table.');
+      void DisplayInfoMessage(_('Unable to load library table.'));
     } else {
       manager?.ApplyLibOverrides(child);
       OpenTable(child, aRow.Nickname());
@@ -410,7 +411,7 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
     if (
       panel0.GetGrid().GetNumberRows() > 0 &&
       !(await IsOK(
-        'This action will reset your global library table on disk and cannot be undone.',
+        _('This action will reset your global library table on disk and cannot be undone.'),
       ))
     )
       return;
@@ -586,7 +587,7 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
       if (!saved.ok)
         void ShowKicadMessageDialog({
           message: `Error saving global library table:\n\n${saved.error.message}`,
-          caption: 'File Save Error',
+          caption: _('File Save Error'),
           style: wxOK | wxICON_ERROR,
         });
 

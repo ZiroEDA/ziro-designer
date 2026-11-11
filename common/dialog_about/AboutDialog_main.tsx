@@ -30,6 +30,7 @@ import { PRODUCT } from '../eda_base_frame_about_titles.js';
 import { ABOUT_APP_INFO, CONTRIBUTOR } from './aboutinfo.js';
 import { DIALOG_ABOUT } from './dialog_about.js';
 import { version as REACT_VERSION } from 'react';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * Wrap `aUrl` in an anchor: `<a href='url'>description</a>`, the URL itself
@@ -106,7 +107,7 @@ function buildKicadAboutBanner(aAppIcon: string, aInfo: ABOUT_APP_INFO): void {
     HtmlNewline(2) +
     HtmlHyperlink(
       'http://www.gnu.org/licenses',
-      'GNU General Public License (GPL) version 3 or any later version',
+      _('GNU General Public License (GPL) version 3 or any later version'),
     ) +
     HtmlNewline(2) +
     'Portions derived from KiCad, copyright The KiCad Developers.' +

@@ -24,11 +24,12 @@ import {
   MD_SUPER,
 } from './tool/tool_event.js';
 import type { TOOL_ACTION } from './tool/tool_action.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export const DEFAULT_HOTKEY_FILENAME_EXT = 'hotkeys';
 
 export const EESCHEMA_HOTKEY_NAME = 'Schematic Editor';
-export const PCBNEW_HOTKEY_NAME = 'PCB Editor';
+export const PCBNEW_HOTKEY_NAME = _HKI('PCB Editor');
 
 // A define to allow keys to go further than just ASCII, to use modifier keys.
 // (see TOOL_MODIFIERS in tool_event.h)

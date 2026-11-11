@@ -33,6 +33,7 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { CADSTAR_PIN_POSITION, CADSTAR_PIN_TYPE } from './cadstar_archive_objects.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export { CADSTAR_PIN_POSITION, CADSTAR_PIN_TYPE };
 
@@ -388,7 +389,7 @@ export function LoadArchiveFile(
   aProgressReporter: PROGRESS_REPORTER | null = null,
 ): XNODE {
   const invalid = (): never => {
-    throw new IO_ERROR('The selected file is not valid or might be corrupt!');
+    throw new IO_ERROR(_('The selected file is not valid or might be corrupt!'));
   };
 
   let rootNode = null as XNODE | null;
@@ -408,7 +409,7 @@ export function LoadArchiveFile(
 
       if (progress - reported > 0.01) {
         if (!aProgressReporter.KeepRefreshing())
-          throw new IO_ERROR('File import canceled by user.');
+          throw new IO_ERROR(_('File import canceled by user.'));
 
         aProgressReporter.SetCurrentProgress(progress);
         reported = progress;
@@ -2769,7 +2770,7 @@ export class CADSTAR_ARCHIVE_PARSER {
       this.m_progressReporter.AdvanceProgress();
 
       if (!this.m_progressReporter.KeepRefreshing())
-        throw new IO_ERROR('File import canceled by user.');
+        throw new IO_ERROR(_('File import canceled by user.'));
     }
   }
 }

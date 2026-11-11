@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -33,7 +34,7 @@ const SYM: ReadonlyMap<string, string> = new Map([
   ['Battery_Management', 'Battery management ICs'],
   ['Buffer', 'High-speed clock/data buffer ICs'],
   ['Comparator', 'Comparator symbols'],
-  ['Connector', 'Connector symbols (Examples: Terminal Block, D-SUB, DIN, USB...)'],
+  [_HKI('Connector'), 'Connector symbols (Examples: Terminal Block, D-SUB, DIN, USB...)'],
   ['Connector_Audio', 'Audio connector symbols'],
   ['Connector_Generic', 'Generic connector symbols'],
   ['Connector_Generic_MountingPin', 'Generic connectors with mechanical mounting pin'],
@@ -70,7 +71,7 @@ const SYM: ReadonlyMap<string, string> = new Map([
   ['DSP_Motorola', 'Motorola DSP symbols'],
   ['DSP_Texas', 'Texas Instruments DSP symbols'],
   ['Fiber_Optic', 'Fiber optic symbols'],
-  ['Filter', 'Filter symbols'],
+  [_HKI('Filter'), 'Filter symbols'],
   ['FPGA_Altera_MAX10', 'Intel/Altera MAX 10 FPGA symbols'],
   ['FPGA_CologneChip_GateMate', 'CologneChip GateMate FPGA symbols'],
   ['FPGA_Efinix_Trion', 'Efinix Trion FPGA symbols'],
@@ -84,7 +85,7 @@ const SYM: ReadonlyMap<string, string> = new Map([
   ['FPGA_Xilinx_Virtex6', 'Xilinx Virtex6 FPGA symbols'],
   ['FPGA_Xilinx_Virtex7', 'Xilinx Virtex7 FPGA symbols'],
   ['GPU', 'Graphics Processing Units'],
-  ['Graphic', 'Graphical symbols'],
+  [_HKI('Graphic'), 'Graphical symbols'],
   ['Interface', 'Assorted interface symbols'],
   ['Interface_CAN_LIN', 'CAN / LIN interface symbols'],
   ['Interface_CurrentLoop', 'Current loop interface devices'],
@@ -169,7 +170,7 @@ const SYM: ReadonlyMap<string, string> = new Map([
   ['MCU_Texas_SimpleLink', 'Texas Instruments SimpleLink microcontrollers'],
   ['MCU_Trident', 'Trident IoT microcontrollers'],
   ['MCU_WCH_RiscV', 'Nanjing Qingheng Microelectronics (WCH) QingKe RISC-V microcontrollers'],
-  ['Mechanical', 'Mechanical symbols'],
+  [_HKI('Mechanical'), 'Mechanical symbols'],
   ['Memory_EEPROM', 'EEPROM memory'],
   ['Memory_EPROM', 'EPROM memory'],
   ['Memory_Flash', 'Flash memory'],
@@ -254,7 +255,7 @@ const FP: ReadonlyMap<string, string> = new Map([
   ['Capacitor_SMD', 'Capacitor, surface mount'],
   ['Capacitor_THT', 'Capacitor, through hole'],
   ['Capacitor_Tantalum_SMD', 'Tantalum Capacitor, surface mount'],
-  ['Connector', 'Generic/unsorted connector footprints'],
+  [_HKI('Connector'), 'Generic/unsorted connector footprints'],
   ['Connector_AMASS', 'AMASS connector footprints'],
   ['Connector_Amphenol', 'Amphenol LTW connector footprints'],
   ['Connector_Audio', 'Audio connector footprints'],
@@ -328,7 +329,7 @@ const FP: ReadonlyMap<string, string> = new Map([
   ['Display', 'Display modules'],
   ['Ferrite_THT', 'Ferrite bead, through hole'],
   ['Fiducial', 'Fiducial markings'],
-  ['Filter', 'Filter footprints'],
+  [_HKI('Filter'), 'Filter footprints'],
   ['Fuse', 'Fuse and fuse holder footprints'],
   ['Heatsink', 'Heatsinks and thermal products'],
   ['Inductor_SMD', 'Inductor footprints, surface mount'],

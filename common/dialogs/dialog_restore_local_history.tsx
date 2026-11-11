@@ -47,6 +47,7 @@ import {
   type Snapshot,
 } from '../local_history.js';
 import { DialogShim } from '../dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function RestoreLocalHistoryDialog({
   snapshots,
@@ -138,9 +139,9 @@ export function RestoreLocalHistoryDialog({
 
       {/* wxStdDialogButtonSizer: Restore is wxID_OK and starts disabled. */}
       <div className="ze-choicedlg-buttons">
-        <Button label="Cancel" onClick={() => onResult(null)} />
+        <Button label={_('Cancel')} onClick={() => onResult(null)} />
         <Button
-          label="Restore"
+          label={_('Restore')}
           isDefault
           disabled={!chosen}
           onClick={() => selected >= 0 && accept(selected)}

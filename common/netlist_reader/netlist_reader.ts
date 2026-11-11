@@ -58,6 +58,7 @@ import { kiidFromString, kiidPathAsString } from '../kiid.js';
 import { COMPONENT, NETLIST } from './netlist.js';
 import { parseKicadNetlist } from './kicad_netlist_reader.js';
 import { parse } from '@ziroeda/sexpr/parser.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** NETLIST_READER::NETLIST_FILE_T. */
 export type NetlistFileType = 'unknown' | 'orcad' | 'legacy' | 'kicad';
@@ -205,10 +206,10 @@ function loadLegacyComponent(
     return word;
   };
 
-  const path = legacyKiidPath(need(0, 'Cannot parse time stamp in symbol section of netlist.'));
-  const footprintWord = need(1, 'Cannot parse footprint name in symbol section of netlist.');
-  const reference = need(2, 'Cannot parse reference designator in symbol section of netlist.');
-  const value = need(3, 'Cannot parse value in symbol section of netlist.');
+  const path = legacyKiidPath(need(0, _('Cannot parse time stamp in symbol section of netlist.')));
+  const footprintWord = need(1, _('Cannot parse footprint name in symbol section of netlist.'));
+  const reference = need(2, _('Cannot parse reference designator in symbol section of netlist.'));
+  const value = need(3, _('Cannot parse value in symbol section of netlist.'));
 
   // The footprint name will have to be looked up in the *.cmp file.
   const footprintName = footprintWord === '$noname' ? '' : footprintWord;
@@ -239,7 +240,7 @@ function loadLegacyNet(component: COMPONENT, text: string, lineNumber: number): 
 
   if (pinName === undefined) {
     throw new NetlistParseError(
-      'Cannot parse pin name in symbol net section of netlist.',
+      _('Cannot parse pin name in symbol net section of netlist.'),
       lineNumber,
     );
   }
@@ -248,7 +249,7 @@ function loadLegacyNet(component: COMPONENT, text: string, lineNumber: number): 
 
   if (netWord === undefined) {
     throw new NetlistParseError(
-      'Cannot parse net name in symbol net section of netlist.',
+      _('Cannot parse net name in symbol net section of netlist.'),
       lineNumber,
     );
   }

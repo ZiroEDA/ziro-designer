@@ -20,6 +20,7 @@ import { ENV_VAR } from './env_vars.js';
 import type { PGM_BASE } from './pgm_base.js';
 import type { PROJECT } from './project.js';
 import { wxDirExists, wxFileExists, wxNormalizePath } from '@ziroeda/wx/filefn.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // flag bits used to track different one-off messages to users
 const ERRFLG_ALIAS = 1;
@@ -382,7 +383,7 @@ export class FILENAME_RESOLVER {
           `Alias: ${tpath.m_Alias}\n` +
           `This path: ${tpath.m_Pathvar}\n` +
           `Existing path: ${sPL.m_Pathvar}`;
-        DisplayErrorMessage('Bad alias (duplicate name)', msg);
+        DisplayErrorMessage(_('Bad alias (duplicate name)'), msg);
         return false;
       }
     }

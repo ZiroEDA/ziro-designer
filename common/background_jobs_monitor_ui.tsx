@@ -37,6 +37,7 @@ import {
   type BackgroundJob,
   type BackgroundJobsMonitor,
 } from './background_jobs_monitor.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * [data] `wxFrame( …, wxSize( 300, 150 ) )`, background_jobs_monitor.cpp:96 —
@@ -119,7 +120,7 @@ export function BackgroundJobList({
     <div
       ref={ref}
       className="ze-bgjob-list"
-      aria-label="Background Jobs"
+      aria-label={_('Background Jobs')}
       data-testid="background-job-list"
       tabIndex={-1}
       onBlur={(e) => {

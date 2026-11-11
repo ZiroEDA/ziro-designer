@@ -9,6 +9,8 @@
  */
 import type { DESIGN_BLOCK } from '../design_block.js';
 import { LIB_ID } from '../lib_id.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** What the dialog shows: the three text controls and the grid's rows. */
 export interface DESIGN_BLOCK_PROPERTIES_VALUES {
@@ -19,7 +21,7 @@ export interface DESIGN_BLOCK_PROPERTIES_VALUES {
 }
 
 /** `OnAddField`'s new row name. [data] */
-export const UNTITLED_FIELD = 'Untitled Field';
+export const UNTITLED_FIELD = _HKI('Untitled Field');
 
 /** `TransferDataToWindow` + `TransferDataToGrid` (:66-83, :145-165). */
 export function DesignBlockPropertiesToWindow(
@@ -66,7 +68,7 @@ export function DesignBlockPropertiesFromWindow(
     // four spaces become two, not one.
     const fieldName = rawName.trimEnd().replaceAll('\n', '').replaceAll('  ', ' ');
 
-    if (aDesignBlock.GetFields().has(fieldName)) return 'Duplicate fields are not allowed.';
+    if (aDesignBlock.GetFields().has(fieldName)) return _('Duplicate fields are not allowed.');
 
     aDesignBlock.GetFields().set(fieldName, value);
   }

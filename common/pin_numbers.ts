@@ -1,3 +1,4 @@
+import { _ } from '@ziroeda/wx/translation.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -210,7 +211,7 @@ export class PIN_NUMBERS {
     // Remove the trailing comma
     ret = ret.slice(0, -1);
 
-    if (ret === '') ret = 'none';
+    if (ret === '') ret = _('none');
 
     return ret;
   }

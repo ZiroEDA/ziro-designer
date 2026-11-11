@@ -14,6 +14,7 @@
  */
 import { IO_ERROR } from './exceptions.js';
 import { FORMAT_MODE, Prettify, prettifySteps } from './io/kicad/kicad_io_utils.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** How many spaces per nestLevel (richio.cpp:424). */
 const NESTWIDTH = 2;
@@ -207,7 +208,8 @@ export class LINE_READER {
     let end = d.indexOf(0x0a, this.m_pos);
     end = end < 0 ? d.length : end + 1;
 
-    if (end - this.m_pos > this.m_maxLineLength) throw new IO_ERROR('Maximum line length exceeded');
+    if (end - this.m_pos > this.m_maxLineLength)
+      throw new IO_ERROR(_('Maximum line length exceeded'));
 
     const line = new Uint8Array(end - this.m_pos + 1);
     line.set(d.subarray(this.m_pos, end));

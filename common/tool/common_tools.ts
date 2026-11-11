@@ -40,6 +40,7 @@ import {
   TOOL_EVENT,
 } from './tool_event.js';
 import { SYNC_HANDLER, TOOL_INTERACTIVE } from './tool_interactive.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The set of "Zoom to Fit" types that can be performed.
@@ -561,31 +562,31 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
   GridProperties(_aEvent: TOOL_EVENT): number {
     const showGridPrefs = (aParentName: string): void => {
       this.frame().CallAfter(() => {
-        this.frame().ShowPreferences('Grids', aParentName);
+        this.frame().ShowPreferences(_('Grids'), aParentName);
       });
     };
 
     switch (this.frame().GetFrameType()) {
       case FRAME_T.FRAME_SCH:
-        showGridPrefs('Schematic Editor');
+        showGridPrefs(_('Schematic Editor'));
         break;
       case FRAME_T.FRAME_SCH_SYMBOL_EDITOR:
-        showGridPrefs('Symbol Editor');
+        showGridPrefs(_('Symbol Editor'));
         break;
       case FRAME_T.FRAME_PCB_EDITOR:
-        showGridPrefs('PCB Editor');
+        showGridPrefs(_('PCB Editor'));
         break;
       case FRAME_T.FRAME_FOOTPRINT_EDITOR:
-        showGridPrefs('Footprint Editor');
+        showGridPrefs(_('Footprint Editor'));
         break;
       case FRAME_T.FRAME_FOOTPRINT_VIEWER:
-        showGridPrefs('Footprint Browser');
+        showGridPrefs(_('Footprint Browser'));
         break;
       case FRAME_T.FRAME_PL_EDITOR:
-        showGridPrefs('Drawing Sheet Editor');
+        showGridPrefs(_('Drawing Sheet Editor'));
         break;
       case FRAME_T.FRAME_GERBER:
-        showGridPrefs('Gerber Viewer');
+        showGridPrefs(_('Gerber Viewer'));
         break;
       default:
         console.assert(false, `Unknown frame: ${this.GetName()}`);
@@ -602,7 +603,7 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     // The dialog is the page's and is not modal to the script: what follows
     // `if( dlg.ShowModal() == wxID_OK )` runs when it is accepted.
     void this.frame()
-      .ShowPointEntryDialog('Grid Origin', 'X:', 'Y:', origin, true)
+      .ShowPointEntryDialog(_('Grid Origin'), 'X:', 'Y:', origin, true)
       .then((value) => {
         if (!value) return;
 

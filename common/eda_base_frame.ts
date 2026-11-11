@@ -31,6 +31,7 @@ import { ACTIONS } from './tool/actions.js';
 import type { wxUpdateUIEvent } from '@ziroeda/wx/wx_event.js';
 import type { ACTION_MENU } from './tool/action_menu.js';
 import type { APP_SETTINGS_BASE, WINDOW_SETTINGS } from './settings/app_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export const DEFAULT_MAX_UNDO_ITEMS = 0;
 export const ABS_MAX_UNDO_ITEMS = 65536;
@@ -671,13 +672,13 @@ export abstract class EDA_BASE_FRAME
     }
 
     if (showRes && aEvent.GetId() === ACTIONS.undo.GetUIId()) {
-      let msg = 'Undo';
+      let msg = _('Undo');
 
       if (enableRes) msg += ` ${aFrame.GetUndoActionDescription()}`;
 
       aEvent.SetText(msg);
     } else if (showRes && aEvent.GetId() === ACTIONS.redo.GetUIId()) {
-      let msg = 'Redo';
+      let msg = _('Redo');
 
       if (enableRes) msg += ` ${aFrame.GetRedoActionDescription()}`;
 

@@ -83,6 +83,8 @@ import {
   VALIDATION_ERROR_TOO_LARGE,
   VALIDATION_ERROR_TOO_SMALL,
 } from './properties/property_validators.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export enum SHAPE_T {
   UNDEFINED = -1,
@@ -120,7 +122,13 @@ export enum UI_FILL_MODE {
 export const FILL_MODE_TOKENS = ['none', 'color', 'hatch', 'reverse_hatch', 'cross_hatch'] as const;
 
 /** `ENUM_MAP<UI_FILL_MODE>`'s `_HKI` names, in UI_FILL_MODE order. */
-export const FILL_MODE_NAMES = ['None', 'Solid', 'Hatch', 'Reverse Hatch', 'Cross-hatch'] as const;
+export const FILL_MODE_NAMES = [
+  _HKI('None'),
+  _HKI('Solid'),
+  _HKI('Hatch'),
+  _HKI('Reverse Hatch'),
+  _HKI('Cross-hatch'),
+] as const;
 
 /// Holding struct to keep originating midpoint
 export interface ARC_MID {
@@ -1161,7 +1169,7 @@ export abstract class EDA_SHAPE {
         break;
 
       case SHAPE_T.ARC:
-        aList.push(new MSG_PANEL_ITEM('Length', aFrame.MessageTextFromValue(this.GetLength())));
+        aList.push(new MSG_PANEL_ITEM(_('Length'), aFrame.MessageTextFromValue(this.GetLength())));
 
         msg = messageTextFromAngle(this.GetArcAngle().AsDegrees());
         aList.push(new MSG_PANEL_ITEM('Angle', msg));
@@ -1170,12 +1178,12 @@ export abstract class EDA_SHAPE {
         break;
 
       case SHAPE_T.BEZIER:
-        aList.push(new MSG_PANEL_ITEM('Length', aFrame.MessageTextFromValue(this.GetLength())));
+        aList.push(new MSG_PANEL_ITEM(_('Length'), aFrame.MessageTextFromValue(this.GetLength())));
         break;
 
       case SHAPE_T.POLY:
         msg = `${this.GetPolyShape().Outline(0).PointCount()}`;
-        aList.push(new MSG_PANEL_ITEM('Points', msg));
+        aList.push(new MSG_PANEL_ITEM(_('Points'), msg));
         break;
 
       case SHAPE_T.RECTANGLE:
@@ -1196,7 +1204,7 @@ export abstract class EDA_SHAPE {
       case SHAPE_T.SEGMENT: {
         aList.push(
           new MSG_PANEL_ITEM(
-            'Length',
+            _('Length'),
             aFrame.MessageTextFromValue(Distance(this.GetStart(), this.GetEnd())),
           ),
         );
@@ -2930,27 +2938,27 @@ export abstract class EDA_SHAPE {
     .Map(SHAPE_T.ARC, 'Arc')
     .Map(SHAPE_T.CIRCLE, 'Circle')
     .Map(SHAPE_T.POLY, 'Polygon')
-    .Map(SHAPE_T.BEZIER, 'Bezier');
+    .Map(SHAPE_T.BEZIER, _HKI('Bezier'));
 
   const lineStyleEnum = ENUM_MAP.Instance<LINE_STYLE>('LINE_STYLE');
 
   if (lineStyleEnum.Choices().GetCount() === 0) {
     lineStyleEnum
-      .Map(LINE_STYLE.SOLID, 'Solid')
-      .Map(LINE_STYLE.DASH, 'Dashed')
-      .Map(LINE_STYLE.DOT, 'Dotted')
-      .Map(LINE_STYLE.DASHDOT, 'Dash-Dot')
-      .Map(LINE_STYLE.DASHDOTDOT, 'Dash-Dot-Dot');
+      .Map(LINE_STYLE.SOLID, _HKI('Solid'))
+      .Map(LINE_STYLE.DASH, _HKI('Dashed'))
+      .Map(LINE_STYLE.DOT, _HKI('Dotted'))
+      .Map(LINE_STYLE.DASHDOT, _HKI('Dash-Dot'))
+      .Map(LINE_STYLE.DASHDOTDOT, _HKI('Dash-Dot-Dot'));
   }
 
   const hatchModeEnum = ENUM_MAP.Instance<UI_FILL_MODE>('UI_FILL_MODE');
 
   if (hatchModeEnum.Choices().GetCount() === 0) {
-    hatchModeEnum.Map(UI_FILL_MODE.NONE, 'None');
-    hatchModeEnum.Map(UI_FILL_MODE.SOLID, 'Solid');
-    hatchModeEnum.Map(UI_FILL_MODE.HATCH, 'Hatch');
-    hatchModeEnum.Map(UI_FILL_MODE.REVERSE_HATCH, 'Reverse Hatch');
-    hatchModeEnum.Map(UI_FILL_MODE.CROSS_HATCH, 'Cross-hatch');
+    hatchModeEnum.Map(UI_FILL_MODE.NONE, _HKI('None'));
+    hatchModeEnum.Map(UI_FILL_MODE.SOLID, _HKI('Solid'));
+    hatchModeEnum.Map(UI_FILL_MODE.HATCH, _HKI('Hatch'));
+    hatchModeEnum.Map(UI_FILL_MODE.REVERSE_HATCH, _HKI('Reverse Hatch'));
+    hatchModeEnum.Map(UI_FILL_MODE.CROSS_HATCH, _HKI('Cross-hatch'));
   }
 
   const propMgr = PROPERTY_MANAGER.Instance();
@@ -2978,7 +2986,7 @@ export abstract class EDA_SHAPE {
     return false;
   };
 
-  const shapeProps = 'Shape Properties';
+  const shapeProps = _HKI('Shape Properties');
 
   const shape = new PROPERTY_ENUM<EDA_SHAPE, SHAPE_T>(
     EDA_SHAPE,
@@ -2993,7 +3001,7 @@ export abstract class EDA_SHAPE {
     .AddProperty(
       new PROPERTY<EDA_SHAPE, number>(
         EDA_SHAPE,
-        'Start X',
+        _HKI('Start X'),
         'SetStartX',
         'GetStartX',
         TYPE_INT,
@@ -3007,7 +3015,7 @@ export abstract class EDA_SHAPE {
     .AddProperty(
       new PROPERTY<EDA_SHAPE, number>(
         EDA_SHAPE,
-        'Start Y',
+        _HKI('Start Y'),
         'SetStartY',
         'GetStartY',
         TYPE_INT,
@@ -3021,7 +3029,7 @@ export abstract class EDA_SHAPE {
     .AddProperty(
       new PROPERTY<EDA_SHAPE, number>(
         EDA_SHAPE,
-        'Center X',
+        _HKI('Center X'),
         'SetCenterX',
         'GetStartX',
         TYPE_INT,
@@ -3035,7 +3043,7 @@ export abstract class EDA_SHAPE {
     .AddProperty(
       new PROPERTY<EDA_SHAPE, number>(
         EDA_SHAPE,
-        'Center Y',
+        _HKI('Center Y'),
         'SetCenterY',
         'GetStartY',
         TYPE_INT,
@@ -3063,7 +3071,7 @@ export abstract class EDA_SHAPE {
     .AddProperty(
       new PROPERTY<EDA_SHAPE, number>(
         EDA_SHAPE,
-        'End X',
+        _HKI('End X'),
         'SetEndX',
         'GetEndX',
         TYPE_INT,
@@ -3077,7 +3085,7 @@ export abstract class EDA_SHAPE {
     .AddProperty(
       new PROPERTY<EDA_SHAPE, number>(
         EDA_SHAPE,
-        'End Y',
+        _HKI('End Y'),
         'SetEndY',
         'GetEndY',
         TYPE_INT,
@@ -3119,7 +3127,7 @@ export abstract class EDA_SHAPE {
     .AddProperty(
       new PROPERTY<EDA_SHAPE, number>(
         EDA_SHAPE,
-        'Corner Radius',
+        _HKI('Corner Radius'),
         'SetCornerRadius',
         'GetCornerRadius',
         TYPE_INT,
@@ -3148,7 +3156,7 @@ export abstract class EDA_SHAPE {
   propMgr.AddProperty(
     new PROPERTY<EDA_SHAPE, number>(
       EDA_SHAPE,
-      'Line Width',
+      _HKI('Line Width'),
       'SetWidth',
       'GetWidth',
       TYPE_INT,
@@ -3159,7 +3167,7 @@ export abstract class EDA_SHAPE {
   propMgr.AddProperty(
     new PROPERTY_ENUM<EDA_SHAPE, LINE_STYLE>(
       EDA_SHAPE,
-      'Line Style',
+      _HKI('Line Style'),
       'SetLineStyle',
       'GetLineStyle',
       lineStyleEnum,
@@ -3170,7 +3178,7 @@ export abstract class EDA_SHAPE {
     .AddProperty(
       new PROPERTY<EDA_SHAPE, Color4d>(
         EDA_SHAPE,
-        'Line Color',
+        _HKI('Line Color'),
         'SetLineColor',
         'GetLineColor',
         TYPE_COLOR4D,
@@ -3223,7 +3231,7 @@ export abstract class EDA_SHAPE {
     .AddProperty(
       new PROPERTY_ENUM<EDA_SHAPE, UI_FILL_MODE>(
         EDA_SHAPE,
-        'Fill',
+        _HKI('Fill'),
         'SetFillModeProp',
         'GetFillModeProp',
         hatchModeEnum,
@@ -3235,7 +3243,7 @@ export abstract class EDA_SHAPE {
     .AddProperty(
       new PROPERTY<EDA_SHAPE, Color4d>(
         EDA_SHAPE,
-        'Fill Color',
+        _HKI('Fill Color'),
         'SetFillColor',
         'GetFillColor',
         TYPE_COLOR4D,

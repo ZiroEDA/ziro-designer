@@ -12,6 +12,7 @@
  * *string* is `ly_points`, and that is what a file carries.
  */
 import { GAL_LAYER_ID, GAL_SET } from '../layer_id.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export enum VISIBILITY_LAYER {
   TRACKS = 0,
@@ -44,7 +45,7 @@ const NAMES: readonly string[] = [
   'vias',
   'pads',
   'zones',
-  'shapes',
+  _HKI('shapes'),
   'bitmaps',
   'footprints_front',
   'footprints_back',

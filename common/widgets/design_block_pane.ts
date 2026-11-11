@@ -23,6 +23,7 @@ import type { LIBRARY_MANAGER } from '../libraries/library_manager.js';
 import { LIBRARY_TABLE_SCOPE, LIBRARY_TABLE_TYPE } from '../libraries/library_table.js';
 import { KiCadDesignBlockLibPathExtension } from '../wildcards_and_files_ext.js';
 import { wxDirExists, wxFileExists } from '@ziroeda/wx/filefn.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The modals the pane raises, each answered by the window. */
 export interface DESIGN_BLOCK_PANE_DIALOGS {
@@ -231,7 +232,7 @@ export class DESIGN_BLOCK_PANE {
     // Open a dialog to ask for a description
     const description =
       (await this.m_dialogs.GetTextFromUser(
-        'Enter a description for the library:',
+        _('Enter a description for the library:'),
         aDialogTitle,
       )) ?? '';
 
@@ -275,7 +276,7 @@ export class DESIGN_BLOCK_PANE {
   /** `DeleteDesignBlockLibrary` (:276-315). */
   async DeleteDesignBlockLibrary(aLibName: string, aConfirm: boolean): Promise<boolean> {
     if (aLibName === '') {
-      this.m_dialogs.DisplayError('Please select a library to delete.');
+      this.m_dialogs.DisplayError(_('Please select a library to delete.'));
       return false;
     }
 
@@ -379,8 +380,8 @@ export class DESIGN_BLOCK_PANE {
   protected checkOverwrite(aLibname: string, aNewName: string): Promise<boolean> {
     return this.m_dialogs.OKOrCancel(
       `Design block '${aNewName}' already exists in library '${aLibname}'.`,
-      'Overwrite existing design block?',
-      'Overwrite',
+      _('Overwrite existing design block?'),
+      _('Overwrite'),
     );
   }
 }

@@ -11,6 +11,8 @@ import type { JSX } from 'react';
 import { INDETERMINATE_ACTION } from './ui_common.js';
 import { BUNDLED_FONTS } from '../font/fontconfig.js';
 import { Combo, type ComboOption } from '@ziroeda/wx/combobox.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * The families the catalogue holds, in the order `FONT_LIST_MANAGER` would
@@ -40,7 +42,7 @@ export const FONT_SAMPLE = 'AaBbCcDd123456';
  * same files the renderer fills glyphs from.
  */
 const FONT_OPTIONS: ComboOption[] = [
-  { value: 'Default Font', label: 'Default Font' },
+  { value: _HKI('Default Font'), label: _HKI('Default Font') },
   { value: 'KiCad Font', label: 'KiCad Font' },
   ...BUNDLED_FAMILIES.map((family) => ({
     value: family,
@@ -76,7 +78,7 @@ export function FontChoice({
   // a file authored on a machine that had it — is appended as
   // `name + m_notFound` and selected; its value stays the face, so OK keeps
   // what the file said.
-  const value = face === '' ? 'Default Font' : face;
+  const value = face === '' ? _('Default Font') : face;
   const base = indeterminate
     ? [...FONT_OPTIONS, { value: INDETERMINATE_ACTION, label: INDETERMINATE_ACTION }]
     : FONT_OPTIONS;

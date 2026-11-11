@@ -30,6 +30,7 @@ import {
   type LIBRARY_TABLE_IR,
   type LIBRARY_TABLE_ROW_IR,
 } from './library_table_parser.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `LIBRARY_TABLE_TYPE`. */
 export enum LIBRARY_TABLE_TYPE {
@@ -247,7 +248,7 @@ export class LIBRARY_TABLE {
     if (ir.ok) {
       if (aExpectedType !== LIBRARY_TABLE_TYPE.UNINITIALIZED && ir.value.type !== aExpectedType) {
         table.m_ok = false;
-        table.m_errorDescription = 'The library table is of wrong type';
+        table.m_errorDescription = _('The library table is of wrong type');
         return table;
       }
 

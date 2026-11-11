@@ -36,6 +36,7 @@ import { ACTIONS } from './actions.js';
 import type { RESET_REASON } from './tool_base.js';
 import type { TOOL_EVENT } from './tool_event.js';
 import { SYNC_HANDLER, TOOL_INTERACTIVE } from './tool_interactive.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `URL_GET_INVOLVED`. */
 export const URL_GET_INVOLVED = 'https://github.com/ZiroEDA/ziro-designer';
@@ -130,7 +131,7 @@ export class COMMON_CONTROL extends TOOL_INTERACTIVE {
     const kiway = this.frame().Kiway();
 
     if (kiway?.HasProjectManager()) kiway.ShowProjectManager();
-    else void DisplayInfoMessage('Can not switch to project manager in stand-alone mode.');
+    else void DisplayInfoMessage(_('Can not switch to project manager in stand-alone mode.'));
 
     return 0;
   }

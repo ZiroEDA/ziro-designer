@@ -90,6 +90,7 @@ import { DIVERGENT_KEY_NAMES } from './action_menu_key_names.js';
 /** GTK's label for a key KiCad's own key-name table spells another way. */
 const GTK_KEY_NAMES = new Map(DIVERGENT_KEY_NAMES.map(([gtk, kicad]) => [kicad, gtk]));
 import type { TOOL_MANAGER } from './tool_manager.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** What ACTION_MENU asks of its tool: `m_tool->GetManager()`. */
 export interface TOOL_INTERACTIVE_LIKE {
@@ -111,7 +112,7 @@ export const UPSTREAM_QUIT_KEY = 'Ctrl+Q';
  */
 export function addClose(appName: string, action: () => void): MenuItem {
   return {
-    label: 'Close',
+    label: _('Close'),
     shortcut: browserSafeKey(UPSTREAM_CLOSE_KEY),
     tooltip: `Close ${appName}`,
     action,
@@ -125,7 +126,7 @@ export function addClose(appName: string, action: () => void): MenuItem {
  */
 export function addQuit(appName: string, action: () => void): MenuItem {
   return {
-    label: 'Quit',
+    label: _('Quit'),
     shortcut: browserSafeKey(UPSTREAM_QUIT_KEY),
     tooltip: `Quit ${appName}`,
     action,

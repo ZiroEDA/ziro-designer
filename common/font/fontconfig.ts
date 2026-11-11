@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -53,15 +54,19 @@ export const BUNDLED_FONTS: readonly FontFile[] = [
   { family: 'Liberation Sans', style: 'Regular', file: 'LiberationSans-Regular.ttf' },
   { family: 'Liberation Sans', style: 'Bold', file: 'LiberationSans-Bold.ttf' },
   { family: 'Liberation Sans', style: 'Italic', file: 'LiberationSans-Italic.ttf' },
-  { family: 'Liberation Sans', style: 'Bold Italic', file: 'LiberationSans-BoldItalic.ttf' },
+  { family: 'Liberation Sans', style: _HKI('Bold Italic'), file: 'LiberationSans-BoldItalic.ttf' },
   { family: 'Liberation Serif', style: 'Regular', file: 'LiberationSerif-Regular.ttf' },
   { family: 'Liberation Serif', style: 'Bold', file: 'LiberationSerif-Bold.ttf' },
   { family: 'Liberation Serif', style: 'Italic', file: 'LiberationSerif-Italic.ttf' },
-  { family: 'Liberation Serif', style: 'Bold Italic', file: 'LiberationSerif-BoldItalic.ttf' },
+  {
+    family: 'Liberation Serif',
+    style: _HKI('Bold Italic'),
+    file: 'LiberationSerif-BoldItalic.ttf',
+  },
   { family: 'Liberation Mono', style: 'Regular', file: 'LiberationMono-Regular.ttf' },
   { family: 'Liberation Mono', style: 'Bold', file: 'LiberationMono-Bold.ttf' },
   { family: 'Liberation Mono', style: 'Italic', file: 'LiberationMono-Italic.ttf' },
-  { family: 'Liberation Mono', style: 'Bold Italic', file: 'LiberationMono-BoldItalic.ttf' },
+  { family: 'Liberation Mono', style: _HKI('Bold Italic'), file: 'LiberationMono-BoldItalic.ttf' },
   // DejaVu Sans ships no oblique in fonts-dejavu-core, so an italic request
   // is the FF_MISSING_ITAL path — the fake 12° shear — as it is on the desktop.
   { family: 'DejaVu Sans', style: 'Book', file: 'DejaVuSans.ttf' },
@@ -73,11 +78,11 @@ export const BUNDLED_FONTS: readonly FontFile[] = [
   { family: 'Noto Sans', style: 'Regular', file: 'NotoSans-Regular.ttf' },
   { family: 'Noto Sans', style: 'Bold', file: 'NotoSans-Bold.ttf' },
   { family: 'Noto Sans', style: 'Italic', file: 'NotoSans-Italic.ttf' },
-  { family: 'Noto Sans', style: 'Bold Italic', file: 'NotoSans-BoldItalic.ttf' },
+  { family: 'Noto Sans', style: _HKI('Bold Italic'), file: 'NotoSans-BoldItalic.ttf' },
   { family: 'Noto Serif', style: 'Regular', file: 'NotoSerif-Regular.ttf' },
   { family: 'Noto Serif', style: 'Bold', file: 'NotoSerif-Bold.ttf' },
   { family: 'Noto Serif', style: 'Italic', file: 'NotoSerif-Italic.ttf' },
-  { family: 'Noto Serif', style: 'Bold Italic', file: 'NotoSerif-BoldItalic.ttf' },
+  { family: 'Noto Serif', style: _HKI('Bold Italic'), file: 'NotoSerif-BoldItalic.ttf' },
 ];
 
 /**

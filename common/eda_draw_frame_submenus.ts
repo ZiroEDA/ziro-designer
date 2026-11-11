@@ -35,6 +35,7 @@ import {
 } from './settings/zoom_settings.js';
 import { gridChoiceLabel, type GridEntry } from './settings/grid_settings_ui.js';
 import type { StatusUnits } from './widgets/kistatusbar_format.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The order `AddStandardSubMenus` gives all three of its entries. */
 export const STANDARD_SUBMENU_ORDER = 1000;
@@ -81,7 +82,7 @@ export interface GridSubMenuSpec {
 /** `GRID_MENU` (`common/tool/grid_menu.cpp`) as a submenu. */
 export function gridSubMenu(spec: GridSubMenuSpec): MenuItem[] {
   return [
-    { label: 'Grid Origin...', icon: 'gridOrigin', action: spec.gridOrigin },
+    { label: _('Grid Origin...'), icon: 'gridOrigin', action: spec.gridOrigin },
     { sep: true },
     ...spec.gridSizes.map((sz, i) => ({
       label: gridChoiceLabel(sz, spec.primaryUnits, spec.iuPerMM, sz.name),
@@ -113,7 +114,7 @@ export function standardSubMenuEntries(spec: StandardSubMenusSpec): ConditionalE
     menuSeparator(STANDARD_SUBMENU_ORDER),
     menuEntry(
       {
-        label: 'Zoom',
+        label: _('Zoom'),
         icon: 'zoomTool',
         submenu: zoomSubMenu(spec.zoomApp, spec.zoom, spec.setZoom),
       },

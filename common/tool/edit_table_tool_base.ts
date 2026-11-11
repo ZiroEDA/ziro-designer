@@ -23,6 +23,7 @@ import type { SELECTION } from './selection.js';
 import { type SELECTION_CONDITION, SELECTION_CONDITIONS } from './selection_conditions.js';
 import type { TOOL_EVENT } from './tool_event.js';
 import type { TOOL_MANAGER } from './tool_manager.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** What the base asks of a table cell (SCH_TABLECELL, PCB_TABLECELL). */
 export interface EDIT_TABLECELL_LIKE extends EDA_ITEM {
@@ -189,7 +190,7 @@ export abstract class EDIT_TABLE_TOOL_BASE<
 
     this.getToolMgr().PostEvent(EVENTS.SelectedEvent);
 
-    commit.Push('Add Row Above');
+    commit.Push(_('Add Row Above'));
 
     return 0;
   }
@@ -233,7 +234,7 @@ export abstract class EDIT_TABLE_TOOL_BASE<
 
     this.getToolMgr().PostEvent(EVENTS.SelectedEvent);
 
-    commit.Push('Add Row Below');
+    commit.Push(_('Add Row Below'));
 
     return 0;
   }
@@ -277,7 +278,7 @@ export abstract class EDIT_TABLE_TOOL_BASE<
 
     this.getToolMgr().PostEvent(EVENTS.SelectedEvent);
 
-    commit.Push('Add Column Before');
+    commit.Push(_('Add Column Before'));
 
     return 0;
   }
@@ -321,7 +322,7 @@ export abstract class EDIT_TABLE_TOOL_BASE<
 
     this.getToolMgr().PostEvent(EVENTS.SelectedEvent);
 
-    commit.Push('Add Column After');
+    commit.Push(_('Add Column After'));
 
     return 0;
   }
@@ -390,8 +391,8 @@ export abstract class EDIT_TABLE_TOOL_BASE<
       this.getToolMgr().PostEvent(EVENTS.SelectedEvent);
     }
 
-    if (deleted.length > 1) commit.Push('Delete Rows');
-    else commit.Push('Delete Row');
+    if (deleted.length > 1) commit.Push(_('Delete Rows'));
+    else commit.Push(_('Delete Row'));
 
     return 0;
   }
@@ -453,8 +454,8 @@ export abstract class EDIT_TABLE_TOOL_BASE<
       this.getToolMgr().PostEvent(EVENTS.SelectedEvent);
     }
 
-    if (deleted.length > 1) commit.Push('Delete Columns');
-    else commit.Push('Delete Column');
+    if (deleted.length > 1) commit.Push(_('Delete Columns'));
+    else commit.Push(_('Delete Column'));
 
     return 0;
   }
@@ -516,7 +517,7 @@ export abstract class EDIT_TABLE_TOOL_BASE<
     topLeft.SetEnd({ x: start.x + extents.x, y: start.y + extents.y });
 
     table.Normalize();
-    commit.Push('Merge Cells');
+    commit.Push(_('Merge Cells'));
 
     this.getToolMgr().PostEvent(EVENTS.SelectedEvent);
 
@@ -556,7 +557,7 @@ export abstract class EDIT_TABLE_TOOL_BASE<
     }
 
     table.Normalize();
-    commit.Push('Unmerge Cells');
+    commit.Push(_('Unmerge Cells'));
 
     this.getToolMgr().PostEvent(EVENTS.SelectedEvent);
 
@@ -607,7 +608,7 @@ export abstract class EDIT_TABLE_TOOL_BASE<
    * @return null when it is, else the message upstream puts in `aErrorMsg`.
    */
   validatePasteIntoSelection(aSel: SELECTION): string | null {
-    if (aSel.Empty()) return 'No cells selected';
+    if (aSel.Empty()) return _('No cells selected');
 
     // Check if all selected items are table cells from the same table
     let table: T_TABLE | null = null;
@@ -615,18 +616,19 @@ export abstract class EDIT_TABLE_TOOL_BASE<
     for (const item of aSel) {
       const cell = this.asTableCell(item);
 
-      if (!cell) return 'Selection contains non-cell items';
+      if (!cell) return _('Selection contains non-cell items');
 
       if (!table) table = cell.GetParent() as unknown as T_TABLE;
       else if ((cell.GetParent() as unknown) !== table)
-        return 'Selected cells are from different tables';
+        return _('Selected cells are from different tables');
 
       // Check for merged cells (block paste-into for now)
-      if (cell.GetColSpan() > 1 || cell.GetRowSpan() > 1) return 'Cannot paste into merged cells';
+      if (cell.GetColSpan() > 1 || cell.GetRowSpan() > 1)
+        return _('Cannot paste into merged cells');
     }
 
     // Check if selection is contiguous
-    if (!this.getCellBlockBounds(aSel)) return 'Selected cells must form a contiguous block';
+    if (!this.getCellBlockBounds(aSel)) return _('Selected cells must form a contiguous block');
 
     return null;
   }

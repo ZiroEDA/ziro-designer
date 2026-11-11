@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -58,7 +59,7 @@ export const DIVERGENT_KEY_NAMES: readonly (readonly [accelerator: string, hotke
   [
     // hotkeys_basic.cpp:92-96
     ['Escape', 'Esc'],
-    ['Delete', 'Del'],
+    [_HKI('Delete'), 'Del'],
     ['BackSpace', 'Back'],
     ['Insert', 'Ins'],
     // hotkeys_basic.cpp:100-101. GTK spells these with a space; KiCad

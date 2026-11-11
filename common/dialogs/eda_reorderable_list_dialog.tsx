@@ -11,6 +11,7 @@
 import { Button } from '@ziroeda/wx/controls.js';
 import { useState } from 'react';
 import { DialogShim } from '../dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface EDA_REORDERABLE_LIST_DIALOG_PROPS {
   /** `aTitle`. */
@@ -69,7 +70,7 @@ export function EDA_REORDERABLE_LIST_DIALOG({
     <DialogShim title={title} onClose={onCancel} className="ze-select-columns">
       <div className="ze-modal-body ze-reorderable">
         <div className="ze-reorderable-col">
-          <label>Available:</label>
+          <label>{_('Available:')}</label>
           <div className="ze-reorderable-list">
             {availableList.map((c) => (
               <div
@@ -87,11 +88,11 @@ export function EDA_REORDERABLE_LIST_DIALOG({
           </div>
         </div>
         <div className="ze-reorderable-buttons">
-          <Button label="&gt;" title="Add" onClick={add} />
-          <Button label="&lt;" title="Remove" onClick={remove} />
+          <Button label="&gt;" title={_('Add')} onClick={add} />
+          <Button label="&lt;" title={_('Remove')} onClick={remove} />
         </div>
         <div className="ze-reorderable-col wide">
-          <label>Enabled:</label>
+          <label>{_('Enabled:')}</label>
           <div className="ze-reorderable-list">
             {enabledList.map((c) => (
               <div
@@ -105,13 +106,13 @@ export function EDA_REORDERABLE_LIST_DIALOG({
           </div>
         </div>
         <div className="ze-reorderable-buttons">
-          <Button label="▲" title="Move up" onClick={() => move(-1)} />
-          <Button label="▼" title="Move down" onClick={() => move(1)} />
+          <Button label="▲" title={_('Move up')} onClick={() => move(-1)} />
+          <Button label="▼" title={_('Move down')} onClick={() => move(1)} />
         </div>
       </div>
       <div className="ze-modal-footer">
         <Button label="OK" isDefault onClick={() => onOk(enabledList)} />
-        <Button label="Cancel" onClick={onCancel} />
+        <Button label={_('Cancel')} onClick={onCancel} />
       </div>
     </DialogShim>
   );

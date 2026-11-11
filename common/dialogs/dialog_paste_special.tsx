@@ -29,6 +29,8 @@ import { useState, type JSX } from 'react';
 import { DialogShim } from '../dialog_shim.js';
 
 import { PASTE_MODES, type PasteSpecialMode } from './dialog_paste_special_types.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export { PASTE_MODES, type PasteSpecialMode };
 
@@ -38,9 +40,9 @@ export { PASTE_MODES, type PasteSpecialMode };
  * three enum members, so the order IS the mapping.
  */
 const OPTION_LABELS: Record<PasteSpecialMode, string> = {
-  UNIQUE_ANNOTATIONS: 'Assign unique reference designators to pasted symbols',
-  KEEP_ANNOTATIONS: 'Keep existing reference designators, even if they are duplicated',
-  REMOVE_ANNOTATIONS: 'Clear reference designators on all pasted symbols',
+  UNIQUE_ANNOTATIONS: _HKI('Assign unique reference designators to pasted symbols'),
+  KEEP_ANNOTATIONS: _HKI('Keep existing reference designators, even if they are duplicated'),
+  REMOVE_ANNOTATIONS: _HKI('Clear reference designators on all pasted symbols'),
 };
 
 /**
@@ -48,8 +50,9 @@ const OPTION_LABELS: Record<PasteSpecialMode, string> = {
  * The middle row is deliberately empty upstream — the comment there reads
  * "Self explanatory" — so it carries no tooltip here either.
  */
-const UNIQUE_TOOLTIP =
-  'Finds the next available reference designator for any designators that already exist in the design.';
+const UNIQUE_TOOLTIP = _HKI(
+  'Finds the next available reference designator for any designators that already exist in the design.',
+);
 
 /** `_( "Replaces reference designators with '%s'." )`, formatted with `aDefaultRef`. */
 export function removeTooltip(defaultRef: string): string {
@@ -106,11 +109,11 @@ export function DialogPasteSpecial({
   };
 
   return (
-    <DialogShim title="Paste Special" onClose={onCancel}>
+    <DialogShim title={_('Paste Special')} onClose={onCancel}>
       <div className="ze-modal-body ze-paste-special-body">
         {/* The wxRadioBox's own label, which is its group box's legend. */}
         <fieldset className="ze-props-group">
-          <legend>Reference Designators</legend>
+          <legend>{_('Reference Designators')}</legend>
           {PASTE_MODES.map((m) => (
             <RadioButton
               key={m}
@@ -124,15 +127,15 @@ export function DialogPasteSpecial({
         </fieldset>
         {showClearNets && (
           <CheckBox
-            label="Clear net assignments"
+            label={_('Clear net assignments')}
             checked={clearNets}
-            title="Remove the net information from all connected items before pasting"
+            title={_('Remove the net information from all connected items before pasting')}
             onChange={(aChecked) => setClearNets(aChecked)}
           />
         )}
       </div>
       <div className="ze-modal-footer">
-        <Button label="Cancel" onClick={onCancel} />
+        <Button label={_('Cancel')} onClick={onCancel} />
         <Button label="OK" isDefault onClick={() => onOk(mode, clearNets)} />
       </div>
     </DialogShim>

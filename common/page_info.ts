@@ -89,23 +89,24 @@ export const PAPER_MM: Record<string, [number, number]> = Object.fromEntries(
  */
 import type { OUTPUTFORMATTER } from './richio.js';
 import { FormatDouble2Str } from './string_utils.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 export const PAPER_CHOICES: { id: string; label: string }[] = [
-  { id: 'A5', label: 'A5 148 x 210mm' },
-  { id: 'A4', label: 'A4 210 x 297mm' },
-  { id: 'A3', label: 'A3 297 x 420mm' },
-  { id: 'A2', label: 'A2 420 x 594mm' },
-  { id: 'A1', label: 'A1 594 x 841mm' },
-  { id: 'A0', label: 'A0 841 x 1189mm' },
-  { id: 'A', label: 'A 8.5 x 11in' },
-  { id: 'B', label: 'B 11 x 17in' },
-  { id: 'C', label: 'C 17 x 22in' },
-  { id: 'D', label: 'D 22 x 34in' },
-  { id: 'E', label: 'E 34 x 44in' },
+  { id: 'A5', label: _HKI('A5 148 x 210mm') },
+  { id: 'A4', label: _HKI('A4 210 x 297mm') },
+  { id: 'A3', label: _HKI('A3 297 x 420mm') },
+  { id: 'A2', label: _HKI('A2 420 x 594mm') },
+  { id: 'A1', label: _HKI('A1 594 x 841mm') },
+  { id: 'A0', label: _HKI('A0 841 x 1189mm') },
+  { id: 'A', label: _HKI('A 8.5 x 11in') },
+  { id: 'B', label: _HKI('B 11 x 17in') },
+  { id: 'C', label: _HKI('C 17 x 22in') },
+  { id: 'D', label: _HKI('D 22 x 34in') },
+  { id: 'E', label: _HKI('E 34 x 44in') },
   { id: 'GERBER', label: '' },
-  { id: 'User', label: 'User (Custom)' },
-  { id: 'USLetter', label: 'US Letter 8.5 x 11in' },
-  { id: 'USLegal', label: 'US Legal 8.5 x 14in' },
-  { id: 'USLedger', label: 'US Ledger 11 x 17in' },
+  { id: 'User', label: _HKI('User (Custom)') },
+  { id: 'USLetter', label: _HKI('US Letter 8.5 x 11in') },
+  { id: 'USLegal', label: _HKI('US Legal 8.5 x 14in') },
+  { id: 'USLedger', label: _HKI('US Ledger 11 x 17in') },
 ];
 
 /**
@@ -320,41 +321,71 @@ export class PAGE_INFO {
   // also see: wx/defs.h
   private static standardPageSizes: PAGE_INFO[] = [
     // All MUST be defined as landscape.
-    PAGE_INFO.make(MMsize(210, 148), PAGE_SIZE_TYPE.A5, wxPaperSize.wxPAPER_A5, 'A5 148 x 210mm'),
-    PAGE_INFO.make(MMsize(297, 210), PAGE_SIZE_TYPE.A4, wxPaperSize.wxPAPER_A4, 'A4 210 x 297mm'),
-    PAGE_INFO.make(MMsize(420, 297), PAGE_SIZE_TYPE.A3, wxPaperSize.wxPAPER_A3, 'A3 297 x 420mm'),
-    PAGE_INFO.make(MMsize(594, 420), PAGE_SIZE_TYPE.A2, wxPaperSize.wxPAPER_A2, 'A2 420 x 594mm'),
-    PAGE_INFO.make(MMsize(841, 594), PAGE_SIZE_TYPE.A1, wxPaperSize.wxPAPER_A1, 'A1 594 x 841mm'),
-    PAGE_INFO.make(MMsize(1189, 841), PAGE_SIZE_TYPE.A0, wxPaperSize.wxPAPER_A0, 'A0 841 x 1189mm'),
+    PAGE_INFO.make(
+      MMsize(210, 148),
+      PAGE_SIZE_TYPE.A5,
+      wxPaperSize.wxPAPER_A5,
+      _HKI('A5 148 x 210mm'),
+    ),
+    PAGE_INFO.make(
+      MMsize(297, 210),
+      PAGE_SIZE_TYPE.A4,
+      wxPaperSize.wxPAPER_A4,
+      _HKI('A4 210 x 297mm'),
+    ),
+    PAGE_INFO.make(
+      MMsize(420, 297),
+      PAGE_SIZE_TYPE.A3,
+      wxPaperSize.wxPAPER_A3,
+      _HKI('A3 297 x 420mm'),
+    ),
+    PAGE_INFO.make(
+      MMsize(594, 420),
+      PAGE_SIZE_TYPE.A2,
+      wxPaperSize.wxPAPER_A2,
+      _HKI('A2 420 x 594mm'),
+    ),
+    PAGE_INFO.make(
+      MMsize(841, 594),
+      PAGE_SIZE_TYPE.A1,
+      wxPaperSize.wxPAPER_A1,
+      _HKI('A1 594 x 841mm'),
+    ),
+    PAGE_INFO.make(
+      MMsize(1189, 841),
+      PAGE_SIZE_TYPE.A0,
+      wxPaperSize.wxPAPER_A0,
+      _HKI('A0 841 x 1189mm'),
+    ),
     PAGE_INFO.make(
       { x: 11000, y: 8500 },
       PAGE_SIZE_TYPE.A,
       wxPaperSize.wxPAPER_LETTER,
-      'A 8.5 x 11in',
+      _HKI('A 8.5 x 11in'),
     ),
     PAGE_INFO.make(
       { x: 17000, y: 11000 },
       PAGE_SIZE_TYPE.B,
       wxPaperSize.wxPAPER_TABLOID,
-      'B 11 x 17in',
+      _HKI('B 11 x 17in'),
     ),
     PAGE_INFO.make(
       { x: 22000, y: 17000 },
       PAGE_SIZE_TYPE.C,
       wxPaperSize.wxPAPER_CSHEET,
-      'C 17 x 22in',
+      _HKI('C 17 x 22in'),
     ),
     PAGE_INFO.make(
       { x: 34000, y: 22000 },
       PAGE_SIZE_TYPE.D,
       wxPaperSize.wxPAPER_DSHEET,
-      'D 22 x 34in',
+      _HKI('D 22 x 34in'),
     ),
     PAGE_INFO.make(
       { x: 44000, y: 34000 },
       PAGE_SIZE_TYPE.E,
       wxPaperSize.wxPAPER_ESHEET,
-      'E 34 x 44in',
+      _HKI('E 34 x 44in'),
     ),
 
     // US paper sizes
@@ -363,26 +394,26 @@ export class PAGE_INFO {
       { x: 17000, y: 11000 },
       PAGE_SIZE_TYPE.User,
       wxPaperSize.wxPAPER_NONE,
-      'User (Custom)',
+      _HKI('User (Custom)'),
     ),
 
     PAGE_INFO.make(
       { x: 11000, y: 8500 },
       PAGE_SIZE_TYPE.USLetter,
       wxPaperSize.wxPAPER_LETTER,
-      'US Letter 8.5 x 11in',
+      _HKI('US Letter 8.5 x 11in'),
     ),
     PAGE_INFO.make(
       { x: 14000, y: 8500 },
       PAGE_SIZE_TYPE.USLegal,
       wxPaperSize.wxPAPER_LEGAL,
-      'US Legal 8.5 x 14in',
+      _HKI('US Legal 8.5 x 14in'),
     ),
     PAGE_INFO.make(
       { x: 17000, y: 11000 },
       PAGE_SIZE_TYPE.USLedger,
       wxPaperSize.wxPAPER_TABLOID,
-      'US Ledger 11 x 17in',
+      _HKI('US Ledger 11 x 17in'),
     ),
   ];
 

@@ -50,6 +50,7 @@
  * `docs/editor-status.md`.
  */
 import type { ToolButton, ToolEntry, ToolGroup } from '../action_toolbar_types.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `TOOLBAR_LOC` (`toolbar_configuration.h:266-272`), in declaration order.
@@ -67,8 +68,8 @@ export type ToolbarLoc = (typeof TOOLBAR_LOCS)[number];
 export const TOOLBAR_LOC_NAMES: Readonly<Record<ToolbarLoc, string>> = {
   LEFT: 'Left',
   RIGHT: 'Right',
-  TOP_MAIN: 'Top main',
-  TOP_AUX: 'Top auxiliary',
+  TOP_MAIN: _HKI('Top main'),
+  TOP_AUX: _HKI('Top auxiliary'),
 };
 
 /** `TOOLBAR_ITEM_TYPE` (`toolbar_configuration.h:37-44`), in declaration order. */

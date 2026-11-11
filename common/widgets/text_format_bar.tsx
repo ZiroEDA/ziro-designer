@@ -29,6 +29,8 @@
  */
 import type { JSX } from 'react';
 import { BitmapButton, BitmapButtonSeparator } from './bitmap_button.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `GR_TEXT_H_ALIGN_T` minus INDETERMINATE, which no button stands for. */
 export type HAlign = 'left' | 'center' | 'right';
@@ -37,16 +39,16 @@ export type VAlign = 'top' | 'center' | 'bottom';
 
 /** The three `m_hAlign*` buttons: bitmap and tooltip, verbatim. */
 export const H_ALIGN_BUTTONS: { value: HAlign; icon: string; title: string }[] = [
-  { value: 'left', icon: 'text_align_left', title: 'Align left' },
-  { value: 'center', icon: 'text_align_center', title: 'Align horizontal center' },
-  { value: 'right', icon: 'text_align_right', title: 'Align right' },
+  { value: 'left', icon: 'text_align_left', title: _HKI('Align left') },
+  { value: 'center', icon: 'text_align_center', title: _HKI('Align horizontal center') },
+  { value: 'right', icon: 'text_align_right', title: _HKI('Align right') },
 ];
 
 /** The three `m_vAlign*` buttons. */
 export const V_ALIGN_BUTTONS: { value: VAlign; icon: string; title: string }[] = [
-  { value: 'top', icon: 'text_valign_top', title: 'Align top' },
-  { value: 'center', icon: 'text_valign_center', title: 'Align vertical center' },
-  { value: 'bottom', icon: 'text_valign_bottom', title: 'Align bottom' },
+  { value: 'top', icon: 'text_valign_top', title: _HKI('Align top') },
+  { value: 'center', icon: 'text_valign_center', title: _HKI('Align vertical center') },
+  { value: 'bottom', icon: 'text_valign_bottom', title: _HKI('Align bottom') },
 ];
 
 export interface TextFormatBarProps {
@@ -145,13 +147,13 @@ export function TextFormatBar({
         <>
           <BitmapButton
             bitmap="text_horizontal"
-            tooltip="Horizontal text"
+            tooltip={_('Horizontal text')}
             checked={angle === 0}
             onClick={() => onAngle?.(0)}
           />
           <BitmapButton
             bitmap="text_vertical"
-            tooltip="Vertical text"
+            tooltip={_('Vertical text')}
             checked={angle === 90}
             onClick={() => onAngle?.(90)}
           />

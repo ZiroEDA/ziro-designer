@@ -3,6 +3,8 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { wxCANCEL, wxCENTER, wxICON_WARNING, wxOK, wxOK_DEFAULT } from '@ziroeda/wx/defs.js';
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * The "Save Changes?" question, and what each answer means. Counterpart:
@@ -28,16 +30,17 @@ import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
 export type UnsavedChangesResult = 'save' | 'discard' | 'cancel';
 
 /** The dialog's window title. */
-export const UNSAVED_CHANGES_TITLE = 'Save Changes?';
+export const UNSAVED_CHANGES_TITLE = _HKI('Save Changes?');
 
 /** `SetExtendedMessage`, the grey sub-line under the question. */
-export const UNSAVED_CHANGES_EXTENDED =
-  "If you don't save, all your changes will be permanently lost.";
+export const UNSAVED_CHANGES_EXTENDED = _HKI(
+  "If you don't save, all your changes will be permanently lost.",
+);
 
 /** `SetYesNoLabels( _( "&Save" ), _( "&Discard Changes" ) )`. */
 export const UNSAVED_CHANGES_SAVE_LABEL = 'Save';
-export const UNSAVED_CHANGES_DISCARD_LABEL = 'Discard Changes';
-export const UNSAVED_CHANGES_CANCEL_LABEL = 'Cancel';
+export const UNSAVED_CHANGES_DISCARD_LABEL = _HKI('Discard Changes');
+export const UNSAVED_CHANGES_CANCEL_LABEL = _HKI('Cancel');
 
 /**
  * `ConfirmRevertDialog` (`common/confirm.cpp:137-145`), the other question
@@ -54,10 +57,10 @@ export const UNSAVED_CHANGES_CANCEL_LABEL = 'Cancel';
  * nothing left to save, so OK throws the edits away and Cancel keeps them.
  * `wxOK_DEFAULT` puts the focus on Revert.
  */
-export const CONFIRM_REVERT_EXTENDED = 'Your current changes will be permanently lost.';
+export const CONFIRM_REVERT_EXTENDED = _HKI('Your current changes will be permanently lost.');
 /** `SetOKCancelLabels( _( "&Revert" ), _( "&Cancel" ) )`. */
-export const CONFIRM_REVERT_OK_LABEL = 'Revert';
-export const CONFIRM_REVERT_CANCEL_LABEL = 'Cancel';
+export const CONFIRM_REVERT_OK_LABEL = _HKI('Revert');
+export const CONFIRM_REVERT_CANCEL_LABEL = _HKI('Cancel');
 
 /**
  * The caller's `aMessage`. Both editors that revert a library item format the
@@ -218,6 +221,6 @@ export function OKOrCancelDialog(
     style: wxOK | wxCANCEL | wxOK_DEFAULT | wxICON_WARNING | wxCENTER,
     ...(aDetailedMessage ? { extended: aDetailedMessage } : {}),
     okLabel: aOKLabel === '' ? 'OK' : aOKLabel,
-    cancelLabel: aCancelLabel === '' ? 'Cancel' : aCancelLabel,
+    cancelLabel: aCancelLabel === '' ? _('Cancel') : aCancelLabel,
   });
 }

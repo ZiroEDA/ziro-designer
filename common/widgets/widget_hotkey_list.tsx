@@ -21,6 +21,7 @@ import { DialogShim } from '../dialog_shim.js';
 import { DisplayErrorMessage, ShowKicadMessageDialog } from '../confirm.js';
 import { wxNO_DEFAULT, wxYES_NO } from '@ziroeda/wx/defs.js';
 import { wxID_YES } from '@ziroeda/wx/menu.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A row being rebound: HK_PROMPT_DIALOG's subject. */
 interface Prompt {
@@ -46,7 +47,7 @@ function HotkeyPrompt({
     const onKey = (e: KeyboardEvent): void => {
       // Modifiers alone are not a hotkey; upstream's MapKeypressToKeycode
       // returns 0 for them and the dialog keeps waiting.
-      if (['Control', 'Shift', 'Alt', 'Meta', 'CapsLock', 'OS'].includes(e.key)) return;
+      if (['Control', _('Shift'), _('Alt'), 'Meta', 'CapsLock', 'OS'].includes(e.key)) return;
       // Escape is not a hotkey being assigned, it is the dialog's Cancel -
       // "the ESC key was used to close the dialog" in PromptForKey. The modal
       // dialog (DialogShim) owns it, so leave it alone here
@@ -64,21 +65,21 @@ function HotkeyPrompt({
 
   // HK_PROMPT_DIALOG's sizer tree (widget_hotkey_list.cpp:87-135); the borders are its Add()s.
   return (
-    <DialogShim title="Set Hotkey" onClose={onCancel} className="ze-hkprompt">
+    <DialogShim title={_('Set Hotkey')} onClose={onCancel} className="ze-hkprompt">
       {/* inst_label, wxALIGN_CENTRE_HORIZONTAL: wxALL 10 */}
-      <span className="ze-hkprompt-inst">Press a new hotkey, or press Esc to cancel...</span>
+      <span className="ze-hkprompt-inst">{_('Press a new hotkey, or press Esc to cancel...')}</span>
       {/* new wxStaticLine: wxALL|wxEXPAND 2 */}
       <StaticLine className="ze-hkprompt-line" />
       {/* panelDisplayCurrent: wxALL|wxEXPAND 5, a two-column wxFlexGridSizer */}
       <div className="ze-hkprompt-current">
-        <span>Command:</span>
+        <span>{_('Command:')}</span>
         <span className="ze-hkprompt-bold">{prompt.command}</span>
-        <span>Current key:</span>
+        <span>{_('Current key:')}</span>
         <span className="ze-hkprompt-bold">{prompt.current}</span>
       </div>
       {/* resetButton: wxALL|wxALIGN_CENTRE_HORIZONTAL 5 */}
       <Button
-        label="Clear assigned hotkey"
+        label={_('Clear assigned hotkey')}
         className="ze-hkprompt-reset"
         onClick={() => onPick(null)}
       />
@@ -138,7 +139,7 @@ export function WidgetHotkeyList({
       // KICAD_MESSAGE_DIALOG( …, wxYES_NO | wxNO_DEFAULT ).ShowModal() == wxID_YES.
       void ShowKicadMessageDialog({
         message: `'${keys}' is already assigned to '${taken.command}' in section '${taken.section}'. Both bindings are kept, but only one runs per key press. Continue?`,
-        caption: 'Hotkey conflict',
+        caption: _('Hotkey conflict'),
         style: wxYES_NO | wxNO_DEFAULT,
       }).then((aAnswer) => {
         if (aAnswer === wxID_YES) onSet(name, keys);
@@ -154,10 +155,12 @@ export function WidgetHotkeyList({
         {/* AppendColumn( command_header, 450 ), ( "Hotkey", 120 ),
             ( "Alternate", 120 ), ( "Description", 900 ). */}
         <div className="ze-hotkeys-head">
-          <span className="cmd">{readOnly ? 'Command' : 'Command (double-click to edit)'}</span>
-          <span className="key">Hotkey</span>
-          <span className="alt">Alternate</span>
-          <span className="desc">Description</span>
+          <span className="cmd">
+            {readOnly ? _('Command') : _('Command (double-click to edit)')}
+          </span>
+          <span className="key">{_('Hotkey')}</span>
+          <span className="alt">{_('Alternate')}</span>
+          <span className="desc">{_('Description')}</span>
         </div>
         {shown.length === 0 ? (
           <div className="ze-hotkeys-empty">No hotkeys match “{filter}”.</div>

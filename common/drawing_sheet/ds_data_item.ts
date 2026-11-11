@@ -35,6 +35,7 @@ import {
   DS_DRAW_ITEM_TEXT,
 } from './ds_draw_item.js';
 import { DS_DATA_MODEL } from './ds_data_model.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `#define TB_DEFAULT_TEXTSIZE 1.5`: default drawing sheet text size in mm. [data] */
 export const TB_DEFAULT_TEXTSIZE = 1.5;
@@ -421,15 +422,15 @@ export class DS_DATA_ITEM {
   GetClassName(): string {
     switch (this.GetType()) {
       case DS_ITEM_TYPE.DS_TEXT:
-        return 'Text';
+        return _('Text');
       case DS_ITEM_TYPE.DS_SEGMENT:
-        return 'Line';
+        return _('Line');
       case DS_ITEM_TYPE.DS_RECT:
-        return 'Rectangle';
+        return _('Rectangle');
       case DS_ITEM_TYPE.DS_POLYPOLYGON:
-        return 'Imported Shape';
+        return _('Imported Shape');
       case DS_ITEM_TYPE.DS_BITMAP:
-        return 'Image';
+        return _('Image');
     }
 
     return '';

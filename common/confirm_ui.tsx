@@ -29,6 +29,7 @@ import {
   MessageDialogOk,
   MessageDialogYesNo,
 } from './dialogs/dialog_message.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** Route `DisplayErrorMessage` to the real error box. Called once, at startup. */
 export function InstallErrorPresenter(): void {
@@ -60,7 +61,7 @@ export function InstallQuestionPresenter(): void {
         const root = createRoot(host);
         root.render(
           <MessageDialogYesNo
-            caption="Confirmation"
+            caption={_('Confirmation')}
             message={aMessage}
             icon="question"
             // SetOKCancelLabels( _( "&Yes" ), _( "&No" ) ): the labels read Yes
@@ -87,7 +88,7 @@ export function InstallInfoPresenter(): void {
         const root = createRoot(host);
         root.render(
           <MessageDialogOk
-            caption="Information"
+            caption={_('Information')}
             message={aExtraInfo ? `${aMessage}\n${aExtraInfo}` : aMessage}
             onClose={() => {
               root.unmount();
@@ -136,7 +137,7 @@ export function InstallMessageDialogPresenter(): void {
               {...(aArg.extended ? { extendedMessage: aArg.extended } : {})}
               icon={icon}
               defaultButton={aArg.style & wxNO_DEFAULT ? 'no' : 'yes'}
-              labels={{ yes: aArg.okLabel ?? 'Yes', no: aArg.cancelLabel ?? 'No' }}
+              labels={{ yes: aArg.okLabel ?? _('Yes'), no: aArg.cancelLabel ?? 'No' }}
               onResult={(r) => done(r === 'yes' ? wxID_YES : wxID_NO)}
             />
           ) : aArg.style & wxCANCEL ? (
@@ -146,7 +147,7 @@ export function InstallMessageDialogPresenter(): void {
               {...(aArg.extended ? { extendedMessage: aArg.extended } : {})}
               icon={icon}
               defaultButton={aArg.style & wxCANCEL_DEFAULT ? 'no' : 'yes'}
-              labels={{ yes: aArg.okLabel ?? 'OK', no: aArg.cancelLabel ?? 'Cancel' }}
+              labels={{ yes: aArg.okLabel ?? 'OK', no: aArg.cancelLabel ?? _('Cancel') }}
               onResult={(r) => done(r === 'yes' ? wxID_OK : wxID_CANCEL)}
             />
           ) : (

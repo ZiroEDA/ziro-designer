@@ -1,3 +1,4 @@
+import { _ } from '@ziroeda/wx/translation.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -340,7 +341,7 @@ export class DSNLEXER {
    */
   parseDouble(): number {
     const v = Number(this.curText);
-    if (Number.isNaN(v)) this.throwError('Invalid floating point number');
+    if (Number.isNaN(v)) this.throwError(_('Invalid floating point number'));
     return v;
   }
 
@@ -517,7 +518,7 @@ export class DSNLEXER {
           ++head;
         }
       }
-      this.throwError('Unterminated delimited string', cur - 1);
+      this.throwError(_('Unterminated delimited string'), cur - 1);
     }
 
     if (this.specctraMode) {
@@ -532,7 +533,7 @@ export class DSNLEXER {
 
       // switching the string_quote character
       if (this.prevTok === T.STRING_QUOTE) {
-        const errtxt = `String delimiter must be a single character of ', ", or $`;
+        const errtxt = _(`String delimiter must be a single character of ', ", or $`);
 
         if (c !== 39 && c !== 36 && c !== 34) this.throwError(errtxt);
 
@@ -553,7 +554,7 @@ export class DSNLEXER {
 
         while (h < limit && !this.isStringTerminator(src.charCodeAt(h))) ++h;
 
-        if (h >= limit) this.throwError('Un-terminated delimited string');
+        if (h >= limit) this.throwError(_('Un-terminated delimited string'));
 
         this.curText = src.slice(cur, h);
         this.next = h + 1; // skip over the trailing delimiter

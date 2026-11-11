@@ -75,6 +75,7 @@ import { WX_IMAGE } from '@ziroeda/wx/wx_image.js';
 import { BITMAP_TYPE } from './bitmap.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `GRID_HELPER` as `COMMON_TOOLS::CursorControl` reads it. A frame that
@@ -928,7 +929,7 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
     for (const grid of gridsList) this.m_gridSelectBox.Append(grid);
 
     this.m_gridSelectBox.Append('---');
-    this.m_gridSelectBox.Append('Edit Grids...');
+    this.m_gridSelectBox.Append(_('Edit Grids...'));
 
     this.m_gridSelectBox.SetSelection(this.GetWindowSettings(cfg).grid.last_size_idx);
   }
@@ -1031,7 +1032,7 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
     const zoom = this.m_canvas!.GetGAL()!.GetZoomFactor();
 
     this.m_zoomSelectBox.Clear();
-    this.m_zoomSelectBox.Append('Zoom Auto');
+    this.m_zoomSelectBox.Append(_('Zoom Auto'));
     this.m_zoomSelectBox.SetSelection(0);
     this.m_zoomCustomEntry = wxNOT_FOUND;
 
@@ -1328,16 +1329,16 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
 
     switch (this.GetUserUnits()) {
       case 'in':
-        msg = 'inches';
+        msg = _('inches');
         break;
       case 'mils':
-        msg = 'mils';
+        msg = _('mils');
         break;
       case 'mm':
-        msg = 'mm';
+        msg = _('mm');
         break;
       default:
-        msg = 'Units';
+        msg = _('Units');
         break;
     }
 

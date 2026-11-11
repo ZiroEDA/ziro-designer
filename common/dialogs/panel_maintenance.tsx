@@ -58,10 +58,13 @@ import type {
   COMMON_SETTINGS_DRAFT,
   MAINTENANCE_SETTINGS_MANAGER,
 } from '../settings/common_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `m_cacheLifetime`'s own tooltip, upstream's text verbatim. [data] */
-const CACHE_TOOLTIP =
-  '3D cache files older than this are deleted.\nIf set to 0, cache clearing is disabled';
+const CACHE_TOOLTIP = _HKI(
+  '3D cache files older than this are deleted.\nIf set to 0, cache clearing is disabled',
+);
 
 /**
  * `new wxSpinCtrl( …, wxSP_ARROW_KEYS, 0, 120, 30 )`
@@ -92,14 +95,14 @@ export function PanelMaintenance({
           and not as wide as the page area. See `.ze-maintenance`. */}
       <div className="ze-maintenance">
         <Num
-          label="3D cache file duration:"
+          label={_('3D cache file duration:')}
           value={ctx.common.system.clear_3d_cache_interval}
           onChange={(v) =>
             ctx.upC((s) => {
               s.system.clear_3d_cache_interval = v;
             })
           }
-          unit="days"
+          unit={_('days')}
           min={CACHE_DAYS_MIN}
           max={CACHE_DAYS_MAX}
           title={CACHE_TOOLTIP}
@@ -111,7 +114,7 @@ export function PanelMaintenance({
             onClick={() => {
               const n = ctx.settingsManager.ClearFileHistory();
               // `_( "File history cleared." )` [data]
-              setNote(n > 0 ? 'File history cleared.' : 'File history was already empty.');
+              setNote(n > 0 ? _('File history cleared.') : 'File history was already empty.');
             }}
           />
 
@@ -123,13 +126,13 @@ export function PanelMaintenance({
               const n = ctx.settingsManager.ClearDontShowAgain() + clearDoNotShowAgainDialogs();
               // `_( "\"Don't show again\" dialogs reset." )` [data]
               setNote(
-                n > 0 ? '"Don\'t show again" dialogs reset.' : 'No dialog had been silenced.',
+                n > 0 ? _('"Don\'t show again" dialogs reset.') : 'No dialog had been silenced.',
               );
             }}
           />
 
           <Button
-            label="Reset All Dialogs to Defaults"
+            label={_('Reset All Dialogs to Defaults')}
             onClick={() => {
               // `doClearDialogState` opens with `doClearDontShowAgain()`, whose
               // session half is not storage and so cannot live in
@@ -138,13 +141,13 @@ export function PanelMaintenance({
               const n = ctx.settingsManager.ClearDialogState();
               // `_( "All dialogs reset to defaults." )` [data]
               setNote(
-                n > 0 ? 'All dialogs reset to defaults.' : 'No dialog had remembered any state.',
+                n > 0 ? _('All dialogs reset to defaults.') : 'No dialog had remembered any state.',
               );
             }}
           />
 
           <Button
-            label="Reset All Program Settings to Defaults"
+            label={_('Reset All Program Settings to Defaults')}
             onClick={() => {
               // `onResetAll` -> `doClearDialogState()` -> `doClearDontShowAgain()`.
               // `resetAllSettings` drops the whole prefix, which takes the six

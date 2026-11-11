@@ -18,6 +18,7 @@ import type { wxGrid } from '@ziroeda/wx/grid.js';
 import { allFilesWildcard } from '../wildcards_and_files_ext.js';
 import type { ChooserFilter } from '@ziroeda/wx/filedlg.js';
 import { GRID_CELL_TEXT_EDITOR } from './grid_text_helpers.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** What the view needs from a text-and-button editor. */
 /** What the grid view needs of an editor with a button (external/wx/grid_ui.tsx). */
@@ -129,7 +130,7 @@ export class GRID_CELL_URL_EDITOR extends GRID_CELL_TEXT_BUTTON {
     const filename = this.m_value;
 
     if (filename === '' || filename === '~') {
-      const path = await this.m_host.OpenFile('Open file', '', [allFilesWildcard()]);
+      const path = await this.m_host.OpenFile(_('Open file'), '', [allFilesWildcard()]);
 
       if (path !== null) this.m_value = `file://${path}`;
     } else {
@@ -158,7 +159,7 @@ export class GRID_CELL_PATH_EDITOR extends GRID_CELL_TEXT_BUTTON {
   async OnButtonClick(): Promise<void> {
     const slash = this.m_value.lastIndexOf('/');
     const dir = slash < 0 ? this.m_currentDir.value : this.m_value.slice(0, slash);
-    const path = await this.m_host.OpenFile('Select a File', dir, this.m_fileFilter);
+    const path = await this.m_host.OpenFile(_('Select a File'), dir, this.m_fileFilter);
 
     if (path === null) return;
 

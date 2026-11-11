@@ -50,6 +50,7 @@ import {
   URL_GETTING_STARTED,
 } from './tool/common_control.js';
 import type { TOOL_ACTION } from './tool/tool_action.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export { REPORT_BUG_URL };
 
@@ -134,13 +135,13 @@ function helpMenu(r: {
   showAbout: () => void;
 }): Menu {
   return {
-    label: 'Help',
+    label: _('Help'),
     items: [
       // ACTIONS::help. Its FriendlyName is literally "Help", so the first row
       // of the Help menu is "Help" - the tooltip, not the label, is the one
       // that says "Open product documentation in a web browser". This had been
       // renamed "Documentation" here, which is our word, not upstream's.
-      { label: 'Help', action: r.help },
+      { label: _('Help'), action: r.help },
       // ACTIONS::gettingStarted: "Getting Started with KiCad". The product name
       // is part of the label upstream, so it is part of ours.
       {
@@ -148,13 +149,13 @@ function helpMenu(r: {
         action: r.gettingStarted,
       },
       // ACTIONS::listHotKeys, .DefaultHotkey( MD_CTRL + WXK_F1 ).
-      { label: 'List Hotkeys...', shortcut: 'Ctrl+F1', action: r.showHotkeys },
+      { label: _('List Hotkeys...'), shortcut: 'Ctrl+F1', action: r.showHotkeys },
       // ACTIONS::getInvolved.
-      { label: 'Get Involved', action: r.getInvolved },
+      { label: _('Get Involved'), action: r.getInvolved },
       // ACTIONS::donate sits here upstream, deliberately not carried.
       // ACTIONS::reportBug.
       {
-        label: 'Report Bug',
+        label: _('Report Bug'),
         action: r.reportBug,
       },
       // Ours, no upstream row: the closed chat bubble comes back from here.

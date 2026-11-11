@@ -26,6 +26,7 @@ import {
   type EdaUnits,
 } from '../widgets/unit_binder.js';
 import { DialogShim } from '../dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER's text for a value in IU. */
 export function unitEntryText(aValueIU: number, aUnits: EdaUnits, aIuScale: EdaIuScale): string {
@@ -147,7 +148,7 @@ export function WX_PT_ENTRY_DIALOG({
       <StdDialogButtons onCancel={() => onResult(null)} onOk={ok}>
         {showResetButton && (
           <Button
-            label="Reset"
+            label={_('Reset')}
             onClick={() => {
               setX(unitEntryText(0, units, iuScale));
               setY(unitEntryText(0, units, iuScale));

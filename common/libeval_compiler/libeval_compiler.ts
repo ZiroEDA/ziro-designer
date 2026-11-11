@@ -23,6 +23,7 @@
  */
 import { DoubleValueFromString, type EdaUnits } from '../eda_units.js';
 import { wildCompareString } from '../string_utils.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export const TR_OP_BINARY_MASK = 0x200;
 export const TR_OP_UNARY_MASK = 0x100;
@@ -387,7 +388,7 @@ export class CONTEXT {
 
   Pop(): VALUE | null {
     if (this.m_stackPtr === 0) {
-      this.ReportError('Malformed expression');
+      this.ReportError(_('Malformed expression'));
       return this.AllocValue();
     }
 
@@ -1141,7 +1142,7 @@ export class COMPILER {
           if (this.m_tokenizer.MatchAhead('${', (c: number): boolean => c !== 0x7b))
             this.reportError(
               COMPILATION_STAGE.CST_PARSE,
-              'Unresolved text variable reference',
+              _('Unresolved text variable reference'),
               this.m_sourcePos + 2,
             );
           else
@@ -1399,7 +1400,7 @@ export class COMPILER {
             // Set a safe default value to exit gracefully with an error
             this.reportError(
               COMPILATION_STAGE.CST_CODEGEN,
-              'Unknown parent of function parameters',
+              _('Unknown parent of function parameters'),
               node.srcPos,
             );
             node.SetUop(TR_UOP_PUSH_VALUE, 0.0, 'unscaled');
@@ -1417,7 +1418,7 @@ export class COMPILER {
 
             if (node.leaf[0]!.value.str) pos -= formatNode(node.leaf[0]!).length;
 
-            this.reportError(COMPILATION_STAGE.CST_CODEGEN, 'Unknown parent of property', pos);
+            this.reportError(COMPILATION_STAGE.CST_CODEGEN, _('Unknown parent of property'), pos);
 
             node.leaf[0]!.isVisited = true;
             node.leaf[1]!.isVisited = true;

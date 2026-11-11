@@ -308,6 +308,7 @@ import { pcbIUScale, schIUScale } from '../eda_units.js';
 import { CombinedMatcherContext, EdaCombinedMatcher } from '../eda_pattern_match.js';
 import { NETCLASS } from '../netclass.js';
 import type { OutStr } from '../font/font.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const isSuperSubOverbar = (c: string | undefined): boolean => c === '^' || c === '_' || c === '~';
 
@@ -672,7 +673,7 @@ export class NET_SETTINGS extends NESTED_SETTINGS {
     super('net_settings', netSettingsSchemaVersion, aParent, aPath, false);
 
     this.m_defaultNetClass = new NETCLASS(NETCLASS.Default, true);
-    this.m_defaultNetClass.SetDescription('This is the default net class.');
+    this.m_defaultNetClass.SetDescription(_('This is the default net class.'));
     this.m_defaultNetClass.SetPriority(2147483647);
 
     this.m_params.push(

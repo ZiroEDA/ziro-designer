@@ -15,6 +15,7 @@ import {
   RemoteProviderJsonString,
   ValidateRemoteUrlSecurity,
 } from './remote_provider_utils.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export enum REMOTE_PROVIDER_AUTH_TYPE {
   NONE,
@@ -132,13 +133,14 @@ export class REMOTE_PROVIDER_METADATA {
     }
 
     if (!metadata.web_ui_v1) {
-      aError.value = 'Remote provider metadata must enable web_ui_v1.';
+      aError.value = _('Remote provider metadata must enable web_ui_v1.');
       return null;
     }
 
     if (!metadata.direct_downloads_v1 && !metadata.inline_payloads_v1) {
-      aError.value =
-        'Remote provider metadata must enable direct_downloads_v1, inline_payloads_v1, or both.';
+      aError.value = _(
+        'Remote provider metadata must enable direct_downloads_v1, inline_payloads_v1, or both.',
+      );
       return null;
     }
 
@@ -146,7 +148,7 @@ export class REMOTE_PROVIDER_METADATA {
       metadata.auth.type === REMOTE_PROVIDER_AUTH_TYPE.OAUTH2 &&
       metadata.session_bootstrap_url === ''
     ) {
-      aError.value = 'Remote provider metadata must define session_bootstrap_url for oauth2.';
+      aError.value = _('Remote provider metadata must define session_bootstrap_url for oauth2.');
       return null;
     }
 
@@ -185,7 +187,7 @@ export class REMOTE_PROVIDER_METADATA {
       NormalizedUrlOrigin(metadata.panel_url) !==
         NormalizedUrlOrigin(metadata.session_bootstrap_url)
     ) {
-      aError.value = 'session_bootstrap_url must share the same origin as panel_url.';
+      aError.value = _('session_bootstrap_url must share the same origin as panel_url.');
       return null;
     }
 

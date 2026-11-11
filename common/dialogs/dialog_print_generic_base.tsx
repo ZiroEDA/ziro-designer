@@ -40,6 +40,7 @@ import {
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
 import type { PrintScaleMode } from './dialog_print_generic.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_PRINT_GENERIC_BASE_PROPS {
   /** `m_outputMode`: 0 Color, 1 Black and white. */
@@ -64,7 +65,7 @@ export interface DIALOG_PRINT_GENERIC_BASE_PROPS {
 
 export function DIALOG_PRINT_GENERIC_BASE(p: DIALOG_PRINT_GENERIC_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Print" onClose={p.onCancel}>
+    <DialogShim title={_('Print')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
@@ -76,7 +77,7 @@ export function DIALOG_PRINT_GENERIC_BASE(p: DIALOG_PRINT_GENERIC_BASE_PROPS): J
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
                   {/* m_sbOptionsSizer */}
-                  <StaticBoxSizer label="Options" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Options')} orient={wxVERTICAL}>
                     <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM | wxRIGHT} border={5}>
                       {/* m_gbOptionsSizer = wxGridBagSizer( 3, 0 ), SetEmptyCellSize( wxSize( -1,10 ) ) */}
                       <GridBagSizer vgap={3} hgap={0} emptyCellSize={[-1, 10]} growableCols={[1]}>
@@ -85,7 +86,7 @@ export function DIALOG_PRINT_GENERIC_BASE(p: DIALOG_PRINT_GENERIC_BASE_PROPS): J
                           flag={wxALIGN_CENTER_VERTICAL | wxBOTTOM | wxRIGHT | wxLEFT}
                           border={5}
                         >
-                          <StaticText label="Output mode:" />
+                          <StaticText label={_('Output mode:')} />
                         </SizerItem>
                         <SizerItem
                           pos={[0, 1]}
@@ -93,7 +94,7 @@ export function DIALOG_PRINT_GENERIC_BASE(p: DIALOG_PRINT_GENERIC_BASE_PROPS): J
                           border={5}
                         >
                           <Choice
-                            choices={['Color', 'Black and white']}
+                            choices={[_('Color'), _('Black and white')]}
                             choice={p.m_outputMode}
                             ariaLabel="Output mode"
                           />
@@ -106,9 +107,9 @@ export function DIALOG_PRINT_GENERIC_BASE(p: DIALOG_PRINT_GENERIC_BASE_PROPS): J
                           shown={p.m_titleBlock.shown}
                         >
                           <CheckBox
-                            label="Print drawing sheet"
+                            label={_('Print drawing sheet')}
                             check={p.m_titleBlock}
-                            title="Print Frame references."
+                            title={_('Print Frame references.')}
                           />
                         </SizerItem>
                         {p.optionsSizerAdds}
@@ -118,7 +119,7 @@ export function DIALOG_PRINT_GENERIC_BASE(p: DIALOG_PRINT_GENERIC_BASE_PROPS): J
                 </SizerItem>
                 <SizerItem flag={wxALL | wxEXPAND} border={5}>
                   {/* bScaleSizer */}
-                  <StaticBoxSizer label="Scale" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Scale')} orient={wxVERTICAL}>
                     <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
                       <RadioButton
                         label="1:1"
@@ -130,7 +131,7 @@ export function DIALOG_PRINT_GENERIC_BASE(p: DIALOG_PRINT_GENERIC_BASE_PROPS): J
                     <Spacer width={0} height={5} border={5} />
                     <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
                       <RadioButton
-                        label="Fit to page"
+                        label={_('Fit to page')}
                         name="m_scale"
                         checked={p.scaleMode === 'fit'}
                         onChange={() => p.onScaleMode('fit')}
@@ -142,7 +143,7 @@ export function DIALOG_PRINT_GENERIC_BASE(p: DIALOG_PRINT_GENERIC_BASE_PROPS): J
                       <BoxSizer orient={wxHORIZONTAL}>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                           <RadioButton
-                            label="Custom:"
+                            label={_('Custom:')}
                             name="m_scale"
                             checked={p.scaleMode === 'custom'}
                             onChange={() => p.onScaleMode('custom')}
@@ -172,7 +173,7 @@ export function DIALOG_PRINT_GENERIC_BASE(p: DIALOG_PRINT_GENERIC_BASE_PROPS): J
               shown={p.m_infoText !== undefined}
             >
               {/* KIUI::GetSmallInfoFont( this ).Italic(), set by the subclass with the label */}
-              <StaticText label={p.m_infoText ?? 'Info text'} font="smallInfo" italic />
+              <StaticText label={p.m_infoText ?? _('Info text')} font="smallInfo" italic />
             </SizerItem>
           </BoxSizer>
         </SizerItem>

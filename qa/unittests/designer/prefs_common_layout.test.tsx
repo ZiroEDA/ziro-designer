@@ -112,10 +112,10 @@ describe('the page is two columns, as bPanelSizer makes it', () => {
    */
   it('draws the Rendering Engine antialiasing choice, and only that', () => {
     const group = PANEL_CODE.slice(
-      PANEL_CODE.indexOf('title="Rendering Engine"'),
-      PANEL_CODE.indexOf('title="User Interface"'),
+      PANEL_CODE.indexOf("title={_('Rendering Engine')}"),
+      PANEL_CODE.indexOf("title={_('User Interface')}"),
     );
-    expect(group).toContain('label="Antialiasing:"');
+    expect(group).toContain("label={_('Antialiasing:')}");
     expect(group).toContain('graphics.antialiasing_mode');
     for (const s of ['No Antialiasing', 'Fast Antialiasing', 'High Quality Antialiasing'])
       expect(group).toContain(s);
@@ -138,10 +138,11 @@ describe('the page is two columns, as bPanelSizer makes it', () => {
 
   it('does not draw the three groups that describe a desktop', () => {
     for (const g of ['Helper Applications', 'Session', 'Project Backup']) {
-      expect(PANEL, g).not.toContain(`title="${g}"`);
+      // Either spelling: written bare, or marked for translation.
+      expect(PANEL, g).not.toMatch(new RegExp(`title=(\\{_\\()?["']${g}["']`));
     }
     // Nor the Privacy group, which was ours rather than KiCad's.
-    expect(PANEL).not.toContain('title="Privacy"');
+    expect(PANEL).not.toMatch(/title=(\{_\()?["']Privacy["']/);
   });
 });
 
@@ -303,7 +304,7 @@ describe("a tooltip is upstream's SetToolTip, or there is none", () => {
     ['Show scrollbars in editors', 'This change takes effect when relaunching the editor.'],
   ])("%s carries upstream's own words", (label, tip) => {
     const at = PANEL.indexOf(label);
-    expect(PANEL.slice(at, PANEL.indexOf('/>', at)), label).toContain(`title="${tip}"`);
+    expect(PANEL.slice(at, PANEL.indexOf('/>', at)), label).toContain(`title={_('${tip}')}`);
   });
 
   it('puts the radio tooltips on the BUTTONS, as wx does', () => {

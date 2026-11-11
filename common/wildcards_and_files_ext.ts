@@ -20,6 +20,7 @@
  */
 
 import type { ChooserFilter } from '@ziroeda/wx/filedlg.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `AddFileExtListToFilter`, which is where the ` (*.a; *.b)` suffix comes
@@ -236,18 +237,28 @@ export const GERBVIEW_GERBER_FILTERS: readonly ChooserFilter[] = [
       'pho',
     ],
   },
-  fileFilter('Top layer', ['gtl']),
-  fileFilter('Bottom layer', ['gbl']),
-  fileFilter('Bottom solder resist', ['gbs']),
-  fileFilter('Top solder resist', ['gts']),
-  fileFilter('Bottom overlay', ['gbo']),
-  fileFilter('Top overlay', ['gto']),
-  fileFilter('Bottom paste', ['gbp']),
-  fileFilter('Top paste', ['gtp']),
-  fileFilter('Keep-out layer', ['gko']),
-  fileFilter('Mechanical layers', ['gm1', 'gm2', 'gm3', 'gm4', 'gm5', 'gm6', 'gm7', 'gm8', 'gm9']),
-  fileFilter('Top Pad Master', ['gpt']),
-  fileFilter('Bottom Pad Master', ['gpb']),
+  fileFilter(_HKI('Top layer'), ['gtl']),
+  fileFilter(_HKI('Bottom layer'), ['gbl']),
+  fileFilter(_HKI('Bottom solder resist'), ['gbs']),
+  fileFilter(_HKI('Top solder resist'), ['gts']),
+  fileFilter(_HKI('Bottom overlay'), ['gbo']),
+  fileFilter(_HKI('Top overlay'), ['gto']),
+  fileFilter(_HKI('Bottom paste'), ['gbp']),
+  fileFilter(_HKI('Top paste'), ['gtp']),
+  fileFilter(_HKI('Keep-out layer'), ['gko']),
+  fileFilter(_HKI('Mechanical layers'), [
+    'gm1',
+    'gm2',
+    'gm3',
+    'gm4',
+    'gm5',
+    'gm6',
+    'gm7',
+    'gm8',
+    'gm9',
+  ]),
+  fileFilter(_HKI('Top Pad Master'), ['gpt']),
+  fileFilter(_HKI('Bottom Pad Master'), ['gpb']),
   allFilesWildcard(),
 ];
 

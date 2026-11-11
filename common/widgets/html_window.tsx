@@ -27,6 +27,7 @@
  */
 import { type JSX, useRef, useState } from 'react';
 import { ContextMenu } from '@ziroeda/wx/menu_ui.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function HtmlWindow({
   html,
@@ -107,8 +108,8 @@ export function HtmlWindow({
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
-            { label: 'Copy', action: copySelection },
-            { label: 'Select All', action: selectAll },
+            { label: _('Copy'), action: copySelection },
+            { label: _('Select All'), action: selectAll },
           ]}
         />
       )}

@@ -20,6 +20,7 @@
  */
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { HotkeyCyclePopupView } from './hotkey_cycle_popup_ui.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `m_ctrlKey`: PRESET_SWITCH_KEY / VIEWPORT_SWITCH_KEY off macOS. */
 export type VIEW_SWITCH_KEY = 'Control' | 'Shift';
@@ -83,5 +84,5 @@ export function EDA_VIEW_SWITCHER({
     };
   }, []);
 
-  return <HotkeyCyclePopupView title="View Preset Switcher" items={items} selection={sel} />;
+  return <HotkeyCyclePopupView title={_('View Preset Switcher')} items={items} selection={sel} />;
 }

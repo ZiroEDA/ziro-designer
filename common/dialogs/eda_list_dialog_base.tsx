@@ -22,6 +22,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface EDA_LIST_DIALOG_BASE_PROPS {
   title: string;
@@ -97,7 +98,7 @@ export function EDA_LIST_DIALOG_BASE(p: EDA_LIST_DIALOG_BASE_PROPS): JSX.Element
                 <TextCtrl
                   value={p.m_filterBox.value}
                   onChange={p.m_filterBox.onChange}
-                  ariaLabel="Filter"
+                  ariaLabel={_('Filter')}
                 />
               </SizerItem>
             )}

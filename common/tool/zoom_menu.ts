@@ -14,6 +14,7 @@ import { wxItemKind, type wxMenuEvent } from '@ziroeda/wx/menu.js';
 import { ACTION_MENU } from './action_menu.js';
 import { ACTIONS } from './actions.js';
 import type { TOOL_EVENT } from './tool_event.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** What ZOOM_MENU asks of `EDA_DRAW_FRAME`. */
 export interface ZOOM_MENU_PARENT {
@@ -33,7 +34,7 @@ export class ZOOM_MENU extends ACTION_MENU {
   }
 
   override UpdateTitle(): void {
-    this.SetTitle('Zoom');
+    this.SetTitle(_('Zoom'));
   }
 
   protected override create(): ACTION_MENU {

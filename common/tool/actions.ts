@@ -24,6 +24,7 @@ import {
   TOOLBAR_STATE,
 } from './tool_action.js';
 import { EVENTS, MD_ALT, MD_CTRL, MD_SHIFT, setInteractiveActions } from './tool_event.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export { EVENTS };
 
@@ -89,8 +90,8 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch('N'))
       .LegacyHotkeyName('New')
-      .FriendlyName('New...')
-      .Tooltip('Create a new document in the editor')
+      .FriendlyName(_HKI('New...'))
+      .Tooltip(_HKI('Create a new document in the editor'))
       .Icon(BITMAPS.new_generic),
   );
 
@@ -98,8 +99,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.newLibrary')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('New Library...')
-      .Tooltip('Create a new library folder')
+      .FriendlyName(_HKI('New Library...'))
+      .Tooltip(_HKI('Create a new library folder'))
       .Icon(BITMAPS.new_library),
   );
 
@@ -107,8 +108,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.addLibrary')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Add Library...')
-      .Tooltip('Add an existing library folder')
+      .FriendlyName(_HKI('Add Library...'))
+      .Tooltip(_HKI('Add an existing library folder'))
       .Icon(BITMAPS.add_library),
   );
 
@@ -118,8 +119,8 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch('O'))
       .LegacyHotkeyName('Open')
-      .FriendlyName('Open...')
-      .Tooltip('Open existing document')
+      .FriendlyName(_HKI('Open...'))
+      .Tooltip(_HKI('Open existing document'))
       .Icon(BITMAPS.directory_open),
   );
 
@@ -127,8 +128,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.openWithTextEditor')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Edit in a Text Editor...')
-      .Tooltip('Open a library file with a text editor')
+      .FriendlyName(_HKI('Edit in a Text Editor...'))
+      .Tooltip(_HKI('Open a library file with a text editor'))
       .Icon(BITMAPS.editor),
   );
 
@@ -136,8 +137,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.openDirectory')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Open in file explorer...')
-      .Tooltip('Open a library file with system file explorer')
+      .FriendlyName(_HKI('Open in file explorer...'))
+      .Tooltip(_HKI('Open a library file with system file explorer'))
       .Icon(BITMAPS.directory_browser),
   );
 
@@ -148,7 +149,7 @@ export class ACTIONS {
       .DefaultHotkey(MD_CTRL + ch('S'))
       .LegacyHotkeyName('Save')
       .FriendlyName('Save')
-      .Tooltip('Save changes')
+      .Tooltip(_HKI('Save changes'))
       .Icon(BITMAPS.save),
   );
 
@@ -158,8 +159,8 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + MD_SHIFT + ch('S'))
       .LegacyHotkeyName('Save As')
-      .FriendlyName('Save As...')
-      .Tooltip('Save current document to another location')
+      .FriendlyName(_HKI('Save As...'))
+      .Tooltip(_HKI('Save current document to another location'))
       .Icon(BITMAPS.save_as),
   );
 
@@ -167,8 +168,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.saveCopy')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Save a Copy...')
-      .Tooltip('Save a copy of the current document to another location')
+      .FriendlyName(_HKI('Save a Copy...'))
+      .Tooltip(_HKI('Save a copy of the current document to another location'))
       .Icon(BITMAPS.save_as),
   );
 
@@ -176,8 +177,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.saveAll')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Save All')
-      .Tooltip('Save all changes')
+      .FriendlyName(_HKI('Save All'))
+      .Tooltip(_HKI('Save all changes'))
       .Icon(BITMAPS.save_all),
   );
 
@@ -185,8 +186,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.revert')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Revert')
-      .Tooltip('Throw away changes')
+      .FriendlyName(_HKI('Revert'))
+      .Tooltip(_HKI('Throw away changes'))
       .Icon(BITMAPS.restore_from_file),
   );
 
@@ -194,8 +195,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.pageSettings')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Page Settings...')
-      .Tooltip('Settings for paper size and title block info')
+      .FriendlyName(_HKI('Page Settings...'))
+      .Tooltip(_HKI('Settings for paper size and title block info'))
       .Icon(BITMAPS.sheetset),
   );
 
@@ -205,7 +206,7 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch('P'))
       .LegacyHotkeyName('Print')
-      .FriendlyName('Print...')
+      .FriendlyName(_HKI('Print...'))
       .Icon(BITMAPS.print_button),
   );
 
@@ -213,7 +214,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.plot')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Plot...')
+      .FriendlyName(_HKI('Plot...'))
       .Icon(BITMAPS.plot),
   );
 
@@ -221,8 +222,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.quit')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Quit')
-      .Tooltip('Close the current editor')
+      .FriendlyName(_HKI('Quit'))
+      .Tooltip(_HKI('Close the current editor'))
       .Icon(BITMAPS.exit),
   );
 
@@ -292,8 +293,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Interactive.group')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Group Items')
-      .Tooltip('Group the selected items so that they are treated as a single item')
+      .FriendlyName(_HKI('Group Items'))
+      .Tooltip(_HKI('Group the selected items so that they are treated as a single item'))
       .Icon(BITMAPS.group),
   );
 
@@ -301,8 +302,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Interactive.ungroup')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Ungroup Items')
-      .Tooltip('Ungroup any selected groups')
+      .FriendlyName(_HKI('Ungroup Items'))
+      .Tooltip(_HKI('Ungroup any selected groups'))
       .Icon(BITMAPS.group_ungroup),
   );
 
@@ -310,8 +311,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Interactive.addToGroup')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Add Items')
-      .Tooltip('Add items to group')
+      .FriendlyName(_HKI('Add Items'))
+      .Tooltip(_HKI('Add items to group'))
       .Icon(BITMAPS.group_remove),
   );
 
@@ -319,8 +320,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Interactive.removeFromGroup')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Remove Items')
-      .Tooltip('Remove items from group')
+      .FriendlyName(_HKI('Remove Items'))
+      .Tooltip(_HKI('Remove items from group'))
       .Icon(BITMAPS.group_remove),
   );
 
@@ -328,8 +329,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Interactive.groupEnter')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Enter Group')
-      .Tooltip('Enter the group to edit items')
+      .FriendlyName(_HKI('Enter Group'))
+      .Tooltip(_HKI('Enter the group to edit items'))
       .Icon(BITMAPS.group_enter),
   );
 
@@ -337,8 +338,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Interactive.groupLeave')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Leave Group')
-      .Tooltip('Leave the current group')
+      .FriendlyName(_HKI('Leave Group'))
+      .Tooltip(_HKI('Leave the current group'))
       .Icon(BITMAPS.group_leave),
   );
 
@@ -360,8 +361,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Interactive.cancel')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Cancel')
-      .Tooltip('Cancel current tool')
+      .FriendlyName(_HKI('Cancel'))
+      .Tooltip(_HKI('Cancel current tool'))
       .Icon(BITMAPS.cancel)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE),
   );
@@ -373,8 +374,8 @@ export class ACTIONS {
       .Name('common.Interactive.finish')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_END)
-      .FriendlyName('Finish')
-      .Tooltip('Finish current tool')
+      .FriendlyName(_HKI('Finish'))
+      .Tooltip(_HKI('Finish current tool'))
       .Icon(BITMAPS.checked_ok)
       .ToolbarState(TOOLBAR_STATE.HIDDEN)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE),
@@ -384,8 +385,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.showContextMenu')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Context Menu')
-      .Tooltip('Perform the right-mouse-button action')
+      .FriendlyName(_HKI('Show Context Menu'))
+      .Tooltip(_HKI('Perform the right-mouse-button action'))
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_RIGHT_CLICK)
       .ToolbarState(TOOLBAR_STATE.HIDDEN),
@@ -430,7 +431,7 @@ export class ACTIONS {
       .DefaultHotkey(MD_CTRL + ch('X'))
       .LegacyHotkeyName('Cut')
       .FriendlyName('Cut')
-      .Tooltip('Cut selected item(s) to clipboard')
+      .Tooltip(_HKI('Cut selected item(s) to clipboard'))
       .Icon(BITMAPS.cut)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .UIId(wxID.wxID_CUT),
@@ -443,7 +444,7 @@ export class ACTIONS {
       .DefaultHotkey(MD_CTRL + ch('C'))
       .LegacyHotkeyName('Copy')
       .FriendlyName('Copy')
-      .Tooltip('Copy selected item(s) to clipboard')
+      .Tooltip(_HKI('Copy selected item(s) to clipboard'))
       .Icon(BITMAPS.copy)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .UIId(wxID.wxID_COPY),
@@ -454,8 +455,8 @@ export class ACTIONS {
       .Name('common.Interactive.copyAsText')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + MD_SHIFT + ch('C'))
-      .FriendlyName('Copy as Text')
-      .Tooltip('Copy selected item(s) to clipboard as text')
+      .FriendlyName(_HKI('Copy as Text'))
+      .Tooltip(_HKI('Copy selected item(s) to clipboard as text'))
       .Icon(BITMAPS.copy)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE),
   );
@@ -467,7 +468,7 @@ export class ACTIONS {
       .DefaultHotkey(MD_CTRL + ch('V'))
       .LegacyHotkeyName('Paste')
       .FriendlyName('Paste')
-      .Tooltip('Paste item(s) from clipboard')
+      .Tooltip(_HKI('Paste item(s) from clipboard'))
       .Icon(BITMAPS.paste)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .UIId(wxID.wxID_PASTE),
@@ -477,8 +478,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Interactive.selectSetRect')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Rectangle')
-      .Tooltip('Set selection mode to use rectangle')
+      .FriendlyName(_HKI('Rectangle'))
+      .Tooltip(_HKI('Set selection mode to use rectangle'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.cursor)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -488,8 +489,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Interactive.selectSetLasso')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Lasso')
-      .Tooltip('Set selection mode to use polygon lasso')
+      .FriendlyName(_HKI('Lasso'))
+      .Tooltip(_HKI('Set selection mode to use polygon lasso'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.lasso)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -500,8 +501,8 @@ export class ACTIONS {
       .Name('common.Interactive.selectAll')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch('A'))
-      .FriendlyName('Select All')
-      .Tooltip('Select all items on screen'),
+      .FriendlyName(_HKI('Select All'))
+      .Tooltip(_HKI('Select all items on screen')),
   );
 
   static readonly unselectAll = new TOOL_ACTION(
@@ -509,8 +510,8 @@ export class ACTIONS {
       .Name('common.Interactive.unselectAll')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + MD_SHIFT + ch('A'))
-      .FriendlyName('Unselect All')
-      .Tooltip('Unselect all items on screen'),
+      .FriendlyName(_HKI('Unselect All'))
+      .Tooltip(_HKI('Unselect all items on screen')),
   );
 
   static readonly pasteSpecial = new TOOL_ACTION(
@@ -518,8 +519,8 @@ export class ACTIONS {
       .Name('common.Interactive.pasteSpecial')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + MD_SHIFT + ch('V'))
-      .FriendlyName('Paste Special...')
-      .Tooltip('Paste item(s) from clipboard with options')
+      .FriendlyName(_HKI('Paste Special...'))
+      .Tooltip(_HKI('Paste item(s) from clipboard with options'))
       .Icon(BITMAPS.paste_special),
   );
 
@@ -530,7 +531,7 @@ export class ACTIONS {
       .DefaultHotkey(MD_CTRL + ch('D'))
       .LegacyHotkeyName('Duplicate')
       .FriendlyName('Duplicate')
-      .Tooltip('Duplicates the selected item(s)')
+      .Tooltip(_HKI('Duplicates the selected item(s)'))
       .Icon(BITMAPS.duplicate),
   );
 
@@ -540,8 +541,8 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_DELETE)
       .LegacyHotkeyName('Delete Item')
-      .FriendlyName('Delete')
-      .Tooltip('Delete selected item(s)')
+      .FriendlyName(_HKI('Delete'))
+      .Tooltip(_HKI('Delete selected item(s)'))
       .Icon(BITMAPS.trash)
       .Parameter(REMOVE_FLAGS.NORMAL),
   );
@@ -552,8 +553,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Interactive.deleteTool')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Interactive Delete Tool')
-      .Tooltip('Delete clicked items')
+      .FriendlyName(_HKI('Interactive Delete Tool'))
+      .Tooltip(_HKI('Delete clicked items'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.delete_cursor)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -563,8 +564,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.leftJustify')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Left Justify')
-      .Tooltip('Left-justify fields and text items')
+      .FriendlyName(_HKI('Left Justify'))
+      .Tooltip(_HKI('Left-justify fields and text items'))
       .Icon(BITMAPS.text_align_left),
   );
 
@@ -572,8 +573,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.centerJustify')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Center Justify')
-      .Tooltip('Center-justify fields and text items')
+      .FriendlyName(_HKI('Center Justify'))
+      .Tooltip(_HKI('Center-justify fields and text items'))
       .Icon(BITMAPS.text_align_center),
   );
 
@@ -581,8 +582,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.rightJustify')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Right Justify')
-      .Tooltip('Right-justify fields and text items')
+      .FriendlyName(_HKI('Right Justify'))
+      .Tooltip(_HKI('Right-justify fields and text items'))
       .Icon(BITMAPS.text_align_right),
   );
 
@@ -590,7 +591,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.expandAll')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Expand All')
+      .FriendlyName(_HKI('Expand All'))
       .Icon(BITMAPS.up),
   );
 
@@ -600,7 +601,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.collapseAll')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Collapse All')
+      .FriendlyName(_HKI('Collapse All'))
       .Icon(BITMAPS.down),
   );
 
@@ -612,16 +613,16 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Interactive.increment')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Increment')
-      .Tooltip('Increment the selected item(s)'),
+      .FriendlyName(_HKI('Increment'))
+      .Tooltip(_HKI('Increment the selected item(s)')),
   );
 
   static readonly incrementPrimary = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Interactive.incrementPrimary')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Increment Primary')
-      .Tooltip('Increment the primary field of the selected item(s)')
+      .FriendlyName(_HKI('Increment Primary'))
+      .Tooltip(_HKI('Increment the primary field of the selected item(s)'))
       .Parameter<INCREMENT>({ Delta: 1, Index: 0 }),
   );
 
@@ -629,8 +630,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Interactive.decrementPrimary')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Decrement Primary')
-      .Tooltip('Decrement the primary field of the selected item(s)')
+      .FriendlyName(_HKI('Decrement Primary'))
+      .Tooltip(_HKI('Decrement the primary field of the selected item(s)'))
       .Parameter<INCREMENT>({ Delta: -1, Index: 0 }),
   );
 
@@ -638,8 +639,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Interactive.incrementSecondary')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Increment Secondary')
-      .Tooltip('Increment the secondary field of the selected item(s)')
+      .FriendlyName(_HKI('Increment Secondary'))
+      .Tooltip(_HKI('Increment the secondary field of the selected item(s)'))
       .Parameter<INCREMENT>({ Delta: 1, Index: 1 }),
   );
 
@@ -647,8 +648,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Interactive.decrementSecondary')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Decrement Secondary')
-      .Tooltip('Decrement the secondary field of the selected item(s)')
+      .FriendlyName(_HKI('Decrement Secondary'))
+      .Tooltip(_HKI('Decrement the secondary field of the selected item(s)'))
       .Parameter<INCREMENT>({ Delta: -1, Index: 1 }),
   );
 
@@ -656,8 +657,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.InteractiveSelection.SelectColumns')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Select Column(s)')
-      .Tooltip('Select complete column(s) containing the current selected cell(s)')
+      .FriendlyName(_HKI('Select Column(s)'))
+      .Tooltip(_HKI('Select complete column(s) containing the current selected cell(s)'))
       .Icon(BITMAPS.table_select_column),
   );
 
@@ -665,8 +666,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.InteractiveSelection.Rows')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Select Row(s)')
-      .Tooltip('Select complete row(s) containing the current selected cell(s)')
+      .FriendlyName(_HKI('Select Row(s)'))
+      .Tooltip(_HKI('Select complete row(s) containing the current selected cell(s)'))
       .Icon(BITMAPS.table_select_row),
   );
 
@@ -674,8 +675,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.InteractiveSelection.SelectTable')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Select Table')
-      .Tooltip('Select parent table of selected cell(s)')
+      .FriendlyName(_HKI('Select Table'))
+      .Tooltip(_HKI('Select parent table of selected cell(s)'))
       .Icon(BITMAPS.table_select),
   );
 
@@ -683,8 +684,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.TableEditor.addRowAbove')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Add Row Above')
-      .Tooltip('Insert a new table row above the selected cell(s)')
+      .FriendlyName(_HKI('Add Row Above'))
+      .Tooltip(_HKI('Insert a new table row above the selected cell(s)'))
       .Icon(BITMAPS.table_add_row_above),
   );
 
@@ -692,8 +693,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.TableEditor.addRowBelow')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Add Row Below')
-      .Tooltip('Insert a new table row below the selected cell(s)')
+      .FriendlyName(_HKI('Add Row Below'))
+      .Tooltip(_HKI('Insert a new table row below the selected cell(s)'))
       .Icon(BITMAPS.table_add_row_below),
   );
 
@@ -701,8 +702,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.TableEditor.addColBefore')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Add Column Before')
-      .Tooltip('Insert a new table column before the selected cell(s)')
+      .FriendlyName(_HKI('Add Column Before'))
+      .Tooltip(_HKI('Insert a new table column before the selected cell(s)'))
       .Icon(BITMAPS.table_add_column_before),
   );
 
@@ -710,8 +711,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.TableEditor.addColAfter')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Add Column After')
-      .Tooltip('Insert a new table column after the selected cell(s)')
+      .FriendlyName(_HKI('Add Column After'))
+      .Tooltip(_HKI('Insert a new table column after the selected cell(s)'))
       .Icon(BITMAPS.table_add_column_after),
   );
 
@@ -719,8 +720,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.TableEditor.deleteRows')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Delete Row(s)')
-      .Tooltip('Delete rows containing the currently selected cell(s)')
+      .FriendlyName(_HKI('Delete Row(s)'))
+      .Tooltip(_HKI('Delete rows containing the currently selected cell(s)'))
       .Icon(BITMAPS.table_delete_row),
   );
 
@@ -728,8 +729,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.TableEditor.deleteColumns')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Delete Column(s)')
-      .Tooltip('Delete columns containing the currently selected cell(s)')
+      .FriendlyName(_HKI('Delete Column(s)'))
+      .Tooltip(_HKI('Delete columns containing the currently selected cell(s)'))
       .Icon(BITMAPS.table_delete_column),
   );
 
@@ -737,8 +738,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.TableEditor.mergeCells')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Merge Cells')
-      .Tooltip('Turn selected table cells into a single cell')
+      .FriendlyName(_HKI('Merge Cells'))
+      .Tooltip(_HKI('Turn selected table cells into a single cell'))
       .Icon(BITMAPS.table),
   );
 
@@ -748,8 +749,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.TableEditor.unmergeCell')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Unmerge Cells')
-      .Tooltip('Turn merged table cells back into separate cells.')
+      .FriendlyName(_HKI('Unmerge Cells'))
+      .Tooltip(_HKI('Turn merged table cells back into separate cells.'))
       .Icon(BITMAPS.table),
   );
 
@@ -760,7 +761,7 @@ export class ACTIONS {
       .Name('pcbnew.TableEditor.editTable')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch('E'))
-      .FriendlyName('Edit Table...')
+      .FriendlyName(_HKI('Edit Table...'))
       .Icon(BITMAPS.table_edit),
   );
 
@@ -769,9 +770,9 @@ export class ACTIONS {
       .Name('common.TableEditor.exportTableCSV')
       .ToolbarState(TOOLBAR_STATE.HIDDEN)
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Export Table to CSV')
-      .MenuText('Export Table to CSV...')
-      .Tooltip('Export table contents to CSV file with resolved text variables')
+      .FriendlyName(_HKI('Export Table to CSV'))
+      .MenuText(_HKI('Export Table to CSV...'))
+      .Tooltip(_HKI('Export table contents to CSV file with resolved text variables'))
       .Icon(BITMAPS.export_file),
   );
 
@@ -786,8 +787,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('pcbnew.PointEditor.arcKeepCenter')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Keep Arc Center, Adjust Radius')
-      .Tooltip('Switch arc editing mode to keep center, adjust radius and endpoints')
+      .FriendlyName(_HKI('Keep Arc Center, Adjust Radius'))
+      .Tooltip(_HKI('Switch arc editing mode to keep center, adjust radius and endpoints'))
       .Parameter(ARC_EDIT_MODE.KEEP_CENTER_ADJUST_ANGLE_RADIUS),
   );
 
@@ -795,8 +796,10 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('pcbnew.PointEditor.arcKeepEndpoint')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Keep Arc Endpoints or Direction of Starting Point')
-      .Tooltip('Switch arc editing mode to keep endpoints, or to keep direction of the other point')
+      .FriendlyName(_HKI('Keep Arc Endpoints or Direction of Starting Point'))
+      .Tooltip(
+        _HKI('Switch arc editing mode to keep endpoints, or to keep direction of the other point'),
+      )
       .Parameter(ARC_EDIT_MODE.KEEP_ENDPOINTS_OR_START_DIRECTION),
   );
 
@@ -804,8 +807,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('pcbnew.PointEditor.arcKeepRadius')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Keep Arc Radius and Center, adjust angle')
-      .Tooltip('Switch arc editing mode to maintaining radius when endpoint are moved')
+      .FriendlyName(_HKI('Keep Arc Radius and Center, adjust angle'))
+      .Tooltip(_HKI('Switch arc editing mode to maintaining radius when endpoint are moved'))
       .Parameter(ARC_EDIT_MODE.KEEP_CENTER_ENDS_ADJUST_ANGLE),
   );
 
@@ -814,8 +817,8 @@ export class ACTIONS {
       .Name('common.Interactive.cycleArcEditMode')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch(' '))
-      .FriendlyName('Cycle Arc Editing Mode')
-      .Tooltip('Switch to a different method of editing arcs'),
+      .FriendlyName(_HKI('Cycle Arc Editing Mode'))
+      .Tooltip(_HKI('Switch to a different method of editing arcs')),
   );
 
   static readonly showSearch = new TOOL_ACTION(
@@ -825,7 +828,7 @@ export class ACTIONS {
       .DefaultHotkey(MD_CTRL + ch('G'))
       .LegacyHotkeyName('Search')
       .FriendlyName('Search')
-      .Tooltip('Show/hide the search panel')
+      .Tooltip(_HKI('Show/hide the search panel'))
       .Icon(BITMAPS.find),
   );
 
@@ -883,7 +886,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Interactive.replaceAndFindNext')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Replace and Find Next')
+      .FriendlyName(_HKI('Replace and Find Next'))
       .Icon(BITMAPS.find_replace),
   );
 
@@ -891,7 +894,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Interactive.replaceAll')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Replace All')
+      .FriendlyName(_HKI('Replace All'))
       .Icon(BITMAPS.find_replace),
   );
 
@@ -908,7 +911,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Checker.prevMarker')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Previous Marker')
+      .FriendlyName(_HKI('Previous Marker'))
       .Icon(BITMAPS.marker_previous),
   );
 
@@ -916,7 +919,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Checker.nextMarker')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Next Marker')
+      .FriendlyName(_HKI('Next Marker'))
       .Icon(BITMAPS.marker_next),
   );
 
@@ -924,8 +927,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Checker.excludeMarker')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Exclude Marker')
-      .Tooltip('Mark current violation in Checker window as an exclusion')
+      .FriendlyName(_HKI('Exclude Marker'))
+      .Tooltip(_HKI('Mark current violation in Checker window as an exclusion'))
       .Icon(BITMAPS.marker_exclude),
   );
 
@@ -937,7 +940,7 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_F5)
       .LegacyHotkeyName('Zoom Redraw')
-      .FriendlyName('Refresh')
+      .FriendlyName(_HKI('Refresh'))
       .Icon(BITMAPS.refresh),
   );
 
@@ -947,8 +950,8 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_HOME)
       .LegacyHotkeyName('Zoom Auto')
-      .FriendlyName('Zoom to Fit')
-      .Tooltip('Zoom to worksheet area if exists or edited object')
+      .FriendlyName(_HKI('Zoom to Fit'))
+      .Tooltip(_HKI('Zoom to worksheet area if exists or edited object'))
       .Icon(BITMAPS.zoom_fit_in_page),
   );
 
@@ -957,8 +960,8 @@ export class ACTIONS {
       .Name('common.Control.zoomFitObjects')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + WXK.WXK_HOME)
-      .FriendlyName('Zoom to All Objects')
-      .Tooltip('Zoom to all objects on screen')
+      .FriendlyName(_HKI('Zoom to All Objects'))
+      .Tooltip(_HKI('Zoom to all objects on screen'))
       .Icon(BITMAPS.zoom_fit_to_objects),
   );
 
@@ -966,8 +969,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.zoomFitSelection')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .Tooltip('Zoom to items currently selected')
-      .FriendlyName('Zoom to Selected Objects')
+      .Tooltip(_HKI('Zoom to items currently selected'))
+      .FriendlyName(_HKI('Zoom to Selected Objects'))
       .Icon(BITMAPS.zoom_fit_to_objects),
   );
 
@@ -977,7 +980,7 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_F1)
       .LegacyHotkeyName('Zoom In')
-      .FriendlyName('Zoom In at Cursor')
+      .FriendlyName(_HKI('Zoom In at Cursor'))
       .Icon(BITMAPS.zoom_in),
   );
 
@@ -987,7 +990,7 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_F2)
       .LegacyHotkeyName('Zoom Out')
-      .FriendlyName('Zoom Out at Cursor')
+      .FriendlyName(_HKI('Zoom Out at Cursor'))
       .Icon(BITMAPS.zoom_out),
   );
 
@@ -1011,8 +1014,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.zoomInHorizontally')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Zoom In Horizontally')
-      .Tooltip('Zoom in horizontally the plot area')
+      .FriendlyName(_HKI('Zoom In Horizontally'))
+      .Tooltip(_HKI('Zoom in horizontally the plot area'))
       .Icon(BITMAPS.zoom_in_horizontally),
   );
 
@@ -1020,8 +1023,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.zoomOutHorizontally')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Zoom Out Horizontally')
-      .Tooltip('Zoom out horizontally the plot area')
+      .FriendlyName(_HKI('Zoom Out Horizontally'))
+      .Tooltip(_HKI('Zoom out horizontally the plot area'))
       .Icon(BITMAPS.zoom_out_horizontally),
   );
 
@@ -1029,8 +1032,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.zoomInVertically')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Zoom In Vertically')
-      .Tooltip('Zoom in vertically the plot area')
+      .FriendlyName(_HKI('Zoom In Vertically'))
+      .Tooltip(_HKI('Zoom in vertically the plot area'))
       .Icon(BITMAPS.zoom_in_vertically),
   );
 
@@ -1038,8 +1041,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.zoomOutVertically')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Zoom Out Vertically')
-      .Tooltip('Zoom out vertically the plot area')
+      .FriendlyName(_HKI('Zoom Out Vertically'))
+      .Tooltip(_HKI('Zoom out vertically the plot area'))
       .Icon(BITMAPS.zoom_out_vertically),
   );
 
@@ -1049,7 +1052,7 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_F4)
       .LegacyHotkeyName('Zoom Center')
-      .FriendlyName('Center on Cursor')
+      .FriendlyName(_HKI('Center on Cursor'))
       .Icon(BITMAPS.zoom_center_on_screen),
   );
 
@@ -1059,8 +1062,8 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + WXK.WXK_F5)
       .LegacyHotkeyName('Zoom to Selection')
-      .FriendlyName('Zoom to Selection Area')
-      .Tooltip('Zoom to an area selection created by a mouse drag')
+      .FriendlyName(_HKI('Zoom to Selection Area'))
+      .Tooltip(_HKI('Zoom to an area selection created by a mouse drag'))
       .Icon(BITMAPS.zoom_area)
       .ToolbarState([TOOLBAR_STATE.TOGGLE, TOOLBAR_STATE.CANCEL])
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -1070,8 +1073,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.undoZoom')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Undo Last Zoom')
-      .Tooltip('Return zoom to level prior to last zoom action')
+      .FriendlyName(_HKI('Undo Last Zoom'))
+      .Tooltip(_HKI('Return zoom to level prior to last zoom action'))
       .Icon(BITMAPS.undo),
   );
 
@@ -1079,8 +1082,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.redoZoom')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Redo Last Zoom')
-      .Tooltip('Return zoom to level prior to last zoom undo')
+      .FriendlyName(_HKI('Redo Last Zoom'))
+      .Tooltip(_HKI('Return zoom to level prior to last zoom undo'))
       .Icon(BITMAPS.redo),
   );
 
@@ -1101,7 +1104,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.centerSelection')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Pan to Center Selected Objects'),
+      .FriendlyName(_HKI('Pan to Center Selected Objects')),
   );
 
   // Cursor control
@@ -1111,7 +1114,7 @@ export class ACTIONS {
       .Name('common.Control.cursorUp')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_UP)
-      .FriendlyName('Cursor Up')
+      .FriendlyName(_HKI('Cursor Up'))
       .ToolbarState(TOOLBAR_STATE.HIDDEN)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_UP),
@@ -1122,7 +1125,7 @@ export class ACTIONS {
       .Name('common.Control.cursorDown')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_DOWN)
-      .FriendlyName('Cursor Down')
+      .FriendlyName(_HKI('Cursor Down'))
       .ToolbarState(TOOLBAR_STATE.HIDDEN)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_DOWN),
@@ -1133,7 +1136,7 @@ export class ACTIONS {
       .Name('common.Control.cursorLeft')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_LEFT)
-      .FriendlyName('Cursor Left')
+      .FriendlyName(_HKI('Cursor Left'))
       .ToolbarState(TOOLBAR_STATE.HIDDEN)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_LEFT),
@@ -1144,7 +1147,7 @@ export class ACTIONS {
       .Name('common.Control.cursorRight')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_RIGHT)
-      .FriendlyName('Cursor Right')
+      .FriendlyName(_HKI('Cursor Right'))
       .ToolbarState(TOOLBAR_STATE.HIDDEN)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_RIGHT),
@@ -1155,7 +1158,7 @@ export class ACTIONS {
       .Name('common.Control.cursorUpFast')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + WXK.WXK_UP)
-      .FriendlyName('Cursor Up Fast')
+      .FriendlyName(_HKI('Cursor Up Fast'))
       .ToolbarState(TOOLBAR_STATE.HIDDEN)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_UP_FAST),
@@ -1166,7 +1169,7 @@ export class ACTIONS {
       .Name('common.Control.cursorDownFast')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + WXK.WXK_DOWN)
-      .FriendlyName('Cursor Down Fast')
+      .FriendlyName(_HKI('Cursor Down Fast'))
       .ToolbarState(TOOLBAR_STATE.HIDDEN)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_DOWN_FAST),
@@ -1177,7 +1180,7 @@ export class ACTIONS {
       .Name('common.Control.cursorLeftFast')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + WXK.WXK_LEFT)
-      .FriendlyName('Cursor Left Fast')
+      .FriendlyName(_HKI('Cursor Left Fast'))
       .ToolbarState(TOOLBAR_STATE.HIDDEN)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_LEFT_FAST),
@@ -1188,7 +1191,7 @@ export class ACTIONS {
       .Name('common.Control.cursorRightFast')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + WXK.WXK_RIGHT)
-      .FriendlyName('Cursor Right Fast')
+      .FriendlyName(_HKI('Cursor Right Fast'))
       .ToolbarState(TOOLBAR_STATE.HIDDEN)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_RIGHT_FAST),
@@ -1200,8 +1203,8 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_RETURN)
       .LegacyHotkeyName('Mouse Left Click')
-      .FriendlyName('Click')
-      .Tooltip('Performs left mouse button click')
+      .FriendlyName(_HKI('Click'))
+      .Tooltip(_HKI('Performs left mouse button click'))
       .ToolbarState(TOOLBAR_STATE.HIDDEN)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_CLICK),
@@ -1213,8 +1216,8 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_END)
       .LegacyHotkeyName('Mouse Left Double Click')
-      .FriendlyName('Double-click')
-      .Tooltip('Performs left mouse button double-click')
+      .FriendlyName(_HKI('Double-click'))
+      .Tooltip(_HKI('Performs left mouse button double-click'))
       .ToolbarState(TOOLBAR_STATE.HIDDEN)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_DBL_CLICK),
@@ -1231,23 +1234,23 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.pinLibrary')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Pin Library')
-      .Tooltip('Keep the library at the top of the list'),
+      .FriendlyName(_HKI('Pin Library'))
+      .Tooltip(_HKI('Keep the library at the top of the list')),
   );
 
   static readonly unpinLibrary = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('common.Control.unpinLibrary')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Unpin Library')
-      .Tooltip('No longer keep the library at the top of the list'),
+      .FriendlyName(_HKI('Unpin Library'))
+      .Tooltip(_HKI('No longer keep the library at the top of the list')),
   );
 
   static readonly showLibraryTree = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('common.Control.showLibraryTree')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Library Tree')
+      .FriendlyName(_HKI('Library Tree'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.search_tree),
   );
@@ -1256,7 +1259,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.hideLibraryTree')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Hide Library Tree')
+      .FriendlyName(_HKI('Hide Library Tree'))
       .Icon(BITMAPS.search_tree),
   );
 
@@ -1264,7 +1267,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.libraryTreeSearch')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Focus Library Tree Search Field')
+      .FriendlyName(_HKI('Focus Library Tree Search Field'))
       .DefaultHotkey(MD_CTRL + ch('L'))
       .ToolbarState(TOOLBAR_STATE.HIDDEN),
   );
@@ -1274,7 +1277,7 @@ export class ACTIONS {
       .Name('common.Control.panUp')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_SHIFT + WXK.WXK_UP)
-      .FriendlyName('Pan Up')
+      .FriendlyName(_HKI('Pan Up'))
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_UP),
   );
@@ -1284,7 +1287,7 @@ export class ACTIONS {
       .Name('common.Control.panDown')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_SHIFT + WXK.WXK_DOWN)
-      .FriendlyName('Pan Down')
+      .FriendlyName(_HKI('Pan Down'))
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_DOWN),
   );
@@ -1294,7 +1297,7 @@ export class ACTIONS {
       .Name('common.Control.panLeft')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_SHIFT + WXK.WXK_LEFT)
-      .FriendlyName('Pan Left')
+      .FriendlyName(_HKI('Pan Left'))
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_LEFT),
   );
@@ -1304,7 +1307,7 @@ export class ACTIONS {
       .Name('common.Control.panRight')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_SHIFT + WXK.WXK_RIGHT)
-      .FriendlyName('Pan Right')
+      .FriendlyName(_HKI('Pan Right'))
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(CURSOR_EVENT_TYPE.CURSOR_RIGHT),
   );
@@ -1317,7 +1320,7 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_ALT + ch('1'))
       .LegacyHotkeyName('Switch Grid To Fast Grid1')
-      .FriendlyName('Switch to Fast Grid 1'),
+      .FriendlyName(_HKI('Switch to Fast Grid 1')),
   );
 
   static readonly gridFast2 = new TOOL_ACTION(
@@ -1326,7 +1329,7 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_ALT + ch('2'))
       .LegacyHotkeyName('Switch Grid To Fast Grid2')
-      .FriendlyName('Switch to Fast Grid 2'),
+      .FriendlyName(_HKI('Switch to Fast Grid 2')),
   );
 
   static readonly gridFastCycle = new TOOL_ACTION(
@@ -1335,7 +1338,7 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_ALT + ch('4'))
       .LegacyHotkeyName('Switch Grid To Next Fast Grid')
-      .FriendlyName('Cycle Fast Grid'),
+      .FriendlyName(_HKI('Cycle Fast Grid')),
   );
 
   static readonly gridNext = new TOOL_ACTION(
@@ -1344,7 +1347,7 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('N'))
       .LegacyHotkeyName('Switch Grid To Next')
-      .FriendlyName('Switch to Next Grid'),
+      .FriendlyName(_HKI('Switch to Next Grid')),
   );
 
   static readonly gridPrev = new TOOL_ACTION(
@@ -1353,7 +1356,7 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_SHIFT + ch('N'))
       .LegacyHotkeyName('Switch Grid To Previous')
-      .FriendlyName('Switch to Previous Grid'),
+      .FriendlyName(_HKI('Switch to Previous Grid')),
   );
 
   static readonly gridSetOrigin = new TOOL_ACTION(
@@ -1361,8 +1364,8 @@ export class ACTIONS {
       .Name('common.Control.gridSetOrigin')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .LegacyHotkeyName('Set Grid Origin')
-      .FriendlyName('Grid Origin')
-      .Tooltip('Place the grid origin point')
+      .FriendlyName(_HKI('Grid Origin'))
+      .Tooltip(_HKI('Place the grid origin point'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.grid_select_axis)
       .Parameter<VECTOR2D | null>(null),
@@ -1389,8 +1392,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.toggleGrid')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Grid')
-      .Tooltip('Display background grid in the edit window')
+      .FriendlyName(_HKI('Show Grid'))
+      .Tooltip(_HKI('Display background grid in the edit window'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.grid),
   );
@@ -1400,8 +1403,8 @@ export class ACTIONS {
       .Name('common.Control.toggleGridOverrides')
       .DefaultHotkey(MD_CTRL + MD_SHIFT + ch('G'))
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Grid Overrides')
-      .Tooltip('Enables item-specific grids that override the current grid')
+      .FriendlyName(_HKI('Grid Overrides'))
+      .Tooltip(_HKI('Enables item-specific grids that override the current grid'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.grid_override),
   );
@@ -1410,8 +1413,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.editGrids')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Edit Grids...')
-      .Tooltip('Edit grid definitions')
+      .FriendlyName(_HKI('Edit Grids...'))
+      .Tooltip(_HKI('Edit grid definitions'))
       .Icon(BITMAPS.grid_select),
   );
 
@@ -1419,8 +1422,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.editGridOrigin')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Grid Origin...')
-      .Tooltip('Set the grid origin point')
+      .FriendlyName(_HKI('Grid Origin...'))
+      .Tooltip(_HKI('Set the grid origin point'))
       .Icon(BITMAPS.grid_select_axis),
   );
 
@@ -1428,7 +1431,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.imperialUnits')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Inches')
+      .FriendlyName(_HKI('Inches'))
       .Icon(BITMAPS.unit_inch)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter<EdaUnits>('in'),
@@ -1438,7 +1441,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.mils')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Mils')
+      .FriendlyName(_HKI('Mils'))
       .Icon(BITMAPS.unit_mil)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter<EdaUnits>('mils'),
@@ -1448,7 +1451,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.metricUnits')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Millimeters')
+      .FriendlyName(_HKI('Millimeters'))
       .Icon(BITMAPS.unit_mm)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter<EdaUnits>('mm'),
@@ -1473,7 +1476,7 @@ export class ACTIONS {
       .Name('common.Control.selectColumns')
       .ToolbarState(TOOLBAR_STATE.HIDDEN)
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Select Columns...'),
+      .FriendlyName(_HKI('Select Columns...')),
   );
 
   static readonly toggleUnits = new TOOL_ACTION(
@@ -1482,8 +1485,8 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch('U'))
       .LegacyHotkeyName('Switch Units')
-      .FriendlyName('Switch units')
-      .Tooltip('Switch between imperial and metric units')
+      .FriendlyName(_HKI('Switch units'))
+      .Tooltip(_HKI('Switch between imperial and metric units'))
       .Icon(BITMAPS.unit_mm),
   );
 
@@ -1491,8 +1494,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.togglePolarCoords')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Polar Coordinates')
-      .Tooltip('Switch between polar and cartesian coordinate systems')
+      .FriendlyName(_HKI('Polar Coordinates'))
+      .Tooltip(_HKI('Switch between polar and cartesian coordinate systems'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.polar_coord),
   );
@@ -1511,8 +1514,8 @@ export class ACTIONS {
       .Name('common.Control.toggleCursor')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .LegacyHotkeyName('Toggle Cursor Display (Modern Toolset only)')
-      .FriendlyName('Always Show Crosshairs')
-      .Tooltip('Display crosshairs even when not drawing objects')
+      .FriendlyName(_HKI('Always Show Crosshairs'))
+      .Tooltip(_HKI('Display crosshairs even when not drawing objects'))
       .Icon(BITMAPS.cursor),
   );
 
@@ -1522,8 +1525,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.cursorSmallCrosshairs')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Small crosshairs')
-      .Tooltip('Use small crosshairs aligned at 0 and 90 degrees')
+      .FriendlyName(_HKI('Small crosshairs'))
+      .Tooltip(_HKI('Use small crosshairs aligned at 0 and 90 degrees'))
       .Icon(BITMAPS.cursor_shape),
   );
 
@@ -1531,8 +1534,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.cursorFullCrosshairs')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Full-Window Crosshairs')
-      .Tooltip('Display full-window crosshairs aligned at 0 and 90 degrees')
+      .FriendlyName(_HKI('Full-Window Crosshairs'))
+      .Tooltip(_HKI('Display full-window crosshairs aligned at 0 and 90 degrees'))
       .Icon(BITMAPS.cursor_fullscreen),
   );
 
@@ -1540,8 +1543,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.cursor45Crosshairs')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('45 Degree Crosshairs')
-      .Tooltip('Display full-window crosshairs aligned at 45 and 135 degrees')
+      .FriendlyName(_HKI('45 Degree Crosshairs'))
+      .Tooltip(_HKI('Display full-window crosshairs aligned at 45 and 135 degrees'))
       .Icon(BITMAPS.cursor_fullscreen45),
   );
 
@@ -1550,8 +1553,8 @@ export class ACTIONS {
       .Name('common.Control.highContrastMode')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .LegacyHotkeyName('Toggle High Contrast Mode')
-      .FriendlyName('Inactive Layer View Mode')
-      .Tooltip('Toggle inactive layers between normal and dimmed')
+      .FriendlyName(_HKI('Inactive Layer View Mode'))
+      .Tooltip(_HKI('Toggle inactive layers between normal and dimmed'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.contrast_mode),
   );
@@ -1561,8 +1564,8 @@ export class ACTIONS {
       .Name('common.Control.highContrastModeCycle')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('H'))
-      .FriendlyName('Inactive Layer View Mode (3-state)')
-      .Tooltip('Cycle inactive layers between normal, dimmed, and hidden')
+      .FriendlyName(_HKI('Inactive Layer View Mode (3-state)'))
+      .Tooltip(_HKI('Cycle inactive layers between normal, dimmed, and hidden'))
       .Icon(BITMAPS.contrast_mode),
   );
 
@@ -1570,7 +1573,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.toggleBoundingBoxes')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Bounding Boxes')
+      .FriendlyName(_HKI('Draw Bounding Boxes'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.gerbview_show_negative_objects),
   );
@@ -1579,7 +1582,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.InteractiveSelection.selectionTool')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Select item(s)')
+      .FriendlyName(_HKI('Select item(s)'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.cursor)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -1591,8 +1594,8 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + MD_SHIFT + ch('M'))
       .LegacyHotkeyName('Measure Distance (Modern Toolset only)')
-      .FriendlyName('Measure Tool')
-      .Tooltip('Interactively measure distance between points')
+      .FriendlyName(_HKI('Measure Tool'))
+      .Tooltip(_HKI('Interactively measure distance between points'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.measurement)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -1619,8 +1622,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.showProjectManager')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Switch to Project Manager')
-      .Tooltip('Show project window')
+      .FriendlyName(_HKI('Switch to Project Manager'))
+      .Tooltip(_HKI('Show project window'))
       .Icon(BITMAPS.icon_kicad_24),
   );
 
@@ -1631,7 +1634,7 @@ export class ACTIONS {
       .DefaultHotkey(MD_ALT + ch('3'))
       .LegacyHotkeyName('3D Viewer')
       .FriendlyName('3D Viewer')
-      .Tooltip('Show 3D viewer window')
+      .Tooltip(_HKI('Show 3D viewer window'))
       .Icon(BITMAPS.three_d),
   );
 
@@ -1639,7 +1642,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.showSymbolBrowser')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Symbol Library Browser')
+      .FriendlyName(_HKI('Symbol Library Browser'))
       .Icon(BITMAPS.library_browser)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(FRAME_T.FRAME_SCH_VIEWER),
@@ -1649,8 +1652,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.showSymbolEditor')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Symbol Editor')
-      .Tooltip('Create, delete and edit schematic symbols')
+      .FriendlyName(_HKI('Symbol Editor'))
+      .Tooltip(_HKI('Create, delete and edit schematic symbols'))
       .Icon(BITMAPS.libedit)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(FRAME_T.FRAME_SCH_SYMBOL_EDITOR),
@@ -1660,7 +1663,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.showFootprintBrowser')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Footprint Library Browser')
+      .FriendlyName(_HKI('Footprint Library Browser'))
       .Icon(BITMAPS.library_browser)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(FRAME_T.FRAME_FOOTPRINT_VIEWER),
@@ -1670,8 +1673,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.showFootprintEditor')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Footprint Editor')
-      .Tooltip('Create, delete and edit board footprints')
+      .FriendlyName(_HKI('Footprint Editor'))
+      .Tooltip(_HKI('Create, delete and edit board footprints'))
       .Icon(BITMAPS.module_editor)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(FRAME_T.FRAME_FOOTPRINT_EDITOR),
@@ -1681,8 +1684,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.showCalculatorTools')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Calculator Tools')
-      .Tooltip('Run component calculations, track width calculations, etc.')
+      .FriendlyName(_HKI('Calculator Tools'))
+      .Tooltip(_HKI('Run component calculations, track width calculations, etc.'))
       .Icon(BITMAPS.icon_pcbcalculator_24)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(FRAME_T.FRAME_CALC),
@@ -1692,8 +1695,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.showProperties')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Properties')
-      .Tooltip('Show/hide the properties manager')
+      .FriendlyName(_HKI('Properties'))
+      .Tooltip(_HKI('Show/hide the properties manager'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.tools),
   );
@@ -1705,7 +1708,7 @@ export class ACTIONS {
       .DefaultHotkey(ch('D'))
       .LegacyHotkeyName('Show Datasheet')
       .FriendlyName('Show Datasheet')
-      .Tooltip('Open the datasheet in a browser')
+      .Tooltip(_HKI('Open the datasheet in a browser'))
       .Icon(BITMAPS.datasheet),
   );
 
@@ -1715,8 +1718,8 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_F8)
       .LegacyHotkeyName('Update PCB from Schematic')
-      .FriendlyName('Update PCB from Schematic...')
-      .Tooltip('Update PCB with changes made to schematic')
+      .FriendlyName(_HKI('Update PCB from Schematic...'))
+      .Tooltip(_HKI('Update PCB with changes made to schematic'))
       .Icon(BITMAPS.update_pcb_from_sch),
   );
 
@@ -1724,8 +1727,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Control.updateSchematicFromPCB')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Update Schematic from PCB...')
-      .Tooltip('Update schematic with changes made to PCB')
+      .FriendlyName(_HKI('Update Schematic from PCB...'))
+      .Tooltip(_HKI('Update schematic with changes made to PCB'))
       .Icon(BITMAPS.update_sch_from_pcb),
   );
 
@@ -1734,8 +1737,8 @@ export class ACTIONS {
       .Name('common.SuiteControl.openPreferences')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch(','))
-      .FriendlyName('Preferences...')
-      .Tooltip('Show preferences for all open tools')
+      .FriendlyName(_HKI('Preferences...'))
+      .Tooltip(_HKI('Show preferences for all open tools'))
       .Icon(BITMAPS.preference)
       .UIId(wxID.wxID_PREFERENCES),
   );
@@ -1744,8 +1747,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.SuiteControl.configurePaths')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Configure Paths...')
-      .Tooltip('Edit path configuration environment variables')
+      .FriendlyName(_HKI('Configure Paths...'))
+      .Tooltip(_HKI('Edit path configuration environment variables'))
       .Icon(BITMAPS.path),
   );
 
@@ -1753,8 +1756,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.SuiteControl.showSymbolLibTable')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Manage Symbol Libraries...')
-      .Tooltip('Edit the global and project symbol library lists')
+      .FriendlyName(_HKI('Manage Symbol Libraries...'))
+      .Tooltip(_HKI('Edit the global and project symbol library lists'))
       .Icon(BITMAPS.library_table),
   );
 
@@ -1762,8 +1765,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.SuiteControl.showFootprintLibTable')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Manage Footprint Libraries...')
-      .Tooltip('Edit the global and project footprint library lists')
+      .FriendlyName(_HKI('Manage Footprint Libraries...'))
+      .Tooltip(_HKI('Edit the global and project footprint library lists'))
       .Icon(BITMAPS.library_table),
   );
 
@@ -1771,8 +1774,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.SuiteControl.showDesignBLockLibTable')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Manage Design Block Libraries...')
-      .Tooltip('Edit the global and project design block library lists')
+      .FriendlyName(_HKI('Manage Design Block Libraries...'))
+      .Tooltip(_HKI('Edit the global and project design block library lists'))
       .Icon(BITMAPS.library_table),
   );
 
@@ -1780,8 +1783,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.SuiteControl.gettingStarted')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Getting Started with KiCad')
-      .Tooltip('Open "Getting Started in KiCad" guide for beginners')
+      .FriendlyName(_HKI('Getting Started with KiCad'))
+      .Tooltip(_HKI('Open "Getting Started in KiCad" guide for beginners'))
       .Icon(BITMAPS.help),
   );
 
@@ -1789,8 +1792,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.SuiteControl.help')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Help')
-      .Tooltip('Open product documentation in a web browser')
+      .FriendlyName(_HKI('Help'))
+      .Tooltip(_HKI('Open product documentation in a web browser'))
       .Icon(BITMAPS.help_online),
   );
 
@@ -1798,7 +1801,7 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.SuiteControl.about')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('About KiCad')
+      .FriendlyName(_HKI('About KiCad'))
       .UIId(wxID.wxID_ABOUT)
       .Icon(BITMAPS.about),
   );
@@ -1809,8 +1812,8 @@ export class ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + WXK.WXK_F1)
       .LegacyHotkeyName('List Hotkeys')
-      .FriendlyName('List Hotkeys...')
-      .Tooltip('Displays current hotkeys table and corresponding commands')
+      .FriendlyName(_HKI('List Hotkeys...'))
+      .Tooltip(_HKI('Displays current hotkeys table and corresponding commands'))
       .Icon(BITMAPS.hotkeys),
   );
 
@@ -1818,8 +1821,8 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.SuiteControl.getInvolved')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Get Involved')
-      .Tooltip('Open "Contribute to KiCad" in a web browser')
+      .FriendlyName(_HKI('Get Involved'))
+      .Tooltip(_HKI('Open "Contribute to KiCad" in a web browser'))
       .Icon(BITMAPS.info),
   );
 
@@ -1827,16 +1830,16 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.SuiteControl.donate')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Donate')
-      .Tooltip('Open "Donate to KiCad" in a web browser'),
+      .FriendlyName(_HKI('Donate'))
+      .Tooltip(_HKI('Open "Donate to KiCad" in a web browser')),
   );
 
   static readonly reportBug = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('common.SuiteControl.reportBug')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Report Bug')
-      .Tooltip('Report a problem with KiCad')
+      .FriendlyName(_HKI('Report Bug'))
+      .Tooltip(_HKI('Report a problem with KiCad'))
       .Icon(BITMAPS.bug),
   );
 
@@ -1851,8 +1854,8 @@ export class ACTIONS {
       .Name('common.API.pluginsReload')
       .Flags(TOOL_ACTION_FLAGS.AF_NOTIFY)
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Refresh Plugins')
-      .Tooltip('Reload all python plugins and refresh plugin menus')
+      .FriendlyName(_HKI('Refresh Plugins'))
+      .Tooltip(_HKI('Reload all python plugins and refresh plugin menus'))
       .Icon(BITMAPS.reload),
   );
 
@@ -1862,24 +1865,24 @@ export class ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('common.Embed.embededFile')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Embedded Files')
-      .Tooltip('Manage embedded files'),
+      .FriendlyName(_HKI('Embedded Files'))
+      .Tooltip(_HKI('Manage embedded files')),
   );
 
   static readonly removeFile = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('common.Embed.removeFile')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Remove File')
-      .Tooltip('Remove an embedded file'),
+      .FriendlyName(_HKI('Remove File'))
+      .Tooltip(_HKI('Remove an embedded file')),
   );
 
   static readonly extractFile = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('common.Embed.extractFile')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Extract File')
-      .Tooltip('Extract an embedded file'),
+      .FriendlyName(_HKI('Extract File'))
+      .Tooltip(_HKI('Extract an embedded file')),
   );
 }
 

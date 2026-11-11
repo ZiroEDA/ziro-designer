@@ -28,6 +28,7 @@
  */
 import type { Color4d } from '../gal/color4d.js';
 import { LEGACY_COLORS, type EdaColorName } from '../gal/color4d.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `CSS_COLOR( r, g, b, a )` -- 8-bit channels, normalised. */
 const css = (r: number, g: number, b: number, a: number): Color4d => ({
@@ -583,5 +584,5 @@ export type BuiltinThemeLayer = keyof typeof BUILTIN_DEFAULT_THEME;
  */
 export const BUILTIN_THEMES = [
   { filename: '_builtin_default', name: 'KiCad Default', colors: BUILTIN_DEFAULT_THEME },
-  { filename: '_builtin_classic', name: 'KiCad Classic', colors: BUILTIN_CLASSIC_THEME },
+  { filename: '_builtin_classic', name: _HKI('KiCad Classic'), colors: BUILTIN_CLASSIC_THEME },
 ] as const;

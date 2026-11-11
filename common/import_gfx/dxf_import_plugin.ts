@@ -96,6 +96,7 @@ import { RotatePointD } from '@ziroeda/kimath/src/trigo.js';
 import { ELLIPSE } from '@ziroeda/kimath/src/geometry/ellipse.js';
 import { TransformEllipseToBeziers } from '@ziroeda/kimath/src/bezier_curves.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * Minimum bulge before a polyline segment is drawn as a line instead of an arc.
@@ -1428,7 +1429,7 @@ export class DXF_IMPORT_PLUGIN extends DL_CREATION_ADAPTER {
       if (!(e instanceof SPLINE_ERROR)) throw e;
 
       // Invalid spline definition, drop this block.
-      this.ReportMsg('Invalid spline definition encountered');
+      this.ReportMsg(_('Invalid spline definition encountered'));
       return;
     }
 
@@ -1563,68 +1564,68 @@ export class DXF_IMPORT_PLUGIN extends DL_CREATION_ADAPTER {
   /* ---- Unsupported entities ------------------------------------------ */
 
   override addXLine(): void {
-    this.ReportMsg('DXF construction lines not currently supported.');
+    this.ReportMsg(_('DXF construction lines not currently supported.'));
   }
 
   override addRay(): void {
-    this.ReportMsg('DXF construction lines not currently supported.');
+    this.ReportMsg(_('DXF construction lines not currently supported.'));
   }
 
   override addArcAlignedText(): void {
-    this.ReportMsg('DXF arc-aligned text not currently supported.');
+    this.ReportMsg(_('DXF arc-aligned text not currently supported.'));
   }
 
   override addDimAlign(): void {
-    this.ReportMsg('DXF dimensions not currently supported.');
+    this.ReportMsg(_('DXF dimensions not currently supported.'));
   }
 
   override addDimLinear(): void {
-    this.ReportMsg('DXF dimensions not currently supported.');
+    this.ReportMsg(_('DXF dimensions not currently supported.'));
   }
 
   override addDimRadial(): void {
-    this.ReportMsg('DXF dimensions not currently supported.');
+    this.ReportMsg(_('DXF dimensions not currently supported.'));
   }
 
   override addDimDiametric(): void {
-    this.ReportMsg('DXF dimensions not currently supported.');
+    this.ReportMsg(_('DXF dimensions not currently supported.'));
   }
 
   override addDimAngular(): void {
-    this.ReportMsg('DXF dimensions not currently supported.');
+    this.ReportMsg(_('DXF dimensions not currently supported.'));
   }
 
   override addDimAngular3P(): void {
-    this.ReportMsg('DXF dimensions not currently supported.');
+    this.ReportMsg(_('DXF dimensions not currently supported.'));
   }
 
   override addDimOrdinate(): void {
-    this.ReportMsg('DXF dimensions not currently supported.');
+    this.ReportMsg(_('DXF dimensions not currently supported.'));
   }
 
   /** LEADER shares the dimensions message upstream, misleading as that is. */
   override addLeader(): void {
-    this.ReportMsg('DXF dimensions not currently supported.');
+    this.ReportMsg(_('DXF dimensions not currently supported.'));
   }
 
   override addHatch(): void {
-    this.ReportMsg('DXF hatches not currently supported.');
+    this.ReportMsg(_('DXF hatches not currently supported.'));
   }
 
   override addTrace(): void {
-    this.ReportMsg('DXF traces not currently supported.');
+    this.ReportMsg(_('DXF traces not currently supported.'));
   }
 
   override add3dFace(): void {
-    this.ReportMsg('DXF 3dfaces not currently supported.');
+    this.ReportMsg(_('DXF 3dfaces not currently supported.'));
   }
 
   override addSolid(): void {
-    this.ReportMsg('DXF solids not currently supported.');
+    this.ReportMsg(_('DXF solids not currently supported.'));
   }
 
   override addImage(): void {
-    this.ReportMsg('DXF images not currently supported.');
+    this.ReportMsg(_('DXF images not currently supported.'));
   }
 
   /* ---- String conversion --------------------------------------------- */

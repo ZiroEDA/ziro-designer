@@ -19,6 +19,7 @@
  */
 import { Button, StaticText, TextCtrl } from '@ziroeda/wx/controls.js';
 import type { JSX } from 'react';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** MIN_SIZE / MAX_SIZE (panel_image_editor.cpp:71-72), in pixels after scaling. */
 export const MIN_SIZE = 15; // Min size in pixels after scaling (50 mils)
@@ -35,7 +36,7 @@ export function CheckValues(
   aSizePixels: { x: number; y: number },
 ): { error: string } | { confirm: string } | null {
   // Test number correctness
-  if (!(aScale >= 0)) return { error: 'Scale must be a positive number.' };
+  if (!(aScale >= 0)) return { error: _('Scale must be a positive number.') };
 
   // Test value correctness
   const size_min = Math.trunc(Math.min(aSizePixels.x * aScale, aSizePixels.y * aScale));
@@ -117,17 +118,17 @@ export function PANEL_IMAGE_EDITOR({
         <img src={`data:image/png;base64,${data}`} alt="" />
       </div>
       <div className="ze-imgedit-grid">
-        <StaticText label="Scale:" />
+        <StaticText label={_('Scale:')} />
         <TextCtrl
           value={scaleText}
           onChange={(aValue) => onScaleText(aValue)}
           className="ze-input ze-imgedit-scale"
           ariaLabel="Scale"
         />
-        <StaticText label="PPI:" />
+        <StaticText label={_('PPI:')} />
         <span className="ze-imgedit-ppi">{ppi}</span>
         <Button
-          label="Convert to Greyscale"
+          label={_('Convert to Greyscale')}
           className="ze-imgedit-grey"
           onClick={() => {
             void ConvertToGreyscale(data).then(onGreyscale, () => {});

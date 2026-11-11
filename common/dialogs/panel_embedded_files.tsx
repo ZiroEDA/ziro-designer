@@ -20,6 +20,7 @@ import { type wxGridEvent, wxGridStringTable } from '@ziroeda/wx/grid.js';
 import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import type { wxMenu, wxMenuEvent } from '@ziroeda/wx/menu.js';
 import { EMBEDDED_FILE, EMBEDDED_FILES, FILE_TYPE } from '../embedded_files.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** PANEL_EMBEDDED_FILES's transfers (common/dialogs/panel_embedded_files.cpp). */
 export const PANEL_EMBEDDED_FILES = {
@@ -87,8 +88,8 @@ export class EMBEDDED_FILES_GRID_TRICKS extends GRID_TRICKS {
       this.m_curRow = row;
       aMenu.Append(
         EMBEDDED_FILES_GRID_TRICKS_COPY_FILENAME,
-        'Copy Embedded Reference',
-        'Copy the reference for this embedded file',
+        _('Copy Embedded Reference'),
+        _('Copy the reference for this embedded file'),
       );
       aMenu.AppendSeparator();
       super.showPopupMenu(aMenu, aEvent);
@@ -119,8 +120,8 @@ export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.El
     const g = new WX_GRID();
     g.SetTable(new wxGridStringTable(0, 2), true);
     g.EnableEditing(false);
-    g.SetColLabelValue(0, 'Filename');
-    g.SetColLabelValue(1, 'Embedded Reference');
+    g.SetColLabelValue(0, _('Filename'));
+    g.SetColLabelValue(1, _('Embedded Reference'));
     g.EnableAlternateRowColors();
     return { grid: g, tricks: new EMBEDDED_FILES_GRID_TRICKS(g) };
   });
@@ -193,7 +194,7 @@ export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.El
         <button
           type="button"
           className="ze-gridbtn"
-          title="Add embedded file"
+          title={_('Add embedded file')}
           onClick={() => fileInput.current?.click()}
         >
           <Icon name="plus" />
@@ -202,21 +203,21 @@ export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.El
         <button
           type="button"
           className="ze-gridbtn"
-          title="Remove embedded file"
+          title={_('Remove embedded file')}
           onClick={removeSel}
         >
           <Icon name="delete" />
         </button>
         <span style={{ flex: 1 }} />
         <CheckBox
-          label="Embed fonts"
+          label={_('Embed fonts')}
           checked={value.embedFonts}
           className="ze-pref-check"
           onChange={(aChecked) => onChange({ ...value, embedFonts: aChecked })}
         />
         <span style={{ flex: 1 }} />
         <Button
-          label="Export..."
+          label={_('Export...')}
           disabled={!onExport || value.files.length === 0}
           title="Export embedded files"
           onClick={() => onExport?.(value.files)}

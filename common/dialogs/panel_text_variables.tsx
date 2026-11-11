@@ -28,6 +28,7 @@ import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import { useStringGrid } from '../widgets/wx_grid.js';
 import type { PROJECT } from '../project.js';
 import type { TextVar } from '../project/project_file.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** PANEL_TEXT_VARIABLES's transfers (common/dialogs/panel_text_variables.cpp): the project's text_variables. */
 export const PANEL_TEXT_VARIABLES = {
@@ -73,7 +74,7 @@ function onAddTextVar(aGrid: WX_GRID): void {
 
 export function PanelTextVariables({ vars, onChange }: Props): JSX.Element {
   const { grid, tricks, onUpdate } = useStringGrid<TextVar>({
-    labels: ['Variable Name', 'Text Substitution'],
+    labels: [_('Variable Name'), _('Text Substitution')],
     mode: wxGridSelectionModes.wxGridSelectRows,
     rows: vars,
     toCells: (v) => [v.name, v.value],
@@ -91,7 +92,7 @@ export function PanelTextVariables({ vars, onChange }: Props): JSX.Element {
         e.Veto();
         const row = e.GetRow();
         queueMicrotask(() => {
-          DisplayErrorMessage('Variable name cannot be empty.');
+          DisplayErrorMessage(_('Variable name cannot be empty.'));
           grid.SetGridCursor(row, TV_NAME_COL);
           grid.EnableCellEditControl(true);
         });
@@ -113,7 +114,7 @@ export function PanelTextVariables({ vars, onChange }: Props): JSX.Element {
           columns={[{ width: 160 }]}
           flexCol={TV_VALUE_COL}
           onUpdate={onUpdate}
-          ariaLabel="Text variables"
+          ariaLabel={_('Text variables')}
         />
       </div>
 

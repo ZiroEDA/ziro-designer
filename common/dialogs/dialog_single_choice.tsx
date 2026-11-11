@@ -25,6 +25,7 @@ import type { JSX } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { OK_LABEL } from '../confirm_types.js';
 import { DialogShim } from '../dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface SingleChoiceRow {
   /** What the caller receives — KiCad's `BeforeFirst(' ')`. */
@@ -127,7 +128,7 @@ export function SingleChoiceDialog({
       </div>
       {/* wxStdDialogButtonSizer, not the message dialog's split bar. */}
       <div className="ze-choicedlg-buttons">
-        {showCancel && <Button label="Cancel" onClick={() => onResult(null)} />}
+        {showCancel && <Button label={_('Cancel')} onClick={() => onResult(null)} />}
         <Button label={OK_LABEL} onClick={() => accept(index)} />
       </div>
     </DialogShim>

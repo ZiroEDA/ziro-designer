@@ -73,6 +73,8 @@ import {
   TYPE_STRING,
 } from './properties/property.js';
 import { PROPERTY_MANAGER, REGISTER_TYPE } from './properties/property_mgr.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // `eda_text.h` includes `font/text_attributes.h`; an importer of this module sees the enums too.
 export { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from './font/text_attributes.js';
@@ -1057,7 +1059,7 @@ export class EDA_TEXT {
 
     if (this.IsBold()) style += 2;
 
-    const stylemsg = ['Normal', 'Italic', 'Bold', 'Bold+Italic'];
+    const stylemsg = [_('Normal'), 'Italic', 'Bold', _('Bold+Italic')];
 
     return stylemsg[style]!;
   }
@@ -1563,17 +1565,17 @@ export function edaTextToString(aText: EDA_TEXT): string {
   const h_inst = ENUM_MAP.Instance<GR_TEXT_H_ALIGN_T>('GR_TEXT_H_ALIGN_T');
 
   if (h_inst.Choices().GetCount() === 0) {
-    h_inst.Map(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT, 'Left');
-    h_inst.Map(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER, 'Center');
-    h_inst.Map(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT, 'Right');
+    h_inst.Map(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT, _HKI('Left'));
+    h_inst.Map(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER, _HKI('Center'));
+    h_inst.Map(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT, _HKI('Right'));
   }
 
   const v_inst = ENUM_MAP.Instance<GR_TEXT_V_ALIGN_T>('GR_TEXT_V_ALIGN_T');
 
   if (v_inst.Choices().GetCount() === 0) {
-    v_inst.Map(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP, 'Top');
-    v_inst.Map(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER, 'Center');
-    v_inst.Map(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM, 'Bottom');
+    v_inst.Map(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP, _HKI('Top'));
+    v_inst.Map(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER, _HKI('Center'));
+    v_inst.Map(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM, _HKI('Bottom'));
   }
 
   const propMgr = PROPERTY_MANAGER.Instance();
@@ -1582,7 +1584,7 @@ export function edaTextToString(aText: EDA_TEXT): string {
   propMgr.AddProperty(
     new PROPERTY<EDA_TEXT, number>(
       EDA_TEXT,
-      'Orientation',
+      _HKI('Orientation'),
       'SetTextAngleDegrees',
       'GetTextAngleDegrees',
       TYPE_DOUBLE,
@@ -1590,15 +1592,21 @@ export function edaTextToString(aText: EDA_TEXT): string {
     ),
   );
 
-  const textProps = 'Text Properties';
+  const textProps = _HKI('Text Properties');
 
   propMgr.AddProperty(
-    new PROPERTY<EDA_TEXT, string>(EDA_TEXT, 'Text', 'SetText', 'GetText', TYPE_STRING),
+    new PROPERTY<EDA_TEXT, string>(EDA_TEXT, _HKI('Text'), 'SetText', 'GetText', TYPE_STRING),
     textProps,
   );
   propMgr
     .AddProperty(
-      new PROPERTY<EDA_TEXT, string>(EDA_TEXT, 'Font', 'SetFontProp', 'GetFontProp', TYPE_STRING),
+      new PROPERTY<EDA_TEXT, string>(
+        EDA_TEXT,
+        _HKI('Font'),
+        'SetFontProp',
+        'GetFontProp',
+        TYPE_STRING,
+      ),
       textProps,
     )
     .SetIsHiddenFromRulesEditor()
@@ -1623,7 +1631,7 @@ export function edaTextToString(aText: EDA_TEXT): string {
   propMgr.AddProperty(
     new PROPERTY<EDA_TEXT, boolean>(
       EDA_TEXT,
-      'Auto Thickness',
+      _HKI('Auto Thickness'),
       'SetAutoThickness',
       'GetAutoThickness',
       TYPE_BOOL,
@@ -1633,7 +1641,7 @@ export function edaTextToString(aText: EDA_TEXT): string {
   propMgr.AddProperty(
     new PROPERTY<EDA_TEXT, number>(
       EDA_TEXT,
-      'Thickness',
+      _HKI('Thickness'),
       'SetTextThickness',
       'GetTextThicknessProperty',
       TYPE_INT,
@@ -1650,7 +1658,13 @@ export function edaTextToString(aText: EDA_TEXT): string {
     textProps,
   );
   propMgr.AddProperty(
-    new PROPERTY<EDA_TEXT, boolean>(EDA_TEXT, 'Mirrored', 'SetMirrored', 'IsMirrored', TYPE_BOOL),
+    new PROPERTY<EDA_TEXT, boolean>(
+      EDA_TEXT,
+      _HKI('Mirrored'),
+      'SetMirrored',
+      'IsMirrored',
+      TYPE_BOOL,
+    ),
     textProps,
   );
 
@@ -1665,14 +1679,20 @@ export function edaTextToString(aText: EDA_TEXT): string {
 
   propMgr
     .AddProperty(
-      new PROPERTY<EDA_TEXT, boolean>(EDA_TEXT, 'Visible', 'SetVisible', 'IsVisible', TYPE_BOOL),
+      new PROPERTY<EDA_TEXT, boolean>(
+        EDA_TEXT,
+        _HKI('Visible'),
+        'SetVisible',
+        'IsVisible',
+        TYPE_BOOL,
+      ),
       textProps,
     )
     .SetAvailableFunc(isField);
   propMgr.AddProperty(
     new PROPERTY<EDA_TEXT, number>(
       EDA_TEXT,
-      'Width',
+      _HKI('Width'),
       'SetTextWidth',
       'GetTextWidth',
       TYPE_INT,
@@ -1683,7 +1703,7 @@ export function edaTextToString(aText: EDA_TEXT): string {
   propMgr.AddProperty(
     new PROPERTY<EDA_TEXT, number>(
       EDA_TEXT,
-      'Height',
+      _HKI('Height'),
       'SetTextHeight',
       'GetTextHeight',
       TYPE_INT,
@@ -1694,7 +1714,7 @@ export function edaTextToString(aText: EDA_TEXT): string {
   propMgr.AddProperty(
     new PROPERTY_ENUM<EDA_TEXT, GR_TEXT_H_ALIGN_T>(
       EDA_TEXT,
-      'Horizontal Justification',
+      _HKI('Horizontal Justification'),
       'SetHorizJustify',
       'GetHorizJustify',
       h_inst,
@@ -1704,7 +1724,7 @@ export function edaTextToString(aText: EDA_TEXT): string {
   propMgr.AddProperty(
     new PROPERTY_ENUM<EDA_TEXT, GR_TEXT_V_ALIGN_T>(
       EDA_TEXT,
-      'Vertical Justification',
+      _HKI('Vertical Justification'),
       'SetVertJustify',
       'GetVertJustify',
       v_inst,
@@ -1714,7 +1734,7 @@ export function edaTextToString(aText: EDA_TEXT): string {
   propMgr.AddProperty(
     new PROPERTY<EDA_TEXT, Color4d>(
       EDA_TEXT,
-      'Color',
+      _HKI('Color'),
       'SetTextColor',
       'GetTextColor',
       TYPE_COLOR4D,
@@ -1724,7 +1744,7 @@ export function edaTextToString(aText: EDA_TEXT): string {
   propMgr.AddProperty(
     new PROPERTY<EDA_TEXT, string>(
       EDA_TEXT,
-      'Hyperlink',
+      _HKI('Hyperlink'),
       'SetHyperlink',
       'GetHyperlink',
       TYPE_STRING,

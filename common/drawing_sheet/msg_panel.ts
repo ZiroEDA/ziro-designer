@@ -24,6 +24,8 @@
  */
 import { unescapeString } from '../string_utils.js';
 import type { WksItem, WksItemType, WksOption } from './types.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** One `MSG_PANEL_ITEM`: the small upper label and the larger lower value. */
 export interface WksMsgPanelItem {
@@ -40,15 +42,15 @@ export const WKS_ITEM_TYPE_LABEL: Record<WksItemType, string> = {
   line: 'Line',
   rect: 'Rectangle',
   text: 'Text',
-  polygon: 'Imported Shape',
+  polygon: _HKI('Imported Shape'),
   bitmap: 'Image',
 };
 
 /** `DS_DATA_ITEM::GetPage1Option`'s three strings (`ds_draw_item.cpp:144-151`). */
 export const WKS_PAGE1_OPTION_LABEL: Record<WksOption, string> = {
-  page1only: 'First Page Only',
-  notonpage1: 'Subsequent Pages',
-  normal: 'All Pages',
+  page1only: _HKI('First Page Only'),
+  notonpage1: _HKI('Subsequent Pages'),
+  normal: _HKI('All Pages'),
 };
 
 /**
@@ -78,16 +80,16 @@ export function wksItemMsgPanelInfo(
       // (ds_draw_item.cpp:130) — the raw ${TITLE}, not its substitution.
       lower: item.type === 'text' ? ellipsize(item.text) : '',
     },
-    { upper: 'First Page Option', lower: WKS_PAGE1_OPTION_LABEL[item.option] },
+    { upper: _('First Page Option'), lower: WKS_PAGE1_OPTION_LABEL[item.option] },
     // Both counts go through MessageTextFromValue( unityScale, UNSCALED, … ),
     // which adds no unit label and no decimals.
-    { upper: 'Repeat Count', lower: String(item.repeat) },
-    { upper: 'Repeat Label Increment', lower: String(item.incrlabel) },
+    { upper: _('Repeat Count'), lower: String(item.repeat) },
+    { upper: _('Repeat Label Increment'), lower: String(item.incrlabel) },
     {
-      upper: 'Repeat Position Increment',
+      upper: _('Repeat Position Increment'),
       lower: `(${formatMM(item.incrx)}, ${formatMM(item.incry)})`,
     },
-    { upper: 'Comment', lower: item.comment },
+    { upper: _('Comment'), lower: item.comment },
   ];
 }
 

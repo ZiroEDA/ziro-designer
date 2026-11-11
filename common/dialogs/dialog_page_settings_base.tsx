@@ -42,6 +42,7 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 type UNIT_FIELD = Parameters<typeof UnitField>[0];
 
@@ -116,7 +117,7 @@ function Heading({ label }: { label: string }): JSX.Element {
 export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS): JSX.Element {
   const exportBox = (c: CHECK, aFlag: number) => (
     <SizerItem flag={aFlag} border={5} shown={p.exportsShown}>
-      <CheckBox label="Export to other sheets" check={c} />
+      <CheckBox label={_('Export to other sheets')} check={c} />
     </SizerItem>
   );
 
@@ -133,7 +134,7 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                 <Heading label={p.paperLabel} />
                 <Spacer width={0} height={10} flag={wxEXPAND} border={5} />
                 <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="Size:" />
+                  <StaticText label={_('Size:')} />
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                   {/* m_paperSizeComboBox: wxChoice */}
@@ -147,22 +148,22 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                 </SizerItem>
                 <Spacer width={0} height={3} flag={wxEXPAND} border={5} />
                 <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="Orientation:" disabled={!p.orientationEnabled} />
+                  <StaticText label={_('Orientation:')} disabled={!p.orientationEnabled} />
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                   <Combo
                     ariaLabel="Orientation"
                     value={p.m_orientationComboBox}
                     options={[
-                      { value: 'landscape', label: 'Landscape' },
-                      { value: 'portrait', label: 'Portrait' },
+                      { value: 'landscape', label: _('Landscape') },
+                      { value: 'portrait', label: _('Portrait') },
                     ]}
                     onChange={p.onOrientation}
                     disabled={!p.orientationEnabled}
                   />
                 </SizerItem>
                 <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="Custom paper size:" disabled={!p.customSizeEnabled} />
+                  <StaticText label={_('Custom paper size:')} disabled={!p.customSizeEnabled} />
                 </SizerItem>
                 <Spacer width={0} height={2} flag={wxEXPAND} border={5} />
                 <SizerItem flag={wxEXPAND | wxBOTTOM} border={5}>
@@ -170,7 +171,7 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                       unit static text together, so the units column's cell is empty. */}
                   <FlexGridSizer cols={3} vgap={3} hgap={0}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
-                      <StaticText label="Height:" disabled={!p.customSizeEnabled} />
+                      <StaticText label={_('Height:')} disabled={!p.customSizeEnabled} />
                     </SizerItem>
                     <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
                       <UnitField {...p.m_userSizeYCtrl} />
@@ -180,7 +181,7 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                       flag={wxALIGN_CENTER_VERTICAL | wxBOTTOM | wxRIGHT | wxLEFT}
                       border={5}
                     >
-                      <StaticText label="Width:" disabled={!p.customSizeEnabled} />
+                      <StaticText label={_('Width:')} disabled={!p.customSizeEnabled} />
                     </SizerItem>
                     <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                       <UnitField {...p.m_userSizeXCtrl} />
@@ -189,10 +190,10 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                   </FlexGridSizer>
                 </SizerItem>
                 <SizerItem flag={wxALL} border={4} shown={p.exportsShown}>
-                  <CheckBox label="Export to other sheets" check={p.m_PaperExport} />
+                  <CheckBox label={_('Export to other sheets')} check={p.m_PaperExport} />
                 </SizerItem>
                 <Spacer width={0} height={20} flag={wxEXPAND} border={5} />
-                <Heading label="Preview" />
+                <Heading label={_('Preview')} />
                 <Spacer width={0} height={12} flag={wxEXPAND} border={5} />
                 <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
                   {/* m_PageLayoutExampleBitmap: wxBORDER_SIMPLE on wxSYS_COLOUR_WINDOW */}
@@ -204,7 +205,7 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
             <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
               {/* bSizerRight */}
               <BoxSizer orient={wxVERTICAL}>
-                <Heading label="Drawing Sheet" />
+                <Heading label={_('Drawing Sheet')} />
                 <Spacer width={0} height={10} flag={wxEXPAND} border={5} />
                 <SizerItem flag={wxEXPAND | wxALL} border={5}>
                   {/* bSizerFilename */}
@@ -213,7 +214,7 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                       {/* bSizerfileSelection */}
                       <BoxSizer orient={wxHORIZONTAL}>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxTOP} border={5}>
-                          <StaticText label="File:" disabled={!p.wksPickerEnabled} />
+                          <StaticText label={_('File:')} disabled={!p.wksPickerEnabled} />
                         </SizerItem>
                         <SizerItem
                           proportion={1}
@@ -231,7 +232,7 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxTOP} border={5}>
                           <StdBitmapButton
                             bitmap="small_folder"
-                            title="Drawing Sheet File"
+                            title={_('Drawing Sheet File')}
                             tooltip={null}
                             disabled={!p.wksPickerEnabled}
                             onClick={p.onBrowse}
@@ -260,7 +261,7 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                   {/* fgSizer2 = wxFlexGridSizer( 0, 3, 0, 0 ), AddGrowableCol( 1 ) */}
                   <FlexGridSizer cols={3} vgap={0} hgap={0} growableCols={[1]}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
-                      <StaticText label="Issue Date:" />
+                      <StaticText label={_('Issue Date:')} />
                     </SizerItem>
                     <SizerItem flag={wxBOTTOM | wxEXPAND | wxTOP} border={5}>
                       {/* bSizerDate */}
@@ -323,7 +324,7 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                         border={5}
                         shown={p.exportsShown}
                       >
-                        <CheckBox label="Export to other sheets" check={r.exportCheck} />
+                        <CheckBox label={_('Export to other sheets')} check={r.exportCheck} />
                       </SizerItem>,
                     ])}
                   </FlexGridSizer>

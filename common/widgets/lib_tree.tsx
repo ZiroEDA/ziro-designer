@@ -33,6 +33,7 @@ import { KiBitmapBundle } from '../bitmap.js';
 import { BITMAPS } from '@ziroeda/include/bitmaps/bitmaps_list.js';
 import { GetNextItem, GetPrevItem, type WX_DATAVIEW_MODEL } from './wx_dataviewctrl.js';
 import { EditClearSymbolic, EditFindSymbolic } from '@ziroeda/wx/wx_search_ctrl.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `wxDataViewItemAttr` as CSS. `SetColour( wxSYS_COLOUR_GRAYTEXT )` becomes
@@ -959,20 +960,20 @@ export function LibTree({
     <div className="ze-libtree-menu" onMouseLeave={() => setMenuOpen(false)}>
       <div className="item" onClick={sortMenuAction(() => setSortMode(SortMode.BEST_MATCH))}>
         <span className="check">{sortMode === SortMode.BEST_MATCH ? '✓' : ''}</span>
-        Sort by Best Match
+        {_('Sort by Best Match')}
       </div>
       <div className="item" onClick={sortMenuAction(() => setSortMode(SortMode.ALPHABETIC))}>
         <span className="check">{sortMode === SortMode.ALPHABETIC ? '✓' : ''}</span>
-        Sort Alphabetically
+        {_('Sort Alphabetically')}
       </div>
       <div className="sep" />
       <div className="item" onClick={sortMenuAction(() => expandCollapseAll(true))}>
         <span className="check" />
-        Expand All
+        {_('Expand All')}
       </div>
       <div className="item" onClick={sortMenuAction(() => expandCollapseAll(false))}>
         <span className="check" />
-        Collapse All
+        {_('Collapse All')}
       </div>
     </div>
   );
@@ -985,7 +986,7 @@ export function LibTree({
       {recents.length === 0 ? (
         <div className="item disabled">
           <span className="check" />
-          recent searches
+          {_('recent searches')}
         </div>
       ) : (
         recents.map((r) => (
@@ -1023,7 +1024,7 @@ export function LibTree({
           }}
         >
           <span className="check" />
-          {ctxMenu.node.pinned ? 'Unpin Library' : 'Pin Library'}
+          {ctxMenu.node.pinned ? _('Unpin Library') : _('Pin Library')}
         </div>
       ) : null}
     </div>
@@ -1045,7 +1046,7 @@ export function LibTree({
         }}
       >
         <span className="check" />
-        Select Columns...
+        {_('Select Columns...')}
       </div>
     </div>
   );
@@ -1079,7 +1080,7 @@ export function LibTree({
             value={search}
             onChange={(aValue) => onQueryText(aValue)}
             className="ze-search"
-            hint="Filter"
+            hint={_('Filter')}
             inputRef={searchRef}
           />
           {/* ShowCancelButton only shows one while there is something to cancel:
@@ -1088,7 +1089,7 @@ export function LibTree({
             <button
               type="button"
               className="ze-entry-icon right"
-              title="Clear"
+              title={_('Clear')}
               onClick={() => {
                 onQueryText('');
                 searchRef.current?.focus();
@@ -1325,7 +1326,7 @@ export function LibTree({
       {headerContextMenu}
       {columnsDialog && (
         <EDA_REORDERABLE_LIST_DIALOG
-          title="Select Columns"
+          title={_('Select Columns')}
           available={adapter.getAvailableColumns()}
           enabled={adapter.getShownColumns()}
           onOk={(cols) => {
