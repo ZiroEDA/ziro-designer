@@ -17,6 +17,7 @@
 import { type KIID, niluuid } from '@ziroeda/common/kiid.js';
 import { GetRefDesPrefix } from '@ziroeda/common/refdes_utils.js';
 import type { FOOTPRINT } from '../footprint.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface ISOMORPHISM_PARAMS {
   m_cancelled?: { value: boolean } | null;
@@ -164,8 +165,8 @@ export class COMPONENT {
         let refFootprint = this.GetParent().GetFPIDAsString();
         let candFootprint = b.GetParent().GetFPIDAsString();
 
-        if (refFootprint === '') refFootprint = '(no library ID)';
-        if (candFootprint === '') candFootprint = '(no library ID)';
+        if (refFootprint === '') refFootprint = _('(no library ID)');
+        if (candFootprint === '') candFootprint = _('(no library ID)');
 
         aReason.m_reason = `Library link mismatch: ${aReason.m_reference} expects '${refFootprint}' but candidate ${aReason.m_candidate} is '${candFootprint}'.`;
       }
@@ -456,7 +457,7 @@ export class CONNECTION_GRAPH {
       } else {
         const reason = new TOPOLOGY_MISMATCH_REASON();
         reason.m_reference = aRef.GetParent().GetReferenceAsString();
-        reason.m_reason = 'No compatible component found in the target area.';
+        reason.m_reason = _('No compatible component found in the target area.');
         aMismatchReasons.push(reason);
       }
     }
@@ -615,14 +616,14 @@ export class CONNECTION_GRAPH {
 
     if (this.m_components.length === 0 || aTarget.m_components.length === 0) {
       const reason = new TOPOLOGY_MISMATCH_REASON();
-      reason.m_reason = 'One or both of the areas has no components assigned.';
+      reason.m_reason = _('One or both of the areas has no components assigned.');
       aMismatchReasons.push(reason);
       return false;
     }
 
     if (this.m_components.length !== aTarget.m_components.length) {
       const reason = new TOPOLOGY_MISMATCH_REASON();
-      reason.m_reason = 'Component count mismatch';
+      reason.m_reason = _('Component count mismatch');
       aMismatchReasons.push(reason);
       return false;
     }
@@ -681,7 +682,7 @@ export class CONNECTION_GRAPH {
 
       if (nloops >= this.c_ITER_LIMIT) {
         const reason = new TOPOLOGY_MISMATCH_REASON();
-        reason.m_reason = 'Iteration count exceeded (timeout)';
+        reason.m_reason = _('Iteration count exceeded (timeout)');
 
         if (aMismatchReasons.length === 0) aMismatchReasons.push(reason);
         else aMismatchReasons.unshift(reason);

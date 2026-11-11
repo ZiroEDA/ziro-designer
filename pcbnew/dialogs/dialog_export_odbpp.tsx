@@ -35,6 +35,7 @@ import { wxTarOutputStream } from '@ziroeda/wx/tarstrm.js';
 import type { BOARD } from '../board.js';
 import { PCB_IO_ODBPP } from '../pcb_io/odbpp/pcb_io_odbpp.js';
 import { DIALOG_EXPORT_ODBPP_BASE } from './dialog_export_odbpp_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** What the dialog hands BOARD_EDITOR_CONTROL::GenerateODBPPFiles on OK. */
 export interface ODBPP_DIALOG_RESULT {
@@ -196,7 +197,7 @@ export function DialogExportOdbpp({ fileName, onClose }: Props): JSX.Element {
     const fn = outputFileName;
 
     if (fn === '') {
-      DisplayErrorMessage('Output file name cannot be empty.');
+      DisplayErrorMessage(_('Output file name cannot be empty.'));
       return;
     }
 
@@ -208,7 +209,9 @@ export function DialogExportOdbpp({ fileName, onClose }: Props): JSX.Element {
       (mode === ODB_COMPRESSION.ZIP && extension !== 'zip') ||
       (mode === ODB_COMPRESSION.TGZ && extension !== 'tgz')
     ) {
-      DisplayErrorMessage('The output file name conflicts with the selected compression format.');
+      DisplayErrorMessage(
+        _('The output file name conflicts with the selected compression format.'),
+      );
       return;
     }
 

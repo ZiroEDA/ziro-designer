@@ -30,6 +30,7 @@ import { FormatDouble2Str } from '@ziroeda/common/string_utils.js';
 import { GetBuildVersion } from '@ziroeda/common/build_version.js';
 import { DSNLEXER, T, type Tok } from '@ziroeda/common/dsnlexer.js';
 import { OUTPUTFORMATTER, STRING_FORMATTER } from '@ziroeda/common/richio.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `DSN_T`: a keyword's text ('' is `T_NONE`). */
 export type DSN_T = string;
@@ -2377,7 +2378,7 @@ export const SPECCTRA_KEYWORDS: ReadonlySet<string> = new Set([
   'component',
   'composite',
   'conductance_resolution',
-  'conductor',
+  _HKI('conductor'),
   'conflict',
   'connect',
   'constant',

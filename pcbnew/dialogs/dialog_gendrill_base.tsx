@@ -38,16 +38,24 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The base's choice lists. */
-export const DRILL_MAP_CHOICES = ['Postscript', 'Gerber X2', 'DXF', 'SVG', 'PDF'] as const;
-export const DRILL_ORIGIN_CHOICES = ['Absolute', 'Drill/place file origin'] as const;
-export const DRILL_UNITS_CHOICES = ['Millimeters', 'Inches'] as const;
+export const DRILL_MAP_CHOICES = [
+  _HKI('Postscript'),
+  _HKI('Gerber X2'),
+  _HKI('DXF'),
+  _HKI('SVG'),
+  _HKI('PDF'),
+] as const;
+export const DRILL_ORIGIN_CHOICES = [_HKI('Absolute'), _HKI('Drill/place file origin')] as const;
+export const DRILL_UNITS_CHOICES = [_HKI('Millimeters'), _HKI('Inches')] as const;
 export const DRILL_ZEROS_CHOICES = [
-  'Decimal format (recommended)',
-  'Suppress leading zeros',
-  'Suppress trailing zeros',
-  'Keep zeros',
+  _HKI('Decimal format (recommended)'),
+  _HKI('Suppress leading zeros'),
+  _HKI('Suppress trailing zeros'),
+  _HKI('Keep zeros'),
 ] as const;
 
 export interface DIALOG_GENDRILL_BASE_PROPS {
@@ -120,7 +128,7 @@ function LabelledChoice({
 
 export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Generate Drill Files" onClose={p.onCancel}>
+    <DialogShim title={_('Generate Drill Files')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={10}>
@@ -128,7 +136,7 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={10}>
               {/* staticTextOutputDir */}
-              <span>Output folder:</span>
+              <span>{_('Output folder:')}</span>
             </SizerItem>
             <SizerItem proportion={1} flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={0}>
               {/* m_outputDirectoryName */}
@@ -146,7 +154,7 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
               {/* m_browseButton: small_folder */}
               <StdBitmapButton
                 bitmap="small_folder"
-                title="Browse"
+                title={_('Browse')}
                 tooltip={null}
                 onClick={() => p.onOutputDirectoryBrowseClicked?.()}
               />
@@ -161,7 +169,7 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxRIGHT | wxLEFT} border={13}>
                   {/* m_formatLabel */}
-                  <span>Format</span>
+                  <span>{_('Format')}</span>
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                   {/* m_staticline1 */}
@@ -173,7 +181,7 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
                     <SizerItem flag={wxALL} border={5}>
                       {/* m_rbExcellon */}
                       <RadioButton
-                        label="Excellon"
+                        label={_('Excellon')}
                         name="ze-gendrill-fmt"
                         checked={p.excellon}
                         onChange={() => p.onFileFormatSelection(true)}
@@ -184,34 +192,34 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
                       <FlexGridSizer cols={1} vgap={3} hgap={0}>
                         <SizerItem flag={wxLEFT} border={5}>
                           <CheckBox
-                            label="Mirror Y axis"
-                            title={
-                              'Not recommended.\nUsed mostly by users who make the boards themselves.'
-                            }
+                            label={_('Mirror Y axis')}
+                            title={_(
+                              'Not recommended.\nUsed mostly by users who make the boards themselves.',
+                            )}
                             check={p.m_Check_Mirror}
                           />
                         </SizerItem>
                         <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
                           <CheckBox
-                            label="Minimal header"
-                            title={
-                              'Not recommended.\nOnly use it for board houses which do not accept fully featured headers.'
-                            }
+                            label={_('Minimal header')}
+                            title={_(
+                              'Not recommended.\nOnly use it for board houses which do not accept fully featured headers.',
+                            )}
                             check={p.m_Check_Minimal}
                           />
                         </SizerItem>
                         <SizerItem flag={wxLEFT} border={5}>
                           <CheckBox
-                            label="PTH and NPTH in single file"
-                            title={
-                              'Not recommended.\nOnly use for board houses which ask for merged PTH and NPTH into a single file.'
-                            }
+                            label={_('PTH and NPTH in single file')}
+                            title={_(
+                              'Not recommended.\nOnly use for board houses which ask for merged PTH and NPTH into a single file.',
+                            )}
                             check={p.m_Check_Merge_PTH_NPTH}
                           />
                         </SizerItem>
                         <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                           <CheckBox
-                            label="Use alternate drill mode for oval holes"
+                            label={_('Use alternate drill mode for oval holes')}
                             check={p.m_altDrillMode}
                           />
                         </SizerItem>
@@ -221,7 +229,7 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
                     <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                       {/* m_rbGerberX2 */}
                       <RadioButton
-                        label="Gerber X2"
+                        label={_('Gerber X2')}
                         name="ze-gendrill-fmt"
                         checked={!p.excellon}
                         onChange={() => p.onFileFormatSelection(false)}
@@ -232,7 +240,7 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
                       <FlexGridSizer cols={1} vgap={3} hgap={0}>
                         <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
                           <CheckBox
-                            label="Generate tenting layers"
+                            label={_('Generate tenting layers')}
                             check={p.m_generateTentingLayers}
                           />
                         </SizerItem>
@@ -245,7 +253,7 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM} border={5}>
                           {/* m_cbGenerateMap */}
                           <CheckBox
-                            label="Generate map:"
+                            label={_('Generate map:')}
                             checked={p.m_cbGenerateMap.value}
                             onChange={p.m_cbGenerateMap.onChange}
                           />
@@ -272,7 +280,7 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxRIGHT | wxLEFT} border={13}>
                   {/* m_optionsLabel */}
-                  <span>Options</span>
+                  <span>{_('Options')}</span>
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                   {/* m_staticline2 */}
@@ -282,21 +290,21 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
                   {/* fgSizer1 = wxFlexGridSizer( 0, 2, 5, 5 ), AddGrowableCol( 1 ) */}
                   <FlexGridSizer cols={2} vgap={5} hgap={5} growableCols={[1]}>
                     <LabelledChoice
-                      label="Origin:"
+                      label={_('Origin:')}
                       labelFlag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
                       choiceFlag={wxEXPAND | wxALIGN_CENTER_VERTICAL | wxRIGHT}
                       list={DRILL_ORIGIN_CHOICES}
                       choice={p.m_origin}
                     />
                     <LabelledChoice
-                      label="Units:"
+                      label={_('Units:')}
                       labelFlag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
                       choiceFlag={wxEXPAND | wxALIGN_CENTER_VERTICAL | wxRIGHT}
                       list={DRILL_UNITS_CHOICES}
                       choice={p.m_units}
                     />
                     <LabelledChoice
-                      label="Zeros:"
+                      label={_('Zeros:')}
                       labelFlag={wxALIGN_CENTER_VERTICAL | wxLEFT}
                       choiceFlag={wxALIGN_CENTER_VERTICAL | wxRIGHT}
                       list={DRILL_ZEROS_CHOICES}
@@ -306,7 +314,7 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
                     <Spacer proportion={1} flag={wxEXPAND} border={5} />
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
                       {/* m_precisionLabel */}
-                      <StaticText label="Precision:" disabled={!p.precisionEnabled} />
+                      <StaticText label={_('Precision:')} disabled={!p.precisionEnabled} />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
                       {/* m_staticTextPrecision */}
@@ -321,10 +329,10 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
         </SizerItem>
         <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={10}>
           {/* bMsgSizer */}
-          <StaticBoxSizer label="Messages" orient={wxVERTICAL}>
+          <StaticBoxSizer label={_('Messages')} orient={wxVERTICAL}>
             <SizerItem proportion={1} flag={wxEXPAND} border={5} minSize={[-1, 90]}>
               {/* m_messagesBox: wxTE_MULTILINE|wxTE_READONLY */}
-              <TextCtrl value={p.messages} multiLine readOnly ariaLabel="Messages" />
+              <TextCtrl value={p.messages} multiLine readOnly ariaLabel={_('Messages')} />
             </SizerItem>
           </StaticBoxSizer>
         </SizerItem>
@@ -334,10 +342,10 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
       <StdDialogButtonSizer
         onCancel={p.onCancel}
         onOk={p.onGenerate}
-        okLabel="Generate"
-        cancelLabel="Close"
+        okLabel={_('Generate')}
+        cancelLabel={_('Close')}
       >
-        <Button label="Generate Report File..." onClick={p.onGenReportFile} />
+        <Button label={_('Generate Report File...')} onClick={p.onGenReportFile} />
       </StdDialogButtonSizer>
     </DialogShim>
   );

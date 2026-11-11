@@ -121,8 +121,14 @@ describe('a vertical toolbar touches the canvas; a palette docks outside it', ()
     // the LEFT dock rule with the border flipped over, which is why the filter
     // pane could not be stacked under it at all.
     before(FP, 'entries={fpRightBar}', 'className="ze-rightdock"', 'fp right');
-    before(FP, 'className="ze-rightdock"', 'ze-panel-header">Appearance', 'fp appearance');
-    before(FP, 'ze-panel-header">Appearance', 'ze-panel-header">Selection Filter', 'fp filter');
+    // The captions are translated as they draw: `{_('Appearance')}`.
+    before(FP, 'className="ze-rightdock"', "ze-panel-header\">{_('Appearance')}", 'fp appearance');
+    before(
+      FP,
+      "ze-panel-header\">{_('Appearance')}",
+      "ze-panel-header\">{_('Selection Filter')}",
+      'fp filter',
+    );
   });
 
   it('symbol editor: LibraryTree L3 outside LeftToolbar L2', () => {

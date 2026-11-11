@@ -168,6 +168,7 @@ import { ConnectBoardShapes } from '../fix_board_shape.js';
 import { PCB_GROUP } from '../pcb_group.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { PCB_SHAPE } from '../pcb_shape.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The four control points of a `(gr_curve (pts …))`, in file order. */
 export type BezierPoints = [Vec2, Vec2, Vec2, Vec2];
@@ -534,10 +535,10 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     if (this.m_frame) {
       switch (this.GetAngleSnapMode()) {
         case LeaderMode.DEG45:
-          this.m_frame.DisplayConstraintsMsg('Constrain to H, V, 45');
+          this.m_frame.DisplayConstraintsMsg(_('Constrain to H, V, 45'));
           break;
         case LeaderMode.DEG90:
-          this.m_frame.DisplayConstraintsMsg('Constrain to H, V');
+          this.m_frame.DisplayConstraintsMsg(_('Constrain to H, V'));
           break;
         default:
           this.m_frame.DisplayConstraintsMsg('');
@@ -589,7 +590,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
         while (yield* this.drawShape(aEvent, line, startingPoint, committedLines)) {
           if (line.value) {
             commit.Add(line.value);
-            commit.Push('Draw Line');
+            commit.Push(_('Draw Line'));
             startingPoint = { ...line.value.GetEnd() };
             committedLines.push(line.value);
           } else {
@@ -649,7 +650,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
             } else {
               rect.value.Normalize();
               commit.Add(rect.value);
-              commit.Push(isTextBox ? 'Draw Text Box' : 'Draw Rectangle');
+              commit.Push(isTextBox ? _('Draw Text Box') : _('Draw Rectangle'));
 
               this.m_toolMgr!.RunAction(ACTIONS.selectItem, rect.value);
             }
@@ -692,7 +693,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
         while (yield* this.drawShape(aEvent, circle, startingPoint, null)) {
           if (circle.value) {
             commit.Add(circle.value);
-            commit.Push('Draw Circle');
+            commit.Push(_('Draw Circle'));
 
             this.m_toolMgr!.RunAction(ACTIONS.selectItem, circle.value);
           }
@@ -732,7 +733,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
         while (yield* this.drawArc(aEvent, arc, startingPoint)) {
           if (arc.value) {
             commit.Add(arc.value);
-            commit.Push('Draw Arc');
+            commit.Push(_('Draw Arc'));
 
             this.m_toolMgr!.RunAction(ACTIONS.selectItem, arc.value);
           }
@@ -897,7 +898,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
               this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 
               commit.Add(text);
-              commit.Push('Draw Text');
+              commit.Push(_('Draw Text'));
 
               this.m_toolMgr!.RunAction(ACTIONS.selectItem, text);
 
@@ -960,7 +961,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
         yield* this.doInteractiveItemPlacement(
           aEvent,
           placer,
-          'Place via',
+          _('Place via'),
           INTERACTIVE_PLACEMENT_OPTIONS.IPO_REPEAT | INTERACTIVE_PLACEMENT_OPTIONS.IPO_SINGLE_CLICK,
         );
 
@@ -980,7 +981,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
         yield* this.doInteractiveItemPlacement(
           aEvent,
           placer,
-          'Place point',
+          _('Place point'),
           INTERACTIVE_PLACEMENT_OPTIONS.IPO_REPEAT | INTERACTIVE_PLACEMENT_OPTIONS.IPO_SINGLE_CLICK,
         );
 
@@ -1114,7 +1115,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
 
               if (!cancelled) {
                 commit.Add(t, this.m_frame!.GetScreen());
-                commit.Push('Draw Table');
+                commit.Push(_('Draw Table'));
 
                 this.m_toolMgr!.RunAction(ACTIONS.selectItem, t);
                 this.m_toolMgr!.PostAction(ACTIONS.activatePointEditor);
@@ -1279,7 +1280,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
 
             if (image) {
               (this.m_frame as unknown as { ShowInfoBarMsg?(aMsg: string): void }).ShowInfoBarMsg?.(
-                'Press <ESC> to cancel image creation.',
+                _('Press <ESC> to cancel image creation.'),
               );
               evt.SetPassEvent(false);
               continue;
@@ -1339,7 +1340,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
               this.m_view!.ShowPreview(true);
             } else {
               commit.Add(image);
-              commit.Push('Place Image');
+              commit.Push(_('Place Image'));
 
               this.m_toolMgr!.RunAction(ACTIONS.selectItem, image);
 
@@ -1486,7 +1487,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
               }
 
               commit.Add(newBarcode);
-              commit.Push('Draw Barcode');
+              commit.Push(_('Draw Barcode'));
 
               this.m_toolMgr!.RunAction(ACTIONS.selectItem, newBarcode);
               this.m_view!.Update(this.selection());
@@ -1535,7 +1536,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
         // Ensure the list is not empty:
         if (list.length === 0) {
           yield* this.RunMainStackModal(() =>
-            DisplayInfoMessage('No graphic items found in file.'),
+            DisplayInfoMessage(_('No graphic items found in file.')),
           );
           return 0;
         }
@@ -1591,7 +1592,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
         if (!dlg.interactive) {
           for (const item of newItems) commit.Add(item);
 
-          commit.Push('Import Graphics');
+          commit.Push(_('Import Graphics'));
 
           return 0;
         }
@@ -1669,7 +1670,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
             // Place the imported drawings
             for (const item of newItems) commit.Add(item);
 
-            commit.Push('Import Graphics');
+            commit.Push(_('Import Graphics'));
 
             break; // This is a one-shot command, not a tool
           } else if (IsZoneFillAction(evt)) {
@@ -1919,7 +1920,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
               preview.Remove(d);
 
               commit.Add(d);
-              commit.Push('Draw Dimension');
+              commit.Push(_('Draw Dimension'));
 
               // Run the edit immediately to set the leader text
               if (t === KICAD_T.PCB_DIM_LEADER_T) onEditItemRequest(this.m_frame!, d);
@@ -2376,7 +2377,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
           // If a bezier was created, add it and go again
           if (bezier) {
             commit.Add(bezier);
-            commit.Push('Draw Bezier');
+            commit.Push(_('Draw Bezier'));
 
             // Don't chain if reset (or accepted and reset)
             if (result.value === DRAW_ONE_RESULT.ACCEPTED) {
@@ -2840,7 +2841,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
             const commit = new BOARD_COMMIT(this.m_frame!);
 
             commit.Add(graphic);
-            commit.Push('Draw Line');
+            commit.Push(_('Draw Line'));
             this.m_toolMgr!.RunAction(ACTIONS.selectItem, graphic);
 
             aGraphic.value = null;
@@ -3520,7 +3521,7 @@ class VIA_PLACER extends INTERACTIVE_PLACER_BASE {
       menuID++;
     }
 
-    menu.SetTitle('Select Net:');
+    menu.SetTitle(_('Select Net:'));
     menu.DisplayTitle(true);
 
     const drawingTool = this.m_tool;
@@ -3751,7 +3752,7 @@ class VIA_PLACER extends INTERACTIVE_PLACER_BASE {
         this.frame() as unknown as {
           ShowInfoBarError?(aMsg: string, aShowClose: boolean): void;
         }
-      ).ShowInfoBarError?.('Via location violates DRC.', true);
+      ).ShowInfoBarError?.(_('Via location violates DRC.'), true);
 
       if (!this.m_allowDRCViolations) return false;
     }

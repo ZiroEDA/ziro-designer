@@ -55,6 +55,7 @@ import {
 } from '../pcb_dimension.js';
 import type { TransferResult } from './dialog_text_properties.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `DIM_PRECISION`: 0-5 fixed digits, 6-9 the scaled `V_*` variants. */
 export type DimPrecision = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
@@ -316,7 +317,7 @@ export class DIALOG_DIMENSION_PROPERTIES {
     // DIALOG_DIMENSION_PROPERTIES_BASE has no Locked control, so the lock is
     // not the dialog's to write.
 
-    if (pushCommit) commit.Push('Edit Dimension Properties');
+    if (pushCommit) commit.Push(_('Edit Dimension Properties'));
 
     return { ok: true };
   }
@@ -446,7 +447,7 @@ export function DialogDimensionProperties({
       m_fontCtrl={{
         face: v.face,
         onChange: (aFace) => {
-          const stroke = FONT.IsStrokeName(aFace === '' ? 'KiCad Font' : aFace);
+          const stroke = FONT.IsStrokeName(aFace === '' ? _('KiCad Font') : aFace);
           setStrokeShown(stroke);
           setV((p) => ({ ...p, face: aFace, ...(stroke ? { bold: boldFor(p) } : {}) }));
         },
@@ -471,12 +472,12 @@ export function DialogDimensionProperties({
       hAlign={v.hJustify}
       onHAlign={(aAlign) => set({ hJustify: aAlign })}
       m_mirrored={{ checked: v.mirrored, onClick: () => set({ mirrored: !v.mirrored }) }}
-      m_textWidth={length('textWidth', 'Width:', 'Text width')}
-      m_textPosX={{ ...length('textX', 'Position X:', 'Text pos X'), enabled: manual }}
-      m_textHeight={length('textHeight', 'Height:', 'Text height')}
-      m_textPosY={{ ...length('textY', 'Position Y:', 'Text pos Y'), enabled: manual }}
+      m_textWidth={length('textWidth', _('Width:'), _('Text width'))}
+      m_textPosX={{ ...length('textX', _('Position X:'), _('Text pos X')), enabled: manual }}
+      m_textHeight={length('textHeight', _('Height:'), _('Text height'))}
+      m_textPosY={{ ...length('textY', _('Position Y:'), _('Text pos Y')), enabled: manual }}
       m_textThickness={{
-        ...length('textThickness', 'Thickness:', 'Text thickness'),
+        ...length('textThickness', _('Thickness:'), _('Text thickness')),
         shown: strokeShown,
       }}
       m_cbTextOrientation={{
@@ -499,20 +500,20 @@ export function DialogDimensionProperties({
       }}
       m_lineThickness={length(
         'lineThickness',
-        'Line thickness:',
-        'Thickness of the dimension lines',
+        _('Line thickness:'),
+        _('Thickness of the dimension lines'),
       )}
-      m_arrowLength={{ ...length('arrowLength', 'Arrow length:'), shown: show.arrowLength }}
+      m_arrowLength={{ ...length('arrowLength', _('Arrow length:')), shown: show.arrowLength }}
       m_extensionOffset={{
         ...length(
           'extensionOffset',
-          'Extension line offset:',
-          'Gap between the measured points and the start of the extension lines',
+          _('Extension line offset:'),
+          _('Gap between the measured points and the start of the extension lines'),
         ),
         shown: show.extensionOffset,
       }}
       m_extensionOvershoot={{
-        ...length('extensionOvershoot', 'Extension line overshoot:'),
+        ...length('extensionOvershoot', _('Extension line overshoot:')),
         shown: show.extensionOvershoot,
       }}
       m_cbArrowDirection={{

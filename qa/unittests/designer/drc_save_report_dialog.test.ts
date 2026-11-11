@@ -13,9 +13,10 @@ const src = readFileSync(resolve(process.cwd(), '../pcbnew/pcb_edit_frame_ui.tsx
 
 describe('Save Report File', () => {
   it('is the file chooser in save mode, on the report and JSON wildcards', () => {
-    expect(src).toContain('title="Save Report File"');
+    // `_( "Save Report File" )`; this file says wxGetTranslation(), which `_` is.
+    expect(src).toContain("title={wxGetTranslation('Save Report File')}");
     expect(src).toContain('filters={[reportFileWildcard(), jsonFileWildcard()]}');
-    expect(src).not.toMatch(/prompt\('Save Report File'/);
+    expect(src).not.toMatch(/prompt\((_\()?'Save Report File'/);
   });
 
   it('offers FILEEXT’s extensions', () => {

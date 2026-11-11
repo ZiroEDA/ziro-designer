@@ -11,6 +11,7 @@ import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { type CHECK, CheckBox } from '@ziroeda/wx/controls.js';
 import { wxALL, wxBOTTOM, wxEXPAND, wxLEFT, wxRIGHT, wxTOP, wxVERTICAL } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, StaticBoxSizer, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_PUSH_PAD_PROPERTIES_BASE_PROPS {
   title: string;
@@ -40,28 +41,28 @@ export function DIALOG_PUSH_PAD_PROPERTIES_BASE(
           {/* bLeftSizer */}
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
-              <StaticBoxSizer label="Options" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Options')} orient={wxVERTICAL}>
                 <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                   <CheckBox
-                    label="Do not modify pads having a different shape"
+                    label={_('Do not modify pads having a different shape')}
                     check={p.m_Pad_Shape_Filter_CB}
                   />
                 </SizerItem>
                 <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                   <CheckBox
-                    label="Do not modify pads having different layers"
+                    label={_('Do not modify pads having different layers')}
                     check={p.m_Pad_Layer_Filter_CB}
                   />
                 </SizerItem>
                 <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                   <CheckBox
-                    label="Do not modify pads having a different orientation"
+                    label={_('Do not modify pads having a different orientation')}
                     check={p.m_Pad_Orient_Filter_CB}
                   />
                 </SizerItem>
                 <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                   <CheckBox
-                    label="Do not modify pads having a different type"
+                    label={_('Do not modify pads having a different type')}
                     check={p.m_Pad_Type_Filter_CB}
                   />
                 </SizerItem>

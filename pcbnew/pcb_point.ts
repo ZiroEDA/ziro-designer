@@ -48,6 +48,7 @@ import {
 import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const DEFAULT_PT_SIZE_MM = 1.0;
 
@@ -242,11 +243,15 @@ export class PCB_POINT extends BOARD_ITEM {
   }
 
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
-    aList.push(new MSG_PANEL_ITEM('PCB Point', ''));
-    aList.push(new MSG_PANEL_ITEM('Position X', aFrame.MessageTextFromValue(this.GetPosition().x)));
-    aList.push(new MSG_PANEL_ITEM('Position Y', aFrame.MessageTextFromValue(this.GetPosition().y)));
+    aList.push(new MSG_PANEL_ITEM(_('PCB Point'), ''));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Position X'), aFrame.MessageTextFromValue(this.GetPosition().x)),
+    );
+    aList.push(
+      new MSG_PANEL_ITEM(_('Position Y'), aFrame.MessageTextFromValue(this.GetPosition().y)),
+    );
     aList.push(new MSG_PANEL_ITEM('Size', aFrame.MessageTextFromValue(this.GetSize())));
-    aList.push(new MSG_PANEL_ITEM('Layer', this.GetLayerName()));
+    aList.push(new MSG_PANEL_ITEM(_('Layer'), this.GetLayerName()));
   }
 
   /**

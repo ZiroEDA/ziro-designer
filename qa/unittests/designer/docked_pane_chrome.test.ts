@@ -113,7 +113,7 @@ describe('PROPERTIES_PANEL', () => {
     // `.CloseButton( false )` on Appearance and Selection Filter (:356, :365).
     const pcb = read('../../pcbnew/pcb_edit_frame_ui.tsx');
     const at = pcb.indexOf(
-      '<div className="ze-panel-header">\n                  <span>Properties</span>',
+      '<div className="ze-panel-header">\n                  <span>{wxGetTranslation(\'Properties\')}</span>',
     );
     expect(at, 'the Properties caption has no close box').toBeGreaterThanOrEqual(0);
     const caption = pcb.slice(at, pcb.indexOf('</div>', at));

@@ -52,6 +52,8 @@ import type { FOOTPRINT } from '../footprint.js';
 import { PAD } from '../pad.js';
 import { PAD_ATTRIB, PAD_SHAPE, PADSTACK } from '../padstack.js';
 import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `DIALOG_FP_EDIT_PAD_TABLE::COLS`: column indices (after adding the Type column). */
 export enum COLS {
@@ -83,21 +85,21 @@ export const {
 } = COLS;
 
 /** `DIALOG_FP_EDIT_PAD_TABLE_BASE`'s title: the base file states none. */
-export const DIALOG_FP_EDIT_PAD_TABLE_TITLE = 'Pad Table';
+export const DIALOG_FP_EDIT_PAD_TABLE_TITLE = _HKI('Pad Table');
 
 /** `m_grid->SetColLabelValue( n, ... )`. */
 export const PAD_TABLE_COLUMN_LABELS: readonly string[] = [
-  'Number',
-  'Type',
-  'Shape',
-  'X Position',
-  'Y Position',
-  'Size X',
-  'Size Y',
-  'Drill X',
-  'Drill Y',
-  'Pad->Die Length',
-  'Pad->Die Delay',
+  _HKI('Number'),
+  _HKI('Type'),
+  _HKI('Shape'),
+  _HKI('X Position'),
+  _HKI('Y Position'),
+  _HKI('Size X'),
+  _HKI('Size Y'),
+  _HKI('Drill X'),
+  _HKI('Drill Y'),
+  _HKI('Pad->Die Length'),
+  _HKI('Pad->Die Delay'),
 ];
 
 /** `m_grid->SetColSize( n, ... )`, the base file's widths. */
@@ -107,11 +109,11 @@ export const PAD_TABLE_COLUMN_WIDTHS: readonly number[] = [
 
 /** The names the Type column offers, in the order the constructor pushes them. */
 export const PAD_TYPE_NAMES: readonly string[] = [
-  'Through-hole', // PTH
-  'SMD', // SMD
-  'Connector', // CONN SMD? (use CONN?)
-  'NPTH', // NPTH
-  'Aperture', // inferred copper-less
+  _HKI('Through-hole'), // PTH
+  _HKI('SMD'), // SMD
+  _HKI('Connector'), // CONN SMD? (use CONN?)
+  _HKI('NPTH'), // NPTH
+  _HKI('Aperture'), // inferred copper-less
 ];
 
 /** Helper to map shape string to PAD_SHAPE. */
@@ -313,19 +315,19 @@ export class DIALOG_FP_EDIT_PAD_TABLE {
 
       switch (pad.GetAttribute()) {
         case PAD_ATTRIB.PTH:
-          attrStr = 'Through-hole';
+          attrStr = _('Through-hole');
           break;
         case PAD_ATTRIB.SMD:
-          attrStr = 'SMD';
+          attrStr = _('SMD');
           break;
         case PAD_ATTRIB.CONN:
-          attrStr = 'Connector';
+          attrStr = _('Connector');
           break;
         case PAD_ATTRIB.NPTH:
-          attrStr = 'NPTH';
+          attrStr = _('NPTH');
           break;
         default:
-          attrStr = 'Through-hole';
+          attrStr = _('Through-hole');
           break;
       }
 
@@ -341,7 +343,7 @@ export class DIALOG_FP_EDIT_PAD_TABLE {
         if (pad.ShowPadShape(aLayer) !== padShape) padShape = INDETERMINATE_STATE;
       });
 
-      if (pad.IsAperturePad()) attrStr = 'Aperture';
+      if (pad.IsAperturePad()) attrStr = _('Aperture');
 
       this.m_grid.SetCellValue(row, COL_TYPE, attrStr);
       this.m_grid.SetCellValue(row, COL_SHAPE, padShape);
@@ -589,7 +591,7 @@ export class DIALOG_FP_EDIT_PAD_TABLE {
       row++;
     }
 
-    commit.Push('Edit Pads');
+    commit.Push(_('Edit Pads'));
     this.m_frame.GetCanvas()?.Refresh();
 
     return true;

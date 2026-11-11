@@ -23,6 +23,7 @@
 import { LAYER_PAIR, LAYER_PAIR_INFO } from '@ziroeda/common/project/board_project_settings.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { wxEvent, wxEvtHandler, wxNewEventType } from '@ziroeda/wx/wx_event.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `wxDECLARE_EVENT( PCB_LAYER_PAIR_PRESETS_CHANGED, wxCommandEvent )`. */
 export const PCB_LAYER_PAIR_PRESETS_CHANGED = wxNewEventType();
@@ -119,7 +120,7 @@ export class LAYER_PAIR_SETTINGS extends wxEvtHandler {
     let current = -1;
 
     if (this.m_lastManualPair) {
-      enabledPairs.push(new LAYER_PAIR_INFO(this.m_lastManualPair, true, 'Manual'));
+      enabledPairs.push(new LAYER_PAIR_INFO(this.m_lastManualPair, true, _('Manual')));
 
       if (this.m_currentPair.HasSameLayers(this.m_lastManualPair)) {
         current = 0;

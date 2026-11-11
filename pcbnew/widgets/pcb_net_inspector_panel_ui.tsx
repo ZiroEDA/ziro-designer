@@ -25,9 +25,16 @@ import {
   type NetRow,
   netInspectorRows,
 } from './pcb_net_inspector_panel.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `m_columns`' captions (`pcb_net_inspector_panel.cpp:112-147`), for the four columns ported. */
-export const NET_INSPECTOR_COLUMNS = ['Name', 'Netclass', 'Via Count', 'Pad Count'] as const;
+export const NET_INSPECTOR_COLUMNS = [
+  _HKI('Name'),
+  _HKI('Netclass'),
+  _HKI('Via Count'),
+  _HKI('Pad Count'),
+] as const;
 
 /** One grid row's cells. */
 export function netRowCells(aRow: NetRow): string[] {
@@ -73,7 +80,7 @@ export function PcbNetInspectorPane({ board, revision, onHighlightNets }: Props)
         grid={grid}
         tricks={tricks}
         colLabels
-        ariaLabel="Net Inspector"
+        ariaLabel={_('Net Inspector')}
         columns={NET_INSPECTOR_COLUMNS.map(() => ({ width: 90 }))}
         flexCol={0}
         onUpdate={() => {

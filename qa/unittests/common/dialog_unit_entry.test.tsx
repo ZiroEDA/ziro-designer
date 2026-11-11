@@ -113,8 +113,9 @@ describe('the board editor asks as edit_tool.cpp does', () => {
   });
 
   it('Dogbone through WX_MULTI_ENTRY_DIALOG, and the slots answer reaches the engine', () => {
-    expect(src).toContain('caption="Dogbone Corner Settings"');
-    expect(src).toContain("label: 'Add slots in acute corners'");
+    // Marked as the C++ marks it; this file says wxGetTranslation(), which `_` is.
+    expect(src).toMatch(/caption=\{(_|wxGetTranslation)\('Dogbone Corner Settings'\)\}/);
+    expect(src).toContain("label: wxGetTranslation('Add slots in acute corners')");
     expect(src).toContain('AddSlots: r[1] as boolean');
   });
 });

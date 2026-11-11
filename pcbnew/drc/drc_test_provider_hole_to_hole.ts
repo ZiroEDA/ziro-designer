@@ -24,6 +24,7 @@ import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_RTREE } from './drc_rtree.js';
 import { DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER, ptrPairKey } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 function getHoleShape(aItem: BOARD_ITEM): SHAPE_CIRCLE {
   if (aItem.Type() === KICAD_T.PCB_VIA_T) {
@@ -67,7 +68,7 @@ export class DRC_TEST_PROVIDER_HOLE_TO_HOLE extends DRC_TEST_PROVIDER {
       return true; // continue with other tests
     }
 
-    if (!this.reportPhase('Checking hole to hole clearances...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking hole to hole clearances...'))) return false; // DRC cancelled
 
     const progressDelta = 200;
     let count = 0;
@@ -263,7 +264,7 @@ export class DRC_TEST_PROVIDER_HOLE_TO_HOLE extends DRC_TEST_PROVIDER {
 
         const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_DRILLED_HOLES_TOO_CLOSE)!;
         drcItem.SetErrorDetail(
-          this.formatMsg('(%s min %s; actual %s)', constraint.GetName(), minClearance, actual),
+          this.formatMsg(_('(%s min %s; actual %s)'), constraint.GetName(), minClearance, actual),
         );
         drcItem.SetItems(aItem, aOther);
         drcItem.SetViolatingRule(constraint.GetParentRule());

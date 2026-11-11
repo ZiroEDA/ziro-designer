@@ -20,6 +20,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PANEL_FP_USER_LAYER_NAMES_BASE_PROPS {
   m_choiceUserLayers: CHOICE;
@@ -43,7 +44,7 @@ export function PANEL_FP_USER_LAYER_NAMES_BASE(
             {/* bSizerUserLayerCount */}
             <BoxSizer orient={wxHORIZONTAL}>
               <SizerItem flag={CV | wxRIGHT} border={5}>
-                <StaticText label="User layers:" />
+                <StaticText label={_('User layers:')} />
               </SizerItem>
               <SizerItem flag={CV} border={5}>
                 <Choice
@@ -57,7 +58,7 @@ export function PANEL_FP_USER_LAYER_NAMES_BASE(
           </SizerItem>
           <Spacer width={0} height={10} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxTOP | wxLEFT | wxEXPAND} border={8}>
-            <StaticText label="User Layer Names" />
+            <StaticText label={_('User Layer Names')} />
           </SizerItem>
           <Spacer width={0} height={4} flag={wxEXPAND} border={5} />
           <SizerItem proportion={1} flag={wxEXPAND} border={20}>

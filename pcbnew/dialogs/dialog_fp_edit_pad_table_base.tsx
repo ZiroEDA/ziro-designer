@@ -25,6 +25,7 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import { BoxSizer, SizerItem, Spacer, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_FP_EDIT_PAD_TABLE_BASE_PROPS {
   title: string;
@@ -52,7 +53,7 @@ export function DIALOG_FP_EDIT_PAD_TABLE_BASE(p: DIALOG_FP_EDIT_PAD_TABLE_BASE_P
           {/* bSummarySizer */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={CV | wxLEFT} border={5}>
-              <StaticText label="Pad numbers:" />
+              <StaticText label={_('Pad numbers:')} />
             </SizerItem>
             <SizerItem flag={wxRIGHT | wxLEFT | CV} border={5}>
               <StaticText
@@ -63,14 +64,14 @@ export function DIALOG_FP_EDIT_PAD_TABLE_BASE(p: DIALOG_FP_EDIT_PAD_TABLE_BASE_P
             </SizerItem>
             <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
             <SizerItem flag={CV | wxLEFT} border={10}>
-              <StaticText label="Pad count:" />
+              <StaticText label={_('Pad count:')} />
             </SizerItem>
             <SizerItem flag={wxRIGHT | wxLEFT | CV} border={5}>
               <StaticText label={p.m_pin_count} />
             </SizerItem>
             <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
             <SizerItem flag={CV | wxLEFT} border={10}>
-              <StaticText label="Duplicate pads:" />
+              <StaticText label={_('Duplicate pads:')} />
             </SizerItem>
             <SizerItem flag={wxRIGHT | wxLEFT | CV} border={5}>
               <StaticText

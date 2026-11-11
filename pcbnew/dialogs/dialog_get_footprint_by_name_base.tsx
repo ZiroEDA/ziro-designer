@@ -21,6 +21,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, GridBagSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_GET_FOOTPRINT_BY_NAME_BASE_PROPS {
   m_SearchTextCtrl: { value: string; onChange: (aText: string) => void };
@@ -36,7 +37,7 @@ export function DIALOG_GET_FOOTPRINT_BY_NAME_BASE(
   p: DIALOG_GET_FOOTPRINT_BY_NAME_BASE_PROPS,
 ): JSX.Element {
   return (
-    <DialogShim title="Get and Move Footprint" onClose={p.onCancel}>
+    <DialogShim title={_('Get and Move Footprint')} onClose={p.onCancel}>
       {/* bSizerMain */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND} border={5}>
@@ -50,7 +51,7 @@ export function DIALOG_GET_FOOTPRINT_BY_NAME_BASE(
                   flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT}
                   border={5}
                 >
-                  <StaticText label="Reference designator:" />
+                  <StaticText label={_('Reference designator:')} />
                 </SizerItem>
                 <SizerItem
                   pos={[0, 1]}
@@ -74,7 +75,9 @@ export function DIALOG_GET_FOOTPRINT_BY_NAME_BASE(
                   shown={p.multipleHintShown}
                 >
                   <StaticText
-                    label="(specify multiple items separated by spaces for successive placement)"
+                    label={_(
+                      '(specify multiple items separated by spaces for successive placement)',
+                    )}
                     font="info"
                     italic
                   />
@@ -84,7 +87,7 @@ export function DIALOG_GET_FOOTPRINT_BY_NAME_BASE(
                   flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT}
                   border={5}
                 >
-                  <StaticText label="Available footprints:" />
+                  <StaticText label={_('Available footprints:')} />
                 </SizerItem>
                 <SizerItem
                   pos={[3, 1]}

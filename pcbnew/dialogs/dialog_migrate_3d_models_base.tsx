@@ -20,6 +20,7 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
 import { SplitterWindow } from '@ziroeda/wx/splitter.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_MIGRATE_3D_MODELS_BASE_PROPS {
   m_missingList: {
@@ -52,7 +53,7 @@ export function DIALOG_MIGRATE_3D_MODELS_BASE(p: DIALOG_MIGRATE_3D_MODELS_BASE_P
   return (
     // wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER, wxSize( 900,600 )
     <DialogShim
-      title="Migrate 3D Models"
+      title={_('Migrate 3D Models')}
       resizable
       style={{ width: 900, height: 600 }} // [data] the base constructor's wxSize( 900,600 )
       onClose={p.OnKeepClick}
@@ -77,7 +78,7 @@ export function DIALOG_MIGRATE_3D_MODELS_BASE(p: DIALOG_MIGRATE_3D_MODELS_BASE_P
                 {/* bSizerMissing */}
                 <BoxSizer orient={wxVERTICAL}>
                   <SizerItem flag={wxLEFT | wxRIGHT | wxTOP} border={4}>
-                    <StaticText label="Missing 3D model references:" />
+                    <StaticText label={_('Missing 3D model references:')} />
                   </SizerItem>
                   <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={4}>
                     <ListCtrl
@@ -103,7 +104,7 @@ export function DIALOG_MIGRATE_3D_MODELS_BASE(p: DIALOG_MIGRATE_3D_MODELS_BASE_P
                     {/* bSizerCandidates */}
                     <BoxSizer orient={wxVERTICAL}>
                       <SizerItem flag={wxLEFT | wxRIGHT | wxTOP} border={4}>
-                        <StaticText label="Potential replacements:" />
+                        <StaticText label={_('Potential replacements:')} />
                       </SizerItem>
                       <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={4}>
                         <ListCtrl
@@ -119,13 +120,13 @@ export function DIALOG_MIGRATE_3D_MODELS_BASE(p: DIALOG_MIGRATE_3D_MODELS_BASE_P
                         <BoxSizer orient={wxHORIZONTAL}>
                           <SizerItem proportion={1} flag={wxALL} border={2}>
                             <Button
-                              label="Add Search Directory..."
+                              label={_('Add Search Directory...')}
                               onClick={p.OnAddSearchDirectoryClick}
                             />
                           </SizerItem>
                           <SizerItem proportion={1} flag={wxALL} border={2}>
                             <Button
-                              label="Open External File..."
+                              label={_('Open External File...')}
                               onClick={p.OnOpenExternalFileClick}
                             />
                           </SizerItem>
@@ -139,7 +140,7 @@ export function DIALOG_MIGRATE_3D_MODELS_BASE(p: DIALOG_MIGRATE_3D_MODELS_BASE_P
                     {/* bSizerPreview */}
                     <BoxSizer orient={wxVERTICAL}>
                       <SizerItem flag={wxLEFT | wxRIGHT | wxTOP} border={4}>
-                        <StaticText label="Preview:" />
+                        <StaticText label={_('Preview:')} />
                       </SizerItem>
                       <SizerItem proportion={1} flag={wxEXPAND} border={0}>
                         {p.m_previewPane}
@@ -156,10 +157,10 @@ export function DIALOG_MIGRATE_3D_MODELS_BASE(p: DIALOG_MIGRATE_3D_MODELS_BASE_P
           <BoxSizer orient={wxHORIZONTAL}>
             <Spacer proportion={1} flag={wxEXPAND} />
             <SizerItem flag={wxALL} border={6}>
-              <Button label="Replace Models" onClick={p.OnReplaceClick} />
+              <Button label={_('Replace Models')} onClick={p.OnReplaceClick} />
             </SizerItem>
             <SizerItem flag={wxALL} border={6}>
-              <Button label="Keep Existing" onClick={p.OnKeepClick} />
+              <Button label={_('Keep Existing')} onClick={p.OnKeepClick} />
             </SizerItem>
           </BoxSizer>
         </SizerItem>

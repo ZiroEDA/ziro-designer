@@ -36,6 +36,7 @@ import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOARD_ITEM } from './board_item.js';
 import { type NETINFO_ITEM, NETINFO_LIST } from './netinfo.js';
 import { TEARDROP_PARAMETERS } from './teardrop/teardrop_parameters.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // Static fallback netclass for items without a valid board (e.g., during DRC evaluation
 // of dummy items, or items not yet added to a board).
@@ -372,19 +373,19 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
   // only for BOARD_CONNECTED_ITEM that we don't want to apply to BOARD_ITEM
   const layer = new PROPERTY_ENUM<BOARD_CONNECTED_ITEM, PCB_LAYER_ID>(
     BOARD_CONNECTED_ITEM,
-    'Layer',
+    _HKI('Layer'),
     'SetLayer',
     'GetLayer',
     layerEnum,
   );
   layer.SetChoices(layerEnum.Choices());
-  propMgr.ReplaceProperty(BOARD_ITEM, 'Layer', layer);
+  propMgr.ReplaceProperty(BOARD_ITEM, _HKI('Layer'), layer);
 
   propMgr
     .AddProperty(
       new PROPERTY_ENUM<BOARD_CONNECTED_ITEM, number>(
         BOARD_CONNECTED_ITEM,
-        'Net',
+        _HKI('Net'),
         'SetNetCode',
         'GetNetCode',
         TYPE_INT,
@@ -405,7 +406,7 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
     .AddProperty(
       new PROPERTY<BOARD_CONNECTED_ITEM, string>(
         BOARD_CONNECTED_ITEM,
-        'Net Class',
+        _HKI('Net Class'),
         NO_SETTER,
         'GetNetClassName',
         TYPE_STRING,
@@ -420,7 +421,7 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
     .AddProperty(
       new PROPERTY<BOARD_CONNECTED_ITEM, string>(
         BOARD_CONNECTED_ITEM,
-        'NetClass',
+        _HKI('NetClass'),
         NO_SETTER,
         'GetNetClassName',
         TYPE_STRING,
@@ -434,7 +435,7 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
     .AddProperty(
       new PROPERTY<BOARD_CONNECTED_ITEM, string>(
         BOARD_CONNECTED_ITEM,
-        'NetName',
+        _HKI('NetName'),
         NO_SETTER,
         'GetNetname',
         TYPE_STRING,
@@ -463,11 +464,11 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
     return false;
   };
 
-  const groupTeardrops = 'Teardrops';
+  const groupTeardrops = _HKI('Teardrops');
 
   const enableTeardrops = new PROPERTY<BOARD_CONNECTED_ITEM, boolean>(
     BOARD_CONNECTED_ITEM,
-    'Enable Teardrops',
+    _HKI('Enable Teardrops'),
     'SetTeardropsEnabled',
     'GetTeardropsEnabled',
     TYPE_BOOL,
@@ -477,7 +478,7 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
 
   const bestLength = new PROPERTY<BOARD_CONNECTED_ITEM, number>(
     BOARD_CONNECTED_ITEM,
-    'Best Length Ratio',
+    _HKI('Best Length Ratio'),
     'SetTeardropBestLengthRatio',
     'GetTeardropBestLengthRatio',
     TYPE_DOUBLE,
@@ -488,7 +489,7 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
 
   const maxLength = new PROPERTY<BOARD_CONNECTED_ITEM, number>(
     BOARD_CONNECTED_ITEM,
-    'Max Length',
+    _HKI('Max Length'),
     'SetTeardropMaxLength',
     'GetTeardropMaxLength',
     TYPE_INT,
@@ -499,7 +500,7 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
 
   const bestWidth = new PROPERTY<BOARD_CONNECTED_ITEM, number>(
     BOARD_CONNECTED_ITEM,
-    'Best Width Ratio',
+    _HKI('Best Width Ratio'),
     'SetTeardropBestWidthRatio',
     'GetTeardropBestWidthRatio',
     TYPE_DOUBLE,
@@ -510,7 +511,7 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
 
   const maxWidth = new PROPERTY<BOARD_CONNECTED_ITEM, number>(
     BOARD_CONNECTED_ITEM,
-    'Max Width',
+    _HKI('Max Width'),
     'SetTeardropMaxWidth',
     'GetTeardropMaxWidth',
     TYPE_INT,
@@ -521,7 +522,7 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
 
   const curvePts = new PROPERTY<BOARD_CONNECTED_ITEM, boolean>(
     BOARD_CONNECTED_ITEM,
-    'Curved Teardrops',
+    _HKI('Curved Teardrops'),
     'SetTeardropCurved',
     'GetTeardropCurved',
     TYPE_BOOL,
@@ -531,7 +532,7 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
 
   const preferZones = new PROPERTY<BOARD_CONNECTED_ITEM, boolean>(
     BOARD_CONNECTED_ITEM,
-    'Prefer Zone Connections',
+    _HKI('Prefer Zone Connections'),
     'SetTeardropPreferZoneConnections',
     'GetTeardropPreferZoneConnections',
     TYPE_BOOL,
@@ -541,7 +542,7 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
 
   const twoTracks = new PROPERTY<BOARD_CONNECTED_ITEM, boolean>(
     BOARD_CONNECTED_ITEM,
-    'Allow Teardrops To Span Two Tracks',
+    _HKI('Allow Teardrops To Span Two Tracks'),
     'SetTeardropAllowSpanTwoTracks',
     'GetTeardropAllowSpanTwoTracks',
     TYPE_BOOL,
@@ -551,7 +552,7 @@ export abstract class BOARD_CONNECTED_ITEM extends BOARD_ITEM {
 
   const maxTrackWidth = new PROPERTY<BOARD_CONNECTED_ITEM, number>(
     BOARD_CONNECTED_ITEM,
-    'Max Width Ratio',
+    _HKI('Max Width Ratio'),
     'SetTeardropMaxTrackWidth',
     'GetTeardropMaxTrackWidth',
     TYPE_DOUBLE,

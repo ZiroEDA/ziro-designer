@@ -12,6 +12,7 @@ import {
   DEFAULT_SOLDERMASK_OPACITY,
   NotSpecifiedPrm,
 } from './board_stackup.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const { BS_ITEM_TYPE_DIELECTRIC, BS_ITEM_TYPE_SILKSCREEN, BS_ITEM_TYPE_SOLDERMASK } =
   BOARD_STACKUP_ITEM_TYPE;
@@ -90,7 +91,7 @@ const gbrjobColors: FAB_LAYER_COLOR[] = [
   new FAB_LAYER_COLOR('Green', wxColor(60, 150, 80)), // used in .gbrjob file
   new FAB_LAYER_COLOR('Red', wxColor(128, 0, 0)), // used in .gbrjob file
   new FAB_LAYER_COLOR('Blue', wxColor(0, 0, 128)), // used in .gbrjob file
-  new FAB_LAYER_COLOR('Purple', wxColor(80, 0, 80)), // used in .gbrjob file
+  new FAB_LAYER_COLOR(_HKI('Purple'), wxColor(80, 0, 80)), // used in .gbrjob file
   new FAB_LAYER_COLOR('Black', wxColor(20, 20, 20)), // used in .gbrjob file
   new FAB_LAYER_COLOR('White', wxColor(200, 200, 200)), // used in .gbrjob file
   new FAB_LAYER_COLOR('Yellow', wxColor(128, 128, 0)), // used in .gbrjob file
@@ -102,11 +103,11 @@ const gbrjobColors: FAB_LAYER_COLOR[] = [
 // [data] stackup_predefined_prms.cpp:76-85
 const dielectricColors: FAB_LAYER_COLOR[] = [
   new FAB_LAYER_COLOR(NotSpecifiedPrm(), wxColor(80, 80, 80, 255)),
-  new FAB_LAYER_COLOR('FR4 natural', wxColor(109, 116, 75, 212)),
-  new FAB_LAYER_COLOR('PTFE natural', wxColor(252, 252, 250, 230)),
-  new FAB_LAYER_COLOR('Polyimide', wxColor(205, 130, 0, 170)),
-  new FAB_LAYER_COLOR('Phenolic natural', wxColor(92, 17, 6, 230)),
-  new FAB_LAYER_COLOR('Aluminum', wxColor(213, 213, 213, 255)),
+  new FAB_LAYER_COLOR(_HKI('FR4 natural'), wxColor(109, 116, 75, 212)),
+  new FAB_LAYER_COLOR(_HKI('PTFE natural'), wxColor(252, 252, 250, 230)),
+  new FAB_LAYER_COLOR(_HKI('Polyimide'), wxColor(205, 130, 0, 170)),
+  new FAB_LAYER_COLOR(_HKI('Phenolic natural'), wxColor(92, 17, 6, 230)),
+  new FAB_LAYER_COLOR(_HKI('Aluminum'), wxColor(213, 213, 213, 255)),
   new FAB_LAYER_COLOR('User defined', wxColor(128, 128, 128, 212)),
 ];
 

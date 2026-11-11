@@ -29,6 +29,7 @@ import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
 import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `TransformItem` (array_tool.cpp:44-50): move the item by the array
@@ -190,7 +191,7 @@ export class ARRAY_TOOL extends PCB_TOOL_BASE {
       }
 
       // Make sure we did something...
-      if (firstItem !== null) commit.Push('Arrange selection');
+      if (firstItem !== null) commit.Push(_('Arrange selection'));
 
       return;
     }
@@ -325,7 +326,7 @@ export class ARRAY_TOOL extends PCB_TOOL_BASE {
     this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
     this.m_toolMgr!.RunAction<EDA_ITEM[]>(ACTIONS.selectItems, all_added_items);
 
-    commit.Push('Create Array');
+    commit.Push(_('Create Array'));
 
     this.m_selection = null;
   }

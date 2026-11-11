@@ -32,6 +32,7 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { Simplebook } from '@ziroeda/wx/simplebook.js';
 import { BoxSizer, GridBagSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PANEL_DISPLAY_OPTIONS_BASE_PROPS {
   /** What the class Add()s to m_galOptionsSizer: m_galOptsPanel. */
@@ -75,84 +76,89 @@ export function PANEL_DISPLAY_OPTIONS_BASE(p: PANEL_DISPLAY_OPTIONS_BASE_PROPS):
       <SizerItem flag={wxEXPAND} border={5}>
         {/* bMargins */}
         <BoxSizer orient={wxVERTICAL}>
-          <Heading label="Annotations" />
+          <Heading label={_('Annotations')} />
           <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
             {/* gbSizer1 = wxGridBagSizer( 2, 0 ) */}
             <GridBagSizer vgap={2} hgap={0}>
               <SizerItem pos={[0, 0]} flag={CV | wxTOP | wxLEFT} border={5}>
-                <StaticText label="Net names:" />
+                <StaticText label={_('Net names:')} />
               </SizerItem>
               <SizerItem pos={[0, 1]} flag={CV | wxTOP | wxRIGHT | wxLEFT} border={5}>
                 <Choice
                   choices={[
-                    'Do not show',
-                    'Show on pads',
-                    'Show on tracks',
-                    'Show on pads & tracks',
+                    _('Do not show'),
+                    _('Show on pads'),
+                    _('Show on tracks'),
+                    _('Show on pads & tracks'),
                   ]}
                   choice={p.m_ShowNetNamesOption}
-                  ariaLabel="Net names"
+                  ariaLabel={_('Net names')}
                 />
               </SizerItem>
               <SizerItem pos={[1, 0]} span={[1, 2]} flag={wxALL} border={5}>
-                <CheckBox label="Show pad numbers" check={p.m_OptDisplayPadNumber} />
+                <CheckBox label={_('Show pad numbers')} check={p.m_OptDisplayPadNumber} />
               </SizerItem>
             </GridBagSizer>
           </SizerItem>
           <Spacer width={0} height={8} border={5} />
           {/* _("Selection && Highlighting"): && is wx's escape for one ampersand. */}
-          <Heading label="Selection & Highlighting" />
+          <Heading label={_('Selection & Highlighting')} />
           <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
             {/* bSizer9 */}
             <BoxSizer orient={wxVERTICAL}>
               <SizerItem flag={wxALL} border={5}>
                 <CheckBox
-                  label="Show all fields when parent footprint is selected"
+                  label={_('Show all fields when parent footprint is selected')}
                   check={p.m_checkForceShowFieldsWhenFPSelected}
                 />
               </SizerItem>
             </BoxSizer>
           </SizerItem>
           <Spacer width={0} height={8} border={5} />
-          <Heading label="Cross-probing" expand />
+          <Heading label={_('Cross-probing')} expand />
           <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
             {/* bSizer8 */}
             <BoxSizer orient={wxVERTICAL}>
               <SizerItem flag={wxALL} border={5}>
                 <CheckBox
-                  label="Select/highlight objects corresponding to schematic selection"
-                  title="Highlight footprints corresponding to selected symbols"
+                  label={_('Select/highlight objects corresponding to schematic selection')}
+                  title={_('Highlight footprints corresponding to selected symbols')}
                   check={p.m_checkCrossProbeOnSelection}
                 />
               </SizerItem>
               <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                 <CheckBox
-                  label="Center view on cross-probed items"
-                  title="Ensures that cross-probed footprints are visible in the current view"
+                  label={_('Center view on cross-probed items')}
+                  title={_('Ensures that cross-probed footprints are visible in the current view')}
                   check={p.m_checkCrossProbeCenter}
                 />
               </SizerItem>
               <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                <CheckBox label="Zoom to fit cross-probed items" check={p.m_checkCrossProbeZoom} />
+                <CheckBox
+                  label={_('Zoom to fit cross-probed items')}
+                  check={p.m_checkCrossProbeZoom}
+                />
               </SizerItem>
               <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                 <CheckBox
-                  label="Highlight cross-probed nets"
-                  title="Highlight nets when they are highlighted in the schematic editor"
+                  label={_('Highlight cross-probed nets')}
+                  title={_('Highlight nets when they are highlighted in the schematic editor')}
                   check={p.m_checkCrossProbeAutoHighlight}
                 />
               </SizerItem>
               <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
                 <CheckBox
-                  label="Flash cross-probed selection"
-                  title="Temporarily flash the newly cross-probed selection 3 times"
+                  label={_('Flash cross-probed selection')}
+                  title={_('Temporarily flash the newly cross-probed selection 3 times')}
                   check={p.m_checkCrossProbeFlash}
                 />
               </SizerItem>
               <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
                 <CheckBox
-                  label="Refresh 3D view automatically"
-                  title="When enabled, edits to the board will cause the 3D view to refresh (may be slow with larger boards)"
+                  label={_('Refresh 3D view automatically')}
+                  title={_(
+                    'When enabled, edits to the board will cause the 3D view to refresh (may be slow with larger boards)',
+                  )}
                   check={p.m_live3Drefresh}
                 />
               </SizerItem>
@@ -181,36 +187,39 @@ export function PANEL_DISPLAY_OPTIONS_BASE(p: PANEL_DISPLAY_OPTIONS_BASE_PROPS):
               <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
                 {/* bSizerPads */}
                 <BoxSizer orient={wxVERTICAL}>
-                  <Heading label="Pads" />
+                  <Heading label={_('Pads')} />
                   <SizerItem flag={wxALL} border={5}>
                     <CheckBox
-                      label="Use via color for normal through hole padstacks"
+                      label={_('Use via color for normal through hole padstacks')}
                       check={p.m_OptUseViaColorForNormalTHPadstacks}
                     />
                   </SizerItem>
                   <Spacer width={0} height={8} flag={wxEXPAND} border={5} />
-                  <Heading label="Clearance Outlines" expand />
+                  <Heading label={_('Clearance Outlines')} expand />
                   <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
                     {/* gbSizer2 = wxGridBagSizer( 2, 0 ) */}
                     <GridBagSizer vgap={2} hgap={0}>
                       <SizerItem pos={[0, 0]} flag={CV | wxTOP | wxLEFT} border={5}>
-                        <StaticText label="Tracks:" />
+                        <StaticText label={_('Tracks:')} />
                       </SizerItem>
                       <SizerItem pos={[0, 1]} flag={CV | wxTOP | wxRIGHT | wxLEFT} border={5}>
                         <Choice
                           choices={[
-                            'Do not show clearances',
-                            'Show when routing',
-                            'Show when routing w/ via clearance at end',
-                            'Show when routing and editing',
-                            'Show always',
+                            _('Do not show clearances'),
+                            _('Show when routing'),
+                            _('Show when routing w/ via clearance at end'),
+                            _('Show when routing and editing'),
+                            _('Show always'),
                           ]}
                           choice={p.m_OptDisplayTracksClearance}
                           ariaLabel="Tracks"
                         />
                       </SizerItem>
                       <SizerItem pos={[1, 0]} span={[1, 2]} flag={wxALL} border={5}>
-                        <CheckBox label="Show pad clearance" check={p.m_OptDisplayPadClearence} />
+                        <CheckBox
+                          label={_('Show pad clearance')}
+                          check={p.m_OptDisplayPadClearence}
+                        />
                       </SizerItem>
                     </GridBagSizer>
                   </SizerItem>

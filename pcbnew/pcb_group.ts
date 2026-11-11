@@ -66,6 +66,8 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOARD_ITEM, type BOARD_COMMIT_LIKE } from './board_item.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EDA_GROUP mixin)
 export interface PCB_GROUP extends EDA_GROUP {}
@@ -417,11 +419,13 @@ export class PCB_GROUP extends BOARD_ITEM {
   }
 
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
-    aList.push(new MSG_PANEL_ITEM('Group', this.m_name.length === 0 ? '<unnamed>' : this.m_name));
-    aList.push(new MSG_PANEL_ITEM('Members', `${this.m_items.size}`));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Group'), this.m_name.length === 0 ? _('<unnamed>') : this.m_name),
+    );
+    aList.push(new MSG_PANEL_ITEM(_('Members'), `${this.m_items.size}`));
 
     if (aFrame.GetName() === PCB_EDIT_FRAME_NAME && this.IsLocked())
-      aList.push(new MSG_PANEL_ITEM('Status', 'Locked'));
+      aList.push(new MSG_PANEL_ITEM(_('Status'), _('Locked')));
   }
 
   override Matches(aSearchData: EDA_SEARCH_DATA, aAuxData: unknown): boolean {
@@ -499,14 +503,14 @@ function edaItemSet(aItems: Set<EDA_ITEM>): EDA_ITEM[] {
   propMgr.InheritsAfter(PCB_GROUP, BOARD_ITEM);
   propMgr.InheritsAfter(PCB_GROUP, EDA_GROUP);
 
-  propMgr.Mask(PCB_GROUP, BOARD_ITEM, 'Position X');
-  propMgr.Mask(PCB_GROUP, BOARD_ITEM, 'Position Y');
-  propMgr.Mask(PCB_GROUP, BOARD_ITEM, 'Layer');
+  propMgr.Mask(PCB_GROUP, BOARD_ITEM, _HKI('Position X'));
+  propMgr.Mask(PCB_GROUP, BOARD_ITEM, _HKI('Position Y'));
+  propMgr.Mask(PCB_GROUP, BOARD_ITEM, _HKI('Layer'));
 
-  const groupTab = 'Group Properties';
+  const groupTab = _HKI('Group Properties');
 
   propMgr.AddProperty(
-    new PROPERTY<EDA_GROUP, string>(EDA_GROUP, 'Name', 'SetName', 'GetName', TYPE_STRING),
+    new PROPERTY<EDA_GROUP, string>(EDA_GROUP, _HKI('Name'), 'SetName', 'GetName', TYPE_STRING),
     groupTab,
   );
 })();

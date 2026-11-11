@@ -23,6 +23,7 @@ import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import type { BOARD } from '../board.js';
 import type { MULTICHANNEL_TOOL, RULE_AREA } from '../tools/multichannel_tool.js';
 import { DIALOG_MULTICHANNEL_REPEAT_LAYOUT_BASE } from './dialog_multichannel_repeat_layout_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 interface TABLE_ENTRY {
   m_targetRA: RULE_AREA;
@@ -58,10 +59,10 @@ export class DIALOG_MULTICHANNEL_REPEAT_LAYOUT {
     this.m_board = aBoard;
     this.m_parentTool = aParentTool;
     this.m_raGrid.SetTable(new wxGridStringTable(0, 4), true);
-    this.m_raGrid.SetColLabelValue(COL_COPY, 'Copy');
-    this.m_raGrid.SetColLabelValue(COL_NAME, 'Target Rule Area');
-    this.m_raGrid.SetColLabelValue(COL_STATUS, 'Status');
-    this.m_raGrid.SetColLabelValue(COL_DETAILS, 'Details');
+    this.m_raGrid.SetColLabelValue(COL_COPY, _('Copy'));
+    this.m_raGrid.SetColLabelValue(COL_NAME, _('Target Rule Area'));
+    this.m_raGrid.SetColLabelValue(COL_STATUS, _('Status'));
+    this.m_raGrid.SetColLabelValue(COL_DETAILS, _('Details'));
     this.m_raGrid.EnableEditing(false);
     this.m_tricks = new GRID_TRICKS(this.m_raGrid);
     this.TransferDataToWindow();
@@ -93,7 +94,7 @@ export class DIALOG_MULTICHANNEL_REPEAT_LAYOUT {
 
     this.m_targetRAs.forEach((entry, i) => {
       grid.SetCellValue(i, COL_NAME, entry.m_raName);
-      grid.SetCellValue(i, COL_STATUS, entry.m_isOK ? 'OK' : entry.m_errMsg);
+      grid.SetCellValue(i, COL_STATUS, entry.m_isOK ? _('OK') : entry.m_errMsg);
       grid.SetCellValue(i, COL_DETAILS, '');
       grid.SetCellRenderer(i, COL_COPY, new wxGridCellBoolRenderer());
       grid.SetCellEditor(i, COL_COPY, new wxGridCellBoolEditor());
@@ -224,7 +225,7 @@ export function DialogMultichannelRepeatLayout({
             const entry = dlg.m_targetRAs[aRow];
             // GRID_CELL_ICON_RENDERER( KiBitmapBundleDef( BITMAPS::help, 16 ) ).
             return entry && !entry.m_isOK && entry.m_mismatchReasons.length > 0 ? (
-              <img src={KiBitmapBundle(BITMAPS.help)} width="16" height="16" alt="Details" />
+              <img src={KiBitmapBundle(BITMAPS.help)} width="16" height="16" alt={_('Details')} />
             ) : null;
           }}
         />

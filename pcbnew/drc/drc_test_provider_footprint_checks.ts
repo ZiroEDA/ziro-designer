@@ -19,6 +19,7 @@ import type { BOARD_ITEM } from '../board_item.js';
 import type { PAD } from '../pad.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_FOOTPRINT_CHECKS extends DRC_TEST_PROVIDER {
   constructor() {
@@ -31,7 +32,7 @@ export class DRC_TEST_PROVIDER_FOOTPRINT_CHECKS extends DRC_TEST_PROVIDER {
   }
 
   Run(): boolean {
-    if (!this.reportPhase('Checking footprints...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking footprints...'))) return false; // DRC cancelled
 
     const errorHandler = (
       aItemA: BOARD_ITEM | null,

@@ -47,6 +47,7 @@ import {
 import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 
 import { PCB_SHAPE } from './pcb_shape.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class PCB_TARGET extends BOARD_ITEM {
   private m_shape: number; // bit 0 : 0 = draw +, 1 = draw X
@@ -233,8 +234,8 @@ export class PCB_TARGET extends BOARD_ITEM {
   }
 
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
-    aList.push(new MSG_PANEL_ITEM('PCB Target', ''));
-    aList.push(new MSG_PANEL_ITEM('Layer', this.GetLayerName()));
+    aList.push(new MSG_PANEL_ITEM(_('PCB Target'), ''));
+    aList.push(new MSG_PANEL_ITEM(_('Layer'), this.GetLayerName()));
     aList.push(new MSG_PANEL_ITEM('Size', aFrame.MessageTextFromValue(this.GetSize())));
     aList.push(new MSG_PANEL_ITEM('Width', aFrame.MessageTextFromValue(this.GetWidth())));
     aList.push(new MSG_PANEL_ITEM('Shape', this.GetShape() === 0 ? '+' : 'X'));

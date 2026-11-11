@@ -36,18 +36,33 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The base's fixed choice lists. */
-export const VIA_TYPE_CHOICES = ['Through', 'Micro', 'Blind', 'Buried'] as const;
-export const PADSTACK_MODE_CHOICES = ['Normal', 'Front/Inner/Back', 'Custom'] as const;
-export const ANNULAR_RINGS_CHOICES = [
-  'All copper layers',
-  'Start, end, and connected layers',
-  'Connected layers only',
-  'Start and end layers only',
+export const VIA_TYPE_CHOICES = [
+  _HKI('Through'),
+  _HKI('Micro'),
+  _HKI('Blind'),
+  _HKI('Buried'),
 ] as const;
-export const BACKDRILL_CHOICES = ['None', 'Bottom', 'Top', 'Both'] as const;
-export const POST_MACHINE_CHOICES = ['None', 'Countersink', 'Counterbore'] as const;
+export const PADSTACK_MODE_CHOICES = [
+  _HKI('Normal'),
+  _HKI('Front/Inner/Back'),
+  _HKI('Custom'),
+] as const;
+export const ANNULAR_RINGS_CHOICES = [
+  _HKI('All copper layers'),
+  _HKI('Start, end, and connected layers'),
+  _HKI('Connected layers only'),
+  _HKI('Start and end layers only'),
+] as const;
+export const BACKDRILL_CHOICES = [_HKI('None'), _HKI('Bottom'), _HKI('Top'), _HKI('Both')] as const;
+export const POST_MACHINE_CHOICES = [
+  _HKI('None'),
+  _HKI('Countersink'),
+  _HKI('Counterbore'),
+] as const;
 
 /** A UNIT_BINDER over a wxTextCtrl, with its label and units text. */
 export interface UNIT {
@@ -226,7 +241,7 @@ function PostMachine({
       </SizerItem>
       <Spacer proportion={1} flag={wxEXPAND} border={5} />
       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
-        <Label text="Size:" enabled={size1.enabled} />
+        <Label text={_('Size:')} enabled={size1.enabled} />
       </SizerItem>
       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxTOP | wxBOTTOM} border={2}>
         <Ctrl unit={size1} ariaLabel={`${side.replace(':', '')} post-machining size`} />
@@ -235,12 +250,12 @@ function PostMachine({
         <Label text={size1.units} enabled={size1.enabled} />
       </SizerItem>
       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
-        <Label text={size2.label ?? 'Angle:'} enabled={size2.enabled} />
+        <Label text={size2.label ?? _('Angle:')} enabled={size2.enabled} />
       </SizerItem>
       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxTOP | wxBOTTOM} border={2}>
         <Ctrl
           unit={size2}
-          ariaLabel={`${side.replace(':', '')} post-machining ${(size2.label ?? 'Angle:').replace(':', '').toLowerCase()}`}
+          ariaLabel={`${side.replace(':', '')} post-machining ${(size2.label ?? _('Angle:')).replace(':', '').toLowerCase()}`}
         />
       </SizerItem>
       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
@@ -257,11 +272,11 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
   const tdUnit = (u: UNIT): UNIT => ({ ...u, enabled: td && u.enabled !== false });
 
   return (
-    <DialogShim title="Track & Via Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Track & Via Properties')} onClose={p.onCancel}>
       {/* m_MainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxALL} border={10}>
-          <StaticBoxSizer label="Common" orient={wxVERTICAL}>
+          <StaticBoxSizer label={_('Common')} orient={wxVERTICAL}>
             <SizerItem proportion={5} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
               {/* bSizerNetWidgets */}
               <BoxSizer orient={wxHORIZONTAL}>
@@ -269,7 +284,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                   {/* bNetWidgetsLeftCol */}
                   <BoxSizer orient={wxHORIZONTAL}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={1}>
-                      <Label text="Net:" enabled={p.net.enabled} />
+                      <Label text={_('Net:')} enabled={p.net.enabled} />
                     </SizerItem>
                     <SizerItem
                       proportion={1}
@@ -297,8 +312,10 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                       shown={p.viaNotFreeShown}
                     >
                       <TriStateCheck
-                        label="Automatically update via nets"
-                        title="Automatically change the net of this via when the pads or zones it touches are changed"
+                        label={_('Automatically update via nets')}
+                        title={_(
+                          'Automatically change the net of this via when the pads or zones it touches are changed',
+                        )}
                         check={p.m_viaNotFree}
                       />
                     </SizerItem>
@@ -311,12 +328,12 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
             </SizerItem>
             <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
             <SizerItem flag={wxTOP | wxBOTTOM | wxLEFT} border={4}>
-              <TriStateCheck label="Locked" check={p.m_lockedCbox} />
+              <TriStateCheck label={_('Locked')} check={p.m_lockedCbox} />
             </SizerItem>
           </StaticBoxSizer>
         </SizerItem>
         <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={10} shown={p.tracksShown}>
-          <StaticBoxSizer label="Tracks" orient={wxHORIZONTAL}>
+          <StaticBoxSizer label={_('Tracks')} orient={wxHORIZONTAL}>
             <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
               {/* bSizerTracksLeftCol */}
               <BoxSizer orient={wxVERTICAL}>
@@ -324,7 +341,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                   {/* fgTrackEnds = wxFlexGridSizer( 7, 5, 3, 3 ), AddGrowableCol( 1 ), ( 3 ) */}
                   <FlexGridSizer cols={5} vgap={3} hgap={3} growableCols={[1, 3]}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={1}>
-                      <Label text="Start X:" enabled={p.m_trackStartX.enabled} />
+                      <Label text={_('Start X:')} enabled={p.m_trackStartX.enabled} />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={3}>
                       <Ctrl unit={p.m_trackStartX} ariaLabel="Start X" />
@@ -339,16 +356,16 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                       <Label text={p.m_trackStartY.units} enabled={p.m_trackStartY.enabled} />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={1}>
-                      <Label text="End X:" enabled={p.m_trackEndX.enabled} />
+                      <Label text={_('End X:')} enabled={p.m_trackEndX.enabled} />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={3}>
-                      <Ctrl unit={p.m_trackEndX} ariaLabel="End X" />
+                      <Ctrl unit={p.m_trackEndX} ariaLabel={_HKI('End X')} />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={8}>
                       <Label text="Y:" enabled={p.m_trackEndY.enabled} />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={3}>
-                      <Ctrl unit={p.m_trackEndY} ariaLabel="End Y" />
+                      <Ctrl unit={p.m_trackEndY} ariaLabel={_HKI('End Y')} />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={8}>
                       <Label text={p.m_trackEndY.units} enabled={p.m_trackEndY.enabled} />
@@ -359,7 +376,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                   {/* gbSizer1 = wxGridBagSizer( 3, 3 ), SetEmptyCellSize( -1, 0 ), AddGrowableCol( 1 ) */}
                   <GridBagSizer vgap={3} hgap={3} emptyCellSize={[0, 0]} growableCols={[1]}>
                     <SizerItem pos={[1, 0]} flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={1}>
-                      <StaticText label="Pre-defined sizes:" />
+                      <StaticText label={_('Pre-defined sizes:')} />
                     </SizerItem>
                     <SizerItem
                       pos={[1, 1]}
@@ -375,10 +392,10 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                       <StaticText label={p.predefinedTrackWidthsUnits} />
                     </SizerItem>
                     <SizerItem pos={[2, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <Label text="Track width:" enabled={p.m_trackWidth.enabled} />
+                      <Label text={_('Track width:')} enabled={p.m_trackWidth.enabled} />
                     </SizerItem>
                     <SizerItem pos={[2, 1]} flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
-                      <Ctrl unit={p.m_trackWidth} ariaLabel="Track width" />
+                      <Ctrl unit={p.m_trackWidth} ariaLabel={_HKI('Track width')} />
                     </SizerItem>
                     <SizerItem pos={[2, 2]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                       <Label text={p.m_trackWidth.units} enabled={p.m_trackWidth.enabled} />
@@ -395,7 +412,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                   {/* fgTrackRightSizer = wxFlexGridSizer( 1, 3, 3, 5 ), AddGrowableCol( 2 ) */}
                   <FlexGridSizer cols={3} vgap={3} hgap={5} growableCols={[2]}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
-                      <StaticText label="Layer:" />
+                      <StaticText label={_('Layer:')} />
                     </SizerItem>
                     <Spacer width={25} height={0} flag={wxEXPAND} border={5} />
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxRIGHT} border={5}>
@@ -413,7 +430,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                         <SizerItem flag={wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL} border={5}>
                           {/* m_techLayersLabel: KIUI::GetSmallInfoFont */}
                           <StaticText
-                            label="Technical Layers"
+                            label={_('Technical Layers')}
                             font="smallInfo"
                             disabled={!p.techLayersEnabled}
                           />
@@ -431,18 +448,18 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                       {/* fgSizerTrackMaskMargin = wxFlexGridSizer( 0, 4, 3, 5 ), AddGrowableCol( 2 ) */}
                       <FlexGridSizer cols={4} vgap={3} hgap={5} growableCols={[2]}>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                          <TriStateCheck label="Solder mask" check={p.m_trackHasSolderMask} />
+                          <TriStateCheck label={_('Solder mask')} check={p.m_trackHasSolderMask} />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                          <Label text="Expansion:" enabled={p.m_trackMaskMargin.enabled} />
+                          <Label text={_('Expansion:')} enabled={p.m_trackMaskMargin.enabled} />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
                           <Ctrl
                             unit={p.m_trackMaskMargin}
                             ariaLabel="Solder mask expansion"
-                            title={
-                              'This is the local clearance between the track and the solder mask opening.\nLeave blank to use the value defined in the Board Setup.'
-                            }
+                            title={_(
+                              'This is the local clearance between the track and the solder mask opening.\nLeave blank to use the value defined in the Board Setup.',
+                            )}
                           />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
@@ -460,7 +477,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
           </StaticBoxSizer>
         </SizerItem>
         <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={10} shown={p.viasShown}>
-          <StaticBoxSizer label="Vias" orient={wxVERTICAL}>
+          <StaticBoxSizer label={_('Vias')} orient={wxVERTICAL}>
             <SizerItem flag={wxALL | wxEXPAND} border={5}>
               {/* bSizerViaCols */}
               <BoxSizer orient={wxHORIZONTAL}>
@@ -471,16 +488,16 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                       {/* fgViaPos = wxFlexGridSizer( 6, 5, 4, 2 ), AddGrowableCol( 1 ), ( 3 ) */}
                       <FlexGridSizer cols={5} vgap={4} hgap={2} growableCols={[1, 3]}>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={1}>
-                          <Label text="Position X:" enabled={p.m_viaX.enabled} />
+                          <Label text={_('Position X:')} enabled={p.m_viaX.enabled} />
                         </SizerItem>
                         <SizerItem flag={wxEXPAND | wxALIGN_CENTER_VERTICAL} border={3}>
-                          <Ctrl unit={p.m_viaX} ariaLabel="Position X" />
+                          <Ctrl unit={p.m_viaX} ariaLabel={_HKI('Position X')} />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={8}>
                           <Label text="Y:" enabled={p.m_viaY.enabled} />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={3}>
-                          <Ctrl unit={p.m_viaY} ariaLabel="Position Y" />
+                          <Ctrl unit={p.m_viaY} ariaLabel={_HKI('Position Y')} />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                           <Label text={p.m_viaY.units} enabled={p.m_viaY.enabled} />
@@ -491,7 +508,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                       {/* gbSizer3 = wxGridBagSizer( 3, 3 ), SetEmptyCellSize( -1, 0 ), AddGrowableCol( 1 ) */}
                       <GridBagSizer vgap={3} hgap={3} emptyCellSize={[0, 0]} growableCols={[1]}>
                         <SizerItem pos={[1, 0]} flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={1}>
-                          <StaticText label="Pre-defined sizes:" />
+                          <StaticText label={_('Pre-defined sizes:')} />
                         </SizerItem>
                         <SizerItem
                           pos={[1, 1]}
@@ -510,7 +527,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                           {/* m_sbPadstackSettings */}
                           <BoxSizer orient={wxHORIZONTAL}>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                              <StaticText label="Padstack mode:" />
+                              <StaticText label={_('Padstack mode:')} />
                             </SizerItem>
                             <SizerItem flag={wxALL} border={5}>
                               <Choice
@@ -520,7 +537,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                               />
                             </SizerItem>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                              <Label text="Edit layer:" enabled={p.m_cbEditLayer.enabled} />
+                              <Label text={_('Edit layer:')} enabled={p.m_cbEditLayer.enabled} />
                             </SizerItem>
                             <SizerItem flag={wxTOP | wxBOTTOM | wxLEFT} border={5}>
                               <List list={p.m_cbEditLayer} ariaLabel="Edit layer" />
@@ -528,20 +545,20 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                           </BoxSizer>
                         </SizerItem>
                         <SizerItem pos={[3, 0]} flag={wxLEFT | wxALIGN_CENTER_VERTICAL} border={1}>
-                          <Label text="Via diameter:" enabled={p.m_viaDiameter.enabled} />
+                          <Label text={_('Via diameter:')} enabled={p.m_viaDiameter.enabled} />
                         </SizerItem>
                         <SizerItem
                           pos={[3, 1]}
                           flag={wxALIGN_CENTER_VERTICAL | wxEXPAND}
                           border={5}
                         >
-                          <Ctrl unit={p.m_viaDiameter} ariaLabel="Via diameter" />
+                          <Ctrl unit={p.m_viaDiameter} ariaLabel={_HKI('Via diameter')} />
                         </SizerItem>
                         <SizerItem pos={[3, 2]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                           <Label text={p.m_viaDiameter.units} enabled={p.m_viaDiameter.enabled} />
                         </SizerItem>
                         <SizerItem pos={[4, 0]} flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={1}>
-                          <Label text="Via hole:" enabled={p.m_viaDrill.enabled} />
+                          <Label text={_('Via hole:')} enabled={p.m_viaDrill.enabled} />
                         </SizerItem>
                         <SizerItem
                           pos={[4, 1]}
@@ -566,7 +583,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                       flag={wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL}
                       border={5}
                     >
-                      <Label text="Via type:" enabled={p.m_ViaTypeChoice.enabled} />
+                      <Label text={_('Via type:')} enabled={p.m_ViaTypeChoice.enabled} />
                     </SizerItem>
                     <SizerItem
                       pos={[0, 1]}
@@ -584,7 +601,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                       flag={wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
                       border={5}
                     >
-                      <Label text="Start layer:" enabled={p.m_ViaStartLayer.enabled} />
+                      <Label text={_('Start layer:')} enabled={p.m_ViaStartLayer.enabled} />
                     </SizerItem>
                     <SizerItem pos={[1, 1]} flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
                       <LayerBox box={p.m_ViaStartLayer} ariaLabel="Start layer" />
@@ -594,7 +611,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                       flag={wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
                       border={5}
                     >
-                      <Label text="End layer:" enabled={p.m_ViaEndLayer.enabled} />
+                      <Label text={_('End layer:')} enabled={p.m_ViaEndLayer.enabled} />
                     </SizerItem>
                     <SizerItem pos={[2, 1]} flag={wxEXPAND | wxALIGN_CENTER_VERTICAL} border={5}>
                       <LayerBox box={p.m_ViaEndLayer} ariaLabel="End layer" />
@@ -605,7 +622,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                       border={5}
                       shown={p.annularRingsShown}
                     >
-                      <StaticText label="Annular rings:" />
+                      <StaticText label={_('Annular rings:')} />
                     </SizerItem>
                     <SizerItem
                       pos={[4, 1]}
@@ -624,7 +641,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                       flag={wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
                       border={5}
                     >
-                      <StaticText label="Protection features:" />
+                      <StaticText label={_('Protection features:')} />
                     </SizerItem>
                     <SizerItem
                       pos={[5, 1]}
@@ -634,7 +651,9 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                       <List
                         list={p.m_protectionFeatures}
                         ariaLabel="Protection features"
-                        title="Select which protection feature according to IPC-4761 the via should have."
+                        title={_(
+                          'Select which protection feature according to IPC-4761 the via should have.',
+                        )}
                       />
                     </SizerItem>
                   </GridBagSizer>
@@ -660,7 +679,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                   {/* fgSizer6 = wxFlexGridSizer( 0, 2, 0, 0 ) */}
                   <FlexGridSizer cols={2} vgap={0} hgap={0}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <StaticText label="Backdrill:" />
+                      <StaticText label={_('Backdrill:')} />
                     </SizerItem>
                     <SizerItem
                       flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxRIGHT | wxLEFT}
@@ -678,7 +697,10 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                   {/* fgSizer7 = wxFlexGridSizer( 0, 2, 2, 0 ) */}
                   <FlexGridSizer cols={2} vgap={2} hgap={0}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
-                      <Label text="Top backdrill size:" enabled={p.m_backdrillFrontSize.enabled} />
+                      <Label
+                        text={_('Top backdrill size:')}
+                        enabled={p.m_backdrillFrontSize.enabled}
+                      />
                     </SizerItem>
                     <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                       {/* bSizer31 */}
@@ -696,7 +718,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                       <Label
-                        text="Top backdrill must-cut:"
+                        text={_('Top backdrill must-cut:')}
                         enabled={p.m_backdrillFrontLayer.enabled}
                       />
                     </SizerItem>
@@ -713,7 +735,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                   <FlexGridSizer cols={2} vgap={2} hgap={0}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                       <Label
-                        text="Bottom backdrill size:"
+                        text={_('Bottom backdrill size:')}
                         enabled={p.m_backdrillBackSize.enabled}
                       />
                     </SizerItem>
@@ -736,7 +758,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                       border={5}
                     >
                       <Label
-                        text="Bottom backdrill must-cut:"
+                        text={_('Bottom backdrill must-cut:')}
                         enabled={p.m_backdrillBackLayer.enabled}
                       />
                     </SizerItem>
@@ -747,7 +769,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                       <LayerBox
                         box={p.m_backdrillBackLayer}
                         ariaLabel="Bottom backdrill must-cut"
-                        title="The backdrill must pass through this layer"
+                        title={_('The backdrill must pass through this layer')}
                       />
                     </SizerItem>
                   </FlexGridSizer>
@@ -759,7 +781,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
                   {/* m_postMachineSectionLabel: KIUI::GetSmallInfoFont */}
-                  <StaticText label="Hole Post-machining" font="smallInfo" />
+                  <StaticText label={_('Hole Post-machining')} font="smallInfo" />
                 </SizerItem>
                 <SizerItem
                   proportion={1}
@@ -806,10 +828,12 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                   {/* bSizer42 */}
                   <BoxSizer orient={wxVERTICAL}>
                     <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-                      <StaticText label="Board contains legacy teardrops." />
+                      <StaticText label={_('Board contains legacy teardrops.')} />
                     </SizerItem>
                     <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                      <StaticText label="Use Edit > Edit Teardrops to apply automatic teardrops." />
+                      <StaticText
+                        label={_('Use Edit > Edit Teardrops to apply automatic teardrops.')}
+                      />
                     </SizerItem>
                   </BoxSizer>
                 </SizerItem>
@@ -827,7 +851,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                         <Spacer width={0} height={2} flag={wxEXPAND} border={5} />
                         <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={3}>
                           <TriStateCheck
-                            label="Add teardrops on via's track connections"
+                            label={_("Add teardrops on via's track connections")}
                             check={{
                               ...p.m_cbTeardrops,
                               enabled: td && p.m_cbTeardrops.enabled !== false,
@@ -836,8 +860,10 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                         </SizerItem>
                         <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                           <TriStateCheck
-                            label="Allow teardrops to span two track segments"
-                            title="Allows a teardrop to extend over the first 2 connected track segments if the first track segment is too short to accommodate the best length."
+                            label={_('Allow teardrops to span two track segments')}
+                            title={_(
+                              'Allows a teardrop to extend over the first 2 connected track segments if the first track segment is too short to accommodate the best length.',
+                            )}
                             check={{
                               ...p.m_cbTeardropsUseNextTrack,
                               enabled: td && p.m_cbTeardropsUseNextTrack.enabled !== false,
@@ -855,18 +881,20 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                           <BoxSizer orient={wxHORIZONTAL}>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                               <span
-                                title={
-                                  'Max pad/via size to track width ratio to create a teardrop.\n100 always creates a teardrop.'
-                                }
+                                title={_(
+                                  'Max pad/via size to track width ratio to create a teardrop.\n100 always creates a teardrop.',
+                                )}
                               >
-                                <Label text="Maximum track width:" enabled={td} />
+                                <Label text={_('Maximum track width:')} enabled={td} />
                               </span>
                             </SizerItem>
                             <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
                               <Ctrl
                                 unit={tdUnit(p.m_teardropHDPercent)}
                                 ariaLabel="Maximum track width"
-                                title="Tracks which are similar in size to the via do not need teardrops."
+                                title={_(
+                                  'Tracks which are similar in size to the via do not need teardrops.',
+                                )}
                               />
                             </SizerItem>
                             <SizerItem flag={wxRIGHT | wxALIGN_CENTER_VERTICAL} border={5}>
@@ -879,7 +907,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                           <BoxSizer orient={wxVERTICAL}>
                             <SizerItem flag={wxEXPAND | wxTOP | wxBOTTOM} border={2}>
                               <StaticText
-                                label="(as a percentage of pad/via/track size)"
+                                label={_('(as a percentage of pad/via/track size)')}
                                 font="info"
                                 italic
                                 disabled={!td}
@@ -919,7 +947,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                           {/* fgSizerRightCol = wxFlexGridSizer( 0, 3, 3, 5 ), AddGrowableCol( 1 ) */}
                           <FlexGridSizer cols={3} vgap={3} hgap={5} growableCols={[1]}>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                              <Label text="Best length (L):" enabled={td} />
+                              <Label text={_('Best length (L):')} enabled={td} />
                             </SizerItem>
                             <SizerItem flag={wxEXPAND | wxALIGN_CENTER_VERTICAL} border={5}>
                               <Ctrl unit={tdUnit(p.m_teardropLenPercent)} ariaLabel="Best length" />
@@ -939,7 +967,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                               </BoxSizer>
                             </SizerItem>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                              <Label text="Maximum length (L):" enabled={td} />
+                              <Label text={_('Maximum length (L):')} enabled={td} />
                             </SizerItem>
                             <SizerItem flag={wxEXPAND | wxALIGN_CENTER_VERTICAL} border={5}>
                               <Ctrl unit={tdUnit(p.m_teardropMaxLen)} ariaLabel="Maximum length" />
@@ -957,7 +985,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                             <Spacer proportion={1} flag={wxEXPAND} border={5} />
                             <Spacer proportion={1} flag={wxEXPAND} border={5} />
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                              <Label text="Best width (W):" enabled={td} />
+                              <Label text={_('Best width (W):')} enabled={td} />
                             </SizerItem>
                             <SizerItem flag={wxEXPAND | wxALIGN_CENTER_VERTICAL} border={5}>
                               <Ctrl
@@ -980,7 +1008,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                               </BoxSizer>
                             </SizerItem>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                              <Label text="Maximum width (W):" enabled={td} />
+                              <Label text={_('Maximum width (W):')} enabled={td} />
                             </SizerItem>
                             <SizerItem flag={wxEXPAND | wxALIGN_CENTER_VERTICAL} border={5}>
                               <Ctrl unit={tdUnit(p.m_teardropMaxWidth)} ariaLabel="Maximum width" />
@@ -995,7 +1023,7 @@ export function DIALOG_TRACK_VIA_PROPERTIES_BASE(
                           <BoxSizer orient={wxHORIZONTAL}>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
                               <TriStateCheck
-                                label="Curved edges"
+                                label={_('Curved edges')}
                                 check={{
                                   ...p.m_curvedEdges,
                                   enabled: td && p.m_curvedEdges.enabled !== false,

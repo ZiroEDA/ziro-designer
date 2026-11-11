@@ -22,6 +22,8 @@ import { PANEL_SETUP_BOARD_FINISH_BASE } from './panel_board_finish_base.js';
 import { GetStandardCopperFinishes } from './stackup_predefined_prms.js';
 import type { BOARD } from '../board.js';
 import type { BS_EDGE_CONNECTOR_CONSTRAINTS } from './board_stackup.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export interface BoardFinish {
   platedBoardEdge: boolean;
@@ -30,7 +32,7 @@ export interface BoardFinish {
 }
 
 /** BS_EDGE_CONNECTOR_CONSTRAINTS: BS_EDGE_CONNECTOR_NONE 0, _IN_USE 1, _BEVELLED 2. */
-export const EDGE_CONNECTORS = ['None', 'Yes', 'Yes, bevelled'] as const;
+export const EDGE_CONNECTORS = [_HKI('None'), _HKI('Yes'), _HKI('Yes, bevelled')] as const;
 
 /** The choice's selection as BS_EDGE_CONNECTOR_CONSTRAINTS. */
 export const edgeConnectorOf = (aLabel: string): BS_EDGE_CONNECTOR_CONSTRAINTS =>
@@ -42,7 +44,7 @@ export const PANEL_SETUP_BOARD_FINISH = {
     const stackup = aBoard.GetDesignSettings().GetStackupDescriptor();
     return {
       copperFinish: stackup.m_FinishType,
-      edgeCardConnectors: EDGE_CONNECTORS[stackup.m_EdgeConnectorConstraints] ?? 'None',
+      edgeCardConnectors: EDGE_CONNECTORS[stackup.m_EdgeConnectorConstraints] ?? _('None'),
       platedBoardEdge: stackup.m_EdgePlating,
     };
   },

@@ -52,6 +52,7 @@ import { PCB_PLOTTER } from '../pcb_plotter.js';
 import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js';
 import { PLOT_MAX_SCALE, PLOT_MIN_SCALE } from '../pcbplot.js';
 import { DIALOG_PLOT_BASE } from './dialog_plot_base.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 interface Props {
   board: BOARD;
@@ -328,14 +329,14 @@ export function DialogPcbPlot({
 
     if (!xOk) {
       setFineX(xAdj.toFixed(6));
-      aReporter.Report('X scale constrained.', RPT_SEVERITY_INFO);
+      aReporter.Report(wxGetTranslation('X scale constrained.'), RPT_SEVERITY_INFO);
     }
 
     const [yAdj, yOk] = clip(Number.parseFloat(fineY) || 0, PLOT_MIN_SCALE, PLOT_MAX_SCALE);
 
     if (!yOk) {
       setFineY(yAdj.toFixed(6));
-      aReporter.Report('Y scale constrained.', RPT_SEVERITY_INFO);
+      aReporter.Report(wxGetTranslation('Y scale constrained.'), RPT_SEVERITY_INFO);
     }
 
     const minW = -(bds.m_TrackMinWidth - 1);
@@ -403,7 +404,7 @@ export function DialogPcbPlot({
     // If no layer selected, we have nothing plotted.
     if (!params.GetLayerSelection().any()) {
       report(reporter);
-      DisplayErrorMessage('No layer selected, Nothing to plot');
+      DisplayErrorMessage(wxGetTranslation('No layer selected, Nothing to plot'));
       return;
     }
 
@@ -436,10 +437,10 @@ export function DialogPcbPlot({
     }
 
     if (params.GetScale() < PLOT_MIN_SCALE)
-      void DisplayInfoMessage('Warning: Scale option set to a very small value');
+      void DisplayInfoMessage(wxGetTranslation('Warning: Scale option set to a very small value'));
 
     if (params.GetScale() > PLOT_MAX_SCALE)
-      void DisplayInfoMessage('Warning: Scale option set to a very large value');
+      void DisplayInfoMessage(wxGetTranslation('Warning: Scale option set to a very large value'));
 
     // Save the current plot options in the board.
     board.SetPlotOptions(params);
@@ -498,19 +499,19 @@ export function DialogPcbPlot({
       x: e.clientX,
       y: e.clientY,
       items: [
-        { label: 'Select Fab Layers', action: () => set((l) => fab.test(l)) },
+        { label: wxGetTranslation('Select Fab Layers'), action: () => set((l) => fab.test(l)) },
         { sep: true },
         {
-          label: 'Select All Copper Layers',
+          label: wxGetTranslation('Select All Copper Layers'),
           action: () => set((l, was) => (IsCopperLayer(l) ? true : was)),
         },
         {
-          label: 'Deselect All Copper Layers',
+          label: wxGetTranslation('Deselect All Copper Layers'),
           action: () => set((l, was) => (IsCopperLayer(l) ? false : was)),
         },
         { sep: true },
-        { label: 'Select All Layers', action: () => set(() => true) },
-        { label: 'Deselect All Layers', action: () => set(() => false) },
+        { label: wxGetTranslation('Select All Layers'), action: () => set(() => true) },
+        { label: wxGetTranslation('Deselect All Layers'), action: () => set(() => false) },
       ],
     });
   };
@@ -522,16 +523,16 @@ export function DialogPcbPlot({
       y: e.clientY,
       items: [
         {
-          label: 'Select All Layers',
+          label: wxGetTranslation('Select All Layers'),
           action: () => setAllLayers((o) => o.map((x) => ({ ...x, checked: true }))),
         },
         {
-          label: 'Deselect All Layers',
+          label: wxGetTranslation('Deselect All Layers'),
           action: () => setAllLayers((o) => o.map((x) => ({ ...x, checked: false }))),
         },
         { sep: true },
         {
-          label: 'Order as Board Stackup',
+          label: wxGetTranslation('Order as Board Stackup'),
           action: () => {
             // arrangeAllLayersList( SeqStackupForPlotting() ), then Select( -1 ).
             const stackup = board.GetEnabledLayers().SeqStackupForPlotting();
@@ -569,7 +570,7 @@ export function DialogPcbPlot({
 
   // The constructor's "Plot on All Layers" box: m_plotAllLayersList and the move buttons.
   const plotAllLayers = (
-    <StaticBoxSizer label="Plot on All Layers" orient={wxVERTICAL}>
+    <StaticBoxSizer label={wxGetTranslation('Plot on All Layers')} orient={wxVERTICAL}>
       <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={3}>
         <CheckListBox
           items={allLayers.map((o) => board.GetLayerName(o.layer))}
@@ -580,7 +581,7 @@ export function DialogPcbPlot({
           selection={allSel}
           onSelect={setAllSel}
           onContextMenu={onRightClickAllLayers}
-          ariaLabel="Plot on All Layers"
+          ariaLabel={wxGetTranslation('Plot on All Layers')}
         />
       </SizerItem>
       <SizerItem flag={wxALL | wxEXPAND} border={3}>
@@ -589,7 +590,7 @@ export function DialogPcbPlot({
           <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={3}>
             <StdBitmapButton
               bitmap="small_up"
-              title="Move current selection up"
+              title={wxGetTranslation('Move current selection up')}
               onClick={() => {
                 if (allSel > 0) {
                   setAllLayers((o) => moveCurrent(o, allSel, -1));
@@ -601,7 +602,7 @@ export function DialogPcbPlot({
           <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
             <StdBitmapButton
               bitmap="small_down"
-              title="Move current selection down"
+              title={wxGetTranslation('Move current selection down')}
               onClick={() => {
                 if (allSel >= 0 && allSel < allLayers.length - 1) {
                   setAllLayers((o) => moveCurrent(o, allSel, 1));
@@ -645,7 +646,7 @@ export function DialogPcbPlot({
         m_plotPSNegativeOpt={check(negative, setNegative, isPS || isSVG || isPDF)}
         solderMaskAlertShown={solderMaskAlert}
         onBoardSetup={() => {
-          onBoardSetup?.('Solder Mask/Paste');
+          onBoardSetup?.(wxGetTranslation('Solder Mask/Paste'));
           reInit();
         }}
         gerberShown={isGerber}

@@ -27,6 +27,7 @@ import {
 import { BoxSizer, GridBagSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
 import { STC_BEST_SIZE, StyledTextCtrl } from '@ziroeda/wx/stc.js';
 import type { FIELD, HALIGN, TOGGLE, VALIGN } from './dialog_text_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_TEXTBOX_PROPERTIES_BASE_PROPS {
   m_MultiLineText: { value: string; onChange: (aText: string) => void };
@@ -107,14 +108,14 @@ export function DIALOG_TEXTBOX_PROPERTIES_BASE(
   );
 
   return (
-    <DialogShim title="Text Box Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Text Box Properties')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={20} flag={wxEXPAND | wxALL} border={10}>
           {/* m_MultiLineSizer */}
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-              <StaticText label="Text:" />
+              <StaticText label={_('Text:')} />
             </SizerItem>
             <SizerItem
               proportion={1}
@@ -132,8 +133,8 @@ export function DIALOG_TEXTBOX_PROPERTIES_BASE(
             </SizerItem>
             <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={3}>
               <HyperlinkCtrl
-                label="Syntax help"
-                title="Show syntax help window"
+                label={_('Syntax help')}
+                title={_('Show syntax help window')}
                 onClick={p.onSyntaxHelp}
               />
             </SizerItem>
@@ -149,10 +150,10 @@ export function DIALOG_TEXTBOX_PROPERTIES_BASE(
               border={5}
               shown={p.m_cbLocked.shown}
             >
-              <CheckBox label="Locked" check={p.m_cbLocked} />
+              <CheckBox label={_('Locked')} check={p.m_cbLocked} />
             </SizerItem>
             <SizerItem pos={[1, 0]} flag={CV | wxTOP | wxBOTTOM | wxLEFT} border={5}>
-              <StaticText label="Layer:" />
+              <StaticText label={_('Layer:')} />
             </SizerItem>
             <SizerItem
               pos={[1, 1]}
@@ -169,7 +170,7 @@ export function DIALOG_TEXTBOX_PROPERTIES_BASE(
               />
             </SizerItem>
             <SizerItem pos={[1, 4]} flag={CV | wxLEFT} border={10}>
-              <StaticText label="Orientation:" title="Text orientation" />
+              <StaticText label={_('Orientation:')} title={_('Text orientation')} />
             </SizerItem>
             <SizerItem pos={[1, 5]} span={[1, 2]} flag={CV | wxEXPAND | wxRIGHT} border={5}>
               <TextCombo
@@ -180,7 +181,7 @@ export function DIALOG_TEXTBOX_PROPERTIES_BASE(
               />
             </SizerItem>
             <SizerItem pos={[3, 0]} flag={CV | wxRIGHT | wxLEFT} border={5}>
-              <StaticText label="Font:" />
+              <StaticText label={_('Font:')} />
             </SizerItem>
             <SizerItem pos={[3, 1]} span={[1, 3]} flag={CV | wxEXPAND} border={5}>
               <FontChoice face={p.m_fontCtrl.face} onChange={p.m_fontCtrl.onChange} />
@@ -212,9 +213,9 @@ export function DIALOG_TEXTBOX_PROPERTIES_BASE(
                 </SizerItem>
                 {(
                   [
-                    ['left', 'text_align_left', 'Align left'],
-                    ['center', 'text_align_center', 'Align center'],
-                    ['right', 'text_align_right', 'Align right'],
+                    ['left', 'text_align_left', _('Align left')],
+                    ['center', 'text_align_center', _('Align center')],
+                    ['right', 'text_align_right', _('Align right')],
                   ] as const
                 ).map(([align, bitmap, tip]) => (
                   <SizerItem key={align} flag={CV} border={5}>
@@ -231,9 +232,9 @@ export function DIALOG_TEXTBOX_PROPERTIES_BASE(
                 </SizerItem>
                 {(
                   [
-                    ['top', 'text_valign_top', 'Align top'],
+                    ['top', 'text_valign_top', _('Align top')],
                     ['center', 'text_valign_center', 'Align middle'],
-                    ['bottom', 'text_valign_bottom', 'Align bottom'],
+                    ['bottom', 'text_valign_bottom', _('Align bottom')],
                   ] as const
                 ).map(([align, bitmap, tip]) => (
                   <SizerItem key={align} flag={CV} border={5}>
@@ -263,7 +264,7 @@ export function DIALOG_TEXTBOX_PROPERTIES_BASE(
             </SizerItem>
             {field(5, 0, p.m_textWidth, 4, true)}
             <SizerItem pos={[5, 4]} span={[1, 2]} flag={wxLEFT | CV} border={10}>
-              <CheckBox label="Border" check={p.m_borderCheckbox} />
+              <CheckBox label={_('Border')} check={p.m_borderCheckbox} />
             </SizerItem>
             {field(6, 0, p.m_textHeight, 4, true)}
             {field(7, 0, p.m_thickness, 4, true, false)}
@@ -283,7 +284,7 @@ export function DIALOG_TEXTBOX_PROPERTIES_BASE(
                 >
                   <BitmapButton
                     bitmap="edit_cmp_symb_links"
-                    tooltip="Adjust the text thickness"
+                    tooltip={_('Adjust the text thickness')}
                     checked={p.m_autoTextThickness.checked}
                     onClick={p.m_autoTextThickness.onClick}
                   />
@@ -292,7 +293,7 @@ export function DIALOG_TEXTBOX_PROPERTIES_BASE(
             </SizerItem>
             {field(6, 4, p.m_borderWidth, 10, false)}
             <SizerItem pos={[7, 4]} flag={CV | wxLEFT} border={10}>
-              <StaticText label="Border style:" disabled={!p.m_borderStyleCombo.enabled} />
+              <StaticText label={_('Border style:')} disabled={!p.m_borderStyleCombo.enabled} />
             </SizerItem>
             <SizerItem
               pos={[7, 5]}

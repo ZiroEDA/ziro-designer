@@ -33,6 +33,8 @@ import {
   IPC4761_PRESET,
   VIA_PROTECTION_UI_MIXIN,
 } from '../via_protection_ui_mixin.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `g_netclassFilter` / `g_netFilter`: the filters a closed dialog leaves for the next. */
 let g_netclassFilter = '';
@@ -40,10 +42,10 @@ let g_netFilter = '';
 
 /** `m_annularRingsCtrlChoices[]` (dialog_global_edit_tracks_and_vias_base.cpp:200). */
 const ANNULAR_RING_CHOICES = [
-  'All copper layers',
-  'Start, end, and connected layers',
-  'Connected layers only',
-  'Start and end layers only',
+  _HKI('All copper layers'),
+  _HKI('Start, end, and connected layers'),
+  _HKI('Connected layers only'),
+  _HKI('Start and end layers only'),
 ];
 
 /** A `wxChoice`: its strings and the selected row. */
@@ -118,7 +120,7 @@ export class DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS {
     // `magic_enum::enum_values<IPC4761_PRESET>()`: enum order, which is also the
     // order `static_cast<IPC4761_PRESET>( GetSelection() )` reads the row back in.
     for (let preset = 0 as IPC4761_PRESET; preset < IPC4761_PRESET.CUSTOM; preset++)
-      presets.push(IPC4761_NAMES.get(preset) ?? 'Unknown choice');
+      presets.push(IPC4761_NAMES.get(preset) ?? _('Unknown choice'));
 
     presets.push(INDETERMINATE_ACTION);
     this.m_protectionFeatures = { items: presets, selection: 0 };

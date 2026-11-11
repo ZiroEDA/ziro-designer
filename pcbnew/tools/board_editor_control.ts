@@ -75,6 +75,7 @@ import type { BOARD } from '../board.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { DRAWING_MODE, type DRAWING_TOOL } from './drawing_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `BOARD_EDITOR_CONTROL::TrackWidthInc` / `TrackWidthDec`
@@ -221,7 +222,7 @@ class ZONE_PRIORITY_CONTEXT_MENU extends ACTION_MENU {
     super(true);
 
     this.SetIcon(BITMAPS.swap);
-    this.SetTitle('Zone Priority');
+    this.SetTitle(_('Zone Priority'));
 
     this.Add(PCB_ACTIONS.zonePriorityMoveToTop);
     this.Add(PCB_ACTIONS.zonePriorityRaise);
@@ -272,7 +273,7 @@ class ZONE_CONTEXT_MENU extends ACTION_MENU {
     super(true);
 
     this.SetIcon(BITMAPS.add_zone);
-    this.SetTitle('Zones');
+    this.SetTitle(_('Zones'));
 
     this.Add(PCB_ACTIONS.zoneFill);
     this.Add(PCB_ACTIONS.zoneFillAll);
@@ -306,7 +307,7 @@ class LOCK_CONTEXT_MENU extends CONDITIONAL_MENU {
     super(aTool);
 
     this.SetIcon(BITMAPS.locked);
-    this.SetTitle('Locking');
+    this.SetTitle(_('Locking'));
 
     this.AddItem(PCB_ACTIONS.lock, PCB_SELECTION_CONDITIONS.HasUnlockedItems);
     this.AddItem(PCB_ACTIONS.unlock, PCB_SELECTION_CONDITIONS.HasLockedItems);
@@ -546,7 +547,7 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
 
     if (netNames.size === 0) {
       (this.m_frame as unknown as PCB_EDIT_FRAME).ShowInfoBarError(
-        'Selection contains no items with labeled nets.',
+        _('Selection contains no items with labeled nets.'),
       );
       return 0;
     }
@@ -789,7 +790,7 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
           this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
         } else {
           this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
-          commit.Push('Place Footprint');
+          commit.Push(_('Place Footprint'));
           fp = null; // to indicate that there is no footprint that we currently modify
           this.m_placingFootprint = false;
         }
@@ -833,7 +834,7 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     const wrapper = new ITEM_PICKER(null, undoItem, UNDO_REDO.PAGESETTINGS);
 
     undoCmd.PushItem(wrapper);
-    undoCmd.SetDescription('Page Settings');
+    undoCmd.SetDescription(_('Page Settings'));
     frame.SaveCopyInUndoList(undoCmd, UNDO_REDO.PAGESETTINGS);
 
     // DIALOG_PAGES_SETTINGS dlg( m_frame, …, MAX_PAGE_SIZE_PCBNEW_MILS ): the
@@ -941,7 +942,7 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     }
 
     if (!commit.Empty()) {
-      commit.Push(aMode === MODIFY_MODE.ON ? 'Lock' : 'Unlock', SKIP_TEARDROPS);
+      commit.Push(aMode === MODIFY_MODE.ON ? _('Lock') : _('Unlock'), SKIP_TEARDROPS);
 
       this.m_toolMgr!.PostEvent(EVENTS.SelectedEvent);
       this.m_frame!.OnModify();
@@ -1011,10 +1012,10 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
         fileExists: () => false,
         confirmOverwrite: async (aMessage) =>
           (await frame.ShowKiDialog({
-            caption: 'Confirmation',
+            caption: _('Confirmation'),
             message: aMessage,
             icon: 'warning',
-            labels: { ok: 'Overwrite' },
+            labels: { ok: _('Overwrite') },
           })) === 'ok',
         write: (aPath, aBytes, aMime) => frame.WriteOutputFile(aPath, aBytes, aMime),
       },
@@ -1101,7 +1102,7 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     const fn = `${dot > 0 ? fullName.slice(0, dot) : fullName}.hyp`;
 
     const dlg = await frame.ShowSaveFileDialog(
-      'Export Hyperlynx Layout',
+      _('Export Hyperlynx Layout'),
       fn,
       { label: '*.hyp', extensions: ['hyp'] },
       null,
@@ -1161,7 +1162,7 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     const fn = `${dot > 0 ? fullName.slice(0, dot) : fullName}.cmp`;
 
     const dlg = await frame.ShowSaveFileDialog(
-      'Save Footprint Association File',
+      _('Save Footprint Association File'),
       fn,
       footprintAssignmentFileWildcard(),
       null,

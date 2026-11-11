@@ -26,6 +26,7 @@ import type { BOARD_ITEM } from '../board_item.js';
 import { PCB_GROUP } from '../pcb_group.js';
 import { type PCB_PICKER_TOOL, popupFocus } from './pcb_picker_tool.js';
 import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class PCB_GROUP_TOOL extends GROUP_TOOL {
   private selTool(): PCB_SELECTION_TOOL {
@@ -42,7 +43,7 @@ export class PCB_GROUP_TOOL extends GROUP_TOOL {
 
   protected canGroupItem(aItem: EDA_ITEM | null, aErrorMsg: { value: string }): boolean {
     if (!aItem?.IsBOARD_ITEM()) {
-      aErrorMsg.value = 'Some selected items cannot be grouped.';
+      aErrorMsg.value = _('Some selected items cannot be grouped.');
       return false;
     }
 
@@ -50,12 +51,14 @@ export class PCB_GROUP_TOOL extends GROUP_TOOL {
     const boardItem = aItem as BOARD_ITEM;
 
     if (!isFootprintEditor && boardItem.GetParentFootprint()) {
-      aErrorMsg.value = 'Footprint items cannot be grouped separately from their parent footprint.';
+      aErrorMsg.value = _(
+        'Footprint items cannot be grouped separately from their parent footprint.',
+      );
       return false;
     }
 
     if (!boardItem.IsGroupableType()) {
-      aErrorMsg.value = 'Some selected items cannot be grouped.';
+      aErrorMsg.value = _('Some selected items cannot be grouped.');
       return false;
     }
 
@@ -85,7 +88,7 @@ export class PCB_GROUP_TOOL extends GROUP_TOOL {
 
     this.Activate();
 
-    statusPopup.SetText('Click on new member...');
+    statusPopup.SetText(_('Click on new member...'));
 
     picker.SetCursor(KICURSOR.BULLSEYE);
     picker.SetSnapping(false);
@@ -197,7 +200,7 @@ export class PCB_GROUP_TOOL extends GROUP_TOOL {
     }
 
     this.m_commit!.Add(group);
-    this.m_commit!.Push('Group Items');
+    this.m_commit!.Push(_('Group Items'));
 
     this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
     this.m_toolMgr!.RunAction(ACTIONS.selectItem, group.AsEdaItem());

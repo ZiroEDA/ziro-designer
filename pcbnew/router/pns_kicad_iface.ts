@@ -129,6 +129,7 @@ import {
   ROUTER_PREVIEW_ITEM,
   type ROUTER_PREVIEW_IFACE,
 } from './router_preview_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `ENTERED_GROUP_MAGIC_NUMBER`: the replacement-map key for brand-new items. */
 const ENTERED_GROUP = Symbol('ENTERED_GROUP_MAGIC_NUMBER');
@@ -1237,7 +1238,7 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
     switch (parent.Type()) {
       case KICAD_T.PCB_PAD_T:
         if ((parent as PAD).GetAttribute() === PAD_ATTRIB.NPTH)
-          return 'Cannot start routing from a non-plated hole.';
+          return _('Cannot start routing from a non-plated hole.');
         break;
 
       case KICAD_T.PCB_ZONE_T: {
@@ -1247,13 +1248,13 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
 
         if (zone.GetZoneName() !== '') return `Rule area '${zone.GetZoneName()}' disallows tracks.`;
 
-        return 'Rule area disallows tracks.';
+        return _('Rule area disallows tracks.');
       }
 
       case KICAD_T.PCB_FIELD_T:
       case KICAD_T.PCB_TEXT_T:
       case KICAD_T.PCB_TEXTBOX_T:
-        return 'Cannot start routing from a text item.';
+        return _('Cannot start routing from a text item.');
 
       default:
         break;
@@ -1443,7 +1444,7 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
 
     aSizes.minClearance = ds.minClearance;
     aSizes.clearance = ds.minClearance;
-    aSizes.clearanceSource = 'board minimum clearance';
+    aSizes.clearanceSource = _('board minimum clearance');
 
     // `startAnchor`: which end of a segment the pointer is nearer, so the dummy
     // track below sits where the user actually started.
@@ -1488,7 +1489,7 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
     let trackWidth = ds.trackMinWidth;
     let found = false;
 
-    aSizes.widthSource = 'board minimum track width';
+    aSizes.widthSource = _('board minimum track width');
 
     // `if( bds.m_UseConnectedTrackWidth && !bds.m_TempOverrideTrackWidth && aStartItem )`
     if (ds.useConnectedTrackWidth && !ds.tempOverrideTrackWidth && aStartItem) {
@@ -1497,7 +1498,7 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
       if (inherited !== null) {
         trackWidth = inherited;
         found = true;
-        aSizes.widthSource = 'existing track';
+        aSizes.widthSource = _('existing track');
       }
     }
 
@@ -1523,8 +1524,8 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
       const current = ds.sizes.GetCurrentTrackWidth();
       trackWidth = Math.max(trackWidth, current);
 
-      if (ds.sizes.UseNetClassTrack()) aSizes.widthSource = "netclass 'Default'";
-      else if (trackWidth === current) aSizes.widthSource = 'user choice';
+      if (ds.sizes.UseNetClassTrack()) aSizes.widthSource = _("netclass 'Default'");
+      else if (trackWidth === current) aSizes.widthSource = _('user choice');
     }
 
     aSizes.trackWidth = trackWidth;
@@ -1567,8 +1568,8 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
     let diffPairGap = ds.minClearance;
     let diffPairViaGap = ds.minClearance;
 
-    aSizes.diffPairWidthSource = 'board minimum track width';
-    aSizes.diffPairGapSource = 'board minimum clearance';
+    aSizes.diffPairWidthSource = _('board minimum track width');
+    aSizes.diffPairGapSource = _('board minimum clearance');
 
     found = false;
 
@@ -1610,8 +1611,8 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
       diffPairGap = ds.sizes.GetCurrentDiffPairGap();
       diffPairViaGap = ds.sizes.GetCurrentDiffPairViaGap();
 
-      aSizes.diffPairWidthSource = 'user choice';
-      aSizes.diffPairGapSource = 'user choice';
+      aSizes.diffPairWidthSource = _('user choice');
+      aSizes.diffPairGapSource = _('user choice');
     }
 
     aSizes.diffPairWidth = diffPairWidth;
@@ -2040,7 +2041,7 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
 
     if (!commit.Empty()) this.m_pushedCommits++;
 
-    commit.Push('Routing', this.m_commitFlags | SKIP_ENTERED_GROUP);
+    commit.Push(_('Routing'), this.m_commitFlags | SKIP_ENTERED_GROUP);
     this.m_commit = new BOARD_COMMIT(this.mDeps.commitHost as PCB_BASE_FRAME);
   }
 

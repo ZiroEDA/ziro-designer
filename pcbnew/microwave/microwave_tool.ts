@@ -33,6 +33,7 @@ import {
 import { createBaseFootprint, createFootprint } from './microwave_footprint.js';
 import { createInductorBetween, createMicrowaveInductor } from './microwave_inductor.js';
 import { createPolygonShape } from './microwave_polygon.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export { MICROWAVE_FOOTPRINT_SHAPE };
 
@@ -122,7 +123,7 @@ export class MICROWAVE_TOOL extends PCB_TOOL_BASE {
     yield* this.doInteractiveItemPlacement(
       aEvent,
       new MICROWAVE_PLACER(),
-      'Place microwave feature',
+      _('Place microwave feature'),
       INTERACTIVE_PLACEMENT_OPTIONS.IPO_REPEAT |
         INTERACTIVE_PLACEMENT_OPTIONS.IPO_ROTATE |
         INTERACTIVE_PLACEMENT_OPTIONS.IPO_FLIP,

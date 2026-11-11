@@ -35,6 +35,7 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER: its label, text and unit; the entry's focus loss. */
 export interface OFFSET_FIELD {
@@ -93,23 +94,23 @@ export function DIALOG_POSITION_RELATIVE_BASE(p: DIALOG_POSITION_RELATIVE_BASE_P
               {/* bSizerButtOpts */}
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
-                  <Button label="Use Local Origin" onClick={p.OnUseUserOriginClick} />
+                  <Button label={_('Use Local Origin')} onClick={p.OnUseUserOriginClick} />
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
-                  <Button label="Use Grid Origin" onClick={p.OnUseGridOriginClick} />
+                  <Button label={_('Use Grid Origin')} onClick={p.OnUseGridOriginClick} />
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
                   <Button
-                    label="Select Item..."
+                    label={_('Select Item...')}
                     exactFit
-                    title={
-                      'Click and select a board item.\nThe anchor position will be the position of the selected item.'
-                    }
+                    title={_(
+                      'Click and select a board item.\nThe anchor position will be the position of the selected item.',
+                    )}
                     onClick={p.OnSelectItemClick}
                   />
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxALL} border={5}>
-                  <Button label="Select Point..." onClick={p.OnSelectPointClick} />
+                  <Button label={_('Select Point...')} onClick={p.OnSelectPointClick} />
                 </SizerItem>
               </BoxSizer>
             </SizerItem>
@@ -143,7 +144,7 @@ export function DIALOG_POSITION_RELATIVE_BASE(p: DIALOG_POSITION_RELATIVE_BASE_P
               border={5}
             />
             <SizerItem flag={CV | wxLEFT | wxRIGHT} border={5}>
-              <Button label="Reset" exactFit title={p.clearXTip} onClick={p.OnClearX} />
+              <Button label={_('Reset')} exactFit title={p.clearXTip} onClick={p.OnClearX} />
             </SizerItem>
             <SizerItem flag={CV | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
               <StaticText label={p.m_yEntry.label} />
@@ -156,7 +157,7 @@ export function DIALOG_POSITION_RELATIVE_BASE(p: DIALOG_POSITION_RELATIVE_BASE_P
             </SizerItem>
             <Spacer width={10} height={0} proportion={1} flag={wxEXPAND} border={5} />
             <SizerItem flag={CV | wxLEFT | wxRIGHT} border={5}>
-              <Button label="Reset" exactFit title={p.clearYTip} onClick={p.OnClearY} />
+              <Button label={_('Reset')} exactFit title={p.clearYTip} onClick={p.OnClearY} />
             </SizerItem>
           </FlexGridSizer>
         </SizerItem>
@@ -164,7 +165,7 @@ export function DIALOG_POSITION_RELATIVE_BASE(p: DIALOG_POSITION_RELATIVE_BASE_P
           {/* bSizerBottom */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={CV | wxLEFT} border={10}>
-              <CheckBox label="Use polar coordinates" check={p.m_polarCoords} />
+              <CheckBox label={_('Use polar coordinates')} check={p.m_polarCoords} />
             </SizerItem>
             <Spacer width={40} height={0} proportion={1} flag={wxEXPAND} border={5} />
             <SizerItem flag={wxBOTTOM | wxTOP} border={5}>

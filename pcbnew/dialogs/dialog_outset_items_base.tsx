@@ -29,6 +29,7 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER over a wxComboBox: its text, its SetOptionsList strings, units and Enable(). */
 export interface UNIT_COMBO {
@@ -98,24 +99,24 @@ function UnitRow({
 
 export function DIALOG_OUTSET_ITEMS_BASE(p: DIALOG_OUTSET_ITEMS_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Outset Items" onClose={p.onCancel}>
+    <DialogShim title={_('Outset Items')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
           {/* gbSizer1 = wxGridBagSizer( 0, 0 ) */}
           <GridBagSizer vgap={0} hgap={0} growableCols={[1]}>
-            <UnitRow row={0} label="Outset:" u={p.m_outset} ariaLabel="Outset" />
+            <UnitRow row={0} label={_('Outset:')} u={p.m_outset} ariaLabel="Outset" />
             <SizerItem pos={[1, 0]} span={[1, 4]} flag={wxALL | wxEXPAND} border={5}>
-              <CheckBox label="Round corners (when possible)" check={p.m_roundCorners} />
+              <CheckBox label={_('Round corners (when possible)')} check={p.m_roundCorners} />
             </SizerItem>
             <SizerItem pos={[2, 0]} span={[1, 4]} flag={wxALL | wxEXPAND} border={5}>
               <CheckBox
-                label="Round outwards to grid multiples (when possible)"
+                label={_('Round outwards to grid multiples (when possible)')}
                 check={p.m_roundToGrid}
-                title="This is only possible for rectangular outsets."
+                title={_('This is only possible for rectangular outsets.')}
               />
             </SizerItem>
-            <UnitRow row={3} label="Grid size:" u={p.m_roundingGrid} ariaLabel="Grid size" />
+            <UnitRow row={3} label={_('Grid size:')} u={p.m_roundingGrid} ariaLabel="Grid size" />
             <SizerItem pos={[4, 0]} span={[1, 4]} flag={wxEXPAND | wxTOP | wxBOTTOM} border={5}>
               <StaticLine />
             </SizerItem>
@@ -125,10 +126,10 @@ export function DIALOG_OUTSET_ITEMS_BASE(p: DIALOG_OUTSET_ITEMS_BASE_PROPS): JSX
               flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT}
               border={5}
             >
-              <CheckBox label="Copy item layers" check={p.m_copyLayers} />
+              <CheckBox label={_('Copy item layers')} check={p.m_copyLayers} />
             </SizerItem>
             <SizerItem pos={[6, 0]} flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
-              <StaticText label="Layer:" disabled={!p.layerEnabled} />
+              <StaticText label={_('Layer:')} disabled={!p.layerEnabled} />
             </SizerItem>
             <SizerItem pos={[6, 1]} span={[1, 3]} flag={wxALL | wxEXPAND} border={5}>
               <Combo
@@ -141,9 +142,11 @@ export function DIALOG_OUTSET_ITEMS_BASE(p: DIALOG_OUTSET_ITEMS_BASE_PROPS): JSX
             </SizerItem>
             <SizerItem pos={[7, 0]} span={[1, 4]} flag={wxALL} border={5}>
               <CheckBox
-                label="Copy item widths (if possible)"
+                label={_('Copy item widths (if possible)')}
                 check={p.m_copyWidths}
-                title="This is not possible for items like pads, which will still use the value below."
+                title={_(
+                  'This is not possible for items like pads, which will still use the value below.',
+                )}
               />
             </SizerItem>
             <SizerItem
@@ -151,30 +154,32 @@ export function DIALOG_OUTSET_ITEMS_BASE(p: DIALOG_OUTSET_ITEMS_BASE_PROPS): JSX
               flag={wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT | wxALL}
               border={5}
             >
-              <StaticText label="Line width:" />
+              <StaticText label={_('Line width:')} />
             </SizerItem>
             <SizerItem pos={[8, 1]} flag={wxALL | wxEXPAND | wxALIGN_CENTER_VERTICAL} border={5}>
               <TextCombo
                 value={p.m_lineWidth.value}
                 options={p.m_lineWidth.options}
                 onChange={p.m_lineWidth.onChange}
-                ariaLabel="Line width"
+                ariaLabel={_('Line width')}
               />
             </SizerItem>
             <SizerItem pos={[8, 2]} flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={10}>
               <StaticText label={p.m_lineWidth.units} />
             </SizerItem>
             <SizerItem pos={[8, 3]} flag={wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL} border={5}>
-              <Button label="Layer Default" onClick={p.onLayerDefault} />
+              <Button label={_('Layer Default')} onClick={p.onLayerDefault} />
             </SizerItem>
             <SizerItem pos={[9, 0]} span={[1, 4]} flag={wxEXPAND | wxTOP | wxBOTTOM} border={5}>
               <StaticLine />
             </SizerItem>
             <SizerItem pos={[10, 0]} span={[1, 4]} flag={wxALL} border={5}>
               <CheckBox
-                label="Delete source items after outset"
+                label={_('Delete source items after outset')}
                 check={p.m_deleteSourceItems}
-                title="This is not possible for items like pads, which will still use the value below."
+                title={_(
+                  'This is not possible for items like pads, which will still use the value below.',
+                )}
               />
             </SizerItem>
           </GridBagSizer>

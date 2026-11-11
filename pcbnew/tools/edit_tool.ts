@@ -108,6 +108,8 @@ import { PCB_TOOL_BASE } from './pcb_tool_base.js';
 import { EDIT_TOOL_MOVE_FCT } from './edit_tool_move_fct.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { DIALOG_GET_FOOTPRINT_BY_NAME } from '../dialogs/dialog_get_footprint_by_name.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `ID_END_LIST` (common/id.h), where `pcbnew_ids` starts. */
 const ID_END_LIST = 10557;
@@ -284,7 +286,7 @@ function makePositioningToolsMenu(aTool: EDIT_TOOL): CONDITIONAL_MENU {
   const menu = new CONDITIONAL_MENU(aTool);
 
   menu.SetIcon('special_tools' as never);
-  menu.SetUntranslatedTitle('Position');
+  menu.SetUntranslatedTitle(_HKI('Position'));
 
   const cond = SELECTION_CONDITIONS.And(SELECTION_CONDITIONS.NotEmpty, notMovingCondition);
 
@@ -297,7 +299,7 @@ function makePositioningToolsMenu(aTool: EDIT_TOOL): CONDITIONAL_MENU {
 function makeShapeModificationMenu(aTool: EDIT_TOOL): CONDITIONAL_MENU {
   const menu = new CONDITIONAL_MENU(aTool);
 
-  menu.SetUntranslatedTitle('Shape Modification');
+  menu.SetUntranslatedTitle(_HKI('Shape Modification'));
 
   const filletChamferTypes = [
     KICAD_T.PCB_SHAPE_LOCATE_POLY_T,
@@ -389,7 +391,7 @@ export class GATE_SWAP_MENU extends ACTION_MENU {
     super(true);
 
     this.SetIcon('swap' as never);
-    this.SetTitle('Swap Gate Nets...');
+    this.SetTitle(_('Swap Gate Nets...'));
   }
 
   // We're looking for a selection of pad(s) that belong to a single footprint with multiple units.
@@ -717,7 +719,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
     this.m_selectionTool.GetToolMenu().RegisterSubMenu(gateSwapSubMenu);
 
     const fpAttributesMenu = new CONDITIONAL_MENU(this);
-    fpAttributesMenu.SetUntranslatedTitle('Attributes');
+    fpAttributesMenu.SetUntranslatedTitle(_HKI('Attributes'));
     fpAttributesMenu.AddCheckItem(
       PCB_ACTIONS.toggleExcludeFromBOM,
       SELECTION_CONDITIONS.ShowAlways,
@@ -1206,7 +1208,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
         fp.SetExcludedFromPosFiles(new_state);
     }
 
-    if (!commit.Empty()) commit.Push('Toggle Attribute');
+    if (!commit.Empty()) commit.Push(_('Toggle Attribute'));
 
     if (selection.IsHover()) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 
@@ -1264,7 +1266,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
       }
     }
 
-    commit.Push('Edit Track Width/Via Size');
+    commit.Push(_('Edit Track Width/Via Size'));
 
     if (selection.IsHover()) {
       this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
@@ -1308,7 +1310,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
       }
     }
 
-    commit.Push('Edit Track Layer');
+    commit.Push(_('Edit Track Layer'));
 
     if (selection.IsHover()) {
       this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
@@ -1329,7 +1331,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
     if (this.selTool().ReportFilteredLockedItems()) return 0;
 
     if (selection.Size() < 2) {
-      this.showInfoBarMsg('At least two straight track segments must be selected.');
+      this.showInfoBarMsg(_('At least two straight track segments must be selected.'));
       return 0;
     }
 
@@ -1342,7 +1344,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
     const items = selection.GetItems();
 
     void frame
-      .ShowUnitEntryDialog('Fillet Tracks', 'Radius:', EDIT_TOOL.s_filletTracksRadius)
+      .ShowUnitEntryDialog(_('Fillet Tracks'), _('Radius:'), EDIT_TOOL.s_filletTracksRadius)
       .then((aValue) => {
         if (aValue === null || aValue === 0) return;
 
@@ -1492,15 +1494,15 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
       }
     }
 
-    commit.Push('Fillet Tracks');
+    commit.Push(_('Fillet Tracks'));
 
     //select the newly created arcs
     for (const item of itemsToAddToSelection) this.selTool().AddItemToSel(item);
 
     if (!operationPerformedOnAtLeastOne)
-      this.showInfoBarMsg('Unable to fillet the selected track segments.');
+      this.showInfoBarMsg(_('Unable to fillet the selected track segments.'));
     else if (didOneAttemptFail)
-      this.showInfoBarMsg('Some of the track segments could not be filleted.');
+      this.showInfoBarMsg(_('Some of the track segments could not be filleted.'));
   }
 
   /**
@@ -1577,10 +1579,10 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
       selection.CountType(KICAD_T.PCB_SHAPE_LOCATE_SEGMENT_T) + lines_to_add.length;
 
     if (aEvent.IsAction(PCB_ACTIONS.extendLines) && segmentCount !== 2) {
-      this.showInfoBarMsg('Exactly two lines must be selected to extend them.');
+      this.showInfoBarMsg(_('Exactly two lines must be selected to extend them.'));
       return 0;
     } else if (segmentCount < 2) {
-      this.showInfoBarMsg('A shape with at least two lines must be selected.');
+      this.showInfoBarMsg(_('A shape with at least two lines must be selected.'));
       return 0;
     }
 
@@ -1693,7 +1695,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
       if (!frame.ShowUnitEntryDialog) return run(null), 0;
 
       void frame
-        .ShowUnitEntryDialog('Fillet Lines', 'Radius:', EDIT_TOOL.s_filletLinesRadius)
+        .ShowUnitEntryDialog(_('Fillet Lines'), _('Radius:'), EDIT_TOOL.s_filletLinesRadius)
         .then((aValue) => {
           // GetRadiusParams: a cancel, or a value of 0, is no radius
           if (aValue === null || aValue === 0) return run(null);
@@ -1715,8 +1717,8 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
 
       void frame
         .ShowUnitEntryDialog(
-          'Chamfer Lines',
-          'Chamfer setback:',
+          _('Chamfer Lines'),
+          _('Chamfer setback:'),
           EDIT_TOOL.s_chamferParams.m_chamfer_setback_a,
         )
         .then((aValue) => {
@@ -1764,7 +1766,11 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
     const items = selection.GetItems();
 
     void frame
-      .ShowUnitEntryDialog('Simplify Shapes', 'Tolerance value:', EDIT_TOOL.s_simplifyTolerance)
+      .ShowUnitEntryDialog(
+        _('Simplify Shapes'),
+        _('Tolerance value:'),
+        EDIT_TOOL.s_simplifyTolerance,
+      )
       .then((aValue) => {
         if (aValue === null) return;
 
@@ -1793,7 +1799,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
           }
         }
 
-        commit.Push('Simplify Polygons');
+        commit.Push(_('Simplify Polygons'));
 
         // Notify other tools of the changes
         this.m_toolMgr!.ProcessEvent(EVENTS.SelectedItemsModified);
@@ -1836,7 +1842,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
     const items = selection.GetItems();
 
     void frame
-      .ShowUnitEntryDialog('Heal Shapes', 'Tolerance value:', EDIT_TOOL.s_healTolerance)
+      .ShowUnitEntryDialog(_('Heal Shapes'), _('Tolerance value:'), EDIT_TOOL.s_healTolerance)
       .then((aValue) => {
         if (aValue === null) return;
 
@@ -1860,7 +1866,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
 
         ConnectBoardShapes(shapeList, aValue);
 
-        commit.Push('Heal Shapes');
+        commit.Push(_('Heal Shapes'));
 
         // Notify other tools of the changes
         this.m_toolMgr!.ProcessEvent(EVENTS.SelectedItemsModified);
@@ -2243,7 +2249,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
 
       // Don't push a separate undo entry when we're in the middle of a move operation.
       // The parent move will handle the commit.
-      if (!localCommit.Empty() && !this.m_dragging) localCommit.Push('Rotate');
+      if (!localCommit.Empty() && !this.m_dragging) localCommit.Push(_('Rotate'));
 
       if (is_hover && !this.m_dragging) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 
@@ -2340,15 +2346,15 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
 
     // Don't push a separate undo entry when we're in the middle of a move operation.
     // The parent move will handle the commit.
-    if (!localCommit.Empty() && !this.m_dragging) localCommit.Push('Mirror');
+    if (!localCommit.Empty() && !this.m_dragging) localCommit.Push(_('Mirror'));
 
     if (skippedFootprints > 0 && !this.m_dragging) {
       this.showInfoBarMsg(
-        'Footprints cannot be mirrored. Use Flip to move them to the other side of the board.',
+        _('Footprints cannot be mirrored. Use Flip to move them to the other side of the board.'),
       );
     } else if (skippedGroups > 0 && !this.m_dragging) {
       this.showInfoBarMsg(
-        'Groups containing footprints or other items that cannot be mirrored were skipped.',
+        _('Groups containing footprints or other items that cannot be mirrored were skipped.'),
       );
     }
 
@@ -2404,10 +2410,10 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
     }
 
     if (!localCommit.Empty()) {
-      if (aEvent.Matches(ACTIONS.leftJustify.MakeEvent())) localCommit.Push('Left Justify');
+      if (aEvent.Matches(ACTIONS.leftJustify.MakeEvent())) localCommit.Push(_('Left Justify'));
       else if (aEvent.Matches(ACTIONS.centerJustify.MakeEvent()))
-        localCommit.Push('Center Justify');
-      else localCommit.Push('Right Justify');
+        localCommit.Push(_('Center Justify'));
+      else localCommit.Push(_('Right Justify'));
     }
 
     if (selection.IsHover() && !this.m_dragging) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
@@ -2490,7 +2496,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
 
     // Don't push a separate undo entry when we're in the middle of a move operation.
     // The parent move will handle the commit.
-    if (!localCommit.Empty() && !this.m_dragging) localCommit.Push('Change Side / Flip');
+    if (!localCommit.Empty() && !this.m_dragging) localCommit.Push(_('Change Side / Flip'));
 
     if (selection.IsHover() && !this.m_dragging) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 
@@ -2628,7 +2634,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
               commit,
               generator,
             );
-            commit.Push('Delete', commitFlags);
+            commit.Push(_('Delete'), commitFlags);
             commitFlags |= APPEND_UNDO;
           } else {
             for (const member of generator.GetItems()) commit.Remove(member);
@@ -2653,14 +2659,14 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
     if (enteredGroup && enteredGroup.GetItems().size === 0) this.selTool().ExitGroup();
 
     if (aIsCut) {
-      commit.Push('Cut', commitFlags);
+      commit.Push(_('Cut'), commitFlags);
     } else if (itemsDeleted === 0) {
-      if (fieldsHidden === 1) commit.Push('Hide Field', commitFlags);
-      else if (fieldsHidden > 1) commit.Push('Hide Fields', commitFlags);
+      if (fieldsHidden === 1) commit.Push(_('Hide Field'), commitFlags);
+      else if (fieldsHidden > 1) commit.Push(_('Hide Fields'), commitFlags);
       else if (fieldsAlreadyHidden > 0)
-        editFrame.ShowInfoBarError?.('Use the Footprint Properties dialog to remove fields.');
+        editFrame.ShowInfoBarError?.(_('Use the Footprint Properties dialog to remove fields.'));
     } else {
-      commit.Push('Delete', commitFlags);
+      commit.Push(_('Delete'), commitFlags);
     }
   }
 
@@ -2828,7 +2834,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
         if (!this.m_dragging) this.getView()!.Update(boardItem);
       }
 
-      commit.Push('Move Exactly');
+      commit.Push(_('Move Exactly'));
 
       if (isHover) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 
@@ -3000,7 +3006,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
       editFrame.DisplayToolMsg(`Duplicated ${new_items.length} item(s)`);
 
       // If items were duplicated, pick them up
-      if (yield* this.doMoveSelection(aEvent, commit, true)) commit.Push('Duplicate');
+      if (yield* this.doMoveSelection(aEvent, commit, true)) commit.Push(_('Duplicate'));
       else commit.Revert();
 
       // Deselect the duplicated item if we originally started as a hover selection
@@ -3083,7 +3089,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
 
     if (selection.Front()!.IsMoving()) this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
 
-    commit.Push('Increment');
+    commit.Push(_('Increment'));
 
     return 0;
   }
@@ -3292,9 +3298,9 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
       if (aEvent.IsAction(PCB_ACTIONS.copyWithReference)) {
         if (
           !(yield* this.pickReferencePoint(
-            'Select reference point for the copy...',
-            'Selection copied',
-            'Copy canceled',
+            _('Select reference point for the copy...'),
+            _('Selection copied'),
+            _('Copy canceled'),
             refPoint,
           ))
         ) {
@@ -3309,7 +3315,7 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
 
       io.SetBoard(this.board());
       io.SaveSelection(selection, this.m_isFootprintEditor);
-      this.frame().SetStatusText('Selection copied');
+      this.frame().SetStatusText(_('Selection copied'));
     }
 
     this.frame().PopTool(selectReferencePoint);

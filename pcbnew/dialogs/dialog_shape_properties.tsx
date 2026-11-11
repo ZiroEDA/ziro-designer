@@ -28,6 +28,8 @@ import type { PCB_SHAPE } from '../pcb_shape.js';
 import { pcbUnitText, pcbUnitValue } from '../pcb_unit_binder.js';
 import { DIALOG_SHAPE_PROPERTIES_BASE } from './dialog_shape_properties_base.js';
 import type { TransferResult } from './dialog_text_properties.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A UNIT_BINDER over one generated wxTextCtrl: its label and the text it holds. */
 export interface BOUND_CONTROL {
@@ -137,7 +139,7 @@ export class RECTANGLE_GEOM_SYNCER extends GEOM_SYNCER {
     const p1 = { x: this.GetIntValue(2), y: this.GetIntValue(3) };
 
     if (eq(p0, p1)) {
-      aErrs.push('Rectangle cannot be zero-sized.');
+      aErrs.push(_('Rectangle cannot be zero-sized.'));
       return false;
     }
 
@@ -293,7 +295,7 @@ export class ARC_GEOM_SYNCER extends GEOM_SYNCER {
     const angle = this.GetAngleValue(4);
 
     if (angle.AsDegrees() === 0) {
-      aErrs.push('Arc angle must be greater than 0');
+      aErrs.push(_('Arc angle must be greater than 0'));
       return false;
     }
 
@@ -302,7 +304,7 @@ export class ARC_GEOM_SYNCER extends GEOM_SYNCER {
     const end = { x: this.GetIntValue(9), y: this.GetIntValue(10) };
 
     if (eq(start, mid) || eq(mid, end) || eq(start, end)) {
-      aErrs.push('Arc must have 3 distinct points');
+      aErrs.push(_('Arc must have 3 distinct points'));
       return false;
     }
 
@@ -380,7 +382,7 @@ export class CIRCLE_GEOM_SYNCER extends GEOM_SYNCER {
 
   override Validate(aErrs: string[]): boolean {
     if (this.GetIntValue(2) <= 0) {
-      aErrs.push('Radius must be greater than 0');
+      aErrs.push(_('Radius must be greater than 0'));
       return false;
     }
 
@@ -451,11 +453,11 @@ export class BEZIER_GEOM_SYNCER extends GEOM_SYNCER {
 
 /** `UI_FILL_MODE` as m_fillCtrl lists it. */
 export const FILL_MODE_CHOICES = [
-  'None',
-  'Solid',
-  'Hatch',
-  'Reverse Hatch',
-  'Cross-hatch',
+  _HKI('None'),
+  _HKI('Solid'),
+  _HKI('Hatch'),
+  _HKI('Reverse Hatch'),
+  _HKI('Cross-hatch'),
 ] as const;
 
 /** The non-geometry controls DIALOG_SHAPE_PROPERTIES transfers. */
@@ -554,60 +556,60 @@ export class DIALOG_SHAPE_PROPERTIES {
 
     switch (aShape.GetShape()) {
       case SHAPE_T.RECTANGLE: {
-        const corners = page('By Corners', true);
-        xy(corners, 0, 0, 'Start Point');
-        xy(corners, 0, 3, 'End Point');
-        const cornerSize = page('By Corner and Size');
-        xy(cornerSize, 0, 0, 'Start Point');
-        xy(cornerSize, 0, 3, 'Size');
-        const centerSize = page('By Center and Size');
-        xy(centerSize, 0, 0, 'Center');
-        xy(centerSize, 0, 3, 'Size');
+        const corners = page(_('By Corners'), true);
+        xy(corners, 0, 0, _('Start Point'));
+        xy(corners, 0, 3, _('End Point'));
+        const cornerSize = page(_('By Corner and Size'));
+        xy(cornerSize, 0, 0, _('Start Point'));
+        xy(cornerSize, 0, 3, _('Size'));
+        const centerSize = page(_('By Center and Size'));
+        xy(centerSize, 0, 0, _('Center'));
+        xy(centerSize, 0, 3, _('Size'));
         this.m_geomSync = new RECTANGLE_GEOM_SYNCER(wc, ctrls, units);
         break;
       }
       case SHAPE_T.SEGMENT: {
-        const ends = page('By Endpoints', true);
-        xy(ends, 0, 0, 'Start Point');
-        xy(ends, 0, 3, 'End Point');
-        const polar = page('By Length and Angle');
-        xy(polar, 0, 0, 'Start Point');
-        field(polar, 1, 3, 'Length', false);
-        field(polar, 2, 3, 'Angle', true);
-        const startMid = page('By Start/Midpoint');
-        xy(startMid, 0, 0, 'Start Point');
-        xy(startMid, 0, 3, 'Mid Point');
+        const ends = page(_('By Endpoints'), true);
+        xy(ends, 0, 0, _('Start Point'));
+        xy(ends, 0, 3, _('End Point'));
+        const polar = page(_('By Length and Angle'));
+        xy(polar, 0, 0, _('Start Point'));
+        field(polar, 1, 3, _('Length'), false);
+        field(polar, 2, 3, _('Angle'), true);
+        const startMid = page(_('By Start/Midpoint'));
+        xy(startMid, 0, 0, _('Start Point'));
+        xy(startMid, 0, 3, _('Mid Point'));
         this.m_geomSync = new LINE_GEOM_SYNCER(wc, ctrls, units);
         break;
       }
       case SHAPE_T.ARC: {
-        const csa = page('By Center/Start/Angle', true);
-        xy(csa, 0, 0, 'Center');
-        xy(csa, 0, 3, 'Start Point');
-        field(csa, 3, 0, 'Included Angle', true);
-        const sme = page('By Start/Mid/End');
-        xy(sme, 0, 0, 'Start Point');
-        xy(sme, 0, 3, 'Mid Point');
-        xy(sme, 3, 0, 'End Point');
+        const csa = page(_('By Center/Start/Angle'), true);
+        xy(csa, 0, 0, _('Center'));
+        xy(csa, 0, 3, _('Start Point'));
+        field(csa, 3, 0, _('Included Angle'), true);
+        const sme = page(_('By Start/Mid/End'));
+        xy(sme, 0, 0, _('Start Point'));
+        xy(sme, 0, 3, _('Mid Point'));
+        xy(sme, 3, 0, _('End Point'));
         this.m_geomSync = new ARC_GEOM_SYNCER(wc, ctrls, units);
         break;
       }
       case SHAPE_T.CIRCLE: {
-        const cr = page('By Center/Radius', true);
-        xy(cr, 0, 0, 'Center');
-        field(cr, 3, 0, 'Radius', false);
-        const cp = page('By Center/Point');
-        xy(cp, 0, 0, 'Center');
-        xy(cp, 0, 3, 'Point on Circle');
+        const cr = page(_('By Center/Radius'), true);
+        xy(cr, 0, 0, _('Center'));
+        field(cr, 3, 0, _('Radius'), false);
+        const cp = page(_('By Center/Point'));
+        xy(cp, 0, 0, _('Center'));
+        xy(cp, 0, 3, _('Point on Circle'));
         this.m_geomSync = new CIRCLE_GEOM_SYNCER(wc, ctrls, units);
         break;
       }
       case SHAPE_T.BEZIER: {
-        const bz = page('Bezier Control Points', true);
-        xy(bz, 0, 0, 'Start Point');
-        xy(bz, 0, 3, 'End Point');
-        xy(bz, 3, 0, 'Control Point 1');
-        xy(bz, 3, 3, 'Control Point 2');
+        const bz = page(_('Bezier Control Points'), true);
+        xy(bz, 0, 0, _('Start Point'));
+        xy(bz, 0, 3, _('End Point'));
+        xy(bz, 3, 0, _('Control Point 1'));
+        xy(bz, 3, 3, _('Control Point 2'));
         this.m_geomSync = new BEZIER_GEOM_SYNCER(wc, ctrls, units);
         break;
       }
@@ -709,35 +711,35 @@ export class DIALOG_SHAPE_PROPERTIES {
 
     switch (this.m_item.GetShape()) {
       case SHAPE_T.ARC:
-        if (v.lineWidth <= 0) errors.push('Line width must be greater than zero.');
+        if (v.lineWidth <= 0) errors.push(_('Line width must be greater than zero.'));
         break;
       case SHAPE_T.CIRCLE:
         if (!filled && v.lineWidth <= 0)
-          errors.push('Line width must be greater than zero for an unfilled circle.');
+          errors.push(_('Line width must be greater than zero for an unfilled circle.'));
         break;
       case SHAPE_T.RECTANGLE: {
         if (!filled && v.lineWidth <= 0)
-          errors.push('Line width must be greater than zero for an unfilled rectangle.');
+          errors.push(_('Line width must be greater than zero for an unfilled rectangle.'));
 
         const rect = this.m_geomSync as RECTANGLE_GEOM_SYNCER;
         const shortSide = Math.min(rect.GetRectangleWidth(), rect.GetRectangleHeight());
 
         if (v.roundRect && (v.cornerRadius ?? 0) * 2 > shortSide) {
-          errors.push('Corner radius must be less than or equal to half the smaller side.');
+          errors.push(_('Corner radius must be less than or equal to half the smaller side.'));
           fixedRadius = Math.round(shortSide / 2.0);
         }
         break;
       }
       case SHAPE_T.POLY:
         if (!filled && v.lineWidth <= 0)
-          errors.push('Line width must be greater than zero for an unfilled polygon.');
+          errors.push(_('Line width must be greater than zero for an unfilled polygon.'));
         break;
       case SHAPE_T.SEGMENT:
-        if (v.lineWidth <= 0) errors.push('Line width must be greater than zero.');
+        if (v.lineWidth <= 0) errors.push(_('Line width must be greater than zero.'));
         break;
       case SHAPE_T.BEZIER:
         if (!filled && v.lineWidth <= 0)
-          errors.push('Line width must be greater than zero for an unfilled curve.');
+          errors.push(_('Line width must be greater than zero for an unfilled curve.'));
         break;
       default:
         break;
@@ -780,7 +782,7 @@ export class DIALOG_SHAPE_PROPERTIES {
     if (item.IsOnCopperLayer()) item.SetNetCode(v.net);
     else item.SetNetCode(-1);
 
-    if (pushCommit) commit.Push('Edit Shape Properties');
+    if (pushCommit) commit.Push(_('Edit Shape Properties'));
 
     s_lastTabForShape.set(item.GetShape(), aPage);
 
@@ -889,11 +891,11 @@ export function DialogShapeProperties({
             if (!aOn) setTexts((t) => ({ ...t, radius: undefined }));
           },
         }}
-        m_cornerRadius={length('radius', 'Corner radius:', v.cornerRadius, (iu) =>
+        m_cornerRadius={length('radius', _('Corner radius:'), v.cornerRadius, (iu) =>
           // onCornerRadius: typing a radius checks Rounded rectangle.
           set({ cornerRadius: iu, roundRect: true }),
         )}
-        m_thickness={length('width', 'Line width:', v.lineWidth, (iu) =>
+        m_thickness={length('width', _('Line width:'), v.lineWidth, (iu) =>
           set({ lineWidth: iu ?? 0 }),
         )}
         m_lineStyleCombo={{
@@ -925,16 +927,21 @@ export function DialogShapeProperties({
         techLayersEnabled={techLayers}
         m_hasSolderMask={{ value: v.hasMask, onChange: (aOn) => set({ hasMask: aOn }) }}
         m_solderMaskMargin={{
-          ...length('margin', 'Expansion:', v.maskMargin, (iu) => set({ maskMargin: iu })),
+          ...length('margin', _('Expansion:'), v.maskMargin, (iu) => set({ maskMargin: iu })),
           enabled: maskMarginEnabled,
-          title:
+          title: _(
             'This is the local clearance between the shape and the solder mask opening.\nLeave blank to use the value defined in the Board Setup.',
+          ),
         }}
         onOK={ok}
         onCancel={onClose}
       />
       {errors !== null && (
-        <HtmlMessageBox caption="Error List" messages={errors} onClose={() => setErrors(null)} />
+        <HtmlMessageBox
+          caption={_('Error List')}
+          messages={errors}
+          onClose={() => setErrors(null)}
+        />
       )}
     </>
   );

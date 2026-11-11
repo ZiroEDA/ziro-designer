@@ -10,6 +10,7 @@ import type { JSX, ReactNode } from 'react';
 import { StaticLine, StaticText } from '@ziroeda/wx/controls.js';
 import { wxBOTTOM, wxEXPAND, wxLEFT, wxRIGHT, wxTOP, wxVERTICAL } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PANEL_FP_EDITOR_GRAPHICS_DEFAULTS_BASE_PROPS {
   m_graphicsGrid: ReactNode;
@@ -30,7 +31,7 @@ export function PANEL_FP_EDITOR_GRAPHICS_DEFAULTS_BASE(
             {/* defaultPropertiesSizer */}
             <BoxSizer orient={wxVERTICAL}>
               <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={8}>
-                <StaticText label="Default Properties for New Graphic Items" />
+                <StaticText label={_('Default Properties for New Graphic Items')} />
               </SizerItem>
               <SizerItem flag={wxBOTTOM | wxEXPAND | wxTOP} border={2}>
                 <StaticLine />

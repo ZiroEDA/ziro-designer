@@ -14,6 +14,7 @@ import { FOOTPRINT_EDIT_FRAME } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { WX_IMAGE } from '@ziroeda/wx/wx_image.js';
 import { afterEach, beforeEach, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const U = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
@@ -70,6 +71,6 @@ it('with no footprint loaded says so and writes nothing', () => {
   attachScreenshotCanvas();
   frame.OnSaveFootprintAsPng();
 
-  expect(errors).toEqual(['No footprint selected.']);
+  expect(errors).toEqual([_('No footprint selected.')]);
   expect(outputs).toEqual([]);
 });

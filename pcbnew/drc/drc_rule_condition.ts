@@ -16,6 +16,7 @@ import {
   PCBEXPR_UNIT_RESOLVER,
 } from '../pcbexpr_evaluator.js';
 import type { ZONE } from '../zone.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_RULE_CONDITION {
   private m_expression: string;
@@ -36,7 +37,7 @@ export class DRC_RULE_CONDITION {
     if (this.GetExpression().length === 0) return true;
 
     if (!this.m_ucode) {
-      if (aReporter) aReporter.report('ERROR in expression.');
+      if (aReporter) aReporter.report(_('ERROR in expression.'));
 
       return false;
     }

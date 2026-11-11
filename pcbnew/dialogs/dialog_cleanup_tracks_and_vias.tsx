@@ -29,6 +29,7 @@ import { PCB_LAYER_BOX_SELECTOR } from '../pcb_layer_box_selector.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { TRACKS_CLEANER } from '../tracks_cleaner.js';
 import type { ZONE_FILLER_TOOL } from '../tools/zone_filler_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** WX_TEXT_CTRL_REPORTER over `m_tcReport`: each Report is a line. */
 class TEXT_CTRL_REPORTER extends Reporter {
@@ -110,7 +111,7 @@ export class DIALOG_CLEANUP_TRACKS_AND_VIAS {
 
   /** `setupOKButtonLabel`. */
   GetOKLabel(): string {
-    return this.m_firstRun ? 'Build Changes' : 'Update PCB';
+    return this.m_firstRun ? _('Build Changes') : _('Update PCB');
   }
 
   /** Any option or filter changed: the listed changes are stale. */
@@ -193,7 +194,7 @@ export class DIALOG_CLEANUP_TRACKS_AND_VIAS {
 
     if (this.m_firstRun) {
       if (this.m_cbRefillZones) {
-        this.m_reporter.report('Checking zones...');
+        this.m_reporter.report(_('Checking zones...'));
         await zoneFiller?.CheckAllZones(this);
       }
 
@@ -201,7 +202,7 @@ export class DIALOG_CLEANUP_TRACKS_AND_VIAS {
     }
 
     // Old model has to be refreshed, GAL normally does not keep updating it
-    this.m_reporter.report('Rebuilding connectivity...');
+    this.m_reporter.report(_('Rebuilding connectivity...'));
     this.m_parentFrame.Compile_Ratsnest(false);
 
     cleaner.CleanupBoard(
@@ -217,7 +218,7 @@ export class DIALOG_CLEANUP_TRACKS_AND_VIAS {
     );
 
     if (this.m_cbRefillZones && !aDryRun) {
-      this.m_reporter.report('Refilling all zones...');
+      this.m_reporter.report(_('Refilling all zones...'));
       await zoneFiller?.FillAllZones(this);
     }
 
@@ -227,7 +228,7 @@ export class DIALOG_CLEANUP_TRACKS_AND_VIAS {
         RPT_SEVERITY_ACTION,
       );
     } else if (!commit.Empty()) {
-      commit.Push('Board Cleanup');
+      commit.Push(_('Board Cleanup'));
       this.m_parentFrame.GetCanvas()?.Refresh(true);
     }
 

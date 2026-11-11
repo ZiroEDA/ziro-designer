@@ -45,6 +45,7 @@ import { addClose } from '@ziroeda/common/tool/action_menu.js';
 import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const SEP: MenuItem = { sep: true };
 
@@ -149,10 +150,10 @@ export function footprintEditorMenus(
 
   return [
     {
-      label: 'File',
+      label: _('File'),
       items: [
-        act('New Library...', 'newLibrary'),
-        act('Add Library...', 'addLibrary'),
+        act(_('New Library...'), 'newLibrary'),
+        act(_('Add Library...'), 'addLibrary'),
         // pcb_actions.cpp:868 — FriendlyName "New Footprint", no ellipsis.
         //
         // Upstream sets NO condition on this action, so the menu row is always
@@ -162,21 +163,21 @@ export function footprintEditorMenus(
         // nothing when the nickname is empty. We cannot hold a library-less
         // footprint — every buffer here is keyed by library — so the row is
         // greyed rather than made to do nothing. Deliberate deviation.
-        act('New Footprint', 'newFootprint', {
+        act(_('New Footprint'), 'newFootprint', {
           shortcut: browserSafeKey('Ctrl+N'),
           disabled: !conds.targetLib,
         }),
-        stub('Create Footprint...', 'createFootprint'),
-        stub('Edit Library Footprint...', 'editLibFpInFpEditor', { shortcut: 'Ctrl+Shift+E' }),
+        stub(_('Create Footprint...'), 'createFootprint'),
+        stub(_('Edit Library Footprint...'), 'editLibFpInFpEditor', { shortcut: 'Ctrl+Shift+E' }),
         SEP,
         // `ENABLE( SELECTION_CONDITIONS::ShowAlways )` (:1353). Save is live
         // even with nothing modified and nothing loaded — this frame's Save
         // reaches the *library*, not only the open footprint, so upstream never
         // gates it. Ours greyed it on "anything unsaved anywhere".
         act('Save', 'save', { shortcut: 'Ctrl+S' }),
-        stub('Save As...', 'saveAs', { shortcut: 'Ctrl+Shift+S' }),
+        stub(_('Save As...'), 'saveAs', { shortcut: 'Ctrl+Shift+S' }),
         // `ENABLE( cond.ContentModified() )` (:1352).
-        act('Revert', 'revert', { disabled: !conds.contentModified }),
+        act(_('Revert'), 'revert', { disabled: !conds.contentModified }),
         //
         // NOT here: "Save All". `ACTIONS::saveAll` appears nowhere in
         // `menubar_footprint_editor.cpp` — the footprint editor has no such
@@ -186,27 +187,27 @@ export function footprintEditorMenus(
         // — the third argument REPLACES the FriendlyName, so the row reads
         // "Footprint...", not "Import Footprint...".
         {
-          label: 'Import',
+          label: _('Import'),
           submenu: [
-            act('Footprint...', 'importFootprint'),
-            stub('Graphics...', 'placeImportedGraphics', { shortcut: 'Ctrl+Shift+F' }),
+            act(_('Footprint...'), 'importFootprint'),
+            stub(_('Graphics...'), 'placeImportedGraphics', { shortcut: 'Ctrl+Shift+F' }),
           ],
         },
         {
-          label: 'Export',
+          label: _('Export'),
           submenu: [
             // `ENABLE( haveFootprintCond )` (:1428) — the loaded footprint, not
             // the tree's target FPID, which is what ours used to read.
-            act('Footprint...', 'exportFootprint', { disabled: !conds.haveFootprint }),
+            act(_('Footprint...'), 'exportFootprint', { disabled: !conds.haveFootprint }),
             // :78-81 — not an action at all but a raw
             // `Add( label, help, ID_FPEDIT_SAVE_PNG, BITMAPS::export_png )`,
             // so the help string is upstream's own and the `&` marks P. No
             // update-UI handler: always live, and OnSaveFootprintAsPng says
             // "No footprint selected." itself.
             {
-              label: 'View as PNG...',
+              label: _('View as PNG...'),
               mnemonic: 'P',
-              tooltip: 'Create a PNG file from the current view',
+              tooltip: _('Create a PNG file from the current view'),
               action: () => h.action('saveFootprintAsPng'),
             },
           ],
@@ -215,17 +216,17 @@ export function footprintEditorMenus(
         // `ENABLE( footprintSelectedInTreeCond || haveFootprintCond )` (:1431).
         // A tree row on its own opens it — `editFootprintPropertiesFromLibrary`
         // (`footprint_editor_control.cpp:794`) is the branch for that.
-        act('Footprint Properties...', 'footprintProperties', {
+        act(_('Footprint Properties...'), 'footprintProperties', {
           disabled: !(conds.footprintSelectedInTree || conds.haveFootprint),
         }),
         SEP,
-        stub('Print...', 'print', { shortcut: 'Ctrl+P' }),
+        stub(_('Print...'), 'print', { shortcut: 'Ctrl+P' }),
         SEP,
-        addClose('Footprint Editor', () => h.action('close')),
+        addClose(_('Footprint Editor'), () => h.action('close')),
       ],
     },
     {
-      label: 'Edit',
+      label: _('Edit'),
       items: [
         // `ENABLE( cond.UndoAvailable() )` / `RedoAvailable()` (:1361-1362).
         // Both were unconditionally live here.
@@ -236,135 +237,135 @@ export function footprintEditorMenus(
         stub('Copy', 'copy', { shortcut: 'Ctrl+C' }),
         stub('Paste', 'paste', { shortcut: 'Ctrl+V' }),
         // `ENABLE( cond.HasItems() )` (:1370) — the BOARD, not the selection.
-        act('Delete', 'doDelete', { shortcut: 'Delete', disabled: !conds.hasItems }),
+        act(_('Delete'), 'doDelete', { shortcut: _('Delete'), disabled: !conds.hasItems }),
         stub('Duplicate', 'duplicate', { shortcut: 'Ctrl+D' }),
         SEP,
         // `selectSubMenu->SetTitle( _( "&Select" ) )` (:112-117). Two rows in a
         // submenu, not loose in Edit.
         {
-          label: 'Select',
+          label: _('Select'),
           mnemonic: 'S',
           submenu: [
-            stub('Select All', 'selectAll', { shortcut: 'Ctrl+A' }),
-            stub('Unselect All', 'unselectAll', { shortcut: 'Ctrl+Shift+A' }),
+            stub(_('Select All'), 'selectAll', { shortcut: 'Ctrl+A' }),
+            stub(_('Unselect All'), 'unselectAll', { shortcut: 'Ctrl+Shift+A' }),
           ],
         },
         SEP,
         // `ENABLE( haveFootprintCond )` (:1436).
-        act('Edit Text & Graphics Properties...', 'editTextAndGraphics', {
+        act(_('Edit Text & Graphics Properties...'), 'editTextAndGraphics', {
           disabled: !conds.haveFootprint,
         }),
         // `ENABLE( haveFootprintCond )` (:1435).
-        act('Pad Table...', 'padTable', { disabled: !conds.haveFootprint }),
-        act('Default Pad Properties...', 'defaultPadProperties'),
+        act(_('Pad Table...'), 'padTable', { disabled: !conds.haveFootprint }),
+        act(_('Default Pad Properties...'), 'defaultPadProperties'),
         // pcb_actions.cpp:1152 — FriendlyName "Renumber Pads...", not
         // "Enumerate Pads".
-        act('Renumber Pads...', 'enumeratePads'),
+        act(_('Renumber Pads...'), 'enumeratePads'),
         // ACTIONS::gridOrigin (actions.cpp:1102) — the DIALOG. Distinct from
         // Place's `gridSetOrigin`, which is the click-to-place tool.
-        act('Grid Origin...', 'gridOrigin'),
+        act(_('Grid Origin...'), 'gridOrigin'),
       ],
     },
     {
-      label: 'View',
+      label: _('View'),
       items: [
         // `showHidePanels->SetTitle( _( "Panels" ) )` (:131-137). Ours had the
         // three rows loose in View under invented names — "Footprint Tree" for
         // ACTIONS::showLibraryTree, "Appearance Manager" for
         // PCB_ACTIONS::showLayersManager ("Appearance").
         {
-          label: 'Panels',
+          label: _('Panels'),
           submenu: [
-            chk('Properties', 'showProperties'),
-            chk('Library Tree', 'showLibraryTree'),
-            chk('Appearance', 'showLayersManager'),
+            chk(_('Properties'), 'showProperties'),
+            chk(_('Library Tree'), 'showLibraryTree'),
+            chk(_('Appearance'), 'showLayersManager'),
           ],
         },
         SEP,
         // `ACTIONS::showFootprintBrowser` (menubar_footprint_editor.cpp:140).
-        act('Footprint Library Browser', 'showFootprintBrowser'),
+        act(_('Footprint Library Browser'), 'showFootprintBrowser'),
         stub('3D Viewer', 'show3DViewer', { shortcut: 'Alt+3' }),
         SEP,
         act('Zoom In', 'zoomInCenter'),
         act('Zoom Out', 'zoomOutCenter'),
         // actions.cpp:717 — WXK_HOME. The F this row used to print is
         // PCB_ACTIONS::flip's key, not this action's.
-        act('Zoom to Fit', 'zoomFitScreen', { shortcut: 'Home' }),
-        stub('Zoom to Selection Area', 'zoomTool', { shortcut: 'Ctrl+F5' }),
-        stub('Refresh', 'zoomRedraw', { shortcut: 'F5' }),
+        act(_('Zoom to Fit'), 'zoomFitScreen', { shortcut: 'Home' }),
+        stub(_('Zoom to Selection Area'), 'zoomTool', { shortcut: 'Ctrl+F5' }),
+        stub(_('Refresh'), 'zoomRedraw', { shortcut: 'F5' }),
         SEP,
         // `drawingModeSubMenu->SetTitle( _( "&Drawing Mode" ) )` (:151-159).
         {
-          label: 'Drawing Mode',
+          label: _('Drawing Mode'),
           mnemonic: 'D',
           submenu: [
-            chk('Sketch Pads', 'padDisplayMode'),
-            chk('Sketch Graphic Items', 'graphicsOutlines'),
-            chk('Sketch Text Items', 'textOutlines'),
+            chk(_('Sketch Pads'), 'padDisplayMode'),
+            chk(_('Sketch Graphic Items'), 'graphicsOutlines'),
+            chk(_('Sketch Text Items'), 'textOutlines'),
           ],
         },
         // `contrastModeSubMenu->SetTitle( _( "&Contrast Mode" ) )` (:161-169).
         {
-          label: 'Contrast Mode',
+          label: _('Contrast Mode'),
           mnemonic: 'C',
           submenu: [
-            chk('Inactive Layer View Mode', 'highContrast'),
-            stub('Decrease Layer Opacity', 'layerAlphaDec', { shortcut: '{' }),
-            stub('Increase Layer Opacity', 'layerAlphaInc', { shortcut: '}' }),
+            chk(_('Inactive Layer View Mode'), 'highContrast'),
+            stub(_('Decrease Layer Opacity'), 'layerAlphaDec', { shortcut: '{' }),
+            stub(_('Increase Layer Opacity'), 'layerAlphaInc', { shortcut: '}' }),
           ],
         },
-        stub('Flip Board View', 'flipBoard'),
+        stub(_('Flip Board View'), 'flipBoard'),
       ],
     },
     {
-      label: 'Place',
+      label: _('Place'),
       items: [
-        tool('Add Pad', 'placePad', { disabled: !conds.haveFootprint }),
-        stub('Draw Rule Areas', 'drawRuleArea', { shortcut: 'Ctrl+Shift+K' }),
+        tool(_('Add Pad'), 'placePad', { disabled: !conds.haveFootprint }),
+        stub(_('Draw Rule Areas'), 'drawRuleArea', { shortcut: 'Ctrl+Shift+K' }),
         SEP,
-        tool('Draw Lines', 'drawLine', {
+        tool(_('Draw Lines'), 'drawLine', {
           shortcut: 'Ctrl+Shift+L',
           disabled: !conds.haveFootprint,
         }),
-        stub('Draw Arcs', 'drawArc', { shortcut: 'Ctrl+Shift+A' }),
-        tool('Draw Rectangles', 'drawRectangle', { disabled: !conds.haveFootprint }),
-        tool('Draw Circles', 'drawCircle', {
+        stub(_('Draw Arcs'), 'drawArc', { shortcut: 'Ctrl+Shift+A' }),
+        tool(_('Draw Rectangles'), 'drawRectangle', { disabled: !conds.haveFootprint }),
+        tool(_('Draw Circles'), 'drawCircle', {
           shortcut: 'Ctrl+Shift+C',
           disabled: !conds.haveFootprint,
         }),
-        stub('Draw Polygons', 'drawPolygon', { shortcut: 'Ctrl+Shift+P' }),
-        stub('Draw Bezier Curve', 'drawBezier', { shortcut: 'Ctrl+Shift+B' }),
-        stub('Place Reference Images', 'placeReferenceImage'),
+        stub(_('Draw Polygons'), 'drawPolygon', { shortcut: 'Ctrl+Shift+P' }),
+        stub(_('Draw Bezier Curve'), 'drawBezier', { shortcut: 'Ctrl+Shift+B' }),
+        stub(_('Place Reference Images'), 'placeReferenceImage'),
         // Ctrl+Shift+T is BROWSER_RESERVED with no substitution declared - see
         // `ui/browser_reserved.ts`, which names this exact action as the one
         // reserved combo deliberately left alone. `browserSafeKey` is still
         // what decides, so when that table changes this row changes with it.
-        stub('Draw Text', 'placeText', { shortcut: browserSafeKey('Ctrl+Shift+T') }),
-        stub('Draw Text Boxes', 'drawTextBox'),
-        stub('Draw Tables', 'drawTable'),
+        stub(_('Draw Text'), 'placeText', { shortcut: browserSafeKey('Ctrl+Shift+T') }),
+        stub(_('Draw Text Boxes'), 'drawTextBox'),
+        stub(_('Draw Tables'), 'drawTable'),
         // `DRAWING_TOOL::PlacePoint` opens with
         // `if( m_isFootprintEditor && !m_frame->GetModel() ) return 0`
         // (`drawing_tool.cpp:916-917`) — the same "a footprint is loaded"
         // guard the other placement rows carry as `haveFootprintCond`.
-        tool('Place Point', 'placePoint', { disabled: !conds.haveFootprint }),
+        tool(_('Place Point'), 'placePoint', { disabled: !conds.haveFootprint }),
         // `PCB_ACTIONS::placeBarcode` (`menubar_footprint_editor.cpp:193`),
         // behind the same "a footprint is loaded" guard the other placement
         // rows carry.
         tool('Add Barcode', 'placeBarcode', { disabled: !conds.haveFootprint }),
         SEP,
-        stub('Draw Orthogonal Dimensions', 'drawOrthogonalDimension', {
+        stub(_('Draw Orthogonal Dimensions'), 'drawOrthogonalDimension', {
           shortcut: 'Ctrl+Shift+H',
         }),
-        stub('Draw Aligned Dimensions', 'drawAlignedDimension'),
-        stub('Draw Center Dimensions', 'drawCenterDimension'),
-        stub('Draw Radial Dimensions', 'drawRadialDimension'),
-        stub('Draw Leaders', 'drawLeader'),
+        stub(_('Draw Aligned Dimensions'), 'drawAlignedDimension'),
+        stub(_('Draw Center Dimensions'), 'drawCenterDimension'),
+        stub(_('Draw Radial Dimensions'), 'drawRadialDimension'),
+        stub(_('Draw Leaders'), 'drawLeader'),
         SEP,
         stub('Place the Footprint Anchor', 'setAnchor', {
           shortcut: browserSafeKey('Ctrl+Shift+N'),
         }),
         // ACTIONS::gridSetOrigin (actions.cpp:1057) — "Grid Origin", the tool.
-        tool('Grid Origin', 'gridSetOrigin'),
+        tool(_('Grid Origin'), 'gridSetOrigin'),
         SEP,
         // `ACTIONS::gridResetOrigin` — not a tool: `COMMON_TOOLS::GridResetOrigin`
         // sets it to (0, 0) outright, so this is an `act` row.
@@ -372,20 +373,20 @@ export function footprintEditorMenus(
       ],
     },
     {
-      label: 'Inspect',
+      label: _('Inspect'),
       items: [
         // `ACTIONS::measureTool` — the same tool the right toolbar arms, and a
         // real item rather than a stub now that the canvas hears it.
         {
-          label: 'Measure Tool',
+          label: _('Measure Tool'),
           icon: 'measureTool',
           action: () => h.tool('measureTool'),
           shortcut: 'Ctrl+Shift+M',
-          tooltip: 'Interactively measure distance between points',
+          tooltip: _('Interactively measure distance between points'),
         },
         SEP,
         // pcb_actions.cpp:954 — FriendlyName "Footprint Checker", no ellipsis.
-        act('Footprint Checker', 'checkFootprint'),
+        act(_('Footprint Checker'), 'checkFootprint'),
         SEP,
         // `PCB_ACTIONS::showDatasheet` is inherited: PCB_ACTIONS derives from
         // ACTIONS (`pcb_actions.h:50`) and defines no showDatasheet of its own,
@@ -397,21 +398,21 @@ export function footprintEditorMenus(
       ],
     },
     {
-      label: 'Tools',
+      label: _('Tools'),
       items: [
         // pcb_actions.cpp:961/968 — the FriendlyNames say "PCB", and only the
         // Tooltips say "board".
-        stub('Load footprint from current PCB', 'loadFpFromBoard'),
-        stub('Insert footprint into PCB', 'saveFpToBoard'),
+        stub(_('Load footprint from current PCB'), 'loadFpFromBoard'),
+        stub(_('Insert footprint into PCB'), 'saveFpToBoard'),
         SEP,
-        stub('Cleanup Graphics...', 'cleanupGraphics'),
-        stub('Repair Footprint', 'repairFootprint'),
+        stub(_('Cleanup Graphics...'), 'cleanupGraphics'),
+        stub(_('Repair Footprint'), 'repairFootprint'),
       ],
     },
     {
       // :234-243. The same three lines fifteen KiCad frames end with, then
       // AddMenuLanguageList. Ours was a single greyed "Preferences...".
-      label: 'Preferences',
+      label: _('Preferences'),
       items: [
         /* No "Configure Paths...". `DIALOG_CONFIGURE_PATHS` edits the
            environment substitutions a library path is written against --
@@ -423,8 +424,8 @@ export function footprintEditorMenus(
            Removed rather than greyed, like every other control this application
            cannot have. Greying says "not ready yet"; this one is not a promise
            the app can keep. */
-        act('Manage Footprint Libraries...', 'showFootprintLibTable'),
-        act('Preferences...', 'openPreferences', { shortcut: 'Ctrl+,' }),
+        act(_('Manage Footprint Libraries...'), 'showFootprintLibTable'),
+        act(_('Preferences...'), 'openPreferences', { shortcut: 'Ctrl+,' }),
         SEP,
         setLanguageMenuItem({ current: h.language, onSelect: h.onSelectLanguage }),
       ],

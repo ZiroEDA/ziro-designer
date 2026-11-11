@@ -34,6 +34,7 @@ import { type FOOTPRINT, FP_3DMODEL } from '../footprint.js';
 import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import { PROJECT_PCB } from '../project_pcb.js';
 import { DIALOG_MIGRATE_3D_MODELS_BASE } from './dialog_migrate_3d_models_base.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 /** Where the app serves the hosted library's catalogue. */
 export const HOSTED_3D_CATALOG_URL = '/models3d_catalog.json';
@@ -236,7 +237,7 @@ export class DIALOG_MIGRATE_3D_MODELS {
       }
     }
 
-    if (rewritten > 0) commit.Push('Auto-migrate 3D model references');
+    if (rewritten > 0) commit.Push(wxGetTranslation('Auto-migrate 3D model references'));
 
     return rewritten;
   }
@@ -367,7 +368,11 @@ export class DIALOG_MIGRATE_3D_MODELS {
 
     if (ranked.length > kMaxCandidates) ranked.length = kMaxCandidates;
 
-    ranked.push({ m_absPath: '', m_display: '(keep existing reference)', m_score: 0 });
+    ranked.push({
+      m_absPath: '',
+      m_display: wxGetTranslation('(keep existing reference)'),
+      m_score: 0,
+    });
 
     return ranked;
   }
@@ -478,7 +483,7 @@ export class DIALOG_MIGRATE_3D_MODELS {
       }
     }
 
-    commit.Push('Migrate 3D model references');
+    commit.Push(wxGetTranslation('Migrate 3D model references'));
     return true;
   }
 
@@ -535,7 +540,7 @@ export async function MigrateWrlModelsOnLoad(
 
     infoBar.RemoveAllButtons();
     infoBar.AddButton({
-      label: 'Show options',
+      label: wxGetTranslation('Show options'),
       onClick: () => {
         void aFrame.ShowMigrate3DModelsDialog().then(() => {
           // Dismiss the infobar if nothing remains to resolve;

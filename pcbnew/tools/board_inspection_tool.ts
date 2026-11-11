@@ -65,6 +65,7 @@ import { PCB_DRC_CODE } from '../drc/drc_item.js';
 import { type DRC_CONSTRAINT, DRC_CONSTRAINT_T } from '../drc/drc_rule.js';
 import { PAD_ATTRIB } from '../padstack.js';
 import { EscapeHTML } from '@ziroeda/common/string_utils.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * What BOARD_INSPECTION_TOOL asks of `PCB_EDIT_FRAME` beyond PCB_BASE_EDIT_FRAME.
@@ -107,7 +108,7 @@ class NET_CONTEXT_MENU extends ACTION_MENU {
     super(true);
 
     this.SetIcon(BITMAPS.show_ratsnest);
-    this.SetTitle('Net Inspection Tools');
+    this.SetTitle(_('Net Inspection Tools'));
 
     this.Add(PCB_ACTIONS.showNetInRatsnest);
     this.Add(PCB_ACTIONS.hideNetInRatsnest);
@@ -285,10 +286,10 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
   private reportCompileError(r: Reporter): void {
     r.report('');
     r.report(
-      'Report incomplete: could not compile custom design rules.' +
+      _('Report incomplete: could not compile custom design rules.') +
         '&nbsp;&nbsp;' +
         "<a href='$CUSTOM_RULES'>" +
-        'Show design rules.' +
+        _('Show design rules.') +
         '</a>',
     );
   }
@@ -395,9 +396,9 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
           if (ac && bc && ac.GetNetCode() !== bc.GetNetCode()) break;
         }
 
-        r = dialog.AddHTMLPage('Uncoupled Length');
+        r = dialog.AddHTMLPage(_('Uncoupled Length'));
         this.reportHeader(
-          'Diff pair uncoupled length resolution for:',
+          _('Diff pair uncoupled length resolution for:'),
           ac as unknown as BOARD_ITEM | null,
           bc as unknown as BOARD_ITEM | null,
           undefined,
@@ -414,8 +415,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       }
 
       case PCB_DRC_CODE.DRCE_TEXT_HEIGHT:
-        r = dialog.AddHTMLPage('Text Height');
-        this.reportHeader('Text height resolution for:', a, undefined, undefined, r);
+        r = dialog.AddHTMLPage(_('Text Height'));
+        this.reportHeader(_('Text height resolution for:'), a, undefined, undefined, r);
 
         if (compileError) this.reportCompileError(r);
 
@@ -428,8 +429,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         break;
 
       case PCB_DRC_CODE.DRCE_TEXT_THICKNESS:
-        r = dialog.AddHTMLPage('Text Thickness');
-        this.reportHeader('Text thickness resolution for:', a, undefined, undefined, r);
+        r = dialog.AddHTMLPage(_('Text Thickness'));
+        this.reportHeader(_('Text thickness resolution for:'), a, undefined, undefined, r);
 
         if (compileError) this.reportCompileError(r);
 
@@ -448,8 +449,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         break;
 
       case PCB_DRC_CODE.DRCE_TRACK_WIDTH:
-        r = dialog.AddHTMLPage('Track Width');
-        this.reportHeader('Track width resolution for:', a, undefined, undefined, r);
+        r = dialog.AddHTMLPage(_('Track Width'));
+        this.reportHeader(_('Track width resolution for:'), a, undefined, undefined, r);
 
         if (compileError) this.reportCompileError(r);
 
@@ -462,8 +463,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         break;
 
       case PCB_DRC_CODE.DRCE_TRACK_ANGLE:
-        r = dialog.AddHTMLPage('Track Angle');
-        this.reportHeader('Track Angle resolution for:', a, undefined, undefined, r);
+        r = dialog.AddHTMLPage(_('Track Angle'));
+        this.reportHeader(_('Track Angle resolution for:'), a, undefined, undefined, r);
 
         if (compileError) this.reportCompileError(r);
 
@@ -476,8 +477,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         break;
 
       case PCB_DRC_CODE.DRCE_TRACK_SEGMENT_LENGTH:
-        r = dialog.AddHTMLPage('Track Segment Length');
-        this.reportHeader('Track segment length resolution for:', a, undefined, undefined, r);
+        r = dialog.AddHTMLPage(_('Track Segment Length'));
+        this.reportHeader(_('Track segment length resolution for:'), a, undefined, undefined, r);
 
         if (compileError) this.reportCompileError(r);
 
@@ -496,8 +497,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         break;
 
       case PCB_DRC_CODE.DRCE_CONNECTION_WIDTH:
-        r = dialog.AddHTMLPage('Connection Width');
-        this.reportHeader('Connection width resolution for:', a, b, undefined, r);
+        r = dialog.AddHTMLPage(_('Connection Width'));
+        this.reportHeader(_('Connection width resolution for:'), a, b, undefined, r);
 
         if (compileError) this.reportCompileError(r);
 
@@ -514,8 +515,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         break;
 
       case PCB_DRC_CODE.DRCE_VIA_DIAMETER:
-        r = dialog.AddHTMLPage('Via Diameter');
-        this.reportHeader('Via diameter resolution for:', a, undefined, undefined, r);
+        r = dialog.AddHTMLPage(_('Via Diameter'));
+        this.reportHeader(_('Via diameter resolution for:'), a, undefined, undefined, r);
 
         if (compileError) this.reportCompileError(r);
 
@@ -528,8 +529,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         break;
 
       case PCB_DRC_CODE.DRCE_ANNULAR_WIDTH:
-        r = dialog.AddHTMLPage('Via Annulus');
-        this.reportHeader('Via annular width resolution for:', a, undefined, undefined, r);
+        r = dialog.AddHTMLPage(_('Via Annulus'));
+        this.reportHeader(_('Via annular width resolution for:'), a, undefined, undefined, r);
 
         if (compileError) this.reportCompileError(r);
 
@@ -543,8 +544,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
       case PCB_DRC_CODE.DRCE_DRILL_OUT_OF_RANGE:
       case PCB_DRC_CODE.DRCE_MICROVIA_DRILL_OUT_OF_RANGE:
-        r = dialog.AddHTMLPage('Hole Size');
-        this.reportHeader('Hole size resolution for:', a, undefined, undefined, r);
+        r = dialog.AddHTMLPage(_('Hole Size'));
+        this.reportHeader(_('Hole size resolution for:'), a, undefined, undefined, r);
 
         if (compileError) this.reportCompileError(r);
 
@@ -557,14 +558,14 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         break;
 
       case PCB_DRC_CODE.DRCE_HOLE_CLEARANCE:
-        r = dialog.AddHTMLPage('Hole Clearance');
-        this.reportHeader('Hole clearance resolution for:', a, b, undefined, r);
+        r = dialog.AddHTMLPage(_('Hole Clearance'));
+        this.reportHeader(_('Hole clearance resolution for:'), a, b, undefined, r);
 
         if (compileError) this.reportCompileError(r);
 
         if (ac && bc && ac.GetNetCode() === bc.GetNetCode()) {
           r.report('');
-          r.report('Items belong to the same net. Clearance is 0.');
+          r.report(_('Items belong to the same net. Clearance is 0.'));
         } else {
           constraint = drcEngine.EvalRules(
             DRC_CONSTRAINT_T.HOLE_CLEARANCE_CONSTRAINT,
@@ -583,7 +584,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         r.report('');
         r.report('');
         r.report('');
-        this.reportHeader('Physical hole clearance resolution for:', a, b, layer, r);
+        this.reportHeader(_('Physical hole clearance resolution for:'), a, b, layer, r);
 
         constraint = drcEngine.EvalRules(
           DRC_CONSTRAINT_T.PHYSICAL_HOLE_CLEARANCE_CONSTRAINT,
@@ -599,7 +600,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
           !drcEngine.HasRulesForConstraintType(DRC_CONSTRAINT_T.PHYSICAL_HOLE_CLEARANCE_CONSTRAINT)
         ) {
           r.report('');
-          r.report("No 'physical_hole_clearance' constraints defined.");
+          r.report(_("No 'physical_hole_clearance' constraints defined."));
         } else {
           r.report('');
           r.report(`Resolved min clearance: ${clearanceStr}.`);
@@ -608,8 +609,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         break;
 
       case PCB_DRC_CODE.DRCE_DRILLED_HOLES_TOO_CLOSE:
-        r = dialog.AddHTMLPage('Hole to Hole');
-        this.reportHeader('Hole-to-hole clearance resolution for:', a, b, undefined, r);
+        r = dialog.AddHTMLPage(_('Hole to Hole'));
+        this.reportHeader(_('Hole-to-hole clearance resolution for:'), a, b, undefined, r);
 
         if (compileError) this.reportCompileError(r);
 
@@ -628,8 +629,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         break;
 
       case PCB_DRC_CODE.DRCE_EDGE_CLEARANCE:
-        r = dialog.AddHTMLPage('Edge Clearance');
-        this.reportHeader('Edge clearance resolution for:', a, b, undefined, r);
+        r = dialog.AddHTMLPage(_('Edge Clearance'));
+        this.reportHeader(_('Edge clearance resolution for:'), a, b, undefined, r);
 
         if (compileError) this.reportCompileError(r);
 
@@ -671,14 +672,14 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
           else layer = PCB_LAYER_ID.B_Cu;
         }
 
-        r = dialog.AddHTMLPage('Clearance');
-        this.reportHeader('Clearance resolution for:', a, b, layer, r);
+        r = dialog.AddHTMLPage(_('Clearance'));
+        this.reportHeader(_('Clearance resolution for:'), a, b, layer, r);
 
         if (compileError) this.reportCompileError(r);
 
         if (ac && bc && ac.GetNetCode() === bc.GetNetCode()) {
           r.report('');
-          r.report('Items belong to the same net. Clearance is 0.');
+          r.report(_('Items belong to the same net. Clearance is 0.'));
         } else {
           constraint = drcEngine.EvalRules(DRC_CONSTRAINT_T.CLEARANCE_CONSTRAINT, a, b, layer, r);
           clearance = constraint.m_Value.Min();
@@ -691,7 +692,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         r.report('');
         r.report('');
         r.report('');
-        this.reportHeader('Physical clearance resolution for:', a, b, layer, r);
+        this.reportHeader(_('Physical clearance resolution for:'), a, b, layer, r);
 
         constraint = drcEngine.EvalRules(
           DRC_CONSTRAINT_T.PHYSICAL_CLEARANCE_CONSTRAINT,
@@ -705,7 +706,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         if (!drcEngine.HasRulesForConstraintType(DRC_CONSTRAINT_T.PHYSICAL_CLEARANCE_CONSTRAINT)) {
           r.report('');
-          r.report("No 'physical_clearance' constraints defined.");
+          r.report(_("No 'physical_clearance' constraints defined."));
         } else {
           r.report('');
           r.report(`Resolved min clearance: ${clearanceStr}.`);
@@ -714,8 +715,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         break;
 
       case PCB_DRC_CODE.DRCE_ASSERTION_FAILURE:
-        r = dialog.AddHTMLPage('Assertions');
-        this.reportHeader('Assertions for:', a, undefined, undefined, r);
+        r = dialog.AddHTMLPage(_('Assertions'));
+        this.reportHeader(_('Assertions for:'), a, undefined, undefined, r);
 
         if (compileError) this.reportCompileError(r);
 
@@ -947,7 +948,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
     if (!firstItem) {
       firstItem = yield* this.pickItemForInspection(
         aEvent,
-        'Select first item for clearance resolution...',
+        _('Select first item for clearance resolution...'),
         clearanceTypes,
         null,
       );
@@ -960,7 +961,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
     secondItem = yield* this.pickItemForInspection(
       aEvent,
-      'Select second item for clearance resolution...',
+      _('Select second item for clearance resolution...'),
       clearanceTypes,
       firstItem,
     );
@@ -970,7 +971,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
     if (!secondItem) return 0;
 
     if (firstItem === secondItem) {
-      this.m_frame.ShowInfoBarError('Select two different items for clearance resolution.');
+      this.m_frame.ShowInfoBarError(_('Select two different items for clearance resolution.'));
       return 0;
     }
 
@@ -993,7 +994,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       const ag = a as unknown as PCB_GROUP;
 
       if (ag.GetItems().size === 0) {
-        frame.ShowInfoBarError('Cannot generate clearance report on empty group.');
+        frame.ShowInfoBarError(_('Cannot generate clearance report on empty group.'));
         return;
       }
 
@@ -1004,7 +1005,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       const bg = b as unknown as PCB_GROUP;
 
       if (bg.GetItems().size === 0) {
-        frame.ShowInfoBarError('Cannot generate clearance report on empty group.');
+        frame.ShowInfoBarError(_('Cannot generate clearance report on empty group.'));
         return;
       }
 
@@ -1062,15 +1063,15 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       if (zone.IsOnLayer(active)) layer = active;
       else if (zone.GetLayerSet().count() > 0) layer = zone.GetLayerSet().Seq()[0]!;
 
-      r = dialog.AddHTMLPage('Zone');
-      this.reportHeader('Zone connection resolution for:', a, b, layer, r);
+      r = dialog.AddHTMLPage(_('Zone'));
+      this.reportHeader(_('Zone connection resolution for:'), a, b, layer, r);
 
       constraint = drcEngine.EvalZoneConnection(pad, zone, layer, r);
 
       if (constraint.m_ZoneConnection === ZONE_CONNECTION.THERMAL) {
         r.report('');
         r.report('');
-        this.reportHeader('Thermal-relief gap resolution for:', a, b, layer, r);
+        this.reportHeader(_('Thermal-relief gap resolution for:'), a, b, layer, r);
 
         constraint = drcEngine.EvalRules(
           DRC_CONSTRAINT_T.THERMAL_RELIEF_GAP_CONSTRAINT,
@@ -1088,7 +1089,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         r.report('');
         r.report('');
-        this.reportHeader('Thermal-relief spoke width resolution for:', a, b, layer, r);
+        this.reportHeader(_('Thermal-relief spoke width resolution for:'), a, b, layer, r);
 
         constraint = drcEngine.EvalRules(
           DRC_CONSTRAINT_T.THERMAL_SPOKE_WIDTH_CONSTRAINT,
@@ -1106,7 +1107,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         r.report('');
         r.report('');
-        this.reportHeader('Thermal-relief min spoke count resolution for:', a, b, layer, r);
+        this.reportHeader(_('Thermal-relief min spoke count resolution for:'), a, b, layer, r);
 
         constraint = drcEngine.EvalRules(
           DRC_CONSTRAINT_T.MIN_RESOLVED_SPOKES_CONSTRAINT,
@@ -1124,7 +1125,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       } else if (constraint.m_ZoneConnection === ZONE_CONNECTION.NONE) {
         r.report('');
         r.report('');
-        this.reportHeader('Zone clearance resolution for:', a, b, layer, r);
+        this.reportHeader(_('Zone clearance resolution for:'), a, b, layer, r);
 
         clearance = zone.GetLocalClearance()!;
         r.report('');
@@ -1175,7 +1176,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       } else {
         r.report('');
         r.report('');
-        this.reportHeader('Zone clearance resolution for:', a, b, layer, r);
+        this.reportHeader(_('Zone clearance resolution for:'), a, b, layer, r);
 
         if (compileError) this.reportCompileError(r);
 
@@ -1196,10 +1197,10 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       }
 
       const fillReport = (layer: PCB_LAYER_ID, rep: Reporter): void => {
-        this.reportHeader('Clearance resolution for:', a, b, layer, rep);
+        this.reportHeader(_('Clearance resolution for:'), a, b, layer, rep);
 
         if (sameNet) {
-          rep.report('Items belong to the same net. Min clearance is 0.');
+          rep.report(_('Items belong to the same net. Min clearance is 0.'));
           return;
         }
 
@@ -1211,7 +1212,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         rep.report('');
 
         if (constraint.IsNull()) {
-          rep.report('Min clearance is 0.');
+          rep.report(_('Min clearance is 0.'));
         } else if (clearance < 0) {
           rep.report(`Resolved clearance: ${str(clearance)}; clearance will not be tested.`);
         } else {
@@ -1235,9 +1236,9 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
           perLayerMessages.push(tmp.m_messages);
         }
 
-        const panel = dialog.AddBlankPage('Clearance');
+        const panel = dialog.AddBlankPage(_('Clearance'));
 
-        panel.AddStaticText('Layer:');
+        panel.AddStaticText(_('Layer:'));
         const choice = panel.AddChoice();
 
         for (const layer of layers) choice.Append(board.GetLayerName(layer));
@@ -1274,9 +1275,9 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         if (!dpIntersection.test(dpLayer) && dpIntersection.any())
           dpLayer = dpIntersection.Seq()[0]!;
 
-        r = dialog.AddHTMLPage('Diff Pair');
+        r = dialog.AddHTMLPage(_('Diff Pair'));
         this.reportHeader(
-          'Diff-pair gap resolution for:',
+          _('Diff-pair gap resolution for:'),
           ac as unknown as BOARD_ITEM,
           bc as unknown as BOARD_ITEM,
           dpLayer,
@@ -1301,7 +1302,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         r.report('');
         r.report('');
         this.reportHeader(
-          'Diff-pair max uncoupled length resolution for:',
+          _('Diff-pair max uncoupled length resolution for:'),
           ac as unknown as BOARD_ITEM,
           bc as unknown as BOARD_ITEM,
           dpLayer,
@@ -1310,7 +1311,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
         if (!drcEngine.HasRulesForConstraintType(DRC_CONSTRAINT_T.MAX_UNCOUPLED_CONSTRAINT)) {
           r.report('');
-          r.report("No 'diff_pair_uncoupled' constraints defined.");
+          r.report(_("No 'diff_pair_uncoupled' constraints defined."));
         } else {
           constraint = drcEngine.EvalRules(
             DRC_CONSTRAINT_T.MAX_UNCOUPLED_CONSTRAINT,
@@ -1358,7 +1359,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         (b.IsOnLayer(layer) && isOnCorrespondingLayer(a, layer, warning))
       ) {
         r = dialog.AddHTMLPage(board.GetLayerName(layer));
-        this.reportHeader('Silkscreen clearance resolution for:', a, b, layer, r);
+        this.reportHeader(_('Silkscreen clearance resolution for:'), a, b, layer, r);
 
         constraint = drcEngine.EvalRules(
           DRC_CONSTRAINT_T.SILK_CLEARANCE_CONSTRAINT,
@@ -1387,7 +1388,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
       if (aCourtyard && bCourtyard) {
         r = dialog.AddHTMLPage(board.GetLayerName(layer));
-        this.reportHeader('Courtyard clearance resolution for:', a, b, layer, r);
+        this.reportHeader(_('Courtyard clearance resolution for:'), a, b, layer, r);
 
         constraint = drcEngine.EvalRules(
           DRC_CONSTRAINT_T.COURTYARD_CLEARANCE_CONSTRAINT,
@@ -1417,10 +1418,10 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       else if (b.HasHole() && a.IsOnCopperLayer()) layer = a.GetLayer();
 
       if (layer >= 0) {
-        r = dialog.AddHTMLPage('Hole');
+        r = dialog.AddHTMLPage(_('Hole'));
         pageAdded = true;
 
-        this.reportHeader('Hole clearance resolution for:', a, b, layer, r);
+        this.reportHeader(_('Hole clearance resolution for:'), a, b, layer, r);
 
         constraint = drcEngine.EvalRules(
           DRC_CONSTRAINT_T.HOLE_CLEARANCE_CONSTRAINT,
@@ -1441,7 +1442,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
       if (a.HasDrilledHole() || b.HasDrilledHole()) {
         if (!pageAdded || !r) {
-          r = dialog.AddHTMLPage('Hole');
+          r = dialog.AddHTMLPage(_('Hole'));
           pageAdded = true;
         } else {
           r.report('');
@@ -1449,7 +1450,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
           r.report('');
         }
 
-        this.reportHeader('Hole-to-hole clearance resolution for:', a, b, undefined, r);
+        this.reportHeader(_('Hole-to-hole clearance resolution for:'), a, b, undefined, r);
 
         constraint = drcEngine.EvalRules(
           DRC_CONSTRAINT_T.HOLE_TO_HOLE_CONSTRAINT,
@@ -1483,7 +1484,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       if (layer >= 0) {
         const layerName = board.GetLayerName(edgeLayer);
         r = dialog.AddHTMLPage(`${layerName} Clearance`);
-        this.reportHeader('Edge clearance resolution for:', a, b, layer, r);
+        this.reportHeader(_('Edge clearance resolution for:'), a, b, layer, r);
 
         constraint = drcEngine.EvalRules(
           DRC_CONSTRAINT_T.EDGE_CLEARANCE_CONSTRAINT,
@@ -1503,7 +1504,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       }
     }
 
-    const physical = dialog.AddHTMLPage('Physical Clearances');
+    const physical = dialog.AddHTMLPage(_('Physical Clearances'));
     r = physical;
 
     if (compileError) {
@@ -1512,7 +1513,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       !drcEngine.HasRulesForConstraintType(DRC_CONSTRAINT_T.PHYSICAL_CLEARANCE_CONSTRAINT)
     ) {
       r.report('');
-      r.report("No 'physical_clearance' constraints defined.");
+      r.report(_("No 'physical_clearance' constraints defined."));
     } else {
       const reportLayers = new LSET(layerIntersection);
       let reported = false;
@@ -1533,7 +1534,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
       for (const layer of reportLayers.Seq()) {
         reported = true;
-        this.reportHeader('Physical clearance resolution for:', a, b, layer, r);
+        this.reportHeader(_('Physical clearance resolution for:'), a, b, layer, r);
 
         constraint = drcEngine.EvalRules(
           DRC_CONSTRAINT_T.PHYSICAL_CLEARANCE_CONSTRAINT,
@@ -1560,10 +1561,12 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       }
 
       if (!reported) {
-        this.reportHeader('Physical clearance resolution for:', a, b, undefined, r);
+        this.reportHeader(_('Physical clearance resolution for:'), a, b, undefined, r);
         r.report('');
         r.report(
-          "Items share no relevant layers.  No 'physical_clearance' constraints will be applied.",
+          _(
+            "Items share no relevant layers.  No 'physical_clearance' constraints will be applied.",
+          ),
         );
       }
     }
@@ -1576,7 +1579,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       else if (a.HasHole()) layer = b.GetLayer();
       else layer = a.GetLayer();
 
-      this.reportHeader('Physical hole clearance resolution for:', a, b, layer, r);
+      this.reportHeader(_('Physical hole clearance resolution for:'), a, b, layer, r);
 
       constraint = drcEngine.EvalRules(
         DRC_CONSTRAINT_T.PHYSICAL_HOLE_CLEARANCE_CONSTRAINT,
@@ -1593,7 +1596,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
         !drcEngine.HasRulesForConstraintType(DRC_CONSTRAINT_T.PHYSICAL_HOLE_CLEARANCE_CONSTRAINT)
       ) {
         r.report('');
-        r.report("No 'physical_hole_clearance' constraints defined.");
+        r.report(_("No 'physical_hole_clearance' constraints defined."));
       } else {
         r.report('');
         r.report(`Resolved min clearance: ${str(clearance)}.`);
@@ -1636,14 +1639,14 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
       item = yield* this.pickItemForInspection(
         aEvent,
-        'Select item for constraints resolution...',
+        _('Select item for constraints resolution...'),
         constraintTypes,
         null,
       );
 
       if (!item) return 0;
     } else {
-      frame.ShowInfoBarError('Select a single item for a constraints resolution report.');
+      frame.ShowInfoBarError(_('Select a single item for a constraints resolution report.'));
       return 0;
     }
 
@@ -1668,8 +1671,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
     let r: WX_HTML_REPORT_BOX_REPORTER;
 
     if (item.Type() === KICAD_T.PCB_TRACE_T) {
-      r = dialog.AddHTMLPage('Track Width');
-      this.reportHeader('Track width resolution for:', item, undefined, undefined, r);
+      r = dialog.AddHTMLPage(_('Track Width'));
+      this.reportHeader(_('Track width resolution for:'), item, undefined, undefined, r);
 
       constraint = EVAL_RULES(
         DRC_CONSTRAINT_T.TRACK_WIDTH_CONSTRAINT,
@@ -1691,8 +1694,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
     }
 
     if (item.Type() === KICAD_T.PCB_VIA_T) {
-      r = dialog.AddHTMLPage('Via Diameter');
-      this.reportHeader('Via diameter resolution for:', item, undefined, undefined, r);
+      r = dialog.AddHTMLPage(_('Via Diameter'));
+      this.reportHeader(_('Via diameter resolution for:'), item, undefined, undefined, r);
 
       // PADSTACKS TODO: once we have padstacks we'll need to run this per-layer....
       constraint = EVAL_RULES(
@@ -1713,8 +1716,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
       r.Flush();
 
-      r = dialog.AddHTMLPage('Via Annular Width');
-      this.reportHeader('Via annular width resolution for:', item, undefined, undefined, r);
+      r = dialog.AddHTMLPage(_('Via Annular Width'));
+      this.reportHeader(_('Via annular width resolution for:'), item, undefined, undefined, r);
 
       // PADSTACKS TODO: once we have padstacks we'll need to run this per-layer....
       constraint = EVAL_RULES(
@@ -1740,8 +1743,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       (item.Type() === KICAD_T.PCB_PAD_T && (item as unknown as PAD).GetDrillSize().x > 0) ||
       item.Type() === KICAD_T.PCB_VIA_T
     ) {
-      r = dialog.AddHTMLPage('Hole Size');
-      this.reportHeader('Hole size resolution for:', item, undefined, undefined, r);
+      r = dialog.AddHTMLPage(_('Hole Size'));
+      this.reportHeader(_('Hole size resolution for:'), item, undefined, undefined, r);
 
       constraint = EVAL_RULES(
         DRC_CONSTRAINT_T.HOLE_SIZE_CONSTRAINT,
@@ -1769,8 +1772,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       item.Type() === KICAD_T.PCB_VIA_T;
 
     if (item.Type() === KICAD_T.PCB_PAD_T || item.Type() === KICAD_T.PCB_SHAPE_T || isTrack) {
-      r = dialog.AddHTMLPage('Solder Mask');
-      this.reportHeader('Solder mask expansion resolution for:', item, undefined, undefined, r);
+      r = dialog.AddHTMLPage(_('Solder Mask'));
+      this.reportHeader(_('Solder mask expansion resolution for:'), item, undefined, undefined, r);
 
       constraint = EVAL_RULES(
         DRC_CONSTRAINT_T.SOLDER_MASK_EXPANSION_CONSTRAINT,
@@ -1789,9 +1792,9 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
     }
 
     if (item.Type() === KICAD_T.PCB_PAD_T) {
-      r = dialog.AddHTMLPage('Solder Paste');
+      r = dialog.AddHTMLPage(_('Solder Paste'));
       this.reportHeader(
-        'Solder paste absolute clearance resolution for:',
+        _('Solder paste absolute clearance resolution for:'),
         item,
         undefined,
         undefined,
@@ -1812,7 +1815,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       r.report(`Resolved solder paste absolute clearance: ${reportOpt(str, constraint)}.`);
 
       this.reportHeader(
-        'Solder paste relative clearance resolution for:',
+        _('Solder paste relative clearance resolution for:'),
         item,
         undefined,
         undefined,
@@ -1842,8 +1845,8 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       item.Type() === KICAD_T.PCB_TEXT_T ||
       item.Type() === KICAD_T.PCB_TEXTBOX_T
     ) {
-      r = dialog.AddHTMLPage('Text Size');
-      this.reportHeader('Text height resolution for:', item, undefined, undefined, r);
+      r = dialog.AddHTMLPage(_('Text Size'));
+      this.reportHeader(_('Text height resolution for:'), item, undefined, undefined, r);
 
       constraint = EVAL_RULES(
         DRC_CONSTRAINT_T.TEXT_HEIGHT_CONSTRAINT,
@@ -1864,7 +1867,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
       r.report('');
       r.report('');
       r.report('');
-      this.reportHeader('Text thickness resolution for:', item, undefined, undefined, r);
+      this.reportHeader(_('Text thickness resolution for:'), item, undefined, undefined, r);
 
       constraint = EVAL_RULES(
         DRC_CONSTRAINT_T.TEXT_THICKNESS_CONSTRAINT,
@@ -1886,14 +1889,14 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
     }
 
     const courtyardWarning =
-      'Report may be incomplete: some footprint courtyards are malformed.' +
+      _('Report may be incomplete: some footprint courtyards are malformed.') +
       '&nbsp;&nbsp;' +
       "<a href='$DRC'>" +
-      'Run DRC for a full analysis.' +
+      _('Run DRC for a full analysis.') +
       '</a>';
 
-    r = dialog.AddHTMLPage('Keepouts');
-    this.reportHeader('Keepout resolution for:', item, undefined, undefined, r);
+    r = dialog.AddHTMLPage(_('Keepouts'));
+    this.reportHeader(_('Keepout resolution for:'), item, undefined, undefined, r);
 
     constraint = EVAL_RULES(DRC_CONSTRAINT_T.DISALLOW_CONSTRAINT, item, null, item.GetLayer(), r);
 
@@ -1906,13 +1909,13 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
 
     r.report('');
 
-    if (constraint.m_DisallowFlags) r.report('Item <b>disallowed</b> at current location.');
-    else r.report('Item allowed at current location.');
+    if (constraint.m_DisallowFlags) r.report(_('Item <b>disallowed</b> at current location.'));
+    else r.report(_('Item allowed at current location.'));
 
     r.Flush();
 
-    r = dialog.AddHTMLPage('Assertions');
-    this.reportHeader('Assertions for:', item, undefined, undefined, r);
+    r = dialog.AddHTMLPage(_('Assertions'));
+    this.reportHeader(_('Assertions for:'), item, undefined, undefined, r);
 
     if (compileError) this.reportCompileError(r);
 
@@ -1935,7 +1938,7 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
     const selection = this.selTool().GetSelection();
 
     if (selection.Size() !== 1 || selection.Front()!.Type() !== KICAD_T.PCB_FOOTPRINT_T) {
-      this.m_frame.ShowInfoBarError('Select a footprint for a footprint associations report.');
+      this.m_frame.ShowInfoBarError(_('Select a footprint for a footprint associations report.'));
       return 0;
     }
 

@@ -39,6 +39,7 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_RULE_AREA_PROPERTIES_BASE_PROPS {
   title: string;
@@ -91,7 +92,7 @@ export function DIALOG_RULE_AREA_PROPERTIES_BASE(
               {/* bLayersListSizer, SetMinSize( wxSize( 240,560 ) ) */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxALL} border={4}>
-                  <StaticText label="Layers:" />
+                  <StaticText label={_('Layers:')} />
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                   <DataViewListCtrl
@@ -110,8 +111,8 @@ export function DIALOG_RULE_AREA_PROPERTIES_BASE(
                   <BoxSizer orient={wxVERTICAL}>
                     <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
                       <StaticText
-                        label="Area name:"
-                        title="A unique name for this rule area for use in DRC rules"
+                        label={_('Area name:')}
+                        title={_('A unique name for this rule area for use in DRC rules')}
                       />
                     </SizerItem>
                     <Spacer width={0} height={2} border={5} />
@@ -120,11 +121,11 @@ export function DIALOG_RULE_AREA_PROPERTIES_BASE(
                         value={p.m_tcName.value}
                         onChange={p.m_tcName.onChange}
                         ariaLabel="Area name"
-                        title="A unique name for this rule area for use in DRC rules"
+                        title={_('A unique name for this rule area for use in DRC rules')}
                       />
                     </SizerItem>
                     <SizerItem flag={wxALL} border={5}>
-                      <CheckBox label="Locked" check={p.m_cbLocked} />
+                      <CheckBox label={_('Locked')} check={p.m_cbLocked} />
                     </SizerItem>
                   </BoxSizer>
                 </SizerItem>
@@ -139,24 +140,24 @@ export function DIALOG_RULE_AREA_PROPERTIES_BASE(
                   {/* gbSizer1 = wxGridBagSizer( 3, 3 ), SetEmptyCellSize( wxSize( -1,2 ) ) */}
                   <GridBagSizer vgap={3} hgap={3} emptyCellSize={[-1, 2]}>
                     <SizerItem pos={[2, 0]} flag={CV | wxRIGHT} border={5}>
-                      <StaticText label="Outline display:" />
+                      <StaticText label={_('Outline display:')} />
                     </SizerItem>
                     <SizerItem pos={[2, 1]} span={[1, 2]} flag={wxEXPAND} border={5}>
                       <Choice
-                        choices={['Line', 'Hatched', 'Fully hatched']}
+                        choices={[_('Line'), _('Hatched'), _('Fully hatched')]}
                         choice={p.m_OutlineDisplayCtrl}
                         ariaLabel="Outline display"
                       />
                     </SizerItem>
                     <SizerItem pos={[3, 0]} flag={CV} border={5}>
-                      <StaticText label="Outline hatch pitch:" />
+                      <StaticText label={_('Outline hatch pitch:')} />
                     </SizerItem>
                     <SizerItem pos={[3, 1]} flag={CV} border={5}>
                       <TextCtrl
                         value={p.m_outlineHatchPitch.value}
                         onChange={p.m_outlineHatchPitch.onChange}
                         ariaLabel="Outline hatch pitch"
-                        title="Distance between parallel lines used for hatching the area"
+                        title={_('Distance between parallel lines used for hatching the area')}
                       />
                     </SizerItem>
                     <SizerItem pos={[3, 2]} flag={CV} border={5}>

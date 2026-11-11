@@ -35,6 +35,7 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER: its label (SetLabel'd for polar), entry, units and the entry's events. */
 export interface UNIT {
@@ -99,7 +100,7 @@ export function DIALOG_MOVE_EXACT_BASE(p: DIALOG_MOVE_EXACT_BASE_PROPS): JSX.Ele
               <StaticText label={p.m_moveX.units} />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
-              <Button label="Reset" onClick={p.onClearX} />
+              <Button label={_('Reset')} onClick={p.onClearX} />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
               <StaticText label={p.m_moveY.label} />
@@ -111,7 +112,7 @@ export function DIALOG_MOVE_EXACT_BASE(p: DIALOG_MOVE_EXACT_BASE_PROPS): JSX.Ele
               <StaticText label={p.m_moveY.units} />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
-              <Button label="Reset" onClick={p.onClearY} />
+              <Button label={_('Reset')} onClick={p.onClearY} />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
               <StaticText label={p.m_rotate.label} />
@@ -123,7 +124,7 @@ export function DIALOG_MOVE_EXACT_BASE(p: DIALOG_MOVE_EXACT_BASE_PROPS): JSX.Ele
               <StaticText label={p.m_rotate.units} />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
-              <Button label="Reset" onClick={p.onClearRot} />
+              <Button label={_('Reset')} onClick={p.onClearRot} />
             </SizerItem>
             <Spacer proportion={1} flag={wxEXPAND} border={5} />
             <SizerItem flag={wxEXPAND} border={5}>
@@ -139,7 +140,7 @@ export function DIALOG_MOVE_EXACT_BASE(p: DIALOG_MOVE_EXACT_BASE_PROPS): JSX.Ele
           {/* bBottomSizer */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={10}>
-              <CheckBox label="Use polar coordinates" check={p.m_polarCoords} />
+              <CheckBox label={_('Use polar coordinates')} check={p.m_polarCoords} />
             </SizerItem>
             <SizerItem proportion={1} flag={wxBOTTOM | wxEXPAND | wxTOP} border={5}>
               <StdDialogButtonSizer onOk={p.onOK} onCancel={p.onCancel} okDisabled={!p.okEnabled} />

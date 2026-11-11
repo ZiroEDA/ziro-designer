@@ -19,6 +19,7 @@ import {
 } from '../common/plugin_common_layer_mapping.js';
 import { PCB_IO, type PCB_IO_PROJECT, type PCB_IO_PROPERTIES } from '../pcb_io.js';
 import { CADSTAR_PCB_ARCHIVE_LOADER } from './cadstar_pcb_archive_loader.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export class PCB_IO_CADSTAR_ARCHIVE extends PCB_IO {
   private readonly m_layerMappable = new LAYER_MAPPABLE_PLUGIN();
@@ -57,7 +58,7 @@ export class PCB_IO_CADSTAR_ARCHIVE extends PCB_IO {
   }
 
   override GetBoardFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('CADSTAR PCB Archive files', ['cpa']);
+    return new IO_FILE_DESC(_HKI('CADSTAR PCB Archive files'), ['cpa']);
   }
 
   GetLibraryDesc(): IO_FILE_DESC {

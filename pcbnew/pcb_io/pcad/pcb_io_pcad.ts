@@ -12,6 +12,7 @@ import { BOARD } from '../../board.js';
 import { PCB_IO, type PCB_IO_PROJECT, type PCB_IO_PROPERTIES } from '../pcb_io.js';
 import { PCAD_PCB } from './pcad_pcb.js';
 import { LoadInputFile } from './s_expr_loader.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export class PCB_IO_PCAD extends PCB_IO {
   constructor() {
@@ -19,7 +20,7 @@ export class PCB_IO_PCAD extends PCB_IO {
   }
 
   override GetBoardFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('P-Cad 200x ASCII PCB files', ['pcb']);
+    return new IO_FILE_DESC(_HKI('P-Cad 200x ASCII PCB files'), ['pcb']);
   }
 
   GetLibraryDesc(): IO_FILE_DESC {

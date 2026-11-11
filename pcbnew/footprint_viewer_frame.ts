@@ -50,6 +50,8 @@ import { PCB_CONTROL } from './tools/pcb_control.js';
 import { PCB_PICKER_TOOL } from './tools/pcb_picker_tool.js';
 import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
 import { PCB_VIEWER_TOOLS } from './tools/pcb_viewer_tools.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `enum class FPVIEWER_CONSTANTS` (`footprint_viewer_frame.h:41-47`). Declared
@@ -58,16 +60,18 @@ import { PCB_VIEWER_TOOLS } from './tools/pcb_viewer_tools.js';
 export { FPVIEWER_CONSTANTS };
 
 /** `_( "Footprint Library Browser" )`, the constructor's title and the title's tail. */
-export const FOOTPRINT_VIEWER_TITLE = 'Footprint Library Browser';
+export const FOOTPRINT_VIEWER_TITLE = _HKI('Footprint Library Browser');
 
 /** `_( "[no library selected]" )` (`UpdateTitle`). */
-export const FPVIEWER_NO_LIBRARY = '[no library selected]';
+export const FPVIEWER_NO_LIBRARY = _HKI('[no library selected]');
 
 /** `_( "No board currently open." )` (`AddFootprintToPCB`). */
-export const FPVIEWER_NO_BOARD = 'No board currently open.';
+export const FPVIEWER_NO_BOARD = _HKI('No board currently open.');
 
 /** `_( "Previous footprint placement still in progress." )` (`AddFootprintToPCB`). */
-export const FPVIEWER_PLACEMENT_IN_PROGRESS = 'Previous footprint placement still in progress.';
+export const FPVIEWER_PLACEMENT_IN_PROGRESS = _HKI(
+  'Previous footprint placement still in progress.',
+);
 
 /**
  * `m_fpFilter->SetToolTip( … )` (`footprint_viewer_frame.cpp:154-157`), the
@@ -660,7 +664,7 @@ export class FOOTPRINT_VIEWER_FRAME extends PCB_BASE_FRAME {
 
     newFootprint.SetPosition({ x: 0, y: 0 });
     viewControls?.SetCrossHairCursorPosition(cursorPos, false);
-    commit.Push('Insert Footprint');
+    commit.Push(_('Insert Footprint'));
 
     // `pcbframe->Raise()`.
     kiway?.Player(FRAME_T.FRAME_PCB_EDITOR);

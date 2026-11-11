@@ -31,10 +31,12 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `m_formatCtrlChoices`, `m_unitsCtrlChoices`. */
-export const POS_FORMAT_CHOICES = ['Plain text', 'CSV', 'Gerber X3'] as const;
-export const POS_UNITS_CHOICES = ['Inches', 'Millimeters'] as const;
+export const POS_FORMAT_CHOICES = [_HKI('Plain text'), _HKI('CSV'), _HKI('Gerber X3')] as const;
+export const POS_UNITS_CHOICES = [_HKI('Inches'), _HKI('Millimeters')] as const;
 
 export interface DIALOG_GEN_FOOTPRINT_POSITION_BASE_PROPS {
   /** `m_variantChoiceCtrl`: the board's variants, and whether the choice is live. */
@@ -93,7 +95,7 @@ export function DIALOG_GEN_FOOTPRINT_POSITION_BASE(
     aList.map((label, i) => ({ value: String(i), label }));
 
   return (
-    <DialogShim title="Generate Placement Files" onClose={p.onCancel}>
+    <DialogShim title={_('Generate Placement Files')} onClose={p.onCancel}>
       {/* m_MainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxALL | wxEXPAND} border={5}>
@@ -101,7 +103,7 @@ export function DIALOG_GEN_FOOTPRINT_POSITION_BASE(
           <FlexGridSizer cols={2} vgap={5} hgap={5}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
               {/* m_variantLabel */}
-              <span title={p.variantTip}>Design variant:</span>
+              <span title={p.variantTip}>{_('Design variant:')}</span>
             </SizerItem>
             <SizerItem flag={wxEXPAND} border={5}>
               {/* m_variantChoiceCtrl */}
@@ -115,7 +117,7 @@ export function DIALOG_GEN_FOOTPRINT_POSITION_BASE(
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
               {/* m_staticTextDir */}
-              <span>Output directory:</span>
+              <span>{_('Output directory:')}</span>
             </SizerItem>
             <SizerItem proportion={1} flag={wxEXPAND} border={10}>
               {/* bSizerdirBrowse */}
@@ -130,8 +132,10 @@ export function DIALOG_GEN_FOOTPRINT_POSITION_BASE(
                   <TextCtrl
                     value={p.m_outputDirectoryName}
                     onChange={p.onOutputDirectoryName}
-                    ariaLabel="Output directory"
-                    title="Target directory for plot files. Can be absolute or relative to the board file location."
+                    ariaLabel={_('Output directory')}
+                    title={_(
+                      'Target directory for plot files. Can be absolute or relative to the board file location.',
+                    )}
                   />
                 </SizerItem>
                 <SizerItem
@@ -142,7 +146,7 @@ export function DIALOG_GEN_FOOTPRINT_POSITION_BASE(
                   {/* m_browseButton: small_folder */}
                   <StdBitmapButton
                     bitmap="small_folder"
-                    title="Browse"
+                    title={_('Browse')}
                     tooltip={null}
                     onClick={() => p.onOutputDirectoryBrowseClicked?.()}
                   />
@@ -159,7 +163,7 @@ export function DIALOG_GEN_FOOTPRINT_POSITION_BASE(
               <FlexGridSizer cols={2} vgap={5} hgap={5} growableCols={[1]}>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
                   {/* m_formatLabel */}
-                  <span>Format:</span>
+                  <span>{_('Format:')}</span>
                 </SizerItem>
                 <SizerItem flag={wxRIGHT | wxLEFT | wxEXPAND} border={5}>
                   {/* m_formatCtrl */}
@@ -167,12 +171,12 @@ export function DIALOG_GEN_FOOTPRINT_POSITION_BASE(
                     value={String(p.m_formatCtrl)}
                     options={choice(POS_FORMAT_CHOICES)}
                     onChange={(v) => p.onFormat(Number(v))}
-                    ariaLabel="Format"
+                    ariaLabel={_('Format')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
                   {/* m_unitsLabel: enabled with the units (onUpdateUIUnits) */}
-                  <StaticText label="Units:" disabled={!p.unitsEnabled} />
+                  <StaticText label={_('Units:')} disabled={!p.unitsEnabled} />
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
                   {/* m_unitsCtrl */}
@@ -197,24 +201,27 @@ export function DIALOG_GEN_FOOTPRINT_POSITION_BASE(
         <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
           {/* bSizerLower */}
           <BoxSizer orient={wxVERTICAL}>
-            <Option label="Include only SMD footprints" check={p.m_onlySMD} />
-            <Option label="Exclude all footprints with through hole pads" check={p.m_excludeTH} />
+            <Option label={_('Include only SMD footprints')} check={p.m_onlySMD} />
             <Option
-              label="Exclude all footprints with the Do Not Populate flag set"
+              label={_('Exclude all footprints with through hole pads')}
+              check={p.m_excludeTH}
+            />
+            <Option
+              label={_('Exclude all footprints with the Do Not Populate flag set')}
               check={p.m_excludeDNP}
             />
             <Option
-              label="Exclude all footprints with the Exclude from BOM flag set"
+              label={_('Exclude all footprints with the Exclude from BOM flag set')}
               check={p.m_excludeBOM}
             />
-            <Option label="Include board edge layer" check={p.m_cbIncludeBoardEdge} />
-            <Option label="Use drill/place file origin" check={p.m_useDrillPlaceOrigin} />
+            <Option label={_('Include board edge layer')} check={p.m_cbIncludeBoardEdge} />
+            <Option label={_('Use drill/place file origin')} check={p.m_useDrillPlaceOrigin} />
             <Option
-              label="Use negative X coordinates for footprints on bottom layer"
+              label={_('Use negative X coordinates for footprints on bottom layer')}
               check={p.m_negateXcb}
             />
             <Option
-              label="Generate single file with both front and back positions"
+              label={_('Generate single file with both front and back positions')}
               check={p.m_singleFile}
             />
             <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
@@ -236,7 +243,7 @@ export function DIALOG_GEN_FOOTPRINT_POSITION_BASE(
       <StdDialogButtonSizer
         onCancel={p.onCancel}
         onOk={p.onGenerate}
-        okLabel="Generate Position File"
+        okLabel={_('Generate Position File')}
         cancelLabel="Close"
       />
     </DialogShim>

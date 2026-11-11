@@ -63,6 +63,7 @@ import {
   DRC_TEST_PROVIDER,
   DRC_TEST_PROVIDER_REGISTRY,
 } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // wxListBox's performance degrades horrifically with very large datasets.  It's not clear
 // they're useful to the user anyway.
@@ -316,7 +317,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     // 1) global defaults
 
     let rule = this.createImplicitRule(
-      'board setup constraints',
+      _('board setup constraints'),
       DRC_IMPLICIT_SOURCE.BOARD_SETUP_CONSTRAINT,
     );
 
@@ -345,7 +346,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     rule.AddConstraint(holeToHoleConstraint);
 
     rule = this.createImplicitRule(
-      'board setup constraints zone fill strategy',
+      _('board setup constraints zone fill strategy'),
       DRC_IMPLICIT_SOURCE.BOARD_SETUP_CONSTRAINT,
     );
     const thermalSpokeCountConstraint = new DRC_CONSTRAINT(
@@ -355,7 +356,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     rule.AddConstraint(thermalSpokeCountConstraint);
 
     rule = this.createImplicitRule(
-      'board setup constraints silk',
+      _('board setup constraints silk'),
       DRC_IMPLICIT_SOURCE.BOARD_SETUP_CONSTRAINT,
     );
     rule.m_LayerCondition = new LSET([LAYER.F_SilkS, LAYER.B_SilkS]);
@@ -364,7 +365,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     rule.AddConstraint(silkClearanceConstraint);
 
     rule = this.createImplicitRule(
-      'board setup constraints silk text height',
+      _('board setup constraints silk text height'),
       DRC_IMPLICIT_SOURCE.BOARD_SETUP_CONSTRAINT,
     );
     rule.m_LayerCondition = new LSET([LAYER.F_SilkS, LAYER.B_SilkS]);
@@ -373,7 +374,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     rule.AddConstraint(silkTextHeightConstraint);
 
     rule = this.createImplicitRule(
-      'board setup constraints silk text thickness',
+      _('board setup constraints silk text thickness'),
       DRC_IMPLICIT_SOURCE.BOARD_SETUP_CONSTRAINT,
     );
     rule.m_LayerCondition = new LSET([LAYER.F_SilkS, LAYER.B_SilkS]);
@@ -384,7 +385,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     rule.AddConstraint(silkTextThicknessConstraint);
 
     rule = this.createImplicitRule(
-      'board setup constraints hole',
+      _('board setup constraints hole'),
       DRC_IMPLICIT_SOURCE.BOARD_SETUP_CONSTRAINT,
     );
     const holeClearanceConstraint = new DRC_CONSTRAINT(DRC_CONSTRAINT_T.HOLE_CLEARANCE_CONSTRAINT);
@@ -392,7 +393,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     rule.AddConstraint(holeClearanceConstraint);
 
     rule = this.createImplicitRule(
-      'board setup constraints edge',
+      _('board setup constraints edge'),
       DRC_IMPLICIT_SOURCE.BOARD_SETUP_CONSTRAINT,
     );
     const edgeClearanceConstraint = new DRC_CONSTRAINT(DRC_CONSTRAINT_T.EDGE_CLEARANCE_CONSTRAINT);
@@ -400,7 +401,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     rule.AddConstraint(edgeClearanceConstraint);
 
     rule = this.createImplicitRule(
-      'board setup constraints courtyard',
+      _('board setup constraints courtyard'),
       DRC_IMPLICIT_SOURCE.BOARD_SETUP_CONSTRAINT,
     );
     const courtyardClearanceConstraint = new DRC_CONSTRAINT(
@@ -414,7 +415,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     // 2a) micro-via specific defaults (new DRC doesn't treat microvias in any special way)
 
     const uViaRule = this.createImplicitRule(
-      'board setup constraints micro-via',
+      _('board setup constraints micro-via'),
       DRC_IMPLICIT_SOURCE.BOARD_SETUP_CONSTRAINT,
     );
 
@@ -431,7 +432,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
     // 2b) barcode-specific defaults
 
     const barcodeRule = this.createImplicitRule(
-      'barcode visual separation default',
+      _('barcode visual separation default'),
       DRC_IMPLICIT_SOURCE.BARCODE_DEFAULTS,
     );
     const barcodeSeparationConstraint = new DRC_CONSTRAINT(
@@ -630,7 +631,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
             DRC_IMPLICIT_SOURCE.KEEPOUT,
           );
         } else {
-          rule = this.createImplicitRule('keepout area', DRC_IMPLICIT_SOURCE.KEEPOUT);
+          rule = this.createImplicitRule(_('keepout area'), DRC_IMPLICIT_SOURCE.KEEPOUT);
         }
       } else {
         if (parentFP) {
@@ -1098,7 +1099,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
               `Net tie on ${EscapeHTML(footprints[ii]!.GetItemDescription(this, true))}; clearance: 0.`,
           );
 
-          constraint.SetName('net tie');
+          constraint.SetName(_('net tie'));
           constraint.m_Value.SetMin(0);
           return constraint;
         }
@@ -1145,7 +1146,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
           if (aConstraintType === DRC_CONSTRAINT_T.CLEARANCE_CONSTRAINT) {
             if (override_val < this.m_designSettings!.m_MinClearance) {
               override_val = this.m_designSettings!.m_MinClearance;
-              msg.value = 'board minimum';
+              msg.value = _('board minimum');
 
               REPORT(() => '');
               REPORT(() => `Board minimum clearance: ${this.MessageTextFromValue(override_val)}.`);
@@ -1153,7 +1154,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
           } else {
             if (override_val < this.m_designSettings!.m_HoleClearance) {
               override_val = this.m_designSettings!.m_HoleClearance;
-              msg.value = 'board minimum hole';
+              msg.value = _('board minimum hole');
 
               REPORT(() => '');
               REPORT(
@@ -1310,8 +1311,8 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
       REPORT(() => `Checking assertion '${EscapeHTML(c.constraint.m_Test!.GetExpression())}'.`);
 
       if (c.constraint.m_Test!.EvaluateFor(a, b, c.constraint.m_Type, aLayer, aReporter))
-        REPORT(() => 'Assertion passed.');
-      else REPORT(() => EscapeHTML('--> Assertion failed. <--'));
+        REPORT(() => _('Assertion passed.'));
+      else REPORT(() => EscapeHTML(_('--> Assertion failed. <--')));
     };
 
     const processConstraint = (c: DRC_ENGINE_CONSTRAINT): void => {
@@ -1526,7 +1527,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
       if (c.constraint.m_Type === DRC_CONSTRAINT_T.CLEARANCE_CONSTRAINT) {
         if (a_is_non_copper || b_is_non_copper) {
           if (implicit) {
-            REPORT(() => 'Netclass clearances apply only between copper items.');
+            REPORT(() => _('Netclass clearances apply only between copper items.'));
           } else if (a_is_non_copper) {
             REPORT(
               () =>
@@ -1603,8 +1604,8 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         }
 
         if ((c.constraint.m_DisallowFlags & mask) === 0) {
-          if (implicit) REPORT(() => 'Keepout constraint not met.');
-          else REPORT(() => 'Disallow constraint not met.');
+          if (implicit) REPORT(() => _('Keepout constraint not met.'));
+          else REPORT(() => _('Disallow constraint not met.'));
 
           return;
         }
@@ -1623,14 +1624,14 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
         if (!c.layerTest.and(itemLayers).any()) {
           if (implicit) {
-            REPORT(() => 'Keepout layer(s) not matched.');
+            REPORT(() => _('Keepout layer(s) not matched.'));
           } else if (c.parentRule) {
             REPORT(
               () =>
                 `Rule layer '${EscapeHTML(c.parentRule!.m_LayerSource)}' not matched; rule ignored.`,
             );
           } else {
-            REPORT(() => 'Rule layer not matched; rule ignored.');
+            REPORT(() => _('Rule layer not matched; rule ignored.'));
           }
 
           return;
@@ -1642,14 +1643,14 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         this.m_board!.GetEnabledLayers().and(c.layerTest).count() === 0
       ) {
         if (implicit) {
-          REPORT(() => 'Constraint layer not matched.');
+          REPORT(() => _('Constraint layer not matched.'));
         } else if (c.parentRule) {
           REPORT(
             () =>
               `Rule layer '${EscapeHTML(c.parentRule!.m_LayerSource)}' not matched; rule ignored.`,
           );
         } else {
-          REPORT(() => 'Rule layer not matched; rule ignored.');
+          REPORT(() => _('Rule layer not matched; rule ignored.'));
         }
       } else if (
         c.constraint.m_Type === DRC_CONSTRAINT_T.HOLE_TO_HOLE_CONSTRAINT &&
@@ -1661,12 +1662,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
       } else if (!c.condition || c.condition.GetExpression().length === 0) {
         if (aReporter) {
           if (implicit) {
-            REPORT(() => 'Unconditional constraint applied.');
+            REPORT(() => _('Unconditional constraint applied.'));
           } else if (constraint.m_Type === DRC_CONSTRAINT_T.ASSERTION_CONSTRAINT) {
-            REPORT(() => 'Unconditional rule applied.');
+            REPORT(() => _('Unconditional rule applied.'));
             testAssertion(c);
           } else {
-            REPORT(() => 'Unconditional rule applied; overrides previous constraints.');
+            REPORT(() => _('Unconditional rule applied; overrides previous constraints.'));
           }
         }
 
@@ -1681,12 +1682,12 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         if (c.condition.EvaluateFor(a, b, c.constraint.m_Type, aLayer, aReporter)) {
           if (aReporter) {
             if (implicit) {
-              REPORT(() => 'Constraint applied.');
+              REPORT(() => _('Constraint applied.'));
             } else if (constraint.m_Type === DRC_CONSTRAINT_T.ASSERTION_CONSTRAINT) {
-              REPORT(() => 'Rule applied.');
+              REPORT(() => _('Rule applied.'));
               testAssertion(c);
             } else {
-              REPORT(() => 'Rule applied; overrides previous constraints.');
+              REPORT(() => _('Rule applied; overrides previous constraints.'));
             }
           }
 
@@ -1694,8 +1695,8 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         } else {
           REPORT(() =>
             implicit
-              ? 'Membership not satisfied; constraint ignored.'
-              : 'Condition not satisfied; rule ignored.',
+              ? _('Membership not satisfied; constraint ignored.')
+              : _('Condition not satisfied; rule ignored.'),
           );
         }
       }
@@ -1791,17 +1792,17 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
       // Found nothing again?  Return the defaults.
       if (aConstraintType === DRC_CONSTRAINT_T.SOLDER_MASK_EXPANSION_CONSTRAINT) {
         constraint.SetParentRule(null);
-        constraint.SetName('board setup');
+        constraint.SetName(_('board setup'));
         constraint.m_Value.SetOpt(this.m_designSettings!.m_SolderMaskExpansion);
         return constraint;
       } else if (aConstraintType === DRC_CONSTRAINT_T.SOLDER_PASTE_ABS_MARGIN_CONSTRAINT) {
         constraint.SetParentRule(null);
-        constraint.SetName('board setup');
+        constraint.SetName(_('board setup'));
         constraint.m_Value.SetOpt(this.m_designSettings!.m_SolderPasteMargin);
         return constraint;
       } else if (aConstraintType === DRC_CONSTRAINT_T.SOLDER_PASTE_REL_MARGIN_CONSTRAINT) {
         constraint.SetParentRule(null);
-        constraint.SetName('board setup');
+        constraint.SetName(_('board setup'));
         constraint.m_Value.SetOpt(KiROUND(this.m_designSettings!.m_SolderPasteMarginRatio * 1000));
         return constraint;
       }
@@ -1872,7 +1873,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
         if (clearance < this.m_designSettings!.m_MinClearance) {
           constraint.SetParentRule(null);
-          constraint.SetName('board minimum');
+          constraint.SetName(_('board minimum'));
           constraint.m_Value.SetMin(this.m_designSettings!.m_MinClearance);
         }
       }
@@ -1887,7 +1888,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
 
       if (constraint.m_Value.Min() < this.m_designSettings!.m_MinClearance) {
         constraint.SetParentRule(null);
-        constraint.SetName('board minimum');
+        constraint.SetName(_('board minimum'));
         constraint.m_Value.SetMin(this.m_designSettings!.m_MinClearance);
       }
 
@@ -1904,7 +1905,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
           );
 
           constraint.SetParentRule(null);
-          constraint.SetName('footprint');
+          constraint.SetName(_('footprint'));
           constraint.m_ZoneConnection = local;
           return constraint;
         }
@@ -1920,7 +1921,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         );
 
         constraint.SetParentRule(null);
-        constraint.SetName('zone');
+        constraint.SetName(_('zone'));
         constraint.m_ZoneConnection = local;
         return constraint;
       }
@@ -1935,7 +1936,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         );
 
         constraint.SetParentRule(null);
-        constraint.SetName('zone');
+        constraint.SetName(_('zone'));
         constraint.m_Value.SetMin(local);
         return constraint;
       }
@@ -1950,7 +1951,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
         );
 
         constraint.SetParentRule(null);
-        constraint.SetName('zone');
+        constraint.SetName(_('zone'));
         constraint.m_Value.SetMin(local);
         return constraint;
       }
@@ -2029,9 +2030,9 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
       );
 
       if (c.constraint.m_Test!.EvaluateFor(a, null, c.constraint.m_Type, a.GetLayer(), aReporter)) {
-        REPORT(() => 'Assertion passed.');
+        REPORT(() => _('Assertion passed.'));
       } else {
-        REPORT(() => EscapeHTML('--> Assertion failed. <--'));
+        REPORT(() => EscapeHTML(_('--> Assertion failed. <--')));
         aFailureHandler(c.constraint);
       }
     };
@@ -2048,16 +2049,16 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
       }
 
       if (!c.condition || c.condition.GetExpression().length === 0) {
-        REPORT(() => 'Unconditional rule applied.');
+        REPORT(() => _('Unconditional rule applied.'));
         testAssertion(c);
       } else {
         REPORT(() => `Checking rule condition '${EscapeHTML(c.condition!.GetExpression())}'.`);
 
         if (c.condition.EvaluateFor(a, null, c.constraint.m_Type, a.GetLayer(), aReporter)) {
-          REPORT(() => 'Rule applied.');
+          REPORT(() => _('Rule applied.'));
           testAssertion(c);
         } else {
-          REPORT(() => 'Condition not satisfied; rule ignored.');
+          REPORT(() => _('Condition not satisfied; rule ignored.'));
         }
       }
     };

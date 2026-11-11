@@ -128,6 +128,7 @@ import {
   type PCB_IO_KICAD_SEXPR_PARSER,
   SEXPR_BOARD_FILE_VERSION,
 } from './pcb_io_kicad_sexpr_parser.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `const_cast<KIID&>( item->m_Uuid ) = CurStrToKIID()`. */
 function setUuid(aItem: BOARD_ITEM, aUuid: KIID): void {
@@ -578,7 +579,7 @@ export function parsePCB_REFERENCE_IMAGE(
         const buffer = base64Decode(parts.join(''));
 
         const refImage = bitmap.GetReferenceImage();
-        if (!refImage.ReadImageFile(buffer)) throw new IO_ERROR('Failed to read image data.');
+        if (!refImage.ReadImageFile(buffer)) throw new IO_ERROR(_('Failed to read image data.'));
 
         break;
       }
@@ -2393,12 +2394,14 @@ function parseFootprintStackup(p: PCB_IO_KICAD_SEXPR_PARSER, aFootprint: FOOTPRI
 
   const expectedCuLayers = LSET.AllCuMask(gotCuLayers.count());
   if (!gotCuLayers.equals(expectedCuLayers)) {
-    throw new IO_ERROR('Invalid stackup in footprint: copper layers are not contiguous.');
+    throw new IO_ERROR(_('Invalid stackup in footprint: copper layers are not contiguous.'));
   }
 
   if (new LSET(layers).and(LSET.AllTechMask()).count() > 0) {
     throw new IO_ERROR(
-      'Invalid stackup in footprint: technology layers are implicit in footprints and should not be specified in the stackup.',
+      _(
+        'Invalid stackup in footprint: technology layers are implicit in footprints and should not be specified in the stackup.',
+      ),
     );
   }
 
@@ -4596,7 +4599,9 @@ export function parseZONE(
     if (isStrokedFill && !zone.GetIsRuleArea()) {
       if (p.m_showLegacy5ZoneWarning) {
         p.m_parseWarnings.push(
-          'Legacy zone fill strategy is not supported anymore.\nZone fills will be converted on best-effort basis.',
+          _(
+            'Legacy zone fill strategy is not supported anymore.\nZone fills will be converted on best-effort basis.',
+          ),
         );
 
         p.m_showLegacy5ZoneWarning = false;
@@ -4623,7 +4628,9 @@ export function parseZONE(
 
     if (p.m_showLegacySegmentZoneWarning) {
       p.m_parseWarnings.push(
-        'The legacy segment zone fill mode is no longer supported.\nZone fills will be converted on a best-effort basis.',
+        _(
+          'The legacy segment zone fill mode is no longer supported.\nZone fills will be converted on a best-effort basis.',
+        ),
       );
 
       p.m_showLegacySegmentZoneWarning = false;

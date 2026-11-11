@@ -20,6 +20,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PANEL_FP_EDITOR_FIELD_DEFAULTS_BASE_PROPS {
   m_fieldPropsGrid: ReactNode;
@@ -38,7 +39,7 @@ export function PANEL_FP_EDITOR_FIELD_DEFAULTS_BASE(
         {/* bSizerMargins */}
         <BoxSizer orient={wxVERTICAL}>
           <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={8}>
-            <StaticText label="Default Field Properties for New Footprints" />
+            <StaticText label={_('Default Field Properties for New Footprints')} />
           </SizerItem>
           <Spacer width={0} height={4} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxEXPAND} border={5}>
@@ -51,7 +52,7 @@ export function PANEL_FP_EDITOR_FIELD_DEFAULTS_BASE(
           </SizerItem>
           <Spacer width={5} height={25} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxTOP | wxLEFT | wxEXPAND} border={8}>
-            <StaticText label="Default Text Items for New Footprints" />
+            <StaticText label={_('Default Text Items for New Footprints')} />
           </SizerItem>
           <Spacer width={0} height={4} flag={wxEXPAND} border={5} />
           <SizerItem proportion={1} flag={wxEXPAND} border={20}>

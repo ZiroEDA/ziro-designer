@@ -77,9 +77,11 @@ import { LAYER_UTILS } from '../layer_utils.js';
 import { PCB_FIELD } from '../pcb_field.js';
 import { PCB_SELECTION_TOOL } from '../tools/pcb_selection_tool.js';
 import { ZONE_CONNECTION } from '../zones.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `m_componentType`'s rows. [data] */
-export const COMPONENT_TYPES = ['Through hole', 'SMD', 'Unspecified'] as const;
+export const COMPONENT_TYPES = [_HKI('Through hole'), _HKI('SMD'), _HKI('Unspecified')] as const;
 
 /** `m_ZoneConnectionChoice`'s rows, in `ZONE_CONNECTION` order 0..3. [data] */
 const ZONE_CHOICE: readonly ZONE_CONNECTION[] = [
@@ -277,7 +279,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR {
   ): Promise<{ ok: boolean; message?: string; overwrite?: { lib: string; name: string } }> {
     const fp = this.m_footprint;
 
-    if (aFootprintName === '') return { ok: false, message: 'Footprint must have a name.' };
+    if (aFootprintName === '') return { ok: false, message: _('Footprint must have a name.') };
 
     if (!FOOTPRINT.IsLibNameValid(aFootprintName))
       return {
@@ -296,10 +298,10 @@ export class DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR {
       const msg = `Footprint '${aFootprintName}' already exists in library '${libraryName}'.`;
 
       const answer = await this.m_frame.AskKiDialog({
-        caption: 'Confirmation',
+        caption: _('Confirmation'),
         message: msg,
         icon: 'warning',
-        labels: { ok: 'Overwrite' },
+        labels: { ok: _('Overwrite') },
       });
 
       if (answer === 'ok')
@@ -322,7 +324,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR {
 
       // Check for missing field names.
       if (field.GetName(false) === '')
-        return { ok: false, message: 'Fields must have a name.', page: 'general', fieldRow: i };
+        return { ok: false, message: _('Fields must have a name.'), page: 'general', fieldRow: i };
 
       const minSize = pcbIUScale.mmToIU(TEXT_MIN_SIZE_MM);
       const maxSize = pcbIUScale.mmToIU(TEXT_MAX_SIZE_MM);
@@ -352,7 +354,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR {
 
         return {
           ok: false,
-          message: 'The text thickness is too large for the text size.\nIt will be clamped.',
+          message: _('The text thickness is too large for the text size.\nIt will be clamped.'),
           page: 'general',
           fieldRow: i,
         };
@@ -541,7 +543,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR {
     fpList.length = 0;
     fpList.push(...v.models);
 
-    commit.Push('Edit Footprint Properties');
+    commit.Push(_('Edit Footprint Properties'));
 
     return { ok: true };
   }
@@ -739,8 +741,8 @@ export function DialogFootprintPropertiesFpEditor({
   const frame = dialog.GetFrame();
   // m_netClearance, m_solderMask, m_solderPaste: the clearance page's three binders.
   const [binders] = useState(() => {
-    const netClearance = new UNIT_BINDER(frame, 'Pad clearance:');
-    const solderMask = new UNIT_BINDER(frame, 'Solder mask expansion:');
+    const netClearance = new UNIT_BINDER(frame, _('Pad clearance:'));
+    const solderMask = new UNIT_BINDER(frame, _('Solder mask expansion:'));
     const solderPaste = new MARGIN_OFFSET_BINDER(frame.GetIuScale(), frame.GetUserUnits());
 
     if (initial.localClearance !== null) netClearance.SetValue(initial.localClearance);
@@ -822,7 +824,7 @@ export function DialogFootprintPropertiesFpEditor({
         model3d
           ? [
               {
-                text: '3D Models',
+                text: _('3D Models'),
                 content: (
                   <PanelFpProperties3dModel
                     footprint={model3d.footprint}
@@ -837,12 +839,12 @@ export function DialogFootprintPropertiesFpEditor({
           : []
       }
       m_itemsGrid={
-        <WxGridView grid={fields.grid} tricks={fields.tricks} flexCol={1} ariaLabel="Fields" />
+        <WxGridView grid={fields.grid} tricks={fields.tricks} flexCol={1} ariaLabel={_('Fields')} />
       }
       fieldButtons={gridButtons(
         fields,
-        'Add field',
-        'Delete field',
+        _('Add field'),
+        _('Delete field'),
         () =>
           fields.grid.OnAddRow(() => {
             fields.table.push_back(dialog.MakeNewField(fields.table.GetFields()));

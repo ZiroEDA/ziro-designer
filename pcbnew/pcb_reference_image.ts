@@ -69,6 +69,8 @@ import {
 import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * Object to handle a bitmap image that can be inserted in a PCB.
@@ -226,9 +228,9 @@ export class PCB_REFERENCE_IMAGE extends BOARD_ITEM {
   }
 
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
-    aList.push(new MSG_PANEL_ITEM('Reference Image', ''));
+    aList.push(new MSG_PANEL_ITEM(_('Reference Image'), ''));
 
-    aList.push(new MSG_PANEL_ITEM('PPI', `${this.m_referenceImage.GetImage().GetPPI()} `));
+    aList.push(new MSG_PANEL_ITEM(_('PPI'), `${this.m_referenceImage.GetImage().GetPPI()} `));
     aList.push(new MSG_PANEL_ITEM('Scale', `${this.m_referenceImage.GetImageScale().toFixed(6)} `));
 
     aList.push(
@@ -241,7 +243,7 @@ export class PCB_REFERENCE_IMAGE extends BOARD_ITEM {
   }
 
   override GetItemDescription(aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return 'Reference Image';
+    return _('Reference Image');
   }
 
   override ViewGetLayers(): number[] {
@@ -344,7 +346,7 @@ export class PCB_REFERENCE_IMAGE extends BOARD_ITEM {
     'Layer',
     new PROPERTY_ENUM<PCB_REFERENCE_IMAGE, PCB_LAYER_ID, BOARD_ITEM>(
       PCB_REFERENCE_IMAGE,
-      'Associated Layer',
+      _HKI('Associated Layer'),
       'SetLayer',
       'GetLayer',
       ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID'),
@@ -354,7 +356,7 @@ export class PCB_REFERENCE_IMAGE extends BOARD_ITEM {
     ),
   );
 
-  const groupImage = 'Image Properties';
+  const groupImage = _HKI('Image Properties');
 
   propMgr.AddProperty(
     new PROPERTY<PCB_REFERENCE_IMAGE, number>(
@@ -370,7 +372,7 @@ export class PCB_REFERENCE_IMAGE extends BOARD_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PCB_REFERENCE_IMAGE, number>(
       PCB_REFERENCE_IMAGE,
-      'Transform Offset X',
+      _HKI('Transform Offset X'),
       'SetTransformOriginOffsetX',
       'GetTransformOriginOffsetX',
       TYPE_INT,
@@ -383,7 +385,7 @@ export class PCB_REFERENCE_IMAGE extends BOARD_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PCB_REFERENCE_IMAGE, number>(
       PCB_REFERENCE_IMAGE,
-      'Transform Offset Y',
+      _HKI('Transform Offset Y'),
       'SetTransformOriginOffsetY',
       'GetTransformOriginOffsetY',
       TYPE_INT,
@@ -418,7 +420,7 @@ export class PCB_REFERENCE_IMAGE extends BOARD_ITEM {
   );
 
   // For future use
-  const greyscale = 'Greyscale';
+  const greyscale = _HKI('Greyscale');
   void greyscale;
 })();
 

@@ -35,6 +35,8 @@ import { BOARD_ITEM } from './board_item.js';
 import { PCB_SHAPE } from './pcb_shape.js';
 import { PCB_TEXTBOX } from './pcb_textbox.js';
 import type { PCB_TABLE } from './pcb_table.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 function isBoardItem(a: unknown): a is BOARD_ITEM {
   return (
@@ -232,41 +234,45 @@ export class PCB_TABLECELL extends PCB_TEXTBOX {
     aList.push(new MSG_PANEL_ITEM('Table Cell', this.GetAddr()));
 
     // Don't use GetShownText() here; we want to show the user the variable references
-    aList.push(new MSG_PANEL_ITEM('Text', KIUI_EllipsizeStatusText(aFrame, this.GetText())));
+    aList.push(new MSG_PANEL_ITEM(_('Text'), KIUI_EllipsizeStatusText(aFrame, this.GetText())));
 
     if (aFrame.GetName() === PCB_EDIT_FRAME_NAME && this.IsLocked())
-      aList.push(new MSG_PANEL_ITEM('Status', 'Locked'));
+      aList.push(new MSG_PANEL_ITEM(_('Status'), _('Locked')));
 
     aList.push(new MSG_PANEL_ITEM('Layer', this.GetLayerName()));
-    aList.push(new MSG_PANEL_ITEM('Mirror', this.IsMirrored() ? 'Yes' : 'No'));
+    aList.push(new MSG_PANEL_ITEM(_('Mirror'), this.IsMirrored() ? _('Yes') : _('No')));
 
     aList.push(
       new MSG_PANEL_ITEM(
-        'Cell Width',
+        _('Cell Width'),
         aFrame.MessageTextFromValue(Math.abs(this.GetEnd().x - this.GetStart().x)),
       ),
     );
     aList.push(
       new MSG_PANEL_ITEM(
-        'Cell Height',
+        _('Cell Height'),
         aFrame.MessageTextFromValue(Math.abs(this.GetEnd().y - this.GetStart().y)),
       ),
     );
 
-    aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Font'), this.GetFont() ? this.GetFont()!.GetName() : _('Default')),
+    );
 
     if (this.GetTextThickness())
       aList.push(
         new MSG_PANEL_ITEM(
-          'Text Thickness',
+          _('Text Thickness'),
           aFrame.MessageTextFromValue(this.GetEffectiveTextPenWidth()),
         ),
       );
-    else aList.push(new MSG_PANEL_ITEM('Text Thickness', 'Auto'));
+    else aList.push(new MSG_PANEL_ITEM(_('Text Thickness'), _('Auto')));
 
-    aList.push(new MSG_PANEL_ITEM('Text Width', aFrame.MessageTextFromValue(this.GetTextWidth())));
     aList.push(
-      new MSG_PANEL_ITEM('Text Height', aFrame.MessageTextFromValue(this.GetTextHeight())),
+      new MSG_PANEL_ITEM(_('Text Width'), aFrame.MessageTextFromValue(this.GetTextWidth())),
+    );
+    aList.push(
+      new MSG_PANEL_ITEM(_('Text Height'), aFrame.MessageTextFromValue(this.GetTextHeight())),
     );
   }
 
@@ -343,41 +349,41 @@ export class PCB_TABLECELL extends PCB_TEXTBOX {
   propMgr.InheritsAfter(PCB_TABLECELL, EDA_SHAPE);
   propMgr.InheritsAfter(PCB_TABLECELL, EDA_TEXT);
 
-  propMgr.Mask(PCB_TABLECELL, BOARD_ITEM, 'Position X');
-  propMgr.Mask(PCB_TABLECELL, BOARD_ITEM, 'Position Y');
+  propMgr.Mask(PCB_TABLECELL, BOARD_ITEM, _HKI('Position X'));
+  propMgr.Mask(PCB_TABLECELL, BOARD_ITEM, _HKI('Position Y'));
   propMgr.Mask(PCB_TABLECELL, PCB_SHAPE, 'Layer');
-  propMgr.Mask(PCB_TABLECELL, PCB_SHAPE, 'Soldermask');
-  propMgr.Mask(PCB_TABLECELL, PCB_SHAPE, 'Soldermask Margin Override');
-  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Corner Radius');
+  propMgr.Mask(PCB_TABLECELL, PCB_SHAPE, _HKI('Soldermask'));
+  propMgr.Mask(PCB_TABLECELL, PCB_SHAPE, _HKI('Soldermask Margin Override'));
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, _HKI('Corner Radius'));
 
-  propMgr.Mask(PCB_TABLECELL, BOARD_CONNECTED_ITEM, 'Net');
+  propMgr.Mask(PCB_TABLECELL, BOARD_CONNECTED_ITEM, _HKI('Net'));
 
-  propMgr.Mask(PCB_TABLECELL, PCB_TEXTBOX, 'Knockout');
-  propMgr.Mask(PCB_TABLECELL, PCB_TEXTBOX, 'Border');
-  propMgr.Mask(PCB_TABLECELL, PCB_TEXTBOX, 'Border Style');
-  propMgr.Mask(PCB_TABLECELL, PCB_TEXTBOX, 'Border Width');
+  propMgr.Mask(PCB_TABLECELL, PCB_TEXTBOX, _HKI('Knockout'));
+  propMgr.Mask(PCB_TABLECELL, PCB_TEXTBOX, _HKI('Border'));
+  propMgr.Mask(PCB_TABLECELL, PCB_TEXTBOX, _HKI('Border Style'));
+  propMgr.Mask(PCB_TABLECELL, PCB_TEXTBOX, _HKI('Border Width'));
 
-  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Start X');
-  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Start Y');
-  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'End X');
-  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'End Y');
-  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Shape');
-  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Width');
-  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Height');
-  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Line Width');
-  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Line Style');
-  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, 'Line Color');
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, _HKI('Start X'));
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, _HKI('Start Y'));
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, _HKI('End X'));
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, _HKI('End Y'));
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, _HKI('Shape'));
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, _HKI('Width'));
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, _HKI('Height'));
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, _HKI('Line Width'));
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, _HKI('Line Style'));
+  propMgr.Mask(PCB_TABLECELL, EDA_SHAPE, _HKI('Line Color'));
 
-  propMgr.Mask(PCB_TABLECELL, EDA_TEXT, 'Orientation');
-  propMgr.Mask(PCB_TABLECELL, EDA_TEXT, 'Hyperlink');
-  propMgr.Mask(PCB_TABLECELL, EDA_TEXT, 'Color');
+  propMgr.Mask(PCB_TABLECELL, EDA_TEXT, _HKI('Orientation'));
+  propMgr.Mask(PCB_TABLECELL, EDA_TEXT, _HKI('Hyperlink'));
+  propMgr.Mask(PCB_TABLECELL, EDA_TEXT, _HKI('Color'));
 
-  const tableProps = 'Table';
+  const tableProps = _('Table');
 
   propMgr.AddProperty(
     new PROPERTY<PCB_TABLECELL, number>(
       PCB_TABLECELL,
-      'Column Width',
+      _HKI('Column Width'),
       'SetColumnWidth',
       'GetColumnWidth',
       TYPE_INT,
@@ -389,7 +395,7 @@ export class PCB_TABLECELL extends PCB_TEXTBOX {
   propMgr.AddProperty(
     new PROPERTY<PCB_TABLECELL, number>(
       PCB_TABLECELL,
-      'Row Height',
+      _HKI('Row Height'),
       'SetRowHeight',
       'GetRowHeight',
       TYPE_INT,

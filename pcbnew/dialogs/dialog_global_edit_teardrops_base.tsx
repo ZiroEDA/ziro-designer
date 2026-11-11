@@ -43,6 +43,7 @@ import {
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
 import { type CHECK3, TriStateCheck } from '@ziroeda/wx/wx_checkbox.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER over a wxTextCtrl: its text and Enable(). */
 export interface ENTRY {
@@ -145,35 +146,35 @@ export function DIALOG_GLOBAL_EDIT_TEARDROPS_BASE(
   );
 
   return (
-    <DialogShim title="Edit Teardrops" onClose={p.onCancel}>
+    <DialogShim title={_('Edit Teardrops')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND} border={5}>
           {/* bSizerTop */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem proportion={1} flag={wxEXPAND | wxTOP | RL} border={5}>
-              <StaticBoxSizer label="Scope" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Scope')} orient={wxVERTICAL}>
                 <SizerItem flag={BRL} border={5}>
-                  <CheckBox label="PTH pads" check={p.m_pthPads} />
+                  <CheckBox label={_('PTH pads')} check={p.m_pthPads} />
                 </SizerItem>
                 <SizerItem flag={BRL} border={5}>
-                  <CheckBox label="SMD pads" check={p.m_smdPads} />
+                  <CheckBox label={_('SMD pads')} check={p.m_smdPads} />
                 </SizerItem>
                 <SizerItem flag={BRL} border={5}>
-                  <CheckBox label="Vias" check={p.m_vias} />
+                  <CheckBox label={_('Vias')} check={p.m_vias} />
                 </SizerItem>
                 <SizerItem flag={wxALL} border={5}>
-                  <CheckBox label="Track to track" check={p.m_trackToTrack} />
+                  <CheckBox label={_('Track to track')} check={p.m_trackToTrack} />
                 </SizerItem>
               </StaticBoxSizer>
             </SizerItem>
             <SizerItem proportion={2} flag={wxEXPAND | wxTOP | RL} border={5}>
-              <StaticBoxSizer label="Filter Items" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Filter Items')} orient={wxVERTICAL}>
                 <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                   {/* fgSizer3 = wxFlexGridSizer( 0, 2, 5, 0 ) */}
                   <FlexGridSizer cols={2} vgap={5} hgap={0} growableCols={[1]}>
                     <SizerItem flag={CV | RL} border={5}>
-                      <CheckBox label="Filter items by net:" check={p.m_netFilterOpt} />
+                      <CheckBox label={_('Filter items by net:')} check={p.m_netFilterOpt} />
                     </SizerItem>
                     <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT} border={5}>
                       <NetSelector
@@ -184,7 +185,10 @@ export function DIALOG_GLOBAL_EDIT_TEARDROPS_BASE(
                       />
                     </SizerItem>
                     <SizerItem flag={CV | RL} border={5}>
-                      <CheckBox label="Filter items by net class:" check={p.m_netclassFilterOpt} />
+                      <CheckBox
+                        label={_('Filter items by net class:')}
+                        check={p.m_netclassFilterOpt}
+                      />
                     </SizerItem>
                     <SizerItem flag={CV | wxEXPAND | wxRIGHT} border={5}>
                       <Choice
@@ -208,7 +212,7 @@ export function DIALOG_GLOBAL_EDIT_TEARDROPS_BASE(
                       border={3}
                     />
                     <SizerItem flag={CV | RL} border={5}>
-                      <CheckBox label="Filter items by layer:" check={p.m_layerFilterOpt} />
+                      <CheckBox label={_('Filter items by layer:')} check={p.m_layerFilterOpt} />
                     </SizerItem>
                     <SizerItem flag={wxEXPAND | CV | wxRIGHT} border={5}>
                       <Combo
@@ -225,32 +229,32 @@ export function DIALOG_GLOBAL_EDIT_TEARDROPS_BASE(
                 </SizerItem>
                 <Spacer width={0} height={5} border={5} />
                 <SizerItem flag={RL} border={5}>
-                  <CheckBox label="Round pads only" check={p.m_roundPadsFilter} />
+                  <CheckBox label={_('Round pads only')} check={p.m_roundPadsFilter} />
                 </SizerItem>
                 <SizerItem flag={wxTOP | RL} border={5}>
-                  <CheckBox label="Existing teardrops only" check={p.m_existingFilter} />
+                  <CheckBox label={_('Existing teardrops only')} check={p.m_existingFilter} />
                 </SizerItem>
                 <SizerItem flag={wxALL} border={5}>
-                  <CheckBox label="Selected items only" check={p.m_selectedItemsFilter} />
+                  <CheckBox label={_('Selected items only')} check={p.m_selectedItemsFilter} />
                 </SizerItem>
               </StaticBoxSizer>
             </SizerItem>
           </BoxSizer>
         </SizerItem>
         <SizerItem proportion={1} flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT | wxTOP} border={5}>
-          <StaticBoxSizer label="Action" orient={wxVERTICAL}>
+          <StaticBoxSizer label={_('Action')} orient={wxVERTICAL}>
             <SizerItem flag={wxBOTTOM | wxRIGHT} border={10}>
               {radio(
-                'Remove teardrops',
+                _('Remove teardrops'),
                 'remove',
-                'Remove teardrops according to filtering options',
+                _('Remove teardrops according to filtering options'),
               )}
             </SizerItem>
             <SizerItem flag={wxBOTTOM | wxRIGHT} border={10}>
               {radio(
-                'Remove all teardrops',
+                _('Remove all teardrops'),
                 'removeAll',
-                'Remove all teardrops, regardless of filtering options',
+                _('Remove all teardrops, regardless of filtering options'),
               )}
             </SizerItem>
             <SizerItem flag={wxEXPAND | wxBOTTOM} border={15}>
@@ -261,7 +265,7 @@ export function DIALOG_GLOBAL_EDIT_TEARDROPS_BASE(
                 </SizerItem>
                 <SizerItem proportion={1} flag={CV | RL} border={10}>
                   <HyperlinkCtrl
-                    label="Edit default values in Board Setup"
+                    label={_('Edit default values in Board Setup')}
                     onClick={p.onBoardSetupLink}
                   />
                 </SizerItem>
@@ -281,16 +285,20 @@ export function DIALOG_GLOBAL_EDIT_TEARDROPS_BASE(
                       <BoxSizer orient={wxVERTICAL}>
                         <SizerItem flag={wxBOTTOM | wxRIGHT} border={5}>
                           <TriStateCheck
-                            label="Prefer zone connection"
+                            label={_('Prefer zone connection')}
                             check={p.m_cbPreferZoneConnection}
-                            title="Do not create teardrops on tracks connected to pads that are also connected to a copper zone."
+                            title={_(
+                              'Do not create teardrops on tracks connected to pads that are also connected to a copper zone.',
+                            )}
                           />
                         </SizerItem>
                         <SizerItem flag={wxBOTTOM | wxRIGHT} border={5}>
                           <TriStateCheck
-                            label="Allow teardrops to span two track segments"
+                            label={_('Allow teardrops to span two track segments')}
                             check={p.m_cbTeardropsUseNextTrack}
-                            title="Allows a teardrop to extend over the first 2 connected track segments if the first track segment is too short to accommodate the best length."
+                            title={_(
+                              'Allows a teardrop to extend over the first 2 connected track segments if the first track segment is too short to accommodate the best length.',
+                            )}
                           />
                         </SizerItem>
                       </BoxSizer>
@@ -305,13 +313,17 @@ export function DIALOG_GLOBAL_EDIT_TEARDROPS_BASE(
                             <SizerItem flag={CV} border={5}>
                               {label(
                                 p.m_tcHDRatio,
-                                'Max pad/via size to track width ratio to create a teardrop.\n100 always creates a teardrop.',
+                                _(
+                                  'Max pad/via size to track width ratio to create a teardrop.\n100 always creates a teardrop.',
+                                ),
                               )}
                             </SizerItem>
                             <SizerItem flag={RL} border={5}>
                               {entry(
                                 p.m_tcHDRatio,
-                                'Tracks which are similar in size to the pad or via do not need teardrops.',
+                                _(
+                                  'Tracks which are similar in size to the pad or via do not need teardrops.',
+                                ),
                               )}
                             </SizerItem>
                             <SizerItem flag={wxRIGHT | CV} border={5}>
@@ -321,7 +333,7 @@ export function DIALOG_GLOBAL_EDIT_TEARDROPS_BASE(
                         </SizerItem>
                         <SizerItem flag={wxTOP | wxBOTTOM | wxLEFT} border={2}>
                           <StaticText
-                            label="(as a percentage of pad/via minor dimension)"
+                            label={_('(as a percentage of pad/via minor dimension)')}
                             disabled={!p.m_tcHDRatio.enabled}
                           />
                         </SizerItem>
@@ -422,7 +434,7 @@ export function DIALOG_GLOBAL_EDIT_TEARDROPS_BASE(
                           {/* bSizer44 */}
                           <BoxSizer orient={wxHORIZONTAL}>
                             <SizerItem flag={CV | wxLEFT | wxRIGHT} border={5}>
-                              <TriStateCheck label="Curved edges" check={p.m_curvedEdges} />
+                              <TriStateCheck label={_('Curved edges')} check={p.m_curvedEdges} />
                             </SizerItem>
                           </BoxSizer>
                         </SizerItem>
@@ -436,10 +448,10 @@ export function DIALOG_GLOBAL_EDIT_TEARDROPS_BASE(
         </SizerItem>
         <SizerItem flag={wxEXPAND | wxALL} border={5}>
           <StdDialogButtonSizer
-            okLabel="Apply and Close"
+            okLabel={_('Apply and Close')}
             onOk={p.onOK}
             onApply={p.onApply}
-            cancelLabel="Close"
+            cancelLabel={_('Close')}
             onCancel={p.onCancel}
           />
         </SizerItem>

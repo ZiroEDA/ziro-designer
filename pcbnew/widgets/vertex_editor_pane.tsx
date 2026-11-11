@@ -28,6 +28,7 @@ import type { SHAPE_POLY_SET, VERTEX_INDEX } from '@ziroeda/kimath/src/geometry/
 import type { BOARD_ITEM } from '../board_item.js';
 import type { PCB_SHAPE } from '../pcb_shape.js';
 import type { ZONE } from '../zone.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const INT_MIN = -2147483648;
 const INT_MAX = 2147483647;
@@ -243,7 +244,7 @@ export class PCB_VERTEX_EDITOR_PANE {
       this.m_zone.HatchBorder();
     }
 
-    commit.Push('Edit Vertex');
+    commit.Push(_('Edit Vertex'));
 
     this.m_frame.RefreshItem(this.m_item);
     this.updateHighlight(aRow);
@@ -281,7 +282,7 @@ export function PcbVertexEditorPane({ pane }: Props): JSX.Element {
   const rows = cells.map((c, i) => ({ i, c }));
 
   const { grid, tricks, onUpdate } = useStringGrid<{ i: number; c: string[] }>({
-    labels: ['X coord', 'Y coord'],
+    labels: [_('X coord'), _('Y coord')],
     rows,
     toCells: (r) => r.c,
     fromCells: (c, i) => ({ i, c: [...c] }),

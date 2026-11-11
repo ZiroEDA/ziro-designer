@@ -33,6 +33,7 @@ import { BOARD_COMMIT } from '../board_commit.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_FIELD } from '../pcb_field.js';
 import type { PCB_TEXT } from '../pcb_text.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** Every field DIALOG_TEXT_PROPERTIES edits, for a board text item. */
 export interface TextValues {
@@ -143,11 +144,11 @@ export class DIALOG_TEXT_PROPERTIES {
 
     if (!parentFP) {
       return {
-        title: 'Text Properties',
+        title: _('Text Properties'),
         multiLine: true,
-        textLabel: 'Reference designator:',
-        posXLabel: 'Position X:',
-        posYLabel: 'Position Y:',
+        textLabel: _('Reference designator:'),
+        posXLabel: _('Position X:'),
+        posYLabel: _('Position Y:'),
         lockedShown: true,
         visibleShown: false,
         keepUprightShown: false,
@@ -155,32 +156,32 @@ export class DIALOG_TEXT_PROPERTIES {
       };
     }
 
-    let title = 'Footprint Text Properties';
-    let textLabel = 'Text:';
+    let title = _('Footprint Text Properties');
+    let textLabel = _('Text:');
 
     if (this.isField()) {
       const field = this.m_item as PCB_FIELD;
 
       if (field.IsReference()) {
-        title = 'Footprint Reference Properties';
-        textLabel = 'Reference:';
+        title = _('Footprint Reference Properties');
+        textLabel = _('Reference:');
       } else if (field.IsValue()) {
-        title = 'Footprint Value Properties';
-        textLabel = 'Value:';
+        title = _('Footprint Value Properties');
+        textLabel = _('Value:');
       } else {
-        title = 'Footprint Field Properties';
+        title = _('Footprint Field Properties');
       }
     }
 
-    const side = parentFP.IsFlipped() ? 'back side (mirrored)' : 'front side';
+    const side = parentFP.IsFlipped() ? _('back side (mirrored)') : _('front side');
     const rotated = parentFP.GetOrientation().AsDegrees().toFixed(1);
 
     return {
       title,
       multiLine: false,
       textLabel,
-      posXLabel: 'Offset X:',
-      posYLabel: 'Offset Y:',
+      posXLabel: _('Offset X:'),
+      posYLabel: _('Offset Y:'),
       lockedShown: !this.m_frame.IsType(FRAME_T.FRAME_FOOTPRINT_EDITOR),
       visibleShown: this.isField(),
       keepUprightShown: true,
@@ -285,7 +286,7 @@ export class DIALOG_TEXT_PROPERTIES {
       const maxPenWidth = ClampTextPenSize(item.GetTextThickness(), item.GetTextSize());
 
       if (item.GetTextThickness() > maxPenWidth) {
-        message = 'The text thickness is too large for the text size.\nIt will be clamped.';
+        message = _('The text thickness is too large for the text size.\nIt will be clamped.');
         item.SetTextThickness(maxPenWidth);
       }
     }
@@ -318,7 +319,7 @@ export class DIALOG_TEXT_PROPERTIES {
 
     item.SetMirrored(v.mirrored);
 
-    if (pushCommit) commit.Push('Edit Text Properties');
+    if (pushCommit) commit.Push(_('Edit Text Properties'));
 
     return message ? { ok: true, message } : { ok: true };
   }
@@ -438,7 +439,7 @@ export function DialogTextProperties({
         m_fontCtrl={{
           face: v.face,
           onChange: (aFace) => {
-            const stroke = FONT.IsStrokeName(aFace === '' ? 'KiCad Font' : aFace);
+            const stroke = FONT.IsStrokeName(aFace === '' ? _('KiCad Font') : aFace);
             setStrokeShown(stroke);
             setV((p) => ({ ...p, face: aFace, ...(stroke ? { bold: boldFor(p) } : {}) }));
           },
@@ -465,10 +466,10 @@ export function DialogTextProperties({
         vAlign={v.vJustify}
         onVAlign={(aAlign) => set({ vJustify: aAlign })}
         m_mirrored={{ checked: v.mirrored, onClick: () => set({ mirrored: !v.mirrored }) }}
-        m_textWidth={length('width', 'Width:', 'Text width')}
-        m_textHeight={length('height', 'Height:', 'Text height')}
+        m_textWidth={length('width', _('Width:'), _('Text width'))}
+        m_textHeight={length('height', _('Height:'), _('Text height'))}
         m_thickness={{
-          ...length('thickness', 'Thickness:', 'Text thickness'),
+          ...length('thickness', _('Thickness:'), _('Text thickness')),
           shown: strokeShown,
           enabled: !v.autoThickness,
         }}
@@ -485,8 +486,8 @@ export function DialogTextProperties({
             setTexts((t) => ({ ...t, thickness: undefined }));
           },
         }}
-        m_posX={length('x', shape.posXLabel, 'Text pos X')}
-        m_posY={length('y', shape.posYLabel, 'Text pos Y')}
+        m_posX={length('x', shape.posXLabel, _('Text pos X'))}
+        m_posY={length('y', shape.posYLabel, _('Text pos Y'))}
         m_orientation={{
           value: texts.orientation ?? orientationText(v.orientation),
           onChange: (aText) => {
@@ -501,7 +502,7 @@ export function DialogTextProperties({
       />
       {syntaxHelp && (
         <HtmlMessageBox
-          caption="Syntax Help"
+          caption={_('Syntax Help')}
           className="ze-syntaxhelp"
           html={PCB_TEXT_SYNTAX_HELP}
           onClose={() => setSyntaxHelp(false)}

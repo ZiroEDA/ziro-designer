@@ -25,6 +25,7 @@ import type { PCB_TABLE } from '../pcb_table.js';
 import { PCB_TABLECELL } from '../pcb_tablecell.js';
 import { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The frame the table tool's two dialogs need. */
 interface TABLE_TOOL_FRAME {
@@ -134,7 +135,7 @@ export class PCB_EDIT_TABLE_TOOL extends PCB_TOOL_BASE {
 
       // Show file save dialog
       const saveDialog = await frame.ShowSaveFileDialog?.(
-        'Export Table to CSV',
+        _('Export Table to CSV'),
         '',
         fileFilter('CSV files', ['csv']),
         null,

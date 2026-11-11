@@ -38,6 +38,8 @@ import {
   PANEL_COMPONENT_CLASS_CONDITION_SHEET_BASE,
   PANEL_COMPONENT_CLASS_CONDITION_SIDE_BASE,
 } from './panel_assign_component_classes_base.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** One condition panel's CONDITION_DATA: its type and the two controls' text. */
 export interface ClassCondition {
@@ -129,13 +131,13 @@ function newCondition(aType: CONDITION_TYPE): ClassCondition {
 
 /** `OnAddConditionClick`'s menu, in its order. */
 const ADD_CONDITION_MENU: readonly [CONDITION_TYPE, string][] = [
-  [CONDITION_TYPE.REFERENCE, 'Add Reference Condition'],
-  [CONDITION_TYPE.FOOTPRINT, 'Add Footprint Condition'],
-  [CONDITION_TYPE.SIDE, 'Add Side Condition'],
-  [CONDITION_TYPE.ROTATION, 'Add Rotation Condition'],
-  [CONDITION_TYPE.FOOTPRINT_FIELD, 'Add Footprint Field Value Condition'],
-  [CONDITION_TYPE.SHEET_NAME, 'Add Sheet Condition'],
-  [CONDITION_TYPE.CUSTOM, 'Add Custom Expression Condition'],
+  [CONDITION_TYPE.REFERENCE, _HKI('Add Reference Condition')],
+  [CONDITION_TYPE.FOOTPRINT, _HKI('Add Footprint Condition')],
+  [CONDITION_TYPE.SIDE, _HKI('Add Side Condition')],
+  [CONDITION_TYPE.ROTATION, _HKI('Add Rotation Condition')],
+  [CONDITION_TYPE.FOOTPRINT_FIELD, _HKI('Add Footprint Field Value Condition')],
+  [CONDITION_TYPE.SHEET_NAME, _HKI('Add Sheet Condition')],
+  [CONDITION_TYPE.CUSTOM, _HKI('Add Custom Expression Condition')],
 ];
 
 /** The labels' common minimum: `GetTextExtent( _( "Footprint Field:" ) + "M" )`. */
@@ -238,7 +240,7 @@ export function PanelPcbComponentClasses({ value, onChange, frame = null }: Prop
             onImportRefsClick={(aAnchor) =>
               popup(aAnchor, [
                 {
-                  label: 'Import references from selection',
+                  label: wxGetTranslation('Import references from selection'),
                   disabled: selectionRefs.length === 0,
                   // onMenu: the selection's references, comma separated.
                   action: () =>

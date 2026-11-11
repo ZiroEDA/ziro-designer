@@ -56,6 +56,8 @@ import {
   PCB_IO_EASYEDAPRO_PARSER,
   type POURED_MAP,
 } from './pcb_io_easyedapro_parser.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 interface PRJ_DATA {
   m_Footprints: FOOTPRINT_MAP;
@@ -105,11 +107,11 @@ export class PCB_IO_EASYEDAPRO extends PCB_IO {
   }
 
   override GetBoardFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('EasyEDA (JLCEDA) Pro files', ['epro', 'zip']);
+    return new IO_FILE_DESC(_HKI('EasyEDA (JLCEDA) Pro files'), ['epro', 'zip']);
   }
 
   override GetLibraryDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('EasyEDA (JLCEDA) Pro files', ['elibz', 'efoo']);
+    return new IO_FILE_DESC(_HKI('EasyEDA (JLCEDA) Pro files'), ['elibz', 'efoo']);
   }
 
   /** `dynamic_cast<PROJECT_CHOOSER_PLUGIN*>( this )`: the chooser half, held by composition. */
@@ -179,7 +181,7 @@ export class PCB_IO_EASYEDAPRO extends PCB_IO {
       this.m_progressReporter.Report(`Loading ${aFileName}...`);
 
       if (!this.m_progressReporter.KeepRefreshing())
-        throw new IO_ERROR('File import canceled by user.');
+        throw new IO_ERROR(_('File import canceled by user.'));
     }
 
     const parser = new PCB_IO_EASYEDAPRO_PARSER(null, null);

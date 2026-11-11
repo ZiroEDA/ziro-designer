@@ -36,6 +36,7 @@ import {
   TYPE_FILE,
   ZEROS_FMT,
 } from './gendrill_writer_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // set to 1 to use flashed oblong holes, 0 to draw them by a line (route holes).
 // WARNING: currently ( gerber-layer-format-specification-revision-2023-08 ),
@@ -175,7 +176,7 @@ export class GERBER_WRITER extends GENDRILL_WRITER_BASE {
 
     if (aGenMap) success = this.CreateMapFilesSet(aPlotDirectory, aReporter) && success;
 
-    aReporter?.reportTail('Done.', RPT_SEVERITY_INFO);
+    aReporter?.reportTail(_('Done.'), RPT_SEVERITY_INFO);
 
     return success;
   }

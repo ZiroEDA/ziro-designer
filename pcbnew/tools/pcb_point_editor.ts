@@ -127,6 +127,7 @@ import { PCB_SELECTION } from './pcb_selection.js';
 import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export const COORDS_PADDING = pcbIUScale.mmToIU(20);
 
@@ -2655,9 +2656,9 @@ export class PCB_POINT_EDITOR extends PCB_TOOL_BASE {
 
           commit.Push(generator.GetCommitMessage());
         } else if (item.Type() === KICAD_T.PCB_TABLECELL_T) {
-          commit.Push('Resize Table Cells');
+          commit.Push(_('Resize Table Cells'));
         } else {
-          commit.Push('Move Point');
+          commit.Push(_('Move Point'));
         }
 
         if (item instanceof PCB_SHAPE) {
@@ -2755,11 +2756,11 @@ export class PCB_POINT_EDITOR extends PCB_TOOL_BASE {
     let msg: string;
 
     if (editedPoint instanceof EDIT_LINE) {
-      title = 'Move Midpoint to Location';
-      msg = 'Move Midpoint';
+      title = _('Move Midpoint to Location');
+      msg = _('Move Midpoint');
     } else {
-      title = 'Move Corner to Location';
-      msg = 'Move Corner';
+      title = _('Move Corner to Location');
+      msg = _('Move Corner');
     }
 
     const value = yield* this.RunMainStackModal(() =>
@@ -3054,7 +3055,7 @@ export class PCB_POINT_EDITOR extends PCB_TOOL_BASE {
 
       if (item.Type() === KICAD_T.PCB_ZONE_T) (item as ZONE).HatchBorder();
 
-      commit.Push('Add Zone Corner');
+      commit.Push(_('Add Zone Corner'));
     } else if (graphicItem) {
       switch (graphicItem.GetShape()) {
         case SHAPE_T.SEGMENT: {
@@ -3073,7 +3074,7 @@ export class PCB_POINT_EDITOR extends PCB_TOOL_BASE {
           newSegment.SetEnd({ x: seg.B.x, y: seg.B.y });
 
           commit.Add(newSegment);
-          commit.Push('Split Segment');
+          commit.Push(_('Split Segment'));
           break;
         }
 
@@ -3099,7 +3100,7 @@ export class PCB_POINT_EDITOR extends PCB_TOOL_BASE {
           newArc.SetStart(nearestPoint);
 
           commit.Add(newArc);
-          commit.Push('Split Arc');
+          commit.Push(_('Split Arc'));
           break;
         }
 
@@ -3151,8 +3152,8 @@ export class PCB_POINT_EDITOR extends PCB_TOOL_BASE {
 
       this.setEditedPoint(null);
 
-      if (item.Type() === KICAD_T.PCB_ZONE_T) commit.Push('Remove Zone Corner');
-      else commit.Push('Remove Polygon Corner');
+      if (item.Type() === KICAD_T.PCB_ZONE_T) commit.Push(_('Remove Zone Corner'));
+      else commit.Push(_('Remove Polygon Corner'));
 
       if (item.Type() === KICAD_T.PCB_ZONE_T) (item as ZONE).HatchBorder();
 
@@ -3228,8 +3229,8 @@ export class PCB_POINT_EDITOR extends PCB_TOOL_BASE {
 
     this.setEditedPoint(null);
 
-    if (item.Type() === KICAD_T.PCB_ZONE_T) commit.Push('Break Zone Corner');
-    else commit.Push('Break Polygon Corner');
+    if (item.Type() === KICAD_T.PCB_ZONE_T) commit.Push(_('Break Zone Corner'));
+    else commit.Push(_('Break Polygon Corner'));
 
     if (item.Type() === KICAD_T.PCB_ZONE_T) (item as ZONE).HatchBorder();
 

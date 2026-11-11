@@ -60,6 +60,7 @@ import { minOptMaxMax, minOptMaxMin, minOptMaxOpt } from './pns_meander.js';
 import type { NetHandle } from './pns_item.js';
 import type { PnsItem, PnsLinkedItem } from './pns_item.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `MEANDER_SKEW_PLACER`: differential pair skew adjustment algorithm. */
 export class PnsMeanderSkewPlacer extends PnsMeanderPlacer {
@@ -77,7 +78,7 @@ export class PnsMeanderSkewPlacer extends PnsMeanderPlacer {
   /** `Start( aP, aStartItem )` (`cpp:62-181`). */
   override start(aP: Vec2, aStartItem: PnsItem | null): boolean {
     if (!aStartItem || !aStartItem.ofKind(PnsKind.SEGMENT_T | PnsKind.ARC_T)) {
-      this.mHost.setFailureReason('Please select a differential pair track you want to tune.');
+      this.mHost.setFailureReason(_('Please select a differential pair track you want to tune.'));
       return false;
     }
 

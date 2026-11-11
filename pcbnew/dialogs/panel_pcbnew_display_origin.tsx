@@ -34,6 +34,7 @@
  */
 import type { JSX } from 'react';
 import { PANEL_PCBNEW_DISPLAY_ORIGIN_BASE } from './panel_pcbnew_display_origin_base.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `m_pageOrigin` / `m_drillPlaceOrigin` / `m_gridOrigin`
@@ -46,9 +47,9 @@ import { PANEL_PCBNEW_DISPLAY_ORIGIN_BASE } from './panel_pcbnew_display_origin_
  * the enum opens on the middle button rather than the first.
  */
 export const DISPLAY_ORIGIN_CHOICES: readonly (readonly [number, string])[] = [
-  [0, 'Page origin'],
-  [1, 'Drill/place file origin'],
-  [2, 'Grid origin'],
+  [0, _HKI('Page origin')],
+  [1, _HKI('Drill/place file origin')],
+  [2, _HKI('Grid origin')],
 ];
 
 /** `m_xIncreasesRight` / `m_xIncreasesLeft`, in the base file's order. */

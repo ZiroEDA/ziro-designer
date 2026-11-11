@@ -25,6 +25,7 @@
 
 import type { JSX, ReactNode } from 'react';
 import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `NET_INSPECTOR_PANEL`'s virtual interface. */
 export abstract class NET_INSPECTOR_PANEL {
@@ -90,7 +91,7 @@ export function NetInspectorPanelView({
         <input
           type="text"
           className="ze-search"
-          placeholder="Filter"
+          placeholder={_('Filter')}
           value={searchText}
           style={{ flex: 1, minWidth: 0 }}
           onChange={(e) => onSearchTextChanged(e.target.value)}
@@ -99,10 +100,10 @@ export function NetInspectorPanelView({
         <button
           type="button"
           className="ze-lp-iconbtn"
-          title="Configure netlist inspector"
+          title={_('Configure netlist inspector')}
           onClick={onConfigButton}
         >
-          <img src={bitmapUrl('config')} alt="Configure netlist inspector" />
+          <img src={bitmapUrl('config')} alt={_('Configure netlist inspector')} />
         </button>
       </div>
       <div style={{ flex: 1, minHeight: 0, minWidth: 0 }}>{children}</div>

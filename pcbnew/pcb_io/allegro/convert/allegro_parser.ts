@@ -100,6 +100,7 @@ import {
   X12,
 } from './allegro_pcb_structs.js';
 import type { FILE_STREAM } from './allegro_stream.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `%#010x` / `%#010zx`. */
 const hex010 = (v: number): string =>
@@ -2195,7 +2196,7 @@ export class PARSER {
     const ver = aBoard.m_FmtVer;
 
     if (this.m_progressReporter) {
-      this.m_progressReporter.AdvancePhase('Parsing Allegro objects');
+      this.m_progressReporter.AdvancePhase(_('Parsing Allegro objects'));
       // This isn't exactly the number we seem to parse, but it's very close
       this.m_progressReporter.SetMaxProgress(aBoard.m_Header!.m_ObjectCount);
     }

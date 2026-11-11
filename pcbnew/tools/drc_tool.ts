@@ -42,6 +42,7 @@ import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import { PCB_MARKER } from '../pcb_marker.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The DIALOG_DRC surface DRC_TOOL drives. */
 export interface DIALOG_DRC_LIKE {
@@ -239,7 +240,7 @@ export class DRC_TOOL extends PCB_TOOL_BASE {
 
     if (this.m_drcDialog) {
       if (aRefillZones) {
-        aProgressReporter.AdvancePhase('Refilling all zones...');
+        aProgressReporter.AdvancePhase(_('Refilling all zones...'));
 
         await zoneFiller?.FillAllZones(this.m_drcDialog, aProgressReporter);
       }
@@ -248,7 +249,7 @@ export class DRC_TOOL extends PCB_TOOL_BASE {
         if (
           this.m_editFrame!.FetchNetlistFromSchematic(
             netlist,
-            'Schematic parity tests require a fully annotated schematic.',
+            _('Schematic parity tests require a fully annotated schematic.'),
           )
         ) {
           netlistFetched = true;
@@ -273,7 +274,7 @@ export class DRC_TOOL extends PCB_TOOL_BASE {
       if (aTestFootprints && netlistFetched) this.m_drcDialog.SetFootprintTestsRun();
     }
 
-    commit.Push('DRC', SKIP_UNDO | SKIP_SET_DIRTY);
+    commit.Push(_('DRC'), SKIP_UNDO | SKIP_SET_DIRTY);
 
     this.m_editFrame!.ShowSolderMask();
 

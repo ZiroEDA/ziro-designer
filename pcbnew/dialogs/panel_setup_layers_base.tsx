@@ -20,6 +20,7 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { ScrolledWindow } from '@ziroeda/wx/scrolwin.js';
 import { BoxSizer, FlexGridSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PANEL_SETUP_LAYERS_BASE_PROPS {
   onAddUserDefinedLayer: () => void;
@@ -39,7 +40,7 @@ export function PANEL_SETUP_LAYERS_BASE(p: PANEL_SETUP_LAYERS_BASE_PROPS): JSX.E
             <BoxSizer orient={wxHORIZONTAL}>
               <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxTOP | wxRIGHT | wxLEFT} border={5}>
-                <Button label="Add User Defined Layer..." onClick={p.onAddUserDefinedLayer} />
+                <Button label={_('Add User Defined Layer...')} onClick={p.onAddUserDefinedLayer} />
               </SizerItem>
             </BoxSizer>
           </SizerItem>

@@ -39,6 +39,7 @@ import {
   type PANEL_COLOR_SETTINGS_CTX_BASE,
   type PANEL_COLOR_SETTINGS_HOST,
 } from './panel_fp_editor_color_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // ---------------------------------------------------------------------------
 // The layer table (was pcbColorLayers.ts)
@@ -302,7 +303,7 @@ export function PanelPcbColorSettings({
 export function createPreviewItems(aPreview: FOOTPRINT_PREVIEW_PANEL): void {
   const page = new PAGE_INFO(PAGE_SIZE_TYPE.User);
   const titleBlock = new TITLE_BLOCK();
-  titleBlock.SetTitle('Color Preview');
+  titleBlock.SetTitle(_('Color Preview'));
   titleBlock.SetDate(new Date().toLocaleDateString());
 
   page.SetHeightMils(5000);

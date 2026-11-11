@@ -44,7 +44,7 @@ describe('the fields the base file declares, in its order', () => {
     // `_("Associated layer:")` (`:74`), not "Layer:". The manual uses the same
     // words: "Associated layer controls the layer that the reference image is
     // considered to be on".
-    expect(base).toContain('label="Associated layer:"');
+    expect(base).toContain("label={_('Associated layer:')}");
   });
 
   it('puts Height above Width, as rows 3 and 4', () => {

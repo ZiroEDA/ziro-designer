@@ -21,6 +21,7 @@ import {
   TrimLeft,
   TrimRight,
 } from './pcad2kicad_common.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class PCAD_VIA extends PCAD_PAD {
   constructor(aCallbacks: PCAD_CALLBACKS, aBoard: BOARD) {
@@ -63,7 +64,7 @@ export class PCAD_VIA extends PCAD_PAD {
 
     lNode = lNode ? FindNode(lNode, 'library') : null;
 
-    if (!lNode) throw new IO_ERROR('Unable to find library section.');
+    if (!lNode) throw new IO_ERROR(_('Unable to find library section.'));
 
     lNode = FindNode(lNode, 'viaStyleDef');
 

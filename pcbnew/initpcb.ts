@@ -21,6 +21,7 @@ import { BOARD, BOARD_USE } from './board.js';
 import { PCB_DRC_CODE as DRCE } from './drc/drc_item.js';
 import type { FOOTPRINT_EDIT_FRAME } from './footprint_edit_frame.js';
 import type { PCB_EDIT_FRAME } from './pcb_edit_frame.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `PCB_EDIT_FRAME`'s `initpcb.cpp` half, mixed into that class by `pcb_edit_frame.ts`. */
 export class INITPCB_MIXIN {
@@ -48,7 +49,7 @@ export class FOOTPRINT_EDIT_FRAME_INITPCB_MIXIN {
     if (doAskAboutUnsavedChanges && this.IsContentModified()) {
       const answer =
         (await this.hooks.askUnsavedChanges?.(
-          'The current footprint has been modified.  Save changes?',
+          _('The current footprint has been modified.  Save changes?'),
         )) ?? 'discard';
 
       if (answer === 'cancel') return false;

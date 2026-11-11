@@ -19,6 +19,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, FlexGridSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER: its entry text and units label. */
 export interface UNIT {
@@ -65,9 +66,9 @@ export function DIALOG_TRACK_VIA_SIZE_BASE(p: DIALOG_TRACK_VIA_SIZE_BASE_PROPS):
         <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={10}>
           {/* fgSizer1 = wxFlexGridSizer( 0, 3, 0, 0 ) */}
           <FlexGridSizer cols={3} growableCols={[1]}>
-            <Row label="Track width:" u={p.m_trackWidth} />
-            <Row label="Via diameter:" u={p.m_viaDiameter} />
-            <Row label="Via hole:" u={p.m_viaDrill} />
+            <Row label={_('Track width:')} u={p.m_trackWidth} />
+            <Row label={_('Via diameter:')} u={p.m_viaDiameter} />
+            <Row label={_('Via hole:')} u={p.m_viaDrill} />
           </FlexGridSizer>
         </SizerItem>
         <SizerItem flag={wxEXPAND} border={5}>

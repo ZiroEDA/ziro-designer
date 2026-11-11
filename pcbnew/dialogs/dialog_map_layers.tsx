@@ -40,6 +40,8 @@ import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { LayerName, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { INPUT_LAYER_DESC } from '../pcb_io/common/plugin_common_layer_mapping.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export class DIALOG_MAP_LAYERS {
   m_input_layers: INPUT_LAYER_DESC[] = [];
@@ -203,8 +205,9 @@ export class DIALOG_MAP_LAYERS {
 }
 
 /** `RunModal`'s message for a required layer left unmatched. */
-export const UNMATCHED_REQUIRED_MESSAGE =
-  "All required layers (marked with '*') must be matched. Please click 'Auto-Match Layers' to automatically match the remaining layers";
+export const UNMATCHED_REQUIRED_MESSAGE = _HKI(
+  "All required layers (marked with '*') must be matched. Please click 'Auto-Match Layers' to automatically match the remaining layers",
+);
 
 export function DialogMapLayers({
   layers,
@@ -256,12 +259,14 @@ export function DialogMapLayers({
     <>
       <DIALOG_IMPORTED_LAYERS_BASE
         title="Import Layer Mapping"
-        importedLayersHeader="Imported Layer"
-        kicadLayersHeader="KiCad Layer"
+        importedLayersHeader={wxGetTranslation('Imported Layer')}
+        kicadLayersHeader={wxGetTranslation('KiCad Layer')}
         // maxTextWidth + 15 over the header and every imported name; "User.Drawings" + 5.
         importedWidth={
-          Math.max(GetTextExtent('Imported Layer'), ...layers.map((l) => GetTextExtent(l.Name))) +
-          15
+          Math.max(
+            GetTextExtent(wxGetTranslation('Imported Layer')),
+            ...layers.map((l) => GetTextExtent(l.Name)),
+          ) + 15
         }
         kicadWidth={GetTextExtent('User.Drawings') + 5}
         m_unmatched_layers_list={{
@@ -296,7 +301,7 @@ export function DialogMapLayers({
       />
       {error && (
         <MessageDialogOk
-          caption="Unmatched Layers"
+          caption={wxGetTranslation('Unmatched Layers')}
           icon="error"
           message={UNMATCHED_REQUIRED_MESSAGE}
           onClose={() => setError(false)}

@@ -57,6 +57,8 @@ import { IndicatorIcon, ROW_ICON_STATE } from '@ziroeda/common/widgets/indicator
 import { WxCollapsiblePane } from '@ziroeda/common/widgets/wx_collapsible_pane.js';
 import { APPEARANCE_CONTROLS_BASE } from './appearance_controls_base.js';
 import './appearance_controls.css';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * The notebook's pages, in the order `APPEARANCE_CONTROLS_BASE` adds them
@@ -256,7 +258,7 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
               checked={on}
               checkedBitmap={BITMAPS.visibility}
               uncheckedBitmap={BITMAPS.visibility_off}
-              tooltip="Show or hide this layer"
+              tooltip={wxGetTranslation('Show or hide this layer')}
               onToggle={() => onToggleLayer(name)}
             />
             <span className="ze-ellipsis">{layerName(name)}</span>
@@ -265,7 +267,7 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
       })}
       layerDisplayPane={
         <WxCollapsiblePane
-          label="Layer Display Options"
+          label={wxGetTranslation('Layer Display Options')}
           collapsed={!layerOptionsOpen}
           onChange={(collapsed) => onLayerOptionsOpen(!collapsed)}
         >
@@ -275,31 +277,31 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
           <div className="ze-info">Inactive layers (H):</div>
           <div className="ze-radio-row">
             <RadioButton
-              label="Normal"
+              label={wxGetTranslation('Normal')}
               name="ze-hc"
               checked={contrast === 'normal'}
-              title="Inactive layers will be shown in full color"
+              title={wxGetTranslation('Inactive layers will be shown in full color')}
               onChange={() => onContrast('normal')}
             />
             <RadioButton
-              label="Dim"
+              label={wxGetTranslation('Dim')}
               name="ze-hc"
               checked={contrast === 'dim'}
-              title="Inactive layers will be dimmed"
+              title={wxGetTranslation('Inactive layers will be dimmed')}
               onChange={() => onContrast('dim')}
             />
             <RadioButton
-              label="Hide"
+              label={wxGetTranslation('Hide')}
               name="ze-hc"
               checked={contrast === 'hide'}
-              title="Inactive layers will be hidden"
+              title={wxGetTranslation('Inactive layers will be hidden')}
               onChange={() => onContrast('hide')}
             />
           </div>
           <hr className="ze-hr" />
           <label>
             <input type="checkbox" checked={flipBoard} onChange={onFlipBoard} />
-            Flip board view
+            {wxGetTranslation('Flip board view')}
           </label>
         </WxCollapsiblePane>
       }
@@ -425,59 +427,65 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
           onConfigureNetclasses: nets.onConfigureNetclasses,
           netDisplayPane: (
             <WxCollapsiblePane
-              label="Net Display Options"
+              label={wxGetTranslation('Net Display Options')}
               collapsed={!nets.optionsOpen}
               onChange={(collapsed) => nets.onOptionsOpen(!collapsed)}
             >
-              <div className="ze-info ze-inset" title="Choose when to show net and netclass colors">
-                Net colors:
+              <div
+                className="ze-info ze-inset"
+                title={wxGetTranslation('Choose when to show net and netclass colors')}
+              >
+                {wxGetTranslation('Net colors:')}
               </div>
               <div className="ze-radio-row ze-radio-gap">
                 <RadioButton
-                  label="All"
+                  label={wxGetTranslation('All')}
                   name="ze-netcolor"
                   checked={nets.netColorMode === 'all'}
-                  title="Net and netclass colors are shown on all copper items"
+                  title={wxGetTranslation('Net and netclass colors are shown on all copper items')}
                   onChange={() => nets.onNetColorMode('all')}
                 />
                 <RadioButton
                   label="Ratsnest"
                   name="ze-netcolor"
                   checked={nets.netColorMode === 'ratsnest'}
-                  title="Net and netclass colors are shown on the ratsnest only"
+                  title={wxGetTranslation('Net and netclass colors are shown on the ratsnest only')}
                   onChange={() => nets.onNetColorMode('ratsnest')}
                 />
                 <RadioButton
-                  label="None"
+                  label={wxGetTranslation('None')}
                   name="ze-netcolor"
                   checked={nets.netColorMode === 'off'}
-                  title="Net and netclass colors are not shown"
+                  title={wxGetTranslation('Net and netclass colors are not shown')}
                   onChange={() => nets.onNetColorMode('off')}
                 />
               </div>
-              <div className="ze-info ze-inset" title="Choose which ratsnest lines to display">
-                Ratsnest display:
+              <div
+                className="ze-info ze-inset"
+                title={wxGetTranslation('Choose which ratsnest lines to display')}
+              >
+                {wxGetTranslation('Ratsnest display:')}
               </div>
               <div className="ze-radio-row ze-radio-gap">
                 <RadioButton
-                  label="All"
+                  label={wxGetTranslation('All')}
                   name="ze-ratsmode"
                   checked={nets.ratsnestMode === 'all'}
-                  title="Show ratsnest lines to items on all layers"
+                  title={wxGetTranslation('Show ratsnest lines to items on all layers')}
                   onChange={() => nets.onRatsnestMode('all')}
                 />
                 <RadioButton
-                  label="Visible layers"
+                  label={wxGetTranslation('Visible layers')}
                   name="ze-ratsmode"
                   checked={nets.ratsnestMode === 'visible'}
-                  title="Show ratsnest lines to items on visible layers"
+                  title={wxGetTranslation('Show ratsnest lines to items on visible layers')}
                   onChange={() => nets.onRatsnestMode('visible')}
                 />
                 <RadioButton
-                  label="None"
+                  label={wxGetTranslation('None')}
                   name="ze-ratsmode"
                   checked={nets.ratsnestMode === 'off'}
-                  title="Hide all ratsnest lines"
+                  title={wxGetTranslation('Hide all ratsnest lines')}
                   onChange={() => nets.onRatsnestMode('off')}
                 />
               </div>
@@ -547,24 +555,24 @@ const NET_ROW_CAP = 400;
  * tooltips verbatim. KiCad hardcodes this table; it is not a theme value.
  */
 const NAMED_NON_CU: readonly (readonly [string, string])[] = [
-  ['F.Adhes', "Adhesive on board's front"],
-  ['B.Adhes', "Adhesive on board's back"],
-  ['F.Paste', "Solder paste on board's front"],
-  ['B.Paste', "Solder paste on board's back"],
-  ['F.SilkS', "Silkscreen on board's front"],
-  ['B.SilkS', "Silkscreen on board's back"],
-  ['F.Mask', "Solder mask on board's front"],
-  ['B.Mask', "Solder mask on board's back"],
-  ['Dwgs.User', 'Explanatory drawings'],
-  ['Cmts.User', 'Explanatory comments'],
-  ['Eco1.User', 'User defined meaning'],
-  ['Eco2.User', 'User defined meaning'],
-  ['Edge.Cuts', "Board's perimeter definition"],
-  ['Margin', "Board's edge setback outline"],
-  ['F.CrtYd', "Footprint courtyards on board's front"],
-  ['B.CrtYd', "Footprint courtyards on board's back"],
-  ['F.Fab', "Footprint assembly on board's front"],
-  ['B.Fab', "Footprint assembly on board's back"],
+  ['F.Adhes', _HKI("Adhesive on board's front")],
+  ['B.Adhes', _HKI("Adhesive on board's back")],
+  ['F.Paste', _HKI("Solder paste on board's front")],
+  ['B.Paste', _HKI("Solder paste on board's back")],
+  ['F.SilkS', _HKI("Silkscreen on board's front")],
+  ['B.SilkS', _HKI("Silkscreen on board's back")],
+  ['F.Mask', _HKI("Solder mask on board's front")],
+  ['B.Mask', _HKI("Solder mask on board's back")],
+  ['Dwgs.User', _HKI('Explanatory drawings')],
+  ['Cmts.User', _HKI('Explanatory comments')],
+  ['Eco1.User', _HKI('User defined meaning')],
+  ['Eco2.User', _HKI('User defined meaning')],
+  ['Edge.Cuts', _HKI("Board's perimeter definition")],
+  ['Margin', _HKI("Board's edge setback outline")],
+  ['F.CrtYd', _HKI("Footprint courtyards on board's front")],
+  ['B.CrtYd', _HKI("Footprint courtyards on board's back")],
+  ['F.Fab', _HKI("Footprint assembly on board's front")],
+  ['B.Fab', _HKI("Footprint assembly on board's back")],
 ];
 
 /**
@@ -594,9 +602,9 @@ export const NON_CU_ORDER: readonly string[] = NON_CU_SEQ.map(([name]) => name);
 export function layerTooltip(name: string): string {
   const entry = NON_CU_SEQ.find(([n]) => n === name);
   if (entry) return entry[1];
-  if (name === 'F.Cu') return 'Front copper layer';
-  if (name === 'B.Cu') return 'Back copper layer';
-  if (/\.Cu$/.test(name)) return 'Inner copper layer';
+  if (name === 'F.Cu') return wxGetTranslation('Front copper layer');
+  if (name === 'B.Cu') return wxGetTranslation('Back copper layer');
+  if (/\.Cu$/.test(name)) return wxGetTranslation('Inner copper layer');
   return '';
 }
 
@@ -783,61 +791,77 @@ export type ObjectRow =
  * about nine rows KiCad shows normally.
  */
 export const OBJECT_ROWS: readonly ObjectRow[] = [
-  { key: 'tracks', label: 'Tracks', tooltip: 'Show tracks', slider: true },
-  { key: 'vias', label: 'Vias', tooltip: 'Show all vias', slider: true },
-  { key: 'pads', label: 'Pads', tooltip: 'Show all pads', slider: true },
-  { key: 'zones', label: 'Zones', tooltip: 'Show copper zones', slider: true },
+  { key: 'tracks', label: _HKI('Tracks'), tooltip: _HKI('Show tracks'), slider: true },
+  { key: 'vias', label: _HKI('Vias'), tooltip: _HKI('Show all vias'), slider: true },
+  { key: 'pads', label: _HKI('Pads'), tooltip: _HKI('Show all pads'), slider: true },
+  { key: 'zones', label: _HKI('Zones'), tooltip: _HKI('Show copper zones'), slider: true },
   {
     key: 'filledShapes',
-    label: 'Filled Shapes',
-    tooltip: 'Opacity of filled shapes',
+    label: _HKI('Filled Shapes'),
+    tooltip: _HKI('Opacity of filled shapes'),
     slider: true,
     noVisibility: true,
   },
-  { key: 'images', label: 'Images', tooltip: 'Show user images', slider: true },
+  { key: 'images', label: _HKI('Images'), tooltip: _HKI('Show user images'), slider: true },
   'sep',
   {
     key: 'footprintsFront',
-    label: 'Footprints Front',
-    tooltip: "Show footprints that are on board's front",
+    label: _HKI('Footprints Front'),
+    tooltip: _HKI("Show footprints that are on board's front"),
   },
   {
     key: 'footprintsBack',
-    label: 'Footprints Back',
-    tooltip: "Show footprints that are on board's back",
+    label: _HKI('Footprints Back'),
+    tooltip: _HKI("Show footprints that are on board's back"),
   },
-  { key: 'fpValues', label: 'Values', tooltip: 'Show footprint values' },
-  { key: 'fpReferences', label: 'References', tooltip: 'Show footprint references' },
-  { key: 'fpText', label: 'Footprint Text', tooltip: 'Show all footprint text' },
+  { key: 'fpValues', label: _HKI('Values'), tooltip: _HKI('Show footprint values') },
+  { key: 'fpReferences', label: _HKI('References'), tooltip: _HKI('Show footprint references') },
+  { key: 'fpText', label: _HKI('Footprint Text'), tooltip: _HKI('Show all footprint text') },
   'sep',
   'sep',
-  { key: 'ratsnest', label: 'Ratsnest', tooltip: 'Show unconnected nets as a ratsnest' },
+  { key: 'ratsnest', label: 'Ratsnest', tooltip: _HKI('Show unconnected nets as a ratsnest') },
   {
     key: 'drcWarnings',
-    label: 'DRC Warnings',
-    tooltip: 'DRC violations with a Warning severity',
+    label: _HKI('DRC Warnings'),
+    tooltip: _HKI('DRC violations with a Warning severity'),
   },
-  { key: 'drcErrors', label: 'DRC Errors', tooltip: 'DRC violations with an Error severity' },
+  {
+    key: 'drcErrors',
+    label: _HKI('DRC Errors'),
+    tooltip: _HKI('DRC violations with an Error severity'),
+  },
   {
     key: 'drcExclusions',
-    label: 'DRC Exclusions',
-    tooltip: 'DRC violations which have been individually excluded',
+    label: _HKI('DRC Exclusions'),
+    tooltip: _HKI('DRC violations which have been individually excluded'),
   },
-  { key: 'anchors', label: 'Anchors', tooltip: 'Show footprint and text origins as a cross' },
-  { key: 'points', label: 'Points', tooltip: 'Show explicit snap points as crosses' },
-  { key: 'lockedShadow', label: 'Locked Item Shadow', tooltip: 'Show a shadow on locked items' },
+  {
+    key: 'anchors',
+    label: _HKI('Anchors'),
+    tooltip: _HKI('Show footprint and text origins as a cross'),
+  },
+  { key: 'points', label: _HKI('Points'), tooltip: _HKI('Show explicit snap points as crosses') },
+  {
+    key: 'lockedShadow',
+    label: _HKI('Locked Item Shadow'),
+    tooltip: _HKI('Show a shadow on locked items'),
+  },
   {
     key: 'collidingCourtyards',
-    label: 'Colliding Courtyards',
-    tooltip: 'Show colliding footprint courtyards',
+    label: _HKI('Colliding Courtyards'),
+    tooltip: _HKI('Show colliding footprint courtyards'),
   },
-  { key: 'boardAreaShadow', label: 'Board Area Shadow', tooltip: 'Show board area shadow' },
+  {
+    key: 'boardAreaShadow',
+    label: _HKI('Board Area Shadow'),
+    tooltip: _HKI('Show board area shadow'),
+  },
   {
     key: 'drawingSheet',
-    label: 'Drawing Sheet',
-    tooltip: 'Show drawing sheet borders and title block',
+    label: _HKI('Drawing Sheet'),
+    tooltip: _HKI('Show drawing sheet borders and title block'),
   },
-  { key: 'grid', label: 'Grid', tooltip: 'Show the (x,y) grid dots' },
+  { key: 'grid', label: _HKI('Grid'), tooltip: _HKI('Show the (x,y) grid dots') },
 ];
 
 /**
@@ -993,25 +1017,29 @@ const BACK_TECH = ['B.SilkS', 'B.Mask', 'B.Adhes', 'B.Paste', 'B.CrtYd', 'B.Fab'
  * NOT display order — see `presetComboItems`.
  */
 export const BUILTIN_PRESETS: readonly LayerPreset[] = [
-  { name: 'All Layers', layers: (all) => all, flipBoard: false },
-  { name: 'No Layers', layers: () => [], flipBoard: false },
-  { name: 'All Copper Layers', layers: (_a, cu) => [...cu, 'Edge.Cuts'], flipBoard: false },
+  { name: _HKI('All Layers'), layers: (all) => all, flipBoard: false },
+  { name: _HKI('No Layers'), layers: () => [], flipBoard: false },
+  { name: _HKI('All Copper Layers'), layers: (_a, cu) => [...cu, 'Edge.Cuts'], flipBoard: false },
   {
-    name: 'Inner Copper Layers',
+    name: _HKI('Inner Copper Layers'),
     layers: (_a, cu) => [...cu.filter((c) => /^In/.test(c)), 'Edge.Cuts'],
     flipBoard: false,
   },
-  { name: 'Front Layers', layers: () => ['F.Cu', ...FRONT_TECH, 'Edge.Cuts'], flipBoard: false },
   {
-    name: 'Front Assembly View',
+    name: _HKI('Front Layers'),
+    layers: () => ['F.Cu', ...FRONT_TECH, 'Edge.Cuts'],
+    flipBoard: false,
+  },
+  {
+    name: _HKI('Front Assembly View'),
     layers: () => ['F.SilkS', 'F.Mask', 'F.Fab', 'F.CrtYd', 'Edge.Cuts'],
     flipBoard: false,
     activeLayer: 'F.SilkS',
   },
   // presetBack and presetBackAssembly pass aFlipBoard = true.
-  { name: 'Back Layers', layers: () => ['B.Cu', ...BACK_TECH, 'Edge.Cuts'], flipBoard: true },
+  { name: _HKI('Back Layers'), layers: () => ['B.Cu', ...BACK_TECH, 'Edge.Cuts'], flipBoard: true },
   {
-    name: 'Back Assembly View',
+    name: _HKI('Back Assembly View'),
     layers: () => ['B.SilkS', 'B.Mask', 'B.Fab', 'B.CrtYd', 'Edge.Cuts'],
     flipBoard: true,
     activeLayer: 'B.SilkS',
@@ -1042,8 +1070,8 @@ export function presetComboItems(userPresetNames: readonly string[] = []): strin
     ...builtins,
     ...(users.length > 0 ? [PRESET_SEPARATOR, ...users] : []),
     PRESET_SEPARATOR,
-    'Save preset...',
-    'Delete preset...',
+    wxGetTranslation('Save preset...'),
+    wxGetTranslation('Delete preset...'),
   ];
 }
 
@@ -1107,7 +1135,7 @@ export function viewportComboItems(userViewportNames: readonly string[] = []): s
   return [
     ...[...userViewportNames].sort(cmp),
     PRESET_SEPARATOR,
-    'Save viewport...',
-    'Delete viewport...',
+    wxGetTranslation('Save viewport...'),
+    wxGetTranslation('Delete viewport...'),
   ];
 }

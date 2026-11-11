@@ -86,6 +86,8 @@ import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { BOARD_ITEM } from './board_item.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export interface PCB_TEXT_KNOCKOUT_CACHE_DATA {
   text: string;
@@ -318,7 +320,7 @@ export class PCB_TEXT extends BOARD_ITEM {
     const parentFP = this.GetParentFootprint();
 
     if (parentFP && aFrame.GetName() === PCB_EDIT_FRAME_NAME)
-      aList.push(new MSG_PANEL_ITEM('Footprint', parentFP.GetReference()));
+      aList.push(new MSG_PANEL_ITEM(_('Footprint'), parentFP.GetReference()));
 
     // Don't use GetShownText() here; we want to show the user the variable references
     let value = this.GetText();
@@ -338,33 +340,35 @@ export class PCB_TEXT extends BOARD_ITEM {
 
       aList.push(new MSG_PANEL_ITEM('Text', KIUI_EllipsizeStatusText(aFrame, value)));
     } else {
-      aList.push(new MSG_PANEL_ITEM('PCB Text', KIUI_EllipsizeStatusText(aFrame, value)));
+      aList.push(new MSG_PANEL_ITEM(_('PCB Text'), KIUI_EllipsizeStatusText(aFrame, value)));
     }
 
-    if (parentFP) aList.push(new MSG_PANEL_ITEM('Type', this.GetTextTypeDescription()));
+    if (parentFP) aList.push(new MSG_PANEL_ITEM(_('Type'), this.GetTextTypeDescription()));
 
     if (aFrame.GetName() === PCB_EDIT_FRAME_NAME && this.IsLocked())
-      aList.push(new MSG_PANEL_ITEM('Status', 'Locked'));
+      aList.push(new MSG_PANEL_ITEM(_('Status'), _('Locked')));
 
-    aList.push(new MSG_PANEL_ITEM('Layer', this.GetLayerName()));
-    aList.push(new MSG_PANEL_ITEM('Mirror', this.IsMirrored() ? 'Yes' : 'No'));
-    aList.push(new MSG_PANEL_ITEM('Angle', `${this.GetTextAngle().AsDegrees()}`));
+    aList.push(new MSG_PANEL_ITEM(_('Layer'), this.GetLayerName()));
+    aList.push(new MSG_PANEL_ITEM(_('Mirror'), this.IsMirrored() ? _('Yes') : _('No')));
+    aList.push(new MSG_PANEL_ITEM(_('Angle'), `${this.GetTextAngle().AsDegrees()}`));
 
-    aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Font'), this.GetFont() ? this.GetFont()!.GetName() : _('Default')),
+    );
 
     const units = aFrame;
 
     if (this.GetTextThickness())
       aList.push(
         new MSG_PANEL_ITEM(
-          'Text Thickness',
+          _('Text Thickness'),
           units.MessageTextFromValue(this.GetEffectiveTextPenWidth()),
         ),
       );
-    else aList.push(new MSG_PANEL_ITEM('Text Thickness', 'Auto'));
+    else aList.push(new MSG_PANEL_ITEM(_('Text Thickness'), _('Auto')));
 
-    aList.push(new MSG_PANEL_ITEM('Width', units.MessageTextFromValue(this.GetTextWidth())));
-    aList.push(new MSG_PANEL_ITEM('Height', units.MessageTextFromValue(this.GetTextHeight())));
+    aList.push(new MSG_PANEL_ITEM(_('Width'), units.MessageTextFromValue(this.GetTextWidth())));
+    aList.push(new MSG_PANEL_ITEM(_('Height'), units.MessageTextFromValue(this.GetTextHeight())));
   }
 
   TextHitTest(aPoint: VECTOR2I, aAccuracy?: number): boolean;
@@ -784,12 +788,12 @@ applyMixins(PCB_TEXT, [EDA_TEXT]);
   propMgr.InheritsAfter(PCB_TEXT, BOARD_ITEM);
   propMgr.InheritsAfter(PCB_TEXT, EDA_TEXT);
 
-  propMgr.Mask(PCB_TEXT, EDA_TEXT, 'Color');
+  propMgr.Mask(PCB_TEXT, EDA_TEXT, _HKI('Color'));
 
   propMgr.AddProperty(
     new PROPERTY<PCB_TEXT, boolean, BOARD_ITEM>(
       PCB_TEXT,
-      'Knockout',
+      _HKI('Knockout'),
       'SetIsKnockout',
       'IsKnockout',
       TYPE_BOOL,
@@ -797,13 +801,13 @@ applyMixins(PCB_TEXT, [EDA_TEXT]);
       COORD_TYPES_T.NOT_A_COORD,
       BOARD_ITEM,
     ),
-    'Text Properties',
+    _HKI('Text Properties'),
   );
 
   propMgr.AddProperty(
     new PROPERTY<PCB_TEXT, boolean, EDA_TEXT>(
       PCB_TEXT,
-      'Keep Upright',
+      _HKI('Keep Upright'),
       'SetKeepUpright',
       'IsKeepUpright',
       TYPE_BOOL,
@@ -811,7 +815,7 @@ applyMixins(PCB_TEXT, [EDA_TEXT]);
       COORD_TYPES_T.NOT_A_COORD,
       EDA_TEXT,
     ),
-    'Text Properties',
+    _HKI('Text Properties'),
   );
 
   const isFootprintText = (aItem: INSPECTABLE_ITEM): boolean => {
@@ -820,7 +824,7 @@ applyMixins(PCB_TEXT, [EDA_TEXT]);
     return false;
   };
 
-  propMgr.OverrideAvailability(PCB_TEXT, EDA_TEXT, 'Keep Upright', isFootprintText);
+  propMgr.OverrideAvailability(PCB_TEXT, EDA_TEXT, _HKI('Keep Upright'), isFootprintText);
 
-  propMgr.Mask(PCB_TEXT, EDA_TEXT, 'Hyperlink');
+  propMgr.Mask(PCB_TEXT, EDA_TEXT, _HKI('Hyperlink'));
 })();

@@ -63,6 +63,8 @@ const FRAMES: Record<string, number> = {
   common: 1013,
   // 4215 -> 1337 (stage 2), the same way.
   eeschema: 1337,
+  // 7613 -> 2030 (stage 2), the same way.
+  pcbnew: 2030,
 };
 
 const MSGIDS = loadMsgids(join(ROOT, 'translation'));

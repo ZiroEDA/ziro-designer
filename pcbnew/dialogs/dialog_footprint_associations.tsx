@@ -20,6 +20,7 @@ import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
 import type { FOOTPRINT } from '../footprint.js';
 import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import { DIALOG_FOOTPRINT_ASSOCIATIONS_BASE } from './dialog_footprint_associations_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DIALOG_FOOTPRINT_ASSOCIATIONS {
   private readonly m_frame: PCB_EDIT_FRAME;
@@ -38,8 +39,8 @@ export class DIALOG_FOOTPRINT_ASSOCIATIONS {
 
     for (const grid of [this.m_gridLibrary, this.m_gridSymbol]) grid.EnableEditing(false);
 
-    this.m_gridLibrary.SetCellValue(0, 0, 'Library: ');
-    this.m_gridLibrary.SetCellValue(1, 0, 'Footprint: ');
+    this.m_gridLibrary.SetCellValue(0, 0, _('Library: '));
+    this.m_gridLibrary.SetCellValue(1, 0, _('Footprint: '));
   }
 
   TransferDataToWindow(): boolean {
@@ -77,7 +78,11 @@ export class DIALOG_FOOTPRINT_ASSOCIATIONS {
 
     for (let ii = 0; ii < symbolPath.length; ++ii) {
       this.m_gridSymbol.AppendRows();
-      this.m_gridSymbol.SetCellValue(ii, 0, ii === symbolPath.length - 1 ? 'Symbol:' : 'Sheet: ');
+      this.m_gridSymbol.SetCellValue(
+        ii,
+        0,
+        ii === symbolPath.length - 1 ? _('Symbol:') : _('Sheet: '),
+      );
       this.m_gridSymbol.SetCellValue(ii, 1, symbolPath[ii]!);
 
       const kiway = this.m_frame.Kiway();

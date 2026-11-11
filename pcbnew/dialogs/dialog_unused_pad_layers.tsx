@@ -22,6 +22,7 @@ import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
 import type { PCB_VIA } from '../pcb_track.js';
 import { VIATYPE } from '../pcb_track_types.js';
 import { DIALOG_UNUSED_PAD_LAYERS_BASE } from './dialog_unused_pad_layers_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DIALOG_UNUSED_PAD_LAYERS {
   m_cbVias = false;
@@ -124,7 +125,7 @@ export class DIALOG_UNUSED_PAD_LAYERS {
       }
     }
 
-    this.m_commit.Push('Remove Unused Pads');
+    this.m_commit.Push(_('Remove Unused Pads'));
   }
 }
 

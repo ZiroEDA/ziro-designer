@@ -34,6 +34,8 @@ import type { FOOTPRINT } from '../footprint.js';
 import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
 import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 type ITEM_BOX = [BOARD_ITEM, BOX2I];
 type COMPARE = (lhs: ITEM_BOX, rhs: ITEM_BOX) => boolean;
@@ -73,7 +75,7 @@ export class ALIGN_DISTRIBUTE_TOOL extends TOOL_INTERACTIVE {
     // Create a context menu and make it available through selection tool
     this.m_placementMenu = new CONDITIONAL_MENU(this);
     this.m_placementMenu.SetIcon(BITMAPS.align_items);
-    this.m_placementMenu.SetUntranslatedTitle('Align/Distribute');
+    this.m_placementMenu.SetUntranslatedTitle(_HKI('Align/Distribute'));
 
     const canAlign = SELECTION_CONDITIONS.MoreThan(1);
     const canDistribute = SELECTION_CONDITIONS.MoreThan(2);
@@ -243,7 +245,7 @@ export class ALIGN_DISTRIBUTE_TOOL extends TOOL_INTERACTIVE {
       (lhs, rhs) => lhs[1].GetTop() < rhs[1].GetTop(),
       (aVal) => aVal[1].GetTop(),
       (targetTop, bbox) => ({ x: 0, y: targetTop - bbox.GetTop() }),
-      'Align to Top',
+      _('Align to Top'),
     );
   }
 
@@ -256,7 +258,7 @@ export class ALIGN_DISTRIBUTE_TOOL extends TOOL_INTERACTIVE {
       (lhs, rhs) => lhs[1].GetBottom() > rhs[1].GetBottom(),
       (aVal) => aVal[1].GetBottom(),
       (targetBottom, bbox) => ({ x: 0, y: targetBottom - bbox.GetBottom() }),
-      'Align to Bottom',
+      _('Align to Bottom'),
     );
   }
 
@@ -276,7 +278,7 @@ export class ALIGN_DISTRIBUTE_TOOL extends TOOL_INTERACTIVE {
       (lhs, rhs) => lhs[1].GetLeft() < rhs[1].GetLeft(),
       (aVal) => aVal[1].GetLeft(),
       (targetLeft, bbox) => ({ x: targetLeft - bbox.GetLeft(), y: 0 }),
-      'Align to Left',
+      _('Align to Left'),
     );
   }
 
@@ -296,7 +298,7 @@ export class ALIGN_DISTRIBUTE_TOOL extends TOOL_INTERACTIVE {
       (lhs, rhs) => lhs[1].GetRight() > rhs[1].GetRight(),
       (aVal) => aVal[1].GetRight(),
       (targetRight, bbox) => ({ x: targetRight - bbox.GetRight(), y: 0 }),
-      'Align to Right',
+      _('Align to Right'),
     );
   }
 
@@ -309,7 +311,7 @@ export class ALIGN_DISTRIBUTE_TOOL extends TOOL_INTERACTIVE {
       (lhs, rhs) => lhs[1].Centre().x < rhs[1].Centre().x,
       (aVal) => aVal[1].Centre().x,
       (targetX, bbox) => ({ x: targetX - bbox.Centre().x, y: 0 }),
-      'Align to Middle',
+      _('Align to Middle'),
     );
   }
 
@@ -322,7 +324,7 @@ export class ALIGN_DISTRIBUTE_TOOL extends TOOL_INTERACTIVE {
       (lhs, rhs) => lhs[1].Centre().y < rhs[1].Centre().y,
       (aVal) => aVal[1].Centre().y,
       (targetY, bbox) => ({ x: 0, y: targetY - bbox.Centre().y }),
-      'Align to Center',
+      _('Align to Center'),
     );
   }
 

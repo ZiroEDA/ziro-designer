@@ -49,6 +49,7 @@ import {
 } from './pcbexpr_evaluator.js';
 import type { PCB_VIA } from './pcb_track.js';
 import type { ZONE } from './zone.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `PTR_PTR_CACHE_KEY` lookup in a nested Map. */
 function cacheGet2<A extends object, B extends object, V>(
@@ -522,7 +523,7 @@ export function collidesWithArea(
 
     if ((footprint.GetFlags() & MALFORMED_COURTYARDS) !== 0) {
       if (aCtx.HasErrorCallback())
-        aCtx.ReportError("Footprint's courtyard is not a single, closed shape.");
+        aCtx.ReportError(_("Footprint's courtyard is not a single, closed shape."));
 
       return false;
     }
@@ -531,7 +532,7 @@ export function collidesWithArea(
       const courtyard = footprint.GetCourtyard(LAYER.F_CrtYd);
 
       if (courtyard.OutlineCount() === 0) {
-        if (aCtx.HasErrorCallback()) aCtx.ReportError('Footprint has no front courtyard.');
+        if (aCtx.HasErrorCallback()) aCtx.ReportError(_('Footprint has no front courtyard.'));
       } else if (areaOutline.Collide(courtyard.Outline(0))) {
         return true;
       }
@@ -541,7 +542,7 @@ export function collidesWithArea(
       const courtyard = footprint.GetCourtyard(LAYER.B_CrtYd);
 
       if (courtyard.OutlineCount() === 0) {
-        if (aCtx.HasErrorCallback()) aCtx.ReportError('Footprint has no back courtyard.');
+        if (aCtx.HasErrorCallback()) aCtx.ReportError(_('Footprint has no back courtyard.'));
       } else if (areaOutline.Collide(courtyard.Outline(0))) {
         return true;
       }
@@ -1178,7 +1179,7 @@ function hasNetclassFunc(aCtx: CONTEXT, self: VAR_REF | null): void {
 
   if (!arg || arg.AsString().length === 0) {
     if (aCtx.HasErrorCallback())
-      aCtx.ReportError('Missing netclass name argument to hasNetclass()');
+      aCtx.ReportError(_('Missing netclass name argument to hasNetclass()'));
 
     return;
   }
@@ -1209,7 +1210,7 @@ function hasExactNetclassFunc(aCtx: CONTEXT, self: VAR_REF | null): void {
 
   if (!arg || arg.AsString().length === 0) {
     if (aCtx.HasErrorCallback())
-      aCtx.ReportError('Missing netclass name argument to hasExactNetclass()');
+      aCtx.ReportError(_('Missing netclass name argument to hasExactNetclass()'));
 
     return;
   }
@@ -1254,7 +1255,7 @@ function hasComponentClassFunc(aCtx: CONTEXT, self: VAR_REF | null): void {
 
   if (!arg || arg.AsString().length === 0) {
     if (aCtx.HasErrorCallback())
-      aCtx.ReportError('Missing component class name argument to hasComponentClass()');
+      aCtx.ReportError(_('Missing component class name argument to hasComponentClass()'));
 
     return;
   }

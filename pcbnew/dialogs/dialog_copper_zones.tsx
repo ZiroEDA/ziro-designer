@@ -56,6 +56,7 @@ import {
   editZoneParamsCommit,
   zoneSettingsToValues,
 } from './panel_zone_properties.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `DIALOG_COPPER_ZONE` + `PANEL_ZONE_PROPERTIES` on a live copper ZONE, as
@@ -131,7 +132,7 @@ export class DIALOG_COPPER_ZONE {
     // DIALOG_COPPER_ZONE::TransferDataFromWindow's layer check comes first.
     const layers = layerSetOfTokens(v.layers);
 
-    if (layers.none()) return { ok: false, message: 'No layer selected.' };
+    if (layers.none()) return { ok: false, message: _('No layer selected.') };
 
     this.m_settings.m_Layers = layers;
 
@@ -201,10 +202,10 @@ export function DialogCopperZones({
     <DIALOG_COPPER_ZONE_BASE
       title={
         conv
-          ? 'Convert to Copper Zone'
+          ? _('Convert to Copper Zone')
           : teardrop
-            ? 'Legacy Teardrop Properties'
-            : 'Copper Zone Properties'
+            ? _('Legacy Teardrop Properties')
+            : _('Copper Zone Properties')
       }
       conversionBox={
         conv ? (

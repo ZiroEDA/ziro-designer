@@ -34,6 +34,7 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { ScrolledWindow } from '@ziroeda/wx/scrolwin.js';
 import { BoxSizer, FlexGridSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 /** m_choiceCopperLayersChoices: 2, 4, … 32. */
 export const COPPER_LAYER_CHOICES = Array.from({ length: 16 }, (_, i) => String((i + 1) * 2));
@@ -67,7 +68,7 @@ export function PANEL_SETUP_BOARD_STACKUP_BASE(
       <StaticText label={aLabel} />
     </SizerItem>
   );
-  const COPPER_TIP = 'Select the number of copper layers in the stackup';
+  const COPPER_TIP = wxGetTranslation('Select the number of copper layers in the stackup');
 
   return (
     // bMainSizer
@@ -76,33 +77,36 @@ export function PANEL_SETUP_BOARD_STACKUP_BASE(
         {/* bTopSizer */}
         <BoxSizer orient={wxHORIZONTAL}>
           <SizerItem flag={CV | wxTOP | wxBOTTOM} border={5}>
-            <StaticText label="Copper layers:" title={COPPER_TIP} />
+            <StaticText label={wxGetTranslation('Copper layers:')} title={COPPER_TIP} />
           </SizerItem>
           <SizerItem flag={CV | wxALL} border={5}>
             <Choice
               choices={COPPER_LAYER_CHOICES}
               choice={p.m_choiceCopperLayers}
-              ariaLabel="Copper layers"
+              ariaLabel={wxGetTranslation('Copper layers')}
               title={COPPER_TIP}
             />
           </SizerItem>
           <Spacer width={40} height={0} proportion={1} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxALL | CV} border={5}>
             <CheckBox
-              label="Impedance controlled"
-              title={
-                'If Impedance Controlled option is set,\nLoss tangent and EpsilonR will be added to constraints.'
-              }
+              label={wxGetTranslation('Impedance controlled')}
+              title={wxGetTranslation(
+                'If Impedance Controlled option is set,\nLoss tangent and EpsilonR will be added to constraints.',
+              )}
               check={p.m_impedanceControlled}
             />
           </SizerItem>
           <Spacer width={40} height={0} proportion={1} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxEXPAND | wxTOP | wxBOTTOM | wxRIGHT} border={5}>
-            <Button label="Add Dielectric Layer..." onClick={p.onAddDielectricLayer} />
+            <Button
+              label={wxGetTranslation('Add Dielectric Layer...')}
+              onClick={p.onAddDielectricLayer}
+            />
           </SizerItem>
           <SizerItem flag={wxEXPAND | wxALL} border={5}>
             <Button
-              label="Remove Dielectric Layer..."
+              label={wxGetTranslation('Remove Dielectric Layer...')}
               onClick={p.onRemoveDielectricLayer}
               disabled={!p.removeEnabled}
             />
@@ -123,17 +127,17 @@ export function PANEL_SETUP_BOARD_STACKUP_BASE(
                   <ScrolledWindow>
                     {/* the rebuilt m_fgGridSizer = wxFlexGridSizer( 0, 9, 0, 2 ), SetHGap( 6 ) */}
                     <FlexGridSizer cols={9} hgap={6}>
-                      {title('Layer', 2)}
-                      {title('Type', 2)}
-                      {title('Id', 5)}
-                      {title('Material', 2)}
-                      {title('Thickness', 2)}
+                      {title(wxGetTranslation('Layer'), 2)}
+                      {title(wxGetTranslation('Type'), 2)}
+                      {title(wxGetTranslation('Id'), 5)}
+                      {title(wxGetTranslation('Material'), 2)}
+                      {title(wxGetTranslation('Thickness'), 2)}
                       <SizerItem flag={TITLE} border={1}>
                         <StaticBitmap bitmap={p.lockBitmap} />
                       </SizerItem>
-                      {title('Color', 2)}
-                      {title('Epsilon R', 2)}
-                      {title('Loss Tan', 2)}
+                      {title(wxGetTranslation('Color'), 2)}
+                      {title(wxGetTranslation('Epsilon R'), 2)}
+                      {title(wxGetTranslation('Loss Tan'), 2)}
                       {p.rows}
                     </FlexGridSizer>
                   </ScrolledWindow>
@@ -147,7 +151,7 @@ export function PANEL_SETUP_BOARD_STACKUP_BASE(
         {/* bBottomSizer */}
         <BoxSizer orient={wxHORIZONTAL}>
           <SizerItem flag={CV} border={5}>
-            <StaticText label="Board thickness from stackup:" />
+            <StaticText label={wxGetTranslation('Board thickness from stackup:')} />
           </SizerItem>
           <SizerItem flag={wxALL | CV} border={2}>
             <TextCtrl
@@ -159,11 +163,17 @@ export function PANEL_SETUP_BOARD_STACKUP_BASE(
           </SizerItem>
           <Spacer width={10} height={0} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxALL | CV} border={2}>
-            <Button label="Adjust Dielectric Thickness" onClick={p.onAdjustDielectricThickness} />
+            <Button
+              label={wxGetTranslation('Adjust Dielectric Thickness')}
+              onClick={p.onAdjustDielectricThickness}
+            />
           </SizerItem>
           <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxTOP | wxBOTTOM | wxRIGHT | CV} border={2}>
-            <Button label="Export to Clipboard" onClick={p.onExportToClipboard} />
+            <Button
+              label={wxGetTranslation('Export to Clipboard')}
+              onClick={p.onExportToClipboard}
+            />
           </SizerItem>
         </BoxSizer>
       </SizerItem>

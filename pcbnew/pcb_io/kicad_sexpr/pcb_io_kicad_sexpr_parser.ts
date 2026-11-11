@@ -114,6 +114,7 @@ import {
 
 // Register the generators the board file can name.
 import '../../generators/pcb_tuning_pattern.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `SEXPR_BOARD_FILE_VERSION` (pcb_io_kicad_sexpr.h): the version this build writes. */
 export const SEXPR_BOARD_FILE_VERSION = 20260206;
@@ -2924,7 +2925,7 @@ export class PCB_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
               );
             }
 
-            this.throwParse('Invalid library ID');
+            this.throwParse(_('Invalid library ID'));
           }
 
           this.NeedRIGHT();

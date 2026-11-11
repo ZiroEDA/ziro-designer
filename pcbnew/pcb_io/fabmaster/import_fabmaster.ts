@@ -78,6 +78,7 @@ import { VIATYPE } from '../../pcb_track_types.js';
 import { ZONE } from '../../zone.js';
 import { AutoAssignZonePriorities } from '../../zone_utils.js';
 import { ZONE_CONNECTION } from '../../zones.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 type single_row = string[];
 
@@ -592,7 +593,7 @@ export class FABMASTER {
         );
 
         if (!this.m_progressReporter.KeepRefreshing())
-          throw new IO_ERROR('File import canceled by user.');
+          throw new IO_ERROR(_('File import canceled by user.'));
 
         this.m_lastProgressCount = this.m_doneCount;
       }

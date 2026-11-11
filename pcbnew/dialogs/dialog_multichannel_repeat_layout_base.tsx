@@ -27,6 +27,8 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export interface DIALOG_MULTICHANNEL_REPEAT_LAYOUT_BASE_PROPS {
   /** m_refRAName: the reference area's zone name. */
@@ -46,14 +48,15 @@ export interface DIALOG_MULTICHANNEL_REPEAT_LAYOUT_BASE_PROPS {
 
 const CV = wxALIGN_CENTER_VERTICAL;
 
-const ANCHOR_TIP =
-  'Optional, use for precise and/or rotated placement.\nSelect reference rule area footprint, place corresponding\ntarget rule area footprint(s).';
+const ANCHOR_TIP = _HKI(
+  'Optional, use for precise and/or rotated placement.\nSelect reference rule area footprint, place corresponding\ntarget rule area footprint(s).',
+);
 
 export function DIALOG_MULTICHANNEL_REPEAT_LAYOUT_BASE(
   p: DIALOG_MULTICHANNEL_REPEAT_LAYOUT_BASE_PROPS,
 ): JSX.Element {
   return (
-    <DialogShim title="Repeat Multichannel Layout" onClose={p.onCancel}>
+    <DialogShim title={_('Repeat Multichannel Layout')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
@@ -63,13 +66,13 @@ export function DIALOG_MULTICHANNEL_REPEAT_LAYOUT_BASE(
               {/* fgSizer2 = wxFlexGridSizer( 0, 2, 5, 5 ) */}
               <FlexGridSizer cols={2} vgap={5} hgap={5}>
                 <SizerItem flag={CV} border={5}>
-                  <StaticText label="Reference rule area:" />
+                  <StaticText label={_('Reference rule area:')} />
                 </SizerItem>
                 <SizerItem flag={CV} border={5}>
                   <StaticText label={p.m_refRAName} />
                 </SizerItem>
                 <SizerItem flag={CV | wxLEFT} border={15}>
-                  <StaticText label="Anchor footprint:" />
+                  <StaticText label={_('Anchor footprint:')} />
                 </SizerItem>
                 <SizerItem flag={CV} border={5}>
                   <Choice
@@ -82,7 +85,7 @@ export function DIALOG_MULTICHANNEL_REPEAT_LAYOUT_BASE(
               </FlexGridSizer>
             </SizerItem>
             <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-              <StaticText label="Target areas:" />
+              <StaticText label={_('Target areas:')} />
             </SizerItem>
             <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5} minSize={[500, 100]}>
               {p.m_raGrid}
@@ -91,36 +94,40 @@ export function DIALOG_MULTICHANNEL_REPEAT_LAYOUT_BASE(
               {/* bSizer13 */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxTOP | wxBOTTOM} border={5}>
-                  <CheckBox label="Copy footprint placement" check={p.m_cbCopyPlacement} />
+                  <CheckBox label={_('Copy footprint placement')} check={p.m_cbCopyPlacement} />
                 </SizerItem>
                 <SizerItem flag={wxBOTTOM} border={5}>
-                  <CheckBox label="Copy routing" check={p.m_cbCopyRouting} />
+                  <CheckBox label={_('Copy routing')} check={p.m_cbCopyRouting} />
                 </SizerItem>
                 <SizerItem flag={wxLEFT} border={25}>
                   <CheckBox
-                    label="Restrict to routing connected within the area"
-                    title="Can be useful if unrelated tracks pass through the area"
+                    label={_('Restrict to routing connected within the area')}
+                    title={_('Can be useful if unrelated tracks pass through the area')}
                     check={p.m_cbCopyOnlyConnectedRouting}
                   />
                 </SizerItem>
                 <SizerItem flag={wxTOP | wxBOTTOM} border={5}>
                   <CheckBox
-                    label="Copy other items"
-                    title="Copy text, shapes, zones, and other items inside the source rule area"
+                    label={_('Copy other items')}
+                    title={_(
+                      'Copy text, shapes, zones, and other items inside the source rule area',
+                    )}
                     check={p.m_cbCopyOtherItems}
                   />
                 </SizerItem>
                 <Spacer width={0} height={10} proportion={1} flag={wxEXPAND} border={5} />
                 <SizerItem flag={wxBOTTOM} border={5}>
                   <CheckBox
-                    label="Group items with their target rule areas"
+                    label={_('Group items with their target rule areas')}
                     check={p.m_cbGroupItems}
                   />
                 </SizerItem>
                 <SizerItem flag={wxBOTTOM} border={5}>
                   <CheckBox
-                    label="Include locked items"
-                    title="Copy from reference area + delete / update in target area if included"
+                    label={_('Include locked items')}
+                    title={_(
+                      'Copy from reference area + delete / update in target area if included',
+                    )}
                     check={p.m_cbIncludeLockedComponents}
                   />
                 </SizerItem>

@@ -44,6 +44,8 @@ import type { PCB_DIMENSION_BASE } from '../pcb_dimension.js';
 import type { PCB_FIELD } from '../pcb_field.js';
 import { PCB_SHAPE } from '../pcb_shape.js';
 import type { PCB_SELECTION_TOOL } from '../tools/pcb_selection_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `g_referenceFilter` / `g_footprintFilter`: kept for the next open. */
 let g_referenceFilter = '';
@@ -99,10 +101,10 @@ export class DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS {
     this.m_isBoardEditor = aIsBoardEditor;
 
     const provider = m_parent as unknown as ConstructorParameters<typeof UNIT_BINDER>[0];
-    this.m_lineWidth = new UNIT_BINDER(provider, 'Line thickness:');
-    this.m_textWidth = new UNIT_BINDER(provider, 'Text width:');
-    this.m_textHeight = new UNIT_BINDER(provider, 'Text height:');
-    this.m_thickness = new UNIT_BINDER(provider, 'Text thickness:');
+    this.m_lineWidth = new UNIT_BINDER(provider, _('Line thickness:'));
+    this.m_textWidth = new UNIT_BINDER(provider, _('Text width:'));
+    this.m_textHeight = new UNIT_BINDER(provider, _('Text height:'));
+    this.m_thickness = new UNIT_BINDER(provider, _('Text thickness:'));
   }
 
   /**
@@ -135,12 +137,12 @@ export class DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS {
     });
 
     return [
-      full('Silk Layers', C.LAYER_CLASS_SILK),
-      full('Copper Layers', C.LAYER_CLASS_COPPER),
-      lineOnly('Edge Cuts', C.LAYER_CLASS_EDGES),
-      lineOnly('Courtyards', C.LAYER_CLASS_COURTYARD),
-      full('Fab Layers', C.LAYER_CLASS_FAB),
-      full('Other Layers', C.LAYER_CLASS_OTHERS),
+      full(_('Silk Layers'), C.LAYER_CLASS_SILK),
+      full(_('Copper Layers'), C.LAYER_CLASS_COPPER),
+      lineOnly(_('Edge Cuts'), C.LAYER_CLASS_EDGES),
+      lineOnly(_('Courtyards'), C.LAYER_CLASS_COURTYARD),
+      full(_('Fab Layers'), C.LAYER_CLASS_FAB),
+      full(_('Other Layers'), C.LAYER_CLASS_OTHERS),
     ];
   }
 
@@ -148,18 +150,18 @@ export class DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS {
   FootprintScopeLabels(): { texts: string; graphics: string; dimensions: string } {
     return this.m_isBoardEditor
       ? {
-          texts: 'Footprint text items',
-          graphics: 'Footprint graphic items',
-          dimensions: 'Footprint dimensions',
+          texts: _('Footprint text items'),
+          graphics: _('Footprint graphic items'),
+          dimensions: _('Footprint dimensions'),
         }
-      : { texts: 'Text items', graphics: 'Graphic items', dimensions: 'Dimension items' };
+      : { texts: _('Text items'), graphics: _('Graphic items'), dimensions: _('Dimension items') };
   }
 
   /** `onDimensionItemCheckbox`: the second radio button's label. */
   LayerDefaultsLabel(): string {
     return this.m_footprintDimensions || this.m_boardDimensions
-      ? 'Set to layer and dimension default values:'
-      : 'Set to layer default values:';
+      ? _('Set to layer and dimension default values:')
+      : _('Set to layer default values:');
   }
 
   /** `onActionButtonChange`: the value controls, or the defaults grid. */
@@ -212,7 +214,7 @@ export class DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS {
       this.OnTextSize();
 
       if (this.m_textWidth.IsIndeterminate() || this.m_textHeight.IsIndeterminate())
-        this.m_thickness.SetText('(auto)');
+        this.m_thickness.SetText(_('(auto)'));
     } else {
       this.m_autoTextThickness = false;
       this.m_thickness.SetText(INDETERMINATE_ACTION);
@@ -447,7 +449,7 @@ export class DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS {
       }
     }
 
-    commit.Push('Edit Text and Graphics');
+    commit.Push(_('Edit Text and Graphics'));
     this.m_parent.GetCanvas()?.Refresh();
 
     return true;
@@ -504,12 +506,12 @@ type FLAG =
 /** The headings the constructor writes into m_grid's row 0 (ROW_HEADER). */
 const GRID_HEADER = [
   '',
-  'Line Thickness',
-  'Text Width',
-  'Text Height',
-  'Text Thickness',
-  'Italic',
-  'Keep Upright',
+  _HKI('Line Thickness'),
+  _HKI('Text Width'),
+  _HKI('Text Height'),
+  _HKI('Text Thickness'),
+  _HKI('Italic'),
+  _HKI('Keep Upright'),
 ];
 
 /** The constructor's m_grid: row 0 the headings, a row per layer class, bools as check boxes. */

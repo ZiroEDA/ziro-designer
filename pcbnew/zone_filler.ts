@@ -83,6 +83,7 @@ import type { PCB_DIMENSION_BASE } from './pcb_dimension.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
 import { PCB_TEXT } from './pcb_text.js';
 import type { PCB_TRACK } from './pcb_track.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // ---------------------------------------------------------------------------
 // zone_filler.cpp's file-level helpers (cpp:69-380).
@@ -428,10 +429,10 @@ export class ZONE_FILLER {
 
     if (localSettings?.m_PrototypeZoneFill) {
       const answer = await aAsk({
-        caption: 'Confirmation',
-        message: 'Prototype zone fill enabled. Disable setting and refill?',
+        caption: _('Confirmation'),
+        message: _('Prototype zone fill enabled. Disable setting and refill?'),
         icon: 'warning',
-        labels: { ok: 'Disable and refill', cancel: 'Continue without Refill' },
+        labels: { ok: _('Disable and refill'), cancel: _('Continue without Refill') },
         doNotShowKey: 'pcbnew/zone_filler.cpp:Fill:prototype',
       });
 
@@ -441,10 +442,10 @@ export class ZONE_FILLER {
 
     if (outOfDate) {
       const answer = await aAsk({
-        caption: 'Confirmation',
-        message: 'Zone fills are out-of-date. Refill?',
+        caption: _('Confirmation'),
+        message: _('Zone fills are out-of-date. Refill?'),
         icon: 'warning',
-        labels: { ok: 'Refill', cancel: 'Continue without Refill' },
+        labels: { ok: _('Refill'), cancel: _('Continue without Refill') },
         doNotShowKey: 'pcbnew/zone_filler.cpp:Fill:outOfDate',
       });
 
@@ -489,7 +490,7 @@ export class ZONE_FILLER {
     this.m_worstClearance = board.GetMaxClearanceValue();
 
     if (this.m_progressReporter) {
-      this.m_progressReporter.Report('Building zone fills...');
+      this.m_progressReporter.Report(_('Building zone fills...'));
       this.m_progressReporter.SetMaxProgress(aZones.length);
       this.m_progressReporter.KeepRefreshing();
     }
@@ -594,7 +595,7 @@ export class ZONE_FILLER {
       if (this.m_progressReporter.IsCancelled()) return false;
 
       this.m_progressReporter.AdvancePhase();
-      this.m_progressReporter.Report('Removing isolated copper islands...');
+      this.m_progressReporter.Report(_('Removing isolated copper islands...'));
       this.m_progressReporter.KeepRefreshing();
     }
 
@@ -782,7 +783,7 @@ export class ZONE_FILLER {
         if (!progressReported) {
           if (this.m_progressReporter) {
             this.m_progressReporter.AdvancePhase();
-            this.m_progressReporter.Report('Refilling overlapping zones...');
+            this.m_progressReporter.Report(_('Refilling overlapping zones...'));
             this.m_progressReporter.KeepRefreshing();
           }
 

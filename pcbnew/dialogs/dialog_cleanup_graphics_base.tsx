@@ -23,6 +23,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_CLEANUP_GRAPHICS_BASE_PROPS {
   m_createRectanglesOpt: CHECK;
@@ -51,20 +52,23 @@ export interface DIALOG_CLEANUP_GRAPHICS_BASE_PROPS {
 
 export function DIALOG_CLEANUP_GRAPHICS_BASE(p: DIALOG_CLEANUP_GRAPHICS_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Cleanup Graphics" onClose={p.onCancel}>
+    <DialogShim title={_('Cleanup Graphics')} onClose={p.onCancel}>
       {/* bSizerMain */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxALL} border={5}>
           {/* bSizerUpper */}
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxALL} border={5}>
-              <CheckBox label="Merge lines into rectangles" check={p.m_createRectanglesOpt} />
+              <CheckBox label={_('Merge lines into rectangles')} check={p.m_createRectanglesOpt} />
             </SizerItem>
             <SizerItem flag={wxALL} border={5}>
-              <CheckBox label="Delete redundant graphics" check={p.m_deleteRedundantOpt} />
+              <CheckBox label={_('Delete redundant graphics')} check={p.m_deleteRedundantOpt} />
             </SizerItem>
             <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5} shown={p.mergePadsShown}>
-              <CheckBox label="Merge overlapping graphics into pads" check={p.m_mergePadsOpt} />
+              <CheckBox
+                label={_('Merge overlapping graphics into pads')}
+                check={p.m_mergePadsOpt}
+              />
             </SizerItem>
             <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={3} shown={p.mergePadsShown}>
               {/* bSizerMargins */}
@@ -72,7 +76,9 @@ export function DIALOG_CLEANUP_GRAPHICS_BASE(p: DIALOG_CLEANUP_GRAPHICS_BASE_PRO
                 <SizerItem flag={wxLEFT} border={25}>
                   {/* SetFont( KIUI::GetInfoFont( aParent ).Italic() ) */}
                   <StaticText
-                    label="(Pads which appear in a Net Tie pad group will not be considered for merging.)"
+                    label={_(
+                      '(Pads which appear in a Net Tie pad group will not be considered for merging.)',
+                    )}
                     font="info"
                     italic
                   />
@@ -81,7 +87,7 @@ export function DIALOG_CLEANUP_GRAPHICS_BASE(p: DIALOG_CLEANUP_GRAPHICS_BASE_PRO
             </SizerItem>
             <SizerItem flag={wxALL} border={5} shown={p.boardOutlinesShown}>
               <CheckBox
-                label="Fix discontinuities in board outlines"
+                label={_('Fix discontinuities in board outlines')}
                 check={p.m_fixBoardOutlines}
               />
             </SizerItem>
@@ -115,7 +121,7 @@ export function DIALOG_CLEANUP_GRAPHICS_BASE(p: DIALOG_CLEANUP_GRAPHICS_BASE_PRO
           {/* bLowerSizer, SetMinSize( wxSize( 660,250 ) ) */}
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-              <StaticText label="Changes to be applied:" />
+              <StaticText label={_('Changes to be applied:')} />
             </SizerItem>
             <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
               <RcTreeView

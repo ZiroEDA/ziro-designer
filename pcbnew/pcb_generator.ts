@@ -46,6 +46,8 @@ import {
 import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 
 import { PCB_GROUP } from './pcb_group.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The `GENERATOR_TOOL` the hooks take. -- GENERATOR_TOOL pending (#636 stage 3) */
 export type GENERATOR_TOOL_LIKE = object;
@@ -190,7 +192,7 @@ export abstract class PCB_GENERATOR extends PCB_GROUP {
   }
 
   override GetItemDescription(aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
-    return 'Generator';
+    return _('Generator');
   }
 
   abstract GetPluralName(): string;
@@ -222,12 +224,12 @@ export abstract class PCB_GENERATOR extends PCB_GROUP {
   propMgr.AddTypeCast(new TYPE_CAST(PCB_GENERATOR, BOARD_ITEM));
   propMgr.InheritsAfter(PCB_GENERATOR, BOARD_ITEM);
 
-  const groupTab = 'Generator Properties';
+  const groupTab = _HKI('Generator Properties');
 
   propMgr.AddProperty(
     new PROPERTY<PCB_GENERATOR, number>(
       PCB_GENERATOR,
-      'Update Order',
+      _HKI('Update Order'),
       'SetUpdateOrder',
       'GetUpdateOrder',
       TYPE_INT,

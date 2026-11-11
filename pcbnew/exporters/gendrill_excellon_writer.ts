@@ -38,6 +38,7 @@ import {
   USE_ATTRIB_FOR_HOLES,
   ZEROS_FMT,
 } from './gendrill_writer_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `FILEEXT::DrillFileExtension`. */
 export const DrillFileExtension = 'drl';
@@ -213,7 +214,7 @@ export class EXCELLON_WRITER extends GENDRILL_WRITER_BASE {
 
     if (aGenMap) success = this.CreateMapFilesSet(aPlotDirectory, aReporter) && success;
 
-    aReporter?.reportTail('Done.', RPT_SEVERITY_INFO);
+    aReporter?.reportTail(_('Done.'), RPT_SEVERITY_INFO);
 
     return success;
   }

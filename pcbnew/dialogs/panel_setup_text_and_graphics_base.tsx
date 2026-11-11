@@ -11,6 +11,7 @@ import type { JSX, ReactNode } from 'react';
 import { StaticLine, StaticText } from '@ziroeda/wx/controls.js';
 import { wxBOTTOM, wxEXPAND, wxLEFT, wxRIGHT, wxTOP, wxVERTICAL } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PANEL_SETUP_TEXT_AND_GRAPHICS_BASE_PROPS {
   m_grid: ReactNode;
@@ -26,7 +27,7 @@ export function PANEL_SETUP_TEXT_AND_GRAPHICS_BASE(
         {/* m_gridSizer */}
         <BoxSizer orient={wxVERTICAL}>
           <SizerItem flag={wxEXPAND | wxLEFT | wxRIGHT | wxTOP} border={13}>
-            <StaticText label="Default Properties for New Graphics and Text" />
+            <StaticText label={_('Default Properties for New Graphics and Text')} />
           </SizerItem>
           <Spacer width={0} height={2} border={5} />
           <SizerItem flag={wxEXPAND | wxBOTTOM} border={5}>

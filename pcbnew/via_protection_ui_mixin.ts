@@ -11,6 +11,7 @@
  */
 
 import type { PCB_VIA } from './pcb_track.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export enum IPC4761_SURFACE {
   FROM_BOARD = 0,
@@ -117,27 +118,27 @@ export const IPC4761_PRESETS: ReadonlyMap<IPC4761_PRESET, IPC4761_CONFIGURATION>
 
 /** `m_IPC4761Names`. [data] */
 export const IPC4761_NAMES: ReadonlyMap<IPC4761_PRESET, string> = new Map([
-  [P.FROM_BOARD, 'From rules'],
-  [P.NONE, 'None'],
-  [P.IA, 'Type I-a (tented top)'],
-  [P.IB, 'Type I-b (tented both sides)'],
-  [P.IA_INVERTED, 'Type I-a (tented bottom)'],
-  [P.IIA, 'Type II-a (covered and tented top)'],
-  [P.IIB, 'Type II-b (covered and tented both sides)'],
-  [P.IIA_INVERTED, 'Type II-a (covered and tented bottom)'],
-  [P.IIIA, 'Type III-a (plugged top)'],
-  [P.IIIB, 'Type III-b (plugged both sides)'],
-  [P.IIIA_INVERTED, 'Type III-a (plugged bottom)'],
-  [P.IVA, 'Type IV-a (plugged and tented top)'],
-  [P.IVB, 'Type IV-b (plugged and tented both sides)'],
-  [P.IVA_INVERTED, 'Type IV-a (plugged and tented bottom)'],
-  [P.V, 'Type V (filled )'],
-  [P.VIA, 'Type VI-a (filled and tented top)'],
-  [P.VIB, 'Type VI-b (filled and tented both sides)'],
-  [P.VIA_INVERTED, 'Type VI-a (filled and tented bottom)'],
-  [P.VII, 'Type VII (filled and capped)'],
-  [P.CUSTOM, 'Custom'],
-  [P.END, 'End'],
+  [P.FROM_BOARD, _HKI('From rules')],
+  [P.NONE, _HKI('None')],
+  [P.IA, _HKI('Type I-a (tented top)')],
+  [P.IB, _HKI('Type I-b (tented both sides)')],
+  [P.IA_INVERTED, _HKI('Type I-a (tented bottom)')],
+  [P.IIA, _HKI('Type II-a (covered and tented top)')],
+  [P.IIB, _HKI('Type II-b (covered and tented both sides)')],
+  [P.IIA_INVERTED, _HKI('Type II-a (covered and tented bottom)')],
+  [P.IIIA, _HKI('Type III-a (plugged top)')],
+  [P.IIIB, _HKI('Type III-b (plugged both sides)')],
+  [P.IIIA_INVERTED, _HKI('Type III-a (plugged bottom)')],
+  [P.IVA, _HKI('Type IV-a (plugged and tented top)')],
+  [P.IVB, _HKI('Type IV-b (plugged and tented both sides)')],
+  [P.IVA_INVERTED, _HKI('Type IV-a (plugged and tented bottom)')],
+  [P.V, _HKI('Type V (filled )')],
+  [P.VIA, _HKI('Type VI-a (filled and tented top)')],
+  [P.VIB, _HKI('Type VI-b (filled and tented both sides)')],
+  [P.VIA_INVERTED, _HKI('Type VI-a (filled and tented bottom)')],
+  [P.VII, _HKI('Type VII (filled and capped)')],
+  [P.CUSTOM, _HKI('Custom')],
+  [P.END, _HKI('End')],
 ]);
 
 /** A front/back pair of PADSTACK optional flags, as the setters write them. */

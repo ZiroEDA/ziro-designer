@@ -23,6 +23,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_IMPORT_SETTINGS_BASE_PROPS {
   m_filePathCtrl: { value: string; onChange: (aText: string) => void };
@@ -59,14 +60,14 @@ export function DIALOG_IMPORT_SETTINGS_BASE(p: DIALOG_IMPORT_SETTINGS_BASE_PROPS
   );
 
   return (
-    <DialogShim title="Import Settings" onClose={p.onCancel}>
+    <DialogShim title={_('Import Settings')} onClose={p.onCancel}>
       {/* m_MainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
           {/* bUpperSizer */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
-              <StaticText label="Import from:" />
+              <StaticText label={_('Import from:')} />
             </SizerItem>
             <SizerItem
               proportion={1}
@@ -78,14 +79,16 @@ export function DIALOG_IMPORT_SETTINGS_BASE(p: DIALOG_IMPORT_SETTINGS_BASE_PROPS
                 value={p.m_filePathCtrl.value}
                 onChange={p.m_filePathCtrl.onChange}
                 ariaLabel="Import from"
-                title="Target directory for plot files. Can be absolute or relative to the board file location."
+                title={_(
+                  'Target directory for plot files. Can be absolute or relative to the board file location.',
+                )}
               />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
               {/* m_browseButton->SetBitmap( KiBitmapBundle( BITMAPS::small_folder ) ) */}
               <StdBitmapButton
                 bitmap="small_folder"
-                title="Browse"
+                title={_('Browse')}
                 tooltip={null}
                 onClick={p.OnBrowseClicked}
               />
@@ -99,23 +102,23 @@ export function DIALOG_IMPORT_SETTINGS_BASE(p: DIALOG_IMPORT_SETTINGS_BASE_PROPS
               {/* bLeftCol */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxTOP | wxBOTTOM | wxRIGHT} border={5}>
-                  <StaticText label="Import:" />
+                  <StaticText label={_('Import:')} />
                 </SizerItem>
-                {opt('Board layers and physical stackup', p.m_LayersOpt)}
-                {opt('Solder mask/paste defaults', p.m_MaskAndPasteOpt)}
-                {opt('Zone hatched fill offsets', p.m_ZoneHatchingOffsetsOpt)}
+                {opt(_('Board layers and physical stackup'), p.m_LayersOpt)}
+                {opt(_('Solder mask/paste defaults'), p.m_MaskAndPasteOpt)}
+                {opt(_('Zone hatched fill offsets'), p.m_ZoneHatchingOffsetsOpt)}
                 {/* "Text && graphics": && is a literal & */}
-                {opt('Text & graphics default properties', p.m_TextAndGraphicsOpt)}
-                {opt('Text & graphics formatting', p.m_FormattingOpt)}
-                {opt('Design rule constraints', p.m_ConstraintsOpt)}
-                {opt('Predefined track & via dimensions', p.m_TracksAndViasOpt)}
-                {opt('Teardrop defaults', p.m_TeardropsOpt)}
-                {opt('Length-tuning pattern defaults', p.m_TuningPatternsOpt)}
-                {opt('Net classes', p.m_NetclassesOpt)}
-                {opt('Component classes', p.m_ComponentClassesOpt)}
-                {opt('Tuning Profiles', p.m_TuningProfilesOpt)}
-                {opt('Custom rules', p.m_CustomRulesOpt)}
-                {opt('Violation severities', p.m_SeveritiesOpt, wxRIGHT | wxLEFT)}
+                {opt(_('Text & graphics default properties'), p.m_TextAndGraphicsOpt)}
+                {opt(_('Text & graphics formatting'), p.m_FormattingOpt)}
+                {opt(_('Design rule constraints'), p.m_ConstraintsOpt)}
+                {opt(_('Predefined track & via dimensions'), p.m_TracksAndViasOpt)}
+                {opt(_('Teardrop defaults'), p.m_TeardropsOpt)}
+                {opt(_('Length-tuning pattern defaults'), p.m_TuningPatternsOpt)}
+                {opt(_('Net classes'), p.m_NetclassesOpt)}
+                {opt(_('Component classes'), p.m_ComponentClassesOpt)}
+                {opt(_('Tuning Profiles'), p.m_TuningProfilesOpt)}
+                {opt(_('Custom rules'), p.m_CustomRulesOpt)}
+                {opt(_('Violation severities'), p.m_SeveritiesOpt, wxRIGHT | wxLEFT)}
               </BoxSizer>
             </SizerItem>
           </BoxSizer>
@@ -129,13 +132,13 @@ export function DIALOG_IMPORT_SETTINGS_BASE(p: DIALOG_IMPORT_SETTINGS_BASE_PROPS
             >
               <Button
                 label={p.selectAllLabel}
-                minSizeLabel="Deselect All"
+                minSizeLabel={_('Deselect All')}
                 onClick={p.OnSelectAll}
               />
             </SizerItem>
             <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
               <StdDialogButtonSizer
-                okLabel="Import Settings"
+                okLabel={_('Import Settings')}
                 okDisabled={!p.okEnabled}
                 onOk={p.onOK}
                 onCancel={p.onCancel}

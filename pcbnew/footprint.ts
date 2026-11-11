@@ -126,6 +126,8 @@ import { ZONE } from './zone.js';
 import { ZONE_CONNECTION } from './zones.js';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // `class FOOTPRINT : public BOARD_ITEM_CONTAINER, public EMBEDDED_FILES`
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EMBEDDED_FILES mixin)
@@ -2594,11 +2596,11 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
     ) {
       const padCount = this.GetPadCount(DO_NOT_INCLUDE_NPTH);
 
-      aList.push(new MSG_PANEL_ITEM('Library', this.GetFPID().GetLibNickname()));
+      aList.push(new MSG_PANEL_ITEM(_('Library'), this.GetFPID().GetLibNickname()));
 
-      aList.push(new MSG_PANEL_ITEM('Footprint Name', this.GetFPID().GetLibItemName()));
+      aList.push(new MSG_PANEL_ITEM(_('Footprint Name'), this.GetFPID().GetLibItemName()));
 
-      aList.push(new MSG_PANEL_ITEM('Pads', `${padCount}`));
+      aList.push(new MSG_PANEL_ITEM(_('Pads'), `${padCount}`));
 
       aList.push(
         new MSG_PANEL_ITEM(`Doc: ${this.GetLibDescription()}`, `Keywords: ${this.GetKeywords()}`),
@@ -2610,16 +2612,16 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
     // aFrame is the board editor:
     switch (this.GetSide()) {
       case PCB_LAYER_ID.F_Cu:
-        aList.push(new MSG_PANEL_ITEM('Board Side', 'Front'));
+        aList.push(new MSG_PANEL_ITEM(_('Board Side'), _('Front')));
         break;
       case PCB_LAYER_ID.B_Cu:
-        aList.push(new MSG_PANEL_ITEM('Board Side', 'Back (Flipped)'));
+        aList.push(new MSG_PANEL_ITEM(_('Board Side'), _('Back (Flipped)')));
         break;
       default:
         /* unsided: user-layers only, etc. */ break;
     }
 
-    aList.push(new MSG_PANEL_ITEM('Rotation', formatG(this.GetOrientation().AsDegrees(), 4)));
+    aList.push(new MSG_PANEL_ITEM(_('Rotation'), formatG(this.GetOrientation().AsDegrees(), 4)));
 
     const addToken = (aStr: string, aAttr: string): string => {
       if (aStr !== '') aStr += ', ';
@@ -2631,18 +2633,18 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
     let status = '';
     let attrs = '';
 
-    if (this.IsLocked()) status = addToken(status, 'Locked');
+    if (this.IsLocked()) status = addToken(status, _('Locked'));
 
-    if (this.IsPlaced()) status = addToken(status, 'autoplaced');
+    if (this.IsPlaced()) status = addToken(status, _('autoplaced'));
 
-    if (this.IsBoardOnly()) attrs = addToken(attrs, 'not in schematic');
+    if (this.IsBoardOnly()) attrs = addToken(attrs, _('not in schematic'));
 
     if (this.GetExcludedFromPosFilesForVariant(variant))
-      attrs = addToken(attrs, 'exclude from pos files');
+      attrs = addToken(attrs, _('exclude from pos files'));
 
-    if (this.GetExcludedFromBOMForVariant(variant)) attrs = addToken(attrs, 'exclude from BOM');
+    if (this.GetExcludedFromBOMForVariant(variant)) attrs = addToken(attrs, _('exclude from BOM'));
 
-    if (this.GetDNPForVariant(variant)) attrs = addToken(attrs, 'DNP');
+    if (this.GetDNPForVariant(variant)) attrs = addToken(attrs, _('DNP'));
 
     aList.push(new MSG_PANEL_ITEM(`Status: ${status}`, `Attributes: ${attrs}`));
 
@@ -2656,7 +2658,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
     }
 
     msg = `Footprint: ${this.m_fpid.GetUniStringLibId()}`;
-    msg2 = `3D-Shape: ${this.m_3D_Drawings.length === 0 ? '<none>' : this.m_3D_Drawings[0]!.m_Filename}`;
+    msg2 = `3D-Shape: ${this.m_3D_Drawings.length === 0 ? _('<none>') : this.m_3D_Drawings[0]!.m_Filename}`;
     aList.push(new MSG_PANEL_ITEM(msg, msg2));
 
     msg = `Doc: ${this.m_libDescription}`;
@@ -3784,7 +3786,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
   override GetItemDescription(aUnitsProvider: UNITS_PROVIDER | null, aFull: boolean): string {
     let reference = this.GetReference();
 
-    if (reference === '') reference = '<no reference designator>';
+    if (reference === '') reference = _('<no reference designator>');
 
     return `Footprint ${reference}`;
   }
@@ -4864,11 +4866,11 @@ applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
   if (zcMap.Choices().GetCount() === 0) {
     zcMap.Undefined(ZONE_CONNECTION.INHERITED);
     zcMap
-      .Map(ZONE_CONNECTION.INHERITED, 'Inherited')
-      .Map(ZONE_CONNECTION.NONE, 'None')
-      .Map(ZONE_CONNECTION.THERMAL, 'Thermal reliefs')
-      .Map(ZONE_CONNECTION.FULL, 'Solid')
-      .Map(ZONE_CONNECTION.THT_THERMAL, 'Thermal reliefs for PTH');
+      .Map(ZONE_CONNECTION.INHERITED, _HKI('Inherited'))
+      .Map(ZONE_CONNECTION.NONE, _HKI('None'))
+      .Map(ZONE_CONNECTION.THERMAL, _HKI('Thermal reliefs'))
+      .Map(ZONE_CONNECTION.FULL, _HKI('Solid'))
+      .Map(ZONE_CONNECTION.THT_THERMAL, _HKI('Thermal reliefs for PTH'));
   }
 
   const layerEnum = ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID');
@@ -4901,20 +4903,20 @@ applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
 
   const layer = new PROPERTY_ENUM<FOOTPRINT, PCB_LAYER_ID>(
     FOOTPRINT,
-    'Layer',
+    _HKI('Layer'),
     'SetLayerAndFlip',
     'GetLayer',
     layerEnum,
   );
   layer.SetChoices(fpLayers);
   layer.SetAvailableFunc(isNotFootprintHolder);
-  propMgr.ReplaceProperty(BOARD_ITEM, 'Layer', layer);
+  propMgr.ReplaceProperty(BOARD_ITEM, _HKI('Layer'), layer);
 
   propMgr
     .AddProperty(
       new PROPERTY<FOOTPRINT, number>(
         FOOTPRINT,
-        'Orientation',
+        _HKI('Orientation'),
         'SetOrientationDegrees',
         'GetOrientationDegrees',
         TYPE_DOUBLE,
@@ -4923,12 +4925,12 @@ applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
     )
     .SetAvailableFunc(isNotFootprintHolder);
 
-  const groupFields = 'Fields';
+  const groupFields = _HKI('Fields');
 
   propMgr.AddProperty(
     new PROPERTY<FOOTPRINT, string>(
       FOOTPRINT,
-      'Reference',
+      _HKI('Reference'),
       'SetReference',
       'GetReferenceAsString',
       TYPE_STRING,
@@ -4936,12 +4938,12 @@ applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
     groupFields,
   );
 
-  const propertyFields = 'Footprint Properties';
+  const propertyFields = _HKI('Footprint Properties');
 
   propMgr.AddProperty(
     new PROPERTY<FOOTPRINT, string>(
       FOOTPRINT,
-      'Library Link',
+      _HKI('Library Link'),
       NO_SETTER,
       'GetFPIDAsString',
       TYPE_STRING,
@@ -4951,7 +4953,7 @@ applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
   propMgr.AddProperty(
     new PROPERTY<FOOTPRINT, string>(
       FOOTPRINT,
-      'Library Description',
+      _HKI('Library Description'),
       NO_SETTER,
       'GetLibDescription',
       TYPE_STRING,
@@ -4959,7 +4961,13 @@ applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
     propertyFields,
   );
   propMgr.AddProperty(
-    new PROPERTY<FOOTPRINT, string>(FOOTPRINT, 'Keywords', NO_SETTER, 'GetKeywords', TYPE_STRING),
+    new PROPERTY<FOOTPRINT, string>(
+      FOOTPRINT,
+      _HKI('Keywords'),
+      NO_SETTER,
+      'GetKeywords',
+      TYPE_STRING,
+    ),
     propertyFields,
   );
 
@@ -4977,12 +4985,12 @@ applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
     )
     .SetIsHiddenFromLibraryEditors();
 
-  const groupAttributes = 'Attributes';
+  const groupAttributes = _HKI('Attributes');
 
   propMgr.AddProperty(
     new PROPERTY<FOOTPRINT, boolean>(
       FOOTPRINT,
-      'Not in Schematic',
+      _HKI('Not in Schematic'),
       'SetBoardOnly',
       'IsBoardOnly',
       TYPE_BOOL,
@@ -4992,7 +5000,7 @@ applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
   propMgr.AddProperty(
     new PROPERTY<FOOTPRINT, boolean>(
       FOOTPRINT,
-      'Exclude From Position Files',
+      _HKI('Exclude From Position Files'),
       'SetExcludedFromPosFiles',
       'IsExcludedFromPosFiles',
       TYPE_BOOL,
@@ -5002,7 +5010,7 @@ applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
   propMgr.AddProperty(
     new PROPERTY<FOOTPRINT, boolean>(
       FOOTPRINT,
-      'Exclude From Bill of Materials',
+      _HKI('Exclude From Bill of Materials'),
       'SetExcludedFromBOM',
       'IsExcludedFromBOM',
       TYPE_BOOL,
@@ -5010,16 +5018,22 @@ applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
     groupAttributes,
   );
   propMgr.AddProperty(
-    new PROPERTY<FOOTPRINT, boolean>(FOOTPRINT, 'Do not Populate', 'SetDNP', 'IsDNP', TYPE_BOOL),
+    new PROPERTY<FOOTPRINT, boolean>(
+      FOOTPRINT,
+      _HKI('Do not Populate'),
+      'SetDNP',
+      'IsDNP',
+      TYPE_BOOL,
+    ),
     groupAttributes,
   );
 
-  const groupOverrides = 'Overrides';
+  const groupOverrides = _HKI('Overrides');
 
   propMgr.AddProperty(
     new PROPERTY<FOOTPRINT, boolean>(
       FOOTPRINT,
-      'Exempt From Courtyard Requirement',
+      _HKI('Exempt From Courtyard Requirement'),
       'SetAllowMissingCourtyard',
       'AllowMissingCourtyard',
       TYPE_BOOL,
@@ -5029,7 +5043,7 @@ applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
   propMgr.AddProperty(
     new PROPERTY<FOOTPRINT, number | undefined>(
       FOOTPRINT,
-      'Clearance Override',
+      _HKI('Clearance Override'),
       'SetLocalClearance',
       'GetLocalClearance',
       TYPE_OPT_INT,
@@ -5040,7 +5054,7 @@ applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
   propMgr.AddProperty(
     new PROPERTY<FOOTPRINT, number | undefined>(
       FOOTPRINT,
-      'Solderpaste Margin Override',
+      _HKI('Solderpaste Margin Override'),
       'SetLocalSolderPasteMargin',
       'GetLocalSolderPasteMargin',
       TYPE_OPT_INT,
@@ -5051,7 +5065,7 @@ applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
   propMgr.AddProperty(
     new PROPERTY<FOOTPRINT, number | undefined>(
       FOOTPRINT,
-      'Solderpaste Margin Ratio Override',
+      _HKI('Solderpaste Margin Ratio Override'),
       'SetLocalSolderPasteMarginRatio',
       'GetLocalSolderPasteMarginRatio',
       TYPE_OPT_DOUBLE,
@@ -5062,7 +5076,7 @@ applyMixins(FOOTPRINT, [EMBEDDED_FILES]);
   propMgr.AddProperty(
     new PROPERTY_ENUM<FOOTPRINT, ZONE_CONNECTION>(
       FOOTPRINT,
-      'Zone Connection Style',
+      _HKI('Zone Connection Style'),
       'SetLocalZoneConnection',
       'GetLocalZoneConnection',
       zcMap,

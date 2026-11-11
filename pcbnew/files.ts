@@ -47,6 +47,7 @@ import type { FOOTPRINT } from './footprint.js';
 import { FOOTPRINT_IMPORT_RECONCILER } from './footprint_import_reconciler.js';
 import { findProjectDru, findProjectPrl, findProjectPro } from './pcb_edit_frame.js';
 import type { PCB_EDIT_FRAME } from './pcb_edit_frame.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `PCB_EDIT_FRAME`'s `files.cpp` half, mixed into that class by `pcb_edit_frame.ts`. */
 export class FILES_MIXIN {
@@ -196,7 +197,7 @@ export class FILES_MIXIN {
     await EMBEDDED_FILES.InitCodec();
 
     if (pluginType === PCB_FILE_T.FILE_TYPE_NONE)
-      throw new IO_ERROR('File format is not supported');
+      throw new IO_ERROR(_('File format is not supported'));
 
     type MAPPABLE = { RegisterCallback?: (aHandler: LAYER_MAPPING_HANDLER) => void };
 
@@ -205,7 +206,7 @@ export class FILES_MIXIN {
       const pi = await PCB_IO_MGR.FindPlugin(pluginType);
 
       // There was no plugin found, e.g. due to invalid file extension, file header,...
-      if (!pi) throw new IO_ERROR('File format is not supported');
+      if (!pi) throw new IO_ERROR(_('File format is not supported'));
 
       pi.SetFileReader(readFile);
 

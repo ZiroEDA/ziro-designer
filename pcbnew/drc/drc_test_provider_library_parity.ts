@@ -35,6 +35,7 @@ import type { PCB_BARCODE } from '../pcb_barcode.js';
 import type { PCB_SHAPE } from '../pcb_shape.js';
 import type { ZONE } from '../zone.js';
 import { ZONE_CONNECTION } from '../zones.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // ---------------------------------------------------------------------------
 // FOOTPRINT::FootprintNeedsUpdate and its helpers, which the C++ defines in this
@@ -207,7 +208,7 @@ function padHasOverrides(a: PAD, b: PAD, aReporter: Reporter): boolean {
 
   if (a.GetLocalClearance() !== undefined && a.GetLocalClearance() !== b.GetLocalClearance()) {
     diff = true;
-    REPORT_MSG('%s has clearance override.', PAD_DESC(a));
+    REPORT_MSG(_('%s has clearance override.'), PAD_DESC(a));
   }
 
   if (
@@ -215,7 +216,7 @@ function padHasOverrides(a: PAD, b: PAD, aReporter: Reporter): boolean {
     a.GetLocalSolderMaskMargin() !== b.GetLocalSolderMaskMargin()
   ) {
     diff = true;
-    REPORT_MSG('%s has solder mask expansion override.', PAD_DESC(a));
+    REPORT_MSG(_('%s has solder mask expansion override.'), PAD_DESC(a));
   }
 
   if (
@@ -223,7 +224,7 @@ function padHasOverrides(a: PAD, b: PAD, aReporter: Reporter): boolean {
     a.GetLocalSolderPasteMargin() !== b.GetLocalSolderPasteMargin()
   ) {
     diff = true;
-    REPORT_MSG('%s has solder paste clearance override.', PAD_DESC(a));
+    REPORT_MSG(_('%s has solder paste clearance override.'), PAD_DESC(a));
   }
 
   if (
@@ -231,7 +232,7 @@ function padHasOverrides(a: PAD, b: PAD, aReporter: Reporter): boolean {
     a.GetLocalSolderPasteMarginRatio() !== b.GetLocalSolderPasteMarginRatio()
   ) {
     diff = true;
-    REPORT_MSG('%s has solder paste clearance override.', PAD_DESC(a));
+    REPORT_MSG(_('%s has solder paste clearance override.'), PAD_DESC(a));
   }
 
   if (
@@ -239,12 +240,12 @@ function padHasOverrides(a: PAD, b: PAD, aReporter: Reporter): boolean {
     a.GetLocalZoneConnection() !== b.GetLocalZoneConnection()
   ) {
     diff = true;
-    REPORT_MSG('%s has zone connection override.', PAD_DESC(a));
+    REPORT_MSG(_('%s has zone connection override.'), PAD_DESC(a));
   }
 
   if (a.GetLocalThermalGapOverride() !== undefined && a.GetThermalGap() !== b.GetThermalGap()) {
     diff = true;
-    REPORT_MSG('%s has thermal relief gap override.', PAD_DESC(a));
+    REPORT_MSG(_('%s has thermal relief gap override.'), PAD_DESC(a));
   }
 
   if (
@@ -252,17 +253,17 @@ function padHasOverrides(a: PAD, b: PAD, aReporter: Reporter): boolean {
     a.GetLocalThermalSpokeWidthOverride() !== b.GetLocalThermalSpokeWidthOverride()
   ) {
     diff = true;
-    REPORT_MSG('%s has thermal relief spoke width override.', PAD_DESC(a));
+    REPORT_MSG(_('%s has thermal relief spoke width override.'), PAD_DESC(a));
   }
 
   if (!a.GetThermalSpokeAngle().equals(b.GetThermalSpokeAngle())) {
     diff = true;
-    REPORT_MSG('%s has thermal relief spoke angle override.', PAD_DESC(a));
+    REPORT_MSG(_('%s has thermal relief spoke angle override.'), PAD_DESC(a));
   }
 
   if (a.GetCustomShapeInZoneOpt() !== b.GetCustomShapeInZoneOpt()) {
     diff = true;
-    REPORT_MSG('%s has zone knockout setting override.', PAD_DESC(a));
+    REPORT_MSG(_('%s has zone knockout setting override.'), PAD_DESC(a));
   }
 
   return diff;
@@ -834,13 +835,13 @@ function zoneNeedsUpdate(a: ZONE, b: ZONE, aReporter: Reporter | null): boolean 
 function stackupNeedsUpdate(a: FOOTPRINT, b: FOOTPRINT, aReporter: Reporter | null): boolean {
   const d = new DIFF(aReporter);
 
-  if (d.test(a.GetStackupMode() !== b.GetStackupMode(), 'Footprint stackup mode differs.'))
+  if (d.test(a.GetStackupMode() !== b.GetStackupMode(), _('Footprint stackup mode differs.')))
     return d.diff;
 
   const aLayers = a.GetLayerSet();
   const bLayers = b.GetLayerSet();
 
-  if (d.test(!aLayers.equals(bLayers), 'Footprint layers differ.')) return d.diff;
+  if (d.test(!aLayers.equals(bLayers), _('Footprint layers differ.'))) return d.diff;
 
   return d.diff;
 }
@@ -963,7 +964,7 @@ export function FootprintNeedsUpdate(
       aThis.GetAttributes(),
       aLibFP.GetAttributes(),
       FOOTPRINT_ATTR_T.FP_THROUGH_HOLE | FOOTPRINT_ATTR_T.FP_SMD,
-      'Footprint types differ.',
+      _('Footprint types differ.'),
     )
   ) {
     return d.diff;
@@ -1029,7 +1030,7 @@ export function FootprintNeedsUpdate(
 
   if (stackupNeedsUpdate(aThis, aLibFP, aReporter)) {
     d.diff = true;
-    d.report('Footprint stackup differs.');
+    d.report(_('Footprint stackup differs.'));
   }
 
   // Clearance and zone connection overrides are as likely to be set at the board level as in
@@ -1048,7 +1049,7 @@ export function FootprintNeedsUpdate(
       aThis.GetLocalClearance() !== aLibFP.GetLocalClearance()
     ) {
       d.diff = true;
-      d.report('Pad clearance overridden.');
+      d.report(_('Pad clearance overridden.'));
     }
 
     if (
@@ -1056,7 +1057,7 @@ export function FootprintNeedsUpdate(
       aThis.GetLocalSolderMaskMargin() !== aLibFP.GetLocalSolderMaskMargin()
     ) {
       d.diff = true;
-      d.report('Solder mask expansion overridden.');
+      d.report(_('Solder mask expansion overridden.'));
     }
 
     if (
@@ -1064,7 +1065,7 @@ export function FootprintNeedsUpdate(
       aThis.GetLocalSolderPasteMargin() !== aLibFP.GetLocalSolderPasteMargin()
     ) {
       d.diff = true;
-      d.report('Solder paste absolute clearance overridden.');
+      d.report(_('Solder paste absolute clearance overridden.'));
     }
 
     if (
@@ -1072,7 +1073,7 @@ export function FootprintNeedsUpdate(
       aThis.GetLocalSolderPasteMarginRatio() !== aLibFP.GetLocalSolderPasteMarginRatio()
     ) {
       d.diff = true;
-      d.report('Solder paste relative clearance overridden.');
+      d.report(_('Solder paste relative clearance overridden.'));
     }
 
     if (
@@ -1080,14 +1081,14 @@ export function FootprintNeedsUpdate(
       aThis.GetLocalZoneConnection() !== aLibFP.GetLocalZoneConnection()
     ) {
       d.diff = true;
-      d.report('Zone connection overridden.');
+      d.report(_('Zone connection overridden.'));
     }
   }
 
   if (
     d.test(
       aThis.GetNetTiePadGroups().length !== aLibFP.GetNetTiePadGroups().length,
-      'Net tie pad groups differ.',
+      _('Net tie pad groups differ.'),
     )
   )
     return d.diff;
@@ -1096,7 +1097,7 @@ export function FootprintNeedsUpdate(
     if (
       d.test(
         aThis.GetNetTiePadGroups()[ii] !== aLibFP.GetNetTiePadGroups()[ii],
-        'Net tie pad groups differ.',
+        _('Net tie pad groups differ.'),
       )
     )
       return d.diff;
@@ -1138,7 +1139,7 @@ export function FootprintNeedsUpdate(
 
   if (aShapes.length !== bShapes.length) {
     d.diff = true;
-    d.report('Graphic item count differs.');
+    d.report(_('Graphic item count differs.'));
   } else {
     for (let ii = 0; ii < aShapes.length; ii++) {
       // aShapes and bShapes are the tested footprint PCB_SHAPE and the model PCB_SHAPE.
@@ -1167,7 +1168,7 @@ export function FootprintNeedsUpdate(
 
   if (aBarcodes.length !== bBarcodes.length) {
     d.diff = true;
-    d.report('Barcode count differs.');
+    d.report(_('Barcode count differs.'));
   } else {
     for (let ii = 0; ii < aBarcodes.length; ii++) {
       // aBarcodes and bBarcodes are the tested footprint PCB_BARCODE and the model PCB_BARCODE.
@@ -1189,7 +1190,7 @@ export function FootprintNeedsUpdate(
 
   if (aPads.length !== bLibPads.length) {
     d.diff = true;
-    d.report('Pad count differs.');
+    d.report(_('Pad count differs.'));
   } else {
     for (let ii = 0; ii < aPads.length; ii++) {
       if (padNeedsUpdate(aPads[ii]!, bLibPads[ii]!, aReporter)) d.diff = true;
@@ -1204,7 +1205,7 @@ export function FootprintNeedsUpdate(
 
   if (aZones.length !== bZones.length) {
     d.diff = true;
-    d.report('Rule area count differs.');
+    d.report(_('Rule area count differs.'));
   } else {
     for (let ii = 0; ii < aZones.length; ii++)
       d.diff ||= zoneNeedsUpdate(aZones[ii]!, bZones[ii]!, aReporter);
@@ -1229,11 +1230,11 @@ export class DRC_TEST_PROVIDER_LIBRARY_PARITY extends DRC_TEST_PROVIDER {
     const adapter = board.GetFootprintLibAdapter();
 
     if (!adapter) {
-      this.REPORT_AUX('No project loaded, skipping library parity tests.');
+      this.REPORT_AUX(_('No project loaded, skipping library parity tests.'));
       return true; // Continue with other tests
     }
 
-    if (!this.reportPhase('Loading footprint library table...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Loading footprint library table...'))) return false; // DRC cancelled
 
     /** `std::map<LIB_ID, std::shared_ptr<FOOTPRINT>>`, keyed by the LIB_ID's string form. */
     const libFootprintCache = new Map<string, FOOTPRINT>();
@@ -1242,7 +1243,7 @@ export class DRC_TEST_PROVIDER_LIBRARY_PARITY extends DRC_TEST_PROVIDER {
     let ii = 0;
     const progressDelta = 250;
 
-    if (!this.reportPhase('Checking board footprints against library...')) return false;
+    if (!this.reportPhase(_('Checking board footprints against library...'))) return false;
 
     for (const footprint of board.Footprints()) {
       if (

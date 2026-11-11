@@ -30,6 +30,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, GridBagSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A wxTextCtrl (a UNIT_BINDER's control) and its unit text. */
 export interface FIELD {
@@ -139,7 +140,7 @@ export function DIALOG_TUNING_PATTERN_PROPERTIES_BASE(
                   <StaticText label={p.m_targetDelay.units} />
                 </SizerItem>
                 <SizerItem pos={[0, 4]} span={[1, 3]} flag={CV} border={5}>
-                  <CheckBox label="Override custom rules" check={p.m_overrideCustomRules} />
+                  <CheckBox label={_('Override custom rules')} check={p.m_overrideCustomRules} />
                 </SizerItem>
                 <SizerItem
                   pos={[2, 1]}
@@ -151,7 +152,7 @@ export function DIALOG_TUNING_PATTERN_PROPERTIES_BASE(
                   <StaticText label={p.m_sourceInfo ?? ''} />
                 </SizerItem>
                 <SizerItem pos={[5, 0]} flag={CV | wxLEFT} border={1}>
-                  <StaticText label="Minimum amplitude (A):" />
+                  <StaticText label={_('Minimum amplitude (A):')} />
                 </SizerItem>
                 <SizerItem pos={[5, 1]} flag={wxEXPAND} border={5}>
                   <Ctrl f={p.m_minA} name="Minimum amplitude" />
@@ -160,7 +161,7 @@ export function DIALOG_TUNING_PATTERN_PROPERTIES_BASE(
                   <StaticText label={p.m_minA.units} />
                 </SizerItem>
                 <SizerItem pos={[5, 4]} flag={CV} border={5}>
-                  <StaticText label="Maximum amplitude (A):" />
+                  <StaticText label={_('Maximum amplitude (A):')} />
                 </SizerItem>
                 <SizerItem pos={[5, 5]} flag={wxEXPAND} border={5}>
                   <Ctrl f={p.m_maxA} name="Maximum amplitude" />
@@ -169,39 +170,41 @@ export function DIALOG_TUNING_PATTERN_PROPERTIES_BASE(
                   <StaticText label={p.m_maxA.units} />
                 </SizerItem>
                 <SizerItem pos={[6, 0]} flag={CV | wxLEFT} border={1}>
-                  <StaticText label="Spacing (s):" />
+                  <StaticText label={_('Spacing (s):')} />
                 </SizerItem>
                 <SizerItem pos={[6, 1]} flag={wxEXPAND} border={5}>
                   <Ctrl
                     f={p.m_spacing}
                     name="Spacing"
-                    title="Minimum spacing between adjacent tuning segments. The resulting spacing may be greater based on design rules."
+                    title={_(
+                      'Minimum spacing between adjacent tuning segments. The resulting spacing may be greater based on design rules.',
+                    )}
                   />
                 </SizerItem>
                 <SizerItem pos={[6, 2]} flag={CV} border={5}>
                   <StaticText label={p.m_spacing.units} />
                 </SizerItem>
                 <SizerItem pos={[8, 0]} flag={CV | wxLEFT} border={1}>
-                  <StaticText label="Corner style:" />
+                  <StaticText label={_('Corner style:')} />
                 </SizerItem>
                 <SizerItem pos={[8, 1]} span={[1, 2]} flag={wxEXPAND} border={5}>
                   <Choice
-                    choices={['Chamfer', 'Fillet']}
+                    choices={[_('Chamfer'), _('Fillet')]}
                     choice={p.m_cornerCtrl}
                     ariaLabel="Corner style"
                   />
                 </SizerItem>
                 <SizerItem pos={[8, 4]} flag={CV} border={5}>
-                  <StaticText label="Radius (r):" />
+                  <StaticText label={_('Radius (r):')} />
                 </SizerItem>
                 <SizerItem pos={[8, 5]} flag={wxEXPAND} border={5}>
-                  <Ctrl f={p.m_r} name="Radius" />
+                  <Ctrl f={p.m_r} name={_('Radius')} />
                 </SizerItem>
                 <SizerItem pos={[8, 6]} flag={CV} border={5}>
                   <StaticText label={p.m_r.units} />
                 </SizerItem>
                 <SizerItem pos={[9, 1]} span={[1, 2]} flag={CV} border={5}>
-                  <CheckBox label="Single-sided" check={p.m_singleSided} />
+                  <CheckBox label={_('Single-sided')} check={p.m_singleSided} />
                 </SizerItem>
               </GridBagSizer>
             </SizerItem>

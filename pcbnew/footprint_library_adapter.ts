@@ -39,6 +39,7 @@ import {
   footprintSaveClone,
   ParseFootprintFile,
 } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The `LIBRARY_TABLE_ROW` fields the callers read. */
 export interface LIBRARY_TABLE_ROW {
@@ -345,7 +346,7 @@ export class FOOTPRINT_LIBRARY_STORE implements FOOTPRINT_LIBRARY_ADAPTER {
 
       const norm = f.name.replace(/\\/g, '/');
       const m = /([^/]+)\.pretty\//i.exec(norm);
-      const dir = m ? `${m[1]}.pretty` : norm.split('/').slice(0, -1).join('/') || 'Project';
+      const dir = m ? `${m[1]}.pretty` : norm.split('/').slice(0, -1).join('/') || _('Project');
       const list = byDir.get(dir) ?? [];
       list.push({ fileName: norm.split('/').pop()!, text: f.text });
       byDir.set(dir, list);

@@ -38,6 +38,7 @@ import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { FULL_CIRCLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { GetClampedCoords } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // ---------------------------------------------------------------------------
 // ITEM_MODIFICATION_ROUTINE and the routines EDIT_TOOL drives, on the live
@@ -446,17 +447,19 @@ export class DOGBONE_CORNER_ROUTINE extends PAIRWISE_LINE_ROUTINE {
   GetStatusMessage(aSegmentCount: number): string | null {
     let msg = '';
 
-    if (this.GetSuccesses() === 0) msg += 'Unable to add dogbone corners to the selected lines.';
+    if (this.GetSuccesses() === 0) msg += _('Unable to add dogbone corners to the selected lines.');
     else if (this.GetFailures() > 0 || this.GetSuccesses() < aSegmentCount - 1)
-      msg += 'Some of the lines could not have dogbone corners added.';
+      msg += _('Some of the lines could not have dogbone corners added.');
 
     if (this.m_haveNarrowMouths) {
       if (msg !== '') msg += ' ';
 
-      msg += 'Some of the dogbone corners are too narrow to fit a cutter of the specified radius.';
+      msg += _(
+        'Some of the dogbone corners are too narrow to fit a cutter of the specified radius.',
+      );
 
-      if (!this.m_params.AddSlots) msg += " Consider enabling the 'Add Slots' option.";
-      else msg += ' Slots were added.';
+      if (!this.m_params.AddSlots) msg += _(" Consider enabling the 'Add Slots' option.");
+      else msg += _(' Slots were added.');
     }
 
     if (msg === '') return null;

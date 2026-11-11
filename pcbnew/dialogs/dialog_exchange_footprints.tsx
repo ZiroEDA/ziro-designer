@@ -31,6 +31,7 @@ import type { FOOTPRINT } from '../footprint.js';
 import { FootprintNeedsUpdate } from '../drc/drc_test_provider_library_parity.js';
 import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import type { PCB_SELECTION_TOOL } from '../tools/pcb_selection_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export const ID_MATCH_FP_ALL = 4200;
 export const ID_MATCH_FP_SELECTED = 4201;
@@ -106,11 +107,11 @@ export class DIALOG_EXCHANGE_FOOTPRINTS {
   }
 
   GetTitle(): string {
-    return this.m_updateMode ? 'Update Footprints from Library' : 'Change Footprints';
+    return this.m_updateMode ? _('Update Footprints from Library') : _('Change Footprints');
   }
 
   OkLabel(): string {
-    return this.m_updateMode ? 'Update' : 'Change';
+    return this.m_updateMode ? _('Update') : _('Change');
   }
 
   /** The labels the constructor rewrites for Change mode. */
@@ -130,34 +131,34 @@ export class DIALOG_EXCHANGE_FOOTPRINTS {
   } {
     if (this.m_updateMode) {
       return {
-        matchAll: 'Update all footprints on board',
-        matchSelected: 'Update selected footprint(s)',
-        matchRef: 'Update footprints matching reference designator:',
-        matchValue: 'Update footprints matching value:',
-        matchID: 'Update footprints with library id:',
-        resetTextItemLayers: 'Update/reset text layers and visibilities',
-        resetTextItemEffects: 'Update/reset text sizes and styles',
-        resetTextItemPositions: 'Update/reset text positions',
-        resetTextItemContent: 'Update/reset text content',
-        resetFabricationAttrs: 'Update/reset fabrication attributes',
-        resetClearanceOverrides: 'Update/reset clearance overrides',
-        reset3DModels: 'Update/reset 3D models',
+        matchAll: _('Update all footprints on board'),
+        matchSelected: _('Update selected footprint(s)'),
+        matchRef: _('Update footprints matching reference designator:'),
+        matchValue: _('Update footprints matching value:'),
+        matchID: _('Update footprints with library id:'),
+        resetTextItemLayers: _('Update/reset text layers and visibilities'),
+        resetTextItemEffects: _('Update/reset text sizes and styles'),
+        resetTextItemPositions: _('Update/reset text positions'),
+        resetTextItemContent: _('Update/reset text content'),
+        resetFabricationAttrs: _('Update/reset fabrication attributes'),
+        resetClearanceOverrides: _('Update/reset clearance overrides'),
+        reset3DModels: _('Update/reset 3D models'),
       };
     }
 
     return {
-      matchAll: 'Change all footprints on board',
-      matchSelected: 'Change selected footprint(s)',
-      matchRef: 'Change footprints matching reference designator:',
-      matchValue: 'Change footprints matching value:',
-      matchID: 'Change footprints with library id:',
-      resetTextItemLayers: 'Update text layers and visibilities',
-      resetTextItemEffects: 'Update text sizes and styles',
-      resetTextItemPositions: 'Update text positions',
-      resetTextItemContent: 'Update text content',
-      resetFabricationAttrs: 'Update fabrication attributes',
-      resetClearanceOverrides: 'Update clearance overrides',
-      reset3DModels: 'Update 3D models',
+      matchAll: _('Change all footprints on board'),
+      matchSelected: _('Change selected footprint(s)'),
+      matchRef: _('Change footprints matching reference designator:'),
+      matchValue: _('Change footprints matching value:'),
+      matchID: _('Change footprints with library id:'),
+      resetTextItemLayers: _('Update text layers and visibilities'),
+      resetTextItemEffects: _('Update text sizes and styles'),
+      resetTextItemPositions: _('Update text positions'),
+      resetTextItemContent: _('Update text content'),
+      resetFabricationAttrs: _('Update fabrication attributes'),
+      resetClearanceOverrides: _('Update clearance overrides'),
+      reset3DModels: _('Update 3D models'),
     };
   }
 
@@ -229,7 +230,7 @@ export class DIALOG_EXCHANGE_FOOTPRINTS {
 
     this.m_newFootprints = [];
     await this.processMatchingFootprints();
-    this.m_commit.Push(this.m_updateMode ? 'Update Footprint' : 'Change Footprint');
+    this.m_commit.Push(this.m_updateMode ? _('Update Footprint') : _('Change Footprint'));
     // The dialog stays open, and OK again is a fresh commit (a pushed commit is empty).
     this.m_commit = new BOARD_COMMIT(this.m_parent);
     selTool.AddItemsToSel(this.m_newFootprints);
@@ -274,7 +275,7 @@ export class DIALOG_EXCHANGE_FOOTPRINTS {
     const newFootprint = await this.m_parent.LoadFootprint(aNewFPID);
 
     if (!newFootprint) {
-      msg += '*** library footprint not found ***';
+      msg += _('*** library footprint not found ***');
       this.m_MessageWindow.report(msg, RPT_SEVERITY_ERROR);
       return;
     }
@@ -303,10 +304,10 @@ export class DIALOG_EXCHANGE_FOOTPRINTS {
     this.m_newFootprints.push(newFootprint);
 
     if (this.m_updateMode && !updated.value) {
-      msg += ': (no changes)';
+      msg += _(': (no changes)');
       this.m_MessageWindow.report(msg, RPT_SEVERITY_INFO);
     } else {
-      msg += ': OK';
+      msg += _(': OK');
       this.m_MessageWindow.report(msg, RPT_SEVERITY_ACTION);
     }
   }

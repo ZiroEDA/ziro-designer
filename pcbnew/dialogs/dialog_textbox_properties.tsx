@@ -58,6 +58,7 @@ import { BOARD_COMMIT } from '../board_commit.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_TEXTBOX } from '../pcb_textbox.js';
 import type { TransferResult } from './dialog_text_properties.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export type HorizJustify = 'left' | 'center' | 'right';
 export type VertJustify = 'top' | 'center' | 'bottom';
@@ -243,7 +244,7 @@ export class DIALOG_TEXTBOX_PROPERTIES {
       const maxPenWidth = ClampTextPenSize(tb.GetTextThickness(), tb.GetTextSize());
 
       if (tb.GetTextThickness() > maxPenWidth) {
-        message = 'The text thickness is too large for the text size.\nIt will be clamped.';
+        message = _('The text thickness is too large for the text size.\nIt will be clamped.');
         tb.SetTextThickness(maxPenWidth);
       }
     }
@@ -300,7 +301,7 @@ export class DIALOG_TEXTBOX_PROPERTIES {
 
     if (expanded) tb.SetEnd(end);
 
-    if (pushCommit) commit.Push('Edit Text Box Properties');
+    if (pushCommit) commit.Push(_('Edit Text Box Properties'));
 
     return message ? { ok: true, message } : { ok: true };
   }
@@ -410,7 +411,7 @@ export function DialogTextBoxProperties({
         m_fontCtrl={{
           face: v.face,
           onChange: (aFace) => {
-            const stroke = FONT.IsStrokeName(aFace === '' ? 'KiCad Font' : aFace);
+            const stroke = FONT.IsStrokeName(aFace === '' ? _('KiCad Font') : aFace);
             setStrokeShown(stroke);
             setV((p) => ({ ...p, face: aFace, ...(stroke ? { bold: boldFor(p) } : {}) }));
           },
@@ -437,10 +438,10 @@ export function DialogTextBoxProperties({
         vAlign={v.vertJustify}
         onVAlign={(aAlign) => set({ vertJustify: aAlign })}
         m_mirrored={{ checked: v.mirrored, onClick: () => set({ mirrored: !v.mirrored }) }}
-        m_textWidth={length('width', 'Text width:', 'Text width')}
-        m_textHeight={length('height', 'Text height:', 'Text height')}
+        m_textWidth={length('width', _('Text width:'), _('Text width'))}
+        m_textHeight={length('height', _('Text height:'), _('Text height'))}
         m_thickness={{
-          ...length('thickness', 'Thickness:', 'Text thickness'),
+          ...length('thickness', _('Thickness:'), _('Text thickness')),
           shown: strokeShown,
           enabled: !v.autoThickness,
         }}
@@ -471,7 +472,7 @@ export function DialogTextBoxProperties({
             setTexts((t) => ({ ...t, borderWidth: undefined }));
           },
         }}
-        m_borderWidth={{ ...length('borderWidth', 'Border width:'), enabled: v.border }}
+        m_borderWidth={{ ...length('borderWidth', _('Border width:')), enabled: v.border }}
         m_borderStyleCombo={{
           rows: LINE_STYLE_NAMES.map((s) => ({
             value: s.value,
@@ -487,7 +488,7 @@ export function DialogTextBoxProperties({
       />
       {syntaxHelp && (
         <HtmlMessageBox
-          caption="Syntax Help"
+          caption={_('Syntax Help')}
           className="ze-syntaxhelp"
           html={PCB_TEXT_SYNTAX_HELP}
           onClose={() => setSyntaxHelp(false)}

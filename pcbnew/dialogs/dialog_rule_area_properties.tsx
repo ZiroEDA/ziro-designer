@@ -55,6 +55,8 @@ import type { BOARD } from '../board.js';
 import type { CONVERT_SETTINGS } from '../pcbnew_settings.js';
 import { CONVERSION_BOX, type ConversionBoxValues } from '../tools/convert_settings_dialog.js';
 import { editZoneParamsCommit } from './panel_zone_properties.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `(keepout (tracks …) (vias …) (pads …) (copperpour …) (footprints …))`. */
 export interface RuleAreaKeepout {
@@ -156,7 +158,7 @@ export function initialRuleAreaPage(v: RuleAreaValues): 0 | 1 {
 // Validation
 
 /** The DisplayError string the dialog puts up when no layer is ticked. */
-export const NO_LAYERS_SELECTED = 'No layers selected.';
+export const NO_LAYERS_SELECTED = _HKI('No layers selected.');
 
 /**
  * A refusal from TransferDataFromWindow. `bound` is the rejected limit in IU
@@ -219,7 +221,7 @@ export interface PlacementPage {
 }
 
 /** The label a source not on the board is listed under. */
-const NOT_FOUND_PREFIX = 'Not found on board: ';
+const NOT_FOUND_PREFIX = _HKI('Not found on board: ');
 
 /**
  * The sources the placement page can offer, from the board
@@ -597,7 +599,7 @@ export function DialogRuleAreaProperties({
   return (
     <>
       <DIALOG_RULE_AREA_PROPERTIES_BASE
-        title={conv ? 'Convert to Rule Area' : 'Rule Area Properties'}
+        title={conv ? _('Convert to Rule Area') : _('Rule Area Properties')}
         conversionBox={
           conv ? (
             <ConversionSettingsBox
@@ -624,7 +626,7 @@ export function DialogRuleAreaProperties({
           onPageChanged: setTab,
           pages: [
             {
-              text: 'Keepouts',
+              text: _('Keepouts'),
               content: (
                 <PANEL_RULE_AREA_PROPERTIES_KEEPOUT_BASE
                   m_cbTracksCtrl={keepout('doNotAllowTracks')}
@@ -636,7 +638,7 @@ export function DialogRuleAreaProperties({
               ),
             },
             {
-              text: 'Placement',
+              text: _('Placement'),
               content: (
                 <PANEL_RULE_AREA_PROPERTIES_PLACEMENT_BASE
                   source={page.enabled}

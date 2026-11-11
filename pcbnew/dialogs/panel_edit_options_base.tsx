@@ -35,6 +35,7 @@ import {
 import { Simplebook } from '@ziroeda/wx/simplebook.js';
 import { BoxSizer, FlexGridSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A radio pair: which of the two is set. */
 type PAIR = { first: boolean; onFirst: () => void; onSecond: () => void };
@@ -115,7 +116,7 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem border={5}>
           <RadioButton
-            label="Toggle selection"
+            label={_('Toggle selection')}
             name={aGroup}
             checked={p.ctrlClick.first}
             onChange={p.ctrlClick.onFirst}
@@ -123,7 +124,7 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
         </SizerItem>
         <SizerItem flag={wxTOP} border={2} shown={p.highlightNetShown}>
           <RadioButton
-            label="Highlight net (for pads/tracks)"
+            label={_('Highlight net (for pads/tracks)')}
             name={aGroup}
             checked={!p.ctrlClick.first}
             onChange={p.ctrlClick.onSecond}
@@ -138,20 +139,20 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
       <StaticText label={aText} font="smallInfo" italic />
     </SizerItem>
   );
-  const magnetic = ['Never', 'When routing tracks', 'Always'];
+  const magnetic = [_('Never'), _('When routing tracks'), _('Always')];
 
   const fpPage = (
     // fpOptionsSizer
     <BoxSizer orient={wxVERTICAL}>
-      <Heading label="Magnetic Points" />
+      <Heading label={_('Magnetic Points')} />
       <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
         {/* bSizer13 */}
         <BoxSizer orient={wxVERTICAL}>
           <SizerItem flag={wxTOP | wxBOTTOM | wxLEFT} border={5}>
-            <CheckBox label="Magnetic pads" check={p.m_magneticPads} />
+            <CheckBox label={_('Magnetic pads')} check={p.m_magneticPads} />
           </SizerItem>
           <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
-            <CheckBox label="Magnetic graphics" check={p.m_magneticGraphics} />
+            <CheckBox label={_('Magnetic graphics')} check={p.m_magneticGraphics} />
           </SizerItem>
         </BoxSizer>
       </SizerItem>
@@ -161,14 +162,14 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
   const pcbPage = (
     // pcbOptionsSizer
     <BoxSizer orient={wxVERTICAL}>
-      <Heading label="Magnetic Points" flag={wxTOP | wxLEFT} />
+      <Heading label={_('Magnetic Points')} flag={wxTOP | wxLEFT} />
       <SizerItem flag={wxEXPAND | wxALL} border={5}>
         {/* fgMagneticPoints = wxFlexGridSizer( 0, 2, 5, 0 ) */}
         <FlexGridSizer cols={2} vgap={5}>
           <SizerItem flag={CV | wxTOP | wxRIGHT | wxLEFT} border={5}>
             <StaticText
-              label="Snap to pads:"
-              title="Capture cursor when the mouse enters a pad area"
+              label={_('Snap to pads:')}
+              title={_('Capture cursor when the mouse enters a pad area')}
             />
           </SizerItem>
           <SizerItem flag={CV | wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
@@ -176,13 +177,13 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
               choices={magnetic}
               choice={p.m_magneticPadChoice}
               ariaLabel="Snap to pads"
-              title="Capture cursor when the mouse enters a pad area"
+              title={_('Capture cursor when the mouse enters a pad area')}
             />
           </SizerItem>
           <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>
             <StaticText
-              label="Snap to tracks and vias:"
-              title="Capture cursor when the mouse approaches a track"
+              label={_('Snap to tracks and vias:')}
+              title={_('Capture cursor when the mouse approaches a track')}
             />
           </SizerItem>
           <SizerItem flag={CV | wxEXPAND | wxLEFT | wxRIGHT} border={5}>
@@ -190,36 +191,36 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
               choices={magnetic}
               choice={p.m_magneticTrackChoice}
               ariaLabel="Snap to tracks and vias"
-              title="Capture cursor when the mouse approaches a track"
+              title={_('Capture cursor when the mouse approaches a track')}
             />
           </SizerItem>
           <SizerItem flag={CV | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
             <StaticText
-              label="Snap to graphics:"
-              title="Capture cursor when the mouse approaches graphical control points"
+              label={_('Snap to graphics:')}
+              title={_('Capture cursor when the mouse approaches graphical control points')}
             />
           </SizerItem>
           <SizerItem flag={CV | wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
             <Choice
-              choices={['Always', 'Never']}
+              choices={[_('Always'), _('Never')]}
               choice={p.m_magneticGraphicsChoice}
               ariaLabel="Snap to graphics"
-              title="Capture cursor when the mouse approaches graphical control points"
+              title={_('Capture cursor when the mouse approaches graphical control points')}
             />
           </SizerItem>
         </FlexGridSizer>
       </SizerItem>
       <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
-      <Heading label="Ratsnest" flag={wxTOP | wxLEFT} />
+      <Heading label={_('Ratsnest')} flag={wxTOP | wxLEFT} />
       <SizerItem flag={wxEXPAND | wxALL} border={5}>
         {/* bRatsnest */}
         <BoxSizer orient={wxVERTICAL}>
           <SizerItem flag={wxALL} border={5}>
-            <CheckBox label="Always show selected ratsnest" check={p.m_showSelectedRatsnest} />
+            <CheckBox label={_('Always show selected ratsnest')} check={p.m_showSelectedRatsnest} />
           </SizerItem>
           <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
             <CheckBox
-              label="Show ratsnest with curved lines"
+              label={_('Show ratsnest with curved lines')}
               check={p.m_OptDisplayCurvedRatsnestLines}
             />
           </SizerItem>
@@ -227,7 +228,7 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
             {/* bRatsnestLineThickness */}
             <BoxSizer orient={wxHORIZONTAL}>
               <SizerItem flag={CV | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                <StaticText label="Ratsnest line thickness:" />
+                <StaticText label={_('Ratsnest line thickness:')} />
               </SizerItem>
               <SizerItem flag={CV | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                 {/* wxSpinCtrlDouble( …, 0.5, 10, 0.5, 0.5 ), SetDigits( 1 ) */}
@@ -245,30 +246,33 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
           </SizerItem>
         </BoxSizer>
       </SizerItem>
-      <Heading label="Miscellaneous" />
+      <Heading label={_('Miscellaneous')} />
       <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
         {/* bMiscellaneous */}
         <BoxSizer orient={wxVERTICAL}>
           <SizerItem flag={wxTOP | wxBOTTOM | wxLEFT} border={5}>
-            <CheckBox label="<ESC> clears net highlighting" check={p.m_escClearsNetHighlight} />
+            <CheckBox
+              label={_('<ESC> clears net highlighting')}
+              check={p.m_escClearsNetHighlight}
+            />
           </SizerItem>
           <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
             <CheckBox
-              label="Show page limits"
-              title="Draw an outline to show the sheet size."
+              label={_('Show page limits')}
+              title={_('Draw an outline to show the sheet size.')}
               check={p.m_showPageLimits}
             />
           </SizerItem>
           <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
             <CheckBox
-              label="Show courtyard collisions when moving/dragging"
+              label={_('Show courtyard collisions when moving/dragging')}
               check={p.m_cbCourtyardCollisions}
             />
           </SizerItem>
           <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
             <CheckBox
-              label="Automatically refill zones"
-              title="If checked, zones will be re-filled after each edit operation"
+              label={_('Automatically refill zones')}
+              title={_('If checked, zones will be re-filled after each edit operation')}
               check={p.m_autoRefillZones}
             />
           </SizerItem>
@@ -286,13 +290,13 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
           <SizerItem flag={wxEXPAND | wxRIGHT} border={10}>
             {/* bMiddleLeftSizer */}
             <BoxSizer orient={wxVERTICAL}>
-              <Heading label="Editing Options" />
+              <Heading label={_('Editing Options')} />
               <SizerItem flag={wxEXPAND | wxALL} border={5}>
                 {/* bSizerUniversal */}
                 <BoxSizer orient={wxVERTICAL}>
                   <SizerItem flag={wxTOP | wxBOTTOM | wxLEFT} border={5}>
                     <CheckBox
-                      label="Constrain actions to H, V, 45 degrees"
+                      label={_('Constrain actions to H, V, 45 degrees')}
                       check={p.m_cbConstrainHV45Mode}
                     />
                   </SizerItem>
@@ -301,7 +305,7 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
                     <BoxSizer orient={wxHORIZONTAL}>
                       <SizerItem flag={CV | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                         {/* _("Step for &rotate commands:"): the & is the mnemonic. */}
-                        <StaticText label="Step for rotate commands:" />
+                        <StaticText label={_('Step for rotate commands:')} />
                       </SizerItem>
                       <SizerItem
                         flag={CV | wxBOTTOM | wxRIGHT | wxLEFT}
@@ -312,7 +316,9 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
                           value={p.m_rotationAngleCtrl.value}
                           onChange={p.m_rotationAngleCtrl.onChange}
                           onBlur={p.m_rotationAngleCtrl.onBlur}
-                          title="Set increment (in degrees) for context menu and hotkey rotation."
+                          title={_(
+                            'Set increment (in degrees) for context menu and hotkey rotation.',
+                          )}
                           ariaLabel="Step for rotate commands"
                         />
                       </SizerItem>
@@ -323,15 +329,15 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
                   </SizerItem>
                   <Spacer width={0} height={3} border={5} />
                   <SizerItem flag={wxLEFT} border={5}>
-                    <StaticText label="Arc editing mode:" />
+                    <StaticText label={_('Arc editing mode:')} />
                   </SizerItem>
                   <Spacer width={0} height={3} flag={wxEXPAND} border={5} />
                   <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                     <Choice
                       choices={[
-                        'Keep center, adjust radius',
-                        'Keep endpoints or direction of starting point',
-                        'Keep center and radius, adjust endpoints',
+                        _('Keep center, adjust radius'),
+                        _('Keep endpoints or direction of starting point'),
+                        _('Keep center and radius, adjust endpoints'),
                       ]}
                       choice={p.m_arcEditMode}
                       ariaLabel="Arc editing mode"
@@ -348,12 +354,12 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
                 <BoxSizer orient={wxVERTICAL}>
                   <Spacer width={0} height={3} flag={wxEXPAND} border={5} />
                   <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-                    <StaticText label="Track mouse-drag mode:" />
+                    <StaticText label={_('Track mouse-drag mode:')} />
                   </SizerItem>
                   <Spacer width={0} height={3} flag={wxEXPAND} border={5} />
                   <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT | wxEXPAND} border={5}>
                     <Choice
-                      choices={['Move', 'Drag (45 degree mode)', 'Drag (free angle)']}
+                      choices={[_('Move'), _('Drag (45 degree mode)'), _('Drag (free angle)')]}
                       choice={p.m_trackMouseDragCtrl}
                       ariaLabel="Track mouse-drag mode"
                     />
@@ -362,11 +368,11 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
                     {/* bSizerFlip */}
                     <BoxSizer orient={wxHORIZONTAL}>
                       <SizerItem flag={wxALL | CV} border={5}>
-                        <StaticText label="Flip board items:" />
+                        <StaticText label={_('Flip board items:')} />
                       </SizerItem>
                       <SizerItem flag={CV | wxRIGHT | wxLEFT} border={10}>
                         <RadioButton
-                          label="Left/right"
+                          label={_('Left/right')}
                           name="ze-edit-flip"
                           checked={p.flip.first}
                           onChange={p.flip.onFirst}
@@ -374,7 +380,7 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
                       </SizerItem>
                       <SizerItem flag={CV | wxRIGHT | wxLEFT} border={10}>
                         <RadioButton
-                          label="Top/bottom"
+                          label={_('Top/bottom')}
                           name="ze-edit-flip"
                           checked={!p.flip.first}
                           onChange={p.flip.onSecond}
@@ -384,14 +390,16 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
                   </SizerItem>
                   <SizerItem flag={wxTOP | wxBOTTOM | wxLEFT} border={5}>
                     <CheckBox
-                      label="Allow free pads"
-                      title="If checked, pads can be moved with respect to the rest of the footprint."
+                      label={_('Allow free pads')}
+                      title={_(
+                        'If checked, pads can be moved with respect to the rest of the footprint.',
+                      )}
                       check={p.m_allowFreePads}
                     />
                   </SizerItem>
                 </BoxSizer>
               </SizerItem>
-              <Heading label="Left Click Mouse Commands" />
+              <Heading label={_('Left Click Mouse Commands')} />
               <SizerItem
                 proportion={1}
                 flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT}
@@ -400,16 +408,18 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
               >
                 {/* m_mouseCmdsWinLin */}
                 <BoxSizer orient={wxVERTICAL}>
-                  {hint('Left click (and drag) actions depend on 2 modifier keys:\nShift and Ctrl')}
+                  {hint(
+                    _('Left click (and drag) actions depend on 2 modifier keys:\nShift and Ctrl'),
+                  )}
                   <SizerItem proportion={1} flag={wxEXPAND | wxTOP} border={5}>
                     {/* fgSizerCmdsWinLin = wxFlexGridSizer( 0, 2, 8, 0 ) */}
                     <FlexGridSizer cols={2} vgap={8}>
-                      {cmd('Click:', 'Select item(s)')}
-                      {cmd('Long Click:', 'Clarify selection from menu')}
-                      {cmd('Shift:', 'Add item(s) to selection')}
-                      {cmd('Ctrl+Shift:', 'Remove item(s) from selection')}
+                      {cmd(_('Click:'), _('Select item(s)'))}
+                      {cmd(_('Long Click:'), _('Clarify selection from menu'))}
+                      {cmd(_('Shift:'), _('Add item(s) to selection'))}
+                      {cmd(_('Ctrl+Shift:'), _('Remove item(s) from selection'))}
                       <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-                        <StaticText label="Ctrl:" />
+                        <StaticText label={_('Ctrl:')} />
                       </SizerItem>
                       {ctrlPair('ze-edit-ctrl')}
                     </FlexGridSizer>
@@ -420,20 +430,26 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
                 {/* m_mouseCmdsOSX */}
                 <BoxSizer orient={wxVERTICAL}>
                   {hint(
-                    'Left click (and drag) actions depend on 3 modifier keys:\nOption, Shift and Cmd',
+                    _(
+                      'Left click (and drag) actions depend on 3 modifier keys:\nOption, Shift and Cmd',
+                    ),
                   )}
                   <SizerItem proportion={1} flag={wxEXPAND | wxTOP} border={5}>
                     {/* fgSizerCmdsOSX */}
                     <FlexGridSizer cols={2} vgap={8}>
-                      {cmd('Click:', 'Select item(s)')}
-                      {cmd('Long Click:', 'Clarify selection from menu')}
-                      {cmd('Shift:', 'Add item(s) to selection')}
-                      {cmd('Shift+Cmd:', 'Remove item(s) from selection')}
+                      {cmd(_('Click:'), _('Select item(s)'))}
+                      {cmd(_('Long Click:'), _('Clarify selection from menu'))}
+                      {cmd(_('Shift:'), _('Add item(s) to selection'))}
+                      {cmd(_('Shift+Cmd:'), _('Remove item(s) from selection'))}
                       <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-                        <StaticText label="Cmd:" />
+                        <StaticText label={_('Cmd:')} />
                       </SizerItem>
                       {ctrlPair('ze-edit-ctrl-mac')}
-                      {cmd('Option:', 'Clarify selection from menu', wxBOTTOM | wxLEFT | wxRIGHT)}
+                      {cmd(
+                        _('Option:'),
+                        _('Clarify selection from menu'),
+                        wxBOTTOM | wxLEFT | wxRIGHT,
+                      )}
                     </FlexGridSizer>
                   </SizerItem>
                 </BoxSizer>

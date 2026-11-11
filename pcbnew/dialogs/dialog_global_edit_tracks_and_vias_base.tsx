@@ -40,6 +40,8 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A wxChoice: its strings, the selection and Enable(). */
 export interface CHOICE_FIELD {
@@ -124,45 +126,49 @@ export function DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS_BASE(
   );
 
   return (
-    <DialogShim title="Set Track and Via Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Set Track and Via Properties')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND} border={5}>
           {/* bSizerTop */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem proportion={1} flag={wxEXPAND | wxTOP | RL} border={10}>
-              <StaticBoxSizer label="Scope" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Scope')} orient={wxVERTICAL}>
                 <SizerItem flag={BRL} border={5}>
-                  <CheckBox label="Tracks" check={p.m_tracks} />
+                  <CheckBox label={_('Tracks')} check={p.m_tracks} />
                 </SizerItem>
                 <Spacer width={0} height={10} flag={wxEXPAND} border={5} />
                 <SizerItem flag={BRL} border={5}>
-                  <TriStateCheck label="Vias" value={p.m_vias.value} onChange={p.m_vias.onChange} />
+                  <TriStateCheck
+                    label={_('Vias')}
+                    value={p.m_vias.value}
+                    onChange={p.m_vias.onChange}
+                  />
                 </SizerItem>
                 <SizerItem flag={wxLEFT} border={20}>
-                  <CheckBox label="Through vias" check={p.m_throughVias} />
+                  <CheckBox label={_('Through vias')} check={p.m_throughVias} />
                 </SizerItem>
                 <Spacer width={0} height={3} flag={wxEXPAND} border={5} />
                 <SizerItem flag={wxLEFT} border={20}>
-                  <CheckBox label="Microvias" check={p.m_microVias} />
+                  <CheckBox label={_('Microvias')} check={p.m_microVias} />
                 </SizerItem>
                 <Spacer width={0} height={3} flag={wxEXPAND} border={5} />
                 <SizerItem flag={wxLEFT} border={20}>
-                  <CheckBox label="Blind vias" check={p.m_blindVias} />
+                  <CheckBox label={_('Blind vias')} check={p.m_blindVias} />
                 </SizerItem>
                 <Spacer width={0} height={3} flag={wxLEFT} border={20} />
                 <SizerItem flag={wxLEFT} border={20}>
-                  <CheckBox label="Buried vias" check={p.m_buriedVias} />
+                  <CheckBox label={_('Buried vias')} check={p.m_buriedVias} />
                 </SizerItem>
               </StaticBoxSizer>
             </SizerItem>
             <SizerItem proportion={2} flag={wxEXPAND | wxTOP | RL} border={10}>
-              <StaticBoxSizer label="Filter Items" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Filter Items')} orient={wxVERTICAL}>
                 <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM} border={5}>
                   {/* fgSizer3 = wxFlexGridSizer( 0, 2, 3, 0 ) */}
                   <FlexGridSizer cols={2} vgap={3} hgap={0} growableCols={[1]}>
                     <SizerItem flag={CV | RL} border={5}>
-                      <CheckBox label="Filter items by net:" check={p.m_netFilterOpt} />
+                      <CheckBox label={_('Filter items by net:')} check={p.m_netFilterOpt} />
                     </SizerItem>
                     <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT} border={5}>
                       <NetSelector
@@ -172,7 +178,10 @@ export function DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS_BASE(
                       />
                     </SizerItem>
                     <SizerItem flag={CV | RL} border={5}>
-                      <CheckBox label="Filter items by net class:" check={p.m_netclassFilterOpt} />
+                      <CheckBox
+                        label={_('Filter items by net class:')}
+                        check={p.m_netclassFilterOpt}
+                      />
                     </SizerItem>
                     <SizerItem flag={CV | wxEXPAND | wxRIGHT} border={5}>
                       {choice(p.m_netclassFilter, 'Net class filter')}
@@ -180,7 +189,7 @@ export function DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS_BASE(
                     <Spacer width={0} height={7} proportion={1} flag={wxEXPAND} border={5} />
                     <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
                     <SizerItem flag={CV | RL} border={5}>
-                      <CheckBox label="Filter items by layer:" check={p.m_layerFilterOpt} />
+                      <CheckBox label={_('Filter items by layer:')} check={p.m_layerFilterOpt} />
                     </SizerItem>
                     <SizerItem flag={wxEXPAND | CV | wxRIGHT} border={5}>
                       {layerBox(p.m_layerFilter, 'Layer filter')}
@@ -188,13 +197,16 @@ export function DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS_BASE(
                     <Spacer width={0} height={7} proportion={1} flag={wxEXPAND} border={5} />
                     <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
                     <SizerItem flag={RL | CV} border={5}>
-                      <CheckBox label="Filter tracks by width:" check={p.m_filterByTrackWidth} />
+                      <CheckBox
+                        label={_('Filter tracks by width:')}
+                        check={p.m_filterByTrackWidth}
+                      />
                     </SizerItem>
                     <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                       {size(p.m_trackWidthFilter, 'Track width filter')}
                     </SizerItem>
                     <SizerItem flag={CV | RL} border={5}>
-                      <CheckBox label="Filter vias by diameter:" check={p.m_filterByViaSize} />
+                      <CheckBox label={_('Filter vias by diameter:')} check={p.m_filterByViaSize} />
                     </SizerItem>
                     <SizerItem proportion={1} flag={wxEXPAND | CV} border={5}>
                       {size(p.m_viaSizeFilter, 'Via diameter filter')}
@@ -203,17 +215,17 @@ export function DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS_BASE(
                 </SizerItem>
                 <Spacer width={0} height={5} border={5} />
                 <SizerItem flag={wxALL} border={5}>
-                  <CheckBox label="Selected items only" check={p.m_selectedItemsFilter} />
+                  <CheckBox label={_('Selected items only')} check={p.m_selectedItemsFilter} />
                 </SizerItem>
               </StaticBoxSizer>
             </SizerItem>
           </BoxSizer>
         </SizerItem>
         <SizerItem proportion={1} flag={wxEXPAND | wxTOP | RL} border={10}>
-          <StaticBoxSizer label="Action" orient={wxVERTICAL}>
+          <StaticBoxSizer label={_('Action')} orient={wxVERTICAL}>
             <SizerItem border={5}>
               <RadioButton
-                label="Set to specified values:"
+                label={_('Set to specified values:')}
                 name="m_action"
                 checked={p.m_setToSpecifiedValues.value}
                 onChange={() => p.m_setToSpecifiedValues.onSelect(true)}
@@ -223,44 +235,44 @@ export function DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS_BASE(
               {/* fgSizerTrackViaPopups = wxFlexGridSizer( 5, 2, 0, 10 ) */}
               <FlexGridSizer cols={2} vgap={0} hgap={10} growableCols={[1]}>
                 <SizerItem flag={CV | wxTOP | wxBOTTOM} border={5}>
-                  <StaticText label="Layer:" />
+                  <StaticText label={_('Layer:')} />
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | CV | wxALL} border={5}>
                   {layerBox(p.m_layerCtrl, 'Layer')}
                 </SizerItem>
                 <SizerItem flag={CV | wxBOTTOM} border={5}>
-                  <StaticText label="Track width:" />
+                  <StaticText label={_('Track width:')} />
                 </SizerItem>
                 <SizerItem proportion={4} flag={wxEXPAND | CV | BRL} border={5}>
-                  {choice(p.m_trackWidthCtrl, 'Track width')}
+                  {choice(p.m_trackWidthCtrl, _HKI('Track width'))}
                 </SizerItem>
                 <SizerItem flag={CV | wxBOTTOM | wxRIGHT} border={5}>
-                  <StaticText label="Via size:" />
+                  <StaticText label={_('Via size:')} />
                 </SizerItem>
                 <SizerItem flag={CV | wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT} border={5}>
                   {choice(p.m_viaSizesCtrl, 'Via size')}
                 </SizerItem>
                 <SizerItem flag={CV | wxRIGHT} border={15}>
-                  <StaticText label="Via annular rings:" />
+                  <StaticText label={_('Via annular rings:')} />
                 </SizerItem>
                 <SizerItem flag={CV | wxEXPAND | wxLEFT | wxRIGHT} border={5}>
                   {choice(p.m_annularRingsCtrl, 'Via annular rings')}
                 </SizerItem>
                 <SizerItem flag={CV | wxTOP | wxBOTTOM} border={5}>
-                  <StaticText label="Via protection features:" />
+                  <StaticText label={_('Via protection features:')} />
                 </SizerItem>
                 <SizerItem flag={wxALL | wxEXPAND} border={5}>
                   {choice(
                     p.m_protectionFeatures,
                     'Via protection features',
-                    'Select which protection feature according to IPC-4761 the via should have.',
+                    _('Select which protection feature according to IPC-4761 the via should have.'),
                   )}
                 </SizerItem>
               </FlexGridSizer>
             </SizerItem>
             <SizerItem flag={wxBOTTOM} border={5}>
               <RadioButton
-                label="Set to net class / custom rule values"
+                label={_('Set to net class / custom rule values')}
                 name="m_action"
                 checked={!p.m_setToSpecifiedValues.value}
                 onChange={() => p.m_setToSpecifiedValues.onSelect(false)}
@@ -270,10 +282,10 @@ export function DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS_BASE(
         </SizerItem>
         <SizerItem flag={wxEXPAND | wxALL} border={5}>
           <StdDialogButtonSizer
-            okLabel="Apply and Close"
+            okLabel={_('Apply and Close')}
             onOk={p.onOK}
             onApply={p.onApply}
-            cancelLabel="Close"
+            cancelLabel={_('Close')}
             onCancel={p.onCancel}
           />
         </SizerItem>

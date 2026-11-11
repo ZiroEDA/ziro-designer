@@ -81,6 +81,8 @@ import type { FOOTPRINT_LIBRARY_ADAPTER } from './footprint_library_adapter.js';
 import { LAYER_CLASS, TEXT_ITEM_INFO } from './board_design_settings.js';
 import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import type { DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR } from './dialogs/dialog_footprint_properties_fp_editor.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** One `(N "Name" type [userName])` row of the `(layers …)` table. */
 export interface PcbLayerDef {
@@ -736,7 +738,7 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     const id = this.GetLoadedFPID();
 
     if (id.empty()) {
-      DisplayErrorMessage('No footprint selected.');
+      DisplayErrorMessage(_('No footprint selected.'));
       return;
     }
 
@@ -811,10 +813,10 @@ applyMixins(FOOTPRINT_EDIT_FRAME, [
 // --- FOOTPRINT_EDIT_FRAME::UpdateTitle (was footprint_edit_frame_title.ts) ---
 
 /** `_( "Footprint Editor" )`, the half after the dash. */
-export const FP_FRAME_NAME = 'Footprint Editor';
+export const FP_FRAME_NAME = _HKI('Footprint Editor');
 
 /** `_( "[no footprint loaded]" )` — footprint_edit_frame.cpp:1128. */
-export const FP_NO_DOCUMENT = '[no footprint loaded]';
+export const FP_NO_DOCUMENT = _HKI('[no footprint loaded]');
 
 /**
  * `FILEEXT::PcbFileExtension` — [data] KiCad's own constant

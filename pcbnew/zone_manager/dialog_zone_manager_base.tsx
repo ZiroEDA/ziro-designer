@@ -31,6 +31,8 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
 import { WxSearchCtrl } from '@ziroeda/wx/wx_search_ctrl.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export interface DIALOG_ZONE_MANAGER_BASE_PROPS {
   m_filterCtrl: { value: string; onChange: (aText: string) => void; onCancel: () => void };
@@ -57,8 +59,9 @@ export interface DIALOG_ZONE_MANAGER_BASE_PROPS {
 }
 
 const CV = wxALIGN_CENTER_VERTICAL;
-const PRIORITY_TIP =
-  'Top zone has the highest priority. When a zone is inside another zone, if its priority is higher, its outlines are removed from the other zone.';
+const PRIORITY_TIP = _HKI(
+  'Top zone has the highest priority. When a zone is inside another zone, if its priority is higher, its outlines are removed from the other zone.',
+);
 
 export function DIALOG_ZONE_MANAGER_BASE(p: DIALOG_ZONE_MANAGER_BASE_PROPS): JSX.Element {
   const move = (aBitmap: string, aTitle: string, aClick: () => void) => (
@@ -74,7 +77,7 @@ export function DIALOG_ZONE_MANAGER_BASE(p: DIALOG_ZONE_MANAGER_BASE_PROPS): JSX
   );
 
   return (
-    <DialogShim title="Zone Manager" onClose={p.onCancel} onCharHook={p.onCharHook}>
+    <DialogShim title={_('Zone Manager')} onClose={p.onCancel} onCharHook={p.onCharHook}>
       {/* m_MainBoxSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND} border={5}>
@@ -94,15 +97,15 @@ export function DIALOG_ZONE_MANAGER_BASE(p: DIALOG_ZONE_MANAGER_BASE_PROPS): JSX
                             value={p.m_filterCtrl.value}
                             onChange={p.m_filterCtrl.onChange}
                             onCancel={p.m_filterCtrl.onCancel}
-                            ariaLabel="Filter"
+                            ariaLabel={_('Filter')}
                           />
                         </SizerItem>
                         <Spacer width={10} height={0} flag={wxEXPAND} border={5} />
                         <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>
-                          <CheckBox label="Name" check={p.m_checkName} />
+                          <CheckBox label={_('Name')} check={p.m_checkName} />
                         </SizerItem>
                         <SizerItem flag={CV} border={5}>
-                          <CheckBox label="Net" check={p.m_checkNet} />
+                          <CheckBox label={_('Net')} check={p.m_checkNet} />
                         </SizerItem>
                       </BoxSizer>
                     </SizerItem>
@@ -110,7 +113,7 @@ export function DIALOG_ZONE_MANAGER_BASE(p: DIALOG_ZONE_MANAGER_BASE_PROPS): JSX
                       {/* layerFilterSizer */}
                       <BoxSizer orient={wxHORIZONTAL}>
                         <SizerItem flag={CV | wxRIGHT} border={5}>
-                          <StaticText label="Layer:" />
+                          <StaticText label={_('Layer:')} />
                         </SizerItem>
                         <SizerItem proportion={1} flag={CV}>
                           <Choice
@@ -128,15 +131,17 @@ export function DIALOG_ZONE_MANAGER_BASE(p: DIALOG_ZONE_MANAGER_BASE_PROPS): JSX
                       {/* m_sizerZoneOP */}
                       <BoxSizer orient={wxHORIZONTAL}>
                         {move('small_top', 'Move to top', p.onMoveTop)}
-                        {move('small_up', 'Move up', p.onMoveUp)}
-                        {move('small_down', 'Move down', p.onMoveDown)}
+                        {move('small_up', _('Move up'), p.onMoveUp)}
+                        {move('small_down', _('Move down'), p.onMoveDown)}
                         {move('small_bottom', 'Move to bottom', p.onMoveBottom)}
                         <Spacer width={10} height={0} flag={wxEXPAND} border={5} />
                         <SizerItem flag={CV | wxRIGHT} border={5}>
                           <StdBitmapButton
                             bitmap="small_sort_desc"
                             title="Auto-assign priorities"
-                            tooltip="Automatically assign zone priorities based on connectivity analysis of overlapping regions."
+                            tooltip={_(
+                              'Automatically assign zone priorities based on connectivity analysis of overlapping regions.',
+                            )}
                             disabled={!p.moveEnabled}
                             onClick={p.onAutoAssign}
                           />
@@ -182,16 +187,18 @@ export function DIALOG_ZONE_MANAGER_BASE(p: DIALOG_ZONE_MANAGER_BASE_PROPS): JSX
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={CV | wxLEFT} border={5}>
               <CheckBox
-                label="Refill zones"
+                label={_('Refill zones')}
                 check={p.m_checkRepour}
-                title="Refill zones after changes made on board"
+                title={_('Refill zones after changes made on board')}
               />
             </SizerItem>
             <Spacer width={100} height={0} proportion={1} flag={wxEXPAND} border={5} />
             <SizerItem flag={CV | wxRIGHT} border={5}>
               <Button
-                label="Update Displayed Zones"
-                title="Update filled areas shown in dialog, according to the new current settings"
+                label={_('Update Displayed Zones')}
+                title={_(
+                  'Update filled areas shown in dialog, according to the new current settings',
+                )}
                 onClick={p.onUpdateDisplayedZones}
               />
             </SizerItem>

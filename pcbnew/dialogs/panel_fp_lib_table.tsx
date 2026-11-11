@@ -55,6 +55,7 @@ import {
 } from '@ziroeda/common/dialogs/lib_table_panel.js';
 
 import { PANEL_FP_LIB_TABLE_BASE } from './panel_fp_lib_table_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 interface Props {
   /**
    * The open project's files (footprints, the table, the `.kicad_pro`); null with no project open, which shows the
@@ -198,7 +199,7 @@ export function DialogFpLibTable({
   return (
     <LibTablePanel
       Base={PANEL_FP_LIB_TABLE_BASE}
-      title="Footprint Libraries"
+      title={_('Footprint Libraries')}
       type={LIBRARY_TABLE_TYPE.FOOTPRINT}
       preamble="(fp_lib_table"
       supportsVisibilityColumn={false}

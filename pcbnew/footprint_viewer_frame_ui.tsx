@@ -112,6 +112,7 @@ import {
   footprintViewerMenus,
 } from './toolbars_footprint_viewer.js';
 import '@ziroeda/common/widgets/shell.css';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * What the browser asks of the program: the footprint libraries and their
@@ -709,7 +710,7 @@ export function FootprintViewerFrame({
         controls={{
           [FPVIEWER_CONTROL.gridSelect]: (
             <Combo
-              title="Grid Selection box"
+              title={_('Grid Selection box')}
               value={String(gridIdx)}
               options={[
                 ...FPVIEWER_GRID_SIZES.map((g, i) => ({
@@ -731,7 +732,7 @@ export function FootprintViewerFrame({
           ),
           [FPVIEWER_CONTROL.zoomSelect]: (
             <Combo
-              title="Zoom Selection box"
+              title={_('Zoom Selection box')}
               value={String(zoom.selected)}
               options={zoom.choices.map((c, i) => ({ value: String(i), label: c.label }))}
               onChange={(v) => {
@@ -761,7 +762,7 @@ export function FootprintViewerFrame({
           <WxSearchCtrl
             value={libFilter}
             onChange={setLibFilter}
-            descriptiveText="Filter"
+            descriptiveText={_('Filter')}
             inputRef={libFilterRef}
             testId="fpviewer-lib-filter"
             autoFocus
@@ -795,7 +796,7 @@ export function FootprintViewerFrame({
           <WxSearchCtrl
             value={fpFilter}
             onChange={setFpFilter}
-            descriptiveText="Filter"
+            descriptiveText={_('Filter')}
             toolTip={FPVIEWER_FP_FILTER_TOOLTIP}
             inputRef={fpFilterRef}
             testId="fpviewer-fp-filter"

@@ -22,9 +22,11 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 export type OFFSET_VECTOR = { x: number; y: number };
 import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
 import { DIALOG_OFFSET_ITEM_BASE, type UNIT } from './dialog_offset_item_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `DIALOG_OFFSET_ITEM_BASE`'s title. */
-export const DIALOG_OFFSET_ITEM_TITLE = 'Offset Item';
+export const DIALOG_OFFSET_ITEM_TITLE = _HKI('Offset Item');
 
 /** `ToPolar`, the file-static of `dialog_offset_item.cpp`. */
 function ToPolar(x: number, y: number): { r: number; q: EDA_ANGLE } {
@@ -66,8 +68,8 @@ export class DIALOG_OFFSET_ITEM {
     this.m_updatedOffset = aOffset;
 
     // m_xOffset( &aParent, m_xLabel, m_xEntry, m_xUnit ), the labels as _base.cpp states them
-    this.m_xOffset = new UNIT_BINDER(aFrame, 'Offset X:');
-    this.m_yOffset = new UNIT_BINDER(aFrame, 'Offset Y:');
+    this.m_xOffset = new UNIT_BINDER(aFrame, _('Offset X:'));
+    this.m_yOffset = new UNIT_BINDER(aFrame, _('Offset Y:'));
     this.m_xOffset.SetText('0');
     this.m_yOffset.SetText('0');
 
@@ -195,17 +197,17 @@ export class DIALOG_OFFSET_ITEM {
 
   private updateDialogControls(aPolar: boolean): void {
     if (aPolar) {
-      this.m_xOffset.SetLabel('Distance:'); // Polar radius
-      this.m_yOffset.SetLabel('Angle:'); // Polar theta or angle
+      this.m_xOffset.SetLabel(_('Distance:')); // Polar radius
+      this.m_yOffset.SetLabel(_('Angle:')); // Polar theta or angle
       this.m_yOffset.SetUnits('degrees');
-      this.m_clearXToolTip = 'Reset to the current distance from the reference position.';
-      this.m_clearYToolTip = 'Reset to the current angle from the reference position.';
+      this.m_clearXToolTip = _('Reset to the current distance from the reference position.');
+      this.m_clearYToolTip = _('Reset to the current angle from the reference position.');
     } else {
-      this.m_xOffset.SetLabel('Offset X:');
-      this.m_yOffset.SetLabel('Offset Y:');
+      this.m_xOffset.SetLabel(_('Offset X:'));
+      this.m_yOffset.SetLabel(_('Offset Y:'));
       this.m_yOffset.SetUnits(this.GetUserUnits());
-      this.m_clearXToolTip = 'Reset to the current X offset from the reference position.';
-      this.m_clearYToolTip = 'Reset to the current Y offset from the reference position.';
+      this.m_clearXToolTip = _('Reset to the current X offset from the reference position.');
+      this.m_clearYToolTip = _('Reset to the current Y offset from the reference position.');
     }
   }
 

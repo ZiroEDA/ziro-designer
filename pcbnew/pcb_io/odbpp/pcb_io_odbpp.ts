@@ -37,6 +37,8 @@ import {
   ODB_WHEELS_ENTITY,
 } from './odb_entity.js';
 import { type ODB_AUX_LAYER_TYPE, ODB_SETTINGS, ODB_TREE_WRITER } from './odb_util.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `ODB_DRILL_SPAN`: a drill layer's span and kind. */
 export class ODB_DRILL_SPAN {
@@ -161,7 +163,7 @@ export class PCB_IO_ODBPP extends PCB_IO {
   }
 
   override GetBoardFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('ODB++ Production File', ['ZIP'], [], true, false, true);
+    return new IO_FILE_DESC(_HKI('ODB++ Production File'), ['ZIP'], [], true, false, true);
   }
 
   override GetLibraryDesc(): IO_FILE_DESC {
@@ -278,13 +280,13 @@ export class PCB_IO_ODBPP extends PCB_IO {
 
     this.m_progressReporter?.SetNumPhases(3);
     this.m_progressReporter?.BeginPhase(0);
-    this.m_progressReporter?.Report('Creating ODB++ Structure');
+    this.m_progressReporter?.Report(_('Creating ODB++ Structure'));
 
     this.CreateEntity(aBoard);
 
     for (const entity of this.m_entities) entity.InitEntityData();
 
-    this.m_progressReporter?.AdvancePhase('Exporting board to ODB++');
+    this.m_progressReporter?.AdvancePhase(_('Exporting board to ODB++'));
 
     this.GenerateFiles(writer);
 

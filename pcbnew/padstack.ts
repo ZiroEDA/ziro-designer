@@ -34,6 +34,8 @@ import type { EDA_SHAPE } from '@ziroeda/common/eda_shape.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
 import { ZONE_CONNECTION } from './zones.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `IMPLEMENT_ENUM_TO_WXANY( PAD_DRILL_POST_MACHINING_MODE )` and
@@ -49,9 +51,9 @@ export function EnsurePadstackEnumChoices(): void {
   if (pmMap.Choices().GetCount() === 0) {
     pmMap
       .Undefined(PAD_DRILL_POST_MACHINING_MODE.UNKNOWN)
-      .Map(PAD_DRILL_POST_MACHINING_MODE.NOT_POST_MACHINED, 'Not post-machined')
-      .Map(PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE, 'Counterbore')
-      .Map(PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK, 'Countersink');
+      .Map(PAD_DRILL_POST_MACHINING_MODE.NOT_POST_MACHINED, _HKI('Not post-machined'))
+      .Map(PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE, _('Counterbore'))
+      .Map(PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK, _('Countersink'));
   }
 
   const bdMap = ENUM_MAP.Instance<BACKDRILL_MODE>('BACKDRILL_MODE');
@@ -59,10 +61,10 @@ export function EnsurePadstackEnumChoices(): void {
   if (bdMap.Choices().GetCount() === 0) {
     bdMap
       .Undefined(BACKDRILL_MODE.NO_BACKDRILL)
-      .Map(BACKDRILL_MODE.NO_BACKDRILL, 'No backdrill')
-      .Map(BACKDRILL_MODE.BACKDRILL_BOTTOM, 'Backdrill bottom')
-      .Map(BACKDRILL_MODE.BACKDRILL_TOP, 'Backdrill top')
-      .Map(BACKDRILL_MODE.BACKDRILL_BOTH, 'Backdrill both');
+      .Map(BACKDRILL_MODE.NO_BACKDRILL, _HKI('No backdrill'))
+      .Map(BACKDRILL_MODE.BACKDRILL_BOTTOM, _HKI('Backdrill bottom'))
+      .Map(BACKDRILL_MODE.BACKDRILL_TOP, _HKI('Backdrill top'))
+      .Map(BACKDRILL_MODE.BACKDRILL_BOTH, _HKI('Backdrill both'));
   }
 }
 

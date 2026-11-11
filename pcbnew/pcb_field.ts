@@ -44,6 +44,7 @@ import { BOARD_ITEM } from './board_item.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import type { FOOTPRINT } from './footprint.js';
 import { PCB_TEXT } from './pcb_text.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `wxString::CmpNoCase`. */
 function cmpNoCase(a: string, b: string): number {
@@ -388,7 +389,7 @@ export class PCB_FIELD extends PCB_TEXT {
     .AddProperty(
       new PROPERTY<PCB_FIELD, string>(
         PCB_FIELD,
-        'Name',
+        _HKI('Name'),
         NO_SETTER,
         'GetCanonicalName',
         TYPE_STRING,
@@ -398,6 +399,6 @@ export class PCB_FIELD extends PCB_TEXT {
     .SetIsHiddenFromPropertiesManager();
 
   // These properties, inherited from EDA_TEXT, have no sense for the board editor
-  propMgr.Mask(PCB_FIELD, EDA_TEXT, 'Hyperlink');
-  propMgr.Mask(PCB_FIELD, EDA_TEXT, 'Color');
+  propMgr.Mask(PCB_FIELD, EDA_TEXT, _HKI('Hyperlink'));
+  propMgr.Mask(PCB_FIELD, EDA_TEXT, _HKI('Color'));
 })();

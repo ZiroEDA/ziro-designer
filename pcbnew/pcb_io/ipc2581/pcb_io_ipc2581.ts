@@ -86,6 +86,7 @@ import type { PCB_ARC, PCB_TRACK, PCB_VIA } from '../../pcb_track.js';
 import type { ZONE } from '../../zone.js';
 import { PCB_IO, type PCB_IO_PROPERTIES } from '../pcb_io.js';
 import { auxLayerType, surfaceFinishType } from './ipc2581_types.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 type wxXmlNode = XNODE;
 
@@ -568,7 +569,7 @@ export class PCB_IO_IPC2581 extends PCB_IO {
   }
 
   private generateContentSection(): wxXmlNode {
-    this.m_progressReporter?.AdvancePhase('Generating content section');
+    this.m_progressReporter?.AdvancePhase(_('Generating content section'));
 
     this.m_contentNode = this.appendNode(this.m_xml_root!, 'Content');
     const contentNode = this.m_contentNode;
@@ -1079,7 +1080,7 @@ export class PCB_IO_IPC2581 extends PCB_IO {
       }
 
       default:
-        this.Report('Pad has unsupported type; it was skipped.', RPT_SEVERITY_WARNING);
+        this.Report(_('Pad has unsupported type; it was skipped.'), RPT_SEVERITY_WARNING);
         break;
     }
 
@@ -1425,7 +1426,7 @@ export class PCB_IO_IPC2581 extends PCB_IO {
   }
 
   private generateHistorySection(): wxXmlNode {
-    this.m_progressReporter?.AdvancePhase('Generating history section');
+    this.m_progressReporter?.AdvancePhase(_('Generating history section'));
 
     const historyNode = this.appendNode(this.m_xml_root!, 'HistoryRecord');
     this.addAttribute(historyNode, 'number', '1');
@@ -1463,7 +1464,7 @@ export class PCB_IO_IPC2581 extends PCB_IO {
   }
 
   private generateBOMSection(aEcadNode: wxXmlNode): wxXmlNode | null {
-    this.m_progressReporter?.AdvancePhase('Generating BOM section');
+    this.m_progressReporter?.AdvancePhase(_('Generating BOM section'));
 
     // std::set ordered by m_OEMDesignRef.
     const bom_entries = new Map<string, BOM_ENTRY>();
@@ -1610,7 +1611,7 @@ export class PCB_IO_IPC2581 extends PCB_IO {
   // ---------------------------------------------------------------------------------------------
 
   private generateEcadSection(): wxXmlNode {
-    this.m_progressReporter?.AdvancePhase('Generating CAD data');
+    this.m_progressReporter?.AdvancePhase(_('Generating CAD data'));
 
     const ecadNode = this.appendNode(this.m_xml_root!, 'Ecad');
     this.addAttribute(ecadNode, 'name', 'Design');
@@ -2621,7 +2622,7 @@ export class PCB_IO_IPC2581 extends PCB_IO {
       !this.board.GetBoardPolygonOutlines(board_outline, false) ||
       board_outline.OutlineCount() === 0
     ) {
-      this.Report('Board outline is invalid or missing.  Please run DRC.', RPT_SEVERITY_ERROR);
+      this.Report(_('Board outline is invalid or missing.  Please run DRC.'), RPT_SEVERITY_ERROR);
       return;
     }
 
@@ -3042,7 +3043,7 @@ export class PCB_IO_IPC2581 extends PCB_IO {
 
       if (this.m_OEMRef_dict.has(fp))
         this.Report(
-          'Duplicate footprint pointers encountered; IPC-2581 output may be incorrect.',
+          _('Duplicate footprint pointers encountered; IPC-2581 output may be incorrect.'),
           RPT_SEVERITY_ERROR,
         );
       else this.m_OEMRef_dict.set(fp, name);
@@ -3237,7 +3238,7 @@ export class PCB_IO_IPC2581 extends PCB_IO {
 
           if (geometry === undefined) {
             this.Report(
-              'Via uses unsupported padstack; omitted from drill data.',
+              _('Via uses unsupported padstack; omitted from drill data.'),
               RPT_SEVERITY_WARNING,
             );
             continue;
@@ -3267,7 +3268,7 @@ export class PCB_IO_IPC2581 extends PCB_IO {
 
           if (geometry === undefined) {
             this.Report(
-              'Pad uses unsupported padstack; hole was omitted from drill data.',
+              _('Pad uses unsupported padstack; hole was omitted from drill data.'),
               RPT_SEVERITY_WARNING,
             );
             continue;
@@ -3401,7 +3402,7 @@ export class PCB_IO_IPC2581 extends PCB_IO {
           zoneFeatureNode = teardropFeatureSetNode;
         } else if (!teardrop_warning) {
           this.Report(
-            'Teardrops are not supported in IPC-2581 revision B; they were exported as zones.',
+            _('Teardrops are not supported in IPC-2581 revision B; they were exported as zones.'),
             RPT_SEVERITY_WARNING,
           );
           teardrop_warning = true;
@@ -3613,7 +3614,7 @@ export class PCB_IO_IPC2581 extends PCB_IO {
   }
 
   private generateAvlSection(): wxXmlNode | null {
-    this.m_progressReporter?.AdvancePhase('Generating BOM section');
+    this.m_progressReporter?.AdvancePhase(_('Generating BOM section'));
 
     // Per IPC-2581 schema, Avl requires at least one AvlItem child element.
     // Don't emit Avl section if there are no items.
@@ -3788,7 +3789,7 @@ export class PCB_IO_IPC2581 extends PCB_IO {
 
     this.m_progressReporter?.SetNumPhases(7);
     this.m_progressReporter?.BeginPhase(1);
-    this.m_progressReporter?.Report('Generating logistic section');
+    this.m_progressReporter?.Report(_('Generating logistic section'));
 
     this.generateLogisticSection();
     this.generateHistorySection();
@@ -3825,7 +3826,7 @@ export class PCB_IO_IPC2581 extends PCB_IO {
       insertRef('AvlRef', avl_node);
     }
 
-    this.m_progressReporter?.AdvancePhase('Saving file');
+    this.m_progressReporter?.AdvancePhase(_('Saving file'));
 
     void this.generateLogicalNets;
 

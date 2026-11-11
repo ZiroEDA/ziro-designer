@@ -50,6 +50,7 @@ import { DIALOG_TABLE_PROPERTIES_BASE } from './dialog_table_properties_base.js'
 import type { PCB_TABLE } from '../pcb_table.js';
 import type { TransferResult } from './dialog_text_properties.js';
 import type { LineStyleToken } from '@ziroeda/common/stroke_params.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 /** Every control on the dialog, flattened. The cell texts are the grid. */
 export interface TableValues {
@@ -215,7 +216,7 @@ export class DIALOG_TABLE_PROPERTIES {
       t.SetSeparatorsStroke(stroke);
     }
 
-    if (pushCommit) commit.Push('Edit Table', SKIP_CONNECTIVITY);
+    if (pushCommit) commit.Push(wxGetTranslation('Edit Table'), SKIP_CONNECTIVITY);
 
     return { ok: true };
   }
@@ -274,8 +275,8 @@ export function DialogTableProperties({ dlg, onClose }: DialogTablePropertiesPro
       }
     }
 
-    const borderWidth = new UNIT_BINDER(frame, 'Width:');
-    const separatorsWidth = new UNIT_BINDER(frame, 'Width:');
+    const borderWidth = new UNIT_BINDER(frame, wxGetTranslation('Width:'));
+    const separatorsWidth = new UNIT_BINDER(frame, wxGetTranslation('Width:'));
 
     if (w.borderWidth >= 0) borderWidth.SetValue(w.borderWidth);
     if (w.separatorWidth >= 0) separatorsWidth.SetValue(w.separatorWidth);
@@ -413,7 +414,7 @@ export function DialogTableProperties({ dlg, onClose }: DialogTablePropertiesPro
       />
       {syntaxHelp && (
         <HtmlMessageBox
-          caption="Syntax Help"
+          caption={wxGetTranslation('Syntax Help')}
           className="ze-syntaxhelp"
           html={PCB_TEXT_SYNTAX_HELP}
           onClose={() => setSyntaxHelp(false)}

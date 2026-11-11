@@ -44,6 +44,7 @@ import { GERBER_WRITER } from '../exporters/gendrill_gerber_writer.js';
 import { DRILL_PRECISION, ZEROS_FMT } from '../exporters/gendrill_writer_base.js';
 import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
 import { DIALOG_GENDRILL_BASE } from './dialog_gendrill_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 interface Props {
   board: BOARD;
@@ -167,7 +168,7 @@ export function DialogGendrill({ board, fileName, onOutputFile, onClose }: Props
 
       writer.CreateDrillandMapFilesSet('', true, generateMap, generateTenting);
     }
-    appendMsg('Done.');
+    appendMsg(_('Done.'));
   };
 
   /** `DIALOG_GENDRILL::onGenReportFile`. */

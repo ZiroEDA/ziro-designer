@@ -13,6 +13,7 @@ import { IO_BASE, IO_FILE_DESC, fileNameExt } from '@ziroeda/common/io/io_base.j
 import { IO_ERROR } from '@ziroeda/common/exceptions.js';
 import type { BOARD } from '../board.js';
 import type { FOOTPRINT } from '../footprint.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `std::map<std::string, UTF8>`: a plugin's properties. */
 export type PCB_IO_PROPERTIES = ReadonlyMap<string, string>;
@@ -143,7 +144,9 @@ export abstract class PCB_IO extends IO_BASE {
 
     if (footprintNames.length > 1) {
       console.warn(
-        'Selected file contains multiple footprints. Only the first one will be imported.\nTo load all footprints, add it as a library using Preferences -> Manage Footprint Libraries...',
+        _(
+          'Selected file contains multiple footprints. Only the first one will be imported.\nTo load all footprints, add it as a library using Preferences -> Manage Footprint Libraries...',
+        ),
       );
     }
 

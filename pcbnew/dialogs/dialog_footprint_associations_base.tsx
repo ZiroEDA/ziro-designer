@@ -22,6 +22,7 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import { BoxSizer, SizerItem, Spacer, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_FOOTPRINT_ASSOCIATIONS_BASE_PROPS {
   m_gridLibrary: WX_GRID;
@@ -36,12 +37,12 @@ export function DIALOG_FOOTPRINT_ASSOCIATIONS_BASE(
   p: DIALOG_FOOTPRINT_ASSOCIATIONS_BASE_PROPS,
 ): JSX.Element {
   return (
-    <DialogShim title="Footprint Associations" onClose={p.onOK}>
+    <DialogShim title={_('Footprint Associations')} onClose={p.onOK}>
       {/* bMainBoxSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={10}>
           {/* SetFont( KIUI::GetStatusFont( this ) ): the GUI font on GTK */}
-          <StaticText label="Library Association" />
+          <StaticText label={_('Library Association')} />
         </SizerItem>
         <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
         <SizerItem flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT} border={10}>
@@ -56,7 +57,7 @@ export function DIALOG_FOOTPRINT_ASSOCIATIONS_BASE(
         </SizerItem>
         <Spacer width={0} height={5} proportion={1} flag={wxEXPAND} border={5} />
         <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={10}>
-          <StaticText label="Schematic Association" />
+          <StaticText label={_('Schematic Association')} />
         </SizerItem>
         <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
         <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={10}>

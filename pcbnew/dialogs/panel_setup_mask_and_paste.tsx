@@ -15,6 +15,8 @@ import { UNIT_BINDER, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { type FIELD, PANEL_SETUP_MASK_AND_PASTE_BASE } from './panel_setup_mask_and_paste_base.js';
 import type { BOARD } from '../board.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export interface MaskPaste {
   maskExpansionMM: number;
@@ -69,16 +71,21 @@ export const PANEL_SETUP_MASK_AND_PASTE = {
 
 /** The base's tooltips (panel_setup_mask_and_paste_base.cpp), and the class's for the paste row. */
 const TIP = {
-  maskMargin:
+  maskMargin: _HKI(
     'Global clearance between pads and the solder mask.\nThis value can be superseded by local values for a footprint or a pad.\nPositive clearance means a solder mask opening bigger than the pad (typical for solder mask clearance).',
-  maskMinWidth:
+  ),
+  maskMinWidth: _HKI(
     'Minimum distance between openings in the solder mask.\nPad openings closer than this distance will be plotted as a single opening.',
-  maskToCopper:
+  ),
+  maskToCopper: _HKI(
     "Minimum distance between a solder mask opening and a copper item with a different net than the solder mask opening's parent.\nDistances smaller than this minimum will create a DRC error.",
-  pasteMargin:
+  ),
+  pasteMargin: _HKI(
     'Solder paste clearance relative to pad size.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nThis value can be superseded by local values for a footprint or a pad.',
-  pasteRatio:
+  ),
+  pasteRatio: _HKI(
     'Global clearance ratio between pads and the solder paste as a percentage of the pad size.\nA value of 10 means the clearance value is 10 percent of the pad size.\nThis value can be superseded by local values for a footprint or a pad.\nFinal clearance value is the sum of this value and the absolute clearance value.',
+  ),
 };
 
 interface Props {
@@ -107,9 +114,9 @@ export function PanelPcbMaskPaste({ value, onChange, units }: Props): JSX.Elemen
       return b;
     };
     return {
-      maskExpansionMM: make('Solder mask expansion:', 'maskExpansionMM'),
-      maskMinWebMM: make('Solder mask minimum web width:', 'maskMinWebMM'),
-      maskToCopperMM: make('Solder mask to copper clearance:', 'maskToCopperMM'),
+      maskExpansionMM: make(_('Solder mask expansion:'), 'maskExpansionMM'),
+      maskMinWebMM: make(_('Solder mask minimum web width:'), 'maskMinWebMM'),
+      maskToCopperMM: make(_('Solder mask to copper clearance:'), 'maskToCopperMM'),
     };
   });
 
@@ -164,7 +171,7 @@ export function PanelPcbMaskPaste({ value, onChange, units }: Props): JSX.Elemen
       m_tentViasBack={check('tentBack')}
       m_pasteMargin={{
         // The constructor's SetLabel / SetToolTip for the combined field.
-        label: 'Solder paste clearance:',
+        label: _('Solder paste clearance:'),
         value: pasteText,
         onChange: (aText) => {
           pasteBinder.onTextChanged(aText);
@@ -182,7 +189,7 @@ export function PanelPcbMaskPaste({ value, onChange, units }: Props): JSX.Elemen
       }}
       // "Hide the old ratio controls - they're no longer needed."
       m_pasteMarginRatio={{
-        label: 'Solder paste relative clearance:',
+        label: _('Solder paste relative clearance:'),
         value: '',
         onChange: () => {},
         onBlur: () => {},

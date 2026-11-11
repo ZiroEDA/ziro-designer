@@ -27,6 +27,7 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER: its label (SetLabel'd for polar), entry, units, and wxEVT_KILL_FOCUS. */
 export interface UNIT {
@@ -90,7 +91,7 @@ export function DIALOG_OFFSET_ITEM_BASE(p: DIALOG_OFFSET_ITEM_BASE_PROPS): JSX.E
             />
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxTOP | wxRIGHT | wxLEFT} border={5}>
               {/* wxBU_EXACTFIT */}
-              <Button label="Reset" title={p.clearXToolTip} onClick={p.onClearX} />
+              <Button label={_('Reset')} title={p.clearXToolTip} onClick={p.onClearX} />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
               <StaticText label={p.m_yOffset.label} />
@@ -103,7 +104,7 @@ export function DIALOG_OFFSET_ITEM_BASE(p: DIALOG_OFFSET_ITEM_BASE_PROPS): JSX.E
             </SizerItem>
             <Spacer width={10} height={0} proportion={1} flag={wxEXPAND} border={5} />
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
-              <Button label="Reset" title={p.clearYToolTip} onClick={p.onClearY} />
+              <Button label={_('Reset')} title={p.clearYToolTip} onClick={p.onClearY} />
             </SizerItem>
           </FlexGridSizer>
         </SizerItem>
@@ -111,7 +112,7 @@ export function DIALOG_OFFSET_ITEM_BASE(p: DIALOG_OFFSET_ITEM_BASE_PROPS): JSX.E
           {/* bSizerBottom */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={10}>
-              <CheckBox label="Use polar coordinates" check={p.m_polarCoords} />
+              <CheckBox label={_('Use polar coordinates')} check={p.m_polarCoords} />
             </SizerItem>
             <Spacer width={40} height={0} proportion={1} flag={wxEXPAND} border={5} />
             <SizerItem flag={wxBOTTOM | wxTOP} border={5}>

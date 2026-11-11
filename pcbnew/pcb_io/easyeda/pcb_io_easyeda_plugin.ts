@@ -32,6 +32,8 @@ import { BOARD } from '../../board.js';
 import type { FOOTPRINT } from '../../footprint.js';
 import { PCB_IO, type PCB_IO_PROJECT, type PCB_IO_PROPERTIES } from '../pcb_io.js';
 import { type FOOTPRINT_MAP, PCB_IO_EASYEDA_PARSER } from './pcb_io_easyeda_parser.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 interface FOUND {
   js: JSON_VALUE;
@@ -93,7 +95,7 @@ export class PCB_IO_EASYEDA extends PCB_IO {
   }
 
   override GetBoardFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('EasyEDA (JLCEDA) Std files', ['json', 'zip']);
+    return new IO_FILE_DESC(_HKI('EasyEDA (JLCEDA) Std files'), ['json', 'zip']);
   }
 
   override GetLibraryFileDesc(): IO_FILE_DESC {
@@ -151,7 +153,7 @@ export class PCB_IO_EASYEDA extends PCB_IO {
       this.m_progressReporter.Report(`Loading ${aFileName}...`);
 
       if (!this.m_progressReporter.KeepRefreshing())
-        throw new IO_ERROR('File import canceled by user.');
+        throw new IO_ERROR(_('File import canceled by user.'));
     }
 
     const parser = new PCB_IO_EASYEDA_PARSER(null);

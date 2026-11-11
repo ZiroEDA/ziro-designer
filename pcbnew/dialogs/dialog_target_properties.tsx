@@ -18,6 +18,7 @@ import { BOARD_COMMIT } from '../board_commit.js';
 import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
 import type { PCB_TARGET } from '../pcb_target.js';
 import { DIALOG_TARGET_PROPERTIES_BASE, type UNIT } from './dialog_target_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `INT_MAX`, `m_Size.Validate`'s upper bound. */
 const INT_MAX = 2147483647;
@@ -35,10 +36,10 @@ export class DIALOG_TARGET_PROPERTIES {
   constructor(aParent: PCB_BASE_FRAME, aTarget: PCB_TARGET) {
     this.m_Parent = aParent;
     this.m_Target = aTarget;
-    this.m_Size = new UNIT_BINDER(aParent, 'Size:', (aMessage) => {
+    this.m_Size = new UNIT_BINDER(aParent, _('Size:'), (aMessage) => {
       this.m_error = aMessage;
     });
-    this.m_Thickness = new UNIT_BINDER(aParent, 'Thickness:');
+    this.m_Thickness = new UNIT_BINDER(aParent, _('Thickness:'));
     this.m_TargetShape.SetSelection(0);
   }
 
@@ -69,7 +70,7 @@ export class DIALOG_TARGET_PROPERTIES {
     this.m_Target.SetSize(this.m_Size.GetIntValue());
     this.m_Target.SetShape(this.m_TargetShape.GetSelection() ? 1 : 0);
 
-    if (pushCommit) commit.Push('Edit Alignment Target');
+    if (pushCommit) commit.Push(_('Edit Alignment Target'));
 
     return true;
   }

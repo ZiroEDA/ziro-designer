@@ -39,6 +39,7 @@ import {
   DRC_RULE,
 } from './drc_rule.js';
 import { DRC_RULE_CONDITION } from './drc_rule_condition.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export const DRC_RULE_FILE_VERSION = 20200610;
 
@@ -96,7 +97,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
 
     if (pos < 0) return false;
 
-    this.reportError('Unresolved text variable', pos);
+    this.reportError(_('Unresolved text variable'), pos);
     return true;
   }
 
@@ -115,7 +116,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
   private expected(expectedTokens: string): void {
     let msg: string;
 
-    if (this.CurText().startsWith('${')) msg = 'Unresolved text variable.';
+    if (this.CurText().startsWith('${')) msg = _('Unresolved text variable.');
     else msg = `Unrecognized item '${this.CurText()}'.| Expected ${expectedTokens}.`;
 
     this.reportError(msg);
@@ -150,12 +151,12 @@ export class DRC_RULES_PARSER extends DSNLEXER {
     for (let token = this.NextTok(); token !== T.EOF; token = this.NextTok()) {
       if (this.checkUnresolvedTextVariable()) continue;
 
-      if (token !== T.LEFT) this.reportError("Missing '('.");
+      if (token !== T.LEFT) this.reportError(_("Missing '('."));
 
       token = this.NextTok();
 
       if (!haveVersion && token !== 'version') {
-        this.reportError('Missing version statement.');
+        this.reportError(_('Missing version statement.'));
         haveVersion = true; // don't keep on reporting it
       }
 
@@ -165,14 +166,14 @@ export class DRC_RULES_PARSER extends DSNLEXER {
           token = this.NextTok();
 
           if (token === T.RIGHT) {
-            this.reportError('Missing version number.');
+            this.reportError(_('Missing version number.'));
           } else if (token === T.NUMBER) {
             this.m_requiredVersion = Number.parseInt(this.CurText(), 10);
             this.m_tooRecent = this.m_requiredVersion > DRC_RULE_FILE_VERSION;
 
-            if (this.NextTok() !== T.RIGHT) this.reportError("Missing ')'.");
+            if (this.NextTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
           } else {
-            this.expected('version number'); // translate "version number"; it is not a token
+            this.expected(_('version number')); // translate "version number"; it is not a token
           }
 
           break;
@@ -182,7 +183,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
           break;
 
         case T.EOF:
-          this.reportError('Incomplete statement.');
+          this.reportError(_('Incomplete statement.'));
           break;
 
         default:
@@ -191,7 +192,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
     }
 
     if (this.m_reporter && !this.m_reporter.hasMessage())
-      this.m_reporter.report('No errors found.', RPT_SEVERITY_INFO);
+      this.m_reporter.report(_('No errors found.'), RPT_SEVERITY_INFO);
 
     this.m_reporter = null;
   }
@@ -205,12 +206,12 @@ export class DRC_RULES_PARSER extends DSNLEXER {
     this.m_reporter = aReporter;
 
     for (let token = this.NextTok(); token !== T.EOF; token = this.NextTok()) {
-      if (token !== T.LEFT) this.reportError("Missing '('.");
+      if (token !== T.LEFT) this.reportError(_("Missing '('."));
 
       token = this.NextTok();
 
       if (!haveVersion && token !== 'version') {
-        this.reportError('Missing version statement.');
+        this.reportError(_('Missing version statement.'));
         haveVersion = true; // don't keep on reporting it
       }
 
@@ -220,14 +221,14 @@ export class DRC_RULES_PARSER extends DSNLEXER {
           token = this.NextTok();
 
           if (token === T.RIGHT) {
-            this.reportError('Missing version number.');
+            this.reportError(_('Missing version number.'));
           } else if (token === T.NUMBER) {
             this.m_requiredVersion = Number.parseInt(this.CurText(), 10);
             this.m_tooRecent = this.m_requiredVersion > DRC_RULE_FILE_VERSION;
 
-            if (this.NextTok() !== T.RIGHT) this.reportError("Missing ')'.");
+            if (this.NextTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
           } else {
-            this.expected('version number'); // translate "version number"; it is not a token
+            this.expected(_('version number')); // translate "version number"; it is not a token
           }
 
           break;
@@ -241,7 +242,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
         }
 
         case T.EOF:
-          this.reportError('Incomplete statement.');
+          this.reportError(_('Incomplete statement.'));
           break;
 
         default:
@@ -250,7 +251,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
     }
 
     if (this.m_reporter && !this.m_reporter.hasMessage())
-      this.m_reporter.report('No errors found.', RPT_SEVERITY_INFO);
+      this.m_reporter.report(_('No errors found.'), RPT_SEVERITY_INFO);
 
     this.m_reporter = null;
   }
@@ -260,7 +261,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
 
     let token = this.NextTok();
 
-    if (!DSNLEXER.IsSymbol(token)) this.reportError('Missing rule name.');
+    if (!DSNLEXER.IsSymbol(token)) this.reportError(_('Missing rule name.'));
 
     this.checkUnresolvedTextVariable();
     rule.m_Name = this.CurText();
@@ -268,7 +269,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
     for (token = this.NextTok(); token !== T.RIGHT && token !== T.EOF; token = this.NextTok()) {
       if (this.checkUnresolvedTextVariable()) continue;
 
-      if (token !== T.LEFT) this.reportError("Missing '('.");
+      if (token !== T.LEFT) this.reportError(_("Missing '('."));
 
       token = this.NextTok();
 
@@ -281,7 +282,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
           token = this.NextTok();
 
           if (token === T.RIGHT) {
-            this.reportError('Missing condition expression.');
+            this.reportError(_('Missing condition expression.'));
           } else if (DSNLEXER.IsSymbol(token)) {
             this.checkUnresolvedTextVariable();
             rule.m_Condition = new DRC_RULE_CONDITION(this.CurText());
@@ -289,16 +290,16 @@ export class DRC_RULES_PARSER extends DSNLEXER {
             if (!rule.m_Condition.Compile(this.m_reporter, this.CurLineNumber(), this.CurOffset()))
               this.reportError(`Could not parse expression '${this.CurText()}'.`);
 
-            if (this.NextTok() !== T.RIGHT) this.reportError("Missing ')'.");
+            if (this.NextTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
           } else {
-            this.expected('quoted expression'); // translate "quoted expression"; it is not a token
+            this.expected(_('quoted expression')); // translate "quoted expression"; it is not a token
           }
 
           break;
 
         case 'layer': {
           if (!rule.m_LayerCondition.equals(LSET.AllLayersMask()))
-            this.reportError("'layer' keyword already present.");
+            this.reportError(_("'layer' keyword already present."));
 
           const source: { value: string } = { value: rule.m_LayerSource };
           rule.m_LayerCondition = this.parseLayer(source);
@@ -311,7 +312,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
           break;
 
         case T.EOF:
-          this.reportError('Incomplete statement.');
+          this.reportError(_('Incomplete statement.'));
           return rule;
 
         default:
@@ -319,7 +320,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
       }
     }
 
-    if (this.CurTok() !== T.RIGHT) this.reportError("Missing ')'.");
+    if (this.CurTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
 
     return rule;
   }
@@ -329,13 +330,13 @@ export class DRC_RULES_PARSER extends DSNLEXER {
 
     let token = this.NextTok();
 
-    if (!DSNLEXER.IsSymbol(token)) this.reportError('Missing component class name.');
+    if (!DSNLEXER.IsSymbol(token)) this.reportError(_('Missing component class name.'));
 
     this.checkUnresolvedTextVariable();
     const componentClass = this.CurText();
 
     for (token = this.NextTok(); token !== T.RIGHT && token !== T.EOF; token = this.NextTok()) {
-      if (token !== T.LEFT) this.reportError("Missing '('.");
+      if (token !== T.LEFT) this.reportError(_("Missing '('."));
 
       token = this.NextTok();
 
@@ -344,7 +345,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
           token = this.NextTok();
 
           if (token === T.RIGHT) {
-            this.reportError('Missing condition expression.');
+            this.reportError(_('Missing condition expression.'));
           } else if (DSNLEXER.IsSymbol(token)) {
             this.checkUnresolvedTextVariable();
             condition = new DRC_RULE_CONDITION(this.CurText());
@@ -352,15 +353,15 @@ export class DRC_RULES_PARSER extends DSNLEXER {
             if (!condition.Compile(this.m_reporter, this.CurLineNumber(), this.CurOffset()))
               this.reportError(`Could not parse expression '${this.CurText()}'.`);
 
-            if (this.NextTok() !== T.RIGHT) this.reportError("Missing ')'.");
+            if (this.NextTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
           } else {
-            this.expected('quoted expression'); // translate "quoted expression"; it is not a token
+            this.expected(_('quoted expression')); // translate "quoted expression"; it is not a token
           }
 
           break;
 
         case T.EOF:
-          this.reportError('Incomplete statement.');
+          this.reportError(_('Incomplete statement.'));
           return null;
 
         default:
@@ -368,7 +369,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
       }
     }
 
-    if (this.CurTok() !== T.RIGHT) this.reportError("Missing ')'.");
+    if (this.CurTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
 
     return new COMPONENT_CLASS_ASSIGNMENT_RULE(componentClass, condition);
   }
@@ -389,13 +390,13 @@ export class DRC_RULES_PARSER extends DSNLEXER {
       const unitsTypeTmp = UNITS_PROVIDER.GetTypeFromUnits(aUnits);
 
       if (!allowsTimeDomain && unitsTypeTmp === 'time')
-        this.reportError('Time based units not allowed for constraint type.');
+        this.reportError(_('Time based units not allowed for constraint type.'));
 
       if (
         (c.m_Value.HasMin() || c.m_Value.HasMax() || c.m_Value.HasOpt()) &&
         unitsType !== unitsTypeTmp
       ) {
-        this.reportError('Mixed units for constraint values.');
+        this.reportError(_('Mixed units for constraint values.'));
       }
 
       unitsType = unitsTypeTmp;
@@ -622,7 +623,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
             break;
 
           case T.EOF:
-            this.reportError("Missing ')'.");
+            this.reportError(_("Missing ')'."));
             return;
 
           default:
@@ -634,7 +635,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
         }
       }
 
-      if (this.CurTok() !== T.RIGHT) this.reportError("Missing ')'.");
+      if (this.CurTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
 
       aRule.AddConstraint(c);
       return;
@@ -655,7 +656,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
           break;
 
         case T.EOF:
-          this.reportError("Missing ')'.");
+          this.reportError(_("Missing ')'."));
           return;
 
         default:
@@ -663,7 +664,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
           return;
       }
 
-      if (this.NextTok() !== T.RIGHT) this.reportError("Missing ')'.");
+      if (this.NextTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
 
       aRule.AddConstraint(c);
       return;
@@ -679,9 +680,9 @@ export class DRC_RULES_PARSER extends DSNLEXER {
         value = Number.parseInt(this.CurText(), 10);
         c.m_Value.SetMin(value);
 
-        if (this.NextTok() !== T.RIGHT) this.reportError("Missing ')'.");
+        if (this.NextTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
       } else {
-        this.expected('number'); // translate "number"; it is not a token
+        this.expected(_('number')); // translate "number"; it is not a token
       }
 
       aRule.AddConstraint(c);
@@ -689,15 +690,15 @@ export class DRC_RULES_PARSER extends DSNLEXER {
     } else if (c.m_Type === DRC_CONSTRAINT_T.ASSERTION_CONSTRAINT) {
       token = this.NextTok();
 
-      if (token === T.RIGHT) this.reportError('Missing assertion expression.');
+      if (token === T.RIGHT) this.reportError(_('Missing assertion expression.'));
 
       if (DSNLEXER.IsSymbol(token)) {
         c.m_Test = new DRC_RULE_CONDITION(this.CurText());
         c.m_Test.Compile(this.m_reporter, this.CurLineNumber(), this.CurOffset());
 
-        if (this.NextTok() !== T.RIGHT) this.reportError("Missing ')'.");
+        if (this.NextTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
       } else {
-        this.expected('quoted expression'); // translate "quoted expression"; it is not a token
+        this.expected(_('quoted expression')); // translate "quoted expression"; it is not a token
       }
 
       aRule.AddConstraint(c);
@@ -705,7 +706,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
     }
 
     for (token = this.NextTok(); token !== T.RIGHT && token !== T.EOF; token = this.NextTok()) {
-      if (token !== T.LEFT) this.reportError("Missing '('.");
+      if (token !== T.LEFT) this.reportError(_("Missing '('."));
 
       token = this.NextTok();
 
@@ -713,9 +714,9 @@ export class DRC_RULES_PARSER extends DSNLEXER {
         case 'within_diff_pairs':
           if (c.m_Type === DRC_CONSTRAINT_T.SKEW_CONSTRAINT)
             c.SetOption(DRC_CONSTRAINT_OPTIONS.SKEW_WITHIN_DIFF_PAIRS);
-          else this.reportError('within_diff_pairs option invalid for constraint type.');
+          else this.reportError(_('within_diff_pairs option invalid for constraint type.'));
 
-          if (this.NextTok() !== T.RIGHT) this.reportError("Missing ')'.");
+          if (this.NextTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
 
           break;
 
@@ -724,7 +725,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
           const expr = this.parseExpression();
 
           if (expr.length === 0) {
-            this.reportError('Missing min value.');
+            this.reportError(_('Missing min value.'));
             break;
           }
 
@@ -743,7 +744,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
           const expr = this.parseExpression();
 
           if (expr.length === 0) {
-            this.reportError('Missing max value.');
+            this.reportError(_('Missing max value.'));
             break;
           }
 
@@ -762,7 +763,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
           const expr = this.parseExpression();
 
           if (expr.length === 0) {
-            this.reportError('Missing opt value.');
+            this.reportError(_('Missing opt value.'));
             break;
           }
 
@@ -777,7 +778,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
         }
 
         case T.EOF:
-          this.reportError('Incomplete statement.');
+          this.reportError(_('Incomplete statement.'));
           return;
 
         default:
@@ -835,7 +836,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
     const token = this.NextTok();
 
     if (token === T.RIGHT) {
-      this.reportError('Missing layer name or type.');
+      this.reportError(_('Missing layer name or type.'));
       return LSET.AllCuMask();
     } else if (token === 'outer') {
       aSource.value = DSNLEXER.GetTokenString(token);
@@ -864,7 +865,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
       }
     }
 
-    if (this.NextTok() !== T.RIGHT) this.reportError("Missing ')'.");
+    if (this.NextTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
 
     return retVal;
   }
@@ -875,7 +876,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
     const token = this.NextTok();
 
     if (token === T.RIGHT || token === T.EOF) {
-      this.reportError('Missing severity name.');
+      this.reportError(_('Missing severity name.'));
       return RPT_SEVERITY_UNDEFINED;
     }
 
@@ -897,7 +898,7 @@ export class DRC_RULES_PARSER extends DSNLEXER {
         this.expected('ignore, warning, error, or exclusion');
     }
 
-    if (this.NextTok() !== T.RIGHT) this.reportError("Missing ')'.");
+    if (this.NextTok() !== T.RIGHT) this.reportError(_("Missing ')'."));
 
     return retVal;
   }

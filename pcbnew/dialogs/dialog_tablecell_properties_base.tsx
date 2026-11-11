@@ -33,6 +33,7 @@ import {
 } from '@ziroeda/wx/sizer.js';
 import { STC_BEST_SIZE, StyledTextCtrl } from '@ziroeda/wx/stc.js';
 import type { FIELD, HALIGN, TOGGLE, VALIGN } from './dialog_text_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_TABLECELL_PROPERTIES_BASE_PROPS {
   m_cellTextCtrl: { value: string; onChange: (aText: string) => void };
@@ -108,7 +109,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
   );
 
   return (
-    <DialogShim title="Table Cell Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Table Cell Properties')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND | wxLEFT} border={5}>
@@ -118,7 +119,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
               {/* bSizer8 */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="Cell contents:" />
+                  <StaticText label={_('Cell contents:')} />
                 </SizerItem>
                 <SizerItem
                   proportion={1}
@@ -144,7 +145,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                       {/* gbFontSizer = wxGridBagSizer( 3, 5 ), SetEmptyCellSize( wxSize( -1, 5 ) ) */}
                       <GridBagSizer vgap={3} hgap={5} emptyCellSize={[-1, 5]} growableCols={[1]}>
                         <SizerItem pos={[1, 0]} flag={CV | wxLEFT} border={1}>
-                          <StaticText label="Font:" />
+                          <StaticText label={_('Font:')} />
                         </SizerItem>
                         <SizerItem pos={[1, 1]} span={[1, 3]} flag={CV | wxEXPAND} border={5}>
                           <FontChoice face={p.m_fontCtrl.face} onChange={p.m_fontCtrl.onChange} />
@@ -159,7 +160,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                             <SizerItem flag={CV} border={5}>
                               <BitmapButton
                                 bitmap="text_bold"
-                                tooltip="Bold"
+                                tooltip={_('Bold')}
                                 checked={p.m_bold.checked}
                                 onClick={p.m_bold.onClick}
                               />
@@ -167,7 +168,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                             <SizerItem flag={CV} border={5}>
                               <BitmapButton
                                 bitmap="text_italic"
-                                tooltip="Italic"
+                                tooltip={_('Italic')}
                                 checked={p.m_italic.checked}
                                 onClick={p.m_italic.onClick}
                               />
@@ -175,36 +176,42 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                             <SizerItem flag={CV} border={5}>
                               <BitmapButtonSeparator />
                             </SizerItem>
-                            {align('left', 'text_align_left', 'Align left', p.hAlign, p.onHAlign)}
+                            {align(
+                              'left',
+                              'text_align_left',
+                              _('Align left'),
+                              p.hAlign,
+                              p.onHAlign,
+                            )}
                             {align(
                               'center',
                               'text_align_center',
-                              'Align horizontal center',
+                              _('Align horizontal center'),
                               p.hAlign,
                               p.onHAlign,
                             )}
                             {align(
                               'right',
                               'text_align_right',
-                              'Align right',
+                              _('Align right'),
                               p.hAlign,
                               p.onHAlign,
                             )}
                             <SizerItem flag={wxALL} border={5}>
                               <BitmapButtonSeparator />
                             </SizerItem>
-                            {align('top', 'text_valign_top', 'Align top', p.vAlign, p.onVAlign)}
+                            {align('top', 'text_valign_top', _('Align top'), p.vAlign, p.onVAlign)}
                             {align(
                               'center',
                               'text_valign_center',
-                              'Align vertical center',
+                              _('Align vertical center'),
                               p.vAlign,
                               p.onVAlign,
                             )}
                             {align(
                               'bottom',
                               'text_valign_bottom',
-                              'Align bottom',
+                              _('Align bottom'),
                               p.vAlign,
                               p.onVAlign,
                             )}
@@ -221,7 +228,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                         <SizerItem pos={[2, 3]} flag={CV} border={5}>
                           <BitmapButton
                             bitmap="edit_cmp_symb_links"
-                            tooltip="Adjust the text thickness"
+                            tooltip={_('Adjust the text thickness')}
                             checked={p.m_autoTextThickness.checked}
                             onClick={p.m_autoTextThickness.onClick}
                           />
@@ -233,7 +240,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                       {/* gMarginsSizer = wxGridSizer( 0, 3, 4, 2 ) */}
                       <FlexGridSizer cols={3} vgap={4} hgap={2}>
                         <SizerItem flag={CV} border={5}>
-                          <StaticText label="Cell margins:" />
+                          <StaticText label={_('Cell margins:')} />
                         </SizerItem>
                         {margin('Top margin', p.m_marginTop)}
                         <SizerItem flag={CV | wxLEFT} border={2}>
@@ -257,15 +264,15 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={CV | wxLEFT} border={10}>
               <Button
-                label="Edit Table..."
-                title="Edit table properties and cell contents"
+                label={_('Edit Table...')}
+                title={_('Edit table properties and cell contents')}
                 onClick={p.onEditTable}
               />
             </SizerItem>
             <SizerItem flag={CV | wxLEFT} border={10}>
               <HyperlinkCtrl
-                label="Syntax help"
-                title="Show syntax help window"
+                label={_('Syntax help')}
+                title={_('Show syntax help window')}
                 onClick={p.onSyntaxHelp}
               />
             </SizerItem>

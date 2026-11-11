@@ -24,6 +24,8 @@ import type { ToolbarDefaults } from '@ziroeda/common/tool/ui/toolbar_configurat
 import type { Menu, MenuItem } from '@ziroeda/wx/menu.js';
 import { addClose } from '@ziroeda/common/tool/action_menu.js';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -39,10 +41,10 @@ export const FPVIEWER_CONTROL = {
 /** `TOOLBAR_LOC::TOP_MAIN` (`toolbars_footprint_viewer.cpp:50-71`). */
 export const FPVIEWER_TOP_TOOLBAR: ToolEntry[] = [
   // `PCB_ACTIONS::previousFootprint` / `nextFootprint` (pcb_actions.cpp:975-987).
-  { id: 'previousFootprint', icon: 'previousFootprint', title: 'Display previous footprint' },
-  { id: 'nextFootprint', icon: 'nextFootprint', title: 'Display next footprint' },
+  { id: 'previousFootprint', icon: 'previousFootprint', title: _HKI('Display previous footprint') },
+  { id: 'nextFootprint', icon: 'nextFootprint', title: _HKI('Display next footprint') },
   sep,
-  { id: 'zoomRedraw', icon: 'zoomRedraw', title: 'Refresh' },
+  { id: 'zoomRedraw', icon: 'zoomRedraw', title: _HKI('Refresh') },
   { id: 'zoomInCenter', icon: 'zoomIn', title: 'Zoom In' },
   { id: 'zoomOutCenter', icon: 'zoomOut', title: 'Zoom Out' },
   {
@@ -80,7 +82,7 @@ export const FPVIEWER_TOP_TOOLBAR: ToolEntry[] = [
 
 /** `TOOLBAR_LOC::LEFT` (`toolbars_footprint_viewer.cpp:73-99`). */
 export const FPVIEWER_LEFT_TOOLBAR: ToolEntry[] = [
-  { id: 'selectionTool', icon: 'selectionTool', title: 'Select item(s)', toggle: true },
+  { id: 'selectionTool', icon: 'selectionTool', title: _HKI('Select item(s)'), toggle: true },
   {
     id: 'measureTool',
     icon: 'measureTool',
@@ -104,7 +106,7 @@ export const FPVIEWER_LEFT_TOOLBAR: ToolEntry[] = [
   // `ACTION_TOOLBAR::AddGroup`'s `isToggleEntry` is false: the button cycles
   // and never paints checked — `cycleOnClick`, as in every other editor.
   {
-    group: 'Units',
+    group: _HKI('Units'),
     cycleOnClick: true,
     actions: [
       { id: 'unitsMm', icon: 'unitsMm', title: 'Millimeters' },
@@ -116,7 +118,7 @@ export const FPVIEWER_LEFT_TOOLBAR: ToolEntry[] = [
   // none there; this one does.
   sep,
   {
-    group: 'Crosshair modes',
+    group: _HKI('Crosshair modes'),
     cycleOnClick: true,
     actions: [
       {
@@ -137,7 +139,7 @@ export const FPVIEWER_LEFT_TOOLBAR: ToolEntry[] = [
     ],
   },
   sep,
-  { id: 'showPadNumbers', icon: 'showPadNumbers', title: 'Show Pad Numbers', toggle: true },
+  { id: 'showPadNumbers', icon: 'showPadNumbers', title: _HKI('Show Pad Numbers'), toggle: true },
   {
     id: 'padDisplayMode',
     icon: 'padDisplayMode',
@@ -194,15 +196,15 @@ export function footprintViewerMenus(h: FootprintViewerMenuHandlers): Menu[] {
   });
 
   return [
-    { label: 'File', items: [addClose('Footprint Viewer', h.close)] },
+    { label: _('File'), items: [addClose(_('Footprint Viewer'), h.close)] },
     {
-      label: 'View',
+      label: _('View'),
       items: [
         { sep: true },
         act('Zoom In', 'zoomInCenter', 'zoomIn'),
         act('Zoom Out', 'zoomOutCenter', 'zoomOut'),
-        act('Zoom to Fit', 'zoomFitScreen', 'zoomFit', { shortcut: 'Home' }),
-        act('Refresh', 'zoomRedraw', 'zoomRedraw', { shortcut: 'F5' }),
+        act(_('Zoom to Fit'), 'zoomFitScreen', 'zoomFit', { shortcut: 'Home' }),
+        act(_('Refresh'), 'zoomRedraw', 'zoomRedraw', { shortcut: 'F5' }),
         { sep: true },
         act('3D Viewer', 'show3DViewer', 'threeDViewer', { shortcut: 'Alt+3' }),
       ],

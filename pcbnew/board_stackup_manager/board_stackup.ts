@@ -29,6 +29,7 @@ import { LSET } from '@ziroeda/common/lset.js';
 import type { OUTPUTFORMATTER } from '@ziroeda/common/richio.js';
 import { FormatDouble2Str, UIDouble2Str } from '@ziroeda/common/string_utils.js';
 import type { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // ---------------------------------------------------------------------------
 // stackup_predefined_prms.h
@@ -746,21 +747,21 @@ export class BOARD_STACKUP {
     if (enabledLayer.test(F_SilkS)) {
       const item = new BOARD_STACKUP_ITEM(BS_ITEM_TYPE_SILKSCREEN);
       item.SetBrdLayerId(F_SilkS);
-      item.SetTypeName('Top Silk Screen');
+      item.SetTypeName(_HKI('Top Silk Screen'));
       this.Add(item);
     }
 
     if (enabledLayer.test(F_Paste)) {
       const item = new BOARD_STACKUP_ITEM(BS_ITEM_TYPE_SOLDERPASTE);
       item.SetBrdLayerId(F_Paste);
-      item.SetTypeName('Top Solder Paste');
+      item.SetTypeName(_HKI('Top Solder Paste'));
       this.Add(item);
     }
 
     if (enabledLayer.test(F_Mask)) {
       const item = new BOARD_STACKUP_ITEM(BS_ITEM_TYPE_SOLDERMASK);
       item.SetBrdLayerId(F_Mask);
-      item.SetTypeName('Top Solder Mask');
+      item.SetTypeName(_HKI('Top Solder Mask'));
       this.Add(item);
     }
 
@@ -795,21 +796,21 @@ export class BOARD_STACKUP {
     if (enabledLayer.test(B_Mask)) {
       const item = new BOARD_STACKUP_ITEM(BS_ITEM_TYPE_SOLDERMASK);
       item.SetBrdLayerId(B_Mask);
-      item.SetTypeName('Bottom Solder Mask');
+      item.SetTypeName(_HKI('Bottom Solder Mask'));
       this.Add(item);
     }
 
     if (enabledLayer.test(B_Paste)) {
       const item = new BOARD_STACKUP_ITEM(BS_ITEM_TYPE_SOLDERPASTE);
       item.SetBrdLayerId(B_Paste);
-      item.SetTypeName('Bottom Solder Paste');
+      item.SetTypeName(_HKI('Bottom Solder Paste'));
       this.Add(item);
     }
 
     if (enabledLayer.test(B_SilkS)) {
       const item = new BOARD_STACKUP_ITEM(BS_ITEM_TYPE_SILKSCREEN);
       item.SetBrdLayerId(B_SilkS);
-      item.SetTypeName('Bottom Silk Screen');
+      item.SetTypeName(_HKI('Bottom Silk Screen'));
       this.Add(item);
     }
 

@@ -49,6 +49,7 @@ import {
   FormatFootprintForLibrary,
   footprintSaveClone,
 } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `FILEEXT::KiCadFootprintLibPathExtension` and `KiCadFootprintFileExtension`. */
 const KICAD_FOOTPRINT_LIB_PATH_EXTENSION = 'pretty';
@@ -418,7 +419,7 @@ export class FOOTPRINT_IMPORT_RECONCILER {
 
     if (!table) {
       this.report(
-        'Cannot register imported footprint cache: no project library table.',
+        _('Cannot register imported footprint cache: no project library table.'),
         RPT_SEVERITY_ERROR,
       );
       return false;
@@ -439,7 +440,7 @@ export class FOOTPRINT_IMPORT_RECONCILER {
     row.SetScope(LIBRARY_TABLE_SCOPE.PROJECT);
 
     if (!table.Save().ok)
-      this.report('Error saving project footprint library table.', RPT_SEVERITY_WARNING);
+      this.report(_('Error saving project footprint library table.'), RPT_SEVERITY_WARNING);
 
     // load the cache so membership and the updater resolve it
     this.m_adapter.LoadOne(aCacheNickname);

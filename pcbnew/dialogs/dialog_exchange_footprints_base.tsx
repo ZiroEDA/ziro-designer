@@ -39,6 +39,7 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A match radio with the text it labels. */
 export interface MATCH_RADIO {
@@ -164,7 +165,7 @@ export function DIALOG_EXCHANGE_FOOTPRINTS_BASE(
                 <SizerItem flag={CV} border={2}>
                   <StdBitmapButton
                     bitmap="small_library"
-                    title="Browse"
+                    title={_('Browse')}
                     tooltip={null}
                     onClick={() => p.ViewAndSelectFootprint(false)}
                   />
@@ -187,7 +188,7 @@ export function DIALOG_EXCHANGE_FOOTPRINTS_BASE(
               {/* bSizer3 */}
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="New footprint library id:" />
+                  <StaticText label={_('New footprint library id:')} />
                 </SizerItem>
                 <SizerItem proportion={1} flag={CV} border={5} minSize={[500, -1]}>
                   <TextCtrl
@@ -210,15 +211,15 @@ export function DIALOG_EXCHANGE_FOOTPRINTS_BASE(
           </BoxSizer>
         </SizerItem>
         <SizerItem flag={wxEXPAND | wxALL} border={10}>
-          <StaticBoxSizer label="Update Options" orient={wxHORIZONTAL}>
+          <StaticBoxSizer label={_('Update Options')} orient={wxHORIZONTAL}>
             <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT} border={10}>
               {/* bSizer5 */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxTOP | wxBOTTOM | wxRIGHT} border={5}>
                   <CheckBox
-                    label="Remove text items if not in library footprint"
+                    label={_('Remove text items if not in library footprint')}
                     check={p.m_removeExtraBox}
-                    title="Removes fields that do not occur in the original library symbols"
+                    title={_('Removes fields that do not occur in the original library symbols')}
                   />
                 </SizerItem>
                 {option(p.m_resetTextItemLayers)}
@@ -227,7 +228,7 @@ export function DIALOG_EXCHANGE_FOOTPRINTS_BASE(
                 {option(p.m_resetTextItemContent)}
                 <Spacer width={0} height={10} proportion={1} border={5} />
                 <SizerItem flag={wxBOTTOM | wxEXPAND | wxLEFT} border={5}>
-                  <Button label="Check All Update Options" onClick={p.onCheckAll} />
+                  <Button label={_('Check All Update Options')} onClick={p.onCheckAll} />
                 </SizerItem>
               </BoxSizer>
             </SizerItem>
@@ -239,7 +240,7 @@ export function DIALOG_EXCHANGE_FOOTPRINTS_BASE(
                 {option(p.m_reset3DModels)}
                 <Spacer width={0} height={10} proportion={1} border={5} />
                 <SizerItem flag={wxBOTTOM | wxEXPAND | wxRIGHT} border={5}>
-                  <Button label="Uncheck All Update Options" onClick={p.onUncheckAll} />
+                  <Button label={_('Uncheck All Update Options')} onClick={p.onUncheckAll} />
                 </SizerItem>
               </BoxSizer>
             </SizerItem>
@@ -262,7 +263,7 @@ export function DIALOG_EXCHANGE_FOOTPRINTS_BASE(
             okLabel={p.okLabel}
             okDisabled={!p.okEnabled}
             onOk={p.OnOKClicked}
-            cancelLabel="Close"
+            cancelLabel={_('Close')}
             onCancel={p.onCancel}
           />
         </SizerItem>

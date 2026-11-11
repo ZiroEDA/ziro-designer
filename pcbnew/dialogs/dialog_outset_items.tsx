@@ -23,6 +23,7 @@ import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
 import { PCB_LAYER_BOX_SELECTOR } from '../pcb_layer_box_selector.js';
 import type { OUTSET_PARAMETERS } from '../tools/item_modification_routine.js';
 import { DIALOG_OUTSET_ITEMS_BASE, type UNIT_COMBO } from './dialog_outset_items_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** Some handy preset values for common outset distances. */
 const s_outsetPresetValue: readonly number[] = [
@@ -86,9 +87,9 @@ export class DIALOG_OUTSET_ITEMS {
   constructor(aParent: PCB_BASE_FRAME, aParams: OUTSET_PARAMETERS) {
     this.m_parent = aParent;
     this.m_params = aParams;
-    this.m_outset = new UNIT_BINDER(aParent, 'Outset:');
-    this.m_lineWidth = new UNIT_BINDER(aParent, 'Line width:');
-    this.m_roundingGrid = new UNIT_BINDER(aParent, 'Grid size:');
+    this.m_outset = new UNIT_BINDER(aParent, _('Outset:'));
+    this.m_lineWidth = new UNIT_BINDER(aParent, _('Line width:'));
+    this.m_roundingGrid = new UNIT_BINDER(aParent, _('Grid size:'));
 
     this.m_LayerSelectionCtrl.ShowNonActivatedLayers(false);
     this.m_LayerSelectionCtrl.SetLayersHotkeys(false);
@@ -148,7 +149,7 @@ export class DIALOG_OUTSET_ITEMS {
 
   TransferDataFromWindow(): boolean {
     if (this.m_lineWidth.GetIntValue() <= 0) {
-      this.m_error = 'Line width must be a positive value.';
+      this.m_error = _('Line width must be a positive value.');
       return false;
     }
 

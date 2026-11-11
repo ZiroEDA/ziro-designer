@@ -28,6 +28,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, GridBagSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER's control and units label. */
 export type UNIT_FIELD = {
@@ -83,7 +84,7 @@ export function PANEL_SETUP_DIMENSIONS_BASE(p: PANEL_SETUP_DIMENSIONS_BASE_PROPS
     // mainSizer
     <BoxSizer orient={wxVERTICAL}>
       <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={13}>
-        <StaticText label="Default Properties for New Dimension Objects" />
+        <StaticText label={_('Default Properties for New Dimension Objects')} />
       </SizerItem>
       <Spacer width={0} height={2} border={5} />
       <SizerItem flag={wxEXPAND | wxBOTTOM} border={5}>
@@ -92,55 +93,61 @@ export function PANEL_SETUP_DIMENSIONS_BASE(p: PANEL_SETUP_DIMENSIONS_BASE_PROPS
       <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
         {/* gbSizer1 = wxGridBagSizer( 0, 5 ) */}
         <GridBagSizer vgap={0} hgap={5}>
-          {label(0, 0, 'Units:', CV | wxBOTTOM | wxRIGHT)}
+          {label(0, 0, _('Units:'), CV | wxBOTTOM | wxRIGHT)}
           {choice(
             0,
             1,
-            ['Inches', 'Mils', 'Millimeters', 'Automatic'],
+            [_('Inches'), _('Mils'), _('Millimeters'), _('Automatic')],
             p.m_dimensionUnits,
             'Units',
-            'Default units for dimensions ("automatic" to follow the chosen UI units)',
+            _('Default units for dimensions ("automatic" to follow the chosen UI units)'),
           )}
           <Spacer width={0} height={0} pos={[0, 2]} flag={wxEXPAND | CV} border={5} />
-          {label(0, 3, 'Text position:', CV | wxBOTTOM | wxLEFT, 4)}
+          {label(0, 3, _('Text position:'), CV | wxBOTTOM | wxLEFT, 4)}
           {choice(
             0,
             4,
-            ['Outside', 'Inline'],
+            [_('Outside'), _('Inline')],
             p.m_dimensionTextPositionMode,
             'Text position',
-            'Where to position the dimension text relative to the dimension line',
+            _('Where to position the dimension text relative to the dimension line'),
           )}
-          {label(1, 0, 'Units format:', CV | wxBOTTOM | wxRIGHT)}
-          {choice(1, 1, ['1234', '1234 mm', '1234 (mm)'], p.m_dimensionUnitsFormat, 'Units format')}
+          {label(1, 0, _('Units format:'), CV | wxBOTTOM | wxRIGHT)}
+          {choice(
+            1,
+            1,
+            ['1234', _('1234 mm'), _('1234 (mm)')],
+            p.m_dimensionUnitsFormat,
+            'Units format',
+          )}
           <SizerItem pos={[1, 3]} span={[1, 2]} flag={CV | wxEXPAND | wxBOTTOM | wxLEFT} border={5}>
             <CheckBox
-              label="Keep text aligned"
-              title="When checked, dimension text will be kept aligned with dimension lines"
+              label={_('Keep text aligned')}
+              title={_('When checked, dimension text will be kept aligned with dimension lines')}
               check={p.m_dimensionTextKeepAligned}
             />
           </SizerItem>
-          {label(2, 0, 'Precision:', CV | wxBOTTOM | wxRIGHT)}
+          {label(2, 0, _('Precision:'), CV | wxBOTTOM | wxRIGHT)}
           {choice(
             2,
             1,
             ['0', '0.0', '0.00', '0.000', '0.0000', '0.00000'],
             p.m_dimensionPrecision,
             'Precision',
-            'How many digits of precision to show',
+            _('How many digits of precision to show'),
           )}
-          {label(2, 3, 'Arrow length:', CV | wxBOTTOM | wxLEFT)}
+          {label(2, 3, _('Arrow length:'), CV | wxBOTTOM | wxLEFT)}
           {unitField(2, p.m_dimensionArrowLength, 'Arrow length')}
           <SizerItem pos={[3, 0]} span={[1, 2]} flag={CV | wxBOTTOM | wxRIGHT} border={5}>
             <CheckBox
-              label="Suppress trailing zeroes"
-              title={
-                'When checked, "1.2300" will be rendered as "1.23" even if precision is set to show more digits'
-              }
+              label={_('Suppress trailing zeroes')}
+              title={_(
+                'When checked, "1.2300" will be rendered as "1.23" even if precision is set to show more digits',
+              )}
               check={p.m_dimensionSuppressZeroes}
             />
           </SizerItem>
-          {label(3, 3, 'Extension line offset:', CV | wxBOTTOM | wxLEFT)}
+          {label(3, 3, _('Extension line offset:'), CV | wxBOTTOM | wxLEFT)}
           {unitField(3, p.m_dimensionExtensionOffset, 'Extension line offset')}
         </GridBagSizer>
       </SizerItem>

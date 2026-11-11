@@ -30,6 +30,7 @@ import {
   UNIT_BINDER,
   type UNIT_BINDER_UNITS_PROVIDER,
 } from '@ziroeda/common/widgets/unit_binder.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** What BOARD_EDITOR_CONTROL::ExportVRML reads off the dialog on OK. */
 export interface VRML_DIALOG_RESULT {
@@ -63,7 +64,7 @@ export function DialogExportVrml({ initialPath, unitsProvider, onClose }: Props)
   const cancel = (): void => onClose(null);
 
   const [path, setPath] = useState(initialPath);
-  const [subdir, setSubdir] = useState('shapes3D');
+  const [subdir, setSubdir] = useState(_('shapes3D'));
   const [userOrigin, setUserOrigin] = useState(true);
   const [xText, setXText] = useState('0');
   const [yText, setYText] = useState('0');

@@ -148,7 +148,7 @@ export function VertexEditorWindow({ pane, onClose }: VertexEditorWindowProps): 
       }}
     >
       <div className="ze-panel-header" onMouseDown={startDrag} style={{ cursor: 'move' }}>
-        <span>Edit Vertices</span>
+        <span>{_('Edit Vertices')}</span>
         <button
           type="button"
           className="ze-pane-close"

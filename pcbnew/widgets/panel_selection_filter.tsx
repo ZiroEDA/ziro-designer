@@ -16,6 +16,7 @@
 import type { JSX } from 'react';
 import { ContextMenu } from '@ziroeda/wx/menu_ui.js';
 import { type FILTER_CHECK, PANEL_SELECTION_FILTER_BASE } from './panel_selection_filter_base.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** One category checkbox. */
 export interface SelectionFilterItem {
@@ -37,18 +38,22 @@ export interface SelectionFilterItem {
  * meta-control, and it is drawn separately below.
  */
 export const SELECTION_FILTER_ITEMS: readonly SelectionFilterItem[] = [
-  { key: 'lockedItems', label: 'Locked items', tooltip: 'Allow selection of locked items' },
-  { key: 'footprints', label: 'Footprints' },
-  { key: 'text', label: 'Text' },
-  { key: 'tracks', label: 'Tracks' },
-  { key: 'vias', label: 'Vias' },
-  { key: 'pads', label: 'Pads' },
-  { key: 'graphics', label: 'Graphics' },
-  { key: 'zones', label: 'Zones' },
-  { key: 'keepouts', label: 'Rule Areas' },
-  { key: 'dimensions', label: 'Dimensions' },
-  { key: 'otherItems', label: 'Other items' },
-  { key: 'points', label: 'Points' },
+  {
+    key: 'lockedItems',
+    label: _HKI('Locked items'),
+    tooltip: _HKI('Allow selection of locked items'),
+  },
+  { key: 'footprints', label: _HKI('Footprints') },
+  { key: 'text', label: _HKI('Text') },
+  { key: 'tracks', label: _HKI('Tracks') },
+  { key: 'vias', label: _HKI('Vias') },
+  { key: 'pads', label: _HKI('Pads') },
+  { key: 'graphics', label: _HKI('Graphics') },
+  { key: 'zones', label: _HKI('Zones') },
+  { key: 'keepouts', label: _HKI('Rule Areas') },
+  { key: 'dimensions', label: _HKI('Dimensions') },
+  { key: 'otherItems', label: _HKI('Other items') },
+  { key: 'points', label: _HKI('Points') },
 ];
 
 /**

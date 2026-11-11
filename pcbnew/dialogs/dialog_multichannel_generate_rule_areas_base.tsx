@@ -18,6 +18,7 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_MULTICHANNEL_GENERATE_RULE_AREAS_BASE_PROPS {
   /** m_sourceNotebook's pages: Sheets, Component Classes, and the class's Groups. */
@@ -34,7 +35,7 @@ export function DIALOG_MULTICHANNEL_GENERATE_RULE_AREAS_BASE(
   p: DIALOG_MULTICHANNEL_GENERATE_RULE_AREAS_BASE_PROPS,
 ): JSX.Element {
   return (
-    <DialogShim title="Generate Multichannel Rule Areas" onClose={p.onCancel}>
+    <DialogShim title={_('Generate Multichannel Rule Areas')} onClose={p.onCancel}>
       {/* fgSizer3 = wxFlexGridSizer( 0, 1, 0, 0 ) */}
       <FlexGridSizer cols={1} growableCols={[0]} growableRows={[0]}>
         <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5} minSize={[600, 400]}>
@@ -54,13 +55,13 @@ export function DIALOG_MULTICHANNEL_GENERATE_RULE_AREAS_BASE(
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxALL} border={5}>
               <CheckBox
-                label="Replace existing placement rule areas"
+                label={_('Replace existing placement rule areas')}
                 check={p.m_cbReplaceExisting}
               />
             </SizerItem>
             <SizerItem flag={wxALL} border={5}>
               <CheckBox
-                label="Group footprints with their placement rule areas"
+                label={_('Group footprints with their placement rule areas')}
                 check={p.m_cbGroupItems}
               />
             </SizerItem>

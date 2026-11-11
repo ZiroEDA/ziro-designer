@@ -17,6 +17,7 @@ import type { PCB_ARC, PCB_TRACK } from '../pcb_track.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_TRACK_SEGMENT_LENGTH extends DRC_TEST_PROVIDER {
   override GetName(): string {
@@ -36,7 +37,7 @@ export class DRC_TEST_PROVIDER_TRACK_SEGMENT_LENGTH extends DRC_TEST_PROVIDER {
       return true; // continue with other tests
     }
 
-    if (!this.reportPhase('Checking track segment lengths...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking track segment lengths...'))) return false; // DRC cancelled
 
     const checkTrackSegmentLength = (idx: number): boolean => {
       const item: BOARD_ITEM = this.m_drcEngine!.GetBoard()!.Tracks()[idx]!;
@@ -91,11 +92,11 @@ export class DRC_TEST_PROVIDER_TRACK_SEGMENT_LENGTH extends DRC_TEST_PROVIDER {
         let constraintName = constraint.GetName();
 
         if (fail_min) {
-          if (constraint.m_ImplicitMin) constraintName = 'board setup constraints';
+          if (constraint.m_ImplicitMin) constraintName = _('board setup constraints');
 
           drcItem.SetErrorDetail(
             this.formatMsg(
-              '(%s min length %s; actual %s)',
+              _('(%s min length %s; actual %s)'),
               constraintName,
               constraintLength,
               actual,
@@ -104,7 +105,7 @@ export class DRC_TEST_PROVIDER_TRACK_SEGMENT_LENGTH extends DRC_TEST_PROVIDER {
         } else {
           drcItem.SetErrorDetail(
             this.formatMsg(
-              '(%s max length %s; actual %s)',
+              _('(%s max length %s; actual %s)'),
               constraintName,
               constraintLength,
               actual,

@@ -41,6 +41,8 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 type ENTRY = { value: string; onChange: (aText: string) => void };
 
@@ -50,14 +52,14 @@ type ENTRY = { value: string; onChange: (aText: string) => void };
  * static bitmap's tooltip.
  */
 export const REANNOTATE_SORT_BUTTONS: readonly { bitmap: string; tooltip: string }[] = [
-  { bitmap: 'reannotate_right_down', tooltip: 'Horizontally: top left to bottom right' },
-  { bitmap: 'reannotate_left_down', tooltip: 'Horizontally: top right to bottom left' },
-  { bitmap: 'reannotate_right_up', tooltip: 'Horizontally: bottom left to top right' },
-  { bitmap: 'reannotate_left_up', tooltip: 'Horizontally:: bottom right to top left' },
-  { bitmap: 'reannotate_down_left', tooltip: 'Vertically: top left to bottom right' },
-  { bitmap: 'reannotate_up_left', tooltip: 'Vertically: bottom left to top right' },
-  { bitmap: 'reannotate_down_right', tooltip: 'Vertically: top right to bottom left' },
-  { bitmap: 'reannotate_up_right', tooltip: 'Vertically: bottom right to top left' },
+  { bitmap: 'reannotate_right_down', tooltip: _HKI('Horizontally: top left to bottom right') },
+  { bitmap: 'reannotate_left_down', tooltip: _HKI('Horizontally: top right to bottom left') },
+  { bitmap: 'reannotate_right_up', tooltip: _HKI('Horizontally: bottom left to top right') },
+  { bitmap: 'reannotate_left_up', tooltip: _HKI('Horizontally:: bottom right to top left') },
+  { bitmap: 'reannotate_down_left', tooltip: _HKI('Vertically: top left to bottom right') },
+  { bitmap: 'reannotate_up_left', tooltip: _HKI('Vertically: bottom left to top right') },
+  { bitmap: 'reannotate_down_right', tooltip: _HKI('Vertically: top right to bottom left') },
+  { bitmap: 'reannotate_up_right', tooltip: _HKI('Vertically: bottom right to top left') },
 ];
 
 export interface DIALOG_BOARD_REANNOTATE_BASE_PROPS {
@@ -86,9 +88,10 @@ export interface DIALOG_BOARD_REANNOTATE_BASE_PROPS {
 }
 
 const CV = wxALIGN_CENTER_VERTICAL;
-const GRID_TIP =
-  'Component position will be rounded\nto this grid before sorting.\nThis helps with misaligned parts.';
-const EXCLUDE_TIP = 'Do not re-annotate this type \nof reference (R means R*)';
+const GRID_TIP = _HKI(
+  'Component position will be rounded\nto this grid before sorting.\nThis helps with misaligned parts.',
+);
+const EXCLUDE_TIP = _HKI('Do not re-annotate this type \nof reference (R means R*)');
 
 export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PROPS): JSX.Element {
   // A section heading: the label at wxTOP|wxRIGHT|wxLEFT 13, a wxStaticLine under it.
@@ -103,16 +106,16 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
     </>
   );
 
-  const scopes = ['All', 'Front', 'Back', 'Selection'];
+  const scopes = [_('All'), _('Front'), _('Back'), _('Selection')];
 
   return (
-    <DialogShim title="Geographical Reannotation" onClose={p.onCancel}>
+    <DialogShim title={_('Geographical Reannotation')} onClose={p.onCancel}>
       {/* bmainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
           {/* bSizerOpts */}
           <BoxSizer orient={wxVERTICAL}>
-            {heading('Footprint Order')}
+            {heading(_('Footprint Order'))}
             <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={10}>
               {/* fgSizerButtons = wxFlexGridSizer( 2, 23, 0, 0 ) */}
               <FlexGridSizer cols={23} growableCols={[2, 5, 8, 11, 14, 17, 20]}>
@@ -152,17 +155,17 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
               {/* fgSizerLocations = wxFlexGridSizer( 0, 4, 0, 0 ) */}
               <FlexGridSizer cols={4}>
                 <SizerItem flag={CV} border={5}>
-                  <StaticText label="Based on location of:" />
+                  <StaticText label={_('Based on location of:')} />
                 </SizerItem>
                 <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>
                   <Choice
-                    choices={['Footprint', 'Reference']}
+                    choices={[_('Footprint'), _('Reference')]}
                     choice={p.m_locationChoice}
                     ariaLabel="Based on location of"
                   />
                 </SizerItem>
                 <SizerItem flag={CV | wxLEFT} border={25}>
-                  <StaticText label="Round locations to:" title={GRID_TIP} />
+                  <StaticText label={_('Round locations to:')} title={GRID_TIP} />
                 </SizerItem>
                 <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>
                   <Choice
@@ -174,7 +177,7 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
                 </SizerItem>
               </FlexGridSizer>
             </SizerItem>
-            {heading('Reannotation Scope')}
+            {heading(_('Reannotation Scope'))}
             <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
               {/* fgSizer6111 = wxFlexGridSizer( 0, 5, 0, 0 ) */}
               <FlexGridSizer cols={5}>
@@ -192,16 +195,16 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
             </SizerItem>
             <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={10}>
               <CheckBox
-                label="Exclude locked footprints"
+                label={_('Exclude locked footprints')}
                 check={p.m_ExcludeLocked}
-                title="Locked footprints will not be reannotated"
+                title={_('Locked footprints will not be reannotated')}
               />
             </SizerItem>
             <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
               {/* bSizerExclusions */}
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem flag={wxALL | CV} border={5}>
-                  <StaticText label="Exclude references:" title={EXCLUDE_TIP} />
+                  <StaticText label={_('Exclude references:')} title={EXCLUDE_TIP} />
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxALL | CV} border={5}>
                   <TextCtrl
@@ -213,63 +216,67 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
                 </SizerItem>
               </BoxSizer>
             </SizerItem>
-            {heading('Reference Designators')}
+            {heading(_('Reference Designators'))}
             <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
               {/* gbSizer1, SetEmptyCellSize( wxSize( 40,10 ) ) */}
               <GridBagSizer emptyCellSize={[40, 10]} growableCols={[1, 4]}>
                 <SizerItem pos={[0, 0]} flag={CV | wxTOP | wxBOTTOM | wxLEFT} border={5}>
                   <StaticText
-                    label="Front reference start:"
-                    title="Starting reference designation for front."
+                    label={_('Front reference start:')}
+                    title={_('Starting reference designation for front.')}
                   />
                 </SizerItem>
                 <SizerItem pos={[0, 1]} flag={wxALL | wxEXPAND} border={5} minSize={[100, -1]}>
                   <TextCtrl
                     value={p.m_FrontRefDesStart.value}
                     onChange={p.m_FrontRefDesStart.onChange}
-                    title="Default is 1"
+                    title={_('Default is 1')}
                     ariaLabel="Front reference start"
                   />
                 </SizerItem>
                 <SizerItem pos={[0, 3]} flag={CV | wxTOP | wxBOTTOM | wxLEFT} border={5}>
                   <StaticText
-                    label="Back reference start:"
-                    title="Blank continues from front or enter a number greater than the highest reference designation on the front."
+                    label={_('Back reference start:')}
+                    title={_(
+                      'Blank continues from front or enter a number greater than the highest reference designation on the front.',
+                    )}
                   />
                 </SizerItem>
                 <SizerItem pos={[0, 4]} flag={wxALL | wxEXPAND} border={5} minSize={[100, -1]}>
                   <TextCtrl
                     value={p.m_BackRefDesStart.value}
                     onChange={p.m_BackRefDesStart.onChange}
-                    title="Leave blank or zero, or enter a number greater than the highest reference designation on the front."
+                    title={_(
+                      'Leave blank or zero, or enter a number greater than the highest reference designation on the front.',
+                    )}
                     ariaLabel="Back reference start"
                   />
                 </SizerItem>
                 <SizerItem pos={[1, 0]} flag={CV | wxBOTTOM | wxLEFT} border={5}>
                   <StaticText
-                    label="Front prefix:"
-                    title="Optional prefix for component side reference designations (e.g. F_)"
+                    label={_('Front prefix:')}
+                    title={_('Optional prefix for component side reference designations (e.g. F_)')}
                   />
                 </SizerItem>
                 <SizerItem pos={[1, 1]} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                   <TextCtrl
                     value={p.m_FrontPrefix.value}
                     onChange={p.m_FrontPrefix.onChange}
-                    title="Optional prefix for component side reference designations (e.g. F_)"
+                    title={_('Optional prefix for component side reference designations (e.g. F_)')}
                     ariaLabel="Front prefix"
                   />
                 </SizerItem>
                 <SizerItem pos={[1, 3]} flag={CV | wxBOTTOM | wxLEFT} border={5}>
                   <StaticText
-                    label="Back prefix:"
-                    title="Optional prefix for solder side reference designations (e.g. B_)"
+                    label={_('Back prefix:')}
+                    title={_('Optional prefix for solder side reference designations (e.g. B_)')}
                   />
                 </SizerItem>
                 <SizerItem pos={[1, 4]} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                   <TextCtrl
                     value={p.m_BackPrefix.value}
                     onChange={p.m_BackPrefix.onChange}
-                    title="Optional prefix for solder side reference designations (e.g. B_)"
+                    title={_('Optional prefix for solder side reference designations (e.g. B_)')}
                     ariaLabel="Back prefix"
                   />
                 </SizerItem>
@@ -280,11 +287,11 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
                   border={5}
                 >
                   <CheckBox
-                    label="Remove front prefix"
+                    label={_('Remove front prefix')}
                     check={p.m_RemoveFrontPrefix}
-                    title={
-                      'If checked will remove the front side prefix\nin the front prefix box if present'
-                    }
+                    title={_(
+                      'If checked will remove the front side prefix\nin the front prefix box if present',
+                    )}
                   />
                 </SizerItem>
                 <SizerItem
@@ -294,11 +301,11 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
                   border={5}
                 >
                   <CheckBox
-                    label="Remove back prefix"
+                    label={_('Remove back prefix')}
                     check={p.m_RemoveBackPrefix}
-                    title={
-                      'If checked will remove the Back side prefix\nin the back prefix box if present'
-                    }
+                    title={_(
+                      'If checked will remove the Back side prefix\nin the back prefix box if present',
+                    )}
                   />
                 </SizerItem>
               </GridBagSizer>
@@ -324,8 +331,8 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
               <StdDialogButtonSizer
-                okLabel="Reannotate PCB"
-                cancelLabel="Close"
+                okLabel={_('Reannotate PCB')}
+                cancelLabel={_('Close')}
                 onOk={p.onOK}
                 onCancel={p.onCancel}
               />

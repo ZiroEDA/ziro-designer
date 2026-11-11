@@ -18,6 +18,7 @@ import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { type BOARD, BOARD_LISTENER } from '../board.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The dialog's checkboxes (`dialog_find_base.cpp`). */
 export interface FIND_OPTIONS {
@@ -235,7 +236,7 @@ export class DIALOG_FIND {
 
     // Refresh the list of results
     if (!this.m_upToDate) {
-      this.m_status = 'Searching...';
+      this.m_status = _('Searching...');
       this.m_hitList = [];
 
       if (o.includeTexts || o.includeValues || o.includeReferences) {
@@ -333,8 +334,8 @@ export class DIALOG_FIND {
       this.m_status = msg;
     } else if (endIsReached || this.m_it === end) {
       this.m_frame.SetStatusText('');
-      this.m_frame.ShowInfoBarMsg('No more items to show');
-      this.m_status = 'No hits';
+      this.m_frame.ShowInfoBarMsg(_('No more items to show'));
+      this.m_status = _('No hits');
     } else {
       const mgr = this.m_frame.GetToolManager()!;
       mgr.RunAction(ACTIONS.selectionClear);

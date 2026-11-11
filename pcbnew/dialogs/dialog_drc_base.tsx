@@ -49,6 +49,7 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A wxDataViewCtrl over an RC_TREE_MODEL, with its three connected events. */
 export interface DATA_VIEW {
@@ -190,7 +191,10 @@ export function DIALOG_DRC_BASE(p: DIALOG_DRC_BASE_PROPS): JSX.Element {
               flag={wxALIGN_CENTER_VERTICAL | wxTOP | wxRIGHT | wxLEFT}
               border={5}
             >
-              <CheckBox label="Refill all zones before performing DRC" check={p.m_cbRefillZones} />
+              <CheckBox
+                label={_('Refill all zones before performing DRC')}
+                check={p.m_cbRefillZones}
+              />
             </SizerItem>
             <SizerItem
               pos={[0, 1]}
@@ -199,7 +203,7 @@ export function DIALOG_DRC_BASE(p: DIALOG_DRC_BASE_PROPS): JSX.Element {
               shown={p.testFootprintsShown}
             >
               <CheckBox
-                label="Test for parity between PCB and schematic"
+                label={_('Test for parity between PCB and schematic')}
                 check={p.m_cbTestFootprints}
               />
             </SizerItem>
@@ -231,7 +235,7 @@ export function DIALOG_DRC_BASE(p: DIALOG_DRC_BASE_PROPS): JSX.Element {
                     onPageChanged={() => {}}
                     pages={[
                       {
-                        text: 'Tests Running...',
+                        text: _('Tests Running...'),
                         content: (
                           // bSizer10
                           <BoxSizer orient={wxVERTICAL}>
@@ -320,7 +324,7 @@ export function DIALOG_DRC_BASE(p: DIALOG_DRC_BASE_PROPS): JSX.Element {
                             </SizerItem>
                             <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                               <HyperlinkCtrl
-                                label="Edit ignored tests"
+                                label={_('Edit ignored tests')}
                                 onClick={p.onEditViolationSeverities}
                               />
                             </SizerItem>
@@ -342,26 +346,26 @@ export function DIALOG_DRC_BASE(p: DIALOG_DRC_BASE_PROPS): JSX.Element {
               {/* bSeveritySizer */}
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="Show:" />
+                  <StaticText label={_('Show:')} />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
-                  <CheckBox label="All" check={p.m_showAll} />
+                  <CheckBox label={_('All')} check={p.m_showAll} />
                 </SizerItem>
                 <Spacer width={35} height={0} flag={wxEXPAND} border={5} />
                 <SeverityBox
-                  label="Errors"
+                  label={_('Errors')}
                   check={p.m_showErrors}
                   badge={p.m_errorsBadge}
                   severity={RPT_SEVERITY_ERROR}
                 />
                 <SeverityBox
-                  label="Warnings"
+                  label={_('Warnings')}
                   check={p.m_showWarnings}
                   badge={p.m_warningsBadge}
                   severity={RPT_SEVERITY_WARNING}
                 />
                 <SeverityBox
-                  label="Exclusions"
+                  label={_('Exclusions')}
                   check={p.m_showExclusions}
                   badge={p.m_exclusionsBadge}
                   severity={RPT_SEVERITY_EXCLUSION}
@@ -369,7 +373,7 @@ export function DIALOG_DRC_BASE(p: DIALOG_DRC_BASE_PROPS): JSX.Element {
                 <Spacer width={5} height={0} proportion={1} flag={wxEXPAND} border={5} />
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                   <Button
-                    label="Save..."
+                    label={_('Save...')}
                     disabled={!p.saveReportEnabled}
                     onClick={p.onSaveReport}
                   />
@@ -383,14 +387,14 @@ export function DIALOG_DRC_BASE(p: DIALOG_DRC_BASE_PROPS): JSX.Element {
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={10}>
               <Button
-                label="Delete Marker"
+                label={_('Delete Marker')}
                 disabled={!p.deleteEnabled}
                 onClick={p.onDeleteOneClick}
               />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
               <Button
-                label="Delete All Markers"
+                label={_('Delete All Markers')}
                 disabled={!p.deleteEnabled}
                 onClick={p.onDeleteAllClick}
               />
@@ -399,7 +403,7 @@ export function DIALOG_DRC_BASE(p: DIALOG_DRC_BASE_PROPS): JSX.Element {
               <StdDialogButtonSizer
                 onOk={p.onRunDRCClick}
                 onCancel={p.onCancelClick}
-                okLabel="Run DRC"
+                okLabel={_('Run DRC')}
                 cancelLabel={p.cancelLabel}
                 okDisabled={!p.okEnabled}
               />

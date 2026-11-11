@@ -45,6 +45,7 @@ import {
 } from '@ziroeda/wx/sizer.js';
 import type { FIELD } from './dialog_text_properties_base.js';
 import type { BOUND_CONTROL, GEOM_PAGE } from './dialog_shape_properties.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const CV = wxALIGN_CENTER_VERTICAL;
 
@@ -175,13 +176,13 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
           />
         </SizerItem>
         <SizerItem flag={wxALL} border={10} shown={p.m_locked.shown}>
-          <CheckBox label="Locked" check={p.m_locked} />
+          <CheckBox label={_('Locked')} check={p.m_locked} />
         </SizerItem>
         <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={5} shown={p.m_cbRoundRect.shown}>
           {/* bSizerRoundRect */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALL | CV} border={5}>
-              <CheckBox label="Rounded rectangle" check={p.m_cbRoundRect} />
+              <CheckBox label={_('Rounded rectangle')} check={p.m_cbRoundRect} />
             </SizerItem>
             <Spacer width={15} height={0} proportion={1} flag={wxEXPAND} border={5} />
             <SizerItem flag={CV | wxTOP | wxBOTTOM | wxLEFT} border={5}>
@@ -208,7 +209,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
               <GridBagSizer vgap={2} hgap={5} emptyCellSize={[-1, 6]} growableCols={[1]}>
                 {unitField(0, p.m_thickness, [140, -1])}
                 <SizerItem pos={[1, 0]} flag={CV | wxLEFT} border={5}>
-                  <StaticText label="Line style:" />
+                  <StaticText label={_('Line style:')} />
                 </SizerItem>
                 <SizerItem
                   pos={[1, 1]}
@@ -225,7 +226,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                   />
                 </SizerItem>
                 <SizerItem pos={[2, 0]} flag={wxALL | CV} border={5} shown={p.m_fillCtrl.shown}>
-                  <StaticText label="Fill:" />
+                  <StaticText label={_('Fill:')} />
                 </SizerItem>
                 <SizerItem
                   pos={[2, 1]}
@@ -235,13 +236,19 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                   shown={p.m_fillCtrl.shown}
                 >
                   <Choice
-                    choices={['None', 'Solid', 'Hatch', 'Reverse Hatch', 'Cross-hatch']}
+                    choices={[
+                      _('None'),
+                      _('Solid'),
+                      _('Hatch'),
+                      _('Reverse Hatch'),
+                      _('Cross-hatch'),
+                    ]}
                     choice={p.m_fillCtrl}
                     ariaLabel="Fill"
                   />
                 </SizerItem>
                 <SizerItem pos={[4, 0]} flag={CV | wxLEFT} border={5} shown={p.m_netSelector.shown}>
-                  <StaticText label="Net:" disabled={!p.m_netSelector.enabled} />
+                  <StaticText label={_('Net:')} disabled={!p.m_netSelector.enabled} />
                 </SizerItem>
                 <SizerItem
                   pos={[4, 1]}
@@ -258,7 +265,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                   />
                 </SizerItem>
                 <SizerItem pos={[6, 0]} flag={CV | wxLEFT} border={5}>
-                  <StaticText label="Layer:" />
+                  <StaticText label={_('Layer:')} />
                 </SizerItem>
                 <SizerItem pos={[6, 1]} span={[1, 2]} flag={CV | wxEXPAND | wxRIGHT} border={5}>
                   <Combo
@@ -276,7 +283,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                 <SizerItem flag={wxALL} border={5}>
                   {/* SetFont( KIUI::GetSmallInfoFont( this ) ) */}
                   <StaticText
-                    label="Technical Layers"
+                    label={_('Technical Layers')}
                     font="smallInfo"
                     disabled={!p.techLayersEnabled}
                   />
@@ -291,7 +298,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
               <FlexGridSizer cols={5} growableCols={[1, 3]}>
                 <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>
                   <CheckBox
-                    label="Solder mask"
+                    label={_('Solder mask')}
                     check={{ ...p.m_hasSolderMask, enabled: p.techLayersEnabled }}
                   />
                 </SizerItem>

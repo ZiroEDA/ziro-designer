@@ -52,6 +52,8 @@ import type { PCB_TEXT } from '../pcb_text.js';
 import type { PCB_TEXTBOX } from '../pcb_textbox.js';
 import type { PCB_VIA } from '../pcb_track.js';
 import type { ZONE } from '../zone.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `PCB_EDIT_FRAME`, as far as `search_handlers.cpp` reads it. */
 export interface PcbSearchFrame {
@@ -216,15 +218,15 @@ export abstract class PCB_SEARCH_HANDLER implements SearchHandler {
 export class FOOTPRINT_SEARCH_HANDLER extends PCB_SEARCH_HANDLER {
   constructor(aFrame: PcbSearchFrame, aWiring: PcbSearchWiring) {
     super(
-      'Footprints',
+      _HKI('Footprints'),
       [
-        { name: 'Reference', proportion: 2, align: 'left' },
-        { name: 'Value', proportion: 6, align: 'left' },
-        { name: 'Layer', proportion: 2, align: 'center' },
+        { name: _HKI('Reference'), proportion: 2, align: 'left' },
+        { name: _HKI('Value'), proportion: 6, align: 'left' },
+        { name: _HKI('Layer'), proportion: 2, align: 'center' },
         { name: 'X', proportion: 3, align: 'center' },
         { name: 'Y', proportion: 3, align: 'center' },
-        { name: 'Library Link', proportion: 8, align: 'left' },
-        { name: 'Library Description', proportion: 10, align: 'left' },
+        { name: _HKI('Library Link'), proportion: 8, align: 'left' },
+        { name: _HKI('Library Description'), proportion: 10, align: 'left' },
       ],
       aFrame,
       aWiring,
@@ -280,15 +282,15 @@ export class FOOTPRINT_SEARCH_HANDLER extends PCB_SEARCH_HANDLER {
 export class ZONE_SEARCH_HANDLER extends PCB_SEARCH_HANDLER {
   constructor(aFrame: PcbSearchFrame, aWiring: PcbSearchWiring) {
     super(
-      'Zones',
+      _HKI('Zones'),
       [
-        { name: 'Name', proportion: 6, align: 'left' },
-        { name: 'Net', proportion: 6, align: 'left' },
-        { name: 'Layer', proportion: 3, align: 'center' },
-        { name: 'Priority', proportion: 2, align: 'center' },
+        { name: _HKI('Name'), proportion: 6, align: 'left' },
+        { name: _HKI('Net'), proportion: 6, align: 'left' },
+        { name: _HKI('Layer'), proportion: 3, align: 'center' },
+        { name: _HKI('Priority'), proportion: 2, align: 'center' },
         { name: 'X', proportion: 3, align: 'center' },
         { name: 'Y', proportion: 3, align: 'center' },
-        { name: 'Area', proportion: 3, align: 'right' },
+        { name: _HKI('Area'), proportion: 3, align: 'right' },
       ],
       aFrame,
       aWiring,
@@ -356,9 +358,9 @@ export class TEXT_SEARCH_HANDLER extends PCB_SEARCH_HANDLER {
     super(
       'Text',
       [
-        { name: 'Type', proportion: 2, align: 'left' },
+        { name: _HKI('Type'), proportion: 2, align: 'left' },
         { name: 'Text', proportion: 12, align: 'left' },
-        { name: 'Layer', proportion: 3, align: 'center' },
+        { name: _HKI('Layer'), proportion: 3, align: 'center' },
         { name: 'X', proportion: 3, align: 'center' },
         { name: 'Y', proportion: 3, align: 'center' },
       ],
@@ -415,10 +417,10 @@ export class TEXT_SEARCH_HANDLER extends PCB_SEARCH_HANDLER {
 export class GROUP_SEARCH_HANDLER extends PCB_SEARCH_HANDLER {
   constructor(aFrame: PcbSearchFrame, aWiring: PcbSearchWiring) {
     super(
-      'Groups',
+      _HKI('Groups'),
       [
-        { name: 'Type', proportion: 2, align: 'left' },
-        { name: 'Name', proportion: 6, align: 'left' },
+        { name: _HKI('Type'), proportion: 2, align: 'left' },
+        { name: _HKI('Name'), proportion: 6, align: 'left' },
         { name: 'X', proportion: 3, align: 'center' },
         { name: 'Y', proportion: 3, align: 'center' },
       ],
@@ -466,8 +468,8 @@ abstract class NET_LIST_SEARCH_HANDLER extends PCB_SEARCH_HANDLER {
     super(
       aName,
       [
-        { name: 'Name', proportion: 6, align: 'left' },
-        { name: 'Class', proportion: 6, align: 'left' },
+        { name: _HKI('Name'), proportion: 6, align: 'left' },
+        { name: _HKI('Class'), proportion: 6, align: 'left' },
       ],
       aFrame,
       aWiring,
@@ -501,14 +503,14 @@ abstract class NET_LIST_SEARCH_HANDLER extends PCB_SEARCH_HANDLER {
   }
 
   override activateItem(_aItemRow: number): void {
-    this.m_wiring.showBoardSetupDialog('Net Classes');
+    this.m_wiring.showBoardSetupDialog(_('Net Classes'));
   }
 }
 
 /** `NETS_SEARCH_HANDLER`. */
 export class NETS_SEARCH_HANDLER extends NET_LIST_SEARCH_HANDLER {
   constructor(aFrame: PcbSearchFrame, aWiring: PcbSearchWiring) {
-    super('Nets', aFrame, aWiring);
+    super(_HKI('Nets'), aFrame, aWiring);
   }
 
   search(aQuery: string): number {
@@ -532,7 +534,7 @@ export class NETS_SEARCH_HANDLER extends NET_LIST_SEARCH_HANDLER {
 /** `RATSNEST_SEARCH_HANDLER`. */
 export class RATSNEST_SEARCH_HANDLER extends NET_LIST_SEARCH_HANDLER {
   constructor(aFrame: PcbSearchFrame, aWiring: PcbSearchWiring) {
-    super('Ratsnest', aFrame, aWiring);
+    super(_HKI('Ratsnest'), aFrame, aWiring);
   }
 
   search(aQuery: string): number {
@@ -570,16 +572,16 @@ export class DRILL_SEARCH_HANDLER extends PCB_SEARCH_HANDLER {
 
   constructor(aFrame: PcbSearchFrame, aWiring: PcbSearchWiring) {
     super(
-      'Drills',
+      _HKI('Drills'),
       [
-        { name: 'Count', proportion: 2, align: 'right' },
-        { name: 'Shape', proportion: 3, align: 'left' },
-        { name: 'X Size', proportion: 3, align: 'center' },
-        { name: 'Y Size', proportion: 3, align: 'center' },
-        { name: 'Plated', proportion: 2, align: 'center' },
-        { name: 'Via/Pad', proportion: 2, align: 'center' },
-        { name: 'Start Layer', proportion: 4, align: 'center' },
-        { name: 'Stop Layer', proportion: 4, align: 'center' },
+        { name: _HKI('Count'), proportion: 2, align: 'right' },
+        { name: _HKI('Shape'), proportion: 3, align: 'left' },
+        { name: _HKI('X Size'), proportion: 3, align: 'center' },
+        { name: _HKI('Y Size'), proportion: 3, align: 'center' },
+        { name: _HKI('Plated'), proportion: 2, align: 'center' },
+        { name: _HKI('Via/Pad'), proportion: 2, align: 'center' },
+        { name: _HKI('Start Layer'), proportion: 4, align: 'center' },
+        { name: _HKI('Stop Layer'), proportion: 4, align: 'center' },
       ],
       aFrame,
       aWiring,
@@ -738,15 +740,15 @@ export class DRILL_SEARCH_HANDLER extends PCB_SEARCH_HANDLER {
       case 0:
         return `${e.qty}`;
       case 1:
-        return e.shape === PAD_DRILL_SHAPE.CIRCLE ? 'Round' : 'Slot';
+        return e.shape === PAD_DRILL_SHAPE.CIRCLE ? _('Round') : _('Slot');
       case 2:
         return this.m_frame.MessageTextFromValue(e.xSize);
       case 3:
         return this.m_frame.MessageTextFromValue(e.ySize);
       case 4:
-        return e.isPlated ? 'PTH' : 'NPTH';
+        return e.isPlated ? _('PTH') : _('NPTH');
       case 5:
-        return e.isPad ? 'Pad' : 'Via';
+        return e.isPad ? _('Pad') : _('Via');
       case 6:
         return e.startLayer === PCB_LAYER_ID.UNDEFINED_LAYER
           ? 'N/A'

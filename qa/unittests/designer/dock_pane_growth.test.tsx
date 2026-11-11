@@ -152,7 +152,8 @@ describe('the Selection Filter: dock_proportion = 0', () => {
   it("does not grow in pcbnew's right dock (pcb_edit_frame.cpp:422)", () => {
     const cls = paneClassOf(
       'pcbnew/pcb_edit_frame_ui.tsx',
-      '<div className="ze-panel-header">Selection Filter</div>',
+      // Translated as it draws; this file says wxGetTranslation(), which `_` is.
+      '<div className="ze-panel-header">{wxGetTranslation(\'Selection Filter\')}</div>',
     );
     expect(flexOf('ze-rightdock', cls).flexGrow).toBe('0');
   });

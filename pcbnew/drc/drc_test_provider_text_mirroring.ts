@@ -16,6 +16,7 @@ import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_TEXT_MIRRORING extends DRC_TEST_PROVIDER {
   override GetName(): string {
@@ -31,7 +32,7 @@ export class DRC_TEST_PROVIDER_TEXT_MIRRORING extends DRC_TEST_PROVIDER {
       return true; // continue with other tests
     }
 
-    if (!this.reportPhase('Checking text mirroring...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking text mirroring...'))) return false; // DRC cancelled
 
     const topLayers = new LSET([
       PCB_LAYER_ID.F_Cu,

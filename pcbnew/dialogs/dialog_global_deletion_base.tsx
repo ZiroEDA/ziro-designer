@@ -26,6 +26,7 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_GLOBAL_DELETION_BASE_PROPS {
   m_delZones: CHECK;
@@ -59,41 +60,41 @@ const BRL = wxBOTTOM | wxRIGHT | wxLEFT;
 
 export function DIALOG_GLOBAL_DELETION_BASE(p: DIALOG_GLOBAL_DELETION_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Delete Items" onClose={p.onCancel}>
+    <DialogShim title={_('Delete Items')} onClose={p.onCancel}>
       {/* bSizerMain */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
           {/* bSizerUpper */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxEXPAND | wxALL} border={5}>
-              <StaticBoxSizer label="Items to Delete" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Items to Delete')} orient={wxVERTICAL}>
                 <SizerItem flag={BRL} border={5}>
-                  <CheckBox label="Zones" check={p.m_delZones} />
+                  <CheckBox label={_('Zones')} check={p.m_delZones} />
                 </SizerItem>
                 <SizerItem flag={BRL} border={5}>
-                  <CheckBox label="Text" check={p.m_delTexts} />
+                  <CheckBox label={_('Text')} check={p.m_delTexts} />
                 </SizerItem>
                 <SizerItem flag={BRL} border={5}>
-                  <CheckBox label="Board outlines" check={p.m_delBoardEdges} />
+                  <CheckBox label={_('Board outlines')} check={p.m_delBoardEdges} />
                 </SizerItem>
                 <SizerItem flag={BRL} border={5}>
-                  <CheckBox label="Graphics" check={p.m_delDrawings} />
+                  <CheckBox label={_('Graphics')} check={p.m_delDrawings} />
                 </SizerItem>
                 <SizerItem flag={BRL} border={5}>
-                  <CheckBox label="Footprints" check={p.m_delFootprints} />
+                  <CheckBox label={_('Footprints')} check={p.m_delFootprints} />
                 </SizerItem>
                 <SizerItem flag={BRL} border={5}>
                   {/* "Tracks && vias": && is a literal & */}
-                  <CheckBox label="Tracks & vias" check={p.m_delTracks} />
+                  <CheckBox label={_('Tracks & vias')} check={p.m_delTracks} />
                 </SizerItem>
                 <SizerItem flag={BRL} border={5}>
-                  <CheckBox label="Teardrops" check={p.m_delTeardrops} />
+                  <CheckBox label={_('Teardrops')} check={p.m_delTeardrops} />
                 </SizerItem>
                 <SizerItem flag={BRL} border={5}>
-                  <CheckBox label="Markers" check={p.m_delMarkers} />
+                  <CheckBox label={_('Markers')} check={p.m_delMarkers} />
                 </SizerItem>
                 <SizerItem flag={BRL} border={5}>
-                  <CheckBox label="Clear board" check={p.m_delAll} />
+                  <CheckBox label={_('Clear board')} check={p.m_delAll} />
                 </SizerItem>
               </StaticBoxSizer>
             </SizerItem>
@@ -101,36 +102,42 @@ export function DIALOG_GLOBAL_DELETION_BASE(p: DIALOG_GLOBAL_DELETION_BASE_PROPS
               {/* bSizerRight */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxBOTTOM | wxLEFT} border={5}>
-                  <StaticBoxSizer label="Filter Settings" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Filter Settings')} orient={wxVERTICAL}>
                     <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                       {/* fgSizer2 = wxFlexGridSizer( 0, 1, 3, 0 ) */}
                       <FlexGridSizer cols={1} vgap={3} hgap={0}>
                         <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-                          <CheckBox label="Locked graphics" check={p.m_drawingFilterLocked} />
-                        </SizerItem>
-                        <SizerItem flag={BRL} border={5}>
-                          <CheckBox label="Unlocked graphics" check={p.m_drawingFilterUnlocked} />
-                        </SizerItem>
-                        <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                          <CheckBox label="Locked footprints" check={p.m_footprintFilterLocked} />
+                          <CheckBox label={_('Locked graphics')} check={p.m_drawingFilterLocked} />
                         </SizerItem>
                         <SizerItem flag={BRL} border={5}>
                           <CheckBox
-                            label="Unlocked footprints"
+                            label={_('Unlocked graphics')}
+                            check={p.m_drawingFilterUnlocked}
+                          />
+                        </SizerItem>
+                        <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
+                          <CheckBox
+                            label={_('Locked footprints')}
+                            check={p.m_footprintFilterLocked}
+                          />
+                        </SizerItem>
+                        <SizerItem flag={BRL} border={5}>
+                          <CheckBox
+                            label={_('Unlocked footprints')}
                             check={p.m_footprintFilterUnlocked}
                           />
                         </SizerItem>
                         <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                          <CheckBox label="Locked tracks" check={p.m_trackFilterLocked} />
+                          <CheckBox label={_('Locked tracks')} check={p.m_trackFilterLocked} />
                         </SizerItem>
                         <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-                          <CheckBox label="Unlocked tracks" check={p.m_trackFilterUnlocked} />
+                          <CheckBox label={_('Unlocked tracks')} check={p.m_trackFilterUnlocked} />
                         </SizerItem>
                         <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-                          <CheckBox label="Locked vias" check={p.m_viaFilterLocked} />
+                          <CheckBox label={_('Locked vias')} check={p.m_viaFilterLocked} />
                         </SizerItem>
                         <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-                          <CheckBox label="Unlocked vias" check={p.m_viaFilterUnlocked} />
+                          <CheckBox label={_('Unlocked vias')} check={p.m_viaFilterUnlocked} />
                         </SizerItem>
                       </FlexGridSizer>
                     </SizerItem>
@@ -142,7 +149,7 @@ export function DIALOG_GLOBAL_DELETION_BASE(p: DIALOG_GLOBAL_DELETION_BASE_PROPS
         </SizerItem>
         <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={10}>
           <RadioBox
-            label="Layer Filter"
+            label={_('Layer Filter')}
             choices={p.m_rbLayersOption.choices}
             selection={p.m_rbLayersOption.selection}
             onChange={p.m_rbLayersOption.onChange}

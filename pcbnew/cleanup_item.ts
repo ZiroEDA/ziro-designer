@@ -12,6 +12,7 @@
  */
 import { RC_ITEM, RC_ITEMS_PROVIDER } from '@ziroeda/common/rc_item.js';
 import { PCB_DRC_CODE } from './drc/drc_item.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `CLEANUP_FIRST = DRCE_LAST + 1` (cleanup_item.h:29): where the cleanup codes
@@ -50,37 +51,37 @@ export function cleanupErrorText(aCode: number): string {
   switch (aCode) {
     // For cleanup tracks and vias:
     case C.CLEANUP_SHORTING_TRACK:
-      return 'Remove track shorting two nets';
+      return _HKI('Remove track shorting two nets');
     case C.CLEANUP_SHORTING_VIA:
-      return 'Remove via shorting two nets';
+      return _HKI('Remove via shorting two nets');
     case C.CLEANUP_REDUNDANT_VIA:
-      return 'Remove redundant via';
+      return _HKI('Remove redundant via');
     case C.CLEANUP_DUPLICATE_TRACK:
-      return 'Remove duplicate track';
+      return _HKI('Remove duplicate track');
     case C.CLEANUP_MERGE_TRACKS:
-      return 'Merge co-linear tracks';
+      return _HKI('Merge co-linear tracks');
     case C.CLEANUP_DANGLING_TRACK:
-      return 'Remove track not connected at both ends';
+      return _HKI('Remove track not connected at both ends');
     case C.CLEANUP_DANGLING_VIA:
-      return 'Remove via connected on less than 2 layers';
+      return _HKI('Remove via connected on less than 2 layers');
     case C.CLEANUP_ZERO_LENGTH_TRACK:
-      return 'Remove zero-length track';
+      return _HKI('Remove zero-length track');
     case C.CLEANUP_TRACK_IN_PAD:
-      return 'Remove track inside pad';
+      return _HKI('Remove track inside pad');
 
     // For cleanup graphics:
     case C.CLEANUP_NULL_GRAPHIC:
-      return 'Remove zero-size graphic';
+      return _HKI('Remove zero-size graphic');
     case C.CLEANUP_DUPLICATE_GRAPHIC:
-      return 'Remove duplicated graphic';
+      return _HKI('Remove duplicated graphic');
     case C.CLEANUP_LINES_TO_RECT:
-      return 'Convert lines to rectangle';
+      return _HKI('Convert lines to rectangle');
     case C.CLEANUP_MERGE_PAD:
-      return 'Merge overlapping shapes into pad';
+      return _HKI('Merge overlapping shapes into pad');
 
     default:
       // wxFAIL_MSG( wxT( "Missing cleanup item description" ) )
-      return 'Unknown cleanup action';
+      return _HKI('Unknown cleanup action');
   }
 }
 

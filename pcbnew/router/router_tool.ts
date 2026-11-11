@@ -121,6 +121,8 @@ import { KeyNameFromKeyCode, PSEUDO_WXK_CLICK } from '@ziroeda/common/hotkeys_ba
 import { MD_CTRL } from '@ziroeda/common/tool/tool_event.js';
 import { ROUTER_STATUS_VIEW_ITEM } from './router_status_view_item.js';
 import { DIALOG_PNS_SETTINGS } from '../dialogs/dialog_pns_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** One row of either menu. */
 export interface RouterSizeMenuItem {
@@ -165,18 +167,18 @@ export function trackWidthMenuItems(
   const useIndex = !aUseConnectedTrackWidth && !aBds.UseCustomTrackViaSize();
   const items: RouterSizeMenuItem[] = [
     {
-      label: 'Use Starting Track Width',
+      label: _('Use Starting Track Width'),
       checked: aUseConnectedTrackWidth && !aBds.UseCustomTrackViaSize(),
       action: { kind: 'useStartingWidth' },
     },
     {
-      label: 'Use Net Class Values',
+      label: _('Use Net Class Values'),
       // Both indices, not one: the row covers the track AND the via.
       checked: useIndex && aBds.GetTrackWidthIndex() === 0 && aBds.GetViaSizeIndex() === 0,
       action: { kind: 'useNetclass' },
     },
     {
-      label: 'Use Custom Values...',
+      label: _('Use Custom Values...'),
       checked: aBds.UseCustomTrackViaSize(),
       action: { kind: 'useCustom' },
       separatorAfter: true,
@@ -185,7 +187,7 @@ export function trackWidthMenuItems(
 
   aTrackWidthList.forEach((width, i) => {
     items.push({
-      label: i === 0 ? 'Track netclass width' : `Track ${aText(width)}`,
+      label: i === 0 ? _('Track netclass width') : `Track ${aText(width)}`,
       checked: useIndex && aBds.GetTrackWidthIndex() === i,
       action: { kind: 'index', index: i },
       separatorAfter: i === aTrackWidthList.length - 1,
@@ -195,7 +197,7 @@ export function trackWidthMenuItems(
   aViasDimensionsList.forEach((via, i) => {
     let label: string;
 
-    if (i === 0) label = 'Via netclass values';
+    if (i === 0) label = _('Via netclass values');
     else if (via.m_Drill > 0) label = `Via ${aText(via.m_Diameter)}, hole ${aText(via.m_Drill)}`;
     else label = `Via ${aText(via.m_Diameter)}`;
 
@@ -226,13 +228,13 @@ export function diffPairMenuItems(
 ): RouterSizeMenuItem[] {
   const items: RouterSizeMenuItem[] = [
     {
-      label: 'Use Net Class Values',
+      label: _('Use Net Class Values'),
       // `!UseCustomDiffPairDimensions() && GetDiffPairIndex() == 0`.
       checked: !aBds.UseCustomDiffPairDimensions() && aBds.GetDiffPairIndex() === 0,
       action: { kind: 'useNetclass' },
     },
     {
-      label: 'Use Custom Values...',
+      label: _('Use Custom Values...'),
       checked: aBds.UseCustomDiffPairDimensions(),
       action: { kind: 'useCustom' },
       separatorAfter: true,
@@ -675,7 +677,7 @@ export function updateDragStatus(
   if (dragStatus.value) return null;
 
   const statusItem = new ROUTER_STATUS_VIEW_ITEM();
-  statusItem.SetMessage('Track violates DRC.');
+  statusItem.SetMessage(_('Track violates DRC.'));
   statusItem.SetHint(`(${KeyNameFromKeyCode(MD_CTRL + PSEUDO_WXK_CLICK)} to commit anyway.)`);
   statusItem.SetPosition({ x: Math.round(aMousePosition.x), y: Math.round(aMousePosition.y) });
   aView.AddToPreview(statusItem);
@@ -713,8 +715,8 @@ export const ACT_PlaceThroughVia = new TOOL_ACTION(
     .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
     .DefaultHotkey(ch('V'))
     .LegacyHotkeyName('Add Through Via')
-    .FriendlyName('Place Through Via')
-    .Tooltip('Adds a through-hole via at the end of currently routed track.')
+    .FriendlyName(_HKI('Place Through Via'))
+    .Tooltip(_HKI('Adds a through-hole via at the end of currently routed track.'))
     .Icon(BITMAPS.via)
     .Flags(TOOL_ACTION_FLAGS.AF_NONE)
     .Parameter(VIA_ACTION_FLAGS.VIA),
@@ -726,8 +728,8 @@ export const ACT_PlaceBlindVia = new TOOL_ACTION(
     .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
     .DefaultHotkey(MD_ALT + MD_SHIFT + ch('V'))
     .LegacyHotkeyName('Add Blind/Buried Via')
-    .FriendlyName('Place Blind/Buried Via')
-    .Tooltip('Adds a blind or buried via at the end of currently routed track.')
+    .FriendlyName(_HKI('Place Blind/Buried Via'))
+    .Tooltip(_HKI('Adds a blind or buried via at the end of currently routed track.'))
     .Icon(BITMAPS.via_buried)
     .Flags(TOOL_ACTION_FLAGS.AF_NONE)
     .Parameter(VIA_ACTION_FLAGS.BLIND_VIA),
@@ -739,8 +741,8 @@ export const ACT_PlaceMicroVia = new TOOL_ACTION(
     .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
     .DefaultHotkey(MD_CTRL + ch('V'))
     .LegacyHotkeyName('Add MicroVia')
-    .FriendlyName('Place Microvia')
-    .Tooltip('Adds a microvia at the end of currently routed track.')
+    .FriendlyName(_HKI('Place Microvia'))
+    .Tooltip(_HKI('Adds a microvia at the end of currently routed track.'))
     .Icon(BITMAPS.via_microvia)
     .Flags(TOOL_ACTION_FLAGS.AF_NONE)
     .Parameter(VIA_ACTION_FLAGS.MICROVIA),
@@ -752,8 +754,10 @@ export const ACT_SelLayerAndPlaceThroughVia = new TOOL_ACTION(
     .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
     .DefaultHotkey(ch('<'))
     .LegacyHotkeyName('Select Layer and Add Through Via')
-    .FriendlyName('Select Layer and Place Through Via...')
-    .Tooltip('Select a layer, then add a through-hole via at the end of currently routed track.')
+    .FriendlyName(_HKI('Select Layer and Place Through Via...'))
+    .Tooltip(
+      _HKI('Select a layer, then add a through-hole via at the end of currently routed track.'),
+    )
     .Icon(BITMAPS.select_w_layer)
     .Flags(TOOL_ACTION_FLAGS.AF_NONE)
     .Parameter(VIA_ACTION_FLAGS.VIA | VIA_ACTION_FLAGS.SELECT_LAYER),
@@ -765,8 +769,10 @@ export const ACT_SelLayerAndPlaceBlindVia = new TOOL_ACTION(
     .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
     .DefaultHotkey(MD_ALT + ch('<'))
     .LegacyHotkeyName('Select Layer and Add Blind/Buried Via')
-    .FriendlyName('Select Layer and Place Blind/Buried Via...')
-    .Tooltip('Select a layer, then add a blind or buried via at the end of currently routed track.')
+    .FriendlyName(_HKI('Select Layer and Place Blind/Buried Via...'))
+    .Tooltip(
+      _HKI('Select a layer, then add a blind or buried via at the end of currently routed track.'),
+    )
     .Icon(BITMAPS.select_w_layer)
     .Flags(TOOL_ACTION_FLAGS.AF_NONE)
     .Parameter(VIA_ACTION_FLAGS.BLIND_VIA | VIA_ACTION_FLAGS.SELECT_LAYER),
@@ -776,8 +782,8 @@ export const ACT_SelLayerAndPlaceMicroVia = new TOOL_ACTION(
   new TOOL_ACTION_ARGS()
     .Name('pcbnew.InteractiveRouter.SelLayerAndPlaceMicroVia')
     .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
-    .FriendlyName('Select Layer and Place Micro Via...')
-    .Tooltip('Select a layer, then add a micro via at the end of currently routed track.')
+    .FriendlyName(_HKI('Select Layer and Place Micro Via...'))
+    .Tooltip(_HKI('Select a layer, then add a micro via at the end of currently routed track.'))
     .Icon(BITMAPS.select_w_layer)
     .Flags(TOOL_ACTION_FLAGS.AF_NONE)
     .Parameter(VIA_ACTION_FLAGS.MICROVIA | VIA_ACTION_FLAGS.SELECT_LAYER),
@@ -789,8 +795,8 @@ export const ACT_CustomTrackWidth = new TOOL_ACTION(
     .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
     .DefaultHotkey(ch('Q'))
     .LegacyHotkeyName('Custom Track/Via Size')
-    .FriendlyName('Custom Track/Via Size...')
-    .Tooltip('Shows a dialog for changing the track width and via size.')
+    .FriendlyName(_HKI('Custom Track/Via Size...'))
+    .Tooltip(_HKI('Shows a dialog for changing the track width and via size.'))
     .Icon(BITMAPS.width_track),
 );
 
@@ -801,7 +807,7 @@ export const ACT_SwitchPosture = new TOOL_ACTION(
     .DefaultHotkey(ch('/'))
     .LegacyHotkeyName('Switch Track Posture')
     .FriendlyName('Switch Track Posture')
-    .Tooltip('Switches posture of the currently routed track.')
+    .Tooltip(_HKI('Switches posture of the currently routed track.'))
     .Icon(BITMAPS.change_entry_orient),
 );
 
@@ -811,8 +817,8 @@ export const ACT_SwitchCornerModeToNext = new TOOL_ACTION(
     .Name('pcbnew.InteractiveRouter.SwitchRoundingToNext')
     .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
     .DefaultHotkey(MD_CTRL + ch('/'))
-    .FriendlyName('Track Corner Mode Switch')
-    .Tooltip('Switches between sharp/rounded and 45°/90° corners when routing tracks.')
+    .FriendlyName(_HKI('Track Corner Mode Switch'))
+    .Tooltip(_HKI('Switches between sharp/rounded and 45°/90° corners when routing tracks.'))
     .Icon(BITMAPS.switch_corner_rounding_shape),
 );
 
@@ -822,8 +828,8 @@ export const ACT_SwitchCornerMode45 = new TOOL_ACTION(
     .Name('pcbnew.InteractiveRouter.SwitchRounding45')
     .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
     .DefaultHotkey(MD_CTRL + ch('W'))
-    .FriendlyName('Track Corner Mode 45')
-    .Tooltip('Switch to 45° corner when routing tracks.'),
+    .FriendlyName(_HKI('Track Corner Mode 45'))
+    .Tooltip(_HKI('Switch to 45° corner when routing tracks.')),
 );
 
 export const ACT_SwitchCornerMode90 = new TOOL_ACTION(
@@ -831,8 +837,8 @@ export const ACT_SwitchCornerMode90 = new TOOL_ACTION(
     .Name('pcbnew.InteractiveRouter.SwitchRounding90')
     .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
     .DefaultHotkey(MD_CTRL + MD_ALT + ch('W'))
-    .FriendlyName('Track Corner Mode 90')
-    .Tooltip('Switch to 90° corner when routing tracks.'),
+    .FriendlyName(_HKI('Track Corner Mode 90'))
+    .Tooltip(_HKI('Switch to 90° corner when routing tracks.')),
 );
 
 export const ACT_SwitchCornerModeArc45 = new TOOL_ACTION(
@@ -840,8 +846,8 @@ export const ACT_SwitchCornerModeArc45 = new TOOL_ACTION(
     .Name('pcbnew.InteractiveRouter.SwitchRoundingArc45')
     .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
     .DefaultHotkey(MD_CTRL + MD_SHIFT + ch('W'))
-    .FriendlyName('Track Corner Mode Arc 45')
-    .Tooltip('Switch to arc 45° corner when routing tracks.'),
+    .FriendlyName(_HKI('Track Corner Mode Arc 45'))
+    .Tooltip(_HKI('Switch to arc 45° corner when routing tracks.')),
 );
 
 export const ACT_SwitchCornerModeArc90 = new TOOL_ACTION(
@@ -849,8 +855,8 @@ export const ACT_SwitchCornerModeArc90 = new TOOL_ACTION(
     .Name('pcbnew.InteractiveRouter.SwitchRoundingArc90')
     .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
     .DefaultHotkey(MD_ALT + ch('W'))
-    .FriendlyName('Track Corner Mode Arc 90')
-    .Tooltip('Switch to arc 90° corner when routing tracks.'),
+    .FriendlyName(_HKI('Track Corner Mode Arc 90'))
+    .Tooltip(_HKI('Switch to arc 90° corner when routing tracks.')),
 );
 
 /** `getViaTypeFromFlags` (router_tool.cpp:1004-1019). */
@@ -902,7 +908,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
 
     const frame = this.getEditFrame<PCB_EDIT_FRAME>();
     const menu = this.m_menu.GetMenu();
-    menu.SetUntranslatedTitle('Interactive Router');
+    menu.SetUntranslatedTitle(_HKI('Interactive Router'));
 
     const mgr = frame.GetToolManager()!.GetActionManager();
 
@@ -964,7 +970,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
 
     // Add submenu for track corner mode handling
     const submenuCornerMode = new CONDITIONAL_MENU(this);
-    submenuCornerMode.SetTitle('Track Corner Mode');
+    submenuCornerMode.SetTitle(_('Track Corner Mode'));
     submenuCornerMode.SetIcon(BITMAPS.switch_corner_rounding_shape);
 
     submenuCornerMode.AddItem(ACT_SwitchCornerModeToNext, ShowAlways);
@@ -1159,7 +1165,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
       sizes.clearanceSource = constraint.GetName();
     } else {
       sizes.clearance = bds.m_MinClearance;
-      sizes.clearanceSource = 'board minimum clearance';
+      sizes.clearanceSource = _('board minimum clearance');
     }
 
     if (bds.UseNetClassTrack() || !sizes.trackWidthIsExplicit) {
@@ -1187,8 +1193,8 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
 
         if (sizes.trackWidth === constraint.m_Value.Opt()) sizes.widthSource = constraint.GetName();
         else if (sizes.trackWidth === bds.m_TrackMinWidth)
-          sizes.widthSource = 'board minimum track width';
-        else sizes.widthSource = 'existing track';
+          sizes.widthSource = _('board minimum track width');
+        else sizes.widthSource = _('existing track');
       }
     }
 
@@ -1219,7 +1225,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
 
         if (sizes.diffPairWidth === constraint.m_Value.Opt())
           sizes.diffPairWidthSource = constraint.GetName();
-        else sizes.diffPairWidthSource = 'board minimum track width';
+        else sizes.diffPairWidthSource = _('board minimum track width');
       }
 
       constraint = drcEngine.EvalRules(
@@ -1241,7 +1247,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
 
         if (sizes.diffPairGap === constraint.m_Value.Opt())
           sizes.diffPairGapSource = constraint.GetName();
-        else sizes.diffPairGapSource = 'board minimum clearance';
+        else sizes.diffPairGapSource = _('board minimum clearance');
       }
     }
 
@@ -1488,7 +1494,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
         // Do not create a broken via (i.e. a via on only one copper layer)
         if (currentLayer === targetLayer) {
           // `infobar->ShowMessageFor( …, 2000, wxICON_ERROR, DRC_VIOLATION )`.
-          this.editFrame().ShowInfoBarError('Via needs 2 different layers.');
+          this.editFrame().ShowInfoBarError(_('Via needs 2 different layers.'));
           return 0;
         }
       }
@@ -1559,7 +1565,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
     const pnsLayer = this.m_iface!.GetPNSLayerFromBoardLayer(pcbLayer);
 
     if (!IsCopperLayer(pcbLayer)) {
-      editFrame.ShowInfoBarError('Tracks on Copper layers only.');
+      editFrame.ShowInfoBarError(_('Tracks on Copper layers only.'));
       return false;
     }
 
@@ -1951,8 +1957,8 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
   private *confirmLocked(aOKLabel: string, aKey: string): COROUTINE_BODY<boolean> {
     const answer = yield* this.RunMainStackModal(() =>
       this.editFrame().AskKiDialog({
-        caption: 'Confirmation',
-        message: 'The selected item is locked.',
+        caption: _('Confirmation'),
+        message: _('The selected item is locked.'),
         icon: 'warning',
         labels: { ok: aOKLabel },
         doNotShowKey: aKey as never,
@@ -1975,7 +1981,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
 
     if (this.m_startItem?.isLocked()) {
       const ok = yield* this.confirmLocked(
-        'Drag Anyway',
+        _('Drag Anyway'),
         'pcbnew/router/router_tool.cpp:performDragging',
       );
 
@@ -2491,7 +2497,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
 
           if (dragger.getForceMarkObstaclesMode(dragStatus) && !dragStatus.value) {
             const statusItem = new ROUTER_STATUS_VIEW_ITEM();
-            statusItem.SetMessage('Track violates DRC.');
+            statusItem.SetMessage(_('Track violates DRC.'));
             statusItem.SetHint(
               `(${KeyNameFromKeyCode(MD_CTRL + PSEUDO_WXK_CLICK)} to commit anyway.)`,
             );
@@ -2622,7 +2628,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
 
     if (this.m_startItem?.isLocked()) {
       const ok = yield* this.confirmLocked(
-        'Break Track',
+        _('Break Track'),
         'pcbnew/router/router_tool.cpp:InlineBreakTrack',
       );
 
@@ -2926,8 +2932,8 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
       description = `Routing Track: ${net.GetNetname()}`;
       secondary = `Resolved Netclass: ${unescapeString(net.GetNetClass().GetHumanReadableName())}`;
     } else {
-      description = 'Routing Track';
-      secondary = '(no net)';
+      description = _('Routing Track');
+      secondary = _('(no net)');
     }
 
     items.push(new MSG_PANEL_ITEM(description, secondary));
@@ -2935,45 +2941,45 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
     let cornerMode = '';
 
     if (router.settings().freeAngleMode) {
-      cornerMode = 'Free-angle';
+      cornerMode = _('Free-angle');
     } else {
       switch (router.settings().cornerMode) {
         case CornerMode.MITERED_45:
-          cornerMode = '45-degree';
+          cornerMode = _('45-degree');
           break;
         case CornerMode.ROUNDED_45:
-          cornerMode = '45-degree rounded';
+          cornerMode = _('45-degree rounded');
           break;
         case CornerMode.MITERED_90:
-          cornerMode = '90-degree';
+          cornerMode = _('90-degree');
           break;
         case CornerMode.ROUNDED_90:
-          cornerMode = '90-degree rounded';
+          cornerMode = _('90-degree rounded');
           break;
         default:
           break;
       }
     }
 
-    items.push(new MSG_PANEL_ITEM('Corner Style', cornerMode));
+    items.push(new MSG_PANEL_ITEM(_('Corner Style'), cornerMode));
 
     let mode = '';
 
     switch (router.settings().routingMode) {
       case PnsMode.RM_MarkObstacles:
-        mode = 'Highlight collisions';
+        mode = _('Highlight collisions');
         break;
       case PnsMode.RM_Walkaround:
-        mode = 'Walk around';
+        mode = _('Walk around');
         break;
       case PnsMode.RM_Shove:
-        mode = 'Shove';
+        mode = _('Shove');
         break;
       default:
         break;
     }
 
-    items.push(new MSG_PANEL_ITEM('Mode', mode));
+    items.push(new MSG_PANEL_ITEM(_('Mode'), mode));
 
     const units = frame.GetUnitsProvider();
     const FORMAT_VALUE = (x: number): string => units.MessageTextFromValue(x);

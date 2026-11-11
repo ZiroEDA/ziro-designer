@@ -131,8 +131,9 @@ describe('the unset colour swatch is a checkerboard, not a flat grey', () => {
 });
 
 describe('the Nets tab carries the controls KiCad carries', () => {
-  const nets = block(PCB, '<span>Nets</span>', '</div>');
-  const classes = block(PCB, '<span>Net Classes</span>', '</div>');
+  // The section captions are translated as they draw.
+  const nets = block(PCB, "<span>{_('Nets')}</span>", '</div>');
+  const classes = block(PCB, "<span>{_('Net Classes')}</span>", '</div>');
 
   it('found both headers, so this cannot pass by scanning nothing', () => {
     expect(nets).toContain('ze-bitmap-btn');
@@ -145,11 +146,11 @@ describe('the Nets tab carries the controls KiCad carries', () => {
   });
 
   it('gives the Nets header the Net Inspector button, with its tooltip', () => {
-    expect(nets).toContain('title="Show the Net Inspector"');
+    expect(nets).toContain("title={_('Show the Net Inspector')}");
   });
 
   it('gives the Net Classes header the configure button, with its tooltip', () => {
-    expect(classes).toContain('title="Configure net classes"');
+    expect(classes).toContain("title={_('Configure net classes')}");
   });
 
   it('opens Board Setup on Net Classes, as ShowBoardSetupDialog does', () => {

@@ -121,6 +121,8 @@ import {
   UNDEFINED_DRILL_DIAMETER,
   VIATYPE,
 } from './pcb_track_types.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export * from './pcb_track_types.js';
 
@@ -560,7 +562,7 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
     let msg: string;
     const board = this.GetBoard();
 
-    aList.push(new MSG_PANEL_ITEM('Type', this.GetFriendlyName()));
+    aList.push(new MSG_PANEL_ITEM(_('Type'), this.GetFriendlyName()));
 
     this.GetMsgPanelInfoBase_Common(aFrame, aList);
 
@@ -570,10 +572,10 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
 
     if (this.Type() === KICAD_T.PCB_ARC_T) {
       const radius = (this as unknown as PCB_ARC).GetRadius();
-      aList.push(new MSG_PANEL_ITEM('Radius', frame.MessageTextFromValue(radius)));
+      aList.push(new MSG_PANEL_ITEM(_('Radius'), frame.MessageTextFromValue(radius)));
       aList.push(
         new MSG_PANEL_ITEM(
-          'Angle',
+          _('Angle'),
           `${(this as unknown as PCB_ARC).GetAngle().AsDegrees().toFixed(2)}deg`,
         ),
       );
@@ -583,11 +585,13 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
     const segmentDelay = this.GetDelay();
 
     if (segmentDelay === 0.0) {
-      aList.push(new MSG_PANEL_ITEM('Segment Length', frame.MessageTextFromValue(segmentLength)));
+      aList.push(
+        new MSG_PANEL_ITEM(_('Segment Length'), frame.MessageTextFromValue(segmentLength)),
+      );
     } else {
       // aFrame->MessageTextFromValue( segmentDelay, true, EDA_DATA_TYPE::TIME )
       //                                    -- EDA_DATA_TYPE::TIME arrives with LENGTH_DELAY_CALCULATION (#636)
-      aList.push(new MSG_PANEL_ITEM('Segment Delay', frame.MessageTextFromValue(segmentDelay)));
+      aList.push(new MSG_PANEL_ITEM(_('Segment Delay'), frame.MessageTextFromValue(segmentDelay)));
     }
 
     // Display full track length (in Pcbnew)
@@ -887,17 +891,17 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
   }
 
   protected GetMsgPanelInfoBase_Common(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
-    aList.push(new MSG_PANEL_ITEM('Net', unescapeString(this.GetNetname())));
+    aList.push(new MSG_PANEL_ITEM(_('Net'), unescapeString(this.GetNetname())));
 
     aList.push(
       new MSG_PANEL_ITEM(
-        'Resolved Netclass',
+        _('Resolved Netclass'),
         unescapeString(this.GetEffectiveNetClass().GetHumanReadableName()),
       ),
     );
 
     if (aFrame.GetName() === PCB_EDIT_FRAME_NAME && this.IsLocked())
-      aList.push(new MSG_PANEL_ITEM('Status', 'Locked'));
+      aList.push(new MSG_PANEL_ITEM(_('Status'), _('Locked')));
   }
 }
 
@@ -1462,31 +1466,31 @@ export class PCB_VIA extends PCB_TRACK {
     const error = new VIA_PARAMETER_ERROR();
 
     if (aDiameter !== undefined && aDiameter < GEOMETRY_MIN_SIZE) {
-      error.m_Message = 'Via diameter is too small.';
+      error.m_Message = _('Via diameter is too small.');
       error.m_Field = VIA_PARAMETER_ERROR_FIELD.DIAMETER;
       return error;
     }
 
     if (aPrimaryDrill !== undefined && aPrimaryDrill < GEOMETRY_MIN_SIZE) {
-      error.m_Message = 'Via drill is too small.';
+      error.m_Message = _('Via drill is too small.');
       error.m_Field = VIA_PARAMETER_ERROR_FIELD.DRILL;
       return error;
     }
 
     if (aDiameter !== undefined && aPrimaryDrill === undefined) {
-      error.m_Message = 'No via hole size defined.';
+      error.m_Message = _('No via hole size defined.');
       error.m_Field = VIA_PARAMETER_ERROR_FIELD.DRILL;
       return error;
     }
 
     if (aPrimaryDrill !== undefined && aDiameter === undefined) {
-      error.m_Message = 'No via diameter defined.';
+      error.m_Message = _('No via diameter defined.');
       error.m_Field = VIA_PARAMETER_ERROR_FIELD.DIAMETER;
       return error;
     }
 
     if (aDiameter !== undefined && aPrimaryDrill !== undefined && aDiameter <= aPrimaryDrill) {
-      error.m_Message = 'Via hole size must be smaller than via diameter';
+      error.m_Message = _('Via hole size must be smaller than via diameter');
       error.m_Field = VIA_PARAMETER_ERROR_FIELD.DRILL;
       return error;
     }
@@ -1504,7 +1508,7 @@ export class PCB_VIA extends PCB_TRACK {
       if (layer === PCB_LAYER_ID.UNDEFINED_LAYER) return true;
 
       if (!IsCopperLayer(layer)) {
-        error.m_Message = 'Via layer must be a copper layer.';
+        error.m_Message = _('Via layer must be a copper layer.');
         error.m_Field = aField;
         return false;
       }
@@ -1513,7 +1517,7 @@ export class PCB_VIA extends PCB_TRACK {
         if (copperMask === undefined) copperMask = LSET.AllCuMask(aCopperLayerCount);
 
         if (!copperMask.Contains(layer)) {
-          error.m_Message = 'Via layer is outside the board stack.';
+          error.m_Message = _('Via layer is outside the board stack.');
           error.m_Field = aField;
           return false;
         }
@@ -1531,14 +1535,14 @@ export class PCB_VIA extends PCB_TRACK {
       aPrimaryEndLayer !== undefined &&
       aPrimaryStartLayer === aPrimaryEndLayer
     ) {
-      error.m_Message = 'Via start layer and end layer cannot be the same';
+      error.m_Message = _('Via start layer and end layer cannot be the same');
       error.m_Field = VIA_PARAMETER_ERROR_FIELD.START_LAYER;
       return error;
     }
 
     if (aSecondaryDrill !== undefined) {
       if (aSecondaryDrill < (aPrimaryDrill ?? GEOMETRY_MIN_SIZE)) {
-        error.m_Message = 'Backdrill diameter is too small.';
+        error.m_Message = _('Backdrill diameter is too small.');
         error.m_Field = VIA_PARAMETER_ERROR_FIELD.SECONDARY_DRILL;
         return error;
       }
@@ -1552,7 +1556,7 @@ export class PCB_VIA extends PCB_TRACK {
 
     if (aTertiaryDrill !== undefined) {
       if (aTertiaryDrill < (aPrimaryDrill ?? GEOMETRY_MIN_SIZE)) {
-        error.m_Message = 'Tertiary backdrill diameter is too small.';
+        error.m_Message = _('Tertiary backdrill diameter is too small.');
         error.m_Field = VIA_PARAMETER_ERROR_FIELD.TERTIARY_DRILL;
         return error;
       }
@@ -2126,23 +2130,23 @@ export class PCB_VIA extends PCB_TRACK {
 
     switch (this.GetViaType()) {
       case VIATYPE.MICROVIA:
-        msg = 'Micro Via';
+        msg = _('Micro Via');
         break;
       case VIATYPE.BLIND:
-        msg = 'Blind Via';
+        msg = _('Blind Via');
         break;
       case VIATYPE.BURIED:
-        msg = 'Buried Via';
+        msg = _('Buried Via');
         break;
       case VIATYPE.THROUGH:
-        msg = 'Through Via';
+        msg = _('Through Via');
         break;
       default:
         msg = 'Via';
         break;
     }
 
-    aList.push(new MSG_PANEL_ITEM('Type', msg));
+    aList.push(new MSG_PANEL_ITEM(_('Type'), msg));
 
     this.GetMsgPanelInfoBase_Common(aFrame, aList);
 
@@ -2389,7 +2393,7 @@ export class PCB_VIA extends PCB_TRACK {
 
   GetMinAnnulus(aLayer: PCB_LAYER_ID, aSource: OutStr | null): number {
     if (!this.FlashLayer(aLayer)) {
-      if (aSource) aSource.value = 'removed annular ring';
+      if (aSource) aSource.value = _('removed annular ring');
 
       return 0;
     }
@@ -3065,40 +3069,40 @@ export class PCB_VIA extends PCB_TRACK {
   // clang-format off: the suggestion is less readable
   ENUM_MAP.Instance<VIATYPE>('VIATYPE')
     .Undefined(VIATYPE.NOT_DEFINED)
-    .Map(VIATYPE.THROUGH, 'Through')
-    .Map(VIATYPE.BLIND, 'Blind')
-    .Map(VIATYPE.BURIED, 'Buried')
-    .Map(VIATYPE.MICROVIA, 'Micro');
+    .Map(VIATYPE.THROUGH, _HKI('Through'))
+    .Map(VIATYPE.BLIND, _HKI('Blind'))
+    .Map(VIATYPE.BURIED, _HKI('Buried'))
+    .Map(VIATYPE.MICROVIA, _HKI('Micro'));
 
   ENUM_MAP.Instance<TENTING_MODE>('TENTING_MODE')
     .Undefined(TENTING_MODE.FROM_BOARD)
-    .Map(TENTING_MODE.FROM_BOARD, 'From board stackup')
-    .Map(TENTING_MODE.TENTED, 'Tented')
-    .Map(TENTING_MODE.NOT_TENTED, 'Not tented');
+    .Map(TENTING_MODE.FROM_BOARD, _HKI('From board stackup'))
+    .Map(TENTING_MODE.TENTED, _HKI('Tented'))
+    .Map(TENTING_MODE.NOT_TENTED, _HKI('Not tented'));
 
   ENUM_MAP.Instance<COVERING_MODE>('COVERING_MODE')
     .Undefined(COVERING_MODE.FROM_BOARD)
-    .Map(COVERING_MODE.FROM_BOARD, 'From board stackup')
-    .Map(COVERING_MODE.COVERED, 'Covered')
-    .Map(COVERING_MODE.NOT_COVERED, 'Not covered');
+    .Map(COVERING_MODE.FROM_BOARD, _HKI('From board stackup'))
+    .Map(COVERING_MODE.COVERED, _HKI('Covered'))
+    .Map(COVERING_MODE.NOT_COVERED, _HKI('Not covered'));
 
   ENUM_MAP.Instance<PLUGGING_MODE>('PLUGGING_MODE')
     .Undefined(PLUGGING_MODE.FROM_BOARD)
-    .Map(PLUGGING_MODE.FROM_BOARD, 'From board stackup')
-    .Map(PLUGGING_MODE.PLUGGED, 'Plugged')
-    .Map(PLUGGING_MODE.NOT_PLUGGED, 'Not plugged');
+    .Map(PLUGGING_MODE.FROM_BOARD, _HKI('From board stackup'))
+    .Map(PLUGGING_MODE.PLUGGED, _HKI('Plugged'))
+    .Map(PLUGGING_MODE.NOT_PLUGGED, _HKI('Not plugged'));
 
   ENUM_MAP.Instance<CAPPING_MODE>('CAPPING_MODE')
     .Undefined(CAPPING_MODE.FROM_BOARD)
-    .Map(CAPPING_MODE.FROM_BOARD, 'From board stackup')
-    .Map(CAPPING_MODE.CAPPED, 'Capped')
-    .Map(CAPPING_MODE.NOT_CAPPED, 'Not capped');
+    .Map(CAPPING_MODE.FROM_BOARD, _HKI('From board stackup'))
+    .Map(CAPPING_MODE.CAPPED, _HKI('Capped'))
+    .Map(CAPPING_MODE.NOT_CAPPED, _HKI('Not capped'));
 
   ENUM_MAP.Instance<FILLING_MODE>('FILLING_MODE')
     .Undefined(FILLING_MODE.FROM_BOARD)
-    .Map(FILLING_MODE.FROM_BOARD, 'From board stackup')
-    .Map(FILLING_MODE.FILLED, 'Filled')
-    .Map(FILLING_MODE.NOT_FILLED, 'Not filled');
+    .Map(FILLING_MODE.FROM_BOARD, _HKI('From board stackup'))
+    .Map(FILLING_MODE.FILLED, _HKI('Filled'))
+    .Map(FILLING_MODE.NOT_FILLED, _HKI('Not filled'));
 
   // clang-format on: the suggestion is less readable
 
@@ -3346,10 +3350,10 @@ export class PCB_VIA extends PCB_TRACK {
   );
   propMgr.ReplaceProperty(
     BOARD_ITEM,
-    'Position X',
+    _HKI('Position X'),
     new PROPERTY<PCB_TRACK, number>(
       PCB_TRACK,
-      'Start X',
+      _HKI('Start X'),
       'SetStartX',
       'GetStartX',
       TYPE_INT,
@@ -3359,10 +3363,10 @@ export class PCB_VIA extends PCB_TRACK {
   );
   propMgr.ReplaceProperty(
     BOARD_ITEM,
-    'Position Y',
+    _HKI('Position Y'),
     new PROPERTY<PCB_TRACK, number>(
       PCB_TRACK,
-      'Start Y',
+      _HKI('Start Y'),
       'SetStartY',
       'GetStartY',
       TYPE_INT,
@@ -3373,7 +3377,7 @@ export class PCB_VIA extends PCB_TRACK {
   propMgr.AddProperty(
     new PROPERTY<PCB_TRACK, number>(
       PCB_TRACK,
-      'End X',
+      _HKI('End X'),
       'SetEndX',
       'GetEndX',
       TYPE_INT,
@@ -3384,7 +3388,7 @@ export class PCB_VIA extends PCB_TRACK {
   propMgr.AddProperty(
     new PROPERTY<PCB_TRACK, number>(
       PCB_TRACK,
-      'End Y',
+      _HKI('End Y'),
       'SetEndY',
       'GetEndY',
       TYPE_INT,
@@ -3393,7 +3397,7 @@ export class PCB_VIA extends PCB_TRACK {
     ),
   );
 
-  const groupTechLayers = 'Technical Layers';
+  const groupTechLayers = _HKI('Technical Layers');
 
   const isExternalLayerTrack = (aItem: INSPECTABLE_ITEM): boolean => {
     if (aItem instanceof PCB_TRACK) return IsExternalCopperLayer(aItem.GetLayer());
@@ -3405,7 +3409,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY<PCB_TRACK, boolean>(
         PCB_TRACK,
-        'Soldermask',
+        _HKI('Soldermask'),
         'SetHasSolderMask',
         'HasSolderMask',
         TYPE_BOOL,
@@ -3417,7 +3421,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY<PCB_TRACK, number | undefined>(
         PCB_TRACK,
-        'Soldermask Margin Override',
+        _HKI('Soldermask Margin Override'),
         'SetLocalSolderMaskMargin',
         'GetLocalSolderMaskMargin',
         TYPE_OPT_INT,
@@ -3436,9 +3440,9 @@ export class PCB_VIA extends PCB_TRACK {
   propMgr.InheritsAfter(PCB_VIA, BOARD_CONNECTED_ITEM);
 
   // TODO test drill, use getdrillvalue?
-  const groupVia = 'Via Properties';
-  const groupBackdrill = 'Backdrill';
-  const groupPostMachining = 'Post-machining';
+  const groupVia = _HKI('Via Properties');
+  const groupBackdrill = _HKI('Backdrill');
+  const groupPostMachining = _HKI('Post-machining');
 
   propMgr.Mask(PCB_VIA, BOARD_CONNECTED_ITEM, 'Layer');
 
@@ -3473,7 +3477,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY_ENUM<PCB_VIA, PCB_LAYER_ID>(
         PCB_VIA,
-        'Layer Top',
+        _HKI('Layer Top'),
         'SetTopLayer',
         'GetLayer',
         layerEnum,
@@ -3485,7 +3489,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY_ENUM<PCB_VIA, PCB_LAYER_ID>(
         PCB_VIA,
-        'Layer Bottom',
+        _HKI('Layer Bottom'),
         'SetBottomLayer',
         'BottomLayer',
         layerEnum,
@@ -3496,7 +3500,7 @@ export class PCB_VIA extends PCB_TRACK {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_VIA, VIATYPE>(
       PCB_VIA,
-      'Via Type',
+      _HKI('Via Type'),
       'SetViaType',
       'GetViaType',
       ENUM_MAP.Instance<VIATYPE>('VIATYPE'),
@@ -3506,7 +3510,7 @@ export class PCB_VIA extends PCB_TRACK {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_VIA, TENTING_MODE>(
       PCB_VIA,
-      'Front tenting',
+      _HKI('Front tenting'),
       'SetFrontTentingMode',
       'GetFrontTentingMode',
       ENUM_MAP.Instance<TENTING_MODE>('TENTING_MODE'),
@@ -3516,7 +3520,7 @@ export class PCB_VIA extends PCB_TRACK {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_VIA, TENTING_MODE>(
       PCB_VIA,
-      'Back tenting',
+      _HKI('Back tenting'),
       'SetBackTentingMode',
       'GetBackTentingMode',
       ENUM_MAP.Instance<TENTING_MODE>('TENTING_MODE'),
@@ -3526,7 +3530,7 @@ export class PCB_VIA extends PCB_TRACK {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_VIA, COVERING_MODE>(
       PCB_VIA,
-      'Front covering',
+      _HKI('Front covering'),
       'SetFrontCoveringMode',
       'GetFrontCoveringMode',
       ENUM_MAP.Instance<COVERING_MODE>('COVERING_MODE'),
@@ -3536,7 +3540,7 @@ export class PCB_VIA extends PCB_TRACK {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_VIA, COVERING_MODE>(
       PCB_VIA,
-      'Back covering',
+      _HKI('Back covering'),
       'SetBackCoveringMode',
       'GetBackCoveringMode',
       ENUM_MAP.Instance<COVERING_MODE>('COVERING_MODE'),
@@ -3546,7 +3550,7 @@ export class PCB_VIA extends PCB_TRACK {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_VIA, PLUGGING_MODE>(
       PCB_VIA,
-      'Front plugging',
+      _HKI('Front plugging'),
       'SetFrontPluggingMode',
       'GetFrontPluggingMode',
       ENUM_MAP.Instance<PLUGGING_MODE>('PLUGGING_MODE'),
@@ -3556,7 +3560,7 @@ export class PCB_VIA extends PCB_TRACK {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_VIA, PLUGGING_MODE>(
       PCB_VIA,
-      'Back plugging',
+      _HKI('Back plugging'),
       'SetBackPluggingMode',
       'GetBackPluggingMode',
       ENUM_MAP.Instance<PLUGGING_MODE>('PLUGGING_MODE'),
@@ -3566,7 +3570,7 @@ export class PCB_VIA extends PCB_TRACK {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_VIA, CAPPING_MODE>(
       PCB_VIA,
-      'Capping',
+      _HKI('Capping'),
       'SetCappingMode',
       'GetCappingMode',
       ENUM_MAP.Instance<CAPPING_MODE>('CAPPING_MODE'),
@@ -3576,7 +3580,7 @@ export class PCB_VIA extends PCB_TRACK {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_VIA, FILLING_MODE>(
       PCB_VIA,
-      'Filling',
+      _HKI('Filling'),
       'SetFillingMode',
       'GetFillingMode',
       ENUM_MAP.Instance<FILLING_MODE>('FILLING_MODE'),
@@ -3601,7 +3605,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY_ENUM<PCB_VIA, BACKDRILL_MODE>(
         PCB_VIA,
-        'Backdrill Mode',
+        _HKI('Backdrill Mode'),
         'SetBackdrillMode',
         'GetBackdrillMode',
         ENUM_MAP.Instance<BACKDRILL_MODE>('BACKDRILL_MODE'),
@@ -3614,7 +3618,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY<PCB_VIA, number | undefined>(
         PCB_VIA,
-        'Bottom Backdrill Size',
+        _HKI('Bottom Backdrill Size'),
         'SetBottomBackdrillSize',
         'GetBottomBackdrillSize',
         TYPE_OPT_INT,
@@ -3634,7 +3638,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY_ENUM<PCB_VIA, PCB_LAYER_ID>(
         PCB_VIA,
-        'Bottom Backdrill Must-Cut',
+        _HKI('Bottom Backdrill Must-Cut'),
         'SetBottomBackdrillLayer',
         'GetBottomBackdrillLayer',
         layerEnum,
@@ -3653,7 +3657,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY<PCB_VIA, number | undefined>(
         PCB_VIA,
-        'Top Backdrill Size',
+        _HKI('Top Backdrill Size'),
         'SetTopBackdrillSize',
         'GetTopBackdrillSize',
         TYPE_OPT_INT,
@@ -3673,7 +3677,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY_ENUM<PCB_VIA, PCB_LAYER_ID>(
         PCB_VIA,
-        'Top Backdrill Must-Cut',
+        _HKI('Top Backdrill Must-Cut'),
         'SetTopBackdrillLayer',
         'GetTopBackdrillLayer',
         layerEnum,
@@ -3693,7 +3697,7 @@ export class PCB_VIA extends PCB_TRACK {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_VIA, PAD_DRILL_POST_MACHINING_MODE>(
       PCB_VIA,
-      'Front Post-machining',
+      _HKI('Front Post-machining'),
       'SetFrontPostMachiningMode',
       'GetFrontPostMachiningMode',
       pmEnum,
@@ -3705,7 +3709,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY<PCB_VIA, number>(
         PCB_VIA,
-        'Front Post-machining Size',
+        _HKI('Front Post-machining Size'),
         'SetFrontPostMachiningSize',
         'GetFrontPostMachiningSize',
         TYPE_INT,
@@ -3728,7 +3732,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY<PCB_VIA, number>(
         PCB_VIA,
-        'Front Post-machining Depth',
+        _HKI('Front Post-machining Depth'),
         'SetFrontPostMachiningDepth',
         'GetFrontPostMachiningDepth',
         TYPE_INT,
@@ -3748,7 +3752,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY<PCB_VIA, number>(
         PCB_VIA,
-        'Front Post-machining Angle',
+        _HKI('Front Post-machining Angle'),
         'SetFrontPostMachiningAngle',
         'GetFrontPostMachiningAngle',
         TYPE_INT,
@@ -3767,7 +3771,7 @@ export class PCB_VIA extends PCB_TRACK {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_VIA, PAD_DRILL_POST_MACHINING_MODE>(
       PCB_VIA,
-      'Back Post-machining',
+      _HKI('Back Post-machining'),
       'SetBackPostMachiningMode',
       'GetBackPostMachiningMode',
       pmEnum,
@@ -3779,7 +3783,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY<PCB_VIA, number>(
         PCB_VIA,
-        'Back Post-machining Size',
+        _HKI('Back Post-machining Size'),
         'SetBackPostMachiningSize',
         'GetBackPostMachiningSize',
         TYPE_INT,
@@ -3802,7 +3806,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY<PCB_VIA, number>(
         PCB_VIA,
-        'Back Post-machining Depth',
+        _HKI('Back Post-machining Depth'),
         'SetBackPostMachiningDepth',
         'GetBackPostMachiningDepth',
         TYPE_INT,
@@ -3822,7 +3826,7 @@ export class PCB_VIA extends PCB_TRACK {
     .AddProperty(
       new PROPERTY<PCB_VIA, number>(
         PCB_VIA,
-        'Back Post-machining Angle',
+        _HKI('Back Post-machining Angle'),
         'SetBackPostMachiningAngle',
         'GetBackPostMachiningAngle',
         TYPE_INT,

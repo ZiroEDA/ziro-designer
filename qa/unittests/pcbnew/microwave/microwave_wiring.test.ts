@@ -83,7 +83,8 @@ describe('Place > Draw Microwave Shapes', () => {
 
   it.each(ROWS)('the frame knows tool %s: status text, and the TOOL_MANAGER runs it', (_l, id) => {
     // The "Current Tool" pane says the action's friendly name.
-    expect(FRAME).toMatch(new RegExp(`\\b${id}: '[^']+',`));
+    // The status text is stored English and translated where it is shown (_HKI).
+    expect(FRAME).toMatch(new RegExp(`\\b${id}: _HKI\\('[^']+'\\),`));
     // Arming the row runs the action on the TOOL_MANAGER, where MICROWAVE_TOOL
     // is registered (microwave_tool_manager.test.ts drives it).
     expect(FRAME).toContain(`${id}: PCB_ACTIONS.${id},`);

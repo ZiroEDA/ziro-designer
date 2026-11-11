@@ -92,6 +92,7 @@ import { strNumCmp, wildCompareString } from '@ziroeda/common/string_utils.js';
 import type { BOARD } from '../board.js';
 import { BOARD_COMMIT } from '../board_commit.js';
 import type { FOOTPRINT } from '../footprint.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `MINGRID`, the grid `RoundToGrid` falls back to when it is handed 0. */
 export const REANNOTATE_MIN_GRID = 1000;
@@ -607,7 +608,7 @@ export function planBoardReannotate(
           errors.push(`Duplicate instances of ${changes[j]!.newRefDes}`);
 
           if (errorCount++ > REANNOTATE_MAX_ERROR) {
-            errors.push('Aborted: too many errors');
+            errors.push(_('Aborted: too many errors'));
             break;
           }
         }
@@ -658,7 +659,7 @@ export function applyBoardReannotate(
     footprint.SetReference(newref.newRefDes); // Update the PCB reference
   }
 
-  aCommit.Push('Annotation');
+  aCommit.Push(_('Annotation'));
   return true;
 }
 
@@ -685,11 +686,11 @@ function planReport(
   for (const list of [aPlan.front, aPlan.back]) {
     if (list.length === 0) continue;
 
-    let message = list[0]!.front ? 'Front Footprints' : 'Back Footprints';
+    let message = list[0]!.front ? _('Front Footprints') : _('Back Footprints');
     message += ' ';
     message += aUseFootprintLocation
-      ? '(sorted by footprint location)'
-      : '(sorted by reference designator location)';
+      ? _('(sorted by footprint location)')
+      : _('(sorted by reference designator location)');
     message += '<br/>-------------------------------------------------------------';
     list.forEach((fp, i) => {
       message += `<br/>${i + 1} ${fp.refDesString || empty_str} at ${aCoord(fp.x, fp.y)} (rounded to ${aCoord(fp.roundedX, fp.roundedY)})`;
@@ -697,7 +698,7 @@ function planReport(
     lines.push(...reportLines(`${message}<br/>`, RPT_SEVERITY_INFO));
   }
 
-  let message = 'Reference Designator Prefixes in Use';
+  let message = _('Reference Designator Prefixes in Use');
   message += '<br/>-------------------------------------------------------------<br/>';
   aPlan.prefixes.forEach((info, i) => {
     message += info.refDesPrefix + ((i + 1) % 16 === 0 ? '<br/>' : ' ');
@@ -707,7 +708,7 @@ function planReport(
     message += `(Excluding ${aPlan.excludes.map((e) => `${e} `).join('')} from reannotation.)`;
   lines.push(...reportLines(`${message}<br/>`, RPT_SEVERITY_INFO));
 
-  message = 'Change Log';
+  message = _('Change Log');
   message += '<br/>-------------------------------------------------------------<br/>';
   for (const change of aPlan.changes) {
     message +=
@@ -798,7 +799,7 @@ export function DialogBoardReannotate({
     if (!plan.ok) {
       out.push(
         ...reportLines(
-          'Selected options resulted in errors! Change them and try again.',
+          _('Selected options resulted in errors! Change them and try again.'),
           RPT_SEVERITY_ERROR,
         ),
       );
@@ -808,8 +809,9 @@ export function DialogBoardReannotate({
 
     if (plan.badRefDes.length > 0) {
       const message1 = `PCB has ${plan.badRefDes.length} empty or invalid reference designations.`;
-      const message2 =
-        "You may wish to run DRC with 'Test for parity between PCB and schematic' checked.";
+      const message2 = _(
+        "You may wish to run DRC with 'Test for parity between PCB and schematic' checked.",
+      );
       const badrefdes = plan.badRefDes
         .map(
           (mod) =>
@@ -832,10 +834,12 @@ export function DialogBoardReannotate({
     }
 
     out.push(...planReport(plan, locationIndex === 0, coord));
-    out.push(...reportLines('PCB successfully reannotated', RPT_SEVERITY_ACTION));
+    out.push(...reportLines(_('PCB successfully reannotated'), RPT_SEVERITY_ACTION));
     out.push(
       ...reportLines(
-        'PCB annotation changes should be synchronized with schematic using "Update Schematic from PCB".',
+        _(
+          'PCB annotation changes should be synchronized with schematic using "Update Schematic from PCB".',
+        ),
         RPT_SEVERITY_WARNING,
       ),
     );

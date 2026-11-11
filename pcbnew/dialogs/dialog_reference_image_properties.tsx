@@ -41,6 +41,7 @@ import {
   DIALOG_REFERENCE_IMAGE_PROPERTIES_BASE,
   type UNIT_FIELD,
 } from './dialog_reference_image_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DIALOG_REFERENCE_IMAGE_PROPERTIES {
   private readonly m_frame: PCB_BASE_EDIT_FRAME;
@@ -63,10 +64,10 @@ export class DIALOG_REFERENCE_IMAGE_PROPERTIES {
   constructor(aParent: PCB_BASE_EDIT_FRAME, aBitmap: PCB_REFERENCE_IMAGE) {
     this.m_frame = aParent;
     this.m_bitmap = aBitmap;
-    this.m_posX = new UNIT_BINDER(aParent, 'Position X:');
-    this.m_posY = new UNIT_BINDER(aParent, 'Position Y:');
-    this.m_width = new UNIT_BINDER(aParent, 'Width:');
-    this.m_height = new UNIT_BINDER(aParent, 'Height:');
+    this.m_posX = new UNIT_BINDER(aParent, _('Position X:'));
+    this.m_posY = new UNIT_BINDER(aParent, _('Position Y:'));
+    this.m_width = new UNIT_BINDER(aParent, _('Width:'));
+    this.m_height = new UNIT_BINDER(aParent, _('Height:'));
 
     // Create the image editor page
     this.m_workingImage = new BITMAP_BASE(aBitmap.GetReferenceImage().GetImage());
@@ -287,7 +288,9 @@ export function DialogReferenceImageProperties({
           },
         }}
         lockedShown={dialog.m_lockedShown}
-        lockedTip="Locked items cannot be freely moved and oriented on the canvas and can only be selected when the 'Locked items' checkbox is checked in the selection filter."
+        lockedTip={_(
+          "Locked items cannot be freely moved and oriented on the canvas and can only be selected when the 'Locked items' checkbox is checked in the selection filter.",
+        )}
         m_imageEditor={
           <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
             <PANEL_IMAGE_EDITOR
@@ -314,7 +317,7 @@ export function DialogReferenceImageProperties({
         // IsOK( host, msg ) (confirm.cpp:278-298): "Confirmation", the question icon, Yes as
         // the default.
         <MessageDialogYesNo
-          caption="Confirmation"
+          caption={_('Confirmation')}
           icon="question"
           defaultButton="yes"
           message={confirm}

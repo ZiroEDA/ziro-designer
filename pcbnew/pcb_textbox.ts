@@ -82,6 +82,8 @@ import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { BOARD_ITEM } from './board_item.js';
 import { PCB_SHAPE, type PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import { PCB_TEXT } from './pcb_text.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // `Replace`, `Similarity` and `Compare` are overloaded across the bases in C++; the class
 // carries its own forms, so the merged interface leaves the EDA_TEXT ones out.
@@ -485,34 +487,40 @@ export class PCB_TEXTBOX extends PCB_SHAPE {
     aList.push(new MSG_PANEL_ITEM('Text Box', KIUI_EllipsizeStatusText(aFrame, this.GetText())));
 
     if (aFrame.GetName() === PCB_EDIT_FRAME_NAME && this.IsLocked())
-      aList.push(new MSG_PANEL_ITEM('Status', 'Locked'));
+      aList.push(new MSG_PANEL_ITEM(_('Status'), _('Locked')));
 
-    aList.push(new MSG_PANEL_ITEM('Layer', this.GetLayerName()));
-    aList.push(new MSG_PANEL_ITEM('Mirror', this.IsMirrored() ? 'Yes' : 'No'));
-    aList.push(new MSG_PANEL_ITEM('Angle', `${this.GetTextAngle().AsDegrees()}`));
+    aList.push(new MSG_PANEL_ITEM(_('Layer'), this.GetLayerName()));
+    aList.push(new MSG_PANEL_ITEM(_('Mirror'), this.IsMirrored() ? _('Yes') : _('No')));
+    aList.push(new MSG_PANEL_ITEM(_('Angle'), `${this.GetTextAngle().AsDegrees()}`));
 
-    aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Font'), this.GetFont() ? this.GetFont()!.GetName() : _('Default')),
+    );
 
     if (this.GetTextThickness())
       aList.push(
         new MSG_PANEL_ITEM(
-          'Text Thickness',
+          _('Text Thickness'),
           units.MessageTextFromValue(this.GetEffectiveTextPenWidth()),
         ),
       );
-    else aList.push(new MSG_PANEL_ITEM('Text Thickness', 'Auto'));
+    else aList.push(new MSG_PANEL_ITEM(_('Text Thickness'), _('Auto')));
 
-    aList.push(new MSG_PANEL_ITEM('Text Width', units.MessageTextFromValue(this.GetTextWidth())));
-    aList.push(new MSG_PANEL_ITEM('Text Height', units.MessageTextFromValue(this.GetTextHeight())));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Text Width'), units.MessageTextFromValue(this.GetTextWidth())),
+    );
+    aList.push(
+      new MSG_PANEL_ITEM(_('Text Height'), units.MessageTextFromValue(this.GetTextHeight())),
+    );
     aList.push(
       new MSG_PANEL_ITEM(
-        'Box Width',
+        _('Box Width'),
         units.MessageTextFromValue(Math.abs(this.GetEnd().x - this.GetStart().x)),
       ),
     );
     aList.push(
       new MSG_PANEL_ITEM(
-        'Box Height',
+        _('Box Height'),
         units.MessageTextFromValue(Math.abs(this.GetEnd().y - this.GetStart().y)),
       ),
     );
@@ -873,11 +881,11 @@ function isPoint(a: unknown): a is VECTOR2I {
 
   if (lineStyleEnum.Choices().GetCount() === 0) {
     lineStyleEnum
-      .Map(LINE_STYLE.SOLID, 'Solid')
-      .Map(LINE_STYLE.DASH, 'Dashed')
-      .Map(LINE_STYLE.DOT, 'Dotted')
-      .Map(LINE_STYLE.DASHDOT, 'Dash-Dot')
-      .Map(LINE_STYLE.DASHDOTDOT, 'Dash-Dot-Dot');
+      .Map(LINE_STYLE.SOLID, _HKI('Solid'))
+      .Map(LINE_STYLE.DASH, _HKI('Dashed'))
+      .Map(LINE_STYLE.DOT, _HKI('Dotted'))
+      .Map(LINE_STYLE.DASHDOT, _HKI('Dash-Dot'))
+      .Map(LINE_STYLE.DASHDOTDOT, _HKI('Dash-Dot-Dot'));
   }
 
   const propMgr = PROPERTY_MANAGER.Instance();
@@ -889,28 +897,28 @@ function isPoint(a: unknown): a is VECTOR2I {
   propMgr.InheritsAfter(PCB_TEXTBOX, EDA_SHAPE);
   propMgr.InheritsAfter(PCB_TEXTBOX, EDA_TEXT);
 
-  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Shape');
-  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Start X');
-  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Start Y');
-  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'End X');
-  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'End Y');
-  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Width');
-  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Height');
-  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Line Width');
-  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Line Style');
-  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Filled');
-  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Line Color');
-  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, 'Corner Radius');
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, _HKI('Shape'));
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, _HKI('Start X'));
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, _HKI('Start Y'));
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, _HKI('End X'));
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, _HKI('End Y'));
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, _HKI('Width'));
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, _HKI('Height'));
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, _HKI('Line Width'));
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, _HKI('Line Style'));
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, _HKI('Filled'));
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, _HKI('Line Color'));
+  propMgr.Mask(PCB_TEXTBOX, EDA_SHAPE, _HKI('Corner Radius'));
 
-  propMgr.Mask(PCB_TEXTBOX, EDA_TEXT, 'Color');
+  propMgr.Mask(PCB_TEXTBOX, EDA_TEXT, _HKI('Color'));
 
-  propMgr.Mask(PCB_TEXTBOX, PCB_SHAPE, 'Soldermask');
-  propMgr.Mask(PCB_TEXTBOX, PCB_SHAPE, 'Soldermask Margin Override');
+  propMgr.Mask(PCB_TEXTBOX, PCB_SHAPE, _HKI('Soldermask'));
+  propMgr.Mask(PCB_TEXTBOX, PCB_SHAPE, _HKI('Soldermask Margin Override'));
 
   propMgr.AddProperty(
     new PROPERTY<PCB_TEXTBOX, boolean, BOARD_ITEM>(
       PCB_TEXTBOX,
-      'Knockout',
+      _HKI('Knockout'),
       'SetIsKnockout',
       'IsKnockout',
       TYPE_BOOL,
@@ -918,10 +926,10 @@ function isPoint(a: unknown): a is VECTOR2I {
       COORD_TYPES_T.NOT_A_COORD,
       BOARD_ITEM,
     ),
-    'Text Properties',
+    _HKI('Text Properties'),
   );
 
-  const borderProps = 'Border Properties';
+  const borderProps = _('Border Properties');
 
   const lineStyleSetter = 'SetLineStyle' as const;
   const lineStyleGetter = 'GetLineStyle' as const;
@@ -929,7 +937,7 @@ function isPoint(a: unknown): a is VECTOR2I {
   propMgr.AddProperty(
     new PROPERTY<PCB_TEXTBOX, boolean>(
       PCB_TEXTBOX,
-      'Border',
+      _HKI('Border'),
       'SetBorderEnabled',
       'IsBorderEnabled',
       TYPE_BOOL,
@@ -940,7 +948,7 @@ function isPoint(a: unknown): a is VECTOR2I {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_TEXTBOX, LINE_STYLE>(
       PCB_TEXTBOX,
-      'Border Style',
+      _HKI('Border Style'),
       lineStyleSetter,
       lineStyleGetter,
       lineStyleEnum,
@@ -951,7 +959,7 @@ function isPoint(a: unknown): a is VECTOR2I {
   propMgr.AddProperty(
     new PROPERTY<PCB_TEXTBOX, number>(
       PCB_TEXTBOX,
-      'Border Width',
+      _HKI('Border Width'),
       'SetBorderWidth',
       'GetBorderWidth',
       TYPE_INT,
@@ -960,12 +968,12 @@ function isPoint(a: unknown): a is VECTOR2I {
     borderProps,
   );
 
-  const marginProps = 'Margins';
+  const marginProps = _('Margins');
 
   propMgr.AddProperty(
     new PROPERTY<PCB_TEXTBOX, number>(
       PCB_TEXTBOX,
-      'Margin Left',
+      _HKI('Margin Left'),
       'SetMarginLeft',
       'GetMarginLeft',
       TYPE_INT,
@@ -976,7 +984,7 @@ function isPoint(a: unknown): a is VECTOR2I {
   propMgr.AddProperty(
     new PROPERTY<PCB_TEXTBOX, number>(
       PCB_TEXTBOX,
-      'Margin Top',
+      _HKI('Margin Top'),
       'SetMarginTop',
       'GetMarginTop',
       TYPE_INT,
@@ -987,7 +995,7 @@ function isPoint(a: unknown): a is VECTOR2I {
   propMgr.AddProperty(
     new PROPERTY<PCB_TEXTBOX, number>(
       PCB_TEXTBOX,
-      'Margin Right',
+      _HKI('Margin Right'),
       'SetMarginRight',
       'GetMarginRight',
       TYPE_INT,
@@ -998,7 +1006,7 @@ function isPoint(a: unknown): a is VECTOR2I {
   propMgr.AddProperty(
     new PROPERTY<PCB_TEXTBOX, number>(
       PCB_TEXTBOX,
-      'Margin Bottom',
+      _HKI('Margin Bottom'),
       'SetMarginBottom',
       'GetMarginBottom',
       TYPE_INT,
@@ -1007,5 +1015,5 @@ function isPoint(a: unknown): a is VECTOR2I {
     marginProps,
   );
 
-  propMgr.Mask(PCB_TEXT, EDA_TEXT, 'Hyperlink');
+  propMgr.Mask(PCB_TEXT, EDA_TEXT, _HKI('Hyperlink'));
 })();

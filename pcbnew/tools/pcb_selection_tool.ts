@@ -118,6 +118,7 @@ import { TRACK_DRAG_ACTION } from '../pcbnew_settings.js';
 import type { ZONE } from '../zone.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
 import { PCB_SELECTION } from './pcb_selection.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `CLIENT_SELECTION_FILTER` (pcb_selection_conditions.h): a tool's or
@@ -175,7 +176,7 @@ class SELECT_MENU extends ACTION_MENU {
   constructor() {
     super(true);
 
-    this.SetTitle('Select');
+    this.SetTitle(_('Select'));
 
     this.Add(PCB_ACTIONS.filterSelection);
 
@@ -2008,7 +2009,7 @@ export class PCB_SELECTION_TOOL extends SELECTION_TOOL {
     }
 
     this.ClearSelection(true);
-    commit.Push('Unroute Selected');
+    commit.Push(_('Unroute Selected'));
 
     this.m_filter = save_filter; // restore current filter options
 
@@ -2108,7 +2109,7 @@ export class PCB_SELECTION_TOOL extends SELECTION_TOOL {
       }
     }
 
-    commit.Push('Unroute Segment');
+    commit.Push(_('Unroute Segment'));
 
     // Now our after tracks so the user can continue backing up as desired
     this.ClearSelection(true);
@@ -2152,7 +2153,7 @@ export class PCB_SELECTION_TOOL extends SELECTION_TOOL {
       else yield* this.selectCursor(true, connectedItemFilter);
     }
 
-    this.m_frame!.SetStatusText('Select/Expand Connection...');
+    this.m_frame!.SetStatusText(_('Select/Expand Connection...'));
 
     for (const stopCondition of [
       STOP_CONDITION.STOP_AT_JUNCTION,
@@ -4349,7 +4350,7 @@ export class PCB_SELECTION_TOOL extends SELECTION_TOOL {
   ReportFilteredLockedItems(): boolean {
     if (this.m_lockedItemsFiltered && this.m_frame) {
       this.m_frame.ShowInfoBarWarning(
-        "Selection contains locked items. Enable 'Override locks' to operate on them.",
+        _("Selection contains locked items. Enable 'Override locks' to operate on them."),
         true,
       );
     }

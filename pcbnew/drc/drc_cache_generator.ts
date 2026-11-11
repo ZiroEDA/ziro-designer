@@ -16,6 +16,7 @@ import { ISOLATED_ISLANDS, type ZONE } from '../zone.js';
 import { DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_RTREE } from './drc_rtree.js';
 import { DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `INT_MAX / 3` */
 const INT_MAX_THIRD = Math.trunc(2147483647 / 3);
@@ -170,7 +171,7 @@ export class DRC_CACHE_GENERATOR extends DRC_TEST_PROVIDER {
       return true;
     };
 
-    if (!this.reportPhase('Gathering copper items...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Gathering copper items...'))) return false; // DRC cancelled
 
     const itemTypes: KICAD_T[] = [
       KICAD_T.PCB_TRACE_T,
@@ -194,7 +195,7 @@ export class DRC_CACHE_GENERATOR extends DRC_TEST_PROVIDER {
 
     this.reportProgress(done, count);
 
-    if (!this.reportPhase('Tessellating copper zones...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Tessellating copper zones...'))) return false; // DRC cancelled
 
     // Cache zone bounding boxes, triangulation, copper zone rtrees, and footprint courtyards
     // before we start.

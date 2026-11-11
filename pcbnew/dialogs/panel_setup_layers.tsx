@@ -53,6 +53,8 @@ import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { BOARD } from '../board.js';
 import { LAYER_T } from '../board_types.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export type CopperLayerType = 'signal' | 'power' | 'mixed' | 'jumper';
 
@@ -106,38 +108,38 @@ export const MANDATORY_LAYERS: ReadonlySet<string> = new Set([
 // This is NOT `LSET::TechAndUserUIOrder()`, which the *writer* uses. [data]
 // Each row's label and type text are the panel's own.
 const LAYER_ROWS: readonly Omit<BoardLayer, 'enabled'>[] = [
-  { id: 'F.CrtYd', name: 'F.Courtyard', kind: 'tech', desc: 'Off-board, testing' },
-  { id: 'F.Fab', name: 'F.Fab', kind: 'tech', desc: 'Off-board, manufacturing' },
-  { id: 'F.Adhes', name: 'F.Adhesive', kind: 'tech', desc: 'On-board, non-copper' },
-  { id: 'F.Paste', name: 'F.Paste', kind: 'tech', desc: 'On-board, non-copper' },
+  { id: 'F.CrtYd', name: 'F.Courtyard', kind: 'tech', desc: _HKI('Off-board, testing') },
+  { id: 'F.Fab', name: 'F.Fab', kind: 'tech', desc: _HKI('Off-board, manufacturing') },
+  { id: 'F.Adhes', name: 'F.Adhesive', kind: 'tech', desc: _HKI('On-board, non-copper') },
+  { id: 'F.Paste', name: 'F.Paste', kind: 'tech', desc: _HKI('On-board, non-copper') },
   {
     id: 'F.SilkS',
     name: 'F.Silkscreen',
     kind: 'tech',
-    desc: 'On-board, non-copper',
+    desc: _HKI('On-board, non-copper'),
   },
-  { id: 'F.Mask', name: 'F.Mask', kind: 'tech', desc: 'On-board, non-copper' },
-  { id: 'B.Mask', name: 'B.Mask', kind: 'tech', desc: 'On-board, non-copper' },
+  { id: 'F.Mask', name: 'F.Mask', kind: 'tech', desc: _HKI('On-board, non-copper') },
+  { id: 'B.Mask', name: 'B.Mask', kind: 'tech', desc: _HKI('On-board, non-copper') },
   {
     id: 'B.SilkS',
     name: 'B.Silkscreen',
     kind: 'tech',
-    desc: 'On-board, non-copper',
+    desc: _HKI('On-board, non-copper'),
   },
-  { id: 'B.Paste', name: 'B.Paste', kind: 'tech', desc: 'On-board, non-copper' },
-  { id: 'B.Adhes', name: 'B.Adhesive', kind: 'tech', desc: 'On-board, non-copper' },
-  { id: 'B.Fab', name: 'B.Fab', kind: 'tech', desc: 'Off-board, manufacturing' },
-  { id: 'B.CrtYd', name: 'B.Courtyard', kind: 'tech', desc: 'Off-board, testing' },
-  { id: 'Edge.Cuts', name: 'Edge.Cuts', kind: 'tech', desc: 'Board contour' },
-  { id: 'Margin', name: 'Margin', kind: 'tech', desc: 'Board contour setback' },
+  { id: 'B.Paste', name: 'B.Paste', kind: 'tech', desc: _HKI('On-board, non-copper') },
+  { id: 'B.Adhes', name: 'B.Adhesive', kind: 'tech', desc: _HKI('On-board, non-copper') },
+  { id: 'B.Fab', name: 'B.Fab', kind: 'tech', desc: _HKI('Off-board, manufacturing') },
+  { id: 'B.CrtYd', name: 'B.Courtyard', kind: 'tech', desc: _HKI('Off-board, testing') },
+  { id: 'Edge.Cuts', name: 'Edge.Cuts', kind: 'tech', desc: _HKI('Board contour') },
+  { id: 'Margin', name: 'Margin', kind: 'tech', desc: _HKI('Board contour setback') },
   // Eco1, Eco2, Comments, Drawings — the order `initialize_back_tech_layers()`
   // adds them in (`panel_setup_layers.cpp:391`, `:405`, `:417`, `:433`). This
   // had Drawings and Comments first, which is the Appearance panel's order, not
   // this page's.
-  { id: 'Eco1.User', name: 'User.Eco1', kind: 'tech', desc: 'Auxiliary' },
-  { id: 'Eco2.User', name: 'User.Eco2', kind: 'tech', desc: 'Auxiliary' },
-  { id: 'Cmts.User', name: 'User.Comments', kind: 'tech', desc: 'Auxiliary' },
-  { id: 'Dwgs.User', name: 'User.Drawings', kind: 'tech', desc: 'Auxiliary' },
+  { id: 'Eco1.User', name: 'User.Eco1', kind: 'tech', desc: _HKI('Auxiliary') },
+  { id: 'Eco2.User', name: 'User.Eco2', kind: 'tech', desc: _HKI('Auxiliary') },
+  { id: 'Cmts.User', name: 'User.Comments', kind: 'tech', desc: _HKI('Auxiliary') },
+  { id: 'Dwgs.User', name: 'User.Drawings', kind: 'tech', desc: _HKI('Auxiliary') },
 ];
 
 /** PANEL_SETUP_LAYERS's transfers (panel_setup_layers.cpp). */
@@ -261,9 +263,9 @@ export const PANEL_SETUP_LAYERS = {
  */
 const COPPER_TYPES: [CopperLayerType, string][] = [
   ['signal', 'signal'],
-  ['power', 'power plane'],
-  ['mixed', 'mixed'],
-  ['jumper', 'jumper'],
+  ['power', _HKI('power plane')],
+  ['mixed', _HKI('mixed')],
+  ['jumper', _HKI('jumper')],
 ];
 
 const COPPER_TYPE_TIP =
@@ -276,13 +278,14 @@ const COPPER_TYPE_TIP =
  * LT_FRONT / LT_BACK write their own name (`pcb_io_kicad_sexpr.cpp:684-697`).
  */
 const USER_TYPES: [UserLayerType, string][] = [
-  ['aux', 'Auxiliary'],
-  ['front', 'Off-board, front'],
-  ['back', 'Off-board, back'],
+  ['aux', _HKI('Auxiliary')],
+  ['front', _HKI('Off-board, front')],
+  ['back', _HKI('Off-board, back')],
 ];
 
-const USER_TYPE_TIP =
-  'Auxiliary layers do not flip with board side, while back and front layers do.';
+const USER_TYPE_TIP = _HKI(
+  'Auxiliary layers do not flip with board side, while back and front layers do.',
+);
 
 /**
  * The DOM id of one row's name field, so `SetError` has an `aCtrl` to focus
@@ -291,10 +294,10 @@ const USER_TYPE_TIP =
 export const layerNameInputId = (layerId: string): string => `ze-layer-name-${layerId}`;
 
 /** `mandatoryLayerCbSetup()`'s tooltip (`panel_setup_layers.cpp:59`). */
-const MANDATORY_TIP = 'This layer is required and cannot be disabled';
+const MANDATORY_TIP = _HKI('This layer is required and cannot be disabled');
 
 /** The copper rows' checkbox tooltip (`panel_setup_layers.cpp:475`). */
-const COPPER_CB_TIP = 'Use the Physical Stackup page to change the number of copper layers.';
+const COPPER_CB_TIP = _HKI('Use the Physical Stackup page to change the number of copper layers.');
 
 /**
  * The per-layer `SetToolTip` on the enable checkbox. Only the layers listed
@@ -306,18 +309,18 @@ const COPPER_CB_TIP = 'Use the Physical Stackup page to change the number of cop
  * F.Paste's missing "the" is KiCad's own (`:189`).
  */
 const ENABLE_TIPS: Readonly<Record<string, string>> = {
-  'F.Fab': 'If you want a fabrication layer for the front side of the board',
-  'F.Adhes': 'If you want an adhesive template for the front side of the board',
-  'F.Paste': 'If you want a solder paste layer for front side of the board',
-  'F.SilkS': 'If you want a silk screen layer for the front side of the board',
-  'F.Mask': 'If you want a solder mask layer for the front of the board',
-  'B.Mask': 'If you want a solder mask layer for the back side of the board',
-  'B.SilkS': 'If you want a silk screen layer for the back side of the board',
-  'B.Paste': 'If you want a solder paste layer for the back side of the board',
-  'B.Adhes': 'If you want an adhesive layer for the back side of the board',
-  'B.Fab': 'If you want a fabrication layer for the back side of the board',
-  'Cmts.User': 'If you want a separate layer for comments or notes',
-  'Dwgs.User': 'If you want a layer for documentation drawings',
+  'F.Fab': _HKI('If you want a fabrication layer for the front side of the board'),
+  'F.Adhes': _HKI('If you want an adhesive template for the front side of the board'),
+  'F.Paste': _HKI('If you want a solder paste layer for front side of the board'),
+  'F.SilkS': _HKI('If you want a silk screen layer for the front side of the board'),
+  'F.Mask': _HKI('If you want a solder mask layer for the front of the board'),
+  'B.Mask': _HKI('If you want a solder mask layer for the back side of the board'),
+  'B.SilkS': _HKI('If you want a silk screen layer for the back side of the board'),
+  'B.Paste': _HKI('If you want a solder paste layer for the back side of the board'),
+  'B.Adhes': _HKI('If you want an adhesive layer for the back side of the board'),
+  'B.Fab': _HKI('If you want a fabrication layer for the back side of the board'),
+  'Cmts.User': _HKI('If you want a separate layer for comments or notes'),
+  'Dwgs.User': _HKI('If you want a layer for documentation drawings'),
 };
 
 interface Props {
@@ -339,7 +342,7 @@ export function PanelPcbLayers({ value, onChange }: Props): JSX.Element {
   const openAdd = (): void => {
     if (availableUserLayers.length === 0) {
       // DisplayErrorMessage( …, _( "All user-defined layers have already been added." ) )
-      DisplayErrorMessage('All user-defined layers have already been added.');
+      DisplayErrorMessage(wxGetTranslation('All user-defined layers have already been added.'));
       return;
     }
     setAddOpen(true);
@@ -392,7 +395,7 @@ export function PanelPcbLayers({ value, onChange }: Props): JSX.Element {
                 <TextCtrl
                   id={layerNameInputId(l.id)}
                   // Only the copper and user-defined name fields carry it.
-                  title={copper || user ? 'Layer Name' : undefined}
+                  title={copper || user ? wxGetTranslation('Layer Name') : undefined}
                   ariaLabel={`${l.id} name`}
                   value={l.name}
                   onChange={(aText) => setAt(i, { name: aText })}
@@ -445,11 +448,11 @@ export function PanelPcbLayers({ value, onChange }: Props): JSX.Element {
       />
       {addOpen && (
         <EdaListDialog
-          title="Add User-defined Layer"
+          title={wxGetTranslation('Add User-defined Layer')}
           // EDA_LIST_DIALOG( …, headers, list ): aSortList's default, true.
           sortList
-          listLabel="Select layer to add:"
-          headers={['Layers']}
+          listLabel={wxGetTranslation('Select layer to add:')}
+          headers={[wxGetTranslation('Layers')]}
           rows={availableUserLayers.map((id) => ({ value: id, cells: [id] }))}
           onResult={commitAdd}
         />
@@ -478,12 +481,13 @@ export function testLayerNames(value: LayersSetup): { layerId: string; message: 
     if (!l.enabled) continue;
     const name = l.name;
 
-    if (!name) return { layerId: l.id, message: 'Layer must have a name.' };
+    if (!name) return { layerId: l.id, message: wxGetTranslation('Layer must have a name.') };
 
     if ([...name].some((c) => badchars.includes(c)))
       return { layerId: l.id, message: `${badchars} are forbidden in layer names.` };
 
-    if (name === 'signal') return { layerId: l.id, message: 'Layer name "signal" is reserved.' };
+    if (name === 'signal')
+      return { layerId: l.id, message: wxGetTranslation('Layer name "signal" is reserved.') };
 
     if (seen.has(name)) return { layerId: l.id, message: `Layer name '${name}' already in use.` };
 

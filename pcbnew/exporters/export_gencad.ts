@@ -15,6 +15,7 @@ import {
   GENCAD_EXPORT_OPT,
 } from '../dialogs/dialog_gencad_export_options.js';
 import { GENCAD_EXPORTER } from './export_gencad_writer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The frame `ExportGenCAD` runs on. */
 export interface EXPORT_GENCAD_FRAME extends DIALOG_GENCAD_EXPORT_OPTIONS_FRAME {
@@ -29,7 +30,7 @@ export interface EXPORT_GENCAD_FRAME extends DIALOG_GENCAD_EXPORT_OPTIONS_FRAME 
 export async function BOARD_EDITOR_CONTROL_ExportGenCAD(
   aFrame: EXPORT_GENCAD_FRAME,
 ): Promise<number> {
-  const optionsDialog = new DIALOG_GENCAD_EXPORT_OPTIONS(aFrame, 'Export to GenCAD');
+  const optionsDialog = new DIALOG_GENCAD_EXPORT_OPTIONS(aFrame, _('Export to GenCAD'));
 
   if (!(await aFrame.ShowGencadExportOptionsDialog(optionsDialog))) return 0;
 

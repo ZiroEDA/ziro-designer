@@ -60,6 +60,7 @@ import type { EdaDataType } from '@ziroeda/common/eda_units.js';
 import { GENERATOR_APPLICATION, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import { GetISO8601CurrentDateTime } from '@ziroeda/common/string_utils.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface BoardStatisticsOptions {
   /** `m_checkBoxExcludeComponentsNoPins`. */
@@ -169,34 +170,40 @@ export function InitializeBoardStatisticsData(): BoardStatisticsData {
       {
         attributeMask: FP_THROUGH_HOLE,
         attributeValue: FP_THROUGH_HOLE,
-        title: 'THT:',
+        title: _('THT:'),
         frontCount: 0,
         backCount: 0,
       },
-      { attributeMask: FP_SMD, attributeValue: FP_SMD, title: 'SMD:', frontCount: 0, backCount: 0 },
+      {
+        attributeMask: FP_SMD,
+        attributeValue: FP_SMD,
+        title: _('SMD:'),
+        frontCount: 0,
+        backCount: 0,
+      },
       {
         attributeMask: FP_THROUGH_HOLE | FP_SMD,
         attributeValue: 0,
-        title: 'Unspecified:',
+        title: _('Unspecified:'),
         frontCount: 0,
         backCount: 0,
       },
     ],
     padEntries: [
-      { attribute: PAD_ATTRIB.PTH, title: 'Through hole:', quantity: 0 },
-      { attribute: PAD_ATTRIB.SMD, title: 'SMD:', quantity: 0 },
-      { attribute: PAD_ATTRIB.CONN, title: 'Connector:', quantity: 0 },
-      { attribute: PAD_ATTRIB.NPTH, title: 'NPTH:', quantity: 0 },
+      { attribute: PAD_ATTRIB.PTH, title: _('Through hole:'), quantity: 0 },
+      { attribute: PAD_ATTRIB.SMD, title: _('SMD:'), quantity: 0 },
+      { attribute: PAD_ATTRIB.CONN, title: _('Connector:'), quantity: 0 },
+      { attribute: PAD_ATTRIB.NPTH, title: _('NPTH:'), quantity: 0 },
     ],
     padPropertyEntries: [
-      { attribute: PAD_PROP.CASTELLATED, title: 'Castellated:', quantity: 0 },
-      { attribute: PAD_PROP.PRESSFIT, title: 'Press-fit:', quantity: 0 },
+      { attribute: PAD_PROP.CASTELLATED, title: _('Castellated:'), quantity: 0 },
+      { attribute: PAD_PROP.PRESSFIT, title: _('Press-fit:'), quantity: 0 },
     ],
     viaEntries: [
-      { attribute: VIATYPE.THROUGH, title: 'Through vias:', quantity: 0 },
-      { attribute: VIATYPE.BLIND, title: 'Blind vias:', quantity: 0 },
-      { attribute: VIATYPE.BURIED, title: 'Buried vias:', quantity: 0 },
-      { attribute: VIATYPE.MICROVIA, title: 'Micro vias:', quantity: 0 },
+      { attribute: VIATYPE.THROUGH, title: _('Through vias:'), quantity: 0 },
+      { attribute: VIATYPE.BLIND, title: _('Blind vias:'), quantity: 0 },
+      { attribute: VIATYPE.BURIED, title: _('Buried vias:'), quantity: 0 },
+      { attribute: VIATYPE.MICROVIA, title: _('Micro vias:'), quantity: 0 },
     ],
     drillEntries: [],
   };
@@ -529,9 +536,9 @@ function appendTable(aRows: string[][], aUseFirstColAsLabel: boolean, aOut: stri
 function drillShapeName(aShape: PAD_DRILL_SHAPE): string {
   switch (aShape) {
     case PAD_DRILL_SHAPE.CIRCLE:
-      return 'Round';
+      return _('Round');
     case PAD_DRILL_SHAPE.OBLONG:
-      return 'Slot';
+      return _('Slot');
     default:
       return '???';
   }
@@ -583,11 +590,11 @@ export function FormatBoardStatisticsReport(
   out.push(`- Back footprint area: ${v(aData.backFootprintCourtyardArea, 'area')}\n`);
 
   out.push('- Front component density: ');
-  out.push(aData.hasOutline ? `${aData.frontFootprintDensity.toFixed(2)} %` : 'unknown');
+  out.push(aData.hasOutline ? `${aData.frontFootprintDensity.toFixed(2)} %` : _('unknown'));
   out.push('\n');
 
   out.push('- Back component density: ');
-  out.push(aData.hasOutline ? `${aData.backFootprintDensity.toFixed(2)} %` : 'unknown');
+  out.push(aData.hasOutline ? `${aData.backFootprintDensity.toFixed(2)} %` : _('unknown'));
   out.push('\n');
 
   out.push('\n');
@@ -606,7 +613,7 @@ export function FormatBoardStatisticsReport(
   out.push('\n');
   out.push('Components\n----------\n\n');
 
-  const componentRows: string[][] = [['', 'Front Side', 'Back Side', 'Total']];
+  const componentRows: string[][] = [['', _('Front Side'), _('Back Side'), _('Total')]];
   let frontTotal = 0;
   let backTotal = 0;
 
@@ -623,7 +630,7 @@ export function FormatBoardStatisticsReport(
   }
 
   componentRows.push([
-    'Total:',
+    _('Total:'),
     formatCount(frontTotal),
     formatCount(backTotal),
     formatCount(frontTotal + backTotal),
@@ -635,7 +642,16 @@ export function FormatBoardStatisticsReport(
   out.push('Drill holes\n-----------\n\n');
 
   const drillRows: string[][] = [
-    ['Count', 'Shape', 'X Size', 'Y Size', 'Plated', 'Via/Pad', 'Start Layer', 'Stop Layer'],
+    [
+      _('Count'),
+      _('Shape'),
+      _('X Size'),
+      _('Y Size'),
+      _('Plated'),
+      _('Via/Pad'),
+      _('Start Layer'),
+      _('Stop Layer'),
+    ],
   ];
 
   for (const drill of aData.drillEntries) {
@@ -644,8 +660,8 @@ export function FormatBoardStatisticsReport(
       drillShapeName(drill.shape),
       aUnitsProvider.MessageTextFromValue(drill.xSize),
       aUnitsProvider.MessageTextFromValue(drill.ySize),
-      drill.isPlated ? 'PTH' : 'NPTH',
-      drill.isPad ? 'Pad' : 'Via',
+      drill.isPlated ? _('PTH') : _('NPTH'),
+      drill.isPad ? _('Pad') : _('Via'),
       drillLayerName(aBoard, drill.startLayer),
       drillLayerName(aBoard, drill.stopLayer),
     ]);
@@ -755,7 +771,7 @@ export function FormatBoardStatisticsJson(
     x_size: aUnitsProvider.MessageTextFromValue(drill.xSize),
     y_size: aUnitsProvider.MessageTextFromValue(drill.ySize),
     plated: drill.isPlated,
-    source: drill.isPad ? 'Pad' : 'Via',
+    source: drill.isPad ? _('Pad') : _('Via'),
     start_layer: drillLayerName(aBoard, drill.startLayer),
     stop_layer: drillLayerName(aBoard, drill.stopLayer),
   }));

@@ -114,6 +114,8 @@ import type { DRC_ENGINE } from './drc/drc_engine.js';
 import { type DRC_CONSTRAINT, DRC_CONSTRAINT_T } from './drc/drc_rule.js';
 import { ZONE_CONNECTION, ZONE_THICKNESS_MIN_VALUE_MM } from './zones.js';
 import type { FOOTPRINT } from './footprint.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export { PAD_ATTRIB, PAD_PROP, PAD_SHAPE } from './padstack.js';
 
@@ -1592,7 +1594,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   override GetLocalClearance(aSource?: OutStr | null): number | undefined {
     if (aSource === undefined) return this.m_padStack.Clearance();
 
-    if (this.m_padStack.Clearance() !== undefined && aSource) aSource.value = 'pad';
+    if (this.m_padStack.Clearance() !== undefined && aSource) aSource.value = _('pad');
 
     return this.m_padStack.Clearance();
   }
@@ -2161,7 +2163,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     let connection = this.m_padStack.ZoneConnection() ?? ZONE_CONNECTION.INHERITED;
 
     if (connection !== ZONE_CONNECTION.INHERITED) {
-      if (aSource) aSource.value = 'pad';
+      if (aSource) aSource.value = _('pad');
     }
 
     if (connection === ZONE_CONNECTION.INHERITED) {
@@ -2185,7 +2187,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   }
 
   GetLocalSpokeWidthOverride(aSource: OutStr | null = null): number {
-    if (this.m_padStack.ThermalSpokeWidth() !== undefined && aSource) aSource.value = 'pad';
+    if (this.m_padStack.ThermalSpokeWidth() !== undefined && aSource) aSource.value = _('pad');
 
     return this.m_padStack.ThermalSpokeWidth() ?? 0;
   }
@@ -2223,7 +2225,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   GetLocalThermalGapOverride(aSource?: OutStr | null): number | undefined {
     if (aSource === undefined) return this.m_padStack.ThermalGap();
 
-    if (this.m_padStack.ThermalGap() !== undefined && aSource) aSource.value = 'pad';
+    if (this.m_padStack.ThermalGap() !== undefined && aSource) aSource.value = _('pad');
 
     return this.GetLocalThermalGapOverride() ?? 0;
   }
@@ -2428,10 +2430,10 @@ export class PAD extends BOARD_CONNECTED_ITEM {
 
     if (aFrame.GetName() === PCB_EDIT_FRAME_NAME) {
       if (parentFootprint)
-        aList.push(new MSG_PANEL_ITEM('Footprint', parentFootprint.GetReference()));
+        aList.push(new MSG_PANEL_ITEM(_('Footprint'), parentFootprint.GetReference()));
     }
 
-    aList.push(new MSG_PANEL_ITEM('Pad', this.m_number));
+    aList.push(new MSG_PANEL_ITEM(_('Pad'), this.m_number));
 
     if (this.GetPinFunction() !== '')
       aList.push(new MSG_PANEL_ITEM('Pin Name', this.GetPinFunction()));
@@ -2442,12 +2444,12 @@ export class PAD extends BOARD_CONNECTED_ITEM {
       aList.push(new MSG_PANEL_ITEM('Net', unescapeString(this.GetNetname())));
       aList.push(
         new MSG_PANEL_ITEM(
-          'Resolved Netclass',
+          _('Resolved Netclass'),
           unescapeString(this.GetEffectiveNetClass().GetHumanReadableName()),
         ),
       );
 
-      if (this.IsLocked()) aList.push(new MSG_PANEL_ITEM('Status', 'Locked'));
+      if (this.IsLocked()) aList.push(new MSG_PANEL_ITEM(_('Status'), 'Locked'));
     }
 
     if (this.GetAttribute() === PAD_ATTRIB.SMD || this.GetAttribute() === PAD_ATTRIB.CONN)
@@ -2458,7 +2460,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
         // TOOD(JE) padstacks
         const poly = this.GetEffectivePolygon(PADSTACK.ALL_LAYERS);
         const area = poly.Area();
-        aList.push(new MSG_PANEL_ITEM('Area', frame.MessageTextFromValue(area, true, 'area')));
+        aList.push(new MSG_PANEL_ITEM(_('Area'), frame.MessageTextFromValue(area, true, 'area')));
       }
     }
 
@@ -2471,28 +2473,28 @@ export class PAD extends BOARD_CONNECTED_ITEM {
       case PAD_PROP.NONE:
         break;
       case PAD_PROP.BGA:
-        props += 'BGA';
+        props += _('BGA');
         break;
       case PAD_PROP.FIDUCIAL_GLBL:
-        props += 'Fiducial global';
+        props += _('Fiducial global');
         break;
       case PAD_PROP.FIDUCIAL_LOCAL:
-        props += 'Fiducial local';
+        props += _('Fiducial local');
         break;
       case PAD_PROP.TESTPOINT:
-        props += 'Test point';
+        props += _('Test point');
         break;
       case PAD_PROP.HEATSINK:
-        props += 'Heat sink';
+        props += _('Heat sink');
         break;
       case PAD_PROP.CASTELLATED:
-        props += 'Castellated';
+        props += _('Castellated');
         break;
       case PAD_PROP.MECHANICAL:
-        props += 'Mechanical';
+        props += _('Mechanical');
         break;
       case PAD_PROP.PRESSFIT:
-        props += 'Press-fit';
+        props += _('Press-fit');
         break;
     }
 
@@ -2503,10 +2505,10 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     const padSize = this.m_padStack.Size(PADSTACK.ALL_LAYERS);
 
     if ((padShape === PAD_SHAPE.CIRCLE || padShape === PAD_SHAPE.OVAL) && padSize.x === padSize.y) {
-      aList.push(new MSG_PANEL_ITEM('Diameter', frame.MessageTextFromValue(padSize.x)));
+      aList.push(new MSG_PANEL_ITEM(_('Diameter'), frame.MessageTextFromValue(padSize.x)));
     } else {
-      aList.push(new MSG_PANEL_ITEM('Width', frame.MessageTextFromValue(padSize.x)));
-      aList.push(new MSG_PANEL_ITEM('Height', frame.MessageTextFromValue(padSize.y)));
+      aList.push(new MSG_PANEL_ITEM(_('Width'), frame.MessageTextFromValue(padSize.x)));
+      aList.push(new MSG_PANEL_ITEM(_('Height'), frame.MessageTextFromValue(padSize.y)));
     }
 
     const fp_orient = parentFootprint ? parentFootprint.GetOrientation() : ANGLE_0;
@@ -2518,12 +2520,12 @@ export class PAD extends BOARD_CONNECTED_ITEM {
       msg = `${formatG(pad_orient.AsDegrees(), 6)}(+ ${formatG(fp_orient.AsDegrees(), 6)})`;
     else msg = formatG(this.GetOrientation().AsDegrees(), 6);
 
-    aList.push(new MSG_PANEL_ITEM('Rotation', msg));
+    aList.push(new MSG_PANEL_ITEM(_('Rotation'), msg));
 
     if (this.GetPadToDieLength()) {
       aList.push(
         new MSG_PANEL_ITEM(
-          'Length in Package',
+          _('Length in Package'),
           frame.MessageTextFromValue(this.GetPadToDieLength()),
         ),
       );
@@ -2533,11 +2535,11 @@ export class PAD extends BOARD_CONNECTED_ITEM {
 
     if (drill.x > 0 || drill.y > 0) {
       if (this.GetDrillShape() === PAD_DRILL_SHAPE.CIRCLE) {
-        aList.push(new MSG_PANEL_ITEM('Hole', `${frame.MessageTextFromValue(drill.x)}`));
+        aList.push(new MSG_PANEL_ITEM(_('Hole'), `${frame.MessageTextFromValue(drill.x)}`));
       } else {
         aList.push(
           new MSG_PANEL_ITEM(
-            'Hole X / Y',
+            _('Hole X / Y'),
             `${frame.MessageTextFromValue(drill.x)} / ${frame.MessageTextFromValue(drill.y)}`,
           ),
         );
@@ -3031,7 +3033,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   }
 
   override GetMenuImage(): string {
-    return 'pad';
+    return _('pad');
   }
 
   /**
@@ -3580,7 +3582,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
       if ((drill_size.x || drill_size.y) && this.GetAttribute() !== PAD_ATTRIB.NPTH) {
         aErrorHandler(
           DRCE_PADSTACK,
-          '(plated through holes normally have a copper pad on at least one outer layer)',
+          _('(plated through holes normally have a copper pad on at least one outer layer)'),
         );
       }
     }
@@ -3590,29 +3592,29 @@ export class PAD extends BOARD_CONNECTED_ITEM {
         this.GetProperty() === PAD_PROP.FIDUCIAL_LOCAL) &&
       this.GetAttribute() === PAD_ATTRIB.NPTH
     ) {
-      aErrorHandler(DRCE_PADSTACK, "('fiducial' pads are normally plated)");
+      aErrorHandler(DRCE_PADSTACK, _("('fiducial' pads are normally plated)"));
     }
 
     if (this.GetProperty() === PAD_PROP.TESTPOINT && this.GetAttribute() === PAD_ATTRIB.NPTH)
-      aErrorHandler(DRCE_PADSTACK, "('testpoint' pads are normally plated)");
+      aErrorHandler(DRCE_PADSTACK, _("('testpoint' pads are normally plated)"));
 
     if (this.GetProperty() === PAD_PROP.HEATSINK && this.GetAttribute() === PAD_ATTRIB.NPTH)
-      aErrorHandler(DRCE_PADSTACK, "('heatsink' pads are normally plated)");
+      aErrorHandler(DRCE_PADSTACK, _("('heatsink' pads are normally plated)"));
 
     if (this.GetProperty() === PAD_PROP.CASTELLATED && this.GetAttribute() !== PAD_ATTRIB.PTH)
-      aErrorHandler(DRCE_PADSTACK, "('castellated' pads are normally PTH)");
+      aErrorHandler(DRCE_PADSTACK, _("('castellated' pads are normally PTH)"));
 
     if (this.GetProperty() === PAD_PROP.BGA && this.GetAttribute() !== PAD_ATTRIB.SMD)
-      aErrorHandler(DRCE_PADSTACK, "('BGA' property is for SMD pads)");
+      aErrorHandler(DRCE_PADSTACK, _("('BGA' property is for SMD pads)"));
 
     if (this.GetProperty() === PAD_PROP.MECHANICAL && this.GetAttribute() !== PAD_ATTRIB.PTH)
-      aErrorHandler(DRCE_PADSTACK, "('mechanical' pads are normally PTH)");
+      aErrorHandler(DRCE_PADSTACK, _("('mechanical' pads are normally PTH)"));
 
     if (
       this.GetProperty() === PAD_PROP.PRESSFIT &&
       (this.GetAttribute() !== PAD_ATTRIB.PTH || !this.HasDrilledHole())
     ) {
-      aErrorHandler(DRCE_PADSTACK, "('press-fit' pads are normally PTH with round holes)");
+      aErrorHandler(DRCE_PADSTACK, _("('press-fit' pads are normally PTH with round holes)"));
     }
 
     switch (this.GetAttribute()) {
@@ -3635,7 +3637,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
         ) {
           aErrorHandler(
             DRCE_PADSTACK,
-            '(connector pads normally have no solder paste; use a SMD pad instead)',
+            _('(connector pads normally have no solder paste; use a SMD pad instead)'),
           );
         }
 
@@ -3644,38 +3646,38 @@ export class PAD extends BOARD_CONNECTED_ITEM {
       case PAD_ATTRIB.SMD: {
         // SMD and Connector pads (One external copper layer only)
         if (drill_size.x > 0 || drill_size.y > 0)
-          aErrorHandler(DRCE_PADSTACK_INVALID, '(SMD pad has a hole)');
+          aErrorHandler(DRCE_PADSTACK_INVALID, _('(SMD pad has a hole)'));
 
         const innerlayers_mask = padlayers_mask.and(LSET.InternalCuMask());
 
         if (this.IsOnLayer(PCB_LAYER_ID.F_Cu) && this.IsOnLayer(PCB_LAYER_ID.B_Cu)) {
-          aErrorHandler(DRCE_PADSTACK, '(SMD pad has copper on both sides of the board)');
+          aErrorHandler(DRCE_PADSTACK, _('(SMD pad has copper on both sides of the board)'));
         } else if (this.IsOnLayer(PCB_LAYER_ID.F_Cu)) {
           if (this.IsOnLayer(PCB_LAYER_ID.B_Mask)) {
             aErrorHandler(
               DRCE_PADSTACK,
-              '(SMD pad has copper and mask layers on different sides of the board)',
+              _('(SMD pad has copper and mask layers on different sides of the board)'),
             );
           } else if (this.IsOnLayer(PCB_LAYER_ID.B_Paste)) {
             aErrorHandler(
               DRCE_PADSTACK,
-              '(SMD pad has copper and paste layers on different sides of the board)',
+              _('(SMD pad has copper and paste layers on different sides of the board)'),
             );
           }
         } else if (this.IsOnLayer(PCB_LAYER_ID.B_Cu)) {
           if (this.IsOnLayer(PCB_LAYER_ID.F_Mask)) {
             aErrorHandler(
               DRCE_PADSTACK,
-              '(SMD pad has copper and mask layers on different sides of the board)',
+              _('(SMD pad has copper and mask layers on different sides of the board)'),
             );
           } else if (this.IsOnLayer(PCB_LAYER_ID.F_Paste)) {
             aErrorHandler(
               DRCE_PADSTACK,
-              '(SMD pad has copper and paste layers on different sides of the board)',
+              _('(SMD pad has copper and paste layers on different sides of the board)'),
             );
           }
         } else if (innerlayers_mask.count() !== 0) {
-          aErrorHandler(DRCE_PADSTACK, '(SMD pad has no outer layers)');
+          aErrorHandler(DRCE_PADSTACK, _('(SMD pad has no outer layers)'));
         }
 
         break;
@@ -3695,7 +3697,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
 
     if (this.GetShape(aLayer) === PAD_SHAPE.CUSTOM) pad_size = this.GetBoundingBox().GetSize();
     else if (pad_size.x <= 0 || (pad_size.y <= 0 && this.GetShape(aLayer) !== PAD_SHAPE.CIRCLE))
-      aErrorHandler(DRCE_PADSTACK_INVALID, '(Pad must have a positive size)');
+      aErrorHandler(DRCE_PADSTACK_INVALID, _('(Pad must have a positive size)'));
 
     // Test hole against pad shape
     if (this.IsOnCopperLayer() && this.GetDrillSize().x > 0) {
@@ -3735,7 +3737,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
         copper.BooleanSubtract(holeOutline);
 
         if (copper.IsEmpty()) {
-          aErrorHandler(DRCE_PADSTACK, '(PTH pad hole leaves no copper)');
+          aErrorHandler(DRCE_PADSTACK, _('(PTH pad hole leaves no copper)'));
         } else if (aForPadProperties) {
           // Test if the pad hole is fully inside the copper area.  Note that we only run
           // this check for pad properties because we run the more complete annular ring
@@ -3743,17 +3745,17 @@ export class PAD extends BOARD_CONNECTED_ITEM {
           holeOutline.BooleanSubtract(padOutline);
 
           if (!holeOutline.IsEmpty())
-            aErrorHandler(DRCE_PADSTACK, '(PTH pad hole not fully inside copper)');
+            aErrorHandler(DRCE_PADSTACK, _('(PTH pad hole not fully inside copper)'));
         }
       } else {
         // Test only if the pad hole's centre is inside the copper area
         if (!padOutline.Collide(this.GetPosition()))
-          aErrorHandler(DRCE_PADSTACK, '(pad hole not inside pad shape)');
+          aErrorHandler(DRCE_PADSTACK, _('(pad hole not inside pad shape)'));
       }
     }
 
     if ((this.GetLocalClearance() ?? 0) < 0)
-      aErrorHandler(DRCE_PADSTACK, '(negative local clearance values have no effect)');
+      aErrorHandler(DRCE_PADSTACK, _('(negative local clearance values have no effect)'));
 
     // Some pads need a negative solder mask clearance (mainly for BGA with small pads)
     // However the negative solder mask clearance must not create negative mask size
@@ -3770,7 +3772,9 @@ export class PAD extends BOARD_CONNECTED_ITEM {
           if (absMargin > shapeBBox.GetWidth() || absMargin > shapeBBox.GetHeight()) {
             aErrorHandler(
               DRCE_PADSTACK,
-              '(negative solder mask clearance is larger than some shape primitives; results may be surprising)',
+              _(
+                '(negative solder mask clearance is larger than some shape primitives; results may be surprising)',
+              ),
             );
 
             break;
@@ -3779,7 +3783,9 @@ export class PAD extends BOARD_CONNECTED_ITEM {
       } else if (absMargin > pad_size.x || absMargin > pad_size.y) {
         aErrorHandler(
           DRCE_PADSTACK,
-          '(negative solder mask clearance is larger than pad; no solder mask will be generated)',
+          _(
+            '(negative solder mask clearance is larger than pad; no solder mask will be generated)',
+          ),
         );
       }
     }
@@ -3799,20 +3805,22 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     if (paste_size.x <= 0 || paste_size.y <= 0) {
       aErrorHandler(
         DRCE_PADSTACK,
-        '(negative solder paste margin is larger than pad; no solder paste mask will be generated)',
+        _(
+          '(negative solder paste margin is larger than pad; no solder paste mask will be generated)',
+        ),
       );
     }
 
     if (this.GetShape(aLayer) === PAD_SHAPE.ROUNDRECT) {
       if (this.GetRoundRectRadiusRatio(aLayer) < 0.0)
-        aErrorHandler(DRCE_PADSTACK_INVALID, '(negative corner radius is not allowed)');
+        aErrorHandler(DRCE_PADSTACK_INVALID, _('(negative corner radius is not allowed)'));
       else if (this.GetRoundRectRadiusRatio(aLayer) > 50.0)
-        aErrorHandler(DRCE_PADSTACK, '(corner size will make pad circular)');
+        aErrorHandler(DRCE_PADSTACK, _('(corner size will make pad circular)'));
     } else if (this.GetShape(aLayer) === PAD_SHAPE.CHAMFERED_RECT) {
       if (this.GetChamferRectRatio(aLayer) < 0.0)
-        aErrorHandler(DRCE_PADSTACK_INVALID, '(negative corner chamfer is not allowed)');
+        aErrorHandler(DRCE_PADSTACK_INVALID, _('(negative corner chamfer is not allowed)'));
       else if (this.GetChamferRectRatio(aLayer) > 50.0)
-        aErrorHandler(DRCE_PADSTACK_INVALID, '(corner chamfer is too large)');
+        aErrorHandler(DRCE_PADSTACK_INVALID, _('(corner chamfer is too large)'));
     } else if (this.GetShape(aLayer) === PAD_SHAPE.TRAPEZOID) {
       if (
         (this.GetDelta(aLayer).x < 0 && this.GetDelta(aLayer).x < -this.GetSize(aLayer).y) ||
@@ -3820,7 +3828,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
         (this.GetDelta(aLayer).y < 0 && this.GetDelta(aLayer).y < -this.GetSize(aLayer).x) ||
         (this.GetDelta(aLayer).y > 0 && this.GetDelta(aLayer).y > this.GetSize(aLayer).x)
       ) {
-        aErrorHandler(DRCE_PADSTACK_INVALID, '(trapezoid delta is too large)');
+        aErrorHandler(DRCE_PADSTACK_INVALID, _('(trapezoid delta is too large)'));
       }
     }
 
@@ -3829,7 +3837,10 @@ export class PAD extends BOARD_CONNECTED_ITEM {
       this.MergePrimitivesAsPolygon(aLayer, mergedPolygon);
 
       if (mergedPolygon.OutlineCount() > 1)
-        aErrorHandler(DRCE_PADSTACK_INVALID, '(custom pad shape must resolve to a single polygon)');
+        aErrorHandler(
+          DRCE_PADSTACK_INVALID,
+          _('(custom pad shape must resolve to a single polygon)'),
+        );
     }
   }
 
@@ -3940,10 +3951,10 @@ export class PAD extends BOARD_CONNECTED_ITEM {
  */
 (() => {
   ENUM_MAP.Instance<PAD_ATTRIB>('PAD_ATTRIB')
-    .Map(PAD_ATTRIB.PTH, 'Through-hole')
+    .Map(PAD_ATTRIB.PTH, _HKI('Through-hole'))
     .Map(PAD_ATTRIB.SMD, 'SMD')
-    .Map(PAD_ATTRIB.CONN, 'Edge connector')
-    .Map(PAD_ATTRIB.NPTH, 'NPTH, mechanical');
+    .Map(PAD_ATTRIB.CONN, _HKI('Edge connector'))
+    .Map(PAD_ATTRIB.NPTH, _HKI('NPTH, mechanical'));
 
   ENUM_MAP.Instance<PAD_SHAPE>('PAD_SHAPE')
     .Map(PAD_SHAPE.CIRCLE, 'Circle')
@@ -3952,23 +3963,23 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .Map(PAD_SHAPE.TRAPEZOID, 'Trapezoid')
     .Map(PAD_SHAPE.ROUNDRECT, 'Rounded rectangle')
     .Map(PAD_SHAPE.CHAMFERED_RECT, 'Chamfered rectangle')
-    .Map(PAD_SHAPE.CUSTOM, 'Custom');
+    .Map(PAD_SHAPE.CUSTOM, _HKI('Custom'));
 
   ENUM_MAP.Instance<PAD_PROP>('PAD_PROP')
-    .Map(PAD_PROP.NONE, 'None')
-    .Map(PAD_PROP.BGA, 'BGA pad')
-    .Map(PAD_PROP.FIDUCIAL_GLBL, 'Fiducial, global to board')
-    .Map(PAD_PROP.FIDUCIAL_LOCAL, 'Fiducial, local to footprint')
-    .Map(PAD_PROP.TESTPOINT, 'Test point pad')
-    .Map(PAD_PROP.HEATSINK, 'Heatsink pad')
-    .Map(PAD_PROP.CASTELLATED, 'Castellated pad')
-    .Map(PAD_PROP.MECHANICAL, 'Mechanical pad')
-    .Map(PAD_PROP.PRESSFIT, 'Press-fit pad');
+    .Map(PAD_PROP.NONE, _HKI('None'))
+    .Map(PAD_PROP.BGA, _HKI('BGA pad'))
+    .Map(PAD_PROP.FIDUCIAL_GLBL, _HKI('Fiducial, global to board'))
+    .Map(PAD_PROP.FIDUCIAL_LOCAL, _HKI('Fiducial, local to footprint'))
+    .Map(PAD_PROP.TESTPOINT, _HKI('Test point pad'))
+    .Map(PAD_PROP.HEATSINK, _HKI('Heatsink pad'))
+    .Map(PAD_PROP.CASTELLATED, _HKI('Castellated pad'))
+    .Map(PAD_PROP.MECHANICAL, _HKI('Mechanical pad'))
+    .Map(PAD_PROP.PRESSFIT, _HKI('Press-fit pad'));
 
   ENUM_MAP.Instance<PAD_DRILL_SHAPE>('PAD_DRILL_SHAPE')
-    .Map(PAD_DRILL_SHAPE.UNDEFINED, 'Undefined')
-    .Map(PAD_DRILL_SHAPE.CIRCLE, 'Round')
-    .Map(PAD_DRILL_SHAPE.OBLONG, 'Oblong');
+    .Map(PAD_DRILL_SHAPE.UNDEFINED, _HKI('Undefined'))
+    .Map(PAD_DRILL_SHAPE.CIRCLE, _HKI('Round'))
+    .Map(PAD_DRILL_SHAPE.OBLONG, _HKI('Oblong'));
 
   // Ensure post-machining mode enum choices are defined before properties use them
   // Ensure backdrill mode enum choices are defined before properties use them
@@ -3979,18 +3990,21 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   if (zcMap.Choices().GetCount() === 0) {
     zcMap.Undefined(ZONE_CONNECTION.INHERITED);
     zcMap
-      .Map(ZONE_CONNECTION.INHERITED, 'Inherited')
-      .Map(ZONE_CONNECTION.NONE, 'None')
-      .Map(ZONE_CONNECTION.THERMAL, 'Thermal reliefs')
-      .Map(ZONE_CONNECTION.FULL, 'Solid')
-      .Map(ZONE_CONNECTION.THT_THERMAL, 'Thermal reliefs for PTH');
+      .Map(ZONE_CONNECTION.INHERITED, _HKI('Inherited'))
+      .Map(ZONE_CONNECTION.NONE, _HKI('None'))
+      .Map(ZONE_CONNECTION.THERMAL, _HKI('Thermal reliefs'))
+      .Map(ZONE_CONNECTION.FULL, _HKI('Solid'))
+      .Map(ZONE_CONNECTION.THT_THERMAL, _HKI('Thermal reliefs for PTH'));
   }
 
   ENUM_MAP.Instance<UNCONNECTED_LAYER_MODE>('UNCONNECTED_LAYER_MODE')
-    .Map(UNCONNECTED_LAYER_MODE.KEEP_ALL, 'All copper layers')
-    .Map(UNCONNECTED_LAYER_MODE.REMOVE_ALL, 'Connected layers only')
-    .Map(UNCONNECTED_LAYER_MODE.REMOVE_EXCEPT_START_AND_END, 'Front, back and connected layers')
-    .Map(UNCONNECTED_LAYER_MODE.START_END_ONLY, 'Start and end layers only');
+    .Map(UNCONNECTED_LAYER_MODE.KEEP_ALL, _HKI('All copper layers'))
+    .Map(UNCONNECTED_LAYER_MODE.REMOVE_ALL, _HKI('Connected layers only'))
+    .Map(
+      UNCONNECTED_LAYER_MODE.REMOVE_EXCEPT_START_AND_END,
+      _HKI('Front, back and connected layers'),
+    )
+    .Map(UNCONNECTED_LAYER_MODE.START_END_ONLY, _HKI('Start and end layers only'));
 
   const propMgr = PROPERTY_MANAGER.Instance();
   REGISTER_TYPE(PAD);
@@ -4007,7 +4021,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PAD, number>(
       PAD,
-      'Orientation',
+      _HKI('Orientation'),
       'SetOrientationDegrees',
       'GetOrientationDegrees',
       TYPE_DOUBLE,
@@ -4035,16 +4049,16 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   };
 
   propMgr.OverrideAvailability(PAD, BOARD_CONNECTED_ITEM, 'Net', isCopperPad);
-  propMgr.OverrideAvailability(PAD, BOARD_CONNECTED_ITEM, 'Net Class', isCopperPad);
+  propMgr.OverrideAvailability(PAD, BOARD_CONNECTED_ITEM, _HKI('Net Class'), isCopperPad);
 
-  const groupPad = 'Pad Properties';
-  const groupPostMachining = 'Post-machining Properties';
-  const groupBackdrill = 'Backdrill Properties';
+  const groupPad = _HKI('Pad Properties');
+  const groupPostMachining = _HKI('Post-machining Properties');
+  const groupBackdrill = _HKI('Backdrill Properties');
 
   propMgr.AddProperty(
     new PROPERTY_ENUM<PAD, PAD_ATTRIB>(
       PAD,
-      'Pad Type',
+      _HKI('Pad Type'),
       'SetAttribute',
       'GetAttribute',
       ENUM_MAP.Instance<PAD_ATTRIB>('PAD_ATTRIB'),
@@ -4056,7 +4070,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY_ENUM<PAD, PAD_SHAPE>(
         PAD,
-        'Pad Shape',
+        _HKI('Pad Shape'),
         'SetFrontShape',
         'GetFrontShape',
         ENUM_MAP.Instance<PAD_SHAPE>('PAD_SHAPE'),
@@ -4067,7 +4081,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
 
   propMgr
     .AddProperty(
-      new PROPERTY<PAD, string>(PAD, 'Pad Number', 'SetNumber', 'GetNumber', TYPE_STRING),
+      new PROPERTY<PAD, string>(PAD, _HKI('Pad Number'), 'SetNumber', 'GetNumber', TYPE_STRING),
       groupPad,
     )
     .SetAvailableFunc(isCopperPad);
@@ -4097,7 +4111,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number>(
         PAD,
-        'Size X',
+        _HKI('Size X'),
         'SetSizeX',
         'GetSizeX',
         TYPE_INT,
@@ -4110,7 +4124,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number>(
         PAD,
-        'Size Y',
+        _HKI('Size Y'),
         'SetSizeY',
         'GetSizeY',
         TYPE_INT,
@@ -4145,7 +4159,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number>(
         PAD,
-        'Corner Radius Ratio',
+        _HKI('Corner Radius Ratio'),
         'SetFrontRoundRectRadiusRatio',
         'GetFrontRoundRectRadiusRatio',
         TYPE_DOUBLE,
@@ -4158,7 +4172,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number>(
         PAD,
-        'Corner Radius Size',
+        _HKI('Corner Radius Size'),
         'SetFrontRoundRectRadiusSize',
         'GetFrontRoundRectRadiusSize',
         TYPE_INT,
@@ -4172,7 +4186,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY_ENUM<PAD, PAD_DRILL_SHAPE>(
         PAD,
-        'Hole Shape',
+        _HKI('Hole Shape'),
         'SetDrillShape',
         'GetDrillShape',
         ENUM_MAP.Instance<PAD_DRILL_SHAPE>('PAD_DRILL_SHAPE'),
@@ -4185,7 +4199,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number>(
         PAD,
-        'Hole Size X',
+        _HKI('Hole Size X'),
         'SetDrillSizeX',
         'GetDrillSizeX',
         TYPE_INT,
@@ -4200,7 +4214,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number>(
         PAD,
-        'Hole Size Y',
+        _HKI('Hole Size Y'),
         'SetDrillSizeY',
         'GetDrillSizeY',
         TYPE_INT,
@@ -4223,7 +4237,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY_ENUM<PAD, PAD_DRILL_POST_MACHINING_MODE>(
         PAD,
-        'Top Post-machining',
+        _HKI('Top Post-machining'),
         'SetFrontPostMachiningMode',
         'GetFrontPostMachiningMode',
         pmEnum,
@@ -4243,7 +4257,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number>(
         PAD,
-        'Top Post-machining Size',
+        _HKI('Top Post-machining Size'),
         'SetFrontPostMachiningSize',
         'GetFrontPostMachiningSize',
         TYPE_INT,
@@ -4270,7 +4284,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number>(
         PAD,
-        'Top Counterbore Depth',
+        _HKI('Top Counterbore Depth'),
         'SetFrontPostMachiningDepth',
         'GetFrontPostMachiningDepth',
         TYPE_INT,
@@ -4294,7 +4308,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number>(
         PAD,
-        'Top Countersink Angle',
+        _HKI('Top Countersink Angle'),
         'SetFrontPostMachiningAngle',
         'GetFrontPostMachiningAngle',
         TYPE_INT,
@@ -4318,7 +4332,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY_ENUM<PAD, PAD_DRILL_POST_MACHINING_MODE>(
         PAD,
-        'Bottom Post-machining',
+        _HKI('Bottom Post-machining'),
         'SetBackPostMachiningMode',
         'GetBackPostMachiningMode',
         pmEnum,
@@ -4338,7 +4352,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number>(
         PAD,
-        'Bottom Post-machining Size',
+        _HKI('Bottom Post-machining Size'),
         'SetBackPostMachiningSize',
         'GetBackPostMachiningSize',
         TYPE_INT,
@@ -4365,7 +4379,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number>(
         PAD,
-        'Bottom Counterbore Depth',
+        _HKI('Bottom Counterbore Depth'),
         'SetBackPostMachiningDepth',
         'GetBackPostMachiningDepth',
         TYPE_INT,
@@ -4389,7 +4403,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number>(
         PAD,
-        'Bottom Countersink Angle',
+        _HKI('Bottom Countersink Angle'),
         'SetBackPostMachiningAngle',
         'GetBackPostMachiningAngle',
         TYPE_INT,
@@ -4412,7 +4426,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PAD, BACKDRILL_MODE>(
       PAD,
-      'Backdrill Mode',
+      _HKI('Backdrill Mode'),
       'SetBackdrillMode',
       'GetBackdrillMode',
       ENUM_MAP.Instance<BACKDRILL_MODE>('BACKDRILL_MODE'),
@@ -4424,7 +4438,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number | undefined>(
         PAD,
-        'Bottom Backdrill Size',
+        _HKI('Bottom Backdrill Size'),
         'SetBottomBackdrillSize',
         'GetBottomBackdrillSize',
         TYPE_OPT_INT,
@@ -4447,7 +4461,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY_ENUM<PAD, PCB_LAYER_ID>(
         PAD,
-        'Bottom Backdrill Must-Cut',
+        _HKI('Bottom Backdrill Must-Cut'),
         'SetBottomBackdrillLayer',
         'GetBottomBackdrillLayer',
         layerEnum,
@@ -4469,7 +4483,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number | undefined>(
         PAD,
-        'Top Backdrill Size',
+        _HKI('Top Backdrill Size'),
         'SetTopBackdrillSize',
         'GetTopBackdrillSize',
         TYPE_OPT_INT,
@@ -4492,7 +4506,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY_ENUM<PAD, PCB_LAYER_ID>(
         PAD,
-        'Top Backdrill Must-Cut',
+        _HKI('Top Backdrill Must-Cut'),
         'SetTopBackdrillLayer',
         'GetTopBackdrillLayer',
         layerEnum,
@@ -4513,7 +4527,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PAD, PAD_PROP>(
       PAD,
-      'Fabrication Property',
+      _HKI('Fabrication Property'),
       'SetProperty',
       'GetProperty',
       ENUM_MAP.Instance<PAD_PROP>('PAD_PROP'),
@@ -4524,7 +4538,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PAD, UNCONNECTED_LAYER_MODE>(
       PAD,
-      'Copper Layers',
+      _HKI('Copper Layers'),
       'SetUnconnectedLayerMode',
       'GetUnconnectedLayerMode',
       ENUM_MAP.Instance<UNCONNECTED_LAYER_MODE>('UNCONNECTED_LAYER_MODE'),
@@ -4536,7 +4550,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number>(
         PAD,
-        'Pad To Die Length',
+        _HKI('Pad To Die Length'),
         'SetPadToDieLength',
         'GetPadToDieLength',
         TYPE_INT,
@@ -4550,7 +4564,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number>(
         PAD,
-        'Pad To Die Delay',
+        _HKI('Pad To Die Delay'),
         'SetPadToDieDelay',
         'GetPadToDieDelay',
         TYPE_INT,
@@ -4560,12 +4574,12 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     )
     .SetAvailableFunc(isCopperPad);
 
-  const groupOverrides = 'Overrides';
+  const groupOverrides = _HKI('Overrides');
 
   propMgr.AddProperty(
     new PROPERTY<PAD, number | undefined>(
       PAD,
-      'Clearance Override',
+      _HKI('Clearance Override'),
       'SetLocalClearance',
       'GetLocalClearance',
       TYPE_OPT_INT,
@@ -4577,7 +4591,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PAD, number | undefined>(
       PAD,
-      'Soldermask Margin Override',
+      _HKI('Soldermask Margin Override'),
       'SetLocalSolderMaskMargin',
       'GetLocalSolderMaskMargin',
       TYPE_OPT_INT,
@@ -4589,7 +4603,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PAD, number | undefined>(
       PAD,
-      'Solderpaste Margin Override',
+      _HKI('Solderpaste Margin Override'),
       'SetLocalSolderPasteMargin',
       'GetLocalSolderPasteMargin',
       TYPE_OPT_INT,
@@ -4601,7 +4615,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PAD, number | undefined>(
       PAD,
-      'Solderpaste Margin Ratio Override',
+      _HKI('Solderpaste Margin Ratio Override'),
       'SetLocalSolderPasteMarginRatio',
       'GetLocalSolderPasteMarginRatio',
       TYPE_OPT_DOUBLE,
@@ -4613,7 +4627,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PAD, ZONE_CONNECTION>(
       PAD,
-      'Zone Connection Style',
+      _HKI('Zone Connection Style'),
       'SetLocalZoneConnection',
       'GetLocalZoneConnection',
       zcMap,
@@ -4627,7 +4641,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number | undefined>(
         PAD,
-        'Thermal Relief Spoke Width',
+        _HKI('Thermal Relief Spoke Width'),
         'SetLocalThermalSpokeWidthOverride',
         'GetLocalThermalSpokeWidthOverride',
         TYPE_OPT_INT,
@@ -4640,7 +4654,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PAD, number>(
       PAD,
-      'Thermal Relief Spoke Angle',
+      _HKI('Thermal Relief Spoke Angle'),
       'SetThermalSpokeAngleDegrees',
       'GetThermalSpokeAngleDegrees',
       TYPE_DOUBLE,
@@ -4653,7 +4667,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<PAD, number | undefined>(
         PAD,
-        'Thermal Relief Gap',
+        _HKI('Thermal Relief Gap'),
         'SetLocalThermalGapOverride',
         'GetLocalThermalGapOverride',
         TYPE_OPT_INT,

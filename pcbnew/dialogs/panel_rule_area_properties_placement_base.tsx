@@ -12,6 +12,7 @@ import { Combo } from '@ziroeda/wx/combobox.js';
 import { RadioButton } from '@ziroeda/wx/controls.js';
 import { wxALL, wxBOTTOM, wxEXPAND, wxLEFT, wxRIGHT, wxVERTICAL } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A wxCB_READONLY wxComboBox: its strings, GetSelection() (-1 for none) and Enable(). */
 export interface READONLY_COMBO {
@@ -61,24 +62,24 @@ export function PANEL_RULE_AREA_PROPERTIES_PLACEMENT_BASE(
         {/* bMarginsSizer */}
         <BoxSizer orient={wxVERTICAL}>
           <SizerItem flag={wxALL} border={5}>
-            {radio('No placement', null)}
+            {radio(_('No placement'), null)}
           </SizerItem>
           <SizerItem flag={wxALL} border={5}>
-            {radio('Place items from sheet:', 'sheetname')}
+            {radio(_('Place items from sheet:'), 'sheetname')}
           </SizerItem>
           <SizerItem flag={wxLEFT | wxEXPAND} border={25}>
             {combo(p.m_sheetCombo, 'Sheet')}
           </SizerItem>
           <Spacer width={0} height={15} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxALL} border={5}>
-            {radio('Place items matching component class:', 'component_class')}
+            {radio(_('Place items matching component class:'), 'component_class')}
           </SizerItem>
           <SizerItem flag={wxLEFT | wxEXPAND} border={25}>
             {combo(p.m_componentClassCombo, 'Component class')}
           </SizerItem>
           <Spacer width={0} height={15} border={5} />
           <SizerItem flag={wxALL} border={5}>
-            {radio('Place items in group:', 'group')}
+            {radio(_('Place items in group:'), 'group')}
           </SizerItem>
           <SizerItem flag={wxEXPAND | wxLEFT} border={25}>
             {combo(p.m_groupCombo, 'Group')}

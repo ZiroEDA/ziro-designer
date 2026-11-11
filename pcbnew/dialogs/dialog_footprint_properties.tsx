@@ -54,6 +54,7 @@ import {
   type PANEL_3D_MODEL_API,
   PanelFpProperties3dModel,
 } from './panel_fp_properties_3d_model.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `FP_PROPS_RETVALUE`: the option that closed the dialog. */
 export enum FP_PROPS_RETVALUE {
@@ -171,7 +172,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES {
 
     let jumperGroups = '';
 
-    if (fp.GetDuplicatePadNumbersAreJumpers()) jumperGroups = 'all pads with duplicate numbers';
+    if (fp.GetDuplicatePadNumbersAreJumpers()) jumperGroups = _('all pads with duplicate numbers');
 
     for (const group of fp.JumperPadGroups()) {
       let groupTxt = '';
@@ -252,7 +253,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES {
       if (field.GetName(false) === '')
         return {
           ok: false,
-          message: 'Fields must have a name.',
+          message: _('Fields must have a name.'),
           row: i,
           col: PCB_FIELDS_COL_ORDER.PFC_NAME,
         };
@@ -477,7 +478,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES {
     }
 
     // This is a simple edit, we must create an undo entry
-    if (fp.GetEditFlags() === 0) commit.Push('Edit Footprint Properties');
+    if (fp.GetEditFlags() === 0) commit.Push(_('Edit Footprint Properties'));
 
     this.m_returnValue = aReturnValue;
     return { ok: true };
@@ -520,9 +521,9 @@ export function DialogFootprintProperties({
     const w = dlg.TransferDataToWindow();
     const posX = new UNIT_BINDER(frame, 'X:');
     const posY = new UNIT_BINDER(frame, 'Y:');
-    const orientation = new UNIT_BINDER(frame, 'Orientation:');
-    const netClearance = new UNIT_BINDER(frame, 'Pad clearance:');
-    const solderMask = new UNIT_BINDER(frame, 'Solder mask expansion:');
+    const orientation = new UNIT_BINDER(frame, _('Orientation:'));
+    const netClearance = new UNIT_BINDER(frame, _('Pad clearance:'));
+    const solderMask = new UNIT_BINDER(frame, _('Solder mask expansion:'));
     const solderPaste = new MARGIN_OFFSET_BINDER(frame.GetIuScale(), frame.GetUserUnits());
 
     // Configure display origin transforms
@@ -631,7 +632,7 @@ export function DialogFootprintProperties({
         model3d
           ? [
               {
-                text: '3D Models',
+                text: _('3D Models'),
                 content: (
                   <PanelFpProperties3dModel
                     footprint={fp}
@@ -721,7 +722,7 @@ export function DialogFootprintProperties({
         value: ZONE_CHOICE.findIndex(([name]) => name === w.zoneConnection),
         onChange: (aRow) => set({ zoneConnection: ZONE_CHOICE[aRow]?.[0] ?? 'inherited' }),
       }}
-      jumperGroups={w.jumperGroups === '' ? 'none' : w.jumperGroups}
+      jumperGroups={w.jumperGroups === '' ? _('none') : w.jumperGroups}
       jumperGroupsItalic={w.jumperGroups === ''}
       libraryId={fp.GetFPID().Format()}
       onOK={() => close(FP_PROPS_RETVALUE.FP_PROPS_OK)}

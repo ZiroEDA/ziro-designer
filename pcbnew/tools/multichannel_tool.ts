@@ -56,6 +56,7 @@ import { ZONE } from '../zone.js';
 import { PLACEMENT_SOURCE_T, ZONE_BORDER_DISPLAY_STYLE } from '../zone_settings.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `REPEAT_LAYOUT_OPTIONS`. */
 export interface REPEAT_LAYOUT_OPTIONS {
@@ -600,7 +601,7 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
     if (refRAs.length !== 1) {
       this.m_toolMgr!.RunAction(PCB_ACTIONS.selectItemInteractively, {
         m_Receiver: this,
-        m_Prompt: 'Select a reference Rule Area to copy from...',
+        m_Prompt: _('Select a reference Rule Area to copy from...'),
         m_ItemFilter: (aItem: EDA_ITEM) => MULTICHANNEL_TOOL.isSelectedItemAnRA(aItem) !== null,
       });
       return 0;
@@ -613,7 +614,10 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
     if (status < 0) return status;
 
     if (this.m_areas.m_areas.length <= 1) {
-      this.guiFrame()?.ShowInfoBarError('No Rule Areas to repeat layout to have been found.', true);
+      this.guiFrame()?.ShowInfoBarError(
+        _('No Rule Areas to repeat layout to have been found.'),
+        true,
+      );
       return 0;
     }
 
@@ -710,7 +714,7 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
       if (!group) {
         if (!aExternalCommit) commit.Revert();
 
-        reportError('Target group does not have a group.');
+        reportError(_('Target group does not have a group.'));
         return -1;
       }
 
@@ -722,7 +726,7 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
       }
     }
 
-    if (!aExternalCommit) commit.Push('Repeat layout');
+    if (!aExternalCommit) commit.Push(_('Repeat layout'));
 
     return 0;
   }
@@ -768,7 +772,7 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
       }
     }
 
-    commit.Push('Repeat layout');
+    commit.Push(_('Repeat layout'));
 
     this.guiFrame()?.ShowInfoBarMsg(`Copied to ${totalCopied} Rule Areas.`);
 
@@ -1457,7 +1461,7 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
     ) {
       aMatches.m_matchingComponents.clear();
       aMatches.m_isOk = true;
-      aMatches.m_errorMsg = 'OK';
+      aMatches.m_errorMsg = _('OK');
       aMatches.m_mismatchReasons = [];
       return true;
     }
@@ -1472,9 +1476,11 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
       if (shared.size > 0) {
         aMatches.m_matchingComponents.clear();
         aMatches.m_isOk = false;
-        aMatches.m_errorMsg = 'Target Rule Area shares components with the reference area';
+        aMatches.m_errorMsg = _('Target Rule Area shares components with the reference area');
         aMatches.m_mismatchReasons = [
-          'This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group.',
+          _(
+            'This target Rule Area selects the same components as the reference area. Repeat layout cannot copy a Rule Area onto itself. Give each placement Rule Area a distinct sheet, component class or group.',
+          ),
           `Shared components:\n${FormatComponentList(shared)}`,
         ];
         return false;
@@ -1560,7 +1566,7 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
     aMatches.m_isOk = status;
 
     if (status) {
-      aMatches.m_errorMsg = 'OK';
+      aMatches.m_errorMsg = _('OK');
       aMatches.m_mismatchReasons = [];
       return true;
     }
@@ -1582,7 +1588,7 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
     }
 
     if (aMatches.m_mismatchReasons.length === 0)
-      aMatches.m_mismatchReasons.push('Topology mismatch');
+      aMatches.m_mismatchReasons.push(_('Topology mismatch'));
 
     // Component count mismatch
     if (aRefArea.m_components.size !== aTargetArea.m_components.size) {
@@ -1628,7 +1634,9 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
 
     if (this.m_areas.m_areas.length <= 1) {
       this.guiFrame()?.ShowInfoBarError(
-        'Cannot auto-generate any placement areas because the schematic has only one or no hierarchical sheets, groups, or component classes.',
+        _(
+          'Cannot auto-generate any placement areas because the schematic has only one or no hierarchical sheets, groups, or component classes.',
+        ),
         true,
       );
       return 0;
@@ -1786,6 +1794,6 @@ export class MULTICHANNEL_TOOL extends PCB_TOOL_BASE {
       }
     }
 
-    commit.Push('Auto-generate placement rule areas');
+    commit.Push(_('Auto-generate placement rule areas'));
   }
 }

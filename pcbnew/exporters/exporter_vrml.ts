@@ -40,6 +40,7 @@ import { FP_SMD, FP_THROUGH_HOLE, type FOOTPRINT } from '../footprint.js';
 import type { PAD } from '../pad.js';
 import { PAD_ATTRIB, PAD_DRILL_SHAPE } from '../padstack.js';
 import type { PCB_VIA } from '../pcb_track.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const { F_Cu, B_Cu, F_SilkS, B_SilkS, F_Mask, B_Mask, F_Paste, B_Paste, F_Adhes, B_Adhes } =
   PCB_LAYER_ID;
@@ -118,7 +119,7 @@ const C = (r: number, g: number, b: number, a: number, name: string): CUSTOM_COL
 
 // Data: initStaticColorList's tables, as exporter_vrml.cpp writes them.
 const m_SilkscreenColors: CUSTOM_COLOR_ITEM[] = [
-  C(245, 245, 245, 1.0, 'Not specified'), // White
+  C(245, 245, 245, 1.0, _HKI('Not specified')), // White
   C(20, 51, 36, 1.0, 'Green'),
   C(181, 19, 21, 1.0, 'Red'),
   C(2, 59, 162, 1.0, 'Blue'),
@@ -129,7 +130,7 @@ const m_SilkscreenColors: CUSTOM_COLOR_ITEM[] = [
 ];
 
 const m_MaskColors: CUSTOM_COLOR_ITEM[] = [
-  C(20, 51, 36, 0.83, 'Not specified'), // Green
+  C(20, 51, 36, 0.83, _HKI('Not specified')), // Green
   C(20, 51, 36, 0.83, 'Green'),
   C(91, 168, 12, 0.83, 'Light Green'),
   C(13, 104, 11, 0.83, 'Saturated Green'),

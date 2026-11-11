@@ -23,6 +23,7 @@ import {
   PANEL_SETUP_CONSTRAINTS_BASE,
   type PANEL_SETUP_CONSTRAINTS_BASE_PROPS,
 } from './panel_setup_constraints_base.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The page's fields: BOARD_DESIGN_SETTINGS' minimums, in mm as the binders show them. */
 export interface BoardConstraints {
@@ -149,16 +150,16 @@ const INCH_0_10: UnitRange = { min: 0, max: 25.4 * 10 };
 const MILS_2_1000: UnitRange = { min: 0.0254 * 2, max: 0.0254 * 1000 };
 
 const CONSTRAINT_RANGES: readonly (readonly [keyof BoardConstraints, string, UnitRange])[] = [
-  ['minClearanceMM', 'Minimum clearance:', INCH_0_10],
-  ['minConnectionMM', 'Minimum connection width:', INCH_0_10],
-  ['minTrackMM', 'Minimum track width:', INCH_0_10],
-  ['minAnnularMM', 'Minimum annular width:', INCH_0_10],
-  ['minViaMM', 'Minimum via diameter:', INCH_0_10],
-  ['copperToHoleMM', 'Copper to hole clearance:', INCH_0_10],
-  ['copperToEdgeMM', 'Copper to edge clearance:', INCH_0_10],
-  ['minGrooveWidthMM', 'Minimum groove for creepage:', INCH_0_10],
-  ['minThroughHoleMM', 'Minimum drill size:', MILS_2_1000],
-  ['minHoleToHoleMM', 'Hole to hole clearance:', INCH_0_10],
+  ['minClearanceMM', _HKI('Minimum clearance:'), INCH_0_10],
+  ['minConnectionMM', _HKI('Minimum connection width:'), INCH_0_10],
+  ['minTrackMM', _HKI('Minimum track width:'), INCH_0_10],
+  ['minAnnularMM', _HKI('Minimum annular width:'), INCH_0_10],
+  ['minViaMM', _HKI('Minimum via diameter:'), INCH_0_10],
+  ['copperToHoleMM', _HKI('Copper to hole clearance:'), INCH_0_10],
+  ['copperToEdgeMM', _HKI('Copper to edge clearance:'), INCH_0_10],
+  ['minGrooveWidthMM', _HKI('Minimum groove for creepage:'), INCH_0_10],
+  ['minThroughHoleMM', _HKI('Minimum drill size:'), MILS_2_1000],
+  ['minHoleToHoleMM', _HKI('Hole to hole clearance:'), INCH_0_10],
 ];
 
 /** `document.getElementById` handle for one constraint entry, so PAGED_DIALOG

@@ -20,6 +20,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, FlexGridSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER: its entry text, units label and Enable(). */
 export interface UNIT {
@@ -77,26 +78,26 @@ export function DIALOG_PNS_DIFF_PAIR_DIMENSIONS_BASE(
   p: DIALOG_PNS_DIFF_PAIR_DIMENSIONS_BASE_PROPS,
 ): JSX.Element {
   return (
-    <DialogShim title="Differential Pair Dimensions" onClose={p.onCancel}>
+    <DialogShim title={_('Differential Pair Dimensions')} onClose={p.onCancel}>
       {/* bSizer7 */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={10}>
           {/* fgSizer1 = wxFlexGridSizer( 0, 3, 5, 0 ) */}
           <FlexGridSizer cols={3} vgap={5} hgap={0} growableCols={[1]}>
             <Row
-              label="Width:"
+              label={_('Width:')}
               u={p.m_traceWidth}
               labelFlag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
               labelBorder={1}
             />
             <Row
-              label="Track gap:"
+              label={_('Track gap:')}
               u={p.m_traceGap}
               labelFlag={wxALIGN_CENTER_VERTICAL | wxRIGHT}
               labelBorder={5}
             />
             <Row
-              label="Via gap:"
+              label={_('Via gap:')}
               u={p.m_viaGap}
               labelFlag={wxALIGN_CENTER_VERTICAL | wxLEFT}
               labelBorder={1}
@@ -104,7 +105,7 @@ export function DIALOG_PNS_DIFF_PAIR_DIMENSIONS_BASE(
           </FlexGridSizer>
         </SizerItem>
         <SizerItem flag={wxALL | wxEXPAND} border={10}>
-          <CheckBox label="Via gap same as track gap" check={p.m_viaTraceGapEqual} />
+          <CheckBox label={_('Via gap same as track gap')} check={p.m_viaTraceGapEqual} />
         </SizerItem>
         <SizerItem flag={wxBOTTOM | wxEXPAND | wxTOP} border={5}>
           <StdDialogButtonSizer onOk={p.onOK} onCancel={p.onCancel} />

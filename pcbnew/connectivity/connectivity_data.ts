@@ -44,6 +44,7 @@ import {
 import { type CN_ANCHOR, type CN_CLUSTER, CN_ZONE_LAYER } from './connectivity_items.js';
 import { INT_MAX } from './connectivity_items.js';
 import { FROM_TO_CACHE } from './from_to_cache.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface CN_DISJOINT_NET_ENTRY {
   net: number;
@@ -142,7 +143,7 @@ export class CONNECTIVITY_DATA {
     aBoard.CacheTriangulation(aReporter);
 
     if (aReporter) {
-      aReporter.Report('Updating nets...');
+      aReporter.Report(_('Updating nets...'));
       aReporter.KeepRefreshing(false);
     }
 

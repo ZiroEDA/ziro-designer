@@ -36,6 +36,7 @@ import type { ZONE } from '../zone.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT, DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER, ptrGreater } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
   private m_drcEpsilon = 0;
@@ -59,48 +60,48 @@ export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
     this.m_drcEpsilon = this.m_board!.GetDesignSettings().GetDRCEpsilon();
 
     if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_CLEARANCE)) {
-      if (!this.reportPhase('Checking track & via clearances...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking track & via clearances...'))) return false; // DRC cancelled
 
       this.testTrackClearances();
     } else if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_HOLE_CLEARANCE)) {
-      if (!this.reportPhase('Checking hole clearances...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking hole clearances...'))) return false; // DRC cancelled
 
       this.testTrackClearances();
     }
 
     if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_CLEARANCE)) {
-      if (!this.reportPhase('Checking pad clearances...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking pad clearances...'))) return false; // DRC cancelled
 
       this.testPadClearances();
     } else if (
       !this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_SHORTING_ITEMS) ||
       !this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_HOLE_CLEARANCE)
     ) {
-      if (!this.reportPhase('Checking pads...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking pads...'))) return false; // DRC cancelled
 
       this.testPadClearances();
     }
 
     if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_CLEARANCE)) {
-      if (!this.reportPhase('Checking copper graphic clearances...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking copper graphic clearances...'))) return false; // DRC cancelled
 
       this.testGraphicClearances();
     } else if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_HOLE_CLEARANCE)) {
-      if (!this.reportPhase('Checking copper graphic hole clearances...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking copper graphic hole clearances...'))) return false; // DRC cancelled
 
       this.testGraphicClearances();
     }
 
     if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_CLEARANCE)) {
-      if (!this.reportPhase('Checking copper zone clearances...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking copper zone clearances...'))) return false; // DRC cancelled
 
       this.testZonesToZones();
 
-      if (!this.reportPhase('Checking teardrop clearances...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking teardrop clearances...'))) return false; // DRC cancelled
 
       this.testTeardropClearances();
     } else if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_ZONES_INTERSECT)) {
-      if (!this.reportPhase('Checking zones...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking zones...'))) return false; // DRC cancelled
 
       this.testZonesToZones();
     }
@@ -207,7 +208,7 @@ export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
         } else if (actual.value === 0 && otherNet && testShorting) {
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_SHORTING_ITEMS)!;
           drcItem.SetErrorDetail(
-            `(nets ${itemNet ? itemNet.GetNetname() : '<no net>'} and ${otherNet ? otherNet.GetNetname() : '<no net>'})`,
+            `(nets ${itemNet ? itemNet.GetNetname() : _('<no net>')} and ${otherNet ? otherNet.GetNetname() : _('<no net>')})`,
           );
           drcItem.SetItems(item, other);
           this.reportTwoPointGeometry(drcItem, pos, pos, pos, layer);
@@ -218,7 +219,7 @@ export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_CLEARANCE)!;
           drcItem.SetErrorDetail(
             this.formatMsg(
-              '(%s clearance %s; actual %s)',
+              _('(%s clearance %s; actual %s)'),
               constraint.GetName(),
               clearance,
               actual.value,
@@ -276,7 +277,7 @@ export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
             const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_HOLE_CLEARANCE)!;
             drcItem.SetErrorDetail(
               this.formatMsg(
-                clearance ? '(%s clearance %s; actual %s)' : '(%s clearance %s; actual < 0)',
+                clearance ? _('(%s clearance %s; actual %s)') : _('(%s clearance %s; actual < 0)'),
                 constraint.GetName(),
                 clearance,
                 actual.value,
@@ -379,7 +380,7 @@ export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
         const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_CLEARANCE)!;
         drcItem.SetErrorDetail(
           this.formatMsg(
-            '(%s clearance %s; actual %s)',
+            _('(%s clearance %s; actual %s)'),
             constraint.GetName(),
             clearance,
             actual.value,
@@ -416,7 +417,7 @@ export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
             const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_HOLE_CLEARANCE)!;
             drcItem.SetErrorDetail(
               this.formatMsg(
-                '(%s clearance %s; actual %s)',
+                _('(%s clearance %s; actual %s)'),
                 constraint.GetName(),
                 clearance,
                 actual.value,
@@ -501,7 +502,7 @@ export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
           drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_CLEARANCE)!;
           drcItem.SetErrorDetail(
             this.formatMsg(
-              '(%s clearance %s; actual %s)',
+              _('(%s clearance %s; actual %s)'),
               constraint.GetName(),
               clearance,
               actual.value,
@@ -749,7 +750,7 @@ export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
             const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_CLEARANCE)!;
             drcItem.SetErrorDetail(
               this.formatMsg(
-                '(%s clearance %s; actual %s)',
+                _('(%s clearance %s; actual %s)'),
                 constraint.GetName(),
                 clearance,
                 actual.value,
@@ -776,7 +777,7 @@ export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
         const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_HOLE_CLEARANCE)!;
         drcItem.SetErrorDetail(
           this.formatMsg(
-            '(%s clearance %s; actual %s)',
+            _('(%s clearance %s; actual %s)'),
             constraint.GetName(),
             aClearance,
             actual.value,
@@ -1084,14 +1085,14 @@ export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
 
       if (constraint.IsNull()) {
         drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_ZONES_INTERSECT)!;
-        drcItem.SetErrorDetail('(intersecting zones must have distinct priorities)');
+        drcItem.SetErrorDetail(_('(intersecting zones must have distinct priorities)'));
         drcItem.SetItems(zoneA, zoneB);
         this.reportViolation(drcItem, pt, layer);
       } else {
         drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_CLEARANCE)!;
         drcItem.SetErrorDetail(
           this.formatMsg(
-            '(%s clearance %s; actual %s)',
+            _('(%s clearance %s; actual %s)'),
             constraint.GetName(),
             constraint.GetValue().Min(),
             Math.max(actual, 0),

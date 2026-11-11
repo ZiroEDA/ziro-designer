@@ -32,6 +32,8 @@ import {
 } from '@ziroeda/common/widgets/design_block_pane.js';
 import { PanelDesignBlockChooser } from '@ziroeda/common/widgets/panel_design_block_chooser_ui.js';
 import { Check } from '@ziroeda/common/dialogs/pref_controls.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // Do not make these static; they need to respond to language changes
 export const REPEATED_PLACEMENT = 'Place repeated copies';
@@ -43,13 +45,17 @@ export const PCB_DESIGN_BLOCK_PANE_CHECKBOXES = [
   {
     key: 'repeated_placement',
     label: REPEATED_PLACEMENT,
-    tooltip: 'Place copies of the design block on subsequent clicks.',
+    tooltip: _HKI('Place copies of the design block on subsequent clicks.'),
   },
-  { key: 'place_as_group', label: PLACE_AS_GROUP, tooltip: 'Place the design block as a group.' },
+  {
+    key: 'place_as_group',
+    label: PLACE_AS_GROUP,
+    tooltip: _HKI('Place the design block as a group.'),
+  },
   {
     key: 'keep_annotations',
     label: KEEP_ANNOTATIONS,
-    tooltip: 'Preserve reference designators in the source layout. Otherwise, clear them.',
+    tooltip: _HKI('Preserve reference designators in the source layout. Otherwise, clear them.'),
   },
 ] as const;
 
@@ -143,7 +149,7 @@ export function PcbDesignBlockPane({
     <div className="ze-rightdock ze-dbpane" style={{ width, minWidth: 240 }}>
       <div className="ze-panel grow">
         <div className="ze-panel-header">
-          Design Blocks
+          {_('Design Blocks')}
           <span className="x" role="button" aria-label="Close" onClick={onClose}>
             ✕
           </span>

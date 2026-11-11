@@ -24,6 +24,7 @@ import { PAD_ATTRIB, PAD_PROP } from '../padstack.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { type DRC_CONSTRAINT, DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_COURTYARD_CLEARANCE extends DRC_TEST_PROVIDER {
   private m_largestCourtyardClearance = 0;
@@ -43,9 +44,9 @@ export class DRC_TEST_PROVIDER_COURTYARD_CLEARANCE extends DRC_TEST_PROVIDER {
       !this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_MALFORMED_COURTYARD) ||
       !this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_MISSING_COURTYARD)
     ) {
-      if (!this.reportPhase('Checking footprint courtyard definitions...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking footprint courtyard definitions...'))) return false; // DRC cancelled
     } else if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_OVERLAPPING_FOOTPRINTS)) {
-      if (!this.reportPhase('Gathering footprint courtyards...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Gathering footprint courtyards...'))) return false; // DRC cancelled
     } else {
       this.REPORT_AUX('All courtyard violations ignored. Tests not run.');
       return true; // continue with other tests
@@ -96,7 +97,7 @@ export class DRC_TEST_PROVIDER_COURTYARD_CLEARANCE extends DRC_TEST_PROVIDER {
   }
 
   private testCourtyardClearances(): boolean {
-    if (!this.reportPhase('Checking footprints for overlapping courtyards...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking footprints for overlapping courtyards...'))) return false; // DRC cancelled
 
     const progressDelta = 100;
     let ii = 0;
@@ -193,7 +194,7 @@ export class DRC_TEST_PROVIDER_COURTYARD_CLEARANCE extends DRC_TEST_PROVIDER {
               if (clearance > 0) {
                 drcItem.SetErrorDetail(
                   this.formatMsg(
-                    '(%s clearance %s; actual %s)',
+                    _('(%s clearance %s; actual %s)'),
                     constraint.GetName(),
                     clearance,
                     actual.value,
@@ -238,7 +239,7 @@ export class DRC_TEST_PROVIDER_COURTYARD_CLEARANCE extends DRC_TEST_PROVIDER {
               if (clearance > 0) {
                 drcItem.SetErrorDetail(
                   this.formatMsg(
-                    '(%s clearance %s; actual %s)',
+                    _('(%s clearance %s; actual %s)'),
                     constraint.GetName(),
                     clearance,
                     actual.value,

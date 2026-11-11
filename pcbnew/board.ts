@@ -125,6 +125,7 @@ import type { COMMIT } from '@ziroeda/common/commit.js';
 import { CONNECTIVITY_DATA, EXCLUDE_ZONES } from './connectivity/connectivity_data.js';
 import { COMPONENT_CLASS_MANAGER } from './component_classes/component_class_manager.js';
 import type { CN_EDGE, PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
 
@@ -405,7 +406,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
     // Initialize default netclass.
     bds.m_NetSettings.SetDefaultNetclass(new NETCLASS(NETCLASS.Default));
-    bds.m_NetSettings.GetDefaultNetclass().SetDescription('This is the default net class.');
+    bds.m_NetSettings.GetDefaultNetclass().SetDescription(_('This is the default net class.'));
 
     bds.UseCustomTrackViaSize(false);
 
@@ -1070,7 +1071,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
     if (zones.length === 0) return;
 
-    if (aReporter) aReporter.Report('Tessellating copper zones...');
+    if (aReporter) aReporter.Report(_('Tessellating copper zones...'));
 
     const cache_zones = async (aZone: ZONE): Promise<number> => {
       if (aReporter?.IsCancelled()) return 0;
@@ -1100,7 +1101,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
     if (zones.length === 0) return;
 
-    if (aReporter) aReporter.Report('Tessellating copper zones...');
+    if (aReporter) aReporter.Report(_('Tessellating copper zones...'));
 
     for (const aZone of zones) {
       if (aReporter?.IsCancelled()) continue;
@@ -2678,15 +2679,15 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
       }
     }
 
-    aList.push(new MSG_PANEL_ITEM('Pads', `${padCount}`));
-    aList.push(new MSG_PANEL_ITEM('Vias', `${viaCount}`));
-    aList.push(new MSG_PANEL_ITEM('Track Segments', `${trackSegmentCount}`));
-    aList.push(new MSG_PANEL_ITEM('Nets', `${netCodes.size}`));
-    aList.push(new MSG_PANEL_ITEM('Unrouted', `${unconnected}`));
+    aList.push(new MSG_PANEL_ITEM(_('Pads'), `${padCount}`));
+    aList.push(new MSG_PANEL_ITEM(_('Vias'), `${viaCount}`));
+    aList.push(new MSG_PANEL_ITEM(_('Track Segments'), `${trackSegmentCount}`));
+    aList.push(new MSG_PANEL_ITEM(_('Nets'), `${netCodes.size}`));
+    aList.push(new MSG_PANEL_ITEM(_('Unrouted'), `${unconnected}`));
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
-    return 'PCB';
+    return _('PCB');
   }
 
   /** `board.cpp:1234` — no drawings, footprints, tracks, zones or points. */

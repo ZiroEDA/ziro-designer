@@ -30,6 +30,7 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, FlexGridSizer, GridBagSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
 import { SplitterWindow } from '@ziroeda/wx/splitter.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 type ENTRY = { value: string; onChange: (aText: string) => void; onBlur?: () => void };
 
@@ -61,7 +62,7 @@ export function PANEL_SETUP_TUNING_PROFILE_INFO_BASE(
     // bSizerTrackPropagation
     <BoxSizer orient={wxVERTICAL}>
       <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-        <StaticText label="Track Propagation" />
+        <StaticText label={_('Track Propagation')} />
       </SizerItem>
       <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
         {p.m_trackPropagationGrid}
@@ -98,11 +99,11 @@ export function PANEL_SETUP_TUNING_PROFILE_INFO_BASE(
         {/* bSizer8 */}
         <BoxSizer orient={wxHORIZONTAL}>
           <SizerItem flag={wxALL | CV} border={5}>
-            <StaticText label="Via Propagation" />
+            <StaticText label={_('Via Propagation')} />
           </SizerItem>
           <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
           <SizerItem flag={CV | wxTOP | wxBOTTOM | wxLEFT} border={5}>
-            <StaticText label="Global unit delay:" />
+            <StaticText label={_('Global unit delay:')} />
           </SizerItem>
           <SizerItem flag={wxALL | CV} border={5}>
             <TextCtrl
@@ -119,7 +120,7 @@ export function PANEL_SETUP_TUNING_PROFILE_INFO_BASE(
         </BoxSizer>
       </SizerItem>
       <SizerItem flag={wxLEFT | wxRIGHT} border={5}>
-        <StaticText label="Via delay overrides:" />
+        <StaticText label={_('Via delay overrides:')} />
       </SizerItem>
       <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
         {p.m_viaOverrides}
@@ -156,21 +157,21 @@ export function PANEL_SETUP_TUNING_PROFILE_INFO_BASE(
         {/* fgSizer2 = wxFlexGridSizer( 1, 9, 0, 0 ), growing columns 2 and 5 */}
         <FlexGridSizer cols={9} growableCols={[2, 5]}>
           <SizerItem flag={CV | wxTOP | wxBOTTOM | wxLEFT} border={5}>
-            <StaticText label="Name:" />
+            <StaticText label={_('Name:')} />
           </SizerItem>
           <SizerItem flag={wxALL | wxEXPAND | CV} border={5}>
             <TextCtrl value={p.m_name.value} onChange={p.m_name.onChange} ariaLabel="Name" />
           </SizerItem>
           <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
           <SizerItem flag={CV | wxTOP | wxBOTTOM | wxLEFT} border={5}>
-            <StaticText label="Type:" />
+            <StaticText label={_('Type:')} />
           </SizerItem>
           <SizerItem flag={wxALL | CV} border={5}>
-            <Choice choices={['Single', 'Differential']} choice={p.m_type} ariaLabel="Type" />
+            <Choice choices={[_('Single'), _('Differential')]} choice={p.m_type} ariaLabel="Type" />
           </SizerItem>
           <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxALL | CV} border={5}>
-            <StaticText label="Target impedance:" />
+            <StaticText label={_('Target impedance:')} />
           </SizerItem>
           <SizerItem flag={wxEXPAND | CV | wxTOP | wxBOTTOM} border={5}>
             {/* SetMaxLength( 15 ) */}
@@ -182,7 +183,7 @@ export function PANEL_SETUP_TUNING_PROFILE_INFO_BASE(
             />
           </SizerItem>
           <SizerItem flag={wxALL | wxRIGHT | CV} border={5}>
-            <StaticText label="ohms" />
+            <StaticText label={_('ohms')} />
           </SizerItem>
         </FlexGridSizer>
       </SizerItem>
@@ -190,7 +191,7 @@ export function PANEL_SETUP_TUNING_PROFILE_INFO_BASE(
         {/* gbSizer1, growing column 0 */}
         <GridBagSizer growableCols={[0]}>
           <SizerItem pos={[0, 0]} flag={wxALL} border={5}>
-            <CheckBox label="Enable time domain tuning" check={p.m_enableDelayTuning} />
+            <CheckBox label={_('Enable time domain tuning')} check={p.m_enableDelayTuning} />
           </SizerItem>
           <SizerItem pos={[1, 0]} span={[1, 2]} flag={wxEXPAND | wxALL} border={5}>
             <StaticLine />

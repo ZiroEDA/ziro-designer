@@ -52,6 +52,7 @@ import type { BOARD } from '../board.js';
 import type { ZONE } from '../zone.js';
 import { AutoAssignZonePriorities } from '../zone_utils.js';
 import { ZONE_SETTINGS_BAG } from '../zone_settings_bag.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 /** The part of `PANEL_ZONE_PROPERTIES` the dialog calls. */
 export interface PANEL_ZONE_PROPERTIES_LIKE {
@@ -763,7 +764,7 @@ function ZoneManagerBody({
         },
       }}
       m_layerFilter={{
-        choices: ['All Layers', ...layerSel.map((c) => c.name)],
+        choices: [wxGetTranslation('All Layers'), ...layerSel.map((c) => c.name)],
         value: layerIndex,
         onChange: (aIndex) => {
           setLayerIndex(aIndex);
@@ -798,7 +799,7 @@ function ZoneManagerBody({
             dialog.OnDataViewCtrlSelectionChanged(aRow);
           }}
           tableRef={table}
-          ariaLabel="Zones"
+          ariaLabel={wxGetTranslation('Zones')}
         />
       }
       moveEnabled={moveEnabled}

@@ -20,6 +20,7 @@ import type { BOARD_ITEM } from '../board_item.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_TEXT_DIMS extends DRC_TEST_PROVIDER {
   override GetName(): string {
@@ -47,7 +48,7 @@ export class DRC_TEST_PROVIDER_TEXT_DIMS extends DRC_TEST_PROVIDER {
       return true; // continue with other tests
     }
 
-    if (!this.reportPhase('Checking text dimensions...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking text dimensions...'))) return false; // DRC cancelled
 
     const checkTextHeight = (item: BOARD_ITEM, text: EDA_TEXT): boolean => {
       if (this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_TEXT_HEIGHT)) return false;
@@ -67,7 +68,7 @@ export class DRC_TEST_PROVIDER_TEXT_DIMS extends DRC_TEST_PROVIDER {
         const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_TEXT_HEIGHT)!;
         drcItem.SetErrorDetail(
           this.formatMsg(
-            '(%s min height %s; actual %s)',
+            _('(%s min height %s; actual %s)'),
             constraint.GetName(),
             constraint.Value().Min(),
             actualHeight,
@@ -84,7 +85,7 @@ export class DRC_TEST_PROVIDER_TEXT_DIMS extends DRC_TEST_PROVIDER {
         const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_TEXT_HEIGHT)!;
         drcItem.SetErrorDetail(
           this.formatMsg(
-            '(%s max height %s; actual %s)',
+            _('(%s max height %s; actual %s)'),
             constraint.GetName(),
             constraint.Value().Max(),
             actualHeight,
@@ -170,7 +171,7 @@ export class DRC_TEST_PROVIDER_TEXT_DIMS extends DRC_TEST_PROVIDER {
 
         if (collapsedStroke || collapsedArea) {
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_TEXT_THICKNESS)!;
-          drcItem.SetErrorDetail('(TrueType font characters with insufficient stroke weight)');
+          drcItem.SetErrorDetail(_('(TrueType font characters with insufficient stroke weight)'));
           drcItem.SetItems(item);
           drcItem.SetViolatingRule(constraint.GetParentRule());
 
@@ -183,7 +184,7 @@ export class DRC_TEST_PROVIDER_TEXT_DIMS extends DRC_TEST_PROVIDER {
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_TEXT_THICKNESS)!;
           drcItem.SetErrorDetail(
             this.formatMsg(
-              '(%s min thickness %s; actual %s)',
+              _('(%s min thickness %s; actual %s)'),
               constraint.GetName(),
               constraint.Value().Min(),
               actualThickness,
@@ -200,7 +201,7 @@ export class DRC_TEST_PROVIDER_TEXT_DIMS extends DRC_TEST_PROVIDER {
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_TEXT_THICKNESS)!;
           drcItem.SetErrorDetail(
             this.formatMsg(
-              '(%s max thickness %s; actual %s)',
+              _('(%s max thickness %s; actual %s)'),
               constraint.GetName(),
               constraint.Value().Max(),
               actualThickness,

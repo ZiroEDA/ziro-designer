@@ -54,6 +54,8 @@ import { PCB_ACTIONS } from '../tools/pcb_actions.js';
 import { DRC_TOOL, type ZONE_FILLER_TOOL_LIKE } from '../tools/drc_tool.js';
 import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import { DIALOG_DRC_BASE } from './dialog_drc_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `BOARD_INSPECTION_TOOL` as the row menu asks it; found by name until stage 3. */
 export interface BOARD_INSPECTION_TOOL_LIKE {
@@ -137,10 +139,10 @@ let g_lastIgnored: IgnoredRow[] = [];
 let s_includeExclusions = false;
 
 /** `wxString::Format( _( "Violations (%s)" ), num )` and the other three page titles. */
-const MARKERS_TITLE_TEMPLATE = 'Violations (%s)';
-const UNCONNECTED_TITLE_TEMPLATE = 'Unconnected Items (%s)';
-const FOOTPRINTS_TITLE_TEMPLATE = 'Schematic Parity (%s)';
-const IGNORED_TITLE_TEMPLATE = 'Ignored Tests (%s)';
+const MARKERS_TITLE_TEMPLATE = _HKI('Violations (%s)');
+const UNCONNECTED_TITLE_TEMPLATE = _HKI('Unconnected Items (%s)');
+const FOOTPRINTS_TITLE_TEMPLATE = _HKI('Schematic Parity (%s)');
+const IGNORED_TITLE_TEMPLATE = _HKI('Ignored Tests (%s)');
 
 export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
   // The window's controls, as state:
@@ -165,12 +167,12 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
   /** m_ignoredList */
   m_ignoredList: IgnoredRow[] = [];
   /** m_sdbSizerCancel's label, m_sdbSizerOK / delete / save buttons' enabled state */
-  m_cancelLabel = 'Close';
+  m_cancelLabel = _HKI('Close');
   m_okEnabled = true;
   m_deleteEnabled = true;
   m_saveEnabled = true;
   /** The four page titles, as updateDisplayedCounts sets them. */
-  m_pageTitles = ['Violations', 'Unconnected Items', 'Schematic Parity', 'Ignored Tests'];
+  m_pageTitles = ['Violations', 'Unconnected Items', _HKI('Schematic Parity'), 'Ignored Tests'];
   /** The three NUMBER_BADGEs: (number, maximum) each. */
   m_errorsBadge = { number: -1, max: -1 };
   m_warningsBadge = { number: -1, max: -1 };
@@ -426,8 +428,8 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
   OnMenu(): DrcMenuRow[] {
     return [
       {
-        label: 'Report All Errors for Each Track',
-        help: 'If unchecked, only the first error will be reported for each track',
+        label: _('Report All Errors for Each Track'),
+        help: _('If unchecked, only the first error will be reported for each track'),
         checked: this.m_report_all_track_errors,
         action: () => {
           this.m_report_all_track_errors = !this.m_report_all_track_errors;
@@ -436,8 +438,8 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
       },
       { sep: true, label: '' },
       {
-        label: 'Cross-probe Selected Items',
-        help: 'Highlight corresponding items on canvas when selected in the DRC list',
+        label: _('Cross-probe Selected Items'),
+        help: _('Highlight corresponding items on canvas when selected in the DRC list'),
         checked: this.m_crossprobe,
         action: () => {
           this.m_crossprobe = !this.m_crossprobe;
@@ -445,8 +447,8 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
         },
       },
       {
-        label: 'Center on Cross-probe',
-        help: 'When cross-probing, scroll the canvas so that the item is visible',
+        label: _('Center on Cross-probe'),
+        help: _('When cross-probing, scroll the canvas so that the item is visible'),
         checked: this.m_scroll_on_crossprobe,
         action: () => {
           this.m_scroll_on_crossprobe = !this.m_scroll_on_crossprobe;
@@ -531,7 +533,7 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
     this.m_messages = [];
 
     this.m_running = true;
-    this.m_cancelLabel = 'Cancel';
+    this.m_cancelLabel = _('Cancel');
     this.m_okEnabled = false;
     this.m_deleteEnabled = false;
     this.m_saveEnabled = false;
@@ -539,7 +541,7 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
     this.m_drcStartTime = performance.now();
     this.m_lastTickSeconds = -1;
 
-    this.m_statusText = 'Elapsed: 0 s';
+    this.m_statusText = _('Elapsed: 0 s');
     this.notify();
 
     // Update(): the window paints the running page before the (synchronous) run. NOTE:
@@ -566,11 +568,11 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
     };
 
     if (this.m_cancelled) {
-      this.m_messages.push('-------- DRC canceled by user.<br><br>');
+      this.m_messages.push(_('-------- DRC canceled by user.<br><br>'));
 
       this.m_statusText = `Canceled after ${formatElapsed()}`;
     } else {
-      this.m_messages.push('Done.<br><br>');
+      this.m_messages.push(_('Done.<br><br>'));
 
       this.m_statusText = `Completed in ${formatElapsed()}`;
     }
@@ -578,7 +580,7 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
     this.Raise();
 
     this.m_running = false;
-    this.m_cancelLabel = 'Close';
+    this.m_cancelLabel = _('Close');
     this.m_okEnabled = true;
     this.m_deleteEnabled = true;
     this.m_saveEnabled = true;
@@ -818,13 +820,13 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
 
     switch (this.bds().m_DRCSeverities.get(rcItem.GetErrorCode())) {
       case RPT_SEVERITY_ERROR:
-        listName = 'errors';
+        listName = _('errors');
         break;
       case RPT_SEVERITY_WARNING:
-        listName = 'warnings';
+        listName = _('warnings');
         break;
       default:
-        listName = 'appropriate';
+        listName = _('appropriate');
         break;
     }
 
@@ -840,7 +842,7 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
 
     if (rcItem.GetParent()!.IsExcluded()) {
       menu.push({
-        label: 'Remove exclusion for this violation',
+        label: _('Remove exclusion for this violation'),
         help: `It will be placed back in the ${listName} list`,
         action: () => {
           const marker = rcItem.GetParent();
@@ -867,12 +869,15 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
       });
 
       menu.push({
-        label: 'Edit exclusion comment...',
+        label: _('Edit exclusion comment...'),
         action: async () => {
           const marker = node.m_RcItem!.GetParent();
 
           if (marker instanceof PCB_MARKER) {
-            const value = await this.m_window.textEntry('Exclusion Comment', marker.GetComment());
+            const value = await this.m_window.textEntry(
+              _('Exclusion Comment'),
+              marker.GetComment(),
+            );
 
             if (value === null) return;
 
@@ -920,7 +925,7 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
           let comment = '';
 
           if (withComment) {
-            const value = await this.m_window.textEntry('Exclusion Comment', '');
+            const value = await this.m_window.textEntry(_('Exclusion Comment'), '');
 
             if (value === null) return;
 
@@ -949,13 +954,13 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
       };
 
       menu.push({
-        label: 'Exclude this violation',
+        label: _('Exclude this violation'),
         help: `It will be excluded from the ${listName} list`,
         action: () => addExclusion(false),
       });
 
       menu.push({
-        label: 'Exclude with comment...',
+        label: _('Exclude with comment...'),
         help: `It will be excluded from the ${listName} list`,
         action: () => addExclusion(true),
       });
@@ -1021,20 +1026,20 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
     if (this.bds().m_DRCSeverities.get(rcItem.GetErrorCode()) === RPT_SEVERITY_WARNING) {
       menu.push({
         label: `Change severity to Error for all '${rcItem.GetErrorText(true)}' violations`,
-        help: 'Violation severities can also be edited in Board Setup',
+        help: _('Violation severities can also be edited in Board Setup'),
         action: () => setSeverity(RPT_SEVERITY_ERROR),
       });
     } else {
       menu.push({
         label: `Change severity to Warning for all '${rcItem.GetErrorText(true)}' violations`,
-        help: 'Violation severities can also be edited in Board Setup',
+        help: _('Violation severities can also be edited in Board Setup'),
         action: () => setSeverity(RPT_SEVERITY_WARNING),
       });
     }
 
     menu.push({
       label: `Ignore all '${rcItem.GetErrorText(true)}' violations`,
-      help: 'Violations will not be checked or reported',
+      help: _('Violations will not be checked or reported'),
       action: () => {
         this.bds().m_DRCSeverities.set(rcItem.GetErrorCode(), RPT_SEVERITY_IGNORE);
 
@@ -1070,8 +1075,8 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
     menu.push({ sep: true, label: '' });
 
     menu.push({
-      label: 'Edit violation severities...',
-      help: 'Open the Board Setup dialog',
+      label: _('Edit violation severities...'),
+      help: _('Open the Board Setup dialog'),
       action: () => this.m_window.showBoardSetupDialog('Violation Severity'),
     });
 
@@ -1099,17 +1104,17 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
 
     return [
       {
-        label: 'Error',
+        label: _('Error'),
         checked: current === RPT_SEVERITY_ERROR,
         action: () => choose(RPT_SEVERITY_ERROR),
       },
       {
-        label: 'Warning',
+        label: _('Warning'),
         checked: current === RPT_SEVERITY_WARNING,
         action: () => choose(RPT_SEVERITY_WARNING),
       },
       {
-        label: 'Ignore',
+        label: _('Ignore'),
         checked: current === RPT_SEVERITY_IGNORE,
         action: () => choose(RPT_SEVERITY_IGNORE),
       },
@@ -1441,7 +1446,7 @@ export class DIALOG_DRC extends PROGRESS_REPORTER_BASE {
       msg = FOOTPRINTS_TITLE_TEMPLATE.replace('%s', num);
     } else if (this.m_drcRun) {
       msg = FOOTPRINTS_TITLE_TEMPLATE;
-      msg = msg.replace('%s', 'not run');
+      msg = msg.replace('%s', _('not run'));
     } else {
       msg = FOOTPRINTS_TITLE_TEMPLATE;
       msg = msg.replace('(%s)', '');

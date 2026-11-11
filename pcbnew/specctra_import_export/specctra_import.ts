@@ -36,6 +36,7 @@ import {
   type WIRE,
   type WIRE_VIA,
 } from './specctra.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** Convert a session file distance to KiCad internal units (nanometers). */
 function scale(distance: number, aResolution: UNIT_RES): number {
@@ -163,7 +164,7 @@ export class SPECCTRA_IMPORT_DB extends SPECCTRA_EXPORT_DB {
     };
 
     if (shapeCount === 0) {
-      throw new Error('Session via padstack has no shapes');
+      throw new Error(_('Session via padstack has no shapes'));
     } else if (shapeCount === 1) {
       const circle = circleOf(aPadstack.At(0) as SHAPE, '.');
       const viaDiam = scale(circle.diameter, res);
@@ -248,12 +249,12 @@ export class SPECCTRA_IMPORT_DB extends SPECCTRA_EXPORT_DB {
   FromSESSION(aBoard: BOARD): number {
     this.m_sessionBoard = aBoard; // not owned here
 
-    if (!this.m_session) throw new Error('Session file is missing the "session" section');
+    if (!this.m_session) throw new Error(_('Session file is missing the "session" section'));
 
-    if (!this.m_session.route) throw new Error('Session file is missing the "routes" section');
+    if (!this.m_session.route) throw new Error(_('Session file is missing the "routes" section'));
 
     if (!this.m_session.route.library)
-      throw new Error('Session file is missing the "library_out" section');
+      throw new Error(_('Session file is missing the "library_out" section'));
 
     // delete the old tracks and vias but save locked tracks/vias; they will be re-added later
     const locked: PCB_TRACK[] = [];

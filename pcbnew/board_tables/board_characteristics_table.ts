@@ -27,6 +27,7 @@ import {
 } from '../board_statistics_report.js';
 import { PCB_TABLE } from '../pcb_table.js';
 import { PCB_TABLECELL } from '../pcb_tablecell.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function Build_Board_Characteristics_Table(
   aBoard: BOARD,
@@ -62,24 +63,24 @@ export function Build_Board_Characteristics_Table(
     table.AddCell(c);
   };
 
-  addHeaderCell('BOARD CHARACTERISTICS');
+  addHeaderCell(_('BOARD CHARACTERISTICS'));
 
   for (let col = 1; col < table.GetColCount(); ++col) {
     addHeaderCell('');
     table.GetCell(0, col)!.SetColSpan(0);
   }
 
-  addDataCell('Copper layer count: ');
+  addDataCell(_('Copper layer count: '));
   addDataCell(stringFromValue(unityScale, 'unscaled', settings.GetCopperLayerCount(), false));
 
-  addDataCell('Board thickness: ');
+  addDataCell(_('Board thickness: '));
   addDataCell(units_provider.MessageTextFromValue(brd_stat_data.boardThickness, true));
 
   const outline = new SHAPE_POLY_SET();
   aBoard.GetBoardPolygonOutlines(outline, false);
   const size = outline.BBox();
 
-  addDataCell('Board overall dimensions: ');
+  addDataCell(_('Board overall dimensions: '));
   addDataCell(
     `${units_provider.MessageTextFromValue(size.GetWidth(), true)} x ${units_provider.MessageTextFromValue(size.GetHeight(), true)}`,
   );
@@ -87,47 +88,47 @@ export function Build_Board_Characteristics_Table(
   addDataCell('');
   addDataCell('');
 
-  addDataCell('Min track/spacing: ');
+  addDataCell(_('Min track/spacing: '));
   addDataCell(
     `${units_provider.MessageTextFromValue(brd_stat_data.minTrackWidth, true)} / ${units_provider.MessageTextFromValue(brd_stat_data.minClearanceTrackToTrack, true)}`,
   );
 
   const min_holeSize = brd_stat_data.minDrillSize;
-  addDataCell('Min hole diameter: ');
+  addDataCell(_('Min hole diameter: '));
   addDataCell(units_provider.MessageTextFromValue(min_holeSize, true));
 
-  addDataCell('Copper finish: ');
+  addDataCell(_('Copper finish: '));
   addDataCell(stackup.m_FinishType);
 
-  addDataCell('Impedance control: ');
-  addDataCell(stackup.m_HasDielectricConstrains ? 'Yes' : 'No');
+  addDataCell(_('Impedance control: '));
+  addDataCell(stackup.m_HasDielectricConstrains ? _('Yes') : _('No'));
 
-  addDataCell('Castellated pads: ');
+  addDataCell(_('Castellated pads: '));
   const castellated_pad_count = aBoard.GetPadWithCastellatedAttrCount();
-  addDataCell(castellated_pad_count ? 'Yes' : 'No');
+  addDataCell(castellated_pad_count ? _('Yes') : _('No'));
 
-  addDataCell('Press-fit pads: ');
+  addDataCell(_('Press-fit pads: '));
   const pressfit_pad_count = aBoard.GetPadWithPressFitAttrCount();
-  addDataCell(pressfit_pad_count ? 'Yes' : 'No');
+  addDataCell(pressfit_pad_count ? _('Yes') : _('No'));
 
-  addDataCell('Plated board edge: ');
-  addDataCell(stackup.m_EdgePlating ? 'Yes' : 'No');
+  addDataCell(_('Plated board edge: '));
+  addDataCell(stackup.m_EdgePlating ? _('Yes') : _('No'));
 
   let msg = '';
 
   switch (stackup.m_EdgeConnectorConstraints) {
     case BS_EDGE_CONNECTOR_NONE:
-      msg = 'No';
+      msg = _('No');
       break;
     case BS_EDGE_CONNECTOR_IN_USE:
-      msg = 'Yes';
+      msg = _('Yes');
       break;
     case BS_EDGE_CONNECTOR_BEVELLED:
-      msg = 'Yes, Bevelled';
+      msg = _('Yes, Bevelled');
       break;
   }
 
-  addDataCell('Edge card connectors: ');
+  addDataCell(_('Edge card connectors: '));
   addDataCell(msg);
 
   // We are building a table having 4 columns.

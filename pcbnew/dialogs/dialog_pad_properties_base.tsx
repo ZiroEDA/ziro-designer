@@ -50,6 +50,8 @@ import {
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A UNIT_BINDER: its label's text, the entry, the units label, Enable() and Show(). */
 export interface UNIT {
@@ -244,13 +246,16 @@ function Units({ u }: { u: UNIT }): JSX.Element {
 
 const shown = (u: UNIT): boolean => u.shown !== false;
 
-const CORNER_RATIO_TIP =
-  'Corner radius in percent  of the pad width.\nThe width is the smaller value between size X and size Y.\nThe max value is 50 percent.';
-const CHAMFER_RATIO_TIP =
-  'Chamfer size in percent of the pad width.\nThe width is the smaller value between size X and size Y.\nThe max value is 50 percent.';
-const CHAMFER_CORNER_TIP =
-  'Chamfered corners. The position is relative to a pad orientation 0 degree.';
-const BACKDRILL_LAYER_TIP = 'The backdrill must pass through this layer';
+const CORNER_RATIO_TIP = _HKI(
+  'Corner radius in percent  of the pad width.\nThe width is the smaller value between size X and size Y.\nThe max value is 50 percent.',
+);
+const CHAMFER_RATIO_TIP = _HKI(
+  'Chamfer size in percent of the pad width.\nThe width is the smaller value between size X and size Y.\nThe max value is 50 percent.',
+);
+const CHAMFER_CORNER_TIP = _HKI(
+  'Chamfered corners. The position is relative to a pad orientation 0 degree.',
+);
+const BACKDRILL_LAYER_TIP = _HKI('The backdrill must pass through this layer');
 
 /** gCornersSizer / gMixedCornersSizer: a wxGridSizer( 0, 2, vgap, 6 ) of the four corners. */
 function Corners({
@@ -269,16 +274,16 @@ function Corners({
   return (
     <FlexGridSizer cols={2} vgap={vgap} hgap={6} flexibleDirection={0}>
       <SizerItem border={5}>
-        <CheckBox label="Top left" check={tl} />
+        <CheckBox label={_('Top left')} check={tl} />
       </SizerItem>
       <SizerItem border={5}>
-        <CheckBox label="Top right" check={tr} />
+        <CheckBox label={_('Top right')} check={tr} />
       </SizerItem>
       <SizerItem border={5}>
-        <CheckBox label="Bottom left" check={bl} />
+        <CheckBox label={_('Bottom left')} check={bl} />
       </SizerItem>
       <SizerItem border={5}>
-        <CheckBox label="Bottom right" check={br} />
+        <CheckBox label={_('Bottom right')} check={br} />
       </SizerItem>
     </FlexGridSizer>
   );
@@ -363,7 +368,7 @@ function PostMachining({
       </SizerItem>
       <SizerItem pos={[0, 1]} span={[1, 2]} flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
         <Choice
-          choices={['None', 'Countersink', 'Counterbore']}
+          choices={[_('None'), _('Countersink'), _('Counterbore')]}
           choice={choice}
           ariaLabel={`${side.replace(':', '')} post machining`}
         />
@@ -460,7 +465,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                 flag={wxALIGN_CENTER_VERTICAL | wxTOP | wxRIGHT | wxLEFT}
                 border={5}
               >
-                <StaticText label="Pad type:" />
+                <StaticText label={_('Pad type:')} />
               </SizerItem>
               <SizerItem
                 pos={[0, 1]}
@@ -470,18 +475,18 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
               >
                 <Choice
                   choices={[
-                    'Through-hole',
-                    'SMD',
-                    'Edge Connector',
-                    'NPTH, Mechanical',
-                    'SMD Aperture',
+                    _('Through-hole'),
+                    _('SMD'),
+                    _('Edge Connector'),
+                    _('NPTH, Mechanical'),
+                    _('SMD Aperture'),
                   ]}
                   choice={p.m_padType}
                   ariaLabel="Pad type"
                 />
               </SizerItem>
               <SizerItem pos={[1, 0]} flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
-                <StaticText label="Pad number:" disabled={p.m_padNumCtrl.enabled === false} />
+                <StaticText label={_('Pad number:')} disabled={p.m_padNumCtrl.enabled === false} />
               </SizerItem>
               <SizerItem
                 pos={[1, 1]}
@@ -502,7 +507,10 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                 border={5}
                 shown={p.padNetShown}
               >
-                <StaticText label="Net name:" disabled={p.m_padNetSelector.enabled === false} />
+                <StaticText
+                  label={_('Net name:')}
+                  disabled={p.m_padNetSelector.enabled === false}
+                />
               </SizerItem>
               <SizerItem
                 pos={[2, 1]}
@@ -546,18 +554,18 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
             {/* m_padstackControls */}
             <BoxSizer orient={wxHORIZONTAL}>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
-                <StaticText label="Padstack mode:" />
+                <StaticText label={_('Padstack mode:')} />
               </SizerItem>
               <SizerItem flag={wxALL} border={5}>
                 <Choice
-                  choices={['Normal', 'Front/Inner/Back', 'Custom']}
+                  choices={[_('Normal'), _('Front/Inner/Back'), _('Custom')]}
                   choice={p.m_cbPadstackMode}
                   ariaLabel="Padstack mode"
                 />
               </SizerItem>
               <Spacer proportion={1} flag={wxEXPAND} border={5} />
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={10}>
-                <StaticText label="Edit layer:" disabled={p.m_cbEditLayer.enabled === false} />
+                <StaticText label={_('Edit layer:')} disabled={p.m_cbEditLayer.enabled === false} />
               </SizerItem>
               <SizerItem flag={wxALL} border={5}>
                 <Choice
@@ -572,7 +580,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
             {/* gbSizerPadOrientation = wxGridBagSizer( 4, 5 ) */}
             <GridBagSizer vgap={4} hgap={5} growableCols={[1, 4]}>
               <SizerItem pos={[0, 0]} flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                <StaticText label="Pad shape:" />
+                <StaticText label={_('Pad shape:')} />
               </SizerItem>
               <SizerItem
                 pos={[0, 1]}
@@ -582,18 +590,18 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
               >
                 <Choice
                   choices={[
-                    'Circular',
-                    'Oval',
-                    'Rectangular',
-                    'Trapezoidal',
-                    'Rounded rectangle',
-                    'Chamfered rectangle',
-                    'Chamfered with other corners rounded',
-                    'Custom (circular base)',
-                    'Custom (rectangular base)',
+                    _('Circular'),
+                    _('Oval'),
+                    _('Rectangular'),
+                    _('Trapezoidal'),
+                    _('Rounded rectangle'),
+                    _('Chamfered rectangle'),
+                    _('Chamfered with other corners rounded'),
+                    _('Custom (circular base)'),
+                    _('Custom (rectangular base)'),
                   ]}
                   choice={p.m_PadShapeSelector}
-                  ariaLabel="Pad shape"
+                  ariaLabel={_('Pad shape')}
                 />
               </SizerItem>
               <SizerItem pos={[1, 0]} span={[1, 6]} flag={wxEXPAND | wxLEFT} border={25}>
@@ -615,11 +623,11 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                         <Units u={p.m_trapDelta} />
                       </SizerItem>
                       <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                        <StaticText label="Trapezoid axis:" />
+                        <StaticText label={_('Trapezoid axis:')} />
                       </SizerItem>
                       <SizerItem flag={wxEXPAND | wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
                         <Choice
-                          choices={['Horizontal', 'Vertical']}
+                          choices={[_('Horizontal'), _('Vertical')]}
                           choice={p.m_trapAxisCtrl}
                           ariaLabel="Trapezoid axis"
                         />
@@ -639,9 +647,9 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
                         <Label
                           u={p.m_cornerRadius}
-                          title={
-                            'Corner radius.\nCan be no more than half pad width.\nThe width is the smaller value between size X and size Y.\nNote: IPC norm gives a max value = 0.25mm.'
-                          }
+                          title={_(
+                            'Corner radius.\nCan be no more than half pad width.\nThe width is the smaller value between size X and size Y.\nNote: IPC norm gives a max value = 0.25mm.',
+                          )}
                         />
                       </SizerItem>
                       <SizerItem flag={wxEXPAND | wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
@@ -672,7 +680,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                         </BoxSizer>
                       </SizerItem>
                       <SizerItem border={5}>
-                        <StaticText label="Chamfer corners:" title={CHAMFER_CORNER_TIP} />
+                        <StaticText label={_('Chamfer corners:')} title={CHAMFER_CORNER_TIP} />
                       </SizerItem>
                       <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
                         <Corners
@@ -705,7 +713,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                         </BoxSizer>
                       </SizerItem>
                       <SizerItem border={5}>
-                        <StaticText label="Chamfer corners:" title={CHAMFER_CORNER_TIP} />
+                        <StaticText label={_('Chamfer corners:')} title={CHAMFER_CORNER_TIP} />
                       </SizerItem>
                       <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
                         <Corners
@@ -788,7 +796,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                   value={p.m_pad_orientation.value}
                   options={['0', '90', '-90', '180']}
                   onChange={p.m_pad_orientation.onChange}
-                  ariaLabel="Angle"
+                  ariaLabel={_('Angle')}
                 />
               </SizerItem>
               <SizerItem pos={[3, 2]} flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
@@ -800,7 +808,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
             {/* bSizer35 */}
             <BoxSizer orient={wxHORIZONTAL}>
               <SizerItem flag={wxTOP | wxLEFT} border={5}>
-                <CheckBox label="Offset shape from hole" check={p.m_offsetShapeOpt} />
+                <CheckBox label={_('Offset shape from hole')} check={p.m_offsetShapeOpt} />
               </SizerItem>
               <SizerItem flag={wxTOP | wxRIGHT} border={5} shown={p.offsetCtrlsShown}>
                 <StaticText label=":" />
@@ -857,11 +865,14 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
             {/* m_gbSizerHole = wxGridBagSizer( 4, 5 ) */}
             <GridBagSizer vgap={4} hgap={5} growableCols={[1, 4]}>
               <SizerItem pos={[0, 0]} flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                <StaticText label="Hole shape:" disabled={p.m_holeShapeCtrl.enabled === false} />
+                <StaticText
+                  label={_('Hole shape:')}
+                  disabled={p.m_holeShapeCtrl.enabled === false}
+                />
               </SizerItem>
               <SizerItem pos={[0, 1]} span={[1, 5]} flag={wxEXPAND | wxRIGHT} border={5}>
                 <Choice
-                  choices={['Round', 'Oblong']}
+                  choices={[_('Round'), _('Oblong')]}
                   choice={p.m_holeShapeCtrl}
                   ariaLabel="Hole shape"
                 />
@@ -911,7 +922,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                 {/* bSizer34 */}
                 <BoxSizer orient={wxHORIZONTAL}>
                   <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                    <CheckBox label="Specify pad to die length" check={p.m_padToDieOpt} />
+                    <CheckBox label={_('Specify pad to die length')} check={p.m_padToDieOpt} />
                   </SizerItem>
                   <SizerItem
                     flag={wxALIGN_CENTER_VERTICAL | wxRESERVE_SPACE_EVEN_IF_HIDDEN}
@@ -944,7 +955,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                 {/* bSizer341 */}
                 <BoxSizer orient={wxHORIZONTAL}>
                   <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                    <CheckBox label="Specify pad to die delay" check={p.m_padToDieDelayOpt} />
+                    <CheckBox label={_('Specify pad to die delay')} check={p.m_padToDieDelayOpt} />
                   </SizerItem>
                   <SizerItem
                     flag={wxALIGN_CENTER_VERTICAL | wxRESERVE_SPACE_EVEN_IF_HIDDEN}
@@ -991,20 +1002,20 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                     border={8}
                   >
                     <StaticText
-                      label={'Parent footprint on board is flipped.\nLayers will be reversed.'}
+                      label={_('Parent footprint on board is flipped.\nLayers will be reversed.')}
                       wrap={150}
                     />
                   </SizerItem>
                 </BoxSizer>
               </SizerItem>
               <SizerItem flag={wxRIGHT | wxLEFT} border={4}>
-                <StaticText label="Copper layers:" />
+                <StaticText label={_('Copper layers:')} />
               </SizerItem>
               <SizerItem proportion={1} flag={wxALL | wxEXPAND | wxTOP} border={4}>
                 <Choice
                   choices={p.m_rbCopperLayersSel.choices}
                   choice={p.m_rbCopperLayersSel}
-                  ariaLabel="Copper layers"
+                  ariaLabel={_('Copper layers')}
                 />
               </SizerItem>
               <SizerItem proportion={1} flag={wxEXPAND | wxTOP} border={5}>
@@ -1012,7 +1023,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                 <BoxSizer orient={wxHORIZONTAL}>
                   <SizerItem flag={wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL} border={5}>
                     {/* SetFont( KIUI::GetStatusFont( this ) ): the GUI font on GTK */}
-                    <StaticText label="Technical Layers" />
+                    <StaticText label={_('Technical Layers')} />
                   </SizerItem>
                   <SizerItem
                     proportion={1}
@@ -1052,25 +1063,25 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
           </SizerItem>
           <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
             <StaticText
-              label="Fabrication property:"
-              title={
-                'Optional property to specify a special purpose or constraint in fabrication files:\nBGA attribute is for pads in BGA footprints\nFiducial local is a fiducial for the parent footprint\nFiducial global is a fiducial for the whole board\nTest Point specifies an electrical test point\nHeatsink specifies a thermal pad\nCastellated specifies a through hole pad on a board edge\nMechanical specifies a through-hole pad that is used for mechanical support'
-              }
+              label={_('Fabrication property:')}
+              title={_(
+                'Optional property to specify a special purpose or constraint in fabrication files:\nBGA attribute is for pads in BGA footprints\nFiducial local is a fiducial for the parent footprint\nFiducial global is a fiducial for the whole board\nTest Point specifies an electrical test point\nHeatsink specifies a thermal pad\nCastellated specifies a through hole pad on a board edge\nMechanical specifies a through-hole pad that is used for mechanical support',
+              )}
             />
           </SizerItem>
           <Spacer width={0} height={2} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
             <Choice
               choices={[
-                'None',
-                'BGA pad',
-                'Fiducial, local to footprint',
-                'Fiducial, global to board',
-                'Test point pad',
-                'Heatsink pad',
-                'Mechanical',
-                'Castellated pad (TH only)',
-                'Press-fit (round TH only)',
+                _('None'),
+                _('BGA pad'),
+                _('Fiducial, local to footprint'),
+                _('Fiducial, global to board'),
+                _('Test point pad'),
+                _('Heatsink pad'),
+                _('Mechanical'),
+                _('Castellated pad (TH only)'),
+                _('Press-fit (round TH only)'),
               ]}
               choice={p.m_choiceFabProperty}
               ariaLabel="Fabrication property"
@@ -1094,7 +1105,7 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
         {/* bSizerConnectionsMargins */}
         <BoxSizer orient={wxVERTICAL}>
           <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-            <StaticBoxSizer label="Teardrops" orient={wxVERTICAL}>
+            <StaticBoxSizer label={_('Teardrops')} orient={wxVERTICAL}>
               <SizerItem flag={wxEXPAND | wxBOTTOM} border={5} shown={p.legacyTeardropsShown}>
                 {/* m_legacyTeardropsWarning */}
                 <BoxSizer orient={wxHORIZONTAL}>
@@ -1105,10 +1116,12 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                     {/* bSizer42 */}
                     <BoxSizer orient={wxVERTICAL}>
                       <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-                        <StaticText label="Board contains legacy teardrops." />
+                        <StaticText label={_('Board contains legacy teardrops.')} />
                       </SizerItem>
                       <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                        <StaticText label="Use Edit > Edit Teardrops to apply automatic teardrops." />
+                        <StaticText
+                          label={_('Use Edit > Edit Teardrops to apply automatic teardrops.')}
+                        />
                       </SizerItem>
                     </BoxSizer>
                   </SizerItem>
@@ -1122,22 +1135,26 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                     <BoxSizer orient={wxVERTICAL}>
                       <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                         <CheckBox
-                          label="Add teardrops on pad's track connections"
+                          label={_("Add teardrops on pad's track connections")}
                           check={tdCheck(p.m_cbTeardrops)}
                         />
                       </SizerItem>
                       <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                         <CheckBox
-                          label="Prefer zone connection"
+                          label={_('Prefer zone connection')}
                           check={tdCheck(p.m_cbPreferZoneConnection)}
-                          title="Do not create teardrops on tracks connected to pads that are also connected to a copper zone."
+                          title={_(
+                            'Do not create teardrops on tracks connected to pads that are also connected to a copper zone.',
+                          )}
                         />
                       </SizerItem>
                       <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                         <CheckBox
-                          label="Allow teardrops to span 2 track segments"
+                          label={_('Allow teardrops to span 2 track segments')}
                           check={tdCheck(p.m_cbTeardropsUseNextTrack)}
-                          title="Allows a teardrop to spread over 2 tracks if the first track segment is too short"
+                          title={_(
+                            'Allows a teardrop to spread over 2 tracks if the first track segment is too short',
+                          )}
                         />
                       </SizerItem>
                     </BoxSizer>
@@ -1151,11 +1168,11 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                         <BoxSizer orient={wxHORIZONTAL}>
                           <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                             <StaticText
-                              label="Track width limit:"
+                              label={_('Track width limit:')}
                               disabled={!td}
-                              title={
-                                'Max pad/via size to track width ratio to create a teardrop.\n100 always creates a teardrop.'
-                              }
+                              title={_(
+                                'Max pad/via size to track width ratio to create a teardrop.\n100 always creates a teardrop.',
+                              )}
                             />
                           </SizerItem>
                           <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
@@ -1165,7 +1182,9 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                               max={100}
                               enabled={td}
                               ariaLabel="Track width limit"
-                              title="Tracks which are similar in size to the pad do not need teardrops."
+                              title={_(
+                                'Tracks which are similar in size to the pad do not need teardrops.',
+                              )}
                             />
                           </SizerItem>
                           <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -1186,7 +1205,7 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
               <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
               <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
                 {/* SetFont( KIUI::GetStatusFont( this ) ): the GUI font on GTK */}
-                <StaticText label="Teardrop Shape" disabled={!td} />
+                <StaticText label={_('Teardrop Shape')} disabled={!td} />
               </SizerItem>
               <SizerItem flag={wxEXPAND} border={5}>
                 <StaticLine />
@@ -1214,7 +1233,7 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                         {/* fgSizerRightCol = wxFlexGridSizer( 0, 3, 2, 0 ) */}
                         <FlexGridSizer cols={3} vgap={2} hgap={0} growableCols={[1]}>
                           <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                            <StaticText label="Best length (L):" disabled={!td} />
+                            <StaticText label={_('Best length (L):')} disabled={!td} />
                           </SizerItem>
                           <SizerItem
                             flag={wxEXPAND | wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
@@ -1256,7 +1275,7 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                           <Spacer proportion={1} flag={wxEXPAND} border={5} />
                           <Spacer proportion={1} flag={wxEXPAND} border={5} />
                           <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={10}>
-                            <StaticText label="Best width (W):" disabled={!td} />
+                            <StaticText label={_('Best width (W):')} disabled={!td} />
                           </SizerItem>
                           <SizerItem
                             flag={wxEXPAND | wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
@@ -1300,7 +1319,7 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                         {/* bSizer44 */}
                         <BoxSizer orient={wxHORIZONTAL}>
                           <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                            <CheckBox label="Curved edges" check={tdCheck(p.m_curvedEdges)} />
+                            <CheckBox label={_('Curved edges')} check={tdCheck(p.m_curvedEdges)} />
                           </SizerItem>
                         </BoxSizer>
                       </SizerItem>
@@ -1314,22 +1333,27 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
             {/* bSizerConnectionsLower */}
             <BoxSizer orient={wxHORIZONTAL}>
               <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
-                <StaticBoxSizer label="Connection to Copper Zones" orient={wxVERTICAL}>
+                <StaticBoxSizer label={_('Connection to Copper Zones')} orient={wxVERTICAL}>
                   <SizerItem border={5}>
                     {/* fgSizerCopperZonesOpts = wxFlexGridSizer( 0, 2, 5, 0 ) */}
                     <FlexGridSizer cols={2} vgap={5} hgap={0} growableCols={[1]}>
                       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                        <StaticText label="Pad connection:" />
+                        <StaticText label={_('Pad connection:')} />
                       </SizerItem>
                       <SizerItem proportion={1} flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
                         <Choice
-                          choices={['From parent footprint', 'Solid', 'Thermal relief', 'None']}
+                          choices={[
+                            _('From parent footprint'),
+                            _('Solid'),
+                            _('Thermal relief'),
+                            _('None'),
+                          ]}
                           choice={p.m_ZoneConnectionChoice}
                           ariaLabel="Pad connection"
                         />
                       </SizerItem>
                       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                        <StaticText label="Zone knockout:" />
+                        <StaticText label={_('Zone knockout:')} />
                       </SizerItem>
                       <SizerItem
                         proportion={1}
@@ -1337,7 +1361,7 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                         border={5}
                       >
                         <Choice
-                          choices={['Pad shape', 'Pad convex hull']}
+                          choices={[_('Pad shape'), _('Pad convex hull')]}
                           choice={p.m_ZoneCustomPadShape}
                           ariaLabel="Zone knockout"
                         />
@@ -1347,7 +1371,7 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                 </StaticBoxSizer>
               </SizerItem>
               <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
-                <StaticBoxSizer label="Thermal Relief Overrides" orient={wxVERTICAL}>
+                <StaticBoxSizer label={_('Thermal Relief Overrides')} orient={wxVERTICAL}>
                   <SizerItem proportion={1} flag={wxBOTTOM | wxEXPAND} border={5}>
                     {/* fgSizerThermalReliefs = wxFlexGridSizer( 0, 3, 3, 0 ) */}
                     <FlexGridSizer cols={3} vgap={3} hgap={0} growableCols={[1]}>
@@ -1391,7 +1415,7 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
 }
 
 function ClearancePage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
-  const note = 'Note: solder mask and paste values are used only for pads on copper layers.';
+  const note = _('Note: solder mask and paste values are used only for pads on copper layers.');
 
   return (
     // bSizerPanelClearance
@@ -1400,15 +1424,25 @@ function ClearancePage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
         {/* bSizerClearance */}
         <BoxSizer orient={wxVERTICAL}>
           <SizerItem flag={wxALL | wxEXPAND} border={5}>
-            <StaticBoxSizer label="Clearance Overrides" orient={wxVERTICAL}>
+            <StaticBoxSizer label={_('Clearance Overrides')} orient={wxVERTICAL}>
               <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
-                <StaticText label="Leave values blank to use parent footprint or netclass values." />
+                <StaticText
+                  label={_('Leave values blank to use parent footprint or netclass values.')}
+                />
               </SizerItem>
               <SizerItem flag={wxLEFT | wxRIGHT | wxTOP} border={5}>
-                <StaticText label="Positive clearance means area bigger than the pad (usual for mask clearance)." />
+                <StaticText
+                  label={_(
+                    'Positive clearance means area bigger than the pad (usual for mask clearance).',
+                  )}
+                />
               </SizerItem>
               <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
-                <StaticText label="Negative clearance means area smaller than the pad (usual for paste clearance)." />
+                <StaticText
+                  label={_(
+                    'Negative clearance means area smaller than the pad (usual for paste clearance).',
+                  )}
+                />
               </SizerItem>
               <SizerItem flag={wxTOP | wxBOTTOM} border={10}>
                 {/* fgClearancesGridSizer = wxFlexGridSizer( 4, 3, 4, 0 ) */}
@@ -1416,9 +1450,9 @@ function ClearancePage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                   <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
                     <Label
                       u={p.m_clearance}
-                      title={
-                        'This is the local net clearance for this pad.\nIf 0, the footprint local value or the Netclass value is used.'
-                      }
+                      title={_(
+                        'This is the local net clearance for this pad.\nIf 0, the footprint local value or the Netclass value is used.',
+                      )}
                     />
                   </SizerItem>
                   <SizerItem flag={wxEXPAND | wxALIGN_CENTER_VERTICAL} border={5}>
@@ -1430,9 +1464,9 @@ function ClearancePage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                   <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
                     <Label
                       u={p.m_maskMargin}
-                      title={
-                        'This is the local clearance between this pad and the solder mask.\nIf 0, the footprint local value or the global value is used.'
-                      }
+                      title={_(
+                        'This is the local clearance between this pad and the solder mask.\nIf 0, the footprint local value or the global value is used.',
+                      )}
                     />
                   </SizerItem>
                   <SizerItem
@@ -1448,17 +1482,17 @@ function ClearancePage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                     {/* The derived constructor's SetToolTip replaces the base's. */}
                     <Label
                       u={p.m_pasteMargin}
-                      title={
-                        'Local solder paste clearance for this pad.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nIf blank, the footprint or global value is used.'
-                      }
+                      title={_(
+                        'Local solder paste clearance for this pad.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nIf blank, the footprint or global value is used.',
+                      )}
                     />
                   </SizerItem>
                   <SizerItem flag={wxEXPAND | wxALIGN_CENTER_VERTICAL} border={5}>
                     <Entry
                       u={p.m_pasteMargin}
-                      title={
-                        'Local solder paste clearance for this pad.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nIf blank, the footprint or global value is used.'
-                      }
+                      title={_(
+                        'Local solder paste clearance for this pad.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nIf blank, the footprint or global value is used.',
+                      )}
                     />
                   </SizerItem>
                   <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
@@ -1510,7 +1544,7 @@ function BackdrillPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
         {/* bSizer46 */}
         <BoxSizer orient={wxVERTICAL}>
           <SizerItem flag={wxEXPAND | wxBOTTOM} border={5}>
-            <StaticBoxSizer label="Hole Post Machining" orient={wxVERTICAL}>
+            <StaticBoxSizer label={_('Hole Post Machining')} orient={wxVERTICAL}>
               <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                 {/* bPostMachiningColumns */}
                 <BoxSizer orient={wxHORIZONTAL}>
@@ -1536,12 +1570,12 @@ function BackdrillPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
             </StaticBoxSizer>
           </SizerItem>
           <SizerItem flag={wxEXPAND | wxTOP} border={5}>
-            <StaticBoxSizer label="Backdrill" orient={wxVERTICAL}>
+            <StaticBoxSizer label={_('Backdrill')} orient={wxVERTICAL}>
               <SizerItem flag={wxBOTTOM | wxRIGHT} border={5}>
                 <Choice
-                  choices={['None', 'Top', 'Bottom', 'Top & bottom']}
+                  choices={[_('None'), _('Top'), _('Bottom'), _('Top & bottom')]}
                   choice={p.m_backDrillChoice}
-                  ariaLabel="Backdrill"
+                  ariaLabel={_('Backdrill')}
                 />
               </SizerItem>
               <SizerItem proportion={1} flag={wxEXPAND | wxTOP} border={3}>
@@ -1549,7 +1583,7 @@ function BackdrillPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                 <BoxSizer orient={wxHORIZONTAL}>
                   <SizerItem proportion={1} flag={wxEXPAND | wxLEFT} border={15}>
                     <Backdrill
-                      layerLabel="Top backdrill must-cut:"
+                      layerLabel={_('Top backdrill must-cut:')}
                       layer={p.m_backDrillTopLayer}
                       size={p.m_backDrillTopSize}
                     />
@@ -1557,7 +1591,7 @@ function BackdrillPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                   <Spacer width={15} height={0} flag={wxEXPAND} border={5} />
                   <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                     <Backdrill
-                      layerLabel="Bottom backdrill must-cut:"
+                      layerLabel={_('Bottom backdrill must-cut:')}
                       layer={p.m_backDrillBottomLayer}
                       size={p.m_backDrillBottomSize}
                     />
@@ -1591,12 +1625,12 @@ export function DIALOG_PAD_PROPERTIES_BASE(p: DIALOG_PAD_PROPERTIES_BASE_PROPS):
               <Notebook
                 selection={p.m_notebook.selection}
                 onPageChanged={p.m_notebook.onPageChanged}
-                ariaLabel="Pad Properties"
+                ariaLabel={_('Pad Properties')}
                 pages={[
-                  { text: 'General', content: <GeneralPage {...p} /> },
-                  { text: 'Connections', content: <ConnectionsPage {...p} /> },
-                  { text: 'Clearance Overrides', content: <ClearancePage {...p} /> },
-                  { text: 'Backdrill', content: <BackdrillPage {...p} /> },
+                  { text: _('General'), content: <GeneralPage {...p} /> },
+                  { text: _('Connections'), content: <ConnectionsPage {...p} /> },
+                  { text: _('Clearance Overrides'), content: <ClearancePage {...p} /> },
+                  { text: _('Backdrill'), content: <BackdrillPage {...p} /> },
                 ]}
               />
             </SizerItem>
@@ -1646,7 +1680,7 @@ export function DIALOG_PAD_PROPERTIES_BASE(p: DIALOG_PAD_PROPERTIES_BASE_PROPS):
             </SizerItem>
             <Spacer width={20} height={0} proportion={1} flag={wxEXPAND} border={5} />
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
-              <CheckBox label="Preview pad in sketch mode" check={p.m_cbShowPadOutline} />
+              <CheckBox label={_('Preview pad in sketch mode')} check={p.m_cbShowPadOutline} />
             </SizerItem>
             <Spacer width={40} height={0} flag={wxEXPAND} border={5} />
             <SizerItem flag={wxBOTTOM | wxEXPAND | wxTOP} border={5}>

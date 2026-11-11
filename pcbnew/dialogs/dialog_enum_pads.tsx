@@ -8,6 +8,7 @@
  */
 import { type JSX, useEffect, useRef, useState } from 'react';
 import { DIALOG_ENUM_PADS_BASE } from './dialog_enum_pads_base.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `SEQUENTIAL_PAD_ENUMERATION_PARAMS`.
@@ -37,7 +38,7 @@ export const DEFAULT_PAD_ENUMERATION_PARAMS: SequentialPadEnumerationParams = {
  * `DIALOG_ENUM_PADS_BASE`'s title and labels - the base file states the title
  * as wxFormBuilder's default.
  */
-export const DIALOG_ENUM_PADS_TITLE = 'Renumber Pads';
+export const DIALOG_ENUM_PADS_TITLE = _HKI('Renumber Pads');
 
 /**
  * `DIALOG_ENUM_PADS` (dialog_enum_pads.cpp): the modal dialog `PAD_TOOL::EnumeratePads`

@@ -34,6 +34,7 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { ScrolledWindow } from '@ziroeda/wx/scrolwin.js';
 import { BoxSizer, FlexGridSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const CV = wxALIGN_CENTER_VERTICAL;
 
@@ -50,7 +51,7 @@ export function PANEL_ASSIGN_COMPONENT_CLASSES_BASE(p: {
     // bSizerMain
     <BoxSizer orient={wxVERTICAL}>
       <SizerItem flag={wxALL} border={10}>
-        <CheckBox label="Assign component class per sheet" check={p.m_assignSheetClasses} />
+        <CheckBox label={_('Assign component class per sheet')} check={p.m_assignSheetClasses} />
       </SizerItem>
       <SizerItem flag={wxEXPAND | wxLEFT | wxRIGHT} border={5}>
         <StaticLine />
@@ -59,11 +60,11 @@ export function PANEL_ASSIGN_COMPONENT_CLASSES_BASE(p: {
         {/* bSizer12 */}
         <BoxSizer orient={wxHORIZONTAL}>
           <SizerItem flag={CV | wxLEFT | wxRIGHT} border={5}>
-            <StaticText label="Custom Assignments:" />
+            <StaticText label={_('Custom Assignments:')} />
           </SizerItem>
           <Spacer width={0} height={0} proportion={1} flag={wxBOTTOM | wxEXPAND} border={5} />
           <SizerItem border={5}>
-            <Button label="Add Custom Assignment" onClick={p.onAddAssignmentClick} />
+            <Button label={_('Add Custom Assignment')} onClick={p.onAddAssignmentClick} />
           </SizerItem>
         </BoxSizer>
       </SizerItem>
@@ -105,7 +106,7 @@ export function PANEL_COMPONENT_CLASS_ASSIGNMENT_BASE(p: {
           {/* bSizer131 */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={CV | wxLEFT | wxRIGHT} border={5}>
-              <StaticText label="Component class:" ellipsize />
+              <StaticText label={_('Component class:')} ellipsize />
             </SizerItem>
             <SizerItem proportion={1} flag={wxEXPAND} border={5}>
               <TextCtrl
@@ -118,7 +119,7 @@ export function PANEL_COMPONENT_CLASS_ASSIGNMENT_BASE(p: {
             <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>
               <StdBitmapButton
                 bitmap="small_trash"
-                title="Delete row"
+                title={_('Delete row')}
                 onClick={p.onDeleteAssignmentClick}
               />
             </SizerItem>
@@ -140,7 +141,7 @@ export function PANEL_COMPONENT_CLASS_ASSIGNMENT_BASE(p: {
             <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>
               <StdBitmapButton
                 bitmap="net_highlight"
-                title="Highlight matching footprints"
+                title={_('Highlight matching footprints')}
                 onClick={p.onHighlightItemsClick}
               />
             </SizerItem>
@@ -150,7 +151,7 @@ export function PANEL_COMPONENT_CLASS_ASSIGNMENT_BASE(p: {
             <Spacer width={5} height={0} flag={wxEXPAND} border={5} />
             <SizerItem flag={CV | wxLEFT} border={5}>
               <RadioButton
-                label="Match all"
+                label={_('Match all')}
                 name={p.groupName}
                 checked={p.matchAll}
                 onChange={() => p.onMatchAll(true)}
@@ -158,7 +159,7 @@ export function PANEL_COMPONENT_CLASS_ASSIGNMENT_BASE(p: {
             </SizerItem>
             <SizerItem flag={CV | wxLEFT | wxRIGHT} border={5}>
               <RadioButton
-                label="Match any"
+                label={_('Match any')}
                 name={p.groupName}
                 checked={!p.matchAll}
                 onChange={() => p.onMatchAll(false)}
@@ -205,7 +206,7 @@ function ConditionBase({
             <SizerItem flag={deleteFlag} border={5}>
               <StdBitmapButton
                 bitmap="small_trash"
-                title="Delete row"
+                title={_('Delete row')}
                 onClick={onDeleteConditionClick}
               />
             </SizerItem>
@@ -231,7 +232,7 @@ export function PANEL_COMPONENT_CLASS_CONDITION_REFERENCE_BASE(
   return (
     <ConditionBase
       cols={5}
-      title="Reference:"
+      title={_('Reference:')}
       titleMinWidth={p.titleMinWidth}
       onDeleteConditionClick={p.onDeleteConditionClick}
       cells={
@@ -242,7 +243,7 @@ export function PANEL_COMPONENT_CLASS_CONDITION_REFERENCE_BASE(
           <SizerItem flag={CV | wxLEFT} border={5}>
             <StdBitmapButton
               bitmap="config"
-              title="Import references"
+              title={_('Import references')}
               onClick={(e) => p.onImportRefsClick(e.currentTarget)}
             />
           </SizerItem>
@@ -260,7 +261,7 @@ export function PANEL_COMPONENT_CLASS_CONDITION_SIDE_BASE(
   return (
     <ConditionBase
       cols={4}
-      title="Side:"
+      title={_('Side:')}
       titleMinWidth={p.titleMinWidth}
       onDeleteConditionClick={p.onDeleteConditionClick}
       deleteFlag={CV | wxLEFT | wxRIGHT}
@@ -288,7 +289,7 @@ export function PANEL_COMPONENT_CLASS_CONDITION_ROTATION_BASE(
   return (
     <ConditionBase
       cols={5}
-      title="Rotation:"
+      title={_('Rotation:')}
       titleMinWidth={p.titleMinWidth}
       onDeleteConditionClick={p.onDeleteConditionClick}
       cells={
@@ -298,7 +299,7 @@ export function PANEL_COMPONENT_CLASS_CONDITION_ROTATION_BASE(
               value={p.m_rotation.value}
               options={p.choices}
               onChange={p.m_rotation.onChange}
-              ariaLabel="Rotation"
+              ariaLabel={_('Rotation')}
             />
           </SizerItem>
           <SizerItem flag={CV | wxLEFT} border={5}>
@@ -318,7 +319,7 @@ export function PANEL_COMPONENT_CLASS_CONDITION_FOOTPRINT_BASE(
   return (
     <ConditionBase
       cols={6}
-      title="Footprint:"
+      title={_('Footprint:')}
       titleMinWidth={p.titleMinWidth}
       onDeleteConditionClick={p.onDeleteConditionClick}
       cells={
@@ -333,7 +334,7 @@ export function PANEL_COMPONENT_CLASS_CONDITION_FOOTPRINT_BASE(
           <SizerItem flag={CV | wxLEFT} border={5}>
             <StdBitmapButton
               bitmap="small_library"
-              title="Show library"
+              title={_('Show library')}
               onClick={p.onShowLibraryClick}
             />
           </SizerItem>
@@ -352,7 +353,7 @@ export function PANEL_COMPONENT_CLASS_CONDITION_FIELD_BASE(
     <ConditionBase
       cols={7}
       growableCols={[1, 4]}
-      title="Footprint field:"
+      title={_('Footprint field:')}
       titleMinWidth={p.titleMinWidth}
       onDeleteConditionClick={p.onDeleteConditionClick}
       cells={
@@ -367,7 +368,7 @@ export function PANEL_COMPONENT_CLASS_CONDITION_FIELD_BASE(
           </SizerItem>
           <Spacer width={10} height={0} proportion={1} flag={wxEXPAND} border={5} />
           <SizerItem flag={CV | wxLEFT} border={5}>
-            <StaticText label="Field value:" ellipsize />
+            <StaticText label={_('Field value:')} ellipsize />
           </SizerItem>
           <SizerItem flag={wxEXPAND | wxLEFT} border={5}>
             <TextCtrl
@@ -390,7 +391,7 @@ export function PANEL_COMPONENT_CLASS_CONDITION_CUSTOM_BASE(
   return (
     <ConditionBase
       cols={4}
-      title="Custom:"
+      title={_('Custom:')}
       titleMinWidth={p.titleMinWidth}
       onDeleteConditionClick={p.onDeleteConditionClick}
       cells={
@@ -416,7 +417,7 @@ export function PANEL_COMPONENT_CLASS_CONDITION_SHEET_BASE(
   return (
     <ConditionBase
       cols={4}
-      title="Sheet name:"
+      title={_('Sheet name:')}
       titleMinWidth={p.titleMinWidth}
       onDeleteConditionClick={p.onDeleteConditionClick}
       cells={

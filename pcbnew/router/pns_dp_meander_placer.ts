@@ -80,6 +80,7 @@ import type { PnsNode } from './pns_node.js';
 import type { Seg } from './pns_line.js';
 import type { ShapeArc } from './pns_arc.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const samePoint = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
 
@@ -154,7 +155,7 @@ export class PnsDpMeanderPlacer extends PnsMeanderPlacerBase {
   /** `Start( aP, aStartItem )` (`cpp:88-176`). */
   start(aP: Vec2, aStartItem: PnsItem | null): boolean {
     if (!aStartItem || !aStartItem.ofKind(PnsKind.SEGMENT_T | PnsKind.ARC_T)) {
-      this.mHost.setFailureReason('Please select a track whose length you want to tune.');
+      this.mHost.setFailureReason(_('Please select a track whose length you want to tune.'));
       return false;
     }
 

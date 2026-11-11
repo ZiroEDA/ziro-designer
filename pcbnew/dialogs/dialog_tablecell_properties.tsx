@@ -22,6 +22,7 @@ import type { PCB_TABLECELL } from '../pcb_tablecell.js';
 import { PCB_TEXT_SYNTAX_HELP } from '../pcb_text_help_md.js';
 import { DIALOG_TABLECELL_PROPERTIES_BASE } from './dialog_tablecell_properties_base.js';
 import type { HALIGN, VALIGN } from './dialog_text_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export enum TABLECELL_PROPS_RETVALUE {
   TABLECELL_PROPS_CANCEL,
@@ -210,7 +211,7 @@ export class DIALOG_TABLECELL_PROPERTIES {
       if (set(c.marginBottom)) cell.SetMarginBottom(this.ParseValue(c.marginBottom));
     }
 
-    if (!commit.Empty()) commit.Push('Edit Table Cell Properties', SKIP_CONNECTIVITY);
+    if (!commit.Empty()) commit.Push(_('Edit Table Cell Properties'), SKIP_CONNECTIVITY);
 
     this.m_returnValue = aEditTable
       ? TABLECELL_PROPS_RETVALUE.TABLECELL_PROPS_EDIT_TABLE
@@ -286,9 +287,9 @@ export function DialogTableCellProperties({
         onHAlign={(aAlign) => set({ hAlign: aAlign })}
         vAlign={c.vAlign}
         onVAlign={(aAlign) => set({ vAlign: aAlign })}
-        m_textWidth={field('width', 'Text width:', 'Text width')}
-        m_textHeight={field('height', 'Text height:', 'Text height')}
-        m_textThickness={field('thickness', 'Thickness:', 'Text thickness')}
+        m_textWidth={field('width', _('Text width:'), _('Text width'))}
+        m_textHeight={field('height', _('Text height:'), _('Text height'))}
+        m_textThickness={field('thickness', _('Thickness:'), _('Text thickness'))}
         m_autoTextThickness={{
           checked: c.autoThickness,
           onClick: () =>
@@ -314,7 +315,7 @@ export function DialogTableCellProperties({
       />
       {syntaxHelp && (
         <HtmlMessageBox
-          caption="Syntax Help"
+          caption={_('Syntax Help')}
           className="ze-syntaxhelp"
           html={PCB_TEXT_SYNTAX_HELP}
           onClose={() => setSyntaxHelp(false)}

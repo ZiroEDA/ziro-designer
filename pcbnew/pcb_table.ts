@@ -63,6 +63,8 @@ import { BOARD_ITEM } from './board_item.js';
 import { ADD_MODE, BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import { PCB_TABLECELL } from './pcb_tablecell.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `std::map<int, int>` compared as a whole: the same keys with the same values. */
 function mapEquals(a: ReadonlyMap<number, number>, b: ReadonlyMap<number, number>): boolean {
@@ -866,7 +868,7 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
 
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
     // Don't use GetShownText() here; we want to show the user the variable references
-    aList.push(new MSG_PANEL_ITEM('Table', `${this.m_colCount} Columns`));
+    aList.push(new MSG_PANEL_ITEM(_('Table'), `${this.m_colCount} Columns`));
   }
 
   Similarity(aOther: BOARD_ITEM): number {
@@ -1011,11 +1013,11 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
 
   if (lineStyleEnum.Choices().GetCount() === 0) {
     lineStyleEnum
-      .Map(LINE_STYLE.SOLID, 'Solid')
-      .Map(LINE_STYLE.DASH, 'Dashed')
-      .Map(LINE_STYLE.DOT, 'Dotted')
-      .Map(LINE_STYLE.DASHDOT, 'Dash-Dot')
-      .Map(LINE_STYLE.DASHDOTDOT, 'Dash-Dot-Dot');
+      .Map(LINE_STYLE.SOLID, _HKI('Solid'))
+      .Map(LINE_STYLE.DASH, _HKI('Dashed'))
+      .Map(LINE_STYLE.DOT, _HKI('Dotted'))
+      .Map(LINE_STYLE.DASHDOT, _HKI('Dash-Dot'))
+      .Map(LINE_STYLE.DASHDOTDOT, _HKI('Dash-Dot-Dot'));
   }
 
   const propMgr = PROPERTY_MANAGER.Instance();
@@ -1029,7 +1031,7 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
   propMgr.AddProperty(
     new PROPERTY<PCB_TABLE, number>(
       PCB_TABLE,
-      'Start X',
+      _HKI('Start X'),
       'SetPositionX',
       'GetPositionX',
       TYPE_INT,
@@ -1040,7 +1042,7 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
   propMgr.AddProperty(
     new PROPERTY<PCB_TABLE, number>(
       PCB_TABLE,
-      'Start Y',
+      _HKI('Start Y'),
       'SetPositionY',
       'GetPositionY',
       TYPE_INT,
@@ -1049,12 +1051,12 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
     ),
   );
 
-  const tableProps = 'Table Properties';
+  const tableProps = _('Table Properties');
 
   propMgr.AddProperty(
     new PROPERTY<PCB_TABLE, boolean>(
       PCB_TABLE,
-      'External Border',
+      _HKI('External Border'),
       'SetStrokeExternal',
       'StrokeExternal',
       TYPE_BOOL,
@@ -1065,7 +1067,7 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
   propMgr.AddProperty(
     new PROPERTY<PCB_TABLE, boolean>(
       PCB_TABLE,
-      'Header Border',
+      _HKI('Header Border'),
       'SetStrokeHeaderSeparator',
       'StrokeHeaderSeparator',
       TYPE_BOOL,
@@ -1076,7 +1078,7 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
   propMgr.AddProperty(
     new PROPERTY<PCB_TABLE, number>(
       PCB_TABLE,
-      'Border Width',
+      _HKI('Border Width'),
       'SetBorderWidth',
       'GetBorderWidth',
       TYPE_INT,
@@ -1088,7 +1090,7 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_TABLE, LINE_STYLE>(
       PCB_TABLE,
-      'Border Style',
+      _HKI('Border Style'),
       'SetBorderStyle',
       'GetBorderStyle',
       lineStyleEnum,
@@ -1099,7 +1101,7 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
   propMgr.AddProperty(
     new PROPERTY<PCB_TABLE, Color4d>(
       PCB_TABLE,
-      'Border Color',
+      _HKI('Border Color'),
       'SetBorderColor',
       'GetBorderColor',
       TYPE_COLOR4D,
@@ -1110,7 +1112,7 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
   propMgr.AddProperty(
     new PROPERTY<PCB_TABLE, boolean>(
       PCB_TABLE,
-      'Row Separators',
+      _HKI('Row Separators'),
       'SetStrokeRows',
       'StrokeRows',
       TYPE_BOOL,
@@ -1121,7 +1123,7 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
   propMgr.AddProperty(
     new PROPERTY<PCB_TABLE, boolean>(
       PCB_TABLE,
-      'Cell Separators',
+      _HKI('Cell Separators'),
       'SetStrokeColumns',
       'StrokeColumns',
       TYPE_BOOL,
@@ -1132,7 +1134,7 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
   propMgr.AddProperty(
     new PROPERTY<PCB_TABLE, number>(
       PCB_TABLE,
-      'Separators Width',
+      _HKI('Separators Width'),
       'SetSeparatorsWidth',
       'GetSeparatorsWidth',
       TYPE_INT,
@@ -1144,7 +1146,7 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_TABLE, LINE_STYLE>(
       PCB_TABLE,
-      'Separators Style',
+      _HKI('Separators Style'),
       'SetSeparatorsStyle',
       'GetSeparatorsStyle',
       lineStyleEnum,
@@ -1155,7 +1157,7 @@ export class PCB_TABLE extends BOARD_ITEM_CONTAINER {
   propMgr.AddProperty(
     new PROPERTY<PCB_TABLE, Color4d>(
       PCB_TABLE,
-      'Separators Color',
+      _HKI('Separators Color'),
       'SetSeparatorsColor',
       'GetSeparatorsColor',
       TYPE_COLOR4D,

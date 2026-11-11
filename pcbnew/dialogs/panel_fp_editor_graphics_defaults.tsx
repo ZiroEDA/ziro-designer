@@ -79,6 +79,7 @@ import {
   type FP_GRAPHICS_LINE_CLASS_LIKE as FpGraphicsLineClass,
   type FP_GRAPHICS_TEXT_CLASS_LIKE as FpGraphicsTextClass,
 } from '../footprint_editor_settings.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `COL_*` (`panel_fp_editor_graphics_defaults.cpp:38-45`). */
 const COL_LINE_THICKNESS = 0;
@@ -88,7 +89,13 @@ const COL_TEXT_THICKNESS = 3;
 const COL_TEXT_ITALIC = 4;
 
 /** The base's `SetColLabelValue` calls (`_base.cpp:53-57`). */
-const COL_LABELS = ['Line Thickness', 'Text Width', 'Text Height', 'Text Thickness', 'Italic'];
+const COL_LABELS = [
+  _HKI('Line Thickness'),
+  _HKI('Text Width'),
+  _HKI('Text Height'),
+  _HKI('Text Thickness'),
+  _HKI('Italic'),
+];
 
 /**
  * `wxSYS_COLOUR_FRAMEBK`, which `disableCell` paints: the same enumerator as

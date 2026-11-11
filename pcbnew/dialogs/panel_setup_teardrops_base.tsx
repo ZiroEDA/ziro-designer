@@ -31,6 +31,8 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, GridBagSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A UNIT_BINDER's control and units label. */
 export type UNIT_FIELD = {
@@ -63,10 +65,12 @@ export interface PANEL_SETUP_TEARDROPS_BASE_PROPS {
 }
 
 const CV = wxALIGN_CENTER_VERTICAL;
-const SPAN_TIP =
-  'Allows a teardrop to extend over the first 2 connected track segments if the first track segment is too short to accommodate the best length.';
-const ZONE_TIP =
-  'Do not create teardrops on tracks connected to pads that are also connected to a copper zone.';
+const SPAN_TIP = _HKI(
+  'Allows a teardrop to extend over the first 2 connected track segments if the first track segment is too short to accommodate the best length.',
+);
+const ZONE_TIP = _HKI(
+  'Do not create teardrops on tracks connected to pads that are also connected to a copper zone.',
+);
 
 /** What one group's text says, and the few Add() flags that differ. */
 interface GROUP_TEXT {
@@ -156,7 +160,7 @@ export function PANEL_SETUP_TEARDROPS_BASE(p: PANEL_SETUP_TEARDROPS_BASE_PROPS):
             {/* gbSizer = wxGridBagSizer( 2, 3 ), SetEmptyCellSize( wxSize( 10, 7 ) ) */}
             <GridBagSizer vgap={2} hgap={3} emptyCellSize={[10, 7]}>
               <SizerItem pos={[0, 0]} flag={CV} border={5}>
-                <StaticText label="Best length (L):" />
+                <StaticText label={_('Best length (L):')} />
               </SizerItem>
               <SizerItem pos={[0, 1]} flag={CV | wxEXPAND} border={5}>
                 {spin(g.m_spLenPercent, 20, 100, `${t.name} best length`)}
@@ -164,9 +168,9 @@ export function PANEL_SETUP_TEARDROPS_BASE(p: PANEL_SETUP_TEARDROPS_BASE_PROPS):
               <SizerItem pos={[0, 2]} flag={t.lenHintBox} border={5}>
                 {hintRow(t.hint)}
               </SizerItem>
-              {unitRow(1, 'Maximum length (L):', g.m_tcTdMaxLen, `${t.name} maximum length`)}
+              {unitRow(1, _('Maximum length (L):'), g.m_tcTdMaxLen, `${t.name} maximum length`)}
               <SizerItem pos={[3, 0]} flag={CV} border={5}>
-                <StaticText label="Best width (W):" />
+                <StaticText label={_('Best width (W):')} />
               </SizerItem>
               <SizerItem pos={[3, 1]} flag={CV | wxEXPAND} border={5}>
                 {spin(g.m_spWidthPercent, 60, 100, `${t.name} best width`)}
@@ -174,18 +178,18 @@ export function PANEL_SETUP_TEARDROPS_BASE(p: PANEL_SETUP_TEARDROPS_BASE_PROPS):
               <SizerItem pos={[3, 2]} flag={wxEXPAND | CV} border={5}>
                 {hintRow(t.hint)}
               </SizerItem>
-              {unitRow(4, 'Maximum width (W):', g.m_tcMaxWidth, `${t.name} maximum width`)}
+              {unitRow(4, _('Maximum width (W):'), g.m_tcMaxWidth, `${t.name} maximum width`)}
               {g.m_cbPreferZoneConnection && (
                 <SizerItem pos={[1, 3]} span={[1, 3]} flag={CV | wxLEFT} border={40}>
                   <CheckBox
-                    label="Prefer zone connection"
+                    label={_('Prefer zone connection')}
                     title={ZONE_TIP}
                     check={g.m_cbPreferZoneConnection}
                   />
                 </SizerItem>
               )}
               <SizerItem pos={[3, 3]} flag={CV | wxLEFT} border={40}>
-                <StaticText label="Track width limit:" title={t.hdLabelTip} />
+                <StaticText label={_('Track width limit:')} title={t.hdLabelTip} />
               </SizerItem>
               <SizerItem pos={[3, 4]} flag={CV} border={5}>
                 {spin(g.m_spTeardropHDPercent, 0, 100, `${t.name} track width limit`, t.hdTip)}
@@ -197,7 +201,7 @@ export function PANEL_SETUP_TEARDROPS_BASE(p: PANEL_SETUP_TEARDROPS_BASE_PROPS):
                 <CheckBox label={t.span} title={SPAN_TIP} check={g.m_cbTeardropsUseNextTrack} />
               </SizerItem>
               <SizerItem pos={[6, 0]} border={5}>
-                <CheckBox label="Curved edges" check={g.m_cbCurvedEdges} />
+                <CheckBox label={_('Curved edges')} check={g.m_cbCurvedEdges} />
               </SizerItem>
             </GridBagSizer>
           </SizerItem>
@@ -206,8 +210,9 @@ export function PANEL_SETUP_TEARDROPS_BASE(p: PANEL_SETUP_TEARDROPS_BASE_PROPS):
     </>
   );
 
-  const PAD_LIMIT_TIP =
-    'Max pad/via size to track width ratio to create a teardrop.\n100 always creates a teardrop.';
+  const PAD_LIMIT_TIP = _(
+    'Max pad/via size to track width ratio to create a teardrop.\n100 always creates a teardrop.',
+  );
 
   return (
     // mainSizer
@@ -216,35 +221,36 @@ export function PANEL_SETUP_TEARDROPS_BASE(p: PANEL_SETUP_TEARDROPS_BASE_PROPS):
         {/* m_gridSizer */}
         <BoxSizer orient={wxVERTICAL}>
           {group(p.round, {
-            title: 'Default Properties for Round Shapes',
+            title: _('Default Properties for Round Shapes'),
             name: 'Round shapes',
             hint: 'd',
-            span: 'Allow teardrop to span two track segments',
+            span: _('Allow teardrop to span two track segments'),
             hdLabelTip: PAD_LIMIT_TIP,
-            hdTip: 'Tracks which are similar in size to the pad or via do not need teardrops.',
+            hdTip: _('Tracks which are similar in size to the pad or via do not need teardrops.'),
             hdHintFlags: [CV, wxALIGN_BOTTOM, CV],
             lenHintBox: wxEXPAND | CV,
           })}
           <Spacer width={0} height={10} flag={wxEXPAND} border={5} />
           {group(p.rect, {
-            title: 'Default Properties for Rectangular Shapes',
+            title: _('Default Properties for Rectangular Shapes'),
             name: 'Rectangular shapes',
             hint: 'w',
-            span: 'Allow teardrop to span track segments',
+            span: _('Allow teardrop to span track segments'),
             hdLabelTip: PAD_LIMIT_TIP,
-            hdTip: 'Tracks which are similar in size to the pad do not need teardrops.',
+            hdTip: _('Tracks which are similar in size to the pad do not need teardrops.'),
             hdHintFlags: [0, wxALIGN_BOTTOM, CV],
             lenHintBox: CV,
           })}
           <Spacer width={0} height={10} flag={wxEXPAND} border={5} />
           {group(p.track, {
-            title: 'Properties for Track-to-Track Teardrops',
-            name: 'Track to track',
+            title: _('Properties for Track-to-Track Teardrops'),
+            name: _('Track to track'),
             hint: 'w',
-            span: 'Allow teardrop to span track segments',
-            hdLabelTip:
+            span: _('Allow teardrop to span track segments'),
+            hdLabelTip: _(
               'Max track width ratio to create a teardrop.\n100 always creates a teardrop.',
-            hdTip: 'Tracks which are similar in size do not need teardrops.',
+            ),
+            hdTip: _('Tracks which are similar in size do not need teardrops.'),
             hdHintFlags: [CV, CV, wxALIGN_BOTTOM | wxBOTTOM],
             lenHintBox: wxEXPAND | CV,
           })}

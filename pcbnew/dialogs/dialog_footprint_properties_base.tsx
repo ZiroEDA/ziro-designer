@@ -44,15 +44,21 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The base's fixed choice lists. */
-export const BOARD_SIDE_CHOICES = ['Front', 'Back'] as const;
-export const COMPONENT_TYPE_CHOICES = ['Through hole', 'SMD', 'Unspecified'] as const;
+export const BOARD_SIDE_CHOICES = [_HKI('Front'), _HKI('Back')] as const;
+export const COMPONENT_TYPE_CHOICES = [
+  _HKI('Through hole'),
+  _HKI('SMD'),
+  _HKI('Unspecified'),
+] as const;
 export const ZONE_CONNECTION_CHOICES = [
-  'Use zone setting',
-  'Solid',
-  'Thermal relief',
-  'None',
+  _HKI('Use zone setting'),
+  _HKI('Solid'),
+  _HKI('Thermal relief'),
+  _HKI('None'),
 ] as const;
 /** `m_orientationCtrl->Append`s, which the derived constructor rewrites as "%.1f". */
 export const ORIENTATION_CHOICES = ['0', '90', '-90', '180'] as const;
@@ -147,7 +153,7 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
     // m_PanelPropertiesBoxSizer
     <BoxSizer orient={wxVERTICAL}>
       <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-        <StaticBoxSizer label="Fields" orient={wxVERTICAL}>
+        <StaticBoxSizer label={_('Fields')} orient={wxVERTICAL}>
           {/* m_itemsGrid->SetMinSize( wxSize( 800, 140 ) ) */}
           <SizerItem
             proportion={1}
@@ -159,20 +165,24 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
               grid={p.m_itemsGrid}
               tricks={p.itemsGridTricks}
               flexCol={1}
-              ariaLabel="Fields"
+              ariaLabel={_('Fields')}
             />
           </SizerItem>
           <SizerItem flag={wxEXPAND} border={5}>
             {/* bButtonSize */}
             <BoxSizer orient={wxHORIZONTAL}>
               <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
-                <StdBitmapButton bitmap="small_plus" title="Add field" onClick={p.onAddField} />
+                <StdBitmapButton
+                  bitmap="small_plus"
+                  title={_('Add field')}
+                  onClick={p.onAddField}
+                />
               </SizerItem>
               <Spacer width={20} height={0} flag={wxEXPAND} border={5} />
               <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
                 <StdBitmapButton
                   bitmap="small_trash"
-                  title="Delete field"
+                  title={_('Delete field')}
                   onClick={p.onDeleteField}
                 />
               </SizerItem>
@@ -187,26 +197,26 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
             {/* bSizerLeft */}
             <BoxSizer orient={wxVERTICAL}>
               <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
-                <StaticBoxSizer label="Position" orient={wxVERTICAL}>
+                <StaticBoxSizer label={_('Position')} orient={wxVERTICAL}>
                   <SizerItem flag={wxEXPAND} border={5}>
                     {/* fgSizerPos = wxFlexGridSizer( 4, 3, 1, 0 ), AddGrowableCol( 1 ) */}
                     <FlexGridSizer cols={3} vgap={1} hgap={0} growableCols={[1]}>
                       <UnitRow label="X:" entry={p.m_posX} ariaLabel="X" />
                       <UnitRow label="Y:" entry={p.m_posY} ariaLabel="Y" />
                       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
-                        <StaticText label="Orientation:" />
+                        <StaticText label={_('Orientation:')} />
                       </SizerItem>
                       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM} border={2}>
                         <TextCombo
                           value={p.m_orientation.value}
                           options={p.orientationChoices}
                           onChange={p.m_orientation.onChange}
-                          ariaLabel="Orientation"
+                          ariaLabel={_('Orientation')}
                         />
                       </SizerItem>
                       <Spacer proportion={1} flag={wxEXPAND} border={5} />
                       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
-                        <StaticText label="Side:" />
+                        <StaticText label={_('Side:')} />
                       </SizerItem>
                       <SizerItem
                         flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxTOP | wxBOTTOM}
@@ -222,9 +232,11 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
                   </SizerItem>
                   <SizerItem flag={wxALL} border={5}>
                     <CheckBox
-                      label="Locked"
+                      label={_('Locked')}
                       check={p.m_cbLocked}
-                      title="Locked footprints cannot be freely moved or oriented on the canvas and can only be selected when the 'Locked items' checkbox is checked in the selection filter."
+                      title={_(
+                        "Locked footprints cannot be freely moved or oriented on the canvas and can only be selected when the 'Locked items' checkbox is checked in the selection filter.",
+                      )}
                     />
                   </SizerItem>
                 </StaticBoxSizer>
@@ -236,7 +248,7 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
             {/* bSizerMiddle */}
             <BoxSizer orient={wxVERTICAL}>
               <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                <StaticBoxSizer label="Fabrication Attributes" orient={wxVERTICAL}>
+                <StaticBoxSizer label={_('Fabrication Attributes')} orient={wxVERTICAL}>
                   <SizerItem flag={wxEXPAND} border={5}>
                     {/* bPartTypeSizer */}
                     <BoxSizer orient={wxHORIZONTAL}>
@@ -244,7 +256,7 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
                         flag={wxBOTTOM | wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL}
                         border={5}
                       >
-                        <StaticText label="Footprint type:" />
+                        <StaticText label={_('Footprint type:')} />
                       </SizerItem>
                       <SizerItem
                         proportion={1}
@@ -261,16 +273,22 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
                   </SizerItem>
                   <Spacer proportion={1} flag={wxEXPAND} border={5} />
                   <SizerItem flag={wxALL} border={5}>
-                    <CheckBox label="Not in schematic" check={p.m_boardOnly} />
+                    <CheckBox label={_('Not in schematic')} check={p.m_boardOnly} />
                   </SizerItem>
                   <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                    <CheckBox label="Exclude from position files" check={p.m_excludeFromPosFiles} />
+                    <CheckBox
+                      label={_('Exclude from position files')}
+                      check={p.m_excludeFromPosFiles}
+                    />
                   </SizerItem>
                   <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                    <CheckBox label="Exclude from bill of materials" check={p.m_excludeFromBOM} />
+                    <CheckBox
+                      label={_('Exclude from bill of materials')}
+                      check={p.m_excludeFromBOM}
+                    />
                   </SizerItem>
                   <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
-                    <CheckBox label="Do not populate" check={p.m_cbDNP} />
+                    <CheckBox label={_('Do not populate')} check={p.m_cbDNP} />
                   </SizerItem>
                 </StaticBoxSizer>
               </SizerItem>
@@ -283,17 +301,23 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
                 {/* bButtonsSizer */}
                 <BoxSizer orient={wxVERTICAL}>
                   <SizerItem flag={wxEXPAND | wxALL} border={5}>
-                    <Button label="Update Footprint from Library..." onClick={p.updateFootprint} />
+                    <Button
+                      label={_('Update Footprint from Library...')}
+                      onClick={p.updateFootprint}
+                    />
                   </SizerItem>
                   <SizerItem flag={wxEXPAND | wxALL} border={5}>
-                    <Button label="Change Footprint..." onClick={p.changeFootprint} />
+                    <Button label={_('Change Footprint...')} onClick={p.changeFootprint} />
                   </SizerItem>
                   <SizerItem flag={wxEXPAND | wxALL} border={5}>
-                    <Button label="Edit Footprint..." onClick={p.editFootprint} />
+                    <Button label={_('Edit Footprint...')} onClick={p.editFootprint} />
                   </SizerItem>
                   <Spacer width={0} height={15} flag={wxEXPAND} border={5} />
                   <SizerItem flag={wxEXPAND | wxALL} border={5}>
-                    <Button label="Edit Library Footprint..." onClick={p.editLibraryFootprint} />
+                    <Button
+                      label={_('Edit Library Footprint...')}
+                      onClick={p.editLibraryFootprint}
+                    />
                   </SizerItem>
                 </BoxSizer>
               </SizerItem>
@@ -309,19 +333,19 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
     // bSizerPanelClearances
     <BoxSizer orient={wxVERTICAL}>
       <SizerItem flag={wxEXPAND | wxALL} border={10}>
-        <StaticBoxSizer label="Clearances" orient={wxVERTICAL}>
+        <StaticBoxSizer label={_('Clearances')} orient={wxVERTICAL}>
           <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-            <StaticText label="Leave values blank to use Board Setup values." />
+            <StaticText label={_('Leave values blank to use Board Setup values.')} />
           </SizerItem>
           <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxBOTTOM} border={10}>
             {/* gbSizer2 = wxGridBagSizer( 4, 0 ) */}
             <GridBagSizer vgap={4} hgap={0}>
               <SizerItem pos={[0, 0]} flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                 <StaticText
-                  label="Pad clearance:"
-                  title={
-                    'This is the local net clearance for all pad of this footprint\nIf 0, the Netclass values are used\nThis value can be superseded by a pad local value.'
-                  }
+                  label={_('Pad clearance:')}
+                  title={_(
+                    'This is the local net clearance for all pad of this footprint\nIf 0, the Netclass values are used\nThis value can be superseded by a pad local value.',
+                  )}
                 />
               </SizerItem>
               <SizerItem pos={[0, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -336,10 +360,10 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
               </SizerItem>
               <SizerItem pos={[2, 0]} flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                 <StaticText
-                  label="Solder mask expansion:"
-                  title={
-                    'This is the local clearance between pads and the solder mask for this footprint.\nThis value can be superseded by a pad local value.\nIf 0, the global value is used.'
-                  }
+                  label={_('Solder mask expansion:')}
+                  title={_(
+                    'This is the local clearance between pads and the solder mask for this footprint.\nThis value can be superseded by a pad local value.\nIf 0, the global value is used.',
+                  )}
                 />
               </SizerItem>
               <SizerItem pos={[2, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -354,17 +378,17 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
               </SizerItem>
               <SizerItem pos={[3, 0]} span={[1, 3]} flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                 <CheckBox
-                  label="Allow bridged solder mask apertures between pads"
+                  label={_('Allow bridged solder mask apertures between pads')}
                   check={p.m_allowSolderMaskBridges}
                 />
               </SizerItem>
               <SizerItem pos={[5, 0]} flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                 {/* The derived constructor relabels it and rewrites the tooltip. */}
                 <StaticText
-                  label="Solder paste clearance:"
-                  title={
-                    'Local solder paste clearance for this footprint.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nIf blank, the global value is used.'
-                  }
+                  label={_('Solder paste clearance:')}
+                  title={_(
+                    'Local solder paste clearance for this footprint.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nIf blank, the global value is used.',
+                  )}
                 />
               </SizerItem>
               <SizerItem pos={[5, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -372,9 +396,9 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
                   value={p.m_solderPaste.value}
                   onChange={p.m_solderPaste.onChange}
                   ariaLabel="Solder paste clearance"
-                  title={
-                    'Local solder paste clearance for this footprint.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nIf blank, the global value is used.'
-                  }
+                  title={_(
+                    'Local solder paste clearance for this footprint.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nIf blank, the global value is used.',
+                  )}
                 />
               </SizerItem>
               <SizerItem pos={[5, 2]} flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
@@ -385,7 +409,9 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
           {/* fgSizerClearances = wxFlexGridSizer( 5, 3, 5, 0 ): empty */}
           <SizerItem flag={wxEXPAND | wxLEFT | wxRIGHT | wxTOP} border={5}>
             <StaticText
-              label="Note: solder mask and paste values are used only for pads on copper layers."
+              label={_(
+                'Note: solder mask and paste values are used only for pads on copper layers.',
+              )}
               font="info"
               italic
             />
@@ -396,12 +422,12 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
         </StaticBoxSizer>
       </SizerItem>
       <SizerItem flag={wxALL | wxEXPAND} border={10}>
-        <StaticBoxSizer label="Pad Connections" orient={wxHORIZONTAL}>
+        <StaticBoxSizer label={_('Pad Connections')} orient={wxHORIZONTAL}>
           <SizerItem proportion={1} flag={wxEXPAND} border={5}>
             {/* fgSizer3 = wxFlexGridSizer( 0, 2, 0, 0 ) */}
             <FlexGridSizer cols={2} vgap={0} hgap={0}>
               <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL} border={5}>
-                <StaticText label="Pad connection to zones:" />
+                <StaticText label={_('Pad connection to zones:')} />
               </SizerItem>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                 <Choice
@@ -411,7 +437,7 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
                 />
               </SizerItem>
               <SizerItem flag={wxALL} border={5}>
-                <StaticText label="Jumper groups:" />
+                <StaticText label={_('Jumper groups:')} />
               </SizerItem>
               <SizerItem flag={wxALL} border={5}>
                 <StaticText label={p.jumperGroups} italic={p.jumperGroupsItalic} />
@@ -424,19 +450,19 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
   );
 
   return (
-    <DialogShim title="Footprint Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Footprint Properties')} onClose={p.onCancel}>
       {/* m_GeneralBoxSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={10}>
           <Notebook
-            ariaLabel="Footprint Properties"
+            ariaLabel={_('Footprint Properties')}
             selection={p.page}
             onPageChanging={p.onPageChanging}
             onPageChanged={p.onPageChanged}
             pages={[
-              { text: 'General', content: general },
+              { text: _('General'), content: general },
               // _("Clearance Overrides && Pad Connections"): && is a literal &.
-              { text: 'Clearance Overrides & Pad Connections', content: clearances },
+              { text: _('Clearance Overrides & Pad Connections'), content: clearances },
               ...p.extraPages,
             ]}
           />
@@ -445,16 +471,16 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
           {/* bottomButtonsSizer */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM} border={2}>
-              <StaticText label="Library link:" font="smallInfo" />
+              <StaticText label={_('Library link:')} font="smallInfo" />
             </SizerItem>
             <SizerItem proportion={1} flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
               {/* wxTE_READONLY | wxBORDER_NONE, the small info font, the dialog's face. */}
               <StaticText
                 label={p.libraryId}
                 font="smallInfo"
-                title={
-                  'The library ID and footprint ID currently assigned.  Use "Change Footprint..." to assign a different footprint.'
-                }
+                title={_(
+                  'The library ID and footprint ID currently assigned.  Use "Change Footprint..." to assign a different footprint.',
+                )}
               />
             </SizerItem>
             <Spacer width={10} height={0} border={5} />

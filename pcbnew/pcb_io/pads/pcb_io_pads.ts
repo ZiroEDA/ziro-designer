@@ -106,6 +106,7 @@ import {
   VIA_TYPE,
   sortedMap,
 } from './pads_parser.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const INT_MIN = -2147483648;
 const INT_MAX = 2147483647;
@@ -184,7 +185,7 @@ export class PCB_IO_PADS extends PCB_IO {
   ): BOARD {
     const board = aAppendToMe ?? new BOARD();
 
-    this.Report('Starting PADS PCB import', RPT_SEVERITY_INFO);
+    this.Report(_('Starting PADS PCB import'), RPT_SEVERITY_INFO);
 
     this.m_progressReporter?.SetNumPhases(4);
 
@@ -1711,7 +1712,7 @@ export class PCB_IO_PADS extends PCB_IO {
         }
 
         if (layerSet.none()) {
-          this.Report('Skipping keepout with no valid layers', RPT_SEVERITY_WARNING);
+          this.Report(_('Skipping keepout with no valid layers'), RPT_SEVERITY_WARNING);
           continue;
         }
 

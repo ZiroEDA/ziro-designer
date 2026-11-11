@@ -90,6 +90,8 @@ import {
   ZONE_CONNECTION,
   ZONE_THICKNESS_MIN_VALUE_MM,
 } from './zones.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export {
   ISLAND_REMOVAL_MODE,
@@ -516,33 +518,33 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     const frame = aFrame as MSG_PANEL_FRAME;
     let msg = this.GetFriendlyName();
 
-    aList.push(new MSG_PANEL_ITEM('Type', msg));
+    aList.push(new MSG_PANEL_ITEM(_('Type'), msg));
 
     if (this.GetIsRuleArea()) {
       msg = '';
 
-      if (this.GetDoNotAllowVias()) msg = AccumulateDescription(msg, 'No vias');
+      if (this.GetDoNotAllowVias()) msg = AccumulateDescription(msg, _('No vias'));
 
-      if (this.GetDoNotAllowTracks()) msg = AccumulateDescription(msg, 'No tracks');
+      if (this.GetDoNotAllowTracks()) msg = AccumulateDescription(msg, _('No tracks'));
 
-      if (this.GetDoNotAllowPads()) msg = AccumulateDescription(msg, 'No pads');
+      if (this.GetDoNotAllowPads()) msg = AccumulateDescription(msg, _('No pads'));
 
-      if (this.GetDoNotAllowZoneFills()) msg = AccumulateDescription(msg, 'No zone fills');
+      if (this.GetDoNotAllowZoneFills()) msg = AccumulateDescription(msg, _('No zone fills'));
 
-      if (this.GetDoNotAllowFootprints()) msg = AccumulateDescription(msg, 'No footprints');
+      if (this.GetDoNotAllowFootprints()) msg = AccumulateDescription(msg, _('No footprints'));
 
-      if (msg !== '') aList.push(new MSG_PANEL_ITEM('Restrictions', msg));
+      if (msg !== '') aList.push(new MSG_PANEL_ITEM(_('Restrictions'), msg));
 
       if (this.GetPlacementAreaEnabled())
         aList.push(
-          new MSG_PANEL_ITEM('Placement source', unescapeString(this.GetPlacementAreaSource())),
+          new MSG_PANEL_ITEM(_('Placement source'), unescapeString(this.GetPlacementAreaSource())),
         );
     } else if (this.IsOnCopperLayer()) {
       if (aFrame.GetName() === PCB_EDIT_FRAME_NAME) {
         aList.push(new MSG_PANEL_ITEM('Net', unescapeString(this.GetNetname())));
         aList.push(
           new MSG_PANEL_ITEM(
-            'Resolved Netclass',
+            _('Resolved Netclass'),
             unescapeString(this.GetEffectiveNetClass().GetHumanReadableName()),
           ),
         );
@@ -553,7 +555,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     }
 
     if (aFrame.GetName() === PCB_EDIT_FRAME_NAME) {
-      if (this.IsLocked()) aList.push(new MSG_PANEL_ITEM('Status', 'Locked'));
+      if (this.IsLocked()) aList.push(new MSG_PANEL_ITEM(_('Status'), _('Locked')));
     }
 
     const layers = this.m_layerSet.Seq();
@@ -581,17 +583,17 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
           msg = 'Solid';
           break;
         case ZONE_FILL_MODE.HATCH_PATTERN:
-          msg = 'Hatched';
+          msg = _('Hatched');
           break;
         default:
-          msg = 'Unknown';
+          msg = _('Unknown');
           break;
       }
 
       aList.push(new MSG_PANEL_ITEM('Fill Mode', msg));
 
       aList.push(
-        new MSG_PANEL_ITEM('Filled Area', frame.MessageTextFromValue(this.m_area, true, 'area')),
+        new MSG_PANEL_ITEM(_('Filled Area'), frame.MessageTextFromValue(this.m_area, true, 'area')),
       );
 
       const source: OutStr = { value: '' };
@@ -613,7 +615,10 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
       const outline_area = this.CalculateOutlineArea();
 
       aList.push(
-        new MSG_PANEL_ITEM('Outline Area', frame.MessageTextFromValue(outline_area, true, 'area')),
+        new MSG_PANEL_ITEM(
+          _('Outline Area'),
+          frame.MessageTextFromValue(outline_area, true, 'area'),
+        ),
       );
 
       const area_outline = this.Outline();
@@ -622,7 +627,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
       for (const [, poly] of this.m_FilledPolysList) count += poly.TotalVertices();
     }
 
-    aList.push(new MSG_PANEL_ITEM('Corner Count', `${count}`));
+    aList.push(new MSG_PANEL_ITEM(_('Corner Count'), `${count}`));
   }
 
   override GetFriendlyName(): string {
@@ -758,7 +763,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
 
     if (this.m_isRuleArea) return undefined;
 
-    if (aSource) aSource.value = 'zone';
+    if (aSource) aSource.value = _('zone');
 
     return this.GetLocalClearance();
   }
@@ -874,7 +879,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     if (aPad === undefined) return this.m_thermalReliefGap;
 
     if (aPad.GetLocalThermalGapOverride() === 0) {
-      if (aSource) aSource.value = 'zone';
+      if (aSource) aSource.value = _('zone');
 
       return this.m_thermalReliefGap;
     }
@@ -2396,11 +2401,11 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
   if (zcMap.Choices().GetCount() === 0) {
     zcMap.Undefined(ZONE_CONNECTION.INHERITED);
     zcMap
-      .Map(ZONE_CONNECTION.INHERITED, 'Inherited')
-      .Map(ZONE_CONNECTION.NONE, 'None')
-      .Map(ZONE_CONNECTION.THERMAL, 'Thermal reliefs')
+      .Map(ZONE_CONNECTION.INHERITED, _HKI('Inherited'))
+      .Map(ZONE_CONNECTION.NONE, _HKI('None'))
+      .Map(ZONE_CONNECTION.THERMAL, _HKI('Thermal reliefs'))
       .Map(ZONE_CONNECTION.FULL, 'Solid')
-      .Map(ZONE_CONNECTION.THT_THERMAL, 'Thermal reliefs for PTH');
+      .Map(ZONE_CONNECTION.THT_THERMAL, _HKI('Thermal reliefs for PTH'));
   }
 
   const zfmMap = ENUM_MAP.Instance<ZONE_FILL_MODE>('ZONE_FILL_MODE');
@@ -2408,8 +2413,8 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
   if (zfmMap.Choices().GetCount() === 0) {
     zfmMap.Undefined(ZONE_FILL_MODE.POLYGONS);
     zfmMap
-      .Map(ZONE_FILL_MODE.POLYGONS, 'Solid fill')
-      .Map(ZONE_FILL_MODE.HATCH_PATTERN, 'Hatch pattern');
+      .Map(ZONE_FILL_MODE.POLYGONS, _HKI('Solid fill'))
+      .Map(ZONE_FILL_MODE.HATCH_PATTERN, _HKI('Hatch pattern'));
   }
 
   const irmMap = ENUM_MAP.Instance<ISLAND_REMOVAL_MODE>('ISLAND_REMOVAL_MODE');
@@ -2417,9 +2422,9 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
   if (irmMap.Choices().GetCount() === 0) {
     irmMap.Undefined(ISLAND_REMOVAL_MODE.ALWAYS);
     irmMap
-      .Map(ISLAND_REMOVAL_MODE.ALWAYS, 'Always')
-      .Map(ISLAND_REMOVAL_MODE.NEVER, 'Never')
-      .Map(ISLAND_REMOVAL_MODE.AREA, 'Below area limit');
+      .Map(ISLAND_REMOVAL_MODE.ALWAYS, _HKI('Always'))
+      .Map(ISLAND_REMOVAL_MODE.NEVER, _HKI('Never'))
+      .Map(ISLAND_REMOVAL_MODE.AREA, _HKI('Below area limit'));
   }
 
   const rapstMap = ENUM_MAP.Instance<PLACEMENT_SOURCE_T>('PLACEMENT_SOURCE_T');
@@ -2427,9 +2432,9 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
   if (rapstMap.Choices().GetCount() === 0) {
     rapstMap.Undefined(PLACEMENT_SOURCE_T.SHEETNAME);
     rapstMap
-      .Map(PLACEMENT_SOURCE_T.SHEETNAME, 'Sheet Name')
-      .Map(PLACEMENT_SOURCE_T.COMPONENT_CLASS, 'Component Class')
-      .Map(PLACEMENT_SOURCE_T.GROUP_PLACEMENT, 'Group');
+      .Map(PLACEMENT_SOURCE_T.SHEETNAME, _HKI('Sheet Name'))
+      .Map(PLACEMENT_SOURCE_T.COMPONENT_CLASS, _HKI('Component Class'))
+      .Map(PLACEMENT_SOURCE_T.GROUP_PLACEMENT, _HKI('Group'));
   }
 
   const propMgr = PROPERTY_MANAGER.Instance();
@@ -2439,7 +2444,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
   // Mask layer and position properties; they aren't useful in current form
   const posX = new PROPERTY<ZONE, number>(
     ZONE,
-    'Position X',
+    _HKI('Position X'),
     NO_SETTER,
     'GetX',
     TYPE_INT,
@@ -2450,7 +2455,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
 
   const posY = new PROPERTY<ZONE, number>(
     ZONE,
-    'Position Y',
+    _HKI('Position Y'),
     NO_SETTER,
     'GetY',
     TYPE_INT,
@@ -2459,8 +2464,8 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
   );
   posY.SetIsHiddenFromPropertiesManager();
 
-  propMgr.ReplaceProperty(BOARD_ITEM, 'Position X', posX);
-  propMgr.ReplaceProperty(BOARD_ITEM, 'Position Y', posY);
+  propMgr.ReplaceProperty(BOARD_ITEM, _HKI('Position X'), posX);
+  propMgr.ReplaceProperty(BOARD_ITEM, _HKI('Position Y'), posY);
 
   const isCopperZone = (aItem: INSPECTABLE_ITEM): boolean => {
     if (aItem instanceof ZONE)
@@ -2498,7 +2503,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .SetIsHiddenFromPropertiesManager();
 
   propMgr.OverrideAvailability(ZONE, BOARD_CONNECTED_ITEM, 'Net', isCopperZone);
-  propMgr.OverrideAvailability(ZONE, BOARD_CONNECTED_ITEM, 'Net Class', isCopperZone);
+  propMgr.OverrideAvailability(ZONE, BOARD_CONNECTED_ITEM, _HKI('Net Class'), isCopperZone);
 
   propMgr
     .AddProperty(
@@ -2516,13 +2521,13 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     new PROPERTY<ZONE, string>(ZONE, 'Name', 'SetZoneName', 'GetZoneName', TYPE_STRING),
   );
 
-  const groupKeepout = 'Keepout';
+  const groupKeepout = _HKI('Keepout');
 
   propMgr
     .AddProperty(
       new PROPERTY<ZONE, boolean>(
         ZONE,
-        'Keep Out Tracks',
+        _HKI('Keep Out Tracks'),
         'SetDoNotAllowTracks',
         'GetDoNotAllowTracks',
         TYPE_BOOL,
@@ -2535,7 +2540,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<ZONE, boolean>(
         ZONE,
-        'Keep Out Vias',
+        _HKI('Keep Out Vias'),
         'SetDoNotAllowVias',
         'GetDoNotAllowVias',
         TYPE_BOOL,
@@ -2548,7 +2553,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<ZONE, boolean>(
         ZONE,
-        'Keep Out Pads',
+        _HKI('Keep Out Pads'),
         'SetDoNotAllowPads',
         'GetDoNotAllowPads',
         TYPE_BOOL,
@@ -2561,7 +2566,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<ZONE, boolean>(
         ZONE,
-        'Keep Out Zone Fills',
+        _HKI('Keep Out Zone Fills'),
         'SetDoNotAllowZoneFills',
         'GetDoNotAllowZoneFills',
         TYPE_BOOL,
@@ -2574,7 +2579,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<ZONE, boolean>(
         ZONE,
-        'Keep Out Footprints',
+        _HKI('Keep Out Footprints'),
         'SetDoNotAllowFootprints',
         'GetDoNotAllowFootprints',
         TYPE_BOOL,
@@ -2583,13 +2588,13 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     )
     .SetAvailableFunc(isRuleArea);
 
-  const groupPlacement = 'Placement';
+  const groupPlacement = _HKI('Placement');
 
   propMgr
     .AddProperty(
       new PROPERTY<ZONE, boolean>(
         ZONE,
-        'Enable',
+        _HKI('Enable'),
         'SetPlacementAreaEnabled',
         'GetPlacementAreaEnabled',
         TYPE_BOOL,
@@ -2602,7 +2607,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY_ENUM<ZONE, PLACEMENT_SOURCE_T>(
         ZONE,
-        'Source Type',
+        _HKI('Source Type'),
         'SetPlacementAreaSourceType',
         'GetPlacementAreaSourceType',
         rapstMap,
@@ -2615,7 +2620,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<ZONE, string>(
         ZONE,
-        'Source Name',
+        _HKI('Source Name'),
         'SetPlacementAreaSource',
         'GetPlacementAreaSource',
         TYPE_STRING,
@@ -2624,7 +2629,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     )
     .SetAvailableFunc(isRuleArea);
 
-  const groupFill = 'Fill Style';
+  const groupFill = _HKI('Fill Style');
 
   propMgr
     .AddProperty(
@@ -2643,7 +2648,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<ZONE, EDA_ANGLE>(
         ZONE,
-        'Hatch Orientation',
+        _HKI('Hatch Orientation'),
         'SetHatchOrientation',
         'GetHatchOrientation',
         TYPE_EDA_ANGLE,
@@ -2663,7 +2668,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     if (!(aZone instanceof ZONE)) return null;
 
     if (val < aZone.GetMinThickness())
-      return new VALIDATION_ERROR_MSG('Cannot be less than zone minimum width');
+      return new VALIDATION_ERROR_MSG(_('Cannot be less than zone minimum width'));
 
     return null;
   };
@@ -2672,7 +2677,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<ZONE, number>(
         ZONE,
-        'Hatch Width',
+        _HKI('Hatch Width'),
         'SetHatchThickness',
         'GetHatchThickness',
         TYPE_INT,
@@ -2688,7 +2693,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<ZONE, number>(
         ZONE,
-        'Hatch Gap',
+        _HKI('Hatch Gap'),
         'SetHatchGap',
         'GetHatchGap',
         TYPE_INT,
@@ -2704,7 +2709,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<ZONE, number>(
         ZONE,
-        'Hatch Minimum Hole Ratio',
+        _HKI('Hatch Minimum Hole Ratio'),
         'SetHatchHoleMinArea',
         'GetHatchHoleMinArea',
         TYPE_DOUBLE,
@@ -2720,7 +2725,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<ZONE, number>(
         ZONE,
-        'Smoothing Effort',
+        _HKI('Smoothing Effort'),
         'SetHatchSmoothingLevel',
         'GetHatchSmoothingLevel',
         TYPE_INT,
@@ -2734,7 +2739,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<ZONE, number>(
         ZONE,
-        'Smoothing Amount',
+        _HKI('Smoothing Amount'),
         'SetHatchSmoothingValue',
         'GetHatchSmoothingValue',
         TYPE_DOUBLE,
@@ -2748,7 +2753,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY_ENUM<ZONE, ISLAND_REMOVAL_MODE>(
         ZONE,
-        'Remove Islands',
+        _HKI('Remove Islands'),
         'SetIslandRemovalMode',
         'GetIslandRemovalMode',
         irmMap,
@@ -2761,7 +2766,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .AddProperty(
       new PROPERTY<ZONE, number>(
         ZONE,
-        'Minimum Island Area',
+        _HKI('Minimum Island Area'),
         'SetMinIslandArea',
         'GetMinIslandArea',
         TYPE_INT, // long long int
@@ -2772,11 +2777,11 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     .SetAvailableFunc(isCopperZone)
     .SetWriteableFunc(isAreaBasedIslandRemoval);
 
-  const groupElectrical = 'Electrical';
+  const groupElectrical = _HKI('Electrical');
 
   const clearance = new PROPERTY<ZONE, number | undefined>(
     ZONE,
-    'Clearance',
+    _HKI('Clearance'),
     'SetLocalClearance',
     'GetLocalClearance',
     TYPE_OPT_INT,
@@ -2788,7 +2793,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
 
   const minWidth = new PROPERTY<ZONE, number>(
     ZONE,
-    'Minimum Width',
+    _HKI('Minimum Width'),
     'SetMinThickness',
     'GetMinThickness',
     TYPE_INT,
@@ -2800,7 +2805,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
 
   const padConnections = new PROPERTY_ENUM<ZONE, ZONE_CONNECTION>(
     ZONE,
-    'Pad Connections',
+    _HKI('Pad Connections'),
     'SetPadConnection',
     'GetPadConnection',
     zcMap,
@@ -2809,7 +2814,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
 
   const thermalGap = new PROPERTY<ZONE, number>(
     ZONE,
-    'Thermal Relief Gap',
+    _HKI('Thermal Relief Gap'),
     'SetThermalReliefGap',
     'GetThermalReliefGap',
     TYPE_INT,
@@ -2820,7 +2825,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
 
   const thermalSpokeWidth = new PROPERTY<ZONE, number>(
     ZONE,
-    'Thermal Relief Spoke Width',
+    _HKI('Thermal Relief Spoke Width'),
     'SetThermalReliefSpokeWidth',
     'GetThermalReliefSpokeWidth',
     TYPE_INT,

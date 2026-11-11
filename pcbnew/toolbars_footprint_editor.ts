@@ -13,6 +13,7 @@
 
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import type { ToolbarDefaults } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -24,7 +25,7 @@ export const FP_TOP_TOOLBAR: ToolEntry[] = [
     icon: 'createFootprint',
     title: 'Create new footprint using the footprint wizard',
   },
-  { id: 'save', icon: 'save', title: 'Save changes' },
+  { id: 'save', icon: 'save', title: _HKI('Save changes') },
   sep,
   { id: 'print', icon: 'print', title: 'Print footprint' },
   sep,
@@ -54,13 +55,21 @@ export const FP_TOP_TOOLBAR: ToolEntry[] = [
   { id: 'showDatasheet', icon: 'showDatasheet', title: 'Show datasheet' },
   { id: 'checkFootprint', icon: 'checkFootprint', title: 'Run footprint checker' },
   sep,
-  { id: 'loadFpFromBoard', icon: 'loadFpFromBoard', title: 'Load footprint from current board' },
-  { id: 'saveFpToBoard', icon: 'saveFpToBoard', title: 'Insert footprint into current board' },
+  {
+    id: 'loadFpFromBoard',
+    icon: 'loadFpFromBoard',
+    title: _HKI('Load footprint from current board'),
+  },
+  {
+    id: 'saveFpToBoard',
+    icon: 'saveFpToBoard',
+    title: _HKI('Insert footprint into current board'),
+  },
 ];
 
 /** LEFT (view options) toolbar. */
 export const FP_LEFT_TOOLBAR: ToolEntry[] = [
-  { id: 'toggleGrid', icon: 'toggleGrid', title: 'Show grid', toggle: true },
+  { id: 'toggleGrid', icon: 'toggleGrid', title: _HKI('Show grid'), toggle: true },
   {
     id: 'toggleGridOverrides',
     icon: 'toggleGridOverrides',
@@ -82,7 +91,7 @@ export const FP_LEFT_TOOLBAR: ToolEntry[] = [
   // button can never paint checked — it cycles and lights only under the
   // pointer. That is what `cycleOnClick` carries.
   {
-    group: 'Units',
+    group: _HKI('Units'),
     cycleOnClick: true,
     actions: [
       { id: 'unitsMm', icon: 'unitsMm', title: 'Units in millimetres' },
@@ -91,17 +100,17 @@ export const FP_LEFT_TOOLBAR: ToolEntry[] = [
     ],
   },
   {
-    group: 'Crosshair modes',
+    group: _HKI('Crosshair modes'),
     cycleOnClick: true,
     actions: [
-      { id: 'crosshairSmall', icon: 'crosshairSmall', title: 'Small crosshairs' },
+      { id: 'crosshairSmall', icon: 'crosshairSmall', title: _HKI('Small crosshairs') },
       { id: 'crosshairFull', icon: 'crosshairFull', title: 'Full-window crosshairs' },
       { id: 'crosshair45', icon: 'crosshair45', title: '45° crosshairs' },
     ],
   },
   sep,
   {
-    group: 'Line modes',
+    group: _HKI('Line modes'),
     cycleOnClick: true,
     actions: [
       { id: 'lineModeFree', icon: 'lineModeFree', title: 'Line mode: free angle' },
@@ -114,7 +123,7 @@ export const FP_LEFT_TOOLBAR: ToolEntry[] = [
   {
     id: 'graphicsOutlines',
     icon: 'graphicsOutlines',
-    title: 'Show graphic items in outline mode',
+    title: _HKI('Show graphic items in outline mode'),
     toggle: true,
   },
   {
@@ -142,7 +151,7 @@ export const FP_RIGHT_TOOLBAR: ToolEntry[] = [
   // are activations and declare TOOLBAR_STATE::TOGGLE, so the button IS a check
   // item and `activeTool` is what lights it.
   {
-    group: 'Selection modes',
+    group: _HKI('Selection modes'),
     actions: [
       { id: 'selectSetRect', icon: 'selectSetRect', title: 'Select items' },
       { id: 'selectSetLasso', icon: 'selectSetLasso', title: 'Select with lasso' },
@@ -166,7 +175,7 @@ export const FP_RIGHT_TOOLBAR: ToolEntry[] = [
   // (`toolbars_footprint_editor.cpp:124-129`) — five tools behind one button,
   // in upstream's order: orthogonal, aligned, center, radial, leader.
   {
-    group: 'Dimension objects',
+    group: _HKI('Dimension objects'),
     actions: [
       {
         id: 'drawOrthogonalDimension',
@@ -184,7 +193,7 @@ export const FP_RIGHT_TOOLBAR: ToolEntry[] = [
   // `PCB_ACTIONS::placePoint`'s Tooltip is "Add reference/snap points"
   // (`pcb_actions.cpp:191-198`) — one action, one tooltip, whichever frame's
   // toolbar it lands on. "Place points" was ours.
-  { id: 'placePoint', icon: 'placePoint', title: 'Add reference/snap points' },
+  { id: 'placePoint', icon: 'placePoint', title: _HKI('Add reference/snap points') },
   { id: 'setAnchor', icon: 'setAnchor', title: 'Set the footprint anchor' },
   // `ACTIONS::gridSetOrigin` (`toolbars_footprint_editor.cpp:136`) — the
   // click-to-place TOOL. This carried the id `gridOrigin`, which is a
@@ -192,7 +201,7 @@ export const FP_RIGHT_TOOLBAR: ToolEntry[] = [
   // Show Grid button's right-click menu. Same alias bug the measure tool had:
   // the button lit and the canvas, listening for the action's own name, heard
   // nothing.
-  { id: 'gridSetOrigin', icon: 'gridSetOrigin', title: 'Set the grid origin point' },
+  { id: 'gridSetOrigin', icon: 'gridSetOrigin', title: _HKI('Set the grid origin point') },
   // `ACTIONS::measureTool` (toolbars_footprint_editor.cpp:137). The id is the
   // ACTION's name, which is what `FootprintCanvas` arms its ruler on: as
   // `measure` this button lit up and did nothing at all, because the canvas
@@ -218,28 +227,28 @@ export const FP_RIGHT_TOOLBAR: ToolEntry[] = [
  * table is what folds into it.
  */
 export const FP_TOOL_FRIENDLY_NAMES: Readonly<Record<string, string>> = {
-  selectionTool: 'Select item(s)',
+  selectionTool: _HKI('Select item(s)'),
   selectSetRect: 'Rectangle',
-  selectSetLasso: 'Lasso',
-  placePad: 'Add Pad',
-  drawLine: 'Draw Lines',
-  drawArc: 'Draw Arcs',
-  drawRectangle: 'Draw Rectangles',
-  drawCircle: 'Draw Circles',
-  drawPolygon: 'Draw Polygons',
-  drawBezier: 'Draw Bezier Curve',
-  drawRuleArea: 'Draw Rule Areas',
-  placeText: 'Draw Text',
-  drawTextBox: 'Draw Text Boxes',
-  drawTable: 'Draw Tables',
-  placePoint: 'Place Point',
+  selectSetLasso: _HKI('Lasso'),
+  placePad: _HKI('Add Pad'),
+  drawLine: _HKI('Draw Lines'),
+  drawArc: _HKI('Draw Arcs'),
+  drawRectangle: _HKI('Draw Rectangles'),
+  drawCircle: _HKI('Draw Circles'),
+  drawPolygon: _HKI('Draw Polygons'),
+  drawBezier: _HKI('Draw Bezier Curve'),
+  drawRuleArea: _HKI('Draw Rule Areas'),
+  placeText: _HKI('Draw Text'),
+  drawTextBox: _HKI('Draw Text Boxes'),
+  drawTable: _HKI('Draw Tables'),
+  placePoint: _HKI('Place Point'),
   placeBarcode: 'Add Barcode',
-  placeImage: 'Place Reference Images',
+  placeImage: _HKI('Place Reference Images'),
   setAnchor: 'Place the Footprint Anchor',
-  gridSetOrigin: 'Grid Origin',
-  deleteTool: 'Interactive Delete Tool',
-  measureTool: 'Measure Tool',
-  zoomTool: 'Zoom to Selection Area',
+  gridSetOrigin: _HKI('Grid Origin'),
+  deleteTool: _HKI('Interactive Delete Tool'),
+  measureTool: _HKI('Measure Tool'),
+  zoomTool: _HKI('Zoom to Selection Area'),
 };
 
 /**

@@ -24,6 +24,8 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, GridBagSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A UNIT_BINDER over a wxTextCtrl: its label, text and unit. */
 export interface UNIT_FIELD {
@@ -75,7 +77,7 @@ export function DIALOG_REFERENCE_IMAGE_PROPERTIES_BASE(
   );
 
   return (
-    <DialogShim title="Reference Image Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Reference Image Properties')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={8}>
@@ -90,16 +92,16 @@ export function DIALOG_REFERENCE_IMAGE_PROPERTIES_BASE(
                 growableRows={[0]}
                 emptyCellSize={[-1, 5]}
               >
-                {field(0, p.m_posX, 'Position X')}
+                {field(0, p.m_posX, _HKI('Position X'))}
                 {unit(0, p.m_posX)}
-                {field(1, p.m_posY, 'Position Y')}
+                {field(1, p.m_posY, _HKI('Position Y'))}
                 {unit(1, p.m_posY)}
                 {field(4, p.m_width, 'Width')}
                 {unit(2, p.m_width)}
                 {field(3, p.m_height, 'Height')}
                 {unit(3, p.m_height)}
                 <SizerItem pos={[2, 0]} flag={CV} border={5}>
-                  <StaticText label="Associated layer:" />
+                  <StaticText label={_('Associated layer:')} />
                 </SizerItem>
                 <SizerItem pos={[2, 1]} flag={CV | wxEXPAND} border={5}>
                   <Combo
@@ -110,7 +112,7 @@ export function DIALOG_REFERENCE_IMAGE_PROPERTIES_BASE(
                   />
                 </SizerItem>
                 <SizerItem pos={[6, 0]} span={[1, 3]} flag={CV} border={5} shown={p.lockedShown}>
-                  <CheckBox label="Locked" check={p.m_cbLocked} title={p.lockedTip} />
+                  <CheckBox label={_('Locked')} check={p.m_cbLocked} title={p.lockedTip} />
                 </SizerItem>
               </GridBagSizer>
             </SizerItem>

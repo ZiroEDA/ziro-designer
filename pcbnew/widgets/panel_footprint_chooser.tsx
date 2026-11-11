@@ -48,6 +48,7 @@ import {
   type FootprintTreeFilter,
 } from '../fp_tree_model_adapter.js';
 import { generateFootprintInfo } from '../generate_footprint_info.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `m_vsplitter->SetSashGravity( 0.5 )` — tree+preview over details. [data] */
 const V_SASH_GRAVITY = 0.5;
@@ -226,7 +227,7 @@ export function PanelFootprintChooser({
               footprint={selected ?? ''}
               // `m_preview_ctrl->SetStatusText( _( "No footprint selected" ) )`
               // (panel_footprint_chooser.cpp:367).
-              statusText={selected ? '' : 'No footprint selected'}
+              statusText={selected ? '' : _('No footprint selected')}
             />
           )}
           {preview3D}

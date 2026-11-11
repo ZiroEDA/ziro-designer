@@ -27,6 +27,8 @@ import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { pcbUnitText, pcbUnitValue } from '../pcb_unit_binder.js';
 import { DIALOG_CREATE_ARRAY_BASE, type ENTRY } from './dialog_create_array_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const NUMBERING_TYPE = ARRAY_AXIS.NUMBERING_TYPE;
 
@@ -82,10 +84,10 @@ export function ResetCreateArrayOptions(): void {
 
 /** `numberingTypeData`: the numbering choices, in order. */
 export const NUMBERING_TYPE_DATA: readonly { type: number; label: string }[] = [
-  { type: NUMBERING_TYPE.NUMBERING_NUMERIC, label: 'Numerals (0,1,2,...,9,10)' },
-  { type: NUMBERING_TYPE.NUMBERING_HEX, label: 'Hexadecimal (0,1,...,F,10,...)' },
-  { type: NUMBERING_TYPE.NUMBERING_ALPHA_NO_IOSQXZ, label: 'Alphabet, minus IOSQXZ' },
-  { type: NUMBERING_TYPE.NUMBERING_ALPHA_FULL, label: 'Alphabet, full 26 characters' },
+  { type: NUMBERING_TYPE.NUMBERING_NUMERIC, label: _HKI('Numerals (0,1,2,...,9,10)') },
+  { type: NUMBERING_TYPE.NUMBERING_HEX, label: _HKI('Hexadecimal (0,1,...,F,10,...)') },
+  { type: NUMBERING_TYPE.NUMBERING_ALPHA_NO_IOSQXZ, label: _HKI('Alphabet, minus IOSQXZ') },
+  { type: NUMBERING_TYPE.NUMBERING_ALPHA_FULL, label: _HKI('Alphabet, full 26 characters') },
 ];
 
 /** Every control, as its text or its state. */
@@ -316,8 +318,8 @@ export class DIALOG_CREATE_ARRAY {
       const grid = new ARRAY_GRID_OPTIONS();
       let ok = true;
 
-      const nx = long(c.nx, 'horizontal count');
-      const ny = long(c.ny, 'vertical count');
+      const nx = long(c.nx, _('horizontal count'));
+      const ny = long(c.ny, _('vertical count'));
       ok = nx !== null && ny !== null;
       grid.m_nx = nx ?? 0;
       grid.m_ny = ny ?? 0;
@@ -331,7 +333,7 @@ export class DIALOG_CREATE_ARRAY {
         stackWarnings.push(`vertical delta of zero with ${grid.m_ny} objects`);
 
       grid.m_centred = c.centreOnSource;
-      const stagger = long(c.stagger, 'stagger');
+      const stagger = long(c.stagger, _('stagger'));
       ok = ok && stagger !== null;
       grid.m_stagger = stagger ?? 0;
       grid.m_stagger_rows = c.staggerRows;
@@ -382,7 +384,7 @@ export class DIALOG_CREATE_ARRAY {
       circ.m_angle = new EDA_ANGLE(angle);
       circ.m_angleOffset = new EDA_ANGLE(offset);
       circ.m_clockwise = c.circDirection === 0;
-      const nPts = long(c.circCount, 'point count');
+      const nPts = long(c.circCount, _('point count'));
       let ok = nPts !== null;
       circ.m_nPts = nPts ?? 0;
       circ.m_rotateItems = c.rotateItems;
@@ -413,7 +415,7 @@ export class DIALOG_CREATE_ARRAY {
     }
 
     if (!settings)
-      return { ok: false, error: errors.length === 0 ? 'Bad parameters' : errors.join('\n') };
+      return { ok: false, error: errors.length === 0 ? _('Bad parameters') : errors.join('\n') };
 
     settings.SetShouldArrangeSelection(c.arrangeSelection);
     settings.SetSShouldReannotateFootprints(c.uniqueRefs);
@@ -542,9 +544,9 @@ export function DialogCreateArray({
     };
     if (aWhat === 'item')
       void picker
-        .pickItem('Select center item...')
+        .pickItem(_('Select center item...'))
         .then((aItem) => done(aItem ? aItem.GetPosition() : null));
-    else void picker.pickPoint('Select center point...').then(done);
+    else void picker.pickPoint(_('Select center point...')).then(done);
   };
 
   const ok = async (): Promise<void> => {

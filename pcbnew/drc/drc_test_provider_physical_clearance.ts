@@ -38,6 +38,7 @@ import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { ATOMIC_TABLES, DRC_RTREE } from './drc_rtree.js';
 import { DRC_CONSTRAINT, DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER, ptrPairKey } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `UNIMPLEMENTED_FOR( x )`: `wxFAIL_MSG`, a debug assertion; nothing in a release build. */
 function UNIMPLEMENTED_FOR(_aName: string): void {}
@@ -86,7 +87,7 @@ export class DRC_TEST_PROVIDER_PHYSICAL_CLEARANCE extends DRC_TEST_PROVIDER {
     let count = 0;
     let ii = 0;
 
-    if (!this.reportPhase('Gathering physical items...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Gathering physical items...'))) return false; // DRC cancelled
 
     //
     // Generate a count for use in progress reporting.
@@ -154,7 +155,7 @@ export class DRC_TEST_PROVIDER_PHYSICAL_CLEARANCE extends DRC_TEST_PROVIDER {
       !this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_CLEARANCE) ||
       !this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_HOLE_CLEARANCE)
     ) {
-      if (!this.reportPhase('Checking physical clearances...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking physical clearances...'))) return false; // DRC cancelled
 
       this.forEachGeometryItem(itemTypes, LSET.AllLayersMask(), (item: BOARD_ITEM): boolean => {
         if (this.isInvisibleText(item)) return true;
@@ -452,7 +453,7 @@ export class DRC_TEST_PROVIDER_PHYSICAL_CLEARANCE extends DRC_TEST_PROVIDER {
       }
 
       const msg = this.formatMsg(
-        'Internal clearance violation (%s clearance %s; actual %s)',
+        _('Internal clearance violation (%s clearance %s; actual %s)'),
         aConstraint.GetName(),
         clearance,
         collision.second,
@@ -496,7 +497,7 @@ export class DRC_TEST_PROVIDER_PHYSICAL_CLEARANCE extends DRC_TEST_PROVIDER {
             const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_CLEARANCE)!;
             drcItem.SetErrorDetail(
               this.formatMsg(
-                '(%s clearance %s; actual %s)',
+                _('(%s clearance %s; actual %s)'),
                 aConstraint.GetName(),
                 clearance,
                 actual.value,
@@ -562,7 +563,7 @@ export class DRC_TEST_PROVIDER_PHYSICAL_CLEARANCE extends DRC_TEST_PROVIDER {
         const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_CLEARANCE)!;
         drcItem.SetErrorDetail(
           this.formatMsg(
-            '(%s clearance %s; actual %s)',
+            _('(%s clearance %s; actual %s)'),
             constraint.GetName(),
             clearance,
             actual.value,
@@ -639,7 +640,7 @@ export class DRC_TEST_PROVIDER_PHYSICAL_CLEARANCE extends DRC_TEST_PROVIDER {
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_HOLE_CLEARANCE)!;
           drcItem.SetErrorDetail(
             this.formatMsg(
-              '(%s clearance %s; actual %s)',
+              _('(%s clearance %s; actual %s)'),
               constraint.GetName(),
               clearance,
               actual.value,
@@ -662,7 +663,7 @@ export class DRC_TEST_PROVIDER_PHYSICAL_CLEARANCE extends DRC_TEST_PROVIDER {
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_HOLE_CLEARANCE)!;
           drcItem.SetErrorDetail(
             this.formatMsg(
-              '(%s clearance %s; actual %s)',
+              _('(%s clearance %s; actual %s)'),
               constraint.GetName(),
               clearance,
               actual.value,
@@ -745,7 +746,7 @@ export class DRC_TEST_PROVIDER_PHYSICAL_CLEARANCE extends DRC_TEST_PROVIDER {
           const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_CLEARANCE)!;
           drcItem.SetErrorDetail(
             this.formatMsg(
-              '(%s clearance %s; actual %s)',
+              _('(%s clearance %s; actual %s)'),
               constraint.GetName(),
               clearance,
               actual.value,
@@ -793,7 +794,7 @@ export class DRC_TEST_PROVIDER_PHYSICAL_CLEARANCE extends DRC_TEST_PROVIDER {
               const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_HOLE_CLEARANCE)!;
               drcItem.SetErrorDetail(
                 this.formatMsg(
-                  '(%s clearance %s; actual %s)',
+                  _('(%s clearance %s; actual %s)'),
                   constraint.GetName(),
                   clearance,
                   actual.value,

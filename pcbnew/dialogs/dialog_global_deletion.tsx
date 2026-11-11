@@ -25,9 +25,11 @@ import type { BOARD_ITEM } from '../board_item.js';
 import { PCB_TUNING_PATTERN } from '../generators/pcb_tuning_pattern.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import { DIALOG_GLOBAL_DELETION_BASE } from './dialog_global_deletion_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `m_rbLayersOptionChoices[]`; row 1 is formatted with the current layer's name. */
-const LAYER_OPTION_TEMPLATES = ['All layers', 'Current layer (%s) only'] as const;
+const LAYER_OPTION_TEMPLATES = [_HKI('All layers'), _HKI('Current layer (%s) only')] as const;
 
 export class DIALOG_GLOBAL_DELETION {
   // Items to Delete
@@ -191,7 +193,7 @@ export class DIALOG_GLOBAL_DELETION {
       }
     }
 
-    commit.Push('Global Delete');
+    commit.Push(_('Global Delete'));
 
     if (this.m_delMarkers) board.DeleteMARKERs();
 

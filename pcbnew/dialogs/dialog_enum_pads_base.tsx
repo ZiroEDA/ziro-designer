@@ -25,6 +25,7 @@ import {
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_ENUM_PADS_BASE_PROPS {
   title: string;
@@ -43,14 +44,14 @@ export function DIALOG_ENUM_PADS_BASE(p: DIALOG_ENUM_PADS_BASE_PROPS): JSX.Eleme
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxALL | wxALIGN_CENTER_HORIZONTAL} border={5}>
-          <StaticText label="Pad names are restricted to 4 characters (including number)." />
+          <StaticText label={_('Pad names are restricted to 4 characters (including number).')} />
         </SizerItem>
         <Spacer flag={wxTOP | wxBOTTOM} border={5} />
         <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
           {/* fgSizer = wxFlexGridSizer( 0, 2, 0, 0 ) */}
           <FlexGridSizer cols={2} growableCols={[1]}>
             <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
-              <StaticText label="Pad name prefix:" />
+              <StaticText label={_('Pad name prefix:')} />
             </SizerItem>
             <SizerItem flag={wxALL | wxEXPAND} border={5}>
               <TextCtrl
@@ -63,7 +64,7 @@ export function DIALOG_ENUM_PADS_BASE(p: DIALOG_ENUM_PADS_BASE_PROPS): JSX.Eleme
               />
             </SizerItem>
             <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
-              <StaticText label="First pad number:" />
+              <StaticText label={_('First pad number:')} />
             </SizerItem>
             <SizerItem flag={wxALL | wxEXPAND} border={5}>
               <SpinCtrl
@@ -75,7 +76,7 @@ export function DIALOG_ENUM_PADS_BASE(p: DIALOG_ENUM_PADS_BASE_PROPS): JSX.Eleme
               />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
-              <StaticText label="Numbering step:" />
+              <StaticText label={_('Numbering step:')} />
             </SizerItem>
             <SizerItem flag={wxALL | wxEXPAND} border={5}>
               <SpinCtrl

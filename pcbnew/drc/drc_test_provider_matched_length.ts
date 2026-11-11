@@ -31,6 +31,7 @@ import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_LENGTH_REPORT, DRC_LENGTH_REPORT_ENTRY } from './drc_length_report.js';
 import { DRC_CONSTRAINT, DRC_CONSTRAINT_T, type DRC_RULE } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER, ptrOrdinal } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 type CONNECTION = DRC_LENGTH_REPORT_ENTRY;
 
@@ -89,7 +90,7 @@ export class DRC_TEST_PROVIDER_MATCHED_LENGTH extends DRC_TEST_PROVIDER {
         if (minViolation) {
           drcItem.SetErrorDetail(
             this.formatMsg(
-              '(%s min length %s; actual %s)',
+              _('(%s min length %s; actual %s)'),
               aConstraint.GetName(),
               minLen,
               aConstraint.GetOption(DRC_CONSTRAINT.OPTIONS.TIME_DOMAIN)
@@ -101,7 +102,7 @@ export class DRC_TEST_PROVIDER_MATCHED_LENGTH extends DRC_TEST_PROVIDER {
         } else if (maxViolation) {
           drcItem.SetErrorDetail(
             this.formatMsg(
-              '(%s max length %s; actual %s)',
+              _('(%s max length %s; actual %s)'),
               aConstraint.GetName(),
               maxLen,
               aConstraint.GetOption(DRC_CONSTRAINT.OPTIONS.TIME_DOMAIN)
@@ -257,7 +258,7 @@ export class DRC_TEST_PROVIDER_MATCHED_LENGTH extends DRC_TEST_PROVIDER {
     this.m_report.Clear();
 
     if (!aDelayReportMode) {
-      if (!this.reportPhase('Gathering length-constrained connections...')) return false;
+      if (!this.reportPhase(_('Gathering length-constrained connections...'))) return false;
     }
 
     const boardCopperLayers = LSET.AllCuMask(this.m_board!.GetCopperLayerCount());
@@ -388,7 +389,7 @@ export class DRC_TEST_PROVIDER_MATCHED_LENGTH extends DRC_TEST_PROVIDER {
           ent.from = ftPath.fromName;
           ent.to = ftPath.toName;
         } else {
-          ent.from = ent.to = '<unconstrained>';
+          ent.from = ent.to = _('<unconstrained>');
         }
 
         this.m_report.Add(ent);
@@ -405,7 +406,7 @@ export class DRC_TEST_PROVIDER_MATCHED_LENGTH extends DRC_TEST_PROVIDER {
     }
 
     if (!aDelayReportMode) {
-      if (!this.reportPhase('Checking length constraints...')) return false;
+      if (!this.reportPhase(_('Checking length constraints...'))) return false;
 
       ii = 0;
       count = matches.size;

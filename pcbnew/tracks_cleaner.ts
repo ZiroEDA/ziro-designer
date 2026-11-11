@@ -41,6 +41,7 @@ import { CLEANUP_ITEM, CLEANUP_RC_CODE } from './cleanup_item.js';
 import type { CN_CONNECTIVITY_ALGO } from './connectivity/connectivity_algo.js';
 import { DRC_RTREE } from './drc/drc_rtree.js';
 import { PCB_TRACK, type PCB_VIA } from './pcb_track.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const popcount = (v: number): number => {
   let n = 0;
@@ -103,42 +104,44 @@ export class TRACKS_CLEANER {
     this.m_dryRun = aDryRun;
     this.m_itemsList = aItemsList;
 
-    this.report(aDryRun ? 'Checking null tracks and vias...' : 'Removing null tracks and vias...');
+    this.report(
+      aDryRun ? _('Checking null tracks and vias...') : _('Removing null tracks and vias...'),
+    );
 
     const removeNullSegments = aMergeSegments || aRemoveMisConnected;
     this.cleanup(aCleanVias, removeNullSegments, aMergeSegments /* dup segments*/, aMergeSegments);
 
-    this.report(aDryRun ? 'Checking redundant tracks...' : 'Removing redundant tracks...');
+    this.report(aDryRun ? _('Checking redundant tracks...') : _('Removing redundant tracks...'));
 
     // If we didn't remove duplicates above, do it now
     if (!aMergeSegments) this.cleanup(false, false, true, false);
 
     if (aRemoveMisConnected) {
-      this.report(aDryRun ? 'Checking shorting tracks...' : 'Removing shorting tracks...');
+      this.report(aDryRun ? _('Checking shorting tracks...') : _('Removing shorting tracks...'));
 
       this.removeShortingTrackSegments();
     }
 
     if (aDeleteTracksinPad) {
-      this.report(aDryRun ? 'Checking tracks in pads...' : 'Removing tracks in pads...');
+      this.report(aDryRun ? _('Checking tracks in pads...') : _('Removing tracks in pads...'));
 
       this.deleteTracksInPads();
     }
 
     if (aDeleteUnconnected || aDeleteDanglingVias) {
       if (aDryRun) {
-        this.report('Checking dangling tracks and vias...');
+        this.report(_('Checking dangling tracks and vias...'));
       } else {
-        if (aDeleteUnconnected) this.report('Removing dangling tracks...');
+        if (aDeleteUnconnected) this.report(_('Removing dangling tracks...'));
 
-        if (aDeleteDanglingVias) this.report('Removing dangling vias...');
+        if (aDeleteDanglingVias) this.report(_('Removing dangling vias...'));
       }
 
       has_deleted = this.deleteDanglingTracks(aDeleteUnconnected, aDeleteDanglingVias);
     }
 
     if (has_deleted && aMergeSegments) {
-      this.report(aDryRun ? 'Checking collinear tracks...' : 'Merging collinear tracks...');
+      this.report(aDryRun ? _('Checking collinear tracks...') : _('Merging collinear tracks...'));
 
       this.cleanup(false, false, false, true);
     }

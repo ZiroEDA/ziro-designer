@@ -50,6 +50,7 @@ import { PCB_ARC, PCB_TRACK, PCB_VIA } from '../../pcb_track.js';
 import { VIATYPE } from '../../pcb_track_types.js';
 import { ZONE } from '../../zone.js';
 import { PCB_IO, type PCB_IO_PROJECT, type PCB_IO_PROPERTIES } from '../pcb_io.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `FILEEXT::GedaPcbFootprintLibFileExtension`. */
 const GedaPcbFootprintLibFileExtension = 'fp';
@@ -698,18 +699,18 @@ export class PCB_IO_GEDA extends PCB_IO {
   }
 
   override GetBoardFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('gEDA / Lepton EDA PCB board file', ['pcb']);
+    return new IO_FILE_DESC(_HKI('gEDA / Lepton EDA PCB board file'), ['pcb']);
   }
 
   override GetLibraryFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('gEDA / Lepton EDA PCB footprint file', [
+    return new IO_FILE_DESC(_HKI('gEDA / Lepton EDA PCB footprint file'), [
       GedaPcbFootprintLibFileExtension,
     ]);
   }
 
   GetLibraryDesc(): IO_FILE_DESC {
     return new IO_FILE_DESC(
-      'gEDA / Lepton EDA PCB footprint library directory',
+      _HKI('gEDA / Lepton EDA PCB footprint library directory'),
       [],
       [GedaPcbFootprintLibFileExtension],
       false,

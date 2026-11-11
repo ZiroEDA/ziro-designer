@@ -35,6 +35,7 @@ import {
   ptrOrdinal,
   ptrPairKey,
 } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 function isNPTHPadWithNoCopper(aItem: BOARD_ITEM): boolean {
   if (aItem.Type() === KICAD_T.PCB_PAD_T) return (aItem as PAD).IsNPTHWithNoCopper();
@@ -100,7 +101,7 @@ export class DRC_TEST_PROVIDER_SOLDER_MASK extends DRC_TEST_PROVIDER {
 
   constructor() {
     super();
-    this.m_bridgeRule.m_Name = 'board setup solder mask min width';
+    this.m_bridgeRule.m_Name = _('board setup solder mask min width');
   }
 
   override GetName(): string {
@@ -280,7 +281,7 @@ export class DRC_TEST_PROVIDER_SOLDER_MASK extends DRC_TEST_PROVIDER {
             if (clearance > 0) {
               drce.SetErrorDetail(
                 this.formatMsg(
-                  '(%s clearance %s; actual %s)',
+                  _('(%s clearance %s; actual %s)'),
                   constraint.GetName(),
                   clearance,
                   actual.value,
@@ -555,8 +556,8 @@ export class DRC_TEST_PROVIDER_SOLDER_MASK extends DRC_TEST_PROVIDER {
           const colliding = { value: null as BOARD_ITEM | null };
 
           if (aTargetLayer === PCB_LAYER_ID.F_Mask)
-            msg = 'Front solder mask aperture bridges items with different nets';
-          else msg = 'Rear solder mask aperture bridges items with different nets';
+            msg = _('Front solder mask aperture bridges items with different nets');
+          else msg = _('Rear solder mask aperture bridges items with different nets');
 
           // Simple mask apertures aren't associated with copper items, so they only
           // constitute a bridge when they expose other copper items having at least
@@ -647,8 +648,8 @@ export class DRC_TEST_PROVIDER_SOLDER_MASK extends DRC_TEST_PROVIDER {
         const colliding = { value: null as BOARD_ITEM | null };
 
         if (aMaskLayer === PCB_LAYER_ID.F_Mask)
-          msg = 'Front solder mask aperture bridges items with different nets';
-        else msg = 'Rear solder mask aperture bridges items with different nets';
+          msg = _('Front solder mask aperture bridges items with different nets');
+        else msg = _('Rear solder mask aperture bridges items with different nets');
 
         // Simple mask apertures aren't associated with copper items, so they only constitute
         // a bridge when they expose other copper items having at least two distinct nets.
@@ -753,8 +754,8 @@ export class DRC_TEST_PROVIDER_SOLDER_MASK extends DRC_TEST_PROVIDER {
       let msg: string;
 
       if (collision.layer === PCB_LAYER_ID.F_Mask)
-        msg = 'Front solder mask aperture bridges items with different nets';
-      else msg = 'Rear solder mask aperture bridges items with different nets';
+        msg = _('Front solder mask aperture bridges items with different nets');
+      else msg = _('Rear solder mask aperture bridges items with different nets');
 
       let reportedAnyTrack = false;
 
@@ -860,7 +861,7 @@ export class DRC_TEST_PROVIDER_SOLDER_MASK extends DRC_TEST_PROVIDER {
       );
     }
 
-    if (!this.reportPhase('Building solder mask...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Building solder mask...'))) return false; // DRC cancelled
 
     this.m_checkedPairs.clear();
     this.m_maskApertureNetMap.clear();
@@ -869,11 +870,11 @@ export class DRC_TEST_PROVIDER_SOLDER_MASK extends DRC_TEST_PROVIDER {
 
     this.buildRTrees();
 
-    if (!this.reportPhase('Checking solder mask to silk clearance...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking solder mask to silk clearance...'))) return false; // DRC cancelled
 
     this.testSilkToMaskClearance();
 
-    if (!this.reportPhase('Checking solder mask web integrity...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking solder mask web integrity...'))) return false; // DRC cancelled
 
     this.testMaskBridges();
 

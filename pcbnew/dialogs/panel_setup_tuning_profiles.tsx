@@ -56,6 +56,8 @@ import {
   TUNING_PROFILE,
   TUNING_PROFILE_TYPE,
 } from '@ziroeda/common/project/tuning_profiles.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export type ProfileType = 'Single' | 'Differential';
 
@@ -193,20 +195,20 @@ const NONE_LAYER = '<None>';
 
 /** The Track Propagation grid's columns, in TRACK_GRID_* order. */
 const TRACK_COLUMNS = [
-  'Signal Layer',
-  'Top Reference',
-  'Bottom Reference',
-  'Track Width',
-  'Diff Pair Gap',
-  'Unit Delay',
+  _HKI('Signal Layer'),
+  _HKI('Top Reference'),
+  _HKI('Bottom Reference'),
+  _HKI('Track Width'),
+  _HKI('Diff Pair Gap'),
+  _HKI('Unit Delay'),
 ] as const;
 
 /** The Via delay overrides grid's columns, in VIA_GRID_* order. */
 const VIA_COLUMNS = [
-  'Signal Layer From',
-  'Signal Layer To',
-  'Via Layer From',
-  'Via Layer To',
+  _HKI('Signal Layer From'),
+  _HKI('Signal Layer To'),
+  _HKI('Via Layer From'),
+  _HKI('Via Layer To'),
   'Delay',
 ] as const;
 
@@ -688,13 +690,17 @@ export function validateTuningProfiles(
   aData: TuningProfilesData,
 ): { message: string; page: number } | null {
   for (const [i, p] of aData.profiles.entries()) {
-    if (p.name === '') return { message: 'Tuning profile must have a name', page: i };
+    if (p.name === '')
+      return { message: wxGetTranslation('Tuning profile must have a name'), page: i };
 
     const layerNames = new Set<string>();
 
     for (const e of p.trackEntries) {
       if (layerNames.has(e.signalLayer))
-        return { message: 'Duplicated signal layer configuration in tuning profile', page: i };
+        return {
+          message: wxGetTranslation('Duplicated signal layer configuration in tuning profile'),
+          page: i,
+        };
 
       layerNames.add(e.signalLayer);
     }

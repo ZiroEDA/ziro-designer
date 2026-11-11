@@ -140,6 +140,8 @@ import {
   type LAYER_MAPPING_HANDLER,
 } from '../common/plugin_common_layer_mapping.js';
 import { PCB_IO, type PCB_IO_PROJECT, type PCB_IO_PROPERTIES } from '../pcb_io.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const INT_MAX = 2147483647;
 
@@ -386,11 +388,11 @@ export class PCB_IO_EAGLE extends PCB_IO {
   }
 
   override GetBoardFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('Eagle ver. 6.x XML PCB files', ['brd']);
+    return new IO_FILE_DESC(_HKI('Eagle ver. 6.x XML PCB files'), ['brd']);
   }
 
   GetLibraryDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('Eagle ver. 6.x XML library files', ['lbr']);
+    return new IO_FILE_DESC(_HKI('Eagle ver. 6.x XML library files'), ['lbr']);
   }
 
   RegisterCallback(aLayerMappingHandler: LAYER_MAPPING_HANDLER): void {
@@ -446,7 +448,7 @@ export class PCB_IO_EAGLE extends PCB_IO {
         );
 
         if (!this.m_progressReporter.KeepRefreshing())
-          throw new IO_ERROR('File import canceled by user.');
+          throw new IO_ERROR(_('File import canceled by user.'));
 
         this.m_lastProgressCount = this.m_doneCount;
       }
@@ -496,7 +498,7 @@ export class PCB_IO_EAGLE extends PCB_IO {
         this.m_progressReporter.Report(`Loading ${aFileName}...`);
 
         if (!this.m_progressReporter.KeepRefreshing())
-          throw new IO_ERROR('File import canceled by user.');
+          throw new IO_ERROR(_('File import canceled by user.'));
       }
 
       // Load the document

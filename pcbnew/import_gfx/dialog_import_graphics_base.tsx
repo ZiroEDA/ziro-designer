@@ -38,6 +38,8 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 type ENTRY = {
   value: string;
@@ -72,7 +74,7 @@ export interface DIALOG_IMPORT_GRAPHICS_BASE_PROPS {
 }
 
 const CV = wxALIGN_CENTER_VERTICAL;
-const FILE_TIP = 'Only vectors will be imported.  Bitmaps and fonts will be ignored.';
+const FILE_TIP = _HKI('Only vectors will be imported.  Bitmaps and fonts will be ignored.');
 
 export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS): JSX.Element {
   const dxf = p.m_lineWidthCtrl.enabled !== false;
@@ -80,14 +82,14 @@ export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS
   const tolerance = p.m_toleranceCtrl.enabled !== false;
 
   return (
-    <DialogShim title="Import Vector Graphics File" onClose={p.onCancel}>
+    <DialogShim title={_('Import Vector Graphics File')} onClose={p.onCancel}>
       {/* bSizerMain */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT | wxTOP} border={10}>
           {/* bSizerFile */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={CV | wxRIGHT} border={5}>
-              <StaticText label="File:" title={FILE_TIP} />
+              <StaticText label={_('File:')} title={FILE_TIP} />
             </SizerItem>
             <SizerItem proportion={1} flag={CV | wxLEFT} border={5} minSize={[300, -1]}>
               <TextCtrl
@@ -95,13 +97,13 @@ export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS
                 value={p.m_textCtrlFileName.value}
                 onChange={p.m_textCtrlFileName.onChange}
                 title={FILE_TIP}
-                ariaLabel="File"
+                ariaLabel={_('File')}
               />
             </SizerItem>
             <SizerItem flag={CV} border={5}>
               <StdBitmapButton
                 bitmap="small_folder"
-                title="Browse"
+                title={_('Browse')}
                 tooltip={null}
                 onClick={p.onBrowseFiles}
               />
@@ -112,7 +114,7 @@ export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS
           {/* fgSizer3 = wxFlexGridSizer( 0, 3, 5, 3 ) */}
           <FlexGridSizer cols={3} vgap={5} hgap={3} growableCols={[1]}>
             <SizerItem flag={CV | wxLEFT} border={5}>
-              <StaticText label="Import scale:" />
+              <StaticText label={_('Import scale:')} />
             </SizerItem>
             <SizerItem flag={CV} border={5} minSize={[120, -1]}>
               <TextCtrl
@@ -124,8 +126,8 @@ export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS
             <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
             <SizerItem flag={CV | wxLEFT} border={5}>
               <StaticText
-                label="DXF default line width:"
-                title="Used when the DXF items in file have no line thickness set"
+                label={_('DXF default line width:')}
+                title={_('Used when the DXF items in file have no line thickness set')}
                 disabled={!dxf}
               />
             </SizerItem>
@@ -143,8 +145,8 @@ export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS
             </SizerItem>
             <SizerItem flag={CV | wxLEFT} border={5}>
               <StaticText
-                label="DXF default units:"
-                title="Used when the DXF file has no unit set"
+                label={_('DXF default units:')}
+                title={_('Used when the DXF file has no unit set')}
                 disabled={!dxf}
               />
             </SizerItem>
@@ -166,9 +168,9 @@ export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS
           <GridBagSizer vgap={0} hgap={0} growableCols={[2, 4]}>
             <SizerItem pos={[0, 0]} flag={CV | wxLEFT} border={5}>
               <CheckBox
-                label="Place at:"
+                label={_('Place at:')}
                 check={p.m_placeAtCheckbox}
-                title="If not checked: use interactive placement."
+                title={_('If not checked: use interactive placement.')}
               />
             </SizerItem>
             <SizerItem pos={[0, 1]} flag={CV | wxALL} border={5}>
@@ -181,7 +183,7 @@ export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS
                 onBlur={p.m_xCtrl.onBlur}
                 disabled={!placeAt}
                 maxLength={10}
-                title="DXF origin on PCB Grid, X Coordinate"
+                title={_('DXF origin on PCB Grid, X Coordinate')}
                 ariaLabel="X"
               />
             </SizerItem>
@@ -195,7 +197,7 @@ export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS
                 onBlur={p.m_yCtrl.onBlur}
                 disabled={!placeAt}
                 maxLength={10}
-                title="DXF origin on PCB Grid, Y Coordinate"
+                title={_('DXF origin on PCB Grid, Y Coordinate')}
                 ariaLabel="Y"
               />
             </SizerItem>
@@ -204,11 +206,11 @@ export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS
             </SizerItem>
             <SizerItem pos={[1, 0]} flag={CV | wxLEFT} border={5}>
               <CheckBox
-                label="Layer:"
+                label={_('Layer:')}
                 check={p.m_setLayerCheckbox}
-                title={
-                  'If checked, use the selected layer in this dialog\nIf unchecked, use the Board Editor active layer'
-                }
+                title={_(
+                  'If checked, use the selected layer in this dialog\nIf unchecked, use the Board Editor active layer',
+                )}
               />
             </SizerItem>
             <SizerItem pos={[1, 2]} span={[1, 3]} flag={wxEXPAND | CV} border={5}>
@@ -227,9 +229,9 @@ export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxTOP | wxBOTTOM | wxLEFT} border={5}>
               <CheckBox
-                label="Group imported items"
+                label={_('Group imported items')}
                 check={p.m_cbGroupItems}
-                title="Add all imported items to a new group"
+                title={_('Add all imported items to a new group')}
               />
             </SizerItem>
           </BoxSizer>
@@ -242,13 +244,15 @@ export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={CV} border={5}>
               <CheckBox
-                label="Fix discontinuities"
+                label={_('Fix discontinuities')}
                 check={p.m_rbFixDiscontinuities}
-                title="Trim/extend open shapes or add segments to make vertices of shapes coincide"
+                title={_(
+                  'Trim/extend open shapes or add segments to make vertices of shapes coincide',
+                )}
               />
             </SizerItem>
             <SizerItem flag={wxLEFT | CV} border={30}>
-              <StaticText label="Tolerance:" disabled={!tolerance} />
+              <StaticText label={_('Tolerance:')} disabled={!tolerance} />
             </SizerItem>
             <SizerItem flag={CV | wxTOP | wxBOTTOM | wxLEFT} border={5}>
               <TextCtrl

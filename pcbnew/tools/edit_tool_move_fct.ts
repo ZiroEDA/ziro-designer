@@ -52,6 +52,7 @@ const VIEW_UPDATE_GEOMETRY = VIEW_UPDATE_FLAGS.GEOMETRY;
 import { PCB_ACTIONS } from './pcb_actions.js';
 import { IsZoneFillAction } from './pcb_picker_tool.js';
 import { PCB_GRID_HELPER } from './pcb_grid_helper.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `std::numeric_limits<int>::max()`. */
 const INT_MAX = 2147483647;
@@ -75,12 +76,12 @@ function PromptConnectedPadDecision(
     'Connected tracks, vias, and other non-zone copper items will still swap nets' +
     ' even if you ignore the unselected pads.' +
     '\n \n' + // Add space so GTK doesn't eat the newlines
-    'Unselected pads:' +
+    _('Unselected pads:') +
     '\n';
 
   for (const pad of uniquePads) {
     const fp = pad.GetParentFootprint();
-    details += `  • ${fp ? fp.GetReference() : '<no reference designator>'}:${pad.GetNumber()}\n`;
+    details += `  • ${fp ? fp.GetReference() : _('<no reference designator>')}:${pad.GetNumber()}\n`;
   }
 
   const frame = aTool.editFrame();
@@ -193,7 +194,7 @@ export class EDIT_TOOL_MOVE_FCT {
       }
     }
 
-    if (!localCommit.Empty()) localCommit.Push('Swap');
+    if (!localCommit.Empty()) localCommit.Push(_('Swap'));
 
     this.m_toolMgr!.ProcessEvent(EVENTS.SelectedItemsModified);
 
@@ -289,7 +290,7 @@ export class EDIT_TOOL_MOVE_FCT {
       }
     }
 
-    void PromptConnectedPadDecision(this, nonSelectedPadsToChange, 'Swap Pad Nets').then(
+    void PromptConnectedPadDecision(this, nonSelectedPadsToChange, _('Swap Pad Nets')).then(
       ({ proceed, includeConnectedPads }) => {
         if (!proceed) return;
 
@@ -314,7 +315,7 @@ export class EDIT_TOOL_MOVE_FCT {
           item.SetNetCode(newNet);
         }
 
-        if (!localCommit.Empty()) localCommit.Push('Swap Pad Nets');
+        if (!localCommit.Empty()) localCommit.Push(_('Swap Pad Nets'));
 
         // Ensure connectivity visuals update
         this.rebuildConnectivity();
@@ -333,7 +334,7 @@ export class EDIT_TOOL_MOVE_FCT {
 
     const showError = (): void => {
       this.editFrame().ShowInfoBarError?.(
-        'Gate swapping must be performed on pads within one multi-gate footprint.',
+        _('Gate swapping must be performed on pads within one multi-gate footprint.'),
       );
     };
 
@@ -440,7 +441,7 @@ export class EDIT_TOOL_MOVE_FCT {
     for (const idx of activeUnitIdx) {
       if (units[idx]!.m_pins.length !== pinCount) {
         this.editFrame().ShowInfoBarError?.(
-          'Gate swapping must be performed on gates with equal pin counts.',
+          _('Gate swapping must be performed on gates with equal pin counts.'),
         );
         return 0;
       }
@@ -463,7 +464,7 @@ export class EDIT_TOOL_MOVE_FCT {
 
         if (!p) {
           this.editFrame().ShowInfoBarError?.(
-            'Gate swapping failed: pad in unit missing from footprint.',
+            _('Gate swapping failed: pad in unit missing from footprint.'),
           );
           return 0;
         }
@@ -489,7 +490,7 @@ export class EDIT_TOOL_MOVE_FCT {
 
     if (allSame) {
       this.editFrame().ShowInfoBarError?.(
-        'Gate swapping has no effect: all selected gates have identical nets.',
+        _('Gate swapping has no effect: all selected gates have identical nets.'),
       );
       return 0;
     }
@@ -550,7 +551,7 @@ export class EDIT_TOOL_MOVE_FCT {
       }
     }
 
-    void PromptConnectedPadDecision(this, nonSelectedPadsToChange, 'Swap Gate Nets').then(
+    void PromptConnectedPadDecision(this, nonSelectedPadsToChange, _('Swap Gate Nets')).then(
       ({ proceed, includeConnectedPads }) => {
         if (!proceed) return;
 
@@ -581,7 +582,7 @@ export class EDIT_TOOL_MOVE_FCT {
           item.SetNetCode(newNet);
         }
 
-        if (!localCommit.Empty()) localCommit.Push('Swap Gate Nets');
+        if (!localCommit.Empty()) localCommit.Push(_('Swap Gate Nets'));
 
         this.rebuildConnectivity();
         this.m_toolMgr!.ProcessEvent(EVENTS.SelectedItemsModified);
@@ -638,7 +639,7 @@ export class EDIT_TOOL_MOVE_FCT {
 
     SpreadFootprints(footprintsToPack, footprintsBbox!.Normalize().GetOrigin(), false);
 
-    if (yield* this.doMoveSelection(aEvent, commit, true)) commit.Push('Pack Footprints');
+    if (yield* this.doMoveSelection(aEvent, commit, true)) commit.Push(_('Pack Footprints'));
     else commit.Revert();
 
     return 0;
@@ -669,7 +670,7 @@ export class EDIT_TOOL_MOVE_FCT {
     } else {
       const localCommit = new BOARD_COMMIT(this);
 
-      if (yield* this.doMoveSelection(aEvent, localCommit, false)) localCommit.Push('Move');
+      if (yield* this.doMoveSelection(aEvent, localCommit, false)) localCommit.Push(_('Move'));
       else localCommit.Revert();
     }
 
@@ -770,11 +771,11 @@ export class EDIT_TOOL_MOVE_FCT {
 
       switch (aMode) {
         case LEADER_MODE.DEG45:
-          msg = 'Angle snap lines: 45°';
+          msg = _('Angle snap lines: 45°');
           break;
 
         case LEADER_MODE.DEG90:
-          msg = 'Angle snap lines: 90°';
+          msg = _('Angle snap lines: 90°');
           break;
 
         default:
@@ -839,7 +840,7 @@ export class EDIT_TOOL_MOVE_FCT {
     if (
       moveWithReference &&
       !(yield* this.pickReferencePoint(
-        'Select reference point for move...',
+        _('Select reference point for move...'),
         '',
         '',
         pickedReferencePoint,

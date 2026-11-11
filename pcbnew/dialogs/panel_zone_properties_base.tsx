@@ -33,6 +33,7 @@ import {
 import { Notebook } from '@ziroeda/wx/notebook_ui.js';
 import { BoxSizer, GridBagSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER (or a plain wxTextCtrl with its unit text): label, text, unit, Enable(). */
 export interface UNIT_FIELD {
@@ -100,8 +101,8 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
         <GridBagSizer vgap={1} hgap={1} emptyCellSize={[-1, 10]} growableCols={[2]}>
           <SizerItem pos={[0, 0]} flag={CV | wxTOP | wxBOTTOM | wxLEFT} border={5}>
             <StaticText
-              label="Clearance:"
-              title="Copper clearance for this zone (set to 0 to use the netclass clearance)"
+              label={_('Clearance:')}
+              title={_('Copper clearance for this zone (set to 0 to use the netclass clearance)')}
             />
           </SizerItem>
           <SizerItem pos={[0, 1]} flag={wxEXPAND | wxALL} border={4}>
@@ -111,7 +112,10 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
             <StaticText label={p.m_clearance.units} />
           </SizerItem>
           <SizerItem pos={[1, 0]} flag={CV | wxBOTTOM | wxLEFT} border={5}>
-            <StaticText label="Minimum width:" title="Minimum thickness of filled areas." />
+            <StaticText
+              label={_('Minimum width:')}
+              title={_('Minimum thickness of filled areas.')}
+            />
           </SizerItem>
           <SizerItem pos={[1, 1]} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={4}>
             <UnitCtrl f={p.m_minWidth} ariaLabel="Minimum width" />
@@ -121,23 +125,25 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
           </SizerItem>
           <SizerItem pos={[3, 0]} flag={CV | wxTOP | wxLEFT} border={5}>
             <StaticText
-              label="Pad connections:"
-              title={
-                'Default pad connection type to zone.\nThis setting can be overridden by local  pad settings'
-              }
+              label={_('Pad connections:')}
+              title={_(
+                'Default pad connection type to zone.\nThis setting can be overridden by local  pad settings',
+              )}
             />
           </SizerItem>
           <SizerItem pos={[3, 1]} flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT | CV} border={5}>
             <Choice
-              choices={['Solid', 'Thermal reliefs', 'Reliefs for PTH', 'None']}
+              choices={[_('Solid'), _('Thermal reliefs'), _('Reliefs for PTH'), _('None')]}
               choice={p.m_PadInZoneOpt}
               ariaLabel="Pad connections"
             />
           </SizerItem>
           <SizerItem pos={[4, 0]} flag={CV | wxLEFT | wxTOP} border={4}>
             <StaticText
-              label="Thermal relief gap:"
-              title="The distance that will be kept clear between the filled area of the zone and a pad connected by thermal relief spokes."
+              label={_('Thermal relief gap:')}
+              title={_(
+                'The distance that will be kept clear between the filled area of the zone and a pad connected by thermal relief spokes.',
+              )}
             />
           </SizerItem>
           <SizerItem pos={[4, 1]} flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={4}>
@@ -147,7 +153,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
             <StaticText label={p.m_antipad.units} />
           </SizerItem>
           <SizerItem pos={[5, 0]} flag={CV | wxBOTTOM | wxLEFT | wxTOP} border={4}>
-            <StaticText label="Thermal spoke width:" />
+            <StaticText label={_('Thermal spoke width:')} />
           </SizerItem>
           <SizerItem pos={[5, 1]} flag={wxEXPAND | wxALL} border={4}>
             <UnitCtrl f={p.m_spokeWidth} ariaLabel="Thermal spoke width" />
@@ -167,17 +173,17 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
         {/* gbSizerDisplayOverrides = wxGridBagSizer( 5, 5 ) */}
         <GridBagSizer vgap={5} hgap={5} growableCols={[2]}>
           <SizerItem pos={[0, 0]} flag={CV | wxTOP | wxLEFT} border={5}>
-            <StaticText label="Outline display:" />
+            <StaticText label={_('Outline display:')} />
           </SizerItem>
           <SizerItem pos={[0, 1]} flag={wxEXPAND | CV | wxTOP} border={5}>
             <Choice
-              choices={['Line', 'Hatched', 'Fully hatched']}
+              choices={[_('Line'), _('Hatched'), _('Fully hatched')]}
               choice={p.m_OutlineDisplayCtrl}
               ariaLabel="Outline display"
             />
           </SizerItem>
           <SizerItem pos={[1, 0]} flag={CV | wxLEFT} border={5}>
-            <StaticText label="Outline hatch pitch:" />
+            <StaticText label={_('Outline hatch pitch:')} />
           </SizerItem>
           <SizerItem pos={[1, 1]} flag={CV | wxEXPAND} border={5}>
             <UnitCtrl f={p.m_outlineHatchPitch} ariaLabel="Outline hatch pitch" />
@@ -211,10 +217,13 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
         {/* gbSizerHatchedFill = wxGridBagSizer( 0, 0 ), SetEmptyCellSize( wxSize( -1,10 ) ) */}
         <GridBagSizer vgap={0} hgap={0} emptyCellSize={[-1, 10]} growableCols={[2]}>
           <SizerItem pos={[0, 0]} flag={wxLEFT | wxRIGHT} border={5}>
-            <CheckBox label="Hatched fill" check={p.m_cbHatched} />
+            <CheckBox label={_('Hatched fill')} check={p.m_cbHatched} />
           </SizerItem>
           <SizerItem pos={[1, 0]} flag={CV | wxBOTTOM | wxLEFT | wxTOP} border={5}>
-            <StaticText label="Orientation:" disabled={p.m_gridStyleRotation.enabled === false} />
+            <StaticText
+              label={_('Orientation:')}
+              disabled={p.m_gridStyleRotation.enabled === false}
+            />
           </SizerItem>
           <SizerItem pos={[1, 1]} flag={wxEXPAND | CV | wxALL} border={5}>
             <UnitCtrl f={p.m_gridStyleRotation} ariaLabel="Orientation" />
@@ -225,15 +234,15 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
               disabled={p.m_gridStyleRotation.enabled === false}
             />
           </SizerItem>
-          {hatchRow(2, 'Hatch width:', p.m_gridStyleThickness, 'Hatch width')}
-          {hatchRow(3, 'Hatch gap:', p.m_gridStyleGap, 'Hatch gap')}
+          {hatchRow(2, _('Hatch width:'), p.m_gridStyleThickness, 'Hatch width')}
+          {hatchRow(3, _('Hatch gap:'), p.m_gridStyleGap, 'Hatch gap')}
           <SizerItem pos={[4, 0]} flag={CV | wxBOTTOM | wxLEFT} border={5}>
             <StaticText
-              label="Smoothing effort:"
+              label={_('Smoothing effort:')}
               disabled={!p.m_spinCtrlSmoothLevel.enabled}
-              title={
-                'Value of smoothing effort\n0 = no smoothing\n1 = chamfer\n2 = round corners\n3 = round corners (finer shape)'
-              }
+              title={_(
+                'Value of smoothing effort\n0 = no smoothing\n1 = chamfer\n2 = round corners\n3 = round corners (finer shape)',
+              )}
             />
           </SizerItem>
           <SizerItem pos={[4, 1]} flag={wxBOTTOM | wxRIGHT | wxLEFT | CV | wxEXPAND} border={5}>
@@ -249,11 +258,11 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
           </SizerItem>
           <SizerItem pos={[5, 0]} flag={CV | wxBOTTOM | wxLEFT} border={5}>
             <StaticText
-              label="Smoothing amount:"
+              label={_('Smoothing amount:')}
               disabled={!p.m_spinCtrlSmoothValue.enabled}
-              title={
-                'Ratio between smoothed corners size and the gap between lines\n0 = no smoothing\n1.0 = max radius/chamfer size (half gap value)'
-              }
+              title={_(
+                'Ratio between smoothed corners size and the gap between lines\n0 = no smoothing\n1.0 = max radius/chamfer size (half gap value)',
+              )}
             />
           </SizerItem>
           <SizerItem pos={[5, 1]} flag={wxBOTTOM | wxRIGHT | wxLEFT | CV | wxEXPAND} border={5}>
@@ -275,7 +284,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
         {/* bSizerOffsetOverrides */}
         <BoxSizer orient={wxVERTICAL}>
           <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-            <StaticText label="Hatch offset overrides:" disabled={!p.overridesEnabled} />
+            <StaticText label={_('Hatch offset overrides:')} disabled={!p.overridesEnabled} />
           </SizerItem>
           <Spacer width={0} height={2} border={5} />
           <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
@@ -330,8 +339,8 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
                 <GridBagSizer vgap={3} hgap={5} growableCols={[1]}>
                   <SizerItem pos={[0, 0]} flag={CV} border={5}>
                     <StaticText
-                      label="Zone name:"
-                      title="A unique name for this zone, used to identify it in DRC rules"
+                      label={_('Zone name:')}
+                      title={_('A unique name for this zone, used to identify it in DRC rules')}
                     />
                   </SizerItem>
                   <SizerItem pos={[0, 1]} flag={CV | wxEXPAND} border={5}>
@@ -339,11 +348,11 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
                       value={p.m_tcZoneName.value}
                       onChange={p.m_tcZoneName.onChange}
                       ariaLabel="Zone name"
-                      title="A unique name for this zone, used to identify it in DRC rules"
+                      title={_('A unique name for this zone, used to identify it in DRC rules')}
                     />
                   </SizerItem>
                   <SizerItem pos={[1, 0]} flag={CV} border={5} {...hidden(p.netShown)}>
-                    <StaticText label="Net name:" />
+                    <StaticText label={_('Net name:')} />
                   </SizerItem>
                   <SizerItem pos={[1, 1]} flag={CV | wxEXPAND} border={5} {...hidden(p.netShown)}>
                     <NetSelector
@@ -355,7 +364,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
                 </GridBagSizer>
               </SizerItem>
               <SizerItem flag={wxLEFT | wxRIGHT} border={5}>
-                <CheckBox label="Locked" check={p.m_cbLocked} />
+                <CheckBox label={_('Locked')} check={p.m_cbLocked} />
               </SizerItem>
               <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
                 <Notebook
@@ -363,9 +372,9 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
                   onPageChanged={p.m_notebook.onPageChanged}
                   pages={[
                     // "Clearances && Pad Connections": && is a literal &
-                    { text: 'Clearances & Pad Connections', content: clearances },
-                    { text: 'Display Overrides', content: displayOverrides },
-                    { text: 'Hatched Fill', content: hatchedFill },
+                    { text: _('Clearances & Pad Connections'), content: clearances },
+                    { text: _('Display Overrides'), content: displayOverrides },
+                    { text: _('Hatched Fill'), content: hatchedFill },
                   ]}
                 />
               </SizerItem>
@@ -373,11 +382,11 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
                 {/* gbSizerGeneralProps = wxGridBagSizer( 5, 5 ) */}
                 <GridBagSizer vgap={5} hgap={5} growableCols={[1, 3]}>
                   <SizerItem pos={[0, 0]} flag={CV} border={5}>
-                    <StaticText label="Corner smoothing:" />
+                    <StaticText label={_('Corner smoothing:')} />
                   </SizerItem>
                   <SizerItem pos={[0, 1]} flag={CV | wxEXPAND} border={2}>
                     <Choice
-                      choices={['None', 'Chamfer', 'Fillet']}
+                      choices={[_('None'), _('Chamfer'), _('Fillet')]}
                       choice={p.m_cornerSmoothingChoice}
                       ariaLabel="Corner smoothing"
                     />
@@ -388,7 +397,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
                     border={10}
                     {...hidden(p.cornerRadiusShown)}
                   >
-                    <StaticText label="Radius:" />
+                    <StaticText label={_('Radius:')} />
                   </SizerItem>
                   <SizerItem
                     pos={[0, 3]}
@@ -396,7 +405,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
                     border={5}
                     {...hidden(p.cornerRadiusShown)}
                   >
-                    <UnitCtrl f={p.m_cornerRadius} ariaLabel="Radius" />
+                    <UnitCtrl f={p.m_cornerRadius} ariaLabel={_('Radius')} />
                   </SizerItem>
                   <SizerItem
                     pos={[0, 4]}
@@ -408,13 +417,13 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
                   </SizerItem>
                   <SizerItem pos={[1, 0]} flag={CV} border={5}>
                     <StaticText
-                      label="Remove islands:"
-                      title="Choose what to do with unconnected copper islands"
+                      label={_('Remove islands:')}
+                      title={_('Choose what to do with unconnected copper islands')}
                     />
                   </SizerItem>
                   <SizerItem pos={[1, 1]} flag={CV | wxEXPAND} border={2}>
                     <Choice
-                      choices={['Always', 'Never', 'Below area limit']}
+                      choices={[_('Always'), _('Never'), _('Below area limit')]}
                       choice={p.m_cbRemoveIslands}
                       ariaLabel="Remove islands"
                     />
@@ -426,8 +435,8 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
                     {...hidden(p.islandThresholdShown)}
                   >
                     <StaticText
-                      label="Area limit:"
-                      title="Isolated islands smaller than this will be removed"
+                      label={_('Area limit:')}
+                      title={_('Isolated islands smaller than this will be removed')}
                     />
                   </SizerItem>
                   <SizerItem

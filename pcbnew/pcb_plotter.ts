@@ -42,6 +42,7 @@ import {
   StartPlotBoard,
   setupPlotterNewPDFPage,
 } from './plot_board_layers.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A plotted file: the layer and the file's full name (`jobfile_writer->AddGbrFile`). */
 export interface PCB_PLOTTED_FILE {
@@ -103,7 +104,7 @@ export class PCB_PLOTTER {
 
     // sanity, ensure one layer to print
     if (aLayersToPlot.length < 1) {
-      this.m_reporter?.report('No layers selected for plotting.', RPT_SEVERITY_ERROR);
+      this.m_reporter?.report(_('No layers selected for plotting.'), RPT_SEVERITY_ERROR);
       return { success: false, files };
     }
 
@@ -332,7 +333,7 @@ export class PCB_PLOTTER {
       jobfile_writer.CreateJobFile(jobPath);
     }
 
-    this.m_reporter?.report('Done.', RPT_SEVERITY_INFO);
+    this.m_reporter?.report(_('Done.'), RPT_SEVERITY_INFO);
 
     if (this.m_plotOpts.GetFormat() === PLOT_FORMAT.SVG && this.m_plotOpts.GetSvgFitPagetoBoard()) {
       // restore the original page and aux origin

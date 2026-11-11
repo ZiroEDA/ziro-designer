@@ -20,6 +20,7 @@ import type { PCB_TRACK, PCB_VIA } from '../pcb_track.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_CONNECTIVITY extends DRC_TEST_PROVIDER {
   override GetName(): string {
@@ -27,7 +28,7 @@ export class DRC_TEST_PROVIDER_CONNECTIVITY extends DRC_TEST_PROVIDER {
   }
 
   Run(): boolean {
-    if (!this.reportPhase('Checking pad, via and zone connections...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking pad, via and zone connections...'))) return false; // DRC cancelled
 
     const board = this.m_drcEngine!.GetBoard()!;
     const connectivity = board.GetConnectivity();
@@ -232,7 +233,7 @@ export class DRC_TEST_PROVIDER_CONNECTIVITY extends DRC_TEST_PROVIDER {
 
     if (this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_UNCONNECTED_ITEMS)) return true; // continue with other tests
 
-    if (!this.reportPhase('Checking net connections...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking net connections...'))) return false; // DRC cancelled
 
     ii = 0;
     count = connectivity.GetUnconnectedCount(false);

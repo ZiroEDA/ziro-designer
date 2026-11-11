@@ -16,6 +16,7 @@ import {
 import { PCB_IO, type PCB_IO_PROJECT, type PCB_IO_PROPERTIES } from '../pcb_io.js';
 import { ALTIUM_PCB_DIR } from './altium_pcb.js';
 import { PCB_IO_ALTIUM_DESIGNER, loadAltiumBoard } from './pcb_io_altium_designer.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export class PCB_IO_SOLIDWORKS extends PCB_IO {
   private readonly m_layerMappable = new LAYER_MAPPABLE_PLUGIN();
@@ -27,7 +28,7 @@ export class PCB_IO_SOLIDWORKS extends PCB_IO {
   }
 
   override GetBoardFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('Solidworks PCB files', ['SWPcbDoc']);
+    return new IO_FILE_DESC(_HKI('Solidworks PCB files'), ['SWPcbDoc']);
   }
 
   GetLibraryDesc(): IO_FILE_DESC {

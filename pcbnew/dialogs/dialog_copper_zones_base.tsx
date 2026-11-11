@@ -22,6 +22,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_COPPER_ZONE_BASE_PROPS {
   title: string;
@@ -58,7 +59,7 @@ export function DIALOG_COPPER_ZONE_BASE(p: DIALOG_COPPER_ZONE_BASE_PROPS): JSX.E
               {/* bSizerLeft */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxLEFT | wxRIGHT | wxTOP} border={7}>
-                  <StaticText label="Layers:" />
+                  <StaticText label={_('Layers:')} />
                 </SizerItem>
                 <Spacer width={0} height={2} flag={wxEXPAND} border={5} />
                 <SizerItem
@@ -88,7 +89,7 @@ export function DIALOG_COPPER_ZONE_BASE(p: DIALOG_COPPER_ZONE_BASE_PROPS): JSX.E
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5} shown={p.zoneManagerShown}>
               <Button
-                label="Open Zone Manager..."
+                label={_('Open Zone Manager...')}
                 disabled={!p.zoneManagerEnabled}
                 onClick={p.onZoneManager}
               />

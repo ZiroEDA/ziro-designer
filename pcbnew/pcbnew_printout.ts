@@ -28,6 +28,7 @@ import { PAD_DRILL_SHAPE } from './padstack.js';
 import { PCB_PAINTER } from './pcb_painter.js';
 import { DRILL_MARKS } from './pcb_plot_params.js';
 import type { PCB_VIA } from './pcb_track.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export enum PAGINATION_T {
   LAYER_PER_PAGE,
@@ -102,7 +103,7 @@ export class PCBNEW_PRINTOUT extends BOARD_PRINTOUT {
 
     const extractLayer = this.m_settings.m_LayerSet.ExtractLayer();
 
-    if (extractLayer === PCB_LAYER_ID.UNDEFINED_LAYER) layerName = 'Multiple Layers';
+    if (extractLayer === PCB_LAYER_ID.UNDEFINED_LAYER) layerName = _('Multiple Layers');
     else layerName = this.m_board.GetLayerName(extractLayer);
 
     // In Pcbnew we can want the layer EDGE always printed

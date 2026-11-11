@@ -61,6 +61,7 @@ import {
 } from '@ziroeda/common';
 import { RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { DIALOG_GEN_FOOTPRINT_POSITION_BASE } from './dialog_gen_footprint_position_file_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 interface Props {
   board: BOARD;
@@ -229,7 +230,7 @@ export function DialogGenFootprintPosition({
     fullcount += fpcount;
     report(`Full component count: ${fullcount}.`, RPT_SEVERITY_INFO);
 
-    report('Done.', RPT_SEVERITY_INFO);
+    report(_('Done.'), RPT_SEVERITY_INFO);
   };
 
   /** `DIALOG_GEN_FOOTPRINT_POSITION::onGenerate`. */
@@ -263,7 +264,7 @@ export function DialogGenFootprintPosition({
     const test = exporter(true, true);
     test.GenPositionData();
     if (test.GetFootprintCount() === 0) {
-      report('No footprint for automated placement.', RPT_SEVERITY_WARNING);
+      report(_('No footprint for automated placement.'), RPT_SEVERITY_WARNING);
       return;
     }
 
@@ -276,13 +277,13 @@ export function DialogGenFootprintPosition({
     emit(name1, first.GenPositionData(), useCSVfmt ? 'text/csv' : 'text/plain');
 
     report(
-      `${singleFile ? 'Placement' : 'Front (top side) placement'} file: '${dir ? `${dir}/` : ''}${name1}'.`,
+      `${singleFile ? _('Placement') : 'Front (top side) placement'} file: '${dir ? `${dir}/` : ''}${name1}'.`,
       RPT_SEVERITY_ACTION,
     );
     report(`Component count: ${first.GetFootprintCount()}.`, RPT_SEVERITY_INFO);
 
     if (singleFile) {
-      report('Done.', RPT_SEVERITY_INFO);
+      report(_('Done.'), RPT_SEVERITY_INFO);
       return;
     }
 
@@ -299,7 +300,7 @@ export function DialogGenFootprintPosition({
       `Full component count: ${first.GetFootprintCount() + second.GetFootprintCount()}.`,
       RPT_SEVERITY_INFO,
     );
-    report('Done.', RPT_SEVERITY_INFO);
+    report(_('Done.'), RPT_SEVERITY_INFO);
   };
 
   const check = (aValue: boolean, aSet: (aOn: boolean) => void, aEnabled = true) => ({

@@ -41,6 +41,8 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export interface DIALOG_CLEANUP_TRACKS_AND_VIAS_BASE_PROPS {
   m_cbRefillZones: CHECK;
@@ -90,66 +92,70 @@ export function DIALOG_CLEANUP_TRACKS_AND_VIAS_BASE(
           {/* bSizerTop */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem proportion={1} flag={wxEXPAND | RL} border={5}>
-              <StaticBoxSizer label="Actions" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Actions')} orient={wxVERTICAL}>
                 <SizerItem flag={RL} border={5}>
                   <CheckBox
-                    label="Refill zones before and after cleanup"
+                    label={_('Refill zones before and after cleanup')}
                     check={p.m_cbRefillZones}
                   />
                 </SizerItem>
                 <Spacer width={0} height={12} proportion={1} flag={wxEXPAND} border={5} />
                 <SizerItem flag={RL} border={5}>
                   <CheckBox
-                    label="Delete tracks connecting different nets"
+                    label={_('Delete tracks connecting different nets')}
                     check={p.m_cleanShortCircuitOpt}
-                    title="remove track segments connecting nodes belonging to different nets (short circuit)"
+                    title={_(
+                      'remove track segments connecting nodes belonging to different nets (short circuit)',
+                    )}
                   />
                 </SizerItem>
                 <Spacer width={0} height={10} proportion={1} flag={wxEXPAND} border={5} />
                 <SizerItem flag={RL} border={5}>
                   <CheckBox
-                    label="Delete redundant vias"
+                    label={_('Delete redundant vias')}
                     check={p.m_cleanViasOpt}
-                    title="remove vias on through hole pads and superimposed vias"
+                    title={_('remove vias on through hole pads and superimposed vias')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxTOP | RL} border={5}>
                   <CheckBox
-                    label="Delete vias connected on only one layer"
+                    label={_('Delete vias connected on only one layer')}
                     check={p.m_deleteDanglingViasOpt}
                   />
                 </SizerItem>
                 <Spacer width={0} height={10} proportion={1} flag={wxEXPAND} border={5} />
                 <SizerItem flag={RL} border={5}>
                   <CheckBox
-                    label="Merge co-linear tracks"
+                    label={_HKI('Merge co-linear tracks')}
                     check={p.m_mergeSegmOpt}
-                    title="merge aligned track segments, and remove null segments"
+                    title={_('merge aligned track segments, and remove null segments')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxTOP | RL} border={5}>
                   <CheckBox
-                    label="Delete tracks unconnected at one end"
+                    label={_('Delete tracks unconnected at one end')}
                     check={p.m_deleteUnconnectedOpt}
-                    title="delete tracks having at least one dangling end"
+                    title={_('delete tracks having at least one dangling end')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxALL} border={5}>
                   <CheckBox
-                    label="Delete tracks fully inside pads"
+                    label={_('Delete tracks fully inside pads')}
                     check={p.m_deleteTracksInPadsOpt}
-                    title="Delete tracks that have both start and end positions inside of a pad"
+                    title={_(
+                      'Delete tracks that have both start and end positions inside of a pad',
+                    )}
                   />
                 </SizerItem>
               </StaticBoxSizer>
             </SizerItem>
             <SizerItem proportion={1} flag={wxEXPAND | RL} border={5}>
-              <StaticBoxSizer label="Filter Items" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Filter Items')} orient={wxVERTICAL}>
                 <SizerItem flag={wxEXPAND | wxBOTTOM} border={5}>
                   {/* fgSizer3 = wxFlexGridSizer( 0, 2, 3, 0 ) */}
                   <FlexGridSizer cols={2} vgap={3} hgap={0} growableCols={[1]}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | RL} border={5}>
-                      <CheckBox label="Filter items by net:" check={p.m_netFilterOpt} />
+                      <CheckBox label={_('Filter items by net:')} check={p.m_netFilterOpt} />
                     </SizerItem>
                     <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT} border={5}>
                       <NetSelector
@@ -159,7 +165,10 @@ export function DIALOG_CLEANUP_TRACKS_AND_VIAS_BASE(
                       />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | RL} border={5}>
-                      <CheckBox label="Filter items by net class:" check={p.m_netclassFilterOpt} />
+                      <CheckBox
+                        label={_('Filter items by net class:')}
+                        check={p.m_netclassFilterOpt}
+                      />
                     </SizerItem>
                     <SizerItem
                       flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxRIGHT}
@@ -175,7 +184,7 @@ export function DIALOG_CLEANUP_TRACKS_AND_VIAS_BASE(
                     <Spacer width={0} height={7} proportion={1} flag={wxEXPAND} border={5} />
                     <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | RL} border={5}>
-                      <CheckBox label="Filter items by layer:" check={p.m_layerFilterOpt} />
+                      <CheckBox label={_('Filter items by layer:')} check={p.m_layerFilterOpt} />
                     </SizerItem>
                     <SizerItem flag={wxEXPAND | wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
                       <Combo
@@ -191,7 +200,7 @@ export function DIALOG_CLEANUP_TRACKS_AND_VIAS_BASE(
                 </SizerItem>
                 <Spacer width={0} height={5} border={5} />
                 <SizerItem flag={wxALL} border={5}>
-                  <CheckBox label="Selected items only" check={p.m_selectedItemsFilter} />
+                  <CheckBox label={_('Selected items only')} check={p.m_selectedItemsFilter} />
                 </SizerItem>
                 <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
               </StaticBoxSizer>
@@ -208,7 +217,7 @@ export function DIALOG_CLEANUP_TRACKS_AND_VIAS_BASE(
                   // m_changesPanel: changesSizer
                   <BoxSizer key="changes" orient={wxVERTICAL}>
                     <SizerItem flag={wxTOP | RL} border={5}>
-                      <StaticText label="Changes to be applied:" />
+                      <StaticText label={_('Changes to be applied:')} />
                     </SizerItem>
                     <SizerItem proportion={1} flag={wxEXPAND | wxTOP | RL} border={5}>
                       <RcTreeView
@@ -222,7 +231,7 @@ export function DIALOG_CLEANUP_TRACKS_AND_VIAS_BASE(
                   // m_runningPanel: progressSizer
                   <BoxSizer key="running" orient={wxVERTICAL}>
                     <SizerItem flag={wxALL} border={5}>
-                      <StaticText label="Progress:" />
+                      <StaticText label={_('Progress:')} />
                     </SizerItem>
                     <SizerItem proportion={1} flag={wxEXPAND | RL} border={3}>
                       <TextCtrl value={p.m_tcReport} multiLine readOnly ariaLabel="Progress" />

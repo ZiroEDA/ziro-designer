@@ -22,6 +22,8 @@ import { type JSX, useReducer, useRef, useState } from 'react';
 import { MessageDialogError } from '@ziroeda/common/dialogs/dialog_message.js';
 import type { CHECK } from '@ziroeda/wx/controls.js';
 import { DIALOG_IMPORT_SETTINGS_BASE } from './dialog_import_settings_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The checkboxes, as BOARD_SETUP's OnAuxiliaryAction reads them. */
 export interface ImportSettingsOpts {
@@ -103,7 +105,7 @@ export class DIALOG_IMPORT_SETTINGS {
   m_CustomRulesOpt = false;
   m_SeveritiesOpt = false;
 
-  m_selectAllLabel = 'Select All';
+  m_selectAllLabel = _HKI('Select All');
   /** Disable "Import Settings" button until user selects at least one import option */
   m_okEnabled = false;
   /** Store state to toggle message/usage of "Select All" button */
@@ -132,7 +134,7 @@ export class DIALOG_IMPORT_SETTINGS {
 
   UpdateSelectAllButton(): void {
     // Update message on button
-    this.m_selectAllLabel = this.m_showSelectAllOnBtn ? 'Select All' : 'Deselect All';
+    this.m_selectAllLabel = this.m_showSelectAllOnBtn ? _('Select All') : _('Deselect All');
   }
 
   TransferDataToWindow(): boolean {
@@ -154,7 +156,7 @@ export class DIALOG_IMPORT_SETTINGS {
 
   TransferDataFromWindow(): boolean {
     if (this.m_files.length === 0) {
-      this.m_error = 'File not found.';
+      this.m_error = _('File not found.');
       return false;
     }
 

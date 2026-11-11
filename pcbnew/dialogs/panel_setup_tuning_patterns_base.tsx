@@ -32,6 +32,8 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, FlexGridSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A UNIT_BINDER's control and units label. */
 export type UNIT_FIELD = {
@@ -59,8 +61,9 @@ export interface PANEL_SETUP_TUNING_PATTERNS_BASE_PROPS {
 }
 
 const CV = wxALIGN_CENTER_VERTICAL;
-const SPACING_TIP =
-  'Minimum spacing between adjacent tuning segments. The resulting spacing may be greater based on design rules.';
+const SPACING_TIP = _HKI(
+  'Minimum spacing between adjacent tuning segments. The resulting spacing may be greater based on design rules.',
+);
 
 /** The per-block Add() flags that differ between the three. */
 interface FLAGS {
@@ -103,7 +106,7 @@ export function PANEL_SETUP_TUNING_PATTERNS_BASE(
             <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
               <FlexGridSizer cols={5} vgap={5} hgap={5} growableCols={[1]}>
                 <SizerItem flag={CV} border={5}>
-                  <StaticText label="Minimum amplitude (A):" />
+                  <StaticText label={_('Minimum amplitude (A):')} />
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                   <BoxSizer orient={wxHORIZONTAL}>
@@ -116,7 +119,7 @@ export function PANEL_SETUP_TUNING_PATTERNS_BASE(
                   </BoxSizer>
                 </SizerItem>
                 <SizerItem flag={CV | wxLEFT} border={15}>
-                  <StaticText label="Maximum amplitude (A):" />
+                  <StaticText label={_('Maximum amplitude (A):')} />
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | CV} border={5}>
                   {entry('maximum amplitude', b.maxA)}
@@ -125,7 +128,7 @@ export function PANEL_SETUP_TUNING_PATTERNS_BASE(
                   <StaticText label={b.maxA.units} />
                 </SizerItem>
                 <SizerItem flag={CV} border={5}>
-                  <StaticText label="Spacing (s):" title={SPACING_TIP} />
+                  <StaticText label={_('Spacing (s):')} title={SPACING_TIP} />
                 </SizerItem>
                 <SizerItem proportion={1} flag={f.spacingBox} border={5}>
                   <BoxSizer orient={wxHORIZONTAL}>
@@ -146,17 +149,17 @@ export function PANEL_SETUP_TUNING_PATTERNS_BASE(
                 {gap()}
                 {gap(5)}
                 <SizerItem proportion={1} flag={CV} border={5}>
-                  <StaticText label="Corner style:" />
+                  <StaticText label={_('Corner style:')} />
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | CV} border={5}>
                   <Choice
-                    choices={['Chamfer', 'Fillet']}
+                    choices={[_('Chamfer'), _('Fillet')]}
                     choice={b.corner}
                     ariaLabel={`${aName} corner style`}
                   />
                 </SizerItem>
                 <SizerItem flag={CV | wxLEFT} border={15}>
-                  <StaticText label="Radius (r):" />
+                  <StaticText label={_('Radius (r):')} />
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | CV} border={5}>
                   <TextCtrlEval
@@ -170,7 +173,7 @@ export function PANEL_SETUP_TUNING_PATTERNS_BASE(
                 </SizerItem>
                 {gap()}
                 <SizerItem flag={f.singleSided} border={5}>
-                  <CheckBox label="Single-sided" check={b.singleSided} />
+                  <CheckBox label={_('Single-sided')} check={b.singleSided} />
                 </SizerItem>
                 {gap()}
               </FlexGridSizer>
@@ -184,19 +187,19 @@ export function PANEL_SETUP_TUNING_PATTERNS_BASE(
   return (
     // bMainSizer
     <BoxSizer orient={wxVERTICAL}>
-      {block('Default Properties for Single Track Tuning', 'Single track', p.track, {
+      {block(_('Default Properties for Single Track Tuning'), _HKI('Single track'), p.track, {
         spacingBox: wxEXPAND | CV,
         singleSided: wxEXPAND | CV,
         outer: wxEXPAND | wxTOP | wxRIGHT,
       })}
       <Spacer width={0} height={10} flag={wxEXPAND} border={5} />
-      {block('Default Properties for Differential Pairs', 'Differential pair', p.dp, {
+      {block(_('Default Properties for Differential Pairs'), _HKI('Differential pair'), p.dp, {
         spacingBox: wxEXPAND,
         singleSided: wxEXPAND | CV,
         outer: wxEXPAND | wxTOP | wxRIGHT,
       })}
       <Spacer width={0} height={10} flag={wxEXPAND} border={5} />
-      {block('Default Properties for Differential Pair Skews', 'Skew', p.skew, {
+      {block(_('Default Properties for Differential Pair Skews'), 'Skew', p.skew, {
         spacingBox: wxEXPAND,
         singleSided: wxALL,
         outer: wxEXPAND | wxTOP | wxBOTTOM | wxRIGHT,

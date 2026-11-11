@@ -76,6 +76,9 @@ import { COMPONENT_CLASS_MANAGER } from '../component_classes/component_class_ma
 import { kiidFromString } from '@ziroeda/common/kiid.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { fpidIsLegacy, fpidItemName, type COMPONENT, type NETLIST } from './pcb_netlist.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * The frame half BOARD_NETLIST_UPDATER asks for. Upstream's `m_frame` is the
@@ -663,24 +666,28 @@ export class BOARD_NETLIST_UPDATER {
       this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
     }
 
-    const attribute = (aFlag: number, aWanted: boolean, aName: string): void => {
+    // board_netlist_updater.cpp:740-800 states each attribute's four messages whole, the
+    // attribute's name inside the msgid: [ add, remove, added, removed ] (dry run first).
+    const attribute = (
+      aFlag: number,
+      aWanted: boolean,
+      aMessages: readonly [string, string, string, string],
+    ): void => {
       if (!this.m_updateFields || aWanted === (aFootprint.GetAttributes() & aFlag) > 0) return;
 
       const ref = aFootprint.GetReference();
 
       if (this.m_isDryRun) {
-        msg = aWanted
-          ? `Add ${ref} '${aName}' fabrication attribute.`
-          : `Remove ${ref} '${aName}' fabrication attribute.`;
+        msg = wxFormat(_(aWanted ? aMessages[0] : aMessages[1]), ref);
       } else {
         let attributes = aFootprint.GetAttributes();
 
         if (aWanted) {
           attributes |= aFlag;
-          msg = `Added ${ref} '${aName}' fabrication attribute.`;
+          msg = wxFormat(_(aMessages[2]), ref);
         } else {
           attributes &= ~aFlag;
-          msg = `Removed ${ref} '${aName}' fabrication attribute.`;
+          msg = wxFormat(_(aMessages[3]), ref);
         }
 
         changed = true;
@@ -690,13 +697,24 @@ export class BOARD_NETLIST_UPDATER {
       this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
     };
 
-    attribute(FP_EXCLUDE_FROM_BOM, props.has('exclude_from_bom'), 'exclude from BOM');
-    attribute(FP_DNP, props.has('dnp'), 'Do not place');
-    attribute(
-      FP_EXCLUDE_FROM_POS_FILES,
-      props.has('exclude_from_pos_files'),
-      'exclude from position files',
-    );
+    attribute(FP_EXCLUDE_FROM_BOM, props.has('exclude_from_bom'), [
+      _HKI("Add %s 'exclude from BOM' fabrication attribute."),
+      _HKI("Remove %s 'exclude from BOM' fabrication attribute."),
+      _HKI("Added %s 'exclude from BOM' fabrication attribute."),
+      _HKI("Removed %s 'exclude from BOM' fabrication attribute."),
+    ]);
+    attribute(FP_DNP, props.has('dnp'), [
+      _HKI("Add %s 'Do not place' fabrication attribute."),
+      _HKI("Remove %s 'Do not place' fabrication attribute."),
+      _HKI("Added %s 'Do not place' fabrication attribute."),
+      _HKI("Removed %s 'Do not place' fabrication attribute."),
+    ]);
+    attribute(FP_EXCLUDE_FROM_POS_FILES, props.has('exclude_from_pos_files'), [
+      _HKI("Add %s 'exclude from position files' fabrication attribute."),
+      _HKI("Remove %s 'exclude from position files' fabrication attribute."),
+      _HKI("Added %s 'exclude from position files' fabrication attribute."),
+      _HKI("Removed %s 'exclude from position files' fabrication attribute."),
+    ]);
 
     if (
       this.m_updateFields &&
@@ -1571,7 +1589,7 @@ export class BOARD_NETLIST_UPDATER {
       // * it creates crashes when calculating dynamic ratsnests if auto refill is enabled.
       // (the auto refills rebuild the connectivity with incomplete data)
       // * it is useless because zones will be refilled after placing new footprints
-      this.m_commit.Push('Update Netlist', this.m_newFootprintsCount ? ZONE_FILL_OP : 0);
+      this.m_commit.Push(_('Update Netlist'), this.m_newFootprintsCount ? ZONE_FILL_OP : 0);
 
       // Update net, netcode and netclass data after commiting the netlist
       this.m_board.SynchronizeNetsAndNetClasses(true);

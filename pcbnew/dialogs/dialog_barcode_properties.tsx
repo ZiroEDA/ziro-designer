@@ -34,6 +34,8 @@ import { BARCODE_ECC_T, BARCODE_T, PCB_BARCODE } from '../pcb_barcode.js';
 import type { TransferResult } from './dialog_text_properties.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BarcodeEcc, BarcodeKind } from '@ziroeda/zint';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * The Code radio box, in `BARCODE_T` order — which is the order the file's
@@ -41,11 +43,11 @@ import type { BarcodeEcc, BarcodeKind } from '@ziroeda/zint';
  * (`dialog_barcode_properties_base.cpp`, `m_barcodeChoices`).
  */
 export const BARCODE_KIND_CHOICES: readonly { value: BarcodeKind; label: string }[] = [
-  { value: 'code39', label: 'Code 39 (ISO 16388)' },
-  { value: 'code128', label: 'Code 128 (ISO 15417)' },
-  { value: 'datamatrix', label: 'Data Matrix (ECC 200)' },
-  { value: 'qr', label: 'QR Code (ISO 18004)' },
-  { value: 'microqr', label: 'Micro QR Code' },
+  { value: 'code39', label: _HKI('Code 39 (ISO 16388)') },
+  { value: 'code128', label: _HKI('Code 128 (ISO 15417)') },
+  { value: 'datamatrix', label: _HKI('Data Matrix (ECC 200)') },
+  { value: 'qr', label: _HKI('QR Code (ISO 18004)') },
+  { value: 'microqr', label: _HKI('Micro QR Code') },
 ];
 
 /**
@@ -54,10 +56,10 @@ export const BARCODE_KIND_CHOICES: readonly { value: BarcodeKind; label: string 
  * upstream's own labels rather than our gloss.
  */
 export const BARCODE_ECC_CHOICES: readonly { value: BarcodeEcc; label: string }[] = [
-  { value: 'L', label: '~20% (Level L)' },
-  { value: 'M', label: '~37% (Level M)' },
-  { value: 'Q', label: '~55% (Level Q)' },
-  { value: 'H', label: '~65% (Level H)' },
+  { value: 'L', label: _HKI('~20% (Level L)') },
+  { value: 'M', label: _HKI('~37% (Level M)') },
+  { value: 'Q', label: _HKI('~55% (Level Q)') },
+  { value: 'H', label: _HKI('~65% (Level H)') },
 ];
 
 /** The editable subset of a `PCB_BARCODE`, as the dialog holds it. */
@@ -261,7 +263,7 @@ export class DIALOG_BARCODE_PROPERTIES {
 
     this.transferDataToBarcode(this.m_currentBarcode, v);
 
-    commit.Push('Modify barcode');
+    commit.Push(_('Modify barcode'));
 
     return { ok: true };
   }
@@ -375,14 +377,14 @@ export function DialogBarcodeProperties({
           value: v.layer,
           onChange: (aLayer) => set({ layer: aLayer }),
         }}
-        m_posX={length('x', 'Position X:', v.at.x, (iu) => set({ at: { ...v.at, x: iu } }))}
-        m_posY={length('y', 'Position Y:', v.at.y, (iu) => set({ at: { ...v.at, y: iu } }))}
-        m_sizeX={length('w', 'Size X:', v.width, (iu) => set({ width: iu }))}
-        m_sizeY={length('h', 'Size Y:', v.height, (iu) => set({ height: iu }))}
+        m_posX={length('x', _('Position X:'), v.at.x, (iu) => set({ at: { ...v.at, x: iu } }))}
+        m_posY={length('y', _('Position Y:'), v.at.y, (iu) => set({ at: { ...v.at, y: iu } }))}
+        m_sizeX={length('w', _('Size X:'), v.width, (iu) => set({ width: iu }))}
+        m_sizeY={length('h', _('Size Y:'), v.height, (iu) => set({ height: iu }))}
         m_orientation={{
-          label: 'Orientation:',
+          label: _('Orientation:'),
           value: texts.angle ?? String(v.angle),
-          units: 'deg',
+          units: _('deg'),
           onChange: (aText) => {
             setTexts((t) => ({ ...t, angle: aText }));
             const n = Number(aText);
@@ -391,21 +393,21 @@ export function DialogBarcodeProperties({
         }}
         m_textSize={length(
           'ts',
-          'Text size:',
+          _('Text size:'),
           v.textHeight,
           (iu) => set({ textHeight: iu }),
           ui.textSizeEnabled,
         )}
         m_marginX={length(
           'mx',
-          'Min margin X:',
+          _('Min margin X:'),
           v.margin.x,
           (iu) => set({ margin: { ...v.margin, x: iu } }),
           ui.marginsEnabled,
         )}
         m_marginY={length(
           'my',
-          'Min margin Y:',
+          _('Min margin Y:'),
           v.margin.y,
           (iu) => set({ margin: { ...v.margin, y: iu } }),
           ui.marginsEnabled,
@@ -423,7 +425,7 @@ export function DialogBarcodeProperties({
           onChange: (aIndex) => set({ ecc: BARCODE_ECC_CHOICES[aIndex]!.value }),
         }}
         m_panelShowBarcodeGal={
-          <canvas ref={canvasRef} width={280} height={280} aria-label="Preview" />
+          <canvas ref={canvasRef} width={280} height={280} aria-label={_('Preview')} />
         }
         onOK={() => {
           const message = commitError(v);

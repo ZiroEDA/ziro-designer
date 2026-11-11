@@ -38,6 +38,7 @@ import { DRC_ENGINE } from './drc_engine.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT_T, type DRC_RULE } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER, ptrOrdinal } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `rescale<int64_t>( a, b, d )`: exact in BigInt, the products pass 2^53. */
 const rescaleI64 = (a: number, b: number, d: number): number =>
@@ -628,7 +629,7 @@ export class DRC_TEST_PROVIDER_DIFF_PAIR_COUPLING extends DRC_TEST_PROVIDER {
           const drce = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_DIFF_PAIR_UNCOUPLED_LENGTH_TOO_LONG)!;
           drce.SetErrorDetail(
             this.formatMsg(
-              '(%s maximum uncoupled length %s; actual %s)',
+              _('(%s maximum uncoupled length %s; actual %s)'),
               key.uncoupledRuleName,
               val.Max(),
               totalUncoupled,
@@ -691,7 +692,7 @@ export class DRC_TEST_PROVIDER_DIFF_PAIR_COUPLING extends DRC_TEST_PROVIDER {
             if (dp.couplingFailMin) {
               drcItem.SetErrorDetail(
                 this.formatMsg(
-                  '(%s minimum gap %s; actual %s)',
+                  _('(%s minimum gap %s; actual %s)'),
                   key.gapRuleName,
                   val.Min(),
                   dp.computedGap,
@@ -700,7 +701,7 @@ export class DRC_TEST_PROVIDER_DIFF_PAIR_COUPLING extends DRC_TEST_PROVIDER {
             } else if (dp.couplingFailMax) {
               drcItem.SetErrorDetail(
                 this.formatMsg(
-                  '(%s maximum gap %s; actual %s)',
+                  _('(%s maximum gap %s; actual %s)'),
                   key.gapRuleName,
                   val.Max(),
                   dp.computedGap,

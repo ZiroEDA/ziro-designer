@@ -23,6 +23,7 @@ import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js'
 import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '../pcb_track.js';
 import type { BOARD } from '../board.js';
 import { DIFF_PAIR_DIMENSION, VIA_DIMENSION } from '../board_design_settings.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 export interface ViaSize {
   diameter: number;
@@ -139,7 +140,7 @@ export function validateSizes(v: {
 
     if (bad) {
       const col = bad.m_Field === VIA_PARAMETER_ERROR_FIELD.DIAMETER ? 'diameter' : 'drill';
-      return { message: bad.m_Message, row, grid: 'Vias', col };
+      return { message: bad.m_Message, row, grid: wxGetTranslation('Vias'), col };
     }
   }
 
@@ -148,9 +149,9 @@ export function validateSizes(v: {
   for (const [row, dp] of v.diffPairsMM.entries()) {
     if (dp.width > 0 && !(dp.gap > 0))
       return {
-        message: 'No differential pair gap defined.',
+        message: wxGetTranslation('No differential pair gap defined.'),
         row,
-        grid: 'Differential Pairs',
+        grid: wxGetTranslation('Differential Pairs'),
         col: 'gap',
       };
   }
@@ -318,18 +319,18 @@ export function PanelSetupTracksAndVias({
   gridRefs: Record<string, WX_GRID | undefined>;
 }): JSX.Element {
   const tracks = useSizeGrid<{ width: number }>({
-    title: 'Tracks',
-    cols: [{ label: 'Width', key: 'width' }],
+    title: wxGetTranslation('Tracks'),
+    cols: [{ label: wxGetTranslation('Width'), key: 'width' }],
     rows: trackWidthsMM.map((width) => ({ width })),
     setRows: (rows) => onChange({ trackWidthsMM: rows.map((r) => r.width) }),
     units,
     gridRef: (g) => (gridRefs.Tracks = g),
   });
   const vias = useSizeGrid<ViaSize>({
-    title: 'Vias',
+    title: wxGetTranslation('Vias'),
     cols: [
-      { label: 'Diameter', key: 'diameter' },
-      { label: 'Hole', key: 'drill' },
+      { label: wxGetTranslation('Diameter'), key: 'diameter' },
+      { label: wxGetTranslation('Hole'), key: 'drill' },
     ],
     rows: viaSizesMM,
     setRows: (rows) => onChange({ viaSizesMM: rows }),
@@ -337,11 +338,11 @@ export function PanelSetupTracksAndVias({
     gridRef: (g) => (gridRefs.Vias = g),
   });
   const diffPairs = useSizeGrid<DiffPairSize>({
-    title: 'Differential Pairs',
+    title: wxGetTranslation('Differential Pairs'),
     cols: [
-      { label: 'Width', key: 'width' },
-      { label: 'Gap', key: 'gap' },
-      { label: 'Via Gap', key: 'viaGap' },
+      { label: wxGetTranslation('Width'), key: 'width' },
+      { label: wxGetTranslation('Gap'), key: 'gap' },
+      { label: wxGetTranslation('Via Gap'), key: 'viaGap' },
     ],
     rows: diffPairsMM,
     setRows: (rows) => onChange({ diffPairsMM: rows }),

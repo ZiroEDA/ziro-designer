@@ -54,6 +54,7 @@ import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
 import { addQuitOrClose } from '@ziroeda/common/tool/action_menu.js';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PcbMenuHandlers {
   /** A one-shot command. */
@@ -104,7 +105,7 @@ export function buildPcbMenus(
 ): Menu[] {
   return [
     {
-      label: 'File',
+      label: _('File'),
       /*
        * `menubar_pcb_editor.cpp:54-183`, row for row.
        *
@@ -117,13 +118,13 @@ export function buildPcbMenus(
        * that pcbnew has them and we have not built them.
        */
       items: [
-        { label: 'Append Board...', icon: 'appendBoard', disabled: dis },
+        { label: _('Append Board...'), icon: 'appendBoard', disabled: dis },
         { sep: true },
         { label: 'Save', icon: 'save', action: () => h.action('save'), shortcut: 'Ctrl+S' },
-        { label: 'Save a Copy...', icon: 'saveAs', action: () => h.action('saveCopy') },
+        { label: _('Save a Copy...'), icon: 'saveAs', action: () => h.action('saveCopy') },
         // `ACTIONS::revert` — "Throw away changes". No hotkey upstream: a
         // destructive command is given none.
-        { label: 'Revert', icon: 'revert', disabled: dis },
+        { label: _('Revert'), icon: 'revert', disabled: dis },
         { sep: true },
         // `PCB_ACTIONS::rescueAutosave` — load the board back from an autosave
         // left by a crashed session. Ours are versions in the project store
@@ -135,79 +136,79 @@ export function buildPcbMenus(
         // the menu says what pcbnew can do rather than hiding it behind one
         // greyed word — and each row is a specific thing to build.
         {
-          label: 'Import',
+          label: _('Import'),
           icon: 'import',
           submenu: [
-            { label: 'Netlist...', disabled: dis, action: () => h.action('importNetlist') },
-            { label: 'Specctra Session...', action: () => h.action('importSpecctraSession') },
+            { label: _('Netlist...'), disabled: dis, action: () => h.action('importNetlist') },
+            { label: _('Specctra Session...'), action: () => h.action('importSpecctraSession') },
             // `PCB_ACTIONS::placeImportedGraphics`, run non-interactively:
             // `DRAWING_TOOL::PlaceImportedGraphics` is the same handler the
             // Place toolbar button arms; from the menu it opens straight into
             // the dialog with no drawing tool to cancel out of first.
-            { label: 'Graphics...', action: () => h.action('importGraphics') },
+            { label: _('Graphics...'), action: () => h.action('importGraphics') },
             // `PCB_ACTIONS::openNonKicadBoard`, added with no label override: the
             // row reads the action's friendly name.
             {
-              label: 'Import Non-KiCad Board File...',
+              label: _('Import Non-KiCad Board File...'),
               icon: 'import_brd_file',
               action: () => h.action('openNonKicadBoard'),
             },
           ],
         },
         {
-          label: 'Export',
+          label: _('Export'),
           icon: 'export',
           submenu: [
-            { label: 'Specctra DSN...', action: () => h.action('exportSpecctraDSN') },
-            { label: 'GenCAD...', action: () => h.action('exportGenCAD') },
-            { label: 'VRML...', action: () => h.action('exportVRML') },
-            { label: 'IDFv3...', disabled: dis },
-            { label: 'STEP/GLB/BREP/XAO/PLY/STL...', disabled: dis },
+            { label: _('Specctra DSN...'), action: () => h.action('exportSpecctraDSN') },
+            { label: _('GenCAD...'), action: () => h.action('exportGenCAD') },
+            { label: _('VRML...'), action: () => h.action('exportVRML') },
+            { label: _('IDFv3...'), disabled: dis },
+            { label: _('STEP/GLB/BREP/XAO/PLY/STL...'), disabled: dis },
             {
-              label: 'Footprint Association (.cmp) File...',
+              label: _('Footprint Association (.cmp) File...'),
               action: () => h.action('exportCmpFile'),
             },
-            { label: 'Hyperlynx...', action: () => h.action('exportHyperlynx') },
+            { label: _('Hyperlynx...'), action: () => h.action('exportHyperlynx') },
             { sep: true },
-            { label: 'Footprints...', disabled: dis },
+            { label: _('Footprints...'), disabled: dis },
           ],
         },
         {
-          label: 'Fabrication Outputs',
+          label: _('Fabrication Outputs'),
           icon: 'fabrication',
           submenu: [
-            { label: 'Gerbers (.gbr)...', disabled: dis },
-            { label: 'Drill Files (.drl)...', action: () => h.action('generateDrillFiles') },
-            { label: 'IPC-2581 File (.xml)...', action: () => h.action('generateIPC2581File') },
-            { label: 'ODB++ Output File...', action: () => h.action('generateODBPPFile') },
+            { label: _('Gerbers (.gbr)...'), disabled: dis },
+            { label: _('Drill Files (.drl)...'), action: () => h.action('generateDrillFiles') },
+            { label: _('IPC-2581 File (.xml)...'), action: () => h.action('generateIPC2581File') },
+            { label: _('ODB++ Output File...'), action: () => h.action('generateODBPPFile') },
             {
-              label: 'Component Placement (.pos, .gbr)...',
+              label: _('Component Placement (.pos, .gbr)...'),
               action: () => h.action('generatePosFile'),
             },
-            { label: 'Footprint Report (.rpt)...', disabled: dis },
-            { label: 'IPC-D-356 Netlist File...', action: () => h.action('generateD356File') },
-            { label: 'Bill of Materials...', action: () => h.action('generateBOM') },
+            { label: _('Footprint Report (.rpt)...'), disabled: dis },
+            { label: _('IPC-D-356 Netlist File...'), action: () => h.action('generateD356File') },
+            { label: _('Bill of Materials...'), action: () => h.action('generateBOM') },
           ],
         },
         { sep: true },
         // These four were reachable from the toolbar and from nowhere in the
         // menu bar, which is where a user looks for them.
-        { label: 'Board Setup...', icon: 'setup', action: () => h.action('boardSetup') },
+        { label: _('Board Setup...'), icon: 'setup', action: () => h.action('boardSetup') },
         { sep: true },
-        { label: 'Page Settings...', icon: 'page', action: () => h.action('pageSettings') },
+        { label: _('Page Settings...'), icon: 'page', action: () => h.action('pageSettings') },
         {
-          label: 'Print...',
+          label: _('Print...'),
           icon: 'print',
           action: () => h.action('print'),
           shortcut: 'Ctrl+P',
         },
-        { label: 'Plot...', icon: 'plot', action: () => h.action('plot') },
+        { label: _('Plot...'), icon: 'plot', action: () => h.action('plot') },
         { sep: true },
-        addQuitOrClose('PCB Editor', () => h.action('close')),
+        addQuitOrClose(_('PCB Editor'), () => h.action('close')),
       ],
     },
     {
-      label: 'Edit',
+      label: _('Edit'),
       /*
        * `menubar_pcb_editor.cpp:180-211`, row for row.
        *
@@ -237,20 +238,25 @@ export function buildPcbMenus(
           action: () => h.action('paste'),
         },
         {
-          label: 'Paste Special...',
+          label: _('Paste Special...'),
           icon: 'paste',
           action: () => h.action('pasteSpecial'),
           shortcut: 'Ctrl+Shift+V',
         },
-        { label: 'Delete', icon: 'delete', action: () => h.action('doDelete'), shortcut: 'Delete' },
+        {
+          label: _('Delete'),
+          icon: 'delete',
+          action: () => h.action('doDelete'),
+          shortcut: _('Delete'),
+        },
         { sep: true },
         // `selectSubMenu`, titled "&Select" (`:186-190`).
         {
-          label: 'Select',
+          label: _('Select'),
           submenu: [
-            { label: 'Select All', action: () => h.action('selectAll'), shortcut: 'Ctrl+A' },
+            { label: _('Select All'), action: () => h.action('selectAll'), shortcut: 'Ctrl+A' },
             {
-              label: 'Unselect All',
+              label: _('Unselect All'),
               action: () => h.action('unselectAll'),
               shortcut: 'Ctrl+Shift+A',
             },
@@ -259,37 +265,37 @@ export function buildPcbMenus(
         { sep: true },
         { label: 'Find', icon: 'find', action: () => h.action('find'), shortcut: 'Ctrl+F' },
         { sep: true },
-        { label: 'Edit Track & Via Properties...', action: () => h.action('editTracksAndVias') },
+        { label: _('Edit Track & Via Properties...'), action: () => h.action('editTracksAndVias') },
         {
-          label: 'Edit Text & Graphics Properties...',
+          label: _('Edit Text & Graphics Properties...'),
           action: () => h.action('editTextAndGraphics'),
         },
-        { label: 'Edit Teardrops...', action: () => h.action('editTeardrops') },
-        { label: 'Change Footprints...', action: () => h.action('changeFootprints') },
-        { label: 'Swap Layers...', action: () => h.action('swapLayers') },
+        { label: _('Edit Teardrops...'), action: () => h.action('editTeardrops') },
+        { label: _('Change Footprints...'), action: () => h.action('changeFootprints') },
+        { label: _('Swap Layers...'), action: () => h.action('swapLayers') },
         // `ACTIONS::gridOrigin` — the DIALOG ("Grid Origin..."), not
         // `gridSetOrigin`, which is the interactive tool the Place menu has.
-        { label: 'Grid Origin...', icon: 'gridOrigin', action: () => h.action('gridOrigin') },
+        { label: _('Grid Origin...'), icon: 'gridOrigin', action: () => h.action('gridOrigin') },
         { sep: true },
         // `PCB_ACTIONS::zoneFillAll` — B, and the frame has run it since the
         // key was bound; it simply had no row.
         {
-          label: 'Fill All Zones',
+          label: _('Fill All Zones'),
           icon: 'zoneFill',
           action: () => h.action('zoneFillAll'),
           shortcut: 'B',
         },
-        { label: 'Unfill All Zones', action: () => h.action('zoneUnfillAll') },
-        { label: 'Update All Tuning Patterns', disabled: dis },
+        { label: _('Unfill All Zones'), action: () => h.action('zoneUnfillAll') },
+        { label: _('Update All Tuning Patterns'), disabled: dis },
         { sep: true },
         // `ACTIONS::deleteTool` — the interactive one, which keeps deleting
         // what you click until it is cancelled. Not the same command as Delete.
-        { label: 'Interactive Delete Tool', disabled: dis },
-        { label: 'Global Deletions...', action: () => h.action('globalDeletions') },
+        { label: _('Interactive Delete Tool'), disabled: dis },
+        { label: _('Global Deletions...'), action: () => h.action('globalDeletions') },
       ],
     },
     {
-      label: 'View',
+      label: _('View'),
       /*
        * `menubar_pcb_editor.cpp:213-281`, row for row. Ours had nine rows
        * against upstream's twenty-eight, and most of the missing ones were
@@ -301,10 +307,10 @@ export function buildPcbMenus(
        */
       items: [
         {
-          label: 'Panels',
+          label: _('Panels'),
           submenu: [
             {
-              label: 'Properties',
+              label: _('Properties'),
               checked: !!checks.showProperties,
               action: () => h.toggle('showProperties'),
             },
@@ -317,20 +323,20 @@ export function buildPcbMenus(
               shortcut: 'Ctrl+G',
             },
             {
-              label: 'Appearance',
+              label: _('Appearance'),
               checked: !!checks.showLayersManager,
               action: () => h.toggle('showLayersManager'),
             },
             // `PCB_ACTIONS::showNetInspector`, CHECK on `netInspectorCond`.
             {
-              label: 'Net Inspector',
+              label: _('Net Inspector'),
               checked: !!checks.showNetInspector,
               action: () => h.toggle('showNetInspector'),
             },
             // `PCB_ACTIONS::showDesignBlockPanel`, CHECK, labelled "Design Blocks", inside
             // `ADVANCED_CFG::m_EnablePcbDesignBlocks` - true by default (advanced_config.cpp:278).
             {
-              label: 'Design Blocks',
+              label: _('Design Blocks'),
               checked: !!checks.showDesignBlockPanel,
               action: () => h.toggle('showDesignBlockPanel'),
             },
@@ -341,7 +347,7 @@ export function buildPcbMenus(
         // COMMON_CONTROL runs as `ShowPlayer( FRAME_FOOTPRINT_VIEWER )`. No
         // hotkey; the icon is `library_browser`, the toolbar button's.
         {
-          label: 'Footprint Library Browser',
+          label: _('Footprint Library Browser'),
           icon: 'footprintBrowser',
           action: () => h.action('footprintBrowser'),
         },
@@ -360,39 +366,39 @@ export function buildPcbMenus(
         // this frame has always dispatched, so both are true and only one can
         // be printed. Left as Home until the key itself moves.
         {
-          label: 'Zoom to Fit',
+          label: _('Zoom to Fit'),
           icon: 'zoomFit',
           action: () => h.action('zoomFitScreen'),
           shortcut: 'Home',
         },
         {
-          label: 'Zoom to All Objects',
+          label: _('Zoom to All Objects'),
           icon: 'zoomFitObjects',
           action: () => h.action('zoomFitObjects'),
         },
-        { label: 'Zoom to Selected Objects', disabled: dis },
+        { label: _('Zoom to Selected Objects'), disabled: dis },
         {
-          label: 'Zoom to Selection Area',
+          label: _('Zoom to Selection Area'),
           icon: 'zoomTool',
           action: () => h.tool('zoomTool'),
         },
         {
-          label: 'Refresh',
+          label: _('Refresh'),
           icon: 'zoomRedraw',
           action: () => h.action('zoomRedraw'),
           shortcut: 'F5',
         },
         { sep: true },
         {
-          label: 'Drawing Mode',
+          label: _('Drawing Mode'),
           submenu: [
             {
-              label: 'Draw Zone Fills',
+              label: _('Draw Zone Fills'),
               checked: !!checks.zoneDisplayFilled,
               action: () => h.toggle('zoneDisplayFilled'),
             },
             {
-              label: 'Draw Zone Outlines',
+              label: _('Draw Zone Outlines'),
               checked: !!checks.zoneDisplayOutline,
               action: () => h.toggle('zoneDisplayOutline'),
             },
@@ -401,32 +407,32 @@ export function buildPcbMenus(
             // PCB_VIEWER_TOOLS', vias and tracks PCB_CONTROL's; each is checked
             // off `!cond.*FillDisplay()`.
             {
-              label: 'Sketch Pads',
+              label: _('Sketch Pads'),
               icon: 'padDisplayMode',
               checked: !!checks.padDisplayMode,
               action: () => h.toggle('padDisplayMode'),
             },
             {
-              label: 'Sketch Vias',
+              label: _('Sketch Vias'),
               icon: 'viaDisplayMode',
               checked: !!checks.viaDisplayMode,
               action: () => h.toggle('viaDisplayMode'),
             },
             {
-              label: 'Sketch Tracks',
+              label: _('Sketch Tracks'),
               icon: 'trackDisplayMode',
               checked: !!checks.trackDisplayMode,
               action: () => h.toggle('trackDisplayMode'),
             },
             { sep: true },
             {
-              label: 'Sketch Graphic Items',
+              label: _('Sketch Graphic Items'),
               icon: 'graphicsOutlines',
               checked: !!checks.graphicsOutlines,
               action: () => h.toggle('graphicsOutlines'),
             },
             {
-              label: 'Sketch Text Items',
+              label: _('Sketch Text Items'),
               icon: 'textOutlines',
               checked: !!checks.textOutlines,
               action: () => h.toggle('textOutlines'),
@@ -434,26 +440,26 @@ export function buildPcbMenus(
           ],
         },
         {
-          label: 'Contrast Mode',
+          label: _('Contrast Mode'),
           submenu: [
             {
               // `ACTIONS::highContrastMode` cycles NORMAL -> DIM -> HIDDEN and
               // ticks whenever it is not NORMAL.
-              label: 'Inactive Layer View Mode',
+              label: _('Inactive Layer View Mode'),
               checked: st.highContrast,
               action: () => h.action('highContrastMode'),
             },
             // `layerAlphaDec` / `layerAlphaInc` step the LAYER opacity, which is
             // not the per-object opacity the Appearance panel carries.
-            { label: 'Decrease Layer Opacity', disabled: dis },
-            { label: 'Increase Layer Opacity', disabled: dis },
+            { label: _('Decrease Layer Opacity'), disabled: dis },
+            { label: _('Increase Layer Opacity'), disabled: dis },
           ],
         },
-        { label: 'Flip Board View', checked: st.flipBoard, action: () => h.action('flipBoard') },
+        { label: _('Flip Board View'), checked: st.flipBoard, action: () => h.action('flipBoard') },
       ],
     },
     {
-      label: 'Place',
+      label: _('Place'),
       items: [
         // `menubar_pcb_editor.cpp:288-315`, in that order and under those
         // FriendlyNames. Every row that names a tool this frame runs carries
@@ -471,20 +477,20 @@ export function buildPcbMenus(
         // the whole of what `menu_hotkey_coverage.test.ts` forbids. The key
         // arrives with the tool.
         {
-          label: 'Place Footprints',
+          label: _('Place Footprints'),
           icon: 'placeFootprint',
           // `PCB_ACTIONS::placeFootprint`, `.DefaultHotkey( 'A' )` (pcb_actions.cpp:1464).
           shortcut: 'A',
           action: () => h.tool('placeFootprint'),
         },
         {
-          label: 'Place Vias',
+          label: _('Place Vias'),
           icon: 'drawVia',
           shortcut: 'Ctrl+Shift+X',
           action: () => h.tool('drawVia'),
         },
         {
-          label: 'Draw Filled Zones',
+          label: _('Draw Filled Zones'),
           icon: 'drawZone',
           // `#ifdef __WXOSX_MAC__ MD_ALT + 'Z' #else MD_CTRL|MD_SHIFT + 'Z'`
           // (`pcb_actions.cpp:318-322`) — the GTK build takes the `#else`.
@@ -492,7 +498,7 @@ export function buildPcbMenus(
           action: () => h.tool('drawZone'),
         },
         {
-          label: 'Draw Rule Areas',
+          label: _('Draw Rule Areas'),
           icon: 'drawRuleArea',
           // `.DefaultHotkey( MD_CTRL + MD_SHIFT + 'K' )` (`pcb_actions.cpp:344`).
           shortcut: 'Ctrl+Shift+K',
@@ -501,30 +507,30 @@ export function buildPcbMenus(
         // `muwaveSubmenu` (`:296-304`) — MICROWAVE_TOOL's five shapes. None of
         // the five `PCB_ACTIONS::microwaveCreate*` declares a hotkey.
         {
-          label: 'Draw Microwave Shapes',
+          label: _('Draw Microwave Shapes'),
           submenu: [
             {
-              label: 'Draw Microwave Lines',
+              label: _('Draw Microwave Lines'),
               icon: 'microwaveCreateLine',
               action: () => h.tool('microwaveCreateLine'),
             },
             {
-              label: 'Draw Microwave Gaps',
+              label: _('Draw Microwave Gaps'),
               icon: 'microwaveCreateGap',
               action: () => h.tool('microwaveCreateGap'),
             },
             {
-              label: 'Draw Microwave Stubs',
+              label: _('Draw Microwave Stubs'),
               icon: 'microwaveCreateStub',
               action: () => h.tool('microwaveCreateStub'),
             },
             {
-              label: 'Draw Microwave Arc Stubs',
+              label: _('Draw Microwave Arc Stubs'),
               icon: 'microwaveCreateStubArc',
               action: () => h.tool('microwaveCreateStubArc'),
             },
             {
-              label: 'Draw Microwave Polygonal Shapes',
+              label: _('Draw Microwave Polygonal Shapes'),
               icon: 'microwaveCreateFunctionShape',
               action: () => h.tool('microwaveCreateFunctionShape'),
             },
@@ -532,7 +538,7 @@ export function buildPcbMenus(
         },
         { sep: true },
         {
-          label: 'Draw Lines',
+          label: _('Draw Lines'),
           icon: 'drawLine',
           shortcut: 'Ctrl+Shift+L',
           action: () => h.tool('drawLine'),
@@ -552,24 +558,24 @@ export function buildPcbMenus(
         // an accelerator on a row that can never fire it, which is the same lie
         // as a dead row. It goes to whichever row can actually run it.
         {
-          label: 'Draw Arcs',
+          label: _('Draw Arcs'),
           icon: 'drawArc',
           action: () => h.tool('drawArc'),
         },
         // No `.DefaultHotkey()` upstream, and none invented here.
         {
-          label: 'Draw Rectangles',
+          label: _('Draw Rectangles'),
           icon: 'drawRectangle',
           action: () => h.tool('drawRectangle'),
         },
         {
-          label: 'Draw Circles',
+          label: _('Draw Circles'),
           icon: 'drawCircle',
           shortcut: 'Ctrl+Shift+C',
           action: () => h.tool('drawCircle'),
         },
         {
-          label: 'Draw Polygons',
+          label: _('Draw Polygons'),
           icon: 'drawPolygon',
           shortcut: 'Ctrl+Shift+P',
           action: () => h.tool('drawPolygon'),
@@ -580,18 +586,18 @@ export function buildPcbMenus(
         // gets the key and `preventDefault` keeps it. Nothing in
         // `browser_reserved.ts` therefore needs to know about it.
         {
-          label: 'Draw Bezier Curve',
+          label: _('Draw Bezier Curve'),
           icon: 'drawBezier',
           shortcut: 'Ctrl+Shift+B',
           action: () => h.tool('drawBezier'),
         },
         {
-          label: 'Place Reference Images',
+          label: _('Place Reference Images'),
           icon: 'placeReferenceImage',
           action: () => h.tool('placeReferenceImage'),
         },
         {
-          label: 'Draw Text',
+          label: _('Draw Text'),
           icon: 'placeText',
           // Ctrl+Shift+T upstream (`pcb_actions.cpp:213`), which is the
           // browser's reopen-closed-tab. `browserSafeKey` is what decides what
@@ -601,17 +607,17 @@ export function buildPcbMenus(
           action: () => h.tool('placeText'),
         },
         {
-          label: 'Draw Text Boxes',
+          label: _('Draw Text Boxes'),
           icon: 'drawTextBox',
           action: () => h.tool('drawTextBox'),
         },
         {
-          label: 'Draw Tables',
+          label: _('Draw Tables'),
           icon: 'drawTable',
           action: () => h.tool('drawTable'),
         },
         {
-          label: 'Place Point',
+          label: _('Place Point'),
           icon: 'placePoint',
           action: () => h.tool('placePoint'),
         },
@@ -627,12 +633,12 @@ export function buildPcbMenus(
         // is *why* Ctrl+Shift+H did nothing: `ui/menu_hotkeys.ts` dispatches the
         // `shortcut` on a menu row, so a tool with no row has no key.
         {
-          label: 'Draw Dimensions',
+          label: _('Draw Dimensions'),
           icon: 'drawAlignedDimension',
           disabled: dis,
           submenu: [
             {
-              label: 'Draw Orthogonal Dimensions',
+              label: _('Draw Orthogonal Dimensions'),
               icon: 'drawOrthogonalDimension',
               // The only one of the five with a `.DefaultHotkey()`
               // (`pcb_actions.cpp:301`); the other four have none upstream
@@ -641,22 +647,22 @@ export function buildPcbMenus(
               action: () => h.tool('drawOrthogonalDimension'),
             },
             {
-              label: 'Draw Aligned Dimensions',
+              label: _('Draw Aligned Dimensions'),
               icon: 'drawAlignedDimension',
               action: () => h.tool('drawAlignedDimension'),
             },
             {
-              label: 'Draw Center Dimensions',
+              label: _('Draw Center Dimensions'),
               icon: 'drawCenterDimension',
               action: () => h.tool('drawCenterDimension'),
             },
             {
-              label: 'Draw Radial Dimensions',
+              label: _('Draw Radial Dimensions'),
               icon: 'drawRadialDimension',
               action: () => h.tool('drawRadialDimension'),
             },
             {
-              label: 'Draw Leaders',
+              label: _('Draw Leaders'),
               icon: 'drawLeader',
               action: () => h.tool('drawLeader'),
             },
@@ -674,7 +680,7 @@ export function buildPcbMenus(
         // `menubar_pcb_editor.cpp:333-336`, in this order: the two setters each
         // followed by their reset.
         {
-          label: 'Drill/Place File Origin',
+          label: _('Drill/Place File Origin'),
           disabled: dis,
           action: () => h.tool('drillOrigin'),
         },
@@ -683,7 +689,7 @@ export function buildPcbMenus(
           disabled: dis,
           action: () => h.action('drillResetOrigin'),
         },
-        { label: 'Grid Origin', disabled: dis, action: () => h.tool('gridSetOrigin') },
+        { label: _('Grid Origin'), disabled: dis, action: () => h.tool('gridSetOrigin') },
         {
           label: 'Reset Grid Origin',
           disabled: dis,
@@ -691,79 +697,82 @@ export function buildPcbMenus(
         },
         { sep: true },
         {
-          label: 'Auto-Place Footprints',
+          label: _('Auto-Place Footprints'),
           submenu: [
-            { label: 'Place Off-Board Footprints', action: () => h.action('autoplaceOffboard') },
-            { label: 'Place Selected Footprints', action: () => h.action('autoplaceSelected') },
+            { label: _('Place Off-Board Footprints'), action: () => h.action('autoplaceOffboard') },
+            { label: _('Place Selected Footprints'), action: () => h.action('autoplaceSelected') },
           ],
         },
       ],
     },
     {
-      label: 'Route',
+      label: _('Route'),
       // `menubar_pcb_editor.cpp:352-368`. The labels are the FriendlyNames:
       // "Route Single Track", not "Single Track".
       items: [
-        { label: 'Set Layer Pair...', action: () => h.action('selectLayerPair') },
+        { label: _('Set Layer Pair...'), action: () => h.action('selectLayerPair') },
         { sep: true },
         // Live in the toolbar and greyed here, which is the state this whole
         // pass exists to end.
         {
-          label: 'Route Single Track',
+          label: _('Route Single Track'),
           icon: 'routeSingleTrack',
           shortcut: 'X',
           action: () => h.tool('routeSingleTrack'),
         },
         {
-          label: 'Route Differential Pair',
+          label: _('Route Differential Pair'),
           icon: 'routeDiffPair',
           // `PCB_ACTIONS::routeDiffPair`, `.DefaultHotkey( '6' )` (pcb_actions.cpp:2563).
           shortcut: '6',
           action: () => h.tool('routeDiffPair'),
         },
         { sep: true },
-        { label: 'Tune Length of a Single Track', disabled: dis },
-        { label: 'Tune Length of a Differential Pair', disabled: dis },
-        { label: 'Tune Skew of a Differential Pair', disabled: dis },
+        { label: _('Tune Length of a Single Track'), disabled: dis },
+        { label: _('Tune Length of a Differential Pair'), disabled: dis },
+        { label: _('Tune Skew of a Differential Pair'), disabled: dis },
         { sep: true },
-        { label: 'Interactive Router Settings...', action: () => h.action('routerSettingsDialog') },
+        {
+          label: _('Interactive Router Settings...'),
+          action: () => h.action('routerSettingsDialog'),
+        },
       ],
     },
     {
-      label: 'Inspect',
+      label: _('Inspect'),
       // `menubar_pcb_editor.cpp:371-388`. Upstream's FriendlyNames carry no
       // ellipsis on the two resolution rows, and Board Statistics is "Show
       // Board Statistics".
       items: [
-        { label: 'Show Board Statistics', action: () => h.action('boardStatistics') },
+        { label: _('Show Board Statistics'), action: () => h.action('boardStatistics') },
         {
-          label: 'Measure Tool',
+          label: _('Measure Tool'),
           icon: 'measureTool',
           shortcut: 'Ctrl+Shift+M',
           action: () => h.tool('measureTool'),
         },
         { sep: true },
         // `PCB_ACTIONS::runDRC` — the toolbar has opened this dialog all along.
-        { label: 'Design Rules Checker', icon: 'runDRC', action: () => h.action('runDRC') },
-        { label: 'Previous Marker', disabled: dis },
-        { label: 'Next Marker', disabled: dis },
-        { label: 'Exclude Marker', disabled: dis },
+        { label: _('Design Rules Checker'), icon: 'runDRC', action: () => h.action('runDRC') },
+        { label: _('Previous Marker'), disabled: dis },
+        { label: _('Next Marker'), disabled: dis },
+        { label: _('Exclude Marker'), disabled: dis },
         { sep: true },
         // PCB_ACTIONS::inspectClearance / inspectConstraints: no enable
         // condition upstream; with the wrong selection the tool picks, or
         // says why in the infobar.
-        { label: 'Clearance Resolution', action: () => h.action('inspectClearance') },
-        { label: 'Constraints Resolution', action: () => h.action('inspectConstraints') },
+        { label: _('Clearance Resolution'), action: () => h.action('inspectClearance') },
+        { label: _('Constraints Resolution'), action: () => h.action('inspectConstraints') },
         {
-          label: 'Show Footprint Associations',
+          label: _('Show Footprint Associations'),
           disabled: dis,
           action: () => h.action('showFootprintAssociations'),
         },
-        { label: 'Compare Footprint with Library', disabled: dis },
+        { label: _('Compare Footprint with Library'), disabled: dis },
       ],
     },
     {
-      label: 'Tools',
+      label: _('Tools'),
       /*
        * `menubar_pcb_editor.cpp:391-459`.
        *
@@ -778,59 +787,66 @@ export function buildPcbMenus(
        */
       items: [
         {
-          label: 'Update PCB from Schematic...',
+          label: _('Update PCB from Schematic...'),
           icon: 'updatePcbFromSchematic',
           action: () => h.action('updatePcbFromSchematic'),
           disabled: !st.hasSchematic,
           shortcut: 'F8',
         },
         {
-          label: 'Switch to Schematic Editor',
+          label: _('Switch to Schematic Editor'),
           icon: 'showEeschema',
           action: () => h.action('showEeschema'),
           disabled: !st.hasSchematic,
         },
         // `ACTIONS::showProjectManager`, added only when NOT standalone — which
         // is always, here. Leaving the board editor goes back to the project.
-        { label: 'Switch to Project Manager', action: () => h.action('showProjectManager') },
-        { label: 'Calculator Tools', disabled: dis },
+        { label: _('Switch to Project Manager'), action: () => h.action('showProjectManager') },
+        { label: _('Calculator Tools'), disabled: dis },
         { sep: true },
-        { label: 'DRC Rule Editor', disabled: dis },
+        { label: _('DRC Rule Editor'), disabled: dis },
         { sep: true },
         {
-          label: 'Footprint Editor',
+          label: _('Footprint Editor'),
           icon: 'showFootprintEditor',
           action: () => h.action('showFootprintEditor'),
           disabled: !st.hasFootprintEditor,
         },
-        { label: 'Update Footprints from Library...', action: () => h.action('updateFootprints') },
         {
-          label: 'Migrate 3D Models...',
+          label: _('Update Footprints from Library...'),
+          action: () => h.action('updateFootprints'),
+        },
+        {
+          label: _('Migrate 3D Models...'),
           icon: 'migrate3DModels',
           action: () => h.action('migrate3DModels'),
         },
         { sep: true },
-        { label: 'Zone Manager...', icon: 'zonesManager', action: () => h.action('zonesManager') },
-        { sep: true },
-        { label: 'Cleanup Tracks & Vias...', action: () => h.action('cleanupTracksAndVias') },
-        { label: 'Remove Unused Pads...', action: () => h.action('removeUnusedPads') },
-        { label: 'Cleanup Graphics...', action: () => h.action('cleanupGraphics') },
-        { label: 'Repair Board', disabled: dis },
-        { sep: true },
-        { label: 'Collect And Embed 3D Models', disabled: dis },
-        { sep: true },
-        { label: 'Geographical Reannotate...', action: () => h.action('boardReannotate') },
-        { label: 'Update Schematic from PCB...', disabled: dis },
         {
-          label: 'Multi-Channel',
+          label: _('Zone Manager...'),
+          icon: 'zonesManager',
+          action: () => h.action('zonesManager'),
+        },
+        { sep: true },
+        { label: _('Cleanup Tracks & Vias...'), action: () => h.action('cleanupTracksAndVias') },
+        { label: _('Remove Unused Pads...'), action: () => h.action('removeUnusedPads') },
+        { label: _('Cleanup Graphics...'), action: () => h.action('cleanupGraphics') },
+        { label: _('Repair Board'), disabled: dis },
+        { sep: true },
+        { label: _('Collect And Embed 3D Models'), disabled: dis },
+        { sep: true },
+        { label: _('Geographical Reannotate...'), action: () => h.action('boardReannotate') },
+        { label: _('Update Schematic from PCB...'), disabled: dis },
+        {
+          label: _('Multi-Channel'),
           submenu: [
             {
-              label: 'Generate Placement Rule Areas...',
+              label: _('Generate Placement Rule Areas...'),
               icon: 'generatePlacementRuleAreas',
               action: () => h.action('generatePlacementRuleAreas'),
             },
             {
-              label: 'Repeat Layout...',
+              label: _('Repeat Layout...'),
               icon: 'repeatLayout',
               action: () => h.action('repeatLayout'),
             },
@@ -838,13 +854,13 @@ export function buildPcbMenus(
         },
         { sep: true },
         {
-          label: 'External Plugins',
-          submenu: [{ label: 'Refresh Plugins', disabled: dis }],
+          label: _('External Plugins'),
+          submenu: [{ label: _('Refresh Plugins'), disabled: dis }],
         },
       ],
     },
     {
-      label: 'Preferences',
+      label: _('Preferences'),
       /*
        * `menubar_pcb_editor.cpp:346-356` — the rows, in order:
        *
@@ -864,15 +880,19 @@ export function buildPcbMenus(
         // business: every footprint on it is stored as `nickname:name`, and
         // this is where a nickname the project references is seen and fixed.
         {
-          label: 'Manage Footprint Libraries...',
+          label: _('Manage Footprint Libraries...'),
           icon: 'library_table',
           action: () => h.action('showFootprintLibTable'),
         },
         // `ACTIONS::showDesignBlockLibTable`, inside `m_EnablePcbDesignBlocks`. The
         // Design Blocks pane is built; PANEL_DESIGN_BLOCK_LIB_TABLE is not, so the
         // row is greyed rather than removed: it is unfinished, not impossible.
-        { label: 'Manage Design Block Libraries...', icon: 'library_table', disabled: true },
-        { label: 'Preferences...', action: () => h.action('openPreferences'), shortcut: 'Ctrl+,' },
+        { label: _('Manage Design Block Libraries...'), icon: 'library_table', disabled: true },
+        {
+          label: _('Preferences...'),
+          action: () => h.action('openPreferences'),
+          shortcut: 'Ctrl+,',
+        },
         { sep: true },
         // `AddMenuLanguageList( prefsMenu, selTool )`, the shared submenu five
         // other frames here already build.

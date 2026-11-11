@@ -71,6 +71,8 @@ import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
 import { GetBoardItemWidth } from './pcb_tool_utils.js';
 import { DIALOG_OUTSET_ITEMS } from '../dialogs/dialog_outset_items.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const { BOUNDING_HULL, CENTERLINE, COPY_LINEWIDTH } = CONVERT_STRATEGY;
 
@@ -144,7 +146,7 @@ export class CONVERT_TOOL extends PCB_TOOL_BASE {
     // Create a context menu and make it available through selection tool
     this.m_convertMenu = new CONDITIONAL_MENU(this);
     this.m_convertMenu.SetIcon(BITMAPS.convert);
-    this.m_convertMenu.SetUntranslatedTitle('Create from Selection');
+    this.m_convertMenu.SetUntranslatedTitle(_HKI('Create from Selection'));
 
     const padTypes = [KICAD_T.PCB_PAD_T];
     const toArcTypes = [KICAD_T.PCB_ARC_T, KICAD_T.PCB_TRACE_T, KICAD_T.PCB_SHAPE_LOCATE_SEGMENT_T];
@@ -309,11 +311,11 @@ export class CONVERT_TOOL extends PCB_TOOL_BASE {
       }
 
       if (aEvent.IsAction(PCB_ACTIONS.convertToPoly)) {
-        if (this.m_userSettings.m_DeleteOriginals) commit.Push('Convert to Polygon');
-        else commit.Push('Create Polygon');
+        if (this.m_userSettings.m_DeleteOriginals) commit.Push(_('Convert to Polygon'));
+        else commit.Push(_('Create Polygon'));
       } else {
-        if (this.m_userSettings.m_DeleteOriginals) commit.Push('Convert to Zone');
-        else commit.Push('Create Zone');
+        if (this.m_userSettings.m_DeleteOriginals) commit.Push(_('Convert to Zone'));
+        else commit.Push(_('Create Zone'));
       }
     };
 
@@ -351,10 +353,10 @@ export class CONVERT_TOOL extends PCB_TOOL_BASE {
             let msg: string;
 
             if (resolvedSettings.m_Strategy === BOUNDING_HULL)
-              msg = 'Resulting polygon would be empty';
-            else msg = 'Objects must form a closed shape';
+              msg = _('Resulting polygon would be empty');
+            else msg = _('Objects must form a closed shape');
 
-            DisplayErrorMessage('Could not convert selection', msg);
+            DisplayErrorMessage(_('Could not convert selection'), msg);
 
             this.m_userSettings = previousSettings;
             return;
@@ -1070,7 +1072,7 @@ export class CONVERT_TOOL extends PCB_TOOL_BASE {
         for (const item of selectionCopy) commit.Remove(item);
       }
 
-      commit.Push('Create Lines');
+      commit.Push(_('Create Lines'));
     };
 
     if (aEvent.IsAction(PCB_ACTIONS.convertToTracks)) {
@@ -1198,7 +1200,7 @@ export class CONVERT_TOOL extends PCB_TOOL_BASE {
       commit.Add(arc);
     }
 
-    commit.Push('Create Arc');
+    commit.Push(_('Create Arc'));
 
     return 0;
   }

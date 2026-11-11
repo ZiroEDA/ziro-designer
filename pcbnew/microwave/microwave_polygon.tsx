@@ -51,6 +51,7 @@ import { PCB_SHAPE } from '../pcb_shape.js';
 import { ADD_MODE } from '../board_item_container.js';
 import { createBaseFootprint } from './microwave_footprint.js';
 import type { MICROWAVE_HOST } from './microwave_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `g_PolyShapeType`: the dialog's `wxRadioBox` selection. */
 export enum MWAVE_POLY_SHAPE_TYPE {
@@ -232,12 +233,12 @@ export async function createPolygonShape(aHost: MICROWAVE_HOST): Promise<FOOTPRI
   const g_ShapeSize = { x: KiROUND(g_MwaveShape.scaleX), y: KiROUND(g_MwaveShape.scaleY) };
 
   if (g_ShapeSize.x === 0 || g_ShapeSize.y === 0) {
-    aHost.ShowInfoBarError('Shape has a null size.');
+    aHost.ShowInfoBarError(_('Shape has a null size.'));
     return null;
   }
 
   if (g_PolyEdges.length === 0) {
-    aHost.ShowInfoBarError('Shape has no points.');
+    aHost.ShowInfoBarError(_('Shape has no points.'));
     return null;
   }
 
@@ -350,7 +351,7 @@ export function MwavePolygonalShapeDlg({
         setSizeX(unitEntryText(d.m_sizeX, units, iuScale));
         setSizeY(unitEntryText(d.m_sizeY, units, iuScale));
       },
-      () => setError('File not found'),
+      () => setError(_('File not found')),
     );
   };
 
@@ -370,7 +371,7 @@ export function MwavePolygonalShapeDlg({
   );
 
   return (
-    <DialogShim title="Complex Shape" onClose={cancel}>
+    <DialogShim title={_('Complex Shape')} onClose={cancel}>
       {/* mainBoxSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxGROW | wxALL} border={5}>
@@ -378,14 +379,14 @@ export function MwavePolygonalShapeDlg({
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem proportion={1} flag={wxGROW | wxALL} border={5}>
               <RadioBox
-                label="Shape"
-                choices={['Normal', 'Symmetrical', 'Mirrored']}
+                label={_('Shape')}
+                choices={[_('Normal'), _('Symmetrical'), _('Mirrored')]}
                 selection={shape}
                 onChange={(aIndex) => setShape(aIndex as MWAVE_POLY_SHAPE_TYPE)}
               />
             </SizerItem>
             <SizerItem proportion={1} flag={wxGROW | wxALL} border={5}>
-              <StaticBoxSizer label="Size" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Size')} orient={wxVERTICAL}>
                 <SizerItem border={5}>{sizeRow('X:', sizeX, setSizeX)}</SizerItem>
                 <SizerItem border={5}>{sizeRow('Y:', sizeY, setSizeY)}</SizerItem>
               </StaticBoxSizer>
@@ -397,7 +398,7 @@ export function MwavePolygonalShapeDlg({
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={10}>
               <Button
-                label="Read Shape Description File..."
+                label={_('Read Shape Description File...')}
                 onClick={() => file.current?.click()}
               />
             </SizerItem>

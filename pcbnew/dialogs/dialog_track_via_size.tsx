@@ -24,6 +24,7 @@ import {
 import type { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
 import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '../pcb_track.js';
 import { DIALOG_TRACK_VIA_SIZE_BASE, type UNIT } from './dialog_track_via_size_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DIALOG_TRACK_VIA_SIZE {
   readonly m_trackWidth: UNIT_BINDER;
@@ -35,9 +36,9 @@ export class DIALOG_TRACK_VIA_SIZE {
   private readonly m_settings: BOARD_DESIGN_SETTINGS;
 
   constructor(aParent: UNIT_BINDER_UNITS_PROVIDER, aSettings: BOARD_DESIGN_SETTINGS) {
-    this.m_trackWidth = new UNIT_BINDER(aParent, 'Track width:');
-    this.m_viaDiameter = new UNIT_BINDER(aParent, 'Via diameter:');
-    this.m_viaDrill = new UNIT_BINDER(aParent, 'Via hole:');
+    this.m_trackWidth = new UNIT_BINDER(aParent, _('Track width:'));
+    this.m_viaDiameter = new UNIT_BINDER(aParent, _('Via diameter:'));
+    this.m_viaDrill = new UNIT_BINDER(aParent, _('Via hole:'));
     this.m_settings = aSettings;
   }
 

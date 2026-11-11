@@ -31,6 +31,9 @@ export const KICAD_TRANSLATES_INTO_OUTPUT: ReadonlyMap<string, string> = new Map
   // sch_label.cpp:1591 and sch_symbol.cpp:3407: PDF bookmark groups.
   ['Hierarchical Labels', 'a PDF bookmark group'],
   ['Symbols', 'a PDF bookmark group'],
+  // pcb_dimension.cpp:1369: a new leader's override text is `_( "Leader" )`, and the Eagle
+  // importer makes one per leader, so the board file holds it in the user's language.
+  ['Leader', "a leader dimension's text"],
 ]);
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));

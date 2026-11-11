@@ -15,6 +15,7 @@ import { type KIID, niluuid } from '@ziroeda/common/kiid.js';
 import { MARKER_T } from '@ziroeda/common/marker_base.js';
 import type { BOARD } from '../board.js';
 import type { PCB_MARKER } from '../pcb_marker.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export enum PCB_DRC_CODE {
   DRCE_FIRST = 1,
@@ -223,349 +224,349 @@ export class DRC_ITEM extends RC_ITEM {
   // We don't translate on initialization and instead do it in the getters.
   // NOTE: Avoid changing the settings key for a DRC item after it has been created
 
-  static readonly heading_electrical = new DRC_ITEM(0, 'Electrical', '');
-  static readonly heading_DFM = new DRC_ITEM(0, 'Design for Manufacturing', '');
-  static readonly heading_schematic_parity = new DRC_ITEM(0, 'Schematic Parity', '');
-  static readonly heading_signal_integrity = new DRC_ITEM(0, 'Signal Integrity', '');
-  static readonly heading_readability = new DRC_ITEM(0, 'Readability', '');
-  static readonly heading_misc = new DRC_ITEM(0, 'Miscellaneous', '');
+  static readonly heading_electrical = new DRC_ITEM(0, _HKI('Electrical'), '');
+  static readonly heading_DFM = new DRC_ITEM(0, _HKI('Design for Manufacturing'), '');
+  static readonly heading_schematic_parity = new DRC_ITEM(0, _HKI('Schematic Parity'), '');
+  static readonly heading_signal_integrity = new DRC_ITEM(0, _HKI('Signal Integrity'), '');
+  static readonly heading_readability = new DRC_ITEM(0, _HKI('Readability'), '');
+  static readonly heading_misc = new DRC_ITEM(0, _HKI('Miscellaneous'), '');
   static readonly heading_internal = new DRC_ITEM(0, '', '');
   static readonly heading_deprecated = new DRC_ITEM(0, '', '');
 
   static readonly unconnectedItems = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_UNCONNECTED_ITEMS,
-    'Missing connection between items',
+    _HKI('Missing connection between items'),
     'unconnected_items',
   );
   static readonly shortingItems = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_SHORTING_ITEMS,
-    'Items shorting two nets',
+    _HKI('Items shorting two nets'),
     'shorting_items',
   );
   static readonly itemsNotAllowed = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_ALLOWED_ITEMS,
-    'Items not allowed',
+    _HKI('Items not allowed'),
     'items_not_allowed',
   );
   static readonly textOnEdgeCuts = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_TEXT_ON_EDGECUTS,
-    'Text or graphic on Edge.Cuts layer',
+    _HKI('Text or graphic on Edge.Cuts layer'),
     'text_on_edge_cuts',
   );
   static readonly clearance = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_CLEARANCE,
-    'Clearance violation',
+    _HKI('Clearance violation'),
     'clearance',
   );
   static readonly creepage = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_CREEPAGE,
-    'Creepage violation',
+    _HKI('Creepage violation'),
     'creepage',
   );
   static readonly tracksCrossing = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_TRACKS_CROSSING,
-    'Tracks crossing',
+    _HKI('Tracks crossing'),
     'tracks_crossing',
   );
   static readonly edgeClearance = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_EDGE_CLEARANCE,
-    'Board edge clearance violation',
+    _HKI('Board edge clearance violation'),
     'copper_edge_clearance',
   );
   static readonly zonesIntersect = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_ZONES_INTERSECT,
-    'Copper zones intersect',
+    _HKI('Copper zones intersect'),
     'zones_intersect',
   );
   static readonly isolatedCopper = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_ISOLATED_COPPER,
-    'Isolated copper fill',
+    _HKI('Isolated copper fill'),
     'isolated_copper',
   );
   static readonly starvedThermal = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_STARVED_THERMAL,
-    'Thermal relief connection to zone incomplete',
+    _HKI('Thermal relief connection to zone incomplete'),
     'starved_thermal',
   );
   static readonly viaDangling = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_DANGLING_VIA,
-    'Via is not connected or connected on only one layer',
+    _HKI('Via is not connected or connected on only one layer'),
     'via_dangling',
   );
   static readonly trackDangling = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_DANGLING_TRACK,
-    'Track has unconnected end',
+    _HKI('Track has unconnected end'),
     'track_dangling',
   );
   static readonly holeClearance = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_HOLE_CLEARANCE,
-    'Hole clearance violation',
+    _HKI('Hole clearance violation'),
     'hole_clearance',
   );
   static readonly holeNearHole = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_DRILLED_HOLES_TOO_CLOSE,
-    'Drilled hole too close to other hole',
+    _HKI('Drilled hole too close to other hole'),
     'hole_to_hole',
   );
   static readonly holesCoLocated = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_DRILLED_HOLES_COLOCATED,
-    'Drilled holes co-located',
+    _HKI('Drilled holes co-located'),
     'holes_co_located',
   );
   static readonly connectionWidth = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_CONNECTION_WIDTH,
-    'Copper connection too narrow',
+    _HKI('Copper connection too narrow'),
     'connection_width',
   );
   static readonly trackWidth = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_TRACK_WIDTH,
-    'Track width',
+    _HKI('Track width'),
     'track_width',
   );
   static readonly trackAngle = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_TRACK_ANGLE,
-    'Track angle',
+    _HKI('Track angle'),
     'track_angle',
   );
   static readonly trackSegmentLength = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_TRACK_SEGMENT_LENGTH,
-    'Track segment length',
+    _HKI('Track segment length'),
     'track_segment_length',
   );
   static readonly annularWidth = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_ANNULAR_WIDTH,
-    'Annular width',
+    _HKI('Annular width'),
     'annular_width',
   );
   static readonly drillTooSmall = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_DRILL_OUT_OF_RANGE,
-    'Hole size out of range',
+    _HKI('Hole size out of range'),
     'drill_out_of_range',
   );
   static readonly viaDiameter = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_VIA_DIAMETER,
-    'Via diameter',
+    _HKI('Via diameter'),
     'via_diameter',
   );
   static readonly padstack = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_PADSTACK,
-    'Padstack is questionable',
+    _HKI('Padstack is questionable'),
     'padstack',
   );
   static readonly padstackInvalid = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_PADSTACK_INVALID,
-    'Padstack is not valid',
+    _HKI('Padstack is not valid'),
     'padstack_invalid',
   );
   static readonly microviaDrillTooSmall = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_MICROVIA_DRILL_OUT_OF_RANGE,
-    'Micro via hole size out of range',
+    _HKI('Micro via hole size out of range'),
     'microvia_drill_out_of_range',
   );
   static readonly courtyardsOverlap = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_OVERLAPPING_FOOTPRINTS,
-    'Courtyards overlap',
+    _HKI('Courtyards overlap'),
     'courtyards_overlap',
   );
   static readonly missingCourtyard = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_MISSING_COURTYARD,
-    'Footprint has no courtyard defined',
+    _HKI('Footprint has no courtyard defined'),
     'missing_courtyard',
   );
   static readonly malformedCourtyard = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_MALFORMED_COURTYARD,
-    'Footprint has malformed courtyard',
+    _HKI('Footprint has malformed courtyard'),
     'malformed_courtyard',
   );
   static readonly pthInsideCourtyard = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_PTH_IN_COURTYARD,
-    'PTH inside courtyard',
+    _HKI('PTH inside courtyard'),
     'pth_inside_courtyard',
   );
   static readonly npthInsideCourtyard = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_NPTH_IN_COURTYARD,
-    'NPTH inside courtyard',
+    _HKI('NPTH inside courtyard'),
     'npth_inside_courtyard',
   );
   static readonly itemOnDisabledLayer = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_DISABLED_LAYER_ITEM,
-    'Item on a disabled copper layer',
+    _HKI('Item on a disabled copper layer'),
     'item_on_disabled_layer',
   );
   static readonly invalidOutline = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_INVALID_OUTLINE,
-    'Board has malformed outline',
+    _HKI('Board has malformed outline'),
     'invalid_outline',
   );
   static readonly duplicateFootprints = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_DUPLICATE_FOOTPRINT,
-    'Duplicate footprints',
+    _HKI('Duplicate footprints'),
     'duplicate_footprints',
   );
   static readonly missingFootprint = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_MISSING_FOOTPRINT,
-    'Missing footprint',
+    _HKI('Missing footprint'),
     'missing_footprint',
   );
   static readonly extraFootprint = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_EXTRA_FOOTPRINT,
-    'Extra footprint',
+    _HKI('Extra footprint'),
     'extra_footprint',
   );
   static readonly netConflict = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_NET_CONFLICT,
-    "Pad net doesn't match schematic",
+    _HKI("Pad net doesn't match schematic"),
     'net_conflict',
   );
   static readonly schematicParity = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_SCHEMATIC_PARITY,
-    "Footprint attributes don't match symbol",
+    _HKI("Footprint attributes don't match symbol"),
     'footprint_symbol_mismatch',
   );
   static readonly footprintFilters = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_FOOTPRINT_FILTERS,
-    "Footprint doesn't match symbol's footprint filters",
+    _HKI("Footprint doesn't match symbol's footprint filters"),
     'footprint_filters_mismatch',
   );
   static readonly schematicFieldsParity = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_SCHEMATIC_FIELDS_PARITY,
-    'Footprint field does not match symbol field',
+    _HKI('Footprint field does not match symbol field'),
     'footprint_symbol_field_mismatch',
   );
   static readonly libFootprintIssues = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_ISSUES,
-    'Footprint not found in libraries',
+    _HKI('Footprint not found in libraries'),
     'lib_footprint_issues',
   );
   static readonly libFootprintMismatch = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_LIB_FOOTPRINT_MISMATCH,
-    "Footprint doesn't match copy in library",
+    _HKI("Footprint doesn't match copy in library"),
     'lib_footprint_mismatch',
   );
   static readonly unresolvedVariable = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_UNRESOLVED_VARIABLE,
-    'Unresolved text variable',
+    _HKI('Unresolved text variable'),
     'unresolved_variable',
   );
   static readonly assertionFailure = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_ASSERTION_FAILURE,
-    'Assertion failure',
+    _HKI('Assertion failure'),
     'assertion_failure',
   );
   static readonly genericWarning = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_GENERIC_WARNING,
-    'Warning',
+    _HKI('Warning'),
     'generic_warning',
   );
   static readonly genericError = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_GENERIC_ERROR,
-    'Error',
+    _HKI('Error'),
     'generic_error',
   );
   static readonly copperSliver = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_COPPER_SLIVER,
-    'Copper sliver',
+    _HKI('Copper sliver'),
     'copper_sliver',
   );
   static readonly solderMaskBridge = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_SOLDERMASK_BRIDGE,
-    'Solder mask aperture bridges items with different nets',
+    _HKI('Solder mask aperture bridges items with different nets'),
     'solder_mask_bridge',
   );
   static readonly silkMaskClearance = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_SILK_MASK_CLEARANCE,
-    'Silkscreen clipped by solder mask',
+    _HKI('Silkscreen clipped by solder mask'),
     'silk_over_copper',
   );
   static readonly silkEdgeClearance = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_SILK_EDGE_CLEARANCE,
-    'Silkscreen clipped by board edge',
+    _HKI('Silkscreen clipped by board edge'),
     'silk_edge_clearance',
   );
   static readonly silkClearance = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_SILK_CLEARANCE,
-    'Silkscreen clearance',
+    _HKI('Silkscreen clearance'),
     'silk_overlap',
   );
   static readonly textHeightOutOfRange = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_TEXT_HEIGHT,
-    'Text height out of range',
+    _HKI('Text height out of range'),
     'text_height',
   );
   static readonly textThicknessOutOfRange = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_TEXT_THICKNESS,
-    'Text thickness out of range',
+    _HKI('Text thickness out of range'),
     'text_thickness',
   );
   static readonly lengthOutOfRange = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_LENGTH_OUT_OF_RANGE,
-    'Track length out of range',
+    _HKI('Track length out of range'),
     'length_out_of_range',
   );
   static readonly skewOutOfRange = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_SKEW_OUT_OF_RANGE,
-    'Skew between tracks out of range',
+    _HKI('Skew between tracks out of range'),
     'skew_out_of_range',
   );
   // Note: this used to only check against a max value, hence the settings key too_many_vias
   static readonly viaCountOutOfRange = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_VIA_COUNT_OUT_OF_RANGE,
-    'Too many or too few vias on a connection',
+    _HKI('Too many or too few vias on a connection'),
     'too_many_vias',
   );
   static readonly diffPairGapOutOfRange = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_DIFF_PAIR_GAP_OUT_OF_RANGE,
-    'Differential pair gap out of range',
+    _HKI('Differential pair gap out of range'),
     'diff_pair_gap_out_of_range',
   );
   static readonly diffPairUncoupledLengthTooLong = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_DIFF_PAIR_UNCOUPLED_LENGTH_TOO_LONG,
-    'Differential uncoupled length too long',
+    _HKI('Differential uncoupled length too long'),
     'diff_pair_uncoupled_length_too_long',
   );
   static readonly footprint = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_FOOTPRINT,
-    'Footprint is not valid',
+    _HKI('Footprint is not valid'),
     'footprint',
   );
   static readonly footprintTypeMismatch = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_FOOTPRINT_TYPE_MISMATCH,
-    "Footprint component type doesn't match footprint pads",
+    _HKI("Footprint component type doesn't match footprint pads"),
     'footprint_type_mismatch',
   );
   static readonly footprintTHPadhasNoHole = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_PAD_TH_WITH_NO_HOLE,
-    'Through hole pad has no hole',
+    _HKI('Through hole pad has no hole'),
     'through_hole_pad_without_hole',
   );
   static readonly mirroredTextOnFrontLayer = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_MIRRORED_TEXT_ON_FRONT_LAYER,
-    'Mirrored text on front layer',
+    _HKI('Mirrored text on front layer'),
     'mirrored_text_on_front_layer',
   );
   static readonly nonMirroredTextOnBackLayer = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_NONMIRRORED_TEXT_ON_BACK_LAYER,
-    'Non-Mirrored text on back layer',
+    _HKI('Non-Mirrored text on back layer'),
     'nonmirrored_text_on_back_layer',
   );
   static readonly missingTuningProfile = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_MISSING_TUNING_PROFILE,
-    'Missing tuning profile',
+    _HKI('Missing tuning profile'),
     'missing_tuning_profile',
   );
   static readonly tuningProfileImplicitRules = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_TUNING_PROFILE_IMPLICIT_RULES,
-    'Tuning profile track geometries',
+    _HKI('Tuning profile track geometries'),
     'tuning_profile_track_geometries',
   );
   static readonly trackOnPostMachinedLayer = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_TRACK_ON_POST_MACHINED_LAYER,
-    'Track connected to post-machined or backdrilled layer',
+    _HKI('Track connected to post-machined or backdrilled layer'),
     'track_on_post_machined_layer',
   );
   static readonly trackNotCenteredOnVia = new DRC_ITEM(
     PCB_DRC_CODE.DRCE_TRACK_NOT_CENTERED_ON_VIA,
-    'Track endpoint not centered on via',
+    _HKI('Track endpoint not centered on via'),
     'track_not_centered_on_via',
   );
 

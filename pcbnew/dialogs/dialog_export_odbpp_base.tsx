@@ -28,11 +28,13 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `m_choiceUnitsChoices`. */
-export const UNITS_CHOICES = ['Millimeters', 'Inches'] as const;
+export const UNITS_CHOICES = [_HKI('Millimeters'), _HKI('Inches')] as const;
 /** `m_choiceCompressChoices`. */
-export const COMPRESS_CHOICES = ['None', 'ZIP', 'TGZ'] as const;
+export const COMPRESS_CHOICES = [_HKI('None'), _HKI('ZIP'), _HKI('TGZ')] as const;
 
 export interface DIALOG_EXPORT_ODBPP_BASE_PROPS {
   /** The window title; `_("Export ODB++")` unless the job version sets its own. */
@@ -64,10 +66,10 @@ const choiceOptions = (aChoices: readonly string[]) =>
   aChoices.map((label, i) => ({ value: String(i), label }));
 
 export function DIALOG_EXPORT_ODBPP_BASE(p: DIALOG_EXPORT_ODBPP_BASE_PROPS): JSX.Element {
-  const precisionTip = 'The number of values following the decimal separator';
+  const precisionTip = _('The number of values following the decimal separator');
 
   return (
-    <DialogShim title={p.title ?? 'Export ODB++'} onClose={p.onCancel}>
+    <DialogShim title={p.title ?? _('Export ODB++')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxALL | wxEXPAND} border={5}>
@@ -75,14 +77,14 @@ export function DIALOG_EXPORT_ODBPP_BASE(p: DIALOG_EXPORT_ODBPP_BASE_PROPS): JSX
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
               {/* m_lblBrdFile */}
-              <span>Output file:</span>
+              <span>{_('Output file:')}</span>
             </SizerItem>
             <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5} minSize={[350, -1]}>
               {/* m_outputFileName */}
               <TextCtrl
                 value={p.m_outputFileName}
                 onChange={p.onOutputFileName}
-                ariaLabel="Output file"
+                ariaLabel={_('Output file')}
                 title={
                   'Enter a filename if you do not want to use default file names\n' +
                   'Can be used only when printing the current sheet'
@@ -97,7 +99,7 @@ export function DIALOG_EXPORT_ODBPP_BASE(p: DIALOG_EXPORT_ODBPP_BASE_PROPS): JSX
               {/* m_browseButton: small_folder (DIALOG_EXPORT_ODBPP's constructor) */}
               <StdBitmapButton
                 bitmap="small_folder"
-                title="Browse"
+                title={_('Browse')}
                 tooltip={null}
                 onClick={() => p.onBrowseClicked?.()}
               />
@@ -112,7 +114,7 @@ export function DIALOG_EXPORT_ODBPP_BASE(p: DIALOG_EXPORT_ODBPP_BASE_PROPS): JSX
               <FlexGridSizer cols={2} vgap={5} hgap={5} growableCols={[1]}>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                   {/* m_lblUnits */}
-                  <span>Units:</span>
+                  <span>{_('Units:')}</span>
                 </SizerItem>
                 <SizerItem flag={wxEXPAND} border={5}>
                   {/* m_choiceUnits */}
@@ -125,7 +127,7 @@ export function DIALOG_EXPORT_ODBPP_BASE(p: DIALOG_EXPORT_ODBPP_BASE_PROPS): JSX
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                   {/* m_lblPrecision */}
-                  <span title={precisionTip}>Precision:</span>
+                  <span title={precisionTip}>{_('Precision:')}</span>
                 </SizerItem>
                 <SizerItem flag={wxEXPAND} border={5}>
                   {/* m_precision: wxSpinCtrl( 2, 16, 6 ) */}
@@ -139,8 +141,8 @@ export function DIALOG_EXPORT_ODBPP_BASE(p: DIALOG_EXPORT_ODBPP_BASE_PROPS): JSX
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
                   {/* m_lblCompress */}
-                  <span title="Select the format to compress the output ODB++ files">
-                    Compression format:
+                  <span title={_('Select the format to compress the output ODB++ files')}>
+                    {_('Compression format:')}
                   </span>
                 </SizerItem>
                 <SizerItem flag={wxEXPAND} border={5}>

@@ -23,6 +23,8 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, GridBagSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A UNIT_BINDER's label / control / units triple. */
 export type FIELD = {
@@ -49,8 +51,9 @@ export interface PANEL_SETUP_MASK_AND_PASTE_BASE_PROPS {
 }
 
 const CV = wxALIGN_CENTER_VERTICAL;
-const TENT_TIP =
-  'Tented: vias are covered with solder mask.\nNot tented: vias are not covered with solder mask.';
+const TENT_TIP = _HKI(
+  'Tented: vias are covered with solder mask.\nNot tented: vias are not covered with solder mask.',
+);
 
 export function PANEL_SETUP_MASK_AND_PASTE_BASE(
   p: PANEL_SETUP_MASK_AND_PASTE_BASE_PROPS,
@@ -104,17 +107,25 @@ export function PANEL_SETUP_MASK_AND_PASTE_BASE(
                 {/* bSizer4 */}
                 <BoxSizer orient={wxVERTICAL}>
                   <SizerItem flag={wxEXPAND} border={5}>
-                    <StaticText label="Consult your PCB manufacturer's specifications for solder mask expansion, web width, and clearance settings." />
+                    <StaticText
+                      label={_(
+                        "Consult your PCB manufacturer's specifications for solder mask expansion, web width, and clearance settings.",
+                      )}
+                    />
                   </SizerItem>
                   <SizerItem flag={wxEXPAND} border={5}>
-                    <StaticText label="If no specifications are provided, setting these values to zero is recommended." />
+                    <StaticText
+                      label={_(
+                        'If no specifications are provided, setting these values to zero is recommended.',
+                      )}
+                    />
                   </SizerItem>
                 </BoxSizer>
               </SizerItem>
             </BoxSizer>
           </SizerItem>
           <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
-          {heading('Solder Mask Settings')}
+          {heading(_('Solder Mask Settings'))}
           <SizerItem flag={wxBOTTOM | wxEXPAND | wxTOP} border={5}>
             {/* gbSizer1 = wxGridBagSizer( 3, 5 ) */}
             <GridBagSizer vgap={3} hgap={5}>
@@ -123,8 +134,10 @@ export function PANEL_SETUP_MASK_AND_PASTE_BASE(
               {row(2, p.m_maskToCopperClearance, CV | wxRIGHT | wxLEFT, CV | wxRIGHT | wxLEFT)}
               <SizerItem pos={[3, 0]} span={[1, 3]} flag={wxTOP | wxLEFT} border={5}>
                 <CheckBox
-                  label="Allow bridged solder mask apertures between pads within footprints"
-                  title="Disable DRC error checking for solder mask aperture bridging between pads in the same footprint."
+                  label={_('Allow bridged solder mask apertures between pads within footprints')}
+                  title={_(
+                    'Disable DRC error checking for solder mask aperture bridging between pads in the same footprint.',
+                  )}
                   check={p.m_allowBridges}
                 />
               </SizerItem>
@@ -132,20 +145,20 @@ export function PANEL_SETUP_MASK_AND_PASTE_BASE(
                 {/* bSizer6 */}
                 <BoxSizer orient={wxHORIZONTAL}>
                   <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>
-                    <StaticText label="Tent vias:" />
+                    <StaticText label={_('Tent vias:')} />
                   </SizerItem>
                   <SizerItem flag={CV | wxLEFT | wxRIGHT} border={5}>
-                    <CheckBox label="Front" title={TENT_TIP} check={p.m_tentViasFront} />
+                    <CheckBox label={_('Front')} title={TENT_TIP} check={p.m_tentViasFront} />
                   </SizerItem>
                   <SizerItem flag={CV | wxLEFT} border={5}>
-                    <CheckBox label="Back" title={TENT_TIP} check={p.m_tentViasBack} />
+                    <CheckBox label={_('Back')} title={TENT_TIP} check={p.m_tentViasBack} />
                   </SizerItem>
                 </BoxSizer>
               </SizerItem>
             </GridBagSizer>
           </SizerItem>
           <Spacer width={0} height={10} flag={wxEXPAND} border={5} />
-          {heading('Solder Paste Settings')}
+          {heading(_('Solder Paste Settings'))}
           <SizerItem flag={wxBOTTOM | wxEXPAND | wxTOP} border={5}>
             {/* gbSizer2 = wxGridBagSizer( 3, 5 ) */}
             <GridBagSizer vgap={3} hgap={5}>

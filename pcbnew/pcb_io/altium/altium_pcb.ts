@@ -154,6 +154,7 @@ import {
   altiumViaSideIsTented,
 } from './altium_parser_pcb.js';
 import type { ALTIUM_PCB_COMPOUND_FILE } from './altium_pcb_compound_file.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const {
   UNDEFINED_LAYER,
@@ -566,7 +567,7 @@ export class ALTIUM_PCB {
         );
 
         if (!this.m_progressReporter.KeepRefreshing())
-          THROW_IO_ERROR('File import canceled by user.');
+          THROW_IO_ERROR(_('File import canceled by user.'));
 
         this.m_lastProgressCount = this.m_doneCount;
       }
@@ -653,7 +654,9 @@ export class ALTIUM_PCB {
 
       if (!file) {
         THROW_IO_ERROR(
-          'This file does not appear to be in a valid PCB Binary Version 6.0 format. In Altium Designer, make sure to save as "PCB Binary Files (*.PcbDoc)".',
+          _(
+            'This file does not appear to be in a valid PCB Binary Version 6.0 format. In Altium Designer, make sure to save as "PCB Binary Files (*.PcbDoc)".',
+          ),
         );
       }
     }
@@ -1024,7 +1027,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading extended primitive information data...');
+    this.m_progressReporter?.Report(_('Loading extended primitive information data...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -1050,7 +1053,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading board data...');
+    this.m_progressReporter?.Report(_('Loading board data...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -1473,7 +1476,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading netclasses...');
+    this.m_progressReporter?.Report(_('Loading netclasses...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -1524,7 +1527,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading components...');
+    this.m_progressReporter?.Report(_('Loading components...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -1591,7 +1594,7 @@ export class ALTIUM_PCB {
     aFootprint: FOOTPRINT,
     aElem: ACOMPONENTBODY6,
   ): void {
-    this.m_progressReporter?.Report('Loading component 3D models...');
+    this.m_progressReporter?.Report(_('Loading component 3D models...'));
 
     if (!aElem.modelIsEmbedded) return;
 
@@ -1665,7 +1668,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading component 3D models...');
+    this.m_progressReporter?.Report(_('Loading component 3D models...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -2070,7 +2073,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading dimension drawings...');
+    this.m_progressReporter?.Report(_('Loading dimension drawings...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -2083,7 +2086,7 @@ export class ALTIUM_PCB {
           this.HelperParseDimensions6Linear(elem);
           break;
         case ALTIUM_DIMENSION_KIND.ANGULAR:
-          this.report('Ignored Angular dimension (not yet supported).', RPT_SEVERITY_INFO);
+          this.report(_('Ignored Angular dimension (not yet supported).'), RPT_SEVERITY_INFO);
           break;
         case ALTIUM_DIMENSION_KIND.RADIAL:
           this.HelperParseDimensions6Radial(elem);
@@ -2092,20 +2095,20 @@ export class ALTIUM_PCB {
           this.HelperParseDimensions6Leader(elem);
           break;
         case ALTIUM_DIMENSION_KIND.DATUM:
-          this.report('Ignored Datum dimension (not yet supported).', RPT_SEVERITY_INFO);
+          this.report(_('Ignored Datum dimension (not yet supported).'), RPT_SEVERITY_INFO);
           // HelperParseDimensions6Datum( elem );
           break;
         case ALTIUM_DIMENSION_KIND.BASELINE:
-          this.report('Ignored Baseline dimension (not yet supported).', RPT_SEVERITY_INFO);
+          this.report(_('Ignored Baseline dimension (not yet supported).'), RPT_SEVERITY_INFO);
           break;
         case ALTIUM_DIMENSION_KIND.CENTER:
           this.HelperParseDimensions6Center(elem);
           break;
         case ALTIUM_DIMENSION_KIND.LINEAR_DIAMETER:
-          this.report('Ignored Linear dimension (not yet supported).', RPT_SEVERITY_INFO);
+          this.report(_('Ignored Linear dimension (not yet supported).'), RPT_SEVERITY_INFO);
           break;
         case ALTIUM_DIMENSION_KIND.RADIAL_DIAMETER:
-          this.report('Ignored Radial dimension (not yet supported).', RPT_SEVERITY_INFO);
+          this.report(_('Ignored Radial dimension (not yet supported).'), RPT_SEVERITY_INFO);
           break;
         default:
           this.report(
@@ -2124,7 +2127,7 @@ export class ALTIUM_PCB {
     aEntry: COMPOUND_FILE_ENTRY,
     aRootDir: readonly string[],
   ): void {
-    this.m_progressReporter?.Report('Loading 3D models...');
+    this.m_progressReporter?.Report(_('Loading 3D models...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -2212,7 +2215,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading nets...');
+    this.m_progressReporter?.Report(_('Loading nets...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -2236,7 +2239,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading polygons...');
+    this.m_progressReporter?.Report(_('Loading polygons...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -2388,7 +2391,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading rules...');
+    this.m_progressReporter?.Report(_('Loading rules...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -2446,7 +2449,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading board regions...');
+    this.m_progressReporter?.Report(_('Loading board regions...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -2464,7 +2467,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading polygons...');
+    this.m_progressReporter?.Report(_('Loading polygons...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -2861,7 +2864,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading zone fills...');
+    this.m_progressReporter?.Report(_('Loading zone fills...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -2924,7 +2927,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading arcs...');
+    this.m_progressReporter?.Report(_('Loading arcs...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -3188,7 +3191,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading pads...');
+    this.m_progressReporter?.Report(_('Loading pads...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -3738,7 +3741,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading vias...');
+    this.m_progressReporter?.Report(_('Loading vias...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -3851,7 +3854,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading tracks...');
+    this.m_progressReporter?.Report(_('Loading tracks...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -4049,7 +4052,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading unicode strings...');
+    this.m_progressReporter?.Report(_('Loading unicode strings...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -4187,7 +4190,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading text...');
+    this.m_progressReporter?.Report(_('Loading text...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 
@@ -4618,7 +4621,7 @@ export class ALTIUM_PCB {
     aAltiumPcbFile: ALTIUM_PCB_COMPOUND_FILE,
     aEntry: COMPOUND_FILE_ENTRY,
   ): void {
-    this.m_progressReporter?.Report('Loading rectangles...');
+    this.m_progressReporter?.Report(_('Loading rectangles...'));
 
     const reader = new ALTIUM_BINARY_PARSER(aAltiumPcbFile, aEntry);
 

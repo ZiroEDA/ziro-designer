@@ -21,6 +21,7 @@ import type { BOARD_ITEM } from '../board_item.js';
 import { ZONE } from '../zone.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `DEG2RAD` (`trigo.h`). */
 const DEG2RAD = (deg: number): number => (deg * Math.PI) / 180.0;
@@ -40,7 +41,7 @@ export class DRC_TEST_PROVIDER_SLIVER_CHECKER extends DRC_TEST_PROVIDER {
   Run(): boolean {
     if (this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_COPPER_SLIVER)) return true; // Continue with other tests
 
-    if (!this.reportPhase('Running sliver detection on copper layers...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Running sliver detection on copper layers...'))) return false; // DRC cancelled
 
     const widthTolerance = pcbMmToIU(ADVANCED_CFG.GetCfg().m_SliverWidthTolerance);
     const squared_width = widthTolerance * widthTolerance;

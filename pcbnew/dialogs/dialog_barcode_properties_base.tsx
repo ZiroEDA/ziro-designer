@@ -28,6 +28,7 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER over a wxTextCtrl: its label, text, unit and Enable(). */
 export interface FIELD {
@@ -95,7 +96,7 @@ export function DIALOG_BARCODE_PROPERTIES_BASE(
   );
 
   return (
-    <DialogShim title="Barcode Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Barcode Properties')} onClose={p.onCancel}>
       {/* m_MainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxLEFT} border={5}>
@@ -108,7 +109,7 @@ export function DIALOG_BARCODE_PROPERTIES_BASE(
                   {/* bSizer10 */}
                   <BoxSizer orient={wxHORIZONTAL}>
                     <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                      <StaticText label="Text:" />
+                      <StaticText label={_('Text:')} />
                     </SizerItem>
                     <Spacer width={0} height={3} flag={wxEXPAND} border={5} />
                     <SizerItem
@@ -137,17 +138,19 @@ export function DIALOG_BARCODE_PROPERTIES_BASE(
                               {/* bSizerCheckboxes */}
                               <BoxSizer orient={wxHORIZONTAL}>
                                 <SizerItem proportion={1} border={5}>
-                                  <CheckBox label="Locked" check={p.m_cbLocked} />
+                                  <CheckBox label={_('Locked')} check={p.m_cbLocked} />
                                 </SizerItem>
                                 <SizerItem proportion={1} flag={wxLEFT} border={10}>
                                   <CheckBox
-                                    label="Knockout"
+                                    label={_('Knockout')}
                                     check={p.m_cbKnockout}
-                                    title="If checked, the barcode will be inverted with a margin around it"
+                                    title={_(
+                                      'If checked, the barcode will be inverted with a margin around it',
+                                    )}
                                   />
                                 </SizerItem>
                                 <SizerItem proportion={1} flag={wxLEFT} border={25}>
-                                  <CheckBox label="Show text" check={p.m_cbShowText} />
+                                  <CheckBox label={_('Show text')} check={p.m_cbShowText} />
                                 </SizerItem>
                               </BoxSizer>
                             </SizerItem>
@@ -169,7 +172,7 @@ export function DIALOG_BARCODE_PROPERTIES_BASE(
                                 growableCols={[1]}
                               >
                                 <SizerItem pos={[0, 0]} flag={CV | wxTOP} border={6}>
-                                  <StaticText label="Layer:" />
+                                  <StaticText label={_('Layer:')} />
                                 </SizerItem>
                                 <SizerItem
                                   pos={[0, 1]}
@@ -212,7 +215,7 @@ export function DIALOG_BARCODE_PROPERTIES_BASE(
                                   border={5}
                                 >
                                   <RadioBox
-                                    label="Code"
+                                    label={_('Code')}
                                     choices={p.m_barcode.choices}
                                     selection={p.m_barcode.selection}
                                     onChange={p.m_barcode.onChange}
@@ -225,7 +228,7 @@ export function DIALOG_BARCODE_PROPERTIES_BASE(
                                   border={5}
                                 >
                                   <RadioBox
-                                    label="Error Correction"
+                                    label={_('Error Correction')}
                                     choices={p.m_errorCorrection.choices}
                                     selection={p.m_errorCorrection.selection}
                                     onChange={p.m_errorCorrection.onChange}

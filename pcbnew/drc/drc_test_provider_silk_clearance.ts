@@ -21,6 +21,7 @@ import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { ATOMIC_TABLES, DRC_RTREE, type ITEM_WITH_SHAPE, type LAYER_PAIR } from './drc_rtree.js';
 import { DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_SILK_CLEARANCE extends DRC_TEST_PROVIDER {
   private m_largestClearance = 0;
@@ -55,7 +56,7 @@ export class DRC_TEST_PROVIDER_SILK_CLEARANCE extends DRC_TEST_PROVIDER {
 
     if (worstClearanceConstraint) this.m_largestClearance = worstClearanceConstraint.m_Value.Min();
 
-    if (!this.reportPhase('Checking silkscreen for overlapping items...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking silkscreen for overlapping items...'))) return false; // DRC cancelled
 
     const silkTree = new DRC_RTREE();
     const targetTree = new DRC_RTREE();
@@ -241,7 +242,7 @@ export class DRC_TEST_PROVIDER_SILK_CLEARANCE extends DRC_TEST_PROVIDER {
           if (minClearance > 0) {
             drcItem.SetErrorDetail(
               this.formatMsg(
-                '(%s clearance %s; actual %s)',
+                _('(%s clearance %s; actual %s)'),
                 constraint.GetName(),
                 minClearance,
                 actual.value,

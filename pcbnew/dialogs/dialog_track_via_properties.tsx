@@ -63,6 +63,7 @@ import {
 } from '../via_protection_ui_mixin.js';
 import type { TransferResult } from './dialog_text_properties.js';
 import type { UnconnectedLayerMode } from './dialog_pad_properties.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The `(via …)` kind token the window holds: VIATYPE as the file spells it. */
 export type ViaKind = 'through' | 'blind' | 'buried' | 'micro';
@@ -477,7 +478,7 @@ export class DIALOG_TRACK_VIA_PROPERTIES extends VIA_PROTECTION_UI_MIXIN {
     const board = this.m_frame.GetBoard();
 
     if (!stack || !board)
-      return { mode: 0, editLayers: ['All layers'], editLayer: 0, editEnabled: false };
+      return { mode: 0, editLayers: [_('All layers')], editLayer: 0, editEnabled: false };
 
     let labels: string[];
 
@@ -485,7 +486,7 @@ export class DIALOG_TRACK_VIA_PROPERTIES extends VIA_PROTECTION_UI_MIXIN {
       case PADSTACK_MODE.FRONT_INNER_BACK:
         labels = [
           board.GetLayerName(PCB_LAYER_ID.F_Cu),
-          'Inner Layers',
+          _('Inner Layers'),
           board.GetLayerName(PCB_LAYER_ID.B_Cu),
         ];
         this.m_editLayerCtrlMap = new Map([
@@ -507,7 +508,7 @@ export class DIALOG_TRACK_VIA_PROPERTIES extends VIA_PROTECTION_UI_MIXIN {
       }
 
       default:
-        labels = ['All layers'];
+        labels = [_('All layers')];
         this.m_editLayer = PADSTACK.ALL_LAYERS;
         this.m_editLayerCtrlMap = new Map([[0, PADSTACK.ALL_LAYERS]]);
     }
@@ -852,10 +853,10 @@ export class DIALOG_TRACK_VIA_PROPERTIES extends VIA_PROTECTION_UI_MIXIN {
         : `Applying these changes will short net ${name} with other nets.`;
 
     return {
-      caption: 'Confirmation',
+      caption: _('Confirmation'),
       message,
       icon: 'warning',
-      labels: { ok: 'Apply Anyway', cancel: 'Cancel Changes' },
+      labels: { ok: _('Apply Anyway'), cancel: _('Cancel Changes') },
       doNotShowKey: TRACK_VIA_DO_NOT_SHOW_KEYS.shortingNets,
     };
   }
@@ -877,10 +878,10 @@ export class DIALOG_TRACK_VIA_PROPERTIES extends VIA_PROTECTION_UI_MIXIN {
     }
 
     return {
-      caption: 'Confirmation',
+      caption: _('Confirmation'),
       message,
       icon: 'warning',
-      labels: { ok: 'Change Nets', cancel: 'Leave Nets Unchanged' },
+      labels: { ok: _('Change Nets'), cancel: _('Leave Nets Unchanged') },
       doNotShowKey: TRACK_VIA_DO_NOT_SHOW_KEYS.padChange,
     };
   }
@@ -1242,7 +1243,7 @@ export class DIALOG_TRACK_VIA_PROPERTIES extends VIA_PROTECTION_UI_MIXIN {
       }
     }
 
-    commit.Push('Edit Track/Via Properties');
+    commit.Push(_('Edit Track/Via Properties'));
     return { ok: true };
   }
 }
@@ -1346,27 +1347,27 @@ export function DialogTrackViaProperties({
     const w = dlg.TransferDataToWindow();
     const b = (label: string) => new UNIT_BINDER(frame, label);
     const binders: Record<BinderKey, UNIT_BINDER> = {
-      trackStartX: b('Start X:'),
+      trackStartX: b(_('Start X:')),
       trackStartY: b('Y:'),
-      trackEndX: b('End X:'),
+      trackEndX: b(_('End X:')),
       trackEndY: b('Y:'),
-      trackWidth: b('Track width:'),
-      trackMaskMargin: b('Expansion:'),
-      viaX: b('Position X:'),
+      trackWidth: b(_('Track width:')),
+      trackMaskMargin: b(_('Expansion:')),
+      viaX: b(_('Position X:')),
       viaY: b('Y:'),
-      viaDiameter: b('Via diameter:'),
-      viaDrill: b('Via hole:'),
-      backdrillFrontSize: b('Top backdrill size:'),
-      backdrillBackSize: b('Bottom backdrill size:'),
-      topPostMachineSize1: b('Size:'),
-      topPostMachineSize2: b('Angle:'),
-      bottomPostMachineSize1: b('Size:'),
-      bottomPostMachineSize2: b('Angle:'),
-      teardropHDPercent: b('Maximum track width:'),
-      teardropLenPercent: b('Best length (L):'),
-      teardropMaxLen: b('Maximum length (L):'),
-      teardropWidthPercent: b('Best width (W):'),
-      teardropMaxWidth: b('Maximum width (W):'),
+      viaDiameter: b(_('Via diameter:')),
+      viaDrill: b(_('Via hole:')),
+      backdrillFrontSize: b(_('Top backdrill size:')),
+      backdrillBackSize: b(_('Bottom backdrill size:')),
+      topPostMachineSize1: b(_('Size:')),
+      topPostMachineSize2: b(_('Angle:')),
+      bottomPostMachineSize1: b(_('Size:')),
+      bottomPostMachineSize2: b(_('Angle:')),
+      teardropHDPercent: b(_('Maximum track width:')),
+      teardropLenPercent: b(_('Best length (L):')),
+      teardropMaxLen: b(_('Maximum length (L):')),
+      teardropWidthPercent: b(_('Best width (W):')),
+      teardropMaxWidth: b(_('Maximum width (W):')),
     };
 
     binders.teardropHDPercent.SetUnits('percent');
@@ -1415,8 +1416,8 @@ export function DialogTrackViaProperties({
       track: copperLayerBox(frame),
       viaStart: copperLayerBox(frame),
       viaEnd: copperLayerBox(frame),
-      backdrillFront: copperLayerBox(frame, 'None'),
-      backdrillBack: copperLayerBox(frame, 'None'),
+      backdrillFront: copperLayerBox(frame, _('None')),
+      backdrillBack: copperLayerBox(frame, _('None')),
     };
 
     return { w, binders, layerBoxes };
@@ -1570,8 +1571,8 @@ export function DialogTrackViaProperties({
       size1: unit(size1, enable),
       size2: {
         ...unit(size2, enable),
-        label: bore ? 'Depth:' : 'Angle:',
-        units: bore ? userUnits() : 'deg',
+        label: bore ? _('Depth:') : _('Angle:'),
+        units: bore ? userUnits() : _('deg'),
       },
     };
   };
@@ -1744,7 +1745,7 @@ export function DialogTrackViaProperties({
         rows: [
           ...PROTECTION_ROWS.map((p, i) => ({
             value: String(i),
-            label: IPC4761_NAMES.get(p) ?? 'Unknown choice',
+            label: IPC4761_NAMES.get(p) ?? _('Unknown choice'),
           })),
           ...(init.w.protection === undefined
             ? [{ value: String(PROTECTION_ROWS.length), label: INDETERMINATE_STATE }]

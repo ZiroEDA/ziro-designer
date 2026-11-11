@@ -29,6 +29,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, FlexGridSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_FIND_BASE_PROPS {
   /** `m_searchCombo`: wxCB_DROPDOWN | wxTE_PROCESS_ENTER, its history in the list. */
@@ -58,7 +59,7 @@ export interface DIALOG_FIND_BASE_PROPS {
 
 export function DIALOG_FIND_BASE(p: DIALOG_FIND_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Find" onClose={p.OnCloseButtonClick} modeless onCharHook={p.onCharHook}>
+    <DialogShim title={_('Find')} onClose={p.OnCloseButtonClick} modeless onCharHook={p.onCharHook}>
       {/* bSizer10 */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxALL | wxEXPAND} border={5}>
@@ -71,7 +72,7 @@ export function DIALOG_FIND_BASE(p: DIALOG_FIND_BASE_PROPS): JSX.Element {
                   {/* bSizer8 */}
                   <BoxSizer orient={wxHORIZONTAL}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
-                      <StaticText label="Search for:" />
+                      <StaticText label={_('Search for:')} />
                     </SizerItem>
                     <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
                       <TextCombo
@@ -79,7 +80,7 @@ export function DIALOG_FIND_BASE(p: DIALOG_FIND_BASE_PROPS): JSX.Element {
                         options={p.m_searchCombo.history}
                         onChange={p.m_searchCombo.onChange}
                         onEnter={p.onTextEnter}
-                        title="Text with optional wildcards"
+                        title={_('Text with optional wildcards')}
                         ariaLabel="Search for"
                         autoFocus
                       />
@@ -90,19 +91,19 @@ export function DIALOG_FIND_BASE(p: DIALOG_FIND_BASE_PROPS): JSX.Element {
                   {/* sizerOptions */}
                   <BoxSizer orient={wxHORIZONTAL}>
                     <SizerItem flag={wxALL} border={5}>
-                      <CheckBox label="Match case" check={p.m_matchCase} />
+                      <CheckBox label={_('Match case')} check={p.m_matchCase} />
                     </SizerItem>
                     <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
                     <SizerItem flag={wxALL} border={5}>
-                      <CheckBox label="Whole words only" check={p.m_matchWords} />
+                      <CheckBox label={_('Whole words only')} check={p.m_matchWords} />
                     </SizerItem>
                     <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
                     <SizerItem flag={wxALL} border={5}>
-                      <CheckBox label="Wildcards" check={p.m_wildcards} />
+                      <CheckBox label={_('Wildcards')} check={p.m_wildcards} />
                     </SizerItem>
                     <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
                     <SizerItem flag={wxALL} border={5}>
-                      <CheckBox label="Wrap" check={p.m_wrap} />
+                      <CheckBox label={_('Wrap')} check={p.m_wrap} />
                     </SizerItem>
                   </BoxSizer>
                 </SizerItem>
@@ -112,25 +113,25 @@ export function DIALOG_FIND_BASE(p: DIALOG_FIND_BASE_PROPS): JSX.Element {
                   <FlexGridSizer cols={2} vgap={6} hgap={20}>
                     <SizerItem border={5}>
                       <CheckBox
-                        label="Search footprint reference designators"
+                        label={_('Search footprint reference designators')}
                         check={p.m_includeReferences}
                       />
                     </SizerItem>
                     <SizerItem border={5}>
-                      <CheckBox label="Search DRC markers" check={p.m_includeMarkers} />
+                      <CheckBox label={_('Search DRC markers')} check={p.m_includeMarkers} />
                     </SizerItem>
                     <SizerItem border={5}>
-                      <CheckBox label="Search footprint values" check={p.m_includeValues} />
+                      <CheckBox label={_('Search footprint values')} check={p.m_includeValues} />
                     </SizerItem>
                     <SizerItem border={5}>
-                      <CheckBox label="Search net names" check={p.m_includeNets} />
+                      <CheckBox label={_('Search net names')} check={p.m_includeNets} />
                     </SizerItem>
                     <SizerItem border={5}>
-                      <CheckBox label="Include hidden fields" check={p.m_checkAllFields} />
+                      <CheckBox label={_('Include hidden fields')} check={p.m_checkAllFields} />
                     </SizerItem>
                     <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
                     <SizerItem border={5}>
-                      <CheckBox label="Search other text items" check={p.m_includeTexts} />
+                      <CheckBox label={_('Search other text items')} check={p.m_includeTexts} />
                     </SizerItem>
                   </FlexGridSizer>
                 </SizerItem>
@@ -141,16 +142,16 @@ export function DIALOG_FIND_BASE(p: DIALOG_FIND_BASE_PROPS): JSX.Element {
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxALIGN_TOP | wxALL | wxEXPAND} border={5}>
                   {/* m_findNext->SetDefault() */}
-                  <Button label="Find Next" isDefault onClick={p.onFindNextClick} />
+                  <Button label={_('Find Next')} isDefault onClick={p.onFindNextClick} />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_LEFT | wxALL | wxEXPAND} border={5}>
-                  <Button label="Find Previous" onClick={p.onFindPreviousClick} />
+                  <Button label={_('Find Previous')} onClick={p.onFindPreviousClick} />
                 </SizerItem>
                 <SizerItem flag={wxALL | wxEXPAND} border={5}>
-                  <Button label="Restart Search" onClick={p.onSearchAgainClick} />
+                  <Button label={_('Restart Search')} onClick={p.onSearchAgainClick} />
                 </SizerItem>
                 <SizerItem flag={wxALL | wxEXPAND} border={5}>
-                  <Button label="Close" onClick={p.OnCloseButtonClick} />
+                  <Button label={_('Close')} onClick={p.OnCloseButtonClick} />
                 </SizerItem>
               </BoxSizer>
             </SizerItem>

@@ -30,6 +30,7 @@ import {
   RPT_SEVERITY_WARNING,
 } from '@ziroeda/common/reporter.js';
 import type { BADGE, DATA_VIEW } from './dialog_drc_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_FOOTPRINT_CHECKER_BASE_PROPS {
   m_markersDataView: DATA_VIEW;
@@ -61,7 +62,7 @@ export function DIALOG_FOOTPRINT_CHECKER_BASE(p: DIALOG_FOOTPRINT_CHECKER_BASE_P
   );
 
   return (
-    <DialogShim title="Footprint Checker" onClose={p.onCancelClick} modeless>
+    <DialogShim title={_('Footprint Checker')} onClose={p.onCancelClick} modeless>
       {/* bSizerMain */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem
@@ -88,21 +89,21 @@ export function DIALOG_FOOTPRINT_CHECKER_BASE(p: DIALOG_FOOTPRINT_CHECKER_BASE_P
                   {/* bSeveritySizer */}
                   <BoxSizer orient={wxHORIZONTAL}>
                     <SizerItem flag={CV | wxRIGHT} border={5}>
-                      <StaticText label="Show:" />
+                      <StaticText label={_('Show:')} />
                     </SizerItem>
                     <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>
-                      <CheckBox label="All" check={p.m_showAll} />
+                      <CheckBox label={_('All')} check={p.m_showAll} />
                     </SizerItem>
                     <Spacer width={35} height={0} flag={wxEXPAND} border={5} />
-                    {severity('Errors', p.m_showErrors, p.m_errorsBadge, RPT_SEVERITY_ERROR)}
+                    {severity(_('Errors'), p.m_showErrors, p.m_errorsBadge, RPT_SEVERITY_ERROR)}
                     {severity(
-                      'Warnings',
+                      _('Warnings'),
                       p.m_showWarnings,
                       p.m_warningsBadge,
                       RPT_SEVERITY_WARNING,
                     )}
                     {severity(
-                      'Exclusions',
+                      _('Exclusions'),
                       p.m_showExclusions,
                       p.m_exclusionsBadge,
                       RPT_SEVERITY_EXCLUSION,
@@ -118,18 +119,18 @@ export function DIALOG_FOOTPRINT_CHECKER_BASE(p: DIALOG_FOOTPRINT_CHECKER_BASE_P
           {/* bLowerSizer */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={CV | wxALL} border={5}>
-              <Button label="Delete Marker" onClick={p.onDeleteOneClick} />
+              <Button label={_('Delete Marker')} onClick={p.onDeleteOneClick} />
             </SizerItem>
             <SizerItem flag={wxALL | CV} border={5}>
-              <Button label="Delete All Markers" onClick={p.onDeleteAllClick} />
+              <Button label={_('Delete All Markers')} onClick={p.onDeleteAllClick} />
             </SizerItem>
             <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
               {/* SetupStandardButtons( { wxID_OK, "Run Checks" }, { wxID_CANCEL, "Close" } ) */}
               <StdDialogButtonSizer
                 onOk={p.onRunChecksClick}
                 onCancel={p.onCancelClick}
-                okLabel="Run Checks"
-                cancelLabel="Close"
+                okLabel={_('Run Checks')}
+                cancelLabel={_('Close')}
               />
             </SizerItem>
           </BoxSizer>

@@ -34,6 +34,8 @@ import {
 import { ScrolledWindow } from '@ziroeda/wx/scrolwin.js';
 import { BoxSizer, FlexGridSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A UNIT_BINDER's control: its text, and the id PAGED_DIALOG focuses on an error. */
 export type FIELD = { value: string; onChange: (aText: string) => void; id: string };
@@ -81,13 +83,15 @@ type ROW = readonly [CONSTRAINT_ROW, string, string | undefined, number, number,
 
 const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
   [
-    'Copper',
+    _HKI('Copper'),
     wxTOP | wxLEFT,
     [
       [
         'minClearance',
-        'Minimum clearance:',
-        'The minimum clearance between copper items which do not belong to the same net. If set, this can only be reduced by custom rules.',
+        _HKI('Minimum clearance:'),
+        _HKI(
+          'The minimum clearance between copper items which do not belong to the same net. If set, this can only be reduced by custom rules.',
+        ),
         CH | CV | wxRIGHT | wxLEFT,
         CV | wxRIGHT,
         CV | wxEXPAND | wxTOP | wxBOTTOM,
@@ -95,8 +99,8 @@ const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
       ],
       [
         'trackMinWidth',
-        'Minimum track width:',
-        'The minimum track width. If set, this can only be reduced by custom rules.',
+        _HKI('Minimum track width:'),
+        _HKI('The minimum track width. If set, this can only be reduced by custom rules.'),
         CH | CV | wxRIGHT | wxLEFT,
         CV | AL | wxRIGHT,
         AL | wxEXPAND | CV | wxTOP | wxBOTTOM,
@@ -104,8 +108,8 @@ const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
       ],
       [
         'minConn',
-        'Minimum connection width:',
-        'The minimum copper width of connected copper items.',
+        _HKI('Minimum connection width:'),
+        _HKI('The minimum copper width of connected copper items.'),
         CH | CV | wxLEFT | wxRIGHT,
         CV | AL | wxRIGHT,
         CV | AL | wxBOTTOM | wxEXPAND | wxTOP,
@@ -113,8 +117,8 @@ const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
       ],
       [
         'viaMinAnnulus',
-        'Minimum annular width:',
-        'The minimum annular ring width. If set, this can only be reduced by custom rules.',
+        _HKI('Minimum annular width:'),
+        _HKI('The minimum annular ring width. If set, this can only be reduced by custom rules.'),
         CH | CV | wxRIGHT | wxLEFT,
         CV | wxRIGHT,
         CV | wxEXPAND | wxTOP | wxBOTTOM,
@@ -122,8 +126,8 @@ const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
       ],
       [
         'viaMinSize',
-        'Minimum via diameter:',
-        'The minimum via diameter. If set, this can only be reduced by custom rules.',
+        _HKI('Minimum via diameter:'),
+        _HKI('The minimum via diameter. If set, this can only be reduced by custom rules.'),
         CH | CV | wxRIGHT | wxLEFT,
         CV | AL | wxRIGHT,
         CV | wxEXPAND | wxTOP | wxBOTTOM,
@@ -131,8 +135,10 @@ const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
       ],
       [
         'holeClearance',
-        'Copper to hole clearance:',
-        'The minimum clearance between a hole and an unassociated copper item. If set, this can only be reduced by custom rules.',
+        _HKI('Copper to hole clearance:'),
+        _HKI(
+          'The minimum clearance between a hole and an unassociated copper item. If set, this can only be reduced by custom rules.',
+        ),
         CH | CV | wxRIGHT | wxLEFT,
         CV | wxRIGHT,
         wxEXPAND | CV | wxTOP | wxBOTTOM,
@@ -140,8 +146,10 @@ const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
       ],
       [
         'edgeClearance',
-        'Copper to edge clearance:',
-        'The minimum clearance between the board edge and any copper item. If set, this can only be reduced by custom rules.',
+        _HKI('Copper to edge clearance:'),
+        _HKI(
+          'The minimum clearance between the board edge and any copper item. If set, this can only be reduced by custom rules.',
+        ),
         CH | CV | wxRIGHT | wxLEFT,
         CV | wxRIGHT,
         wxEXPAND | CV | wxTOP | wxBOTTOM,
@@ -149,8 +157,8 @@ const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
       ],
       [
         'minGrooveWidth',
-        'Minimum groove for creepage:',
-        'The minimum slot width from DRC creepage checks',
+        _HKI('Minimum groove for creepage:'),
+        _HKI('The minimum slot width from DRC creepage checks'),
         CH | CV | wxLEFT | wxRIGHT,
         CV | wxRIGHT,
         CV | wxBOTTOM | wxEXPAND | wxTOP,
@@ -159,13 +167,13 @@ const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
     ],
   ],
   [
-    'Holes',
+    _HKI('Holes'),
     CH | wxTOP | wxLEFT,
     [
       [
         'throughHoleMin',
-        'Minimum drill size:',
-        'The minimum drill size. If set, this can only be reduced by custom rules.',
+        _HKI('Minimum drill size:'),
+        _HKI('The minimum drill size. If set, this can only be reduced by custom rules.'),
         CH | CV | wxRIGHT | wxLEFT,
         CV | AL | wxRIGHT,
         wxEXPAND | CV | wxTOP | wxBOTTOM,
@@ -173,8 +181,10 @@ const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
       ],
       [
         'holeToHoleMin',
-        'Hole to hole clearance:',
-        'The minimum clearance between two drilled holes. If set, this can only be reduced by custom rules. (Note: does not apply to milled holes.)',
+        _HKI('Hole to hole clearance:'),
+        _HKI(
+          'The minimum clearance between two drilled holes. If set, this can only be reduced by custom rules. (Note: does not apply to milled holes.)',
+        ),
         CH | CV | wxRIGHT | wxLEFT,
         CV | wxRIGHT,
         wxEXPAND | CV | wxTOP | wxBOTTOM,
@@ -183,13 +193,15 @@ const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
     ],
   ],
   [
-    'uVias',
+    _HKI('uVias'),
     CH | wxTOP | wxLEFT,
     [
       [
         'uviaMinSize',
-        'Minimum uVia diameter:',
-        'The minimum diameter for micro-vias. If set, this can only be reduced by custom rules.',
+        _HKI('Minimum uVia diameter:'),
+        _HKI(
+          'The minimum diameter for micro-vias. If set, this can only be reduced by custom rules.',
+        ),
         CH | CV | wxRIGHT | wxLEFT,
         CV | AL | wxRIGHT,
         wxEXPAND | CV | wxTOP | wxBOTTOM,
@@ -197,8 +209,8 @@ const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
       ],
       [
         'uviaMinDrill',
-        'Minimum uVia hole:',
-        'The minimum micro-via hole size. If set, this can only be reduced by custom rules.',
+        _HKI('Minimum uVia hole:'),
+        _HKI('The minimum micro-via hole size. If set, this can only be reduced by custom rules.'),
         CH | CV | wxRIGHT | wxLEFT,
         CV | AL | wxRIGHT,
         wxEXPAND | CV | wxTOP | wxBOTTOM,
@@ -207,13 +219,15 @@ const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
     ],
   ],
   [
-    'Silk',
+    _HKI('Silk'),
     CH | wxTOP | wxLEFT,
     [
       [
         'silkClearance',
-        'Minimum item clearance:',
-        'Minimum clearance between two items on the same silkscreen layer. If set this can improve legibility.  (Note: does not apply to multiple shapes within a single footprint.)',
+        _HKI('Minimum item clearance:'),
+        _HKI(
+          'Minimum clearance between two items on the same silkscreen layer. If set this can improve legibility.  (Note: does not apply to multiple shapes within a single footprint.)',
+        ),
         0,
         CV | wxTOP | wxRIGHT,
         CV | wxEXPAND | wxTOP,
@@ -221,7 +235,7 @@ const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
       ],
       [
         'minTextHeight',
-        'Minimum text height:',
+        _HKI('Minimum text height:'),
         undefined,
         0,
         CV | wxTOP | wxRIGHT,
@@ -230,7 +244,7 @@ const SECTIONS: readonly (readonly [string, number, readonly ROW[]])[] = [
       ],
       [
         'minTextThickness',
-        'Minimum text thickness:',
+        _HKI('Minimum text thickness:'),
         undefined,
         0,
         CV | wxTOP | wxRIGHT,
@@ -361,16 +375,16 @@ export function PANEL_SETUP_CONSTRAINTS_BASE(p: PANEL_SETUP_CONSTRAINTS_BASE_PRO
                 <SizerItem flag={wxEXPAND} border={5}>
                   {/* bSizerArcToPoly */}
                   <BoxSizer orient={wxVERTICAL}>
-                    {heading('Arc/Circle Approximations')}
+                    {heading(_('Arc/Circle Approximations'))}
                     <SizerItem flag={wxEXPAND | wxBOTTOM} border={5}>
                       {/* fgSizer2 = wxFlexGridSizer( 0, 4, 3, 0 ), AddGrowableCol( 2 ) */}
                       <FlexGridSizer cols={4} vgap={3} growableCols={[2]}>
                         <SizerItem flag={CV | AL | wxLEFT} border={5}>
                           <StaticText
-                            label="Maximum allowed deviation:"
-                            title={
-                              'This is the maximum distance between a circle and the polygonal shape that approximate it.\nThe error max defines the number of segments of this polygon.'
-                            }
+                            label={_('Maximum allowed deviation:')}
+                            title={_(
+                              'This is the maximum distance between a circle and the polygonal shape that approximate it.\nThe error max defines the number of segments of this polygon.',
+                            )}
                           />
                         </SizerItem>
                         <SizerItem flag={CV | wxALL | wxEXPAND | wxLEFT | wxRIGHT} border={5}>
@@ -379,7 +393,9 @@ export function PANEL_SETUP_CONSTRAINTS_BASE(p: PANEL_SETUP_CONSTRAINTS_BASE_PRO
                             value={p.m_maxError.value}
                             onChange={p.m_maxError.onChange}
                             ariaLabel="Maximum allowed deviation"
-                            title="The maximum allowed deviation between a true arc or circle and segments used to approximate it.  Smaller values produce smoother graphics at the expense of performance."
+                            title={_(
+                              'The maximum allowed deviation between a true arc or circle and segments used to approximate it.  Smaller values produce smoother graphics at the expense of performance.',
+                            )}
                           />
                         </SizerItem>
                         <SizerItem flag={CV | wxRIGHT} border={5}>
@@ -396,7 +412,7 @@ export function PANEL_SETUP_CONSTRAINTS_BASE(p: PANEL_SETUP_CONSTRAINTS_BASE_PRO
                 <SizerItem flag={wxEXPAND | wxTOP} border={10}>
                   {/* m_bSizerPolygonFillOption */}
                   <BoxSizer orient={wxVERTICAL}>
-                    {heading('Zone Fill Strategy')}
+                    {heading(_('Zone Fill Strategy'))}
                     <SizerItem flag={wxEXPAND | wxTOP} border={7}>
                       {/* bSizer9 */}
                       <BoxSizer orient={wxHORIZONTAL}>
@@ -405,7 +421,7 @@ export function PANEL_SETUP_CONSTRAINTS_BASE(p: PANEL_SETUP_CONSTRAINTS_BASE_PRO
                         </SizerItem>
                         <SizerItem flag={wxALL | CV} border={5}>
                           <CheckBox
-                            label="Allow fillets/chamfers outside zone outline"
+                            label={_('Allow fillets/chamfers outside zone outline')}
                             check={p.m_allowExternalFilletsOpt}
                           />
                         </SizerItem>
@@ -418,7 +434,7 @@ export function PANEL_SETUP_CONSTRAINTS_BASE(p: PANEL_SETUP_CONSTRAINTS_BASE_PRO
                           <StaticBitmap bitmap={p.bitmaps.spoke} />
                         </SizerItem>
                         <SizerItem flag={CV | wxLEFT} border={5}>
-                          <StaticText label="Minimum thermal relief spoke count:" />
+                          <StaticText label={_('Minimum thermal relief spoke count:')} />
                         </SizerItem>
                         <SizerItem flag={wxALL | CV} border={5}>
                           <SpinCtrl
@@ -436,11 +452,13 @@ export function PANEL_SETUP_CONSTRAINTS_BASE(p: PANEL_SETUP_CONSTRAINTS_BASE_PRO
                 <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                   {/* bSizer11 */}
                   <BoxSizer orient={wxVERTICAL}>
-                    {heading('Length Tuning')}
+                    {heading(_('Length Tuning'))}
                     <SizerItem flag={wxALL} border={5}>
                       <CheckBox
-                        label="Include stackup height in track length calculations"
-                        title="When enabled, the distance between copper layers will be included in track length calculations for tracks with vias.  When disabled, via stackup height is ignored."
+                        label={_('Include stackup height in track length calculations')}
+                        title={_(
+                          'When enabled, the distance between copper layers will be included in track length calculations for tracks with vias.  When disabled, via stackup height is ignored.',
+                        )}
                         check={p.m_useHeightForLengthCalcs}
                       />
                     </SizerItem>

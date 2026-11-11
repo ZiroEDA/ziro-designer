@@ -236,6 +236,8 @@ import { loadKicadNetlist } from './netlist_reader/kicad_netlist_reader.js';
 import { fetchNetlistFromSchematic } from './browser/headless_netlist.js';
 import type { DIALOG_GET_FOOTPRINT_BY_NAME } from './dialogs/dialog_get_footprint_by_name.js';
 import type { DIALOG_PNS_SETTINGS } from './dialogs/dialog_pns_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `INSPECT_DRC_ERROR_DIALOG_NAME` (pcb_edit_frame.cpp:160). */
 const INSPECT_DRC_ERROR_DIALOG_NAME = 'InspectDrcErrorDialog';
@@ -1609,7 +1611,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
   /** `infobar->ShowMessageFor( ..., 10000, wxICON_WARNING )` with a "Show DRC rules" link. */
   ShowZoneFillRulesWarning(): void {
-    this.ShowInfoBarWarning('Zone fills may be inaccurate.  DRC rules contain errors.');
+    this.ShowInfoBarWarning(_('Zone fills may be inaccurate.  DRC rules contain errors.'));
   }
 
   /**
@@ -1618,7 +1620,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    */
   ShowZoneAutoRefillSlowMessage(): void {
     this.ShowInfoBarMsg(
-      'Automatic refill of zones can be turned off in Preferences if it becomes too slow.',
+      _('Automatic refill of zones can be turned off in Preferences if it becomes too slow.'),
     );
   }
 
@@ -2195,7 +2197,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
         const commit = new BOARD_COMMIT(this);
         commit.Add(aFootprint);
-        commit.Push('Add Microwave Inductor');
+        commit.Push(_('Add Microwave Inductor'));
       },
     };
   }
@@ -2348,7 +2350,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     if (!this.m_inspectDrcErrorDlg) {
       this.m_inspectDrcErrorDlg = new DIALOG_BOOK_REPORTER(
         INSPECT_DRC_ERROR_DIALOG_NAME,
-        'Violation Report',
+        _('Violation Report'),
         (aName) => this.onCloseModelessBookReporterDialogs(aName),
       );
       this.m_bookReporterListener?.();
@@ -2362,7 +2364,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     if (!this.m_inspectClearanceDlg) {
       this.m_inspectClearanceDlg = new DIALOG_BOOK_REPORTER(
         INSPECT_CLEARANCE_DIALOG_NAME,
-        'Clearance Report',
+        _('Clearance Report'),
         (aName) => this.onCloseModelessBookReporterDialogs(aName),
       );
       this.m_bookReporterListener?.();
@@ -2376,7 +2378,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     if (!this.m_inspectConstraintsDlg) {
       this.m_inspectConstraintsDlg = new DIALOG_BOOK_REPORTER(
         INSPECT_CONSTRAINTS_DIALOG_NAME,
-        'Constraints Report',
+        _('Constraints Report'),
         (aName) => this.onCloseModelessBookReporterDialogs(aName),
       );
       this.m_bookReporterListener?.();
@@ -3594,7 +3596,7 @@ export class REACT_BOARD_LISTENER extends BOARD_LISTENER {
 // --- PCB_EDIT_FRAME::UpdateTitle (was frame_title.ts) ---
 
 /** `_( "PCB Editor" )`, the half after the dash. */
-export const PCB_FRAME_NAME = 'PCB Editor';
+export const PCB_FRAME_NAME = _HKI('PCB Editor');
 
 /**
  * `_( "3D Viewer" )` — `eda_3d_viewer_frame.cpp:634`, and row 12 of

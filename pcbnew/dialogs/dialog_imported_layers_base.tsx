@@ -27,6 +27,7 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A wxListCtrl in report mode: its rows, which are selected, and its activation. */
 export interface LIST {
@@ -75,15 +76,15 @@ export function DIALOG_IMPORTED_LAYERS_BASE(p: DIALOG_IMPORTED_LAYERS_BASE_PROPS
           {/* bSizerTop */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
-              <StaticBoxSizer label="Unmatched Layers" orient={wxHORIZONTAL}>
+              <StaticBoxSizer label={_('Unmatched Layers')} orient={wxHORIZONTAL}>
                 <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                   {/* fgSizer1, growing both columns and row 1 */}
                   <FlexGridSizer cols={2} growableCols={[0, 1]} growableRows={[1]}>
                     <SizerItem flag={wxALL} border={5}>
-                      <StaticText label="Imported Layers" />
+                      <StaticText label={_('Imported Layers')} />
                     </SizerItem>
                     <SizerItem flag={wxALL} border={5}>
-                      <StaticText label="KiCad Layers" />
+                      <StaticText label={_('KiCad Layers')} />
                     </SizerItem>
                     <SizerItem
                       proportion={1}
@@ -115,28 +116,28 @@ export function DIALOG_IMPORTED_LAYERS_BASE(p: DIALOG_IMPORTED_LAYERS_BASE_PROPS
                 <SizerItem flag={wxALL} border={5} minSize={[36, 100]}>
                   <Button
                     label=">"
-                    title="Add selected layers to matched layers list."
+                    title={_('Add selected layers to matched layers list.')}
                     onClick={p.onAddClick}
                   />
                 </SizerItem>
                 <SizerItem flag={wxALL} border={5} minSize={[36, 100]}>
                   <Button
                     label="<"
-                    title="Remove selected layers from matched layers list."
+                    title={_('Remove selected layers from matched layers list.')}
                     onClick={p.onRemoveClick}
                   />
                 </SizerItem>
                 <SizerItem flag={wxALL} border={5} minSize={[36, 50]}>
                   <Button
                     label="<<"
-                    title="Remove all matched layers."
+                    title={_('Remove all matched layers.')}
                     onClick={p.onRemoveAllClick}
                   />
                 </SizerItem>
               </BoxSizer>
             </SizerItem>
             <SizerItem proportion={1} flag={wxEXPAND | wxLEFT | wxRIGHT | wxTOP} border={5}>
-              <StaticBoxSizer label="Matched Layers" orient={wxHORIZONTAL}>
+              <StaticBoxSizer label={_('Matched Layers')} orient={wxHORIZONTAL}>
                 <SizerItem
                   proportion={1}
                   flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT}
@@ -160,15 +161,17 @@ export function DIALOG_IMPORTED_LAYERS_BASE(p: DIALOG_IMPORTED_LAYERS_BASE_PROPS
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALL} border={5}>
               <Button
-                label="Auto-Match Layers"
-                title="Automatically match any unmatched layers to their KiCad equivalent."
+                label={_('Auto-Match Layers')}
+                title={_('Automatically match any unmatched layers to their KiCad equivalent.')}
                 onClick={p.onAutoMatchLayersClicked}
               />
             </SizerItem>
             <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
               <CheckBox
-                label="Keep KiCad layer names"
-                title="If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names."
+                label={_('Keep KiCad layer names')}
+                title={_(
+                  'If checked, layers will keep their standard KiCad names instead of being renamed to the imported layer names.',
+                )}
                 check={p.m_cbKeepKiCadLayerNames}
               />
             </SizerItem>

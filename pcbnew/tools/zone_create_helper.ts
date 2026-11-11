@@ -46,6 +46,7 @@ import type { ZONE_SETTINGS } from '../zone_settings.js';
 import { ZONE_MODE } from './pcb_actions.js';
 import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `ZONE_CREATE_HELPER::PARAMS`. */
 export interface ZONE_CREATE_PARAMS {
@@ -233,7 +234,7 @@ export class ZONE_CREATE_HELPER implements POLYGON_GEOM_MANAGER_CLIENT {
     }
 
     commit.Remove(aZone);
-    commit.Push('Add Zone Cutout');
+    commit.Push(_('Add Zone Cutout'));
 
     // Select the new zone and set it as the source for the next cutout
     if (newZones.length === 0) {
@@ -256,7 +257,7 @@ export class ZONE_CREATE_HELPER implements POLYGON_GEOM_MANAGER_CLIENT {
         const commit = new BOARD_COMMIT(this.m_tool.editFrame());
         aZone.HatchBorder();
         commit.Add(aZone);
-        commit.Push('Draw Zone');
+        commit.Push(_('Draw Zone'));
         this.m_tool.GetManager()!.RunAction(ACTIONS.selectItem, aZone);
         break;
       }
@@ -280,7 +281,7 @@ export class ZONE_CREATE_HELPER implements POLYGON_GEOM_MANAGER_CLIENT {
         poly.SetPolyShape(aZone.Outline());
 
         commit.Add(poly);
-        commit.Push('Draw Polygon');
+        commit.Push(_('Draw Polygon'));
 
         this.m_tool.GetManager()!.RunAction(ACTIONS.selectItem, poly);
         break;

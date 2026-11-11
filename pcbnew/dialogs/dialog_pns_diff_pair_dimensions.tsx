@@ -26,6 +26,7 @@ import {
   DIALOG_PNS_DIFF_PAIR_DIMENSIONS_BASE,
   type UNIT,
 } from './dialog_pns_diff_pair_dimensions_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `SIZES_SETTINGS::DiffPairViaGap()`: the trace gap while "same as trace gap" holds. */
 function DiffPairViaGap(aSizes: PnsRouterSizes): number {
@@ -44,15 +45,15 @@ export class DIALOG_PNS_DIFF_PAIR_DIMENSIONS {
   private readonly m_sizes: PnsRouterSizes;
 
   constructor(aParent: UNIT_BINDER_UNITS_PROVIDER, aSizes: PnsRouterSizes) {
-    this.m_traceWidth = new UNIT_BINDER(aParent, 'Width:');
-    this.m_traceGap = new UNIT_BINDER(aParent, 'Track gap:');
-    this.m_viaGap = new UNIT_BINDER(aParent, 'Via gap:');
+    this.m_traceWidth = new UNIT_BINDER(aParent, _('Width:'));
+    this.m_traceGap = new UNIT_BINDER(aParent, _('Track gap:'));
+    this.m_viaGap = new UNIT_BINDER(aParent, _('Via gap:'));
     this.m_sizes = aSizes;
   }
 
   TransferDataFromWindow(): boolean {
     if (this.m_traceGap.GetValue() <= 0) {
-      this.m_error = { message: 'Track gap must be greater than 0.', focus: 'gap' };
+      this.m_error = { message: _('Track gap must be greater than 0.'), focus: 'gap' };
       return false;
     }
 
@@ -61,8 +62,8 @@ export class DIALOG_PNS_DIFF_PAIR_DIMENSIONS {
     this.m_sizes.diffPairViaGap = this.m_viaGap.GetValue();
     this.m_sizes.diffPairWidth = this.m_traceWidth.GetValue();
 
-    this.m_sizes.diffPairGapSource = 'user choice';
-    this.m_sizes.diffPairWidthSource = 'user choice';
+    this.m_sizes.diffPairGapSource = _('user choice');
+    this.m_sizes.diffPairWidthSource = _('user choice');
 
     return true;
   }

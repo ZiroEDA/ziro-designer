@@ -19,6 +19,7 @@ import { type CLEANUP_ITEM, VECTOR_CLEANUP_ITEMS_PROVIDER } from '../cleanup_ite
 import { GRAPHICS_CLEANER } from '../graphics_cleaner.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import { DIALOG_CLEANUP_GRAPHICS_BASE } from './dialog_cleanup_graphics_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `static int s_defaultTolerance = pcbIUScale.mmToIU( 2 )`: kept across opens. */
 let s_defaultTolerance = pcbIUScale.mmToIU(2);
@@ -42,7 +43,7 @@ export class DIALOG_CLEANUP_GRAPHICS {
   ) {
     this.m_tolerance = new UNIT_BINDER(
       m_parentFrame as unknown as ConstructorParameters<typeof UNIT_BINDER>[0],
-      'Tolerance:',
+      _('Tolerance:'),
     );
     this.m_changesTreeModel = new RC_TREE_MODEL(
       m_parentFrame as unknown as ConstructorParameters<typeof RC_TREE_MODEL>[0],
@@ -52,7 +53,7 @@ export class DIALOG_CLEANUP_GRAPHICS {
 
   /** `SetupStandardButtons( { { wxID_OK, ... } } )`. */
   GetOKLabel(): string {
-    return this.m_isFootprintEditor ? 'Update Footprint' : 'Update PCB';
+    return this.m_isFootprintEditor ? _('Update Footprint') : _('Update PCB');
   }
 
   /** Any option changed: list again. */
@@ -118,7 +119,7 @@ export class DIALOG_CLEANUP_GRAPHICS {
         RPT_SEVERITY_ACTION,
       );
     } else if (!commit.Empty()) {
-      commit.Push('Cleanup Graphics');
+      commit.Push(_('Cleanup Graphics'));
       this.m_parentFrame.GetCanvas()?.Refresh(true);
     }
 

@@ -21,6 +21,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface SIZE_GRID {
   grid: ReactNode;
@@ -87,13 +88,13 @@ export function PANEL_SETUP_TRACKS_AND_VIAS_BASE(
     // bMainSizer
     <BoxSizer orient={wxHORIZONTAL}>
       <SizerItem proportion={1} flag={wxEXPAND} border={5}>
-        {column('Tracks', p.m_trackWidths, wxEXPAND | wxRIGHT, true)}
+        {column(_('Tracks'), p.m_trackWidths, wxEXPAND | wxRIGHT, true)}
       </SizerItem>
       <SizerItem proportion={2} flag={wxEXPAND} border={5}>
-        {column('Vias', p.m_viaSizes, wxEXPAND | wxRIGHT, false)}
+        {column(_('Vias'), p.m_viaSizes, wxEXPAND | wxRIGHT, false)}
       </SizerItem>
       <SizerItem proportion={3} flag={wxEXPAND} border={5}>
-        {column('Differential Pairs', p.m_diffPairs, wxEXPAND, false)}
+        {column(_('Differential Pairs'), p.m_diffPairs, wxEXPAND, false)}
       </SizerItem>
     </BoxSizer>
   );

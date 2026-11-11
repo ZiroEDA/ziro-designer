@@ -24,6 +24,7 @@ import {
 } from '../board_stackup_manager/board_stackup.js';
 import { PCB_TABLE } from '../pcb_table.js';
 import { PCB_TABLECELL } from '../pcb_tablecell.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function Build_Board_Stackup_Table(aBoard: BOARD, aDisplayUnits: EdaUnits): PCB_TABLE {
   const settings = aBoard.GetDesignSettings();
@@ -66,13 +67,13 @@ export function Build_Board_Stackup_Table(aBoard: BOARD, aDisplayUnits: EdaUnits
     return units_provider.StringFromValue(layerThickness, true);
   };
 
-  addHeaderCell('Layer Name');
-  addHeaderCell('Type');
-  addHeaderCell('Material');
-  addHeaderCell('Thickness');
-  addHeaderCell('Color');
-  addHeaderCell('Epsilon R');
-  addHeaderCell('Loss Tangent');
+  addHeaderCell(_('Layer Name'));
+  addHeaderCell(_('Type'));
+  addHeaderCell(_('Material'));
+  addHeaderCell(_('Thickness'));
+  addHeaderCell(_('Color'));
+  addHeaderCell(_('Epsilon R'));
+  addHeaderCell(_('Loss Tangent'));
 
   for (let i = 0; i < stackup.GetCount(); i++) {
     const stackup_item = layers[i]!;
@@ -90,7 +91,7 @@ export function Build_Board_Stackup_Table(aBoard: BOARD, aDisplayUnits: EdaUnits
       }
 
       if (stackup_item.GetType() === BOARD_STACKUP_ITEM_TYPE.BS_ITEM_TYPE_DIELECTRIC) {
-        layerName = 'Dielectric';
+        layerName = _('Dielectric');
 
         if (stackup_item.GetSublayersCount() < 2)
           layerName += ` ${stackup_item.GetDielectricLayerId()}`;

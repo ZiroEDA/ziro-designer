@@ -167,6 +167,7 @@ import {
   PCB_IO_KICAD_SEXPR_PARSER,
   SEXPR_BOARD_FILE_VERSION,
 } from './pcb_io_kicad_sexpr_parser.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `GetMajorMinorVersion()`: the `generator_version` a 10.0.x build writes. */
 export const MAJOR_MINOR_VERSION = '10.0';
@@ -503,11 +504,11 @@ export class PCB_IO_KICAD_SEXPR extends PCB_IO {
   }
 
   override GetBoardFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('KiCad printed circuit board files', ['kicad_pcb']);
+    return new IO_FILE_DESC(_HKI('KiCad printed circuit board files'), ['kicad_pcb']);
   }
 
   override GetLibraryDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('KiCad footprint files', [], ['kicad_mod'], false);
+    return new IO_FILE_DESC(_HKI('KiCad footprint files'), [], ['kicad_mod'], false);
   }
 
   /** `init( aProperties )`: the per-call state reset. */

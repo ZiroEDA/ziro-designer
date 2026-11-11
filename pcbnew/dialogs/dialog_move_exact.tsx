@@ -25,6 +25,8 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { wxChoice } from '@ziroeda/wx/choice.js';
 import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
 import { DIALOG_MOVE_EXACT_BASE, type UNIT } from './dialog_move_exact_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `ROTATION_ANCHOR` (dialog_move_exact.h). */
 export enum ROTATION_ANCHOR {
@@ -42,7 +44,7 @@ export interface MOVE_EXACT_VALUES {
 }
 
 /** The base's title; DIALOG_MOVE_EXACT_BASE( parent, …, _( "Move Item" ) ). */
-export const DIALOG_MOVE_EXACT_TITLE = 'Move Item';
+export const DIALOG_MOVE_EXACT_TITLE = _HKI('Move Item');
 
 /** `std::numeric_limits<int>::max() * M_SQRT1_2`: as far as a selection may be moved. */
 const MAX_BORDER = 2147483647 * Math.SQRT1_2;
@@ -73,9 +75,9 @@ export class DIALOG_MOVE_EXACT {
     this.m_parent = aParent;
     this.m_values = aValues;
     this.m_bbox = aBbox;
-    this.m_moveX = new UNIT_BINDER(aParent, 'Move X:');
-    this.m_moveY = new UNIT_BINDER(aParent, 'Move Y:');
-    this.m_rotate = new UNIT_BINDER(aParent, 'Rotate:');
+    this.m_moveX = new UNIT_BINDER(aParent, _('Move X:'));
+    this.m_moveY = new UNIT_BINDER(aParent, _('Move Y:'));
+    this.m_rotate = new UNIT_BINDER(aParent, _('Rotate:'));
 
     // The base's wxTextCtrl( …, _("0"), … ).
     this.m_moveX.SetText('0');
@@ -113,16 +115,16 @@ export class DIALOG_MOVE_EXACT {
     for (const anchorID of this.m_menuIDs) {
       switch (anchorID) {
         case ROTATION_ANCHOR.ROTATE_AROUND_ITEM_ANCHOR:
-          menuItems.push('Rotate around item anchor');
+          menuItems.push(_('Rotate around item anchor'));
           break;
         case ROTATION_ANCHOR.ROTATE_AROUND_SEL_CENTER:
-          menuItems.push('Rotate around selection center');
+          menuItems.push(_('Rotate around selection center'));
           break;
         case ROTATION_ANCHOR.ROTATE_AROUND_USER_ORIGIN:
-          menuItems.push('Rotate around local coordinates origin');
+          menuItems.push(_('Rotate around local coordinates origin'));
           break;
         case ROTATION_ANCHOR.ROTATE_AROUND_AUX_ORIGIN:
-          menuItems.push('Rotate around drill/place origin');
+          menuItems.push(_('Rotate around drill/place origin'));
           break;
       }
     }
@@ -201,12 +203,12 @@ export class DIALOG_MOVE_EXACT {
 
   private updateDialogControls(aPolar: boolean): void {
     if (aPolar) {
-      this.m_moveX.SetLabel('Distance:'); // Polar radius
-      this.m_moveY.SetLabel('Angle:'); // Polar theta or angle
+      this.m_moveX.SetLabel(_('Distance:')); // Polar radius
+      this.m_moveY.SetLabel(_('Angle:')); // Polar theta or angle
       this.m_moveY.SetUnits('degrees');
     } else {
-      this.m_moveX.SetLabel('Move X:');
-      this.m_moveY.SetLabel('Move Y:');
+      this.m_moveX.SetLabel(_('Move X:'));
+      this.m_moveY.SetLabel(_('Move Y:'));
       this.m_moveY.SetUnits(this.m_parent.GetUserUnits());
     }
   }
@@ -256,8 +258,9 @@ export class DIALOG_MOVE_EXACT {
       b.GetTop() + delta_y < -MAX_BORDER ||
       b.GetBottom() + delta_y > MAX_BORDER
     ) {
-      this.m_invalidLength =
-        'Invalid movement values.  Movement would place selection outside of the maximum board area.';
+      this.m_invalidLength = _(
+        'Invalid movement values.  Movement would place selection outside of the maximum board area.',
+      );
       this.m_okEnabled = false;
     } else {
       this.m_invalidLength = '';

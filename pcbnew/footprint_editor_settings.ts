@@ -16,6 +16,7 @@ import type { GridEntry, GridOverride } from '@ziroeda/common/settings/grid_sett
 import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
 import { PCB_VIEWERS_SETTINGS_BASE } from './pcbnew_settings.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A Graphics Defaults row that carries only a line width (Edge Cuts, Courtyards). */
 export interface FP_GRAPHICS_LINE_CLASS_LIKE {
@@ -100,12 +101,12 @@ export type FpGraphicsRowKey = 'silk' | 'copper' | 'edges' | 'courtyard' | 'fab'
  * disables because no `*_text_*` param exists for them.
  */
 export const GRAPHICS_ROWS: readonly { key: FpGraphicsRowKey; label: string; text: boolean }[] = [
-  { key: 'silk', label: 'Silk Layers', text: true },
-  { key: 'copper', label: 'Copper Layers', text: true },
-  { key: 'edges', label: 'Edge Cuts', text: false },
-  { key: 'courtyard', label: 'Courtyards', text: false },
-  { key: 'fab', label: 'Fab Layers', text: true },
-  { key: 'others', label: 'Other Layers', text: true },
+  { key: 'silk', label: _HKI('Silk Layers'), text: true },
+  { key: 'copper', label: _HKI('Copper Layers'), text: true },
+  { key: 'edges', label: _HKI('Edge Cuts'), text: false },
+  { key: 'courtyard', label: _HKI('Courtyards'), text: false },
+  { key: 'fab', label: _HKI('Fab Layers'), text: true },
+  { key: 'others', label: _HKI('Other Layers'), text: true },
 ];
 
 /**

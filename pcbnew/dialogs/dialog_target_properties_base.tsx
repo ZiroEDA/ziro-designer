@@ -26,6 +26,7 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER: its entry text and units label. */
 export interface UNIT {
@@ -56,7 +57,7 @@ export function DIALOG_TARGET_PROPERTIES_BASE(p: DIALOG_TARGET_PROPERTIES_BASE_P
               {/* fgSizer = wxFlexGridSizer( 0, 3, 0, 0 ) */}
               <FlexGridSizer cols={3} growableCols={[1]}>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
-                  <StaticText label="Size:" />
+                  <StaticText label={_('Size:')} />
                 </SizerItem>
                 <SizerItem flag={wxALL | wxEXPAND} border={5}>
                   <TextCtrl
@@ -71,7 +72,7 @@ export function DIALOG_TARGET_PROPERTIES_BASE(p: DIALOG_TARGET_PROPERTIES_BASE_P
                   <StaticText label={p.m_Size.units} />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="Thickness:" />
+                  <StaticText label={_('Thickness:')} />
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                   <TextCtrl
@@ -85,7 +86,7 @@ export function DIALOG_TARGET_PROPERTIES_BASE(p: DIALOG_TARGET_PROPERTIES_BASE_P
                   <StaticText label={p.m_Thickness.units} />
                 </SizerItem>
                 <SizerItem flag={wxTOP | wxBOTTOM | wxLEFT | wxALIGN_CENTER_VERTICAL} border={5}>
-                  <StaticText label="Shape:" />
+                  <StaticText label={_('Shape:')} />
                 </SizerItem>
                 <SizerItem flag={wxALL | wxEXPAND} border={5}>
                   <Choice choices={['+', 'X']} choice={p.m_TargetShape} ariaLabel="Shape" />

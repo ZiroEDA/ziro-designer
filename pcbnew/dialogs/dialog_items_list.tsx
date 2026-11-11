@@ -29,6 +29,7 @@
 import { useState, type JSX } from 'react';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { WxCollapsiblePane } from '@ziroeda/common/widgets/wx_collapsible_pane.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function DialogItemsList({
   title,
@@ -84,10 +85,10 @@ export function DialogItemsList({
       </div>
       <div className="ze-modal-footer ze-items-list-foot">
         <button type="button" onClick={() => onResult(false)}>
-          Cancel
+          {_('Cancel')}
         </button>
         <button type="button" className="primary" onClick={() => onResult(true)}>
-          OK
+          {_('OK')}
         </button>
       </div>
     </DialogShim>

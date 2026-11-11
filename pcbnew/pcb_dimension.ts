@@ -95,6 +95,8 @@ import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { BOARD_ITEM } from './board_item.js';
 import { PCB_TEXT } from './pcb_text.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // ---------------------------------------------------------------------------
 // The enums of pcb_dimension.h
@@ -725,14 +727,16 @@ export abstract class PCB_DIMENSION_BASE extends PCB_TEXT {
     if (this.m_parent === null) return; // wxCHECK_RET( m_parent != nullptr, "PCB_TEXT::GetMsgPanelInfo() m_Parent is NULL." )
 
     // Don't use GetShownText(); we want to see the variable references here
-    aList.push(new MSG_PANEL_ITEM('Dimension', KIUI_EllipsizeStatusText(aFrame, this.GetText())));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Dimension'), KIUI_EllipsizeStatusText(aFrame, this.GetText())),
+    );
 
     aList.push(new MSG_PANEL_ITEM('Prefix', this.GetPrefix()));
 
     if (this.GetOverrideTextEnabled()) {
       aList.push(new MSG_PANEL_ITEM('Override Text', this.GetOverrideText()));
     } else {
-      aList.push(new MSG_PANEL_ITEM('Value', this.GetValueText()));
+      aList.push(new MSG_PANEL_ITEM(_('Value'), this.GetValueText()));
 
       switch (this.GetPrecision()) {
         case DIM_PRECISION.V_VV:
@@ -763,18 +767,23 @@ export abstract class PCB_DIMENSION_BASE extends PCB_TEXT {
 
     aList.push(new MSG_PANEL_ITEM('Units', unitLabel(this.GetUnits())));
 
-    aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Font'), this.GetFont() ? this.GetFont()!.GetName() : _('Default')),
+    );
     aList.push(
       new MSG_PANEL_ITEM(
-        'Text Thickness',
+        _('Text Thickness'),
         unitsProvider.MessageTextFromValue(this.GetTextThickness()),
       ),
     );
     aList.push(
-      new MSG_PANEL_ITEM('Text Width', unitsProvider.MessageTextFromValue(this.GetTextWidth())),
+      new MSG_PANEL_ITEM(_('Text Width'), unitsProvider.MessageTextFromValue(this.GetTextWidth())),
     );
     aList.push(
-      new MSG_PANEL_ITEM('Text Height', unitsProvider.MessageTextFromValue(this.GetTextHeight())),
+      new MSG_PANEL_ITEM(
+        _('Text Height'),
+        unitsProvider.MessageTextFromValue(this.GetTextHeight()),
+      ),
     );
 
     const originTransforms = aFrame.GetOriginTransforms();
@@ -794,9 +803,9 @@ export abstract class PCB_DIMENSION_BASE extends PCB_TEXT {
     }
 
     if (aFrame.GetName() === PCB_EDIT_FRAME_NAME && this.IsLocked())
-      aList.push(new MSG_PANEL_ITEM('Status', 'Locked'));
+      aList.push(new MSG_PANEL_ITEM(_('Status'), _('Locked')));
 
-    aList.push(new MSG_PANEL_ITEM('Layer', this.GetLayerName()));
+    aList.push(new MSG_PANEL_ITEM(_('Layer'), this.GetLayerName()));
   }
 
   override GetEffectiveShape(
@@ -1252,7 +1261,7 @@ export class PCB_DIM_ALIGNED extends PCB_DIMENSION_BASE {
     const unitsProvider = new UNITS_PROVIDER(pcbIUScale, 'mm');
     unitsProvider.SetUserUnits(this.GetUnits());
 
-    aList.push(new MSG_PANEL_ITEM('Height', unitsProvider.MessageTextFromValue(this.m_height)));
+    aList.push(new MSG_PANEL_ITEM(_('Height'), unitsProvider.MessageTextFromValue(this.m_height)));
   }
 
   protected override swapData(aImage: BOARD_ITEM): void {
@@ -1843,7 +1852,7 @@ export class PCB_DIM_LEADER extends PCB_DIMENSION_BASE {
     this.m_overrideTextEnabled = true;
     this.m_keepTextAligned = false;
 
-    this.SetOverrideText('Leader');
+    this.SetOverrideText(_('Leader'));
   }
 
   /** `PCB_DIM_LEADER( const PCB_DIM_LEADER& )`: the compiler-generated copy, as a static. */
@@ -1897,7 +1906,7 @@ export class PCB_DIM_LEADER extends PCB_DIMENSION_BASE {
 
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
     // Don't use GetShownText(); we want to see the variable references here
-    aList.push(new MSG_PANEL_ITEM('Leader', KIUI_EllipsizeStatusText(aFrame, this.GetText())));
+    aList.push(new MSG_PANEL_ITEM(_('Leader'), KIUI_EllipsizeStatusText(aFrame, this.GetText())));
 
     const originTransforms = aFrame.GetOriginTransforms();
 
@@ -1906,7 +1915,7 @@ export class PCB_DIM_LEADER extends PCB_DIMENSION_BASE {
 
     aList.push(new MSG_PANEL_ITEM(start, ''));
 
-    aList.push(new MSG_PANEL_ITEM('Layer', this.GetLayerName()));
+    aList.push(new MSG_PANEL_ITEM(_('Layer'), this.GetLayerName()));
   }
 
   protected override swapData(aImage: BOARD_ITEM): void {
@@ -2160,18 +2169,18 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
 
   ENUM_MAP.Instance<DIM_UNITS_FORMAT>('DIM_UNITS_FORMAT')
     .Map(DIM_UNITS_FORMAT.NO_SUFFIX, '1234.0')
-    .Map(DIM_UNITS_FORMAT.BARE_SUFFIX, '1234.0 mm')
-    .Map(DIM_UNITS_FORMAT.PAREN_SUFFIX, '1234.0 (mm)');
+    .Map(DIM_UNITS_FORMAT.BARE_SUFFIX, _HKI('1234.0 mm'))
+    .Map(DIM_UNITS_FORMAT.PAREN_SUFFIX, _HKI('1234.0 (mm)'));
 
   ENUM_MAP.Instance<DIM_UNITS_MODE>('DIM_UNITS_MODE')
-    .Map(DIM_UNITS_MODE.INCH, 'Inches')
-    .Map(DIM_UNITS_MODE.MILS, 'Mils')
-    .Map(DIM_UNITS_MODE.MM, 'Millimeters')
-    .Map(DIM_UNITS_MODE.AUTOMATIC, 'Automatic');
+    .Map(DIM_UNITS_MODE.INCH, _HKI('Inches'))
+    .Map(DIM_UNITS_MODE.MILS, _HKI('Mils'))
+    .Map(DIM_UNITS_MODE.MM, _HKI('Millimeters'))
+    .Map(DIM_UNITS_MODE.AUTOMATIC, _HKI('Automatic'));
 
   ENUM_MAP.Instance<DIM_ARROW_DIRECTION>('DIM_ARROW_DIRECTION')
-    .Map(DIM_ARROW_DIRECTION.INWARD, 'Inward')
-    .Map(DIM_ARROW_DIRECTION.OUTWARD, 'Outward');
+    .Map(DIM_ARROW_DIRECTION.INWARD, _HKI('Inward'))
+    .Map(DIM_ARROW_DIRECTION.OUTWARD, _HKI('Outward'));
 
   const propMgr = PROPERTY_MANAGER.Instance();
   REGISTER_TYPE(PCB_DIMENSION_BASE);
@@ -2182,9 +2191,9 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
   propMgr.InheritsAfter(PCB_DIMENSION_BASE, BOARD_ITEM);
   propMgr.InheritsAfter(PCB_DIMENSION_BASE, EDA_TEXT);
 
-  propMgr.Mask(PCB_DIMENSION_BASE, EDA_TEXT, 'Orientation');
+  propMgr.Mask(PCB_DIMENSION_BASE, EDA_TEXT, _HKI('Orientation'));
 
-  const groupDimension = 'Dimension Properties';
+  const groupDimension = _HKI('Dimension Properties');
 
   const isLeader = (aItem: INSPECTABLE_ITEM): boolean => aItem instanceof PCB_DIM_LEADER;
 
@@ -2234,7 +2243,7 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
     .AddProperty(
       new PROPERTY<PCB_DIMENSION_BASE, string>(
         PCB_DIMENSION_BASE,
-        'Text',
+        _HKI('Text'),
         'ChangeOverrideText',
         'GetOverrideText',
         TYPE_STRING,
@@ -2259,7 +2268,7 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
     .AddProperty(
       new PROPERTY_ENUM<PCB_DIMENSION_BASE, DIM_UNITS_FORMAT>(
         PCB_DIMENSION_BASE,
-        'Units Format',
+        _HKI('Units Format'),
         'ChangeUnitsFormat',
         'GetUnitsFormat',
         ENUM_MAP.Instance<DIM_UNITS_FORMAT>('DIM_UNITS_FORMAT'),
@@ -2283,7 +2292,7 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
     .AddProperty(
       new PROPERTY<PCB_DIMENSION_BASE, boolean>(
         PCB_DIMENSION_BASE,
-        'Suppress Trailing Zeroes',
+        _HKI('Suppress Trailing Zeroes'),
         'ChangeSuppressZeroes',
         'GetSuppressZeroes',
         TYPE_BOOL,
@@ -2296,7 +2305,7 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
     .AddProperty(
       new PROPERTY_ENUM<PCB_DIMENSION_BASE, DIM_ARROW_DIRECTION>(
         PCB_DIMENSION_BASE,
-        'Arrow Direction',
+        _HKI('Arrow Direction'),
         'ChangeArrowDirection',
         'GetArrowDirection',
         ENUM_MAP.Instance<DIM_ARROW_DIRECTION>('DIM_ARROW_DIRECTION'),
@@ -2305,7 +2314,7 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
     )
     .SetAvailableFunc(isMultiArrowDirection);
 
-  const groupText = 'Text Properties';
+  const groupText = _HKI('Text Properties');
 
   const isTextOrientationWriteable = (aItem: INSPECTABLE_ITEM): boolean =>
     !(aItem as PCB_DIMENSION_BASE).GetKeepTextAligned();
@@ -2313,7 +2322,7 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PCB_DIMENSION_BASE, boolean>(
       PCB_DIMENSION_BASE,
-      'Keep Aligned with Dimension',
+      _HKI('Keep Aligned with Dimension'),
       'ChangeKeepTextAligned',
       'GetKeepTextAligned',
       TYPE_BOOL,
@@ -2325,7 +2334,7 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
     .AddProperty(
       new PROPERTY<PCB_DIMENSION_BASE, number>(
         PCB_DIMENSION_BASE,
-        'Orientation',
+        _HKI('Orientation'),
         'ChangeTextAngleDegrees',
         'GetTextAngleDegreesProp',
         TYPE_DOUBLE,
@@ -2351,12 +2360,12 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
   propMgr.InheritsAfter(PCB_DIM_ALIGNED, PCB_TEXT);
   propMgr.InheritsAfter(PCB_DIM_ALIGNED, PCB_DIMENSION_BASE);
 
-  const groupDimension = 'Dimension Properties';
+  const groupDimension = _HKI('Dimension Properties');
 
   propMgr.AddProperty(
     new PROPERTY<PCB_DIM_ALIGNED, number>(
       PCB_DIM_ALIGNED,
-      'Crossbar Height',
+      _HKI('Crossbar Height'),
       'ChangeHeight',
       'GetHeight',
       TYPE_INT,
@@ -2367,7 +2376,7 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PCB_DIM_ALIGNED, number>(
       PCB_DIM_ALIGNED,
-      'Extension Line Overshoot',
+      _HKI('Extension Line Overshoot'),
       'ChangeExtensionHeight',
       'GetExtensionHeight',
       TYPE_INT,
@@ -2376,10 +2385,15 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
     groupDimension,
   );
 
-  propMgr.OverrideAvailability(PCB_DIM_ALIGNED, EDA_TEXT, 'Text', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_ALIGNED, EDA_TEXT, 'Vertical Justification', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_ALIGNED, EDA_TEXT, 'Hyperlink', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_ALIGNED, BOARD_ITEM, 'Knockout', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_ALIGNED, EDA_TEXT, _HKI('Text'), () => false);
+  propMgr.OverrideAvailability(
+    PCB_DIM_ALIGNED,
+    EDA_TEXT,
+    _HKI('Vertical Justification'),
+    () => false,
+  );
+  propMgr.OverrideAvailability(PCB_DIM_ALIGNED, EDA_TEXT, _HKI('Hyperlink'), () => false);
+  propMgr.OverrideAvailability(PCB_DIM_ALIGNED, BOARD_ITEM, _HKI('Knockout'), () => false);
 })();
 
 /**
@@ -2399,10 +2413,15 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
   propMgr.InheritsAfter(PCB_DIM_ORTHOGONAL, PCB_DIMENSION_BASE);
   propMgr.InheritsAfter(PCB_DIM_ORTHOGONAL, PCB_DIM_ALIGNED);
 
-  propMgr.OverrideAvailability(PCB_DIM_ORTHOGONAL, EDA_TEXT, 'Text', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_ORTHOGONAL, EDA_TEXT, 'Vertical Justification', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_ORTHOGONAL, EDA_TEXT, 'Hyperlink', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_ORTHOGONAL, BOARD_ITEM, 'Knockout', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_ORTHOGONAL, EDA_TEXT, _HKI('Text'), () => false);
+  propMgr.OverrideAvailability(
+    PCB_DIM_ORTHOGONAL,
+    EDA_TEXT,
+    _HKI('Vertical Justification'),
+    () => false,
+  );
+  propMgr.OverrideAvailability(PCB_DIM_ORTHOGONAL, EDA_TEXT, _HKI('Hyperlink'), () => false);
+  propMgr.OverrideAvailability(PCB_DIM_ORTHOGONAL, BOARD_ITEM, _HKI('Knockout'), () => false);
 })();
 
 /**
@@ -2420,12 +2439,12 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
   propMgr.InheritsAfter(PCB_DIM_RADIAL, PCB_TEXT);
   propMgr.InheritsAfter(PCB_DIM_RADIAL, PCB_DIMENSION_BASE);
 
-  const groupDimension = 'Dimension Properties';
+  const groupDimension = _HKI('Dimension Properties');
 
   propMgr.AddProperty(
     new PROPERTY<PCB_DIM_RADIAL, number>(
       PCB_DIM_RADIAL,
-      'Leader Length',
+      _HKI('Leader Length'),
       'ChangeLeaderLength',
       'GetLeaderLength',
       TYPE_INT,
@@ -2434,10 +2453,15 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
     groupDimension,
   );
 
-  propMgr.OverrideAvailability(PCB_DIM_RADIAL, EDA_TEXT, 'Text', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_RADIAL, EDA_TEXT, 'Vertical Justification', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_RADIAL, EDA_TEXT, 'Hyperlink', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_RADIAL, BOARD_ITEM, 'Knockout', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_RADIAL, EDA_TEXT, _HKI('Text'), () => false);
+  propMgr.OverrideAvailability(
+    PCB_DIM_RADIAL,
+    EDA_TEXT,
+    _HKI('Vertical Justification'),
+    () => false,
+  );
+  propMgr.OverrideAvailability(PCB_DIM_RADIAL, EDA_TEXT, _HKI('Hyperlink'), () => false);
+  propMgr.OverrideAvailability(PCB_DIM_RADIAL, BOARD_ITEM, _HKI('Knockout'), () => false);
 })();
 
 /**
@@ -2445,9 +2469,9 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
  */
 (() => {
   ENUM_MAP.Instance<DIM_TEXT_BORDER>('DIM_TEXT_BORDER')
-    .Map(DIM_TEXT_BORDER.NONE, 'None')
-    .Map(DIM_TEXT_BORDER.RECTANGLE, 'Rectangle')
-    .Map(DIM_TEXT_BORDER.CIRCLE, 'Circle');
+    .Map(DIM_TEXT_BORDER.NONE, _HKI('None'))
+    .Map(DIM_TEXT_BORDER.RECTANGLE, _HKI('Rectangle'))
+    .Map(DIM_TEXT_BORDER.CIRCLE, _HKI('Circle'));
 
   const propMgr = PROPERTY_MANAGER.Instance();
   REGISTER_TYPE(PCB_DIM_LEADER);
@@ -2460,12 +2484,12 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
   propMgr.InheritsAfter(PCB_DIM_LEADER, PCB_TEXT);
   propMgr.InheritsAfter(PCB_DIM_LEADER, PCB_DIMENSION_BASE);
 
-  const groupDimension = 'Dimension Properties';
+  const groupDimension = _HKI('Dimension Properties');
 
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_DIM_LEADER, DIM_TEXT_BORDER>(
       PCB_DIM_LEADER,
-      'Text Frame',
+      _HKI('Text Frame'),
       'ChangeTextBorder',
       'GetTextBorder',
       ENUM_MAP.Instance<DIM_TEXT_BORDER>('DIM_TEXT_BORDER'),
@@ -2473,10 +2497,15 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
     groupDimension,
   );
 
-  propMgr.OverrideAvailability(PCB_DIM_LEADER, EDA_TEXT, 'Text', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_LEADER, EDA_TEXT, 'Vertical Justification', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_LEADER, EDA_TEXT, 'Hyperlink', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_LEADER, BOARD_ITEM, 'Knockout', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_LEADER, EDA_TEXT, _HKI('Text'), () => false);
+  propMgr.OverrideAvailability(
+    PCB_DIM_LEADER,
+    EDA_TEXT,
+    _HKI('Vertical Justification'),
+    () => false,
+  );
+  propMgr.OverrideAvailability(PCB_DIM_LEADER, EDA_TEXT, _HKI('Hyperlink'), () => false);
+  propMgr.OverrideAvailability(PCB_DIM_LEADER, BOARD_ITEM, _HKI('Knockout'), () => false);
 })();
 
 /**
@@ -2494,8 +2523,13 @@ function isBoardItem(a: unknown): a is BOARD_ITEM {
   propMgr.InheritsAfter(PCB_DIM_CENTER, PCB_TEXT);
   propMgr.InheritsAfter(PCB_DIM_CENTER, PCB_DIMENSION_BASE);
 
-  propMgr.OverrideAvailability(PCB_DIM_CENTER, EDA_TEXT, 'Text', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_CENTER, EDA_TEXT, 'Vertical Justification', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_CENTER, EDA_TEXT, 'Hyperlink', () => false);
-  propMgr.OverrideAvailability(PCB_DIM_CENTER, BOARD_ITEM, 'Knockout', () => false);
+  propMgr.OverrideAvailability(PCB_DIM_CENTER, EDA_TEXT, _HKI('Text'), () => false);
+  propMgr.OverrideAvailability(
+    PCB_DIM_CENTER,
+    EDA_TEXT,
+    _HKI('Vertical Justification'),
+    () => false,
+  );
+  propMgr.OverrideAvailability(PCB_DIM_CENTER, EDA_TEXT, _HKI('Hyperlink'), () => false);
+  propMgr.OverrideAvailability(PCB_DIM_CENTER, BOARD_ITEM, _HKI('Knockout'), () => false);
 })();

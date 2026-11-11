@@ -17,6 +17,7 @@ import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from './board.js';
 import { BOARD_ITEM } from './board_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `wxString::AfterLast`: the part after the last `ch`, or the whole string when absent. */
 function wxAfterLast(aStr: string, ch: string): string {
@@ -190,8 +191,8 @@ export class NETINFO_ITEM extends BOARD_ITEM {
    * @param aList is the list in which to place the  status information.
    */
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
-    aList.push(new MSG_PANEL_ITEM('Net Name', unescapeString(this.GetNetname())));
-    aList.push(new MSG_PANEL_ITEM('Net Code', `${this.GetNetCode()}`));
+    aList.push(new MSG_PANEL_ITEM(_('Net Name'), unescapeString(this.GetNetname())));
+    aList.push(new MSG_PANEL_ITEM(_('Net Code'), `${this.GetNetCode()}`));
 
     // The pad, via and net-length rows walk Footprints()/Pads() and Tracks() and call
     // BOARD::GetTrackLength: they come with FOOTPRINT, PAD and PCB_TRACK (#636 stage 1).

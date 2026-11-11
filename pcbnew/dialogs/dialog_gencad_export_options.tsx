@@ -28,6 +28,8 @@ import {
 import { BoxSizer, FlexGridSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
 import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
 import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export enum GENCAD_EXPORT_OPT {
   FLIP_BOTTOM_PADS, // flip bottom components padstacks geometry
@@ -42,14 +44,14 @@ export enum GENCAD_EXPORT_OPT {
  * GENCAD_EXPORT_OPT, which is the order the checkboxes are added. [data]
  */
 export const GENCAD_EXPORT_OPT_LABELS: readonly [GENCAD_EXPORT_OPT, string][] = [
-  [GENCAD_EXPORT_OPT.FLIP_BOTTOM_PADS, 'Flip bottom footprint padstacks'],
-  [GENCAD_EXPORT_OPT.UNIQUE_PIN_NAMES, 'Generate unique pin names'],
+  [GENCAD_EXPORT_OPT.FLIP_BOTTOM_PADS, _HKI('Flip bottom footprint padstacks')],
+  [GENCAD_EXPORT_OPT.UNIQUE_PIN_NAMES, _HKI('Generate unique pin names')],
   [
     GENCAD_EXPORT_OPT.INDIVIDUAL_SHAPES,
-    'Generate a new shape for each footprint instance (do not reuse shapes)',
+    _HKI('Generate a new shape for each footprint instance (do not reuse shapes)'),
   ],
-  [GENCAD_EXPORT_OPT.USE_AUX_ORIGIN, 'Use drill/place file origin as origin'],
-  [GENCAD_EXPORT_OPT.STORE_ORIGIN_COORDS, 'Save the origin coordinates in the file'],
+  [GENCAD_EXPORT_OPT.USE_AUX_ORIGIN, _HKI('Use drill/place file origin as origin')],
+  [GENCAD_EXPORT_OPT.STORE_ORIGIN_COORDS, _HKI('Save the origin coordinates in the file')],
 ];
 
 /**
@@ -130,10 +132,10 @@ export class DIALOG_GENCAD_EXPORT_OPTIONS {
     if (this.m_frame.FileExists(fn)) {
       const msg = `File ${fn} already exists.`;
       const answer = await this.m_frame.ShowKiDialog({
-        caption: 'Confirmation',
+        caption: _('Confirmation'),
         message: msg,
         icon: 'warning',
-        labels: { ok: 'Overwrite' },
+        labels: { ok: _('Overwrite') },
         doNotShowKey: GENCAD_DO_NOT_SHOW_KEYS.overwrite,
       });
 
@@ -175,7 +177,7 @@ export function DialogGencadExportOptions({
           {/* m_fileSizer */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-              <StaticText label="Output File:" />
+              <StaticText label={_('Output File:')} />
             </SizerItem>
             <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5} minSize={[350, -1]}>
               <TextCtrl
@@ -184,14 +186,14 @@ export function DialogGencadExportOptions({
                   dialog.m_outputFileName = aValue;
                   changed();
                 }}
-                title="Enter a filename if you do not want to use default file names"
+                title={_('Enter a filename if you do not want to use default file names')}
                 ariaLabel="Output File"
               />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
               <StdBitmapButton
                 bitmap="small_folder"
-                title="Browse"
+                title={_('Browse')}
                 tooltip={null}
                 onClick={() => {
                   void onBrowse().then((aPath) => {

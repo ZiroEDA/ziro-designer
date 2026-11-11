@@ -55,6 +55,7 @@ import {
   menuEntry,
   menuSeparator,
 } from '@ziroeda/common/tool/conditional_menu.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * What the tree selection is, which is all four of `Init`'s conditions
@@ -163,30 +164,30 @@ export function footprintTreeContextMenu(
 
   const entries: ConditionalEntry[] = [
     // --- LIBRARY_EDITOR_CONTROL::AddContextMenuItems, order 1 -----------------
-    row(h, 'Pin Library', 'pinLibrary', CheckPinnedStatus(nodes, false), 1),
-    row(h, 'Unpin Library', 'unpinLibrary', CheckPinnedStatus(nodes, true), 1),
+    row(h, _('Pin Library'), 'pinLibrary', CheckPinnedStatus(nodes, false), 1),
+    row(h, _('Unpin Library'), 'unpinLibrary', CheckPinnedStatus(nodes, true), 1),
     menuSeparator(1),
 
     // --- FOOTPRINT_EDITOR_CONTROL::Init, order 10 ----------------------------
-    row(h, 'New Footprint', 'newFootprint', libSelected, 10),
-    row(h, 'Create Footprint...', 'createFootprint', libSelected, 10),
+    row(h, _('New Footprint'), 'newFootprint', libSelected, 10),
+    row(h, _('Create Footprint...'), 'createFootprint', libSelected, 10),
     menuSeparator(10),
     row(h, 'Save', 'save', true, 10),
-    row(h, 'Save As...', 'saveAs', libSelected || fpSelected, 10),
-    row(h, 'Revert', 'revert', libSelected || libInferred, 10),
+    row(h, _('Save As...'), 'saveAs', libSelected || fpSelected, 10),
+    row(h, _('Revert'), 'revert', libSelected || libInferred, 10),
     menuSeparator(10),
-    row(h, 'Cut Footprint', 'cutFootprint', fpSelected, 10),
-    row(h, 'Copy Footprint', 'copyFootprint', fpSelected, 10),
-    row(h, 'Paste Footprint', 'pasteFootprint', libInferred, 10),
-    row(h, 'Duplicate Footprint', 'duplicateFootprint', fpSelected, 10),
-    row(h, 'Rename Footprint...', 'renameFootprint', fpSelected, 10),
-    row(h, 'Delete Footprint from Library', 'deleteFootprint', fpSelected, 10),
-    row(h, 'Footprint Properties...', 'footprintProperties', fpSelected, 10),
+    row(h, _('Cut Footprint'), 'cutFootprint', fpSelected, 10),
+    row(h, _('Copy Footprint'), 'copyFootprint', fpSelected, 10),
+    row(h, _('Paste Footprint'), 'pasteFootprint', libInferred, 10),
+    row(h, _('Duplicate Footprint'), 'duplicateFootprint', fpSelected, 10),
+    row(h, _('Rename Footprint...'), 'renameFootprint', fpSelected, 10),
+    row(h, _('Delete Footprint from Library'), 'deleteFootprint', fpSelected, 10),
+    row(h, _('Footprint Properties...'), 'footprintProperties', fpSelected, 10),
 
     // --- order 100 -----------------------------------------------------------
     menuSeparator(100),
-    row(h, 'Import Footprint...', 'importFootprint', libInferred, 100),
-    row(h, 'Export Current Footprint...', 'exportFootprint', conds.haveFootprint, 100),
+    row(h, _('Import Footprint...'), 'importFootprint', libInferred, 100),
+    row(h, _('Export Current Footprint...'), 'exportFootprint', conds.haveFootprint, 100),
 
     // NOT here: `ACTIONS::openWithTextEditor` and `ACTIONS::openDirectory` at
     // order 200. Both are behind `ADVANCED_CFG::m_EnableLibWithText` /
@@ -196,7 +197,7 @@ export function footprintTreeContextMenu(
 
     // --- AddContextMenuItems, order 400 --------------------------------------
     menuSeparator(400),
-    row(h, 'Hide Library Tree', 'hideLibraryTree', true, 400),
+    row(h, _('Hide Library Tree'), 'hideLibraryTree', true, 400),
   ];
 
   return evaluateConditionalMenu(entries);
@@ -418,7 +419,7 @@ export class FOOTPRINT_EDITOR_CONTROL extends PCB_TOOL_BASE {
       const adapter = frame.FootprintLibAdapter();
       let newName = this.m_copiedFootprint.GetFPID().GetLibItemName();
 
-      while (adapter?.FootprintExists(newLib, newName)) newName += '_copy';
+      while (adapter?.FootprintExists(newLib, newName)) newName += _('_copy');
 
       this.m_copiedFootprint.SetFPID(new LIB_ID(newLib, newName));
       await frame.SaveFootprintInLibrary(this.m_copiedFootprint, newLib);
@@ -471,13 +472,13 @@ export class FOOTPRINT_EDITOR_CONTROL extends PCB_TOOL_BASE {
 
     if (
       !(await libTool.RenameLibrary(
-        'Change Footprint Name',
+        _('Change Footprint Name'),
         oldName,
         async (aNewName: string): Promise<boolean> => {
           newName = aNewName;
 
           if (newName === '') {
-            await DisplayInfoMessage('Footprint must have a name.');
+            await DisplayInfoMessage(_('Footprint must have a name.'));
             return false;
           }
 
@@ -486,10 +487,10 @@ export class FOOTPRINT_EDITOR_CONTROL extends PCB_TOOL_BASE {
             const msg = `Footprint '${newName}' already exists in library '${libraryName}'.`;
 
             const answer = await frame.AskKiDialog({
-              caption: 'Confirmation',
+              caption: _('Confirmation'),
               message: msg,
               icon: 'warning',
-              labels: { ok: 'Overwrite' },
+              labels: { ok: _('Overwrite') },
             });
 
             return answer === 'ok';
@@ -530,7 +531,8 @@ export class FOOTPRINT_EDITOR_CONTROL extends PCB_TOOL_BASE {
 
           adapter?.DeleteFootprint?.(libraryName, oldName);
         } catch (ioe) {
-          if (ioe instanceof IO_ERROR) DisplayErrorMessage('Error renaming footprint', ioe.What());
+          if (ioe instanceof IO_ERROR)
+            DisplayErrorMessage(_('Error renaming footprint'), ioe.What());
           // catch( ... ): Best efforts...
         }
       }
@@ -602,7 +604,7 @@ export class FOOTPRINT_EDITOR_CONTROL extends PCB_TOOL_BASE {
       const url = GetFootprintDocumentationURL(footprint);
 
       if (url === null) {
-        this.frame().ShowInfoBarMsg('No datasheet found in the footprint.');
+        this.frame().ShowInfoBarMsg(_('No datasheet found in the footprint.'));
       } else {
         // Only absolute URLs are supported
         GetAssociatedDocument(url, null, [
@@ -805,7 +807,7 @@ export class FOOTPRINT_EDITOR_CONTROL extends PCB_TOOL_BASE {
       const msg = `${errors} potential problems repaired.`;
       void DisplayInfoMessage(msg, details);
     } else {
-      void DisplayInfoMessage('No footprint problems found.');
+      void DisplayInfoMessage(_('No footprint problems found.'));
     }
 
     return 0;

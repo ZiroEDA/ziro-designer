@@ -46,6 +46,7 @@ import {
   TrimRight,
   ValidateName,
 } from './pcad2kicad_common.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // std::numeric_limits<long>::max(), as a sort key only
 const LONG_MAX = Number.MAX_SAFE_INTEGER;
@@ -680,7 +681,7 @@ export class PCAD_PCB extends PCAD_FOOTPRINT {
     }
 
     if (this.m_layersStackup.length > 32)
-      throw new IO_ERROR('KiCad only supports 32 signal layers.');
+      throw new IO_ERROR(_('KiCad only supports 32 signal layers.'));
   }
 
   private CreatePolygonsForEmptyPowerPlanes(): void {

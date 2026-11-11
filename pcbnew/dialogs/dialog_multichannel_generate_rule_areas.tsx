@@ -18,6 +18,8 @@ import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import type { MULTICHANNEL_TOOL } from '../tools/multichannel_tool.js';
 import { PLACEMENT_SOURCE_T } from '../zone_settings.js';
 import { DIALOG_MULTICHANNEL_GENERATE_RULE_AREAS_BASE } from './dialog_multichannel_generate_rule_areas_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A source grid: the "Generate" checkbox column, then the source's names. */
 function sourceGrid(aLabels: readonly string[]): { grid: WX_GRID; tricks: GRID_TRICKS } {
@@ -30,9 +32,9 @@ function sourceGrid(aLabels: readonly string[]): { grid: WX_GRID; tricks: GRID_T
 
 export class DIALOG_MULTICHANNEL_GENERATE_RULE_AREAS {
   readonly m_parentTool: MULTICHANNEL_TOOL;
-  readonly m_sheetGrid = sourceGrid(['Generate', 'Sheet Path', 'Sheet Name']);
-  readonly m_componentClassGrid = sourceGrid(['Generate', 'Component Class']);
-  readonly m_groupGrid = sourceGrid(['Generate', 'Name']);
+  readonly m_sheetGrid = sourceGrid([_HKI('Generate'), _HKI('Sheet Path'), _HKI('Sheet Name')]);
+  readonly m_componentClassGrid = sourceGrid([_HKI('Generate'), _HKI('Component Class')]);
+  readonly m_groupGrid = sourceGrid([_HKI('Generate'), _HKI('Name')]);
   m_selection = 0;
   m_cbGroupItems = false;
   m_cbGroupItemsEnabled = true;
@@ -135,9 +137,12 @@ export function DialogMultichannelGenerateRuleAreas({
   return (
     <DIALOG_MULTICHANNEL_GENERATE_RULE_AREAS_BASE
       pages={[
-        { text: 'Sheets', content: page('Sheets', dlg.m_sheetGrid) },
-        { text: 'Component Classes', content: page('Component Classes', dlg.m_componentClassGrid) },
-        { text: 'Groups', content: page('Groups', dlg.m_groupGrid) },
+        { text: _('Sheets'), content: page(_('Sheets'), dlg.m_sheetGrid) },
+        {
+          text: _('Component Classes'),
+          content: page(_('Component Classes'), dlg.m_componentClassGrid),
+        },
+        { text: _('Groups'), content: page(_('Groups'), dlg.m_groupGrid) },
       ]}
       selection={dlg.m_selection}
       OnNotebookPageChanged={(i) => {

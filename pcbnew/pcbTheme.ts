@@ -31,6 +31,7 @@ import {
   parseColor4d,
   toCssColor,
 } from '@ziroeda/common';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `SETTINGS_MANAGER::GetColorSettings( aFilename )`'s installed-theme half —
@@ -255,7 +256,7 @@ export const PCB_THEMES: PcbColorTheme[] = [
   },
   {
     filename: '_builtin_classic',
-    name: 'KiCad Classic',
+    name: _HKI('KiCad Classic'),
     background: at(BUILTIN_CLASSIC_THEME, 'LAYER_PCB_BACKGROUND'),
     grid: at(BUILTIN_CLASSIC_THEME, 'LAYER_GRID'),
     gridAxes: at(BUILTIN_CLASSIC_THEME, 'LAYER_GRID_AXES'),
@@ -387,7 +388,7 @@ export function pcbThemeWithOverrides(
  */
 export const PCB_BW_PRINT_THEME: PcbColorTheme = {
   filename: '_print_bw',
-  name: 'Black and white',
+  name: _HKI('Black and white'),
   background: WHITE,
   grid: BLACK,
   gridAxes: BLACK,

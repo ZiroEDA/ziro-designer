@@ -69,6 +69,8 @@ import {
   DIALOG_COPPER_LAYER_PAIR_SELECTION_BASE,
   DIALOG_LAYER_SELECTION_BASE,
 } from './dialogs/dialog_layer_selection_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** One row of either grid: `buildList()`'s per-layer locals, kept as data. */
 export interface LayerSelectorRow {
@@ -283,7 +285,7 @@ export function PcbOneLayerSelector({
 
   return (
     <DIALOG_LAYER_SELECTION_BASE
-      m_leftGridLayers={grid(left, leftGrid, 'Copper layers', true)}
+      m_leftGridLayers={grid(left, leftGrid, _('Copper layers'), true)}
       m_rightGridLayers={grid(right, rightGrid, 'Non-copper layers', false)}
       onCharHook={(e) => {
         // `onCharHook` (`sel_layer.cpp:236-253`): a bound layer hotkey selects and closes, same
@@ -397,7 +399,7 @@ function orderedCopperLayers(board: BOARD): PCB_LAYER_ID[] {
  * `PRESETS_COLNUMS` (`sel_layer.cpp:427-433`): Enabled / (swatch, no label) /
  * Layers / Label. `USERNAME` is `SetupColumnAutosizer`'s column — `flexCol`.
  */
-const PRESETS_COLUMNS = ['Enabled', '', 'Layers', 'Label'] as const;
+const PRESETS_COLUMNS = [_HKI('Enabled'), '', 'Layers', 'Label'] as const;
 const PRESETS_COL_WIDTHS = [48, 24, 80, 120] as const;
 const PRESETS_USERNAME_COL = 3;
 
@@ -563,7 +565,7 @@ export function SelectCopperLayerPairDialog({
       dialogSettings.GetCurrentLayerPair().GetLayerA() ===
       dialogSettings.GetCurrentLayerPair().GetLayerB()
     )
-      void DisplayInfoMessage('Warning: top and bottom layers are same.');
+      void DisplayInfoMessage(_('Warning: top and bottom layers are same.'));
   };
 
   return (
@@ -574,7 +576,7 @@ export function SelectCopperLayerPairDialog({
           tricks={leftTricks}
           colLabels={false}
           className="ze-grid-no-lines"
-          ariaLabel="Top layer"
+          ariaLabel={_('Top layer')}
           columns={CU_PAIR_COL_WIDTHS.map((width) => ({ width }))}
           renderCell={renderCopperCell(
             leftTable,
@@ -588,7 +590,7 @@ export function SelectCopperLayerPairDialog({
           tricks={rightTricks}
           colLabels={false}
           className="ze-grid-no-lines"
-          ariaLabel="Bottom layer"
+          ariaLabel={_('Bottom layer')}
           columns={CU_PAIR_COL_WIDTHS.map((width) => ({ width }))}
           renderCell={renderCopperCell(
             rightTable,

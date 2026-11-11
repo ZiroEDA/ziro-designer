@@ -21,6 +21,7 @@ import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js'
 import type { BOARD } from '../board.js';
 import type { ZONE } from '../zone.js';
 import type { ZONE_SETTINGS_BAG } from '../zone_settings_bag.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export const LAYER_BAR_WIDTH = 16;
 export const LAYER_BAR_HEIGHT = 16;
@@ -45,9 +46,9 @@ export enum ZONES_OVERVIEW_COL {
 /** `GetColumnNames()`. */
 export const GetColumnNames = (): ReadonlyMap<number, string> =>
   new Map([
-    [ZONES_OVERVIEW_COL.NAME, 'Name'],
-    [ZONES_OVERVIEW_COL.NET, 'Net'],
-    [ZONES_OVERVIEW_COL.LAYERS, 'Layers'],
+    [ZONES_OVERVIEW_COL.NAME, _('Name')],
+    [ZONES_OVERVIEW_COL.NET, _('Net')],
+    [ZONES_OVERVIEW_COL.LAYERS, _('Layers')],
   ]);
 
 /** What the model reads from its `PCB_BASE_FRAME`. */

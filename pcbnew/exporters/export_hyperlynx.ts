@@ -23,6 +23,7 @@ import { PAD_ATTRIB, PAD_SHAPE, PADSTACK } from '../padstack.js';
 import type { PCB_ARC, PCB_TRACK, PCB_VIA } from '../pcb_track.js';
 import type { ZONE } from '../zone.js';
 import { BOARD_EXPORTER_BASE } from './board_exporter_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 function iu2hyp(iu: number): number {
   return iu / 1e9 / 0.0254;
@@ -162,7 +163,7 @@ export class HYPERLYNX_EXPORTER extends BOARD_EXPORTER_BASE {
               'rounded rectangle, and circle).',
             RPT_SEVERITY_WARNING,
           );
-          this.m_reporter.Report('They have been exported as oval pads.', RPT_SEVERITY_INFO);
+          this.m_reporter.Report(_('They have been exported as oval pads.'), RPT_SEVERITY_INFO);
         }
 
         shapeId = 0;
@@ -207,7 +208,7 @@ export class HYPERLYNX_EXPORTER extends BOARD_EXPORTER_BASE {
 
     if (!this.board().GetBoardPolygonOutlines(outlines, false)) {
       // wxLogError: there is no log window to show it in.
-      this.m_reporter?.Report('Board outline is malformed. Run DRC for a full analysis.');
+      this.m_reporter?.Report(_('Board outline is malformed. Run DRC for a full analysis.'));
       return false;
     }
 

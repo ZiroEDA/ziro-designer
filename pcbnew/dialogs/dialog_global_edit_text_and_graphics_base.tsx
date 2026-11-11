@@ -38,6 +38,7 @@ import {
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
 import { type CHECK3, TriStateCheck } from '@ziroeda/wx/wx_checkbox.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER over a wxTextCtrl: its text, unit text and Enable(). */
 export interface UNIT_FIELD {
@@ -140,38 +141,40 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
   );
 
   return (
-    <DialogShim title="Edit Text and Graphic Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Edit Text and Graphic Properties')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND} border={5}>
           {/* bSizerTop */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxEXPAND | wxTOP | RL} border={10}>
-              <StaticBoxSizer label="Scope" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Scope')} orient={wxVERTICAL}>
                 <SizerItem proportion={1} flag={wxEXPAND | RL} border={5}>
                   {/* fgSizer3 = wxFlexGridSizer( 0, 2, 5, 30 ) */}
                   <FlexGridSizer cols={2} vgap={5} hgap={30}>
                     <SizerItem border={5}>
-                      <CheckBox label="Reference designators" check={p.m_references} />
+                      <CheckBox label={_('Reference designators')} check={p.m_references} />
                     </SizerItem>
                     <SizerItem border={5} shown={p.boardItemsShown}>
-                      <CheckBox label="PCB graphic items" check={p.m_boardGraphics} />
+                      <CheckBox label={_('PCB graphic items')} check={p.m_boardGraphics} />
                     </SizerItem>
                     <SizerItem border={5}>
-                      <CheckBox label="Values" check={p.m_values} />
+                      <CheckBox label={_('Values')} check={p.m_values} />
                     </SizerItem>
                     <SizerItem border={5} shown={p.boardItemsShown}>
-                      <CheckBox label="PCB text items" check={p.m_boardText} />
+                      <CheckBox label={_('PCB text items')} check={p.m_boardText} />
                     </SizerItem>
                     <SizerItem border={5}>
                       <CheckBox
-                        label="Other footprint fields"
+                        label={_('Other footprint fields')}
                         check={p.m_otherFootprintFields}
-                        title="Footprint fields that are not the reference designator or value field"
+                        title={_(
+                          'Footprint fields that are not the reference designator or value field',
+                        )}
                       />
                     </SizerItem>
                     <SizerItem border={5} shown={p.boardItemsShown}>
-                      <CheckBox label="PCB dimensions" check={p.m_boardDimensions} />
+                      <CheckBox label={_('PCB dimensions')} check={p.m_boardDimensions} />
                     </SizerItem>
                     <SizerItem flag={wxTOP} border={5}>
                       <CheckBox
@@ -184,7 +187,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                       <CheckBox
                         label={p.m_footprintTexts.label}
                         check={p.m_footprintTexts.check}
-                        title="Footprint text items not associated with a field"
+                        title={_('Footprint text items not associated with a field')}
                       />
                     </SizerItem>
                     <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
@@ -199,12 +202,12 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
               </StaticBoxSizer>
             </SizerItem>
             <SizerItem proportion={1} flag={wxEXPAND | wxTOP | RL} border={10}>
-              <StaticBoxSizer label="Filter Items" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Filter Items')} orient={wxVERTICAL}>
                 <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT} border={5}>
                   {/* fgSizer2 = wxFlexGridSizer( 0, 2, 3, 0 ) */}
                   <FlexGridSizer cols={2} vgap={3} hgap={0} growableCols={[1]}>
                     <SizerItem flag={CV | wxLEFT} border={5}>
-                      <CheckBox label="By layer:" check={p.m_layerFilterOpt} />
+                      <CheckBox label={_('By layer:')} check={p.m_layerFilterOpt} />
                     </SizerItem>
                     <SizerItem flag={wxEXPAND | wxLEFT} border={5}>
                       {layerBox(p.m_layerFilter, 'Layer filter')}
@@ -225,7 +228,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                     />
                     <SizerItem flag={CV | wxLEFT} border={5} shown={p.boardItemsShown}>
                       <CheckBox
-                        label="By parent reference designator:"
+                        label={_('By parent reference designator:')}
                         check={p.m_referenceFilterOpt}
                       />
                     </SizerItem>
@@ -238,7 +241,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                     </SizerItem>
                     <SizerItem flag={CV | wxBOTTOM | wxLEFT} border={5} shown={p.boardItemsShown}>
                       <CheckBox
-                        label="By parent footprint library link:"
+                        label={_('By parent footprint library link:')}
                         check={p.m_footprintFilterOpt}
                       />
                     </SizerItem>
@@ -254,7 +257,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                       />
                     </SizerItem>
                     <SizerItem flag={wxALL} border={5}>
-                      <CheckBox label="Selected items only" check={p.m_selectedItemsFilter} />
+                      <CheckBox label={_('Selected items only')} check={p.m_selectedItemsFilter} />
                     </SizerItem>
                   </FlexGridSizer>
                 </SizerItem>
@@ -263,10 +266,10 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
           </BoxSizer>
         </SizerItem>
         <SizerItem flag={wxEXPAND | wxTOP | RL} border={10}>
-          <StaticBoxSizer label="Action" orient={wxVERTICAL}>
+          <StaticBoxSizer label={_('Action')} orient={wxVERTICAL}>
             <SizerItem flag={wxRIGHT} border={5}>
               <RadioButton
-                label="Set to specified values:"
+                label={_('Set to specified values:')}
                 name="m_action"
                 checked={p.m_setToSpecifiedValues.value}
                 onChange={() => p.m_setToSpecifiedValues.onSelect(true)}
@@ -279,7 +282,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                   {/* fgSizer1 = wxFlexGridSizer( 0, 5, 2, 0 ) */}
                   <FlexGridSizer cols={5} vgap={2} hgap={0} growableCols={[1, 4]}>
                     <SizerItem flag={CV | RL} border={5}>
-                      <StaticText label="Layer:" disabled={p.m_LayerCtrl.enabled === false} />
+                      <StaticText label={_('Layer:')} disabled={p.m_LayerCtrl.enabled === false} />
                     </SizerItem>
                     <SizerItem flag={wxEXPAND | RL} border={5}>
                       {layerBox(p.m_LayerCtrl, 'Layer')}
@@ -288,7 +291,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                     <Spacer width={0} height={0} flag={wxEXPAND | RL} border={5} />
                     <SizerItem flag={CV | wxLEFT} border={120}>
                       <TriStateCheck
-                        label="Visible  (fields only)"
+                        label={_('Visible  (fields only)')}
                         check={p.m_visible}
                         allowThirdStateForUser
                       />
@@ -309,7 +312,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                     <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
                     <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
                     <SizerItem flag={wxTOP | RL | CV} border={5}>
-                      <StaticText label="Font:" disabled={!p.m_fontCtrl.enabled} />
+                      <StaticText label={_('Font:')} disabled={!p.m_fontCtrl.enabled} />
                     </SizerItem>
                     <SizerItem flag={wxTOP | RL | CV | wxEXPAND} border={5}>
                       <FontChoice
@@ -322,20 +325,24 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                     <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
                     <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
                     <SizerItem flag={wxLEFT | CV} border={120}>
-                      <TriStateCheck label="Bold" check={p.m_bold} allowThirdStateForUser />
+                      <TriStateCheck label={_('Bold')} check={p.m_bold} allowThirdStateForUser />
                     </SizerItem>
                     {unit(p.m_textWidth, wxEXPAND | RL, [120, -1])}
                     {unitText(p.m_textWidth)}
                     <Spacer width={0} height={0} flag={wxEXPAND | RL} border={20} />
                     <SizerItem flag={CV | RL} border={120}>
-                      <TriStateCheck label="Italic" check={p.m_italic} allowThirdStateForUser />
+                      <TriStateCheck
+                        label={_('Italic')}
+                        check={p.m_italic}
+                        allowThirdStateForUser
+                      />
                     </SizerItem>
                     {unit(p.m_textHeight)}
                     {unitText(p.m_textHeight)}
                     <Spacer width={0} height={0} flag={wxEXPAND | RL} border={20} />
                     <SizerItem flag={CV | wxLEFT | wxRIGHT} border={120}>
                       <TriStateCheck
-                        label="Keep upright"
+                        label={_('Keep upright')}
                         check={p.m_keepUpright}
                         allowThirdStateForUser
                       />
@@ -353,7 +360,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                         <SizerItem flag={CV | RL} border={5}>
                           <BitmapButton
                             bitmap="edit_cmp_symb_links"
-                            tooltip="Adjust the text thickness"
+                            tooltip={_('Adjust the text thickness')}
                             checked={p.m_autoTextThickness.checked}
                             disabled={!p.m_autoTextThickness.enabled}
                             onClick={p.m_autoTextThickness.onClick}
@@ -364,9 +371,9 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                     <Spacer width={0} height={0} flag={wxEXPAND | RL} border={20} />
                     <SizerItem flag={CV | RL} border={120}>
                       <CheckBox
-                        label="Center on footprint"
+                        label={_('Center on footprint')}
                         check={p.m_centerOnFP}
-                        title="Move footprint texts to the center of their parent"
+                        title={_('Move footprint texts to the center of their parent')}
                       />
                     </SizerItem>
                   </FlexGridSizer>
@@ -396,10 +403,10 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
         </SizerItem>
         <SizerItem flag={wxALL | wxEXPAND} border={5}>
           <StdDialogButtonSizer
-            okLabel="Apply and Close"
+            okLabel={_('Apply and Close')}
             onOk={p.onOK}
             onApply={p.onApply}
-            cancelLabel="Close"
+            cancelLabel={_('Close')}
             onCancel={p.onCancel}
           />
         </SizerItem>

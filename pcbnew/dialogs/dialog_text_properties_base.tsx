@@ -32,6 +32,7 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER: its label, text, unit, Show() and Enable(). */
 export interface FIELD {
@@ -143,7 +144,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
           {/* m_MultiLineSizer */}
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-              <StaticText label="Text:" />
+              <StaticText label={_('Text:')} />
             </SizerItem>
             <SizerItem
               proportion={1}
@@ -161,8 +162,8 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
             </SizerItem>
             <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={3}>
               <HyperlinkCtrl
-                label="Syntax help"
-                title="Show syntax help window"
+                label={_('Syntax help')}
+                title={_('Show syntax help window')}
                 onClick={p.onSyntaxHelp}
               />
             </SizerItem>
@@ -195,10 +196,10 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
               border={5}
               shown={p.m_cbLocked.shown}
             >
-              <CheckBox label="Locked" check={p.m_cbLocked} />
+              <CheckBox label={_('Locked')} check={p.m_cbLocked} />
             </SizerItem>
             <SizerItem pos={[1, 0]} flag={CV | wxTOP | wxBOTTOM | wxLEFT} border={5}>
-              <StaticText label="Layer:" />
+              <StaticText label={_('Layer:')} />
             </SizerItem>
             <SizerItem pos={[1, 1]} span={[1, 2]} flag={CV | wxEXPAND} border={5}>
               <Combo
@@ -212,24 +213,24 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
               {/* bSizer7 */}
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem proportion={1} flag={wxALL} border={15}>
-                  <CheckBox label="Knockout" check={p.m_cbKnockout} />
+                  <CheckBox label={_('Knockout')} check={p.m_cbKnockout} />
                 </SizerItem>
                 <Spacer width={20} height={0} proportion={1} flag={wxEXPAND} border={5} />
                 <SizerItem flag={CV} border={10} shown={p.m_KeepUpright.shown}>
                   <CheckBox
-                    label="Keep upright"
+                    label={_('Keep upright')}
                     check={p.m_KeepUpright}
-                    title="Keep text upright"
+                    title={_('Keep text upright')}
                   />
                 </SizerItem>
                 <Spacer width={20} height={0} proportion={1} flag={wxEXPAND} border={5} />
                 <SizerItem flag={CV | wxRIGHT} border={20} shown={p.m_Visible.shown}>
-                  <CheckBox label="Show" check={p.m_Visible} />
+                  <CheckBox label={_('Show')} check={p.m_Visible} />
                 </SizerItem>
               </BoxSizer>
             </SizerItem>
             <SizerItem pos={[2, 0]} flag={CV | wxALL} border={5}>
-              <StaticText label="Font:" />
+              <StaticText label={_('Font:')} />
             </SizerItem>
             <SizerItem
               pos={[2, 1]}
@@ -245,7 +246,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
                 <SizerItem flag={CV} border={5}>
                   <BitmapButton
                     bitmap="text_bold"
-                    tooltip="Bold"
+                    tooltip={_('Bold')}
                     checked={p.m_bold.checked}
                     onClick={p.m_bold.onClick}
                   />
@@ -253,7 +254,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
                 <SizerItem flag={CV} border={5}>
                   <BitmapButton
                     bitmap="text_italic"
-                    tooltip="Italic"
+                    tooltip={_('Italic')}
                     checked={p.m_italic.checked}
                     onClick={p.m_italic.onClick}
                   />
@@ -263,9 +264,9 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
                 </SizerItem>
                 {(
                   [
-                    ['left', 'text_align_left', 'Align left'],
-                    ['center', 'text_align_center', 'Align center'],
-                    ['right', 'text_align_right', 'Align right'],
+                    ['left', 'text_align_left', _('Align left')],
+                    ['center', 'text_align_center', _('Align center')],
+                    ['right', 'text_align_right', _('Align right')],
                   ] as const
                 ).map(([align, bitmap, tip]) => (
                   <SizerItem key={align} flag={CV} border={5}>
@@ -282,9 +283,9 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
                 </SizerItem>
                 {(
                   [
-                    ['top', 'text_valign_top', 'Align top'],
+                    ['top', 'text_valign_top', _('Align top')],
                     ['center', 'text_valign_center', 'Align middle'],
-                    ['bottom', 'text_valign_bottom', 'Align bottom'],
+                    ['bottom', 'text_valign_bottom', _('Align bottom')],
                   ] as const
                 ).map(([align, bitmap, tip]) => (
                   <SizerItem key={align} flag={CV} border={5}>
@@ -327,7 +328,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
                 >
                   <BitmapButton
                     bitmap="edit_cmp_symb_links"
-                    tooltip="Adjust the text thickness"
+                    tooltip={_('Adjust the text thickness')}
                     checked={p.m_autoTextThickness.checked}
                     onClick={p.m_autoTextThickness.onClick}
                   />
@@ -337,7 +338,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
             {field(3, 4, p.m_posX, 15)}
             {field(4, 4, p.m_posY, 15)}
             <SizerItem pos={[5, 4]} flag={CV | wxLEFT} border={15}>
-              <StaticText label="Orientation:" title="Text orientation" />
+              <StaticText label={_('Orientation:')} title={_('Text orientation')} />
             </SizerItem>
             <SizerItem pos={[5, 5]} flag={CV | wxEXPAND} border={5}>
               <TextCombo

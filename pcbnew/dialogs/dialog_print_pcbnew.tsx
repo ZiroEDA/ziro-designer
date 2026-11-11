@@ -40,6 +40,8 @@ import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { DRILL_MARKS } from '../pcb_plot_params.js';
 import { PAGINATION_T, PCBNEW_PRINTOUT, PCBNEW_PRINTOUT_SETTINGS } from '../pcbnew_printout.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `onPopUpLayers`' menu ids. */
 export enum PRINT_LAYER_MENU {
@@ -52,11 +54,11 @@ export enum PRINT_LAYER_MENU {
 
 /** `m_popMenu`'s items, in order. */
 export const PRINT_LAYER_MENU_ITEMS: readonly { id: PRINT_LAYER_MENU; label: string }[] = [
-  { id: PRINT_LAYER_MENU.ID_SELECT_FAB_LAYERS, label: 'Select Fab Layers' },
-  { id: PRINT_LAYER_MENU.ID_SELECT_COPPER_LAYERS, label: 'Select all Copper Layers' },
-  { id: PRINT_LAYER_MENU.ID_DESELECT_COPPER_LAYERS, label: 'Deselect all Copper Layers' },
-  { id: PRINT_LAYER_MENU.ID_SELECT_ALL_LAYERS, label: 'Select all Layers' },
-  { id: PRINT_LAYER_MENU.ID_DESELECT_ALL_LAYERS, label: 'Deselect all Layers' },
+  { id: PRINT_LAYER_MENU.ID_SELECT_FAB_LAYERS, label: _HKI('Select Fab Layers') },
+  { id: PRINT_LAYER_MENU.ID_SELECT_COPPER_LAYERS, label: _HKI('Select all Copper Layers') },
+  { id: PRINT_LAYER_MENU.ID_DESELECT_COPPER_LAYERS, label: _HKI('Deselect all Copper Layers') },
+  { id: PRINT_LAYER_MENU.ID_SELECT_ALL_LAYERS, label: _HKI('Select all Layers') },
+  { id: PRINT_LAYER_MENU.ID_DESELECT_ALL_LAYERS, label: _HKI('Deselect all Layers') },
 ];
 
 export class DIALOG_PRINT_PCBNEW {
@@ -338,7 +340,8 @@ export class DIALOG_PRINT_PCBNEW {
     this.m_settings.m_pageCount = 0; // it needs to be set by a derived dialog
     const info = this.saveSettings();
 
-    if (this.m_settings.m_pageCount === 0) return { info, error: 'Nothing to print' };
+    if (this.m_settings.m_pageCount === 0)
+      return { info, error: wxGetTranslation('Nothing to print') };
 
     return { info, error: null };
   }
@@ -430,11 +433,11 @@ export function DialogPcbPrint({
           dlg.m_customScale = t;
           changed();
         }}
-        infoText="Right-click for layer selection commands."
+        infoText={wxGetTranslation('Right-click for layer selection commands.')}
         mainSizerInserts={
           // createLeftPanel(): getMainSizer()->Insert( 0, sbLayersSizer, 1, wxEXPAND | wxALL, 5 )
           <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
-            <StaticBoxSizer label="Include Layers" orient={wxVERTICAL}>
+            <StaticBoxSizer label={wxGetTranslation('Include Layers')} orient={wxVERTICAL}>
               <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM | wxRIGHT} border={5}>
                 <CheckListBox
                   items={dlg.m_layerNames}
@@ -444,7 +447,7 @@ export function DialogPcbPrint({
                     changed();
                   }}
                   onContextMenu={(e) => setMenu({ x: e.clientX, y: e.clientY })}
-                  ariaLabel="Include Layers"
+                  ariaLabel={wxGetTranslation('Include Layers')}
                 />
               </SizerItem>
             </StaticBoxSizer>
@@ -459,7 +462,7 @@ export function DialogPcbPrint({
               border={5}
             >
               <CheckBox
-                label="Print according to objects tab of appearance manager"
+                label={wxGetTranslation('Print according to objects tab of appearance manager')}
                 check={check(
                   () => dlg.m_checkAsItems,
                   (aOn) => {
@@ -475,7 +478,7 @@ export function DialogPcbPrint({
               border={5}
             >
               <CheckBox
-                label="Print background color"
+                label={wxGetTranslation('Print background color')}
                 check={check(
                   () => dlg.m_checkBackground,
                   (aOn) => {
@@ -487,7 +490,7 @@ export function DialogPcbPrint({
             </SizerItem>
             <SizerItem pos={[ROW_AS_ITEMS + 2, 0]} span={[1, 2]} flag={wxLEFT | wxRIGHT} border={5}>
               <CheckBox
-                label="Use a different color theme for printing:"
+                label={wxGetTranslation('Use a different color theme for printing:')}
                 check={check(
                   () => dlg.m_checkUseTheme,
                   (aOn) => {
@@ -523,7 +526,7 @@ export function DialogPcbPrint({
               flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT | wxBOTTOM}
               border={5}
             >
-              <StaticText label="Drill marks:" />
+              <StaticText label={wxGetTranslation('Drill marks:')} />
             </SizerItem>
             <SizerItem
               pos={[ROW_DRILL_MARKS, 1]}
@@ -531,7 +534,11 @@ export function DialogPcbPrint({
               border={5}
             >
               <Choice
-                choices={['No drill mark', 'Small mark', 'Real drill']}
+                choices={[
+                  wxGetTranslation('No drill mark'),
+                  wxGetTranslation('Small mark'),
+                  wxGetTranslation('Real drill'),
+                ]}
                 choice={{
                   value: dlg.m_drillMarksChoice,
                   onChange: (aIndex) => {
@@ -549,7 +556,7 @@ export function DialogPcbPrint({
               border={5}
             >
               <CheckBox
-                label="Print mirrored"
+                label={wxGetTranslation('Print mirrored')}
                 check={check(
                   () => dlg.m_checkboxMirror,
                   (aOn) => {
@@ -565,7 +572,7 @@ export function DialogPcbPrint({
               border={5}
             >
               <CheckBox
-                label="Print one page per layer"
+                label={wxGetTranslation('Print one page per layer')}
                 check={check(
                   () => dlg.m_checkboxPagePerLayer,
                   (aOn) => {
@@ -577,7 +584,7 @@ export function DialogPcbPrint({
             </SizerItem>
             <SizerItem pos={[ROW_DRILL_MARKS + 3, 0]} span={[1, 2]} flag={wxLEFT} border={28}>
               <CheckBox
-                label="Print board edges on all pages"
+                label={wxGetTranslation('Print board edges on all pages')}
                 check={check(
                   () => dlg.m_checkboxEdgesOnAllPages,
                   (aOn) => {

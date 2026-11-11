@@ -10,7 +10,7 @@
  * viewer pipeline, layer/object controls and presets are fully functional.
  */
 
-import { _ } from '@ziroeda/wx/translation.js';
+import { _, wxGetTranslation } from '@ziroeda/wx/translation.js';
 import { ParseFootprintFile } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import type { PcbScriptApi } from './browser/pcb_script_api.js';
 import { routeHeadless } from './router/route_headless.js';
@@ -524,6 +524,7 @@ import {
 } from '@ziroeda/common/browser_hotkeys.js';
 import { parseColor4d, toCssColor, type Color4d } from '@ziroeda/common/gal/color4d.js';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -711,49 +712,49 @@ const PCB_TOOL_MSGS: Record<string, string> = {
   // Half of them were the wrong string: v10's names are plural — "Draw Lines",
   // not "Draw Line" — and the four that read "Add …" were the pre-v7 spellings.
   // The selection tool shows `ACTIONS::selectionTool`'s own name.
-  selectSetRect: 'Select item(s)',
-  selectSetLasso: 'Select item(s)',
-  routeSingleTrack: 'Route Single Track',
-  drawVia: 'Place Vias',
-  drawZone: 'Draw Filled Zones',
-  drawLine: 'Draw Lines',
-  drawArc: 'Draw Arcs',
-  drawRectangle: 'Draw Rectangles',
-  drawCircle: 'Draw Circles',
-  drawPolygon: 'Draw Polygons',
+  selectSetRect: _HKI('Select item(s)'),
+  selectSetLasso: _HKI('Select item(s)'),
+  routeSingleTrack: _HKI('Route Single Track'),
+  drawVia: _HKI('Place Vias'),
+  drawZone: _HKI('Draw Filled Zones'),
+  drawLine: _HKI('Draw Lines'),
+  drawArc: _HKI('Draw Arcs'),
+  drawRectangle: _HKI('Draw Rectangles'),
+  drawCircle: _HKI('Draw Circles'),
+  drawPolygon: _HKI('Draw Polygons'),
   // `PCB_ACTIONS::drawBezier`'s FriendlyName (`pcb_actions.cpp:158`), which is
   // singular where the four above are plural — upstream's own inconsistency.
-  drawBezier: 'Draw Bezier Curve',
-  placeReferenceImage: 'Place Reference Images',
-  placeText: 'Draw Text',
+  drawBezier: _HKI('Draw Bezier Curve'),
+  placeReferenceImage: _HKI('Place Reference Images'),
+  placeText: _HKI('Draw Text'),
   // These three had no entry at all, so arming them left the field showing the
   // tool before — the Text Box tool in particular, which is what this pass is
   // about.
-  drawTextBox: 'Draw Text Boxes',
-  drawTable: 'Draw Tables',
+  drawTextBox: _HKI('Draw Text Boxes'),
+  drawTable: _HKI('Draw Tables'),
   placeBarcode: 'Add Barcode',
-  drawOrthogonalDimension: 'Draw Orthogonal Dimensions',
-  drawAlignedDimension: 'Draw Aligned Dimensions',
-  drawCenterDimension: 'Draw Center Dimensions',
-  drawRadialDimension: 'Draw Radial Dimensions',
-  drawLeader: 'Draw Leaders',
+  drawOrthogonalDimension: _HKI('Draw Orthogonal Dimensions'),
+  drawAlignedDimension: _HKI('Draw Aligned Dimensions'),
+  drawCenterDimension: _HKI('Draw Center Dimensions'),
+  drawRadialDimension: _HKI('Draw Radial Dimensions'),
+  drawLeader: _HKI('Draw Leaders'),
   // `TOOL_ACTION::GetFriendlyName()`, which `TOOLS_HOLDER::PushTool` puts in
   // pane 6 — "Place Point" (`pcb_actions.cpp:194`), not the tooltip.
-  placePoint: 'Place Point',
+  placePoint: _HKI('Place Point'),
   // `ACTIONS::gridSetOrigin` is "Grid Origin" (`actions.cpp:1057`) and
   // `PCB_ACTIONS::drillOrigin` "Drill/Place File Origin"
   // (`pcb_actions.cpp:1472`) — the FriendlyName, not the tooltip.
-  gridSetOrigin: 'Grid Origin',
-  drillOrigin: 'Drill/Place File Origin',
-  measureTool: 'Measure Tool',
-  deleteTool: 'Interactive Delete Tool',
-  localRatsnestTool: 'Local Ratsnest',
+  gridSetOrigin: _HKI('Grid Origin'),
+  drillOrigin: _HKI('Drill/Place File Origin'),
+  measureTool: _HKI('Measure Tool'),
+  deleteTool: _HKI('Interactive Delete Tool'),
+  localRatsnestTool: _HKI('Local Ratsnest'),
   // `TOOL_ACTION::GetFriendlyName()` of the five `MICROWAVE_TOOL` actions.
-  microwaveCreateLine: 'Draw Microwave Lines',
-  microwaveCreateGap: 'Draw Microwave Gaps',
-  microwaveCreateStub: 'Draw Microwave Stubs',
-  microwaveCreateStubArc: 'Draw Microwave Arc Stubs',
-  microwaveCreateFunctionShape: 'Draw Microwave Polygonal Shapes',
+  microwaveCreateLine: _HKI('Draw Microwave Lines'),
+  microwaveCreateGap: _HKI('Draw Microwave Gaps'),
+  microwaveCreateStub: _HKI('Draw Microwave Stubs'),
+  microwaveCreateStubArc: _HKI('Draw Microwave Arc Stubs'),
+  microwaveCreateFunctionShape: _HKI('Draw Microwave Polygonal Shapes'),
 };
 
 /**
@@ -996,7 +997,7 @@ export function PcbBottomDock({
       >
         {showNetInspector && (
           <DockedPane
-            caption="Net Inspector"
+            caption={wxGetTranslation('Net Inspector')}
             testId="pcb-net-inspector"
             onClose={onCloseNetInspector}
           >
@@ -2281,7 +2282,7 @@ export function PcbEditor({
         setBoardSettingsRev((r) => r + 1);
       },
       onUndoRedoIncomplete: () =>
-        console.warn('Incomplete undo/redo operation: some items not found'),
+        console.warn(wxGetTranslation('Incomplete undo/redo operation: some items not found')),
       // The window half of DRC_TOOL / DIALOG_DRC: filled in below, once the
       // editor's state and callbacks exist (`drcWindowRef`).
       createDrcDialog: (aTool, aParent) => drcWindowRef.current!.createDrcDialog(aTool, aParent),
@@ -2385,7 +2386,7 @@ export function PcbEditor({
       toggleDesignBlocksPane: () => mwWindowRef.current!.toggleDesignBlocks(),
       showTopologyMismatch: (aSummary, aDetails) =>
         void askKiDialogRef.current({
-          caption: 'Topology mismatch',
+          caption: wxGetTranslation('Topology mismatch'),
           message: aSummary,
           icon: 'error',
           okOnly: true,
@@ -2906,13 +2907,18 @@ export function PcbEditor({
       {
         IsOK: (aMessage) => IsOK(aMessage),
         OKOrCancel: async (aMessage, aDetail, aOKLabel) =>
-          (await OKOrCancelDialog('Confirmation', aMessage, aDetail, aOKLabel)) === DB_wxID_OK,
+          (await OKOrCancelDialog(
+            wxGetTranslation('Confirmation'),
+            aMessage,
+            aDetail,
+            aOKLabel,
+          )) === DB_wxID_OK,
         ConfirmOverwriteLibrary: async (aMessage) =>
           (await ShowKicadMessageDialog({
             message: aMessage,
             caption: 'Warning',
             style: DB_wxOK | DB_wxCANCEL | wxICON_WARNING,
-            okLabel: 'Overwrite',
+            okLabel: wxGetTranslation('Overwrite'),
           })) === DB_wxID_OK,
         DisplayError: (aMessage, aDetail) => DisplayErrorMessage(aMessage, aDetail ?? ''),
         GetTextFromUser: (aMessage, aTitle) => mwWindowRef.current!.textEntry(aMessage, aTitle, ''),
@@ -3321,7 +3327,7 @@ export function PcbEditor({
             AdvanceProgress: () => {
               done++;
               reporter.SetCurrentProgress(done / zones);
-              reporter.Report('Tessellating copper zones...');
+              reporter.Report(wxGetTranslation('Tessellating copper zones...'));
             },
           });
           wxLogTrace(
@@ -3340,7 +3346,7 @@ export function PcbEditor({
         const frame = frameRef.current;
         if (frame && kb) {
           reporter.SetCurrentProgress(1);
-          reporter.Report('Finalizing board');
+          reporter.Report(wxGetTranslation('Finalizing board'));
           await keepRefreshing();
           if (cancelled) return;
           frame.Clear_Pcb();
@@ -3349,7 +3355,7 @@ export function PcbEditor({
             traceAllegroPerf,
             () => `Post-load SetBoard: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
           );
-          reporter.Report('Updating nets...');
+          reporter.Report(wxGetTranslation('Updating nets...'));
           await keepRefreshing();
           if (cancelled) return;
           kb.BuildConnectivity();
@@ -3883,7 +3889,7 @@ export function PcbEditor({
       kb.SynchronizeNetsAndNetClasses(true);
 
       if (!kb.SynchronizeComponentClasses(new Set()))
-        setInfoBarError('Could not load component class assignment rules');
+        setInfoBarError(wxGetTranslation('Could not load component class assignment rules'));
 
       prj.IncrementTextVarsTicker();
       prj.IncrementNetclassesTicker();
@@ -4071,7 +4077,7 @@ export function PcbEditor({
       frameRef.current?.Kiway() ?? null,
       frameRef.current,
       files,
-      'Updating PCB requires a fully annotated schematic.',
+      wxGetTranslation('Updating PCB requires a fully annotated schematic.'),
       rootPro,
     );
 
@@ -4195,7 +4201,7 @@ export function PcbEditor({
           frameRef.current?.Kiway() ?? null,
           frameRef.current,
           files,
-          'Updating PCB requires a fully annotated schematic.',
+          wxGetTranslation('Updating PCB requires a fully annotated schematic.'),
           rootPro,
         );
         if (!fetched.ok)
@@ -4620,7 +4626,7 @@ export function PcbEditor({
         message: aMessage,
         extendedMessage: aDetails,
         icon: 'warning',
-        labels: { ok: 'Ignore Unselected Pads' },
+        labels: { ok: wxGetTranslation('Ignore Unselected Pads') },
       }).then((r) => (r === 'ok' ? 'ignore' : null)),
     openVertexEditor: () => openVertexEditor(),
   };
@@ -5683,47 +5689,58 @@ export function PcbEditor({
     const groups: { label: string; run: () => void }[][] = [
       [
         {
-          label: 'Show All Copper Layers',
+          label: wxGetTranslation('Show All Copper Layers'),
           run: () => setVisibleUnsaved([...visible, ...copperLayers]),
         },
         {
-          label: 'Hide All Copper Layers',
+          label: wxGetTranslation('Hide All Copper Layers'),
           run: () => setVisibleUnsaved([...visible].filter((n) => !/\.Cu$/.test(n))),
         },
       ],
-      [{ label: 'Hide All Layers But Active', run: () => setVisibleUnsaved([activeLayer]) }],
       [
         {
-          label: 'Show All Non Copper Layers',
+          label: wxGetTranslation('Hide All Layers But Active'),
+          run: () => setVisibleUnsaved([activeLayer]),
+        },
+      ],
+      [
+        {
+          label: wxGetTranslation('Show All Non Copper Layers'),
           run: () => setVisibleUnsaved([...visible, ...nonCopperLayers]),
         },
         {
-          label: 'Hide All Non Copper Layers',
+          label: wxGetTranslation('Hide All Non Copper Layers'),
           run: () => setVisibleUnsaved([...visible].filter((n) => /\.Cu$/.test(n))),
         },
       ],
       [
-        { label: 'Show All Layers', run: () => setVisibleUnsaved(all) },
-        { label: 'Hide All Layers', run: () => setVisibleUnsaved([]) },
+        { label: wxGetTranslation('Show All Layers'), run: () => setVisibleUnsaved(all) },
+        { label: wxGetTranslation('Hide All Layers'), run: () => setVisibleUnsaved([]) },
       ],
       [
         {
-          label: 'Show Only Front Assembly Layers',
-          run: () => applyNamed('Front Assembly View', 'F.SilkS'),
+          label: wxGetTranslation('Show Only Front Assembly Layers'),
+          run: () => applyNamed(_HKI('Front Assembly View'), 'F.SilkS'),
         },
-        { label: 'Show Only Front Layers', run: () => applyNamed('Front Layers', 'F.Cu') },
+        {
+          label: wxGetTranslation('Show Only Front Layers'),
+          run: () => applyNamed(_HKI('Front Layers'), 'F.Cu'),
+        },
         ...(copperLayers.length > 2
           ? [
               {
-                label: 'Show Only Inner Layers',
-                run: () => applyNamed('Inner Copper Layers', copperLayers[1]),
+                label: wxGetTranslation('Show Only Inner Layers'),
+                run: () => applyNamed(_HKI('Inner Copper Layers'), copperLayers[1]),
               },
             ]
           : []),
-        { label: 'Show Only Back Layers', run: () => applyNamed('Back Layers', 'B.Cu') },
         {
-          label: 'Show Only Back Assembly Layers',
-          run: () => applyNamed('Back Assembly View', 'B.SilkS'),
+          label: wxGetTranslation('Show Only Back Layers'),
+          run: () => applyNamed(_HKI('Back Layers'), 'B.Cu'),
+        },
+        {
+          label: wxGetTranslation('Show Only Back Assembly Layers'),
+          run: () => applyNamed(_HKI('Back Assembly View'), 'B.SilkS'),
         },
       ],
     ];
@@ -6515,7 +6532,7 @@ export function PcbEditor({
           const filters = descs.map((d) => d.Chooser());
           setNonKicadFilters([
             {
-              label: 'All supported formats',
+              label: wxGetTranslation('All supported formats'),
               extensions: [...new Set(filters.flatMap((f) => f.extensions))],
             },
             ...filters,
@@ -6687,7 +6704,9 @@ export function PcbEditor({
         const kb = frameRef.current?.GetBoard();
 
         if (!kb || kb.Footprints().length === 0) {
-          setInfoBarError('Cannot export BOM: there are no footprints on the PCB.');
+          setInfoBarError(
+            wxGetTranslation('Cannot export BOM: there are no footprints on the PCB.'),
+          );
           break;
         }
 
@@ -7003,7 +7022,7 @@ export function PcbEditor({
              control is present and shows the one variant every board has. */
           [PCB_CONTROL.currentVariant]: (
             <Combo
-              title="Select the current variant to display and edit."
+              title={wxGetTranslation('Select the current variant to display and edit.')}
               value="default"
               options={[{ value: 'default', label: '< Default >' }]}
               onChange={() => {}}
@@ -7038,10 +7057,12 @@ export function PcbEditor({
              used it all along; this bar was the one that never got it. */
           [PCB_CONTROL.trackWidth]: (
             <Combo
-              title="Select the default width for new tracks. Note that this width can be overridden by the board minimum width, or by the width of an existing track if the 'Use Existing Track Width' feature is enabled."
+              title={wxGetTranslation(
+                "Select the default width for new tracks. Note that this width can be overridden by the board minimum width, or by the width of an existing track if the 'Use Existing Track Width' feature is enabled.",
+              )}
               value={String(trackSel)}
               options={[
-                { value: '0', label: 'Track: use netclass width' },
+                { value: '0', label: wxGetTranslation('Track: use netclass width') },
                 ...trackWidthList.map((w, i) => ({
                   value: String(i + 1),
                   label: `Track: ${auxMM(w)} mm (${auxMils(w)} mils)`,
@@ -7055,7 +7076,7 @@ export function PcbEditor({
               title="Via size"
               value={String(viaSel)}
               options={[
-                { value: '0', label: 'Via: use netclass sizes' },
+                { value: '0', label: wxGetTranslation('Via: use netclass sizes') },
                 ...viaSizeList.map((v, i) => ({
                   value: String(i + 1),
                   label:
@@ -7080,7 +7101,7 @@ export function PcbEditor({
              modelled on this very call (see ComboOption). */
           [PCB_CONTROL.layerSelector]: (
             <Combo
-              ariaLabel="Active layer"
+              ariaLabel={wxGetTranslation('Active layer')}
               value={activeLayer}
               options={enabledLayerNames(frameRef.current?.GetBoard()).map((name) => ({
                 value: name,
@@ -7121,7 +7142,7 @@ export function PcbEditor({
           ),
           [PCB_CONTROL.zoomSelect]: (
             <Combo
-              title="Zoom"
+              title={wxGetTranslation('Zoom')}
               value={String(zoomSelValue)}
               options={[
                 { value: 'auto', label: ZOOM_AUTO_LABEL },
@@ -7153,7 +7174,7 @@ export function PcbEditor({
           [PCB_CONTROL.overrideLocks]: (
             <label className="ze-check">
               <input type="checkbox" disabled />
-              Override locks
+              {wxGetTranslation('Override locks')}
             </label>
           ),
         }}
@@ -7167,7 +7188,7 @@ export function PcbEditor({
             <div className="ze-leftdock" style={{ width: propWidth, minWidth: 240 }}>
               <div className="ze-panel grow">
                 <div className="ze-panel-header">
-                  <span>Properties</span>
+                  <span>{wxGetTranslation('Properties')}</span>
                   {/* `.CloseButton( true )` on this pane and this pane alone —
                       Appearance and Selection Filter are both
                       `.CloseButton( false )` (pcb_edit_frame.cpp:356,365,387),
@@ -7407,7 +7428,7 @@ export function PcbEditor({
             <DockSash edge="left" width={appWidth} min={200} max={500} onResize={setAppWidth} />
             <div className="ze-rightdock" style={{ width: appWidth }}>
               <div className="ze-panel grow">
-                <div className="ze-panel-header">Appearance</div>
+                <div className="ze-panel-header">{wxGetTranslation('Appearance')}</div>
                 {/* APPEARANCE_CONTROLS. The identical widget the footprint editor
                   builds; everything below is data this frame supplies. */}
                 <AppearanceControls
@@ -7498,7 +7519,7 @@ export function PcbEditor({
                 (pcbnew/pcb_edit_frame.cpp:422). A docked pane grows by default;
                 this is the pane that declares it does not. */}
               <div className="ze-panel fixed">
-                <div className="ze-panel-header">Selection Filter</div>
+                <div className="ze-panel-header">{wxGetTranslation('Selection Filter')}</div>
                 <div className="ze-panel-body no-inset">
                   {/* PANEL_SELECTION_FILTER — the same widget the footprint
                     editor docks. Right-clicking a category pops "Only <label>". */}
@@ -7732,7 +7753,7 @@ export function PcbEditor({
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div style={{ padding: '2px 12px 4px', opacity: 0.6 }}>
-              Delete {deleteChooser === 'presets' ? 'preset' : 'viewport'}
+              {wxGetTranslation('Delete')} {deleteChooser === 'presets' ? 'preset' : 'viewport'}
             </div>
             {(deleteChooser === 'presets' ? userPresets : viewports).map((p) => (
               <div
@@ -7763,7 +7784,7 @@ export function PcbEditor({
           so the next save writes it into the project. */}
       {nonKicadFilters && (
         <WxFileDialog
-          title="Import Non KiCad Board File"
+          title={wxGetTranslation('Import Non KiCad Board File')}
           filters={nonKicadFilters}
           projectDir={projectDirRef.current || null}
           onDone={(file) => {
@@ -7911,7 +7932,7 @@ export function PcbEditor({
           />
         ) : (
           <MessageDialogOk
-            caption="Information"
+            caption={wxGetTranslation('Information')}
             icon="information"
             message={printMessage.message}
             onClose={() => setPrintMessage(null)}
@@ -7976,10 +7997,10 @@ export function PcbEditor({
       {/* `WX_PROGRESS_REPORTER( this, _( "Load Footprint Libraries" ), 1, PR_CAN_ABORT )`
           (cvpcb_mainframe.cpp:910), the same reporter the footprint reads use. */}
       <ProgressDialog
-        title="Load Footprint Libraries"
+        title={wxGetTranslation('Load Footprint Libraries')}
         label={updatePcbBusy ? 'Loading footprint libraries...' : null}
       />
-      <ProgressDialog title="Load PCB" label={loading} />
+      <ProgressDialog title={wxGetTranslation('Load PCB')} label={loading} />
       <ProgressDialog
         title={jobProgress?.title ?? ''}
         label={jobProgress?.snap ?? null}
@@ -7998,7 +8019,7 @@ export function PcbEditor({
           <div className="ze-modal-footer">
             <span style={{ flex: 1 }} />
             <button type="button" className="primary" onClick={() => setUpdatePcbError(null)}>
-              OK
+              {wxGetTranslation('OK')}
             </button>
           </div>
         </DialogShim>
@@ -8051,7 +8072,7 @@ export function PcbEditor({
       )}
       {pick3dModel && (
         <WxFileDialog
-          title="Select 3D Model"
+          title={wxGetTranslation('Select 3D Model')}
           filters={[
             {
               label: 'All 3D models (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)',
@@ -8376,12 +8397,17 @@ export function PcbEditor({
       )}
       {dogboneDlg && (
         <WX_MULTI_ENTRY_DIALOG
-          caption="Dogbone Corner Settings"
+          caption={wxGetTranslation('Dogbone Corner Settings')}
           entries={[
-            { label: 'Arc radius:', value: { UNIT_BOUND: dogboneDlg.params.DogboneRadiusIU } },
             {
-              label: 'Add slots in acute corners',
-              tooltip: 'Add slots in acute corners to allow access to a cutter of the given radius',
+              label: wxGetTranslation('Arc radius:'),
+              value: { UNIT_BOUND: dogboneDlg.params.DogboneRadiusIU },
+            },
+            {
+              label: wxGetTranslation('Add slots in acute corners'),
+              tooltip: wxGetTranslation(
+                'Add slots in acute corners to allow access to a cutter of the given radius',
+              ),
               value: { CHECKBOX: dogboneDlg.params.AddSlots },
             },
           ]}
@@ -8465,8 +8491,16 @@ export function PcbEditor({
       )}
       {saveNameAsk && (
         <WxTextEntryDialog
-          caption={saveNameAsk === 'preset' ? 'Save Layer Preset' : 'Save Viewport'}
-          message={saveNameAsk === 'preset' ? 'Layer preset name:' : 'Viewport name:'}
+          caption={
+            saveNameAsk === 'preset'
+              ? wxGetTranslation('Save Layer Preset')
+              : wxGetTranslation('Save Viewport')
+          }
+          message={
+            saveNameAsk === 'preset'
+              ? wxGetTranslation('Layer preset name:')
+              : wxGetTranslation('Viewport name:')
+          }
           onCancel={() => setSaveNameAsk(null)}
           onConfirm={(name) => {
             const kind = saveNameAsk;
@@ -8633,7 +8667,7 @@ export function PcbEditor({
         // wxFileDialog( _( "Save Report File" ), Prj().GetProjectPath(),
         //   fn.GetFullName(), ReportFileWildcard() | JsonFileWildcard(), wxFD_SAVE ).
         <SaveAsDialog
-          title="Save Report File"
+          title={wxGetTranslation('Save Report File')}
           initialName={drcSaveReport.defaultName}
           filters={[reportFileWildcard(), jsonFileWildcard()]}
           {...(projectName
@@ -8768,11 +8802,14 @@ export function PcbEditor({
       )}
       {drcYesNoCancel && (
         <MessageDialogYesNoCancel
-          caption="Delete All Markers"
-          message="Delete exclusions too?"
+          caption={wxGetTranslation('Delete All Markers')}
+          message={wxGetTranslation('Delete exclusions too?')}
           icon="question"
           defaultButton="yes"
-          labels={{ yes: 'Errors and Warnings Only', no: 'Errors, Warnings and Exclusions' }}
+          labels={{
+            yes: wxGetTranslation('Errors and Warnings Only'),
+            no: wxGetTranslation('Errors, Warnings and Exclusions'),
+          }}
           onResult={(r) => {
             drcYesNoCancel.resolve(r);
             setDrcYesNoCancel(null);

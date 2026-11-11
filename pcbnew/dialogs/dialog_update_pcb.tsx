@@ -20,6 +20,8 @@ import type { ReportLine, Severity } from '@ziroeda/common';
 import { RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import type { CHECK } from '@ziroeda/wx/controls.js';
 import { DIALOG_UPDATE_PCB_BASE } from './dialog_update_pcb_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The option set BOARD_NETLIST_UPDATER is driven with (the dialog's checkboxes). */
 export interface UpdatePcbOptions {
@@ -78,7 +80,7 @@ export class DIALOG_UPDATE_PCB {
   readonly m_cbRemoveExtraFields: BOX = { value: false, enabled: true };
 
   /** `m_messagePanel`: its label and lines. */
-  m_messageLabel = 'Changes to Be Applied';
+  m_messageLabel = _HKI('Changes to Be Applied');
   m_messageLines: readonly ReportLine[] = [];
   m_okEnabled = true;
 
@@ -132,7 +134,7 @@ export class DIALOG_UPDATE_PCB {
   }
 
   OnUpdateClick(): void {
-    this.m_messageLabel = 'Changes Applied to PCB';
+    this.m_messageLabel = _('Changes Applied to PCB');
     this.PerformUpdate(false);
 
     // wxWidgets has a tendency to keep both buttons highlighted without the following:
@@ -193,7 +195,9 @@ export function DialogUpdatePcb({
       m_cbApplyDesignBlockLayouts={opt('m_cbApplyDesignBlockLayouts')}
       applyDesignBlockLayoutsTip={
         dialog.m_designBlocksSupported
-          ? "For each new group created from a design block, apply the block's saved footprint placement and routing automatically."
+          ? _(
+              "For each new group created from a design block, apply the block's saved footprint placement and routing automatically.",
+            )
           : 'Design blocks are not supported yet.'
       }
       m_cbUpdateFootprints={opt('m_cbUpdateFootprints')}

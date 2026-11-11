@@ -57,6 +57,8 @@ import type {
 } from '../pcb_dimension.js';
 import { PANEL_SETUP_DIMENSIONS_BASE } from './panel_setup_dimensions_base.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * The eight `BOARD_DESIGN_SETTINGS` fields this panel edits, as the settings
@@ -84,17 +86,17 @@ export interface DimensionDefaults {
 
 /** `m_dimensionUnitsChoices` (`panel_setup_dimensions_base.cpp:36`). */
 export const DIM_UNITS_CHOICES: [number, string][] = [
-  [0, 'Inches'],
-  [1, 'Mils'],
-  [2, 'Millimeters'],
-  [3, 'Automatic'],
+  [0, _HKI('Inches')],
+  [1, _HKI('Mils')],
+  [2, _HKI('Millimeters')],
+  [3, _HKI('Automatic')],
 ];
 
 /** `m_dimensionUnitsFormatChoices` (`:63`). */
 export const DIM_FORMAT_CHOICES: [number, string][] = [
   [0, '1234'],
-  [1, '1234 mm'],
-  [2, '1234 (mm)'],
+  [1, _HKI('1234 mm')],
+  [2, _HKI('1234 (mm)')],
 ];
 
 /**
@@ -118,8 +120,8 @@ export const DIM_PRECISION_CHOICES: [number, string][] = [
  * here" on the param (`footprint_editor_settings.cpp:308-310`).
  */
 export const DIM_POSITION_CHOICES: [number, string][] = [
-  [0, 'Outside'],
-  [1, 'Inline'],
+  [0, _HKI('Outside')],
+  [1, _HKI('Inline')],
 ];
 
 /** PANEL_SETUP_DIMENSIONS's transfers over a BOARD_DESIGN_SETTINGS (panel_setup_dimensions.cpp). */
@@ -166,8 +168,8 @@ export function PanelSetupDimensions({
   // m_arrowLength, m_extensionOffset: UNIT_BINDERs over the frame.
   const [binders] = useState(() => {
     const provider = { GetUserUnits: () => units, GetIuScale: () => new EdaIuScale(iuPerMM) };
-    const arrow = new UNIT_BINDER(provider, 'Arrow length:');
-    const offset = new UNIT_BINDER(provider, 'Extension line offset:');
+    const arrow = new UNIT_BINDER(provider, _('Arrow length:'));
+    const offset = new UNIT_BINDER(provider, _('Extension line offset:'));
     arrow.SetValue(value.arrow_length);
     offset.SetValue(value.extension_offset);
     return { arrow, offset };

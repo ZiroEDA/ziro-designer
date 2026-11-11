@@ -36,6 +36,7 @@ import { NETINFO_ITEM } from './netinfo_item.js';
 import type { PCB_EDIT_FRAME } from './pcb_edit_frame.js';
 import { FormatBoard } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { PCB_GROUP } from './pcb_group.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 let s_tempCounter = 0;
 
@@ -60,8 +61,8 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
       .Dialogs()
       .OKOrCancel(
         `Design block '${aNewName}' already exists in library '${aLibname}'.`,
-        'Overwrite existing design block?',
-        'Overwrite',
+        _('Overwrite existing design block?'),
+        _('Overwrite'),
       );
   }
 
@@ -71,8 +72,8 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
       .Dialogs()
       .OKOrCancel(
         `Design block '${aLibId.GetUniStringLibItemName()}' already has a layout.`,
-        'Overwrite existing layout?',
-        'Overwrite',
+        _('Overwrite existing layout?'),
+        _('Overwrite'),
       );
   }
 
@@ -119,7 +120,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
 
     // Make sure the user has selected a library to save into
     if (pane.GetSelectedLibId().GetLibNickname() === '') {
-      dialogs.DisplayError('Please select a library to save the design block to.');
+      dialogs.DisplayError(_('Please select a library to save the design block to.'));
       return false;
     }
 
@@ -143,7 +144,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
     const tempFile = createTempFileName('design_block');
 
     if (!this.saveBoardAsFile(this.GetBoard()!, tempFile, false)) {
-      dialogs.DisplayError('Error saving temporary board file to create design block.');
+      dialogs.DisplayError(_('Error saving temporary board file to create design block.'));
       wxRemoveFile(tempFile);
       return false;
     }
@@ -176,7 +177,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
 
     // Make sure the user has selected a library to save into
     if (pane.GetSelectedLibId().GetLibNickname() === '') {
-      dialogs.DisplayError('Please select a library to save the design block to.');
+      dialogs.DisplayError(_('Please select a library to save the design block to.'));
       return false;
     }
 
@@ -201,7 +202,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
     const tempFile = createTempFileName('design_block');
 
     if (!this.saveBoardAsFile(this.GetBoard()!, tempFile, false)) {
-      dialogs.DisplayError('Error saving temporary board file to create design block.');
+      dialogs.DisplayError(_('Error saving temporary board file to create design block.'));
       wxRemoveFile(tempFile);
       return false;
     }
@@ -307,7 +308,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
     const tempFile = createTempFileName('design_block');
 
     if (!this.saveBoardAsFile(tempBoard, tempFile, false)) {
-      dialogs.DisplayError('Error saving temporary board file to create design block.');
+      dialogs.DisplayError(_('Error saving temporary board file to create design block.'));
       wxRemoveFile(tempFile);
       return false;
     }
@@ -339,7 +340,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
 
     // Make sure the user has selected a library to save into
     if (pane.GetSelectedLibId().GetLibNickname() === '') {
-      dialogs.DisplayError('Please select a library to save the design block to.');
+      dialogs.DisplayError(_('Please select a library to save the design block to.'));
       return false;
     }
 
@@ -347,7 +348,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
     const selection = [...this.GetCurrentSelection().Items()];
 
     if (selection.length === 0) {
-      dialogs.DisplayError('Please select some items to save as a design block.');
+      dialogs.DisplayError(_('Please select some items to save as a design block.'));
       return false;
     }
 
@@ -396,7 +397,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
       commit.Modify(group, null, RECURSE_MODE.NO_RECURSE);
       group.SetDesignBlockLibId(blk.GetLibId());
 
-      commit.Push('Set Group Design Block Link');
+      commit.Push(_('Set Group Design Block Link'));
     }
 
     return success;
@@ -409,7 +410,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
 
     // Make sure the user has selected a library to save into
     if (!aLibId.IsValid()) {
-      dialogs.DisplayError('Please select a library to save the design block to.');
+      dialogs.DisplayError(_('Please select a library to save the design block to.'));
       return false;
     }
 
@@ -417,7 +418,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
     const selection = [...this.GetCurrentSelection().Items()];
 
     if (selection.length === 0) {
-      dialogs.DisplayError('Please select some items to save as a design block.');
+      dialogs.DisplayError(_('Please select some items to save as a design block.'));
       return false;
     }
 
@@ -470,7 +471,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
         commit.Modify(group, null, RECURSE_MODE.NO_RECURSE);
         group.SetDesignBlockLibId(aLibId);
 
-        commit.Push('Set Group Design Block Link');
+        commit.Push(_('Set Group Design Block Link'));
       }
     } else {
       this.groupSelectionAsDesignBlock(selection, aLibId);
@@ -518,7 +519,7 @@ export class PCB_DESIGN_BLOCK_UTILS_MIXIN {
 
     if (addedCount > 0) {
       commit.Add(newGroup);
-      commit.Push('Group Items');
+      commit.Push(_('Group Items'));
 
       // ACTIONS::selectionClear, then ACTIONS::selectItem( newGroup )
       this.OnDesignBlockGrouped(newGroup);

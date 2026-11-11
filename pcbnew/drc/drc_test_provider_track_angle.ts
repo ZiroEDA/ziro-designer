@@ -22,6 +22,7 @@ import { equal, ResizeD, sub, type Vec2 } from '@ziroeda/kimath/src/math/vector2
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_TRACK_ANGLE extends DRC_TEST_PROVIDER {
   override GetName(): string {
@@ -39,7 +40,7 @@ export class DRC_TEST_PROVIDER_TRACK_ANGLE extends DRC_TEST_PROVIDER {
       return true; // continue with other tests
     }
 
-    if (!this.reportPhase('Checking track angles...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking track angles...'))) return false; // DRC cancelled
 
     const checkTrackAngle = (ind: number): boolean => {
       if (this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_TRACK_ANGLE)) {
@@ -131,7 +132,7 @@ export class DRC_TEST_PROVIDER_TRACK_ANGLE extends DRC_TEST_PROVIDER {
           if (fail_min) {
             drcItem.SetErrorDetail(
               this.formatMsg(
-                '(%s min angle %s; actual %s)',
+                _('(%s min angle %s; actual %s)'),
                 constraintName,
                 constraintAngle,
                 actual,
@@ -140,7 +141,7 @@ export class DRC_TEST_PROVIDER_TRACK_ANGLE extends DRC_TEST_PROVIDER {
           } else {
             drcItem.SetErrorDetail(
               this.formatMsg(
-                '(%s max angle %s; actual %s)',
+                _('(%s max angle %s; actual %s)'),
                 constraintName,
                 constraintAngle,
                 actual,

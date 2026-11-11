@@ -50,6 +50,8 @@ import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js'
 import { DoubleValueFromString } from '@ziroeda/common/eda_units.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import type { PCB_LAYER_NAME } from '@ziroeda/common/layer_ids.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * The units the DXF group offers. `dxfUnitsMap` (`:44-50`) is a `std::map`
@@ -59,11 +61,11 @@ import type { PCB_LAYER_NAME } from '@ziroeda/common/layer_ids.js';
  * as eeschema's `DXF_UNIT_CHOICES`, which this is deliberately identical to.
  */
 export const DXF_UNIT_CHOICES: readonly { value: DXF_IMPORT_UNITS; label: string }[] = [
-  { value: DXF_IMPORT_UNITS.INCH, label: 'Inches' },
-  { value: DXF_IMPORT_UNITS.FEET, label: 'Feet' },
-  { value: DXF_IMPORT_UNITS.MM, label: 'Millimeters' },
-  { value: DXF_IMPORT_UNITS.CM, label: 'Centimeter' },
-  { value: DXF_IMPORT_UNITS.MILS, label: 'Mils' },
+  { value: DXF_IMPORT_UNITS.INCH, label: _HKI('Inches') },
+  { value: DXF_IMPORT_UNITS.FEET, label: _HKI('Feet') },
+  { value: DXF_IMPORT_UNITS.MM, label: _HKI('Millimeters') },
+  { value: DXF_IMPORT_UNITS.CM, label: _HKI('Centimeter') },
+  { value: DXF_IMPORT_UNITS.MILS, label: _HKI('Mils') },
 ];
 
 /** What `TransferDataFromWindow` reads off the dialog. */
@@ -153,7 +155,7 @@ export function runImport(
   const empty = { items: [], widthMM: 0, heightMM: 0, notes: [] };
 
   const plugin = getPluginByExt(fileExtension(name));
-  if (!plugin) return { ...empty, error: 'There is no plugin to handle this file type.' };
+  if (!plugin) return { ...empty, error: _('There is no plugin to handle this file type.') };
 
   const importer = new GRAPHICS_IMPORTER_PCBNEW(aParent);
 
@@ -265,19 +267,19 @@ export function DialogImportGraphics({
   /** TransferDataFromWindow: the three refusals, then the import and its warnings. */
   const ok = (): void => {
     if (fileName.trim() === '' || file === null) {
-      setMessage('Please select a file to import.');
+      setMessage(_('Please select a file to import.'));
       return;
     }
 
     if (params.setLayer && !layers.includes(params.layer)) {
-      setMessage('Please select a valid layer.');
+      setMessage(_('Please select a valid layer.'));
       return;
     }
 
     const scale = DoubleValueFromString(scaleText);
 
     if (!(scale > 0.0)) {
-      setMessage('Import scale must be a positive number.');
+      setMessage(_('Import scale must be a positive number.'));
       return;
     }
 
@@ -382,10 +384,13 @@ export function DialogImportGraphics({
       {message !== null && <MessageDialogOk message={message} onClose={() => setMessage(null)} />}
       {warning !== null && (
         <HtmlMessageBox
-          caption="Warning"
+          caption={_('Warning')}
           // MessageSet() over the file's own messages; they are text from the file, so they go
           // in as list rows and never as HTML.
-          messages={['Items in the imported file could not be handled properly.', ...warning.notes]}
+          messages={[
+            _('Items in the imported file could not be handled properly.'),
+            ...warning.notes,
+          ]}
           onClose={() => {
             const done = warning.done;
             setWarning(null);

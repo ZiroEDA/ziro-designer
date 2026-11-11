@@ -27,6 +27,7 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A wxRadioButton of the Mode group: its value and wxEVT_RADIOBUTTON. */
 export interface RADIO {
@@ -64,112 +65,128 @@ export function DIALOG_PNS_SETTINGS_BASE(p: DIALOG_PNS_SETTINGS_BASE_PROPS): JSX
   );
 
   return (
-    <DialogShim title="Interactive Router Settings" onClose={p.onCancel}>
+    <DialogShim title={_('Interactive Router Settings')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND | RL} border={5}>
           {/* bColumns */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxEXPAND | TRL} border={5}>
-              <StaticBoxSizer label="Mode" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Mode')} orient={wxVERTICAL}>
                 <SizerItem flag={wxRIGHT} border={5}>
-                  {radio('Highlight collisions', p.m_rbMarkObstacles)}
+                  {radio(_('Highlight collisions'), p.m_rbMarkObstacles)}
                 </SizerItem>
                 <SizerItem flag={RL} border={20}>
                   {/* bSizer2 */}
                   <BoxSizer orient={wxVERTICAL}>
                     <SizerItem flag={TRL} border={3}>
-                      <CheckBox label="Free angle mode" check={p.m_freeAngleMode} />
+                      <CheckBox label={_('Free angle mode')} check={p.m_freeAngleMode} />
                     </SizerItem>
                     <SizerItem flag={TRL} border={3}>
                       <CheckBox
-                        label="Allow DRC violations"
+                        label={_('Allow DRC violations')}
                         check={p.m_violateDrc}
-                        title="(Highlight collisions mode only) - allows one to establish a track even if is violating the DRC rules."
+                        title={_(
+                          '(Highlight collisions mode only) - allows one to establish a track even if is violating the DRC rules.',
+                        )}
                       />
                     </SizerItem>
                   </BoxSizer>
                 </SizerItem>
                 <Spacer width={0} height={15} proportion={1} flag={wxEXPAND} border={5} />
                 <SizerItem flag={wxRIGHT} border={5}>
-                  {radio('Shove', p.m_rbShove)}
+                  {radio(_('Shove'), p.m_rbShove)}
                 </SizerItem>
                 <SizerItem flag={RL} border={20}>
                   {/* bSizer3 */}
                   <BoxSizer orient={wxVERTICAL}>
                     <SizerItem flag={TRL} border={3}>
                       <CheckBox
-                        label="Shove vias"
+                        label={_('Shove vias')}
                         check={p.m_shoveVias}
-                        title="When disabled, vias are treated as un-movable objects and hugged instead of shoved."
+                        title={_(
+                          'When disabled, vias are treated as un-movable objects and hugged instead of shoved.',
+                        )}
                       />
                     </SizerItem>
                     <SizerItem flag={TRL} border={3}>
                       <CheckBox
-                        label="Jump over obstacles"
+                        label={_('Jump over obstacles')}
                         check={p.m_backPressure}
-                        title={
-                          'When enabled, the router tries to move colliding tracks behind solid obstacles (e.g. pads) instead of "reflecting" back the collision'
-                        }
+                        title={_(
+                          'When enabled, the router tries to move colliding tracks behind solid obstacles (e.g. pads) instead of "reflecting" back the collision',
+                        )}
                       />
                     </SizerItem>
                   </BoxSizer>
                 </SizerItem>
                 <Spacer width={0} height={15} proportion={1} flag={wxEXPAND} border={5} />
                 <SizerItem flag={wxBOTTOM | wxRIGHT} border={5}>
-                  {radio('Walk around', p.m_rbWalkaround)}
+                  {radio(_('Walk around'), p.m_rbWalkaround)}
                 </SizerItem>
               </StaticBoxSizer>
             </SizerItem>
             <Spacer width={5} height={0} border={5} />
             <SizerItem proportion={1} flag={wxEXPAND | TRL} border={5}>
-              <StaticBoxSizer label="General Options" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('General Options')} orient={wxVERTICAL}>
                 <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                   {/* gSizer1 = wxGridSizer( 0, 1, 2, 0 ) */}
                   <FlexGridSizer cols={1} vgap={2} hgap={0} flexibleDirection={0}>
                     <SizerItem flag={RL} border={5}>
                       <CheckBox
-                        label="Remove redundant tracks"
+                        label={_('Remove redundant tracks')}
                         check={p.m_removeLoops}
-                        title="If the new track has the same connection as an already existing track, the old track is removed."
+                        title={_(
+                          'If the new track has the same connection as an already existing track, the old track is removed.',
+                        )}
                       />
                     </SizerItem>
                     <SizerItem flag={RL} border={5}>
                       <CheckBox
-                        label="Optimize pad connections"
+                        label={_('Optimize pad connections')}
                         check={p.m_smartPads}
-                        title="When enabled, the router tries to break out pads/vias in a clean way, avoiding acute angles and jagged breakout tracks."
+                        title={_(
+                          'When enabled, the router tries to break out pads/vias in a clean way, avoiding acute angles and jagged breakout tracks.',
+                        )}
                       />
                     </SizerItem>
                     <SizerItem flag={RL} border={5}>
                       <CheckBox
-                        label="Smooth dragged segments"
+                        label={_('Smooth dragged segments')}
                         check={p.m_smoothDragged}
-                        title="When enabled, the router attempts to merge several jagged segments into a single straight one (dragging mode)."
+                        title={_(
+                          'When enabled, the router attempts to merge several jagged segments into a single straight one (dragging mode).',
+                        )}
                       />
                     </SizerItem>
                     <SizerItem flag={RL} border={5} shown={p.suggestEndingShown}>
-                      <CheckBox label="Suggest track finish" check={p.m_suggestEnding} />
+                      <CheckBox label={_('Suggest track finish')} check={p.m_suggestEnding} />
                     </SizerItem>
                     <SizerItem flag={RL} border={5}>
                       <CheckBox
-                        label="Optimize entire track being dragged"
+                        label={_('Optimize entire track being dragged')}
                         check={p.m_optimizeEntireDraggedTrack}
-                        title="When enabled, the entire portion of the track that is visible on the screen will be optimized and re-routed when a segment is dragged.  When disabled, only the area near the segment being dragged will be optimized."
+                        title={_(
+                          'When enabled, the entire portion of the track that is visible on the screen will be optimized and re-routed when a segment is dragged.  When disabled, only the area near the segment being dragged will be optimized.',
+                        )}
                       />
                     </SizerItem>
                     <SizerItem flag={RL} border={5}>
                       <CheckBox
-                        label="Use mouse path to set track posture"
+                        label={_('Use mouse path to set track posture')}
                         check={p.m_autoPosture}
-                        title="When enabled, the posture of tracks will be guided by how the mouse is moved from the starting location"
+                        title={_(
+                          'When enabled, the posture of tracks will be guided by how the mouse is moved from the starting location',
+                        )}
                       />
                     </SizerItem>
                     <SizerItem flag={RL} border={5}>
                       <CheckBox
-                        label="Fix all segments on click"
+                        label={_('Fix all segments on click')}
                         check={p.m_fixAllSegments}
-                        title="When enabled, all track segments will be fixed in place up to the cursor location.  When disabled, the last segment (closest to the cursor) will remain free and follow the cursor."
+                        title={_(
+                          'When enabled, all track segments will be fixed in place up to the cursor location.  When disabled, the last segment (closest to the cursor) will remain free and follow the cursor.',
+                        )}
                       />
                     </SizerItem>
                   </FlexGridSizer>

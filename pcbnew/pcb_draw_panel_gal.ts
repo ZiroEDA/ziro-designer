@@ -183,6 +183,7 @@ import { PCB_PAINTER, type PCB_RENDER_SETTINGS } from './pcb_painter.js';
 import { PCB_VIEW } from './pcb_view.js';
 import type { PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import { RATSNEST_VIEW_ITEM } from './ratsnest/ratsnest_view_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const { LAYER_UI_START, LAYER_UI_END, LAYER_BITMAP_START, LAYER_BITMAP_END } = GAL_LAYER_ID;
 
@@ -806,11 +807,11 @@ export class PCB_DRAW_PANEL_GAL extends EDA_DRAW_PANEL_GAL {
       }
     }
 
-    aList.push(new MSG_PANEL_ITEM('Pads', `${padCount}`));
-    aList.push(new MSG_PANEL_ITEM('Vias', `${viaCount}`));
-    aList.push(new MSG_PANEL_ITEM('Track Segments', `${trackSegmentCount}`));
-    aList.push(new MSG_PANEL_ITEM('Nets', `${netCodes.size}`));
-    aList.push(new MSG_PANEL_ITEM('Unrouted', `${unconnected}`));
+    aList.push(new MSG_PANEL_ITEM(_('Pads'), `${padCount}`));
+    aList.push(new MSG_PANEL_ITEM(_('Vias'), `${viaCount}`));
+    aList.push(new MSG_PANEL_ITEM(_('Track Segments'), `${trackSegmentCount}`));
+    aList.push(new MSG_PANEL_ITEM(_('Nets'), `${netCodes.size}`));
+    aList.push(new MSG_PANEL_ITEM(_('Unrouted'), `${unconnected}`));
   }
 
   ///< @copydoc EDA_DRAW_PANEL_GAL::OnShow()

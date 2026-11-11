@@ -29,6 +29,7 @@ import {
   FormatFootprintForLibrary,
   ParseFootprintFile,
 } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `FOOTPRINT_EDIT_FRAME`'s `footprint_libraries_utils.cpp` half, mixed into that class by `footprint_edit_frame.ts`. */
 export class FOOTPRINT_LIBRARIES_UTILS_MIXIN {
@@ -218,12 +219,12 @@ export class FOOTPRINT_LIBRARIES_UTILS_MIXIN {
       libraryName,
       async (newLib: string, newName: string): Promise<boolean> => {
         if (newLib === '') {
-          await DisplayInfoMessage('A library must be specified.');
+          await DisplayInfoMessage(_('A library must be specified.'));
           return false;
         }
 
         if (newName === '') {
-          await DisplayInfoMessage('Footprint must have a name.');
+          await DisplayInfoMessage(_('Footprint must have a name.'));
           return false;
         }
 
@@ -238,10 +239,10 @@ export class FOOTPRINT_LIBRARIES_UTILS_MIXIN {
           // KIDIALOG errorDlg( this, msg, _( "Confirmation" ), wxOK | wxCANCEL | wxICON_WARNING );
           // errorDlg.SetOKLabel( _( "Overwrite" ) );
           const answer = await this.AskKiDialog({
-            caption: 'Confirmation',
+            caption: _('Confirmation'),
             message: msg,
             icon: 'warning',
-            labels: { ok: 'Overwrite' },
+            labels: { ok: _('Overwrite') },
           });
 
           return answer === 'ok';
@@ -350,7 +351,7 @@ export class FOOTPRINT_LIBRARIES_UTILS_MIXIN {
       }
 
       if (fileType === PCB_FILE_T.FILE_TYPE_NONE) {
-        DisplayErrorMessage('Not a footprint file.');
+        DisplayErrorMessage(_('Not a footprint file.'));
         return null;
       }
 
@@ -405,7 +406,7 @@ export class FOOTPRINT_LIBRARIES_UTILS_MIXIN {
     const fileName = `${aFootprint.GetFPID().GetLibItemName()}.${KiCadFootprintFileExtension}`;
 
     const dlg = await this.ShowSaveFileDialog(
-      'Export Footprint',
+      _('Export Footprint'),
       fileName,
       kicadFootprintLibWildcard(),
     );

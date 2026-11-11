@@ -39,6 +39,7 @@ import type { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import type { FILENAME_RESOLVER } from '@ziroeda/common/filename_resolver.js';
 import { wxFileExists } from '@ziroeda/wx/filefn.js';
 import { FP_3DMODEL, type FOOTPRINT } from '../footprint.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `enum class MODEL_VALIDATE_ERRORS` (panel_fp_properties_3d_model.h). */
 export enum MODEL_VALIDATE_ERRORS {
@@ -262,7 +263,7 @@ export class PANEL_FP_PROPERTIES_3D_MODEL {
         '';
       const link = this.m_host.addEmbeddedFile(fullPath);
 
-      if (link === null) return { ok: false, error: 'Error adding 3D model' };
+      if (link === null) return { ok: false, error: _('Error adding 3D model') };
 
       model.m_Filename = link;
     }
@@ -345,27 +346,27 @@ export class PANEL_FP_PROPERTIES_3D_MODEL {
 
       case MODEL_VALIDATE_ERRORS.NO_FILENAME:
         icon = 'warning';
-        errStr = 'No filename entered';
+        errStr = _('No filename entered');
         break;
 
       case MODEL_VALIDATE_ERRORS.ILLEGAL_FILENAME:
         icon = 'error';
-        errStr = 'Illegal filename';
+        errStr = _('Illegal filename');
         break;
 
       case MODEL_VALIDATE_ERRORS.RESOLVE_FAIL:
         icon = 'error';
-        errStr = 'File not found';
+        errStr = _('File not found');
         break;
 
       case MODEL_VALIDATE_ERRORS.OPEN_FAIL:
         icon = 'error';
-        errStr = 'Unable to open file';
+        errStr = _('Unable to open file');
         break;
 
       default:
         icon = 'error';
-        errStr = 'Unknown error';
+        errStr = _('Unknown error');
         break;
     }
 
@@ -447,8 +448,8 @@ export function PanelFpProperties3dModel({
     const t = new wxGridStringTable(0, 3);
     g.SetTable(t, true, wxGridSelectionModes.wxGridSelectRows);
     g.SetColLabelValue(COL_PROBLEM, '');
-    g.SetColLabelValue(COL_FILENAME, '3D Model(s)');
-    g.SetColLabelValue(COL_SHOWN, 'Show');
+    g.SetColLabelValue(COL_FILENAME, _('3D Model(s)'));
+    g.SetColLabelValue(COL_SHOWN, _('Show'));
 
     // Icon showing warning/error information
     let attr = new wxGridCellAttr();

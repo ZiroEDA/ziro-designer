@@ -41,6 +41,7 @@ import type { FOOTPRINT } from './footprint.js';
 import type { FOOTPRINT_PREVIEW_PANEL_BASE } from '@ziroeda/common/widgets/footprint_preview_widget.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { BitmapButton, BitmapButtonSeparator } from '@ziroeda/common/widgets/bitmap_button.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `inline static bool m_showDescription = true; m_showFpMode = true;
@@ -277,20 +278,20 @@ export function FootprintChooserFrame({
         <div className="ze-cp-buttons ze-fpchooser-foot">
           <BitmapButton
             bitmap={showDescription ? 'text_visibility_off' : 'text_visibility'}
-            tooltip="Show/hide description panel"
+            tooltip={_('Show/hide description panel')}
             checked={showDescription}
             onClick={toggleDescription}
           />
           <BitmapButtonSeparator />
           <BitmapButton
             bitmap="shape_3d"
-            tooltip="Show/hide 3D view panel"
+            tooltip={_('Show/hide 3D view panel')}
             checked={show3D}
             onClick={toggle3D}
           />
           <BitmapButton
             bitmap="module"
-            tooltip="Show/hide footprint view panel"
+            tooltip={_('Show/hide footprint view panel')}
             checked={showFp}
             onClick={toggleFp}
           />
@@ -298,12 +299,12 @@ export function FootprintChooserFrame({
           {/* m_show3DViewer (:178) — `onExternalViewer3DEnable`: ticked with
               the 3D view on opens EDA_3D_VIEWER_FRAME; unticked closes it. */}
           <CheckBox
-            label="Show 3D viewer in own window"
+            label={_('Show 3D viewer in own window')}
             checked={ownWindow}
             onChange={(aChecked) => setOwnWindow(aChecked)}
           />
           <div className="ze-modal-footer">
-            <Button label="Cancel" onClick={onCancel} />
+            <Button label={_('Cancel')} onClick={onCancel} />
             <Button label="OK" isDefault onClick={accept} />
           </div>
         </div>

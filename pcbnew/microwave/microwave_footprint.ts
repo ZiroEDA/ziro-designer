@@ -18,6 +18,7 @@ import { PAD_ATTRIB, PAD_SHAPE, PADSTACK } from '../padstack.js';
 import { ADD_MODE } from '../board_item_container.js';
 import { MICROWAVE_FOOTPRINT_SHAPE } from '../tools/pcb_actions.js';
 import type { MICROWAVE_HOST } from './microwave_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `MICROWAVE_TOOL::createFootprint`. Null when the user cancels or aborts. */
 export async function createFootprint(
@@ -38,20 +39,20 @@ export async function createFootprint(
 
   switch (aFootprintShape) {
     case MICROWAVE_FOOTPRINT_SHAPE.GAP:
-      msg = 'Gap Size:';
+      msg = _('Gap Size:');
       cmp_name = 'muwave_gap';
       text_size = gap_size;
       break;
 
     case MICROWAVE_FOOTPRINT_SHAPE.STUB:
-      msg = 'Stub Size:';
+      msg = _('Stub Size:');
       cmp_name = 'muwave_stub';
       text_size = gap_size;
       pad_count = 2;
       break;
 
     case MICROWAVE_FOOTPRINT_SHAPE.STUB_ARC:
-      msg = 'Arc Stub Radius Value:';
+      msg = _('Arc Stub Radius Value:');
       cmp_name = 'muwave_arcstub';
       pad_count = 1;
       break;
@@ -63,7 +64,7 @@ export async function createFootprint(
 
   const size = await aHost.TextEntry(
     msg,
-    'Create Microwave Footprint',
+    _('Create Microwave Footprint'),
     aHost.StringFromValue(gap_size),
   );
 
@@ -74,7 +75,11 @@ export async function createFootprint(
   let abort = false;
 
   if (aFootprintShape === MICROWAVE_FOOTPRINT_SHAPE.STUB_ARC) {
-    const text = await aHost.TextEntry('Angle in degrees:', 'Create Microwave Footprint', '0.0');
+    const text = await aHost.TextEntry(
+      _('Angle in degrees:'),
+      _('Create Microwave Footprint'),
+      '0.0',
+    );
 
     if (text === null) return null; // canceled by user
 
@@ -84,7 +89,7 @@ export async function createFootprint(
       : Number.NaN;
 
     if (Number.isNaN(fval)) {
-      aHost.DisplayError('Incorrect number, abort');
+      aHost.DisplayError(_('Incorrect number, abort'));
       abort = true;
     }
 

@@ -20,6 +20,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, FlexGridSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 type ENTRY = { value: string; onChange: (aText: string) => void };
 
@@ -43,7 +44,7 @@ export function DIALOG_DIELECTRIC_MATERIAL_BASE(
   p: DIALOG_DIELECTRIC_MATERIAL_BASE_PROPS,
 ): JSX.Element {
   return (
-    <DialogShim title="Dielectric Material Characteristics" onClose={p.onCancel}>
+    <DialogShim title={_('Dielectric Material Characteristics')} onClose={p.onCancel}>
       {/* bSizerMain */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT} border={10}>
@@ -56,13 +57,13 @@ export function DIALOG_DIELECTRIC_MATERIAL_BASE(
                   {/* fgSizerNewDielectric = wxFlexGridSizer( 2, 3, 0, 5 ), growing column 0 */}
                   <FlexGridSizer cols={3} hgap={5} growableCols={[0]}>
                     <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                      <StaticText label="Name:" />
+                      <StaticText label={_('Name:')} />
                     </SizerItem>
                     <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                      <StaticText label="Epsilon R:" />
+                      <StaticText label={_('Epsilon R:')} />
                     </SizerItem>
                     <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                      <StaticText label="Loss Tan:" />
+                      <StaticText label={_('Loss Tan:')} />
                     </SizerItem>
                     <SizerItem
                       flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT}
@@ -79,14 +80,14 @@ export function DIALOG_DIELECTRIC_MATERIAL_BASE(
                       <TextCtrl
                         value={p.m_tcEpsilonR.value}
                         onChange={p.m_tcEpsilonR.onChange}
-                        ariaLabel="Epsilon R"
+                        ariaLabel={_('Epsilon R')}
                       />
                     </SizerItem>
                     <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                       <TextCtrl
                         value={p.m_tcLossTg.value}
                         onChange={p.m_tcLossTg.onChange}
-                        ariaLabel="Loss Tan"
+                        ariaLabel={_('Loss Tan')}
                       />
                     </SizerItem>
                   </FlexGridSizer>
@@ -94,11 +95,11 @@ export function DIALOG_DIELECTRIC_MATERIAL_BASE(
               </BoxSizer>
             </SizerItem>
             <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-              <StaticText label="Common materials:" />
+              <StaticText label={_('Common materials:')} />
             </SizerItem>
             <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
               <ListCtrl
-                headers={['Material', 'Epsilon R', 'Loss Tan']}
+                headers={[_('Material'), _('Epsilon R'), _('Loss Tan')]}
                 rows={p.m_lcMaterials.rows}
                 columnWidths={p.m_lcMaterials.columnWidths}
                 selection={p.m_lcMaterials.selection}

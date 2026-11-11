@@ -70,6 +70,7 @@ import type { RoutingSettings } from './pns_routing_settings.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { PnsLogger, PnsLoggerEventType } from './pns_logger.js';
 import { PnsSizesSettings } from './pns_sizes_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `router_preview_item.h:50` — the flag `movePlacing` tags the head with. */
 export const PNS_HEAD_TRACE = 1;
@@ -977,7 +978,7 @@ export class PnsRouter {
 
     if (this.mMode === PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR) {
       if (this.mSizes.diffPairGap < this.mSizes.minClearance) {
-        this.setFailureReason('Diff pair gap is less than board minimum clearance.');
+        this.setFailureReason(_('Diff pair gap is less than board minimum clearance.'));
 
         return false;
       }
@@ -1034,14 +1035,14 @@ export class PnsRouter {
 
           for (const item of highlightedItems) this.mIface?.hideItem(item);
 
-          this.setFailureReason('The routing start point violates DRC.');
+          this.setFailureReason(_('The routing start point violates DRC.'));
 
           return false;
         }
       }
     } else if (this.mMode === PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR) {
       if (!aStartItem) {
-        this.setFailureReason('Cannot start a differential pair in the middle of nowhere.');
+        this.setFailureReason(_('Cannot start a differential pair in the middle of nowhere.'));
 
         return false;
       }
@@ -1122,7 +1123,7 @@ export class PnsRouter {
 
           for (const item of highlightedItems) this.mIface?.hideItem(item);
 
-          this.setFailureReason('The routing start point violates DRC.');
+          this.setFailureReason(_('The routing start point violates DRC.'));
 
           return false;
         }

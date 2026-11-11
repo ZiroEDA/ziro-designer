@@ -22,6 +22,7 @@ import { PCB_IO, type PCB_IO_PROJECT, type PCB_IO_PROPERTIES } from '../pcb_io.j
 import { BOARD_BUILDER } from './allegro_builder.js';
 import { PARSER } from './convert/allegro_parser.js';
 import { FILE_STREAM } from './convert/allegro_stream.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 function checkFileHeader(aData: Uint8Array | null): boolean {
   // Pre-v18 files contain the string "all" at offset 0xF8 (start of version string)
@@ -125,7 +126,7 @@ export class PCB_IO_ALLEGRO extends PCB_IO {
 
     // Upstream returns nullptr here; the PCB_IO API returns a BOARD or throws.
     if (!this.LoadBoardFromData(data, data.length, board))
-      THROW_IO_ERROR('Failed to build board from Allegro data');
+      THROW_IO_ERROR(_('Failed to build board from Allegro data'));
 
     return board;
   }
@@ -154,7 +155,10 @@ export class PCB_IO_ALLEGRO extends PCB_IO {
     const phase2Ok = builder.BuildBoard();
 
     if (!phase2Ok) {
-      this.m_allegroReporter.Report('Failed to build board from Allegro data', RPT_SEVERITY_ERROR);
+      this.m_allegroReporter.Report(
+        _('Failed to build board from Allegro data'),
+        RPT_SEVERITY_ERROR,
+      );
       return false;
     }
 

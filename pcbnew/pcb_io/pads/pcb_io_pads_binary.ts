@@ -53,6 +53,7 @@ import { PCB_IO, type PCB_IO_PROJECT, type PCB_IO_PROPERTIES } from '../pcb_io.j
 import { BINARY_PARSER } from './pads_binary_parser.js';
 import { PADS_LAYER_MAPPER, type PADS_LAYER_INFO, PADS_LAYER_TYPE } from './pads_layer_mapper.js';
 import { PADS_LAYER_FUNCTION } from './pads_parser.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const V = (x: number, y: number): VECTOR2I => ({ x, y });
 
@@ -105,7 +106,7 @@ export class PCB_IO_PADS_BINARY extends PCB_IO {
   ): BOARD {
     const board = aAppendToMe ?? new BOARD();
 
-    this.Report('Starting PADS binary PCB import', RPT_SEVERITY_INFO);
+    this.Report(_('Starting PADS binary PCB import'), RPT_SEVERITY_INFO);
 
     this.m_progressReporter?.SetNumPhases(3);
 

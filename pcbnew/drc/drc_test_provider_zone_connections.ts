@@ -26,6 +26,7 @@ import { ZONE_CONNECTION } from '../zones.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { type DRC_CONSTRAINT, DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_ZONE_CONNECTIONS extends DRC_TEST_PROVIDER {
   override GetName(): string {
@@ -246,7 +247,7 @@ export class DRC_TEST_PROVIDER_ZONE_CONNECTIONS extends DRC_TEST_PROVIDER {
   Run(): boolean {
     const board = this.m_drcEngine!.GetBoard()!;
 
-    if (!this.reportPhase('Checking thermal reliefs...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking thermal reliefs...'))) return false; // DRC cancelled
 
     const zoneLayers: [ZONE, PCB_LAYER_ID][] = [];
     let done = 1;

@@ -48,14 +48,22 @@ import {
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The base's choice lists. */
-export const PLOT_FORMAT_CHOICES = ['Gerber', 'Postscript', 'SVG', 'DXF', 'PDF'] as const;
-export const PLOT_DRILL_CHOICES = ['None', 'Small', 'Actual size'] as const;
-export const PLOT_SCALE_CHOICES = ['Auto', '1:1', '3:2', '2:1', '3:1'] as const;
-export const PLOT_COORD_CHOICES = ['4.5, unit mm', '4.6, unit mm'] as const;
-export const PLOT_DXF_UNITS_CHOICES = ['Inches', 'Millimeters'] as const;
-export const PLOT_COLOR_CHOICES = ['Color', 'Black and white'] as const;
+export const PLOT_FORMAT_CHOICES = [
+  _HKI('Gerber'),
+  _HKI('Postscript'),
+  _HKI('SVG'),
+  _HKI('DXF'),
+  _HKI('PDF'),
+] as const;
+export const PLOT_DRILL_CHOICES = [_HKI('None'), _HKI('Small'), _HKI('Actual size')] as const;
+export const PLOT_SCALE_CHOICES = [_HKI('Auto'), '1:1', '3:2', '2:1', '3:1'] as const;
+export const PLOT_COORD_CHOICES = [_HKI('4.5, unit mm'), _HKI('4.6, unit mm')] as const;
+export const PLOT_DXF_UNITS_CHOICES = [_HKI('Inches'), _HKI('Millimeters')] as const;
+export const PLOT_COLOR_CHOICES = [_HKI('Color'), _HKI('Black and white')] as const;
 
 /** A wxTextCtrl member: its text, enable, and change. */
 export interface TEXT {
@@ -174,7 +182,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
   return (
     // SetPlotFormat ends `Layout(); m_MainSizer->SetSizeHints( this )`: each format's options
     // re-fit the dialog.
-    <DialogShim title="Plot" onClose={p.onCancel} fitKey={p.m_plotFormatOpt.value}>
+    <DialogShim title={_('Plot')} onClose={p.onCancel} fitKey={p.m_plotFormatOpt.value}>
       {/* m_MainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxALL | wxEXPAND} border={5}>
@@ -184,7 +192,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
               {/* bVariantSizer */}
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
-                  <span>Plot format:</span>
+                  <span>{_('Plot format:')}</span>
                 </SizerItem>
               </BoxSizer>
             </SizerItem>
@@ -200,7 +208,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                 </SizerItem>
                 <Spacer proportion={1} flag={wxEXPAND} border={5} />
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
-                  <span>Design variant:</span>
+                  <span>{_('Design variant:')}</span>
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
                   <Choice
@@ -212,7 +220,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
               </BoxSizer>
             </SizerItem>
             <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
-              <span>Output directory:</span>
+              <span>{_('Output directory:')}</span>
             </SizerItem>
             <SizerItem flag={wxEXPAND} border={5}>
               {/* bupperSizer */}
@@ -220,7 +228,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                 <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxBOTTOM} border={5}>
                   <Text
                     text={p.m_outputDirectoryName}
-                    ariaLabel="Output directory"
+                    ariaLabel={_('Output directory')}
                     title="Folder for the plot files. They are downloaded; a plot of several files comes as one zip with this folder inside it."
                   />
                 </SizerItem>
@@ -232,7 +240,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                   {/* m_browseButton: small_folder */}
                   <StdBitmapButton
                     bitmap="small_folder"
-                    title="Browse"
+                    title={_('Browse')}
                     tooltip={null}
                     onClick={() => p.onOutputDirectoryBrowseClicked?.()}
                   />
@@ -245,7 +253,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                   {/* m_openDirButton: small_new_window */}
                   <StdBitmapButton
                     bitmap="small_new_window"
-                    title="Open output directory"
+                    title={_('Open output directory')}
                     onClick={p.onOpenOutputDirectory}
                   />
                 </SizerItem>
@@ -259,7 +267,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
               {/* m_LayersSizer */}
-              <StaticBoxSizer label="Include Layers" orient={wxHORIZONTAL}>
+              <StaticBoxSizer label={_('Include Layers')} orient={wxHORIZONTAL}>
                 <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={3} minSize={[150, -1]}>
                   {/* m_layerCheckListBox */}
                   <CheckListBox
@@ -267,7 +275,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                     checked={p.layerChecked}
                     onCheck={p.onLayerCheck}
                     onContextMenu={p.onRightClickLayers}
-                    ariaLabel="Include Layers"
+                    ariaLabel={_('Include Layers')}
                   />
                 </SizerItem>
               </StaticBoxSizer>
@@ -279,7 +287,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
               {/* m_PlotOptionsSizer */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxALL | wxEXPAND} border={5}>
-                  <StaticBoxSizer label="General Options" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('General Options')} orient={wxVERTICAL}>
                     <SizerItem
                       proportion={1}
                       flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT}
@@ -293,27 +301,27 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           border={5}
                           minSize={[280, -1]}
                         >
-                          <CheckBox label="Plot drawing sheet" check={p.m_plotSheetRef} />
+                          <CheckBox label={_('Plot drawing sheet')} check={p.m_plotSheetRef} />
                         </SizerItem>
                         <SizerItem pos={[1, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                           <CheckBox
-                            label="Subtract soldermask from silkscreen"
-                            title="Remove silkscreen from areas without soldermask"
+                            label={_('Subtract soldermask from silkscreen')}
+                            title={_('Remove silkscreen from areas without soldermask')}
                             check={p.m_subtractMaskFromSilk}
                           />
                         </SizerItem>
                         <SizerItem pos={[2, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                           <CheckBox
-                            label="Indicate DNP on fabrication layers"
-                            title="Hide or cross-out DNP footprints on fabrication layers"
+                            label={_('Indicate DNP on fabrication layers')}
+                            title={_('Hide or cross-out DNP footprints on fabrication layers')}
                             check={p.m_plotDNP}
                           />
                         </SizerItem>
                         <SizerItem pos={[3, 0]} flag={wxLEFT} border={25}>
                           <RadioButton
-                            label="Hide"
+                            label={_('Hide')}
                             name="ze-plot-dnp"
-                            title="Hide the footprint text and graphics"
+                            title={_('Hide the footprint text and graphics')}
                             checked={p.hideDNP}
                             disabled={!p.dnpModeEnabled}
                             onChange={() => p.onDNPMode(true)}
@@ -321,7 +329,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                         </SizerItem>
                         <SizerItem pos={[4, 0]} flag={wxLEFT} border={25}>
                           <RadioButton
-                            label="Cross-out"
+                            label={_('Cross-out')}
                             name="ze-plot-dnp"
                             checked={!p.hideDNP}
                             disabled={!p.dnpModeEnabled}
@@ -330,13 +338,15 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                         </SizerItem>
                         <SizerItem pos={[5, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                           <CheckBox
-                            label="Sketch pads on fabrication layers"
-                            title="Include pad outlines on F.Fab and B.Fab layers when plotting"
+                            label={_('Sketch pads on fabrication layers')}
+                            title={_(
+                              'Include pad outlines on F.Fab and B.Fab layers when plotting',
+                            )}
                             check={p.m_sketchPadsOnFabLayers}
                           />
                         </SizerItem>
                         <SizerItem pos={[6, 0]} flag={wxLEFT} border={25}>
-                          <CheckBox label="Include pad numbers" check={p.m_plotPadNumbers} />
+                          <CheckBox label={_('Include pad numbers')} check={p.m_plotPadNumbers} />
                         </SizerItem>
                         <SizerItem
                           pos={[6, 1]}
@@ -345,12 +355,12 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           border={30}
                         >
                           <CheckBox
-                            label="Check zone fills before plotting"
+                            label={_('Check zone fills before plotting')}
                             check={p.m_zoneFillCheck}
                           />
                         </SizerItem>
                         <SizerItem pos={[0, 1]} flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={30}>
-                          <span>Drill marks:</span>
+                          <span>{_('Drill marks:')}</span>
                         </SizerItem>
                         <SizerItem pos={[0, 2]} flag={wxEXPAND | wxLEFT} border={5}>
                           <Choice
@@ -360,13 +370,13 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           />
                         </SizerItem>
                         <SizerItem pos={[1, 1]} flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={30}>
-                          <span>Scaling:</span>
+                          <span>{_('Scaling:')}</span>
                         </SizerItem>
                         <SizerItem pos={[1, 2]} flag={wxEXPAND | wxLEFT} border={5}>
                           <Choice
                             choices={PLOT_SCALE_CHOICES}
                             choice={p.m_scaleOpt}
-                            ariaLabel="Scaling"
+                            ariaLabel={_('Scaling')}
                           />
                         </SizerItem>
                         <SizerItem
@@ -376,8 +386,10 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           border={30}
                         >
                           <CheckBox
-                            label="Use drill/place file origin"
-                            title="Use the drill/place file origin as the coordinate origin for plotted files"
+                            label={_('Use drill/place file origin')}
+                            title={_(
+                              'Use the drill/place file origin as the coordinate origin for plotted files',
+                            )}
                             check={p.m_useAuxOriginCheckBox}
                           />
                         </SizerItem>
@@ -387,7 +399,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           flag={wxALIGN_CENTER_VERTICAL | wxLEFT}
                           border={30}
                         >
-                          <CheckBox label="Mirrored plot" check={p.m_plotMirrorOpt} />
+                          <CheckBox label={_('Mirrored plot')} check={p.m_plotMirrorOpt} />
                         </SizerItem>
                         <SizerItem
                           pos={[4, 1]}
@@ -395,7 +407,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           flag={wxALIGN_CENTER_VERTICAL | wxLEFT}
                           border={30}
                         >
-                          <CheckBox label="Negative plot" check={p.m_plotPSNegativeOpt} />
+                          <CheckBox label={_('Negative plot')} check={p.m_plotPSNegativeOpt} />
                         </SizerItem>
                       </GridBagSizer>
                     </SizerItem>
@@ -424,7 +436,9 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                         <SizerItem flag={wxTOP | wxLEFT} border={5}>
                           {/* m_staticTextAlert1->Wrap( 580 ) */}
                           <StaticText
-                            label="Most board manufacturers expect 0 and use their own constraints for solder mask minimum width."
+                            label={_(
+                              'Most board manufacturers expect 0 and use their own constraints for solder mask minimum width.',
+                            )}
                             wrap={580}
                           />
                         </SizerItem>
@@ -438,8 +452,8 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                             <Spacer proportion={1} flag={wxEXPAND} border={5} />
                             <SizerItem flag={wxLEFT | wxRIGHT | wxTOP} border={2}>
                               <HyperlinkCtrl
-                                label="Board setup"
-                                title="File > Board Setup..."
+                                label={_('Board setup')}
+                                title={_('File > Board Setup...')}
                                 onClick={p.onBoardSetup}
                               />
                             </SizerItem>
@@ -450,7 +464,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                   </BoxSizer>
                 </SizerItem>
                 <SizerItem flag={wxALL | wxEXPAND} border={5} shown={p.gerberShown}>
-                  <StaticBoxSizer label="Gerber Options" orient={wxHORIZONTAL}>
+                  <StaticBoxSizer label={_('Gerber Options')} orient={wxHORIZONTAL}>
                     <SizerItem
                       proportion={1}
                       flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT}
@@ -465,24 +479,24 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           minSize={[280, -1]}
                         >
                           <CheckBox
-                            label="Use Protel filename extensions"
-                            title={
-                              'Use Protel Gerber extensions (.GBL, .GTL, etc...)\nNo longer recommended. The official extension is .gbr'
-                            }
+                            label={_('Use Protel filename extensions')}
+                            title={_(
+                              'Use Protel Gerber extensions (.GBL, .GTL, etc...)\nNo longer recommended. The official extension is .gbr',
+                            )}
                             check={p.m_useGerberExtensions}
                           />
                         </SizerItem>
                         <SizerItem pos={[1, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                           <CheckBox
-                            label="Generate Gerber job file"
-                            title={
-                              'Generate a Gerber job file that contains info about the board,\nand the list of generated Gerber plot files'
-                            }
+                            label={_('Generate Gerber job file')}
+                            title={_(
+                              'Generate a Gerber job file that contains info about the board,\nand the list of generated Gerber plot files',
+                            )}
                             check={p.m_generateGerberJobFile}
                           />
                         </SizerItem>
                         <SizerItem pos={[0, 1]} flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={30}>
-                          <span>Coordinate format:</span>
+                          <span>{_('Coordinate format:')}</span>
                         </SizerItem>
                         <SizerItem pos={[0, 2]} flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
                           <Choice
@@ -498,10 +512,10 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           border={30}
                         >
                           <CheckBox
-                            label="Use extended X2 format (recommended)"
-                            title={
-                              'Use X2 Gerber file format.\nInclude  mainly X2 attributes in Gerber headers.\nIf not checked, use X1 format.\nIn X1 format, these attributes are included as comments in files.'
-                            }
+                            label={_('Use extended X2 format (recommended)')}
+                            title={_(
+                              'Use X2 Gerber file format.\nInclude  mainly X2 attributes in Gerber headers.\nIf not checked, use X1 format.\nIn X1 format, these attributes are included as comments in files.',
+                            )}
                             check={p.m_useGerberX2Format}
                           />
                         </SizerItem>
@@ -512,10 +526,10 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           border={30}
                         >
                           <CheckBox
-                            label="Include netlist attributes"
-                            title={
-                              'Include netlist metadata and aperture attributes in Gerber files.\nThey are comments in the X1 format.\nUsed to check connectivity in CAM tools and Gerber viewers.'
-                            }
+                            label={_('Include netlist attributes')}
+                            title={_(
+                              'Include netlist metadata and aperture attributes in Gerber files.\nThey are comments in the X1 format.\nUsed to check connectivity in CAM tools and Gerber viewers.',
+                            )}
                             check={p.m_useGerberNetAttributes}
                           />
                         </SizerItem>
@@ -526,10 +540,10 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           border={30}
                         >
                           <CheckBox
-                            label="Disable aperture macros (not recommended)"
-                            title={
-                              'Disable aperture macros in Gerber files\nUse *only* for broken Gerber viewers.'
-                            }
+                            label={_('Disable aperture macros (not recommended)')}
+                            title={_(
+                              'Disable aperture macros in Gerber files\nUse *only* for broken Gerber viewers.',
+                            )}
                             check={p.m_disableApertMacros}
                           />
                         </SizerItem>
@@ -538,7 +552,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                   </StaticBoxSizer>
                 </SizerItem>
                 <SizerItem flag={wxALL | wxEXPAND} border={5} shown={p.psShown}>
-                  <StaticBoxSizer label="Postscript Options" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Postscript Options')} orient={wxVERTICAL}>
                     <SizerItem
                       proportion={1}
                       flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT}
@@ -548,30 +562,34 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                       {/* fgSizer2 = wxFlexGridSizer( 0, 6, 5, 0 ), AddGrowableCol( 1 ), AddGrowableCol( 4 ) */}
                       <FlexGridSizer cols={6} vgap={5} hgap={0} growableCols={[1, 4]}>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={1}>
-                          <span>X scale factor:</span>
+                          <span>{_('X scale factor:')}</span>
                         </SizerItem>
                         <SizerItem flag={wxEXPAND | wxRIGHT | wxALIGN_CENTER_VERTICAL} border={5}>
                           <Text
                             text={p.m_fineAdjustXCtrl}
                             ariaLabel="X scale factor"
-                            title="Set global X scale adjust for exact scale PostScript output."
+                            title={_(
+                              'Set global X scale adjust for exact scale PostScript output.',
+                            )}
                           />
                         </SizerItem>
                         <Spacer proportion={1} flag={wxEXPAND} border={5} />
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={30}>
-                          <span>Y scale factor:</span>
+                          <span>{_('Y scale factor:')}</span>
                         </SizerItem>
                         <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={30}>
                           <Text
                             text={p.m_fineAdjustYCtrl}
                             ariaLabel="Y scale factor"
-                            title="Set global Y scale adjust for exact scale PostScript output."
+                            title={_(
+                              'Set global Y scale adjust for exact scale PostScript output.',
+                            )}
                           />
                         </SizerItem>
                         <Spacer proportion={1} flag={wxEXPAND | wxRIGHT | wxLEFT} border={10} />
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
                           <StaticText
-                            label="Track width correction:"
+                            label={_('Track width correction:')}
                             disabled={p.m_widthAdjustCtrl.enabled === false}
                           />
                         </SizerItem>
@@ -579,9 +597,9 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           <Text
                             text={p.m_widthAdjustCtrl}
                             ariaLabel="Track width correction"
-                            title={
-                              'Set global width correction for exact width PostScript output.\nThese width correction is intended to compensate tracks width and also pads and vias size errors.\nThe reasonable width correction value must be in a range of [-(MinTrackWidth-1), +(MinClearanceValue-1)].'
-                            }
+                            title={_(
+                              'Set global width correction for exact width PostScript output.\nThese width correction is intended to compensate tracks width and also pads and vias size errors.\nThe reasonable width correction value must be in a range of [-(MinTrackWidth-1), +(MinClearanceValue-1)].',
+                            )}
                           />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxBOTTOM} border={5}>
@@ -590,12 +608,12 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                       </FlexGridSizer>
                     </SizerItem>
                     <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                      <CheckBox label="Force A4 output" check={p.m_forcePSA4OutputOpt} />
+                      <CheckBox label={_('Force A4 output')} check={p.m_forcePSA4OutputOpt} />
                     </SizerItem>
                   </StaticBoxSizer>
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxALL} border={5} shown={p.dxfShown}>
-                  <StaticBoxSizer label="DXF Options" orient={wxHORIZONTAL}>
+                  <StaticBoxSizer label={_('DXF Options')} orient={wxHORIZONTAL}>
                     <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM} border={5}>
                       {/* gbSizer5 = wxGridBagSizer( 5, 5 ) */}
                       <GridBagSizer vgap={5} hgap={5}>
@@ -607,20 +625,20 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           minSize={[300, -1]}
                         >
                           <CheckBox
-                            label="Plot graphic items using their contours"
-                            title="Uncheck to plot graphic items using their center lines"
+                            label={_('Plot graphic items using their contours')}
+                            title={_('Uncheck to plot graphic items using their center lines')}
                             check={p.m_DXF_plotModeOpt}
                           />
                         </SizerItem>
                         <SizerItem pos={[0, 2]} flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                          <span>Export units:</span>
+                          <span>{_('Export units:')}</span>
                         </SizerItem>
                         <SizerItem pos={[0, 3]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                           <Choice
                             choices={PLOT_DXF_UNITS_CHOICES}
                             choice={p.m_DXF_plotUnits}
                             ariaLabel="Export units"
-                            title="The units to use for the exported DXF file"
+                            title={_('The units to use for the exported DXF file')}
                           />
                         </SizerItem>
                         <SizerItem
@@ -630,10 +648,10 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           border={5}
                         >
                           <CheckBox
-                            label="Use KiCad font to plot text"
-                            title={
-                              'Check to use KiCad stroke font\nUncheck to plot single-line ASCII texts as editable text (using DXF font)'
-                            }
+                            label={_('Use KiCad font to plot text')}
+                            title={_(
+                              'Check to use KiCad stroke font\nUncheck to plot single-line ASCII texts as editable text (using DXF font)',
+                            )}
                             check={p.m_DXF_plotTextStrokeFontOpt}
                           />
                         </SizerItem>
@@ -644,8 +662,8 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           border={5}
                         >
                           <CheckBox
-                            label="Single document"
-                            title="Export selected layers into a single DXF"
+                            label={_('Single document')}
+                            title={_('Export selected layers into a single DXF')}
                             check={p.m_DXF_exportAsMultiLayeredFile}
                           />
                         </SizerItem>
@@ -654,7 +672,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                   </StaticBoxSizer>
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5} shown={p.svgShown}>
-                  <StaticBoxSizer label="SVG Options" orient={wxHORIZONTAL}>
+                  <StaticBoxSizer label={_('SVG Options')} orient={wxHORIZONTAL}>
                     <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM} border={5}>
                       {/* gbSizer3 = wxGridBagSizer( 5, 0 ) */}
                       <GridBagSizer vgap={5} hgap={0}>
@@ -663,7 +681,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
                           border={5}
                         >
-                          <span>Precision:</span>
+                          <span>{_('Precision:')}</span>
                         </SizerItem>
                         <SizerItem
                           pos={[0, 1]}
@@ -671,9 +689,9 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           border={5}
                         >
                           <span
-                            title={
-                              'This number defines how many digits are exported that are below 1 mm.\nUser unit is 10^-<N> mm\nChoose 4 if you are not sure.'
-                            }
+                            title={_(
+                              'This number defines how many digits are exported that are below 1 mm.\nUser unit is 10^-<N> mm\nChoose 4 if you are not sure.',
+                            )}
                           >
                             <SpinCtrl
                               value={p.m_svgPrecsision.value}
@@ -689,7 +707,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
                           border={5}
                         >
-                          <span>Output mode:</span>
+                          <span>{_('Output mode:')}</span>
                         </SizerItem>
                         <SizerItem
                           pos={[1, 1]}
@@ -703,14 +721,14 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           />
                         </SizerItem>
                         <SizerItem pos={[2, 0]} span={[2, 1]} flag={wxALL} border={5}>
-                          <CheckBox label="Fit page to board" check={p.m_SVG_fitPageToBoard} />
+                          <CheckBox label={_('Fit page to board')} check={p.m_SVG_fitPageToBoard} />
                         </SizerItem>
                       </GridBagSizer>
                     </SizerItem>
                   </StaticBoxSizer>
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5} shown={p.pdfShown}>
-                  <StaticBoxSizer label="PDF Options" orient={wxHORIZONTAL}>
+                  <StaticBoxSizer label={_('PDF Options')} orient={wxHORIZONTAL}>
                     <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM} border={5}>
                       {/* gbSizer4 = wxGridBagSizer( 5, 0 ) */}
                       <GridBagSizer vgap={5} hgap={0}>
@@ -719,7 +737,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
                           border={5}
                         >
-                          <span>Output mode:</span>
+                          <span>{_('Output mode:')}</span>
                         </SizerItem>
                         <SizerItem
                           pos={[0, 1]}
@@ -734,35 +752,40 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                         </SizerItem>
                         <SizerItem pos={[1, 0]} span={[1, 2]} flag={wxRIGHT | wxLEFT} border={5}>
                           <CheckBox
-                            label="Generate property popups for front footprints"
+                            label={_('Generate property popups for front footprints')}
                             check={p.m_frontFPPropertyPopups}
                           />
                         </SizerItem>
                         <SizerItem pos={[2, 0]} span={[1, 2]} flag={wxRIGHT | wxLEFT} border={5}>
                           <CheckBox
-                            label="Generate property popups for back footprints"
+                            label={_('Generate property popups for back footprints')}
                             check={p.m_backFPPropertyPopups}
                           />
                         </SizerItem>
                         <SizerItem pos={[3, 0]} span={[1, 2]} flag={wxLEFT | wxRIGHT} border={5}>
                           <CheckBox
-                            label="Generate metadata from AUTHOR & SUBJECT variables"
-                            title="Generate PDF document properties from AUTHOR and SUBJECT text variables"
+                            label={_('Generate metadata from AUTHOR & SUBJECT variables')}
+                            title={_(
+                              'Generate PDF document properties from AUTHOR and SUBJECT text variables',
+                            )}
                             check={p.m_pdfMetadata}
                           />
                         </SizerItem>
                         <SizerItem pos={[4, 0]} span={[1, 2]} flag={wxLEFT | wxRIGHT} border={5}>
-                          <CheckBox label="Single document" check={p.m_pdfSingle} />
+                          <CheckBox label={_('Single document')} check={p.m_pdfSingle} />
                         </SizerItem>
                         <SizerItem pos={[5, 0]} flag={wxALL} border={5}>
-                          <StaticText label="Background Color" disabled={!p.pdfBackgroundEnabled} />
+                          <StaticText
+                            label={_('Background Color')}
+                            disabled={!p.pdfBackgroundEnabled}
+                          />
                         </SizerItem>
                         <SizerItem pos={[5, 1]} flag={wxALL} border={5}>
                           {/* m_pdfBackgroundColorSwatch: COLOR_SWATCH, SetDefaultColor( UNSPECIFIED ) */}
                           <ColorSwatch
                             color={p.pdfBackgroundColor}
                             onChange={p.onPdfBackgroundColor}
-                            label="Background Color"
+                            label={_('Background Color')}
                             disabled={!p.pdfBackgroundEnabled}
                           />
                         </SizerItem>
@@ -801,12 +824,12 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
       <StdDialogButtonSizer
         onCancel={p.onCancel}
         onOk={p.onPlot}
-        okLabel="Plot"
-        cancelLabel="Close"
+        okLabel={_('Plot')}
+        cancelLabel={_('Close')}
         onApply={p.onCreateDrillFile}
-        applyLabel="Generate Drill Files..."
+        applyLabel={_('Generate Drill Files...')}
       >
-        <Button label="Run DRC..." onClick={p.onRunDRC} />
+        <Button label={_('Run DRC...')} onClick={p.onRunDRC} />
         {p.drcWarning !== null && <span>{p.drcWarning}</span>}
       </StdDialogButtonSizer>
     </DialogShim>

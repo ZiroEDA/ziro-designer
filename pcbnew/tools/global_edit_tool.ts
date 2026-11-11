@@ -37,6 +37,7 @@ import { VIATYPE } from '../pcb_track_types.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
 import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const GEOMETRY = VIEW_UPDATE_FLAGS.GEOMETRY;
 
@@ -163,7 +164,7 @@ export class GLOBAL_EDIT_TOOL extends PCB_TOOL_BASE {
 
     if (hasChanges) {
       this.frame().OnModify();
-      this.m_commit!.Push('Swap Layers');
+      this.m_commit!.Push(_('Swap Layers'));
       this.frame().GetCanvas()?.Refresh();
     }
   }

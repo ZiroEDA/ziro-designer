@@ -29,6 +29,7 @@ import {
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER, ptrOrdinal } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_CREEPAGE extends DRC_TEST_PROVIDER {
   // std::set<std::pair<const BOARD_ITEM*, const BOARD_ITEM*>>: an ORDERED pair
@@ -48,7 +49,7 @@ export class DRC_TEST_PROVIDER_CREEPAGE extends DRC_TEST_PROVIDER {
     }
 
     if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_CREEPAGE)) {
-      if (!this.reportPhase('Checking creepage...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking creepage...'))) return false; // DRC cancelled
 
       this.testCreepage();
     }
@@ -131,7 +132,7 @@ export class DRC_TEST_PROVIDER_CREEPAGE extends DRC_TEST_PROVIDER {
       const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_CREEPAGE)!;
       drcItem.SetErrorDetail(
         this.formatMsg(
-          '(%s creepage %s; actual %s)',
+          _('(%s creepage %s; actual %s)'),
           constraint.GetName(),
           creepageValue,
           distance,

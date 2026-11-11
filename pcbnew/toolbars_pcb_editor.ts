@@ -14,6 +14,8 @@ import type { ToolbarDefaults } from '@ziroeda/common/tool/ui/toolbar_configurat
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import { type EdaUnits, pcbIUScale, toUserUnit, unitLabelText } from '@ziroeda/common/eda_units.js';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -45,11 +47,11 @@ export const PCB_TOP_TOOLBAR: ToolEntry[] = [
   // editor is project-hosted (KiCad project mode), so they are not shown.
   { id: 'save', icon: 'save', title: 'Save' },
   sep,
-  { id: 'boardSetup', icon: 'boardSetup', title: 'Board setup' },
+  { id: 'boardSetup', icon: 'boardSetup', title: _HKI('Board setup') },
   sep,
   { id: 'pageSettings', icon: 'pageSettings', title: 'Page settings' },
   { id: 'print', icon: 'print', title: 'Print' },
-  { id: 'plot', icon: 'plot', title: 'Plot' },
+  { id: 'plot', icon: 'plot', title: _HKI('Plot') },
   sep,
   { id: 'undo', icon: 'undo', title: 'Undo' },
   { id: 'redo', icon: 'redo', title: 'Redo' },
@@ -71,15 +73,15 @@ export const PCB_TOP_TOOLBAR: ToolEntry[] = [
   // Group / Remove from Group are right-click-only (GROUP_CONTEXT_MENU).
   { id: 'group', icon: 'group', title: 'Group items' },
   { id: 'ungroup', icon: 'ungroup', title: 'Ungroup items' },
-  { id: 'lock', icon: 'lock', title: 'Lock' },
-  { id: 'unlock', icon: 'unlock', title: 'Unlock' },
+  { id: 'lock', icon: 'lock', title: _HKI('Lock') },
+  { id: 'unlock', icon: 'unlock', title: _HKI('Unlock') },
   sep,
-  { id: 'footprintEditor', icon: 'footprintEditor', title: 'Footprint Editor' },
-  { id: 'footprintBrowser', icon: 'footprintBrowser', title: 'Footprint Library Browser' },
+  { id: 'footprintEditor', icon: 'footprintEditor', title: _HKI('Footprint Editor') },
+  { id: 'footprintBrowser', icon: 'footprintBrowser', title: _HKI('Footprint Library Browser') },
   { id: 'threeDViewer', icon: 'threeDViewer', title: '3D Viewer' },
   sep,
   { id: 'updatePcbFromSch', icon: 'updatePcbFromSch', title: 'Update PCB from schematic' },
-  { id: 'runDRC', icon: 'runDRC', title: 'Design Rules Checker' },
+  { id: 'runDRC', icon: 'runDRC', title: _HKI('Design Rules Checker') },
   sep,
   { id: 'showEeschema', icon: 'showEeschema', title: 'Open schematic in Schematic Editor' },
   // `AppendControl( PCB_ACTION_TOOLBAR_CONTROLS::currentVariant )`
@@ -133,7 +135,7 @@ export const PCB_AUX_TOOLBAR: ToolEntry[] = [
 
 /** LEFT (view options) toolbar. */
 export const PCB_LEFT_TOOLBAR: ToolEntry[] = [
-  { id: 'toggleGrid', icon: 'toggleGrid', title: 'Show grid', toggle: true },
+  { id: 'toggleGrid', icon: 'toggleGrid', title: _HKI('Show grid'), toggle: true },
   {
     id: 'toggleGridOverrides',
     icon: 'toggleGridOverrides',
@@ -157,7 +159,7 @@ export const PCB_LEFT_TOOLBAR: ToolEntry[] = [
   // tuning — are the opposite case and DO stay lit, because their actions
   // declare `TOOLBAR_STATE::TOGGLE`.
   {
-    group: 'Units',
+    group: _HKI('Units'),
     cycleOnClick: true,
     actions: [
       { id: 'unitsMm', icon: 'unitsMm', title: 'Units in millimetres' },
@@ -166,17 +168,17 @@ export const PCB_LEFT_TOOLBAR: ToolEntry[] = [
     ],
   },
   {
-    group: 'Crosshair modes',
+    group: _HKI('Crosshair modes'),
     cycleOnClick: true,
     actions: [
-      { id: 'crosshairSmall', icon: 'crosshairSmall', title: 'Small crosshairs' },
+      { id: 'crosshairSmall', icon: 'crosshairSmall', title: _HKI('Small crosshairs') },
       { id: 'crosshairFull', icon: 'crosshairFull', title: 'Full-window crosshairs' },
       { id: 'crosshair45', icon: 'crosshair45', title: '45° crosshairs' },
     ],
   },
   sep,
   {
-    group: 'Line modes',
+    group: _HKI('Line modes'),
     cycleOnClick: true,
     actions: [
       { id: 'lineModeFree', icon: 'lineModeFree', title: 'Line mode: free angle' },
@@ -204,13 +206,13 @@ export const PCB_LEFT_TOOLBAR: ToolEntry[] = [
   {
     id: 'zoneDisplayFilled',
     icon: 'zoneDisplayFilled',
-    title: 'Show filled areas of zones',
+    title: _HKI('Show filled areas of zones'),
     toggle: true,
   },
   {
     id: 'zoneDisplayOutline',
     icon: 'zoneDisplayOutline',
-    title: 'Show only zone boundaries',
+    title: _HKI('Show only zone boundaries'),
     toggle: true,
   },
   sep,
@@ -235,7 +237,7 @@ export const PCB_LEFT_TOOLBAR: ToolEntry[] = [
  */
 export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
   {
-    group: 'Selection modes',
+    group: _HKI('Selection modes'),
     actions: [
       {
         id: 'selectSetRect',
@@ -257,7 +259,7 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
   sep,
   { id: 'placeFootprint', icon: 'placeFootprint', title: 'Place Footprints (A)' },
   {
-    group: 'Track routing tools',
+    group: _HKI('Track routing tools'),
     actions: [
       {
         id: 'routeSingleTrack',
@@ -272,7 +274,7 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
     ],
   },
   {
-    group: 'Track tuning tools',
+    group: _HKI('Track tuning tools'),
     actions: [
       {
         id: 'tuneSingleTrack',
@@ -299,7 +301,7 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
   sep,
   { id: 'drawLine', icon: 'drawLine', title: 'Draw Lines (Ctrl+Shift+L)' },
   { id: 'drawArc', icon: 'drawArc', title: 'Draw Arcs (Ctrl+Shift+A)' },
-  { id: 'drawRectangle', icon: 'drawRectangle', title: 'Draw Rectangles' },
+  { id: 'drawRectangle', icon: 'drawRectangle', title: _HKI('Draw Rectangles') },
   { id: 'drawCircle', icon: 'drawCircle', title: 'Draw Circles (Ctrl+Shift+C)' },
   { id: 'drawPolygon', icon: 'drawPolygon', title: 'Draw Polygons (Ctrl+Shift+P)' },
   { id: 'drawBezier', icon: 'drawBezier', title: 'Draw Bezier Curve (Ctrl+Shift+B)' },
@@ -314,10 +316,10 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
   // `hotkeys_inventory.ts` reads the accelerator back out of this title: a
   // literal here would put a key in the Hotkey List that nothing can press.
   { id: 'placeText', icon: 'placeText', title: `Draw Text (${browserSafeKey('Ctrl+Shift+T')})` },
-  { id: 'drawTextBox', icon: 'drawTextBox', title: 'Draw Text Boxes' },
-  { id: 'drawTable', icon: 'drawTable', title: 'Draw Tables' },
+  { id: 'drawTextBox', icon: 'drawTextBox', title: _HKI('Draw Text Boxes') },
+  { id: 'drawTable', icon: 'drawTable', title: _HKI('Draw Tables') },
   {
-    group: 'Dimension objects',
+    group: _HKI('Dimension objects'),
     actions: [
       {
         id: 'drawOrthogonalDimension',
@@ -327,26 +329,26 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
       {
         id: 'drawAlignedDimension',
         icon: 'drawAlignedDimension',
-        title: 'Draw Aligned Dimensions',
+        title: _HKI('Draw Aligned Dimensions'),
       },
       {
         id: 'drawCenterDimension',
         icon: 'drawCenterDimension',
-        title: 'Draw Center Dimensions',
+        title: _HKI('Draw Center Dimensions'),
       },
       {
         id: 'drawRadialDimension',
         icon: 'drawRadialDimension',
-        title: 'Draw Radial Dimensions',
+        title: _HKI('Draw Radial Dimensions'),
       },
-      { id: 'drawLeader', icon: 'drawLeader', title: 'Draw Leaders' },
+      { id: 'drawLeader', icon: 'drawLeader', title: _HKI('Draw Leaders') },
     ],
   },
   { id: 'placeBarcode', icon: 'placeBarcode', title: 'Add Barcode\nAdd a barcode' },
   { id: 'deleteTool', icon: 'deleteTool', title: 'Interactive Delete Tool\nDelete clicked items' },
   sep,
   {
-    group: 'PCB origins and points',
+    group: _HKI('PCB origins and points'),
     actions: [
       {
         id: 'gridSetOrigin',
@@ -441,7 +443,7 @@ export function TrackWidthSelectBoxContent(
   const [primaryUnit, secondaryUnit] = aUnits;
   const items: string[] = [];
 
-  if (aShowNetclass) items.push('Track: use netclass width');
+  if (aShowNetclass) items.push(_('Track: use netclass width'));
 
   for (let ii = 1; ii < aSettings.m_TrackWidthList.length; ii++) {
     const size = aSettings.m_TrackWidthList[ii]!;
@@ -452,7 +454,7 @@ export function TrackWidthSelectBoxContent(
 
   if (aShowEdit) {
     items.push('---');
-    items.push('Edit Pre-defined Sizes...');
+    items.push(_('Edit Pre-defined Sizes...'));
   }
 
   if (aSettings.GetTrackWidthIndex() >= aSettings.m_TrackWidthList.length)
@@ -473,7 +475,7 @@ export function ViaSizeSelectBoxContent(
   const [primaryUnit, secondaryUnit] = aUnits;
   const items: string[] = [];
 
-  if (aShowNetclass) items.push('Via: use netclass sizes');
+  if (aShowNetclass) items.push(_('Via: use netclass sizes'));
 
   for (let ii = 1; ii < aSettings.m_ViasDimensionsList.length; ii++) {
     const viaDimension = aSettings.m_ViasDimensionsList[ii]!;
@@ -495,7 +497,7 @@ export function ViaSizeSelectBoxContent(
 
   if (aShowEdit) {
     items.push('---');
-    items.push('Edit Pre-defined Sizes...');
+    items.push(_('Edit Pre-defined Sizes...'));
   }
 
   if (aSettings.GetViaSizeIndex() >= aSettings.m_ViasDimensionsList.length)

@@ -20,6 +20,7 @@ import type { BOARD } from '../board.js';
 import { DRC_RULES_PARSER } from '../drc/drc_rule_parser.js';
 import { type DRC_RULE, IsComponentClassSelector } from '../drc/drc_rule.js';
 import { PANEL_SETUP_RULES_BASE } from './panel_setup_rules_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The page's text: the project's .kicad_dru, which the frame hands in. */
 export interface CustomRules {
@@ -93,7 +94,7 @@ export function compileRules(aText: string, aBoard: BOARD | null): string[] {
       );
     }
 
-    const parser = new DRC_RULES_PARSER(rulesText, 'DRC rules');
+    const parser = new DRC_RULES_PARSER(rulesText, _('DRC rules'));
     parser.Parse(dummyRules, report);
     if (aBoard) checkPlausibility(dummyRules, aBoard, report);
   } catch (pe) {

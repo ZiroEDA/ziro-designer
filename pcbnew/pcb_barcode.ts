@@ -58,6 +58,8 @@ import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/prop
 import { PCB_TEXT } from './pcb_text.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
 import type { BarcodeEcc, BarcodeKind } from '@ziroeda/zint';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export enum BARCODE_T {
   CODE_39 = 0,
@@ -577,11 +579,11 @@ export class PCB_BARCODE extends BOARD_ITEM {
     const parentFP = this.GetParentFootprint();
 
     if (parentFP && aFrame.GetName() === PCB_EDIT_FRAME_NAME)
-      aList.push(new MSG_PANEL_ITEM('Footprint', parentFP.GetReference()));
+      aList.push(new MSG_PANEL_ITEM(_('Footprint'), parentFP.GetReference()));
 
     aList.push(
       new MSG_PANEL_ITEM(
-        'Barcode',
+        _('Barcode'),
         ENUM_MAP.Instance<BARCODE_T>('BARCODE_T').ToString(this.m_kind),
       ),
     );
@@ -590,12 +592,15 @@ export class PCB_BARCODE extends BOARD_ITEM {
     aList.push(new MSG_PANEL_ITEM('Text', KIUI_EllipsizeStatusText(aFrame, this.GetText())));
 
     if (aFrame.GetName() === PCB_EDIT_FRAME_NAME && this.IsLocked())
-      aList.push(new MSG_PANEL_ITEM('Status', 'Locked'));
+      aList.push(new MSG_PANEL_ITEM(_('Status'), _('Locked')));
 
-    aList.push(new MSG_PANEL_ITEM('Layer', this.GetLayerName()));
-    aList.push(new MSG_PANEL_ITEM('Angle', `${this.m_angle.AsDegrees()}`));
+    aList.push(new MSG_PANEL_ITEM(_('Layer'), this.GetLayerName()));
+    aList.push(new MSG_PANEL_ITEM(_('Angle'), `${this.m_angle.AsDegrees()}`));
     aList.push(
-      new MSG_PANEL_ITEM('Text Height', aFrame.MessageTextFromValue(this.m_text.GetTextHeight())),
+      new MSG_PANEL_ITEM(
+        _('Text Height'),
+        aFrame.MessageTextFromValue(this.m_text.GetTextHeight()),
+      ),
     );
   }
 
@@ -1019,17 +1024,17 @@ export class PCB_BARCODE extends BOARD_ITEM {
   REGISTER_TYPE(PCB_BARCODE);
   propMgr.InheritsAfter(PCB_BARCODE, BOARD_ITEM);
 
-  const groupBarcode = 'Barcode Properties';
+  const groupBarcode = _HKI('Barcode Properties');
 
   const kindMap = ENUM_MAP.Instance<BARCODE_T>('BARCODE_T');
   if (kindMap.Choices().GetCount() === 0) {
     kindMap.Undefined(BARCODE_T.QR_CODE);
     kindMap
-      .Map(BARCODE_T.CODE_39, 'CODE_39')
-      .Map(BARCODE_T.CODE_128, 'CODE_128')
-      .Map(BARCODE_T.DATA_MATRIX, 'DATA_MATRIX')
-      .Map(BARCODE_T.QR_CODE, 'QR_CODE')
-      .Map(BARCODE_T.MICRO_QR_CODE, 'MICRO_QR_CODE');
+      .Map(BARCODE_T.CODE_39, _HKI('CODE_39'))
+      .Map(BARCODE_T.CODE_128, _HKI('CODE_128'))
+      .Map(BARCODE_T.DATA_MATRIX, _HKI('DATA_MATRIX'))
+      .Map(BARCODE_T.QR_CODE, _HKI('QR_CODE'))
+      .Map(BARCODE_T.MICRO_QR_CODE, _HKI('MICRO_QR_CODE'));
   }
 
   const eccMap = ENUM_MAP.Instance<BARCODE_ECC_T>('BARCODE_ECC_T');
@@ -1061,7 +1066,7 @@ export class PCB_BARCODE extends BOARD_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PCB_BARCODE, boolean>(
       PCB_BARCODE,
-      'Show Text',
+      _HKI('Show Text'),
       'SetShowText',
       'GetShowText',
       TYPE_BOOL,
@@ -1072,7 +1077,7 @@ export class PCB_BARCODE extends BOARD_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PCB_BARCODE, number>(
       PCB_BARCODE,
-      'Text Size',
+      _HKI('Text Size'),
       'SetTextSize',
       'GetTextSize',
       TYPE_INT,
@@ -1084,7 +1089,7 @@ export class PCB_BARCODE extends BOARD_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PCB_BARCODE, number>(
       PCB_BARCODE,
-      'Width',
+      _HKI('Width'),
       'SetBarcodeWidth',
       'GetWidth',
       TYPE_INT,
@@ -1096,7 +1101,7 @@ export class PCB_BARCODE extends BOARD_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PCB_BARCODE, number>(
       PCB_BARCODE,
-      'Height',
+      _HKI('Height'),
       'SetBarcodeHeight',
       'GetHeight',
       TYPE_INT,
@@ -1108,7 +1113,7 @@ export class PCB_BARCODE extends BOARD_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PCB_BARCODE, number>(
       PCB_BARCODE,
-      'Orientation',
+      _HKI('Orientation'),
       'SetOrientation',
       'GetOrientation',
       TYPE_DOUBLE,
@@ -1119,7 +1124,7 @@ export class PCB_BARCODE extends BOARD_ITEM {
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_BARCODE, BARCODE_T>(
       PCB_BARCODE,
-      'Barcode Type',
+      _HKI('Barcode Type'),
       'SetBarcodeKind',
       'GetKind',
       kindMap,
@@ -1138,7 +1143,7 @@ export class PCB_BARCODE extends BOARD_ITEM {
     .AddProperty(
       new PROPERTY_ENUM<PCB_BARCODE, BARCODE_ECC_T>(
         PCB_BARCODE,
-        'Error Correction',
+        _HKI('Error Correction'),
         'SetBarcodeErrorCorrection',
         'GetErrorCorrection',
         eccMap,
@@ -1163,7 +1168,7 @@ export class PCB_BARCODE extends BOARD_ITEM {
   propMgr.AddProperty(
     new PROPERTY<PCB_BARCODE, boolean>(
       PCB_BARCODE,
-      'Knockout',
+      _HKI('Knockout'),
       'SetIsKnockout',
       'IsKnockout',
       TYPE_BOOL,
@@ -1175,7 +1180,7 @@ export class PCB_BARCODE extends BOARD_ITEM {
     .AddProperty(
       new PROPERTY<PCB_BARCODE, number>(
         PCB_BARCODE,
-        'Margin X',
+        _HKI('Margin X'),
         'SetMarginX',
         'GetMarginX',
         TYPE_INT,
@@ -1189,7 +1194,7 @@ export class PCB_BARCODE extends BOARD_ITEM {
     .AddProperty(
       new PROPERTY<PCB_BARCODE, number>(
         PCB_BARCODE,
-        'Margin Y',
+        _HKI('Margin Y'),
         'SetMarginY',
         'GetMarginY',
         TYPE_INT,

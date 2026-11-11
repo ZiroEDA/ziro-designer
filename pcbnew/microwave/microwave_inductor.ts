@@ -24,6 +24,7 @@ import { PAD } from '../pad.js';
 import { PAD_ATTRIB, PAD_SHAPE, PADSTACK } from '../padstack.js';
 import { PCB_SHAPE } from '../pcb_shape.js';
 import type { MICROWAVE_HOST, MICROWAVE_INDUCTOR_PATTERN } from './microwave_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `gen_arc`: an arc approximated by lines. Pushes the points after aStartPoint.
@@ -269,8 +270,8 @@ export async function createMicrowaveInductor(
 
   // Enter the desired length.
   const length = await aHost.TextEntry(
-    'Length of track:',
-    'Create Microwave Footprint',
+    _('Length of track:'),
+    _('Create Microwave Footprint'),
     aHost.StringFromValue(aInductorPattern.m_Length),
   );
 
@@ -280,7 +281,7 @@ export async function createMicrowaveInductor(
 
   // Control values (ii = minimum length)
   if (aInductorPattern.m_Length < min_len)
-    return { footprint: null, errorMessage: 'Requested length < minimum length' };
+    return { footprint: null, errorMessage: _('Requested length < minimum length') };
 
   // Calculate the elements.
   const buffer: VECTOR2I[] = [];
@@ -294,19 +295,19 @@ export async function createMicrowaveInductor(
 
   switch (res) {
     case INDUCTOR_S_SHAPE_RESULT.TOO_LONG:
-      return { footprint: null, errorMessage: 'Requested length too large' };
+      return { footprint: null, errorMessage: _('Requested length too large') };
     case INDUCTOR_S_SHAPE_RESULT.TOO_SHORT:
-      return { footprint: null, errorMessage: 'Requested length too small' };
+      return { footprint: null, errorMessage: _('Requested length too small') };
     case INDUCTOR_S_SHAPE_RESULT.NO_REPR:
-      return { footprint: null, errorMessage: "Requested length can't be represented" };
+      return { footprint: null, errorMessage: _("Requested length can't be represented") };
     case INDUCTOR_S_SHAPE_RESULT.OK:
       break;
   }
 
   // Generate footprint. the value is also used as footprint name.
   const msg = await aHost.TextEntry(
-    'Component value:',
-    'Create Microwave Footprint',
+    _('Component value:'),
+    _('Create Microwave Footprint'),
     'L',
     new FOOTPRINT_NAME_VALIDATOR(),
   );

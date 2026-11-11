@@ -88,6 +88,8 @@ import {
 } from '../router/pns_meander.js';
 import { PnsTuningStatus } from '../router/pns_meander_placer_base.js';
 import { PnsRouterMode } from '../router/pns_router.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export enum LENGTH_TUNING_MODE {
   SINGLE = 0,
@@ -280,7 +282,7 @@ export class PCB_TUNING_PATTERN extends PCB_GENERATOR {
         return 'ps_diff_pair_tune_phase';
     }
 
-    return 'unknown';
+    return _('unknown');
   }
 
   // static CreateNew( GENERATOR_TOOL*, PCB_BASE_EDIT_FRAME*, BOARD_CONNECTED_ITEM*, LENGTH_TUNING_MODE )
@@ -713,7 +715,7 @@ export class PCB_TUNING_PATTERN extends PCB_GENERATOR {
   override GetRowData(): [string, string][] {
     const data = PCB_GENERATOR.prototype.GetRowData.call(this);
     data.push(['Net', this.m_lastNetName]);
-    data.push(['Tuning', this.m_tuningInfo]);
+    data.push([_HKI('Tuning'), this.m_tuningInfo]);
     return data;
   }
 
@@ -862,16 +864,16 @@ export class PCB_TUNING_PATTERN extends PCB_GENERATOR {
 
       switch (this.m_tuningStatus) {
         case PnsTuningStatus.TOO_LONG:
-          statusMessage = 'too long';
+          statusMessage = _('too long');
           break;
         case PnsTuningStatus.TOO_SHORT:
-          statusMessage = 'too short';
+          statusMessage = _('too short');
           break;
         case PnsTuningStatus.TUNED:
           statusMessage = 'tuned';
           break;
         default:
-          statusMessage = 'unknown';
+          statusMessage = _('unknown');
           break;
       }
 
@@ -896,7 +898,7 @@ export class PCB_TUNING_PATTERN extends PCB_GENERATOR {
     let width = 0;
     let mixedWidth = false;
 
-    aList.push(new MSG_PANEL_ITEM('Type', this.GetFriendlyName()));
+    aList.push(new MSG_PANEL_ITEM(_('Type'), this.GetFriendlyName()));
 
     for (const member of this.GetItems()) {
       if (member instanceof PCB_TRACK) {
@@ -920,7 +922,7 @@ export class PCB_TUNING_PATTERN extends PCB_GENERATOR {
     if (coupledNet) {
       aList.push(
         new MSG_PANEL_ITEM(
-          'Nets',
+          _('Nets'),
           `${unescapeString(primaryNet!.GetNetname())}, ${unescapeString(coupledNet.GetNetname())}`,
         ),
       );
@@ -930,7 +932,7 @@ export class PCB_TUNING_PATTERN extends PCB_GENERATOR {
 
     if (netclass)
       aList.push(
-        new MSG_PANEL_ITEM('Resolved Netclass', unescapeString(netclass.GetHumanReadableName())),
+        new MSG_PANEL_ITEM(_('Resolved Netclass'), unescapeString(netclass.GetHumanReadableName())),
       );
 
     aList.push(new MSG_PANEL_ITEM('Layer', this.LayerMaskDescribe()));
@@ -1164,9 +1166,9 @@ void KICAD_T;
  */
 (() => {
   ENUM_MAP.Instance<LENGTH_TUNING_MODE>('LENGTH_TUNING_MODE')
-    .Map(LENGTH_TUNING_MODE.SINGLE, 'Single track')
-    .Map(LENGTH_TUNING_MODE.DIFF_PAIR, 'Differential pair')
-    .Map(LENGTH_TUNING_MODE.DIFF_PAIR_SKEW, 'Diff pair skew');
+    .Map(LENGTH_TUNING_MODE.SINGLE, _HKI('Single track'))
+    .Map(LENGTH_TUNING_MODE.DIFF_PAIR, _HKI('Differential pair'))
+    .Map(LENGTH_TUNING_MODE.DIFF_PAIR_SKEW, _HKI('Diff pair skew'));
 
   // ENUM_MAP<PNS::MEANDER_SIDE> is filled beside the enum, in pns_meander.ts:
   // this module and the router's are an import cycle, and the enum is not
@@ -1219,12 +1221,12 @@ void KICAD_T;
     ),
   );
 
-  const groupTechLayers = 'Technical Layers';
+  const groupTechLayers = _HKI('Technical Layers');
 
   propMgr.AddProperty(
     new PROPERTY<PCB_TUNING_PATTERN, boolean>(
       PCB_TUNING_PATTERN,
-      'Soldermask',
+      _HKI('Soldermask'),
       'SetHasSolderMask',
       'HasSolderMask',
       TYPE_BOOL,
@@ -1235,7 +1237,7 @@ void KICAD_T;
   propMgr.AddProperty(
     new PROPERTY<PCB_TUNING_PATTERN, number | undefined>(
       PCB_TUNING_PATTERN,
-      'Soldermask Margin Override',
+      _HKI('Soldermask Margin Override'),
       'SetLocalSolderMaskMargin',
       'GetLocalSolderMaskMargin',
       TYPE_OPT_INT,
@@ -1244,12 +1246,12 @@ void KICAD_T;
     groupTechLayers,
   );
 
-  const groupTab = 'Pattern Properties';
+  const groupTab = _HKI('Pattern Properties');
 
   propMgr.AddProperty(
     new PROPERTY<PCB_TUNING_PATTERN, number>(
       PCB_TUNING_PATTERN,
-      'End X',
+      _HKI('End X'),
       'SetEndX',
       'GetEndX',
       TYPE_INT,
@@ -1262,7 +1264,7 @@ void KICAD_T;
   propMgr.AddProperty(
     new PROPERTY<PCB_TUNING_PATTERN, number>(
       PCB_TUNING_PATTERN,
-      'End Y',
+      _HKI('End Y'),
       'SetEndY',
       'GetEndY',
       TYPE_INT,
@@ -1275,7 +1277,7 @@ void KICAD_T;
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_TUNING_PATTERN, LENGTH_TUNING_MODE>(
       PCB_TUNING_PATTERN,
-      'Tuning Mode',
+      _HKI('Tuning Mode'),
       NO_SETTER,
       'GetTuningMode',
       ENUM_MAP.Instance<LENGTH_TUNING_MODE>('LENGTH_TUNING_MODE'),
@@ -1286,7 +1288,7 @@ void KICAD_T;
   propMgr.AddProperty(
     new PROPERTY<PCB_TUNING_PATTERN, number>(
       PCB_TUNING_PATTERN,
-      'Min Amplitude',
+      _HKI('Min Amplitude'),
       'SetMinAmplitude',
       'GetMinAmplitude',
       TYPE_INT,
@@ -1299,7 +1301,7 @@ void KICAD_T;
   propMgr.AddProperty(
     new PROPERTY<PCB_TUNING_PATTERN, number>(
       PCB_TUNING_PATTERN,
-      'Max Amplitude',
+      _HKI('Max Amplitude'),
       'SetMaxAmplitude',
       'GetMaxAmplitude',
       TYPE_INT,
@@ -1312,7 +1314,7 @@ void KICAD_T;
   propMgr.AddProperty(
     new PROPERTY_ENUM<PCB_TUNING_PATTERN, MeanderSide>(
       PCB_TUNING_PATTERN,
-      'Initial Side',
+      _HKI('Initial Side'),
       'SetInitialSide',
       'GetInitialSide',
       ENUM_MAP.Instance<MeanderSide>('PNS::MEANDER_SIDE'),
@@ -1323,7 +1325,7 @@ void KICAD_T;
   propMgr.AddProperty(
     new PROPERTY<PCB_TUNING_PATTERN, number>(
       PCB_TUNING_PATTERN,
-      'Min Spacing',
+      _HKI('Min Spacing'),
       'SetSpacing',
       'GetSpacing',
       TYPE_INT,
@@ -1336,7 +1338,7 @@ void KICAD_T;
   propMgr.AddProperty(
     new PROPERTY<PCB_TUNING_PATTERN, number>(
       PCB_TUNING_PATTERN,
-      'Corner Radius %',
+      _HKI('Corner Radius %'),
       'SetCornerRadiusPercentage',
       'GetCornerRadiusPercentage',
       TYPE_INT,
@@ -1374,7 +1376,7 @@ void KICAD_T;
     .AddProperty(
       new PROPERTY<PCB_TUNING_PATTERN, number | undefined>(
         PCB_TUNING_PATTERN,
-        'Target Length',
+        _HKI('Target Length'),
         'SetTargetLength',
         'GetTargetLength',
         TYPE_OPT_INT,
@@ -1389,7 +1391,7 @@ void KICAD_T;
     .AddProperty(
       new PROPERTY<PCB_TUNING_PATTERN, number | undefined>(
         PCB_TUNING_PATTERN,
-        'Target Delay',
+        _HKI('Target Delay'),
         'SetTargetDelay',
         'GetTargetDelay',
         TYPE_OPT_INT,
@@ -1404,7 +1406,7 @@ void KICAD_T;
     .AddProperty(
       new PROPERTY<PCB_TUNING_PATTERN, number>(
         PCB_TUNING_PATTERN,
-        'Target Skew',
+        _HKI('Target Skew'),
         'SetTargetSkew',
         'GetTargetSkew',
         TYPE_INT,
@@ -1419,7 +1421,7 @@ void KICAD_T;
     .AddProperty(
       new PROPERTY<PCB_TUNING_PATTERN, number>(
         PCB_TUNING_PATTERN,
-        'Target Skew Delay',
+        _HKI('Target Skew Delay'),
         'SetTargetSkewDelay',
         'GetTargetSkewDelay',
         TYPE_INT,
@@ -1433,7 +1435,7 @@ void KICAD_T;
   propMgr.AddProperty(
     new PROPERTY<PCB_TUNING_PATTERN, boolean>(
       PCB_TUNING_PATTERN,
-      'Override Custom Rules',
+      _HKI('Override Custom Rules'),
       'SetOverrideCustomRules',
       'GetOverrideCustomRules',
       TYPE_BOOL,
@@ -1444,7 +1446,7 @@ void KICAD_T;
   propMgr.AddProperty(
     new PROPERTY<PCB_TUNING_PATTERN, boolean>(
       PCB_TUNING_PATTERN,
-      'Single-sided',
+      _HKI('Single-sided'),
       'SetSingleSided',
       'IsSingleSided',
       TYPE_BOOL,
@@ -1455,7 +1457,7 @@ void KICAD_T;
   propMgr.AddProperty(
     new PROPERTY<PCB_TUNING_PATTERN, boolean>(
       PCB_TUNING_PATTERN,
-      'Rounded',
+      _HKI('Rounded'),
       'SetRounded',
       'IsRounded',
       TYPE_BOOL,

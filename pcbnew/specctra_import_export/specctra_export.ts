@@ -77,6 +77,7 @@ import {
   WIRE_VIA,
   g6,
 } from './specctra.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // comment the line `EXPORT_CUSTOM_PADS_CONVEX_HULL` to export CUSTOM pads exact shapes.
 // Shapes can be non convex polygons with holes (linked to outline) that can create issues.
@@ -1507,7 +1508,9 @@ export function ExportSpecctraFile(
     return {
       ok: true,
       text,
-      ...(outlineOk ? {} : { warning: 'Board outline is malformed. Run DRC for a full analysis.' }),
+      ...(outlineOk
+        ? {}
+        : { warning: _('Board outline is malformed. Run DRC for a full analysis.') }),
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

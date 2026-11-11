@@ -62,6 +62,7 @@ import {
 } from './pcbnew_settings.js';
 import { GRID } from '@ziroeda/common/settings/grid_settings.js';
 import { fpEditKifaceSettings } from './footprint_editor_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `FOOTPRINT_EDITOR_SETTINGS` as the base frame reads it; the class lands with
@@ -438,7 +439,7 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
    * lists, "best efforts".
    */
   CreateNewFootprint(aFootprintName: string, aLibName = ''): FOOTPRINT {
-    if (aFootprintName === '') aFootprintName = 'Untitled';
+    if (aFootprintName === '') aFootprintName = _('Untitled');
 
     let footprintAttrs = FP_SMD;
 

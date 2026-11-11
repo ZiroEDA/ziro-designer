@@ -88,6 +88,8 @@ import { ZONE } from '../../zone.js';
 import { ZONE_BORDER_DISPLAY_STYLE, ZONE_FILL_MODE, ZONE_SETTINGS } from '../../zone_settings.js';
 import { ZONE_CONNECTION } from '../../zones.js';
 import { PCB_IO, type PCB_IO_PROJECT, type PCB_IO_PROPERTIES } from '../pcb_io.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export const FOOTPRINT_LIBRARY_HEADER = 'PCBNEW-LibModule-V1';
 export const FOOTPRINT_LIBRARY_HEADER_CNT = 18;
@@ -481,11 +483,11 @@ export class PCB_IO_KICAD_LEGACY extends PCB_IO {
 
   override GetBoardFileDesc(): IO_FILE_DESC {
     // upstream's own description text for the legacy board plugin
-    return new IO_FILE_DESC('Eagle ver. 6.x XML PCB files', ['brd']);
+    return new IO_FILE_DESC(_HKI('Eagle ver. 6.x XML PCB files'), ['brd']);
   }
 
   GetLibraryDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('Legacy footprint library files', ['mod', 'emp']);
+    return new IO_FILE_DESC(_HKI('Legacy footprint library files'), ['mod', 'emp']);
   }
 
   static leg_layer2new(cu_count: number, aLayerNum: number): PCB_LAYER_ID {
@@ -576,7 +578,8 @@ export class PCB_IO_KICAD_LEGACY extends PCB_IO {
       if (curLine > this.m_lastProgressLine + PROGRESS_DELTA) {
         this.m_progressReporter.SetCurrentProgress(curLine / Math.max(1, this.m_lineCount));
 
-        if (!this.m_progressReporter.KeepRefreshing()) throw new IO_ERROR('Open canceled by user.');
+        if (!this.m_progressReporter.KeepRefreshing())
+          throw new IO_ERROR(_('Open canceled by user.'));
 
         this.m_lastProgressLine = curLine;
       }
@@ -703,7 +706,8 @@ export class PCB_IO_KICAD_LEGACY extends PCB_IO {
 
       this.m_progressReporter.Report(`Loading ${aFileName}...`);
 
-      if (!this.m_progressReporter.KeepRefreshing()) throw new IO_ERROR('Open canceled by user.');
+      if (!this.m_progressReporter.KeepRefreshing())
+        throw new IO_ERROR(_('Open canceled by user.'));
 
       while (reader.ReadLine()) this.m_lineCount++;
 
@@ -2092,7 +2096,9 @@ export class PCB_IO_KICAD_LEGACY extends PCB_IO {
           // them.
           if (this.m_showLegacySegmentZoneWarning) {
             this.Report(
-              'The legacy segment zone fill mode is no longer supported.\nZone fills will be converted on a best-effort basis.',
+              _(
+                'The legacy segment zone fill mode is no longer supported.\nZone fills will be converted on a best-effort basis.',
+              ),
             );
 
             this.m_showLegacySegmentZoneWarning = false;

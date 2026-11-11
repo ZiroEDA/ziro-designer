@@ -23,6 +23,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, StaticBoxSizer, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_LAYER_SELECTION_BASE_PROPS {
   /** `m_leftGridLayers` (copper) and `m_rightGridLayers` (the rest), or null when empty. */
@@ -34,7 +35,7 @@ export interface DIALOG_LAYER_SELECTION_BASE_PROPS {
 
 export function DIALOG_LAYER_SELECTION_BASE(p: DIALOG_LAYER_SELECTION_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Select Layer" onClose={p.onCancel} onCharHook={p.onCharHook}>
+    <DialogShim title={_('Select Layer')} onClose={p.onCancel} onCharHook={p.onCharHook}>
       {/* bSizerMain */}
       <BoxSizer orient={wxHORIZONTAL}>
         <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={10}>
@@ -79,7 +80,7 @@ export function DIALOG_COPPER_LAYER_PAIR_SELECTION_BASE(
   p: DIALOG_COPPER_LAYER_PAIR_SELECTION_BASE_PROPS,
 ): JSX.Element {
   return (
-    <DialogShim title="Select Copper Layer Pair" onClose={p.onCancel}>
+    <DialogShim title={_('Select Copper Layer Pair')} onClose={p.onCancel}>
       {/* bSizerMain */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
@@ -89,7 +90,7 @@ export function DIALOG_COPPER_LAYER_PAIR_SELECTION_BASE(
               {/* bSizerLeft */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="Top/Front layer:" />
+                  <StaticText label={_('Top/Front layer:')} />
                 </SizerItem>
                 <SizerItem flag={wxALL | wxEXPAND} border={5}>
                   {p.m_leftGridLayers}
@@ -100,7 +101,7 @@ export function DIALOG_COPPER_LAYER_PAIR_SELECTION_BASE(
               {/* bSizerRight */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="Bottom/Back layer:" />
+                  <StaticText label={_('Bottom/Back layer:')} />
                 </SizerItem>
                 <SizerItem flag={wxALL | wxEXPAND} border={5}>
                   {p.m_rightGridLayers}
@@ -121,7 +122,7 @@ export function DIALOG_COPPER_LAYER_PAIR_SELECTION_BASE(
               </BoxSizer>
             </SizerItem>
             <SizerItem proportion={1} flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT} border={5}>
-              <StaticBoxSizer label="Copper Layer Pair Presets" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Copper Layer Pair Presets')} orient={wxVERTICAL}>
                 <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
                   {p.m_presetsGrid}
                 </SizerItem>

@@ -25,6 +25,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, StaticBoxSizer, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_IMPORT_NETLIST_BASE_PROPS {
   m_NetlistFilenameCtrl: { value: string; onChange: (aText: string) => void };
@@ -64,14 +65,14 @@ export function DIALOG_IMPORT_NETLIST_BASE(p: DIALOG_IMPORT_NETLIST_BASE_PROPS):
   );
 
   return (
-    <DialogShim title="Import Netlist" onClose={p.onCancel}>
+    <DialogShim title={_('Import Netlist')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxALL} border={10}>
           {/* bSizerNetlistFilename */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
-              <StaticText label="Netlist file:" />
+              <StaticText label={_('Netlist file:')} />
             </SizerItem>
             <SizerItem proportion={1} flag={wxALIGN_CENTER_VERTICAL} border={5}>
               <TextCtrl
@@ -84,7 +85,7 @@ export function DIALOG_IMPORT_NETLIST_BASE(p: DIALOG_IMPORT_NETLIST_BASE_PROPS):
               {/* m_browseButton->SetBitmap( KiBitmapBundle( BITMAPS::small_folder ) ) */}
               <StdBitmapButton
                 bitmap="small_folder"
-                title="Browse"
+                title={_('Browse')}
                 tooltip={null}
                 onClick={p.onBrowseNetlistFiles}
               />
@@ -96,33 +97,35 @@ export function DIALOG_IMPORT_NETLIST_BASE(p: DIALOG_IMPORT_NETLIST_BASE_PROPS):
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem proportion={1} flag={wxALIGN_TOP | wxEXPAND | LRT} border={5}>
               <RadioBox
-                label="Link Method"
+                label={_('Link Method')}
                 choices={[
-                  'Link footprints using component tstamps (unique ids)',
-                  'Link footprints using reference designators',
+                  _('Link footprints using component tstamps (unique ids)'),
+                  _('Link footprints using reference designators'),
                 ]}
                 selection={p.m_matchByTimestamp}
                 onChange={p.OnMatchChanged}
-                title="Select whether to update footprint references to match their currently-assigned symbols, or to re-assign footprints to symbols which match their current references."
+                title={_(
+                  'Select whether to update footprint references to match their currently-assigned symbols, or to re-assign footprints to symbols which match their current references.',
+                )}
               />
             </SizerItem>
             <SizerItem proportion={1} flag={wxEXPAND | LRT} border={5}>
-              <StaticBoxSizer label="Options" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Options')} orient={wxVERTICAL}>
                 {check(
-                  'Delete footprints with no components in netlist',
+                  _('Delete footprints with no components in netlist'),
                   p.m_cbDeleteExtraFootprints,
                 )}
                 {check(
-                  'Replace footprints with those specified in netlist',
+                  _('Replace footprints with those specified in netlist'),
                   p.m_cbUpdateFootprints,
                 )}
-                {check('Group footprints based on symbol group', p.m_cbTransferGroups)}
+                {check(_('Group footprints based on symbol group'), p.m_cbTransferGroups)}
                 {check(
-                  'Delete/replace footprints even if locked',
+                  _('Delete/replace footprints even if locked'),
                   p.m_cbOverrideLocks,
                   wxBOTTOM | wxRIGHT,
                 )}
-                {check('Delete tracks shorting multiple nets', p.m_cbDeleteShortingTracks)}
+                {check(_('Delete tracks shorting multiple nets'), p.m_cbDeleteShortingTracks)}
               </StaticBoxSizer>
             </SizerItem>
           </BoxSizer>

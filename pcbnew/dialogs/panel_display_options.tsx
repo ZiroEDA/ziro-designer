@@ -18,6 +18,7 @@ import { PanelGalOptions } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import { wxEXPAND, wxRIGHT } from '@ziroeda/wx/defs.js';
 import { SizerItem } from '@ziroeda/wx/sizer.js';
 import { PANEL_DISPLAY_OPTIONS_BASE } from './panel_display_options_base.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 type GalWin = ComponentProps<typeof PanelGalOptions>['win'];
 type CrossProbing = ComponentProps<typeof CrossProbingGroup>['value'];
@@ -53,11 +54,11 @@ type CrossProbing = ComponentProps<typeof CrossProbingGroup>['value'];
  * identity is a property of this table and not an assumption elsewhere.
  */
 export const TRACK_CLEARANCE_CHOICES: readonly (readonly [number, string])[] = [
-  [0, 'Do not show clearances'],
-  [1, 'Show when routing'],
-  [2, 'Show when routing w/ via clearance at end'],
-  [3, 'Show when routing and editing'],
-  [4, 'Show always'],
+  [0, _HKI('Do not show clearances')],
+  [1, _HKI('Show when routing')],
+  [2, _HKI('Show when routing w/ via clearance at end')],
+  [3, _HKI('Show when routing and editing')],
+  [4, _HKI('Show always')],
 ];
 
 /**
@@ -68,10 +69,10 @@ export const TRACK_CLEARANCE_CHOICES: readonly (readonly [number, string])[] = [
  * map in between (`panel_display_options.cpp:64`).
  */
 export const NET_NAMES_CHOICES: readonly (readonly [number, string])[] = [
-  [0, 'Do not show'],
-  [1, 'Show on pads'],
-  [2, 'Show on tracks'],
-  [3, 'Show on pads & tracks'],
+  [0, _HKI('Do not show')],
+  [1, _HKI('Show on pads')],
+  [2, _HKI('Show on tracks')],
+  [3, _HKI('Show on pads & tracks')],
 ];
 
 /** The three values `bSizerPads` edits, whoever is holding them. */

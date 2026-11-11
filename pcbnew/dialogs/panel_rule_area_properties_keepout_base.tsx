@@ -10,6 +10,7 @@ import type { JSX } from 'react';
 import { type CHECK, CheckBox } from '@ziroeda/wx/controls.js';
 import { wxEXPAND, wxLEFT, wxRIGHT } from '@ziroeda/wx/defs.js';
 import { FlexGridSizer, SizerItem } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PANEL_RULE_AREA_PROPERTIES_KEEPOUT_BASE_PROPS {
   m_cbTracksCtrl: CHECK;
@@ -29,37 +30,37 @@ export function PANEL_RULE_AREA_PROPERTIES_KEEPOUT_BASE(
     <FlexGridSizer cols={1} vgap={3} hgap={0}>
       <SizerItem flag={wxEXPAND | RL} border={5}>
         <CheckBox
-          label="Keep out tracks"
+          label={_('Keep out tracks')}
           check={p.m_cbTracksCtrl}
-          title="Prevent tracks from routing into this area"
+          title={_('Prevent tracks from routing into this area')}
         />
       </SizerItem>
       <SizerItem flag={wxEXPAND | RL} border={5}>
         <CheckBox
-          label="Keep out vias"
+          label={_('Keep out vias')}
           check={p.m_cbViasCtrl}
-          title="Prevent vias from being placed in this area"
+          title={_('Prevent vias from being placed in this area')}
         />
       </SizerItem>
       <SizerItem flag={RL} border={5}>
         <CheckBox
-          label="Keep out pads"
+          label={_('Keep out pads')}
           check={p.m_cbPadsCtrl}
-          title="Raise a DRC error if a pad overlaps this area"
+          title={_('Raise a DRC error if a pad overlaps this area')}
         />
       </SizerItem>
       <SizerItem flag={wxEXPAND | RL} border={5}>
         <CheckBox
-          label="Keep out zone fills"
+          label={_('Keep out zone fills')}
           check={p.m_cbCopperPourCtrl}
-          title="Zones will not fill copper into this area"
+          title={_('Zones will not fill copper into this area')}
         />
       </SizerItem>
       <SizerItem flag={RL} border={5}>
         <CheckBox
-          label="Keep out footprints"
+          label={_('Keep out footprints')}
           check={p.m_cbFootprintsCtrl}
-          title="Raise a DRC error if a footprint courtyard overlaps this area"
+          title={_('Raise a DRC error if a footprint courtyard overlaps this area')}
         />
       </SizerItem>
     </FlexGridSizer>

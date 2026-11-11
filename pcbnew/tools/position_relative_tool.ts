@@ -44,6 +44,7 @@ import { PCB_GRID_HELPER } from './pcb_grid_helper.js';
 import { PCB_SELECTION } from './pcb_selection.js';
 import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The window half of the tool: the two dialogs `POSITION_RELATIVE_TOOL` shows,
@@ -259,11 +260,11 @@ export class POSITION_RELATIVE_TOOL extends PCB_TOOL_BASE {
     };
 
     const setInitialMsg = (): void => {
-      statusPopup.SetText('Select the reference point on the item to move.');
+      statusPopup.SetText(_('Select the reference point on the item to move.'));
     };
 
     const setDragMsg = (): void => {
-      statusPopup.SetText('Select the point to define the new offset from.');
+      statusPopup.SetText(_('Select the point to define the new offset from.'));
     };
 
     const setPopupPosition = (): void => {
@@ -283,7 +284,7 @@ export class POSITION_RELATIVE_TOOL extends PCB_TOOL_BASE {
     const applyVector = (aMoveVec: VECTOR2I): void => {
       const commit = new BOARD_COMMIT(frame);
       moveSelectionBy(selection, aMoveVec, commit, allowFreePads);
-      commit.Push('Set Relative Position Interactively');
+      commit.Push(_('Set Relative Position Interactively'));
     };
 
     this.Activate();
@@ -493,7 +494,7 @@ export class POSITION_RELATIVE_TOOL extends PCB_TOOL_BASE {
       (frame.GetPcbNewSettings() !== null && frame.GetPcbNewSettings().m_AllowFreePads);
 
     moveSelectionBy(this.m_selection, aggregateTranslation, this.m_commit!, allowFreePads);
-    this.m_commit!.Push('Position Relative');
+    this.m_commit!.Push(_('Position Relative'));
 
     if (this.m_selection.IsHover()) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 

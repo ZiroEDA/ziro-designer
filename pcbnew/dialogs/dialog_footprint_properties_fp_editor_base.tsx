@@ -41,6 +41,8 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A text entry and the units its UNIT_BINDER shows. */
 export interface ENTRY {
@@ -97,13 +99,16 @@ export interface DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE_PROPS {
 
 const CV = wxALIGN_CENTER_VERTICAL;
 
-const NET_CLEARANCE_TIP =
-  'This is the local net clearance for all pads of this footprint.\nIf 0, the Netclass values are used.\nThis value can be overridden on a pad-by-pad basis in the Local\nClearance and Settings tab of Pad Properties.';
-const MASK_TIP =
-  'This is the local clearance between pads and the solder mask for \nthis footprint.\nIf 0, the global value is used.\nThis value can be overridden on a pad-by-pad basis in the Local\nClearance and Settings tab of Pad Properties.';
+const NET_CLEARANCE_TIP = _HKI(
+  'This is the local net clearance for all pads of this footprint.\nIf 0, the Netclass values are used.\nThis value can be overridden on a pad-by-pad basis in the Local\nClearance and Settings tab of Pad Properties.',
+);
+const MASK_TIP = _HKI(
+  'This is the local clearance between pads and the solder mask for \nthis footprint.\nIf 0, the global value is used.\nThis value can be overridden on a pad-by-pad basis in the Local\nClearance and Settings tab of Pad Properties.',
+);
 // The constructor's SetToolTip() for the combined offset + ratio field (:268-273).
-const PASTE_TIP =
-  'Local solder paste clearance for this footprint.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nIf blank, the global value is used.';
+const PASTE_TIP = _HKI(
+  'Local solder paste clearance for this footprint.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nIf blank, the global value is used.',
+);
 
 export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
   p: DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE_PROPS,
@@ -170,7 +175,7 @@ export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
     // m_PanelPropertiesBoxSizer
     <BoxSizer orient={wxVERTICAL}>
       <SizerItem proportion={1} flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT | wxTOP} border={5}>
-        <StaticBoxSizer label="Fields" orient={wxVERTICAL}>
+        <StaticBoxSizer label={wxGetTranslation('Fields')} orient={wxVERTICAL}>
           <SizerItem
             proportion={1}
             flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT}
@@ -188,29 +193,33 @@ export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
         {/* bColumns */}
         <BoxSizer orient={wxHORIZONTAL}>
           <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
-            <StaticBoxSizer label="Metadata" orient={wxVERTICAL}>
+            <StaticBoxSizer label={wxGetTranslation('Metadata')} orient={wxVERTICAL}>
               <SizerItem proportion={1} flag={wxEXPAND} border={10}>
                 {/* fgSizerFPID = wxFlexGridSizer( 4, 2, 3, 0 ) */}
                 <FlexGridSizer cols={2} vgap={3} growableCols={[1]}>
-                  {metaRow('Footprint name:', p.m_FootprintNameCtrl)}
-                  {metaRow('Description:', p.m_DocCtrl, CV | wxALIGN_TOP)}
-                  {metaRow('Keywords:', p.m_KeywordCtrl)}
+                  {metaRow(wxGetTranslation('Footprint name:'), p.m_FootprintNameCtrl)}
+                  {metaRow(wxGetTranslation('Description:'), p.m_DocCtrl, CV | wxALIGN_TOP)}
+                  {metaRow(wxGetTranslation('Keywords:'), p.m_KeywordCtrl)}
                 </FlexGridSizer>
               </SizerItem>
             </StaticBoxSizer>
           </SizerItem>
           <Spacer width={5} height={0} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxEXPAND | wxALL} border={5}>
-            <StaticBoxSizer label="Fabrication Attributes" orient={wxVERTICAL}>
+            <StaticBoxSizer label={wxGetTranslation('Fabrication Attributes')} orient={wxVERTICAL}>
               <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT} border={5}>
                 {/* bPartTypeSizer */}
                 <BoxSizer orient={wxHORIZONTAL}>
                   <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT | CV} border={5}>
-                    <StaticText label="Component type:" />
+                    <StaticText label={wxGetTranslation('Component type:')} />
                   </SizerItem>
                   <SizerItem proportion={1} flag={CV | wxBOTTOM | wxLEFT} border={5}>
                     <Choice
-                      choices={['Through hole', 'SMD', 'Unspecified']}
+                      choices={[
+                        wxGetTranslation('Through hole'),
+                        wxGetTranslation('SMD'),
+                        wxGetTranslation('Unspecified'),
+                      ]}
                       choice={p.m_componentType}
                       ariaLabel="Component type"
                     />
@@ -218,16 +227,22 @@ export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
                 </BoxSizer>
               </SizerItem>
               <SizerItem flag={wxALL} border={5}>
-                <CheckBox label="Not in schematic" check={p.m_boardOnly} />
+                <CheckBox label={wxGetTranslation('Not in schematic')} check={p.m_boardOnly} />
               </SizerItem>
               <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                <CheckBox label="Exclude from position files" check={p.m_excludeFromPosFiles} />
+                <CheckBox
+                  label={wxGetTranslation('Exclude from position files')}
+                  check={p.m_excludeFromPosFiles}
+                />
               </SizerItem>
               <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                <CheckBox label="Exclude from bill of materials" check={p.m_excludeFromBOM} />
+                <CheckBox
+                  label={wxGetTranslation('Exclude from bill of materials')}
+                  check={p.m_excludeFromBOM}
+                />
               </SizerItem>
               <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
-                <CheckBox label="Do not populate" check={p.m_cbDNP} />
+                <CheckBox label={wxGetTranslation('Do not populate')} check={p.m_cbDNP} />
               </SizerItem>
             </StaticBoxSizer>
           </SizerItem>
@@ -240,16 +255,19 @@ export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
     // bSizer14
     <BoxSizer orient={wxHORIZONTAL}>
       <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT | wxTOP} border={5}>
-        <StaticBoxSizer label="Custom Layers" orient={wxVERTICAL}>
+        <StaticBoxSizer label={wxGetTranslation('Custom Layers')} orient={wxVERTICAL}>
           <SizerItem proportion={1} flag={wxEXPAND} border={5}>
             {/* gbSizer3 */}
             <GridBagSizer growableCols={[1]} growableRows={[2]}>
               <SizerItem pos={[0, 0]} span={[1, 2]} flag={wxALL | wxEXPAND} border={5}>
-                <CheckBox label="Use custom stackup" check={p.m_cbCustomLayers} />
+                <CheckBox
+                  label={wxGetTranslation('Use custom stackup')}
+                  check={p.m_cbCustomLayers}
+                />
               </SizerItem>
               <SizerItem pos={[1, 0]} flag={CV | wxALL} border={5}>
                 <StaticText
-                  label="Copper layers"
+                  label={wxGetTranslation('Copper layers')}
                   disabled={p.m_copperLayerCount.enabled === false}
                 />
               </SizerItem>
@@ -257,11 +275,11 @@ export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
                 <Choice
                   choices={Array.from({ length: 16 }, (_, i) => String((i + 1) * 2))}
                   choice={p.m_copperLayerCount}
-                  ariaLabel="Copper layers"
+                  ariaLabel={wxGetTranslation('Copper layers')}
                 />
               </SizerItem>
               <SizerItem pos={[2, 0]} span={[1, 2]} flag={wxALL | wxEXPAND} border={5}>
-                <StaticBoxSizer label="User Layers" orient={wxVERTICAL}>
+                <StaticBoxSizer label={wxGetTranslation('User Layers')} orient={wxVERTICAL}>
                   <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
                     {p.m_customUserLayersGrid}
                   </SizerItem>
@@ -275,7 +293,7 @@ export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
         </StaticBoxSizer>
       </SizerItem>
       <SizerItem proportion={1} flag={wxEXPAND | wxLEFT | wxTOP} border={5}>
-        <StaticBoxSizer label="Private Layers" orient={wxVERTICAL}>
+        <StaticBoxSizer label={wxGetTranslation('Private Layers')} orient={wxVERTICAL}>
           <SizerItem proportion={1} flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT} border={5}>
             {p.m_privateLayersGrid}
           </SizerItem>
@@ -291,30 +309,47 @@ export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
     // bSizerPanelClearances
     <BoxSizer orient={wxVERTICAL}>
       <SizerItem flag={wxEXPAND | wxALL} border={5}>
-        <StaticBoxSizer label="Clearances" orient={wxVERTICAL}>
+        <StaticBoxSizer label={wxGetTranslation('Clearances')} orient={wxVERTICAL}>
           <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-            <StaticText label="Leave values blank to use netclass values." />
+            <StaticText label={wxGetTranslation('Leave values blank to use netclass values.')} />
           </SizerItem>
           <SizerItem flag={wxEXPAND | wxTOP | wxBOTTOM} border={10}>
             {/* gbSizer1 = wxGridBagSizer( 4, 0 ), SetEmptyCellSize( wxSize( -1,15 ) ); the
                 ratio row (6) is Show( false )n by the constructor */}
             <GridBagSizer vgap={4} hgap={0} emptyCellSize={[-1, 15]}>
-              {clearanceRow(0, 'Pad clearance:', p.m_NetClearanceCtrl, NET_CLEARANCE_TIP)}
-              {clearanceRow(2, 'Solder mask expansion:', p.m_SolderMaskMarginCtrl, MASK_TIP)}
+              {clearanceRow(
+                0,
+                wxGetTranslation('Pad clearance:'),
+                p.m_NetClearanceCtrl,
+                NET_CLEARANCE_TIP,
+              )}
+              {clearanceRow(
+                2,
+                wxGetTranslation('Solder mask expansion:'),
+                p.m_SolderMaskMarginCtrl,
+                MASK_TIP,
+              )}
               <SizerItem pos={[3, 0]} span={[1, 3]} flag={CV | wxRIGHT | wxLEFT} border={5}>
                 <CheckBox
-                  label="Allow bridged solder mask apertures between pads"
+                  label={wxGetTranslation('Allow bridged solder mask apertures between pads')}
                   check={p.m_allowBridges}
                 />
               </SizerItem>
-              {clearanceRow(5, 'Solder paste clearance:', p.m_SolderPasteMarginCtrl, PASTE_TIP)}
+              {clearanceRow(
+                5,
+                wxGetTranslation('Solder paste clearance:'),
+                p.m_SolderPasteMarginCtrl,
+                PASTE_TIP,
+              )}
             </GridBagSizer>
           </SizerItem>
           {/* fgSizerClearances: empty */}
           <SizerItem flag={wxEXPAND | wxLEFT | wxRIGHT | wxTOP} border={5}>
             {/* SetFont( KIUI::GetInfoFont( this ).Italic() ) */}
             <StaticText
-              label="Note: solder mask and paste values are used only for pads on copper layers."
+              label={wxGetTranslation(
+                'Note: solder mask and paste values are used only for pads on copper layers.',
+              )}
               font="info"
               italic
             />
@@ -323,12 +358,12 @@ export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
       </SizerItem>
       <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
       <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
-        <StaticBoxSizer label="Courtyards" orient={wxVERTICAL}>
+        <StaticBoxSizer label={wxGetTranslation('Courtyards')} orient={wxVERTICAL}>
           <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
             <CheckBox
-              label="Exempt from courtyard requirement"
+              label={wxGetTranslation('Exempt from courtyard requirement')}
               check={p.m_noCourtyards}
-              title={'Will not generate "missing courtyard" DRC violations'}
+              title={wxGetTranslation('Will not generate "missing courtyard" DRC violations')}
             />
           </SizerItem>
         </StaticBoxSizer>
@@ -340,13 +375,21 @@ export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
     // bSizer19
     <BoxSizer orient={wxVERTICAL}>
       <SizerItem flag={wxALL | wxEXPAND} border={5}>
-        <StaticBoxSizer label="Connection to Copper Zones" orient={wxHORIZONTAL}>
+        <StaticBoxSizer
+          label={wxGetTranslation('Connection to Copper Zones')}
+          orient={wxHORIZONTAL}
+        >
           <SizerItem flag={CV | wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
-            <StaticText label="Pad connection to zones:" />
+            <StaticText label={wxGetTranslation('Pad connection to zones:')} />
           </SizerItem>
           <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT | CV} border={5}>
             <Choice
-              choices={['Use zone setting', 'Solid', 'Thermal relief', 'None']}
+              choices={[
+                wxGetTranslation('Use zone setting'),
+                wxGetTranslation('Solid'),
+                wxGetTranslation('Thermal relief'),
+                wxGetTranslation('None'),
+              ]}
               choice={p.m_ZoneConnectionChoice}
               ariaLabel="Pad connection to zones"
             />
@@ -355,9 +398,9 @@ export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
       </SizerItem>
       <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
       <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
-        <StaticBoxSizer label="Net Ties" orient={wxVERTICAL}>
+        <StaticBoxSizer label={wxGetTranslation('Net Ties')} orient={wxVERTICAL}>
           <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-            <StaticText label="Pad groups allowed to short different nets:" />
+            <StaticText label={wxGetTranslation('Pad groups allowed to short different nets:')} />
           </SizerItem>
           <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5} minSize={[-1, 30]}>
             {p.m_nettieGroupsGrid}
@@ -369,17 +412,19 @@ export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
       </SizerItem>
       <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
       <SizerItem proportion={1} flag={wxALL | wxTOP | wxEXPAND} border={5}>
-        <StaticBoxSizer label="Jumpers" orient={wxVERTICAL}>
+        <StaticBoxSizer label={wxGetTranslation('Jumpers')} orient={wxVERTICAL}>
           <SizerItem flag={wxALL} border={5}>
             <CheckBox
-              label="All pads with duplicate numbers are jumpers"
+              label={wxGetTranslation('All pads with duplicate numbers are jumpers')}
               check={p.m_cbDuplicatePadsAreJumpers}
-              title="When enabled, this footprint can have more than one pad with the same number, and pads with the same number will be considered to be jumpered together internally."
+              title={wxGetTranslation(
+                'When enabled, this footprint can have more than one pad with the same number, and pads with the same number will be considered to be jumpered together internally.',
+              )}
             />
           </SizerItem>
           <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-            <StaticText label="Explicit jumper pad groups:" />
+            <StaticText label={wxGetTranslation('Explicit jumper pad groups:')} />
           </SizerItem>
           <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5} minSize={[-1, 30]}>
             {p.m_jumperGroupsGrid}
@@ -393,16 +438,16 @@ export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
   );
 
   return (
-    <DialogShim title="Footprint Properties" onClose={p.onCancel}>
+    <DialogShim title={wxGetTranslation('Footprint Properties')} onClose={p.onCancel}>
       {/* m_GeneralBoxSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={10}>
           <Notebook
             pages={[
-              { text: 'General', content: general },
-              { text: 'Layers', content: layers },
-              { text: 'Clearance Overrides', content: clearances },
-              { text: 'Pad Connections', content: padConnections },
+              { text: wxGetTranslation('General'), content: general },
+              { text: wxGetTranslation('Layers'), content: layers },
+              { text: wxGetTranslation('Clearance Overrides'), content: clearances },
+              { text: wxGetTranslation('Pad Connections'), content: padConnections },
               ...p.extraPages,
             ]}
             selection={p.page}

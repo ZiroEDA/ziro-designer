@@ -20,6 +20,7 @@ import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import { PCB_ACTIONS } from '../tools/pcb_actions.js';
 import { PCB_TOOL_BASE } from '../tools/pcb_tool_base.js';
 import { AR_AUTOPLACER, AR_RESULT } from './ar_autoplacer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class AUTOPLACE_TOOL extends PCB_TOOL_BASE {
   constructor() {
@@ -48,7 +49,7 @@ export class AUTOPLACE_TOOL extends PCB_TOOL_BASE {
 
     const result = autoplacer.AutoplaceFootprints(footprints, commit, false);
 
-    if (result === AR_RESULT.AR_COMPLETED) commit.Push('Autoplace Footprints');
+    if (result === AR_RESULT.AR_COMPLETED) commit.Push(_('Autoplace Footprints'));
     else commit.Revert();
 
     return 0;

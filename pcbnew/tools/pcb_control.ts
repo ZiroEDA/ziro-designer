@@ -113,6 +113,7 @@ import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import type { PCB_SHAPE } from '../pcb_shape.js';
 import { PCB_DISPLAY_OPTIONS } from '../pcb_painter.js';
 import { MAGNETIC_SETTINGS } from '../pcbnew_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `HITTEST_THRESHOLD_PIXELS` (pcb_control.cpp:817). */
 // It'd be nice to share the min/max with the DIALOG_COLOR_PICKER, but those are
@@ -327,7 +328,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
       if (this.m_pickerItem) {
         if (this.m_pickerItem?.IsLocked()) {
           this.m_statusPopup = new STATUS_TEXT_POPUP();
-          this.m_statusPopup.SetText('Item locked.');
+          this.m_statusPopup.SetText(_('Item locked.'));
           this.m_statusPopup.PopupFor(2000);
           const at = KIPLATFORM_UI.GetMousePosition();
           this.m_statusPopup.Move({ x: at.x + 20, y: at.y + 20 });
@@ -513,7 +514,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
     const items: BOARD_ITEM[] = [table];
 
     if (yield* this.placeBoardItems(commit, items, true, true, false, false))
-      commit.Push('Place Board Characteristics');
+      commit.Push(_('Place Board Characteristics'));
 
     return 0;
   }
@@ -528,7 +529,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
     const items: BOARD_ITEM[] = [table];
 
     if (yield* this.placeBoardItems(commit, items, true, true, false, false))
-      commit.Push('Place Board Stackup Table');
+      commit.Push(_('Place Board Stackup Table'));
 
     return 0;
   }
@@ -681,7 +682,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
         // If it wasn't content, then paste as a text object.
         if (clipText.length > ADVANCED_CFG.GetCfg().m_MaxPastedTextLength) {
           const result = yield* this.RunMainStackModal(() =>
-            IsOK('Pasting a long text text string may be very slow.  Do you want to continue?'),
+            IsOK(_('Pasting a long text text string may be very slow.  Do you want to continue?')),
           );
 
           if (!result) return 0;
@@ -697,7 +698,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
       const cancelled = !(yield* this.placeBoardItems(commit, newItems, true, false, false, false));
 
       if (cancelled) commit.Revert();
-      else commit.Push('Paste Text');
+      else commit.Push(_('Paste Text'));
 
       return 0;
     }
@@ -856,12 +857,12 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
       }
 
       default:
-        frame.DisplayToolMsg('Invalid clipboard contents');
+        frame.DisplayToolMsg(_('Invalid clipboard contents'));
         break;
     }
 
     if (cancelled) commit.Revert();
-    else commit.Push('Paste');
+    else commit.Push(_('Paste'));
 
     return 1;
   }
@@ -952,7 +953,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
 
       infobar.RemoveAllButtons();
       infobar.AddButton({
-        label: "Don't show again",
+        label: _("Don't show again"),
         onClick: () => {
           if (common) common.m_DoNotShowAgain.zone_fill_warning = true;
 
@@ -1042,13 +1043,13 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
 
     const opts = this.m_frame!.GetDisplayOptions();
 
-    const labels = ['Normal', 'Dimmed', 'Hidden'];
+    const labels = [_('Normal'), _('Dimmed'), _('Hidden')];
 
     if (!this.m_frame!.GetHotkeyPopup()) this.m_frame!.CreateHotkeyPopup();
 
     const popup = this.m_frame!.GetHotkeyPopup();
 
-    if (popup) popup.Popup('Inactive Layer Display', labels, opts.m_ContrastModeDisplay);
+    if (popup) popup.Popup(_('Inactive Layer Display'), labels, opts.m_ContrastModeDisplay);
 
     return 0;
   }
@@ -1319,7 +1320,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
 
       if (popup) {
         const selection = currentIndex;
-        popup.Popup('Preset Layer Pairs', labels, selection);
+        popup.Popup(_('Preset Layer Pairs'), labels, selection);
       }
     }
 
@@ -1373,7 +1374,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
   SnapModeFeedback(_aEvent: TOOL_EVENT): number {
     if (!PgmOrNull()?.GetCommonSettings()?.m_Input.hotkey_feedback) return 0;
 
-    const labels = ['Active Layer', 'All Layers'];
+    const labels = [_('Active Layer'), _('All Layers')];
 
     if (!this.m_frame!.GetHotkeyPopup()) this.m_frame!.CreateHotkeyPopup();
 
@@ -1381,7 +1382,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
 
     const settings = this.magneticSettings();
 
-    if (popup) popup.Popup('Object Snapping', labels, settings.allLayers ? 1 : 0);
+    if (popup) popup.Popup(_('Object Snapping'), labels, settings.allLayers ? 1 : 0);
 
     return 0;
   }
@@ -1426,7 +1427,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
 
       const uuid = GetMsgPanelDisplayUuid(item.m_Uuid);
 
-      if (uuid !== undefined) msgItems.push(new MSG_PANEL_ITEM('UUID', uuid));
+      if (uuid !== undefined) msgItems.push(new MSG_PANEL_ITEM(_('UUID'), uuid));
 
       item.GetMsgPanelInfo(frame.AsDrawFrameLike(), msgItems);
 
@@ -1515,7 +1516,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
             );
             msgItems.push(
               new MSG_PANEL_ITEM(
-                'Resolved Clearance',
+                _('Resolved Clearance'),
                 units.MessageTextFromValue(constraint.m_Value.Min()),
               ),
             );
@@ -1528,7 +1529,10 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
 
           if (actual_clearance > -1 && actual_clearance < INT_MAX)
             msgItems.push(
-              new MSG_PANEL_ITEM('Actual Clearance', units.MessageTextFromValue(actual_clearance)),
+              new MSG_PANEL_ITEM(
+                _('Actual Clearance'),
+                units.MessageTextFromValue(actual_clearance),
+              ),
             );
         }
       }
@@ -1568,14 +1572,14 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
             );
             msgItems.push(
               new MSG_PANEL_ITEM(
-                'Resolved Hole Clearance',
+                _('Resolved Hole Clearance'),
                 units.MessageTextFromValue(constraint.m_Value.Min()),
               ),
             );
 
             if (actual > -1 && actual < INT_MAX)
               msgItems.push(
-                new MSG_PANEL_ITEM('Actual Hole Clearance', units.MessageTextFromValue(actual)),
+                new MSG_PANEL_ITEM(_('Actual Hole Clearance'), units.MessageTextFromValue(actual)),
               );
           }
         }
@@ -1605,14 +1609,14 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
             if (edgeLayer === PCB_LAYER_ID.Edge_Cuts)
               msgItems.push(
                 new MSG_PANEL_ITEM(
-                  'Resolved Edge Clearance',
+                  _('Resolved Edge Clearance'),
                   units.MessageTextFromValue(constraint.m_Value.Min()),
                 ),
               );
             else
               msgItems.push(
                 new MSG_PANEL_ITEM(
-                  'Resolved Margin Clearance',
+                  _('Resolved Margin Clearance'),
                   units.MessageTextFromValue(constraint.m_Value.Min()),
                 ),
               );
@@ -1654,12 +1658,12 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
               sizes.add(`${size.x},${size.y}`);
             }
 
-            if (layers.size === 1) msgItems.push(new MSG_PANEL_ITEM('Layer', [...layers][0]!));
+            if (layers.size === 1) msgItems.push(new MSG_PANEL_ITEM(_('Layer'), [...layers][0]!));
 
             if (shapes.size === 1) {
               const firstPad = selection.Front() as unknown as PAD;
               msgItems.push(
-                new MSG_PANEL_ITEM('Pad Shape', firstPad.ShowPadShape(PADSTACK.ALL_LAYERS)),
+                new MSG_PANEL_ITEM(_('Pad Shape'), firstPad.ShowPadShape(PADSTACK.ALL_LAYERS)),
               );
             }
 
@@ -1667,7 +1671,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
               const size = (selection.Front() as unknown as PAD).GetSize(PADSTACK.ALL_LAYERS);
               msgItems.push(
                 new MSG_PANEL_ITEM(
-                  'Pad Size',
+                  _('Pad Size'),
                   `${units.MessageTextFromValue(size.x)} x ${units.MessageTextFromValue(size.y)}`,
                 ),
               );
@@ -1694,7 +1698,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
           }
 
           msgItems.push(
-            new MSG_PANEL_ITEM('Selected Items', `${selection.GetSize()} (${breakdown})`),
+            new MSG_PANEL_ITEM(_('Selected Items'), `${selection.GetSize()} (${breakdown})`),
           );
         }
 
@@ -1715,10 +1719,10 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
             }
           }
 
-          if (netNames.size === 1) msgItems.push(new MSG_PANEL_ITEM('Net', [...netNames][0]!));
+          if (netNames.size === 1) msgItems.push(new MSG_PANEL_ITEM(_('Net'), [...netNames][0]!));
 
           if (netClasses.size === 1)
-            msgItems.push(new MSG_PANEL_ITEM('Resolved Netclass', [...netClasses][0]!));
+            msgItems.push(new MSG_PANEL_ITEM(_('Resolved Netclass'), [...netClasses][0]!));
         }
       }
 
@@ -1757,7 +1761,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
 
         if (lengthValid)
           msgItems.push(
-            new MSG_PANEL_ITEM('Selected 2D Length', units.MessageTextFromValue(selectedLength)),
+            new MSG_PANEL_ITEM(_('Selected 2D Length'), units.MessageTextFromValue(selectedLength)),
           );
       }
 
@@ -1842,9 +1846,9 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
           // Choose appropriate label based on what layers are involved
           let areaLabel: string;
 
-          if (hasCopper && !hasNonCopper) areaLabel = 'Selected 2D Copper Area';
-          else if (!hasCopper && hasNonCopper) areaLabel = 'Selected 2D Area';
-          else areaLabel = 'Selected 2D Total Area';
+          if (hasCopper && !hasNonCopper) areaLabel = _('Selected 2D Copper Area');
+          else if (!hasCopper && hasNonCopper) areaLabel = _('Selected 2D Area');
+          else areaLabel = _('Selected 2D Total Area');
 
           msgItems.push(
             new MSG_PANEL_ITEM(areaLabel, units.MessageTextFromValue(area, true, 'area')),
@@ -1999,7 +2003,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
     } catch (e) {
       if (!(e instanceof IO_ERROR)) throw e;
 
-      DisplayErrorMessage('Error loading board.', e.message);
+      DisplayErrorMessage(_('Error loading board.'), e.message);
       clearSkipStructOnExistingItems();
 
       return 0;
@@ -2109,7 +2113,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
       }
 
       // If we were provided a commit, let the caller control when to push it
-      if (!aCommit) commit.Push(aDesignBlock ? 'Place Design Block' : 'Append Board');
+      if (!aCommit) commit.Push(aDesignBlock ? _('Place Design Block') : _('Append Board'));
 
       editFrame.GetBoard()!.BuildConnectivity();
       ret = 0;
@@ -2149,7 +2153,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
     }
 
     if (designBlock.GetBoardFile() === '' || !wxFileExists(designBlock.GetBoardFile())) {
-      editFrame.ShowInfoBarError('Design block has no layout to place.', true);
+      editFrame.ShowInfoBarError(_('Design block has no layout to place.'), true);
       return 1;
     }
 
@@ -2197,7 +2201,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
     }
 
     if (linkedGroups.length === 0) {
-      editFrame.ShowInfoBarError('No groups with a linked design block are selected.', true);
+      editFrame.ShowInfoBarError(_('No groups with a linked design block are selected.'), true);
       return 1;
     }
 
@@ -2211,7 +2215,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
 
       if (hasLocked) {
         editFrame.ShowInfoBarWarning(
-          "Selection contains locked items. Enable 'Override locks' to operate on them.",
+          _("Selection contains locked items. Enable 'Override locks' to operate on them."),
           true,
         );
         return 1;
@@ -2279,12 +2283,12 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
       const designBlock = pane?.GetDesignBlock(group.GetDesignBlockLibId(), true, true) ?? null;
 
       if (!designBlock) {
-        outErr.value = 'design block is not in the loaded libraries';
+        outErr.value = _('design block is not in the loaded libraries');
         return false;
       }
 
       if (designBlock.GetBoardFile() === '') {
-        outErr.value = 'design block has no saved PCB layout';
+        outErr.value = _('design block has no saved PCB layout');
         return false;
       }
 
@@ -2298,7 +2302,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
         (yield* this.AppendBoard(designBlock.GetBoardFile(), designBlock, tempCommit, true)) !== 0
       ) {
         clearFlags();
-        outErr.value = "could not load the design block's layout";
+        outErr.value = _("could not load the design block's layout");
         return false;
       }
 
@@ -2318,7 +2322,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
       if (dbRA.m_designBlockItems.size === 0) {
         tempCommit.Revert();
         clearFlags();
-        outErr.value = 'design block contains no items to apply';
+        outErr.value = _('design block contains no items to apply');
         return false;
       }
 
@@ -2354,7 +2358,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
       if (group.GetItems().size === 0) {
         tempCommit.Revert();
         clearFlags();
-        outErr.value = 'group is empty';
+        outErr.value = _('group is empty');
         return false;
       }
 
@@ -2394,7 +2398,7 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
       clearFlags();
 
       if (result !== 0) {
-        outErr.value = repeatErr.value === '' ? 'layout copy failed' : repeatErr.value;
+        outErr.value = repeatErr.value === '' ? _('layout copy failed') : repeatErr.value;
         return false;
       }
 
@@ -2414,7 +2418,9 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
       sharedCommit.Push(`Apply design block layout to ${applied} group(s)`);
 
       if (netlessCopperPlaced)
-        editFrame.ShowInfoBarMsg('Copied copper has no net assigned. Assign nets to connect it.');
+        editFrame.ShowInfoBarMsg(
+          _('Copied copper has no net assigned. Assign nets to connect it.'),
+        );
     } else {
       sharedCommit.Revert();
     }
@@ -2430,17 +2436,17 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
         );
 
       if (failures.length > 0) {
-        messages.push('The following groups could not be processed:');
+        messages.push(_('The following groups could not be processed:'));
 
         for (const f of failures) {
-          const name = f.group.GetName() === '' ? '(unnamed group)' : f.group.GetName();
+          const name = f.group.GetName() === '' ? _('(unnamed group)') : f.group.GetName();
           messages.push(`<b>${name}</b>: ${f.reason}`);
         }
       }
 
       // `HTML_MESSAGE_BOX dlg( m_frame, _( "Apply Design Block Layout" ) )`, 360 x 220 DU.
       yield* this.RunMainStackModal(() =>
-        editFrame.ShowHtmlMessage('Apply Design Block Layout', messages),
+        editFrame.ShowHtmlMessage(_('Apply Design Block Layout'), messages),
       );
     }
 

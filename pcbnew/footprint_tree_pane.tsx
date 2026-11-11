@@ -15,6 +15,7 @@
 import { useCallback, useState, type JSX, type ReactNode } from 'react';
 import { LibTree, type LibTreeProps } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeNodeType, type LibTreeNode } from '@ziroeda/common/lib_tree_model.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface FootprintTreePaneProps
   extends Pick<
@@ -79,7 +80,7 @@ export function FootprintTreePane({
   return (
     <div className="ze-leftdock" style={{ width, minWidth: width }}>
       <div className="ze-panel grow">
-        <div className="ze-panel-header">Libraries</div>
+        <div className="ze-panel-header">{_('Libraries')}</div>
         {/*
          * `FOOTPRINT_TREE_PANE` (`pcbnew/footprint_tree_pane.cpp:30-52`)
          * is a panel whose entire body is ONE `LIB_TREE`:

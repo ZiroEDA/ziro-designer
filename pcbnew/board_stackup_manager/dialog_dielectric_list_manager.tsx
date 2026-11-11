@@ -43,6 +43,7 @@ import { wxCENTER, wxOK } from '@ziroeda/wx/defs.js';
 import { type JSX, useState } from 'react';
 import { DIALOG_DIELECTRIC_MATERIAL_BASE } from './dialog_dielectric_list_manager_base.js';
 import type { DIELECTRIC_SUBSTRATE_LIST } from './dielectric_material.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** One row of the material list, as the `wxListCtrl` shows it, and the draft fields. */
 
@@ -110,12 +111,12 @@ export function DialogDielectricMaterial({
   const commit = (): void => {
     const eps = draft.epsilonR.trim() === '' ? Number.NaN : Number(draft.epsilonR);
     if (!Number.isFinite(eps) || eps < 0.0) {
-      messageBox('Incorrect value for Epsilon R');
+      messageBox(_('Incorrect value for Epsilon R'));
       return;
     }
     const tan = draft.lossTan.trim() === '' ? Number.NaN : Number(draft.lossTan);
     if (!Number.isFinite(tan) || tan < 0.0) {
-      messageBox('Incorrect value for Loss Tangent');
+      messageBox(_('Incorrect value for Loss Tangent'));
       return;
     }
     if (draft.name === '') {

@@ -40,6 +40,7 @@ import {
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
 import type { FIELD, HALIGN, TOGGLE } from './dialog_text_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 type LAYER_BOX = {
   rows: readonly ComboOption[];
@@ -130,16 +131,16 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
   const LEFT_UNIT = [CV | wxRIGHT, wxEXPAND | CV, CV | wxLEFT] as const;
 
   return (
-    <DialogShim title="Dimension Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Dimension Properties')} onClose={p.onCancel}>
       {/* m_mainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={10} shown={p.m_sizerLeader}>
-          <StaticBoxSizer label="Leader Format" orient={wxVERTICAL}>
+          <StaticBoxSizer label={_('Leader Format')} orient={wxVERTICAL}>
             <SizerItem flag={wxEXPAND} border={5}>
               {/* gbSizerLeader */}
               <GridBagSizer vgap={0} hgap={0} growableCols={[1, 4]}>
                 <SizerItem pos={[0, 0]} flag={CV | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="Text:" />
+                  <StaticText label={_('Text:')} />
                 </SizerItem>
                 <SizerItem
                   pos={[0, 1]}
@@ -154,7 +155,10 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                 </SizerItem>
                 <Spacer width={60} height={0} pos={[0, 2]} flag={wxEXPAND} border={5} />
                 <SizerItem pos={[0, 3]} flag={CV | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="Text frame:" title="Draw a shape around the leader text" />
+                  <StaticText
+                    label={_('Text frame:')}
+                    title={_('Draw a shape around the leader text')}
+                  />
                 </SizerItem>
                 <SizerItem
                   pos={[0, 4]}
@@ -162,14 +166,14 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                   border={5}
                 >
                   <Choice
-                    choices={['None', 'Rectangle', 'Circle']}
+                    choices={[_('None'), _('Rectangle'), _('Circle')]}
                     choice={p.m_cbTextFrame}
-                    title="Draw a shape around the leader text"
+                    title={_('Draw a shape around the leader text')}
                     ariaLabel="Text frame"
                   />
                 </SizerItem>
                 <SizerItem pos={[1, 0]} flag={CV | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="Layer:" />
+                  <StaticText label={_('Layer:')} />
                 </SizerItem>
                 <SizerItem
                   pos={[1, 1]}
@@ -188,12 +192,12 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
           </StaticBoxSizer>
         </SizerItem>
         <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={10} shown={p.m_sizerCenter}>
-          <StaticBoxSizer label="Dimension Format" orient={wxVERTICAL}>
+          <StaticBoxSizer label={_('Dimension Format')} orient={wxVERTICAL}>
             <SizerItem flag={wxEXPAND} border={5}>
               {/* gbSizerCenter */}
               <GridBagSizer vgap={0} hgap={0}>
                 <SizerItem pos={[0, 0]} flag={CV | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="Layer:" />
+                  <StaticText label={_('Layer:')} />
                 </SizerItem>
                 <SizerItem
                   pos={[0, 1]}
@@ -212,85 +216,96 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
           </StaticBoxSizer>
         </SizerItem>
         <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={10} shown={p.m_sizerFormat}>
-          <StaticBoxSizer label="Dimension Format" orient={wxVERTICAL}>
+          <StaticBoxSizer label={_('Dimension Format')} orient={wxVERTICAL}>
             <SizerItem flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT} border={5}>
               {/* gbSizerFormat = wxGridBagSizer( 3, 0 ) */}
               <GridBagSizer vgap={3} hgap={0} growableCols={[1, 5]}>
                 <SizerItem pos={[0, 0]} flag={CV | wxRIGHT} border={5}>
-                  <StaticText label="Value:" title="Measured value of this dimension" />
+                  <StaticText label={_('Value:')} title={_('Measured value of this dimension')} />
                 </SizerItem>
                 <SizerItem pos={[0, 1]} flag={wxEXPAND | CV} border={5}>
                   <TextCtrl
                     value={p.m_txtValue.value}
                     onChange={p.m_txtValue.onChange}
                     disabled={p.m_txtValue.enabled === false}
-                    title="Measured value of this dimension"
+                    title={_('Measured value of this dimension')}
                     ariaLabel="Value"
                   />
                 </SizerItem>
                 <SizerItem pos={[0, 2]} flag={CV | wxLEFT} border={5}>
                   <CheckBox
-                    label="Override value"
+                    label={_('Override value')}
                     check={p.m_cbOverrideValue}
-                    title="When checked, the actual measurement is ignored and any value can be entered"
+                    title={_(
+                      'When checked, the actual measurement is ignored and any value can be entered',
+                    )}
                   />
                 </SizerItem>
                 <Spacer width={40} height={0} pos={[0, 3]} border={5} />
                 <SizerItem pos={[0, 4]} flag={CV | wxRIGHT} border={5}>
                   <StaticText
-                    label="Units:"
-                    title={
-                      'Units of this dimension ("automatic" to follow the units selected in the editor)'
-                    }
+                    label={_('Units:')}
+                    title={_(
+                      'Units of this dimension ("automatic" to follow the units selected in the editor)',
+                    )}
                   />
                 </SizerItem>
                 <SizerItem pos={[0, 5]} flag={wxEXPAND | CV} border={5}>
                   <Choice
-                    choices={['Inches', 'Mils', 'Millimeters', 'Automatic']}
+                    choices={[_('Inches'), _('Mils'), _('Millimeters'), _('Automatic')]}
                     choice={p.m_cbUnits}
-                    title={
-                      'Units of this dimension ("automatic" to follow the units selected in the editor)'
-                    }
+                    title={_(
+                      'Units of this dimension ("automatic" to follow the units selected in the editor)',
+                    )}
                     ariaLabel="Units"
                   />
                 </SizerItem>
                 <SizerItem pos={[1, 0]} flag={CV | wxRIGHT} border={5}>
-                  <StaticText label="Prefix:" title="Text to print before the dimension value" />
+                  <StaticText
+                    label={_('Prefix:')}
+                    title={_('Text to print before the dimension value')}
+                  />
                 </SizerItem>
                 <SizerItem pos={[1, 1]} flag={wxEXPAND | CV} border={5}>
                   <TextCtrl
                     value={p.m_txtPrefix.value}
                     onChange={p.m_txtPrefix.onChange}
-                    title="Text to print before the dimension value"
+                    title={_('Text to print before the dimension value')}
                     ariaLabel="Prefix"
                   />
                 </SizerItem>
                 <SizerItem pos={[1, 4]} flag={CV | wxRIGHT} border={5}>
-                  <StaticText label="Units format:" title="Choose how to display the units" />
+                  <StaticText
+                    label={_('Units format:')}
+                    title={_('Choose how to display the units')}
+                  />
                 </SizerItem>
                 <SizerItem pos={[1, 5]} flag={wxEXPAND | CV} border={5}>
                   <Choice
-                    choices={['1234', '1234 mm', '1234 (mm)']}
+                    choices={['1234', _('1234 mm'), _('1234 (mm)')]}
                     choice={p.m_cbUnitsFormat}
-                    title="Choose how to display the units"
+                    title={_('Choose how to display the units')}
                     ariaLabel="Units format"
                   />
                 </SizerItem>
                 <SizerItem pos={[2, 0]} flag={CV | wxRIGHT} border={5}>
-                  <StaticText label="Suffix:" title="Text to print after the dimension value" />
+                  <StaticText
+                    label={_('Suffix:')}
+                    title={_('Text to print after the dimension value')}
+                  />
                 </SizerItem>
                 <SizerItem pos={[2, 1]} flag={wxEXPAND | CV} border={5}>
                   <TextCtrl
                     value={p.m_txtSuffix.value}
                     onChange={p.m_txtSuffix.onChange}
-                    title="Text to print after the dimension value"
-                    ariaLabel="Suffix"
+                    title={_('Text to print after the dimension value')}
+                    ariaLabel={_('Suffix')}
                   />
                 </SizerItem>
                 <SizerItem pos={[2, 4]} flag={CV | wxRIGHT} border={5}>
                   <StaticText
-                    label="Precision:"
-                    title="Choose how many digits of precision to display"
+                    label={_('Precision:')}
+                    title={_('Choose how many digits of precision to display')}
                   />
                 </SizerItem>
                 <SizerItem pos={[2, 5]} flag={wxEXPAND | CV} border={5}>
@@ -302,13 +317,13 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                       '0.000',
                       '0.0000',
                       '0.00000',
-                      '0.00 in / 0 mils / 0.0 mm',
+                      _('0.00 in / 0 mils / 0.0 mm'),
                       '0.000 / 0 / 0.00',
                       '0.0000 / 0.0 / 0.000',
                       '0.00000 / 0.00 / 0.0000',
                     ]}
                     choice={p.m_cbPrecision}
-                    title="Choose how many digits of precision to display"
+                    title={_('Choose how many digits of precision to display')}
                     ariaLabel="Precision"
                   />
                 </SizerItem>
@@ -321,19 +336,19 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                   />
                 </SizerItem>
                 <SizerItem pos={[3, 0]} flag={CV | wxRIGHT} border={5}>
-                  <StaticText label="Layer:" />
+                  <StaticText label={_('Layer:')} />
                 </SizerItem>
                 <SizerItem pos={[3, 4]} flag={CV} border={5}>
                   <CheckBox
-                    label="Suppress trailing zeroes"
+                    label={_('Suppress trailing zeroes')}
                     check={p.m_cbSuppressZeroes}
-                    title={
-                      'When checked, "0.100" will be shown as "0.1" even if the precision setting is higher'
-                    }
+                    title={_(
+                      'When checked, "0.100" will be shown as "0.1" even if the precision setting is higher',
+                    )}
                   />
                 </SizerItem>
                 <SizerItem pos={[4, 0]} flag={CV | wxTOP | wxRIGHT} border={5}>
-                  <StaticText label="Preview:" />
+                  <StaticText label={_('Preview:')} />
                 </SizerItem>
                 <SizerItem pos={[4, 1]} span={[1, 2]} flag={CV | wxTOP | wxEXPAND} border={5}>
                   <StaticText label={p.m_staticTextPreview} />
@@ -343,12 +358,12 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
           </StaticBoxSizer>
         </SizerItem>
         <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={10} shown={p.m_sizerText}>
-          <StaticBoxSizer label="Dimension Text" orient={wxVERTICAL}>
+          <StaticBoxSizer label={_('Dimension Text')} orient={wxVERTICAL}>
             <SizerItem flag={wxBOTTOM | wxEXPAND | wxLEFT} border={5}>
               {/* gbSizerText = wxGridBagSizer( 3, 0 ) */}
               <GridBagSizer vgap={3} hgap={0} growableCols={[1, 5]}>
                 <SizerItem pos={[0, 0]} flag={CV | wxBOTTOM | wxRIGHT} border={5}>
-                  <StaticText label="Font:" />
+                  <StaticText label={_('Font:')} />
                 </SizerItem>
                 <SizerItem pos={[0, 1]} span={[1, 2]} flag={CV | wxBOTTOM | wxEXPAND} border={5}>
                   <FontChoice face={p.m_fontCtrl.face} onChange={p.m_fontCtrl.onChange} />
@@ -380,9 +395,9 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                     </SizerItem>
                     {(
                       [
-                        ['left', 'text_align_left', 'Align left'],
-                        ['center', 'text_align_center', 'Align center'],
-                        ['right', 'text_align_right', 'Align right'],
+                        ['left', 'text_align_left', _('Align left')],
+                        ['center', 'text_align_center', _('Align center')],
+                        ['right', 'text_align_right', _('Align right')],
                       ] as const
                     ).map(([align, bitmap, tip]) => (
                       <SizerItem key={align} flag={CV} border={5}>
@@ -436,8 +451,8 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                 {field(3, 0, p.m_textThickness, LEFT_UNIT, true)}
                 <SizerItem pos={[3, 4]} flag={CV | wxRIGHT} border={5}>
                   <StaticText
-                    label="Orientation:"
-                    title="Text orientation"
+                    label={_('Orientation:')}
+                    title={_('Text orientation')}
                     disabled={p.m_cbTextOrientation.enabled === false}
                   />
                 </SizerItem>
@@ -456,7 +471,7 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                   border={5}
                   shown={p.m_cbTextPositionMode.shown}
                 >
-                  <StaticText label="Position mode:" />
+                  <StaticText label={_('Position mode:')} />
                 </SizerItem>
                 <SizerItem
                   pos={[4, 1]}
@@ -466,17 +481,17 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                   shown={p.m_cbTextPositionMode.shown}
                 >
                   <Choice
-                    choices={['Outside', 'Inline', 'Manual']}
+                    choices={[_('Outside'), _('Inline'), _('Manual')]}
                     choice={p.m_cbTextPositionMode}
-                    title="Choose how to position the text relative to the dimension line"
+                    title={_('Choose how to position the text relative to the dimension line')}
                     ariaLabel="Position mode"
                   />
                 </SizerItem>
                 <SizerItem pos={[4, 4]} span={[1, 3]} flag={CV | wxTOP} border={5}>
                   <CheckBox
-                    label="Keep aligned with dimension"
+                    label={_('Keep aligned with dimension')}
                     check={p.m_cbKeepAligned}
-                    title="Automatically set the text orientation to match the dimension lines"
+                    title={_('Automatically set the text orientation to match the dimension lines')}
                   />
                 </SizerItem>
               </GridBagSizer>
@@ -484,7 +499,7 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
           </StaticBoxSizer>
         </SizerItem>
         <SizerItem flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT | wxTOP} border={10}>
-          <StaticBoxSizer label="Dimension Line" orient={wxVERTICAL}>
+          <StaticBoxSizer label={_('Dimension Line')} orient={wxVERTICAL}>
             <SizerItem proportion={1} flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT} border={5}>
               {/* gbSizerLine = wxGridBagSizer( 3, 0 ) */}
               <GridBagSizer vgap={3} hgap={0} growableCols={[1, 5]}>
@@ -506,15 +521,15 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                   false,
                 )}
                 <SizerItem pos={[2, 0]} flag={CV | wxTOP | wxRIGHT} border={5}>
-                  <StaticText label="Arrow direction:" />
+                  <StaticText label={_('Arrow direction:')} />
                 </SizerItem>
                 <SizerItem pos={[2, 1]} span={[1, 2]} flag={CV | wxEXPAND | wxTOP} border={5}>
                   <Choice
-                    choices={['Inward', 'Outward']}
+                    choices={[_('Inward'), _('Outward')]}
                     choice={p.m_cbArrowDirection}
-                    title={
-                      'Chose Dimension Arrow Direction\nAutomatic: Determined based on text position.\nInward:    >-----<\nOutward: <----->'
-                    }
+                    title={_(
+                      'Chose Dimension Arrow Direction\nAutomatic: Determined based on text position.\nInward:    >-----<\nOutward: <----->',
+                    )}
                     ariaLabel="Arrow direction"
                   />
                 </SizerItem>

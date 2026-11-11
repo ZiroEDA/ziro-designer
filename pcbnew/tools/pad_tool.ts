@@ -75,6 +75,7 @@ import {
   INTERACTIVE_PLACER_BASE,
   PCB_TOOL_BASE,
 } from './pcb_tool_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The window half of the tool: the modal dialogs `PAD_TOOL` shows and the infobar,
@@ -285,7 +286,7 @@ export class PAD_TOOL extends PCB_TOOL_BASE {
       }
     }
 
-    commit.Push('Paste Pad Properties');
+    commit.Push(_('Paste Pad Properties'));
 
     this.m_toolMgr!.ProcessEvent(EVENTS.SelectedItemsModified);
     this.frame<PCB_BASE_FRAME>().GetCanvas()?.Refresh();
@@ -344,7 +345,7 @@ export class PAD_TOOL extends PCB_TOOL_BASE {
             dlg.GetPadTypeFilter(),
           );
 
-          commit.Push('Push Pad Settings');
+          commit.Push(_('Push Pad Settings'));
 
           this.m_toolMgr!.ProcessEvent(EVENTS.SelectedItemsModified);
           frame.GetCanvas()?.Refresh();
@@ -491,7 +492,7 @@ export class PAD_TOOL extends PCB_TOOL_BASE {
         frame.PopTool(aEvent);
         break;
       } else if (evt.IsActivate()) {
-        commit.Push('Renumber Pads');
+        commit.Push(_('Renumber Pads'));
 
         frame.PopTool(aEvent);
         break;
@@ -588,7 +589,7 @@ export class PAD_TOOL extends PCB_TOOL_BASE {
           }
         }
       } else if (evt.IsDblClick(BUT_LEFT)) {
-        commit.Push('Renumber Pads');
+        commit.Push(_('Renumber Pads'));
         frame.PopTool(aEvent);
         break;
       } else if (evt.IsClick(BUT_RIGHT)) {
@@ -738,7 +739,7 @@ export class PAD_TOOL extends PCB_TOOL_BASE {
     yield* this.doInteractiveItemPlacement(
       aEvent,
       placer,
-      'Place pad',
+      _('Place pad'),
       INTERACTIVE_PLACEMENT_OPTIONS.IPO_REPEAT |
         INTERACTIVE_PLACEMENT_OPTIONS.IPO_SINGLE_CLICK |
         INTERACTIVE_PLACEMENT_OPTIONS.IPO_ROTATE |
@@ -772,7 +773,7 @@ export class PAD_TOOL extends PCB_TOOL_BASE {
 
         for (const shape of mergedShapes) commit.Remove(shape);
 
-        commit.Push('Edit Pad');
+        commit.Push(_('Edit Pad'));
       }
 
       this.m_editPad = niluuid;
@@ -782,7 +783,7 @@ export class PAD_TOOL extends PCB_TOOL_BASE {
 
       commit.Modify(pad);
       const layer = this.explodePad(pad, commit);
-      commit.Push('Edit Pad');
+      commit.Push(_('Edit Pad'));
 
       this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
       frame.SetActiveLayer(layer);

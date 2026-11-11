@@ -28,6 +28,7 @@ import type { PCB_VIA } from '../pcb_track.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT_T, type DRC_CONSTRAINT } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_ANNULAR_WIDTH extends DRC_TEST_PROVIDER {
   override GetName(): string {
@@ -47,7 +48,7 @@ export class DRC_TEST_PROVIDER_ANNULAR_WIDTH extends DRC_TEST_PROVIDER {
       return true; // continue with other tests
     }
 
-    if (!this.reportPhase('Checking pad & via annular rings...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking pad & via annular rings...'))) return false; // DRC cancelled
 
     const calcEffort = (item: BOARD_ITEM): number => {
       switch (item.Type()) {
@@ -279,7 +280,7 @@ export class DRC_TEST_PROVIDER_ANNULAR_WIDTH extends DRC_TEST_PROVIDER {
         if (fail_min) {
           drcItem.SetErrorDetail(
             this.formatMsg(
-              '(%s min annular width %s; actual %s)',
+              _('(%s min annular width %s; actual %s)'),
               constraint.GetName(),
               v_min,
               width,
@@ -290,7 +291,7 @@ export class DRC_TEST_PROVIDER_ANNULAR_WIDTH extends DRC_TEST_PROVIDER {
         if (fail_max) {
           drcItem.SetErrorDetail(
             this.formatMsg(
-              '(%s max annular width %s; actual %s)',
+              _('(%s max annular width %s; actual %s)'),
               constraint.GetName(),
               v_max,
               width,

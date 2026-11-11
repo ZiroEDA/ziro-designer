@@ -32,6 +32,7 @@ import type {
   DrcSeverity,
   MinOptMax,
 } from './drc_rule_view.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The item kinds `A.Type` can report, spelled as upstream spells them. */
 export type DrcItemType =
@@ -350,7 +351,9 @@ export function evalDrcRules(
     // not fatal: upstream returns from the per-constraint lambda, so an
     // earlier constraint that *does* name it still stands.
     if (type === 'disallow' && !disallowCovers(entry.constraint.disallow ?? [], disallowKind)) {
-      report?.push(entry.implicit ? 'Keepout constraint not met.' : 'Disallow constraint not met.');
+      report?.push(
+        entry.implicit ? _('Keepout constraint not met.') : _('Disallow constraint not met.'),
+      );
       continue;
     }
 
@@ -360,8 +363,8 @@ export function evalDrcRules(
     if (!conditionHolds(entry.rule.condition, a, b, out.errors)) {
       report?.push(
         entry.implicit
-          ? 'Membership not satisfied; constraint ignored.'
-          : 'Condition not satisfied; rule ignored.',
+          ? _('Membership not satisfied; constraint ignored.')
+          : _('Condition not satisfied; rule ignored.'),
       );
       continue;
     }
@@ -369,11 +372,11 @@ export function evalDrcRules(
     report?.push(
       entry.implicit
         ? entry.rule.condition
-          ? 'Constraint applied.'
-          : 'Unconditional constraint applied.'
+          ? _('Constraint applied.')
+          : _('Unconditional constraint applied.')
         : entry.rule.condition
-          ? 'Rule applied; overrides previous constraints.'
-          : 'Unconditional rule applied; overrides previous constraints.',
+          ? _('Rule applied; overrides previous constraints.')
+          : _('Unconditional rule applied; overrides previous constraints.'),
     );
 
     // Each of the three is copied independently, so a rule setting only `max`
@@ -464,13 +467,13 @@ export function boardSetupRules(defaults: {
   };
 
   if (defaults.clearance !== undefined)
-    rule('board setup constraints', 'clearance', { min: defaults.clearance });
+    rule(_('board setup constraints'), 'clearance', { min: defaults.clearance });
   if (defaults.trackWidth !== undefined)
-    rule('board setup constraints', 'track_width', { min: defaults.trackWidth });
+    rule(_('board setup constraints'), 'track_width', { min: defaults.trackWidth });
   if (defaults.viaDiameter !== undefined)
-    rule('board setup constraints', 'via_diameter', { min: defaults.viaDiameter });
+    rule(_('board setup constraints'), 'via_diameter', { min: defaults.viaDiameter });
   if (defaults.viaDrill !== undefined)
-    rule('board setup constraints hole', 'hole_size', { min: defaults.viaDrill });
+    rule(_('board setup constraints hole'), 'hole_size', { min: defaults.viaDrill });
   if (defaults.holeToHole !== undefined)
     rule('board setup constraints hole to hole', 'hole_to_hole', { min: defaults.holeToHole });
   if (defaults.annularWidth !== undefined)

@@ -25,6 +25,7 @@ import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT_T, type DRC_CONSTRAINT } from './drc_rule.js';
 import { DRC_RTREE } from './drc_rtree.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_DISALLOW extends DRC_TEST_PROVIDER {
   override GetName(): string {
@@ -32,7 +33,7 @@ export class DRC_TEST_PROVIDER_DISALLOW extends DRC_TEST_PROVIDER {
   }
 
   Run(): boolean {
-    if (!this.reportPhase('Checking keepouts & disallow constraints...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking keepouts & disallow constraints...'))) return false; // DRC cancelled
 
     const board = this.m_drcEngine!.GetBoard()!;
     const epsilon = board.GetDesignSettings().GetDRCEpsilon();

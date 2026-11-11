@@ -42,6 +42,7 @@ import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import type { PCB_VIA } from '../pcb_track.js';
 import { TEARDROP_MANAGER } from '../teardrop/teardrop.js';
 import { TARGET_TD, type TEARDROP_PARAMETERS } from '../teardrop/teardrop_parameters.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // Globals to remember filters during a session
 let g_netclassFilter = '';
@@ -97,11 +98,11 @@ export class DIALOG_GLOBAL_EDIT_TEARDROPS {
     this.m_brd = m_parent.GetBoard()!;
 
     const provider = m_parent as unknown as ConstructorParameters<typeof UNIT_BINDER>[0];
-    this.m_teardropHDPercent = new UNIT_BINDER(provider, 'Track width limit:');
-    this.m_teardropLenPercent = new UNIT_BINDER(provider, 'Best length (L):');
-    this.m_teardropMaxLen = new UNIT_BINDER(provider, 'Maximum length (L):');
-    this.m_teardropHeightPercent = new UNIT_BINDER(provider, 'Best width (W):');
-    this.m_teardropMaxHeight = new UNIT_BINDER(provider, 'Maximum width (W):');
+    this.m_teardropHDPercent = new UNIT_BINDER(provider, _('Track width limit:'));
+    this.m_teardropLenPercent = new UNIT_BINDER(provider, _('Best length (L):'));
+    this.m_teardropMaxLen = new UNIT_BINDER(provider, _('Maximum length (L):'));
+    this.m_teardropHeightPercent = new UNIT_BINDER(provider, _('Best width (W):'));
+    this.m_teardropMaxHeight = new UNIT_BINDER(provider, _('Maximum width (W):'));
 
     this.m_teardropHDPercent.SetUnits('percent');
     this.m_teardropLenPercent.SetUnits('percent');
@@ -141,12 +142,12 @@ export class DIALOG_GLOBAL_EDIT_TEARDROPS {
   AddLabels(): { addTeardrops: string; specifiedValues: string } {
     return this.m_existingFilter
       ? {
-          addTeardrops: 'Set teardrops to default values for shape',
-          specifiedValues: 'Set teardrops to specified values:',
+          addTeardrops: _('Set teardrops to default values for shape'),
+          specifiedValues: _('Set teardrops to specified values:'),
         }
       : {
-          addTeardrops: 'Add teardrops with default values for shape',
-          specifiedValues: 'Add teardrops with specified values:',
+          addTeardrops: _('Add teardrops with default values for shape'),
+          specifiedValues: _('Add teardrops with specified values:'),
         };
   }
 
@@ -373,13 +374,13 @@ export class DIALOG_GLOBAL_EDIT_TEARDROPS {
       !this.m_existingFilter &&
       !this.m_selectedItemsFilter
     ) {
-      commit.Push('Edit Teardrops', SKIP_TEARDROPS);
+      commit.Push(_('Edit Teardrops'), SKIP_TEARDROPS);
 
       const teardropMgr = new TEARDROP_MANAGER(this.m_brd, this.m_parent.GetToolManager());
       teardropMgr.UpdateTeardrops(commit, [], new Set(), true /* forceFullUpdate */);
-      commit.Push('Edit Teardrops', SKIP_TEARDROPS | APPEND_UNDO);
+      commit.Push(_('Edit Teardrops'), SKIP_TEARDROPS | APPEND_UNDO);
     } else {
-      commit.Push('Edit Teardrops');
+      commit.Push(_('Edit Teardrops'));
     }
 
     return true;

@@ -75,6 +75,8 @@ import type { BOARD } from './board.js';
 import { DRC_CONSTRAINT_T } from './drc/drc_rule.js';
 import { BOARD_USE } from './board_types.js';
 import { ZONE_THERMAL_RELIEF_COPPER_WIDTH_MM } from './zones.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // `Similarity` and `TransformShapeToPolygon` are overloaded across the two bases in C++; the
 // class carries both forms, so the merged interface leaves the EDA_SHAPE ones out.
@@ -422,13 +424,13 @@ export class PCB_SHAPE extends BOARD_CONNECTED_ITEM {
     if (aFrame.GetName() === PCB_EDIT_FRAME_NAME) {
       const parent = this.GetParentFootprint();
 
-      if (parent) aList.push(new MSG_PANEL_ITEM('Footprint', parent.GetReference()));
+      if (parent) aList.push(new MSG_PANEL_ITEM(_('Footprint'), parent.GetReference()));
     }
 
-    aList.push(new MSG_PANEL_ITEM('Type', 'Drawing'));
+    aList.push(new MSG_PANEL_ITEM(_('Type'), _('Drawing')));
 
     if (aFrame.GetName() === PCB_EDIT_FRAME_NAME && this.IsLocked())
-      aList.push(new MSG_PANEL_ITEM('Status', 'Locked'));
+      aList.push(new MSG_PANEL_ITEM(_('Status'), _('Locked')));
 
     this.ShapeGetMsgPanelInfo(aFrame, aList);
 
@@ -1009,11 +1011,11 @@ export interface PCB_RENDER_SETTINGS_FOR_LOD {
     return false;
   };
 
-  propMgr.OverrideAvailability(PCB_SHAPE, BOARD_ITEM, 'Position X', isPolygon);
-  propMgr.OverrideAvailability(PCB_SHAPE, BOARD_ITEM, 'Position Y', isPolygon);
+  propMgr.OverrideAvailability(PCB_SHAPE, BOARD_ITEM, _HKI('Position X'), isPolygon);
+  propMgr.OverrideAvailability(PCB_SHAPE, BOARD_ITEM, _HKI('Position Y'), isPolygon);
 
-  propMgr.Mask(PCB_SHAPE, EDA_SHAPE, 'Line Color');
-  propMgr.Mask(PCB_SHAPE, EDA_SHAPE, 'Fill Color');
+  propMgr.Mask(PCB_SHAPE, EDA_SHAPE, _HKI('Line Color'));
+  propMgr.Mask(PCB_SHAPE, EDA_SHAPE, _HKI('Fill Color'));
 
   // BEZIER curves are not closed shapes, and fill is not supported in board editor,
   // only in schematic editor.
@@ -1024,7 +1026,7 @@ export interface PCB_RENDER_SETTINGS_FOR_LOD {
     return true;
   };
 
-  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'Fill', isNotBezier);
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, _HKI('Fill'), isNotBezier);
 
   const isCircle = (aItem: INSPECTABLE_ITEM): boolean => {
     if (aItem instanceof PCB_SHAPE) return aItem.GetShape() === SHAPE_T.CIRCLE;
@@ -1038,13 +1040,13 @@ export interface PCB_RENDER_SETTINGS_FOR_LOD {
     return true;
   };
 
-  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'Start X', isNotCircle);
-  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'Start Y', isNotCircle);
-  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'End X', isNotCircle);
-  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'End Y', isNotCircle);
-  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'Center X', isCircle);
-  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'Center Y', isCircle);
-  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, 'Radius', isCircle);
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, _HKI('Start X'), isNotCircle);
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, _HKI('Start Y'), isNotCircle);
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, _HKI('End X'), isNotCircle);
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, _HKI('End Y'), isNotCircle);
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, _HKI('Center X'), isCircle);
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, _HKI('Center Y'), isCircle);
+  propMgr.OverrideAvailability(PCB_SHAPE, EDA_SHAPE, _HKI('Radius'), isCircle);
 
   const isCopper = (aItem: INSPECTABLE_ITEM): boolean => {
     if (aItem instanceof PCB_SHAPE) return aItem.IsOnCopperLayer();
@@ -1082,13 +1084,13 @@ export interface PCB_RENDER_SETTINGS_FOR_LOD {
     return false;
   };
 
-  const groupPadPrimitives = 'Pad Primitives';
+  const groupPadPrimitives = _HKI('Pad Primitives');
 
   propMgr
     .AddProperty(
       new PROPERTY<PCB_SHAPE, boolean>(
         PCB_SHAPE,
-        'Number Box',
+        _HKI('Number Box'),
         'SetIsProxyItem',
         'IsProxyItem',
         TYPE_BOOL,
@@ -1102,7 +1104,7 @@ export interface PCB_RENDER_SETTINGS_FOR_LOD {
     .AddProperty(
       new PROPERTY<PCB_SHAPE, boolean>(
         PCB_SHAPE,
-        'Thermal Spoke Template',
+        _HKI('Thermal Spoke Template'),
         'SetIsProxyItem',
         'IsProxyItem',
         TYPE_BOOL,
@@ -1112,7 +1114,7 @@ export interface PCB_RENDER_SETTINGS_FOR_LOD {
     .SetAvailableFunc(showSpokeTemplateProperty)
     .SetIsHiddenFromRulesEditor();
 
-  const groupTechLayers = 'Technical Layers';
+  const groupTechLayers = _HKI('Technical Layers');
 
   const isExternalCuLayer = (aItem: INSPECTABLE_ITEM): boolean => {
     if (aItem instanceof PCB_SHAPE) return IsExternalCopperLayer(aItem.GetLayer());
@@ -1124,7 +1126,7 @@ export interface PCB_RENDER_SETTINGS_FOR_LOD {
     .AddProperty(
       new PROPERTY<PCB_SHAPE, boolean>(
         PCB_SHAPE,
-        'Soldermask',
+        _HKI('Soldermask'),
         'SetHasSolderMask',
         'HasSolderMask',
         TYPE_BOOL,
@@ -1137,7 +1139,7 @@ export interface PCB_RENDER_SETTINGS_FOR_LOD {
     .AddProperty(
       new PROPERTY<PCB_SHAPE, number | undefined>(
         PCB_SHAPE,
-        'Soldermask Margin Override',
+        _HKI('Soldermask Margin Override'),
         'SetLocalSolderMaskMargin',
         'GetLocalSolderMaskMargin',
         TYPE_OPT_INT,

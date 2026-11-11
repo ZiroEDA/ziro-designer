@@ -23,6 +23,7 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
 import { StyledTextCtrl } from '@ziroeda/wx/stc.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PANEL_SETUP_RULES_BASE_PROPS {
   onSyntaxHelp: () => void;
@@ -49,13 +50,13 @@ export function PANEL_SETUP_RULES_BASE(p: PANEL_SETUP_RULES_BASE_PROPS): JSX.Ele
         {/* bSizer4 */}
         <BoxSizer orient={wxHORIZONTAL}>
           <SizerItem flag={CV | wxBOTTOM | wxLEFT | wxTOP} border={5}>
-            <StaticText label="DRC Rules" />
+            <StaticText label={_('DRC Rules')} />
           </SizerItem>
           <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
           <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>
             <HyperlinkCtrl
-              label="Syntax help"
-              title="Show syntax help window"
+              label={_('Syntax help')}
+              title={_('Show syntax help window')}
               onClick={p.onSyntaxHelp}
             />
           </SizerItem>
@@ -67,7 +68,7 @@ export function PANEL_SETUP_RULES_BASE(p: PANEL_SETUP_RULES_BASE_PROPS): JSX.Ele
           <SizerItem proportion={3} flag={wxEXPAND | wxBOTTOM | wxRIGHT} border={5}>
             <StyledTextCtrl
               lineNumbers
-              ariaLabel="DRC Rules"
+              ariaLabel={_('DRC Rules')}
               value={p.m_textEditor.value}
               onChange={p.m_textEditor.onChange}
               inputRef={p.m_textEditor.ref}
@@ -78,7 +79,11 @@ export function PANEL_SETUP_RULES_BASE(p: PANEL_SETUP_RULES_BASE_PROPS): JSX.Ele
             <BoxSizer orient={wxHORIZONTAL}>
               <SizerItem flag={wxTOP | wxBOTTOM} border={5}>
                 {/* the class's SetBitmap( KiBitmapBundle( BITMAPS::drc ) ) */}
-                <StdBitmapButton bitmap="drc" title="Check rule syntax" onClick={p.onCompile} />
+                <StdBitmapButton
+                  bitmap="drc"
+                  title={_('Check rule syntax')}
+                  onClick={p.onCompile}
+                />
               </SizerItem>
               <SizerItem
                 proportion={1}

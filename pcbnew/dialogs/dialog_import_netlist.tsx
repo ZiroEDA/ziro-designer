@@ -43,6 +43,8 @@ import { RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.j
 import type { CHECK } from '@ziroeda/wx/controls.js';
 import { type ChooserFilter, WxFileDialog } from '@ziroeda/wx/filedlg.js';
 import { DIALOG_IMPORT_NETLIST_BASE } from './dialog_import_netlist_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `FILEEXT::NetlistFileWildcard()`. */
 export const NETLIST_FILE_FILTER: ChooserFilter = {
@@ -88,8 +90,8 @@ export function netlistHeadLines(
     },
     {
       message: aMatchByReference
-        ? 'Using reference designators to match symbols and footprints.\n'
-        : 'Using tstamps (unique IDs) to match symbols and footprints.\n',
+        ? _('Using reference designators to match symbols and footprints.\n')
+        : _('Using tstamps (unique IDs) to match symbols and footprints.\n'),
       severity: RPT_SEVERITY_INFO,
       location: 'head',
     },
@@ -118,7 +120,7 @@ export class DIALOG_IMPORT_NETLIST {
   m_cbDeleteShortingTracks = DEFAULT_IMPORT_NETLIST_OPTIONS.deleteShortingTracks;
 
   /** `m_MessageWindow`: its label and lines. */
-  m_messageLabel = 'Changes to Be Applied';
+  m_messageLabel = _HKI('Changes to Be Applied');
   m_messageLines: readonly ReportLine[] = [];
   /** `wxMessageBox( … )`, answered by the window. */
   m_messageBox: string | null = null;
@@ -169,18 +171,18 @@ export class DIALOG_IMPORT_NETLIST {
     const name = this.m_NetlistFilenameCtrl;
 
     if (name === '') {
-      this.m_messageBox = 'Please choose a valid netlist file.';
+      this.m_messageBox = _('Please choose a valid netlist file.');
       this.notify();
       return;
     }
 
     if (this.fileText(name) === null) {
-      this.m_messageBox = 'The netlist file does not exist.';
+      this.m_messageBox = _('The netlist file does not exist.');
       this.notify();
       return;
     }
 
-    this.m_messageLabel = 'Changes Applied to PCB';
+    this.m_messageLabel = _('Changes Applied to PCB');
     void this.loadNetlist(false);
   }
 
@@ -194,7 +196,7 @@ export class DIALOG_IMPORT_NETLIST {
     } else {
       this.m_messageLines = [
         {
-          message: 'The netlist file does not exist.',
+          message: _('The netlist file does not exist.'),
           severity: RPT_SEVERITY_ERROR,
           location: 'body',
         },
@@ -316,16 +318,16 @@ export function DialogImportNetlist({
           severities,
           onSeveritiesChange: setSeverities,
         }}
-        okLabel="Load and Test Netlist"
-        applyLabel="Update PCB"
-        cancelLabel="Close"
+        okLabel={_('Load and Test Netlist')}
+        applyLabel={_('Update PCB')}
+        cancelLabel={_('Close')}
         onImportNetlist={() => dialog.onImportNetlist()}
         onUpdatePCB={() => dialog.onUpdatePCB()}
         onCancel={close}
       />
       {browsing && (
         <WxFileDialog
-          title="Import Netlist"
+          title={_('Import Netlist')}
           filters={[NETLIST_FILE_FILTER]}
           onDone={(file) => {
             setBrowsing(false);

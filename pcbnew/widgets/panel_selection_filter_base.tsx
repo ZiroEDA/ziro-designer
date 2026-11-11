@@ -10,6 +10,7 @@ import type { JSX } from 'react';
 import { type CHECK, CheckBox } from '@ziroeda/wx/controls.js';
 import { wxBOTTOM, wxLEFT, wxRIGHT, wxTOP } from '@ziroeda/wx/defs.js';
 import { GridBagSizer, SizerItem } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A filter checkbox and its right click. */
 export type FILTER_CHECK = CHECK & { onRightClick?: (aX: number, aY: number) => void };
@@ -47,26 +48,26 @@ export function PANEL_SELECTION_FILTER_BASE(p: PANEL_SELECTION_FILTER_BASE_PROPS
   return (
     // gbSizer1 = wxGridBagSizer( 0, 0 )
     <GridBagSizer>
-      {cb(0, 0, 'All items', p.m_cbAllItems, wxLEFT | wxTOP)}
+      {cb(0, 0, _('All items'), p.m_cbAllItems, wxLEFT | wxTOP)}
       {cb(
         0,
         1,
-        'Locked items',
+        _('Locked items'),
         p.m_cbLockedItems,
         wxLEFT | wxRIGHT | wxTOP,
-        'Allow selection of locked items',
+        _('Allow selection of locked items'),
       )}
-      {cb(1, 0, 'Footprints', p.m_cbFootprints)}
-      {cb(1, 1, 'Text', p.m_cbText)}
-      {cb(2, 0, 'Tracks', p.m_cbTracks)}
-      {cb(2, 1, 'Vias', p.m_cbVias)}
-      {cb(3, 0, 'Pads', p.m_cbPads)}
-      {cb(3, 1, 'Graphics', p.m_cbGraphics)}
-      {cb(4, 0, 'Zones', p.m_cbZones)}
-      {cb(4, 1, 'Rule Areas', p.m_cbKeepouts)}
-      {cb(5, 0, 'Dimensions', p.m_cbDimensions)}
-      {cb(6, 0, 'Points', p.m_cbPoints, wxBOTTOM | wxLEFT | wxRIGHT)}
-      {cb(5, 1, 'Other items', p.m_cbOtherItems)}
+      {cb(1, 0, _('Footprints'), p.m_cbFootprints)}
+      {cb(1, 1, _('Text'), p.m_cbText)}
+      {cb(2, 0, _('Tracks'), p.m_cbTracks)}
+      {cb(2, 1, _('Vias'), p.m_cbVias)}
+      {cb(3, 0, _('Pads'), p.m_cbPads)}
+      {cb(3, 1, _('Graphics'), p.m_cbGraphics)}
+      {cb(4, 0, _('Zones'), p.m_cbZones)}
+      {cb(4, 1, _('Rule Areas'), p.m_cbKeepouts)}
+      {cb(5, 0, _('Dimensions'), p.m_cbDimensions)}
+      {cb(6, 0, _('Points'), p.m_cbPoints, wxBOTTOM | wxLEFT | wxRIGHT)}
+      {cb(5, 1, _('Other items'), p.m_cbOtherItems)}
     </GridBagSizer>
   );
 }

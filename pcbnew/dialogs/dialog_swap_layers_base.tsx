@@ -12,6 +12,7 @@ import type { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
 import { wxALL, wxEXPAND, wxLEFT, wxRIGHT, wxTOP, wxVERTICAL } from '@ziroeda/wx/defs.js';
 import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import { BoxSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_SWAP_LAYERS_BASE_PROPS {
   m_grid: WX_GRID;
@@ -21,7 +22,7 @@ export interface DIALOG_SWAP_LAYERS_BASE_PROPS {
 
 export function DIALOG_SWAP_LAYERS_BASE(p: DIALOG_SWAP_LAYERS_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Swap Layers" onClose={p.onCancel}>
+    <DialogShim title={_('Swap Layers')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={10}>

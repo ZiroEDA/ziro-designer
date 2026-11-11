@@ -41,6 +41,7 @@ import type { BOARD } from '../board.js';
 import { NETINFO_LIST } from '../netinfo_list.js';
 import { PAD_ATTRIB, PAD_SHAPE, PADSTACK } from '../padstack.js';
 import type { PCB_VIA } from '../pcb_track.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** One row of the netlist, `D356_RECORD`. */
 export interface D356Record {
@@ -372,10 +373,10 @@ export async function BOARD_EDITOR_CONTROL_GenD356File(aFrame: GEN_D356_FRAME): 
 
   const settings = aFrame.GetPcbNewSettings().m_ExportD356;
   const dlg = await aFrame.ShowSaveFileDialog(
-    'Generate IPC-D-356 netlist file',
+    _('Generate IPC-D-356 netlist file'),
     name,
     ipcD356FileWildcard(),
-    { label: 'Do not export unconnected pads', value: settings.doNotExportUnconnectedPads },
+    { label: _('Do not export unconnected pads'), value: settings.doNotExportUnconnectedPads },
   );
 
   if (!dlg) return 0;

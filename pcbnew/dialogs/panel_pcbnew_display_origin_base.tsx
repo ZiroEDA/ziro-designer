@@ -20,6 +20,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, FlexGridSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 type RADIO = { checked: boolean; onSelect: () => void };
 
@@ -73,31 +74,31 @@ export function PANEL_PCBNEW_DISPLAY_ORIGIN_BASE(
               <SizerItem flag={wxEXPAND} border={5} shown={p.displayOriginShown}>
                 {/* m_displayOrigin */}
                 <BoxSizer orient={wxVERTICAL}>
-                  {heading('Display Origin')}
+                  {heading(_('Display Origin'))}
                   <SizerItem flag={wxEXPAND | wxALL} border={10}>
                     {/* gSizer1 = wxGridSizer( 0, 1, 4, 0 ) */}
                     <FlexGridSizer cols={1} vgap={4} flexibleDirection={0}>
-                      {radio('Page origin', p.m_pageOrigin, 'origin')}
-                      {radio('Drill/place file origin', p.m_drillPlaceOrigin, 'origin')}
-                      {radio('Grid origin', p.m_gridOrigin, 'origin')}
+                      {radio(_('Page origin'), p.m_pageOrigin, 'origin')}
+                      {radio(_('Drill/place file origin'), p.m_drillPlaceOrigin, 'origin')}
+                      {radio(_('Grid origin'), p.m_gridOrigin, 'origin')}
                     </FlexGridSizer>
                   </SizerItem>
                 </BoxSizer>
               </SizerItem>
-              {heading('X Axis')}
+              {heading(_('X Axis'))}
               <SizerItem flag={wxEXPAND | wxALL} border={10}>
                 {/* gSizer2 */}
                 <FlexGridSizer cols={1} vgap={4} flexibleDirection={0}>
-                  {radio('Increases right', p.m_xIncreasesRight, 'x')}
-                  {radio('Increases left', p.m_xIncreasesLeft, 'x')}
+                  {radio(_('Increases right'), p.m_xIncreasesRight, 'x')}
+                  {radio(_('Increases left'), p.m_xIncreasesLeft, 'x')}
                 </FlexGridSizer>
               </SizerItem>
-              {heading('Y Axis')}
+              {heading(_('Y Axis'))}
               <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={10}>
                 {/* gSizer4 */}
                 <FlexGridSizer cols={1} vgap={4} flexibleDirection={0}>
-                  {radio('Increases up', p.m_yIncreasesUp, 'y')}
-                  {radio('Increases down', p.m_yIncreasesDown, 'y')}
+                  {radio(_('Increases up'), p.m_yIncreasesUp, 'y')}
+                  {radio(_('Increases down'), p.m_yIncreasesDown, 'y')}
                 </FlexGridSizer>
               </SizerItem>
             </BoxSizer>

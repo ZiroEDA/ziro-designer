@@ -145,6 +145,7 @@ import {
   TEXT_ALIGNMENT,
   TEXT_REVERSAL,
 } from './convert/allegro_pcb_structs.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `%#010x`. */
 const hex010 = (v: number): string =>
@@ -3881,7 +3882,7 @@ export class BOARD_BUILDER {
   BuildBoard(): boolean {
     if (this.m_progressReporter) {
       this.m_progressReporter.AddPhases(4);
-      this.m_progressReporter.AdvancePhase('Constructing caches');
+      this.m_progressReporter.AdvancePhase(_('Constructing caches'));
       this.m_progressReporter.KeepRefreshing();
     }
 
@@ -3890,14 +3891,14 @@ export class BOARD_BUILDER {
     this.setupLayers();
 
     if (this.m_progressReporter) {
-      this.m_progressReporter.AdvancePhase('Creating nets');
+      this.m_progressReporter.AdvancePhase(_('Creating nets'));
       this.m_progressReporter.KeepRefreshing();
     }
 
     this.createNets();
 
     if (this.m_progressReporter) {
-      this.m_progressReporter.AdvancePhase('Creating tracks');
+      this.m_progressReporter.AdvancePhase(_('Creating tracks'));
       this.m_progressReporter.KeepRefreshing();
     }
 
@@ -3924,7 +3925,7 @@ export class BOARD_BUILDER {
     this.applyMatchGroups();
 
     if (this.m_progressReporter) {
-      this.m_progressReporter.AdvancePhase('Converting footprints');
+      this.m_progressReporter.AdvancePhase(_('Converting footprints'));
       this.m_progressReporter.KeepRefreshing();
     }
 

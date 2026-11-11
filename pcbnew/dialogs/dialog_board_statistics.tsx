@@ -48,6 +48,8 @@ import { wxALIGN_LEFT, wxALIGN_RIGHT } from '@ziroeda/wx/defs.js';
 import { DIALOG_BOARD_STATISTICS_BASE } from './dialog_board_statistics_base.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 interface Props {
   board: BOARD;
@@ -61,14 +63,14 @@ interface Props {
 }
 
 const DRILL_COL_LABELS = [
-  'Count',
-  'Shape',
-  'X Size',
-  'Y Size',
-  'Plated',
-  'Via/Pad',
-  'Start Layer',
-  'Stop Layer',
+  _HKI('Count'),
+  _HKI('Shape'),
+  _HKI('X Size'),
+  _HKI('Y Size'),
+  _HKI('Plated'),
+  _HKI('Via/Pad'),
+  _HKI('Start Layer'),
+  _HKI('Stop Layer'),
 ];
 
 /** `s_savedDialogState`: the three checkboxes, remembered for the session. */
@@ -165,18 +167,18 @@ export function DialogBoardStatistics({
   const totalPads = data.padEntries.reduce((n, e) => n + e.quantity, 0);
   const pads = [
     ...data.padEntries.map((e) => [e.title, formatCount(e.quantity)]),
-    ['Total:', formatCount(totalPads)],
+    [_('Total:'), formatCount(totalPads)],
     ...data.padPropertyEntries.map((e) => [e.title, formatCount(e.quantity)]),
   ];
   const totalVias = data.viaEntries.reduce((n, e) => n + e.quantity, 0);
   const vias = [
     ...data.viaEntries.map((e) => [e.title, formatCount(e.quantity)]),
-    ['Total:', formatCount(totalVias)],
+    [_('Total:'), formatCount(totalVias)],
   ];
   const totalFront = data.footprintEntries.reduce((n, e) => n + e.frontCount, 0);
   const totalBack = data.footprintEntries.reduce((n, e) => n + e.backCount, 0);
   const components = [
-    ['', 'Front Side', 'Back Side', 'Total'],
+    ['', _('Front Side'), _('Back Side'), _('Total')],
     ...data.footprintEntries.map((e) => [
       e.title,
       formatCount(e.frontCount),
@@ -184,34 +186,37 @@ export function DialogBoardStatistics({
       formatCount(e.frontCount + e.backCount),
     ]),
     [
-      'Total:',
+      _('Total:'),
       formatCount(totalFront),
       formatCount(totalBack),
       formatCount(totalFront + totalBack),
     ],
   ];
-  const unknown = 'unknown';
+  const unknown = _('unknown');
   const boardRows = [
     [
-      'Dimensions:',
+      _('Dimensions:'),
       data.hasOutline
         ? `${unitsProvider.MessageTextFromValue(data.boardWidth, false)} x ${unitsProvider.MessageTextFromValue(data.boardHeight, true)}`
         : unknown,
     ],
-    ['Area:', data.hasOutline ? v(data.boardArea, 'area') : unknown],
-    ['Front copper area:', v(data.frontCopperArea, 'area')],
-    ['Back copper area:', v(data.backCopperArea, 'area')],
-    ['Min track clearance:', v(data.minClearanceTrackToTrack)],
-    ['Min track width:', v(data.minTrackWidth)],
-    ['Min drill diameter:', v(data.minDrillSize)],
-    ['Board stackup thickness:', v(data.boardThickness)],
-    ['Front footprint area:', v(data.frontFootprintCourtyardArea, 'area')],
+    [_('Area:'), data.hasOutline ? v(data.boardArea, 'area') : unknown],
+    [_('Front copper area:'), v(data.frontCopperArea, 'area')],
+    [_('Back copper area:'), v(data.backCopperArea, 'area')],
+    [_('Min track clearance:'), v(data.minClearanceTrackToTrack)],
+    [_('Min track width:'), v(data.minTrackWidth)],
+    [_('Min drill diameter:'), v(data.minDrillSize)],
+    [_('Board stackup thickness:'), v(data.boardThickness)],
+    [_('Front footprint area:'), v(data.frontFootprintCourtyardArea, 'area')],
     [
-      'Front footprint density:',
+      _('Front footprint density:'),
       data.hasOutline ? `${data.frontFootprintDensity.toFixed(2)} %` : '',
     ],
-    ['Back footprint area:', v(data.backFootprintCourtyardArea, 'area')],
-    ['Back footprint density:', data.hasOutline ? `${data.backFootprintDensity.toFixed(2)} %` : ''],
+    [_('Back footprint area:'), v(data.backFootprintCourtyardArea, 'area')],
+    [
+      _('Back footprint density:'),
+      data.hasOutline ? `${data.backFootprintDensity.toFixed(2)} %` : '',
+    ],
   ];
 
   /** `m_gridDrills` (`dialog_board_statistics_base.cpp:226-256`). */
@@ -256,9 +261,9 @@ export function DialogBoardStatistics({
     drills.forEach((d, row) => {
       const shapeStr =
         d.shape === PAD_DRILL_SHAPE.CIRCLE
-          ? 'Round'
+          ? _('Round')
           : d.shape === PAD_DRILL_SHAPE.OBLONG
-            ? 'Slot'
+            ? _('Slot')
             : '???';
       const layerStr = (layer: PCB_LAYER_ID): string =>
         layer === PCB_LAYER_ID.UNDEFINED_LAYER ? 'N/A' : board.GetLayerName(layer);
@@ -267,8 +272,8 @@ export function DialogBoardStatistics({
         shapeStr,
         unitsProvider.MessageTextFromValue(d.xSize),
         unitsProvider.MessageTextFromValue(d.ySize),
-        d.isPlated ? 'PTH' : 'NPTH',
-        d.isPad ? 'Pad' : 'Via',
+        d.isPlated ? _('PTH') : _('NPTH'),
+        d.isPad ? _('Pad') : _('Via'),
         layerStr(d.startLayer),
         layerStr(d.stopLayer),
       ];
@@ -283,17 +288,17 @@ export function DialogBoardStatistics({
     <DIALOG_BOARD_STATISTICS_BASE
       page={page}
       onPage={setPage}
-      m_gridComponents={<InfoGrid cells={components} ariaLabel="Components" />}
-      m_gridPads={<InfoGrid cells={pads} ariaLabel="Pads" />}
-      m_gridBoard={<InfoGrid cells={boardRows} ariaLabel="Board" />}
-      m_gridVias={<InfoGrid cells={vias} ariaLabel="Vias" />}
+      m_gridComponents={<InfoGrid cells={components} ariaLabel={_('Components')} />}
+      m_gridPads={<InfoGrid cells={pads} ariaLabel={_('Pads')} />}
+      m_gridBoard={<InfoGrid cells={boardRows} ariaLabel={_('Board')} />}
+      m_gridVias={<InfoGrid cells={vias} ariaLabel={_('Vias')} />}
       m_checkBoxSubtractHoles={check('subtractHolesFromBoardArea', 'subtractHoles')}
       m_checkBoxSubtractHolesFromCopper={check(
         'subtractHolesFromCopperAreas',
         'subtractHolesFromCopper',
       )}
       m_checkBoxExcludeComponentsNoPins={check('excludeFootprintsWithoutPads', 'excludeNoPins')}
-      m_gridDrills={<WxGridView grid={drillGrid} ariaLabel="Drill holes" />}
+      m_gridDrills={<WxGridView grid={drillGrid} ariaLabel={_('Drill holes')} />}
       onSaveReport={() =>
         onGenerateReport(
           FormatBoardStatisticsReport(data, board, unitsProvider, projectName, boardName),

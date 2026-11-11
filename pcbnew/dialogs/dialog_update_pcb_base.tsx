@@ -18,6 +18,7 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_UPDATE_PCB_BASE_PROPS {
   m_cbRelinkFootprints: CHECK;
@@ -51,22 +52,24 @@ export function DIALOG_UPDATE_PCB_BASE(p: DIALOG_UPDATE_PCB_BASE_PROPS): JSX.Ele
   );
 
   return (
-    <DialogShim title="Update PCB from Schematic" onClose={p.onCancel}>
+    <DialogShim title={_('Update PCB from Schematic')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxALL | wxEXPAND} border={5}>
           {/* bUpperSizer */}
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
-              <StaticBoxSizer label="Options" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Options')} orient={wxVERTICAL}>
                 {check(
-                  'Re-link footprints to schematic symbols based on their reference designators',
+                  _('Re-link footprints to schematic symbols based on their reference designators'),
                   p.m_cbRelinkFootprints,
-                  'Normally footprints are linked to their symbols via their Unique IDs.  Select this option only if you want to reset the footprint linkages based on their reference designators.',
+                  _(
+                    'Normally footprints are linked to their symbols via their Unique IDs.  Select this option only if you want to reset the footprint linkages based on their reference designators.',
+                  ),
                 )}
-                {check('Group footprints based on symbol group', p.m_cbTransferGroups)}
+                {check(_('Group footprints based on symbol group'), p.m_cbTransferGroups)}
                 {check(
-                  'Apply design block layouts to new groups',
+                  _('Apply design block layouts to new groups'),
                   p.m_cbApplyDesignBlockLayouts,
                   p.applyDesignBlockLayoutsTip,
                 )}
@@ -74,25 +77,29 @@ export function DIALOG_UPDATE_PCB_BASE(p: DIALOG_UPDATE_PCB_BASE_PROPS): JSX.Ele
             </SizerItem>
             <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
             <SizerItem flag={wxEXPAND | wxALL} border={5}>
-              <StaticBoxSizer label="Update Footprints" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Update Footprints')} orient={wxVERTICAL}>
                 {check(
-                  'Replace footprints with those specified by symbols',
+                  _('Replace footprints with those specified by symbols'),
                   p.m_cbUpdateFootprints,
-                  "Normally footprints on the board should be changed to match footprint assignment changes made in the schematic. Uncheck this only if you don't want to change existing footprints on the board.",
+                  _(
+                    "Normally footprints on the board should be changed to match footprint assignment changes made in the schematic. Uncheck this only if you don't want to change existing footprints on the board.",
+                  ),
                 )}
                 {check(
-                  'Delete footprints with no symbols',
+                  _('Delete footprints with no symbols'),
                   p.m_cbDeleteExtraFootprints,
-                  'Remove from the board unlocked footprints which are not linked to a schematic symbol.',
+                  _(
+                    'Remove from the board unlocked footprints which are not linked to a schematic symbol.',
+                  ),
                 )}
-                {check('Override locks', p.m_cbOverrideLocks)}
+                {check(_('Override locks'), p.m_cbOverrideLocks)}
               </StaticBoxSizer>
             </SizerItem>
             <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
             <SizerItem flag={wxEXPAND | wxALL} border={5}>
-              <StaticBoxSizer label="Update Fields" orient={wxVERTICAL}>
-                {check('Update footprint fields from symbols', p.m_cbUpdateFields)}
-                {check('Remove footprint fields not found in symbols', p.m_cbRemoveExtraFields)}
+              <StaticBoxSizer label={_('Update Fields')} orient={wxVERTICAL}>
+                {check(_('Update footprint fields from symbols'), p.m_cbUpdateFields)}
+                {check(_('Remove footprint fields not found in symbols'), p.m_cbRemoveExtraFields)}
               </StaticBoxSizer>
             </SizerItem>
           </BoxSizer>
@@ -119,10 +126,10 @@ export function DIALOG_UPDATE_PCB_BASE(p: DIALOG_UPDATE_PCB_BASE_PROPS): JSX.Ele
         </SizerItem>
         <SizerItem flag={wxALL | wxEXPAND} border={5}>
           <StdDialogButtonSizer
-            okLabel="Update PCB"
+            okLabel={_('Update PCB')}
             okDisabled={!p.okEnabled}
             onOk={p.OnUpdateClick}
-            cancelLabel="Close"
+            cancelLabel={_('Close')}
             onCancel={p.onCancel}
           />
         </SizerItem>

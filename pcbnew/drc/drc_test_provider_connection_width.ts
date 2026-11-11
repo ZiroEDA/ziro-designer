@@ -27,6 +27,7 @@ import type { ZONE } from '../zone.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `NETCODE_LAYER_CACHE_KEY`, as the string the `unordered_map` is keyed by here. */
 const netcodeLayerKey = (aNetcode: number, aLayer: PCB_LAYER_ID): string => `${aNetcode}:${aLayer}`;
@@ -249,7 +250,7 @@ export class DRC_TEST_PROVIDER_CONNECTION_WIDTH extends DRC_TEST_PROVIDER {
       return true; // Continue with other tests
     }
 
-    if (!this.reportPhase('Checking nets for minimum connection width...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking nets for minimum connection width...'))) return false; // DRC cancelled
 
     const board = this.m_drcEngine!.GetBoard()!;
     let epsilon = board.GetDesignSettings().GetDRCEpsilon();
@@ -405,7 +406,7 @@ export class DRC_TEST_PROVIDER_CONNECTION_WIDTH extends DRC_TEST_PROVIDER {
               let msg: string;
 
               msg = this.formatMsg(
-                '(%s minimum connection width %s; actual %s)',
+                _('(%s minimum connection width %s; actual %s)'),
                 c.GetName(),
                 c.Value().Min(),
                 dist,

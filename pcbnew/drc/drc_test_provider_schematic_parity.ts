@@ -25,6 +25,7 @@ import type { NETLIST } from '../netlist_reader/pcb_netlist.js';
 import { wxMatches } from '../pcbexpr_evaluator.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `LIB_ID::GetUniStringLibId()` of a netlist component's "Library:Footprint" string. */
 const uniStringLibId = (aFpid: string): string => {
@@ -213,7 +214,7 @@ export class DRC_TEST_PROVIDER_SCHEMATIC_PARITY extends DRC_TEST_PROVIDER {
           const pcb_netname = pad.GetNetname();
 
           if (pcb_netname !== '' && sch_net.pinName === '') {
-            const msg = 'No corresponding pin found in schematic';
+            const msg = _('No corresponding pin found in schematic');
 
             const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_NET_CONFLICT)!;
             drcItem.SetErrorMessage(msg);
@@ -282,7 +283,7 @@ export class DRC_TEST_PROVIDER_SCHEMATIC_PARITY extends DRC_TEST_PROVIDER {
 
   Run(): boolean {
     if (this.m_drcEngine!.GetTestFootprints()) {
-      if (!this.reportPhase('Checking PCB to schematic parity...')) return false;
+      if (!this.reportPhase(_('Checking PCB to schematic parity...'))) return false;
 
       const netlist = this.m_drcEngine!.GetSchematicNetlist();
 

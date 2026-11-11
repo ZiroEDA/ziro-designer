@@ -12,6 +12,7 @@ import { KiBitmapBundle } from '@ziroeda/common/bitmap.js';
 import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js';
 import { BITMAPS } from '@ziroeda/include/bitmaps/bitmaps_list.js';
 import { Combo } from '@ziroeda/wx/combobox.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A wxChoice whose rows may be disabled (Delete preset... with nothing to delete). */
 export interface APPEARANCE_CHOICE {
@@ -118,13 +119,13 @@ export function APPEARANCE_CONTROLS_BASE<TAB extends string>(
                   (appearance_controls_base.cpp:67); what sits at the right of
                   this header is the Net Inspector button. */}
                 <div className="ze-nets-header">
-                  <span>Nets</span>
+                  <span>{_('Nets')}</span>
                   {/* PCB_ACTIONS::showNetInspector. The panel it opens is not
                     ported, so the button is genuinely unavailable and says so. */}
                   <button
                     type="button"
                     className="ze-bitmap-btn"
-                    title="Show the Net Inspector"
+                    title={_('Show the Net Inspector')}
                     onClick={n.onShowNetInspector}
                     disabled={!n.onShowNetInspector}
                   >
@@ -160,11 +161,11 @@ export function APPEARANCE_CONTROLS_BASE<TAB extends string>(
               {/* `m_panelNetclasses`, the lower half. */}
               <div className="ze-nets-box grow">
                 <div className="ze-nets-header">
-                  <span>Net Classes</span>
+                  <span>{_('Net Classes')}</span>
                   <button
                     type="button"
                     className="ze-bitmap-btn"
-                    title="Configure net classes"
+                    title={_('Configure net classes')}
                     onClick={n.onConfigureNetclasses}
                   >
                     {/* `m_btnConfigureNetClasses->SetBitmap( KiBitmapBundle(
@@ -198,17 +199,17 @@ export function APPEARANCE_CONTROLS_BASE<TAB extends string>(
           — `rebuildLayerPresetsWidget` and `rebuildViewportsWidget` have no
           `m_isFpEditor` branch. */}
       <div className="ze-appearance-bottom">
-        <div className="ze-info ze-inset">Presets (Ctrl+Tab):</div>
+        <div className="ze-info ze-inset">{_('Presets (Ctrl+Tab):')}</div>
         {/* `m_cbLayerPresets` is a wxChoice (appearance_controls_base.cpp:165),
             and a wxChoice is the shared `Combo` — never a native <select>,
             which brings the platform's own metrics, arrow and popup and cannot
             be made to match GTK's. */}
-        {choice(p.m_cbLayerPresets, 'Presets')}
+        {choice(p.m_cbLayerPresets, _('Presets'))}
         {/* `VIEWPORT_SWITCH_KEY` is WXK_SHIFT (appearance_controls.cpp), which
             is why the label reads Shift and not the Alt the wxFormBuilder stub
             carries. */}
         <div className="ze-info ze-inset ze-viewports-label">Viewports (Shift+Tab):</div>
-        {choice(p.m_cbViewports, 'Viewports')}
+        {choice(p.m_cbViewports, _('Viewports'))}
       </div>
     </div>
   );

@@ -47,6 +47,8 @@ import type { ZONE } from '../zone.js';
 import { ZONE_BORDER_DISPLAY_STYLE, ZONE_FILL_MODE, ZONE_SETTINGS } from '../zone_settings.js';
 import type { TransferResult } from './dialog_text_properties.js';
 import { editZoneParamsCommit } from './panel_zone_properties.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** ZONE_BORDER_HATCH_{DIST,MINDIST,MAXDIST}_MM (pcbnew/zones.h:34-36). */
 const BORDER_HATCH_MIN = mmToIU(0.1);
@@ -75,7 +77,7 @@ export interface NonCopperZoneValues {
 }
 
 /** The DisplayError string this dialog puts up — singular, unlike a rule area's. */
-export const NO_LAYER_SELECTED = 'No layer selected.';
+export const NO_LAYER_SELECTED = _HKI('No layer selected.');
 
 /**
  * TransferDataFromWindow's refusals, in the order it makes them: the hatch
@@ -298,7 +300,7 @@ export function DialogNonCopperZonesProperties({
   return (
     <>
       <DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE
-        title={conv ? 'Convert to Non Copper Zone' : 'Non Copper Zone Properties'}
+        title={conv ? _('Convert to Non Copper Zone') : _('Non Copper Zone Properties')}
         conversionBox={
           conv ? (
             <ConversionSettingsBox
@@ -329,12 +331,14 @@ export function DialogNonCopperZonesProperties({
         )}
         // OnUpdateUI: "Chamfer distance:" for a chamfer, else "Fillet radius:"; the control is
         // enabled while any smoothing is chosen.
-        cornerRadiusLabel={v.cornerSmoothing === 'chamfer' ? 'Chamfer distance:' : 'Fillet radius:'}
+        cornerRadiusLabel={
+          v.cornerSmoothing === 'chamfer' ? _('Chamfer distance:') : _('Fillet radius:')
+        }
         m_cornerRadius={length('cornerRadius', v.cornerSmoothing !== 'none')}
         m_GridStyleCtrl={choice(FILL_TYPES, v.fillMode, (aMode) => set({ fillMode: aMode }))}
         m_hatchOrient={{
           value: texts.hatchOrientation ?? String(v.hatchOrientation),
-          units: 'degree',
+          units: _('degree'),
           enabled: hatch,
           onChange: (aText) => {
             setTexts((t) => ({ ...t, hatchOrientation: aText }));

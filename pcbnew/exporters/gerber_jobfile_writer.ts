@@ -43,6 +43,7 @@ import {
 } from '../board_stackup_manager/board_stackup.js';
 import { GetStandardColors } from '../board_stackup_manager/stackup_predefined_prms.js';
 import { splitFileName } from './gendrill_writer_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // A helper enum to handle sides of some layers (silk, mask)
 export enum ONSIDE {
@@ -535,7 +536,7 @@ export class GERBER_JOBFILE_WRITER {
     const uptodate = !brd_stackup.SynchronizeWithBoard(bds);
 
     if (this.m_reporter && !uptodate && bds.m_HasStackup)
-      this.m_reporter.report('Board stackup settings not up to date.', RPT_SEVERITY_ERROR);
+      this.m_reporter.report(_('Board stackup settings not up to date.'), RPT_SEVERITY_ERROR);
 
     let last_copper_layer = PCB_LAYER_ID.F_Cu;
 

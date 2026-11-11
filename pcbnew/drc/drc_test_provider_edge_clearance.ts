@@ -32,6 +32,7 @@ import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_RTREE } from './drc_rtree.js';
 import { DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 enum SILK_DISPOSITION {
   UNKNOWN = 0,
@@ -131,7 +132,12 @@ export class DRC_TEST_PROVIDER_EDGE_CLEARANCE extends DRC_TEST_PROVIDER {
         // Report clearance info if there is any, even though crossing is just a straight-up collision
         if (minClearance > 0) {
           drcItem.SetErrorDetail(
-            this.formatMsg('(%s clearance %s; actual %s)', constraint.GetName(), minClearance, 0),
+            this.formatMsg(
+              _('(%s clearance %s; actual %s)'),
+              constraint.GetName(),
+              minClearance,
+              0,
+            ),
           );
         }
 
@@ -198,7 +204,7 @@ export class DRC_TEST_PROVIDER_EDGE_CLEARANCE extends DRC_TEST_PROVIDER {
         if (minClearance > 0) {
           drcItem.SetErrorDetail(
             this.formatMsg(
-              '(%s clearance %s; actual %s)',
+              _('(%s clearance %s; actual %s)'),
               constraint.GetName(),
               minClearance,
               actual.value,
@@ -226,9 +232,9 @@ export class DRC_TEST_PROVIDER_EDGE_CLEARANCE extends DRC_TEST_PROVIDER {
 
   Run(): boolean {
     if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_EDGE_CLEARANCE)) {
-      if (!this.reportPhase('Checking copper to board edge clearances...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking copper to board edge clearances...'))) return false; // DRC cancelled
     } else if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_SILK_EDGE_CLEARANCE)) {
-      if (!this.reportPhase('Checking silk to board edge clearances...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking silk to board edge clearances...'))) return false; // DRC cancelled
     } else {
       this.REPORT_AUX('Edge clearance violations ignored. Tests not run.');
       return true; // continue with other tests

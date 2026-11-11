@@ -80,6 +80,8 @@ import {
   KEY_PREPREG,
 } from './board_stackup.js';
 import { type BoardFinish, edgeConnectorOf } from './panel_board_finish.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** An additional dielectric sublayer (BOARD_STACKUP_ITEM's DIELECTRIC_PRMS
  *  entries past index 0, the `addsublayer` groups of the file format). */
@@ -113,8 +115,8 @@ export interface PhysicalStackup {
 
 /** The stackup rows' type strings: the file's keys for the three the file abbreviates. */
 const STACKUP_TYPE_LABEL: Record<string, string> = {
-  [KEY_COPPER]: 'Copper',
-  [KEY_CORE]: 'Core',
+  [KEY_COPPER]: _HKI('Copper'),
+  [KEY_CORE]: _HKI('Core'),
   [KEY_PREPREG]: 'Prepreg',
 };
 const STACKUP_TYPE_KEY: Record<string, string> = {
@@ -347,8 +349,8 @@ const hasField = (type: string, f: 'mat' | 'thick' | 'color' | 'eps' | 'diel'): 
  * capitalised form, so only the second entry's label differs from its value.
  */
 const DIELECTRIC_TYPES: [string, string][] = [
-  ['Core', 'Core'],
-  ['Prepreg', 'PrePreg'],
+  [_HKI('Core'), _HKI('Core')],
+  ['Prepreg', _HKI('PrePreg')],
 ];
 
 const isDielectric = (l: StackupLayer): boolean => l.type === 'Core' || l.type === 'Prepreg';
@@ -536,8 +538,8 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
       }
     });
     setListPick({
-      title: 'Add Dielectric Layer',
-      label: 'Select layer to add:',
+      title: wxGetTranslation('Add Dielectric Layer'),
+      label: wxGetTranslation('Select layer to add:'),
       items,
       onPick: (index) => {
         const t = targets[index]!;
@@ -566,8 +568,8 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
       }
     });
     setListPick({
-      title: 'Remove Dielectric Layer',
-      label: 'Select layer to remove:',
+      title: wxGetTranslation('Remove Dielectric Layer'),
+      label: wxGetTranslation('Select layer to remove:'),
       items,
       onPick: (index) => {
         const t = targets[index]!;
@@ -649,7 +651,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
       return;
     }
     if (a.candidates === 0) {
-      messageBox('All dielectric  thickness layers are locked');
+      messageBox(wxGetTranslation('All dielectric  thickness layers are locked'));
       return;
     }
 
@@ -689,7 +691,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
       }
       const next: StackupLayer = {
         ...l,
-        type: currentIsCore ? 'Core' : 'Prepreg',
+        type: currentIsCore ? wxGetTranslation('Core') : 'Prepreg',
         thicknessMM: round(currentIsCore ? core : prePreg),
       };
       currentIsCore = !currentIsCore;
@@ -979,7 +981,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
         <EdaListDialog
           title={listPick.title}
           listLabel={listPick.label}
-          headers={['Layers']}
+          headers={[wxGetTranslation('Layers')]}
           rows={listPick.items.map((label, idx) => ({ value: String(idx), cells: [label] }))}
           onResult={(picked) => {
             if (picked !== null) listPick.onPick(Number(picked));
@@ -999,7 +1001,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
         })()}
       {adjust && (
         <WxTextEntryDialog
-          caption="Adjust Unlocked Dielectric Layers"
+          caption={wxGetTranslation('Adjust Unlocked Dielectric Layers')}
           message={adjust.title}
           onCancel={() => setAdjust(null)}
           onConfirm={onAdjustEntered}

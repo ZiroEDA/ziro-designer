@@ -35,6 +35,7 @@ import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
 import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `ZONE_FILLER_TOOL_NAME`. */
 export const ZONE_FILLER_TOOL_NAME = 'pcbnew.ZoneFiller';
@@ -113,7 +114,7 @@ export class ZONE_FILLER_TOOL extends PCB_TOOL_BASE {
 
     try {
       if (await this.m_filler.CheckFill(toFill, (r) => frame.AskKiDialog(r))) {
-        commit.Push('Fill Zone(s)', SKIP_CONNECTIVITY | ZONE_FILL_OP);
+        commit.Push(_('Fill Zone(s)'), SKIP_CONNECTIVITY | ZONE_FILL_OP);
         frame.m_ZoneFillsDirty = false;
       } else {
         commit.Revert();
@@ -247,7 +248,7 @@ export class ZONE_FILLER_TOOL extends PCB_TOOL_BASE {
 
     // `WX_PROGRESS_REPORTER( aCaller, "Fill All Zones", 5, PR_CAN_ABORT )` when no
     // reporter was passed.
-    const ownReporter = aReporter || aHeadless ? null : this.openReporter('Fill All Zones');
+    const ownReporter = aReporter || aHeadless ? null : this.openReporter(_('Fill All Zones'));
 
     if (aReporter ?? ownReporter) this.m_filler.SetProgressReporter(aReporter ?? ownReporter);
 
@@ -262,7 +263,7 @@ export class ZONE_FILLER_TOOL extends PCB_TOOL_BASE {
     if (filled) {
       this.m_filler.GetProgressReporter()?.AdvancePhase();
 
-      commit.Push('Fill Zone(s)', SKIP_CONNECTIVITY | ZONE_FILL_OP);
+      commit.Push(_('Fill Zone(s)'), SKIP_CONNECTIVITY | ZONE_FILL_OP);
 
       if (!aHeadless) frame!.m_ZoneFillsDirty = false;
     } else {
@@ -341,7 +342,7 @@ export class ZONE_FILLER_TOOL extends PCB_TOOL_BASE {
       reporter?.Close();
     }
 
-    if (filled) commit.Push('Auto-fill Zone(s)', APPEND_UNDO | SKIP_CONNECTIVITY | ZONE_FILL_OP);
+    if (filled) commit.Push(_('Auto-fill Zone(s)'), APPEND_UNDO | SKIP_CONNECTIVITY | ZONE_FILL_OP);
     else commit.Revert();
 
     this.rebuildConnectivity();
@@ -394,7 +395,7 @@ export class ZONE_FILLER_TOOL extends PCB_TOOL_BASE {
 
     this.m_filler = new ZONE_FILLER(this.board(), commit);
 
-    const reporter = this.openReporter('Fill Zone');
+    const reporter = this.openReporter(_('Fill Zone'));
     this.m_filler.SetProgressReporter(reporter);
 
     let filled: boolean;
@@ -407,7 +408,7 @@ export class ZONE_FILLER_TOOL extends PCB_TOOL_BASE {
 
     if (filled) {
       this.m_filler.GetProgressReporter()?.AdvancePhase();
-      commit.Push('Fill Zone(s)', SKIP_CONNECTIVITY | ZONE_FILL_OP);
+      commit.Push(_('Fill Zone(s)'), SKIP_CONNECTIVITY | ZONE_FILL_OP);
     } else {
       commit.Revert();
     }
@@ -446,7 +447,7 @@ export class ZONE_FILLER_TOOL extends PCB_TOOL_BASE {
       zone.UnFill();
     }
 
-    commit.Push('Unfill Zone', ZONE_FILL_OP);
+    commit.Push(_('Unfill Zone'), ZONE_FILL_OP);
 
     this.refresh();
 
@@ -462,7 +463,7 @@ export class ZONE_FILLER_TOOL extends PCB_TOOL_BASE {
       zone.UnFill();
     }
 
-    commit.Push('Unfill All Zones', ZONE_FILL_OP);
+    commit.Push(_('Unfill All Zones'), ZONE_FILL_OP);
 
     this.refresh();
 

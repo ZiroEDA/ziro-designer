@@ -122,6 +122,7 @@ import {
   type ComponentClassesData,
   PANEL_ASSIGN_COMPONENT_CLASSES,
 } from './panel_assign_component_classes.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * What DIALOG_BOARD_SETUP's pages hold while it is shown: each panel's own
@@ -536,7 +537,7 @@ export function DialogBoardSetup({
           'Imported settings have fewer copper layers than the current board ' +
           `(${other.physicalStackup.copperCount} instead of ${v.physicalStackup.copperCount}).\n\n` +
           'Continue and delete the extra inner copper layers from the current board?',
-        caption: 'Inner Layers to Be Deleted',
+        caption: _('Inner Layers to Be Deleted'),
         style: wxICON_WARNING | wxYES | wxNO | wxNO_DEFAULT,
       });
     }
@@ -548,18 +549,18 @@ export function DialogBoardSetup({
   // The upstream page tree (DIALOG_BOARD_SETUP::DIALOG_BOARD_SETUP).
   const sections: PagedDialogSection[] = [
     {
-      label: 'Board Stackup',
+      label: _('Board Stackup'),
       pages: [
         {
           id: 'layers',
-          label: 'Board Editor Layers',
+          label: _('Board Editor Layers'),
           render: () => (
             <PanelPcbLayers value={v.layers} onChange={(layers) => setV({ ...v, layers })} />
           ),
         },
         {
           id: 'physicalStackup',
-          label: 'Physical Stackup',
+          label: _('Physical Stackup'),
           render: () => (
             <PanelPcbStackup
               value={v.physicalStackup}
@@ -582,7 +583,7 @@ export function DialogBoardSetup({
         },
         {
           id: 'boardFinish',
-          label: 'Board Finish',
+          label: _('Board Finish'),
           render: () => (
             <PanelPcbBoardFinish
               value={v.boardFinish}
@@ -592,7 +593,7 @@ export function DialogBoardSetup({
         },
         {
           id: 'maskPaste',
-          label: 'Solder Mask/Paste',
+          label: _('Solder Mask/Paste'),
           render: () => (
             <PanelPcbMaskPaste
               value={v.maskPaste}
@@ -607,7 +608,7 @@ export function DialogBoardSetup({
           // copper layers, so it reads the stackup's count rather than holding
           // a copper list of its own.
           id: 'zoneHatchOffsets',
-          label: 'Zone Hatch Offsets',
+          label: _('Zone Hatch Offsets'),
           render: () => (
             <PanelPcbZoneHatchOffsets
               copperLayers={AllCuMask(v.physicalStackup.copperCount).map(LSET_Name)}
@@ -619,11 +620,11 @@ export function DialogBoardSetup({
       ],
     },
     {
-      label: 'Text & Graphics',
+      label: _('Text & Graphics'),
       pages: [
         {
           id: 'defaults',
-          label: 'Defaults',
+          label: _('Defaults'),
           // `PANEL_SETUP_DEFAULTS` is THREE panels in one scrolled window:
           // text & graphics, a 10 px spacer, dimensions, another spacer, then
           // zones (`panel_setup_defaults.cpp:39-48`). The first two are
@@ -647,7 +648,7 @@ export function DialogBoardSetup({
         },
         {
           id: 'formatting',
-          label: 'Formatting',
+          label: _('Formatting'),
           render: () => (
             <PanelPcbFormatting
               value={v.formatting}
@@ -657,7 +658,7 @@ export function DialogBoardSetup({
         },
         {
           id: 'textVars',
-          label: 'Text Variables',
+          label: _('Text Variables'),
           render: () => (
             <PanelTextVariables
               vars={v.textVars}
@@ -668,11 +669,11 @@ export function DialogBoardSetup({
       ],
     },
     {
-      label: 'Design Rules',
+      label: _('Design Rules'),
       pages: [
         {
           id: 'constraints',
-          label: 'Constraints',
+          label: _('Constraints'),
           render: () => (
             <PanelSetupConstraints
               value={v.constraints}
@@ -683,7 +684,7 @@ export function DialogBoardSetup({
         },
         {
           id: 'sizes',
-          label: 'Pre-defined Sizes',
+          label: _('Pre-defined Sizes'),
           render: () => (
             <PanelSetupTracksAndVias
               trackWidthsMM={v.trackWidthsMM}
@@ -697,7 +698,7 @@ export function DialogBoardSetup({
         },
         {
           id: 'teardrops',
-          label: 'Teardrops',
+          label: _('Teardrops'),
           render: () => (
             <PanelPcbTeardrops
               value={v.teardrops}
@@ -708,7 +709,7 @@ export function DialogBoardSetup({
         },
         {
           id: 'tuningPatterns',
-          label: 'Length-tuning Patterns',
+          label: _('Length-tuning Patterns'),
           render: () => (
             <PanelPcbTuning
               value={v.tuning}
@@ -719,7 +720,7 @@ export function DialogBoardSetup({
         },
         {
           id: 'tuningProfiles',
-          label: 'Tuning Profiles',
+          label: _('Tuning Profiles'),
           render: () => (
             <PanelPcbTuningProfiles
               value={v.tuningProfiles}
@@ -740,7 +741,7 @@ export function DialogBoardSetup({
         },
         {
           id: 'netclasses',
-          label: 'Net Classes',
+          label: _('Net Classes'),
           render: () => (
             <PanelSetupNetclasses
               value={v.netClasses}
@@ -751,7 +752,7 @@ export function DialogBoardSetup({
         },
         {
           id: 'componentClasses',
-          label: 'Component Classes',
+          label: _('Component Classes'),
           render: () => (
             <PanelPcbComponentClasses
               frame={frame}
@@ -762,7 +763,7 @@ export function DialogBoardSetup({
         },
         {
           id: 'customRules',
-          label: 'Custom Rules',
+          label: _('Custom Rules'),
           render: () => (
             <PanelPcbCustomRules
               board={board}
@@ -773,7 +774,7 @@ export function DialogBoardSetup({
         },
         {
           id: 'severities',
-          label: 'Violation Severity',
+          label: _('Violation Severity'),
           render: () => (
             // dialog_board_setup.cpp:240-246: the shared PANEL_SETUP_SEVERITIES with
             // DRC_ITEM::GetItemsWithSeverities() and BDS::m_DRCSeverities.
@@ -790,11 +791,11 @@ export function DialogBoardSetup({
       ],
     },
     {
-      label: 'Board Data',
+      label: _('Board Data'),
       pages: [
         {
           id: 'embedded',
-          label: 'Embedded Files',
+          label: _('Embedded Files'),
           render: () => (
             <PanelEmbeddedFiles
               value={v.embeddedFiles}
@@ -809,7 +810,7 @@ export function DialogBoardSetup({
   return (
     <>
       <PagedDialog
-        title="Board Setup"
+        title={_('Board Setup')}
         sections={sections}
         initialPage={initialPage}
         /*
@@ -834,7 +835,7 @@ export function DialogBoardSetup({
          * page that does not fit will show.
          */
         initialSize={{ width: 1227, height: 786 }}
-        auxiliaryAction="Import Settings from Another Board..."
+        auxiliaryAction={_('Import Settings from Another Board...')}
         onAuxiliaryAction={() => setImportOpen(true)}
         // `PANEL_SETUP_LAYERS::TransferDataFromWindow` runs `testLayerNames()`
         // first and returns false on a bad name, which keeps the dialog open

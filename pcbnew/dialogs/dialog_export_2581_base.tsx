@@ -33,9 +33,11 @@ import {
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `m_choiceUnitsChoices`, `m_versionChoiceChoices`. */
-export const IPC_UNITS_CHOICES = ['Millimeters', 'Inches'] as const;
+export const IPC_UNITS_CHOICES = [_HKI('Millimeters'), _HKI('Inches')] as const;
 export const IPC_VERSION_CHOICES = ['B', 'C'] as const;
 
 export interface DIALOG_EXPORT_2581_BASE_PROPS {
@@ -87,15 +89,17 @@ export interface DIALOG_EXPORT_2581_BASE_PROPS {
 export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.Element {
   const choice = (aList: readonly string[]): ComboOption[] =>
     aList.map((label, i) => ({ value: String(i), label }));
-  const precisionTip = 'The number of values following the decimal separator';
-  const bomRevTip =
-    'Revision string for the BOM section. Auto-populated from schematic title block revision';
-  const oemTip =
-    'Part ID number used internally during design.\nThis number must be unique to each part.';
-  const mpnTip = 'Column containing the manufacturer part number';
+  const precisionTip = _('The number of values following the decimal separator');
+  const bomRevTip = _(
+    'Revision string for the BOM section. Auto-populated from schematic title block revision',
+  );
+  const oemTip = _(
+    'Part ID number used internally during design.\nThis number must be unique to each part.',
+  );
+  const mpnTip = _('Column containing the manufacturer part number');
 
   return (
-    <DialogShim title="Export IPC-2581" onClose={p.onCancel}>
+    <DialogShim title={_('Export IPC-2581')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxALL} border={10}>
@@ -103,14 +107,14 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
               {/* m_lblBrdFile */}
-              <span>File:</span>
+              <span>{_('File:')}</span>
             </SizerItem>
             <SizerItem proportion={1} flag={wxALIGN_CENTER_VERTICAL} border={5} minSize={[350, -1]}>
               {/* m_outputFileName */}
               <TextCtrl
                 value={p.m_outputFileName}
                 onChange={p.onOutputFileName}
-                ariaLabel="File"
+                ariaLabel={_('File')}
                 title={
                   'Enter a filename if you do not want to use default file names\n' +
                   'Can be used only when printing the current sheet'
@@ -125,7 +129,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
               {/* m_browseButton: small_folder */}
               <StdBitmapButton
                 bitmap="small_folder"
-                title="Browse"
+                title={_('Browse')}
                 tooltip={null}
                 onClick={() => p.onBrowseClicked?.()}
               />
@@ -140,7 +144,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={8}>
                   {/* m_fileFormatLabel */}
-                  <span>File Format</span>
+                  <span>{_('File Format')}</span>
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxBOTTOM} border={5}>
                   {/* m_staticline1 */}
@@ -151,7 +155,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                   <GridBagSizer vgap={5} hgap={5} growableCols={[1]}>
                     <SizerItem pos={[0, 0]} flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
                       {/* m_lblUnits */}
-                      <span>Units:</span>
+                      <span>{_('Units:')}</span>
                     </SizerItem>
                     <SizerItem
                       pos={[0, 1]}
@@ -168,7 +172,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                     </SizerItem>
                     <SizerItem pos={[1, 0]} flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={15}>
                       {/* m_lblPrecision */}
-                      <span title={precisionTip}>Precision:</span>
+                      <span title={precisionTip}>{_('Precision:')}</span>
                     </SizerItem>
                     <SizerItem
                       pos={[1, 1]}
@@ -186,7 +190,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                     </SizerItem>
                     <SizerItem pos={[2, 0]} flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
                       {/* m_lblVersion */}
-                      <span>Version:</span>
+                      <span>{_('Version:')}</span>
                     </SizerItem>
                     <SizerItem
                       pos={[2, 1]}
@@ -204,8 +208,8 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                     <SizerItem pos={[3, 0]} span={[1, 2]} flag={wxTOP} border={5}>
                       {/* m_cbCompress */}
                       <CheckBox
-                        label="Compress output"
-                        title="Compress output into 'zip' file"
+                        label={_('Compress output')}
+                        title={_("Compress output into 'zip' file")}
                         checked={p.m_cbCompress}
                         onChange={p.onCompressCheck}
                       />
@@ -220,7 +224,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={8}>
                   {/* m_columnsLabel */}
-                  <span>BOM Columns</span>
+                  <span>{_('BOM Columns')}</span>
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxBOTTOM} border={5}>
                   {/* m_staticline2 */}
@@ -230,7 +234,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                   {/* fgSizer4 = wxFlexGridSizer( 0, 2, 5, 5 ), AddGrowableCol( 1 ) */}
                   <FlexGridSizer cols={2} vgap={5} hgap={5} growableCols={[1]}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
-                      <span title={bomRevTip}>BOM revision:</span>
+                      <span title={bomRevTip}>{_('BOM revision:')}</span>
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxRIGHT} border={5}>
                       <TextCtrl
@@ -241,7 +245,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                       />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
-                      <span title={oemTip}>Internal ID:</span>
+                      <span title={oemTip}>{_('Internal ID:')}</span>
                     </SizerItem>
                     <SizerItem flag={wxEXPAND | wxRIGHT} border={5}>
                       <Combo
@@ -252,7 +256,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                       />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
-                      <span title={mpnTip}>Manufacturer P/N:</span>
+                      <span title={mpnTip}>{_('Manufacturer P/N:')}</span>
                     </SizerItem>
                     <SizerItem flag={wxEXPAND | wxRIGHT} border={5}>
                       <Combo
@@ -263,7 +267,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                       />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
-                      <span>Manufacturer:</span>
+                      <span>{_('Manufacturer:')}</span>
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxRIGHT} border={5}>
                       <Combo
@@ -275,7 +279,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                       />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <span>Distributor P/N:</span>
+                      <span>{_('Distributor P/N:')}</span>
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxRIGHT} border={5}>
                       <Combo
@@ -286,7 +290,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                       />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <span>Distributor:</span>
+                      <span>{_('Distributor:')}</span>
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxRIGHT} border={5}>
                       <TextCtrl
@@ -317,8 +321,8 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
       <StdDialogButtonSizer
         onCancel={p.onCancel}
         onOk={p.onOKClick}
-        okLabel="Export"
-        cancelLabel="Close"
+        okLabel={_('Export')}
+        cancelLabel={_('Close')}
       />
     </DialogShim>
   );

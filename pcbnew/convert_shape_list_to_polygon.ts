@@ -40,6 +40,7 @@ import type { BOARD_ITEM } from './board_item.js';
 import { PCB_TYPE_COLLECTOR } from './collectors.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export type OUTLINE_ERROR_HANDLER = (
   msg: string,
@@ -362,7 +363,7 @@ function addOutlinesToPolygon(
 
           if (a && b) {
             aErrorHandler(
-              '(multiple board outlines not supported)',
+              _('(multiple board outlines not supported)'),
               a,
               b,
               aContours[contourIndex]!.GetPoint(0),
@@ -469,7 +470,7 @@ function checkSelfIntersections(
         if (aErrorHandler) {
           const a = aFetchOwner(seg1);
           const b = aFetchOwner(seg2);
-          aErrorHandler('(self-intersecting)', a, b, seg1.A);
+          aErrorHandler(_('(self-intersecting)'), a, b, seg1.A);
         }
 
         selfIntersecting = true;
@@ -480,7 +481,7 @@ function checkSelfIntersections(
           if (aErrorHandler) {
             const a = aFetchOwner(seg1);
             const b = aFetchOwner(seg2);
-            aErrorHandler('(self-intersecting)', a, b, pt);
+            aErrorHandler(_('(self-intersecting)'), a, b, pt);
           }
 
           selfIntersecting = true;
@@ -742,7 +743,7 @@ export function doConvertOutlineToPolygon(
             if (next === chainEnd && close_enough(prev, chainPt, aChainingEpsilon)) {
               closed = true;
             } else {
-              if (aErrorHandler) aErrorHandler('(self-intersecting)', curr, next, prev);
+              if (aErrorHandler) aErrorHandler(_('(self-intersecting)'), curr, next, prev);
 
               selfIntersecting = true;
             }
@@ -862,7 +863,7 @@ export function doConvertOutlineToPolygon(
             midpoint = { x: Math.trunc((ptA.x + ptB.x) / 2), y: Math.trunc((ptA.y + ptB.y) / 2) };
           }
 
-          aErrorHandler('(not a closed shape)', shapeA, shapeB, midpoint);
+          aErrorHandler(_('(not a closed shape)'), shapeA, shapeB, midpoint);
         };
 
         report_gap(currContour.CPoint(0));
@@ -1194,7 +1195,7 @@ export function TestBoardOutlinesGraphicItems(
             midpoint = overlapBox.Centre();
         }
 
-        aErrorHandler('(self-intersecting)', shapeA, shapeB, midpoint);
+        aErrorHandler(_('(self-intersecting)'), shapeA, shapeB, midpoint);
       }
     }
   }

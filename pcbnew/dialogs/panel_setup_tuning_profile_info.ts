@@ -36,6 +36,7 @@ import {
   type BOARD_STACKUP_ITEM,
   BOARD_STACKUP_ITEM_TYPE,
 } from '../board_stackup_manager/board_stackup.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** [data] `PANEL_SETUP_TUNING_PROFILE_INFO::RHO`: copper resistivity, ohm·m. */
 export const RHO = 1.72e-8;
@@ -171,34 +172,34 @@ export function getMicrostripBoardParameters(
 ): [CalculationBoardParameters | null, CalculationResult] {
   const stackupLayerList = aStackup.GetList();
 
-  if (aRow.signalLayer === undefined) return [null, fail('Signal layer not found in stackup')];
+  if (aRow.signalLayer === undefined) return [null, fail(_('Signal layer not found in stackup'))];
 
   const signalLayer = aRow.signalLayer;
 
   // Microstrip can only be on an outer copper layer
   if (signalLayer !== PCB_LAYER_ID.F_Cu && signalLayer !== PCB_LAYER_ID.B_Cu)
-    return [null, fail('Internal error: Microstrip can only be on an outer copper layer')];
+    return [null, fail(_('Internal error: Microstrip can only be on an outer copper layer'))];
 
   const signalLayerStackupId = getStackupLayerId(stackupLayerList, signalLayer);
 
-  if (signalLayerStackupId === -1) return [null, fail('Signal layer not found in stackup')];
+  if (signalLayerStackupId === -1) return [null, fail(_('Signal layer not found in stackup'))];
 
   const signalLayerThickness =
     pcbIUScale.iuToMM(stackupLayerList[signalLayerStackupId]!.GetThickness()) / 1000.0;
 
   if (signalLayerThickness <= 0)
-    return [null, fail('Signal layer thickness must be greater than 0')];
+    return [null, fail(_('Signal layer thickness must be greater than 0'))];
 
   // Get reference layer
   const referenceLayer =
     signalLayer === PCB_LAYER_ID.F_Cu ? aRow.bottomReference : aRow.topReference;
 
-  if (referenceLayer === undefined) return [null, fail('Reference layer not found in stackup')];
+  if (referenceLayer === undefined) return [null, fail(_('Reference layer not found in stackup'))];
 
   const referenceLayerStackupId = getStackupLayerId(stackupLayerList, referenceLayer);
 
   if (signalLayerStackupId === referenceLayerStackupId)
-    return [null, fail('Reference layer must be different to signal layer')];
+    return [null, fail(_('Reference layer must be different to signal layer'))];
 
   // Get the dielectric layers between signal and reference layers
   const dielectricLayerStackupIds = getDielectricLayers(
@@ -214,7 +215,7 @@ export function getMicrostripBoardParameters(
   );
 
   if (!(dielectricInfo.Height > 0.0))
-    return [null, fail('Dielectric height must be greater than 0')];
+    return [null, fail(_('Dielectric height must be greater than 0'))];
 
   return [
     {
@@ -235,38 +236,38 @@ export function getStriplineBoardParameters(
 ): [CalculationBoardParameters | null, CalculationResult] {
   const stackupLayerList = aStackup.GetList();
 
-  if (aRow.signalLayer === undefined) return [null, fail('Signal layer not found in stackup')];
+  if (aRow.signalLayer === undefined) return [null, fail(_('Signal layer not found in stackup'))];
 
   const signalLayer = aRow.signalLayer;
   const signalLayerStackupId = getStackupLayerId(stackupLayerList, signalLayer);
 
-  if (signalLayerStackupId === -1) return [null, fail('Signal layer not found in stackup')];
+  if (signalLayerStackupId === -1) return [null, fail(_('Signal layer not found in stackup'))];
 
   const signalLayerThickness =
     pcbIUScale.iuToMM(stackupLayerList[signalLayerStackupId]!.GetThickness()) / 1000.0;
 
   if (signalLayerThickness <= 0)
-    return [null, fail('Signal layer thickness must be greater than 0')];
+    return [null, fail(_('Signal layer thickness must be greater than 0'))];
 
   // Get top reference layer
   if (aRow.topReference === undefined)
-    return [null, fail('Top reference layer not found in stackup')];
+    return [null, fail(_('Top reference layer not found in stackup'))];
 
   const topReferenceLayer = aRow.topReference;
   const topReferenceLayerStackupId = getStackupLayerId(stackupLayerList, topReferenceLayer);
 
   if (!IsCopperLayerLowerThan(signalLayer, topReferenceLayer))
-    return [null, fail('Top reference layer must be above signal layer in board stackup')];
+    return [null, fail(_('Top reference layer must be above signal layer in board stackup'))];
 
   // Get bottom reference layer
   if (aRow.bottomReference === undefined)
-    return [null, fail('Bottom reference layer not found in stackup')];
+    return [null, fail(_('Bottom reference layer not found in stackup'))];
 
   const bottomReferenceLayer = aRow.bottomReference;
   const bottomReferenceLayerStackupId = getStackupLayerId(stackupLayerList, bottomReferenceLayer);
 
   if (!IsCopperLayerLowerThan(bottomReferenceLayer, signalLayer))
-    return [null, fail('Bottom reference layer must be below signal layer in board stackup')];
+    return [null, fail(_('Bottom reference layer must be below signal layer in board stackup'))];
 
   // Get the dielectric layers between signal and reference layers
   const topDielectricLayerStackupIds = getDielectricLayers(
@@ -300,7 +301,7 @@ export function getStriplineBoardParameters(
   );
 
   if (!(topDielectricInfo.Height > 0.0) && !(bottomDielectricInfo.Height > 0.0))
-    return [null, fail('Dielectric heights must be greater than 0')];
+    return [null, fail(_('Dielectric heights must be greater than 0'))];
 
   return [
     {
@@ -345,7 +346,7 @@ export function calculateSingleMicrostrip(
 ): CalculationResult {
   const targetZ = aTargetZ;
 
-  if (!(targetZ > 0)) return fail('Target impedance must be greater than 0');
+  if (!(targetZ > 0)) return fail(_('Target impedance must be greater than 0'));
 
   // Get board parameters
   const [boardParameters, result] = getMicrostripBoardParameters(aStackup, aRow);
@@ -394,10 +395,10 @@ export function calculateSingleMicrostrip(
       : m_microstripCalc.GetAnalysisResults();
 
   if (resultOf(results, TRANSLINE_PARAMETERS.PHYS_WIDTH)[1] !== TRANSLINE_STATUS.OK)
-    return fail('Width calculation failed');
+    return fail(_('Width calculation failed'));
 
   if (resultOf(results, TRANSLINE_PARAMETERS.UNIT_PROP_DELAY)[1] !== TRANSLINE_STATUS.OK)
-    return fail('Delay calculation failed');
+    return fail(_('Delay calculation failed'));
 
   const width = widthIU(resultOf(results, TRANSLINE_PARAMETERS.PHYS_WIDTH)[0]);
   const propDelay = delayIU(resultOf(results, TRANSLINE_PARAMETERS.UNIT_PROP_DELAY)[0]);
@@ -414,7 +415,7 @@ export function calculateSingleStripline(
 ): CalculationResult {
   const targetZ = aTargetZ;
 
-  if (!(targetZ > 0)) return fail('Target impedance must be greater than 0');
+  if (!(targetZ > 0)) return fail(_('Target impedance must be greater than 0'));
 
   // Get board parameters
   const [boardParameters, result] = getStriplineBoardParameters(aStackup, aRow);
@@ -465,10 +466,10 @@ export function calculateSingleStripline(
       : m_striplineCalc.GetAnalysisResults();
 
   if (resultOf(results, TRANSLINE_PARAMETERS.PHYS_WIDTH)[1] !== TRANSLINE_STATUS.OK)
-    return fail('Width calculation failed');
+    return fail(_('Width calculation failed'));
 
   if (resultOf(results, TRANSLINE_PARAMETERS.UNIT_PROP_DELAY)[1] !== TRANSLINE_STATUS.OK)
-    return fail('Delay calculation failed');
+    return fail(_('Delay calculation failed'));
 
   const width = widthIU(resultOf(results, TRANSLINE_PARAMETERS.PHYS_WIDTH)[0]);
   const propDelay = delayIU(resultOf(results, TRANSLINE_PARAMETERS.UNIT_PROP_DELAY)[0]);
@@ -488,17 +489,17 @@ function coupledInputs(
 
   if (aCalculationType === CalculationType.WIDTH) {
     if (gapOpt === undefined || gapOpt <= 0)
-      return fail('Diff pair gap must be greater than 0 to calculate width');
+      return fail(_('Diff pair gap must be greater than 0 to calculate width'));
 
     gap = pcbIUScale.iuToMM(gapOpt) / 1000.0;
   } else if (aCalculationType === CalculationType.GAP) {
     if (widthOpt === undefined || widthOpt <= 0)
-      return fail('Width must be greater than 0 to calculate diff pair gap');
+      return fail(_('Width must be greater than 0 to calculate diff pair gap'));
 
     width = pcbIUScale.iuToMM(widthOpt) / 1000.0;
   } else if (aCalculationType === CalculationType.DELAY) {
     if (widthOpt === undefined || gapOpt === undefined || widthOpt <= 0 || gapOpt <= 0)
-      return fail('Width and diff pair gap must be greater than 0 to calculate delay');
+      return fail(_('Width and diff pair gap must be greater than 0 to calculate delay'));
 
     width = pcbIUScale.iuToMM(widthOpt) / 1000.0;
     gap = pcbIUScale.iuToMM(gapOpt) / 1000.0;
@@ -530,13 +531,13 @@ function coupledResult(
       : aCalc.GetAnalysisResults();
 
   if (resultOf(results, TRANSLINE_PARAMETERS.PHYS_WIDTH)[1] !== TRANSLINE_STATUS.OK)
-    return fail('Width calculation failed');
+    return fail(_('Width calculation failed'));
 
   if (resultOf(results, TRANSLINE_PARAMETERS.PHYS_S)[1] !== TRANSLINE_STATUS.OK)
-    return fail('Diff pair gap calculation failed');
+    return fail(_('Diff pair gap calculation failed'));
 
   if (resultOf(results, TRANSLINE_PARAMETERS.UNIT_PROP_DELAY_ODD)[1] !== TRANSLINE_STATUS.OK)
-    return fail('Delay calculation failed');
+    return fail(_('Delay calculation failed'));
 
   const calcWidth = widthIU(resultOf(results, TRANSLINE_PARAMETERS.PHYS_WIDTH)[0]);
   const calcGap = widthIU(resultOf(results, TRANSLINE_PARAMETERS.PHYS_S)[0]);
@@ -554,7 +555,7 @@ export function calculateDifferentialMicrostrip(
 ): CalculationResult {
   const targetZ = aTargetZ;
 
-  if (!(targetZ > 0)) return fail('Target impedance must be greater than 0');
+  if (!(targetZ > 0)) return fail(_('Target impedance must be greater than 0'));
 
   // Get board parameters
   const [boardParameters, result] = getMicrostripBoardParameters(aStackup, aRow);
@@ -611,7 +612,7 @@ export function calculateDifferentialStripline(
 ): CalculationResult {
   const targetZ = aTargetZ;
 
-  if (!(targetZ > 0)) return fail('Target impedance must be greater than 0');
+  if (!(targetZ > 0)) return fail(_('Target impedance must be greater than 0'));
 
   // Get board parameters
   const [boardParameters, result] = getStriplineBoardParameters(aStackup, aRow);
@@ -672,7 +673,7 @@ export function calculateTrackParameters(
   aTargetZ: number,
   aCalculationType: CalculationType,
 ): CalculationResult {
-  if (aRow.signalLayer === undefined) return fail('Signal layer not found in stackup');
+  if (aRow.signalLayer === undefined) return fail(_('Signal layer not found in stackup'));
 
   const isMicrostrip = isMicrostripLayer(aRow.signalLayer);
 
@@ -683,9 +684,9 @@ export function calculateTrackParameters(
 
     if (!result.OK) return fail(`Error: ${result.ErrorMsg}`);
 
-    if (!(result.Width > 0)) return fail('Could not compute track width');
-    if (!(result.DiffPairGap > 0)) return fail('Could not compute differential pair gap');
-    if (!(result.Delay > 0)) return fail('Could not compute track propagation delay');
+    if (!(result.Width > 0)) return fail(_('Could not compute track width'));
+    if (!(result.DiffPairGap > 0)) return fail(_('Could not compute differential pair gap'));
+    if (!(result.Delay > 0)) return fail(_('Could not compute track propagation delay'));
 
     return result;
   }
@@ -696,8 +697,8 @@ export function calculateTrackParameters(
 
   if (!result.OK) return fail(`Error: ${result.ErrorMsg}`);
 
-  if (!(result.Width > 0)) return fail('Could not compute track width');
-  if (!(result.Delay > 0)) return fail('Could not compute track propagation delay');
+  if (!(result.Width > 0)) return fail(_('Could not compute track width'));
+  if (!(result.Delay > 0)) return fail(_('Could not compute track propagation delay'));
 
   // Single track mode never touches the gap.
   return { ...result, DiffPairGap: 0 };

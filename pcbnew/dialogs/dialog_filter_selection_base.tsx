@@ -12,6 +12,7 @@ import { type CHECK, CheckBox } from '@ziroeda/wx/controls.js';
 import { wxALL, wxEXPAND, wxRESERVE_SPACE_EVEN_IF_HIDDEN, wxVERTICAL } from '@ziroeda/wx/defs.js';
 import { BoxSizer, FlexGridSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
 import { type CHECK3, TriStateCheck } from '@ziroeda/wx/wx_checkbox.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_FILTER_SELECTION_BASE_PROPS {
   /** wxCHK_3STATE | wxCHK_ALLOW_3RD_STATE_FOR_USER, its click is allItemsClicked. */
@@ -31,42 +32,42 @@ export interface DIALOG_FILTER_SELECTION_BASE_PROPS {
 
 export function DIALOG_FILTER_SELECTION_BASE(p: DIALOG_FILTER_SELECTION_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Filter Selected Items" onClose={p.onCancel}>
+    <DialogShim title={_('Filter Selected Items')} onClose={p.onCancel}>
       {/* bSizerMain */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={10}>
           {/* gSizer1 = wxGridSizer( 0, 2, 3, 3 ) */}
           <FlexGridSizer cols={2} vgap={3} hgap={3} flexibleDirection={0}>
             <SizerItem border={5}>
-              <TriStateCheck label="All items" check={p.m_All_Items} />
+              <TriStateCheck label={_('All items')} check={p.m_All_Items} />
             </SizerItem>
             {/* m_Hidden_Spacer->Hide(), wxRESERVE_SPACE_EVEN_IF_HIDDEN: an empty checkbox */}
             <SizerItem flag={wxRESERVE_SPACE_EVEN_IF_HIDDEN} shown={false}>
               <CheckBox label="" checked={false} />
             </SizerItem>
             <SizerItem border={5}>
-              <CheckBox label="Include footprints" check={p.m_Include_Modules} />
+              <CheckBox label={_('Include footprints')} check={p.m_Include_Modules} />
             </SizerItem>
             <SizerItem border={5}>
-              <CheckBox label="Include text items" check={p.m_Include_PcbTexts} />
+              <CheckBox label={_('Include text items')} check={p.m_Include_PcbTexts} />
             </SizerItem>
             <SizerItem border={5}>
-              <CheckBox label="Include locked footprints" check={p.m_IncludeLockedModules} />
+              <CheckBox label={_('Include locked footprints')} check={p.m_IncludeLockedModules} />
             </SizerItem>
             <SizerItem border={5}>
-              <CheckBox label="Include drawings" check={p.m_Include_Draw_Items} />
+              <CheckBox label={_('Include drawings')} check={p.m_Include_Draw_Items} />
             </SizerItem>
             <SizerItem border={5}>
-              <CheckBox label="Include tracks" check={p.m_Include_Tracks} />
+              <CheckBox label={_('Include tracks')} check={p.m_Include_Tracks} />
             </SizerItem>
             <SizerItem border={5}>
-              <CheckBox label="Include board outline layer" check={p.m_Include_Edges_Items} />
+              <CheckBox label={_('Include board outline layer')} check={p.m_Include_Edges_Items} />
             </SizerItem>
             <SizerItem border={5}>
-              <CheckBox label="Include vias" check={p.m_Include_Vias} />
+              <CheckBox label={_('Include vias')} check={p.m_Include_Vias} />
             </SizerItem>
             <SizerItem border={5}>
-              <CheckBox label="Include zones" check={p.m_Include_Zones} />
+              <CheckBox label={_('Include zones')} check={p.m_Include_Zones} />
             </SizerItem>
           </FlexGridSizer>
         </SizerItem>

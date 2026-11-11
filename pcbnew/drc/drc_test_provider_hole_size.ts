@@ -19,6 +19,7 @@ import { type PCB_VIA, VIATYPE } from '../pcb_track.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_HOLE_SIZE extends DRC_TEST_PROVIDER {
   override GetName(): string {
@@ -27,7 +28,7 @@ export class DRC_TEST_PROVIDER_HOLE_SIZE extends DRC_TEST_PROVIDER {
 
   Run(): boolean {
     if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_DRILL_OUT_OF_RANGE)) {
-      if (!this.reportPhase('Checking pad holes...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking pad holes...'))) return false; // DRC cancelled
 
       for (const footprint of this.m_drcEngine!.GetBoard()!.Footprints()) {
         for (const pad of footprint.Pads()) {
@@ -42,9 +43,9 @@ export class DRC_TEST_PROVIDER_HOLE_SIZE extends DRC_TEST_PROVIDER {
       !this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_DRILL_OUT_OF_RANGE)
     ) {
       if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_DRILL_OUT_OF_RANGE)) {
-        if (!this.reportPhase('Checking via holes...')) return false; // DRC cancelled
+        if (!this.reportPhase(_('Checking via holes...'))) return false; // DRC cancelled
       } else {
-        if (!this.reportPhase('Checking micro-via holes...')) return false; // DRC cancelled
+        if (!this.reportPhase(_('Checking micro-via holes...'))) return false; // DRC cancelled
       }
 
       for (const track of this.m_drcEngine!.GetBoard()!.Tracks()) {
@@ -118,14 +119,24 @@ export class DRC_TEST_PROVIDER_HOLE_SIZE extends DRC_TEST_PROVIDER {
 
       if (fail_min) {
         if (constraint.GetParentRule() && constraint.GetParentRule()!.IsImplicit())
-          constraintName = 'board setup constraints';
+          constraintName = _('board setup constraints');
 
         drcItem.SetErrorDetail(
-          this.formatMsg('(%s min hole %s; actual %s)', constraintName, constraintValue, holeMinor),
+          this.formatMsg(
+            _('(%s min hole %s; actual %s)'),
+            constraintName,
+            constraintValue,
+            holeMinor,
+          ),
         );
       } else {
         drcItem.SetErrorDetail(
-          this.formatMsg('(%s max hole %s; actual %s)', constraintName, constraintValue, holeMajor),
+          this.formatMsg(
+            _('(%s max hole %s; actual %s)'),
+            constraintName,
+            constraintValue,
+            holeMajor,
+          ),
         );
       }
 
@@ -177,14 +188,14 @@ export class DRC_TEST_PROVIDER_HOLE_SIZE extends DRC_TEST_PROVIDER {
       let constraintName = constraint.GetName();
 
       if (fail_min) {
-        if (constraint.m_ImplicitMin) constraintName = 'board setup constraints';
+        if (constraint.m_ImplicitMin) constraintName = _('board setup constraints');
 
         drcItem.SetErrorDetail(
-          this.formatMsg('(%s min hole %s; actual %s)', constraintName, constraintValue, drill),
+          this.formatMsg(_('(%s min hole %s; actual %s)'), constraintName, constraintValue, drill),
         );
       } else {
         drcItem.SetErrorDetail(
-          this.formatMsg('(%s max hole %s; actual %s)', constraintName, constraintValue, drill),
+          this.formatMsg(_('(%s max hole %s; actual %s)'), constraintName, constraintValue, drill),
         );
       }
 

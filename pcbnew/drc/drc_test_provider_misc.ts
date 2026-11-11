@@ -49,6 +49,7 @@ import type { PCB_VIA } from '../pcb_track.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import type { DRC_CONSTRAINT } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 function findClosestOutlineGap(
   aBoard: BOARD,
@@ -204,7 +205,7 @@ export class DRC_TEST_PROVIDER_MISC extends DRC_TEST_PROVIDER {
         // if there are invalid items on Edge.Cuts, they are already reported
       } else {
         const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_INVALID_OUTLINE)!;
-        drcItem.SetErrorDetail('(Suspicious items found on Edge.Cuts layer)');
+        drcItem.SetErrorDetail(_('(Suspicious items found on Edge.Cuts layer)'));
         drcItem.SetItems(this.m_board);
 
         this.reportViolation(
@@ -237,7 +238,7 @@ export class DRC_TEST_PROVIDER_MISC extends DRC_TEST_PROVIDER {
         // if there is an invalid outline, then there must be an outline
       } else {
         const drcItem = DRC_ITEM.Create(PCB_DRC_CODE.DRCE_INVALID_OUTLINE)!;
-        drcItem.SetErrorDetail('(no edges found on Edge.Cuts layer)');
+        drcItem.SetErrorDetail(_('(no edges found on Edge.Cuts layer)'));
         drcItem.SetItems(this.m_board);
 
         this.reportViolation(
@@ -396,7 +397,7 @@ export class DRC_TEST_PROVIDER_MISC extends DRC_TEST_PROVIDER {
             const drcItem = DRC_ITEM.Create(aErrorCode)!;
 
             if (item) drcItem.SetItems(item);
-            else drcText += ' (in drawing sheet)';
+            else drcText += _(' (in drawing sheet)');
 
             drcItem.SetErrorMessage(drcText);
 
@@ -515,19 +516,19 @@ export class DRC_TEST_PROVIDER_MISC extends DRC_TEST_PROVIDER {
     this.m_board = this.m_drcEngine!.GetBoard();
 
     if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_INVALID_OUTLINE)) {
-      if (!this.reportPhase('Checking board outline...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking board outline...'))) return false; // DRC cancelled
 
       this.testOutline();
     }
 
     if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_DISABLED_LAYER_ITEM)) {
-      if (!this.reportPhase('Checking disabled layers...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking disabled layers...'))) return false; // DRC cancelled
 
       this.testDisabledLayers();
     }
 
     if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_UNRESOLVED_VARIABLE)) {
-      if (!this.reportPhase('Checking text variables...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking text variables...'))) return false; // DRC cancelled
 
       this.testTextVars();
     }
@@ -537,13 +538,13 @@ export class DRC_TEST_PROVIDER_MISC extends DRC_TEST_PROVIDER {
       !this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_GENERIC_WARNING) ||
       !this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_GENERIC_ERROR)
     ) {
-      if (!this.reportPhase('Checking assertions...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking assertions...'))) return false; // DRC cancelled
 
       this.testAssertions();
     }
 
     if (!this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_MISSING_TUNING_PROFILE)) {
-      if (!this.reportPhase('Checking for missing tuning profiles...')) return false; // DRC cancelled
+      if (!this.reportPhase(_('Checking for missing tuning profiles...'))) return false; // DRC cancelled
 
       this.testMissingTuningProfiles();
     }

@@ -40,6 +40,7 @@ import {
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A UNIT_BINDER (or a wxTextCtrl and its unit text): text, unit, Enable(). */
 export interface UNIT_FIELD {
@@ -104,7 +105,7 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
   );
 
   return (
-    <DialogShim title={p.title ?? 'Non Copper Zone Properties'} onClose={p.onCancel}>
+    <DialogShim title={p.title ?? _('Non Copper Zone Properties')} onClose={p.onCancel}>
       {/* m_MainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         {p.conversionBox != null && (
@@ -124,14 +125,14 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
               {/* bSizerLeft */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxLEFT | wxRIGHT | wxTOP} border={7}>
-                  <StaticText label="Layers" />
+                  <StaticText label={_('Layers')} />
                 </SizerItem>
                 <Spacer width={0} height={2} flag={wxEXPAND} border={5} />
                 <SizerItem proportion={1} flag={wxEXPAND | BRL} border={5} minSize={[100, -1]}>
                   <DataViewListCtrl
                     rows={p.m_layers}
                     onToggle={p.OnLayerSelection}
-                    ariaLabel="Layers"
+                    ariaLabel={_('Layers')}
                   />
                 </SizerItem>
                 <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
@@ -141,25 +142,25 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
               {/* bSizerMiddle */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxEXPAND | wxBOTTOM} border={5}>
-                  <StaticBoxSizer label="Shape" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Shape')} orient={wxVERTICAL}>
                     <SizerItem flag={wxEXPAND} border={5}>
                       {/* gbSizer1 = wxGridBagSizer( 0, 0 ), SetEmptyCellSize( wxSize( -1,6 ) ) */}
                       <GridBagSizer vgap={0} hgap={0} emptyCellSize={[-1, 6]} growableCols={[1]}>
                         <SizerItem pos={[0, 0]} flag={wxALL} border={5}>
-                          <CheckBox label="Locked" check={p.m_cbLocked} />
+                          <CheckBox label={_('Locked')} check={p.m_cbLocked} />
                         </SizerItem>
                         <SizerItem pos={[2, 0]} flag={CV | wxALL} border={5}>
-                          <StaticText label="Outline style:" />
+                          <StaticText label={_('Outline style:')} />
                         </SizerItem>
                         <SizerItem pos={[2, 1]} flag={wxALL | wxEXPAND | CV} border={5}>
                           <Choice
-                            choices={['Line', 'Hatched', 'Fully hatched']}
+                            choices={[_('Line'), _('Hatched'), _('Fully hatched')]}
                             choice={p.m_OutlineDisplayCtrl}
                             ariaLabel="Outline style"
                           />
                         </SizerItem>
                         <SizerItem pos={[3, 0]} flag={wxALL | CV} border={5}>
-                          <StaticText label="Outline hatch pitch:" />
+                          <StaticText label={_('Outline hatch pitch:')} />
                         </SizerItem>
                         <SizerItem pos={[3, 1]} flag={wxEXPAND | CV | BRL} border={5}>
                           <TextCtrl
@@ -172,7 +173,7 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
                           <StaticText label={p.m_outlineHatchPitch.units} />
                         </SizerItem>
                         <SizerItem pos={[4, 0]} flag={CV | BRL} border={5}>
-                          <StaticText label="Minimum width:" />
+                          <StaticText label={_('Minimum width:')} />
                         </SizerItem>
                         <SizerItem pos={[4, 1]} flag={wxEXPAND | CV | wxALL} border={5}>
                           <TextCtrl
@@ -185,11 +186,11 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
                           <StaticText label={p.m_minWidth.units} />
                         </SizerItem>
                         <SizerItem pos={[5, 0]} flag={BRL | CV} border={5}>
-                          <StaticText label="Corner smoothing:" />
+                          <StaticText label={_('Corner smoothing:')} />
                         </SizerItem>
                         <SizerItem pos={[5, 1]} flag={BRL | CV | wxEXPAND} border={5}>
                           <Choice
-                            choices={['None', 'Chamfer', 'Fillet']}
+                            choices={[_('None'), _('Chamfer'), _('Fillet')]}
                             choice={p.m_cornerSmoothingChoice}
                             ariaLabel="Corner smoothing"
                           />
@@ -219,31 +220,31 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
                   </StaticBoxSizer>
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxTOP | wxBOTTOM} border={5}>
-                  <StaticBoxSizer label="Fill" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Fill')} orient={wxVERTICAL}>
                     <SizerItem flag={wxEXPAND} border={5}>
                       {/* fgSizer1 = wxFlexGridSizer( 0, 3, 0, 0 ) */}
                       <FlexGridSizer cols={3} vgap={0} hgap={0} growableCols={[1]}>
                         <SizerItem flag={BRL | CV} border={5}>
-                          <StaticText label="Fill type:" />
+                          <StaticText label={_('Fill type:')} />
                         </SizerItem>
                         <SizerItem flag={BRL | wxEXPAND | CV} border={5}>
                           <Choice
-                            choices={['Solid fill', 'Hatch pattern']}
+                            choices={[_('Solid fill'), _('Hatch pattern')]}
                             choice={p.m_GridStyleCtrl}
                             ariaLabel="Fill type"
                           />
                         </SizerItem>
                         <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
-                        {fillRow('Orientation:', p.m_hatchOrient, 'Orientation')}
-                        {fillRow('Hatch width:', p.m_hatchWidth, 'Hatch width')}
-                        {fillRow('Hatch gap:', p.m_hatchGap, 'Hatch gap')}
+                        {fillRow(_('Orientation:'), p.m_hatchOrient, 'Orientation')}
+                        {fillRow(_('Hatch width:'), p.m_hatchWidth, 'Hatch width')}
+                        {fillRow(_('Hatch gap:'), p.m_hatchGap, 'Hatch gap')}
                         <SizerItem flag={BRL | CV} border={5}>
                           <StaticText
-                            label="Smoothing effort:"
+                            label={_('Smoothing effort:')}
                             disabled={!p.m_spinCtrlSmoothLevel.enabled}
-                            title={
-                              'Value of smoothing effort\n0 = no smoothing\n1 = chamfer\n2 = round corners\n3 = round corners (finer shape)'
-                            }
+                            title={_(
+                              'Value of smoothing effort\n0 = no smoothing\n1 = chamfer\n2 = round corners\n3 = round corners (finer shape)',
+                            )}
                           />
                         </SizerItem>
                         <SizerItem flag={BRL | wxEXPAND | CV} border={5}>
@@ -259,11 +260,11 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
                         <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
                         <SizerItem flag={CV | wxBOTTOM | wxLEFT} border={5}>
                           <StaticText
-                            label="Smoothing amount:"
+                            label={_('Smoothing amount:')}
                             disabled={!p.m_spinCtrlSmoothValue.enabled}
-                            title={
-                              'Ratio between smoothed corners size and the gap between lines\n0 = no smoothing\n1.0 = max radius/chamfer size (half gap value)'
-                            }
+                            title={_(
+                              'Ratio between smoothed corners size and the gap between lines\n0 = no smoothing\n1.0 = max radius/chamfer size (half gap value)',
+                            )}
                           />
                         </SizerItem>
                         <SizerItem flag={wxEXPAND | CV | BRL} border={5}>

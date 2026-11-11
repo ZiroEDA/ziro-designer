@@ -17,6 +17,7 @@ import type { PCB_VIA } from '../pcb_track.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT_T } from './drc_rule.js';
 import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DRC_TEST_PROVIDER_VIA_DIAMETER extends DRC_TEST_PROVIDER {
   override GetName(): string {
@@ -34,7 +35,7 @@ export class DRC_TEST_PROVIDER_VIA_DIAMETER extends DRC_TEST_PROVIDER {
       return true; // continue with other tests
     }
 
-    if (!this.reportPhase('Checking via diameters...')) return false; // DRC cancelled
+    if (!this.reportPhase(_('Checking via diameters...'))) return false; // DRC cancelled
 
     const checkViaDiameter = (item: BOARD_ITEM): boolean => {
       if (this.m_drcEngine!.IsErrorLimitExceeded(PCB_DRC_CODE.DRCE_VIA_DIAMETER)) return false;
@@ -75,17 +76,17 @@ export class DRC_TEST_PROVIDER_VIA_DIAMETER extends DRC_TEST_PROVIDER {
         let msg = '';
 
         if (fail_min) {
-          if (constraint.m_ImplicitMin) constraintName = 'board setup constraints';
+          if (constraint.m_ImplicitMin) constraintName = _('board setup constraints');
 
           msg = this.formatMsg(
-            '(%s min diameter %s; actual %s)',
+            _('(%s min diameter %s; actual %s)'),
             constraintName,
             constraintDiameter,
             actual,
           );
         } else if (fail_max) {
           msg = this.formatMsg(
-            '(%s max diameter %s; actual %s)',
+            _('(%s max diameter %s; actual %s)'),
             constraintName,
             constraintDiameter,
             actual,

@@ -52,6 +52,7 @@ import {
   DIM_UNITS_FORMAT,
   DIM_UNITS_MODE,
 } from '../pcb_dimension.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export interface TextGfxRow {
   lineThickness: number;
@@ -119,12 +120,12 @@ export const PANEL_SETUP_TEXT_AND_GRAPHICS = {
 
 // Row labels + whether the row carries text (Edge Cuts / Courtyards do not).
 const ROWS: { label: string; text: boolean }[] = [
-  { label: 'Silk Layers', text: true },
-  { label: 'Copper Layers', text: true },
-  { label: 'Edge Cuts', text: false },
-  { label: 'Courtyards', text: false },
-  { label: 'Fab Layers', text: true },
-  { label: 'Other Layers', text: true },
+  { label: _HKI('Silk Layers'), text: true },
+  { label: _HKI('Copper Layers'), text: true },
+  { label: _HKI('Edge Cuts'), text: false },
+  { label: _HKI('Courtyards'), text: false },
+  { label: _HKI('Fab Layers'), text: true },
+  { label: _HKI('Other Layers'), text: true },
 ];
 
 interface Props {
@@ -144,12 +145,12 @@ const COL_TEXT_UPRIGHT = 5;
 
 /** `SetColLabelValue` (`_base.cpp:53-58`): no unit, the cells carry it. */
 const COL_LABELS = [
-  'Line Thickness',
-  'Text Width',
-  'Text Height',
-  'Text Thickness',
-  'Italic',
-  'Keep Upright',
+  _HKI('Line Thickness'),
+  _HKI('Text Width'),
+  _HKI('Text Height'),
+  _HKI('Text Thickness'),
+  _HKI('Italic'),
+  _HKI('Keep Upright'),
 ];
 
 /** [data] `SetColSize` 140/140/140/140/80/120 (`panel_setup_text_and_graphics_base.cpp:46-51`). */

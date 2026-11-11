@@ -20,6 +20,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_UNUSED_PAD_LAYERS_BASE_PROPS {
   m_cbVias: CHECK;
@@ -35,7 +36,7 @@ export interface DIALOG_UNUSED_PAD_LAYERS_BASE_PROPS {
 
 export function DIALOG_UNUSED_PAD_LAYERS_BASE(p: DIALOG_UNUSED_PAD_LAYERS_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Remove Unused Pads" onClose={p.onCancel}>
+    <DialogShim title={_('Remove Unused Pads')} onClose={p.onCancel}>
       {/* m_MainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={6} flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT} border={5}>
@@ -45,18 +46,18 @@ export function DIALOG_UNUSED_PAD_LAYERS_BASE(p: DIALOG_UNUSED_PAD_LAYERS_BASE_P
               {/* bSizer4 */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxALL} border={5}>
-                  <CheckBox label="Vias" check={p.m_cbVias} />
+                  <CheckBox label={_('Vias')} check={p.m_cbVias} />
                 </SizerItem>
                 <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                  <CheckBox label="Pads" check={p.m_cbPads} />
+                  <CheckBox label={_('Pads')} check={p.m_cbPads} />
                 </SizerItem>
                 <Spacer width={0} height={15} flag={wxEXPAND} border={5} />
                 <SizerItem flag={wxEXPAND | wxBOTTOM | wxLEFT} border={5}>
                   {/* "&Selected only": the & is the mnemonic */}
-                  <CheckBox label="Selected only" check={p.m_cbSelectedOnly} />
+                  <CheckBox label={_('Selected only')} check={p.m_cbSelectedOnly} />
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxLEFT} border={5}>
-                  <CheckBox label="Keep outside layers" check={p.m_cbPreserveExternalLayers} />
+                  <CheckBox label={_('Keep outside layers')} check={p.m_cbPreserveExternalLayers} />
                 </SizerItem>
               </BoxSizer>
             </SizerItem>
@@ -76,9 +77,9 @@ export function DIALOG_UNUSED_PAD_LAYERS_BASE(p: DIALOG_UNUSED_PAD_LAYERS_BASE_P
           {/* SetupStandardButtons' labels */}
           <StdDialogButtonSizer
             onOk={p.onOK}
-            okLabel="Remove Unused Layers"
+            okLabel={_('Remove Unused Layers')}
             onApply={p.onApply}
-            applyLabel="Restore All Layers"
+            applyLabel={_('Restore All Layers')}
             onCancel={p.onCancel}
           />
         </SizerItem>

@@ -23,6 +23,7 @@ import {
   type ColorSwatchRow,
   type ColorThemeIo,
 } from '@ziroeda/common/dialogs/panel_color_settings.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** What the program hands a colour-settings page (see the file header). */
 export interface PANEL_COLOR_SETTINGS_HOST {
@@ -98,7 +99,7 @@ export interface FpColorLayer {
 const COPPER_ROWS: readonly FpColorLayer[] = [
   { key: 'board.copper.f', name: 'F.Cu', layer: 'F_Cu' },
   // `createSwatch( In1_Cu, _( "Internal Layers" ) )` (`:110`).
-  { key: 'board.copper.in1', name: 'Internal Layers', layer: 'In1_Cu' },
+  { key: 'board.copper.in1', name: _HKI('Internal Layers'), layer: 'In1_Cu' },
   { key: 'board.copper.b', name: 'B.Cu', layer: 'B_Cu' },
 ];
 

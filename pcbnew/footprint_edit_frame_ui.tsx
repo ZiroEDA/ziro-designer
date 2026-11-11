@@ -169,6 +169,7 @@ import {
   type DIALOG_POSITION_RELATIVE,
   DialogPositionRelativeModeless,
 } from './dialogs/dialog_position_relative.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `fpedit.json` as this window reads it.
@@ -551,11 +552,11 @@ export function FootprintEditFrame({
       confirmRevert: (aMessage) =>
         askKiDialogRef
           .current({
-            caption: 'Confirmation',
+            caption: _('Confirmation'),
             message: aMessage,
             extendedMessage: CONFIRM_REVERT_EXTENDED,
             icon: 'warning',
-            labels: { ok: 'Revert' },
+            labels: { ok: _('Revert') },
           })
           .then((r) => r === 'ok'),
       showSaveAsDialog: (aName, aLibrary, aValidator) =>
@@ -1327,8 +1328,8 @@ export function FootprintEditFrame({
     <div className="ze-app">
       {fpOpenDlg &&
         app.OpenFileDialog({
-          title: 'Import Footprint',
-          accept: 'Import',
+          title: _('Import Footprint'),
+          accept: _('Import'),
           filters: [kicadFootprintLibWildcard()],
           onDone: (file) => {
             const which = fpOpenDlg;
@@ -1372,7 +1373,7 @@ export function FootprintEditFrame({
         <span style={{ width: 8 }} />
         {/* `PCB_LAYER_BOX_SELECTOR`. */}
         <Combo
-          title="Active layer"
+          title={_('Active layer')}
           value={activeLayerName}
           options={layerRows.map((l) => ({
             value: l,
@@ -1463,7 +1464,7 @@ export function FootprintEditFrame({
         {toggles.has('showLayersManager') && (
           <div className="ze-rightdock" style={{ width: LAYERS_MANAGER_WIDTH }}>
             <div className="ze-panel grow">
-              <div className="ze-panel-header">Appearance</div>
+              <div className="ze-panel-header">{_('Appearance')}</div>
               <AppearanceControls
                 fpEditor
                 tab={tab}
@@ -1497,7 +1498,7 @@ export function FootprintEditFrame({
               />
             </div>
             <div className="ze-panel fixed">
-              <div className="ze-panel-header">Selection Filter</div>
+              <div className="ze-panel-header">{_('Selection Filter')}</div>
               <div className="ze-panel-body no-inset">
                 <SelectionFilterPanel
                   filter={selFilter}
@@ -1554,7 +1555,7 @@ export function FootprintEditFrame({
 
       {newLibrary && (
         <WxTextEntryDialog
-          caption="New Footprint Library"
+          caption={_('New Footprint Library')}
           message="Library name:"
           // The table choice only with a project to add to; without one, the global table.
           {...(writeRef.current
@@ -1576,7 +1577,7 @@ export function FootprintEditFrame({
       {rename && (
         <WxTextEntryDialog
           caption={rename.dialog.aTitle}
-          message="New name:"
+          message={_('New name:')}
           value={rename.dialog.aName}
           onCancel={() => {
             rename.done(false);
@@ -1594,10 +1595,10 @@ export function FootprintEditFrame({
 
       {saveAs && (
         <EdaListDialog
-          title="Save Footprint As"
+          title={_('Save Footprint As')}
           // SAVE_AS_DIALOG leaves EDA_LIST_DIALOG's filter box shown.
           showFilter
-          listLabel="Save in library:"
+          listLabel={_('Save in library:')}
           okLabel="Save"
           headers={['Nickname', 'Description']}
           rows={store.GetLibraryNames().map((n) => ({
@@ -1606,7 +1607,7 @@ export function FootprintEditFrame({
           }))}
           initialValue={saveAs.library}
           nameRow={{
-            label: 'Name:',
+            label: _('Name:'),
             value: saveAs.name,
             excludeChars: FOOTPRINT.StringLibNameInvalidChars(false),
           }}
@@ -1671,7 +1672,7 @@ export function FootprintEditFrame({
       )}
       {pick3dModel &&
         app.OpenFileDialog({
-          title: 'Select 3D Model',
+          title: _('Select 3D Model'),
           accept: 'Open',
           filters: [
             {
@@ -1755,7 +1756,7 @@ export function FootprintEditFrame({
       )}
       {prefsOpen &&
         app.Preferences(() => setPrefsOpen(null), prefsOpen === true ? undefined : prefsOpen)}
-      <ProgressDialog title="Load Footprint Libraries" label={null} />
+      <ProgressDialog title={_('Load Footprint Libraries')} label={null} />
     </div>
   );
 }

@@ -32,6 +32,8 @@ import type { BOARD } from '../board.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
 import { PCB_ACTIONS } from '../tools/pcb_actions.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `DIALOG_POSITION_RELATIVE::ANCHOR_TYPE`: persistent dialog options. */
 export enum ANCHOR_TYPE {
@@ -65,7 +67,7 @@ const PICKER_TOOL_NAME = 'pcbnew.InteractivePicker';
 const POSITION_RELATIVE_TOOL_NAME = 'pcbnew.PositionRelative';
 
 /** `DIALOG_POSITION_RELATIVE_BASE`'s title. */
-export const DIALOG_POSITION_RELATIVE_TITLE = 'Position Relative To Reference Item';
+export const DIALOG_POSITION_RELATIVE_TITLE = _HKI('Position Relative To Reference Item');
 
 export class DIALOG_POSITION_RELATIVE implements PICKER_RECEIVER {
   /** `static ANCHOR_TYPE s_anchorType = ANCHOR_ITEM`. */
@@ -90,7 +92,7 @@ export class DIALOG_POSITION_RELATIVE implements PICKER_RECEIVER {
   /** `m_polarCoords->SetValue( true )`. */
   m_polarCoords = true;
   /** `m_referenceInfo`: `_("Reference item: <none selected>")`. */
-  m_referenceInfo = 'Reference item: <none selected>';
+  m_referenceInfo = _HKI('Reference item: <none selected>');
   /** `m_clearX->SetToolTip(...)`; the base file gives none. */
   m_clearXToolTip = '';
   m_clearYToolTip = '';
@@ -107,8 +109,8 @@ export class DIALOG_POSITION_RELATIVE implements PICKER_RECEIVER {
     this.m_units = aParent.GetUserUnits();
 
     // m_xOffset( aParent, m_xLabel, m_xEntry, m_xUnit ), the labels as _base.cpp states them
-    this.m_xOffset = new UNIT_BINDER(aParent, 'Offset X:');
-    this.m_yOffset = new UNIT_BINDER(aParent, 'Offset Y:');
+    this.m_xOffset = new UNIT_BINDER(aParent, _('Offset X:'));
+    this.m_yOffset = new UNIT_BINDER(aParent, _('Offset Y:'));
     this.m_xOffset.SetText('0');
     this.m_yOffset.SetText('0');
 
@@ -288,17 +290,17 @@ export class DIALOG_POSITION_RELATIVE implements PICKER_RECEIVER {
   /** Update controls and their labels after changing the coordinates type (polar/cartesian). */
   private updateDialogControls(aPolar: boolean): void {
     if (aPolar) {
-      this.m_xOffset.SetLabel('Distance:'); // Polar radius
-      this.m_yOffset.SetLabel('Angle:'); // Polar theta or angle
+      this.m_xOffset.SetLabel(_('Distance:')); // Polar radius
+      this.m_yOffset.SetLabel(_('Angle:')); // Polar theta or angle
       this.m_yOffset.SetUnits('degrees');
-      this.m_clearXToolTip = 'Reset to the current distance from the reference position.';
-      this.m_clearYToolTip = 'Reset to the current angle from the reference position.';
+      this.m_clearXToolTip = _('Reset to the current distance from the reference position.');
+      this.m_clearYToolTip = _('Reset to the current angle from the reference position.');
     } else {
-      this.m_xOffset.SetLabel('Offset X:');
-      this.m_yOffset.SetLabel('Offset Y:');
+      this.m_xOffset.SetLabel(_('Offset X:'));
+      this.m_yOffset.SetLabel(_('Offset Y:'));
       this.m_yOffset.SetUnits(this.GetUserUnits());
-      this.m_clearXToolTip = 'Reset to the current X offset from the reference position.';
-      this.m_clearYToolTip = 'Reset to the current Y offset from the reference position.';
+      this.m_clearXToolTip = _('Reset to the current X offset from the reference position.');
+      this.m_clearYToolTip = _('Reset to the current Y offset from the reference position.');
     }
   }
 
@@ -342,7 +344,7 @@ export class DIALOG_POSITION_RELATIVE implements PICKER_RECEIVER {
 
     this.m_toolMgr.RunAction(PCB_ACTIONS.selectItemInteractively, {
       m_Receiver: this,
-      m_Prompt: 'Select reference item...',
+      m_Prompt: _('Select reference item...'),
       m_ItemFilter: null,
     });
   }
@@ -357,7 +359,7 @@ export class DIALOG_POSITION_RELATIVE implements PICKER_RECEIVER {
 
     this.m_toolMgr.RunAction(PCB_ACTIONS.selectPointInteractively, {
       m_Receiver: this,
-      m_Prompt: 'Select reference point...',
+      m_Prompt: _('Select reference point...'),
       m_ItemFilter: null,
     });
   }
@@ -366,16 +368,16 @@ export class DIALOG_POSITION_RELATIVE implements PICKER_RECEIVER {
   private updateAnchorInfo(aItem: BOARD_ITEM | null): void {
     switch (DIALOG_POSITION_RELATIVE.s_anchorType) {
       case ANCHOR_TYPE.ANCHOR_GRID_ORIGIN:
-        this.m_referenceInfo = 'Reference location: grid origin';
+        this.m_referenceInfo = _('Reference location: grid origin');
         break;
 
       case ANCHOR_TYPE.ANCHOR_USER_ORIGIN:
-        this.m_referenceInfo = 'Reference location: local coordinates origin';
+        this.m_referenceInfo = _('Reference location: local coordinates origin');
         break;
 
       case ANCHOR_TYPE.ANCHOR_ITEM: {
         const unitsProvider = new UNITS_PROVIDER(pcbIUScale, this.GetUserUnits());
-        let msg = '<none selected>';
+        let msg = _('<none selected>');
 
         if (aItem) msg = aItem.GetItemDescription(unitsProvider, true);
 

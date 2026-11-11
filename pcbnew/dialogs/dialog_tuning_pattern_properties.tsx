@@ -48,6 +48,7 @@ import {
 } from '../router/pns_meander.js';
 import { PnsRouterMode } from '../router/pns_router.js';
 import type { MinOptMax } from '../drc/drc_rule_view.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The three tuning modes `DIALOG_TUNING_PATTERN_PROPERTIES` is built for. */
 export type TuningPatternMode =
@@ -363,14 +364,14 @@ export function DialogTuningPatternProperties({
 
   return (
     <DIALOG_TUNING_PATTERN_PROPERTIES_BASE
-      title="Tuning Pattern Properties"
+      title={_('Tuning Pattern Properties')}
       m_legend={KiBitmapBundle(legend)}
       m_radioBtnLength={{
         value: v.lengthSelected,
         enabled: enable.radioLengthEnabled,
         onSelect: () => set(tuningPatternRadioLengthSelected(v)),
       }}
-      targetLengthLabel={skew ? 'Target Skew:' : 'Target Length:'}
+      targetLengthLabel={skew ? 'Target Skew:' : _('Target Length:')}
       m_targetLength={{
         value: v.targetLengthText,
         units: unitLabel(units),
@@ -382,7 +383,7 @@ export function DialogTuningPatternProperties({
         enabled: enable.radioDelayEnabled,
         onSelect: () => set(tuningPatternRadioDelaySelected(v)),
       }}
-      targetDelayLabel={skew ? 'Target Skew Delay:' : 'Target Delay:'}
+      targetDelayLabel={skew ? 'Target Skew Delay:' : _('Target Delay:')}
       m_targetDelay={{
         value: v.targetDelayText,
         units: 'ps',

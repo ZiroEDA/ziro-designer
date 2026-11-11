@@ -45,6 +45,7 @@ import { RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.j
 import { DIALOG_EXPORT_2581_BASE } from './dialog_export_2581_base.js';
 import type { BOARD } from '../board.js';
 import { PCB_IO_IPC2581 } from '../pcb_io/ipc2581/pcb_io_ipc2581.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 interface Props {
   board: BOARD;
@@ -270,7 +271,7 @@ export function DialogExport2581({ board, fileName, onOutputFile, onClose }: Pro
 
     if (stem === '') {
       reporter.Report(
-        'The board must be saved before generating IPC-2581 file.',
+        _('The board must be saved before generating IPC-2581 file.'),
         RPT_SEVERITY_ERROR,
       );
       setMessages([...reporter.lines]);
@@ -283,7 +284,7 @@ export function DialogExport2581({ board, fileName, onOutputFile, onClose }: Pro
       else download(name, aBytes);
     });
 
-    if (ok) reporter.Report('IPC-2581 file generated successfully.', RPT_SEVERITY_ACTION);
+    if (ok) reporter.Report(_('IPC-2581 file generated successfully.'), RPT_SEVERITY_ACTION);
 
     setMessages([...reporter.lines]);
   };
@@ -314,17 +315,17 @@ export function DialogExport2581({ board, fileName, onOutputFile, onClose }: Pro
         m_textBomRev={bomRev}
         onBomRev={setBomRev}
         m_oemRef={oemRef}
-        oemRefOptions={options('Generate unique')}
+        oemRefOptions={options(_('Generate unique'))}
         onOemRef={setOemRef}
         m_choiceMPN={mpn}
-        mpnOptions={options('Omit')}
+        mpnOptions={options(_('Omit'))}
         onMfgPNChange={changeMpn}
         m_choiceMfg={mfg}
         mfgOptions={options('N/A')}
         onMfg={setMfg}
         mfgEnabled={mfgEnabled}
         m_choiceDistPN={distPN}
-        distPNOptions={options('Omit')}
+        distPNOptions={options(_('Omit'))}
         onDistPNChange={changeDistPN}
         m_textDistributor={distributor}
         onDistributor={setDistributor}

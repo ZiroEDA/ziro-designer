@@ -84,6 +84,8 @@ import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import { PCB_FIELD } from '../pcb_field.js';
 import { PCB_SHAPE } from '../pcb_shape.js';
 import { PCB_VIA } from '../pcb_track.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const MISSING_FIELD_SENTINEL = '';
 
@@ -213,10 +215,10 @@ export class PCB_PROPERTIES_PANEL extends PROPERTIES_PANEL {
         PCB_PROPERTIES_PANEL.m_currentFieldNames.add(field.GetCanonicalName());
     }
 
-    const groupFields = 'Fields';
+    const groupFields = _HKI('Fields');
 
     // Make sure value comes immediately after reference.
-    this.m_propMgr.AddProperty(new PCB_FOOTPRINT_FIELD_PROPERTY('Value'), groupFields);
+    this.m_propMgr.AddProperty(new PCB_FOOTPRINT_FIELD_PROPERTY(_HKI('Value')), groupFields);
 
     for (const name of [...PCB_PROPERTIES_PANEL.m_currentFieldNames].sort()) {
       if (!this.m_propMgr.GetProperty(FOOTPRINT, name)) {
@@ -413,7 +415,7 @@ export class PCB_PROPERTIES_PANEL extends PROPERTIES_PANEL {
       item.Set(property, aNewValue);
     }
 
-    changes.Push('Edit Properties');
+    changes.Push(wxGetTranslation('Edit Properties'));
 
     // Perform grid updates as necessary based on value change
     this.AfterCommit();
@@ -436,18 +438,18 @@ export class PCB_PROPERTIES_PANEL extends PROPERTIES_PANEL {
       layersCu.Add(LSET.Name(layer), layer);
 
     const pm = this.m_propMgr;
-    pm.GetProperty(BOARD_ITEM, 'Layer')?.SetChoices(layersAll);
-    pm.GetProperty(PCB_SHAPE, 'Layer')?.SetChoices(layersAll);
+    pm.GetProperty(BOARD_ITEM, _HKI('Layer'))?.SetChoices(layersAll);
+    pm.GetProperty(PCB_SHAPE, _HKI('Layer'))?.SetChoices(layersAll);
 
     // Copper only properties
-    pm.GetProperty(BOARD_CONNECTED_ITEM, 'Layer')?.SetChoices(layersCu);
-    pm.GetProperty(PAD, 'Bottom Backdrill Must-Cut')?.SetChoices(layersCu);
-    pm.GetProperty(PAD, 'Top Backdrill Must-Cut')?.SetChoices(layersCu);
-    pm.GetProperty(PCB_VIA, 'Layer Top')?.SetChoices(layersCu);
-    pm.GetProperty(PCB_VIA, 'Layer Bottom')?.SetChoices(layersCu);
-    pm.GetProperty(PCB_VIA, 'Bottom Backdrill Must-Cut')?.SetChoices(layersCu);
-    pm.GetProperty(PCB_VIA, 'Top Backdrill Must-Cut')?.SetChoices(layersCu);
-    pm.GetProperty(PCB_TUNING_PATTERN, 'Layer')?.SetChoices(layersCu);
+    pm.GetProperty(BOARD_CONNECTED_ITEM, _HKI('Layer'))?.SetChoices(layersCu);
+    pm.GetProperty(PAD, _HKI('Bottom Backdrill Must-Cut'))?.SetChoices(layersCu);
+    pm.GetProperty(PAD, _HKI('Top Backdrill Must-Cut'))?.SetChoices(layersCu);
+    pm.GetProperty(PCB_VIA, _HKI('Layer Top'))?.SetChoices(layersCu);
+    pm.GetProperty(PCB_VIA, _HKI('Layer Bottom'))?.SetChoices(layersCu);
+    pm.GetProperty(PCB_VIA, _HKI('Bottom Backdrill Must-Cut'))?.SetChoices(layersCu);
+    pm.GetProperty(PCB_VIA, _HKI('Top Backdrill Must-Cut'))?.SetChoices(layersCu);
+    pm.GetProperty(PCB_TUNING_PATTERN, _HKI('Layer'))?.SetChoices(layersCu);
 
     // Regenerate nets
     const netNames: [string, number][] = [];
@@ -464,8 +466,8 @@ export class PCB_PROPERTIES_PANEL extends PROPERTIES_PANEL {
 
     for (const [netName, netCode] of netNames) nets.Add(netName, netCode);
 
-    pm.GetProperty(BOARD_CONNECTED_ITEM, 'Net')?.SetChoices(nets);
-    pm.GetProperty(PCB_TUNING_PATTERN, 'Net')?.SetChoices(nets);
+    pm.GetProperty(BOARD_CONNECTED_ITEM, _HKI('Net'))?.SetChoices(nets);
+    pm.GetProperty(PCB_TUNING_PATTERN, _HKI('Net'))?.SetChoices(nets);
   }
 
   protected override getItemValue(

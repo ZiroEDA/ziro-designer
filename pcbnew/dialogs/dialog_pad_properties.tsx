@@ -84,6 +84,8 @@ import type { PCB_RENDER_SETTINGS } from '../pcb_painter.js';
 import type { PCB_SHAPE } from '../pcb_shape.js';
 import { ZONE_CONNECTION } from '../zones.js';
 import { DIALOG_PAD_PROPERTIES_BASE, type UNIT } from './dialog_pad_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** ZONE_CONNECTION, spelled as the Properties panel and the footprint dialog spell it. */
 export type ZoneConnection = 'inherited' | 'none' | 'thermal' | 'full' | 'tht_thermal';
@@ -210,31 +212,35 @@ export class DIALOG_PAD_PROPERTIES {
   // ----- DIALOG_PAD_PROPERTIES_BASE's controls -----
   m_notebookSelection = 0;
   readonly m_padType = new wxChoice([
-    'Through-hole',
-    'SMD',
-    'Edge Connector',
-    'NPTH, Mechanical',
-    'SMD Aperture',
+    _HKI('Through-hole'),
+    _HKI('SMD'),
+    _HKI('Edge Connector'),
+    _HKI('NPTH, Mechanical'),
+    _HKI('SMD Aperture'),
   ]);
   readonly m_padNumCtrl = { value: '', enabled: true };
   m_padNetShown = true;
   readonly m_padNetSelector = { netcode: 0, enabled: true };
-  readonly m_cbPadstackMode = new wxChoice(['Normal', 'Front/Inner/Back', 'Custom']);
-  readonly m_cbEditLayer = new wxChoice(['Inner Layers']);
+  readonly m_cbPadstackMode = new wxChoice([
+    _HKI('Normal'),
+    _HKI('Front/Inner/Back'),
+    _HKI('Custom'),
+  ]);
+  readonly m_cbEditLayer = new wxChoice([_HKI('Inner Layers')]);
   m_padstackControlsShown = true;
   readonly m_PadShapeSelector = new wxChoice([
-    'Circular',
-    'Oval',
-    'Rectangular',
-    'Trapezoidal',
-    'Rounded rectangle',
-    'Chamfered rectangle',
-    'Chamfered with other corners rounded',
-    'Custom (circular base)',
-    'Custom (rectangular base)',
+    _HKI('Circular'),
+    _HKI('Oval'),
+    _HKI('Rectangular'),
+    _HKI('Trapezoidal'),
+    _HKI('Rounded rectangle'),
+    _HKI('Chamfered rectangle'),
+    _HKI('Chamfered with other corners rounded'),
+    _HKI('Custom (circular base)'),
+    _HKI('Custom (rectangular base)'),
   ]);
   m_shapePropsBook = 0;
-  readonly m_trapAxisCtrl = new wxChoice(['Horizontal', 'Vertical']);
+  readonly m_trapAxisCtrl = new wxChoice([_HKI('Horizontal'), _HKI('Vertical')]);
   readonly m_cbTopLeft = checkBox();
   readonly m_cbTopRight = checkBox();
   readonly m_cbBottomLeft = checkBox();
@@ -246,32 +252,32 @@ export class DIALOG_PAD_PROPERTIES {
   readonly m_offsetShapeOpt = checkBox();
   m_offsetCtrlsShown = true;
   m_gbSizerHoleShown = true;
-  readonly m_holeShapeCtrl = new wxChoice(['Round', 'Oblong']);
+  readonly m_holeShapeCtrl = new wxChoice([_HKI('Round'), _HKI('Oblong')]);
   readonly m_padToDieOpt = checkBox();
   readonly m_padToDieDelayOpt = checkBox();
   m_FlippedWarningShown = true;
   readonly m_rbCopperLayersSel = new wxChoice();
-  readonly m_layerFrontAdhesive = { ...checkBox(), label: 'Front adhesive' };
-  readonly m_layerBackAdhesive = { ...checkBox(), label: 'Back adhesive' };
-  readonly m_layerFrontPaste = { ...checkBox(), label: 'Front solder paste' };
-  readonly m_layerBackPaste = { ...checkBox(), label: 'Back solder paste' };
-  readonly m_layerFrontSilk = { ...checkBox(), label: 'Front silk screen' };
-  readonly m_layerBackSilk = { ...checkBox(), label: 'Back silk screen' };
-  readonly m_layerFrontMask = { ...checkBox(), label: 'Front solder mask' };
-  readonly m_layerBackMask = { ...checkBox(), label: 'Back solder mask' };
-  readonly m_layerUserDwgs = { ...checkBox(), label: 'Drafting notes' };
+  readonly m_layerFrontAdhesive = { ...checkBox(), label: _HKI('Front adhesive') };
+  readonly m_layerBackAdhesive = { ...checkBox(), label: _HKI('Back adhesive') };
+  readonly m_layerFrontPaste = { ...checkBox(), label: _HKI('Front solder paste') };
+  readonly m_layerBackPaste = { ...checkBox(), label: _HKI('Back solder paste') };
+  readonly m_layerFrontSilk = { ...checkBox(), label: _HKI('Front silk screen') };
+  readonly m_layerBackSilk = { ...checkBox(), label: _HKI('Back silk screen') };
+  readonly m_layerFrontMask = { ...checkBox(), label: _HKI('Front solder mask') };
+  readonly m_layerBackMask = { ...checkBox(), label: _HKI('Back solder mask') };
+  readonly m_layerUserDwgs = { ...checkBox(), label: _HKI('Drafting notes') };
   readonly m_layerECO1 = { ...checkBox(), label: 'E.C.O.1' };
   readonly m_layerECO2 = { ...checkBox(), label: 'E.C.O.2' };
   readonly m_choiceFabProperty = new wxChoice([
-    'None',
-    'BGA pad',
-    'Fiducial, local to footprint',
-    'Fiducial, global to board',
-    'Test point pad',
-    'Heatsink pad',
-    'Mechanical',
-    'Castellated pad (TH only)',
-    'Press-fit (round TH only)',
+    _HKI('None'),
+    _HKI('BGA pad'),
+    _HKI('Fiducial, local to footprint'),
+    _HKI('Fiducial, global to board'),
+    _HKI('Test point pad'),
+    _HKI('Heatsink pad'),
+    _HKI('Mechanical'),
+    _HKI('Castellated pad (TH only)'),
+    _HKI('Press-fit (round TH only)'),
   ]);
   m_legacyTeardropsShown = true;
   readonly m_cbTeardrops = checkBox();
@@ -285,19 +291,32 @@ export class DIALOG_PAD_PROPERTIES {
   m_teardropHint = 'd';
   m_bitmapTeardrop: BITMAPS = BITMAPS.teardrop_sizes;
   readonly m_ZoneConnectionChoice = new wxChoice([
-    'From parent footprint',
-    'Solid',
-    'Thermal relief',
-    'None',
+    _HKI('From parent footprint'),
+    _HKI('Solid'),
+    _HKI('Thermal relief'),
+    _HKI('None'),
   ]);
-  readonly m_ZoneCustomPadShape = new wxChoice(['Pad shape', 'Pad convex hull']);
+  readonly m_ZoneCustomPadShape = new wxChoice([_HKI('Pad shape'), _HKI('Pad convex hull')]);
   m_nonCopperWarningBook = 0;
-  readonly m_topPostMachining = new wxChoice(['None', 'Countersink', 'Counterbore']);
-  readonly m_bottomPostMachining = new wxChoice(['None', 'Countersink', 'Counterbore']);
-  readonly m_backDrillChoice = new wxChoice(['None', 'Top', 'Bottom', 'Top & bottom']);
+  readonly m_topPostMachining = new wxChoice([
+    _HKI('None'),
+    _HKI('Countersink'),
+    _HKI('Counterbore'),
+  ]);
+  readonly m_bottomPostMachining = new wxChoice([
+    _HKI('None'),
+    _HKI('Countersink'),
+    _HKI('Counterbore'),
+  ]);
+  readonly m_backDrillChoice = new wxChoice([
+    _HKI('None'),
+    _HKI('Top'),
+    _HKI('Bottom'),
+    _HKI('Top & bottom'),
+  ]);
   /** wxBitmapComboBoxes; `GetClientData( i )` is `m_backDrillLayers[i]`. */
-  readonly m_backDrillTopLayer = new wxChoice(['dummy']);
-  readonly m_backDrillBottomLayer = new wxChoice(['dummy']);
+  readonly m_backDrillTopLayer = new wxChoice([_HKI('dummy')]);
+  readonly m_backDrillBottomLayer = new wxChoice([_HKI('dummy')]);
   private m_backDrillLayers: PCB_LAYER_ID[] = [];
   m_stackupImagesBook = 0;
   m_parentInfo = '';
@@ -348,37 +367,37 @@ export class DIALOG_PAD_PROPERTIES {
       });
 
     this.m_parent = aParent;
-    this.m_posX = binder('Position X:');
+    this.m_posX = binder(_('Position X:'));
     this.m_posY = binder('Y:');
-    this.m_sizeX = binder('Pad size X:');
+    this.m_sizeX = binder(_('Pad size X:'));
     this.m_sizeY = binder('Y:');
     this.m_offsetX = binder('X:');
     this.m_offsetY = binder('Y:');
     this.m_padToDie = binder(':');
     this.m_padToDieDelay = binder(':');
-    this.m_trapDelta = binder('Trapezoid delta:');
-    this.m_cornerRadius = binder('Corner radius:');
-    this.m_cornerRatio = binder('Corner size:');
-    this.m_chamferRatio = binder('Chamfer size:');
-    this.m_mixedCornerRatio = binder('Corner size:');
-    this.m_mixedChamferRatio = binder('Chamfer size:');
-    this.m_holeX = binder('Hole size X:');
+    this.m_trapDelta = binder(_('Trapezoid delta:'));
+    this.m_cornerRadius = binder(_('Corner radius:'));
+    this.m_cornerRatio = binder(_('Corner size:'));
+    this.m_chamferRatio = binder(_('Chamfer size:'));
+    this.m_mixedCornerRatio = binder(_('Corner size:'));
+    this.m_mixedChamferRatio = binder(_('Chamfer size:'));
+    this.m_holeX = binder(_('Hole size X:'));
     this.m_holeY = binder('Y:');
-    this.m_clearance = binder('Pad clearance:');
-    this.m_maskMargin = binder('Solder mask expansion:');
+    this.m_clearance = binder(_('Pad clearance:'));
+    this.m_maskMargin = binder(_('Solder mask expansion:'));
     this.m_pasteMargin = new MARGIN_OFFSET_BINDER(aParent.GetIuScale(), aParent.GetUserUnits());
-    this.m_thermalGap = binder('Relief gap:');
-    this.m_spokeWidth = binder('Spoke width:');
-    this.m_spokeAngle = binder('Spoke angle:');
-    this.m_pad_orientation = binder('Angle:');
-    this.m_teardropMaxLenSetting = binder('Maximum length (L):');
-    this.m_teardropMaxHeightSetting = binder('Maximum width (W):');
-    this.m_topPostMachineSize1Binder = binder('Size:');
-    this.m_topPostMachineSize2Binder = binder('Angle:');
-    this.m_bottomPostMachineSize1Binder = binder('Size:');
-    this.m_bottomPostMachineSize2Binder = binder('Angle:');
-    this.m_backDrillTopSizeBinder = binder('Top backdrill size:');
-    this.m_backDrillBottomSizeBinder = binder('Bottom backdrill size:');
+    this.m_thermalGap = binder(_('Relief gap:'));
+    this.m_spokeWidth = binder(_('Spoke width:'));
+    this.m_spokeAngle = binder(_('Spoke angle:'));
+    this.m_pad_orientation = binder(_('Angle:'));
+    this.m_teardropMaxLenSetting = binder(_('Maximum length (L):'));
+    this.m_teardropMaxHeightSetting = binder(_('Maximum width (W):'));
+    this.m_topPostMachineSize1Binder = binder(_('Size:'));
+    this.m_topPostMachineSize2Binder = binder(_('Angle:'));
+    this.m_bottomPostMachineSize1Binder = binder(_('Size:'));
+    this.m_bottomPostMachineSize2Binder = binder(_('Angle:'));
+    this.m_backDrillTopSizeBinder = binder(_('Top backdrill size:'));
+    this.m_backDrillBottomSizeBinder = binder(_('Bottom backdrill size:'));
 
     // The base's initial selections.
     this.m_padType.SetSelection(0);
@@ -412,13 +431,13 @@ export class DIALOG_PAD_PROPERTIES {
     this.m_previewPad = new PAD(null);
 
     if (aPad) {
-      this.m_title = 'Pad Properties';
+      this.m_title = _('Pad Properties');
 
       this.m_previewPad.assignPad(aPad);
       this.m_previewPad.GetTeardropParams().assign(aPad.GetTeardropParams());
       this.m_previewPad.ClearFlags(SELECTED | BRIGHTENED);
     } else {
-      this.m_title = 'Default Pad Properties for Add Pad Tool';
+      this.m_title = _('Default Pad Properties for Add Pad Tool');
 
       this.m_previewPad.assignPad(this.m_masterPad);
       this.m_previewPad.GetTeardropParams().assign(this.m_masterPad.GetTeardropParams());
@@ -799,7 +818,7 @@ export class DIALOG_PAD_PROPERTIES {
           .Value()
           .GetShownText(
             false,
-          )}), ${footprint.IsFlipped() ? 'back side (mirrored)' : 'front side'}, rotated ${formatG(
+          )}), ${footprint.IsFlipped() ? _('back side (mirrored)') : _('front side')}, rotated ${formatG(
           footprint.GetOrientation().AsDegrees(),
         )} deg`;
 
@@ -1123,7 +1142,7 @@ export class DIALOG_PAD_PROPERTIES {
 
         this.m_cbEditLayer.Append([
           b.GetLayerName(PCB_LAYER_ID.F_Cu),
-          'Inner Layers',
+          _('Inner Layers'),
           b.GetLayerName(PCB_LAYER_ID.B_Cu),
         ]);
 
@@ -1296,8 +1315,10 @@ export class DIALOG_PAD_PROPERTIES {
       if (hasBackdrill || hasTopPost || hasBottomPost) {
         const ok =
           (await this.m_confirm?.(
-            'Switching to non-circular hole will disable backdrills and post-machining. Continue?',
-            'Warning',
+            _(
+              'Switching to non-circular hole will disable backdrills and post-machining. Continue?',
+            ),
+            _('Warning'),
           )) ?? true;
 
         if (!ok) {
@@ -1328,19 +1349,19 @@ export class DIALOG_PAD_PROPERTIES {
 
     switch (this.m_padType.GetSelection()) {
       case PTH_DLG_TYPE:
-        sel.Append('All copper layers');
+        sel.Append(_('All copper layers'));
         sel.Append(
           `${b.GetLayerName(PCB_LAYER_ID.F_Cu)}, ${b.GetLayerName(PCB_LAYER_ID.B_Cu)} and connected layers`,
         );
-        sel.Append('Connected layers only');
-        sel.Append('None');
+        sel.Append(_('Connected layers only'));
+        sel.Append(_('None'));
         break;
 
       case NPTH_DLG_TYPE:
         sel.Append(`${b.GetLayerName(PCB_LAYER_ID.F_Cu)} and ${b.GetLayerName(PCB_LAYER_ID.B_Cu)}`);
         sel.Append(b.GetLayerName(PCB_LAYER_ID.F_Cu));
         sel.Append(b.GetLayerName(PCB_LAYER_ID.B_Cu));
-        sel.Append('None');
+        sel.Append(_('None'));
         break;
 
       case SMD_DLG_TYPE:
@@ -1350,7 +1371,7 @@ export class DIALOG_PAD_PROPERTIES {
         break;
 
       case APERTURE_DLG_TYPE:
-        sel.Append('None');
+        sel.Append(_('None'));
         break;
     }
 
@@ -1650,11 +1671,11 @@ export class DIALOG_PAD_PROPERTIES {
       if (errorCode === DRCE_PADSTACK_INVALID) error_msgs.push(`Error: ${msg}`);
       else if (errorCode === DRCE_PADSTACK) warning_msgs.push(`Warning: ${msg}`);
       else if (errorCode === DRCE_PAD_TH_WITH_NO_HOLE)
-        error_msgs.push('Error: Through hole pad has no hole.');
+        error_msgs.push(_('Error: Through hole pad has no hole.'));
     });
 
     if (error_msgs.length || warning_msgs.length) {
-      const title = error_msgs.length ? 'Pad Properties Errors' : 'Pad Properties Warnings';
+      const title = error_msgs.length ? _('Pad Properties Errors') : _('Pad Properties Warnings');
 
       this.m_messages = { title, messages: [...error_msgs, ...warning_msgs] };
     }
@@ -1791,7 +1812,7 @@ export class DIALOG_PAD_PROPERTIES {
     // redraw the area where the pad was
     this.m_parent.GetCanvas()?.Refresh();
 
-    commit.Push('Edit Pad Properties');
+    commit.Push(_('Edit Pad Properties'));
 
     return true;
   }
@@ -1825,10 +1846,10 @@ export class DIALOG_PAD_PROPERTIES {
     const isRound = this.m_holeShapeCtrl.GetSelection() === CHOICE_SHAPE_CIRCLE;
 
     if (isRound) {
-      this.m_holeX.SetLabel('Diameter:');
+      this.m_holeX.SetLabel(_('Diameter:'));
       this.m_holeY.Show(false);
     } else {
-      this.m_holeX.SetLabel('Hole size X:');
+      this.m_holeX.SetLabel(_('Hole size X:'));
       this.m_holeY.Show(true);
     }
 
@@ -1863,12 +1884,12 @@ export class DIALOG_PAD_PROPERTIES {
     const sel = this.m_PadShapeSelector.GetSelection();
 
     if (sel === CHOICE_SHAPE_CIRCLE || sel === CHOICE_SHAPE_CUSTOM_CIRC_ANCHOR) {
-      this.m_sizeX.SetLabel('Diameter:');
+      this.m_sizeX.SetLabel(_('Diameter:'));
       this.m_sizeY.Show(false);
       this.m_bitmapTeardrop = BITMAPS.teardrop_sizes;
       this.m_teardropHint = 'd';
     } else {
-      this.m_sizeX.SetLabel('Pad size X:');
+      this.m_sizeX.SetLabel(_('Pad size X:'));
       this.m_sizeY.Show(true);
       this.m_bitmapTeardrop = BITMAPS.teardrop_rect_sizes;
       this.m_teardropHint = 'w';
@@ -2319,13 +2340,13 @@ export class DIALOG_PAD_PROPERTIES {
 
     if (selection === 1) {
       // Countersink
-      aSize2.SetLabel('Angle:');
+      aSize2.SetLabel(_('Angle:'));
       aSize2.SetUnits('degrees');
 
       if (aSize2.IsIndeterminate() || aSize2.GetDoubleValue() === 0) aSize2.SetDoubleValue(82.0);
     } else if (selection === 2) {
       // Counterbore
-      aSize2.SetLabel('Depth:');
+      aSize2.SetLabel(_('Depth:'));
       aSize2.SetUnits(this.m_parent.GetUserUnits());
     }
   }
@@ -2687,7 +2708,7 @@ export function DialogPadProperties({
         m_clearance={unit(d.m_clearance)}
         m_maskMargin={unit(d.m_maskMargin)}
         m_pasteMargin={{
-          label: 'Solder paste clearance:',
+          label: _('Solder paste clearance:'),
           value: d.m_pasteMargin.GetText(),
           units: unitLabel(frame.GetUserUnits()),
           onChange: (aText) =>

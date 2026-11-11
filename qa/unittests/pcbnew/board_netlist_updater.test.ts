@@ -9,6 +9,8 @@
  * Counterparts: qa/tests/pcbnew/test_board_netlist_updater*.cpp.
  */
 import { describe, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common';
 import { kiidPathAsString } from '@ziroeda/common/kiid.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -532,8 +534,9 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
       updateFields: true,
     });
     const msgs = messages(reporter);
-    expect(msgs).toContain("Added R1 'Do not place' fabrication attribute.");
-    expect(msgs).toContain("Added R1 'exclude from BOM' fabrication attribute.");
+    // Each attribute's message is whole in KiCad's catalog, its name inside the msgid.
+    expect(msgs).toContain(wxFormat(_("Added %s 'Do not place' fabrication attribute."), 'R1'));
+    expect(msgs).toContain(wxFormat(_("Added %s 'exclude from BOM' fabrication attribute."), 'R1'));
     const r1 = fpOf(result.board, 'R1');
     expect(r1.IsDNP()).toBe(true);
     expect(r1.IsExcludedFromBOM()).toBe(true);

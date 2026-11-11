@@ -29,9 +29,16 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `m_unitsChoiceChoices`. */
-export const VRML_UNITS_CHOICES = ['mm', 'meter', '0.1 inch', 'inch'] as const;
+export const VRML_UNITS_CHOICES = [
+  _HKI('mm'),
+  _HKI('meter'),
+  _HKI('0.1 inch'),
+  _HKI('inch'),
+] as const;
 
 export interface DIALOG_EXPORT_VRML_BASE_PROPS {
   /** `m_filePicker` ("Save VRML Board File", *.wrl). */
@@ -73,7 +80,7 @@ export interface DIALOG_EXPORT_VRML_BASE_PROPS {
 
 export function DIALOG_EXPORT_VRML_BASE(p: DIALOG_EXPORT_VRML_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="VRML Export Options" onClose={p.onCancel}>
+    <DialogShim title={_('VRML Export Options')} onClose={p.onCancel}>
       {/* bSizer1 */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxALL | wxEXPAND} border={5}>
@@ -81,21 +88,21 @@ export function DIALOG_EXPORT_VRML_BASE(p: DIALOG_EXPORT_VRML_BASE_PROPS): JSX.E
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
               {/* m_staticText1 */}
-              <span>File name:</span>
+              <span>{_('File name:')}</span>
             </SizerItem>
             <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT | wxEXPAND} border={5} minSize={[450, -1]}>
               {/* m_filePicker */}
               <FilePickerCtrl
                 value={p.m_filePicker}
                 onChange={p.onFilePicker}
-                message="Save VRML Board File"
+                message={_('Save VRML Board File')}
                 onBrowse={p.onBrowse}
                 ariaLabel="File name"
               />
             </SizerItem>
             <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
               {/* m_staticText3 */}
-              <span>Footprint 3D model path:</span>
+              <span>{_('Footprint 3D model path:')}</span>
             </SizerItem>
             <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
               {/* m_SubdirNameCtrl */}
@@ -113,7 +120,7 @@ export function DIALOG_EXPORT_VRML_BASE(p: DIALOG_EXPORT_VRML_BASE_PROPS): JSX.E
             <SizerItem flag={wxALL} border={5}>
               {/* m_cbUserDefinedOrigin */}
               <CheckBox
-                label="User defined origin"
+                label={_('User defined origin')}
                 checked={p.m_cbUserDefinedOrigin}
                 onChange={p.onUserDefinedOrigin}
               />
@@ -123,7 +130,7 @@ export function DIALOG_EXPORT_VRML_BASE(p: DIALOG_EXPORT_VRML_BASE_PROPS): JSX.E
               <FlexGridSizer cols={3} vgap={3} hgap={0} growableCols={[1]}>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                   {/* m_xLabel */}
-                  <span>X:</span>
+                  <span>{_('X:')}</span>
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                   {/* m_VRML_Xref */}
@@ -140,7 +147,7 @@ export function DIALOG_EXPORT_VRML_BASE(p: DIALOG_EXPORT_VRML_BASE_PROPS): JSX.E
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                   {/* m_yLabel */}
-                  <span>Y:</span>
+                  <span>{_('Y:')}</span>
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT | wxEXPAND} border={5}>
                   {/* m_VRML_Yref */}
@@ -162,7 +169,7 @@ export function DIALOG_EXPORT_VRML_BASE(p: DIALOG_EXPORT_VRML_BASE_PROPS): JSX.E
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
                   {/* m_unitsLabel */}
-                  <span>Units:</span>
+                  <span>{_('Units:')}</span>
                 </SizerItem>
                 <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
                   {/* m_unitsChoice */}
@@ -185,21 +192,21 @@ export function DIALOG_EXPORT_VRML_BASE(p: DIALOG_EXPORT_VRML_BASE_PROPS): JSX.E
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
                   <CheckBox
-                    label="Ignore 'Do not populate' components"
+                    label={_("Ignore 'Do not populate' components")}
                     checked={p.m_cbRemoveDNP}
                     onChange={p.onRemoveDNP}
                   />
                 </SizerItem>
                 <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
                   <CheckBox
-                    label="Ignore 'Unspecified' components"
+                    label={_("Ignore 'Unspecified' components")}
                     checked={p.m_cbRemoveUnspecified}
                     onChange={p.onRemoveUnspecified}
                   />
                 </SizerItem>
                 <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
                   <CheckBox
-                    label="Copy 3D model files to 3D model path"
+                    label={_('Copy 3D model files to 3D model path')}
                     title={
                       'If checked: copy 3D models to the destination folder\n' +
                       'If not checked: Embed 3D models in the VRML board file'
@@ -211,8 +218,10 @@ export function DIALOG_EXPORT_VRML_BASE(p: DIALOG_EXPORT_VRML_BASE_PROPS): JSX.E
                 </SizerItem>
                 <SizerItem flag={wxALL} border={5}>
                   <CheckBox
-                    label="Use relative paths to model files in board VRML file"
-                    title="Use paths for model files in board VRML file relative to the VRML file"
+                    label={_('Use relative paths to model files in board VRML file')}
+                    title={_(
+                      'Use paths for model files in board VRML file relative to the VRML file',
+                    )}
                     checked={p.m_cbUseRelativePaths}
                     disabled={!p.useRelativePathsEnabled}
                     onChange={p.onUseRelativePaths}

@@ -50,6 +50,7 @@ import type { TransferResult } from './dialog_text_properties.js';
 import type { CONVERT_SETTINGS } from '../pcbnew_settings.js';
 import { CONVERSION_BOX, type ConversionBoxValues } from '../tools/convert_settings_dialog.js';
 import type { RuleAreaKeepout, ZonePlacementArea } from './dialog_rule_area_properties.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** Every field PANEL_ZONE_PROPERTIES edits. */
 export interface ZoneValues {
@@ -131,7 +132,7 @@ export function editZoneParamsCommit(
   aSettings.m_Netcode = ORPHANED_NET;
   aFrame.GetDesignSettings().SetDefaultZoneSettings(aSettings);
 
-  commit.Push('Edit Zone Properties', SKIP_CONNECTIVITY);
+  commit.Push(_('Edit Zone Properties'), SKIP_CONNECTIVITY);
   board?.BuildConnectivity();
 }
 
@@ -261,7 +262,7 @@ export function acceptZoneOptions(
   if (s.m_ThermalReliefSpokeWidth < s.m_ZoneMinThickness)
     return {
       ok: false,
-      message: 'Thermal spoke width cannot be smaller than the minimum width.',
+      message: _('Thermal spoke width cannot be smaller than the minimum width.'),
     };
 
   s.SetIslandRemovalMode(Math.max(0, ISLANDS.indexOf(v.islandRemovalMode)));
@@ -599,9 +600,9 @@ export function PanelZoneProperties({
     <PANEL_ZONE_PROPERTIES_BASE
       m_copperZoneInfoBar={
         noNet
-          ? '<no net> will result in an isolated copper island.'
+          ? _('<no net> will result in an isolated copper island.')
           : overridden
-            ? 'All zone layers already overridden.'
+            ? _('All zone layers already overridden.')
             : null
       }
       m_tcZoneName={{ value: v.name, onChange: (aText) => set({ name: aText }) }}
@@ -630,7 +631,7 @@ export function PanelZoneProperties({
         value: hatched,
         onChange: (aOn) => set({ fillMode: aOn ? 'hatch' : 'solid' }),
       }}
-      m_gridStyleRotation={num('hatchOrientation', 'deg', hatched)}
+      m_gridStyleRotation={num('hatchOrientation', _('deg'), hatched)}
       m_gridStyleThickness={dist('hatchThickness', hatched)}
       m_gridStyleGap={dist('hatchGap', hatched)}
       m_spinCtrlSmoothLevel={{

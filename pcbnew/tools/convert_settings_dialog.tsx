@@ -32,6 +32,7 @@ import {
 } from '@ziroeda/wx/sizer.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import { type CONVERT_SETTINGS, CONVERT_STRATEGY } from '../pcbnew_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The dialog's controls. */
 export interface ConvertSettingsValues {
@@ -205,29 +206,29 @@ export function ConvertSettingsDialog({
   );
 
   return (
-    <DialogShim title="Conversion Settings" onClose={() => onClose(false)}>
+    <DialogShim title={_('Conversion Settings')} onClose={() => onClose(false)}>
       {/* mainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={10}>
           {/* topSizer */}
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxLEFT | wxRIGHT} border={5} shown={shown.copyLineWidth}>
-              {radio('Copy line width of first object', CONVERT_STRATEGY.COPY_LINEWIDTH)}
+              {radio(_('Copy line width of first object'), CONVERT_STRATEGY.COPY_LINEWIDTH)}
             </SizerItem>
             {shown.centerline && <Spacer width={0} height={6} />}
             <SizerItem flag={wxLEFT | wxRIGHT} border={5} shown={shown.centerline}>
-              {radio('Use centerlines', CONVERT_STRATEGY.CENTERLINE)}
+              {radio(_('Use centerlines'), CONVERT_STRATEGY.CENTERLINE)}
             </SizerItem>
             {shown.boundingHull && <Spacer width={0} height={6} />}
             <SizerItem flag={wxLEFT | wxRIGHT} border={5} shown={shown.boundingHull}>
-              {radio('Create bounding hull', CONVERT_STRATEGY.BOUNDING_HULL)}
+              {radio(_('Create bounding hull'), CONVERT_STRATEGY.BOUNDING_HULL)}
             </SizerItem>
             {shown.boundingHull && <Spacer width={0} height={2} />}
             <SizerItem flag={wxLEFT} border={26} shown={shown.boundingHull}>
               {/* hullParamsSizer */}
               <BoxSizer orient={wxHORIZONTAL}>
                 {unitRow(
-                  'Gap:',
+                  _('Gap:'),
                   v.gap,
                   units,
                   hull,
@@ -238,7 +239,7 @@ export function ConvertSettingsDialog({
                 )}
                 <Spacer width={18} height={0} />
                 {unitRow(
-                  'Line width:',
+                  _('Line width:'),
                   v.lineWidth,
                   units,
                   hull,
@@ -252,7 +253,7 @@ export function ConvertSettingsDialog({
             {shown.boundingHull && <Spacer width={0} height={15} />}
             <SizerItem flag={wxALL} border={5}>
               <CheckBox
-                label="Delete source objects after conversion"
+                label={_('Delete source objects after conversion')}
                 check={{
                   value: v.deleteOriginals,
                   onChange: (aOn) => set({ deleteOriginals: aOn }),
@@ -303,10 +304,10 @@ export function ConversionSettingsBox({
   const borders = gapBorders === 'copperZone' ? ([5, 5, 5, 0] as const) : ([0, 3, 0, 0] as const);
 
   return (
-    <StaticBoxSizer label="Conversion Settings" orient={wxVERTICAL}>
+    <StaticBoxSizer label={_('Conversion Settings')} orient={wxVERTICAL}>
       <SizerItem flag={wxLEFT | wxRIGHT} border={5}>
         <RadioButton
-          label="Use centerlines"
+          label={_('Use centerlines')}
           name="m_conversion"
           checked={!values.boundingHull}
           onChange={() => set({ boundingHull: false })}
@@ -315,7 +316,7 @@ export function ConversionSettingsBox({
       <Spacer width={0} height={2} />
       <SizerItem flag={wxLEFT | wxRIGHT} border={5}>
         <RadioButton
-          label="Create bounding hull"
+          label={_('Create bounding hull')}
           name="m_conversion"
           checked={values.boundingHull}
           onChange={() => set({ boundingHull: true })}
@@ -326,7 +327,7 @@ export function ConversionSettingsBox({
         {/* hullParamsSizer */}
         <BoxSizer orient={wxHORIZONTAL}>
           {unitRow(
-            'Gap:',
+            _('Gap:'),
             values.gap,
             units,
             values.boundingHull,
@@ -340,7 +341,7 @@ export function ConversionSettingsBox({
       <Spacer width={0} height={6} />
       <SizerItem flag={wxALL} border={5}>
         <CheckBox
-          label="Delete source objects after conversion"
+          label={_('Delete source objects after conversion')}
           check={{
             value: values.deleteOriginals,
             onChange: (aOn) => set({ deleteOriginals: aOn }),

@@ -55,6 +55,7 @@ import { BOARD_USE, LAYER_T } from './board_types.js';
 import type { BOARD } from './board.js';
 import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
 import type { FOOTPRINT } from './footprint.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * The part of `BOARD_COMMIT` `Duplicate` uses. The class itself is #636 stage 3.
@@ -807,7 +808,7 @@ export class DELETED_BOARD_ITEM extends BOARD_ITEM {
     .AddProperty(
       new PROPERTY<BOARD_ITEM, string>(
         BOARD_ITEM,
-        'Parent',
+        _HKI('Parent'),
         NO_SETTER,
         'GetParentAsString',
         TYPE_STRING,
@@ -824,7 +825,7 @@ export class DELETED_BOARD_ITEM extends BOARD_ITEM {
   propMgr.AddProperty(
     new PROPERTY<BOARD_ITEM, number>(
       BOARD_ITEM,
-      'Position X',
+      _HKI('Position X'),
       'SetX',
       'GetX',
       TYPE_INT,
@@ -835,7 +836,7 @@ export class DELETED_BOARD_ITEM extends BOARD_ITEM {
   propMgr.AddProperty(
     new PROPERTY<BOARD_ITEM, number>(
       BOARD_ITEM,
-      'Position Y',
+      _HKI('Position Y'),
       'SetY',
       'GetY',
       TYPE_INT,
@@ -846,7 +847,7 @@ export class DELETED_BOARD_ITEM extends BOARD_ITEM {
   propMgr.AddProperty(
     new PROPERTY_ENUM<BOARD_ITEM, PCB_LAYER_ID>(
       BOARD_ITEM,
-      'Layer',
+      _HKI('Layer'),
       'SetLayer',
       'GetLayer',
       layerEnum,
@@ -854,7 +855,13 @@ export class DELETED_BOARD_ITEM extends BOARD_ITEM {
   );
   propMgr
     .AddProperty(
-      new PROPERTY<BOARD_ITEM, boolean>(BOARD_ITEM, 'Locked', 'SetLocked', 'IsLocked', TYPE_BOOL),
+      new PROPERTY<BOARD_ITEM, boolean>(
+        BOARD_ITEM,
+        _HKI('Locked'),
+        'SetLocked',
+        'IsLocked',
+        TYPE_BOOL,
+      ),
     )
     .SetAvailableFunc(isNotFootprintHolder);
 })();

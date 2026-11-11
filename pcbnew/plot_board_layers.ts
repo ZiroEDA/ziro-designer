@@ -62,6 +62,7 @@ import { LAYER_CLASS_FAB } from './board_design_settings.js';
 import { AddGerberX2Attribute } from './pcbplot.js';
 import { BRDITEMS_PLOTTER } from './plot_brditems_plotter.js';
 import { ZONE } from './zone.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `PlotLayer`: outlines for a DXF in polygon mode, the standard plot otherwise. */
 export function PlotLayer(
@@ -1278,7 +1279,7 @@ export function PlotInteractiveLayer(
     aPlotter.Bookmark(
       { pos: bbox.GetPosition(), size: bbox.GetSize() },
       fp.GetReference(),
-      'Footprints',
+      _('Footprints'),
     );
   }
 }
@@ -1346,7 +1347,7 @@ export function StartPlotBoard(
     }
 
     case PLOT_FORMAT.HPGL:
-      console.error('HPGL plotting is no longer supported as of KiCad 10.0');
+      console.error(_('HPGL plotting is no longer supported as of KiCad 10.0'));
       return null;
 
     case PLOT_FORMAT.GERBER:

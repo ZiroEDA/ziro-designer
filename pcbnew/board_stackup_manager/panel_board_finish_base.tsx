@@ -17,6 +17,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, FlexGridSizer, SizerItem } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PANEL_SETUP_BOARD_FINISH_BASE_PROPS {
   m_cbEgdesPlated: CHECK;
@@ -35,13 +36,13 @@ export function PANEL_SETUP_BOARD_FINISH_BASE(p: PANEL_SETUP_BOARD_FINISH_BASE_P
         {/* bMargins */}
         <BoxSizer orient={wxVERTICAL}>
           <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
-            <CheckBox label="Plated board edge" check={p.m_cbEgdesPlated} />
+            <CheckBox label={_('Plated board edge')} check={p.m_cbEgdesPlated} />
           </SizerItem>
           <SizerItem proportion={1} flag={wxEXPAND | wxTOP} border={10}>
             {/* fgSizer2 = wxFlexGridSizer( 0, 2, 5, 0 ) */}
             <FlexGridSizer cols={2} vgap={5}>
               <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>
-                <StaticText label="Copper finish:" />
+                <StaticText label={_('Copper finish:')} />
               </SizerItem>
               <SizerItem flag={wxEXPAND | CV} border={2}>
                 <Choice
@@ -51,14 +52,14 @@ export function PANEL_SETUP_BOARD_FINISH_BASE(p: PANEL_SETUP_BOARD_FINISH_BASE_P
                 />
               </SizerItem>
               <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>
-                <StaticText label="Edge card connectors:" />
+                <StaticText label={_('Edge card connectors:')} />
               </SizerItem>
               <SizerItem flag={wxEXPAND} border={2}>
                 <Choice
-                  choices={['None', 'Yes', 'Yes, bevelled']}
+                  choices={[_('None'), _('Yes'), _('Yes, bevelled')]}
                   choice={p.m_choiceEdgeConn}
                   ariaLabel="Edge card connectors"
-                  title="Options for edge card connectors."
+                  title={_('Options for edge card connectors.')}
                 />
               </SizerItem>
             </FlexGridSizer>

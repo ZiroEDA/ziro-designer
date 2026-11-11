@@ -29,6 +29,7 @@ import { DIALOG_TEXT_PROPERTIES } from './dialogs/dialog_text_properties.js';
 import { DIALOG_COPPER_ZONE } from './dialogs/dialog_copper_zones.js';
 import { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
 import { DIALOG_RULE_AREA_PROPERTIES } from './dialogs/dialog_rule_area_properties.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `FOOTPRINT_EDIT_FRAME::KiwayMailIn`'s `MAIL_FP_EDIT` branch
@@ -44,7 +45,7 @@ import { DIALOG_RULE_AREA_PROPERTIES } from './dialogs/dialog_rule_area_properti
 export function fpTargetOf(path: string): { lib: string; name: string } {
   const norm = path.replace(/\\/g, '/');
   const m = /([^/]+)\.pretty\//i.exec(norm);
-  const dir = m ? `${m[1]}.pretty` : norm.split('/').slice(0, -1).join('/') || 'Project';
+  const dir = m ? `${m[1]}.pretty` : norm.split('/').slice(0, -1).join('/') || _('Project');
   const lib = dir
     .replace(/\.pretty$/i, '')
     .split('/')
@@ -178,7 +179,7 @@ export class FOOTPRINT_EDITOR_UTILS_MIXIN {
 
           const commit = new BOARD_COMMIT(this);
           commit.Modify(zone);
-          commit.Push('Edit Zone');
+          commit.Push(_('Edit Zone'));
           zoneSettings.ExportSetting(zone);
         });
         break;
