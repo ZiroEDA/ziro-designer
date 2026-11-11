@@ -322,14 +322,3 @@ export const _ = wxGetTranslation;
 
 /** `#define wxPLURAL(sing, plur, n) wxGetTranslation((sing), (plur), n)`. */
 export const wxPLURAL = wxGetTranslationPlural;
-
-/**
- * KiCad's `_HKI( x )` (`include/i18n_utility.h`): marks a string as
- * translatable *without* translating it there. KiCad uses it for text that is
- * stored untranslated and translated when shown - a `TOOL_ACTION`'s friendly
- * name and tooltip - and ours is the same: a table built once at module load
- * keeps English, and whatever draws it calls `_()` on the way out, so the row
- * follows a language change instead of freezing in the language it was built
- * in.
- */
-export const _HKI = (aStr: string): string => aStr;

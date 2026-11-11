@@ -23,6 +23,7 @@
     "@ziroeda/cvpcb": "workspace:*",
     "@ziroeda/eeschema": "workspace:*",
     "@ziroeda/gerbview": "workspace:*",
+    "@ziroeda/include": "workspace:*",
     "@ziroeda/kimath": "workspace:*",
     "@ziroeda/pagelayout_editor": "workspace:*",
     "@ziroeda/pcb_calculator": "workspace:*",

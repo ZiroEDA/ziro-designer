@@ -29,7 +29,7 @@ import {
   gedaProjectFilesWildcard,
   padsProjectFilesWildcard,
 } from '@ziroeda/common/wildcards_and_files_ext.js';
-import { _HKI } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The rows of File > Import Non-KiCad Project, in kicad/menubar.cpp's order. */
 export type ImportFormat =

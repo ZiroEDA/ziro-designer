@@ -16,7 +16,7 @@ import { DEFAULT_FILE_HISTORY_SIZE, openRecentMenuItem } from '@ziroeda/common/f
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
 import type { ProjectMeta } from './projectStore.js';
 import type { DemoMeta } from './demos.js';
-import { _HKI } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const SEP: MenuItem = { sep: true };
 

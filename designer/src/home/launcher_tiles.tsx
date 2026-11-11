@@ -12,7 +12,7 @@
  */
 import type { JSX } from 'react';
 import { svgUrl } from '@ziroeda/bitmaps_png';
-import { _HKI } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // KiCad's own dark-theme icons (GPL), vendored under assets/.
 const tileUrl = (id: string): string | undefined => svgUrl('launcher', id);

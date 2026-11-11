@@ -33,7 +33,7 @@
  */
 
 import { type TreeFileType, canDelete, canRename } from './file_activation.js';
-import { _HKI } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** One row of the selection, as much of `PROJECT_TREE_ITEM` as the menu asks. */
 export interface TreeMenuSelectionItem {

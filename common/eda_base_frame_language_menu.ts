@@ -59,7 +59,7 @@
  * itself translates its labels when it draws them.
  */
 import type { MenuItem } from '@ziroeda/wx/menu.js';
-import { _HKI } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 import { DEFAULT_LANGUAGE, type LanguageDescr, LanguagesList } from './pgm_base.js';
 
 export { DEFAULT_LANGUAGE, type LanguageDescr };

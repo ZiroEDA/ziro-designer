@@ -265,6 +265,9 @@ importers:
       '@ziroeda/gerbview':
         specifier: workspace:*
         version: link:../gerbview
+      '@ziroeda/include':
+        specifier: workspace:*
+        version: link:../include
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath

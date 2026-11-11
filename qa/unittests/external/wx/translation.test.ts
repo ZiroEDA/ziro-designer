@@ -13,7 +13,6 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   _,
-  _HKI,
   wxGetTranslation,
   wxMsgCatalog,
   type wxMsgCatalogData,
@@ -91,11 +90,6 @@ describe('_() / wxGetTranslation', () => {
     use(GERMAN);
     expect(wxPLURAL('%d half', '%d halves', 1)).toBe('%d halb');
     expect(wxPLURAL('%d half', '%d halves', 3)).toBe('%d halves');
-  });
-
-  it('_HKI marks a string and changes nothing', () => {
-    use(GERMAN);
-    expect(_HKI('Open Project...')).toBe('Open Project...');
   });
 });
 
