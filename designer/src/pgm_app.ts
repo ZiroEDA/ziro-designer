@@ -34,6 +34,7 @@ import { type MouseDragAction, type ScrollModifier, settings } from './prefs/set
 import { setCustomCursorsEnabledProvider } from '@ziroeda/common/gal/kicursors.js';
 import { setColorSettingsByIdProvider } from '@ziroeda/pcbnew/pcbTheme.js';
 import { wxInitAllImageHandlers } from '@ziroeda/wx/wx_image.js';
+import { InitLanguage } from './pgm_language.js';
 import {
   commonInputPrefsFromSettings,
   setCommonInputPrefsProvider,
@@ -199,8 +200,26 @@ export function InitPgm(): PGM_BASE {
     // (editors/pcb/pcbnew_app.tsx), its only consumer: registering it here put the whole
     // SCH_EDIT_FRAME and its tools into the startup bundle.
     SetPgm(pgm);
+
+    // pgm_base.cpp:393, `SetLanguage( tmp, true )`: the stored language, before any frame.
+    s_languageReady = InitLanguage();
   }
   return pgm;
+}
+
+let s_languageReady: Promise<void> = Promise.resolve();
+
+/**
+ * Resolves when the interface language `InitPgm` asked for is loaded - at
+ * once for English, which loads nothing. Capped, because a catalog is a
+ * convenience and a slow network must not hold the first frame hostage: past
+ * the cap the frame paints in English and repaints when the catalog lands.
+ */
+export function languageReady(aTimeoutMs = 2000): Promise<void> {
+  return Promise.race([
+    s_languageReady,
+    new Promise<void>((resolve) => setTimeout(resolve, aTimeoutMs)),
+  ]);
 }
 
 /** The designer's grid and cursor preferences, the half of `m_Window` the GAL reads. */

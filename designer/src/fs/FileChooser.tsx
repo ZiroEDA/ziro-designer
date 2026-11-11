@@ -43,6 +43,7 @@ import { formatModified, formatSize } from './format.js';
 import { ROOT, ancestors, basename, isValidName, join } from './path.js';
 import { MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
 import { extendSelection, selectionToAccept } from './chooser_selection.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // ChooserFilter and ChooserPlace live in chooser_types.ts so the data modules
 // that name them stay reachable from qa's tsconfig, which compiles .ts only.
@@ -602,7 +603,7 @@ export function FileChooser({
               />
             </div>
           ) : (
-            <div className="ze-chooser-title">{title}</div>
+            <div className="ze-chooser-title">{_(title)}</div>
           )}
           {/* GTK's header bar carries a search toggle between the title and the
               accept button. Ours filters the listing rather than walking the

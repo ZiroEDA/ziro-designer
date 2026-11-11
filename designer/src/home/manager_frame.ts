@@ -1,3 +1,4 @@
+import { _, _HKI } from '@ziroeda/wx/translation.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -11,11 +12,11 @@
  */
 
 /** `_( "[Read Only]" )` — `kicad_manager_frame.cpp:1298`, brackets included. */
-export const READ_ONLY_SUFFIX = '[Read Only]';
+export const READ_ONLY_SUFFIX = _HKI('[Read Only]');
 
 /** `_( "[no project loaded]" )` — `:1304`. The only place this string exists in
  *  KiCad; it is a title, and never a status-bar line. */
-export const NO_PROJECT_TITLE = '[no project loaded]';
+export const NO_PROJECT_TITLE = _HKI('[no project loaded]');
 
 /**
  * The em dash and its spaces that separate the document from the app name:
@@ -60,7 +61,7 @@ export function managerTitle(
   readOnly = false,
 ): string {
   const name = projectName?.trim().replace(/\.kicad_pro$/i, '');
-  const head = name ? `${name}${readOnly ? ` ${READ_ONLY_SUFFIX}` : ''}` : NO_PROJECT_TITLE;
+  const head = name ? `${name}${readOnly ? ` ${_(READ_ONLY_SUFFIX)}` : ''}` : _(NO_PROJECT_TITLE);
   return `${head}${TITLE_SEPARATOR}${appName}`;
 }
 
@@ -83,5 +84,6 @@ export function managerTitle(
  */
 export function projectStatusText(projectFullPath: string | null | undefined): string {
   const path = projectFullPath?.trim();
-  return path ? `Project: ${path}` : '';
+  // `wxString::Format( _( "Project: %s" ), Prj().GetProjectFullName() )`.
+  return path ? _('Project: %s').replace('%s', path) : '';
 }

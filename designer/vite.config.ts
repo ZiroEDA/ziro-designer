@@ -170,6 +170,16 @@ export default defineConfig({
             options: { cacheName: 'wasm', expiration: { maxEntries: 8 } },
           },
           {
+            // The interface catalogs (translation/<lang>.json): 44 files of about
+            // 1 MB, of which a user needs one. Never precached - the glob above
+            // takes no .json - and cached the first time a language is used, so
+            // that language still paints with the network down. Hashed, so
+            // cache-first is exact.
+            urlPattern: ({ url }: { url: URL }) => /\/assets\/[\w-]+\.json$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: { cacheName: 'translation', expiration: { maxEntries: 4 } },
+          },
+          {
             // The DRC worker, kept out of the precache above. Hashed like
             // every other asset, so cache-first is exact, and a second DRC -
             // or a DRC offline - has it in hand.

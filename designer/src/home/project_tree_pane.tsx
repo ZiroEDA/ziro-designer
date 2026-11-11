@@ -19,6 +19,7 @@ import { basename, isHiddenTreeNode, treeIconFor, type DirNode } from './project
 import { treeFileType } from './file_activation.js';
 import { type TreeMenuSelectionItem, projectTreeMenu } from './project_tree_menu.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // KiCad's own dark-theme manager icons (GPL), vendored under assets/.
 export const mgrUrl = (name: string): string | undefined => svgUrl('manager', name);
@@ -214,7 +215,7 @@ export function ProjectTreePane({
 
   return (
     <div className="ze-panel left ze-projecttree" style={{ width }}>
-      <div className="ze-panel-header">Project Files</div>
+      <div className="ze-panel-header">{_('Project Files')}</div>
       <div className="ze-panel-body">
         {picked ? (
           <>

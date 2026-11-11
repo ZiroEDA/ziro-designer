@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/wx/translation.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -17,7 +18,11 @@
 /** m_filterChoiceChoices, verbatim: 0 = All, 1 = User, 2 = System. Three, not
  *  four - the "Other Templates" category belongs to master's Browse... row, and
  *  neither exists in 10.0.5. */
-export const FILTERS = ['All Templates', 'User Templates', 'System Templates'] as const;
+export const FILTERS = [
+  _HKI('All Templates'),
+  _HKI('User Templates'),
+  _HKI('System Templates'),
+] as const;
 
 /** TEMPLATE_WIDGET::m_isUserTemplate. 10.0.5 models this as one boolean rather
  *  than a category enum, so a template is either the user's or a system one. */

@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/wx/translation.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -46,11 +47,11 @@
  */
 
 /** `_( "Create (or open) a project to edit a schematic." )` — `:742`. */
-export const NO_PROJECT_SCHEMATIC_MESSAGE = 'Create (or open) a project to edit a schematic.';
+export const NO_PROJECT_SCHEMATIC_MESSAGE = _HKI('Create (or open) a project to edit a schematic.');
 
 /** `_( "Create (or open) a project to edit a pcb." )` — `:747`. Lower-case
  *  "pcb" is upstream's own, and is not tidied here. */
-export const NO_PROJECT_PCB_MESSAGE = 'Create (or open) a project to edit a pcb.';
+export const NO_PROJECT_PCB_MESSAGE = _HKI('Create (or open) a project to edit a pcb.');
 
 /**
  * The launchers, by the id our tile table uses.

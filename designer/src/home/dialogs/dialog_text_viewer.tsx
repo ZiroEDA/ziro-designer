@@ -8,6 +8,7 @@
 import { Button } from '@ziroeda/wx/controls.js';
 import type { JSX } from 'react';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function TextViewerDialog({
   name,
@@ -35,7 +36,7 @@ export function TextViewerDialog({
         {text}
       </pre>
       <div className="ze-modal-footer">
-        <Button label="Close" isDefault onClick={onClose} />
+        <Button label={_('Close')} isDefault onClick={onClose} />
       </div>
     </DialogShim>
   );

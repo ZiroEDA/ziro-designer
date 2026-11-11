@@ -29,6 +29,7 @@ import {
   gedaProjectFilesWildcard,
   padsProjectFilesWildcard,
 } from '@ziroeda/common/wildcards_and_files_ext.js';
+import { _HKI } from '@ziroeda/wx/translation.js';
 
 /** The rows of File > Import Non-KiCad Project, in kicad/menubar.cpp's order. */
 export type ImportFormat =
@@ -56,50 +57,50 @@ export interface ImportFormatDesc {
 /** `KICAD_MANAGER_FRAME::OnImportXxx` (import_project.cpp:178-229), verbatim. */
 export const IMPORT_FORMATS: Readonly<Record<ImportFormat, ImportFormatDesc>> = {
   altium: {
-    menuLabel: 'Altium Project...',
-    title: 'Import Altium Project Files',
+    menuLabel: _HKI('Altium Project...'),
+    title: _HKI('Import Altium Project Files'),
     wildcard: altiumProjectFilesWildcard,
     schExts: ['SchDoc'],
     pcbExts: ['PcbDoc', 'CSPcbDoc', 'CMPcbDoc', 'SWPcbDoc'],
   },
   cadstar: {
-    menuLabel: 'CADSTAR Project...',
-    title: 'Import CADSTAR Archive Project Files',
+    menuLabel: _HKI('CADSTAR Project...'),
+    title: _HKI('Import CADSTAR Archive Project Files'),
     wildcard: cadstarArchiveFilesWildcard,
     schExts: ['csa'],
     pcbExts: ['cpa'],
   },
   eagle: {
-    menuLabel: 'EAGLE Project...',
-    title: 'Import Eagle Project Files',
+    menuLabel: _HKI('EAGLE Project...'),
+    title: _HKI('Import Eagle Project Files'),
     wildcard: eagleFilesWildcard,
     schExts: ['sch'],
     pcbExts: ['brd'],
   },
   easyeda: {
-    menuLabel: 'EasyEDA (JLCEDA) Std Backup...',
-    title: 'Import EasyEDA Std Backup',
+    menuLabel: _HKI('EasyEDA (JLCEDA) Std Backup...'),
+    title: _HKI('Import EasyEDA Std Backup'),
     wildcard: easyEdaArchiveWildcard,
     schExts: ['INPUT'],
     pcbExts: ['INPUT'],
   },
   easyedapro: {
-    menuLabel: 'EasyEDA (JLCEDA) Pro Project...',
-    title: 'Import EasyEDA Pro Project',
+    menuLabel: _HKI('EasyEDA (JLCEDA) Pro Project...'),
+    title: _HKI('Import EasyEDA Pro Project'),
     wildcard: easyEdaProFileWildcard,
     schExts: ['INPUT'],
     pcbExts: ['INPUT'],
   },
   pads: {
-    menuLabel: 'PADS Project...',
-    title: 'Import PADS Project Files',
+    menuLabel: _HKI('PADS Project...'),
+    title: _HKI('Import PADS Project Files'),
     wildcard: padsProjectFilesWildcard,
     schExts: ['asc', 'txt'],
     pcbExts: ['asc', 'txt'],
   },
   geda: {
-    menuLabel: 'gEDA / Lepton EDA Project...',
-    title: 'Import gEDA / Lepton EDA Project Files',
+    menuLabel: _HKI('gEDA / Lepton EDA Project...'),
+    title: _HKI('Import gEDA / Lepton EDA Project Files'),
     wildcard: gedaProjectFilesWildcard,
     schExts: ['prj', 'sch'],
     pcbExts: ['pcb'],

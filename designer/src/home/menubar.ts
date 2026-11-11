@@ -16,6 +16,7 @@ import { DEFAULT_FILE_HISTORY_SIZE, openRecentMenuItem } from '@ziroeda/common/f
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
 import type { ProjectMeta } from './projectStore.js';
 import type { DemoMeta } from './demos.js';
+import { _HKI } from '@ziroeda/wx/translation.js';
 
 const SEP: MenuItem = { sep: true };
 
@@ -89,7 +90,7 @@ function buildDemoSubmenu(h: ManagerMenuHandlers): MenuItem[] {
   const sims = h.demos.filter((d) => d.id.startsWith('simulation/'));
   const rest = h.demos.filter((d) => !d.id.startsWith('simulation/'));
   const items: MenuItem[] = rest.map(entry);
-  if (sims.length > 0) items.push({ label: 'Simulation', submenu: sims.map(entry) });
+  if (sims.length > 0) items.push({ label: _HKI('Simulation'), submenu: sims.map(entry) });
   return items;
 }
 
@@ -107,18 +108,18 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
       if (project) h.openRecent(project.id);
     },
     onClear: () => h.clearRecent(),
-    clearText: 'Clear Recent Projects',
+    clearText: _HKI('Clear Recent Projects'),
   });
 
   return [
     {
-      label: 'File',
+      label: _HKI('File'),
       items: [
         // KICAD_MANAGER_ACTIONS::newProject is .DefaultHotkey( MD_CTRL + 'N' ),
         // which a browser will not give up - Ctrl+N is its new window, handled
         // before the page sees the key. BROWSER_REBINDS in ui/browser_hotkeys.ts
         // holds the substitution and the reasoning.
-        { label: 'New Project...', shortcut: 'Ctrl+Alt+N', action: h.newProject },
+        { label: _HKI('New Project...'), shortcut: 'Ctrl+Alt+N', action: h.newProject },
         // KICAD_MANAGER_ACTIONS::newFromRepository's slot (kicad/menubar.cpp:85),
         // "Clone Project from Repository...". Upstream clones with libgit2 and
         // credentials; a browser cannot reach git hosts' smart-HTTP endpoints,
@@ -131,37 +132,37 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
           label: 'Open Demo Project',
           submenu: buildDemoSubmenu(h),
         },
-        { label: 'Open Project...', icon: 'open', shortcut: 'Ctrl+O', action: h.openProject },
+        { label: _HKI('Open Project...'), icon: 'open', shortcut: 'Ctrl+O', action: h.openProject },
         // Web-only: fallback when the browser blocks the folder picker.
         { label: 'Select Project Files...', action: h.selectProjectFiles },
         openRecentItem,
         SEP,
-        { label: 'New Jobset File...', disabled: true }, // jobs system not yet built
-        { label: 'Open Jobset File...', disabled: true },
+        { label: _HKI('New Jobset File...'), disabled: true }, // jobs system not yet built
+        { label: _HKI('Open Jobset File...'), disabled: true },
         SEP,
-        { label: 'Close Project', action: h.closeProject, disabled: !h.hasProject },
+        { label: _HKI('Close Project'), action: h.closeProject, disabled: !h.hasProject },
         SEP,
         // `historyCond.Enable( AutosaveUsesLocalHistory() && HistoryExists(
         //  Prj().GetProjectPath() ) )` (kicad/menubar.cpp:107-114). We have no
         // AutosaveUsesLocalHistory setting to switch off, so the enable rule is
         // the other half: a project is open and it has at least one snapshot.
         {
-          label: 'Restore Project from Local History...',
+          label: _HKI('Restore Project from Local History...'),
           action: h.restoreLocalHistory,
           disabled: !h.hasLocalHistory,
         },
         SEP,
         {
-          label: 'Save As...',
+          label: _HKI('Save As...'),
           shortcut: 'Shift+Ctrl+S',
           action: h.saveAs,
           disabled: !h.hasProject,
         },
         SEP,
-        { label: 'Import Non-KiCad Project...', submenu: importSubmenu(h) },
+        { label: _HKI('Import Non-KiCad Project...'), submenu: importSubmenu(h) },
         SEP,
-        { label: 'Archive Project...', action: h.archiveProject, disabled: !h.hasProject },
-        { label: 'Unarchive Project...', action: h.unarchiveProject },
+        { label: _HKI('Archive Project...'), action: h.archiveProject, disabled: !h.hasProject },
+        { label: _HKI('Unarchive Project...'), action: h.unarchiveProject },
         // "Quit" is not applicable in a browser tab.
       ],
     },
@@ -208,24 +209,24 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
        * the entries carry exactly what upstream's carry - a label, an
        * accelerator, and no way to invoke them.
        */
-      label: 'Edit',
+      label: _HKI('Edit'),
       items: [
-        { label: 'Cut', shortcut: 'Ctrl+X', disabled: true },
-        { label: 'Copy', shortcut: 'Ctrl+C', disabled: true },
-        { label: 'Paste', shortcut: 'Ctrl+V', disabled: true },
+        { label: _HKI('Cut'), shortcut: 'Ctrl+X', disabled: true },
+        { label: _HKI('Copy'), shortcut: 'Ctrl+C', disabled: true },
+        { label: _HKI('Paste'), shortcut: 'Ctrl+V', disabled: true },
       ],
     },
     {
-      label: 'View',
+      label: _HKI('View'),
       items: [
         {
           // panelsMenu->Add( KICAD_MANAGER_ACTIONS::showLocalHistory,
           //                  ACTION_MENU::CHECK );
           // A check item, so the row shows whether the pane is up.
-          label: 'Panels',
+          label: _HKI('Panels'),
           submenu: [
             {
-              label: 'Local History',
+              label: _HKI('Local History'),
               checked: h.localHistoryShown,
               action: h.toggleLocalHistory,
             },
@@ -239,7 +240,7 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         //     #else
         //         .DefaultHotkey( WXK_F5 )
         //     #endif
-        { label: 'Refresh', shortcut: 'F5', action: h.refresh },
+        { label: _HKI('Refresh'), shortcut: 'F5', action: h.refresh },
         // There *is* a rule here. kicad/menubar.cpp:
         //     viewMenu->Add( ACTIONS::zoomRedraw );
         //
@@ -269,25 +270,29 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
       ],
     },
     {
-      label: 'Tools',
+      label: _HKI('Tools'),
       items: [
-        { label: 'Schematic Editor', shortcut: 'Ctrl+E', action: h.editSchematic },
-        { label: 'Symbol Editor', shortcut: 'Ctrl+L', action: h.editSymbols },
+        { label: _HKI('Schematic Editor'), shortcut: 'Ctrl+E', action: h.editSchematic },
+        { label: _HKI('Symbol Editor'), shortcut: 'Ctrl+L', action: h.editSymbols },
         // Not greyed: `setupUIConditions` conditions saveAs, closeProject,
         // archiveProject, newJobsetFile and openJobsetFile on an active project
         // (kicad_manager_frame.cpp:493-497) and nothing else. editPCB refuses
         // through ShowPlayer's message box instead - see home/show_player.ts.
-        { label: 'PCB Editor', shortcut: 'Ctrl+P', action: h.editPcb },
-        { label: 'Footprint Editor', shortcut: 'Ctrl+F', action: h.editFootprints },
+        { label: _HKI('PCB Editor'), shortcut: 'Ctrl+P', action: h.editPcb },
+        { label: _HKI('Footprint Editor'), shortcut: 'Ctrl+F', action: h.editFootprints },
         SEP,
         // These three were left disabled from before their editors existed, and
         // stayed that way after they shipped - the launcher tiles beside this
         // menu have been opening them the whole time. Upstream has all three
         // enabled and so do we now.
-        { label: 'Gerber Viewer', shortcut: 'Ctrl+G', action: h.openGerberViewer },
-        { label: 'Image Converter', shortcut: 'Ctrl+B', action: h.openImageConverter },
-        { label: 'Calculator Tools', action: h.openCalculator },
-        { label: 'Drawing Sheet Editor', shortcut: 'Ctrl+Y', action: h.openDrawingSheetEditor },
+        { label: _HKI('Gerber Viewer'), shortcut: 'Ctrl+G', action: h.openGerberViewer },
+        { label: _HKI('Image Converter'), shortcut: 'Ctrl+B', action: h.openImageConverter },
+        { label: _HKI('Calculator Tools'), action: h.openCalculator },
+        {
+          label: _HKI('Drawing Sheet Editor'),
+          shortcut: 'Ctrl+Y',
+          action: h.openDrawingSheetEditor,
+        },
         // Upstream ends this menu with a separator and
         //     toolsMenu->Add( _( "Edit Local File..." ),
         //                     _( "Edit local file in text editor" ),
@@ -300,7 +305,7 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
       ],
     },
     {
-      label: 'Preferences',
+      label: _HKI('Preferences'),
       items: [
         /* No "Configure Paths...". `DIALOG_CONFIGURE_PATHS` edits the
            environment substitutions a library path is written against --
@@ -314,13 +319,16 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
            the app can keep. */
         /* Upstream adds the two tables with no condition: with no project open the dialog shows
            the global table alone, which is the user's own. */
-        { label: 'Manage Symbol Libraries...', action: () => h.showLibraryTable('symbol') },
-        { label: 'Manage Footprint Libraries...', action: () => h.showLibraryTable('footprint') },
+        { label: _HKI('Manage Symbol Libraries...'), action: () => h.showLibraryTable('symbol') },
         {
-          label: 'Manage Design Block Libraries...',
+          label: _HKI('Manage Footprint Libraries...'),
+          action: () => h.showLibraryTable('footprint'),
+        },
+        {
+          label: _HKI('Manage Design Block Libraries...'),
           action: () => h.showLibraryTable('designBlock'),
         },
-        { label: 'Preferences...', shortcut: 'Ctrl+,', action: h.openPreferences },
+        { label: _HKI('Preferences...'), shortcut: 'Ctrl+,', action: h.openPreferences },
         SEP,
         setLanguageMenuItem({ current: h.language, onSelect: h.setLanguage }),
       ],

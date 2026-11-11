@@ -37,6 +37,7 @@
 import { useEffect, useState, type JSX } from 'react';
 import { relativeTime, snapshotTooltip, type Snapshot } from '@ziroeda/common/local_history.js';
 import { listSnapshots, onHistoryChanged } from './local_history_store.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 interface Props {
   /** The project whose history this is; `null` closes the pane's contents. */
@@ -107,17 +108,17 @@ export function LocalHistoryPane({ projectId, onRestore, onClose, height }: Prop
           button. Closing it is the same toggle as View > Panels > Local
           History, which is why the check item tracks it. */}
       <div className="ze-panel-header ze-lhist-caption">
-        <span>Local History</span>
+        <span>{_('Local History')}</span>
         {onClose && (
-          <button type="button" className="ze-pane-close" onClick={onClose} title="Close">
+          <button type="button" className="ze-pane-close" onClick={onClose} title={_('Close')}>
             ⊠
           </button>
         )}
       </div>
       {/* The wxListCtrl's header. */}
       <div className="ze-lhist-head">
-        <span className="title">Title</span>
-        <span className="time">Time</span>
+        <span className="title">{_('Title')}</span>
+        <span className="time">{_('Time')}</span>
       </div>
 
       <div className="ze-lhist-list">
@@ -164,7 +165,7 @@ export function LocalHistoryPane({ projectId, onRestore, onClose, height }: Prop
               }}
             >
               <span className="mico" />
-              <span className="lbl">Restore Commit</span>
+              <span className="lbl">{_('Restore Commit')}</span>
             </div>
           </div>
         </>

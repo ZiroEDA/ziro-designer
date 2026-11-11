@@ -59,6 +59,7 @@ import {
   truncateDescription,
 } from './template_selector.js';
 import { DialogShim, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export type { TemplateCategory } from './template_selector.js';
 export { applyFilter, sortTemplates, truncateDescription } from './template_selector.js';
@@ -244,7 +245,7 @@ export function TemplateSelectorDialog({
 
   return (
     <DialogShim
-      title="Project Template Selector"
+      title={_('Project Template Selector')}
       onClose={onCancel}
       frameRef={frameRef}
       className="ze-tplsel"
@@ -252,7 +253,7 @@ export function TemplateSelectorDialog({
       <div className="ze-modal-body ze-tplsel-body">
         {mruVisible && (
           <div className="ze-tplsel-mru">
-            <div className="ze-tplsel-mru-head">Recent project templates</div>
+            <div className="ze-tplsel-mru-head">{_('Recent project templates')}</div>
             <div className="ze-tplsel-mru-list">
               {mru.map((t) => (
                 <div
@@ -285,7 +286,7 @@ export function TemplateSelectorDialog({
                 value={searchText}
                 onChange={(aValue) => setSearchText(aValue)}
                 className="ze-tplsel-search ze-bare"
-                hint="Search"
+                hint={_('Search')}
               />
               {searchText !== '' && (
                 <span
@@ -297,7 +298,7 @@ export function TemplateSelectorDialog({
             </div>
             <Combo
               value={String(filterChoice)}
-              options={FILTERS.map((f, i) => ({ value: String(i), label: f }))}
+              options={FILTERS.map((f, i) => ({ value: String(i), label: _(f) }))}
               className="ze-tplsel-filter"
               onChange={(aValue) => {
                 const next = Number(aValue);
@@ -375,11 +376,12 @@ export function TemplateSelectorDialog({
                 // GetTemplateInfoHtml( title, dark ): the generated stand-in
                 // for a template whose info.html is missing or unreadable.
                 <div className="ze-tplsel-info">
-                  <div className="badge">Template</div>
+                  <div className="badge">{_('Template')}</div>
                   <h2>{selected.title}</h2>
                   <p>
-                    This template does not include a description. You can still use it to create a
-                    new project.
+                    {_(
+                      'This template does not include a description. You can still use it to create a new project.',
+                    )}
                   </p>
                 </div>
               ) : (
@@ -419,8 +421,8 @@ export function TemplateSelectorDialog({
                 //                                          : _( "Open Template (Read-Only)" ) );
                 label:
                   ctxMenu.template.category === 'user'
-                    ? 'Edit Template'
-                    : 'Open Template (Read-Only)',
+                    ? _('Edit Template')
+                    : _('Open Template (Read-Only)'),
                 run: onOpenTemplate ? () => onOpenTemplate(ctxMenu.template) : undefined,
                 why: undefined as string | undefined,
               },
@@ -431,7 +433,7 @@ export function TemplateSelectorDialog({
               // app, which mark work that is still to come. A row that can
               // never be enabled is just noise in the menu.
               {
-                label: 'Duplicate Template',
+                label: _('Duplicate Template'),
                 run: onDuplicate ? () => setDupFor(ctxMenu.template) : undefined,
                 why: undefined,
               },
@@ -468,9 +470,9 @@ export function TemplateSelectorDialog({
       )}
 
       <div className="ze-modal-footer" style={{ justifyContent: 'space-between' }}>
-        <Button label="Go Back" disabled={state === 'initial'} onClick={goBack} />
+        <Button label={_('Go Back')} disabled={state === 'initial'} onClick={goBack} />
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button label="Cancel" onClick={onCancel} />
+          <Button label={_('Cancel')} onClick={onCancel} />
           {/* A plain wxButton, not a highlighted one. m_sdbSizerOK->SetDefault()
             only makes it the *default* button, which GTK does not colour -
             measured on a real dialog, OK and Cancel are the same grey. Ours
@@ -481,7 +483,7 @@ export function TemplateSelectorDialog({
             window closes, in the file dialog and the message boxes that
             follow it. Pressing OK with nothing selected is answered by
             NewProject's own "No project template was selected." */}
-          <Button label="OK" onClick={() => onOk(selected)} />
+          <Button label={_('OK')} onClick={() => onOk(selected)} />
         </div>
       </div>
 
@@ -522,8 +524,8 @@ export function DuplicateTemplateDialog({
 }): JSX.Element {
   return (
     <WxTextEntryDialog
-      caption="Duplicate Template"
-      message="Enter name for the new template:"
+      caption={_('Duplicate Template')}
+      message={_('Enter name for the new template:')}
       value={`${source.id}_copy`}
       onCancel={onCancel}
       onConfirm={(text) => {
@@ -532,7 +534,7 @@ export function DuplicateTemplateDialog({
         // After the dialog, as upstream answers: the error, and nothing duplicated.
         if (clean === '') {
           onCancel();
-          DisplayErrorMessage('Template name cannot be empty.');
+          DisplayErrorMessage(_('Template name cannot be empty.'));
           return;
         }
 

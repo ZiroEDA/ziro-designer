@@ -12,6 +12,7 @@
  */
 import type { JSX } from 'react';
 import { svgUrl } from '@ziroeda/bitmaps_png';
+import { _HKI } from '@ziroeda/wx/translation.js';
 
 // KiCad's own dark-theme icons (GPL), vendored under assets/.
 const tileUrl = (id: string): string | undefined => svgUrl('launcher', id);
@@ -35,57 +36,57 @@ export interface Tile {
 export const TILES: Tile[] = [
   {
     id: 'schematic',
-    name: 'Schematic Editor',
-    desc: 'Edit the project schematic',
-    tip: 'Edit schematic in schematic editor',
+    name: _HKI('Schematic Editor'),
+    desc: _HKI('Edit the project schematic'),
+    tip: _HKI('Edit schematic in schematic editor'),
     hotkey: 'Ctrl+E',
   },
   {
     id: 'symbols',
-    name: 'Symbol Editor',
-    desc: 'Edit global and/or project schematic symbol libraries',
-    tip: 'Create, delete and edit schematic symbols',
+    name: _HKI('Symbol Editor'),
+    desc: _HKI('Edit global and/or project schematic symbol libraries'),
+    tip: _HKI('Create, delete and edit schematic symbols'),
     hotkey: 'Ctrl+L',
   },
   {
     id: 'pcb',
-    name: 'PCB Editor',
-    desc: 'Edit the project PCB design',
-    tip: 'Edit PCB in PCB editor',
+    name: _HKI('PCB Editor'),
+    desc: _HKI('Edit the project PCB design'),
+    tip: _HKI('Edit PCB in PCB editor'),
     hotkey: 'Ctrl+P',
   },
   {
     id: 'footprints',
-    name: 'Footprint Editor',
-    desc: 'Edit global and/or project PCB footprint libraries',
-    tip: 'Create, delete and edit PCB footprints',
+    name: _HKI('Footprint Editor'),
+    desc: _HKI('Edit global and/or project PCB footprint libraries'),
+    tip: _HKI('Create, delete and edit PCB footprints'),
     hotkey: 'Ctrl+F',
   },
   {
     id: 'gerber',
-    name: 'Gerber Viewer',
-    desc: 'Preview Gerber files',
-    tip: 'Preview Gerber output files',
+    name: _HKI('Gerber Viewer'),
+    desc: _HKI('Preview Gerber files'),
+    tip: _HKI('Preview Gerber output files'),
     hotkey: 'Ctrl+G',
   },
   {
     id: 'image',
-    name: 'Image Converter',
-    desc: 'Convert bitmap images to schematic symbols or PCB footprints',
-    tip: 'Convert bitmap images to schematic or PCB components',
+    name: _HKI('Image Converter'),
+    desc: _HKI('Convert bitmap images to schematic symbols or PCB footprints'),
+    tip: _HKI('Convert bitmap images to schematic or PCB components'),
     hotkey: 'Ctrl+B',
   },
   {
     id: 'calculator',
-    name: 'Calculator Tools',
-    desc: 'Show tools for calculating resistance, current capacity, etc.',
-    tip: 'Run component calculations, track width calculations, etc.',
+    name: _HKI('Calculator Tools'),
+    desc: _HKI('Show tools for calculating resistance, current capacity, etc.'),
+    tip: _HKI('Run component calculations, track width calculations, etc.'),
   },
   {
     id: 'drawingsheet',
-    name: 'Drawing Sheet Editor',
-    desc: 'Edit drawing sheet borders and title blocks for use in schematics and PCB designs',
-    tip: 'Edit drawing sheet borders and title block',
+    name: _HKI('Drawing Sheet Editor'),
+    desc: _HKI('Edit drawing sheet borders and title blocks for use in schematics and PCB designs'),
+    tip: _HKI('Edit drawing sheet borders and title block'),
     hotkey: 'Ctrl+Y',
   },
   // Upstream's 9th launcher, showPluginManager, is deliberately absent: the
@@ -114,25 +115,25 @@ export const MGR_TOOLS: (MgrTool | 'sep')[] = [
   // - not new_project, which is the plain notepad-and-sparkle with no badge.
   {
     icon: 'new_project_from_template',
-    name: 'New Project...',
+    name: _HKI('New Project...'),
     action: 'new',
     // Ctrl+N upstream; the browser keeps that one. See BROWSER_REBINDS.
     hotkey: 'Ctrl+Alt+N',
-    tip: 'Create a new project based on an existing project',
+    tip: _HKI('Create a new project based on an existing project'),
   },
-  { icon: 'open_project', name: 'Open Project...', action: 'open', hotkey: 'Ctrl+O' },
+  { icon: 'open_project', name: _HKI('Open Project...'), action: 'open', hotkey: 'Ctrl+O' },
   'sep',
   {
     icon: 'zip',
-    name: 'Archive Project...',
+    name: _HKI('Archive Project...'),
     action: 'archive',
-    tip: 'Archive all project files',
+    tip: _HKI('Archive all project files'),
   },
   {
     icon: 'unzip',
-    name: 'Unarchive Project...',
+    name: _HKI('Unarchive Project...'),
     action: 'unarchive',
-    tip: 'Unarchive project files from zip archive',
+    tip: _HKI('Unarchive project files from zip archive'),
   },
   // The Refresh button is ACTIONS::zoomRedraw, not a manager action - the same
   // action View > Refresh runs, so it answers to the same key. It advertised
@@ -140,7 +141,7 @@ export const MGR_TOOLS: (MgrTool | 'sep')[] = [
   // is upstream's macOS binding rather than the general one.
   //     #if defined( __WXMAC__ ) .DefaultHotkey( MD_CTRL + 'R' )
   //     #else                    .DefaultHotkey( WXK_F5 )
-  { icon: 'refresh', name: 'Refresh', action: 'refresh', hotkey: 'F5' },
+  { icon: 'refresh', name: _HKI('Refresh'), action: 'refresh', hotkey: 'F5' },
 ];
 
 export const tileIcon = (id: string): JSX.Element => {

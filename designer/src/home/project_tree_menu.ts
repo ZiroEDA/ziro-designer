@@ -33,6 +33,7 @@
  */
 
 import { type TreeFileType, canDelete, canRename } from './file_activation.js';
+import { _HKI } from '@ziroeda/wx/translation.js';
 
 /** One row of the selection, as much of `PROJECT_TREE_ITEM` as the menu asks. */
 export interface TreeMenuSelectionItem {
@@ -173,8 +174,8 @@ export function projectTreeMenu(selection: readonly TreeMenuSelectionItem[]): Tr
   if (canSwitchToProject) {
     menu.push({
       id: 'switchToProject',
-      label: 'Switch to this Project',
-      help: 'Close all editors, and switch to the selected project',
+      label: _HKI('Switch to this Project'),
+      help: _HKI('Close all editors, and switch to the selected project'),
       icon: 'open_project',
     });
     menu.push('separator');
@@ -183,8 +184,8 @@ export function projectTreeMenu(selection: readonly TreeMenuSelectionItem[]): Tr
   if (canCreateNewDirectory) {
     menu.push({
       id: 'newDirectory',
-      label: 'New Directory...',
-      help: 'Create a New Directory',
+      label: _HKI('New Directory...'),
+      help: _HKI('Create a New Directory'),
       icon: 'directory',
     });
   }
@@ -200,7 +201,7 @@ export function projectTreeMenu(selection: readonly TreeMenuSelectionItem[]): Tr
     menu.push({
       id: 'editInTextEditor',
       label: 'Edit in a Text Viewer',
-      help: single ? 'Open the file in a Text Editor' : 'Open files in a Text Editor',
+      help: single ? _HKI('Open the file in a Text Editor') : _HKI('Open files in a Text Editor'),
       icon: 'editor',
     });
   }
@@ -222,7 +223,7 @@ export function projectTreeMenu(selection: readonly TreeMenuSelectionItem[]): Tr
   if (runJobs && single) {
     menu.push({
       id: 'runJobs',
-      label: 'Run Jobs',
+      label: _HKI('Run Jobs'),
       // Upstream passes the `help_text` left over from whichever row ran last
       // (:980-983) rather than a string of its own - a wxWidgets accident, not
       // a message. Ours says nothing rather than repeat someone else's line.
@@ -234,8 +235,8 @@ export function projectTreeMenu(selection: readonly TreeMenuSelectionItem[]): Tr
   if (canRenameSel) {
     menu.push({
       id: 'renameFile',
-      label: single ? 'Rename File...' : 'Rename Files...',
-      help: single ? 'Rename file' : 'Rename files',
+      label: single ? _HKI('Rename File...') : _HKI('Rename Files...'),
+      help: single ? _HKI('Rename file') : _HKI('Rename files'),
       icon: 'right',
     });
   }
@@ -257,8 +258,10 @@ export function projectTreeMenu(selection: readonly TreeMenuSelectionItem[]): Tr
       id: 'moveToTrash',
       // "Delete" is the `#ifdef __WINDOWS__` branch (:1020-1021). We are not
       // Windows, so that string is not here at all.
-      label: 'Move to Trash',
-      help: single ? 'Delete the file and its content' : 'Delete the files and their contents',
+      label: _HKI('Move to Trash'),
+      help: single
+        ? _HKI('Delete the file and its content')
+        : _HKI('Delete the files and their contents'),
       icon: 'trash',
     });
   }

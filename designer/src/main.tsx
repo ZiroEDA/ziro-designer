@@ -26,7 +26,7 @@ import { startUsageStats } from './telemetry/usage.js';
 import { installOverlayScrollbars } from '@ziroeda/common/widgets/overlay_scrollbars.js';
 import { installDialogSizeHints } from '@ziroeda/common/dialog_shim.js';
 import { SetFileDialog, SetSaveFileDialog } from '@ziroeda/wx/filedlg.js';
-import { InitPgm } from './pgm_app.js';
+import { InitPgm, languageReady } from './pgm_app.js';
 import { wxInitAllImageHandlers } from '@ziroeda/wx/wx_image.js';
 import { OpenFileDialog } from './fs/OpenFileDialog.js';
 import { SaveAsDialog } from './fs/SaveAsDialog.js';
@@ -151,6 +151,8 @@ if (missing.length > 0) {
   // app comes up without it, as wx does with an image type it has no handler for.
   void wxInitAllImageHandlers()
     .catch((aError: unknown) => console.error('wxInitAllImageHandlers:', aError))
+    // ...and the interface language, so the first frame is painted in it.
+    .then(() => languageReady())
     .then(() => {
       createRoot(root).render(
         <StrictMode>

@@ -191,6 +191,8 @@ import {
 } from './project_picker.js';
 import { projectFileText } from './files.js';
 import { isToolingPath } from './project_picker.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { useTranslations } from '@ziroeda/wx/translation_ui.js';
 const enc = new TextEncoder();
 
 /** One project that would not sync, as reported by `syncAllProjects`. */
@@ -1224,7 +1226,7 @@ export function HomePage({
     persist = true,
     templateId?: string,
   ): Promise<string | null> => {
-    setLoading({ title: 'Load Files', label: { message: 'Reading files...', value: 0 } });
+    setLoading({ title: _('Load Files'), label: { message: 'Reading files...', value: 0 } });
     await nextPaint(); // show the overlay before the main thread gets busy
     try {
       // A picked or dropped FOLDER puts its own name on the front of every
@@ -1245,7 +1247,7 @@ export function HomePage({
         const bytes = await f.bytesOf();
         out.push({ name: f.name, text: projectFileText(bytes), bytes });
         setLoading({
-          title: 'Load Files',
+          title: _('Load Files'),
           label: { message: 'Reading files...', value: (i + 1) / files.length },
         });
       }
@@ -1957,7 +1959,7 @@ export function HomePage({
   };
   const renamePath = (path: string): void => {
     const current = path.split('/').pop()!;
-    const name = window.prompt(`Change filename: '${current}'`, current);
+    const name = window.prompt(_("Change filename: '%s'").replace('%s', current), current);
     if (!name || !picked) return;
     const next = renameTreeEntry(picked, stripPrefix, path, name);
     if (!next) window.alert('That name is empty or already taken.');
@@ -1994,6 +1996,8 @@ export function HomePage({
   };
 
   const common = useCommonSettings();
+  // `ShowChangedLanguage()`: the frame redraws when the language changes.
+  useTranslations();
   const menus: Menu[] = buildManagerMenus({
     newProject: openNewProjectDialog,
     openProject: () => setOpenPrjOpen(true),
@@ -2174,7 +2178,7 @@ export function HomePage({
                 type="button"
                 key={t.icon}
                 data-tip={buttonTooltipFor(t.name, t.hotkey, t.tip)}
-                aria-label={t.name}
+                aria-label={_(t.name)}
                 disabled={(t.action === 'archive' || t.action === 'refresh') && !picked}
                 onClick={() => runMgrAction(t.action)}
               >
@@ -2328,9 +2332,9 @@ export function HomePage({
                   </span>
                   <span className="txt">
                     <span className="name" data-tip={tip}>
-                      {t.name}
+                      {_(t.name)}
                     </span>
-                    <span className="desc">{t.desc}</span>
+                    <span className="desc">{_(t.desc)}</span>
                   </span>
                 </button>
               );
@@ -2370,7 +2374,7 @@ export function HomePage({
         <FileChooser
           fs={openProjectFs}
           mode="open"
-          title="Open Existing Project"
+          title={_('Open Existing Project')}
           accept="Open"
           places={chooserPlaces}
           // Recent is listed first but Open Project opens on the account's own
@@ -2441,7 +2445,7 @@ export function HomePage({
               // ended (ShowModal returned) by then, and NewProject returns -1.
               setTplStep('none');
               DisplayErrorMessage(
-                'No project template was selected.  Cannot generate new project.',
+                _('No project template was selected.  Cannot generate new project.'),
               );
               return;
             }
@@ -2498,9 +2502,9 @@ export function HomePage({
         <FileChooser
           fs={openProjectFs}
           mode="save"
-          title="New Project Folder"
+          title={_('New Project Folder')}
           // wxFD_SAVE, which is what GTK labels the accept button from.
-          accept="Save"
+          accept={_('Save')}
           // `wxEmptyString` is the defaultFile upstream passes: the name is
           // asked for, not proposed from the template.
           initialName=""
@@ -2551,7 +2555,7 @@ export function HomePage({
           message={noProjectMessage}
           icon="information"
           defaultButton="yes"
-          labels={{ yes: 'New Project...', no: 'Open Project...' }}
+          labels={{ yes: _('New Project...'), no: _('Open Project...') }}
           onResult={(aResult) => {
             setNoProjectMessage(null);
             if (aResult === 'yes') openNewProjectDialog();
@@ -2641,7 +2645,7 @@ export function HomePage({
               : `⚠ ${joinNotice.message}`}
           </span>
           <button type="button" className="ze-sync-dismiss" onClick={() => setJoinNotice(null)}>
-            Dismiss
+            {_('Dismiss')}
           </button>
         </div>
       )}
@@ -2720,7 +2724,7 @@ export function HomePage({
                 </button>
               )}
               <button type="button" className="ze-sync-dismiss" onClick={() => setSyncState(null)}>
-                Dismiss
+                {_('Dismiss')}
               </button>
             </>
           ) : (
