@@ -12,6 +12,7 @@
       "!designer/src/assets",
       "!bitmaps_png/sources",
       "!qa/data",
+      "!translation",
       "!**/dist",
       "!common/newstroke_font.ts",
       "!designer/src/render/gl/vendor",
