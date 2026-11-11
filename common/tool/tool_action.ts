@@ -11,6 +11,7 @@ import { ACTION_MANAGER } from './action_manager.js';
 import { TOOL_EVENT, TOOL_ACTIONS, TOOL_ACTION_SCOPE, TOOL_EVENT_CATEGORY } from './tool_event.js';
 import type { BITMAPS } from '@ziroeda/include/bitmaps/bitmaps_list.js';
 import { AddHotkeyName, IS_HOTKEY, KeyNameFromKeyCode } from '../hotkeys_basic.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 /**
  * Scope of tool actions
@@ -446,7 +447,7 @@ export class TOOL_ACTION {
   }
 
   GetMenuLabel(): string {
-    if (this.m_menuLabel !== undefined) return this.m_menuLabel;
+    if (this.m_menuLabel !== undefined) return wxGetTranslation(this.m_menuLabel);
 
     return this.GetFriendlyName();
   }
@@ -458,7 +459,7 @@ export class TOOL_ACTION {
   }
 
   GetTooltip(aIncludeHotkey = true): string {
-    let tooltip = this.m_tooltip;
+    let tooltip = wxGetTranslation(this.m_tooltip);
 
     if (aIncludeHotkey && this.GetHotKey())
       tooltip += `  (${KeyNameFromKeyCode(this.GetHotKey())})`;
@@ -479,13 +480,13 @@ export class TOOL_ACTION {
   GetDescription(): string {
     if (this.m_description === undefined) return this.GetTooltip(false);
 
-    return this.m_description;
+    return wxGetTranslation(this.m_description);
   }
 
   GetFriendlyName(): string {
     if (this.m_friendlyName === '') return '';
 
-    return this.m_friendlyName;
+    return wxGetTranslation(this.m_friendlyName);
   }
 
   GetScope(): TOOL_ACTION_SCOPE {

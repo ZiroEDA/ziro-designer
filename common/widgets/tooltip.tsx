@@ -28,6 +28,7 @@ const DELAY_MS = 500;
  * working, the same way `Toolbar.tsx` re-exports `toolbar_types.ts`.
  */
 export { buttonTooltipFor, tooltipFor } from '../tool/tool_action_tooltip.js';
+import { translateTooltip } from '../tool/tool_action_tooltip.js';
 
 export function TooltipLayer(): JSX.Element | null {
   /**
@@ -156,7 +157,8 @@ export function TooltipLayer(): JSX.Element | null {
       }}
       role="tooltip"
     >
-      {tip.text}
+      {/* Every `title=` in the app is drawn here, so this is where one is translated. */}
+      {translateTooltip(tip.text)}
     </div>
   );
 }

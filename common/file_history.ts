@@ -352,6 +352,8 @@ export function openRecentMenuItem(opts: OpenRecentMenuOptions): MenuItem {
   const { files } = opts;
   const rows: MenuItem[] = files.map((f, i) => ({
     label: f.name,
+    // A file's name is data: `m_DoNotTranslate` for a row that is not interface text.
+    noTranslate: true,
     action: () => opts.onOpen(i),
   }));
 

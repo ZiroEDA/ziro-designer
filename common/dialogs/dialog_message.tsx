@@ -47,6 +47,7 @@ import {
   yesNoCancelButtons,
 } from '../confirm_types.js';
 import { useModalEscape } from '../dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The `wxICON_*` glyphs — the icon theme's, verbatim.
@@ -127,17 +128,17 @@ export function MessageDialogError({
   return (
     <div className="ze-modal-backdrop">
       <div className="ze-modal ze-msgdlg" role="dialog" aria-modal="true">
-        <div className="ze-msgdlg-title">{ERROR_CAPTION}</div>
+        <div className="ze-msgdlg-title">{_(ERROR_CAPTION)}</div>
         <div className="ze-msgdlg-body">
           <DialogIcon icon="error" />
           <div className="ze-msgdlg-text">
-            <div className="ze-msgdlg-message">{message}</div>
-            {extendedMessage && <div className="ze-msgdlg-extended">{extendedMessage}</div>}
+            <div className="ze-msgdlg-message">{_(message)}</div>
+            {extendedMessage && <div className="ze-msgdlg-extended">{_(extendedMessage)}</div>}
           </div>
         </div>
         <div className="ze-msgdlg-buttons">
           <button type="button" className="ze-btn primary" ref={okRef} onClick={onClose}>
-            {OK_LABEL}
+            {_(OK_LABEL)}
           </button>
         </div>
       </div>
@@ -188,7 +189,7 @@ export function MessageDialogYesNo({
     <div className="ze-modal-backdrop">
       <div className="ze-modal ze-msgdlg" role="dialog" aria-modal="true">
         <div className="ze-msgdlg-title">
-          {caption}
+          {_(caption)}
           {onClose && (
             // The dialog frame's own close box (external/wx/dialog.tsx).
             <span className="x" title="Close" onClick={onClose}>
@@ -199,8 +200,8 @@ export function MessageDialogYesNo({
         <div className="ze-msgdlg-body">
           <DialogIcon icon={icon} />
           <div className="ze-msgdlg-text">
-            <div className="ze-msgdlg-message">{message}</div>
-            {extendedMessage && <div className="ze-msgdlg-extended">{extendedMessage}</div>}
+            <div className="ze-msgdlg-message">{_(message)}</div>
+            {extendedMessage && <div className="ze-msgdlg-extended">{_(extendedMessage)}</div>}
           </div>
         </div>
         <div className="ze-msgdlg-buttons">
@@ -212,7 +213,7 @@ export function MessageDialogYesNo({
               ref={b.isDefault ? defaultRef : undefined}
               onClick={() => onResult(b.id)}
             >
-              {b.label}
+              {_(b.label)}
             </button>
           ))}
         </div>
@@ -264,11 +265,11 @@ export function MessageDialogOkCancel({
   return (
     <div className="ze-modal-backdrop">
       <div className="ze-modal ze-msgdlg" role="dialog" aria-modal="true">
-        <div className="ze-msgdlg-title">{caption}</div>
+        <div className="ze-msgdlg-title">{_(caption)}</div>
         <div className="ze-msgdlg-body">
           <DialogIcon icon={icon} />
           <div className="ze-msgdlg-text">
-            <div className="ze-msgdlg-message">{message}</div>
+            <div className="ze-msgdlg-message">{_(message)}</div>
           </div>
         </div>
         <div className="ze-msgdlg-buttons">
@@ -280,7 +281,7 @@ export function MessageDialogOkCancel({
               ref={b.isDefault ? defaultRef : undefined}
               onClick={() => onResult(b.id === 'ok')}
             >
-              {b.label}
+              {_(b.label)}
             </button>
           ))}
         </div>
@@ -318,11 +319,11 @@ export function MessageDialogYesNoCancel({
   return (
     <div className="ze-modal-backdrop">
       <div className="ze-modal ze-msgdlg" role="dialog" aria-modal="true">
-        <div className="ze-msgdlg-title">{caption}</div>
+        <div className="ze-msgdlg-title">{_(caption)}</div>
         <div className="ze-msgdlg-body">
           <DialogIcon icon={icon} />
           <div className="ze-msgdlg-text">
-            <div className="ze-msgdlg-message">{message}</div>
+            <div className="ze-msgdlg-message">{_(message)}</div>
           </div>
         </div>
         <div className="ze-msgdlg-buttons">
@@ -334,7 +335,7 @@ export function MessageDialogYesNoCancel({
               ref={b.isDefault ? defaultRef : undefined}
               onClick={() => onResult(b.id)}
             >
-              {b.label}
+              {_(b.label)}
             </button>
           ))}
         </div>
@@ -365,16 +366,16 @@ export function MessageDialogOk({
   return (
     <div className="ze-modal-backdrop">
       <div className="ze-modal ze-msgdlg" role="alertdialog" aria-modal="true">
-        <div className="ze-msgdlg-title">{caption}</div>
+        <div className="ze-msgdlg-title">{_(caption)}</div>
         <div className="ze-msgdlg-body">
           <DialogIcon icon={icon} />
           <div className="ze-msgdlg-text">
-            <div className="ze-msgdlg-message">{message}</div>
+            <div className="ze-msgdlg-message">{_(message)}</div>
           </div>
         </div>
         <div className="ze-msgdlg-buttons">
           <button type="button" className="ze-btn primary" ref={okRef} onClick={onClose}>
-            {OK_LABEL}
+            {_(OK_LABEL)}
           </button>
         </div>
       </div>

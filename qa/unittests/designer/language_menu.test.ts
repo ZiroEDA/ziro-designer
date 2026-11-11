@@ -12,7 +12,6 @@ import {
   DEFAULT_LANGUAGE,
   LANGUAGES_LIST,
   setLanguageMenuItem,
-  TRANSLATED_LANGUAGES,
 } from '@ziroeda/common/eda_base_frame_language_menu.js';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
 import type { MenuItem } from '@ziroeda/wx/menu.js';
@@ -76,36 +75,26 @@ describe('the Set Language submenu', () => {
   });
 });
 
-describe('what we can honestly offer', () => {
-  it('only enables the languages we have a catalogue for', () => {
-    // We ship no message catalogues, so "Default" and "English" are the whole
-    // of it. The other rows are shown, because upstream's list is the whole
-    // list, and greyed, because offering 45 no-ops would be a lie.
-    expect([...TRANSLATED_LANGUAGES]).toEqual(['Default', 'English']);
-
-    const enabled = (menu().submenu ?? []).filter((r) => !r.disabled).map((r) => r.label);
-    expect(enabled).toEqual(['Default', 'English']);
-  });
-
-  it('greys the rest without hiding them', () => {
+describe('what a row does', () => {
+  it('never disables a row - AddMenuLanguageList has no such branch', () => {
+    // Every row of LanguagesList has a compiled catalog (pgm_base_language.test.ts),
+    // so every row can be chosen, as in KiCad. Until the catalogs landed all but
+    // "Default" and "English" were greyed here.
     const rows = menu().submenu ?? [];
-    expect(rows.filter((r) => r.disabled)).toHaveLength(LANGUAGES_LIST.length - 2);
-    expect(rows.map((r) => r.label)).toContain('Français');
+    expect(rows).toHaveLength(45);
+    expect(rows.filter((r) => r.disabled)).toEqual([]);
   });
 
-  it('grows with no other change when catalogues land', () => {
-    // The only seam translations have to move.
-    const rows = menu({ available: ['Default', 'English', 'Français'] }).submenu ?? [];
-    expect(rows.filter((r) => !r.disabled).map((r) => r.label)).toEqual([
-      'Default',
-      'English',
-      'Français',
-    ]);
+  it('translates only "Default" - every other label is the language\'s own name', () => {
+    // if( LanguagesList[ii].m_DoNotTranslate ) label = m_Lang_Label;
+    // else label = wxGetTranslation( m_Lang_Label );
+    const rows = menu().submenu ?? [];
+    expect(rows.filter((r) => !r.noTranslate).map((r) => r.label)).toEqual(['Default']);
   });
 
   it('reports the picked language by its m_Lang_Label, the key upstream stores', () => {
     const onSelect = vi.fn();
-    const rows = menu({ onSelect, available: LANGUAGES_LIST.map((l) => l.label) }).submenu ?? [];
+    const rows = menu({ onSelect }).submenu ?? [];
     rows.find((r) => r.label === 'Español')?.action?.();
 
     expect(onSelect).toHaveBeenCalledWith('Español');

@@ -18,6 +18,7 @@ import { ContextMenu } from '@ziroeda/wx/menu_ui.js';
 import type { MenuItem } from '@ziroeda/wx/menu.js';
 import { toolbarContextMenu } from './ui/toolbar_context_menu_registry.js';
 import { OVERFLOW_SIZE, visibleCount } from './action_toolbar_overflow.js';
+import { useTranslations } from '@ziroeda/wx/translation_ui.js';
 
 // The data types live in toolbar_types.ts so toolbar inventory modules stay
 // reachable from qa's tsconfig, which compiles .ts only. Re-exported here so
@@ -92,6 +93,8 @@ export function Toolbar({
   controls,
   trailing,
 }: Props): JSX.Element {
+  // `RecreateToolbars()` on a language change: the buttons' tooltips are `_()` results.
+  useTranslations();
   // Selected ("default") action of each group, like ACTION_GROUP's
   // m_defaultAction: the palette pick the group button currently shows.
   const [groupSel, setGroupSel] = useState<Record<string, string>>({});
