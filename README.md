@@ -103,12 +103,23 @@ behaviour can be checked against the original line by line. KiCad's own
 `kicad-cli` is used as a test oracle: our file writers, zone fills and plots are
 compared against what KiCad itself produces.
 
+**Why a translation, and not KiCad compiled to WebAssembly?** KiCad's own code
+is TypeScript here, all of it, so the app loads in pieces and behaves like any
+web page, and encryption, sharing and collaboration work on the design
+directly. The heavy outside libraries KiCad links to (OpenCASCADE for STEP
+models, zstd) are compiled to WebAssembly, as is Argon2 for encryption keys.
+The port follows KiCad's stable releases and is checked against KiCad's own
+`kicad-cli`. Compiling all of KiCad is possible too, and
+[PCBJam](https://github.com/PCBJam/pcbjam) does that.
+The full reasoning, with numbers, is in **[WHY-TYPESCRIPT.md](./WHY-TYPESCRIPT.md)**.
+
 | Concern | Choice |
 | --- | --- |
 | Language | TypeScript |
 | UI | React, with KiCad's wxWidgets dialogs rebuilt to the same layout |
 | 2D rendering | WebGL, with KiCad's own stroke and outline fonts |
 | 3D viewer | three.js |
+| WebAssembly | OpenCASCADE for STEP/IGES, zstd, Argon2id |
 | Auth, cloud, realtime | Supabase |
 | Crash reporting | Sentry (opt-out, scrubbed) |
 | Build / monorepo | Vite + pnpm workspaces |
