@@ -390,7 +390,17 @@ export class wxMenuEvent {
  */
 
 export interface MenuItem {
+  /**
+   * The row's text, in English: the menu translates it when it draws the row
+   * (`menu_ui.tsx`), so a table of rows built once still follows the language.
+   */
   label?: string;
+  /**
+   * The label is data, not interface text - a file name, a net, a language's
+   * own name (`LANGUAGE_DESCR::m_DoNotTranslate`) - and is drawn as given even
+   * if a catalog happens to hold a message spelled the same.
+   */
+  noTranslate?: boolean;
   /** Tool/action id, its KiCad icon is shown if one is mapped. */
   icon?: string;
   action?: () => void;

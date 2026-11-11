@@ -12,6 +12,19 @@ import { type JSX, type MouseEvent, type ReactNode, type Ref, useState } from 'r
 /** wxChoice and wxComboBox, part of the wx layer like the controls below. */
 import { Combo } from './combobox.js';
 import { type wxColour, wxColourToCss } from './colour.js';
+import { _ } from './translation.js';
+import { useTranslations } from './translation_ui.js';
+
+/**
+ * WHERE A CONTROL'S TEXT IS TRANSLATED
+ * ------------------------------------
+ * A label handed to one of these controls is English and the control translates it as it draws:
+ * `useTranslations()` subscribes it to the language and `_()` looks the label up. In wx the
+ * caller does that (`new wxButton( this, wxID_ANY, _( "Browse..." ) )`) and the dialog is built
+ * once per showing; a React dialog's labels are JSX attributes, so translating in the control
+ * is the one place that covers every dialog and follows a language change while it is open.
+ * A label that is data - a file name, a net - has no catalog entry and is drawn as given.
+ */
 
 export { Combo, TextCombo } from './combobox.js';
 
@@ -43,21 +56,22 @@ export function Button({
    */
   minSizeLabel?: string;
 }): JSX.Element {
+  useTranslations();
   return (
     <button
       ref={buttonRef}
       type="button"
       className={`ze-btn${isDefault ? ' primary' : ''}${exactFit ? ' ze-btn-exactfit' : ''}${className ? ` ${className}` : ''}`}
       disabled={disabled}
-      title={title}
+      title={title === undefined ? undefined : _(title)}
       onClick={onClick}
     >
       {minSizeLabel === undefined ? (
-        label
+        _(label)
       ) : (
         <span className="ze-btn-minsize">
-          <span>{label}</span>
-          <span aria-hidden="true">{minSizeLabel}</span>
+          <span>{_(label)}</span>
+          <span aria-hidden="true">{_(minSizeLabel)}</span>
         </span>
       )}
     </button>
@@ -101,11 +115,12 @@ export function CheckBox({
   const value = check ? check.value : (checked ?? false);
   const off = check ? check.enabled === false : disabled;
   const change = check ? check.onChange : onChange;
+  useTranslations();
 
   return (
     <label
       className={`ze-check${font === 'info' ? ' info' : ''}${className ? ` ${className}` : ''}`}
-      title={title}
+      title={title === undefined ? undefined : _(title)}
       onContextMenu={
         onContextMenu
           ? (e) => {
@@ -122,7 +137,7 @@ export function CheckBox({
         aria-label={ariaLabel}
         onChange={(e) => change?.(e.target.checked)}
       />
-      {label}
+      {typeof label === 'string' ? _(label) : label}
     </label>
   );
 }
@@ -178,8 +193,12 @@ export function RadioButton({
   title?: string;
   className?: string;
 }): JSX.Element {
+  useTranslations();
   return (
-    <label className={`ze-check${className ? ` ${className}` : ''}`} title={title}>
+    <label
+      className={`ze-check${className ? ` ${className}` : ''}`}
+      title={title === undefined ? undefined : _(title)}
+    >
       <input
         type="radio"
         name={name}
@@ -189,7 +208,7 @@ export function RadioButton({
           if (e.target.checked) onChange();
         }}
       />
-      {label}
+      {_(label)}
     </label>
   );
 }
@@ -220,13 +239,14 @@ export function RadioBox({
   /** `SetToolTip`. */
   title?: string;
 }): JSX.Element {
+  useTranslations();
   return (
     <StaticBox label={label}>
       <div
         className="ze-radiobox"
-        title={title}
+        title={title === undefined ? undefined : _(title)}
         role="radiogroup"
-        aria-label={label}
+        aria-label={_(label)}
         style={{ gridTemplateColumns: `repeat(${majorDimension}, max-content)` }}
       >
         {choices.map((choice, i) => (
@@ -360,9 +380,10 @@ export function StaticBox({
   className?: string;
   children: ReactNode;
 }): JSX.Element {
+  useTranslations();
   return (
     <fieldset className={`ze-sbox${className ? ` ${className}` : ''}`}>
-      <legend>{label}</legend>
+      <legend>{_(label)}</legend>
       {children}
     </fieldset>
   );
@@ -396,16 +417,17 @@ export function StaticText({
   /** `wxST_ELLIPSIZE_END`: a label too long for its cell ends in "…". */
   ellipsize?: boolean;
 }): JSX.Element {
+  useTranslations();
   return (
     <span
       className={`ze-statictext${disabled ? ' disabled' : ''}${wrap && wrap > 0 ? ' wrapped' : ''}${font === 'info' ? ' info' : font === 'smallInfo' ? ' small-info' : ''}${italic ? ' italic' : ''}${ellipsize ? ' ellipsize' : ''}`}
       style={wrap && wrap > 0 ? { maxWidth: wrap } : undefined}
-      title={title}
+      title={title === undefined ? undefined : _(title)}
     >
-      {label}
+      {_(label)}
       {minWidthText !== undefined && (
         <span className="ze-statictext-minw" aria-hidden="true">
-          {minWidthText}
+          {_(minWidthText)}
         </span>
       )}
     </span>
@@ -653,15 +675,16 @@ export function HyperlinkCtrl({
   title?: string;
   className?: string;
 }): JSX.Element {
+  useTranslations();
   return (
     <button
       type="button"
       className={`ze-hyperlink${className ? ` ${className}` : ''}`}
       disabled={disabled}
-      title={title}
+      title={title === undefined ? undefined : _(title)}
       onClick={onClick}
     >
-      {label}
+      {_(label)}
     </button>
   );
 }

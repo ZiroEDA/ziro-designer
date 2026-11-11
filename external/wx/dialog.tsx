@@ -36,6 +36,8 @@ import {
   useState,
 } from 'react';
 import { wasBrowserSuppressed } from './dom_events.js';
+import { _ } from './translation.js';
+import { useTranslations } from './translation_ui.js';
 
 // ---------------------------------------------------------------------------
 // Escape is wxID_CANCEL for the dialog in front: the hook a dialog calls.
@@ -235,6 +237,9 @@ export function Dialog({
   onCharHook,
   children,
 }: DialogProps): JSX.Element {
+  // `SetTitle( _( "Page Settings" ) )`: the caption is translated where it is drawn, so the
+  // title a dialog is *keyed* by (its remembered size, its tests) stays the English one.
+  useTranslations();
   const frameRef = useRef<HTMLDivElement>(null);
   useImperativeHandle(outerFrameRef, () => frameRef.current!, []);
   // The window's top-left; null until the first layout has placed it.
@@ -502,7 +507,7 @@ export function Dialog({
       aria-disabled={enabled ? undefined : true}
       // `inert`, which React 18's types do not list, passed as the plain attribute.
       {...(enabled ? {} : ({ inert: '' } as Record<string, string>))}
-      aria-label={title}
+      aria-label={_(title)}
       tabIndex={-1}
       onMouseDown={(e) => e.stopPropagation()}
       onPointerDownCapture={holdFittedSize}
@@ -515,8 +520,8 @@ export function Dialog({
         onPointerMove={onTitleMove}
         onPointerUp={onTitleUp}
       >
-        {title}
-        <span className="x" title="Close" onClick={onClose}>
+        {_(title)}
+        <span className="x" title={_('Close')} onClick={onClose}>
           ✕
         </span>
       </div>

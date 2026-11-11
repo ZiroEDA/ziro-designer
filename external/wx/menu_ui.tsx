@@ -13,6 +13,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type JSX, type ReactNode 
 // every existing importer keeps working.
 import { type Menu, type MenuItem, type wxMenu, wxMenuItem } from './menu.js';
 import { useModalEscape } from './dialog.js';
+import { _ } from './translation.js';
+import { useTranslations } from './translation_ui.js';
 export type { Menu, MenuItem };
 
 // ---- submenu scroll arrows (was common/tool/action_menu_scroll.ts) ----
@@ -73,6 +75,16 @@ function withMnemonic(label: string | undefined, mnemonic: string | undefined): 
 
 /** One dropdown row: separator, plain/CHECK item, or item with a flyout submenu. */
 function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.Element {
+  // The row is translated where it is drawn, not where it was built. KiCad's
+  // ACTION_MENU does the same with an action's label - it stores the English
+  // friendly name and calls wxGetTranslation when the menu is (re)created -
+  // and a menu's rows here are often built once and memoised, so a `_()` at
+  // the call site would freeze them in the language they were built in.
+  useTranslations();
+  const label = item.label !== undefined && !item.noTranslate ? _(item.label) : item.label;
+  // The mnemonic is a letter of the English label. A translation marks its
+  // own (`&Datei`), which the bare lookup drops, so none is underlined.
+  const mnemonic = label === item.label ? item.mnemonic : undefined;
   const [subOpen, setSubOpen] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const subRef = useRef<HTMLDivElement>(null);
@@ -167,7 +179,7 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
       ref={rowRef}
       className={`ze-mitem${item.disabled ? ' disabled' : ''}${hasSub ? ' has-sub' : ''}`}
       style={hasSub ? { position: 'relative' } : undefined}
-      title={item.tooltip}
+      title={item.tooltip !== undefined ? _(item.tooltip) : undefined}
       onMouseEnter={() => {
         if (hasSub) setSubOpen(true);
         item.onHover?.(true);
@@ -193,7 +205,7 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
           The check mark stays: that is a wxITEM_CHECK item, not a bitmap, and
           GTK renders it. */}
       <span className="mico">{item.checked ? <span className="mcheck">✓</span> : null}</span>
-      <span className="lbl">{withMnemonic(item.label, item.mnemonic)}</span>
+      <span className="lbl">{withMnemonic(label, mnemonic)}</span>
       {item.shortcut && <span className="sc">{item.shortcut}</span>}
       {/* The same drawn chevron the project tree's twisty uses, rather than a
           glyph: a solid ▸ is a different weight from every other expander in
@@ -447,6 +459,8 @@ export function MenuBar({
 }): JSX.Element {
   const [open, setOpen] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  // `ReCreateMenuBar()` on a language change: the bar re-renders with the new `_()`.
+  useTranslations();
 
   useEffect(() => {
     if (!open) return;
@@ -482,7 +496,7 @@ export function MenuBar({
             onClick={() => setOpen((o) => (o === menu.label ? null : menu.label))}
             onMouseEnter={() => open && setOpen(menu.label)}
           >
-            {menu.label}
+            {_(menu.label)}
             {open === menu.label && (
               <div className="ze-dropdown" onClick={(e) => e.stopPropagation()}>
                 {menu.items.map((it, i) => (

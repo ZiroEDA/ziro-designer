@@ -8,6 +8,8 @@
  * gives KiCad. The styling is the measured `.ze-nb-*` set in shell.css.
  */
 import type { JSX, ReactNode } from 'react';
+import { _ } from './translation.js';
+import { useTranslations } from './translation_ui.js';
 
 export interface NotebookPage {
   /** The tab's text (`AddPage( page, text )`). */
@@ -33,6 +35,8 @@ export function Notebook({
   onPageChanged: (aPage: number) => void;
   ariaLabel?: string;
 }): JSX.Element {
+  // `AddPage( page, _( "Text" ) )`: the tab's text is translated where it is drawn.
+  useTranslations();
   return (
     <div className="ze-nb-frame">
       <div className="ze-nb-tabs" role="tablist" aria-label={ariaLabel}>
@@ -50,7 +54,7 @@ export function Notebook({
             }}
           >
             {p.image !== undefined && <span className="ze-nb-tab-image">{p.image}</span>}
-            {p.text}
+            {_(p.text)}
           </button>
         ))}
       </div>
@@ -60,7 +64,7 @@ export function Notebook({
             key={p.text}
             className="ze-nb-page"
             role="tabpanel"
-            aria-label={p.text}
+            aria-label={_(p.text)}
             data-nbhide={i === selection ? undefined : ''}
           >
             {p.content}

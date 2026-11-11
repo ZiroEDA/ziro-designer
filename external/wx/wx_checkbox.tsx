@@ -6,6 +6,8 @@
  * multi-item dialogs use where the items disagree or a setting is to be left alone.
  */
 import { type JSX, useEffect, useRef } from 'react';
+import { _ } from './translation.js';
+import { useTranslations } from './translation_ui.js';
 
 /** `wxCheckBoxState`: true is wxCHK_CHECKED, false wxCHK_UNCHECKED, null wxCHK_UNDETERMINED. */
 export type CHECK_STATE = boolean | null;
@@ -52,8 +54,10 @@ export function TriStateCheck({
   const next = (): CHECK_STATE =>
     value === false ? true : value === true ? (allowThirdStateForUser ? null : false) : false;
 
+  useTranslations();
+
   return (
-    <label className="ze-check" title={title}>
+    <label className="ze-check" title={title === undefined ? undefined : _(title)}>
       <input
         ref={ref}
         type="checkbox"
@@ -62,7 +66,7 @@ export function TriStateCheck({
         disabled={disabled}
         onChange={() => onChange(next())}
       />
-      {label}
+      {_(label)}
     </label>
   );
 }
