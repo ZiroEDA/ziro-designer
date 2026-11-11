@@ -10,7 +10,8 @@
  * title carried a shorter phrase of our own. Neither was pinned.
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { wxMsgCatalog, wxTranslations } from '@ziroeda/wx/translation.js';
 import {
   NO_PROJECT_TITLE,
   READ_ONLY_SUFFIX,
@@ -76,5 +77,34 @@ describe('the status-bar line', () => {
       expect(projectStatusText(v)).not.toContain('project');
       expect(projectStatusText(v)).not.toContain('Project');
     }
+  });
+});
+
+describe('in another language', () => {
+  // kicad_manager_frame.cpp:1298-1349: `_( "[Read Only]" )`, `_( "[no project loaded]" )` and
+  // `wxString::Format( _( "Project: %s" ), ... )`. The constants hold the msgid; the functions
+  // translate as they compose.
+  const catalog = new wxMsgCatalog({
+    language: 'de',
+    nplurals: 2,
+    plural: 'n != 1',
+    messages: {
+      '[no project loaded]': '[Kein Projekt geladen]',
+      '[Read Only]': '[Nur lesbar]',
+      'Project: %s': 'Projekt: %s',
+    },
+  });
+  beforeEach(() => wxTranslations.Get().SetCatalog(catalog));
+  afterEach(() => wxTranslations.Get().SetCatalog(null));
+
+  it("translates the title's two phrases and leaves the names alone", () => {
+    expect(managerTitle(null, 'ZiroEDA')).toBe('[Kein Projekt geladen] — ZiroEDA');
+    expect(managerTitle('demo', 'ZiroEDA', true)).toBe('demo [Nur lesbar] — ZiroEDA');
+    expect(managerTitle('demo', 'ZiroEDA')).toBe('demo — ZiroEDA');
+  });
+
+  it('formats the status line through the translated format', () => {
+    expect(projectStatusText('/demo/demo.kicad_pro')).toBe('Projekt: /demo/demo.kicad_pro');
+    expect(projectStatusText(null)).toBe('');
   });
 });
