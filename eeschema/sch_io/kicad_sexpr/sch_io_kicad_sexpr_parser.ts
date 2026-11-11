@@ -103,6 +103,7 @@ import { SCH_TABLE } from '../../sch_table.js';
 import { SCH_TABLECELL } from '../../sch_tablecell.js';
 import type { SCHEMATIC } from '../../schematic.js';
 import { SYMBOL_ORIENTATION_T } from '../../symbol.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `LIB_SYMBOL_MAP`: symbols by name (a `std::map`, so walked in key order). */
 export type LIB_SYMBOL_MAP = Map<string, LIB_SYMBOL>;
@@ -412,7 +413,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
 
     token = this.NextTok();
 
-    if (!this.isSymbol(token)) this.throwParse('Invalid symbol name');
+    if (!this.isSymbol(token)) this.throwParse(_('Invalid symbol name'));
 
     name = this.CurText();
 
@@ -428,7 +429,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
       if (name.length > bad_pos)
         this.throwParse(`Symbol ${name} contains invalid character '${name[bad_pos]}'`);
 
-      this.throwParse('Invalid library identifier');
+      this.throwParse(_('Invalid library identifier'));
     }
 
     this.m_symbolName = id.GetLibItemName();
@@ -524,7 +525,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
         case 'extends': {
           token = this.NextTok();
 
-          if (!this.isSymbol(token)) this.throwParse('Invalid parent symbol name');
+          if (!this.isSymbol(token)) this.throwParse(_('Invalid parent symbol name'));
 
           name = this.CurText().replaceAll('{slash}', '/');
           symbol.SetParentName(name);
@@ -535,7 +536,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
         case 'symbol': {
           token = this.NextTok();
 
-          if (!this.isSymbol(token)) this.throwParse('Invalid symbol unit name');
+          if (!this.isSymbol(token)) this.throwParse(_('Invalid symbol unit name'));
 
           name = this.CurText().replaceAll('{slash}', '/');
 
@@ -941,7 +942,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
         aSymbol.SetHasDeMorganBodyStyles(true);
         continue;
       } else if (!this.isSymbol(token)) {
-        this.throwParse('Invalid property value');
+        this.throwParse(_('Invalid property value'));
       }
 
       names.push(this.CurText());
@@ -1045,11 +1046,11 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
       token = this.NextTok();
     }
 
-    if (!this.isSymbol(token)) this.throwParse('Invalid property name');
+    if (!this.isSymbol(token)) this.throwParse(_('Invalid property name'));
 
     name = this.CurText();
 
-    if (name === '') this.throwParse('Empty property name');
+    if (name === '') this.throwParse(_('Empty property name'));
 
     for (const id of MANDATORY_FIELDS) {
       // NB: match case-insensitive; the canonical name is written back on save
@@ -1066,7 +1067,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
 
     token = this.NextTok();
 
-    if (!this.isSymbol(token)) this.throwParse('Invalid property value');
+    if (!this.isSymbol(token)) this.throwParse(_('Invalid property value'));
 
     // Empty property values are valid.
     if (this.m_requiredVersion < 20250318 && this.CurText() === '~') value = '';
@@ -1634,7 +1635,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
         case 'name':
           token = this.NextTok();
 
-          if (!this.isSymbol(token)) this.throwParse('Invalid pin name');
+          if (!this.isSymbol(token)) this.throwParse(_('Invalid pin name'));
 
           if (this.m_requiredVersion < 20250318 && this.CurText() === '~') pin.SetName('');
           else if (this.m_requiredVersion < 20210606)
@@ -1664,7 +1665,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
         case 'number':
           token = this.NextTok();
 
-          if (!this.isSymbol(token)) this.throwParse('Invalid pin number');
+          if (!this.isSymbol(token)) this.throwParse(_('Invalid pin number'));
 
           if (this.m_requiredVersion < 20250318 && this.CurText() === '~') pin.SetNumber('');
           else if (this.m_requiredVersion < 20210606)
@@ -1694,7 +1695,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
         case 'alternate': {
           token = this.NextTok();
 
-          if (!this.isSymbol(token)) this.throwParse('Invalid alternate pin name');
+          if (!this.isSymbol(token)) this.throwParse(_('Invalid alternate pin name'));
 
           const m_Name = this.CurText();
 
@@ -1860,7 +1861,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
       token = this.NextTok();
     }
 
-    if (!this.isSymbol(token)) this.throwParse('Invalid text string');
+    if (!this.isSymbol(token)) this.throwParse(_('Invalid text string'));
 
     text.SetText(this.CurText());
 
@@ -1926,7 +1927,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
       token = this.NextTok();
     }
 
-    if (!this.isSymbol(token)) this.throwParse('Invalid text string');
+    if (!this.isSymbol(token)) this.throwParse(_('Invalid text string'));
 
     textBox.SetText(this.CurText());
 
@@ -2021,7 +2022,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
 
     const pageType = this.CurText();
 
-    if (!aPageInfo.SetType(pageType)) this.throwParse('Invalid page type');
+    if (!aPageInfo.SetType(pageType)) this.throwParse(_('Invalid page type'));
 
     if (aPageInfo.GetType() === PAGE_SIZE_TYPE.User) {
       let width = this.parseDoubleNext('width');
@@ -2086,7 +2087,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
             this.NextTok();
             aTitleBlock.SetComment(commentNumber - 1, this.CurText());
           } else {
-            this.throwParse('Invalid title block comment number');
+            this.throwParse(_('Invalid title block comment number'));
           }
 
           break;
@@ -2114,18 +2115,18 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
       token = this.NextTok();
     }
 
-    if (!this.isSymbol(token)) this.throwParse('Invalid property name');
+    if (!this.isSymbol(token)) this.throwParse(_('Invalid property name'));
 
     let name = this.CurText();
 
-    if (name === '') this.throwParse('Empty property name');
+    if (name === '') this.throwParse(_('Empty property name'));
 
     if (aParent instanceof SCH_LABEL_BASE && SCH_FIELD.IsNetclassLabelFieldName(name))
       name = 'Netclass';
 
     token = this.NextTok();
 
-    if (!this.isSymbol(token)) this.throwParse('Invalid property value');
+    if (!this.isSymbol(token)) this.throwParse(_('Invalid property value'));
 
     // Empty property values are valid.
     let value: string;
@@ -2229,11 +2230,11 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
 
     let token = this.NextTok();
 
-    if (!this.isSymbol(token)) this.throwParse('Invalid sheet pin name');
+    if (!this.isSymbol(token)) this.throwParse(_('Invalid sheet pin name'));
 
     const name = this.CurText();
 
-    if (name === '') this.throwParse('Empty sheet pin name');
+    if (name === '') this.throwParse(_('Empty sheet pin name'));
 
     const sheetPin = new SCH_SHEET_PIN(aSheet, { x: 0, y: 0 }, name);
 
@@ -2665,7 +2666,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
           // For SCH_SHAPE having only 2 points, this is a "old" SCH_LINE entity.
           // So convert the SCH_SHAPE to a simple SCH_LINE
           if (poly.GetPointCount() < 2) {
-            this.throwParse('Schematic polyline has too few points');
+            this.throwParse(_('Schematic polyline has too few points'));
           } else if (poly.GetPointCount() > 2) {
             screen.Append(poly);
           } else {
@@ -2742,7 +2743,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
         case 'embedded_fonts': {
           const schematic = screen.Schematic();
 
-          if (!schematic) this.throwParse('No schematic object');
+          if (!schematic) this.throwParse(_('No schematic object'));
 
           schematic.GetEmbeddedFiles().SetAreFontsEmbedded(this.parseBool());
           this.NeedRIGHT();
@@ -2752,7 +2753,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
         case 'embedded_files': {
           const schematic = screen.Schematic();
 
-          if (!schematic) this.throwParse('No schematic object');
+          if (!schematic) this.throwParse(_('No schematic object'));
 
           const knowsBar = this.SetKnowsBar(true);
 
@@ -2789,7 +2790,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
 
     const schematic = screen.Schematic();
 
-    if (!schematic) this.throwParse('No schematic object');
+    if (!schematic) this.throwParse(_('No schematic object'));
 
     // Fontconfig()->ListFonts over the embedded fonts: pending (outline fonts).
 
@@ -2816,7 +2817,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
         case 'lib_name': {
           token = this.NextTok();
 
-          if (!this.isSymbol(token)) this.throwParse('Invalid symbol library name');
+          if (!this.isSymbol(token)) this.throwParse(_('Invalid symbol library name'));
 
           libName = this.CurText().replaceAll('{slash}', '/');
           this.NeedRIGHT();
@@ -2836,7 +2837,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
             if (name.length > bad_pos)
               this.throwParse(`Symbol ${name} contains invalid character '${name[bad_pos]}'`);
 
-            this.throwParse('Invalid symbol library ID');
+            this.throwParse(_('Invalid symbol library ID'));
           }
 
           symbol.SetLibId(libId);
@@ -3300,7 +3301,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
 
           const buffer = wxBase64Decode(parts.join(''));
 
-          if (!refImage.ReadImageFile(buffer)) throw new IO_ERROR('Failed to read image data.');
+          if (!refImage.ReadImageFile(buffer)) throw new IO_ERROR(_('Failed to read image data.'));
 
           break;
         }
@@ -3499,10 +3500,10 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
     sheet.SetFields(fields);
 
     if (!FindField(sheet.GetFields(), FIELD_T.SHEET_NAME))
-      this.throwParse('Missing sheet name property');
+      this.throwParse(_('Missing sheet name property'));
 
     if (!FindField(sheet.GetFields(), FIELD_T.SHEET_FILENAME))
-      this.throwParse('Missing sheet file property');
+      this.throwParse(_('Missing sheet file property'));
 
     return sheet;
   }
@@ -4537,7 +4538,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
       }
     }
 
-    if (!table.GetCell(0, 0)) this.throwParse('Invalid table: no cells defined');
+    if (!table.GetCell(0, 0)) this.throwParse(_('Invalid table: no cells defined'));
 
     return table;
   }
@@ -4631,7 +4632,7 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
                 `Group library link ${name} contains invalid character '${name[bad_pos]}'`,
               );
 
-            this.throwParse('Invalid library ID');
+            this.throwParse(_('Invalid library ID'));
           }
 
           this.NeedRIGHT();

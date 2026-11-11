@@ -77,6 +77,8 @@ import { SCH_ITEM } from './sch_item.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** GetKnownNetclassFieldTranslations(), "Netclass" in every shipped locale. */
 export const NETCLASS_FIELD_TRANSLATIONS: readonly string[] = [
@@ -341,16 +343,18 @@ export class SCH_FIELD extends SCH_ITEM {
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
     let msg = '';
 
-    aList.push(new MSG_PANEL_ITEM('Symbol Field', unescapeString(this.GetName())));
+    aList.push(new MSG_PANEL_ITEM(_('Symbol Field'), unescapeString(this.GetName())));
 
     // Don't use GetShownText() here; we want to show the user the variable references
     aList.push(new MSG_PANEL_ITEM('Text', KIUI_EllipsizeStatusText(aFrame, this.GetText())));
 
-    aList.push(new MSG_PANEL_ITEM('Visible', this.IsVisible() ? 'Yes' : 'No'));
+    aList.push(new MSG_PANEL_ITEM(_('Visible'), this.IsVisible() ? _('Yes') : _('No')));
 
-    aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Font'), this.GetFont() ? this.GetFont()!.GetName() : _('Default')),
+    );
 
-    aList.push(new MSG_PANEL_ITEM('Style', this.GetTextStyleName()));
+    aList.push(new MSG_PANEL_ITEM(_('Style'), this.GetTextStyleName()));
 
     aList.push(new MSG_PANEL_ITEM('Text Size', aFrame.MessageTextFromValue(this.GetTextWidth())));
 
@@ -369,7 +373,7 @@ export class SCH_FIELD extends SCH_ITEM {
         break;
     }
 
-    aList.push(new MSG_PANEL_ITEM('H Justification', msg));
+    aList.push(new MSG_PANEL_ITEM(_('H Justification'), msg));
 
     switch (this.GetVertJustify()) {
       case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP:
@@ -386,7 +390,7 @@ export class SCH_FIELD extends SCH_ITEM {
         break;
     }
 
-    aList.push(new MSG_PANEL_ITEM('V Justification', msg));
+    aList.push(new MSG_PANEL_ITEM(_('V Justification'), msg));
   }
 
   override IsType(aScanTypes: readonly KICAD_T[]): boolean {
@@ -1660,32 +1664,32 @@ export function SetFieldValue(
   propMgr.InheritsAfter(SCH_FIELD, SCH_ITEM);
   propMgr.InheritsAfter(SCH_FIELD, EDA_TEXT);
 
-  const textProps = 'Text Properties';
+  const textProps = _HKI('Text Properties');
 
   const horiz = new PROPERTY_ENUM<SCH_FIELD, GR_TEXT_H_ALIGN_T>(
     SCH_FIELD,
-    'Horizontal Justification',
+    _HKI('Horizontal Justification'),
     'SetEffectiveHorizJustify',
     'GetEffectiveHorizJustify',
     h_inst,
   );
 
-  propMgr.ReplaceProperty(EDA_TEXT, 'Horizontal Justification', horiz, textProps);
+  propMgr.ReplaceProperty(EDA_TEXT, _HKI('Horizontal Justification'), horiz, textProps);
 
   const vert = new PROPERTY_ENUM<SCH_FIELD, GR_TEXT_V_ALIGN_T>(
     SCH_FIELD,
-    'Vertical Justification',
+    _HKI('Vertical Justification'),
     'SetEffectiveVertJustify',
     'GetEffectiveVertJustify',
     v_inst,
   );
 
-  propMgr.ReplaceProperty(EDA_TEXT, 'Vertical Justification', vert, textProps);
+  propMgr.ReplaceProperty(EDA_TEXT, _HKI('Vertical Justification'), vert, textProps);
 
   propMgr.AddProperty(
     new PROPERTY<SCH_FIELD, boolean>(
       SCH_FIELD,
-      'Show Field Name',
+      _HKI('Show Field Name'),
       'SetNameShown',
       'IsNameShown',
       TYPE_BOOL,
@@ -1695,18 +1699,18 @@ export function SetFieldValue(
   propMgr.AddProperty(
     new PROPERTY<SCH_FIELD, boolean>(
       SCH_FIELD,
-      'Allow Autoplacement',
+      _HKI('Allow Autoplacement'),
       'SetCanAutoplace',
       'CanAutoplace',
       TYPE_BOOL,
     ),
   );
 
-  propMgr.Mask(SCH_FIELD, EDA_TEXT, 'Hyperlink');
-  propMgr.Mask(SCH_FIELD, EDA_TEXT, 'Thickness');
-  propMgr.Mask(SCH_FIELD, EDA_TEXT, 'Mirrored');
-  propMgr.Mask(SCH_FIELD, EDA_TEXT, 'Width');
-  propMgr.Mask(SCH_FIELD, EDA_TEXT, 'Height');
+  propMgr.Mask(SCH_FIELD, EDA_TEXT, _HKI('Hyperlink'));
+  propMgr.Mask(SCH_FIELD, EDA_TEXT, _HKI('Thickness'));
+  propMgr.Mask(SCH_FIELD, EDA_TEXT, _HKI('Mirrored'));
+  propMgr.Mask(SCH_FIELD, EDA_TEXT, _HKI('Width'));
+  propMgr.Mask(SCH_FIELD, EDA_TEXT, _HKI('Height'));
 
   propMgr.AddProperty(
     new PROPERTY<SCH_FIELD, number>(
@@ -1717,10 +1721,10 @@ export function SetFieldValue(
       TYPE_INT,
       PROPERTY_DISPLAY.PT_SIZE,
     ),
-    'Text Properties',
+    _HKI('Text Properties'),
   );
 
-  propMgr.Mask(SCH_FIELD, EDA_TEXT, 'Orientation');
+  propMgr.Mask(SCH_FIELD, EDA_TEXT, _HKI('Orientation'));
 
   const isNotGeneratedField = (aItem: INSPECTABLE_ITEM): boolean =>
     aItem instanceof SCH_FIELD ? !aItem.IsGeneratedField() : true;
@@ -1730,5 +1734,5 @@ export function SetFieldValue(
   const isNonMandatoryField = (aItem: INSPECTABLE_ITEM): boolean =>
     aItem instanceof SCH_FIELD ? !aItem.IsMandatory() : false;
 
-  propMgr.OverrideAvailability(SCH_FIELD, SCH_ITEM, 'Private', isNonMandatoryField);
+  propMgr.OverrideAvailability(SCH_FIELD, SCH_ITEM, _HKI('Private'), isNonMandatoryField);
 })();

@@ -13,6 +13,7 @@ import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import type { DIALOG_SYNC_SHEET_PINS } from './dialog_sync_sheet_pins.js';
 import { PanelSyncSheetPins } from './panel_sync_sheet_pins_ui.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 export function DialogSyncSheetPins({
   dlg,
@@ -33,7 +34,7 @@ export function DialogSyncSheetPins({
 
   return (
     <DialogShim
-      title="Synchronize sheet pins and hierarchical labels"
+      title={wxGetTranslation('Synchronize sheet pins and hierarchical labels')}
       onClose={onClose}
       className="ze-sync-dialog"
     >
@@ -54,8 +55,9 @@ export function DialogSyncSheetPins({
       </div>
       <div className="ze-modal-footer">
         <span className="ze-sync-tip">
-          Changes made in this dialog occur immediately, use Undo in each affected document to undo
-          them
+          {wxGetTranslation(
+            'Changes made in this dialog occur immediately, use Undo in each affected document to undo them',
+          )}
         </span>
         <Button label="Close" onClick={onClose} />
       </div>

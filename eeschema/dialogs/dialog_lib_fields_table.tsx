@@ -66,6 +66,7 @@ import {
   type SymbolEditorSettings,
 } from '../symbol_editor/symbol_editor_settings.js';
 import { DIALOG_LIB_FIELDS_TABLE_BASE } from './dialog_lib_fields_table_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `COLUMN_MARGIN` (not __WXMAC__). [data] */
 const COLUMN_MARGIN = 15;
@@ -138,15 +139,15 @@ export class LIB_FIELDS_EDITOR_GRID_TRICKS extends GRID_TRICKS {
   protected override showPopupMenu(aMenu: wxMenu, aEvent: wxGridEvent): void {
     const revertMenu = aMenu.Append(
       MYID_REVERT_ROW,
-      'Revert symbol',
-      'Revert the symbol to its last saved state',
+      _('Revert symbol'),
+      _('Revert the symbol to its last saved state'),
     );
-    const clearMenu = aMenu.Append(MYID_CLEAR_CELL, 'Clear cell', 'Clear the cell value');
+    const clearMenu = aMenu.Append(MYID_CLEAR_CELL, _('Clear cell'), _('Clear the cell value'));
     aMenu.AppendSeparator();
     const deriveMenu = aMenu.Append(
       MYID_CREATE_DERIVED_SYMBOL,
-      'Create Derived Symbol',
-      'Create a new symbol derived from the selected one',
+      _('Create Derived Symbol'),
+      _('Create a new symbol derived from the selected one'),
     );
 
     const row = aEvent.GetRow() >= 0 ? aEvent.GetRow() : this.m_grid.GetGridCursorRow();
@@ -159,10 +160,10 @@ export class LIB_FIELDS_EDITOR_GRID_TRICKS extends GRID_TRICKS {
     deriveMenu.Enable(this.m_dataModel.IsRowSingleSymbol(row));
 
     if (this.m_dataModel.GetColFieldName(col) === GetCanonicalFieldName(FIELD_T.FOOTPRINT)) {
-      aMenu.Append(MYID_SELECT_FOOTPRINT, 'Select Footprint...', 'Browse for footprint');
+      aMenu.Append(MYID_SELECT_FOOTPRINT, _('Select Footprint...'), _('Browse for footprint'));
       aMenu.AppendSeparator();
     } else if (this.m_dataModel.GetColFieldName(col) === GetCanonicalFieldName(FIELD_T.DATASHEET)) {
-      aMenu.Append(MYID_SHOW_DATASHEET, 'Show Datasheet', 'Show datasheet in browser');
+      aMenu.Append(MYID_SHOW_DATASHEET, _('Show Datasheet'), _('Show datasheet in browser'));
       aMenu.AppendSeparator();
     }
 
@@ -518,8 +519,8 @@ export class DIALOG_LIB_FIELDS_TABLE {
 
     if (this.m_symbolsList.length === 0) {
       if (this.m_scope === SCOPE.SCOPE_RELATED_SYMBOLS)
-        this.m_window.messageBox('No related symbols could be loaded from the library.');
-      else this.m_window.messageBox('No symbols could be loaded from the library.');
+        this.m_window.messageBox(_('No related symbols could be loaded from the library.'));
+      else this.m_window.messageBox(_('No symbols could be loaded from the library.'));
     }
 
     this.m_dataModel.SetSymbols(this.m_symbolsList);
@@ -575,12 +576,12 @@ export class DIALOG_LIB_FIELDS_TABLE {
 
   /** `OnAddField()`: a user column, named in a text entry. */
   async OnAddField(): Promise<void> {
-    const fieldName = await this.m_window.textEntry('New field name:', 'Add Field', '');
+    const fieldName = await this.m_window.textEntry(_('New field name:'), _('Add Field'), '');
 
     if (fieldName === null) return;
 
     if (fieldName === '') {
-      DisplayErrorMessage('Field must have a name.');
+      DisplayErrorMessage(_('Field must have a name.'));
       return;
     }
 
@@ -641,8 +642,8 @@ export class DIALOG_LIB_FIELDS_TABLE {
     if (col === -1) return; // wxCHECK_RET "Existing field name missing from data model"
 
     const newFieldName = await this.m_window.textEntry(
-      'New field name:',
-      'Rename Field',
+      _('New field name:'),
+      _('Rename Field'),
       fieldName,
     );
 
@@ -816,7 +817,7 @@ export class DIALOG_LIB_FIELDS_TABLE {
 
     if (this.m_dataModel.IsEdited()) {
       if (
-        !(await this.m_window.handleUnsavedChanges('Save changes?', () =>
+        !(await this.m_window.handleUnsavedChanges(_('Save changes?'), () =>
           this.TransferDataFromWindow(),
         ))
       )
@@ -841,7 +842,7 @@ export class DIALOG_LIB_FIELDS_TABLE {
         groupBy,
       );
 
-    this.AddField(LIB_FIELDS_EDITOR_GRID_DATA_MODEL.SYMBOL_NAME, 'Symbol Name', true, false);
+    this.AddField(LIB_FIELDS_EDITOR_GRID_DATA_MODEL.SYMBOL_NAME, _('Symbol Name'), true, false);
 
     // Add mandatory fields first      show   groupBy
     addMandatoryField(FIELD_T.REFERENCE, false, false);
@@ -853,11 +854,11 @@ export class DIALOG_LIB_FIELDS_TABLE {
     this.AddField('Keywords', 'Keywords', true, false);
 
     // Add attribute fields as checkboxes                           show  groupBy user  checkbox
-    this.AddField('${EXCLUDE_FROM_BOM}', 'Exclude From BOM', true, false, false, true);
-    this.AddField('${EXCLUDE_FROM_SIM}', 'Exclude From Simulation', true, false, false, true);
-    this.AddField('${EXCLUDE_FROM_BOARD}', 'Exclude From Board', true, false, false, true);
-    this.AddField('Power', 'Power Symbol', true, false, false, true);
-    this.AddField('LocalPower', 'Local Power Symbol', true, false, false, true);
+    this.AddField('${EXCLUDE_FROM_BOM}', _('Exclude From BOM'), true, false, false, true);
+    this.AddField('${EXCLUDE_FROM_SIM}', _('Exclude From Simulation'), true, false, false, true);
+    this.AddField('${EXCLUDE_FROM_BOARD}', _('Exclude From Board'), true, false, false, true);
+    this.AddField('Power', _('Power Symbol'), true, false, false, true);
+    this.AddField('LocalPower', _('Local Power Symbol'), true, false, false, true);
 
     // User field names are stored and matched case-sensitively (see issue #24021), so each
     // distinct name gets its own column rather than collapsing case variants together.
@@ -1035,7 +1036,7 @@ export function DialogLibFieldsTable({
         <WxGridView
           grid={d.m_viewControlsGrid}
           tricks={d.m_viewControlsTricks}
-          ariaLabel="Fields"
+          ariaLabel={_('Fields')}
           fixedColumns
           onSize={(aWidth) => d.OnSizeViewControlsGrid(aWidth)}
         />

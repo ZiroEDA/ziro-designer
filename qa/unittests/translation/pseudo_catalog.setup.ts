@@ -18,9 +18,26 @@ import { fileURLToPath } from 'node:url';
 import { wxMsgCatalog, wxTranslations } from '@ziroeda/wx/translation.js';
 import { loadMsgids } from './untranslated_literals.js';
 
+/**
+ * Messages KiCad itself writes into output in the user's language, so the
+ * English oracle cannot hold them under any translation. They are left out of
+ * the pseudo-language - each one a `_( )` in KiCad's own output path - and
+ * everything else in the same files is still checked.
+ */
+export const KICAD_TRANSLATES_INTO_OUTPUT: ReadonlyMap<string, string> = new Map([
+  // eeschema_helpers.cpp:135 and files-io.cpp:361: the unnamed root sheet is `_( "Root" )`,
+  // and the netlist exporters write it as the root's Sheetname.
+  ['Root', 'the root sheet name'],
+  // sch_label.cpp:1591 and sch_symbol.cpp:3407: PDF bookmark groups.
+  ['Hierarchical Labels', 'a PDF bookmark group'],
+  ['Symbols', 'a PDF bookmark group'],
+]);
+
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const messages: Record<string, string> = {};
-for (const id of loadMsgids(join(ROOT, 'translation'))) messages[id] = `⟪${id}⟫`;
+for (const id of loadMsgids(join(ROOT, 'translation'))) {
+  if (!KICAD_TRANSLATES_INTO_OUTPUT.has(id)) messages[id] = `⟪${id}⟫`;
+}
 const PSEUDO = new wxMsgCatalog({ language: 'qps', nplurals: 2, plural: 'n != 1', messages });
 
 beforeEach(() => wxTranslations.Get().SetCatalog(PSEUDO));

@@ -46,6 +46,7 @@ import {
   StdDialogButtonSizer,
   StretchSpacer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** Which of m_textEntrySizer's three label/value pairs is shown. */
 export type LABEL_ENTRY = 'combo' | 'single' | 'multi';
@@ -112,12 +113,17 @@ export function DIALOG_LABEL_PROPERTIES_BASE(p: DIALOG_LABEL_PROPERTIES_BASE_PRO
         <BitmapButtonSeparator />
       </SizerItem>
       <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5} shown={p.fontShown}>
-        <BitmapButton bitmap="text_bold" tooltip="Bold" checked={p.m_bold} onClick={p.onBold} />
+        <BitmapButton
+          bitmap="text_bold"
+          tooltip={_('Bold')}
+          checked={p.m_bold}
+          onClick={p.onBold}
+        />
       </SizerItem>
       <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5} shown={p.fontShown}>
         <BitmapButton
           bitmap="text_italic"
-          tooltip="Italic"
+          tooltip={_('Italic')}
           checked={p.m_italic}
           onClick={p.onItalic}
         />
@@ -131,7 +137,7 @@ export function DIALOG_LABEL_PROPERTIES_BASE(p: DIALOG_LABEL_PROPERTIES_BASE_PRO
         </SizerItem>
       ))}
       <SizerItem flag={wxALL} border={5} shown={p.m_autoRotate.shown}>
-        <CheckBox label="Auto" check={p.m_autoRotate} />
+        <CheckBox label={_('Auto')} check={p.m_autoRotate} />
       </SizerItem>
       <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5} shown={p.fontShown}>
         {/* m_separator3 */}
@@ -149,7 +155,10 @@ export function DIALOG_LABEL_PROPERTIES_BASE(p: DIALOG_LABEL_PROPERTIES_BASE_PRO
               AddGrowableRow( 1 ) */}
           <FlexGridSizer cols={2} vgap={1} hgap={3} growableCols={[1]} growableRows={[1]}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={2} shown={p.entry === 'single'}>
-              <StaticText label="Label:" title="Enter the text to be used within the schematic" />
+              <StaticText
+                label={_('Label:')}
+                title={_('Enter the text to be used within the schematic')}
+              />
             </SizerItem>
             <SizerItem
               flag={wxEXPAND | wxALIGN_CENTER_VERTICAL}
@@ -170,7 +179,7 @@ export function DIALOG_LABEL_PROPERTIES_BASE(p: DIALOG_LABEL_PROPERTIES_BASE_PRO
               border={5}
               shown={p.entry === 'combo'}
             >
-              <StaticText label="Label:" />
+              <StaticText label={_('Label:')} />
             </SizerItem>
             <SizerItem
               flag={wxEXPAND | wxALIGN_CENTER_VERTICAL}
@@ -188,7 +197,10 @@ export function DIALOG_LABEL_PROPERTIES_BASE(p: DIALOG_LABEL_PROPERTIES_BASE_PRO
               />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={2} shown={p.entry === 'multi'}>
-              <StaticText label="Label:" title="Enter the text to be used within the schematic" />
+              <StaticText
+                label={_('Label:')}
+                title={_('Enter the text to be used within the schematic')}
+              />
             </SizerItem>
             <SizerItem
               flag={wxALIGN_CENTER_VERTICAL | wxEXPAND}
@@ -203,7 +215,7 @@ export function DIALOG_LABEL_PROPERTIES_BASE(p: DIALOG_LABEL_PROPERTIES_BASE_PRO
               {/* bSizer7 */}
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem flag={0} border={5} shown={p.m_cbMultiLine.shown}>
-                  <CheckBox label="Multiple label input" check={p.m_cbMultiLine} />
+                  <CheckBox label={_('Multiple label input')} check={p.m_cbMultiLine} />
                 </SizerItem>
                 <StretchSpacer />
                 <SizerItem
@@ -213,8 +225,8 @@ export function DIALOG_LABEL_PROPERTIES_BASE(p: DIALOG_LABEL_PROPERTIES_BASE_PRO
                 >
                   {/* m_syntaxHelp, wxHL_ALIGN_RIGHT */}
                   <HyperlinkCtrl
-                    label="Syntax help"
-                    title="Show syntax help window"
+                    label={_('Syntax help')}
+                    title={_('Show syntax help window')}
                     onClick={p.onSyntaxHelp}
                   />
                 </SizerItem>
@@ -223,7 +235,7 @@ export function DIALOG_LABEL_PROPERTIES_BASE(p: DIALOG_LABEL_PROPERTIES_BASE_PRO
           </FlexGridSizer>
         </SizerItem>
         <SizerItem proportion={1} flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT | wxTOP} border={5}>
-          <StaticBoxSizer label="Fields" orient={wxVERTICAL}>
+          <StaticBoxSizer label={_('Fields')} orient={wxVERTICAL}>
             <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5} minSize={[-1, 100]}>
               {p.m_grid}
             </SizerItem>
@@ -231,19 +243,27 @@ export function DIALOG_LABEL_PROPERTIES_BASE(p: DIALOG_LABEL_PROPERTIES_BASE_PRO
               {/* bButtonSize */}
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
-                  <StdBitmapButton bitmap="small_plus" title="Add field" onClick={p.onAddField} />
+                  <StdBitmapButton
+                    bitmap="small_plus"
+                    title={_('Add field')}
+                    onClick={p.onAddField}
+                  />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
-                  <StdBitmapButton bitmap="small_up" title="Move up" onClick={p.onMoveUp} />
+                  <StdBitmapButton bitmap="small_up" title={_('Move up')} onClick={p.onMoveUp} />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
-                  <StdBitmapButton bitmap="small_down" title="Move down" onClick={p.onMoveDown} />
+                  <StdBitmapButton
+                    bitmap="small_down"
+                    title={_('Move down')}
+                    onClick={p.onMoveDown}
+                  />
                 </SizerItem>
                 <Spacer width={20} height={0} flag={wxEXPAND} border={10} />
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                   <StdBitmapButton
                     bitmap="small_trash"
-                    title="Delete field"
+                    title={_('Delete field')}
                     onClick={p.onDeleteField}
                   />
                 </SizerItem>
@@ -256,7 +276,7 @@ export function DIALOG_LABEL_PROPERTIES_BASE(p: DIALOG_LABEL_PROPERTIES_BASE_PRO
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxBOTTOM | wxEXPAND | wxRIGHT | wxTOP} border={5} shown={p.shapeShown}>
               {/* m_shapeSizer */}
-              <StaticBoxSizer label="Shape" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Shape')} orient={wxVERTICAL}>
                 {p.shapes.map((s, i) => (
                   // m_input is added wxBOTTOM|wxRIGHT 2, the other eight 3.
                   <SizerItem
@@ -276,7 +296,7 @@ export function DIALOG_LABEL_PROPERTIES_BASE(p: DIALOG_LABEL_PROPERTIES_BASE_PRO
               </StaticBoxSizer>
             </SizerItem>
             <SizerItem proportion={1} flag={wxBOTTOM | wxEXPAND | wxTOP} border={5}>
-              <StaticBoxSizer label="Formatting" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Formatting')} orient={wxVERTICAL}>
                 <SizerItem proportion={1} flag={wxBOTTOM | wxEXPAND} border={5}>
                   {/* m_formattingGB = wxGridBagSizer( 3, 1 ) */}
                   <GridBagSizer vgap={3} hgap={1}>
@@ -337,7 +357,7 @@ export function DIALOG_LABEL_PROPERTIES_BASE(p: DIALOG_LABEL_PROPERTIES_BASE_PRO
                           <StaticText label={p.units} />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={15}>
-                          <StaticText label="Color:" />
+                          <StaticText label={_('Color:')} />
                         </SizerItem>
                         <Spacer width={5} height={0} border={5} />
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>

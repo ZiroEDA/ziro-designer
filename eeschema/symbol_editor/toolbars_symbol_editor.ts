@@ -21,6 +21,7 @@ import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { wxUpdateUIEvent } from '@ziroeda/wx/wx_event.js';
 import { SCH_ACTIONS } from '../tools/sch_actions.js';
 import type { ToolbarDefaults } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -93,33 +94,33 @@ export type SymShapeKind = (typeof SYM_SHAPE_TOOLS)[keyof typeof SYM_SHAPE_TOOLS
  * field that never fills in.
  */
 export const SYM_TOOL_MSGS: Record<string, string> = {
-  select: 'Select item(s)',
-  placePin: 'Draw Pins',
-  placeText: 'Draw Text',
-  drawRectangle: 'Draw Rectangles',
-  drawCircle: 'Draw Circles',
-  drawArc: 'Draw Arcs',
-  drawSymbolLines: 'Draw Lines',
-  drawPolygon: 'Draw Polygons',
-  placeAnchor: 'Move Symbol Anchor',
-  deleteTool: 'Interactive Delete Tool',
+  select: _HKI('Select item(s)'),
+  placePin: _HKI('Draw Pins'),
+  placeText: _HKI('Draw Text'),
+  drawRectangle: _HKI('Draw Rectangles'),
+  drawCircle: _HKI('Draw Circles'),
+  drawArc: _HKI('Draw Arcs'),
+  drawSymbolLines: _HKI('Draw Lines'),
+  drawPolygon: _HKI('Draw Polygons'),
+  placeAnchor: _HKI('Move Symbol Anchor'),
+  deleteTool: _HKI('Interactive Delete Tool'),
   // `ACTIONS::zoomTool`'s FriendlyName (`common/tool/actions.cpp:822`).
   // `ZOOM_TOOL::Main` opens with `m_frame->PushTool( aEvent )`, so the field
   // fills in for it exactly as it does for a drawing tool.
-  zoomTool: 'Zoom to Selection Area',
+  zoomTool: _HKI('Zoom to Selection Area'),
 };
 
 /** Top horizontal toolbar (ReCreateHToolbar). */
 export const SYM_TOP_TOOLBAR: ToolEntry[] = [
   { id: 'newSymbol', icon: 'newSymbol', title: 'New symbol' },
-  { id: 'saveAll', icon: 'saveAll', title: 'Save All' },
+  { id: 'saveAll', icon: 'saveAll', title: _HKI('Save All') },
   // ACTIONS::save, `ENABLE( SELECTION_CONDITIONS::ShowAlways )`
   // (`symbol_edit_frame.cpp:529`) — Save reaches the library, not only the
   // symbol on the canvas, which is why upstream never gates it, not even on a
   // cold frame. This button carried a static `disabled: true` saying "only
   // saveAll is wired in this frame", which was not true of the File > Save row
   // beside it: the same `save()` the menu calls is now on the button.
-  { id: 'save', icon: 'save', title: 'Save changes' },
+  { id: 'save', icon: 'save', title: _HKI('Save changes') },
   sep,
   { id: 'undo', icon: 'undo', title: 'Undo' },
   { id: 'redo', icon: 'redo', title: 'Redo' },
@@ -155,7 +156,7 @@ export const SYM_TOP_TOOLBAR: ToolEntry[] = [
   // itself (`RegisterTool( new ZOOM_TOOL )`, :425). This button carried a static
   // `disabled: true`; the drag now runs off `ui/zoom_tool.ts`, the shared module
   // the drawing sheet and GerbView canvases already use.
-  { id: 'zoomTool', icon: 'zoomTool', title: 'Zoom to Selection Area' },
+  { id: 'zoomTool', icon: 'zoomTool', title: _HKI('Zoom to Selection Area') },
   sep,
   { id: 'rotateCCW', icon: 'rotateCCW', title: 'Rotate counterclockwise' },
   { id: 'rotateCW', icon: 'rotateCW', title: 'Rotate clockwise' },
@@ -207,7 +208,7 @@ export const SYM_LEFT_TOOLBAR: ToolEntry[] = [
   // the `cursor_shape` bitmap it used is in `bitmap_info.cpp`'s registry with
   // no action referencing it. It was ours.
   {
-    group: 'Units',
+    group: _HKI('Units'),
     cycleOnClick: true,
     actions: [
       { id: 'unitsMm', icon: 'unitsMm', title: 'Millimeters' },
@@ -216,12 +217,12 @@ export const SYM_LEFT_TOOLBAR: ToolEntry[] = [
     ],
   },
   {
-    group: 'Crosshair modes',
+    group: _HKI('Crosshair modes'),
     cycleOnClick: true,
     actions: [
-      { id: 'crosshairSmall', icon: 'crosshairSmall', title: 'Small crosshairs' },
-      { id: 'crosshairFull', icon: 'crosshairFull', title: 'Full-Window Crosshairs' },
-      { id: 'crosshair45', icon: 'crosshair45', title: '45 Degree Crosshairs' },
+      { id: 'crosshairSmall', icon: 'crosshairSmall', title: _HKI('Small crosshairs') },
+      { id: 'crosshairFull', icon: 'crosshairFull', title: _HKI('Full-Window Crosshairs') },
+      { id: 'crosshair45', icon: 'crosshair45', title: _HKI('45 Degree Crosshairs') },
     ],
   },
   sep,
@@ -231,8 +232,13 @@ export const SYM_LEFT_TOOLBAR: ToolEntry[] = [
     title: 'Show pin electrical types',
     toggle: true,
   },
-  { id: 'showHiddenPins', icon: 'toggleHiddenPins', title: 'Show hidden pins', toggle: true },
-  { id: 'showHiddenFields', icon: 'showHiddenFields', title: 'Show hidden fields', toggle: true },
+  { id: 'showHiddenPins', icon: 'toggleHiddenPins', title: _HKI('Show hidden pins'), toggle: true },
+  {
+    id: 'showHiddenFields',
+    icon: 'showHiddenFields',
+    title: _HKI('Show hidden fields'),
+    toggle: true,
+  },
   sep,
   { id: 'showLibraryTree', icon: 'showLibraryTree', title: 'Show library tree', toggle: true },
   { id: 'showProperties', icon: 'showProperties', title: 'Show properties manager', toggle: true },
@@ -240,10 +246,10 @@ export const SYM_LEFT_TOOLBAR: ToolEntry[] = [
 
 /** Right vertical drawing toolbar (ReCreateVToolbar). */
 export const SYM_RIGHT_TOOLBAR: ToolEntry[] = [
-  { id: 'select', icon: 'select', title: 'Select item(s)' },
+  { id: 'select', icon: 'select', title: _HKI('Select item(s)') },
   sep,
   { id: 'placePin', icon: 'placePin', title: 'Add a pin' },
-  { id: 'placeText', icon: 'placeText', title: 'Draw Text' },
+  { id: 'placeText', icon: 'placeText', title: _HKI('Draw Text') },
   // `drawSymbolTextBox` and `drawBezier` (`toolbars_symbol_editor.cpp:101-107`)
   // were both missing, so the bar was two buttons short.
   //
@@ -255,12 +261,12 @@ export const SYM_RIGHT_TOOLBAR: ToolEntry[] = [
   // and `drawSymbolTextBox` are DIFFERENT actions from the schematic's
   // `drawLines` / `drawTextBox` and keep their own, even though upstream gives
   // both members of each pair the same FriendlyName.
-  { id: 'drawSymbolTextBox', icon: 'drawSymbolTextBox', title: 'Draw Text Boxes' },
+  { id: 'drawSymbolTextBox', icon: 'drawSymbolTextBox', title: _HKI('Draw Text Boxes') },
   { id: 'drawRectangle', icon: 'rectangle', title: 'Add a rectangle' },
   { id: 'drawCircle', icon: 'circle', title: 'Add a circle' },
   { id: 'drawArc', icon: 'arc', title: 'Add an arc' },
-  { id: 'bezier', icon: 'drawBezier', title: 'Draw Bezier Curve' },
-  { id: 'drawSymbolLines', icon: 'lines', title: 'Draw Lines' },
+  { id: 'bezier', icon: 'drawBezier', title: _HKI('Draw Bezier Curve') },
+  { id: 'drawSymbolLines', icon: 'lines', title: _HKI('Draw Lines') },
   { id: 'drawPolygon', icon: 'polygon', title: 'Add a polygon' },
   { id: 'placeAnchor', icon: 'placeAnchor', title: 'Move the symbol anchor' },
   { id: 'deleteTool', icon: 'delete', title: 'Interactive delete' },

@@ -42,6 +42,7 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A wxTextCtrl with wxTE_PROCESS_ENTER, and the kill-focus handler the dialog connects. */
 export interface MATCH_ENTRY {
@@ -217,7 +218,7 @@ export function DIALOG_CHANGE_SYMBOLS_BASE(p: DIALOG_CHANGE_SYMBOLS_BASE_PROPS):
           {/* m_newIdSizer */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxLEFT | wxALIGN_CENTER_VERTICAL} border={5}>
-              <StaticText label="New library identifier:" />
+              <StaticText label={_('New library identifier:')} />
             </SizerItem>
             <SizerItem proportion={1} flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
               {entry(p.m_newId, 'New library identifier')}
@@ -260,14 +261,14 @@ export function DIALOG_CHANGE_SYMBOLS_BASE(p: DIALOG_CHANGE_SYMBOLS_BASE_PROPS):
                       flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT}
                       border={5}
                     >
-                      <Button label="Select All" onClick={p.onSelectAll} />
+                      <Button label={_('Select All')} onClick={p.onSelectAll} />
                     </SizerItem>
                     <SizerItem
                       proportion={1}
                       flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT}
                       border={5}
                     >
-                      <Button label="Select None" onClick={p.onSelectNone} />
+                      <Button label={_('Select None')} onClick={p.onSelectNone} />
                     </SizerItem>
                   </BoxSizer>
                 </SizerItem>
@@ -276,14 +277,14 @@ export function DIALOG_CHANGE_SYMBOLS_BASE(p: DIALOG_CHANGE_SYMBOLS_BASE_PROPS):
             <Spacer width={5} height={0} flag={wxEXPAND} border={5} />
             <SizerItem proportion={4} flag={wxEXPAND | wxTOP | wxRIGHT} border={10}>
               {/* m_updateOptionsSizer, wxHORIZONTAL */}
-              <StaticBoxSizer label="Update Options" orient={wxHORIZONTAL}>
+              <StaticBoxSizer label={_('Update Options')} orient={wxHORIZONTAL}>
                 <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT} border={10}>
                   {/* bSizer8 */}
                   <BoxSizer orient={wxVERTICAL}>
                     {opt(
                       p.m_removeExtraBox,
                       5,
-                      'Removes fields that do not occur in the original library symbols',
+                      _('Removes fields that do not occur in the original library symbols'),
                     )}
                     {opt(p.m_resetEmptyFields)}
                     <Spacer width={0} height={10} proportion={1} flag={wxEXPAND} border={5} />
@@ -292,7 +293,7 @@ export function DIALOG_CHANGE_SYMBOLS_BASE(p: DIALOG_CHANGE_SYMBOLS_BASE_PROPS):
                     {opt(p.m_resetFieldEffects)}
                     {opt(p.m_resetFieldPositions, 10)}
                     <SizerItem flag={wxEXPAND | wxTOP | wxBOTTOM} border={5}>
-                      <Button label="Check All Update Options" onClick={p.onCheckAll} />
+                      <Button label={_('Check All Update Options')} onClick={p.onCheckAll} />
                     </SizerItem>
                   </BoxSizer>
                 </SizerItem>
@@ -301,11 +302,14 @@ export function DIALOG_CHANGE_SYMBOLS_BASE(p: DIALOG_CHANGE_SYMBOLS_BASE_PROPS):
                   <BoxSizer orient={wxVERTICAL}>
                     <SizerItem flag={wxBOTTOM | wxRIGHT} border={5}>
                       {/* updateShapeAndPins: SetValue( true ), Enable( false ) */}
-                      <CheckBox label="Update symbol shape and pins" check={FIXED_ON} />
+                      <CheckBox label={_('Update symbol shape and pins')} check={FIXED_ON} />
                     </SizerItem>
                     <SizerItem flag={wxBOTTOM | wxRIGHT} border={5}>
                       {/* updateKeywordsAndFootprintFilters: SetValue( true ), Enable( false ) */}
-                      <CheckBox label="Update keywords and footprint filters" check={FIXED_ON} />
+                      <CheckBox
+                        label={_('Update keywords and footprint filters')}
+                        check={FIXED_ON}
+                      />
                     </SizerItem>
                     <Spacer width={0} height={10} proportion={1} flag={wxEXPAND} border={5} />
                     {opt(p.m_resetPinTextVisibility)}
@@ -314,7 +318,7 @@ export function DIALOG_CHANGE_SYMBOLS_BASE(p: DIALOG_CHANGE_SYMBOLS_BASE_PROPS):
                     {opt(p.m_resetAttributes)}
                     {opt(p.m_resetCustomPower, 10)}
                     <SizerItem flag={wxEXPAND | wxTOP | wxBOTTOM} border={5}>
-                      <Button label="Uncheck All Update Options" onClick={p.onUncheckAll} />
+                      <Button label={_('Uncheck All Update Options')} onClick={p.onUncheckAll} />
                     </SizerItem>
                   </BoxSizer>
                 </SizerItem>
@@ -328,7 +332,7 @@ export function DIALOG_CHANGE_SYMBOLS_BASE(p: DIALOG_CHANGE_SYMBOLS_BASE_PROPS):
             <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5} minSize={[-1, 200]}>
               {/* m_messagePanel: WX_HTML_REPORT_PANEL, SetMinSize( wxSize( -1,200 ) ) */}
               <HtmlReportPanel
-                label="Output Messages"
+                label={_('Output Messages')}
                 lines={p.m_messagePanel.lines}
                 fileName={p.m_messagePanel.fileName}
                 visibleSeverities={p.m_messagePanel.visibleSeverities}
@@ -341,7 +345,7 @@ export function DIALOG_CHANGE_SYMBOLS_BASE(p: DIALOG_CHANGE_SYMBOLS_BASE_PROPS):
         <SizerItem flag={wxEXPAND | wxALL} border={5}>
           <StdDialogButtonSizer
             okLabel={p.okLabel}
-            cancelLabel="Close"
+            cancelLabel={_('Close')}
             okDisabled={p.okDisabled}
             onOk={p.onOK}
             onCancel={p.onCancel}

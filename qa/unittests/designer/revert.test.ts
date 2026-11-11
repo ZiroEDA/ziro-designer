@@ -130,12 +130,12 @@ describe('what it restores to', () => {
 
 describe('the menu entry', () => {
   it('is live, not a stub', () => {
-    expect(MENUBAR).toMatch(/act\('Revert', 'revert', 'revert'\)/);
-    expect(MENUBAR).not.toMatch(/stub\('Revert'\)/);
+    expect(MENUBAR).toMatch(/act\(_\('Revert'\), 'revert', 'revert'\)/);
+    expect(MENUBAR).not.toMatch(/stub\((_\()?'Revert'/);
   });
 
   it('carries no hotkey - upstream gives this destructive command no key', () => {
-    const line = MENUBAR.split('\n').find((l) => l.includes("act('Revert'")) ?? '';
-    expect(line).toMatch(/act\('Revert', 'revert', 'revert'\),/);
+    const line = MENUBAR.split('\n').find((l) => l.includes("act(_('Revert')")) ?? '';
+    expect(line).toMatch(/act\(_\('Revert'\), 'revert', 'revert'\),/);
   });
 });

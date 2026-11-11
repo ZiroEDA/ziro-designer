@@ -46,6 +46,7 @@ import { SCH_ITEM } from './sch_item.js';
 import type { SCH_PIN } from './sch_pin.js';
 import { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export enum CONNECTION_TYPE {
   NONE, ///< No connection to this item
@@ -704,7 +705,7 @@ export class SCH_CONNECTION {
    * Adds information about the connection object to aList
    */
   AppendInfoToMsgPanel(aList: MSG_PANEL_ITEM[]): void {
-    aList.push(new MSG_PANEL_ITEM('Connection Name', unescapeString(this.Name())));
+    aList.push(new MSG_PANEL_ITEM(_('Connection Name'), unescapeString(this.Name())));
 
     if (this.IsBus()) {
       const alias = this.m_graph?.GetBusAlias(this.m_name) ?? null;

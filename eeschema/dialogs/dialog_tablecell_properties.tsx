@@ -36,6 +36,8 @@ import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
 import type { SCH_TABLE } from '../sch_table.js';
 import type { SCH_TABLECELL } from '../sch_tablecell.js';
 import { TABLECELL_PROPS_RETVALUE } from '../tools/sch_edit_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** wxCheckBoxState: null is wxCHK_UNDETERMINED. */
 
@@ -78,7 +80,7 @@ export class DIALOG_TABLECELL_PROPERTIES {
 
     const binder = (aLabel: string) =>
       new UNIT_BINDER(aFrame, aLabel, (aMessage) => DisplayErrorMessage(aMessage));
-    this.m_textSize = binder('Size:');
+    this.m_textSize = binder(_('Size:'));
     this.m_marginLeft = binder('');
     this.m_marginTop = binder('');
     this.m_marginRight = binder('');
@@ -257,7 +259,7 @@ export class DIALOG_TABLECELL_PROPERTIES {
         cell.SetMarginBottom(this.m_marginBottom.GetIntValue());
     }
 
-    if (!commit.Empty()) commit.Push('Edit Table Cell Properties');
+    if (!commit.Empty()) commit.Push(_('Edit Table Cell Properties'));
 
     this.m_returnValue = TABLECELL_PROPS_RETVALUE.TABLECELL_PROPS_OK;
     return true;
@@ -273,30 +275,38 @@ export class DIALOG_TABLECELL_PROPERTIES {
 }
 
 const H_BUTTONS: { align: GR_TEXT_H_ALIGN_T; bitmap: string; tip: string }[] = [
-  { align: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT, bitmap: 'text_align_left', tip: 'Align left' },
+  {
+    align: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT,
+    bitmap: 'text_align_left',
+    tip: _HKI('Align left'),
+  },
   {
     align: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER,
     bitmap: 'text_align_center',
-    tip: 'Align horizontal center',
+    tip: _HKI('Align horizontal center'),
   },
   {
     align: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT,
     bitmap: 'text_align_right',
-    tip: 'Align right',
+    tip: _HKI('Align right'),
   },
 ];
 
 const V_BUTTONS: { align: GR_TEXT_V_ALIGN_T; bitmap: string; tip: string }[] = [
-  { align: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP, bitmap: 'text_valign_top', tip: 'Align top' },
+  {
+    align: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP,
+    bitmap: 'text_valign_top',
+    tip: _HKI('Align top'),
+  },
   {
     align: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER,
     bitmap: 'text_valign_center',
-    tip: 'Align vertical center',
+    tip: _HKI('Align vertical center'),
   },
   {
     align: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM,
     bitmap: 'text_valign_bottom',
-    tip: 'Align bottom',
+    tip: _HKI('Align bottom'),
   },
 ];
 
@@ -370,7 +380,9 @@ export function DialogTableCellProperties({
   return (
     <DIALOG_TABLECELL_PROPERTIES_BASE
       m_infoBar={
-        dlg.ShowsOverrideNote() ? 'Note: individual item colors overridden in Preferences.' : null
+        dlg.ShowsOverrideNote()
+          ? _('Note: individual item colors overridden in Preferences.')
+          : null
       }
       m_cellTextCtrl={v.text}
       onCellText={(t) => set('text', t)}

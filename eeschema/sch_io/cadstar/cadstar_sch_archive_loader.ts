@@ -132,6 +132,7 @@ import {
   type BUS_ID,
   type SYMBOL_ID,
 } from './cadstar_sch_archive_parser.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export const PartNameFieldName = 'Part Name';
 export const PartNumberFieldName = 'Part Number';
@@ -360,14 +361,18 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
 
     if (this.Schematic.Groups.size > 0) {
       this.report(
-        'The CADSTAR design contains grouped items which has no KiCad equivalent. Any grouped items have been ungrouped.',
+        _(
+          'The CADSTAR design contains grouped items which has no KiCad equivalent. Any grouped items have been ungrouped.',
+        ),
         RPT_SEVERITY_WARNING,
       );
     }
 
     if (this.Schematic.ReuseBlocks.size > 0) {
       this.report(
-        'The CADSTAR design contains re-use blocks which has no KiCad equivalent. The re-use block information has been discarded during the import.',
+        _(
+          'The CADSTAR design contains re-use blocks which has no KiCad equivalent. The re-use block information has been discarded during the import.',
+        ),
         RPT_SEVERITY_WARNING,
       );
     }
@@ -464,12 +469,16 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
     this.checkPoint();
 
     this.report(
-      'CADSTAR fonts are different to the ones in KiCad. This will likely result in alignment issues. Please review the imported text elements carefully and correct manually if required.',
+      _(
+        'CADSTAR fonts are different to the ones in KiCad. This will likely result in alignment issues. Please review the imported text elements carefully and correct manually if required.',
+      ),
       RPT_SEVERITY_WARNING,
     );
 
     this.report(
-      'The CADSTAR design has been imported successfully.\nPlease review the import errors and warnings (if any).',
+      _(
+        'The CADSTAR design has been imported successfully.\nPlease review the import errors and warnings (if any).',
+      ),
     );
   }
 
@@ -537,10 +546,12 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
       this.loadChildSheets(rootSheetID, rootPath);
     } else if (this.Header.Format.Type === 'SYMBOL') {
       throw new IO_ERROR(
-        'The selected file is a CADSTAR symbol library. It does not contain a schematic design so cannot be imported/opened in this way.',
+        _(
+          'The selected file is a CADSTAR symbol library. It does not contain a schematic design so cannot be imported/opened in this way.',
+        ),
       );
     } else {
-      throw new IO_ERROR('The CADSTAR schematic might be corrupt: there is no root sheet.');
+      throw new IO_ERROR(_('The CADSTAR schematic might be corrupt: there is no root sheet.'));
     }
   }
 
@@ -1392,7 +1403,7 @@ export class CADSTAR_SCH_ARCHIVE_LOADER extends CADSTAR_SCH_ARCHIVE_PARSER {
       }
     } else {
       this.report(
-        'Text Variables could not be set as there is no project attached.',
+        _('Text Variables could not be set as there is no project attached.'),
         RPT_SEVERITY_ERROR,
       );
     }

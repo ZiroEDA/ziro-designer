@@ -64,6 +64,8 @@ import { TRANSFORM } from '@ziroeda/kimath/src/transform.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // `Replace`, `Similarity`, `Compare` and the text virtuals are overloaded across the two
 // bases in C++; the class carries its own forms.
@@ -221,32 +223,34 @@ export class SCH_TEXTBOX extends SCH_SHAPE {
   /** `GetMsgPanelInfo( aFrame, aList )` (sch_textbox.cpp). */
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
     // Don't use GetShownText() here; we want to show the user the variable references
-    aList.push(new MSG_PANEL_ITEM('Text Box', KIUI_EllipsizeStatusText(aFrame, this.GetText())));
+    aList.push(new MSG_PANEL_ITEM(_('Text Box'), KIUI_EllipsizeStatusText(aFrame, this.GetText())));
 
     // SCH_ITEM::GetMsgPanelInfo: SCH_SHAPE's override is skipped upstream.
     SCH_ITEM.prototype.GetMsgPanelInfo.call(this, aFrame, aList);
 
-    if (this.m_excludedFromSim) aList.push(new MSG_PANEL_ITEM('Exclude from', 'Simulation'));
+    if (this.m_excludedFromSim) aList.push(new MSG_PANEL_ITEM(_('Exclude from'), _('Simulation')));
 
-    aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Font'), this.GetFont() ? this.GetFont()!.GetName() : _('Default')),
+    );
 
-    const textStyle = ['Normal', 'Italic', 'Bold', 'Bold Italic'];
+    const textStyle = [_('Normal'), _('Italic'), _('Bold'), _('Bold Italic')];
     const style =
       this.IsBold() && this.IsItalic() ? 3 : this.IsBold() ? 2 : this.IsItalic() ? 1 : 0;
-    aList.push(new MSG_PANEL_ITEM('Style', textStyle[style]!));
+    aList.push(new MSG_PANEL_ITEM(_('Style'), textStyle[style]!));
 
     aList.push(new MSG_PANEL_ITEM('Text Size', aFrame.MessageTextFromValue(this.GetTextWidth())));
 
     aList.push(
       new MSG_PANEL_ITEM(
-        'Box Width',
+        _('Box Width'),
         aFrame.MessageTextFromValue(Math.abs(this.GetEnd().x - this.GetStart().x)),
       ),
     );
 
     aList.push(
       new MSG_PANEL_ITEM(
-        'Box Height',
+        _('Box Height'),
         aFrame.MessageTextFromValue(Math.abs(this.GetEnd().y - this.GetStart().y)),
       ),
     );
@@ -719,14 +723,14 @@ applyMixins(SCH_TEXTBOX, [EDA_TEXT]);
   propMgr.InheritsAfter(SCH_TEXTBOX, EDA_SHAPE);
   propMgr.InheritsAfter(SCH_TEXTBOX, EDA_TEXT);
 
-  propMgr.Mask(SCH_TEXTBOX, EDA_SHAPE, 'Shape');
-  propMgr.Mask(SCH_TEXTBOX, EDA_SHAPE, 'Corner Radius');
+  propMgr.Mask(SCH_TEXTBOX, EDA_SHAPE, _HKI('Shape'));
+  propMgr.Mask(SCH_TEXTBOX, EDA_SHAPE, _HKI('Corner Radius'));
 
-  propMgr.Mask(SCH_TEXTBOX, EDA_TEXT, 'Width');
-  propMgr.Mask(SCH_TEXTBOX, EDA_TEXT, 'Height');
-  propMgr.Mask(SCH_TEXTBOX, EDA_TEXT, 'Thickness');
+  propMgr.Mask(SCH_TEXTBOX, EDA_TEXT, _HKI('Width'));
+  propMgr.Mask(SCH_TEXTBOX, EDA_TEXT, _HKI('Height'));
+  propMgr.Mask(SCH_TEXTBOX, EDA_TEXT, _HKI('Thickness'));
 
-  const marginProps = 'Margins';
+  const marginProps = _('Margins');
 
   const size = (
     aName: string,
@@ -742,12 +746,18 @@ applyMixins(SCH_TEXTBOX, [EDA_TEXT]);
       PROPERTY_DISPLAY.PT_SIZE,
     );
 
-  propMgr.AddProperty(size('Margin Left', 'SetMarginLeft', 'GetMarginLeft'), marginProps);
-  propMgr.AddProperty(size('Margin Top', 'SetMarginTop', 'GetMarginTop'), marginProps);
-  propMgr.AddProperty(size('Margin Right', 'SetMarginRight', 'GetMarginRight'), marginProps);
-  propMgr.AddProperty(size('Margin Bottom', 'SetMarginBottom', 'GetMarginBottom'), marginProps);
+  propMgr.AddProperty(size(_HKI('Margin Left'), 'SetMarginLeft', 'GetMarginLeft'), marginProps);
+  propMgr.AddProperty(size(_HKI('Margin Top'), 'SetMarginTop', 'GetMarginTop'), marginProps);
+  propMgr.AddProperty(size(_HKI('Margin Right'), 'SetMarginRight', 'GetMarginRight'), marginProps);
+  propMgr.AddProperty(
+    size(_HKI('Margin Bottom'), 'SetMarginBottom', 'GetMarginBottom'),
+    marginProps,
+  );
 
-  propMgr.AddProperty(size('Text Size', 'SetSchTextSize', 'GetSchTextSize'), 'Text Properties');
+  propMgr.AddProperty(
+    size('Text Size', 'SetSchTextSize', 'GetSchTextSize'),
+    _HKI('Text Properties'),
+  );
 
-  propMgr.Mask(SCH_TEXTBOX, EDA_TEXT, 'Orientation');
+  propMgr.Mask(SCH_TEXTBOX, EDA_TEXT, _HKI('Orientation'));
 })();

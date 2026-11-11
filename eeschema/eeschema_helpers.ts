@@ -30,6 +30,7 @@ import {
   SCH_IO_KICAD_SEXPR,
   type SCH_FILE_READER,
 } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `SCH_IO_MGR::SCH_FILE_T`, as far as `LoadSchematic`'s dispatch needs it. */
 export enum SCH_FILE_T {
@@ -85,7 +86,7 @@ export function resolveRootSheetName(
     if (candidatePath === wantPath) return info.name;
   }
 
-  return 'Root';
+  return _('Root');
 }
 
 /**

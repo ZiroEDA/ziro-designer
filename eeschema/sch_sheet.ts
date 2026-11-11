@@ -64,6 +64,8 @@ import { SCH_SHEET_INSTANCE, SCH_SHEET_PATH, SCH_SHEET_VARIANT } from './sch_she
 import type { SCH_SYMBOL } from './sch_symbol.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export const MIN_SHEET_WIDTH = 500; // Units are mils.
 export const MIN_SHEET_HEIGHT = 150; // Units are mils.
@@ -237,27 +239,27 @@ export class SCH_SHEET extends SCH_ITEM {
       currentSheet = schematic.CurrentSheet();
       currentVariant = schematic.GetCurrentVariant();
 
-      aList.push(new MSG_PANEL_ITEM('Hierarchical Path', path.PathHumanReadable(false, true)));
+      aList.push(new MSG_PANEL_ITEM(_('Hierarchical Path'), path.PathHumanReadable(false, true)));
     }
 
     // Don't use GetShownText(); we want to see the variable references here
     aList.push(
-      new MSG_PANEL_ITEM('File Name', KIUI_EllipsizeStatusText(aFrame, this.GetFileName())),
+      new MSG_PANEL_ITEM(_('File Name'), KIUI_EllipsizeStatusText(aFrame, this.GetFileName())),
     );
 
     const msgs: string[] = [];
 
-    if (this.GetExcludedFromSim()) msgs.push('Simulation');
+    if (this.GetExcludedFromSim()) msgs.push(_('Simulation'));
 
-    if (this.GetExcludedFromBOM()) msgs.push('BOM');
+    if (this.GetExcludedFromBOM()) msgs.push(_('BOM'));
 
-    if (this.GetExcludedFromBoard()) msgs.push('Board');
+    if (this.GetExcludedFromBoard()) msgs.push(_('Board'));
 
     if (this.GetDNP(currentSheet, currentVariant)) msgs.push('DNP');
 
     const msg = msgs.join(', ');
 
-    if (msg) aList.push(new MSG_PANEL_ITEM('Exclude from', msg));
+    if (msg) aList.push(new MSG_PANEL_ITEM(_('Exclude from'), msg));
   }
 
   /**
@@ -580,21 +582,21 @@ export class SCH_SHEET extends SCH_ITEM {
       token.value = '';
 
       if (aPath.GetExcludedFromBOM(variant) || this.ResolveExcludedFromBOM(aPath, variant))
-        token.value = 'Excluded from BOM';
+        token.value = _('Excluded from BOM');
 
       return true;
     } else if (token.value === 'EXCLUDE_FROM_BOARD') {
       token.value = '';
 
       if (aPath.GetExcludedFromBoard(variant) || this.ResolveExcludedFromBoard(aPath, variant))
-        token.value = 'Excluded from board';
+        token.value = _('Excluded from board');
 
       return true;
     } else if (token.value === 'EXCLUDE_FROM_SIM') {
       token.value = '';
 
       if (aPath.GetExcludedFromSim(variant) || this.ResolveExcludedFromSim(aPath, variant))
-        token.value = 'Excluded from simulation';
+        token.value = _('Excluded from simulation');
 
       return true;
     } else if (token.value === 'DNP') {
@@ -1988,7 +1990,7 @@ function wxToLong(s: string): number | null {
   propMgr.AddProperty(
     new PROPERTY<SCH_SHEET, number>(
       SCH_SHEET,
-      'Border Width',
+      _HKI('Border Width'),
       'SetBorderWidth',
       'GetBorderWidth',
       TYPE_INT,
@@ -1999,7 +2001,7 @@ function wxToLong(s: string): number | null {
   propMgr.AddProperty(
     new PROPERTY<SCH_SHEET, Color4d>(
       SCH_SHEET,
-      'Border Color',
+      _HKI('Border Color'),
       'SetBorderColor',
       'GetBorderColor',
       TYPE_COLOR4D,
@@ -2009,14 +2011,14 @@ function wxToLong(s: string): number | null {
   propMgr.AddProperty(
     new PROPERTY<SCH_SHEET, Color4d>(
       SCH_SHEET,
-      'Background Color',
+      _HKI('Background Color'),
       'SetBackgroundColor',
       'GetBackgroundColor',
       TYPE_COLOR4D,
     ),
   );
 
-  const groupAttributes = 'Attributes';
+  const groupAttributes = _HKI('Attributes');
 
   const flag = (
     aName: string,
@@ -2028,8 +2030,8 @@ function wxToLong(s: string): number | null {
       groupAttributes,
     );
 
-  flag('Exclude From Board', 'SetExcludedFromBoardProp', 'GetExcludedFromBoardProp');
-  flag('Exclude From Simulation', 'SetExcludedFromSimProp', 'GetExcludedFromSimProp');
-  flag('Exclude From Bill of Materials', 'SetExcludedFromBOMProp', 'GetExcludedFromBOMProp');
-  flag('Do not Populate', 'SetDNPProp', 'GetDNPProp');
+  flag(_HKI('Exclude From Board'), 'SetExcludedFromBoardProp', 'GetExcludedFromBoardProp');
+  flag(_HKI('Exclude From Simulation'), 'SetExcludedFromSimProp', 'GetExcludedFromSimProp');
+  flag(_HKI('Exclude From Bill of Materials'), 'SetExcludedFromBOMProp', 'GetExcludedFromBOMProp');
+  flag(_HKI('Do not Populate'), 'SetDNPProp', 'GetDNPProp');
 })();

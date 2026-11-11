@@ -46,6 +46,7 @@ import {
 } from '@ziroeda/common/gal/color4d.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const samePt = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 
@@ -572,10 +573,10 @@ applyMixins(SCH_SHAPE, [EDA_SHAPE]);
 
   if (fillEnum.Choices().GetCount() === 0) {
     fillEnum
-      .Map(FILL_T.NO_FILL, 'None')
-      .Map(FILL_T.FILLED_SHAPE, 'Body outline color')
-      .Map(FILL_T.FILLED_WITH_BG_BODYCOLOR, 'Body background color')
-      .Map(FILL_T.FILLED_WITH_COLOR, 'Fill color');
+      .Map(FILL_T.NO_FILL, _HKI('None'))
+      .Map(FILL_T.FILLED_SHAPE, _HKI('Body outline color'))
+      .Map(FILL_T.FILLED_WITH_BG_BODYCOLOR, _HKI('Body background color'))
+      .Map(FILL_T.FILLED_WITH_COLOR, _HKI('Fill color'));
   }
 
   const propMgr = PROPERTY_MANAGER.Instance();
@@ -606,23 +607,23 @@ applyMixins(SCH_SHAPE, [EDA_SHAPE]);
     return true;
   };
 
-  propMgr.OverrideAvailability(SCH_SHAPE, SCH_ITEM, 'Position X', isPolygon);
-  propMgr.OverrideAvailability(SCH_SHAPE, SCH_ITEM, 'Position Y', isPolygon);
+  propMgr.OverrideAvailability(SCH_SHAPE, SCH_ITEM, _HKI('Position X'), isPolygon);
+  propMgr.OverrideAvailability(SCH_SHAPE, SCH_ITEM, _HKI('Position Y'), isPolygon);
 
-  propMgr.OverrideAvailability(SCH_SHAPE, EDA_SHAPE, 'Filled', isSchematicItem);
+  propMgr.OverrideAvailability(SCH_SHAPE, EDA_SHAPE, _HKI('Filled'), isSchematicItem);
 
-  propMgr.OverrideWriteability(SCH_SHAPE, EDA_SHAPE, 'Fill Color', isFillColorEditable);
+  propMgr.OverrideWriteability(SCH_SHAPE, EDA_SHAPE, _HKI('Fill Color'), isFillColorEditable);
 
   propMgr
     .AddProperty(
       new PROPERTY_ENUM<SCH_SHAPE, FILL_T>(
         SCH_SHAPE,
-        'Fill Mode',
+        _HKI('Fill Mode'),
         'SetFillMode',
         'GetFillMode',
         fillEnum,
       ),
-      'Shape Properties',
+      _HKI('Shape Properties'),
     )
     .SetAvailableFunc(isSymbolItem);
 })();

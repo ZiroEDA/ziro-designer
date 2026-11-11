@@ -28,6 +28,8 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { type SCH_COMMIT_LIKE, SCH_ITEM } from './sch_item.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export interface SCH_GROUP extends EDA_GROUP {}
 
@@ -64,8 +66,8 @@ export class SCH_GROUP extends SCH_ITEM {
 
   /** `GetMsgPanelInfo( aFrame, aList )` (sch_group.cpp). */
   override GetMsgPanelInfo(_aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
-    aList.push(new MSG_PANEL_ITEM('Group', this.m_name === '' ? '<unnamed>' : this.m_name));
-    aList.push(new MSG_PANEL_ITEM('Members', `${this.m_items.size}`));
+    aList.push(new MSG_PANEL_ITEM(_('Group'), this.m_name === '' ? _('<unnamed>') : this.m_name));
+    aList.push(new MSG_PANEL_ITEM(_('Members'), `${this.m_items.size}`));
   }
 
   GetSchItems(): Set<SCH_ITEM> {
@@ -323,13 +325,13 @@ function getNestedGroup(
   propMgr.InheritsAfter(SCH_GROUP, SCH_ITEM);
   propMgr.InheritsAfter(SCH_GROUP, EDA_GROUP);
 
-  propMgr.Mask(SCH_GROUP, SCH_ITEM, 'Position X');
-  propMgr.Mask(SCH_GROUP, SCH_ITEM, 'Position Y');
+  propMgr.Mask(SCH_GROUP, SCH_ITEM, _HKI('Position X'));
+  propMgr.Mask(SCH_GROUP, SCH_ITEM, _HKI('Position Y'));
 
-  const groupTab = 'Group Properties';
+  const groupTab = _HKI('Group Properties');
 
   propMgr.AddProperty(
-    new PROPERTY<EDA_GROUP, string>(EDA_GROUP, 'Name', 'SetName', 'GetName', TYPE_STRING),
+    new PROPERTY<EDA_GROUP, string>(EDA_GROUP, _HKI('Name'), 'SetName', 'GetName', TYPE_STRING),
     groupTab,
   );
 })();

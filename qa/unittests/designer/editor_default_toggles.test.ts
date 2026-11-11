@@ -372,7 +372,7 @@ describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings fi
     // control at all is a setting the user cannot reach. This is the other
     // half, and it is why `togglePinAltIcons` is allowed to have no button.
     const menubar = src('../../eeschema/symbol_editor/menubar_symbol_editor.ts');
-    expect(menubar).toContain("chk('Show Pin Alternate Icons', 'togglePinAltIcons')");
+    expect(menubar).toContain("chk(_('Show Pin Alternate Icons'), 'togglePinAltIcons')");
   });
 
   it('opens with both lit, because both default true', () => {

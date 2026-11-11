@@ -53,6 +53,7 @@ import {
 } from './pads_sch_parser.js';
 import { PADS_SCH_SCHEMATIC_BUILDER } from './pads_sch_schematic_builder.js';
 import { PADS_SCH_SYMBOL_BUILDER } from './pads_sch_symbol_builder.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const isdigit = (c: string | undefined): boolean => c !== undefined && c >= '0' && c <= '9';
 const isalpha = (c: string | undefined): boolean =>
@@ -293,11 +294,11 @@ export class SCH_IO_PADS extends SCH_IO {
   }
 
   override GetSchematicFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('PADS Logic schematic files', ['asc', 'txt']);
+    return new IO_FILE_DESC(_HKI('PADS Logic schematic files'), ['asc', 'txt']);
   }
 
   override GetLibraryDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('PADS Logic library files', ['asc', 'txt']);
+    return new IO_FILE_DESC(_HKI('PADS Logic library files'), ['asc', 'txt']);
   }
 
   override CanReadSchematicFile(aFileName: string): boolean {

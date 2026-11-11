@@ -13,6 +13,7 @@ import { TA_NONE, TC_MESSAGE, TOOL_EVENT } from '@ziroeda/common/tool/tool_event
 import { SCH_ACTIONS } from '@ziroeda/eeschema/tools/sch_actions.js';
 import { wxID_OK } from '@ziroeda/wx/menu.js';
 import { afterEach, beforeEach, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
 import {
   LIB_TEXT,
   type SYMBOL_EDIT_HARNESS,
@@ -112,7 +113,7 @@ it('puts the screen’s own page back', async () => {
 it('with no symbol says so and writes nothing', async () => {
   await exportSvg();
 
-  expect(messages).toEqual(['No symbol to export']);
+  expect(messages).toEqual([_('No symbol to export')]);
   expect(outputs).toEqual([]);
 });
 

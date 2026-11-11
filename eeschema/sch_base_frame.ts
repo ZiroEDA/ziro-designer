@@ -93,6 +93,7 @@ import {
   currentSymbolEditorSettings,
   type SymbolEditorSettings,
 } from './symbol_editor/symbol_editor_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `LIB_TREE_MODEL_ADAPTER::GetPinningSymbol()`, the one common/ holds. */
 export { PINNING_SYMBOL } from '@ziroeda/common/lib_tree_model_adapter.js';
@@ -192,7 +193,7 @@ export function GetLibraryItemsForListDialog(
   aLibraries: readonly { nickname: string; description: string }[],
   aPinned: readonly string[],
 ): { headers: string[]; items: LIBRARY_LIST_ITEM[] } {
-  const headers = ['Library', 'Description'];
+  const headers = [_('Library'), _('Description')];
   const items: LIBRARY_LIST_ITEM[] = [];
   const unpinned: LIBRARY_LIST_ITEM[] = [];
 
@@ -393,7 +394,7 @@ export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
         sortList: false,
         listLabel: aListLabel,
         extraCheckboxes: aExtraCheckboxes.map((c) => ({ label: c.label, value: c.value.value })),
-        extraButton: { id: ID_MAKE_NEW_LIBRARY, label: 'New Library...' },
+        extraButton: { id: ID_MAKE_NEW_LIBRARY, label: _('New Library...') },
         textSelection: '',
       };
 
@@ -421,7 +422,7 @@ export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
 
           if (
             !(await this.LibraryFileBrowser(
-              'Create New Library',
+              _('Create New Library'),
               false,
               fn,
               [kicadSymbolLibWildcard()],

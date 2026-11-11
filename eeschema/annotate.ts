@@ -32,7 +32,7 @@ export const defaultAnnotateOptions = (): AnnotateOptions => ({
 
 function restoreSymbols(symbols: readonly SchSymbol[]): EditCommand {
   return {
-    label: 'Annotate Schematic',
+    label: _('Annotate Schematic'),
     apply(doc: Schematic): Schematic {
       return { ...doc, symbols };
     },
@@ -91,6 +91,7 @@ import { SCH_SCREENS } from './sch_screen.js';
 import type { SCH_SHEET } from './sch_sheet.js';
 import { SCH_SHEET_LIST, type SCH_SHEET_PATH, SYMBOL_FILTER } from './sch_sheet_path.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The selection annotate.cpp reads from SCH_SELECTION_TOOL: none yet (see above). */
 function annotationSelection(_aFrame: SCH_EDIT_FRAME): EDA_ITEM[] {
@@ -255,7 +256,7 @@ export class SCH_ANNOTATE_MIXIN {
     // Update the references for the sheet that is currently being displayed.
     this.GetCurrentSheet().UpdateAllScreenReferences();
 
-    commit.Push('Delete Annotation');
+    commit.Push(_('Delete Annotation'));
   }
 
   /**
@@ -495,7 +496,7 @@ export class SCH_ANNOTATE_MIXIN {
         aSymbolFilter,
       )
     ) {
-      aReporter.ReportTail('Annotation complete.', RPT_SEVERITY_ACTION_LIVE);
+      aReporter.ReportTail(_('Annotation complete.'), RPT_SEVERITY_ACTION_LIVE);
     }
 
     // Update on screen references, that can be modified by previous calculations:

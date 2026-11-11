@@ -62,6 +62,7 @@ import { updateEeschemaSettings } from '../eeschema_settings.js';
 import { EE_GRID_HELPER } from './ee_grid_helper.js';
 import { SCH_ACTIONS } from './sch_actions.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const pointEditorTypes: readonly KICAD_T[] = [
   KICAD_T.SCH_SHAPE_T,
@@ -1171,7 +1172,7 @@ export class SCH_POINT_EDITOR extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
           this.updateParentItem(snap, commit);
           this.updatePoints();
         } else if (inDrag && evt.IsMouseUp(BUT_LEFT)) {
-          if (!commit.Empty()) commit.Push('Move Point');
+          if (!commit.Empty()) commit.Push(_('Move Point'));
 
           controls.SetAutoPan(false);
 
@@ -1389,7 +1390,7 @@ export class SCH_POINT_EDITOR extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     this.updateItem(shape, true);
     this.updatePoints();
 
-    commit.Push('Add Corner');
+    commit.Push(_('Add Corner'));
     return 0;
   }
 
@@ -1432,7 +1433,7 @@ export class SCH_POINT_EDITOR extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     this.updateItem(shape, true);
     this.updatePoints();
 
-    commit.Push('Remove Corner');
+    commit.Push(_('Remove Corner'));
     return 0;
   }
 

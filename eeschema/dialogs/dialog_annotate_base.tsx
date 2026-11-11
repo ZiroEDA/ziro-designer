@@ -33,6 +33,7 @@ import {
   StdDialogButtonSizer,
   StretchSpacer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A radio group: which button is set, and which (if any) is disabled. */
 export interface RADIO_GROUP {
@@ -100,7 +101,7 @@ function OrderBitmap({ name }: { name: string }): JSX.Element | null {
 
 export function DIALOG_ANNOTATE_BASE(p: DIALOG_ANNOTATE_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Annotate Schematic" onClose={p.onCancel}>
+    <DialogShim title={_('Annotate Schematic')} onClose={p.onCancel}>
       {/* bmainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxBOTTOM} border={5} shown={p.m_infoBar !== null}>
@@ -113,23 +114,33 @@ export function DIALOG_ANNOTATE_BASE(p: DIALOG_ANNOTATE_BASE_PROPS): JSX.Element
               {/* fgSizer1 = wxFlexGridSizer( 2, 2, 0, 0 ), AddGrowableCol( 0 ), ( 1 ) */}
               <FlexGridSizer cols={2} vgap={0} hgap={0} growableCols={[0, 1]}>
                 <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
-                  <StaticBoxSizer label="Scope" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Scope')} orient={wxVERTICAL}>
                     <SizerItem flag={wxLEFT | wxRIGHT} border={5}>
-                      <Radio g={p.scope} i={0} name="annotate-scope" label="Entire schematic" />
+                      <Radio
+                        g={p.scope}
+                        i={0}
+                        name="annotate-scope"
+                        label={_('Entire schematic')}
+                      />
                     </SizerItem>
                     <SizerItem flag={wxLEFT | wxRIGHT} border={5}>
-                      <Radio g={p.scope} i={1} name="annotate-scope" label="Current sheet only" />
+                      <Radio
+                        g={p.scope}
+                        i={1}
+                        name="annotate-scope"
+                        label={_('Current sheet only')}
+                      />
                     </SizerItem>
                     <SizerItem flag={wxLEFT | wxRIGHT | wxBOTTOM} border={5}>
-                      <Radio g={p.scope} i={2} name="annotate-scope" label="Selection" />
+                      <Radio g={p.scope} i={2} name="annotate-scope" label={_('Selection')} />
                     </SizerItem>
                     <SizerItem flag={wxALL} border={5}>
-                      <CheckBox label="Recurse into subsheets" check={p.m_checkRecursive} />
+                      <CheckBox label={_('Recurse into subsheets')} check={p.m_checkRecursive} />
                     </SizerItem>
                   </StaticBoxSizer>
                 </SizerItem>
                 <SizerItem flag={wxALL | wxEXPAND} border={5}>
-                  <StaticBoxSizer label="Order" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Order')} orient={wxVERTICAL}>
                     <SizerItem flag={wxBOTTOM | wxEXPAND} border={5}>
                       {/* bSizerXpos */}
                       <BoxSizer orient={wxHORIZONTAL}>
@@ -138,7 +149,7 @@ export function DIALOG_ANNOTATE_BASE(p: DIALOG_ANNOTATE_BASE_PROPS): JSX.Element
                             g={p.order}
                             i={0}
                             name="annotate-order"
-                            label="Sort symbols by X position"
+                            label={_('Sort symbols by X position')}
                           />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
@@ -154,7 +165,7 @@ export function DIALOG_ANNOTATE_BASE(p: DIALOG_ANNOTATE_BASE_PROPS): JSX.Element
                             g={p.order}
                             i={1}
                             name="annotate-order"
-                            label="Sort symbols by Y position"
+                            label={_('Sort symbols by Y position')}
                           />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
@@ -165,13 +176,13 @@ export function DIALOG_ANNOTATE_BASE(p: DIALOG_ANNOTATE_BASE_PROPS): JSX.Element
                   </StaticBoxSizer>
                 </SizerItem>
                 <SizerItem flag={wxALL | wxEXPAND} border={5}>
-                  <StaticBoxSizer label="Options" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Options')} orient={wxVERTICAL}>
                     <SizerItem flag={wxLEFT | wxRIGHT} border={5}>
                       <Radio
                         g={p.keepReset}
                         i={0}
                         name="annotate-reset"
-                        label="Keep existing annotations"
+                        label={_('Keep existing annotations')}
                       />
                     </SizerItem>
                     <SizerItem flag={wxLEFT | wxRIGHT} border={5}>
@@ -179,16 +190,16 @@ export function DIALOG_ANNOTATE_BASE(p: DIALOG_ANNOTATE_BASE_PROPS): JSX.Element
                         g={p.keepReset}
                         i={1}
                         name="annotate-reset"
-                        label="Reset existing annotations"
+                        label={_('Reset existing annotations')}
                       />
                     </SizerItem>
                     <SizerItem flag={wxALL | wxEXPAND} border={5}>
-                      <CheckBox label="Regroup symbol units" check={p.m_checkRegroupUnits} />
+                      <CheckBox label={_('Regroup symbol units')} check={p.m_checkRegroupUnits} />
                     </SizerItem>
                   </StaticBoxSizer>
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
-                  <StaticBoxSizer label="Numbering" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Numbering')} orient={wxVERTICAL}>
                     <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                       {/* gbSizer1 = wxGridBagSizer( 0, 0 ) */}
                       <GridBagSizer vgap={0} hgap={0}>
@@ -202,7 +213,7 @@ export function DIALOG_ANNOTATE_BASE(p: DIALOG_ANNOTATE_BASE_PROPS): JSX.Element
                             g={p.numbering}
                             i={0}
                             name="annotate-numbering"
-                            label="Use first free number after:"
+                            label={_('Use first free number after:')}
                           />
                         </SizerItem>
                         <SizerItem
@@ -224,7 +235,7 @@ export function DIALOG_ANNOTATE_BASE(p: DIALOG_ANNOTATE_BASE_PROPS): JSX.Element
                             g={p.numbering}
                             i={1}
                             name="annotate-numbering"
-                            label="First free after sheet number X 100"
+                            label={_('First free after sheet number X 100')}
                           />
                         </SizerItem>
                         <SizerItem pos={[2, 0]} span={[1, 2]} flag={wxBOTTOM | wxTOP} border={2}>
@@ -232,7 +243,7 @@ export function DIALOG_ANNOTATE_BASE(p: DIALOG_ANNOTATE_BASE_PROPS): JSX.Element
                             g={p.numbering}
                             i={2}
                             name="annotate-numbering"
-                            label="First free after sheet number X 1000"
+                            label={_('First free after sheet number X 1000')}
                           />
                         </SizerItem>
                       </GridBagSizer>
@@ -264,13 +275,13 @@ export function DIALOG_ANNOTATE_BASE(p: DIALOG_ANNOTATE_BASE_PROPS): JSX.Element
           {/* m_buttonsSizer */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxEXPAND | wxALL} border={10}>
-              <Button label="Clear Annotation" onClick={p.onClearAnnotationClick} />
+              <Button label={_('Clear Annotation')} onClick={p.onClearAnnotationClick} />
             </SizerItem>
             <StretchSpacer />
             <SizerItem flag={wxALL | wxEXPAND} border={5}>
               <StdDialogButtonSizer
-                okLabel="Annotate"
-                cancelLabel="Close"
+                okLabel={_('Annotate')}
+                cancelLabel={_('Close')}
                 onOk={p.onAnnotateClick}
                 onCancel={p.onCancel}
               />

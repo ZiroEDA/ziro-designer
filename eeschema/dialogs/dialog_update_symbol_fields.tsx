@@ -22,6 +22,7 @@ import { SCH_COMMIT } from '../sch_commit.js';
 import type { SCH_FIELD } from '../sch_field.js';
 import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
 import { DIALOG_UPDATE_SYMBOL_FIELDS_BASE } from './dialog_update_symbol_fields_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class DIALOG_UPDATE_SYMBOL_FIELDS {
   private readonly m_editFrame: SYMBOL_EDIT_FRAME;
@@ -156,7 +157,7 @@ export class DIALOG_UPDATE_SYMBOL_FIELDS {
 
     this.m_symbol.SyncFieldsFromParent(options);
 
-    commit.Push('Update Symbol Fields');
+    commit.Push(_('Update Symbol Fields'));
     this.m_editFrame.RebuildView();
 
     return wxID_OK;

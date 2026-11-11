@@ -33,6 +33,7 @@ import type { SCHEMATIC } from '../../schematic.js';
 import { PosixPath } from '../kicad_sexpr/sch_io_kicad_sexpr.js';
 import { SCH_IO, type SCH_IO_PROPERTIES } from '../sch_io.js';
 import { SCH_EASYEDA_PARSER } from './sch_easyeda_parser.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 interface FOUND {
   js: JSON_VALUE;
@@ -158,7 +159,7 @@ export class SCH_IO_EASYEDA extends SCH_IO {
   }
 
   override GetSchematicFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('EasyEDA (JLCEDA) Std files', ['json']);
+    return new IO_FILE_DESC(_HKI('EasyEDA (JLCEDA) Std files'), ['json']);
   }
 
   override GetLibraryDesc(): IO_FILE_DESC {

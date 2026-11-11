@@ -84,14 +84,14 @@ export function deleteSymbolPrompts(opts: {
     // `msg += libId.GetLibItemName().wx_str() + _( " (base)\n" )`, then one
     // line per derived name — each with its OWN trailing newline, so the body
     // ends with one.
-    let message = 'Deleting a base symbol will delete all symbols derived from it.\n\n';
+    let message = _('Deleting a base symbol will delete all symbols derived from it.\n\n');
     message += `${opts.symName} (base)\n`;
     for (const name of opts.derived) message += `${name}\n`;
     prompts.push({
-      title: 'Warning',
+      title: _('Warning'),
       message,
-      confirmLabel: 'Delete All Listed Symbols',
-      cancelLabel: 'Cancel',
+      confirmLabel: _('Delete All Listed Symbols'),
+      cancelLabel: _('Cancel'),
     });
   }
 
@@ -210,12 +210,15 @@ import {
   SYMBOL_LIBRARY_SAVE_AS_FILEDLG_HOOK,
   SYMBOL_SAVEAS_TYPE,
 } from '../widgets/symbol_library_save_as_filedlg_hook.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `_( "Symbol Editor" )`, the half after the dash. */
-export const SYM_FRAME_NAME = 'Symbol Editor';
+export const SYM_FRAME_NAME = _HKI('Symbol Editor');
 
 /** `_( "[no symbol loaded]" )` — symbol_editor.cpp:83. */
-export const SYM_NO_DOCUMENT = '[no symbol loaded]';
+export const SYM_NO_DOCUMENT = _HKI('[no symbol loaded]');
 
 /**
  * `_( "[Read Only Library]" )` — symbol_editor.cpp:79.
@@ -224,10 +227,10 @@ export const SYM_NO_DOCUMENT = '[no symbol loaded]';
  * thirteen that says "Library" (`docs/frame-titles.md` note C), and collapsing
  * the two would silently retitle it.
  */
-export const READ_ONLY_LIBRARY_SUFFIX = '[Read Only Library]';
+export const READ_ONLY_LIBRARY_SUFFIX = _HKI('[Read Only Library]');
 
 /** `_( "[from schematic]" )` — symbol_editor.cpp:66. Frame 3 only. */
-export const FROM_SCHEMATIC_SUFFIX = '[from schematic]';
+export const FROM_SCHEMATIC_SUFFIX = _HKI('[from schematic]');
 
 export interface SymFrameTitleSpec {
   /**
@@ -315,23 +318,23 @@ export class SYMBOL_EDITOR_MIXIN {
 
     let msg = symbol.GetName();
 
-    this.AppendMsgPanel('Name', unescapeString(msg), 8);
+    this.AppendMsgPanel(_('Name'), unescapeString(msg), 8);
 
     if (symbol.IsDerived()) {
       const parent = symbol.GetLibParent();
 
-      msg = parent ? parent.GetName() : 'Undefined!';
-      this.AppendMsgPanel('Parent', unescapeString(msg), 8);
+      msg = parent ? parent.GetName() : _('Undefined!');
+      this.AppendMsgPanel(_('Parent'), unescapeString(msg), 8);
     }
 
-    if (symbol.IsGlobalPower()) msg = 'Power Symbol';
-    else if (symbol.IsLocalPower()) msg = 'Power Symbol (Local)';
-    else msg = 'Symbol';
+    if (symbol.IsGlobalPower()) msg = _('Power Symbol');
+    else if (symbol.IsLocalPower()) msg = _('Power Symbol (Local)');
+    else msg = _('Symbol');
 
-    this.AppendMsgPanel('Type', msg, 8);
-    this.AppendMsgPanel('Description', symbol.GetDescription(), 8);
-    this.AppendMsgPanel('Keywords', symbol.GetKeyWords());
-    this.AppendMsgPanel('Datasheet', symbol.GetDatasheetField().GetText());
+    this.AppendMsgPanel(_('Type'), msg, 8);
+    this.AppendMsgPanel(_('Description'), symbol.GetDescription(), 8);
+    this.AppendMsgPanel(_('Keywords'), symbol.GetKeyWords());
+    this.AppendMsgPanel(_('Datasheet'), symbol.GetDatasheetField().GetText());
   }
 }
 
@@ -346,7 +349,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
     let selectedLib = aLibrary;
 
     if (selectedLib === '')
-      selectedLib = await this.SelectLibrary('Select Symbol Library', 'Library:');
+      selectedLib = await this.SelectLibrary(_('Select Symbol Library'), _('Library:'));
 
     if (selectedLib !== '') this.SetCurLib(selectedLib);
 
@@ -359,7 +362,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       if (this.IsSymbolFromSchematic()) {
         if (!this.SaveSymbolToSchematic(this.m_symbol!, this.m_schematicSymbolUUID)) {
           // happens when the schematic editor has been closed
-          DisplayErrorMessage('No schematic currently open.');
+          DisplayErrorMessage(_('No schematic currently open.'));
           return false;
         }
 
@@ -371,9 +374,9 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
 
       if (this.GetLibManager().IsLibraryReadOnly(libName)) {
         const msg = `Symbol library '${libName}' is not writable.`;
-        const msg2 = 'You must save to a different location.';
+        const msg2 = _('You must save to a different location.');
 
-        if ((await OKOrCancelDialog('Warning', msg, msg2)) === wxID_OK)
+        if ((await OKOrCancelDialog(_('Warning'), msg, msg2)) === wxID_OK)
           return this.saveLibrary(libName, true);
       } else {
         return this.saveLibrary(libName, false);
@@ -485,7 +488,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
    */
   async handleUnsavedSymbol(this: SYMBOL_EDIT_FRAME): Promise<boolean> {
     const result = await this.UnsavedChangesDialog(
-      'The current symbol has been modified.  Save changes?',
+      _('The current symbol has been modified.  Save changes?'),
     );
 
     if (result === 'save') return this.saveCurrentSymbol();
@@ -649,9 +652,9 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       await this.saveCurrentSymbol();
     } else if (this.GetLibManager().IsLibraryReadOnly(libName)) {
       const msg = `Symbol library '${libName}' is not writable.`;
-      const msg2 = 'You must save to a different location.';
+      const msg2 = _('You must save to a different location.');
 
-      if ((await OKOrCancelDialog('Warning', msg, msg2)) === wxID_OK)
+      if ((await OKOrCancelDialog(_('Warning'), msg, msg2)) === wxID_OK)
         await this.saveLibrary(libName, true);
     } else {
       await this.saveLibrary(libName, false);
@@ -688,7 +691,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
     this.GetToolManager()?.RunAction(ACTIONS.cancelInteractive);
 
     if (!aNewFile && (aLibrary === '' || !adapter.HasLibrary(aLibrary))) {
-      this.ShowInfoBarError('No library specified.');
+      this.ShowInfoBarError(_('No library specified.'));
       return false;
     }
 
@@ -753,7 +756,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
 
     if (!libMgr.SaveLibrary(aLibrary, fn, fileType)) {
       DisplayErrorMessage(
-        'Error Saving Library',
+        _('Error Saving Library'),
         `Failed to save changes to symbol library file '${fn}'.`,
       );
       return false;
@@ -838,10 +841,10 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
         // fails then cancel close action.
         if (libMgr.IsLibraryReadOnly(libNickname)) {
           const msg = `Symbol library '${libNickname}' is not writable.`;
-          const msg2 = 'You must save to a different location.';
+          const msg2 = _('You must save to a different location.');
 
           if (dirtyCount === 1) {
-            if ((await OKOrCancelDialog('Warning', msg, msg2)) !== wxID_OK) {
+            if ((await OKOrCancelDialog(_('Warning'), msg, msg2)) !== wxID_OK) {
               retv = false;
               continue;
             }
@@ -877,14 +880,14 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
     let lib = this.getTargetLib();
 
     if (!libMgr.LibraryExists(lib)) {
-      lib = await this.SelectLibrary('New Symbol', 'Create symbol in library:');
+      lib = await this.SelectLibrary(_('New Symbol'), _('Create symbol in library:'));
 
       if (!libMgr.LibraryExists(lib)) return;
     }
 
     const validator = async (newName: string): Promise<boolean> => {
       if (newName === '') {
-        await this.wxMessageBox('Symbol must have a name.');
+        await this.wxMessageBox(_('Symbol must have a name.'));
         return false;
       }
 
@@ -893,10 +896,10 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
 
         return (
           (await this.ShowKiDialog({
-            caption: 'Confirmation',
+            caption: _('Confirmation'),
             message: msg,
             icon: 'warning',
-            labels: { ok: 'Overwrite' },
+            labels: { ok: _('Overwrite') },
           })) === 'ok'
         );
       }
@@ -970,7 +973,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       if (
         libMgr.GetDerivedSymbolNames(libId.GetLibItemName(), libId.GetLibNickname(), derived) > 0
       ) {
-        let msg = 'Deleting a base symbol will delete all symbols derived from it.\n\n';
+        let msg = _('Deleting a base symbol will delete all symbols derived from it.\n\n');
 
         msg += `${libId.GetLibItemName()} (base)\n`;
 
@@ -978,11 +981,11 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
 
         const answer = await ShowKicadMessageDialog({
           message: msg,
-          caption: 'Warning',
+          caption: _('Warning'),
           style: wxYES_NO | wxICON_WARNING | wxCENTER,
           extended: ' ',
-          okLabel: 'Delete All Listed Symbols',
-          cancelLabel: 'Cancel',
+          okLabel: _('Delete All Listed Symbols'),
+          cancelLabel: _('Cancel'),
         });
 
         if (answer === wxID_NO || answer === wxID_CANCEL) continue;
@@ -1121,12 +1124,12 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
       flattenSymbol: boolean,
     ): Promise<number> => {
       if (newLib === '') {
-        await this.wxMessageBox('A library must be specified.');
+        await this.wxMessageBox(_('A library must be specified.'));
         return wxID_CANCEL;
       }
 
       if (newName === '') {
-        await this.wxMessageBox('Symbol must have a name.');
+        await this.wxMessageBox(_('Symbol must have a name.'));
         return wxID_CANCEL;
       }
 
@@ -1180,10 +1183,10 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
           'Do you want to overwrite it?';
 
         return (await this.ShowKiDialog({
-          caption: 'Confirmation',
+          caption: _('Confirmation'),
           message: msg,
           icon: 'warning',
-          labels: { ok: 'Overwrite' },
+          labels: { ok: _('Overwrite') },
         })) === 'ok'
           ? SAVE_AS_IDS.ID_OVERWRITE_CONFLICTS
           : wxID_CANCEL;
@@ -1192,20 +1195,24 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
         // if they want to overwrite all of them.
         // A more complex UI might allow the user to re-parent the symbol to an
         // existing symbol in the target lib, or rename all the parents somehow.
-        let msg =
-          `The following symbols in the inheritance chain of '${unescapeString(symbolName)}' ` +
-          `already exist in library '${newLib}':\n`;
+        let msg = wxFormat(
+          _(
+            "The following symbols in the inheritance chain of '%s' already exist in library '%s':\n",
+          ),
+          unescapeString(symbolName),
+          newLib,
+        );
 
         for (const conflict of conflicts) msg += `  ${conflict}\n`;
 
-        msg += '\nDo you want to overwrite all of them, or rename the new symbols?';
+        msg += _('\nDo you want to overwrite all of them, or rename the new symbols?');
 
         switch (
           await this.ShowKiDialog({
-            caption: 'Confirmation',
+            caption: _('Confirmation'),
             message: msg,
             icon: 'warning',
-            yesNo: { yes: 'Overwrite All', no: 'Rename All' },
+            yesNo: { yes: _('Overwrite All'), no: _('Rename All') },
           })
         ) {
           case 'yes':
@@ -1282,7 +1289,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
     const symbol = this.getTargetSymbol();
 
     if (!symbol) {
-      this.ShowInfoBarError('There is no symbol selected to save.');
+      this.ShowInfoBarError(_('There is no symbol selected to save.'));
       return;
     }
 
@@ -1292,7 +1299,7 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
     const defaultName = `${symbol.GetName().toLowerCase()}.${KiCadSymbolLibFileExtension}`;
 
     const path = await this.FileDialog(
-      'Export Symbol',
+      _('Export Symbol'),
       this.GetMruPath(),
       defaultName,
       kicadSymbolLibWildcard(),
@@ -1332,10 +1339,10 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
 
         if (
           (await this.ShowKiDialog({
-            caption: 'Confirmation',
+            caption: _('Confirmation'),
             message: msg,
             icon: 'warning',
-            labels: { ok: 'Overwrite' },
+            labels: { ok: _('Overwrite') },
             doNotShowKey: 'eeschema/symbol_editor/symbol_editor.cpp:ExportSymbol:library',
           })) === 'cancel'
         )
@@ -1374,10 +1381,10 @@ export class SYMBOL_EDITOR_FILES_MIXIN {
 
         if (
           (await this.ShowKiDialog({
-            caption: 'Confirmation',
+            caption: _('Confirmation'),
             message: msg,
             icon: 'warning',
-            labels: { ok: 'Overwrite' },
+            labels: { ok: _('Overwrite') },
             doNotShowKey: 'eeschema/symbol_editor/symbol_editor.cpp:ExportSymbol:file',
           })) === 'cancel'
         )
@@ -1788,9 +1795,9 @@ export type SymLibNameValidator = (
  * TransferDataFromWindow, which keeps the dialog up when it returns false.
  */
 export class SAVE_SYMBOL_AS_DIALOG {
-  readonly title = 'Save Symbol As';
-  readonly listLabel = 'Save in library:';
-  readonly okLabel = 'Save';
+  readonly title = _HKI('Save Symbol As');
+  readonly listLabel = _HKI('Save in library:');
+  readonly okLabel = _HKI('Save');
   readonly headers: string[];
   readonly items: LIBRARY_LIST_ITEM[];
   /** The flatten checkbox's label, or null when the symbol has no parents. */

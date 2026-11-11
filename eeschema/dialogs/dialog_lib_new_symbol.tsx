@@ -32,6 +32,7 @@ import {
   DIALOG_LIB_NEW_SYMBOL_BASE,
   type NEW_SYMBOL_CONTROL,
 } from './dialog_lib_new_symbol_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `getDerivativeName( aParentName )`. */
 function getDerivativeName(aParentName: string): string {
@@ -91,7 +92,7 @@ export class DIALOG_LIB_NEW_SYMBOL {
     aInheritFromSymbolName: string,
     aValidator: (aNewName: string) => boolean | Promise<boolean>,
   ) {
-    this.m_pinTextPosition = new UNIT_BINDER(aParent, 'Pin name position offset:', (m) =>
+    this.m_pinTextPosition = new UNIT_BINDER(aParent, _('Pin name position offset:'), (m) =>
       DisplayErrorMessage(m),
     );
     this.m_validator = aValidator;

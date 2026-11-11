@@ -96,6 +96,8 @@ import { SCH_ITEM } from './sch_item.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** SCH_PIN::PAD_RESOLUTION, how a pin's pad number was arrived at. */
 export type PadResolution = 'mapped' | 'identity' | 'unmapped';
@@ -495,16 +497,16 @@ export class SCH_PIN extends SCH_ITEM {
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
     const symbol = this.GetParentSymbol();
 
-    aList.push(new MSG_PANEL_ITEM('Type', 'Pin'));
+    aList.push(new MSG_PANEL_ITEM(_('Type'), 'Pin'));
 
     super.GetMsgPanelInfo(aFrame, aList);
 
-    aList.push(new MSG_PANEL_ITEM('Name', unescapeString(this.GetShownName())));
-    aList.push(new MSG_PANEL_ITEM('Number', this.GetShownNumber()));
-    aList.push(new MSG_PANEL_ITEM('Type', ElectricalPinTypeGetText(this.GetType())));
-    aList.push(new MSG_PANEL_ITEM('Style', PinShapeGetText(this.GetShape())));
+    aList.push(new MSG_PANEL_ITEM(_('Name'), unescapeString(this.GetShownName())));
+    aList.push(new MSG_PANEL_ITEM(_('Number'), this.GetShownNumber()));
+    aList.push(new MSG_PANEL_ITEM(_('Type'), ElectricalPinTypeGetText(this.GetType())));
+    aList.push(new MSG_PANEL_ITEM(_('Style'), PinShapeGetText(this.GetShape())));
 
-    aList.push(new MSG_PANEL_ITEM('Visible', this.IsVisible() ? 'Yes' : 'No'));
+    aList.push(new MSG_PANEL_ITEM('Visible', this.IsVisible() ? _('Yes') : _('No')));
 
     // Display pin length
     aList.push(new MSG_PANEL_ITEM('Length', aFrame.MessageTextFromValue(this.GetLength(), true)));
@@ -514,10 +516,10 @@ export class SCH_PIN extends SCH_ITEM {
     // dynamic_cast<LIB_SYMBOL*> / <SCH_SYMBOL*>: type checks, both import this module.
     if (symbol?.Type() === KICAD_T.LIB_SYMBOL_T) {
       aList.push(
-        new MSG_PANEL_ITEM('Pos X', aFrame.MessageTextFromValue(this.GetPosition().x, true)),
+        new MSG_PANEL_ITEM(_('Pos X'), aFrame.MessageTextFromValue(this.GetPosition().x, true)),
       );
       aList.push(
-        new MSG_PANEL_ITEM('Pos Y', aFrame.MessageTextFromValue(this.GetPosition().y, true)),
+        new MSG_PANEL_ITEM(_('Pos Y'), aFrame.MessageTextFromValue(this.GetPosition().y, true)),
       );
     } else if (symbol?.Type() === KICAD_T.SCH_SYMBOL_T) {
       // schframe->GetCurrentSheet() is the schematic's CurrentSheet(); nullptr without one.
@@ -2163,43 +2165,43 @@ export class SCH_PIN extends SCH_ITEM {
 
   if (pinTypeEnum.Choices().GetCount() === 0) {
     pinTypeEnum
-      .Map(ELECTRICAL_PINTYPE.PT_INPUT, 'Input')
-      .Map(ELECTRICAL_PINTYPE.PT_OUTPUT, 'Output')
-      .Map(ELECTRICAL_PINTYPE.PT_BIDI, 'Bidirectional')
-      .Map(ELECTRICAL_PINTYPE.PT_TRISTATE, 'Tri-state')
-      .Map(ELECTRICAL_PINTYPE.PT_PASSIVE, 'Passive')
-      .Map(ELECTRICAL_PINTYPE.PT_NIC, 'Free')
-      .Map(ELECTRICAL_PINTYPE.PT_UNSPECIFIED, 'Unspecified')
-      .Map(ELECTRICAL_PINTYPE.PT_POWER_IN, 'Power input')
-      .Map(ELECTRICAL_PINTYPE.PT_POWER_OUT, 'Power output')
-      .Map(ELECTRICAL_PINTYPE.PT_OPENCOLLECTOR, 'Open collector')
-      .Map(ELECTRICAL_PINTYPE.PT_OPENEMITTER, 'Open emitter')
-      .Map(ELECTRICAL_PINTYPE.PT_NC, 'Unconnected');
+      .Map(ELECTRICAL_PINTYPE.PT_INPUT, _HKI('Input'))
+      .Map(ELECTRICAL_PINTYPE.PT_OUTPUT, _HKI('Output'))
+      .Map(ELECTRICAL_PINTYPE.PT_BIDI, _HKI('Bidirectional'))
+      .Map(ELECTRICAL_PINTYPE.PT_TRISTATE, _HKI('Tri-state'))
+      .Map(ELECTRICAL_PINTYPE.PT_PASSIVE, _HKI('Passive'))
+      .Map(ELECTRICAL_PINTYPE.PT_NIC, _HKI('Free'))
+      .Map(ELECTRICAL_PINTYPE.PT_UNSPECIFIED, _HKI('Unspecified'))
+      .Map(ELECTRICAL_PINTYPE.PT_POWER_IN, _HKI('Power input'))
+      .Map(ELECTRICAL_PINTYPE.PT_POWER_OUT, _HKI('Power output'))
+      .Map(ELECTRICAL_PINTYPE.PT_OPENCOLLECTOR, _HKI('Open collector'))
+      .Map(ELECTRICAL_PINTYPE.PT_OPENEMITTER, _HKI('Open emitter'))
+      .Map(ELECTRICAL_PINTYPE.PT_NC, _HKI('Unconnected'));
   }
 
   const pinShapeEnum = ENUM_MAP.Instance<GRAPHIC_PINSHAPE>('GRAPHIC_PINSHAPE');
 
   if (pinShapeEnum.Choices().GetCount() === 0) {
     pinShapeEnum
-      .Map(GRAPHIC_PINSHAPE.LINE, 'Line')
-      .Map(GRAPHIC_PINSHAPE.INVERTED, 'Inverted')
-      .Map(GRAPHIC_PINSHAPE.CLOCK, 'Clock')
-      .Map(GRAPHIC_PINSHAPE.INVERTED_CLOCK, 'Inverted clock')
-      .Map(GRAPHIC_PINSHAPE.INPUT_LOW, 'Input low')
-      .Map(GRAPHIC_PINSHAPE.CLOCK_LOW, 'Clock low')
-      .Map(GRAPHIC_PINSHAPE.OUTPUT_LOW, 'Output low')
-      .Map(GRAPHIC_PINSHAPE.FALLING_EDGE_CLOCK, 'Falling edge clock')
-      .Map(GRAPHIC_PINSHAPE.NONLOGIC, 'NonLogic');
+      .Map(GRAPHIC_PINSHAPE.LINE, _HKI('Line'))
+      .Map(GRAPHIC_PINSHAPE.INVERTED, _HKI('Inverted'))
+      .Map(GRAPHIC_PINSHAPE.CLOCK, _HKI('Clock'))
+      .Map(GRAPHIC_PINSHAPE.INVERTED_CLOCK, _HKI('Inverted clock'))
+      .Map(GRAPHIC_PINSHAPE.INPUT_LOW, _HKI('Input low'))
+      .Map(GRAPHIC_PINSHAPE.CLOCK_LOW, _HKI('Clock low'))
+      .Map(GRAPHIC_PINSHAPE.OUTPUT_LOW, _HKI('Output low'))
+      .Map(GRAPHIC_PINSHAPE.FALLING_EDGE_CLOCK, _HKI('Falling edge clock'))
+      .Map(GRAPHIC_PINSHAPE.NONLOGIC, _HKI('NonLogic'));
   }
 
   const orientationEnum = ENUM_MAP.Instance<PIN_ORIENTATION>('PIN_ORIENTATION');
 
   if (orientationEnum.Choices().GetCount() === 0) {
     orientationEnum
-      .Map(PIN_ORIENTATION.PIN_RIGHT, 'Right')
-      .Map(PIN_ORIENTATION.PIN_LEFT, 'Left')
-      .Map(PIN_ORIENTATION.PIN_UP, 'Up')
-      .Map(PIN_ORIENTATION.PIN_DOWN, 'Down');
+      .Map(PIN_ORIENTATION.PIN_RIGHT, _HKI('Right'))
+      .Map(PIN_ORIENTATION.PIN_LEFT, _HKI('Left'))
+      .Map(PIN_ORIENTATION.PIN_UP, _HKI('Up'))
+      .Map(PIN_ORIENTATION.PIN_DOWN, _HKI('Down'));
   }
 
   // `dynamic_cast<LIB_SYMBOL*>( pin->GetParentSymbol() )`: a pin in the symbol editor.
@@ -2213,13 +2215,19 @@ export class SCH_PIN extends SCH_ITEM {
 
   propMgr
     .AddProperty(
-      new PROPERTY<SCH_PIN, string>(SCH_PIN, 'Pin Name', 'SetName', 'GetName', TYPE_STRING),
+      new PROPERTY<SCH_PIN, string>(SCH_PIN, _HKI('Pin Name'), 'SetName', 'GetName', TYPE_STRING),
     )
     .SetWriteableFunc(isSymbolEditor);
 
   propMgr
     .AddProperty(
-      new PROPERTY<SCH_PIN, string>(SCH_PIN, 'Pin Number', 'SetNumber', 'GetNumber', TYPE_STRING),
+      new PROPERTY<SCH_PIN, string>(
+        SCH_PIN,
+        _HKI('Pin Number'),
+        'SetNumber',
+        'GetNumber',
+        TYPE_STRING,
+      ),
     )
     .SetWriteableFunc(isSymbolEditor);
 
@@ -2227,7 +2235,7 @@ export class SCH_PIN extends SCH_ITEM {
     .AddProperty(
       new PROPERTY_ENUM<SCH_PIN, ELECTRICAL_PINTYPE>(
         SCH_PIN,
-        'Electrical Type',
+        _HKI('Electrical Type'),
         'SetType',
         'GetType',
         pinTypeEnum,
@@ -2239,7 +2247,7 @@ export class SCH_PIN extends SCH_ITEM {
     .AddProperty(
       new PROPERTY_ENUM<SCH_PIN, GRAPHIC_PINSHAPE>(
         SCH_PIN,
-        'Graphic Style',
+        _HKI('Graphic Style'),
         'SetShape',
         'GetShape',
         pinShapeEnum,
@@ -2251,7 +2259,7 @@ export class SCH_PIN extends SCH_ITEM {
     .AddProperty(
       new PROPERTY<SCH_PIN, number>(
         SCH_PIN,
-        'Position X',
+        _HKI('Position X'),
         'SetX',
         'GetX',
         TYPE_INT,
@@ -2264,7 +2272,7 @@ export class SCH_PIN extends SCH_ITEM {
     .AddProperty(
       new PROPERTY<SCH_PIN, number>(
         SCH_PIN,
-        'Position Y',
+        _HKI('Position Y'),
         'SetY',
         'GetY',
         TYPE_INT,
@@ -2302,7 +2310,7 @@ export class SCH_PIN extends SCH_ITEM {
     .AddProperty(
       new PROPERTY<SCH_PIN, number>(
         SCH_PIN,
-        'Name Text Size',
+        _HKI('Name Text Size'),
         'SetNameTextSize',
         'GetNameTextSize',
         TYPE_INT,
@@ -2315,7 +2323,7 @@ export class SCH_PIN extends SCH_ITEM {
     .AddProperty(
       new PROPERTY<SCH_PIN, number>(
         SCH_PIN,
-        'Number Text Size',
+        _HKI('Number Text Size'),
         'SetNumberTextSize',
         'GetNumberTextSize',
         TYPE_INT,

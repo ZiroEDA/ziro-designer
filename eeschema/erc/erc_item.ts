@@ -21,6 +21,7 @@ import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import type { SCH_ITEM } from '../sch_item.js';
 import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
 import { ERCE_T } from './erc_settings.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /*
  * The item templates are built on first use, not at module load: ERCE_T lives in
@@ -184,17 +185,17 @@ export class ERC_ITEM extends RC_ITEM {
 
   private static s_heading_connections: ERC_ITEM | undefined;
   static get heading_connections(): ERC_ITEM {
-    ERC_ITEM.s_heading_connections ??= new ERC_ITEM(0, 'Connections', '');
+    ERC_ITEM.s_heading_connections ??= new ERC_ITEM(0, _HKI('Connections'), '');
     return ERC_ITEM.s_heading_connections;
   }
   private static s_heading_conflicts: ERC_ITEM | undefined;
   static get heading_conflicts(): ERC_ITEM {
-    ERC_ITEM.s_heading_conflicts ??= new ERC_ITEM(0, 'Conflicts', '');
+    ERC_ITEM.s_heading_conflicts ??= new ERC_ITEM(0, _HKI('Conflicts'), '');
     return ERC_ITEM.s_heading_conflicts;
   }
   private static s_heading_misc: ERC_ITEM | undefined;
   static get heading_misc(): ERC_ITEM {
-    ERC_ITEM.s_heading_misc ??= new ERC_ITEM(0, 'Miscellaneous', '');
+    ERC_ITEM.s_heading_misc ??= new ERC_ITEM(0, _HKI('Miscellaneous'), '');
     return ERC_ITEM.s_heading_misc;
   }
   private static s_heading_internal: ERC_ITEM | undefined;
@@ -207,7 +208,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get duplicateSheetName(): ERC_ITEM {
     ERC_ITEM.s_duplicateSheetName ??= new ERC_ITEM(
       ERCE_T.ERCE_DUPLICATE_SHEET_NAME,
-      'Duplicate sheet names within a given sheet',
+      _HKI('Duplicate sheet names within a given sheet'),
       'duplicate_sheet_names',
     );
     return ERC_ITEM.s_duplicateSheetName;
@@ -216,7 +217,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get endpointOffGrid(): ERC_ITEM {
     ERC_ITEM.s_endpointOffGrid ??= new ERC_ITEM(
       ERCE_T.ERCE_ENDPOINT_OFF_GRID,
-      'Symbol pin or wire end off connection grid',
+      _HKI('Symbol pin or wire end off connection grid'),
       'endpoint_off_grid',
     );
     return ERC_ITEM.s_endpointOffGrid;
@@ -225,7 +226,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get pinNotConnected(): ERC_ITEM {
     ERC_ITEM.s_pinNotConnected ??= new ERC_ITEM(
       ERCE_T.ERCE_PIN_NOT_CONNECTED,
-      'Pin not connected',
+      _HKI('Pin not connected'),
       'pin_not_connected',
     );
     return ERC_ITEM.s_pinNotConnected;
@@ -234,7 +235,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get pinNotDriven(): ERC_ITEM {
     ERC_ITEM.s_pinNotDriven ??= new ERC_ITEM(
       ERCE_T.ERCE_PIN_NOT_DRIVEN,
-      'Input pin not driven by any Output pins',
+      _HKI('Input pin not driven by any Output pins'),
       'pin_not_driven',
     );
     return ERC_ITEM.s_pinNotDriven;
@@ -243,7 +244,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get powerpinNotDriven(): ERC_ITEM {
     ERC_ITEM.s_powerpinNotDriven ??= new ERC_ITEM(
       ERCE_T.ERCE_POWERPIN_NOT_DRIVEN,
-      'Input Power pin not driven by any Output Power pins',
+      _HKI('Input Power pin not driven by any Output Power pins'),
       'power_pin_not_driven',
     );
     return ERC_ITEM.s_powerpinNotDriven;
@@ -252,7 +253,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get duplicatePinError(): ERC_ITEM {
     ERC_ITEM.s_duplicatePinError ??= new ERC_ITEM(
       ERCE_T.ERCE_DUPLICATE_PIN_ERROR,
-      'Duplicate pins with different nets',
+      _HKI('Duplicate pins with different nets'),
       'duplicate_pins',
     );
     return ERC_ITEM.s_duplicatePinError;
@@ -261,7 +262,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get pinTableWarning(): ERC_ITEM {
     ERC_ITEM.s_pinTableWarning ??= new ERC_ITEM(
       ERCE_T.ERCE_PIN_TO_PIN_WARNING,
-      'Conflict problem between pins',
+      _HKI('Conflict problem between pins'),
       'pin_to_pin',
     );
     return ERC_ITEM.s_pinTableWarning;
@@ -270,7 +271,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get pinTableError(): ERC_ITEM {
     ERC_ITEM.s_pinTableError ??= new ERC_ITEM(
       ERCE_T.ERCE_PIN_TO_PIN_ERROR,
-      'Conflict problem between pins',
+      _HKI('Conflict problem between pins'),
       'pin_to_pin',
     );
     return ERC_ITEM.s_pinTableError;
@@ -279,21 +280,25 @@ export class ERC_ITEM extends RC_ITEM {
   static get genericWarning(): ERC_ITEM {
     ERC_ITEM.s_genericWarning ??= new ERC_ITEM(
       ERCE_T.ERCE_GENERIC_WARNING,
-      'Warning',
+      _HKI('Warning'),
       'generic-warning',
     );
     return ERC_ITEM.s_genericWarning;
   }
   private static s_genericError: ERC_ITEM | undefined;
   static get genericError(): ERC_ITEM {
-    ERC_ITEM.s_genericError ??= new ERC_ITEM(ERCE_T.ERCE_GENERIC_ERROR, 'Error', 'generic-error');
+    ERC_ITEM.s_genericError ??= new ERC_ITEM(
+      ERCE_T.ERCE_GENERIC_ERROR,
+      _HKI('Error'),
+      'generic-error',
+    );
     return ERC_ITEM.s_genericError;
   }
   private static s_hierLabelMismatch: ERC_ITEM | undefined;
   static get hierLabelMismatch(): ERC_ITEM {
     ERC_ITEM.s_hierLabelMismatch ??= new ERC_ITEM(
       ERCE_T.ERCE_HIERACHICAL_LABEL,
-      'Mismatch between hierarchical labels and sheet pins',
+      _HKI('Mismatch between hierarchical labels and sheet pins'),
       'hier_label_mismatch',
     );
     return ERC_ITEM.s_hierLabelMismatch;
@@ -302,7 +307,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get fourWayJunction(): ERC_ITEM {
     ERC_ITEM.s_fourWayJunction ??= new ERC_ITEM(
       ERCE_T.ERCE_FOUR_WAY_JUNCTION,
-      'Four connection points are joined together',
+      _HKI('Four connection points are joined together'),
       'four_way_junction',
     );
     return ERC_ITEM.s_fourWayJunction;
@@ -311,7 +316,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get labelMultipleWires(): ERC_ITEM {
     ERC_ITEM.s_labelMultipleWires ??= new ERC_ITEM(
       ERCE_T.ERCE_LABEL_MULTIPLE_WIRES,
-      'Label connects more than one wire',
+      _HKI('Label connects more than one wire'),
       'label_multiple_wires',
     );
     return ERC_ITEM.s_labelMultipleWires;
@@ -320,7 +325,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get noConnectConnected(): ERC_ITEM {
     ERC_ITEM.s_noConnectConnected ??= new ERC_ITEM(
       ERCE_T.ERCE_NOCONNECT_CONNECTED,
-      'A pin with a "no connection" flag is connected',
+      _HKI('A pin with a "no connection" flag is connected'),
       'no_connect_connected',
     );
     return ERC_ITEM.s_noConnectConnected;
@@ -329,7 +334,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get noConnectDangling(): ERC_ITEM {
     ERC_ITEM.s_noConnectDangling ??= new ERC_ITEM(
       ERCE_T.ERCE_NOCONNECT_NOT_CONNECTED,
-      'Unconnected "no connection" flag',
+      _HKI('Unconnected "no connection" flag'),
       'no_connect_dangling',
     );
     return ERC_ITEM.s_noConnectDangling;
@@ -338,7 +343,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get labelDangling(): ERC_ITEM {
     ERC_ITEM.s_labelDangling ??= new ERC_ITEM(
       ERCE_T.ERCE_LABEL_NOT_CONNECTED,
-      'Label not connected',
+      _HKI('Label not connected'),
       'label_dangling',
     );
     return ERC_ITEM.s_labelDangling;
@@ -347,7 +352,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get isolatedPinLabel(): ERC_ITEM {
     ERC_ITEM.s_isolatedPinLabel ??= new ERC_ITEM(
       ERCE_T.ERCE_LABEL_SINGLE_PIN,
-      'Label connected to only one pin',
+      _HKI('Label connected to only one pin'),
       'isolated_pin_label',
     );
     return ERC_ITEM.s_isolatedPinLabel;
@@ -356,7 +361,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get similarLabels(): ERC_ITEM {
     ERC_ITEM.s_similarLabels ??= new ERC_ITEM(
       ERCE_T.ERCE_SIMILAR_LABELS,
-      'Labels are similar (lower/upper case difference only)',
+      _HKI('Labels are similar (lower/upper case difference only)'),
       'similar_labels',
     );
     return ERC_ITEM.s_similarLabels;
@@ -365,7 +370,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get similarPower(): ERC_ITEM {
     ERC_ITEM.s_similarPower ??= new ERC_ITEM(
       ERCE_T.ERCE_SIMILAR_POWER,
-      'Power pins are similar (lower/upper case difference only)',
+      _HKI('Power pins are similar (lower/upper case difference only)'),
       'similar_power',
     );
     return ERC_ITEM.s_similarPower;
@@ -374,7 +379,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get similarLabelAndPower(): ERC_ITEM {
     ERC_ITEM.s_similarLabelAndPower ??= new ERC_ITEM(
       ERCE_T.ERCE_SIMILAR_LABEL_AND_POWER,
-      'Power pin and label are similar (lower/upper case difference only)',
+      _HKI('Power pin and label are similar (lower/upper case difference only)'),
       'similar_label_and_power',
     );
     return ERC_ITEM.s_similarLabelAndPower;
@@ -383,7 +388,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get singleGlobalLabel(): ERC_ITEM {
     ERC_ITEM.s_singleGlobalLabel ??= new ERC_ITEM(
       ERCE_T.ERCE_SINGLE_GLOBAL_LABEL,
-      'Global label only appears once in the schematic',
+      _HKI('Global label only appears once in the schematic'),
       'single_global_label',
     );
     return ERC_ITEM.s_singleGlobalLabel;
@@ -392,7 +397,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get sameLocalGlobalLabel(): ERC_ITEM {
     ERC_ITEM.s_sameLocalGlobalLabel ??= new ERC_ITEM(
       ERCE_T.ERCE_SAME_LOCAL_GLOBAL_LABEL,
-      'Local and global labels have same name',
+      _HKI('Local and global labels have same name'),
       'same_local_global_label',
     );
     return ERC_ITEM.s_sameLocalGlobalLabel;
@@ -401,7 +406,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get differentUnitFootprint(): ERC_ITEM {
     ERC_ITEM.s_differentUnitFootprint ??= new ERC_ITEM(
       ERCE_T.ERCE_DIFFERENT_UNIT_FP,
-      'Different footprint assigned in another unit of the symbol',
+      _HKI('Different footprint assigned in another unit of the symbol'),
       'different_unit_footprint',
     );
     return ERC_ITEM.s_differentUnitFootprint;
@@ -410,7 +415,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get differentUnitNet(): ERC_ITEM {
     ERC_ITEM.s_differentUnitNet ??= new ERC_ITEM(
       ERCE_T.ERCE_DIFFERENT_UNIT_NET,
-      'Different net assigned to a shared pin in another unit of the symbol',
+      _HKI('Different net assigned to a shared pin in another unit of the symbol'),
       'different_unit_net',
     );
     return ERC_ITEM.s_differentUnitNet;
@@ -419,7 +424,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get busDefinitionConflict(): ERC_ITEM {
     ERC_ITEM.s_busDefinitionConflict ??= new ERC_ITEM(
       ERCE_T.ERCE_BUS_ALIAS_CONFLICT,
-      'Conflict between bus alias definitions across schematic sheets',
+      _HKI('Conflict between bus alias definitions across schematic sheets'),
       'bus_definition_conflict',
     );
     return ERC_ITEM.s_busDefinitionConflict;
@@ -428,7 +433,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get multipleNetNames(): ERC_ITEM {
     ERC_ITEM.s_multipleNetNames ??= new ERC_ITEM(
       ERCE_T.ERCE_DRIVER_CONFLICT,
-      'More than one name given to this bus or net',
+      _HKI('More than one name given to this bus or net'),
       'multiple_net_names',
     );
     return ERC_ITEM.s_multipleNetNames;
@@ -437,7 +442,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get netNotBusMember(): ERC_ITEM {
     ERC_ITEM.s_netNotBusMember ??= new ERC_ITEM(
       ERCE_T.ERCE_BUS_ENTRY_CONFLICT,
-      'Net is graphically connected to a bus but not a bus member',
+      _HKI('Net is graphically connected to a bus but not a bus member'),
       'net_not_bus_member',
     );
     return ERC_ITEM.s_netNotBusMember;
@@ -446,7 +451,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get busToBusConflict(): ERC_ITEM {
     ERC_ITEM.s_busToBusConflict ??= new ERC_ITEM(
       ERCE_T.ERCE_BUS_TO_BUS_CONFLICT,
-      'Buses are graphically connected but share no bus members',
+      _HKI('Buses are graphically connected but share no bus members'),
       'bus_to_bus_conflict',
     );
     return ERC_ITEM.s_busToBusConflict;
@@ -455,7 +460,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get busToNetConflict(): ERC_ITEM {
     ERC_ITEM.s_busToNetConflict ??= new ERC_ITEM(
       ERCE_T.ERCE_BUS_TO_NET_CONFLICT,
-      'Invalid connection between bus and net items',
+      _HKI('Invalid connection between bus and net items'),
       'bus_to_net_conflict',
     );
     return ERC_ITEM.s_busToNetConflict;
@@ -464,7 +469,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get groundPinNotGround(): ERC_ITEM {
     ERC_ITEM.s_groundPinNotGround ??= new ERC_ITEM(
       ERCE_T.ERCE_GROUND_PIN_NOT_GROUND,
-      'Ground pin not connected to ground net',
+      _HKI('Ground pin not connected to ground net'),
       'ground_pin_not_ground',
     );
     return ERC_ITEM.s_groundPinNotGround;
@@ -473,7 +478,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get stackedPinName(): ERC_ITEM {
     ERC_ITEM.s_stackedPinName ??= new ERC_ITEM(
       ERCE_T.ERCE_STACKED_PIN_SYNTAX,
-      'Pin name resembles stacked pin',
+      _HKI('Pin name resembles stacked pin'),
       'stacked_pin_name',
     );
     return ERC_ITEM.s_stackedPinName;
@@ -482,7 +487,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get fieldNameWhitespace(): ERC_ITEM {
     ERC_ITEM.s_fieldNameWhitespace ??= new ERC_ITEM(
       ERCE_T.ERCE_FIELD_NAME_WHITESPACE,
-      'Field name has leading or trailing whitespace',
+      _HKI('Field name has leading or trailing whitespace'),
       'field_name_whitespace',
     );
     return ERC_ITEM.s_fieldNameWhitespace;
@@ -491,7 +496,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get unresolvedVariable(): ERC_ITEM {
     ERC_ITEM.s_unresolvedVariable ??= new ERC_ITEM(
       ERCE_T.ERCE_UNRESOLVED_VARIABLE,
-      'Unresolved text variable',
+      _HKI('Unresolved text variable'),
       'unresolved_variable',
     );
     return ERC_ITEM.s_unresolvedVariable;
@@ -500,7 +505,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get undefinedNetclass(): ERC_ITEM {
     ERC_ITEM.s_undefinedNetclass ??= new ERC_ITEM(
       ERCE_T.ERCE_UNDEFINED_NETCLASS,
-      'Undefined netclass',
+      _HKI('Undefined netclass'),
       'undefined_netclass',
     );
     return ERC_ITEM.s_undefinedNetclass;
@@ -509,7 +514,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get simulationModelIssues(): ERC_ITEM {
     ERC_ITEM.s_simulationModelIssues ??= new ERC_ITEM(
       ERCE_T.ERCE_SIMULATION_MODEL,
-      'SPICE model issue',
+      _HKI('SPICE model issue'),
       'simulation_model_issue',
     );
     return ERC_ITEM.s_simulationModelIssues;
@@ -518,7 +523,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get wireDangling(): ERC_ITEM {
     ERC_ITEM.s_wireDangling ??= new ERC_ITEM(
       ERCE_T.ERCE_WIRE_DANGLING,
-      'Wires not connected to anything',
+      _HKI('Wires not connected to anything'),
       'wire_dangling',
     );
     return ERC_ITEM.s_wireDangling;
@@ -527,7 +532,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get libSymbolIssues(): ERC_ITEM {
     ERC_ITEM.s_libSymbolIssues ??= new ERC_ITEM(
       ERCE_T.ERCE_LIB_SYMBOL_ISSUES,
-      'Library symbol issue',
+      _HKI('Library symbol issue'),
       'lib_symbol_issues',
     );
     return ERC_ITEM.s_libSymbolIssues;
@@ -536,7 +541,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get libSymbolMismatch(): ERC_ITEM {
     ERC_ITEM.s_libSymbolMismatch ??= new ERC_ITEM(
       ERCE_T.ERCE_LIB_SYMBOL_MISMATCH,
-      "Symbol doesn't match copy in library",
+      _HKI("Symbol doesn't match copy in library"),
       'lib_symbol_mismatch',
     );
     return ERC_ITEM.s_libSymbolMismatch;
@@ -545,7 +550,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get footprintLinkIssues(): ERC_ITEM {
     ERC_ITEM.s_footprintLinkIssues ??= new ERC_ITEM(
       ERCE_T.ERCE_FOOTPRINT_LINK_ISSUES,
-      'Footprint link issue',
+      _HKI('Footprint link issue'),
       'footprint_link_issues',
     );
     return ERC_ITEM.s_footprintLinkIssues;
@@ -554,7 +559,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get footprintFilters(): ERC_ITEM {
     ERC_ITEM.s_footprintFilters ??= new ERC_ITEM(
       ERCE_T.ERCE_FOOTPRINT_FILTERS,
-      "Assigned footprint doesn't match footprint filters",
+      _HKI("Assigned footprint doesn't match footprint filters"),
       'footprint_filter',
     );
     return ERC_ITEM.s_footprintFilters;
@@ -563,7 +568,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get unannotated(): ERC_ITEM {
     ERC_ITEM.s_unannotated ??= new ERC_ITEM(
       ERCE_T.ERCE_UNANNOTATED,
-      'Symbol is not annotated',
+      _HKI('Symbol is not annotated'),
       'unannotated',
     );
     return ERC_ITEM.s_unannotated;
@@ -572,7 +577,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get extraUnits(): ERC_ITEM {
     ERC_ITEM.s_extraUnits ??= new ERC_ITEM(
       ERCE_T.ERCE_EXTRA_UNITS,
-      'Symbol has more units than are defined',
+      _HKI('Symbol has more units than are defined'),
       'extra_units',
     );
     return ERC_ITEM.s_extraUnits;
@@ -581,7 +586,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get missingUnits(): ERC_ITEM {
     ERC_ITEM.s_missingUnits ??= new ERC_ITEM(
       ERCE_T.ERCE_MISSING_UNIT,
-      'Symbol has units that are not placed',
+      _HKI('Symbol has units that are not placed'),
       'missing_unit',
     );
     return ERC_ITEM.s_missingUnits;
@@ -590,7 +595,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get missingInputPin(): ERC_ITEM {
     ERC_ITEM.s_missingInputPin ??= new ERC_ITEM(
       ERCE_T.ERCE_MISSING_INPUT_PIN,
-      'Symbol has input pins that are not placed',
+      _HKI('Symbol has input pins that are not placed'),
       'missing_input_pin',
     );
     return ERC_ITEM.s_missingInputPin;
@@ -599,7 +604,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get missingBidiPin(): ERC_ITEM {
     ERC_ITEM.s_missingBidiPin ??= new ERC_ITEM(
       ERCE_T.ERCE_MISSING_BIDI_PIN,
-      'Symbol has bidirectional pins that are not placed',
+      _HKI('Symbol has bidirectional pins that are not placed'),
       'missing_bidi_pin',
     );
     return ERC_ITEM.s_missingBidiPin;
@@ -608,7 +613,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get missingPowerInputPin(): ERC_ITEM {
     ERC_ITEM.s_missingPowerInputPin ??= new ERC_ITEM(
       ERCE_T.ERCE_MISSING_POWER_INPUT_PIN,
-      'Symbol has power input pins that are not placed',
+      _HKI('Symbol has power input pins that are not placed'),
       'missing_power_pin',
     );
     return ERC_ITEM.s_missingPowerInputPin;
@@ -617,7 +622,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get differentUnitValue(): ERC_ITEM {
     ERC_ITEM.s_differentUnitValue ??= new ERC_ITEM(
       ERCE_T.ERCE_DIFFERENT_UNIT_VALUE,
-      'Units of same symbol have different values',
+      _HKI('Units of same symbol have different values'),
       'unit_value_mismatch',
     );
     return ERC_ITEM.s_differentUnitValue;
@@ -626,7 +631,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get duplicateReference(): ERC_ITEM {
     ERC_ITEM.s_duplicateReference ??= new ERC_ITEM(
       ERCE_T.ERCE_DUPLICATE_REFERENCE,
-      'Duplicate reference designators',
+      _HKI('Duplicate reference designators'),
       'duplicate_reference',
     );
     return ERC_ITEM.s_duplicateReference;
@@ -635,7 +640,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get busEntryNeeded(): ERC_ITEM {
     ERC_ITEM.s_busEntryNeeded ??= new ERC_ITEM(
       ERCE_T.ERCE_BUS_ENTRY_NEEDED,
-      'Bus Entry needed',
+      _HKI('Bus Entry needed'),
       'bus_entry_needed',
     );
     return ERC_ITEM.s_busEntryNeeded;
@@ -644,7 +649,7 @@ export class ERC_ITEM extends RC_ITEM {
   static get unconnectedWireEndpoint(): ERC_ITEM {
     ERC_ITEM.s_unconnectedWireEndpoint ??= new ERC_ITEM(
       ERCE_T.ERCE_UNCONNECTED_WIRE_ENDPOINT,
-      'Unconnected wire endpoint',
+      _HKI('Unconnected wire endpoint'),
       'unconnected_wire_endpoint',
     );
     return ERC_ITEM.s_unconnectedWireEndpoint;

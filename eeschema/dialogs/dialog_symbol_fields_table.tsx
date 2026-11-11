@@ -85,6 +85,7 @@ import {
   DIALOG_SYMBOL_FIELDS_TABLE_BASE,
   type PRESET_CHOICE,
 } from './dialog_symbol_fields_table_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `COLUMN_MARGIN` (dialog_symbol_fields_table.cpp): the slack a column gets past its text. */
 const COLUMN_MARGIN = 15; // [data]
@@ -160,10 +161,10 @@ class FIELDS_EDITOR_GRID_TRICKS extends GRID_TRICKS {
     const col = this.m_grid.GetGridCursorCol();
 
     if (this.m_dataModel.GetColFieldName(col) === GetCanonicalFieldName(FIELD_T.FOOTPRINT)) {
-      aMenu.Append(MYID_SELECT_FOOTPRINT, 'Select Footprint...', 'Browse for footprint');
+      aMenu.Append(MYID_SELECT_FOOTPRINT, _('Select Footprint...'), _('Browse for footprint'));
       aMenu.AppendSeparator();
     } else if (this.m_dataModel.GetColFieldName(col) === GetCanonicalFieldName(FIELD_T.DATASHEET)) {
-      aMenu.Append(MYID_SHOW_DATASHEET, 'Show Datasheet', 'Show datasheet in browser');
+      aMenu.Append(MYID_SHOW_DATASHEET, _('Show Datasheet'), _('Show datasheet in browser'));
       aMenu.AppendSeparator();
     }
 
@@ -624,7 +625,7 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
     addMandatoryField(FIELD_T.DESCRIPTION, false, false);
 
     // Generated fields present only in the fields table
-    this.AddField(FIELDS_EDITOR_GRID_DATA_MODEL.QUANTITY_VARIABLE, 'Qty', true, false);
+    this.AddField(FIELDS_EDITOR_GRID_DATA_MODEL.QUANTITY_VARIABLE, _('Qty'), true, false);
     this.AddField(FIELDS_EDITOR_GRID_DATA_MODEL.ITEM_NUMBER_VARIABLE, '#', true, false);
 
     // User field names are stored and matched case-sensitively (see issue #24021), so each
@@ -649,12 +650,12 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
 
   /** `OnAddField()` (dialog_symbol_fields_table.cpp:782). */
   async OnAddField(): Promise<void> {
-    const fieldName = await this.m_window.textEntry('New field name:', 'Add Field', '');
+    const fieldName = await this.m_window.textEntry(_('New field name:'), _('Add Field'), '');
 
     if (fieldName === null) return;
 
     if (fieldName === '') {
-      DisplayErrorMessage('Field must have a name.');
+      DisplayErrorMessage(_('Field must have a name.'));
       return;
     }
 
@@ -740,8 +741,8 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
     if (col === -1) return; // wxCHECK_RET: "Existing field name missing from data model"
 
     const newFieldName = await this.m_window.textEntry(
-      'New field name:',
-      'Rename Field',
+      _('New field name:'),
+      _('Rename Field'),
       fieldName,
     );
 
@@ -834,8 +835,10 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
 
     return [
       {
-        label: "Include 'DNP' Symbols",
-        help: "Show symbols marked 'DNP' in the table.  This setting also controls whether or not 'DNP' symbols are included on export.",
+        label: _("Include 'DNP' Symbols"),
+        help: _(
+          "Show symbols marked 'DNP' in the table.  This setting also controls whether or not 'DNP' symbols are included on export.",
+        ),
         checked: !this.m_dataModel.GetExcludeDNP(),
         action: () => {
           this.m_dataModel.SetExcludeDNP(!this.m_dataModel.GetExcludeDNP());
@@ -843,8 +846,10 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
         },
       },
       {
-        label: "Include 'Exclude from BOM' Symbols",
-        help: "Show symbols marked 'Exclude from BOM' in the table.  Symbols marked 'Exclude from BOM' are never included on export.",
+        label: _("Include 'Exclude from BOM' Symbols"),
+        help: _(
+          "Show symbols marked 'Exclude from BOM' in the table.  Symbols marked 'Exclude from BOM' are never included on export.",
+        ),
         checked: this.m_dataModel.GetIncludeExcludedFromBOM(),
         action: () => {
           this.m_dataModel.SetIncludeExcludedFromBOM(!this.m_dataModel.GetIncludeExcludedFromBOM());
@@ -853,8 +858,8 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
       },
       { label: '', sep: true },
       {
-        label: 'Highlight on Cross-probe',
-        help: 'Highlight corresponding item on canvas when it is selected in the table',
+        label: _('Highlight on Cross-probe'),
+        help: _('Highlight corresponding item on canvas when it is selected in the table'),
         checked: cfg.selection_mode === 0,
         action: () => {
           cfg.selection_mode = cfg.selection_mode !== 0 ? 0 : 2;
@@ -862,8 +867,8 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
         },
       },
       {
-        label: 'Select on Cross-probe',
-        help: 'Select corresponding item on canvas when it is selected in the table',
+        label: _('Select on Cross-probe'),
+        help: _('Select corresponding item on canvas when it is selected in the table'),
         checked: cfg.selection_mode === 1,
         action: () => {
           cfg.selection_mode = cfg.selection_mode !== 1 ? 1 : 2;
@@ -975,7 +980,7 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
         let value = this.m_viewControlsDataModel.GetValueAsBool(row, GROUP_BY_COLUMN);
 
         if (this.m_dataModel.ColIsQuantity(dataCol) && value) {
-          DisplayErrorMessage('The Quantity column cannot be grouped by.');
+          DisplayErrorMessage(_('The Quantity column cannot be grouped by.'));
 
           value = false;
           this.m_viewControlsDataModel.SetValueAsBool(row, GROUP_BY_COLUMN, value);
@@ -983,7 +988,7 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
         }
 
         if (this.m_dataModel.ColIsItemNumber(dataCol) && value) {
-          DisplayErrorMessage('The Item Number column cannot be grouped by.');
+          DisplayErrorMessage(_('The Item Number column cannot be grouped by.'));
 
           value = false;
           this.m_viewControlsDataModel.SetValueAsBool(row, GROUP_BY_COLUMN, value);
@@ -1145,7 +1150,7 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
         file = file.slice(defaultPath.length);
       } else {
         DisplayErrorMessage(
-          'Cannot make path relative (target volume different from schematic file volume)!',
+          _('Cannot make path relative (target volume different from schematic file volume)!'),
         );
       }
     }
@@ -1165,11 +1170,11 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
     if (this.m_dataModel.IsEdited()) {
       if (
         (await OKOrCancelDialog(
-          'Unsaved data',
-          'Changes have not yet been saved. Export unsaved data?',
+          _('Unsaved data'),
+          _('Changes have not yet been saved. Export unsaved data?'),
           '',
-          'OK',
-          'Cancel',
+          _('OK'),
+          _('Cancel'),
         )) === wxID_CANCEL
       ) {
         return;
@@ -1180,7 +1185,7 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
     let path = this.m_outputFileName;
 
     if (path === '') {
-      DisplayErrorMessage('No output file specified in Export tab.');
+      DisplayErrorMessage(_('No output file specified in Export tab.'));
       return;
     }
 
@@ -1237,7 +1242,7 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
 
     if (this.m_dataModel.IsEdited()) {
       if (
-        !(await this.m_window.handleUnsavedChanges('Save changes?', () =>
+        !(await this.m_window.handleUnsavedChanges(_('Save changes?'), () =>
           this.TransferDataFromWindow(),
         ))
       )
@@ -1305,7 +1310,7 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
     const names = [...this.m_bomPresets.keys()].sort();
     const defaultIdx = Math.max(0, names.indexOf(BOM_PRESET.DefaultEditing().name));
 
-    this.m_bomPresetChoices = [...names, '---', 'Save preset...', 'Delete preset...'];
+    this.m_bomPresetChoices = [...names, '---', _('Save preset...'), _('Delete preset...')];
     this.m_bomPresetSelection = defaultIdx;
     this.m_currentBomPreset = this.bomPresetAt(defaultIdx);
   }
@@ -1389,8 +1394,8 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
     } else if (index === count - 2) {
       // Save current state to new preset
       const name = await this.m_window.textEntry(
-        'BOM preset name:',
-        'Save BOM Preset',
+        _('BOM preset name:'),
+        _('Save BOM Preset'),
         this.m_lastSelectedBomPreset?.name ?? '',
       );
 
@@ -1414,12 +1419,12 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
         this.m_bomPresetChoices.splice(index - 1, 0, name);
         index -= 1;
       } else if (preset.readOnly) {
-        DisplayErrorMessage('Default presets cannot be modified.\nPlease use a different name.');
+        DisplayErrorMessage(_('Default presets cannot be modified.\nPlease use a different name.'));
         resetSelection();
         return;
       } else {
         // Ask the user if they want to overwrite the existing preset
-        if (!(await IsOK('Overwrite existing preset?'))) {
+        if (!(await IsOK(_('Overwrite existing preset?')))) {
           resetSelection();
           return;
         }
@@ -1438,7 +1443,11 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
     } else if (index === count - 1) {
       // Delete a preset
       const items = [...this.m_bomPresets.values()].filter((p) => !p.readOnly).map((p) => p.name);
-      const presetName = await this.m_window.listDialog('Delete Preset', 'Select preset:', items);
+      const presetName = await this.m_window.listDialog(
+        _('Delete Preset'),
+        _('Select preset:'),
+        items,
+      );
 
       if (presetName !== null) {
         const idx = this.m_bomPresetChoices.indexOf(presetName);
@@ -1600,7 +1609,7 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
     const names = [...this.m_bomFmtPresets.keys()].sort();
     const defaultIdx = Math.max(0, names.indexOf(BOM_FMT_PRESET.CSV().name));
 
-    this.m_bomFmtPresetChoices = [...names, '---', 'Save preset...', 'Delete preset...'];
+    this.m_bomFmtPresetChoices = [...names, '---', _('Save preset...'), _('Delete preset...')];
     this.m_bomFmtPresetSelection = defaultIdx;
     this.m_currentBomFmtPreset = this.bomFmtPresetAt(defaultIdx);
   }
@@ -1661,8 +1670,8 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
     } else if (index === count - 2) {
       // Save current state to new preset
       const name = await this.m_window.textEntry(
-        'BOM preset name:',
-        'Save BOM Preset',
+        _('BOM preset name:'),
+        _('Save BOM Preset'),
         this.m_lastSelectedBomFmtPreset?.name ?? '',
       );
 
@@ -1686,12 +1695,12 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
         this.m_bomFmtPresetChoices.splice(index - 1, 0, name);
         index -= 1;
       } else if (preset.readOnly) {
-        DisplayErrorMessage('Default presets cannot be modified.\nPlease use a different name.');
+        DisplayErrorMessage(_('Default presets cannot be modified.\nPlease use a different name.'));
         resetSelection();
         return;
       } else {
         // Ask the user if they want to overwrite the existing preset
-        if (!(await IsOK('Overwrite existing preset?'))) {
+        if (!(await IsOK(_('Overwrite existing preset?')))) {
           resetSelection();
           return;
         }
@@ -1712,7 +1721,11 @@ export class DIALOG_SYMBOL_FIELDS_TABLE
       const items = [...this.m_bomFmtPresets.values()]
         .filter((p) => !p.readOnly)
         .map((p) => p.name);
-      const presetName = await this.m_window.listDialog('Delete Preset', 'Select preset:', items);
+      const presetName = await this.m_window.listDialog(
+        _('Delete Preset'),
+        _('Select preset:'),
+        items,
+      );
 
       if (presetName !== null) {
         const idx = this.m_bomFmtPresetChoices.indexOf(presetName);
@@ -2090,7 +2103,7 @@ export function DialogSymbolFieldsTable({
         <WxGridView
           grid={d.m_viewControlsGrid}
           tricks={d.m_viewControlsTricks}
-          ariaLabel="Fields"
+          ariaLabel={_('Fields')}
           fixedColumns
           onSize={(aWidth) => d.OnSizeViewControlsGrid(aWidth)}
         />
@@ -2109,7 +2122,7 @@ export function DialogSymbolFieldsTable({
         d.OnPageChanged();
       }}
       m_filter={{ value: d.m_filter, onChange: (t) => d.OnFilterText(t) }}
-      scopeChoices={['Entire Project', 'Current Sheet Only', 'Current Sheet and Down']}
+      scopeChoices={[_('Entire Project'), _('Current Sheet Only'), _('Current Sheet and Down')]}
       m_scope={{ value: d.m_scope, onChange: (i) => d.OnScope(i) }}
       m_groupSymbolsBox={{ value: d.m_groupSymbols, onChange: (v) => d.OnGroupSymbolsToggled(v) }}
       onRegroupSymbols={() => d.OnRegroupSymbols()}

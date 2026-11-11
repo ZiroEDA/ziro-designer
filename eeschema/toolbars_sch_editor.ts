@@ -21,6 +21,7 @@ import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { SCH_ACTIONS } from './tools/sch_actions.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -94,7 +95,7 @@ export const LEFT_TOOLBAR: ToolEntry[] = [
   // the seven other editors' copies of the SAME actions did not, which is how
   // the schematic editor alone drew a permanently lit "mil" button.
   {
-    group: 'Units',
+    group: _HKI('Units'),
     cycleOnClick: true,
     actions: [
       { id: 'unitsInches', icon: 'unitIn' },
@@ -103,7 +104,7 @@ export const LEFT_TOOLBAR: ToolEntry[] = [
     ],
   },
   {
-    group: 'Crosshair modes',
+    group: _HKI('Crosshair modes'),
     cycleOnClick: true,
     actions: [
       { id: 'crosshairSmall', icon: 'crosshairSmall' },
@@ -115,7 +116,7 @@ export const LEFT_TOOLBAR: ToolEntry[] = [
   { id: 'toggleHiddenPins', icon: 'hiddenPins', toggle: true },
   sep,
   {
-    group: 'Line modes',
+    group: _HKI('Line modes'),
     cycleOnClick: true,
     actions: [
       { id: 'lineModeFree', icon: 'lineFree' },
@@ -150,7 +151,7 @@ export const RIGHT_TOOLBAR_COMMANDS: ReadonlySet<string> = new Set(['syncAllShee
 
 export const RIGHT_TOOLBAR: ToolEntry[] = [
   {
-    group: 'Selection modes',
+    group: _HKI('Selection modes'),
     actions: [
       { id: 'select', icon: 'selectRect' },
       { id: 'selectLasso', icon: 'selectLasso' },
@@ -166,7 +167,7 @@ export const RIGHT_TOOLBAR: ToolEntry[] = [
   { id: 'noConnect', icon: 'noConnect' },
   { id: 'junction', icon: 'junction' },
   {
-    group: 'Labels',
+    group: _HKI('Labels'),
     actions: [
       { id: 'placeLabel', icon: 'labelLocal' },
       { id: 'placeClassLabel', icon: 'labelClass' },

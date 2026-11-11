@@ -69,6 +69,8 @@ import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
 import type { PLOTTER } from '@ziroeda/common/plotters/plotter.js';
 import type { SCH_PLOT_OPTS } from './sch_plotter.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `WIRE_STYLE`: the same values as `LINE_STYLE`, but "default" is exposed in the wire
@@ -187,16 +189,16 @@ export class SCH_LINE extends SCH_ITEM {
         msg = 'Bus';
         break;
       default:
-        msg = 'Graphical';
+        msg = _('Graphical');
         break;
     }
 
-    aList.push(new MSG_PANEL_ITEM('Line Type', msg));
+    aList.push(new MSG_PANEL_ITEM(_('Line Type'), msg));
 
     const lineStyle = this.GetStroke().GetLineStyle();
 
     if (this.GetEffectiveLineStyle() !== lineStyle)
-      aList.push(new MSG_PANEL_ITEM('Line Style', 'from netclass'));
+      aList.push(new MSG_PANEL_ITEM('Line Style', _('from netclass')));
     else this.GetStroke().GetMsgPanelInfo(aFrame, aList, true, false);
 
     // dynamic_cast<SCH_EDIT_FRAME*>( aFrame ): a schematic editor's item has a schematic.
@@ -208,7 +210,7 @@ export class SCH_LINE extends SCH_ITEM {
       if (!conn.IsBus()) {
         aList.push(
           new MSG_PANEL_ITEM(
-            'Resolved Netclass',
+            _('Resolved Netclass'),
             // null is upstream's static NETCLASS( wxEmptyString ), whose name is ''.
             unescapeString(this.GetEffectiveNetClass()?.GetHumanReadableName() ?? ''),
           ),
@@ -1093,37 +1095,37 @@ export class SCH_LINE extends SCH_ITEM {
     if (this.m_start.x === this.m_end.x) {
       switch (this.m_layer) {
         case SCH_LAYER_ID.LAYER_WIRE:
-          txtfmt = 'Vertical Wire, length %s';
+          txtfmt = _('Vertical Wire, length %s');
           break;
         case SCH_LAYER_ID.LAYER_BUS:
-          txtfmt = 'Vertical Bus, length %s';
+          txtfmt = _('Vertical Bus, length %s');
           break;
         default:
-          txtfmt = 'Vertical Graphic Line, length %s';
+          txtfmt = _('Vertical Graphic Line, length %s');
           break;
       }
     } else if (this.m_start.y === this.m_end.y) {
       switch (this.m_layer) {
         case SCH_LAYER_ID.LAYER_WIRE:
-          txtfmt = 'Horizontal Wire, length %s';
+          txtfmt = _('Horizontal Wire, length %s');
           break;
         case SCH_LAYER_ID.LAYER_BUS:
-          txtfmt = 'Horizontal Bus, length %s';
+          txtfmt = _('Horizontal Bus, length %s');
           break;
         default:
-          txtfmt = 'Horizontal Graphic Line, length %s';
+          txtfmt = _('Horizontal Graphic Line, length %s');
           break;
       }
     } else {
       switch (this.m_layer) {
         case SCH_LAYER_ID.LAYER_WIRE:
-          txtfmt = 'Wire, length %s';
+          txtfmt = _('Wire, length %s');
           break;
         case SCH_LAYER_ID.LAYER_BUS:
-          txtfmt = 'Bus, length %s';
+          txtfmt = _('Bus, length %s');
           break;
         default:
-          txtfmt = 'Graphic Line, length %s';
+          txtfmt = _('Graphic Line, length %s');
           break;
       }
     }
@@ -1323,23 +1325,23 @@ export class SCH_LINE extends SCH_ITEM {
 
   if (lineStyleEnum.Choices().GetCount() === 0) {
     lineStyleEnum
-      .Map(LINE_STYLE.SOLID, 'Solid')
-      .Map(LINE_STYLE.DASH, 'Dashed')
-      .Map(LINE_STYLE.DOT, 'Dotted')
-      .Map(LINE_STYLE.DASHDOT, 'Dash-Dot')
-      .Map(LINE_STYLE.DASHDOTDOT, 'Dash-Dot-Dot');
+      .Map(LINE_STYLE.SOLID, _HKI('Solid'))
+      .Map(LINE_STYLE.DASH, _HKI('Dashed'))
+      .Map(LINE_STYLE.DOT, _HKI('Dotted'))
+      .Map(LINE_STYLE.DASHDOT, _HKI('Dash-Dot'))
+      .Map(LINE_STYLE.DASHDOTDOT, _HKI('Dash-Dot-Dot'));
   }
 
   const wireLineStyleEnum = ENUM_MAP.Instance<WIRE_STYLE>('WIRE_STYLE');
 
   if (wireLineStyleEnum.Choices().GetCount() === 0) {
     wireLineStyleEnum
-      .Map(WIRE_STYLE.DEFAULT, 'Default')
-      .Map(WIRE_STYLE.SOLID, 'Solid')
-      .Map(WIRE_STYLE.DASH, 'Dashed')
-      .Map(WIRE_STYLE.DOT, 'Dotted')
-      .Map(WIRE_STYLE.DASHDOT, 'Dash-Dot')
-      .Map(WIRE_STYLE.DASHDOTDOT, 'Dash-Dot-Dot');
+      .Map(WIRE_STYLE.DEFAULT, _HKI('Default'))
+      .Map(WIRE_STYLE.SOLID, _HKI('Solid'))
+      .Map(WIRE_STYLE.DASH, _HKI('Dashed'))
+      .Map(WIRE_STYLE.DOT, _HKI('Dotted'))
+      .Map(WIRE_STYLE.DASHDOT, _HKI('Dash-Dot'))
+      .Map(WIRE_STYLE.DASHDOTDOT, _HKI('Dash-Dot-Dot'));
   }
 
   const propMgr = PROPERTY_MANAGER.Instance();
@@ -1368,15 +1370,15 @@ export class SCH_LINE extends SCH_ITEM {
       aType,
     );
 
-  propMgr.AddProperty(coord('Start X', 'SetStartX', 'GetStartX', COORD_TYPES_T.ABS_X_COORD));
-  propMgr.AddProperty(coord('Start Y', 'SetStartY', 'GetStartY', COORD_TYPES_T.ABS_Y_COORD));
-  propMgr.AddProperty(coord('End X', 'SetEndX', 'GetEndX', COORD_TYPES_T.ABS_X_COORD));
-  propMgr.AddProperty(coord('End Y', 'SetEndY', 'GetEndY', COORD_TYPES_T.ABS_Y_COORD));
+  propMgr.AddProperty(coord(_HKI('Start X'), 'SetStartX', 'GetStartX', COORD_TYPES_T.ABS_X_COORD));
+  propMgr.AddProperty(coord(_HKI('Start Y'), 'SetStartY', 'GetStartY', COORD_TYPES_T.ABS_Y_COORD));
+  propMgr.AddProperty(coord(_HKI('End X'), 'SetEndX', 'GetEndX', COORD_TYPES_T.ABS_X_COORD));
+  propMgr.AddProperty(coord(_HKI('End Y'), 'SetEndY', 'GetEndY', COORD_TYPES_T.ABS_Y_COORD));
 
   propMgr.AddProperty(
     new PROPERTY<SCH_LINE, number>(
       SCH_LINE,
-      'Length',
+      _HKI('Length'),
       'SetLength',
       'GetLength',
       TYPE_DOUBLE,
@@ -1400,7 +1402,7 @@ export class SCH_LINE extends SCH_ITEM {
     .AddProperty(
       new PROPERTY_ENUM<SCH_LINE, WIRE_STYLE>(
         SCH_LINE,
-        'Wire Style',
+        _HKI('Wire Style'),
         'SetWireStyle',
         'GetWireStyle',
         wireLineStyleEnum,
@@ -1411,7 +1413,7 @@ export class SCH_LINE extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY<SCH_LINE, number>(
       SCH_LINE,
-      'Line Width',
+      _HKI('Line Width'),
       'SetLineWidth',
       'GetLineWidth',
       TYPE_INT,
@@ -1422,7 +1424,7 @@ export class SCH_LINE extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY<SCH_LINE, Color4d>(
       SCH_LINE,
-      'Color',
+      _HKI('Color'),
       'SetLineColor',
       'GetLineColor',
       TYPE_COLOR4D,

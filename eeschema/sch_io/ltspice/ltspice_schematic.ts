@@ -25,6 +25,7 @@ import { SCH_SHEET } from '../../sch_sheet.js';
 import { SCH_SHEET_PATH } from '../../sch_sheet_path.js';
 import type { SCHEMATIC } from '../../schematic.js';
 import { SCH_IO_LTSPICE_PARSER } from './sch_io_ltspice_parser.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const INT_MAX = 2147483647;
 
@@ -836,7 +837,7 @@ export class LTSPICE_SCHEMATIC {
   }
 
   private static getLineStyle(aValue: number): LINESTYLE {
-    if (aValue < 0 || aValue > 4) throw new IO_ERROR('Expecting 0, 1, 2, 3 or 4');
+    if (aValue < 0 || aValue > 4) throw new IO_ERROR(_('Expecting 0, 1, 2, 3 or 4'));
 
     return aValue as LINESTYLE;
   }
@@ -848,7 +849,7 @@ export class LTSPICE_SCHEMATIC {
 
     if (v === 'WIDE') return LINEWIDTH.Wide;
 
-    throw new IO_ERROR('Expecting NORMAL or WIDE');
+    throw new IO_ERROR(_('Expecting NORMAL or WIDE'));
   }
 
   private static getPolarity(aValue: string): POLARITY {
@@ -862,7 +863,7 @@ export class LTSPICE_SCHEMATIC {
     };
     const v = m[upper(aValue)];
 
-    if (v === undefined) throw new IO_ERROR('Expecting I, O, B, IN, OUT or BIDIR');
+    if (v === undefined) throw new IO_ERROR(_('Expecting I, O, B, IN, OUT or BIDIR'));
 
     return v;
   }
@@ -880,7 +881,8 @@ export class LTSPICE_SCHEMATIC {
     };
     const v = m[upper(aValue)];
 
-    if (v === undefined) throw new IO_ERROR('Expecting R0, R90, R18, R270, M0, M90, M180 or M270');
+    if (v === undefined)
+      throw new IO_ERROR(_('Expecting R0, R90, R18, R270, M0, M90, M180 or M270'));
 
     return v;
   }
@@ -903,7 +905,9 @@ export class LTSPICE_SCHEMATIC {
 
     if (v === undefined)
       throw new IO_ERROR(
-        'Expecting LEFT, CENTER, RIGHT, TOP, BOTTOM, VLEFT, VRIGHT, VCENTER, VTOP, VBOTTOM or INVISIBLE',
+        _(
+          'Expecting LEFT, CENTER, RIGHT, TOP, BOTTOM, VLEFT, VRIGHT, VCENTER, VTOP, VBOTTOM or INVISIBLE',
+        ),
       );
 
     return v;
@@ -926,7 +930,7 @@ export class LTSPICE_SCHEMATIC {
 
     if (v === undefined)
       throw new IO_ERROR(
-        'Expecting NONE, BOTTOM, TOP, LEFT, RIGHT, VBOTTOM, VTOP, VCENTER, VLEFT or VRIGHT',
+        _('Expecting NONE, BOTTOM, TOP, LEFT, RIGHT, VBOTTOM, VTOP, VCENTER, VLEFT or VRIGHT'),
       );
 
     return v;
@@ -939,7 +943,7 @@ export class LTSPICE_SCHEMATIC {
 
     if (v === 'BLOCK') return SYMBOLTYPE.BLOCK;
 
-    throw new IO_ERROR('Expecting CELL or BLOCK');
+    throw new IO_ERROR(_('Expecting CELL or BLOCK'));
   }
 
   private static removeCarriageReturn(aLine: string): string {

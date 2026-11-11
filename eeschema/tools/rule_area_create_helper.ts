@@ -25,6 +25,7 @@ import { SCH_COMMIT } from '../sch_commit.js';
 import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
 import { SCH_RENDER_SETTINGS } from '../sch_render_settings.js';
 import { SCH_RULE_AREA } from '../sch_rule_area.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class RULE_AREA_CREATE_HELPER implements POLYGON_GEOM_MANAGER_CLIENT {
   ///< The preview item to display
@@ -60,7 +61,7 @@ export class RULE_AREA_CREATE_HELPER implements POLYGON_GEOM_MANAGER_CLIENT {
     const commit = new SCH_COMMIT(this.m_toolManager);
 
     commit.Add(aRuleArea, this.m_frame.GetScreen());
-    commit.Push('Draw Rule Area');
+    commit.Push(_('Draw Rule Area'));
 
     this.m_toolManager.RunAction(ACTIONS.selectItem, aRuleArea);
 

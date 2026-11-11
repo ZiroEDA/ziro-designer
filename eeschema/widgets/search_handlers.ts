@@ -32,6 +32,7 @@ import type { SCH_TEXT } from '../sch_text.js';
 import type { SCH_TEXTBOX } from '../sch_textbox.js';
 import type { SCHEMATIC } from '../schematic.js';
 import { SCH_ACTIONS } from '../tools/sch_actions.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `SCH_EDIT_FRAME`, as far as `search_handlers.cpp` reads it. */
 export interface SchSearchFrame {
@@ -198,21 +199,21 @@ abstract class SCH_SEARCH_HANDLER implements SearchHandler {
 class SYMBOL_SEARCH_HANDLER extends SCH_SEARCH_HANDLER {
   constructor(aFrame: SchSearchFrame) {
     super(
-      'Symbols',
+      _HKI('Symbols'),
       [
-        col('Reference', 2, 'left'),
-        col('Value', 6, 'left'),
-        col('Footprint', 10, 'left'),
-        col('Page', 1, 'center'),
+        col(_HKI('Reference'), 2, 'left'),
+        col(_HKI('Value'), 6, 'left'),
+        col(_HKI('Footprint'), 10, 'left'),
+        col(_HKI('Page'), 1, 'center'),
         col('X', 3, 'center'),
         col('Y', 3, 'center'),
-        col('Excl. Sim', 2, 'center'),
-        col('Excl. BOM', 2, 'center'),
-        col('Excl. Board', 2, 'center'),
-        col('Excl. Pos Files', 2, 'center'),
-        col('DNP', 2, 'center'),
-        col('Library Link', 8, 'left'),
-        col('Library Description', 10, 'left'),
+        col(_HKI('Excl. Sim'), 2, 'center'),
+        col(_HKI('Excl. BOM'), 2, 'center'),
+        col(_HKI('Excl. Board'), 2, 'center'),
+        col(_HKI('Excl. Pos Files'), 2, 'center'),
+        col(_HKI('DNP'), 2, 'center'),
+        col(_HKI('Library Link'), 8, 'left'),
+        col(_HKI('Library Description'), 10, 'left'),
       ],
       aFrame,
     );
@@ -283,11 +284,11 @@ class SYMBOL_SEARCH_HANDLER extends SCH_SEARCH_HANDLER {
 class POWER_SEARCH_HANDLER extends SCH_SEARCH_HANDLER {
   constructor(aFrame: SchSearchFrame) {
     super(
-      'Power',
+      _HKI('Power'),
       [
-        col('Reference', 2, 'left'),
-        col('Value', 6, 'left'),
-        col('Page', 1, 'center'),
+        col(_HKI('Reference'), 2, 'left'),
+        col(_HKI('Value'), 6, 'left'),
+        col(_HKI('Page'), 1, 'center'),
         col('X', 3, 'center'),
         col('Y', 3, 'center'),
       ],
@@ -345,9 +346,9 @@ class TEXT_SEARCH_HANDLER extends SCH_SEARCH_HANDLER {
     super(
       'Text',
       [
-        col('Type', 2, 'left'),
+        col(_HKI('Type'), 2, 'left'),
         col('Text', 12, 'left'),
-        col('Page', 1, 'center'),
+        col(_HKI('Page'), 1, 'center'),
         col('X', 3, 'center'),
         col('Y', 3, 'center'),
       ],
@@ -398,11 +399,11 @@ class TEXT_SEARCH_HANDLER extends SCH_SEARCH_HANDLER {
 class LABEL_SEARCH_HANDLER extends SCH_SEARCH_HANDLER {
   constructor(aFrame: SchSearchFrame) {
     super(
-      'Labels',
+      _HKI('Labels'),
       [
-        col('Type', 2, 'left'),
-        col('Name', 6, 'left'),
-        col('Page', 2, 'center'),
+        col(_HKI('Type'), 2, 'left'),
+        col(_HKI('Name'), 6, 'left'),
+        col(_HKI('Page'), 2, 'center'),
         col('X', 3, 'center'),
         col('Y', 3, 'center'),
       ],
@@ -461,10 +462,10 @@ class LABEL_SEARCH_HANDLER extends SCH_SEARCH_HANDLER {
 class GROUP_SEARCH_HANDLER extends SCH_SEARCH_HANDLER {
   constructor(aFrame: SchSearchFrame) {
     super(
-      'Groups',
+      _HKI('Groups'),
       [
-        col('Name', 6, 'left'),
-        col('Page', 2, 'center'),
+        col(_HKI('Name'), 6, 'left'),
+        col(_HKI('Page'), 2, 'center'),
         col('X', 3, 'center'),
         col('Y', 3, 'center'),
       ],

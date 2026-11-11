@@ -66,21 +66,23 @@ import {
 } from '../sch_label.js';
 import { SCH_SCREENS } from '../sch_screen.js';
 import type { SCH_SYMBOL } from '../sch_symbol.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The radio buttons of m_shapeSizer, in the base dialog's order. */
 const LABEL_SHAPES: { shape: LABEL_FLAG_SHAPE; label: string }[] = [
-  { shape: LABEL_FLAG_SHAPE.L_INPUT, label: 'Input' },
-  { shape: LABEL_FLAG_SHAPE.L_OUTPUT, label: 'Output' },
-  { shape: LABEL_FLAG_SHAPE.L_BIDI, label: 'Bidirectional' },
-  { shape: LABEL_FLAG_SHAPE.L_TRISTATE, label: 'Tri-state' },
-  { shape: LABEL_FLAG_SHAPE.L_UNSPECIFIED, label: 'Passive' },
+  { shape: LABEL_FLAG_SHAPE.L_INPUT, label: _HKI('Input') },
+  { shape: LABEL_FLAG_SHAPE.L_OUTPUT, label: _HKI('Output') },
+  { shape: LABEL_FLAG_SHAPE.L_BIDI, label: _HKI('Bidirectional') },
+  { shape: LABEL_FLAG_SHAPE.L_TRISTATE, label: _HKI('Tri-state') },
+  { shape: LABEL_FLAG_SHAPE.L_UNSPECIFIED, label: _HKI('Passive') },
 ];
 
 const FLAG_SHAPES: { shape: LABEL_FLAG_SHAPE; label: string }[] = [
-  { shape: LABEL_FLAG_SHAPE.F_DOT, label: 'Dot' },
-  { shape: LABEL_FLAG_SHAPE.F_ROUND, label: 'Circle' },
-  { shape: LABEL_FLAG_SHAPE.F_DIAMOND, label: 'Diamond' },
-  { shape: LABEL_FLAG_SHAPE.F_RECTANGLE, label: 'Rectangle' },
+  { shape: LABEL_FLAG_SHAPE.F_DOT, label: _HKI('Dot') },
+  { shape: LABEL_FLAG_SHAPE.F_ROUND, label: _HKI('Circle') },
+  { shape: LABEL_FLAG_SHAPE.F_DIAMOND, label: _HKI('Diamond') },
+  { shape: LABEL_FLAG_SHAPE.F_RECTANGLE, label: _HKI('Rectangle') },
 ];
 
 /** m_spin0..3: the spin style each button stands for. */
@@ -165,7 +167,7 @@ export class DIALOG_LABEL_PROPERTIES {
   ) {
     this.m_Parent = aParent;
     this.m_currentLabel = aLabel;
-    this.m_textSize = new UNIT_BINDER(aParent, 'Text size:', (aMessage) =>
+    this.m_textSize = new UNIT_BINDER(aParent, _('Text size:'), (aMessage) =>
       DisplayErrorMessage(aMessage),
     );
 
@@ -178,26 +180,26 @@ export class DIALOG_LABEL_PROPERTIES {
     this.m_hasSingleLine = type === KICAD_T.SCH_HIER_LABEL_T;
     this.m_hasTextEntry = this.m_hasCombo || this.m_hasSingleLine;
 
-    if (this.m_isDirective) this.m_textSize.SetLabel('Pin length:');
+    if (this.m_isDirective) this.m_textSize.SetLabel(_('Pin length:'));
 
     // multiline set of labels can be used only to create new labels
     this.m_multilineAllowed = aNew && !this.m_isDirective;
 
     switch (type) {
       case KICAD_T.SCH_GLOBAL_LABEL_T:
-        this.m_title = 'Global Label Properties';
+        this.m_title = _('Global Label Properties');
         break;
       case KICAD_T.SCH_HIER_LABEL_T:
-        this.m_title = 'Hierarchical Label Properties';
+        this.m_title = _('Hierarchical Label Properties');
         break;
       case KICAD_T.SCH_LABEL_T:
-        this.m_title = 'Label Properties';
+        this.m_title = _('Label Properties');
         break;
       case KICAD_T.SCH_DIRECTIVE_LABEL_T:
-        this.m_title = 'Directive Label Properties';
+        this.m_title = _('Directive Label Properties');
         break;
       case KICAD_T.SCH_SHEET_PIN_T:
-        this.m_title = 'Hierarchical Sheet Pin Properties';
+        this.m_title = _('Hierarchical Sheet Pin Properties');
         break;
       default:
         this.m_title = '';
@@ -395,7 +397,7 @@ export class DIALOG_LABEL_PROPERTIES {
       if (schematic) text = schematic.ConvertRefsToKIIDs(text);
 
       if (text === '' && !label.IsNew()) {
-        DisplayErrorMessage('Label can not be empty.');
+        DisplayErrorMessage(_('Label can not be empty.'));
         return false;
       }
 
@@ -444,7 +446,7 @@ export class DIALOG_LABEL_PROPERTIES {
         if (netclassFieldCount > 1) this.m_fields.erase(ii);
       } else if (fieldName === '') {
         // give non-empty, unnamed fields a name
-        field.SetName('untitled');
+        field.SetName(_('untitled'));
       }
     }
 
@@ -494,7 +496,7 @@ export class DIALOG_LABEL_PROPERTIES {
       label.AutoplaceFields(this.m_Parent.GetScreen(), fieldsAutoplaced);
 
     if (!commit.Empty()) {
-      commit.Push('Edit Label Properties');
+      commit.Push(_('Edit Label Properties'));
     } else if (this.m_hasTextEntry && this.m_labelList) {
       // On macOS CTRL+Enter produces '\r' instead of '\n' regardless of EOL setting
       const lines = aValues.text.replace(/\r/g, '\n').split('\n');
@@ -585,7 +587,7 @@ export class DIALOG_LABEL_PROPERTIES {
     this.m_grid.OnDeleteRows(
       (row) => {
         if (row < this.m_currentLabel.GetMandatoryFieldCount()) {
-          DisplayErrorMessage('The first field is mandatory.');
+          DisplayErrorMessage(_('The first field is mandatory.'));
           return false;
         }
 
@@ -681,7 +683,7 @@ export function DialogLabelProperties({
           grid={dlg.Grid()}
           columns={GRID_COLUMNS}
           flexCol={FIELDS_DATA_COL_ORDER.FDC_VALUE}
-          ariaLabel="Fields"
+          ariaLabel={_('Fields')}
         />
       }
       onAddField={fieldAction(() => dlg.OnAddField())}
@@ -695,7 +697,7 @@ export function DialogLabelProperties({
         checked: v.shape === s.shape,
         onChange: () => set({ shape: s.shape }),
       }))}
-      fontLabel={dlg.m_isDirective ? 'Orientation:' : 'Font:'}
+      fontLabel={dlg.m_isDirective ? _('Orientation:') : _('Font:')}
       fontShown={!dlg.m_isDirective}
       font={v.face}
       onFont={(f) => set({ face: f })}
@@ -713,7 +715,7 @@ export function DialogLabelProperties({
         value: v.autoRotate,
         onChange: (on) => set({ autoRotate: on }),
       }}
-      textSizeLabel={dlg.m_isDirective ? 'Pin length:' : 'Text size:'}
+      textSizeLabel={dlg.m_isDirective ? _('Pin length:') : _('Text size:')}
       m_textSizeCtrl={v.size}
       onTextSize={(t) => set({ size: t })}
       units={unitLabel(units)}

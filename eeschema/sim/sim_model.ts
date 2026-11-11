@@ -31,6 +31,7 @@ import {
   SIM_TYPE_FIELD,
   SIM_TYPES,
 } from './sim_model_types.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** One diagnostic, as the reporter would have collected it. */
 export interface SimModelIssue {
@@ -138,7 +139,7 @@ export function simModelTypeIssue(sym: SIM_FIELDS, aPinCount: number): SimModelI
 
   if (readTypeFromFields(deviceType, modelType).found) return null;
 
-  return { message: 'No simulation model definition found.' };
+  return { message: _('No simulation model definition found.') };
 }
 
 /**

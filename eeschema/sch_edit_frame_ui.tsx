@@ -449,6 +449,8 @@ import { wxMenuEvent, wxMenuEventType } from '@ziroeda/wx/menu.js';
 import { MEMORY_FILESYSTEM, wxMountFileSystem } from '@ziroeda/wx/filefn.js';
 import { schToolbarAction } from './toolbars_sch_editor.js';
 import { symbolLibraryUri } from './cross-probing.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
@@ -535,33 +537,33 @@ const ANNOTATE_ALGO_OF: Record<AnnotateOptions['algo'], ANNOTATE_ALGO_T> = {
 // selection tool reads "Select item(s)". Names from sch_actions.cpp /
 // actions.cpp FriendlyName().
 const SCH_TOOL_MSGS: Record<string, string> = {
-  select: 'Select item(s)',
-  selectLasso: 'Select item(s)',
-  highlightNet: 'Highlight Nets',
-  placeSymbol: 'Place Symbols',
-  placePower: 'Place Power Symbols',
-  drawWire: 'Draw Wires',
-  drawBus: 'Draw Buses',
-  busEntry: 'Place Wire to Bus Entries',
+  select: _HKI('Select item(s)'),
+  selectLasso: _HKI('Select item(s)'),
+  highlightNet: _HKI('Highlight Nets'),
+  placeSymbol: _HKI('Place Symbols'),
+  placePower: _HKI('Place Power Symbols'),
+  drawWire: _HKI('Draw Wires'),
+  drawBus: _HKI('Draw Buses'),
+  busEntry: _HKI('Place Wire to Bus Entries'),
   noConnect: 'Place/Remove No Connect Flags',
-  junction: 'Place Junctions',
-  placeLabel: 'Place Net Labels',
-  placeClassLabel: 'Place Directive Labels',
-  placeGlobalLabel: 'Place Global Labels',
-  placeHierLabel: 'Place Hierarchical Labels',
-  drawSheet: 'Draw Hierarchical Sheets',
-  sheetPin: 'Place Pins from Sheet',
-  placeText: 'Draw Text',
-  textBox: 'Draw Text Boxes',
-  table: 'Draw Tables',
-  rectangle: 'Draw Rectangles',
-  circle: 'Draw Circles',
-  arc: 'Draw Arcs',
-  bezier: 'Draw Bezier Curve',
-  lines: 'Draw Lines',
-  image: 'Place Images',
-  delete: 'Interactive Delete Tool',
-  zoomTool: 'Zoom to Selection Area',
+  junction: _HKI('Place Junctions'),
+  placeLabel: _HKI('Place Net Labels'),
+  placeClassLabel: _HKI('Place Directive Labels'),
+  placeGlobalLabel: _HKI('Place Global Labels'),
+  placeHierLabel: _HKI('Place Hierarchical Labels'),
+  drawSheet: _HKI('Draw Hierarchical Sheets'),
+  sheetPin: _HKI('Place Pins from Sheet'),
+  placeText: _HKI('Draw Text'),
+  textBox: _HKI('Draw Text Boxes'),
+  table: _HKI('Draw Tables'),
+  rectangle: _HKI('Draw Rectangles'),
+  circle: _HKI('Draw Circles'),
+  arc: _HKI('Draw Arcs'),
+  bezier: _HKI('Draw Bezier Curve'),
+  lines: _HKI('Draw Lines'),
+  image: _HKI('Place Images'),
+  delete: _HKI('Interactive Delete Tool'),
+  zoomTool: _HKI('Zoom to Selection Area'),
 };
 
 /** A file picked from disk for a project open. */
@@ -1626,13 +1628,13 @@ export function SchematicEditor({
         {
           IsOK: (aMessage) => DbIsOK(aMessage),
           OKOrCancel: async (aMessage, aDetail, aOKLabel) =>
-            (await DbOKOrCancelDialog('Confirmation', aMessage, aDetail, aOKLabel)) === wxID_OK,
+            (await DbOKOrCancelDialog(_('Confirmation'), aMessage, aDetail, aOKLabel)) === wxID_OK,
           ConfirmOverwriteLibrary: async (aMessage) =>
             (await ShowKicadMessageDialog({
               message: aMessage,
               caption: 'Warning',
               style: wxOK | wxCANCEL | wxICON_WARNING,
-              okLabel: 'Overwrite',
+              okLabel: _('Overwrite'),
             })) === wxID_OK,
           DisplayError: (aMessage, aDetail) => DbDisplayErrorMessage(aMessage, aDetail ?? ''),
           GetTextFromUser: (aMessage, aTitle) =>
@@ -2795,7 +2797,7 @@ export function SchematicEditor({
           company: ps.company,
           comments: ps.comments,
         },
-        sheetName: path === '/' ? 'Root' : (path.split('/').filter(Boolean).pop() ?? 'Root'),
+        sheetName: path === '/' ? _('Root') : (path.split('/').filter(Boolean).pop() ?? _('Root')),
         sheetPath: path,
         fileName: file,
         ...(projectName ? { projectName } : {}),
@@ -2934,7 +2936,7 @@ export function SchematicEditor({
       const symbol = live?.Type() === KICAD_T.SCH_SYMBOL_T ? (live as SCH_SYMBOL) : null;
       if (!symbol || symbol.IsMissingLibSymbol()) {
         // "Symbols with broken library symbol links cannot be edited." (sch_editor_control.cpp)
-        setInfoBar('Symbols with broken library symbol links cannot be edited.');
+        setInfoBar(_('Symbols with broken library symbol links cannot be edited.'));
         return;
       }
       if (target === 'schematic') onEditSymbolInEditor({ fromSchematic: symbol });
@@ -3019,7 +3021,7 @@ export function SchematicEditor({
       if (found.length === 0) {
         // "if( aRunningOnDemand )" — the automatic call says nothing when there
         // is nothing to say, because the user did not ask for it.
-        if (onDemand) setRescueMessage('This project has nothing to rescue.');
+        if (onDemand) setRescueMessage(_('This project has nothing to rescue.'));
         return;
       }
       setRescueCandidates(found);
@@ -3075,7 +3077,7 @@ export function SchematicEditor({
       if (chosen.length === 0) {
         // "No symbols were rescued." — upstream says this even on Cancel,
         // because a mis-click there should not look like it did something.
-        setRescueMessage('No symbols were rescued.');
+        setRescueMessage(_('No symbols were rescued.'));
         return;
       }
 
@@ -3236,7 +3238,7 @@ export function SchematicEditor({
         reporter,
         SYMBOL_FILTER.SYMBOL_FILTER_NON_POWER,
       );
-      commit.Push('Annotate');
+      commit.Push(_('Annotate'));
       adoptAllLiveScreens();
       setAnnotateMessages([...reporter.lines]);
 
@@ -3341,7 +3343,7 @@ export function SchematicEditor({
     const frame = schFrameRef.current;
     const pageInfo = frame?.GetScreen()?.GetPageSettings();
     if (!frame || !pageInfo) return;
-    new wxPrinter().Print(new SCH_PRINTOUT(frame, 'Print Schematic'), {
+    new wxPrinter().Print(new SCH_PRINTOUT(frame, _('Print Schematic')), {
       x: pageInfo.GetWidthMils() / 1000,
       y: pageInfo.GetHeightMils() / 1000,
     });
@@ -3480,7 +3482,7 @@ export function SchematicEditor({
         if (allPages) {
           const sheets = [...liveDocs()];
           // SCH_PLOTTER::Plot: nothing to write is an error, not a silent no-op.
-          if (sheets.length === 0) report('No sheets to plot.', RPT_SEVERITY_ERROR);
+          if (sheets.length === 0) report(_('No sheets to plot.'), RPT_SEVERITY_ERROR);
           else if (format === 'pdf') {
             // createPDFFile opens one file and pages through the SHEET LIST —
             // one page per sheet instance, in hierarchy order, each with its
@@ -3550,7 +3552,7 @@ export function SchematicEditor({
               one(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file);
           }
         } else if (doc) one(doc, outputBaseName(), currentFile);
-        else report('No sheets to plot.', RPT_SEVERITY_ERROR);
+        else report(_('No sheets to plot.'), RPT_SEVERITY_ERROR);
       };
       // A faced text plots from the same glyphs it is drawn with, which
       // means its face has to be here first: a sheet never shown on screen
@@ -5591,13 +5593,13 @@ export function SchematicEditor({
       <pre style={{ color: 'crimson', padding: 16 }}>Failed to load schematic: {error}</pre>
     ) : (
       <div className="ze-app sch-theme">
-        <ProgressDialog title="Load Schematic" label={loading ?? 'Loading schematic...'} />
+        <ProgressDialog title={_('Load Schematic')} label={loading ?? 'Loading schematic...'} />
       </div>
     );
   }
 
   const _title =
-    currentFile !== DEFAULT_FILE ? currentFile : (fileName ?? doc.titleBlock?.title ?? 'Root');
+    currentFile !== DEFAULT_FILE ? currentFile : (fileName ?? doc.titleBlock?.title ?? _('Root'));
 
   // Navigate Back / Up / Forward stay enabled: their conditions are commented out upstream
   // because arrow-key hotkeys would fall through to another action (sch_edit_frame.cpp:931-939,
@@ -5703,7 +5705,7 @@ export function SchematicEditor({
         }}
       />
       {error && (
-        <div className="ze-error-banner" onClick={() => setError(null)} title="Dismiss">
+        <div className="ze-error-banner" onClick={() => setError(null)} title={_('Dismiss')}>
           {error}, click to dismiss
         </div>
       )}
@@ -5805,7 +5807,7 @@ export function SchematicEditor({
                         <>
                           <div className="ze-panel grow" style={heightStyle('netNavigator')}>
                             <div className="ze-panel-header">
-                              <span>Net Navigator</span>
+                              <span>{_('Net Navigator')}</span>
                               {/* `.CloseButton( true )` on every one of these
                                   palettes. Closing a pane is the same state the
                                   View > Panels check item drives, which is why it
@@ -5830,7 +5832,7 @@ export function SchematicEditor({
                         <>
                           <div className="ze-panel grow" style={heightStyle('hierarchy')}>
                             <div className="ze-panel-header">
-                              <span>Schematic Hierarchy</span>
+                              <span>{_('Schematic Hierarchy')}</span>
                               {/* `.CloseButton( true )` on every one of these
                                   palettes. Closing a pane is the same state the
                                   View > Panels check item drives, which is why it
@@ -5868,7 +5870,7 @@ export function SchematicEditor({
                         <>
                           <div className="ze-panel grow" style={heightStyle('properties')}>
                             <div className="ze-panel-header">
-                              <span>Properties</span>
+                              <span>{_('Properties')}</span>
                               {/* `.CloseButton( true )` on every one of these
                                   palettes. Closing a pane is the same state the
                                   View > Panels check item drives, which is why it
@@ -6053,7 +6055,7 @@ export function SchematicEditor({
                   // `OnCancelClick` clears the chosen candidates, and
                   // `RescueProject` then reports that nothing was rescued.
                   setRescueCandidates(null);
-                  setRescueMessage('No symbols were rescued.');
+                  setRescueMessage(_('No symbols were rescued.'));
                 }}
                 onNeverShowAgain={() => {
                   setRescueCandidates(null);
@@ -6065,7 +6067,7 @@ export function SchematicEditor({
             )}
             {rescueMessage && (
               <MessageDialogOk
-                caption="Project Rescue Helper"
+                caption={_('Project Rescue Helper')}
                 message={rescueMessage}
                 onClose={() => setRescueMessage(null)}
               />
@@ -6093,7 +6095,7 @@ export function SchematicEditor({
             {fieldsList && (
               <EdaListDialog
                 title={fieldsList.caption}
-                headers={['Presets']}
+                headers={[_('Presets')]}
                 rows={fieldsList.items.map((name) => ({ value: name, cells: [name] }))}
                 listLabel={fieldsList.label}
                 onResult={(picked) => {
@@ -6114,7 +6116,7 @@ export function SchematicEditor({
             {ercComment && (
               <WX_TEXT_ENTRY_DIALOG
                 label=""
-                caption="Exclusion Comment"
+                caption={_('Exclusion Comment')}
                 defaultValue={ercComment.initial}
                 extraWidth
                 onResult={(text) => {
@@ -6125,11 +6127,14 @@ export function SchematicEditor({
             )}
             {ercYesNoCancel && (
               <MessageDialogYesNoCancel
-                caption="Delete All Markers"
-                message="Delete exclusions too?"
+                caption={_('Delete All Markers')}
+                message={_('Delete exclusions too?')}
                 icon="question"
                 defaultButton="yes"
-                labels={{ yes: 'Errors and Warnings Only', no: 'Errors, Warnings and Exclusions' }}
+                labels={{
+                  yes: _('Errors and Warnings Only'),
+                  no: _('Errors, Warnings and Exclusions'),
+                }}
                 onResult={(r) => {
                   ercYesNoCancel.resolve(r);
                   setErcYesNoCancel(null);
@@ -6141,7 +6146,7 @@ export function SchematicEditor({
               //   _( "Save Report File" ), Prj().GetProjectPath(), fn.GetFullName(),
               //   ReportFileWildcard() | JsonFileWildcard(), wxFD_SAVE | wxFD_OVERWRITE_PROMPT ).
               <SaveAsDialog
-                title="Save Report File"
+                title={_('Save Report File')}
                 initialName={ercSaveReport.defaultName}
                 filters={[reportFileWildcard(), jsonFileWildcard()]}
                 {...(projectName
@@ -6442,7 +6447,7 @@ export function SchematicEditor({
               />
               <div className="ze-bottomdock sch-bottomdock" style={bottomDockStyle}>
                 <div className="ze-panel">
-                  <div className="ze-panel-header">Search</div>
+                  <div className="ze-panel-header">{_('Search')}</div>
                   <div className="ze-panel-body">
                     {schFrameRef.current && (
                       <SchSearchPane
@@ -6997,7 +7002,7 @@ export function SchematicEditor({
           (files-io.cpp:179), over the frame — which is already up, menus,
           toolbars and grid, with its blank sheet, exactly as SCH_EDIT_FRAME
           is before OpenProjectFiles runs. */}
-      <ProgressDialog title="Load Schematic" label={loading} />
+      <ProgressDialog title={_('Load Schematic')} label={loading} />
     </div>
   );
 }

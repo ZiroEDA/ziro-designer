@@ -36,6 +36,7 @@ import { SCH_IO_KICAD_SEXPR } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
 import { SCH_SCREEN } from './sch_screen.js';
 import { SCH_SHEET } from './sch_sheet.js';
 import { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 let s_tempCounter = 0;
 
@@ -60,8 +61,8 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
       .Dialogs()
       .OKOrCancel(
         `Design block '${aNewName}' already exists in library '${aLibname}'.`,
-        'Overwrite existing design block?',
-        'Overwrite',
+        _('Overwrite existing design block?'),
+        _('Overwrite'),
       );
   }
 
@@ -71,8 +72,8 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
       .Dialogs()
       .OKOrCancel(
         `Design block '${aLibId.GetUniStringLibItemName()}' already has a schematic.`,
-        'Overwrite existing schematic?',
-        'Overwrite',
+        _('Overwrite existing schematic?'),
+        _('Overwrite'),
       );
   }
 
@@ -101,7 +102,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
 
     // Make sure the user has selected a library to save into
     if (pane.GetSelectedLibId().GetLibNickname() === '') {
-      dialogs.DisplayError('Please select a library to save the design block to.');
+      dialogs.DisplayError(_('Please select a library to save the design block to.'));
       return false;
     }
 
@@ -110,7 +111,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
     aSheetPath.LastScreen()!.GetSheets(sheets);
 
     if (sheets.length > 0) {
-      dialogs.DisplayError('Design blocks with nested sheets are not supported.');
+      dialogs.DisplayError(_('Design blocks with nested sheets are not supported.'));
       return false;
     }
 
@@ -142,7 +143,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
     const tempFile = createTempFileName('design_block');
 
     if (!this.saveDesignBlockSchematic(aSheetPath.Last()!, tempFile)) {
-      dialogs.DisplayError('Error saving temporary schematic file to create design block.');
+      dialogs.DisplayError(_('Error saving temporary schematic file to create design block.'));
       wxRemoveFile(tempFile);
       return false;
     }
@@ -179,7 +180,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
 
     // Make sure the user has selected a library to save into
     if (!libs.DesignBlockExists(aLibId.GetLibNickname(), aLibId.GetLibItemName())) {
-      dialogs.DisplayError('Please select a design block to save the schematic to.');
+      dialogs.DisplayError(_('Please select a design block to save the schematic to.'));
       return false;
     }
 
@@ -188,7 +189,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
     aSheetPath.LastScreen()!.GetSheets(sheets);
 
     if (sheets.length > 0) {
-      dialogs.DisplayError('Design blocks with nested sheets are not supported.');
+      dialogs.DisplayError(_('Design blocks with nested sheets are not supported.'));
       return false;
     }
 
@@ -226,7 +227,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
     const tempFile = createTempFileName('design_block');
 
     if (!this.saveDesignBlockSchematic(aSheetPath.Last()!, tempFile)) {
-      dialogs.DisplayError('Error saving temporary schematic file to create design block.');
+      dialogs.DisplayError(_('Error saving temporary schematic file to create design block.'));
       wxRemoveFile(tempFile);
       return false;
     }
@@ -298,13 +299,13 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
     const selection = [...this.GetCurrentSelection().Items()];
 
     if (selection.length === 0) {
-      dialogs.DisplayError('Please select some items to save as a design block.');
+      dialogs.DisplayError(_('Please select some items to save as a design block.'));
       return false;
     }
 
     // Make sure the user has selected a library to save into
     if (pane.GetSelectedLibId().GetLibNickname() === '') {
-      dialogs.DisplayError('Please select a library to save the design block to.');
+      dialogs.DisplayError(_('Please select a library to save the design block to.'));
       return false;
     }
 
@@ -316,7 +317,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
         curPath.push_back(selection[0] as SCH_SHEET);
         await this.SaveSheetAsDesignBlock(aLibraryName, curPath);
       } else {
-        dialogs.DisplayError('Design blocks with nested sheets are not supported.');
+        dialogs.DisplayError(_('Design blocks with nested sheets are not supported.'));
       }
 
       return false;
@@ -362,7 +363,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
     const tempFile = createTempFileName('design_block');
 
     if (!this.saveDesignBlockSchematic(tempSheet, tempFile)) {
-      dialogs.DisplayError('Error saving temporary schematic file to create design block.');
+      dialogs.DisplayError(_('Error saving temporary schematic file to create design block.'));
       wxRemoveFile(tempFile);
       return false;
     }
@@ -386,7 +387,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
       commit.Modify(group, this.GetScreen());
       group.SetDesignBlockLibId(blk.GetLibId());
 
-      commit.Push('Set Group Design Block Link');
+      commit.Push(_('Set Group Design Block Link'));
     }
 
     // Clean up the temporaries
@@ -408,13 +409,13 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
     const selection = [...this.GetCurrentSelection().Items()];
 
     if (selection.length === 0) {
-      dialogs.DisplayError('Please select some items to save as a design block.');
+      dialogs.DisplayError(_('Please select some items to save as a design block.'));
       return false;
     }
 
     // Make sure the user has selected a library to save into
     if (!libs.DesignBlockExists(aLibId.GetLibNickname(), aLibId.GetLibItemName())) {
-      dialogs.DisplayError('Please select a design block to save the schematic to.');
+      dialogs.DisplayError(_('Please select a design block to save the schematic to.'));
       return false;
     }
 
@@ -426,7 +427,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
         curPath.push_back(selection[0] as SCH_SHEET);
         await this.UpdateDesignBlockFromSheet(aLibId, curPath);
       } else {
-        dialogs.DisplayError('Design blocks with nested sheets are not supported.');
+        dialogs.DisplayError(_('Design blocks with nested sheets are not supported.'));
       }
 
       return false;
@@ -492,7 +493,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
     const tempFile = createTempFileName('design_block');
 
     if (!this.saveDesignBlockSchematic(tempSheet, tempFile)) {
-      dialogs.DisplayError('Error saving temporary schematic file to create design block.');
+      dialogs.DisplayError(_('Error saving temporary schematic file to create design block.'));
       wxRemoveFile(tempFile);
       return false;
     }
@@ -516,7 +517,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
           commit.Modify(group, this.GetScreen());
           group.SetDesignBlockLibId(aLibId);
 
-          commit.Push('Set Group Design Block Link');
+          commit.Push(_('Set Group Design Block Link'));
         }
       }
     } catch (e) {
@@ -575,7 +576,7 @@ export class SCH_DESIGN_BLOCK_UTILS_MIXIN {
 
     if (addedCount > 0) {
       commit.Add(newGroup, screen);
-      commit.Push('Group Items');
+      commit.Push(_('Group Items'));
 
       this.m_toolManager!.RunAction(ACTIONS.selectionClear);
       this.m_toolManager!.RunAction(ACTIONS.selectItem, newGroup);

@@ -17,6 +17,8 @@ import type { JSX } from 'react';
 import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
 import { PANEL_SETUP_PINMAP_BASE } from './panel_setup_pinmap_base.js';
 import { PIN_TYPES, type ErcSettings, type PinError } from '../index.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 interface Props {
   settings: ErcSettings;
@@ -25,17 +27,17 @@ interface Props {
 
 // Row/column labels, matching KiCad's CommentERC_H (NC excluded).
 const PIN_LABELS = [
-  'Input Pin',
-  'Output Pin',
-  'Bidirectional Pin',
-  'Tri-State Pin',
-  'Passive Pin',
-  'Free Pin',
-  'Unspecified Pin',
-  'Power Input Pin',
-  'Power Output Pin',
-  'Open Collector',
-  'Open Emitter',
+  _HKI('Input Pin'),
+  _HKI('Output Pin'),
+  _HKI('Bidirectional Pin'),
+  _HKI('Tri-State Pin'),
+  _HKI('Passive Pin'),
+  _HKI('Free Pin'),
+  _HKI('Unspecified Pin'),
+  _HKI('Power Input Pin'),
+  _HKI('Power Output Pin'),
+  _HKI('Open Collector'),
+  _HKI('Open Emitter'),
 ];
 
 // Matrix geometry (mirrors reBuildMatrixPanel's bitmap+padding steps).
@@ -60,7 +62,11 @@ export function PanelSetupPinmap({ settings, onChange }: Props): JSX.Element {
     onChange({ ...settings, pinMap });
   };
 
-  const title = ['No error or warning', 'Generate warning', 'Generate error'];
+  const title = [
+    wxGetTranslation('No error or warning'),
+    wxGetTranslation('Generate warning'),
+    wxGetTranslation('Generate error'),
+  ];
   const width = LABEL_W + n * STEPX + 140;
   const height = TOP + n * STEPY + CELL + 6;
 

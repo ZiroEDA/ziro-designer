@@ -24,6 +24,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, GridBagSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A wxBitmapComboBox row: `Append( name, bitmap )`. */
 export interface BITMAP_COMBO_ITEM {
@@ -49,7 +50,7 @@ export interface DIALOG_LINE_PROPERTIES_BASE_PROPS {
 
 export function DIALOG_LINE_PROPERTIES_BASE(p: DIALOG_LINE_PROPERTIES_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Line Properties" onClose={p.onCancel} initialFocus={p.lineWidthRef}>
+    <DialogShim title={_('Line Properties')} onClose={p.onCancel} initialFocus={p.lineWidthRef}>
       {/* mainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxALL} border={10}>
@@ -61,7 +62,7 @@ export function DIALOG_LINE_PROPERTIES_BASE(p: DIALOG_LINE_PROPERTIES_BASE_PROPS
               flag={wxALIGN_CENTER_VERTICAL | wxRIGHT}
               border={5}
             >
-              <StaticText label="Width:" />
+              <StaticText label={_('Width:')} />
             </SizerItem>
             <SizerItem
               pos={[0, 1]}
@@ -92,7 +93,7 @@ export function DIALOG_LINE_PROPERTIES_BASE(p: DIALOG_LINE_PROPERTIES_BASE_PROPS
               flag={wxALIGN_CENTER_VERTICAL | wxLEFT}
               border={15}
             >
-              <StaticText label="Color:" />
+              <StaticText label={_('Color:')} />
             </SizerItem>
             <SizerItem
               pos={[0, 4]}
@@ -120,7 +121,7 @@ export function DIALOG_LINE_PROPERTIES_BASE(p: DIALOG_LINE_PROPERTIES_BASE_PROPS
               flag={wxALIGN_CENTER_VERTICAL | wxRIGHT}
               border={5}
             >
-              <StaticText label="Style:" />
+              <StaticText label={_('Style:')} />
             </SizerItem>
             <SizerItem
               pos={[1, 1]}
@@ -130,7 +131,7 @@ export function DIALOG_LINE_PROPERTIES_BASE(p: DIALOG_LINE_PROPERTIES_BASE_PROPS
               minSize={[240, -1]}
             >
               <Combo
-                ariaLabel="Style"
+                ariaLabel={_('Style')}
                 value={String(p.m_typeCombo.value)}
                 options={p.typeComboItems.map((it, i) => ({
                   value: String(i),
@@ -147,13 +148,17 @@ export function DIALOG_LINE_PROPERTIES_BASE(p: DIALOG_LINE_PROPERTIES_BASE_PROPS
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxTOP | wxBOTTOM | wxRIGHT} border={5}>
               <StaticText
-                label="Set width to 0 to use schematic's default line width."
+                label={_("Set width to 0 to use schematic's default line width.")}
                 font="info"
                 italic
               />
             </SizerItem>
             <SizerItem flag={wxBOTTOM | wxRIGHT} border={5}>
-              <StaticText label="Clear color to use Schematic Editor colors." font="info" italic />
+              <StaticText
+                label={_('Clear color to use Schematic Editor colors.')}
+                font="info"
+                italic
+              />
             </SizerItem>
           </BoxSizer>
         </SizerItem>
@@ -162,7 +167,7 @@ export function DIALOG_LINE_PROPERTIES_BASE(p: DIALOG_LINE_PROPERTIES_BASE_PROPS
           <StdDialogButtonSizer
             onOk={p.onOK}
             onApply={p.onApply}
-            applyLabel="Default"
+            applyLabel={_('Default')}
             onCancel={p.onCancel}
           />
         </SizerItem>

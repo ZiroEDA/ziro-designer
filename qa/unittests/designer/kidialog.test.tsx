@@ -283,7 +283,7 @@ describe('the one call site this port has', () => {
     // clears `m_cancelMeansCancel` -- a ticked Cancel would then be remembered
     // and the user would never be asked again about a thing they refused.
     const c = call();
-    expect(c).toMatch(/labels: \{ ok: 'Place Pin Anyway' \}/);
+    expect(c).toMatch(/labels: \{ ok: _\('Place Pin Anyway'\) \}/);
     expect(c).not.toMatch(/cancel:/);
   });
 

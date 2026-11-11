@@ -33,6 +33,7 @@ import type { SCH_VIEW } from '../sch_view.js';
 import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
 import type { LIB_SYMBOL } from '../lib_symbol.js';
 import type { SCH_SELECTION_TOOL } from './sch_selection_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export abstract class SCH_TOOL_BASE<T extends SCH_BASE_FRAME> extends TOOL_INTERACTIVE {
   protected m_frame: T | null = null;
@@ -192,7 +193,7 @@ export abstract class SCH_TOOL_BASE<T extends SCH_BASE_FRAME> extends TOOL_INTER
       }
     }
 
-    commit.Push('Increment');
+    commit.Push(_('Increment'));
 
     if (selection.IsHover()) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 

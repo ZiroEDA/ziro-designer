@@ -34,6 +34,8 @@ import { BUILTIN_THEMES } from '../sch_render_settings.js';
 import type { EESCHEMA_SETTINGS_STORE } from '../browser/eeschema_app.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export type PlotFormat = 'ps' | 'pdf' | 'svg' | 'dxf' | 'png';
 
@@ -71,10 +73,10 @@ interface Props {
 }
 
 const FORMATS: { id: PlotFormat; label: string }[] = [
-  { id: 'ps', label: 'Postscript' },
-  { id: 'pdf', label: 'PDF' },
-  { id: 'svg', label: 'SVG' },
-  { id: 'dxf', label: 'DXF' },
+  { id: 'ps', label: _HKI('Postscript') },
+  { id: 'pdf', label: _HKI('PDF') },
+  { id: 'svg', label: _HKI('SVG') },
+  { id: 'dxf', label: _HKI('DXF') },
   { id: 'png', label: 'PNG' },
 ];
 
@@ -191,7 +193,7 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
         {/* Output directory (upstream bOutputDir): the folder inside the download. No browse
             button: the files are downloaded, so there is no folder on disk to pick. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-          <span style={lab}>Output directory:</span>
+          <span style={lab}>{_('Output directory:')}</span>
           <input
             className="ze-search"
             style={{ flex: 1 }}
@@ -206,7 +208,7 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
           take their natural width; the right column grows to fill. */}
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <fieldset style={{ ...group, flex: '0 0 130px' }}>
-            <legend style={legend}>Output Format</legend>
+            <legend style={legend}>{_('Output Format')}</legend>
             {FORMATS.map((f) => (
               <label key={f.id} style={check()}>
                 <input
@@ -221,13 +223,13 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
           </fieldset>
 
           <fieldset style={{ ...group, flex: '0 0 250px' }}>
-            <legend style={legend}>Options</legend>
+            <legend style={legend}>{_('Options')}</legend>
             <div style={optGrid}>
-              <span style={lab}>Page size:</span>
+              <span style={lab}>{_('Page size:')}</span>
               <Combo
                 value={String(pageSize)}
                 options={[
-                  { value: String('auto'), label: 'Schematic size' },
+                  { value: String('auto'), label: _('Schematic size') },
                   { value: String('A4'), label: 'A4' },
                   { value: String('A'), label: 'A' },
                 ]}
@@ -238,31 +240,31 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
 
               <label
                 style={{ ...span3, ...row }}
-                title="Plot the drawing sheet border and title block"
+                title={_('Plot the drawing sheet border and title block')}
               >
                 <input
                   type="checkbox"
                   checked={drawingSheet}
                   onChange={(e) => setDrawingSheet(e.target.checked)}
                 />{' '}
-                Plot drawing sheet
+                {_('Plot drawing sheet')}
               </label>
 
               <div style={{ ...span3, height: 6 }} />
 
-              <span style={lab}>Output mode:</span>
+              <span style={lab}>{_('Output mode:')}</span>
               <Combo
                 value={String(color ? 'color' : 'bw')}
                 options={[
-                  { value: String('color'), label: 'Color' },
-                  { value: String('bw'), label: 'Black and White' },
+                  { value: String('color'), label: _('Color') },
+                  { value: String('bw'), label: _('Black and White') },
                 ]}
                 className="ze-select"
                 style={ctrl2}
                 onChange={(aValue) => setColor(aValue === 'color')}
               />
 
-              <span style={{ ...lab, opacity: color ? 1 : 0.5 }}>Color theme:</span>
+              <span style={{ ...lab, opacity: color ? 1 : 0.5 }}>{_('Color theme:')}</span>
               <Combo
                 value={String(themeSel)}
                 options={Object.entries(BUILTIN_THEMES).map(([id, t]) => ({
@@ -270,7 +272,7 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
                   label: t.name,
                 }))}
                 disabled={!color}
-                title="Select the color theme to use for plotting"
+                title={_('Select the color theme to use for plotting')}
                 className="ze-select"
                 style={ctrl2}
                 onChange={(aValue) => setThemeSel(aValue)}
@@ -278,7 +280,7 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
 
               <label
                 style={{ ...span3, ...row, opacity: bgAvailable ? 1 : 0.5 }}
-                title="Plot the background color if the output format supports it"
+                title={_('Plot the background color if the output format supports it')}
               >
                 <input
                   type="checkbox"
@@ -286,22 +288,26 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
                   disabled={!bgAvailable}
                   onChange={(e) => setBackground(e.target.checked)}
                 />{' '}
-                Plot background color
+                {_('Plot background color')}
               </label>
 
               <div style={{ ...span3, height: 6 }} />
 
-              <span style={{ ...lab, opacity: penEnabled ? 1 : 0.5 }}>Minimum line width:</span>
+              <span style={{ ...lab, opacity: penEnabled ? 1 : 0.5 }}>
+                {_('Minimum line width:')}
+              </span>
               <input
                 className="ze-search"
                 style={{ width: '100%', boxSizing: 'border-box' }}
                 value={minWidthMm}
                 disabled={!penEnabled}
-                title="Selection of the default pen thickness used to draw items, when their thickness is set to 0."
+                title={_(
+                  'Selection of the default pen thickness used to draw items, when their thickness is set to 0.',
+                )}
                 onChange={(e) => setMinWidthMm(e.target.value)}
               />
               <span className="ze-muted" style={{ fontSize: 11, opacity: penEnabled ? 1 : 0.5 }}>
-                mm
+                {_('mm')}
               </span>
             </div>
           </fieldset>
@@ -309,7 +315,7 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
           {/* Right column: the format groups + Other Options (bOptionsRight). */}
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <fieldset style={group}>
-              <legend style={legend}>PDF Options</legend>
+              <legend style={legend}>{_('PDF Options')}</legend>
               <label style={check(format !== 'pdf')}>
                 <input
                   type="checkbox"
@@ -317,7 +323,7 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
                   disabled={format !== 'pdf'}
                   onChange={(e) => setPdfPropertyPopups(e.target.checked)}
                 />{' '}
-                Generate property popups
+                {_('Generate property popups')}
               </label>
               <label style={check(format !== 'pdf')}>
                 <input
@@ -326,11 +332,11 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
                   disabled={format !== 'pdf'}
                   onChange={(e) => setPdfHierarchicalLinks(e.target.checked)}
                 />{' '}
-                Generate clickable links for hierarchical elements
+                {_('Generate clickable links for hierarchical elements')}
               </label>
               <label
                 style={check(format !== 'pdf')}
-                title="Generate PDF document properties from AUTHOR and SUBJECT text variables"
+                title={_('Generate PDF document properties from AUTHOR and SUBJECT text variables')}
               >
                 <input
                   type="checkbox"
@@ -343,17 +349,17 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
             </fieldset>
 
             <fieldset style={group}>
-              <legend style={legend}>DXF Options</legend>
+              <legend style={legend}>{_('DXF Options')}</legend>
               <div style={{ ...row, opacity: format === 'dxf' ? 1 : 0.5 }}>
-                <span style={lab}>Export units:</span>
+                <span style={lab}>{_('Export units:')}</span>
                 <Combo
                   value={String(dxfUnits)}
                   options={[
-                    { value: String('in'), label: 'Inches' },
-                    { value: String('mm'), label: 'Millimeters' },
+                    { value: String('in'), label: _('Inches') },
+                    { value: String(_('mm')), label: _('Millimeters') },
                   ]}
                   disabled={format !== 'dxf'}
-                  title="The units to use for the exported DXF file"
+                  title={_('The units to use for the exported DXF file')}
                   className="ze-select"
                   onChange={(aValue) => setDxfUnits(aValue as 'in' | 'mm')}
                 />
@@ -381,7 +387,7 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
             )}
 
             <fieldset style={group}>
-              <legend style={legend}>Other Options</legend>
+              <legend style={legend}>{_('Other Options')}</legend>
               <label
                 style={check(!canOpenAfter)}
                 title="Open the plotted file in a new browser tab after a successful plot (current page only)"
@@ -392,7 +398,7 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
                   disabled={!canOpenAfter}
                   onChange={(e) => setOpenAfter(e.target.checked)}
                 />{' '}
-                Open file after plot
+                {_('Open file after plot')}
               </label>
             </fieldset>
           </div>
@@ -411,9 +417,9 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
       </div>
       <div className="ze-modal-footer">
         {/* KiCad std-button order (GTK): Plot Current Page (Apply), Close, Plot All Pages (OK). */}
-        <Button label="Plot Current Page" onClick={() => doPlot(false)} />
-        <Button label="Close" onClick={onClose} />
-        <Button label="Plot All Pages" isDefault onClick={() => doPlot(true)} />
+        <Button label={_('Plot Current Page')} onClick={() => doPlot(false)} />
+        <Button label={_('Close')} onClick={onClose} />
+        <Button label={_('Plot All Pages')} isDefault onClick={() => doPlot(true)} />
       </div>
     </DialogShim>
   );

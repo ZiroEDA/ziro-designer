@@ -22,6 +22,7 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { Simplebook } from '@ziroeda/wx/simplebook.js';
 import { BoxSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PANEL_SETUP_BUSES_BASE_PROPS {
   m_aliasesGrid: ReactNode;
@@ -84,7 +85,7 @@ export function PANEL_SETUP_BUSES_BASE(p: PANEL_SETUP_BUSES_BASE_PROPS): JSX.Ele
             {/* bLeftCol */}
             <BoxSizer orient={wxVERTICAL}>
               <SizerItem flag={wxLEFT | wxTOP} border={8}>
-                <StaticText label="Bus Definitions" />
+                <StaticText label={_('Bus Definitions')} />
               </SizerItem>
               <Spacer width={0} height={3} flag={wxEXPAND} border={5} />
               <SizerItem proportion={1} flag={wxEXPAND} border={5} minSize={[-1, 180]}>

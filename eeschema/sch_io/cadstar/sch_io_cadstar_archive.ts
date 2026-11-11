@@ -25,6 +25,7 @@ import type { SCHEMATIC } from '../../schematic.js';
 import { SCH_IO_KICAD_SEXPR } from '../kicad_sexpr/sch_io_kicad_sexpr.js';
 import { SCH_IO, type SCH_IO_PROPERTIES } from '../sch_io.js';
 import { CADSTAR_SCH_ARCHIVE_LOADER } from './cadstar_sch_archive_loader.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export class SCH_IO_CADSTAR_ARCHIVE extends SCH_IO {
   constructor() {
@@ -32,11 +33,15 @@ export class SCH_IO_CADSTAR_ARCHIVE extends SCH_IO {
   }
 
   override GetSchematicFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('CADSTAR Schematic Archive files', [CadstarSchematicFileExtension]);
+    return new IO_FILE_DESC(_HKI('CADSTAR Schematic Archive files'), [
+      CadstarSchematicFileExtension,
+    ]);
   }
 
   override GetLibraryDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('CADSTAR Parts Library files', [CadstarPartsLibraryFileExtension]);
+    return new IO_FILE_DESC(_HKI('CADSTAR Parts Library files'), [
+      CadstarPartsLibraryFileExtension,
+    ]);
   }
 
   /** CADSTAR_PARTS_LIB_PARSER::CheckFileHeader is not ported: no parts library reads. */

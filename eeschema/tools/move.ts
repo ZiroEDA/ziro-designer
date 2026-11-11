@@ -32,6 +32,7 @@ import { hasCellSelection, promoteCellSelection } from './table_cells.js';
 import { makeWireWithUuid, makeJunctionWithUuid } from './build.js';
 import type { MoveSpec, StubWire } from './connect.js';
 import type { EditCommand } from './command.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const add = (p: Vec2, d: Vec2): Vec2 => ({ x: p.x + d.x, y: p.y + d.y });
 
@@ -215,7 +216,7 @@ export function moveItems(rawIds: ReadonlySet<string>, delta: Vec2): EditCommand
   // each call site, so no caller can forget it.
   const ids = hasCellSelection(rawIds) ? promoteCellSelection(rawIds) : rawIds;
   return {
-    label: 'Move',
+    label: _('Move'),
     apply(doc: Schematic): Schematic {
       if (ids.size === 0 || (delta.x === 0 && delta.y === 0)) return doc;
       return {
@@ -383,7 +384,7 @@ export function moveWithConnections(spec: MoveSpec, delta: Vec2): EditCommand {
     makeWireWithUuid(w.fixed, add(w.fixed, delta), w.uuid),
   );
   return {
-    label: 'Move',
+    label: _('Move'),
     apply: (doc) =>
       delta.x === 0 && delta.y === 0 && stubs.length === 0
         ? doc
@@ -392,7 +393,7 @@ export function moveWithConnections(spec: MoveSpec, delta: Vec2): EditCommand {
       const neg = { x: -delta.x, y: -delta.y };
       const stubIds = new Set(spec.newWires.map((w) => w.uuid));
       return {
-        label: 'Move',
+        label: _('Move'),
         apply: (doc) => applyConnectedMove(doc, spec, neg, [], stubIds),
         invert: () => moveWithConnections(spec, delta),
       };

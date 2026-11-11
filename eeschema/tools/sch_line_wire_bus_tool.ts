@@ -83,6 +83,7 @@ import { needsJunction } from './mutate.js';
 import { makeWire, makeBus, makeJunction } from './build.js';
 import type { EditCommand } from './command.js';
 import { schSymbolLibraryName } from '../lib_symbol.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** EESCHEMA_SETTINGS m_Drawing.line_mode (sch_line.h LINE_MODE). */
 export type WireLineMode = 'free' | '90' | '45';
@@ -400,7 +401,7 @@ class BUS_UNFOLD_MENU extends ACTION_MENU {
     super(true);
     this.m_busGetter = aBusGetter;
     this.SetIcon(BITMAPS.add_line2bus);
-    this.SetTitle('Unfold from Bus');
+    this.SetTitle(_('Unfold from Bus'));
   }
 
   SetShowTitle(): void {
@@ -424,7 +425,7 @@ class BUS_UNFOLD_MENU extends ACTION_MENU {
     const ID = id_eeschema_frm.ID_POPUP_SCH_UNFOLD_BUS;
 
     if (!bus) {
-      this.Append(ID, 'No bus selected', '');
+      this.Append(ID, _('No bus selected'), '');
       this.Enable(ID, false);
       return;
     }
@@ -432,7 +433,7 @@ class BUS_UNFOLD_MENU extends ACTION_MENU {
     const connection = bus.Connection();
 
     if (!connection || !connection.IsBus() || connection.Members().length === 0) {
-      this.Append(ID, 'Bus has no members', '');
+      this.Append(ID, _('Bus has no members'), '');
       this.Enable(ID, false);
       return;
     }
@@ -440,7 +441,7 @@ class BUS_UNFOLD_MENU extends ACTION_MENU {
     let idx = 0;
 
     if (this.m_showTitle) {
-      this.Append(ID, 'Unfold from Bus', '');
+      this.Append(ID, _('Unfold from Bus'), '');
       this.Enable(ID, false);
     }
 
@@ -1056,7 +1057,7 @@ export class SCH_LINE_WIRE_BUS_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         }
       } else if (evt.IsActivate() && !isSyntheticClick) {
         if (segment || this.m_busUnfold.in_progress) {
-          this.m_frame!.ShowInfoBarMsg('Press <ESC> to cancel drawing.');
+          this.m_frame!.ShowInfoBarMsg(_('Press <ESC> to cancel drawing.'));
           evt.SetPassEvent(false);
           continue;
         }
@@ -1077,7 +1078,7 @@ export class SCH_LINE_WIRE_BUS_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           this.finishSegments(aCommit);
           segment = null;
 
-          aCommit.Push('Draw Wires');
+          aCommit.Push(_('Draw Wires'));
 
           if (aQuitOnDraw) {
             this.m_frame!.PopTool(aTool);
@@ -1112,7 +1113,7 @@ export class SCH_LINE_WIRE_BUS_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
             this.finishSegments(aCommit);
             segment = null;
 
-            aCommit.Push('Draw Wires');
+            aCommit.Push(_('Draw Wires'));
 
             if (aQuitOnDraw) {
               this.m_frame!.PopTool(aTool);
@@ -1153,7 +1154,7 @@ export class SCH_LINE_WIRE_BUS_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           this.finishSegments(aCommit);
           segment = null;
 
-          aCommit.Push('Draw Wires');
+          aCommit.Push(_('Draw Wires'));
 
           if (aQuitOnDraw) {
             this.m_frame!.PopTool(aTool);

@@ -35,6 +35,7 @@ import {
 import { currentEeschemaSettings } from './eeschema_settings.js';
 import { LIB_SYMBOL } from './lib_symbol.js';
 import { SCH_IO_KICAD_SEXPR } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `LIBRARY_MANAGER` as the remote import asks it: the table of a type and
@@ -100,7 +101,7 @@ export function WriteRemoteBinaryFile(
   aError: { value: string },
 ): boolean {
   if (aPayload.length === 0) {
-    aError.value = 'Payload was empty.';
+    aError.value = _('Payload was empty.');
     return false;
   }
 
@@ -137,7 +138,7 @@ export function EnsureRemoteDestinationRoot(
   destination = destination.trim();
 
   if (destination === '') {
-    aError.value = 'Destination directory is not configured.';
+    aError.value = _('Destination directory is not configured.');
     return false;
   }
 
@@ -175,7 +176,7 @@ export function EnsureRemoteLibraryEntry(
   );
 
   if (!table) {
-    if (aStrict) aError.value = 'Unable to access the library table.';
+    if (aStrict) aError.value = _('Unable to access the library table.');
 
     return !aStrict;
   }
@@ -189,7 +190,7 @@ export function EnsureRemoteLibraryEntry(
       row.SetURI(fullPath);
 
       if (!table.Save().ok) {
-        aError.value = 'Failed to update the library table.';
+        aError.value = _('Failed to update the library table.');
         return false;
       }
     }
@@ -202,11 +203,11 @@ export function EnsureRemoteLibraryEntry(
   row.SetURI(fullPath);
   row.SetType('KiCad');
   row.SetOptions('');
-  row.SetDescription('Remote download');
+  row.SetDescription(_('Remote download'));
   row.SetOk(true);
 
   if (!table.Save().ok) {
-    aError.value = 'Failed to save the library table.';
+    aError.value = _('Failed to save the library table.');
     return false;
   }
 
@@ -233,7 +234,7 @@ export async function PlaceRemoteDownloadedSymbol(
   aError: { value: string },
 ): Promise<boolean> {
   if (!aFrame) {
-    aError.value = 'No schematic editor is available for placement.';
+    aError.value = _('No schematic editor is available for placement.');
     return false;
   }
 
@@ -244,12 +245,12 @@ export async function PlaceRemoteDownloadedSymbol(
   const libSymbol = await aFrame.GetLibSymbol(libId);
 
   if (!libSymbol) {
-    aError.value = 'Unable to load the downloaded symbol for placement.';
+    aError.value = _('Unable to load the downloaded symbol for placement.');
     return false;
   }
 
   if (!aFrame.PlaceSymbol(libSymbol, libId)) {
-    aError.value = 'Unable to access the schematic placement tools.';
+    aError.value = _('Unable to access the schematic placement tools.');
     return false;
   }
 
@@ -266,19 +267,19 @@ export function LoadRemoteSymbolFromPayload(
   aError: { value: string },
 ): LIB_SYMBOL | null {
   if (aPayload.length === 0) {
-    aError.value = 'Symbol payload was empty.';
+    aError.value = _('Symbol payload was empty.');
     return null;
   }
 
   const tempPath = wxCreateTempFileName('remote_symbol');
 
   if (tempPath === '') {
-    aError.value = 'Unable to create a temporary file for the symbol payload.';
+    aError.value = _('Unable to create a temporary file for the symbol payload.');
     return null;
   }
 
   if (!wxWriteFileSync(tempPath, aPayload)) {
-    aError.value = 'Unable to create a temporary file for the symbol payload.';
+    aError.value = _('Unable to create a temporary file for the symbol payload.');
     wxRemoveFile(tempPath);
     return null;
   }
@@ -290,7 +291,7 @@ export function LoadRemoteSymbolFromPayload(
     const loaded = plugin.LoadSymbol(tempPath, aLibItemName);
 
     if (loaded) symbol = LIB_SYMBOL.copyOf(loaded);
-    else aError.value = 'Symbol payload did not include the expected symbol.';
+    else aError.value = _('Symbol payload did not include the expected symbol.');
   } catch (e) {
     aError.value = `Unable to decode the symbol payload: ${e instanceof Error ? e.message : String(e)}`;
   }

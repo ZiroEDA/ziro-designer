@@ -30,7 +30,7 @@
  * declaration the dispatcher reads, so it advertises a keystroke whose only
  * effect is to throw away an unsaved board.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
@@ -49,6 +49,7 @@ import {
 import { buildViewer3DMenus } from '@ziroeda/3d-viewer/3d_menubar.js';
 import { buildMenus as buildSchMenus } from '@ziroeda/eeschema/menubar.js';
 import { buildHotkeySections } from '@ziroeda/designer/src/ui/hotkeys_inventory.js';
+import { wxMsgCatalog, wxTranslations } from '@ziroeda/wx/translation.js';
 import type { Menu, MenuItem } from '@ziroeda/wx/menu.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
@@ -247,7 +248,10 @@ describe('every File menu ends the way its C++ frame ends', () => {
       ]),
     );
     const calls = [
-      ...src.matchAll(/\b(addClose|addQuit|addQuitOrClose)\(\s*(?:'([^']+)'|([A-Za-z_$][\w$]*))/g),
+      // The name is translated where KiCad's is (`AddClose( _( "Library Editor" ) )`): `_('...')`.
+      ...src.matchAll(
+        /\b(addClose|addQuit|addQuitOrClose)\(\s*(?:(?:_\(\s*)?'([^']+)'|([A-Za-z_$][\w$]*))/g,
+      ),
     ]
       .filter((m) => (m[2] ?? consts.get(m[3] as string)) === frame.app)
       .map((m) => m[1]);
@@ -426,5 +430,26 @@ describe('no menu declares a key the browser will not deliver', () => {
     const entry = (command: string) => common!.entries.find((e) => e.command === command);
     expect(entry('Close')?.keys).toBe(CLOSE_KEY);
     expect(entry('Quit')?.keys).toBe(QUIT_KEY);
+  });
+});
+
+describe('the Close and Quit help strings in another language', () => {
+  // `wxString::Format( _( "Close %s" ), aAppname )` (action_menu.cpp:224, :243): the format is
+  // the message, so a language that puts the name first still can.
+  afterEach(() => wxTranslations.Get().SetCatalog(null));
+
+  it('translate the format and keep the name', () => {
+    wxTranslations.Get().SetCatalog(
+      new wxMsgCatalog({
+        language: 'de',
+        nplurals: 2,
+        plural: 'n != 1',
+        messages: { 'Close %s': '%s schließen', 'Quit %s': '%s beenden' },
+      }),
+    );
+    expect(addClose('Schaltplaneditor', () => undefined).tooltip).toBe(
+      'Schaltplaneditor schließen',
+    );
+    expect(addQuit('Schaltplaneditor', () => undefined).tooltip).toBe('Schaltplaneditor beenden');
   });
 });

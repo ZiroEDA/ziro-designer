@@ -10,6 +10,7 @@ import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
 import { type JSX, useState } from 'react';
 import { LibraryRowValue } from '../sch_base_frame_ui.js';
 import { SAVE_AS_IDS, type SAVE_SYMBOL_AS_DIALOG } from './symbol_editor.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * SAVE_SYMBOL_AS_DIALOG's window: the libraries, "Save in library:", a Name row at the head of the
@@ -35,13 +36,13 @@ export function SaveSymbolAsDialog({
       listLabel={dlg.listLabel}
       okLabel={dlg.okLabel}
       // No wxTextValidator on m_symbolNameCtrl: getSymbolName() escapes what was typed.
-      nameRow={{ label: 'Name:', value: nameText, excludeChars: '' }}
+      nameRow={{ label: _('Name:'), value: nameText, excludeChars: '' }}
       extraCheckboxes={
         dlg.flattenLabel === null
           ? []
           : [{ label: dlg.flattenLabel, value: dlg.m_params.m_FlattenSymbol }]
       }
-      extraButton={{ id: SAVE_AS_IDS.ID_MAKE_NEW_LIBRARY, label: 'New Library...' }}
+      extraButton={{ id: SAVE_AS_IDS.ID_MAKE_NEW_LIBRARY, label: _('New Library...') }}
       transferDataFromWindow={(aValue, aName, aExtras) =>
         dlg.TransferDataFromWindow(
           aName ?? '',

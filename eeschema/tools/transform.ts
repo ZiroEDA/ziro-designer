@@ -64,6 +64,7 @@ import {
 import { schSymbolLibraryName } from '../lib_symbol.js';
 import type { BBox } from './bbox.js';
 import { composeCommands, type EditCommand } from './command.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * The schematic's default grid step, 50 mil — what `GetNearestHalfGridPosition`
@@ -972,7 +973,7 @@ export function transformItems(
   // each call site, so no caller can forget it.
   const ids = hasCellSelection(rawIds) ? promoteCellSelection(rawIds) : rawIds;
   return {
-    label: op.startsWith('rotate') ? 'Rotate' : 'Mirror',
+    label: op.startsWith('rotate') ? _('Rotate') : _('Mirror'),
     apply(doc: Schematic): Schematic {
       if (ids.size === 0) return doc;
       // `principalItemCount == 1` / `selection.GetSize() == 1`. Fields and sheet

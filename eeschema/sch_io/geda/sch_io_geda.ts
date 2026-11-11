@@ -52,6 +52,7 @@ import type { SCHEMATIC } from '../../schematic.js';
 import { SYMBOL_ORIENTATION_T } from '../../symbol.js';
 import { SCH_IO, type SCH_IO_PROPERTIES } from '../sch_io.js';
 import { GEDA_BUILTIN_SYMBOLS } from './geda_builtin_symbols.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const GEDA_DEFAULT_TEXT_SIZE_MILS = 50;
 
@@ -419,7 +420,7 @@ export class SCH_IO_GEDA extends SCH_IO {
   }
 
   override GetSchematicFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('gEDA / Lepton EDA schematic files', ['sch']);
+    return new IO_FILE_DESC(_HKI('gEDA / Lepton EDA schematic files'), ['sch']);
   }
 
   override GetLibraryDesc(): IO_FILE_DESC {

@@ -55,6 +55,8 @@ import { AUTOPLACE_ALGO, type SCH_ITEM } from '../sch_item.js';
 import type { SCH_SHEET } from '../sch_sheet.js';
 import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
 import type { SCH_SYMBOL } from '../sch_symbol.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export interface FIELD_DIALOG_VALUES {
   /** m_TextCtrl / m_StyledTextCtrl, escaped for one line. */
@@ -152,13 +154,13 @@ export class DIALOG_FIELD_PROPERTIES {
     this.m_title = aTitle;
     this.m_field = aField;
     this.m_host = aHost;
-    this.m_posX = new UNIT_BINDER(aParent, 'Position X:', (aMessage) =>
+    this.m_posX = new UNIT_BINDER(aParent, _('Position X:'), (aMessage) =>
       DisplayErrorMessage(aMessage),
     );
-    this.m_posY = new UNIT_BINDER(aParent, 'Position Y:', (aMessage) =>
+    this.m_posY = new UNIT_BINDER(aParent, _('Position Y:'), (aMessage) =>
       DisplayErrorMessage(aMessage),
     );
-    this.m_textSize = new UNIT_BINDER(aParent, 'Text size:', (aMessage) =>
+    this.m_textSize = new UNIT_BINDER(aParent, _('Text size:'), (aMessage) =>
       DisplayErrorMessage(aMessage),
     );
 
@@ -512,14 +514,14 @@ export class DIALOG_FIELD_PROPERTIES {
 
 /** formattingSizer's alignment buttons: value, bitmap, tooltip. */
 const H_BUTTONS = [
-  [GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT, 'text_align_left', 'Align left'],
-  [GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER, 'text_align_center', 'Align horizontal center'],
-  [GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT, 'text_align_right', 'Align right'],
+  [GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT, 'text_align_left', _HKI('Align left')],
+  [GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER, 'text_align_center', _HKI('Align horizontal center')],
+  [GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT, 'text_align_right', _HKI('Align right')],
 ] as const;
 const V_BUTTONS = [
-  [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP, 'text_valign_top', 'Align top'],
-  [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER, 'text_valign_center', 'Align vertical center'],
-  [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM, 'text_valign_bottom', 'Align bottom'],
+  [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP, 'text_valign_top', _HKI('Align top')],
+  [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER, 'text_valign_center', _HKI('Align vertical center')],
+  [GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM, 'text_valign_bottom', _HKI('Align bottom')],
 ] as const;
 
 /** DIALOG_FIELD_PROPERTIES' window over its base. */
@@ -570,8 +572,8 @@ export function DialogFieldProperties({
       }}
       font={v.face}
       onFont={(f) => set({ face: f })}
-      m_bold={icon('text_bold', 'Bold', v.bold, () => set({ bold: !v.bold }))}
-      m_italic={icon('text_italic', 'Italic', v.italic, () => set({ italic: !v.italic }))}
+      m_bold={icon('text_bold', _('Bold'), v.bold, () => set({ bold: !v.bold }))}
+      m_italic={icon('text_italic', _('Italic'), v.italic, () => set({ italic: !v.italic }))}
       hAlign={H_BUTTONS.map(([a, bitmap, tip]) =>
         icon(bitmap, tip, v.hAlign === a, () => set({ hAlign: a })),
       )}
@@ -579,8 +581,8 @@ export function DialogFieldProperties({
         icon(bitmap, tip, v.vAlign === a, () => set({ vAlign: a })),
       )}
       orientation={[
-        icon('text_horizontal', 'Horizontal text', !v.vertical, () => set({ vertical: false })),
-        icon('text_vertical', 'Vertical text', v.vertical, () => set({ vertical: true })),
+        icon('text_horizontal', _('Horizontal text'), !v.vertical, () => set({ vertical: false })),
+        icon('text_vertical', _('Vertical text'), v.vertical, () => set({ vertical: true })),
       ]}
       m_textSizeCtrl={v.size}
       onTextSize={(t) => set({ size: t })}

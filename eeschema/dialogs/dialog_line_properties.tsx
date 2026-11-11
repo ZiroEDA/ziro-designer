@@ -33,6 +33,7 @@ import {
   type BITMAP_COMBO_ITEM,
   DIALOG_LINE_PROPERTIES_BASE,
 } from './dialog_line_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const sameColor = (a: Color4d, b: Color4d): boolean =>
   a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
@@ -61,7 +62,7 @@ export class DIALOG_LINE_PROPERTIES {
   constructor(aParent: SCH_EDIT_FRAME, aLines: readonly SCH_LINE[]) {
     this.m_frame = aParent;
     this.m_lines = aLines;
-    this.m_width = new UNIT_BINDER(aParent, 'Width:', (m) => DisplayErrorMessage(m));
+    this.m_width = new UNIT_BINDER(aParent, _('Width:'), (m) => DisplayErrorMessage(m));
   }
 
   /** `SetSwatchBackground( canvas )`. */
@@ -135,7 +136,7 @@ export class DIALOG_LINE_PROPERTIES {
       line.SetLineColor(aValues.color);
     }
 
-    commit.Push(this.m_lines.length === 1 ? 'Edit Line' : 'Edit Lines');
+    commit.Push(this.m_lines.length === 1 ? _('Edit Line') : _('Edit Lines'));
     return true;
   }
 }

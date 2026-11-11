@@ -40,22 +40,24 @@ import type { SCH_TEXT } from '../sch_text.js';
 import type { SCH_TEXTBOX } from '../sch_textbox.js';
 import { DIALOG_TEXT_PROPERTIES_BASE, type ICON_BUTTON } from './dialog_text_properties_base.js';
 import { lineStyleOfToken, lineStyleToken } from './dialog_wire_bus_properties.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export type HAlign = 'left' | 'center' | 'right';
 export type VAlign = 'top' | 'center' | 'bottom';
 
 /** m_hAlignLeft .. m_hAlignRight: bitmap and tooltip. */
 const H_BUTTONS: { value: HAlign; icon: string; title: string }[] = [
-  { value: 'left', icon: 'text_align_left', title: 'Align left' },
-  { value: 'center', icon: 'text_align_center', title: 'Align horizontal center' },
-  { value: 'right', icon: 'text_align_right', title: 'Align right' },
+  { value: 'left', icon: 'text_align_left', title: _HKI('Align left') },
+  { value: 'center', icon: 'text_align_center', title: _HKI('Align horizontal center') },
+  { value: 'right', icon: 'text_align_right', title: _HKI('Align right') },
 ];
 
 /** m_vAlignTop .. m_vAlignBottom. */
 const V_BUTTONS: { value: VAlign; icon: string; title: string }[] = [
-  { value: 'top', icon: 'text_valign_top', title: 'Align top' },
-  { value: 'center', icon: 'text_valign_center', title: 'Align vertical center' },
-  { value: 'bottom', icon: 'text_valign_bottom', title: 'Align bottom' },
+  { value: 'top', icon: 'text_valign_top', title: _HKI('Align top') },
+  { value: 'center', icon: 'text_valign_center', title: _HKI('Align vertical center') },
+  { value: 'bottom', icon: 'text_valign_bottom', title: _HKI('Align bottom') },
 ];
 
 /** m_borderStyleCombo: `lineTypeNames`, name and bitmap, in order. */
@@ -163,8 +165,8 @@ export function DialogTextProperties({
       onSyntaxHelp={() => dlg.ShowSyntaxHelp()}
       font={v.face}
       onFont={(f) => set({ face: f })}
-      m_bold={icon('text_bold', 'Bold', v.bold, () => set({ bold: !v.bold }))}
-      m_italic={icon('text_italic', 'Italic', v.italic, () => set({ italic: !v.italic }))}
+      m_bold={icon('text_bold', _('Bold'), v.bold, () => set({ bold: !v.bold }))}
+      m_italic={icon('text_italic', _('Italic'), v.italic, () => set({ italic: !v.italic }))}
       // onHAlignButton / onVAlignButton / onTextAngleButton: each group is a radio set.
       hAlign={H_BUTTONS.map((b) =>
         icon(b.icon, b.title, v.hAlign === b.value, () => set({ hAlign: b.value })),
@@ -173,8 +175,8 @@ export function DialogTextProperties({
         icon(b.icon, b.title, v.vAlign === b.value, () => set({ vAlign: b.value })),
       )}
       orientation={[
-        icon('text_horizontal', 'Horizontal text', v.angle === 0, () => set({ angle: 0 })),
-        icon('text_vertical', 'Vertical text', v.angle === 90, () => set({ angle: 90 })),
+        icon('text_horizontal', _('Horizontal text'), v.angle === 0, () => set({ angle: 0 })),
+        icon('text_vertical', _('Vertical text'), v.angle === 90, () => set({ angle: 90 })),
       ]}
       m_textSizeCtrl={v.size}
       onTextSize={(t) => set({ size: t })}
@@ -262,10 +264,10 @@ export class DIALOG_TEXT_PROPERTIES {
     this.m_frame = aParent;
     this.m_isSymbolEditor = aParent.IsType(FRAME_T.FRAME_SCH_SYMBOL_EDITOR);
     this.m_currentItem = aItem;
-    this.m_textSize = new UNIT_BINDER(aParent, 'Text size:', (aMessage) =>
+    this.m_textSize = new UNIT_BINDER(aParent, _('Text size:'), (aMessage) =>
       DisplayErrorMessage(aMessage),
     );
-    this.m_borderWidth = new UNIT_BINDER(aParent, 'Width:', (aMessage) =>
+    this.m_borderWidth = new UNIT_BINDER(aParent, _('Width:'), (aMessage) =>
       DisplayErrorMessage(aMessage),
     );
 
@@ -275,7 +277,7 @@ export class DIALOG_TEXT_PROPERTIES {
 
     for (const sheet of (aParent as SCH_EDIT_FRAME).Schematic().Hierarchy()) {
       const sheetPageNum = sheet.GetPageNumber();
-      const sheetName = sheet.size() === 1 ? '<root sheet>' : (sheet.Last()?.GetName() ?? '');
+      const sheetName = sheet.size() === 1 ? _('<root sheet>') : (sheet.Last()?.GetName() ?? '');
 
       this.m_hyperlinkChoices.push({
         text: `#${sheetPageNum}`,
@@ -315,13 +317,13 @@ export class DIALOG_TEXT_PROPERTIES {
 
   /** `SetTitle( _( "Text Box Properties" ) )` for a box; the base's title otherwise. */
   Title(): string {
-    return this.IsTextBox() ? 'Text Box Properties' : 'Text Properties';
+    return this.IsTextBox() ? _('Text Box Properties') : _('Text Properties');
   }
 
   /** The box's m_infoBar note when the theme overrides item colours, else null. */
   InfoBarMessage(): string | null {
     if (this.IsTextBox() && this.m_frame.GetColorSettings().GetOverrideSchItemColors())
-      return 'Note: individual item colors overridden in Preferences.';
+      return _('Note: individual item colors overridden in Preferences.');
 
     return null;
   }
@@ -535,7 +537,7 @@ export class DIALOG_TEXT_PROPERTIES {
       if (expanded) textBox.SetEnd(end);
     }
 
-    if (!commit.Empty()) commit.Push('Edit Text Properties');
+    if (!commit.Empty()) commit.Push(_('Edit Text Properties'));
 
     return true;
   }

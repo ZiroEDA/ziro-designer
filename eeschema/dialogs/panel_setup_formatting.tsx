@@ -38,6 +38,7 @@ import {
   OPO_I_RANGES,
   type FormattingSettings,
 } from '../schematic_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);
 // re-exported here so the panel stays the import site for its slice.
@@ -127,7 +128,7 @@ export function PanelSetupFormatting({ value, onChange }: Props): JSX.Element {
       m_lineWidthCtrl={mils('defaultLineWidthMils')}
       m_pinSymbolSizeCtrl={mils('pinSymbolSizeMils')}
       // [data] Upstream pins these UNIT_BINDERs to EDA_UNITS::MILS, not the frame's units.
-      units="mils"
+      units={_('mils')}
       junctionDotChoices={JUNCTION_DOT_SIZES}
       m_choiceJunctionDotSize={{
         value: value.junctionDotChoice,

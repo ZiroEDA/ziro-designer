@@ -21,6 +21,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, StdDialogButtonSizer, StretchSpacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_EDIT_SYMBOLS_LIBID_BASE_PROPS {
   /** m_grid, with the derived dialog's SetMinSize( wxSize( -1, 300 ) ). */
@@ -35,7 +36,7 @@ export function DIALOG_EDIT_SYMBOLS_LIBID_BASE(
   p: DIALOG_EDIT_SYMBOLS_LIBID_BASE_PROPS,
 ): JSX.Element {
   return (
-    <DialogShim title="Symbol Library References" onClose={p.onCancel}>
+    <DialogShim title={_('Symbol Library References')} onClose={p.onCancel}>
       {/* bSizerMain */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem
@@ -51,7 +52,7 @@ export function DIALOG_EDIT_SYMBOLS_LIBID_BASE(
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
               <Button
-                label="Map Orphans"
+                label={_('Map Orphans')}
                 disabled={!p.m_buttonOrphanItems.enabled}
                 title={
                   'If some symbols are orphaned (the linked symbol is not found anywhere),\n' +
@@ -62,7 +63,7 @@ export function DIALOG_EDIT_SYMBOLS_LIBID_BASE(
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
               <CheckBox
-                label="Update symbol fields from new library"
+                label={_('Update symbol fields from new library')}
                 title={
                   'Replace current symbols fields by fields from the new library.\n' +
                   'Warning: fields "Value" and "Footprints" will be therefore replaced.'

@@ -44,6 +44,7 @@ import { SCH_ACTIONS } from './sch_actions.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
 import { SYMBOL_EDITOR_PIN_TOOL } from './symbol_editor_pin_tool.js';
 import type { IMPORT_GFX_RESULT } from '../import_gfx/dialog_import_gfx_sch.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class SYMBOL_EDITOR_DRAWING_TOOLS extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
   private m_lastTextBold = false;
@@ -187,7 +188,7 @@ export class SYMBOL_EDITOR_DRAWING_TOOLS extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME
           }
 
           if (item) {
-            frame.ShowInfoBarMsg('Press <ESC> to cancel item creation.');
+            frame.ShowInfoBarMsg(_('Press <ESC> to cancel item creation.'));
             evt.SetPassEvent(false);
             continue;
           }
@@ -281,13 +282,13 @@ export class SYMBOL_EDITOR_DRAWING_TOOLS extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME
               case KICAD_T.SCH_PIN_T:
                 yield* pinTool!.PlacePin(commit, item as SCH_PIN, this);
                 item.ClearEditFlags();
-                commit.Push('Place Pin');
+                commit.Push(_('Place Pin'));
                 break;
 
               case KICAD_T.SCH_TEXT_T:
                 symbol.AddDrawItem(item as SCH_TEXT);
                 item.ClearEditFlags();
-                commit.Push('Draw Text');
+                commit.Push(_('Draw Text'));
                 break;
 
               default:
@@ -450,7 +451,7 @@ export class SYMBOL_EDITOR_DRAWING_TOOLS extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME
             textbox.SetHorizJustify(this.m_lastTextJust);
 
             item = textbox;
-            description = 'Add Text Box';
+            description = _('Add Text Box');
           } else {
             item = new SCH_SHAPE(
               shapeType,
@@ -648,7 +649,7 @@ export class SYMBOL_EDITOR_DRAWING_TOOLS extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME
     if (list.length === 0) {
       yield* this.RunMainStackModal(() =>
         frame.ShowModalDialog('wxMessageBox', [], {
-          message: 'No graphic items found in file.',
+          message: _('No graphic items found in file.'),
           caption: 'Message',
           style: wxOK | wxCENTER,
         }),
@@ -679,7 +680,7 @@ export class SYMBOL_EDITOR_DRAWING_TOOLS extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME
         item.ClearEditFlags();
       }
 
-      commit.Push('Import Graphic');
+      commit.Push(_('Import Graphic'));
       frame.RebuildView();
 
       return 0;
@@ -755,7 +756,7 @@ export class SYMBOL_EDITOR_DRAWING_TOOLS extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME
           item.ClearEditFlags();
         }
 
-        commit.Push('Import Graphic');
+        commit.Push(_('Import Graphic'));
         break; // This is a one-shot command, not a tool
       } else {
         evt.SetPassEvent();

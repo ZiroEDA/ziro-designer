@@ -76,6 +76,7 @@ import {
   TOP_TOOLBAR,
 } from './toolbars_symbol_viewer.js';
 import '@ziroeda/common/widgets/shell.css';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * What the window asks of the program. `eeschema` never imports `designer`; the designer's
@@ -113,7 +114,7 @@ const SYMBOL_LIST_BEST_WIDTH = 300;
 const LIST_MIN_WIDTH = 100;
 
 /** The constructor's title, before DisplayLibInfos has a library to name. */
-const FRAME_TITLE = 'Symbol Library Browser';
+const FRAME_TITLE = _HKI('Symbol Library Browser');
 
 /** What the hosted libraries are read through: the program's preload and its per-symbol fetch. */
 export interface SYMBOL_VIEWER_LIBRARY_SOURCE {

@@ -40,6 +40,8 @@ import { SCH_ACTIONS } from './sch_actions.js';
 import { SCH_LINE_WIRE_BUS_TOOL } from './sch_line_wire_bus_tool.js';
 import { SCH_SELECTION } from './sch_selection.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 type ITEM_BOX = [SCH_ITEM, BOX2I];
 
@@ -57,7 +59,7 @@ export class SCH_ALIGN_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     if (!this.m_alignMenu) {
       this.m_alignMenu = new CONDITIONAL_MENU(this);
       this.m_alignMenu.SetIcon(BITMAPS.align_items);
-      this.m_alignMenu.SetUntranslatedTitle('Align');
+      this.m_alignMenu.SetUntranslatedTitle(_HKI('Align'));
 
       const canAlign = SELECTION_CONDITIONS.MoreThan(1);
 
@@ -197,7 +199,7 @@ export class SCH_ALIGN_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       (lhs, rhs) => lhs[1].GetTop() < rhs[1].GetTop(),
       (item) => item[1].GetTop(),
       true,
-      'Align to Top',
+      _('Align to Top'),
     );
   }
 
@@ -206,7 +208,7 @@ export class SCH_ALIGN_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       (lhs, rhs) => lhs[1].GetBottom() > rhs[1].GetBottom(),
       (item) => item[1].GetBottom(),
       true,
-      'Align to Bottom',
+      _('Align to Bottom'),
     );
   }
 
@@ -215,7 +217,7 @@ export class SCH_ALIGN_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       (lhs, rhs) => lhs[1].GetLeft() < rhs[1].GetLeft(),
       (item) => item[1].GetLeft(),
       false,
-      'Align to Left',
+      _('Align to Left'),
     );
   }
 
@@ -224,7 +226,7 @@ export class SCH_ALIGN_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       (lhs, rhs) => lhs[1].GetRight() > rhs[1].GetRight(),
       (item) => item[1].GetRight(),
       false,
-      'Align to Right',
+      _('Align to Right'),
     );
   }
 
@@ -233,7 +235,7 @@ export class SCH_ALIGN_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       (lhs, rhs) => lhs[1].Centre().x < rhs[1].Centre().x,
       (item) => item[1].Centre().x,
       false,
-      'Align to Middle',
+      _('Align to Middle'),
     );
   }
 
@@ -242,7 +244,7 @@ export class SCH_ALIGN_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       (lhs, rhs) => lhs[1].Centre().y < rhs[1].Centre().y,
       (item) => item[1].Centre().y,
       true,
-      'Align to Center',
+      _('Align to Center'),
     );
   }
 

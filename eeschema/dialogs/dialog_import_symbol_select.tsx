@@ -38,6 +38,8 @@ import type { DIALOG_IMPORT_SYMBOL_SELECT_ARG } from '../symbol_editor/symbol_ed
 import { CONFLICT_RESOLUTION, SYMBOL_IMPORT_MANAGER } from '../symbol_import_manager.js';
 import { SYMBOL_PREVIEW_WIDGET, SymbolPreviewWidget } from '../widgets/symbol_preview_widget.js';
 import { DIALOG_IMPORT_SYMBOL_SELECT_BASE } from './dialog_import_symbol_select_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The list's columns: the toggle, then the symbol. */
 export const COL_CHECKBOX = 0;
@@ -113,7 +115,7 @@ export class DIALOG_IMPORT_SYMBOL_SELECT {
       // m_unitChoice->Enable( false )
       unitChoiceEnabled: false,
       // The base's label.
-      m_statusLine: '0 symbols selected',
+      m_statusLine: _('0 symbols selected'),
       // m_sdbSizerOK->Disable()
       okEnabled: false,
     };
@@ -137,7 +139,7 @@ export class DIALOG_IMPORT_SYMBOL_SELECT {
   /** `loadSymbols()`: every symbol in the file, its parent and power flag, and whether it clashes. */
   loadSymbols(): boolean {
     if (!this.m_plugin) {
-      DisplayErrorMessage('Unable to find a plugin to read this library.');
+      DisplayErrorMessage(_('Unable to find a plugin to read this library.'));
       return false;
     }
 
@@ -406,7 +408,7 @@ export class DIALOG_IMPORT_SYMBOL_SELECT {
 
     return conflicts.map((name) => {
       this.m_conflictResolutions.set(name, CONFLICT_RESOLUTION.OVERWRITE);
-      return { name, action: 'Overwrite' };
+      return { name, action: _('Overwrite') };
     });
   }
 
@@ -485,7 +487,7 @@ function ResolveImportConflicts({
   return (
     // wxSize( 500, 400 ), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER
     <DialogShim
-      title="Resolve Import Conflicts"
+      title={_('Resolve Import Conflicts')}
       onClose={() => onClose(false)}
       // [data] wxSize( 500, 400 ), dialog_import_symbol_select.cpp's resolveConflicts
       style={{ width: 500, height: 400 }}
@@ -502,11 +504,11 @@ function ResolveImportConflicts({
         </SizerItem>
         <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={10}>
           <DataViewCtrl
-            columns={['Symbol', 'Action']}
+            columns={[_('Symbol'), _('Action')]}
             rowCount={rows.length}
             selection={null}
             onSelect={() => {}}
-            ariaLabel="Conflicts"
+            ariaLabel={_HKI('Conflicts')}
             cell={(row, col) =>
               col === 0 ? (
                 rows[row]!.name
@@ -527,17 +529,17 @@ function ResolveImportConflicts({
         <SizerItem flag={wxLEFT | wxRIGHT | wxBOTTOM} border={10}>
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxRIGHT} border={5}>
-              <Button label="Skip All" onClick={() => setAll('Skip')} />
+              <Button label={_('Skip All')} onClick={() => setAll('Skip')} />
             </SizerItem>
             <SizerItem>
-              <Button label="Overwrite All" onClick={() => setAll('Overwrite')} />
+              <Button label={_('Overwrite All')} onClick={() => setAll('Overwrite')} />
             </SizerItem>
           </BoxSizer>
         </SizerItem>
         <SizerItem flag={wxALL | wxEXPAND} border={10}>
           <StdDialogButtonSizer
             onOk={() => onClose(true)}
-            okLabel="Import"
+            okLabel={_('Import')}
             onCancel={() => onClose(false)}
           />
         </SizerItem>
@@ -582,7 +584,7 @@ export function DialogImportSymbolSelect({
         searchRef={searchRef}
         m_symbolList={
           <DataViewCtrl
-            columns={['', 'Symbol']}
+            columns={['', _('Symbol')]}
             rowCount={s.rows.length}
             selection={s.selectedRow >= 0 ? s.selectedRow : null}
             onSelect={(row) => setS(dlg.OnSymbolSelected(row))}

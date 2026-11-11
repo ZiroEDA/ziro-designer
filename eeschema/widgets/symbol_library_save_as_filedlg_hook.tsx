@@ -12,6 +12,7 @@
 import { type JSX, useState } from 'react';
 import type { wxFileDialogCustomizeHook } from '@ziroeda/common/widgets/filedlg_hook_new_library.js';
 import { RadioButton } from '@ziroeda/wx/controls.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `SYMBOL_SAVEAS_TYPE`. */
 export enum SYMBOL_SAVEAS_TYPE {
@@ -23,10 +24,10 @@ export enum SYMBOL_SAVEAS_TYPE {
 
 /** The radio buttons' labels, in AddCustomControls' order. [data] upstream's strings. */
 export const SYMBOL_SAVEAS_LABELS: readonly [SYMBOL_SAVEAS_TYPE, string][] = [
-  [SYMBOL_SAVEAS_TYPE.NORMAL_SAVE_AS, 'Do not update library tables'],
-  [SYMBOL_SAVEAS_TYPE.REPLACE_TABLE_ENTRY, 'Update existing library table entry'],
-  [SYMBOL_SAVEAS_TYPE.ADD_GLOBAL_TABLE_ENTRY, 'Add new global library table entry'],
-  [SYMBOL_SAVEAS_TYPE.ADD_PROJECT_TABLE_ENTRY, 'Add new project library table entry'],
+  [SYMBOL_SAVEAS_TYPE.NORMAL_SAVE_AS, _HKI('Do not update library tables')],
+  [SYMBOL_SAVEAS_TYPE.REPLACE_TABLE_ENTRY, _HKI('Update existing library table entry')],
+  [SYMBOL_SAVEAS_TYPE.ADD_GLOBAL_TABLE_ENTRY, _HKI('Add new global library table entry')],
+  [SYMBOL_SAVEAS_TYPE.ADD_PROJECT_TABLE_ENTRY, _HKI('Add new project library table entry')],
 ];
 
 export class SYMBOL_LIBRARY_SAVE_AS_FILEDLG_HOOK implements wxFileDialogCustomizeHook {

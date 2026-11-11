@@ -29,6 +29,7 @@ import { SCH_SCREEN } from './sch_screen.js';
 import type { SCH_IO_PROPERTIES } from './sch_io/sch_io.js';
 import type { SCH_IO } from './sch_io/sch_io_mgr.js';
 import { SCH_IO_KICAD_SEXPR } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `SYMBOL_NAME_FILTER` (symbol_library_manager.h). */
 export enum SYMBOL_NAME_FILTER {
@@ -637,7 +638,7 @@ export class SYMBOL_LIBRARY_MANAGER {
       try {
         const symbol = this.adapter().LoadSymbol(aLibrary, aSymbolName);
 
-        if (symbol === null) throw new IO_ERROR('Symbol not found.');
+        if (symbol === null) throw new IO_ERROR(_('Symbol not found.'));
 
         let bufferedParent: LIB_SYMBOL | null = null;
 

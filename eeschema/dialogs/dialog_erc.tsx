@@ -44,6 +44,8 @@ import { SCH_ACTIONS } from '../tools/sch_actions.js';
 import { SCH_EDIT_TOOL } from '../tools/sch_edit_tool.js';
 import { SCH_INSPECTION_TOOL } from '../tools/sch_inspection_tool.js';
 import { DIALOG_ERC_BASE } from './dialog_erc_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** What wx gives the dialog that a page has to be handed: its sub-dialogs, file and window. */
 export interface DIALOG_ERC_WINDOW {
@@ -134,8 +136,8 @@ export function ercBadge(n: number, severity: 'error' | 'warning' | 'exclusion')
 export const DEFAULT_SINGLE_COL_WIDTH = 660;
 
 /** The notebook page texts the base declares (`m_violationsTitleTemplate` / `m_ignoredTitleTemplate`). */
-const VIOLATIONS_TITLE_TEMPLATE = 'Violations (%s)';
-const IGNORED_TITLE_TEMPLATE = 'Ignored Tests (%s)';
+const VIOLATIONS_TITLE_TEMPLATE = _HKI('Violations (%s)');
+const IGNORED_TITLE_TEMPLATE = _HKI('Ignored Tests (%s)');
 
 let g_lastERCSchematic: unknown = null;
 let g_lastERCRun = false;
@@ -161,7 +163,7 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
   /** m_ignoredList */
   m_ignoredList: IgnoredRow[] = [];
   /** m_sdbSizer1Cancel's label; m_sdbSizer1OK / delete / save buttons' enabled state */
-  m_cancelLabel = 'Close';
+  m_cancelLabel = _HKI('Close');
   m_okEnabled = true;
   m_deleteEnabled = true;
   m_saveEnabled = true;
@@ -288,7 +290,7 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
         SYMBOL_FILTER.SYMBOL_FILTER_NON_POWER,
       )
     ) {
-      this.m_infoBar = 'Schematic is not fully annotated. ERC results will be incomplete.';
+      this.m_infoBar = _('Schematic is not fully annotated. ERC results will be incomplete.');
     } else {
       this.m_infoBar = null;
     }
@@ -311,8 +313,8 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
   OnMenu(): ErcMenuRow[] {
     return [
       {
-        label: 'Cross-probe Selected Items',
-        help: 'Highlight corresponding items on canvas when selected in the ERC list',
+        label: _('Cross-probe Selected Items'),
+        help: _('Highlight corresponding items on canvas when selected in the ERC list'),
         checked: this.m_crossprobe,
         action: () => {
           this.m_crossprobe = !this.m_crossprobe;
@@ -320,8 +322,8 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
         },
       },
       {
-        label: 'Center on Cross-probe',
-        help: 'When cross-probing, scroll the canvas so that the item is visible',
+        label: _('Center on Cross-probe'),
+        help: _('When cross-probing, scroll the canvas so that the item is visible'),
         checked: this.m_scroll_on_crossprobe,
         action: () => {
           this.m_scroll_on_crossprobe = !this.m_scroll_on_crossprobe;
@@ -329,8 +331,8 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
         },
       },
       {
-        label: 'Show all errors',
-        help: 'Show duplicate ERC markers on all applicable pins',
+        label: _('Show all errors'),
+        help: _('Show duplicate ERC markers on all applicable pins'),
         checked: this.m_showAllErrors,
         action: () => {
           this.m_showAllErrors = !this.m_showAllErrors;
@@ -459,7 +461,7 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
     // wxBusyCursor: what the run reads must be in hand before it touches a marker - the
     // libraries ERC_TESTER asks for, and the schematic the window's edits have reached.
     this.m_running = true;
-    this.m_cancelLabel = 'Cancel';
+    this.m_cancelLabel = _('Cancel');
     this.m_okEnabled = false;
     this.m_deleteEnabled = false;
     this.m_saveEnabled = false;
@@ -492,7 +494,7 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
     this.m_messages = [];
 
     this.m_running = true;
-    this.m_cancelLabel = 'Cancel';
+    this.m_cancelLabel = _('Cancel');
     this.m_okEnabled = false;
     this.m_deleteEnabled = false;
     this.m_saveEnabled = false;
@@ -522,13 +524,13 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
     if (itemsNotAnnotated)
       this.m_messages.unshift(`${itemsNotAnnotated} symbol(s) require annotation.<br><br>`);
 
-    if (this.m_cancelled) this.m_messages.push('-------- ERC cancelled by user.<br><br>');
-    else this.m_messages.push('Done.<br><br>');
+    if (this.m_cancelled) this.m_messages.push(_('-------- ERC cancelled by user.<br><br>'));
+    else this.m_messages.push(_('Done.<br><br>'));
 
     this.Raise();
 
     this.m_running = false;
-    this.m_cancelLabel = 'Close';
+    this.m_cancelLabel = _('Close');
     this.m_okEnabled = true;
     this.m_deleteEnabled = true;
     this.m_saveEnabled = true;
@@ -645,13 +647,13 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
 
     switch (settings.GetSeverity(code)) {
       case RPT_SEVERITY_ERROR:
-        listName = 'errors';
+        listName = _('errors');
         break;
       case RPT_SEVERITY_WARNING:
-        listName = 'warnings';
+        listName = _('warnings');
         break;
       default:
-        listName = 'appropriate';
+        listName = _('appropriate');
         break;
     }
 
@@ -704,7 +706,7 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
 
     if (marker?.IsExcluded()) {
       rows.push({
-        label: 'Remove exclusion for this violation',
+        label: _('Remove exclusion for this violation'),
         help: `It will be placed back in the ${listName} list`,
         action: () => {
           this.m_markerProvider.SetMarkerExcluded(marker, false);
@@ -719,7 +721,7 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
         },
       });
       rows.push({
-        label: 'Edit exclusion comment...',
+        label: _('Edit exclusion comment...'),
         action: async () => {
           const value = await this.m_window.textEntry(marker.GetComment());
 
@@ -734,12 +736,12 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
       });
     } else {
       rows.push({
-        label: 'Exclude this violation',
+        label: _('Exclude this violation'),
         help: `It will be excluded from the ${listName} list`,
         action: () => exclude(false),
       });
       rows.push({
-        label: 'Exclude with comment...',
+        label: _('Exclude with comment...'),
         help: `It will be excluded from the ${listName} list`,
         action: () => exclude(true),
       });
@@ -778,20 +780,20 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
     } else if (settings.GetSeverity(code) === RPT_SEVERITY_WARNING) {
       rows.push({
         label: `Change severity to Error for all '${rcItem.GetErrorText(true)}' violations`,
-        help: 'Violation severities can also be edited in Schematic Setup',
+        help: _('Violation severities can also be edited in Schematic Setup'),
         action: () => setSeverity(RPT_SEVERITY_ERROR),
       });
     } else {
       rows.push({
         label: `Change severity to Warning for all '${rcItem.GetErrorText(true)}' violations`,
-        help: 'Violation severities can also be edited in Schematic Setup',
+        help: _('Violation severities can also be edited in Schematic Setup'),
         action: () => setSeverity(RPT_SEVERITY_WARNING),
       });
     }
 
     rows.push({
       label: `Ignore all '${rcItem.GetErrorText(true)}' violations`,
-      help: 'Violations will not be checked or reported',
+      help: _('Violations will not be checked or reported'),
       action: () => {
         settings.SetSeverity(code, RPT_SEVERITY_IGNORE);
 
@@ -815,23 +817,23 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
 
     if (pinToPin) {
       rows.push({
-        label: 'Edit pin-to-pin conflict map...',
-        help: 'Open the Schematic Setup dialog',
-        action: () => void this.m_parent.ShowSchematicSetupDialog('Pin Conflicts Map'),
+        label: _('Edit pin-to-pin conflict map...'),
+        help: _('Open the Schematic Setup dialog'),
+        action: () => void this.m_parent.ShowSchematicSetupDialog(_('Pin Conflicts Map')),
       });
     } else {
       rows.push({
-        label: 'Edit violation severities...',
-        help: 'Open the Schematic Setup dialog',
-        action: () => void this.m_parent.ShowSchematicSetupDialog('Violation Severity'),
+        label: _('Edit violation severities...'),
+        help: _('Open the Schematic Setup dialog'),
+        action: () => void this.m_parent.ShowSchematicSetupDialog(_('Violation Severity')),
       });
     }
 
     if (code === ERCE_T.ERCE_ENDPOINT_OFF_GRID) {
       rows.push({
-        label: 'Edit connection grid spacing...',
-        help: 'Open the Schematic Setup dialog',
-        action: () => void this.m_parent.ShowSchematicSetupDialog('Formatting'),
+        label: _('Edit connection grid spacing...'),
+        help: _('Open the Schematic Setup dialog'),
+        action: () => void this.m_parent.ShowSchematicSetupDialog(_('Formatting')),
       });
     }
 
@@ -865,17 +867,17 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
 
     return [
       {
-        label: 'Error',
+        label: _('Error'),
         checked: current === RPT_SEVERITY_ERROR,
         action: () => choose(RPT_SEVERITY_ERROR),
       },
       {
-        label: 'Warning',
+        label: _('Warning'),
         checked: current === RPT_SEVERITY_WARNING,
         action: () => choose(RPT_SEVERITY_WARNING),
       },
       {
-        label: 'Ignore',
+        label: _('Ignore'),
         checked: current === RPT_SEVERITY_IGNORE,
         action: () => choose(RPT_SEVERITY_IGNORE),
       },
@@ -950,7 +952,7 @@ export class DIALOG_ERC extends PROGRESS_REPORTER_BASE implements DIALOG_ERC_FRA
 
   /** `OnEditViolationSeverities()` (dialog_erc.cpp:1112). */
   OnEditViolationSeverities(): void {
-    void this.m_parent.ShowSchematicSetupDialog('Violation Severity');
+    void this.m_parent.ShowSchematicSetupDialog(_('Violation Severity'));
   }
 
   /** `OnSeverity( aEvent )` (dialog_erc.cpp:1118). */

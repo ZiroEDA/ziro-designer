@@ -50,6 +50,7 @@ import {
 } from './widgets/panel_symbol_chooser.js';
 import { type PickedSymbol } from './picksymbol.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface SymbolChooserFrameProps {
   /** What the panel reaches in the app (`PANEL_SYMBOL_CHOOSER_APP`). */
@@ -113,7 +114,7 @@ export function SymbolChooserFrame({
       {/* The frame's bottom panel is a wxStdDialogButtonSizer and nothing
         else: no placement checkboxes. Cancel then OK is GTK's order. */}
       <div className="ze-modal-footer">
-        <Button label="Cancel" onClick={onCancel} />
+        <Button label={_('Cancel')} onClick={onCancel} />
         <Button label="OK" isDefault onClick={accept} />
       </div>
     </DialogShim>

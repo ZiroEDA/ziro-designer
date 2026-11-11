@@ -23,6 +23,7 @@ import { addSheetPin } from './build-graphics.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { refId, sheetPinId } from './hittest.js';
 import type { EditCommand } from './command.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 /**
  * Which border a pin sits on, by name. The file stores it as an angle (the pin's
@@ -248,7 +249,7 @@ export function cleanupSheetPins(
   if (pins.length === sheet.pins.length) return null;
 
   return {
-    label: 'Cleanup Sheet Pins',
+    label: wxGetTranslation('Cleanup Sheet Pins'),
     apply(d: Schematic): Schematic {
       return {
         ...d,
@@ -258,7 +259,7 @@ export function cleanupSheetPins(
     invert(before: Schematic): EditCommand {
       const original = before.sheets[sheetIndex]!.pins;
       return {
-        label: 'Cleanup Sheet Pins',
+        label: wxGetTranslation('Cleanup Sheet Pins'),
         apply: (d: Schematic): Schematic => ({
           ...d,
           sheets: d.sheets.map((s, i) => (i === sheetIndex ? { ...s, pins: original } : s)),
@@ -331,7 +332,7 @@ export function autoplaceAllSheetPins(
   const size = needBot > topY + sheet.size.h ? { w: sheet.size.w, h: needBot - topY } : sheet.size;
 
   return {
-    label: 'Auto-place Sheet Pins',
+    label: wxGetTranslation('Auto-place Sheet Pins'),
     apply(d: Schematic): Schematic {
       let out = { ...d.sheets[sheetIndex]!, size };
       const column = (
@@ -359,7 +360,7 @@ export function autoplaceAllSheetPins(
     invert(before: Schematic): EditCommand {
       const original = before.sheets[sheetIndex]!;
       return {
-        label: 'Auto-place Sheet Pins',
+        label: wxGetTranslation('Auto-place Sheet Pins'),
         apply: (d: Schematic): Schematic => ({
           ...d,
           sheets: d.sheets.map((s, i) => (i === sheetIndex ? original : s)),

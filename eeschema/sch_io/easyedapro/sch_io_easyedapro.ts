@@ -67,6 +67,7 @@ import type { SCHEMATIC } from '../../schematic.js';
 import { PosixPath, SCH_IO_KICAD_SEXPR } from '../kicad_sexpr/sch_io_kicad_sexpr.js';
 import { SCH_IO, type SCH_IO_PROPERTIES } from '../sch_io.js';
 import { SCH_EASYEDAPRO_PARSER, type SYM_INFO } from './sch_easyedapro_parser.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 interface PRJ_DATA {
   m_Symbols: Map<string, SYM_INFO>;
@@ -100,11 +101,11 @@ export class SCH_IO_EASYEDAPRO extends SCH_IO {
   }
 
   override GetSchematicFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('EasyEDA (JLCEDA) Pro files', ['epro', 'zip']);
+    return new IO_FILE_DESC(_HKI('EasyEDA (JLCEDA) Pro files'), ['epro', 'zip']);
   }
 
   override GetLibraryDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('EasyEDA (JLCEDA) Pro files', ['elibz', 'epro', 'zip']);
+    return new IO_FILE_DESC(_HKI('EasyEDA (JLCEDA) Pro files'), ['elibz', 'epro', 'zip']);
   }
 
   /** `dynamic_cast<PROJECT_CHOOSER_PLUGIN*>( this )`: the chooser half, held by composition. */

@@ -31,6 +31,7 @@ import { SCH_SHEET } from './sch_sheet.js';
 import { SCH_SHEET_LIST, type SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { SCH_CLEANUP_FLAGS } from './schematic.js';
 import type { Schematic } from './types.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `SCH_EDIT_FRAME::InitSheet`'s new screen for a freshly drawn sheet:
@@ -166,9 +167,9 @@ export class SCH_SHEET_MIXIN {
 
         const answer = await ask({
           message: msg,
-          caption: 'Schematic Load Error',
+          caption: _('Schematic Load Error'),
           style: wxOK | wxCANCEL | wxCANCEL_DEFAULT | wxCENTER | wxICON_QUESTION,
-          okLabel: 'Use partial schematic',
+          okLabel: _('Use partial schematic'),
           extended: pi.GetError(),
         });
 
@@ -245,8 +246,8 @@ export class SCH_SHEET_MIXIN {
 
     newScreens.GetLibNicknames(names);
 
-    const okButtonLabel = 'Continue Load';
-    const cancelButtonLabel = 'Cancel Load';
+    const okButtonLabel = _('Continue Load');
+    const cancelButtonLabel = _('Cancel Load');
     const question = wxOK | wxCANCEL | wxCANCEL_DEFAULT | wxCENTER | wxICON_QUESTION;
 
     // Prior to schematic file format 20221002, all symbol instance data was saved in the root
@@ -267,7 +268,7 @@ export class SCH_SHEET_MIXIN {
       if (
         (await ask({
           message: msg,
-          caption: 'Continue Load Schematic',
+          caption: _('Continue Load Schematic'),
           style: question,
           okLabel: okButtonLabel,
           cancelLabel: cancelButtonLabel,
@@ -295,7 +296,7 @@ export class SCH_SHEET_MIXIN {
           if (
             (await ask({
               message: msg,
-              caption: 'Continue Load Schematic',
+              caption: _('Continue Load Schematic'),
               style: question,
               okLabel: okButtonLabel,
               cancelLabel: cancelButtonLabel,
@@ -333,7 +334,7 @@ export class SCH_SHEET_MIXIN {
             if (
               (await ask({
                 message: msg,
-                caption: 'Continue Load Schematic',
+                caption: _('Continue Load Schematic'),
                 style: question,
                 okLabel: okButtonLabel,
                 cancelLabel: cancelButtonLabel,
@@ -371,7 +372,7 @@ export class SCH_SHEET_MIXIN {
             if (
               (await ask({
                 message: msg,
-                caption: 'Continue Load Schematic',
+                caption: _('Continue Load Schematic'),
                 style: question,
                 okLabel: okButtonLabel,
                 cancelLabel: cancelButtonLabel,
@@ -426,7 +427,7 @@ export class SCH_SHEET_MIXIN {
             if (
               (await ask({
                 message: msg,
-                caption: 'Continue Load Schematic',
+                caption: _('Continue Load Schematic'),
                 style: question,
                 okLabel: okButtonLabel,
                 cancelLabel: cancelButtonLabel,
@@ -482,8 +483,8 @@ export class SCH_SHEET_MIXIN {
 
       if (!saved.ok)
         await this.ShowModalDialog('KICAD_MESSAGE_DIALOG', [], {
-          message: 'Error saving library table.',
-          caption: 'File Save Error',
+          message: _('Error saving library table.'),
+          caption: _('File Save Error'),
           style: wxOK | wxICON_ERROR,
           extended: saved.error.message,
         } satisfies KICAD_MESSAGE_DIALOG_ARG);

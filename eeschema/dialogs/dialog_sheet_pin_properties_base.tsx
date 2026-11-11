@@ -37,14 +37,16 @@ import {
   StdDialogButtonSizer,
   StretchSpacer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `m_input` .. `m_passive`, in the base's order. */
 export const SHEET_PIN_SHAPES = [
-  'Input',
-  'Output',
-  'Bidirectional',
-  'Tri-state',
-  'Passive',
+  _HKI('Input'),
+  _HKI('Output'),
+  _HKI('Bidirectional'),
+  _HKI('Tri-state'),
+  _HKI('Passive'),
 ] as const;
 
 export interface DIALOG_SHEET_PIN_PROPERTIES_BASE_PROPS {
@@ -79,7 +81,7 @@ export function DIALOG_SHEET_PIN_PROPERTIES_BASE(
   p: DIALOG_SHEET_PIN_PROPERTIES_BASE_PROPS,
 ): JSX.Element {
   return (
-    <DialogShim title="Sheet Pin Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Sheet Pin Properties')} onClose={p.onCancel}>
       {/* m_mainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={10}>
@@ -89,7 +91,7 @@ export function DIALOG_SHEET_PIN_PROPERTIES_BASE(
               {/* fgSizer2 = wxFlexGridSizer( 2, 2, 4, 0 ), AddGrowableCol( 1 ) */}
               <FlexGridSizer cols={2} vgap={4} hgap={0} growableCols={[1]}>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxTOP | wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="Name:" />
+                  <StaticText label={_('Name:')} />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxRIGHT | wxTOP} border={5}>
                   {/* m_comboName, SetInitialFocus( m_comboName ) */}
@@ -107,8 +109,8 @@ export function DIALOG_SHEET_PIN_PROPERTIES_BASE(
                 <SizerItem flag={wxALIGN_RIGHT | wxRIGHT | wxLEFT} border={7}>
                   {/* m_hyperlink1 */}
                   <HyperlinkCtrl
-                    label="Syntax help"
-                    title="Show syntax help window"
+                    label={_('Syntax help')}
+                    title={_('Show syntax help window')}
                     onClick={p.onSyntaxHelp}
                   />
                 </SizerItem>
@@ -119,7 +121,7 @@ export function DIALOG_SHEET_PIN_PROPERTIES_BASE(
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT} border={5}>
                   {/* m_shapeSizer */}
-                  <StaticBoxSizer label="Shape" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Shape')} orient={wxVERTICAL}>
                     {SHEET_PIN_SHAPES.map((label, i) => (
                       // m_input is added wxBOTTOM|wxRIGHT 2, the other four 3.
                       <SizerItem key={label} flag={wxBOTTOM | wxRIGHT} border={i === 0 ? 2 : 3}>
@@ -135,7 +137,7 @@ export function DIALOG_SHEET_PIN_PROPERTIES_BASE(
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxEXPAND | wxTOP} border={5}>
                   {/* formatting */}
-                  <StaticBoxSizer label="Formatting" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Formatting')} orient={wxVERTICAL}>
                     <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                       {/* gbSizer1 = wxGridBagSizer( 3, 0 ) */}
                       <GridBagSizer vgap={3} hgap={0}>
@@ -145,7 +147,7 @@ export function DIALOG_SHEET_PIN_PROPERTIES_BASE(
                           flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT}
                           border={5}
                         >
-                          <StaticText label="Font:" />
+                          <StaticText label={_('Font:')} />
                         </SizerItem>
                         <SizerItem
                           pos={[0, 1]}
@@ -169,7 +171,7 @@ export function DIALOG_SHEET_PIN_PROPERTIES_BASE(
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                               <BitmapButton
                                 bitmap="text_bold"
-                                tooltip="Bold"
+                                tooltip={_('Bold')}
                                 checked={p.m_bold}
                                 onClick={p.onBold}
                               />
@@ -177,7 +179,7 @@ export function DIALOG_SHEET_PIN_PROPERTIES_BASE(
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                               <BitmapButton
                                 bitmap="text_italic"
-                                tooltip="Italic"
+                                tooltip={_('Italic')}
                                 checked={p.m_italic}
                                 onClick={p.onItalic}
                               />
@@ -193,7 +195,7 @@ export function DIALOG_SHEET_PIN_PROPERTIES_BASE(
                           flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT}
                           border={5}
                         >
-                          <StaticText label="Text size:" />
+                          <StaticText label={_('Text size:')} />
                         </SizerItem>
                         <SizerItem pos={[1, 1]} span={[1, 1]} flag={wxEXPAND} border={5}>
                           {/* bSizer71 */}
@@ -210,7 +212,7 @@ export function DIALOG_SHEET_PIN_PROPERTIES_BASE(
                               <StaticText label={p.units} />
                             </SizerItem>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={15}>
-                              <StaticText label="Color:" />
+                              <StaticText label={_('Color:')} />
                             </SizerItem>
                             <Spacer width={5} height={0} border={5} />
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>

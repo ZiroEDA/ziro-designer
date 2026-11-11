@@ -50,6 +50,7 @@ import { type SCH_SHEET_LIST, SCH_SHEET_PATH } from './sch_sheet_path.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
 import type { SCH_TEXT } from './sch_text.js';
 import type { SCHEMATIC } from './schematic.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The key a sheet path is looked up by (`std::hash<SCH_SHEET_PATH>` / `operator==`). */
 function sheetKey(aSheet: SCH_SHEET_PATH): string {
@@ -3825,7 +3826,7 @@ export class CONNECTION_GRAPH implements SCH_CONNECTION_GRAPH {
 
           ercItem.SetItems(line);
           ercItem.SetSheetSpecificPath(sheet);
-          ercItem.SetErrorMessage('Unconnected wire endpoint');
+          ercItem.SetErrorMessage(_('Unconnected wire endpoint'));
 
           CONNECTION_GRAPH.addMarker(sheet, ercItem, location);
 
@@ -3843,7 +3844,7 @@ export class CONNECTION_GRAPH implements SCH_CONNECTION_GRAPH {
 
           ercItem.SetItems(entry);
           ercItem.SetSheetSpecificPath(sheet);
-          ercItem.SetErrorMessage('Unconnected wire to bus entry');
+          ercItem.SetErrorMessage(_('Unconnected wire to bus entry'));
 
           CONNECTION_GRAPH.addMarker(sheet, ercItem, location);
 

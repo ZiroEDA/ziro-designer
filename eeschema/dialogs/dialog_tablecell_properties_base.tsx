@@ -48,6 +48,8 @@ import {
   StretchSpacer,
 } from '@ziroeda/wx/sizer.js';
 import { type CHECK3, TriStateCheck } from '@ziroeda/wx/wx_checkbox.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** One BITMAP_BUTTON of an alignment group. */
 export interface ALIGN_BUTTON {
@@ -95,7 +97,7 @@ export interface DIALOG_TABLECELL_PROPERTIES_BASE_PROPS {
   onCancel: () => void;
 }
 
-const COLOR_POPUP = ['-- mixed values --', 'Set Color...'];
+const COLOR_POPUP = [_HKI('-- mixed values --'), _HKI('Set Color...')];
 
 function AlignButtons({ buttons }: { buttons: readonly ALIGN_BUTTON[] }): JSX.Element {
   return (
@@ -153,7 +155,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
   p: DIALOG_TABLECELL_PROPERTIES_BASE_PROPS,
 ): JSX.Element {
   return (
-    <DialogShim title="Table Cell Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Table Cell Properties')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxBOTTOM} border={5} shown={p.m_infoBar !== null}>
@@ -166,7 +168,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
               {/* bSizer18 */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxALL} border={5}>
-                  <StaticText label="Cell contents:" />
+                  <StaticText label={_('Cell contents:')} />
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5} minSize={[200, 100]}>
                   {/* m_cellTextCtrl, SetInitialFocus */}
@@ -191,13 +193,19 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                       {/* fgTextStyleSizer = wxFlexGridSizer( 0, 2, 5, 5 ) */}
                       <FlexGridSizer cols={2} vgap={5} hgap={5}>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                          <StaticText label="Horizontal alignment:" title="Horizontal alignment" />
+                          <StaticText
+                            label={_('Horizontal alignment:')}
+                            title={_('Horizontal alignment')}
+                          />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                           <AlignButtons buttons={p.hAlign} />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                          <StaticText label="Vertical alignment:" title="Vertical alignment" />
+                          <StaticText
+                            label={_('Vertical alignment:')}
+                            title={_('Vertical alignment')}
+                          />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                           <AlignButtons buttons={p.vAlign} />
@@ -223,7 +231,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                               flag={wxALIGN_CENTER_VERTICAL | wxTOP}
                               border={1}
                             >
-                              <StaticText label="Style:" />
+                              <StaticText label={_('Style:')} />
                             </SizerItem>
                             <SizerItem
                               pos={[3, 1]}
@@ -235,10 +243,10 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                                   wxCHK_ALLOW_3RD_STATE_FOR_USER) */}
                               <BoxSizer orient={wxHORIZONTAL}>
                                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                                  <TriStateCheck label="Bold" check={p.m_bold} />
+                                  <TriStateCheck label={_('Bold')} check={p.m_bold} />
                                 </SizerItem>
                                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={45}>
-                                  <TriStateCheck label="Italic" check={p.m_italic} />
+                                  <TriStateCheck label={_('Italic')} check={p.m_italic} />
                                 </SizerItem>
                               </BoxSizer>
                             </SizerItem>
@@ -248,7 +256,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                               flag={wxALIGN_CENTER_VERTICAL | wxLEFT}
                               border={1}
                             >
-                              <StaticText label="Font:" />
+                              <StaticText label={_('Font:')} />
                             </SizerItem>
                             <SizerItem
                               pos={[1, 1]}
@@ -264,7 +272,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                               flag={wxALIGN_CENTER_VERTICAL}
                               border={5}
                             >
-                              <StaticText label="Size:" />
+                              <StaticText label={_('Size:')} />
                             </SizerItem>
                             <SizerItem
                               pos={[2, 1]}
@@ -292,16 +300,16 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                           {/* fgColorSizer = wxFlexGridSizer( 0, 2, 4, 5 ) */}
                           <FlexGridSizer cols={2} vgap={4} hgap={5}>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                              <StaticText label="Text color:" />
+                              <StaticText label={_('Text color:')} />
                             </SizerItem>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                               <ColorBook label="Text color" b={p.m_textColorBook} />
                             </SizerItem>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                              <StaticText label="Background fill:" />
+                              <StaticText label={_('Background fill:')} />
                             </SizerItem>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                              <ColorBook label="Background fill" b={p.m_fillColorBook} />
+                              <ColorBook label={_('Background fill')} b={p.m_fillColorBook} />
                             </SizerItem>
                           </FlexGridSizer>
                         </SizerItem>
@@ -310,7 +318,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                           {/* gMarginsSizer = wxGridSizer( 0, 3, 4, 2 ) */}
                           <FlexGridSizer cols={3} vgap={4} hgap={2} flexibleDirection={0}>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                              <StaticText label="Cell margins:" />
+                              <StaticText label={_('Cell margins:')} />
                             </SizerItem>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                               <TextCtrl
@@ -360,15 +368,15 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={10}>
               <Button
-                label="Edit Table..."
-                title="Edit table properties and cell contents"
+                label={_('Edit Table...')}
+                title={_('Edit table properties and cell contents')}
                 onClick={p.onEditTable}
               />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={10}>
               <HyperlinkCtrl
-                label="Syntax help"
-                title="Show syntax help window"
+                label={_('Syntax help')}
+                title={_('Show syntax help window')}
                 onClick={p.onFormattingHelp}
               />
             </SizerItem>

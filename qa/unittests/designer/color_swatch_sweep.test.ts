@@ -194,7 +194,7 @@ describe('no dialog keeps a Clear button the picker replaced', () => {
         'utf8',
       );
       expect(src, 'dialog_shape_properties_base lost m_helpLabel2').toMatch(
-        /<StaticText label="Clear colors to use Schematic Editor colors\." font="info" italic \/>/,
+        /<StaticText\s+label=\{_\('Clear colors to use Schematic Editor colors\.'\)\}\s+font="info"\s+italic\s*\/>/,
       );
     }
     // The converted bases state it as their .cpp does: a wxStaticText with
@@ -206,7 +206,7 @@ describe('no dialog keeps a Clear button the picker replaced', () => {
     ]) {
       const src = readFileSync(join(SRC, rel), 'utf8');
       expect(src, `${rel} lost m_helpLabel2`).toMatch(
-        /<StaticText label="Clear color to use Schematic Editor colors\." font="info" italic \/>/,
+        /<StaticText\s+label=\{_\('Clear color to use Schematic Editor colors\.'\)\}\s+font="info"\s+italic\s*\/>/,
       );
     }
   });

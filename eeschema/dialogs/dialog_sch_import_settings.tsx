@@ -19,6 +19,7 @@ import { projectFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js'
 import type { CHECK } from '@ziroeda/wx/controls.js';
 import { WxFileDialog } from '@ziroeda/wx/filedlg.js';
 import { DIALOG_SCH_IMPORT_SETTINGS_BASE } from './dialog_sch_import_settings_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface SchImportOptions {
   formatting: boolean;
@@ -83,7 +84,7 @@ export function DialogSchImportSettings({ projectDir, onImport, onCancel }: Prop
   /** `TransferDataFromWindow()`, then the caller's ShowModal() == wxID_OK. */
   const onOK = (): void => {
     if (!chosen || chosen.path !== filePath) {
-      DisplayErrorMessage('File not found.');
+      DisplayErrorMessage(_('File not found.'));
       return;
     }
 
@@ -107,7 +108,7 @@ export function DialogSchImportSettings({ projectDir, onImport, onCancel }: Prop
         m_BusAliasesOpt={check('busAliases')}
         m_TextVarsOpt={check('textVars')}
         onSelectAll={onSelectAll}
-        okLabel="Import Settings"
+        okLabel={_('Import Settings')}
         onOK={onOK}
         onCancel={onCancel}
       />
@@ -115,7 +116,7 @@ export function DialogSchImportSettings({ projectDir, onImport, onCancel }: Prop
         // `OnBrowseClicked()`: wxFileDialog( "Import Settings From", …, ProjectFileWildcard(),
         // wxFD_OPEN | wxFD_FILE_MUST_EXIST ).
         <WxFileDialog
-          title="Import Settings From"
+          title={_('Import Settings From')}
           filters={[projectFileWildcard()]}
           projectDir={projectDir}
           initialPath={projectDir ?? undefined}

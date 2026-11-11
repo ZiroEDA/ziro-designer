@@ -96,6 +96,7 @@ import { SCH_DRAG_NET_COLLISION_MONITOR } from './sch_drag_net_collision.js';
 import { SCH_LINE_WIRE_BUS_TOOL } from './sch_line_wire_bus_tool.js';
 import { SCH_SELECTION } from './sch_selection.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // For adding to or removing from selections
 const QUIET_MODE = true;
@@ -572,16 +573,16 @@ export class SCH_MOVE_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       if (yield* this.doMoveSelection(aEvent, localCommit)) {
         switch (this.m_mode) {
           case MOVE_MODE.MOVE:
-            localCommit.Push('Move');
+            localCommit.Push(_('Move'));
             break;
           case MOVE_MODE.DRAG:
-            localCommit.Push('Drag');
+            localCommit.Push(_('Drag'));
             break;
           case MOVE_MODE.BREAK:
-            localCommit.Push('Break Wire');
+            localCommit.Push(_('Break Wire'));
             break;
           case MOVE_MODE.SLICE:
-            localCommit.Push('Slice Wire');
+            localCommit.Push(_('Slice Wire'));
             break;
         }
       } else {
@@ -933,16 +934,16 @@ export class SCH_MOVE_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
               switch (this.m_mode) {
                 case MOVE_MODE.MOVE:
-                  this.m_frame!.ShowInfoBarMsg('Press <ESC> to cancel move.');
+                  this.m_frame!.ShowInfoBarMsg(_('Press <ESC> to cancel move.'));
                   break;
                 case MOVE_MODE.DRAG:
-                  this.m_frame!.ShowInfoBarMsg('Press <ESC> to cancel drag.');
+                  this.m_frame!.ShowInfoBarMsg(_('Press <ESC> to cancel drag.'));
                   break;
                 case MOVE_MODE.BREAK:
-                  this.m_frame!.ShowInfoBarMsg('Press <ESC> to cancel break.');
+                  this.m_frame!.ShowInfoBarMsg(_('Press <ESC> to cancel break.'));
                   break;
                 case MOVE_MODE.SLICE:
-                  this.m_frame!.ShowInfoBarMsg('Press <ESC> to cancel slice.');
+                  this.m_frame!.ShowInfoBarMsg(_('Press <ESC> to cancel slice.'));
                   break;
               }
 
@@ -2600,7 +2601,7 @@ export class SCH_MOVE_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     this.m_toolMgr!.PostEvent(EVENTS.SelectedItemsMoved);
 
     this.m_frame!.Schematic().CleanUp(commit);
-    commit.Push('Align Items to Grid');
+    commit.Push(_('Align Items to Grid'));
     return 0;
   }
 

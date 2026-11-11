@@ -32,6 +32,7 @@ import type { SCH_SHEET_PIN } from './sch_sheet_pin.js';
 import { SCH_ACTIONS } from './tools/sch_actions.js';
 import { updateEeschemaSettings } from './eeschema_settings.js';
 import { wxID_HIGHEST, wxMenu } from '@ziroeda/wx/menu.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `NET_NAVIGATOR_ITEM_DATA` (sch_edit_frame.h:91), here beside the frame methods that make it: a net navigator row's sheet and item. */
 export class NET_NAVIGATOR_ITEM_DATA {
@@ -75,7 +76,7 @@ export function GetNetNavigatorItemText(
 
       if (aItem.GetLayer() === SCH_LAYER_ID.LAYER_BUS) return `Bus from ${ends}`;
 
-      return 'Graphic line not connectable';
+      return _('Graphic line not connectable');
     }
 
     case KICAD_T.SCH_PIN_T: {
@@ -130,7 +131,9 @@ export function GetNetNavigatorItemText(
     case KICAD_T.SCH_BUS_BUS_ENTRY_T: {
       const entry = aItem as SCH_BUS_WIRE_ENTRY | SCH_BUS_BUS_ENTRY;
       const kind =
-        aItem.Type() === KICAD_T.SCH_BUS_WIRE_ENTRY_T ? 'Bus to wire entry' : 'Bus to bus entry';
+        aItem.Type() === KICAD_T.SCH_BUS_WIRE_ENTRY_T
+          ? _('Bus to wire entry')
+          : _('Bus to bus entry');
 
       return `${kind} from (${at(entry.GetPosition().x)}, ${at(entry.GetPosition().y)}) to (${at(entry.GetEnd().x)}, ${at(entry.GetEnd().y)})`;
     }
@@ -295,7 +298,7 @@ export class NET_NAVIGATOR_MIXIN {
         navigator.DeleteAllItems();
 
         // Create a tree of all nets in the schematic.
-        const rootId = navigator.AddRoot('Nets', 0);
+        const rootId = navigator.AddRoot(_('Nets'), 0);
 
         for (const [key] of schematic.ConnectionGraph().GetNetMap()) {
           // Skip bus member subgraphs for the moment.
@@ -564,12 +567,12 @@ export class NET_NAVIGATOR_MIXIN {
     const navigator = this.GetNetNavigator();
     const menu = new wxMenu();
 
-    menu.Append(ID_NET_NAVIGATOR.EXPAND_ALL, 'Expand All');
-    menu.Append(ID_NET_NAVIGATOR.COLLAPSE_ALL, 'Collapse All');
+    menu.Append(ID_NET_NAVIGATOR.EXPAND_ALL, _('Expand All'));
+    menu.Append(ID_NET_NAVIGATOR.COLLAPSE_ALL, _('Collapse All'));
 
     const findInInspector = menu.Append(
       ID_NET_NAVIGATOR.FIND_IN_INSPECTOR,
-      'Find in Net Inspector',
+      _('Find in Net Inspector'),
     );
 
     // A row's wxStringClientData, which only a net row could carry - and RefreshNetNavigator
@@ -619,8 +622,11 @@ export class NET_NAVIGATOR_MIXIN {
    */
   showNetNavigatorSearchMenu(this: SCH_EDIT_FRAME): void {
     const menu = new wxMenu();
-    const wildcardItem = menu.AppendRadioItem(ID_NET_NAVIGATOR.SEARCH_WILDCARD, 'Wildcard Search');
-    const regexItem = menu.AppendRadioItem(ID_NET_NAVIGATOR.SEARCH_REGEX, 'Regex Search');
+    const wildcardItem = menu.AppendRadioItem(
+      ID_NET_NAVIGATOR.SEARCH_WILDCARD,
+      _('Wildcard Search'),
+    );
+    const regexItem = menu.AppendRadioItem(ID_NET_NAVIGATOR.SEARCH_REGEX, _('Regex Search'));
 
     const cfg = this.eeconfig();
 

@@ -23,6 +23,7 @@ import { DANGLING_END_ITEM, DANGLING_END_T, SCH_ITEM } from './sch_item.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import type { PLOTTER } from '@ziroeda/common/plotters/plotter.js';
 import type { SCH_PLOT_OPTS } from './sch_plotter.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const samePt = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 
@@ -158,7 +159,7 @@ export class SCH_NO_CONNECT extends SCH_ITEM {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
-    return 'No Connect';
+    return _('No Connect');
   }
 
   override GetPosition(): VECTOR2I {

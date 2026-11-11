@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -30,7 +31,7 @@ export const GLOBAL_SYM_LIB_NICKNAMES: ReadonlySet<string> = new Set([
   'Battery_Management',
   'Buffer',
   'Comparator',
-  'Connector',
+  _HKI('Connector'),
   'Connector_Audio',
   'Connector_Generic',
   'Connector_Generic_MountingPin',
@@ -64,7 +65,7 @@ export const GLOBAL_SYM_LIB_NICKNAMES: ReadonlySet<string> = new Set([
   'DSP_Motorola',
   'DSP_Texas',
   'Fiber_Optic',
-  'Filter',
+  _HKI('Filter'),
   'FPGA_Altera_MAX10',
   'FPGA_CologneChip_GateMate',
   'FPGA_Efinix_Trion',
@@ -78,7 +79,7 @@ export const GLOBAL_SYM_LIB_NICKNAMES: ReadonlySet<string> = new Set([
   'FPGA_Xilinx_Virtex6',
   'FPGA_Xilinx_Virtex7',
   'GPU',
-  'Graphic',
+  _HKI('Graphic'),
   'Interface',
   'Interface_CAN_LIN',
   'Interface_CurrentLoop',
@@ -163,7 +164,7 @@ export const GLOBAL_SYM_LIB_NICKNAMES: ReadonlySet<string> = new Set([
   'MCU_Texas_SimpleLink',
   'MCU_Trident',
   'MCU_WCH_RiscV',
-  'Mechanical',
+  _HKI('Mechanical'),
   'Memory_EEPROM',
   'Memory_EPROM',
   'Memory_Flash',

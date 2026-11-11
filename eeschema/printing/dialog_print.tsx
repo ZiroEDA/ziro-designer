@@ -31,6 +31,7 @@ import { useState, type JSX } from 'react';
 import { BUILTIN_THEMES } from '../sch_render_settings.js';
 import type { EESCHEMA_SETTINGS_STORE } from '../browser/eeschema_app.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 interface Props {
   /** TransferDataFromWindow's print, after SavePrintOptions: SCH_PRINTOUT reads the options back. */
@@ -92,26 +93,26 @@ export function DialogPrint({ settings, onPrint, themeId, onClose }: Props): JSX
   };
 
   return (
-    <DialogShim title="Print" onClose={saveAndClose}>
+    <DialogShim title={_('Print')} onClose={saveAndClose}>
       <div className="ze-modal-body" style={{ display: 'block', padding: '10px 14px' }}>
         <label
           style={{ display: 'block', margin: '4px 0' }}
-          title="Print (or not) the Frame references."
+          title={_('Print (or not) the Frame references.')}
         >
           <input
             type="checkbox"
             checked={drawingSheet}
             onChange={(e) => setDrawingSheet(e.target.checked)}
           />{' '}
-          Print drawing sheet
+          {_('Print drawing sheet')}
         </label>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '6px 0' }}>
-          <span style={{ fontSize: 12 }}>Output mode:</span>
+          <span style={{ fontSize: 12 }}>{_('Output mode:')}</span>
           <Combo
             value={String(color ? 'color' : 'bw')}
             options={[
-              { value: String('color'), label: 'Color' },
-              { value: String('bw'), label: 'Black and White' },
+              { value: String('color'), label: _('Color') },
+              { value: String('bw'), label: _('Black and White') },
             ]}
             className="ze-select"
             onChange={(aValue) => onOutputChoice(aValue === 'color')}
@@ -124,7 +125,7 @@ export function DialogPrint({ settings, onPrint, themeId, onClose }: Props): JSX
             disabled={!color}
             onChange={(e) => setBackground(e.target.checked)}
           />{' '}
-          Print background color
+          {_('Print background color')}
         </label>
         <div style={{ height: 6 }} />
         <label style={{ display: 'block', margin: '4px 0', fontSize: 12.5 }}>
@@ -133,7 +134,7 @@ export function DialogPrint({ settings, onPrint, themeId, onClose }: Props): JSX
             checked={useTheme}
             onChange={(e) => setUseTheme(e.target.checked)}
           />{' '}
-          Use a different color theme for printing:
+          {_('Use a different color theme for printing:')}
         </label>
         <Combo
           value={String(themeSel)}
@@ -156,8 +157,8 @@ export function DialogPrint({ settings, onPrint, themeId, onClose }: Props): JSX
         {/* Right-aligned by the footer's justify-content:flex-end. KiCad std-button order
           (GTK): Close, Print (OK); Print Preview (Apply) is hidden on __WXGTK__, whose
           native print dialog previews. */}
-        <Button label="Close" onClick={saveAndClose} />
-        <Button label="Print" isDefault onClick={run} />
+        <Button label={_('Close')} onClick={saveAndClose} />
+        <Button label={_('Print')} isDefault onClick={run} />
       </div>
     </DialogShim>
   );

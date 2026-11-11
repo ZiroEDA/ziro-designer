@@ -41,6 +41,7 @@ import {
   PanelEmbeddedFiles,
   type EmbeddedFile,
 } from '@ziroeda/common/dialogs/panel_embedded_files.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // The dialog's data model lives in schematic_settings.ts (KiCad's
 // SCHEMATIC_SETTINGS data/UI split); re-exported for existing importers.
@@ -132,13 +133,13 @@ export function DialogSchematicSetup({
   // Pages whose engine data we do not store yet are `disabled`, greyed in place.
   const sections: PagedDialogSection[] = [
     {
-      label: 'General',
+      label: _('General'),
       pages: [
         {
           id: 'formatting',
           resettable: true,
           onReset: () => setS((cur) => ({ ...cur, formatting: defaultFormatting() })),
-          label: 'Formatting',
+          label: _('Formatting'),
           render: () => (
             <PanelSetupFormatting
               value={s.formatting}
@@ -150,7 +151,7 @@ export function DialogSchematicSetup({
           id: 'annotation',
           resettable: true,
           onReset: () => setS((cur) => ({ ...cur, annotation: defaultAnnotation() })),
-          label: 'Annotation',
+          label: _('Annotation'),
           render: () => (
             <PanelEeschemaAnnotationOptions
               value={s.annotation}
@@ -162,7 +163,7 @@ export function DialogSchematicSetup({
           id: 'fieldTemplates',
           resettable: true,
           onReset: () => setS((cur) => ({ ...cur, fieldTemplates: [] })),
-          label: 'Field Name Templates',
+          label: _('Field Name Templates'),
           render: () => (
             <PanelTemplateFieldnames
               templates={s.fieldTemplates}
@@ -174,7 +175,7 @@ export function DialogSchematicSetup({
           id: 'bomPresets',
           resettable: true,
           onReset: () => setS((cur) => ({ ...cur, bomPresets: defaultBomPresets() })),
-          label: 'BOM Presets',
+          label: _('BOM Presets'),
           render: () => (
             <PanelBomPresets
               value={s.bomPresets}
@@ -185,14 +186,14 @@ export function DialogSchematicSetup({
       ],
     },
     {
-      label: 'Electrical Rules',
+      label: _('Electrical Rules'),
       pages: [
         {
           id: 'severities',
           resettable: true,
           onReset: () =>
             setS((cur) => ({ ...cur, erc: { ...cur.erc, severities: { ...DEFAULT_SEVERITIES } } })),
-          label: 'Violation Severity',
+          label: _('Violation Severity'),
           render: () => <PanelSetupSeverities settings={s.erc} onChange={setErc} />,
         },
         {
@@ -203,19 +204,19 @@ export function DialogSchematicSetup({
               ...cur,
               erc: { ...cur.erc, pinMap: DEFAULT_PIN_MAP.map((r) => [...r]) },
             })),
-          label: 'Pin Conflicts Map',
+          label: _('Pin Conflicts Map'),
           render: () => <PanelSetupPinmap settings={s.erc} onChange={setErc} />,
         },
       ],
     },
     {
-      label: 'Project',
+      label: _('Project'),
       pages: [
         {
           id: 'netclasses',
           resettable: true,
           onReset: () => setS((cur) => ({ ...cur, netClasses: defaultNetClasses() })),
-          label: 'Net Classes',
+          label: _('Net Classes'),
           render: () => (
             <PanelSetupNetclasses
               isEEschema
@@ -228,7 +229,7 @@ export function DialogSchematicSetup({
           id: 'buses',
           resettable: true,
           onReset: () => setS((cur) => ({ ...cur, busAliases: defaultBusAliases() })),
-          label: 'Bus Alias Definitions',
+          label: _('Bus Alias Definitions'),
           render: () => (
             <PanelSetupBuses
               aliases={s.busAliases}
@@ -240,7 +241,7 @@ export function DialogSchematicSetup({
           id: 'textVars',
           resettable: true,
           onReset: () => setS((cur) => ({ ...cur, textVars: [] })),
-          label: 'Text Variables',
+          label: _('Text Variables'),
           render: () => (
             <PanelTextVariables
               vars={s.textVars}
@@ -251,11 +252,11 @@ export function DialogSchematicSetup({
       ],
     },
     {
-      label: 'Schematic Data',
+      label: _('Schematic Data'),
       pages: [
         {
           id: 'embedded',
-          label: 'Embedded Files',
+          label: _('Embedded Files'),
           render: () => (
             <PanelEmbeddedFiles
               value={s.embeddedFiles}
@@ -274,13 +275,13 @@ export function DialogSchematicSetup({
         <DialogSchImportSettings onImport={importFrom} onCancel={() => setImportOpen(false)} />
       )}
       <PagedDialog
-        title="Schematic Setup"
+        title={_('Schematic Setup')}
         sections={sections}
         initialPage={initialPage}
         // [data] `PAGED_DIALOG( …, wxSize( 920, 460 ) )`, dialog_schematic_setup.cpp:47.
         initialSize={{ width: 920, height: 460 }}
         showReset
-        auxiliaryAction="Import Settings from Another Project..."
+        auxiliaryAction={_('Import Settings from Another Project...')}
         onAuxiliaryAction={() => setImportOpen(true)}
         onOk={() => {
           // PAGED_DIALOG::TransferDataFromWindow: a page whose TransferDataFromWindow

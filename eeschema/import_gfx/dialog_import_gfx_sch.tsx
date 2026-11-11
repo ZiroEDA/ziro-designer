@@ -44,6 +44,8 @@ import {
 import type { SCH_ITEM } from '../sch_item.js';
 import { DialogShim } from '@ziroeda/common/dialog_shim.js';
 import { wxReadFileSync } from '@ziroeda/wx/filefn.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * What DIALOG_IMPORT_GFX_SCH hands back on OK: `GetImportedItems()` and
@@ -86,11 +88,11 @@ function overrideFile(aPath: string | undefined): { name: string; text: string }
  * and `SetSelection( 0 )` opens on the first of them.
  */
 const DXF_UNIT_CHOICES: readonly { value: DXF_IMPORT_UNITS; label: string }[] = [
-  { value: DXF_IMPORT_UNITS.INCH, label: 'Inches' },
-  { value: DXF_IMPORT_UNITS.FEET, label: 'Feet' },
-  { value: DXF_IMPORT_UNITS.MM, label: 'Millimeters' },
-  { value: DXF_IMPORT_UNITS.CM, label: 'Centimeter' },
-  { value: DXF_IMPORT_UNITS.MILS, label: 'Mils' },
+  { value: DXF_IMPORT_UNITS.INCH, label: _HKI('Inches') },
+  { value: DXF_IMPORT_UNITS.FEET, label: _HKI('Feet') },
+  { value: DXF_IMPORT_UNITS.MM, label: _HKI('Millimeters') },
+  { value: DXF_IMPORT_UNITS.CM, label: _HKI('Centimeter') },
+  { value: DXF_IMPORT_UNITS.MILS, label: _HKI('Mils') },
 ];
 
 /** What the parameters the import depends on currently are. */
@@ -258,7 +260,7 @@ export function DialogImportGfx({
         style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
       >
         <label className="row">
-          <span>File:</span>
+          <span>{_('File:')}</span>
           <input
             type="file"
             className="ze-input"
@@ -272,7 +274,7 @@ export function DialogImportGfx({
             {imported.error ??
               (empty
                 ? // `wxMessageBox( _( "No graphic items found in file." ) );`
-                  'No graphic items found in file.'
+                  _('No graphic items found in file.')
                 : `${count} item(s)${drawn}`)}
           </div>
         )}
@@ -286,35 +288,35 @@ export function DialogImportGfx({
         ))}
 
         <fieldset>
-          <legend>Placement</legend>
+          <legend>{_('Placement')}</legend>
           <RadioButton
-            label="Interactive placement"
+            label={_('Interactive placement')}
             checked={interactive}
             className="row"
             onChange={() => setInteractive(true)}
           />
           <RadioButton
-            label="At"
+            label={_('At')}
             checked={!interactive}
             className="row"
             onChange={() => setInteractive(false)}
           />
           <div style={{ display: 'flex', gap: 16 }}>
-            {num('X:', 'x', params.originMM.x, 'mm', !interactive)}
-            {num('Y:', 'y', params.originMM.y, 'mm', !interactive)}
+            {num('X:', 'x', params.originMM.x, _('mm'), !interactive)}
+            {num('Y:', 'y', params.originMM.y, _('mm'), !interactive)}
           </div>
         </fieldset>
 
         <fieldset>
-          <legend>Import Parameters</legend>
-          {num('Import scale:', 'scale', params.scale, '')}
+          <legend>{_('Import Parameters')}</legend>
+          {num(_('Import scale:'), 'scale', params.scale, '')}
         </fieldset>
 
         <fieldset>
-          <legend>DXF Parameters</legend>
-          {num('Default line width:', 'lineWidthMM', params.lineWidthMM, 'mm', isDxf)}
+          <legend>{_('DXF Parameters')}</legend>
+          {num(_('Default line width:'), 'lineWidthMM', params.lineWidthMM, _('mm'), isDxf)}
           <label className="row">
-            <span>Default units:</span>
+            <span>{_('Default units:')}</span>
             <Combo
               value={String(params.dxfUnits)}
               options={DXF_UNIT_CHOICES.map((u) => ({ value: String(u.value), label: u.label }))}
@@ -329,7 +331,7 @@ export function DialogImportGfx({
       </div>
 
       <div className="ze-modal-footer">
-        <Button label="Cancel" onClick={onCancel} />
+        <Button label={_('Cancel')} onClick={onCancel} />
         <Button
           label="OK"
           isDefault

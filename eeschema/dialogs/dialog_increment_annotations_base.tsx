@@ -32,6 +32,7 @@ import {
 } from '@ziroeda/wx/sizer.js';
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
 import type { INCREMENT_ANNOTATIONS_VALUES } from '../tools/sch_editor_control.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 interface Props {
   /** The tool's values, written on OK. */
@@ -55,7 +56,7 @@ export function DIALOG_INCREMENT_ANNOTATIONS_BASE({ values, onOk, onCancel }: Pr
   };
 
   return (
-    <DialogShim title="Increment Annotations From" onClose={onCancel} initialFocus={firstRef}>
+    <DialogShim title={_('Increment Annotations From')} onClose={onCancel} initialFocus={firstRef}>
       {/* bSizerMain */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
@@ -67,7 +68,7 @@ export function DIALOG_INCREMENT_ANNOTATIONS_BASE({ values, onOk, onCancel }: Pr
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL}>
                   {/* m_firstRefDesLabel */}
                   <span title="The symbol name in library and also the default&#10;symbol value when loaded in the schematic.">
-                    Start reference designator:
+                    {_('Start reference designator:')}
                   </span>
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxALIGN_CENTER_VERTICAL | wxEXPAND}>
@@ -81,7 +82,7 @@ export function DIALOG_INCREMENT_ANNOTATIONS_BASE({ values, onOk, onCancel }: Pr
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL}>
                   {/* m_incrementLabel */}
-                  <span>Increment by:</span>
+                  <span>{_('Increment by:')}</span>
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND}>
                   {/* m_Increment = wxSpinCtrl( …, wxSP_ARROW_KEYS, 1, 64, 0 ) */}
@@ -99,7 +100,7 @@ export function DIALOG_INCREMENT_ANNOTATIONS_BASE({ values, onOk, onCancel }: Pr
             <SizerItem flag={wxALL} border={5}>
               {/* m_CurrentSheet, wxRB_GROUP, SetValue( true ) */}
               <RadioButton
-                label="Current sheet only"
+                label={_('Current sheet only')}
                 name="increment-scope"
                 checked={!allSheets}
                 onChange={() => setAllSheets(false)}
@@ -108,7 +109,7 @@ export function DIALOG_INCREMENT_ANNOTATIONS_BASE({ values, onOk, onCancel }: Pr
             <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
               {/* m_AllSheets */}
               <RadioButton
-                label="All sheets"
+                label={_('All sheets')}
                 name="increment-scope"
                 checked={allSheets}
                 onChange={() => setAllSheets(true)}

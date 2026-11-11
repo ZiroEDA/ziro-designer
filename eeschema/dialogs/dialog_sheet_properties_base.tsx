@@ -33,6 +33,8 @@ import {
   StdDialogButtonSizer,
   StretchSpacer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The two tooltips the base sets on the exclusion boxes. */
 const EXCLUDE_FROM_BOM_TIP =
@@ -71,7 +73,7 @@ export interface DIALOG_SHEET_PROPERTIES_BASE_PROPS {
 
 export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Sheet Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Sheet Properties')} onClose={p.onCancel}>
       {/* mainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxBOTTOM} border={5} shown={p.m_infoBar !== null}>
@@ -81,7 +83,7 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
           {/* m_longForm */}
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
-              <StaticBoxSizer label="Fields" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Fields')} orient={wxVERTICAL}>
                 <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5} minSize={[-1, 120]}>
                   {/* m_grid->SetMinSize( wxSize( -1,120 ) ) */}
                   {p.m_grid}
@@ -92,17 +94,21 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
                       <StdBitmapButton
                         bitmap="small_plus"
-                        title="Add field"
+                        title={_('Add field')}
                         onClick={p.onAddField}
                       />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
-                      <StdBitmapButton bitmap="small_up" title="Move up" onClick={p.onMoveUp} />
+                      <StdBitmapButton
+                        bitmap="small_up"
+                        title={_('Move up')}
+                        onClick={p.onMoveUp}
+                      />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
                       <StdBitmapButton
                         bitmap="small_down"
-                        title="Move down"
+                        title={_('Move down')}
                         onClick={p.onMoveDown}
                       />
                     </SizerItem>
@@ -110,7 +116,7 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                       <StdBitmapButton
                         bitmap="small_trash"
-                        title="Delete field"
+                        title={_('Delete field')}
                         onClick={p.onDeleteField}
                       />
                     </SizerItem>
@@ -123,12 +129,12 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
               {/* bSizer5 */}
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem flag={wxEXPAND | wxRIGHT} border={5}>
-                  <StaticBoxSizer label="Attributes" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Attributes')} orient={wxVERTICAL}>
                     <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT} border={10}>
                       {/* bSizer6 */}
                       <BoxSizer orient={wxHORIZONTAL}>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                          <StaticText label="Page number:" />
+                          <StaticText label={_('Page number:')} />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
                           <TextCtrl
@@ -142,31 +148,31 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
                       </BoxSizer>
                     </SizerItem>
                     <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                      <CheckBox label="Exclude from simulation" check={p.m_cbExcludeFromSim} />
+                      <CheckBox label={_('Exclude from simulation')} check={p.m_cbExcludeFromSim} />
                     </SizerItem>
                     <Spacer width={0} height={10} flag={wxEXPAND} border={5} />
                     <SizerItem flag={wxALL} border={5}>
                       <CheckBox
-                        label="Exclude from bill of materials"
+                        label={_('Exclude from bill of materials')}
                         title={EXCLUDE_FROM_BOM_TIP}
                         check={p.m_cbExcludeFromBom}
                       />
                     </SizerItem>
                     <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                       <CheckBox
-                        label="Exclude from board"
+                        label={_('Exclude from board')}
                         title={EXCLUDE_FROM_BOARD_TIP}
                         check={p.m_cbExcludeFromBoard}
                       />
                     </SizerItem>
                     <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
-                      <CheckBox label="Do not populate" check={p.m_cbDNP} />
+                      <CheckBox label={_('Do not populate')} check={p.m_cbDNP} />
                     </SizerItem>
                   </StaticBoxSizer>
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxEXPAND | wxLEFT} border={10}>
                   {/* sbSizer2 */}
-                  <StaticBoxSizer label="Style" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Style')} orient={wxVERTICAL}>
                     <SizerItem flag={wxEXPAND} border={5}>
                       {/* bStyleColumns */}
                       <BoxSizer orient={wxHORIZONTAL}>
@@ -174,7 +180,7 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
                           {/* bBorderSizer */}
                           <BoxSizer orient={wxVERTICAL}>
                             <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
-                              <StaticText label="Border" />
+                              <StaticText label={_('Border')} />
                             </SizerItem>
                             <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                               {/* bSizer10 */}
@@ -183,7 +189,7 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
                                   flag={wxALIGN_CENTER_VERTICAL | wxBOTTOM | wxLEFT}
                                   border={5}
                                 >
-                                  <StaticText label="Width:" />
+                                  <StaticText label={_('Width:')} />
                                 </SizerItem>
                                 <SizerItem
                                   flag={wxALIGN_CENTER_VERTICAL | wxBOTTOM | wxRIGHT | wxLEFT}
@@ -204,7 +210,7 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
                                   flag={wxALIGN_CENTER_VERTICAL | wxBOTTOM | wxRIGHT}
                                   border={5}
                                 >
-                                  <StaticText label="Color:" />
+                                  <StaticText label={_('Color:')} />
                                 </SizerItem>
                                 <SizerItem
                                   flag={wxALIGN_CENTER_VERTICAL}
@@ -227,7 +233,7 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
                           {/* bFillSizer */}
                           <BoxSizer orient={wxVERTICAL}>
                             <SizerItem flag={wxBOTTOM} border={5}>
-                              <StaticText label="Fill" />
+                              <StaticText label={_('Fill')} />
                             </SizerItem>
                             <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                               {/* bSizer11 */}
@@ -236,7 +242,7 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
                                   flag={wxALIGN_CENTER_VERTICAL | wxBOTTOM | wxRIGHT}
                                   border={5}
                                 >
-                                  <StaticText label="Color:" />
+                                  <StaticText label={_('Color:')} />
                                 </SizerItem>
                                 <SizerItem
                                   flag={wxALIGN_CENTER_VERTICAL}
@@ -244,7 +250,7 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
                                   minSize={[48, 24]}
                                 >
                                   <ColorSwatch
-                                    label="Fill color"
+                                    label={_HKI('Fill color')}
                                     color={p.m_backgroundSwatch}
                                     background={p.swatchBackground}
                                     onChange={p.onBackgroundColor}
@@ -266,7 +272,7 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
           {/* m_sizerBottom */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxLEFT | wxALIGN_CENTER_VERTICAL} border={10}>
-              <StaticText label="Hierarchical path:" />
+              <StaticText label={_('Hierarchical path:')} />
             </SizerItem>
             <SizerItem proportion={1} flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
               <StaticText label={p.m_hierarchicalPath} />

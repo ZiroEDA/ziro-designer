@@ -108,15 +108,15 @@ describe('the menu entry', () => {
   it('is live, not a stub, and reads what SCH_ACTIONS calls it', () => {
     const src = readFileSync(MENUBAR, 'utf8');
     expect(src).toMatch(
-      /act\('Save Current Sheet Copy As\.\.\.', 'saveAs', 'saveCurrSheetCopyAs'\)/,
+      /act\(_\('Save Current Sheet Copy As\.\.\.'\), 'saveAs', 'saveCurrSheetCopyAs'\)/,
     );
-    expect(src).not.toMatch(/stub\('Save Current Sheet Copy As/);
+    expect(src).not.toMatch(/stub\((_\()?'Save Current Sheet Copy As/);
   });
 
   it('carries no hotkey, because the action declares no DefaultHotkey', () => {
     const src = readFileSync(MENUBAR, 'utf8');
     const line = src.split('\n').find((l) => l.includes("'saveCurrSheetCopyAs'")) ?? '';
-    // act( label, icon, id ) with no fourth argument.
-    expect(line).toMatch(/act\('[^']+', '[^']+', '[^']+'\),/);
+    // act( label, icon, id ) with no fourth argument; the label is marked for translation.
+    expect(line).toMatch(/act\(_\('[^']+'\), '[^']+', '[^']+'\),/);
   });
 });

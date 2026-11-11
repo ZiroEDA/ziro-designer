@@ -179,6 +179,8 @@ import {
   ASCH_TEXT_FRAME_ALIGNMENT,
   ASCH_WIRE,
 } from './altium_parser_sch.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A record's properties as the property helpers take them. */
 type PROPS = Map<string, string>;
@@ -680,7 +682,7 @@ export function HelperGeneratePowerPortGraphics(
     return { x: 0, y: m(250) };
   } else {
     if (aStyle !== S.BAR)
-      aReport("Power Port with unknown style imported as 'Bar' type.", RPT_SEVERITY_WARNING);
+      aReport(_("Power Port with unknown style imported as 'Bar' type."), RPT_SEVERITY_WARNING);
 
     poly(m(10), [0, 0], [0, m(100)]);
     poly(m(10), [m(-50), m(100)], [m(50), m(100)]);
@@ -733,11 +735,14 @@ export class SCH_IO_ALTIUM extends SCH_IO {
   }
 
   override GetSchematicFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('Altium schematic files', ['SchDoc']);
+    return new IO_FILE_DESC(_HKI('Altium schematic files'), ['SchDoc']);
   }
 
   override GetLibraryDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('Altium Schematic Library or Integrated Library', ['SchLib', 'IntLib']);
+    return new IO_FILE_DESC(_HKI('Altium Schematic Library or Integrated Library'), [
+      'SchLib',
+      'IntLib',
+    ]);
   }
 
   override GetModifyHash(): number {
@@ -1560,7 +1565,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
       this.m_progressReporter.Report(`Importing ${baseName(aFileName)}`);
 
       if (!this.m_progressReporter.KeepRefreshing())
-        throw new IO_ERROR('File import canceled by user.');
+        throw new IO_ERROR(_('File import canceled by user.'));
     }
 
     if (this.isBinaryFile(aFileName)) {
@@ -1762,7 +1767,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
       if (
         libtype.toLowerCase() !== 'protel for windows - schematic capture binary file version 5.0'
       )
-        throw new IO_ERROR('Expected Altium Schematic file version 5.0');
+        throw new IO_ERROR(_('Expected Altium Schematic file version 5.0'));
     }
 
     // Prepare some local variables
@@ -1837,7 +1842,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
       const libtype = ALTIUM_PROPS_UTILS.ReadString(properties, 'HEADER', '');
 
       if (libtype.toLowerCase() !== 'protel for windows - schematic capture ascii file version 5.0')
-        throw new IO_ERROR('Expected Altium Schematic file version 5.0');
+        throw new IO_ERROR(_('Expected Altium Schematic file version 5.0'));
     }
 
     // Prepare some local variables
@@ -1921,7 +1926,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
         break;
 
       case R.IEEE_SYMBOL:
-        this.error("Record 'IEEE_SYMBOL' not handled.", RPT_SEVERITY_INFO);
+        this.error(_("Record 'IEEE_SYMBOL' not handled."), RPT_SEVERITY_INFO);
         break;
 
       case R.LABEL:
@@ -2040,7 +2045,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
         break;
 
       case R.PARAMETER_SET:
-        this.error('Parameter Set not currently supported.', RPT_SEVERITY_ERROR);
+        this.error(_('Parameter Set not currently supported.'), RPT_SEVERITY_ERROR);
         break;
 
       case R.IMPLEMENTATION_LIST:
@@ -2061,7 +2066,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
         break;
 
       case R.COMPILE_MASK:
-        this.error('Compile mask not currently supported.', RPT_SEVERITY_ERROR);
+        this.error(_('Compile mask not currently supported.'), RPT_SEVERITY_ERROR);
         break;
 
       case R.HYPERLINK:
@@ -2086,7 +2091,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
         break;
 
       case R.BLANKET:
-        this.error('Blanket not currently supported.', RPT_SEVERITY_ERROR);
+        this.error(_('Blanket not currently supported.'), RPT_SEVERITY_ERROR);
         break;
 
       default:
@@ -2334,7 +2339,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
         break;
 
       default:
-        this.error('Pin has unexpected orientation.', RPT_SEVERITY_WARNING);
+        this.error(_('Pin has unexpected orientation.'), RPT_SEVERITY_WARNING);
         break;
     }
 
@@ -2388,15 +2393,15 @@ export class SCH_IO_ALTIUM extends SCH_IO {
 
       default:
         pin.SetType(ELECTRICAL_PINTYPE.PT_UNSPECIFIED);
-        this.error('Pin has unexpected electrical type.', RPT_SEVERITY_WARNING);
+        this.error(_('Pin has unexpected electrical type.'), RPT_SEVERITY_WARNING);
         break;
     }
 
     if (elem.symbolOuterEdge === ASCH_PIN_SYMBOL.UNKNOWN)
-      this.error('Pin has unexpected outer edge type.', RPT_SEVERITY_WARNING);
+      this.error(_('Pin has unexpected outer edge type.'), RPT_SEVERITY_WARNING);
 
     if (elem.symbolInnerEdge === ASCH_PIN_SYMBOL.UNKNOWN)
-      this.error('Pin has unexpected inner edge type.', RPT_SEVERITY_WARNING);
+      this.error(_('Pin has unexpected inner edge type.'), RPT_SEVERITY_WARNING);
 
     if (elem.symbolOuterEdge === ASCH_PIN_SYMBOL.NEGATED) {
       if (elem.symbolInnerEdge === ASCH_PIN_SYMBOL.CLOCK)
@@ -2694,7 +2699,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
         }
       }
     } else {
-      const o = this.owner(elem, aSymbol, 'Bezier');
+      const o = this.owner(elem, aSymbol, _HKI('Bezier'));
 
       if (!o) return;
 
@@ -3715,7 +3720,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
         break;
 
       default:
-        this.error('Pin has unexpected orientation.', RPT_SEVERITY_WARNING);
+        this.error(_('Pin has unexpected orientation.'), RPT_SEVERITY_WARNING);
         break;
     }
 
@@ -4717,7 +4722,7 @@ export class SCH_IO_ALTIUM extends SCH_IO {
       libtype.toLowerCase() !==
       'protel for windows - schematic library editor binary file version 5.0'
     )
-      throw new IO_ERROR('Expected Altium Schematic Library file version 5.0');
+      throw new IO_ERROR(_('Expected Altium Schematic Library file version 5.0'));
 
     for (const [key, value] of byStringKey(properties as PROPS)) {
       const upperKey = key.toUpperCase();

@@ -11,6 +11,7 @@ import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
 import { StaticText } from '@ziroeda/wx/controls.js';
 import { wxBOTTOM, wxEXPAND, wxLEFT, wxTOP, wxVERTICAL } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PANEL_BOM_PRESETS_BASE_PROPS {
   m_bomPresetsGrid: ReactNode;
@@ -24,7 +25,7 @@ export function PANEL_BOM_PRESETS_BASE(p: PANEL_BOM_PRESETS_BASE_PROPS): JSX.Ele
     // bPanelSizer
     <BoxSizer orient={wxVERTICAL}>
       <SizerItem flag={wxTOP | wxLEFT | wxEXPAND} border={8}>
-        <StaticText label="Bill of Materials Presets" />
+        <StaticText label={_('Bill of Materials Presets')} />
       </SizerItem>
       <Spacer width={0} height={3} flag={wxEXPAND} border={5} />
       <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM} border={3} minSize={[-1, 180]}>
@@ -40,7 +41,7 @@ export function PANEL_BOM_PRESETS_BASE(p: PANEL_BOM_PRESETS_BASE_PROPS): JSX.Ele
       </SizerItem>
       <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
       <SizerItem flag={wxEXPAND | wxLEFT | wxTOP} border={8}>
-        <StaticText label="Bill of Materials Formatting Presets" />
+        <StaticText label={_('Bill of Materials Formatting Presets')} />
       </SizerItem>
       <Spacer width={0} height={3} flag={wxEXPAND} border={5} />
       <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM} border={3} minSize={[-1, 180]}>

@@ -139,6 +139,8 @@ import { SCH_UNDO_REDO_MIXIN } from './schematic_undo_redo.js';
 import { SCH_DESIGN_BLOCK_UTILS_MIXIN } from './sch_design_block_utils.js';
 import type { SCH_DESIGN_BLOCK_PANE } from './widgets/sch_design_block_pane.js';
 import type { SCH_GROUP } from './sch_group.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `EditSheetProperties`' out-parameters (sheet.cpp): what OK left to be done. */
 export interface SHEET_PROPERTIES_RESULT {
@@ -384,7 +386,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   /** `m_netNavigatorFilter`: the "Filter nets" search box above it. */
   private readonly m_netNavigatorFilter = (() => {
     const filter = new wxSearchCtrl();
-    filter.SetDescriptiveText('Filter nets');
+    filter.SetDescriptiveText(_('Filter nets'));
     filter.BindText(() => this.onNetNavigatorFilterChanged());
     return filter;
   })();
@@ -787,7 +789,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
       if (!pin.GetAlternates().has(altName)) pin.SetAlt('');
     }
 
-    if (!commit.Empty()) commit.Push('Save Symbol to Schematic');
+    if (!commit.Empty()) commit.Push(_('Save Symbol to Schematic'));
   }
 
   /**
@@ -1019,7 +1021,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     if (selectionIndex !== -1) currentSelection = ctrl.GetString(selectionIndex);
 
     // Add all variant names, a separator, and "Add New Variant..." at the end
-    ctrl.Set([...aVariantNames, '---', 'Add New Design Variant...']);
+    ctrl.Set([...aVariantNames, '---', _('Add New Design Variant...')]);
 
     selectionIndex = ctrl.FindString(currentSelection);
 
@@ -1098,7 +1100,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
     // Empty strings, reserved names, and duplicate variant names are not allowed.
     if (variantName === '') {
-      this.GetInfoBar()?.ShowMessageFor('Variant name cannot be empty.', 10000, 'error');
+      this.GetInfoBar()?.ShowMessageFor(_('Variant name cannot be empty.'), 10000, 'error');
       return false;
     }
 
@@ -1178,13 +1180,13 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     choices.splice(0, 1);
 
     if (choices.length === 0) {
-      this.GetInfoBar()?.ShowMessageFor('No design variants to edit.', 10000, 'error');
+      this.GetInfoBar()?.ShowMessageFor(_('No design variants to edit.'), 10000, 'error');
       return;
     }
 
     const chooser: SINGLE_CHOICE_ARG = {
       message: 'Select variant to edit description:                ',
-      caption: 'Edit Variant Description',
+      caption: _('Edit Variant Description'),
       choices,
       selection: -1,
     };
@@ -1222,7 +1224,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     // set of spaces in the control label are to prevent this.
     const dlg: SINGLE_CHOICE_ARG = {
       message: 'Select variant name to remove:                ',
-      caption: 'Remove Design Variant',
+      caption: _('Remove Design Variant'),
       choices,
       selection: -1,
     };
@@ -1605,11 +1607,11 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     if (!this.m_diffSymbolDialog) {
       this.m_diffSymbolDialog = new DIALOG_BOOK_REPORTER(
         DIFF_SYMBOLS_DIALOG_NAME,
-        'Compare Symbol with Library',
+        _('Compare Symbol with Library'),
         (aName, aId) => this.onCloseSymbolDiffDialog(aName, aId),
       );
 
-      this.m_diffSymbolDialog.SetApplyLabel('Update Symbol from Library...');
+      this.m_diffSymbolDialog.SetApplyLabel(_('Update Symbol from Library...'));
     }
 
     return this.m_diffSymbolDialog;
@@ -2021,7 +2023,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
       const currUnitName = symbol.GetUnitDisplayName(currentUnit, false);
       let otherSheetName = otherSymbolRef.GetSheetPath().PathHumanReadable(true, true);
 
-      if (otherSheetName === '') otherSheetName = 'Root';
+      if (otherSheetName === '') otherSheetName = _('Root');
 
       const msg = `Symbol unit '${targetUnitName}' is already placed (on sheet '${otherSheetName}')`;
 
@@ -2068,8 +2070,8 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
           aSymbol.AutoplaceFields(this.GetScreen(), fieldsAutoplaced);
       }
 
-      if (swapWithOther) commit.Push('Swap Units');
-      else commit.Push('Change Unit');
+      if (swapWithOther) commit.Push(_('Swap Units'));
+      else commit.Push(_('Change Unit'));
     }
   }
 
@@ -2095,7 +2097,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     // If selected make sure all the now-included pins are selected
     if (aSymbol.IsSelected()) this.m_toolManager!.RunAction(ACTIONS.selectItem, aSymbol);
 
-    commit.Push('Change Body Style');
+    commit.Push(_('Change Body Style'));
   }
 
   /** `SetAltPinFunction` (picksymbol.cpp:214). */
@@ -2108,7 +2110,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     if (aFunction === aPin.GetName()) aPin.SetAlt('');
     else aPin.SetAlt(aFunction);
 
-    commit.Push('Set Pin Function');
+    commit.Push(_('Set Pin Function'));
   }
 
   /** Clone \a aItem and add it to the list of repeatable items. */
@@ -2401,7 +2403,8 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
   /** `OnOpenCvpcb()` (sch_edit_frame.cpp:1576). */
   OnOpenCvpcb(): void {
-    if (!this.ReadyToNetlist('Assigning footprints requires a fully annotated schematic.')) return;
+    if (!this.ReadyToNetlist(_('Assigning footprints requires a fully annotated schematic.')))
+      return;
 
     const kiway = this.Kiway();
 
@@ -2871,10 +2874,10 @@ applyMixins(SCH_EDIT_FRAME, [
  */
 
 /** `_( "Schematic Editor" )`, the half after the dash. */
-export const SCH_FRAME_NAME = 'Schematic Editor';
+export const SCH_FRAME_NAME = _HKI('Schematic Editor');
 
 /** `_( "[no schematic loaded]" )` — sch_edit_frame.cpp:1856. */
-export const SCH_NO_DOCUMENT = '[no schematic loaded]';
+export const SCH_NO_DOCUMENT = _HKI('[no schematic loaded]');
 
 /**
  * `SCH_SHEET_PATH::PathHumanReadable( false, true )`

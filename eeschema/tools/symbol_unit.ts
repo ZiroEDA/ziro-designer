@@ -31,6 +31,8 @@ import { symbolNodeWithFreshUuids } from './build.js';
 import { childNamed } from '@ziroeda/sexpr/query.js';
 import { isList, type SList } from '@ziroeda/sexpr';
 import { schSymbolLibraryName } from '../lib_symbol.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** How many distinct units the library part has (SCH_SYMBOL::GetUnitCount). */
 export function symbolUnitCount(lib: LibSymbol | undefined): number {
@@ -121,13 +123,13 @@ export function unplacedUnits(
  */
 export const PLACE_NEXT_UNIT_MESSAGES = {
   /** Nothing, or more than one thing, is selected. */
-  needsSingleSymbol: 'Select a single symbol to place the next unit.',
+  needsSingleSymbol: _HKI('Select a single symbol to place the next unit.'),
   /** `!symbol->IsMultiUnit()`. */
-  singleUnit: 'This symbol has only one unit.',
+  singleUnit: _HKI('This symbol has only one unit.'),
   /** `missingUnits.empty()`. */
-  allPlaced: 'All units of this symbol are already placed.',
+  allPlaced: _HKI('All units of this symbol are already placed.'),
   /** A specific unit was asked for and it is already on the sheet. */
-  requestedPlaced: 'Requested unit already placed.',
+  requestedPlaced: _HKI('Requested unit already placed.'),
 } as const;
 
 /** What Place Next Symbol Unit decided: a symbol to place, or why it refused. */
@@ -196,7 +198,7 @@ export function planNextSymbolUnit(
 /** Set one symbol's unit (ID_POPUP_SCH_SELECT_UNIT). */
 export function setSymbolUnit(index: number, unit: number): EditCommand {
   return {
-    label: 'Change Unit',
+    label: _('Change Unit'),
     apply(doc: Schematic): Schematic {
       return {
         ...doc,

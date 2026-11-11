@@ -58,6 +58,8 @@ import {
 import { type SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';
 import type { SCH_SHEET } from './sch_sheet.js';
 import { SCH_CLEANUP_FLAGS, SCHEMATIC } from './schematic.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `SCH_EDIT_FRAME::saveSchematicFile`'s success message
@@ -118,7 +120,7 @@ export function revertPromptMessage(rootFileName: string): string {
  * aMessage, _( "Confirmation" ), … )`. Not the frame's name, and not a question
  * of its own: every IsOK in KiCad puts this one word in the title bar.
  */
-export const CONFIRMATION_CAPTION = 'Confirmation';
+export const CONFIRMATION_CAPTION = _HKI('Confirmation');
 
 /**
  * `SCH_EDIT_FRAME::importFile`'s non-KiCad arm, once `LoadSchematicFile` has
@@ -330,7 +332,7 @@ export class SCH_FILES_IO_MIXIN {
       };
 
       const picked = await this.ShowFileDialog(
-        'Schematic Files',
+        _('Schematic Files'),
         PosixPath.dirname(savePath),
         savePath.slice(savePath.lastIndexOf('/') + 1),
         [kicadSchematicWildcard()],
@@ -348,7 +350,7 @@ export class SCH_FILES_IO_MIXIN {
 
         await this.ShowModalDialog('KICAD_MESSAGE_DIALOG', [], {
           message: msg,
-          caption: 'Error',
+          caption: _('Error'),
           style: wxOK | wxICON_EXCLAMATION | wxCENTER,
         } satisfies KICAD_MESSAGE_DIALOG_ARG);
         return false;
@@ -386,7 +388,7 @@ export class SCH_FILES_IO_MIXIN {
       ) {
         await this.ShowModalDialog('KICAD_MESSAGE_DIALOG', [], {
           message: err.value,
-          caption: 'Error',
+          caption: _('Error'),
           style: wxOK | wxICON_EXCLAMATION | wxCENTER,
         } satisfies KICAD_MESSAGE_DIALOG_ARG);
         return false;
@@ -436,7 +438,7 @@ export class SCH_FILES_IO_MIXIN {
 
       await this.ShowModalDialog('wxRichMessageDialog', [], {
         message: `Failed to save ${this.Schematic().Root().GetFileName()}.`,
-        caption: 'Locked File Warning',
+        caption: _('Locked File Warning'),
         style: wxOK | wxICON_WARNING | wxCENTER,
         extended: `You do not have write permissions to:\n\n${msg}`,
       } satisfies KICAD_MESSAGE_DIALOG_ARG);
@@ -448,12 +450,12 @@ export class SCH_FILES_IO_MIXIN {
         msg = msg === '' ? overwrittenFile : `${msg}\n${overwrittenFile}`;
 
       const answer = await this.ShowModalDialog('wxRichMessageDialog', [], {
-        message: 'Saving will overwrite existing files.',
-        caption: 'Save Warning',
+        message: _('Saving will overwrite existing files.'),
+        caption: _('Save Warning'),
         style: wxOK | wxCANCEL | wxCANCEL_DEFAULT | wxCENTER | wxICON_EXCLAMATION,
         extended: `The following files will be overwritten:\n\n${msg}`,
-        okLabel: 'Overwrite Files',
-        cancelLabel: 'Abort Project Save',
+        okLabel: _('Overwrite Files'),
+        cancelLabel: _('Abort Project Save'),
       } satisfies KICAD_MESSAGE_DIALOG_ARG);
 
       if (answer === wxID_CANCEL) return false;
@@ -663,7 +665,7 @@ export class SCH_FILES_IO_MIXIN {
 
             // Make ${SHEETNAME} work on the root sheet until we properly support
             // naming the root sheet
-            newSchematic.GetTopLevelSheet()?.SetName('Root');
+            newSchematic.GetTopLevelSheet()?.SetName(_('Root'));
           } else {
             newSchematic.CreateDefaultScreens();
           }

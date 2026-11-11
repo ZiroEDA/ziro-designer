@@ -24,6 +24,7 @@ import { SCH_COMMIT } from '../sch_commit.js';
 import type { SCH_BITMAP } from '../sch_bitmap.js';
 import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
 import { DIALOG_IMAGE_PROPERTIES_BASE } from './dialog_image_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface ImagePropsResult {
   /** `m_ModPositionX` / `m_ModPositionY`'s text, read back through their UNIT_BINDERs. */
@@ -103,7 +104,7 @@ export function DialogImageProperties({
       {confirm && (
         // IsOK( host, msg ) (confirm.cpp:278-298).
         <MessageDialogYesNo
-          caption="Confirmation"
+          caption={_('Confirmation')}
           icon="question"
           defaultButton="yes"
           message={confirm}
@@ -141,8 +142,8 @@ export class DIALOG_IMAGE_PROPERTIES {
   constructor(aParent: SCH_EDIT_FRAME, aBitmap: SCH_BITMAP) {
     this.m_frame = aParent;
     this.m_bitmap = aBitmap;
-    this.m_posX = new UNIT_BINDER(aParent, 'Position X:', (m) => DisplayErrorMessage(m));
-    this.m_posY = new UNIT_BINDER(aParent, 'Position Y:', (m) => DisplayErrorMessage(m));
+    this.m_posX = new UNIT_BINDER(aParent, _('Position X:'), (m) => DisplayErrorMessage(m));
+    this.m_posY = new UNIT_BINDER(aParent, _('Position Y:'), (m) => DisplayErrorMessage(m));
 
     this.m_posX.SetCoordType(COORD_TYPES_T.ABS_X_COORD);
     this.m_posY.SetCoordType(COORD_TYPES_T.ABS_Y_COORD);
@@ -191,7 +192,7 @@ export class DIALOG_IMAGE_PROPERTIES {
     this.m_posY.SetText(aResult.posY);
     this.m_bitmap.SetPosition({ x: this.m_posX.GetIntValue(), y: this.m_posY.GetIntValue() });
 
-    if (!commit.Empty()) commit.Push('Image Properties');
+    if (!commit.Empty()) commit.Push(_('Image Properties'));
 
     return true;
   }

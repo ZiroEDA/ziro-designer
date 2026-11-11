@@ -28,6 +28,7 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { Notebook } from '@ziroeda/wx/notebook_ui.js';
 import { BoxSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A checkbox an EXPORT_NETLIST_PAGE adds to its m_LeftBoxSizer. */
 export interface PAGE_CHECK extends CHECK {
@@ -97,7 +98,7 @@ function NetlistPage({ page }: { page: EXPORT_NETLIST_PAGE }): ReactNode {
 
 export function DIALOG_EXPORT_NETLIST_BASE(p: DIALOG_EXPORT_NETLIST_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Export Netlist" onClose={p.onCancel}>
+    <DialogShim title={_('Export Netlist')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
@@ -107,7 +108,7 @@ export function DIALOG_EXPORT_NETLIST_BASE(p: DIALOG_EXPORT_NETLIST_BASE_PROPS):
               {/* bSizer8 */}
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
-                  <StaticText label="Output path:" />
+                  <StaticText label={_('Output path:')} />
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxALL} border={5} minSize={[450, -1]}>
                   <TextCtrl
@@ -151,8 +152,8 @@ export function DIALOG_EXPORT_NETLIST_BASE(p: DIALOG_EXPORT_NETLIST_BASE_PROPS):
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem proportion={1} flag={wxEXPAND} border={5}>
               <StdDialogButtonSizer
-                okLabel="Export Netlist"
-                cancelLabel="Close"
+                okLabel={_('Export Netlist')}
+                cancelLabel={_('Close')}
                 onOk={p.onOK}
                 onCancel={p.onCancel}
               />

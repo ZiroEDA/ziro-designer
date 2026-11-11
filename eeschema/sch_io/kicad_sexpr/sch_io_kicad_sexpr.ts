@@ -106,6 +106,7 @@ import {
 } from './sch_io_kicad_sexpr_common.js';
 import { SCH_IO_KICAD_SEXPR_LIB_CACHE } from './sch_io_kicad_sexpr_lib_cache.js';
 import { type LIB_SYMBOL_MAP, SCH_IO_KICAD_SEXPR_PARSER } from './sch_io_kicad_sexpr_parser.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A file's text by absolute path, or null when there is no such file. */
 export type SCH_FILE_READER = (aAbsolutePath: string) => string | null;
@@ -195,11 +196,13 @@ export class SCH_IO_KICAD_SEXPR {
   }
 
   GetSchematicFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('KiCad s-expression schematic files', [KiCadSchematicFileExtension]);
+    return new IO_FILE_DESC(_HKI('KiCad s-expression schematic files'), [
+      KiCadSchematicFileExtension,
+    ]);
   }
 
   GetLibraryDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('KiCad symbol library files', [KiCadSymbolLibFileExtension]);
+    return new IO_FILE_DESC(_HKI('KiCad symbol library files'), [KiCadSymbolLibFileExtension]);
   }
 
   /**

@@ -33,6 +33,7 @@ import {
   NormalizedUrlOrigin,
   ValidateRemoteUrlSecurity,
 } from '@ziroeda/common/remote_provider_utils.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class REMOTE_SYMBOL_FETCH_RESPONSE {
   status_code = 0;
@@ -59,7 +60,12 @@ function validateAssetUrl(
   aError: { value: string },
 ): boolean {
   if (
-    !ValidateRemoteUrlSecurity(aUrl, aProvider.allow_insecure_localhost, aError, 'Remote asset URL')
+    !ValidateRemoteUrlSecurity(
+      aUrl,
+      aProvider.allow_insecure_localhost,
+      aError,
+      _('Remote asset URL'),
+    )
   )
     return false;
 
@@ -71,7 +77,7 @@ function validateAssetUrl(
     (panelOrigin !== '' && assetOrigin === panelOrigin);
 
   if (assetOrigin === '' || !originAllowed) {
-    aError.value = 'Remote asset URL origin must match the selected provider.';
+    aError.value = _('Remote asset URL origin must match the selected provider.');
     return false;
   }
 
@@ -122,19 +128,19 @@ export class REMOTE_SYMBOL_DOWNLOAD_MANAGER {
     aError.value = '';
 
     if (aAsset.size_bytes <= 0) {
-      aError.value = 'Remote asset manifest declared an invalid size.';
+      aError.value = _('Remote asset manifest declared an invalid size.');
       return false;
     }
 
     if (aAsset.sha256 === '') {
-      aError.value = 'Remote asset manifest must declare sha256 for URL-based downloads.';
+      aError.value = _('Remote asset manifest must declare sha256 for URL-based downloads.');
       return false;
     }
 
     if (!validateAssetUrl(aProvider, aAsset.download_url, aError)) return false;
 
     if (aRemainingBudget >= 0 && aAsset.size_bytes > aRemainingBudget) {
-      aError.value = 'Remote asset exceeds the provider download limit.';
+      aError.value = _('Remote asset exceeds the provider download limit.');
       return false;
     }
 
@@ -148,17 +154,17 @@ export class REMOTE_SYMBOL_DOWNLOAD_MANAGER {
     }
 
     if (response.content_type !== aAsset.content_type) {
-      aError.value = 'Remote asset content type did not match the manifest.';
+      aError.value = _('Remote asset content type did not match the manifest.');
       return false;
     }
 
     if (response.payload.length !== aAsset.size_bytes) {
-      aError.value = 'Remote asset size did not match the manifest.';
+      aError.value = _('Remote asset size did not match the manifest.');
       return false;
     }
 
     if (aRemainingBudget >= 0 && response.payload.length > aRemainingBudget) {
-      aError.value = 'Remote asset exceeds the remaining download limit.';
+      aError.value = _('Remote asset exceeds the remaining download limit.');
       return false;
     }
 
@@ -167,7 +173,7 @@ export class REMOTE_SYMBOL_DOWNLOAD_MANAGER {
       aAsset.sha256 !== '' &&
       sha256Hex(response.payload).toLowerCase() !== aAsset.sha256.toLowerCase()
     ) {
-      aError.value = 'Remote asset digest did not match the manifest.';
+      aError.value = _('Remote asset digest did not match the manifest.');
       return false;
     }
 

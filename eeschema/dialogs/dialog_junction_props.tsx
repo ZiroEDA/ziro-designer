@@ -17,6 +17,7 @@ import { SCH_COMMIT } from '../sch_commit.js';
 import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
 import type { SCH_JUNCTION } from '../sch_junction.js';
 import { DIALOG_JUNCTION_PROPS_BASE } from './dialog_junction_props_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const sameColor = (a: Color4d, b: Color4d): boolean =>
   a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
@@ -35,7 +36,7 @@ export class DIALOG_JUNCTION_PROPS {
   constructor(aParent: SCH_EDIT_FRAME, aJunctions: readonly SCH_JUNCTION[]) {
     this.m_frame = aParent;
     this.m_junctions = aJunctions;
-    this.m_diameter = new UNIT_BINDER(aParent, 'Diameter:', (m) => DisplayErrorMessage(m));
+    this.m_diameter = new UNIT_BINDER(aParent, _('Diameter:'), (m) => DisplayErrorMessage(m));
   }
 
   /** `SetSwatchBackground( canvas )`. */
@@ -81,7 +82,7 @@ export class DIALOG_JUNCTION_PROPS {
       this.m_frame.GetCanvas()?.GetView().Update(junction);
     }
 
-    commit.Push(this.m_junctions.length === 1 ? 'Edit Junction' : 'Edit Junctions');
+    commit.Push(this.m_junctions.length === 1 ? _('Edit Junction') : _('Edit Junctions'));
 
     return true;
   }

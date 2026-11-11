@@ -30,6 +30,7 @@ import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { ELECTRICAL_PINTYPE } from '@ziroeda/common/pin_type.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `A + n - 1` (a unit index is 1-based; a letter is 0-based off 'A'). */
 function unitLetter(aUnit: number): string {
@@ -156,7 +157,7 @@ export function CheckLibSymbol(
   const referenceBase = aSymbol.GetReferenceField().GetText();
 
   if (referenceBase === '') {
-    aMessages.push('<b>Warning: reference is empty</b><br><br>');
+    aMessages.push(_('<b>Warning: reference is empty</b><br><br>'));
   } else {
     const illegalEnd = '0123456789?';
     const lastChar = referenceBase[referenceBase.length - 1]!;
@@ -188,11 +189,11 @@ export function CheckLibSymbol(
   // flag.
   if (aSymbol.IsPower()) {
     if (aSymbol.GetUnitCount() !== 1) {
-      aMessages.push('<b>A Power Symbol should have only one unit</b><br><br>');
+      aMessages.push(_('<b>A Power Symbol should have only one unit</b><br><br>'));
     }
 
     if (pinList.length !== 1) {
-      aMessages.push('<b>A Power Symbol should have only one pin</b><br><br>');
+      aMessages.push(_('<b>A Power Symbol should have only one pin</b><br><br>'));
     }
 
     const pin = pinList[0];
@@ -203,13 +204,17 @@ export function CheckLibSymbol(
         pin.GetType() !== ELECTRICAL_PINTYPE.PT_POWER_OUT
       ) {
         aMessages.push(
-          '<b>Suspicious Power Symbol</b><br>Only an input or output power pin has meaning<br><br>',
+          _(
+            '<b>Suspicious Power Symbol</b><br>Only an input or output power pin has meaning<br><br>',
+          ),
         );
       }
 
       if (pin.GetType() === ELECTRICAL_PINTYPE.PT_POWER_IN && !pin.IsVisible()) {
         aMessages.push(
-          '<b>Suspicious Power Symbol</b><br>Invisible input power pins are no longer required<br><br>',
+          _(
+            '<b>Suspicious Power Symbol</b><br>Invisible input power pins are no longer required<br><br>',
+          ),
         );
       }
     }

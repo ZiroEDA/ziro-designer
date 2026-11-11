@@ -37,6 +37,7 @@ import { wxGridCellBoolRenderer, wxGridSelectionModes } from '@ziroeda/wx/grid.j
 import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import { useStringGrid } from '@ziroeda/common/widgets/wx_grid.js';
 import type { FieldTemplate } from '../schematic_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);
 // re-exported here so the panel stays the import site for its slice.
@@ -68,7 +69,7 @@ function onAddButtonClick(aGrid: WX_GRID): void {
   aGrid.OnAddRow(() => {
     const row = aGrid.GetNumberRows();
     aGrid.AppendRows(1);
-    aGrid.SetCellValue(row, 0, 'Untitled Field');
+    aGrid.SetCellValue(row, 0, _('Untitled Field'));
     aGrid.SetCellValue(row, 1, '0');
     aGrid.SetCellValue(row, 2, '0');
     setupRows(aGrid);
@@ -78,7 +79,7 @@ function onAddButtonClick(aGrid: WX_GRID): void {
 
 export function PanelTemplateFieldnames({ templates, onChange, global }: Props): JSX.Element {
   const { grid, tricks, onUpdate } = useStringGrid<FieldTemplate>({
-    labels: ['Name', 'Visible', 'URL'],
+    labels: [_('Name'), _('Visible'), _('URL')],
     mode: wxGridSelectionModes.wxGridSelectRows,
     rows: templates,
     toCells: (t) => [t.name, t.visible ? '1' : '0', t.url ? '1' : '0'],
@@ -90,7 +91,7 @@ export function PanelTemplateFieldnames({ templates, onChange, global }: Props):
 
   return (
     <PANEL_TEMPLATE_FIELDNAMES_BASE
-      title={global ? 'Global Field Name Templates' : 'Project Field Name Templates'}
+      title={global ? _('Global Field Name Templates') : _('Project Field Name Templates')}
       m_grid={
         <WxGridView
           grid={grid}
@@ -98,7 +99,7 @@ export function PanelTemplateFieldnames({ templates, onChange, global }: Props):
           columns={[{}, { width: 48, center: true }, { width: 48, center: true }]}
           flexCol={0}
           onUpdate={onUpdate}
-          ariaLabel="Field name templates"
+          ariaLabel={_('Field name templates')}
         />
       }
       onAddField={() => onAddButtonClick(grid)}

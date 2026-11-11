@@ -35,6 +35,8 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { SCH_ITEM } from './sch_item.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * Object to handle a bitmap image that can be inserted in a schematic.
@@ -98,9 +100,9 @@ export class SCH_BITMAP extends SCH_ITEM {
 
   /** `GetMsgPanelInfo( aFrame, aList )` (sch_bitmap.cpp): wx's "%d " and "%f ", trailing space. */
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
-    aList.push(new MSG_PANEL_ITEM('Bitmap', ''));
+    aList.push(new MSG_PANEL_ITEM(_('Bitmap'), ''));
 
-    aList.push(new MSG_PANEL_ITEM('PPI', `${this.m_referenceImage.GetImage().GetPPI()} `));
+    aList.push(new MSG_PANEL_ITEM(_('PPI'), `${this.m_referenceImage.GetImage().GetPPI()} `));
     aList.push(new MSG_PANEL_ITEM('Scale', `${this.m_referenceImage.GetImageScale().toFixed(6)} `));
 
     aList.push(
@@ -141,7 +143,7 @@ export class SCH_BITMAP extends SCH_ITEM {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
-    return 'Image';
+    return _('Image');
   }
 
   override GetPosition(): VECTOR2I {
@@ -256,10 +258,10 @@ export class SCH_BITMAP extends SCH_ITEM {
       aType,
     );
 
-  propMgr.AddProperty(coord('Position X', 'SetX', 'GetX'));
-  propMgr.AddProperty(coord('Position Y', 'SetY', 'GetY'));
+  propMgr.AddProperty(coord(_HKI('Position X'), 'SetX', 'GetX'));
+  propMgr.AddProperty(coord(_HKI('Position Y'), 'SetY', 'GetY'));
 
-  const groupImage = 'Image Properties';
+  const groupImage = _HKI('Image Properties');
 
   propMgr.AddProperty(
     new PROPERTY<SCH_BITMAP, number>(
@@ -274,7 +276,7 @@ export class SCH_BITMAP extends SCH_ITEM {
 
   propMgr.AddProperty(
     coord(
-      'Transform Offset X',
+      _HKI('Transform Offset X'),
       'SetTransformOriginOffsetX',
       'GetTransformOriginOffsetX',
       COORD_TYPES_T.ABS_X_COORD,
@@ -283,7 +285,7 @@ export class SCH_BITMAP extends SCH_ITEM {
   );
   propMgr.AddProperty(
     coord(
-      'Transform Offset Y',
+      _HKI('Transform Offset Y'),
       'SetTransformOriginOffsetY',
       'GetTransformOriginOffsetY',
       COORD_TYPES_T.ABS_Y_COORD,

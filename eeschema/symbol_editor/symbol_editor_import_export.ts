@@ -20,6 +20,7 @@ import { wxID_OK } from '@ziroeda/wx/menu.js';
 import { SCH_FILE_T, SCH_FILE_T_vector, SCH_IO_MGR } from '../sch_io/sch_io_mgr.js';
 import { CONFLICT_RESOLUTION } from '../symbol_import_manager.js';
 import type { SYMBOL_EDIT_FRAME } from './symbol_edit_frame.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `DIALOG_IMPORT_SYMBOL_SELECT( this, aFilePath, aDestLibrary, aPluginType )`'s inputs, and what its
@@ -40,7 +41,7 @@ export class SYMBOL_EDITOR_IMPORT_EXPORT_MIXIN {
     let libName = this.getTargetLib();
 
     if (!libMgr.LibraryExists(libName))
-      libName = await this.SelectLibrary('Import Symbol', 'Import symbol to library:');
+      libName = await this.SelectLibrary(_('Import Symbol'), _('Import symbol to library:'));
 
     if (!libMgr.LibraryExists(libName)) return;
 
@@ -62,10 +63,10 @@ export class SYMBOL_EDITOR_IMPORT_EXPORT_MIXIN {
       for (const ext of desc.m_FileExtensions) allExtensions.push(ext.toLowerCase());
     }
 
-    fileFilters.unshift({ label: 'All supported formats', extensions: allExtensions });
+    fileFilters.unshift({ label: _('All supported formats'), extensions: allExtensions });
 
     const path = await this.FileDialog(
-      'Import Symbol',
+      _('Import Symbol'),
       this.GetMruPath(),
       '',
       fileFilters,

@@ -18,6 +18,7 @@ import { SCH_ACTIONS } from '@ziroeda/eeschema/tools/sch_actions.js';
 import type { ChooserFilter } from '@ziroeda/wx/filedlg.js';
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
 import { afterEach, describe, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
 import { type SYMBOL_EDIT_HARNESS, symbolEditHarness } from './support/symbol_edit_harness.js';
 
 const prop = (aName: string, aValue: string) =>
@@ -118,7 +119,7 @@ describe('SYMBOL_EDIT_FRAME::ExportSymbol', () => {
 
     await t.frame.ExportSymbol();
 
-    expect(fileAsks[0]!.title).toBe('Export Symbol');
+    expect(fileAsks[0]!.title).toBe(_('Export Symbol'));
     expect(fileAsks[0]!.file).toBe('d.kicad_sym');
     const out = text('out.kicad_sym')!;
     expect(out).toContain('(symbol "D"');
@@ -138,7 +139,7 @@ describe('SYMBOL_EDIT_FRAME::ExportSymbol', () => {
     await t.frame.ExportSymbol();
 
     expect(kiAsked[0]!.message).toBe("Symbol U already exists in library 'out.kicad_sym'.");
-    expect(kiAsked[0]!.labels?.ok).toBe('Overwrite');
+    expect(kiAsked[0]!.labels?.ok).toBe(_('Overwrite'));
     expect(text('out.kicad_sym')).toContain('old');
 
     kiAnswer = 'ok';
@@ -190,7 +191,7 @@ describe('SYMBOL_EDIT_FRAME::ExportSymbol', () => {
     };
     treeLibId = new LIB_ID('mine', 'NOPE');
     await t.frame.ExportSymbol();
-    expect(infoBar).toEqual(['There is no symbol selected to save.']);
+    expect(infoBar).toEqual([_('There is no symbol selected to save.')]);
   });
 });
 
@@ -222,7 +223,7 @@ describe('SYMBOL_EDIT_FRAME::ImportSymbol', () => {
     expect(infos).toEqual(['Imported 2 symbol(s), skipped 1.']);
     // The chooser: every format a plugin reads, then each plugin's own.
     const filters = fileAsks[0]!.filters;
-    expect(filters[0]!.label).toBe('All supported formats');
+    expect(filters[0]!.label).toBe(_('All supported formats'));
     expect(filters[0]!.extensions).toContain('kicad_sym');
     expect(filters.length).toBeGreaterThan(2);
     // A plugin that reads no library files offers no filter.

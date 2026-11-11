@@ -39,6 +39,7 @@ import {
   StdDialogButtonSizer,
   StretchSpacer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * [data] `summaryW = GetCharWidth() * 30`, the min and max width the derived constructor gives the
@@ -96,7 +97,7 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
   p: DIALOG_LIB_EDIT_PIN_TABLE_BASE_PROPS,
 ): JSX.Element {
   return (
-    <DialogShim title="Pin Table" onClose={p.onCancel}>
+    <DialogShim title={_('Pin Table')} onClose={p.onCancel}>
       {/* top_sizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND} border={5}>
@@ -109,7 +110,7 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
                   {/* bSummarySizer */}
                   <BoxSizer orient={wxHORIZONTAL}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
-                      <StaticText label="Pin numbers:" />
+                      <StaticText label={_('Pin numbers:')} />
                     </SizerItem>
                     <SizerItem
                       flag={wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL}
@@ -125,14 +126,14 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
                     </SizerItem>
                     <StretchSpacer />
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={10}>
-                      <StaticText label="Pin count:" />
+                      <StaticText label={_('Pin count:')} />
                     </SizerItem>
                     <SizerItem flag={wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL} border={5}>
                       <StaticText label={p.m_pin_count} />
                     </SizerItem>
                     <StretchSpacer />
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={10}>
-                      <StaticText label="Duplicate pins:" />
+                      <StaticText label={_('Duplicate pins:')} />
                     </SizerItem>
                     <SizerItem
                       flag={wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL}
@@ -170,11 +171,11 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
                       {/* bSizerLeftCol */}
                       <BoxSizer orient={wxVERTICAL}>
                         <SizerItem flag={wxALL} border={5}>
-                          <CheckBox label="Group by name" check={p.m_cbGroup} />
+                          <CheckBox label={_('Group by name')} check={p.m_cbGroup} />
                         </SizerItem>
                         <SizerItem flag={wxALL} border={5}>
                           <Button
-                            label="Group Selected Pins"
+                            label={_('Group Selected Pins')}
                             disabled={!p.groupSelectedEnabled}
                             onClick={p.onGroupSelected}
                           />
@@ -208,7 +209,7 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
                       flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
                       border={5}
                     >
-                      <CheckBox label="Filter by unit:" check={p.m_cbFilterByUnit} />
+                      <CheckBox label={_('Filter by unit:')} check={p.m_cbFilterByUnit} />
                     </SizerItem>
                     <SizerItem pos={[0, 1]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                       <Choice
@@ -223,7 +224,10 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
                       flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
                       border={5}
                     >
-                      <CheckBox label="Filter by body style:" check={p.m_cbFilterByBodyStyle} />
+                      <CheckBox
+                        label={_('Filter by body style:')}
+                        check={p.m_cbFilterByBodyStyle}
+                      />
                     </SizerItem>
                     <SizerItem pos={[1, 1]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                       <Choice
@@ -238,20 +242,20 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
                       flag={wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL}
                       border={5}
                     >
-                      <CheckBox label="Filter by selection" check={p.m_cbFilterSelected} />
+                      <CheckBox label={_('Filter by selection')} check={p.m_cbFilterSelected} />
                     </SizerItem>
                   </GridBagSizer>
                 </SizerItem>
                 <Spacer width={0} height={35} proportion={1} flag={wxEXPAND} border={5} />
                 <SizerItem flag={wxEXPAND | wxALL} border={5}>
-                  <StaticBoxSizer label="Export" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Export')} orient={wxVERTICAL}>
                     <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                       {/* bExportSizer */}
                       <BoxSizer orient={wxVERTICAL}>
                         <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
                           <RadioButton
                             name="pinTableExport"
-                            label="Export all pins"
+                            label={_('Export all pins')}
                             checked={p.exportAllPins}
                             onChange={() => p.onExportAllPins(true)}
                           />
@@ -259,7 +263,7 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
                         <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
                           <RadioButton
                             name="pinTableExport"
-                            label="Export only shown pins"
+                            label={_('Export only shown pins')}
                             checked={!p.exportAllPins}
                             onChange={() => p.onExportAllPins(false)}
                           />
@@ -268,11 +272,11 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
                           {/* bExportBtnSizer */}
                           <BoxSizer orient={wxHORIZONTAL}>
                             <SizerItem proportion={1} flag={wxALL} border={5}>
-                              <Button label="To File..." onClick={p.onExportToFile} />
+                              <Button label={_('To File...')} onClick={p.onExportToFile} />
                             </SizerItem>
                             <Spacer width={5} height={0} flag={wxEXPAND} border={5} />
                             <SizerItem proportion={1} flag={wxALL} border={5}>
-                              <Button label="To Clipboard" onClick={p.onExportToClipboard} />
+                              <Button label={_('To Clipboard')} onClick={p.onExportToClipboard} />
                             </SizerItem>
                           </BoxSizer>
                         </SizerItem>
@@ -281,14 +285,14 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
                   </StaticBoxSizer>
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
-                  <StaticBoxSizer label="Import" orient={wxVERTICAL}>
+                  <StaticBoxSizer label={_('Import')} orient={wxVERTICAL}>
                     <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                       {/* bImportSizer */}
                       <BoxSizer orient={wxVERTICAL}>
                         <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
                           <RadioButton
                             name="pinTableImport"
-                            label="Replace all existing pins"
+                            label={_('Replace all existing pins')}
                             checked={p.replaceAll}
                             onChange={() => p.onReplaceAll(true)}
                           />
@@ -296,7 +300,7 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
                         <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
                           <RadioButton
                             name="pinTableImport"
-                            label="Append to existing pins"
+                            label={_('Append to existing pins')}
                             checked={!p.replaceAll}
                             onChange={() => p.onReplaceAll(false)}
                           />
@@ -307,11 +311,11 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
                       {/* bImportBtnSizer */}
                       <BoxSizer orient={wxHORIZONTAL}>
                         <SizerItem proportion={1} flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                          <Button label="From File..." onClick={p.onImportFromFile} />
+                          <Button label={_('From File...')} onClick={p.onImportFromFile} />
                         </SizerItem>
                         <Spacer width={5} height={0} flag={wxEXPAND} border={5} />
                         <SizerItem proportion={1} flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                          <Button label="From Clipboard" onClick={p.onImportFromClipboard} />
+                          <Button label={_('From Clipboard')} onClick={p.onImportFromClipboard} />
                         </SizerItem>
                       </BoxSizer>
                     </SizerItem>
@@ -340,7 +344,7 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
               {/* m_Buttons: OK, Cancel */}
               <StdDialogButtonSizer
                 onOk={p.onOK}
-                okLabel={p.readOnly ? 'Read Only' : undefined}
+                okLabel={p.readOnly ? _('Read Only') : undefined}
                 okDisabled={p.readOnly}
                 onCancel={p.onCancel}
               />

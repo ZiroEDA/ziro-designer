@@ -87,6 +87,8 @@ import type { SCH_PLOT_OPTS } from './sch_plotter.js';
 import { SCH_TEXT } from './sch_text.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `MIRRORVAL`. */
 const MIRRORVAL = (aPoint: number, aMirrorRef: number): number =>
@@ -848,7 +850,7 @@ export abstract class SCH_LABEL_BASE extends SCH_TEXT {
       token.value = '';
 
       for (const ruleArea of directive.GetConnectedRuleAreas()) {
-        if (ruleArea.GetExcludedFromBOM(aPath, variant)) token.value = 'Excluded from BOM';
+        if (ruleArea.GetExcludedFromBOM(aPath, variant)) token.value = _('Excluded from BOM');
       }
 
       return true;
@@ -860,7 +862,7 @@ export abstract class SCH_LABEL_BASE extends SCH_TEXT {
       token.value = '';
 
       for (const ruleArea of directive.GetConnectedRuleAreas()) {
-        if (ruleArea.GetExcludedFromBoard(aPath, variant)) token.value = 'Excluded from board';
+        if (ruleArea.GetExcludedFromBoard(aPath, variant)) token.value = _('Excluded from board');
       }
 
       return true;
@@ -872,7 +874,8 @@ export abstract class SCH_LABEL_BASE extends SCH_TEXT {
       token.value = '';
 
       for (const ruleArea of directive.GetConnectedRuleAreas()) {
-        if (ruleArea.GetExcludedFromSim(aPath, variant)) token.value = 'Excluded from simulation';
+        if (ruleArea.GetExcludedFromSim(aPath, variant))
+          token.value = _('Excluded from simulation');
       }
 
       return true;
@@ -1156,7 +1159,7 @@ export abstract class SCH_LABEL_BASE extends SCH_TEXT {
       }
 
       if (this.Type() === KICAD_T.SCH_HIER_LABEL_T)
-        aPlotter.Bookmark(bodyBBox, this.GetShownText(false), 'Hierarchical Labels');
+        aPlotter.Bookmark(bodyBBox, this.GetShownText(false), _('Hierarchical Labels'));
     }
 
     for (const field of this.m_fields)
@@ -1577,7 +1580,7 @@ export class SCH_LABEL extends SCH_LABEL_BASE {
         msg = 'Hierarchical Label';
         break;
       case KICAD_T.SCH_SHEET_PIN_T:
-        msg = 'Hierarchical Sheet Pin';
+        msg = _('Hierarchical Sheet Pin');
         break;
       default:
         return;
@@ -1592,36 +1595,40 @@ export class SCH_LABEL extends SCH_LABEL_BASE {
       this.Type() === KICAD_T.SCH_HIER_LABEL_T ||
       this.Type() === KICAD_T.SCH_SHEET_PIN_T
     )
-      aList.push(new MSG_PANEL_ITEM('Type', getElectricalTypeLabel(this.GetShape())));
+      aList.push(new MSG_PANEL_ITEM(_('Type'), getElectricalTypeLabel(this.GetShape())));
 
-    aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Font'), this.GetFont() ? this.GetFont()!.GetName() : _('Default')),
+    );
 
-    const textStyle = ['Normal', 'Italic', 'Bold', 'Bold Italic'];
+    const textStyle = [_('Normal'), 'Italic', 'Bold', _('Bold Italic')];
     const style =
       this.IsBold() && this.IsItalic() ? 3 : this.IsBold() ? 2 : this.IsItalic() ? 1 : 0;
-    aList.push(new MSG_PANEL_ITEM('Style', textStyle[style]!));
+    aList.push(new MSG_PANEL_ITEM(_('Style'), textStyle[style]!));
 
-    aList.push(new MSG_PANEL_ITEM('Text Size', aFrame.MessageTextFromValue(this.GetTextWidth())));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Text Size'), aFrame.MessageTextFromValue(this.GetTextWidth())),
+    );
 
     switch (Number(this.GetSpinStyle())) {
       case SPIN_STYLE.LEFT:
-        msg = 'Align right';
+        msg = _('Align right');
         break;
       case SPIN_STYLE.UP:
-        msg = 'Align bottom';
+        msg = _('Align bottom');
         break;
       case SPIN_STYLE.RIGHT:
-        msg = 'Align left';
+        msg = _('Align left');
         break;
       case SPIN_STYLE.BOTTOM:
-        msg = 'Align top';
+        msg = _('Align top');
         break;
       default:
         msg = '???';
         break;
     }
 
-    aList.push(new MSG_PANEL_ITEM('Justification', msg));
+    aList.push(new MSG_PANEL_ITEM(_('Justification'), msg));
 
     // dynamic_cast<SCH_EDIT_FRAME*>( aFrame ): a schematic editor's item has a schematic.
     const conn = !this.IsConnectivityDirty() && this.Schematic() ? this.Connection() : null;
@@ -1632,7 +1639,7 @@ export class SCH_LABEL extends SCH_LABEL_BASE {
       if (!conn.IsBus()) {
         aList.push(
           new MSG_PANEL_ITEM(
-            'Resolved Netclass',
+            _('Resolved Netclass'),
             // null is upstream's static NETCLASS( wxEmptyString ), whose name is ''.
             unescapeString(this.GetEffectiveNetClass()?.GetHumanReadableName() ?? ''),
           ),
@@ -2436,7 +2443,7 @@ export class SCH_HIERLABEL extends SCH_LABEL_BASE {
       .Map(LABEL_SHAPE.LABEL_INPUT, 'Input')
       .Map(LABEL_SHAPE.LABEL_OUTPUT, 'Output')
       .Map(LABEL_SHAPE.LABEL_BIDI, 'Bidirectional')
-      .Map(LABEL_SHAPE.LABEL_TRISTATE, 'Tri-state')
+      .Map(LABEL_SHAPE.LABEL_TRISTATE, _HKI('Tri-state'))
       .Map(LABEL_SHAPE.LABEL_PASSIVE, 'Passive');
   }
 
@@ -2477,7 +2484,7 @@ export class SCH_HIERLABEL extends SCH_LABEL_BASE {
     .AddProperty(
       new PROPERTY_ENUM<SCH_LABEL_BASE, LABEL_SHAPE>(
         SCH_LABEL_BASE,
-        'Shape',
+        _HKI('Shape'),
         'SetLabelShape',
         'GetLabelShape',
         labelShapeEnum,
@@ -2485,7 +2492,7 @@ export class SCH_HIERLABEL extends SCH_LABEL_BASE {
     )
     .SetAvailableFunc(hasLabelShape);
 
-  propMgr.Mask(SCH_LABEL_BASE, EDA_TEXT, 'Hyperlink');
+  propMgr.Mask(SCH_LABEL_BASE, EDA_TEXT, _HKI('Hyperlink'));
 })();
 
 /**
@@ -2496,10 +2503,10 @@ export class SCH_HIERLABEL extends SCH_LABEL_BASE {
 
   if (flagShapeEnum.Choices().GetCount() === 0) {
     flagShapeEnum
-      .Map(FLAG_SHAPE.FLAG_DOT, 'Dot')
-      .Map(FLAG_SHAPE.FLAG_CIRCLE, 'Circle')
-      .Map(FLAG_SHAPE.FLAG_DIAMOND, 'Diamond')
-      .Map(FLAG_SHAPE.FLAG_RECTANGLE, 'Rectangle');
+      .Map(FLAG_SHAPE.FLAG_DOT, _HKI('Dot'))
+      .Map(FLAG_SHAPE.FLAG_CIRCLE, _HKI('Circle'))
+      .Map(FLAG_SHAPE.FLAG_DIAMOND, _HKI('Diamond'))
+      .Map(FLAG_SHAPE.FLAG_RECTANGLE, _HKI('Rectangle'));
   }
 
   const propMgr = PROPERTY_MANAGER.Instance();
@@ -2513,7 +2520,7 @@ export class SCH_HIERLABEL extends SCH_LABEL_BASE {
   propMgr.AddProperty(
     new PROPERTY_ENUM<SCH_DIRECTIVE_LABEL, FLAG_SHAPE>(
       SCH_DIRECTIVE_LABEL,
-      'Shape',
+      _HKI('Shape'),
       'SetFlagShape',
       'GetFlagShape',
       flagShapeEnum,
@@ -2523,7 +2530,7 @@ export class SCH_HIERLABEL extends SCH_LABEL_BASE {
   propMgr.AddProperty(
     new PROPERTY<SCH_DIRECTIVE_LABEL, number>(
       SCH_DIRECTIVE_LABEL,
-      'Pin length',
+      _HKI('Pin length'),
       'SetPinLength',
       'GetPinLength',
       TYPE_INT,
@@ -2531,10 +2538,10 @@ export class SCH_HIERLABEL extends SCH_LABEL_BASE {
     ),
   );
 
-  propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, 'Text');
-  propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, 'Thickness');
+  propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, _HKI('Text'));
+  propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, _HKI('Thickness'));
   propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, 'Italic');
   propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, 'Bold');
-  propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, 'Horizontal Justification');
-  propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, 'Vertical Justification');
+  propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, _HKI('Horizontal Justification'));
+  propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, _HKI('Vertical Justification'));
 })();

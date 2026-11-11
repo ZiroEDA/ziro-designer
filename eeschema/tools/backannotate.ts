@@ -61,6 +61,7 @@ import {
   SwapPinGeometry,
   SymbolHasSheetInstances,
 } from './sch_tool_utils.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** wxString's operator<: code-point order. */
 const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
@@ -317,7 +318,7 @@ export class BACK_ANNOTATE {
       !this.m_processOtherFields
     ) {
       this.m_reporter.ReportTail(
-        'Select at least one property to back annotate.',
+        _('Select at least one property to back annotate.'),
         RPT_SEVERITY_ERROR,
       );
       return false;
@@ -566,9 +567,9 @@ export class BACK_ANNOTATE {
 
     if (
       this.m_matchByReference &&
-      !this.m_frame.ReadyToNetlist('Re-linking footprints requires a fully annotated schematic.')
+      !this.m_frame.ReadyToNetlist(_('Re-linking footprints requires a fully annotated schematic.'))
     ) {
-      this.m_reporter.ReportTail('Footprint re-linking canceled by user.', RPT_SEVERITY_ERROR);
+      this.m_reporter.ReportTail(_('Footprint re-linking canceled by user.'), RPT_SEVERITY_ERROR);
     }
   }
 
@@ -827,7 +828,7 @@ export class BACK_ANNOTATE {
       // Skip prevents us from re-applying label/field changes to units we just swapped
       const skip = (ref.GetSymbol().GetFlags() & SKIP_STRUCT) > 0 || unitSwapItems.has(item);
 
-      const boolString = (b: boolean): string => (b ? 'true' : 'false');
+      const boolString = (b: boolean): string => (b ? _('true') : _('false'));
 
       if (!this.m_dryRun) commit.Modify(symbol, screen, RECURSE_MODE.NO_RECURSE);
 
@@ -1029,7 +1030,7 @@ export class BACK_ANNOTATE {
       this.m_frame.RecalculateConnections(commit, SCH_CLEANUP_FLAGS.NO_CLEANUP);
       this.m_frame.UpdateNetHighlightStatus();
 
-      commit.Push('Update Schematic from PCB');
+      commit.Push(_('Update Schematic from PCB'));
     }
   }
 

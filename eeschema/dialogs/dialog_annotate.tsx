@@ -16,6 +16,8 @@ import type { ReportLine, Severity } from '@ziroeda/common';
 import { RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import type { EESCHEMA_SETTINGS_STORE } from '../browser/eeschema_app.js';
 import { DIALOG_ANNOTATE_BASE } from './dialog_annotate_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The project-persisted slice of the dialog (SCHEMATIC_SETTINGS: sort order,
  *  numbering method, start number, DIALOG_ANNOTATE reads them on open and
@@ -51,9 +53,9 @@ interface Props {
 }
 
 const SCOPES: { id: AnnotateOptions['scope']; label: string }[] = [
-  { id: 'all', label: 'Entire schematic' },
-  { id: 'current_sheet', label: 'Current sheet only' },
-  { id: 'selection', label: 'Selection' },
+  { id: 'all', label: _HKI('Entire schematic') },
+  { id: 'current_sheet', label: _HKI('Current sheet only') },
+  { id: 'selection', label: _HKI('Selection') },
 ];
 
 export function DialogAnnotate({
@@ -140,7 +142,7 @@ export function DialogAnnotate({
       m_textNumberAfter={startText}
       onNumberAfter={setStartText}
       m_MessageWindow={{
-        label: 'Annotation Messages:',
+        label: _('Annotation Messages:'),
         fileName: 'report.txt',
         lines: messages,
         visibleSeverities: severities,

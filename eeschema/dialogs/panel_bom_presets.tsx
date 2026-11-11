@@ -17,6 +17,7 @@ import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
 import { wxGridStringTable } from '@ziroeda/wx/grid.js';
 import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import type { BomPresets } from '../schematic_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);
 // re-exported here so the panel stays the import site for its slice.
@@ -31,7 +32,7 @@ function makeGrid(): WX_GRID {
   const g = new WX_GRID();
   g.SetTable(new wxGridStringTable(0, 1), true);
   g.EnableEditing(false);
-  g.SetColLabelValue(0, 'Name');
+  g.SetColLabelValue(0, _('Name'));
   return g;
 }
 
@@ -72,7 +73,7 @@ export function PanelBomPresets({ value, onChange }: Props): JSX.Element {
   return (
     <PANEL_BOM_PRESETS_BASE
       m_bomPresetsGrid={
-        <WxGridView grid={bomGrid} columns={[{ width: 420 }]} ariaLabel="BOM presets" />
+        <WxGridView grid={bomGrid} columns={[{ width: 420 }]} ariaLabel={_('BOM presets')} />
       }
       onDeleteBomPreset={() => onDelete(bomGrid, 'presets')}
       m_bomFmtPresetsGrid={

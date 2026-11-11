@@ -39,6 +39,8 @@ import type { SCH_SHEET } from '../sch_sheet.js';
 import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
 import type { SCH_SYMBOL } from '../sch_symbol.js';
 import { SCH_SELECTION_TOOL } from '../tools/sch_selection_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 let g_fieldnameFilter = '';
 let g_referenceFilter = '';
@@ -46,12 +48,18 @@ let g_symbolFilter = '';
 let g_netFilter = '';
 
 /** The base dialog's choices, in their order; the last of each is INDETERMINATE_ACTION. */
-const ORIENTATION_CHOICES = ['Right', 'Up', 'Left', 'Down', INDETERMINATE_ACTION];
-const H_ALIGN_CHOICES = ['Left', 'Center', 'Right', INDETERMINATE_ACTION];
-const V_ALIGN_CHOICES = ['Top', 'Center', 'Bottom', INDETERMINATE_ACTION];
+const ORIENTATION_CHOICES = [
+  _HKI('Right'),
+  _HKI('Up'),
+  _HKI('Left'),
+  _HKI('Down'),
+  INDETERMINATE_ACTION,
+];
+const H_ALIGN_CHOICES = [_HKI('Left'), _HKI('Center'), _HKI('Right'), INDETERMINATE_ACTION];
+const V_ALIGN_CHOICES = [_HKI('Top'), _HKI('Center'), _HKI('Bottom'), INDETERMINATE_ACTION];
 /** m_lineStyle's five lineTypeNames, then the constructor's `Append( INDETERMINATE_ACTION )`. */
 const LINE_STYLE_CHOICES = [...LINE_STYLE_NAMES.map((n) => n.label), INDETERMINATE_ACTION];
-const TYPE_FILTER_CHOICES = ['Non-power symbols', 'Power symbols'];
+const TYPE_FILTER_CHOICES = [_HKI('Non-power symbols'), _HKI('Power symbols')];
 
 /** The 13 Scope check boxes. */
 export interface GLOBAL_EDIT_SCOPE {
@@ -125,9 +133,9 @@ export class DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS {
 
     const binder = (aLabel: string) =>
       new UNIT_BINDER(aParent, aLabel, (aMessage) => DisplayErrorMessage(aMessage));
-    this.m_textSize = binder('Text size:');
-    this.m_lineWidth = binder('Line width:');
-    this.m_junctionSize = binder('Junction size:');
+    this.m_textSize = binder(_('Text size:'));
+    this.m_lineWidth = binder(_('Line width:'));
+    this.m_junctionSize = binder(_('Junction size:'));
   }
 
   /** The destructor: the four filters are remembered for the session. */
@@ -502,7 +510,7 @@ export class DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS {
     }
 
     if (!commit.Empty()) {
-      commit.Push('Edit Text and Graphics');
+      commit.Push(_('Edit Text and Graphics'));
       this.m_parent.HardRedraw();
     }
 

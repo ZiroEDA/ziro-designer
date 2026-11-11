@@ -92,6 +92,7 @@ import {
 } from '../symbol_editor/symbol_edit_frame.js';
 import { currentSymbolEditorSettings } from '../symbol_editor/symbol_editor_settings.js';
 import { DIALOG_LIB_EDIT_PIN_TABLE_BASE } from './dialog_lib_edit_pin_table_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `COL_ORDER` (dialog_lib_edit_pin_table.h:28). */
 export enum COL_ORDER {
@@ -1379,8 +1380,8 @@ export class DIALOG_LIB_EDIT_PIN_TABLE implements PIN_TABLE_OWNER {
     return [
       {
         id: ID_CROSSPROBE,
-        label: 'Highlight on Cross-probe',
-        help: 'Highlight corresponding pin on canvas when it is selected in the table',
+        label: _('Highlight on Cross-probe'),
+        help: _('Highlight corresponding pin on canvas when it is selected in the table'),
         checked: cfg.pin_table.crossprobe_on_selection,
       },
     ];
@@ -1461,7 +1462,7 @@ export class DIALOG_LIB_EDIT_PIN_TABLE implements PIN_TABLE_OWNER {
       reporter,
       async () => {
         const path = await this.m_editFrame.FileDialog(
-          'Select pin data file',
+          _('Select pin data file'),
           '',
           '',
           [csvTsvFileWildcard()],
@@ -1500,7 +1501,7 @@ export class DIALOG_LIB_EDIT_PIN_TABLE implements PIN_TABLE_OWNER {
 
     if (aToFile) {
       const path = await this.m_editFrame.FileDialog(
-        'Select pin data file',
+        _('Select pin data file'),
         '',
         `${this.m_symbol.GetName()}.${CsvFileExtension}`,
         [csvFileWildcard()],
@@ -1634,7 +1635,7 @@ export function DialogLibEditPinTable({
   };
   const close = (): void => {
     void dlg
-      .OnClose(() => askUnsaved('Save changes?'))
+      .OnClose(() => askUnsaved(_('Save changes?')))
       .then((r) => {
         if (r !== null) onClose(r);
       });

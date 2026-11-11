@@ -56,6 +56,7 @@ import { SCH_LABEL_BASE } from './sch_label.js';
 import { SCH_SHEET } from './sch_sheet.js';
 import { SCH_SYMBOL } from './sch_symbol.js';
 import type { SCHEMATIC_SETTINGS } from './schematic_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `DEFAULT_FONT_NAME` (fields_grid_table.cpp:60). */
 const FIELDS_DEFAULT_FONT_NAME = DEFAULT_FONT_NAME;
@@ -306,7 +307,7 @@ export class FIELDS_GRID_TABLE extends WX_GRID_TABLE_BASE {
     this.m_filepathAttr = new wxGridCellAttr();
 
     // Create a wild card using wxFileDialog syntax.
-    const wildCard = [fileFilter('Schematic Files', [KiCadSchematicFileExtension])];
+    const wildCard = [fileFilter(_('Schematic Files'), [KiCadSchematicFileExtension])];
 
     const filepathEditor = new GRID_CELL_PATH_EDITOR(aHost, this.m_curdir, wildCard);
     filepathEditor.SetValidator(this.m_filepathValidator.GetCharExcludes());

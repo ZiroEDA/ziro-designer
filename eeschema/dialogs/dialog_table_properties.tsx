@@ -33,6 +33,7 @@ import { SCH_COMMIT } from '../sch_commit.js';
 import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
 import type { SCH_TABLE } from '../sch_table.js';
 import { DIALOG_TABLE_PROPERTIES_BASE } from './dialog_table_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface SCH_TABLE_DIALOG_VALUES {
   /** One string per cell, row-major; a covered cell is ''. */
@@ -70,14 +71,14 @@ export class DIALOG_TABLE_PROPERTIES {
   constructor(aFrame: SCH_EDIT_FRAME, aTable: SCH_TABLE) {
     this.m_frame = aFrame;
     this.m_table = aTable;
-    this.m_borderWidth = new UNIT_BINDER(aFrame, 'Width:', (m) => DisplayErrorMessage(m));
-    this.m_separatorsWidth = new UNIT_BINDER(aFrame, 'Width:', (m) => DisplayErrorMessage(m));
+    this.m_borderWidth = new UNIT_BINDER(aFrame, _('Width:'), (m) => DisplayErrorMessage(m));
+    this.m_separatorsWidth = new UNIT_BINDER(aFrame, _('Width:'), (m) => DisplayErrorMessage(m));
   }
 
   /** `m_infoBar->ShowMessage( … )` when item colours are overridden in Preferences. */
   InfoBarMessage(): string | null {
     return this.m_frame.GetColorSettings().GetOverrideSchItemColors()
-      ? 'Note: individual item colors overridden in Preferences.'
+      ? _('Note: individual item colors overridden in Preferences.')
       : null;
   }
 
@@ -226,7 +227,7 @@ export class DIALOG_TABLE_PROPERTIES {
       t.SetSeparatorsStroke(stroke);
     }
 
-    if (!commit.Empty()) commit.Push('Edit Table');
+    if (!commit.Empty()) commit.Push(_('Edit Table'));
 
     return true;
   }

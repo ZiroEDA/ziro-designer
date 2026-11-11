@@ -32,6 +32,8 @@ import { WriteNetListText } from '../netlist_exporters/netlist_generator.js';
 import { generateSpiceModelNetlist } from '../netlist_exporters/netlist_exporter_spice_model.js';
 import type { SCHEMATIC } from '../schematic.js';
 import { DIALOG_EXPORT_NETLIST_BASE } from './dialog_export_netlist_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 interface Props {
   doc: Schematic;
@@ -62,20 +64,25 @@ type ExportTab = NetlistFormat | 'spice' | 'spicemodel';
 // The constructor's page order and titles, each with the label its Install* adds
 // (dialog_export_netlist.cpp:270-297, 345-401).
 const TABS: { id: ExportTab; label: string; ext: string; note: string }[] = [
-  { id: 'kicadxml', label: 'KiCad', ext: 'xml', note: 'Export netlist in KiCad format' },
-  { id: 'orcadpcb2', label: 'OrcadPCB2', ext: 'net', note: 'Export netlist in OrcadPCB2 format' },
+  { id: 'kicadxml', label: 'KiCad', ext: 'xml', note: _HKI('Export netlist in KiCad format') },
+  {
+    id: 'orcadpcb2',
+    label: 'OrcadPCB2',
+    ext: 'net',
+    note: _HKI('Export netlist in OrcadPCB2 format'),
+  },
   // A netlist plus a devices/ folder of package definitions; see doExport.
-  { id: 'allegro', label: 'Allegro', ext: 'txt', note: 'Export netlist in Allegro format' },
-  { id: 'cadstar', label: 'CadStar', ext: 'frp', note: 'Export netlist in CadStar format' },
-  { id: 'pads', label: 'PADS', ext: 'asc', note: 'Export netlist in PADS format' },
-  { id: 'spice', label: 'SPICE', ext: 'cir', note: 'Export netlist in SPICE format' },
+  { id: 'allegro', label: 'Allegro', ext: 'txt', note: _HKI('Export netlist in Allegro format') },
+  { id: 'cadstar', label: 'CadStar', ext: 'frp', note: _HKI('Export netlist in CadStar format') },
+  { id: 'pads', label: 'PADS', ext: 'asc', note: _HKI('Export netlist in PADS format') },
+  { id: 'spice', label: 'SPICE', ext: 'cir', note: _HKI('Export netlist in SPICE format') },
   {
     // `InstallPageSpiceModel`. Its type has no `FilenamePrms` case, so upstream's save dialog
     // proposes the bare project name under the all-files filter - no extension.
     id: 'spicemodel',
     label: 'SPICE Model',
     ext: '',
-    note: 'Export netlist as a SPICE .subckt model',
+    note: _HKI('Export netlist as a SPICE .subckt model'),
   },
 ];
 
@@ -84,8 +91,8 @@ const TABS: { id: ExportTab; label: string; ext: string; note: string }[] = [
  * so it shows ticked and greyed until the live switch can export the whole hierarchy.
  */
 const CUR_SHEET_AS_ROOT = {
-  label: 'Use current sheet as root',
-  title: 'Export netlist only for the current sheet',
+  label: _HKI('Use current sheet as root'),
+  title: _HKI('Export netlist only for the current sheet'),
   value: true,
   enabled: false,
   onChange: () => {},
@@ -228,27 +235,27 @@ export function DialogExportNetlist({
             ? [
                 { ...CUR_SHEET_AS_ROOT, grow: true },
                 check(
-                  'Save all voltages',
-                  'Write a directive to save all voltages (.save all)',
+                  _('Save all voltages'),
+                  _('Write a directive to save all voltages (.save all)'),
                   saveAllVoltages,
                   setSaveAllVoltages,
                 ),
                 check(
-                  'Save all currents',
-                  'Write a directive to save all currents (.probe alli)',
+                  _('Save all currents'),
+                  _('Write a directive to save all currents (.probe alli)'),
                   saveAllCurrents,
                   setSaveAllCurrents,
                 ),
                 check(
-                  'Save all power dissipations',
-                  'Write directives to save power dissipation of all items (.probe p(<item>))',
+                  _('Save all power dissipations'),
+                  _('Write directives to save power dissipation of all items (.probe p(<item>))'),
                   saveAllDissipations,
                   setSaveAllDissipations,
                 ),
                 {
                   // The exporter writes no `esave none`, which is this box ticked; greyed until
                   // the option is ported.
-                  label: 'Save all digital event data',
+                  label: _('Save all digital event data'),
                   title:
                     'If not set, write a directive to prevent the saving of digital event data ' +
                     '(esave none)',

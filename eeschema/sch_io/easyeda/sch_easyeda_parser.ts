@@ -55,6 +55,7 @@ import { SCH_SYMBOL } from '../../sch_symbol.js';
 import { SCH_TEXT } from '../../sch_text.js';
 import type { SCHEMATIC } from '../../schematic.js';
 import { SYMBOL_ORIENTATION_T } from '../../symbol.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // clang-format off
 const c_attributesWhitelist: readonly string[] = [
@@ -301,7 +302,7 @@ export function HelperGeneratePowerPortGraphics(
   } else {
     if (aStyle !== POWER_FLAG_STYLE.BAR) {
       aReporter?.Report(
-        "Power Port with unknown style imported as 'Bar' type.",
+        _("Power Port with unknown style imported as 'Bar' type."),
         RPT_SEVERITY_WARNING,
       );
     }

@@ -37,6 +37,7 @@ import { SCH_SYMBOL } from '../sch_symbol.js';
 import { AUTOPLACE_ALGO } from '../sch_item.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `DIALOG_LIB_FIELDS_TABLE::SCOPE`. */
 export enum DIALOG_LIB_FIELDS_TABLE_SCOPE {
@@ -207,7 +208,7 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     const libName = target.GetLibNickname();
 
     if (libName === '') {
-      this.m_frame!.ShowInfoBarError('No symbol library selected.');
+      this.m_frame!.ShowInfoBarError(_('No symbol library selected.'));
       return 0;
     }
 
@@ -299,7 +300,7 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
 
     if (!sel.IsValid() && !isPasteAction) {
       // When duplicating a symbol, a source symbol must exists.
-      this.m_frame!.ShowInfoBarError('No symbol selected');
+      this.m_frame!.ShowInfoBarError(_('No symbol selected'));
       return 0;
     }
 
@@ -334,11 +335,11 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     if (!libMgr.LibraryExists(libName)) return 0;
 
     const renamed = yield* this.RunMainStackModal(() =>
-      libTool!.RenameLibrary('Change Symbol Name', oldName, async (aNewName: string) => {
+      libTool!.RenameLibrary(_('Change Symbol Name'), oldName, async (aNewName: string) => {
         newName = EscapeString(aNewName, ESCAPE_CONTEXT.CTX_LIBID);
 
         if (newName === '') {
-          await editFrame.wxMessageBox('Symbol must have a name.');
+          await editFrame.wxMessageBox(_('Symbol must have a name.'));
           return false;
         }
 
@@ -348,10 +349,10 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
 
           return (
             (await editFrame.ShowKiDialog({
-              caption: 'Confirmation',
+              caption: _('Confirmation'),
               message: msg,
               icon: 'warning',
-              labels: { ok: 'Overwrite' },
+              labels: { ok: _('Overwrite') },
             })) === 'ok'
           );
         }
@@ -445,7 +446,7 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
 
       if (!schframe) {
         // happens when the schematic editor is not active (or closed)
-        DisplayErrorMessage('No schematic currently open.');
+        DisplayErrorMessage(_('No schematic currently open.'));
         return 0;
       }
 
@@ -484,7 +485,7 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     const symbol = editFrame.GetCurSymbol();
 
     if (!symbol) {
-      yield* this.RunMainStackModal(() => editFrame.wxMessageBox('No symbol to export'));
+      yield* this.RunMainStackModal(() => editFrame.wxMessageBox(_('No symbol to export')));
       return 0;
     }
 
@@ -511,7 +512,7 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     const symbol = editFrame.GetCurSymbol();
 
     if (!symbol) {
-      yield* this.RunMainStackModal(() => editFrame.wxMessageBox('No symbol to export'));
+      yield* this.RunMainStackModal(() => editFrame.wxMessageBox(_('No symbol to export')));
       return 0;
     }
 
@@ -571,7 +572,7 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
       );
 
     if (!symId.IsValid()) {
-      yield* messageBox('No symbol to flatten');
+      yield* messageBox(_('No symbol to flatten'));
       return 0;
     }
 
@@ -583,14 +584,14 @@ export class SYMBOL_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
 
     if (!flatSymbol) {
       // wxCHECK_MSG( flatSymbol, 0, _( "Failed to flatten symbol" ) )
-      console.assert(false, 'Failed to flatten symbol');
+      console.assert(false, _('Failed to flatten symbol'));
       return 0;
     }
 
     if (!libMgr.UpdateSymbol(flatSymbol, symId.GetLibNickname())) {
       yield* this.RunMainStackModal(() =>
         editFrame.ShowModalDialog('wxMessageBox', [], {
-          message: 'Failed to update library with flattened symbol',
+          message: _('Failed to update library with flattened symbol'),
           caption: 'Message',
           style: wxOK | wxICON_ERROR,
         }),

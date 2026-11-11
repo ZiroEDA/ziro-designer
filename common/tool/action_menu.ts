@@ -91,6 +91,7 @@ import { DIVERGENT_KEY_NAMES } from './action_menu_key_names.js';
 const GTK_KEY_NAMES = new Map(DIVERGENT_KEY_NAMES.map(([gtk, kicad]) => [kicad, gtk]));
 import type { TOOL_MANAGER } from './tool_manager.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** What ACTION_MENU asks of its tool: `m_tool->GetManager()`. */
 export interface TOOL_INTERACTIVE_LIKE {
@@ -114,7 +115,7 @@ export function addClose(appName: string, action: () => void): MenuItem {
   return {
     label: _('Close'),
     shortcut: browserSafeKey(UPSTREAM_CLOSE_KEY),
-    tooltip: `Close ${appName}`,
+    tooltip: wxFormat(_('Close %s'), appName),
     action,
   };
 }
@@ -128,7 +129,7 @@ export function addQuit(appName: string, action: () => void): MenuItem {
   return {
     label: _('Quit'),
     shortcut: browserSafeKey(UPSTREAM_QUIT_KEY),
-    tooltip: `Quit ${appName}`,
+    tooltip: wxFormat(_('Quit %s'), appName),
     action,
   };
 }

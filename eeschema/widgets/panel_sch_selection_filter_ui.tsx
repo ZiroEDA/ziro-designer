@@ -22,6 +22,7 @@ import {
   setAllSelectionFilterCategories,
   type SelectionFilterFrame,
 } from './panel_sch_selection_filter.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function SelectionFilterPanel({
   frame,
@@ -53,7 +54,7 @@ export function SelectionFilterPanel({
     // one pane in the column that has to declare that it does not.
     <div className="ze-panel fixed">
       <div className="ze-panel-header">
-        <span>Selection Filter</span>
+        <span>{_('Selection Filter')}</span>
         {onClose && (
           <button type="button" className="ze-pane-close" onClick={onClose} title="Close">
             ⊠

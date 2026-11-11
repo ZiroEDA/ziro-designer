@@ -17,6 +17,7 @@ import type { CHECK } from '@ziroeda/wx/controls.js';
 import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
 import { BACK_ANNOTATE } from '../tools/backannotate.js';
 import { DIALOG_UPDATE_FROM_PCB_BASE } from './dialog_update_from_pcb_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 interface Props {
   frame: SCH_EDIT_FRAME;
@@ -150,14 +151,14 @@ export function DIALOG_UPDATE_FROM_PCB({ frame, onUpdated, onClose }: Props): JS
       m_cbUpdateOtherFields={check('otherFields')}
       m_cbPreferPinSwaps={check('preferPinSwaps')}
       m_messagePanel={{
-        label: 'Changes to Be Applied',
+        label: _('Changes to Be Applied'),
         fileName: `${frame.Prj().GetProjectPath()}report.txt`,
         lines,
         visibleSeverities: severities,
         onVisibleSeveritiesChange: setSeverities,
       }}
-      okLabel="Update Schematic"
-      cancelLabel="Close"
+      okLabel={_('Update Schematic')}
+      cancelLabel={_('Close')}
       okEnabled={okEnabled}
       onUpdateClick={onUpdateClick}
       onCancel={onClose}

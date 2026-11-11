@@ -19,6 +19,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PANEL_TEMPLATE_FIELDNAMES_BASE_PROPS {
   /** m_title: "Project Field Name Templates" or "Global Field Name Templates". */
@@ -49,22 +50,22 @@ export function PANEL_TEMPLATE_FIELDNAMES_BASE(
           <SizerItem flag={wxBOTTOM} border={5}>
             <StdBitmapButton
               bitmap="small_plus"
-              title="Add field"
+              title={_('Add field')}
               tooltip={null}
               onClick={p.onAddField}
             />
           </SizerItem>
           <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
-            <StdBitmapButton bitmap="small_up" title="Move up" onClick={p.onMoveUp} />
+            <StdBitmapButton bitmap="small_up" title={_('Move up')} onClick={p.onMoveUp} />
           </SizerItem>
           <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
-            <StdBitmapButton bitmap="small_down" title="Move down" onClick={p.onMoveDown} />
+            <StdBitmapButton bitmap="small_down" title={_('Move down')} onClick={p.onMoveDown} />
           </SizerItem>
           <Spacer width={20} height={0} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
             <StdBitmapButton
               bitmap="small_trash"
-              title="Delete field"
+              title={_('Delete field')}
               tooltip={null}
               onClick={p.onDeleteField}
             />

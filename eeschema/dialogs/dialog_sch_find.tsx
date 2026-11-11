@@ -77,6 +77,7 @@ import type { SCH_BASE_FRAME } from '../sch_base_frame.js';
 import { EDA_SEARCH_MATCH_MODE, type SCH_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `EDA_BASE_FRAME::GetFrameType()`, the only thing the dialog branches on. */
 export type SchFindFrame = 'FRAME_SCH' | 'FRAME_SCH_SYMBOL_EDITOR';
@@ -146,7 +147,7 @@ export function DialogSchFind({
 
   return (
     <DIALOG_SCH_FIND_BASE
-      title={replace ? 'Find and Replace' : 'Find'}
+      title={replace ? _('Find and Replace') : _('Find')}
       m_comboFind={data.findString}
       comboFindChoices={findStrings}
       onComboFind={(v) => onChange({ ...data, findString: v })}

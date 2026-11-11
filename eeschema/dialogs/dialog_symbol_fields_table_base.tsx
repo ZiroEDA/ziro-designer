@@ -44,6 +44,7 @@ import {
   StretchSpacer,
 } from '@ziroeda/wx/sizer.js';
 import { SplitterWindow } from '@ziroeda/wx/splitter.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A wxTextCtrl's text and its handler. */
 export interface ENTRY {
@@ -128,14 +129,14 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
               <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
                 <StdBitmapButton
                   bitmap="small_plus"
-                  title="Add a new field"
+                  title={_('Add a new field')}
                   onClick={p.onAddField}
                 />
               </SizerItem>
               <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
                 <StdBitmapButton
                   bitmap="small_edit"
-                  title="Rename selected field"
+                  title={_('Rename selected field')}
                   onClick={p.onRenameField}
                 />
               </SizerItem>
@@ -143,7 +144,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
               <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
                 <StdBitmapButton
                   bitmap="small_trash"
-                  title="Remove selected field"
+                  title={_('Remove selected field')}
                   onClick={p.onRemoveField}
                 />
               </SizerItem>
@@ -156,7 +157,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
                 <StaticLine />
               </SizerItem>
               <SizerItem flag={wxLEFT} border={5}>
-                <StaticText label="View presets:" />
+                <StaticText label={_('View presets:')} />
               </SizerItem>
               <Spacer width={0} height={2} border={5} />
               <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
@@ -181,7 +182,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
       <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxBOTTOM} border={3}>
         <BoxSizer orient={wxVERTICAL}>
           <SizerItem flag={wxTOP | wxBOTTOM | wxLEFT} border={2}>
-            <StaticText label="Schematic variants:" disabled />
+            <StaticText label={_('Schematic variants:')} disabled />
           </SizerItem>
           <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM} border={2}>
             {/* m_variantListBox: wxListBox, empty */}
@@ -264,23 +265,23 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
             <TextCtrl
               value={p.m_filter.value}
               onChange={p.m_filter.onChange}
-              hint="Filter"
-              ariaLabel="Filter"
+              hint={_('Filter')}
+              ariaLabel={_('Filter')}
             />
           </SizerItem>
           <SizerItem flag={wxEXPAND | wxALL} border={3}>
             <StaticLine vertical />
           </SizerItem>
           <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
-            <Choice ariaLabel="Scope" choices={p.scopeChoices} choice={p.m_scope} />
+            <Choice ariaLabel={_('Scope')} choices={p.scopeChoices} choice={p.m_scope} />
           </SizerItem>
           <SizerItem flag={wxEXPAND | wxALL} border={5}>
             <StaticLine vertical />
           </SizerItem>
           <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={8}>
             <CheckBox
-              label="Group symbols"
-              title="Group symbols together based on common properties"
+              label={_('Group symbols')}
+              title={_('Group symbols together based on common properties')}
               check={p.m_groupSymbolsBox}
             />
           </SizerItem>
@@ -318,7 +319,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
         {/* gbExportOptions = wxGridBagSizer( 4, 5 ) */}
         <GridBagSizer vgap={4} hgap={5}>
           <SizerItem pos={[0, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-            <StaticText label="Field delimiter:" />
+            <StaticText label={_('Field delimiter:')} />
           </SizerItem>
           <SizerItem
             pos={[0, 1]}
@@ -330,7 +331,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
             {entry(p.m_textFieldDelimiter, 'Field delimiter')}
           </SizerItem>
           <SizerItem pos={[1, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-            <StaticText label="String delimiter:" />
+            <StaticText label={_('String delimiter:')} />
           </SizerItem>
           <SizerItem
             pos={[1, 1]}
@@ -342,7 +343,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
             {entry(p.m_textStringDelimiter, 'String delimiter')}
           </SizerItem>
           <SizerItem pos={[2, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-            <StaticText label="Reference delimiter:" />
+            <StaticText label={_('Reference delimiter:')} />
           </SizerItem>
           <SizerItem
             pos={[2, 1]}
@@ -354,7 +355,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
             {entry(p.m_textRefDelimiter, 'Reference delimiter')}
           </SizerItem>
           <SizerItem pos={[3, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-            <StaticText label="Range delimiter:" />
+            <StaticText label={_('Range delimiter:')} />
           </SizerItem>
           <SizerItem
             pos={[3, 1]}
@@ -363,19 +364,23 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
             border={5}
             minSize={[60, -1]}
           >
-            {entry(p.m_textRefRangeDelimiter, 'Range delimiter', 'Leave blank to disable ranges.')}
+            {entry(
+              p.m_textRefRangeDelimiter,
+              'Range delimiter',
+              _('Leave blank to disable ranges.'),
+            )}
           </SizerItem>
           <SizerItem pos={[4, 0]} span={[1, 2]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-            <CheckBox label="Keep tabs" check={p.m_checkKeepTabs} />
+            <CheckBox label={_('Keep tabs')} check={p.m_checkKeepTabs} />
           </SizerItem>
           <SizerItem pos={[5, 0]} span={[1, 2]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-            <CheckBox label="Keep line breaks" check={p.m_checkKeepLineBreaks} />
+            <CheckBox label={_('Keep line breaks')} check={p.m_checkKeepLineBreaks} />
           </SizerItem>
           <SizerItem pos={[7, 0]} span={[1, 2]} flag={wxEXPAND | wxTOP | wxBOTTOM} border={5}>
             <StaticLine />
           </SizerItem>
           <SizerItem pos={[8, 0]} span={[1, 2]} flag={0} border={5}>
-            <StaticText label="Format presets:" />
+            <StaticText label={_('Format presets:')} />
           </SizerItem>
           <SizerItem pos={[9, 0]} span={[1, 2]} flag={wxEXPAND} border={5}>
             <Combo
@@ -391,14 +396,14 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
         {/* bOutputDirectory */}
         <BoxSizer orient={wxHORIZONTAL}>
           <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM | wxLEFT} border={5}>
-            <StaticText label="Output file:" />
+            <StaticText label={_('Output file:')} />
           </SizerItem>
           <SizerItem proportion={1} flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
             <TextCtrl
               value={p.m_outputFileName.value}
               onChange={p.m_outputFileName.onChange}
               hint={p.m_outputFileName.hint}
-              ariaLabel="Output file"
+              ariaLabel={_('Output file')}
             />
           </SizerItem>
           <SizerItem
@@ -408,7 +413,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
           >
             <StdBitmapButton
               bitmap="small_folder"
-              title="Browse"
+              title={_('Browse')}
               tooltip={null}
               onClick={() => p.onBrowse?.()}
             />
@@ -419,7 +424,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
         {/* bPreview */}
         <BoxSizer orient={wxHORIZONTAL}>
           <SizerItem flag={wxALIGN_BOTTOM | wxTOP | wxRIGHT | wxLEFT} border={5}>
-            <StaticText label="Preview:" />
+            <StaticText label={_('Preview:')} />
           </SizerItem>
           <StretchSpacer />
           <SizerItem flag={wxTOP | wxRIGHT} border={5}>
@@ -443,7 +448,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
           readOnly
           value={p.m_textOutput}
           className="ze-mono"
-          ariaLabel="Preview"
+          ariaLabel={_('Preview')}
         />
       </SizerItem>
     </GridBagSizer>
@@ -460,8 +465,8 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
               selection={p.page}
               onPageChanged={p.onPageChanged}
               pages={[
-                { text: 'Edit', content: editPage },
-                { text: 'Export', content: exportPage },
+                { text: _('Edit'), content: editPage },
+                { text: _('Export'), content: exportPage },
               ]}
             />
           </SizerItem>
@@ -473,7 +478,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
           <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={10}>
             <StdBitmapButton
               bitmap={p.sidebarCollapsed ? 'right' : 'left'}
-              title={p.sidebarCollapsed ? 'Expand left panel' : 'Collapse left panel'}
+              title={p.sidebarCollapsed ? _('Expand left panel') : _('Collapse left panel')}
               onClick={p.onSidebarToggle}
             />
           </SizerItem>
@@ -481,10 +486,10 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
             <StaticText label={p.status} />
           </SizerItem>
           <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={10}>
-            <Button label="Export" onClick={p.onExport} />
+            <Button label={_('Export')} onClick={p.onExport} />
           </SizerItem>
           <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={10}>
-            <Button label="Apply, Save Schematic & Continue" onClick={p.onApply} />
+            <Button label={_('Apply, Save Schematic & Continue')} onClick={p.onApply} />
           </SizerItem>
           <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
             <StdDialogButtonSizer onOk={p.onOK} onCancel={p.onCancel} />
@@ -496,7 +501,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
 
   return (
     // wxDEFAULT_DIALOG_STYLE|wxMAXIMIZE_BOX|wxRESIZE_BORDER: resizable.
-    <DialogShim title="Symbol Fields Table" onClose={p.onCancel} style={p.dialogSize}>
+    <DialogShim title={_('Symbol Fields Table')} onClose={p.onCancel} style={p.dialogSize}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND} border={5}>

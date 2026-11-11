@@ -44,6 +44,8 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A wxBitmapComboBox row: `Append( name, bitmap )`. */
 export interface BITMAP_COMBO_ITEM {
@@ -132,7 +134,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
         {/* m_fillSizer = wxGridBagSizer( 3, 3 ), SetEmptyCellSize( wxSize( 36,12 ) ) */}
         <GridBagSizer vgap={3} hgap={3} emptyCellSize={[36, 12]}>
           <SizerItem pos={[0, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-            <StaticText label="Fill:" />
+            <StaticText label={_('Fill:')} />
           </SizerItem>
           <SizerItem
             pos={[0, 1]}
@@ -143,15 +145,19 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
             <Choice choices={p.fillChoices} choice={p.m_fillCtrl} ariaLabel="Fill" />
           </SizerItem>
           <SizerItem pos={[1, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-            <StaticText label="Fill color:" disabled={!fillColorOn} />
+            <StaticText label={_('Fill color:')} disabled={!fillColorOn} />
           </SizerItem>
           <SizerItem pos={[1, 1]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
             {/* m_panelFillColor, wxBORDER_SIMPLE */}
-            <SwatchPanel label="Fill color" s={p.m_fillColorSwatch} />
+            <SwatchPanel label={_HKI('Fill color')} s={p.m_fillColorSwatch} />
           </SizerItem>
           <SizerItem pos={[4, 0]} span={[1, 2]} flag={wxTOP | wxRIGHT} border={8}>
             {/* m_helpLabel2, SetFont( GetInfoFont( this ).Italic() ) */}
-            <StaticText label="Clear colors to use Schematic Editor colors." font="info" italic />
+            <StaticText
+              label={_('Clear colors to use Schematic Editor colors.')}
+              font="info"
+              italic
+            />
           </SizerItem>
         </GridBagSizer>
       </SizerItem>
@@ -171,21 +177,21 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
     // m_symbolEditorPage: bSizer9
     <BoxSizer orient={wxVERTICAL}>
       <SizerItem proportion={1} flag={wxEXPAND} border={5}>
-        <StaticBoxSizer label="Fill Style" orient={wxVERTICAL}>
+        <StaticBoxSizer label={_('Fill Style')} orient={wxVERTICAL}>
           <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM} border={5}>
             {/* gbSizer1 = wxGridBagSizer( 3, 0 ) */}
             <GridBagSizer vgap={3} hgap={0}>
               <SizerItem pos={[0, 0]} span={[1, 2]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                {radio('Do not fill', 'none')}
+                {radio(_('Do not fill'), 'none')}
               </SizerItem>
               <SizerItem pos={[1, 0]} span={[1, 2]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                {radio('Fill with body outline color', 'outline')}
+                {radio(_('Fill with body outline color'), 'outline')}
               </SizerItem>
               <SizerItem pos={[2, 0]} span={[1, 2]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                {radio('Fill with body background color', 'background')}
+                {radio(_('Fill with body background color'), 'background')}
               </SizerItem>
               <SizerItem pos={[3, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                {radio('Fill with:', 'custom')}
+                {radio(_('Fill with:'), 'custom')}
               </SizerItem>
               <SizerItem
                 pos={[3, 1]}
@@ -221,12 +227,12 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
           {/* m_ruleAreaSizer */}
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-              <CheckBox label="Exclude from simulation" check={p.m_cbExcludeFromSim} />
+              <CheckBox label={_('Exclude from simulation')} check={p.m_cbExcludeFromSim} />
             </SizerItem>
             <Spacer width={0} height={10} flag={wxEXPAND} border={5} />
             <SizerItem flag={wxALL} border={5}>
               <CheckBox
-                label="Exclude from bill of materials"
+                label={_('Exclude from bill of materials')}
                 title={
                   'This is useful for adding symbols for board footprints such as fiducials\n' +
                   'and logos that you do not want to appear in the bill of materials export'
@@ -236,7 +242,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
             </SizerItem>
             <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
               <CheckBox
-                label="Exclude from board"
+                label={_('Exclude from board')}
                 title={
                   'This is useful for adding symbols that only get exported to the bill of materials but\n' +
                   'not required to layout the board such as mechanical fasteners and enclosures'
@@ -245,7 +251,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
               />
             </SizerItem>
             <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
-              <CheckBox label="Do not populate" check={p.m_cbDNP} />
+              <CheckBox label={_('Do not populate')} check={p.m_cbDNP} />
             </SizerItem>
             <Spacer width={0} height={5} proportion={1} flag={wxEXPAND} border={5} />
           </BoxSizer>
@@ -257,10 +263,10 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
               {/* m_borderSizer = wxGridBagSizer( 3, 3 ), SetEmptyCellSize( wxSize( 36,-1 ) ) */}
               <GridBagSizer vgap={3} hgap={3} emptyCellSize={[36, -1]}>
                 <SizerItem pos={[0, 0]} span={[1, 2]} flag={wxBOTTOM} border={2}>
-                  <CheckBox label="Border" check={p.m_borderCheckbox} />
+                  <CheckBox label={_('Border')} check={p.m_borderCheckbox} />
                 </SizerItem>
                 <SizerItem pos={[1, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                  <StaticText label="Width:" disabled={!p.borderEnabled} />
+                  <StaticText label={_('Width:')} disabled={!p.borderEnabled} />
                 </SizerItem>
                 <SizerItem pos={[1, 1]} span={[1, 2]} flag={wxEXPAND} border={5}>
                   {/* bSizer7 */}
@@ -278,7 +284,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                       <StaticText label={p.units} disabled={!p.borderEnabled} />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={15}>
-                      <StaticText label="Color:" disabled={!p.borderEnabled} />
+                      <StaticText label={_('Color:')} disabled={!p.borderEnabled} />
                     </SizerItem>
                     <Spacer width={5} height={0} border={5} />
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -288,7 +294,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                   </BoxSizer>
                 </SizerItem>
                 <SizerItem pos={[2, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                  <StaticText label="Style:" disabled={!p.borderEnabled} />
+                  <StaticText label={_('Style:')} disabled={!p.borderEnabled} />
                 </SizerItem>
                 <SizerItem
                   pos={[2, 1]}
@@ -312,7 +318,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                 <SizerItem pos={[3, 0]} span={[1, 2]} flag={wxTOP} border={8}>
                   {/* m_helpLabel1, Wrap( 320 ), SetFont( GetInfoFont( this ).Italic() ) */}
                   <StaticText
-                    label="Set border width to 0 to use schematic's default line width."
+                    label={_("Set border width to 0 to use schematic's default line width.")}
                     wrap={320}
                     font="info"
                     italic
@@ -345,7 +351,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                 <SizerItem proportion={9} flag={wxEXPAND | wxRIGHT | wxLEFT} border={10}>
                   <BoxSizer orient={wxVERTICAL}>
                     <SizerItem flag={wxTOP} border={5}>
-                      <CheckBox label="Private to Symbol Editor" check={p.m_privateCheckbox} />
+                      <CheckBox label={_('Private to Symbol Editor')} check={p.m_privateCheckbox} />
                     </SizerItem>
                   </BoxSizer>
                 </SizerItem>
@@ -354,13 +360,13 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                   <BoxSizer orient={wxVERTICAL}>
                     <SizerItem flag={wxTOP | wxRIGHT} border={5}>
                       <CheckBox
-                        label="Common to all units in symbol"
+                        label={_('Common to all units in symbol')}
                         check={p.m_checkApplyToAllUnits}
                       />
                     </SizerItem>
                     <SizerItem flag={wxTOP | wxBOTTOM | wxRIGHT} border={5}>
                       <CheckBox
-                        label="Common to all body styles"
+                        label={_('Common to all body styles')}
                         check={p.m_checkApplyToAllBodyStyles}
                       />
                     </SizerItem>

@@ -18,6 +18,7 @@ import { SCH_SHEET } from '../../sch_sheet.js';
 import type { SCHEMATIC } from '../../schematic.js';
 import { SCH_IO, type SCH_IO_PROPERTIES } from '../sch_io.js';
 import { joinPath, LTSPICE_SCHEMATIC } from './ltspice_schematic.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export class SCH_IO_LTSPICE extends SCH_IO {
   constructor() {
@@ -25,7 +26,7 @@ export class SCH_IO_LTSPICE extends SCH_IO {
   }
 
   override GetSchematicFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('LTspice schematic files', ['asc']);
+    return new IO_FILE_DESC(_HKI('LTspice schematic files'), ['asc']);
   }
 
   override GetLibraryDesc(): IO_FILE_DESC {

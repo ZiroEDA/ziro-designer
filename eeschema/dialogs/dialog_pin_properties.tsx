@@ -45,6 +45,7 @@ import { SCH_PIN, type SCH_PIN_ALT, alternatesInMapOrder } from '../sch_pin.js';
 import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
 import { SYMBOL_PREVIEW_WIDGET, SymbolPreviewWidget } from '../widgets/symbol_preview_widget.js';
 import { DIALOG_PIN_PROPERTIES_BASE, type PIN_DIALOG_CHECK } from './dialog_pin_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The alternates grid's columns. */
 export enum ALT_COL {
@@ -186,11 +187,11 @@ export class DIALOG_PIN_PROPERTIES {
 
     const binder = (aLabel: string) =>
       new UNIT_BINDER(aParent, aLabel, (m) => DisplayErrorMessage(m));
-    this.m_posX = binder('X position:');
-    this.m_posY = binder('Y position:');
-    this.m_pinLength = binder('Pin length:');
-    this.m_nameSize = binder('Name text size:');
-    this.m_numberSize = binder('Number text size:');
+    this.m_posX = binder(_('X position:'));
+    this.m_posY = binder(_('Y position:'));
+    this.m_pinLength = binder(_('Pin length:'));
+    this.m_nameSize = binder(_('Name text size:'));
+    this.m_numberSize = binder(_('Number text size:'));
 
     // Create a dummy symbol with a single pin for the preview widget:
     this.m_dummyParent = LIB_SYMBOL.copyOf(aPin.GetParentSymbol() as LIB_SYMBOL);
@@ -257,8 +258,9 @@ export class DIALOG_PIN_PROPERTIES {
       this.m_state.m_alternatesTurndown = {
         collapsed: true,
         enabled: false,
-        tooltip:
+        tooltip: _(
           'Alternate pin assignments are not available for symbols with multiple body styles.',
+        ),
       };
     }
 
@@ -329,11 +331,11 @@ export class DIALOG_PIN_PROPERTIES {
         'Synchronized pins mode is enabled.\n' +
         'Similar pins will be edited regardless of this option.';
     } else {
-      commonUnitsToolTip = 'If checked, this pin will exist in all units.';
+      commonUnitsToolTip = _('If checked, this pin will exist in all units.');
     }
 
     if (!parent.IsMultiUnit())
-      commonUnitsToolTip = 'This symbol only has one unit. This control has no effect.';
+      commonUnitsToolTip = _('This symbol only has one unit. This control has no effect.');
 
     s.m_checkApplyToAllParts.tooltip = commonUnitsToolTip;
 
@@ -451,7 +453,7 @@ export class DIALOG_PIN_PROPERTIES {
     // Check for missing alternate names.
     for (let i = 0; i < this.m_alternatesDataModel.m_alts.length; ++i) {
       if (this.m_alternatesDataModel.m_alts[i]!.m_Name === '') {
-        DisplayErrorMessage('Alternate pin definitions must have a name.');
+        DisplayErrorMessage(_('Alternate pin definitions must have a name.'));
 
         this.m_delayedFocusColumn = ALT_COL.COL_NAME;
         this.m_delayedFocusRow = i;
@@ -571,7 +573,7 @@ export function DialogPinProperties({
               message: s.infoBar.message,
               ...(s.infoBar.exitLink
                 ? {
-                    actionLabel: 'Exit sync pins mode',
+                    actionLabel: _('Exit sync pins mode'),
                     onAction: () => setS(dlg.OnExitSyncPinsMode()),
                   }
                 : {}),

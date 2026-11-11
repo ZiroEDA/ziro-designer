@@ -15,6 +15,7 @@
 import type { Schematic, TitleBlock } from '../types.js';
 import type { EditCommand } from './command.js';
 import { list, atom, str, head, isList, type SList, type SNode } from '@ziroeda/sexpr/types.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The editable page-settings fields (DIALOG_PAGES_SETTINGS controls). */
 export interface PageSettings {
@@ -121,7 +122,7 @@ function applyPageSettings(doc: Schematic, s: PageSettings): Schematic {
 /** Edit the page settings (SCH_EDIT_FRAME page-settings dialog), undoably. */
 export function setPageSettingsCommand(next: PageSettings): EditCommand {
   return {
-    label: 'Page Settings',
+    label: _('Page Settings'),
     // UNDO_REDO::PAGESETTINGS: undoing this one brings its own sheet on screen
     // first, because the border it restores is the whole visible result.
     pageSettings: true,

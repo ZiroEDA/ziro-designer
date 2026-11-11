@@ -44,6 +44,8 @@ import {
   StretchSpacer,
 } from '@ziroeda/wx/sizer.js';
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A wxTextCtrl member: its text, enable and change. */
 export interface TEXT {
@@ -138,7 +140,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
     // bSizerBasicPanel
     <BoxSizer orient={wxVERTICAL}>
       <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-        <StaticBoxSizer label="Fields" orient={wxVERTICAL}>
+        <StaticBoxSizer label={_('Fields')} orient={wxVERTICAL}>
           <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5} minSize={[-1, 160]}>
             {/* [data] m_grid->SetMinSize( wxSize( -1,160 ) ) */}
             {p.m_grid}
@@ -147,19 +149,27 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
             {/* bButtonSize */}
             <BoxSizer orient={wxHORIZONTAL}>
               <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-                <StdBitmapButton bitmap="small_plus" title="Add field" onClick={p.onAddField} />
+                <StdBitmapButton
+                  bitmap="small_plus"
+                  title={_('Add field')}
+                  onClick={p.onAddField}
+                />
               </SizerItem>
               <SizerItem flag={wxRIGHT} border={5}>
-                <StdBitmapButton bitmap="small_up" title="Move up" onClick={p.onMoveUp} />
+                <StdBitmapButton bitmap="small_up" title={_('Move up')} onClick={p.onMoveUp} />
               </SizerItem>
               <SizerItem flag={wxRIGHT} border={5}>
-                <StdBitmapButton bitmap="small_down" title="Move down" onClick={p.onMoveDown} />
+                <StdBitmapButton
+                  bitmap="small_down"
+                  title={_('Move down')}
+                  onClick={p.onMoveDown}
+                />
               </SizerItem>
               <Spacer width={20} height={0} flag={wxEXPAND} border={5} />
               <SizerItem flag={wxRIGHT | wxLEFT} border={10}>
                 <StdBitmapButton
                   bitmap="small_trash"
-                  title="Delete field"
+                  title={_('Delete field')}
                   onClick={p.onDeleteField}
                 />
               </SizerItem>
@@ -174,18 +184,18 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
             {/* fgSizerFPID = wxFlexGridSizer( 4, 2, 3, 0 ), AddGrowableCol( 1 ) */}
             <FlexGridSizer cols={2} vgap={3} hgap={0} growableCols={[1]}>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={8}>
-                <StaticText label="Symbol name:" />
+                <StaticText label={_('Symbol name:')} />
               </SizerItem>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxRIGHT} border={8}>
                 <TextCtrl
                   value={p.m_SymbolNameCtrl.value}
                   onChange={p.m_SymbolNameCtrl.onChange}
                   onBlur={p.m_SymbolNameCtrl.onBlur}
-                  ariaLabel="Symbol name"
+                  ariaLabel={_('Symbol name')}
                 />
               </SizerItem>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={8}>
-                <StaticText label="Keywords:" />
+                <StaticText label={_('Keywords:')} />
               </SizerItem>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxRIGHT} border={8}>
                 <TextCtrl
@@ -196,7 +206,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
               </SizerItem>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={8}>
                 <StaticText
-                  label="Derive from symbol:"
+                  label={_('Derive from symbol:')}
                   disabled={!p.m_inheritanceSelectCombo.enabled}
                 />
               </SizerItem>
@@ -206,7 +216,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
                   value={p.m_inheritanceSelectCombo.value}
                   options={[
                     ...(p.m_inheritanceSelectCombo.value === ''
-                      ? [{ value: '', label: '<None>' }]
+                      ? [{ value: '', label: _('<None>') }]
                       : []),
                     ...p.inheritanceChoices.map((n) => ({ value: n, label: n })),
                   ]}
@@ -227,9 +237,9 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
             {/* bSizerLeftCol */}
             <BoxSizer orient={wxVERTICAL}>
               <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
-                <StaticBoxSizer label="General" orient={wxVERTICAL}>
+                <StaticBoxSizer label={_('General')} orient={wxVERTICAL}>
                   <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={4}>
-                    {check('Define as power symbol', p.m_OptionPower, POWER_TIP)}
+                    {check(_('Define as power symbol'), p.m_OptionPower, POWER_TIP)}
                   </SizerItem>
                   <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                     {/* bSizer16 */}
@@ -237,7 +247,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
                       <Spacer width={0} height={0} flag={wxEXPAND | wxLEFT | wxRIGHT} border={10} />
                       <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={4}>
                         {check(
-                          'Define as local power symbol',
+                          _('Define as local power symbol'),
                           p.m_OptionLocalPower,
                           LOCAL_POWER_TIP,
                         )}
@@ -252,24 +262,24 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
             {/* bSizerPinTextCol */}
             <BoxSizer orient={wxVERTICAL}>
               <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
-                <StaticBoxSizer label="Pin Text Options" orient={wxVERTICAL}>
+                <StaticBoxSizer label={_('Pin Text Options')} orient={wxVERTICAL}>
                   <SizerItem flag={wxRIGHT} border={5}>
-                    {check('Show pin number', p.m_ShowPinNumButt, 'Show or hide pin numbers')}
+                    {check(_('Show pin number'), p.m_ShowPinNumButt, _('Show or hide pin numbers'))}
                   </SizerItem>
                   <SizerItem flag={wxRIGHT | wxTOP} border={5}>
-                    {check('Show pin name', p.m_ShowPinNameButt, 'Show or hide pin names')}
+                    {check(_('Show pin name'), p.m_ShowPinNameButt, _('Show or hide pin names'))}
                   </SizerItem>
                   <Spacer width={0} height={12} flag={wxEXPAND} border={5} />
                   <SizerItem flag={wxRIGHT | wxTOP} border={5}>
-                    {check('Place pin names inside', p.m_PinsNameInsideButt, PINS_INSIDE_TIP)}
+                    {check(_('Place pin names inside'), p.m_PinsNameInsideButt, PINS_INSIDE_TIP)}
                   </SizerItem>
                   <SizerItem flag={wxBOTTOM | wxEXPAND | wxTOP} border={5}>
                     {/* bSizerNameOffset */}
                     <BoxSizer orient={wxHORIZONTAL}>
                       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
                         <StaticText
-                          label="Position offset:"
-                          title="Margin between the pin name position and the symbol body."
+                          label={_('Position offset:')}
+                          title={_('Margin between the pin name position and the symbol body.')}
                           disabled={p.m_nameOffsetCtrl.enabled === false}
                         />
                       </SizerItem>
@@ -298,19 +308,19 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
             {/* bSizerRightCol */}
             <BoxSizer orient={wxVERTICAL}>
               <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
-                <StaticBoxSizer label="Attributes" orient={wxVERTICAL}>
+                <StaticBoxSizer label={_('Attributes')} orient={wxVERTICAL}>
                   <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                    {check('Exclude from simulation', p.m_excludeFromSimCheckBox)}
+                    {check(_('Exclude from simulation'), p.m_excludeFromSimCheckBox)}
                   </SizerItem>
                   <Spacer width={0} height={10} flag={wxEXPAND} border={5} />
                   <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
-                    {check('Exclude from bill of materials', p.m_excludeFromBomCheckBox)}
+                    {check(_('Exclude from bill of materials'), p.m_excludeFromBomCheckBox)}
                   </SizerItem>
                   <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
-                    {check('Exclude from board', p.m_excludeFromBoardCheckBox)}
+                    {check(_('Exclude from board'), p.m_excludeFromBoardCheckBox)}
                   </SizerItem>
                   <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
-                    {check('Exclude from position files', p.m_excludeFromPosFilesCheckBox)}
+                    {check(_('Exclude from position files'), p.m_excludeFromPosFilesCheckBox)}
                   </SizerItem>
                 </StaticBoxSizer>
               </SizerItem>
@@ -327,12 +337,12 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
     // bSizerUnitsAndBodyStyles
     <BoxSizer orient={wxHORIZONTAL}>
       <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={10}>
-        <StaticBoxSizer label="Symbol Units" orient={wxVERTICAL}>
+        <StaticBoxSizer label={_('Symbol Units')} orient={wxVERTICAL}>
           <SizerItem flag={wxEXPAND | wxBOTTOM | wxLEFT} border={4}>
             {/* bSizerUnitCount */}
             <BoxSizer orient={wxHORIZONTAL}>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
-                <StaticText label="Number of units:" title={UNIT_COUNT_TIP} />
+                <StaticText label={_('Number of units:')} title={UNIT_COUNT_TIP} />
               </SizerItem>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                 {/* wxSP_ARROW_KEYS, 1..64 */}
@@ -349,14 +359,14 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
           <Spacer width={0} height={2} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={4}>
             {check(
-              'All units are interchangeable',
+              _('All units are interchangeable'),
               p.m_OptionPartsInterchangeable,
               INTERCHANGEABLE_TIP,
             )}
           </SizerItem>
           <Spacer width={0} height={15} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-            <StaticText label="Unit display names (optional):" />
+            <StaticText label={_('Unit display names (optional):')} />
           </SizerItem>
           <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>
             {p.m_unitNamesGrid}
@@ -364,11 +374,11 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
         </StaticBoxSizer>
       </SizerItem>
       <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={10}>
-        <StaticBoxSizer label="Body Styles" orient={wxVERTICAL}>
+        <StaticBoxSizer label={_('Body Styles')} orient={wxVERTICAL}>
           <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
             <RadioButton
               name="bodyStyles"
-              label="Single body style"
+              label={_('Single body style')}
               checked={p.bodyStyleRadio === 0}
               onChange={() => p.onBodyStyle(0)}
             />
@@ -377,7 +387,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
           <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
             <RadioButton
               name="bodyStyles"
-              label="‘Standard’ and ‘Alternate’ De Morgan body styles"
+              label={_('‘Standard’ and ‘Alternate’ De Morgan body styles')}
               checked={p.bodyStyleRadio === 1}
               onChange={() => p.onBodyStyle(1)}
             />
@@ -386,7 +396,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
           <SizerItem flag={wxALL} border={5}>
             <RadioButton
               name="bodyStyles"
-              label="Custom body styles:"
+              label={_('Custom body styles:')}
               checked={p.bodyStyleRadio === 2}
               onChange={() => p.onBodyStyle(2)}
             />
@@ -403,7 +413,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
                   <SizerItem flag={wxRIGHT} border={5}>
                     <StdBitmapButton
                       bitmap="small_plus"
-                      title="Add field"
+                      title={_('Add field')}
                       disabled={bodyStyleButtons}
                       onClick={p.onAddBodyStyle}
                     />
@@ -411,7 +421,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
                   <SizerItem flag={wxRIGHT} border={5}>
                     <StdBitmapButton
                       bitmap="small_up"
-                      title="Move up"
+                      title={_('Move up')}
                       disabled={bodyStyleButtons}
                       onClick={p.onBodyStyleMoveUp}
                     />
@@ -419,7 +429,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
                   <SizerItem flag={wxRIGHT} border={5}>
                     <StdBitmapButton
                       bitmap="small_down"
-                      title="Move down"
+                      title={_('Move down')}
                       disabled={bodyStyleButtons}
                       onClick={p.onBodyStyleMoveDown}
                     />
@@ -428,7 +438,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
                   <SizerItem flag={wxRIGHT | wxLEFT} border={10}>
                     <StdBitmapButton
                       bitmap="small_trash"
-                      title="Delete field"
+                      title={_('Delete field')}
                       disabled={bodyStyleButtons}
                       onClick={p.onDeleteBodyStyle}
                     />
@@ -449,7 +459,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
         {/* bFPFiltersMargins */}
         <BoxSizer orient={wxVERTICAL}>
           <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-            <StaticText label="Footprint filters:" title={FOOTPRINT_FILTERS_TIP} />
+            <StaticText label={_('Footprint filters:')} title={FOOTPRINT_FILTERS_TIP} />
           </SizerItem>
           <SizerItem proportion={1} flag={wxEXPAND} border={5}>
             {/* wxLB_MULTIPLE */}
@@ -463,7 +473,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
                 if (p.onFootprintFilterKey(e.key, e.ctrlKey)) e.preventDefault();
               }}
               onDoubleClick={p.onFpFilterDClick}
-              ariaLabel="Footprint filters"
+              ariaLabel={_('Footprint filters')}
             />
           </SizerItem>
           <SizerItem border={5}>
@@ -472,14 +482,14 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
               <SizerItem flag={wxTOP | wxBOTTOM} border={5}>
                 <StdBitmapButton
                   bitmap="small_plus"
-                  title="Add footprint filter"
+                  title={_('Add footprint filter')}
                   onClick={p.onAddFootprintFilter}
                 />
               </SizerItem>
               <SizerItem flag={wxALL} border={5}>
                 <StdBitmapButton
                   bitmap="small_edit"
-                  title="Edit footprint filter"
+                  title={_('Edit footprint filter')}
                   onClick={p.onEditFootprintFilter}
                 />
               </SizerItem>
@@ -487,7 +497,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
               <SizerItem flag={wxALL} border={5}>
                 <StdBitmapButton
                   bitmap="small_trash"
-                  title="Delete footprint filter"
+                  title={_('Delete footprint filter')}
                   onClick={p.onDeleteFootprintFilter}
                 />
               </SizerItem>
@@ -506,14 +516,14 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
         <BoxSizer orient={wxVERTICAL}>
           <SizerItem flag={wxLEFT} border={5}>
             {check(
-              'All pins with duplicate numbers are jumpers',
+              _('All pins with duplicate numbers are jumpers'),
               p.m_cbDuplicatePinsAreJumpers,
               DUPLICATE_PINS_TIP,
             )}
           </SizerItem>
           <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-            <StaticText label="Explicit jumper pin groups:" />
+            <StaticText label={_('Explicit jumper pin groups:')} />
           </SizerItem>
           <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={2} minSize={[-1, 30]}>
             {/* [data] m_jumperGroupsGrid->SetMinSize( wxSize( -1,30 ) ) */}
@@ -549,11 +559,11 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
                 onPageChanging={p.onPageChanging}
                 onPageChanged={p.onPageChanged}
                 pages={[
-                  { text: 'General', content: basicPanel },
-                  { text: 'Units & Body Styles', content: unitsPanel },
-                  { text: 'Footprint Filters', content: filtersPanel },
-                  { text: 'Pin Connections', content: pinConnectionsPanel },
-                  { text: 'Embedded Files', content: p.m_embeddedFiles },
+                  { text: _('General'), content: basicPanel },
+                  { text: _('Units & Body Styles'), content: unitsPanel },
+                  { text: _('Footprint Filters'), content: filtersPanel },
+                  { text: _('Pin Connections'), content: pinConnectionsPanel },
+                  { text: _('Embedded Files'), content: p.m_embeddedFiles },
                 ]}
               />
             </SizerItem>
@@ -566,7 +576,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
             <SizerItem flag={wxEXPAND | wxALL} border={5} shown={p.spiceFieldsShown}>
               {/* DIALOG_SIM_MODEL is not ported. */}
               <Button
-                label="Edit Simulation Model..."
+                label={_('Edit Simulation Model...')}
                 disabled
                 title="The simulator is not available in this build"
               />
@@ -576,7 +586,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
               {/* m_stdSizerButton: OK, Cancel */}
               <StdDialogButtonSizer
                 onOk={p.onOK}
-                okLabel={p.readOnly ? 'Read Only' : undefined}
+                okLabel={p.readOnly ? _('Read Only') : undefined}
                 okDisabled={p.readOnly}
                 onCancel={p.onCancel}
               />
@@ -595,12 +605,15 @@ const INHERITANCE_TIP =
 const POWER_TIP =
   'Power symbols define a global net with the value as a netname.\n' +
   'They will not be included in the BOM and cannot be assigned a footprint.';
-const LOCAL_POWER_TIP =
-  'Local power symbols create labels that are limited to the sheet in which they are used';
+const LOCAL_POWER_TIP = _HKI(
+  'Local power symbols create labels that are limited to the sheet in which they are used',
+);
 const PINS_INSIDE_TIP =
   'Check this option to have pin names inside the body and pin number outside.\n' +
   'If not checked pins names and pins numbers are outside.';
-const UNIT_COUNT_TIP = 'Enter the number of units for a symbol that contains more than one unit';
+const UNIT_COUNT_TIP = _HKI(
+  'Enter the number of units for a symbol that contains more than one unit',
+);
 const INTERCHANGEABLE_TIP =
   'Check this option when all symbol units have the same function.\n' +
   'For instance, this should be checked for a quad NAND gate, while it should not be checked ' +

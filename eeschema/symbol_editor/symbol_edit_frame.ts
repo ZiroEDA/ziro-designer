@@ -104,6 +104,7 @@ import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import { SCH_BASE_FRAME } from '../sch_base_frame.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface SYMBOL_EDIT_FRAME_HOOKS {
   /**
@@ -549,7 +550,7 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
 
     if (
       !(await this.LibraryFileBrowser(
-        aCreateNew ? 'New Symbol Library' : 'Add Symbol Library',
+        aCreateNew ? _('New Symbol Library') : _('Add Symbol Library'),
         !aCreateNew,
         fn,
         [kicadSymbolLibWildcard()],
@@ -602,7 +603,7 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
       }
     } else {
       if (!this.m_libMgr.AddLibrary(fn.value, scope)) {
-        DisplayErrorMessage('Could not open the library file.');
+        DisplayErrorMessage(_('Could not open the library file.'));
         return '';
       }
     }
@@ -618,8 +619,8 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
 
     if (!result.ok) {
       await ShowKicadMessageDialog({
-        message: 'Error saving library table.',
-        caption: 'File Save Error',
+        message: _('Error saving library table.'),
+        caption: _('File Save Error'),
         style: wxOK | wxICON_ERROR,
         extended: result.error.message,
       });
@@ -658,7 +659,7 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
     }
 
     if (!this.m_libMgr.AddLibrary(aLibFile, LIBRARY_TABLE_SCOPE.PROJECT)) {
-      DisplayErrorMessage('Could not open the library file.');
+      DisplayErrorMessage(_('Could not open the library file.'));
       return;
     }
 
@@ -671,8 +672,8 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
 
     if (!result.ok) {
       await ShowKicadMessageDialog({
-        message: 'Error saving library table.',
-        caption: 'File Save Error',
+        message: _('Error saving library table.'),
+        caption: _('File Save Error'),
         style: wxOK | wxICON_ERROR,
         extended: result.error.message,
       });
@@ -799,8 +800,8 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
 
     if (!result.ok) {
       void ShowKicadMessageDialog({
-        message: 'Error saving library table.',
-        caption: 'File Save Error',
+        message: _('Error saving library table.'),
+        caption: _('File Save Error'),
         style: wxOK | wxICON_ERROR,
         extended: result.error.message,
       });
@@ -853,8 +854,8 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
 
     if (!result.ok) {
       void ShowKicadMessageDialog({
-        message: 'Error saving library table.',
-        caption: 'File Save Error',
+        message: _('Error saving library table.'),
+        caption: _('File Save Error'),
         style: wxOK | wxICON_ERROR,
         extended: result.error.message,
       });
@@ -1249,7 +1250,7 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
 
       // InvokeSchEditSymbolLibTable( &Kiway(), this )
       infobar.AddButton({
-        label: 'Manage symbol libraries',
+        label: _('Manage symbol libraries'),
         onClick: () => void this.Kiway()?.CreateKiWindow(FRAME_T.DIALOG_SCH_LIBRARY_TABLE),
       });
     } else if (this.IsSymbolAlias()) {
@@ -1278,19 +1279,19 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
       !this.IsSymbolFromSchematic() &&
       this.m_libMgr.IsLibraryReadOnly(this.m_symbol.GetLibId().GetFullLibraryName())
     ) {
-      msgs.push('Library is read-only.  Changes cannot be saved to this library.');
+      msgs.push(_('Library is read-only.  Changes cannot be saved to this library.'));
 
       infobar.AddButton({
-        label: 'Create an editable copy',
+        label: _('Create an editable copy'),
         onClick: async () => {
           const msg = `Create an editable copy of the symbol or the entire library (${aLibName})?`;
 
           // These buttons are in a weird order(?)
           const choice = await this.ShowKiDialog({
-            caption: 'Select type of item to save',
+            caption: _('Select type of item to save'),
             message: msg,
             icon: 'question',
-            yesNo: { yes: 'Copy symbol', no: 'Cancel', cancel: 'Copy library' },
+            yesNo: { yes: _('Copy symbol'), no: _('Cancel'), cancel: _('Copy library') },
           });
 
           switch (choice) {
@@ -1674,7 +1675,7 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
           if (!libTableRow) {
             msg = `The current configuration does not include the symbol library '${uri}'.`;
             msg += '\nUse Manage Symbol Libraries to edit the configuration.';
-            DisplayErrorMessage('Library not found in symbol library table.', msg);
+            DisplayErrorMessage(_('Library not found in symbol library table.'), msg);
             break;
           }
 
@@ -1683,7 +1684,7 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
           if (!adapter.HasLibrary(libNickname, true)) {
             msg = `The symbol library '${unescapeString(libNickname)}' is not enabled in the current configuration.`;
             msg += '\nUse Manage Symbol Libraries to edit the configuration.';
-            DisplayErrorMessage('Symbol library not enabled.', msg);
+            DisplayErrorMessage(_('Symbol library not enabled.'), msg);
             break;
           }
 

@@ -44,6 +44,7 @@ import {
   StdDialogButtonSizer,
   StretchSpacer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A severity checkbox and the NUMBER_BADGE after it. */
 export interface SEVERITY {
@@ -107,14 +108,14 @@ export function DIALOG_ERC_BASE(p: DIALOG_ERC_BASE_PROPS): JSX.Element {
   );
 
   return (
-    <DialogShim title="Electrical Rules Checker" onClose={p.onCancel} modeless>
+    <DialogShim title={_('Electrical Rules Checker')} onClose={p.onCancel} modeless>
       {/* bSizer1 */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND} border={5} shown={p.m_infoBar !== null}>
           <Infobar
             message={p.m_infoBar ?? ''}
             {...(p.onShowAnnotate
-              ? { actionLabel: 'Show Annotation dialog', onAction: p.onShowAnnotate }
+              ? { actionLabel: _('Show Annotation dialog'), onAction: p.onShowAnnotate }
               : {})}
           />
         </SizerItem>
@@ -145,7 +146,7 @@ export function DIALOG_ERC_BASE(p: DIALOG_ERC_BASE_PROPS): JSX.Element {
                     onPageChanged={() => {}}
                     pages={[
                       {
-                        text: 'Tests Running...',
+                        text: _('Tests Running...'),
                         content: (
                           // bSizer10
                           <BoxSizer orient={wxVERTICAL}>
@@ -211,7 +212,7 @@ export function DIALOG_ERC_BASE(p: DIALOG_ERC_BASE_PROPS): JSX.Element {
                             </SizerItem>
                             <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                               <HyperlinkCtrl
-                                label="Edit ignored tests"
+                                label={_('Edit ignored tests')}
                                 onClick={p.onEditIgnoredTests ?? (() => {})}
                               />
                             </SizerItem>
@@ -230,19 +231,19 @@ export function DIALOG_ERC_BASE(p: DIALOG_ERC_BASE_PROPS): JSX.Element {
                 <SizerItem flag={wxEXPAND | wxALL} border={5}>
                   <BoxSizer orient={wxHORIZONTAL}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
-                      <StaticText label="Show:" />
+                      <StaticText label={_('Show:')} />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
-                      <CheckBox label="All" check={p.m_showAll} />
+                      <CheckBox label={_('All')} check={p.m_showAll} />
                     </SizerItem>
                     <Spacer width={35} height={0} flag={wxEXPAND} border={5} />
-                    {severity('Errors', p.m_showErrors)}
-                    {severity('Warnings', p.m_showWarnings)}
-                    {severity('Exclusions', p.m_showExclusions)}
+                    {severity(_('Errors'), p.m_showErrors)}
+                    {severity(_('Warnings'), p.m_showWarnings)}
+                    {severity(_('Exclusions'), p.m_showExclusions)}
                     <StretchSpacer />
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                       <Button
-                        label="Save..."
+                        label={_('Save...')}
                         disabled={!p.saveEnabled}
                         onClick={(e) => p.onSaveReport(e.currentTarget)}
                       />
@@ -258,14 +259,14 @@ export function DIALOG_ERC_BASE(p: DIALOG_ERC_BASE_PROPS): JSX.Element {
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
               <Button
-                label="Delete Marker"
+                label={_('Delete Marker')}
                 disabled={!p.deleteEnabled}
                 onClick={p.onDeleteOneMarker}
               />
             </SizerItem>
             <SizerItem flag={wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL} border={8}>
               <Button
-                label="Delete All Markers"
+                label={_('Delete All Markers')}
                 disabled={!p.deleteEnabled}
                 onClick={p.onDeleteAllMarkers}
               />
@@ -273,7 +274,7 @@ export function DIALOG_ERC_BASE(p: DIALOG_ERC_BASE_PROPS): JSX.Element {
             <StretchSpacer />
             <SizerItem flag={wxEXPAND | wxALL} border={5}>
               <StdDialogButtonSizer
-                okLabel="Run ERC"
+                okLabel={_('Run ERC')}
                 cancelLabel={p.cancelLabel}
                 okDisabled={!p.runEnabled}
                 onOk={p.onRunERC}

@@ -46,6 +46,7 @@ import {
   populateFromSymbol,
   populateItemNode,
 } from '../symbol_tree_model_adapter.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * What `PANEL_SYMBOL_CHOOSER` reaches in the app: the settings store, the
@@ -496,10 +497,10 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
     const fpStatus = !validSelection
       ? ''
       : !shownFootprint
-        ? 'No footprint specified'
+        ? _('No footprint specified')
         : /^[^:]+:[^:]+$/.test(shownFootprint)
           ? ''
-          : 'Invalid footprint specified';
+          : _('Invalid footprint specified');
 
     // AddAlwaysIncludedFootprint: explicitly associated footprints (issue #2282)
     // head the list in written order and bypass the filters.
@@ -614,7 +615,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       <app.SymbolPreviewWidget
         symbol={validSelection ? previewSymbol : null}
         unit={selectedNode?.unit ?? 0}
-        statusText="No symbol selected"
+        statusText={_('No symbol selected')}
       />
     );
 

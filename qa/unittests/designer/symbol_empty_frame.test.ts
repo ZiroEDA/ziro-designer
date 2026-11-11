@@ -146,7 +146,7 @@ describe("SYMBOL_EDIT_FRAME's opening toggle state", () => {
     // the comment: a lit toolbar button for an action upstream does not draw
     // would be the defect, so this pins WHERE it is shown.
     const menubar = read('../../eeschema/symbol_editor/menubar_symbol_editor.ts');
-    expect(menubar).toContain("chk('Show Pin Alternate Icons', 'togglePinAltIcons')");
+    expect(menubar).toContain("chk(_('Show Pin Alternate Icons'), 'togglePinAltIcons')");
     const toolbars = readEeschema('symbol_editor/toolbars_symbol_editor.ts');
     expect(toolbars, 'upstream leaves this button commented out').not.toContain(
       'togglePinAltIcons',

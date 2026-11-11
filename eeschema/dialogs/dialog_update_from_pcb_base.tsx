@@ -19,6 +19,7 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_UPDATE_FROM_PCB_BASE_PROPS {
   m_cbRelinkFootprints: CHECK;
@@ -58,7 +59,7 @@ function Check({ label, tip, c }: { label: string; tip: string; c: CHECK }): JSX
 
 export function DIALOG_UPDATE_FROM_PCB_BASE(p: DIALOG_UPDATE_FROM_PCB_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Update Schematic from PCB" onClose={p.onCancel}>
+    <DialogShim title={_('Update Schematic from PCB')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxALL | wxEXPAND} border={5}>
@@ -66,13 +67,17 @@ export function DIALOG_UPDATE_FROM_PCB_BASE(p: DIALOG_UPDATE_FROM_PCB_BASE_PROPS
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
               {/* sbSizerOptions */}
-              <StaticBoxSizer label="Options" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Options')} orient={wxVERTICAL}>
                 <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM} border={5}>
                   {/* fgSizer1 = wxFlexGridSizer( 0, 1, 0, 0 ) */}
                   <FlexGridSizer cols={1} vgap={0} hgap={0}>
                     <Check
-                      label="Re-link footprints to schematic symbols based on their reference designators"
-                      tip="Normally footprints are linked to their symbols via their Unique IDs.  Select this option only if you want to reset the footprint linkages based on their reference designators."
+                      label={_(
+                        'Re-link footprints to schematic symbols based on their reference designators',
+                      )}
+                      tip={_(
+                        'Normally footprints are linked to their symbols via their Unique IDs.  Select this option only if you want to reset the footprint linkages based on their reference designators.',
+                      )}
                       c={p.m_cbRelinkFootprints}
                     />
                   </FlexGridSizer>
@@ -81,48 +86,58 @@ export function DIALOG_UPDATE_FROM_PCB_BASE(p: DIALOG_UPDATE_FROM_PCB_BASE_PROPS
             </SizerItem>
             <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
               {/* sbSizer2 */}
-              <StaticBoxSizer label="Update" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Update')} orient={wxVERTICAL}>
                 <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                   {/* fgSizer2 = wxFlexGridSizer( 0, 2, 0, 0 ), AddGrowableCol( 0 ), ( 1 ) */}
                   <FlexGridSizer cols={2} vgap={0} hgap={0} growableCols={[0, 1]}>
                     <Check
-                      label="Reference designators"
-                      tip="Update references of symbols that have been changed in the PCB editor."
+                      label={_('Reference designators')}
+                      tip={_(
+                        'Update references of symbols that have been changed in the PCB editor.',
+                      )}
                       c={p.m_cbUpdateReferences}
                     />
                     <Check
-                      label="Footprint assignments"
-                      tip="Update footprint associations of symbols whose footprints have been replaced with different footprints in PCB."
+                      label={_('Footprint assignments')}
+                      tip={_(
+                        'Update footprint associations of symbols whose footprints have been replaced with different footprints in PCB.',
+                      )}
                       c={p.m_cbUpdateFootprints}
                     />
                     <Check
-                      label="Values"
-                      tip="Update symbols values that have been replaced in the PCB editor."
+                      label={_('Values')}
+                      tip={_('Update symbols values that have been replaced in the PCB editor.')}
                       c={p.m_cbUpdateValues}
                     />
                     <Check
-                      label="Net names"
-                      tip="Update schematic net labels to match net names from the PCB editor."
+                      label={_('Net names')}
+                      tip={_('Update schematic net labels to match net names from the PCB editor.')}
                       c={p.m_cbUpdateNetNames}
                     />
                     <Check
-                      label="Attributes"
-                      tip="Update symbol attribute flags like Do Not Populate to match the footprint."
+                      label={_('Attributes')}
+                      tip={_(
+                        'Update symbol attribute flags like Do Not Populate to match the footprint.',
+                      )}
                       c={p.m_cbUpdateAttributes}
                     />
                     <Check
-                      label="Prefer symbol unit swaps over label swaps"
-                      tip="When possible, detect footprint gate swaps and apply corresponding symbol unit swaps instead of changing net labels."
+                      label={_('Prefer symbol unit swaps over label swaps')}
+                      tip={_(
+                        'When possible, detect footprint gate swaps and apply corresponding symbol unit swaps instead of changing net labels.',
+                      )}
                       c={p.m_cbPreferUnitSwaps}
                     />
                     <Check
-                      label="Other fields"
-                      tip="Update all other fields in the symbol from the footprint"
+                      label={_('Other fields')}
+                      tip={_('Update all other fields in the symbol from the footprint')}
                       c={p.m_cbUpdateOtherFields}
                     />
                     <Check
-                      label="Prefer symbol pin swaps over label swaps"
-                      tip="When possible, swap symbol pins to match footprint pad net swaps instead of changing net labels."
+                      label={_('Prefer symbol pin swaps over label swaps')}
+                      tip={_(
+                        'When possible, swap symbol pins to match footprint pad net swaps instead of changing net labels.',
+                      )}
                       c={p.m_cbPreferPinSwaps}
                     />
                   </FlexGridSizer>

@@ -39,6 +39,7 @@ import {
   type BITMAP_COMBO_ITEM,
   DIALOG_WIRE_BUS_PROPERTIES_BASE,
 } from './dialog_wire_bus_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const sameColor = (a: Color4d, b: Color4d): boolean =>
   a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
@@ -83,8 +84,12 @@ export class DIALOG_WIRE_BUS_PROPERTIES {
   constructor(aParent: SCH_EDIT_FRAME, aItems: readonly SCH_ITEM[]) {
     this.m_frame = aParent;
     this.m_items = aItems;
-    this.m_wireWidth = new UNIT_BINDER(aParent, 'Wire/bus width:', (m) => DisplayErrorMessage(m));
-    this.m_junctionSize = new UNIT_BINDER(aParent, 'Junction size:', (m) => DisplayErrorMessage(m));
+    this.m_wireWidth = new UNIT_BINDER(aParent, _('Wire/bus width:'), (m) =>
+      DisplayErrorMessage(m),
+    );
+    this.m_junctionSize = new UNIT_BINDER(aParent, _('Junction size:'), (m) =>
+      DisplayErrorMessage(m),
+    );
   }
 
   /** `SetSwatchBackground( canvas )`. */
@@ -231,7 +236,7 @@ export class DIALOG_WIRE_BUS_PROPERTIES {
       }
     }
 
-    commit.Push(`Edit ${this.m_items.length === 1 ? 'Wire/Bus' : 'Wires/Buses'}`);
+    commit.Push(`Edit ${this.m_items.length === 1 ? _('Wire/Bus') : _('Wires/Buses')}`);
     return true;
   }
 }

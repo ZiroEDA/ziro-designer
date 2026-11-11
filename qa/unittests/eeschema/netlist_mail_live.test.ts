@@ -26,6 +26,7 @@ import type { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
 import { SYMBOL_FILTER } from '@ziroeda/eeschema/sch_sheet_path.js';
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const ORACLE = resolve(__dirname, '../../data/eeschema/netlist_oracle/complex_hierarchy');
 const SHEETS = ['complex_hierarchy.kicad_sch', 'ampli_ht.kicad_sch', 'complex_hierarchy.kicad_pro'];
@@ -137,8 +138,8 @@ describe('MAIL_SCH_GET_NETLIST from the live frame', () => {
     expect(run(false)).toBe('annotate');
     expect(run(true).startsWith('(export')).toBe(true);
     expect(asked).toEqual([
-      'Error: duplicate sheet names. Continue?',
-      'Error: duplicate sheet names. Continue?',
+      _('Error: duplicate sheet names. Continue?'),
+      _('Error: duplicate sheet names. Continue?'),
     ]);
   });
 

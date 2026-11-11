@@ -49,6 +49,8 @@ import { unescapeString } from '@ziroeda/common/string_utils.js';
 import type { PLOTTER } from '@ziroeda/common/plotters/plotter.js';
 import type { SCH_PLOT_OPTS } from './sch_plotter.js';
 import { FILL_T } from '@ziroeda/common/eda_shape.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const samePt = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 
@@ -98,10 +100,10 @@ export class SCH_JUNCTION extends SCH_ITEM {
 
   /** `GetMsgPanelInfo( aFrame, aList )` (sch_junction.cpp). */
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
-    aList.push(new MSG_PANEL_ITEM('Junction', ''));
+    aList.push(new MSG_PANEL_ITEM(_('Junction'), ''));
 
     aList.push(
-      new MSG_PANEL_ITEM('Size', aFrame.MessageTextFromValue(this.GetEffectiveDiameter())),
+      new MSG_PANEL_ITEM(_('Size'), aFrame.MessageTextFromValue(this.GetEffectiveDiameter())),
     );
 
     // dynamic_cast<SCH_EDIT_FRAME*>( aFrame ): a schematic editor's item has a schematic.
@@ -113,7 +115,7 @@ export class SCH_JUNCTION extends SCH_ITEM {
       if (!conn.IsBus()) {
         aList.push(
           new MSG_PANEL_ITEM(
-            'Resolved Netclass',
+            _('Resolved Netclass'),
             // null is upstream's static NETCLASS( wxEmptyString ), whose name is ''.
             unescapeString(this.GetEffectiveNetClass()?.GetHumanReadableName() ?? ''),
           ),
@@ -217,7 +219,7 @@ export class SCH_JUNCTION extends SCH_ITEM {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
-    return 'Junction';
+    return _('Junction');
   }
 
   override GetPosition(): VECTOR2I {
@@ -393,7 +395,7 @@ export class SCH_JUNCTION extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY<SCH_JUNCTION, number>(
       SCH_JUNCTION,
-      'Diameter',
+      _HKI('Diameter'),
       'SetDiameter',
       'GetDiameter',
       TYPE_INT,
@@ -404,7 +406,7 @@ export class SCH_JUNCTION extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY<SCH_JUNCTION, Color4d>(
       SCH_JUNCTION,
-      'Color',
+      _HKI('Color'),
       'SetColor',
       'GetColor',
       TYPE_COLOR4D,

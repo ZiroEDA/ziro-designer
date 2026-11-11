@@ -23,6 +23,7 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
 import { WxSearchCtrl } from '@ziroeda/wx/wx_search_ctrl.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_IMPORT_SYMBOL_SELECT_BASE_PROPS {
   /** `SetTitle( "Import Symbols from %s" )`. */
@@ -83,10 +84,10 @@ export function DIALOG_IMPORT_SYMBOL_SELECT_BASE(
                   {/* bButtonsSizer */}
                   <BoxSizer orient={wxHORIZONTAL}>
                     <SizerItem flag={wxALL} border={5}>
-                      <Button label="Select All" onClick={p.onSelectAll} />
+                      <Button label={_('Select All')} onClick={p.onSelectAll} />
                     </SizerItem>
                     <SizerItem flag={wxALL} border={5}>
-                      <Button label="Select None" onClick={p.onSelectNone} />
+                      <Button label={_('Select None')} onClick={p.onSelectNone} />
                     </SizerItem>
                   </BoxSizer>
                 </SizerItem>
@@ -99,7 +100,7 @@ export function DIALOG_IMPORT_SYMBOL_SELECT_BASE(
                   {/* bUnitSizer */}
                   <BoxSizer orient={wxHORIZONTAL}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
-                      <StaticText label="Unit:" disabled={!p.unitChoiceEnabled} />
+                      <StaticText label={_('Unit:')} disabled={!p.unitChoiceEnabled} />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5} minSize={[100, -1]}>
                       <Combo
@@ -127,7 +128,7 @@ export function DIALOG_IMPORT_SYMBOL_SELECT_BASE(
           {/* m_sdbSizer: OK ("Import"), Cancel */}
           <StdDialogButtonSizer
             onOk={p.onOK}
-            okLabel="Import"
+            okLabel={_('Import')}
             okDisabled={!p.okEnabled}
             onCancel={p.onCancel}
           />

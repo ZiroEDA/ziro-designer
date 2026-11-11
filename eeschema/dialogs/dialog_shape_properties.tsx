@@ -34,6 +34,7 @@ import {
   DIALOG_SHAPE_PROPERTIES_BASE,
   type FILL_RADIO,
 } from './dialog_shape_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `lineTypeNames`, as the constructor fills `m_borderStyleCombo`. */
 const BORDER_STYLES: BITMAP_COMBO_ITEM[] = LINE_STYLE_NAMES.map((d) => ({
@@ -78,7 +79,7 @@ export class DIALOG_SHAPE_PROPERTIES {
   constructor(aParent: SCH_BASE_FRAME, aShape: SCH_SHAPE) {
     this.m_frame = aParent;
     this.m_shape = aShape;
-    this.m_borderWidth = new UNIT_BINDER(aParent, 'Width:', (m) => DisplayErrorMessage(m));
+    this.m_borderWidth = new UNIT_BINDER(aParent, _('Width:'), (m) => DisplayErrorMessage(m));
   }
 
   /** `SetTitle( wxString::Format( GetTitle(), aShape->GetFriendlyName() ) )`: "%s Properties". */
@@ -94,7 +95,7 @@ export class DIALOG_SHAPE_PROPERTIES {
   /** `m_infoBar->ShowMessage( … )` when item colours are overridden in Preferences. */
   InfoBarMessage(): string | null {
     return this.m_frame.GetColorSettings().GetOverrideSchItemColors()
-      ? 'Note: individual item colors overridden in Preferences.'
+      ? _('Note: individual item colors overridden in Preferences.')
       : null;
   }
 
@@ -433,7 +434,7 @@ export function DialogShapeProperties({
         enabled: dlg.AllBodyStylesEnabled(),
         onChange: (on) => set({ allBodyStyles: on }),
       }}
-      {...(dlg.IsReadOnly() ? { okLabel: 'Read Only', okEnabled: false } : {})}
+      {...(dlg.IsReadOnly() ? { okLabel: _('Read Only'), okEnabled: false } : {})}
       onOK={() => onOk(v)}
       onCancel={onCancel}
     />

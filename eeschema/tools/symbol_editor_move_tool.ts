@@ -40,6 +40,7 @@ import { EE_GRID_HELPER } from './ee_grid_helper.js';
 import { SCH_ACTIONS } from './sch_actions.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
 import { SYMBOL_EDITOR_PIN_TOOL } from './symbol_editor_pin_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 enum AXIS_LOCK {
   NONE,
@@ -124,7 +125,7 @@ export class SYMBOL_EDITOR_MOVE_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     } else {
       const localCommit = new SCH_COMMIT(this.m_toolMgr!);
 
-      if (yield* this.doMoveSelection(aEvent, localCommit)) localCommit.Push('Move');
+      if (yield* this.doMoveSelection(aEvent, localCommit)) localCommit.Push(_('Move'));
       else localCommit.Revert();
     }
 
@@ -467,7 +468,7 @@ export class SYMBOL_EDITOR_MOVE_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
 
     this.m_toolMgr!.PostEvent(EVENTS.SelectedItemsMoved);
 
-    commit.Push('Align Items to Grid');
+    commit.Push(_('Align Items to Grid'));
     return 0;
   }
 

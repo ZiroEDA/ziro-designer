@@ -19,6 +19,7 @@ import type { Schematic, SchSymbol, SchField, LibSymbol } from '../types.js';
 import { buildPropertyNode } from '../sch_io/sexpr/write-schematic.js';
 import { refId } from './hittest.js';
 import type { EditCommand } from './command.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** KiCad SCH_FIELD::IsMandatory, by canonical name (we have no FIELD_T ids). */
 export const MANDATORY_FIELDS = ['Reference', 'Value', 'Footprint', 'Datasheet', 'Description'];
@@ -102,7 +103,7 @@ export function restoreSymbols(
   savedLibs?: ReadonlyMap<string, LibSymbol>,
 ): EditCommand {
   return {
-    label: 'Edit Symbol Properties',
+    label: _('Edit Symbol Properties'),
     apply(doc: Schematic): Schematic {
       return {
         ...doc,

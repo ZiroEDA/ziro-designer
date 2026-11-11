@@ -88,6 +88,7 @@ import { SCH_SCREENS } from './sch_screen.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
 import type { SCHEMATIC } from './schematic.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * One row of the rescue dialog — `RESCUE_SYMBOL_LIB_TABLE_CANDIDATE`.
@@ -416,7 +417,7 @@ export function repointSymbols(
  * longer matches.
  */
 export function rescueDocumentCommand(chosen: readonly RescueCandidate[]): EditCommand {
-  const label = 'Rescue Symbols';
+  const label = _('Rescue Symbols');
   return {
     label,
     apply(doc: Schematic): Schematic {
@@ -859,8 +860,8 @@ export abstract class RESCUER {
     if (!aRescuer.GetCandidateCount()) {
       if (aRunningOnDemand) {
         await aParent.ShowModalDialog('KICAD_MESSAGE_DIALOG', [], {
-          message: 'This project has nothing to rescue.',
-          caption: 'Project Rescue Helper',
+          message: _('This project has nothing to rescue.'),
+          caption: _('Project Rescue Helper'),
           style: wxOK,
         });
       }
@@ -875,8 +876,8 @@ export abstract class RESCUER {
     // have clicked cancel by mistake, and should have some indication of that.
     if (!aRescuer.GetChosenCandidateCount()) {
       await aParent.ShowModalDialog('KICAD_MESSAGE_DIALOG', [], {
-        message: 'No symbols were rescued.',
-        caption: 'Project Rescue Helper',
+        message: _('No symbols were rescued.'),
+        caption: _('Project Rescue Helper'),
         style: wxOK,
       });
 

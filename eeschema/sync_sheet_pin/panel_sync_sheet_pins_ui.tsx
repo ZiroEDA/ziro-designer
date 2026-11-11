@@ -20,6 +20,7 @@ import {
   type SHEET_SYNCHRONIZATION_ICON_TEXT,
   SHEET_SYNCHRONIZATION_MODEL,
 } from './sheet_synchronization_model.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 /** Redraw whenever any of the page's models resets or changes a row. */
 function useModelTicks(aPanel: PANEL_SYNC_SHEET_PINS): void {
@@ -157,12 +158,12 @@ export function PanelSyncSheetPins({ panel }: { panel: PANEL_SYNC_SHEET_PINS }):
         />
         <Button
           btn={panel.m_btnAddLabels}
-          label="Add Hierarchical Labels"
+          label={wxGetTranslation('Add Hierarchical Labels')}
           onClick={act(() => panel.OnBtnAddLabelsClicked())}
         />
         <Button
           btn={panel.m_btnRmPins}
-          label="Delete Sheet Pins"
+          label={wxGetTranslation('Delete Sheet Pins')}
           onClick={act(() => panel.OnBtnRmPinsClicked())}
         />
       </div>
@@ -179,12 +180,12 @@ export function PanelSyncSheetPins({ panel }: { panel: PANEL_SYNC_SHEET_PINS }):
         />
         <Button
           btn={panel.m_btnAddSheetPins}
-          label="Add Sheet Pins"
+          label={wxGetTranslation('Add Sheet Pins')}
           onClick={act(() => panel.OnBtnAddSheetPinsClicked())}
         />
         <Button
           btn={panel.m_btnRmLabels}
-          label="Delete Hierarchical Labels"
+          label={wxGetTranslation('Delete Hierarchical Labels')}
           onClick={act(() => panel.OnBtnRmLabelsClicked())}
         />
       </div>
@@ -193,17 +194,21 @@ export function PanelSyncSheetPins({ panel }: { panel: PANEL_SYNC_SHEET_PINS }):
       <div className="ze-sync-buttons">
         <Button
           btn={panel.m_btnUseLabelAsTemplate}
-          tooltip="Associate selected sheet pin and hierarchical label using the label name"
+          tooltip={wxGetTranslation(
+            'Associate selected sheet pin and hierarchical label using the label name',
+          )}
           onClick={act(() => panel.OnBtnUseLabelAsTemplateClicked())}
         />
         <Button
           btn={panel.m_btnUsePinAsTemplate}
-          tooltip="Associate selected sheet pin and hierarchical label using the pin name"
+          tooltip={wxGetTranslation(
+            'Associate selected sheet pin and hierarchical label using the pin name',
+          )}
           onClick={act(() => panel.OnBtnUsePinAsTemplateClicked())}
         />
         <Button
           btn={panel.m_btnUndo}
-          tooltip="Break sheet pin and hierarchical label association(s)"
+          tooltip={wxGetTranslation('Break sheet pin and hierarchical label association(s)')}
           onClick={act(() => panel.OnBtnUndoClicked())}
         />
       </div>

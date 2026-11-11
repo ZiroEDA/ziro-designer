@@ -101,7 +101,11 @@ const code = (text: string): string =>
 function hardcodesUnits(file: string): string[] {
   const src = code(readFileSync(pathOf(file), 'utf8'));
   return [
-    ...[...src.matchAll(/>\s*(mm|mils|in|inches)\s*</g)].map((m) => `unit label "${m[1]}"`),
+    // Written bare, or marked for translation (`{_('mm')}`, as the _base.cpp's `_( "mm" )` is):
+    // marking the text does not bind it to the frame's units.
+    ...[...src.matchAll(/>\s*(?:\{_\(')?(mm|mils|in|inches)(?:'\)\})?\s*</g)].map(
+      (m) => `unit label "${m[1]}"`,
+    ),
     ...[...src.matchAll(/useState\([^)]*\b(?:mmText|iuToMM)\s*\(/g)].map(() => 'mm-seeded field'),
   ];
 }

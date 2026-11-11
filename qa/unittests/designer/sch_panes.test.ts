@@ -418,7 +418,8 @@ describe('the editor renders the dock through that order', () => {
     // `.CloseButton( true )` (sch_edit_frame.cpp:264, eeschema_settings.cpp:100).
     const s = text();
     for (const header of ['Net Navigator', 'Schematic Hierarchy', 'Properties']) {
-      expect([...s.matchAll(new RegExp(`<span>${header}</span>`, 'g'))].length).toBe(1);
+      // The caption is translated as it draws: `<span>{_('Properties')}</span>`.
+      expect(s.split(`<span>{_('${header}')}</span>`).length - 1).toBe(1);
     }
   });
 
@@ -458,7 +459,7 @@ describe('the editor renders the dock through that order', () => {
     // The caption is `<span>` + close box now: `defaultSchSelectionFilterPaneInfo`
     // asks for `.CloseButton( true )` like every other palette
     // (eeschema/eeschema_settings.cpp:120).
-    expect([...panel.matchAll(/<span>Selection Filter<\/span>/g)].length).toBe(1);
+    expect(panel.split("<span>{_('Selection Filter')}</span>").length - 1).toBe(1);
     expect(panel).toContain('ze-pane-close');
   });
 });
@@ -531,7 +532,7 @@ describe('the editor docks Search at the bottom of the canvas column', () => {
     const col = s.indexOf('className="ze-canvas-col"');
     const canvas = s.indexOf('className="ze-canvas-wrap"', col);
     const dock = s.indexOf('ze-bottomdock', col);
-    const search = s.indexOf('Search</div>', col);
+    const search = s.indexOf("{_('Search')}</div>", col);
     expect(col).toBeGreaterThan(-1);
     expect(canvas).toBeGreaterThan(col);
     expect(dock).toBeGreaterThan(canvas);
@@ -547,13 +548,13 @@ describe('the editor docks Search at the bottom of the canvas column', () => {
     const leftdock = s.indexOf('className="ze-leftdock sch-leftdock"');
     const col = s.indexOf('className="ze-canvas-col"');
     expect(leftdock).toBeGreaterThan(-1);
-    expect(s.indexOf('Search</div>')).toBeGreaterThan(col);
+    expect(s.indexOf("{_('Search')}</div>")).toBeGreaterThan(col);
     expect(col).toBeGreaterThan(leftdock);
   });
 
   /** Exactly one Search pane, so it was moved and not copied. */
   it('emits the Search header exactly once', () => {
-    expect([...text().matchAll(/Search<\/div>/g)].length).toBe(1);
+    expect(text().split("{_('Search')}</div>").length - 1).toBe(1);
   });
 
   /**

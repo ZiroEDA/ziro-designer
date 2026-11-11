@@ -30,6 +30,7 @@ import { SCH_IO_KICAD_SEXPR } from '@ziroeda/eeschema/sch_io/kicad_sexpr/sch_io_
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { SCH_ACTIONS } from '@ziroeda/eeschema/tools/sch_actions.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
 import { openProject, schFrame, schToolHarness } from './support/sch_tool_harness.js';
 
 const ORACLE = resolve(__dirname, '../../data/eeschema/netlist_oracle/complex_hierarchy');
@@ -102,7 +103,7 @@ describe('SelectLibrary', () => {
 
     expect(await h.frame.SelectLibrary('T', 'L')).toBe('exported');
     expect(shown!.items).toEqual([['exported', 'Exported']]);
-    expect(shown!.headers).toEqual(['Library', 'Description']);
+    expect(shown!.headers).toEqual([_('Library'), _('Description')]);
     expect(h.frame.Prj().GetRString(RSTRING_T.SCH_LIB_SELECT)).toBe('exported');
 
     // The remembered library is preselected next time.

@@ -39,6 +39,7 @@ import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
 import { SCH_SELECTION } from './sch_selection.js';
 import { SCH_SELECTION_TOOL } from './sch_selection_tool.js';
 import type { Schematic } from '../types.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** Every item uuid a group member can reference (groups included, for nesting). */
 /**
@@ -117,7 +118,7 @@ export class SCH_GROUP_TOOL extends GROUP_TOOL {
 
   protected canGroupItem(aItem: EDA_ITEM | null, aErrorMsg: { value: string }): boolean {
     if (!aItem || !aItem.IsSCH_ITEM()) {
-      aErrorMsg.value = 'Some selected items cannot be grouped.';
+      aErrorMsg.value = _('Some selected items cannot be grouped.');
       return false;
     }
 
@@ -126,18 +127,18 @@ export class SCH_GROUP_TOOL extends GROUP_TOOL {
 
     if (isSymbolEditor) {
       if (schItem.GetParentSymbol()) {
-        aErrorMsg.value = 'Child items cannot be grouped separately from their parent item.';
+        aErrorMsg.value = _('Child items cannot be grouped separately from their parent item.');
         return false;
       }
     } else {
       if (schItem.GetParent() && schItem.GetParent()!.Type() !== KICAD_T.SCH_SCREEN_T) {
-        aErrorMsg.value = 'Child items cannot be grouped separately from their parent item.';
+        aErrorMsg.value = _('Child items cannot be grouped separately from their parent item.');
         return false;
       }
     }
 
     if (!schItem.IsGroupableType()) {
-      aErrorMsg.value = 'Some selected items cannot be grouped.';
+      aErrorMsg.value = _('Some selected items cannot be grouped.');
       return false;
     }
 
@@ -156,7 +157,7 @@ export class SCH_GROUP_TOOL extends GROUP_TOOL {
 
     this.Activate();
 
-    statusPopup.SetText('Click on new member...');
+    statusPopup.SetText(_('Click on new member...'));
 
     picker.SetClickHandler(() => {
       this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
@@ -256,7 +257,7 @@ export class SCH_GROUP_TOOL extends GROUP_TOOL {
     }
 
     this.m_commit!.Add(group, screen);
-    this.m_commit!.Push('Group Items');
+    this.m_commit!.Push(_('Group Items'));
 
     this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
     this.m_toolMgr!.RunAction(ACTIONS.selectItem, group.AsEdaItem());

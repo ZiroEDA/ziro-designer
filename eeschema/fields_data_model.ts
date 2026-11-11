@@ -49,6 +49,7 @@ import { SCH_FIELD } from './sch_field.js';
 import { type SCH_REFERENCE, SCH_REFERENCE_LIST } from './sch_reference_list.js';
 import { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export { INDETERMINATE_STATE };
 
@@ -90,7 +91,7 @@ export class VIEW_CONTROLS_GRID_DATA_MODEL extends WX_GRID_TABLE_BASE {
       case DISPLAY_NAME_COLUMN:
         return 'Field';
       case LABEL_COLUMN:
-        return this.m_forBOM ? 'BOM Name' : 'Label';
+        return this.m_forBOM ? _('BOM Name') : _('Label');
       case SHOW_FIELD_COLUMN:
         return 'Include';
       case GROUP_BY_COLUMN:

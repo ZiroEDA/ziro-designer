@@ -39,7 +39,7 @@ const DIALOG = read('../../../eeschema/import_gfx/dialog_import_gfx_sch.tsx');
 
 describe('the way in', () => {
   it('the File > Import > Graphics entry dispatches rather than being a stub', () => {
-    expect(MENUBAR).toContain("actNoIcon('Graphics...', 'importGraphics', 'Ctrl+Shift+F')");
+    expect(MENUBAR).toContain("actNoIcon(_('Graphics...'), 'importGraphics', 'Ctrl+Shift+F')");
   });
 
   it('the editor runs SCH_DRAWING_TOOLS::ImportGraphics for it, and hosts its dialog', () => {

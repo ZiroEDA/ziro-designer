@@ -26,6 +26,8 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export interface DIALOG_IMAGE_PROPERTIES_BASE_PROPS {
   m_ModPositionX: string;
@@ -42,7 +44,7 @@ export interface DIALOG_IMAGE_PROPERTIES_BASE_PROPS {
 
 export function DIALOG_IMAGE_PROPERTIES_BASE(p: DIALOG_IMAGE_PROPERTIES_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Image Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Image Properties')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
@@ -51,11 +53,15 @@ export function DIALOG_IMAGE_PROPERTIES_BASE(p: DIALOG_IMAGE_PROPERTIES_BASE_PRO
           <FlexGridSizer cols={3} vgap={1} hgap={0} growableCols={[1]} growableRows={[0]}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
               {/* m_XPosLabel */}
-              <span>Position X:</span>
+              <span>{_('Position X:')}</span>
             </SizerItem>
             <SizerItem proportion={1} flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
               {/* m_ModPositionX */}
-              <TextCtrl value={p.m_ModPositionX} onChange={p.onPositionX} ariaLabel="Position X" />
+              <TextCtrl
+                value={p.m_ModPositionX}
+                onChange={p.onPositionX}
+                ariaLabel={_HKI('Position X')}
+              />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
               {/* m_XPosUnit */}
@@ -63,11 +69,15 @@ export function DIALOG_IMAGE_PROPERTIES_BASE(p: DIALOG_IMAGE_PROPERTIES_BASE_PRO
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
               {/* m_YPosLabel */}
-              <span>Position Y:</span>
+              <span>{_('Position Y:')}</span>
             </SizerItem>
             <SizerItem proportion={1} flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxTOP} border={1}>
               {/* m_ModPositionY */}
-              <TextCtrl value={p.m_ModPositionY} onChange={p.onPositionY} ariaLabel="Position Y" />
+              <TextCtrl
+                value={p.m_ModPositionY}
+                onChange={p.onPositionY}
+                ariaLabel={_HKI('Position Y')}
+              />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
               {/* m_YPosUnit */}

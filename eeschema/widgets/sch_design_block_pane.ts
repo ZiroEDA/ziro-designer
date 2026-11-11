@@ -14,6 +14,7 @@ import {
   type DESIGN_BLOCK_PANE_FRAME,
 } from '@ziroeda/common/widgets/design_block_pane.js';
 import type { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 // Do not make these static; they need to respond to language changes
 export const REPEATED_PLACEMENT = 'Place repeated copies';
@@ -26,19 +27,24 @@ export const SCH_DESIGN_BLOCK_PANE_CHECKBOXES = [
   {
     key: 'repeated_placement',
     label: REPEATED_PLACEMENT,
-    tooltip: 'Place copies of the design block on subsequent clicks.',
+    tooltip: _HKI('Place copies of the design block on subsequent clicks.'),
   },
-  { key: 'place_as_group', label: PLACE_AS_GROUP, tooltip: 'Place the design block as a group.' },
+  {
+    key: 'place_as_group',
+    label: PLACE_AS_GROUP,
+    tooltip: _HKI('Place the design block as a group.'),
+  },
   {
     key: 'place_as_sheet',
     label: PLACE_AS_SHEET,
-    tooltip: 'Place the design block as a new sheet.',
+    tooltip: _HKI('Place the design block as a new sheet.'),
   },
   {
     key: 'keep_annotations',
     label: KEEP_ANNOTATIONS,
-    tooltip:
+    tooltip: _HKI(
       'Preserve reference designators in the source schematic. Otherwise, clear then reannotate according to settings.',
+    ),
   },
 ] as const;
 

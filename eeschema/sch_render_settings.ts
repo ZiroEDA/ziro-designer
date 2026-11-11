@@ -44,6 +44,7 @@ import {
   DEFAULT_TEXT_SIZE,
 } from './default_values.js';
 import { currentEeschemaSettings } from './eeschema_settings.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * Which `SCH_LAYER_ID` each field of `Theme` reads, so that the mapping from
@@ -215,7 +216,7 @@ export const KICAD_CLASSIC: Theme = project(BUILTIN_CLASSIC_THEME);
 /** Builtin themes by their KiCad settings ids. */
 export const BUILTIN_THEMES: Record<string, { name: string; theme: Theme }> = {
   _builtin_default: { name: 'KiCad Default', theme: KICAD_DEFAULT },
-  _builtin_classic: { name: 'KiCad Classic', theme: KICAD_CLASSIC },
+  _builtin_classic: { name: _HKI('KiCad Classic'), theme: KICAD_CLASSIC },
 };
 
 /** World(IU) -> screen(px): screenX = worldX * scale + offsetX. */

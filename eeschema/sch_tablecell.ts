@@ -36,6 +36,8 @@ import { SCH_TEXTBOX } from './sch_textbox.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import { KIUI_EllipsizeStatusText } from '@ziroeda/common/widgets/ui_common.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `parseCellAddress`: "B3" -> row 3, column 1 (rows are 0-based as written). */
 function parseCellAddress(aAddr: string): { row: number; col: number } | null {
@@ -95,32 +97,36 @@ export class SCH_TABLECELL extends SCH_TEXTBOX {
 
   /** `GetMsgPanelInfo( aFrame, aList )` (sch_tablecell.cpp). */
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
-    aList.push(new MSG_PANEL_ITEM('Table Cell', this.GetAddr()));
+    aList.push(new MSG_PANEL_ITEM(_('Table Cell'), this.GetAddr()));
 
     // Don't use GetShownText() here; we want to show the user the variable references
-    aList.push(new MSG_PANEL_ITEM('Text', KIUI_EllipsizeStatusText(aFrame, this.GetText())));
+    aList.push(new MSG_PANEL_ITEM(_('Text'), KIUI_EllipsizeStatusText(aFrame, this.GetText())));
 
     aList.push(
       new MSG_PANEL_ITEM(
-        'Cell Width',
+        _('Cell Width'),
         aFrame.MessageTextFromValue(Math.abs(this.GetEnd().x - this.GetStart().x)),
       ),
     );
     aList.push(
       new MSG_PANEL_ITEM(
-        'Cell Height',
+        _('Cell Height'),
         aFrame.MessageTextFromValue(Math.abs(this.GetEnd().y - this.GetStart().y)),
       ),
     );
 
-    aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Font'), this.GetFont() ? this.GetFont()!.GetName() : _('Default')),
+    );
 
-    const textStyle = ['Normal', 'Italic', 'Bold', 'Bold Italic'];
+    const textStyle = [_('Normal'), _('Italic'), _('Bold'), _('Bold Italic')];
     const style =
       this.IsBold() && this.IsItalic() ? 3 : this.IsBold() ? 2 : this.IsItalic() ? 1 : 0;
-    aList.push(new MSG_PANEL_ITEM('Style', textStyle[style]!));
+    aList.push(new MSG_PANEL_ITEM(_('Style'), textStyle[style]!));
 
-    aList.push(new MSG_PANEL_ITEM('Text Size', aFrame.MessageTextFromValue(this.GetTextWidth())));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Text Size'), aFrame.MessageTextFromValue(this.GetTextWidth())),
+    );
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
@@ -406,34 +412,34 @@ export class SCH_TABLECELL extends SCH_TEXTBOX {
   propMgr.InheritsAfter(SCH_TABLECELL, EDA_SHAPE);
   propMgr.InheritsAfter(SCH_TABLECELL, EDA_TEXT);
 
-  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Start X');
-  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Start Y');
-  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'End X');
-  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'End Y');
-  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Shape');
-  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Width');
-  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Height');
-  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Fill');
-  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Fill Color');
-  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Line Width');
-  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Line Style');
-  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Line Color');
-  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, 'Corner Radius');
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, _HKI('Start X'));
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, _HKI('Start Y'));
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, _HKI('End X'));
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, _HKI('End Y'));
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, _HKI('Shape'));
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, _HKI('Width'));
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, _HKI('Height'));
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, _HKI('Fill'));
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, _HKI('Fill Color'));
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, _HKI('Line Width'));
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, _HKI('Line Style'));
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, _HKI('Line Color'));
+  propMgr.Mask(SCH_TABLECELL, EDA_SHAPE, _HKI('Corner Radius'));
 
-  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, 'Width');
-  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, 'Height');
-  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, 'Thickness');
-  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, 'Orientation');
-  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, 'Mirrored');
-  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, 'Visible');
-  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, 'Hyperlink');
+  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, _HKI('Width'));
+  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, _HKI('Height'));
+  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, _HKI('Thickness'));
+  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, _HKI('Orientation'));
+  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, _HKI('Mirrored'));
+  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, _HKI('Visible'));
+  propMgr.Mask(SCH_TABLECELL, EDA_TEXT, _HKI('Hyperlink'));
 
-  const tableProps = 'Table';
+  const tableProps = _('Table');
 
   propMgr.AddProperty(
     new PROPERTY<SCH_TABLECELL, number>(
       SCH_TABLECELL,
-      'Column Width',
+      _HKI('Column Width'),
       'SetColumnWidth',
       'GetColumnWidth',
       TYPE_INT,
@@ -445,7 +451,7 @@ export class SCH_TABLECELL extends SCH_TEXTBOX {
   propMgr.AddProperty(
     new PROPERTY<SCH_TABLECELL, number>(
       SCH_TABLECELL,
-      'Row Height',
+      _HKI('Row Height'),
       'SetRowHeight',
       'GetRowHeight',
       TYPE_INT,
@@ -454,12 +460,12 @@ export class SCH_TABLECELL extends SCH_TEXTBOX {
     tableProps,
   );
 
-  const cellProps = 'Cell Properties';
+  const cellProps = _('Cell Properties');
 
   propMgr.AddProperty(
     new PROPERTY<SCH_TABLECELL, boolean, EDA_SHAPE>(
       SCH_TABLECELL,
-      'Background Fill',
+      _HKI('Background Fill'),
       'SetFilled',
       'IsSolidFill',
       TYPE_BOOL,
@@ -474,7 +480,7 @@ export class SCH_TABLECELL extends SCH_TEXTBOX {
     .AddProperty(
       new PROPERTY<SCH_TABLECELL, Color4d, EDA_SHAPE>(
         SCH_TABLECELL,
-        'Background Fill Color',
+        _HKI('Background Fill Color'),
         'SetFillColor',
         'GetFillColor',
         TYPE_COLOR4D,

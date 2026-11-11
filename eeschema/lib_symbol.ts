@@ -70,6 +70,8 @@ import { SCH_SHAPE } from './sch_shape.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { SCH_TEXT } from './sch_text.js';
 import { SYMBOL } from './symbol.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * The two properties a `.kicad_sym` writes as fields but KiCad does not keep as
@@ -1538,13 +1540,13 @@ export class LIB_SYMBOL extends SYMBOL {
       token.value = this.GetShownKeyWords(aDepth + 1);
       return true;
     } else if (token.value === 'EXCLUDE_FROM_BOM') {
-      token.value = this.GetExcludedFromBOM() ? 'Excluded from BOM' : '';
+      token.value = this.GetExcludedFromBOM() ? _('Excluded from BOM') : '';
       return true;
     } else if (token.value === 'EXCLUDE_FROM_BOARD') {
-      token.value = this.GetExcludedFromBoard() ? 'Excluded from board' : '';
+      token.value = this.GetExcludedFromBoard() ? _('Excluded from board') : '';
       return true;
     } else if (token.value === 'EXCLUDE_FROM_SIM') {
-      token.value = this.GetExcludedFromSim() ? 'Excluded from simulation' : '';
+      token.value = this.GetExcludedFromSim() ? _('Excluded from simulation') : '';
       return true;
     } else if (token.value === 'DNP') {
       token.value = this.GetDNP() ? 'DNP' : '';
@@ -2294,7 +2296,7 @@ export class LIB_SYMBOL extends SYMBOL {
 
     if (this.m_options !== aRhs.m_options) {
       retv = this.m_options === LIBRENTRYOPTIONS.ENTRY_NORMAL ? -1 : 1;
-      REPORT('Power flag differs.');
+      REPORT(_('Power flag differs.'));
 
       if (!aReporter) return retv;
     }
@@ -2304,7 +2306,7 @@ export class LIB_SYMBOL extends SYMBOL {
 
       if (tmp) {
         retv = tmp;
-        REPORT('Unit count differs.');
+        REPORT(_('Unit count differs.'));
 
         if (!aReporter) return retv;
       }
@@ -2339,7 +2341,7 @@ export class LIB_SYMBOL extends SYMBOL {
 
       if (tmp) {
         retv = tmp;
-        REPORT('Graphic item count differs.');
+        REPORT(_('Graphic item count differs.'));
 
         if (!aReporter) return retv;
       } else {
@@ -2448,7 +2450,7 @@ export class LIB_SYMBOL extends SYMBOL {
 
       if (tmp) {
         retv = tmp;
-        REPORT('Footprint filter count differs.');
+        REPORT(_('Footprint filter count differs.'));
 
         if (!aReporter) return retv;
       } else {
@@ -2457,7 +2459,7 @@ export class LIB_SYMBOL extends SYMBOL {
 
           if (tmp2) {
             retv = tmp2;
-            REPORT('Footprint filters differ.');
+            REPORT(_('Footprint filters differ.'));
 
             if (!aReporter) return retv;
           }
@@ -2470,7 +2472,7 @@ export class LIB_SYMBOL extends SYMBOL {
 
       if (tmp) {
         retv = tmp;
-        REPORT('Symbol keywords differ.');
+        REPORT(_('Symbol keywords differ.'));
 
         if (!aReporter) return retv;
       }
@@ -2481,7 +2483,7 @@ export class LIB_SYMBOL extends SYMBOL {
 
       if (tmp) {
         retv = tmp;
-        REPORT('Symbol pin name offsets differ.');
+        REPORT(_('Symbol pin name offsets differ.'));
 
         if (!aReporter) return retv;
       }
@@ -2490,42 +2492,42 @@ export class LIB_SYMBOL extends SYMBOL {
     if ((aCompareFlags & SCH_ITEM.COMPARE_FLAGS.ERC) === 0) {
       if (this.m_showPinNames !== aRhs.m_showPinNames) {
         retv = this.m_showPinNames ? 1 : -1;
-        REPORT('Show pin names settings differ.');
+        REPORT(_('Show pin names settings differ.'));
 
         if (!aReporter) return retv;
       }
 
       if (this.m_showPinNumbers !== aRhs.m_showPinNumbers) {
         retv = this.m_showPinNumbers ? 1 : -1;
-        REPORT('Show pin numbers settings differ.');
+        REPORT(_('Show pin numbers settings differ.'));
 
         if (!aReporter) return retv;
       }
 
       if (this.m_excludedFromSim !== aRhs.m_excludedFromSim) {
         retv = this.m_excludedFromSim ? -1 : 1;
-        REPORT('Exclude from simulation settings differ.');
+        REPORT(_('Exclude from simulation settings differ.'));
 
         if (!aReporter) return retv;
       }
 
       if (this.m_excludedFromBOM !== aRhs.m_excludedFromBOM) {
         retv = this.m_excludedFromBOM ? -1 : 1;
-        REPORT('Exclude from bill of materials settings differ.');
+        REPORT(_('Exclude from bill of materials settings differ.'));
 
         if (!aReporter) return retv;
       }
 
       if (this.m_excludedFromBoard !== aRhs.m_excludedFromBoard) {
         retv = this.m_excludedFromBoard ? -1 : 1;
-        REPORT('Exclude from board settings differ.');
+        REPORT(_('Exclude from board settings differ.'));
 
         if (!aReporter) return retv;
       }
 
       if (this.m_excludedFromPosFiles !== aRhs.m_excludedFromPosFiles) {
         retv = this.m_excludedFromPosFiles ? -1 : 1;
-        REPORT('Exclude from position files settings differ.');
+        REPORT(_('Exclude from position files settings differ.'));
 
         if (!aReporter) return retv;
       }
@@ -3079,7 +3081,7 @@ export function symbolChooserFields(sym: LibSymbol): Map<string, string> {
  */
 export function symbolSearchTerms(libNickname: string, name: string, sym: LibSymbol): SearchTerm[] {
   const keywords = propValueOf(sym, 'ki_keywords');
-  const footprint = propValueOf(sym, 'Footprint');
+  const footprint = propValueOf(sym, _HKI('Footprint'));
 
   const terms: SearchTerm[] = [
     searchTerm(libNickname, 4),
@@ -3115,31 +3117,35 @@ export function symbolSearchTerms(libNickname: string, name: string, sym: LibSym
     aGetter: keyof LIB_SYMBOL & string,
   ) => new PROPERTY<LIB_SYMBOL, boolean>(LIB_SYMBOL, aName, aSetter, aGetter, TYPE_BOOL);
 
-  const groupFields = 'Fields';
+  const groupFields = _HKI('Fields');
 
-  propMgr.AddProperty(str('Reference', 'SetRefProp', 'GetRefProp'), groupFields);
-  propMgr.AddProperty(str('Value', 'SetValueProp', 'GetValueProp'), groupFields);
-  propMgr.AddProperty(str('Footprint', 'SetFootprintProp', 'GetFootprintProp'), groupFields);
-  propMgr.AddProperty(str('Datasheet', 'SetDatasheetProp', 'GetDatasheetProp'), groupFields);
+  propMgr.AddProperty(str(_HKI('Reference'), 'SetRefProp', 'GetRefProp'), groupFields);
+  propMgr.AddProperty(str(_HKI('Value'), 'SetValueProp', 'GetValueProp'), groupFields);
+  propMgr.AddProperty(str(_HKI('Footprint'), 'SetFootprintProp', 'GetFootprintProp'), groupFields);
+  propMgr.AddProperty(str(_HKI('Datasheet'), 'SetDatasheetProp', 'GetDatasheetProp'), groupFields);
   propMgr.AddProperty(str('Keywords', 'SetKeywordsProp', 'GetKeywordsProp'), groupFields);
 
-  const groupSymbolDef = 'Symbol Definition';
+  const groupSymbolDef = _HKI('Symbol Definition');
 
   propMgr.AddProperty(
-    bool('Define as Power Symbol', 'SetPowerSymbolProp', 'GetPowerSymbolProp'),
+    bool(_HKI('Define as Power Symbol'), 'SetPowerSymbolProp', 'GetPowerSymbolProp'),
     groupSymbolDef,
   );
   propMgr.AddProperty(
-    bool('Define as Local Power Symbol', 'SetLocalPowerSymbolProp', 'GetLocalPowerSymbolProp'),
+    bool(
+      _HKI('Define as Local Power Symbol'),
+      'SetLocalPowerSymbolProp',
+      'GetLocalPowerSymbolProp',
+    ),
     groupSymbolDef,
   );
 
-  const groupPinDisplay = 'Pin Display';
+  const groupPinDisplay = _HKI('Pin Display');
 
   propMgr.AddProperty(
     new PROPERTY<SYMBOL, boolean>(
       SYMBOL,
-      'Show Pin Number',
+      _HKI('Show Pin Number'),
       'SetShowPinNumbers',
       'GetShowPinNumbers',
       TYPE_BOOL,
@@ -3149,7 +3155,7 @@ export function symbolSearchTerms(libNickname: string, name: string, sym: LibSym
   propMgr.AddProperty(
     new PROPERTY<SYMBOL, boolean>(
       SYMBOL,
-      'Show Pin Name',
+      _HKI('Show Pin Name'),
       'SetShowPinNames',
       'GetShowPinNames',
       TYPE_BOOL,
@@ -3157,13 +3163,13 @@ export function symbolSearchTerms(libNickname: string, name: string, sym: LibSym
     groupPinDisplay,
   );
   propMgr.AddProperty(
-    bool('Place Pin Names Inside', 'SetPinNamesInsideProp', 'GetPinNamesInsideProp'),
+    bool(_HKI('Place Pin Names Inside'), 'SetPinNamesInsideProp', 'GetPinNamesInsideProp'),
     groupPinDisplay,
   );
   propMgr.AddProperty(
     new PROPERTY<SYMBOL, number>(
       SYMBOL,
-      'Pin Name Position Offset',
+      _HKI('Pin Name Position Offset'),
       'SetPinNameOffset',
       'GetPinNameOffset',
       TYPE_INT,
@@ -3172,35 +3178,39 @@ export function symbolSearchTerms(libNickname: string, name: string, sym: LibSym
     groupPinDisplay,
   );
 
-  const groupAttributes = 'Attributes';
+  const groupAttributes = _HKI('Attributes');
 
   propMgr.AddProperty(
-    bool('Exclude from Simulation', 'SetExcludedFromSimProp', 'GetExcludedFromSimProp'),
+    bool(_HKI('Exclude from Simulation'), 'SetExcludedFromSimProp', 'GetExcludedFromSimProp'),
     groupAttributes,
   );
   propMgr.AddProperty(
-    bool('Exclude from Board', 'SetExcludedFromBoardProp', 'GetExcludedFromBoardProp'),
-    groupAttributes,
-  );
-  propMgr.AddProperty(
-    bool('Exclude from Bill of Materials', 'SetExcludedFromBOMProp', 'GetExcludedFromBOMProp'),
+    bool(_HKI('Exclude from Board'), 'SetExcludedFromBoardProp', 'GetExcludedFromBoardProp'),
     groupAttributes,
   );
   propMgr.AddProperty(
     bool(
-      'Exclude from Position Files',
+      _HKI('Exclude from Bill of Materials'),
+      'SetExcludedFromBOMProp',
+      'GetExcludedFromBOMProp',
+    ),
+    groupAttributes,
+  );
+  propMgr.AddProperty(
+    bool(
+      _HKI('Exclude from Position Files'),
       'SetExcludedFromPosFilesProp',
       'GetExcludedFromPosFilesProp',
     ),
     groupAttributes,
   );
 
-  const groupUnits = 'Units and Body Styles';
+  const groupUnits = _HKI('Units and Body Styles');
 
   propMgr.AddProperty(
     new PROPERTY<LIB_SYMBOL, number>(
       LIB_SYMBOL,
-      'Number of Symbol Units',
+      _HKI('Number of Symbol Units'),
       'SetUnitProp',
       'GetUnitProp',
       TYPE_INT,
@@ -3208,7 +3218,11 @@ export function symbolSearchTerms(libNickname: string, name: string, sym: LibSym
     groupUnits,
   );
   propMgr.AddProperty(
-    bool('Units are Interchangeable', 'SetUnitsInterchangeableProp', 'GetUnitsInterchangeableProp'),
+    bool(
+      _HKI('Units are Interchangeable'),
+      'SetUnitsInterchangeableProp',
+      'GetUnitsInterchangeableProp',
+    ),
     groupUnits,
   );
 
@@ -3216,7 +3230,7 @@ export function symbolSearchTerms(libNickname: string, name: string, sym: LibSym
     aItem instanceof LIB_SYMBOL ? aItem.IsMultiBodyStyle() : false;
 
   propMgr
-    .AddProperty(str('Body Styles', 'SetBodyStyleProp', 'GetBodyStyleProp'), groupUnits)
+    .AddProperty(str(_HKI('Body Styles'), 'SetBodyStyleProp', 'GetBodyStyleProp'), groupUnits)
     .SetAvailableFunc(multiBodyStyle)
     .SetChoicesFunc((aItem) => {
       const choices = new PG_CHOICES();

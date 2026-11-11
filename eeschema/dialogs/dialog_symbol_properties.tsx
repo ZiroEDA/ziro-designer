@@ -50,6 +50,7 @@ import { SCH_PIN } from '../sch_pin.js';
 import type { SCH_SYMBOL } from '../sch_symbol.js';
 import { SYMBOL_ORIENTATION_T } from '../symbol.js';
 import { SYMBOL_PROPS_RETVALUE } from '../tools/sch_edit_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The pin table's columns (dialog_symbol_properties.cpp:58). */
 export enum PIN_TABLE_COL_ORDER {
@@ -349,7 +350,7 @@ export class DIALOG_SYMBOL_PROPERTIES {
     // Remind user that they are editing the current variant.
     const variant = aParent.Schematic().GetCurrentVariant();
     this.m_title =
-      variant === '' ? 'Symbol Properties' : `Symbol Properties - ${variant} Design Variant`;
+      variant === '' ? _('Symbol Properties') : `Symbol Properties - ${variant} Design Variant`;
   }
 
   FieldsGrid(): WX_GRID {
@@ -431,7 +432,7 @@ export class DIALOG_SYMBOL_PROPERTIES {
 
     if (this.m_part?.IsMultiBodyStyle()) {
       if (this.m_part.HasDeMorganBodyStyles()) {
-        this.m_bodyStyleChoices.push('Standard', 'Alternate');
+        this.m_bodyStyleChoices.push(_('Standard'), _('Alternate'));
       } else {
         for (let ii = 0; ii < this.m_part.GetBodyStyleCount(); ii++)
           this.m_bodyStyleChoices.push(this.m_part.GetBodyStyleNames()[ii] ?? '???');
@@ -500,7 +501,7 @@ export class DIALOG_SYMBOL_PROPERTIES {
       if (field.IsMandatory()) continue;
 
       if (field.GetName(false) === '') {
-        DisplayErrorMessage('Fields must have a name.');
+        DisplayErrorMessage(_('Fields must have a name.'));
         this.m_fieldsGrid.SetGridCursor(i, FIELDS_DATA_COL_ORDER.FDC_VALUE);
         return false;
       }
@@ -582,7 +583,7 @@ export class DIALOG_SYMBOL_PROPERTIES {
       const fieldName = field.GetCanonicalName();
 
       if (fieldName === '' && field.GetText() === '') continue;
-      else if (fieldName === '') field.SetName('untitled');
+      else if (fieldName === '') field.SetName(_('untitled'));
 
       const existingField = this.m_symbol.GetField(field.GetCanonicalName());
       let tmp: SCH_FIELD;
@@ -664,7 +665,7 @@ export class DIALOG_SYMBOL_PROPERTIES {
 
     if (replaceOnCurrentScreen) currentScreen.Append(this.m_symbol);
 
-    if (!commit.Empty()) commit.Push('Edit Symbol Properties');
+    if (!commit.Empty()) commit.Push(_('Edit Symbol Properties'));
 
     return true;
   }
@@ -893,7 +894,7 @@ export function DialogSymbolProperties({
           grid={dlg.FieldsGrid()}
           columns={FIELD_COLUMNS}
           flexCol={FIELDS_DATA_COL_ORDER.FDC_VALUE}
-          ariaLabel="Fields"
+          ariaLabel={_('Fields')}
         />
       }
       onAddField={fieldAction(() => dlg.OnAddField())}
@@ -938,8 +939,9 @@ export function DialogSymbolProperties({
       }
       {...(dlg.m_pinsDisabled
         ? {
-            pinTablePageTip:
+            pinTablePageTip: _(
               'Alternate pin assignments are not available for symbols with multiple body styles.',
+            ),
           }
         : {})}
       m_tcLibraryID={dlg.m_libraryId}

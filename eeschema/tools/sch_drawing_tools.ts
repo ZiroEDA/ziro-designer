@@ -128,6 +128,7 @@ import {
 import { GetUnplacedUnitsForSymbol, IsUnannotatedUnitOccupied } from './sch_tool_utils.js';
 import { SCH_LINE_WIRE_BUS_TOOL } from './sch_line_wire_bus_tool.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `FILEEXT::KiCadSchematicFileExtension` (wildcards_and_files_ext.cpp). */
 const KiCadSchematicFileExtension = 'kicad_sch';
@@ -375,7 +376,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           }
 
           if (symbol) {
-            this.m_frame!.ShowInfoBarMsg('Press <ESC> to cancel symbol creation.');
+            this.m_frame!.ShowInfoBarMsg(_('Press <ESC> to cancel symbol creation.'));
             evt.SetPassEvent(false);
             continue;
           }
@@ -540,7 +541,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
             lwbTool.TrimOverLappingWires(commit, this.m_selectionTool!.GetSelection());
             lwbTool.AddJunctionsIfNeeded(commit, this.m_selectionTool!.GetSelection());
 
-            commit.Push('Place Symbol');
+            commit.Push(_('Place Symbol'));
 
             if (placeOneOnly) {
               this.m_frame!.PopTool(aEvent);
@@ -714,7 +715,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       const selection = this.m_selectionTool!.RequestSelection(symbolTypes);
 
       if (selection.Size() !== 1) {
-        this.m_frame!.ShowInfoBarMsg('Select a single symbol to place the next unit.');
+        this.m_frame!.ShowInfoBarMsg(_('Select a single symbol to place the next unit.'));
         return 0;
       }
 
@@ -725,14 +726,14 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     if (!symbol) return 0;
 
     if (!symbol.IsMultiUnit()) {
-      this.m_frame!.ShowInfoBarMsg('This symbol has only one unit.');
+      this.m_frame!.ShowInfoBarMsg(_('This symbol has only one unit.'));
       return 0;
     }
 
     const missingUnits = GetUnplacedUnitsForSymbol(symbol);
 
     if (missingUnits.size === 0) {
-      this.m_frame!.ShowInfoBarMsg('All units of this symbol are already placed.');
+      this.m_frame!.ShowInfoBarMsg(_('All units of this symbol are already placed.'));
       return 0;
     }
 
@@ -740,7 +741,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     if (requestedUnit > 0) {
       if (!missingUnits.has(requestedUnit)) {
-        this.m_frame!.ShowInfoBarMsg('Requested unit already placed.');
+        this.m_frame!.ShowInfoBarMsg(_('Requested unit already placed.'));
         return 0;
       }
 
@@ -803,20 +804,20 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         case KICAD_T.SCH_NO_CONNECT_T:
           previewItem = new SCH_NO_CONNECT(cursorPos);
           previewItem.SetParent(screen);
-          description = 'Add No Connect Flag';
+          description = _('Add No Connect Flag');
           allowRepeat = true;
           break;
 
         case KICAD_T.SCH_JUNCTION_T:
           previewItem = new SCH_JUNCTION(cursorPos);
           previewItem.SetParent(screen);
-          description = 'Add Junction';
+          description = _('Add Junction');
           break;
 
         case KICAD_T.SCH_BUS_WIRE_ENTRY_T:
           previewItem = new SCH_BUS_WIRE_ENTRY(cursorPos);
           previewItem.SetParent(screen);
-          description = 'Add Wire to Bus Entry';
+          description = _('Add Wire to Bus Entry');
           allowRepeat = true;
           break;
 
@@ -884,7 +885,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
             if (type === KICAD_T.SCH_JUNCTION_T) {
               if (!screen.IsExplicitJunctionAllowed(cursorPos)) {
                 this.m_frame!.ShowInfoBarError(
-                  'Junction location contains no joinable wires and/or pins.',
+                  _('Junction location contains no joinable wires and/or pins.'),
                 );
                 loggedInfoBarError = true;
                 continue;
@@ -1329,7 +1330,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           }
 
           if (item) {
-            this.m_frame!.ShowInfoBarMsg('Press <ESC> to cancel item creation.');
+            this.m_frame!.ShowInfoBarMsg(_('Press <ESC> to cancel item creation.'));
             evt.SetPassEvent(false);
             continue;
           }
@@ -1357,7 +1358,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
               if (isText) {
                 item = yield* this.createNewText(cursorPos);
-                description = 'Add Text';
+                description = _('Add Text');
               } else if (isHierLabel) {
                 const template = this.m_dialogSyncSheetPin?.GetPlacementTemplate();
 
@@ -1382,20 +1383,20 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
                   yield* this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_HIERLABEL, itemsToPlace);
                 }
 
-                description = 'Add Hierarchical Label';
+                description = _('Add Hierarchical Label');
               } else if (isNetLabel) {
                 yield* this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_LOCLABEL, itemsToPlace);
-                description = 'Add Label';
+                description = _('Add Label');
               } else if (isGlobalLabel) {
                 yield* this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_GLOBLABEL, itemsToPlace);
-                description = 'Add Label';
+                description = _('Add Label');
               } else if (isClassLabel) {
                 yield* this.createNewLabel(
                   cursorPos,
                   SCH_LAYER_ID.LAYER_NETCLASS_REFS,
                   itemsToPlace,
                 );
-                description = 'Add Label';
+                description = _('Add Label');
               } else if (isSheetPin) {
                 const i: { value: EDA_ITEM | null } = { value: null };
 
@@ -1408,7 +1409,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
                 if (!sheet) {
                   // STATUS_TEXT_POPUP "Click over a sheet." for 2 s: the infobar here.
-                  this.m_frame!.ShowInfoBarMsg('Click over a sheet.');
+                  this.m_frame!.ShowInfoBarMsg(_('Click over a sheet.'));
                   item = null;
                 } else if (this.m_dialogSyncSheetPin?.GetPlacementTemplate()) {
                   // User is using the 'Sync Sheet Pins' tool
@@ -1422,7 +1423,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
                   const label = this.importHierLabel(sheet);
 
                   if (!label) {
-                    this.m_frame!.ShowInfoBarMsg('No new hierarchical labels found.');
+                    this.m_frame!.ShowInfoBarMsg(_('No new hierarchical labels found.'));
                     item = null;
 
                     this.m_frame!.PopTool(aEvent);
@@ -1432,7 +1433,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
                   item = this.createNewSheetPinFromLabel(sheet, cursorPos, label);
                 }
 
-                description = 'Add Sheet Pin';
+                description = _('Add Sheet Pin');
               }
 
               // If we started with a hotkey which has a position then warp back to that.
@@ -1498,7 +1499,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
                 const label = this.importHierLabel(sheet);
 
                 if (!label) {
-                  this.m_frame!.ShowInfoBarMsg('No new hierarchical labels found.');
+                  this.m_frame!.ShowInfoBarMsg(_('No new hierarchical labels found.'));
 
                   this.m_frame!.PopTool(aEvent);
                   break eventLoop;
@@ -1724,7 +1725,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
             textbox.SetParent(schematic);
 
             created = textbox;
-            description = 'Add Text Box';
+            description = _('Add Text Box');
           } else {
             created = new SCH_SHAPE(type, SCH_LAYER_ID.LAYER_NOTES, 0, this.m_lastFillStyle);
 
@@ -2149,7 +2150,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           ) {
             const commit = new SCH_COMMIT(this.m_toolMgr!);
             commit.Add(drawn, this.m_frame!.GetScreen());
-            commit.Push('Draw Table');
+            commit.Push(_('Draw Table'));
 
             this.m_selectionTool!.AddItemToSel(drawn);
             this.m_toolMgr!.PostAction(ACTIONS.activatePointEditor);
@@ -2338,7 +2339,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           }
 
           if (image) {
-            this.m_frame!.ShowInfoBarMsg('Press <ESC> to cancel image creation.');
+            this.m_frame!.ShowInfoBarMsg(_('Press <ESC> to cancel image creation.'));
             evt.SetPassEvent(false);
             continue;
           }
@@ -2362,7 +2363,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
             const fullFilename = yield* this.RunMainStackModal(() =>
               this.m_frame!.ShowFileDialog(
-                'Choose Image',
+                _('Choose Image'),
                 this.m_mruPath,
                 '',
                 [imageFileWildcard()],
@@ -2411,7 +2412,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           } else {
             const commit = new SCH_COMMIT(this.m_toolMgr!);
             commit.Add(image, this.m_frame!.GetScreen());
-            commit.Push('Place Image');
+            commit.Push(_('Place Image'));
 
             image = null;
             this.m_toolMgr!.PostAction(ACTIONS.activatePointEditor);
@@ -2504,7 +2505,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       if (list.length === 0) {
         yield* this.RunMainStackModal(() =>
           this.m_frame!.ShowModalDialog('wxMessageBox', [], {
-            message: 'No graphic items found in file.',
+            message: _('No graphic items found in file.'),
             caption: 'Message',
             style: wxOK | wxCENTER,
           }),
@@ -2530,7 +2531,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         // Place the imported drawings
         for (const item of newItems) commit.Add(item, this.m_frame!.GetScreen());
 
-        commit.Push('Import Graphic');
+        commit.Push(_('Import Graphic'));
         return 0;
       }
 
@@ -2605,7 +2606,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           // Place the imported drawings
           for (const item of newItems) commit.Add(item, this.m_frame!.GetScreen());
 
-          commit.Push('Import Graphic');
+          commit.Push(_('Import Graphic'));
           break; // This is a one-shot command, not a tool
         } else {
           evt.SetPassEvent();
@@ -2676,7 +2677,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           sheetFileName = designBlock.GetSchematicFile();
 
           if (sheetFileName === '' || !wxFileExists(sheetFileName)) {
-            this.m_frame!.ShowInfoBarError('Design block has no schematic to place.', true);
+            this.m_frame!.ShowInfoBarError(_('Design block has no schematic to place.'), true);
             return 0;
           }
         }
@@ -2843,7 +2844,9 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         cursorPos = grid.Align(controls.GetMousePosition(), GRID_HELPER_GRIDS.GRID_CONNECTABLE);
 
         if (placed)
-          commit.Push(placingDesignBlock ? 'Add Design Block' : 'Import Schematic Sheet Content');
+          commit.Push(
+            placingDesignBlock ? _('Add Design Block') : _('Import Schematic Sheet Content'),
+          );
         else commit.Revert();
 
         selectionTool.RebuildSelection();
@@ -2864,7 +2867,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           const dlgHook = MakeFileDlgImportSheetContents(chooser);
           const chosen = yield* this.RunMainStackModal(() =>
             this.m_frame!.ShowFileDialog(
-              'Choose Schematic',
+              _('Choose Schematic'),
               path,
               '',
               [kicadSchematicWildcard()],
@@ -3069,7 +3072,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           }
 
           if (sheet) {
-            this.m_frame!.ShowInfoBarMsg('Press <ESC> to cancel sheet creation.');
+            this.m_frame!.ShowInfoBarMsg(_('Press <ESC> to cancel sheet creation.'));
             evt.SetPassEvent(false);
             continue;
           }
@@ -3388,11 +3391,11 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         if (aItem instanceof SCH_SHEET_PIN) {
           commit.Modify(aItem.GetParent()!, aPath.LastScreen());
           aModify();
-          commit.Push('Modify sheet pin');
+          commit.Push(_('Modify sheet pin'));
         } else {
           commit.Modify(aItem, aPath.LastScreen());
           aModify();
-          commit.Push('Modify schematic item');
+          commit.Push(_('Modify schematic item'));
         }
 
         this.updateItem(aItem, true);
@@ -3479,7 +3482,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
       if (this.importHierLabels(sheet).length === 0) {
         // m_statusPopup "No new hierarchical labels found." for 2 s: the infobar here.
-        this.m_frame!.ShowInfoBarMsg('No new hierarchical labels found.');
+        this.m_frame!.ShowInfoBarMsg(_('No new hierarchical labels found.'));
         this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
         this.m_view?.ClearPreview();
         return 0;
@@ -3567,7 +3570,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     placeColumn(leftLabels, leftX, leftY);
     placeColumn(rightLabels, rightX, rightY);
 
-    commit.Push('Auto-place Sheet Pins');
+    commit.Push(_('Auto-place Sheet Pins'));
     return labels.length;
   }
 
@@ -3608,7 +3611,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     }
 
     if (sheetPaths.length === 0) {
-      this.m_frame!.ShowInfoBarMsg('No sub schematic found in the current project');
+      this.m_frame!.ShowInfoBarMsg(_('No sub schematic found in the current project'));
       return 0;
     }
 

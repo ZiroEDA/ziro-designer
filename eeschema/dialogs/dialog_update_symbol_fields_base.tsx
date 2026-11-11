@@ -29,6 +29,7 @@ import {
   StaticBoxSizer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_UPDATE_SYMBOL_FIELDS_BASE_PROPS {
   /** m_parentSymbolReadOnly's value. */
@@ -59,14 +60,14 @@ export function DIALOG_UPDATE_SYMBOL_FIELDS_BASE(
   );
 
   return (
-    <DialogShim title="Update Symbol Fields" onClose={p.onCancel}>
+    <DialogShim title={_('Update Symbol Fields')} onClose={p.onCancel}>
       {/* m_mainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
           {/* m_newIdSizer */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM | wxLEFT} border={5}>
-              <StaticText label="Parent symbol:" />
+              <StaticText label={_('Parent symbol:')} />
             </SizerItem>
             <SizerItem proportion={1} flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
               {/* wxTE_READONLY, Enable( false ) */}
@@ -79,7 +80,7 @@ export function DIALOG_UPDATE_SYMBOL_FIELDS_BASE(
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={8}>
               {/* m_updateFieldsSizer */}
-              <StaticBoxSizer label="Update/reset Fields" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Update/reset Fields')} orient={wxVERTICAL}>
                 <SizerItem
                   proportion={1}
                   flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT}
@@ -91,7 +92,7 @@ export function DIALOG_UPDATE_SYMBOL_FIELDS_BASE(
                     items={p.fields}
                     checked={p.fieldsChecked}
                     onCheck={p.onCheckField}
-                    ariaLabel="Update/reset Fields"
+                    ariaLabel={_('Update/reset Fields')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxEXPAND} border={5}>
@@ -102,14 +103,14 @@ export function DIALOG_UPDATE_SYMBOL_FIELDS_BASE(
                       flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT}
                       border={5}
                     >
-                      <Button label="Select All" onClick={p.onSelectAll} />
+                      <Button label={_('Select All')} onClick={p.onSelectAll} />
                     </SizerItem>
                     <SizerItem
                       proportion={1}
                       flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT}
                       border={5}
                     >
-                      <Button label="Select None" onClick={p.onSelectNone} />
+                      <Button label={_('Select None')} onClick={p.onSelectNone} />
                     </SizerItem>
                   </BoxSizer>
                 </SizerItem>
@@ -117,18 +118,18 @@ export function DIALOG_UPDATE_SYMBOL_FIELDS_BASE(
             </SizerItem>
             <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={8}>
               {/* m_updateOptionsSizer */}
-              <StaticBoxSizer label="Update Options" orient={wxVERTICAL}>
+              <StaticBoxSizer label={_('Update Options')} orient={wxVERTICAL}>
                 {opt(
                   p.m_removeExtraBox,
-                  'Remove fields if not in parent symbol',
-                  'Removes fields that do not occur in the original library symbols',
+                  _('Remove fields if not in parent symbol'),
+                  _('Removes fields that do not occur in the original library symbols'),
                 )}
-                {opt(p.m_resetEmptyFields, 'Reset fields if empty in parent symbol')}
+                {opt(p.m_resetEmptyFields, _('Reset fields if empty in parent symbol'))}
                 <Spacer width={0} height={15} flag={wxEXPAND} border={5} />
-                {opt(p.m_resetFieldText, 'Update/reset field text')}
-                {opt(p.m_resetFieldVisibilities, 'Update/reset field visibilities')}
-                {opt(p.m_resetFieldEffects, 'Update/reset field sizes and styles')}
-                {opt(p.m_resetFieldPositions, 'Update/reset field positions')}
+                {opt(p.m_resetFieldText, _('Update/reset field text'))}
+                {opt(p.m_resetFieldVisibilities, _('Update/reset field visibilities'))}
+                {opt(p.m_resetFieldEffects, _('Update/reset field sizes and styles'))}
+                {opt(p.m_resetFieldPositions, _('Update/reset field positions'))}
               </StaticBoxSizer>
             </SizerItem>
           </BoxSizer>

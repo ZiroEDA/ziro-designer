@@ -60,6 +60,7 @@ import { addClose } from '@ziroeda/common/tool/action_menu.js';
 import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const SEP: MenuItem = { sep: true };
 
@@ -158,66 +159,66 @@ export function symbolEditorMenus(
 
   return [
     {
-      label: 'File',
+      label: _('File'),
       items: [
-        act('New Library...', 'newLibrary'),
-        act('Add Library...', 'addLibrary'),
+        act(_('New Library...'), 'newLibrary'),
+        act(_('Add Library...'), 'addLibrary'),
         // SCH_ACTIONS::saveLibraryAs (sch_actions.cpp:178), Ctrl+Shift+S.
-        act('Save Library As...', 'saveLibraryAs', { shortcut: 'Ctrl+Shift+S' }),
-        act('New Symbol...', 'newSymbol', { shortcut: browserSafeKey('Ctrl+N') }),
+        act(_('Save Library As...'), 'saveLibraryAs', { shortcut: 'Ctrl+Shift+S' }),
+        act(_('New Symbol...'), 'newSymbol', { shortcut: browserSafeKey('Ctrl+N') }),
         // ENABLE( isSymbolFromSchematicCond ) (:535) — live only when this
         // frame was opened on a symbol that lives in a schematic.
         // SYMBOL_EDITOR_CONTROL::EditLibrarySymbol then loads the library's
         // own copy of it.
-        act('Edit Library Symbol...', 'editLibSymbolWithLibEdit', {
+        act(_('Edit Library Symbol...'), 'editLibSymbolWithLibEdit', {
           shortcut: 'Ctrl+Shift+E',
         }),
         SEP,
         act('Save', 'save', { shortcut: 'Ctrl+S' }),
-        act('Save As...', 'saveSymbolAs'),
-        act('Save Copy As...', 'saveSymbolCopyAs'),
+        act(_('Save As...'), 'saveSymbolAs'),
+        act(_('Save Copy As...'), 'saveSymbolCopyAs'),
         // `if( !IsSymbolFromSchematic() ) fileMenu->Add( ACTIONS::saveAll );`
         // The row DISAPPEARS; it is not greyed.
-        ...(h.isSymbolFromSchematic ? [] : [act('Save All', 'saveAll')]),
+        ...(h.isSymbolFromSchematic ? [] : [act(_('Save All'), 'saveAll')]),
         // ENABLE( symbolModifiedCondition ) (:539). Not "a symbol is open":
         // upstream asks the library manager whether the TARGET symbol — the
         // tree's row when the tree is shown, else the loaded one — is dirty,
         // so a freshly opened symbol cannot be reverted.
-        act('Revert', 'revert'),
+        act(_('Revert'), 'revert'),
         SEP,
         // `submenuImport->Add( action, ACTION_MENU::NORMAL, _( "Symbol..." ) )`
         // — the third argument REPLACES the FriendlyName, so these rows read
         // "Symbol..." and "Graphics...", not "Import Symbol...".
         {
-          label: 'Import',
+          label: _('Import'),
           submenu: [
-            act('Symbol...', 'importSymbol'),
-            act('Graphics...', 'importGraphics', { shortcut: 'Ctrl+Shift+F' }),
+            act(_('Symbol...'), 'importSymbol'),
+            act(_('Graphics...'), 'importGraphics', { shortcut: 'Ctrl+Shift+F' }),
           ],
         },
         {
-          label: 'Export',
+          label: _('Export'),
           submenu: [
             // `SCH_ACTIONS::exportSymbol` gets NO SetConditions anywhere in
             // this frame, so upstream's row is live even on a cold frame and
             // `SYMBOL_EDITOR_CONTROL::ExportSymbol` returns early when
             // `getTargetSymbol()` is null. Ours used to grey it.
-            act('Symbol...', 'exportSymbol'),
-            act('View as PNG...', 'exportSymbolView'),
-            act('Symbol as SVG...', 'exportSymbolAsSVG'),
+            act(_('Symbol...'), 'exportSymbol'),
+            act(_('View as PNG...'), 'exportSymbolView'),
+            act(_('Symbol as SVG...'), 'exportSymbolAsSVG'),
           ],
         },
         SEP,
         // ENABLE( symbolSelectedInTreeCondition || ( canEditProperties &&
         // haveSymbolCond ) ) (:634) — a tree selection alone is enough, which
         // is the branch `editSymbolPropertiesFromLibrary` serves.
-        act('Symbol Properties...', 'symbolProperties'),
+        act(_('Symbol Properties...'), 'symbolProperties'),
         SEP,
-        addClose('Library Editor', () => h.action('close')),
+        addClose(_('Library Editor'), () => h.action('close')),
       ],
     },
     {
-      label: 'Edit',
+      label: _('Edit'),
       items: [
         act('Undo', 'undo', { shortcut: 'Ctrl+Z' }),
         // actions.cpp:292 — Ctrl+Shift+Z is the `#if __WXMAC__` branch; the
@@ -226,14 +227,14 @@ export function symbolEditorMenus(
         SEP,
         act('Cut', 'cut', { shortcut: 'Ctrl+X' }),
         act('Copy', 'copy', { shortcut: 'Ctrl+C' }),
-        act('Copy as Text', 'copyAsText', { shortcut: 'Ctrl+Shift+C' }),
+        act(_('Copy as Text'), 'copyAsText', { shortcut: 'Ctrl+Shift+C' }),
         act('Paste', 'paste', { shortcut: 'Ctrl+V' }),
         // actions.cpp:399 — WXK_BACK is the Mac branch, WXK_DELETE is ours.
-        act('Delete', 'doDelete', { shortcut: 'Delete' }),
+        act(_('Delete'), 'doDelete', { shortcut: _('Delete') }),
         act('Duplicate', 'duplicate', { shortcut: 'Ctrl+D' }),
         SEP,
-        act('Select All', 'selectAll', { shortcut: 'Ctrl+A' }),
-        act('Unselect All', 'unselectAll', { shortcut: 'Ctrl+Shift+A' }),
+        act(_('Select All'), 'selectAll', { shortcut: 'Ctrl+A' }),
+        act(_('Unselect All'), 'unselectAll', { shortcut: 'Ctrl+Shift+A' }),
         SEP,
         // `ACTIONS::find` and `ACTIONS::findAndReplace`, neither of which
         // `setupUIConditions` names — so both are `ShowAlways`, live even on a
@@ -252,40 +253,43 @@ export function symbolEditorMenus(
         SEP,
         // ENABLE( isEditableCond && haveSymbolCond ) (:636) — `isEditableCond`
         // excludes an alias, so Pin Table is dead on a derived symbol.
-        act('Pin Table...', 'pinTable'),
-        act('Update Symbol Fields...', 'updateSymbolFields'),
+        act(_('Pin Table...'), 'pinTable'),
+        act(_('Update Symbol Fields...'), 'updateSymbolFields'),
       ],
     },
     {
-      label: 'View',
+      label: _('View'),
       items: [
         // `showHidePanels->SetTitle( _( "Panels" ) )` (:123-127). Ours had the
         // two rows loose at the bottom of View, under invented names.
         {
-          label: 'Panels',
-          submenu: [chk('Properties', 'showProperties'), chk('Library Tree', 'showLibraryTree')],
+          label: _('Panels'),
+          submenu: [
+            chk(_('Properties'), 'showProperties'),
+            chk(_('Library Tree'), 'showLibraryTree'),
+          ],
         },
         SEP,
         // ACTIONS::showSymbolBrowser: COMMON_CONTROL::ShowPlayer( FRAME_SCH_VIEWER ).
-        act('Symbol Library Browser', 'showSymbolBrowser'),
+        act(_('Symbol Library Browser'), 'showSymbolBrowser'),
         SEP,
         act('Zoom In', 'zoomInCenter'),
         act('Zoom Out', 'zoomOutCenter'),
         // actions.cpp:717 — WXK_HOME. (Ctrl+0 is nowhere in this action.)
-        act('Zoom to Fit', 'zoomFitScreen', { shortcut: 'Home' }),
+        act(_('Zoom to Fit'), 'zoomFitScreen', { shortcut: 'Home' }),
         // `ACTIONS::zoomTool` gets no SetConditions either, and the tool it
         // arms is now wired (`ZOOM_TOOL`, registered at :425 upstream and run
         // out of `ui/zoom_tool.ts` here), so the row is live like Refresh below.
-        act('Zoom to Selection Area', 'zoomTool', { shortcut: 'Ctrl+F5' }),
+        act(_('Zoom to Selection Area'), 'zoomTool', { shortcut: 'Ctrl+F5' }),
         // actions.cpp:705 — WXK_F5, not Ctrl+R. `ACTIONS::zoomRedraw` gets no
         // SetConditions, so the row is live; it was a `stub` here while the
         // top toolbar's Redraw View button — the same action, the same id —
         // was live and working, which is the drift a table keyed by action id
         // exists to stop.
-        act('Refresh', 'zoomRedraw', { shortcut: 'F5' }),
+        act(_('Refresh'), 'zoomRedraw', { shortcut: 'F5' }),
         SEP,
-        chk('Show Hidden Pins', 'showHiddenPins'),
-        chk('Show Hidden Fields', 'showHiddenFields'),
+        chk(_('Show Hidden Pins'), 'showHiddenPins'),
+        chk(_('Show Hidden Fields'), 'showHiddenFields'),
         // SCH_ACTIONS::togglePinAltIcons (sch_actions.cpp:1334), a CHECK row
         // upstream (`menubar_symbol_editor.cpp:142`) ticked from
         // `showPinAltIconsCond` (`symbol_edit_frame.cpp:583-587`). It was a
@@ -293,7 +297,7 @@ export function symbolEditorMenus(
         // There is still no toolbar button, because upstream leaves that
         // commented out (`toolbars_symbol_editor.cpp:85`) — the menu row and
         // the Preferences checkbox are the two ways in.
-        chk('Show Pin Alternate Icons', 'togglePinAltIcons'),
+        chk(_('Show Pin Alternate Icons'), 'togglePinAltIcons'),
         //
         // NOT here: "Show Pin Electrical Types". SCH_ACTIONS::showElectricalTypes
         // is a left-toolbar TOGGLE (`toolbars_symbol_editor.cpp:82`) and appears
@@ -301,25 +305,25 @@ export function symbolEditorMenus(
       ],
     },
     {
-      label: 'Place',
+      label: _('Place'),
       items: [
         // sch_actions.cpp:376-426 and :682-709. The FriendlyNames are plural
         // imperatives - "Draw Pins", not "Pin" - and only placeSymbolPin
         // carries a DefaultHotkey ('P', :379). The T our Text row printed was
         // invented; `placeSymbolText` declares none.
-        tool('Draw Pins', 'placePin', { shortcut: 'P' }),
-        tool('Draw Text', 'placeText'),
-        tool('Draw Text Boxes', 'drawSymbolTextBox'),
-        tool('Draw Rectangles', 'drawRectangle'),
-        tool('Draw Circles', 'drawCircle'),
-        tool('Draw Arcs', 'drawArc'),
-        tool('Draw Bezier Curve', 'bezier'),
-        tool('Draw Lines', 'drawSymbolLines'),
-        tool('Draw Polygons', 'drawPolygon'),
+        tool(_('Draw Pins'), 'placePin', { shortcut: 'P' }),
+        tool(_('Draw Text'), 'placeText'),
+        tool(_('Draw Text Boxes'), 'drawSymbolTextBox'),
+        tool(_('Draw Rectangles'), 'drawRectangle'),
+        tool(_('Draw Circles'), 'drawCircle'),
+        tool(_('Draw Arcs'), 'drawArc'),
+        tool(_('Draw Bezier Curve'), 'bezier'),
+        tool(_('Draw Lines'), 'drawSymbolLines'),
+        tool(_('Draw Polygons'), 'drawPolygon'),
       ],
     },
     {
-      label: 'Inspect',
+      label: _('Inspect'),
       items: [
         // actions.cpp:1325 — DefaultHotkey 'D'.
         // ENABLE( haveDatasheetCond ) (:633) — the Datasheet FIELD is
@@ -336,13 +340,13 @@ export function symbolEditorMenus(
         // separate action (`sch_actions.cpp:47-59`) that the function never
         // names, so it keeps `ACTION_CONDITIONS()`'s default ShowAlways and is
         // live on a cold frame. Ours greyed it on `haveSymbol`.
-        act('Symbol Checker', 'checkSymbol'),
+        act(_('Symbol Checker'), 'checkSymbol'),
       ],
     },
     {
       // :172-179. The same three lines fifteen KiCad frames end with, then
       // AddMenuLanguageList. Ours was a single greyed "Preferences...".
-      label: 'Preferences',
+      label: _('Preferences'),
       items: [
         /* No "Configure Paths...". `DIALOG_CONFIGURE_PATHS` edits the
            environment substitutions a library path is written against --
@@ -354,8 +358,8 @@ export function symbolEditorMenus(
            Removed rather than greyed, like every other control this application
            cannot have. Greying says "not ready yet"; this one is not a promise
            the app can keep. */
-        act('Manage Symbol Libraries...', 'showSymbolLibTable'),
-        act('Preferences...', 'openPreferences', { shortcut: 'Ctrl+,' }),
+        act(_('Manage Symbol Libraries...'), 'showSymbolLibTable'),
+        act(_('Preferences...'), 'openPreferences', { shortcut: 'Ctrl+,' }),
         SEP,
         setLanguageMenuItem({ current: h.language, onSelect: h.onSelectLanguage }),
       ],

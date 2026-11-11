@@ -31,6 +31,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, FlexGridSizer, GridBagSizer, SizerItem } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A shown/hidden check member. */
 export interface SHOWN_CHECK extends CHECK {
@@ -90,12 +91,12 @@ export function DIALOG_SCH_FIND_BASE(p: DIALOG_SCH_FIND_BASE_PROPS): JSX.Element
                   {/* leftGridSizer = wxFlexGridSizer( 3, 2, 3, 3 ), AddGrowableCol( 1 ) */}
                   <FlexGridSizer cols={2} vgap={3} hgap={3} growableCols={[1]}>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={6}>
-                      <StaticText label="Search for:" />
+                      <StaticText label={_('Search for:')} />
                     </SizerItem>
                     <SizerItem flag={wxEXPAND} border={6} minSize={[220, -1]}>
                       {/* m_comboFind, wxTE_PROCESS_ENTER: OnSearchForEnter is OnFind */}
                       <TextCombo
-                        title="Text with optional wildcards"
+                        title={_('Text with optional wildcards')}
                         value={p.m_comboFind}
                         options={p.comboFindChoices}
                         autoFocus
@@ -109,7 +110,7 @@ export function DIALOG_SCH_FIND_BASE(p: DIALOG_SCH_FIND_BASE_PROPS): JSX.Element
                       border={5}
                       shown={p.replaceShown}
                     >
-                      <StaticText label="Replace with:" />
+                      <StaticText label={_('Replace with:')} />
                     </SizerItem>
                     <SizerItem flag={wxEXPAND} border={5} shown={p.replaceShown}>
                       {/* m_comboReplace: OnReplaceWithEnter is OnFind too */}
@@ -123,14 +124,14 @@ export function DIALOG_SCH_FIND_BASE(p: DIALOG_SCH_FIND_BASE_PROPS): JSX.Element
                     </SizerItem>
                     <SizerItem flag={0} border={5} shown={false}>
                       {/* m_staticDirection->Hide() */}
-                      <StaticText label="Direction:" />
+                      <StaticText label={_('Direction:')} />
                     </SizerItem>
                     <SizerItem proportion={1} flag={wxEXPAND} border={5} shown={false}>
                       {/* directionSizer: m_radioForward / m_radioBackward, both Hide() */}
                       <BoxSizer orient={wxVERTICAL}>
                         <SizerItem flag={wxALL} border={3}>
                           <RadioButton
-                            label="Forward"
+                            label={_('Forward')}
                             name="find-dir"
                             checked
                             onChange={() => {}}
@@ -138,7 +139,7 @@ export function DIALOG_SCH_FIND_BASE(p: DIALOG_SCH_FIND_BASE_PROPS): JSX.Element
                         </SizerItem>
                         <SizerItem flag={wxALL} border={3}>
                           <RadioButton
-                            label="Backward"
+                            label={_('Backward')}
                             name="find-dir"
                             checked={false}
                             onChange={() => {}}
@@ -152,13 +153,13 @@ export function DIALOG_SCH_FIND_BASE(p: DIALOG_SCH_FIND_BASE_PROPS): JSX.Element
                   {/* gbSizer2 = wxGridBagSizer( 0, 20 ), SetEmptyCellSize( wxSize( -1,8 ) ) */}
                   <GridBagSizer vgap={0} hgap={20} emptyCellSize={[-1, 8]}>
                     <SizerItem pos={[0, 0]} span={[1, 1]} flag={opt | wxEXPAND} border={5}>
-                      <Check label="Match case" c={p.m_checkMatchCase} />
+                      <Check label={_('Match case')} c={p.m_checkMatchCase} />
                     </SizerItem>
                     <SizerItem pos={[0, 1]} span={[1, 1]} flag={opt | wxEXPAND} border={5}>
-                      <Check label="Whole words only" c={p.m_checkWholeWord} />
+                      <Check label={_('Whole words only')} c={p.m_checkWholeWord} />
                     </SizerItem>
                     <SizerItem pos={[0, 2]} span={[1, 1]} flag={opt | wxEXPAND} border={5}>
-                      <Check label="Regular Expression" c={p.m_checkRegexMatch} />
+                      <Check label={_('Regular Expression')} c={p.m_checkRegexMatch} />
                     </SizerItem>
                     <SizerItem
                       pos={[2, 0]}
@@ -167,10 +168,10 @@ export function DIALOG_SCH_FIND_BASE(p: DIALOG_SCH_FIND_BASE_PROPS): JSX.Element
                       border={5}
                       shown={p.m_cbSearchPins.shown}
                     >
-                      <Check label="Search pin names and numbers" c={p.m_cbSearchPins} />
+                      <Check label={_('Search pin names and numbers')} c={p.m_cbSearchPins} />
                     </SizerItem>
                     <SizerItem pos={[3, 0]} span={[1, 3]} flag={opt} border={5}>
-                      <Check label="Include hidden fields" c={p.m_cbSearchHiddenFields} />
+                      <Check label={_('Include hidden fields')} c={p.m_cbSearchHiddenFields} />
                     </SizerItem>
                     <SizerItem
                       pos={[4, 0]}
@@ -179,10 +180,16 @@ export function DIALOG_SCH_FIND_BASE(p: DIALOG_SCH_FIND_BASE_PROPS): JSX.Element
                       border={5}
                       shown={p.m_cbCurrentSheetOnly.shown}
                     >
-                      <Check label="Search the current sheet only" c={p.m_cbCurrentSheetOnly} />
+                      <Check
+                        label={_('Search the current sheet only')}
+                        c={p.m_cbCurrentSheetOnly}
+                      />
                     </SizerItem>
                     <SizerItem pos={[5, 0]} span={[1, 3]} flag={opt} border={5}>
-                      <Check label="Search the current selection only" c={p.m_cbSelectedOnly} />
+                      <Check
+                        label={_('Search the current selection only')}
+                        c={p.m_cbSelectedOnly}
+                      />
                     </SizerItem>
                     <SizerItem
                       pos={[6, 0]}
@@ -192,7 +199,7 @@ export function DIALOG_SCH_FIND_BASE(p: DIALOG_SCH_FIND_BASE_PROPS): JSX.Element
                       shown={p.m_cbReplaceReferences.shown}
                     >
                       <Check
-                        label="Replace matches in reference designators"
+                        label={_('Replace matches in reference designators')}
                         c={p.m_cbReplaceReferences}
                       />
                     </SizerItem>
@@ -203,7 +210,7 @@ export function DIALOG_SCH_FIND_BASE(p: DIALOG_SCH_FIND_BASE_PROPS): JSX.Element
                       border={5}
                       shown={p.m_cbSearchNetNames.shown}
                     >
-                      <Check label="Search net names" c={p.m_cbSearchNetNames} />
+                      <Check label={_('Search net names')} c={p.m_cbSearchNetNames} />
                     </SizerItem>
                   </GridBagSizer>
                 </SizerItem>
@@ -214,7 +221,7 @@ export function DIALOG_SCH_FIND_BASE(p: DIALOG_SCH_FIND_BASE_PROPS): JSX.Element
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxALL | wxEXPAND} border={6}>
                   {/* m_buttonFind->SetDefault() */}
-                  <Button label="Find" isDefault onClick={p.onFind} />
+                  <Button label={_('Find')} isDefault onClick={p.onFind} />
                 </SizerItem>
                 <SizerItem
                   flag={wxBOTTOM | wxEXPAND | wxLEFT | wxRIGHT}
@@ -222,7 +229,7 @@ export function DIALOG_SCH_FIND_BASE(p: DIALOG_SCH_FIND_BASE_PROPS): JSX.Element
                   shown={p.m_buttonReplace.shown}
                 >
                   <Button
-                    label="Replace"
+                    label={_('Replace')}
                     disabled={!p.m_buttonReplace.enabled}
                     onClick={p.m_buttonReplace.onClick}
                   />
@@ -233,14 +240,14 @@ export function DIALOG_SCH_FIND_BASE(p: DIALOG_SCH_FIND_BASE_PROPS): JSX.Element
                   shown={p.m_buttonReplaceAll.shown}
                 >
                   <Button
-                    label="Replace All"
+                    label={_('Replace All')}
                     disabled={!p.m_buttonReplaceAll.enabled}
                     onClick={p.m_buttonReplaceAll.onClick}
                   />
                 </SizerItem>
                 <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT | wxEXPAND} border={6}>
                   {/* m_buttonCancel: wxID_CANCEL, "Close" */}
-                  <Button label="Close" onClick={p.onCancel} />
+                  <Button label={_('Close')} onClick={p.onCancel} />
                 </SizerItem>
               </BoxSizer>
             </SizerItem>

@@ -153,6 +153,8 @@ import { IS_DANGLING } from '@ziroeda/common/eda_item_flags.js';
 import { DEFAULT_LINE_WIDTH_MILS } from './default_values.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { ANGLE_HORIZONTAL, ANGLE_VERTICAL } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `toUTFTildaText`: every control character and space becomes '~'. */
 export function toUTFTildaText(txt: string): string {
@@ -1272,21 +1274,21 @@ export class SCH_SYMBOL extends SYMBOL {
       token.value = '';
 
       if (aPath.GetExcludedFromBOM(variant) || this.ResolveExcludedFromBOM(aPath, variant))
-        token.value = 'Excluded from BOM';
+        token.value = _('Excluded from BOM');
 
       return true;
     } else if (token.value === 'EXCLUDE_FROM_BOARD') {
       token.value = '';
 
       if (aPath.GetExcludedFromBoard(variant) || this.ResolveExcludedFromBoard(aPath, variant))
-        token.value = 'Excluded from board';
+        token.value = _('Excluded from board');
 
       return true;
     } else if (token.value === 'EXCLUDE_FROM_SIM') {
       token.value = '';
 
       if (aPath.GetExcludedFromSim(variant) || this.ResolveExcludedFromSim(aPath, variant))
-        token.value = 'Excluded from simulation';
+        token.value = _('Excluded from simulation');
 
       return true;
     } else if (token.value === 'DNP') {
@@ -1458,17 +1460,17 @@ export class SCH_SYMBOL extends SYMBOL {
     const addExcludes = (): void => {
       const msgs: string[] = [];
 
-      if (this.GetExcludedFromSim()) msgs.push('Simulation');
+      if (this.GetExcludedFromSim()) msgs.push(_('Simulation'));
 
-      if (this.GetExcludedFromBOM()) msgs.push('BOM');
+      if (this.GetExcludedFromBOM()) msgs.push(_('BOM'));
 
-      if (this.GetExcludedFromBoard()) msgs.push('Board');
+      if (this.GetExcludedFromBoard()) msgs.push(_('Board'));
 
       if (this.GetDNP(currentSheet, currentVariant)) msgs.push('DNP');
 
       msg = msgs.join(', ');
 
-      if (msg) aList.push(new MSG_PANEL_ITEM('Exclude from', msg));
+      if (msg) aList.push(new MSG_PANEL_ITEM(_('Exclude from'), msg));
     };
 
     // part and alias can differ if alias is not the root
@@ -1478,7 +1480,7 @@ export class SCH_SYMBOL extends SYMBOL {
           // Don't use GetShownText(); we want to see the variable references here
           aList.push(
             new MSG_PANEL_ITEM(
-              'Power symbol',
+              _('Power symbol'),
               KIUI_EllipsizeStatusText(aFrame, this.GetField(FIELD_T.VALUE)!.GetText()),
             ),
           );
@@ -1495,33 +1497,33 @@ export class SCH_SYMBOL extends SYMBOL {
           addExcludes();
           aList.push(
             new MSG_PANEL_ITEM(
-              'Name',
+              _('Name'),
               KIUI_EllipsizeStatusText(aFrame, this.GetLibId().GetLibItemName()),
             ),
           );
         }
 
         if (!this.m_part.IsRoot()) {
-          msg = 'Missing parent';
+          msg = _('Missing parent');
 
           const parent = this.m_part.GetLibParent();
 
           if (parent) msg = parent.GetName();
 
-          aList.push(new MSG_PANEL_ITEM('Derived from', unescapeString(msg)));
+          aList.push(new MSG_PANEL_ITEM(_('Derived from'), unescapeString(msg)));
         } else if (this.m_lib_id.GetLibNickname()) {
-          aList.push(new MSG_PANEL_ITEM('Library', this.m_lib_id.GetLibNickname()));
+          aList.push(new MSG_PANEL_ITEM(_('Library'), this.m_lib_id.GetLibNickname()));
         } else {
-          aList.push(new MSG_PANEL_ITEM('Library', 'Undefined!!!'));
+          aList.push(new MSG_PANEL_ITEM(_('Library'), _('Undefined!!!')));
         }
 
         // Display the current associated footprint, if exists.
         // Don't use GetShownText(); we want to see the variable references here
         msg = KIUI_EllipsizeStatusText(aFrame, this.GetField(FIELD_T.FOOTPRINT)!.GetText());
 
-        if (!msg) msg = '<Unknown>';
+        if (!msg) msg = _('<Unknown>');
 
-        aList.push(new MSG_PANEL_ITEM('Footprint', msg));
+        aList.push(new MSG_PANEL_ITEM(_('Footprint'), msg));
 
         // Display description of the symbol, and keywords found in lib
         aList.push(
@@ -1544,17 +1546,17 @@ export class SCH_SYMBOL extends SYMBOL {
       addExcludes();
       aList.push(
         new MSG_PANEL_ITEM(
-          'Name',
+          _('Name'),
           KIUI_EllipsizeStatusText(aFrame, this.GetLibId().GetLibItemName()),
         ),
       );
 
       const libNickname = this.GetLibId().GetLibNickname();
 
-      if (!libNickname) msg = 'No library defined!';
+      if (!libNickname) msg = _('No library defined!');
       else msg = `Symbol not found in ${libNickname}!`;
 
-      aList.push(new MSG_PANEL_ITEM('Library', msg));
+      aList.push(new MSG_PANEL_ITEM(_('Library'), msg));
     }
   }
 
@@ -3281,7 +3283,7 @@ export class SCH_SYMBOL extends SYMBOL {
       renderSettings.m_Transform = savedTransform;
 
       if (!this.m_part.IsPower())
-        aPlotter.Bookmark(this.GetBoundingBox(), this.GetRef(sheet), 'Symbols');
+        aPlotter.Bookmark(this.GetBoundingBox(), this.GetRef(sheet), _('Symbols'));
     }
   }
 
@@ -3777,7 +3779,7 @@ function wxBeforeLast(s: string, ch: string): string {
   propMgr.AddProperty(
     new PROPERTY<SCH_SYMBOL, number>(
       SCH_SYMBOL,
-      'Position X',
+      _HKI('Position X'),
       'SetX',
       'GetX',
       TYPE_INT,
@@ -3788,7 +3790,7 @@ function wxBeforeLast(s: string, ch: string): string {
   propMgr.AddProperty(
     new PROPERTY<SCH_SYMBOL, number>(
       SCH_SYMBOL,
-      'Position Y',
+      _HKI('Position Y'),
       'SetY',
       'GetY',
       TYPE_INT,
@@ -3800,7 +3802,7 @@ function wxBeforeLast(s: string, ch: string): string {
   propMgr.AddProperty(
     new PROPERTY_ENUM<SCH_SYMBOL, SYMBOL_ORIENTATION_PROP>(
       SCH_SYMBOL,
-      'Orientation',
+      _HKI('Orientation'),
       'SetOrientationProp',
       'GetOrientationProp',
       ENUM_MAP.Instance<SYMBOL_ORIENTATION_PROP>('SYMBOL_ORIENTATION_PROP'),
@@ -3809,7 +3811,7 @@ function wxBeforeLast(s: string, ch: string): string {
   propMgr.AddProperty(
     new PROPERTY<SCH_SYMBOL, boolean>(
       SCH_SYMBOL,
-      'Mirror X',
+      _HKI('Mirror X'),
       'SetMirrorX',
       'GetMirrorX',
       TYPE_BOOL,
@@ -3818,7 +3820,7 @@ function wxBeforeLast(s: string, ch: string): string {
   propMgr.AddProperty(
     new PROPERTY<SCH_SYMBOL, boolean>(
       SCH_SYMBOL,
-      'Mirror Y',
+      _HKI('Mirror Y'),
       'SetMirrorY',
       'GetMirrorY',
       TYPE_BOOL,
@@ -3832,7 +3834,7 @@ function wxBeforeLast(s: string, ch: string): string {
     .AddProperty(
       new PROPERTY<SYMBOL, boolean>(
         SYMBOL,
-        'Pin numbers',
+        _HKI('Pin numbers'),
         'SetShowPinNumbers',
         'GetShowPinNumbers',
         TYPE_BOOL,
@@ -3844,7 +3846,7 @@ function wxBeforeLast(s: string, ch: string): string {
     .AddProperty(
       new PROPERTY<SYMBOL, boolean>(
         SYMBOL,
-        'Pin names',
+        _HKI('Pin names'),
         'SetShowPinNames',
         'GetShowPinNames',
         TYPE_BOOL,
@@ -3852,7 +3854,7 @@ function wxBeforeLast(s: string, ch: string): string {
     )
     .SetAvailableFunc(hasLibPart);
 
-  const groupFields = 'Fields';
+  const groupFields = _HKI('Fields');
 
   propMgr.AddProperty(
     new PROPERTY<SCH_SYMBOL, string>(
@@ -3877,7 +3879,7 @@ function wxBeforeLast(s: string, ch: string): string {
   propMgr.AddProperty(
     new PROPERTY<SCH_SYMBOL, string>(
       SCH_SYMBOL,
-      'Library Link',
+      _HKI('Library Link'),
       NO_SETTER,
       'GetSymbolIDAsString',
       TYPE_STRING,
@@ -3887,7 +3889,7 @@ function wxBeforeLast(s: string, ch: string): string {
   propMgr.AddProperty(
     new PROPERTY<SCH_SYMBOL, string>(
       SCH_SYMBOL,
-      'Library Description',
+      _HKI('Library Description'),
       NO_SETTER,
       'GetDescription',
       TYPE_STRING,
@@ -3907,7 +3909,13 @@ function wxBeforeLast(s: string, ch: string): string {
 
   propMgr
     .AddProperty(
-      new PROPERTY<SCH_SYMBOL, number>(SCH_SYMBOL, 'Unit', 'SetUnitProp', 'GetUnitProp', TYPE_INT),
+      new PROPERTY<SCH_SYMBOL, number>(
+        SCH_SYMBOL,
+        _HKI('Unit'),
+        'SetUnitProp',
+        'GetUnitProp',
+        TYPE_INT,
+      ),
     )
     .SetAvailableFunc(multiUnit)
     .SetChoicesFunc((aItem) => {
@@ -3925,7 +3933,7 @@ function wxBeforeLast(s: string, ch: string): string {
     .AddProperty(
       new PROPERTY<SCH_SYMBOL, string>(
         SCH_SYMBOL,
-        'Body Style',
+        _HKI('Body Style'),
         'SetBodyStyleProp',
         'GetBodyStyleProp',
         TYPE_STRING,
@@ -3943,7 +3951,7 @@ function wxBeforeLast(s: string, ch: string): string {
       return choices;
     });
 
-  const groupAttributes = 'Attributes';
+  const groupAttributes = _HKI('Attributes');
 
   const flag = (
     aName: string,
@@ -3955,9 +3963,13 @@ function wxBeforeLast(s: string, ch: string): string {
       groupAttributes,
     );
 
-  flag('Exclude From Simulation', 'SetExcludedFromSimProp', 'GetExcludedFromSimProp');
-  flag('Exclude From Bill of Materials', 'SetExcludedFromBOMProp', 'GetExcludedFromBOMProp');
-  flag('Exclude From Board', 'SetExcludedFromBoardProp', 'GetExcludedFromBoardProp');
-  flag('Exclude From Position Files', 'SetExcludedFromPosFilesProp', 'GetExcludedFromPosFilesProp');
-  flag('Do not Populate', 'SetDNPProp', 'GetDNPProp');
+  flag(_HKI('Exclude From Simulation'), 'SetExcludedFromSimProp', 'GetExcludedFromSimProp');
+  flag(_HKI('Exclude From Bill of Materials'), 'SetExcludedFromBOMProp', 'GetExcludedFromBOMProp');
+  flag(_HKI('Exclude From Board'), 'SetExcludedFromBoardProp', 'GetExcludedFromBoardProp');
+  flag(
+    _HKI('Exclude From Position Files'),
+    'SetExcludedFromPosFilesProp',
+    'GetExcludedFromPosFilesProp',
+  );
+  flag(_HKI('Do not Populate'), 'SetDNPProp', 'GetDNPProp');
 })();

@@ -37,6 +37,7 @@ import type { SCH_SCREEN } from '../sch_screen.js';
 import { SYMBOL_FILTER } from '../sch_sheet_path.js';
 import type { SCH_SYMBOL } from '../sch_symbol.js';
 import { DIALOG_EDIT_SYMBOLS_LIBID_BASE } from './dialog_edit_symbols_libid_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export const COL_REFS = 0;
 export const COL_CURR_LIBID = 1;
@@ -135,9 +136,9 @@ export class DIALOG_EDIT_SYMBOLS_LIBID {
 
     // DIALOG_EDIT_SYMBOLS_LIBID_BASE: `m_grid->CreateGrid( 5, 3 )` and its labels.
     this.m_grid.CreateGrid(5, 3);
-    this.m_grid.SetColLabelValue(COL_REFS, 'Symbols');
-    this.m_grid.SetColLabelValue(COL_CURR_LIBID, 'Current Library Reference');
-    this.m_grid.SetColLabelValue(COL_NEW_LIBID, 'New Library Reference');
+    this.m_grid.SetColLabelValue(COL_REFS, _('Symbols'));
+    this.m_grid.SetColLabelValue(COL_CURR_LIBID, _('Current Library Reference'));
+    this.m_grid.SetColLabelValue(COL_NEW_LIBID, _('New Library Reference'));
     this.m_grid.Connect(wxEVT_GRID_CELL_LEFT_DCLICK, (aEvent: wxGridEvent) => {
       void this.onCellBrowseLib(aEvent);
     });
@@ -405,7 +406,7 @@ export class DIALOG_EDIT_SYMBOLS_LIBID {
 
     // Should not occur
     if (!sel.IsValid()) {
-      await DisplayInfoMessage('Invalid symbol library identifier');
+      await DisplayInfoMessage(_('Invalid symbol library identifier'));
       return false;
     }
 

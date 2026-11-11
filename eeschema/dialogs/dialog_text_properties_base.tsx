@@ -47,6 +47,8 @@ import {
   Spacer,
   StdDialogButtonSizer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** One BITMAP_BUTTON of bSizeCtrlSizer that is not a separator. */
 export interface ICON_BUTTON {
@@ -172,7 +174,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
             growableRows={[0]}
           >
             <SizerItem pos={[0, 0]} span={[1, 1]} flag={wxRIGHT} border={5}>
-              <StaticText label="Text:" />
+              <StaticText label={_('Text:')} />
             </SizerItem>
             <SizerItem pos={[0, 1]} span={[1, 5]} flag={wxEXPAND} border={5} minSize={[500, 140]}>
               {/* m_textCtrl: wxStyledTextCtrl, SetMinSize( wxSize( 500,140 ) ),
@@ -199,8 +201,8 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
                   shown={p.schematicOnlyShown}
                 >
                   <HyperlinkCtrl
-                    label="Syntax help"
-                    title="Show syntax help window"
+                    label={_('Syntax help')}
+                    title={_('Show syntax help window')}
                     onClick={p.onSyntaxHelp}
                   />
                 </SizerItem>
@@ -213,10 +215,10 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
               border={10}
               shown={p.schematicOnlyShown}
             >
-              <CheckBox label="Exclude from simulation" check={p.m_excludeFromSim} />
+              <CheckBox label={_('Exclude from simulation')} check={p.m_excludeFromSim} />
             </SizerItem>
             <SizerItem pos={[3, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-              <StaticText label="Font:" />
+              <StaticText label={_('Font:')} />
             </SizerItem>
             <SizerItem
               pos={[3, 1]}
@@ -255,7 +257,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
               </BoxSizer>
             </SizerItem>
             <SizerItem pos={[4, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-              <StaticText label="Text size:" />
+              <StaticText label={_('Text size:')} />
             </SizerItem>
             <SizerItem pos={[4, 1]} span={[1, 1]} flag={wxEXPAND} border={5}>
               {/* bSizer71 */}
@@ -272,7 +274,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
                   <StaticText label={p.units} />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={15}>
-                  <StaticText label="Color:" />
+                  <StaticText label={_('Color:')} />
                 </SizerItem>
                 <Spacer width={5} height={0} border={5} />
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -282,7 +284,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
               </BoxSizer>
             </SizerItem>
             <SizerItem pos={[6, 0]} span={[1, 2]} flag={wxBOTTOM} border={2} shown={p.boxShown}>
-              <CheckBox label="Border" check={p.m_borderCheckbox} />
+              <CheckBox label={_('Border')} check={p.m_borderCheckbox} />
             </SizerItem>
             <SizerItem
               pos={[7, 0]}
@@ -291,7 +293,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
               border={5}
               shown={p.boxShown}
             >
-              <StaticText label="Width:" disabled={!p.borderEnabled} />
+              <StaticText label={_('Width:')} disabled={!p.borderEnabled} />
             </SizerItem>
             <SizerItem pos={[7, 1]} span={[1, 2]} flag={wxEXPAND} border={5} shown={p.boxShown}>
               {/* bSizer7 */}
@@ -309,7 +311,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
                   <StaticText label={p.units} disabled={!p.borderEnabled} />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={15}>
-                  <StaticText label="Color:" disabled={!p.borderEnabled} />
+                  <StaticText label={_('Color:')} disabled={!p.borderEnabled} />
                 </SizerItem>
                 <Spacer width={5} height={0} border={5} />
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -325,7 +327,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
               border={5}
               shown={p.boxShown}
             >
-              <StaticText label="Style:" disabled={!p.borderEnabled} />
+              <StaticText label={_('Style:')} disabled={!p.borderEnabled} />
             </SizerItem>
             <SizerItem
               pos={[8, 1]}
@@ -345,20 +347,20 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
               />
             </SizerItem>
             <SizerItem pos={[6, 4]} span={[1, 2]} flag={wxRIGHT} border={80} shown={p.boxShown}>
-              <CheckBox label="Background fill" check={p.m_filledCtrl} />
+              <CheckBox label={_('Background fill')} check={p.m_filledCtrl} />
             </SizerItem>
             <SizerItem pos={[7, 4]} span={[1, 2]} flag={wxEXPAND} border={5} shown={p.boxShown}>
               {/* bSizer8 */}
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem flag={wxRIGHT | wxALIGN_CENTER_VERTICAL} border={5}>
                   <StaticText
-                    label="Fill color:"
+                    label={_('Fill color:')}
                     disabled={p.m_fillColorSwatch.enabled === false}
                   />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                   {/* m_panelFillColor */}
-                  <SwatchPanel label="Fill color" s={p.m_fillColorSwatch} />
+                  <SwatchPanel label={_HKI('Fill color')} s={p.m_fillColorSwatch} />
                 </SizerItem>
               </BoxSizer>
             </SizerItem>
@@ -370,8 +372,8 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
               shown={p.schematicOnlyShown}
             >
               <CheckBox
-                label="Link:"
-                title="Make this text item a clickable hyperlink"
+                label={_('Link:')}
+                title={_('Make this text item a clickable hyperlink')}
                 check={p.m_hyperlinkCb}
               />
             </SizerItem>
@@ -407,16 +409,16 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
           {/* m_fgSymbolEditor = wxFlexGridSizer( 0, 3, 0, 0 ), AddGrowableCol( 0 ), ( 2 ) */}
           <FlexGridSizer cols={3} vgap={0} hgap={0} growableCols={[0, 2]}>
             <SizerItem flag={wxRIGHT | wxTOP} border={5}>
-              <CheckBox label="Private to symbol editor" check={p.m_privateCheckbox} />
+              <CheckBox label={_('Private to symbol editor')} check={p.m_privateCheckbox} />
             </SizerItem>
             <Spacer width={60} height={0} proportion={1} flag={wxEXPAND} border={5} />
             <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-              <CheckBox label="Common to all units" check={p.m_commonToAllUnits} />
+              <CheckBox label={_('Common to all units')} check={p.m_commonToAllUnits} />
             </SizerItem>
             <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
             <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
             <SizerItem flag={wxALL} border={5}>
-              <CheckBox label="Common to all body styles" check={p.m_commonToAllBodyStyles} />
+              <CheckBox label={_('Common to all body styles')} check={p.m_commonToAllBodyStyles} />
             </SizerItem>
           </FlexGridSizer>
         </SizerItem>

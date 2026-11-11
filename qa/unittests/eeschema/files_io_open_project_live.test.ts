@@ -16,6 +16,7 @@ import { SCH_IO_KICAD_SEXPR } from '@ziroeda/eeschema/sch_io/kicad_sexpr/sch_io_
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const DATA = resolve(__dirname, '../../data');
 const ORACLE = join(DATA, 'eeschema', 'sexpr_oracle');
@@ -179,7 +180,8 @@ describe('SCH_EDIT_FRAME::OpenProjectFiles', () => {
 
   it('names a single root "Root"', () => {
     const { frame } = openThroughFrame(join(DATA, 'nfc-antenna.kicad_sch'));
-    expect(frame.Schematic().GetTopLevelSheet()!.GetName()).toBe('Root');
+    // `topSheet->SetName( _( "Root" ) )` (files-io.cpp:361): KiCad names it in the user's language.
+    expect(frame.Schematic().GetTopLevelSheet()!.GetName()).toBe(_('Root'));
   });
 
   it("loads the project file's top-level sheets with their uuid and name", () => {

@@ -26,20 +26,21 @@ import {
   menuEntry,
   menuSeparator,
 } from '@ziroeda/common/tool/conditional_menu.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `SCH_ACTIONS` / `ACTIONS` names, FriendlyName and the id the handler receives. [data] */
 export const SCH_DESIGN_BLOCK_ACTIONS = {
-  pinLibrary: 'Pin Library',
-  unpinLibrary: 'Unpin Library',
-  newLibrary: 'New Library...',
-  placeDesignBlock: 'Place Design Block',
-  editDesignBlockProperties: 'Properties...',
-  saveSheetAsDesignBlock: 'Save Current Sheet as Design Block...',
-  saveSelectionAsDesignBlock: 'Save Selection as Design Block...',
-  updateDesignBlockFromSheet: 'Update Design Block from Current Sheet',
-  updateDesignBlockFromSelection: 'Update Design Block from Selection',
-  deleteDesignBlock: 'Delete Design Block',
-  hideLibraryTree: 'Hide Library Tree',
+  pinLibrary: _HKI('Pin Library'),
+  unpinLibrary: _HKI('Unpin Library'),
+  newLibrary: _HKI('New Library...'),
+  placeDesignBlock: _HKI('Place Design Block'),
+  editDesignBlockProperties: _HKI('Properties...'),
+  saveSheetAsDesignBlock: _HKI('Save Current Sheet as Design Block...'),
+  saveSelectionAsDesignBlock: _HKI('Save Selection as Design Block...'),
+  updateDesignBlockFromSheet: _HKI('Update Design Block from Current Sheet'),
+  updateDesignBlockFromSelection: _HKI('Update Design Block from Selection'),
+  deleteDesignBlock: _HKI('Delete Design Block'),
+  hideLibraryTree: _HKI('Hide Library Tree'),
 } as const;
 
 export type SCH_DESIGN_BLOCK_ACTION = keyof typeof SCH_DESIGN_BLOCK_ACTIONS;

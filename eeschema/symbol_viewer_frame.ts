@@ -54,6 +54,7 @@ import { SCH_INSPECTION_TOOL } from './tools/sch_inspection_tool.js';
 import { SCH_SELECTION_TOOL } from './tools/sch_selection_tool.js';
 import { SYMBOL_EDITOR_CONTROL } from './tools/symbol_editor_control.js';
 import { SYMBOL_TYPE } from './libraries/symbol_library_adapter.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * What ReCreateSymbolList asks a symbol for: the `LIB_TREE_ITEM` face of LIB_SYMBOL. A LIB_SYMBOL is
@@ -173,10 +174,10 @@ export class SYMBOL_VIEWER_FRAME extends SCH_BASE_FRAME {
     gal_opts.m_gridMinSpacing = 10.0;
     gal_opts.NotifyChanged();
 
-    this.m_libFilter.SetDescriptiveText('Filter');
+    this.m_libFilter.SetDescriptiveText(_('Filter'));
     this.m_libFilter.BindText(() => this.OnLibFilter());
 
-    this.m_symbolFilter.SetDescriptiveText('Filter');
+    this.m_symbolFilter.SetDescriptiveText(_('Filter'));
     this.m_symbolFilter.SetToolTip(
       'Filter on symbol name, keywords, description and pin count.\n' +
         'Search terms are separated by spaces.  All search terms must match.\n' +
@@ -336,10 +337,10 @@ export class SYMBOL_VIEWER_FRAME extends SCH_BASE_FRAME {
 
       const parentName = symbol.GetLibParent()?.GetName() ?? '';
 
-      this.AppendMsgPanel('Name', unescapeString(this.m_previewItem.GetName()));
-      this.AppendMsgPanel('Parent', unescapeString(parentName));
-      this.AppendMsgPanel('Description', this.m_previewItem.GetDescription());
-      this.AppendMsgPanel('Keywords', this.m_previewItem.GetKeyWords());
+      this.AppendMsgPanel(_('Name'), unescapeString(this.m_previewItem.GetName()));
+      this.AppendMsgPanel(_('Parent'), unescapeString(parentName));
+      this.AppendMsgPanel(_('Description'), this.m_previewItem.GetDescription());
+      this.AppendMsgPanel(_('Keywords'), this.m_previewItem.GetKeyWords());
     }
 
     this.m_toolManager?.RunAction(ACTIONS.zoomFitScreen);
@@ -898,7 +899,9 @@ export class SYMBOL_VIEWER_FRAME extends SCH_BASE_FRAME {
       const adapter = SymbolLibAdapter(this.Prj());
       const row = adapter.GetRow(libName);
 
-      let title = row ? Pgm().GetLibraryManager().GetFullURI(row, true) : '[no library selected]';
+      let title = row
+        ? Pgm().GetLibraryManager().GetFullURI(row, true)
+        : _('[no library selected]');
 
       title += ' — Symbol Library Browser';
       this.hooks.setTitle?.(title);

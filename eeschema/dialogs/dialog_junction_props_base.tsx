@@ -28,6 +28,7 @@ import {
   StdDialogButtonSizer,
   StretchSpacer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface DIALOG_JUNCTION_PROPS_BASE_PROPS {
   m_textCtrlDiameter: string;
@@ -48,28 +49,28 @@ export interface DIALOG_JUNCTION_PROPS_BASE_PROPS {
 
 export function DIALOG_JUNCTION_PROPS_BASE(p: DIALOG_JUNCTION_PROPS_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Junction Properties" onClose={p.onCancel} initialFocus={p.diameterRef}>
+    <DialogShim title={_('Junction Properties')} onClose={p.onCancel} initialFocus={p.diameterRef}>
       {/* bSizer2 */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={10}>
           {/* fgSizer2 = wxFlexGridSizer( 0, 3, 5, 0 ), AddGrowableCol( 1 ) */}
           <FlexGridSizer cols={3} vgap={5} hgap={0} growableCols={[1]}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
-              <StaticText label="Diameter:" />
+              <StaticText label={_('Diameter:')} />
             </SizerItem>
             <SizerItem flag={wxEXPAND} border={5}>
               <TextCtrl
                 value={p.m_textCtrlDiameter}
                 onChange={p.onDiameter}
                 inputRef={p.diameterRef}
-                ariaLabel="Diameter"
+                ariaLabel={_('Diameter')}
               />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
               <StaticText label={p.units} />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
-              <StaticText label="Color:" />
+              <StaticText label={_('Color:')} />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
               {/* m_panel1, wxBORDER_SIMPLE */}
@@ -94,14 +95,18 @@ export function DIALOG_JUNCTION_PROPS_BASE(p: DIALOG_JUNCTION_PROPS_BASE_PROPS):
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxBOTTOM | wxRIGHT} border={5}>
               <StaticText
-                label="Set diameter to 0 to use schematic's junction dot size."
+                label={_("Set diameter to 0 to use schematic's junction dot size.")}
                 wrap={333}
                 font="info"
                 italic
               />
             </SizerItem>
             <SizerItem flag={wxBOTTOM | wxRIGHT} border={5}>
-              <StaticText label="Clear color to use Schematic Editor colors." font="info" italic />
+              <StaticText
+                label={_('Clear color to use Schematic Editor colors.')}
+                font="info"
+                italic
+              />
             </SizerItem>
           </BoxSizer>
         </SizerItem>
@@ -110,7 +115,7 @@ export function DIALOG_JUNCTION_PROPS_BASE(p: DIALOG_JUNCTION_PROPS_BASE_PROPS):
           <StdDialogButtonSizer
             onOk={p.onOK}
             onApply={p.onApply}
-            applyLabel="Default"
+            applyLabel={_('Default')}
             onCancel={p.onCancel}
           />
         </SizerItem>

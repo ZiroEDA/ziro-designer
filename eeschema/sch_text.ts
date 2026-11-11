@@ -64,6 +64,8 @@ import { wxStringSplit } from '@ziroeda/common/string_utils.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `MIRRORVAL`. */
 const MIRRORVAL = (aPoint: number, aMirrorRef: number): number =>
@@ -278,26 +280,28 @@ export class SCH_TEXT extends SCH_ITEM {
 
     super.GetMsgPanelInfo(aFrame, aList);
 
-    if (this.m_excludedFromSim) aList.push(new MSG_PANEL_ITEM('Exclude from', 'Simulation'));
+    if (this.m_excludedFromSim) aList.push(new MSG_PANEL_ITEM(_('Exclude from'), _('Simulation')));
 
-    aList.push(new MSG_PANEL_ITEM('Font', this.GetFont() ? this.GetFont()!.GetName() : 'Default'));
+    aList.push(
+      new MSG_PANEL_ITEM(_('Font'), this.GetFont() ? this.GetFont()!.GetName() : _('Default')),
+    );
 
-    const textStyle = ['Normal', 'Italic', 'Bold', 'Bold Italic'];
+    const textStyle = [_('Normal'), _('Italic'), _('Bold'), _('Bold Italic')];
     const style =
       this.IsBold() && this.IsItalic() ? 3 : this.IsBold() ? 2 : this.IsItalic() ? 1 : 0;
-    aList.push(new MSG_PANEL_ITEM('Style', textStyle[style]!));
+    aList.push(new MSG_PANEL_ITEM(_('Style'), textStyle[style]!));
 
     aList.push(new MSG_PANEL_ITEM('Text Size', aFrame.MessageTextFromValue(this.GetTextWidth())));
 
     switch (this.GetHorizJustify()) {
       case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT:
-        msg = 'Align left';
+        msg = _('Align left');
         break;
       case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER:
-        msg = 'Align center';
+        msg = _('Align center');
         break;
       case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT:
-        msg = 'Align right';
+        msg = _('Align right');
         break;
       case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_INDETERMINATE:
         msg = INDETERMINATE_STATE;
@@ -305,26 +309,26 @@ export class SCH_TEXT extends SCH_ITEM {
     }
 
     if (this.m_layer === SCH_LAYER_ID.LAYER_DEVICE) {
-      aList.push(new MSG_PANEL_ITEM('H Justification', msg));
+      aList.push(new MSG_PANEL_ITEM(_('H Justification'), msg));
 
       switch (this.GetVertJustify()) {
         case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP:
-          msg = 'Top';
+          msg = _('Top');
           break;
         case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER:
-          msg = 'Center';
+          msg = _('Center');
           break;
         case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM:
-          msg = 'Bottom';
+          msg = _('Bottom');
           break;
         case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_INDETERMINATE:
           msg = INDETERMINATE_STATE;
           break;
       }
 
-      aList.push(new MSG_PANEL_ITEM('V Justification', msg));
+      aList.push(new MSG_PANEL_ITEM(_('V Justification'), msg));
     } else {
-      aList.push(new MSG_PANEL_ITEM('Justification', msg));
+      aList.push(new MSG_PANEL_ITEM(_('Justification'), msg));
     }
   }
 
@@ -805,10 +809,10 @@ applyMixins(SCH_TEXT, [EDA_TEXT]);
   propMgr.InheritsAfter(SCH_TEXT, SCH_ITEM);
   propMgr.InheritsAfter(SCH_TEXT, EDA_TEXT);
 
-  propMgr.Mask(SCH_TEXT, EDA_TEXT, 'Mirrored');
-  propMgr.Mask(SCH_TEXT, EDA_TEXT, 'Width');
-  propMgr.Mask(SCH_TEXT, EDA_TEXT, 'Height');
-  propMgr.Mask(SCH_TEXT, EDA_TEXT, 'Thickness');
+  propMgr.Mask(SCH_TEXT, EDA_TEXT, _HKI('Mirrored'));
+  propMgr.Mask(SCH_TEXT, EDA_TEXT, _HKI('Width'));
+  propMgr.Mask(SCH_TEXT, EDA_TEXT, _HKI('Height'));
+  propMgr.Mask(SCH_TEXT, EDA_TEXT, _HKI('Thickness'));
 
   propMgr.AddProperty(
     new PROPERTY<SCH_TEXT, number>(
@@ -819,9 +823,9 @@ applyMixins(SCH_TEXT, [EDA_TEXT]);
       TYPE_INT,
       PROPERTY_DISPLAY.PT_SIZE,
     ),
-    'Text Properties',
+    _HKI('Text Properties'),
   );
 
   // Orientation is exposed differently in schematic; mask the base for now
-  propMgr.Mask(SCH_TEXT, EDA_TEXT, 'Orientation');
+  propMgr.Mask(SCH_TEXT, EDA_TEXT, _HKI('Orientation'));
 })();

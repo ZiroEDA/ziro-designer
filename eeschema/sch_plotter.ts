@@ -83,6 +83,7 @@ import {
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_INFO,
 } from '@ziroeda/common/reporter.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 const MM = 10000; // IU per mm (matches the renderer)
 
@@ -1320,7 +1321,7 @@ function plotPdfAnnotations(
         ]);
     }
     if (l.kind === 'hierarchical_label')
-      plotter.Bookmark(box(b), shown(l.text), 'Hierarchical Labels');
+      plotter.Bookmark(box(b), shown(l.text), wxGetTranslation('Hierarchical Labels'));
   });
 
   // SCH_TEXTBOX::Plot
@@ -1464,7 +1465,7 @@ export class SCH_PLOTTER {
       else aReporter?.Report(`Plotted to '${plotFileName}'.`, RPT_SEVERITY_ACTION);
     }
 
-    aReporter?.ReportTail('Done.', RPT_SEVERITY_INFO);
+    aReporter?.ReportTail(wxGetTranslation('Done.'), RPT_SEVERITY_INFO);
 
     this.restoreEnvironment(oldsheetpath);
   }

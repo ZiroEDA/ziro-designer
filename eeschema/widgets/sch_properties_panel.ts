@@ -36,6 +36,8 @@ import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
 import { SCH_SYMBOL } from '../sch_symbol.js';
 import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
 import { SCH_SELECTION_TOOL } from '../tools/sch_selection_tool.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const MISSING_FIELD_SENTINEL = '\uE000';
 
@@ -218,7 +220,7 @@ export class SCH_PROPERTIES_PANEL extends PROPERTIES_PANEL {
       }
     }
 
-    const groupFields = 'Fields';
+    const groupFields = _HKI('Fields');
 
     // std::set<wxString>: name order.
     for (const name of [...SCH_PROPERTIES_PANEL.m_currentSymbolFieldNames].sort(wxStringCmp)) {
@@ -379,7 +381,7 @@ export class SCH_PROPERTIES_PANEL extends PROPERTIES_PANEL {
       }
     }
 
-    changes.Push('Edit Properties');
+    changes.Push(wxGetTranslation('Edit Properties'));
 
     // Force a repaint of the items whose properties were changed
     // This is necessary to update field displays in the schematic view
@@ -399,7 +401,7 @@ export class SCH_PROPERTIES_PANEL extends PROPERTIES_PANEL {
     let newFilename = ensureFileExtension(aNewFilename, KiCadSchematicFileExtension);
 
     if (newFilename === '' || !IsFullFileNameValid(newFilename)) {
-      aFrame.DisplayError('A sheet must have a valid file name.');
+      aFrame.DisplayError(wxGetTranslation('A sheet must have a valid file name.'));
       return false;
     }
 

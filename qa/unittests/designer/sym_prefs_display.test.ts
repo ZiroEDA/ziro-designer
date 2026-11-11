@@ -99,8 +99,8 @@ describe('the fourth checkbox is live, and reaches the canvas by its own route',
     // a `chk` rather than a `stub`.
     expect(persistSymbolToggle(cfg(), 'togglePinAltIcons')).toBe(true);
     const menubar = read('../../eeschema/symbol_editor/menubar_symbol_editor.ts');
-    expect(menubar).toContain("chk('Show Pin Alternate Icons', 'togglePinAltIcons')");
-    expect(menubar).not.toContain("stub('Show Pin Alternate Icons'");
+    expect(menubar).toContain("chk(_('Show Pin Alternate Icons'), 'togglePinAltIcons')");
+    expect(menubar).not.toMatch(/stub\((_\()?'Show Pin Alternate Icons'/);
   });
 
   it('the tick follows the settings object, as showPinAltIconsCond does', () => {

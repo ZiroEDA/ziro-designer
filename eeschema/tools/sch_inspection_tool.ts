@@ -41,6 +41,7 @@ import { SYMBOL_DIFF_WIDGET } from '../widgets/symbol_diff_widget.js';
 import { SCH_ACTIONS } from './sch_actions.js';
 import { SCH_CONDITIONS, SCH_SELECTION_TOOL } from './sch_selection_tool.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class SCH_INSPECTION_TOOL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
   constructor() {
@@ -233,11 +234,11 @@ export class SCH_INSPECTION_TOOL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     CheckLibSymbol(symbol, messages, grid_size, this.m_frame!.GetUnitsProvider());
 
     if (messages.length === 0) {
-      void DisplayInfoMessage('No symbol issues found.');
+      void DisplayInfoMessage(_('No symbol issues found.'));
     } else {
       // HTML_MESSAGE_BOX dlg( m_frame, _( "Symbol Warnings" ) ); dlg.AddHTML_Text( msg ) each.
       void this.m_frame!.ShowModalDialog('HTML_MESSAGE_BOX', [], {
-        caption: 'Symbol Warnings',
+        caption: _('Symbol Warnings'),
         html: messages.join(''),
       });
     }
@@ -260,7 +261,7 @@ export class SCH_INSPECTION_TOOL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     const selection = this.m_selectionTool!.RequestSelection([KICAD_T.SCH_SYMBOL_T]);
 
     if (selection.Empty()) {
-      this.m_frame!.ShowInfoBarError('Select a symbol to diff against its library equivalent.');
+      this.m_frame!.ShowInfoBarError(_('Select a symbol to diff against its library equivalent.'));
       return 0;
     }
 
@@ -301,19 +302,19 @@ export class SCH_INSPECTION_TOOL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     const libName = libId.GetLibNickname();
     const symbolName = libId.GetLibItemName();
 
-    const r = dialog.AddHTMLPage('Summary');
+    const r = dialog.AddHTMLPage(_('Summary'));
 
-    r.Report('<h7>' + 'Schematic vs library diff for:' + '</h7>');
+    r.Report('<h7>' + _('Schematic vs library diff for:') + '</h7>');
     r.Report(
       '<ul><li>' +
         EscapeHTML(symbolDesc) +
         '</li>' +
         '<li>' +
-        'Library: ' +
+        _('Library: ') +
         EscapeHTML(libName) +
         '</li>' +
         '<li>' +
-        'Library item: ' +
+        _('Library item: ') +
         EscapeHTML(symbolName) +
         '</li></ul>',
     );
@@ -322,18 +323,18 @@ export class SCH_INSPECTION_TOOL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
 
     if (!schEditorFrame.SymbolLibHasLibrary(libName, false)) {
       r.Report(
-        'The library is not included in the current configuration.' +
+        _('The library is not included in the current configuration.') +
           '&nbsp;&nbsp;&nbsp' +
           "<a href='$CONFIG'>" +
-          'Manage Symbol Libraries' +
+          _('Manage Symbol Libraries') +
           '</a>',
       );
     } else if (!schEditorFrame.SymbolLibHasLibrary(libName, true)) {
       r.Report(
-        'The library is not enabled in the current configuration.' +
+        _('The library is not enabled in the current configuration.') +
           '&nbsp;&nbsp;&nbsp' +
           "<a href='$CONFIG'>" +
-          'Manage Symbol Libraries' +
+          _('Manage Symbol Libraries') +
           '</a>',
       );
     } else {
@@ -362,10 +363,10 @@ export class SCH_INSPECTION_TOOL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
         flattenedSchSymbol.SetFields(fields);
 
         if (flattenedSchSymbol.Compare(flattenedLibSymbol, SCH_ITEM.COMPARE_FLAGS.ERC, r) === 0) {
-          r.Report('No relevant differences detected.');
+          r.Report(_('No relevant differences detected.'));
         }
 
-        const panel = dialog.AddBlankPage('Visual');
+        const panel = dialog.AddBlankPage(_('Visual'));
         const diff = this.constructDiffPanel(panel);
 
         diff.DisplayDiff(
@@ -420,7 +421,7 @@ export class SCH_INSPECTION_TOOL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
     }
 
     if (datasheet === '' || datasheet === '~') {
-      this.m_frame!.ShowInfoBarError('No datasheet defined.');
+      this.m_frame!.ShowInfoBarError(_('No datasheet defined.'));
     } else {
       // PROJECT_SCH::SchSearchS( &Prj() ): no search stack here (see project_sch.ts).
       GetAssociatedDocument(
@@ -448,7 +449,7 @@ export class SCH_INSPECTION_TOOL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
 
         const uuid = GetMsgPanelDisplayUuid(item.m_Uuid);
 
-        if (uuid !== undefined) msgItems.push(new MSG_PANEL_ITEM('UUID', uuid));
+        if (uuid !== undefined) msgItems.push(new MSG_PANEL_ITEM(_('UUID'), uuid));
 
         item.GetMsgPanelInfo(this.m_frame!.AsDrawFrameLike(), msgItems);
         this.m_frame!.SetMsgPanel(msgItems);

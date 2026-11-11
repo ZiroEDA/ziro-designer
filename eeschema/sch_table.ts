@@ -39,6 +39,8 @@ import { SCH_ITEM } from './sch_item.js';
 import { SCH_TABLECELL } from './sch_tablecell.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const samePt = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 
@@ -108,7 +110,7 @@ export class SCH_TABLE extends SCH_ITEM {
   /** `GetMsgPanelInfo( aFrame, aList )` (sch_table.cpp). */
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
     // Don't use GetShownText() here; we want to show the user the variable references
-    aList.push(new MSG_PANEL_ITEM('Table', `${this.m_colCount} Columns`));
+    aList.push(new MSG_PANEL_ITEM(_('Table'), `${this.m_colCount} Columns`));
 
     super.GetMsgPanelInfo(aFrame, aList);
   }
@@ -607,7 +609,7 @@ export class SCH_TABLE extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY<SCH_TABLE, number>(
       SCH_TABLE,
-      'Start X',
+      _HKI('Start X'),
       'SetPositionX',
       'GetPositionX',
       TYPE_INT,
@@ -618,7 +620,7 @@ export class SCH_TABLE extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY<SCH_TABLE, number>(
       SCH_TABLE,
-      'Start Y',
+      _HKI('Start Y'),
       'SetPositionY',
       'GetPositionY',
       TYPE_INT,
@@ -627,13 +629,13 @@ export class SCH_TABLE extends SCH_ITEM {
     ),
   );
 
-  const tableProps = 'Table Properties';
+  const tableProps = _('Table Properties');
   const lineStyleEnum = ENUM_MAP.Instance<LINE_STYLE>('LINE_STYLE');
 
   propMgr.AddProperty(
     new PROPERTY<SCH_TABLE, boolean>(
       SCH_TABLE,
-      'External Border',
+      _HKI('External Border'),
       'SetStrokeExternal',
       'StrokeExternal',
       TYPE_BOOL,
@@ -643,7 +645,7 @@ export class SCH_TABLE extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY<SCH_TABLE, boolean>(
       SCH_TABLE,
-      'Header Border',
+      _HKI('Header Border'),
       'SetStrokeHeaderSeparator',
       'StrokeHeaderSeparator',
       TYPE_BOOL,
@@ -653,7 +655,7 @@ export class SCH_TABLE extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY<SCH_TABLE, number>(
       SCH_TABLE,
-      'Border Width',
+      _HKI('Border Width'),
       'SetBorderWidth',
       'GetBorderWidth',
       TYPE_INT,
@@ -664,7 +666,7 @@ export class SCH_TABLE extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY_ENUM<SCH_TABLE, LINE_STYLE>(
       SCH_TABLE,
-      'Border Style',
+      _HKI('Border Style'),
       'SetBorderStyle',
       'GetBorderStyle',
       lineStyleEnum,
@@ -674,7 +676,7 @@ export class SCH_TABLE extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY<SCH_TABLE, Color4d>(
       SCH_TABLE,
-      'Border Color',
+      _HKI('Border Color'),
       'SetBorderColor',
       'GetBorderColor',
       TYPE_COLOR4D,
@@ -684,7 +686,7 @@ export class SCH_TABLE extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY<SCH_TABLE, boolean>(
       SCH_TABLE,
-      'Row Separators',
+      _HKI('Row Separators'),
       'SetStrokeRows',
       'StrokeRows',
       TYPE_BOOL,
@@ -694,7 +696,7 @@ export class SCH_TABLE extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY<SCH_TABLE, boolean>(
       SCH_TABLE,
-      'Cell Separators',
+      _HKI('Cell Separators'),
       'SetStrokeColumns',
       'StrokeColumns',
       TYPE_BOOL,
@@ -704,7 +706,7 @@ export class SCH_TABLE extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY<SCH_TABLE, number>(
       SCH_TABLE,
-      'Separators Width',
+      _HKI('Separators Width'),
       'SetSeparatorsWidth',
       'GetSeparatorsWidth',
       TYPE_INT,
@@ -715,7 +717,7 @@ export class SCH_TABLE extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY_ENUM<SCH_TABLE, LINE_STYLE>(
       SCH_TABLE,
-      'Separators Style',
+      _HKI('Separators Style'),
       'SetSeparatorsStyle',
       'GetSeparatorsStyle',
       lineStyleEnum,
@@ -725,7 +727,7 @@ export class SCH_TABLE extends SCH_ITEM {
   propMgr.AddProperty(
     new PROPERTY<SCH_TABLE, Color4d>(
       SCH_TABLE,
-      'Separators Color',
+      _HKI('Separators Color'),
       'SetSeparatorsColor',
       'GetSeparatorsColor',
       TYPE_COLOR4D,

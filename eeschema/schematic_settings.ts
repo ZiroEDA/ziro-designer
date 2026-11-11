@@ -21,38 +21,52 @@ import { defaultErcSettings, type ErcSettings } from './erc/erc_settings.js';
 // Formatting (PANEL_SETUP_FORMATTING / SCHEMATIC_SETTINGS drawing defaults).
 
 /** Junction-dot size choices (m_JunctionSizeChoice). */
-export const JUNCTION_DOT_SIZES = ['None', 'Smallest', 'Small', 'Default', 'Large', 'Largest'];
+export const JUNCTION_DOT_SIZES = [
+  'None',
+  _HKI('Smallest'),
+  _HKI('Small'),
+  'Default',
+  _HKI('Large'),
+  _HKI('Largest'),
+];
 /** Hop-over size choices (m_HopOverSizeChoice). */
-export const HOP_OVER_SIZES = ['None', 'Smallest', 'Small', 'Medium', 'Large', 'Largest'];
+export const HOP_OVER_SIZES = [
+  'None',
+  _HKI('Smallest'),
+  _HKI('Small'),
+  _HKI('Medium'),
+  _HKI('Large'),
+  _HKI('Largest'),
+];
 /** Operating-point overlay voltage-range choices (m_OPO_VRange). */
 export const OPO_V_RANGES = [
-  'Auto',
-  'fV',
-  'pV',
-  'nV',
-  'uV',
-  'mV',
+  _HKI('Auto'),
+  _HKI('fV'),
+  _HKI('pV'),
+  _HKI('nV'),
+  _HKI('uV'),
+  _HKI('mV'),
   'V',
-  'KV',
-  'MV',
-  'GV',
-  'TV',
-  'PV',
+  _HKI('KV'),
+  _HKI('MV'),
+  _HKI('GV'),
+  _HKI('TV'),
+  _HKI('PV'),
 ];
 /** Operating-point overlay current-range choices (m_OPO_IRange). */
 export const OPO_I_RANGES = [
-  'Auto',
-  'fA',
-  'pA',
-  'nA',
-  'uA',
-  'mA',
+  _HKI('Auto'),
+  _HKI('fA'),
+  _HKI('pA'),
+  _HKI('nA'),
+  _HKI('uA'),
+  _HKI('mA'),
   'A',
-  'KA',
-  'MA',
-  'GA',
-  'TA',
-  'PA',
+  _HKI('KA'),
+  _HKI('MA'),
+  _HKI('GA'),
+  _HKI('TA'),
+  _HKI('PA'),
 ];
 
 /** SCHEMATIC_SETTINGS formatting subset edited by the Formatting panel. */
@@ -117,9 +131,9 @@ export function defaultFormatting(): FormattingSettings {
     dashLengthRatio: 12,
     gapLengthRatio: 3,
     opoVPrecision: 3,
-    opoVRange: 'Auto',
+    opoVRange: _('Auto'),
     opoIPrecision: 3,
-    opoIRange: 'Auto',
+    opoIRange: _('Auto'),
   };
 }
 
@@ -398,6 +412,8 @@ import {
   BOM_PRESET_from_json,
   BOM_PRESET_to_json,
 } from '@ziroeda/common/settings/bom_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `DEFAULT_CONNECTION_GRID_MILS` (schematic_settings.h). */
 export const DEFAULT_CONNECTION_GRID_MILS = 50;

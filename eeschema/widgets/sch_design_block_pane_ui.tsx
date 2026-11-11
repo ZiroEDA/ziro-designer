@@ -32,6 +32,7 @@ import {
   type SCH_DESIGN_BLOCK_PANE,
 } from './sch_design_block_pane.js';
 import { CheckBox } from '@ziroeda/wx/controls.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function SchDesignBlockPane({
   pane,
@@ -84,7 +85,7 @@ export function SchDesignBlockPane({
     <div className="ze-rightdock ze-dbpane" style={{ width, minWidth: 240 }}>
       <div className="ze-panel grow">
         <div className="ze-panel-header">
-          Design Blocks
+          {_('Design Blocks')}
           <span className="x" role="button" aria-label="Close" onClick={onClose}>
             ✕
           </span>

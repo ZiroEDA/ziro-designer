@@ -14,17 +14,18 @@ import { imageSizeIU } from './image_size.js';
 import { moveItems } from './move.js';
 import { composeCommands, type EditCommand } from './command.js';
 import { schSymbolLibraryName } from '../lib_symbol.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The six alignments, named as SCH_ACTIONS names them. */
 export type AlignMode = 'top' | 'bottom' | 'left' | 'right' | 'centerX' | 'centerY';
 
 export const ALIGN_LABELS: Record<AlignMode, string> = {
-  top: 'Align to Top',
-  bottom: 'Align to Bottom',
-  left: 'Align to Left',
-  right: 'Align to Right',
-  centerX: 'Align to Middle',
-  centerY: 'Align to Center',
+  top: _HKI('Align to Top'),
+  bottom: _HKI('Align to Bottom'),
+  left: _HKI('Align to Left'),
+  right: _HKI('Align to Right'),
+  centerX: _HKI('Align to Middle'),
+  centerY: _HKI('Align to Center'),
 };
 
 /** One selected item: what to move, where it is, and whether it may move. */

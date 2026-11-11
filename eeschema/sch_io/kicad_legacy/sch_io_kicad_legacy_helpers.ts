@@ -1,3 +1,4 @@
+import { _ } from '@ziroeda/wx/translation.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -100,7 +101,7 @@ export class Scanner {
   /** `parseChar`: a single-character token, and it must be single. */
   char(): string {
     this.skipSpace();
-    if (this.i >= this.line.length) this.fail('unexpected end of line');
+    if (this.i >= this.line.length) this.fail(_('unexpected end of line'));
     const c = this.line[this.i]!;
     const next = this.line[this.i + 1];
     if (next !== undefined && !/\s/.test(next)) this.fail('expected single character token');
@@ -113,7 +114,7 @@ export class Scanner {
     this.skipSpace();
     if (this.i >= this.line.length) {
       if (canBeEmpty) return '';
-      this.fail('unexpected end of line');
+      this.fail(_('unexpected end of line'));
     }
     const start = this.i;
     while (this.i < this.line.length && !/\s/.test(this.line[this.i]!)) this.i++;
@@ -128,7 +129,7 @@ export class Scanner {
     this.skipSpace();
     if (this.i >= this.line.length) {
       if (canBeEmpty) return '';
-      this.fail('unexpected end of line');
+      this.fail(_('unexpected end of line'));
     }
     if (this.line[this.i] !== '"') {
       if (canBeEmpty) return '';
@@ -140,7 +141,7 @@ export class Scanner {
       const c = this.line[this.i]!;
       if (c === '\\') {
         this.i++;
-        if (this.i >= this.line.length) this.fail('unexpected end of line');
+        if (this.i >= this.line.length) this.fail(_('unexpected end of line'));
         const esc = this.line[this.i]!;
         if (esc !== '"' && esc !== '\\') out += '\\';
         out += esc;
@@ -165,7 +166,7 @@ export class Scanner {
   /** Skip forward to the first double quote, as `loadField` does. */
   toQuote(): void {
     while (this.i < this.line.length && this.line[this.i] !== '"') this.i++;
-    if (this.i >= this.line.length) this.fail('unexpected end of line');
+    if (this.i >= this.line.length) this.fail(_('unexpected end of line'));
   }
 
   /** The whitespace-separated tokens of what is left, for the token-list forms

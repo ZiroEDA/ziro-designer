@@ -67,6 +67,7 @@ import { SCH_FIELD } from '../sch_field.js';
 import { UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
 import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
 import { DIALOG_LIB_SYMBOL_PROPERTIES_BASE } from './dialog_lib_symbol_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const { FDC_NAME, FDC_VALUE } = FIELDS_DATA_COL_ORDER;
 
@@ -159,7 +160,7 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
   constructor(aParent: SYMBOL_EDIT_FRAME, aLibEntry: LIB_SYMBOL, aHost: GRID_TEXT_BUTTON_HOST) {
     this.m_Parent = aParent;
     this.m_libEntry = aLibEntry;
-    this.m_pinNameOffset = new UNIT_BINDER(aParent, 'Position offset:', (m) =>
+    this.m_pinNameOffset = new UNIT_BINDER(aParent, _('Position offset:'), (m) =>
       DisplayErrorMessage(m),
     );
 
@@ -451,7 +452,7 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
       if (GetRefDesPrefix(field.GetText()) === '') {
         if (s.m_NoteBook !== 0) s.m_NoteBook = 0;
 
-        this.m_delayedErrorMessage = 'References must start with a letter.';
+        this.m_delayedErrorMessage = _('References must start with a letter.');
         this.m_delayedFocusGrid = this.m_grid;
         this.m_delayedFocusColumn = FDC_VALUE;
         this.m_delayedFocusRow = this.m_fields.GetFieldRow(FIELD_T.REFERENCE);
@@ -472,7 +473,7 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
       if (fieldName === '' && field.GetText() !== '') {
         if (s.m_NoteBook !== 0) s.m_NoteBook = 0;
 
-        this.m_delayedErrorMessage = 'Fields must have a name.';
+        this.m_delayedErrorMessage = _('Fields must have a name.');
         this.m_delayedFocusGrid = this.m_grid;
         this.m_delayedFocusColumn = FDC_NAME;
         this.m_delayedFocusRow = ii;
@@ -487,7 +488,7 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
       const parentName = s.m_inheritanceSelectCombo.value;
 
       if (parentName === '') {
-        this.m_delayedErrorMessage = 'Derived symbol must have a parent selected';
+        this.m_delayedErrorMessage = _('Derived symbol must have a parent selected');
         return false;
       }
     }
@@ -518,7 +519,7 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
      */
 
     if (s.m_unitSpinCtrl < this.m_libEntry.GetUnitCount()) {
-      if (!(await IsOK('Delete extra units from symbol?'))) return false;
+      if (!(await IsOK(_('Delete extra units from symbol?')))) return false;
     }
 
     let bodyStyleCount = 0;
@@ -536,12 +537,12 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
     }
 
     if (s.bodyStyleRadio === 2 && bodyStyleCount < 2) {
-      this.m_delayedErrorMessage = 'Custom body styles must have at least 2 entries';
+      this.m_delayedErrorMessage = _('Custom body styles must have at least 2 entries');
       return false;
     }
 
     if (bodyStyleCount < this.m_libEntry.GetBodyStyleCount()) {
-      if (!(await IsOK('Delete extra body styles from symbol?'))) return false;
+      if (!(await IsOK(_('Delete extra body styles from symbol?')))) return false;
     }
 
     return true;
@@ -567,7 +568,7 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
     const oldName = lib.GetName();
 
     if (newName === '') {
-      DisplayErrorMessage('Symbol must have a name.');
+      DisplayErrorMessage(_('Symbol must have a name.'));
       return false;
     }
 
@@ -593,7 +594,7 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
     const editingCurrentSymbol = lib === this.m_Parent.GetCurSymbol();
 
     if (editingCurrentSymbol)
-      this.m_Parent.SaveCopyInUndoList('Edit Symbol Properties', lib, opType);
+      this.m_Parent.SaveCopyInUndoList(_('Edit Symbol Properties'), lib, opType);
 
     // The Y axis for components in lib is from bottom to top while the screen axis is top
     // to bottom: we must change the y coord sign when writing back to the library
@@ -622,7 +623,7 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
       if (field.GetText() === '') {
         if (fieldName === '' || this.m_addedTemplateFields.has(fieldName)) continue; // Skip empty fields that are not mandatory or template fields
       } else if (fieldName === '') {
-        field.SetName('untitled'); // Set a default name for unnamed fields
+        field.SetName(_('untitled')); // Set a default name for unnamed fields
       }
 
       fieldsToSave.push(field);
@@ -928,7 +929,7 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
 
   /** `OnAddFootprintFilter()`: spaces become underscores; an empty answer adds nothing. */
   async OnAddFootprintFilter(): Promise<void> {
-    const value = await this.ShowTextEntry('Filter:', 'Add Footprint Filter', '');
+    const value = await this.ShowTextEntry(_('Filter:'), _('Add Footprint Filter'), '');
 
     if (value === null || value === '') return;
 
@@ -950,7 +951,7 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
       const idx = selections[0]!;
       const filter = this.m_FootprintFilterListBox.GetString(idx);
 
-      const value = await this.ShowTextEntry('Filter:', 'Edit Footprint Filter', filter);
+      const value = await this.ShowTextEntry(_('Filter:'), _('Edit Footprint Filter'), filter);
 
       if (value !== null && value !== '') {
         this.m_FootprintFilterListBox.SetString(idx, value);
@@ -1226,7 +1227,7 @@ export function DialogLibSymbolProperties({
   return (
     <>
       <DIALOG_LIB_SYMBOL_PROPERTIES_BASE
-        title="Library Symbol Properties"
+        title={_('Library Symbol Properties')}
         selection={state.m_NoteBook}
         onPageChanging={() => dlg.OnPageChanging()}
         onPageChanged={(aPage) => set('m_NoteBook', aPage)}
@@ -1237,7 +1238,7 @@ export function DialogLibSymbolProperties({
             flexCol={FDC_VALUE}
             tricks={{ GetCellTooltip: (r, c) => dlg.GridTooltip(r, c) }}
             onUpdate={sync}
-            ariaLabel="Fields"
+            ariaLabel={_('Fields')}
           />
         }
         onAddField={run(() => dlg.OnAddField())}

@@ -32,6 +32,7 @@ import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
 import { SCH_ACTIONS } from './sch_actions.js';
 import { SCH_CONDITIONS } from './sch_selection_tool.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 let g_LastPinType = ELECTRICAL_PINTYPE.PT_INPUT;
 let g_LastPinOrient = PIN_ORIENTATION.PIN_RIGHT;
@@ -218,7 +219,7 @@ export class SYMBOL_EDITOR_PIN_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     if (!aPin.IsNew() && this.m_frame!.SynchronizePins() && parentSymbol)
       removedPins = SYMBOL_EDITOR_PIN_TOOL.SynchronizeOtherUnits(parentSymbol, aPin, original_pin);
 
-    commit.Push('Edit Pin Properties');
+    commit.Push(_('Edit Pin Properties'));
 
     // RemoveDrawItem() leaves the freed pins in the view, where hit testing would hand them to
     // the next edit.  RebuildView() empties the selection container without clearing SELECTED,
@@ -271,11 +272,13 @@ export class SYMBOL_EDITOR_PIN_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
         const status =
           (yield* aRunning.RunMainStackModal(() =>
             frame.ShowKiDialog({
-              caption: 'Confirmation',
+              caption: _('Confirmation'),
               message: msg,
-              extendedMessage: "Disable the 'Synchronized Pins Mode' option to avoid this message.",
+              extendedMessage: _(
+                "Disable the 'Synchronized Pins Mode' option to avoid this message.",
+              ),
               icon: 'warning',
-              labels: { ok: 'Place Pin Anyway' },
+              labels: { ok: _('Place Pin Anyway') },
               doNotShowKey: DO_NOT_SHOW_KEYS.symbolEditorPinClash,
             }),
           )) === 'ok';
@@ -448,7 +451,7 @@ export class SYMBOL_EDITOR_PIN_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     if (this.m_frame!.SynchronizePins()) pin.SetFlags(IS_LINKED);
 
     if (yield* this.PlacePin(commit, pin, aRunning)) {
-      commit.Push('Repeat Pin');
+      commit.Push(_('Repeat Pin'));
       return pin;
     }
 

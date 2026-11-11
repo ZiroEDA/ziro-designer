@@ -27,7 +27,14 @@ export default mergeConfig(
         'unittests/eeschema/sch_io*/**/*.test.ts',
         'unittests/pcbnew/pcb_io*/**/*.test.ts',
       ],
-      exclude: ['unittests/translation/**/*.test.ts', '**/node_modules/**'],
+      exclude: [
+        'unittests/translation/**/*.test.ts',
+        '**/node_modules/**',
+        // An ERC report is written in the interface language: RC_ITEM::ShowReport takes
+        // GetErrorMessage( true ) and GetItemDescription, both translated. kicad-cli's English
+        // report cannot be its oracle in another language.
+        'unittests/eeschema/erc/erc_oracle.test.ts',
+      ],
     },
   }),
 );

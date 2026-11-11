@@ -29,6 +29,7 @@ import {
 } from '@ziroeda/wx/grid.js';
 import { WxGridView } from '@ziroeda/wx/grid_ui.js';
 import type { BusAlias } from '../schematic_settings.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);
 // re-exported here so the panel stays the import site for its slice.
@@ -62,14 +63,14 @@ export function PanelSetupBuses({ aliases, onChange }: Props): JSX.Element {
   const model = useRef<BusAlias[]>([]);
   const lastAlias = useRef(0);
   const lastAliasName = useRef('');
-  const [source, setSource] = useState('(source)');
+  const [source, setSource] = useState(wxGetTranslation('(source)'));
   const [membersPage, setMembersPage] = useState(1);
   const emitted = useRef<string | null>(null);
   const error = useRef<{ msg: string; grid: WX_GRID; row: number } | null>(null);
 
   const [{ aliasesGrid, membersGrid, aliasTricks, memberTricks }] = useState(() => {
-    const a = makeGrid('Alias');
-    const m = makeGrid('Net or Nested Bus Name');
+    const a = makeGrid(wxGetTranslation('Alias'));
+    const m = makeGrid(wxGetTranslation('Net or Nested Bus Name'));
     return {
       aliasesGrid: a,
       membersGrid: m,
@@ -240,7 +241,7 @@ export function PanelSetupBuses({ aliases, onChange }: Props): JSX.Element {
     const onMemberChanging = (e: wxGridEvent): void => {
       if (e.GetRow() >= 0 && e.GetString() === '') {
         error.current = {
-          msg: 'Member net/alias name cannot be empty.',
+          msg: wxGetTranslation('Member net/alias name cannot be empty.'),
           grid: membersGrid,
           row: e.GetRow(),
         };

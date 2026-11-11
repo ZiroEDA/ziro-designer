@@ -35,6 +35,7 @@ import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
 import { SCH_REFERENCE_LIST } from '../sch_reference_list.js';
 import { SYMBOL_FILTER } from '../sch_sheet_path.js';
 import type { SCH_EDITOR_CONTROL } from './sch_editor_control.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `wxSingleChoiceDialog`'s answer, which the window fills on OK. */
 export interface SINGLE_CHOICE_ARG {
@@ -214,7 +215,7 @@ export class SCH_ASSIGN_FOOTPRINTS_MIXIN {
 
     const filename = yield* this.RunMainStackModal(() =>
       frame.ShowFileDialog(
-        'Load Symbol Footprint Link File',
+        _('Load Symbol Footprint Link File'),
         path,
         '',
         [footprintAssignmentWildcard()],
@@ -225,12 +226,12 @@ export class SCH_ASSIGN_FOOTPRINTS_MIXIN {
     if (filename === null) return 0;
 
     const choiceDlg: SINGLE_CHOICE_ARG = {
-      message: 'Select the footprint field visibility setting.',
-      caption: 'Change Visibility',
+      message: _('Select the footprint field visibility setting.'),
+      caption: _('Change Visibility'),
       choices: [
-        'Keep existing footprint field visibility',
-        'Show all footprint fields',
-        'Hide all footprint fields',
+        _('Keep existing footprint field visibility'),
+        _('Show all footprint fields'),
+        _('Hide all footprint fields'),
       ],
       selection: 0,
     };

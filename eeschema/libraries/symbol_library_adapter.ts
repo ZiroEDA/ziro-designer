@@ -60,6 +60,7 @@ import type { LibSymbol } from '../types.js';
 import { Reporter } from '@ziroeda/common/reporter.js';
 import { searchTerm, type SearchTerm } from '@ziroeda/common';
 import { libTreeItem, symbolProperty, type LibTreeItem } from '../lib_tree_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export type { LibTreeItem } from '../lib_tree_item.js';
 /** Re-exported so callers keep one import site for symbol access. */
@@ -806,7 +807,7 @@ export class SYMBOL_LIBRARY_ADAPTER extends LIBRARY_MANAGER_ADAPTER {
 
     const plugin = SCH_IO_MGR.FindPlugin(type);
 
-    if (!plugin) return { ok: false, error: new LIBRARY_ERROR('Internal error') }; // wxCHECK
+    if (!plugin) return { ok: false, error: new LIBRARY_ERROR(_('Internal error')) }; // wxCHECK
 
     return { ok: true, value: plugin };
   }

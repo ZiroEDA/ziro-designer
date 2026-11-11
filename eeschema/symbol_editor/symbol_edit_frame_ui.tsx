@@ -184,6 +184,7 @@ import {
   symbolEditorIdEnabled,
 } from './toolbars_symbol_editor.js';
 import '@ziroeda/common/widgets/shell.css';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 export interface SymbolEditorFile {
   name: string;
@@ -947,7 +948,7 @@ export function SymbolEditor({
         }
 
         if (!wxWriteFileSync(path, new Uint8Array(await file.arrayBuffer()))) {
-          DisplayErrorMessage('Could not open the library file.');
+          DisplayErrorMessage(wxGetTranslation('Could not open the library file.'));
           continue;
         }
 
@@ -1368,7 +1369,7 @@ export function SymbolEditor({
             <div className="ze-leftdock" style={{ width: panelWidth, minWidth: panelWidth }}>
               {session.has('showLibraryTree') && (
                 <div className="ze-panel grow">
-                  <div className="ze-panel-header">Libraries</div>
+                  <div className="ze-panel-header">{wxGetTranslation('Libraries')}</div>
                   {treeAdapter.tree.children.length === 0 &&
                     app.LibraryLoadingPanel({
                       kind: 'symbols',
@@ -1393,7 +1394,7 @@ export function SymbolEditor({
               {session.has('showProperties') && (
                 <div className="ze-panel">
                   <div className="ze-panel-header">
-                    <span>Properties</span>
+                    <span>{wxGetTranslation('Properties')}</span>
                     <button
                       type="button"
                       className="ze-pane-close"

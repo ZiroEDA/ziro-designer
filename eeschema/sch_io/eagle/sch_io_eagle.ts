@@ -130,6 +130,7 @@ import type { KIID } from '@ziroeda/common/kiid.js';
 import { niluuid } from '@ziroeda/common/kiid.js';
 import { SCH_IO_KICAD_SEXPR } from '../kicad_sexpr/sch_io_kicad_sexpr.js';
 import { SCH_IO, type SCH_IO_PROPERTIES } from '../sch_io.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export interface EAGLE_LIBRARY {
   name: string;
@@ -428,11 +429,11 @@ export class SCH_IO_EAGLE extends SCH_IO {
   }
 
   override GetSchematicFileDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('Eagle XML schematic files', ['sch']);
+    return new IO_FILE_DESC(_HKI('Eagle XML schematic files'), ['sch']);
   }
 
   override GetLibraryDesc(): IO_FILE_DESC {
-    return new IO_FILE_DESC('Eagle XML library files', ['lbr']);
+    return new IO_FILE_DESC(_HKI('Eagle XML library files'), ['lbr']);
   }
 
   override GetModifyHash(): number {

@@ -59,6 +59,7 @@ import { SCH_FIELD } from '../sch_field.js';
 import { AUTOPLACE_ALGO } from '../sch_item.js';
 import { SCH_SHEET } from '../sch_sheet.js';
 import { SCH_SHEET_LIST, SCH_SHEET_PATH } from '../sch_sheet_path.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** WX_GRID column widths from the base class, by position, for the eight shown columns. */
 const GRID_COLUMNS = [
@@ -134,7 +135,7 @@ export class DIALOG_SHEET_PROPERTIES {
     this.m_result = aResult;
     this.m_sourceSheetFilename = aSourceSheetFilename;
     this.m_ask = aAsk;
-    this.m_borderWidth = new UNIT_BINDER(aParent, 'Width:', (aMessage) =>
+    this.m_borderWidth = new UNIT_BINDER(aParent, _('Width:'), (aMessage) =>
       DisplayErrorMessage(aMessage),
     );
     this.m_dummySheet = SCH_SHEET.copyOf(aSheet);
@@ -229,7 +230,7 @@ export class DIALOG_SHEET_PROPERTIES {
       if (field.IsMandatory()) continue;
 
       if (field.GetName(false) === '' && field.GetText() !== '') {
-        DisplayErrorMessage('Fields must have a name.');
+        DisplayErrorMessage(_('Fields must have a name.'));
         this.m_grid.SetGridCursor(i, FIELDS_DATA_COL_ORDER.FDC_NAME);
         return false;
       }
@@ -250,7 +251,7 @@ export class DIALOG_SHEET_PROPERTIES {
     // Ensure filepath is not empty.  (In normal use will be caught by grid validators,
     // but unedited data from existing files can be bad.)
     if (sheetFileName === '') {
-      DisplayErrorMessage('A sheet must have a valid file name.');
+      DisplayErrorMessage(_('A sheet must have a valid file name.'));
       return false;
     }
 
@@ -260,7 +261,7 @@ export class DIALOG_SHEET_PROPERTIES {
 
     // Ensure sheetFileName is legal
     if (!IsFullFileNameValid(sheetFileName)) {
-      DisplayErrorMessage('A sheet must have a valid file name.');
+      DisplayErrorMessage(_('A sheet must have a valid file name.'));
       return false;
     }
 
@@ -294,14 +295,14 @@ export class DIALOG_SHEET_PROPERTIES {
         const relative = wxMakeRelativeTo(newRelativeFilename, screenPath);
 
         const answer = await ShowKicadMessageDialog({
-          message: 'Use relative path for sheet file?',
-          caption: 'Sheet File Path',
+          message: _('Use relative path for sheet file?'),
+          caption: _('Sheet File Path'),
           style: wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION | wxCENTER,
           extended:
             'Using relative hierarchical sheet file name paths improves schematic portability ' +
             'across systems and platforms.  Using absolute paths can result in portability issues.',
-          okLabel: 'Use Relative Path',
-          cancelLabel: 'Use Absolute Path',
+          okLabel: _('Use Relative Path'),
+          cancelLabel: _('Use Absolute Path'),
         });
 
         if (answer === wxID_YES) {
@@ -330,7 +331,7 @@ export class DIALOG_SHEET_PROPERTIES {
 
     if (newSheetname !== this.m_sheet.GetName()) this.m_result.updateHierarchyNavigator = true;
 
-    if (newSheetname === '') newSheetname = 'Untitled Sheet';
+    if (newSheetname === '') newSheetname = _('Untitled Sheet');
 
     this.m_fields.GetField(FIELD_T.SHEET_NAME)!.SetText(newSheetname);
 
@@ -366,7 +367,7 @@ export class DIALOG_SHEET_PROPERTIES {
       const fieldName = field.GetCanonicalName();
 
       if (field.IsEmpty()) continue;
-      else if (fieldName === '') field.SetName('untitled');
+      else if (fieldName === '') field.SetName(_('untitled'));
 
       const existingField = this.m_sheet.GetField(field.GetCanonicalName());
       let tmp: SCH_FIELD;
@@ -425,7 +426,7 @@ export class DIALOG_SHEET_PROPERTIES {
     ) {
       await this.m_ask({
         caption: 'Warning',
-        message: 'Note: item colors are overridden in the current color theme.',
+        message: _('Note: item colors are overridden in the current color theme.'),
         extendedMessage:
           // PANEL_EESCHEMA_COLOR_SETTINGS' m_optOverrideColors label (panel_color_settings_base.cpp:35)
           "To see individual item colors uncheck 'Override individual item colors'\n" +
@@ -608,14 +609,16 @@ export function DialogSheetProperties({
   return (
     <DIALOG_SHEET_PROPERTIES_BASE
       m_infoBar={
-        dlg.ShowsOverrideNote() ? 'Note: individual item colors overridden in Preferences.' : null
+        dlg.ShowsOverrideNote()
+          ? _('Note: individual item colors overridden in Preferences.')
+          : null
       }
       m_grid={
         <WxGridView
           grid={dlg.Grid()}
           columns={GRID_COLUMNS}
           flexCol={FIELDS_DATA_COL_ORDER.FDC_VALUE}
-          ariaLabel="Fields"
+          ariaLabel={_('Fields')}
         />
       }
       onAddField={fieldAction(() => dlg.OnAddField())}

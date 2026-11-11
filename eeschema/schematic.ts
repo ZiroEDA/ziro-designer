@@ -131,6 +131,7 @@ import { SCH_SHEET_LIST, SCH_SHEET_PATH, SYMBOL_FILTER } from './sch_sheet_path.
 import { type SCH_REFERENCE, SCH_REFERENCE_LIST } from './sch_reference_list.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
 import { SCHEMATIC_SETTINGS } from './schematic_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The `SCHEMATIC_SETTINGS` the items read: the class itself now. */
 export type SCHEMATIC_SETTINGS_LIKE = SCHEMATIC_SETTINGS;
@@ -1225,7 +1226,7 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     const namesMap = new Map<number, string>();
 
     for (const sheet of this.Hierarchy()) {
-      if (sheet.size() === 1) namesMap.set(sheet.GetVirtualPageNumber(), '<root sheet>');
+      if (sheet.size() === 1) namesMap.set(sheet.GetVirtualPageNumber(), _('<root sheet>'));
       else namesMap.set(sheet.GetVirtualPageNumber(), sheet.Last()!.GetName());
     }
 

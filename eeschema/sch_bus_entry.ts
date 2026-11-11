@@ -42,6 +42,8 @@ import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import type { PLOTTER } from '@ziroeda/common/plotters/plotter.js';
 import type { SCH_PLOT_OPTS } from './sch_plotter.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `TARGET_BUSENTRY_RADIUS`: circle diameter drawn at the ends. */
 export const TARGET_BUSENTRY_RADIUS = schIUScale.milsToIU(12);
@@ -504,14 +506,14 @@ export class SCH_BUS_WIRE_ENTRY extends SCH_BUS_ENTRY_BASE {
     switch (this.GetLayer()) {
       default:
       case SCH_LAYER_ID.LAYER_WIRE:
-        msg = 'Wire';
+        msg = _('Wire');
         break;
       case SCH_LAYER_ID.LAYER_BUS:
-        msg = 'Bus';
+        msg = _('Bus');
         break;
     }
 
-    aList.push(new MSG_PANEL_ITEM('Bus Entry Type', msg));
+    aList.push(new MSG_PANEL_ITEM(_('Bus Entry Type'), msg));
 
     // dynamic_cast<SCH_EDIT_FRAME*>( aFrame ): a schematic editor's item has a schematic.
     const conn = !this.IsConnectivityDirty() && this.Schematic() ? this.Connection() : null;
@@ -523,7 +525,7 @@ export class SCH_BUS_WIRE_ENTRY extends SCH_BUS_ENTRY_BASE {
       if (!conn.IsBus())
         aList.push(
           new MSG_PANEL_ITEM(
-            'Resolved Netclass',
+            _('Resolved Netclass'),
             this.GetEffectiveNetClass()?.GetHumanReadableName() ?? '',
           ),
         );
@@ -550,7 +552,7 @@ export class SCH_BUS_WIRE_ENTRY extends SCH_BUS_ENTRY_BASE {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
-    return 'Bus to wire entry';
+    return _('Bus to wire entry');
   }
 
   override Clone(): SCH_BUS_WIRE_ENTRY {
@@ -703,7 +705,7 @@ export class SCH_BUS_BUS_ENTRY extends SCH_BUS_ENTRY_BASE {
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
-    return 'Bus to bus entry';
+    return _('Bus to bus entry');
   }
 
   override Clone(): SCH_BUS_BUS_ENTRY {
@@ -767,18 +769,18 @@ export class SCH_BUS_BUS_ENTRY extends SCH_BUS_ENTRY_BASE {
 
   if (wireLineStyleEnum.Choices().GetCount() === 0) {
     wireLineStyleEnum
-      .Map(WIRE_STYLE.DEFAULT, 'Default')
-      .Map(WIRE_STYLE.SOLID, 'Solid')
-      .Map(WIRE_STYLE.DASH, 'Dashed')
-      .Map(WIRE_STYLE.DOT, 'Dotted')
-      .Map(WIRE_STYLE.DASHDOT, 'Dash-Dot')
-      .Map(WIRE_STYLE.DASHDOTDOT, 'Dash-Dot-Dot');
+      .Map(WIRE_STYLE.DEFAULT, _HKI('Default'))
+      .Map(WIRE_STYLE.SOLID, _HKI('Solid'))
+      .Map(WIRE_STYLE.DASH, _HKI('Dashed'))
+      .Map(WIRE_STYLE.DOT, _HKI('Dotted'))
+      .Map(WIRE_STYLE.DASHDOT, _HKI('Dash-Dot'))
+      .Map(WIRE_STYLE.DASHDOTDOT, _HKI('Dash-Dot-Dot'));
   }
 
   propMgr.AddProperty(
     new PROPERTY_ENUM<SCH_BUS_ENTRY_BASE, WIRE_STYLE>(
       SCH_BUS_ENTRY_BASE,
-      'Wire Style',
+      _HKI('Wire Style'),
       'SetWireStyle',
       'GetWireStyle',
       wireLineStyleEnum,
@@ -788,7 +790,7 @@ export class SCH_BUS_BUS_ENTRY extends SCH_BUS_ENTRY_BASE {
   propMgr.AddProperty(
     new PROPERTY<SCH_BUS_ENTRY_BASE, number>(
       SCH_BUS_ENTRY_BASE,
-      'Line Width',
+      _HKI('Line Width'),
       'SetPenWidth',
       'GetPenWidth',
       TYPE_INT,
@@ -799,7 +801,7 @@ export class SCH_BUS_BUS_ENTRY extends SCH_BUS_ENTRY_BASE {
   propMgr.AddProperty(
     new PROPERTY<SCH_BUS_ENTRY_BASE, Color4d>(
       SCH_BUS_ENTRY_BASE,
-      'Color',
+      _HKI('Color'),
       'SetBusEntryColor',
       'GetBusEntryColor',
       TYPE_COLOR4D,

@@ -63,6 +63,7 @@ import { SCH_TOOL_BASE } from './sch_tool_base.js';
 import { SYMBOL_EDITOR_DRAWING_TOOLS } from './symbol_editor_drawing_tools.js';
 import { SYMBOL_EDITOR_MOVE_TOOL } from './symbol_editor_move_tool.js';
 import { SYMBOL_EDITOR_PIN_TOOL } from './symbol_editor_pin_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const veq = (a: VECTOR2I, b: VECTOR2I): boolean => a.x === b.x && a.y === b.y;
 
@@ -279,7 +280,7 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     } else {
       if (selection.IsHover()) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 
-      if (!localCommit.Empty()) localCommit.Push('Rotate');
+      if (!localCommit.Empty()) localCommit.Push(_('Rotate'));
     }
 
     return 0;
@@ -468,12 +469,12 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     for (const item of toDelete) symbol.RemoveDrawItem(item);
 
     if (toDelete.size === 0) {
-      if (fieldsHidden === 1) commit.Push('Hide Field');
-      else if (fieldsHidden > 1) commit.Push('Hide Fields');
+      if (fieldsHidden === 1) commit.Push(_('Hide Field'));
+      else if (fieldsHidden > 1) commit.Push(_('Hide Fields'));
       else if (fieldsAlreadyHidden > 0)
-        frame.ShowInfoBarError('Use the Symbol Properties dialog to remove fields.');
+        frame.ShowInfoBarError(_('Use the Symbol Properties dialog to remove fields.'));
     } else {
-      commit.Push('Delete');
+      commit.Push(_('Delete'));
     }
 
     frame.RebuildView();
@@ -752,7 +753,7 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     )
       return -1;
 
-    commit.Push('Edit Pins');
+    commit.Push(_('Edit Pins'));
     frame.RebuildView();
 
     return 0;
@@ -790,7 +791,7 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     }
 
     if (pinsToConvert.length < 2) {
-      frame.ShowInfoBarError('At least two pins are needed to convert to stacked pins');
+      frame.ShowInfoBarError(_('At least two pins are needed to convert to stacked pins'));
       return 0;
     }
 
@@ -799,7 +800,7 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
 
     for (let i = 1; i < pinsToConvert.length; ++i) {
       if (!veq(pinsToConvert[i]!.GetPosition(), pos)) {
-        frame.ShowInfoBarError('All pins must be at the same location');
+        frame.ShowInfoBarError(_('All pins must be at the same location'));
         return 0;
       }
     }
@@ -968,7 +969,7 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     const selection = selTool.GetSelection();
 
     if (selection.GetSize() !== 1 || selection.Front()!.Type() !== KICAD_T.SCH_PIN_T) {
-      frame.ShowInfoBarError('Select a single pin with stacked notation to explode');
+      frame.ShowInfoBarError(_('Select a single pin with stacked notation to explode'));
       return 0;
     }
 
@@ -979,7 +980,7 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     const stackedNumbers = pin.GetStackedPinNumbers(isValid);
 
     if (!isValid.value || stackedNumbers.length <= 1) {
-      frame.ShowInfoBarError('Selected pin does not have valid stacked notation');
+      frame.ShowInfoBarError(_('Selected pin does not have valid stacked notation'));
       return 0;
     }
 
@@ -1032,7 +1033,7 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
       symbol.AddDrawItem(newPin);
     }
 
-    commit.Push('Explode Stacked Pin');
+    commit.Push(_('Explode Stacked Pin'));
     frame.RebuildView();
     return 0;
   }
@@ -1044,7 +1045,7 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     if (!symbol) return 0;
 
     if (!symbol.CanUpdateFieldsFromParent()) {
-      frame.ShowInfoBarError('Symbol is not derived from another symbol.');
+      frame.ShowInfoBarError(_('Symbol is not derived from another symbol.'));
     } else {
       // DIALOG_UPDATE_SYMBOL_FIELDS dlg( m_frame, symbol ): the window's.
       if (
@@ -1170,7 +1171,7 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
     if (!selection.Empty()) {
       selection.SetReferencePoint(this.getViewControls()!.GetCursorPosition(true));
 
-      if (yield* this.RunSynchronousActionWait(SCH_ACTIONS.move, commit)) commit.Push('Paste');
+      if (yield* this.RunSynchronousActionWait(SCH_ACTIONS.move, commit)) commit.Push(_('Paste'));
       else commit.Revert();
     }
 
@@ -1236,7 +1237,7 @@ export class SYMBOL_EDITOR_EDIT_TOOL extends SCH_TOOL_BASE<SYMBOL_EDIT_FRAME> {
 
     selection.SetReferencePoint(this.getViewControls()!.GetCursorPosition(true));
 
-    if (yield* this.RunSynchronousActionWait(SCH_ACTIONS.move, commit)) commit.Push('Duplicate');
+    if (yield* this.RunSynchronousActionWait(SCH_ACTIONS.move, commit)) commit.Push(_('Duplicate'));
     else commit.Revert();
 
     return 0;

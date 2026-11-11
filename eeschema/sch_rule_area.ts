@@ -32,6 +32,8 @@ import { SCH_SHAPE } from './sch_shape.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const sameSet = <T>(a: ReadonlySet<T>, b: ReadonlySet<T>): boolean =>
   a.size === b.size && [...a].every((x) => b.has(x));
@@ -111,16 +113,16 @@ export class SCH_RULE_AREA extends SCH_SHAPE {
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
     aList.push(new MSG_PANEL_ITEM('Rule Area', ''));
 
-    aList.push(new MSG_PANEL_ITEM('Points', `${this.GetPolyShape().Outline(0).PointCount()}`));
+    aList.push(new MSG_PANEL_ITEM(_('Points'), `${this.GetPolyShape().Outline(0).PointCount()}`));
 
     this.GetStroke().GetMsgPanelInfo(aFrame, aList);
 
     const netclasses = this.GetResolvedNetclasses(null);
-    let resolvedNetclass = '<None>';
+    let resolvedNetclass = _('<None>');
 
     if (netclasses.length > 0) resolvedNetclass = netclasses[0]![0];
 
-    aList.push(new MSG_PANEL_ITEM('Resolved netclass', resolvedNetclass));
+    aList.push(new MSG_PANEL_ITEM(_('Resolved netclass'), resolvedNetclass));
   }
 
   override GetFriendlyName(): string {
@@ -437,7 +439,7 @@ export class SCH_RULE_AREA extends SCH_SHAPE {
   propMgr.InheritsAfter(SCH_RULE_AREA, SCH_ITEM);
   propMgr.InheritsAfter(SCH_RULE_AREA, EDA_SHAPE);
 
-  const groupAttributes = 'Attributes';
+  const groupAttributes = _HKI('Attributes');
 
   const flag = (
     aName: string,
@@ -449,8 +451,8 @@ export class SCH_RULE_AREA extends SCH_SHAPE {
       groupAttributes,
     );
 
-  flag('Exclude From Board', 'SetExcludedFromBoardProp', 'GetExcludedFromBoardProp');
-  flag('Exclude From Simulation', 'SetExcludedFromSimProp', 'GetExcludedFromSimProp');
-  flag('Exclude From Bill of Materials', 'SetExcludedFromBOMProp', 'GetExcludedFromBOMProp');
-  flag('Do not Populate', 'SetDNPProp', 'GetDNPProp');
+  flag(_HKI('Exclude From Board'), 'SetExcludedFromBoardProp', 'GetExcludedFromBoardProp');
+  flag(_HKI('Exclude From Simulation'), 'SetExcludedFromSimProp', 'GetExcludedFromSimProp');
+  flag(_HKI('Exclude From Bill of Materials'), 'SetExcludedFromBOMProp', 'GetExcludedFromBOMProp');
+  flag(_HKI('Do not Populate'), 'SetDNPProp', 'GetDNPProp');
 })();

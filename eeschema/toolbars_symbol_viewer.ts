@@ -10,24 +10,26 @@ import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar.js';
 import type { Menu, MenuItem } from '@ziroeda/wx/menu.js';
 import { addClose } from '@ziroeda/common/tool/action_menu.js';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** SYMBOL_VIEWER_TOOLBAR_SETTINGS::DefaultToolbarConfig( TOOLBAR_LOC::TOP_MAIN ). */
 export const TOP_TOOLBAR: ToolEntry[] = [
-  { id: 'previousSymbol', icon: 'previousSymbol', title: 'Display previous symbol' },
-  { id: 'nextSymbol', icon: 'nextSymbol', title: 'Display next symbol' },
+  { id: 'previousSymbol', icon: 'previousSymbol', title: _HKI('Display previous symbol') },
+  { id: 'nextSymbol', icon: 'nextSymbol', title: _HKI('Display next symbol') },
   'sep',
-  { id: 'zoomRedraw', icon: 'zoomRedraw', title: 'Refresh' },
+  { id: 'zoomRedraw', icon: 'zoomRedraw', title: _HKI('Refresh') },
   { id: 'zoomInCenter', icon: 'zoomIn', title: 'Zoom In' },
   { id: 'zoomOutCenter', icon: 'zoomOut', title: 'Zoom Out' },
-  { id: 'zoomFitScreen', icon: 'zoomFit', title: 'Zoom to Fit' },
+  { id: 'zoomFitScreen', icon: 'zoomFit', title: _HKI('Zoom to Fit') },
   'sep',
   {
     id: 'showElectricalTypes',
     icon: 'showElectricalTypes',
-    title: 'Show Pin Electrical Types',
+    title: _HKI('Show Pin Electrical Types'),
     toggle: true,
   },
-  { id: 'showPinNumbers', icon: 'showPinNumbers', title: 'Show Pin Numbers', toggle: true },
+  { id: 'showPinNumbers', icon: 'showPinNumbers', title: _HKI('Show Pin Numbers'), toggle: true },
   'sep',
   { control: 'bodyStyleSelector' },
   'sep',
@@ -35,7 +37,11 @@ export const TOP_TOOLBAR: ToolEntry[] = [
   'sep',
   { id: 'showDatasheet', icon: 'showDatasheet', title: 'Show Datasheet' },
   'sep',
-  { id: 'addSymbolToSchematic', icon: 'addSymbolToSchematic', title: 'Add Symbol to Schematic' },
+  {
+    id: 'addSymbolToSchematic',
+    icon: 'addSymbolToSchematic',
+    title: _HKI('Add Symbol to Schematic'),
+  },
 ];
 
 /**
@@ -69,20 +75,20 @@ export function symbolViewerMenus(h: SymbolViewerMenuHandlers): Menu[] {
   });
 
   return [
-    { label: 'File', items: [addClose('Symbol Viewer', h.close)] },
+    { label: _('File'), items: [addClose(_('Symbol Viewer'), h.close)] },
     {
-      label: 'View',
+      label: _('View'),
       items: [
         act('Zoom In', 'zoomInCenter', { icon: 'zoomIn' }),
         act('Zoom Out', 'zoomOutCenter', { icon: 'zoomOut' }),
-        act('Zoom to Fit', 'zoomFitScreen', { icon: 'zoomFit', shortcut: 'Home' }),
-        act('Refresh', 'zoomRedraw', { icon: 'zoomRedraw', shortcut: 'F5' }),
+        act(_('Zoom to Fit'), 'zoomFitScreen', { icon: 'zoomFit', shortcut: 'Home' }),
+        act(_('Refresh'), 'zoomRedraw', { icon: 'zoomRedraw', shortcut: 'F5' }),
         { sep: true },
         { sep: true },
-        act('Show Pin Electrical Types', 'showElectricalTypes', {
+        act(_('Show Pin Electrical Types'), 'showElectricalTypes', {
           checked: h.electricalTypesShown,
         }),
-        act('Show Pin Numbers', 'showPinNumbers', { checked: h.pinNumbersShown }),
+        act(_('Show Pin Numbers'), 'showPinNumbers', { checked: h.pinNumbersShown }),
       ],
     },
     standardHelpMenu({ showHotkeys: h.showHotkeys, showAbout: h.showAbout }),

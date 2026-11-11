@@ -25,14 +25,16 @@ import type { SCH_SHEET } from '../sch_sheet.js';
 import type { SCH_SHEET_PIN } from '../sch_sheet_pin.js';
 import { SCH_NETNAME_VALIDATOR } from '../sch_validators.js';
 import { DIALOG_SHEET_PIN_PROPERTIES_BASE } from './dialog_sheet_pin_properties_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** The Shape radio buttons, in the base dialog's order. */
 const SHAPES: { shape: LABEL_FLAG_SHAPE; label: string }[] = [
-  { shape: LABEL_FLAG_SHAPE.L_INPUT, label: 'Input' },
-  { shape: LABEL_FLAG_SHAPE.L_OUTPUT, label: 'Output' },
-  { shape: LABEL_FLAG_SHAPE.L_BIDI, label: 'Bidirectional' },
-  { shape: LABEL_FLAG_SHAPE.L_TRISTATE, label: 'Tri-state' },
-  { shape: LABEL_FLAG_SHAPE.L_UNSPECIFIED, label: 'Passive' },
+  { shape: LABEL_FLAG_SHAPE.L_INPUT, label: _HKI('Input') },
+  { shape: LABEL_FLAG_SHAPE.L_OUTPUT, label: _HKI('Output') },
+  { shape: LABEL_FLAG_SHAPE.L_BIDI, label: _HKI('Bidirectional') },
+  { shape: LABEL_FLAG_SHAPE.L_TRISTATE, label: _HKI('Tri-state') },
+  { shape: LABEL_FLAG_SHAPE.L_UNSPECIFIED, label: _HKI('Passive') },
 ];
 
 export interface SHEET_PIN_DIALOG_VALUES {
@@ -57,7 +59,7 @@ export class DIALOG_SHEET_PIN_PROPERTIES {
   constructor(aParent: SCH_EDIT_FRAME, aPin: SCH_SHEET_PIN) {
     this.m_frame = aParent;
     this.m_sheetPin = aPin;
-    this.m_textSize = new UNIT_BINDER(aParent, 'Text size:', (m) => DisplayErrorMessage(m));
+    this.m_textSize = new UNIT_BINDER(aParent, _('Text size:'), (m) => DisplayErrorMessage(m));
   }
 
   /** `SetSwatchBackground( schematicBackground )`. */
@@ -147,7 +149,7 @@ export class DIALOG_SHEET_PIN_PROPERTIES {
     this.m_sheetPin.SetTextColor(aValues.color);
     this.m_sheetPin.SetShape(aValues.shape);
 
-    if (!commit.Empty()) commit.Push('Edit Sheet Pin Properties');
+    if (!commit.Empty()) commit.Push(_('Edit Sheet Pin Properties'));
 
     return true;
   }
@@ -213,7 +215,7 @@ export function DialogSheetPinProperties({
       {invalid && (
         // wxMessageBox( errormsg, _( "Invalid signal name" ), wxOK | wxICON_EXCLAMATION ).
         <MessageDialogOk
-          caption="Invalid signal name"
+          caption={_('Invalid signal name')}
           icon="warning"
           message={invalid}
           onClose={() => setInvalid(null)}

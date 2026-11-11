@@ -25,9 +25,11 @@ import {
 import { BoxSizer, SizerItem, Spacer, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
 import { SplitterWindow } from '@ziroeda/wx/splitter.js';
 import { WxSearchCtrl } from '@ziroeda/wx/wx_search_ctrl.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** m_choiceScope's strings. */
-export const LIB_FIELDS_SCOPE_CHOICES = ['Whole Library', 'Related Symbols Only'];
+export const LIB_FIELDS_SCOPE_CHOICES = [_HKI('Whole Library'), _HKI('Related Symbols Only')];
 
 export interface DIALOG_LIB_FIELDS_TABLE_BASE_PROPS {
   title: string;
@@ -99,22 +101,26 @@ export function DIALOG_LIB_FIELDS_TABLE_BASE(p: DIALOG_LIB_FIELDS_TABLE_BASE_PRO
             <WxSearchCtrl
               value={p.m_filter.value}
               onChange={p.m_filter.onChange}
-              descriptiveText="Filter"
+              descriptiveText={_('Filter')}
             />
           </SizerItem>
           <SizerItem flag={wxEXPAND | wxALL} border={3}>
             <StaticLine vertical />
           </SizerItem>
           <SizerItem flag={wxALL} border={5}>
-            <Choice ariaLabel="Scope" choices={LIB_FIELDS_SCOPE_CHOICES} choice={p.m_choiceScope} />
+            <Choice
+              ariaLabel={_('Scope')}
+              choices={LIB_FIELDS_SCOPE_CHOICES}
+              choice={p.m_choiceScope}
+            />
           </SizerItem>
           <SizerItem flag={wxEXPAND | wxALL} border={5}>
             <StaticLine vertical />
           </SizerItem>
           <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
             <CheckBox
-              label="Group symbols"
-              title="Group symbols together based on common properties"
+              label={_('Group symbols')}
+              title={_('Group symbols together based on common properties')}
               check={p.m_groupSymbolsBox}
             />
           </SizerItem>
@@ -139,7 +145,7 @@ export function DIALOG_LIB_FIELDS_TABLE_BASE(p: DIALOG_LIB_FIELDS_TABLE_BASE_PRO
             {/* setSideBarButtonLook() */}
             <StdBitmapButton
               bitmap={p.sidebarCollapsed ? 'right' : 'left'}
-              title={p.sidebarCollapsed ? 'Expand left panel' : 'Collapse left panel'}
+              title={p.sidebarCollapsed ? _('Expand left panel') : _('Collapse left panel')}
               onClick={p.onSidebarToggle}
             />
           </SizerItem>

@@ -95,6 +95,7 @@ import {
   PIN_ERROR,
   type ERC_SETTINGS,
 } from './erc_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 // List of pin types that are considered drivers for usual input pins
 // i.e. pin type = ELECTRICAL_PINTYPE::PT_INPUT, but not PT_POWER_IN
@@ -701,7 +702,7 @@ export class ERC_TESTER {
             items.length > 2 ? items[2]! : null,
             items.length > 3 ? items[3]! : null,
           );
-          ercItem.SetErrorMessage("Pin with 'no connection' type is connected");
+          ercItem.SetErrorMessage(_("Pin with 'no connection' type is connected"));
           ercItem.SetSheetSpecificPath(sheet);
 
           const marker = new SCH_MARKER_LIVE(ercItem, pt);
@@ -969,7 +970,7 @@ export class ERC_TESTER {
           const ercItem = ERC_ITEM.Create(aErrorCode)!;
 
           if (aItem) ercItem.SetItems(aItem);
-          else ercText += ' (in drawing sheet)';
+          else ercText += _(' (in drawing sheet)');
 
           ercItem.SetSheetSpecificPath(aSheet);
           ercItem.SetErrorMessage(ercText);
@@ -1104,7 +1105,7 @@ export class ERC_TESTER {
           // Don't run unresolved test
         } else if (hasVar(text.GetShownText(true))) {
           const ercItem = ERC_ITEM.Create(ERCE.ERCE_UNRESOLVED_VARIABLE)!;
-          ercItem.SetErrorMessage('Unresolved text variable in drawing sheet');
+          ercItem.SetErrorMessage(_('Unresolved text variable in drawing sheet'));
           ercItem.SetSheetSpecificPath(sheet);
           screen.Append(new SCH_MARKER_LIVE(ercItem, text.GetPosition()));
         }
@@ -1414,7 +1415,7 @@ export class ERC_TESTER {
             const second = pinNetPairs[1]![1];
 
             ercItem.SetErrorMessage(
-              `Pin ${pinNumber} on symbol '${symbol.GetRef(sheet)}' is connected to different nets: ${firstNet === '' ? '<no net>' : firstNet} and ${second === '' ? '<no net>' : second}`,
+              `Pin ${pinNumber} on symbol '${symbol.GetRef(sheet)}' is connected to different nets: ${firstNet === '' ? _('<no net>') : firstNet} and ${second === '' ? _('<no net>') : second}`,
             );
             ercItem.SetItems(pinNetPairs[0]![0], conflictPin);
             ercItem.SetSheetSpecificPath(sheet);
@@ -1842,11 +1843,11 @@ export class ERC_TESTER {
     // Test duplicate sheet names inside a given sheet.  While one can have multiple references
     // to the same file, each must have a unique name.
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_DUPLICATE_SHEET_NAME)) {
-      phase('Checking sheet names...');
+      phase(_('Checking sheet names...'));
       this.TestDuplicateSheetNames(true);
     }
 
-    phase('Checking conflicts...');
+    phase(_('Checking conflicts...'));
 
     // If we are using the new connectivity, make sure that we do a full-rebuild
     // (ADVANCED_CFG::m_IncrementalConnectivity is off by default: NO_CLEANUP).
@@ -1854,11 +1855,11 @@ export class ERC_TESTER {
 
     this.m_schematic.ConnectionGraph().RunERC();
 
-    phase('Checking units...');
+    phase(_('Checking units...'));
 
     // Test is all units of each multiunit symbol have the same footprint assigned.
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_DIFFERENT_UNIT_FP)) {
-      phase('Checking footprints...');
+      phase(_('Checking footprints...'));
       this.TestMultiunitFootprints();
     }
 
@@ -1871,7 +1872,7 @@ export class ERC_TESTER {
       this.TestMissingUnits();
     }
 
-    phase('Checking pins...');
+    phase(_('Checking pins...'));
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_DIFFERENT_UNIT_NET))
       this.TestMultUnitPinConflicts();
@@ -1898,32 +1899,32 @@ export class ERC_TESTER {
       this.m_settings.IsTestEnabled(ERCE.ERCE_SIMILAR_POWER) ||
       this.m_settings.IsTestEnabled(ERCE.ERCE_SIMILAR_LABEL_AND_POWER)
     ) {
-      phase('Checking similar labels...');
+      phase(_('Checking similar labels...'));
       this.TestSimilarLabels();
     }
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_SAME_LOCAL_GLOBAL_LABEL)) {
-      phase('Checking local and global labels...');
+      phase(_('Checking local and global labels...'));
       this.TestSameLocalGlobalLabel();
     }
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_UNRESOLVED_VARIABLE)) {
-      phase('Checking for unresolved variables...');
+      phase(_('Checking for unresolved variables...'));
       this.TestTextVars(aDrawingSheet);
     }
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_FIELD_NAME_WHITESPACE)) {
-      phase('Checking field names...');
+      phase(_('Checking field names...'));
       this.TestFieldNameWhitespace();
     }
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_SIMULATION_MODEL)) {
-      phase('Checking SPICE models...');
+      phase(_('Checking SPICE models...'));
       this.TestSimModelIssues();
     }
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_NOCONNECT_CONNECTED)) {
-      phase('Checking no connect pins for connections...');
+      phase(_('Checking no connect pins for connections...'));
       this.TestNoConnectPins();
     }
 
@@ -1931,37 +1932,37 @@ export class ERC_TESTER {
       this.m_settings.IsTestEnabled(ERCE.ERCE_LIB_SYMBOL_ISSUES) ||
       this.m_settings.IsTestEnabled(ERCE.ERCE_LIB_SYMBOL_MISMATCH)
     ) {
-      phase('Checking for library symbol issues...');
+      phase(_('Checking for library symbol issues...'));
       this.TestLibSymbolIssues();
     }
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_FOOTPRINT_LINK_ISSUES) && aCvPcb) {
-      phase('Checking for footprint link issues...');
+      phase(_('Checking for footprint link issues...'));
       this.TestFootprintLinkIssues(aCvPcb, aProject);
     }
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_FOOTPRINT_FILTERS)) {
-      phase('Checking footprint assignments against footprint filters...');
+      phase(_('Checking footprint assignments against footprint filters...'));
       this.TestFootprintFilters();
     }
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_ENDPOINT_OFF_GRID)) {
-      phase('Checking for off grid pins and wires...');
+      phase(_('Checking for off grid pins and wires...'));
       this.TestOffGridEndpoints();
     }
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_FOUR_WAY_JUNCTION)) {
-      phase('Checking for four way junctions...');
+      phase(_('Checking for four way junctions...'));
       this.TestFourWayJunction();
     }
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_LABEL_MULTIPLE_WIRES)) {
-      phase('Checking for labels on more than one wire...');
+      phase(_('Checking for labels on more than one wire...'));
       this.TestLabelMultipleWires();
     }
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_UNDEFINED_NETCLASS)) {
-      phase('Checking for undefined netclasses...');
+      phase(_('Checking for undefined netclasses...'));
       this.TestMissingNetclasses();
     }
 

@@ -43,6 +43,7 @@ import type { SCH_SYMBOL } from '../sch_symbol.js';
 import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
 import { SCH_ACTIONS } from './sch_actions.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * EDA_SEARCH_MATCH_MODE. `permissive` is the Search panel's mode — upstream's
@@ -965,16 +966,16 @@ export class SCH_FIND_REPLACE_TOOL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
         let msg: string;
 
         if (this.m_frame!.GetFrameType() === FRAME_T.FRAME_SCH_SYMBOL_EDITOR)
-          msg = 'Reached end of symbol.';
-        else if (searchAllSheets) msg = 'Reached end of schematic.';
-        else msg = 'Reached end of sheet.';
+          msg = _('Reached end of symbol.');
+        else if (searchAllSheets) msg = _('Reached end of schematic.');
+        else msg = _('Reached end of sheet.');
 
         this.m_frame!.ShowFindReplaceStatus(msg, 2000);
       }
     } else {
       this.m_afterItem = null;
       this.m_afterItemScreen = null;
-      this.m_frame!.ShowFindReplaceStatus('No matches found.', 2000);
+      this.m_frame!.ShowFindReplaceStatus(_('No matches found.'), 2000);
     }
 
     return 0;

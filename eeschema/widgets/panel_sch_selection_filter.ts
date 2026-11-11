@@ -59,6 +59,7 @@
  */
 
 import type { SelectionFilterOptions } from '../tools/sch_selection_filter.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** Which frame is asking; `EDA_BASE_FRAME::GetFrameType()`'s two values here. */
 export type SelectionFilterFrame = 'FRAME_SCH' | 'FRAME_SCH_SYMBOL_EDITOR';
@@ -74,21 +75,21 @@ export interface SelectionFilterCell {
 }
 
 /** Labels and tooltips, from the `new wxCheckBox( … )` calls in the base. */
-const ALL_ITEMS: SelectionFilterCell = { key: null, label: 'All items' };
-const RULE_AREAS: SelectionFilterCell = { key: 'ruleAreas', label: 'Rule Areas' };
-const SYMBOLS: SelectionFilterCell = { key: 'symbols', label: 'Symbols' };
-const PINS: SelectionFilterCell = { key: 'pins', label: 'Pins' };
-const WIRES: SelectionFilterCell = { key: 'wires', label: 'Wires' };
-const LABELS: SelectionFilterCell = { key: 'labels', label: 'Labels' };
+const ALL_ITEMS: SelectionFilterCell = { key: null, label: _HKI('All items') };
+const RULE_AREAS: SelectionFilterCell = { key: 'ruleAreas', label: _HKI('Rule Areas') };
+const SYMBOLS: SelectionFilterCell = { key: 'symbols', label: _HKI('Symbols') };
+const PINS: SelectionFilterCell = { key: 'pins', label: _HKI('Pins') };
+const WIRES: SelectionFilterCell = { key: 'wires', label: _HKI('Wires') };
+const LABELS: SelectionFilterCell = { key: 'labels', label: _HKI('Labels') };
 // `m_cbGraphics->SetToolTip( _( "Graphical shapes" ) )` (base :51).
 const GRAPHICS: SelectionFilterCell = {
   key: 'graphics',
-  label: 'Graphics',
-  tooltip: 'Graphical shapes',
+  label: _HKI('Graphics'),
+  tooltip: _HKI('Graphical shapes'),
 };
-const IMAGES: SelectionFilterCell = { key: 'images', label: 'Images' };
-const TEXT: SelectionFilterCell = { key: 'text', label: 'Text' };
-const OTHER_ITEMS: SelectionFilterCell = { key: 'otherItems', label: 'Other items' };
+const IMAGES: SelectionFilterCell = { key: 'images', label: _HKI('Images') };
+const TEXT: SelectionFilterCell = { key: 'text', label: _HKI('Text') };
+const OTHER_ITEMS: SelectionFilterCell = { key: 'otherItems', label: _HKI('Other items') };
 
 /**
  * The visible cells of the grid, row by row, left column first. A `null` cell

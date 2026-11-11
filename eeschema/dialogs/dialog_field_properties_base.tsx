@@ -47,6 +47,8 @@ import {
   StdDialogButtonSizer,
   StretchSpacer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** One BITMAP_BUTTON of formattingSizer that is not a separator. */
 export interface ICON_BUTTON {
@@ -159,7 +161,7 @@ export function DIALOG_FIELD_PROPERTIES_BASE(p: DIALOG_FIELD_PROPERTIES_BASE_PRO
                       border={15}
                       shown={p.unitShown}
                     >
-                      <StaticText label="Unit:" />
+                      <StaticText label={_('Unit:')} />
                     </SizerItem>
                     <SizerItem
                       flag={wxALIGN_CENTER_VERTICAL | wxLEFT}
@@ -173,7 +175,7 @@ export function DIALOG_FIELD_PROPERTIES_BASE(p: DIALOG_FIELD_PROPERTIES_BASE_PRO
                 <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={20} shown={p.noteShown}>
                   {/* m_note->SetFont( KIUI::GetInfoFont( this ).Italic() ) (the derived constructor) */}
                   <StaticText
-                    label="Sheet filename can only be modified in Sheet Properties dialog."
+                    label={_('Sheet filename can only be modified in Sheet Properties dialog.')}
                     font="info"
                     italic
                   />
@@ -184,21 +186,21 @@ export function DIALOG_FIELD_PROPERTIES_BASE(p: DIALOG_FIELD_PROPERTIES_BASE_PRO
               {/* bSizer9 */}
               <BoxSizer orient={wxHORIZONTAL}>
                 <SizerItem flag={wxALIGN_LEFT | wxBOTTOM} border={5}>
-                  <CheckBox label="Visible" check={p.m_visible} />
+                  <CheckBox label={_('Visible')} check={p.m_visible} />
                 </SizerItem>
                 <StretchSpacer />
                 <SizerItem flag={wxRIGHT | wxLEFT} border={20}>
                   <CheckBox
-                    label="Show field name"
-                    title="Show the field name in addition to its value"
+                    label={_('Show field name')}
+                    title={_('Show the field name in addition to its value')}
                     check={p.m_nameVisible}
                   />
                 </SizerItem>
                 <StretchSpacer />
                 <SizerItem flag={wxFIXED_MINSIZE | wxRIGHT} border={37}>
                   <CheckBox
-                    label="Allow automatic placement"
-                    title="Allow automatic placement of this field in the schematic"
+                    label={_('Allow automatic placement')}
+                    title={_('Allow automatic placement of this field in the schematic')}
                     check={p.m_cbAllowAutoPlace}
                   />
                 </SizerItem>
@@ -213,7 +215,7 @@ export function DIALOG_FIELD_PROPERTIES_BASE(p: DIALOG_FIELD_PROPERTIES_BASE_PRO
                   flag={wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL}
                   border={5}
                 >
-                  <StaticText label="Font:" />
+                  <StaticText label={_('Font:')} />
                 </SizerItem>
                 <SizerItem pos={[0, 1]} span={[1, 2]} flag={wxEXPAND} border={5}>
                   <FontChoice face={p.font} onChange={p.onFont} />
@@ -247,7 +249,7 @@ export function DIALOG_FIELD_PROPERTIES_BASE(p: DIALOG_FIELD_PROPERTIES_BASE_PRO
                   flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
                   border={5}
                 >
-                  <StaticText label="Text size:" />
+                  <StaticText label={_('Text size:')} />
                 </SizerItem>
                 <SizerItem pos={[1, 1]} span={[1, 2]} flag={wxEXPAND} border={5}>
                   {/* bSizer71 */}
@@ -264,7 +266,7 @@ export function DIALOG_FIELD_PROPERTIES_BASE(p: DIALOG_FIELD_PROPERTIES_BASE_PRO
                       <StaticText label={p.units} />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={15}>
-                      <StaticText label="Color:" />
+                      <StaticText label={_('Color:')} />
                     </SizerItem>
                     <Spacer width={5} height={0} border={5} />
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -293,7 +295,7 @@ export function DIALOG_FIELD_PROPERTIES_BASE(p: DIALOG_FIELD_PROPERTIES_BASE_PRO
                   flag={wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL}
                   border={5}
                 >
-                  <StaticText label="Position X:" />
+                  <StaticText label={_('Position X:')} />
                 </SizerItem>
                 <SizerItem
                   pos={[3, 1]}
@@ -305,7 +307,7 @@ export function DIALOG_FIELD_PROPERTIES_BASE(p: DIALOG_FIELD_PROPERTIES_BASE_PRO
                     value={p.m_xPosCtrl}
                     onChange={p.onXPos}
                     onEnter={p.onOK}
-                    ariaLabel="Position X"
+                    ariaLabel={_HKI('Position X')}
                   />
                 </SizerItem>
                 <SizerItem
@@ -322,7 +324,7 @@ export function DIALOG_FIELD_PROPERTIES_BASE(p: DIALOG_FIELD_PROPERTIES_BASE_PRO
                   flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
                   border={5}
                 >
-                  <StaticText label="Position Y:" />
+                  <StaticText label={_('Position Y:')} />
                 </SizerItem>
                 <SizerItem
                   pos={[4, 1]}
@@ -334,7 +336,7 @@ export function DIALOG_FIELD_PROPERTIES_BASE(p: DIALOG_FIELD_PROPERTIES_BASE_PRO
                     value={p.m_yPosCtrl}
                     onChange={p.onYPos}
                     onEnter={p.onOK}
-                    ariaLabel="Position Y"
+                    ariaLabel={_HKI('Position Y')}
                   />
                 </SizerItem>
                 <SizerItem

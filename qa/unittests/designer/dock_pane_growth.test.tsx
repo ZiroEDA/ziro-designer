@@ -171,7 +171,8 @@ describe('every other docked pane keeps the default proportion', () => {
       // The caption gained its `.CloseButton( true )` box, so the title is a
       // `<span>` beside the button rather than the caption's only content —
       // the same shape the schematic's captions already have.
-      '<span>Properties</span>',
+      // A file that names a parameter `_` says wxGetTranslation(), which `_` is.
+      "<span>{wxGetTranslation('Properties')}</span>",
     );
     const flex = flexOf('ze-leftdock', cls);
     expect(flex.flexGrow).toBe('1');
@@ -179,7 +180,10 @@ describe('every other docked pane keeps the default proportion', () => {
   });
 
   it('the schematic hierarchy pane grows, floored at its MinSize height', () => {
-    const cls = paneClassOf('eeschema/sch_edit_frame_ui.tsx', '<span>Schematic Hierarchy</span>');
+    const cls = paneClassOf(
+      'eeschema/sch_edit_frame_ui.tsx',
+      "<span>{_('Schematic Hierarchy')}</span>",
+    );
     const flex = flexOf('ze-leftdock sch-leftdock', cls);
     expect(flex.flexGrow).toBe('1');
     expect(flex.minHeight).toBe('60px');

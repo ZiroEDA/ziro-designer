@@ -13,6 +13,7 @@ import { SCH_ACTIONS } from '@ziroeda/eeschema/tools/sch_actions.js';
 import { wxID_OK } from '@ziroeda/wx/menu.js';
 import { WX_IMAGE } from '@ziroeda/wx/wx_image.js';
 import { afterEach, beforeEach, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
 import { type SYMBOL_EDIT_HARNESS, symbolEditHarness } from './support/symbol_edit_harness.js';
 
 let t: SYMBOL_EDIT_HARNESS;
@@ -80,6 +81,6 @@ it('says it cannot save when the canvas has no screenshot', async () => {
 it('with no symbol says so and writes nothing', async () => {
   await exportView();
 
-  expect(messages).toEqual(['No symbol to export']);
+  expect(messages).toEqual([_('No symbol to export')]);
   expect(outputs).toEqual([]);
 });

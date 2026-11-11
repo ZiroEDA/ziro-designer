@@ -43,6 +43,7 @@ import type { LibSymbol, Schematic } from '../../types.js';
 import { readSchematic } from '../sexpr/read-schematic.js';
 import { writeLibSymbolNode } from '../sexpr/write-symbol-lib.js';
 import { mil, mm, ParseError, Scanner } from './sch_io_kicad_legacy_helpers.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `SCH_LEGACY_SCHEMATIC_FILE_VERSION` is 2 at the s-expression cut-over; the
  *  version the converted node claims is the modern one the reader expects. */
@@ -830,7 +831,7 @@ function loadHeader(lines: string[]): { version: number; next: number } {
   for (let i = 1; i < lines.length; i++) {
     if (new Scanner(lines[i]!, i + 1).take('EELAYER END')) return { version, next: i + 1 };
   }
-  throw new ParseError("Missing 'EELAYER END'");
+  throw new ParseError(_("Missing 'EELAYER END'"));
 }
 
 /** How one screen is converted. */

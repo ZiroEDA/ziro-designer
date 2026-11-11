@@ -32,6 +32,7 @@ import {
   wxVERTICAL,
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, GridBagSizer, SizerItem, Spacer, StretchSpacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** m_choiceSeparatorRefIdChoices. */
 const UNIT_NOTATIONS = ['A', '.A', '-A', '_A', '.1', '-1', '_1'];
@@ -87,12 +88,12 @@ export function PANEL_EESCHEMA_ANNOTATION_OPTIONS_BASE(
       <SizerItem flag={wxEXPAND} border={5}>
         {/* bLeftColumn */}
         <BoxSizer orient={wxVERTICAL}>
-          <Heading label="Units" />
+          <Heading label={_('Units')} />
           <SizerItem flag={wxEXPAND | wxTOP | wxLEFT} border={5}>
             {/* bSizer5 */}
             <BoxSizer orient={wxHORIZONTAL}>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
-                <StaticText label="Symbol unit notation:" />
+                <StaticText label={_('Symbol unit notation:')} />
               </SizerItem>
               <StretchSpacer />
               <SizerItem
@@ -109,13 +110,13 @@ export function PANEL_EESCHEMA_ANNOTATION_OPTIONS_BASE(
             </BoxSizer>
           </SizerItem>
           <Spacer width={0} height={15} flag={wxEXPAND} border={5} />
-          <Heading label="Order" />
+          <Heading label={_('Order')} />
           <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
           <SizerItem flag={wxEXPAND | wxLEFT} border={10}>
             {/* bSizerXpos */}
             <BoxSizer orient={wxHORIZONTAL}>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM} border={5}>
-                {radio('ann-sort', 0, p.sortOrder, p.onSortOrder, 'Sort symbols by X position')}
+                {radio('ann-sort', 0, p.sortOrder, p.onSortOrder, _('Sort symbols by X position'))}
               </SizerItem>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
                 <StaticBitmap bitmap={bitmapUrl('annotate_down_right')} />
@@ -126,7 +127,7 @@ export function PANEL_EESCHEMA_ANNOTATION_OPTIONS_BASE(
             {/* bSizerYpos */}
             <BoxSizer orient={wxHORIZONTAL}>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                {radio('ann-sort', 1, p.sortOrder, p.onSortOrder, 'Sort symbols by Y position')}
+                {radio('ann-sort', 1, p.sortOrder, p.onSortOrder, _('Sort symbols by Y position'))}
               </SizerItem>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
                 <StaticBitmap bitmap={bitmapUrl('annotate_right_down')} />
@@ -134,7 +135,7 @@ export function PANEL_EESCHEMA_ANNOTATION_OPTIONS_BASE(
             </BoxSizer>
           </SizerItem>
           <Spacer width={0} height={15} flag={wxEXPAND} border={5} />
-          <Heading label="Numbering" />
+          <Heading label={_('Numbering')} />
           <Spacer width={0} height={5} flag={wxEXPAND} border={5} />
           <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxBOTTOM | wxLEFT} border={5}>
             {/* gbSizerNumbering = wxGridBagSizer( 0, 0 ) */}
@@ -145,7 +146,7 @@ export function PANEL_EESCHEMA_ANNOTATION_OPTIONS_BASE(
                 flag={wxALIGN_CENTER_VERTICAL | wxLEFT}
                 border={2}
               >
-                {radio('ann-num', 0, p.numbering, p.onNumbering, 'Use first free number after:')}
+                {radio('ann-num', 0, p.numbering, p.onNumbering, _('Use first free number after:'))}
               </SizerItem>
               <SizerItem
                 pos={[0, 1]}
@@ -166,7 +167,7 @@ export function PANEL_EESCHEMA_ANNOTATION_OPTIONS_BASE(
                   1,
                   p.numbering,
                   p.onNumbering,
-                  'First free after sheet number X 100',
+                  _('First free after sheet number X 100'),
                 )}
               </SizerItem>
               <SizerItem pos={[2, 0]} span={[1, 2]} flag={wxTOP | wxBOTTOM | wxLEFT} border={2}>
@@ -175,11 +176,11 @@ export function PANEL_EESCHEMA_ANNOTATION_OPTIONS_BASE(
                   2,
                   p.numbering,
                   p.onNumbering,
-                  'First free after sheet number X 1000',
+                  _('First free after sheet number X 1000'),
                 )}
               </SizerItem>
               <SizerItem pos={[3, 0]} span={[1, 1]} flag={wxALL} border={2}>
-                <CheckBox label="Allow reference reuse" check={p.m_checkReuseRefdes} />
+                <CheckBox label={_('Allow reference reuse')} check={p.m_checkReuseRefdes} />
               </SizerItem>
             </GridBagSizer>
           </SizerItem>

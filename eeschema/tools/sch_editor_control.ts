@@ -114,6 +114,7 @@ import {
 import { wxFD_OVERWRITE_PROMPT, wxFD_SAVE } from '@ziroeda/wx/defs.js';
 import { wxReadFileSync } from '@ziroeda/wx/filefn.js';
 import { SCH_SCREEN, SCH_SCREENS } from '../sch_screen.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `MAX_PAGE_SIZE_EESCHEMA_MILS` (page_info.h). [data] */
 const MAX_PAGE_SIZE_EESCHEMA_MILS = 120000;
@@ -148,7 +149,7 @@ async function highlightNet(aToolMgr: TOOL_MANAGER, aPosition: VECTOR2D): Promis
 
     if (erc.TestDuplicateSheetNames(false) > 0) {
       await editFrame.ShowModalDialog('wxMessageBox', [], {
-        message: 'Error: duplicate sub-sheet names found in current sheet.',
+        message: _('Error: duplicate sub-sheet names found in current sheet.'),
       });
       retVal = false;
     } else {
@@ -397,7 +398,7 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     }
 
     if (selectedConns.length === 0) {
-      this.m_frame!.ShowInfoBarError('No nets selected.');
+      this.m_frame!.ShowInfoBarError(_('No nets selected.'));
       return 0;
     }
 
@@ -430,7 +431,9 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
       if (netNamePattern === null) {
         // This is a choice, we can also allow some un-labeled nets as long as some are labeled.
-        this.m_frame!.ShowInfoBarError('All selected nets must be labeled to assign a netclass.');
+        this.m_frame!.ShowInfoBarError(
+          _('All selected nets must be labeled to assign a netclass.'),
+        );
         return 0;
       }
 
@@ -554,7 +557,7 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     if (netName === '') netName = this.m_frame!.GetHighlightedConnection();
 
     if (netName === '') {
-      this.m_frame!.ShowInfoBarError('No connected net selected.');
+      this.m_frame!.ShowInfoBarError(_('No connected net selected.'));
       return 0;
     }
 
@@ -734,7 +737,7 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     const picked = yield* this.RunMainStackModal(() =>
       this.m_frame!.ShowFileDialog(
-        'Schematic Files',
+        _('Schematic Files'),
         slash >= 0 ? curr_fn.slice(0, slash) : '',
         curr_fn.slice(slash + 1),
         [kicadSchematicWildcard()],
@@ -803,7 +806,7 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     const wrapper = new ITEM_PICKER(this.m_frame!.GetScreen(), undoItem, UNDO_REDO.PAGESETTINGS);
 
     undoCmd.PushItem(wrapper);
-    undoCmd.SetDescription('Page Settings');
+    undoCmd.SetDescription(_('Page Settings'));
     this.m_frame!.SaveCopyInUndoList(undoCmd, UNDO_REDO.PAGESETTINGS, false);
 
     const result = yield* this.RunMainStackModal(() =>
@@ -931,9 +934,9 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     const map = { value: false };
 
     const targetLib = yield* this.RunMainStackModal(() =>
-      this.m_frame!.SelectLibrary('Export Symbols', 'Export symbols to library:', [
-        { label: 'Include power symbols in export', value: savePowerSymbols },
-        { label: 'Update schematic symbols to link to exported symbols', value: map },
+      this.m_frame!.SelectLibrary(_('Export Symbols'), _('Export symbols to library:'), [
+        { label: _('Include power symbols in export'), value: savePowerSymbols },
+        { label: _('Update schematic symbols to link to exported symbols'), value: map },
       ]),
     );
 
@@ -1345,7 +1348,7 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       if (content.length > ADVANCED_CFG.GetCfg().m_MaxPastedTextLength) {
         const result = yield* this.RunMainStackModal(() =>
           this.m_frame!.IsOKAsync(
-            'Pasting a long text text string may be very slow.  Do you want to continue?',
+            _('Pasting a long text text string may be very slow.  Do you want to continue?'),
           ),
         );
 
@@ -1391,10 +1394,10 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           const commit = new SCH_COMMIT(this.m_toolMgr!);
 
           if (tableEditTool.pasteCellsIntoSelection(currentSelection, clipboardTable, commit)) {
-            commit.Push('Paste Cells');
+            commit.Push(_('Paste Cells'));
             return 0;
           } else {
-            this.m_frame!.DisplayError('Failed to paste cells');
+            this.m_frame!.DisplayError(_('Failed to paste cells'));
             return 0;
           }
         }
@@ -1965,7 +1968,7 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
       if (yield* this.RunSynchronousActionWait(SCH_ACTIONS.move, commit)) {
         // Pushing the commit will update the connectivity.
-        commit.Push('Paste');
+        commit.Push(_('Paste'));
 
         if (sheetsPasted) {
           this.m_frame!.UpdateHierarchyNavigator();
@@ -2112,7 +2115,7 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         }
       }
 
-      if (!commit.Empty()) commit.Push('Increment Annotations');
+      if (!commit.Empty()) commit.Push(_('Increment Annotations'));
     }
 
     return 0;
@@ -2168,7 +2171,9 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     if (symbol.GetEditFlags() !== 0) return 0;
 
     if (symbol.IsMissingLibSymbol()) {
-      this.m_frame!.ShowInfoBarError('Symbols with broken library symbol links cannot be edited.');
+      this.m_frame!.ShowInfoBarError(
+        _('Symbols with broken library symbol links cannot be edited.'),
+      );
       return 0;
     }
 
@@ -2493,7 +2498,7 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     const popup = this.m_frame!.GetHotkeyPopup();
 
-    if (popup) popup.Popup('Grid', gridsLabels, currentIdx);
+    if (popup) popup.Popup(_('Grid'), gridsLabels, currentIdx);
 
     return 0;
   }

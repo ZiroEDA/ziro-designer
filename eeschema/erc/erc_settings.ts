@@ -31,6 +31,7 @@ import {
   RPT_SEVERITY_WARNING,
   type Severity,
 } from '@ziroeda/common/reporter.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** ELECTRICAL_PINTYPE order, the ERC matrix rows/columns and the pin-map grid. */
 export const PIN_TYPES = [
@@ -174,33 +175,41 @@ export type ErcGroup = 'Connections' | 'Conflicts' | 'Miscellaneous';
  * pin_to_pin_error, the generic ones) have no row and are not written.
  */
 export const ERC_ITEMS: { code: ErcCode; title: string; group: ErcGroup }[] = [
-  { code: 'pin_not_connected', title: 'Pin not connected', group: 'Connections' },
+  { code: 'pin_not_connected', title: _HKI('Pin not connected'), group: 'Connections' },
   {
     code: 'pin_not_driven',
-    title: 'Input pin not driven by any Output pins',
+    title: _HKI('Input pin not driven by any Output pins'),
     group: 'Connections',
   },
   {
     code: 'power_pin_not_driven',
-    title: 'Input Power pin not driven by any Output Power pins',
+    title: _HKI('Input Power pin not driven by any Output Power pins'),
     group: 'Connections',
   },
   {
     code: 'no_connect_connected',
-    title: 'A pin with a "no connection" flag is connected',
+    title: _HKI('A pin with a "no connection" flag is connected'),
     group: 'Connections',
   },
-  { code: 'no_connect_dangling', title: 'Unconnected "no connection" flag', group: 'Connections' },
-  { code: 'label_dangling', title: 'Label not connected', group: 'Connections' },
-  { code: 'isolated_pin_label', title: 'Label connected to only one pin', group: 'Connections' },
+  {
+    code: 'no_connect_dangling',
+    title: _HKI('Unconnected "no connection" flag'),
+    group: 'Connections',
+  },
+  { code: 'label_dangling', title: _HKI('Label not connected'), group: 'Connections' },
+  {
+    code: 'isolated_pin_label',
+    title: _HKI('Label connected to only one pin'),
+    group: 'Connections',
+  },
   {
     code: 'single_global_label',
-    title: 'Global label only appears once in the schematic',
+    title: _HKI('Global label only appears once in the schematic'),
     group: 'Connections',
   },
   {
     code: 'same_local_global_label',
-    title: 'Local and global labels have same name',
+    title: _HKI('Local and global labels have same name'),
     group: 'Connections',
   },
   {
@@ -208,87 +217,99 @@ export const ERC_ITEMS: { code: ErcCode; title: string; group: ErcGroup }[] = [
     title: 'Local and global power symbols have same name',
     group: 'Connections',
   },
-  { code: 'wire_dangling', title: 'Wires not connected to anything', group: 'Connections' },
-  { code: 'bus_entry_needed', title: 'Bus Entry needed', group: 'Connections' },
+  { code: 'wire_dangling', title: _HKI('Wires not connected to anything'), group: 'Connections' },
+  { code: 'bus_entry_needed', title: _HKI('Bus Entry needed'), group: 'Connections' },
   {
     code: 'endpoint_off_grid',
-    title: 'Symbol pin or wire end off connection grid',
+    title: _HKI('Symbol pin or wire end off connection grid'),
     group: 'Connections',
   },
   {
     code: 'four_way_junction',
-    title: 'Four connection points are joined together',
+    title: _HKI('Four connection points are joined together'),
     group: 'Connections',
   },
   {
     code: 'label_multiple_wires',
-    title: 'Label connects more than one wire',
+    title: _HKI('Label connects more than one wire'),
     group: 'Connections',
   },
-  { code: 'unconnected_wire_endpoint', title: 'Unconnected wire endpoint', group: 'Connections' },
+  {
+    code: 'unconnected_wire_endpoint',
+    title: _HKI('Unconnected wire endpoint'),
+    group: 'Connections',
+  },
 
-  { code: 'duplicate_reference', title: 'Duplicate reference designators', group: 'Conflicts' },
-  { code: 'pin_to_pin', title: 'Conflict problem between pins', group: 'Conflicts' },
+  {
+    code: 'duplicate_reference',
+    title: _HKI('Duplicate reference designators'),
+    group: 'Conflicts',
+  },
+  { code: 'pin_to_pin', title: _HKI('Conflict problem between pins'), group: 'Conflicts' },
   {
     code: 'unit_value_mismatch',
-    title: 'Units of same symbol have different values',
+    title: _HKI('Units of same symbol have different values'),
     group: 'Conflicts',
   },
   {
     code: 'different_unit_footprint',
-    title: 'Different footprint assigned in another unit of the symbol',
+    title: _HKI('Different footprint assigned in another unit of the symbol'),
     group: 'Conflicts',
   },
   {
     code: 'different_unit_net',
-    title: 'Different net assigned to a shared pin in another unit of the symbol',
+    title: _HKI('Different net assigned to a shared pin in another unit of the symbol'),
     group: 'Conflicts',
   },
   {
     code: 'duplicate_sheet_names',
-    title: 'Duplicate sheet names within a given sheet',
+    title: _HKI('Duplicate sheet names within a given sheet'),
     group: 'Conflicts',
   },
   {
     code: 'hier_label_mismatch',
-    title: 'Mismatch between hierarchical labels and sheet pins',
+    title: _HKI('Mismatch between hierarchical labels and sheet pins'),
     group: 'Conflicts',
   },
   {
     code: 'multiple_net_names',
-    title: 'More than one name given to this bus or net',
+    title: _HKI('More than one name given to this bus or net'),
     group: 'Conflicts',
   },
   {
     code: 'bus_definition_conflict',
-    title: 'Conflict between bus alias definitions across schematic sheets',
+    title: _HKI('Conflict between bus alias definitions across schematic sheets'),
     group: 'Conflicts',
   },
   {
     code: 'bus_to_bus_conflict',
-    title: 'Buses are graphically connected but share no bus members',
+    title: _HKI('Buses are graphically connected but share no bus members'),
     group: 'Conflicts',
   },
   {
     code: 'bus_to_net_conflict',
-    title: 'Invalid connection between bus and net items',
+    title: _HKI('Invalid connection between bus and net items'),
     group: 'Conflicts',
   },
   {
     code: 'net_not_bus_member',
-    title: 'Net is graphically connected to a bus but not a bus member',
+    title: _HKI('Net is graphically connected to a bus but not a bus member'),
     group: 'Conflicts',
   },
   {
     code: 'ground_pin_not_ground',
-    title: 'Ground pin not connected to ground net',
+    title: _HKI('Ground pin not connected to ground net'),
     group: 'Conflicts',
   },
 
-  { code: 'stacked_pin_name', title: 'Pin name resembles stacked pin', group: 'Miscellaneous' },
+  {
+    code: 'stacked_pin_name',
+    title: _HKI('Pin name resembles stacked pin'),
+    group: 'Miscellaneous',
+  },
   {
     code: 'field_name_whitespace',
-    title: 'Field name has leading or trailing whitespace',
+    title: _HKI('Field name has leading or trailing whitespace'),
     group: 'Miscellaneous',
   },
   {
@@ -311,52 +332,60 @@ export const ERC_ITEMS: { code: ErcCode; title: string; group: ErcGroup }[] = [
     title: 'Pin map references a pin number that no longer exists on the symbol',
     group: 'Miscellaneous',
   },
-  { code: 'unannotated', title: 'Symbol is not annotated', group: 'Miscellaneous' },
-  { code: 'unresolved_variable', title: 'Unresolved text variable', group: 'Miscellaneous' },
-  { code: 'undefined_netclass', title: 'Undefined netclass', group: 'Miscellaneous' },
-  { code: 'simulation_model_issue', title: 'SPICE model issue', group: 'Miscellaneous' },
+  { code: 'unannotated', title: _HKI('Symbol is not annotated'), group: 'Miscellaneous' },
+  { code: 'unresolved_variable', title: _HKI('Unresolved text variable'), group: 'Miscellaneous' },
+  { code: 'undefined_netclass', title: _HKI('Undefined netclass'), group: 'Miscellaneous' },
+  { code: 'simulation_model_issue', title: _HKI('SPICE model issue'), group: 'Miscellaneous' },
   {
     code: 'similar_labels',
-    title: 'Labels are similar (lower/upper case difference only)',
+    title: _HKI('Labels are similar (lower/upper case difference only)'),
     group: 'Miscellaneous',
   },
   {
     code: 'similar_power',
-    title: 'Power pins are similar (lower/upper case difference only)',
+    title: _HKI('Power pins are similar (lower/upper case difference only)'),
     group: 'Miscellaneous',
   },
   {
     code: 'similar_label_and_power',
-    title: 'Power pin and label are similar (lower/upper case difference only)',
+    title: _HKI('Power pin and label are similar (lower/upper case difference only)'),
     group: 'Miscellaneous',
   },
-  { code: 'lib_symbol_issues', title: 'Library symbol issue', group: 'Miscellaneous' },
+  { code: 'lib_symbol_issues', title: _HKI('Library symbol issue'), group: 'Miscellaneous' },
   {
     code: 'lib_symbol_mismatch',
-    title: "Symbol doesn't match copy in library",
+    title: _HKI("Symbol doesn't match copy in library"),
     group: 'Miscellaneous',
   },
-  { code: 'footprint_link_issues', title: 'Footprint link issue', group: 'Miscellaneous' },
+  { code: 'footprint_link_issues', title: _HKI('Footprint link issue'), group: 'Miscellaneous' },
   {
     code: 'footprint_filter',
-    title: "Assigned footprint doesn't match footprint filters",
+    title: _HKI("Assigned footprint doesn't match footprint filters"),
     group: 'Miscellaneous',
   },
-  { code: 'extra_units', title: 'Symbol has more units than are defined', group: 'Miscellaneous' },
-  { code: 'missing_unit', title: 'Symbol has units that are not placed', group: 'Miscellaneous' },
+  {
+    code: 'extra_units',
+    title: _HKI('Symbol has more units than are defined'),
+    group: 'Miscellaneous',
+  },
+  {
+    code: 'missing_unit',
+    title: _HKI('Symbol has units that are not placed'),
+    group: 'Miscellaneous',
+  },
   {
     code: 'missing_input_pin',
-    title: 'Symbol has input pins that are not placed',
+    title: _HKI('Symbol has input pins that are not placed'),
     group: 'Miscellaneous',
   },
   {
     code: 'missing_bidi_pin',
-    title: 'Symbol has bidirectional pins that are not placed',
+    title: _HKI('Symbol has bidirectional pins that are not placed'),
     group: 'Miscellaneous',
   },
   {
     code: 'missing_power_pin',
-    title: 'Symbol has power input pins that are not placed',
+    title: _HKI('Symbol has power input pins that are not placed'),
     group: 'Miscellaneous',
   },
 ];

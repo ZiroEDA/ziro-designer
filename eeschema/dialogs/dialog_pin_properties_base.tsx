@@ -33,6 +33,8 @@ import {
 } from '@ziroeda/wx/sizer.js';
 import { PinShapeComboBox } from '../widgets/pinshape_combobox.js';
 import { PinTypeComboBox } from '../widgets/pintype_combobox.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** A checkbox's value and whether it is enabled, with its tooltip. */
 export interface PIN_DIALOG_CHECK {
@@ -106,7 +108,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
   );
 
   return (
-    <DialogShim title="Pin Properties" onClose={p.onCancel} initialFocus={p.initialFocus}>
+    <DialogShim title={_('Pin Properties')} onClose={p.onCancel} initialFocus={p.initialFocus}>
       {/* mainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         {p.infoBar !== null && (
@@ -130,7 +132,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                   {/* gbSizer1 = wxGridBagSizer( 5, 5 ), AddGrowableCol( 1 ) */}
                   <GridBagSizer vgap={5} hgap={5} growableCols={[1]}>
                     <SizerItem pos={[0, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <StaticText label="Pin name:" />
+                      <StaticText label={_('Pin name:')} />
                     </SizerItem>
                     <SizerItem
                       pos={[0, 1]}
@@ -147,8 +149,8 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                     </SizerItem>
                     <SizerItem pos={[1, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                       <StaticText
-                        label="Pin number:"
-                        title="Pin number: 1 to 4 ASCII letters and/or digits"
+                        label={_('Pin number:')}
+                        title={_('Pin number: 1 to 4 ASCII letters and/or digits')}
                       />
                     </SizerItem>
                     <SizerItem
@@ -165,7 +167,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       />
                     </SizerItem>
                     <SizerItem pos={[2, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <StaticText label="Electrical type:" title="Used by the ERC." />
+                      <StaticText label={_('Electrical type:')} title={_('Used by the ERC.')} />
                     </SizerItem>
                     <SizerItem
                       pos={[2, 1]}
@@ -180,7 +182,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       />
                     </SizerItem>
                     <SizerItem pos={[3, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <StaticText label="Graphic style:" />
+                      <StaticText label={_('Graphic style:')} />
                     </SizerItem>
                     <SizerItem
                       pos={[3, 1]}
@@ -195,7 +197,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       />
                     </SizerItem>
                     <SizerItem pos={[4, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <StaticText label="X position:" />
+                      <StaticText label={_('X position:')} />
                     </SizerItem>
                     <SizerItem
                       pos={[4, 1]}
@@ -209,7 +211,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       <StaticText label={p.units} />
                     </SizerItem>
                     <SizerItem pos={[5, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <StaticText label="Y position:" />
+                      <StaticText label={_('Y position:')} />
                     </SizerItem>
                     <SizerItem pos={[5, 1]} flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
                       <TextCtrl value={p.m_posYCtrl} onChange={p.onPosY} ariaLabel="Y position" />
@@ -218,7 +220,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       <StaticText label={p.units} />
                     </SizerItem>
                     <SizerItem pos={[6, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <StaticText label="Orientation:" />
+                      <StaticText label={_('Orientation:')} />
                     </SizerItem>
                     <SizerItem
                       pos={[6, 1]}
@@ -235,20 +237,20 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       />
                     </SizerItem>
                     <SizerItem pos={[7, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <StaticText label="Pin length:" />
+                      <StaticText label={_('Pin length:')} />
                     </SizerItem>
                     <SizerItem pos={[7, 1]} flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
                       <TextCtrl
                         value={p.m_pinLengthCtrl}
                         onChange={p.onPinLength}
-                        ariaLabel="Pin length"
+                        ariaLabel={_HKI('Pin length')}
                       />
                     </SizerItem>
                     <SizerItem pos={[7, 2]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                       <StaticText label={p.units} />
                     </SizerItem>
                     <SizerItem pos={[8, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <StaticText label="Name text size:" />
+                      <StaticText label={_('Name text size:')} />
                     </SizerItem>
                     <SizerItem pos={[8, 1]} flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
                       <TextCtrl
@@ -261,7 +263,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       <StaticText label={p.units} />
                     </SizerItem>
                     <SizerItem pos={[9, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <StaticText label="Number text size:" />
+                      <StaticText label={_('Number text size:')} />
                     </SizerItem>
                     <SizerItem pos={[9, 1]} flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
                       <TextCtrl
@@ -285,14 +287,14 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                   <BoxSizer orient={wxVERTICAL}>
                     <SizerItem flag={wxBOTTOM} border={3}>
                       {check(
-                        'Common to all units in symbol',
+                        _('Common to all units in symbol'),
                         p.m_checkApplyToAllParts,
                         p.onApplyToAllParts,
                       )}
                     </SizerItem>
                     <SizerItem flag={wxBOTTOM} border={3}>
                       {check(
-                        'Common to all body styles',
+                        _('Common to all body styles'),
                         p.m_checkApplyToAllBodyStyles,
                         p.onApplyToAllBodyStyles,
                       )}
@@ -306,7 +308,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                   </BoxSizer>
                 </SizerItem>
                 <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                  <StaticText label="Preview:" />
+                  <StaticText label={_('Preview:')} />
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxEXPAND | wxLEFT} border={5} minSize={[150, 150]}>
                   {/* m_panelShowPin: wxBORDER_SIMPLE */}
@@ -321,7 +323,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
               <WxCollapsiblePane
-                label="Alternate pin function definitions"
+                label={_('Alternate pin function definitions')}
                 collapsed={p.m_alternatesTurndown.collapsed}
                 disabled={!p.m_alternatesTurndown.enabled}
                 title={p.m_alternatesTurndown.tooltip}

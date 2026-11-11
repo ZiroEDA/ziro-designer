@@ -25,6 +25,7 @@ import { MD_ALT, MD_CTRL, MD_SHIFT } from '@ziroeda/common/tool/tool_event.js';
 import type { SCH_BITMAP } from '../sch_bitmap.js';
 import type { SCH_LINE } from '../sch_line.js';
 import type { SCH_SYMBOL } from '../sch_symbol.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `'N'` in a hotkey: the character's code, as C++ `int` promotion gives it. */
 const ch = (c: string): number => c.charCodeAt(0);
@@ -69,8 +70,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InspectionTool.runERC')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Electrical Rules Checker')
-      .Tooltip('Show the electrical rules checker window')
+      .FriendlyName(_HKI('Electrical Rules Checker'))
+      .Tooltip(_HKI('Show the electrical rules checker window'))
       .Icon(BITMAPS.erc),
   );
 
@@ -78,8 +79,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InspectionTool.checkSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Symbol Checker')
-      .Tooltip('Show the symbol checker window')
+      .FriendlyName(_HKI('Symbol Checker'))
+      .Tooltip(_HKI('Show the symbol checker window'))
       .Icon(BITMAPS.erc),
   );
 
@@ -87,8 +88,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InspectionTool.diffSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Compare Symbol with Library')
-      .Tooltip('Show differences between schematic symbol and its library equivalent')
+      .FriendlyName(_HKI('Compare Symbol with Library'))
+      .Tooltip(_HKI('Show differences between schematic symbol and its library equivalent'))
       .Icon(BITMAPS.library),
   );
 
@@ -96,7 +97,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InspectionTool.showBusSyntaxHelp')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Bus Syntax Help')
+      .FriendlyName(_HKI('Show Bus Syntax Help'))
       .Icon(BITMAPS.bus_definition_tool),
   );
 
@@ -104,8 +105,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.showSimulator')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Simulator')
-      .Tooltip('Show simulation window for running SPICE or IBIS simulations.')
+      .FriendlyName(_HKI('Simulator'))
+      .Tooltip(_HKI('Show simulation window for running SPICE or IBIS simulations.'))
       .Icon(BITMAPS.simulator),
   );
 
@@ -113,7 +114,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.PointEditor.addCorner')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Create Corner')
+      .FriendlyName(_HKI('Create Corner'))
       .Icon(BITMAPS.add_corner),
   );
 
@@ -121,7 +122,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.PointEditor.removeCorner')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Remove Corner')
+      .FriendlyName(_HKI('Remove Corner'))
       .Icon(BITMAPS.delete_cursor),
   );
 
@@ -132,7 +133,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .DefaultHotkey(MD_ALT + ch('3'))
       .LegacyHotkeyName('Select Node')
       .FriendlyName('Select Node')
-      .Tooltip('Select a connection item under the cursor'),
+      .Tooltip(_HKI('Select a connection item under the cursor')),
   );
 
   static readonly selectConnection = new TOOL_ACTION(
@@ -141,9 +142,11 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch('4'))
       .LegacyHotkeyName('Select Connection')
-      .FriendlyName('Select/Expand Connection')
+      .FriendlyName(_HKI('Select/Expand Connection'))
       .Tooltip(
-        'Selects a connection or expands an existing selection to pins, symbols, or entire connections',
+        _HKI(
+          'Selects a connection or expands an existing selection to pins, symbols, or entire connections',
+        ),
       )
       .Icon(BITMAPS.net_highlight_schematic),
   );
@@ -158,8 +161,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SchDesignBlockControl.showDesignBlockPanel')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Design Blocks')
-      .Tooltip('Show/hide design blocks library')
+      .FriendlyName(_HKI('Design Blocks'))
+      .Tooltip(_HKI('Show/hide design blocks library'))
       .Icon(BITMAPS.search_tree),
   );
 
@@ -167,8 +170,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.RemoteSymbols.showPanel')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Remote Symbols')
-      .Tooltip('Show/hide the remote symbol panel')
+      .FriendlyName(_HKI('Remote Symbols'))
+      .Tooltip(_HKI('Show/hide the remote symbol panel'))
       .Icon(BITMAPS.library_browser),
   );
 
@@ -176,8 +179,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SchDesignBlockControl.saveSheetAsDesignBlock')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Save Current Sheet as Design Block...')
-      .Tooltip('Create a new design block from the current sheet')
+      .FriendlyName(_HKI('Save Current Sheet as Design Block...'))
+      .Tooltip(_HKI('Create a new design block from the current sheet'))
       .Icon(BITMAPS.new_component),
   );
 
@@ -185,8 +188,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SchDesignBlockControl.saveSelectionAsDesignBlock')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Save Selection as Design Block...')
-      .Tooltip('Create a new design block from the current selection')
+      .FriendlyName(_HKI('Save Selection as Design Block...'))
+      .Tooltip(_HKI('Create a new design block from the current selection'))
       .Icon(BITMAPS.new_component),
   );
 
@@ -194,8 +197,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SchDesignBlockControl.updateDesignBlockFromSheet')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Update Design Block from Current Sheet')
-      .Tooltip('Set design block schematic to current sheet')
+      .FriendlyName(_HKI('Update Design Block from Current Sheet'))
+      .Tooltip(_HKI('Set design block schematic to current sheet'))
       .Icon(BITMAPS.save),
   );
 
@@ -203,8 +206,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SchDesignBlockControl.updateDesignBlockFromSelection')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Update Design Block from Selection')
-      .Tooltip('Set design block schematic to current selection')
+      .FriendlyName(_HKI('Update Design Block from Selection'))
+      .Tooltip(_HKI('Set design block schematic to current selection'))
       .Icon(BITMAPS.save),
   );
 
@@ -212,8 +215,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SchDesignBlockControl.deleteDesignBlock')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Delete Design Block')
-      .Tooltip('Remove the selected design block from its library')
+      .FriendlyName(_HKI('Delete Design Block'))
+      .Tooltip(_HKI('Remove the selected design block from its library'))
       .Icon(BITMAPS.trash),
   );
 
@@ -221,8 +224,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SchDesignBlockControl.editDesignBlockProperties')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Properties...')
-      .Tooltip('Edit properties of design block')
+      .FriendlyName(_HKI('Properties...'))
+      .Tooltip(_HKI('Edit properties of design block'))
       .Icon(BITMAPS.edit),
   );
 
@@ -232,8 +235,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + MD_SHIFT + ch('S'))
       .LegacyHotkeyName('Save As')
-      .FriendlyName('Save Library As...')
-      .Tooltip('Save the current library to a new file'),
+      .FriendlyName(_HKI('Save Library As...'))
+      .Tooltip(_HKI('Save the current library to a new file')),
   );
 
   static readonly newSymbol = new TOOL_ACTION(
@@ -241,8 +244,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.SymbolLibraryControl.newSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch('N'))
-      .FriendlyName('New Symbol...')
-      .Tooltip('Create a new symbol in an existing library')
+      .FriendlyName(_HKI('New Symbol...'))
+      .Tooltip(_HKI('Create a new symbol in an existing library'))
       .Icon(BITMAPS.new_component),
   );
 
@@ -250,8 +253,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.deriveFromExistingSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Derive from Existing Symbol...')
-      .Tooltip('Create a new symbol, derived from an existing symbol')
+      .FriendlyName(_HKI('Derive from Existing Symbol...'))
+      .Tooltip(_HKI('Create a new symbol, derived from an existing symbol'))
       .Icon(BITMAPS.new_component),
   );
 
@@ -259,8 +262,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.editSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Edit Symbol')
-      .Tooltip('Show selected symbol on editor canvas')
+      .FriendlyName(_HKI('Edit Symbol'))
+      .Tooltip(_HKI('Show selected symbol on editor canvas'))
       .Icon(BITMAPS.edit),
   );
 
@@ -268,7 +271,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.duplicateSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Duplicate Symbol')
+      .FriendlyName(_HKI('Duplicate Symbol'))
       .Icon(BITMAPS.duplicate),
   );
 
@@ -276,7 +279,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.renameFootprint')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Rename Symbol...')
+      .FriendlyName(_HKI('Rename Symbol...'))
       .Icon(BITMAPS.edit),
   );
 
@@ -284,8 +287,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.saveSymbolAs')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Save As...')
-      .Tooltip('Save the current symbol to a different library or name')
+      .FriendlyName(_HKI('Save As...'))
+      .Tooltip(_HKI('Save the current symbol to a different library or name'))
       .Icon(BITMAPS.save_as),
   );
 
@@ -293,8 +296,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.saveSymbolCopyAs')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Save Copy As...')
-      .Tooltip('Save a copy of the current symbol to a different library or name')
+      .FriendlyName(_HKI('Save Copy As...'))
+      .Tooltip(_HKI('Save a copy of the current symbol to a different library or name'))
       .Icon(BITMAPS.save_as),
   );
 
@@ -302,8 +305,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.deleteSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Delete Symbol')
-      .Tooltip('Remove the selected symbol from its library')
+      .FriendlyName(_HKI('Delete Symbol'))
+      .Tooltip(_HKI('Remove the selected symbol from its library'))
       .Icon(BITMAPS.trash),
   );
 
@@ -311,7 +314,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.cutSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Cut')
+      .FriendlyName(_HKI('Cut'))
       .Icon(BITMAPS.cut),
   );
 
@@ -319,7 +322,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.copySymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Copy')
+      .FriendlyName(_HKI('Copy'))
       .Icon(BITMAPS.copy),
   );
 
@@ -327,7 +330,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.pasteSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Paste Symbol')
+      .FriendlyName(_HKI('Paste Symbol'))
       .Icon(BITMAPS.paste),
   );
 
@@ -335,8 +338,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.importSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Import Symbol...')
-      .Tooltip('Import a symbol to the current library')
+      .FriendlyName(_HKI('Import Symbol...'))
+      .Tooltip(_HKI('Import a symbol to the current library'))
       .Icon(BITMAPS.import_part),
   );
 
@@ -344,8 +347,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.exportSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Export...')
-      .Tooltip('Export a symbol to a new library file')
+      .FriendlyName(_HKI('Export...'))
+      .Tooltip(_HKI('Export a symbol to a new library file'))
       .Icon(BITMAPS.export_part),
   );
 
@@ -353,8 +356,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.updateSymbolFields')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Update Symbol Fields...')
-      .Tooltip('Update symbol to match changes made in parent symbol')
+      .FriendlyName(_HKI('Update Symbol Fields...'))
+      .Tooltip(_HKI('Update symbol to match changes made in parent symbol'))
       .Icon(BITMAPS.refresh),
   );
 
@@ -362,16 +365,16 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.flattenSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Flatten Symbol')
-      .Tooltip('Remove inheritance from symbol'),
+      .FriendlyName(_HKI('Flatten Symbol'))
+      .Tooltip(_HKI('Remove inheritance from symbol')),
   );
 
   static readonly showLibFieldsTable = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.showLibraryFieldsTable')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Bulk Edit Symbol Fields...')
-      .Tooltip('Edit a table of fields from all symbols in the library')
+      .FriendlyName(_HKI('Bulk Edit Symbol Fields...'))
+      .Tooltip(_HKI('Edit a table of fields from all symbols in the library'))
       .Icon(BITMAPS.table),
   );
 
@@ -379,8 +382,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.showRelatedLibraryFieldsTable')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Bulk Edit Related Symbol Fields...')
-      .Tooltip('Edit a table of fields from all symbols related to the selected symbol')
+      .FriendlyName(_HKI('Bulk Edit Related Symbol Fields...'))
+      .Tooltip(_HKI('Edit a table of fields from all symbols related to the selected symbol'))
       .Icon(BITMAPS.table),
   );
 
@@ -388,8 +391,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.addSymbolToSchematic')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Add Symbol to Schematic')
-      .Tooltip('Add the current symbol to the schematic')
+      .FriendlyName(_HKI('Add Symbol to Schematic'))
+      .Tooltip(_HKI('Add the current symbol to the schematic'))
       .Icon(BITMAPS.add_symbol_to_schematic),
   );
 
@@ -397,8 +400,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.showElectricalTypes')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Pin Electrical Types')
-      .Tooltip('Annotate pins with their electrical types')
+      .FriendlyName(_HKI('Show Pin Electrical Types'))
+      .Tooltip(_HKI('Annotate pins with their electrical types'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.pin_show_etype),
   );
@@ -407,8 +410,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.showPinNumbers')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Pin Numbers')
-      .Tooltip('Annotate pins with their numbers')
+      .FriendlyName(_HKI('Show Pin Numbers'))
+      .Tooltip(_HKI('Annotate pins with their numbers'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.pin),
   );
@@ -417,8 +420,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.exportSymbolView')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Export View as PNG...')
-      .Tooltip('Create PNG file from the current view')
+      .FriendlyName(_HKI('Export View as PNG...'))
+      .Tooltip(_HKI('Create PNG file from the current view'))
       .Icon(BITMAPS.export_png),
   );
 
@@ -426,8 +429,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.exportSymbolAsSVG')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Export Symbol as SVG...')
-      .Tooltip('Create SVG file from the current symbol')
+      .FriendlyName(_HKI('Export Symbol as SVG...'))
+      .Tooltip(_HKI('Create SVG file from the current symbol'))
       .Icon(BITMAPS.export_svg),
   );
 
@@ -435,9 +438,11 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.toggleSyncedPinsMode')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Synchronized Pins Mode')
+      .FriendlyName(_HKI('Synchronized Pins Mode'))
       .Tooltip(
-        'Synchronized Pins Mode\nWhen enabled propagates all changes (except pin numbers) to other units.\nEnabled by default for multiunit parts with interchangeable units.',
+        _HKI(
+          'Synchronized Pins Mode\nWhen enabled propagates all changes (except pin numbers) to other units.\nEnabled by default for multiunit parts with interchangeable units.',
+        ),
       )
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.pin2pin),
@@ -447,7 +452,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.showHiddenPins')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Hidden Pins')
+      .FriendlyName(_HKI('Show Hidden Pins'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.hidden_pin),
   );
@@ -456,7 +461,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.showHiddenFields')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Hidden Fields')
+      .FriendlyName(_HKI('Show Hidden Fields'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.text_sketch),
   );
@@ -465,7 +470,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.previousSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Display previous symbol')
+      .FriendlyName(_HKI('Display previous symbol'))
       .Icon(BITMAPS.lib_previous),
   );
 
@@ -473,7 +478,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolLibraryControl.nextSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Display next symbol')
+      .FriendlyName(_HKI('Display next symbol'))
       .Icon(BITMAPS.lib_next),
   );
 
@@ -483,7 +488,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('P'))
       .LegacyHotkeyName('Create Pin')
-      .FriendlyName('Draw Pins')
+      .FriendlyName(_HKI('Draw Pins'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.pin)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -494,7 +499,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolDrawing.placeSymbolText')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Text')
+      .FriendlyName(_HKI('Draw Text'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.text)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -505,7 +510,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolDrawing.drawSymbolTextBox')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Text Boxes')
+      .FriendlyName(_HKI('Draw Text Boxes'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_textbox)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -515,8 +520,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolDrawing.drawSymbolLines')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Lines')
-      .Tooltip('Draw connected graphic lines')
+      .FriendlyName(_HKI('Draw Lines'))
+      .Tooltip(_HKI('Draw connected graphic lines'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_graphical_segments)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -527,7 +532,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolDrawing.drawSymbolPolygon')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Polygons')
+      .FriendlyName(_HKI('Draw Polygons'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_graphical_polygon)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -538,7 +543,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.SymbolDrawing.placeSymbolAnchor')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Move Symbol Anchor')
+      .FriendlyName(_HKI('Move Symbol Anchor'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.anchor)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -548,8 +553,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.PinEditing.pushPinLength')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Push Pin Length')
-      .Tooltip('Copy pin length to other pins in symbol')
+      .FriendlyName(_HKI('Push Pin Length'))
+      .Tooltip(_HKI('Copy pin length to other pins in symbol'))
       .Icon(BITMAPS.pin_size_to),
   );
 
@@ -557,8 +562,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.PinEditing.pushPinNameSize')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Push Pin Name Size')
-      .Tooltip('Copy pin name size to other pins in symbol')
+      .FriendlyName(_HKI('Push Pin Name Size'))
+      .Tooltip(_HKI('Copy pin name size to other pins in symbol'))
       .Icon(BITMAPS.pin_size_to),
   );
 
@@ -566,8 +571,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.PinEditing.pushPinNumSize')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Push Pin Number Size')
-      .Tooltip('Copy pin number size to other pins in symbol')
+      .FriendlyName(_HKI('Push Pin Number Size'))
+      .Tooltip(_HKI('Copy pin number size to other pins in symbol'))
       .Icon(BITMAPS.pin_size_to),
   );
 
@@ -577,7 +582,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('A'))
       .LegacyHotkeyName('Add Symbol')
-      .FriendlyName('Place Symbols')
+      .FriendlyName(_HKI('Place Symbols'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_component)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -588,8 +593,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.placeNextSymbolUnit')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Place Next Symbol Unit')
-      .Tooltip('Place the next unit of the current symbol that is missing from the schematic')
+      .FriendlyName(_HKI('Place Next Symbol Unit'))
+      .Tooltip(_HKI('Place the next unit of the current symbol that is missing from the schematic'))
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
       .Parameter<PLACE_SYMBOL_UNIT_PARAMS>({ m_Symbol: null, m_Unit: 0 }),
   );
@@ -600,7 +605,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('P'))
       .LegacyHotkeyName('Add Power')
-      .FriendlyName('Place Power Symbols')
+      .FriendlyName(_HKI('Place Power Symbols'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_power)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -612,8 +617,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.InteractiveDrawing.placeDesignBlock')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_SHIFT + ch('B'))
-      .FriendlyName('Place Design Block')
-      .Tooltip('Add selected design block to current sheet')
+      .FriendlyName(_HKI('Place Design Block'))
+      .Tooltip(_HKI('Add selected design block to current sheet'))
       .Icon(BITMAPS.add_component)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
       .Parameter<DESIGN_BLOCK | null>(null),
@@ -623,8 +628,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.placeLinkedDesignBlock')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Place Linked Design Block')
-      .Tooltip('Place design block linked to selected group')
+      .FriendlyName(_HKI('Place Linked Design Block'))
+      .Tooltip(_HKI('Place design block linked to selected group'))
       .Icon(BITMAPS.add_component)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -633,8 +638,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.saveToLinkedDesignBlock')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Save to Linked Design Block')
-      .Tooltip('Save selected group to linked design block')
+      .FriendlyName(_HKI('Save to Linked Design Block'))
+      .Tooltip(_HKI('Save selected group to linked design block'))
       .Icon(BITMAPS.add_component)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -645,7 +650,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('Q'))
       .LegacyHotkeyName('Add No Connect Flag')
-      .FriendlyName('Place No Connect Flags')
+      .FriendlyName(_HKI('Place No Connect Flags'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.noconn)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -658,7 +663,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('J'))
       .LegacyHotkeyName('Add Junction')
-      .FriendlyName('Place Junctions')
+      .FriendlyName(_HKI('Place Junctions'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_junction)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -671,7 +676,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('Z'))
       .LegacyHotkeyName('Add Wire Entry')
-      .FriendlyName('Place Wire to Bus Entries')
+      .FriendlyName(_HKI('Place Wire to Bus Entries'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_line2bus)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -684,7 +689,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('L'))
       .LegacyHotkeyName('Add Label')
-      .FriendlyName('Place Net Labels')
+      .FriendlyName(_HKI('Place Net Labels'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_label)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -694,7 +699,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.placeClassLabel')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Place Directive Labels')
+      .FriendlyName(_HKI('Place Directive Labels'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_class_flag)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -706,7 +711,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('H'))
       .LegacyHotkeyName('Add Hierarchical Label')
-      .FriendlyName('Place Hierarchical Labels')
+      .FriendlyName(_HKI('Place Hierarchical Labels'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_hierarchical_label)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -718,7 +723,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('S'))
       .LegacyHotkeyName('Add Sheet')
-      .FriendlyName('Draw Hierarchical Sheets')
+      .FriendlyName(_HKI('Draw Hierarchical Sheets'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_hierarchical_subsheet)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -729,8 +734,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.drawSheetFromFile')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Sheet from File')
-      .Tooltip('Copy sheet into project and draw on current sheet')
+      .FriendlyName(_HKI('Draw Sheet from File'))
+      .Tooltip(_HKI('Copy sheet into project and draw on current sheet'))
       .Icon(BITMAPS.add_hierarchical_subsheet)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
       .Parameter<string | null>(null),
@@ -740,8 +745,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.drawSheetFromDesignBlock')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Sheet from Design Block')
-      .Tooltip('Copy design block into project as a sheet on current sheet')
+      .FriendlyName(_HKI('Draw Sheet from Design Block'))
+      .Tooltip(_HKI('Copy design block into project as a sheet on current sheet'))
       .Icon(BITMAPS.add_hierarchical_subsheet)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
       .Parameter<DESIGN_BLOCK | null>(null),
@@ -751,8 +756,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.placeSheetPin')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Place Pins from Sheet')
-      .Tooltip('Add sheet pins from existing hierarchical labels found on that sheet')
+      .FriendlyName(_HKI('Place Pins from Sheet'))
+      .Tooltip(_HKI('Add sheet pins from existing hierarchical labels found on that sheet'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_hierar_pin)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -762,16 +767,16 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.autoplaceAllSheetPins')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Autoplace All Sheet Pins')
-      .Tooltip('Imports and auto places all sheet pins'),
+      .FriendlyName(_HKI('Autoplace All Sheet Pins'))
+      .Tooltip(_HKI('Imports and auto places all sheet pins')),
   );
 
   static readonly syncSheetPins = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.syncSheetPins')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Sync Selected Sheet Pins...')
-      .Tooltip('Synchronize selected sheet pins and hierarchical labels')
+      .FriendlyName(_HKI('Sync Selected Sheet Pins...'))
+      .Tooltip(_HKI('Synchronize selected sheet pins and hierarchical labels'))
       .Icon(BITMAPS.import_hierarchical_label)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -780,8 +785,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.syncAllSheetsPins')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Sync All Sheet Pins...')
-      .Tooltip('Synchronize all sheet pins and hierarchical labels')
+      .FriendlyName(_HKI('Sync All Sheet Pins...'))
+      .Tooltip(_HKI('Synchronize all sheet pins and hierarchical labels'))
       .Icon(BITMAPS.import_hierarchical_label)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -790,8 +795,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.importSheet')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Import Sheet...')
-      .Tooltip('Import sheet into project')
+      .FriendlyName(_HKI('Import Sheet...'))
+      .Tooltip(_HKI('Import sheet into project'))
       .Icon(BITMAPS.add_hierarchical_subsheet)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
       .Parameter<string | null>(null),
@@ -803,7 +808,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch('L'))
       .LegacyHotkeyName('Add Global Label')
-      .FriendlyName('Place Global Labels')
+      .FriendlyName(_HKI('Place Global Labels'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_glabel)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -815,7 +820,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('T'))
       .LegacyHotkeyName('Add Graphic Text')
-      .FriendlyName('Draw Text')
+      .FriendlyName(_HKI('Draw Text'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.text)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -825,7 +830,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.drawTextBox')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Text Boxes')
+      .FriendlyName(_HKI('Draw Text Boxes'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_textbox)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -836,7 +841,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.drawTable')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Tables')
+      .FriendlyName(_HKI('Draw Tables'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.table)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -846,7 +851,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.drawRectangle')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Rectangles')
+      .FriendlyName(_HKI('Draw Rectangles'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_rectangle)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -857,7 +862,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.drawCircle')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Circles')
+      .FriendlyName(_HKI('Draw Circles'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_circle)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -868,7 +873,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.drawArc')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Arcs')
+      .FriendlyName(_HKI('Draw Arcs'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_arc)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -879,7 +884,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.drawBezier')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Bezier Curve')
+      .FriendlyName(_HKI('Draw Bezier Curve'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_bezier)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -890,7 +895,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.placeImage')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Place Images')
+      .FriendlyName(_HKI('Place Images'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.image)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -901,7 +906,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.drawRuleArea')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Draw Rule Areas')
+      .FriendlyName(_HKI('Draw Rule Areas'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_keepout_area)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -912,8 +917,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.deleteLastPoint')
       .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
-      .FriendlyName('Delete Last Point')
-      .Tooltip('Delete the last point added to the current item')
+      .FriendlyName(_HKI('Delete Last Point'))
+      .Tooltip(_HKI('Delete the last point added to the current item'))
       .Icon(BITMAPS.undo),
   );
 
@@ -921,8 +926,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveDrawing.closeOutline')
       .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
-      .FriendlyName('Close Outline')
-      .Tooltip('Close the in-progress outline')
+      .FriendlyName(_HKI('Close Outline'))
+      .Tooltip(_HKI('Close the in-progress outline'))
       .Icon(BITMAPS.checked_ok),
   );
 
@@ -934,7 +939,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .DefaultHotkey(WXK.WXK_INSERT)
       .LegacyHotkeyName('Repeat Last Item')
       .FriendlyName('Repeat Last Item')
-      .Tooltip('Duplicates the last drawn item'),
+      .Tooltip(_HKI('Duplicates the last drawn item')),
   );
 
   static readonly rotateCW = new TOOL_ACTION(
@@ -942,7 +947,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.InteractiveEdit.rotateCW')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_SHIFT + ch('R'))
-      .FriendlyName('Rotate Clockwise')
+      .FriendlyName(_HKI('Rotate Clockwise'))
       .Icon(BITMAPS.rotate_cw),
   );
 
@@ -952,7 +957,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('R'))
       .LegacyHotkeyName('Rotate Item')
-      .FriendlyName('Rotate Counterclockwise')
+      .FriendlyName(_HKI('Rotate Counterclockwise'))
       .Icon(BITMAPS.rotate_ccw),
   );
 
@@ -962,8 +967,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('Y'))
       .LegacyHotkeyName('Mirror X')
-      .FriendlyName('Mirror Vertically')
-      .Tooltip('Flips selected item(s) from top to bottom')
+      .FriendlyName(_HKI('Mirror Vertically'))
+      .Tooltip(_HKI('Flips selected item(s) from top to bottom'))
       .Icon(BITMAPS.mirror_v),
   );
 
@@ -973,8 +978,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('X'))
       .LegacyHotkeyName('Mirror Y')
-      .FriendlyName('Mirror Horizontally')
-      .Tooltip('Flips selected item(s) from left to right')
+      .FriendlyName(_HKI('Mirror Horizontally'))
+      .Tooltip(_HKI('Flips selected item(s) from left to right'))
       .Icon(BITMAPS.mirror_h),
   );
 
@@ -983,8 +988,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.InteractiveEdit.swap')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_ALT + ch('S'))
-      .FriendlyName('Swap')
-      .Tooltip('Swap positions of selected items')
+      .FriendlyName(_HKI('Swap'))
+      .Tooltip(_HKI('Swap positions of selected items'))
       .Icon(BITMAPS.swap),
   );
 
@@ -992,8 +997,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.swapPins')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Swap Pins')
-      .Tooltip("Swap the selected symbol pins' positions")
+      .FriendlyName(_HKI('Swap Pins'))
+      .Tooltip(_HKI("Swap the selected symbol pins' positions"))
       .Icon(BITMAPS.swap),
   );
 
@@ -1001,8 +1006,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.swapPinLabels')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Swap Pin Labels')
-      .Tooltip('Swap the labels attached to selected pins')
+      .FriendlyName(_HKI('Swap Pin Labels'))
+      .Tooltip(_HKI('Swap the labels attached to selected pins'))
       .Icon(BITMAPS.swap),
   );
 
@@ -1010,8 +1015,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.swapUnitLabels')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Swap Unit Labels')
-      .Tooltip('Swap labels between selected units')
+      .FriendlyName(_HKI('Swap Unit Labels'))
+      .Tooltip(_HKI('Swap labels between selected units'))
       .Icon(BITMAPS.swap),
   );
 
@@ -1021,7 +1026,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('E'))
       .LegacyHotkeyName('Edit Item')
-      .FriendlyName('Properties...')
+      .FriendlyName(_HKI('Properties...'))
       .Icon(BITMAPS.edit),
   );
 
@@ -1031,7 +1036,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('U'))
       .LegacyHotkeyName('Edit Symbol Reference')
-      .FriendlyName('Edit Reference Designator...')
+      .FriendlyName(_HKI('Edit Reference Designator...'))
       .Icon(BITMAPS.edit_comp_ref),
   );
 
@@ -1041,7 +1046,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('V'))
       .LegacyHotkeyName('Edit Symbol Value')
-      .FriendlyName('Edit Value...')
+      .FriendlyName(_HKI('Edit Value...'))
       .Icon(BITMAPS.edit_comp_value),
   );
 
@@ -1051,7 +1056,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('F'))
       .LegacyHotkeyName('Edit Symbol Footprint')
-      .FriendlyName('Edit Footprint...')
+      .FriendlyName(_HKI('Edit Footprint...'))
       .Icon(BITMAPS.edit_comp_footprint),
   );
 
@@ -1062,7 +1067,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .DefaultHotkey(ch('O'))
       .LegacyHotkeyName('Autoplace Fields')
       .FriendlyName('Autoplace Fields')
-      .Tooltip("Runs the automatic placement algorithm on the symbol's (or sheet's) fields")
+      .Tooltip(_HKI("Runs the automatic placement algorithm on the symbol's (or sheet's) fields"))
       .Icon(BITMAPS.autoplace_fields),
   );
 
@@ -1070,8 +1075,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.changeSymbols')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Change Symbols...')
-      .Tooltip('Assign different symbols from the library')
+      .FriendlyName(_HKI('Change Symbols...'))
+      .Tooltip(_HKI('Assign different symbols from the library'))
       .Icon(BITMAPS.exchange),
   );
 
@@ -1079,8 +1084,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.updateSymbols')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Update Symbols from Library...')
-      .Tooltip('Update symbols to include any changes from the library')
+      .FriendlyName(_HKI('Update Symbols from Library...'))
+      .Tooltip(_HKI('Update symbols to include any changes from the library'))
       .Icon(BITMAPS.refresh),
   );
 
@@ -1088,8 +1093,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.changeSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Change Symbol...')
-      .Tooltip('Assign a different symbol from the library')
+      .FriendlyName(_HKI('Change Symbol...'))
+      .Tooltip(_HKI('Assign a different symbol from the library'))
       .Icon(BITMAPS.exchange),
   );
 
@@ -1097,8 +1102,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.updateSymbol')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Update Symbol...')
-      .Tooltip('Update symbol to include any changes from the library')
+      .FriendlyName(_HKI('Update Symbol...'))
+      .Tooltip(_HKI('Update symbol to include any changes from the library'))
       .Icon(BITMAPS.refresh),
   );
 
@@ -1106,8 +1111,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.assignNetclass')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Assign Netclass...')
-      .Tooltip('Assign a netclass to nets matching a pattern')
+      .FriendlyName(_HKI('Assign Netclass...'))
+      .Tooltip(_HKI('Assign a netclass to nets matching a pattern'))
       .Icon(BITMAPS.netlist),
   );
 
@@ -1115,16 +1120,16 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.findNetInInspector')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Find in Net Navigator')
-      .Tooltip('Locate the selected net in the net navigator'),
+      .FriendlyName(_HKI('Find in Net Navigator'))
+      .Tooltip(_HKI('Locate the selected net in the net navigator')),
   );
 
   static readonly cycleBodyStyle = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.toggleDeMorgan')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Cycle Body Style')
-      .Tooltip('Switch between De Morgan (or other) representations')
+      .FriendlyName(_HKI('Cycle Body Style'))
+      .Tooltip(_HKI('Switch between De Morgan (or other) representations'))
       .Icon(BITMAPS.morgan2),
   );
 
@@ -1132,8 +1137,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.toLabel')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Change to Label')
-      .Tooltip('Change existing item to a label')
+      .FriendlyName(_HKI('Change to Label'))
+      .Tooltip(_HKI('Change existing item to a label'))
       .Icon(BITMAPS.add_line_label)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(KICAD_T.SCH_LABEL_T),
@@ -1143,8 +1148,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.toCLabel')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Change to Directive Label')
-      .Tooltip('Change existing item to a directive label')
+      .FriendlyName(_HKI('Change to Directive Label'))
+      .Tooltip(_HKI('Change existing item to a directive label'))
       .Icon(BITMAPS.add_class_flag)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(KICAD_T.SCH_DIRECTIVE_LABEL_T),
@@ -1154,8 +1159,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.toHLabel')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Change to Hierarchical Label')
-      .Tooltip('Change existing item to a hierarchical label')
+      .FriendlyName(_HKI('Change to Hierarchical Label'))
+      .Tooltip(_HKI('Change existing item to a hierarchical label'))
       .Icon(BITMAPS.add_hierarchical_label)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(KICAD_T.SCH_HIER_LABEL_T),
@@ -1165,8 +1170,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.toGLabel')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Change to Global Label')
-      .Tooltip('Change existing item to a global label')
+      .FriendlyName(_HKI('Change to Global Label'))
+      .Tooltip(_HKI('Change existing item to a global label'))
       .Icon(BITMAPS.add_glabel)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(KICAD_T.SCH_GLOBAL_LABEL_T),
@@ -1176,8 +1181,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.toText')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Change to Text')
-      .Tooltip('Change existing item to a text comment')
+      .FriendlyName(_HKI('Change to Text'))
+      .Tooltip(_HKI('Change existing item to a text comment'))
       .Icon(BITMAPS.text)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(KICAD_T.SCH_TEXT_T),
@@ -1187,8 +1192,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.toTextBox')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Change to Text Box')
-      .Tooltip('Change existing item to a text box')
+      .FriendlyName(_HKI('Change to Text Box'))
+      .Tooltip(_HKI('Change existing item to a text box'))
       .Icon(BITMAPS.add_textbox)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(KICAD_T.SCH_TEXTBOX_T),
@@ -1198,16 +1203,16 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.cleanupSheetPins')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Cleanup Sheet Pins')
-      .Tooltip('Delete unreferenced sheet pins'),
+      .FriendlyName(_HKI('Cleanup Sheet Pins'))
+      .Tooltip(_HKI('Delete unreferenced sheet pins')),
   );
 
   static readonly editTextAndGraphics = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.editTextAndGraphics')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Edit Text & Graphics Properties...')
-      .Tooltip('Edit text and graphics properties globally across schematic')
+      .FriendlyName(_HKI('Edit Text & Graphics Properties...'))
+      .Tooltip(_HKI('Edit text and graphics properties globally across schematic'))
       .Icon(BITMAPS.text),
   );
 
@@ -1215,7 +1220,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.symbolProperties')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Symbol Properties...')
+      .FriendlyName(_HKI('Symbol Properties...'))
       .Icon(BITMAPS.part_properties),
   );
 
@@ -1223,8 +1228,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.pinTable')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Pin Table...')
-      .Tooltip('Displays pin table for bulk editing of pins')
+      .FriendlyName(_HKI('Pin Table...'))
+      .Tooltip(_HKI('Displays pin table for bulk editing of pins'))
       .Icon(BITMAPS.pin_table),
   );
 
@@ -1232,8 +1237,10 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.convertStackedPins')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Convert Stacked Pins')
-      .Tooltip('Convert multiple pins at the same location to a single pin with stacked notation')
+      .FriendlyName(_HKI('Convert Stacked Pins'))
+      .Tooltip(
+        _HKI('Convert multiple pins at the same location to a single pin with stacked notation'),
+      )
       .Icon(BITMAPS.pin),
   );
 
@@ -1241,8 +1248,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.explodeStackedPin')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Explode Stacked Pin')
-      .Tooltip('Convert a pin with stacked notation to multiple individual pins')
+      .FriendlyName(_HKI('Explode Stacked Pin'))
+      .Tooltip(_HKI('Convert a pin with stacked notation to multiple individual pins'))
       .Icon(BITMAPS.pin),
   );
 
@@ -1250,8 +1257,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.breakWire')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Break')
-      .Tooltip('Divide into connected segments')
+      .FriendlyName(_HKI('Break'))
+      .Tooltip(_HKI('Divide into connected segments'))
       .Icon(BITMAPS.break_line),
   );
 
@@ -1259,8 +1266,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.InteractiveEdit.slice')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Slice')
-      .Tooltip('Divide into unconnected segments')
+      .FriendlyName(_HKI('Slice'))
+      .Tooltip(_HKI('Divide into unconnected segments'))
       .Icon(BITMAPS.slice_line),
   );
 
@@ -1275,8 +1282,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.EditorControl.highlightNet')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('`'))
-      .FriendlyName('Highlight Net')
-      .Tooltip('Highlight net under cursor')
+      .FriendlyName(_HKI('Highlight Net'))
+      .Tooltip(_HKI('Highlight net under cursor'))
       .Icon(BITMAPS.net_highlight_schematic),
   );
 
@@ -1285,8 +1292,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.EditorControl.clearHighlight')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('~'))
-      .FriendlyName('Clear Net Highlighting')
-      .Tooltip('Clear any existing net highlighting'),
+      .FriendlyName(_HKI('Clear Net Highlighting'))
+      .Tooltip(_HKI('Clear any existing net highlighting')),
   );
 
   static readonly updateNetHighlighting = new TOOL_ACTION(
@@ -1299,8 +1306,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.highlightNetTool')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Highlight Nets')
-      .Tooltip('Highlight wires and pins of a net')
+      .FriendlyName(_HKI('Highlight Nets'))
+      .Tooltip(_HKI('Highlight wires and pins of a net'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.net_highlight_schematic)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
@@ -1310,8 +1317,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.showNetNavigator')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Net Navigator')
-      .Tooltip('Show/hide the net navigator'),
+      .FriendlyName(_HKI('Net Navigator'))
+      .Tooltip(_HKI('Show/hide the net navigator')),
   );
 
   static readonly editWithLibEdit = new TOOL_ACTION(
@@ -1321,7 +1328,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .DefaultHotkey(MD_CTRL + ch('E'))
       .LegacyHotkeyName('Edit with Symbol Editor')
       .FriendlyName('Edit with Symbol Editor')
-      .Tooltip('Open the selected symbol in the Symbol Editor')
+      .Tooltip(_HKI('Open the selected symbol in the Symbol Editor'))
       .Icon(BITMAPS.libedit),
   );
 
@@ -1329,40 +1336,40 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.setExcludeFromBOM')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Exclude from Bill of Materials')
-      .Tooltip('Set the exclude from bill of materials attribute'),
+      .FriendlyName(_HKI('Exclude from Bill of Materials'))
+      .Tooltip(_HKI('Set the exclude from bill of materials attribute')),
   );
 
   static readonly setExcludeFromSim = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.setExcludeFromSimulation')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Exclude from Simulation')
-      .Tooltip('Set the exclude from simulation attribute'),
+      .FriendlyName(_HKI('Exclude from Simulation'))
+      .Tooltip(_HKI('Set the exclude from simulation attribute')),
   );
 
   static readonly setExcludeFromBoard = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.setExcludeFromBoard')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Exclude from Board')
-      .Tooltip('Set the exclude from board attribute'),
+      .FriendlyName(_HKI('Exclude from Board'))
+      .Tooltip(_HKI('Set the exclude from board attribute')),
   );
 
   static readonly setExcludeFromPosFiles = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.setExcludeFromPosFiles')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Exclude from Position Files')
-      .Tooltip('Set the exclude from position files attribute'),
+      .FriendlyName(_HKI('Exclude from Position Files'))
+      .Tooltip(_HKI('Set the exclude from position files attribute')),
   );
 
   static readonly setDNP = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.setDNP')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Do not Populate')
-      .Tooltip('Set the do not populate attribute'),
+      .FriendlyName(_HKI('Do not Populate'))
+      .Tooltip(_HKI('Set the do not populate attribute')),
   );
 
   static readonly editLibSymbolWithLibEdit = new TOOL_ACTION(
@@ -1370,8 +1377,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.EditorControl.editLibSymbolWithSymbolEditor')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + MD_SHIFT + ch('E'))
-      .FriendlyName('Edit Library Symbol...')
-      .Tooltip('Open the library symbol in the Symbol Editor')
+      .FriendlyName(_HKI('Edit Library Symbol...'))
+      .Tooltip(_HKI('Open the library symbol in the Symbol Editor'))
       .Icon(BITMAPS.libedit),
   );
 
@@ -1379,8 +1386,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.editSymbolFields')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Bulk Edit Symbol Fields...')
-      .Tooltip('Edit a table of fields from all symbols in the schematic')
+      .FriendlyName(_HKI('Bulk Edit Symbol Fields...'))
+      .Tooltip(_HKI('Edit a table of fields from all symbols in the schematic'))
       .Icon(BITMAPS.spreadsheet),
   );
 
@@ -1388,8 +1395,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.editSymbolLibraryLinks')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Bulk Edit Symbol Library Links...')
-      .Tooltip('Edit a table of links between schematic and library symbols')
+      .FriendlyName(_HKI('Bulk Edit Symbol Library Links...'))
+      .Tooltip(_HKI('Edit a table of links between schematic and library symbols'))
       .Icon(BITMAPS.edit_cmp_symb_links),
   );
 
@@ -1397,8 +1404,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.assignFootprints')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Assign Footprints...')
-      .Tooltip('Run footprint assignment tool')
+      .FriendlyName(_HKI('Assign Footprints...'))
+      .Tooltip(_HKI('Run footprint assignment tool'))
       .Icon(BITMAPS.icon_cvpcb_24),
   );
 
@@ -1406,8 +1413,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.importFPAssignments')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Import Footprint Assignments...')
-      .Tooltip('Import symbol footprint assignments from .cmp file created by board editor')
+      .FriendlyName(_HKI('Import Footprint Assignments...'))
+      .Tooltip(_HKI('Import symbol footprint assignments from .cmp file created by board editor'))
       .Icon(BITMAPS.import_footprint_names),
   );
 
@@ -1415,8 +1422,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.annotate')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Annotate Schematic...')
-      .Tooltip('Fill in schematic symbol reference designators')
+      .FriendlyName(_HKI('Annotate Schematic...'))
+      .Tooltip(_HKI('Fill in schematic symbol reference designators'))
       .Icon(BITMAPS.annotate),
   );
 
@@ -1424,8 +1431,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.incrementAnnotations')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Increment Annotations From...')
-      .Tooltip('Increment a subset of reference designators starting at a particular symbol')
+      .FriendlyName(_HKI('Increment Annotations From...'))
+      .Tooltip(_HKI('Increment a subset of reference designators starting at a particular symbol'))
       .Icon(BITMAPS.annotate_increment),
   );
 
@@ -1433,8 +1440,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.schematicSetup')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Schematic Setup...')
-      .Tooltip('Edit schematic setup including annotation styles and electrical rules')
+      .FriendlyName(_HKI('Schematic Setup...'))
+      .Tooltip(_HKI('Edit schematic setup including annotation styles and electrical rules'))
       .Icon(BITMAPS.options_schematic),
   );
 
@@ -1442,16 +1449,16 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.editPageNumber')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Edit Sheet Page Number...')
-      .Tooltip('Edit the page number of the current or selected sheet'),
+      .FriendlyName(_HKI('Edit Sheet Page Number...'))
+      .Tooltip(_HKI('Edit the page number of the current or selected sheet')),
   );
 
   static readonly rescueSymbols = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.rescueSymbols')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Rescue Symbols...')
-      .Tooltip('Find old symbols in project and rename/rescue them')
+      .FriendlyName(_HKI('Rescue Symbols...'))
+      .Tooltip(_HKI('Find old symbols in project and rename/rescue them'))
       .Icon(BITMAPS.rescue),
   );
 
@@ -1459,8 +1466,10 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.remapSymbols')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Remap Legacy Library Symbols...')
-      .Tooltip('Remap library symbol references in legacy schematics to the symbol library table')
+      .FriendlyName(_HKI('Remap Legacy Library Symbols...'))
+      .Tooltip(
+        _HKI('Remap library symbol references in legacy schematics to the symbol library table'),
+      )
       .Icon(BITMAPS.rescue),
   );
 
@@ -1469,8 +1478,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.EditorControl.nextNetItem')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_TAB)
-      .FriendlyName('Next Net Item')
-      .Tooltip('Select next item on the current net'),
+      .FriendlyName(_HKI('Next Net Item'))
+      .Tooltip(_HKI('Select next item on the current net')),
   );
 
   static readonly previousNetItem = new TOOL_ACTION(
@@ -1478,16 +1487,16 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.EditorControl.previousNetItem')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_SHIFT + WXK.WXK_TAB)
-      .FriendlyName('Previous Net Item')
-      .Tooltip('Select previous item on the current net'),
+      .FriendlyName(_HKI('Previous Net Item'))
+      .Tooltip(_HKI('Select previous item on the current net')),
   );
 
   static readonly drawSheetOnClipboard = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.drawSheetOnClipboard')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Export Drawing to Clipboard')
-      .Tooltip('Export drawing of current sheet to clipboard')
+      .FriendlyName(_HKI('Export Drawing to Clipboard'))
+      .Tooltip(_HKI('Export drawing of current sheet to clipboard'))
       .Icon(BITMAPS.copy),
   );
 
@@ -1497,8 +1506,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + MD_SHIFT + ch('F'))
       .LegacyHotkeyName('Place DXF')
-      .FriendlyName('Import Graphics...')
-      .Tooltip('Import 2D drawing file')
+      .FriendlyName(_HKI('Import Graphics...'))
+      .Tooltip(_HKI('Import 2D drawing file'))
       .Icon(BITMAPS.import_vector)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -1507,8 +1516,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.importNonKicadSchematic')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Import Non-KiCad Schematic...')
-      .Tooltip('Replace current schematic sheet with one imported from another application')
+      .FriendlyName(_HKI('Import Non-KiCad Schematic...'))
+      .Tooltip(_HKI('Replace current schematic sheet with one imported from another application'))
       .Icon(BITMAPS.import_document),
   );
 
@@ -1516,8 +1525,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.showPcbNew')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Switch to PCB Editor')
-      .Tooltip('Open PCB in board editor')
+      .FriendlyName(_HKI('Switch to PCB Editor'))
+      .Tooltip(_HKI('Open PCB in board editor'))
       .Icon(BITMAPS.icon_pcbnew_24),
   );
 
@@ -1525,8 +1534,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.exportNetlist')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Export Netlist...')
-      .Tooltip('Export file containing netlist in one of several formats')
+      .FriendlyName(_HKI('Export Netlist...'))
+      .Tooltip(_HKI('Export file containing netlist in one of several formats'))
       .Icon(BITMAPS.netlist),
   );
 
@@ -1534,8 +1543,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.generateBOM')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Generate Bill of Materials...')
-      .Tooltip('Generate a bill of materials for the current schematic')
+      .FriendlyName(_HKI('Generate Bill of Materials...'))
+      .Tooltip(_HKI('Generate a bill of materials for the current schematic'))
       .Icon(BITMAPS.post_bom),
   );
 
@@ -1543,8 +1552,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.generateBOMLegacy')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Generate Legacy Bill of Materials...')
-      .Tooltip('Generate a bill of materials for the current schematic (Legacy Generator)')
+      .FriendlyName(_HKI('Generate Legacy Bill of Materials...'))
+      .Tooltip(_HKI('Generate a bill of materials for the current schematic (Legacy Generator)'))
       .Icon(BITMAPS.file_bom),
   );
 
@@ -1552,17 +1561,21 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.generateBOMExternal')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Generate Bill of Materials (External)...')
-      .Tooltip('Generate a bill of materials for the current schematic using external generator'),
+      .FriendlyName(_HKI('Generate Bill of Materials (External)...'))
+      .Tooltip(
+        _HKI('Generate a bill of materials for the current schematic using external generator'),
+      ),
   );
 
   static readonly exportSymbolsToLibrary = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.exportSymbolsToLibrary')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Export Symbols...')
+      .FriendlyName(_HKI('Export Symbols...'))
       .Tooltip(
-        'Add symbols from schematic to a new or an existing symbol library\n(does not remove other symbols from this library)',
+        _HKI(
+          'Add symbols from schematic to a new or an existing symbol library\n(does not remove other symbols from this library)',
+        ),
       )
       .Icon(BITMAPS.library_archive),
   );
@@ -1571,8 +1584,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.selectOnPCB')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Select on PCB')
-      .Tooltip('Select corresponding items in PCB editor')
+      .FriendlyName(_HKI('Select on PCB'))
+      .Tooltip(_HKI('Select corresponding items in PCB editor'))
       .Icon(BITMAPS.select_same_sheet),
   );
 
@@ -1580,7 +1593,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.showHiddenPins')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Hidden Pins')
+      .FriendlyName(_HKI('Show Hidden Pins'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.hidden_pin),
   );
@@ -1589,7 +1602,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.showHiddenFields')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Hidden Fields')
+      .FriendlyName(_HKI('Show Hidden Fields'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE),
   );
 
@@ -1597,7 +1610,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.showDirectiveLabels')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Directive Labels')
+      .FriendlyName(_HKI('Show Directive Labels'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE),
   );
 
@@ -1605,8 +1618,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.showERCWarnings')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show ERC Warnings')
-      .Tooltip('Show markers for electrical rules checker warnings')
+      .FriendlyName(_HKI('Show ERC Warnings'))
+      .Tooltip(_HKI('Show markers for electrical rules checker warnings'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE),
   );
 
@@ -1614,8 +1627,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.showERCErrors')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show ERC Errors')
-      .Tooltip('Show markers for electrical rules checker errors')
+      .FriendlyName(_HKI('Show ERC Errors'))
+      .Tooltip(_HKI('Show markers for electrical rules checker errors'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE),
   );
 
@@ -1623,8 +1636,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.showERCExclusions')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show ERC Exclusions')
-      .Tooltip('Show markers for excluded electrical rules checker violations')
+      .FriendlyName(_HKI('Show ERC Exclusions'))
+      .Tooltip(_HKI('Show markers for excluded electrical rules checker violations'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE),
   );
 
@@ -1632,8 +1645,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.markSimExclusions')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Mark items excluded from simulation')
-      .Tooltip("Draw 'X's over items which have been excluded from simulation")
+      .FriendlyName(_HKI('Mark items excluded from simulation'))
+      .Tooltip(_HKI("Draw 'X's over items which have been excluded from simulation"))
       .ToolbarState(TOOLBAR_STATE.TOGGLE),
   );
 
@@ -1641,8 +1654,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.showOperatingPointVoltages')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show OP Voltages')
-      .Tooltip('Show operating point voltage data from simulation')
+      .FriendlyName(_HKI('Show OP Voltages'))
+      .Tooltip(_HKI('Show operating point voltage data from simulation'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE),
   );
 
@@ -1650,8 +1663,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.showOperatingPointCurrents')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show OP Currents')
-      .Tooltip('Show operating point current data from simulation')
+      .FriendlyName(_HKI('Show OP Currents'))
+      .Tooltip(_HKI('Show operating point current data from simulation'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE),
   );
 
@@ -1659,8 +1672,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.togglePinAltIcons')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Pin Alternate Icons')
-      .Tooltip('Show indicator icons for pins with alternate modes')
+      .FriendlyName(_HKI('Show Pin Alternate Icons'))
+      .Tooltip(_HKI('Show indicator icons for pins with alternate modes'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE),
   );
 
@@ -1668,8 +1681,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.lineModeFree')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Line Mode for Wires and Buses')
-      .Tooltip('Draw and drag at any angle')
+      .FriendlyName(_HKI('Line Mode for Wires and Buses'))
+      .Tooltip(_HKI('Draw and drag at any angle'))
       .Icon(BITMAPS.lines_any)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(LINE_MODE.LINE_MODE_FREE),
@@ -1679,8 +1692,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.lineModeOrthonal')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Line Mode for Wires and Buses')
-      .Tooltip('Constrain drawing and dragging to horizontal or vertical motions')
+      .FriendlyName(_HKI('Line Mode for Wires and Buses'))
+      .Tooltip(_HKI('Constrain drawing and dragging to horizontal or vertical motions'))
       .Icon(BITMAPS.lines90)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(LINE_MODE.LINE_MODE_90),
@@ -1690,8 +1703,10 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.lineMode45')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Line Mode for Wires and Buses')
-      .Tooltip('Constrain drawing and dragging to horizontal, vertical, or 45-degree angle motions')
+      .FriendlyName(_HKI('Line Mode for Wires and Buses'))
+      .Tooltip(
+        _HKI('Constrain drawing and dragging to horizontal, vertical, or 45-degree angle motions'),
+      )
       .Icon(BITMAPS.hv45mode)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE)
       .Parameter(LINE_MODE.LINE_MODE_45),
@@ -1702,8 +1717,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.EditorControl.lineModeNext')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_SHIFT + WXK.WXK_SPACE)
-      .FriendlyName('Line Mode for Wires and Buses')
-      .Tooltip('Switch to next angle snapping mode'),
+      .FriendlyName(_HKI('Line Mode for Wires and Buses'))
+      .Tooltip(_HKI('Switch to next angle snapping mode')),
   );
 
   static readonly angleSnapModeChanged = new TOOL_ACTION(
@@ -1717,8 +1732,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.annotateAutomatically')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Annotate Automatically')
-      .Tooltip('Toggle automatic annotation of new symbols')
+      .FriendlyName(_HKI('Annotate Automatically'))
+      .Tooltip(_HKI('Toggle automatic annotation of new symbols'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.annotate),
   );
@@ -1727,8 +1742,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.previousUnit')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Previous Symbol Unit')
-      .Tooltip('Open the previous unit of the symbol')
+      .FriendlyName(_HKI('Previous Symbol Unit'))
+      .Tooltip(_HKI('Open the previous unit of the symbol'))
       .Parameter(-1),
   );
 
@@ -1736,8 +1751,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.nextUnit')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Next Symbol Unit')
-      .Tooltip('Open the next unit of the symbol')
+      .FriendlyName(_HKI('Next Symbol Unit'))
+      .Tooltip(_HKI('Open the next unit of the symbol'))
       .Parameter(1),
   );
 
@@ -1745,8 +1760,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.NavigateTool.changeSheet')
       .Scope(TOOL_ACTION_SCOPE.AS_CONTEXT)
-      .FriendlyName('Change Sheet')
-      .Tooltip("Change to provided sheet's contents in the schematic editor")
+      .FriendlyName(_HKI('Change Sheet'))
+      .Tooltip(_HKI("Change to provided sheet's contents in the schematic editor"))
       .Icon(BITMAPS.enter_sheet),
   );
 
@@ -1754,8 +1769,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.NavigateTool.enterSheet')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Enter Sheet')
-      .Tooltip("Display the selected sheet's contents in the schematic editor")
+      .FriendlyName(_HKI('Enter Sheet'))
+      .Tooltip(_HKI("Display the selected sheet's contents in the schematic editor"))
       .Icon(BITMAPS.enter_sheet),
   );
 
@@ -1766,7 +1781,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .DefaultHotkey(MD_ALT + WXK.WXK_BACK)
       .LegacyHotkeyName('Leave Sheet')
       .FriendlyName('Leave Sheet')
-      .Tooltip('Display the parent sheet in the schematic editor')
+      .Tooltip(_HKI('Display the parent sheet in the schematic editor'))
       .Icon(BITMAPS.leave_sheet),
   );
 
@@ -1775,8 +1790,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.NavigateTool.up')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_ALT + WXK.WXK_UP)
-      .FriendlyName('Navigate Up')
-      .Tooltip('Navigate up one sheet in the hierarchy')
+      .FriendlyName(_HKI('Navigate Up'))
+      .Tooltip(_HKI('Navigate up one sheet in the hierarchy'))
       .Icon(BITMAPS.up),
   );
 
@@ -1785,8 +1800,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.NavigateTool.back')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_ALT + WXK.WXK_LEFT)
-      .FriendlyName('Navigate Back')
-      .Tooltip('Move backward in sheet navigation history')
+      .FriendlyName(_HKI('Navigate Back'))
+      .Tooltip(_HKI('Move backward in sheet navigation history'))
       .Icon(BITMAPS.left),
   );
 
@@ -1795,8 +1810,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.NavigateTool.forward')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_ALT + WXK.WXK_RIGHT)
-      .FriendlyName('Navigate Forward')
-      .Tooltip('Move forward in sheet navigation history')
+      .FriendlyName(_HKI('Navigate Forward'))
+      .Tooltip(_HKI('Move forward in sheet navigation history'))
       .Icon(BITMAPS.right),
   );
 
@@ -1805,8 +1820,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.NavigateTool.previous')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_PAGEUP)
-      .FriendlyName('Previous Sheet')
-      .Tooltip('Move to previous sheet by number')
+      .FriendlyName(_HKI('Previous Sheet'))
+      .Tooltip(_HKI('Move to previous sheet by number'))
       .Icon(BITMAPS.left),
   );
 
@@ -1815,8 +1830,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.NavigateTool.next')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_PAGEDOWN)
-      .FriendlyName('Next Sheet')
-      .Tooltip('Move to next sheet by number')
+      .FriendlyName(_HKI('Next Sheet'))
+      .Tooltip(_HKI('Move to next sheet by number'))
       .Icon(BITMAPS.right),
   );
 
@@ -1825,8 +1840,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.EditorTool.showHierarchy')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch('H'))
-      .FriendlyName('Hierarchy Navigator')
-      .Tooltip('Show/hide the schematic sheet hierarchy navigator')
+      .FriendlyName(_HKI('Hierarchy Navigator'))
+      .Tooltip(_HKI('Show/hide the schematic sheet hierarchy navigator'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.hierarchy_nav),
   );
@@ -1837,7 +1852,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('W'))
       .LegacyHotkeyName('Begin Wire')
-      .FriendlyName('Draw Wires')
+      .FriendlyName(_HKI('Draw Wires'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_line)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -1850,7 +1865,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('B'))
       .LegacyHotkeyName('Begin Bus')
-      .FriendlyName('Draw Buses')
+      .FriendlyName(_HKI('Draw Buses'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_bus)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -1864,7 +1879,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .DefaultHotkey(ch('C'))
       .LegacyHotkeyName('Unfold from Bus')
       .FriendlyName('Unfold from Bus')
-      .Tooltip('Break a wire out of a bus')
+      .Tooltip(_HKI('Break a wire out of a bus'))
       .Icon(BITMAPS.INVALID_BITMAP)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
       .Parameter<string | null>(null),
@@ -1876,7 +1891,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('I'))
       .LegacyHotkeyName('Add Graphic PolyLine')
-      .FriendlyName('Draw Lines')
+      .FriendlyName(_HKI('Draw Lines'))
       .ToolbarState(TOOLBAR_STATE.TOGGLE)
       .Icon(BITMAPS.add_graphical_segments)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE)
@@ -1888,8 +1903,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.InteractiveDrawingLineWireBus.undoLastSegment')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(WXK.WXK_BACK)
-      .FriendlyName('Undo Last Segment')
-      .Tooltip('Walks the current line back one segment.')
+      .FriendlyName(_HKI('Undo Last Segment'))
+      .Tooltip(_HKI('Walks the current line back one segment.'))
       .Icon(BITMAPS.undo),
   );
 
@@ -1898,8 +1913,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.InteractiveDrawingLineWireBus.switchPosture')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('/'))
-      .FriendlyName('Switch Segment Posture')
-      .Tooltip('Switches posture of the current segment.')
+      .FriendlyName(_HKI('Switch Segment Posture'))
+      .Tooltip(_HKI('Switches posture of the current segment.'))
       .Icon(BITMAPS.change_entry_orient)
       .Flags(TOOL_ACTION_FLAGS.AF_NONE),
   );
@@ -1910,7 +1925,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('M'))
       .LegacyHotkeyName('Move Item')
-      .FriendlyName('Move')
+      .FriendlyName(_HKI('Move'))
       .Icon(BITMAPS.move)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -1921,8 +1936,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('G'))
       .LegacyHotkeyName('Drag Item')
-      .FriendlyName('Drag')
-      .Tooltip('Move items while keeping their connections')
+      .FriendlyName(_HKI('Drag'))
+      .Tooltip(_HKI('Move items while keeping their connections'))
       .Icon(BITMAPS.drag)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -1931,7 +1946,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.AlignToGrid')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Align Items to Grid')
+      .FriendlyName(_HKI('Align Items to Grid'))
       .Icon(BITMAPS.align_elements_to_grid)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -1940,8 +1955,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Align.alignTop')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Align to Top')
-      .Tooltip('Aligns selected items to the top edge of the item under the cursor')
+      .FriendlyName(_HKI('Align to Top'))
+      .Tooltip(_HKI('Aligns selected items to the top edge of the item under the cursor'))
       .Icon(BITMAPS.align_items_top)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -1950,8 +1965,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Align.alignBottom')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Align to Bottom')
-      .Tooltip('Aligns selected items to the bottom edge of the item under the cursor')
+      .FriendlyName(_HKI('Align to Bottom'))
+      .Tooltip(_HKI('Aligns selected items to the bottom edge of the item under the cursor'))
       .Icon(BITMAPS.align_items_bottom)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -1960,8 +1975,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Align.alignLeft')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Align to Left')
-      .Tooltip('Aligns selected items to the left edge of the item under the cursor')
+      .FriendlyName(_HKI('Align to Left'))
+      .Tooltip(_HKI('Aligns selected items to the left edge of the item under the cursor'))
       .Icon(BITMAPS.align_items_left)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -1970,8 +1985,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Align.alignRight')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Align to Right')
-      .Tooltip('Aligns selected items to the right edge of the item under the cursor')
+      .FriendlyName(_HKI('Align to Right'))
+      .Tooltip(_HKI('Aligns selected items to the right edge of the item under the cursor'))
       .Icon(BITMAPS.align_items_right)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -1980,8 +1995,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Align.alignCenterX')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Align to Horizontal Center')
-      .Tooltip('Aligns selected items to the horizontal center of the item under the cursor')
+      .FriendlyName(_HKI('Align to Horizontal Center'))
+      .Tooltip(_HKI('Aligns selected items to the horizontal center of the item under the cursor'))
       .Icon(BITMAPS.align_items_middle)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -1990,8 +2005,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Align.alignCenterY')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Align to Vertical Center')
-      .Tooltip('Aligns selected items to the vertical center of the item under the cursor')
+      .FriendlyName(_HKI('Align to Vertical Center'))
+      .Tooltip(_HKI('Aligns selected items to the vertical center of the item under the cursor'))
       .Icon(BITMAPS.align_items_center)
       .Flags(TOOL_ACTION_FLAGS.AF_ACTIVATE),
   );
@@ -2000,8 +2015,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.saveCurrSheetCopyAs')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Save Current Sheet Copy As...')
-      .Tooltip('Save a copy of the current sheet to another location or name')
+      .FriendlyName(_HKI('Save Current Sheet Copy As...'))
+      .Tooltip(_HKI('Save a copy of the current sheet to another location or name'))
       .Icon(BITMAPS.save_as),
   );
 
@@ -2029,8 +2044,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch('N'))
       .LegacyHotkeyName('New')
-      .FriendlyName('New Analysis Tab...')
-      .Tooltip('Create a new tab containing a simulation analysis')
+      .FriendlyName(_HKI('New Analysis Tab...'))
+      .Tooltip(_HKI('Create a new tab containing a simulation analysis'))
       .Icon(BITMAPS.sim_add_plot),
   );
 
@@ -2040,8 +2055,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch('O'))
       .LegacyHotkeyName('Open')
-      .FriendlyName('Open Workbook...')
-      .Tooltip('Open a saved set of analysis tabs and settings')
+      .FriendlyName(_HKI('Open Workbook...'))
+      .Tooltip(_HKI('Open a saved set of analysis tabs and settings'))
       .Icon(BITMAPS.directory_open),
   );
 
@@ -2051,8 +2066,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + ch('S'))
       .LegacyHotkeyName('Save')
-      .FriendlyName('Save Workbook')
-      .Tooltip('Save the current set of analysis tabs and settings')
+      .FriendlyName(_HKI('Save Workbook'))
+      .Tooltip(_HKI('Save the current set of analysis tabs and settings'))
       .Icon(BITMAPS.save),
   );
 
@@ -2062,8 +2077,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_CTRL + MD_SHIFT + ch('S'))
       .LegacyHotkeyName('Save As')
-      .FriendlyName('Save Workbook As...')
-      .Tooltip('Save the current set of analysis tabs and settings to another location')
+      .FriendlyName(_HKI('Save Workbook As...'))
+      .Tooltip(_HKI('Save the current set of analysis tabs and settings to another location'))
       .Icon(BITMAPS.sim_add_signal),
   );
 
@@ -2071,7 +2086,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Simulator.exportPNG')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Export Current Plot as PNG...')
+      .FriendlyName(_HKI('Export Current Plot as PNG...'))
       .Icon(BITMAPS.export_png),
   );
 
@@ -2079,7 +2094,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Simulator.exportCSV')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Export Current Plot as CSV...')
+      .FriendlyName(_HKI('Export Current Plot as CSV...'))
       .Icon(BITMAPS.export_file),
   );
 
@@ -2087,7 +2102,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Simulator.exportToClipboard')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Export Current Plot to Clipboard')
+      .FriendlyName(_HKI('Export Current Plot to Clipboard'))
       .Icon(BITMAPS.export_png),
   );
 
@@ -2095,7 +2110,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Simulator.exportPlotToSchematic')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Export Current Plot to Schematic')
+      .FriendlyName(_HKI('Export Current Plot to Schematic'))
       .Icon(BITMAPS.export_png),
   );
 
@@ -2103,21 +2118,21 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Simulator.toggleSimSidePanel')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Simulation Side Panel'),
+      .FriendlyName(_HKI('Show Simulation Side Panel')),
   );
 
   static readonly toggleSimConsole = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Simulator.toggleSimConsole')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Simulation Console Panel'),
+      .FriendlyName(_HKI('Show Simulation Console Panel')),
   );
 
   static readonly toggleLegend = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Simulator.toggleLegend')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show Legend')
+      .FriendlyName(_HKI('Show Legend'))
       .Icon(BITMAPS.text),
   );
 
@@ -2125,24 +2140,24 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Simulator.toggleDottedSecondary')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Dotted Current/Phase')
-      .Tooltip('Draw secondary signal trace (current or phase) with a dotted line'),
+      .FriendlyName(_HKI('Dotted Current/Phase'))
+      .Tooltip(_HKI('Draw secondary signal trace (current or phase) with a dotted line')),
   );
 
   static readonly toggleDarkModePlots = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Simulator.toggleDarkModePlots')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Dark Mode Plots')
-      .Tooltip('Draw plots with a black background'),
+      .FriendlyName(_HKI('Dark Mode Plots'))
+      .Tooltip(_HKI('Draw plots with a black background')),
   );
 
   static readonly simAnalysisProperties = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Simulation.simAnalysisProperties')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Edit Analysis Tab...')
-      .Tooltip("Edit the current analysis tab's SPICE command and plot setup")
+      .FriendlyName(_HKI('Edit Analysis Tab...'))
+      .Tooltip(_HKI("Edit the current analysis tab's SPICE command and plot setup"))
       .Icon(BITMAPS.sim_command),
   );
 
@@ -2151,7 +2166,7 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.Simulation.runSimulation')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(ch('R'))
-      .FriendlyName('Run Simulation')
+      .FriendlyName(_HKI('Run Simulation'))
       .Icon(BITMAPS.sim_run),
   );
 
@@ -2159,7 +2174,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Simulation.stopSimulation')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Stop Simulation')
+      .FriendlyName(_HKI('Stop Simulation'))
       .Icon(BITMAPS.sim_stop),
   );
 
@@ -2168,8 +2183,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.Simulation.probe')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_SHIFT + ch('P'))
-      .FriendlyName('Probe Schematic...')
-      .Tooltip('Add a simulator probe')
+      .FriendlyName(_HKI('Probe Schematic...'))
+      .Tooltip(_HKI('Add a simulator probe'))
       .Icon(BITMAPS.sim_probe),
   );
 
@@ -2178,8 +2193,8 @@ export class SCH_ACTIONS extends ACTIONS {
       .Name('eeschema.Simulation.tune')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
       .DefaultHotkey(MD_SHIFT + ch('T'))
-      .FriendlyName('Add Tuned Value...')
-      .Tooltip('Select a value to be tuned')
+      .FriendlyName(_HKI('Add Tuned Value...'))
+      .Tooltip(_HKI('Select a value to be tuned'))
       .Icon(BITMAPS.sim_tune),
   );
 
@@ -2187,8 +2202,8 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Simulation.editUserDefinedSignals')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('User-defined Signals...')
-      .Tooltip('Add, edit or delete user-defined simulation signals')
+      .FriendlyName(_HKI('User-defined Signals...'))
+      .Tooltip(_HKI('Add, edit or delete user-defined simulation signals'))
       .Icon(BITMAPS.sim_add_signal),
   );
 
@@ -2196,7 +2211,7 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.Simulation.showNetlist')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Show SPICE Netlist')
+      .FriendlyName(_HKI('Show SPICE Netlist'))
       .Icon(BITMAPS.netlist),
   );
 
@@ -2204,23 +2219,23 @@ export class SCH_ACTIONS extends ACTIONS {
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.addVariant')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Add Design Variant...')
-      .Tooltip('Add new design variant to the schematic.'),
+      .FriendlyName(_HKI('Add Design Variant...'))
+      .Tooltip(_HKI('Add new design variant to the schematic.')),
   );
 
   static readonly removeVariant = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.removeVariant')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Remove Design Variant...')
-      .Tooltip('Remove an existing design variant from the schematic.'),
+      .FriendlyName(_HKI('Remove Design Variant...'))
+      .Tooltip(_HKI('Remove an existing design variant from the schematic.')),
   );
 
   static readonly editVariantDescription = new TOOL_ACTION(
     new TOOL_ACTION_ARGS()
       .Name('eeschema.EditorControl.editVariantDescription')
       .Scope(TOOL_ACTION_SCOPE.AS_GLOBAL)
-      .FriendlyName('Edit Variant Description...')
-      .Tooltip('Edit the description of an existing design variant.'),
+      .FriendlyName(_HKI('Edit Variant Description...'))
+      .Tooltip(_HKI('Edit the description of an existing design variant.')),
   );
 }

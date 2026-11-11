@@ -35,6 +35,7 @@ import { makeSymbol } from './build.js';
 import { flattenLibSymbol } from '../lib_symbol.js';
 import type { EditCommand } from './command.js';
 import { isExplicitJunctionNeeded } from '../junction_helpers.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 /** A batch of items to add or restore, grouped by kind. */
 export interface ItemsBatch {
@@ -163,7 +164,7 @@ function spliceBack<T>(kept: readonly T[], removed: readonly Removed<T>[]): read
 /** Undo of a delete: every item back at its old index, sheet pins included. */
 function restoreRemoved(removed: RemovedItems, ids: ReadonlySet<string>): EditCommand {
   return {
-    label: 'Delete',
+    label: wxGetTranslation('Delete'),
     apply(doc: Schematic): Schematic {
       const sheets = spliceBack(doc.sheets, removed.sheets);
       // Pins go back after the sheets do, so the recorded sheet index lines up.
@@ -201,7 +202,7 @@ function restoreRemoved(removed: RemovedItems, ids: ReadonlySet<string>): EditCo
 /** Add a batch of items. Inverse: delete exactly those items. */
 export function addItems(batch: ItemsBatch): EditCommand {
   return {
-    label: 'Add',
+    label: wxGetTranslation('Add'),
     apply(doc: Schematic): Schematic {
       return {
         ...doc,
@@ -234,7 +235,7 @@ export function addItems(batch: ItemsBatch): EditCommand {
 /** Delete every item whose id is in `ids`. Inverse: re-add those items. */
 export function deleteByIds(ids: ReadonlySet<string>): EditCommand {
   return {
-    label: 'Delete',
+    label: wxGetTranslation('Delete'),
     apply(doc: Schematic): Schematic {
       if (ids.size === 0) return doc;
       return {
@@ -371,7 +372,7 @@ function removeSymbolCmd(lib: LibSymbol, sym: SchSymbol, keepLib: boolean): Edit
 /** Replace the wire/bus/line at `index` with `next` (e.g. after editing its stroke). */
 export function replaceLine(index: number, next: SchLine): EditCommand {
   return {
-    label: 'Edit Line',
+    label: wxGetTranslation('Edit Line'),
     apply(doc: Schematic): Schematic {
       return { ...doc, lines: doc.lines.map((l, i) => (i === index ? next : l)) };
     },
@@ -403,7 +404,7 @@ export function replaceBusEntry(index: number, next: SchBusEntry): EditCommand {
 /** Replace the junction at `index` with `next` (e.g. after editing its diameter). */
 export function replaceJunction(index: number, next: SchJunction): EditCommand {
   return {
-    label: 'Edit Junction',
+    label: wxGetTranslation('Edit Junction'),
     apply(doc: Schematic): Schematic {
       return { ...doc, junctions: doc.junctions.map((j, i) => (i === index ? next : j)) };
     },
@@ -454,7 +455,7 @@ export function setSymbolsLockedCommand(
   mode: 'lock' | 'unlock' | 'toggle',
 ): EditCommand {
   return {
-    label: mode === 'unlock' ? 'Unlock' : 'Lock',
+    label: mode === 'unlock' ? wxGetTranslation('Unlock') : wxGetTranslation('Lock'),
     apply(doc: Schematic): Schematic {
       // Resolve TOGGLE against the current state: any locked → unlock all.
       const target =
@@ -476,7 +477,7 @@ export function setSymbolsLockedCommand(
         if (ids.has(id)) prior.set(id, s.locked ?? false);
       });
       return {
-        label: mode === 'unlock' ? 'Unlock' : 'Lock',
+        label: mode === 'unlock' ? wxGetTranslation('Unlock') : wxGetTranslation('Lock'),
         apply(doc: Schematic): Schematic {
           return {
             ...doc,
@@ -511,7 +512,7 @@ export function replaceSheet(index: number, next: SchSheet): EditCommand {
  *  attributes the Attributes menu sets). */
 export function replaceSymbol(index: number, next: SchSymbol): EditCommand {
   return {
-    label: 'Edit Symbol',
+    label: wxGetTranslation('Edit Symbol'),
     apply(doc: Schematic): Schematic {
       return { ...doc, symbols: doc.symbols.map((s, i) => (i === index ? next : s)) };
     },
@@ -565,7 +566,7 @@ export function replaceTextBox(index: number, next: SchTextBox): EditCommand {
 /** Replace the table at `index` with `next` (e.g. after editing a cell). */
 export function replaceTable(index: number, next: SchTable): EditCommand {
   return {
-    label: 'Edit Table',
+    label: wxGetTranslation('Edit Table'),
     apply(doc: Schematic): Schematic {
       return { ...doc, tables: doc.tables.map((t, i) => (i === index ? next : t)) };
     },

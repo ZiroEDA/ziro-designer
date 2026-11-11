@@ -25,8 +25,8 @@ const ICONS = read('../../../common/widgets/icons.tsx');
 
 describe('the menu entry', () => {
   it('is live, not a stub', () => {
-    expect(MENUBAR).toContain("act('Rescue Symbols...', 'rescue', 'rescueSymbols')");
-    expect(MENUBAR).not.toContain("stub('Rescue Symbols...')");
+    expect(MENUBAR).toContain("act(_('Rescue Symbols...'), 'rescue', 'rescueSymbols')");
+    expect(MENUBAR).not.toMatch(/stub\((_\()?'Rescue Symbols\.\.\.'/);
   });
 
   /** `.Icon( BITMAPS::rescue )` — the action carries one, so the menu shows one. */
@@ -42,7 +42,7 @@ describe('the menu entry', () => {
   /** Remap Legacy Library Symbols stays a stub: it is the KiCad 4 path, and
    *  `HasNoFullyDefinedLibIds()` is never true for a `.kicad_sch`. */
   it('leaves Remap Legacy Library Symbols alone', () => {
-    expect(MENUBAR).toContain("stub('Remap Legacy Library Symbols...')");
+    expect(MENUBAR).toContain("stub(_('Remap Legacy Library Symbols...'))");
   });
 });
 
@@ -52,15 +52,15 @@ describe('the on-demand path', () => {
    * nothing to rescue." when it is true, and from the Tools menu it always is.
    */
   it('reports an empty result, because it was asked for', () => {
-    expect(EDITOR).toContain("setRescueMessage('This project has nothing to rescue.')");
+    expect(EDITOR).toContain("setRescueMessage(_('This project has nothing to rescue.'))");
   });
 
   it('reports a cancelled one too, as upstream does', () => {
     // "He might have clicked cancel by mistake, and should have some
     // indication of that."
-    expect([...EDITOR.matchAll(/setRescueMessage\('No symbols were rescued\.'\)/g)]).toHaveLength(
-      2,
-    );
+    expect([
+      ...EDITOR.matchAll(/setRescueMessage\(_\('No symbols were rescued\.'\)\)/g),
+    ]).toHaveLength(2);
   });
 
   /** `aAskShowAgain = !aRunningOnDemand`. */
@@ -72,7 +72,7 @@ describe('the on-demand path', () => {
   it('says nothing about an empty result when it ran itself', () => {
     // `if( aRunningOnDemand )` guards the "nothing to rescue" box.
     expect(EDITOR).toContain(
-      "if (onDemand) setRescueMessage('This project has nothing to rescue.')",
+      "if (onDemand) setRescueMessage(_('This project has nothing to rescue.'))",
     );
   });
 

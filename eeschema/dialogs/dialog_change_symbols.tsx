@@ -44,6 +44,8 @@ import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
 import { SCH_SYMBOL } from '../sch_symbol.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { DIALOG_CHANGE_SYMBOLS_MODE } from '../tools/sch_edit_tool.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `SYMBOL_CHANGE_INFO` (dialog_change_symbols.h): the instances of one symbol and its new id. */
 interface SYMBOL_CHANGE_INFO {
@@ -323,7 +325,9 @@ export class DIALOG_CHANGE_SYMBOLS {
 
     if (await this.processMatchingSymbols(commit))
       commit.Push(
-        this.m_mode === DIALOG_CHANGE_SYMBOLS_MODE.CHANGE ? 'Change Symbols' : 'Update Symbols',
+        this.m_mode === DIALOG_CHANGE_SYMBOLS_MODE.CHANGE
+          ? _('Change Symbols')
+          : _('Update Symbols'),
       );
 
     this.m_onChange();
@@ -395,7 +399,10 @@ export class DIALOG_CHANGE_SYMBOLS {
 
     if (symbols.size > 0) matchesProcessed += await this.processSymbols(aCommit, symbols);
     else
-      this.m_messagePanel.Report('*** No symbols matching criteria found ***', RPT_SEVERITY_ERROR);
+      this.m_messagePanel.Report(
+        _('*** No symbols matching criteria found ***'),
+        RPT_SEVERITY_ERROR,
+      );
 
     this.m_frame.GetCurrentSheet().UpdateAllScreenReferences();
 
@@ -653,7 +660,7 @@ export class DIALOG_CHANGE_SYMBOLS {
     }
 
     const plural = aSymbol.GetInstances().length === 1 ? 'symbol' : 'symbols';
-    const verb = this.m_mode === DIALOG_CHANGE_SYMBOLS_MODE.UPDATE ? 'Update' : 'Change';
+    const verb = this.m_mode === DIALOG_CHANGE_SYMBOLS_MODE.UPDATE ? _('Update') : _('Change');
 
     return `${verb} ${plural} ${references} from '${oldLibLinkName}' to '${unescapeString(aNewId.Format())}'`;
   }
@@ -661,18 +668,18 @@ export class DIALOG_CHANGE_SYMBOLS {
 
 /** m_matchAll .. m_matchById: the base's labels, then the derived constructor's Change ones. */
 const UPDATE_MATCH_LABELS = [
-  'Update all symbols in schematic',
-  'Update selected symbol(s)',
-  'Update symbols matching reference designator:',
-  'Update symbols matching value:',
-  'Update symbols matching library identifier:',
+  _HKI('Update all symbols in schematic'),
+  _HKI('Update selected symbol(s)'),
+  _HKI('Update symbols matching reference designator:'),
+  _HKI('Update symbols matching value:'),
+  _HKI('Update symbols matching library identifier:'),
 ] as const;
 const CHANGE_MATCH_LABELS = [
-  'Change all symbols in schematic',
-  'Change selected symbol(s)',
-  'Change symbols matching reference designator:',
-  'Change symbols matching value:',
-  'Change symbols matching library identifier:',
+  _HKI('Change all symbols in schematic'),
+  _HKI('Change selected symbol(s)'),
+  _HKI('Change symbols matching reference designator:'),
+  _HKI('Change symbols matching value:'),
+  _HKI('Change symbols matching library identifier:'),
 ] as const;
 
 type OPTION_KEY =
@@ -690,27 +697,33 @@ type OPTION_KEY =
 /** Each option's base label and the derived constructor's Change mode SetLabel(). */
 const OPTION_LABELS: Record<OPTION_KEY, [string, string]> = {
   m_removeExtraBox: [
-    'Remove fields if not in library symbol',
-    'Remove fields if not in new symbol',
+    _HKI('Remove fields if not in library symbol'),
+    _HKI('Remove fields if not in new symbol'),
   ],
   m_resetEmptyFields: [
-    'Reset fields if empty in library symbol',
-    'Reset fields if empty in new symbol',
+    _HKI('Reset fields if empty in library symbol'),
+    _HKI('Reset fields if empty in new symbol'),
   ],
-  m_resetFieldText: ['Update/reset field text', 'Update field text'],
-  m_resetFieldVisibilities: ['Update/reset field visibilities', 'Update field visibilities'],
+  m_resetFieldText: [_HKI('Update/reset field text'), _HKI('Update field text')],
+  m_resetFieldVisibilities: [
+    _HKI('Update/reset field visibilities'),
+    _HKI('Update field visibilities'),
+  ],
   m_resetFieldEffects: [
-    'Update/reset field text sizes and styles',
-    'Update field sizes and styles',
+    _HKI('Update/reset field text sizes and styles'),
+    _HKI('Update field sizes and styles'),
   ],
-  m_resetFieldPositions: ['Update/reset field positions', 'Update field positions'],
-  m_resetAttributes: ['Update/reset symbol attributes', 'Update symbol attributes'],
+  m_resetFieldPositions: [_HKI('Update/reset field positions'), _HKI('Update field positions')],
+  m_resetAttributes: [_HKI('Update/reset symbol attributes'), _HKI('Update symbol attributes')],
   m_resetPinTextVisibility: [
-    'Update/reset pin name/number visibilities',
-    'Update pin name/number visibilities',
+    _HKI('Update/reset pin name/number visibilities'),
+    _HKI('Update pin name/number visibilities'),
   ],
-  m_resetAlternatePin: ['Reset alternate pin functions', 'Reset alternate pin functions'],
-  m_resetCustomPower: ['Reset custom power symbols', 'Reset custom power symbols'],
+  m_resetAlternatePin: [
+    _HKI('Reset alternate pin functions'),
+    _HKI('Reset alternate pin functions'),
+  ],
+  m_resetCustomPower: [_HKI('Reset custom power symbols'), _HKI('Reset custom power symbols')],
 };
 
 /** DIALOG_CHANGE_SYMBOLS' window over its base. */
@@ -752,7 +765,7 @@ export function DialogChangeSymbols({
 
   return (
     <DIALOG_CHANGE_SYMBOLS_BASE
-      title={change ? 'Change Symbols' : 'Update Symbols from Library'}
+      title={change ? _('Change Symbols') : _('Update Symbols from Library')}
       match={dlg.m_match}
       onMatch={(m) => {
         dlg.m_match = m;
@@ -785,7 +798,7 @@ export function DialogChangeSymbols({
         onKillFocus: killFocus,
       }}
       onNewIdBrowse={() => void dlg.LaunchSymbolBrowser(true)}
-      updateFieldsLabel={change ? 'Update Fields' : 'Update/Reset Fields'}
+      updateFieldsLabel={change ? _('Update Fields') : _('Update/Reset Fields')}
       fields={dlg.m_fieldsBox.map((r) => r.name)}
       fieldsChecked={dlg.m_fieldsBox.map((r) => r.checked)}
       onCheckField={(i, on) =>
@@ -813,7 +826,7 @@ export function DialogChangeSymbols({
         visibleSeverities: severities,
         onVisibleSeveritiesChange: setSeverities,
       }}
-      okLabel={change ? 'Change' : 'Update'}
+      okLabel={change ? _('Change') : _('Update')}
       okDisabled={busy}
       onOK={() => {
         setBusy(true);

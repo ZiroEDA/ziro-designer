@@ -57,6 +57,7 @@ import {
   getPinShapeToken,
 } from './sch_io_kicad_sexpr_common.js';
 import { SCH_IO_KICAD_SEXPR_PARSER } from './sch_io_kicad_sexpr_parser.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const IU = (aValue: number): string => FormatInternalUnits(schIUScale, aValue);
 
@@ -127,7 +128,7 @@ export class SCH_IO_KICAD_SEXPR_LIB_CACHE extends SCH_IO_LIB_CACHE {
 
         for (const warning of warnings) errorMsg += `${warning}\n\n`;
 
-        errorMsg += 'The library cannot be saved until these errors are fixed manually.';
+        errorMsg += _('The library cannot be saved until these errors are fixed manually.');
 
         throw new IO_ERROR(errorMsg);
       }
@@ -193,7 +194,7 @@ export class SCH_IO_KICAD_SEXPR_LIB_CACHE extends SCH_IO_LIB_CACHE {
         }
 
         if (errorCache !== '') {
-          errorCache += '\n\nThe library cannot be saved until these errors are fixed manually.';
+          errorCache += _('\n\nThe library cannot be saved until these errors are fixed manually.');
           throw new IO_ERROR(errorCache);
         }
       }

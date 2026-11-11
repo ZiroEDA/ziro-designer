@@ -67,6 +67,7 @@ import { ANNOTATE_SCOPE_T } from '../sch_reference_list.js';
 import { SYMBOL_FILTER } from '../sch_sheet_path.js';
 import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
 import { ERC_TESTER } from '../erc/erc.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export class SCH_NETLIST_GENERATOR_MIXIN {
   /**
@@ -105,7 +106,7 @@ export class SCH_NETLIST_GENERATOR_MIXIN {
     const erc = new ERC_TESTER(this.Schematic());
 
     if (erc.TestDuplicateSheetNames(false) > 0) {
-      if (!this.IsOK('Error: duplicate sheet names. Continue?')) return false;
+      if (!this.IsOK(_('Error: duplicate sheet names. Continue?'))) return false;
     }
 
     return true;

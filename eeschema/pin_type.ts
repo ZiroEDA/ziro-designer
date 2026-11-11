@@ -26,6 +26,7 @@ import {
   GRAPHIC_PINSHAPE,
   PIN_ORIENTATION,
 } from '@ziroeda/common/pin_type.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
  * `g_pinElectricalTypes` (pin_type.cpp), in ELECTRICAL_PINTYPE order.
@@ -35,33 +36,33 @@ import {
  * there without a label here fails to compile.
  */
 const PIN_TYPE_NAMES: Readonly<Record<ElectricalPinType, string>> = {
-  input: 'Input',
-  output: 'Output',
-  bidirectional: 'Bidirectional',
-  tri_state: 'Tri-state',
-  passive: 'Passive',
+  input: _HKI('Input'),
+  output: _HKI('Output'),
+  bidirectional: _HKI('Bidirectional'),
+  tri_state: _HKI('Tri-state'),
+  passive: _HKI('Passive'),
   /** PT_NIC — "not internally connected", which KiCad shows as "Free". */
-  free: 'Free',
-  unspecified: 'Unspecified',
-  power_in: 'Power input',
-  power_out: 'Power output',
-  open_collector: 'Open collector',
-  open_emitter: 'Open emitter',
+  free: _HKI('Free'),
+  unspecified: _HKI('Unspecified'),
+  power_in: _HKI('Power input'),
+  power_out: _HKI('Power output'),
+  open_collector: _HKI('Open collector'),
+  open_emitter: _HKI('Open emitter'),
   /** PT_NC. */
-  no_connect: 'Unconnected',
+  no_connect: _HKI('Unconnected'),
 };
 
 /** `g_pinShapes` (pin_type.cpp), in GRAPHIC_PINSHAPE order. */
 const PIN_SHAPE_NAMES: Readonly<Record<string, string>> = {
-  line: 'Line',
-  inverted: 'Inverted',
-  clock: 'Clock',
-  inverted_clock: 'Inverted clock',
-  input_low: 'Input low',
-  clock_low: 'Clock low',
-  output_low: 'Output low',
-  edge_clock_high: 'Falling edge clock',
-  non_logic: 'NonLogic',
+  line: _HKI('Line'),
+  inverted: _HKI('Inverted'),
+  clock: _HKI('Clock'),
+  inverted_clock: _HKI('Inverted clock'),
+  input_low: _HKI('Input low'),
+  clock_low: _HKI('Clock low'),
+  output_low: _HKI('Output low'),
+  edge_clock_high: _HKI('Falling edge clock'),
+  non_logic: _HKI('NonLogic'),
 };
 
 /**
@@ -121,10 +122,10 @@ export function PinShapeGetText(aShape: GRAPHIC_PINSHAPE): string {
 
 /** `g_pinOrientations`' names (pin_type.cpp, InitTables). [data] */
 const PIN_ORIENTATION_NAMES: Readonly<Partial<Record<PIN_ORIENTATION, string>>> = {
-  [PIN_ORIENTATION.PIN_RIGHT]: 'Right',
-  [PIN_ORIENTATION.PIN_LEFT]: 'Left',
-  [PIN_ORIENTATION.PIN_UP]: 'Up',
-  [PIN_ORIENTATION.PIN_DOWN]: 'Down',
+  [PIN_ORIENTATION.PIN_RIGHT]: _HKI('Right'),
+  [PIN_ORIENTATION.PIN_LEFT]: _HKI('Left'),
+  [PIN_ORIENTATION.PIN_UP]: _HKI('Up'),
+  [PIN_ORIENTATION.PIN_DOWN]: _HKI('Down'),
 };
 
 /** `PinOrientationName( PIN_ORIENTATION )`: '?' for one the table lacks (INHERIT), as the wxCHECK. */

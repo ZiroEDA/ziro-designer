@@ -21,6 +21,8 @@ import {
 import { SCH_ACTIONS } from '@ziroeda/eeschema/tools/sch_actions.js';
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/wx/menu.js';
 import { afterEach, describe, expect, it } from 'vitest';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import { type SYMBOL_EDIT_HARNESS, symbolEditHarness } from './support/symbol_edit_harness.js';
 
 const prop = (aName: string, aValue: string) =>
@@ -175,11 +177,19 @@ describe('SYMBOL_EDIT_FRAME::SaveSymbolCopyAs', () => {
 
     await t.frame.SaveSymbolCopyAs(false);
 
+    // symbol_editor.cpp:977-986: the format and the closing question are messages; the list is not.
     expect(kiAsked[0]!.message).toBe(
-      "The following symbols in the inheritance chain of 'E' already exist in library 'other':\n" +
-        '  U\n\nDo you want to overwrite all of them, or rename the new symbols?',
+      wxFormat(
+        _(
+          "The following symbols in the inheritance chain of '%s' already exist in library '%s':\n",
+        ),
+        'E',
+        'other',
+      ) +
+        '  U\n' +
+        _('\nDo you want to overwrite all of them, or rename the new symbols?'),
     );
-    expect(kiAsked[0]!.yesNo).toEqual({ yes: 'Overwrite All', no: 'Rename All' });
+    expect(kiAsked[0]!.yesNo).toEqual({ yes: _('Overwrite All'), no: _('Rename All') });
     expect(names('other')).toEqual(['D', 'E', 'U']);
     expect(parentName('E', 'other')).toBe('D');
     expect(parentName('D', 'other')).toBe('U');
@@ -221,8 +231,8 @@ describe('SYMBOL_EDIT_FRAME::SaveSymbolCopyAs', () => {
     await t.frame.SaveSymbolCopyAs(false);
 
     expect(boxes).toEqual([
-      'A library must be specified.',
-      'Symbol must have a name.',
+      _('A library must be specified.'),
+      _('Symbol must have a name.'),
       "Library 'other' is read-only. Choose a different library to save the symbol 'X' to.",
       "Symbol 'D' cannot replace another symbol 'U' that it descends from",
       "Symbol 'D' cannot replace another symbol 'E' that is a descendent of it.",
@@ -242,7 +252,7 @@ describe('SYMBOL_EDIT_FRAME::SaveSymbolCopyAs', () => {
     expect(kiAsked.map((r) => r.message)).toEqual([
       "Symbol 'U' already exists in library 'other'. Do you want to overwrite it?",
     ]);
-    expect(kiAsked[0]!.labels?.ok).toBe('Overwrite');
+    expect(kiAsked[0]!.labels?.ok).toBe(_('Overwrite'));
     expect(sym('U', 'other').GetKeyWords()).toBe('');
 
     kiAsked = [];

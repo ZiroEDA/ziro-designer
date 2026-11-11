@@ -114,6 +114,8 @@ import {
   SwapPinGeometry,
   SymbolHasSheetInstances,
 } from './sch_tool_utils.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /** `SYMBOL_PROPS_RETVALUE` (dialogs/dialog_symbol_properties.h): why the dialog closed. */
 export enum SYMBOL_PROPS_RETVALUE {
@@ -143,7 +145,7 @@ class SYMBOL_UNIT_MENU extends ACTION_MENU {
   constructor() {
     super(true);
     this.SetIcon(BITMAPS.component_select_unit);
-    this.SetTitle('Symbol Unit');
+    this.SetTitle(_('Symbol Unit'));
   }
 
   protected override create(): ACTION_MENU {
@@ -168,7 +170,7 @@ class SYMBOL_UNIT_MENU extends ACTION_MENU {
     for (let ii = 0; ii < nUnits; ii++) {
       let unit_text = symbol.GetUnitDisplayName(ii + 1, false);
 
-      if (!missingUnits.has(ii + 1)) unit_text += ' (already placed)';
+      if (!missingUnits.has(ii + 1)) unit_text += _(' (already placed)');
 
       const item = this.Append(
         ID.ID_POPUP_SCH_SELECT_UNIT1 + ii,
@@ -199,7 +201,7 @@ class BODY_STYLE_MENU extends ACTION_MENU {
   constructor() {
     super(true);
     this.SetIcon(BITMAPS.body_style);
-    this.SetTitle('Body Style');
+    this.SetTitle(_('Body Style'));
   }
 
   protected override create(): ACTION_MENU {
@@ -220,13 +222,18 @@ class BODY_STYLE_MENU extends ACTION_MENU {
     if (symbol.HasDeMorganBodyStyles()) {
       let item = this.Append(
         ID.ID_POPUP_SCH_SELECT_BODY_STYLE,
-        'Standard',
+        _('Standard'),
         '',
         1 /* wxITEM_CHECK */,
       );
       item.Check(symbol.GetBodyStyle() === 1 /* BODY_STYLE::BASE */);
 
-      item = this.Append(ID.ID_POPUP_SCH_SELECT_BODY_STYLE1, 'Alternate', '', 1 /* wxITEM_CHECK */);
+      item = this.Append(
+        ID.ID_POPUP_SCH_SELECT_BODY_STYLE1,
+        _('Alternate'),
+        '',
+        1 /* wxITEM_CHECK */,
+      );
       item.Check(symbol.GetBodyStyle() !== 1 /* BODY_STYLE::BASE */);
     } else if (symbol.IsMultiBodyStyle()) {
       for (let i = 0; i < symbol.GetBodyStyleCount(); i++) {
@@ -246,7 +253,7 @@ class ALT_PIN_FUNCTION_MENU extends ACTION_MENU {
   constructor() {
     super(true);
     this.SetIcon(BITMAPS.component_select_unit);
-    this.SetTitle('Pin Function');
+    this.SetTitle(_('Pin Function'));
   }
 
   protected override create(): ACTION_MENU {
@@ -295,7 +302,7 @@ class PIN_TRICKS_MENU extends ACTION_MENU {
   constructor() {
     super(true);
     this.SetIcon(BITMAPS.pin);
-    this.SetTitle('Pin Helpers');
+    this.SetTitle(_('Pin Helpers'));
   }
 
   protected override create(): ACTION_MENU {
@@ -314,15 +321,15 @@ class PIN_TRICKS_MENU extends ACTION_MENU {
 
     if (!pin && !sheetPin) return;
 
-    this.Add('Wire', ID.ID_POPUP_SCH_PIN_TRICKS_WIRE, BITMAPS.add_line);
-    this.Add('No Connect', ID.ID_POPUP_SCH_PIN_TRICKS_NO_CONNECT, BITMAPS.noconn);
-    this.Add('Net Label', ID.ID_POPUP_SCH_PIN_TRICKS_NET_LABEL, BITMAPS.add_label);
+    this.Add(_('Wire'), ID.ID_POPUP_SCH_PIN_TRICKS_WIRE, BITMAPS.add_line);
+    this.Add(_('No Connect'), ID.ID_POPUP_SCH_PIN_TRICKS_NO_CONNECT, BITMAPS.noconn);
+    this.Add(_('Net Label'), ID.ID_POPUP_SCH_PIN_TRICKS_NET_LABEL, BITMAPS.add_label);
     this.Add(
-      'Hierarchical Label',
+      _('Hierarchical Label'),
       ID.ID_POPUP_SCH_PIN_TRICKS_HIER_LABEL,
       BITMAPS.add_hierarchical_label,
     );
-    this.Add('Global Label', ID.ID_POPUP_SCH_PIN_TRICKS_GLOBAL_LABEL, BITMAPS.add_glabel);
+    this.Add(_('Global Label'), ID.ID_POPUP_SCH_PIN_TRICKS_GLOBAL_LABEL, BITMAPS.add_glabel);
   }
 }
 
@@ -747,7 +754,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     const makeTransformMenu = () => {
       const menu = new CONDITIONAL_MENU(moveTool);
-      menu.SetUntranslatedTitle('Transform Selection');
+      menu.SetUntranslatedTitle(_HKI('Transform Selection'));
 
       menu.AddItem(SCH_ACTIONS.rotateCCW, orientCondition);
       menu.AddItem(SCH_ACTIONS.rotateCW, orientCondition);
@@ -759,7 +766,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     const makeAttributesMenu = () => {
       const menu = new CONDITIONAL_MENU(moveTool);
-      menu.SetUntranslatedTitle('Attributes');
+      menu.SetUntranslatedTitle(_HKI('Attributes'));
 
       menu.AddCheckItem(SCH_ACTIONS.setExcludeFromSim, S_C.ShowAlways);
       menu.AddCheckItem(SCH_ACTIONS.setExcludeFromBOM, S_C.ShowAlways);
@@ -772,7 +779,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     const makeEditFieldsMenu = () => {
       const menu = new CONDITIONAL_MENU(this.m_selectionTool);
-      menu.SetUntranslatedTitle('Edit Main Fields');
+      menu.SetUntranslatedTitle(_HKI('Edit Main Fields'));
 
       menu.AddItem(SCH_ACTIONS.editReference, S_C.SingleSymbol, 200);
       menu.AddItem(SCH_ACTIONS.editValue, S_C.SingleSymbol, 200);
@@ -1213,7 +1220,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
       this.m_frame!.Schematic().CleanUp(commit);
 
-      if (!localCommit.Empty()) localCommit.Push('Rotate');
+      if (!localCommit.Empty()) localCommit.Push(_('Rotate'));
     }
 
     return 0;
@@ -1384,7 +1391,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         this.m_frame!.Schematic().CleanUp(commit);
       }
 
-      if (!localCommit.Empty()) localCommit.Push('Mirror');
+      if (!localCommit.Empty()) localCommit.Push(_('Mirror'));
     }
 
     return 0;
@@ -1525,7 +1532,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       if (connections) this.m_frame!.TestDanglingEnds();
       this.m_frame!.OnModify();
 
-      if (!localCommit.Empty()) localCommit.Push('Swap');
+      if (!localCommit.Empty()) localCommit.Push(_('Swap'));
     }
 
     return 0;
@@ -1602,7 +1609,9 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         );
       } else {
         this.m_frame.ShowInfoBarError(
-          'Pin swaps are disabled for shared symbols. Duplicate the sheet to edit pins independently.',
+          _(
+            'Pin swaps are disabled for shared symbols. Duplicate the sheet to edit pins independently.',
+          ),
         );
       }
 
@@ -1660,7 +1669,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     this.m_frame.OnModify();
 
-    if (!localCommit.Empty()) localCommit.Push('Swap Pins');
+    if (!localCommit.Empty()) localCommit.Push(_('Swap Pins'));
 
     return 0;
   }
@@ -1683,7 +1692,9 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
       if (!label) {
         this.m_frame!.ShowInfoBarError(
-          'Each selected pin must have exactly one attached net label and no other pin connections.',
+          _(
+            'Each selected pin must have exactly one attached net label and no other pin connections.',
+          ),
         );
         return 0;
       }
@@ -1705,7 +1716,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         b.SetText(aText);
       }
 
-      commit.Push('Swap Pin Labels');
+      commit.Push(_('Swap Pin Labels'));
     }
 
     return 0;
@@ -1769,7 +1780,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       }
     }
 
-    if (!commit.Empty()) commit.Push('Swap Unit Labels');
+    if (!commit.Empty()) commit.Push(_('Swap Unit Labels'));
 
     return 0;
   }
@@ -1807,7 +1818,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         // If incrementing tries to go below zero, tell user why the value is repeated
         if (cfg) {
           if (!newItem.IncrementLabel(cfg.drawing.repeat_label_increment))
-            this.m_frame!.ShowInfoBarWarning('Label value cannot go below zero', true);
+            this.m_frame!.ShowInfoBarWarning(_('Label value cannot go below zero'), true);
         }
       }
 
@@ -1893,7 +1904,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       lwbTool.AddJunctionsIfNeeded(commit, newItems);
 
       this.m_frame!.Schematic().CleanUp(commit);
-      commit.Push('Repeat Item');
+      commit.Push(_('Repeat Item'));
 
       const added = newItems.GetItems() as SCH_ITEM[];
       this.m_frame!.SaveCopyForRepeatItem(added[0]!);
@@ -1974,7 +1985,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         this.m_frame!.DeleteJunction(commit, junction);
     }
 
-    commit.Push('Delete');
+    commit.Push(_('Delete'));
 
     if (updateHierarchy) this.m_frame!.UpdateHierarchyNavigator();
 
@@ -2115,7 +2126,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     if (moving) {
       this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
     } else {
-      if (!commit.Empty()) commit.Push('Autoplace Fields');
+      if (!commit.Empty()) commit.Push(_('Autoplace Fields'));
 
       if (selection.IsHover()) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
     }
@@ -2169,7 +2180,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     if (symbol.IsNew()) this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
 
-    if (!commit.Empty()) commit.Push('Change Body Style');
+    if (!commit.Empty()) commit.Push(_('Change Body Style'));
 
     if (selection.IsHover()) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 
@@ -2352,7 +2363,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
         if (result) {
           if (result.isUndoable) {
-            commit.Push('Edit Sheet Properties');
+            commit.Push(_('Edit Sheet Properties'));
           } else {
             // The sheet file change invalidated the undo/redo list.
             this.m_frame!.ClearUndoRedoList();
@@ -2451,7 +2462,11 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       case KICAD_T.SCH_RULE_AREA_T:
         // dlg.SetTitle( _( "Rule Area Properties" ) )
         yield* this.RunMainStackModal(() =>
-          this.m_frame!.ShowModalDialog('DIALOG_SHAPE_PROPERTIES', [aItem], 'Rule Area Properties'),
+          this.m_frame!.ShowModalDialog(
+            'DIALOG_SHAPE_PROPERTIES',
+            [aItem],
+            _('Rule Area Properties'),
+          ),
         );
         break;
 
@@ -2852,10 +2867,10 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       if (selection.IsHover()) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 
       if (!localCommit.Empty()) {
-        if (aEvent.Matches(ACTIONS.leftJustify.MakeEvent())) localCommit.Push('Left Justify');
+        if (aEvent.Matches(ACTIONS.leftJustify.MakeEvent())) localCommit.Push(_('Left Justify'));
         else if (aEvent.Matches(ACTIONS.centerJustify.MakeEvent()))
-          localCommit.Push('Center Justify');
-        else localCommit.Push('Right Justify');
+          localCommit.Push(_('Center Justify'));
+        else localCommit.Push(_('Right Justify'));
       }
     }
 
@@ -2871,7 +2886,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     if (
       !(yield* this.RunMainStackModal(() =>
-        this.m_frame!.IsOKAsync('Do you wish to delete the unreferenced pins from this sheet?'),
+        this.m_frame!.IsOKAsync(_('Do you wish to delete the unreferenced pins from this sheet?')),
       ))
     )
       return 0;
@@ -2882,7 +2897,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     this.updateItem(sheet, true);
 
-    commit.Push('Cleanup Sheet Pins');
+    commit.Push(_('Cleanup Sheet Pins'));
 
     if (selection.IsHover()) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 
@@ -2927,7 +2942,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
     // dlg.SetTextValidator( wxFILTER_ALPHANUMERIC ): no white space.
     const value = yield* this.RunMainStackModal(() =>
-      this.m_frame!.TextEntryDialog(msg, 'Edit Sheet Page Number', pageNumber),
+      this.m_frame!.TextEntryDialog(msg, _('Edit Sheet Page Number'), pageNumber),
     );
 
     if (value === null || value === instance.GetPageNumber()) return 0;
@@ -3037,7 +3052,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         item.SetExcludedFromPosFiles(new_state, sheet, variant);
     }
 
-    if (!commit.Empty()) commit.Push('Toggle Attribute');
+    if (!commit.Empty()) commit.Push(_('Toggle Attribute'));
 
     if (selection.IsHover()) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 
@@ -3113,7 +3128,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     ) {
       this.m_toolMgr!.RunAction(SCH_ACTIONS.annotate);
     } else if (aERCItem.GetErrorCode() === ERCE_T.ERCE_UNDEFINED_NETCLASS) {
-      void frame.ShowSchematicSetupDialog('Net Classes');
+      void frame.ShowSchematicSetupDialog(_('Net Classes'));
     }
   }
 

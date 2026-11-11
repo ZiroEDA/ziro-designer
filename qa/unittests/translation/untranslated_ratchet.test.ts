@@ -61,6 +61,8 @@ const FRAMES: Record<string, number> = {
   // string-literal type ('mm' as EdaUnits), and ~320 spellings KiCad marks in one place and
   // not another, which need reading one at a time.
   common: 1013,
+  // 4215 -> 1337 (stage 2), the same way.
+  eeschema: 1337,
 };
 
 const MSGIDS = loadMsgids(join(ROOT, 'translation'));

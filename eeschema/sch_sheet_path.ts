@@ -110,7 +110,7 @@ export function setSheetPageNumberCommand(
   project?: string,
 ): EditCommand {
   return {
-    label: 'Edit Sheet Page Number',
+    label: _('Edit Sheet Page Number'),
     apply(doc: Schematic): Schematic {
       const sheet = doc.sheets[sheetIndex];
       if (!sheet) return doc;
@@ -134,7 +134,7 @@ export function setSheetPageNumberCommand(
 /** Set the root sheet's page number (document-level sheet_instances). */
 export function setRootPageNumberCommand(page: string, path = '/'): EditCommand {
   return {
-    label: 'Edit Sheet Page Number',
+    label: _('Edit Sheet Page Number'),
     apply(doc: Schematic): Schematic {
       const idx = doc.sheetInstances.findIndex((i) => i.path === path);
       if (idx === -1) return doc;
@@ -266,6 +266,7 @@ import {
   multiUnitEntries,
   type SCH_MULTI_UNIT_REFERENCE_MAP,
 } from './sch_reference_list.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `SYMBOL_FILTER`. */
 export enum SYMBOL_FILTER {

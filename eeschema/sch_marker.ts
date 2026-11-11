@@ -39,6 +39,7 @@ import { ERCE_T } from './erc/erc_settings.js';
 import { SCH_ITEM } from './sch_item.js';
 import type { SCH_SHEET_LIST } from './sch_sheet_path.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /// Factor to convert the maker unit shape to internal units:
 const SCALING_FACTOR = schIUScale.mmToIU(0.15);
@@ -338,25 +339,25 @@ export class SCH_MARKER extends SCH_ITEM {
   override GetMsgPanelInfo(aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
     const rcItem = this.m_rcItem!;
 
-    aList.push(new MSG_PANEL_ITEM('Type', 'Marker'));
-    aList.push(new MSG_PANEL_ITEM('Violation', rcItem.GetErrorMessage(true)));
+    aList.push(new MSG_PANEL_ITEM(_('Type'), _('Marker')));
+    aList.push(new MSG_PANEL_ITEM(_('Violation'), rcItem.GetErrorMessage(true)));
 
     switch (this.GetSeverity()) {
       case RPT_SEVERITY_IGNORE:
-        aList.push(new MSG_PANEL_ITEM('Severity', 'Ignore'));
+        aList.push(new MSG_PANEL_ITEM(_('Severity'), _('Ignore')));
         break;
       case RPT_SEVERITY_WARNING:
-        aList.push(new MSG_PANEL_ITEM('Severity', 'Warning'));
+        aList.push(new MSG_PANEL_ITEM(_('Severity'), _('Warning')));
         break;
       case RPT_SEVERITY_ERROR:
-        aList.push(new MSG_PANEL_ITEM('Severity', 'Error'));
+        aList.push(new MSG_PANEL_ITEM(_('Severity'), _('Error')));
         break;
       default:
         break;
     }
 
     if (this.GetMarkerType() === MARKER_T.MARKER_DRAWING_SHEET) {
-      aList.push(new MSG_PANEL_ITEM('Drawing Sheet', ''));
+      aList.push(new MSG_PANEL_ITEM(_('Drawing Sheet'), ''));
     } else {
       let mainText = '';
       let auxText = '';
@@ -374,11 +375,11 @@ export class SCH_MARKER extends SCH_ITEM {
       aList.push(new MSG_PANEL_ITEM(mainText, auxText));
     }
 
-    if (this.IsExcluded()) aList.push(new MSG_PANEL_ITEM('Excluded', this.m_comment));
+    if (this.IsExcluded()) aList.push(new MSG_PANEL_ITEM(_('Excluded'), this.m_comment));
   }
 
   override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
-    return 'ERC Marker';
+    return _('ERC Marker');
   }
 
   override GetMenuImage(): string {

@@ -49,6 +49,7 @@ import {
   WriteRemoteBinaryFile,
 } from './remote_symbol_import_utils.js';
 import { SCH_IO_KICAD_SEXPR } from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface REMOTE_SYMBOL_IMPORT_CONTEXT {
   symbol_name: string;
@@ -77,14 +78,14 @@ function validateSymbolPayload(
   if (aExpectedSymbolName === '') return true;
 
   if (aPayload.length === 0) {
-    aError.value = 'Downloaded symbol payload was empty.';
+    aError.value = _('Downloaded symbol payload was empty.');
     return false;
   }
 
   const payload = new TextDecoder().decode(aPayload);
 
   if (!payload.includes('(kicad_symbol_lib')) {
-    aError.value = 'Downloaded symbol payload was not a KiCad symbol library.';
+    aError.value = _('Downloaded symbol payload was not a KiCad symbol library.');
     return false;
   }
 
@@ -298,7 +299,7 @@ export class REMOTE_SYMBOL_IMPORT_JOB {
           return false;
 
         if (!this.m_frame!.SaveSymbol(nickname, loaded, true)) {
-          aError.value = 'Unable to save the downloaded symbol.';
+          aError.value = _('Unable to save the downloaded symbol.');
           return false;
         }
 
@@ -331,7 +332,7 @@ export class REMOTE_SYMBOL_IMPORT_JOB {
 
     if (aPlaceSymbol) {
       if (!importedSymbol) {
-        aError.value = 'No symbol asset was available to place.';
+        aError.value = _('No symbol asset was available to place.');
         return false;
       }
 

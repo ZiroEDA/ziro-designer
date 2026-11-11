@@ -43,6 +43,8 @@ import {
   StdDialogButtonSizer,
   StretchSpacer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 const EXCLUDE_FROM_BOM_TIP =
   'This is useful for adding symbols for board footprints such as fiducials\n' +
@@ -56,7 +58,7 @@ const EXCLUDE_FROM_POS_FILES_TIP =
 
 /** m_orientationCtrlChoices and m_mirrorCtrlChoices. */
 const ORIENTATIONS = ['0', '+90', '-90', '180'];
-const MIRRORS = ['Not mirrored', 'Around X axis', 'Around Y axis'];
+const MIRRORS = [_HKI('Not mirrored'), _HKI('Around X axis'), _HKI('Around Y axis')];
 
 export interface DIALOG_SYMBOL_PROPERTIES_BASE_PROPS {
   title: string;
@@ -103,7 +105,7 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
     // generalPageSizer
     <BoxSizer orient={wxVERTICAL}>
       <SizerItem proportion={1} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-        <StaticBoxSizer label="Fields" orient={wxVERTICAL}>
+        <StaticBoxSizer label={_('Fields')} orient={wxVERTICAL}>
           <SizerItem
             proportion={1}
             flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT}
@@ -117,19 +119,27 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
             {/* bButtonSize */}
             <BoxSizer orient={wxHORIZONTAL}>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
-                <StdBitmapButton bitmap="small_plus" title="Add field" onClick={p.onAddField} />
+                <StdBitmapButton
+                  bitmap="small_plus"
+                  title={_('Add field')}
+                  onClick={p.onAddField}
+                />
               </SizerItem>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
-                <StdBitmapButton bitmap="small_up" title="Move up" onClick={p.onMoveUp} />
+                <StdBitmapButton bitmap="small_up" title={_('Move up')} onClick={p.onMoveUp} />
               </SizerItem>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
-                <StdBitmapButton bitmap="small_down" title="Move down" onClick={p.onMoveDown} />
+                <StdBitmapButton
+                  bitmap="small_down"
+                  title={_('Move down')}
+                  onClick={p.onMoveDown}
+                />
               </SizerItem>
               <Spacer width={20} height={0} flag={wxEXPAND} border={10} />
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
                 <StdBitmapButton
                   bitmap="small_trash"
-                  title="Delete field"
+                  title={_('Delete field')}
                   onClick={p.onDeleteField}
                 />
               </SizerItem>
@@ -142,7 +152,7 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
         {/* bLowerSizer */}
         <BoxSizer orient={wxHORIZONTAL}>
           <SizerItem proportion={4} flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
-            <StaticBoxSizer label="General" orient={wxVERTICAL}>
+            <StaticBoxSizer label={_('General')} orient={wxVERTICAL}>
               <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                 {/* gbSizer1 = wxGridBagSizer( 3, 3 ), SetEmptyCellSize( wxSize( -1,12 ) ),
                     AddGrowableCol( 1 ) */}
@@ -153,7 +163,7 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
                     flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT}
                     border={5}
                   >
-                    <StaticText label="Unit:" disabled={p.m_unitChoice.enabled === false} />
+                    <StaticText label={_('Unit:')} disabled={p.m_unitChoice.enabled === false} />
                   </SizerItem>
                   <SizerItem
                     pos={[0, 1]}
@@ -171,7 +181,7 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
                     border={5}
                   >
                     <StaticText
-                      label="Body style:"
+                      label={_('Body style:')}
                       disabled={p.m_bodyStyleChoice.enabled === false}
                     />
                   </SizerItem>
@@ -193,7 +203,7 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
                     flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT}
                     border={5}
                   >
-                    <StaticText label="Angle:" />
+                    <StaticText label={_('Angle:')} />
                   </SizerItem>
                   <SizerItem
                     pos={[3, 1]}
@@ -201,7 +211,11 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
                     flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxRIGHT}
                     border={5}
                   >
-                    <Choice ariaLabel="Angle" choices={ORIENTATIONS} choice={p.m_orientationCtrl} />
+                    <Choice
+                      ariaLabel={_('Angle')}
+                      choices={ORIENTATIONS}
+                      choice={p.m_orientationCtrl}
+                    />
                   </SizerItem>
                   <SizerItem
                     pos={[4, 0]}
@@ -209,10 +223,10 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
                     flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT}
                     border={5}
                   >
-                    <StaticText label="Mirror:" />
+                    <StaticText label={_('Mirror:')} />
                   </SizerItem>
                   <SizerItem pos={[4, 1]} span={[1, 1]} flag={wxEXPAND | wxRIGHT} border={5}>
-                    <Choice ariaLabel="Mirror" choices={MIRRORS} choice={p.m_mirrorCtrl} />
+                    <Choice ariaLabel={_('Mirror')} choices={MIRRORS} choice={p.m_mirrorCtrl} />
                   </SizerItem>
                 </GridBagSizer>
               </SizerItem>
@@ -221,15 +235,15 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
                 <BoxSizer orient={wxHORIZONTAL}>
                   <SizerItem proportion={1} flag={wxALL} border={3}>
                     <CheckBox
-                      label="Show pin numbers"
-                      title="Show or hide pin numbers"
+                      label={_('Show pin numbers')}
+                      title={_('Show or hide pin numbers')}
                       check={p.m_ShowPinNumButt}
                     />
                   </SizerItem>
                   <SizerItem proportion={1} flag={wxALL} border={3}>
                     <CheckBox
-                      label="Show pin names"
-                      title="Show or hide pin names"
+                      label={_('Show pin names')}
+                      title={_('Show or hide pin names')}
                       check={p.m_ShowPinNameButt}
                     />
                   </SizerItem>
@@ -241,34 +255,34 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
             {/* bMiddleCol */}
             <BoxSizer orient={wxVERTICAL}>
               <SizerItem proportion={1} flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
-                <StaticBoxSizer label="Attributes" orient={wxVERTICAL}>
+                <StaticBoxSizer label={_('Attributes')} orient={wxVERTICAL}>
                   <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-                    <CheckBox label="Exclude from simulation" check={p.m_cbExcludeFromSim} />
+                    <CheckBox label={_('Exclude from simulation')} check={p.m_cbExcludeFromSim} />
                   </SizerItem>
                   <Spacer width={0} height={10} flag={wxEXPAND} border={5} />
                   <SizerItem flag={wxALL} border={5}>
                     <CheckBox
-                      label="Exclude from bill of materials"
+                      label={_('Exclude from bill of materials')}
                       title={EXCLUDE_FROM_BOM_TIP}
                       check={p.m_cbExcludeFromBom}
                     />
                   </SizerItem>
                   <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                     <CheckBox
-                      label="Exclude from board"
+                      label={_('Exclude from board')}
                       title={EXCLUDE_FROM_BOARD_TIP}
                       check={p.m_cbExcludeFromBoard}
                     />
                   </SizerItem>
                   <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                     <CheckBox
-                      label="Exclude from position files"
+                      label={_('Exclude from position files')}
                       title={EXCLUDE_FROM_POS_FILES_TIP}
                       check={p.m_cbExcludeFromPosFiles}
                     />
                   </SizerItem>
                   <SizerItem flag={wxBOTTOM | wxLEFT | wxRIGHT} border={5}>
-                    <CheckBox label="Do not populate" check={p.m_cbDNP} />
+                    <CheckBox label={_('Do not populate')} check={p.m_cbDNP} />
                   </SizerItem>
                 </StaticBoxSizer>
               </SizerItem>
@@ -278,14 +292,14 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
             {/* buttonsSizer */}
             <BoxSizer orient={wxVERTICAL}>
               <SizerItem flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
-                <Button label="Update Symbol from Library..." onClick={p.onUpdateSymbol} />
+                <Button label={_('Update Symbol from Library...')} onClick={p.onUpdateSymbol} />
               </SizerItem>
               <SizerItem flag={wxEXPAND | wxALL} border={5}>
-                <Button label="Change Symbol..." onClick={p.onExchangeSymbol} />
+                <Button label={_('Change Symbol...')} onClick={p.onExchangeSymbol} />
               </SizerItem>
               <SizerItem flag={wxEXPAND | wxALL} border={5}>
                 <Button
-                  label="Edit Symbol..."
+                  label={_('Edit Symbol...')}
                   disabled={!p.editSymbolEnabled}
                   onClick={p.onEditSymbol}
                 />
@@ -293,7 +307,7 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
               <Spacer width={0} height={20} flag={wxEXPAND} border={5} />
               <SizerItem flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={5}>
                 <Button
-                  label="Edit Library Symbol..."
+                  label={_('Edit Library Symbol...')}
                   disabled={!p.editSymbolEnabled}
                   onClick={p.onEditLibrarySymbol}
                 />
@@ -330,8 +344,8 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
             onPageChanging={p.onPageChanging}
             onPageChanged={p.onPageChanged}
             pages={[
-              { text: 'General', content: generalPage },
-              { text: 'Pin Functions', content: pinTablePage },
+              { text: _('General'), content: generalPage },
+              { text: _('Pin Functions'), content: pinTablePage },
             ]}
           />
         </SizerItem>
@@ -339,7 +353,7 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
           {/* bSizerBottom */}
           <BoxSizer orient={wxHORIZONTAL}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxBOTTOM | wxTOP} border={2}>
-              <StaticText label="Library link:" />
+              <StaticText label={_('Library link:')} />
             </SizerItem>
             <SizerItem proportion={1} flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
               {/* m_tcLibraryID: wxTE_READONLY|wxBORDER_NONE */}
@@ -359,7 +373,7 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
             >
               {/* DIALOG_SIM_MODEL is not ported. */}
               <Button
-                label="Simulation Model..."
+                label={_('Simulation Model...')}
                 disabled
                 title="The simulator is not available in this build"
               />

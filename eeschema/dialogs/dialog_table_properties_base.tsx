@@ -43,6 +43,7 @@ import {
   StdDialogButtonSizer,
   StretchSpacer,
 } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A width entry with its UNIT_BINDER's label and units, enabled as one. */
 export interface WIDTH_FIELD {
@@ -109,7 +110,7 @@ function WidthAndColor({
         <StaticText label={width.units} disabled={!width.enabled} />
       </SizerItem>
       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={15}>
-        <StaticText label="Color:" disabled={!swatch.enabled} />
+        <StaticText label={_('Color:')} disabled={!swatch.enabled} />
       </SizerItem>
       <Spacer width={5} height={0} border={5} />
       <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -146,7 +147,7 @@ function StyleCombo({ label, c }: { label: string; c: CHOICE }): JSX.Element {
 
 export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Table Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Table Properties')} onClose={p.onCancel}>
       {/* bMainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxBOTTOM} border={5} shown={p.m_infoBar !== null}>
@@ -166,7 +167,7 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxTOP | wxBOTTOM} border={3}>
                   {/* cellContentsLabel */}
-                  <StaticText label="Cell contents:" />
+                  <StaticText label={_('Cell contents:')} />
                 </SizerItem>
                 <SizerItem proportion={1} flag={wxEXPAND} border={5}>
                   {p.m_grid}
@@ -182,13 +183,13 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
                       AddGrowableCol( 1 ) */}
                   <GridBagSizer vgap={3} hgap={3} emptyCellSize={[0, 2]} growableCols={[1]}>
                     <SizerItem pos={[0, 0]} span={[1, 2]} flag={wxBOTTOM} border={2}>
-                      <CheckBox label="External border" check={p.m_borderCheckbox} />
+                      <CheckBox label={_('External border')} check={p.m_borderCheckbox} />
                     </SizerItem>
                     <SizerItem pos={[0, 2]} span={[1, 1]} flag={wxLEFT} border={20}>
-                      <CheckBox label="Header border" check={p.m_headerBorder} />
+                      <CheckBox label={_('Header border')} check={p.m_headerBorder} />
                     </SizerItem>
                     <SizerItem pos={[2, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <StaticText label="Width:" disabled={!p.m_borderWidth.enabled} />
+                      <StaticText label={_('Width:')} disabled={!p.m_borderWidth.enabled} />
                     </SizerItem>
                     <SizerItem pos={[2, 1]} span={[1, 2]} flag={wxEXPAND} border={5}>
                       <WidthAndColor
@@ -199,7 +200,7 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
                     </SizerItem>
                     <SizerItem pos={[3, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                       <StaticText
-                        label="Style:"
+                        label={_('Style:')}
                         disabled={p.m_borderStyleCombo.enabled === false}
                       />
                     </SizerItem>
@@ -226,7 +227,7 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
                       flag={wxALIGN_CENTER_VERTICAL | wxRIGHT}
                       border={15}
                     >
-                      <CheckBox label="Row lines" check={p.m_rowSeparators} />
+                      <CheckBox label={_('Row lines')} check={p.m_rowSeparators} />
                     </SizerItem>
                     <SizerItem
                       pos={[5, 2]}
@@ -234,10 +235,10 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
                       flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT}
                       border={20}
                     >
-                      <CheckBox label="Column lines" check={p.m_colSeparators} />
+                      <CheckBox label={_('Column lines')} check={p.m_colSeparators} />
                     </SizerItem>
                     <SizerItem pos={[7, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                      <StaticText label="Width:" disabled={!p.m_separatorsWidth.enabled} />
+                      <StaticText label={_('Width:')} disabled={!p.m_separatorsWidth.enabled} />
                     </SizerItem>
                     <SizerItem pos={[7, 1]} span={[1, 2]} flag={wxEXPAND} border={5}>
                       <WidthAndColor
@@ -248,7 +249,7 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
                     </SizerItem>
                     <SizerItem pos={[8, 0]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                       <StaticText
-                        label="Style:"
+                        label={_('Style:')}
                         disabled={p.m_separatorsStyleCombo.enabled === false}
                       />
                     </SizerItem>

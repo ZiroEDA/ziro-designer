@@ -44,6 +44,7 @@ import {
   type SchematicSetup,
   type TextVar,
 } from './schematic_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const PRO_RE = /\.kicad_pro$/i;
 
@@ -131,7 +132,7 @@ function opoRangeToFile(ui: string, auto: string): string {
 }
 function opoRangeFromFile(file: unknown, auto: string): string {
   const v = str(file, auto);
-  return v === auto ? 'Auto' : v;
+  return v === auto ? _('Auto') : v;
 }
 
 /** COLOR4D's unset marker, what GetSchematicColor/GetPcbColor( true ) emit

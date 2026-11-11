@@ -22,6 +22,7 @@ import {
 import { BoxSizer, FlexGridSizer, SizerItem, StdDialogButtonSizer } from '@ziroeda/wx/sizer.js';
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
 import { SymbolFilterComboBox } from '../widgets/symbol_filter_combobox.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** A control's value and, after DIALOG_LIB_NEW_SYMBOL's handlers, whether it is enabled. */
 export interface NEW_SYMBOL_CONTROL<T> {
@@ -95,7 +96,7 @@ export function DIALOG_LIB_NEW_SYMBOL_BASE(p: DIALOG_LIB_NEW_SYMBOL_BASE_PROPS):
   return (
     // onParentSymbolSelect ends `Fit()`: "The banner changes the size of the dialog box".
     <DialogShim
-      title="New Symbol"
+      title={_('New Symbol')}
       onClose={p.onCancel}
       initialFocus={p.nameRef}
       fitKey={p.m_comboInheritanceSelect}
@@ -115,7 +116,7 @@ export function DIALOG_LIB_NEW_SYMBOL_BASE(p: DIALOG_LIB_NEW_SYMBOL_BASE_PROPS):
               <FlexGridSizer cols={2} vgap={6} hgap={6} growableCols={[1]}>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                   <StaticText
-                    label="Symbol name:"
+                    label={_('Symbol name:')}
                     title={
                       'The symbol name in library and also the default\n' +
                       'symbol value when loaded in the schematic.'
@@ -127,11 +128,11 @@ export function DIALOG_LIB_NEW_SYMBOL_BASE(p: DIALOG_LIB_NEW_SYMBOL_BASE_PROPS):
                     value={p.m_textName}
                     onChange={p.onName}
                     inputRef={p.nameRef}
-                    ariaLabel="Symbol name"
+                    ariaLabel={_('Symbol name')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                  <StaticText label="Derive from existing symbol:" />
+                  <StaticText label={_('Derive from existing symbol:')} />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
                   <SymbolFilterComboBox
@@ -143,7 +144,7 @@ export function DIALOG_LIB_NEW_SYMBOL_BASE(p: DIALOG_LIB_NEW_SYMBOL_BASE_PROPS):
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                   <StaticText
-                    label="Default reference designator:"
+                    label={_('Default reference designator:')}
                     disabled={!p.m_textReference.enabled}
                   />
                 </SizerItem>
@@ -157,7 +158,7 @@ export function DIALOG_LIB_NEW_SYMBOL_BASE(p: DIALOG_LIB_NEW_SYMBOL_BASE_PROPS):
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                   <StaticText
-                    label="Number of units per package:"
+                    label={_('Number of units per package:')}
                     disabled={!p.m_spinPartCount.enabled}
                   />
                 </SizerItem>
@@ -179,52 +180,58 @@ export function DIALOG_LIB_NEW_SYMBOL_BASE(p: DIALOG_LIB_NEW_SYMBOL_BASE_PROPS):
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
                   {check(
-                    'All units are interchangeable',
+                    _('All units are interchangeable'),
                     p.m_checkUnitsInterchangeable,
                     p.onUnitsInterchangeable,
-                    'Check this option when all symbol units are identical except\nfor pin numbers.',
+                    _(
+                      'Check this option when all symbol units are identical except\nfor pin numbers.',
+                    ),
                   )}
                 </SizerItem>
                 <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
                   {check(
-                    'Create symbol with alternate body style (De Morgan)',
+                    _('Create symbol with alternate body style (De Morgan)'),
                     p.m_checkHasAlternateBodyStyle,
                     p.onAlternateBodyStyle,
                   )}
                 </SizerItem>
                 <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
                   {check(
-                    'Create symbol as power symbol',
+                    _('Create symbol as power symbol'),
                     p.m_checkIsPowerSymbol,
                     p.onPowerCheckBox,
                   )}
                 </SizerItem>
                 <SizerItem flag={wxLEFT | wxRIGHT | wxTOP} border={5}>
                   {check(
-                    'Exclude from bill of materials',
+                    _('Exclude from bill of materials'),
                     p.m_excludeFromBomCheckBox,
                     p.onExcludeFromBom,
                   )}
                 </SizerItem>
                 <SizerItem flag={wxLEFT | wxRIGHT | wxTOP} border={5}>
-                  {check('Exclude from board', p.m_excludeFromBoardCheckBox, p.onExcludeFromBoard)}
+                  {check(
+                    _('Exclude from board'),
+                    p.m_excludeFromBoardCheckBox,
+                    p.onExcludeFromBoard,
+                  )}
                 </SizerItem>
                 <SizerItem flag={wxLEFT | wxRIGHT | wxTOP} border={5}>
-                  {check('Keep linked datasheet', p.m_checkKeepDatasheet, p.onKeepDatasheet)}
+                  {check(_('Keep linked datasheet'), p.m_checkKeepDatasheet, p.onKeepDatasheet)}
                 </SizerItem>
                 <SizerItem flag={wxLEFT | wxRIGHT | wxTOP} border={5}>
-                  {check('Keep linked footprint', p.m_checkKeepFootprint, p.onKeepFootprint)}
+                  {check(_('Keep linked footprint'), p.m_checkKeepFootprint, p.onKeepFootprint)}
                 </SizerItem>
                 <SizerItem flag={wxLEFT | wxRIGHT | wxTOP} border={5}>
                   {check(
-                    'Transfer user-defined fields',
+                    _('Transfer user-defined fields'),
                     p.m_checkTransferUserFields,
                     p.onCheckTransferUserFields,
                   )}
                 </SizerItem>
                 <SizerItem flag={wxLEFT | wxRIGHT | wxTOP} border={5}>
                   {check(
-                    'Keep content of user-defined fields',
+                    _('Keep content of user-defined fields'),
                     p.m_checkKeepContentUserFields,
                     p.onKeepContentUserFields,
                   )}
@@ -241,7 +248,7 @@ export function DIALOG_LIB_NEW_SYMBOL_BASE(p: DIALOG_LIB_NEW_SYMBOL_BASE_PROPS):
               <FlexGridSizer cols={3} vgap={6} hgap={6} growableCols={[1]}>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                   <StaticText
-                    label="Pin name position offset:"
+                    label={_('Pin name position offset:')}
                     disabled={!p.m_textPinTextPosition.enabled}
                   />
                 </SizerItem>
@@ -262,13 +269,13 @@ export function DIALOG_LIB_NEW_SYMBOL_BASE(p: DIALOG_LIB_NEW_SYMBOL_BASE_PROPS):
               {/* bSizer19 */}
               <BoxSizer orient={wxVERTICAL}>
                 <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
-                  {check('Show pin number text', p.m_checkShowPinNumber, p.onShowPinNumber)}
+                  {check(_('Show pin number text'), p.m_checkShowPinNumber, p.onShowPinNumber)}
                 </SizerItem>
                 <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
-                  {check('Show pin name text', p.m_checkShowPinName, p.onShowPinName)}
+                  {check(_('Show pin name text'), p.m_checkShowPinName, p.onShowPinName)}
                 </SizerItem>
                 <SizerItem flag={wxLEFT | wxRIGHT | wxTOP} border={5}>
-                  {check('Pin name inside', p.m_checkShowPinNameInside, p.onShowPinNameInside)}
+                  {check(_('Pin name inside'), p.m_checkShowPinNameInside, p.onShowPinNameInside)}
                 </SizerItem>
               </BoxSizer>
             </SizerItem>
