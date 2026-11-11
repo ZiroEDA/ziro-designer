@@ -285,5 +285,5 @@ describe.skipIf(!HAVE_REFERENCE)('the committed catalogs', () => {
         .filter((f) => f.endsWith('.json'))
         .sort(),
     ).toEqual(linguas.map((l) => `${l}.json`).sort());
-  });
+  }, 60_000); // compiles 44 catalogs (~4 s alone); the 5 s default fails under a full run's load
 });

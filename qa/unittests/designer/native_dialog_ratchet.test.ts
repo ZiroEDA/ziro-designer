@@ -79,10 +79,11 @@ describe('native browser dialogs', () => {
   });
 
   it('New Project answers "no template selected" in the program\'s own box', () => {
-    // KICAD_MANAGER_CONTROL::NewProject: wxMessageBox( ..., _( "Error" ), wxOK | wxICON_ERROR ).
+    // KICAD_MANAGER_CONTROL::NewProject: wxMessageBox( ..., _( "Error" ), wxOK | wxICON_ERROR ),
+    // the message itself translated, as its _( "..." ) is.
     const home = readFileSync(join(ROOT, 'designer/src/home/HomePage.tsx'), 'utf8');
     expect(home).toMatch(
-      /DisplayErrorMessage\(\s*'No project template was selected\. {2}Cannot generate new project\.'/,
+      /DisplayErrorMessage\(\s*_\('No project template was selected\. {2}Cannot generate new project\.'\)/,
     );
   });
 });

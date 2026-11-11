@@ -263,8 +263,9 @@ describe('the Open Recent submenu', () => {
     // doAddClearItem (file_history.cpp:147-162): AppendSeparator() then the
     // clear item, always last.
     expect(item([{ name: 'a' }, { name: 'b' }]).submenu).toEqual([
-      { label: 'a', action: expect.any(Function) },
-      { label: 'b', action: expect.any(Function) },
+      // A file's name is data, never looked up in a catalog (m_DoNotTranslate).
+      { label: 'a', noTranslate: true, action: expect.any(Function) },
+      { label: 'b', noTranslate: true, action: expect.any(Function) },
       { sep: true },
       { label: 'Clear Recent Files', action: expect.any(Function) },
     ]);

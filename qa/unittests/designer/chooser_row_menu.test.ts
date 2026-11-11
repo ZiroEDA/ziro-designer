@@ -112,7 +112,8 @@ describe('a renamed project reaches the manager and the cloud', () => {
 describe('both project dialogs offer both', () => {
   for (const title of ['Open Existing Project', 'New Project Folder']) {
     it(title, () => {
-      const at = HOME.indexOf(`title="${title}"`);
+      // The title is a message: `wxString title = _( "..." )`, so it is marked.
+      const at = HOME.indexOf(`title={_('${title}')}`);
       expect(at).toBeGreaterThan(0);
       // Up to the dialog's Cancel, which every chooser has and which sits
       // after the two props in both; `/>` would stop inside `extra`'s buttons.

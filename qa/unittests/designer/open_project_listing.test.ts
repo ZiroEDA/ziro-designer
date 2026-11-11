@@ -174,7 +174,7 @@ describe('the name a new project may not take', () => {
       fileURLToPath(new URL('../../../designer/src/home/HomePage.tsx', import.meta.url)),
       'utf8',
     );
-    const at = src.indexOf('title="New Project Folder"');
+    const at = src.indexOf("title={_('New Project Folder')}");
     const dialog =
       at < 0 ? undefined : src.slice(src.lastIndexOf('<FileChooser', at), src.indexOf('/>', at));
     expect(dialog, 'the New Project Folder chooser').toBeTruthy();

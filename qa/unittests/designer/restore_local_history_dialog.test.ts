@@ -122,7 +122,8 @@ describe('what the dialog does with a selection', () => {
     // (:34), the same string as the File item
     // (kicad/tools/kicad_manager_actions.cpp:238).
     expect(RESTORE_DIALOG_TITLE).toBe('Restore Project from Local History...');
-    expect(MENU).toContain(`label: '${RESTORE_DIALOG_TITLE}'`);
+    // The menu row stores it English and the menu translates it as it draws (_HKI).
+    expect(MENU).toContain(`label: _HKI('${RESTORE_DIALOG_TITLE}')`);
   });
 });
 
@@ -130,7 +131,7 @@ describe('the File item follows HistoryExists', () => {
   it('is no longer hardcoded as disabled', () => {
     // It was `{ label: '…', disabled: true }` with a note that the snapshot
     // subsystem had not landed. It has.
-    expect(MENU).not.toMatch(/Restore Project from Local History...',\s*disabled: true/);
+    expect(MENU).not.toMatch(/Restore Project from Local History\.\.\.'\)?,\s*disabled: true/);
   });
 
   it('greys out exactly when the open project has no snapshots', () => {
