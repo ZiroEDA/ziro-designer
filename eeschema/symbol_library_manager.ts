@@ -586,7 +586,10 @@ export class SYMBOL_LIBRARY_MANAGER {
       this.getLibraryBuffer(aLibrary);
     } catch (e) {
       console.error(
-        wxFormat(_('Error updating library buffer: %s'), e instanceof Error ? e.message : String(e)),
+        wxFormat(
+          _('Error updating library buffer: %s'),
+          e instanceof Error ? e.message : String(e),
+        ),
       );
       return false;
     }

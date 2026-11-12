@@ -233,9 +233,17 @@ describe('SYMBOL_EDIT_FRAME::SaveSymbolCopyAs', () => {
     expect(boxes).toEqual([
       _('A library must be specified.'),
       _('Symbol must have a name.'),
-      "Library 'other' is read-only. Choose a different library to save the symbol 'X' to.",
-      "Symbol 'D' cannot replace another symbol 'U' that it descends from",
-      "Symbol 'D' cannot replace another symbol 'E' that is a descendent of it.",
+      wxFormat(
+        _("Library '%s' is read-only. Choose a different library to save the symbol '%s' to."),
+        'other',
+        'X',
+      ),
+      wxFormat(_("Symbol '%s' cannot replace another symbol '%s' that it descends from"), 'D', 'U'),
+      wxFormat(
+        _("Symbol '%s' cannot replace another symbol '%s' that is a descendent of it."),
+        'D',
+        'E',
+      ),
     ]);
     expect(names('mine')).toEqual(['D', 'E', 'U']);
   });
@@ -250,7 +258,11 @@ describe('SYMBOL_EDIT_FRAME::SaveSymbolCopyAs', () => {
     await t.frame.SaveSymbolCopyAs(false);
 
     expect(kiAsked.map((r) => r.message)).toEqual([
-      "Symbol 'U' already exists in library 'other'. Do you want to overwrite it?",
+      wxFormat(
+        _("Symbol '%s' already exists in library '%s'. Do you want to overwrite it?"),
+        'U',
+        'other',
+      ),
     ]);
     expect(kiAsked[0]!.labels?.ok).toBe(_('Overwrite'));
     expect(sym('U', 'other').GetKeyWords()).toBe('');
