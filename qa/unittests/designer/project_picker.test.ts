@@ -8,6 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  readIngestFiles,
   walkDirectoryHandle,
   walkDroppedEntries,
   filesFromFileList,
@@ -156,5 +157,33 @@ describe('a picked folder is a working directory, not just a project', () => {
     ] as unknown as FileList;
     const names = filesFromFileList(list).map((f) => f.name);
     expect(names).toEqual(['proj/board.kicad_pcb', 'proj/3d_shapes/part.step']);
+  });
+});
+
+describe('readIngestFiles', () => {
+  // Sentry 1R: a chosen file the browser could no longer read (moved, deleted, an online-only
+  // cloud copy) threw NotFoundError out of the whole open - unhandled, and nothing opened.
+  it('opens what it can read; names the file it cannot, with the reason, and goes on', async () => {
+    const gone = new DOMException(
+      'A requested file or directory could not be found at the time an operation was processed.',
+      'NotFoundError',
+    );
+    const file = (name: string, text: string) => ({
+      name,
+      bytesOf: async () => new TextEncoder().encode(text),
+    });
+    const done: number[] = [];
+    const r = await readIngestFiles(
+      [
+        file('p/p.kicad_pro', '{}'),
+        { name: 'p/p.kicad_sch', bytesOf: async () => Promise.reject(gone) },
+        file('p/.history/x', 'skip'),
+        file('p/p.kicad_pcb', '(kicad_pcb)'),
+      ],
+      (n) => done.push(n),
+    );
+    expect(r.read.map((f) => f.name)).toEqual(['p/p.kicad_pro', 'p/p.kicad_pcb']);
+    expect(r.unreadable).toEqual([{ name: 'p/p.kicad_sch', why: gone.message }]);
+    expect(done).toEqual([1, 2, 4]);
   });
 });

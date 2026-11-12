@@ -190,7 +190,7 @@ import {
   stripCommonFolder,
 } from './project_picker.js';
 import { projectFileText } from './files.js';
-import { isToolingPath } from './project_picker.js';
+import { isToolingPath, readIngestFiles } from './project_picker.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { useTranslations } from '@ziroeda/wx/translation_ui.js';
 import { wxFormat } from '@ziroeda/wx/wxstring.js';
@@ -1250,20 +1250,22 @@ export function HomePage({
       let saved: string | null = null;
       setDemoOpen(false);
       setDemoSource(null);
-      const out: PickedHomeFile[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const f = files[i]!;
-        const base = f.name.split('/').pop()!;
-        // Dot files, and everything in a dot folder (a zip import brings KiCad's `.history` with
-        // it): the folder walker skips the same (`isToolingDir`), and none of it is the design.
-        if (base.startsWith('.') || isToolingPath(f.name)) continue;
-        const bytes = await f.bytesOf();
-        out.push({ name: f.name, text: projectFileText(bytes), bytes });
+      const { read, unreadable } = await readIngestFiles(files, (done) =>
         setLoading({
           title: _('Load Files'),
-          label: { message: _('Reading files...'), value: (i + 1) / files.length },
-        });
-      }
+          label: { message: _('Reading files...'), value: done / files.length },
+        }),
+      );
+      const out: PickedHomeFile[] = read.map((f) => ({
+        name: f.name,
+        text: projectFileText(f.bytes),
+        bytes: f.bytes,
+      }));
+      if (unreadable.length > 0)
+        DisplayErrorMessage(
+          unreadable.map((u) => wxFormat(_("Error reading '%s': %s"), u.name, u.why)).join('\n'),
+          'The browser could not read these files: they were moved or deleted after they were chosen, or they are online-only copies (OneDrive, Google Drive) not on this computer. Make them available offline, then choose them again.',
+        );
       if (out.length === 0) return null;
       setPicked(out);
       if (persist && storageAvailable()) {

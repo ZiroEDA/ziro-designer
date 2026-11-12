@@ -191,3 +191,34 @@ export function stripCommonFolder(files: IngestFile[]): IngestFile[] {
   if (!shared) return files;
   return files.map((f) => ({ ...f, name: f.name.slice(prefix.length + 1) }));
 }
+
+/**
+ * The bytes of the files chosen, read one after another (\a aEach after each, for the progress
+ * bar). Dot files and tooling folders are passed over, as the walkers pass them over. A file that
+ * cannot be read any more - moved or deleted after it was chosen, an online-only copy (OneDrive,
+ * Google Drive) the browser cannot fetch: NotFoundError - is left out and named in `unreadable`
+ * with the browser's reason; one of them threw out of the whole open and nothing opened
+ * (Sentry 1R).
+ */
+export async function readIngestFiles(
+  aFiles: readonly IngestFile[],
+  aEach?: (aDone: number) => void,
+): Promise<{
+  read: { name: string; bytes: Uint8Array }[];
+  unreadable: { name: string; why: string }[];
+}> {
+  const read: { name: string; bytes: Uint8Array }[] = [];
+  const unreadable: { name: string; why: string }[] = [];
+  for (let i = 0; i < aFiles.length; i++) {
+    const f = aFiles[i]!;
+    const base = f.name.split('/').pop()!;
+    if (base.startsWith('.') || isToolingPath(f.name)) continue;
+    try {
+      read.push({ name: f.name, bytes: await f.bytesOf() });
+    } catch (e) {
+      unreadable.push({ name: f.name, why: e instanceof Error ? e.message : String(e) });
+    }
+    aEach?.(i + 1);
+  }
+  return { read, unreadable };
+}
