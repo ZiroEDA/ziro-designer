@@ -24,6 +24,7 @@ import {
   unitLabelText,
 } from '../index.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * The DPI GAL assumes when it converts a view scale to a zoom factor
@@ -186,7 +187,7 @@ export function polarMsg(r: string | null, thetaDeg?: number): string {
  * grid to one number and prints `"%s x %s"` only when x and y differ.
  */
 export function gridMsg(x: string, y: string = x): string {
-  return `grid ${x === y ? x : `${x} x ${y}`}`;
+  return wxFormat(_('grid %s'), x === y ? x : `${x} x ${y}`);
 }
 
 /**

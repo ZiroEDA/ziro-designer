@@ -24,6 +24,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 import { PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common';
+import { wxMsgCatalog, wxTranslations } from '@ziroeda/wx/translation.js';
 import {
   coordsMsg,
   deltasMsg,
@@ -119,6 +120,23 @@ describe('the pane texts', () => {
     // grid_settings.cpp:40 - "%s x %s" only when the two axes differ.
     expect(gridMsg('1.27')).toBe('grid 1.27');
     expect(gridMsg('1.27', '2.54')).toBe('grid 1.27 x 2.54');
+  });
+
+  it('translates the format, `msg.Printf( _( "grid %s" ), ... )` (eda_draw_frame.cpp:759)', () => {
+    wxTranslations.Get().SetCatalog(
+      new wxMsgCatalog({
+        language: 'de',
+        nplurals: 2,
+        plural: 'n != 1',
+        messages: { 'grid %s': 'Raster %s' },
+      }),
+    );
+    try {
+      expect(gridMsg('1.27')).toBe('Raster 1.27');
+      expect(gridMsg('1.27', '2.54')).toBe('Raster 1.27 x 2.54');
+    } finally {
+      wxTranslations.Get().SetCatalog(null);
+    }
   });
 });
 

@@ -1349,7 +1349,7 @@ export function FootprintEditFrame({
         <span style={{ width: 8 }} />
         {/* `EDA_DRAW_FRAME::UpdateGridSelectBox`. */}
         <Combo
-          title="Grid"
+          title={_('Grid')}
           value={String(gridIdx)}
           options={[
             ...fpCfg.window.grid.sizes.map((g, i) => ({

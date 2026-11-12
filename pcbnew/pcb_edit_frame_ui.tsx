@@ -7117,7 +7117,7 @@ export function PcbEditor({
              This wrote a singular "mil". */
           [PCB_CONTROL.gridSelect]: (
             <Combo
-              title="Grid"
+              title={wxGetTranslation('Grid')}
               value={String(gridIU)}
               options={[
                 ...PCB_GRIDS.map((g) => ({

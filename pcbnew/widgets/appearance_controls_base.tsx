@@ -13,6 +13,7 @@ import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js';
 import { BITMAPS } from '@ziroeda/include/bitmaps/bitmaps_list.js';
 import { Combo } from '@ziroeda/wx/combobox.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** A wxChoice whose rows may be disabled (Delete preset... with nothing to delete). */
 export interface APPEARANCE_CHOICE {
@@ -61,7 +62,8 @@ export function APPEARANCE_CONTROLS_BASE<TAB extends string>(
     <Combo
       ariaLabel={aName}
       value={c.value}
-      options={c.items.map((i) => ({ value: i.label, label: i.label, disabled: i.disabled }))}
+      // The name is the key; what the combo shows is `wxGetTranslation( name )` (:2744).
+      options={c.items.map((i) => ({ value: i.label, label: _(i.label), disabled: i.disabled }))}
       onChange={c.onChange}
     />
   );
@@ -92,7 +94,7 @@ export function APPEARANCE_CONTROLS_BASE<TAB extends string>(
               className={page === t ? 'active' : undefined}
               onClick={() => p.onTab(t)}
             >
-              {t}
+              {_(t)}
             </button>
           ))}
         </div>
@@ -208,7 +210,10 @@ export function APPEARANCE_CONTROLS_BASE<TAB extends string>(
         {/* `VIEWPORT_SWITCH_KEY` is WXK_SHIFT (appearance_controls.cpp), which
             is why the label reads Shift and not the Alt the wxFormBuilder stub
             carries. */}
-        <div className="ze-info ze-inset ze-viewports-label">Viewports (Shift+Tab):</div>
+        {/* wxString::Format( _( "Viewports (%s+Tab):" ), KeyNameFromKeyCode( VIEWPORT_SWITCH_KEY ) ) */}
+        <div className="ze-info ze-inset ze-viewports-label">
+          {wxFormat(_('Viewports (%s+Tab):'), 'Shift')}
+        </div>
         {choice(p.m_cbViewports, _('Viewports'))}
       </div>
     </div>

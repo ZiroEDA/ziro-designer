@@ -68,8 +68,11 @@ export function translateTooltip(text: string): string {
   return text
     .split('\n')
     .map((line) => {
-      const hotkey = /(\t| {2})\([^()]*\)$/.exec(line);
-      return hotkey ? _(line.slice(0, hotkey.index)) + hotkey[0] : _(line);
+      const t = _(line);
+      if (t !== line) return t;
+      // GetButtonTooltip()'s TAB, GetTooltip()'s two spaces, or a hand-joined title's one.
+      const hotkey = /(\t| {1,2})\([^()]*\)$/.exec(line);
+      return hotkey ? _(line.slice(0, hotkey.index)) + hotkey[0] : line;
     })
     .join('\n');
 }

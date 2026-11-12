@@ -108,6 +108,17 @@ describe('the tooltip builders for plain-data action tables', () => {
     // An untranscribed button falls back to its own title, which is English too.
     expect(toolbarButtonLabel('no-such-app', 'no-such-id', 'Save')).toBe(de('Save'));
     expect(toolbarButtonTooltip('no-such-app', 'no-such-id', 'Save')).toBe(de('Save'));
+    // ...and is joined like GetButtonTooltip, so it is read a line at a time, the hotkey kept:
+    // toolbars_pcb_editor.ts states the board editor's buttons this way.
+    expect(
+      toolbarButtonTooltip('no-such-app', 'no-such-id', 'Route Single Track (X)\nRoute tracks'),
+    ).toBe(`${de('Route Single Track')} (X)\n${de('Route tracks')}`);
+    expect(
+      toolbarButtonLabel('no-such-app', 'no-such-id', 'Route Single Track (X)\nRoute tracks'),
+    ).toBe(`${de('Route Single Track')} (X)\n${de('Route tracks')}`);
+    expect(toolbarButtonTooltip('no-such-app', 'no-such-id', 'Place Footprints (A)')).toBe(
+      `${de('Place Footprints')} (A)`,
+    );
   });
 });
 

@@ -58,6 +58,7 @@ import { WxCollapsiblePane } from '@ziroeda/common/widgets/wx_collapsible_pane.j
 import { APPEARANCE_CONTROLS_BASE } from './appearance_controls_base.js';
 import './appearance_controls.css';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 /**
@@ -314,7 +315,12 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
         const swatchColor = objectColor(key);
         return (
           // appendObject row: [swatch][eye|spacer][label][slider]
-          <div key={key} className={`ze-object-row${slider ? ' has-slider' : ''}`} title={tooltip}>
+          // `setting->label = wxGetTranslation( s_setting.label )`, and its tooltip (:2445-2446).
+          <div
+            key={key}
+            className={`ze-object-row${slider ? ' has-slider' : ''}`}
+            title={wxGetTranslation(tooltip)}
+          >
             {/* Every row carries a swatch. A row with no theme colour gets
                     COLOR_SWATCH's checkerboard rather than a gap, because
                     GetDefaultColor never answers UNSPECIFIED
@@ -330,14 +336,19 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
                 checked={on}
                 checkedBitmap={BITMAPS.visibility}
                 uncheckedBitmap={BITMAPS.visibility_off}
-                tooltip={`Show or hide ${label.toLowerCase()}`}
+                tooltip={wxFormat(
+                  wxGetTranslation('Show or hide %s'),
+                  wxGetTranslation(label).toLowerCase(),
+                )}
                 onToggle={() => onToggleObject(key)}
               />
             )}
             {/* Opacity rows fix the label width so all sliders line up
                     (KiCad's label->SetMinSize(labelWidth)); other rows let the
                     label fill the row. */}
-            <span className={`ze-obj-label${slider ? ' fixed' : ''}`}>{label}</span>
+            <span className={`ze-obj-label${slider ? ' fixed' : ''}`}>
+              {wxGetTranslation(label)}
+            </span>
             {/* The opacity control is a `wxSlider`, so it is `ui/Slider`
                     — the same widget the image converter's threshold, the
                     colour picker's Value and Opacity and the calculator's
@@ -379,7 +390,15 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
                     checked={net.visible}
                     checkedBitmap={BITMAPS.visibility}
                     uncheckedBitmap={BITMAPS.visibility_off}
-                    tooltip={`Show or hide ratsnest for ${net.name}`}
+                    // NET_GRID's tooltip (:1000-1001).
+                    tooltip={wxFormat(
+                      wxGetTranslation(
+                        net.visible
+                          ? 'Click to hide ratsnest for %s'
+                          : 'Click to show ratsnest for %s',
+                      ),
+                      net.name,
+                    )}
                     onToggle={() => nets.onNetVisibility(net.code)}
                   />
                   <span className="ze-ellipsis">{net.name || `(unnamed ${net.code})`}</span>
@@ -415,7 +434,11 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
                       checked={cls.visible}
                       checkedBitmap={BITMAPS.visibility}
                       uncheckedBitmap={BITMAPS.visibility_off}
-                      tooltip={`Show or hide ratsnest for the ${cls.name} class`}
+                      // `tip.Printf( _( "Show or hide ratsnest for nets in %s" ), name )` (:2618).
+                      tooltip={wxFormat(
+                        wxGetTranslation('Show or hide ratsnest for nets in %s'),
+                        cls.name,
+                      )}
                       onToggle={() => nets.onNetclassVisibility(cls.name)}
                     />
                     <span className="ze-ellipsis">{cls.name}</span>
@@ -601,7 +624,8 @@ export const NON_CU_ORDER: readonly string[] = NON_CU_SEQ.map(([name]) => name);
  */
 export function layerTooltip(name: string): string {
   const entry = NON_CU_SEQ.find(([n]) => n === name);
-  if (entry) return entry[1];
+  // `setting->tooltip = wxGetTranslation( entry.tooltip )` (:1919).
+  if (entry) return wxGetTranslation(entry[1]);
   if (name === 'F.Cu') return wxGetTranslation('Front copper layer');
   if (name === 'B.Cu') return wxGetTranslation('Back copper layer');
   if (/\.Cu$/.test(name)) return wxGetTranslation('Inner copper layer');

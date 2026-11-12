@@ -31,7 +31,7 @@
  * inside `#if defined( __WXMAC__ )`, the `#else` branch is the one recorded.
  */
 
-import { buttonTooltipFor } from './tool_action_tooltip.js';
+import { buttonTooltipFor, translateTooltip } from './tool_action_tooltip.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
@@ -325,8 +325,9 @@ export function toolbarButtonTooltip(
   // `ACTIONS::` objects living in `COMMON_TOOLBAR_ACTIONS`, and looking only at
   // the app's own table drops the tooltip for every one of them.
   const a = actionFor(app, id);
-  // An untranscribed button's own `title` is English too, and may well be a KiCad string.
-  if (!a) return _(fallback ?? '');
+  // An untranscribed button's own `title` is English too, joined the way GetButtonTooltip
+  // joins it - name, hotkey, then the tooltip on a second line - so it is read line by line.
+  if (!a) return translateTooltip(fallback ?? '');
   return buttonTooltipFor(a.name, a.hotkey, a.tip);
 }
 
@@ -341,7 +342,9 @@ export function toolbarButtonLabel(app: string | undefined, id: string, fallback
   // "Show Grid"; looking only at `TOOLBAR_ACTIONS[app]` missed it and fell
   // through to the button's `title`, which is why the Toolbars page listed
   // "Toggle grid display" where KiCad lists "Show Grid".
-  return _(actionFor(app, id)?.name ?? fallback ?? '');
+  const a = actionFor(app, id);
+  // An untranscribed button's own `title` is joined like GetButtonTooltip: read line by line.
+  return a ? _(a.name) : translateTooltip(fallback ?? '');
 }
 
 /**
