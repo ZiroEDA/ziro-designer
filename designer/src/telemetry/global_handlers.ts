@@ -65,7 +65,7 @@ const SCRIPT_FILE = /\.(m?js|jsx?|tsx?)$/;
  * `/p/…/pcb:816` - is one a translator or an extension added to the document (Sentry 13 and 19,
  * ko-KR and th-TH; 1F beside a `webkit-masked-url` frame).
  */
-function isInjected(aUrl: string): boolean {
+export function isInjected(aUrl: string): boolean {
   if (INJECTED_SCRIPT.test(aUrl)) return true;
 
   if (!/^https?:/.test(aUrl)) return false;

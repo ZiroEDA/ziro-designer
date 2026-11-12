@@ -23,6 +23,7 @@
 import type * as SentryNs from '@sentry/browser';
 import type { SENTRY_BACKEND } from '@ziroeda/common/app_monitor.js';
 import { settings } from '../prefs/settings.js';
+import { isInjected } from './global_handlers.js';
 import { type ScrubbableEvent, scrubEvent } from './scrub.js';
 
 type Sdk = typeof SentryNs;
@@ -48,12 +49,36 @@ const queued: (() => void)[] = [];
  */
 export function prepareEvent(event: ScrubbableEvent): ScrubbableEvent | null {
   if (!settings.privacy.crash_reports) return null;
+  if (fromInjectedCallback(event)) return null;
 
   try {
     return scrubEvent(event);
   } catch {
     return null;
   }
+}
+
+/**
+ * Whether every frame of the event's own code is a script the browser injected, once the SDK's
+ * wrapper is set aside. An error thrown inside a callback the SDK wrapped (its browserApiErrors
+ * integration: addEventListener, setTimeout, requestAnimationFrame ...) is captured by the SDK
+ * itself and never reaches installGlobalErrorHandlers' test; its outermost frame is the wrapper,
+ * `sentryWrapped`, in our bundle. Sentry P: Facebook's in-app browser on Android, its
+ * `iabjs://navigation_performance_logger_android` losing its native bridge ("Java object is
+ * gone") inside a listener it added to our page.
+ */
+export function fromInjectedCallback(event: ScrubbableEvent): boolean {
+  const values = event.exception?.values ?? [];
+  if (values.length === 0) return false;
+
+  return values.every((v) => {
+    // Frames run outermost first; the wrapper is the outermost of a wrapped callback.
+    const frames = v.stacktrace?.frames ?? [];
+    const wrapped = v.mechanism?.type?.startsWith('auto.browser.browserapierrors') ?? false;
+    const own = wrapped ? frames.slice(1) : frames;
+
+    return own.length > 0 && own.every((f) => f.filename !== undefined && isInjected(f.filename));
+  });
 }
 
 /**

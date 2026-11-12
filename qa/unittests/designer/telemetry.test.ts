@@ -18,6 +18,7 @@ import {
 } from '@ziroeda/designer/src/telemetry/scrub.js';
 import { SENTRY, SetSentryBackend } from '@ziroeda/common/app_monitor.js';
 import {
+  fromInjectedCallback,
   keepIntegration,
   prepareEvent,
   sentryBackend,
@@ -193,6 +194,50 @@ describe('scrubEvent', () => {
 
   it('leaves no trace of the project name anywhere in the payload', () => {
     expect(JSON.stringify(scrubEvent(event()))).not.toContain('my-secret-board');
+  });
+});
+
+describe('an error in a callback the SDK wrapped', () => {
+  // Sentry P, as it arrived (11-12, release 576e3e4d9, vi-VN, Android in-app browser): the SDK's
+  // `sentryWrapped` (minified `r`) in our bundle, then nothing but the browser's own logger.
+  const wrapped = (
+    aFrames: string[],
+    aType = 'auto.browser.browserapierrors.addEventListener',
+  ) => ({
+    exception: {
+      values: [
+        {
+          type: 'Error',
+          value: 'Error invoking postMessage: Java object is gone',
+          mechanism: { type: aType },
+          stacktrace: { frames: aFrames.map((filename) => ({ filename })) },
+        },
+      ],
+    },
+  });
+  const BUNDLE = 'https://designer.ziroeda.com/assets/index-CWSyUqYM.js';
+  const IAB = 'iabjs://navigation_performance_logger_android';
+
+  it("is dropped when everything inside the SDK's wrapper is an injected script", () => {
+    expect(fromInjectedCallback(wrapped([BUNDLE, IAB, IAB, IAB]))).toBe(true);
+    expect(prepareEvent(wrapped([BUNDLE, IAB, IAB, IAB]))).toBeNull();
+  });
+
+  it('is kept when a frame of ours is inside the wrapper', () => {
+    expect(fromInjectedCallback(wrapped([BUNDLE, BUNDLE, IAB]))).toBe(false);
+    expect(fromInjectedCallback(wrapped([BUNDLE, IAB, BUNDLE]))).toBe(false);
+    expect(prepareEvent(wrapped([BUNDLE, BUNDLE]))).not.toBeNull();
+  });
+
+  it('does not set aside the first frame of an error the SDK did not wrap', () => {
+    // A bundle frame outermost is then our own code calling into the injected script.
+    expect(fromInjectedCallback(wrapped([BUNDLE, IAB], 'generic'))).toBe(false);
+    expect(fromInjectedCallback(wrapped([IAB, IAB], 'generic'))).toBe(true);
+  });
+
+  it('keeps an event with no frames to judge, and one with no exception at all', () => {
+    expect(fromInjectedCallback(wrapped([BUNDLE]))).toBe(false);
+    expect(fromInjectedCallback({ message: 'boom' })).toBe(false);
   });
 });
 

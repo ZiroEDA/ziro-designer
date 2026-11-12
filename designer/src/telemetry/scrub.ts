@@ -40,6 +40,7 @@ export interface ScrubbableEvent {
       type?: string;
       value?: string;
       stacktrace?: { frames?: { filename?: string; abs_path?: string }[] };
+      mechanism?: { type?: string };
     }[];
   };
   breadcrumbs?: { category?: string; message?: string; data?: Record<string, unknown> }[];
