@@ -1724,6 +1724,25 @@ export function mount3DViewer(
   let strtimeCameraMovement = 0;
   let mouseIsMoving = false;
   let mouseWasMoved = false;
+  // m_editing_timeout_timer: once a rotate, pan or zoom ends, a one-shot of
+  // RENDER_3D_OPENGL::GetWaitForEditingTimeOut() (render_3d_opengl.cpp:104, 50 ms) clears both
+  // flags (OnTimerTimeout_Editing, eda_3d_canvas.cpp:1218-1230). Without it mouseWasMoved stayed
+  // set after the first drag, so every later hover redrew the board and rewrote "Last render time".
+  const EDITING_TIMEOUT_MS = 50;
+  let editingTimer: ReturnType<typeof setTimeout> | null = null;
+  const stopEditingTimeOut = (): void => {
+    if (editingTimer !== null) clearTimeout(editingTimer);
+    editingTimer = null;
+  };
+  const restartEditingTimeOut = (): void => {
+    stopEditingTimeOut();
+    editingTimer = setTimeout(() => {
+      editingTimer = null;
+      mouseIsMoving = false;
+      mouseWasMoved = false;
+      needsRender = true;
+    }, EDITING_TIMEOUT_MS);
+  };
   let needsRender = true;
 
   /** `DisplayStatus`: dx/dy are the camera pan, zoom is 1/m_zoom. */
@@ -1924,8 +1943,10 @@ export function mount3DViewer(
   let middleDown = false;
   let dragged = false;
   const onPointerDown = (e: PointerEvent): void => {
-    if (e.button === 0) leftDown = true;
-    else if (e.button === 1) middleDown = true;
+    if (e.button === 0) {
+      leftDown = true;
+      stopEditingTimeOut(); // OnLeftDown
+    } else if (e.button === 1) middleDown = true;
     else return;
     dragged = false;
     canvas.setPointerCapture(e.pointerId);
@@ -1968,7 +1989,12 @@ export function mount3DViewer(
     if (e.button === 0) leftDown = false;
     if (e.button === 1) middleDown = false;
     if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
-    if (mouseIsMoving) mouseIsMoving = false;
+    // OnLeftUp / OnMiddleUp: `if( m_mouse_is_moving ) { m_mouse_is_moving = false;
+    // restart_editingTimeOut_Timer(); }`
+    if (mouseIsMoving) {
+      mouseIsMoving = false;
+      restartEditingTimeOut();
+    }
     if (wasLeft && !dragged) {
       // OnLeftUp: a click on a navigator sphere is a view command
       const dpr = renderer.getPixelRatio();
@@ -2015,6 +2041,7 @@ export function mount3DViewer(
       mouseWasMoved = true;
       displayStatus();
       needsRender = true;
+      restartEditingTimeOut(); // OnMouseWheel
     }
     const p = nativePos(e);
     camera.setCurMousePosition(p.x, p.y);
@@ -2053,6 +2080,7 @@ export function mount3DViewer(
       if (curtimeDeltaS > 1.0) {
         cameraIsMoving = false;
         mouseWasMoved = true;
+        restartEditingTimeOut(); // DoRePaint, the animation's end (eda_3d_canvas.cpp:505-511)
       }
       displayStatus();
       needsRender = true;
@@ -2205,6 +2233,7 @@ export function mount3DViewer(
       disposed = true;
       reloadGeneration++;
       cancelAnimationFrame(raf);
+      stopEditingTimeOut();
       ro.disconnect();
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
