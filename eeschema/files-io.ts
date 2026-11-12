@@ -259,7 +259,11 @@ export class SCH_FILES_IO_MIXIN {
     if (!wxDirExists(dir)) {
       if (!wxMkdir(dir)) {
         this.DisplayError(
-          `Error saving schematic file '${schematicFileName}'.\nCould not create directory: %s${dir}`,
+          wxFormat(
+            _("Error saving schematic file '%s'.\nCould not create directory: %%s%s"),
+            schematicFileName,
+            dir,
+          ),
         );
 
         return false;

@@ -236,7 +236,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                       <TextCtrl
                         value={p.m_referenceFilter.value}
                         onChange={p.m_referenceFilter.onChange}
-                        ariaLabel="Parent reference designator"
+                        ariaLabel={_('Parent reference designator')}
                       />
                     </SizerItem>
                     <SizerItem flag={CV | wxBOTTOM | wxLEFT} border={5} shown={p.boardItemsShown}>
@@ -253,7 +253,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                       <TextCtrl
                         value={p.m_footprintFilter.value}
                         onChange={p.m_footprintFilter.onChange}
-                        ariaLabel="Parent footprint library link"
+                        ariaLabel={_('Parent footprint library link')}
                       />
                     </SizerItem>
                     <SizerItem flag={wxALL} border={5}>
@@ -395,7 +395,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                 columns={GRID_COLUMNS}
                 rowLabels={false}
                 colLabels={false}
-                ariaLabel="Layer defaults"
+                ariaLabel={_('Layer defaults')}
               />
             </SizerItem>
             <Spacer width={0} height={0} flag={wxEXPAND | wxBOTTOM} border={5} />

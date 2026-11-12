@@ -518,7 +518,7 @@ export function DialogPcbPrint({
                     changed();
                   },
                 }}
-                ariaLabel="Color theme"
+                ariaLabel={wxGetTranslation('Color theme')}
               />
             </SizerItem>
             <SizerItem
@@ -546,7 +546,7 @@ export function DialogPcbPrint({
                     changed();
                   },
                 }}
-                ariaLabel="Drill marks"
+                ariaLabel={wxGetTranslation('Drill marks')}
               />
             </SizerItem>
             <SizerItem

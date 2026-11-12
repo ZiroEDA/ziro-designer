@@ -96,7 +96,7 @@ export function DIALOG_PRINT_GENERIC_BASE(p: DIALOG_PRINT_GENERIC_BASE_PROPS): J
                           <Choice
                             choices={[_('Color'), _('Black and white')]}
                             choice={p.m_outputMode}
-                            ariaLabel="Output mode"
+                            ariaLabel={_('Output mode')}
                           />
                         </SizerItem>
                         <SizerItem
@@ -153,7 +153,7 @@ export function DIALOG_PRINT_GENERIC_BASE(p: DIALOG_PRINT_GENERIC_BASE_PROPS): J
                           <TextCtrl
                             value={p.m_scaleCustomText.value}
                             onChange={p.m_scaleCustomText.onChange}
-                            ariaLabel="Custom scale"
+                            ariaLabel={_('Custom scale')}
                           />
                         </SizerItem>
                       </BoxSizer>

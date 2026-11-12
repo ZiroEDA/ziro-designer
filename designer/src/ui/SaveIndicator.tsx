@@ -22,6 +22,7 @@ import {
   type SaveSnapshot,
 } from '../home/save_state.js';
 import './saveIndicator.css';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function SaveIndicator({ onDownload }: { onDownload?: () => void }): JSX.Element | null {
   const [snap, setSnap] = useState<SaveSnapshot>(getSaveSnapshot);
@@ -50,7 +51,7 @@ export function SaveIndicator({ onDownload }: { onDownload?: () => void }): JSX.
       <span className="ze-save-indicator-text">{state.text}</span>
       {state.offerDownload && onDownload && (
         <button type="button" onClick={onDownload}>
-          Download a copy
+          {_('Download a copy')}
         </button>
       )}
     </div>

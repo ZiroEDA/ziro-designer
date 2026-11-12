@@ -258,7 +258,7 @@ export function DialogMapLayers({
   return (
     <>
       <DIALOG_IMPORTED_LAYERS_BASE
-        title="Import Layer Mapping"
+        title={wxGetTranslation('Import Layer Mapping')}
         importedLayersHeader={wxGetTranslation('Imported Layer')}
         kicadLayersHeader={wxGetTranslation('KiCad Layer')}
         // maxTextWidth + 15 over the header and every imported name; "User.Drawings" + 5.

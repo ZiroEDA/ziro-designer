@@ -138,13 +138,13 @@ export function DIALOG_PLUGIN_OPTIONS({
               columns={[{ width: 72 }]}
               flexCol={1}
               onUpdate={onUpdate}
-              ariaLabel="Plugin options"
+              ariaLabel={wxGetTranslation('Plugin options')}
             />
           </div>
           <div className="ze-grid-btns">
             <StdBitmapButton
               bitmap="small_plus"
-              title="Add row"
+              title={wxGetTranslation('Add row')}
               tooltip={null}
               onClick={() => grid.OnAddRow(() => [appendRow(grid), 0])}
             />

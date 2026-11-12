@@ -44,6 +44,7 @@ import {
   StretchSpacer,
 } from '@ziroeda/wx/sizer.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** A width entry with its UNIT_BINDER's label and units, enabled as one. */
 export interface WIDTH_FIELD {
@@ -119,7 +120,7 @@ function WidthAndColor({
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxALIGN_CENTER_HORIZONTAL} border={5}>
               <ColorSwatch
-                label={`${label} color`}
+                label={wxFormat(_('%s color'), label)}
                 color={swatch.color}
                 background={swatch.background}
                 disabled={!swatch.enabled}
@@ -193,7 +194,7 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
                     </SizerItem>
                     <SizerItem pos={[2, 1]} span={[1, 2]} flag={wxEXPAND} border={5}>
                       <WidthAndColor
-                        label="Border width"
+                        label={_('Border width')}
                         width={p.m_borderWidth}
                         swatch={p.m_borderColorSwatch}
                       />
@@ -211,7 +212,7 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
                       border={5}
                       minSize={[200, -1]}
                     >
-                      <StyleCombo label="Border style" c={p.m_borderStyleCombo} />
+                      <StyleCombo label={_('Border style')} c={p.m_borderStyleCombo} />
                     </SizerItem>
                     <Spacer
                       pos={[4, 0]}
@@ -242,7 +243,7 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
                     </SizerItem>
                     <SizerItem pos={[7, 1]} span={[1, 2]} flag={wxEXPAND} border={5}>
                       <WidthAndColor
-                        label="Separators width"
+                        label={_('Separators width')}
                         width={p.m_separatorsWidth}
                         swatch={p.m_separatorsColorSwatch}
                       />
@@ -260,7 +261,7 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
                       border={5}
                       minSize={[200, -1]}
                     >
-                      <StyleCombo label="Separators style" c={p.m_separatorsStyleCombo} />
+                      <StyleCombo label={_('Separators style')} c={p.m_separatorsStyleCombo} />
                     </SizerItem>
                   </GridBagSizer>
                 </SizerItem>

@@ -44,6 +44,7 @@ import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { parseColor4d, toCssColor } from '@ziroeda/common/gal/color4d.js';
 import { IndicatorIcon, ROW_ICON_STATE } from '@ziroeda/common/widgets/indicator_icon.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export type { LayerInfo, RenderRow } from './gerbview_layer_widget.js';
 export { renderRows, layerContextMenu } from './gerbview_layer_widget.js';
@@ -126,7 +127,7 @@ export function LayerManager({
                   the click is left to bubble. */}
               <ColorSwatch
                 size="small"
-                label={`Set color for ${layer.name}`}
+                label={wxFormat(_('Set color for %s'), layer.name)}
                 color={parseColor4d(layer.color)}
                 onChange={(picked) => onSetColor(layer.index, toCssColor(picked, ', '))}
               />
@@ -135,7 +136,7 @@ export function LayerManager({
                 type="checkbox"
                 checked={layer.visible}
                 title={_('Enable this for visibility')}
-                aria-label={`${layer.name} visible`}
+                aria-label={wxFormat(_('%s visible'), layer.name)}
                 onChange={() => onToggleVisible(layer.index)}
                 onClick={(e) => e.stopPropagation()}
               />

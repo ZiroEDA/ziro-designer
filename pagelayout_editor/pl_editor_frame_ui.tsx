@@ -874,7 +874,9 @@ export function PlEditorFrameWindow({
         <div style={{ flex: 1, display: 'flex', minWidth: 0 }}>
           <div className="ze-canvas-wrap" style={{ overflow: 'hidden' }}>
             {glFailed ? (
-              <div className="ze-gbr-nogl">This browser cannot create a WebGL 2 context.</div>
+              <div className="ze-gbr-nogl">
+                {wxGetTranslation('This browser cannot create a WebGL 2 context.')}
+              </div>
             ) : (
               // The panel adopts this element: its size, its events, its cursor.
               <canvas

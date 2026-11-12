@@ -151,7 +151,7 @@ export function DIALOG_EXPORT_ODBPP_BASE(p: DIALOG_EXPORT_ODBPP_BASE_PROPS): JSX
                     value={String(p.m_choiceCompress)}
                     options={choiceOptions(COMPRESS_CHOICES)}
                     onChange={(v) => p.onFormatChoice(Number(v))}
-                    ariaLabel="Compression format"
+                    ariaLabel={_('Compression format')}
                   />
                 </SizerItem>
               </FlexGridSizer>

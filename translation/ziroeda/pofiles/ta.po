@@ -1,0 +1,2996 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ZiroEDA\n"
+"Language: ta\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+#: common/launch_ext.tsx:290
+msgid " (read-only)"
+msgstr " (படிக்க மட்டும்)"
+
+#: designer/src/ui/PresencePanel.tsx:58
+msgid " (you)"
+msgstr " (நீங்கள்)"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:294
+msgid " and ≤ %s"
+msgstr " மற்றும் ≤ %s"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:296
+msgid " · %s KB"
+msgstr " · %s KB"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:298
+msgid " · incompatible with this version"
+msgstr " · இந்தப் பதிப்புடன் இணங்கவில்லை"
+
+#: designer/src/home/HomePage.tsx:2692
+msgid "\"%s\" changed here and on another device."
+msgstr "\"%s\" இங்கும் மற்றொரு சாதனத்திலும் மாற்றப்பட்டுள்ளது."
+
+#: designer/src/home/HomePage.tsx:2620
+msgid "\"%s\" is not a link to a GitHub repository."
+msgstr "\"%s\" ஒரு GitHub களஞ்சியத்திற்கான இணைப்பு அல்ல."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:163
+msgid "\"%s\" set as the active schematic colour theme"
+msgstr "\"%s\" செயலில் உள்ள திட்ட வரைபட நிறத் தீமாக அமைக்கப்பட்டது"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:842
+msgid ""
+"%s\n"
+"%s\n"
+" \n"
+"Reannotate anyway?"
+msgstr ""
+"%s\n"
+"%s\n"
+" \n"
+"இருந்தாலும் மீண்டும் சிறுகுறிப்பிடவா?"
+
+#: common/widgets/widget_hotkey_list.tsx:243
+msgid "%s belongs to the browser and cannot be intercepted by a page. It reaches ZiroEDA only in fullscreen."
+msgstr "%s உலாவிக்குச் சொந்தமானது; ஒரு பக்கத்தால் அதைத் தடுக்க முடியாது. முழுத்திரையில் மட்டுமே அது ZiroEDA-ஐ அடையும்."
+
+#: eeschema/dialogs/dialog_table_properties_base.tsx:123 pcbnew/board_stackup_manager/panel_board_stackup.tsx:913
+msgid "%s color"
+msgstr "%s நிறம்"
+
+#: pcbnew/dialogs/panel_setup_tuning_patterns_base.tsx:159
+msgid "%s corner style"
+msgstr "%s மூலை பாணி"
+
+#: designer/src/editors/schematic/prefs/resets.ts:264
+msgid "%s field names contain trailing and/or leading white space."
+msgstr "%s புலப் பெயர்களின் தொடக்கத்திலோ முடிவிலோ வெற்றிடம் உள்ளது."
+
+#: common/launch_ext.tsx:208
+msgid "%s has no \"schematic\" or \"board\" section, so it is not a color theme."
+msgstr "%s-இல் \"schematic\" அல்லது \"board\" பிரிவு இல்லை, எனவே இது நிறத் தீம் அல்ல."
+
+#: common/launch_ext.tsx:201
+msgid "%s is not a JSON file."
+msgstr "%s ஒரு JSON கோப்பு அல்ல."
+
+#: pcbnew/dialogs/panel_setup_layers.tsx:418 pcbnew/dialogs/panel_setup_layers.tsx:434
+msgid "%s layer type"
+msgstr "%s அடுக்கு வகை"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:850
+msgid "%s material"
+msgstr "%s பொருள்"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:603
+msgid "%s must be between the minimum and maximum text size."
+msgstr "%s குறைந்தபட்ச மற்றும் அதிகபட்ச உரை அளவுக்கு இடையில் இருக்க வேண்டும்."
+
+#: pcbnew/dialogs/panel_setup_layers.tsx:400
+msgid "%s name"
+msgstr "%s பெயர்"
+
+#: designer/src/home/HomePage.tsx:736
+msgid "%s names files that were not chosen: %s."
+msgstr "%s தேர்ந்தெடுக்கப்படாத கோப்புகளைக் குறிப்பிடுகிறது: %s."
+
+#: eeschema/sch_edit_frame_ui.tsx:5664
+msgid "%s other viewers"
+msgstr "%s பிற பார்வையாளர்கள்"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:374
+msgid "%s post machining"
+msgstr "%s பிந்தைய எந்திரமாக்கல்"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:240
+msgid "%s post-machining"
+msgstr "%s பிந்தைய எந்திரமாக்கல்"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:263
+msgid "%s post-machining %s"
+msgstr "%s பிந்தைய எந்திரமாக்கல் %s"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:250
+msgid "%s post-machining size"
+msgstr "%s பிந்தைய எந்திரமாக்கல் அளவு"
+
+#: designer/src/home/HomePage.tsx:2696
+msgid "%s projects changed here and on another device."
+msgstr "%s திட்டங்கள் இங்கும் மற்றொரு சாதனத்திலும் மாற்றப்பட்டுள்ளன."
+
+#: pcbnew/dialogs/panel_setup_tuning_patterns_base.tsx:169
+msgid "%s radius"
+msgstr "%s ஆரம்"
+
+#: designer/src/home/HomePage.tsx:756
+msgid "%s schematics cannot be imported yet, so only the board will be."
+msgstr "%s திட்ட வரைபடங்களை இன்னும் இறக்குமதி செய்ய முடியாது, எனவே பலகை மட்டுமே இறக்குமதியாகும்."
+
+#: designer/src/home/HomePage.tsx:760
+msgid "%s schematics cannot be imported yet."
+msgstr "%s திட்ட வரைபடங்களை இன்னும் இறக்குமதி செய்ய முடியாது."
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:365
+msgid "%s template information"
+msgstr "%s வார்ப்புரு தகவல்"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:875
+msgid "%s thickness"
+msgstr "%s தடிமன்"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:888
+msgid "%s thickness locked"
+msgstr "%s தடிமன் பூட்டப்பட்டது"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:819
+msgid "%s type"
+msgstr "%s வகை"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:743
+msgid "%s unit"
+msgstr "%s அலகு"
+
+#: gerbview/widgets/layer_widget.tsx:139
+msgid "%s visible"
+msgstr "%s தெரியும்"
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias_base.tsx:61
+msgid "%s: add"
+msgstr "%s: சேர்"
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias_base.tsx:78
+msgid "%s: remove"
+msgstr "%s: நீக்கு"
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias_base.tsx:69
+msgid "%s: sort"
+msgstr "%s: வரிசைப்படுத்து"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
+msgid "(no STEP files in the project)"
+msgstr "(திட்டத்தில் STEP கோப்புகள் இல்லை)"
+
+#: designer/src/home/menubar.ts:89
+msgid "(no demos bundled)"
+msgstr "(டெமோக்கள் எதுவும் இணைக்கப்படவில்லை)"
+
+#: eeschema/sch_edit_frame_ui.tsx:5731
+msgid ", click to dismiss"
+msgstr ", மூட கிளிக் செய்யவும்"
+
+#: designer/src/auth/SignIn.tsx:336
+msgid ". Please check your inbox (and spam) to complete verification."
+msgstr ". சரிபார்ப்பை முடிக்க உங்கள் இன்பாக்ஸை (மற்றும் ஸ்பேமை) பார்க்கவும்."
+
+#: designer/src/auth/auth_progress.tsx:93
+msgid "... (step"
+msgstr "... (படி"
+
+#: eeschema/sch_edit_frame_ui.tsx:5663
+msgid "1 other viewer"
+msgstr "1 பிற பார்வையாளர்"
+
+#: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
+msgid "3D Viewer — %s"
+msgstr "3D பார்வையாளர் — %s"
+
+#: designer/src/fs/FileChooser.tsx:872
+msgid "A file named “%s” already exists.  Do you want to replace it?"
+msgstr "“%s” என்ற பெயரில் கோப்பு ஏற்கனவே உள்ளது. அதை மாற்ற விரும்புகிறீர்களா?"
+
+#: designer/src/auth/SignIn.tsx:354
+msgid "A new code is on its way. Use the newest email: it replaces the code before it."
+msgstr "புதிய குறியீடு வந்துகொண்டிருக்கிறது. புதிய மின்னஞ்சலைப் பயன்படுத்தவும்: அது முந்தைய குறியீட்டை மாற்றிவிடும்."
+
+#: designer/src/App.tsx:1716
+msgid "A new version of ZiroEDA is available."
+msgstr "ZiroEDA-வின் புதிய பதிப்பு கிடைக்கிறது."
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:103
+msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
+msgstr "நேர்மறை எண் என்பது வரிசை அனோடிக் (-) என்றும் நெடுவரிசை கேதோடிக் (+) என்றும் காட்டுகிறது; குளிர் மற்றும் வெப்ப நிறச் சாயல்களும் வரிசைகளின் மின்னழுத்தத்தைக் குறிக்கின்றன."
+
+#: designer/src/ui/AccountButton.tsx:161
+msgid "Account"
+msgstr "கணக்கு"
+
+#: designer/src/auth/SignIn.tsx:577
+msgid "Account created before 10 September 2026? It needs a one-time upgrade for end-to-end encryption: use"
+msgstr "செப்டம்பர் 10, 2026-க்கு முன் கணக்கு உருவாக்கப்பட்டதா? முனைக்கு-முனை குறியாக்கத்துக்காக அதை ஒருமுறை மேம்படுத்த வேண்டும்: இதைப் பயன்படுத்தவும்"
+
+#: designer/src/ui/AccountButton.tsx:161
+msgid "Account: %s"
+msgstr "கணக்கு: %s"
+
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:523
+msgid "Action for %s"
+msgstr "%s க்கான செயல்"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:266
+msgid "Active"
+msgstr "செயலில்"
+
+#: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
+msgid "Add 3D model"
+msgstr "3D மாதிரியைச் சேர்க்கவும்"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:299
+msgid "Add a layer override"
+msgstr "அடுக்கு மேலெழுதலைச் சேர்க்கவும்"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:100
+msgid "Add alias"
+msgstr "மாற்றுப்பெயரைச் சேர்க்கவும்"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:361
+msgid "Add alternate"
+msgstr "மாற்றைச் சேர்க்கவும்"
+
+#: common/dialogs/panel_setup_netclasses.tsx:528
+msgid "Add assignment"
+msgstr "ஒதுக்கீட்டைச் சேர்க்கவும்"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:135
+msgid "Add condition"
+msgstr "நிபந்தனையைச் சேர்க்கவும்"
+
+#: pcbnew/dialogs/dialog_layer_selection_base.tsx:117
+msgid "Add current pair to presets"
+msgstr "தற்போதைய இணையை முன்னமைவுகளில் சேர்க்கவும்"
+
+#: cvpcb/dialogs/dialog_config_equfiles.tsx:282
+msgid "Add from Computer..."
+msgstr "கணினியிலிருந்து சேர்க்கவும்..."
+
+#: common/dialogs/panel_grid_settings.tsx:486
+msgid "Add grid"
+msgstr "வலைவாயைச் சேர்க்கவும்"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
+msgid "Add layer"
+msgstr "அடுக்கைச் சேர்க்கவும்"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:59
+msgid "Add member"
+msgstr "உறுப்பினரைச் சேர்க்கவும்"
+
+#: common/dialogs/panel_setup_netclasses.tsx:460
+msgid "Add netclass"
+msgstr "வலைமம் வகுப்பைச் சேர்க்கவும்"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:435
+msgid "Add repository by URL..."
+msgstr "URL மூலம் களஞ்சியத்தைச் சேர்க்கவும்..."
+
+#: common/dialogs/dialog_plugin_options.tsx:147
+msgid "Add row"
+msgstr "வரிசையைச் சேர்க்கவும்"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults_base.tsx:70
+msgid "Add text item"
+msgstr "உரை உருப்படியைச் சேர்க்கவும்"
+
+#: common/dialogs/panel_text_variables.tsx:125
+msgid "Add text variable"
+msgstr "உரை மாறியைச் சேர்க்கவும்"
+
+#: common/dialogs/panel_toolbar_customization.tsx:554
+msgid "Add to toolbar"
+msgstr "கருவிப்பட்டியில் சேர்க்கவும்"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:76
+msgid "Add track propagation row"
+msgstr "மின்தடப் பரவல் வரிசையைச் சேர்க்கவும்"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles_base.tsx:46
+msgid "Add tuning profile"
+msgstr "இசைவு விவரக்குறிப்பைச் சேர்க்கவும்"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:202
+msgid "Add variant"
+msgstr "மாறுபாட்டைச் சேர்க்கவும்"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:134
+msgid "Add via delay override"
+msgstr "வழிமத் தாமத மேலெழுதலைச் சேர்க்கவும்"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:119
+msgid "Added repository \"%s\" (%s packages)"
+msgstr "களஞ்சியம் \"%s\" சேர்க்கப்பட்டது (%s தொகுப்புகள்)"
+
+#: pcbnew/dialogs/dialog_target_properties_base.tsx:50
+msgid "Alignment Target Properties"
+msgstr "சீரமைப்பு இலக்கு பண்புகள்"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1680 pcbnew/pcb_edit_frame_ui.tsx:8092
+msgid "All 3D models (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)"
+msgstr "அனைத்து 3D மாதிரிகள் (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)"
+
+#: designer/src/ui/StorageBanner.tsx:36
+msgid "Allow site data for this page, or download your project before closing the tab. Private-browsing windows often discard storage."
+msgstr "இந்தப் பக்கத்துக்குத் தளத் தரவை அனுமதிக்கவும், அல்லது தாவலை மூடும் முன் உங்கள் திட்டத்தைப் பதிவிறக்கவும். தனிப்பட்ட உலாவல் சாளரங்கள் பெரும்பாலும் சேமிப்பகத்தை நீக்கிவிடும்."
+
+#: designer/src/auth/SignIn.tsx:404
+msgid "Already have an account?"
+msgstr "ஏற்கனவே கணக்கு உள்ளதா?"
+
+#: eeschema/dialogs/dialog_pin_properties.tsx:627
+msgid "Alternate pin functions"
+msgstr "மாற்று முள் செயல்பாடுகள்"
+
+#: designer/src/ui/ErrorBoundary.tsx:113
+msgid "An anonymous crash report was sent so we can fix this. It contains the error below and no project data. You can turn reports off in Preferences → Common → Privacy."
+msgstr "இதைச் சரிசெய்ய ஒரு பெயரில்லா செயலிழப்பு அறிக்கை அனுப்பப்பட்டது. அதில் கீழே உள்ள பிழை மட்டுமே உள்ளது, திட்டத் தரவு இல்லை. விருப்பத்தேர்வுகள் → பொது → தனியுரிமையில் அறிக்கைகளை அணைக்கலாம்."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:527
+msgid "Analysis failed, check the input values."
+msgstr "பகுப்பாய்வு தோல்வியடைந்தது, உள்ளீட்டு மதிப்புகளைச் சரிபார்க்கவும்."
+
+#: pcbnew/dialogs/dialog_multichannel_repeat_layout_base.tsx:82
+msgid "Anchor footprint"
+msgstr "நங்கூர அமர்வகுதி"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:644
+msgid "Annular rings"
+msgstr "வளைய வளையங்கள்"
+
+#: designer/src/home/ShareButton.tsx:66
+msgid "Anyone with the link can edit"
+msgstr "இணைப்பு உள்ள எவரும் திருத்தலாம்"
+
+#: designer/src/home/ShareButton.tsx:65
+msgid "Anyone with the link can view"
+msgstr "இணைப்பு உள்ள எவரும் பார்க்கலாம்"
+
+#: designer/src/auth/DeleteAccountDialog.tsx:203
+msgid "Anything else?"
+msgstr "வேறு ஏதேனும்?"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:150
+msgid "Applied changes: %s installed, %s uninstalled"
+msgstr "மாற்றங்கள் பயன்படுத்தப்பட்டன: %s நிறுவப்பட்டன, %s நிறுவல் நீக்கப்பட்டன"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:487
+msgid "Apply Pending Changes ("
+msgstr "நிலுவை மாற்றங்களைப் பயன்படுத்து ("
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
+msgid "Arc editing mode"
+msgstr "வில் திருத்த முறை"
+
+#: designer/src/home/HomePage.tsx:1631
+msgid "Archive Project"
+msgstr "திட்டத்தைக் காப்பகப்படுத்து"
+
+#: designer/src/home/HomePage.tsx:1631
+msgid "Archiving project..."
+msgstr "திட்டம் காப்பகப்படுத்தப்படுகிறது..."
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:448
+msgid "Area limit"
+msgstr "பரப்பு வரம்பு"
+
+#: pcbnew/dialogs/dialog_rule_area_properties_base.tsx:123
+msgid "Area name"
+msgstr "பரப்புப் பெயர்"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:533
+msgid "Arrow direction"
+msgstr "அம்புக்குறி திசை"
+
+#: common/dialogs/dialog_assign_netclass.tsx:124
+msgid "Assign Netclass"
+msgstr "வலைமம் வகுப்பை ஒதுக்கு"
+
+#: pcbnew/dialogs/dialog_reference_image_properties_base.tsx:111
+msgid "Associated layer"
+msgstr "தொடர்புடைய அடுக்கு"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:184
+msgid "Attenuation is 6 dB"
+msgstr "தணிப்பு 6 dB ஆகும்"
+
+#: common/dialogs/panel_mouse_settings.tsx:251
+msgid "Auto pan speed"
+msgstr "தானியங்கிப் பான் வேகம்"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:141
+msgid "Auto-assign priorities"
+msgstr "முன்னுரிமைகளைத் தானாக ஒதுக்கு"
+
+#: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
+msgid "Available footprints"
+msgstr "கிடைக்கும் அமர்வகுதிகள்"
+
+#: cvpcb/dialogs/dialog_config_equfiles.tsx:262
+msgid "Available path substitutions"
+msgstr "கிடைக்கும் பாதை மாற்றீடுகள்"
+
+#: eeschema/dialogs/panel_bom_presets.tsx:83
+msgid "BOM formatting presets"
+msgstr "BOM வடிவமைப்பு முன்னமைவுகள்"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:244
+msgid "BOM revision"
+msgstr "BOM திருத்தம்"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
+msgid "Back prefix"
+msgstr "பின் முன்னொட்டு"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:252
+msgid "Back reference start"
+msgstr "பின் குறிப்புத் தொடக்கம்"
+
+#: designer/src/ui/HomeLink.tsx:24
+msgid "Back to project manager"
+msgstr "திட்ட மேலாளருக்குத் திரும்பு"
+
+#: designer/src/auth/SignIn.tsx:467
+msgid "Back to sign in"
+msgstr "உள்நுழைவுக்குத் திரும்பு"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:164
+msgid "Based on location of"
+msgstr "இதன் இடத்தின் அடிப்படையில்"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1248 pcbnew/dialogs/dialog_track_via_properties_base.tsx:969
+msgid "Best length"
+msgstr "சிறந்த நீளம்"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1290 pcbnew/dialogs/dialog_track_via_properties_base.tsx:1013
+msgid "Best width"
+msgstr "சிறந்த அகலம்"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
+msgid "Board thickness from stackup"
+msgstr "அடுக்கிலிருந்து பலகை தடிமன்"
+
+#: eeschema/dialogs/dialog_symbol_properties_base.tsx:195 eeschema/symbol_viewer_frame_ui.tsx:554
+msgid "Body style"
+msgstr "உடல் பாணி"
+
+#: eeschema/dialogs/dialog_lib_edit_pin_table_base.tsx:234
+msgid "Body style filter"
+msgstr "உடல் பாணி வடிப்பி"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1324
+msgid "Body style names"
+msgstr "உடல் பாணிப் பெயர்கள்"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:292 eeschema/dialogs/dialog_sheet_properties_base.tsx:222 eeschema/dialogs/dialog_text_properties_base.tsx:319
+msgid "Border color"
+msgstr "விளிம்பு நிறம்"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:307 eeschema/dialogs/dialog_table_properties_base.tsx:215 eeschema/dialogs/dialog_text_properties_base.tsx:342 pcbnew/dialogs/dialog_table_properties_base.tsx:219 pcbnew/dialogs/dialog_textbox_properties_base.tsx:310
+msgid "Border style"
+msgstr "விளிம்பு பாணி"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:280 eeschema/dialogs/dialog_sheet_properties_base.tsx:202 eeschema/dialogs/dialog_table_properties_base.tsx:197 eeschema/dialogs/dialog_text_properties_base.tsx:307 pcbnew/dialogs/dialog_table_properties_base.tsx:201
+msgid "Border width"
+msgstr "விளிம்பு அகலம்"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:785
+msgid "Bottom backdrill must-cut"
+msgstr "கீழ் பின்துளை கட்டாய-வெட்டு"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:759
+msgid "Bottom backdrill size"
+msgstr "கீழ் பின்துளை அளவு"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:353
+msgid "Bottom margin"
+msgstr "கீழ் ஓரம்"
+
+#: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:76
+msgid "Browse for 3D model"
+msgstr "3D மாதிரியைத் தேடு"
+
+#: common/widgets/properties_panel_ui.tsx:406
+msgid "Browse for footprint — needs the Footprint Chooser"
+msgstr "அமர்வகுதியைத் தேடு — அமர்வகுதி தேர்வி தேவை"
+
+#: eeschema/dialogs/dialog_change_symbols_base.tsx:229
+msgid "Browse for new symbol"
+msgstr "புதிய அடையாளத்தைத் தேடு"
+
+#: eeschema/dialogs/dialog_change_symbols_base.tsx:202
+msgid "Browse for symbol"
+msgstr "அடையாளத்தைத் தேடு"
+
+#: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:203
+msgid "Browse for the new footprint"
+msgstr "புதிய அமர்வகுதியைத் தேடு"
+
+#: eeschema/dialogs/panel_setup_buses.tsx:331
+msgid "Bus aliases"
+msgstr "பஸ் மாற்றுப்பெயர்கள்"
+
+#: eeschema/dialogs/panel_setup_buses.tsx:345
+msgid "Bus members"
+msgstr "பஸ் உறுப்பினர்கள்"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1107
+msgid "Cannot create the library folder '%s'."
+msgstr "நூலகக் கோப்புறை '%s' ஐ உருவாக்க முடியவில்லை."
+
+#: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
+msgid "Cell contents"
+msgstr "கலத்தின் உள்ளடக்கம்"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:211
+msgid "Center layer"
+msgstr "மைய அடுக்கு"
+
+#: designer/src/support/ChatWidget.tsx:308
+msgid "Chat with us (drag to move)"
+msgstr "எங்களுடன் அரட்டையடிக்கவும் (நகர்த்த இழுக்கவும்)"
+
+#: designer/src/auth/auth_progress.tsx:33
+msgid "Checking your account"
+msgstr "உங்கள் கணக்கைச் சரிபார்க்கிறது"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
+msgid "Cleanup Tracks & Vias"
+msgstr "மின்தடங்கள் & வழிமங்களைச் சுத்தம் செய்"
+
+#: common/dialogs/panel_hotkeys_editor.tsx:137 common/dialogs/panel_toolbar_customization.tsx:590
+msgid "Clear the filter"
+msgstr "வடிப்பியை அழி"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:295
+msgid "Clear the search"
+msgstr "தேடலை அழி"
+
+#: designer/src/editors/pcb/Viewer3DFrame.tsx:852
+msgid "Close 3D Viewer"
+msgstr "3D பார்வையாளரை மூடு"
+
+#: designer/src/home/ShareButton.tsx:358
+msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
+msgstr "பின்னர் இணைப்பை மூடினால் புதியவர்கள் அதைத் திறக்க முடியாது. பட்டியலில் ஏற்கனவே உள்ளவர்கள் நீங்கள் நீக்கும் வரை அணுகலைத் தக்கவைத்துக்கொள்வார்கள்."
+
+#: eeschema/sch_edit_frame_ui.tsx:7132
+msgid "Collapse"
+msgstr "சுருக்கு"
+
+#: common/launch_ext.tsx:236
+msgid "Color Themes"
+msgstr "நிறத் தீம்கள்"
+
+#: common/launch_ext.tsx:236
+msgid "Color Themes — %s"
+msgstr "நிறத் தீம்கள் — %s"
+
+#: pcbnew/dialogs/dialog_print_pcbnew.tsx:521
+msgid "Color theme"
+msgstr "நிறத் தீம்"
+
+#: common/launch_ext.tsx:252
+msgid "Color theme files"
+msgstr "நிறத் தீம் கோப்புகள்"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
+msgid "Common materials"
+msgstr "பொதுவான பொருட்கள்"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
+msgid "Component class"
+msgstr "உறுப்பு வகுப்பு"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:224
+msgid "Component type"
+msgstr "உறுப்பு வகை"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:154
+msgid "Compression format"
+msgstr "சுருக்க வடிவம்"
+
+#: designer/src/auth/SignIn.tsx:360
+msgid "Confirm"
+msgstr "உறுதிசெய்"
+
+#: designer/src/auth/SignIn.tsx:384 designer/src/auth/SignIn.tsx:541
+msgid "Confirm password"
+msgstr "கடவுச்சொல்லை உறுதிசெய்யவும்"
+
+#: designer/src/auth/SignIn.tsx:319
+msgid "Confirm your email"
+msgstr "உங்கள் மின்னஞ்சலை உறுதிசெய்யவும்"
+
+#: designer/src/auth/auth_progress.tsx:48
+msgid "Confirming your email"
+msgstr "உங்கள் மின்னஞ்சல் உறுதிசெய்யப்படுகிறது"
+
+#: eeschema/erc/erc_settings.ts:322
+msgid "Connected pin is not mapped to any footprint pad"
+msgstr "இணைக்கப்பட்ட முள் எந்த அமர்வகுதி நிரப்பிடத்துடனும் வரைபடமாக்கப்படவில்லை"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:507
+msgid "Coordinate format"
+msgstr "ஆயத்தொலைவு வடிவம்"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:81 designer/src/auth/RecoveryKeyDialog.tsx:67 designer/src/home/ShareButton.tsx:343
+msgid "Copied"
+msgstr "நகலெடுக்கப்பட்டது"
+
+#: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
+msgid "Copper finish"
+msgstr "செப்புப் பூச்சு"
+
+#: pcbnew/sel_layer.tsx:608
+msgid "Copper layer pair presets"
+msgstr "செப்பு அடுக்கு இணை முன்னமைவுகள்"
+
+#: common/dialog_about/dialog_about.tsx:192
+msgid "Copy %s version info to the clipboard"
+msgstr "%s பதிப்புத் தகவலை இடைநிலைப் பலகைக்கு நகலெடு"
+
+#: 3d-viewer/3d_menubar.ts:73
+msgid "Copy 3D Image to Clipboard"
+msgstr "3D படத்தை இடைநிலைப் பலகைக்கு நகலெடு"
+
+#: designer/src/home/ShareButton.tsx:307 designer/src/home/ShareButton.tsx:308
+msgid "Copy an invitation link for %s"
+msgstr "%s க்கான அழைப்பிதழ் இணைப்பை நகலெடு"
+
+#: designer/src/home/ShareButton.tsx:343 designer/src/mobile/DesktopGate.tsx:69
+msgid "Copy link"
+msgstr "இணைப்பை நகலெடு"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:220
+msgid "Copy variant"
+msgstr "மாறுபாட்டை நகலெடு"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:209 pcbnew/dialogs/dialog_shape_properties_base.tsx:196
+msgid "Corner radius"
+msgstr "மூலை ஆரம்"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:195 pcbnew/dialogs/panel_zone_properties_base.tsx:391
+msgid "Corner smoothing"
+msgstr "மூலை மென்மையாக்கல்"
+
+#: pcbnew/dialogs/dialog_tuning_pattern_properties_base.tsx:194
+msgid "Corner style"
+msgstr "மூலை பாணி"
+
+#: pcbnew/tools/drawing_tool.ts:1325
+msgid "Could not load image."
+msgstr "படத்தை ஏற்ற முடியவில்லை."
+
+#: designer/src/home/HomePage.tsx:836
+msgid "Could not open %s: %s"
+msgstr "%s ஐத் திறக்க முடியவில்லை: %s"
+
+#: eeschema/sch_edit_frame_ui.tsx:3791
+msgid "Could not open this project: %s"
+msgstr "இந்தத் திட்டத்தைத் திறக்க முடியவில்லை: %s"
+
+#: eeschema/sch_base_frame.ts:275
+msgid "Could not write the library file '%s'."
+msgstr "நூலகக் கோப்பு '%s' ஐ எழுத முடியவில்லை."
+
+#: designer/src/auth/DeleteAccountDialog.tsx:230
+msgid "Couldn't load your data counts. Try again to review what will be deleted."
+msgstr "உங்கள் தரவு எண்ணிக்கைகளை ஏற்ற முடியவில்லை. எது நீக்கப்படும் என்பதை மதிப்பாய்வு செய்ய மீண்டும் முயலவும்."
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7375
+msgid "Couldn’t open board:"
+msgstr "பலகையைத் திறக்க முடியவில்லை:"
+
+#: designer/src/fs/FileChooser.tsx:709
+msgid "Create Folder"
+msgstr "கோப்புறையை உருவாக்கு"
+
+#: designer/src/auth/SignIn.tsx:396
+msgid "Create account"
+msgstr "கணக்கை உருவாக்கு"
+
+#: designer/src/auth/SignIn.tsx:298 designer/src/auth/SignIn.tsx:609
+msgid "Create an account"
+msgstr "ஒரு கணக்கை உருவாக்கவும்"
+
+#: designer/src/auth/SignIn.tsx:321
+msgid "Create your free ZiroEDA account"
+msgstr "உங்கள் இலவச ZiroEDA கணக்கை உருவாக்கவும்"
+
+#: designer/src/auth/SignIn.tsx:446
+msgid "Created your account before 10 September 2026? It has no recovery key yet and does not need one: the link lets you choose a password and sets up encryption."
+msgstr "செப்டம்பர் 10, 2026-க்கு முன் கணக்கை உருவாக்கினீர்களா? அதற்கு இன்னும் மீட்பு விசை இல்லை, தேவையும் இல்லை: இணைப்பு மூலம் கடவுச்சொல்லைத் தேர்ந்து குறியாக்கத்தை அமைக்கலாம்."
+
+#: designer/src/auth/SignIn.tsx:396
+msgid "Creating account..."
+msgstr "கணக்கு உருவாக்கப்படுகிறது..."
+
+#: designer/src/auth/auth_progress.tsx:43
+msgid "Creating your account"
+msgstr "உங்கள் கணக்கு உருவாக்கப்படுகிறது"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
+msgid "Current density:"
+msgstr "தற்போதைய அடர்த்தி:"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:424
+msgid "Current exceeds the ampacity for this density."
+msgstr "மின்னோட்டம் இந்த அடர்த்திக்கான ஆம்பியர் திறனை மீறுகிறது."
+
+#: common/dialogs/dialog_print_generic_base.tsx:156
+msgid "Custom scale"
+msgstr "தனிப்பயன் அளவு"
+
+#: pcbnew/dialogs/dialog_drc_base.tsx:172
+msgid "DRC Control"
+msgstr "DRC கட்டுப்பாடு"
+
+#: pcbnew/dialogs/dialog_drc_base.tsx:219
+msgid "DRC options"
+msgstr "DRC விருப்பங்கள்"
+
+#: pcbnew/dialogs/dialog_drc_base.tsx:278
+msgid "DRC results"
+msgstr "DRC முடிவுகள்"
+
+#: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
+msgid "DXF default line width"
+msgstr "DXF இயல்புநிலைக் கோட்டு அகலம்"
+
+#: pcbnew/import_gfx/dialog_import_graphics_base.tsx:157
+msgid "DXF default units"
+msgstr "DXF இயல்புநிலை அலகுகள்"
+
+#: pcbnew/dialogs/panel_setup_formatting_base.tsx:67
+msgid "Dash length"
+msgstr "கோடு நீளம்"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:386
+msgid "Data-source packages connect external database libraries, which need a back end not available in the browser yet."
+msgstr "தரவு-மூலத் தொகுப்புகள் வெளிப்புறத் தரவுத்தள நூலகங்களை இணைக்கின்றன; அவற்றுக்கு உலாவியில் இன்னும் கிடைக்காத பின்புலம் தேவை."
+
+#: external/wx/spin_ctrl.tsx:128
+msgid "Decrease"
+msgstr "குறை"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults.tsx:303
+msgid "Default field properties"
+msgstr "இயல்புநிலைப் புலப் பண்புகள்"
+
+#: pcbnew/dialogs/panel_fp_editor_graphics_defaults.tsx:256
+msgid "Default properties for new graphic items"
+msgstr "புதிய வரைகலை உருப்படிகளுக்கான இயல்புநிலைப் பண்புகள்"
+
+#: pcbnew/dialogs/panel_setup_text_and_graphics.tsx:264
+msgid "Default properties for new graphics and text"
+msgstr "புதிய வரைகலை மற்றும் உரைக்கான இயல்புநிலைப் பண்புகள்"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:156
+msgid "Default reference designator"
+msgstr "இயல்புநிலைக் குறிப்பு குறியீடு"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults.tsx:314
+msgid "Default text items"
+msgstr "இயல்புநிலை உரை உருப்படிகள்"
+
+#: eeschema/tools/sch_sheet_pin_tool.ts:198 eeschema/tools/sch_sheet_pin_tool.ts:212
+msgid "Delete Sheet Pin"
+msgstr "தாள் முள்ளை நீக்கு"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:448
+msgid "Delete Template"
+msgstr "வார்ப்புருவை நீக்கு"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:309
+msgid "Delete a layer override"
+msgstr "அடுக்கு மேலெழுதலை நீக்கு"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:109
+msgid "Delete alias"
+msgstr "மாற்றுப்பெயரை நீக்கு"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:372
+msgid "Delete alternate"
+msgstr "மாற்றை நீக்கு"
+
+#: eeschema/dialogs/panel_bom_presets_base.tsx:53
+msgid "Delete formatting preset"
+msgstr "வடிவமைப்பு முன்னமைவை நீக்கு"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:89
+msgid "Delete layer"
+msgstr "அடுக்கை நீக்கு"
+
+#: eeschema/dialogs/panel_bom_presets_base.tsx:37
+msgid "Delete preset"
+msgstr "முன்னமைவை நீக்கு"
+
+#: pcbnew/dialogs/dialog_layer_selection_base.tsx:132
+msgid "Delete selected presets"
+msgstr "தேர்ந்தெடுத்த முன்னமைவுகளை நீக்கு"
+
+#: eeschema/tools/mutate.ts:358
+msgid "Delete symbol"
+msgstr "அடையாளத்தை நீக்கு"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults_base.tsx:83
+msgid "Delete text item"
+msgstr "உரை உருப்படியை நீக்கு"
+
+#: common/dialogs/panel_text_variables.tsx:134
+msgid "Delete text variable"
+msgstr "உரை மாறியை நீக்கு"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:239
+msgid "Delete variant"
+msgstr "மாறுபாட்டை நீக்கு"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:142
+msgid "Derive from existing symbol"
+msgstr "ஏற்கனவே உள்ள அடையாளத்திலிருந்து தருவி"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:225
+msgid "Derive from symbol"
+msgstr "அடையாளத்திலிருந்து தருவி"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:115 pcbnew/dialogs/dialog_plot_base.tsx:217
+msgid "Design variant"
+msgstr "வடிவமைப்பு மாறுபாடு"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:546
+msgid "Directory '%s/%s' already exists."
+msgstr "கோப்பகம் '%s/%s' ஏற்கனவே உள்ளது."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:482
+msgid "Discard Pending"
+msgstr "நிலுவையைக் கைவிடு"
+
+#: common/widgets/zoom_correction_ctrl.tsx:223
+msgid "Display PPI"
+msgstr "காட்சி PPI"
+
+#: common/widgets/zoom_correction_ctrl.tsx:217
+msgid "Display PPI:"
+msgstr "காட்சி PPI:"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:300
+msgid "Distributor"
+msgstr "விநியோகஸ்தர்"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:289
+msgid "Distributor P/N"
+msgstr "விநியோகஸ்தர் P/N"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:82
+msgid "Do this later"
+msgstr "இதைப் பின்னர் செய்"
+
+#: designer/src/ui/ErrorBoundary.tsx:74
+msgid "Download %s.zip"
+msgstr "%s.zip ஐப் பதிவிறக்கு"
+
+#: designer/src/ui/SaveIndicator.tsx:54
+msgid "Download a copy"
+msgstr "நகலைப் பதிவிறக்கு"
+
+#: designer/src/ui/StorageBanner.tsx:83
+msgid "Download project"
+msgstr "திட்டத்தைப் பதிவிறக்கு"
+
+#: designer/src/ui/StorageBanner.tsx:48
+msgid "Download your project before closing the tab so nothing is lost."
+msgstr "எதுவும் இழக்கப்படாமல் இருக்க, தாவலை மூடும் முன் உங்கள் திட்டத்தைப் பதிவிறக்கவும்."
+
+#: designer/src/ui/StorageBanner.tsx:43
+msgid "Download your project before closing the tab, or switch to a current browser."
+msgstr "தாவலை மூடும் முன் உங்கள் திட்டத்தைப் பதிவிறக்கவும், அல்லது தற்போதைய உலாவிக்கு மாறவும்."
+
+#: designer/src/ui/ErrorBoundary.tsx:74 designer/src/ui/StorageBanner.tsx:83
+msgid "Downloaded"
+msgstr "பதிவிறக்கப்பட்டது"
+
+#: eeschema/sch_edit_frame_ui.tsx:5806 eeschema/sch_edit_frame_ui.tsx:6472 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1434 pcbnew/footprint_edit_frame_ui.tsx:1420 pcbnew/pcb_edit_frame_ui.tsx:989 designer/src/home/HomePage.tsx:2286
+msgid "Drag to resize"
+msgstr "அளவை மாற்ற இழுக்கவும்"
+
+#: common/dialogs/dialog_page_settings_base.tsx:230
+msgid "Drawing sheet file"
+msgstr "வரைதாள் கோப்பு"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:369 pcbnew/dialogs/dialog_print_pcbnew.tsx:549
+msgid "Drill marks"
+msgstr "துளையிடல் குறிகள்"
+
+#: designer/src/auth/SignIn.tsx:479
+msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
+msgstr "எங்கள் முனைக்கு-முனை குறியாக்க நெறிமுறையின் தன்மையால், உங்கள் கடவுச்சொல் அல்லது மீட்பு விசை இல்லாமல் உங்கள் தரவை மறைவிலக்க முடியாது."
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
+msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
+msgstr "EN 50310 300mV-க்குக் கீழ் மின்னழுத்த வேறுபாட்டைப் பரிந்துரைக்கிறது. அறியப்பட்ட நடைமுறைகள் முதன்மை இணைக்கு இடையில் மூன்றாவது இடைமுக உலோகத்தைப் பயன்படுத்துகின்றன (எ.கா. ENIG மேற்பரப்புப் பூச்சு)."
+
+#: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
+msgid "Edge card connectors"
+msgstr "விளிம்பு அட்டை இணைப்பிகள்"
+
+#: eeschema/tools/mutate.ts:394
+msgid "Edit Bus Entry"
+msgstr "பஸ் உள்ளீட்டைத் தொகு"
+
+#: eeschema/tools/mutate.ts:433
+msgid "Edit Directive Label"
+msgstr "கட்டளை சிட்டையைத் தொகு"
+
+#: eeschema/tools/mutate.ts:529
+msgid "Edit Image"
+msgstr "படத்தைத் தொகு"
+
+#: eeschema/tools/mutate.ts:420
+msgid "Edit Label"
+msgstr "சிட்டையைத் தொகு"
+
+#: eeschema/tools/mutate.ts:543
+msgid "Edit Shape"
+msgstr "வடிவத்தைத் தொகு"
+
+#: eeschema/tools/mutate.ts:501
+msgid "Edit Sheet"
+msgstr "தாளைத் தொகு"
+
+#: eeschema/tools/sch_sheet_pin_tool.ts:178
+msgid "Edit Sheet Pin"
+msgstr "தாள் முள்ளைத் தொகு"
+
+#: eeschema/tools/properties.ts:65
+msgid "Edit Symbol Fields"
+msgstr "அடையாளப் புலங்களைத் தொகு"
+
+#: eeschema/tools/mutate.ts:556
+msgid "Edit Text Box"
+msgstr "உரைப் பெட்டியைத் தொகு"
+
+#: common/dialogs/panel_grid_settings.tsx:491
+msgid "Edit grid"
+msgstr "வலைவாயைத் தொகு"
+
+#: designer/src/home/project_tree_menu.ts:204
+msgid "Edit in a Text Viewer"
+msgstr "உரைப் பார்வையாளரில் தொகு"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:575 pcbnew/dialogs/dialog_track_via_properties_base.tsx:551
+msgid "Edit layer"
+msgstr "அடுக்கைத் தொகு"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
+msgid "Edit variant description"
+msgstr "மாறுபாட்டு விளக்கத்தைத் தொகு"
+
+#: common/widgets/wx_progress_reporters.tsx:137
+msgid "Elapsed time:"
+msgstr "கடந்த நேரம்:"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:181
+msgid "Electrical type"
+msgstr "மின்சார வகை"
+
+#: designer/src/auth/SignIn.tsx:256
+msgid "Email"
+msgstr "மின்னஞ்சல்"
+
+#: designer/src/mobile/DesktopGate.tsx:72
+msgid "Email me the link"
+msgstr "இணைப்பை எனக்கு மின்னஞ்சல் செய்"
+
+#: common/dialogs/panel_embedded_files.tsx:180
+msgid "Embedded files"
+msgstr "உட்பொதிந்த கோப்புகள்"
+
+#: pcbnew/dialogs/panel_setup_layers.tsx:387
+msgid "Enable %s"
+msgstr "%s ஐ இயக்கு"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:625
+msgid "End layer"
+msgstr "முடிவு அடுக்கு"
+
+#: common/dialogs/cross_probing_group.tsx:72
+msgid "Ensures that cross-probed %s are visible in the current view"
+msgstr "குறுக்கு-ஆய்வு செய்யப்பட்ட %s தற்போதைய காட்சியில் தெரிவதை உறுதிசெய்கிறது"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:538
+msgid "Enter a positive impedance and electrical length."
+msgstr "நேர்மறை மின்மறுப்பையும் மின் நீளத்தையும் உள்ளிடவும்."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:637
+msgid "Enter a positive odd-mode impedance."
+msgstr "நேர்மறை ஒற்றை-முறை மின்மறுப்பை உள்ளிடவும்."
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:429
+msgid "Enter a positive resistivity and valid temperature."
+msgstr "நேர்மறை மின்தடைமையையும் செல்லுபடியாகும் வெப்பநிலையையும் உள்ளிடவும்."
+
+#: designer/src/auth/SignIn.tsx:507
+msgid "Enter the recovery key you saved when you created your account, and choose a new password."
+msgstr "கணக்கை உருவாக்கியபோது சேமித்த மீட்பு விசையை உள்ளிட்டு, புதிய கடவுச்சொல்லைத் தேர்ந்தெடுக்கவும்."
+
+#: designer/src/ui/ErrorBoundary.tsx:120
+msgid "Error details"
+msgstr "பிழை விவரங்கள்"
+
+#: common/dialogs/lib_table_panel.tsx:590
+msgid ""
+"Error saving global library table:\n"
+"\n"
+"%s"
+msgstr ""
+"பொது நூலக அட்டவணையைச் சேமிப்பதில் பிழை:\n"
+"\n"
+"%s"
+
+#: common/widgets/design_block_pane.ts:276 eeschema/project_rescue.ts:1019 eeschema/symbol_library_manager.ts:1069 pcbnew/footprint_edit_frame_ui.tsx:1119
+msgid ""
+"Error saving library table:\n"
+"\n"
+"%s"
+msgstr ""
+"நூலக அட்டவணையைச் சேமிப்பதில் பிழை:\n"
+"\n"
+"%s"
+
+#: common/lib_table_notebook_panel.tsx:195
+msgid ""
+"Error saving nested library table:\n"
+"\n"
+"%s"
+msgstr ""
+"உள்ளமை நூலக அட்டவணையைச் சேமிப்பதில் பிழை:\n"
+"\n"
+"%s"
+
+#: eeschema/files-io.ts:263
+msgid ""
+"Error saving schematic file '%s'.\n"
+"Could not create directory: %%s%s"
+msgstr ""
+"திட்டவரைபடக் கோப்பு '%s' ஐச் சேமிப்பதில் பிழை.\n"
+"கோப்பகத்தை உருவாக்க முடியவில்லை: %%s%s"
+
+#: eeschema/tools/sch_editor_control.ts:1003
+msgid ""
+"Error saving symbol %s to library '%s'.\n"
+"\n"
+"%s"
+msgstr ""
+"அடையாளம் %s ஐ நூலகம் '%s' இல் சேமிப்பதில் பிழை.\n"
+"\n"
+"%s"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
+msgid "Error!"
+msgstr "பிழை!"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
+msgid "Exclude references"
+msgstr "குறிப்புகளை விலக்கு"
+
+#: eeschema/sch_edit_frame_ui.tsx:7132
+msgid "Expand"
+msgstr "விரி"
+
+#: pcbnew/dialogs/dialog_shape_properties_base.tsx:319
+msgid "Expansion"
+msgstr "விரிவாக்கம்"
+
+#: common/dialogs/panel_embedded_files.tsx:222
+msgid "Export embedded files"
+msgstr "உட்பொதிந்த கோப்புகளை ஏற்றுமதி செய்"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:642
+msgid "Export units"
+msgstr "அலகுகளை ஏற்றுமதி செய்"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:383
+msgid "Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet."
+msgstr "உற்பத்திச் செருகுநிரல்கள் உருவாக்கல் ஸ்கிரிப்டுகளை இயக்குகின்றன; அவற்றுக்கு உலாவியில் இன்னும் கிடைக்காத மணல்பெட்டி இயக்கநேரம் தேவை."
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1088
+msgid "Fabrication property"
+msgstr "உற்பத்தி பண்பு"
+
+#: eeschema/sch_edit_frame_ui.tsx:5611
+msgid "Failed to load schematic:"
+msgstr "திட்டவரைபடத்தை ஏற்ற முடியவில்லை:"
+
+#: designer/src/editors/schematic/hotkeys.ts:300
+msgid "Fast Grid 1"
+msgstr "விரைவு வலைவாய் 1"
+
+#: designer/src/editors/schematic/hotkeys.ts:307
+msgid "Fast Grid 2"
+msgstr "விரைவு வலைவாய் 2"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:205
+msgid "Field name filter"
+msgstr "புலப் பெயர் வடிப்பி"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:377
+msgid "Field value"
+msgstr "புல மதிப்பு"
+
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:100
+msgid "File name"
+msgstr "கோப்புப் பெயர்"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:234
+msgid "Fill type"
+msgstr "நிரப்பு வகை"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:206
+msgid "Fill with color"
+msgstr "நிறத்தால் நிரப்பு"
+
+#: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
+msgid "First free number after"
+msgstr "இதற்குப் பிறகு முதல் காலி எண்"
+
+#: pcbnew/dialogs/dialog_enum_pads_base.tsx:75
+msgid "First pad number"
+msgstr "முதல் நிரப்பிட எண்"
+
+#: pagelayout_editor/dialogs/properties_frame_ui.tsx:281
+msgid "First page option"
+msgstr "முதல் பக்க விருப்பம்"
+
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:112
+msgid "Footprint 3D model path"
+msgstr "அமர்வகுதி 3D மாதிரிப் பாதை"
+
+#: pcbnew/footprint_chooser_frame.tsx:256
+msgid "Footprint Chooser (%s items loaded)"
+msgstr "அமர்வகுதி தேர்வி (%s உருப்படிகள் ஏற்றப்பட்டன)"
+
+#: cvpcb/dialogs/dialog_config_equfiles.tsx:208
+msgid "Footprint association files"
+msgstr "அமர்வகுதி தொடர்புக் கோப்புகள்"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:366
+msgid "Footprint field"
+msgstr "அமர்வகுதிப் புலம்"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
+msgid "Footprint type"
+msgstr "அமர்வகுதி வகை"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
+msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
+msgstr "எடுத்துக்காட்டாக, கணக்கிடப்பட்ட இலக்கு மதிப்பு 16,834.2Ω எனில் அது 16,800Ω ஆக முழுமையாக்கப்படும். 168-க்கு நெருக்கமான மதிப்பு 169, தேர்ந்தெடுக்கப்பட்ட E96 மதிப்பு 16.9kΩ ஆகும்."
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:492
+msgid "For frequencies higher than 30kHz, the dielectric performances are degraded. IEC60664-4 covers those cases"
+msgstr "30kHz-ஐ விட அதிக அதிர்வெண்களில் மின்கடத்தாப் பொருளின் செயல்திறன் குறைகிறது. IEC60664-4 அந்த நிலைகளை உள்ளடக்குகிறது"
+
+#: designer/src/auth/SignIn.tsx:580 designer/src/auth/SignIn.tsx:596
+msgid "Forgot password?"
+msgstr "கடவுச்சொல்லை மறந்துவிட்டீர்களா?"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:387
+msgid "Format presets"
+msgstr "வடிவ முன்னமைவுகள்"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:814
+msgid "Frequency unit"
+msgstr "அதிர்வெண் அலகு"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:266
+msgid "Front prefix"
+msgstr "முன் முன்னொட்டு"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:234
+msgid "Front reference start"
+msgstr "முன் குறிப்புத் தொடக்கம்"
+
+#: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
+msgid "Gap length"
+msgstr "இடைவெளி நீளம்"
+
+#: designer/src/home/ShareButton.tsx:332
+msgid "General access"
+msgstr "பொது அணுகல்"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:268
+msgid "Generate map format"
+msgstr "வரைபட வடிவத்தை உருவாக்கு"
+
+#: designer/src/auth/SignIn.tsx:553
+msgid "Generating encryption keys..."
+msgstr "குறியாக்க விசைகள் உருவாக்கப்படுகின்றன..."
+
+#: designer/src/auth/auth_progress.tsx:53
+msgid "Generating your encryption keys"
+msgstr "உங்கள் குறியாக்க விசைகள் உருவாக்கப்படுகின்றன"
+
+#: common/eda_base_frame_help_menu.ts:149
+msgid "Getting Started with %s"
+msgstr "%s உடன் தொடங்குதல்"
+
+#: designer/src/home/HomePage.tsx:2602
+msgid "GitHub link:"
+msgstr "GitHub இணைப்பு:"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:433
+msgid "Global solder mask minimum width and/or margin are not set to 0."
+msgstr "உலகளாவிய சூட்டிணை மறைப்பு குறைந்தபட்ச அகலம் மற்றும்/அல்லது ஓரம் 0 ஆக அமைக்கப்படவில்லை."
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:113
+msgid "Global unit delay"
+msgstr "உலகளாவிய அலகுத் தாமதம்"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:196
+msgid "Graphic style"
+msgstr "வரைகலை பாணி"
+
+#: pcbnew/dialogs/dialog_outset_items_base.tsx:123
+msgid "Grid size"
+msgstr "வலைவாய் அளவு"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:283
+msgid "Hide details"
+msgstr "விவரங்களை மறை"
+
+#: common/dialogs/cross_probing_group.tsx:57
+msgid "Highlight %s corresponding to selected %s"
+msgstr "தேர்ந்தெடுத்த %s க்கு ஒத்த %s ஐ ஒளிரச்செய்"
+
+#: common/dialogs/cross_probing_group.tsx:96
+msgid "Highlight nets when they are highlighted in the %s editor"
+msgstr "%s தொகுப்பியில் வலைமங்கள் ஒளிரும்போது அவற்றை ஒளிரச்செய்"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:878
+msgid "Hole shape"
+msgstr "துளை வடிவம்"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:210
+msgid "Hop-over size"
+msgstr "தாவு அளவு"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:142
+msgid "Horizontal Any"
+msgstr "கிடைமட்டம் ஏதும்"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
+msgid "However some cases are not covered by this calculator:"
+msgstr "இருப்பினும் சில நிலைகளை இந்தக் கணிப்பான் உள்ளடக்கவில்லை:"
+
+#: designer/src/auth/delete_account_form.ts:21
+msgid "I found another service that I like better"
+msgstr "எனக்குப் பிடித்த வேறொரு சேவையைக் கண்டேன்"
+
+#: designer/src/auth/SignIn.tsx:491
+msgid "I remember my password"
+msgstr "என் கடவுச்சொல் நினைவில் உள்ளது"
+
+#: designer/src/auth/DeleteAccountDialog.tsx:258
+msgid "I understand this deletes my account and all its data."
+msgstr "இது என் கணக்கையும் அதன் எல்லாத் தரவையும் நீக்கும் என்பதைப் புரிந்துகொள்கிறேன்."
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
+msgid "IEC 60664"
+msgstr "IEC 60664"
+
+#: designer/src/auth/SignIn.tsx:433
+msgid "If"
+msgstr "எனில்"
+
+#: designer/src/home/HomePage.tsx:2419
+msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
+msgstr "உலாவி கோப்புறையைத் (பதிவிறக்கங்கள், மேசை...) தடுத்தால், அதற்குப் பதிலாக திட்டத்தின் எல்லாக் கோப்புகளையும் தேர்ந்தெடுக்கவும்"
+
+#: designer/src/auth/SignIn.tsx:484
+msgid "If the password comes back to you, sign in with it as usual and save your recovery key from the account menu, so this never comes up again."
+msgstr "கடவுச்சொல் நினைவுக்கு வந்தால், வழக்கம்போல் அதைக்கொண்டு உள்நுழைந்து, கணக்கு மெனுவிலிருந்து மீட்பு விசையைச் சேமிக்கவும்; இனி இது நேராது."
+
+#: designer/src/auth/RecoveryKeyContents.tsx:72 designer/src/auth/RecoveryKeyDialog.tsx:48
+msgid "If you forget your password, the only way you can recover your data is with this key."
+msgstr "உங்கள் கடவுச்சொல்லை மறந்தால், உங்கள் தரவை மீட்க இந்த விசை மட்டுமே ஒரே வழி."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:306
+msgid "If you specify one of the track widths, the maximum current it can handle will be calculated. The width for the other track to also handle this current will then be calculated."
+msgstr "ஏதேனும் ஒரு மின்தட அகலத்தைக் குறிப்பிட்டால், அது தாங்கக்கூடிய அதிகபட்ச மின்னோட்டம் கணக்கிடப்படும். பின்னர் அதே மின்னோட்டத்தைத் தாங்க மற்ற மின்தடத்தின் அகலம் கணக்கிடப்படும்."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:301
+msgid "If you specify the maximum current, then the track widths will be calculated to suit."
+msgstr "அதிகபட்ச மின்னோட்டத்தைக் குறிப்பிட்டால், அதற்கேற்ப மின்தட அகலங்கள் கணக்கிடப்படும்."
+
+#: eeschema/dialogs/dialog_erc_base.tsx:210 pcbnew/dialogs/dialog_drc_base.tsx:322
+msgid "Ignored tests"
+msgstr "புறக்கணிக்கப்பட்ட சோதனைகள்"
+
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:603
+msgid "Import %s"
+msgstr "%s ஐ இறக்குமதி செய்"
+
+#: pcbnew/dialogs/dialog_map_layers.tsx:261
+msgid "Import Layer Mapping"
+msgstr "அடுக்கு வரைபடமாக்கலை இறக்குமதி செய்"
+
+#: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
+msgid "Import Vector Graphics"
+msgstr "திசையன் வரைகலையை இறக்குமதி செய்"
+
+#: eeschema/dialogs/dialog_sch_import_settings_base.tsx:87 pcbnew/dialogs/dialog_import_settings_base.tsx:81
+msgid "Import from"
+msgstr "இதிலிருந்து இறக்குமதி செய்"
+
+#: pcbnew/import_gfx/dialog_import_graphics_base.tsx:123
+msgid "Import scale"
+msgstr "இறக்குமதி அளவு"
+
+#: pcbnew/widgets/appearance_controls.tsx:278
+msgid "Inactive layers (H):"
+msgstr "செயலற்ற அடுக்குகள் (H):"
+
+#: external/wx/spin_ctrl.tsx:137
+msgid "Increase"
+msgstr "கூட்டு"
+
+#: eeschema/dialogs/dialog_increment_annotations_base.tsx:94
+msgid "Increment by"
+msgstr "இதன் அளவு கூட்டு"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:259
+msgid "Installed"
+msgstr "நிறுவப்பட்டது"
+
+#: designer/src/editors/schematic/prefs/PanelSchDataSources.tsx:65
+msgid "Installed data sources"
+msgstr "நிறுவப்பட்ட தரவு மூலங்கள்"
+
+#: designer/src/editors/schematic/dialogs/dialog_rescue_each.tsx:144
+msgid "Instances of this symbol ("
+msgstr "இந்த அடையாளத்தின் நிகழ்வுகள் ("
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:502
+msgid "Insulations trough liquids, compressed air or gases other than air are not in the scope of IEC60664"
+msgstr "திரவங்கள், அழுத்தப்பட்ட காற்று அல்லது காற்றல்லாத வாயுக்கள் வழியான காப்பு IEC60664-இன் வரம்புக்கு உட்பட்டதல்ல"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:255
+msgid "Internal ID"
+msgstr "உள் ID"
+
+#: designer/src/home/ShareButton.tsx:247
+msgid "Invite"
+msgstr "அழை"
+
+#: designer/src/home/ShareButton.tsx:231 designer/src/home/ShareButton.tsx:232
+msgid "Invite by email"
+msgstr "மின்னஞ்சல் மூலம் அழை"
+
+#: common/dialogs/dialog_page_settings_base.tsx:279
+msgid "Issue Date"
+msgstr "வெளியீட்டுத் தேதி"
+
+#: designer/src/auth/delete_account_form.ts:16
+msgid "It's missing a key feature that I need"
+msgstr "எனக்குத் தேவையான ஒரு முக்கிய அம்சம் இதில் இல்லை"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1363
+msgid "Jumper pin groups"
+msgstr "தாவுக்கம்பி முள் குழுக்கள்"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:467
+msgid "Junction color"
+msgstr "சந்திப்பு நிறம்"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:195
+msgid "Junction dot size"
+msgstr "சந்திப்புப் புள்ளி அளவு"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:452 eeschema/dialogs/dialog_wire_bus_properties_base.tsx:173
+msgid "Junction size"
+msgstr "சந்திப்பு அளவு"
+
+#: designer/src/home/HomePage.tsx:2720
+msgid "Keep both"
+msgstr "இரண்டையும் வைத்திரு"
+
+#: designer/src/home/HomePage.tsx:2710
+msgid "Keep mine"
+msgstr "என்னுடையதை வைத்திரு"
+
+#: pcbnew/dialogs/panel_fp_lib_table.tsx:281
+msgid "KiCad (folder) from Computer..."
+msgstr "கணினியிலிருந்து KiCad (கோப்புறை)..."
+
+#: common/remote_provider_schemas.ts:18
+msgid "KiCad Remote Provider Metadata v1"
+msgstr "KiCad தொலைநிலை வழங்குநர் மெட்டாடேட்டா v1"
+
+#: common/remote_provider_schemas.ts:180
+msgid "KiCad Remote Symbol Manifest v1"
+msgstr "KiCad தொலைநிலை அடையாள மேனிஃபெஸ்ட் v1"
+
+#: designer/src/widgets/dialog_sym_lib_table.tsx:330
+msgid "KiCad from Computer..."
+msgstr "கணினியிலிருந்து KiCad..."
+
+#: pcbnew/dialogs/dialog_import_netlist.tsx:52
+msgid "KiCad netlist files (*.net)"
+msgstr "KiCad வலைப்பட்டியல் கோப்புகள் (*.net)"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:379
+msgid "KiCad plugins are native Python scripts. In the browser they need a sandboxed web runtime, a separate piece of work."
+msgstr "KiCad செருகுநிரல்கள் இயல்பான Python ஸ்கிரிப்டுகள். உலாவியில் அவற்றுக்கு மணல்பெட்டி வலை இயக்கநேரம் தேவை; அது தனிப்பணி."
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:398
+msgid "Layer defaults"
+msgstr "அடுக்கு இயல்புநிலைகள்"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:194 pcbnew/dialogs/dialog_global_edit_teardrops_base.tsx:223
+msgid "Layer filter"
+msgstr "அடுக்கு வடிப்பி"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:187
+msgid "Leader layer"
+msgstr "வழிகாட்டி அடுக்கு"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:153
+msgid "Leader text"
+msgstr "வழிகாட்டி உரை"
+
+#: common/dialogs/panel_mouse_settings.tsx:269
+msgid "Left button drag"
+msgstr "இடது பொத்தான் இழுத்தல்"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:188
+msgid "Left click (and drag) actions depend on 2 modifier keys:"
+msgstr "இடது கிளிக் (மற்றும் இழுத்தல்) செயல்கள் 2 மாற்றி விசைகளைப் பொறுத்தவை:"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:337
+msgid "Left margin"
+msgstr "இடது ஓரம்"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:389
+msgid "Libraries and colour themes install and work today."
+msgstr "நூலகங்களும் நிறத் தீம்களும் இன்றே நிறுவப்பட்டு செயல்படுகின்றன."
+
+#: pcbnew/dialogs/dialog_footprint_associations_base.tsx:55
+msgid "Library association"
+msgstr "நூலகத் தொடர்பு"
+
+#: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:162
+msgid "Library id"
+msgstr "நூலக ID"
+
+#: eeschema/dialogs/dialog_symbol_properties_base.tsx:365
+msgid "Library link"
+msgstr "நூலக இணைப்பு"
+
+#: eeschema/sch_edit_frame_ui.tsx:6625 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1507 pcbnew/footprint_edit_frame_ui.tsx:1560 pcbnew/pcb_edit_frame_ui.tsx:8711
+msgid "Library name:"
+msgstr "நூலகப் பெயர்:"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
+msgid "Line color"
+msgstr "கோட்டு நிறம்"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:427 pcbnew/dialogs/dialog_shape_properties_base.tsx:225
+msgid "Line style"
+msgstr "கோட்டு பாணி"
+
+#: eeschema/dialogs/dialog_text_properties_base.tsx:401
+msgid "Link"
+msgstr "இணைப்பு"
+
+#: designer/src/mobile/DesktopGate.tsx:69
+msgid "Link copied"
+msgstr "இணைப்பு நகலெடுக்கப்பட்டது"
+
+#: common/launch_ext.tsx:275
+msgid "Load"
+msgstr "ஏற்று"
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1587
+msgid "Load Symbol Libraries"
+msgstr "அடையாள நூலகங்களை ஏற்று"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1397 pcbnew/footprint_viewer_frame_ui.tsx:773 pcbnew/pcb_edit_frame_ui.tsx:8015 cvpcb/cvpcb_mainframe_ui.tsx:1548 cvpcb/cvpcb_mainframe_ui.tsx:1622
+msgid "Loading footprint libraries..."
+msgstr "அமர்வகுதி நூலகங்கள் ஏற்றப்படுகின்றன..."
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1383 eeschema/symbol_viewer_frame_ui.tsx:596
+msgid "Loading symbol libraries..."
+msgstr "அடையாள நூலகங்கள் ஏற்றப்படுகின்றன..."
+
+#: designer/src/App.tsx:246
+msgid "Loading the %s..."
+msgstr "%s ஏற்றப்படுகிறது..."
+
+#: eeschema/erc/erc_settings.ts:217
+msgid "Local and global power symbols have same name"
+msgstr "உள்ளூர் மற்றும் உலகளாவிய மின் அடையாளங்களுக்கு ஒரே பெயர் உள்ளது"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:266
+msgid "Manufacturer P/N"
+msgstr "உற்பத்தியாளர் P/N"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:395
+msgid "Maximum allowed deviation"
+msgstr "அனுமதிக்கப்பட்ட அதிகபட்ச விலகல்"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:992
+msgid "Maximum length"
+msgstr "அதிகபட்ச நீளம்"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:908
+msgid "Maximum track width"
+msgstr "அதிகபட்ச மின்தட அகலம்"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:1036
+msgid "Maximum width"
+msgstr "அதிகபட்ச அகலம்"
+
+#: common/dialogs/panel_mouse_settings.tsx:281
+msgid "Middle button drag"
+msgstr "நடுப் பொத்தான் இழுத்தல்"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
+msgid "Minimum width"
+msgstr "குறைந்தபட்ச அகலம்"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
+msgid "Missing 3D model references"
+msgstr "விடுபட்ட 3D மாதிரிக் குறிப்புகள்"
+
+#: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
+msgid "More tools"
+msgstr "மேலும் கருவிகள்"
+
+#: eeschema/tools/sch_sheet_pin_tool.ts:162
+msgid "Move Sheet Pin"
+msgstr "தாள் முள்ளை நகர்த்து"
+
+#: common/dialogs/panel_grid_settings.tsx:505
+msgid "Move grid down"
+msgstr "வலைவாயைக் கீழே நகர்த்து"
+
+#: common/dialogs/panel_grid_settings.tsx:498
+msgid "Move grid up"
+msgstr "வலைவாயை மேலே நகர்த்து"
+
+#: designer/src/auth/delete_account_form.ts:22
+msgid "My reason isn't listed"
+msgstr "என் காரணம் பட்டியலில் இல்லை"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:267
+msgid "Name text size"
+msgstr "பெயர் உரை அளவு"
+
+#: pcbnew/widgets/appearance_controls.tsx:383
+msgid "Net %s"
+msgstr "வலைமம் %s"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:181 pcbnew/dialogs/dialog_global_edit_teardrops_base.tsx:197
+msgid "Net class filter"
+msgstr "வலைமம் வகுப்பு வடிப்பி"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:255
+msgid "Net filter"
+msgstr "வலைமம் வடிப்பி"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:528
+msgid "Net name"
+msgstr "வலைமம் பெயர்"
+
+#: common/dialogs/panel_setup_netclasses.tsx:522
+msgid "Netclass assignments"
+msgstr "வலைமம் வகுப்பு ஒதுக்கீடுகள்"
+
+#: pcbnew/dialogs/dialog_import_netlist_base.tsx:81
+msgid "Netlist file"
+msgstr "வலைப்பட்டியல் கோப்பு"
+
+#: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:197
+msgid "New footprint library id"
+msgstr "புதிய அமர்வகுதி நூலக ID"
+
+#: designer/src/auth/SignIn.tsx:528
+msgid "New password"
+msgstr "புதிய கடவுச்சொல்"
+
+#: designer/src/auth/SignIn.tsx:600
+msgid "New to ZiroEDA?"
+msgstr "ZiroEDA-வுக்குப் புதியவரா?"
+
+#: common/dialog_about/dialog_about.tsx:233
+msgid "Next page"
+msgstr "அடுத்த பக்கம்"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:396
+msgid "No %s match your search."
+msgstr "உங்கள் தேடலுடன் எந்த %s ம் பொருந்தவில்லை."
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1396
+msgid "No footprint libraries loaded."
+msgstr "அமர்வகுதி நூலகங்கள் எதுவும் ஏற்றப்படவில்லை."
+
+#: common/widgets/widget_hotkey_list.tsx:177
+msgid "No hotkeys match “"
+msgstr "எந்த ஆட்கீயும் பொருந்தவில்லை “"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:364
+msgid "No installed packages match your search."
+msgstr "உங்கள் தேடலுடன் நிறுவப்பட்ட தொகுப்புகள் எதுவும் பொருந்தவில்லை."
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1382
+msgid "No libraries"
+msgstr "நூலகங்கள் இல்லை"
+
+#: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
+msgid "No matches"
+msgstr "பொருத்தங்கள் இல்லை"
+
+#: designer/src/ui/ErrorBoundary.tsx:95
+msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
+msgstr "நினைவகத்தில் திறந்த திட்டம் எதுவும் இல்லை, எனவே எதுவும் இழக்கப்படவில்லை. மீண்டும் ஏற்றினால் நீங்கள் திரும்பிவிடலாம்."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:365
+msgid "No packages installed yet."
+msgstr "இன்னும் தொகுப்புகள் எதுவும் நிறுவப்படவில்லை."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:333
+msgid "No pending changes. Queue installs or removals, then apply."
+msgstr "நிலுவை மாற்றங்கள் இல்லை. நிறுவல்கள் அல்லது நீக்கங்களை வரிசைப்படுத்தி, பின்னர் பயன்படுத்தவும்."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:542
+msgid "No physical solution found for this target impedance."
+msgstr "இந்த இலக்கு மின்மறுப்புக்கு இயற்பியல் தீர்வு எதுவும் கிடைக்கவில்லை."
+
+#: designer/src/auth/SignIn.tsx:562
+msgid "No recovery key?"
+msgstr "மீட்பு விசை இல்லையா?"
+
+#: cvpcb/cvpcb_mainframe_ui.tsx:1591
+msgid "No symbols, place and annotate symbols first."
+msgstr "அடையாளங்கள் இல்லை; முதலில் அடையாளங்களை வைத்து சிறுகுறிப்பிடவும்."
+
+#: designer/src/home/HomePage.tsx:728
+msgid "None of the files chosen is of the type %s."
+msgstr "தேர்ந்தெடுத்த கோப்புகளில் எதுவும் %s வகையைச் சேர்ந்தவை அல்ல."
+
+#: eeschema/sch_edit_frame_ui.tsx:3966
+msgid "Not a .kicad_sch file: %s"
+msgstr ".kicad_sch கோப்பு அல்ல: %s"
+
+#: designer/src/home/HomePage.tsx:2699
+msgid "Nothing has been changed or copied."
+msgstr "எதுவும் மாற்றப்படவில்லை, நகலெடுக்கப்படவில்லை."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:354
+msgid "Number of units"
+msgstr "அலகுகளின் எண்ணிக்கை"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:173
+msgid "Number of units per package"
+msgstr "ஒரு தொகுப்புக்கான அலகுகளின் எண்ணிக்கை"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:280
+msgid "Number text size"
+msgstr "எண் உரை அளவு"
+
+#: pcbnew/dialogs/dialog_enum_pads_base.tsx:87
+msgid "Numbering step"
+msgstr "எண்ணிடல் படி"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
+msgid "OVC IV"
+msgstr "OVC IV"
+
+#: designer/src/mobile/DesktopGate.tsx:76
+msgid "On a tablet? Rotate to landscape, or connect a mouse."
+msgstr "டேப்லெட்டில் உள்ளீர்களா? நிலத்தோற்றத்துக்குச் சுழற்றவும், அல்லது சுட்டியை இணைக்கவும்."
+
+#: designer/src/home/ShareButton.tsx:64
+msgid "Only people invited"
+msgstr "அழைக்கப்பட்டவர்கள் மட்டும்"
+
+#: designer/src/home/menubar.ts:133
+msgid "Open Demo Project"
+msgstr "டெமோ திட்டத்தைத் திற"
+
+#: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
+msgid "Open Project from GitHub"
+msgstr "GitHub இலிருந்து திட்டத்தைத் திற"
+
+#: designer/src/home/menubar.ts:129
+msgid "Open Project from GitHub..."
+msgstr "GitHub இலிருந்து திட்டத்தைத் திற..."
+
+#: designer/src/home/menubar.ts:260
+msgid "Open Text Viewer"
+msgstr "உரைப் பார்வையாளரைத் திற"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1059
+msgid "Open a project to add a footprint library to."
+msgstr "அமர்வகுதி நூலகத்தைச் சேர்க்க ஒரு திட்டத்தைத் திறக்கவும்."
+
+#: designer/src/editors/gerbview/GerberViewer.tsx:129 designer/src/fs/OpenFileDialog.tsx:152 designer/src/home/HomePage.tsx:2411
+msgid "Open from Computer..."
+msgstr "கணினியிலிருந்து திற..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:393
+msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
+msgstr "வெற்றிகரமான வரைவுக்குப் பிறகு வரையப்பட்ட கோப்பை புதிய உலாவித் தாவலில் திற (தற்போதைய பக்கம் மட்டும்)"
+
+#: designer/src/mobile/DesktopGate.tsx:55
+msgid "Open this link on a laptop or desktop to get started."
+msgstr "தொடங்க இந்த இணைப்பை மடிக்கணினி அல்லது மேசைக்கணினியில் திறக்கவும்."
+
+#: designer/src/home/HomePage.tsx:1465
+msgid "Opening project..."
+msgstr "திட்டம் திறக்கப்படுகிறது..."
+
+#: designer/src/home/HomePage.tsx:1078
+msgid "Opening the shared project..."
+msgstr "பகிரப்பட்ட திட்டம் திறக்கப்படுகிறது..."
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:176
+msgid "Optionally up to two additional values can be excluded in case of component availability problems."
+msgstr "உறுப்புகள் கிடைப்பதில் சிக்கல் இருந்தால் விருப்பமாக இன்னும் இரண்டு மதிப்புகள் வரை விலக்கலாம்."
+
+#: pcbnew/dialogs/dialog_rule_area_properties_base.tsx:149 pcbnew/dialogs/panel_zone_properties_base.tsx:182
+msgid "Outline display"
+msgstr "வெளிக்கோட்டுக் காட்சி"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:169 pcbnew/dialogs/dialog_rule_area_properties_base.tsx:159 pcbnew/dialogs/panel_zone_properties_base.tsx:189
+msgid "Outline hatch pitch"
+msgstr "வெளிக்கோட்டுக் கோடிடல் இடைவெளி"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:159
+msgid "Outline style"
+msgstr "வெளிக்கோட்டு பாணி"
+
+#: pcbnew/dialogs/dialog_gencad_export_options.tsx:191
+msgid "Output File"
+msgstr "வெளியீட்டுக் கோப்பு"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:146
+msgid "Output folder"
+msgstr "வெளியீட்டுக் கோப்புறை"
+
+#: common/dialogs/dialog_print_generic_base.tsx:99
+msgid "Output mode"
+msgstr "வெளியீட்டு முறை"
+
+#: eeschema/dialogs/dialog_export_netlist_base.tsx:118
+msgid "Output path"
+msgstr "வெளியீட்டுப் பாதை"
+
+#: pcbnew/dialogs/dialog_outset_items_base.tsx:108
+msgid "Outset"
+msgstr "வெளித்தள்ளல்"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:752
+msgid "PDF output mode"
+msgstr "PDF வெளியீட்டு முறை"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:371
+msgid "PNG Options"
+msgstr "PNG விருப்பங்கள்"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
+msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
+msgstr "தாவுக்கம்பி நிரப்பிடக் குழு %2$s இல் நிரப்பிடம் '%1$s' இந்த அமர்வகுதியில் இல்லை."
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:528
+msgid "Pad Numbering"
+msgstr "நிரப்பிட எண்ணிடல்"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:355
+msgid "Pad clearance"
+msgstr "நிரப்பிட இசைவு இடைவெளி"
+
+#: pcbnew/dialogs/dialog_footprint_properties.tsx:329
+msgid "Pad clearance must be at least %s."
+msgstr "நிரப்பிட இசைவு இடைவெளி குறைந்தது %s ஆக இருக்க வேண்டும்."
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1353
+msgid "Pad connection"
+msgstr "நிரப்பிட இணைப்பு"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:434 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:394
+msgid "Pad connection to zones"
+msgstr "மண்டலங்களுக்கான நிரப்பிட இணைப்பு"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:138
+msgid "Pad connections"
+msgstr "நிரப்பிட இணைப்புகள்"
+
+#: pcbnew/dialogs/dialog_enum_pads_base.tsx:63
+msgid "Pad name prefix"
+msgstr "நிரப்பிடப் பெயர் முன்னொட்டு"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:502
+msgid "Pad number"
+msgstr "நிரப்பிட எண்"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:978
+msgid "Pad to die delay"
+msgstr "நிரப்பிடம்-டை தாமதம்"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:945
+msgid "Pad to die length"
+msgstr "நிரப்பிடம்-டை நீளம்"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:486
+msgid "Pad type"
+msgstr "நிரப்பிட வகை"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:564 pcbnew/dialogs/dialog_track_via_properties_base.tsx:544
+msgid "Padstack mode"
+msgstr "நிரப்பிட அடுக்கு முறை"
+
+#: eeschema/dialogs/dialog_sheet_properties_base.tsx:144
+msgid "Page number"
+msgstr "பக்க எண்"
+
+#: common/dialogs/panel_mouse_settings.tsx:312
+msgid "Pan on mouse movement with key"
+msgstr "விசையுடன் சுட்டி நகர்வில் நகர்த்து"
+
+#: common/dialogs/panel_spacemouse.tsx:115
+msgid "Pan speed"
+msgstr "பான் வேகம்"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:256
+msgid "Parent footprint library link"
+msgstr "பெற்றோர் அமர்வகுதி நூலக இணைப்பு"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:239
+msgid "Parent reference designator"
+msgstr "பெற்றோர் குறிப்புக் குறியீடு"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:236
+msgid "Passive components are commonly made with E-series values appropriate to their precision. Capacitors commonly use E12 values. 10% and 5% resistors commonly use E24 values. 1% resistors use E96 values. Other series are not commonly used."
+msgstr "செயலற்ற உறுப்புகள் பொதுவாக அவற்றின் துல்லியத்துக்கேற்ற E-தொடர் மதிப்புகளில் தயாரிக்கப்படுகின்றன. மின்தேக்கிகள் பொதுவாக E12 மதிப்புகளைப் பயன்படுத்துகின்றன. 10% மற்றும் 5% மின்தடையங்கள் பொதுவாக E24 மதிப்புகளைப் பயன்படுத்துகின்றன. 1% மின்தடையங்கள் E96 மதிப்புகளைப் பயன்படுத்துகின்றன. பிற தொடர்கள் பொதுவாகப் பயன்படுத்தப்படுவதில்லை."
+
+#: designer/src/auth/SignIn.tsx:631
+msgid "Password strength: Moderate"
+msgstr "கடவுச்சொல் வலிமை: மிதமானது"
+
+#: designer/src/auth/SignIn.tsx:632
+msgid "Password strength: Strong"
+msgstr "கடவுச்சொல் வலிமை: வலிமையானது"
+
+#: designer/src/auth/SignIn.tsx:629
+msgid "Password strength: Weak"
+msgstr "கடவுச்சொல் வலிமை: பலவீனமானது"
+
+#: designer/src/auth/SignIn.tsx:179 designer/src/auth/SignIn.tsx:226
+msgid "Passwords don't match"
+msgstr "கடவுச்சொற்கள் பொருந்தவில்லை"
+
+#: designer/src/auth/SignIn.tsx:519
+msgid "Paste your 24-word recovery key"
+msgstr "உங்கள் 24-சொல் மீட்பு விசையை ஒட்டவும்"
+
+#: designer/src/home/ShareButton.tsx:251
+msgid "People with access"
+msgstr "அணுகல் உள்ளவர்கள்"
+
+#: external/wx/datectrl.tsx:39
+msgid "Pick a date"
+msgstr "தேதியைத் தேர்ந்தெடுக்கவும்"
+
+#: common/dialogs/dialog_page_settings_base.tsx:294
+msgid "Pick date"
+msgstr "தேதியைத் தேர்ந்தெடு"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:737
+msgid "Pin '%s' in jumper pin group %s does not exist in this symbol."
+msgstr "முள் '%1$s' தாவுக்கம்பி முள் குழு %2$s இல் இந்த அடையாளத்தில் இல்லை."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:229
+msgid "Pin (hold back updates)"
+msgstr "பின் செய் (புதுப்பிப்புகளைத் தடு)"
+
+#: eeschema/dialogs/dialog_symbol_properties.tsx:938
+msgid "Pin functions"
+msgstr "முள் செயல்பாடுகள்"
+
+#: eeschema/erc/erc_settings.ts:317
+msgid "Pin map references a pad that does not exist on the footprint"
+msgstr "முள் வரைபடம் அமர்வகுதியில் இல்லாத நிரப்பிடத்தைக் குறிக்கிறது"
+
+#: eeschema/erc/erc_settings.ts:332
+msgid "Pin map references a pin number that no longer exists on the symbol"
+msgstr "முள் வரைபடம் அடையாளத்தில் இனி இல்லாத முள் எண்ணைக் குறிக்கிறது"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:147
+msgid "Pin name"
+msgstr "முள் பெயர்"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:260
+msgid "Pin name position offset"
+msgstr "முள் பெயர் நிலை ஈடுசெய்தல்"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:166
+msgid "Pin number"
+msgstr "முள் எண்"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:267
+msgid "Pinned"
+msgstr "பின் செய்யப்பட்டது"
+
+#: eeschema/tools/mutate.ts:340
+msgid "Place symbol"
+msgstr "அடையாளத்தை வை"
+
+#: designer/src/editors/schematic/hotkeys.ts:365
+msgid "Place/Remove No Connect Flags"
+msgstr "இணைப்பிலா கொடிகளை வை/நீக்கு"
+
+#: designer/src/auth/SignIn.tsx:185 designer/src/auth/SignIn.tsx:232
+msgid "Please choose a stronger password."
+msgstr "வலிமையான கடவுச்சொல்லைத் தேர்ந்தெடுக்கவும்."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:188
+msgid "Plot Schematic Options"
+msgstr "திட்டவரைபட வரைவு விருப்பங்கள்"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:206
+msgid "Plot format"
+msgstr "வரைவு வடிவம்"
+
+#: common/dialogs/dialog_plugin_options.tsx:141
+msgid "Plugin options"
+msgstr "செருகுநிரல் விருப்பங்கள்"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:487
+msgid "Position mode"
+msgstr "நிலை முறை"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:291
+msgid "Position offset"
+msgstr "நிலை ஈடுசெய்தல்"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:111
+msgid "Potential replacements"
+msgstr "சாத்தியமான மாற்றீடுகள்"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
+msgid "Pre-defined track widths"
+msgstr "முன்வரையறுத்த மின்தட அகலங்கள்"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:528
+msgid "Pre-defined via sizes"
+msgstr "முன்வரையறுத்த வழிம அளவுகள்"
+
+#: common/dialog_about/dialog_about.tsx:209
+msgid "Previous page"
+msgstr "முந்தைய பக்கம்"
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:340
+msgid "Primary axis numbering"
+msgstr "முதன்மை அச்சு எண்ணிடல்"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:237
+msgid "Progress"
+msgstr "முன்னேற்றம்"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:390
+msgid "Project Templates"
+msgstr "திட்ட வார்ப்புருக்கள்"
+
+#: designer/src/fs/chooser_places.ts:231 designer/src/home/HomePage.tsx:2528
+msgid "Projects"
+msgstr "திட்டங்கள்"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:661
+msgid "Protection features"
+msgstr "பாதுகாப்பு அம்சங்கள்"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:209
+msgid "Queue install"
+msgstr "நிறுவலை வரிசையில் சேர்"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:383
+msgid "Range (currents)"
+msgstr "வரம்பு (மின்னோட்டங்கள்)"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:358
+msgid "Range (voltages)"
+msgstr "வரம்பு (மின்னழுத்தங்கள்)"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:242
+msgid "Ratsnest line thickness"
+msgstr "ராட்ஸ்நெஸ்ட் கோட்டு தடிமன்"
+
+#: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
+msgid "Reading files..."
+msgstr "கோப்புகள் படிக்கப்படுகின்றன..."
+
+#: designer/src/auth/DeleteAccountDialog.tsx:181 designer/src/auth/DeleteAccountDialog.tsx:187
+msgid "Reason for leaving"
+msgstr "விலகுவதற்கான காரணம்"
+
+#: common/widgets/lib_tree.tsx:1074
+msgid "Recent searches"
+msgstr "சமீபத்திய தேடல்கள்"
+
+#: designer/src/auth/SignIn.tsx:553
+msgid "Recover"
+msgstr "மீட்டெடு"
+
+#: designer/src/auth/SignIn.tsx:302 designer/src/auth/SignIn.tsx:327
+msgid "Recover account"
+msgstr "கணக்கை மீட்டெடு"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:74 designer/src/auth/RecoveryKeyDialog.tsx:42 designer/src/auth/RecoveryKeyDialog.tsx:55 designer/src/auth/SignIn.tsx:323 designer/src/auth/SignIn.tsx:514
+msgid "Recovery key"
+msgstr "மீட்பு விசை"
+
+#: designer/src/editors/pcb/prefs/PanelViewer3dGeneral.tsx:138
+msgid "Redraw speed"
+msgstr "மறுவரைவு வேகம்"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:220
+msgid "Reference filter"
+msgstr "குறிப்பு வடிப்பி"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
+msgid "Refresh preview"
+msgstr "முன்னோட்டத்தைப் புதுப்பி"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:294
+msgid "Regroup symbols"
+msgstr "அடையாளங்களை மீண்டும் குழுவாக்கு"
+
+#: designer/src/ui/ErrorBoundary.tsx:81 designer/src/ui/ErrorBoundary.tsx:105
+msgid "Reload"
+msgstr "மீண்டும் ஏற்று"
+
+#: designer/src/App.tsx:1717
+msgid "Reload Now"
+msgstr "இப்போது மீண்டும் ஏற்று"
+
+#: designer/src/ui/ErrorBoundary.tsx:81
+msgid "Reload without saving"
+msgstr "சேமிக்காமல் மீண்டும் ஏற்று"
+
+#: designer/src/home/ShareButton.tsx:277 designer/src/home/ShareButton.tsx:278
+msgid "Remove %s"
+msgstr "%s ஐ நீக்கு"
+
+#: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:85
+msgid "Remove 3D model"
+msgstr "3D மாதிரியை நீக்கு"
+
+#: common/dialogs/panel_setup_netclasses.tsx:535
+msgid "Remove assignment"
+msgstr "ஒதுக்கீட்டை நீக்கு"
+
+#: designer/src/home/HomePage.tsx:2750
+msgid "Remove damaged"
+msgstr "சேதமடைந்ததை நீக்கு"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:194
+msgid "Remove from pending"
+msgstr "நிலுவையிலிருந்து நீக்கு"
+
+#: common/dialogs/panel_grid_settings.tsx:519
+msgid "Remove grid"
+msgstr "வலைவாயை நீக்கு"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:428
+msgid "Remove islands"
+msgstr "தீவுகளை நீக்கு"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:68
+msgid "Remove member"
+msgstr "உறுப்பினரை நீக்கு"
+
+#: common/dialogs/panel_setup_netclasses.tsx:491
+msgid "Remove netclass"
+msgstr "வலைமம் வகுப்பை நீக்கு"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:449
+msgid "Remove this repository"
+msgstr "இந்தக் களஞ்சியத்தை நீக்கு"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:85
+msgid "Remove track propagation row"
+msgstr "மின்தடப் பரவல் வரிசையை நீக்கு"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles_base.tsx:55
+msgid "Remove tuning profile"
+msgstr "இசைவு விவரக்குறிப்பை நீக்கு"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:143
+msgid "Remove via delay override"
+msgstr "வழிமத் தாமத மேலெழுதலை நீக்கு"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:211
+msgid "Rename variant"
+msgstr "மாறுபாட்டுக்கு மறுபெயரிடு"
+
+#: eeschema/dialogs/dialog_sch_find_base.tsx:122
+msgid "Replace with"
+msgstr "இதைக்கொண்டு மாற்று"
+
+#: common/dialog_about/dialog_about.tsx:197
+msgid "Report a problem with %s"
+msgstr "%s தொடர்பான சிக்கலைப் புகாரளி"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:418
+msgid "Repository:"
+msgstr "களஞ்சியம்:"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:209
+msgid "Requires a runtime not yet available in the browser"
+msgstr "உலாவியில் இன்னும் கிடைக்காத இயக்கநேரம் தேவை"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:293
+msgid "Requires app ≥"
+msgstr "பயன்பாடு தேவை ≥"
+
+#: designer/src/auth/SignIn.tsx:371
+msgid "Resend code"
+msgstr "குறியீட்டை மீண்டும் அனுப்பு"
+
+#: common/widgets/paged_dialog.tsx:265
+msgid "Reset this page to defaults"
+msgstr "இந்தப் பக்கத்தை இயல்புநிலைக்கு மீட்டமை"
+
+#: common/widgets/wx_splitter_window.tsx:77 external/wx/wx_aui_sash.tsx:64
+msgid "Resize"
+msgstr "அளவை மாற்று"
+
+#: designer/src/App.tsx:1923 designer/src/home/HomePage.tsx:2797
+msgid "Restore Project"
+msgstr "திட்டத்தை மீட்டமை"
+
+#: designer/src/App.tsx:1923
+msgid "Restoring your project..."
+msgstr "உங்கள் திட்டம் மீட்டமைக்கப்படுகிறது..."
+
+#: common/dialogs/panel_mouse_settings.tsx:293
+msgid "Right button drag"
+msgstr "வலது பொத்தான் இழுத்தல்"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:345
+msgid "Right margin"
+msgstr "வலது ஓரம்"
+
+#: pcbnew/dialogs/dialog_move_exact_base.tsx:134
+msgid "Rotation anchor"
+msgstr "சுழற்சி நங்கூரம்"
+
+#: common/dialogs/panel_spacemouse.tsx:85
+msgid "Rotation speed"
+msgstr "சுழற்சி வேகம்"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:175
+msgid "Round locations to"
+msgstr "இடங்களை இதற்கு முழுமையாக்கு"
+
+#: common/widgets/zoom_correction_ctrl.tsx:283
+msgid "Ruler units"
+msgstr "அளவுகோல் அலகுகள்"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:722
+msgid "SVG output mode"
+msgstr "SVG வெளியீட்டு முறை"
+
+#: eeschema/sch_edit_frame_ui.tsx:5683
+msgid "Save Current Sheet Copy As"
+msgstr "தற்போதைய தாளின் நகலை இவ்வாறு சேமி"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:83 designer/src/auth/RecoveryKeyDialog.tsx:66
+msgid "Save Key"
+msgstr "விசையைச் சேமி"
+
+#: designer/src/home/HomePage.tsx:1274
+msgid "Save Project"
+msgstr "திட்டத்தைச் சேமி"
+
+#: designer/src/App.tsx:1679
+msgid "Save a copy"
+msgstr "நகலைச் சேமி"
+
+#: common/launch_ext.tsx:293
+msgid "Save to folder"
+msgstr "கோப்புறையில் சேமி"
+
+#: designer/src/ui/StorageBanner.tsx:47
+msgid "Saving failed, recent edits are not being stored."
+msgstr "சேமிப்பு தோல்வியடைந்தது, சமீபத்திய திருத்தங்கள் சேமிக்கப்படவில்லை."
+
+#: designer/src/home/HomePage.tsx:1274
+msgid "Saving project..."
+msgstr "திட்டம் சேமிக்கப்படுகிறது..."
+
+#: common/widgets/zoom_correction_ctrl.tsx:244
+msgid "Scaling ruler"
+msgstr "அளவிடும் அளவுகோல்"
+
+#: pcbnew/dialogs/dialog_footprint_associations_base.tsx:69
+msgid "Schematic association"
+msgstr "திட்டவரைபடத் தொடர்பு"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:192
+msgid "Schematic variants"
+msgstr "திட்டவரைபட மாறுபாடுகள்"
+
+#: eeschema/dialogs/dialog_sch_find_base.tsx:105 pcbnew/dialogs/dialog_find_base.tsx:84
+msgid "Search for"
+msgstr "இதைத் தேடு"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:428
+msgid "Search packages..."
+msgstr "தொகுப்புகளைத் தேடு..."
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:353
+msgid "Secondary axis numbering"
+msgstr "இரண்டாம் நிலை அச்சு எண்ணிடல்"
+
+#: designer/src/auth/auth_progress.tsx:28
+msgid "Securing your password on this device"
+msgstr "இந்தச் சாதனத்தில் உங்கள் கடவுச்சொல் பாதுகாக்கப்படுகிறது"
+
+#: designer/src/home/HomePage.tsx:2418
+msgid "Select Files..."
+msgstr "கோப்புகளைத் தேர்ந்தெடு..."
+
+#: designer/src/home/menubar.ts:138
+msgid "Select Project Files..."
+msgstr "திட்டக் கோப்புகளைத் தேர்ந்தெடு..."
+
+#: designer/src/auth/DeleteAccountDialog.tsx:191
+msgid "Select a reason"
+msgstr "ஒரு காரணத்தைத் தேர்ந்தெடுக்கவும்"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:391
+msgid "Select a template to see what it contains."
+msgstr "அதில் என்ன உள்ளது என்பதைக் காண ஒரு வார்ப்புருவைத் தேர்ந்தெடுக்கவும்."
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1330
+msgid "Select body style"
+msgstr "உடல் பாணியைத் தேர்ந்தெடு"
+
+#: eeschema/dialogs/dialog_field_properties_base.tsx:154
+msgid "Select footprint"
+msgstr "அமர்வகுதியைத் தேர்ந்தெடு"
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1351
+msgid "Select unit to edit"
+msgstr "தொகுக்க வேண்டிய அலகைத் தேர்ந்தெடு"
+
+#: eeschema/sch_edit_frame.ts:1227
+msgid "Select variant name to remove:                "
+msgstr "நீக்க வேண்டிய மாறுபாட்டுப் பெயரைத் தேர்ந்தெடுக்கவும்:                "
+
+#: eeschema/sch_edit_frame.ts:1189
+msgid "Select variant to edit description:                "
+msgstr "விளக்கத்தைத் தொகுக்க வேண்டிய மாறுபாட்டைத் தேர்ந்தெடுக்கவும்:                "
+
+#: common/dialogs/cross_probing_group.tsx:53
+msgid "Select/highlight objects corresponding to %s selection"
+msgstr "%s தேர்வுக்கு ஒத்த பொருட்களைத் தேர்ந்தெடு/ஒளிரச்செய்"
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:111
+msgid "Selected cells shown with the default system's coloring choice after a table refill."
+msgstr "அட்டவணை மீள்நிரப்பலுக்குப் பிறகு தேர்ந்தெடுத்த கலங்கள் கணினியின் இயல்புநிலை நிறத் தேர்வுடன் காட்டப்படும்."
+
+#: designer/src/auth/SignIn.tsx:453
+msgid "Send reset link"
+msgstr "மீட்டமை இணைப்பை அனுப்பு"
+
+#: eeschema/dialogs/dialog_table_properties_base.tsx:264 pcbnew/dialogs/dialog_table_properties_base.tsx:263
+msgid "Separators style"
+msgstr "பிரிப்பான் பாணி"
+
+#: eeschema/dialogs/dialog_table_properties_base.tsx:246 pcbnew/dialogs/dialog_table_properties_base.tsx:245
+msgid "Separators width"
+msgstr "பிரிப்பான் அகலம்"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:224
+msgid "Set active"
+msgstr "செயலில் அமை"
+
+#: gerbview/widgets/layer_widget.tsx:130 3d-viewer/dialogs/appearance_controls_3d.tsx:125
+msgid "Set color for %s"
+msgstr "%s க்கு நிறத்தை அமை"
+
+#: pcbnew/widgets/appearance_controls.tsx:389
+msgid "Set color for net %s"
+msgstr "வலைமம் %s க்கு நிறத்தை அமை"
+
+#: pcbnew/widgets/appearance_controls.tsx:433
+msgid "Set color for the %s netclass"
+msgstr "%s வலைமம் வகுப்புக்கு நிறத்தை அமை"
+
+#: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
+msgid "Share this project"
+msgstr "இந்தத் திட்டத்தைப் பகிர்"
+
+#: eeschema/sch_edit_frame_ui.tsx:3919
+msgid "Sheet file not in project: %s"
+msgstr "தாள் கோப்பு திட்டத்தில் இல்லை: %s"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
+msgid "Shift and Ctrl"
+msgstr "Shift மற்றும் Ctrl"
+
+#: 3d-viewer/viewer3d_appearance.ts:178
+msgid "Show 3D navigator"
+msgstr "3D வழிசெலுத்தியைக் காட்டு"
+
+#: 3d-viewer/viewer3d_appearance.ts:131
+msgid "Show user defined layer %s"
+msgstr "பயனர் வரையறுத்த அடுக்கு %s ஐக் காட்டு"
+
+#: designer/src/auth/SignIn.tsx:303 designer/src/auth/SignIn.tsx:413 designer/src/auth/SignIn.tsx:585
+msgid "Sign in"
+msgstr "உள்நுழை"
+
+#: designer/src/auth/SignIn.tsx:328
+msgid "Sign in to ZiroEDA"
+msgstr "ZiroEDA இல் உள்நுழை"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:368
+msgid "Significant digits (currents)"
+msgstr "குறிப்பிடத்தக்க இலக்கங்கள் (மின்னோட்டங்கள்)"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:346
+msgid "Significant digits (voltages)"
+msgstr "குறிப்பிடத்தக்க இலக்கங்கள் (மின்னழுத்தங்கள்)"
+
+#: designer/src/auth/SignIn.tsx:585
+msgid "Signing in..."
+msgstr "உள்நுழைகிறது..."
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
+msgid "Smoothing amount"
+msgstr "மென்மையாக்கல் அளவு"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:257 pcbnew/dialogs/panel_zone_properties_base.tsx:256
+msgid "Smoothing effort"
+msgstr "மென்மையாக்கல் முயற்சி"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:207
+msgid "Snap to graphics"
+msgstr "வரைகலையில் பொருத்து"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:179
+msgid "Snap to pads"
+msgstr "நிரப்பிடங்களில் பொருத்து"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:193
+msgid "Snap to tracks and vias"
+msgstr "மின்தடங்கள் மற்றும் வழிமங்களில் பொருத்து"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:373 pcbnew/dialogs/dialog_track_via_properties_base.tsx:467
+msgid "Solder mask expansion"
+msgstr "சூட்டிணை மறைப்பு விரிவாக்கம்"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:398
+msgid "Solder paste clearance"
+msgstr "சூட்டிணை பசை இசைவு இடைவெளி"
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:180
+msgid "Solutions are given in the following formats:"
+msgstr "தீர்வுகள் பின்வரும் வடிவங்களில் வழங்கப்படுகின்றன:"
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:171
+msgid "Solutions using up to 4 components are given."
+msgstr "4 உறுப்புகள் வரை பயன்படுத்தும் தீர்வுகள் வழங்கப்படுகின்றன."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:846
+msgid "Solve for this parameter"
+msgstr "இந்த அளவுருவுக்குத் தீர்"
+
+#: eeschema/sch_edit_frame_ui.tsx:3775
+msgid "Some sheets failed to load: %s"
+msgstr "சில தாள்களை ஏற்ற முடியவில்லை: %s"
+
+#: designer/src/auth/SignIn.tsx:326
+msgid "Sorry"
+msgstr "மன்னிக்கவும்"
+
+#: common/widgets/lib_tree.tsx:1110
+msgid "Sort and expand options"
+msgstr "வரிசைப்படுத்தல் மற்றும் விரிவாக்க விருப்பங்கள்"
+
+#: pcbnew/dialogs/dialog_multichannel_generate_rule_areas_base.tsx:46
+msgid "Sources"
+msgstr "மூலங்கள்"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
+msgid "Start layer"
+msgstr "தொடக்க அடுக்கு"
+
+#: eeschema/dialogs/dialog_increment_annotations_base.tsx:80
+msgid "Start reference designator"
+msgstr "தொடக்கக் குறிப்புக் குறியீடு"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:322
+msgid "Step for rotate commands"
+msgstr "சுழற்சிக் கட்டளைகளுக்கான படி"
+
+#: common/eda_base_frame_help_menu.ts:163
+msgid "Support Chat"
+msgstr "ஆதரவு அரட்டை"
+
+#: pcbnew/dialogs/dialog_swap_layers_base.tsx:37
+msgid "Swap layers"
+msgstr "அடுக்குகளை மாற்று"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:233
+msgid "Symbol filter"
+msgstr "அடையாள வடிப்பி"
+
+#: eeschema/dialogs/dialog_edit_symbols_libid.tsx:526
+msgid "Symbol library references"
+msgstr "அடையாள நூலகக் குறிப்புகள்"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:241
+msgid "Symbol type"
+msgstr "அடையாள வகை"
+
+#: eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:105
+msgid "Symbol unit notation"
+msgstr "அடையாள அலகு குறிமுறை"
+
+#: designer/src/home/HomePage.tsx:2760
+msgid "Syncing cloud projects..."
+msgstr "மேகத் திட்டங்கள் ஒத்திசைக்கப்படுகின்றன..."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:596
+msgid "Synthesis is not available for rectangular waveguides."
+msgstr "செவ்வக அலைவழிகளுக்குத் தொகுப்பு கிடைக்காது."
+
+#: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
+msgid "Target areas"
+msgstr "இலக்குப் பரப்புகள்"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:182
+msgid "Target impedance"
+msgstr "இலக்கு மின்மறுப்பு"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:265
+msgid "Temperature rise (ΔT):"
+msgstr "வெப்பநிலை உயர்வு (ΔT):"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:288 eeschema/dialogs/dialog_label_properties_base.tsx:369 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:227 eeschema/dialogs/dialog_tablecell_properties_base.tsx:306 eeschema/dialogs/dialog_text_properties_base.tsx:282 pagelayout_editor/dialogs/properties_frame_ui.tsx:381
+msgid "Text color"
+msgstr "உரை நிறம்"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
+msgid "Text frame"
+msgstr "உரைச் சட்டம்"
+
+#: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
+msgid "Text size"
+msgstr "உரை அளவு"
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:99
+msgid "The anode of an electrochemical pair gets oxidized and eaten away, while the cathode gets dissolved metals plated onto it but stays protected."
+msgstr "மின்வேதியியல் இணையின் அனோடு ஆக்சிஜனேற்றமடைந்து அரிக்கப்படுகிறது; கேதோடில் கரைந்த உலோகங்கள் பூசப்படுகின்றன, ஆனால் அது பாதுகாப்பாக இருக்கும்."
+
+#: designer/src/auth/delete_account_form.ts:19
+msgid "The app or a certain feature does not behave as I think it should"
+msgstr "பயன்பாடு அல்லது ஒரு அம்சம் நான் நினைப்பது போல் செயல்படவில்லை"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:312
+msgid "The calculations are valid for currents up to 35 A (external) or 17.5 A (internal), temperature rises up to 100 °C, and widths of up to 400 mils (10 mm)."
+msgstr "கணக்கீடுகள் 35 A (வெளிப்புறம்) அல்லது 17.5 A (உட்புறம்) வரையிலான மின்னோட்டங்கள், 100 °C வரையிலான வெப்பநிலை உயர்வு, 400 மில் (10 mm) வரையிலான அகலங்களுக்குச் செல்லுபடியாகும்."
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:243
+msgid "The calculator estimates the energy required to heat the wire up"
+msgstr "கம்பியை அதன் உருகுநிலை வரை சூடாக்கத் தேவையான ஆற்றலை கணிப்பான் மதிப்பிடுகிறது"
+
+#: designer/src/home/HomePage.tsx:2687
+msgid "The cloud copies of %s projects cannot be opened with your key."
+msgstr "%s திட்டங்களின் மேகநகல்களை உங்கள் விசையால் திறக்க முடியாது."
+
+#: designer/src/home/HomePage.tsx:2683
+msgid "The cloud copy of \"%s\" cannot be opened with your key."
+msgstr "\"%s\" இன் மேகநகலை உங்கள் விசையால் திறக்க முடியாது."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:310
+msgid "The controlling value is shown in bold."
+msgstr "கட்டுப்படுத்தும் மதிப்பு தடித்த எழுத்தில் காட்டப்படுகிறது."
+
+#: designer/src/ui/ErrorBoundary.tsx:86
+msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
+msgstr "பதிவிறக்கம் தோல்வியடைந்தது. கீழே உள்ள பிழையை நகலெடுத்துப் புகாரளிக்கவும்; மீண்டும் ஏற்ற வேண்டாம், உங்கள் பணி இந்தத் தாவலிலிருந்து இன்னும் மீட்கக்கூடியது."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:316
+msgid "The formula, from IPC 2221, is"
+msgstr "IPC 2221 இலிருந்து சூத்திரம்:"
+
+#: common/filename_resolver.ts:369
+msgid ""
+"The given path does not exist\n"
+"%s"
+msgstr ""
+"கொடுக்கப்பட்ட பாதை இல்லை\n"
+"%s"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:485
+msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
+msgstr "IEC60664-1 இன் குறிக்கோள், மின்னிணைப்புடன் இணையும் தயாரிப்புகளுக்கான காப்பு வடிவமைப்பில் வழிகாட்டுவதாகும்."
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
+msgid "The requested value is always excluded from the solution set."
+msgstr "கோரிய மதிப்பு எப்போதும் தீர்வுத் தொகுப்பிலிருந்து விலக்கப்படும்."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:581 eeschema/dialogs/dialog_symbol_properties_base.tsx:378
+msgid "The simulator is not available in this build"
+msgstr "இந்தத் தொகுப்பில் உருவகப்படுத்தி கிடைக்கவில்லை"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:356
+msgid "The text height must be between %s."
+msgstr "உரை உயரம் %s க்கு இடையில் இருக்க வேண்டும்."
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
+msgid "The text width must be between %s."
+msgstr "உரை அகலம் %s க்கு இடையில் இருக்க வேண்டும்."
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
+msgid "The value 0 is a special case and is not present in any series."
+msgstr "0 என்ற மதிப்பு ஒரு சிறப்பு நிலை; அது எந்தத் தொடரிலும் இல்லை."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:55
+msgid "Theme preview"
+msgstr "தீம் முன்னோட்டம்"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:150
+msgid "Thermal relief gap"
+msgstr "வெப்பத் தணிப்பு இடைவெளி"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:159
+msgid "Thermal spoke width"
+msgstr "வெப்பக் கம்பி அகலம்"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:65
+msgid ""
+"This board references 3D models that are no longer present on your system.\n"
+"Select replacements below, or keep the existing references."
+msgstr ""
+"இந்தப் பலகை உங்கள் கணினியில் இனி இல்லாத 3D மாதிரிகளைக் குறிப்பிடுகிறது.\n"
+"கீழே மாற்றுகளைத் தேர்ந்தெடுக்கவும், அல்லது தற்போதைய குறிப்புகளை வைத்திருக்கவும்."
+
+#: gerbview/gerbview_frame_ui.tsx:911 pagelayout_editor/pl_editor_frame_ui.tsx:878
+msgid "This browser cannot create a WebGL 2 context."
+msgstr "இந்த உலாவியால் WebGL 2 சூழலை உருவாக்க முடியாது."
+
+#: designer/src/ui/StorageBanner.tsx:42
+msgid "This browser has no local storage, edits are not being saved."
+msgstr "இந்த உலாவியில் உள்ளூர் சேமிப்பகம் இல்லை, திருத்தங்கள் சேமிக்கப்படவில்லை."
+
+#: designer/src/ui/StorageBanner.tsx:35
+msgid "This browser is blocking site storage, edits are not being saved."
+msgstr "இந்த உலாவி தளச் சேமிப்பகத்தைத் தடுக்கிறது, திருத்தங்கள் சேமிக்கப்படவில்லை."
+
+#: common/launch_ext.tsx:245
+msgid "This browser will not open a folder, so themes are saved and loaded as files."
+msgstr "இந்த உலாவி கோப்புறையைத் திறக்காது, எனவே தீம்கள் கோப்புகளாகச் சேமிக்கப்பட்டு ஏற்றப்படுகின்றன."
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:166
+msgid "This calculator finds combinations of standard E-series (between 10Ω and 1MΩ) to create arbitrary values."
+msgstr "தன்னிச்சையான மதிப்புகளை உருவாக்க இந்தக் கணிப்பான் நிலையான E-தொடர் (10Ω முதல் 1MΩ வரை) சேர்க்கைகளைக் கண்டறிகிறது."
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:247
+msgid "This energy is then compared to the one dissipated by the wire resistance."
+msgstr "இந்த ஆற்றல் பின்னர் கம்பியின் மின்தடையால் சிதறடிக்கப்படும் ஆற்றலுடன் ஒப்பிடப்படுகிறது."
+
+#: designer/src/fs/FileChooser.tsx:602
+msgid "This location cannot be saved to."
+msgstr "இந்த இடத்தில் சேமிக்க முடியாது."
+
+#: designer/src/home/ShareButton.tsx:218
+msgid "This project has not reached the cloud yet, so there is nothing to share. Let it sync, then share it."
+msgstr "இந்தத் திட்டம் இன்னும் மேகத்தை அடையவில்லை, எனவே பகிர எதுவும் இல்லை. அதை ஒத்திசைய விட்டு, பின்னர் பகிரவும்."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:397
+msgid "This repository has no %s."
+msgstr "இந்தக் களஞ்சியத்தில் %s இல்லை."
+
+#: designer/src/home/HomePage.tsx:2638
+msgid "This repository holds several KiCad projects. Open which one?"
+msgstr "இந்தக் களஞ்சியத்தில் பல KiCad திட்டங்கள் உள்ளன. எதைத் திறப்பது?"
+
+#: common/widgets/paged_dialog.tsx:252
+msgid "This setup page is not implemented yet."
+msgstr "இந்த அமைப்புப் பக்கம் இன்னும் செயல்படுத்தப்படவில்லை."
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:95
+msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
+msgstr "இந்த அட்டவணை பல்வேறு உலோகங்கள் மற்றும் கலப்புலோகங்களுக்கு இடையிலான மின்வேதியியல் மின்னழுத்த வேறுபாட்டைக் காட்டுகிறது. கால்வானிக் அரிப்பு தொடர்பில் உள்ள வெவ்வேறு உலோகங்களை சில நிபந்தனைகளில் பாதிக்கிறது."
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
+msgid "This tool allows you to design a track fuse but should be used as an estimate only."
+msgstr "இந்தக் கருவி மின்தட உருகியை வடிவமைக்க உதவுகிறது, ஆனால் மதிப்பீடாக மட்டுமே பயன்படுத்த வேண்டும்."
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
+msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
+msgstr "மதிப்பைத் தேர்ந்தெடுக்க, கணக்கிடப்பட்ட இலக்கு மதிப்பில் தொடங்கி, E24 அல்லது அதற்குக் கீழுக்கு 2 குறிப்பிடத்தக்க இலக்கங்களுக்கும், E48 மற்றும் அதற்கு மேலுக்கு 3 குறிப்பிடத்தக்க இலக்கங்களுக்கும் முழுமையாக்கவும். பின்னர் மீதமுள்ள இலக்கங்களுக்கு மிக நெருக்கமான மதிப்பை அட்டவணையில் கண்டறிந்து அந்த இலக்கங்களுக்குப் பதிலாக இடவும்."
+
+#: common/dialogs/panel_toolbar_customization.tsx:419
+msgid "Toolbar items"
+msgstr "கருவிப்பட்டி உருப்படிகள்"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:739
+msgid "Top backdrill must-cut"
+msgstr "மேல் பின்துளை கட்டாய-வெட்டு"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:717
+msgid "Top backdrill size"
+msgstr "மேல் பின்துளை அளவு"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:327
+msgid "Top margin"
+msgstr "மேல் ஓரம்"
+
+#: pcbnew/dialogs/dialog_track_via_size_base.tsx:63
+msgid "Track Width and Via Size"
+msgstr "மின்தட அகலம் மற்றும் வழிம அளவு"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:427
+msgid "Track layer"
+msgstr "மின்தட அடுக்கு"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:364
+msgid "Track mouse-drag mode"
+msgstr "மின்தடச் சுட்டி-இழுப்பு முறை"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:648
+msgid "Track propagation"
+msgstr "மின்தடப் பரவல்"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:601
+msgid "Track width correction"
+msgstr "மின்தட அகலத் திருத்தம்"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1185
+msgid "Track width limit"
+msgstr "மின்தட அகல வரம்பு"
+
+#: pcbnew/dialogs/dialog_track_via_properties.tsx:995
+msgid "Track width must be at least %s."
+msgstr "மின்தட அகலம் குறைந்தது %s ஆக இருக்க வேண்டும்."
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7072
+msgid "Track: %s mm (%s mils)"
+msgstr "மின்தடம்: %s mm (%s மில்)"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:633
+msgid "Trapezoid axis"
+msgstr "சரிவக அச்சு"
+
+#: designer/src/auth/DeleteAccountDialog.tsx:253
+msgid "Try again"
+msgstr "மீண்டும் முயலவும்"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles_base.tsx:37
+msgid "Tuning profiles"
+msgstr "இசைவு விவரக்குறிப்புகள்"
+
+#: eeschema/erc/erc_settings.ts:327
+msgid "Two symbol pins are mapped to the same footprint pad"
+msgstr "இரண்டு அடையாள முட்கள் ஒரே அமர்வகுதி நிரப்பிடத்துடன் வரைபடமாக்கப்பட்டுள்ளன"
+
+#: common/widgets/search_pane_tab.tsx:101
+msgid "Type to search"
+msgstr "தேட தட்டச்சு செய்யவும்"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
+msgid "Unit display names"
+msgstr "அலகு காட்சிப் பெயர்கள்"
+
+#: eeschema/dialogs/dialog_lib_edit_pin_table_base.tsx:216
+msgid "Unit filter"
+msgstr "அலகு வடிப்பி"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:288
+msgid "Units format"
+msgstr "அலகுகள் வடிவம்"
+
+#: designer/src/auth/auth_progress.tsx:38
+msgid "Unlocking your encrypted projects"
+msgstr "உங்கள் குறியாக்கப்பட்ட திட்டங்கள் திறக்கப்படுகின்றன"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:229
+msgid "Unpin (allow updates)"
+msgstr "பின் நீக்கு (புதுப்பிப்புகளை அனுமதி)"
+
+#: common/dialogs/git/panel_git_repos.tsx:68
+msgid "Update interval"
+msgstr "புதுப்பிப்பு இடைவெளி"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:263
+msgid "Update:"
+msgstr "புதுப்பிப்பு:"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names.tsx:317
+msgid "User layer names"
+msgstr "பயனர் அடுக்குப் பெயர்கள்"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:53
+msgid "User layers"
+msgstr "பயனர் அடுக்குகள்"
+
+#: designer/src/ui/StorageBanner.tsx:26
+msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
+msgstr "%2$s இல் %1$s பயன்படுத்தப்படுகிறது. உங்கள் திட்டத்தைப் பதிவிறக்கி, இடத்தை விடுவிக்க முகப்புத் திரையிலிருந்து பழைய திட்டங்களை நீக்கவும்."
+
+#: pcbnew/widgets/vertex_editor_pane.tsx:307
+msgid "Vertex Editor"
+msgstr "உச்சி தொகுப்பி"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:124
+msgid "Vertical %s"
+msgstr "செங்குத்து %s"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:675
+msgid "Via delay overrides"
+msgstr "வழிமத் தாமத மேலெழுதல்கள்"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:576
+msgid "Via hole"
+msgstr "வழிமத் துளை"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7080
+msgid "Via size"
+msgstr "வழிம அளவு"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:604
+msgid "Via type"
+msgstr "வழிம வகை"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7089
+msgid "Via: %s / %s mm (%s / %s mils)"
+msgstr "வழிமம்: %s / %s mm (%s / %s மில்)"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7096
+msgid "Via: %s mm (%s mils)"
+msgstr "வழிமம்: %s mm (%s மில்)"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:165
+msgid "View presets"
+msgstr "காட்சி முன்னமைவுகள்"
+
+#: designer/src/ui/PresencePanel.tsx:65
+msgid "Viewer"
+msgstr "பார்வையாளர்"
+
+#: 3d-viewer/dialogs/appearance_controls_3d.tsx:177
+msgid "Viewports (Shift+Tab):"
+msgstr "காட்சிப்பகுதிகள் (Shift+Tab):"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
+msgid "We don't store this key, so please save this in a safe place"
+msgstr "இந்த விசையை நாங்கள் சேமிப்பதில்லை, எனவே இதைப் பாதுகாப்பான இடத்தில் சேமிக்கவும்"
+
+#: designer/src/auth/SignIn.tsx:335
+msgid "We sent a 6-digit code to"
+msgstr "6 இலக்கக் குறியீட்டை அனுப்பினோம்:"
+
+#: designer/src/auth/SignIn.tsx:441
+msgid "We will email you a link to set a new password. Your projects stay encrypted: to open them under the new password you will also need your recovery key."
+msgstr "புதிய கடவுச்சொல்லை அமைக்க இணைப்பை மின்னஞ்சல் செய்வோம். உங்கள் திட்டங்கள் குறியாக்கத்துடனே இருக்கும்: புதிய கடவுச்சொல்லில் அவற்றைத் திறக்க உங்கள் மீட்பு விசையும் தேவைப்படும்."
+
+#: designer/src/home/ShareButton.tsx:269
+msgid "What %s may do"
+msgstr "%s என்ன செய்யலாம்"
+
+#: designer/src/home/ShareButton.tsx:337
+msgid "What a link to this project is worth"
+msgstr "இந்தத் திட்டத்துக்கான இணைப்பின் மதிப்பு என்ன"
+
+#: designer/src/home/ShareButton.tsx:244
+msgid "What the invited person may do"
+msgstr "அழைக்கப்பட்டவர் என்ன செய்யலாம்"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:497
+msgid "When using a conformal coating or a potting in order to protect for pollution, if all conditions specified by IEC60664-3 are met, the clearance and creepage distances can be reduced. Soldermask is usually not considered as a conformal coating."
+msgstr "மாசுபாட்டிலிருந்து பாதுகாக்க இணக்கப் பூச்சு அல்லது பானையிடலைப் பயன்படுத்தும்போது, IEC60664-3 குறிப்பிடும் எல்லா நிபந்தனைகளும் நிறைவேறினால், இசைவு மற்றும் ஊர்வு தூரங்களைக் குறைக்கலாம். சூட்டிணை மறைப்பு பொதுவாக இணக்கப் பூச்சாகக் கருதப்படுவதில்லை."
+
+#: designer/src/ui/PresencePanel.tsx:97
+msgid "Who's here"
+msgstr "இங்கே யார் இருக்கிறார்கள்"
+
+#: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
+msgid "Wire/bus width"
+msgstr "கம்பி/பஸ் அகலம்"
+
+#: designer/src/home/ShareButton.tsx:321 designer/src/home/ShareButton.tsx:322
+msgid "Withdraw the invitation to %s"
+msgstr "%s க்கான அழைப்பை திரும்பப் பெறு"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:211
+msgid "X position"
+msgstr "X நிலை"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:572
+msgid "X scale factor"
+msgstr "X அளவுக் காரணி"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:224
+msgid "Y position"
+msgstr "Y நிலை"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:585
+msgid "Y scale factor"
+msgstr "Y அளவுக் காரணி"
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
+msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
+msgstr "தேவையான மின்தடையை 0.0025 முதல் 4000 kΩ வரை உள்ளிடலாம்."
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:234
+msgid "You can use this calculator to check if a small track can handle a large current for a short period of time."
+msgstr "சிறிய மின்தடம் குறுகிய நேரத்துக்குப் பெரிய மின்னோட்டத்தைத் தாங்குமா என்பதைச் சரிபார்க்க இந்தக் கணிப்பானைப் பயன்படுத்தலாம்."
+
+#: eeschema/sch_edit_frame_ui.tsx:5983
+msgid "You have view-only access to this project. Ask the owner for edit access to make changes."
+msgstr "இந்தத் திட்டத்தைப் பார்க்க மட்டுமே உங்களுக்கு அணுகல் உள்ளது. மாற்றங்கள் செய்ய உரிமையாளரிடம் திருத்த அணுகலைக் கேளுங்கள்."
+
+#: designer/src/ui/StorageBanner.tsx:24
+msgid "Your browser's storage is full, edits are no longer being saved."
+msgstr "உங்கள் உலாவியின் சேமிப்பகம் நிரம்பியுள்ளது, திருத்தங்கள் இனி சேமிக்கப்படவில்லை."
+
+#: designer/src/auth/SignIn.tsx:399
+msgid "Your password encrypts your projects. We cannot reset it or read your designs without it."
+msgstr "உங்கள் கடவுச்சொல் உங்கள் திட்டங்களை குறியாக்குகிறது. அதை எங்களால் மீட்டமைக்கவோ, அது இல்லாமல் உங்கள் வடிவமைப்புகளைப் படிக்கவோ முடியாது."
+
+#: designer/src/ui/ErrorBoundary.tsx:68
+msgid "Your project is still in memory. Download it before reloading, reloading will discard anything that hasn't been saved."
+msgstr "உங்கள் திட்டம் இன்னும் நினைவகத்தில் உள்ளது. மீண்டும் ஏற்றும் முன் அதைப் பதிவிறக்கவும்; மீண்டும் ஏற்றுவது சேமிக்கப்படாத அனைத்தையும் நீக்கிவிடும்."
+
+#: designer/src/auth/SignIn.tsx:300
+msgid "Your recovery key"
+msgstr "உங்கள் மீட்பு விசை"
+
+#: designer/src/ui/ErrorBoundary.tsx:63
+msgid "ZiroEDA hit an unexpected error"
+msgstr "ZiroEDA எதிர்பாராத பிழையைச் சந்தித்தது"
+
+#: designer/src/mobile/DesktopGate.tsx:51
+msgid "ZiroEDA is a full EDA suite, schematic capture, PCB layout and 3D preview. It's built for a mouse, a keyboard and room to work, so there's no phone version yet."
+msgstr "ZiroEDA ஒரு முழு EDA தொகுப்பு: திட்டவரைபடப் பிடிப்பு, PCB வடிவமைப்பு மற்றும் 3D முன்னோட்டம். இது சுட்டி, விசைப்பலகை மற்றும் வேலை செய்யும் இடத்துக்காக உருவாக்கப்பட்டது, எனவே இன்னும் தொலைபேசிப் பதிப்பு இல்லை."
+
+#: designer/src/mobile/DesktopGate.tsx:48
+msgid "ZiroEDA needs a bigger screen"
+msgstr "ZiroEDA-வுக்குப் பெரிய திரை தேவை"
+
+#: designer/src/support/ChatWidget.tsx:288
+msgid "ZiroEDA support chat"
+msgstr "ZiroEDA ஆதரவு அரட்டை"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
+msgid "Zone knockout"
+msgstr "மண்டல வெட்டு"
+
+#: pcbnew/zone_layer_properties_grid.tsx:220
+msgid "Zone layer properties"
+msgstr "மண்டல அடுக்குப் பண்புகள்"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:350
+msgid "Zone name"
+msgstr "மண்டலப் பெயர்"
+
+#: pcbnew/zone_manager/dialog_zone_manager.tsx:850
+msgid "Zone previews"
+msgstr "மண்டல முன்னோட்டங்கள்"
+
+#: common/dialogs/panel_mouse_settings.tsx:215
+msgid "Zoom speed"
+msgstr "பெரிதாக்க வேகம்"
+
+#: designer/src/auth/SignIn.tsx:581
+msgid "below to set your password again. No recovery key is needed."
+msgstr "கீழே உள்ளதைப் பயன்படுத்தி உங்கள் கடவுச்சொல்லை மீண்டும் அமைக்கவும். மீட்பு விசை தேவையில்லை."
+
+#: designer/src/home/ShareButton.tsx:60
+msgid "can edit"
+msgstr "திருத்தலாம்"
+
+#: designer/src/home/ShareButton.tsx:59
+msgid "can view"
+msgstr "பார்க்கலாம்"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
+msgid "dashed: creepage"
+msgstr "கோடிட்டது: ஊர்வு"
+
+#: designer/src/home/HomePage.tsx:2736
+msgid "did not sync:"
+msgstr "ஒத்திசைக்கப்படவில்லை:"
+
+#: designer/src/auth/SignIn.tsx:434
+msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
+msgstr "க்குக் கணக்கு உள்ளது, மீட்டமை இணைப்பு அனுப்பப்படுகிறது. புதிய கடவுச்சொல்லைத் தேர்ந்தெடுக்க இதை இந்தச் சாதனத்தில் திறக்கவும்."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:353
+msgid "is 0.024 for internal tracks or 0.048 for external tracks"
+msgstr "உட்புற மின்தடங்களுக்கு 0.024 அல்லது வெளிப்புற மின்தடங்களுக்கு 0.048 ஆகும்"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:61 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:144
+msgid "is attenuation in dB"
+msgstr "dB இல் தணிப்பு ஆகும்"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:67 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:150 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:190
+msgid "is desired input impedance in Ω"
+msgstr "Ω இல் விரும்பிய உள்ளீட்டு மின்மறுப்பு ஆகும்"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:73 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:156 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:196
+msgid "is desired output impedance in Ω"
+msgstr "Ω இல் விரும்பிய வெளியீட்டு மின்மறுப்பு ஆகும்"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:333
+msgid "is maximum current in A"
+msgstr "A இல் அதிகபட்ச மின்னோட்டம் ஆகும்"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:338
+msgid "is temperature rise above ambient in °C"
+msgstr "°C இல் சுற்றுப்புறத்துக்கு மேலான வெப்பநிலை உயர்வு ஆகும்"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:348
+msgid "is thickness (height) in mils"
+msgstr "மில்களில் தடிமன் (உயரம்) ஆகும்"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:343
+msgid "is width in mils"
+msgstr "மில்களில் அகலம் ஆகும்"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
+msgid "solid: clearance"
+msgstr "திடம்: இசைவு இடைவெளி"
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
+msgid "to its melting point as well as the energy required for the change of phase."
+msgstr "அதன் உருகுநிலை வரையிலும், நிலை மாற்றத்துக்குத் தேவையான ஆற்றலையும்."
+
+#: designer/src/editors/calculator/panels/transline_ident.ts:263
+msgid "μr (conductor)"
+msgstr "μr (கடத்தி)"
+
+#: designer/src/editors/calculator/panels/transline_ident.ts:256
+msgid "μr (substrate)"
+msgstr "μr (அடித்தளம்)"
+
+#: designer/src/home/HomePage.tsx:2659
+msgid "✓ Joined a shared project — you can edit it"
+msgstr "✓ பகிரப்பட்ட திட்டத்தில் இணைந்தீர்கள் — நீங்கள் அதைத் திருத்தலாம்"
+
+#: designer/src/home/HomePage.tsx:2658
+msgid "✓ Joined a shared project — you can view it, but not save changes to it"
+msgstr "✓ பகிரப்பட்ட திட்டத்தில் இணைந்தீர்கள் — நீங்கள் அதைப் பார்க்கலாம், ஆனால் மாற்றங்களைச் சேமிக்க முடியாது"
+
+#: designer/src/home/HomePage.tsx:2726
+msgid "✓ Projects synced"
+msgstr "✓ திட்டங்கள் ஒத்திசைக்கப்பட்டன"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:232
+msgid "📌 Pinned"
+msgstr "📌 பின் செய்யப்பட்டது"

@@ -403,7 +403,7 @@ function ValueCell<C>({
         title={
           onBrowse
             ? _('Browse for footprint')
-            : 'Browse for footprint — needs the Footprint Chooser'
+            : _('Browse for footprint — needs the Footprint Chooser')
         }
         aria-label={_('Browse for footprint')}
         onClick={() =>

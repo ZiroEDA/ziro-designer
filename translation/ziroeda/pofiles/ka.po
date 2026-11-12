@@ -1,0 +1,2996 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ZiroEDA\n"
+"Language: ka\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+#: common/launch_ext.tsx:290
+msgid " (read-only)"
+msgstr " (მხოლოდ წასაკითხი)"
+
+#: designer/src/ui/PresencePanel.tsx:58
+msgid " (you)"
+msgstr " (თქვენ)"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:294
+msgid " and ≤ %s"
+msgstr " და ≤ %s"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:296
+msgid " · %s KB"
+msgstr " · %s კბ"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:298
+msgid " · incompatible with this version"
+msgstr " · არათავსებადია ამ ვერსიასთან"
+
+#: designer/src/home/HomePage.tsx:2692
+msgid "\"%s\" changed here and on another device."
+msgstr "„%s“ შეიცვალა აქაც და სხვა მოწყობილობაზეც."
+
+#: designer/src/home/HomePage.tsx:2620
+msgid "\"%s\" is not a link to a GitHub repository."
+msgstr "„%s“ GitHub-ის საცავის ბმული არ არის."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:163
+msgid "\"%s\" set as the active schematic colour theme"
+msgstr "„%s“ დაყენებულია სქემის აქტიურ ფერთა თემად"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:842
+msgid ""
+"%s\n"
+"%s\n"
+" \n"
+"Reannotate anyway?"
+msgstr ""
+"%s\n"
+"%s\n"
+" \n"
+"მაინც გადანომრვა?"
+
+#: common/widgets/widget_hotkey_list.tsx:243
+msgid "%s belongs to the browser and cannot be intercepted by a page. It reaches ZiroEDA only in fullscreen."
+msgstr "%s ბრაუზერს ეკუთვნის და გვერდს მისი ჩაჭრა არ შეუძლია. ZiroEDA-მდე ის მხოლოდ სრულეკრანიან რეჟიმში აღწევს."
+
+#: eeschema/dialogs/dialog_table_properties_base.tsx:123 pcbnew/board_stackup_manager/panel_board_stackup.tsx:913
+msgid "%s color"
+msgstr "ფერი: %s"
+
+#: pcbnew/dialogs/panel_setup_tuning_patterns_base.tsx:159
+msgid "%s corner style"
+msgstr "კუთხის სტილი: %s"
+
+#: designer/src/editors/schematic/prefs/resets.ts:264
+msgid "%s field names contain trailing and/or leading white space."
+msgstr "%s ველების სახელებს თავში და/ან ბოლოში ინტერვალები აქვთ."
+
+#: common/launch_ext.tsx:208
+msgid "%s has no \"schematic\" or \"board\" section, so it is not a color theme."
+msgstr "%s-ს არ აქვს „schematic“ ან „board“ სექცია, ამიტომ ფერთა თემა არ არის."
+
+#: common/launch_ext.tsx:201
+msgid "%s is not a JSON file."
+msgstr "%s JSON ფაილი არ არის."
+
+#: pcbnew/dialogs/panel_setup_layers.tsx:418 pcbnew/dialogs/panel_setup_layers.tsx:434
+msgid "%s layer type"
+msgstr "ფენის ტიპი: %s"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:850
+msgid "%s material"
+msgstr "მასალა: %s"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:603
+msgid "%s must be between the minimum and maximum text size."
+msgstr "%s უნდა იყოს ტექსტის მინიმალურ და მაქსიმალურ ზომას შორის."
+
+#: pcbnew/dialogs/panel_setup_layers.tsx:400
+msgid "%s name"
+msgstr "სახელი: %s"
+
+#: designer/src/home/HomePage.tsx:736
+msgid "%s names files that were not chosen: %s."
+msgstr "%s ასახელებს ფაილებს, რომლებიც არ აგირჩევიათ: %s."
+
+#: eeschema/sch_edit_frame_ui.tsx:5664
+msgid "%s other viewers"
+msgstr "კიდევ მნახველი: %s"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:374
+msgid "%s post machining"
+msgstr "შემდგომი დამუშავება: %s"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:240
+msgid "%s post-machining"
+msgstr "შემდგომი დამუშავება: %s"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:263
+msgid "%s post-machining %s"
+msgstr "შემდგომი დამუშავება: %s %s"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:250
+msgid "%s post-machining size"
+msgstr "შემდგომი დამუშავების ზომა: %s"
+
+#: designer/src/home/HomePage.tsx:2696
+msgid "%s projects changed here and on another device."
+msgstr "პროექტები, რომლებიც აქაც და სხვა მოწყობილობაზეც შეიცვალა: %s."
+
+#: pcbnew/dialogs/panel_setup_tuning_patterns_base.tsx:169
+msgid "%s radius"
+msgstr "რადიუსი: %s"
+
+#: designer/src/home/HomePage.tsx:756
+msgid "%s schematics cannot be imported yet, so only the board will be."
+msgstr "%s სქემების შემოტანა ჯერ შეუძლებელია, ამიტომ მხოლოდ დაფა შემოვა."
+
+#: designer/src/home/HomePage.tsx:760
+msgid "%s schematics cannot be imported yet."
+msgstr "%s სქემების შემოტანა ჯერ შეუძლებელია."
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:365
+msgid "%s template information"
+msgstr "შაბლონის ინფორმაცია: %s"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:875
+msgid "%s thickness"
+msgstr "სისქე: %s"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:888
+msgid "%s thickness locked"
+msgstr "სისქე დაბლოკილია: %s"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:819
+msgid "%s type"
+msgstr "ტიპი: %s"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:743
+msgid "%s unit"
+msgstr "ერთეული: %s"
+
+#: gerbview/widgets/layer_widget.tsx:139
+msgid "%s visible"
+msgstr "ხილულია: %s"
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias_base.tsx:61
+msgid "%s: add"
+msgstr "%s: დამატება"
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias_base.tsx:78
+msgid "%s: remove"
+msgstr "%s: წაშლა"
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias_base.tsx:69
+msgid "%s: sort"
+msgstr "%s: დახარისხება"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
+msgid "(no STEP files in the project)"
+msgstr "(პროექტში STEP ფაილები არ არის)"
+
+#: designer/src/home/menubar.ts:89
+msgid "(no demos bundled)"
+msgstr "(დემო პროექტები არ არის)"
+
+#: eeschema/sch_edit_frame_ui.tsx:5731
+msgid ", click to dismiss"
+msgstr ", დააწკაპუნეთ დასახურად"
+
+#: designer/src/auth/SignIn.tsx:336
+msgid ". Please check your inbox (and spam) to complete verification."
+msgstr ". დასადასტურებლად შეამოწმეთ თქვენი ფოსტა (და სპამი)."
+
+#: designer/src/auth/auth_progress.tsx:93
+msgid "... (step"
+msgstr "... (ნაბიჯი"
+
+#: eeschema/sch_edit_frame_ui.tsx:5663
+msgid "1 other viewer"
+msgstr "1 სხვა მნახველი"
+
+#: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
+msgid "3D Viewer — %s"
+msgstr "3D ხედი — %s"
+
+#: designer/src/fs/FileChooser.tsx:872
+msgid "A file named “%s” already exists.  Do you want to replace it?"
+msgstr "ფაილი სახელით „%s“ უკვე არსებობს.  გნებავთ მისი ჩანაცვლება?"
+
+#: designer/src/auth/SignIn.tsx:354
+msgid "A new code is on its way. Use the newest email: it replaces the code before it."
+msgstr "ახალი კოდი გამოგზავნილია. გამოიყენეთ უახლესი წერილი: ის წინა კოდს ანაცვლებს."
+
+#: designer/src/App.tsx:1716
+msgid "A new version of ZiroEDA is available."
+msgstr "ხელმისაწვდომია ZiroEDA-ს ახალი ვერსია."
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:103
+msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
+msgstr "დადებითი რიცხვი ნიშნავს, რომ მწკრივი ანოდურია (-), სვეტი კი კათოდური (+); ცივი და თბილი ფერის ტონებიც მწკრივების პოტენციალს აჩვენებს."
+
+#: designer/src/ui/AccountButton.tsx:161
+msgid "Account"
+msgstr "ანგარიში"
+
+#: designer/src/auth/SignIn.tsx:577
+msgid "Account created before 10 September 2026? It needs a one-time upgrade for end-to-end encryption: use"
+msgstr "ანგარიში 2026 წლის 10 სექტემბრამდე შექმენით? მას ბოლომდე დაშიფვრისთვის ერთჯერადი განახლება სჭირდება: გამოიყენეთ"
+
+#: designer/src/ui/AccountButton.tsx:161
+msgid "Account: %s"
+msgstr "ანგარიში: %s"
+
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:523
+msgid "Action for %s"
+msgstr "მოქმედება: %s"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:266
+msgid "Active"
+msgstr "აქტიური"
+
+#: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
+msgid "Add 3D model"
+msgstr "3D მოდელის დამატება"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:299
+msgid "Add a layer override"
+msgstr "ფენის გადაფარვის დამატება"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:100
+msgid "Add alias"
+msgstr "მეტსახელის დამატება"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:361
+msgid "Add alternate"
+msgstr "ალტერნატივის დამატება"
+
+#: common/dialogs/panel_setup_netclasses.tsx:528
+msgid "Add assignment"
+msgstr "მინიჭების დამატება"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:135
+msgid "Add condition"
+msgstr "პირობის დამატება"
+
+#: pcbnew/dialogs/dialog_layer_selection_base.tsx:117
+msgid "Add current pair to presets"
+msgstr "მიმდინარე წყვილის წინასწარ პარამეტრებში დამატება"
+
+#: cvpcb/dialogs/dialog_config_equfiles.tsx:282
+msgid "Add from Computer..."
+msgstr "კომპიუტერიდან დამატება..."
+
+#: common/dialogs/panel_grid_settings.tsx:486
+msgid "Add grid"
+msgstr "ბადის დამატება"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
+msgid "Add layer"
+msgstr "ფენის დამატება"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:59
+msgid "Add member"
+msgstr "წევრის დამატება"
+
+#: common/dialogs/panel_setup_netclasses.tsx:460
+msgid "Add netclass"
+msgstr "ქსელის კლასის დამატება"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:435
+msgid "Add repository by URL..."
+msgstr "საცავის დამატება URL-ით..."
+
+#: common/dialogs/dialog_plugin_options.tsx:147
+msgid "Add row"
+msgstr "მწკრივის დამატება"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults_base.tsx:70
+msgid "Add text item"
+msgstr "ტექსტური ელემენტის დამატება"
+
+#: common/dialogs/panel_text_variables.tsx:125
+msgid "Add text variable"
+msgstr "ტექსტური ცვლადის დამატება"
+
+#: common/dialogs/panel_toolbar_customization.tsx:554
+msgid "Add to toolbar"
+msgstr "ხელსაწყოთა პანელზე დამატება"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:76
+msgid "Add track propagation row"
+msgstr "ბილიკების გავრცელების მწკრივის დამატება"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles_base.tsx:46
+msgid "Add tuning profile"
+msgstr "მორგების პროფილის დამატება"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:202
+msgid "Add variant"
+msgstr "ვარიანტის დამატება"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:134
+msgid "Add via delay override"
+msgstr "გამტარი ნახვრეტის დაყოვნების გადაფარვის დამატება"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:119
+msgid "Added repository \"%s\" (%s packages)"
+msgstr "დაემატა საცავი „%s“ (პაკეტები: %s)"
+
+#: pcbnew/dialogs/dialog_target_properties_base.tsx:50
+msgid "Alignment Target Properties"
+msgstr "სწორების სამიზნის თვისებები"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1680 pcbnew/pcb_edit_frame_ui.tsx:8092
+msgid "All 3D models (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)"
+msgstr "ყველა 3D მოდელი (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)"
+
+#: designer/src/ui/StorageBanner.tsx:36
+msgid "Allow site data for this page, or download your project before closing the tab. Private-browsing windows often discard storage."
+msgstr "ამ გვერდისთვის დაუშვით საიტის მონაცემები ან ჩანართის დახურვამდე ჩამოტვირთეთ პროექტი. პირადი დათვალიერების ფანჯრები ხშირად ასუფთავებს საცავს."
+
+#: designer/src/auth/SignIn.tsx:404
+msgid "Already have an account?"
+msgstr "უკვე გაქვთ ანგარიში?"
+
+#: eeschema/dialogs/dialog_pin_properties.tsx:627
+msgid "Alternate pin functions"
+msgstr "კონტაქტის ალტერნატიული ფუნქციები"
+
+#: designer/src/ui/ErrorBoundary.tsx:113
+msgid "An anonymous crash report was sent so we can fix this. It contains the error below and no project data. You can turn reports off in Preferences → Common → Privacy."
+msgstr "ანონიმური ავარიის ანგარიში გაიგზავნა, რათა გამოვასწოროთ. მასში ქვემოთ მოცემული შეცდომაა და პროექტის მონაცემები არ შედის. ანგარიშების გამორთვა შეგიძლიათ: მორგება → საერთო → კონფიდენციალურობა."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:527
+msgid "Analysis failed, check the input values."
+msgstr "ანალიზი ვერ შესრულდა, შეამოწმეთ შეყვანილი მნიშვნელობები."
+
+#: pcbnew/dialogs/dialog_multichannel_repeat_layout_base.tsx:82
+msgid "Anchor footprint"
+msgstr "მიმაგრებული ნაკვალევი"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:644
+msgid "Annular rings"
+msgstr "რგოლისებრი ზოლები"
+
+#: designer/src/home/ShareButton.tsx:66
+msgid "Anyone with the link can edit"
+msgstr "ბმულის მქონე ნებისმიერს შეუძლია ჩასწორება"
+
+#: designer/src/home/ShareButton.tsx:65
+msgid "Anyone with the link can view"
+msgstr "ბმულის მქონე ნებისმიერს შეუძლია ნახვა"
+
+#: designer/src/auth/DeleteAccountDialog.tsx:203
+msgid "Anything else?"
+msgstr "კიდევ რამე?"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:150
+msgid "Applied changes: %s installed, %s uninstalled"
+msgstr "გამოყენებული ცვლილებები: დაყენებულია %s, წაშლილია %s"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:487
+msgid "Apply Pending Changes ("
+msgstr "მოლოდინში მყოფი ცვლილებების გამოყენება ("
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
+msgid "Arc editing mode"
+msgstr "რკალის ჩასწორების რეჟიმი"
+
+#: designer/src/home/HomePage.tsx:1631
+msgid "Archive Project"
+msgstr "პროექტის დაარქივება"
+
+#: designer/src/home/HomePage.tsx:1631
+msgid "Archiving project..."
+msgstr "პროექტი არქივდება..."
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:448
+msgid "Area limit"
+msgstr "ფართობის ზღვარი"
+
+#: pcbnew/dialogs/dialog_rule_area_properties_base.tsx:123
+msgid "Area name"
+msgstr "არეალის სახელი"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:533
+msgid "Arrow direction"
+msgstr "ისრის მიმართულება"
+
+#: common/dialogs/dialog_assign_netclass.tsx:124
+msgid "Assign Netclass"
+msgstr "ქსელის კლასის მინიჭება"
+
+#: pcbnew/dialogs/dialog_reference_image_properties_base.tsx:111
+msgid "Associated layer"
+msgstr "დაკავშირებული ფენა"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:184
+msgid "Attenuation is 6 dB"
+msgstr "შესუსტება 6 დბ-ია"
+
+#: common/dialogs/panel_mouse_settings.tsx:251
+msgid "Auto pan speed"
+msgstr "ავტომატური გადაადგილების სიჩქარე"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:141
+msgid "Auto-assign priorities"
+msgstr "პრიორიტეტების ავტომატური მინიჭება"
+
+#: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
+msgid "Available footprints"
+msgstr "ხელმისაწვდომი ნაკვალევები"
+
+#: cvpcb/dialogs/dialog_config_equfiles.tsx:262
+msgid "Available path substitutions"
+msgstr "ხელმისაწვდომი გზების ჩანაცვლებები"
+
+#: eeschema/dialogs/panel_bom_presets.tsx:83
+msgid "BOM formatting presets"
+msgstr "მასალების სიის ფორმატირების წინასწარი პარამეტრები"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:244
+msgid "BOM revision"
+msgstr "მასალების სიის რევიზია"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
+msgid "Back prefix"
+msgstr "უკანა მხარის პრეფიქსი"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:252
+msgid "Back reference start"
+msgstr "უკანა მხარის აღნიშვნების დასაწყისი"
+
+#: designer/src/ui/HomeLink.tsx:24
+msgid "Back to project manager"
+msgstr "პროექტების მმართველზე დაბრუნება"
+
+#: designer/src/auth/SignIn.tsx:467
+msgid "Back to sign in"
+msgstr "შესვლაზე დაბრუნება"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:164
+msgid "Based on location of"
+msgstr "მდებარეობის მიხედვით"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1248 pcbnew/dialogs/dialog_track_via_properties_base.tsx:969
+msgid "Best length"
+msgstr "საუკეთესო სიგრძე"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1290 pcbnew/dialogs/dialog_track_via_properties_base.tsx:1013
+msgid "Best width"
+msgstr "საუკეთესო სიგანე"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
+msgid "Board thickness from stackup"
+msgstr "დაფის სისქე ფენების სტრუქტურიდან"
+
+#: eeschema/dialogs/dialog_symbol_properties_base.tsx:195 eeschema/symbol_viewer_frame_ui.tsx:554
+msgid "Body style"
+msgstr "კორპუსის სტილი"
+
+#: eeschema/dialogs/dialog_lib_edit_pin_table_base.tsx:234
+msgid "Body style filter"
+msgstr "კორპუსის სტილის ფილტრი"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1324
+msgid "Body style names"
+msgstr "კორპუსის სტილების სახელები"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:292 eeschema/dialogs/dialog_sheet_properties_base.tsx:222 eeschema/dialogs/dialog_text_properties_base.tsx:319
+msgid "Border color"
+msgstr "ჩარჩოს ფერი"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:307 eeschema/dialogs/dialog_table_properties_base.tsx:215 eeschema/dialogs/dialog_text_properties_base.tsx:342 pcbnew/dialogs/dialog_table_properties_base.tsx:219 pcbnew/dialogs/dialog_textbox_properties_base.tsx:310
+msgid "Border style"
+msgstr "ჩარჩოს სტილი"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:280 eeschema/dialogs/dialog_sheet_properties_base.tsx:202 eeschema/dialogs/dialog_table_properties_base.tsx:197 eeschema/dialogs/dialog_text_properties_base.tsx:307 pcbnew/dialogs/dialog_table_properties_base.tsx:201
+msgid "Border width"
+msgstr "ჩარჩოს სიგანე"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:785
+msgid "Bottom backdrill must-cut"
+msgstr "ქვედა უკუბურღვის სავალდებულო ჭრა"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:759
+msgid "Bottom backdrill size"
+msgstr "ქვედა უკუბურღვის ზომა"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:353
+msgid "Bottom margin"
+msgstr "ქვედა ველი"
+
+#: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:76
+msgid "Browse for 3D model"
+msgstr "3D მოდელის მოძებნა"
+
+#: common/widgets/properties_panel_ui.tsx:406
+msgid "Browse for footprint — needs the Footprint Chooser"
+msgstr "ნაკვალევის მოძებნა — საჭიროა ნაკვალევის ამრჩევი"
+
+#: eeschema/dialogs/dialog_change_symbols_base.tsx:229
+msgid "Browse for new symbol"
+msgstr "ახალი სიმბოლოს მოძებნა"
+
+#: eeschema/dialogs/dialog_change_symbols_base.tsx:202
+msgid "Browse for symbol"
+msgstr "სიმბოლოს მოძებნა"
+
+#: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:203
+msgid "Browse for the new footprint"
+msgstr "ახალი ნაკვალევის მოძებნა"
+
+#: eeschema/dialogs/panel_setup_buses.tsx:331
+msgid "Bus aliases"
+msgstr "სალტის მეტსახელები"
+
+#: eeschema/dialogs/panel_setup_buses.tsx:345
+msgid "Bus members"
+msgstr "სალტის წევრები"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1107
+msgid "Cannot create the library folder '%s'."
+msgstr "ბიბლიოთეკის საქაღალდე „%s“ ვერ შეიქმნა."
+
+#: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
+msgid "Cell contents"
+msgstr "უჯრედის შიგთავსი"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:211
+msgid "Center layer"
+msgstr "ცენტრალური ფენა"
+
+#: designer/src/support/ChatWidget.tsx:308
+msgid "Chat with us (drag to move)"
+msgstr "დაგვიკავშირდით ჩატში (გადასაადგილებლად გადაათრიეთ)"
+
+#: designer/src/auth/auth_progress.tsx:33
+msgid "Checking your account"
+msgstr "თქვენი ანგარიშის შემოწმება"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
+msgid "Cleanup Tracks & Vias"
+msgstr "ბილიკებისა და გამტარი ნახვრეტების გასუფთავება"
+
+#: common/dialogs/panel_hotkeys_editor.tsx:137 common/dialogs/panel_toolbar_customization.tsx:590
+msgid "Clear the filter"
+msgstr "ფილტრის გასუფთავება"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:295
+msgid "Clear the search"
+msgstr "ძიების გასუფთავება"
+
+#: designer/src/editors/pcb/Viewer3DFrame.tsx:852
+msgid "Close 3D Viewer"
+msgstr "3D ხედის დახურვა"
+
+#: designer/src/home/ShareButton.tsx:358
+msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
+msgstr "ბმულის მოგვიანებით დახურვა ახალ ადამიანებს მის გახსნას შეუშლის. სიაში უკვე მყოფებს წვდომა შერჩებათ, სანამ არ წაშლით."
+
+#: eeschema/sch_edit_frame_ui.tsx:7132
+msgid "Collapse"
+msgstr "ჩაკეცვა"
+
+#: common/launch_ext.tsx:236
+msgid "Color Themes"
+msgstr "ფერთა თემები"
+
+#: common/launch_ext.tsx:236
+msgid "Color Themes — %s"
+msgstr "ფერთა თემები — %s"
+
+#: pcbnew/dialogs/dialog_print_pcbnew.tsx:521
+msgid "Color theme"
+msgstr "ფერთა თემა"
+
+#: common/launch_ext.tsx:252
+msgid "Color theme files"
+msgstr "ფერთა თემების ფაილები"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
+msgid "Common materials"
+msgstr "გავრცელებული მასალები"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
+msgid "Component class"
+msgstr "კომპონენტის კლასი"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:224
+msgid "Component type"
+msgstr "კომპონენტის ტიპი"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:154
+msgid "Compression format"
+msgstr "შეკუმშვის ფორმატი"
+
+#: designer/src/auth/SignIn.tsx:360
+msgid "Confirm"
+msgstr "დადასტურება"
+
+#: designer/src/auth/SignIn.tsx:384 designer/src/auth/SignIn.tsx:541
+msgid "Confirm password"
+msgstr "გაიმეორეთ პაროლი"
+
+#: designer/src/auth/SignIn.tsx:319
+msgid "Confirm your email"
+msgstr "დაადასტურეთ თქვენი ელფოსტა"
+
+#: designer/src/auth/auth_progress.tsx:48
+msgid "Confirming your email"
+msgstr "თქვენი ელფოსტა მოწმდება"
+
+#: eeschema/erc/erc_settings.ts:322
+msgid "Connected pin is not mapped to any footprint pad"
+msgstr "მიერთებული კონტაქტი არც ერთ ნაკვალევის ბალიშს არ არის დაკავშირებული"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:507
+msgid "Coordinate format"
+msgstr "კოორდინატების ფორმატი"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:81 designer/src/auth/RecoveryKeyDialog.tsx:67 designer/src/home/ShareButton.tsx:343
+msgid "Copied"
+msgstr "დაკოპირდა"
+
+#: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
+msgid "Copper finish"
+msgstr "სპილენძის დაფარვა"
+
+#: pcbnew/sel_layer.tsx:608
+msgid "Copper layer pair presets"
+msgstr "სპილენძის ფენების წყვილების წინასწარი პარამეტრები"
+
+#: common/dialog_about/dialog_about.tsx:192
+msgid "Copy %s version info to the clipboard"
+msgstr "%s-ის ვერსიის ინფორმაციის ბუფერში კოპირება"
+
+#: 3d-viewer/3d_menubar.ts:73
+msgid "Copy 3D Image to Clipboard"
+msgstr "3D გამოსახულების ბუფერში კოპირება"
+
+#: designer/src/home/ShareButton.tsx:307 designer/src/home/ShareButton.tsx:308
+msgid "Copy an invitation link for %s"
+msgstr "მოწვევის ბმულის კოპირება: %s"
+
+#: designer/src/home/ShareButton.tsx:343 designer/src/mobile/DesktopGate.tsx:69
+msgid "Copy link"
+msgstr "ბმულის კოპირება"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:220
+msgid "Copy variant"
+msgstr "ვარიანტის კოპირება"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:209 pcbnew/dialogs/dialog_shape_properties_base.tsx:196
+msgid "Corner radius"
+msgstr "კუთხის რადიუსი"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:195 pcbnew/dialogs/panel_zone_properties_base.tsx:391
+msgid "Corner smoothing"
+msgstr "კუთხეების გადამრგვალება"
+
+#: pcbnew/dialogs/dialog_tuning_pattern_properties_base.tsx:194
+msgid "Corner style"
+msgstr "კუთხის სტილი"
+
+#: pcbnew/tools/drawing_tool.ts:1325
+msgid "Could not load image."
+msgstr "გამოსახულება ვერ ჩაიტვირთა."
+
+#: designer/src/home/HomePage.tsx:836
+msgid "Could not open %s: %s"
+msgstr "%s ვერ გაიხსნა: %s"
+
+#: eeschema/sch_edit_frame_ui.tsx:3791
+msgid "Could not open this project: %s"
+msgstr "ეს პროექტი ვერ გაიხსნა: %s"
+
+#: eeschema/sch_base_frame.ts:275
+msgid "Could not write the library file '%s'."
+msgstr "ბიბლიოთეკის ფაილი „%s“ ვერ ჩაიწერა."
+
+#: designer/src/auth/DeleteAccountDialog.tsx:230
+msgid "Couldn't load your data counts. Try again to review what will be deleted."
+msgstr "თქვენი მონაცემების მთვლელები ვერ ჩაიტვირთა. სცადეთ ხელახლა, რომ ნახოთ, რა წაიშლება."
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7375
+msgid "Couldn’t open board:"
+msgstr "დაფა ვერ გაიხსნა:"
+
+#: designer/src/fs/FileChooser.tsx:709
+msgid "Create Folder"
+msgstr "საქაღალდის შექმნა"
+
+#: designer/src/auth/SignIn.tsx:396
+msgid "Create account"
+msgstr "ანგარიშის შექმნა"
+
+#: designer/src/auth/SignIn.tsx:298 designer/src/auth/SignIn.tsx:609
+msgid "Create an account"
+msgstr "შექმენით ანგარიში"
+
+#: designer/src/auth/SignIn.tsx:321
+msgid "Create your free ZiroEDA account"
+msgstr "შექმენით თქვენი უფასო ZiroEDA ანგარიში"
+
+#: designer/src/auth/SignIn.tsx:446
+msgid "Created your account before 10 September 2026? It has no recovery key yet and does not need one: the link lets you choose a password and sets up encryption."
+msgstr "ანგარიში 2026 წლის 10 სექტემბრამდე შექმენით? მას აღდგენის გასაღები ჯერ არ აქვს და არც სჭირდება: ბმული პაროლის არჩევის საშუალებას გაძლევთ და დაშიფვრას აყენებს."
+
+#: designer/src/auth/SignIn.tsx:396
+msgid "Creating account..."
+msgstr "ანგარიში იქმნება..."
+
+#: designer/src/auth/auth_progress.tsx:43
+msgid "Creating your account"
+msgstr "თქვენი ანგარიში იქმნება"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
+msgid "Current density:"
+msgstr "დენის სიმკვრივე:"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:424
+msgid "Current exceeds the ampacity for this density."
+msgstr "დენი აჭარბებს ამ სიმკვრივისთვის დასაშვებ დატვირთვას."
+
+#: common/dialogs/dialog_print_generic_base.tsx:156
+msgid "Custom scale"
+msgstr "მორგებული მასშტაბი"
+
+#: pcbnew/dialogs/dialog_drc_base.tsx:172
+msgid "DRC Control"
+msgstr "DRC-ის მართვა"
+
+#: pcbnew/dialogs/dialog_drc_base.tsx:219
+msgid "DRC options"
+msgstr "DRC-ის პარამეტრები"
+
+#: pcbnew/dialogs/dialog_drc_base.tsx:278
+msgid "DRC results"
+msgstr "DRC-ის შედეგები"
+
+#: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
+msgid "DXF default line width"
+msgstr "DXF-ის ხაზის ნაგულისხმევი სიგანე"
+
+#: pcbnew/import_gfx/dialog_import_graphics_base.tsx:157
+msgid "DXF default units"
+msgstr "DXF-ის ნაგულისხმევი ერთეულები"
+
+#: pcbnew/dialogs/panel_setup_formatting_base.tsx:67
+msgid "Dash length"
+msgstr "ტირეს სიგრძე"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:386
+msgid "Data-source packages connect external database libraries, which need a back end not available in the browser yet."
+msgstr "მონაცემთა წყაროების პაკეტები გარე მონაცემთა ბაზების ბიბლიოთეკებს აერთებს, რისთვისაც საჭიროა სერვერული ნაწილი, რომელიც ბრაუზერში ჯერ ხელმისაწვდომი არ არის."
+
+#: external/wx/spin_ctrl.tsx:128
+msgid "Decrease"
+msgstr "შემცირება"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults.tsx:303
+msgid "Default field properties"
+msgstr "ველის ნაგულისხმევი თვისებები"
+
+#: pcbnew/dialogs/panel_fp_editor_graphics_defaults.tsx:256
+msgid "Default properties for new graphic items"
+msgstr "ახალი გრაფიკული ელემენტების ნაგულისხმევი თვისებები"
+
+#: pcbnew/dialogs/panel_setup_text_and_graphics.tsx:264
+msgid "Default properties for new graphics and text"
+msgstr "ახალი გრაფიკისა და ტექსტის ნაგულისხმევი თვისებები"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:156
+msgid "Default reference designator"
+msgstr "ნაგულისხმევი აღნიშვნა"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults.tsx:314
+msgid "Default text items"
+msgstr "ნაგულისხმევი ტექსტური ელემენტები"
+
+#: eeschema/tools/sch_sheet_pin_tool.ts:198 eeschema/tools/sch_sheet_pin_tool.ts:212
+msgid "Delete Sheet Pin"
+msgstr "ფურცლის კონტაქტის წაშლა"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:448
+msgid "Delete Template"
+msgstr "შაბლონის წაშლა"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:309
+msgid "Delete a layer override"
+msgstr "ფენის გადაფარვის წაშლა"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:109
+msgid "Delete alias"
+msgstr "მეტსახელის წაშლა"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:372
+msgid "Delete alternate"
+msgstr "ალტერნატივის წაშლა"
+
+#: eeschema/dialogs/panel_bom_presets_base.tsx:53
+msgid "Delete formatting preset"
+msgstr "ფორმატირების წინასწარი პარამეტრის წაშლა"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:89
+msgid "Delete layer"
+msgstr "ფენის წაშლა"
+
+#: eeschema/dialogs/panel_bom_presets_base.tsx:37
+msgid "Delete preset"
+msgstr "წინასწარი პარამეტრის წაშლა"
+
+#: pcbnew/dialogs/dialog_layer_selection_base.tsx:132
+msgid "Delete selected presets"
+msgstr "არჩეული წინასწარი პარამეტრების წაშლა"
+
+#: eeschema/tools/mutate.ts:358
+msgid "Delete symbol"
+msgstr "სიმბოლოს წაშლა"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults_base.tsx:83
+msgid "Delete text item"
+msgstr "ტექსტური ელემენტის წაშლა"
+
+#: common/dialogs/panel_text_variables.tsx:134
+msgid "Delete text variable"
+msgstr "ტექსტური ცვლადის წაშლა"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:239
+msgid "Delete variant"
+msgstr "ვარიანტის წაშლა"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:142
+msgid "Derive from existing symbol"
+msgstr "არსებული სიმბოლოდან წარმოება"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:225
+msgid "Derive from symbol"
+msgstr "სიმბოლოდან წარმოება"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:115 pcbnew/dialogs/dialog_plot_base.tsx:217
+msgid "Design variant"
+msgstr "დიზაინის ვარიანტი"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:546
+msgid "Directory '%s/%s' already exists."
+msgstr "დირექტორია „%s/%s“ უკვე არსებობს."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:482
+msgid "Discard Pending"
+msgstr "მოლოდინში მყოფების უარყოფა"
+
+#: common/widgets/zoom_correction_ctrl.tsx:223
+msgid "Display PPI"
+msgstr "ეკრანის PPI"
+
+#: common/widgets/zoom_correction_ctrl.tsx:217
+msgid "Display PPI:"
+msgstr "ეკრანის PPI:"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:300
+msgid "Distributor"
+msgstr "დისტრიბუტორი"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:289
+msgid "Distributor P/N"
+msgstr "დისტრიბუტორის არტიკული"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:82
+msgid "Do this later"
+msgstr "მოგვიანებით"
+
+#: designer/src/ui/ErrorBoundary.tsx:74
+msgid "Download %s.zip"
+msgstr "%s.zip-ის ჩამოტვირთვა"
+
+#: designer/src/ui/SaveIndicator.tsx:54
+msgid "Download a copy"
+msgstr "ასლის ჩამოტვირთვა"
+
+#: designer/src/ui/StorageBanner.tsx:83
+msgid "Download project"
+msgstr "პროექტის ჩამოტვირთვა"
+
+#: designer/src/ui/StorageBanner.tsx:48
+msgid "Download your project before closing the tab so nothing is lost."
+msgstr "ჩანართის დახურვამდე ჩამოტვირთეთ პროექტი, რომ არაფერი დაიკარგოს."
+
+#: designer/src/ui/StorageBanner.tsx:43
+msgid "Download your project before closing the tab, or switch to a current browser."
+msgstr "ჩანართის დახურვამდე ჩამოტვირთეთ პროექტი ან გადადით უფრო ახალ ბრაუზერზე."
+
+#: designer/src/ui/ErrorBoundary.tsx:74 designer/src/ui/StorageBanner.tsx:83
+msgid "Downloaded"
+msgstr "ჩამოტვირთულია"
+
+#: eeschema/sch_edit_frame_ui.tsx:5806 eeschema/sch_edit_frame_ui.tsx:6472 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1434 pcbnew/footprint_edit_frame_ui.tsx:1420 pcbnew/pcb_edit_frame_ui.tsx:989 designer/src/home/HomePage.tsx:2286
+msgid "Drag to resize"
+msgstr "ზომის შესაცვლელად გადაათრიეთ"
+
+#: common/dialogs/dialog_page_settings_base.tsx:230
+msgid "Drawing sheet file"
+msgstr "ნახაზის ფურცლის ფაილი"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:369 pcbnew/dialogs/dialog_print_pcbnew.tsx:549
+msgid "Drill marks"
+msgstr "გაბურღვის ნიშნები"
+
+#: designer/src/auth/SignIn.tsx:479
+msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
+msgstr "ბოლომდე დაშიფვრის ჩვენი პროტოკოლის ბუნების გამო თქვენი მონაცემების გაშიფვრა პაროლის ან აღდგენის გასაღების გარეშე შეუძლებელია."
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
+msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
+msgstr "EN 50310 რეკომენდაციას იძლევა 300 მვ-ზე ნაკლები ძაბვის სხვაობაზე. ცნობილი პრაქტიკა ძირითად წყვილს შორის მესამე საკონტაქტო ლითონს იყენებს (მაგ. ENIG ზედაპირის დამუშავება)."
+
+#: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
+msgid "Edge card connectors"
+msgstr "ბარათის კიდის კონექტორები"
+
+#: eeschema/tools/mutate.ts:394
+msgid "Edit Bus Entry"
+msgstr "სალტის ჩანაწერის ჩასწორება"
+
+#: eeschema/tools/mutate.ts:433
+msgid "Edit Directive Label"
+msgstr "დირექტივის ჭდის ჩასწორება"
+
+#: eeschema/tools/mutate.ts:529
+msgid "Edit Image"
+msgstr "გამოსახულების ჩასწორება"
+
+#: eeschema/tools/mutate.ts:420
+msgid "Edit Label"
+msgstr "ჭდის ჩასწორება"
+
+#: eeschema/tools/mutate.ts:543
+msgid "Edit Shape"
+msgstr "ფიგურის ჩასწორება"
+
+#: eeschema/tools/mutate.ts:501
+msgid "Edit Sheet"
+msgstr "ფურცლის ჩასწორება"
+
+#: eeschema/tools/sch_sheet_pin_tool.ts:178
+msgid "Edit Sheet Pin"
+msgstr "ფურცლის კონტაქტის ჩასწორება"
+
+#: eeschema/tools/properties.ts:65
+msgid "Edit Symbol Fields"
+msgstr "სიმბოლოს ველების ჩასწორება"
+
+#: eeschema/tools/mutate.ts:556
+msgid "Edit Text Box"
+msgstr "ტექსტური ველის ჩასწორება"
+
+#: common/dialogs/panel_grid_settings.tsx:491
+msgid "Edit grid"
+msgstr "ბადის ჩასწორება"
+
+#: designer/src/home/project_tree_menu.ts:204
+msgid "Edit in a Text Viewer"
+msgstr "ტექსტის მნახველში ჩასწორება"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:575 pcbnew/dialogs/dialog_track_via_properties_base.tsx:551
+msgid "Edit layer"
+msgstr "ფენის ჩასწორება"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
+msgid "Edit variant description"
+msgstr "ვარიანტის აღწერის ჩასწორება"
+
+#: common/widgets/wx_progress_reporters.tsx:137
+msgid "Elapsed time:"
+msgstr "გასული დრო:"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:181
+msgid "Electrical type"
+msgstr "ელექტრული ტიპი"
+
+#: designer/src/auth/SignIn.tsx:256
+msgid "Email"
+msgstr "ელფოსტა"
+
+#: designer/src/mobile/DesktopGate.tsx:72
+msgid "Email me the link"
+msgstr "ბმულის ელფოსტით გამოგზავნა"
+
+#: common/dialogs/panel_embedded_files.tsx:180
+msgid "Embedded files"
+msgstr "ჩაშენებული ფაილები"
+
+#: pcbnew/dialogs/panel_setup_layers.tsx:387
+msgid "Enable %s"
+msgstr "ჩართვა: %s"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:625
+msgid "End layer"
+msgstr "ბოლო ფენა"
+
+#: common/dialogs/cross_probing_group.tsx:72
+msgid "Ensures that cross-probed %s are visible in the current view"
+msgstr "უზრუნველყოფს, რომ ჯვარედინად მონიშნული %s მიმდინარე ხედში ჩანდეს"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:538
+msgid "Enter a positive impedance and electrical length."
+msgstr "შეიყვანეთ დადებითი წინაღობა და ელექტრული სიგრძე."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:637
+msgid "Enter a positive odd-mode impedance."
+msgstr "შეიყვანეთ დადებითი კენტი რეჟიმის წინაღობა."
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:429
+msgid "Enter a positive resistivity and valid temperature."
+msgstr "შეიყვანეთ დადებითი კუთრი წინაღობა და სწორი ტემპერატურა."
+
+#: designer/src/auth/SignIn.tsx:507
+msgid "Enter the recovery key you saved when you created your account, and choose a new password."
+msgstr "შეიყვანეთ ანგარიშის შექმნისას შენახული აღდგენის გასაღები და აირჩიეთ ახალი პაროლი."
+
+#: designer/src/ui/ErrorBoundary.tsx:120
+msgid "Error details"
+msgstr "შეცდომის დეტალები"
+
+#: common/dialogs/lib_table_panel.tsx:590
+msgid ""
+"Error saving global library table:\n"
+"\n"
+"%s"
+msgstr ""
+"შეცდომა გლობალური ბიბლიოთეკების ცხრილის შენახვისას:\n"
+"\n"
+"%s"
+
+#: common/widgets/design_block_pane.ts:276 eeschema/project_rescue.ts:1019 eeschema/symbol_library_manager.ts:1069 pcbnew/footprint_edit_frame_ui.tsx:1119
+msgid ""
+"Error saving library table:\n"
+"\n"
+"%s"
+msgstr ""
+"შეცდომა ბიბლიოთეკების ცხრილის შენახვისას:\n"
+"\n"
+"%s"
+
+#: common/lib_table_notebook_panel.tsx:195
+msgid ""
+"Error saving nested library table:\n"
+"\n"
+"%s"
+msgstr ""
+"შეცდომა ჩადგმული ბიბლიოთეკების ცხრილის შენახვისას:\n"
+"\n"
+"%s"
+
+#: eeschema/files-io.ts:263
+msgid ""
+"Error saving schematic file '%s'.\n"
+"Could not create directory: %%s%s"
+msgstr ""
+"შეცდომა სქემის ფაილის „%s“ შენახვისას.\n"
+"დირექტორია ვერ შეიქმნა: %%s%s"
+
+#: eeschema/tools/sch_editor_control.ts:1003
+msgid ""
+"Error saving symbol %s to library '%s'.\n"
+"\n"
+"%s"
+msgstr ""
+"შეცდომა სიმბოლოს %s ბიბლიოთეკაში „%s“ შენახვისას.\n"
+"\n"
+"%s"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
+msgid "Error!"
+msgstr "შეცდომა!"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
+msgid "Exclude references"
+msgstr "აღნიშვნების გამორიცხვა"
+
+#: eeschema/sch_edit_frame_ui.tsx:7132
+msgid "Expand"
+msgstr "გაშლა"
+
+#: pcbnew/dialogs/dialog_shape_properties_base.tsx:319
+msgid "Expansion"
+msgstr "გაფართოება"
+
+#: common/dialogs/panel_embedded_files.tsx:222
+msgid "Export embedded files"
+msgstr "ჩაშენებული ფაილების გატანა"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:642
+msgid "Export units"
+msgstr "ერთეულების გატანა"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:383
+msgid "Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet."
+msgstr "საწარმოო მოდულები გენერირების სკრიპტებს ასრულებს, რომლებსაც იზოლირებული გაშვების გარემო სჭირდება, რომელიც ბრაუზერში ჯერ ხელმისაწვდომი არ არის."
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1088
+msgid "Fabrication property"
+msgstr "საწარმოო თვისება"
+
+#: eeschema/sch_edit_frame_ui.tsx:5611
+msgid "Failed to load schematic:"
+msgstr "სქემის ჩატვირთვა ვერ მოხერხდა:"
+
+#: designer/src/editors/schematic/hotkeys.ts:300
+msgid "Fast Grid 1"
+msgstr "სწრაფი ბადე 1"
+
+#: designer/src/editors/schematic/hotkeys.ts:307
+msgid "Fast Grid 2"
+msgstr "სწრაფი ბადე 2"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:205
+msgid "Field name filter"
+msgstr "ველის სახელის ფილტრი"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:377
+msgid "Field value"
+msgstr "ველის მნიშვნელობა"
+
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:100
+msgid "File name"
+msgstr "ფაილის სახელი"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:234
+msgid "Fill type"
+msgstr "შევსების ტიპი"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:206
+msgid "Fill with color"
+msgstr "ფერით შევსება"
+
+#: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
+msgid "First free number after"
+msgstr "პირველი თავისუფალი ნომერი ამის შემდეგ"
+
+#: pcbnew/dialogs/dialog_enum_pads_base.tsx:75
+msgid "First pad number"
+msgstr "პირველი ბალიშის ნომერი"
+
+#: pagelayout_editor/dialogs/properties_frame_ui.tsx:281
+msgid "First page option"
+msgstr "პირველი გვერდის პარამეტრი"
+
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:112
+msgid "Footprint 3D model path"
+msgstr "ნაკვალევის 3D მოდელის გზა"
+
+#: pcbnew/footprint_chooser_frame.tsx:256
+msgid "Footprint Chooser (%s items loaded)"
+msgstr "ნაკვალევის ამრჩევი (ჩატვირთული ელემენტები: %s)"
+
+#: cvpcb/dialogs/dialog_config_equfiles.tsx:208
+msgid "Footprint association files"
+msgstr "ნაკვალევის ასოცირების ფაილები"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:366
+msgid "Footprint field"
+msgstr "ნაკვალევის ველი"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
+msgid "Footprint type"
+msgstr "ნაკვალევის ტიპი"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
+msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
+msgstr "მაგალითად, თუ გამოთვლილი სამიზნე მნიშვნელობა 16 834,2 Ω-ია, ის მრგვალდება 16 800 Ω-მდე. 168-თან უახლოესი მნიშვნელობა 169-ია, არჩეული E96 მნიშვნელობა კი 16,9 kΩ."
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:492
+msgid "For frequencies higher than 30kHz, the dielectric performances are degraded. IEC60664-4 covers those cases"
+msgstr "30 kHz-ზე მაღალი სიხშირეებისთვის დიელექტრიკული თვისებები უარესდება. ამ შემთხვევებს IEC60664-4 მოიცავს"
+
+#: designer/src/auth/SignIn.tsx:580 designer/src/auth/SignIn.tsx:596
+msgid "Forgot password?"
+msgstr "დაგავიწყდათ პაროლი?"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:387
+msgid "Format presets"
+msgstr "ფორმატის წინასწარი პარამეტრები"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:814
+msgid "Frequency unit"
+msgstr "სიხშირის ერთეული"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:266
+msgid "Front prefix"
+msgstr "წინა მხარის პრეფიქსი"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:234
+msgid "Front reference start"
+msgstr "წინა მხარის აღნიშვნების დასაწყისი"
+
+#: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
+msgid "Gap length"
+msgstr "დაშორების სიგრძე"
+
+#: designer/src/home/ShareButton.tsx:332
+msgid "General access"
+msgstr "ზოგადი წვდომა"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:268
+msgid "Generate map format"
+msgstr "რუკის ფორმატის გენერირება"
+
+#: designer/src/auth/SignIn.tsx:553
+msgid "Generating encryption keys..."
+msgstr "დაშიფვრის გასაღებები გენერირდება..."
+
+#: designer/src/auth/auth_progress.tsx:53
+msgid "Generating your encryption keys"
+msgstr "თქვენი დაშიფვრის გასაღებები გენერირდება"
+
+#: common/eda_base_frame_help_menu.ts:149
+msgid "Getting Started with %s"
+msgstr "%s-ის გამოყენების დასაწყისი"
+
+#: designer/src/home/HomePage.tsx:2602
+msgid "GitHub link:"
+msgstr "GitHub-ის ბმული:"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:433
+msgid "Global solder mask minimum width and/or margin are not set to 0."
+msgstr "გლობალური სარჩილავი ნიღბის მინიმალური სიგანე და/ან ველი 0-ზე არ არის დაყენებული."
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:113
+msgid "Global unit delay"
+msgstr "გლობალური ერთეულის დაყოვნება"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:196
+msgid "Graphic style"
+msgstr "გრაფიკის სტილი"
+
+#: pcbnew/dialogs/dialog_outset_items_base.tsx:123
+msgid "Grid size"
+msgstr "ბადის ზომა"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:283
+msgid "Hide details"
+msgstr "დეტალების დამალვა"
+
+#: common/dialogs/cross_probing_group.tsx:57
+msgid "Highlight %s corresponding to selected %s"
+msgstr "%s-ის გამოკვეთა, რომელიც არჩეულ %s-ს შეესაბამება"
+
+#: common/dialogs/cross_probing_group.tsx:96
+msgid "Highlight nets when they are highlighted in the %s editor"
+msgstr "ქსელების გამოკვეთა, როცა ისინი %s რედაქტორში გამოკვეთილია"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:878
+msgid "Hole shape"
+msgstr "ხვრელის ფორმა"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:210
+msgid "Hop-over size"
+msgstr "გადახტომის ზომა"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:142
+msgid "Horizontal Any"
+msgstr "ჰორიზონტალური ნებისმიერი"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
+msgid "However some cases are not covered by this calculator:"
+msgstr "თუმცა ეს კალკულატორი ზოგ შემთხვევას არ მოიცავს:"
+
+#: designer/src/auth/delete_account_form.ts:21
+msgid "I found another service that I like better"
+msgstr "ვიპოვე სხვა სერვისი, რომელიც უფრო მომწონს"
+
+#: designer/src/auth/SignIn.tsx:491
+msgid "I remember my password"
+msgstr "პაროლი გამახსენდა"
+
+#: designer/src/auth/DeleteAccountDialog.tsx:258
+msgid "I understand this deletes my account and all its data."
+msgstr "მესმის, რომ ეს ჩემს ანგარიშს და მის ყველა მონაცემს წაშლის."
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
+msgid "IEC 60664"
+msgstr "IEC 60664"
+
+#: designer/src/auth/SignIn.tsx:433
+msgid "If"
+msgstr "თუ"
+
+#: designer/src/home/HomePage.tsx:2419
+msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
+msgstr "თუ ბრაუზერი საქაღალდეს ბლოკავს (ჩამოტვირთვები, სამუშაო მაგიდა...), ამის ნაცვლად აირჩიეთ პროექტის ყველა ფაილი"
+
+#: designer/src/auth/SignIn.tsx:484
+msgid "If the password comes back to you, sign in with it as usual and save your recovery key from the account menu, so this never comes up again."
+msgstr "თუ პაროლი გაგახსენდებათ, შედით მასთან ერთად ჩვეულებრივ და ანგარიშის მენიუდან შეინახეთ აღდგენის გასაღები, რომ ეს აღარ განმეორდეს."
+
+#: designer/src/auth/RecoveryKeyContents.tsx:72 designer/src/auth/RecoveryKeyDialog.tsx:48
+msgid "If you forget your password, the only way you can recover your data is with this key."
+msgstr "თუ პაროლი დაგავიწყდებათ, მონაცემების აღდგენის ერთადერთი გზა ეს გასაღებია."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:306
+msgid "If you specify one of the track widths, the maximum current it can handle will be calculated. The width for the other track to also handle this current will then be calculated."
+msgstr "თუ ერთ-ერთი ბილიკის სიგანეს მიუთითებთ, გამოითვლება მაქსიმალური დენი, რომელსაც ის გაუძლებს. შემდეგ გამოითვლება მეორე ბილიკის სიგანე, რომ მასაც იგივე დენი გაატაროს."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:301
+msgid "If you specify the maximum current, then the track widths will be calculated to suit."
+msgstr "თუ მაქსიმალურ დენს მიუთითებთ, ბილიკების სიგანეები მას მოერგება."
+
+#: eeschema/dialogs/dialog_erc_base.tsx:210 pcbnew/dialogs/dialog_drc_base.tsx:322
+msgid "Ignored tests"
+msgstr "იგნორირებული ტესტები"
+
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:603
+msgid "Import %s"
+msgstr "%s-ის შემოტანა"
+
+#: pcbnew/dialogs/dialog_map_layers.tsx:261
+msgid "Import Layer Mapping"
+msgstr "ფენების შესაბამისობის შემოტანა"
+
+#: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
+msgid "Import Vector Graphics"
+msgstr "ვექტორული გრაფიკის შემოტანა"
+
+#: eeschema/dialogs/dialog_sch_import_settings_base.tsx:87 pcbnew/dialogs/dialog_import_settings_base.tsx:81
+msgid "Import from"
+msgstr "შემოტანა აქედან"
+
+#: pcbnew/import_gfx/dialog_import_graphics_base.tsx:123
+msgid "Import scale"
+msgstr "შემოტანის მასშტაბი"
+
+#: pcbnew/widgets/appearance_controls.tsx:278
+msgid "Inactive layers (H):"
+msgstr "არააქტიური ფენები (H):"
+
+#: external/wx/spin_ctrl.tsx:137
+msgid "Increase"
+msgstr "გაზრდა"
+
+#: eeschema/dialogs/dialog_increment_annotations_base.tsx:94
+msgid "Increment by"
+msgstr "ზრდის ბიჯი"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:259
+msgid "Installed"
+msgstr "დაყენებულია"
+
+#: designer/src/editors/schematic/prefs/PanelSchDataSources.tsx:65
+msgid "Installed data sources"
+msgstr "დაყენებული მონაცემთა წყაროები"
+
+#: designer/src/editors/schematic/dialogs/dialog_rescue_each.tsx:144
+msgid "Instances of this symbol ("
+msgstr "ამ სიმბოლოს ეგზემპლარები ("
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:502
+msgid "Insulations trough liquids, compressed air or gases other than air are not in the scope of IEC60664"
+msgstr "სითხეებით, შეკუმშული ჰაერით ან ჰაერისგან განსხვავებული აირებით იზოლაცია IEC60664-ის მოქმედების არეში არ შედის"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:255
+msgid "Internal ID"
+msgstr "შიდა ID"
+
+#: designer/src/home/ShareButton.tsx:247
+msgid "Invite"
+msgstr "მოწვევა"
+
+#: designer/src/home/ShareButton.tsx:231 designer/src/home/ShareButton.tsx:232
+msgid "Invite by email"
+msgstr "ელფოსტით მოწვევა"
+
+#: common/dialogs/dialog_page_settings_base.tsx:279
+msgid "Issue Date"
+msgstr "გამოშვების თარიღი"
+
+#: designer/src/auth/delete_account_form.ts:16
+msgid "It's missing a key feature that I need"
+msgstr "მაკლია ჩემთვის საჭირო მნიშვნელოვანი ფუნქცია"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1363
+msgid "Jumper pin groups"
+msgstr "ჯამპერის კონტაქტების ჯგუფები"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:467
+msgid "Junction color"
+msgstr "შეერთების ფერი"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:195
+msgid "Junction dot size"
+msgstr "შეერთების წერტილის ზომა"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:452 eeschema/dialogs/dialog_wire_bus_properties_base.tsx:173
+msgid "Junction size"
+msgstr "შეერთების ზომა"
+
+#: designer/src/home/HomePage.tsx:2720
+msgid "Keep both"
+msgstr "ორივეს დატოვება"
+
+#: designer/src/home/HomePage.tsx:2710
+msgid "Keep mine"
+msgstr "ჩემი ვერსიის დატოვება"
+
+#: pcbnew/dialogs/panel_fp_lib_table.tsx:281
+msgid "KiCad (folder) from Computer..."
+msgstr "KiCad (საქაღალდე) კომპიუტერიდან..."
+
+#: common/remote_provider_schemas.ts:18
+msgid "KiCad Remote Provider Metadata v1"
+msgstr "KiCad-ის დაშორებული პროვაიდერის მეტამონაცემები v1"
+
+#: common/remote_provider_schemas.ts:180
+msgid "KiCad Remote Symbol Manifest v1"
+msgstr "KiCad-ის დაშორებული სიმბოლოების მანიფესტი v1"
+
+#: designer/src/widgets/dialog_sym_lib_table.tsx:330
+msgid "KiCad from Computer..."
+msgstr "KiCad კომპიუტერიდან..."
+
+#: pcbnew/dialogs/dialog_import_netlist.tsx:52
+msgid "KiCad netlist files (*.net)"
+msgstr "KiCad-ის ქსელების სიის ფაილები (*.net)"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:379
+msgid "KiCad plugins are native Python scripts. In the browser they need a sandboxed web runtime, a separate piece of work."
+msgstr "KiCad-ის მოდულები მშობლიური Python სკრიპტებია. ბრაუზერში მათ იზოლირებული ვებ გაშვების გარემო სჭირდებათ, რაც ცალკე სამუშაოა."
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:398
+msgid "Layer defaults"
+msgstr "ფენის ნაგულისხმევი მნიშვნელობები"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:194 pcbnew/dialogs/dialog_global_edit_teardrops_base.tsx:223
+msgid "Layer filter"
+msgstr "ფენების ფილტრი"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:187
+msgid "Leader layer"
+msgstr "გამოსატანი ხაზის ფენა"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:153
+msgid "Leader text"
+msgstr "გამოსატანი ხაზის ტექსტი"
+
+#: common/dialogs/panel_mouse_settings.tsx:269
+msgid "Left button drag"
+msgstr "მარცხენა ღილაკით გადათრევა"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:188
+msgid "Left click (and drag) actions depend on 2 modifier keys:"
+msgstr "მარცხენა დაწკაპუნების (და გადათრევის) მოქმედებები 2 მოდიფიკატორ კლავიშზეა დამოკიდებული:"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:337
+msgid "Left margin"
+msgstr "მარცხენა ველი"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:389
+msgid "Libraries and colour themes install and work today."
+msgstr "ბიბლიოთეკები და ფერთა თემები დღესვე ინსტალირდება და მუშაობს."
+
+#: pcbnew/dialogs/dialog_footprint_associations_base.tsx:55
+msgid "Library association"
+msgstr "ბიბლიოთეკის ასოცირება"
+
+#: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:162
+msgid "Library id"
+msgstr "ბიბლიოთეკის ID"
+
+#: eeschema/dialogs/dialog_symbol_properties_base.tsx:365
+msgid "Library link"
+msgstr "ბიბლიოთეკის ბმული"
+
+#: eeschema/sch_edit_frame_ui.tsx:6625 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1507 pcbnew/footprint_edit_frame_ui.tsx:1560 pcbnew/pcb_edit_frame_ui.tsx:8711
+msgid "Library name:"
+msgstr "ბიბლიოთეკის სახელი:"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
+msgid "Line color"
+msgstr "ხაზის ფერი"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:427 pcbnew/dialogs/dialog_shape_properties_base.tsx:225
+msgid "Line style"
+msgstr "ხაზის სტილი"
+
+#: eeschema/dialogs/dialog_text_properties_base.tsx:401
+msgid "Link"
+msgstr "ბმული"
+
+#: designer/src/mobile/DesktopGate.tsx:69
+msgid "Link copied"
+msgstr "ბმული დაკოპირდა"
+
+#: common/launch_ext.tsx:275
+msgid "Load"
+msgstr "ჩატვირთვა"
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1587
+msgid "Load Symbol Libraries"
+msgstr "სიმბოლოების ბიბლიოთეკების ჩატვირთვა"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1397 pcbnew/footprint_viewer_frame_ui.tsx:773 pcbnew/pcb_edit_frame_ui.tsx:8015 cvpcb/cvpcb_mainframe_ui.tsx:1548 cvpcb/cvpcb_mainframe_ui.tsx:1622
+msgid "Loading footprint libraries..."
+msgstr "ნაკვალევის ბიბლიოთეკები იტვირთება..."
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1383 eeschema/symbol_viewer_frame_ui.tsx:596
+msgid "Loading symbol libraries..."
+msgstr "სიმბოლოების ბიბლიოთეკები იტვირთება..."
+
+#: designer/src/App.tsx:246
+msgid "Loading the %s..."
+msgstr "იტვირთება: %s..."
+
+#: eeschema/erc/erc_settings.ts:217
+msgid "Local and global power symbols have same name"
+msgstr "ლოკალურ და გლობალურ კვების სიმბოლოებს ერთი და იგივე სახელი აქვთ"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:266
+msgid "Manufacturer P/N"
+msgstr "მწარმოებლის არტიკული"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:395
+msgid "Maximum allowed deviation"
+msgstr "მაქსიმალური დასაშვები გადახრა"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:992
+msgid "Maximum length"
+msgstr "მაქსიმალური სიგრძე"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:908
+msgid "Maximum track width"
+msgstr "ბილიკის მაქსიმალური სიგანე"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:1036
+msgid "Maximum width"
+msgstr "მაქსიმალური სიგანე"
+
+#: common/dialogs/panel_mouse_settings.tsx:281
+msgid "Middle button drag"
+msgstr "შუა ღილაკით გადათრევა"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
+msgid "Minimum width"
+msgstr "მინიმალური სიგანე"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
+msgid "Missing 3D model references"
+msgstr "დაკარგული 3D მოდელების მითითებები"
+
+#: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
+msgid "More tools"
+msgstr "მეტი ხელსაწყო"
+
+#: eeschema/tools/sch_sheet_pin_tool.ts:162
+msgid "Move Sheet Pin"
+msgstr "ფურცლის კონტაქტის გადატანა"
+
+#: common/dialogs/panel_grid_settings.tsx:505
+msgid "Move grid down"
+msgstr "ბადის ქვემოთ გადატანა"
+
+#: common/dialogs/panel_grid_settings.tsx:498
+msgid "Move grid up"
+msgstr "ბადის ზემოთ გადატანა"
+
+#: designer/src/auth/delete_account_form.ts:22
+msgid "My reason isn't listed"
+msgstr "ჩემი მიზეზი სიაში არ არის"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:267
+msgid "Name text size"
+msgstr "სახელის ტექსტის ზომა"
+
+#: pcbnew/widgets/appearance_controls.tsx:383
+msgid "Net %s"
+msgstr "ქსელი %s"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:181 pcbnew/dialogs/dialog_global_edit_teardrops_base.tsx:197
+msgid "Net class filter"
+msgstr "ქსელის კლასების ფილტრი"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:255
+msgid "Net filter"
+msgstr "ქსელების ფილტრი"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:528
+msgid "Net name"
+msgstr "ქსელის სახელი"
+
+#: common/dialogs/panel_setup_netclasses.tsx:522
+msgid "Netclass assignments"
+msgstr "ქსელის კლასების მინიჭებები"
+
+#: pcbnew/dialogs/dialog_import_netlist_base.tsx:81
+msgid "Netlist file"
+msgstr "ქსელების სიის ფაილი"
+
+#: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:197
+msgid "New footprint library id"
+msgstr "ახალი ნაკვალევების ბიბლიოთეკის ID"
+
+#: designer/src/auth/SignIn.tsx:528
+msgid "New password"
+msgstr "ახალი პაროლი"
+
+#: designer/src/auth/SignIn.tsx:600
+msgid "New to ZiroEDA?"
+msgstr "ახალი ხართ ZiroEDA-ში?"
+
+#: common/dialog_about/dialog_about.tsx:233
+msgid "Next page"
+msgstr "შემდეგი გვერდი"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:396
+msgid "No %s match your search."
+msgstr "არც ერთი %s არ შეესაბამება ძიებას."
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1396
+msgid "No footprint libraries loaded."
+msgstr "ნაკვალევის ბიბლიოთეკები არ არის ჩატვირთული."
+
+#: common/widgets/widget_hotkey_list.tsx:177
+msgid "No hotkeys match “"
+msgstr "არც ერთი მალსახმობი არ შეესაბამება: „"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:364
+msgid "No installed packages match your search."
+msgstr "არც ერთი დაყენებული პაკეტი არ შეესაბამება ძიებას."
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1382
+msgid "No libraries"
+msgstr "ბიბლიოთეკები არ არის"
+
+#: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
+msgid "No matches"
+msgstr "დამთხვევები არ არის"
+
+#: designer/src/ui/ErrorBoundary.tsx:95
+msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
+msgstr "მეხსიერებაში ღია პროექტი არ იყო, ამიტომ არაფერი დაკარგულა. გადატვირთვამ უნდა დაგაბრუნოთ."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:365
+msgid "No packages installed yet."
+msgstr "პაკეტები ჯერ არ არის დაყენებული."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:333
+msgid "No pending changes. Queue installs or removals, then apply."
+msgstr "მოლოდინში მყოფი ცვლილებები არ არის. დააყენეთ ინსტალაციები ან წაშლები რიგში და გამოიყენეთ."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:542
+msgid "No physical solution found for this target impedance."
+msgstr "ამ სამიზნე წინაღობისთვის ფიზიკური ამონახსნი ვერ მოიძებნა."
+
+#: designer/src/auth/SignIn.tsx:562
+msgid "No recovery key?"
+msgstr "აღდგენის გასაღები არ გაქვთ?"
+
+#: cvpcb/cvpcb_mainframe_ui.tsx:1591
+msgid "No symbols, place and annotate symbols first."
+msgstr "სიმბოლოები არ არის, ჯერ განათავსეთ და დაანოტირეთ სიმბოლოები."
+
+#: designer/src/home/HomePage.tsx:728
+msgid "None of the files chosen is of the type %s."
+msgstr "არჩეული ფაილებიდან არც ერთი არ არის ტიპის %s."
+
+#: eeschema/sch_edit_frame_ui.tsx:3966
+msgid "Not a .kicad_sch file: %s"
+msgstr "არ არის .kicad_sch ფაილი: %s"
+
+#: designer/src/home/HomePage.tsx:2699
+msgid "Nothing has been changed or copied."
+msgstr "არაფერი შეცვლილა და არაფერი დაკოპირებულა."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:354
+msgid "Number of units"
+msgstr "ერთეულების რაოდენობა"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:173
+msgid "Number of units per package"
+msgstr "ერთეულების რაოდენობა კორპუსში"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:280
+msgid "Number text size"
+msgstr "ნომრის ტექსტის ზომა"
+
+#: pcbnew/dialogs/dialog_enum_pads_base.tsx:87
+msgid "Numbering step"
+msgstr "გადანომვრის ბიჯი"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
+msgid "OVC IV"
+msgstr "OVC IV"
+
+#: designer/src/mobile/DesktopGate.tsx:76
+msgid "On a tablet? Rotate to landscape, or connect a mouse."
+msgstr "ტაბლეტზე ხართ? შეატრიალეთ ლანდშაფტურად ან მიაერთეთ მაუსი."
+
+#: designer/src/home/ShareButton.tsx:64
+msgid "Only people invited"
+msgstr "მხოლოდ მოწვეული ადამიანები"
+
+#: designer/src/home/menubar.ts:133
+msgid "Open Demo Project"
+msgstr "დემო პროექტის გახსნა"
+
+#: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
+msgid "Open Project from GitHub"
+msgstr "პროექტის გახსნა GitHub-იდან"
+
+#: designer/src/home/menubar.ts:129
+msgid "Open Project from GitHub..."
+msgstr "პროექტის გახსნა GitHub-იდან..."
+
+#: designer/src/home/menubar.ts:260
+msgid "Open Text Viewer"
+msgstr "ტექსტის მნახველის გახსნა"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1059
+msgid "Open a project to add a footprint library to."
+msgstr "გახსენით პროექტი, რომელშიც ნაკვალევის ბიბლიოთეკა უნდა დაემატოს."
+
+#: designer/src/editors/gerbview/GerberViewer.tsx:129 designer/src/fs/OpenFileDialog.tsx:152 designer/src/home/HomePage.tsx:2411
+msgid "Open from Computer..."
+msgstr "კომპიუტერიდან გახსნა..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:393
+msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
+msgstr "წარმატებული ბეჭდვის შემდეგ დაბეჭდილი ფაილის ახალ ბრაუზერის ჩანართში გახსნა (მხოლოდ მიმდინარე გვერდი)"
+
+#: designer/src/mobile/DesktopGate.tsx:55
+msgid "Open this link on a laptop or desktop to get started."
+msgstr "დასაწყებად გახსენით ეს ბმული ლეპტოპზე ან სტაციონარულ კომპიუტერზე."
+
+#: designer/src/home/HomePage.tsx:1465
+msgid "Opening project..."
+msgstr "პროექტი იხსნება..."
+
+#: designer/src/home/HomePage.tsx:1078
+msgid "Opening the shared project..."
+msgstr "გაზიარებული პროექტი იხსნება..."
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:176
+msgid "Optionally up to two additional values can be excluded in case of component availability problems."
+msgstr "სურვილისამებრ, კომპონენტების ხელმისაწვდომობის პრობლემების შემთხვევაში შეიძლება კიდევ ორი მნიშვნელობის გამორიცხვა."
+
+#: pcbnew/dialogs/dialog_rule_area_properties_base.tsx:149 pcbnew/dialogs/panel_zone_properties_base.tsx:182
+msgid "Outline display"
+msgstr "კონტურის ჩვენება"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:169 pcbnew/dialogs/dialog_rule_area_properties_base.tsx:159 pcbnew/dialogs/panel_zone_properties_base.tsx:189
+msgid "Outline hatch pitch"
+msgstr "კონტურის დაშტრიხვის ბიჯი"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:159
+msgid "Outline style"
+msgstr "კონტურის სტილი"
+
+#: pcbnew/dialogs/dialog_gencad_export_options.tsx:191
+msgid "Output File"
+msgstr "გამოტანის ფაილი"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:146
+msgid "Output folder"
+msgstr "გამოტანის საქაღალდე"
+
+#: common/dialogs/dialog_print_generic_base.tsx:99
+msgid "Output mode"
+msgstr "გამოტანის რეჟიმი"
+
+#: eeschema/dialogs/dialog_export_netlist_base.tsx:118
+msgid "Output path"
+msgstr "გამოტანის გზა"
+
+#: pcbnew/dialogs/dialog_outset_items_base.tsx:108
+msgid "Outset"
+msgstr "გარეთ წანაცვლება"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:752
+msgid "PDF output mode"
+msgstr "PDF-ის გამოტანის რეჟიმი"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:371
+msgid "PNG Options"
+msgstr "PNG-ის პარამეტრები"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
+msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
+msgstr "ბალიში „%s“ ჯამპერის ბალიშების ჯგუფში %s ამ ნაკვალევში არ არსებობს."
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:528
+msgid "Pad Numbering"
+msgstr "ბალიშების ნუმერაცია"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:355
+msgid "Pad clearance"
+msgstr "ბალიშის ღრეჩო"
+
+#: pcbnew/dialogs/dialog_footprint_properties.tsx:329
+msgid "Pad clearance must be at least %s."
+msgstr "ბალიშის ღრეჩო მინიმუმ %s უნდა იყოს."
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1353
+msgid "Pad connection"
+msgstr "ბალიშის შეერთება"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:434 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:394
+msgid "Pad connection to zones"
+msgstr "ბალიშის შეერთება ზონებთან"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:138
+msgid "Pad connections"
+msgstr "ბალიშების შეერთებები"
+
+#: pcbnew/dialogs/dialog_enum_pads_base.tsx:63
+msgid "Pad name prefix"
+msgstr "ბალიშის სახელის პრეფიქსი"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:502
+msgid "Pad number"
+msgstr "ბალიშის ნომერი"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:978
+msgid "Pad to die delay"
+msgstr "ბალიში–კრისტალი დაყოვნება"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:945
+msgid "Pad to die length"
+msgstr "ბალიში–კრისტალი სიგრძე"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:486
+msgid "Pad type"
+msgstr "ბალიშის ტიპი"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:564 pcbnew/dialogs/dialog_track_via_properties_base.tsx:544
+msgid "Padstack mode"
+msgstr "ბალიშის სტეკის რეჟიმი"
+
+#: eeschema/dialogs/dialog_sheet_properties_base.tsx:144
+msgid "Page number"
+msgstr "გვერდის ნომერი"
+
+#: common/dialogs/panel_mouse_settings.tsx:312
+msgid "Pan on mouse movement with key"
+msgstr "გადაადგილება მაუსის მოძრაობით კლავიშთან ერთად"
+
+#: common/dialogs/panel_spacemouse.tsx:115
+msgid "Pan speed"
+msgstr "გადაადგილების სიჩქარე"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:256
+msgid "Parent footprint library link"
+msgstr "მშობელი ნაკვალევის ბიბლიოთეკის ბმული"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:239
+msgid "Parent reference designator"
+msgstr "მშობლის აღნიშვნა"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:236
+msgid "Passive components are commonly made with E-series values appropriate to their precision. Capacitors commonly use E12 values. 10% and 5% resistors commonly use E24 values. 1% resistors use E96 values. Other series are not commonly used."
+msgstr "პასიურ კომპონენტებს ჩვეულებრივ მათი სიზუსტის შესაფერისი E სერიის მნიშვნელობებით ამზადებენ. კონდენსატორები ჩვეულებრივ E12 მნიშვნელობებს იყენებენ. 10 და 5 პროცენტიანი რეზისტორები ჩვეულებრივ E24 მნიშვნელობებს იყენებენ. 1 პროცენტიანი რეზისტორები E96 მნიშვნელობებს იყენებენ. სხვა სერიები ჩვეულებრივ არ გამოიყენება."
+
+#: designer/src/auth/SignIn.tsx:631
+msgid "Password strength: Moderate"
+msgstr "პაროლის სიძლიერე: საშუალო"
+
+#: designer/src/auth/SignIn.tsx:632
+msgid "Password strength: Strong"
+msgstr "პაროლის სიძლიერე: ძლიერი"
+
+#: designer/src/auth/SignIn.tsx:629
+msgid "Password strength: Weak"
+msgstr "პაროლის სიძლიერე: სუსტი"
+
+#: designer/src/auth/SignIn.tsx:179 designer/src/auth/SignIn.tsx:226
+msgid "Passwords don't match"
+msgstr "პაროლები არ ემთხვევა"
+
+#: designer/src/auth/SignIn.tsx:519
+msgid "Paste your 24-word recovery key"
+msgstr "ჩასვით თქვენი 24-სიტყვიანი აღდგენის გასაღები"
+
+#: designer/src/home/ShareButton.tsx:251
+msgid "People with access"
+msgstr "წვდომის მქონე ადამიანები"
+
+#: external/wx/datectrl.tsx:39
+msgid "Pick a date"
+msgstr "აირჩიეთ თარიღი"
+
+#: common/dialogs/dialog_page_settings_base.tsx:294
+msgid "Pick date"
+msgstr "თარიღის არჩევა"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:737
+msgid "Pin '%s' in jumper pin group %s does not exist in this symbol."
+msgstr "კონტაქტი „%s“ ჯამპერის კონტაქტების ჯგუფში %s ამ სიმბოლოში არ არსებობს."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:229
+msgid "Pin (hold back updates)"
+msgstr "მიმაგრება (განახლებების შეჩერება)"
+
+#: eeschema/dialogs/dialog_symbol_properties.tsx:938
+msgid "Pin functions"
+msgstr "კონტაქტის ფუნქციები"
+
+#: eeschema/erc/erc_settings.ts:317
+msgid "Pin map references a pad that does not exist on the footprint"
+msgstr "კონტაქტების შესაბამისობა მიუთითებს ბალიშზე, რომელიც ნაკვალევზე არ არსებობს"
+
+#: eeschema/erc/erc_settings.ts:332
+msgid "Pin map references a pin number that no longer exists on the symbol"
+msgstr "კონტაქტების შესაბამისობა მიუთითებს კონტაქტის ნომერზე, რომელიც სიმბოლოზე აღარ არსებობს"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:147
+msgid "Pin name"
+msgstr "კონტაქტის სახელი"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:260
+msgid "Pin name position offset"
+msgstr "კონტაქტის სახელის პოზიციის წანაცვლება"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:166
+msgid "Pin number"
+msgstr "კონტაქტის ნომერი"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:267
+msgid "Pinned"
+msgstr "მიმაგრებულია"
+
+#: eeschema/tools/mutate.ts:340
+msgid "Place symbol"
+msgstr "სიმბოლოს განთავსება"
+
+#: designer/src/editors/schematic/hotkeys.ts:365
+msgid "Place/Remove No Connect Flags"
+msgstr "შეუერთებლობის დროშების განთავსება/წაშლა"
+
+#: designer/src/auth/SignIn.tsx:185 designer/src/auth/SignIn.tsx:232
+msgid "Please choose a stronger password."
+msgstr "აირჩიეთ უფრო ძლიერი პაროლი."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:188
+msgid "Plot Schematic Options"
+msgstr "სქემის ბეჭდვის პარამეტრები"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:206
+msgid "Plot format"
+msgstr "ბეჭდვის ფორმატი"
+
+#: common/dialogs/dialog_plugin_options.tsx:141
+msgid "Plugin options"
+msgstr "მოდულის პარამეტრები"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:487
+msgid "Position mode"
+msgstr "პოზიციის რეჟიმი"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:291
+msgid "Position offset"
+msgstr "პოზიციის წანაცვლება"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:111
+msgid "Potential replacements"
+msgstr "შესაძლო ჩანაცვლებები"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
+msgid "Pre-defined track widths"
+msgstr "წინასწარ განსაზღვრული ბილიკის სიგანეები"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:528
+msgid "Pre-defined via sizes"
+msgstr "წინასწარ განსაზღვრული გამტარი ნახვრეტების ზომები"
+
+#: common/dialog_about/dialog_about.tsx:209
+msgid "Previous page"
+msgstr "წინა გვერდი"
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:340
+msgid "Primary axis numbering"
+msgstr "ძირითადი ღერძის ნუმერაცია"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:237
+msgid "Progress"
+msgstr "პროგრესი"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:390
+msgid "Project Templates"
+msgstr "პროექტის შაბლონები"
+
+#: designer/src/fs/chooser_places.ts:231 designer/src/home/HomePage.tsx:2528
+msgid "Projects"
+msgstr "პროექტები"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:661
+msgid "Protection features"
+msgstr "დაცვის ფუნქციები"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:209
+msgid "Queue install"
+msgstr "ინსტალაციის რიგში დაყენება"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:383
+msgid "Range (currents)"
+msgstr "დიაპაზონი (დენები)"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:358
+msgid "Range (voltages)"
+msgstr "დიაპაზონი (ძაბვები)"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:242
+msgid "Ratsnest line thickness"
+msgstr "ჰაეროვანი კავშირების ხაზის სისქე"
+
+#: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
+msgid "Reading files..."
+msgstr "ფაილები იკითხება..."
+
+#: designer/src/auth/DeleteAccountDialog.tsx:181 designer/src/auth/DeleteAccountDialog.tsx:187
+msgid "Reason for leaving"
+msgstr "წასვლის მიზეზი"
+
+#: common/widgets/lib_tree.tsx:1074
+msgid "Recent searches"
+msgstr "ბოლო ძიებები"
+
+#: designer/src/auth/SignIn.tsx:553
+msgid "Recover"
+msgstr "აღდგენა"
+
+#: designer/src/auth/SignIn.tsx:302 designer/src/auth/SignIn.tsx:327
+msgid "Recover account"
+msgstr "ანგარიშის აღდგენა"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:74 designer/src/auth/RecoveryKeyDialog.tsx:42 designer/src/auth/RecoveryKeyDialog.tsx:55 designer/src/auth/SignIn.tsx:323 designer/src/auth/SignIn.tsx:514
+msgid "Recovery key"
+msgstr "აღდგენის გასაღები"
+
+#: designer/src/editors/pcb/prefs/PanelViewer3dGeneral.tsx:138
+msgid "Redraw speed"
+msgstr "გადახატვის სიჩქარე"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:220
+msgid "Reference filter"
+msgstr "აღნიშვნების ფილტრი"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
+msgid "Refresh preview"
+msgstr "გადახედვის განახლება"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:294
+msgid "Regroup symbols"
+msgstr "სიმბოლოების ხელახლა დაჯგუფება"
+
+#: designer/src/ui/ErrorBoundary.tsx:81 designer/src/ui/ErrorBoundary.tsx:105
+msgid "Reload"
+msgstr "გადატვირთვა"
+
+#: designer/src/App.tsx:1717
+msgid "Reload Now"
+msgstr "ახლავე გადატვირთვა"
+
+#: designer/src/ui/ErrorBoundary.tsx:81
+msgid "Reload without saving"
+msgstr "შენახვის გარეშე გადატვირთვა"
+
+#: designer/src/home/ShareButton.tsx:277 designer/src/home/ShareButton.tsx:278
+msgid "Remove %s"
+msgstr "%s-ის წაშლა"
+
+#: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:85
+msgid "Remove 3D model"
+msgstr "3D მოდელის წაშლა"
+
+#: common/dialogs/panel_setup_netclasses.tsx:535
+msgid "Remove assignment"
+msgstr "მინიჭების წაშლა"
+
+#: designer/src/home/HomePage.tsx:2750
+msgid "Remove damaged"
+msgstr "დაზიანებულის წაშლა"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:194
+msgid "Remove from pending"
+msgstr "მოლოდინიდან ამოშლა"
+
+#: common/dialogs/panel_grid_settings.tsx:519
+msgid "Remove grid"
+msgstr "ბადის წაშლა"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:428
+msgid "Remove islands"
+msgstr "კუნძულების წაშლა"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:68
+msgid "Remove member"
+msgstr "წევრის წაშლა"
+
+#: common/dialogs/panel_setup_netclasses.tsx:491
+msgid "Remove netclass"
+msgstr "ქსელის კლასის წაშლა"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:449
+msgid "Remove this repository"
+msgstr "ამ საცავის წაშლა"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:85
+msgid "Remove track propagation row"
+msgstr "ბილიკების გავრცელების მწკრივის წაშლა"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles_base.tsx:55
+msgid "Remove tuning profile"
+msgstr "მორგების პროფილის წაშლა"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:143
+msgid "Remove via delay override"
+msgstr "გამტარი ნახვრეტის დაყოვნების გადაფარვის წაშლა"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:211
+msgid "Rename variant"
+msgstr "ვარიანტის გადარქმევა"
+
+#: eeschema/dialogs/dialog_sch_find_base.tsx:122
+msgid "Replace with"
+msgstr "ჩანაცვლება ამით"
+
+#: common/dialog_about/dialog_about.tsx:197
+msgid "Report a problem with %s"
+msgstr "პრობლემის შეტყობინება: %s"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:418
+msgid "Repository:"
+msgstr "საცავი:"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:209
+msgid "Requires a runtime not yet available in the browser"
+msgstr "საჭიროა გაშვების გარემო, რომელიც ბრაუზერში ჯერ ხელმისაწვდომი არ არის"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:293
+msgid "Requires app ≥"
+msgstr "საჭიროა აპლიკაციის ვერსია ≥"
+
+#: designer/src/auth/SignIn.tsx:371
+msgid "Resend code"
+msgstr "კოდის ხელახლა გაგზავნა"
+
+#: common/widgets/paged_dialog.tsx:265
+msgid "Reset this page to defaults"
+msgstr "ამ გვერდის ნაგულისხმევზე დაბრუნება"
+
+#: common/widgets/wx_splitter_window.tsx:77 external/wx/wx_aui_sash.tsx:64
+msgid "Resize"
+msgstr "ზომის შეცვლა"
+
+#: designer/src/App.tsx:1923 designer/src/home/HomePage.tsx:2797
+msgid "Restore Project"
+msgstr "პროექტის აღდგენა"
+
+#: designer/src/App.tsx:1923
+msgid "Restoring your project..."
+msgstr "თქვენი პროექტი აღდგება..."
+
+#: common/dialogs/panel_mouse_settings.tsx:293
+msgid "Right button drag"
+msgstr "მარჯვენა ღილაკით გადათრევა"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:345
+msgid "Right margin"
+msgstr "მარჯვენა ველი"
+
+#: pcbnew/dialogs/dialog_move_exact_base.tsx:134
+msgid "Rotation anchor"
+msgstr "შებრუნების ღუზა"
+
+#: common/dialogs/panel_spacemouse.tsx:85
+msgid "Rotation speed"
+msgstr "შებრუნების სიჩქარე"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:175
+msgid "Round locations to"
+msgstr "მდებარეობების დამრგვალება"
+
+#: common/widgets/zoom_correction_ctrl.tsx:283
+msgid "Ruler units"
+msgstr "სახაზავის ერთეულები"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:722
+msgid "SVG output mode"
+msgstr "SVG-ის გამოტანის რეჟიმი"
+
+#: eeschema/sch_edit_frame_ui.tsx:5683
+msgid "Save Current Sheet Copy As"
+msgstr "მიმდინარე ფურცლის ასლის შენახვა როგორც"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:83 designer/src/auth/RecoveryKeyDialog.tsx:66
+msgid "Save Key"
+msgstr "გასაღების შენახვა"
+
+#: designer/src/home/HomePage.tsx:1274
+msgid "Save Project"
+msgstr "პროექტის შენახვა"
+
+#: designer/src/App.tsx:1679
+msgid "Save a copy"
+msgstr "ასლის შენახვა"
+
+#: common/launch_ext.tsx:293
+msgid "Save to folder"
+msgstr "საქაღალდეში შენახვა"
+
+#: designer/src/ui/StorageBanner.tsx:47
+msgid "Saving failed, recent edits are not being stored."
+msgstr "შენახვა ვერ მოხერხდა, ბოლო ცვლილებები არ ინახება."
+
+#: designer/src/home/HomePage.tsx:1274
+msgid "Saving project..."
+msgstr "პროექტი ინახება..."
+
+#: common/widgets/zoom_correction_ctrl.tsx:244
+msgid "Scaling ruler"
+msgstr "მასშტაბის სახაზავი"
+
+#: pcbnew/dialogs/dialog_footprint_associations_base.tsx:69
+msgid "Schematic association"
+msgstr "სქემის ასოცირება"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:192
+msgid "Schematic variants"
+msgstr "სქემის ვარიანტები"
+
+#: eeschema/dialogs/dialog_sch_find_base.tsx:105 pcbnew/dialogs/dialog_find_base.tsx:84
+msgid "Search for"
+msgstr "ძებნა"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:428
+msgid "Search packages..."
+msgstr "პაკეტების ძებნა..."
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:353
+msgid "Secondary axis numbering"
+msgstr "მეორეული ღერძის ნუმერაცია"
+
+#: designer/src/auth/auth_progress.tsx:28
+msgid "Securing your password on this device"
+msgstr "თქვენი პაროლი ამ მოწყობილობაზე იცავება"
+
+#: designer/src/home/HomePage.tsx:2418
+msgid "Select Files..."
+msgstr "ფაილების არჩევა..."
+
+#: designer/src/home/menubar.ts:138
+msgid "Select Project Files..."
+msgstr "პროექტის ფაილების არჩევა..."
+
+#: designer/src/auth/DeleteAccountDialog.tsx:191
+msgid "Select a reason"
+msgstr "აირჩიეთ მიზეზი"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:391
+msgid "Select a template to see what it contains."
+msgstr "აირჩიეთ შაბლონი, რომ ნახოთ, რას შეიცავს."
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1330
+msgid "Select body style"
+msgstr "კორპუსის სტილის არჩევა"
+
+#: eeschema/dialogs/dialog_field_properties_base.tsx:154
+msgid "Select footprint"
+msgstr "ნაკვალევის არჩევა"
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1351
+msgid "Select unit to edit"
+msgstr "ჩასასწორებელი ერთეულის არჩევა"
+
+#: eeschema/sch_edit_frame.ts:1227
+msgid "Select variant name to remove:                "
+msgstr "აირჩიეთ წასაშლელი ვარიანტის სახელი:                "
+
+#: eeschema/sch_edit_frame.ts:1189
+msgid "Select variant to edit description:                "
+msgstr "აირჩიეთ ვარიანტი აღწერის ჩასასწორებლად:                "
+
+#: common/dialogs/cross_probing_group.tsx:53
+msgid "Select/highlight objects corresponding to %s selection"
+msgstr "%s-ის არჩევანის შესაბამისი ობიექტების არჩევა/გამოკვეთა"
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:111
+msgid "Selected cells shown with the default system's coloring choice after a table refill."
+msgstr "არჩეული უჯრედები ცხრილის ხელახლა შევსების შემდეგ სისტემის ნაგულისხმევი ფერების არჩევანით ჩანს."
+
+#: designer/src/auth/SignIn.tsx:453
+msgid "Send reset link"
+msgstr "აღდგენის ბმულის გაგზავნა"
+
+#: eeschema/dialogs/dialog_table_properties_base.tsx:264 pcbnew/dialogs/dialog_table_properties_base.tsx:263
+msgid "Separators style"
+msgstr "გამყოფების სტილი"
+
+#: eeschema/dialogs/dialog_table_properties_base.tsx:246 pcbnew/dialogs/dialog_table_properties_base.tsx:245
+msgid "Separators width"
+msgstr "გამყოფების სიგანე"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:224
+msgid "Set active"
+msgstr "აქტიურად დაყენება"
+
+#: gerbview/widgets/layer_widget.tsx:130 3d-viewer/dialogs/appearance_controls_3d.tsx:125
+msgid "Set color for %s"
+msgstr "ფერის დაყენება: %s"
+
+#: pcbnew/widgets/appearance_controls.tsx:389
+msgid "Set color for net %s"
+msgstr "ქსელის %s ფერის დაყენება"
+
+#: pcbnew/widgets/appearance_controls.tsx:433
+msgid "Set color for the %s netclass"
+msgstr "ქსელის კლასის %s ფერის დაყენება"
+
+#: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
+msgid "Share this project"
+msgstr "ამ პროექტის გაზიარება"
+
+#: eeschema/sch_edit_frame_ui.tsx:3919
+msgid "Sheet file not in project: %s"
+msgstr "ფურცლის ფაილი პროექტში არ არის: %s"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
+msgid "Shift and Ctrl"
+msgstr "Shift და Ctrl"
+
+#: 3d-viewer/viewer3d_appearance.ts:178
+msgid "Show 3D navigator"
+msgstr "3D ნავიგატორის ჩვენება"
+
+#: 3d-viewer/viewer3d_appearance.ts:131
+msgid "Show user defined layer %s"
+msgstr "მომხმარებლის მიერ განსაზღვრული ფენის ჩვენება: %s"
+
+#: designer/src/auth/SignIn.tsx:303 designer/src/auth/SignIn.tsx:413 designer/src/auth/SignIn.tsx:585
+msgid "Sign in"
+msgstr "შესვლა"
+
+#: designer/src/auth/SignIn.tsx:328
+msgid "Sign in to ZiroEDA"
+msgstr "ZiroEDA-ში შესვლა"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:368
+msgid "Significant digits (currents)"
+msgstr "მნიშვნელოვანი ციფრები (დენები)"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:346
+msgid "Significant digits (voltages)"
+msgstr "მნიშვნელოვანი ციფრები (ძაბვები)"
+
+#: designer/src/auth/SignIn.tsx:585
+msgid "Signing in..."
+msgstr "შესვლა მიმდინარეობს..."
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
+msgid "Smoothing amount"
+msgstr "გადამრგვალების ოდენობა"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:257 pcbnew/dialogs/panel_zone_properties_base.tsx:256
+msgid "Smoothing effort"
+msgstr "გადამრგვალების ძალისხმევა"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:207
+msgid "Snap to graphics"
+msgstr "გრაფიკაზე მიბმა"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:179
+msgid "Snap to pads"
+msgstr "ბალიშებზე მიბმა"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:193
+msgid "Snap to tracks and vias"
+msgstr "ბილიკებსა და გამტარ ნახვრეტებზე მიბმა"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:373 pcbnew/dialogs/dialog_track_via_properties_base.tsx:467
+msgid "Solder mask expansion"
+msgstr "სარჩილავი ნიღბის გაფართოება"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:398
+msgid "Solder paste clearance"
+msgstr "სარჩილავი პასტის ღრეჩო"
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:180
+msgid "Solutions are given in the following formats:"
+msgstr "ამონახსნები მოცემულია შემდეგ ფორმატებში:"
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:171
+msgid "Solutions using up to 4 components are given."
+msgstr "მოცემულია ამონახსნები არაუმეტეს 4 კომპონენტით."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:846
+msgid "Solve for this parameter"
+msgstr "ამ პარამეტრისთვის ამოხსნა"
+
+#: eeschema/sch_edit_frame_ui.tsx:3775
+msgid "Some sheets failed to load: %s"
+msgstr "ზოგი ფურცელი ვერ ჩაიტვირთა: %s"
+
+#: designer/src/auth/SignIn.tsx:326
+msgid "Sorry"
+msgstr "უკაცრავად"
+
+#: common/widgets/lib_tree.tsx:1110
+msgid "Sort and expand options"
+msgstr "დახარისხებისა და გაშლის პარამეტრები"
+
+#: pcbnew/dialogs/dialog_multichannel_generate_rule_areas_base.tsx:46
+msgid "Sources"
+msgstr "წყაროები"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
+msgid "Start layer"
+msgstr "საწყისი ფენა"
+
+#: eeschema/dialogs/dialog_increment_annotations_base.tsx:80
+msgid "Start reference designator"
+msgstr "საწყისი აღნიშვნა"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:322
+msgid "Step for rotate commands"
+msgstr "შებრუნების ბრძანებების ბიჯი"
+
+#: common/eda_base_frame_help_menu.ts:163
+msgid "Support Chat"
+msgstr "მხარდაჭერის ჩატი"
+
+#: pcbnew/dialogs/dialog_swap_layers_base.tsx:37
+msgid "Swap layers"
+msgstr "ფენების გაცვლა"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:233
+msgid "Symbol filter"
+msgstr "სიმბოლოების ფილტრი"
+
+#: eeschema/dialogs/dialog_edit_symbols_libid.tsx:526
+msgid "Symbol library references"
+msgstr "სიმბოლოების ბიბლიოთეკის მითითებები"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:241
+msgid "Symbol type"
+msgstr "სიმბოლოს ტიპი"
+
+#: eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:105
+msgid "Symbol unit notation"
+msgstr "სიმბოლოს ერთეულის აღნიშვნა"
+
+#: designer/src/home/HomePage.tsx:2760
+msgid "Syncing cloud projects..."
+msgstr "ღრუბლოვანი პროექტები სინქრონდება..."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:596
+msgid "Synthesis is not available for rectangular waveguides."
+msgstr "სინთეზი მართკუთხა ტალღგამტარებისთვის ხელმისაწვდომი არ არის."
+
+#: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
+msgid "Target areas"
+msgstr "სამიზნე არეალები"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:182
+msgid "Target impedance"
+msgstr "სამიზნე წინაღობა"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:265
+msgid "Temperature rise (ΔT):"
+msgstr "ტემპერატურის მატება (ΔT):"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:288 eeschema/dialogs/dialog_label_properties_base.tsx:369 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:227 eeschema/dialogs/dialog_tablecell_properties_base.tsx:306 eeschema/dialogs/dialog_text_properties_base.tsx:282 pagelayout_editor/dialogs/properties_frame_ui.tsx:381
+msgid "Text color"
+msgstr "ტექსტის ფერი"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
+msgid "Text frame"
+msgstr "ტექსტის ჩარჩო"
+
+#: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
+msgid "Text size"
+msgstr "ტექსტის ზომა"
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:99
+msgid "The anode of an electrochemical pair gets oxidized and eaten away, while the cathode gets dissolved metals plated onto it but stays protected."
+msgstr "ელექტროქიმიური წყვილის ანოდი იჟანგება და ჭამდება, კათოდზე კი გახსნილი ლითონები ილექება, თუმცა ის დაცული რჩება."
+
+#: designer/src/auth/delete_account_form.ts:19
+msgid "The app or a certain feature does not behave as I think it should"
+msgstr "აპლიკაცია ან რომელიმე ფუნქცია ისე არ მუშაობს, როგორც ვფიქრობ, უნდა მუშაობდეს"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:312
+msgid "The calculations are valid for currents up to 35 A (external) or 17.5 A (internal), temperature rises up to 100 °C, and widths of up to 400 mils (10 mm)."
+msgstr "გამოთვლები მოქმედებს დენებისთვის 35 A-მდე (გარე) ან 17,5 A-მდე (შიდა), ტემპერატურის მატებისთვის 100 °C-მდე და სიგანეებისთვის 400 მილამდე (10 მმ)."
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:243
+msgid "The calculator estimates the energy required to heat the wire up"
+msgstr "კალკულატორი ადგენს მავთულის გასათბობად საჭირო ენერგიას"
+
+#: designer/src/home/HomePage.tsx:2687
+msgid "The cloud copies of %s projects cannot be opened with your key."
+msgstr "%s პროექტის ღრუბლოვანი ასლების გახსნა თქვენი გასაღებით შეუძლებელია."
+
+#: designer/src/home/HomePage.tsx:2683
+msgid "The cloud copy of \"%s\" cannot be opened with your key."
+msgstr "„%s“-ის ღრუბლოვანი ასლის გახსნა თქვენი გასაღებით შეუძლებელია."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:310
+msgid "The controlling value is shown in bold."
+msgstr "განმსაზღვრელი მნიშვნელობა მუქადაა ნაჩვენები."
+
+#: designer/src/ui/ErrorBoundary.tsx:86
+msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
+msgstr "ჩამოტვირთვა ვერ მოხერხდა. დააკოპირეთ ქვემოთ მოცემული შეცდომა და შეგვატყობინეთ, გთხოვთ, ნუ გადატვირთავთ, თქვენი სამუშაო ამ ჩანართიდან ჯერ კიდევ აღდგენადია."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:316
+msgid "The formula, from IPC 2221, is"
+msgstr "IPC 2221-ის ფორმულაა"
+
+#: common/filename_resolver.ts:369
+msgid ""
+"The given path does not exist\n"
+"%s"
+msgstr ""
+"მითითებული გზა არ არსებობს\n"
+"%s"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:485
+msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
+msgstr "IEC60664-1-ის მიზანია მითითებების მიცემა იმ პროდუქტების იზოლაციის დაპროექტებისთვის, რომლებიც ქსელის კვებას უერთდება."
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
+msgid "The requested value is always excluded from the solution set."
+msgstr "მოთხოვნილი მნიშვნელობა ამონახსნთა სიმრავლიდან ყოველთვის გამორიცხულია."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:581 eeschema/dialogs/dialog_symbol_properties_base.tsx:378
+msgid "The simulator is not available in this build"
+msgstr "სიმულატორი ამ აგებაში ხელმისაწვდომი არ არის"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:356
+msgid "The text height must be between %s."
+msgstr "ტექსტის სიმაღლე უნდა იყოს %s შორის."
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
+msgid "The text width must be between %s."
+msgstr "ტექსტის სიგანე უნდა იყოს %s შორის."
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
+msgid "The value 0 is a special case and is not present in any series."
+msgstr "მნიშვნელობა 0 განსაკუთრებული შემთხვევაა და არც ერთ სერიაში არ არის."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:55
+msgid "Theme preview"
+msgstr "თემის გადახედვა"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:150
+msgid "Thermal relief gap"
+msgstr "თერმული განტვირთვის დაშორება"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:159
+msgid "Thermal spoke width"
+msgstr "თერმული განტვირთვის სხივის სიგანე"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:65
+msgid ""
+"This board references 3D models that are no longer present on your system.\n"
+"Select replacements below, or keep the existing references."
+msgstr ""
+"ეს დაფა მიუთითებს 3D მოდელებზე, რომლებიც თქვენს სისტემაში აღარ არის.\n"
+"ქვემოთ აირჩიეთ ჩანაცვლებები ან დატოვეთ არსებული მითითებები."
+
+#: gerbview/gerbview_frame_ui.tsx:911 pagelayout_editor/pl_editor_frame_ui.tsx:878
+msgid "This browser cannot create a WebGL 2 context."
+msgstr "ამ ბრაუზერს WebGL 2 კონტექსტის შექმნა არ შეუძლია."
+
+#: designer/src/ui/StorageBanner.tsx:42
+msgid "This browser has no local storage, edits are not being saved."
+msgstr "ამ ბრაუზერს ლოკალური საცავი არ აქვს, ცვლილებები არ ინახება."
+
+#: designer/src/ui/StorageBanner.tsx:35
+msgid "This browser is blocking site storage, edits are not being saved."
+msgstr "ეს ბრაუზერი საიტის საცავს ბლოკავს, ცვლილებები არ ინახება."
+
+#: common/launch_ext.tsx:245
+msgid "This browser will not open a folder, so themes are saved and loaded as files."
+msgstr "ეს ბრაუზერი საქაღალდეს არ გახსნის, ამიტომ თემები ფაილების სახით ინახება და იტვირთება."
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:166
+msgid "This calculator finds combinations of standard E-series (between 10Ω and 1MΩ) to create arbitrary values."
+msgstr "ეს კალკულატორი პოულობს სტანდარტული E სერიების მნიშვნელობების კომბინაციებს (10 Ω-დან 1 MΩ-მდე) თვითნებური მნიშვნელობების მისაღებად."
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:247
+msgid "This energy is then compared to the one dissipated by the wire resistance."
+msgstr "შემდეგ ეს ენერგია მავთულის წინაღობაზე გაბნეულ ენერგიას შეედარება."
+
+#: designer/src/fs/FileChooser.tsx:602
+msgid "This location cannot be saved to."
+msgstr "ამ მდებარეობაზე შენახვა შეუძლებელია."
+
+#: designer/src/home/ShareButton.tsx:218
+msgid "This project has not reached the cloud yet, so there is nothing to share. Let it sync, then share it."
+msgstr "ეს პროექტი ღრუბელში ჯერ არ მოხვედრილა, ამიტომ გასაზიარებელი არაფერია. დაელოდეთ სინქრონიზაციას და შემდეგ გააზიარეთ."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:397
+msgid "This repository has no %s."
+msgstr "ამ საცავს არ აქვს: %s."
+
+#: designer/src/home/HomePage.tsx:2638
+msgid "This repository holds several KiCad projects. Open which one?"
+msgstr "ამ საცავში რამდენიმე KiCad-ის პროექტია. რომელი გაიხსნას?"
+
+#: common/widgets/paged_dialog.tsx:252
+msgid "This setup page is not implemented yet."
+msgstr "პარამეტრების ეს გვერდი ჯერ რეალიზებული არ არის."
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:95
+msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
+msgstr "ეს ცხრილი აჩვენებს ელექტროქიმიური პოტენციალის სხვაობას სხვადასხვა ლითონსა და შენადნობს შორის. გალვანური კოროზია გარკვეულ პირობებში კონტაქტში მყოფ სხვადასხვა ლითონზე მოქმედებს."
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
+msgid "This tool allows you to design a track fuse but should be used as an estimate only."
+msgstr "ეს ხელსაწყო ბილიკის დამცავის დაპროექტების საშუალებას გაძლევთ, მაგრამ მხოლოდ შეფასებისთვის უნდა გამოიყენოთ."
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
+msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
+msgstr "მნიშვნელობის ასარჩევად დაიწყეთ გამოთვლილი სამიზნე მნიშვნელობიდან და დაამრგვალეთ E24 ან დაბალი სერიისთვის 2 მნიშვნელოვან ციფრამდე, E48 და მაღლისთვის — 3 მნიშვნელოვან ციფრამდე. შემდეგ ცხრილში იპოვეთ დარჩენილ მნიშვნელოვან ციფრებთან უახლოესი მნიშვნელობა და ჩაანაცვლეთ ისინი მით."
+
+#: common/dialogs/panel_toolbar_customization.tsx:419
+msgid "Toolbar items"
+msgstr "ხელსაწყოთა პანელის ელემენტები"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:739
+msgid "Top backdrill must-cut"
+msgstr "ზედა უკუბურღვის სავალდებულო ჭრა"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:717
+msgid "Top backdrill size"
+msgstr "ზედა უკუბურღვის ზომა"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:327
+msgid "Top margin"
+msgstr "ზედა ველი"
+
+#: pcbnew/dialogs/dialog_track_via_size_base.tsx:63
+msgid "Track Width and Via Size"
+msgstr "ბილიკის სიგანე და გამტარი ნახვრეტის ზომა"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:427
+msgid "Track layer"
+msgstr "ბილიკის ფენა"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:364
+msgid "Track mouse-drag mode"
+msgstr "ბილიკის მაუსით გადათრევის რეჟიმი"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:648
+msgid "Track propagation"
+msgstr "ბილიკების გავრცელება"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:601
+msgid "Track width correction"
+msgstr "ბილიკის სიგანის კორექცია"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1185
+msgid "Track width limit"
+msgstr "ბილიკის სიგანის ზღვარი"
+
+#: pcbnew/dialogs/dialog_track_via_properties.tsx:995
+msgid "Track width must be at least %s."
+msgstr "ბილიკის სიგანე მინიმუმ %s უნდა იყოს."
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7072
+msgid "Track: %s mm (%s mils)"
+msgstr "ბილიკი: %s მმ (%s მილი)"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:633
+msgid "Trapezoid axis"
+msgstr "ტრაპეციის ღერძი"
+
+#: designer/src/auth/DeleteAccountDialog.tsx:253
+msgid "Try again"
+msgstr "თავიდან ცდა"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles_base.tsx:37
+msgid "Tuning profiles"
+msgstr "მორგების პროფილები"
+
+#: eeschema/erc/erc_settings.ts:327
+msgid "Two symbol pins are mapped to the same footprint pad"
+msgstr "სიმბოლოს ორი კონტაქტი ერთსა და იმავე ნაკვალევის ბალიშზეა გადატანილი"
+
+#: common/widgets/search_pane_tab.tsx:101
+msgid "Type to search"
+msgstr "საძიებლად აკრიფეთ"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
+msgid "Unit display names"
+msgstr "ერთეულების საჩვენებელი სახელები"
+
+#: eeschema/dialogs/dialog_lib_edit_pin_table_base.tsx:216
+msgid "Unit filter"
+msgstr "ერთეულების ფილტრი"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:288
+msgid "Units format"
+msgstr "ერთეულების ფორმატი"
+
+#: designer/src/auth/auth_progress.tsx:38
+msgid "Unlocking your encrypted projects"
+msgstr "თქვენი დაშიფრული პროექტები იღება"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:229
+msgid "Unpin (allow updates)"
+msgstr "მიმაგრების მოხსნა (განახლებების დაშვება)"
+
+#: common/dialogs/git/panel_git_repos.tsx:68
+msgid "Update interval"
+msgstr "განახლების ინტერვალი"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:263
+msgid "Update:"
+msgstr "განახლება:"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names.tsx:317
+msgid "User layer names"
+msgstr "მომხმარებლის ფენების სახელები"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:53
+msgid "User layers"
+msgstr "მომხმარებლის ფენები"
+
+#: designer/src/ui/StorageBanner.tsx:26
+msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
+msgstr "გამოყენებულია %s %s-დან. ჩამოტვირთეთ პროექტი, შემდეგ კი მთავარი ეკრანიდან წაშალეთ ძველი პროექტები ადგილის გასათავისუფლებლად."
+
+#: pcbnew/widgets/vertex_editor_pane.tsx:307
+msgid "Vertex Editor"
+msgstr "წვეროების რედაქტორი"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:124
+msgid "Vertical %s"
+msgstr "ვერტიკალური %s"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:675
+msgid "Via delay overrides"
+msgstr "გამტარი ნახვრეტების დაყოვნების გადაფარვები"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:576
+msgid "Via hole"
+msgstr "გამტარი ნახვრეტის ხვრელი"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7080
+msgid "Via size"
+msgstr "გამტარი ნახვრეტის ზომა"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:604
+msgid "Via type"
+msgstr "გამტარი ნახვრეტის ტიპი"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7089
+msgid "Via: %s / %s mm (%s / %s mils)"
+msgstr "გამტარი ნახვრეტი: %s / %s მმ (%s / %s მილი)"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7096
+msgid "Via: %s mm (%s mils)"
+msgstr "გამტარი ნახვრეტი: %s მმ (%s მილი)"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:165
+msgid "View presets"
+msgstr "ხედის წინასწარი პარამეტრები"
+
+#: designer/src/ui/PresencePanel.tsx:65
+msgid "Viewer"
+msgstr "მნახველი"
+
+#: 3d-viewer/dialogs/appearance_controls_3d.tsx:177
+msgid "Viewports (Shift+Tab):"
+msgstr "ხედის ფანჯრები (Shift+Tab):"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
+msgid "We don't store this key, so please save this in a safe place"
+msgstr "ამ გასაღებს არ ვინახავთ, ამიტომ შეინახეთ უსაფრთხო ადგილას"
+
+#: designer/src/auth/SignIn.tsx:335
+msgid "We sent a 6-digit code to"
+msgstr "6-ციფრიანი კოდი გავგზავნეთ მისამართზე"
+
+#: designer/src/auth/SignIn.tsx:441
+msgid "We will email you a link to set a new password. Your projects stay encrypted: to open them under the new password you will also need your recovery key."
+msgstr "ელფოსტით გამოგიგზავნით ბმულს ახალი პაროლის დასაყენებლად. თქვენი პროექტები დაშიფრული დარჩება: ახალი პაროლით მათ გასახსნელად აღდგენის გასაღებიც დაგჭირდებათ."
+
+#: designer/src/home/ShareButton.tsx:269
+msgid "What %s may do"
+msgstr "რისი უფლება აქვს: %s"
+
+#: designer/src/home/ShareButton.tsx:337
+msgid "What a link to this project is worth"
+msgstr "რას იძლევა ამ პროექტის ბმული"
+
+#: designer/src/home/ShareButton.tsx:244
+msgid "What the invited person may do"
+msgstr "რისი უფლება აქვს მოწვეულ ადამიანს"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:497
+msgid "When using a conformal coating or a potting in order to protect for pollution, if all conditions specified by IEC60664-3 are met, the clearance and creepage distances can be reduced. Soldermask is usually not considered as a conformal coating."
+msgstr "თუ დაბინძურებისგან დასაცავად კონფორმული საფარი ან ჩამოსხმა გამოიყენება და IEC60664-3-ის ყველა პირობა სრულდება, ჰაერისა და ზედაპირული გაჟონვის მანძილები შეიძლება შემცირდეს. სარჩილავი ნიღაბი ჩვეულებრივ კონფორმულ საფარად არ ითვლება."
+
+#: designer/src/ui/PresencePanel.tsx:97
+msgid "Who's here"
+msgstr "ვინ არის აქ"
+
+#: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
+msgid "Wire/bus width"
+msgstr "მავთულის/სალტის სიგანე"
+
+#: designer/src/home/ShareButton.tsx:321 designer/src/home/ShareButton.tsx:322
+msgid "Withdraw the invitation to %s"
+msgstr "მოწვევის გაუქმება: %s"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:211
+msgid "X position"
+msgstr "X პოზიცია"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:572
+msgid "X scale factor"
+msgstr "X მასშტაბის კოეფიციენტი"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:224
+msgid "Y position"
+msgstr "Y პოზიცია"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:585
+msgid "Y scale factor"
+msgstr "Y მასშტაბის კოეფიციენტი"
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
+msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
+msgstr "საჭირო წინაღობა შეგიძლიათ შეიყვანოთ 0,0025-დან 4000 kΩ-მდე."
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:234
+msgid "You can use this calculator to check if a small track can handle a large current for a short period of time."
+msgstr "ამ კალკულატორით შეგიძლიათ შეამოწმოთ, გაუძლებს თუ არა ვიწრო ბილიკი დიდ დენს მცირე ხნით."
+
+#: eeschema/sch_edit_frame_ui.tsx:5983
+msgid "You have view-only access to this project. Ask the owner for edit access to make changes."
+msgstr "ამ პროექტზე მხოლოდ ნახვის წვდომა გაქვთ. ცვლილებებისთვის სთხოვეთ მფლობელს ჩასწორების წვდომა."
+
+#: designer/src/ui/StorageBanner.tsx:24
+msgid "Your browser's storage is full, edits are no longer being saved."
+msgstr "თქვენი ბრაუზერის საცავი სავსეა, ცვლილებები აღარ ინახება."
+
+#: designer/src/auth/SignIn.tsx:399
+msgid "Your password encrypts your projects. We cannot reset it or read your designs without it."
+msgstr "თქვენი პაროლი თქვენს პროექტებს შიფრავს. ჩვენ მას ვერ გადავაყენებთ და მის გარეშე თქვენს დიზაინებს ვერ წავიკითხავთ."
+
+#: designer/src/ui/ErrorBoundary.tsx:68
+msgid "Your project is still in memory. Download it before reloading, reloading will discard anything that hasn't been saved."
+msgstr "თქვენი პროექტი ჯერ კიდევ მეხსიერებაშია. გადატვირთვამდე ჩამოტვირთეთ, რადგან გადატვირთვა შეუნახავ ყველაფერს გააუქმებს."
+
+#: designer/src/auth/SignIn.tsx:300
+msgid "Your recovery key"
+msgstr "თქვენი აღდგენის გასაღები"
+
+#: designer/src/ui/ErrorBoundary.tsx:63
+msgid "ZiroEDA hit an unexpected error"
+msgstr "ZiroEDA-ს მოულოდნელი შეცდომა შეექმნა"
+
+#: designer/src/mobile/DesktopGate.tsx:51
+msgid "ZiroEDA is a full EDA suite, schematic capture, PCB layout and 3D preview. It's built for a mouse, a keyboard and room to work, so there's no phone version yet."
+msgstr "ZiroEDA სრული EDA კომპლექსია: სქემის შედგენა, PCB-ის განლაგება და 3D გადახედვა. ის მაუსის, კლავიატურისა და სამუშაო სივრცისთვისაა შექმნილი, ამიტომ ტელეფონის ვერსია ჯერ არ არსებობს."
+
+#: designer/src/mobile/DesktopGate.tsx:48
+msgid "ZiroEDA needs a bigger screen"
+msgstr "ZiroEDA-ს უფრო დიდი ეკრანი სჭირდება"
+
+#: designer/src/support/ChatWidget.tsx:288
+msgid "ZiroEDA support chat"
+msgstr "ZiroEDA-ს მხარდაჭერის ჩატი"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
+msgid "Zone knockout"
+msgstr "ზონის ამოჭრა"
+
+#: pcbnew/zone_layer_properties_grid.tsx:220
+msgid "Zone layer properties"
+msgstr "ზონის ფენის თვისებები"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:350
+msgid "Zone name"
+msgstr "ზონის სახელი"
+
+#: pcbnew/zone_manager/dialog_zone_manager.tsx:850
+msgid "Zone previews"
+msgstr "ზონების გადახედვები"
+
+#: common/dialogs/panel_mouse_settings.tsx:215
+msgid "Zoom speed"
+msgstr "გადიდების სიჩქარე"
+
+#: designer/src/auth/SignIn.tsx:581
+msgid "below to set your password again. No recovery key is needed."
+msgstr "ქვემოთ პაროლის თავიდან დასაყენებლად. აღდგენის გასაღები საჭირო არ არის."
+
+#: designer/src/home/ShareButton.tsx:60
+msgid "can edit"
+msgstr "შეუძლია ჩასწორება"
+
+#: designer/src/home/ShareButton.tsx:59
+msgid "can view"
+msgstr "შეუძლია ნახვა"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
+msgid "dashed: creepage"
+msgstr "წყვეტილი: ზედაპირული გაჟონვის მანძილი"
+
+#: designer/src/home/HomePage.tsx:2736
+msgid "did not sync:"
+msgstr "არ დასინქრონდა:"
+
+#: designer/src/auth/SignIn.tsx:434
+msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
+msgstr "ანგარიში აქვს, აღდგენის ბმული გზაშია. გახსენით ის ამ მოწყობილობაზე ახალი პაროლის ასარჩევად."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:353
+msgid "is 0.024 for internal tracks or 0.048 for external tracks"
+msgstr "არის 0,024 შიდა ბილიკებისთვის ან 0,048 გარე ბილიკებისთვის"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:61 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:144
+msgid "is attenuation in dB"
+msgstr "არის შესუსტება დბ-ში"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:67 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:150 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:190
+msgid "is desired input impedance in Ω"
+msgstr "არის სასურველი შესასვლელი წინაღობა Ω-ში"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:73 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:156 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:196
+msgid "is desired output impedance in Ω"
+msgstr "არის სასურველი გამოსასვლელი წინაღობა Ω-ში"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:333
+msgid "is maximum current in A"
+msgstr "არის მაქსიმალური დენი A-ში"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:338
+msgid "is temperature rise above ambient in °C"
+msgstr "არის ტემპერატურის მატება გარემოზე მაღლა °C-ში"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:348
+msgid "is thickness (height) in mils"
+msgstr "არის სისქე (სიმაღლე) მილებში"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:343
+msgid "is width in mils"
+msgstr "არის სიგანე მილებში"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
+msgid "solid: clearance"
+msgstr "უწყვეტი: ღრეჩო"
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
+msgid "to its melting point as well as the energy required for the change of phase."
+msgstr "მისი დნობის წერტილამდე, აგრეთვე ფაზური გარდაქმნისთვის საჭირო ენერგიას."
+
+#: designer/src/editors/calculator/panels/transline_ident.ts:263
+msgid "μr (conductor)"
+msgstr "μr (გამტარი)"
+
+#: designer/src/editors/calculator/panels/transline_ident.ts:256
+msgid "μr (substrate)"
+msgstr "μr (ფუძე)"
+
+#: designer/src/home/HomePage.tsx:2659
+msgid "✓ Joined a shared project — you can edit it"
+msgstr "✓ შეუერთდით გაზიარებულ პროექტს — შეგიძლიათ მისი ჩასწორება"
+
+#: designer/src/home/HomePage.tsx:2658
+msgid "✓ Joined a shared project — you can view it, but not save changes to it"
+msgstr "✓ შეუერთდით გაზიარებულ პროექტს — შეგიძლიათ მისი ნახვა, მაგრამ ცვლილებების შენახვა არა"
+
+#: designer/src/home/HomePage.tsx:2726
+msgid "✓ Projects synced"
+msgstr "✓ პროექტები დასინქრონდა"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:232
+msgid "📌 Pinned"
+msgstr "📌 მიმაგრებულია"

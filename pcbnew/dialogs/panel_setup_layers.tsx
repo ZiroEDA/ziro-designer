@@ -384,7 +384,7 @@ export function PanelPcbLayers({ value, onChange }: Props): JSX.Element {
                   checked={l.enabled}
                   disabled={mandatory}
                   title={cbTip}
-                  ariaLabel={`Enable ${l.name}`}
+                  ariaLabel={wxFormat(wxGetTranslation('Enable %s'), l.name)}
                   onChange={(aOn) => setAt(i, { enabled: aOn })}
                 />
               </SizerItem>
@@ -397,7 +397,7 @@ export function PanelPcbLayers({ value, onChange }: Props): JSX.Element {
                   id={layerNameInputId(l.id)}
                   // Only the copper and user-defined name fields carry it.
                   title={copper || user ? wxGetTranslation('Layer Name') : undefined}
-                  ariaLabel={`${l.id} name`}
+                  ariaLabel={wxFormat(wxGetTranslation('%s name'), l.id)}
                   value={l.name}
                   onChange={(aText) => setAt(i, { name: aText })}
                 />
@@ -415,7 +415,7 @@ export function PanelPcbLayers({ value, onChange }: Props): JSX.Element {
                         setAt(i, { copperType: COPPER_TYPES[aIndex]![0] as CopperLayerType }),
                     }}
                     title={COPPER_TYPE_TIP}
-                    ariaLabel={`${l.name} layer type`}
+                    ariaLabel={wxFormat(wxGetTranslation('%s layer type'), l.name)}
                   />
                 </SizerItem>
               ) : user ? (
@@ -431,7 +431,7 @@ export function PanelPcbLayers({ value, onChange }: Props): JSX.Element {
                         setAt(i, { userType: USER_TYPES[aIndex]![0] as UserLayerType }),
                     }}
                     title={USER_TYPE_TIP}
-                    ariaLabel={`${l.name} layer type`}
+                    ariaLabel={wxFormat(wxGetTranslation('%s layer type'), l.name)}
                   />
                 </SizerItem>
               ) : (

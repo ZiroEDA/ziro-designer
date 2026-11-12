@@ -52,6 +52,7 @@ import {
 import { SpinCtrl } from '@ziroeda/wx/spin_ctrl.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** A UNIT_BINDER: its label's text, the entry, the units label, Enable() and Show(). */
 export interface UNIT {
@@ -370,7 +371,7 @@ function PostMachining({
         <Choice
           choices={[_('None'), _('Countersink'), _('Counterbore')]}
           choice={choice}
-          ariaLabel={`${side.replace(':', '')} post machining`}
+          ariaLabel={wxFormat(_('%s post machining'), side.replace(':', ''))}
         />
       </SizerItem>
       <SizerItem pos={[1, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -482,7 +483,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                     _('SMD Aperture'),
                   ]}
                   choice={p.m_padType}
-                  ariaLabel="Pad type"
+                  ariaLabel={_('Pad type')}
                 />
               </SizerItem>
               <SizerItem pos={[1, 0]} flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
@@ -498,7 +499,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                   value={p.m_padNumCtrl.value}
                   onChange={p.m_padNumCtrl.onChange}
                   disabled={p.m_padNumCtrl.enabled === false}
-                  ariaLabel="Pad number"
+                  ariaLabel={_('Pad number')}
                 />
               </SizerItem>
               <SizerItem
@@ -524,7 +525,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                   netcode={p.m_padNetSelector.netcode}
                   onChange={p.m_padNetSelector.onChange}
                   disabled={p.m_padNetSelector.enabled === false}
-                  ariaLabel="Net name"
+                  ariaLabel={_('Net name')}
                 />
               </SizerItem>
               <SizerItem pos={[3, 0]} flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
@@ -560,7 +561,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                 <Choice
                   choices={[_('Normal'), _('Front/Inner/Back'), _('Custom')]}
                   choice={p.m_cbPadstackMode}
-                  ariaLabel="Padstack mode"
+                  ariaLabel={_('Padstack mode')}
                 />
               </SizerItem>
               <Spacer proportion={1} flag={wxEXPAND} border={5} />
@@ -571,7 +572,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                 <Choice
                   choices={p.m_cbEditLayer.choices}
                   choice={p.m_cbEditLayer}
-                  ariaLabel="Edit layer"
+                  ariaLabel={_('Edit layer')}
                 />
               </SizerItem>
             </BoxSizer>
@@ -629,7 +630,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                         <Choice
                           choices={[_('Horizontal'), _('Vertical')]}
                           choice={p.m_trapAxisCtrl}
-                          ariaLabel="Trapezoid axis"
+                          ariaLabel={_('Trapezoid axis')}
                         />
                       </SizerItem>
                     </FlexGridSizer>,
@@ -874,7 +875,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                 <Choice
                   choices={[_('Round'), _('Oblong')]}
                   choice={p.m_holeShapeCtrl}
-                  ariaLabel="Hole shape"
+                  ariaLabel={_('Hole shape')}
                 />
               </SizerItem>
               <SizerItem pos={[1, 0]} flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
@@ -941,7 +942,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                 <TextCtrl
                   value={p.m_padToDie.value}
                   onChange={p.m_padToDie.onChange}
-                  ariaLabel="Pad to die length"
+                  ariaLabel={_('Pad to die length')}
                 />
               </SizerItem>
               <SizerItem
@@ -974,7 +975,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                 <TextCtrl
                   value={p.m_padToDieDelay.value}
                   onChange={p.m_padToDieDelay.onChange}
-                  ariaLabel="Pad to die delay"
+                  ariaLabel={_('Pad to die delay')}
                 />
               </SizerItem>
               <SizerItem flag={wxALL} border={5} shown={shown(p.m_padToDieDelay)}>
@@ -1084,7 +1085,7 @@ function GeneralPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                 _('Press-fit (round TH only)'),
               ]}
               choice={p.m_choiceFabProperty}
-              ariaLabel="Fabrication property"
+              ariaLabel={_('Fabrication property')}
             />
           </SizerItem>
         </BoxSizer>
@@ -1181,7 +1182,7 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                               min={0}
                               max={100}
                               enabled={td}
-                              ariaLabel="Track width limit"
+                              ariaLabel={_('Track width limit')}
                               title={_(
                                 'Tracks which are similar in size to the pad do not need teardrops.',
                               )}
@@ -1244,7 +1245,7 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                               min={20}
                               max={200}
                               enabled={td}
-                              ariaLabel="Best length"
+                              ariaLabel={_('Best length')}
                             />
                           </SizerItem>
                           <SizerItem
@@ -1286,7 +1287,7 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                               min={60}
                               max={100}
                               enabled={td}
-                              ariaLabel="Best width"
+                              ariaLabel={_('Best width')}
                             />
                           </SizerItem>
                           <SizerItem
@@ -1349,7 +1350,7 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                             _('None'),
                           ]}
                           choice={p.m_ZoneConnectionChoice}
-                          ariaLabel="Pad connection"
+                          ariaLabel={_('Pad connection')}
                         />
                       </SizerItem>
                       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
@@ -1363,7 +1364,7 @@ function ConnectionsPage(p: DIALOG_PAD_PROPERTIES_BASE_PROPS): JSX.Element {
                         <Choice
                           choices={[_('Pad shape'), _('Pad convex hull')]}
                           choice={p.m_ZoneCustomPadShape}
-                          ariaLabel="Zone knockout"
+                          ariaLabel={_('Zone knockout')}
                         />
                       </SizerItem>
                     </FlexGridSizer>

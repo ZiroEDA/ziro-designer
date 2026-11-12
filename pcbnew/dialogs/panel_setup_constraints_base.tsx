@@ -392,7 +392,7 @@ export function PANEL_SETUP_CONSTRAINTS_BASE(p: PANEL_SETUP_CONSTRAINTS_BASE_PRO
                             id={p.m_maxError.id}
                             value={p.m_maxError.value}
                             onChange={p.m_maxError.onChange}
-                            ariaLabel="Maximum allowed deviation"
+                            ariaLabel={_('Maximum allowed deviation')}
                             title={_(
                               'The maximum allowed deviation between a true arc or circle and segments used to approximate it.  Smaller values produce smoother graphics at the expense of performance.',
                             )}

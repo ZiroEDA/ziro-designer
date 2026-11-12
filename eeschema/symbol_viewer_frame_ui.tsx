@@ -77,6 +77,7 @@ import {
 } from './toolbars_symbol_viewer.js';
 import '@ziroeda/common/widgets/shell.css';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * What the window asks of the program. `eeschema` never imports `designer`; the designer's
@@ -550,7 +551,7 @@ export function SymbolViewerFrame({
           bodyStyleSelector: (
             <ChoiceControl
               choice={frame.m_bodyStyleChoice}
-              title="Body style"
+              title={_('Body style')}
               onSelect={() => frame.onSelectSymbolBodyStyle()}
             />
           ),
@@ -592,7 +593,7 @@ export function SymbolViewerFrame({
               ariaLabel="Libraries"
             />
           ) : (
-            app.LibraryLoadingPanel({ label: 'Loading symbol libraries...', fallback: null })
+            app.LibraryLoadingPanel({ label: _('Loading symbol libraries...'), fallback: null })
           )}
         </div>
         <DockSash

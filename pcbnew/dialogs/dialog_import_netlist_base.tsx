@@ -78,7 +78,7 @@ export function DIALOG_IMPORT_NETLIST_BASE(p: DIALOG_IMPORT_NETLIST_BASE_PROPS):
               <TextCtrl
                 value={p.m_NetlistFilenameCtrl.value}
                 onChange={p.m_NetlistFilenameCtrl.onChange}
-                ariaLabel="Netlist file"
+                ariaLabel={_('Netlist file')}
               />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={2}>

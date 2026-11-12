@@ -14,6 +14,7 @@
  */
 import { Button } from '@ziroeda/wx/controls.js';
 import { useState, type JSX } from 'react';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * Copy and Save Key, for whichever surface shows the key: the sign-up wall's page, or the account
@@ -68,16 +69,18 @@ export function RecoveryKeyContents({
       }}
     >
       <p className="ze-auth-note">
-        If you forget your password, the only way you can recover your data is with this key.
+        {_('If you forget your password, the only way you can recover your data is with this key.')}
       </p>
-      <div className="ze-auth-recovery-key" aria-label="Recovery key">
+      <div className="ze-auth-recovery-key" aria-label={_('Recovery key')}>
         {recoveryKey}
       </div>
-      <p className="ze-auth-note">We don't store this key, so please save this in a safe place</p>
+      <p className="ze-auth-note">
+        {_("We don't store this key, so please save this in a safe place")}
+      </p>
       <div className="ze-auth-recovery-actions">
-        <Button label={copied ? 'Copied' : 'Copy'} onClick={() => void copy()} />
-        <Button label="Do this later" onClick={onLater} />
-        <Button label="Save Key" isDefault className="ze-auth-submit" onClick={save} />
+        <Button label={copied ? _('Copied') : 'Copy'} onClick={() => void copy()} />
+        <Button label={_('Do this later')} onClick={onLater} />
+        <Button label={_('Save Key')} isDefault className="ze-auth-submit" onClick={save} />
       </div>
     </form>
   );

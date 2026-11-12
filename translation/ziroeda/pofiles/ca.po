@@ -1,0 +1,2996 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ZiroEDA\n"
+"Language: ca\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+#: common/launch_ext.tsx:290
+msgid " (read-only)"
+msgstr " (només de lectura)"
+
+#: designer/src/ui/PresencePanel.tsx:58
+msgid " (you)"
+msgstr " (tu)"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:294
+msgid " and ≤ %s"
+msgstr " i ≤ %s"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:296
+msgid " · %s KB"
+msgstr " · %s KB"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:298
+msgid " · incompatible with this version"
+msgstr " · incompatible amb aquesta versió"
+
+#: designer/src/home/HomePage.tsx:2692
+msgid "\"%s\" changed here and on another device."
+msgstr "\"%s\" ha canviat aquí i en un altre dispositiu."
+
+#: designer/src/home/HomePage.tsx:2620
+msgid "\"%s\" is not a link to a GitHub repository."
+msgstr "\"%s\" no és un enllaç a un repositori de GitHub."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:163
+msgid "\"%s\" set as the active schematic colour theme"
+msgstr "\"%s\" establert com a tema de color actiu de l'esquemàtic"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:842
+msgid ""
+"%s\n"
+"%s\n"
+" \n"
+"Reannotate anyway?"
+msgstr ""
+"%s\n"
+"%s\n"
+" \n"
+"Vols tornar a anotar igualment?"
+
+#: common/widgets/widget_hotkey_list.tsx:243
+msgid "%s belongs to the browser and cannot be intercepted by a page. It reaches ZiroEDA only in fullscreen."
+msgstr "%s pertany al navegador i una pàgina no el pot interceptar. Només arriba a ZiroEDA en pantalla completa."
+
+#: eeschema/dialogs/dialog_table_properties_base.tsx:123 pcbnew/board_stackup_manager/panel_board_stackup.tsx:913
+msgid "%s color"
+msgstr "Color de %s"
+
+#: pcbnew/dialogs/panel_setup_tuning_patterns_base.tsx:159
+msgid "%s corner style"
+msgstr "Estil de cantonada de %s"
+
+#: designer/src/editors/schematic/prefs/resets.ts:264
+msgid "%s field names contain trailing and/or leading white space."
+msgstr "Els noms de camp de %s contenen espais en blanc al principi o al final."
+
+#: common/launch_ext.tsx:208
+msgid "%s has no \"schematic\" or \"board\" section, so it is not a color theme."
+msgstr "%s no té cap secció \"schematic\" ni \"board\", de manera que no és un tema de color."
+
+#: common/launch_ext.tsx:201
+msgid "%s is not a JSON file."
+msgstr "%s no és un fitxer JSON."
+
+#: pcbnew/dialogs/panel_setup_layers.tsx:418 pcbnew/dialogs/panel_setup_layers.tsx:434
+msgid "%s layer type"
+msgstr "Tipus de capa de %s"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:850
+msgid "%s material"
+msgstr "Material de %s"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:603
+msgid "%s must be between the minimum and maximum text size."
+msgstr "%s ha d'estar entre la mida mínima i la màxima del text."
+
+#: pcbnew/dialogs/panel_setup_layers.tsx:400
+msgid "%s name"
+msgstr "Nom de %s"
+
+#: designer/src/home/HomePage.tsx:736
+msgid "%s names files that were not chosen: %s."
+msgstr "%s anomena fitxers que no s'han triat: %s."
+
+#: eeschema/sch_edit_frame_ui.tsx:5664
+msgid "%s other viewers"
+msgstr "%s espectadors més"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:374
+msgid "%s post machining"
+msgstr "Postmecanitzat de %s"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:240
+msgid "%s post-machining"
+msgstr "Postmecanitzat de %s"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:263
+msgid "%s post-machining %s"
+msgstr "Postmecanitzat de %s %s"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:250
+msgid "%s post-machining size"
+msgstr "Mida del postmecanitzat de %s"
+
+#: designer/src/home/HomePage.tsx:2696
+msgid "%s projects changed here and on another device."
+msgstr "%s projectes han canviat aquí i en un altre dispositiu."
+
+#: pcbnew/dialogs/panel_setup_tuning_patterns_base.tsx:169
+msgid "%s radius"
+msgstr "Radi de %s"
+
+#: designer/src/home/HomePage.tsx:756
+msgid "%s schematics cannot be imported yet, so only the board will be."
+msgstr "Els esquemàtics de %s encara no es poden importar, de manera que només s'importarà la placa."
+
+#: designer/src/home/HomePage.tsx:760
+msgid "%s schematics cannot be imported yet."
+msgstr "Els esquemàtics de %s encara no es poden importar."
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:365
+msgid "%s template information"
+msgstr "Informació de la plantilla de %s"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:875
+msgid "%s thickness"
+msgstr "Gruix de %s"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:888
+msgid "%s thickness locked"
+msgstr "Gruix de %s bloquejat"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:819
+msgid "%s type"
+msgstr "Tipus de %s"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:743
+msgid "%s unit"
+msgstr "Unitat de %s"
+
+#: gerbview/widgets/layer_widget.tsx:139
+msgid "%s visible"
+msgstr "%s visible"
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias_base.tsx:61
+msgid "%s: add"
+msgstr "%s: afegeix"
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias_base.tsx:78
+msgid "%s: remove"
+msgstr "%s: suprimeix"
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias_base.tsx:69
+msgid "%s: sort"
+msgstr "%s: ordena"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
+msgid "(no STEP files in the project)"
+msgstr "(cap fitxer STEP al projecte)"
+
+#: designer/src/home/menubar.ts:89
+msgid "(no demos bundled)"
+msgstr "(cap demostració inclosa)"
+
+#: eeschema/sch_edit_frame_ui.tsx:5731
+msgid ", click to dismiss"
+msgstr ", fes clic per descartar"
+
+#: designer/src/auth/SignIn.tsx:336
+msgid ". Please check your inbox (and spam) to complete verification."
+msgstr ". Revisa la safata d'entrada (i el correu brossa) per completar la verificació."
+
+#: designer/src/auth/auth_progress.tsx:93
+msgid "... (step"
+msgstr "... (pas"
+
+#: eeschema/sch_edit_frame_ui.tsx:5663
+msgid "1 other viewer"
+msgstr "1 espectador més"
+
+#: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
+msgid "3D Viewer — %s"
+msgstr "Visualitzador 3D — %s"
+
+#: designer/src/fs/FileChooser.tsx:872
+msgid "A file named “%s” already exists.  Do you want to replace it?"
+msgstr "Ja existeix un fitxer anomenat “%s”.  Vols substituir-lo?"
+
+#: designer/src/auth/SignIn.tsx:354
+msgid "A new code is on its way. Use the newest email: it replaces the code before it."
+msgstr "Un codi nou està en camí. Fes servir el correu més recent: substitueix el codi anterior."
+
+#: designer/src/App.tsx:1716
+msgid "A new version of ZiroEDA is available."
+msgstr "Hi ha una nova versió de ZiroEDA disponible."
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:103
+msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
+msgstr "Un número positiu indica que la fila és anòdica (-) i la columna catòdica (+); els tons freds i càlids també indiquen el potencial de les files."
+
+#: designer/src/ui/AccountButton.tsx:161
+msgid "Account"
+msgstr "Compte"
+
+#: designer/src/auth/SignIn.tsx:577
+msgid "Account created before 10 September 2026? It needs a one-time upgrade for end-to-end encryption: use"
+msgstr "Vas crear el compte abans del 10 de setembre de 2026? El compte necessita una actualització única per al xifratge d'extrem a extrem: fes servir"
+
+#: designer/src/ui/AccountButton.tsx:161
+msgid "Account: %s"
+msgstr "Compte: %s"
+
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:523
+msgid "Action for %s"
+msgstr "Acció per a %s"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:266
+msgid "Active"
+msgstr "Actiu"
+
+#: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
+msgid "Add 3D model"
+msgstr "Afegeix un model 3D"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:299
+msgid "Add a layer override"
+msgstr "Afegeix una substitució de capa"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:100
+msgid "Add alias"
+msgstr "Afegeix un àlies"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:361
+msgid "Add alternate"
+msgstr "Afegeix una alternativa"
+
+#: common/dialogs/panel_setup_netclasses.tsx:528
+msgid "Add assignment"
+msgstr "Afegeix una assignació"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:135
+msgid "Add condition"
+msgstr "Afegeix una condició"
+
+#: pcbnew/dialogs/dialog_layer_selection_base.tsx:117
+msgid "Add current pair to presets"
+msgstr "Afegeix el parell actual als predefinits"
+
+#: cvpcb/dialogs/dialog_config_equfiles.tsx:282
+msgid "Add from Computer..."
+msgstr "Afegeix des de l'ordinador..."
+
+#: common/dialogs/panel_grid_settings.tsx:486
+msgid "Add grid"
+msgstr "Afegeix una quadrícula"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
+msgid "Add layer"
+msgstr "Afegeix una capa"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:59
+msgid "Add member"
+msgstr "Afegeix un membre"
+
+#: common/dialogs/panel_setup_netclasses.tsx:460
+msgid "Add netclass"
+msgstr "Afegeix una classe de xarxa"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:435
+msgid "Add repository by URL..."
+msgstr "Afegeix un repositori per URL..."
+
+#: common/dialogs/dialog_plugin_options.tsx:147
+msgid "Add row"
+msgstr "Afegeix una fila"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults_base.tsx:70
+msgid "Add text item"
+msgstr "Afegeix un element de text"
+
+#: common/dialogs/panel_text_variables.tsx:125
+msgid "Add text variable"
+msgstr "Afegeix una variable de text"
+
+#: common/dialogs/panel_toolbar_customization.tsx:554
+msgid "Add to toolbar"
+msgstr "Afegeix a la barra d'eines"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:76
+msgid "Add track propagation row"
+msgstr "Afegeix una fila de propagació de pista"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles_base.tsx:46
+msgid "Add tuning profile"
+msgstr "Afegeix un perfil d'ajust"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:202
+msgid "Add variant"
+msgstr "Afegeix una variant"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:134
+msgid "Add via delay override"
+msgstr "Afegeix una substitució de retard de via"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:119
+msgid "Added repository \"%s\" (%s packages)"
+msgstr "S'ha afegit el repositori \"%s\" (%s paquets)"
+
+#: pcbnew/dialogs/dialog_target_properties_base.tsx:50
+msgid "Alignment Target Properties"
+msgstr "Propietats de l'objectiu d'alineació"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1680 pcbnew/pcb_edit_frame_ui.tsx:8092
+msgid "All 3D models (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)"
+msgstr "Tots els models 3D (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)"
+
+#: designer/src/ui/StorageBanner.tsx:36
+msgid "Allow site data for this page, or download your project before closing the tab. Private-browsing windows often discard storage."
+msgstr "Permet les dades del lloc per a aquesta pàgina o descarrega el projecte abans de tancar la pestanya. Les finestres de navegació privada solen descartar l'emmagatzematge."
+
+#: designer/src/auth/SignIn.tsx:404
+msgid "Already have an account?"
+msgstr "Ja tens un compte?"
+
+#: eeschema/dialogs/dialog_pin_properties.tsx:627
+msgid "Alternate pin functions"
+msgstr "Funcions alternatives del pin"
+
+#: designer/src/ui/ErrorBoundary.tsx:113
+msgid "An anonymous crash report was sent so we can fix this. It contains the error below and no project data. You can turn reports off in Preferences → Common → Privacy."
+msgstr "S'ha enviat un informe de fallada anònim perquè ho puguem corregir. Conté l'error següent i cap dada del projecte. Pots desactivar els informes a Preferències → Comú → Privadesa."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:527
+msgid "Analysis failed, check the input values."
+msgstr "L'anàlisi ha fallat, comprova els valors d'entrada."
+
+#: pcbnew/dialogs/dialog_multichannel_repeat_layout_base.tsx:82
+msgid "Anchor footprint"
+msgstr "Empremta d'ancoratge"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:644
+msgid "Annular rings"
+msgstr "Anells anulars"
+
+#: designer/src/home/ShareButton.tsx:66
+msgid "Anyone with the link can edit"
+msgstr "Qualsevol persona amb l'enllaç pot editar"
+
+#: designer/src/home/ShareButton.tsx:65
+msgid "Anyone with the link can view"
+msgstr "Qualsevol persona amb l'enllaç pot veure"
+
+#: designer/src/auth/DeleteAccountDialog.tsx:203
+msgid "Anything else?"
+msgstr "Alguna cosa més?"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:150
+msgid "Applied changes: %s installed, %s uninstalled"
+msgstr "Canvis aplicats: %s instal·lats, %s desinstal·lats"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:487
+msgid "Apply Pending Changes ("
+msgstr "Aplica els canvis pendents ("
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
+msgid "Arc editing mode"
+msgstr "Mode d'edició d'arcs"
+
+#: designer/src/home/HomePage.tsx:1631
+msgid "Archive Project"
+msgstr "Arxiva el projecte"
+
+#: designer/src/home/HomePage.tsx:1631
+msgid "Archiving project..."
+msgstr "S'està arxivant el projecte..."
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:448
+msgid "Area limit"
+msgstr "Límit d'àrea"
+
+#: pcbnew/dialogs/dialog_rule_area_properties_base.tsx:123
+msgid "Area name"
+msgstr "Nom de l'àrea"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:533
+msgid "Arrow direction"
+msgstr "Direcció de la fletxa"
+
+#: common/dialogs/dialog_assign_netclass.tsx:124
+msgid "Assign Netclass"
+msgstr "Assigna una classe de xarxa"
+
+#: pcbnew/dialogs/dialog_reference_image_properties_base.tsx:111
+msgid "Associated layer"
+msgstr "Capa associada"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:184
+msgid "Attenuation is 6 dB"
+msgstr "L'atenuació és de 6 dB"
+
+#: common/dialogs/panel_mouse_settings.tsx:251
+msgid "Auto pan speed"
+msgstr "Velocitat de desplaçament automàtic"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:141
+msgid "Auto-assign priorities"
+msgstr "Assigna prioritats automàticament"
+
+#: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
+msgid "Available footprints"
+msgstr "Empremtes disponibles"
+
+#: cvpcb/dialogs/dialog_config_equfiles.tsx:262
+msgid "Available path substitutions"
+msgstr "Substitucions de camí disponibles"
+
+#: eeschema/dialogs/panel_bom_presets.tsx:83
+msgid "BOM formatting presets"
+msgstr "Predefinits de format de la llista de materials"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:244
+msgid "BOM revision"
+msgstr "Revisió de la llista de materials"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
+msgid "Back prefix"
+msgstr "Prefix del revers"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:252
+msgid "Back reference start"
+msgstr "Inici de la referència del revers"
+
+#: designer/src/ui/HomeLink.tsx:24
+msgid "Back to project manager"
+msgstr "Torna al gestor de projectes"
+
+#: designer/src/auth/SignIn.tsx:467
+msgid "Back to sign in"
+msgstr "Torna a l'inici de sessió"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:164
+msgid "Based on location of"
+msgstr "Segons la ubicació de"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1248 pcbnew/dialogs/dialog_track_via_properties_base.tsx:969
+msgid "Best length"
+msgstr "Millor longitud"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1290 pcbnew/dialogs/dialog_track_via_properties_base.tsx:1013
+msgid "Best width"
+msgstr "Millor amplada"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
+msgid "Board thickness from stackup"
+msgstr "Gruix de la placa a partir de l'apilament"
+
+#: eeschema/dialogs/dialog_symbol_properties_base.tsx:195 eeschema/symbol_viewer_frame_ui.tsx:554
+msgid "Body style"
+msgstr "Estil del cos"
+
+#: eeschema/dialogs/dialog_lib_edit_pin_table_base.tsx:234
+msgid "Body style filter"
+msgstr "Filtre d'estil del cos"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1324
+msgid "Body style names"
+msgstr "Noms d'estil del cos"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:292 eeschema/dialogs/dialog_sheet_properties_base.tsx:222 eeschema/dialogs/dialog_text_properties_base.tsx:319
+msgid "Border color"
+msgstr "Color de la vora"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:307 eeschema/dialogs/dialog_table_properties_base.tsx:215 eeschema/dialogs/dialog_text_properties_base.tsx:342 pcbnew/dialogs/dialog_table_properties_base.tsx:219 pcbnew/dialogs/dialog_textbox_properties_base.tsx:310
+msgid "Border style"
+msgstr "Estil de la vora"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:280 eeschema/dialogs/dialog_sheet_properties_base.tsx:202 eeschema/dialogs/dialog_table_properties_base.tsx:197 eeschema/dialogs/dialog_text_properties_base.tsx:307 pcbnew/dialogs/dialog_table_properties_base.tsx:201
+msgid "Border width"
+msgstr "Amplada de la vora"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:785
+msgid "Bottom backdrill must-cut"
+msgstr "Contraperforació inferior obligatòria"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:759
+msgid "Bottom backdrill size"
+msgstr "Mida de la contraperforació inferior"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:353
+msgid "Bottom margin"
+msgstr "Marge inferior"
+
+#: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:76
+msgid "Browse for 3D model"
+msgstr "Navega per trobar un model 3D"
+
+#: common/widgets/properties_panel_ui.tsx:406
+msgid "Browse for footprint — needs the Footprint Chooser"
+msgstr "Navega per trobar una empremta — cal el Selector d'empremtes"
+
+#: eeschema/dialogs/dialog_change_symbols_base.tsx:229
+msgid "Browse for new symbol"
+msgstr "Navega per trobar un símbol nou"
+
+#: eeschema/dialogs/dialog_change_symbols_base.tsx:202
+msgid "Browse for symbol"
+msgstr "Navega per trobar un símbol"
+
+#: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:203
+msgid "Browse for the new footprint"
+msgstr "Navega per trobar l'empremta nova"
+
+#: eeschema/dialogs/panel_setup_buses.tsx:331
+msgid "Bus aliases"
+msgstr "Àlies de bus"
+
+#: eeschema/dialogs/panel_setup_buses.tsx:345
+msgid "Bus members"
+msgstr "Membres del bus"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1107
+msgid "Cannot create the library folder '%s'."
+msgstr "No es pot crear la carpeta de biblioteca \"%s\"."
+
+#: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
+msgid "Cell contents"
+msgstr "Contingut de la cel·la"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:211
+msgid "Center layer"
+msgstr "Capa central"
+
+#: designer/src/support/ChatWidget.tsx:308
+msgid "Chat with us (drag to move)"
+msgstr "Xateja amb nosaltres (arrossega per moure)"
+
+#: designer/src/auth/auth_progress.tsx:33
+msgid "Checking your account"
+msgstr "S'està comprovant el compte"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
+msgid "Cleanup Tracks & Vias"
+msgstr "Neteja pistes i vies"
+
+#: common/dialogs/panel_hotkeys_editor.tsx:137 common/dialogs/panel_toolbar_customization.tsx:590
+msgid "Clear the filter"
+msgstr "Esborra el filtre"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:295
+msgid "Clear the search"
+msgstr "Esborra la cerca"
+
+#: designer/src/editors/pcb/Viewer3DFrame.tsx:852
+msgid "Close 3D Viewer"
+msgstr "Tanca el Visualitzador 3D"
+
+#: designer/src/home/ShareButton.tsx:358
+msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
+msgstr "Si tanques l'enllaç més tard, deixa de ser possible que l'obrin persones noves. Qui ja és a la llista conserva l'accés fins que l'eliminis."
+
+#: eeschema/sch_edit_frame_ui.tsx:7132
+msgid "Collapse"
+msgstr "Replega"
+
+#: common/launch_ext.tsx:236
+msgid "Color Themes"
+msgstr "Temes de color"
+
+#: common/launch_ext.tsx:236
+msgid "Color Themes — %s"
+msgstr "Temes de color — %s"
+
+#: pcbnew/dialogs/dialog_print_pcbnew.tsx:521
+msgid "Color theme"
+msgstr "Tema de color"
+
+#: common/launch_ext.tsx:252
+msgid "Color theme files"
+msgstr "Fitxers de tema de color"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
+msgid "Common materials"
+msgstr "Materials comuns"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
+msgid "Component class"
+msgstr "Classe de component"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:224
+msgid "Component type"
+msgstr "Tipus de component"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:154
+msgid "Compression format"
+msgstr "Format de compressió"
+
+#: designer/src/auth/SignIn.tsx:360
+msgid "Confirm"
+msgstr "Confirma"
+
+#: designer/src/auth/SignIn.tsx:384 designer/src/auth/SignIn.tsx:541
+msgid "Confirm password"
+msgstr "Confirma la contrasenya"
+
+#: designer/src/auth/SignIn.tsx:319
+msgid "Confirm your email"
+msgstr "Confirma el correu electrònic"
+
+#: designer/src/auth/auth_progress.tsx:48
+msgid "Confirming your email"
+msgstr "S'està confirmant el correu electrònic"
+
+#: eeschema/erc/erc_settings.ts:322
+msgid "Connected pin is not mapped to any footprint pad"
+msgstr "El pin connectat no està assignat a cap pad de l'empremta"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:507
+msgid "Coordinate format"
+msgstr "Format de coordenades"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:81 designer/src/auth/RecoveryKeyDialog.tsx:67 designer/src/home/ShareButton.tsx:343
+msgid "Copied"
+msgstr "Copiat"
+
+#: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
+msgid "Copper finish"
+msgstr "Acabat del coure"
+
+#: pcbnew/sel_layer.tsx:608
+msgid "Copper layer pair presets"
+msgstr "Predefinits de parells de capes de coure"
+
+#: common/dialog_about/dialog_about.tsx:192
+msgid "Copy %s version info to the clipboard"
+msgstr "Copia la informació de versió de %s al porta-retalls"
+
+#: 3d-viewer/3d_menubar.ts:73
+msgid "Copy 3D Image to Clipboard"
+msgstr "Copia la imatge 3D al porta-retalls"
+
+#: designer/src/home/ShareButton.tsx:307 designer/src/home/ShareButton.tsx:308
+msgid "Copy an invitation link for %s"
+msgstr "Copia un enllaç d'invitació per a %s"
+
+#: designer/src/home/ShareButton.tsx:343 designer/src/mobile/DesktopGate.tsx:69
+msgid "Copy link"
+msgstr "Copia l'enllaç"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:220
+msgid "Copy variant"
+msgstr "Copia la variant"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:209 pcbnew/dialogs/dialog_shape_properties_base.tsx:196
+msgid "Corner radius"
+msgstr "Radi de la cantonada"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:195 pcbnew/dialogs/panel_zone_properties_base.tsx:391
+msgid "Corner smoothing"
+msgstr "Suavitzat de cantonades"
+
+#: pcbnew/dialogs/dialog_tuning_pattern_properties_base.tsx:194
+msgid "Corner style"
+msgstr "Estil de cantonada"
+
+#: pcbnew/tools/drawing_tool.ts:1325
+msgid "Could not load image."
+msgstr "No s'ha pogut carregar la imatge."
+
+#: designer/src/home/HomePage.tsx:836
+msgid "Could not open %s: %s"
+msgstr "No s'ha pogut obrir %s: %s"
+
+#: eeschema/sch_edit_frame_ui.tsx:3791
+msgid "Could not open this project: %s"
+msgstr "No s'ha pogut obrir aquest projecte: %s"
+
+#: eeschema/sch_base_frame.ts:275
+msgid "Could not write the library file '%s'."
+msgstr "No s'ha pogut escriure el fitxer de biblioteca \"%s\"."
+
+#: designer/src/auth/DeleteAccountDialog.tsx:230
+msgid "Couldn't load your data counts. Try again to review what will be deleted."
+msgstr "No s'ha pogut carregar el recompte de les teves dades. Torna-ho a provar per revisar què se suprimirà."
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7375
+msgid "Couldn’t open board:"
+msgstr "No s'ha pogut obrir la placa:"
+
+#: designer/src/fs/FileChooser.tsx:709
+msgid "Create Folder"
+msgstr "Crea una carpeta"
+
+#: designer/src/auth/SignIn.tsx:396
+msgid "Create account"
+msgstr "Crea un compte"
+
+#: designer/src/auth/SignIn.tsx:298 designer/src/auth/SignIn.tsx:609
+msgid "Create an account"
+msgstr "Crea un compte"
+
+#: designer/src/auth/SignIn.tsx:321
+msgid "Create your free ZiroEDA account"
+msgstr "Crea el teu compte gratuït de ZiroEDA"
+
+#: designer/src/auth/SignIn.tsx:446
+msgid "Created your account before 10 September 2026? It has no recovery key yet and does not need one: the link lets you choose a password and sets up encryption."
+msgstr "Vas crear el compte abans del 10 de setembre de 2026? El compte encara no té clau de recuperació i no en necessita: l'enllaç et permet triar una contrasenya i configura el xifratge."
+
+#: designer/src/auth/SignIn.tsx:396
+msgid "Creating account..."
+msgstr "S'està creant el compte..."
+
+#: designer/src/auth/auth_progress.tsx:43
+msgid "Creating your account"
+msgstr "S'està creant el compte"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
+msgid "Current density:"
+msgstr "Densitat de corrent:"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:424
+msgid "Current exceeds the ampacity for this density."
+msgstr "El corrent supera la capacitat de conducció per a aquesta densitat."
+
+#: common/dialogs/dialog_print_generic_base.tsx:156
+msgid "Custom scale"
+msgstr "Escala personalitzada"
+
+#: pcbnew/dialogs/dialog_drc_base.tsx:172
+msgid "DRC Control"
+msgstr "Control de DRC"
+
+#: pcbnew/dialogs/dialog_drc_base.tsx:219
+msgid "DRC options"
+msgstr "Opcions de DRC"
+
+#: pcbnew/dialogs/dialog_drc_base.tsx:278
+msgid "DRC results"
+msgstr "Resultats de DRC"
+
+#: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
+msgid "DXF default line width"
+msgstr "Amplada de línia per defecte del DXF"
+
+#: pcbnew/import_gfx/dialog_import_graphics_base.tsx:157
+msgid "DXF default units"
+msgstr "Unitats per defecte del DXF"
+
+#: pcbnew/dialogs/panel_setup_formatting_base.tsx:67
+msgid "Dash length"
+msgstr "Longitud del traç"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:386
+msgid "Data-source packages connect external database libraries, which need a back end not available in the browser yet."
+msgstr "Els paquets de fonts de dades connecten biblioteques de bases de dades externes, que necessiten un servidor que encara no és disponible al navegador."
+
+#: external/wx/spin_ctrl.tsx:128
+msgid "Decrease"
+msgstr "Disminueix"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults.tsx:303
+msgid "Default field properties"
+msgstr "Propietats de camp per defecte"
+
+#: pcbnew/dialogs/panel_fp_editor_graphics_defaults.tsx:256
+msgid "Default properties for new graphic items"
+msgstr "Propietats per defecte dels nous elements gràfics"
+
+#: pcbnew/dialogs/panel_setup_text_and_graphics.tsx:264
+msgid "Default properties for new graphics and text"
+msgstr "Propietats per defecte dels nous gràfics i textos"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:156
+msgid "Default reference designator"
+msgstr "Designador de referència per defecte"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults.tsx:314
+msgid "Default text items"
+msgstr "Elements de text per defecte"
+
+#: eeschema/tools/sch_sheet_pin_tool.ts:198 eeschema/tools/sch_sheet_pin_tool.ts:212
+msgid "Delete Sheet Pin"
+msgstr "Elimina el pin de la fulla"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:448
+msgid "Delete Template"
+msgstr "Elimina la plantilla"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:309
+msgid "Delete a layer override"
+msgstr "Elimina una substitució de capa"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:109
+msgid "Delete alias"
+msgstr "Elimina l'àlies"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:372
+msgid "Delete alternate"
+msgstr "Elimina l'alternativa"
+
+#: eeschema/dialogs/panel_bom_presets_base.tsx:53
+msgid "Delete formatting preset"
+msgstr "Elimina el predefinit de format"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:89
+msgid "Delete layer"
+msgstr "Elimina la capa"
+
+#: eeschema/dialogs/panel_bom_presets_base.tsx:37
+msgid "Delete preset"
+msgstr "Elimina el predefinit"
+
+#: pcbnew/dialogs/dialog_layer_selection_base.tsx:132
+msgid "Delete selected presets"
+msgstr "Elimina els predefinits seleccionats"
+
+#: eeschema/tools/mutate.ts:358
+msgid "Delete symbol"
+msgstr "Elimina el símbol"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults_base.tsx:83
+msgid "Delete text item"
+msgstr "Elimina l'element de text"
+
+#: common/dialogs/panel_text_variables.tsx:134
+msgid "Delete text variable"
+msgstr "Elimina la variable de text"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:239
+msgid "Delete variant"
+msgstr "Elimina la variant"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:142
+msgid "Derive from existing symbol"
+msgstr "Deriva d'un símbol existent"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:225
+msgid "Derive from symbol"
+msgstr "Deriva d'un símbol"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:115 pcbnew/dialogs/dialog_plot_base.tsx:217
+msgid "Design variant"
+msgstr "Variant de disseny"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:546
+msgid "Directory '%s/%s' already exists."
+msgstr "El directori \"%s/%s\" ja existeix."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:482
+msgid "Discard Pending"
+msgstr "Descarta els pendents"
+
+#: common/widgets/zoom_correction_ctrl.tsx:223
+msgid "Display PPI"
+msgstr "PPP de la pantalla"
+
+#: common/widgets/zoom_correction_ctrl.tsx:217
+msgid "Display PPI:"
+msgstr "PPP de la pantalla:"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:300
+msgid "Distributor"
+msgstr "Distribuïdor"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:289
+msgid "Distributor P/N"
+msgstr "N.º de peça del distribuïdor"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:82
+msgid "Do this later"
+msgstr "Fes-ho més tard"
+
+#: designer/src/ui/ErrorBoundary.tsx:74
+msgid "Download %s.zip"
+msgstr "Descarrega %s.zip"
+
+#: designer/src/ui/SaveIndicator.tsx:54
+msgid "Download a copy"
+msgstr "Descarrega una còpia"
+
+#: designer/src/ui/StorageBanner.tsx:83
+msgid "Download project"
+msgstr "Descarrega el projecte"
+
+#: designer/src/ui/StorageBanner.tsx:48
+msgid "Download your project before closing the tab so nothing is lost."
+msgstr "Descarrega el projecte abans de tancar la pestanya perquè no es perdi res."
+
+#: designer/src/ui/StorageBanner.tsx:43
+msgid "Download your project before closing the tab, or switch to a current browser."
+msgstr "Descarrega el projecte abans de tancar la pestanya o canvia a un navegador actual."
+
+#: designer/src/ui/ErrorBoundary.tsx:74 designer/src/ui/StorageBanner.tsx:83
+msgid "Downloaded"
+msgstr "Descarregat"
+
+#: eeschema/sch_edit_frame_ui.tsx:5806 eeschema/sch_edit_frame_ui.tsx:6472 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1434 pcbnew/footprint_edit_frame_ui.tsx:1420 pcbnew/pcb_edit_frame_ui.tsx:989 designer/src/home/HomePage.tsx:2286
+msgid "Drag to resize"
+msgstr "Arrossega per canviar la mida"
+
+#: common/dialogs/dialog_page_settings_base.tsx:230
+msgid "Drawing sheet file"
+msgstr "Fitxer de fulla de dibuix"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:369 pcbnew/dialogs/dialog_print_pcbnew.tsx:549
+msgid "Drill marks"
+msgstr "Marques de perforació"
+
+#: designer/src/auth/SignIn.tsx:479
+msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
+msgstr "A causa de la naturalesa del nostre protocol de xifratge d'extrem a extrem, les teves dades no es poden desxifrar sense la teva contrasenya o la clau de recuperació."
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
+msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
+msgstr "L'EN 50310 suggereix una diferència de voltatge inferior a 300 mV. Les pràctiques conegudes fan servir un tercer metall d'interfície entre el parell principal (per exemple, l'acabat superficial ENIG)."
+
+#: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
+msgid "Edge card connectors"
+msgstr "Connectors de vora de targeta"
+
+#: eeschema/tools/mutate.ts:394
+msgid "Edit Bus Entry"
+msgstr "Edita l'entrada de bus"
+
+#: eeschema/tools/mutate.ts:433
+msgid "Edit Directive Label"
+msgstr "Edita l'etiqueta de directiva"
+
+#: eeschema/tools/mutate.ts:529
+msgid "Edit Image"
+msgstr "Edita la imatge"
+
+#: eeschema/tools/mutate.ts:420
+msgid "Edit Label"
+msgstr "Edita l'etiqueta"
+
+#: eeschema/tools/mutate.ts:543
+msgid "Edit Shape"
+msgstr "Edita la forma"
+
+#: eeschema/tools/mutate.ts:501
+msgid "Edit Sheet"
+msgstr "Edita la fulla"
+
+#: eeschema/tools/sch_sheet_pin_tool.ts:178
+msgid "Edit Sheet Pin"
+msgstr "Edita el pin de la fulla"
+
+#: eeschema/tools/properties.ts:65
+msgid "Edit Symbol Fields"
+msgstr "Edita els camps del símbol"
+
+#: eeschema/tools/mutate.ts:556
+msgid "Edit Text Box"
+msgstr "Edita la caixa de text"
+
+#: common/dialogs/panel_grid_settings.tsx:491
+msgid "Edit grid"
+msgstr "Edita la quadrícula"
+
+#: designer/src/home/project_tree_menu.ts:204
+msgid "Edit in a Text Viewer"
+msgstr "Edita en un visualitzador de text"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:575 pcbnew/dialogs/dialog_track_via_properties_base.tsx:551
+msgid "Edit layer"
+msgstr "Edita la capa"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
+msgid "Edit variant description"
+msgstr "Edita la descripció de la variant"
+
+#: common/widgets/wx_progress_reporters.tsx:137
+msgid "Elapsed time:"
+msgstr "Temps transcorregut:"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:181
+msgid "Electrical type"
+msgstr "Tipus elèctric"
+
+#: designer/src/auth/SignIn.tsx:256
+msgid "Email"
+msgstr "Correu electrònic"
+
+#: designer/src/mobile/DesktopGate.tsx:72
+msgid "Email me the link"
+msgstr "Envia'm l'enllaç per correu"
+
+#: common/dialogs/panel_embedded_files.tsx:180
+msgid "Embedded files"
+msgstr "Fitxers incrustats"
+
+#: pcbnew/dialogs/panel_setup_layers.tsx:387
+msgid "Enable %s"
+msgstr "Activa %s"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:625
+msgid "End layer"
+msgstr "Capa final"
+
+#: common/dialogs/cross_probing_group.tsx:72
+msgid "Ensures that cross-probed %s are visible in the current view"
+msgstr "Garanteix que els %s amb sondeig creuat siguin visibles a la vista actual"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:538
+msgid "Enter a positive impedance and electrical length."
+msgstr "Introdueix una impedància i una longitud elèctrica positives."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:637
+msgid "Enter a positive odd-mode impedance."
+msgstr "Introdueix una impedància de mode imparell positiva."
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:429
+msgid "Enter a positive resistivity and valid temperature."
+msgstr "Introdueix una resistivitat positiva i una temperatura vàlida."
+
+#: designer/src/auth/SignIn.tsx:507
+msgid "Enter the recovery key you saved when you created your account, and choose a new password."
+msgstr "Introdueix la clau de recuperació que vas desar en crear el compte i tria una contrasenya nova."
+
+#: designer/src/ui/ErrorBoundary.tsx:120
+msgid "Error details"
+msgstr "Detalls de l'error"
+
+#: common/dialogs/lib_table_panel.tsx:590
+msgid ""
+"Error saving global library table:\n"
+"\n"
+"%s"
+msgstr ""
+"Error en desar la taula de biblioteques global:\n"
+"\n"
+"%s"
+
+#: common/widgets/design_block_pane.ts:276 eeschema/project_rescue.ts:1019 eeschema/symbol_library_manager.ts:1069 pcbnew/footprint_edit_frame_ui.tsx:1119
+msgid ""
+"Error saving library table:\n"
+"\n"
+"%s"
+msgstr ""
+"Error en desar la taula de biblioteques:\n"
+"\n"
+"%s"
+
+#: common/lib_table_notebook_panel.tsx:195
+msgid ""
+"Error saving nested library table:\n"
+"\n"
+"%s"
+msgstr ""
+"Error en desar la taula de biblioteques imbricada:\n"
+"\n"
+"%s"
+
+#: eeschema/files-io.ts:263
+msgid ""
+"Error saving schematic file '%s'.\n"
+"Could not create directory: %%s%s"
+msgstr ""
+"Error en desar el fitxer d'esquemàtic \"%s\".\n"
+"No s'ha pogut crear el directori: %%s%s"
+
+#: eeschema/tools/sch_editor_control.ts:1003
+msgid ""
+"Error saving symbol %s to library '%s'.\n"
+"\n"
+"%s"
+msgstr ""
+"Error en desar el símbol %s a la biblioteca \"%s\".\n"
+"\n"
+"%s"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
+msgid "Error!"
+msgstr "Error!"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
+msgid "Exclude references"
+msgstr "Exclou les referències"
+
+#: eeschema/sch_edit_frame_ui.tsx:7132
+msgid "Expand"
+msgstr "Expandeix"
+
+#: pcbnew/dialogs/dialog_shape_properties_base.tsx:319
+msgid "Expansion"
+msgstr "Expansió"
+
+#: common/dialogs/panel_embedded_files.tsx:222
+msgid "Export embedded files"
+msgstr "Exporta els fitxers incrustats"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:642
+msgid "Export units"
+msgstr "Unitats d'exportació"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:383
+msgid "Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet."
+msgstr "Els connectors de fabricació executen scripts de generació que necessiten un entorn d'execució aïllat, encara no disponible al navegador."
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1088
+msgid "Fabrication property"
+msgstr "Propietat de fabricació"
+
+#: eeschema/sch_edit_frame_ui.tsx:5611
+msgid "Failed to load schematic:"
+msgstr "No s'ha pogut carregar l'esquemàtic:"
+
+#: designer/src/editors/schematic/hotkeys.ts:300
+msgid "Fast Grid 1"
+msgstr "Quadrícula ràpida 1"
+
+#: designer/src/editors/schematic/hotkeys.ts:307
+msgid "Fast Grid 2"
+msgstr "Quadrícula ràpida 2"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:205
+msgid "Field name filter"
+msgstr "Filtre de nom de camp"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:377
+msgid "Field value"
+msgstr "Valor del camp"
+
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:100
+msgid "File name"
+msgstr "Nom del fitxer"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:234
+msgid "Fill type"
+msgstr "Tipus d'emplenament"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:206
+msgid "Fill with color"
+msgstr "Omple amb color"
+
+#: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
+msgid "First free number after"
+msgstr "Primer número lliure després de"
+
+#: pcbnew/dialogs/dialog_enum_pads_base.tsx:75
+msgid "First pad number"
+msgstr "Número del primer pad"
+
+#: pagelayout_editor/dialogs/properties_frame_ui.tsx:281
+msgid "First page option"
+msgstr "Opció de primera pàgina"
+
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:112
+msgid "Footprint 3D model path"
+msgstr "Camí del model 3D de l'empremta"
+
+#: pcbnew/footprint_chooser_frame.tsx:256
+msgid "Footprint Chooser (%s items loaded)"
+msgstr "Selector d'empremtes (%s elements carregats)"
+
+#: cvpcb/dialogs/dialog_config_equfiles.tsx:208
+msgid "Footprint association files"
+msgstr "Fitxers d'associació d'empremtes"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:366
+msgid "Footprint field"
+msgstr "Camp d'empremta"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
+msgid "Footprint type"
+msgstr "Tipus d'empremta"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
+msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
+msgstr "Per exemple, si el valor objectiu calculat és 16.834,2Ω, s'arrodoneix a 16.800Ω. El valor més proper a 168 és 169 i el valor E96 seleccionat és 16,9kΩ."
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:492
+msgid "For frequencies higher than 30kHz, the dielectric performances are degraded. IEC60664-4 covers those cases"
+msgstr "Per a freqüències superiors a 30kHz, les prestacions del dielèctric es degraden. La IEC60664-4 cobreix aquests casos"
+
+#: designer/src/auth/SignIn.tsx:580 designer/src/auth/SignIn.tsx:596
+msgid "Forgot password?"
+msgstr "Has oblidat la contrasenya?"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:387
+msgid "Format presets"
+msgstr "Predefinits de format"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:814
+msgid "Frequency unit"
+msgstr "Unitat de freqüència"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:266
+msgid "Front prefix"
+msgstr "Prefix del davant"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:234
+msgid "Front reference start"
+msgstr "Inici de la referència del davant"
+
+#: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
+msgid "Gap length"
+msgstr "Longitud de l'espai"
+
+#: designer/src/home/ShareButton.tsx:332
+msgid "General access"
+msgstr "Accés general"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:268
+msgid "Generate map format"
+msgstr "Genera el format de mapa"
+
+#: designer/src/auth/SignIn.tsx:553
+msgid "Generating encryption keys..."
+msgstr "S'estan generant les claus de xifratge..."
+
+#: designer/src/auth/auth_progress.tsx:53
+msgid "Generating your encryption keys"
+msgstr "S'estan generant les teves claus de xifratge"
+
+#: common/eda_base_frame_help_menu.ts:149
+msgid "Getting Started with %s"
+msgstr "Primers passos amb %s"
+
+#: designer/src/home/HomePage.tsx:2602
+msgid "GitHub link:"
+msgstr "Enllaç de GitHub:"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:433
+msgid "Global solder mask minimum width and/or margin are not set to 0."
+msgstr "L'amplada mínima i/o el marge globals de la màscara de soldadura no estan establerts a 0."
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:113
+msgid "Global unit delay"
+msgstr "Retard unitari global"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:196
+msgid "Graphic style"
+msgstr "Estil gràfic"
+
+#: pcbnew/dialogs/dialog_outset_items_base.tsx:123
+msgid "Grid size"
+msgstr "Mida de la quadrícula"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:283
+msgid "Hide details"
+msgstr "Amaga els detalls"
+
+#: common/dialogs/cross_probing_group.tsx:57
+msgid "Highlight %s corresponding to selected %s"
+msgstr "Ressalta els %s corresponents als %s seleccionats"
+
+#: common/dialogs/cross_probing_group.tsx:96
+msgid "Highlight nets when they are highlighted in the %s editor"
+msgstr "Ressalta les xarxes quan es ressalten a l'editor de %s"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:878
+msgid "Hole shape"
+msgstr "Forma del forat"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:210
+msgid "Hop-over size"
+msgstr "Mida del salt"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:142
+msgid "Horizontal Any"
+msgstr "Qualsevol angle horitzontal"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
+msgid "However some cases are not covered by this calculator:"
+msgstr "No obstant això, aquesta calculadora no cobreix alguns casos:"
+
+#: designer/src/auth/delete_account_form.ts:21
+msgid "I found another service that I like better"
+msgstr "He trobat un altre servei que m'agrada més"
+
+#: designer/src/auth/SignIn.tsx:491
+msgid "I remember my password"
+msgstr "Recordo la contrasenya"
+
+#: designer/src/auth/DeleteAccountDialog.tsx:258
+msgid "I understand this deletes my account and all its data."
+msgstr "Entenc que això elimina el meu compte i totes les seves dades."
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
+msgid "IEC 60664"
+msgstr "IEC 60664"
+
+#: designer/src/auth/SignIn.tsx:433
+msgid "If"
+msgstr "Si"
+
+#: designer/src/home/HomePage.tsx:2419
+msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
+msgstr "Si el navegador bloqueja la carpeta (Descàrregues, Escriptori...), selecciona-hi tots els fitxers del projecte"
+
+#: designer/src/auth/SignIn.tsx:484
+msgid "If the password comes back to you, sign in with it as usual and save your recovery key from the account menu, so this never comes up again."
+msgstr "Si recordes la contrasenya, inicia la sessió amb ella com sempre i desa la clau de recuperació des del menú del compte, perquè això no torni a passar."
+
+#: designer/src/auth/RecoveryKeyContents.tsx:72 designer/src/auth/RecoveryKeyDialog.tsx:48
+msgid "If you forget your password, the only way you can recover your data is with this key."
+msgstr "Si oblides la contrasenya, l'única manera de recuperar les teves dades és amb aquesta clau."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:306
+msgid "If you specify one of the track widths, the maximum current it can handle will be calculated. The width for the other track to also handle this current will then be calculated."
+msgstr "Si especifiques una de les amplades de pista, es calcularà el corrent màxim que pot suportar. Després es calcularà l'amplada de l'altra pista perquè també suporti aquest corrent."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:301
+msgid "If you specify the maximum current, then the track widths will be calculated to suit."
+msgstr "Si especifiques el corrent màxim, es calcularan les amplades de pista adequades."
+
+#: eeschema/dialogs/dialog_erc_base.tsx:210 pcbnew/dialogs/dialog_drc_base.tsx:322
+msgid "Ignored tests"
+msgstr "Proves ignorades"
+
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:603
+msgid "Import %s"
+msgstr "Importa %s"
+
+#: pcbnew/dialogs/dialog_map_layers.tsx:261
+msgid "Import Layer Mapping"
+msgstr "Importa l'assignació de capes"
+
+#: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
+msgid "Import Vector Graphics"
+msgstr "Importa gràfics vectorials"
+
+#: eeschema/dialogs/dialog_sch_import_settings_base.tsx:87 pcbnew/dialogs/dialog_import_settings_base.tsx:81
+msgid "Import from"
+msgstr "Importa des de"
+
+#: pcbnew/import_gfx/dialog_import_graphics_base.tsx:123
+msgid "Import scale"
+msgstr "Escala d'importació"
+
+#: pcbnew/widgets/appearance_controls.tsx:278
+msgid "Inactive layers (H):"
+msgstr "Capes inactives (H):"
+
+#: external/wx/spin_ctrl.tsx:137
+msgid "Increase"
+msgstr "Augmenta"
+
+#: eeschema/dialogs/dialog_increment_annotations_base.tsx:94
+msgid "Increment by"
+msgstr "Incrementa en"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:259
+msgid "Installed"
+msgstr "Instal·lat"
+
+#: designer/src/editors/schematic/prefs/PanelSchDataSources.tsx:65
+msgid "Installed data sources"
+msgstr "Fonts de dades instal·lades"
+
+#: designer/src/editors/schematic/dialogs/dialog_rescue_each.tsx:144
+msgid "Instances of this symbol ("
+msgstr "Instàncies d'aquest símbol ("
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:502
+msgid "Insulations trough liquids, compressed air or gases other than air are not in the scope of IEC60664"
+msgstr "L'aïllament a través de líquids, aire comprimit o gasos diferents de l'aire queda fora de l'àmbit de la IEC60664"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:255
+msgid "Internal ID"
+msgstr "ID intern"
+
+#: designer/src/home/ShareButton.tsx:247
+msgid "Invite"
+msgstr "Convida"
+
+#: designer/src/home/ShareButton.tsx:231 designer/src/home/ShareButton.tsx:232
+msgid "Invite by email"
+msgstr "Convida per correu electrònic"
+
+#: common/dialogs/dialog_page_settings_base.tsx:279
+msgid "Issue Date"
+msgstr "Data d'emissió"
+
+#: designer/src/auth/delete_account_form.ts:16
+msgid "It's missing a key feature that I need"
+msgstr "Hi falta una funció clau que necessito"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1363
+msgid "Jumper pin groups"
+msgstr "Grups de pins de pont"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:467
+msgid "Junction color"
+msgstr "Color de l'entroncament"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:195
+msgid "Junction dot size"
+msgstr "Mida del punt d'entroncament"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:452 eeschema/dialogs/dialog_wire_bus_properties_base.tsx:173
+msgid "Junction size"
+msgstr "Mida de l'entroncament"
+
+#: designer/src/home/HomePage.tsx:2720
+msgid "Keep both"
+msgstr "Conserva les dues"
+
+#: designer/src/home/HomePage.tsx:2710
+msgid "Keep mine"
+msgstr "Conserva la meva"
+
+#: pcbnew/dialogs/panel_fp_lib_table.tsx:281
+msgid "KiCad (folder) from Computer..."
+msgstr "KiCad (carpeta) des de l'ordinador..."
+
+#: common/remote_provider_schemas.ts:18
+msgid "KiCad Remote Provider Metadata v1"
+msgstr "Metadades del proveïdor remot de KiCad v1"
+
+#: common/remote_provider_schemas.ts:180
+msgid "KiCad Remote Symbol Manifest v1"
+msgstr "Manifest de símbols remots de KiCad v1"
+
+#: designer/src/widgets/dialog_sym_lib_table.tsx:330
+msgid "KiCad from Computer..."
+msgstr "KiCad des de l'ordinador..."
+
+#: pcbnew/dialogs/dialog_import_netlist.tsx:52
+msgid "KiCad netlist files (*.net)"
+msgstr "Fitxers de llista de connexions de KiCad (*.net)"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:379
+msgid "KiCad plugins are native Python scripts. In the browser they need a sandboxed web runtime, a separate piece of work."
+msgstr "Els connectors de KiCad són scripts natius de Python. Al navegador necessiten un entorn web aïllat, una feina a part."
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:398
+msgid "Layer defaults"
+msgstr "Valors per defecte de la capa"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:194 pcbnew/dialogs/dialog_global_edit_teardrops_base.tsx:223
+msgid "Layer filter"
+msgstr "Filtre de capes"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:187
+msgid "Leader layer"
+msgstr "Capa de la línia de crida"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:153
+msgid "Leader text"
+msgstr "Text de la línia de crida"
+
+#: common/dialogs/panel_mouse_settings.tsx:269
+msgid "Left button drag"
+msgstr "Arrossegament amb el botó esquerre"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:188
+msgid "Left click (and drag) actions depend on 2 modifier keys:"
+msgstr "Les accions del clic esquerre (i arrossegament) depenen de 2 tecles modificadores:"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:337
+msgid "Left margin"
+msgstr "Marge esquerre"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:389
+msgid "Libraries and colour themes install and work today."
+msgstr "Les biblioteques i els temes de color s'instal·len i funcionen avui."
+
+#: pcbnew/dialogs/dialog_footprint_associations_base.tsx:55
+msgid "Library association"
+msgstr "Associació de biblioteca"
+
+#: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:162
+msgid "Library id"
+msgstr "ID de biblioteca"
+
+#: eeschema/dialogs/dialog_symbol_properties_base.tsx:365
+msgid "Library link"
+msgstr "Enllaç de biblioteca"
+
+#: eeschema/sch_edit_frame_ui.tsx:6625 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1507 pcbnew/footprint_edit_frame_ui.tsx:1560 pcbnew/pcb_edit_frame_ui.tsx:8711
+msgid "Library name:"
+msgstr "Nom de la biblioteca:"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
+msgid "Line color"
+msgstr "Color de línia"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:427 pcbnew/dialogs/dialog_shape_properties_base.tsx:225
+msgid "Line style"
+msgstr "Estil de línia"
+
+#: eeschema/dialogs/dialog_text_properties_base.tsx:401
+msgid "Link"
+msgstr "Enllaç"
+
+#: designer/src/mobile/DesktopGate.tsx:69
+msgid "Link copied"
+msgstr "Enllaç copiat"
+
+#: common/launch_ext.tsx:275
+msgid "Load"
+msgstr "Carrega"
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1587
+msgid "Load Symbol Libraries"
+msgstr "Carrega biblioteques de símbols"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1397 pcbnew/footprint_viewer_frame_ui.tsx:773 pcbnew/pcb_edit_frame_ui.tsx:8015 cvpcb/cvpcb_mainframe_ui.tsx:1548 cvpcb/cvpcb_mainframe_ui.tsx:1622
+msgid "Loading footprint libraries..."
+msgstr "S'estan carregant les biblioteques d'empremtes..."
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1383 eeschema/symbol_viewer_frame_ui.tsx:596
+msgid "Loading symbol libraries..."
+msgstr "S'estan carregant les biblioteques de símbols..."
+
+#: designer/src/App.tsx:246
+msgid "Loading the %s..."
+msgstr "S'està carregant %s..."
+
+#: eeschema/erc/erc_settings.ts:217
+msgid "Local and global power symbols have same name"
+msgstr "Els símbols d'alimentació locals i globals tenen el mateix nom"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:266
+msgid "Manufacturer P/N"
+msgstr "N.º de peça del fabricant"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:395
+msgid "Maximum allowed deviation"
+msgstr "Desviació màxima permesa"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:992
+msgid "Maximum length"
+msgstr "Longitud màxima"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:908
+msgid "Maximum track width"
+msgstr "Amplada màxima de pista"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:1036
+msgid "Maximum width"
+msgstr "Amplada màxima"
+
+#: common/dialogs/panel_mouse_settings.tsx:281
+msgid "Middle button drag"
+msgstr "Arrossegament amb el botó del mig"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
+msgid "Minimum width"
+msgstr "Amplada mínima"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
+msgid "Missing 3D model references"
+msgstr "Falten referències a models 3D"
+
+#: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
+msgid "More tools"
+msgstr "Més eines"
+
+#: eeschema/tools/sch_sheet_pin_tool.ts:162
+msgid "Move Sheet Pin"
+msgstr "Mou el pin de la fulla"
+
+#: common/dialogs/panel_grid_settings.tsx:505
+msgid "Move grid down"
+msgstr "Mou la quadrícula cap avall"
+
+#: common/dialogs/panel_grid_settings.tsx:498
+msgid "Move grid up"
+msgstr "Mou la quadrícula cap amunt"
+
+#: designer/src/auth/delete_account_form.ts:22
+msgid "My reason isn't listed"
+msgstr "El meu motiu no és a la llista"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:267
+msgid "Name text size"
+msgstr "Mida del text del nom"
+
+#: pcbnew/widgets/appearance_controls.tsx:383
+msgid "Net %s"
+msgstr "Xarxa %s"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:181 pcbnew/dialogs/dialog_global_edit_teardrops_base.tsx:197
+msgid "Net class filter"
+msgstr "Filtre de classe de xarxa"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:255
+msgid "Net filter"
+msgstr "Filtre de xarxa"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:528
+msgid "Net name"
+msgstr "Nom de la xarxa"
+
+#: common/dialogs/panel_setup_netclasses.tsx:522
+msgid "Netclass assignments"
+msgstr "Assignacions de classe de xarxa"
+
+#: pcbnew/dialogs/dialog_import_netlist_base.tsx:81
+msgid "Netlist file"
+msgstr "Fitxer de llista de connexions"
+
+#: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:197
+msgid "New footprint library id"
+msgstr "ID de la nova biblioteca d'empremtes"
+
+#: designer/src/auth/SignIn.tsx:528
+msgid "New password"
+msgstr "Contrasenya nova"
+
+#: designer/src/auth/SignIn.tsx:600
+msgid "New to ZiroEDA?"
+msgstr "Ets nou a ZiroEDA?"
+
+#: common/dialog_about/dialog_about.tsx:233
+msgid "Next page"
+msgstr "Pàgina següent"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:396
+msgid "No %s match your search."
+msgstr "Cap %s coincideix amb la cerca."
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1396
+msgid "No footprint libraries loaded."
+msgstr "No hi ha biblioteques d'empremtes carregades."
+
+#: common/widgets/widget_hotkey_list.tsx:177
+msgid "No hotkeys match “"
+msgstr "Cap drecera coincideix amb “"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:364
+msgid "No installed packages match your search."
+msgstr "Cap paquet instal·lat coincideix amb la cerca."
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1382
+msgid "No libraries"
+msgstr "Cap biblioteca"
+
+#: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
+msgid "No matches"
+msgstr "Cap coincidència"
+
+#: designer/src/ui/ErrorBoundary.tsx:95
+msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
+msgstr "No hi havia cap projecte obert a la memòria, de manera que no s'ha perdut res. En tornar a carregar hauries de recuperar-lo."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:365
+msgid "No packages installed yet."
+msgstr "Encara no hi ha paquets instal·lats."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:333
+msgid "No pending changes. Queue installs or removals, then apply."
+msgstr "No hi ha canvis pendents. Posa instal·lacions o supressions a la cua i després aplica-les."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:542
+msgid "No physical solution found for this target impedance."
+msgstr "No s'ha trobat cap solució física per a aquesta impedància objectiu."
+
+#: designer/src/auth/SignIn.tsx:562
+msgid "No recovery key?"
+msgstr "No tens clau de recuperació?"
+
+#: cvpcb/cvpcb_mainframe_ui.tsx:1591
+msgid "No symbols, place and annotate symbols first."
+msgstr "No hi ha símbols; col·loca i anota primer els símbols."
+
+#: designer/src/home/HomePage.tsx:728
+msgid "None of the files chosen is of the type %s."
+msgstr "Cap dels fitxers triats és del tipus %s."
+
+#: eeschema/sch_edit_frame_ui.tsx:3966
+msgid "Not a .kicad_sch file: %s"
+msgstr "No és un fitxer .kicad_sch: %s"
+
+#: designer/src/home/HomePage.tsx:2699
+msgid "Nothing has been changed or copied."
+msgstr "No s'ha canviat ni copiat res."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:354
+msgid "Number of units"
+msgstr "Nombre d'unitats"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:173
+msgid "Number of units per package"
+msgstr "Nombre d'unitats per paquet"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:280
+msgid "Number text size"
+msgstr "Mida del text del número"
+
+#: pcbnew/dialogs/dialog_enum_pads_base.tsx:87
+msgid "Numbering step"
+msgstr "Pas de numeració"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
+msgid "OVC IV"
+msgstr "OVC IV"
+
+#: designer/src/mobile/DesktopGate.tsx:76
+msgid "On a tablet? Rotate to landscape, or connect a mouse."
+msgstr "Ets en una tauleta? Gira-la a horitzontal o connecta un ratolí."
+
+#: designer/src/home/ShareButton.tsx:64
+msgid "Only people invited"
+msgstr "Només les persones convidades"
+
+#: designer/src/home/menubar.ts:133
+msgid "Open Demo Project"
+msgstr "Obre el projecte de demostració"
+
+#: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
+msgid "Open Project from GitHub"
+msgstr "Obre un projecte de GitHub"
+
+#: designer/src/home/menubar.ts:129
+msgid "Open Project from GitHub..."
+msgstr "Obre un projecte de GitHub..."
+
+#: designer/src/home/menubar.ts:260
+msgid "Open Text Viewer"
+msgstr "Obre el visualitzador de text"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1059
+msgid "Open a project to add a footprint library to."
+msgstr "Obre un projecte per afegir-hi una biblioteca d'empremtes."
+
+#: designer/src/editors/gerbview/GerberViewer.tsx:129 designer/src/fs/OpenFileDialog.tsx:152 designer/src/home/HomePage.tsx:2411
+msgid "Open from Computer..."
+msgstr "Obre des de l'ordinador..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:393
+msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
+msgstr "Obre el fitxer traçat en una pestanya nova del navegador després d'un traçat correcte (només la pàgina actual)"
+
+#: designer/src/mobile/DesktopGate.tsx:55
+msgid "Open this link on a laptop or desktop to get started."
+msgstr "Obre aquest enllaç en un portàtil o un ordinador de sobretaula per començar."
+
+#: designer/src/home/HomePage.tsx:1465
+msgid "Opening project..."
+msgstr "S'està obrint el projecte..."
+
+#: designer/src/home/HomePage.tsx:1078
+msgid "Opening the shared project..."
+msgstr "S'està obrint el projecte compartit..."
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:176
+msgid "Optionally up to two additional values can be excluded in case of component availability problems."
+msgstr "Opcionalment es poden excloure fins a dos valors addicionals en cas de problemes de disponibilitat de components."
+
+#: pcbnew/dialogs/dialog_rule_area_properties_base.tsx:149 pcbnew/dialogs/panel_zone_properties_base.tsx:182
+msgid "Outline display"
+msgstr "Visualització del contorn"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:169 pcbnew/dialogs/dialog_rule_area_properties_base.tsx:159 pcbnew/dialogs/panel_zone_properties_base.tsx:189
+msgid "Outline hatch pitch"
+msgstr "Pas del ratllat del contorn"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:159
+msgid "Outline style"
+msgstr "Estil del contorn"
+
+#: pcbnew/dialogs/dialog_gencad_export_options.tsx:191
+msgid "Output File"
+msgstr "Fitxer de sortida"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:146
+msgid "Output folder"
+msgstr "Carpeta de sortida"
+
+#: common/dialogs/dialog_print_generic_base.tsx:99
+msgid "Output mode"
+msgstr "Mode de sortida"
+
+#: eeschema/dialogs/dialog_export_netlist_base.tsx:118
+msgid "Output path"
+msgstr "Camí de sortida"
+
+#: pcbnew/dialogs/dialog_outset_items_base.tsx:108
+msgid "Outset"
+msgstr "Retranqueig"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:752
+msgid "PDF output mode"
+msgstr "Mode de sortida PDF"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:371
+msgid "PNG Options"
+msgstr "Opcions de PNG"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
+msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
+msgstr "El pad \"%s\" del grup de pads de pont %s no existeix en aquesta empremta."
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:528
+msgid "Pad Numbering"
+msgstr "Numeració de pads"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:355
+msgid "Pad clearance"
+msgstr "Marge de seguretat del pad"
+
+#: pcbnew/dialogs/dialog_footprint_properties.tsx:329
+msgid "Pad clearance must be at least %s."
+msgstr "El marge de seguretat del pad ha de ser com a mínim %s."
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1353
+msgid "Pad connection"
+msgstr "Connexió del pad"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:434 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:394
+msgid "Pad connection to zones"
+msgstr "Connexió del pad a zones"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:138
+msgid "Pad connections"
+msgstr "Connexions de pads"
+
+#: pcbnew/dialogs/dialog_enum_pads_base.tsx:63
+msgid "Pad name prefix"
+msgstr "Prefix del nom del pad"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:502
+msgid "Pad number"
+msgstr "Número de pad"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:978
+msgid "Pad to die delay"
+msgstr "Retard del pad a la matriu"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:945
+msgid "Pad to die length"
+msgstr "Longitud del pad a la matriu"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:486
+msgid "Pad type"
+msgstr "Tipus de pad"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:564 pcbnew/dialogs/dialog_track_via_properties_base.tsx:544
+msgid "Padstack mode"
+msgstr "Mode d'apilament del pad"
+
+#: eeschema/dialogs/dialog_sheet_properties_base.tsx:144
+msgid "Page number"
+msgstr "Número de pàgina"
+
+#: common/dialogs/panel_mouse_settings.tsx:312
+msgid "Pan on mouse movement with key"
+msgstr "Desplaça en moure el ratolí amb la tecla"
+
+#: common/dialogs/panel_spacemouse.tsx:115
+msgid "Pan speed"
+msgstr "Velocitat de desplaçament"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:256
+msgid "Parent footprint library link"
+msgstr "Enllaç de la biblioteca d'empremtes pare"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:239
+msgid "Parent reference designator"
+msgstr "Designador de referència pare"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:236
+msgid "Passive components are commonly made with E-series values appropriate to their precision. Capacitors commonly use E12 values. 10% and 5% resistors commonly use E24 values. 1% resistors use E96 values. Other series are not commonly used."
+msgstr "Els components passius se solen fabricar amb valors de les sèries E adequats a la seva precisió. Els condensadors solen fer servir valors E12. Les resistències de 10% (o 5%) fan servir sovint valors E24. Les d'1%: valors E96. Les altres sèries no se solen fer servir."
+
+#: designer/src/auth/SignIn.tsx:631
+msgid "Password strength: Moderate"
+msgstr "Seguretat de la contrasenya: moderada"
+
+#: designer/src/auth/SignIn.tsx:632
+msgid "Password strength: Strong"
+msgstr "Seguretat de la contrasenya: forta"
+
+#: designer/src/auth/SignIn.tsx:629
+msgid "Password strength: Weak"
+msgstr "Seguretat de la contrasenya: feble"
+
+#: designer/src/auth/SignIn.tsx:179 designer/src/auth/SignIn.tsx:226
+msgid "Passwords don't match"
+msgstr "Les contrasenyes no coincideixen"
+
+#: designer/src/auth/SignIn.tsx:519
+msgid "Paste your 24-word recovery key"
+msgstr "Enganxa la teva clau de recuperació de 24 paraules"
+
+#: designer/src/home/ShareButton.tsx:251
+msgid "People with access"
+msgstr "Persones amb accés"
+
+#: external/wx/datectrl.tsx:39
+msgid "Pick a date"
+msgstr "Tria una data"
+
+#: common/dialogs/dialog_page_settings_base.tsx:294
+msgid "Pick date"
+msgstr "Tria la data"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:737
+msgid "Pin '%s' in jumper pin group %s does not exist in this symbol."
+msgstr "El pin \"%s\" del grup de pins de pont %s no existeix en aquest símbol."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:229
+msgid "Pin (hold back updates)"
+msgstr "Fixa (no actualitzis)"
+
+#: eeschema/dialogs/dialog_symbol_properties.tsx:938
+msgid "Pin functions"
+msgstr "Funcions del pin"
+
+#: eeschema/erc/erc_settings.ts:317
+msgid "Pin map references a pad that does not exist on the footprint"
+msgstr "L'assignació de pins fa referència a un pad que no existeix a l'empremta"
+
+#: eeschema/erc/erc_settings.ts:332
+msgid "Pin map references a pin number that no longer exists on the symbol"
+msgstr "L'assignació de pins fa referència a un número de pin que ja no existeix al símbol"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:147
+msgid "Pin name"
+msgstr "Nom del pin"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:260
+msgid "Pin name position offset"
+msgstr "Desplaçament de la posició del nom del pin"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:166
+msgid "Pin number"
+msgstr "Número de pin"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:267
+msgid "Pinned"
+msgstr "Fixat"
+
+#: eeschema/tools/mutate.ts:340
+msgid "Place symbol"
+msgstr "Col·loca un símbol"
+
+#: designer/src/editors/schematic/hotkeys.ts:365
+msgid "Place/Remove No Connect Flags"
+msgstr "Col·loca/elimina marcadors de no connexió"
+
+#: designer/src/auth/SignIn.tsx:185 designer/src/auth/SignIn.tsx:232
+msgid "Please choose a stronger password."
+msgstr "Tria una contrasenya més segura."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:188
+msgid "Plot Schematic Options"
+msgstr "Opcions de traçat de l'esquemàtic"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:206
+msgid "Plot format"
+msgstr "Format de traçat"
+
+#: common/dialogs/dialog_plugin_options.tsx:141
+msgid "Plugin options"
+msgstr "Opcions del connector"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:487
+msgid "Position mode"
+msgstr "Mode de posició"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:291
+msgid "Position offset"
+msgstr "Desplaçament de posició"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:111
+msgid "Potential replacements"
+msgstr "Possibles substitucions"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
+msgid "Pre-defined track widths"
+msgstr "Amplades de pista predefinides"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:528
+msgid "Pre-defined via sizes"
+msgstr "Mides de via predefinides"
+
+#: common/dialog_about/dialog_about.tsx:209
+msgid "Previous page"
+msgstr "Pàgina anterior"
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:340
+msgid "Primary axis numbering"
+msgstr "Numeració de l'eix principal"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:237
+msgid "Progress"
+msgstr "Progrés"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:390
+msgid "Project Templates"
+msgstr "Plantilles de projecte"
+
+#: designer/src/fs/chooser_places.ts:231 designer/src/home/HomePage.tsx:2528
+msgid "Projects"
+msgstr "Projectes"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:661
+msgid "Protection features"
+msgstr "Funcions de protecció"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:209
+msgid "Queue install"
+msgstr "Posa la instal·lació a la cua"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:383
+msgid "Range (currents)"
+msgstr "Interval (corrents)"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:358
+msgid "Range (voltages)"
+msgstr "Interval (voltatges)"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:242
+msgid "Ratsnest line thickness"
+msgstr "Gruix de la línia d'embolic"
+
+#: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
+msgid "Reading files..."
+msgstr "S'estan llegint els fitxers..."
+
+#: designer/src/auth/DeleteAccountDialog.tsx:181 designer/src/auth/DeleteAccountDialog.tsx:187
+msgid "Reason for leaving"
+msgstr "Motiu de la baixa"
+
+#: common/widgets/lib_tree.tsx:1074
+msgid "Recent searches"
+msgstr "Cerques recents"
+
+#: designer/src/auth/SignIn.tsx:553
+msgid "Recover"
+msgstr "Recupera"
+
+#: designer/src/auth/SignIn.tsx:302 designer/src/auth/SignIn.tsx:327
+msgid "Recover account"
+msgstr "Recupera el compte"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:74 designer/src/auth/RecoveryKeyDialog.tsx:42 designer/src/auth/RecoveryKeyDialog.tsx:55 designer/src/auth/SignIn.tsx:323 designer/src/auth/SignIn.tsx:514
+msgid "Recovery key"
+msgstr "Clau de recuperació"
+
+#: designer/src/editors/pcb/prefs/PanelViewer3dGeneral.tsx:138
+msgid "Redraw speed"
+msgstr "Velocitat de redibuixat"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:220
+msgid "Reference filter"
+msgstr "Filtre de referència"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
+msgid "Refresh preview"
+msgstr "Actualitza la previsualització"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:294
+msgid "Regroup symbols"
+msgstr "Reagrupa els símbols"
+
+#: designer/src/ui/ErrorBoundary.tsx:81 designer/src/ui/ErrorBoundary.tsx:105
+msgid "Reload"
+msgstr "Torna a carregar"
+
+#: designer/src/App.tsx:1717
+msgid "Reload Now"
+msgstr "Torna a carregar ara"
+
+#: designer/src/ui/ErrorBoundary.tsx:81
+msgid "Reload without saving"
+msgstr "Torna a carregar sense desar"
+
+#: designer/src/home/ShareButton.tsx:277 designer/src/home/ShareButton.tsx:278
+msgid "Remove %s"
+msgstr "Suprimeix %s"
+
+#: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:85
+msgid "Remove 3D model"
+msgstr "Suprimeix el model 3D"
+
+#: common/dialogs/panel_setup_netclasses.tsx:535
+msgid "Remove assignment"
+msgstr "Suprimeix l'assignació"
+
+#: designer/src/home/HomePage.tsx:2750
+msgid "Remove damaged"
+msgstr "Suprimeix els danyats"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:194
+msgid "Remove from pending"
+msgstr "Suprimeix dels pendents"
+
+#: common/dialogs/panel_grid_settings.tsx:519
+msgid "Remove grid"
+msgstr "Suprimeix la quadrícula"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:428
+msgid "Remove islands"
+msgstr "Elimina les illes"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:68
+msgid "Remove member"
+msgstr "Suprimeix el membre"
+
+#: common/dialogs/panel_setup_netclasses.tsx:491
+msgid "Remove netclass"
+msgstr "Suprimeix la classe de xarxa"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:449
+msgid "Remove this repository"
+msgstr "Suprimeix aquest repositori"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:85
+msgid "Remove track propagation row"
+msgstr "Suprimeix la fila de propagació de pista"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles_base.tsx:55
+msgid "Remove tuning profile"
+msgstr "Suprimeix el perfil d'ajust"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:143
+msgid "Remove via delay override"
+msgstr "Suprimeix la substitució de retard de via"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:211
+msgid "Rename variant"
+msgstr "Canvia el nom de la variant"
+
+#: eeschema/dialogs/dialog_sch_find_base.tsx:122
+msgid "Replace with"
+msgstr "Substitueix per"
+
+#: common/dialog_about/dialog_about.tsx:197
+msgid "Report a problem with %s"
+msgstr "Informa d'un problema amb %s"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:418
+msgid "Repository:"
+msgstr "Repositori:"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:209
+msgid "Requires a runtime not yet available in the browser"
+msgstr "Requereix un entorn d'execució que encara no és disponible al navegador"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:293
+msgid "Requires app ≥"
+msgstr "Requereix l'aplicació ≥"
+
+#: designer/src/auth/SignIn.tsx:371
+msgid "Resend code"
+msgstr "Torna a enviar el codi"
+
+#: common/widgets/paged_dialog.tsx:265
+msgid "Reset this page to defaults"
+msgstr "Restableix aquesta pàgina als valors per defecte"
+
+#: common/widgets/wx_splitter_window.tsx:77 external/wx/wx_aui_sash.tsx:64
+msgid "Resize"
+msgstr "Canvia la mida"
+
+#: designer/src/App.tsx:1923 designer/src/home/HomePage.tsx:2797
+msgid "Restore Project"
+msgstr "Restaura el projecte"
+
+#: designer/src/App.tsx:1923
+msgid "Restoring your project..."
+msgstr "S'està restaurant el projecte..."
+
+#: common/dialogs/panel_mouse_settings.tsx:293
+msgid "Right button drag"
+msgstr "Arrossegament amb el botó dret"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:345
+msgid "Right margin"
+msgstr "Marge dret"
+
+#: pcbnew/dialogs/dialog_move_exact_base.tsx:134
+msgid "Rotation anchor"
+msgstr "Ancoratge de rotació"
+
+#: common/dialogs/panel_spacemouse.tsx:85
+msgid "Rotation speed"
+msgstr "Velocitat de rotació"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:175
+msgid "Round locations to"
+msgstr "Arrodoneix les ubicacions a"
+
+#: common/widgets/zoom_correction_ctrl.tsx:283
+msgid "Ruler units"
+msgstr "Unitats de la regla"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:722
+msgid "SVG output mode"
+msgstr "Mode de sortida SVG"
+
+#: eeschema/sch_edit_frame_ui.tsx:5683
+msgid "Save Current Sheet Copy As"
+msgstr "Desa la còpia de la fulla actual com a"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:83 designer/src/auth/RecoveryKeyDialog.tsx:66
+msgid "Save Key"
+msgstr "Desa la clau"
+
+#: designer/src/home/HomePage.tsx:1274
+msgid "Save Project"
+msgstr "Desa el projecte"
+
+#: designer/src/App.tsx:1679
+msgid "Save a copy"
+msgstr "Desa una còpia"
+
+#: common/launch_ext.tsx:293
+msgid "Save to folder"
+msgstr "Desa a la carpeta"
+
+#: designer/src/ui/StorageBanner.tsx:47
+msgid "Saving failed, recent edits are not being stored."
+msgstr "Ha fallat el desament, les edicions recents no s'estan emmagatzemant."
+
+#: designer/src/home/HomePage.tsx:1274
+msgid "Saving project..."
+msgstr "S'està desant el projecte..."
+
+#: common/widgets/zoom_correction_ctrl.tsx:244
+msgid "Scaling ruler"
+msgstr "Regla d'escala"
+
+#: pcbnew/dialogs/dialog_footprint_associations_base.tsx:69
+msgid "Schematic association"
+msgstr "Associació d'esquemàtic"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:192
+msgid "Schematic variants"
+msgstr "Variants de l'esquemàtic"
+
+#: eeschema/dialogs/dialog_sch_find_base.tsx:105 pcbnew/dialogs/dialog_find_base.tsx:84
+msgid "Search for"
+msgstr "Cerca"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:428
+msgid "Search packages..."
+msgstr "Cerca paquets..."
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:353
+msgid "Secondary axis numbering"
+msgstr "Numeració de l'eix secundari"
+
+#: designer/src/auth/auth_progress.tsx:28
+msgid "Securing your password on this device"
+msgstr "S'està protegint la contrasenya en aquest dispositiu"
+
+#: designer/src/home/HomePage.tsx:2418
+msgid "Select Files..."
+msgstr "Selecciona fitxers..."
+
+#: designer/src/home/menubar.ts:138
+msgid "Select Project Files..."
+msgstr "Selecciona fitxers del projecte..."
+
+#: designer/src/auth/DeleteAccountDialog.tsx:191
+msgid "Select a reason"
+msgstr "Selecciona un motiu"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:391
+msgid "Select a template to see what it contains."
+msgstr "Selecciona una plantilla per veure què conté."
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1330
+msgid "Select body style"
+msgstr "Selecciona l'estil del cos"
+
+#: eeschema/dialogs/dialog_field_properties_base.tsx:154
+msgid "Select footprint"
+msgstr "Selecciona una empremta"
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1351
+msgid "Select unit to edit"
+msgstr "Selecciona la unitat que cal editar"
+
+#: eeschema/sch_edit_frame.ts:1227
+msgid "Select variant name to remove:                "
+msgstr "Selecciona el nom de la variant que cal eliminar:                "
+
+#: eeschema/sch_edit_frame.ts:1189
+msgid "Select variant to edit description:                "
+msgstr "Selecciona la variant de la qual cal editar la descripció:                "
+
+#: common/dialogs/cross_probing_group.tsx:53
+msgid "Select/highlight objects corresponding to %s selection"
+msgstr "Selecciona/ressalta els objectes corresponents a la selecció de %s"
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:111
+msgid "Selected cells shown with the default system's coloring choice after a table refill."
+msgstr "Les cel·les seleccionades es mostren amb el color per defecte del sistema després de tornar a omplir la taula."
+
+#: designer/src/auth/SignIn.tsx:453
+msgid "Send reset link"
+msgstr "Envia l'enllaç de restabliment"
+
+#: eeschema/dialogs/dialog_table_properties_base.tsx:264 pcbnew/dialogs/dialog_table_properties_base.tsx:263
+msgid "Separators style"
+msgstr "Estil dels separadors"
+
+#: eeschema/dialogs/dialog_table_properties_base.tsx:246 pcbnew/dialogs/dialog_table_properties_base.tsx:245
+msgid "Separators width"
+msgstr "Amplada dels separadors"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:224
+msgid "Set active"
+msgstr "Estableix com a actiu"
+
+#: gerbview/widgets/layer_widget.tsx:130 3d-viewer/dialogs/appearance_controls_3d.tsx:125
+msgid "Set color for %s"
+msgstr "Estableix el color per a %s"
+
+#: pcbnew/widgets/appearance_controls.tsx:389
+msgid "Set color for net %s"
+msgstr "Estableix el color per a la xarxa %s"
+
+#: pcbnew/widgets/appearance_controls.tsx:433
+msgid "Set color for the %s netclass"
+msgstr "Estableix el color per a la classe de xarxa %s"
+
+#: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
+msgid "Share this project"
+msgstr "Comparteix aquest projecte"
+
+#: eeschema/sch_edit_frame_ui.tsx:3919
+msgid "Sheet file not in project: %s"
+msgstr "Fitxer de fulla que no és al projecte: %s"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
+msgid "Shift and Ctrl"
+msgstr "Shift i Ctrl"
+
+#: 3d-viewer/viewer3d_appearance.ts:178
+msgid "Show 3D navigator"
+msgstr "Mostra el navegador 3D"
+
+#: 3d-viewer/viewer3d_appearance.ts:131
+msgid "Show user defined layer %s"
+msgstr "Mostra la capa definida per l'usuari %s"
+
+#: designer/src/auth/SignIn.tsx:303 designer/src/auth/SignIn.tsx:413 designer/src/auth/SignIn.tsx:585
+msgid "Sign in"
+msgstr "Inicia la sessió"
+
+#: designer/src/auth/SignIn.tsx:328
+msgid "Sign in to ZiroEDA"
+msgstr "Inicia la sessió a ZiroEDA"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:368
+msgid "Significant digits (currents)"
+msgstr "Xifres significatives (corrents)"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:346
+msgid "Significant digits (voltages)"
+msgstr "Xifres significatives (voltatges)"
+
+#: designer/src/auth/SignIn.tsx:585
+msgid "Signing in..."
+msgstr "S'està iniciant la sessió..."
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
+msgid "Smoothing amount"
+msgstr "Quantitat de suavitzat"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:257 pcbnew/dialogs/panel_zone_properties_base.tsx:256
+msgid "Smoothing effort"
+msgstr "Esforç de suavitzat"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:207
+msgid "Snap to graphics"
+msgstr "Ajusta als gràfics"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:179
+msgid "Snap to pads"
+msgstr "Ajusta als pads"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:193
+msgid "Snap to tracks and vias"
+msgstr "Ajusta a pistes i vies"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:373 pcbnew/dialogs/dialog_track_via_properties_base.tsx:467
+msgid "Solder mask expansion"
+msgstr "Expansió de la màscara de soldadura"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:398
+msgid "Solder paste clearance"
+msgstr "Marge de seguretat de la pasta de soldadura"
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:180
+msgid "Solutions are given in the following formats:"
+msgstr "Les solucions es donen en els formats següents:"
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:171
+msgid "Solutions using up to 4 components are given."
+msgstr "Es donen solucions amb fins a 4 components."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:846
+msgid "Solve for this parameter"
+msgstr "Resol per a aquest paràmetre"
+
+#: eeschema/sch_edit_frame_ui.tsx:3775
+msgid "Some sheets failed to load: %s"
+msgstr "Algunes fulles no s'han pogut carregar: %s"
+
+#: designer/src/auth/SignIn.tsx:326
+msgid "Sorry"
+msgstr "Ho sentim"
+
+#: common/widgets/lib_tree.tsx:1110
+msgid "Sort and expand options"
+msgstr "Opcions d'ordenar i expandir"
+
+#: pcbnew/dialogs/dialog_multichannel_generate_rule_areas_base.tsx:46
+msgid "Sources"
+msgstr "Fonts"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
+msgid "Start layer"
+msgstr "Capa inicial"
+
+#: eeschema/dialogs/dialog_increment_annotations_base.tsx:80
+msgid "Start reference designator"
+msgstr "Designador de referència inicial"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:322
+msgid "Step for rotate commands"
+msgstr "Pas de les ordres de gir"
+
+#: common/eda_base_frame_help_menu.ts:163
+msgid "Support Chat"
+msgstr "Xat de suport"
+
+#: pcbnew/dialogs/dialog_swap_layers_base.tsx:37
+msgid "Swap layers"
+msgstr "Intercanvia les capes"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:233
+msgid "Symbol filter"
+msgstr "Filtre de símbols"
+
+#: eeschema/dialogs/dialog_edit_symbols_libid.tsx:526
+msgid "Symbol library references"
+msgstr "Referències de biblioteques de símbols"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:241
+msgid "Symbol type"
+msgstr "Tipus de símbol"
+
+#: eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:105
+msgid "Symbol unit notation"
+msgstr "Notació de la unitat del símbol"
+
+#: designer/src/home/HomePage.tsx:2760
+msgid "Syncing cloud projects..."
+msgstr "S'estan sincronitzant els projectes al núvol..."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:596
+msgid "Synthesis is not available for rectangular waveguides."
+msgstr "La síntesi no és disponible per a guies d'ona rectangulars."
+
+#: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
+msgid "Target areas"
+msgstr "Àrees objectiu"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:182
+msgid "Target impedance"
+msgstr "Impedància objectiu"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:265
+msgid "Temperature rise (ΔT):"
+msgstr "Augment de temperatura (ΔT):"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:288 eeschema/dialogs/dialog_label_properties_base.tsx:369 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:227 eeschema/dialogs/dialog_tablecell_properties_base.tsx:306 eeschema/dialogs/dialog_text_properties_base.tsx:282 pagelayout_editor/dialogs/properties_frame_ui.tsx:381
+msgid "Text color"
+msgstr "Color del text"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
+msgid "Text frame"
+msgstr "Marc de text"
+
+#: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
+msgid "Text size"
+msgstr "Mida del text"
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:99
+msgid "The anode of an electrochemical pair gets oxidized and eaten away, while the cathode gets dissolved metals plated onto it but stays protected."
+msgstr "L'ànode d'un parell electroquímic s'oxida i es consumeix, mentre que el càtode rep metalls dissolts dipositats a sobre però continua protegit."
+
+#: designer/src/auth/delete_account_form.ts:19
+msgid "The app or a certain feature does not behave as I think it should"
+msgstr "L'aplicació o una funció no es comporta com crec que hauria de fer-ho"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:312
+msgid "The calculations are valid for currents up to 35 A (external) or 17.5 A (internal), temperature rises up to 100 °C, and widths of up to 400 mils (10 mm)."
+msgstr "Els càlculs són vàlids per a corrents de fins a 35 A (externa) o 17,5 A (interna), augments de temperatura de fins a 100 °C i amplades de fins a 400 mils (10 mm)."
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:243
+msgid "The calculator estimates the energy required to heat the wire up"
+msgstr "La calculadora estima l'energia necessària per escalfar el fil"
+
+#: designer/src/home/HomePage.tsx:2687
+msgid "The cloud copies of %s projects cannot be opened with your key."
+msgstr "Les còpies al núvol de %s projectes no es poden obrir amb la teva clau."
+
+#: designer/src/home/HomePage.tsx:2683
+msgid "The cloud copy of \"%s\" cannot be opened with your key."
+msgstr "La còpia al núvol de \"%s\" no es pot obrir amb la teva clau."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:310
+msgid "The controlling value is shown in bold."
+msgstr "El valor que controla es mostra en negreta."
+
+#: designer/src/ui/ErrorBoundary.tsx:86
+msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
+msgstr "La descàrrega ha fallat. Copia l'error següent i informa'n, si us plau no tornis a carregar, la teva feina encara es pot recuperar des d'aquesta pestanya."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:316
+msgid "The formula, from IPC 2221, is"
+msgstr "La fórmula, de la IPC 2221, és"
+
+#: common/filename_resolver.ts:369
+msgid ""
+"The given path does not exist\n"
+"%s"
+msgstr ""
+"El camí indicat no existeix\n"
+"%s"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:485
+msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
+msgstr "L'objectiu de la IEC60664-1 és oferir orientació per dissenyar l'aïllament de productes connectats a la xarxa elèctrica."
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
+msgid "The requested value is always excluded from the solution set."
+msgstr "El valor sol·licitat sempre queda exclòs del conjunt de solucions."
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:581 eeschema/dialogs/dialog_symbol_properties_base.tsx:378
+msgid "The simulator is not available in this build"
+msgstr "El simulador no és disponible en aquesta compilació"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:356
+msgid "The text height must be between %s."
+msgstr "L'alçada del text ha d'estar entre %s."
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
+msgid "The text width must be between %s."
+msgstr "L'amplada del text ha d'estar entre %s."
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
+msgid "The value 0 is a special case and is not present in any series."
+msgstr "El valor 0 és un cas especial i no és a cap sèrie."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:55
+msgid "Theme preview"
+msgstr "Previsualització del tema"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:150
+msgid "Thermal relief gap"
+msgstr "Buit d'alleujament tèrmic"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:159
+msgid "Thermal spoke width"
+msgstr "Amplada del radi tèrmic"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:65
+msgid ""
+"This board references 3D models that are no longer present on your system.\n"
+"Select replacements below, or keep the existing references."
+msgstr ""
+"Aquesta placa fa referència a models 3D que ja no existeixen al sistema.\n"
+"Selecciona substituts a continuació o conserva les referències existents."
+
+#: gerbview/gerbview_frame_ui.tsx:911 pagelayout_editor/pl_editor_frame_ui.tsx:878
+msgid "This browser cannot create a WebGL 2 context."
+msgstr "Aquest navegador no pot crear un context WebGL 2."
+
+#: designer/src/ui/StorageBanner.tsx:42
+msgid "This browser has no local storage, edits are not being saved."
+msgstr "Aquest navegador no té emmagatzematge local, les edicions no s'estan desant."
+
+#: designer/src/ui/StorageBanner.tsx:35
+msgid "This browser is blocking site storage, edits are not being saved."
+msgstr "Aquest navegador està bloquejant l'emmagatzematge del lloc, les edicions no s'estan desant."
+
+#: common/launch_ext.tsx:245
+msgid "This browser will not open a folder, so themes are saved and loaded as files."
+msgstr "Aquest navegador no obrirà una carpeta, de manera que els temes es desen i es carreguen com a fitxers."
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:166
+msgid "This calculator finds combinations of standard E-series (between 10Ω and 1MΩ) to create arbitrary values."
+msgstr "Aquesta calculadora troba combinacions de valors estàndard de les sèries E (entre 10Ω i 1MΩ) per crear valors arbitraris."
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:247
+msgid "This energy is then compared to the one dissipated by the wire resistance."
+msgstr "Aquesta energia es compara després amb la dissipada per la resistència del fil."
+
+#: designer/src/fs/FileChooser.tsx:602
+msgid "This location cannot be saved to."
+msgstr "No es pot desar en aquesta ubicació."
+
+#: designer/src/home/ShareButton.tsx:218
+msgid "This project has not reached the cloud yet, so there is nothing to share. Let it sync, then share it."
+msgstr "Aquest projecte encara no ha arribat al núvol, de manera que no hi ha res per compartir. Deixa que se sincronitzi i després comparteix-lo."
+
+#: designer/src/pcm/PluginManagerDialog.tsx:397
+msgid "This repository has no %s."
+msgstr "Aquest repositori no té %s."
+
+#: designer/src/home/HomePage.tsx:2638
+msgid "This repository holds several KiCad projects. Open which one?"
+msgstr "Aquest repositori conté diversos projectes de KiCad. Quin vols obrir?"
+
+#: common/widgets/paged_dialog.tsx:252
+msgid "This setup page is not implemented yet."
+msgstr "Aquesta pàgina de configuració encara no està implementada."
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:95
+msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
+msgstr "Aquesta taula mostra la diferència de potencial electroquímic entre diversos metalls i aliatges. La corrosió galvànica afecta metalls diferents en contacte i sota certes condicions."
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
+msgid "This tool allows you to design a track fuse but should be used as an estimate only."
+msgstr "Aquesta eina permet dissenyar un fusible de pista, però només s'ha de fer servir com a estimació."
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
+msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
+msgstr "Per triar un valor, comença pel valor objectiu calculat i arrodoneix-lo a 2 xifres significatives per a E24 o inferior, o a 3 xifres significatives per a E48 i superior. Després busca a la taula el valor més proper a les xifres restants i substitueix-les per aquest."
+
+#: common/dialogs/panel_toolbar_customization.tsx:419
+msgid "Toolbar items"
+msgstr "Elements de la barra d'eines"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:739
+msgid "Top backdrill must-cut"
+msgstr "Contraperforació superior obligatòria"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:717
+msgid "Top backdrill size"
+msgstr "Mida de la contraperforació superior"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:327
+msgid "Top margin"
+msgstr "Marge superior"
+
+#: pcbnew/dialogs/dialog_track_via_size_base.tsx:63
+msgid "Track Width and Via Size"
+msgstr "Amplada de pista i mida de via"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:427
+msgid "Track layer"
+msgstr "Capa de pista"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:364
+msgid "Track mouse-drag mode"
+msgstr "Mode d'arrossegament del ratolí de la pista"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:648
+msgid "Track propagation"
+msgstr "Propagació de pista"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:601
+msgid "Track width correction"
+msgstr "Correcció de l'amplada de pista"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1185
+msgid "Track width limit"
+msgstr "Límit de l'amplada de pista"
+
+#: pcbnew/dialogs/dialog_track_via_properties.tsx:995
+msgid "Track width must be at least %s."
+msgstr "L'amplada de pista ha de ser com a mínim %s."
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7072
+msgid "Track: %s mm (%s mils)"
+msgstr "Pista: %s mm (%s mils)"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:633
+msgid "Trapezoid axis"
+msgstr "Eix del trapezi"
+
+#: designer/src/auth/DeleteAccountDialog.tsx:253
+msgid "Try again"
+msgstr "Torna-ho a provar"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles_base.tsx:37
+msgid "Tuning profiles"
+msgstr "Perfils d'ajust"
+
+#: eeschema/erc/erc_settings.ts:327
+msgid "Two symbol pins are mapped to the same footprint pad"
+msgstr "Dos pins del símbol estan assignats al mateix pad de l'empremta"
+
+#: common/widgets/search_pane_tab.tsx:101
+msgid "Type to search"
+msgstr "Escriu per cercar"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
+msgid "Unit display names"
+msgstr "Noms d'unitat que es mostren"
+
+#: eeschema/dialogs/dialog_lib_edit_pin_table_base.tsx:216
+msgid "Unit filter"
+msgstr "Filtre d'unitats"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:288
+msgid "Units format"
+msgstr "Format d'unitats"
+
+#: designer/src/auth/auth_progress.tsx:38
+msgid "Unlocking your encrypted projects"
+msgstr "S'estan desbloquejant els projectes xifrats"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:229
+msgid "Unpin (allow updates)"
+msgstr "Deixa de fixar (permet actualitzacions)"
+
+#: common/dialogs/git/panel_git_repos.tsx:68
+msgid "Update interval"
+msgstr "Interval d'actualització"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:263
+msgid "Update:"
+msgstr "Actualització:"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names.tsx:317
+msgid "User layer names"
+msgstr "Noms de capes d'usuari"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:53
+msgid "User layers"
+msgstr "Capes d'usuari"
+
+#: designer/src/ui/StorageBanner.tsx:26
+msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
+msgstr "S'està fent servir %s de %s. Descarrega el projecte i després elimina projectes antics de la pantalla d'inici per alliberar espai."
+
+#: pcbnew/widgets/vertex_editor_pane.tsx:307
+msgid "Vertex Editor"
+msgstr "Editor de vèrtexs"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:124
+msgid "Vertical %s"
+msgstr "%s vertical"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:675
+msgid "Via delay overrides"
+msgstr "Substitucions de retard de via"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:576
+msgid "Via hole"
+msgstr "Forat de la via"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7080
+msgid "Via size"
+msgstr "Mida de la via"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:604
+msgid "Via type"
+msgstr "Tipus de via"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7089
+msgid "Via: %s / %s mm (%s / %s mils)"
+msgstr "Via: %s / %s mm (%s / %s mils)"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7096
+msgid "Via: %s mm (%s mils)"
+msgstr "Via: %s mm (%s mils)"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:165
+msgid "View presets"
+msgstr "Predefinits de vista"
+
+#: designer/src/ui/PresencePanel.tsx:65
+msgid "Viewer"
+msgstr "Visor"
+
+#: 3d-viewer/dialogs/appearance_controls_3d.tsx:177
+msgid "Viewports (Shift+Tab):"
+msgstr "Finestres de vista (Shift+Tab):"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
+msgid "We don't store this key, so please save this in a safe place"
+msgstr "No emmagatzemem aquesta clau, així que desa-la en un lloc segur"
+
+#: designer/src/auth/SignIn.tsx:335
+msgid "We sent a 6-digit code to"
+msgstr "Hem enviat un codi de 6 dígits a"
+
+#: designer/src/auth/SignIn.tsx:441
+msgid "We will email you a link to set a new password. Your projects stay encrypted: to open them under the new password you will also need your recovery key."
+msgstr "T'enviarem per correu un enllaç per establir una contrasenya nova. Els teus projectes continuen xifrats: per obrir-los amb la contrasenya nova també necessitaràs la clau de recuperació."
+
+#: designer/src/home/ShareButton.tsx:269
+msgid "What %s may do"
+msgstr "Què pot fer %s"
+
+#: designer/src/home/ShareButton.tsx:337
+msgid "What a link to this project is worth"
+msgstr "Què permet un enllaç a aquest projecte"
+
+#: designer/src/home/ShareButton.tsx:244
+msgid "What the invited person may do"
+msgstr "Què pot fer la persona convidada"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:497
+msgid "When using a conformal coating or a potting in order to protect for pollution, if all conditions specified by IEC60664-3 are met, the clearance and creepage distances can be reduced. Soldermask is usually not considered as a conformal coating."
+msgstr "Quan es fa servir un recobriment conformal o un encapsulat per protegir de la contaminació, si es compleixen totes les condicions especificades per la IEC60664-3, les distàncies d'aïllament i de fuga es poden reduir. La màscara de soldadura normalment no es considera un recobriment conformal."
+
+#: designer/src/ui/PresencePanel.tsx:97
+msgid "Who's here"
+msgstr "Qui hi és"
+
+#: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
+msgid "Wire/bus width"
+msgstr "Amplada de fil/bus"
+
+#: designer/src/home/ShareButton.tsx:321 designer/src/home/ShareButton.tsx:322
+msgid "Withdraw the invitation to %s"
+msgstr "Retira la invitació a %s"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:211
+msgid "X position"
+msgstr "Posició X"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:572
+msgid "X scale factor"
+msgstr "Factor d'escala X"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:224
+msgid "Y position"
+msgstr "Posició Y"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:585
+msgid "Y scale factor"
+msgstr "Factor d'escala Y"
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
+msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
+msgstr "Pots introduir la resistència necessària de 0,0025 a 4000 kΩ."
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:234
+msgid "You can use this calculator to check if a small track can handle a large current for a short period of time."
+msgstr "Pots fer servir aquesta calculadora per comprovar si una pista petita pot suportar un corrent gran durant un breu període de temps."
+
+#: eeschema/sch_edit_frame_ui.tsx:5983
+msgid "You have view-only access to this project. Ask the owner for edit access to make changes."
+msgstr "Tens accés de només lectura a aquest projecte. Demana al propietari accés d'edició per fer canvis."
+
+#: designer/src/ui/StorageBanner.tsx:24
+msgid "Your browser's storage is full, edits are no longer being saved."
+msgstr "L'emmagatzematge del navegador és ple, les edicions ja no s'estan desant."
+
+#: designer/src/auth/SignIn.tsx:399
+msgid "Your password encrypts your projects. We cannot reset it or read your designs without it."
+msgstr "La teva contrasenya xifra els teus projectes. No la podem restablir ni llegir els teus dissenys sense ella."
+
+#: designer/src/ui/ErrorBoundary.tsx:68
+msgid "Your project is still in memory. Download it before reloading, reloading will discard anything that hasn't been saved."
+msgstr "El projecte encara és a la memòria. Descarrega'l abans de tornar a carregar, en tornar a carregar es descartarà tot el que no s'hagi desat."
+
+#: designer/src/auth/SignIn.tsx:300
+msgid "Your recovery key"
+msgstr "La teva clau de recuperació"
+
+#: designer/src/ui/ErrorBoundary.tsx:63
+msgid "ZiroEDA hit an unexpected error"
+msgstr "ZiroEDA ha trobat un error inesperat"
+
+#: designer/src/mobile/DesktopGate.tsx:51
+msgid "ZiroEDA is a full EDA suite, schematic capture, PCB layout and 3D preview. It's built for a mouse, a keyboard and room to work, so there's no phone version yet."
+msgstr "ZiroEDA és una suite d'EDA completa: captura d'esquemàtics, disseny de PCB i previsualització 3D. Està pensat per a ratolí, teclat i espai de treball, de manera que encara no hi ha versió per a mòbils."
+
+#: designer/src/mobile/DesktopGate.tsx:48
+msgid "ZiroEDA needs a bigger screen"
+msgstr "ZiroEDA necessita una pantalla més gran"
+
+#: designer/src/support/ChatWidget.tsx:288
+msgid "ZiroEDA support chat"
+msgstr "Xat de suport de ZiroEDA"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
+msgid "Zone knockout"
+msgstr "Negatiu de la zona"
+
+#: pcbnew/zone_layer_properties_grid.tsx:220
+msgid "Zone layer properties"
+msgstr "Propietats de la capa de la zona"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:350
+msgid "Zone name"
+msgstr "Nom de la zona"
+
+#: pcbnew/zone_manager/dialog_zone_manager.tsx:850
+msgid "Zone previews"
+msgstr "Previsualitzacions de zones"
+
+#: common/dialogs/panel_mouse_settings.tsx:215
+msgid "Zoom speed"
+msgstr "Velocitat del zoom"
+
+#: designer/src/auth/SignIn.tsx:581
+msgid "below to set your password again. No recovery key is needed."
+msgstr "a continuació per establir de nou la contrasenya. No cal cap clau de recuperació."
+
+#: designer/src/home/ShareButton.tsx:60
+msgid "can edit"
+msgstr "pot editar"
+
+#: designer/src/home/ShareButton.tsx:59
+msgid "can view"
+msgstr "pot veure"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
+msgid "dashed: creepage"
+msgstr "discontínua: línia de fuga"
+
+#: designer/src/home/HomePage.tsx:2736
+msgid "did not sync:"
+msgstr "no s'ha sincronitzat:"
+
+#: designer/src/auth/SignIn.tsx:434
+msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
+msgstr "té un compte, hi ha un enllaç de restabliment en camí. Obre'l en aquest dispositiu per triar una contrasenya nova."
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:353
+msgid "is 0.024 for internal tracks or 0.048 for external tracks"
+msgstr "és 0,024 per a pistes internes o 0,048 per a pistes externes"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:61 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:144
+msgid "is attenuation in dB"
+msgstr "és l'atenuació en dB"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:67 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:150 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:190
+msgid "is desired input impedance in Ω"
+msgstr "és la impedància d'entrada desitjada en Ω"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:73 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:156 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:196
+msgid "is desired output impedance in Ω"
+msgstr "és la impedància de sortida desitjada en Ω"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:333
+msgid "is maximum current in A"
+msgstr "és el corrent màxim en A"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:338
+msgid "is temperature rise above ambient in °C"
+msgstr "és l'augment de temperatura per sobre de l'ambient en °C"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:348
+msgid "is thickness (height) in mils"
+msgstr "és el gruix (alçada) en mils"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:343
+msgid "is width in mils"
+msgstr "és l'amplada en mils"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
+msgid "solid: clearance"
+msgstr "contínua: marge de seguretat"
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
+msgid "to its melting point as well as the energy required for the change of phase."
+msgstr "fins al seu punt de fusió, així com l'energia necessària per al canvi de fase."
+
+#: designer/src/editors/calculator/panels/transline_ident.ts:263
+msgid "μr (conductor)"
+msgstr "μr (conductor)"
+
+#: designer/src/editors/calculator/panels/transline_ident.ts:256
+msgid "μr (substrate)"
+msgstr "μr (substrat)"
+
+#: designer/src/home/HomePage.tsx:2659
+msgid "✓ Joined a shared project — you can edit it"
+msgstr "✓ T'has unit a un projecte compartit: el pots editar"
+
+#: designer/src/home/HomePage.tsx:2658
+msgid "✓ Joined a shared project — you can view it, but not save changes to it"
+msgstr "✓ T'has unit a un projecte compartit: el pots veure, però no desar-hi canvis"
+
+#: designer/src/home/HomePage.tsx:2726
+msgid "✓ Projects synced"
+msgstr "✓ Projectes sincronitzats"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:232
+msgid "📌 Pinned"
+msgstr "📌 Fixat"

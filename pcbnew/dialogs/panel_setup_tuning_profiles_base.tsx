@@ -10,6 +10,7 @@ import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
 import { wxALL, wxBOTTOM, wxEXPAND, wxHORIZONTAL, wxLEFT, wxTOP } from '@ziroeda/wx/defs.js';
 import { type NotebookPage, Notebook } from '@ziroeda/wx/notebook_ui.js';
 import { BoxSizer, FlexGridSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PANEL_SETUP_TUNING_PROFILES_BASE_PROPS {
   m_tuningProfiles: {
@@ -33,7 +34,7 @@ export function PANEL_SETUP_TUNING_PROFILES_BASE(
           pages={p.m_tuningProfiles.pages}
           selection={p.m_tuningProfiles.selection}
           onPageChanged={p.m_tuningProfiles.onPageChanged}
-          ariaLabel="Tuning profiles"
+          ariaLabel={_('Tuning profiles')}
         />
       </SizerItem>
       <SizerItem proportion={1} flag={wxTOP} border={5}>
@@ -42,7 +43,7 @@ export function PANEL_SETUP_TUNING_PROFILES_BASE(
           <SizerItem flag={wxTOP | wxBOTTOM | wxLEFT} border={5}>
             <StdBitmapButton
               bitmap="small_plus"
-              title="Add tuning profile"
+              title={_('Add tuning profile')}
               tooltip={null}
               onClick={p.onAddTuningProfileClick}
             />
@@ -51,7 +52,7 @@ export function PANEL_SETUP_TUNING_PROFILES_BASE(
           <SizerItem flag={wxTOP | wxBOTTOM | wxLEFT} border={5}>
             <StdBitmapButton
               bitmap="small_trash"
-              title="Remove tuning profile"
+              title={_('Remove tuning profile')}
               tooltip={null}
               disabled={!p.removeEnabled}
               onClick={p.onRemoveTuningProfileClick}

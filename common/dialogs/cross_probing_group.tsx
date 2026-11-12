@@ -5,6 +5,7 @@ import type { JSX, ReactNode } from 'react';
 import type { CROSS_PROBING_SETTINGS } from '../settings/app_settings.js';
 import { Check, Group } from './pref_controls.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * The "Cross-probing" group, written once because KiCad writes it twice: the
@@ -48,10 +49,15 @@ export function CrossProbingGroup({
   return (
     <Group title={_('Cross-probing')}>
       <Check
-        label={`Select/highlight objects corresponding to ${sch ? 'schematic' : 'PCB'} selection`}
-        title={`Highlight ${sch ? 'footprints' : 'symbols'} corresponding to selected ${
-          sch ? 'symbols' : 'footprints'
-        }`}
+        label={wxFormat(
+          _('Select/highlight objects corresponding to %s selection'),
+          sch ? 'schematic' : 'PCB',
+        )}
+        title={wxFormat(
+          _('Highlight %s corresponding to selected %s'),
+          sch ? 'footprints' : 'symbols',
+          sch ? 'symbols' : 'footprints',
+        )}
         checked={value.on_selection}
         disabled={disabled}
         onChange={(v) =>
@@ -62,9 +68,10 @@ export function CrossProbingGroup({
       />
       <Check
         label={_('Center view on cross-probed items')}
-        title={`Ensures that cross-probed ${
-          sch ? 'footprints' : 'symbols'
-        } are visible in the current view`}
+        title={wxFormat(
+          _('Ensures that cross-probed %s are visible in the current view'),
+          sch ? 'footprints' : 'symbols',
+        )}
         checked={value.center_on_items}
         disabled={disabled}
         onChange={(v) =>
@@ -85,9 +92,10 @@ export function CrossProbingGroup({
       />
       <Check
         label={_('Highlight cross-probed nets')}
-        title={`Highlight nets when they are highlighted in the ${
-          sch ? 'schematic' : 'PCB'
-        } editor`}
+        title={wxFormat(
+          _('Highlight nets when they are highlighted in the %s editor'),
+          sch ? 'schematic' : 'PCB',
+        )}
         checked={value.auto_highlight}
         disabled={disabled}
         onChange={(v) =>

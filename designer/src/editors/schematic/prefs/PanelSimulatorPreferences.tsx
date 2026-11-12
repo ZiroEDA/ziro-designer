@@ -39,6 +39,7 @@ import { Group } from '@ziroeda/common/dialogs/pref_controls.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `SIM_MOUSE_WHEEL_ACTION` (`sim_preferences.h:37-50`) and the labels
@@ -120,7 +121,7 @@ export function PanelSimulatorPreferences({ ctx }: { ctx: PrefsContext }): JSX.E
                 <span className="ze-simprefs-rowlabel">{label}</span>
                 <Combo
                   value={String(wheel[key])}
-                  ariaLabel={`Vertical ${label.replace(':', '')}`}
+                  ariaLabel={wxFormat(_('Vertical %s'), label.replace(':', ''))}
                   options={VERTICAL_ACTIONS.map((l, i) => ({ value: String(i), label: l }))}
                   onChange={(v) => setWheel({ [key]: Number(v) })}
                   className="ze-simprefs-choice"
@@ -138,7 +139,7 @@ export function PanelSimulatorPreferences({ ctx }: { ctx: PrefsContext }): JSX.E
             <span className="ze-simprefs-rowlabel">{_('Any:')}</span>
             <Combo
               value={String(wheel.horizontal)}
-              ariaLabel="Horizontal Any"
+              ariaLabel={_('Horizontal Any')}
               options={HORIZONTAL_ACTIONS.map(([v, l]) => ({ value: String(v), label: l }))}
               onChange={(v) => setWheel({ horizontal: Number(v) })}
               className="ze-simprefs-choice"

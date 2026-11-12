@@ -278,7 +278,7 @@ function ItemProperties({
         )}
         <Combo
           style={{ flex: '0 0 auto', minWidth: 0 }}
-          ariaLabel="First page option"
+          ariaLabel={_('First page option')}
           value={String(panel.m_choicePageOpt)}
           options={PAGE_OPTION_CHOICES.map((label, i) => ({ value: String(i), label }))}
           onChange={(v) => {
@@ -378,7 +378,7 @@ function ItemProperties({
             <button
               type="button"
               className={`ze-swatch${isUnspecified(swatch) ? ' unspecified' : ''}`}
-              aria-label="Text color"
+              aria-label={_('Text color')}
               style={isUnspecified(swatch) ? undefined : { background: toCss(swatch) }}
               onClick={() => setPickerOpen(true)}
             />

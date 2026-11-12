@@ -624,7 +624,7 @@ export function DialogPinProperties({
           grid={dlg.m_alternatesGrid}
           columns={ALT_COLUMNS}
           flexCol={ALT_COL.COL_NAME}
-          ariaLabel="Alternate pin functions"
+          ariaLabel={_('Alternate pin functions')}
         />
       }
       onAddAlternate={() => dlg.OnAddAlternate()}

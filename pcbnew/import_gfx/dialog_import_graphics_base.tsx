@@ -120,7 +120,7 @@ export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS
               <TextCtrl
                 value={p.m_importScaleCtrl.value}
                 onChange={p.m_importScaleCtrl.onChange}
-                ariaLabel="Import scale"
+                ariaLabel={_('Import scale')}
               />
             </SizerItem>
             <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
@@ -137,7 +137,7 @@ export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS
                 onChange={p.m_lineWidthCtrl.onChange}
                 onBlur={p.m_lineWidthCtrl.onBlur}
                 disabled={!dxf}
-                ariaLabel="DXF default line width"
+                ariaLabel={_('DXF default line width')}
               />
             </SizerItem>
             <SizerItem flag={CV | wxRIGHT} border={5}>
@@ -154,7 +154,7 @@ export function DIALOG_IMPORT_GRAPHICS_BASE(p: DIALOG_IMPORT_GRAPHICS_BASE_PROPS
               <Choice
                 choices={p.m_dxfUnitsChoice.choices}
                 choice={p.m_dxfUnitsChoice}
-                ariaLabel="DXF default units"
+                ariaLabel={_('DXF default units')}
               />
             </SizerItem>
           </FlexGridSizer>

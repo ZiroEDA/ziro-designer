@@ -156,7 +156,7 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
                           <Choice
                             choices={[_('Line'), _('Hatched'), _('Fully hatched')]}
                             choice={p.m_OutlineDisplayCtrl}
-                            ariaLabel="Outline style"
+                            ariaLabel={_('Outline style')}
                           />
                         </SizerItem>
                         <SizerItem pos={[3, 0]} flag={wxALL | CV} border={5}>
@@ -166,7 +166,7 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
                           <TextCtrl
                             value={p.m_outlineHatchPitch.value}
                             onChange={p.m_outlineHatchPitch.onChange}
-                            ariaLabel="Outline hatch pitch"
+                            ariaLabel={_('Outline hatch pitch')}
                           />
                         </SizerItem>
                         <SizerItem pos={[3, 2]} flag={wxTOP | wxBOTTOM | wxRIGHT | CV} border={5}>
@@ -179,7 +179,7 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
                           <TextCtrl
                             value={p.m_minWidth.value}
                             onChange={p.m_minWidth.onChange}
-                            ariaLabel="Minimum width"
+                            ariaLabel={_('Minimum width')}
                           />
                         </SizerItem>
                         <SizerItem pos={[4, 2]} flag={CV | wxBOTTOM | wxRIGHT} border={5}>
@@ -192,7 +192,7 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
                           <Choice
                             choices={[_('None'), _('Chamfer'), _('Fillet')]}
                             choice={p.m_cornerSmoothingChoice}
-                            ariaLabel="Corner smoothing"
+                            ariaLabel={_('Corner smoothing')}
                           />
                         </SizerItem>
                         <SizerItem pos={[6, 0]} flag={BRL | CV} border={5}>
@@ -206,7 +206,7 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
                             value={p.m_cornerRadius.value}
                             onChange={p.m_cornerRadius.onChange}
                             disabled={p.m_cornerRadius.enabled === false}
-                            ariaLabel="Corner radius"
+                            ariaLabel={_('Corner radius')}
                           />
                         </SizerItem>
                         <SizerItem pos={[6, 2]} flag={CV | wxBOTTOM | wxRIGHT} border={5}>
@@ -231,7 +231,7 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
                           <Choice
                             choices={[_('Solid fill'), _('Hatch pattern')]}
                             choice={p.m_GridStyleCtrl}
-                            ariaLabel="Fill type"
+                            ariaLabel={_('Fill type')}
                           />
                         </SizerItem>
                         <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
@@ -254,7 +254,7 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
                             min={0}
                             max={3}
                             disabled={!p.m_spinCtrlSmoothLevel.enabled}
-                            ariaLabel="Smoothing effort"
+                            ariaLabel={_('Smoothing effort')}
                           />
                         </SizerItem>
                         <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
@@ -276,7 +276,7 @@ export function DIALOG_NONCOPPER_ZONES_PROPERTIES_BASE(
                             step={0.1}
                             digits={2}
                             disabled={!p.m_spinCtrlSmoothValue.enabled}
-                            ariaLabel="Smoothing amount"
+                            ariaLabel={_('Smoothing amount')}
                           />
                         </SizerItem>
                       </FlexGridSizer>

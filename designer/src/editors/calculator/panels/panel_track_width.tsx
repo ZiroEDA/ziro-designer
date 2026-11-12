@@ -262,7 +262,7 @@ export function PanelTrackWidth(): JSX.Element {
               unit="A"
             />
             <Field
-              label="Temperature rise (ΔT):"
+              label={_('Temperature rise (ΔT):')}
               value={tw.delta_tc}
               onChange={(v) => set('delta_tc', v)}
               unit="°C"
@@ -298,20 +298,22 @@ export function PanelTrackWidth(): JSX.Element {
           <div className="calc-help tw-help">
             <div className="calc-help-body">
               <p>
-                If you specify the maximum current, then the track widths will be calculated to
-                suit.
+                {_(
+                  'If you specify the maximum current, then the track widths will be calculated to suit.',
+                )}
               </p>
               <p>
-                If you specify one of the track widths, the maximum current it can handle will be
-                calculated. The width for the other track to also handle this current will then be
-                calculated.
+                {_(
+                  'If you specify one of the track widths, the maximum current it can handle will be calculated. The width for the other track to also handle this current will then be calculated.',
+                )}
               </p>
-              <p>The controlling value is shown in bold.</p>
+              <p>{_('The controlling value is shown in bold.')}</p>
               <p>
-                The calculations are valid for currents up to 35 A (external) or 17.5 A (internal),
-                temperature rises up to 100 °C, and widths of up to 400 mils (10 mm).
+                {_(
+                  'The calculations are valid for currents up to 35 A (external) or 17.5 A (internal), temperature rises up to 100 °C, and widths of up to 400 mils (10 mm).',
+                )}
               </p>
-              <p>The formula, from IPC 2221, is</p>
+              <p>{_('The formula, from IPC 2221, is')}</p>
               {/* `<center>___I = K &middot; …___</center>`
                   (tracks_width_versus_current_formula.md:10). `___…___` is
                   markdown for strong AND em, so the line is bold *italic* -
@@ -328,27 +330,27 @@ export function PanelTrackWidth(): JSX.Element {
                 <b>
                   <i>{_('I')}</i>
                 </b>{' '}
-                is maximum current in A
+                {_('is maximum current in A')}
                 <br />
                 <b>
                   <i>ΔT</i>
                 </b>{' '}
-                is temperature rise above ambient in °C
+                {_('is temperature rise above ambient in °C')}
                 <br />
                 <b>
                   <i>{_('W')}</i>
                 </b>{' '}
-                is width in mils
+                {_('is width in mils')}
                 <br />
                 <b>
                   <i>H</i>
                 </b>{' '}
-                is thickness (height) in mils
+                {_('is thickness (height) in mils')}
                 <br />
                 <b>
                   <i>{_('K')}</i>
                 </b>{' '}
-                is 0.024 for internal tracks or 0.048 for external tracks
+                {_('is 0.024 for internal tracks or 0.048 for external tracks')}
               </p>
             </div>
           </div>

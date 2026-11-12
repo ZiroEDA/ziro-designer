@@ -143,7 +143,7 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
               <TextCtrl
                 value={p.m_outputDirectoryName}
                 onChange={p.onOutputDirectoryName}
-                ariaLabel="Output folder"
+                ariaLabel={_('Output folder')}
               />
             </SizerItem>
             <SizerItem
@@ -265,7 +265,7 @@ export function DIALOG_GENDRILL_BASE(p: DIALOG_GENDRILL_BASE_PROPS): JSX.Element
                             options={choiceOptions(DRILL_MAP_CHOICES)}
                             onChange={(v) => p.m_choiceDrillMap.onChange(Number(v))}
                             disabled={p.m_choiceDrillMap.enabled === false}
-                            ariaLabel="Generate map format"
+                            ariaLabel={_('Generate map format')}
                           />
                         </SizerItem>
                       </BoxSizer>

@@ -272,7 +272,9 @@ export class DESIGN_BLOCK_PANE {
     const saved = table.Save();
 
     if (!saved.ok) {
-      this.m_dialogs.DisplayError(`Error saving library table:\n\n${saved.error.message}`);
+      this.m_dialogs.DisplayError(
+        wxFormat(_('Error saving library table:\n\n%s'), saved.error.message),
+      );
     } else {
       adapter.LoadOneByName(libName);
       this.RefreshLibs();

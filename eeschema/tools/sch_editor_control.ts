@@ -999,7 +999,12 @@ export class SCH_EDITOR_CONTROL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
         // wxLogWarning( msg )
         DisplayErrorMessage(
-          `Error saving symbol ${newSym.GetName()} to library '${row.Nickname()}'.\n\n${ioe.message}`,
+          wxFormat(
+            _("Error saving symbol %s to library '%s'.\n\n%s"),
+            newSym.GetName(),
+            row.Nickname(),
+            ioe.message,
+          ),
         );
         return 0;
       }

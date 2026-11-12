@@ -144,7 +144,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                         value={p.m_textPinName}
                         onChange={p.onPinName}
                         inputRef={p.nameRef}
-                        ariaLabel="Pin name"
+                        ariaLabel={_('Pin name')}
                       />
                     </SizerItem>
                     <SizerItem pos={[1, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -163,7 +163,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                         value={p.m_textPinNumber}
                         onChange={p.onPinNumber}
                         inputRef={p.numberRef}
-                        ariaLabel="Pin number"
+                        ariaLabel={_('Pin number')}
                       />
                     </SizerItem>
                     <SizerItem pos={[2, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -178,7 +178,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       <PinTypeComboBox
                         value={p.m_choiceElectricalType}
                         onChange={p.onElectricalType}
-                        ariaLabel="Electrical type"
+                        ariaLabel={_('Electrical type')}
                       />
                     </SizerItem>
                     <SizerItem pos={[3, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -193,7 +193,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       <PinShapeComboBox
                         value={p.m_choiceStyle}
                         onChange={p.onStyle}
-                        ariaLabel="Graphic style"
+                        ariaLabel={_('Graphic style')}
                       />
                     </SizerItem>
                     <SizerItem pos={[4, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -205,7 +205,11 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       border={5}
                       minSize={[110, -1]}
                     >
-                      <TextCtrl value={p.m_posXCtrl} onChange={p.onPosX} ariaLabel="X position" />
+                      <TextCtrl
+                        value={p.m_posXCtrl}
+                        onChange={p.onPosX}
+                        ariaLabel={_('X position')}
+                      />
                     </SizerItem>
                     <SizerItem pos={[4, 2]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                       <StaticText label={p.units} />
@@ -214,7 +218,11 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       <StaticText label={_('Y position:')} />
                     </SizerItem>
                     <SizerItem pos={[5, 1]} flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
-                      <TextCtrl value={p.m_posYCtrl} onChange={p.onPosY} ariaLabel="Y position" />
+                      <TextCtrl
+                        value={p.m_posYCtrl}
+                        onChange={p.onPosY}
+                        ariaLabel={_('Y position')}
+                      />
                     </SizerItem>
                     <SizerItem pos={[5, 2]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                       <StaticText label={p.units} />
@@ -256,7 +264,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       <TextCtrl
                         value={p.m_nameSizeCtrl}
                         onChange={p.onNameSize}
-                        ariaLabel="Name text size"
+                        ariaLabel={_('Name text size')}
                       />
                     </SizerItem>
                     <SizerItem pos={[8, 2]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -269,7 +277,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       <TextCtrl
                         value={p.m_numberSizeCtrl}
                         onChange={p.onNumberSize}
-                        ariaLabel="Number text size"
+                        ariaLabel={_('Number text size')}
                       />
                     </SizerItem>
                     <SizerItem pos={[9, 2]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -350,7 +358,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                         <StdBitmapButton
                           bitmap="small_plus"
-                          title="Add alternate"
+                          title={_('Add alternate')}
                           tooltip={null}
                           onClick={p.onAddAlternate}
                         />
@@ -361,7 +369,7 @@ export function DIALOG_PIN_PROPERTIES_BASE(p: DIALOG_PIN_PROPERTIES_BASE_PROPS):
                       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
                         <StdBitmapButton
                           bitmap="small_trash"
-                          title="Delete alternate"
+                          title={_('Delete alternate')}
                           tooltip={null}
                           onClick={p.onDeleteAlternate}
                         />

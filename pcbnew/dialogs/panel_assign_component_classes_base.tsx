@@ -112,7 +112,7 @@ export function PANEL_COMPONENT_CLASS_ASSIGNMENT_BASE(p: {
               <TextCtrl
                 value={p.m_componentClass.value}
                 onChange={p.m_componentClass.onChange}
-                ariaLabel="Component class"
+                ariaLabel={_('Component class')}
               />
             </SizerItem>
             <Spacer width={20} height={0} flag={wxEXPAND} border={5} />
@@ -132,7 +132,7 @@ export function PANEL_COMPONENT_CLASS_ASSIGNMENT_BASE(p: {
             <SizerItem flag={CV | wxLEFT} border={5}>
               <StdBitmapButton
                 bitmap="small_plus"
-                title="Add condition"
+                title={_('Add condition')}
                 tooltip={null}
                 onClick={(e) => p.onAddConditionClick(e.currentTarget)}
               />
@@ -363,7 +363,7 @@ export function PANEL_COMPONENT_CLASS_CONDITION_FIELD_BASE(
               value={p.m_fieldName.value}
               options={p.fields}
               onChange={p.m_fieldName.onChange}
-              ariaLabel="Footprint field"
+              ariaLabel={_('Footprint field')}
             />
           </SizerItem>
           <Spacer width={10} height={0} proportion={1} flag={wxEXPAND} border={5} />
@@ -374,7 +374,7 @@ export function PANEL_COMPONENT_CLASS_CONDITION_FIELD_BASE(
             <TextCtrl
               value={p.m_fieldValue.value}
               onChange={p.m_fieldValue.onChange}
-              ariaLabel="Field value"
+              ariaLabel={_('Field value')}
             />
           </SizerItem>
           {gap}

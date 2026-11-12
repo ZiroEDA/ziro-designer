@@ -272,7 +272,7 @@ export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
       if (wxFileExists(path)) return refuse(path);
 
       if (!wxWriteFileSync(path, new TextEncoder().encode(file.text))) {
-        DisplayErrorMessage(`Could not write the library file '${path}'.`);
+        DisplayErrorMessage(wxFormat(_("Could not write the library file '%s'."), path));
         return false;
       }
 

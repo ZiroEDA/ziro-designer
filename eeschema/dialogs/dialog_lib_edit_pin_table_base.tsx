@@ -213,7 +213,7 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
                     </SizerItem>
                     <SizerItem pos={[0, 1]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                       <Choice
-                        ariaLabel="Unit filter"
+                        ariaLabel={_('Unit filter')}
                         choices={p.unitFilterChoices}
                         choice={p.m_unitFilter}
                       />
@@ -231,7 +231,7 @@ export function DIALOG_LIB_EDIT_PIN_TABLE_BASE(
                     </SizerItem>
                     <SizerItem pos={[1, 1]} span={[1, 1]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                       <Choice
-                        ariaLabel="Body style filter"
+                        ariaLabel={_('Body style filter')}
                         choices={p.bodyStyleFilterChoices}
                         choice={p.m_bodyStyleFilter}
                       />

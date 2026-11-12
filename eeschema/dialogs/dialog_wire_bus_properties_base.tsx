@@ -85,7 +85,7 @@ export function DIALOG_WIRE_BUS_PROPERTIES_BASE(
                 value={p.m_lineWidth}
                 onChange={p.onLineWidth}
                 inputRef={p.lineWidthRef}
-                ariaLabel="Wire/bus width"
+                ariaLabel={_('Wire/bus width')}
               />
             </SizerItem>
             <SizerItem
@@ -170,7 +170,7 @@ export function DIALOG_WIRE_BUS_PROPERTIES_BASE(
                 value={p.m_dotSizeCtrl}
                 onChange={p.onDotSize}
                 disabled={!p.dotSizeEnabled}
-                ariaLabel="Junction size"
+                ariaLabel={_('Junction size')}
               />
             </SizerItem>
             <SizerItem

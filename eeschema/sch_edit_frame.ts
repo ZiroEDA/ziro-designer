@@ -1186,7 +1186,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     }
 
     const chooser: SINGLE_CHOICE_ARG = {
-      message: 'Select variant to edit description:                ',
+      message: _('Select variant to edit description:                '),
       caption: _('Edit Variant Description'),
       choices,
       selection: -1,
@@ -1224,7 +1224,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     // wxSingleChoiceDialog will ellipsize the title bar if the contents aren't wide enough.  The
     // set of spaces in the control label are to prevent this.
     const dlg: SINGLE_CHOICE_ARG = {
-      message: 'Select variant name to remove:                ',
+      message: _('Select variant name to remove:                '),
       caption: _('Remove Design Variant'),
       choices,
       selection: -1,

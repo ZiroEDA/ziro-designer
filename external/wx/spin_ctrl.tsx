@@ -25,6 +25,7 @@
  * not to this.
  */
 import { useState, type JSX } from 'react';
+import { _ } from './translation.js';
 
 export interface SpinCtrlProps {
   value: number;
@@ -124,7 +125,7 @@ export function SpinCtrl({
       <button
         type="button"
         className="ze-spinbtn"
-        aria-label="Decrease"
+        aria-label={_('Decrease')}
         disabled={disabled || (min !== undefined && value <= min)}
         onClick={() => onChange(clamp(value - step))}
       >
@@ -133,7 +134,7 @@ export function SpinCtrl({
       <button
         type="button"
         className="ze-spinbtn"
-        aria-label="Increase"
+        aria-label={_('Increase')}
         disabled={disabled || (max !== undefined && value >= max)}
         onClick={() => onChange(clamp(value + step))}
       >

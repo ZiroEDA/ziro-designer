@@ -97,7 +97,7 @@ export function DIALOG_GET_FOOTPRINT_BY_NAME_BASE(
                   <Choice
                     choices={p.m_choiceFpListChoices}
                     choice={p.m_choiceFpList}
-                    ariaLabel="Available footprints"
+                    ariaLabel={_('Available footprints')}
                   />
                 </SizerItem>
               </GridBagSizer>

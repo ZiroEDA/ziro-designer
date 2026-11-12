@@ -192,7 +192,7 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
                     border={5}
                   >
                     <Choice
-                      ariaLabel="Body style"
+                      ariaLabel={_('Body style')}
                       choices={p.bodyStyleChoices}
                       choice={p.m_bodyStyleChoice}
                     />
@@ -362,7 +362,7 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
                 readOnly
                 className="ze-bare"
                 title={p.m_tcLibraryID}
-                ariaLabel="Library link"
+                ariaLabel={_('Library link')}
               />
             </SizerItem>
             <Spacer width={10} height={0} flag={wxALIGN_CENTER_VERTICAL} border={5} />
@@ -375,7 +375,7 @@ export function DIALOG_SYMBOL_PROPERTIES_BASE(p: DIALOG_SYMBOL_PROPERTIES_BASE_P
               <Button
                 label={_('Simulation Model...')}
                 disabled
-                title="The simulator is not available in this build"
+                title={_('The simulator is not available in this build')}
               />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>

@@ -672,7 +672,7 @@ export function DialogMigrate3DModels({
           items={
             menuItems.length > 0
               ? menuItems
-              : [{ label: '(no STEP files in the project)', disabled: true }]
+              : [{ label: wxGetTranslation('(no STEP files in the project)'), disabled: true }]
           }
           x={menu.x}
           y={menu.y}

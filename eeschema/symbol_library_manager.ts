@@ -1066,7 +1066,7 @@ export class SYMBOL_LIBRARY_MANAGER {
 
       if (!saved.ok) {
         // wxMessageBox( …, _( "File Save Error" ), wxOK | wxICON_ERROR )
-        DisplayErrorMessage(`Error saving library table:\n\n${saved.error.message}`);
+        DisplayErrorMessage(wxFormat(_('Error saving library table:\n\n%s'), saved.error.message));
         success = false;
       }
     } catch (ioe) {

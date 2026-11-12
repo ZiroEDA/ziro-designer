@@ -97,7 +97,7 @@ export function DIALOG_EXPORT_VRML_BASE(p: DIALOG_EXPORT_VRML_BASE_PROPS): JSX.E
                 onChange={p.onFilePicker}
                 message={_('Save VRML Board File')}
                 onBrowse={p.onBrowse}
-                ariaLabel="File name"
+                ariaLabel={_('File name')}
               />
             </SizerItem>
             <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
@@ -109,7 +109,7 @@ export function DIALOG_EXPORT_VRML_BASE(p: DIALOG_EXPORT_VRML_BASE_PROPS): JSX.E
               <TextCtrl
                 value={p.m_SubdirNameCtrl}
                 onChange={p.onSubdirName}
-                ariaLabel="Footprint 3D model path"
+                ariaLabel={_('Footprint 3D model path')}
               />
             </SizerItem>
           </BoxSizer>

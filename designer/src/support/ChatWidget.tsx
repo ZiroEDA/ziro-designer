@@ -63,6 +63,7 @@ import { setSupportChatOpener } from '@ziroeda/common/eda_base_frame_help_menu.j
 import { useAuth } from '../auth/AuthProvider.js';
 import type { Route } from '../nav/route.js';
 import { useRoute } from '../nav/useRoute.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * Where the widget page is served from. Unset — a self-hosted build, or a dev
@@ -284,7 +285,7 @@ export function ChatWidget(): JSX.Element | null {
     <>
       <iframe
         ref={frame}
-        title="ZiroEDA support chat"
+        title={_('ZiroEDA support chat')}
         src={src}
         onLoad={() => {
           loaded.current = true;
@@ -304,7 +305,7 @@ export function ChatWidget(): JSX.Element | null {
         <div
           className="ze-chat-handle"
           style={{ transform: translate }}
-          title="Chat with us (drag to move)"
+          title={_('Chat with us (drag to move)')}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}

@@ -12,6 +12,8 @@
  */
 import { type JSX, useEffect, useState } from 'react';
 import { Gauge } from '@ziroeda/wx/controls.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 export interface AuthStage {
   label: string;
@@ -23,32 +25,32 @@ export interface AuthStage {
 
 export const AUTH_STAGE = {
   secure: {
-    label: 'Securing your password on this device',
+    label: _HKI('Securing your password on this device'),
     why: 'Your password never leaves your computer. It is turned into a key here first.',
     expectMs: 1000,
   },
   check: {
-    label: 'Checking your account',
+    label: _HKI('Checking your account'),
     why: "Confirming it's you with ZiroEDA's server.",
     expectMs: 1500,
   },
   unlock: {
-    label: 'Unlocking your encrypted projects',
+    label: _HKI('Unlocking your encrypted projects'),
     why: 'Your projects are end-to-end encrypted: only your password opens them, not even ZiroEDA can.',
     expectMs: 3000,
   },
   create: {
-    label: 'Creating your account',
+    label: _HKI('Creating your account'),
     why: 'Registering your email with ZiroEDA.',
     expectMs: 1500,
   },
   confirm: {
-    label: 'Confirming your email',
+    label: _HKI('Confirming your email'),
     why: 'Checking the code we sent you.',
     expectMs: 1500,
   },
   keys: {
-    label: 'Generating your encryption keys',
+    label: _HKI('Generating your encryption keys'),
     why: 'Keys only you hold, made on this device. Your designs are encrypted with them before they ever leave it.',
     expectMs: 3000,
   },
@@ -87,7 +89,8 @@ function StageView({
   return (
     <div className="ze-auth-field">
       <span>
-        {stage.label}... (step {step} of {steps})
+        {stage.label}
+        {_('... (step')} {step} of {steps})
       </span>
       <Gauge value={percent} range={100} />
       <p className="ze-auth-note">{stage.why}</p>

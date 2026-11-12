@@ -587,7 +587,7 @@ export function LibTablePanel(spec: LibTablePanelSpec): JSX.Element {
 
       if (!saved.ok)
         void ShowKicadMessageDialog({
-          message: `Error saving global library table:\n\n${saved.error.message}`,
+          message: wxFormat(_('Error saving global library table:\n\n%s'), saved.error.message),
           caption: _('File Save Error'),
           style: wxOK | wxICON_ERROR,
         });

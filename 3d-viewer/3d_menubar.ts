@@ -69,7 +69,11 @@ export function buildViewer3DMenus(state: Viewer3DMenuState, on: Viewer3DMenuAct
 
   //-- Edit menu -----------------------------------------------------------
   const editMenu: MenuItem[] = [
-    { label: 'Copy 3D Image to Clipboard', icon: 'copyToClipboard3d', action: on.copyToClipboard },
+    {
+      label: _('Copy 3D Image to Clipboard'),
+      icon: 'copyToClipboard3d',
+      action: on.copyToClipboard,
+    },
   ];
 
   //-- View menu -----------------------------------------------------------

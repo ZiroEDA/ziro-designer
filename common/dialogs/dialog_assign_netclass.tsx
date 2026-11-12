@@ -121,7 +121,7 @@ export function DialogAssignNetclass({
     <DialogShim
       // DIALOG_ASSIGN_NETCLASS_BASE's style is wxDEFAULT_DIALOG_STYLE alone: no wxRESIZE_BORDER.
       resizable={false}
-      title="Assign Netclass"
+      title={_('Assign Netclass')}
       onClose={onCancel}
       className="ze-assignnc"
     >

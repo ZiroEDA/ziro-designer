@@ -326,7 +326,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES {
     if (v.localClearance !== null && v.localClearance < 0)
       return {
         ok: false,
-        message: `Pad clearance must be at least ${units.StringFromValue(0, true)}.`,
+        message: wxFormat(_('Pad clearance must be at least %s.'), units.StringFromValue(0, true)),
       };
 
     return { ok: true };

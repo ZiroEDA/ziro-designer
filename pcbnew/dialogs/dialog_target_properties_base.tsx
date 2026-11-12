@@ -47,7 +47,7 @@ export interface DIALOG_TARGET_PROPERTIES_BASE_PROPS {
 
 export function DIALOG_TARGET_PROPERTIES_BASE(p: DIALOG_TARGET_PROPERTIES_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Alignment Target Properties" onClose={p.onCancel}>
+    <DialogShim title={_('Alignment Target Properties')} onClose={p.onCancel}>
       {/* bSizerMain */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={5}>

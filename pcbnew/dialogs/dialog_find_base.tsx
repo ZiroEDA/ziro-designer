@@ -81,7 +81,7 @@ export function DIALOG_FIND_BASE(p: DIALOG_FIND_BASE_PROPS): JSX.Element {
                         onChange={p.m_searchCombo.onChange}
                         onEnter={p.onTextEnter}
                         title={_('Text with optional wildcards')}
-                        ariaLabel="Search for"
+                        ariaLabel={_('Search for')}
                         autoFocus
                       />
                     </SizerItem>

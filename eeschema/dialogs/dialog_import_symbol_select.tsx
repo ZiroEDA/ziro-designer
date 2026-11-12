@@ -520,7 +520,7 @@ function ResolveImportConflicts({
                 // wxDATAVIEW_CELL_EDITABLE text: the edit is the value-changed event
                 <TextCtrl
                   value={rows[row]!.action}
-                  ariaLabel={`Action for ${rows[row]!.name}`}
+                  ariaLabel={wxFormat(_('Action for %s'), rows[row]!.name)}
                   onChange={(t) => {
                     dlg.SetConflictAction(rows[row]!.name, t);
                     setRows(rows.map((r, i) => (i === row ? { ...r, action: t } : r)));
@@ -600,7 +600,7 @@ export function DialogImportSymbolSelect({
                 return (
                   <CheckBox
                     label=""
-                    ariaLabel={`Import ${r.name}`}
+                    ariaLabel={wxFormat(_('Import %s'), r.name)}
                     checked={r.checked}
                     onChange={(on) => setS(dlg.onItemChecked(row, on))}
                   />

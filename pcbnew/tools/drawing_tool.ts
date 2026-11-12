@@ -1322,7 +1322,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
               );
 
               if (!newImage.GetReferenceImage().ReadImageFile(data)) {
-                DisplayErrorMessage('Could not load image.');
+                DisplayErrorMessage(_('Could not load image.'));
                 continue;
               }
 

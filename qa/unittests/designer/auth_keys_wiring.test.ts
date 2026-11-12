@@ -19,6 +19,7 @@ import {
 } from '@ziroeda/designer/src/auth/account_keys.js';
 import { createAccount } from '@ziroeda/designer/src/cloud/crypto.js';
 import { gateView, type GateState } from '@ziroeda/designer/src/auth/explore.js';
+import { unmarked } from '../translation/unmarked.js';
 
 /** A signed-in user who never explored, in the state given: AuthGate's decision. */
 const signedIn = (st: Partial<GateState>) =>
@@ -36,7 +37,9 @@ const signedIn = (st: Partial<GateState>) =>
   });
 
 const read = (rel: string): string =>
-  readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
+  unmarked(
+    readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8'),
+  );
 
 const FAST = { opsLimit: 1, memLimitKiB: 1024 };
 

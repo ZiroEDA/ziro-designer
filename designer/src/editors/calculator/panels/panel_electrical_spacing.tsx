@@ -190,7 +190,7 @@ const OVC: { label: string; v: OvervoltageCategory }[] = [
   { label: _HKI('OVC I'), v: 1 },
   { label: _HKI('OVC II'), v: 2 },
   { label: _HKI('OVC III'), v: 3 },
-  { label: 'OVC IV', v: 4 },
+  { label: _HKI('OVC IV'), v: 4 },
 ];
 const PD: { label: string; v: PollutionDegree }[] = [
   { label: _HKI('PD1'), v: 1 },
@@ -259,9 +259,9 @@ function CreepageDrawing(): JSX.Element {
         height={CALC_ART_SIZE.creepage_clearance?.[1]}
       />
       <div className="es-iec-legend">
-        solid: clearance
+        {_('solid: clearance')}
         <br />
-        dashed: creepage
+        {_('dashed: creepage')}
       </div>
     </div>
   );
@@ -482,23 +482,26 @@ function PanelIec60664(): JSX.Element {
         <legend>{_('Help')}</legend>
         <div className="calc-help-body">
           <p>
-            The goal of the IEC60664-1 is to provide guidance on designing insulation for products
-            that have a connection to mains supply.
+            {_(
+              'The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply.',
+            )}
           </p>
-          <p>However some cases are not covered by this calculator:</p>
+          <p>{_('However some cases are not covered by this calculator:')}</p>
           <ul>
             <li>
-              For frequencies higher than 30kHz, the dielectric performances are degraded.
-              IEC60664-4 covers those cases
+              {_(
+                'For frequencies higher than 30kHz, the dielectric performances are degraded. IEC60664-4 covers those cases',
+              )}
             </li>
             <li>
-              When using a conformal coating or a potting in order to protect for pollution, if all
-              conditions specified by IEC60664-3 are met, the clearance and creepage distances can
-              be reduced. Soldermask is usually not considered as a conformal coating.
+              {_(
+                'When using a conformal coating or a potting in order to protect for pollution, if all conditions specified by IEC60664-3 are met, the clearance and creepage distances can be reduced. Soldermask is usually not considered as a conformal coating.',
+              )}
             </li>
             <li>
-              Insulations trough liquids, compressed air or gases other than air are not in the
-              scope of IEC60664
+              {_(
+                'Insulations trough liquids, compressed air or gases other than air are not in the scope of IEC60664',
+              )}
             </li>
           </ul>
         </div>
@@ -527,7 +530,7 @@ export function PanelElectricalSpacing(): JSX.Element {
           className={`calc-tab${tab === 'iec' ? ' active' : ''}`}
           onClick={() => setTab('iec')}
         >
-          IEC 60664
+          {_('IEC 60664')}
         </button>
       </div>
       {/* A wxNotebook builds BOTH pages when the panel is created and shows

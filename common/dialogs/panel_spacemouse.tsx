@@ -82,7 +82,7 @@ export function PanelSpacemouse({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.El
             /* `m_rotationSpeed->SetToolTip(…)` (`:40`) — upstream's own words,
                odd as they are for a rotation control. */
             title={_('How far to zoom in for each rotation of the mouse wheel')}
-            ariaLabel="Rotation speed"
+            ariaLabel={_('Rotation speed')}
             disabled
             onChange={(v) =>
               upC((s) => {
@@ -112,7 +112,7 @@ export function PanelSpacemouse({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.El
             max={10}
             value={sm.pan_speed}
             title={_('How fast to pan when moving an object off the edge of the screen')}
-            ariaLabel="Pan speed"
+            ariaLabel={_('Pan speed')}
             disabled
             onChange={(v) =>
               upC((s) => {

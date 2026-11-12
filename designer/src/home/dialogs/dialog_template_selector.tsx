@@ -60,6 +60,7 @@ import {
 } from './template_selector.js';
 import { DialogShim, useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export type { TemplateCategory } from './template_selector.js';
 export { applyFilter, sortTemplates, truncateDescription } from './template_selector.js';
@@ -291,7 +292,7 @@ export function TemplateSelectorDialog({
               {searchText !== '' && (
                 <span
                   className="cancel"
-                  title="Clear the search"
+                  title={_('Clear the search')}
                   onClick={() => setSearchText('')}
                 />
               )}
@@ -361,7 +362,7 @@ export function TemplateSelectorDialog({
                 <iframe
                   className="ze-tplsel-html"
                   src={selected.html}
-                  title={`${selected.title} template information`}
+                  title={wxFormat(_('%s template information'), selected.title)}
                   // allow-same-origin, and nothing else. It is what lets us
                   // reach contentDocument to append the stylesheet, the way
                   // OnWebViewLoaded's RunScriptAsync does. Without
@@ -386,8 +387,8 @@ export function TemplateSelectorDialog({
                 </div>
               ) : (
                 <div className="ze-tplsel-info welcome">
-                  <h2>Project Templates</h2>
-                  <p>Select a template to see what it contains.</p>
+                  <h2>{_('Project Templates')}</h2>
+                  <p>{_('Select a template to see what it contains.')}</p>
                 </div>
               )}
             </div>
@@ -444,7 +445,7 @@ export function TemplateSelectorDialog({
                       // removed with the file manager. With no file manager to
                       // send anyone to, deleting has to be reachable from here
                       // or a duplicate is forever.
-                      label: 'Delete Template',
+                      label: _('Delete Template'),
                       run: () => void onDelete(ctxMenu.template),
                       why: undefined,
                     },
@@ -541,7 +542,11 @@ export function DuplicateTemplateDialog({
         if (taken.has(clean.toLowerCase())) {
           onCancel();
           DisplayErrorMessage(
-            `Directory '${PATHS.GetUserTemplatesPath().replace(/\/+$/, '')}/${clean}' already exists.`,
+            wxFormat(
+              _("Directory '%s/%s' already exists."),
+              PATHS.GetUserTemplatesPath().replace(/\/+$/, ''),
+              clean,
+            ),
           );
           return;
         }

@@ -327,7 +327,7 @@ export function DialogSymLibTable({
             label: `${d.file}.kicad_sym`,
           }));
       }}
-      browse={{ label: 'KiCad from Computer...', pick }}
+      browse={{ label: _('KiCad from Computer...'), pick }}
       newLibraryUri={(scope, nickname) => {
         const uri =
           scope === 'global'

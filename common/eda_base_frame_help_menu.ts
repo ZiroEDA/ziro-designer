@@ -51,6 +51,7 @@ import {
 } from './tool/common_control.js';
 import type { TOOL_ACTION } from './tool/tool_action.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export { REPORT_BUG_URL };
 
@@ -82,8 +83,10 @@ const openExternal = (url: string) => (): void => {
 /**
  * ACTIONS::about's friendly name is "About KiCad" - the product, in every
  * frame, not the frame. Ours had four spellings of this across five editors.
+ * Translated when the menu is built, through the catalog's own "About %s"
+ * format, as "Getting Started with %s" is below.
  */
-export const ABOUT_LABEL = `About ${PRODUCT}`;
+export const aboutLabel = (): string => wxFormat(_('About %s'), PRODUCT);
 
 /**
  * A frame whose Help menu is `ACTION_MENU( false, commonControl )`: each row
@@ -145,7 +148,7 @@ function helpMenu(r: {
       // ACTIONS::gettingStarted: "Getting Started with KiCad". The product name
       // is part of the label upstream, so it is part of ours.
       {
-        label: `Getting Started with ${PRODUCT}`,
+        label: wxFormat(_('Getting Started with %s'), PRODUCT),
         action: r.gettingStarted,
       },
       // ACTIONS::listHotKeys, .DefaultHotkey( MD_CTRL + WXK_F1 ).
@@ -159,9 +162,9 @@ function helpMenu(r: {
         action: r.reportBug,
       },
       // Ours, no upstream row: the closed chat bubble comes back from here.
-      ...(s_showSupportChat ? [{ label: 'Support Chat', action: s_showSupportChat }] : []),
+      ...(s_showSupportChat ? [{ label: _('Support Chat'), action: s_showSupportChat }] : []),
       SEP,
-      { label: ABOUT_LABEL, action: r.showAbout },
+      { label: aboutLabel(), action: r.showAbout },
     ],
   };
 }

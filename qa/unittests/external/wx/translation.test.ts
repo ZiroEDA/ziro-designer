@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   _,
+  mergeCatalogs,
   wxGetTranslation,
   wxMsgCatalog,
   type wxMsgCatalogData,
@@ -229,5 +230,34 @@ describe('wxTranslations', () => {
     stop();
     use(GERMAN);
     expect(heard).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('mergeCatalogs, two domains of one language', () => {
+  const kicad: wxMsgCatalogData = {
+    language: 'de',
+    nplurals: 2,
+    plural: 'n != 1',
+    messages: { Open: 'Öffnen', Shared: 'KiCad' },
+  };
+  const own: wxMsgCatalogData = {
+    language: 'de',
+    nplurals: 2,
+    plural: 'n != 1',
+    messages: { 'Open Demo Project': 'Demoprojekt öffnen', Shared: 'ZiroEDA' },
+  };
+
+  it('answers from both, the first domain winning a message both hold', () => {
+    const merged = mergeCatalogs(kicad, own);
+    expect(merged.messages).toEqual({
+      Open: 'Öffnen',
+      'Open Demo Project': 'Demoprojekt öffnen',
+      Shared: 'KiCad',
+    });
+    expect(merged.plural).toBe('n != 1');
+  });
+
+  it('is the first catalog when the second did not load', () => {
+    expect(mergeCatalogs(kicad, null)).toBe(kicad);
   });
 });

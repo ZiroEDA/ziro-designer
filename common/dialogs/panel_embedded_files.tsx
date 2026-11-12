@@ -177,7 +177,7 @@ export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.El
           tricks={tricks}
           columns={[{ width: 100 }, { width: 180 }]}
           flexCol={1}
-          ariaLabel="Embedded files"
+          ariaLabel={_('Embedded files')}
         />
       </div>
       <div className="ze-grid-btns" style={{ alignItems: 'center' }}>
@@ -219,7 +219,7 @@ export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.El
         <Button
           label={_('Export...')}
           disabled={!onExport || value.files.length === 0}
-          title="Export embedded files"
+          title={_('Export embedded files')}
           onClick={() => onExport?.(value.files)}
         />
       </div>

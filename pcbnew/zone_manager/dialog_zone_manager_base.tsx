@@ -138,7 +138,7 @@ export function DIALOG_ZONE_MANAGER_BASE(p: DIALOG_ZONE_MANAGER_BASE_PROPS): JSX
                         <SizerItem flag={CV | wxRIGHT} border={5}>
                           <StdBitmapButton
                             bitmap="small_sort_desc"
-                            title="Auto-assign priorities"
+                            title={_('Auto-assign priorities')}
                             tooltip={_(
                               'Automatically assign zone priorities based on connectivity analysis of overlapping regions.',
                             )}

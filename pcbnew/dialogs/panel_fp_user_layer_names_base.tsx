@@ -50,7 +50,7 @@ export function PANEL_FP_USER_LAYER_NAMES_BASE(
                 <Choice
                   choices={['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']}
                   choice={p.m_choiceUserLayers}
-                  ariaLabel="User layers"
+                  ariaLabel={_('User layers')}
                 />
               </SizerItem>
               <Spacer width={0} height={0} proportion={1} flag={wxEXPAND} border={5} />
@@ -73,7 +73,7 @@ export function PANEL_FP_USER_LAYER_NAMES_BASE(
                   <SizerItem flag={wxBOTTOM | wxLEFT | wxTOP} border={5} minSize={[30, 29]}>
                     <StdBitmapButton
                       bitmap="small_plus"
-                      title="Add layer"
+                      title={_('Add layer')}
                       tooltip={null}
                       onClick={p.onAddLayerItem}
                     />
@@ -86,7 +86,7 @@ export function PANEL_FP_USER_LAYER_NAMES_BASE(
                   >
                     <StdBitmapButton
                       bitmap="small_trash"
-                      title="Delete layer"
+                      title={_('Delete layer')}
                       tooltip={null}
                       onClick={p.onDeleteLayerItem}
                     />

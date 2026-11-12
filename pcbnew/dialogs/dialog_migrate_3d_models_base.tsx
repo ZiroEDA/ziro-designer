@@ -62,9 +62,9 @@ export function DIALOG_MIGRATE_3D_MODELS_BASE(p: DIALOG_MIGRATE_3D_MODELS_BASE_P
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxALL} border={8}>
           <StaticText
-            label={
-              'This board references 3D models that are no longer present on your system.\nSelect replacements below, or keep the existing references.'
-            }
+            label={_(
+              'This board references 3D models that are no longer present on your system.\nSelect replacements below, or keep the existing references.',
+            )}
           />
         </SizerItem>
         <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={4}>
@@ -82,7 +82,7 @@ export function DIALOG_MIGRATE_3D_MODELS_BASE(p: DIALOG_MIGRATE_3D_MODELS_BASE_P
                   </SizerItem>
                   <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={4}>
                     <ListCtrl
-                      ariaLabel="Missing 3D model references"
+                      ariaLabel={_('Missing 3D model references')}
                       rows={p.m_missingList.rows.map((r) => [r])}
                       columnWidths={COLUMN}
                       selection={p.m_missingList.selection}
@@ -108,7 +108,7 @@ export function DIALOG_MIGRATE_3D_MODELS_BASE(p: DIALOG_MIGRATE_3D_MODELS_BASE_P
                       </SizerItem>
                       <SizerItem proportion={1} flag={wxALL | wxEXPAND} border={4}>
                         <ListCtrl
-                          ariaLabel="Potential replacements"
+                          ariaLabel={_('Potential replacements')}
                           rows={p.m_candidatesList.rows.map((r) => [r])}
                           columnWidths={COLUMN}
                           selection={p.m_candidatesList.selection}

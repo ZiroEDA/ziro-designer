@@ -227,7 +227,7 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                             onChange={p.onFilePicker}
                             disabled={!p.wksPickerEnabled}
                             title={p.m_textCtrlFilePicker}
-                            ariaLabel="Drawing sheet file"
+                            ariaLabel={_('Drawing sheet file')}
                           />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxTOP} border={5}>
@@ -276,7 +276,7 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                           <TextCtrl
                             value={p.m_TextDate}
                             onChange={p.onDate}
-                            ariaLabel="Issue Date"
+                            ariaLabel={_('Issue Date')}
                           />
                         </SizerItem>
                         <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
@@ -291,7 +291,7 @@ export function DIALOG_PAGES_SETTINGS_BASE(p: DIALOG_PAGES_SETTINGS_BASE_PROPS):
                           <DatePickerCtrl
                             value={p.m_PickDate}
                             onChange={p.onPickDate}
-                            ariaLabel="Pick date"
+                            ariaLabel={_('Pick date')}
                           />
                         </SizerItem>
                       </BoxSizer>

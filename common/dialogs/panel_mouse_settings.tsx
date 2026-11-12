@@ -212,7 +212,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
               max={10}
               value={input.zoom_speed}
               title={_('How far to zoom in for each rotation of the mouse wheel')}
-              ariaLabel="Zoom speed"
+              ariaLabel={_('Zoom speed')}
               /* `m_zoomSpeed->Enable( !m_checkAutoZoomSpeed->GetValue() )`
                  (`panel_mouse_settings.cpp:56`, `:161`) — the checkbox beside
                  it owns this, and the LABEL stays lit either way, because wx
@@ -248,7 +248,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
               max={10}
               value={input.auto_pan_acceleration}
               title={_('How fast to pan when moving an object off the edge of the screen')}
-              ariaLabel="Auto pan speed"
+              ariaLabel={_('Auto pan speed')}
               onChange={(v) =>
                 upC((s) => {
                   s.input.auto_pan_acceleration = v;
@@ -266,7 +266,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
           <Combo
             value={input.mouse_left}
             options={mouseActionOpts.map(([v, l]) => ({ value: v, label: l }))}
-            ariaLabel="Left button drag"
+            ariaLabel={_('Left button drag')}
             onChange={(v) =>
               upC((s) => {
                 s.input.mouse_left = v as MouseDragAction;
@@ -278,7 +278,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
           <Combo
             value={input.mouse_middle}
             options={panZoomNone.map(([v, l]) => ({ value: v, label: l }))}
-            ariaLabel="Middle button drag"
+            ariaLabel={_('Middle button drag')}
             onChange={(v) =>
               upC((s) => {
                 s.input.mouse_middle = v as MouseDragAction;
@@ -290,7 +290,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
           <Combo
             value={input.mouse_right}
             options={panZoomNone.map(([v, l]) => ({ value: v, label: l }))}
-            ariaLabel="Right button drag"
+            ariaLabel={_('Right button drag')}
             onChange={(v) =>
               upC((s) => {
                 s.input.mouse_right = v as MouseDragAction;
@@ -309,7 +309,7 @@ export function PanelMouseSettings({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX
           <Combo
             value={input.motion_pan_modifier}
             options={panMoveKeyOpts.map(([v, l]) => ({ value: v, label: l }))}
-            ariaLabel="Pan on mouse movement with key"
+            ariaLabel={_('Pan on mouse movement with key')}
             onChange={(v) =>
               upC((s) => {
                 s.input.motion_pan_modifier = v as ScrollModifier;

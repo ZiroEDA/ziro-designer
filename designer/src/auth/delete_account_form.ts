@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 /**
@@ -12,13 +13,13 @@
 
 /** ente's `delete_reason`, in its order and wording. Data, not chrome. */
 export const DELETE_REASONS = [
-  { value: 'missing_feature', label: "It's missing a key feature that I need" },
+  { value: 'missing_feature', label: _HKI("It's missing a key feature that I need") },
   {
     value: 'behaviour',
-    label: 'The app or a certain feature does not behave as I think it should',
+    label: _HKI('The app or a certain feature does not behave as I think it should'),
   },
-  { value: 'found_another_service', label: 'I found another service that I like better' },
-  { value: 'not_listed', label: "My reason isn't listed" },
+  { value: 'found_another_service', label: _HKI('I found another service that I like better') },
+  { value: 'not_listed', label: _HKI("My reason isn't listed") },
 ] as const;
 
 export type DeleteReason = (typeof DELETE_REASONS)[number]['value'];

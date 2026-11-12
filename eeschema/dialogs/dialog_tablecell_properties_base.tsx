@@ -177,7 +177,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                     value={p.m_cellTextCtrl}
                     onChange={p.onCellText}
                     autoFocus
-                    ariaLabel="Cell contents"
+                    ariaLabel={_('Cell contents')}
                   />
                 </SizerItem>
               </BoxSizer>
@@ -303,7 +303,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                               <StaticText label={_('Text color:')} />
                             </SizerItem>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
-                              <ColorBook label="Text color" b={p.m_textColorBook} />
+                              <ColorBook label={_('Text color')} b={p.m_textColorBook} />
                             </SizerItem>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                               <StaticText label={_('Background fill:')} />
@@ -324,7 +324,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                               <TextCtrl
                                 value={p.m_marginTopCtrl}
                                 onChange={(t) => p.onMargin('top', t)}
-                                ariaLabel="Top margin"
+                                ariaLabel={_('Top margin')}
                               />
                             </SizerItem>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={2}>
@@ -334,7 +334,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                               <TextCtrl
                                 value={p.m_marginLeftCtrl}
                                 onChange={(t) => p.onMargin('left', t)}
-                                ariaLabel="Left margin"
+                                ariaLabel={_('Left margin')}
                               />
                             </SizerItem>
                             <StretchSpacer />
@@ -342,7 +342,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                               <TextCtrl
                                 value={p.m_marginRightCtrl}
                                 onChange={(t) => p.onMargin('right', t)}
-                                ariaLabel="Right margin"
+                                ariaLabel={_('Right margin')}
                               />
                             </SizerItem>
                             <StretchSpacer />
@@ -350,7 +350,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                               <TextCtrl
                                 value={p.m_marginBottomCtrl}
                                 onChange={(t) => p.onMargin('bottom', t)}
-                                ariaLabel="Bottom margin"
+                                ariaLabel={_('Bottom margin')}
                               />
                             </SizerItem>
                           </FlexGridSizer>

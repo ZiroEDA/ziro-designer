@@ -159,7 +159,7 @@ export function DIALOG_EXCHANGE_FOOTPRINTS_BASE(
                   <TextCtrl
                     value={p.m_specifiedID.value}
                     onChange={p.m_specifiedID.onChange}
-                    ariaLabel="Library id"
+                    ariaLabel={_('Library id')}
                   />
                 </SizerItem>
                 <SizerItem flag={CV} border={2}>
@@ -194,13 +194,13 @@ export function DIALOG_EXCHANGE_FOOTPRINTS_BASE(
                   <TextCtrl
                     value={p.m_newID.value}
                     onChange={p.m_newID.onChange}
-                    ariaLabel="New footprint library id"
+                    ariaLabel={_('New footprint library id')}
                   />
                 </SizerItem>
                 <SizerItem flag={CV | wxRIGHT} border={5}>
                   <StdBitmapButton
                     bitmap="small_library"
-                    title="Browse for the new footprint"
+                    title={_('Browse for the new footprint')}
                     tooltip={null}
                     onClick={() => p.ViewAndSelectFootprint(true)}
                   />

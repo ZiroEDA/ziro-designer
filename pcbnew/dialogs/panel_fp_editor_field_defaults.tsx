@@ -69,6 +69,7 @@ import {
 } from '../grid_layer_box_helpers.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import type { FP_TEXT_ITEM_LIKE as FpTextItem } from '../footprint_editor_settings.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 interface TEXT_ITEM_INFO {
   m_Text: string;
@@ -299,7 +300,7 @@ export function PanelFpFootprintDefaults({
           columns={[{ width: 240 }, { width: 60, center: true }, { width: 150 }]}
           fixedColumns
           onUpdate={transfer}
-          ariaLabel="Default field properties"
+          ariaLabel={_('Default field properties')}
         />
       }
       m_textItemsGrid={
@@ -310,7 +311,7 @@ export function PanelFpFootprintDefaults({
           columns={[{ width: 460 }, { width: 150 }]}
           fixedColumns
           onUpdate={transfer}
-          ariaLabel="Default text items"
+          ariaLabel={_('Default text items')}
         />
       }
       onAddTextItem={onAddTextItem}

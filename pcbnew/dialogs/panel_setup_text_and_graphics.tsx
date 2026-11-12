@@ -53,6 +53,7 @@ import {
   DIM_UNITS_MODE,
 } from '../pcb_dimension.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface TextGfxRow {
   lineThickness: number;
@@ -260,7 +261,7 @@ export function PanelPcbTextGraphics({ value, onChange, units }: Props): JSX.Ele
           rowLabels
           columns={COL_WIDTHS.map((width) => ({ width }))}
           onUpdate={transfer}
-          ariaLabel="Default properties for new graphics and text"
+          ariaLabel={_('Default properties for new graphics and text')}
         />
       }
     />

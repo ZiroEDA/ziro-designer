@@ -227,7 +227,7 @@ export function DIALOG_ANNOTATE_BASE(p: DIALOG_ANNOTATE_BASE_PROPS): JSX.Element
                           <TextCtrl
                             value={p.m_textNumberAfter}
                             onChange={p.onNumberAfter}
-                            ariaLabel="First free number after"
+                            ariaLabel={_('First free number after')}
                           />
                         </SizerItem>
                         <SizerItem pos={[1, 0]} span={[1, 2]} flag={wxBOTTOM | wxTOP} border={2}>

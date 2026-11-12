@@ -114,7 +114,7 @@ export function DIALOG_COPPER_LAYER_PAIR_SELECTION_BASE(
                 <SizerItem flag={wxALL} border={5}>
                   <StdBitmapButton
                     bitmap="right"
-                    title="Add current pair to presets"
+                    title={_('Add current pair to presets')}
                     tooltip={null}
                     onClick={p.onAddToPresets}
                   />
@@ -129,7 +129,7 @@ export function DIALOG_COPPER_LAYER_PAIR_SELECTION_BASE(
                 <SizerItem flag={wxBOTTOM | wxLEFT | wxTOP} border={5}>
                   <StdBitmapButton
                     bitmap="small_trash"
-                    title="Delete selected presets"
+                    title={_('Delete selected presets')}
                     tooltip={null}
                     onClick={p.onDeleteRows}
                   />

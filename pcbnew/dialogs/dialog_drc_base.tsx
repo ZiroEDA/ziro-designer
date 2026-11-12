@@ -169,7 +169,7 @@ function SeverityBox({
 
 export function DIALOG_DRC_BASE(p: DIALOG_DRC_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="DRC Control" onClose={p.onCancelClick} modeless frameRef={p.frameRef}>
+    <DialogShim title={_('DRC Control')} onClose={p.onCancelClick} modeless frameRef={p.frameRef}>
       {/* m_MainSizer */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxTOP | wxBOTTOM | wxLEFT} border={3}>
@@ -216,7 +216,7 @@ export function DIALOG_DRC_BASE(p: DIALOG_DRC_BASE_PROPS): JSX.Element {
               {/* m_bMenu, a STD_BITMAP_BUTTON: SetBitmap( KiBitmapBundle( BITMAPS::config ) ) */}
               <StdBitmapButton
                 bitmap="config"
-                title="DRC options"
+                title={_('DRC options')}
                 tooltip={null}
                 onClick={(e) => p.onMenu(e.currentTarget.getBoundingClientRect())}
               />
@@ -275,7 +275,7 @@ export function DIALOG_DRC_BASE(p: DIALOG_DRC_BASE_PROPS): JSX.Element {
                   <Notebook
                     selection={p.m_Notebook.selection}
                     onPageChanged={p.m_Notebook.onPageChanged}
-                    ariaLabel="DRC results"
+                    ariaLabel={_('DRC results')}
                     pages={[
                       {
                         text: p.m_Notebook.pageTexts[0]!,
@@ -319,7 +319,7 @@ export function DIALOG_DRC_BASE(p: DIALOG_DRC_BASE_PROPS): JSX.Element {
                                 rows={p.ignoredRows.map((r) => [r])}
                                 columnWidths={[p.ignoredColumnWidth]}
                                 onRightClick={p.onIgnoredItemRClick}
-                                ariaLabel="Ignored tests"
+                                ariaLabel={_('Ignored tests')}
                               />
                             </SizerItem>
                             <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>

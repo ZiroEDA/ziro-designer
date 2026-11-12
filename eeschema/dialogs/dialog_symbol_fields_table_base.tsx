@@ -162,7 +162,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
               <Spacer width={0} height={2} border={5} />
               <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
                 <Combo
-                  ariaLabel="View presets"
+                  ariaLabel={_('View presets')}
                   value={p.m_cbBomPresets.value}
                   options={p.m_cbBomPresets.options}
                   onChange={p.m_cbBomPresets.onChange}
@@ -189,7 +189,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
             <div
               className="ze-gridlist"
               role="listbox"
-              aria-label="Schematic variants"
+              aria-label={_('Schematic variants')}
               aria-disabled="true"
             />
           </SizerItem>
@@ -199,7 +199,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
               <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                 <StdBitmapButton
                   bitmap="small_plus"
-                  title="Add variant"
+                  title={_('Add variant')}
                   tooltip={null}
                   disabled
                   onClick={noop}
@@ -208,7 +208,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
               <SizerItem flag={wxBOTTOM} border={5}>
                 <StdBitmapButton
                   bitmap="small_edit"
-                  title="Rename variant"
+                  title={_('Rename variant')}
                   tooltip={null}
                   disabled
                   onClick={noop}
@@ -217,7 +217,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
               <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
                 <StdBitmapButton
                   bitmap="copy"
-                  title="Copy variant"
+                  title={_('Copy variant')}
                   tooltip={null}
                   disabled
                   onClick={noop}
@@ -226,7 +226,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
               <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
                 <StdBitmapButton
                   bitmap="text"
-                  title="Edit variant description"
+                  title={_('Edit variant description')}
                   tooltip={null}
                   disabled
                   onClick={noop}
@@ -236,7 +236,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
               <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
                 <StdBitmapButton
                   bitmap="small_trash"
-                  title="Delete variant"
+                  title={_('Delete variant')}
                   tooltip={null}
                   disabled
                   onClick={noop}
@@ -291,7 +291,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
           <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT} border={5}>
             <StdBitmapButton
               bitmap="small_refresh"
-              title="Regroup symbols"
+              title={_('Regroup symbols')}
               onClick={p.onRegroupSymbols}
             />
           </SizerItem>
@@ -384,7 +384,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
           </SizerItem>
           <SizerItem pos={[9, 0]} span={[1, 2]} flag={wxEXPAND} border={5}>
             <Combo
-              ariaLabel="Format presets"
+              ariaLabel={_('Format presets')}
               value={p.m_cbBomFmtPresets.value}
               options={p.m_cbBomFmtPresets.options}
               onChange={p.m_cbBomFmtPresets.onChange}
@@ -430,7 +430,7 @@ export function DIALOG_SYMBOL_FIELDS_TABLE_BASE(
           <SizerItem flag={wxTOP | wxRIGHT} border={5}>
             <StdBitmapButton
               bitmap="small_refresh"
-              title="Refresh preview"
+              title={_('Refresh preview')}
               onClick={p.onRefreshPreview}
             />
           </SizerItem>

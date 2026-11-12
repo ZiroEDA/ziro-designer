@@ -122,7 +122,7 @@ export function Appearance3DPanel(p: Appearance3DPanelProps): JSX.Element {
                     color={color}
                     background={SWATCH_BACKGROUND}
                     defaultColor={p.defaultColors.get(row.id)}
-                    label={`Set color for ${label}`}
+                    label={wxFormat(_('Set color for %s'), label)}
                     disabled={locked}
                     onChange={(c) => p.onColor(row.id, c)}
                   />
@@ -174,7 +174,7 @@ export function Appearance3DPanel(p: Appearance3DPanelProps): JSX.Element {
           }))}
           onChange={p.onPreset}
         />
-        <div className="ze-info ze-inset ze-viewports-label">Viewports (Shift+Tab):</div>
+        <div className="ze-info ze-inset ze-viewports-label">{_('Viewports (Shift+Tab):')}</div>
         <Combo
           ariaLabel={_('Viewports')}
           value={p.viewport}

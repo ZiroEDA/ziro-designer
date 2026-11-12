@@ -264,7 +264,7 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
                         border={5}
                       >
                         <Choice
-                          ariaLabel="Footprint type"
+                          ariaLabel={_('Footprint type')}
                           choices={COMPONENT_TYPE_CHOICES}
                           choice={p.m_componentType}
                         />
@@ -352,7 +352,7 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
                 <TextCtrl
                   value={p.m_netClearance.value}
                   onChange={p.m_netClearance.onChange}
-                  ariaLabel="Pad clearance"
+                  ariaLabel={_('Pad clearance')}
                 />
               </SizerItem>
               <SizerItem pos={[0, 2]} flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
@@ -370,7 +370,7 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
                 <TextCtrl
                   value={p.m_solderMask.value}
                   onChange={p.m_solderMask.onChange}
-                  ariaLabel="Solder mask expansion"
+                  ariaLabel={_('Solder mask expansion')}
                 />
               </SizerItem>
               <SizerItem pos={[2, 2]} flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
@@ -395,7 +395,7 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
                 <TextCtrl
                   value={p.m_solderPaste.value}
                   onChange={p.m_solderPaste.onChange}
-                  ariaLabel="Solder paste clearance"
+                  ariaLabel={_('Solder paste clearance')}
                   title={_(
                     'Local solder paste clearance for this footprint.\nEnter an absolute value (e.g., -0.1mm), a percentage (e.g., -5%), or both (e.g., -0.1mm - 5%).\nIf blank, the global value is used.',
                   )}
@@ -431,7 +431,7 @@ export function DIALOG_FOOTPRINT_PROPERTIES_BASE(
               </SizerItem>
               <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                 <Choice
-                  ariaLabel="Pad connection to zones"
+                  ariaLabel={_('Pad connection to zones')}
                   choices={ZONE_CONNECTION_CHOICES}
                   choice={p.m_ZoneConnectionChoice}
                 />

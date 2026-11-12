@@ -141,7 +141,7 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
                             value={p.m_pageNumberTextCtrl}
                             onChange={p.onPageNumber}
                             onEnter={p.onOK}
-                            ariaLabel="Page number"
+                            ariaLabel={_('Page number')}
                           />
                         </SizerItem>
                         <Spacer width={0} height={0} proportion={3} flag={wxEXPAND} border={5} />
@@ -199,7 +199,7 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
                                     value={p.m_borderWidthCtrl}
                                     onChange={p.onBorderWidth}
                                     onEnter={p.onOK}
-                                    ariaLabel="Border width"
+                                    ariaLabel={_('Border width')}
                                   />
                                 </SizerItem>
                                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxBOTTOM} border={5}>
@@ -219,7 +219,7 @@ export function DIALOG_SHEET_PROPERTIES_BASE(p: DIALOG_SHEET_PROPERTIES_BASE_PRO
                                 >
                                   {/* m_borderSwatch->SetMinSize( wxSize( 48,24 ) ) */}
                                   <ColorSwatch
-                                    label="Border color"
+                                    label={_('Border color')}
                                     color={p.m_borderSwatch}
                                     background={p.swatchBackground}
                                     onChange={p.onBorderColor}

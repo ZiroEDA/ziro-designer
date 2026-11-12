@@ -80,6 +80,7 @@ import {
   type FP_GRAPHICS_TEXT_CLASS_LIKE as FpGraphicsTextClass,
 } from '../footprint_editor_settings.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** `COL_*` (`panel_fp_editor_graphics_defaults.cpp:38-45`). */
 const COL_LINE_THICKNESS = 0;
@@ -252,7 +253,7 @@ export function PanelFpGraphicsDefaults({
           // [data] SetRowLabelSize( 125 ), SetColSize 110 / 100 / 100 / 100 / 60.
           rowLabelSize={125}
           columns={[110, 100, 100, 100, 60].map((width) => ({ width }))}
-          ariaLabel="Default properties for new graphic items"
+          ariaLabel={_('Default properties for new graphic items')}
         />
       }
       m_dimensionsPanel={

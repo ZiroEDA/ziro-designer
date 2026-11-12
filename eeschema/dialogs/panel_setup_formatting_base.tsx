@@ -192,7 +192,7 @@ export function PANEL_SETUP_FORMATTING_BASE(p: PANEL_SETUP_FORMATTING_BASE_PROPS
                   >
                     {/* `{ _("None"), _("Smallest"), ... }` (panel_setup_formatting_base.cpp:140-150). */}
                     <Choice
-                      ariaLabel="Junction dot size"
+                      ariaLabel={_('Junction dot size')}
                       choices={p.junctionDotChoices.map((c) => _(c))}
                       choice={p.m_choiceJunctionDotSize}
                     />
@@ -207,7 +207,7 @@ export function PANEL_SETUP_FORMATTING_BASE(p: PANEL_SETUP_FORMATTING_BASE_PROPS
                     border={5}
                   >
                     <Choice
-                      ariaLabel="Hop-over size"
+                      ariaLabel={_('Hop-over size')}
                       choices={p.hopOverChoices.map((c) => _(c))}
                       choice={p.m_choiceHopOverSize}
                     />
@@ -343,7 +343,7 @@ export function PANEL_SETUP_FORMATTING_BASE(p: PANEL_SETUP_FORMATTING_BASE_PROPS
                   </SizerItem>
                   <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
                     <SpinCtrl
-                      ariaLabel="Significant digits (voltages)"
+                      ariaLabel={_('Significant digits (voltages)')}
                       min={1}
                       max={10}
                       value={p.m_vPrecisionCtrl.value}
@@ -355,7 +355,7 @@ export function PANEL_SETUP_FORMATTING_BASE(p: PANEL_SETUP_FORMATTING_BASE_PROPS
                   </SizerItem>
                   <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
                     <Choice
-                      ariaLabel="Range (voltages)"
+                      ariaLabel={_('Range (voltages)')}
                       choices={p.vRangeChoices.map((c) => _(c))}
                       choice={p.m_vRangeCtrl}
                     />
@@ -365,7 +365,7 @@ export function PANEL_SETUP_FORMATTING_BASE(p: PANEL_SETUP_FORMATTING_BASE_PROPS
                   </SizerItem>
                   <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={5}>
                     <SpinCtrl
-                      ariaLabel="Significant digits (currents)"
+                      ariaLabel={_('Significant digits (currents)')}
                       min={1}
                       max={10}
                       value={p.m_iPrecisionCtrl.value}
@@ -380,7 +380,7 @@ export function PANEL_SETUP_FORMATTING_BASE(p: PANEL_SETUP_FORMATTING_BASE_PROPS
                   </SizerItem>
                   <SizerItem flag={wxBOTTOM | wxEXPAND | wxRIGHT | wxLEFT} border={5}>
                     <Choice
-                      ariaLabel="Range (currents)"
+                      ariaLabel={_('Range (currents)')}
                       choices={p.iRangeChoices.map((c) => _(c))}
                       choice={p.m_iRangeCtrl}
                     />

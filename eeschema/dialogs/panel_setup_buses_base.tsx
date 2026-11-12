@@ -56,7 +56,7 @@ export function PANEL_SETUP_BUSES_BASE(p: PANEL_SETUP_BUSES_BASE_PROPS): JSX.Ele
           <SizerItem flag={wxBOTTOM} border={5}>
             <StdBitmapButton
               bitmap="small_plus"
-              title="Add member"
+              title={_('Add member')}
               tooltip={null}
               onClick={p.onAddMember}
             />
@@ -65,7 +65,7 @@ export function PANEL_SETUP_BUSES_BASE(p: PANEL_SETUP_BUSES_BASE_PROPS): JSX.Ele
           <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
             <StdBitmapButton
               bitmap="small_trash"
-              title="Remove member"
+              title={_('Remove member')}
               tooltip={null}
               onClick={p.onRemoveMember}
             />
@@ -97,7 +97,7 @@ export function PANEL_SETUP_BUSES_BASE(p: PANEL_SETUP_BUSES_BASE_PROPS): JSX.Ele
                   <SizerItem flag={wxBOTTOM} border={5}>
                     <StdBitmapButton
                       bitmap="small_plus"
-                      title="Add alias"
+                      title={_('Add alias')}
                       tooltip={null}
                       onClick={p.onAddAlias}
                     />
@@ -106,7 +106,7 @@ export function PANEL_SETUP_BUSES_BASE(p: PANEL_SETUP_BUSES_BASE_PROPS): JSX.Ele
                   <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
                     <StdBitmapButton
                       bitmap="small_trash"
-                      title="Delete alias"
+                      title={_('Delete alias')}
                       tooltip={null}
                       onClick={p.onDeleteAlias}
                     />

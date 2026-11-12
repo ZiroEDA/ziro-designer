@@ -131,7 +131,7 @@ export function DIALOG_TABLECELL_PROPERTIES_BASE(
                     autoFocus
                     value={p.m_cellTextCtrl.value}
                     onChange={p.m_cellTextCtrl.onChange}
-                    ariaLabel="Cell contents"
+                    ariaLabel={_('Cell contents')}
                   />
                 </SizerItem>
               </BoxSizer>

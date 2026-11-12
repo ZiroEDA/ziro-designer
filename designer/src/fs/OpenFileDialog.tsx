@@ -34,6 +34,7 @@ import type { FileSystem } from './filesystem.js';
 
 /** One file the dialog hands back: wxFileDialog's result, so common/wx's. */
 import type { OpenedFile } from '@ziroeda/wx/filedlg.js';
+import { _ } from '@ziroeda/wx/translation.js';
 export type { OpenedFile };
 
 export interface OpenFileDialogProps {
@@ -148,7 +149,7 @@ export function OpenFileDialog({
   const fromComputer = (
     <>
       <Button
-        label="Open from Computer..."
+        label={_('Open from Computer...')}
         onClick={() => {
           void openFileDialog(filters ?? [], {
             multiple,

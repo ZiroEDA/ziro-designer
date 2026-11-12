@@ -4,6 +4,7 @@
 import { useState, type JSX, type ReactNode } from 'react';
 import { useDesktopGate } from './useDesktopGate.js';
 import './desktopGate.css';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** Copy to clipboard, falling back to a hidden textarea on non-secure origins. */
 async function copyText(text: string): Promise<boolean> {
@@ -44,13 +45,14 @@ function GateCard(): JSX.Element {
           <path d="M17 33h14M24 31v2" />
         </svg>
 
-        <h1 className="ze-gate-title">ZiroEDA needs a bigger screen</h1>
+        <h1 className="ze-gate-title">{_('ZiroEDA needs a bigger screen')}</h1>
 
         <p className="ze-gate-body">
-          ZiroEDA is a full EDA suite, schematic capture, PCB layout and 3D preview. It's built for
-          a mouse, a keyboard and room to work, so there's no phone version yet.
+          {_(
+            "ZiroEDA is a full EDA suite, schematic capture, PCB layout and 3D preview. It's built for a mouse, a keyboard and room to work, so there's no phone version yet.",
+          )}
         </p>
-        <p className="ze-gate-body">Open this link on a laptop or desktop to get started.</p>
+        <p className="ze-gate-body">{_('Open this link on a laptop or desktop to get started.')}</p>
 
         <div className="ze-gate-actions">
           <button
@@ -64,14 +66,14 @@ function GateCard(): JSX.Element {
               });
             }}
           >
-            {copied ? 'Link copied' : 'Copy link'}
+            {copied ? _('Link copied') : _('Copy link')}
           </button>
           <a className="ze-gate-btn" href={mailto}>
-            Email me the link
+            {_('Email me the link')}
           </a>
         </div>
 
-        <p className="ze-gate-hint">On a tablet? Rotate to landscape, or connect a mouse.</p>
+        <p className="ze-gate-hint">{_('On a tablet? Rotate to landscape, or connect a mouse.')}</p>
       </div>
     </div>
   );

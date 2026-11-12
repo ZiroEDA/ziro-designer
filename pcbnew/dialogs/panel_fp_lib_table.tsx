@@ -278,7 +278,7 @@ export function DialogFpLibTable({
           }));
       }}
       // Footprint libraries in the account are not here yet: a folder only joins the project.
-      browse={{ label: 'KiCad (folder) from Computer...', pick, scopes: ['project'] }}
+      browse={{ label: _('KiCad (folder) from Computer...'), pick, scopes: ['project'] }}
       newLibraryUri={(scope, nickname) => {
         // A global library of the user's own is a folder in the account's Footprints.
         if (scope === 'global') {

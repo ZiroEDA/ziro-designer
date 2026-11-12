@@ -1016,7 +1016,7 @@ export class SYMBOL_LIB_TABLE_RESCUER extends RESCUER {
 
       if (!saved.ok) {
         // wxMessageBox( …, _( "File Save Error" ), wxOK | wxICON_ERROR )
-        DisplayErrorMessage(`Error saving library table:\n\n${saved.error.message}`);
+        DisplayErrorMessage(wxFormat(_('Error saving library table:\n\n%s'), saved.error.message));
         return false;
       }
     }

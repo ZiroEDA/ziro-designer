@@ -253,14 +253,14 @@ export const TRANSLINES: Record<LineType, TranslineIdent> = {
       // other type uses the "μ(conductor)" form.
       {
         key: 'mu Rel S',
-        label: 'μr (substrate)',
+        label: _HKI('μr (substrate)'),
         tip: _HKI('Relative permeability (mu) of substrate'),
         def: 1,
         units: 'none',
       },
       {
         key: 'mu Rel C',
-        label: 'μr (conductor)',
+        label: _HKI('μr (conductor)'),
         tip: _HKI('Relative permeability (mu) of conductor'),
         def: 1,
         units: 'none',

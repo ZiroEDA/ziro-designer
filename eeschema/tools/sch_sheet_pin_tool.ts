@@ -159,7 +159,7 @@ export function moveSheetPin(doc: Schematic, ref: SheetPinRef, at: Vec2): Schema
 /** One undo step for a completed sheet-pin drag. */
 export function moveSheetPinCommand(after: Schematic): EditCommand {
   return {
-    label: 'Move Sheet Pin',
+    label: wxGetTranslation('Move Sheet Pin'),
     apply(doc: Schematic): Schematic {
       const out = { ...doc, sheets: after.sheets };
       return {
@@ -175,7 +175,7 @@ export function moveSheetPinCommand(after: Schematic): EditCommand {
 /** Replace a sheet pin outright (its name, shape, or text attributes). */
 export function replaceSheetPin(ref: SheetPinRef, next: SheetPin): EditCommand {
   return {
-    label: 'Edit Sheet Pin',
+    label: wxGetTranslation('Edit Sheet Pin'),
     apply(doc: Schematic): Schematic {
       const sheet = doc.sheets[ref.sheet];
       if (!sheet) return doc;
@@ -195,7 +195,7 @@ export function replaceSheetPin(ref: SheetPinRef, next: SheetPin): EditCommand {
 /** Delete a sheet pin (Del on a selected pin). */
 export function deleteSheetPin(ref: SheetPinRef): EditCommand {
   return {
-    label: 'Delete Sheet Pin',
+    label: wxGetTranslation('Delete Sheet Pin'),
     apply(doc: Schematic): Schematic {
       const sheet = doc.sheets[ref.sheet];
       if (!sheet) return doc;
@@ -209,7 +209,7 @@ export function deleteSheetPin(ref: SheetPinRef): EditCommand {
     invert(before: Schematic): EditCommand {
       const pin = before.sheets[ref.sheet]!.pins[ref.pin]!;
       return {
-        label: 'Delete Sheet Pin',
+        label: wxGetTranslation('Delete Sheet Pin'),
         apply: (doc: Schematic): Schematic => ({
           ...doc,
           sheets: doc.sheets.map((s, i) =>

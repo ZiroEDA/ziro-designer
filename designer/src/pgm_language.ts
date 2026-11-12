@@ -14,11 +14,18 @@
  * to 44 URLs.
  */
 import { DEFAULT_LANGUAGE, SetLanguage } from '@ziroeda/common/pgm_base.js';
-import type { wxMsgCatalogData } from '@ziroeda/wx/translation.js';
+import { mergeCatalogs, type wxMsgCatalogData } from '@ziroeda/wx/translation.js';
 import { settings } from './prefs/settings.js';
 
 /** `translation/<lang>.json` to the URL the build gives it. */
 const CATALOG_URLS = import.meta.glob('../../translation/*.json', {
+  query: '?url',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
+/** The `ziroeda` domain: ZiroEDA's own messages, the ones no KiCad catalog has. */
+const ZIROEDA_URLS = import.meta.glob('../../translation/ziroeda/*.json', {
   query: '?url',
   import: 'default',
   eager: true,
@@ -29,12 +36,31 @@ export function catalogUrl(aCatalog: string): string | undefined {
   return CATALOG_URLS[`../../translation/${aCatalog}.json`];
 }
 
+/** The URL of the `ziroeda` domain's catalog for a language, if it has one. */
+export function ziroedaCatalogUrl(aCatalog: string): string | undefined {
+  return ZIROEDA_URLS[`../../translation/ziroeda/${aCatalog}.json`];
+}
+
+async function fetchCatalog(aUrl: string): Promise<wxMsgCatalogData> {
+  const res = await fetch(aUrl);
+  if (!res.ok) throw new Error(`${aUrl}: HTTP ${res.status}`);
+  return (await res.json()) as wxMsgCatalogData;
+}
+
+/**
+ * Both domains of a language - `wxTranslations::AddCatalog( "kicad" )` and our own "ziroeda" -
+ * as the one catalog the lookup searches. They share no message: ours are, by construction,
+ * the messages KiCad's catalogs do not have. Ours failing to load costs only our own text.
+ */
 async function loadCatalog(aCatalog: string): Promise<wxMsgCatalogData> {
   const url = catalogUrl(aCatalog);
   if (!url) throw new Error(`no catalog for ${aCatalog}`);
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-  return (await res.json()) as wxMsgCatalogData;
+  const ownUrl = ziroedaCatalogUrl(aCatalog);
+  const [kicad, own] = await Promise.all([
+    fetchCatalog(url),
+    ownUrl ? fetchCatalog(ownUrl).catch(() => null) : Promise.resolve(null),
+  ]);
+  return mergeCatalogs(kicad, own);
 }
 
 /** The user's ordered language preferences: what `wxLANGUAGE_DEFAULT` asks the system for. */

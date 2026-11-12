@@ -214,13 +214,13 @@ export function ZoomCorrectionCtrl({
       {/* `controlsSizer` (`:146-159`): the label, the spin control and Detect. */}
       <div className="ze-pref-row">
         {/* `_( "Display PPI: " )` -- the trailing space is upstream's. */}
-        <span className="lbl">Display PPI:</span>
+        <span className="lbl">{_('Display PPI:')}</span>
         {/* `m_spinner` is a wxSpinCtrl (`:150`), so it carries GTK's two
             stepper buttons; it was drawn here as a bare number field, which
             has none until the pointer is over it. */}
         <SpinCtrl
           id={id}
-          ariaLabel="Display PPI"
+          ariaLabel={_('Display PPI')}
           value={ppi}
           disabled={disabled}
           /* [data] `wxSpinCtrl( …, 10, 1000, … )` (`:150-151`) — upstream's own
@@ -241,7 +241,7 @@ export function ZoomCorrectionCtrl({
             grow to fit it, then hand it more room. The CSS above states the
             200 px minimum and the proportion; this only has to fill it, and an
             SVG with no viewBox draws in CSS pixels either way. */}
-        <svg ref={ruler} width="100%" height={RULER_H} role="img" aria-label="Scaling ruler">
+        <svg ref={ruler} width="100%" height={RULER_H} role="img" aria-label={_('Scaling ruler')}>
           {/* "Draw baseline" (`:55`) -- along the BOTTOM, with the ticks
               standing up from it. */}
           <line
@@ -280,7 +280,7 @@ export function ZoomCorrectionCtrl({
           value={units}
           disabled={disabled}
           onChange={(v) => onUnitsChange(v as ZoomCorrectionUnits)}
-          ariaLabel="Ruler units"
+          ariaLabel={_('Ruler units')}
           /* ZOOM_CORRECTION_UNITS, in its own order, MM first. [data] */
           options={[
             { value: 'mm', label: 'mm' },

@@ -1,3 +1,4 @@
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
@@ -14,7 +15,7 @@
 export const REMOTE_PROVIDER_METADATA_SCHEMA: Record<string, unknown> = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://go.kicad.org/schemas/kicad-remote-provider-metadata-v1.schema.json',
-  title: 'KiCad Remote Provider Metadata v1',
+  title: _HKI('KiCad Remote Provider Metadata v1'),
   type: 'object',
   additionalProperties: false,
   required: [
@@ -176,7 +177,7 @@ export const REMOTE_PROVIDER_METADATA_SCHEMA: Record<string, unknown> = {
 export const REMOTE_SYMBOL_MANIFEST_SCHEMA: Record<string, unknown> = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://go.kicad.org/schemas/kicad-remote-symbol-manifest-v1.schema.json',
-  title: 'KiCad Remote Symbol Manifest v1',
+  title: _HKI('KiCad Remote Symbol Manifest v1'),
   type: 'object',
   additionalProperties: false,
   required: ['part_id', 'display_name', 'assets'],

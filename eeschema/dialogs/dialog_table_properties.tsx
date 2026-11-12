@@ -311,7 +311,7 @@ export function DialogTableProperties({
             ) : null
           }
           onUpdate={onUpdate}
-          ariaLabel="Cell contents"
+          ariaLabel={_('Cell contents')}
         />
       }
       m_borderCheckbox={{

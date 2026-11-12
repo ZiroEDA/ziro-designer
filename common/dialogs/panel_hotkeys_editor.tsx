@@ -134,7 +134,7 @@ export function PanelHotkeysEditor({
           onKeyDown={(e) => e.stopPropagation()}
         />
         {filter !== '' && (
-          <span className="cancel" title="Clear the filter" onClick={() => setFilter('')} />
+          <span className="cancel" title={_('Clear the filter')} onClick={() => setFilter('')} />
         )}
       </div>
 

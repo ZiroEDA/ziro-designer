@@ -203,7 +203,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                   <Choice
                     choices={PLOT_FORMAT_CHOICES}
                     choice={p.m_plotFormatOpt}
-                    ariaLabel="Plot format"
+                    ariaLabel={_('Plot format')}
                   />
                 </SizerItem>
                 <Spacer proportion={1} flag={wxEXPAND} border={5} />
@@ -214,7 +214,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                   <Choice
                     choices={p.variants}
                     choice={p.m_variantChoiceCtrl}
-                    ariaLabel="Design variant"
+                    ariaLabel={_('Design variant')}
                   />
                 </SizerItem>
               </BoxSizer>
@@ -366,7 +366,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           <Choice
                             choices={PLOT_DRILL_CHOICES}
                             choice={p.m_drillShapeOpt}
-                            ariaLabel="Drill marks"
+                            ariaLabel={_('Drill marks')}
                           />
                         </SizerItem>
                         <SizerItem pos={[1, 1]} flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={30}>
@@ -430,7 +430,9 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                       <BoxSizer orient={wxVERTICAL}>
                         <SizerItem flag={wxTOP | wxLEFT} border={5}>
                           <span>
-                            Global solder mask minimum width and/or margin are not set to 0.{' '}
+                            {_(
+                              'Global solder mask minimum width and/or margin are not set to 0.',
+                            )}{' '}
                           </span>
                         </SizerItem>
                         <SizerItem flag={wxTOP | wxLEFT} border={5}>
@@ -502,7 +504,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           <Choice
                             choices={PLOT_COORD_CHOICES}
                             choice={p.m_coordFormatCtrl}
-                            ariaLabel="Coordinate format"
+                            ariaLabel={_('Coordinate format')}
                           />
                         </SizerItem>
                         <SizerItem
@@ -567,7 +569,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                         <SizerItem flag={wxEXPAND | wxRIGHT | wxALIGN_CENTER_VERTICAL} border={5}>
                           <Text
                             text={p.m_fineAdjustXCtrl}
-                            ariaLabel="X scale factor"
+                            ariaLabel={_('X scale factor')}
                             title={_(
                               'Set global X scale adjust for exact scale PostScript output.',
                             )}
@@ -580,7 +582,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                         <SizerItem flag={wxEXPAND | wxRIGHT | wxLEFT} border={30}>
                           <Text
                             text={p.m_fineAdjustYCtrl}
-                            ariaLabel="Y scale factor"
+                            ariaLabel={_('Y scale factor')}
                             title={_(
                               'Set global Y scale adjust for exact scale PostScript output.',
                             )}
@@ -596,7 +598,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                         <SizerItem flag={wxEXPAND | wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
                           <Text
                             text={p.m_widthAdjustCtrl}
-                            ariaLabel="Track width correction"
+                            ariaLabel={_('Track width correction')}
                             title={_(
                               'Set global width correction for exact width PostScript output.\nThese width correction is intended to compensate tracks width and also pads and vias size errors.\nThe reasonable width correction value must be in a range of [-(MinTrackWidth-1), +(MinClearanceValue-1)].',
                             )}
@@ -637,7 +639,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           <Choice
                             choices={PLOT_DXF_UNITS_CHOICES}
                             choice={p.m_DXF_plotUnits}
-                            ariaLabel="Export units"
+                            ariaLabel={_('Export units')}
                             title={_('The units to use for the exported DXF file')}
                           />
                         </SizerItem>
@@ -717,7 +719,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           <Choice
                             choices={PLOT_COLOR_CHOICES}
                             choice={p.m_SVGColorChoice}
-                            ariaLabel="SVG output mode"
+                            ariaLabel={_('SVG output mode')}
                           />
                         </SizerItem>
                         <SizerItem pos={[2, 0]} span={[2, 1]} flag={wxALL} border={5}>
@@ -747,7 +749,7 @@ export function DIALOG_PLOT_BASE(p: DIALOG_PLOT_BASE_PROPS): JSX.Element {
                           <Choice
                             choices={PLOT_COLOR_CHOICES}
                             choice={p.m_PDFColorChoice}
-                            ariaLabel="PDF output mode"
+                            ariaLabel={_('PDF output mode')}
                           />
                         </SizerItem>
                         <SizerItem pos={[1, 0]} span={[1, 2]} flag={wxRIGHT | wxLEFT} border={5}>

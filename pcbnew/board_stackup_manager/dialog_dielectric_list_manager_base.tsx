@@ -105,7 +105,7 @@ export function DIALOG_DIELECTRIC_MATERIAL_BASE(
                 selection={p.m_lcMaterials.selection}
                 onSelect={p.m_lcMaterials.onListItemSelected}
                 onKeyDown={p.m_lcMaterials.onListKeyDown}
-                ariaLabel="Common materials"
+                ariaLabel={_('Common materials')}
               />
             </SizerItem>
           </BoxSizer>

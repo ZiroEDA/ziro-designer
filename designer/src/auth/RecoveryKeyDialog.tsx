@@ -17,6 +17,7 @@ import { wxALL, wxEXPAND, wxVERTICAL } from '@ziroeda/wx/defs.js';
 import type { JSX } from 'react';
 import { DialogShim, StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { useRecoveryKeyActions } from './RecoveryKeyContents.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** The column's width: Delete Account's, ente's MUI "xs" - the account dialogs' one size. */
 const COLUMN_WIDTH = 444;
@@ -38,30 +39,32 @@ export function RecoveryKeyDialog({
 }): JSX.Element {
   const { copied, copy, save } = useRecoveryKeyActions(words, onClose);
   return (
-    <DialogShim title="Recovery key" onClose={onClose} className="ze-recovery-key-dialog">
+    <DialogShim title={_('Recovery key')} onClose={onClose} className="ze-recovery-key-dialog">
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxALL} border={5} minSize={[COLUMN_WIDTH, -1]}>
           <BoxSizer orient={wxVERTICAL}>
             <SizerItem flag={wxALL} border={5}>
               <StaticText
-                label="If you forget your password, the only way you can recover your data is with this key."
+                label={_(
+                  'If you forget your password, the only way you can recover your data is with this key.',
+                )}
                 wrap={TEXT_WRAP}
               />
             </SizerItem>
             <SizerItem flag={wxEXPAND | wxALL} border={5} minSize={[-1, KEY_HEIGHT]}>
-              <TextCtrl multiLine readOnly value={words} ariaLabel="Recovery key" />
+              <TextCtrl multiLine readOnly value={words} ariaLabel={_('Recovery key')} />
             </SizerItem>
             <SizerItem flag={wxALL} border={5}>
               <StaticText
-                label="We don't store this key, so please save this in a safe place"
+                label={_("We don't store this key, so please save this in a safe place")}
                 wrap={TEXT_WRAP}
               />
             </SizerItem>
           </BoxSizer>
         </SizerItem>
       </BoxSizer>
-      <StdDialogButtons onCancel={onClose} cancelLabel="Close" onOk={save} okLabel="Save Key">
-        <Button label={copied ? 'Copied' : 'Copy'} onClick={() => void copy()} />
+      <StdDialogButtons onCancel={onClose} cancelLabel="Close" onOk={save} okLabel={_('Save Key')}>
+        <Button label={copied ? _('Copied') : 'Copy'} onClick={() => void copy()} />
       </StdDialogButtons>
     </DialogShim>
   );

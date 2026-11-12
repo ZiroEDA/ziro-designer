@@ -48,7 +48,7 @@ export function PANEL_SETUP_BOARD_FINISH_BASE(p: PANEL_SETUP_BOARD_FINISH_BASE_P
                 <Choice
                   choices={p.m_choiceFinish.choices}
                   choice={p.m_choiceFinish}
-                  ariaLabel="Copper finish"
+                  ariaLabel={_('Copper finish')}
                 />
               </SizerItem>
               <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>
@@ -58,7 +58,7 @@ export function PANEL_SETUP_BOARD_FINISH_BASE(p: PANEL_SETUP_BOARD_FINISH_BASE_P
                 <Choice
                   choices={[_('None'), _('Yes'), _('Yes, bevelled')]}
                   choice={p.m_choiceEdgeConn}
-                  ariaLabel="Edge card connectors"
+                  ariaLabel={_('Edge card connectors')}
                   title={_('Options for edge card connectors.')}
                 />
               </SizerItem>

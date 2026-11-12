@@ -161,7 +161,7 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
                   <Choice
                     choices={[_('Footprint'), _('Reference')]}
                     choice={p.m_locationChoice}
-                    ariaLabel="Based on location of"
+                    ariaLabel={_('Based on location of')}
                   />
                 </SizerItem>
                 <SizerItem flag={CV | wxLEFT} border={25}>
@@ -172,7 +172,7 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
                     choices={p.m_GridChoice.choices}
                     choice={p.m_GridChoice}
                     title={GRID_TIP}
-                    ariaLabel="Round locations to"
+                    ariaLabel={_('Round locations to')}
                   />
                 </SizerItem>
               </FlexGridSizer>
@@ -211,7 +211,7 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
                     value={p.m_ExcludeList.value}
                     onChange={p.m_ExcludeList.onChange}
                     title={EXCLUDE_TIP}
-                    ariaLabel="Exclude references"
+                    ariaLabel={_('Exclude references')}
                   />
                 </SizerItem>
               </BoxSizer>
@@ -231,7 +231,7 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
                     value={p.m_FrontRefDesStart.value}
                     onChange={p.m_FrontRefDesStart.onChange}
                     title={_('Default is 1')}
-                    ariaLabel="Front reference start"
+                    ariaLabel={_('Front reference start')}
                   />
                 </SizerItem>
                 <SizerItem pos={[0, 3]} flag={CV | wxTOP | wxBOTTOM | wxLEFT} border={5}>
@@ -249,7 +249,7 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
                     title={_(
                       'Leave blank or zero, or enter a number greater than the highest reference designation on the front.',
                     )}
-                    ariaLabel="Back reference start"
+                    ariaLabel={_('Back reference start')}
                   />
                 </SizerItem>
                 <SizerItem pos={[1, 0]} flag={CV | wxBOTTOM | wxLEFT} border={5}>
@@ -263,7 +263,7 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
                     value={p.m_FrontPrefix.value}
                     onChange={p.m_FrontPrefix.onChange}
                     title={_('Optional prefix for component side reference designations (e.g. F_)')}
-                    ariaLabel="Front prefix"
+                    ariaLabel={_('Front prefix')}
                   />
                 </SizerItem>
                 <SizerItem pos={[1, 3]} flag={CV | wxBOTTOM | wxLEFT} border={5}>
@@ -277,7 +277,7 @@ export function DIALOG_BOARD_REANNOTATE_BASE(p: DIALOG_BOARD_REANNOTATE_BASE_PRO
                     value={p.m_BackPrefix.value}
                     onChange={p.m_BackPrefix.onChange}
                     title={_('Optional prefix for solder side reference designations (e.g. B_)')}
-                    ariaLabel="Back prefix"
+                    ariaLabel={_('Back prefix')}
                   />
                 </SizerItem>
                 <SizerItem

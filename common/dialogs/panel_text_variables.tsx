@@ -122,7 +122,7 @@ export function PanelTextVariables({ vars, onChange }: Props): JSX.Element {
         <button
           type="button"
           className="ze-gridbtn"
-          title="Add text variable"
+          title={_('Add text variable')}
           onClick={() => onAddTextVar(grid)}
         >
           <Icon name="plus" />
@@ -131,7 +131,7 @@ export function PanelTextVariables({ vars, onChange }: Props): JSX.Element {
         <button
           type="button"
           className="ze-gridbtn"
-          title="Delete text variable"
+          title={_('Delete text variable')}
           onClick={() => grid.OnDeleteRows((row) => grid.DeleteRows(row, 1))}
         >
           <Icon name="delete" />

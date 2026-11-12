@@ -58,19 +58,19 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
   const head = (t: string): JSX.Element => <h3 className="rf-formula-head">{t}</h3>;
   const common = (
     <>
-      <V>a</V> is attenuation in dB
+      <V>a</V> {_('is attenuation in dB')}
       <br />
       <V>
         {_('Z')}
         <sub>{_('in')}</sub>
       </V>{' '}
-      is desired input impedance in Ω
+      {_('is desired input impedance in Ω')}
       <br />
       <V>
         {_('Z')}
         <sub>out</sub>
       </V>{' '}
-      is desired output impedance in Ω
+      {_('is desired output impedance in Ω')}
     </>
   );
   const kl = (
@@ -141,19 +141,19 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
       <div className="rf-formula">
         {head('Bridged Tee Attenuator')}
         <p>
-          <V>a</V> is attenuation in dB
+          <V>a</V> {_('is attenuation in dB')}
           <br />
           <V>
             {_('Z')}
             <sub>{_('in')}</sub>
           </V>{' '}
-          is desired input impedance in Ω
+          {_('is desired input impedance in Ω')}
           <br />
           <V>
             {_('Z')}
             <sub>out</sub>
           </V>{' '}
-          is desired output impedance in Ω
+          {_('is desired output impedance in Ω')}
           <br />
           <V>
             {_('Z')}
@@ -181,19 +181,19 @@ function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
     <div className="rf-formula">
       {head('Split Attenuator')}
       <p>
-        Attenuation is 6 dB
+        {_('Attenuation is 6 dB')}
         <br />
         <V>
           {_('Z')}
           <sub>{_('in')}</sub>
         </V>{' '}
-        is desired input impedance in Ω
+        {_('is desired input impedance in Ω')}
         <br />
         <V>
           {_('Z')}
           <sub>out</sub>
         </V>{' '}
-        is desired output impedance in Ω
+        {_('is desired output impedance in Ω')}
         <br />
         <V>
           {_('Z')}
@@ -397,7 +397,7 @@ export function PanelRfAttenuators(): JSX.Element {
             {shown?.error && (
               <>
                 <br />
-                <b>Error!</b>
+                <b>{_('Error!')}</b>
                 <br />
                 <em>
                   {wxFormat(_('Attenuation more than %f dB'), shown.minAttenuationDb.toFixed(6))}

@@ -328,7 +328,7 @@ export function PanelSetupBuses({ aliases, onChange }: Props): JSX.Element {
           tricks={aliasTricks}
           columns={[{ width: 300 }]}
           onUpdate={onUpdateUI}
-          ariaLabel="Bus aliases"
+          ariaLabel={wxGetTranslation('Bus aliases')}
         />
       }
       onAddAlias={onAddAlias}
@@ -342,7 +342,7 @@ export function PanelSetupBuses({ aliases, onChange }: Props): JSX.Element {
           tricks={memberTricks}
           columns={[{ width: 300 }]}
           onUpdate={onUpdateUI}
-          ariaLabel="Bus members"
+          ariaLabel={wxGetTranslation('Bus members')}
         />
       }
       onAddMember={onAddMember}

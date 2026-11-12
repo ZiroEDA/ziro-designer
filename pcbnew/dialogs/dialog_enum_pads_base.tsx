@@ -60,7 +60,7 @@ export function DIALOG_ENUM_PADS_BASE(p: DIALOG_ENUM_PADS_BASE_PROPS): JSX.Eleme
                 onEnter={p.onOK}
                 maxLength={4}
                 inputRef={p.padPrefixRef}
-                ariaLabel="Pad name prefix"
+                ariaLabel={_('Pad name prefix')}
               />
             </SizerItem>
             <SizerItem flag={wxALL | wxALIGN_CENTER_VERTICAL} border={5}>
@@ -72,7 +72,7 @@ export function DIALOG_ENUM_PADS_BASE(p: DIALOG_ENUM_PADS_BASE_PROPS): JSX.Eleme
                 onChange={p.m_padStartNum.onChange}
                 min={0}
                 max={999}
-                ariaLabel="First pad number"
+                ariaLabel={_('First pad number')}
               />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxALL} border={5}>
@@ -84,7 +84,7 @@ export function DIALOG_ENUM_PADS_BASE(p: DIALOG_ENUM_PADS_BASE_PROPS): JSX.Eleme
                 onChange={p.m_padNumStep.onChange}
                 min={0}
                 max={999}
-                ariaLabel="Numbering step"
+                ariaLabel={_('Numbering step')}
               />
             </SizerItem>
           </FlexGridSizer>

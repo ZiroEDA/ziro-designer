@@ -151,7 +151,7 @@ export function DIALOG_FIELD_PROPERTIES_BASE(p: DIALOG_FIELD_PROPERTIES_BASE_PRO
                     >
                       <StdBitmapButton
                         bitmap="small_library"
-                        title="Select footprint"
+                        title={_('Select footprint')}
                         tooltip={null}
                         onClick={p.onTextValueSelectButtonClick}
                       />
@@ -259,7 +259,7 @@ export function DIALOG_FIELD_PROPERTIES_BASE(p: DIALOG_FIELD_PROPERTIES_BASE_PRO
                         value={p.m_textSizeCtrl}
                         onChange={p.onTextSize}
                         onEnter={p.onOK}
-                        ariaLabel="Text size"
+                        ariaLabel={_('Text size')}
                       />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={3}>

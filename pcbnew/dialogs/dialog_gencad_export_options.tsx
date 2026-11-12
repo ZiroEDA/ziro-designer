@@ -188,7 +188,7 @@ export function DialogGencadExportOptions({
                   changed();
                 }}
                 title={_('Enter a filename if you do not want to use default file names')}
-                ariaLabel="Output File"
+                ariaLabel={_('Output File')}
               />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>

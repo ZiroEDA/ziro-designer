@@ -483,26 +483,26 @@ export function PanelGridSettings({
               `+ ✎ ▲ ▼ −` as text on standard-width buttons. */}
               <StdBitmapButton
                 bitmap="small_plus"
-                title="Add grid"
+                title={_('Add grid')}
                 onClick={() => setOpen({ kind: 'add' })}
               />
               <StdBitmapButton
                 bitmap="edit"
-                title="Edit grid"
+                title={_('Edit grid')}
                 // `OnUpdateEditGrid`: `event.Enable( GetSelection() >= 0 )`.
                 disabled={!(row >= 0 && row < numRows)}
                 onClick={() => setOpen({ kind: 'edit', row })}
               />
               <StdBitmapButton
                 bitmap="small_up"
-                title="Move grid up"
+                title={_('Move grid up')}
                 // `OnUpdateMoveUp`: `( numRows > 1 ) && ( curRow > 0 )`.
                 disabled={!(numRows > 1 && row > 0)}
                 onClick={moveUp}
               />
               <StdBitmapButton
                 bitmap="small_down"
-                title="Move grid down"
+                title={_('Move grid down')}
                 // `OnUpdateMoveDown`: `( numRows > 1 ) && ( curRow < numRows - 1 )`.
                 disabled={!(numRows > 1 && row < numRows - 1)}
                 onClick={moveDown}
@@ -516,7 +516,7 @@ export function PanelGridSettings({
               <span style={{ width: 25 }} />
               <StdBitmapButton
                 bitmap="small_trash"
-                title="Remove grid"
+                title={_('Remove grid')}
                 // `OnUpdateRemove`: `event.Enable( m_grids.size() > 1 )`.
                 disabled={!(numRows > 1)}
                 onClick={removeGrid}

@@ -87,6 +87,7 @@ import {
 import { svgUrl } from '@ziroeda/bitmaps_png';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // KiCad's own dark-theme artwork (GPL), vendored under assets/.
 /**
@@ -523,7 +524,7 @@ export function PanelTransline(): JSX.Element {
       }
       setMsgs(out);
     } catch {
-      setError('Analysis failed, check the input values.');
+      setError(wxGetTranslation('Analysis failed, check the input values.'));
     }
   };
 
@@ -534,11 +535,11 @@ export function PanelTransline(): JSX.Element {
     const angRaw = num('Ang_l');
     const angTarget = (units.Ang_l ?? 0) === 0 ? (angRaw * 180) / Math.PI : angRaw;
     if (!(zTarget > 0) || !(angTarget > 0)) {
-      setError('Enter a positive impedance and electrical length.');
+      setError(wxGetTranslation('Enter a positive impedance and electrical length.'));
       return;
     }
     const noSolution = (): void =>
-      setError('No physical solution found for this target impedance.');
+      setError(wxGetTranslation('No physical solution found for this target impedance.'));
     // What synthesis solves for, in SI, so the analysis below can be run over
     // it without waiting for React to apply the field text.
     const solved: Record<string, number> = {};
@@ -592,7 +593,7 @@ export function PanelTransline(): JSX.Element {
         break;
       }
       case 'rectwaveguide':
-        setError('Synthesis is not available for rectangular waveguides.');
+        setError(wxGetTranslation('Synthesis is not available for rectangular waveguides.'));
         return;
       case 'coax': {
         const s = coaxSynthesize(
@@ -633,7 +634,7 @@ export function PanelTransline(): JSX.Element {
       case 'c_stripline': {
         const zOddTarget = si('Zodd');
         if (!(zOddTarget > 0)) {
-          setError('Enter a positive odd-mode impedance.');
+          setError(wxGetTranslation('Enter a positive odd-mode impedance.'));
           return;
         }
         const s = coupledStriplineSynthesize(
@@ -739,7 +740,7 @@ export function PanelTransline(): JSX.Element {
         )}
         {list ? (
           <Combo
-            ariaLabel={`${p.label} unit`}
+            ariaLabel={wxFormat(wxGetTranslation('%s unit'), p.label)}
             value={String(units[p.key] ?? 0)}
             options={list.map((u, i) => ({ value: String(i), label: u.label }))}
             onChange={(v) => setUnits((s) => ({ ...s, [p.key]: Number(v) }))}
@@ -810,7 +811,7 @@ export function PanelTransline(): JSX.Element {
                 className="calc-input"
               />
               <Combo
-                ariaLabel="Frequency unit"
+                ariaLabel={wxGetTranslation('Frequency unit')}
                 value={String(units.Frequency ?? 0)}
                 options={FREQ_UNITS.map((u, i) => ({ value: String(i), label: u.label }))}
                 onChange={(v) => setUnits((s) => ({ ...s, Frequency: Number(v) }))}
@@ -842,7 +843,7 @@ export function PanelTransline(): JSX.Element {
                     type="radio"
                     name="tl-prm"
                     defaultChecked={i === 0}
-                    aria-label="Solve for this parameter"
+                    aria-label={wxGetTranslation('Solve for this parameter')}
                   />
                 ) : (
                   <span />

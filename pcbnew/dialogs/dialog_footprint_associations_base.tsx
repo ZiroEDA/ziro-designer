@@ -52,7 +52,7 @@ export function DIALOG_FOOTPRINT_ASSOCIATIONS_BASE(
             columns={COLUMNS}
             rowLabels={false}
             colLabels={false}
-            ariaLabel="Library association"
+            ariaLabel={_('Library association')}
           />
         </SizerItem>
         <Spacer width={0} height={5} proportion={1} flag={wxEXPAND} border={5} />
@@ -66,7 +66,7 @@ export function DIALOG_FOOTPRINT_ASSOCIATIONS_BASE(
             columns={COLUMNS}
             rowLabels={false}
             colLabels={false}
-            ariaLabel="Schematic association"
+            ariaLabel={_('Schematic association')}
           />
         </SizerItem>
         <SizerItem flag={wxEXPAND} border={5}>

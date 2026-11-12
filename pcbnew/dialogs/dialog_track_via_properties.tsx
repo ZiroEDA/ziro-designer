@@ -992,7 +992,7 @@ export class DIALOG_TRACK_VIA_PROPERTIES extends VIA_PROTECTION_UI_MIXIN {
     // m_trackWidth.Validate( GEOMETRY_MIN_SIZE, INT_MAX )
     if (this.m_tracks && v.trackWidth !== undefined && v.trackWidth < GEOMETRY_MIN_SIZE) {
       const min = stringFromValue(pcbIUScale, this.m_frame.GetUserUnits(), GEOMETRY_MIN_SIZE, true);
-      return { ok: false, message: `Track width must be at least ${min}.` };
+      return { ok: false, message: wxFormat(_('Track width must be at least %s.'), min) };
     }
 
     return { ok: true };

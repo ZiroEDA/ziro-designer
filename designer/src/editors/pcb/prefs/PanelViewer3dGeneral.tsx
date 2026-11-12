@@ -135,7 +135,7 @@ export function PanelViewer3dGeneral({ ctx }: { ctx: PrefsContext }): JSX.Elemen
             min={REDRAW_SPEED_RANGE.min}
             max={REDRAW_SPEED_RANGE.max}
             labels
-            ariaLabel="Redraw speed"
+            ariaLabel={_('Redraw speed')}
             disabled={!camera.animation_enabled}
             onChange={(v) => upC({ moving_speed_multiplier: v })}
           />

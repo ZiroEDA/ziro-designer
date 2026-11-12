@@ -105,7 +105,7 @@ export function DIALOG_OUTSET_ITEMS_BASE(p: DIALOG_OUTSET_ITEMS_BASE_PROPS): JSX
         <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5}>
           {/* gbSizer1 = wxGridBagSizer( 0, 0 ) */}
           <GridBagSizer vgap={0} hgap={0} growableCols={[1]}>
-            <UnitRow row={0} label={_('Outset:')} u={p.m_outset} ariaLabel="Outset" />
+            <UnitRow row={0} label={_('Outset:')} u={p.m_outset} ariaLabel={_('Outset')} />
             <SizerItem pos={[1, 0]} span={[1, 4]} flag={wxALL | wxEXPAND} border={5}>
               <CheckBox label={_('Round corners (when possible)')} check={p.m_roundCorners} />
             </SizerItem>
@@ -116,7 +116,12 @@ export function DIALOG_OUTSET_ITEMS_BASE(p: DIALOG_OUTSET_ITEMS_BASE_PROPS): JSX
                 title={_('This is only possible for rectangular outsets.')}
               />
             </SizerItem>
-            <UnitRow row={3} label={_('Grid size:')} u={p.m_roundingGrid} ariaLabel="Grid size" />
+            <UnitRow
+              row={3}
+              label={_('Grid size:')}
+              u={p.m_roundingGrid}
+              ariaLabel={_('Grid size')}
+            />
             <SizerItem pos={[4, 0]} span={[1, 4]} flag={wxEXPAND | wxTOP | wxBOTTOM} border={5}>
               <StaticLine />
             </SizerItem>

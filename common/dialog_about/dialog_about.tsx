@@ -33,6 +33,7 @@ import { DialogShim } from '../dialog_shim.js';
 import { HtmlWindow } from '../widgets/html_window.js';
 import type { ABOUT_APP_INFO, CONTRIBUTORS } from './aboutinfo.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `enum class IMAGES`, in the order the constructor fills the image list. */
 export const IMAGES = {
@@ -188,12 +189,12 @@ export function DIALOG_ABOUT({
             <span className="ze-about-spacer" />
             <Button
               label={copied ? _('Copied...') : _('Copy Version Info')}
-              title={`Copy ${PRODUCT} version info to the clipboard`}
+              title={wxFormat(_('Copy %s version info to the clipboard'), PRODUCT)}
               onClick={onCopyVersionInfo}
             />
             <Button
               label={_('Report Bug')}
-              title={`Report a problem with ${PRODUCT}`}
+              title={wxFormat(_('Report a problem with %s'), PRODUCT)}
               onClick={reportBug}
             />
             <span className="ze-about-spacer" />
@@ -205,7 +206,7 @@ export function DIALOG_ABOUT({
             <button
               type="button"
               className="ze-about-arrow"
-              aria-label="Previous page"
+              aria-label={_('Previous page')}
               disabled={page === 0}
               onClick={() => setPage((p) => Math.max(0, p - 1))}
             >
@@ -229,7 +230,7 @@ export function DIALOG_ABOUT({
             <button
               type="button"
               className="ze-about-arrow"
-              aria-label="Next page"
+              aria-label={_('Next page')}
               disabled={page === pages.length - 1}
               onClick={() => setPage((p) => Math.min(pages.length - 1, p + 1))}
             >

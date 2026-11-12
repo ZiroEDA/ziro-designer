@@ -185,7 +185,7 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
   });
 
   return (
-    <DialogShim title="Plot Schematic Options" onClose={onClose}>
+    <DialogShim title={_('Plot Schematic Options')} onClose={onClose}>
       <div
         className="ze-modal-body"
         style={{ display: 'block', padding: '10px 14px', overflow: 'auto' }}
@@ -368,7 +368,7 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
 
             {format === 'png' && (
               <fieldset style={group}>
-                <legend style={legend}>PNG Options</legend>
+                <legend style={legend}>{_('PNG Options')}</legend>
                 <div style={row}>
                   <span style={lab}>DPI:</span>
                   <input
@@ -390,7 +390,9 @@ export function DialogPlot({ settings, themeId, onPlot, onClose }: Props): JSX.E
               <legend style={legend}>{_('Other Options')}</legend>
               <label
                 style={check(!canOpenAfter)}
-                title="Open the plotted file in a new browser tab after a successful plot (current page only)"
+                title={_(
+                  'Open the plotted file in a new browser tab after a successful plot (current page only)',
+                )}
               >
                 <input
                   type="checkbox"

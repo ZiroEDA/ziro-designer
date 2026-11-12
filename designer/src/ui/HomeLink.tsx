@@ -14,13 +14,14 @@
  */
 import type { JSX } from 'react';
 import { ZiroLogo } from './ZiroLogo.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export function HomeLink({ onClick }: { onClick?: () => void }): JSX.Element {
   return (
     <div
       className={onClick ? 'ze-home-link' : 'ze-home-link ze-home-link-static'}
       onClick={onClick}
-      title={onClick ? 'Back to project manager' : undefined}
+      title={onClick ? _('Back to project manager') : undefined}
     >
       <ZiroLogo />
       <span>ZiroEDA</span>

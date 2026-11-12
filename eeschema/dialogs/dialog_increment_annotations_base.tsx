@@ -77,7 +77,7 @@ export function DIALOG_INCREMENT_ANNOTATIONS_BASE({ values, onOk, onCancel }: Pr
                     value={firstRefDes}
                     onChange={setFirstRefDes}
                     inputRef={firstRef}
-                    ariaLabel="Start reference designator"
+                    ariaLabel={_('Start reference designator')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL}>
@@ -91,7 +91,7 @@ export function DIALOG_INCREMENT_ANNOTATIONS_BASE({ values, onOk, onCancel }: Pr
                     onChange={setIncrement}
                     min={1}
                     max={64}
-                    ariaLabel="Increment by"
+                    ariaLabel={_('Increment by')}
                   />
                 </SizerItem>
               </FlexGridSizer>

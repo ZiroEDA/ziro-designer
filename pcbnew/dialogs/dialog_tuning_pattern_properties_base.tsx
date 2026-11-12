@@ -191,7 +191,7 @@ export function DIALOG_TUNING_PATTERN_PROPERTIES_BASE(
                   <Choice
                     choices={[_('Chamfer'), _('Fillet')]}
                     choice={p.m_cornerCtrl}
-                    ariaLabel="Corner style"
+                    ariaLabel={_('Corner style')}
                   />
                 </SizerItem>
                 <SizerItem pos={[8, 4]} flag={CV} border={5}>

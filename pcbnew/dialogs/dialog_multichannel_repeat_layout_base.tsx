@@ -79,7 +79,7 @@ export function DIALOG_MULTICHANNEL_REPEAT_LAYOUT_BASE(
                     choices={p.m_refAnchorFp.choices}
                     choice={p.m_refAnchorFp}
                     title={ANCHOR_TIP}
-                    ariaLabel="Anchor footprint"
+                    ariaLabel={_('Anchor footprint')}
                   />
                 </SizerItem>
               </FlexGridSizer>

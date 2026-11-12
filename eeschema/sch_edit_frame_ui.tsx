@@ -3770,7 +3770,11 @@ export function SchematicEditor({
         resetTransient();
         resetErc();
         setFileName(start);
-        setError(problems.length ? `Some sheets failed to load: ${problems.join('; ')}` : null);
+        setError(
+          problems.length
+            ? wxFormat(_('Some sheets failed to load: %s'), problems.join('; '))
+            : null,
+        );
         // The other CallAfter, `SCH_EDIT_FRAME::LoadProject`
         // (sch_edit_frame.cpp:1492-1499). Every sheet, not just the one being
         // shown: `PreloadLibraries` is hierarchy-wide because the library table
@@ -3782,7 +3786,12 @@ export function SchematicEditor({
         // picking the root, building the hierarchy — where a throw escaped an
         // async handler: the overlay cleared, no project loaded, and the error
         // bar stayed empty, so opening a project appeared to do nothing at all.
-        setError(`Could not open this project: ${e instanceof Error ? e.message : String(e)}`);
+        setError(
+          wxFormat(
+            _('Could not open this project: %s'),
+            e instanceof Error ? e.message : String(e),
+          ),
+        );
       } finally {
         setLoading(null);
       }
@@ -3907,7 +3916,7 @@ export function SchematicEditor({
       proj.docs.set(currentFile, doc);
       const target = proj.docs.get(file);
       if (!target) {
-        setError(`Sheet file not in project: ${file}`);
+        setError(wxFormat(_('Sheet file not in project: %s'), file));
         return;
       }
       // The undo stack is NOT swapped: there is one for the whole project, and
@@ -3954,7 +3963,7 @@ export function SchematicEditor({
   const openFile = useCallback(
     (file: File) => {
       if (!/\.kicad_sch$/i.test(file.name)) {
-        setError(`Not a .kicad_sch file: ${file.name}`);
+        setError(wxFormat(_('Not a .kicad_sch file: %s'), file.name));
         return;
       }
       file
@@ -5598,7 +5607,9 @@ export function SchematicEditor({
   // a bad Open just shows a dismissible banner and leaves the current sheet intact.
   if (!doc) {
     return error ? (
-      <pre style={{ color: 'crimson', padding: 16 }}>Failed to load schematic: {error}</pre>
+      <pre style={{ color: 'crimson', padding: 16 }}>
+        {_('Failed to load schematic:')} {error}
+      </pre>
     ) : (
       <div className="ze-app sch-theme">
         <ProgressDialog title={_('Load Schematic')} label={loading ?? 'Loading schematic...'} />
@@ -5648,7 +5659,9 @@ export function SchematicEditor({
           title={syncPeers.map((p) => `${p.view} · ${p.sheetPath ?? '/'}`).join('\n')}
           onClick={() => setPresencePanelOpen((v) => !v)}
         >
-          {syncPeers.length === 1 ? '1 other viewer' : `${syncPeers.length} other viewers`}
+          {syncPeers.length === 1
+            ? _('1 other viewer')
+            : wxFormat(_('%s other viewers'), syncPeers.length)}
         </button>
       )}
       {presencePanelOpen && (
@@ -5667,7 +5680,7 @@ export function SchematicEditor({
       )}
       {copyAsOpen && (
         <SaveAsDialog
-          title="Save Current Sheet Copy As"
+          title={_('Save Current Sheet Copy As')}
           // `wxFileDialog( m_frame, _( "Schematic Files" ), curr_fn.GetPath(),
           //                curr_fn.GetFullName(), ... )`
           // (sch_editor_control.cpp, SaveCurrSheetCopyAs). Both arguments come
@@ -5714,7 +5727,8 @@ export function SchematicEditor({
       />
       {error && (
         <div className="ze-error-banner" onClick={() => setError(null)} title={_('Dismiss')}>
-          {error}, click to dismiss
+          {error}
+          {_(', click to dismiss')}
         </div>
       )}
       <MenuBar
@@ -5789,7 +5803,7 @@ export function SchematicEditor({
               <div
                 className="ze-splitter horizontal"
                 onMouseDown={(e) => startPanelResize(key, e)}
-                title="Drag to resize"
+                title={_('Drag to resize')}
               />
             ) : null;
           const heightStyle = (key: string): React.CSSProperties | undefined =>
@@ -5965,7 +5979,11 @@ export function SchematicEditor({
               the wrap, flex: 1, gets the rest. */}
           {readOnlyNotice}
           {myRole === 'viewer' && (
-            <ReadOnlyNotice message="You have view-only access to this project. Ask the owner for edit access to make changes." />
+            <ReadOnlyNotice
+              message={_(
+                'You have view-only access to this project. Ask the owner for edit access to make changes.',
+              )}
+            />
           )}
           {/* WX_INFOBAR: the strip a tool posts an error into, dismissed with
             its ✕ or by the next successful action. */}
@@ -6451,7 +6469,7 @@ export function SchematicEditor({
               <div
                 className="ze-splitter horizontal"
                 onMouseDown={startBottomDockResize}
-                title="Drag to resize"
+                title={_('Drag to resize')}
               />
               <div className="ze-bottomdock sch-bottomdock" style={bottomDockStyle}>
                 <div className="ze-panel">
@@ -6604,7 +6622,7 @@ export function SchematicEditor({
       {libraryNameRequest && (
         <WxTextEntryDialog
           caption={libraryNameRequest.title}
-          message="Library name:"
+          message={_('Library name:')}
           value={libraryNameRequest.name}
           {...(libraryNameRequest.hook &&
           (libraryNameRequest.hook as Partial<FILEDLG_HOOK_NEW_LIBRARY>).kind === 'new_library'
@@ -7111,7 +7129,7 @@ function renderSheetNode(
           <span
             className={`ze-hier-button${collapsed ? '' : ' open'}`}
             onClick={toggle}
-            title={collapsed ? 'Expand' : 'Collapse'}
+            title={collapsed ? _('Expand') : _('Collapse')}
           />
         )}
         <span className={`ze-hier-icon${active ? ' sel' : ''}`} />

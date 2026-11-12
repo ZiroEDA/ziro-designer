@@ -416,7 +416,7 @@ export function PanelToolbarCustomization({
               draws an expander and its children indent under it. Ours drew
               neither: every row started at the same x and a group was told
               apart only by its lack of an icon. */}
-          <ul className="ze-tbcust-tree" aria-label="Toolbar items">
+          <ul className="ze-tbcust-tree" aria-label={_('Toolbar items')}>
             {hasToolbar &&
               items.map((it, i) => {
                 const label = rowLabel(it);
@@ -551,7 +551,7 @@ export function PanelToolbarCustomization({
         <div className="ze-tbcust-mid">
           <StdBitmapButton
             bitmap="left"
-            title="Add to toolbar"
+            title={_('Add to toolbar')}
             disabled={!enabled}
             onClick={onAdd}
           />
@@ -585,7 +585,11 @@ export function PanelToolbarCustomization({
               // biome-ignore lint/a11y/useKeyWithClickEvents: a wxSearchCtrl's
               // cancel button is painted inside the entry, which owns the
               // keyboard — Escape clears it there too.
-              <span className="cancel" title="Clear the filter" onClick={() => setFilter('')} />
+              <span
+                className="cancel"
+                title={_('Clear the filter')}
+                onClick={() => setFilter('')}
+              />
             )}
           </div>
           <ul className="ze-tbcust-list" aria-label={_('Actions')}>

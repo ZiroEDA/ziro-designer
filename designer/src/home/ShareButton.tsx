@@ -42,6 +42,9 @@ import { avatarColorFor } from '../auth/avatar_color.js';
 import { profileInitial } from '../auth/profile.js';
 import { invitationsStillWaiting } from './share_rows.js';
 import { cloudIdentityOf } from './projectStore.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
+import { _HKI } from '@ziroeda/include/i18n_utility.js';
 
 type Role = 'viewer' | 'editor';
 type LinkAccess = Role | null;
@@ -53,14 +56,14 @@ interface Person {
 }
 
 const ROLE_OPTIONS = [
-  { value: 'viewer', label: 'can view' },
-  { value: 'editor', label: 'can edit' },
+  { value: 'viewer', label: _HKI('can view') },
+  { value: 'editor', label: _HKI('can edit') },
 ] as const;
 
 const LINK_OPTIONS = [
-  { value: 'off', label: 'Only people invited' },
-  { value: 'viewer', label: 'Anyone with the link can view' },
-  { value: 'editor', label: 'Anyone with the link can edit' },
+  { value: 'off', label: _HKI('Only people invited') },
+  { value: 'viewer', label: _HKI('Anyone with the link can view') },
+  { value: 'editor', label: _HKI('Anyone with the link can edit') },
 ] as const;
 
 export function ShareButton({
@@ -196,8 +199,8 @@ export function ShareButton({
       <button
         type="button"
         className="ze-account-signout"
-        title="Share this project"
-        aria-label="Share this project"
+        title={_('Share this project')}
+        aria-label={_('Share this project')}
         onClick={() => {
           setOpen((v) => !v);
           if (!open) void load();
@@ -212,8 +215,9 @@ export function ShareButton({
 
           {!uid && !loading && (
             <p className="ze-auth-note">
-              This project has not reached the cloud yet, so there is nothing to share. Let it sync,
-              then share it.
+              {_(
+                'This project has not reached the cloud yet, so there is nothing to share. Let it sync, then share it.',
+              )}
             </p>
           )}
 
@@ -224,8 +228,8 @@ export function ShareButton({
                   <input
                     type="email"
                     value={invitee}
-                    placeholder="Invite by email"
-                    aria-label="Invite by email"
+                    placeholder={_('Invite by email')}
+                    aria-label={_('Invite by email')}
                     onChange={(e) => setInvitee(e.currentTarget.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -237,14 +241,14 @@ export function ShareButton({
                   <Combo
                     value={inviteRole}
                     options={ROLE_OPTIONS}
-                    ariaLabel="What the invited person may do"
+                    ariaLabel={_('What the invited person may do')}
                     onChange={(v) => setInviteRole(v as Role)}
                   />
-                  <Button label="Invite" disabled={!invitee.trim()} onClick={invite} />
+                  <Button label={_('Invite')} disabled={!invitee.trim()} onClick={invite} />
                 </div>
               )}
 
-              <div className="ze-share-heading">People with access</div>
+              <div className="ze-share-heading">{_('People with access')}</div>
               <div className="ze-share-people">
                 {people.map((p) => (
                   <div className="ze-share-person" key={p.user_id}>
@@ -262,7 +266,7 @@ export function ShareButton({
                         <Combo
                           value={p.role}
                           options={ROLE_OPTIONS}
-                          ariaLabel={`What ${p.email} may do`}
+                          ariaLabel={wxFormat(_('What %s may do'), p.email)}
                           onChange={(v) =>
                             act(cloudBackend()?.setMemberRole?.(uid, p.user_id, v as Role))
                           }
@@ -270,8 +274,8 @@ export function ShareButton({
                         <button
                           type="button"
                           className="ze-share-remove"
-                          title={`Remove ${p.email}`}
-                          aria-label={`Remove ${p.email}`}
+                          title={wxFormat(_('Remove %s'), p.email)}
+                          aria-label={wxFormat(_('Remove %s'), p.email)}
                           onClick={() => act(removeAndRotate(p.user_id))}
                         >
                           ✕
@@ -300,8 +304,8 @@ export function ShareButton({
                     <button
                       type="button"
                       className="ze-share-remove"
-                      title={`Copy an invitation link for ${i.email}`}
-                      aria-label={`Copy an invitation link for ${i.email}`}
+                      title={wxFormat(_('Copy an invitation link for %s'), i.email)}
+                      aria-label={wxFormat(_('Copy an invitation link for %s'), i.email)}
                       onClick={() => {
                         void navigator.clipboard
                           .writeText(inviteUrlFor(i.token, key))
@@ -314,8 +318,8 @@ export function ShareButton({
                     <button
                       type="button"
                       className="ze-share-remove"
-                      title={`Withdraw the invitation to ${i.email}`}
-                      aria-label={`Withdraw the invitation to ${i.email}`}
+                      title={wxFormat(_('Withdraw the invitation to %s'), i.email)}
+                      aria-label={wxFormat(_('Withdraw the invitation to %s'), i.email)}
                       onClick={() => act(cloudBackend()?.revokeInvite?.(i.token))}
                     >
                       ✕
@@ -325,18 +329,18 @@ export function ShareButton({
               </div>
 
               <div className="ze-share-link">
-                <div className="ze-share-heading">General access</div>
+                <div className="ze-share-heading">{_('General access')}</div>
                 <Combo
                   value={linkAccess ?? 'off'}
                   options={LINK_OPTIONS}
                   disabled={!isOwner}
-                  ariaLabel="What a link to this project is worth"
+                  ariaLabel={_('What a link to this project is worth')}
                   onChange={(v) => act(setLinkAccessAndRotate(v === 'off' ? null : (v as Role)))}
                 />
                 <div className="ze-share-linkrow">
                   <input readOnly value={url} onFocus={(e) => e.currentTarget.select()} />
                   <Button
-                    label={copied ? 'Copied' : 'Copy link'}
+                    label={copied ? _('Copied') : _('Copy link')}
                     onClick={() => {
                       void navigator.clipboard
                         ?.writeText(url)
@@ -351,8 +355,9 @@ export function ShareButton({
                   // NEW in; the people who already used it hold membership in
                   // their own right and are removed above.
                   <p className="ze-auth-note">
-                    Closing the link later stops new people opening it. Anyone already on the list
-                    keeps access until you remove them.
+                    {_(
+                      'Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them.',
+                    )}
                   </p>
                 )}
               </div>

@@ -118,7 +118,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
             />
           </SizerItem>
           <SizerItem pos={[1, 1]} flag={wxEXPAND | wxBOTTOM | wxRIGHT | wxLEFT} border={4}>
-            <UnitCtrl f={p.m_minWidth} ariaLabel="Minimum width" />
+            <UnitCtrl f={p.m_minWidth} ariaLabel={_('Minimum width')} />
           </SizerItem>
           <SizerItem pos={[1, 2]} flag={CV | wxBOTTOM | wxRIGHT} border={5}>
             <StaticText label={p.m_minWidth.units} />
@@ -135,7 +135,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
             <Choice
               choices={[_('Solid'), _('Thermal reliefs'), _('Reliefs for PTH'), _('None')]}
               choice={p.m_PadInZoneOpt}
-              ariaLabel="Pad connections"
+              ariaLabel={_('Pad connections')}
             />
           </SizerItem>
           <SizerItem pos={[4, 0]} flag={CV | wxLEFT | wxTOP} border={4}>
@@ -147,7 +147,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
             />
           </SizerItem>
           <SizerItem pos={[4, 1]} flag={wxEXPAND | wxTOP | wxRIGHT | wxLEFT} border={4}>
-            <UnitCtrl f={p.m_antipad} ariaLabel="Thermal relief gap" />
+            <UnitCtrl f={p.m_antipad} ariaLabel={_('Thermal relief gap')} />
           </SizerItem>
           <SizerItem pos={[4, 2]} flag={CV | wxTOP | wxRIGHT} border={5}>
             <StaticText label={p.m_antipad.units} />
@@ -156,7 +156,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
             <StaticText label={_('Thermal spoke width:')} />
           </SizerItem>
           <SizerItem pos={[5, 1]} flag={wxEXPAND | wxALL} border={4}>
-            <UnitCtrl f={p.m_spokeWidth} ariaLabel="Thermal spoke width" />
+            <UnitCtrl f={p.m_spokeWidth} ariaLabel={_('Thermal spoke width')} />
           </SizerItem>
           <SizerItem pos={[5, 2]} flag={CV | wxTOP | wxBOTTOM | wxRIGHT} border={5}>
             <StaticText label={p.m_spokeWidth.units} />
@@ -179,14 +179,14 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
             <Choice
               choices={[_('Line'), _('Hatched'), _('Fully hatched')]}
               choice={p.m_OutlineDisplayCtrl}
-              ariaLabel="Outline display"
+              ariaLabel={_('Outline display')}
             />
           </SizerItem>
           <SizerItem pos={[1, 0]} flag={CV | wxLEFT} border={5}>
             <StaticText label={_('Outline hatch pitch:')} />
           </SizerItem>
           <SizerItem pos={[1, 1]} flag={CV | wxEXPAND} border={5}>
-            <UnitCtrl f={p.m_outlineHatchPitch} ariaLabel="Outline hatch pitch" />
+            <UnitCtrl f={p.m_outlineHatchPitch} ariaLabel={_('Outline hatch pitch')} />
           </SizerItem>
           <SizerItem pos={[1, 2]} flag={CV | wxRIGHT} border={5}>
             <StaticText label={p.m_outlineHatchPitch.units} />
@@ -253,7 +253,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
               min={0}
               max={3}
               disabled={!p.m_spinCtrlSmoothLevel.enabled}
-              ariaLabel="Smoothing effort"
+              ariaLabel={_('Smoothing effort')}
             />
           </SizerItem>
           <SizerItem pos={[5, 0]} flag={CV | wxBOTTOM | wxLEFT} border={5}>
@@ -275,7 +275,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
               step={0.1}
               digits={2}
               disabled={!p.m_spinCtrlSmoothValue.enabled}
-              ariaLabel="Smoothing amount"
+              ariaLabel={_('Smoothing amount')}
             />
           </SizerItem>
         </GridBagSizer>
@@ -296,7 +296,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
               <SizerItem flag={wxLEFT | wxRIGHT} border={5}>
                 <StdBitmapButton
                   bitmap="small_plus"
-                  title="Add a layer override"
+                  title={_('Add a layer override')}
                   tooltip={null}
                   disabled={!p.overridesEnabled}
                   onClick={p.OnAddLayerItem}
@@ -306,7 +306,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
               <SizerItem flag={wxRIGHT} border={5}>
                 <StdBitmapButton
                   bitmap="small_trash"
-                  title="Delete a layer override"
+                  title={_('Delete a layer override')}
                   tooltip={null}
                   disabled={!p.overridesEnabled}
                   onClick={p.OnDeleteLayerItem}
@@ -347,7 +347,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
                     <TextCtrl
                       value={p.m_tcZoneName.value}
                       onChange={p.m_tcZoneName.onChange}
-                      ariaLabel="Zone name"
+                      ariaLabel={_('Zone name')}
                       title={_('A unique name for this zone, used to identify it in DRC rules')}
                     />
                   </SizerItem>
@@ -388,7 +388,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
                     <Choice
                       choices={[_('None'), _('Chamfer'), _('Fillet')]}
                       choice={p.m_cornerSmoothingChoice}
-                      ariaLabel="Corner smoothing"
+                      ariaLabel={_('Corner smoothing')}
                     />
                   </SizerItem>
                   <SizerItem
@@ -425,7 +425,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
                     <Choice
                       choices={[_('Always'), _('Never'), _('Below area limit')]}
                       choice={p.m_cbRemoveIslands}
-                      ariaLabel="Remove islands"
+                      ariaLabel={_('Remove islands')}
                     />
                   </SizerItem>
                   <SizerItem
@@ -445,7 +445,7 @@ export function PANEL_ZONE_PROPERTIES_BASE(p: PANEL_ZONE_PROPERTIES_BASE_PROPS):
                     border={5}
                     {...hidden(p.islandThresholdShown)}
                   >
-                    <UnitCtrl f={p.m_islandThreshold} ariaLabel="Area limit" />
+                    <UnitCtrl f={p.m_islandThreshold} ariaLabel={_('Area limit')} />
                   </SizerItem>
                   <SizerItem
                     pos={[1, 4]}

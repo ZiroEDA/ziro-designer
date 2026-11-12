@@ -222,7 +222,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
                   ]}
                   disabled={!p.m_inheritanceSelectCombo.enabled}
                   onChange={p.m_inheritanceSelectCombo.onChange}
-                  ariaLabel="Derive from symbol"
+                  ariaLabel={_('Derive from symbol')}
                   title={INHERITANCE_TIP}
                 />
               </SizerItem>
@@ -288,7 +288,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
                           value={p.m_nameOffsetCtrl.value}
                           onChange={p.m_nameOffsetCtrl.onChange}
                           disabled={p.m_nameOffsetCtrl.enabled === false}
-                          ariaLabel="Position offset"
+                          ariaLabel={_('Position offset')}
                         />
                       </SizerItem>
                       <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
@@ -351,7 +351,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
                   onChange={p.m_unitSpinCtrl.onChange}
                   min={1}
                   max={64}
-                  ariaLabel="Number of units"
+                  ariaLabel={_('Number of units')}
                 />
               </SizerItem>
             </BoxSizer>
@@ -578,7 +578,7 @@ export function DIALOG_LIB_SYMBOL_PROPERTIES_BASE(
               <Button
                 label={_('Edit Simulation Model...')}
                 disabled
-                title="The simulator is not available in this build"
+                title={_('The simulator is not available in this build')}
               />
             </SizerItem>
             <Spacer width={0} height={0} flag={wxEXPAND | wxRIGHT | wxLEFT} border={15} />

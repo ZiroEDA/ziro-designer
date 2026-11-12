@@ -314,7 +314,7 @@ export function PanelFpUserLayerNames({
             columns={[{ width: 200 }, { width: 220 }]}
             fixedColumns
             onUpdate={transfer}
-            ariaLabel="User layer names"
+            ariaLabel={_('User layer names')}
           />
         }
         onAddLayerItem={onAddLayerItem}

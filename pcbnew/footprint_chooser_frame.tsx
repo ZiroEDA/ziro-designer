@@ -253,7 +253,7 @@ export function FootprintChooserFrame({
       <div className="ze-modal ze-fpchooser-frame" onMouseDown={(e) => e.stopPropagation()}>
         {/* `SetTitle( GetTitle() + " (%d items loaded)" )` (:198). */}
         <div className="ze-modal-header">
-          {`Footprint Chooser (${itemCount} items loaded)`}
+          {wxFormat(_('Footprint Chooser (%s items loaded)'), itemCount)}
           <span className="x" onClick={onCancel}>
             ✕
           </span>
@@ -318,7 +318,7 @@ export function FootprintChooserFrame({
         ownWindow &&
         app.Viewer3DFrame({
           board: holderBoard,
-          title: `3D Viewer — ${selected ?? ''}`,
+          title: wxFormat(_('3D Viewer — %s'), selected ?? ''),
           backLabel: '← Footprint Chooser',
           imageBaseName: (selected ?? 'footprint').replace(/^.*:/, ''),
           onClose: () => setOwnWindow(false),

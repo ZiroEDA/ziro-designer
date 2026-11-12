@@ -34,6 +34,7 @@ import {
 import { BoxSizer, FlexGridSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** A UNIT_BINDER's control and units label. */
 export type UNIT_FIELD = {
@@ -155,7 +156,7 @@ export function PANEL_SETUP_TUNING_PATTERNS_BASE(
                   <Choice
                     choices={[_('Chamfer'), _('Fillet')]}
                     choice={b.corner}
-                    ariaLabel={`${aName} corner style`}
+                    ariaLabel={wxFormat(_('%s corner style'), aName)}
                   />
                 </SizerItem>
                 <SizerItem flag={CV | wxLEFT} border={15}>
@@ -165,7 +166,7 @@ export function PANEL_SETUP_TUNING_PATTERNS_BASE(
                   <TextCtrlEval
                     value={b.r.value}
                     onChange={b.r.onChange}
-                    ariaLabel={`${aName} radius`}
+                    ariaLabel={wxFormat(_('%s radius'), aName)}
                   />
                 </SizerItem>
                 <SizerItem flag={CV} border={5}>

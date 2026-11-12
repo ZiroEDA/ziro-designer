@@ -645,7 +645,7 @@ function ProfileInfoPage({
           grid={track.grid}
           tricks={track.tricks}
           onUpdate={transferTrack}
-          ariaLabel="Track propagation"
+          ariaLabel={wxGetTranslation('Track propagation')}
         />
       }
       onAddTrackRow={onAddTrackRow}
@@ -672,7 +672,7 @@ function ProfileInfoPage({
           grid={via.grid}
           tricks={via.tricks}
           onUpdate={transferVia}
-          ariaLabel="Via delay overrides"
+          ariaLabel={wxGetTranslation('Via delay overrides')}
         />
       }
       onAddViaOverride={onAddViaOverride}

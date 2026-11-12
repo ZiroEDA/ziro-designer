@@ -337,7 +337,7 @@ export function placeSymbolInstance(lib: LibSymbol, sym: SchSymbol): EditCommand
 function placeCmd(libSymbol: LibSymbol, sym: SchSymbol): EditCommand {
   const lib = flattenLibSymbol(libSymbol);
   return {
-    label: 'Place symbol',
+    label: wxGetTranslation('Place symbol'),
     apply(doc: Schematic): Schematic {
       const hasLib = doc.libSymbols.some((l) => l.libId === lib.libId);
       return {
@@ -355,7 +355,7 @@ function placeCmd(libSymbol: LibSymbol, sym: SchSymbol): EditCommand {
 
 function removeSymbolCmd(lib: LibSymbol, sym: SchSymbol, keepLib: boolean): EditCommand {
   return {
-    label: 'Delete symbol',
+    label: wxGetTranslation('Delete symbol'),
     apply(doc: Schematic): Schematic {
       return {
         ...doc,
@@ -391,7 +391,7 @@ export function replaceLine(index: number, next: SchLine): EditCommand {
  */
 export function replaceBusEntry(index: number, next: SchBusEntry): EditCommand {
   return {
-    label: 'Edit Bus Entry',
+    label: wxGetTranslation('Edit Bus Entry'),
     apply(doc: Schematic): Schematic {
       return { ...doc, busEntries: doc.busEntries.map((b, i) => (i === index ? next : b)) };
     },
@@ -417,7 +417,7 @@ export function replaceJunction(index: number, next: SchJunction): EditCommand {
 /** Replace the label at `index` with `next` (e.g. after editing its text/shape). */
 export function replaceLabel(index: number, next: SchLabel): EditCommand {
   return {
-    label: 'Edit Label',
+    label: wxGetTranslation('Edit Label'),
     apply(doc: Schematic): Schematic {
       return { ...doc, labels: doc.labels.map((l, i) => (i === index ? next : l)) };
     },
@@ -430,7 +430,7 @@ export function replaceLabel(index: number, next: SchLabel): EditCommand {
 /** Replace one netclass directive label (Directive Label Properties). */
 export function replaceDirectiveLabel(index: number, next: SchDirectiveLabel): EditCommand {
   return {
-    label: 'Edit Directive Label',
+    label: wxGetTranslation('Edit Directive Label'),
     apply(doc: Schematic): Schematic {
       return {
         ...doc,
@@ -498,7 +498,7 @@ export function setSymbolsLockedCommand(
 /** Replace the sheet at `index` with `next` (e.g. after adding a sheet pin). */
 export function replaceSheet(index: number, next: SchSheet): EditCommand {
   return {
-    label: 'Edit Sheet',
+    label: wxGetTranslation('Edit Sheet'),
     apply(doc: Schematic): Schematic {
       return { ...doc, sheets: doc.sheets.map((s, i) => (i === index ? next : s)) };
     },
@@ -526,7 +526,7 @@ export function replaceSymbol(index: number, next: SchSymbol): EditCommand {
  *  rewritten by Convert to Greyscale). */
 export function replaceImage(index: number, next: SchImage): EditCommand {
   return {
-    label: 'Edit Image',
+    label: wxGetTranslation('Edit Image'),
     apply(doc: Schematic): Schematic {
       return { ...doc, images: doc.images.map((im, i) => (i === index ? next : im)) };
     },
@@ -540,7 +540,7 @@ export function replaceImage(index: number, next: SchImage): EditCommand {
  *  fill, from DIALOG_SHAPE_PROPERTIES, or its geometry from the point editor). */
 export function replaceGraphic(index: number, next: LibGraphic): EditCommand {
   return {
-    label: 'Edit Shape',
+    label: wxGetTranslation('Edit Shape'),
     apply(doc: Schematic): Schematic {
       return { ...doc, graphics: doc.graphics.map((g, i) => (i === index ? next : g)) };
     },
@@ -553,7 +553,7 @@ export function replaceGraphic(index: number, next: LibGraphic): EditCommand {
 /** Replace the text box at `index` with `next` (e.g. after editing its text). */
 export function replaceTextBox(index: number, next: SchTextBox): EditCommand {
   return {
-    label: 'Edit Text Box',
+    label: wxGetTranslation('Edit Text Box'),
     apply(doc: Schematic): Schematic {
       return { ...doc, textBoxes: doc.textBoxes.map((t, i) => (i === index ? next : t)) };
     },

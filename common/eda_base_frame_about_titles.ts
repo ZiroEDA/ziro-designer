@@ -9,7 +9,7 @@ import { wxFormat } from '@ziroeda/wx/wxstring.js'; // SPDX-License-Identifier: 
  * way round in both directions.
  *
  * The **menu entry** is ACTIONS::about, whose FriendlyName is "About KiCad" -
- * constant, in all fourteen frames. That is ABOUT_LABEL in help_menu.ts.
+ * constant, in all fourteen frames. That is aboutLabel() in help_menu.ts.
  *
  * The **dialog title** is not constant. DIALOG_ABOUT does
  *

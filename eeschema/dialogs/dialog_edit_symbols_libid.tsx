@@ -523,7 +523,7 @@ export function DialogEditSymbolsLibId({
           tricks={dlg.m_tricks}
           columns={[{ width: 280 }, { width: 280 }, { width: 280 }]}
           flexCol={COL_NEW_LIBID}
-          ariaLabel="Symbol library references"
+          ariaLabel={_('Symbol library references')}
           renderCell={(row, col, value) => {
             // `m_autoWrapRenderer` on the references.
             if (col === COL_REFS)

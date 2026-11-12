@@ -605,7 +605,7 @@ export function SelectCopperLayerPairDialog({
           tricks={presetsTricks}
           flexCol={PRESETS_USERNAME_COL}
           columns={PRESETS_COL_WIDTHS.map((width) => ({ width }))}
-          ariaLabel="Copper layer pair presets"
+          ariaLabel={_('Copper layer pair presets')}
           renderCell={(aRow, aCol, aValue) => {
             if (aCol === 0)
               return (

@@ -202,7 +202,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                       <TextCtrl
                         value={p.m_fieldnameFilter.value}
                         onChange={p.m_fieldnameFilter.onChange}
-                        ariaLabel="Field name filter"
+                        ariaLabel={_('Field name filter')}
                       />
                     </SizerItem>
                     <Sp flag={wxEXPAND | wxTOP | wxBOTTOM} border={3} />
@@ -217,7 +217,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                       <TextCtrl
                         value={p.m_referenceFilter.value}
                         onChange={p.m_referenceFilter.onChange}
-                        ariaLabel="Reference filter"
+                        ariaLabel={_('Reference filter')}
                       />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
@@ -230,7 +230,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                       <TextCtrl
                         value={p.m_symbolFilter.value}
                         onChange={p.m_symbolFilter.onChange}
-                        ariaLabel="Symbol filter"
+                        ariaLabel={_('Symbol filter')}
                       />
                     </SizerItem>
                     <SizerItem flag={wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL} border={5}>
@@ -238,7 +238,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND | wxLEFT} border={5}>
                       <Choice
-                        ariaLabel="Symbol type"
+                        ariaLabel={_('Symbol type')}
                         choices={p.typeFilterChoices}
                         choice={p.m_typeFilter}
                       />
@@ -252,7 +252,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                       <TextCtrl
                         value={p.m_netFilter.value}
                         onChange={p.m_netFilter.onChange}
-                        ariaLabel="Net filter"
+                        ariaLabel={_('Net filter')}
                       />
                     </SizerItem>
                     <Sp flag={wxEXPAND | wxTOP | wxBOTTOM} />
@@ -285,7 +285,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                   <CheckBox label={_('Text color:')} check={p.m_setTextColor} />
                 </SizerItem>
                 <SizerItem flag={wxLEFT | wxRIGHT} border={5} minSize={[48, 24]}>
-                  <Swatch label="Text color" s={p.m_textColorSwatch} />
+                  <Swatch label={_('Text color')} s={p.m_textColorSwatch} />
                 </SizerItem>
 
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
@@ -295,7 +295,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                   <TextCtrl
                     value={p.m_textSizeCtrl.value}
                     onChange={p.m_textSizeCtrl.onChange}
-                    ariaLabel="Text size"
+                    ariaLabel={_('Text size')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>
@@ -416,7 +416,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                   border={5}
                   minSize={[48, 24]}
                 >
-                  <Swatch label="Line color" s={p.m_colorSwatch} />
+                  <Swatch label={_('Line color')} s={p.m_colorSwatch} />
                 </SizerItem>
 
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT | wxLEFT} border={5}>
@@ -424,7 +424,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                 </SizerItem>
                 <SizerItem flag={wxEXPAND | wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM} border={1}>
                   <Choice
-                    ariaLabel="Line style"
+                    ariaLabel={_('Line style')}
                     choices={p.lineStyleChoices}
                     choice={p.m_lineStyle}
                   />
@@ -449,7 +449,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                   <TextCtrl
                     value={p.m_dotSizeCtrl.value}
                     onChange={p.m_dotSizeCtrl.onChange}
-                    ariaLabel="Junction size"
+                    ariaLabel={_('Junction size')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxLEFT | wxALIGN_CENTER_VERTICAL} border={5}>
@@ -464,7 +464,7 @@ export function DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS_BASE(
                   border={5}
                   minSize={[48, 24]}
                 >
-                  <Swatch label="Junction color" s={p.m_dotColorSwatch} />
+                  <Swatch label={_('Junction color')} s={p.m_dotColorSwatch} />
                 </SizerItem>
               </FlexGridSizer>
             </SizerItem>

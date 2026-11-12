@@ -220,7 +220,7 @@ export function DialogMultichannelRepeatLayout({
           tricks={dlg.m_tricks}
           rowLabels={false}
           flexCol={COL_NAME}
-          ariaLabel="Target areas"
+          ariaLabel={_('Target areas')}
           renderCell={(aRow, aCol) => {
             if (aCol !== COL_DETAILS) return null;
             const entry = dlg.m_targetRAs[aRow];

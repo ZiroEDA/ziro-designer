@@ -317,6 +317,19 @@ export function wxGetTranslationPlural(
   return s_translations.GetTranslatedString(aStr, aN, aContext) ?? (aN === 1 ? aStr : aStrPlural);
 }
 
+/**
+ * Two domains of one language as the single catalog the lookup searches: what
+ * `wxTranslations::AddCatalog` gives when it is called once per domain, the
+ * first domain winning a message both hold. \a aSecond may be absent.
+ */
+export function mergeCatalogs(
+  aFirst: wxMsgCatalogData,
+  aSecond: wxMsgCatalogData | null,
+): wxMsgCatalogData {
+  if (!aSecond) return aFirst;
+  return { ...aFirst, messages: { ...aSecond.messages, ...aFirst.messages } };
+}
+
 /** `#define _(s) wxGetTranslation((s))`. */
 export const _ = wxGetTranslation;
 

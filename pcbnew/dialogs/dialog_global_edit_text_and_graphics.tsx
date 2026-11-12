@@ -46,6 +46,7 @@ import { PCB_SHAPE } from '../pcb_shape.js';
 import type { PCB_SELECTION_TOOL } from '../tools/pcb_selection_tool.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `g_referenceFilter` / `g_footprintFilter`: kept for the next open. */
 let g_referenceFilter = '';
@@ -598,7 +599,9 @@ export function DialogGlobalEditTextAndGraphics({
     const bad = dialog.ValidationError();
 
     if (bad !== null) {
-      setError(`${bad.replace(/:$/, '')} must be between the minimum and maximum text size.`);
+      setError(
+        wxFormat(_('%s must be between the minimum and maximum text size.'), bad.replace(/:$/, '')),
+      );
       return false;
     }
 

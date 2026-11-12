@@ -207,7 +207,7 @@ export function DIALOG_ERC_BASE(p: DIALOG_ERC_BASE_PROPS): JSX.Element {
                                 rows={p.ignoredRows.map((r) => [r])}
                                 onRightClick={p.onIgnoredRightClick}
                                 columnWidths={[660]}
-                                ariaLabel="Ignored tests"
+                                ariaLabel={_('Ignored tests')}
                               />
                             </SizerItem>
                             <SizerItem flag={wxBOTTOM | wxRIGHT | wxLEFT} border={5}>

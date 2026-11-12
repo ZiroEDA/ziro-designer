@@ -241,7 +241,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                         value={p.m_textBomRev}
                         onChange={p.onBomRev}
                         title={bomRevTip}
-                        ariaLabel="BOM revision"
+                        ariaLabel={_('BOM revision')}
                       />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
@@ -252,7 +252,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                         value={p.m_oemRef}
                         options={p.oemRefOptions}
                         onChange={p.onOemRef}
-                        ariaLabel="Internal ID"
+                        ariaLabel={_('Internal ID')}
                       />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
@@ -263,7 +263,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                         value={p.m_choiceMPN}
                         options={p.mpnOptions}
                         onChange={p.onMfgPNChange}
-                        ariaLabel="Manufacturer P/N"
+                        ariaLabel={_('Manufacturer P/N')}
                       />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxEXPAND} border={5}>
@@ -286,7 +286,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                         value={p.m_choiceDistPN}
                         options={p.distPNOptions}
                         onChange={p.onDistPNChange}
-                        ariaLabel="Distributor P/N"
+                        ariaLabel={_('Distributor P/N')}
                       />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -297,7 +297,7 @@ export function DIALOG_EXPORT_2581_BASE(p: DIALOG_EXPORT_2581_BASE_PROPS): JSX.E
                         value={p.m_textDistributor}
                         onChange={p.onDistributor}
                         disabled={!p.distributorEnabled}
-                        ariaLabel="Distributor"
+                        ariaLabel={_('Distributor')}
                       />
                     </SizerItem>
                   </FlexGridSizer>

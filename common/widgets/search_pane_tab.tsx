@@ -21,6 +21,7 @@
  */
 import { useEffect, useReducer, useRef, useState, type JSX } from 'react';
 import type { SearchColumnAlign, SearchHandler } from './search_pane_types.js';
+import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 
 const ALIGN: Record<SearchColumnAlign, 'left' | 'center' | 'right'> = {
   left: 'left',
@@ -97,7 +98,7 @@ export function SearchPaneTab({
     >
       {count === 0 ? (
         <div className="ze-muted" style={{ padding: 8 }}>
-          {query ? 'No matches' : 'Type to search'}
+          {query ? wxGetTranslation('No matches') : wxGetTranslation('Type to search')}
         </div>
       ) : (
         <table

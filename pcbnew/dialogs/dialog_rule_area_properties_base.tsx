@@ -120,7 +120,7 @@ export function DIALOG_RULE_AREA_PROPERTIES_BASE(
                       <TextCtrl
                         value={p.m_tcName.value}
                         onChange={p.m_tcName.onChange}
-                        ariaLabel="Area name"
+                        ariaLabel={_('Area name')}
                         title={_('A unique name for this rule area for use in DRC rules')}
                       />
                     </SizerItem>
@@ -146,7 +146,7 @@ export function DIALOG_RULE_AREA_PROPERTIES_BASE(
                       <Choice
                         choices={[_('Line'), _('Hatched'), _('Fully hatched')]}
                         choice={p.m_OutlineDisplayCtrl}
-                        ariaLabel="Outline display"
+                        ariaLabel={_('Outline display')}
                       />
                     </SizerItem>
                     <SizerItem pos={[3, 0]} flag={CV} border={5}>
@@ -156,7 +156,7 @@ export function DIALOG_RULE_AREA_PROPERTIES_BASE(
                       <TextCtrl
                         value={p.m_outlineHatchPitch.value}
                         onChange={p.m_outlineHatchPitch.onChange}
-                        ariaLabel="Outline hatch pitch"
+                        ariaLabel={_('Outline hatch pitch')}
                         title={_('Distance between parallel lines used for hatching the area')}
                       />
                     </SizerItem>

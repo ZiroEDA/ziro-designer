@@ -43,7 +43,7 @@ export function DIALOG_MULTICHANNEL_GENERATE_RULE_AREAS_BASE(
             pages={p.pages}
             selection={p.selection}
             onPageChanged={p.OnNotebookPageChanged}
-            ariaLabel="Sources"
+            ariaLabel={_('Sources')}
           />
         </SizerItem>
         <SizerItem proportion={1} flag={wxEXPAND} border={5}>

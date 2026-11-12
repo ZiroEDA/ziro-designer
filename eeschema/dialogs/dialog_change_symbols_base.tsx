@@ -199,7 +199,7 @@ export function DIALOG_CHANGE_SYMBOLS_BASE(p: DIALOG_CHANGE_SYMBOLS_BASE_PROPS):
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                       <StdBitmapButton
                         bitmap="small_library"
-                        title="Browse for symbol"
+                        title={_('Browse for symbol')}
                         tooltip={null}
                         onClick={p.onMatchIdBrowse}
                       />
@@ -226,7 +226,7 @@ export function DIALOG_CHANGE_SYMBOLS_BASE(p: DIALOG_CHANGE_SYMBOLS_BASE_PROPS):
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxRIGHT} border={5}>
               <StdBitmapButton
                 bitmap="small_library"
-                title="Browse for new symbol"
+                title={_('Browse for new symbol')}
                 tooltip={null}
                 onClick={p.onNewIdBrowse}
               />

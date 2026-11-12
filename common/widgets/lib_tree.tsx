@@ -1071,7 +1071,7 @@ export function LibTree({
           <button
             type="button"
             className="ze-entry-icon left"
-            title="Recent searches"
+            title={_('Recent searches')}
             onClick={() => setRecentOpen((o) => !o)}
           >
             <EditFindSymbolic />
@@ -1107,7 +1107,7 @@ export function LibTree({
           <button
             type="button"
             className="ze-libtree-sortbtn"
-            title="Sort and expand options"
+            title={_('Sort and expand options')}
             onClick={() => setMenuOpen((o) => !o)}
           >
             {/* `m_sort_ctrl->SetBitmap( KiBitmapBundle( BITMAPS::config ) )`
@@ -1293,7 +1293,7 @@ export function LibTree({
             (ui/background_jobs_monitor.ts), which is where upstream puts it. */}
           {rows.length === 0 && (
             <div className="ze-muted" style={{ padding: 8 }}>
-              No matches
+              {_('No matches')}
             </div>
           )}
         </div>

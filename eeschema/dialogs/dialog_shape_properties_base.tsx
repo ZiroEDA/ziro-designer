@@ -203,7 +203,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                 <ColorSwatch
                   key={p.m_customColorSwatch.openRequest ?? 0}
                   openOnMount={!!p.m_customColorSwatch.openRequest}
-                  label="Fill with color"
+                  label={_('Fill with color')}
                   color={p.m_customColorSwatch.color}
                   background={p.m_customColorSwatch.background}
                   onChange={p.m_customColorSwatch.onChange}
@@ -277,7 +277,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                         onChange={p.onBorderWidth}
                         inputRef={p.borderWidthRef}
                         disabled={!p.borderEnabled}
-                        ariaLabel="Border width"
+                        ariaLabel={_('Border width')}
                       />
                     </SizerItem>
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={3}>
@@ -289,7 +289,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                     <Spacer width={5} height={0} border={5} />
                     <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                       {/* m_panelBorderColor, wxBORDER_SIMPLE */}
-                      <SwatchPanel label="Border color" s={p.m_borderColorSwatch} />
+                      <SwatchPanel label={_('Border color')} s={p.m_borderColorSwatch} />
                     </SizerItem>
                   </BoxSizer>
                 </SizerItem>
@@ -304,7 +304,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                   minSize={[240, -1]}
                 >
                   <Combo
-                    ariaLabel="Border style"
+                    ariaLabel={_('Border style')}
                     value={String(p.m_borderStyleCombo.value)}
                     disabled={!p.borderEnabled}
                     options={p.borderStyleItems.map((it, i) => ({

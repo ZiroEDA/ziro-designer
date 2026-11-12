@@ -1056,7 +1056,7 @@ export function FootprintEditFrame({
     const write = writeRef.current;
 
     if (!write) {
-      DisplayErrorMessage('Open a project to add a footprint library to.');
+      DisplayErrorMessage(_('Open a project to add a footprint library to.'));
       return;
     }
 
@@ -1104,7 +1104,7 @@ export function FootprintEditFrame({
 
       // PCB_IO_KICAD_SEXPR::CreateLibrary
       if (!wxMkdir(libPath)) {
-        DisplayErrorMessage(`Cannot create the library folder '${libPath}'.`);
+        DisplayErrorMessage(wxFormat(_("Cannot create the library folder '%s'."), libPath));
         return null;
       }
 
@@ -1116,7 +1116,7 @@ export function FootprintEditFrame({
       const saved = table.Save();
 
       if (!saved.ok) {
-        DisplayErrorMessage(`Error saving library table:\n\n${saved.error.message}`);
+        DisplayErrorMessage(wxFormat(_('Error saving library table:\n\n%s'), saved.error.message));
         return null;
       }
 
@@ -1393,8 +1393,8 @@ export function FootprintEditFrame({
               placeholder={
                 store.GetLibraryNames().length === 0 &&
                 app.LibraryLoadingPanel({
-                  fallback: <div className="ze-muted">No footprint libraries loaded.</div>,
-                  label: 'Loading footprint libraries...',
+                  fallback: <div className="ze-muted">{_('No footprint libraries loaded.')}</div>,
+                  label: _('Loading footprint libraries...'),
                 })
               }
               onLoadFootprint={onLoadFootprintFromTree}
@@ -1417,7 +1417,7 @@ export function FootprintEditFrame({
                 })
               }
             />
-            <div className="ze-splitter" onMouseDown={startResize} title="Drag to resize" />
+            <div className="ze-splitter" onMouseDown={startResize} title={_('Drag to resize')} />
           </>
         )}
 
@@ -1557,7 +1557,7 @@ export function FootprintEditFrame({
       {newLibrary && (
         <WxTextEntryDialog
           caption={_('New Footprint Library')}
-          message="Library name:"
+          message={_('Library name:')}
           // The table choice only with a project to add to; without one, the global table.
           {...(writeRef.current
             ? { extra: <FileDlgHookNewLibraryControls hook={newLibrary} /> }
@@ -1677,7 +1677,7 @@ export function FootprintEditFrame({
           accept: 'Open',
           filters: [
             {
-              label: 'All 3D models (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)',
+              label: _('All 3D models (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)'),
               extensions: ['wrl', 'wrz', 'step', 'stp', 'stpz', 'iges', 'igs'],
             },
           ],

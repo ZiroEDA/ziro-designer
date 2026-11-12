@@ -34,7 +34,7 @@ export function PANEL_BOM_PRESETS_BASE(p: PANEL_BOM_PRESETS_BASE_PROPS): JSX.Ele
       <SizerItem flag={wxBOTTOM} border={5}>
         <StdBitmapButton
           bitmap="small_trash"
-          title="Delete preset"
+          title={_('Delete preset')}
           tooltip={null}
           onClick={p.onDeleteBomPreset}
         />
@@ -50,7 +50,7 @@ export function PANEL_BOM_PRESETS_BASE(p: PANEL_BOM_PRESETS_BASE_PROPS): JSX.Ele
       <SizerItem flag={wxBOTTOM} border={5}>
         <StdBitmapButton
           bitmap="small_trash"
-          title="Delete formatting preset"
+          title={_('Delete formatting preset')}
           tooltip={null}
           onClick={p.onDeleteBomFmtPreset}
         />

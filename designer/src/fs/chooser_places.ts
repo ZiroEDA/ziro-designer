@@ -228,7 +228,7 @@ export function chooserPlacesFor(opts: {
     // Saving with no project open has no project to save INTO, so the row is
     // left out rather than offered and refused — unless there is no shared
     // folder either, which is the project manager saving a project itself.
-    places.push({ id: 'projects', label: 'Projects', icon: 'open_project' });
+    places.push({ id: 'projects', label: _('Projects'), icon: 'open_project' });
   }
 
   if (kind) {

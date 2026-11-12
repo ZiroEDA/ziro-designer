@@ -332,7 +332,7 @@ export function PanelCableSize(): JSX.Element {
             (v) => commitRadius(cableRadiusFromAmpacity(v, density)),
           )}
           <div className="calc-field">
-            <span className="calc-field-label">Current density:</span>
+            <span className="calc-field-label">{_('Current density:')}</span>
             {/* wxSL_AUTOTICKS|wxSL_LABELS|wxSL_VALUE_LABEL, 3..12
                 (panel_cable_size_base.cpp:153): the current value is drawn above
                 the thumb and the two endpoints under the ends. */}
@@ -421,12 +421,12 @@ export function PanelCableSize(): JSX.Element {
             (v) => commitRadius(cableRadiusFromPower(v, rhoHot, params.lengthM, params.currentA)),
           )}
           {s && params.currentA > s.ampacityA && (
-            <div className="calc-error">Current exceeds the ampacity for this density.</div>
+            <div className="calc-error">{_('Current exceeds the ampacity for this density.')}</div>
           )}
         </fieldset>
       </div>
       {!valid && (
-        <div className="calc-error">Enter a positive resistivity and valid temperature.</div>
+        <div className="calc-error">{_('Enter a positive resistivity and valid temperature.')}</div>
       )}
 
       {picking && (

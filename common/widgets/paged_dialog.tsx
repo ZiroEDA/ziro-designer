@@ -248,7 +248,9 @@ export function PagedDialog({
             // A greyed page. `--ze-muted` is not a token this stylesheet
             // declares, so the `#888` fallback was what actually painted, at
             // a font size nothing upstream states either.
-            <div className="ze-paged-unimplemented">This setup page is not implemented yet.</div>
+            <div className="ze-paged-unimplemented">
+              {_('This setup page is not implemented yet.')}
+            </div>
           )}
         </div>
       </div>
@@ -260,7 +262,7 @@ export function PagedDialog({
           <Button
             label={resetLabel}
             disabled={!(active?.resettable && active.onReset)}
-            title="Reset this page to defaults"
+            title={_('Reset this page to defaults')}
             onClick={() => active?.onReset?.()}
           />
         )}

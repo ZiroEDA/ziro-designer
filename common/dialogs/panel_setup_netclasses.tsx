@@ -457,7 +457,7 @@ export function PanelSetupNetclasses({
       <div className="ze-grid-btns">
         <StdBitmapButton
           bitmap="small_plus"
-          title="Add netclass"
+          title={wxGetTranslation('Add netclass')}
           tooltip={null}
           onClick={() => onAddNetclass(nc.grid)}
         />
@@ -488,7 +488,7 @@ export function PanelSetupNetclasses({
         <span className="ze-gridbtn-gap" />
         <StdBitmapButton
           bitmap="small_trash"
-          title="Remove netclass"
+          title={wxGetTranslation('Remove netclass')}
           tooltip={null}
           onClick={onRemoveNetclass}
         />
@@ -519,20 +519,20 @@ export function PanelSetupNetclasses({
           columns={[{ width: 270 }, { width: 160 }]}
           flexCol={0}
           onUpdate={asg.onUpdate}
-          ariaLabel="Netclass assignments"
+          ariaLabel={wxGetTranslation('Netclass assignments')}
         />
       </div>
       <div className="ze-grid-btns">
         <StdBitmapButton
           bitmap="small_plus"
-          title="Add assignment"
+          title={wxGetTranslation('Add assignment')}
           tooltip={null}
           onClick={() => onAddAssignment(asg.grid)}
         />
         <span style={{ width: 15 }} />
         <StdBitmapButton
           bitmap="small_trash"
-          title="Remove assignment"
+          title={wxGetTranslation('Remove assignment')}
           tooltip={null}
           onClick={() => asg.grid.OnDeleteRows((row) => asg.grid.DeleteRows(row, 1))}
         />

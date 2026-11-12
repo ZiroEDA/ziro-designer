@@ -31,6 +31,7 @@ import type {
   ToolSpacer,
   ToolEntry,
 } from './action_toolbar_types.js';
+import { _ } from '@ziroeda/wx/translation.js';
 export type { ToolButton, ToolGroup, ToolControl, ToolSpacer, ToolEntry };
 
 interface Props {
@@ -438,8 +439,8 @@ export function Toolbar({
         <button
           type="button"
           className="ze-tbtn ze-tb-overflow"
-          title="More tools"
-          aria-label="More tools"
+          title={_('More tools')}
+          aria-label={_('More tools')}
           onClick={(ev) => {
             const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
             // wx drops the menu from the button, on the side the bar is on.

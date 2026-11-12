@@ -297,14 +297,14 @@ export const HOTKEYS: readonly Hotkey[] = [
   },
   {
     id: 'gridFast1',
-    label: 'Fast Grid 1',
+    label: _HKI('Fast Grid 1'),
     keys: 'Alt+1',
     section: 'Grid',
     upstream: 'ACTIONS::gridFast1',
   },
   {
     id: 'gridFast2',
-    label: 'Fast Grid 2',
+    label: _HKI('Fast Grid 2'),
     keys: 'Alt+2',
     section: 'Grid',
     upstream: 'ACTIONS::gridFast2',
@@ -362,7 +362,7 @@ export const HOTKEYS: readonly Hotkey[] = [
   },
   {
     id: 'noConnect',
-    label: 'Place/Remove No Connect Flags',
+    label: _HKI('Place/Remove No Connect Flags'),
     keys: 'Q',
     section: 'Place',
     upstream: 'SCH_ACTIONS::placeNoConnect',

@@ -64,7 +64,7 @@ export function PANEL_SETUP_FORMATTING_BASE(p: PANEL_SETUP_FORMATTING_BASE_PROPS
                 <TextCtrl
                   value={p.m_dashLengthCtrl.value}
                   onChange={p.m_dashLengthCtrl.onChange}
-                  ariaLabel="Dash length"
+                  ariaLabel={_('Dash length')}
                 />
               </SizerItem>
               <SizerItem flag={CV | wxLEFT | wxRIGHT} border={5}>
@@ -74,7 +74,7 @@ export function PANEL_SETUP_FORMATTING_BASE(p: PANEL_SETUP_FORMATTING_BASE_PROPS
                 <TextCtrl
                   value={p.m_gapLengthCtrl.value}
                   onChange={p.m_gapLengthCtrl.onChange}
-                  ariaLabel="Gap length"
+                  ariaLabel={_('Gap length')}
                 />
               </SizerItem>
             </FlexGridSizer>

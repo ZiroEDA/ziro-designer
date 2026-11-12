@@ -108,7 +108,7 @@ export function DIALOG_REFERENCE_IMAGE_PROPERTIES_BASE(
                     value={p.layer}
                     options={p.layerRows}
                     onChange={p.onLayerChange}
-                    ariaLabel="Associated layer"
+                    ariaLabel={_('Associated layer')}
                   />
                 </SizerItem>
                 <SizerItem pos={[6, 0]} span={[1, 3]} flag={CV} border={5} shown={p.lockedShown}>

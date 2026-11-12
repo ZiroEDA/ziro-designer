@@ -141,7 +141,8 @@ export function DialogRescueEach({
           </div>
 
           <div className="ze-rescue-title">
-            Instances of this symbol ({instances.length} items):
+            {_('Instances of this symbol (')}
+            {instances.length} items):
           </div>
           <div className="ze-rescue-list ze-rescue-instances">
             <table className="ze-grid">

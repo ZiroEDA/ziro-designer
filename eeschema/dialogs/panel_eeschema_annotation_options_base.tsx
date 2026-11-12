@@ -102,7 +102,7 @@ export function PANEL_EESCHEMA_ANNOTATION_OPTIONS_BASE(
                 border={5}
               >
                 <Choice
-                  ariaLabel="Symbol unit notation"
+                  ariaLabel={_('Symbol unit notation')}
                   choices={UNIT_NOTATIONS}
                   choice={p.m_choiceSeparatorRefId}
                 />
@@ -158,7 +158,7 @@ export function PANEL_EESCHEMA_ANNOTATION_OPTIONS_BASE(
                 <TextCtrl
                   value={p.m_textNumberAfter}
                   onChange={p.onNumberAfter}
-                  ariaLabel="First free number after"
+                  ariaLabel={_('First free number after')}
                 />
               </SizerItem>
               <SizerItem pos={[1, 0]} span={[1, 2]} flag={wxTOP | wxBOTTOM | wxLEFT} border={2}>

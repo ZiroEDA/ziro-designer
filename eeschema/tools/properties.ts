@@ -62,7 +62,7 @@ export function bulkEditFieldsCommand(
   edits: ReadonlyMap<string, Readonly<Record<string, string>>>,
 ): EditCommand {
   return {
-    label: 'Edit Symbol Fields',
+    label: _('Edit Symbol Fields'),
     apply(doc: Schematic): Schematic {
       return {
         ...doc,

@@ -115,7 +115,7 @@ export function DIALOG_EXPORT_NETLIST_BASE(p: DIALOG_EXPORT_NETLIST_BASE_PROPS):
                     value={p.m_outputPath}
                     onChange={p.onOutputPath}
                     hint="(project folder)"
-                    ariaLabel="Output path"
+                    ariaLabel={_('Output path')}
                   />
                 </SizerItem>
               </BoxSizer>

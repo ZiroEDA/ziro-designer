@@ -113,6 +113,7 @@ import {
 } from './toolbars_footprint_viewer.js';
 import '@ziroeda/common/widgets/shell.css';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * What the browser asks of the program: the footprint libraries and their
@@ -769,7 +770,7 @@ export function FootprintViewerFrame({
           />
           {index === null ? (
             app.LibraryLoadingPanel({
-              label: 'Loading footprint libraries...',
+              label: _('Loading footprint libraries...'),
               fallback: null,
             })
           ) : (
@@ -845,7 +846,7 @@ export function FootprintViewerFrame({
         shown &&
         app.Viewer3DFrame({
           board: frame.GetBoard()!,
-          title: `3D Viewer — ${curFootprintName}`,
+          title: wxFormat(_('3D Viewer — %s'), curFootprintName),
           backLabel: '← Footprint Library Browser',
           imageBaseName: curFootprintName || 'footprint',
           onClose: () => setShow3D(false),

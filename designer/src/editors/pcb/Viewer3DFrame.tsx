@@ -849,7 +849,7 @@ export function Viewer3DFrame({
       <MenuBar
         menus={menus}
         leftSlot={
-          <div className="ze-home-link" onClick={onClose} title="Close 3D Viewer">
+          <div className="ze-home-link" onClick={onClose} title={_('Close 3D Viewer')}>
             {backLabel}
           </div>
         }

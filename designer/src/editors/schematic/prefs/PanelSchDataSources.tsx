@@ -62,7 +62,7 @@ export function PanelSchDataSources(): JSX.Element {
       </p>
 
       {/* `m_sourcesList`, a wxListBox at proportion 1 with `MinSize( -1, 160 )`. */}
-      <div className="ze-datasources-list" role="listbox" aria-label="Installed data sources">
+      <div className="ze-datasources-list" role="listbox" aria-label={_('Installed data sources')}>
         {entries.map((label) => (
           <div key={label} className="ze-datasources-row" role="option" aria-selected="false">
             {label}

@@ -1,0 +1,2996 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ZiroEDA\n"
+"Language: hi\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+
+#: common/launch_ext.tsx:290
+msgid " (read-only)"
+msgstr " (केवल पढ़ने योग्य)"
+
+#: designer/src/ui/PresencePanel.tsx:58
+msgid " (you)"
+msgstr " (आप)"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:294
+msgid " and ≤ %s"
+msgstr " और ≤ %s"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:296
+msgid " · %s KB"
+msgstr " · %s KB"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:298
+msgid " · incompatible with this version"
+msgstr " · इस संस्करण के साथ असंगत"
+
+#: designer/src/home/HomePage.tsx:2692
+msgid "\"%s\" changed here and on another device."
+msgstr "\"%s\" यहाँ और किसी अन्य डिवाइस पर बदला गया है।"
+
+#: designer/src/home/HomePage.tsx:2620
+msgid "\"%s\" is not a link to a GitHub repository."
+msgstr "\"%s\" किसी GitHub रिपॉज़िटरी का लिंक नहीं है।"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:163
+msgid "\"%s\" set as the active schematic colour theme"
+msgstr "\"%s\" को सक्रिय स्कीमैटिक रंग थीम के रूप में सेट किया गया"
+
+#: pcbnew/dialogs/dialog_board_reannotate.tsx:842
+msgid ""
+"%s\n"
+"%s\n"
+" \n"
+"Reannotate anyway?"
+msgstr ""
+"%s\n"
+"%s\n"
+" \n"
+"फिर भी पुनः एनोटेट करें?"
+
+#: common/widgets/widget_hotkey_list.tsx:243
+msgid "%s belongs to the browser and cannot be intercepted by a page. It reaches ZiroEDA only in fullscreen."
+msgstr "%s ब्राउज़र का है और कोई पेज उसे रोक नहीं सकता। यह ZiroEDA तक केवल फ़ुलस्क्रीन में पहुँचता है।"
+
+#: eeschema/dialogs/dialog_table_properties_base.tsx:123 pcbnew/board_stackup_manager/panel_board_stackup.tsx:913
+msgid "%s color"
+msgstr "%s रंग"
+
+#: pcbnew/dialogs/panel_setup_tuning_patterns_base.tsx:159
+msgid "%s corner style"
+msgstr "%s कोने की शैली"
+
+#: designer/src/editors/schematic/prefs/resets.ts:264
+msgid "%s field names contain trailing and/or leading white space."
+msgstr "%s फ़ील्ड नामों में आगे और/या पीछे रिक्त स्थान है।"
+
+#: common/launch_ext.tsx:208
+msgid "%s has no \"schematic\" or \"board\" section, so it is not a color theme."
+msgstr "%s में \"स्कीमैटिक\" या \"बोर्ड\" अनुभाग नहीं है, इसलिए यह रंग थीम नहीं है।"
+
+#: common/launch_ext.tsx:201
+msgid "%s is not a JSON file."
+msgstr "%s JSON फ़ाइल नहीं है।"
+
+#: pcbnew/dialogs/panel_setup_layers.tsx:418 pcbnew/dialogs/panel_setup_layers.tsx:434
+msgid "%s layer type"
+msgstr "%s परत का प्रकार"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:850
+msgid "%s material"
+msgstr "%s सामग्री"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics.tsx:603
+msgid "%s must be between the minimum and maximum text size."
+msgstr "%s न्यूनतम और अधिकतम टेक्स्ट आकार के बीच होना चाहिए।"
+
+#: pcbnew/dialogs/panel_setup_layers.tsx:400
+msgid "%s name"
+msgstr "%s का नाम"
+
+#: designer/src/home/HomePage.tsx:736
+msgid "%s names files that were not chosen: %s."
+msgstr "%s ऐसी फ़ाइलों के नाम बताता है जो चुनी नहीं गई थीं: %s।"
+
+#: eeschema/sch_edit_frame_ui.tsx:5664
+msgid "%s other viewers"
+msgstr "%s अन्य दर्शक"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:374
+msgid "%s post machining"
+msgstr "%s पोस्ट मशीनिंग"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:240
+msgid "%s post-machining"
+msgstr "%s पोस्ट-मशीनिंग"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:263
+msgid "%s post-machining %s"
+msgstr "%s पोस्ट-मशीनिंग %s"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:250
+msgid "%s post-machining size"
+msgstr "%s पोस्ट-मशीनिंग का आकार"
+
+#: designer/src/home/HomePage.tsx:2696
+msgid "%s projects changed here and on another device."
+msgstr "%s प्रोजेक्ट यहाँ और किसी अन्य डिवाइस पर बदले गए हैं।"
+
+#: pcbnew/dialogs/panel_setup_tuning_patterns_base.tsx:169
+msgid "%s radius"
+msgstr "%s त्रिज्या"
+
+#: designer/src/home/HomePage.tsx:756
+msgid "%s schematics cannot be imported yet, so only the board will be."
+msgstr "%s स्कीमैटिक अभी आयात नहीं किए जा सकते, इसलिए केवल बोर्ड आयात होगा।"
+
+#: designer/src/home/HomePage.tsx:760
+msgid "%s schematics cannot be imported yet."
+msgstr "%s स्कीमैटिक अभी आयात नहीं किए जा सकते।"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:365
+msgid "%s template information"
+msgstr "%s टेम्पलेट की जानकारी"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:875
+msgid "%s thickness"
+msgstr "%s मोटाई"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:888
+msgid "%s thickness locked"
+msgstr "%s मोटाई लॉक है"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup.tsx:819
+msgid "%s type"
+msgstr "%s प्रकार"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:743
+msgid "%s unit"
+msgstr "%s इकाई"
+
+#: gerbview/widgets/layer_widget.tsx:139
+msgid "%s visible"
+msgstr "%s दृश्य"
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias_base.tsx:61
+msgid "%s: add"
+msgstr "%s: जोड़ें"
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias_base.tsx:78
+msgid "%s: remove"
+msgstr "%s: हटाएँ"
+
+#: pcbnew/dialogs/panel_setup_tracks_and_vias_base.tsx:69
+msgid "%s: sort"
+msgstr "%s: क्रमबद्ध करें"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models.tsx:675
+msgid "(no STEP files in the project)"
+msgstr "(प्रोजेक्ट में कोई STEP फ़ाइल नहीं)"
+
+#: designer/src/home/menubar.ts:89
+msgid "(no demos bundled)"
+msgstr "(कोई डेमो शामिल नहीं)"
+
+#: eeschema/sch_edit_frame_ui.tsx:5731
+msgid ", click to dismiss"
+msgstr ", बंद करने के लिए क्लिक करें"
+
+#: designer/src/auth/SignIn.tsx:336
+msgid ". Please check your inbox (and spam) to complete verification."
+msgstr ". सत्यापन पूरा करने के लिए कृपया अपना इनबॉक्स (और स्पैम) देखें।"
+
+#: designer/src/auth/auth_progress.tsx:93
+msgid "... (step"
+msgstr "... (चरण"
+
+#: eeschema/sch_edit_frame_ui.tsx:5663
+msgid "1 other viewer"
+msgstr "1 अन्य दर्शक"
+
+#: pcbnew/footprint_chooser_frame.tsx:321 pcbnew/footprint_viewer_frame_ui.tsx:849
+msgid "3D Viewer — %s"
+msgstr "3D व्यूअर — %s"
+
+#: designer/src/fs/FileChooser.tsx:872
+msgid "A file named “%s” already exists.  Do you want to replace it?"
+msgstr "“%s” नाम की फ़ाइल पहले से मौजूद है। क्या आप उसे बदलना चाहते हैं?"
+
+#: designer/src/auth/SignIn.tsx:354
+msgid "A new code is on its way. Use the newest email: it replaces the code before it."
+msgstr "एक नया कोड भेजा जा रहा है। सबसे नया ईमेल इस्तेमाल करें: वह पिछले कोड की जगह ले लेता है।"
+
+#: designer/src/App.tsx:1716
+msgid "A new version of ZiroEDA is available."
+msgstr "ZiroEDA का नया संस्करण उपलब्ध है।"
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:103
+msgid "A positive number indicates that the row is anodic (-) and the column is cathodic (+), cold and warm coloring hues also indicate rows' potential."
+msgstr "धनात्मक संख्या दर्शाती है कि पंक्ति एनोडिक (-) है और स्तंभ कैथोडिक (+) है; ठंडे और गर्म रंग भी पंक्तियों की विभव स्थिति दर्शाते हैं।"
+
+#: designer/src/ui/AccountButton.tsx:161
+msgid "Account"
+msgstr "खाता"
+
+#: designer/src/auth/SignIn.tsx:577
+msgid "Account created before 10 September 2026? It needs a one-time upgrade for end-to-end encryption: use"
+msgstr "खाता 10 सितंबर 2026 से पहले बनाया गया था? एंड-टू-एंड एन्क्रिप्शन के लिए उसे एक बार अपग्रेड करना होगा: इसका उपयोग करें"
+
+#: designer/src/ui/AccountButton.tsx:161
+msgid "Account: %s"
+msgstr "खाता: %s"
+
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:523
+msgid "Action for %s"
+msgstr "%s के लिए कार्रवाई"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:266
+msgid "Active"
+msgstr "सक्रिय"
+
+#: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:68
+msgid "Add 3D model"
+msgstr "3D मॉडल जोड़ें"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:299
+msgid "Add a layer override"
+msgstr "परत ओवरराइड जोड़ें"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:100
+msgid "Add alias"
+msgstr "उपनाम जोड़ें"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:361
+msgid "Add alternate"
+msgstr "विकल्प जोड़ें"
+
+#: common/dialogs/panel_setup_netclasses.tsx:528
+msgid "Add assignment"
+msgstr "असाइनमेंट जोड़ें"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:135
+msgid "Add condition"
+msgstr "शर्त जोड़ें"
+
+#: pcbnew/dialogs/dialog_layer_selection_base.tsx:117
+msgid "Add current pair to presets"
+msgstr "वर्तमान जोड़ी को प्रीसेट में जोड़ें"
+
+#: cvpcb/dialogs/dialog_config_equfiles.tsx:282
+msgid "Add from Computer..."
+msgstr "कंप्यूटर से जोड़ें..."
+
+#: common/dialogs/panel_grid_settings.tsx:486
+msgid "Add grid"
+msgstr "ग्रिड जोड़ें"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:76
+msgid "Add layer"
+msgstr "परत जोड़ें"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:59
+msgid "Add member"
+msgstr "सदस्य जोड़ें"
+
+#: common/dialogs/panel_setup_netclasses.tsx:460
+msgid "Add netclass"
+msgstr "नेटक्लास जोड़ें"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:435
+msgid "Add repository by URL..."
+msgstr "URL से रिपॉज़िटरी जोड़ें..."
+
+#: common/dialogs/dialog_plugin_options.tsx:147
+msgid "Add row"
+msgstr "पंक्ति जोड़ें"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults_base.tsx:70
+msgid "Add text item"
+msgstr "टेक्स्ट आइटम जोड़ें"
+
+#: common/dialogs/panel_text_variables.tsx:125
+msgid "Add text variable"
+msgstr "टेक्स्ट वेरिएबल जोड़ें"
+
+#: common/dialogs/panel_toolbar_customization.tsx:554
+msgid "Add to toolbar"
+msgstr "टूलबार में जोड़ें"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:76
+msgid "Add track propagation row"
+msgstr "ट्रैक प्रसार पंक्ति जोड़ें"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles_base.tsx:46
+msgid "Add tuning profile"
+msgstr "ट्यूनिंग प्रोफ़ाइल जोड़ें"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:202
+msgid "Add variant"
+msgstr "वैरिएंट जोड़ें"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:134
+msgid "Add via delay override"
+msgstr "वाया विलंब ओवरराइड जोड़ें"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:119
+msgid "Added repository \"%s\" (%s packages)"
+msgstr "रिपॉज़िटरी \"%s\" जोड़ी गई (%s पैकेज)"
+
+#: pcbnew/dialogs/dialog_target_properties_base.tsx:50
+msgid "Alignment Target Properties"
+msgstr "संरेखण लक्ष्य के गुण"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1680 pcbnew/pcb_edit_frame_ui.tsx:8092
+msgid "All 3D models (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)"
+msgstr "सभी 3D मॉडल (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)"
+
+#: designer/src/ui/StorageBanner.tsx:36
+msgid "Allow site data for this page, or download your project before closing the tab. Private-browsing windows often discard storage."
+msgstr "इस पेज के लिए साइट डेटा की अनुमति दें, या टैब बंद करने से पहले अपना प्रोजेक्ट डाउनलोड कर लें। निजी ब्राउज़िंग विंडो अक्सर स्टोरेज हटा देती हैं।"
+
+#: designer/src/auth/SignIn.tsx:404
+msgid "Already have an account?"
+msgstr "क्या आपका पहले से खाता है?"
+
+#: eeschema/dialogs/dialog_pin_properties.tsx:627
+msgid "Alternate pin functions"
+msgstr "वैकल्पिक पिन फ़ंक्शन"
+
+#: designer/src/ui/ErrorBoundary.tsx:113
+msgid "An anonymous crash report was sent so we can fix this. It contains the error below and no project data. You can turn reports off in Preferences → Common → Privacy."
+msgstr "हम इसे ठीक कर सकें, इसके लिए एक अनाम क्रैश रिपोर्ट भेजी गई। इसमें नीचे दी गई त्रुटि है और कोई प्रोजेक्ट डेटा नहीं है। आप प्राथमिकताएँ → सामान्य → गोपनीयता में रिपोर्ट बंद कर सकते हैं।"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:527
+msgid "Analysis failed, check the input values."
+msgstr "विश्लेषण विफल रहा, इनपुट मान जाँचें।"
+
+#: pcbnew/dialogs/dialog_multichannel_repeat_layout_base.tsx:82
+msgid "Anchor footprint"
+msgstr "एंकर फ़ुटप्रिंट"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:644
+msgid "Annular rings"
+msgstr "एनुलर रिंग"
+
+#: designer/src/home/ShareButton.tsx:66
+msgid "Anyone with the link can edit"
+msgstr "लिंक वाला कोई भी संपादित कर सकता है"
+
+#: designer/src/home/ShareButton.tsx:65
+msgid "Anyone with the link can view"
+msgstr "लिंक वाला कोई भी देख सकता है"
+
+#: designer/src/auth/DeleteAccountDialog.tsx:203
+msgid "Anything else?"
+msgstr "कुछ और?"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:150
+msgid "Applied changes: %s installed, %s uninstalled"
+msgstr "परिवर्तन लागू किए गए: %s इंस्टॉल, %s अनइंस्टॉल"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:487
+msgid "Apply Pending Changes ("
+msgstr "लंबित परिवर्तन लागू करें ("
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:343 designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:63
+msgid "Arc editing mode"
+msgstr "चाप संपादन मोड"
+
+#: designer/src/home/HomePage.tsx:1631
+msgid "Archive Project"
+msgstr "प्रोजेक्ट संग्रहित करें"
+
+#: designer/src/home/HomePage.tsx:1631
+msgid "Archiving project..."
+msgstr "प्रोजेक्ट संग्रहित किया जा रहा है..."
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:448
+msgid "Area limit"
+msgstr "क्षेत्र सीमा"
+
+#: pcbnew/dialogs/dialog_rule_area_properties_base.tsx:123
+msgid "Area name"
+msgstr "क्षेत्र का नाम"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:533
+msgid "Arrow direction"
+msgstr "तीर की दिशा"
+
+#: common/dialogs/dialog_assign_netclass.tsx:124
+msgid "Assign Netclass"
+msgstr "नेटक्लास असाइन करें"
+
+#: pcbnew/dialogs/dialog_reference_image_properties_base.tsx:111
+msgid "Associated layer"
+msgstr "संबद्ध परत"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:184
+msgid "Attenuation is 6 dB"
+msgstr "क्षीणन 6 dB है"
+
+#: common/dialogs/panel_mouse_settings.tsx:251
+msgid "Auto pan speed"
+msgstr "ऑटो पैन गति"
+
+#: pcbnew/zone_manager/dialog_zone_manager_base.tsx:141
+msgid "Auto-assign priorities"
+msgstr "प्राथमिकताएँ स्वतः असाइन करें"
+
+#: pcbnew/dialogs/dialog_get_footprint_by_name_base.tsx:100
+msgid "Available footprints"
+msgstr "उपलब्ध फ़ुटप्रिंट"
+
+#: cvpcb/dialogs/dialog_config_equfiles.tsx:262
+msgid "Available path substitutions"
+msgstr "उपलब्ध पथ प्रतिस्थापन"
+
+#: eeschema/dialogs/panel_bom_presets.tsx:83
+msgid "BOM formatting presets"
+msgstr "BOM फ़ॉर्मैटिंग प्रीसेट"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:244
+msgid "BOM revision"
+msgstr "BOM संशोधन"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:280
+msgid "Back prefix"
+msgstr "पिछला उपसर्ग"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:252
+msgid "Back reference start"
+msgstr "पिछला संदर्भ आरंभ"
+
+#: designer/src/ui/HomeLink.tsx:24
+msgid "Back to project manager"
+msgstr "प्रोजेक्ट प्रबंधक पर वापस जाएँ"
+
+#: designer/src/auth/SignIn.tsx:467
+msgid "Back to sign in"
+msgstr "साइन इन पर वापस जाएँ"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:164
+msgid "Based on location of"
+msgstr "इसके स्थान के आधार पर"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1248 pcbnew/dialogs/dialog_track_via_properties_base.tsx:969
+msgid "Best length"
+msgstr "सर्वोत्तम लंबाई"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1290 pcbnew/dialogs/dialog_track_via_properties_base.tsx:1013
+msgid "Best width"
+msgstr "सर्वोत्तम चौड़ाई"
+
+#: pcbnew/board_stackup_manager/panel_board_stackup_base.tsx:161
+msgid "Board thickness from stackup"
+msgstr "स्टैकअप से बोर्ड की मोटाई"
+
+#: eeschema/dialogs/dialog_symbol_properties_base.tsx:195 eeschema/symbol_viewer_frame_ui.tsx:554
+msgid "Body style"
+msgstr "बॉडी शैली"
+
+#: eeschema/dialogs/dialog_lib_edit_pin_table_base.tsx:234
+msgid "Body style filter"
+msgstr "बॉडी शैली फ़िल्टर"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1324
+msgid "Body style names"
+msgstr "बॉडी शैली के नाम"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:292 eeschema/dialogs/dialog_sheet_properties_base.tsx:222 eeschema/dialogs/dialog_text_properties_base.tsx:319
+msgid "Border color"
+msgstr "बॉर्डर का रंग"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:307 eeschema/dialogs/dialog_table_properties_base.tsx:215 eeschema/dialogs/dialog_text_properties_base.tsx:342 pcbnew/dialogs/dialog_table_properties_base.tsx:219 pcbnew/dialogs/dialog_textbox_properties_base.tsx:310
+msgid "Border style"
+msgstr "बॉर्डर की शैली"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:280 eeschema/dialogs/dialog_sheet_properties_base.tsx:202 eeschema/dialogs/dialog_table_properties_base.tsx:197 eeschema/dialogs/dialog_text_properties_base.tsx:307 pcbnew/dialogs/dialog_table_properties_base.tsx:201
+msgid "Border width"
+msgstr "बॉर्डर की चौड़ाई"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:785
+msgid "Bottom backdrill must-cut"
+msgstr "निचला बैकड्रिल अनिवार्य-कट"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:759
+msgid "Bottom backdrill size"
+msgstr "निचले बैकड्रिल का आकार"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:353
+msgid "Bottom margin"
+msgstr "निचला मार्जिन"
+
+#: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:76
+msgid "Browse for 3D model"
+msgstr "3D मॉडल ब्राउज़ करें"
+
+#: common/widgets/properties_panel_ui.tsx:406
+msgid "Browse for footprint — needs the Footprint Chooser"
+msgstr "फ़ुटप्रिंट ब्राउज़ करें — फ़ुटप्रिंट चयनकर्ता चाहिए"
+
+#: eeschema/dialogs/dialog_change_symbols_base.tsx:229
+msgid "Browse for new symbol"
+msgstr "नया प्रतीक ब्राउज़ करें"
+
+#: eeschema/dialogs/dialog_change_symbols_base.tsx:202
+msgid "Browse for symbol"
+msgstr "प्रतीक ब्राउज़ करें"
+
+#: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:203
+msgid "Browse for the new footprint"
+msgstr "नया फ़ुटप्रिंट ब्राउज़ करें"
+
+#: eeschema/dialogs/panel_setup_buses.tsx:331
+msgid "Bus aliases"
+msgstr "बस उपनाम"
+
+#: eeschema/dialogs/panel_setup_buses.tsx:345
+msgid "Bus members"
+msgstr "बस सदस्य"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1107
+msgid "Cannot create the library folder '%s'."
+msgstr "लाइब्रेरी फ़ोल्डर '%s' नहीं बनाया जा सकता।"
+
+#: eeschema/dialogs/dialog_table_properties.tsx:314 eeschema/dialogs/dialog_tablecell_properties_base.tsx:180 pcbnew/dialogs/dialog_table_properties_base.tsx:149 pcbnew/dialogs/dialog_tablecell_properties_base.tsx:134
+msgid "Cell contents"
+msgstr "सेल की सामग्री"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:211
+msgid "Center layer"
+msgstr "केंद्र परत"
+
+#: designer/src/support/ChatWidget.tsx:308
+msgid "Chat with us (drag to move)"
+msgstr "हमसे चैट करें (हिलाने के लिए खींचें)"
+
+#: designer/src/auth/auth_progress.tsx:33
+msgid "Checking your account"
+msgstr "आपका खाता जाँचा जा रहा है"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:88
+msgid "Cleanup Tracks & Vias"
+msgstr "ट्रैक और वाया साफ़ करें"
+
+#: common/dialogs/panel_hotkeys_editor.tsx:137 common/dialogs/panel_toolbar_customization.tsx:590
+msgid "Clear the filter"
+msgstr "फ़िल्टर साफ़ करें"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:295
+msgid "Clear the search"
+msgstr "खोज साफ़ करें"
+
+#: designer/src/editors/pcb/Viewer3DFrame.tsx:852
+msgid "Close 3D Viewer"
+msgstr "3D व्यूअर बंद करें"
+
+#: designer/src/home/ShareButton.tsx:358
+msgid "Closing the link later stops new people opening it. Anyone already on the list keeps access until you remove them."
+msgstr "लिंक बाद में बंद करने पर नए लोग उसे नहीं खोल पाएँगे। सूची में पहले से मौजूद लोगों की पहुँच तब तक बनी रहेगी जब तक आप उन्हें हटा नहीं देते।"
+
+#: eeschema/sch_edit_frame_ui.tsx:7132
+msgid "Collapse"
+msgstr "समेटें"
+
+#: common/launch_ext.tsx:236
+msgid "Color Themes"
+msgstr "रंग थीम"
+
+#: common/launch_ext.tsx:236
+msgid "Color Themes — %s"
+msgstr "रंग थीम — %s"
+
+#: pcbnew/dialogs/dialog_print_pcbnew.tsx:521
+msgid "Color theme"
+msgstr "रंग थीम"
+
+#: common/launch_ext.tsx:252
+msgid "Color theme files"
+msgstr "रंग थीम फ़ाइलें"
+
+#: pcbnew/board_stackup_manager/dialog_dielectric_list_manager_base.tsx:108
+msgid "Common materials"
+msgstr "सामान्य सामग्री"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:115
+msgid "Component class"
+msgstr "कंपोनेंट क्लास"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:224
+msgid "Component type"
+msgstr "कंपोनेंट प्रकार"
+
+#: pcbnew/dialogs/dialog_export_odbpp_base.tsx:154
+msgid "Compression format"
+msgstr "संपीड़न प्रारूप"
+
+#: designer/src/auth/SignIn.tsx:360
+msgid "Confirm"
+msgstr "पुष्टि करें"
+
+#: designer/src/auth/SignIn.tsx:384 designer/src/auth/SignIn.tsx:541
+msgid "Confirm password"
+msgstr "पासवर्ड की पुष्टि करें"
+
+#: designer/src/auth/SignIn.tsx:319
+msgid "Confirm your email"
+msgstr "अपने ईमेल की पुष्टि करें"
+
+#: designer/src/auth/auth_progress.tsx:48
+msgid "Confirming your email"
+msgstr "आपके ईमेल की पुष्टि की जा रही है"
+
+#: eeschema/erc/erc_settings.ts:322
+msgid "Connected pin is not mapped to any footprint pad"
+msgstr "जुड़ा हुआ पिन किसी भी फ़ुटप्रिंट पैड से मैप नहीं है"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:507
+msgid "Coordinate format"
+msgstr "निर्देशांक प्रारूप"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:81 designer/src/auth/RecoveryKeyDialog.tsx:67 designer/src/home/ShareButton.tsx:343
+msgid "Copied"
+msgstr "कॉपी हो गया"
+
+#: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:51
+msgid "Copper finish"
+msgstr "कॉपर फ़िनिश"
+
+#: pcbnew/sel_layer.tsx:608
+msgid "Copper layer pair presets"
+msgstr "कॉपर परत जोड़ी प्रीसेट"
+
+#: common/dialog_about/dialog_about.tsx:192
+msgid "Copy %s version info to the clipboard"
+msgstr "%s संस्करण की जानकारी क्लिपबोर्ड पर कॉपी करें"
+
+#: 3d-viewer/3d_menubar.ts:73
+msgid "Copy 3D Image to Clipboard"
+msgstr "3D छवि क्लिपबोर्ड पर कॉपी करें"
+
+#: designer/src/home/ShareButton.tsx:307 designer/src/home/ShareButton.tsx:308
+msgid "Copy an invitation link for %s"
+msgstr "%s के लिए आमंत्रण लिंक कॉपी करें"
+
+#: designer/src/home/ShareButton.tsx:343 designer/src/mobile/DesktopGate.tsx:69
+msgid "Copy link"
+msgstr "लिंक कॉपी करें"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:220
+msgid "Copy variant"
+msgstr "वैरिएंट कॉपी करें"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:209 pcbnew/dialogs/dialog_shape_properties_base.tsx:196
+msgid "Corner radius"
+msgstr "कोने की त्रिज्या"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:195 pcbnew/dialogs/panel_zone_properties_base.tsx:391
+msgid "Corner smoothing"
+msgstr "कोने की स्मूदिंग"
+
+#: pcbnew/dialogs/dialog_tuning_pattern_properties_base.tsx:194
+msgid "Corner style"
+msgstr "कोने की शैली"
+
+#: pcbnew/tools/drawing_tool.ts:1325
+msgid "Could not load image."
+msgstr "छवि लोड नहीं हो सकी।"
+
+#: designer/src/home/HomePage.tsx:836
+msgid "Could not open %s: %s"
+msgstr "%s नहीं खोला जा सका: %s"
+
+#: eeschema/sch_edit_frame_ui.tsx:3791
+msgid "Could not open this project: %s"
+msgstr "यह प्रोजेक्ट नहीं खोला जा सका: %s"
+
+#: eeschema/sch_base_frame.ts:275
+msgid "Could not write the library file '%s'."
+msgstr "लाइब्रेरी फ़ाइल '%s' नहीं लिखी जा सकी।"
+
+#: designer/src/auth/DeleteAccountDialog.tsx:230
+msgid "Couldn't load your data counts. Try again to review what will be deleted."
+msgstr "आपके डेटा की गिनती लोड नहीं हो सकी। क्या हटाया जाएगा, यह देखने के लिए फिर कोशिश करें।"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7375
+msgid "Couldn’t open board:"
+msgstr "बोर्ड नहीं खुल सका:"
+
+#: designer/src/fs/FileChooser.tsx:709
+msgid "Create Folder"
+msgstr "फ़ोल्डर बनाएँ"
+
+#: designer/src/auth/SignIn.tsx:396
+msgid "Create account"
+msgstr "खाता बनाएँ"
+
+#: designer/src/auth/SignIn.tsx:298 designer/src/auth/SignIn.tsx:609
+msgid "Create an account"
+msgstr "एक खाता बनाएँ"
+
+#: designer/src/auth/SignIn.tsx:321
+msgid "Create your free ZiroEDA account"
+msgstr "अपना मुफ़्त ZiroEDA खाता बनाएँ"
+
+#: designer/src/auth/SignIn.tsx:446
+msgid "Created your account before 10 September 2026? It has no recovery key yet and does not need one: the link lets you choose a password and sets up encryption."
+msgstr "खाता 10 सितंबर 2026 से पहले बनाया था? उसमें अभी कोई रिकवरी कुंजी नहीं है और उसकी ज़रूरत भी नहीं है: लिंक से आप पासवर्ड चुनते हैं और एन्क्रिप्शन सेट हो जाता है।"
+
+#: designer/src/auth/SignIn.tsx:396
+msgid "Creating account..."
+msgstr "खाता बनाया जा रहा है..."
+
+#: designer/src/auth/auth_progress.tsx:43
+msgid "Creating your account"
+msgstr "आपका खाता बनाया जा रहा है"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:335
+msgid "Current density:"
+msgstr "वर्तमान घनत्व:"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:424
+msgid "Current exceeds the ampacity for this density."
+msgstr "धारा इस घनत्व की एम्पैसिटी से अधिक है।"
+
+#: common/dialogs/dialog_print_generic_base.tsx:156
+msgid "Custom scale"
+msgstr "कस्टम स्केल"
+
+#: pcbnew/dialogs/dialog_drc_base.tsx:172
+msgid "DRC Control"
+msgstr "DRC नियंत्रण"
+
+#: pcbnew/dialogs/dialog_drc_base.tsx:219
+msgid "DRC options"
+msgstr "DRC विकल्प"
+
+#: pcbnew/dialogs/dialog_drc_base.tsx:278
+msgid "DRC results"
+msgstr "DRC परिणाम"
+
+#: pcbnew/import_gfx/dialog_import_graphics_base.tsx:140
+msgid "DXF default line width"
+msgstr "DXF की डिफ़ॉल्ट रेखा चौड़ाई"
+
+#: pcbnew/import_gfx/dialog_import_graphics_base.tsx:157
+msgid "DXF default units"
+msgstr "DXF की डिफ़ॉल्ट इकाइयाँ"
+
+#: pcbnew/dialogs/panel_setup_formatting_base.tsx:67
+msgid "Dash length"
+msgstr "डैश की लंबाई"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:386
+msgid "Data-source packages connect external database libraries, which need a back end not available in the browser yet."
+msgstr "डेटा-स्रोत पैकेज बाहरी डेटाबेस लाइब्रेरी से जुड़ते हैं, जिनके लिए ऐसा बैक एंड चाहिए जो ब्राउज़र में अभी उपलब्ध नहीं है।"
+
+#: external/wx/spin_ctrl.tsx:128
+msgid "Decrease"
+msgstr "घटाएँ"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults.tsx:303
+msgid "Default field properties"
+msgstr "डिफ़ॉल्ट फ़ील्ड गुण"
+
+#: pcbnew/dialogs/panel_fp_editor_graphics_defaults.tsx:256
+msgid "Default properties for new graphic items"
+msgstr "नए ग्राफ़िक आइटम के डिफ़ॉल्ट गुण"
+
+#: pcbnew/dialogs/panel_setup_text_and_graphics.tsx:264
+msgid "Default properties for new graphics and text"
+msgstr "नए ग्राफ़िक और टेक्स्ट के डिफ़ॉल्ट गुण"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:156
+msgid "Default reference designator"
+msgstr "डिफ़ॉल्ट संदर्भ पदनाम"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults.tsx:314
+msgid "Default text items"
+msgstr "डिफ़ॉल्ट टेक्स्ट आइटम"
+
+#: eeschema/tools/sch_sheet_pin_tool.ts:198 eeschema/tools/sch_sheet_pin_tool.ts:212
+msgid "Delete Sheet Pin"
+msgstr "शीट पिन हटाएँ"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:448
+msgid "Delete Template"
+msgstr "टेम्पलेट हटाएँ"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:309
+msgid "Delete a layer override"
+msgstr "परत ओवरराइड हटाएँ"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:109
+msgid "Delete alias"
+msgstr "उपनाम हटाएँ"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:372
+msgid "Delete alternate"
+msgstr "विकल्प हटाएँ"
+
+#: eeschema/dialogs/panel_bom_presets_base.tsx:53
+msgid "Delete formatting preset"
+msgstr "फ़ॉर्मैटिंग प्रीसेट हटाएँ"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:89
+msgid "Delete layer"
+msgstr "परत हटाएँ"
+
+#: eeschema/dialogs/panel_bom_presets_base.tsx:37
+msgid "Delete preset"
+msgstr "प्रीसेट हटाएँ"
+
+#: pcbnew/dialogs/dialog_layer_selection_base.tsx:132
+msgid "Delete selected presets"
+msgstr "चुने हुए प्रीसेट हटाएँ"
+
+#: eeschema/tools/mutate.ts:358
+msgid "Delete symbol"
+msgstr "प्रतीक हटाएँ"
+
+#: pcbnew/dialogs/panel_fp_editor_field_defaults_base.tsx:83
+msgid "Delete text item"
+msgstr "टेक्स्ट आइटम हटाएँ"
+
+#: common/dialogs/panel_text_variables.tsx:134
+msgid "Delete text variable"
+msgstr "टेक्स्ट वेरिएबल हटाएँ"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:239
+msgid "Delete variant"
+msgstr "वैरिएंट हटाएँ"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:142
+msgid "Derive from existing symbol"
+msgstr "मौजूदा प्रतीक से व्युत्पन्न करें"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:225
+msgid "Derive from symbol"
+msgstr "प्रतीक से व्युत्पन्न करें"
+
+#: pcbnew/dialogs/dialog_gen_footprint_position_file_base.tsx:115 pcbnew/dialogs/dialog_plot_base.tsx:217
+msgid "Design variant"
+msgstr "डिज़ाइन वैरिएंट"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:546
+msgid "Directory '%s/%s' already exists."
+msgstr "डायरेक्टरी '%s/%s' पहले से मौजूद है।"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:482
+msgid "Discard Pending"
+msgstr "लंबित छोड़ें"
+
+#: common/widgets/zoom_correction_ctrl.tsx:223
+msgid "Display PPI"
+msgstr "डिस्प्ले PPI"
+
+#: common/widgets/zoom_correction_ctrl.tsx:217
+msgid "Display PPI:"
+msgstr "डिस्प्ले PPI:"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:300
+msgid "Distributor"
+msgstr "वितरक"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:289
+msgid "Distributor P/N"
+msgstr "वितरक P/N"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:82
+msgid "Do this later"
+msgstr "यह बाद में करें"
+
+#: designer/src/ui/ErrorBoundary.tsx:74
+msgid "Download %s.zip"
+msgstr "%s.zip डाउनलोड करें"
+
+#: designer/src/ui/SaveIndicator.tsx:54
+msgid "Download a copy"
+msgstr "प्रतिलिपि डाउनलोड करें"
+
+#: designer/src/ui/StorageBanner.tsx:83
+msgid "Download project"
+msgstr "प्रोजेक्ट डाउनलोड करें"
+
+#: designer/src/ui/StorageBanner.tsx:48
+msgid "Download your project before closing the tab so nothing is lost."
+msgstr "टैब बंद करने से पहले अपना प्रोजेक्ट डाउनलोड कर लें ताकि कुछ खोए नहीं।"
+
+#: designer/src/ui/StorageBanner.tsx:43
+msgid "Download your project before closing the tab, or switch to a current browser."
+msgstr "टैब बंद करने से पहले अपना प्रोजेक्ट डाउनलोड कर लें, या किसी नए ब्राउज़र पर जाएँ।"
+
+#: designer/src/ui/ErrorBoundary.tsx:74 designer/src/ui/StorageBanner.tsx:83
+msgid "Downloaded"
+msgstr "डाउनलोड हो गया"
+
+#: eeschema/sch_edit_frame_ui.tsx:5806 eeschema/sch_edit_frame_ui.tsx:6472 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1434 pcbnew/footprint_edit_frame_ui.tsx:1420 pcbnew/pcb_edit_frame_ui.tsx:989 designer/src/home/HomePage.tsx:2286
+msgid "Drag to resize"
+msgstr "आकार बदलने के लिए खींचें"
+
+#: common/dialogs/dialog_page_settings_base.tsx:230
+msgid "Drawing sheet file"
+msgstr "ड्रॉइंग शीट फ़ाइल"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:369 pcbnew/dialogs/dialog_print_pcbnew.tsx:549
+msgid "Drill marks"
+msgstr "ड्रिल चिह्न"
+
+#: designer/src/auth/SignIn.tsx:479
+msgid "Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key."
+msgstr "हमारे एंड-टू-एंड एन्क्रिप्शन प्रोटोकॉल की प्रकृति के कारण, आपके पासवर्ड या रिकवरी कुंजी के बिना आपका डेटा डिक्रिप्ट नहीं किया जा सकता।"
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:107
+msgid "EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third interface metal in between the main pair(ie the ENIG surface finish)."
+msgstr "EN 50310 के अनुसार वोल्टेज अंतर 300mV से कम होना चाहिए। प्रचलित तरीकों में मुख्य जोड़ी के बीच तीसरी इंटरफ़ेस धातु का उपयोग होता है (जैसे ENIG सतह फ़िनिश)।"
+
+#: pcbnew/board_stackup_manager/panel_board_finish_base.tsx:61
+msgid "Edge card connectors"
+msgstr "एज कार्ड कनेक्टर"
+
+#: eeschema/tools/mutate.ts:394
+msgid "Edit Bus Entry"
+msgstr "बस एंट्री संपादित करें"
+
+#: eeschema/tools/mutate.ts:433
+msgid "Edit Directive Label"
+msgstr "डायरेक्टिव लेबल संपादित करें"
+
+#: eeschema/tools/mutate.ts:529
+msgid "Edit Image"
+msgstr "छवि संपादित करें"
+
+#: eeschema/tools/mutate.ts:420
+msgid "Edit Label"
+msgstr "लेबल संपादित करें"
+
+#: eeschema/tools/mutate.ts:543
+msgid "Edit Shape"
+msgstr "आकृति संपादित करें"
+
+#: eeschema/tools/mutate.ts:501
+msgid "Edit Sheet"
+msgstr "शीट संपादित करें"
+
+#: eeschema/tools/sch_sheet_pin_tool.ts:178
+msgid "Edit Sheet Pin"
+msgstr "शीट पिन संपादित करें"
+
+#: eeschema/tools/properties.ts:65
+msgid "Edit Symbol Fields"
+msgstr "प्रतीक फ़ील्ड संपादित करें"
+
+#: eeschema/tools/mutate.ts:556
+msgid "Edit Text Box"
+msgstr "टेक्स्ट बॉक्स संपादित करें"
+
+#: common/dialogs/panel_grid_settings.tsx:491
+msgid "Edit grid"
+msgstr "ग्रिड संपादित करें"
+
+#: designer/src/home/project_tree_menu.ts:204
+msgid "Edit in a Text Viewer"
+msgstr "टेक्स्ट व्यूअर में संपादित करें"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:575 pcbnew/dialogs/dialog_track_via_properties_base.tsx:551
+msgid "Edit layer"
+msgstr "परत संपादित करें"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:229
+msgid "Edit variant description"
+msgstr "वैरिएंट का विवरण संपादित करें"
+
+#: common/widgets/wx_progress_reporters.tsx:137
+msgid "Elapsed time:"
+msgstr "बीता हुआ समय:"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:181
+msgid "Electrical type"
+msgstr "विद्युत प्रकार"
+
+#: designer/src/auth/SignIn.tsx:256
+msgid "Email"
+msgstr "ईमेल"
+
+#: designer/src/mobile/DesktopGate.tsx:72
+msgid "Email me the link"
+msgstr "मुझे लिंक ईमेल करें"
+
+#: common/dialogs/panel_embedded_files.tsx:180
+msgid "Embedded files"
+msgstr "एम्बेडेड फ़ाइलें"
+
+#: pcbnew/dialogs/panel_setup_layers.tsx:387
+msgid "Enable %s"
+msgstr "%s सक्षम करें"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:625
+msgid "End layer"
+msgstr "अंतिम परत"
+
+#: common/dialogs/cross_probing_group.tsx:72
+msgid "Ensures that cross-probed %s are visible in the current view"
+msgstr "सुनिश्चित करता है कि क्रॉस-प्रोब किए गए %s वर्तमान दृश्य में दिखाई दें"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:538
+msgid "Enter a positive impedance and electrical length."
+msgstr "धनात्मक प्रतिबाधा और विद्युत लंबाई दर्ज करें।"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:637
+msgid "Enter a positive odd-mode impedance."
+msgstr "धनात्मक ऑड-मोड प्रतिबाधा दर्ज करें।"
+
+#: designer/src/editors/calculator/panels/panel_cable_size.tsx:429
+msgid "Enter a positive resistivity and valid temperature."
+msgstr "धनात्मक प्रतिरोधकता और मान्य तापमान दर्ज करें।"
+
+#: designer/src/auth/SignIn.tsx:507
+msgid "Enter the recovery key you saved when you created your account, and choose a new password."
+msgstr "खाता बनाते समय सहेजी गई रिकवरी कुंजी दर्ज करें और नया पासवर्ड चुनें।"
+
+#: designer/src/ui/ErrorBoundary.tsx:120
+msgid "Error details"
+msgstr "त्रुटि विवरण"
+
+#: common/dialogs/lib_table_panel.tsx:590
+msgid ""
+"Error saving global library table:\n"
+"\n"
+"%s"
+msgstr ""
+"वैश्विक लाइब्रेरी तालिका सहेजने में त्रुटि:\n"
+"\n"
+"%s"
+
+#: common/widgets/design_block_pane.ts:276 eeschema/project_rescue.ts:1019 eeschema/symbol_library_manager.ts:1069 pcbnew/footprint_edit_frame_ui.tsx:1119
+msgid ""
+"Error saving library table:\n"
+"\n"
+"%s"
+msgstr ""
+"लाइब्रेरी तालिका सहेजने में त्रुटि:\n"
+"\n"
+"%s"
+
+#: common/lib_table_notebook_panel.tsx:195
+msgid ""
+"Error saving nested library table:\n"
+"\n"
+"%s"
+msgstr ""
+"नेस्टेड लाइब्रेरी तालिका सहेजने में त्रुटि:\n"
+"\n"
+"%s"
+
+#: eeschema/files-io.ts:263
+msgid ""
+"Error saving schematic file '%s'.\n"
+"Could not create directory: %%s%s"
+msgstr ""
+"स्कीमैटिक फ़ाइल '%s' सहेजने में त्रुटि।\n"
+"डायरेक्टरी नहीं बनाई जा सकी: %%s%s"
+
+#: eeschema/tools/sch_editor_control.ts:1003
+msgid ""
+"Error saving symbol %s to library '%s'.\n"
+"\n"
+"%s"
+msgstr ""
+"प्रतीक %s को लाइब्रेरी '%s' में सहेजने में त्रुटि।\n"
+"\n"
+"%s"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:400
+msgid "Error!"
+msgstr "त्रुटि!"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:214
+msgid "Exclude references"
+msgstr "संदर्भ बाहर रखें"
+
+#: eeschema/sch_edit_frame_ui.tsx:7132
+msgid "Expand"
+msgstr "फैलाएँ"
+
+#: pcbnew/dialogs/dialog_shape_properties_base.tsx:319
+msgid "Expansion"
+msgstr "विस्तार"
+
+#: common/dialogs/panel_embedded_files.tsx:222
+msgid "Export embedded files"
+msgstr "एम्बेडेड फ़ाइलें निर्यात करें"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:642
+msgid "Export units"
+msgstr "इकाइयाँ निर्यात करें"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:383
+msgid "Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet."
+msgstr "फ़ैब्रिकेशन प्लगइन ऐसी जनरेशन स्क्रिप्ट चलाते हैं जिनके लिए सैंडबॉक्स्ड रनटाइम चाहिए, जो ब्राउज़र में अभी उपलब्ध नहीं है।"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1088
+msgid "Fabrication property"
+msgstr "फ़ैब्रिकेशन गुण"
+
+#: eeschema/sch_edit_frame_ui.tsx:5611
+msgid "Failed to load schematic:"
+msgstr "स्कीमैटिक लोड नहीं हो सका:"
+
+#: designer/src/editors/schematic/hotkeys.ts:300
+msgid "Fast Grid 1"
+msgstr "तेज़ ग्रिड 1"
+
+#: designer/src/editors/schematic/hotkeys.ts:307
+msgid "Fast Grid 2"
+msgstr "तेज़ ग्रिड 2"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:205
+msgid "Field name filter"
+msgstr "फ़ील्ड नाम फ़िल्टर"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:377
+msgid "Field value"
+msgstr "फ़ील्ड मान"
+
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:100
+msgid "File name"
+msgstr "फ़ाइल का नाम"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:234
+msgid "Fill type"
+msgstr "भरने का प्रकार"
+
+#: eeschema/dialogs/dialog_shape_properties_base.tsx:206
+msgid "Fill with color"
+msgstr "रंग से भरें"
+
+#: eeschema/dialogs/dialog_annotate_base.tsx:230 eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:161
+msgid "First free number after"
+msgstr "इसके बाद पहली खाली संख्या"
+
+#: pcbnew/dialogs/dialog_enum_pads_base.tsx:75
+msgid "First pad number"
+msgstr "पहला पैड नंबर"
+
+#: pagelayout_editor/dialogs/properties_frame_ui.tsx:281
+msgid "First page option"
+msgstr "पहले पेज का विकल्प"
+
+#: pcbnew/dialogs/dialog_export_vrml_base.tsx:112
+msgid "Footprint 3D model path"
+msgstr "फ़ुटप्रिंट 3D मॉडल पथ"
+
+#: pcbnew/footprint_chooser_frame.tsx:256
+msgid "Footprint Chooser (%s items loaded)"
+msgstr "फ़ुटप्रिंट चयनकर्ता (%s आइटम लोड हुए)"
+
+#: cvpcb/dialogs/dialog_config_equfiles.tsx:208
+msgid "Footprint association files"
+msgstr "फ़ुटप्रिंट संबद्धता फ़ाइलें"
+
+#: pcbnew/dialogs/panel_assign_component_classes_base.tsx:366
+msgid "Footprint field"
+msgstr "फ़ुटप्रिंट फ़ील्ड"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:267
+msgid "Footprint type"
+msgstr "फ़ुटप्रिंट प्रकार"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:246
+msgid "For example if the calculated target value is 16,834.2Ω then this rounds to 16,800Ω. The nearest value to 168 is 169 and the selected E96 value is 16.9kΩ."
+msgstr "उदाहरण के लिए, यदि परिकलित लक्ष्य मान 16,834.2Ω है तो वह 16,800Ω पर पूर्णांकित होता है। 168 का निकटतम मान 169 है और चुना गया E96 मान 16.9kΩ है।"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:492
+msgid "For frequencies higher than 30kHz, the dielectric performances are degraded. IEC60664-4 covers those cases"
+msgstr "30kHz से अधिक आवृत्तियों के लिए परावैद्युत प्रदर्शन घट जाता है। IEC60664-4 उन मामलों को कवर करता है"
+
+#: designer/src/auth/SignIn.tsx:580 designer/src/auth/SignIn.tsx:596
+msgid "Forgot password?"
+msgstr "पासवर्ड भूल गए?"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:387
+msgid "Format presets"
+msgstr "प्रारूप प्रीसेट"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:814
+msgid "Frequency unit"
+msgstr "आवृत्ति इकाई"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:266
+msgid "Front prefix"
+msgstr "अगला उपसर्ग"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:234
+msgid "Front reference start"
+msgstr "अगला संदर्भ आरंभ"
+
+#: pcbnew/dialogs/panel_setup_formatting_base.tsx:77
+msgid "Gap length"
+msgstr "अंतराल की लंबाई"
+
+#: designer/src/home/ShareButton.tsx:332
+msgid "General access"
+msgstr "सामान्य पहुँच"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:268
+msgid "Generate map format"
+msgstr "मैप प्रारूप बनाएँ"
+
+#: designer/src/auth/SignIn.tsx:553
+msgid "Generating encryption keys..."
+msgstr "एन्क्रिप्शन कुंजियाँ बनाई जा रही हैं..."
+
+#: designer/src/auth/auth_progress.tsx:53
+msgid "Generating your encryption keys"
+msgstr "आपकी एन्क्रिप्शन कुंजियाँ बनाई जा रही हैं"
+
+#: common/eda_base_frame_help_menu.ts:149
+msgid "Getting Started with %s"
+msgstr "%s के साथ शुरुआत करना"
+
+#: designer/src/home/HomePage.tsx:2602
+msgid "GitHub link:"
+msgstr "GitHub लिंक:"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:433
+msgid "Global solder mask minimum width and/or margin are not set to 0."
+msgstr "वैश्विक सोल्डर मास्क न्यूनतम चौड़ाई और/या मार्जिन 0 पर सेट नहीं हैं।"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:113
+msgid "Global unit delay"
+msgstr "वैश्विक इकाई विलंब"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:196
+msgid "Graphic style"
+msgstr "ग्राफ़िक शैली"
+
+#: pcbnew/dialogs/dialog_outset_items_base.tsx:123
+msgid "Grid size"
+msgstr "ग्रिड आकार"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:283
+msgid "Hide details"
+msgstr "विवरण छिपाएँ"
+
+#: common/dialogs/cross_probing_group.tsx:57
+msgid "Highlight %s corresponding to selected %s"
+msgstr "चुने गए %s के अनुरूप %s हाइलाइट करें"
+
+#: common/dialogs/cross_probing_group.tsx:96
+msgid "Highlight nets when they are highlighted in the %s editor"
+msgstr "%s संपादक में नेट हाइलाइट होने पर उन्हें हाइलाइट करें"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:878
+msgid "Hole shape"
+msgstr "छेद का आकार"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:210
+msgid "Hop-over size"
+msgstr "हॉप-ओवर का आकार"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:142
+msgid "Horizontal Any"
+msgstr "क्षैतिज कोई भी"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:489
+msgid "However some cases are not covered by this calculator:"
+msgstr "हालाँकि कुछ मामले इस कैलकुलेटर में शामिल नहीं हैं:"
+
+#: designer/src/auth/delete_account_form.ts:21
+msgid "I found another service that I like better"
+msgstr "मुझे एक और सेवा मिली जो मुझे अधिक पसंद है"
+
+#: designer/src/auth/SignIn.tsx:491
+msgid "I remember my password"
+msgstr "मुझे अपना पासवर्ड याद है"
+
+#: designer/src/auth/DeleteAccountDialog.tsx:258
+msgid "I understand this deletes my account and all its data."
+msgstr "मैं समझता हूँ कि इससे मेरा खाता और उसका सारा डेटा हट जाएगा।"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:533
+msgid "IEC 60664"
+msgstr "IEC 60664"
+
+#: designer/src/auth/SignIn.tsx:433
+msgid "If"
+msgstr "यदि"
+
+#: designer/src/home/HomePage.tsx:2419
+msgid "If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
+msgstr "यदि ब्राउज़र फ़ोल्डर (डाउनलोड, डेस्कटॉप...) को रोकता है, तो इसके बजाय प्रोजेक्ट की सभी फ़ाइलें चुनें"
+
+#: designer/src/auth/SignIn.tsx:484
+msgid "If the password comes back to you, sign in with it as usual and save your recovery key from the account menu, so this never comes up again."
+msgstr "यदि आपको पासवर्ड याद आ जाए, तो हमेशा की तरह उससे साइन इन करें और खाता मेनू से अपनी रिकवरी कुंजी सहेज लें, ताकि ऐसा दोबारा न हो।"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:72 designer/src/auth/RecoveryKeyDialog.tsx:48
+msgid "If you forget your password, the only way you can recover your data is with this key."
+msgstr "यदि आप अपना पासवर्ड भूल जाते हैं, तो अपना डेटा वापस पाने का एकमात्र तरीका यही कुंजी है।"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:306
+msgid "If you specify one of the track widths, the maximum current it can handle will be calculated. The width for the other track to also handle this current will then be calculated."
+msgstr "यदि आप किसी एक ट्रैक की चौड़ाई बताते हैं, तो उसके द्वारा सँभाली जा सकने वाली अधिकतम धारा परिकलित की जाएगी। फिर दूसरे ट्रैक की वह चौड़ाई परिकलित होगी जो यही धारा सँभाल सके।"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:301
+msgid "If you specify the maximum current, then the track widths will be calculated to suit."
+msgstr "यदि आप अधिकतम धारा बताते हैं, तो उसके अनुरूप ट्रैक की चौड़ाई परिकलित की जाएगी।"
+
+#: eeschema/dialogs/dialog_erc_base.tsx:210 pcbnew/dialogs/dialog_drc_base.tsx:322
+msgid "Ignored tests"
+msgstr "अनदेखे किए गए परीक्षण"
+
+#: eeschema/dialogs/dialog_import_symbol_select.tsx:603
+msgid "Import %s"
+msgstr "%s आयात करें"
+
+#: pcbnew/dialogs/dialog_map_layers.tsx:261
+msgid "Import Layer Mapping"
+msgstr "परत मैपिंग आयात करें"
+
+#: eeschema/import_gfx/dialog_import_gfx_sch.tsx:257
+msgid "Import Vector Graphics"
+msgstr "वेक्टर ग्राफ़िक्स आयात करें"
+
+#: eeschema/dialogs/dialog_sch_import_settings_base.tsx:87 pcbnew/dialogs/dialog_import_settings_base.tsx:81
+msgid "Import from"
+msgstr "यहाँ से आयात करें"
+
+#: pcbnew/import_gfx/dialog_import_graphics_base.tsx:123
+msgid "Import scale"
+msgstr "आयात स्केल"
+
+#: pcbnew/widgets/appearance_controls.tsx:278
+msgid "Inactive layers (H):"
+msgstr "निष्क्रिय परतें (H):"
+
+#: external/wx/spin_ctrl.tsx:137
+msgid "Increase"
+msgstr "बढ़ाएँ"
+
+#: eeschema/dialogs/dialog_increment_annotations_base.tsx:94
+msgid "Increment by"
+msgstr "इतने से बढ़ाएँ"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:259
+msgid "Installed"
+msgstr "इंस्टॉल किया हुआ"
+
+#: designer/src/editors/schematic/prefs/PanelSchDataSources.tsx:65
+msgid "Installed data sources"
+msgstr "इंस्टॉल किए गए डेटा स्रोत"
+
+#: designer/src/editors/schematic/dialogs/dialog_rescue_each.tsx:144
+msgid "Instances of this symbol ("
+msgstr "इस प्रतीक के इंस्टैंस ("
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:502
+msgid "Insulations trough liquids, compressed air or gases other than air are not in the scope of IEC60664"
+msgstr "तरल पदार्थों, संपीड़ित वायु या वायु के अलावा अन्य गैसों के माध्यम से इन्सुलेशन IEC60664 के दायरे में नहीं है"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:255
+msgid "Internal ID"
+msgstr "आंतरिक ID"
+
+#: designer/src/home/ShareButton.tsx:247
+msgid "Invite"
+msgstr "आमंत्रित करें"
+
+#: designer/src/home/ShareButton.tsx:231 designer/src/home/ShareButton.tsx:232
+msgid "Invite by email"
+msgstr "ईमेल से आमंत्रित करें"
+
+#: common/dialogs/dialog_page_settings_base.tsx:279
+msgid "Issue Date"
+msgstr "जारी करने की तारीख"
+
+#: designer/src/auth/delete_account_form.ts:16
+msgid "It's missing a key feature that I need"
+msgstr "इसमें एक ज़रूरी सुविधा नहीं है जो मुझे चाहिए"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1363
+msgid "Jumper pin groups"
+msgstr "जम्पर पिन समूह"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:467
+msgid "Junction color"
+msgstr "जंक्शन का रंग"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:195
+msgid "Junction dot size"
+msgstr "जंक्शन डॉट का आकार"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:452 eeschema/dialogs/dialog_wire_bus_properties_base.tsx:173
+msgid "Junction size"
+msgstr "जंक्शन का आकार"
+
+#: designer/src/home/HomePage.tsx:2720
+msgid "Keep both"
+msgstr "दोनों रखें"
+
+#: designer/src/home/HomePage.tsx:2710
+msgid "Keep mine"
+msgstr "मेरा रखें"
+
+#: pcbnew/dialogs/panel_fp_lib_table.tsx:281
+msgid "KiCad (folder) from Computer..."
+msgstr "कंप्यूटर से KiCad (फ़ोल्डर)..."
+
+#: common/remote_provider_schemas.ts:18
+msgid "KiCad Remote Provider Metadata v1"
+msgstr "KiCad रिमोट प्रोवाइडर मेटाडेटा v1"
+
+#: common/remote_provider_schemas.ts:180
+msgid "KiCad Remote Symbol Manifest v1"
+msgstr "KiCad रिमोट सिंबल मैनिफ़ेस्ट v1"
+
+#: designer/src/widgets/dialog_sym_lib_table.tsx:330
+msgid "KiCad from Computer..."
+msgstr "कंप्यूटर से KiCad..."
+
+#: pcbnew/dialogs/dialog_import_netlist.tsx:52
+msgid "KiCad netlist files (*.net)"
+msgstr "KiCad नेटलिस्ट फ़ाइलें (*.net)"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:379
+msgid "KiCad plugins are native Python scripts. In the browser they need a sandboxed web runtime, a separate piece of work."
+msgstr "KiCad प्लगइन नेटिव Python स्क्रिप्ट हैं। ब्राउज़र में उन्हें सैंडबॉक्स्ड वेब रनटाइम चाहिए, जो एक अलग काम है।"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:398
+msgid "Layer defaults"
+msgstr "परत डिफ़ॉल्ट"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:194 pcbnew/dialogs/dialog_global_edit_teardrops_base.tsx:223
+msgid "Layer filter"
+msgstr "परत फ़िल्टर"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:187
+msgid "Leader layer"
+msgstr "लीडर परत"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:153
+msgid "Leader text"
+msgstr "लीडर टेक्स्ट"
+
+#: common/dialogs/panel_mouse_settings.tsx:269
+msgid "Left button drag"
+msgstr "बायाँ बटन खींचना"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:188
+msgid "Left click (and drag) actions depend on 2 modifier keys:"
+msgstr "बायाँ क्लिक (और खींचने) की क्रियाएँ 2 मॉडिफ़ायर कुंजियों पर निर्भर करती हैं:"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:337
+msgid "Left margin"
+msgstr "बायाँ मार्जिन"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:389
+msgid "Libraries and colour themes install and work today."
+msgstr "लाइब्रेरी और रंग थीम आज इंस्टॉल होती हैं और काम करती हैं।"
+
+#: pcbnew/dialogs/dialog_footprint_associations_base.tsx:55
+msgid "Library association"
+msgstr "लाइब्रेरी संबद्धता"
+
+#: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:162
+msgid "Library id"
+msgstr "लाइब्रेरी ID"
+
+#: eeschema/dialogs/dialog_symbol_properties_base.tsx:365
+msgid "Library link"
+msgstr "लाइब्रेरी लिंक"
+
+#: eeschema/sch_edit_frame_ui.tsx:6625 eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1507 pcbnew/footprint_edit_frame_ui.tsx:1560 pcbnew/pcb_edit_frame_ui.tsx:8711
+msgid "Library name:"
+msgstr "लाइब्रेरी का नाम:"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:419
+msgid "Line color"
+msgstr "रेखा का रंग"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:427 pcbnew/dialogs/dialog_shape_properties_base.tsx:225
+msgid "Line style"
+msgstr "रेखा की शैली"
+
+#: eeschema/dialogs/dialog_text_properties_base.tsx:401
+msgid "Link"
+msgstr "लिंक"
+
+#: designer/src/mobile/DesktopGate.tsx:69
+msgid "Link copied"
+msgstr "लिंक कॉपी हो गया"
+
+#: common/launch_ext.tsx:275
+msgid "Load"
+msgstr "लोड करें"
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1587
+msgid "Load Symbol Libraries"
+msgstr "प्रतीक लाइब्रेरी लोड करें"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1397 pcbnew/footprint_viewer_frame_ui.tsx:773 pcbnew/pcb_edit_frame_ui.tsx:8015 cvpcb/cvpcb_mainframe_ui.tsx:1548 cvpcb/cvpcb_mainframe_ui.tsx:1622
+msgid "Loading footprint libraries..."
+msgstr "फ़ुटप्रिंट लाइब्रेरी लोड हो रही हैं..."
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1383 eeschema/symbol_viewer_frame_ui.tsx:596
+msgid "Loading symbol libraries..."
+msgstr "प्रतीक लाइब्रेरी लोड हो रही हैं..."
+
+#: designer/src/App.tsx:246
+msgid "Loading the %s..."
+msgstr "%s लोड हो रहा है..."
+
+#: eeschema/erc/erc_settings.ts:217
+msgid "Local and global power symbols have same name"
+msgstr "स्थानीय और वैश्विक पावर प्रतीकों का नाम एक ही है"
+
+#: pcbnew/dialogs/dialog_export_2581_base.tsx:266
+msgid "Manufacturer P/N"
+msgstr "निर्माता P/N"
+
+#: pcbnew/dialogs/panel_setup_constraints_base.tsx:395
+msgid "Maximum allowed deviation"
+msgstr "अधिकतम अनुमत विचलन"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:992
+msgid "Maximum length"
+msgstr "अधिकतम लंबाई"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:908
+msgid "Maximum track width"
+msgstr "अधिकतम ट्रैक चौड़ाई"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:1036
+msgid "Maximum width"
+msgstr "अधिकतम चौड़ाई"
+
+#: common/dialogs/panel_mouse_settings.tsx:281
+msgid "Middle button drag"
+msgstr "मध्य बटन खींचना"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:182 pcbnew/dialogs/panel_zone_properties_base.tsx:121
+msgid "Minimum width"
+msgstr "न्यूनतम चौड़ाई"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:85
+msgid "Missing 3D model references"
+msgstr "अनुपस्थित 3D मॉडल संदर्भ"
+
+#: common/tool/action_toolbar.tsx:442 common/tool/action_toolbar.tsx:443
+msgid "More tools"
+msgstr "और टूल"
+
+#: eeschema/tools/sch_sheet_pin_tool.ts:162
+msgid "Move Sheet Pin"
+msgstr "शीट पिन ले जाएँ"
+
+#: common/dialogs/panel_grid_settings.tsx:505
+msgid "Move grid down"
+msgstr "ग्रिड नीचे ले जाएँ"
+
+#: common/dialogs/panel_grid_settings.tsx:498
+msgid "Move grid up"
+msgstr "ग्रिड ऊपर ले जाएँ"
+
+#: designer/src/auth/delete_account_form.ts:22
+msgid "My reason isn't listed"
+msgstr "मेरा कारण सूची में नहीं है"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:267
+msgid "Name text size"
+msgstr "नाम टेक्स्ट का आकार"
+
+#: pcbnew/widgets/appearance_controls.tsx:383
+msgid "Net %s"
+msgstr "नेट %s"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:181 pcbnew/dialogs/dialog_global_edit_teardrops_base.tsx:197
+msgid "Net class filter"
+msgstr "नेट क्लास फ़िल्टर"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:255
+msgid "Net filter"
+msgstr "नेट फ़िल्टर"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:528
+msgid "Net name"
+msgstr "नेट का नाम"
+
+#: common/dialogs/panel_setup_netclasses.tsx:522
+msgid "Netclass assignments"
+msgstr "नेटक्लास असाइनमेंट"
+
+#: pcbnew/dialogs/dialog_import_netlist_base.tsx:81
+msgid "Netlist file"
+msgstr "नेटलिस्ट फ़ाइल"
+
+#: pcbnew/dialogs/dialog_exchange_footprints_base.tsx:197
+msgid "New footprint library id"
+msgstr "नई फ़ुटप्रिंट लाइब्रेरी ID"
+
+#: designer/src/auth/SignIn.tsx:528
+msgid "New password"
+msgstr "नया पासवर्ड"
+
+#: designer/src/auth/SignIn.tsx:600
+msgid "New to ZiroEDA?"
+msgstr "ZiroEDA पर नए हैं?"
+
+#: common/dialog_about/dialog_about.tsx:233
+msgid "Next page"
+msgstr "अगला पेज"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:396
+msgid "No %s match your search."
+msgstr "आपकी खोज से कोई %s मेल नहीं खाता।"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1396
+msgid "No footprint libraries loaded."
+msgstr "कोई फ़ुटप्रिंट लाइब्रेरी लोड नहीं है।"
+
+#: common/widgets/widget_hotkey_list.tsx:177
+msgid "No hotkeys match “"
+msgstr "कोई हॉटकी मेल नहीं खाती “"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:364
+msgid "No installed packages match your search."
+msgstr "आपकी खोज से कोई इंस्टॉल किया पैकेज मेल नहीं खाता।"
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1382
+msgid "No libraries"
+msgstr "कोई लाइब्रेरी नहीं"
+
+#: common/widgets/lib_tree.tsx:1296 common/widgets/search_pane_tab.tsx:101
+msgid "No matches"
+msgstr "कोई मेल नहीं"
+
+#: designer/src/ui/ErrorBoundary.tsx:95
+msgid "No open project was in memory, so nothing was lost. Reloading should get you back."
+msgstr "मेमोरी में कोई खुला प्रोजेक्ट नहीं था, इसलिए कुछ नहीं खोया। रीलोड करने से आप वापस आ जाएँगे।"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:365
+msgid "No packages installed yet."
+msgstr "अभी तक कोई पैकेज इंस्टॉल नहीं है।"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:333
+msgid "No pending changes. Queue installs or removals, then apply."
+msgstr "कोई लंबित परिवर्तन नहीं। इंस्टॉल या हटाना कतार में लगाएँ, फिर लागू करें।"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:542
+msgid "No physical solution found for this target impedance."
+msgstr "इस लक्ष्य प्रतिबाधा के लिए कोई भौतिक समाधान नहीं मिला।"
+
+#: designer/src/auth/SignIn.tsx:562
+msgid "No recovery key?"
+msgstr "रिकवरी कुंजी नहीं है?"
+
+#: cvpcb/cvpcb_mainframe_ui.tsx:1591
+msgid "No symbols, place and annotate symbols first."
+msgstr "कोई प्रतीक नहीं; पहले प्रतीक रखें और एनोटेट करें।"
+
+#: designer/src/home/HomePage.tsx:728
+msgid "None of the files chosen is of the type %s."
+msgstr "चुनी गई कोई भी फ़ाइल %s प्रकार की नहीं है।"
+
+#: eeschema/sch_edit_frame_ui.tsx:3966
+msgid "Not a .kicad_sch file: %s"
+msgstr ".kicad_sch फ़ाइल नहीं है: %s"
+
+#: designer/src/home/HomePage.tsx:2699
+msgid "Nothing has been changed or copied."
+msgstr "कुछ भी बदला या कॉपी नहीं किया गया है।"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:354
+msgid "Number of units"
+msgstr "इकाइयों की संख्या"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:173
+msgid "Number of units per package"
+msgstr "प्रति पैकेज इकाइयों की संख्या"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:280
+msgid "Number text size"
+msgstr "संख्या टेक्स्ट का आकार"
+
+#: pcbnew/dialogs/dialog_enum_pads_base.tsx:87
+msgid "Numbering step"
+msgstr "क्रमांकन चरण"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:193
+msgid "OVC IV"
+msgstr "OVC IV"
+
+#: designer/src/mobile/DesktopGate.tsx:76
+msgid "On a tablet? Rotate to landscape, or connect a mouse."
+msgstr "टैबलेट पर हैं? लैंडस्केप में घुमाएँ, या माउस जोड़ें।"
+
+#: designer/src/home/ShareButton.tsx:64
+msgid "Only people invited"
+msgstr "केवल आमंत्रित लोग"
+
+#: designer/src/home/menubar.ts:133
+msgid "Open Demo Project"
+msgstr "डेमो प्रोजेक्ट खोलें"
+
+#: designer/src/home/HomePage.tsx:2601 designer/src/home/HomePage.tsx:2637
+msgid "Open Project from GitHub"
+msgstr "GitHub से प्रोजेक्ट खोलें"
+
+#: designer/src/home/menubar.ts:129
+msgid "Open Project from GitHub..."
+msgstr "GitHub से प्रोजेक्ट खोलें..."
+
+#: designer/src/home/menubar.ts:260
+msgid "Open Text Viewer"
+msgstr "टेक्स्ट व्यूअर खोलें"
+
+#: pcbnew/footprint_edit_frame_ui.tsx:1059
+msgid "Open a project to add a footprint library to."
+msgstr "फ़ुटप्रिंट लाइब्रेरी जोड़ने के लिए कोई प्रोजेक्ट खोलें।"
+
+#: designer/src/editors/gerbview/GerberViewer.tsx:129 designer/src/fs/OpenFileDialog.tsx:152 designer/src/home/HomePage.tsx:2411
+msgid "Open from Computer..."
+msgstr "कंप्यूटर से खोलें..."
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:393
+msgid "Open the plotted file in a new browser tab after a successful plot (current page only)"
+msgstr "सफल प्लॉट के बाद प्लॉट की गई फ़ाइल को नए ब्राउज़र टैब में खोलें (केवल वर्तमान पेज)"
+
+#: designer/src/mobile/DesktopGate.tsx:55
+msgid "Open this link on a laptop or desktop to get started."
+msgstr "शुरू करने के लिए इस लिंक को लैपटॉप या डेस्कटॉप पर खोलें।"
+
+#: designer/src/home/HomePage.tsx:1465
+msgid "Opening project..."
+msgstr "प्रोजेक्ट खोला जा रहा है..."
+
+#: designer/src/home/HomePage.tsx:1078
+msgid "Opening the shared project..."
+msgstr "साझा किया गया प्रोजेक्ट खोला जा रहा है..."
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:176
+msgid "Optionally up to two additional values can be excluded in case of component availability problems."
+msgstr "घटकों की उपलब्धता की समस्या होने पर वैकल्पिक रूप से दो और मान बाहर रखे जा सकते हैं।"
+
+#: pcbnew/dialogs/dialog_rule_area_properties_base.tsx:149 pcbnew/dialogs/panel_zone_properties_base.tsx:182
+msgid "Outline display"
+msgstr "आउटलाइन प्रदर्शन"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:169 pcbnew/dialogs/dialog_rule_area_properties_base.tsx:159 pcbnew/dialogs/panel_zone_properties_base.tsx:189
+msgid "Outline hatch pitch"
+msgstr "आउटलाइन हैच पिच"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:159
+msgid "Outline style"
+msgstr "आउटलाइन शैली"
+
+#: pcbnew/dialogs/dialog_gencad_export_options.tsx:191
+msgid "Output File"
+msgstr "आउटपुट फ़ाइल"
+
+#: pcbnew/dialogs/dialog_gendrill_base.tsx:146
+msgid "Output folder"
+msgstr "आउटपुट फ़ोल्डर"
+
+#: common/dialogs/dialog_print_generic_base.tsx:99
+msgid "Output mode"
+msgstr "आउटपुट मोड"
+
+#: eeschema/dialogs/dialog_export_netlist_base.tsx:118
+msgid "Output path"
+msgstr "आउटपुट पथ"
+
+#: pcbnew/dialogs/dialog_outset_items_base.tsx:108
+msgid "Outset"
+msgstr "आउटसेट"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:752
+msgid "PDF output mode"
+msgstr "PDF आउटपुट मोड"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:371
+msgid "PNG Options"
+msgstr "PNG विकल्प"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:545
+msgid "Pad '%s' in jumper pad group %s does not exist in this footprint."
+msgstr "जम्पर पैड समूह %2$s में पैड '%1$s' इस फ़ुटप्रिंट में मौजूद नहीं है।"
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:528
+msgid "Pad Numbering"
+msgstr "पैड क्रमांकन"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:355
+msgid "Pad clearance"
+msgstr "पैड क्लीयरेंस"
+
+#: pcbnew/dialogs/dialog_footprint_properties.tsx:329
+msgid "Pad clearance must be at least %s."
+msgstr "पैड क्लीयरेंस कम से कम %s होना चाहिए।"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1353
+msgid "Pad connection"
+msgstr "पैड कनेक्शन"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:434 pcbnew/dialogs/dialog_footprint_properties_fp_editor_base.tsx:394
+msgid "Pad connection to zones"
+msgstr "ज़ोन से पैड कनेक्शन"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:138
+msgid "Pad connections"
+msgstr "पैड कनेक्शन"
+
+#: pcbnew/dialogs/dialog_enum_pads_base.tsx:63
+msgid "Pad name prefix"
+msgstr "पैड नाम उपसर्ग"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:502
+msgid "Pad number"
+msgstr "पैड नंबर"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:978
+msgid "Pad to die delay"
+msgstr "पैड से डाई विलंब"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:945
+msgid "Pad to die length"
+msgstr "पैड से डाई लंबाई"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:486
+msgid "Pad type"
+msgstr "पैड प्रकार"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:564 pcbnew/dialogs/dialog_track_via_properties_base.tsx:544
+msgid "Padstack mode"
+msgstr "पैडस्टैक मोड"
+
+#: eeschema/dialogs/dialog_sheet_properties_base.tsx:144
+msgid "Page number"
+msgstr "पेज नंबर"
+
+#: common/dialogs/panel_mouse_settings.tsx:312
+msgid "Pan on mouse movement with key"
+msgstr "कुंजी के साथ माउस चलाने पर पैन करें"
+
+#: common/dialogs/panel_spacemouse.tsx:115
+msgid "Pan speed"
+msgstr "पैन गति"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:256
+msgid "Parent footprint library link"
+msgstr "पैरेंट फ़ुटप्रिंट लाइब्रेरी लिंक"
+
+#: pcbnew/dialogs/dialog_global_edit_text_and_graphics_base.tsx:239
+msgid "Parent reference designator"
+msgstr "पैरेंट संदर्भ पदनाम"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:236
+msgid "Passive components are commonly made with E-series values appropriate to their precision. Capacitors commonly use E12 values. 10% and 5% resistors commonly use E24 values. 1% resistors use E96 values. Other series are not commonly used."
+msgstr "निष्क्रिय घटक आमतौर पर अपनी परिशुद्धता के अनुरूप E-श्रेणी के मानों में बनते हैं। संधारित्र आमतौर पर E12 मानों का उपयोग करते हैं। 10% और 5% प्रतिरोधक आमतौर पर E24 मानों का उपयोग करते हैं। 1% प्रतिरोधक E96 मानों का उपयोग करते हैं। अन्य श्रेणियाँ आमतौर पर उपयोग नहीं होतीं।"
+
+#: designer/src/auth/SignIn.tsx:631
+msgid "Password strength: Moderate"
+msgstr "पासवर्ड की मज़बूती: मध्यम"
+
+#: designer/src/auth/SignIn.tsx:632
+msgid "Password strength: Strong"
+msgstr "पासवर्ड की मज़बूती: मज़बूत"
+
+#: designer/src/auth/SignIn.tsx:629
+msgid "Password strength: Weak"
+msgstr "पासवर्ड की मज़बूती: कमज़ोर"
+
+#: designer/src/auth/SignIn.tsx:179 designer/src/auth/SignIn.tsx:226
+msgid "Passwords don't match"
+msgstr "पासवर्ड मेल नहीं खाते"
+
+#: designer/src/auth/SignIn.tsx:519
+msgid "Paste your 24-word recovery key"
+msgstr "अपनी 24-शब्दों वाली रिकवरी कुंजी चिपकाएँ"
+
+#: designer/src/home/ShareButton.tsx:251
+msgid "People with access"
+msgstr "पहुँच वाले लोग"
+
+#: external/wx/datectrl.tsx:39
+msgid "Pick a date"
+msgstr "तारीख चुनें"
+
+#: common/dialogs/dialog_page_settings_base.tsx:294
+msgid "Pick date"
+msgstr "तारीख चुनें"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:737
+msgid "Pin '%s' in jumper pin group %s does not exist in this symbol."
+msgstr "पिन '%1$s' जम्पर पिन समूह %2$s में इस प्रतीक में मौजूद नहीं है।"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:229
+msgid "Pin (hold back updates)"
+msgstr "पिन करें (अपडेट रोकें)"
+
+#: eeschema/dialogs/dialog_symbol_properties.tsx:938
+msgid "Pin functions"
+msgstr "पिन फ़ंक्शन"
+
+#: eeschema/erc/erc_settings.ts:317
+msgid "Pin map references a pad that does not exist on the footprint"
+msgstr "पिन मैप ऐसे पैड का संदर्भ देता है जो फ़ुटप्रिंट पर मौजूद नहीं है"
+
+#: eeschema/erc/erc_settings.ts:332
+msgid "Pin map references a pin number that no longer exists on the symbol"
+msgstr "पिन मैप ऐसे पिन नंबर का संदर्भ देता है जो अब प्रतीक पर मौजूद नहीं है"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:147
+msgid "Pin name"
+msgstr "पिन का नाम"
+
+#: eeschema/dialogs/dialog_lib_new_symbol_base.tsx:260
+msgid "Pin name position offset"
+msgstr "पिन नाम की स्थिति ऑफ़सेट"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:166
+msgid "Pin number"
+msgstr "पिन नंबर"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:267
+msgid "Pinned"
+msgstr "पिन किया गया"
+
+#: eeschema/tools/mutate.ts:340
+msgid "Place symbol"
+msgstr "प्रतीक रखें"
+
+#: designer/src/editors/schematic/hotkeys.ts:365
+msgid "Place/Remove No Connect Flags"
+msgstr "नो कनेक्ट फ़्लैग रखें/हटाएँ"
+
+#: designer/src/auth/SignIn.tsx:185 designer/src/auth/SignIn.tsx:232
+msgid "Please choose a stronger password."
+msgstr "कृपया अधिक मज़बूत पासवर्ड चुनें।"
+
+#: eeschema/dialogs/dialog_plot_schematic.tsx:188
+msgid "Plot Schematic Options"
+msgstr "स्कीमैटिक प्लॉट विकल्प"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:206
+msgid "Plot format"
+msgstr "प्लॉट प्रारूप"
+
+#: common/dialogs/dialog_plugin_options.tsx:141
+msgid "Plugin options"
+msgstr "प्लगइन विकल्प"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:487
+msgid "Position mode"
+msgstr "स्थिति मोड"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:291
+msgid "Position offset"
+msgstr "स्थिति ऑफ़सेट"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:111
+msgid "Potential replacements"
+msgstr "संभावित प्रतिस्थापन"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:396
+msgid "Pre-defined track widths"
+msgstr "पूर्व-निर्धारित ट्रैक चौड़ाई"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:528
+msgid "Pre-defined via sizes"
+msgstr "पूर्व-निर्धारित वाया आकार"
+
+#: common/dialog_about/dialog_about.tsx:209
+msgid "Previous page"
+msgstr "पिछला पेज"
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:340
+msgid "Primary axis numbering"
+msgstr "प्राथमिक अक्ष क्रमांकन"
+
+#: pcbnew/dialogs/dialog_cleanup_tracks_and_vias_base.tsx:237
+msgid "Progress"
+msgstr "प्रगति"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:390
+msgid "Project Templates"
+msgstr "प्रोजेक्ट टेम्पलेट"
+
+#: designer/src/fs/chooser_places.ts:231 designer/src/home/HomePage.tsx:2528
+msgid "Projects"
+msgstr "प्रोजेक्ट"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:661
+msgid "Protection features"
+msgstr "सुरक्षा सुविधाएँ"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:209
+msgid "Queue install"
+msgstr "इंस्टॉल कतार में लगाएँ"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:383
+msgid "Range (currents)"
+msgstr "सीमा (धाराएँ)"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:358
+msgid "Range (voltages)"
+msgstr "सीमा (वोल्टेज)"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:242
+msgid "Ratsnest line thickness"
+msgstr "रैट्सनेस्ट रेखा की मोटाई"
+
+#: designer/src/home/HomePage.tsx:1242 designer/src/home/HomePage.tsx:1264
+msgid "Reading files..."
+msgstr "फ़ाइलें पढ़ी जा रही हैं..."
+
+#: designer/src/auth/DeleteAccountDialog.tsx:181 designer/src/auth/DeleteAccountDialog.tsx:187
+msgid "Reason for leaving"
+msgstr "छोड़ने का कारण"
+
+#: common/widgets/lib_tree.tsx:1074
+msgid "Recent searches"
+msgstr "हाल की खोजें"
+
+#: designer/src/auth/SignIn.tsx:553
+msgid "Recover"
+msgstr "पुनर्प्राप्त करें"
+
+#: designer/src/auth/SignIn.tsx:302 designer/src/auth/SignIn.tsx:327
+msgid "Recover account"
+msgstr "खाता पुनर्प्राप्त करें"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:74 designer/src/auth/RecoveryKeyDialog.tsx:42 designer/src/auth/RecoveryKeyDialog.tsx:55 designer/src/auth/SignIn.tsx:323 designer/src/auth/SignIn.tsx:514
+msgid "Recovery key"
+msgstr "रिकवरी कुंजी"
+
+#: designer/src/editors/pcb/prefs/PanelViewer3dGeneral.tsx:138
+msgid "Redraw speed"
+msgstr "रीड्रॉ गति"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:220
+msgid "Reference filter"
+msgstr "संदर्भ फ़िल्टर"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:433
+msgid "Refresh preview"
+msgstr "पूर्वावलोकन ताज़ा करें"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:294
+msgid "Regroup symbols"
+msgstr "प्रतीकों को पुनः समूहित करें"
+
+#: designer/src/ui/ErrorBoundary.tsx:81 designer/src/ui/ErrorBoundary.tsx:105
+msgid "Reload"
+msgstr "रीलोड करें"
+
+#: designer/src/App.tsx:1717
+msgid "Reload Now"
+msgstr "अभी रीलोड करें"
+
+#: designer/src/ui/ErrorBoundary.tsx:81
+msgid "Reload without saving"
+msgstr "बिना सहेजे रीलोड करें"
+
+#: designer/src/home/ShareButton.tsx:277 designer/src/home/ShareButton.tsx:278
+msgid "Remove %s"
+msgstr "%s हटाएँ"
+
+#: pcbnew/dialogs/panel_fp_properties_3d_model_base.tsx:85
+msgid "Remove 3D model"
+msgstr "3D मॉडल हटाएँ"
+
+#: common/dialogs/panel_setup_netclasses.tsx:535
+msgid "Remove assignment"
+msgstr "असाइनमेंट हटाएँ"
+
+#: designer/src/home/HomePage.tsx:2750
+msgid "Remove damaged"
+msgstr "क्षतिग्रस्त हटाएँ"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:194
+msgid "Remove from pending"
+msgstr "लंबित से हटाएँ"
+
+#: common/dialogs/panel_grid_settings.tsx:519
+msgid "Remove grid"
+msgstr "ग्रिड हटाएँ"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:428
+msgid "Remove islands"
+msgstr "आइलैंड हटाएँ"
+
+#: eeschema/dialogs/panel_setup_buses_base.tsx:68
+msgid "Remove member"
+msgstr "सदस्य हटाएँ"
+
+#: common/dialogs/panel_setup_netclasses.tsx:491
+msgid "Remove netclass"
+msgstr "नेटक्लास हटाएँ"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:449
+msgid "Remove this repository"
+msgstr "यह रिपॉज़िटरी हटाएँ"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:85
+msgid "Remove track propagation row"
+msgstr "ट्रैक प्रसार पंक्ति हटाएँ"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles_base.tsx:55
+msgid "Remove tuning profile"
+msgstr "ट्यूनिंग प्रोफ़ाइल हटाएँ"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:143
+msgid "Remove via delay override"
+msgstr "वाया विलंब ओवरराइड हटाएँ"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:211
+msgid "Rename variant"
+msgstr "वैरिएंट का नाम बदलें"
+
+#: eeschema/dialogs/dialog_sch_find_base.tsx:122
+msgid "Replace with"
+msgstr "इससे बदलें"
+
+#: common/dialog_about/dialog_about.tsx:197
+msgid "Report a problem with %s"
+msgstr "%s के साथ समस्या की रिपोर्ट करें"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:418
+msgid "Repository:"
+msgstr "रिपॉज़िटरी:"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:209
+msgid "Requires a runtime not yet available in the browser"
+msgstr "ऐसा रनटाइम चाहिए जो ब्राउज़र में अभी उपलब्ध नहीं है"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:293
+msgid "Requires app ≥"
+msgstr "ऐप आवश्यक ≥"
+
+#: designer/src/auth/SignIn.tsx:371
+msgid "Resend code"
+msgstr "कोड दोबारा भेजें"
+
+#: common/widgets/paged_dialog.tsx:265
+msgid "Reset this page to defaults"
+msgstr "इस पेज को डिफ़ॉल्ट पर रीसेट करें"
+
+#: common/widgets/wx_splitter_window.tsx:77 external/wx/wx_aui_sash.tsx:64
+msgid "Resize"
+msgstr "आकार बदलें"
+
+#: designer/src/App.tsx:1923 designer/src/home/HomePage.tsx:2797
+msgid "Restore Project"
+msgstr "प्रोजेक्ट पुनर्स्थापित करें"
+
+#: designer/src/App.tsx:1923
+msgid "Restoring your project..."
+msgstr "आपका प्रोजेक्ट पुनर्स्थापित किया जा रहा है..."
+
+#: common/dialogs/panel_mouse_settings.tsx:293
+msgid "Right button drag"
+msgstr "दायाँ बटन खींचना"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:345
+msgid "Right margin"
+msgstr "दायाँ मार्जिन"
+
+#: pcbnew/dialogs/dialog_move_exact_base.tsx:134
+msgid "Rotation anchor"
+msgstr "घुमाव एंकर"
+
+#: common/dialogs/panel_spacemouse.tsx:85
+msgid "Rotation speed"
+msgstr "घुमाव गति"
+
+#: pcbnew/dialogs/dialog_board_reannotate_base.tsx:175
+msgid "Round locations to"
+msgstr "स्थानों को इस तक पूर्णांकित करें"
+
+#: common/widgets/zoom_correction_ctrl.tsx:283
+msgid "Ruler units"
+msgstr "रूलर इकाइयाँ"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:722
+msgid "SVG output mode"
+msgstr "SVG आउटपुट मोड"
+
+#: eeschema/sch_edit_frame_ui.tsx:5683
+msgid "Save Current Sheet Copy As"
+msgstr "वर्तमान शीट की प्रतिलिपि इस रूप में सहेजें"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:83 designer/src/auth/RecoveryKeyDialog.tsx:66
+msgid "Save Key"
+msgstr "कुंजी सहेजें"
+
+#: designer/src/home/HomePage.tsx:1274
+msgid "Save Project"
+msgstr "प्रोजेक्ट सहेजें"
+
+#: designer/src/App.tsx:1679
+msgid "Save a copy"
+msgstr "प्रतिलिपि सहेजें"
+
+#: common/launch_ext.tsx:293
+msgid "Save to folder"
+msgstr "फ़ोल्डर में सहेजें"
+
+#: designer/src/ui/StorageBanner.tsx:47
+msgid "Saving failed, recent edits are not being stored."
+msgstr "सहेजना विफल रहा, हाल के संपादन संग्रहीत नहीं हो रहे हैं।"
+
+#: designer/src/home/HomePage.tsx:1274
+msgid "Saving project..."
+msgstr "प्रोजेक्ट सहेजा जा रहा है..."
+
+#: common/widgets/zoom_correction_ctrl.tsx:244
+msgid "Scaling ruler"
+msgstr "स्केलिंग रूलर"
+
+#: pcbnew/dialogs/dialog_footprint_associations_base.tsx:69
+msgid "Schematic association"
+msgstr "स्कीमैटिक संबद्धता"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:192
+msgid "Schematic variants"
+msgstr "स्कीमैटिक वैरिएंट"
+
+#: eeschema/dialogs/dialog_sch_find_base.tsx:105 pcbnew/dialogs/dialog_find_base.tsx:84
+msgid "Search for"
+msgstr "इसे खोजें"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:428
+msgid "Search packages..."
+msgstr "पैकेज खोजें..."
+
+#: pcbnew/dialogs/dialog_create_array_base.tsx:353
+msgid "Secondary axis numbering"
+msgstr "द्वितीयक अक्ष क्रमांकन"
+
+#: designer/src/auth/auth_progress.tsx:28
+msgid "Securing your password on this device"
+msgstr "इस डिवाइस पर आपका पासवर्ड सुरक्षित किया जा रहा है"
+
+#: designer/src/home/HomePage.tsx:2418
+msgid "Select Files..."
+msgstr "फ़ाइलें चुनें..."
+
+#: designer/src/home/menubar.ts:138
+msgid "Select Project Files..."
+msgstr "प्रोजेक्ट फ़ाइलें चुनें..."
+
+#: designer/src/auth/DeleteAccountDialog.tsx:191
+msgid "Select a reason"
+msgstr "कारण चुनें"
+
+#: designer/src/home/dialogs/dialog_template_selector.tsx:391
+msgid "Select a template to see what it contains."
+msgstr "यह देखने के लिए कि उसमें क्या है, कोई टेम्पलेट चुनें।"
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1330
+msgid "Select body style"
+msgstr "बॉडी शैली चुनें"
+
+#: eeschema/dialogs/dialog_field_properties_base.tsx:154
+msgid "Select footprint"
+msgstr "फ़ुटप्रिंट चुनें"
+
+#: eeschema/symbol_editor/symbol_edit_frame_ui.tsx:1351
+msgid "Select unit to edit"
+msgstr "संपादित करने के लिए इकाई चुनें"
+
+#: eeschema/sch_edit_frame.ts:1227
+msgid "Select variant name to remove:                "
+msgstr "हटाने के लिए वैरिएंट का नाम चुनें:                "
+
+#: eeschema/sch_edit_frame.ts:1189
+msgid "Select variant to edit description:                "
+msgstr "विवरण संपादित करने के लिए वैरिएंट चुनें:                "
+
+#: common/dialogs/cross_probing_group.tsx:53
+msgid "Select/highlight objects corresponding to %s selection"
+msgstr "%s चयन के अनुरूप ऑब्जेक्ट चुनें/हाइलाइट करें"
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:111
+msgid "Selected cells shown with the default system's coloring choice after a table refill."
+msgstr "तालिका रीफ़िल के बाद चुने हुए सेल सिस्टम के डिफ़ॉल्ट रंग विकल्प के साथ दिखाए जाते हैं।"
+
+#: designer/src/auth/SignIn.tsx:453
+msgid "Send reset link"
+msgstr "रीसेट लिंक भेजें"
+
+#: eeschema/dialogs/dialog_table_properties_base.tsx:264 pcbnew/dialogs/dialog_table_properties_base.tsx:263
+msgid "Separators style"
+msgstr "विभाजक शैली"
+
+#: eeschema/dialogs/dialog_table_properties_base.tsx:246 pcbnew/dialogs/dialog_table_properties_base.tsx:245
+msgid "Separators width"
+msgstr "विभाजक चौड़ाई"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:224
+msgid "Set active"
+msgstr "सक्रिय करें"
+
+#: gerbview/widgets/layer_widget.tsx:130 3d-viewer/dialogs/appearance_controls_3d.tsx:125
+msgid "Set color for %s"
+msgstr "%s के लिए रंग सेट करें"
+
+#: pcbnew/widgets/appearance_controls.tsx:389
+msgid "Set color for net %s"
+msgstr "नेट %s के लिए रंग सेट करें"
+
+#: pcbnew/widgets/appearance_controls.tsx:433
+msgid "Set color for the %s netclass"
+msgstr "%s नेटक्लास के लिए रंग सेट करें"
+
+#: designer/src/home/ShareButton.tsx:202 designer/src/home/ShareButton.tsx:203
+msgid "Share this project"
+msgstr "यह प्रोजेक्ट साझा करें"
+
+#: eeschema/sch_edit_frame_ui.tsx:3919
+msgid "Sheet file not in project: %s"
+msgstr "शीट फ़ाइल प्रोजेक्ट में नहीं है: %s"
+
+#: designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx:190
+msgid "Shift and Ctrl"
+msgstr "Shift और Ctrl"
+
+#: 3d-viewer/viewer3d_appearance.ts:178
+msgid "Show 3D navigator"
+msgstr "3D नेविगेटर दिखाएँ"
+
+#: 3d-viewer/viewer3d_appearance.ts:131
+msgid "Show user defined layer %s"
+msgstr "उपयोगकर्ता-परिभाषित परत %s दिखाएँ"
+
+#: designer/src/auth/SignIn.tsx:303 designer/src/auth/SignIn.tsx:413 designer/src/auth/SignIn.tsx:585
+msgid "Sign in"
+msgstr "साइन इन करें"
+
+#: designer/src/auth/SignIn.tsx:328
+msgid "Sign in to ZiroEDA"
+msgstr "ZiroEDA में साइन इन करें"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:368
+msgid "Significant digits (currents)"
+msgstr "सार्थक अंक (धाराएँ)"
+
+#: eeschema/dialogs/panel_setup_formatting_base.tsx:346
+msgid "Significant digits (voltages)"
+msgstr "सार्थक अंक (वोल्टेज)"
+
+#: designer/src/auth/SignIn.tsx:585
+msgid "Signing in..."
+msgstr "साइन इन हो रहा है..."
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:279 pcbnew/dialogs/panel_zone_properties_base.tsx:278
+msgid "Smoothing amount"
+msgstr "स्मूदिंग मात्रा"
+
+#: pcbnew/dialogs/dialog_non_copper_zones_properties_base.tsx:257 pcbnew/dialogs/panel_zone_properties_base.tsx:256
+msgid "Smoothing effort"
+msgstr "स्मूदिंग प्रयास"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:207
+msgid "Snap to graphics"
+msgstr "ग्राफ़िक्स पर स्नैप करें"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:179
+msgid "Snap to pads"
+msgstr "पैड पर स्नैप करें"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:193
+msgid "Snap to tracks and vias"
+msgstr "ट्रैक और वाया पर स्नैप करें"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:373 pcbnew/dialogs/dialog_track_via_properties_base.tsx:467
+msgid "Solder mask expansion"
+msgstr "सोल्डर मास्क विस्तार"
+
+#: pcbnew/dialogs/dialog_footprint_properties_base.tsx:398
+msgid "Solder paste clearance"
+msgstr "सोल्डर पेस्ट क्लीयरेंस"
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:180
+msgid "Solutions are given in the following formats:"
+msgstr "समाधान निम्नलिखित प्रारूपों में दिए गए हैं:"
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:171
+msgid "Solutions using up to 4 components are given."
+msgstr "4 घटकों तक के समाधान दिए गए हैं।"
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:846
+msgid "Solve for this parameter"
+msgstr "इस पैरामीटर के लिए हल करें"
+
+#: eeschema/sch_edit_frame_ui.tsx:3775
+msgid "Some sheets failed to load: %s"
+msgstr "कुछ शीट लोड नहीं हो सकीं: %s"
+
+#: designer/src/auth/SignIn.tsx:326
+msgid "Sorry"
+msgstr "क्षमा करें"
+
+#: common/widgets/lib_tree.tsx:1110
+msgid "Sort and expand options"
+msgstr "क्रमबद्ध और विस्तार विकल्प"
+
+#: pcbnew/dialogs/dialog_multichannel_generate_rule_areas_base.tsx:46
+msgid "Sources"
+msgstr "स्रोत"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:615
+msgid "Start layer"
+msgstr "आरंभिक परत"
+
+#: eeschema/dialogs/dialog_increment_annotations_base.tsx:80
+msgid "Start reference designator"
+msgstr "आरंभिक संदर्भ पदनाम"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:322
+msgid "Step for rotate commands"
+msgstr "घुमाव कमांड का चरण"
+
+#: common/eda_base_frame_help_menu.ts:163
+msgid "Support Chat"
+msgstr "सहायता चैट"
+
+#: pcbnew/dialogs/dialog_swap_layers_base.tsx:37
+msgid "Swap layers"
+msgstr "परतें अदला-बदली करें"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:233
+msgid "Symbol filter"
+msgstr "प्रतीक फ़िल्टर"
+
+#: eeschema/dialogs/dialog_edit_symbols_libid.tsx:526
+msgid "Symbol library references"
+msgstr "प्रतीक लाइब्रेरी संदर्भ"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:241
+msgid "Symbol type"
+msgstr "प्रतीक प्रकार"
+
+#: eeschema/dialogs/panel_eeschema_annotation_options_base.tsx:105
+msgid "Symbol unit notation"
+msgstr "प्रतीक इकाई संकेतन"
+
+#: designer/src/home/HomePage.tsx:2760
+msgid "Syncing cloud projects..."
+msgstr "क्लाउड प्रोजेक्ट सिंक हो रहे हैं..."
+
+#: designer/src/editors/calculator/panels/panel_transline.tsx:596
+msgid "Synthesis is not available for rectangular waveguides."
+msgstr "आयताकार वेवगाइड के लिए संश्लेषण उपलब्ध नहीं है।"
+
+#: pcbnew/dialogs/dialog_multichannel_repeat_layout.tsx:223
+msgid "Target areas"
+msgstr "लक्ष्य क्षेत्र"
+
+#: pcbnew/dialogs/panel_setup_tuning_profile_info_base.tsx:182
+msgid "Target impedance"
+msgstr "लक्ष्य प्रतिबाधा"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:265
+msgid "Temperature rise (ΔT):"
+msgstr "तापमान वृद्धि (ΔT):"
+
+#: eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:288 eeschema/dialogs/dialog_label_properties_base.tsx:369 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:227 eeschema/dialogs/dialog_tablecell_properties_base.tsx:306 eeschema/dialogs/dialog_text_properties_base.tsx:282 pagelayout_editor/dialogs/properties_frame_ui.tsx:381
+msgid "Text color"
+msgstr "टेक्स्ट का रंग"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:172
+msgid "Text frame"
+msgstr "टेक्स्ट फ़्रेम"
+
+#: eeschema/dialogs/dialog_field_properties_base.tsx:262 eeschema/dialogs/dialog_global_edit_text_and_graphics_base.tsx:298 eeschema/dialogs/dialog_sheet_pin_properties_base.tsx:208 eeschema/dialogs/dialog_text_properties_base.tsx:270
+msgid "Text size"
+msgstr "टेक्स्ट का आकार"
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:99
+msgid "The anode of an electrochemical pair gets oxidized and eaten away, while the cathode gets dissolved metals plated onto it but stays protected."
+msgstr "विद्युतरासायनिक जोड़ी का एनोड ऑक्सीकृत होकर घिस जाता है, जबकि कैथोड पर घुली हुई धातुएँ चढ़ जाती हैं पर वह सुरक्षित रहता है।"
+
+#: designer/src/auth/delete_account_form.ts:19
+msgid "The app or a certain feature does not behave as I think it should"
+msgstr "ऐप या कोई सुविधा वैसा व्यवहार नहीं करती जैसा मुझे लगता है कि उसे करना चाहिए"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:312
+msgid "The calculations are valid for currents up to 35 A (external) or 17.5 A (internal), temperature rises up to 100 °C, and widths of up to 400 mils (10 mm)."
+msgstr "गणनाएँ 35 A (बाहरी) या 17.5 A (आंतरिक) तक की धाराओं, 100 °C तक की तापमान वृद्धि और 400 मिल (10 mm) तक की चौड़ाई के लिए मान्य हैं।"
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:243
+msgid "The calculator estimates the energy required to heat the wire up"
+msgstr "कैलकुलेटर तार को उसके गलनांक तक गर्म करने के लिए आवश्यक ऊर्जा का अनुमान लगाता है"
+
+#: designer/src/home/HomePage.tsx:2687
+msgid "The cloud copies of %s projects cannot be opened with your key."
+msgstr "%s प्रोजेक्ट की क्लाउड प्रतियाँ आपकी कुंजी से नहीं खोली जा सकतीं।"
+
+#: designer/src/home/HomePage.tsx:2683
+msgid "The cloud copy of \"%s\" cannot be opened with your key."
+msgstr "\"%s\" की क्लाउड प्रति आपकी कुंजी से नहीं खोली जा सकती।"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:310
+msgid "The controlling value is shown in bold."
+msgstr "नियंत्रक मान बोल्ड में दिखाया गया है।"
+
+#: designer/src/ui/ErrorBoundary.tsx:86
+msgid "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab."
+msgstr "डाउनलोड विफल रहा। नीचे दी गई त्रुटि कॉपी करके रिपोर्ट करें, कृपया रीलोड न करें; आपका काम इस टैब से अब भी पुनर्प्राप्त हो सकता है।"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:316
+msgid "The formula, from IPC 2221, is"
+msgstr "IPC 2221 का सूत्र है"
+
+#: common/filename_resolver.ts:369
+msgid ""
+"The given path does not exist\n"
+"%s"
+msgstr ""
+"दिया गया पथ मौजूद नहीं है\n"
+"%s"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:485
+msgid "The goal of the IEC60664-1 is to provide guidance on designing insulation for products that have a connection to mains supply."
+msgstr "IEC60664-1 का लक्ष्य उन उत्पादों के लिए इन्सुलेशन डिज़ाइन का मार्गदर्शन देना है जो मेन्स सप्लाई से जुड़ते हैं।"
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:174
+msgid "The requested value is always excluded from the solution set."
+msgstr "अनुरोधित मान हमेशा समाधान समुच्चय से बाहर रखा जाता है।"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties_base.tsx:581 eeschema/dialogs/dialog_symbol_properties_base.tsx:378
+msgid "The simulator is not available in this build"
+msgstr "इस बिल्ड में सिम्युलेटर उपलब्ध नहीं है"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:356
+msgid "The text height must be between %s."
+msgstr "टेक्स्ट की ऊँचाई %s के बीच होनी चाहिए।"
+
+#: pcbnew/dialogs/dialog_footprint_properties_fp_editor.tsx:348
+msgid "The text width must be between %s."
+msgstr "टेक्स्ट की चौड़ाई %s के बीच होनी चाहिए।"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:250
+msgid "The value 0 is a special case and is not present in any series."
+msgstr "मान 0 एक विशेष मामला है और किसी भी श्रेणी में मौजूद नहीं है।"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:55
+msgid "Theme preview"
+msgstr "थीम पूर्वावलोकन"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:150
+msgid "Thermal relief gap"
+msgstr "थर्मल रिलीफ़ अंतराल"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:159
+msgid "Thermal spoke width"
+msgstr "थर्मल स्पोक चौड़ाई"
+
+#: pcbnew/dialogs/dialog_migrate_3d_models_base.tsx:65
+msgid ""
+"This board references 3D models that are no longer present on your system.\n"
+"Select replacements below, or keep the existing references."
+msgstr ""
+"यह बोर्ड ऐसे 3D मॉडल का संदर्भ देता है जो अब आपके सिस्टम पर मौजूद नहीं हैं।\n"
+"नीचे प्रतिस्थापन चुनें, या मौजूदा संदर्भ रखें।"
+
+#: gerbview/gerbview_frame_ui.tsx:911 pagelayout_editor/pl_editor_frame_ui.tsx:878
+msgid "This browser cannot create a WebGL 2 context."
+msgstr "यह ब्राउज़र WebGL 2 संदर्भ नहीं बना सकता।"
+
+#: designer/src/ui/StorageBanner.tsx:42
+msgid "This browser has no local storage, edits are not being saved."
+msgstr "इस ब्राउज़र में लोकल स्टोरेज नहीं है, संपादन सहेजे नहीं जा रहे हैं।"
+
+#: designer/src/ui/StorageBanner.tsx:35
+msgid "This browser is blocking site storage, edits are not being saved."
+msgstr "यह ब्राउज़र साइट स्टोरेज रोक रहा है, संपादन सहेजे नहीं जा रहे हैं।"
+
+#: common/launch_ext.tsx:245
+msgid "This browser will not open a folder, so themes are saved and loaded as files."
+msgstr "यह ब्राउज़र फ़ोल्डर नहीं खोलेगा, इसलिए थीम फ़ाइलों के रूप में सहेजी और लोड की जाती हैं।"
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:166
+msgid "This calculator finds combinations of standard E-series (between 10Ω and 1MΩ) to create arbitrary values."
+msgstr "यह कैलकुलेटर मनमाने मान बनाने के लिए मानक E-श्रेणी (10Ω से 1MΩ के बीच) के संयोजन खोजता है।"
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:247
+msgid "This energy is then compared to the one dissipated by the wire resistance."
+msgstr "फिर इस ऊर्जा की तुलना तार के प्रतिरोध द्वारा क्षयित ऊर्जा से की जाती है।"
+
+#: designer/src/fs/FileChooser.tsx:602
+msgid "This location cannot be saved to."
+msgstr "इस स्थान पर सहेजा नहीं जा सकता।"
+
+#: designer/src/home/ShareButton.tsx:218
+msgid "This project has not reached the cloud yet, so there is nothing to share. Let it sync, then share it."
+msgstr "यह प्रोजेक्ट अभी क्लाउड तक नहीं पहुँचा है, इसलिए साझा करने के लिए कुछ नहीं है। उसे सिंक होने दें, फिर साझा करें।"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:397
+msgid "This repository has no %s."
+msgstr "इस रिपॉज़िटरी में कोई %s नहीं है।"
+
+#: designer/src/home/HomePage.tsx:2638
+msgid "This repository holds several KiCad projects. Open which one?"
+msgstr "इस रिपॉज़िटरी में कई KiCad प्रोजेक्ट हैं। कौन सा खोलें?"
+
+#: common/widgets/paged_dialog.tsx:252
+msgid "This setup page is not implemented yet."
+msgstr "यह सेटअप पेज अभी लागू नहीं किया गया है।"
+
+#: designer/src/editors/calculator/panels/panel_galvanic_corrosion.tsx:95
+msgid "This table shows the difference in electrochemical potential between various metals and alloys. Galvanic corrosion affects different metals in contact and under certain conditions."
+msgstr "यह तालिका विभिन्न धातुओं और मिश्रधातुओं के बीच विद्युतरासायनिक विभव का अंतर दिखाती है। गैल्वेनिक संक्षारण संपर्क में आई अलग-अलग धातुओं को कुछ शर्तों के तहत प्रभावित करता है।"
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:238
+msgid "This tool allows you to design a track fuse but should be used as an estimate only."
+msgstr "यह टूल आपको ट्रैक फ़्यूज़ डिज़ाइन करने देता है, पर इसे केवल अनुमान के रूप में ही उपयोग करना चाहिए।"
+
+#: designer/src/editors/calculator/panels/panel_eseries_display.tsx:241
+msgid "To select a value begin with the calculated target value and then round it to 2 significant figures for E24 or below or 3 significant figures for E48 and up. Then find the value in the table which is nearest to the significant figures remaining and substitute it for those figures."
+msgstr "मान चुनने के लिए परिकलित लक्ष्य मान से शुरू करें और उसे E24 या उससे नीचे के लिए 2 सार्थक अंकों तक, या E48 और ऊपर के लिए 3 सार्थक अंकों तक पूर्णांकित करें। फिर तालिका में बचे हुए सार्थक अंकों के सबसे निकट का मान खोजें और उन अंकों की जगह उसे रखें।"
+
+#: common/dialogs/panel_toolbar_customization.tsx:419
+msgid "Toolbar items"
+msgstr "टूलबार आइटम"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:739
+msgid "Top backdrill must-cut"
+msgstr "ऊपरी बैकड्रिल अनिवार्य-कट"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:717
+msgid "Top backdrill size"
+msgstr "ऊपरी बैकड्रिल का आकार"
+
+#: eeschema/dialogs/dialog_tablecell_properties_base.tsx:327
+msgid "Top margin"
+msgstr "ऊपरी मार्जिन"
+
+#: pcbnew/dialogs/dialog_track_via_size_base.tsx:63
+msgid "Track Width and Via Size"
+msgstr "ट्रैक चौड़ाई और वाया आकार"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:427
+msgid "Track layer"
+msgstr "ट्रैक परत"
+
+#: pcbnew/dialogs/panel_edit_options_base.tsx:364
+msgid "Track mouse-drag mode"
+msgstr "ट्रैक माउस-ड्रैग मोड"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:648
+msgid "Track propagation"
+msgstr "ट्रैक प्रसार"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:601
+msgid "Track width correction"
+msgstr "ट्रैक चौड़ाई सुधार"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1185
+msgid "Track width limit"
+msgstr "ट्रैक चौड़ाई सीमा"
+
+#: pcbnew/dialogs/dialog_track_via_properties.tsx:995
+msgid "Track width must be at least %s."
+msgstr "ट्रैक की चौड़ाई कम से कम %s होनी चाहिए।"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7072
+msgid "Track: %s mm (%s mils)"
+msgstr "ट्रैक: %s mm (%s मिल)"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:633
+msgid "Trapezoid axis"
+msgstr "समलंब अक्ष"
+
+#: designer/src/auth/DeleteAccountDialog.tsx:253
+msgid "Try again"
+msgstr "फिर कोशिश करें"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles_base.tsx:37
+msgid "Tuning profiles"
+msgstr "ट्यूनिंग प्रोफ़ाइल"
+
+#: eeschema/erc/erc_settings.ts:327
+msgid "Two symbol pins are mapped to the same footprint pad"
+msgstr "दो प्रतीक पिन एक ही फ़ुटप्रिंट पैड से मैप हैं"
+
+#: common/widgets/search_pane_tab.tsx:101
+msgid "Type to search"
+msgstr "खोजने के लिए टाइप करें"
+
+#: eeschema/dialogs/dialog_lib_symbol_properties.tsx:1312
+msgid "Unit display names"
+msgstr "इकाई प्रदर्शन नाम"
+
+#: eeschema/dialogs/dialog_lib_edit_pin_table_base.tsx:216
+msgid "Unit filter"
+msgstr "इकाई फ़िल्टर"
+
+#: pcbnew/dialogs/dialog_dimension_properties_base.tsx:288
+msgid "Units format"
+msgstr "इकाई प्रारूप"
+
+#: designer/src/auth/auth_progress.tsx:38
+msgid "Unlocking your encrypted projects"
+msgstr "आपके एन्क्रिप्टेड प्रोजेक्ट अनलॉक किए जा रहे हैं"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:229
+msgid "Unpin (allow updates)"
+msgstr "अनपिन करें (अपडेट की अनुमति दें)"
+
+#: common/dialogs/git/panel_git_repos.tsx:68
+msgid "Update interval"
+msgstr "अपडेट अंतराल"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:263
+msgid "Update:"
+msgstr "अपडेट:"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names.tsx:317
+msgid "User layer names"
+msgstr "उपयोगकर्ता परत नाम"
+
+#: pcbnew/dialogs/panel_fp_user_layer_names_base.tsx:53
+msgid "User layers"
+msgstr "उपयोगकर्ता परतें"
+
+#: designer/src/ui/StorageBanner.tsx:26
+msgid "Using %s of %s. Download your project, then delete old projects from the home screen to free space."
+msgstr "%2$s में से %1$s उपयोग में है। अपना प्रोजेक्ट डाउनलोड करें, फिर जगह खाली करने के लिए होम स्क्रीन से पुराने प्रोजेक्ट हटाएँ।"
+
+#: pcbnew/widgets/vertex_editor_pane.tsx:307
+msgid "Vertex Editor"
+msgstr "वर्टेक्स संपादक"
+
+#: designer/src/editors/schematic/prefs/PanelSimulatorPreferences.tsx:124
+msgid "Vertical %s"
+msgstr "ऊर्ध्वाधर %s"
+
+#: pcbnew/dialogs/panel_setup_tuning_profiles.tsx:675
+msgid "Via delay overrides"
+msgstr "वाया विलंब ओवरराइड"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:576
+msgid "Via hole"
+msgstr "वाया छेद"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7080
+msgid "Via size"
+msgstr "वाया आकार"
+
+#: pcbnew/dialogs/dialog_track_via_properties_base.tsx:604
+msgid "Via type"
+msgstr "वाया प्रकार"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7089
+msgid "Via: %s / %s mm (%s / %s mils)"
+msgstr "वाया: %s / %s mm (%s / %s मिल)"
+
+#: pcbnew/pcb_edit_frame_ui.tsx:7096
+msgid "Via: %s mm (%s mils)"
+msgstr "वाया: %s mm (%s मिल)"
+
+#: eeschema/dialogs/dialog_symbol_fields_table_base.tsx:165
+msgid "View presets"
+msgstr "दृश्य प्रीसेट"
+
+#: designer/src/ui/PresencePanel.tsx:65
+msgid "Viewer"
+msgstr "व्यूअर"
+
+#: 3d-viewer/dialogs/appearance_controls_3d.tsx:177
+msgid "Viewports (Shift+Tab):"
+msgstr "व्यूपोर्ट (Shift+Tab):"
+
+#: designer/src/auth/RecoveryKeyContents.tsx:78 designer/src/auth/RecoveryKeyDialog.tsx:59
+msgid "We don't store this key, so please save this in a safe place"
+msgstr "हम यह कुंजी संग्रहीत नहीं करते, इसलिए कृपया इसे किसी सुरक्षित स्थान पर सहेज लें"
+
+#: designer/src/auth/SignIn.tsx:335
+msgid "We sent a 6-digit code to"
+msgstr "हमने 6-अंकों का कोड भेजा है"
+
+#: designer/src/auth/SignIn.tsx:441
+msgid "We will email you a link to set a new password. Your projects stay encrypted: to open them under the new password you will also need your recovery key."
+msgstr "हम आपको नया पासवर्ड सेट करने का लिंक ईमेल करेंगे। आपके प्रोजेक्ट एन्क्रिप्टेड रहते हैं: नए पासवर्ड से उन्हें खोलने के लिए आपको अपनी रिकवरी कुंजी भी चाहिए होगी।"
+
+#: designer/src/home/ShareButton.tsx:269
+msgid "What %s may do"
+msgstr "%s क्या कर सकता है"
+
+#: designer/src/home/ShareButton.tsx:337
+msgid "What a link to this project is worth"
+msgstr "इस प्रोजेक्ट के लिंक का क्या मूल्य है"
+
+#: designer/src/home/ShareButton.tsx:244
+msgid "What the invited person may do"
+msgstr "आमंत्रित व्यक्ति क्या कर सकता है"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:497
+msgid "When using a conformal coating or a potting in order to protect for pollution, if all conditions specified by IEC60664-3 are met, the clearance and creepage distances can be reduced. Soldermask is usually not considered as a conformal coating."
+msgstr "प्रदूषण से सुरक्षा के लिए कॉन्फ़ॉर्मल कोटिंग या पॉटिंग का उपयोग करते समय, यदि IEC60664-3 की सभी शर्तें पूरी होती हैं, तो क्लीयरेंस और क्रीपेज दूरी घटाई जा सकती है। सोल्डरमास्क को आमतौर पर कॉन्फ़ॉर्मल कोटिंग नहीं माना जाता।"
+
+#: designer/src/ui/PresencePanel.tsx:97
+msgid "Who's here"
+msgstr "यहाँ कौन है"
+
+#: eeschema/dialogs/dialog_wire_bus_properties_base.tsx:88
+msgid "Wire/bus width"
+msgstr "तार/बस की चौड़ाई"
+
+#: designer/src/home/ShareButton.tsx:321 designer/src/home/ShareButton.tsx:322
+msgid "Withdraw the invitation to %s"
+msgstr "%s को दिया गया आमंत्रण वापस लें"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:211
+msgid "X position"
+msgstr "X स्थिति"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:572
+msgid "X scale factor"
+msgstr "X स्केल गुणक"
+
+#: eeschema/dialogs/dialog_pin_properties_base.tsx:224
+msgid "Y position"
+msgstr "Y स्थिति"
+
+#: pcbnew/dialogs/dialog_plot_base.tsx:585
+msgid "Y scale factor"
+msgstr "Y स्केल गुणक"
+
+#: designer/src/editors/calculator/panels/panel_r_calculator.tsx:170
+msgid "You can enter the required resistance from 0.0025 to 4000 kΩ."
+msgstr "आप 0.0025 से 4000 kΩ तक की आवश्यक प्रतिरोधकता दर्ज कर सकते हैं।"
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:234
+msgid "You can use this calculator to check if a small track can handle a large current for a short period of time."
+msgstr "आप इस कैलकुलेटर से जाँच सकते हैं कि कोई छोटा ट्रैक थोड़े समय के लिए बड़ी धारा सँभाल सकता है या नहीं।"
+
+#: eeschema/sch_edit_frame_ui.tsx:5983
+msgid "You have view-only access to this project. Ask the owner for edit access to make changes."
+msgstr "आपके पास इस प्रोजेक्ट की केवल देखने की पहुँच है। बदलाव करने के लिए स्वामी से संपादन की पहुँच माँगें।"
+
+#: designer/src/ui/StorageBanner.tsx:24
+msgid "Your browser's storage is full, edits are no longer being saved."
+msgstr "आपके ब्राउज़र का स्टोरेज भर गया है, संपादन अब सहेजे नहीं जा रहे हैं।"
+
+#: designer/src/auth/SignIn.tsx:399
+msgid "Your password encrypts your projects. We cannot reset it or read your designs without it."
+msgstr "आपका पासवर्ड आपके प्रोजेक्ट एन्क्रिप्ट करता है। हम उसे रीसेट नहीं कर सकते, और उसके बिना आपके डिज़ाइन नहीं पढ़ सकते।"
+
+#: designer/src/ui/ErrorBoundary.tsx:68
+msgid "Your project is still in memory. Download it before reloading, reloading will discard anything that hasn't been saved."
+msgstr "आपका प्रोजेक्ट अब भी मेमोरी में है। रीलोड करने से पहले उसे डाउनलोड कर लें; रीलोड करने पर जो सहेजा नहीं गया है वह खो जाएगा।"
+
+#: designer/src/auth/SignIn.tsx:300
+msgid "Your recovery key"
+msgstr "आपकी रिकवरी कुंजी"
+
+#: designer/src/ui/ErrorBoundary.tsx:63
+msgid "ZiroEDA hit an unexpected error"
+msgstr "ZiroEDA में एक अप्रत्याशित त्रुटि हुई"
+
+#: designer/src/mobile/DesktopGate.tsx:51
+msgid "ZiroEDA is a full EDA suite, schematic capture, PCB layout and 3D preview. It's built for a mouse, a keyboard and room to work, so there's no phone version yet."
+msgstr "ZiroEDA एक पूर्ण EDA सूट है: स्कीमैटिक कैप्चर, PCB लेआउट और 3D पूर्वावलोकन। यह माउस, कीबोर्ड और काम करने की जगह के लिए बना है, इसलिए अभी फ़ोन संस्करण नहीं है।"
+
+#: designer/src/mobile/DesktopGate.tsx:48
+msgid "ZiroEDA needs a bigger screen"
+msgstr "ZiroEDA को बड़ी स्क्रीन चाहिए"
+
+#: designer/src/support/ChatWidget.tsx:288
+msgid "ZiroEDA support chat"
+msgstr "ZiroEDA सहायता चैट"
+
+#: pcbnew/dialogs/dialog_pad_properties_base.tsx:1367
+msgid "Zone knockout"
+msgstr "ज़ोन नॉकआउट"
+
+#: pcbnew/zone_layer_properties_grid.tsx:220
+msgid "Zone layer properties"
+msgstr "ज़ोन परत गुण"
+
+#: pcbnew/dialogs/panel_zone_properties_base.tsx:350
+msgid "Zone name"
+msgstr "ज़ोन का नाम"
+
+#: pcbnew/zone_manager/dialog_zone_manager.tsx:850
+msgid "Zone previews"
+msgstr "ज़ोन पूर्वावलोकन"
+
+#: common/dialogs/panel_mouse_settings.tsx:215
+msgid "Zoom speed"
+msgstr "ज़ूम गति"
+
+#: designer/src/auth/SignIn.tsx:581
+msgid "below to set your password again. No recovery key is needed."
+msgstr "नीचे दिए गए लिंक से अपना पासवर्ड फिर से सेट करें। रिकवरी कुंजी की आवश्यकता नहीं है।"
+
+#: designer/src/home/ShareButton.tsx:60
+msgid "can edit"
+msgstr "संपादित कर सकते हैं"
+
+#: designer/src/home/ShareButton.tsx:59
+msgid "can view"
+msgstr "देख सकते हैं"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:264
+msgid "dashed: creepage"
+msgstr "धारीदार: क्रीपेज"
+
+#: designer/src/home/HomePage.tsx:2736
+msgid "did not sync:"
+msgstr "सिंक नहीं हुआ:"
+
+#: designer/src/auth/SignIn.tsx:434
+msgid "has an account, a reset link is on its way. Open it on this device to choose a new password."
+msgstr "का खाता है, रीसेट लिंक भेजा जा रहा है। नया पासवर्ड चुनने के लिए इसे इसी डिवाइस पर खोलें।"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:353
+msgid "is 0.024 for internal tracks or 0.048 for external tracks"
+msgstr "आंतरिक ट्रैक के लिए 0.024 या बाहरी ट्रैक के लिए 0.048 है"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:61 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:144
+msgid "is attenuation in dB"
+msgstr "dB में क्षीणन है"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:67 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:150 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:190
+msgid "is desired input impedance in Ω"
+msgstr "Ω में वांछित इनपुट प्रतिबाधा है"
+
+#: designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:73 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:156 designer/src/editors/calculator/panels/panel_rf_attenuators.tsx:196
+msgid "is desired output impedance in Ω"
+msgstr "Ω में वांछित आउटपुट प्रतिबाधा है"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:333
+msgid "is maximum current in A"
+msgstr "A में अधिकतम धारा है"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:338
+msgid "is temperature rise above ambient in °C"
+msgstr "°C में परिवेश से ऊपर तापमान वृद्धि है"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:348
+msgid "is thickness (height) in mils"
+msgstr "मिल में मोटाई (ऊँचाई) है"
+
+#: designer/src/editors/calculator/panels/panel_track_width.tsx:343
+msgid "is width in mils"
+msgstr "मिल में चौड़ाई है"
+
+#: designer/src/editors/calculator/panels/panel_electrical_spacing.tsx:262
+msgid "solid: clearance"
+msgstr "ठोस: क्लीयरेंस"
+
+#: designer/src/editors/calculator/panels/panel_fusing_current.tsx:245
+msgid "to its melting point as well as the energy required for the change of phase."
+msgstr "इसके गलनांक तक तथा अवस्था परिवर्तन के लिए आवश्यक ऊर्जा।"
+
+#: designer/src/editors/calculator/panels/transline_ident.ts:263
+msgid "μr (conductor)"
+msgstr "μr (चालक)"
+
+#: designer/src/editors/calculator/panels/transline_ident.ts:256
+msgid "μr (substrate)"
+msgstr "μr (सब्सट्रेट)"
+
+#: designer/src/home/HomePage.tsx:2659
+msgid "✓ Joined a shared project — you can edit it"
+msgstr "✓ साझा प्रोजेक्ट से जुड़ गए — आप इसे संपादित कर सकते हैं"
+
+#: designer/src/home/HomePage.tsx:2658
+msgid "✓ Joined a shared project — you can view it, but not save changes to it"
+msgstr "✓ साझा प्रोजेक्ट से जुड़ गए — आप इसे देख सकते हैं, पर इसमें बदलाव सहेज नहीं सकते"
+
+#: designer/src/home/HomePage.tsx:2726
+msgid "✓ Projects synced"
+msgstr "✓ प्रोजेक्ट सिंक हो गए"
+
+#: designer/src/pcm/PluginManagerDialog.tsx:232
+msgid "📌 Pinned"
+msgstr "📌 पिन किया गया"

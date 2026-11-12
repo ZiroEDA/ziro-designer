@@ -194,7 +194,7 @@ export function DIALOG_GLOBAL_EDIT_TEARDROPS_BASE(
                       <Choice
                         choices={p.m_netclassFilter.items}
                         choice={p.m_netclassFilter.choice}
-                        ariaLabel="Net class filter"
+                        ariaLabel={_('Net class filter')}
                       />
                     </SizerItem>
                     <Spacer
@@ -220,7 +220,7 @@ export function DIALOG_GLOBAL_EDIT_TEARDROPS_BASE(
                         options={p.m_layerFilter.rows}
                         onChange={p.m_layerFilter.onChange}
                         disabled={!p.m_layerFilter.enabled}
-                        ariaLabel="Layer filter"
+                        ariaLabel={_('Layer filter')}
                       />
                     </SizerItem>
                     <Spacer width={0} height={5} proportion={1} flag={wxEXPAND} border={5} />

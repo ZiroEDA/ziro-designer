@@ -12,7 +12,7 @@
  * directory, the hosted 3D library at `${KICAD10_3DMODEL_DIR}`, embedded files
  * in the temp directory.
  */
-import { wxMatches } from '@ziroeda/wx/wxstring.js';
+import { wxFormat, wxMatches } from '@ziroeda/wx/wxstring.js';
 import { ExpandEnvVarSubstitutions, type TextVarResolverFn } from './common.js';
 import { DisplayErrorMessage } from './confirm.js';
 import { KiCadUriPrefix, type EMBEDDED_FILES } from './embedded_files.js';
@@ -366,7 +366,7 @@ export class FILENAME_RESOLVER {
       ) {
         // suppress the message if the missing pathvar is a system variable
       } else {
-        DisplayErrorMessage(`The given path does not exist\n${tpath.m_Pathvar}`);
+        DisplayErrorMessage(wxFormat(_('The given path does not exist\n%s'), tpath.m_Pathvar));
       }
 
       tpath.m_Pathexp = '';

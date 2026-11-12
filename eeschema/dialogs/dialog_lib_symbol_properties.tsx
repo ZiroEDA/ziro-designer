@@ -733,7 +733,11 @@ export class DIALOG_LIB_SYMBOL_PROPERTIES {
 
         if (!lib.HasPinNumber(token)) {
           DisplayErrorMessage(
-            `Pin '${token}' in jumper pin group ${ii + 1} does not exist in this symbol.`,
+            wxFormat(
+              _("Pin '%s' in jumper pin group %s does not exist in this symbol."),
+              token,
+              ii + 1,
+            ),
           );
           return false;
         }
@@ -1305,7 +1309,7 @@ export function DialogLibSymbolProperties({
             columns={[{ width: 36 }, { width: 400 }]}
             colLabels={false}
             onUpdate={sync}
-            ariaLabel="Unit display names"
+            ariaLabel={_('Unit display names')}
           />
         }
         bodyStyleRadio={state.bodyStyleRadio}
@@ -1317,7 +1321,7 @@ export function DialogLibSymbolProperties({
             colLabels={false}
             className={state.bodyStyleNamesEnabled ? undefined : 'ze-disabled'}
             onUpdate={sync}
-            ariaLabel="Body style names"
+            ariaLabel={_('Body style names')}
           />
         }
         bodyStyleNamesEnabled={state.bodyStyleNamesEnabled}
@@ -1356,7 +1360,7 @@ export function DialogLibSymbolProperties({
             flexCol={0}
             colLabels={false}
             onUpdate={sync}
-            ariaLabel="Jumper pin groups"
+            ariaLabel={_('Jumper pin groups')}
           />
         }
         onAddJumperGroup={run(() => dlg.OnAddJumperGroup())}

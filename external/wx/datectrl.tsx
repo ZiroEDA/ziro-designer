@@ -7,6 +7,7 @@
  * hidden and the button takes its place, so the control has GTK's two parts.
  */
 import { type JSX, useRef } from 'react';
+import { _ } from './translation.js';
 
 export function DatePickerCtrl({
   value,
@@ -35,7 +36,7 @@ export function DatePickerCtrl({
       <button
         type="button"
         className="ze-btn"
-        aria-label="Pick a date"
+        aria-label={_('Pick a date')}
         onClick={() => inputRef.current?.showPicker?.()}
       >
         <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">

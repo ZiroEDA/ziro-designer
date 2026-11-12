@@ -816,7 +816,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
                 value: DIELECTRIC_TYPES.findIndex(([v]) => v === l.type),
                 onChange: (k) => setLayer(i, { type: DIELECTRIC_TYPES[k]![0] }),
               }}
-              ariaLabel={`${l.name} type`}
+              ariaLabel={wxFormat(wxGetTranslation('%s type'), l.name)}
             />
           </SizerItem>
         ) : (
@@ -847,7 +847,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
                   setP({ material: aText }),
                 )}
                 minWidthText={NUMERIC_TEXT_CTRL}
-                ariaLabel={`${l.name} material`}
+                ariaLabel={wxFormat(wxGetTranslation('%s material'), l.name)}
               />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={2}>
@@ -872,7 +872,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
                 }),
             )}
             minWidthText={NUMERIC_TEXT_CTRL}
-            ariaLabel={`${l.name} thickness`}
+            ariaLabel={wxFormat(wxGetTranslation('%s thickness'), l.name)}
           />
         </SizerItem>,
       );
@@ -885,7 +885,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
           >
             <CheckBox
               label=""
-              ariaLabel={`${l.name} thickness locked`}
+              ariaLabel={wxFormat(wxGetTranslation('%s thickness locked'), l.name)}
               checked={!!p.locked}
               onChange={(b) => setP({ locked: b })}
             />
@@ -910,7 +910,7 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
         >
           <Combo
             value={l.color || 'Not specified'}
-            ariaLabel={`${l.name} color`}
+            ariaLabel={wxFormat(wxGetTranslation('%s color'), l.name)}
             options={colorsFor(l.type).map(([name, css]) => ({
               value: name,
               label: name,

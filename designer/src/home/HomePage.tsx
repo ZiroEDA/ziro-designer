@@ -193,6 +193,7 @@ import { projectFileText } from './files.js';
 import { isToolingPath } from './project_picker.js';
 import { _ } from '@ziroeda/wx/translation.js';
 import { useTranslations } from '@ziroeda/wx/translation_ui.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 const enc = new TextEncoder();
 
 /** One project that would not sync, as reported by `syncAllProjects`. */
@@ -724,14 +725,18 @@ export function HomePage({
     const plan = planImport(aFormat, picked, new Set(saved.map((p) => p.name)));
     if (!plan) {
       DisplayErrorMessage(
-        `None of the files chosen is of the type ${desc.wildcard().label}.`,
+        wxFormat(_('None of the files chosen is of the type %s.'), desc.wildcard().label),
         `${desc.title}: choose the project file, together with the files it uses.`,
       );
       return;
     }
     if (plan.missing.length > 0) {
       DisplayErrorMessage(
-        `${plan.input.name} names files that were not chosen: ${plan.missing.join(', ')}.`,
+        wxFormat(
+          _('%s names files that were not chosen: %s.'),
+          plan.input.name,
+          plan.missing.join(', '),
+        ),
         'Choose them together with the project file: a browser can only read the files it is given.',
       );
       return;
@@ -747,8 +752,14 @@ export function HomePage({
     if (plan.schematics.length > 0)
       DisplayErrorMessage(
         plan.board
-          ? `${desc.menuLabel.replace(/\.\.\.$/, '')} schematics cannot be imported yet, so only the board will be.`
-          : `${desc.menuLabel.replace(/\.\.\.$/, '')} schematics cannot be imported yet.`,
+          ? wxFormat(
+              _('%s schematics cannot be imported yet, so only the board will be.'),
+              desc.menuLabel.replace(/\.\.\.$/, ''),
+            )
+          : wxFormat(
+              _('%s schematics cannot be imported yet.'),
+              desc.menuLabel.replace(/\.\.\.$/, ''),
+            ),
       );
     const board = files.find((f) => f.name.endsWith('.kicad_pcb'));
     if (plan.board && board)
@@ -820,7 +831,9 @@ export function HomePage({
       if (e instanceof GithubOpenCancelled) return;
       const why = e instanceof Error ? e.message : String(e);
       DisplayErrorMessage(
-        e instanceof GithubOpenError ? why : `Could not open ${gh ? what : 'that demo'}: ${why}`,
+        e instanceof GithubOpenError
+          ? why
+          : wxFormat(_('Could not open %s: %s'), gh ? what : 'that demo', why),
       );
       return;
     } finally {
@@ -1062,7 +1075,7 @@ export function HomePage({
     const followingLink =
       !!pendingInvite() || !!pendingProjectLink() || !!projectLinkIn(window.location.href);
     if (followingLink) {
-      setLoading({ title: 'Open Project', label: 'Opening the shared project...' });
+      setLoading({ title: 'Open Project', label: _('Opening the shared project...') });
     }
     const doneFollowing = (): void => {
       if (followingLink && !cancelled) setLoading(null);
@@ -1226,7 +1239,7 @@ export function HomePage({
     persist = true,
     templateId?: string,
   ): Promise<string | null> => {
-    setLoading({ title: _('Load Files'), label: { message: 'Reading files...', value: 0 } });
+    setLoading({ title: _('Load Files'), label: { message: _('Reading files...'), value: 0 } });
     await nextPaint(); // show the overlay before the main thread gets busy
     try {
       // A picked or dropped FOLDER puts its own name on the front of every
@@ -1248,7 +1261,7 @@ export function HomePage({
         out.push({ name: f.name, text: projectFileText(bytes), bytes });
         setLoading({
           title: _('Load Files'),
-          label: { message: 'Reading files...', value: (i + 1) / files.length },
+          label: { message: _('Reading files...'), value: (i + 1) / files.length },
         });
       }
       if (out.length === 0) return null;
@@ -1258,7 +1271,7 @@ export function HomePage({
           // Persist every file's raw bytes (empty files carry nothing to reopen).
           const withBytes = out.filter((f) => f.bytes && f.bytes.length > 0);
           if (withBytes.length > 0) {
-            setLoading({ title: 'Save Project', label: 'Saving project...' });
+            setLoading({ title: _('Save Project'), label: _('Saving project...') });
             const name = projectNameOf(out);
             // Reuse an existing record of the same name so reopening a folder
             // updates it rather than piling up duplicates.
@@ -1449,7 +1462,7 @@ export function HomePage({
      */
     activateRel?: string,
   ): Promise<void> => {
-    setLoading({ title: 'Open Project', label: 'Opening project...' });
+    setLoading({ title: 'Open Project', label: _('Opening project...') });
     await nextPaint();
     try {
       const loaded = await loadProject(id);
@@ -1615,7 +1628,7 @@ export function HomePage({
     const name = projectNameOf(picked);
     const entries = archiveEntries(picked, name);
     if (!entries) return;
-    setLoading({ title: 'Archive Project', label: 'Archiving project...' });
+    setLoading({ title: _('Archive Project'), label: _('Archiving project...') });
     await nextPaint(); // paint the overlay before zipSync blocks the main thread
     try {
       const blob = new Blob([zipArchive(entries)], { type: 'application/zip' });
@@ -2270,7 +2283,7 @@ export function HomePage({
               <div
                 className="ze-hsplitter"
                 onMouseDown={startHistoryResize}
-                title="Drag to resize"
+                title={_('Drag to resize')}
               />
               <LocalHistoryPane
                 projectId={openProjectId}
@@ -2283,7 +2296,7 @@ export function HomePage({
         </div>
 
         {/* draggable sash between the tree and the launchers (KiCad's wxAUI pane) */}
-        <div className="ze-splitter" onMouseDown={startResize} title="Drag to resize" />
+        <div className="ze-splitter" onMouseDown={startResize} title={_('Drag to resize')} />
 
         {/* launcher tiles (fixed) with the Recent Projects list scrolling below */}
         <div className="ze-launchers">
@@ -2395,15 +2408,17 @@ export function HomePage({
                   yet, which is the reason Open Project is a window and not a
                   list. */}
               <Button
-                label="Open from Computer..."
+                label={_('Open from Computer...')}
                 onClick={() => {
                   setOpenPrjOpen(false);
                   void openProjectPicker();
                 }}
               />
               <Button
-                label="Select Files..."
-                title="If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
+                label={_('Select Files...')}
+                title={_(
+                  'If the browser blocks the folder (Downloads, Desktop...), select all the project files instead',
+                )}
                 onClick={() => {
                   setOpenPrjOpen(false);
                   filesInputRef.current?.click();
@@ -2510,7 +2525,7 @@ export function HomePage({
           initialName=""
           // Only the account's own tree, which is the one place a project can
           // be created; Recent, Demos and Templates are read-only listings.
-          places={[{ id: 'projects', label: 'Projects', icon: 'open_project' }]}
+          places={[{ id: 'projects', label: _('Projects'), icon: 'open_project' }]}
           filters={NEW_PROJECT_FOLDER_FILTERS}
           onDelete={deleteEntry}
           onRenamed={renamedEntry}
@@ -2583,8 +2598,8 @@ export function HomePage({
 
       {githubUrlOpen && (
         <WX_TEXT_ENTRY_DIALOG
-          caption="Open Project from GitHub"
-          label="GitHub link:"
+          caption={_('Open Project from GitHub')}
+          label={_('GitHub link:')}
           // What to paste for what you want, for someone who has never done it: the address
           // bar's link while looking at the thing on GitHub, in each case.
           notes={[
@@ -2602,7 +2617,7 @@ export function HomePage({
             const spec = githubSpecFromUrl(value);
             if (!spec) {
               DisplayErrorMessage(
-                `"${value.trim()}" is not a link to a GitHub repository.`,
+                wxFormat(_('"%s" is not a link to a GitHub repository.'), value.trim()),
                 'Paste the address of the repository from your browser, for example https://github.com/owner/repository',
               );
               return;
@@ -2619,8 +2634,8 @@ export function HomePage({
       )}
       {githubChoice && (
         <SingleChoiceDialog
-          caption="Open Project from GitHub"
-          message="This repository holds several KiCad projects. Open which one?"
+          caption={_('Open Project from GitHub')}
+          message={_('This repository holds several KiCad projects. Open which one?')}
           choices={githubChoice.projects.map((p) => ({ value: p, label: p }))}
           onResult={(path) => {
             githubChoice.resolve(path);
@@ -2640,8 +2655,8 @@ export function HomePage({
           <span>
             {joinNotice.kind === 'joined'
               ? joinNotice.role === 'viewer'
-                ? '✓ Joined a shared project — you can view it, but not save changes to it'
-                : '✓ Joined a shared project — you can edit it'
+                ? _('✓ Joined a shared project — you can view it, but not save changes to it')
+                : _('✓ Joined a shared project — you can edit it')
               : `⚠ ${joinNotice.message}`}
           </span>
           <button type="button" className="ze-sync-dismiss" onClick={() => setJoinNotice(null)}>
@@ -2664,12 +2679,24 @@ export function HomePage({
               <span>
                 {syncState.conflicts.every((c) => c.reason === 'unreadable')
                   ? syncState.conflicts.length === 1
-                    ? `The cloud copy of "${syncState.conflicts[0]!.name}" cannot be opened with your key.`
-                    : `The cloud copies of ${syncState.conflicts.length} projects cannot be opened with your key.`
+                    ? wxFormat(
+                        _('The cloud copy of "%s" cannot be opened with your key.'),
+                        syncState.conflicts[0]!.name,
+                      )
+                    : wxFormat(
+                        _('The cloud copies of %s projects cannot be opened with your key.'),
+                        syncState.conflicts.length,
+                      )
                   : syncState.conflicts.length === 1
-                    ? `"${syncState.conflicts[0]!.name}" changed here and on another device.`
-                    : `${syncState.conflicts.length} projects changed here and on another device.`}{' '}
-                Nothing has been changed or copied.
+                    ? wxFormat(
+                        _('"%s" changed here and on another device.'),
+                        syncState.conflicts[0]!.name,
+                      )
+                    : wxFormat(
+                        _('%s projects changed here and on another device.'),
+                        syncState.conflicts.length,
+                      )}{' '}
+                {_('Nothing has been changed or copied.')}
               </span>
               {/* Two choices, and neither destroys anything. There is
                   deliberately no "take the cloud's and discard mine": that is
@@ -2680,7 +2707,7 @@ export function HomePage({
                 className="ze-sync-dismiss"
                 onClick={() => void resolveConflicts(syncState.conflicts, 'mine')}
               >
-                Keep mine
+                {_('Keep mine')}
               </button>
               {/* "Keep both" takes the cloud copy as well, which an unreadable
                   one cannot be. */}
@@ -2690,13 +2717,13 @@ export function HomePage({
                   className="ze-sync-dismiss"
                   onClick={() => void resolveConflicts(syncState.conflicts, 'both')}
                 >
-                  Keep both
+                  {_('Keep both')}
                 </button>
               )}
             </>
           ) : 'healed' in syncState ? (
             <>
-              ✓ Projects synced
+              {_('✓ Projects synced')}
               {syncState.healed > 0 &&
                 ` (${syncState.healed} damaged cloud ${
                   syncState.healed === 1 ? 'copy' : 'copies'
@@ -2706,7 +2733,7 @@ export function HomePage({
             <>
               <span>
                 ⚠ {syncState.failures.length}{' '}
-                {syncState.failures.length === 1 ? 'project' : 'projects'} did not sync:{' '}
+                {syncState.failures.length === 1 ? 'project' : 'projects'} {_('did not sync:')}{' '}
                 {syncState.failures[0]!.message}
               </span>
               {/* A damaged copy that cannot be recovered reports the same thing
@@ -2720,7 +2747,7 @@ export function HomePage({
                   className="ze-sync-dismiss"
                   onClick={() => void removeUnrecoverable(syncState.failures)}
                 >
-                  Remove damaged
+                  {_('Remove damaged')}
                 </button>
               )}
               <button type="button" className="ze-sync-dismiss" onClick={() => setSyncState(null)}>
@@ -2730,7 +2757,7 @@ export function HomePage({
           ) : (
             <>
               <span className="ze-spinner" />
-              Syncing cloud projects... {syncState.done} of {syncState.total}
+              {_('Syncing cloud projects...')} {syncState.done} of {syncState.total}
             </>
           )}
         </div>
@@ -2767,7 +2794,7 @@ export function HomePage({
             setRestoring(null);
             if (r !== 'yes') return;
             void (async () => {
-              setLoading({ title: 'Restore Project', label: 'Restoring...' });
+              setLoading({ title: _('Restore Project'), label: 'Restoring...' });
               await nextPaint();
               try {
                 const files = await restoreSnapshot(openProjectId, snapshot.id);

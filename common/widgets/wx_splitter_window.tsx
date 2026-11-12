@@ -30,6 +30,7 @@
 
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { resizeDock, type DockEdge } from '@ziroeda/wx/wx_aui_sash_geometry.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface SashProps {
   /**
@@ -73,7 +74,7 @@ export function Sash({ edge, size, min, max, onResize }: SashProps): JSX.Element
     <div
       className={`ze-sash ${vertical ? 'h' : 'v'}`}
       onPointerDown={onPointerDown}
-      title="Resize"
+      title={_('Resize')}
     />
   );
 }

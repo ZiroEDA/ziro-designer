@@ -986,7 +986,7 @@ export function PcbBottomDock({
         className="ze-splitter horizontal"
         data-testid="pcb-bottom-dock-sash"
         onMouseDown={startResize}
-        title="Drag to resize"
+        title={wxGetTranslation('Drag to resize')}
       />
       <div
         className="ze-bottomdock"
@@ -7069,7 +7069,7 @@ export function PcbEditor({
                 { value: '0', label: wxGetTranslation('Track: use netclass width') },
                 ...trackWidthList.map((w, i) => ({
                   value: String(i + 1),
-                  label: `Track: ${auxMM(w)} mm (${auxMils(w)} mils)`,
+                  label: wxFormat(wxGetTranslation('Track: %s mm (%s mils)'), auxMM(w), auxMils(w)),
                 })),
               ]}
               onChange={(v) => setTrackSel(Number(v))}
@@ -7077,7 +7077,7 @@ export function PcbEditor({
           ),
           [PCB_CONTROL.viaDiameter]: (
             <Combo
-              title="Via size"
+              title={wxGetTranslation('Via size')}
               value={String(viaSel)}
               options={[
                 { value: '0', label: wxGetTranslation('Via: use netclass sizes') },
@@ -7085,8 +7085,18 @@ export function PcbEditor({
                   value: String(i + 1),
                   label:
                     v.drill > 0
-                      ? `Via: ${auxMM(v.diameter)} / ${auxMM(v.drill)} mm (${auxMils(v.diameter)} / ${auxMils(v.drill)} mils)`
-                      : `Via: ${auxMM(v.diameter)} mm (${auxMils(v.diameter)} mils)`,
+                      ? wxFormat(
+                          wxGetTranslation('Via: %s / %s mm (%s / %s mils)'),
+                          auxMM(v.diameter),
+                          auxMM(v.drill),
+                          auxMils(v.diameter),
+                          auxMils(v.drill),
+                        )
+                      : wxFormat(
+                          wxGetTranslation('Via: %s mm (%s mils)'),
+                          auxMM(v.diameter),
+                          auxMils(v.diameter),
+                        ),
                 })),
               ]}
               onChange={(v) => setViaSel(Number(v))}
@@ -7362,7 +7372,7 @@ export function PcbEditor({
                   color: '#ff8080',
                 }}
               >
-                Couldn’t open board: {error}
+                {wxGetTranslation('Couldn’t open board:')} {error}
               </div>
             )}
           </div>
@@ -8002,7 +8012,7 @@ export function PcbEditor({
           (cvpcb_mainframe.cpp:910), the same reporter the footprint reads use. */}
       <ProgressDialog
         title={wxGetTranslation('Load Footprint Libraries')}
-        label={updatePcbBusy ? 'Loading footprint libraries...' : null}
+        label={updatePcbBusy ? wxGetTranslation('Loading footprint libraries...') : null}
       />
       <ProgressDialog title={wxGetTranslation('Load PCB')} label={loading} />
       <ProgressDialog
@@ -8079,7 +8089,9 @@ export function PcbEditor({
           title={wxGetTranslation('Select 3D Model')}
           filters={[
             {
-              label: 'All 3D models (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)',
+              label: wxGetTranslation(
+                'All 3D models (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)',
+              ),
               extensions: ['wrl', 'wrz', 'step', 'stp', 'stpz', 'iges', 'igs'],
             },
           ]}
@@ -8696,7 +8708,7 @@ export function PcbEditor({
       {dbNewLibrary && (
         <WxTextEntryDialog
           caption={dbNewLibrary.title}
-          message="Library name:"
+          message={wxGetTranslation('Library name:')}
           {...(dbNewLibrary.hook
             ? { extra: <FileDlgHookNewLibraryControls hook={dbNewLibrary.hook} /> }
             : {})}

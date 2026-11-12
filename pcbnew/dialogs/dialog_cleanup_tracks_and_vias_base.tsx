@@ -85,7 +85,7 @@ export function DIALOG_CLEANUP_TRACKS_AND_VIAS_BASE(
   p: DIALOG_CLEANUP_TRACKS_AND_VIAS_BASE_PROPS,
 ): JSX.Element {
   return (
-    <DialogShim title="Cleanup Tracks & Vias" onClose={p.onCancel}>
+    <DialogShim title={_('Cleanup Tracks & Vias')} onClose={p.onCancel}>
       {/* bSizerMain */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem flag={wxEXPAND | wxALL} border={5}>
@@ -178,7 +178,7 @@ export function DIALOG_CLEANUP_TRACKS_AND_VIAS_BASE(
                       <Choice
                         choices={p.m_netclassFilterChoices}
                         choice={p.m_netclassFilter}
-                        ariaLabel="Net class filter"
+                        ariaLabel={_('Net class filter')}
                       />
                     </SizerItem>
                     <Spacer width={0} height={7} proportion={1} flag={wxEXPAND} border={5} />
@@ -191,7 +191,7 @@ export function DIALOG_CLEANUP_TRACKS_AND_VIAS_BASE(
                         value={p.m_layerFilter.value}
                         options={p.m_layerFilter.rows}
                         onChange={p.m_layerFilter.onChange}
-                        ariaLabel="Layer filter"
+                        ariaLabel={_('Layer filter')}
                       />
                     </SizerItem>
                     <Spacer width={0} height={7} proportion={1} flag={wxEXPAND} border={5} />
@@ -234,7 +234,7 @@ export function DIALOG_CLEANUP_TRACKS_AND_VIAS_BASE(
                       <StaticText label={_('Progress:')} />
                     </SizerItem>
                     <SizerItem proportion={1} flag={wxEXPAND | RL} border={3}>
-                      <TextCtrl value={p.m_tcReport} multiLine readOnly ariaLabel="Progress" />
+                      <TextCtrl value={p.m_tcReport} multiLine readOnly ariaLabel={_('Progress')} />
                     </SizerItem>
                   </BoxSizer>,
                 ]}

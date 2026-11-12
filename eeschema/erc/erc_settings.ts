@@ -214,7 +214,7 @@ export const ERC_ITEMS: { code: ErcCode; title: string; group: ErcGroup }[] = [
   },
   {
     code: 'same_local_global_power',
-    title: 'Local and global power symbols have same name',
+    title: _HKI('Local and global power symbols have same name'),
     group: 'Connections',
   },
   { code: 'wire_dangling', title: _HKI('Wires not connected to anything'), group: 'Connections' },
@@ -314,22 +314,22 @@ export const ERC_ITEMS: { code: ErcCode; title: string; group: ErcGroup }[] = [
   },
   {
     code: 'pin_map_bad_pad',
-    title: 'Pin map references a pad that does not exist on the footprint',
+    title: _HKI('Pin map references a pad that does not exist on the footprint'),
     group: 'Miscellaneous',
   },
   {
     code: 'pin_map_unmapped_pin',
-    title: 'Connected pin is not mapped to any footprint pad',
+    title: _HKI('Connected pin is not mapped to any footprint pad'),
     group: 'Miscellaneous',
   },
   {
     code: 'pin_map_duplicate_pad',
-    title: 'Two symbol pins are mapped to the same footprint pad',
+    title: _HKI('Two symbol pins are mapped to the same footprint pad'),
     group: 'Miscellaneous',
   },
   {
     code: 'pin_map_stale_pin',
-    title: 'Pin map references a pin number that no longer exists on the symbol',
+    title: _HKI('Pin map references a pin number that no longer exists on the symbol'),
     group: 'Miscellaneous',
   },
   { code: 'unannotated', title: _HKI('Symbol is not annotated'), group: 'Miscellaneous' },

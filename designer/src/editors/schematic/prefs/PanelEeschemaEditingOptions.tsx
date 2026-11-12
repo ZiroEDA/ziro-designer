@@ -60,7 +60,7 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
               wxBOTTOM on the label at all. */}
           <Sel
             label={_('Arc editing mode:')}
-            ariaLabel="Arc editing mode"
+            ariaLabel={_('Arc editing mode')}
             stacked={ARC_MODE_STACK}
             value={eeschema.drawing.arc_edit_mode}
             options={[
@@ -185,9 +185,9 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
               dimmed it to #9aa0a6, and drawing it on ONE line is what made this
               column wide enough to push the right-hand one off the dialog. */}
           <div className="ze-pref-hint">
-            Left click (and drag) actions depend on 2 modifier keys:
+            {_('Left click (and drag) actions depend on 2 modifier keys:')}
             <br />
-            Shift and Ctrl
+            {_('Shift and Ctrl')}
           </div>
           <table className="ze-pref-mouse">
             <tbody>

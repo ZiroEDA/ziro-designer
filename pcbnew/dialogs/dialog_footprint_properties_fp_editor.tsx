@@ -345,7 +345,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR {
       if (field.GetTextWidth() < minSize || field.GetTextWidth() > maxSize)
         return {
           ok: false,
-          message: `The text width must be between ${range}.`,
+          message: wxFormat(_('The text width must be between %s.'), range),
           page: 'general',
           fieldRow: i,
         };
@@ -353,7 +353,7 @@ export class DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR {
       if (field.GetTextHeight() < minSize || field.GetTextHeight() > maxSize)
         return {
           ok: false,
-          message: `The text height must be between ${range}.`,
+          message: wxFormat(_('The text height must be between %s.'), range),
           page: 'general',
           fieldRow: i,
         };
@@ -541,7 +541,11 @@ export class DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR {
           // footprint, outside the undo list.
           return {
             ok: false,
-            message: `Pad '${token}' in jumper pad group ${ii + 1} does not exist in this footprint.`,
+            message: wxFormat(
+              _("Pad '%s' in jumper pad group %s does not exist in this footprint."),
+              token,
+              ii + 1,
+            ),
           };
         }
 

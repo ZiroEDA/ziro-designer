@@ -17,6 +17,7 @@ import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_men
 import type { ProjectMeta } from './projectStore.js';
 import type { DemoMeta } from './demos.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const SEP: MenuItem = { sep: true };
 
@@ -85,7 +86,7 @@ const importSubmenu = (h: ManagerMenuHandlers): MenuItem[] =>
 /** The bundled demos as a submenu; simulation examples group under their own
  * flyout so the list stays scannable (32 demos ship today). */
 function buildDemoSubmenu(h: ManagerMenuHandlers): MenuItem[] {
-  if (h.demos.length === 0) return [{ label: '(no demos bundled)', disabled: true }];
+  if (h.demos.length === 0) return [{ label: _('(no demos bundled)'), disabled: true }];
   const entry = (d: DemoMeta): MenuItem => ({ label: d.title, action: () => h.openDemo(d.id) });
   const sims = h.demos.filter((d) => d.id.startsWith('simulation/'));
   const rest = h.demos.filter((d) => !d.id.startsWith('simulation/'));
@@ -125,16 +126,16 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         // credentials; a browser cannot reach git hosts' smart-HTTP endpoints,
         // so this is the web take (#640): a public GitHub repository's project,
         // opened read-only like a demo. Not "Clone": nothing is cloned.
-        { label: 'Open Project from GitHub...', action: h.openFromGithub },
+        { label: _('Open Project from GitHub...'), action: h.openFromGithub },
         // Upstream shows this only when the stock demos path exists; ours
         // lists the bundled demos as a submenu (the web take on its picker).
         {
-          label: 'Open Demo Project',
+          label: _('Open Demo Project'),
           submenu: buildDemoSubmenu(h),
         },
         { label: _HKI('Open Project...'), icon: 'open', shortcut: 'Ctrl+O', action: h.openProject },
         // Web-only: fallback when the browser blocks the folder picker.
-        { label: 'Select Project Files...', action: h.selectProjectFiles },
+        { label: _('Select Project Files...'), action: h.selectProjectFiles },
         openRecentItem,
         SEP,
         { label: _HKI('New Jobset File...'), disabled: true }, // jobs system not yet built
@@ -256,7 +257,7 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         // external editor to launch from a tab, so this opens the selected file
         // in the viewer we have - the one deliberate reinterpretation here.
         {
-          label: 'Open Text Viewer',
+          label: _('Open Text Viewer'),
           action: h.openTextViewer,
           disabled: !h.hasTextFileSelected,
         },

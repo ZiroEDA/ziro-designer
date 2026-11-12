@@ -73,7 +73,7 @@ export function PANEL_SETUP_TUNING_PROFILE_INFO_BASE(
           <SizerItem flag={wxBOTTOM | wxLEFT | wxTOP} border={5}>
             <StdBitmapButton
               bitmap="small_plus"
-              title="Add track propagation row"
+              title={_('Add track propagation row')}
               tooltip={null}
               onClick={p.onAddTrackRow}
             />
@@ -82,7 +82,7 @@ export function PANEL_SETUP_TUNING_PROFILE_INFO_BASE(
           <SizerItem flag={wxBOTTOM | wxLEFT | wxTOP} border={5}>
             <StdBitmapButton
               bitmap="small_trash"
-              title="Remove track propagation row"
+              title={_('Remove track propagation row')}
               tooltip={null}
               onClick={p.onRemoveTrackRow}
             />
@@ -110,7 +110,7 @@ export function PANEL_SETUP_TUNING_PROFILE_INFO_BASE(
               value={p.m_viaPropagationSpeed.value}
               onChange={p.m_viaPropagationSpeed.onChange}
               onBlur={p.m_viaPropagationSpeed.onBlur}
-              ariaLabel="Global unit delay"
+              ariaLabel={_('Global unit delay')}
             />
           </SizerItem>
           <SizerItem flag={CV | wxTOP | wxBOTTOM | wxRIGHT} border={5}>
@@ -131,7 +131,7 @@ export function PANEL_SETUP_TUNING_PROFILE_INFO_BASE(
           <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
             <StdBitmapButton
               bitmap="small_plus"
-              title="Add via delay override"
+              title={_('Add via delay override')}
               tooltip={null}
               onClick={p.onAddViaOverride}
             />
@@ -140,7 +140,7 @@ export function PANEL_SETUP_TUNING_PROFILE_INFO_BASE(
           <SizerItem flag={wxBOTTOM | wxLEFT} border={5}>
             <StdBitmapButton
               bitmap="small_trash"
-              title="Remove via delay override"
+              title={_('Remove via delay override')}
               tooltip={null}
               onClick={p.onRemoveViaOverride}
             />
@@ -179,7 +179,7 @@ export function PANEL_SETUP_TUNING_PROFILE_INFO_BASE(
               value={p.m_targetImpedance.value}
               onChange={p.m_targetImpedance.onChange}
               maxLength={15}
-              ariaLabel="Target impedance"
+              ariaLabel={_('Target impedance')}
             />
           </SizerItem>
           <SizerItem flag={wxALL | wxRIGHT | CV} border={5}>

@@ -78,7 +78,7 @@ export function DIALOG_IMPORT_SETTINGS_BASE(p: DIALOG_IMPORT_SETTINGS_BASE_PROPS
               <TextCtrl
                 value={p.m_filePathCtrl.value}
                 onChange={p.m_filePathCtrl.onChange}
-                ariaLabel="Import from"
+                ariaLabel={_('Import from')}
                 title={_(
                   'Target directory for plot files. Can be absolute or relative to the board file location.',
                 )}

@@ -6,6 +6,8 @@ import { downloadRecoveryZip, getRecoverySnapshot } from '../home/recovery.js';
 import { SENTRY } from '@ziroeda/common/app_monitor.js';
 import { HandleException } from '@ziroeda/common/pgm_base.js';
 import './errorBoundary.css';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 interface Props {
   children: ReactNode;
@@ -58,37 +60,41 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="ze-crash">
         <div className="ze-crash-card">
-          <h1 className="ze-crash-title">ZiroEDA hit an unexpected error</h1>
+          <h1 className="ze-crash-title">{_('ZiroEDA hit an unexpected error')}</h1>
 
           {snap ? (
             <>
               <p className="ze-crash-body">
-                Your project is still in memory. Download it before reloading, reloading will
-                discard anything that hasn't been saved.
+                {_(
+                  "Your project is still in memory. Download it before reloading, reloading will discard anything that hasn't been saved.",
+                )}
               </p>
               <div className="ze-crash-actions">
                 <button type="button" className="ze-crash-btn primary" onClick={this.onSave}>
-                  {saved ? 'Downloaded' : `Download ${snap.name}.zip`}
+                  {saved ? _('Downloaded') : wxFormat(_('Download %s.zip'), snap.name)}
                 </button>
                 <button
                   type="button"
                   className="ze-crash-btn"
                   onClick={() => window.location.reload()}
                 >
-                  {saved ? 'Reload' : 'Reload without saving'}
+                  {saved ? _('Reload') : _('Reload without saving')}
                 </button>
               </div>
               {saved === false && (
                 <p className="ze-crash-warn">
-                  The download failed. Copy the error below and report it, please don't reload, your
-                  work is still recoverable from this tab.
+                  {_(
+                    "The download failed. Copy the error below and report it, please don't reload, your work is still recoverable from this tab.",
+                  )}
                 </p>
               )}
             </>
           ) : (
             <>
               <p className="ze-crash-body">
-                No open project was in memory, so nothing was lost. Reloading should get you back.
+                {_(
+                  'No open project was in memory, so nothing was lost. Reloading should get you back.',
+                )}
               </p>
               <div className="ze-crash-actions">
                 <button
@@ -96,7 +102,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   className="ze-crash-btn primary"
                   onClick={() => window.location.reload()}
                 >
-                  Reload
+                  {_('Reload')}
                 </button>
               </div>
             </>
@@ -104,13 +110,14 @@ export class ErrorBoundary extends Component<Props, State> {
 
           {SENTRY.Instance().IsOptedIn() && (
             <p className="ze-crash-note">
-              An anonymous crash report was sent so we can fix this. It contains the error below and
-              no project data. You can turn reports off in Preferences → Common → Privacy.
+              {_(
+                'An anonymous crash report was sent so we can fix this. It contains the error below and no project data. You can turn reports off in Preferences → Common → Privacy.',
+              )}
             </p>
           )}
 
           <details className="ze-crash-details">
-            <summary>Error details</summary>
+            <summary>{_('Error details')}</summary>
             <pre>{error.stack || String(error)}</pre>
           </details>
         </div>

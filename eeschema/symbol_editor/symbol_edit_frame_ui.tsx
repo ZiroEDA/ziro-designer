@@ -1327,7 +1327,7 @@ export function SymbolEditor({
            */
           [SYM_CONTROL.bodyStyleSelector]: (
             <Combo
-              title="Select body style"
+              title={wxGetTranslation('Select body style')}
               style={{ width: LISTBOX_WIDTH }}
               disabled={!multiBody}
               value={String(frame.GetBodyStyle())}
@@ -1348,7 +1348,7 @@ export function SymbolEditor({
           /** The same function's first half (:737-758). */
           [SYM_CONTROL.unitSelector]: (
             <Combo
-              title="Select unit to edit"
+              title={wxGetTranslation('Select unit to edit')}
               style={{ width: LISTBOX_WIDTH }}
               disabled={unitCount < 2}
               value={String(frame.GetUnit())}
@@ -1379,8 +1379,8 @@ export function SymbolEditor({
                   {treeAdapter.tree.children.length === 0 &&
                     app.LibraryLoadingPanel({
                       kind: 'symbols',
-                      fallback: <div className="ze-muted">No libraries</div>,
-                      label: 'Loading symbol libraries...',
+                      fallback: <div className="ze-muted">{wxGetTranslation('No libraries')}</div>,
+                      label: wxGetTranslation('Loading symbol libraries...'),
                     })}
                   {/* SYMBOL_TREE_PANE: one LIB_TREE, SEARCH | MULTISELECT, no DETAILS. */}
                   <LibTree
@@ -1428,7 +1428,11 @@ export function SymbolEditor({
                   />
                 )}
             </div>
-            <div className="ze-splitter" onMouseDown={startResize} title="Drag to resize" />
+            <div
+              className="ze-splitter"
+              onMouseDown={startResize}
+              title={wxGetTranslation('Drag to resize')}
+            />
           </>
         )}
 
@@ -1500,7 +1504,7 @@ export function SymbolEditor({
       {libraryNameRequest && (
         <WxTextEntryDialog
           caption={libraryNameRequest.title}
-          message="Library name:"
+          message={wxGetTranslation('Library name:')}
           value={libraryNameRequest.name}
           {...(libraryNameRequest.hook
             ? { extra: customizeHookControls(libraryNameRequest.hook) }
@@ -1580,7 +1584,7 @@ export function SymbolEditor({
       )}
       {prefsOpen &&
         app.PreferencesDialog({ onClose: () => setPrefsOpen(false), frameOwner: 'symbol' })}
-      <ProgressDialog title="Load Symbol Libraries" label={null} />
+      <ProgressDialog title={wxGetTranslation('Load Symbol Libraries')} label={null} />
     </div>
   );
 }

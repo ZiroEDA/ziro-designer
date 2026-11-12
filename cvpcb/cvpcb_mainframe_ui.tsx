@@ -1544,7 +1544,8 @@ export function DialogAssignFootprints({
               }}
               render={(i) => <span>{libRows[i]}</span>}
             />
-            {!indexLoaded && app.LibraryLoadingPanel({ label: 'Loading footprint libraries...' })}
+            {!indexLoaded &&
+              app.LibraryLoadingPanel({ label: _('Loading footprint libraries...') })}
           </section>
 
           {/* wxAUI puts a sash between a docked pane and the centre one, so all
@@ -1586,7 +1587,9 @@ export function DialogAssignFootprints({
               }}
             />
             {components.length === 0 && (
-              <div className="ze-fpassign-empty">No symbols, place and annotate symbols first.</div>
+              <div className="ze-fpassign-empty">
+                {_('No symbols, place and annotate symbols first.')}
+              </div>
             )}
           </section>
 
@@ -1615,7 +1618,8 @@ export function DialogAssignFootprints({
               }}
               render={(i) => <span>{footprintRows[i]}</span>}
             />
-            {!indexLoaded && app.LibraryLoadingPanel({ label: 'Loading footprint libraries...' })}
+            {!indexLoaded &&
+              app.LibraryLoadingPanel({ label: _('Loading footprint libraries...') })}
           </section>
         </div>
 

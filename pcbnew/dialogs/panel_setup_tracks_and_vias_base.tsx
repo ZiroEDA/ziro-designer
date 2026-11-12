@@ -22,6 +22,7 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer } from '@ziroeda/wx/sizer.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export interface SIZE_GRID {
   grid: ReactNode;
@@ -57,7 +58,7 @@ export function PANEL_SETUP_TRACKS_AND_VIAS_BASE(
           <SizerItem flag={wxBOTTOM | wxRIGHT} border={5}>
             <StdBitmapButton
               bitmap="small_plus"
-              title={`${aTitle}: add`}
+              title={wxFormat(_('%s: add'), aTitle)}
               tooltip={null}
               onClick={g.onAdd}
             />
@@ -65,7 +66,7 @@ export function PANEL_SETUP_TRACKS_AND_VIAS_BASE(
           <SizerItem flag={wxRIGHT | wxLEFT} border={5}>
             <StdBitmapButton
               bitmap="small_sort_desc"
-              title={`${aTitle}: sort`}
+              title={wxFormat(_('%s: sort'), aTitle)}
               tooltip={null}
               onClick={g.onSort}
             />
@@ -74,7 +75,7 @@ export function PANEL_SETUP_TRACKS_AND_VIAS_BASE(
           <SizerItem flag={wxLEFT | wxRIGHT} border={aTracks ? 25 : 5}>
             <StdBitmapButton
               bitmap="small_trash"
-              title={`${aTitle}: remove`}
+              title={wxFormat(_('%s: remove'), aTitle)}
               tooltip={null}
               onClick={g.onRemove}
             />

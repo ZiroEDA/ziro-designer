@@ -163,19 +163,21 @@ export function PanelRCalculator(): JSX.Element {
         <div className="calc-help-body">
           <ul>
             <li>
-              This calculator finds combinations of standard E-series (between 10Ω and 1MΩ) to
-              create arbitrary values.
+              {_(
+                'This calculator finds combinations of standard E-series (between 10Ω and 1MΩ) to create arbitrary values.',
+              )}
             </li>
-            <li>You can enter the required resistance from 0.0025 to 4000 kΩ.</li>
-            <li>Solutions using up to 4 components are given.</li>
+            <li>{_('You can enter the required resistance from 0.0025 to 4000 kΩ.')}</li>
+            <li>{_('Solutions using up to 4 components are given.')}</li>
           </ul>
           <p>
-            The requested value is always excluded from the solution set.
+            {_('The requested value is always excluded from the solution set.')}
             <br />
-            Optionally up to two additional values can be excluded in case of component availability
-            problems.
+            {_(
+              'Optionally up to two additional values can be excluded in case of component availability problems.',
+            )}
           </p>
-          <p>Solutions are given in the following formats:</p>
+          <p>{_('Solutions are given in the following formats:')}</p>
           <pre>
             {'R1 + R2 +...+ Rn\tresistors in series\n' +
               'R1 | R2 |...| Rn\tresistors in parallel\n' +

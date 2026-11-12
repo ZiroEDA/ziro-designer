@@ -150,7 +150,7 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                   <TextCtrl
                     value={p.m_txtLeaderValue.value}
                     onChange={p.m_txtLeaderValue.onChange}
-                    ariaLabel="Leader text"
+                    ariaLabel={_('Leader text')}
                   />
                 </SizerItem>
                 <Spacer width={60} height={0} pos={[0, 2]} flag={wxEXPAND} border={5} />
@@ -169,7 +169,7 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                     choices={[_('None'), _('Rectangle'), _('Circle')]}
                     choice={p.m_cbTextFrame}
                     title={_('Draw a shape around the leader text')}
-                    ariaLabel="Text frame"
+                    ariaLabel={_('Text frame')}
                   />
                 </SizerItem>
                 <SizerItem pos={[1, 0]} flag={CV | wxBOTTOM | wxRIGHT | wxLEFT} border={5}>
@@ -184,7 +184,7 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                     value={p.m_cbLeaderLayer.value}
                     options={p.m_cbLeaderLayer.rows}
                     onChange={p.m_cbLeaderLayer.onChange}
-                    ariaLabel="Leader layer"
+                    ariaLabel={_('Leader layer')}
                   />
                 </SizerItem>
               </GridBagSizer>
@@ -208,7 +208,7 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                     value={p.m_cbCenterLayer.value}
                     options={p.m_cbCenterLayer.rows}
                     onChange={p.m_cbCenterLayer.onChange}
-                    ariaLabel="Center layer"
+                    ariaLabel={_('Center layer')}
                   />
                 </SizerItem>
               </GridBagSizer>
@@ -285,7 +285,7 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                     choices={['1234', _('1234 mm'), _('1234 (mm)')]}
                     choice={p.m_cbUnitsFormat}
                     title={_('Choose how to display the units')}
-                    ariaLabel="Units format"
+                    ariaLabel={_('Units format')}
                   />
                 </SizerItem>
                 <SizerItem pos={[2, 0]} flag={CV | wxRIGHT} border={5}>
@@ -484,7 +484,7 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                     choices={[_('Outside'), _('Inline'), _('Manual')]}
                     choice={p.m_cbTextPositionMode}
                     title={_('Choose how to position the text relative to the dimension line')}
-                    ariaLabel="Position mode"
+                    ariaLabel={_('Position mode')}
                   />
                 </SizerItem>
                 <SizerItem pos={[4, 4]} span={[1, 3]} flag={CV | wxTOP} border={5}>
@@ -530,7 +530,7 @@ export function DIALOG_DIMENSION_PROPERTIES_BASE(
                     title={_(
                       'Chose Dimension Arrow Direction\nAutomatic: Determined based on text position.\nInward:    >-----<\nOutward: <----->',
                     )}
-                    ariaLabel="Arrow direction"
+                    ariaLabel={_('Arrow direction')}
                   />
                 </SizerItem>
               </GridBagSizer>

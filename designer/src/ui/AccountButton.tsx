@@ -42,6 +42,8 @@ import {
 import { avatarColorFor } from '../auth/avatar_color.js';
 import { profileInitial } from '../auth/profile.js';
 import { useDismissOnOutside } from '@ziroeda/common/widgets/use_dismiss_on_outside.js';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export function AccountButton({
   email,
@@ -155,8 +157,8 @@ export function AccountButton({
       <button
         type="button"
         className={`ze-account-avatar${email === null ? ' guest' : ''}`}
-        title={email ?? 'Account'}
-        aria-label={email === null ? 'Account' : `Account: ${email}`}
+        title={email ?? _('Account')}
+        aria-label={email === null ? _('Account') : wxFormat(_('Account: %s'), email)}
         // The reference's avatar: a disc in a colour picked from the address,
         // the initial in white on it. Only when there is no picture to show;
         // signed out, a ring with a person glyph in it and no fill.

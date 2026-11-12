@@ -38,6 +38,7 @@ import { wxReadFileSync } from '@ziroeda/wx/filefn.js';
 import { wxEVT_GRID_CELL_CHANGING, type wxGridEvent } from '@ziroeda/wx/grid.js';
 import { type GRID_COLUMN_VIEW, WxGridView } from '@ziroeda/wx/grid_ui.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 export type LIB_TABLE_NOTEBOOK = wxAuiNotebook<LIB_TABLE_NOTEBOOK_PANEL>;
 
@@ -191,7 +192,7 @@ export class LIB_TABLE_NOTEBOOK_PANEL {
 
     if (!saved.ok) {
       void ShowKicadMessageDialog({
-        message: `Error saving nested library table:\n\n${saved.error.message}`,
+        message: wxFormat(_('Error saving nested library table:\n\n%s'), saved.error.message),
         caption: _('File Save Error'),
         style: wxOK | wxICON_ERROR,
       });

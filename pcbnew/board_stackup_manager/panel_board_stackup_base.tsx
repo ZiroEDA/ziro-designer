@@ -158,7 +158,7 @@ export function PANEL_SETUP_BOARD_STACKUP_BASE(
               value={p.m_tcCTValue}
               readOnly
               minWidthText={p.minWidthText}
-              ariaLabel="Board thickness from stackup"
+              ariaLabel={wxGetTranslation('Board thickness from stackup')}
             />
           </SizerItem>
           <Spacer width={10} height={0} flag={wxEXPAND} border={5} />

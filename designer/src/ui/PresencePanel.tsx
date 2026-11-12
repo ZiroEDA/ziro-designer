@@ -15,6 +15,7 @@ import { Combo } from '@ziroeda/wx/controls.js';
 import { useEffect, useRef, type JSX } from 'react';
 import type { PeerRole, PresenceInfo } from '@ziroeda/eeschema/browser/project_sync_transport.js';
 import { peerColor } from '../sync/peerColor.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 const ROLE_LABEL: Record<PeerRole, string> = {
   owner: 'Owner',
@@ -54,14 +55,14 @@ function PresenceRow({
       <span className="ze-presence-dot" style={{ background: color }} />
       <span className="ze-presence-name">
         {label}
-        {isSelf ? ' (you)' : ''}
+        {isSelf ? _(' (you)') : ''}
       </span>
       {onSetRole ? (
         <Combo
           value={String(role)}
           options={[
             { value: String('editor'), label: 'Editor' },
-            { value: String('viewer'), label: 'Viewer' },
+            { value: String('viewer'), label: _('Viewer') },
           ]}
           className="ze-presence-role-select"
           onChange={(aValue) => onSetRole(aValue as 'editor' | 'viewer')}
@@ -93,7 +94,7 @@ export function PresencePanel({ me, peers, onSetRole, onClose }: PresencePanelPr
     <div
       ref={ref}
       className="ze-presence-panel"
-      aria-label="Who's here"
+      aria-label={_("Who's here")}
       data-testid="presence-panel"
       tabIndex={-1}
       onBlur={(e) => {

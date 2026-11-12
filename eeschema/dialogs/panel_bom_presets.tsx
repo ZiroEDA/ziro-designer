@@ -77,7 +77,11 @@ export function PanelBomPresets({ value, onChange }: Props): JSX.Element {
       }
       onDeleteBomPreset={() => onDelete(bomGrid, 'presets')}
       m_bomFmtPresetsGrid={
-        <WxGridView grid={fmtGrid} columns={[{ width: 420 }]} ariaLabel="BOM formatting presets" />
+        <WxGridView
+          grid={fmtGrid}
+          columns={[{ width: 420 }]}
+          ariaLabel={_('BOM formatting presets')}
+        />
       }
       onDeleteBomFmtPreset={() => onDelete(fmtGrid, 'fmtPresets')}
     />

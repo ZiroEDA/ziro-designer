@@ -337,7 +337,7 @@ export function DIALOG_CREATE_ARRAY_BASE(p: DIALOG_CREATE_ARRAY_BASE_PROPS): JSX
                 <Choice
                   choices={p.numberingChoices}
                   choice={p.m_choicePriAxisNumbering}
-                  ariaLabel="Primary axis numbering"
+                  ariaLabel={_('Primary axis numbering')}
                 />
               </SizerItem>
               <SizerItem flag={wxTOP | wxRIGHT | wxLEFT} border={5}>
@@ -350,7 +350,7 @@ export function DIALOG_CREATE_ARRAY_BASE(p: DIALOG_CREATE_ARRAY_BASE_PROPS): JSX
                 <Choice
                   choices={p.numberingChoices}
                   choice={p.m_choiceSecAxisNumbering}
-                  ariaLabel="Secondary axis numbering"
+                  ariaLabel={_('Secondary axis numbering')}
                 />
               </SizerItem>
               <SizerItem flag={wxEXPAND} border={5}>
@@ -525,7 +525,7 @@ export function DIALOG_CREATE_ARRAY_BASE(p: DIALOG_CREATE_ARRAY_BASE_PROPS): JSX
                 <Choice
                   choices={p.numberingChoices}
                   choice={p.m_choiceCircNumbering}
-                  ariaLabel="Pad Numbering"
+                  ariaLabel={_('Pad Numbering')}
                 />
               </SizerItem>
               <SizerItem flag={wxEXPAND} border={5}>

@@ -173,7 +173,10 @@ export function WidgetHotkeyList({
           <span className="desc">{_('Description')}</span>
         </div>
         {shown.length === 0 ? (
-          <div className="ze-hotkeys-empty">No hotkeys match “{filter}”.</div>
+          <div className="ze-hotkeys-empty">
+            {_('No hotkeys match “')}
+            {filter}”.
+          </div>
         ) : (
           shown.map((s) => {
             // A filter that matched something opens the section it matched in,
@@ -236,7 +239,12 @@ export function WidgetHotkeyList({
                           className={`key${isBrowserReserved(e.keys) ? ' taken' : ''}`}
                           title={
                             isBrowserReserved(e.keys)
-                              ? `${e.keys} belongs to the browser and cannot be intercepted by a page. It reaches ZiroEDA only in fullscreen.`
+                              ? wxFormat(
+                                  _(
+                                    '%s belongs to the browser and cannot be intercepted by a page. It reaches ZiroEDA only in fullscreen.',
+                                  ),
+                                  e.keys,
+                                )
                               : undefined
                           }
                         >

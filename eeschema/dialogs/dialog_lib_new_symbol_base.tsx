@@ -139,7 +139,7 @@ export function DIALOG_LIB_NEW_SYMBOL_BASE(p: DIALOG_LIB_NEW_SYMBOL_BASE_PROPS):
                     stringList={p.symbolNames}
                     value={p.m_comboInheritanceSelect}
                     onChange={p.onParentSymbolSelect}
-                    ariaLabel="Derive from existing symbol"
+                    ariaLabel={_('Derive from existing symbol')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -153,7 +153,7 @@ export function DIALOG_LIB_NEW_SYMBOL_BASE(p: DIALOG_LIB_NEW_SYMBOL_BASE_PROPS):
                     value={p.m_textReference.value}
                     onChange={p.onReference}
                     disabled={!p.m_textReference.enabled}
-                    ariaLabel="Default reference designator"
+                    ariaLabel={_('Default reference designator')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
@@ -170,7 +170,7 @@ export function DIALOG_LIB_NEW_SYMBOL_BASE(p: DIALOG_LIB_NEW_SYMBOL_BASE_PROPS):
                     min={1}
                     max={64}
                     disabled={!p.m_spinPartCount.enabled}
-                    ariaLabel="Number of units per package"
+                    ariaLabel={_('Number of units per package')}
                   />
                 </SizerItem>
               </FlexGridSizer>
@@ -257,7 +257,7 @@ export function DIALOG_LIB_NEW_SYMBOL_BASE(p: DIALOG_LIB_NEW_SYMBOL_BASE_PROPS):
                     value={p.m_textPinTextPosition.value}
                     onChange={p.onPinTextPosition}
                     disabled={!p.m_textPinTextPosition.enabled}
-                    ariaLabel="Pin name position offset"
+                    ariaLabel={_('Pin name position offset')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>

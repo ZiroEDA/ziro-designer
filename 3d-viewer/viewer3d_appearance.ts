@@ -29,6 +29,7 @@ import {
 import type { PlotLayerSelection } from './board_3d_layers.js';
 import { wxGetTranslation } from '@ziroeda/wx/translation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /**
  * `LAYER_3D_ID` (include/layer_ids.h:548-622) plus the three `GAL_LAYER_ID`s
@@ -127,7 +128,7 @@ export const APPEARANCE_ROWS_3D: readonly (AppearanceRow3d | null)[] = [
   ...Array.from({ length: 45 }, (_, i) => ({
     label: `User.${i + 1}`,
     id: userFlag(i + 1),
-    tooltip: `Show user defined layer ${i + 1}`,
+    tooltip: wxFormat(wxGetTranslation('Show user defined layer %s'), i + 1),
   })),
   null,
   {
@@ -174,7 +175,7 @@ export const APPEARANCE_ROWS_3D: readonly (AppearanceRow3d | null)[] = [
     tooltip: _HKI('Do not clip silk layers to board outline'),
   },
   null,
-  { label: _HKI('3D Navigator'), id: 'LAYER_3D_NAVIGATOR', tooltip: 'Show 3D navigator' },
+  { label: _HKI('3D Navigator'), id: 'LAYER_3D_NAVIGATOR', tooltip: _HKI('Show 3D navigator') },
   {
     label: _HKI('Background Start'),
     id: 'LAYER_3D_BACKGROUND_TOP',

@@ -267,7 +267,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
                     value={p.m_textSizeCtrl}
                     onChange={p.onTextSize}
                     onEnter={p.onOK}
-                    ariaLabel="Text size"
+                    ariaLabel={_('Text size')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={3}>
@@ -279,7 +279,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
                 <Spacer width={5} height={0} border={5} />
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                   {/* m_panelBorderColor1 */}
-                  <SwatchPanel label="Text color" s={p.m_textColorSwatch} />
+                  <SwatchPanel label={_('Text color')} s={p.m_textColorSwatch} />
                 </SizerItem>
               </BoxSizer>
             </SizerItem>
@@ -304,7 +304,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
                     onChange={p.onBorderWidth}
                     onEnter={p.onOK}
                     disabled={!p.borderEnabled}
-                    ariaLabel="Border width"
+                    ariaLabel={_('Border width')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={3}>
@@ -316,7 +316,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
                 <Spacer width={5} height={0} border={5} />
                 <SizerItem flag={wxALIGN_CENTER_VERTICAL} border={5}>
                   {/* m_panelBorderColor */}
-                  <SwatchPanel label="Border color" s={p.m_borderColorSwatch} />
+                  <SwatchPanel label={_('Border color')} s={p.m_borderColorSwatch} />
                 </SizerItem>
               </BoxSizer>
             </SizerItem>
@@ -339,7 +339,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
             >
               {/* m_borderStyleCombo: wxBitmapComboBox, wxCB_READONLY */}
               <Combo
-                ariaLabel="Border style"
+                ariaLabel={_('Border style')}
                 value={p.m_borderStyleCombo}
                 disabled={!p.borderEnabled}
                 options={p.borderStyles}
@@ -398,7 +398,7 @@ export function DIALOG_TEXT_PROPERTIES_BASE(p: DIALOG_TEXT_PROPERTIES_BASE_PROPS
                     menuText={p.hyperlinkMenuText}
                     onChange={p.onHyperlinkText}
                     onSelect={p.onHyperlinkCombo}
-                    ariaLabel="Link"
+                    ariaLabel={_('Link')}
                   />
                 </SizerItem>
               </BoxSizer>

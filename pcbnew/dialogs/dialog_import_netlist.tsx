@@ -49,7 +49,7 @@ import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 /** `FILEEXT::NetlistFileWildcard()`. */
 export const NETLIST_FILE_FILTER: ChooserFilter = {
-  label: 'KiCad netlist files (*.net)',
+  label: _HKI('KiCad netlist files (*.net)'),
   extensions: ['net'],
 };
 

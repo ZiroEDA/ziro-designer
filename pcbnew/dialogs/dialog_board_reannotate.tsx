@@ -839,7 +839,7 @@ export function DialogBoardReannotate({
         ...reportLines(`${message1}<br/>${message2}${badrefdes}<br/>`, RPT_SEVERITY_WARNING),
       );
 
-      if (!(await IsOK(`${message1}\n${message2}\n \nReannotate anyway?`))) {
+      if (!(await IsOK(wxFormat(_('%s\n%s\n \nReannotate anyway?'), message1, message2)))) {
         done();
         return;
       }

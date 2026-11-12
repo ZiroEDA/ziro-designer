@@ -307,7 +307,7 @@ export function DIALOG_TEXTBOX_PROPERTIES_BASE(
                 options={p.m_borderStyleCombo.rows}
                 disabled={!p.m_borderStyleCombo.enabled}
                 onChange={p.m_borderStyleCombo.onChange}
-                ariaLabel="Border style"
+                ariaLabel={_('Border style')}
               />
             </SizerItem>
           </GridBagSizer>

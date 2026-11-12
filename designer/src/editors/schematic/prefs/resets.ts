@@ -261,7 +261,7 @@ export function transferTemplateFieldnamesPage(
             _("The field name '%s' contains trailing and/or leading white space."),
             padded[0]!,
           )
-        : `${padded.length} field names contain trailing and/or leading white space.`,
+        : wxFormat(_('%s field names contain trailing and/or leading white space.'), padded.length),
     extendedMessage:
       'This may result in what appears to be duplicate field names but are actually unique ' +
       'names differing only by white space characters.  Removing the white space characters ' +

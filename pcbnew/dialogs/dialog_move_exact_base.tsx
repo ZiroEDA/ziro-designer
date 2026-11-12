@@ -131,7 +131,7 @@ export function DIALOG_MOVE_EXACT_BASE(p: DIALOG_MOVE_EXACT_BASE_PROPS): JSX.Ele
               <Choice
                 choices={p.m_anchorOptions.choices}
                 choice={p.m_anchorOptions}
-                ariaLabel="Rotation anchor"
+                ariaLabel={_('Rotation anchor')}
               />
             </SizerItem>
           </FlexGridSizer>

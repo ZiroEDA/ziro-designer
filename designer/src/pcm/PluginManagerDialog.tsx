@@ -52,7 +52,7 @@ function ThemeSwatches({ pkg }: { pkg: RepoPackage }): JSX.Element | null {
   const t = themeFromLayerCss(pkg.theme.colors);
   const keys = ['background', 'wire', 'bus', 'symbolOutline', 'pin', 'label'] as const;
   return (
-    <span className="ze-pcm-swatches" title="Theme preview">
+    <span className="ze-pcm-swatches" title={_('Theme preview')}>
       {keys.map((k) => (
         <span key={k} className="sw" style={{ background: t[k] }} />
       ))}
@@ -115,7 +115,9 @@ export function PluginManagerDialog({
       const repo = await pcm.addRepository(url);
       setRepoUrl(repo.url);
       setAddingUrl('');
-      setStatus(`Added repository "${repo.name}" (${repo.packages.length} packages)`);
+      setStatus(
+        wxFormat(_('Added repository "%s" (%s packages)'), repo.name, repo.packages.length),
+      );
     } catch (err) {
       setRepoError(`Could not load repository: ${(err as Error).message}`);
     } finally {
@@ -143,7 +145,13 @@ export function PluginManagerDialog({
       settings.updateEeschema((s) => {
         s.appearance.color_theme = '_builtin_default';
       });
-    setStatus(`Applied changes: ${installed.length} installed, ${uninstalled.length} uninstalled`);
+    setStatus(
+      wxFormat(
+        _('Applied changes: %s installed, %s uninstalled'),
+        installed.length,
+        uninstalled.length,
+      ),
+    );
   };
 
   // ---- immediate (non-install) actions ---------------------------------------
@@ -152,7 +160,7 @@ export function PluginManagerDialog({
     settings.updateEeschema((s) => {
       s.appearance.color_theme = pcmThemeId(pkg.id);
     });
-    setStatus(`"${pkg.name}" set as the active schematic colour theme`);
+    setStatus(wxFormat(_('"%s" set as the active schematic colour theme'), pkg.name));
   };
 
   const togglePin = (pkg: RepoPackage): void => {
@@ -183,7 +191,7 @@ export function PluginManagerDialog({
         <button
           type="button"
           className="ze-btn sm"
-          title="Remove from pending"
+          title={_('Remove from pending')}
           onClick={() => pcm.unqueue(pkg.id)}
         >
           {label} ✕
@@ -197,7 +205,9 @@ export function PluginManagerDialog({
           label={_('Install')}
           isDefault
           disabled={runtime}
-          title={runtime ? 'Requires a runtime not yet available in the browser' : 'Queue install'}
+          title={
+            runtime ? _('Requires a runtime not yet available in the browser') : _('Queue install')
+          }
           className="sm"
           onClick={() => queueInstall(pkg)}
         />
@@ -211,15 +221,15 @@ export function PluginManagerDialog({
           <Button label={_('Update')} isDefault className="sm" onClick={() => queueUpdate(pkg)} />
         )}
         {pkg.kind === 'colortheme' && !isActiveTheme && (
-          <Button label="Set active" className="sm" onClick={() => applyTheme(pkg)} />
+          <Button label={_('Set active')} className="sm" onClick={() => applyTheme(pkg)} />
         )}
         <button
           type="button"
           className={`ze-btn sm${pcm.isPinned(pkg.id) ? ' pinned' : ''}`}
-          title={pcm.isPinned(pkg.id) ? 'Unpin (allow updates)' : 'Pin (hold back updates)'}
+          title={pcm.isPinned(pkg.id) ? _('Unpin (allow updates)') : _('Pin (hold back updates)')}
           onClick={() => togglePin(pkg)}
         >
-          {pcm.isPinned(pkg.id) ? '📌 Pinned' : 'Pin'}
+          {pcm.isPinned(pkg.id) ? _('📌 Pinned') : 'Pin'}
         </button>
         <Button label={_('Uninstall')} className="sm" onClick={() => queueUninstall(pkg)} />
       </>
@@ -246,13 +256,15 @@ export function PluginManagerDialog({
             {pkg.category && <span className="chip">{pkg.category}</span>}
             {pkg.kind === 'colortheme' && <ThemeSwatches pkg={pkg} />}
             {(state === 'installed' || state === 'update_available') && (
-              <span className="badge">Installed</span>
+              <span className="badge">{_('Installed')}</span>
             )}
             {state === 'update_available' && (
-              <span className="badge update">Update: {pcm.updateFor(pkg)}</span>
+              <span className="badge update">
+                {_('Update:')} {pcm.updateFor(pkg)}
+              </span>
             )}
-            {isActiveTheme && <span className="badge active">Active</span>}
-            {pcm.isPinned(pkg.id) && <span className="badge pin">Pinned</span>}
+            {isActiveTheme && <span className="badge active">{_('Active')}</span>}
+            {pcm.isPinned(pkg.id) && <span className="badge pin">{_('Pinned')}</span>}
           </div>
           <div className="ze-pcm-card-desc">{pkg.description}</div>
           <div className="ze-pcm-card-meta">
@@ -268,7 +280,7 @@ export function PluginManagerDialog({
                   className="ze-linkbtn"
                   onClick={() => setExpanded(open ? null : pkg.id)}
                 >
-                  {open ? 'Hide details' : _('Details')}
+                  {open ? _('Hide details') : _('Details')}
                 </button>
               </>
             )}
@@ -278,10 +290,12 @@ export function PluginManagerDialog({
               {pkg.descriptionFull && <p>{pkg.descriptionFull}</p>}
               {latest && (
                 <p className="ze-muted">
-                  Requires app ≥ {latest.kicadVersion}
-                  {latest.kicadVersionMax ? ` and ≤ ${latest.kicadVersionMax}` : ''}
-                  {latest.installSize ? ` · ${Math.round(latest.installSize / 1024)} KB` : ''}
-                  {latest.compatible === false ? ' · incompatible with this version' : ''}
+                  {_('Requires app ≥')} {latest.kicadVersion}
+                  {latest.kicadVersionMax ? wxFormat(_(' and ≤ %s'), latest.kicadVersionMax) : ''}
+                  {latest.installSize
+                    ? wxFormat(_(' · %s KB'), Math.round(latest.installSize / 1024))
+                    : ''}
+                  {latest.compatible === false ? _(' · incompatible with this version') : ''}
                 </p>
               )}
               {pkg.tags?.length ? (
@@ -315,7 +329,9 @@ export function PluginManagerDialog({
       if (changes.length === 0)
         return (
           <div className="ze-pcm-empty">
-            <p className="ze-muted">No pending changes. Queue installs or removals, then apply.</p>
+            <p className="ze-muted">
+              {_('No pending changes. Queue installs or removals, then apply.')}
+            </p>
           </div>
         );
       return (
@@ -344,7 +360,9 @@ export function PluginManagerDialog({
         return (
           <div className="ze-pcm-empty">
             <p className="ze-muted">
-              {search ? 'No installed packages match your search.' : 'No packages installed yet.'}
+              {search
+                ? _('No installed packages match your search.')
+                : _('No packages installed yet.')}
             </p>
           </div>
         );
@@ -358,19 +376,25 @@ export function PluginManagerDialog({
         {runtime && (
           <div className="ze-pcm-note">
             {tab === 'plugin'
-              ? 'KiCad plugins are native Python scripts. In the browser they need a sandboxed web runtime, a separate piece of work.'
+              ? _(
+                  'KiCad plugins are native Python scripts. In the browser they need a sandboxed web runtime, a separate piece of work.',
+                )
               : tab === 'fab'
-                ? 'Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet.'
-                : 'Data-source packages connect external database libraries, which need a back end not available in the browser yet.'}{' '}
-            Libraries and colour themes install and work today.
+                ? _(
+                    'Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet.',
+                  )
+                : _(
+                    'Data-source packages connect external database libraries, which need a back end not available in the browser yet.',
+                  )}{' '}
+            {_('Libraries and colour themes install and work today.')}
           </div>
         )}
         {typePackages.length === 0 ? (
           <div className="ze-pcm-empty">
             <p className="ze-muted">
               {search
-                ? `No ${KIND_LABEL[tab]} match your search.`
-                : `This repository has no ${KIND_LABEL[tab]}.`}
+                ? wxFormat(_('No %s match your search.'), KIND_LABEL[tab])
+                : wxFormat(_('This repository has no %s.'), KIND_LABEL[tab])}
             </p>
           </div>
         ) : (
@@ -391,7 +415,7 @@ export function PluginManagerDialog({
       {/* repository selector + add-by-URL + search (KiCad's repository chooser) */}
       <div className="ze-pcm-repobar">
         <label>
-          Repository:{' '}
+          {_('Repository:')}{' '}
           <Combo
             value={String(activeRepo.url)}
             options={repos.map((r) => ({ value: String(r.url), label: r.name }))}
@@ -401,14 +425,14 @@ export function PluginManagerDialog({
         <input
           className="ze-pcm-search"
           type="search"
-          placeholder="Search packages..."
+          placeholder={_('Search packages...')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <div className="ze-pcm-addrepo">
           <input
             type="text"
-            placeholder="Add repository by URL..."
+            placeholder={_('Add repository by URL...')}
             value={addingUrl}
             onChange={(e) => setAddingUrl(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && void addRepo()}
@@ -422,7 +446,7 @@ export function PluginManagerDialog({
           {activeRepo.url && (
             <Button
               label={_('Remove')}
-              title="Remove this repository"
+              title={_('Remove this repository')}
               className="sm"
               onClick={() => {
                 pcm.removeRepository(activeRepo.url);
@@ -454,9 +478,14 @@ export function PluginManagerDialog({
         <span className="ze-pcm-status">{status ?? ''}</span>
         {pendingCount > 0 && (
           <>
-            <Button label="Discard Pending" className="sm" onClick={() => pcm.discardPending()} />
+            <Button
+              label={_('Discard Pending')}
+              className="sm"
+              onClick={() => pcm.discardPending()}
+            />
             <button type="button" className="ze-btn primary" onClick={applyPending}>
-              Apply Pending Changes ({pendingCount})
+              {_('Apply Pending Changes (')}
+              {pendingCount})
             </button>
           </>
         )}

@@ -176,13 +176,13 @@ export function SignInDialog({
     e.preventDefault();
     if (inFlight.current) return;
     if (password !== confirm) {
-      setError("Passwords don't match");
+      setError(_("Passwords don't match"));
       return;
     }
     // Scored at submit through the loader itself, so a submit that beats the
     // dictionaries to the page is judged, not refused for a meter still blank.
     if ((await loadZxcvbn())(password).score < 2) {
-      setError('Please choose a stronger password.');
+      setError(_('Please choose a stronger password.'));
       return;
     }
     if (inFlight.current) return;
@@ -223,13 +223,13 @@ export function SignInDialog({
   async function onCompleteRecovery(e: FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
-      setError("Passwords don't match");
+      setError(_("Passwords don't match"));
       return;
     }
     // Scored at submit through the loader itself, so a submit that beats the
     // dictionaries to the page is judged, not refused for a meter still blank.
     if ((await loadZxcvbn())(password).score < 2) {
-      setError('Please choose a stronger password.');
+      setError(_('Please choose a stronger password.'));
       return;
     }
     if (
@@ -253,7 +253,7 @@ export function SignInDialog({
 
   const emailField = (
     <label className="ze-auth-field">
-      <span>Email</span>
+      <span>{_('Email')}</span>
       <input
         type="email"
         autoComplete="email"
@@ -295,12 +295,12 @@ export function SignInDialog({
         role="dialog"
         aria-label={
           mode === 'signup'
-            ? 'Create an account'
+            ? _('Create an account')
             : mode === 'recovery-key'
-              ? 'Your recovery key'
+              ? _('Your recovery key')
               : mode === 'recover'
-                ? 'Recover account'
-                : 'Sign in'
+                ? _('Recover account')
+                : _('Sign in')
         }
       >
         {!gate && (
@@ -316,24 +316,24 @@ export function SignInDialog({
                 name the screen never says what the account is FOR. One line,
                 one place. */}
             {codeSent
-              ? 'Confirm your email'
+              ? _('Confirm your email')
               : mode === 'signup'
-                ? 'Create your free ZiroEDA account'
+                ? _('Create your free ZiroEDA account')
                 : mode === 'recovery-key'
-                  ? 'Recovery key'
+                  ? _('Recovery key')
                   : mode === 'recover'
                     ? noRecoveryKey
-                      ? 'Sorry'
-                      : 'Recover account'
-                    : 'Sign in to ZiroEDA'}
+                      ? _('Sorry')
+                      : _('Recover account')
+                    : _('Sign in to ZiroEDA')}
           </div>
         </div>
 
         {codeSent && (
           <form onSubmit={onVerify}>
             <p className="ze-auth-note">
-              We sent a 6-digit code to <strong>{email}</strong>. Please check your inbox (and spam)
-              to complete verification.
+              {_('We sent a 6-digit code to')} <strong>{email}</strong>
+              {_('. Please check your inbox (and spam) to complete verification.')}
             </p>
             <label className="ze-auth-field">
               <span>{_('Code')}</span>
@@ -351,11 +351,13 @@ export function SignInDialog({
             {error && <div className="ze-auth-error">{error}</div>}
             {resent && !error && (
               <p className="ze-auth-note" role="status">
-                A new code is on its way. Use the newest email: it replaces the code before it.
+                {_(
+                  'A new code is on its way. Use the newest email: it replaces the code before it.',
+                )}
               </p>
             )}
             <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
-              {busy ? 'Verifying...' : 'Confirm'}
+              {busy ? 'Verifying...' : _('Confirm')}
             </button>
             <div className="ze-auth-toggle">
               <button
@@ -366,7 +368,7 @@ export function SignInDialog({
                   void run(() => resendSignupCode(email)).then((sent) => setResent(sent))
                 }
               >
-                Resend code
+                {_('Resend code')}
               </button>
             </div>
             <AuthProgressPanel progress={busy ? progress : null} />
@@ -379,7 +381,7 @@ export function SignInDialog({
             {passwordField}
             {password && <PasswordStrengthHint strength={strength} />}
             <label className="ze-auth-field">
-              <span>Confirm password</span>
+              <span>{_('Confirm password')}</span>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -391,14 +393,15 @@ export function SignInDialog({
             </label>
             {error && <div className="ze-auth-error">{error}</div>}
             <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
-              {busy ? 'Creating account...' : 'Create account'}
+              {busy ? _('Creating account...') : _('Create account')}
             </button>
             <p className="ze-auth-note ze-auth-warn">
-              Your password encrypts your projects. We cannot reset it or read your designs without
-              it.
+              {_(
+                'Your password encrypts your projects. We cannot reset it or read your designs without it.',
+              )}
             </p>
             <div className="ze-auth-toggle">
-              Already have an account?{' '}
+              {_('Already have an account?')}{' '}
               <button
                 type="button"
                 className="ze-auth-switch"
@@ -407,7 +410,7 @@ export function SignInDialog({
                   setStep('signin');
                 }}
               >
-                Sign in
+                {_('Sign in')}
               </button>
             </div>
             <AuthProgressPanel progress={busy ? progress : null} />
@@ -427,23 +430,27 @@ export function SignInDialog({
           <form onSubmit={onRequestReset}>
             {resetSent ? (
               <p className="ze-auth-note">
-                If <strong>{email}</strong> has an account, a reset link is on its way. Open it on
-                this device to choose a new password.
+                {_('If')} <strong>{email}</strong>{' '}
+                {_(
+                  'has an account, a reset link is on its way. Open it on this device to choose a new password.',
+                )}
               </p>
             ) : (
               <>
                 <p className="ze-auth-note">
-                  We will email you a link to set a new password. Your projects stay encrypted: to
-                  open them under the new password you will also need your recovery key.
+                  {_(
+                    'We will email you a link to set a new password. Your projects stay encrypted: to open them under the new password you will also need your recovery key.',
+                  )}
                 </p>
                 <p className="ze-auth-note">
-                  Created your account before 10 September 2026? It has no recovery key yet and does
-                  not need one: the link lets you choose a password and sets up encryption.
+                  {_(
+                    'Created your account before 10 September 2026? It has no recovery key yet and does not need one: the link lets you choose a password and sets up encryption.',
+                  )}
                 </p>
                 {emailField}
                 {error && <div className="ze-auth-error">{error}</div>}
                 <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
-                  {busy ? 'Sending...' : 'Send reset link'}
+                  {busy ? 'Sending...' : _('Send reset link')}
                 </button>
               </>
             )}
@@ -457,7 +464,7 @@ export function SignInDialog({
                   setStep('signin');
                 }}
               >
-                Back to sign in
+                {_('Back to sign in')}
               </button>
             </div>
           </form>
@@ -469,17 +476,19 @@ export function SignInDialog({
           // is its price. What CAN still be done is offered, not implied.
           <div>
             <p className="ze-auth-note">
-              Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted
-              without your password or recovery key.
+              {_(
+                'Due to the nature of our end-to-end encryption protocol, your data cannot be decrypted without your password or recovery key.',
+              )}
             </p>
             <p className="ze-auth-note">
-              If the password comes back to you, sign in with it as usual and save your recovery key
-              from the account menu, so this never comes up again.
+              {_(
+                'If the password comes back to you, sign in with it as usual and save your recovery key from the account menu, so this never comes up again.',
+              )}
             </p>
             <div className="ze-auth-recovery-actions">
               <Button label={_('Back')} onClick={() => setNoRecoveryKey(false)} />
               <Button
-                label="I remember my password"
+                label={_('I remember my password')}
                 isDefault
                 className="ze-auth-submit"
                 onClick={() => {
@@ -495,17 +504,19 @@ export function SignInDialog({
           <form onSubmit={onCompleteRecovery}>
             <p className="ze-auth-note">
               {keyState !== 'none'
-                ? 'Enter the recovery key you saved when you created your account, and choose a new password.'
+                ? _(
+                    'Enter the recovery key you saved when you created your account, and choose a new password.',
+                  )
                 : `Choose a new password for ${session?.user.email}.`}
             </p>
             {keyState !== 'none' && (
               <label className="ze-auth-field">
-                <span>Recovery key</span>
+                <span>{_('Recovery key')}</span>
                 <input
                   type="text"
                   autoComplete="off"
                   spellCheck={false}
-                  placeholder="Paste your 24-word recovery key"
+                  placeholder={_('Paste your 24-word recovery key')}
                   required
                   autoFocus
                   value={recoveryKeyText}
@@ -514,7 +525,7 @@ export function SignInDialog({
               </label>
             )}
             <label className="ze-auth-field">
-              <span>New password</span>
+              <span>{_('New password')}</span>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -527,7 +538,7 @@ export function SignInDialog({
             </label>
             {password && <PasswordStrengthHint strength={strength} />}
             <label className="ze-auth-field">
-              <span>Confirm password</span>
+              <span>{_('Confirm password')}</span>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -539,7 +550,7 @@ export function SignInDialog({
             </label>
             {error && <div className="ze-auth-error">{error}</div>}
             <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
-              {busy ? 'Generating encryption keys...' : 'Recover'}
+              {busy ? _('Generating encryption keys...') : _('Recover')}
             </button>
             {keyState !== 'none' && (
               <div className="ze-auth-toggle">
@@ -548,7 +559,7 @@ export function SignInDialog({
                   className="ze-auth-switch"
                   onClick={() => setNoRecoveryKey(true)}
                 >
-                  No recovery key?
+                  {_('No recovery key?')}
                 </button>
               </div>
             )}
@@ -563,13 +574,15 @@ export function SignInDialog({
               // An account from before encryption is refused with its right
               // password (see INCORRECT_PASSWORD_MESSAGE); one reset gets it in.
               <p className="ze-auth-note">
-                Account created before 10 September 2026? It needs a one-time upgrade for end-to-end
-                encryption: use <strong>Forgot password?</strong> below to set your password again.
-                No recovery key is needed.
+                {_(
+                  'Account created before 10 September 2026? It needs a one-time upgrade for end-to-end encryption: use',
+                )}{' '}
+                <strong>{_('Forgot password?')}</strong>{' '}
+                {_('below to set your password again. No recovery key is needed.')}
               </p>
             )}
             <button type="submit" className="ze-btn primary ze-auth-submit" disabled={busy}>
-              {busy ? 'Signing in...' : 'Sign in'}
+              {busy ? _('Signing in...') : _('Sign in')}
             </button>
             <div className="ze-auth-toggle">
               <button
@@ -580,11 +593,11 @@ export function SignInDialog({
                   setStep('recover');
                 }}
               >
-                Forgot password?
+                {_('Forgot password?')}
               </button>
             </div>
             <div className="ze-auth-toggle">
-              New to ZiroEDA?{' '}
+              {_('New to ZiroEDA?')}{' '}
               <button
                 type="button"
                 className="ze-auth-switch"
@@ -593,7 +606,7 @@ export function SignInDialog({
                   setStep('signup');
                 }}
               >
-                Create an account
+                {_('Create an account')}
               </button>
             </div>
             <AuthProgressPanel progress={busy ? progress : null} />
@@ -613,10 +626,10 @@ interface Strength {
 /** What the reference design shows: its three bands, on zxcvbn's score. */
 function strengthOf(score: number): Strength {
   return score < 2
-    ? { score, label: 'Password strength: Weak' }
+    ? { score, label: _('Password strength: Weak') }
     : score < 3
-      ? { score, label: 'Password strength: Moderate' }
-      : { score, label: 'Password strength: Strong' };
+      ? { score, label: _('Password strength: Moderate') }
+      : { score, label: _('Password strength: Strong') };
 }
 
 /**

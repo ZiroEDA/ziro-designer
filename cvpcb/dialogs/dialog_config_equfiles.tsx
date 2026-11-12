@@ -202,7 +202,11 @@ export function DialogConfigEquFiles({
           <div className="ze-equfiles-label">{_('Footprint association files:')}</div>
           {/* `wxLB_EXTENDED|wxLB_HSCROLL|wxLB_NEEDED_SB` with a 500 x 100
           minimum (dialog_config_equfiles_base.cpp:29-30). */}
-          <div className="ze-equfiles-list" role="listbox" aria-label="Footprint association files">
+          <div
+            className="ze-equfiles-list"
+            role="listbox"
+            aria-label={_('Footprint association files')}
+          >
             {list.files.map((f, i) => (
               <div
                 key={f}
@@ -255,7 +259,7 @@ export function DialogConfigEquFiles({
             grid={envGrid}
             colLabels={false}
             className="ze-equfiles-vars"
-            ariaLabel="Available path substitutions"
+            ariaLabel={_('Available path substitutions')}
           />
         </div>
         <div className="ze-modal-footer">
@@ -275,7 +279,7 @@ export function DialogConfigEquFiles({
           filters: [equFileWildcard()],
           extra: (
             <Button
-              label="Add from Computer..."
+              label={_('Add from Computer...')}
               onClick={() => {
                 setAddOpen(false);
                 localInput.current?.click();

@@ -134,7 +134,7 @@ function ProgressDialogWindow({
           <span className="msg">{snap.message}</span>
           <progress className="ze-gauge" max={1000} value={Math.round(pct * 1000)} />
           <div className="times">
-            <span className="lbl">Elapsed time:</span>
+            <span className="lbl">{_('Elapsed time:')}</span>
             <span className="val">{formatElapsed(elapsed)}</span>
           </div>
         </div>

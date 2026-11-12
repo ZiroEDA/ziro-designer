@@ -27,6 +27,7 @@ import { useCommonSettings, useGerbviewSettings, useUserColors } from '../../pre
 import { drawPanelWindow, loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 interface FileDialogRequest {
   title: string;
@@ -125,7 +126,7 @@ export function GerberViewer({
           multiple={fileDialog.multiple}
           extra={
             <Button
-              label="Open from Computer..."
+              label={_('Open from Computer...')}
               onClick={() => {
                 const req = fileDialog;
                 setFileDialog(null);

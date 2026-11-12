@@ -102,7 +102,7 @@ export function DIALOG_SCH_FIND_BASE(p: DIALOG_SCH_FIND_BASE_PROPS): JSX.Element
                         autoFocus
                         onChange={p.onComboFind}
                         onEnter={p.onFind}
-                        ariaLabel="Search for"
+                        ariaLabel={_('Search for')}
                       />
                     </SizerItem>
                     <SizerItem
@@ -119,7 +119,7 @@ export function DIALOG_SCH_FIND_BASE(p: DIALOG_SCH_FIND_BASE_PROPS): JSX.Element
                         options={p.comboReplaceChoices}
                         onChange={p.onComboReplace}
                         onEnter={p.onFind}
-                        ariaLabel="Replace with"
+                        ariaLabel={_('Replace with')}
                       />
                     </SizerItem>
                     <SizerItem flag={0} border={5} shown={false}>

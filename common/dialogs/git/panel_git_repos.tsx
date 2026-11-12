@@ -65,7 +65,7 @@ export function PanelGitRepos({ ctx }: { ctx: COMMON_SETTINGS_DRAFT }): JSX.Elem
             min={0}
             max={60}
             disabled
-            ariaLabel="Update interval"
+            ariaLabel={_('Update interval')}
             onChange={(v) =>
               upC((s) => {
                 s.git.updatInterval = v;

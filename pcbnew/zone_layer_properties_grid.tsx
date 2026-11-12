@@ -45,6 +45,7 @@ import type { ZoneLayerPropertiesMap } from './dialogs/panel_setup_zone_hatch_of
 import { PCB_BACKGROUND } from './pcbTheme.js';
 import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import { layerChoice } from './pcb_layer_presentation.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /**
  * `GetColLabelValue()` (`zone_layer_properties_grid.h:48-57`). The base's
@@ -216,7 +217,7 @@ export function ZoneLayerPropertiesGrid({
         grid={grid}
         tricks={tricks}
         columns={ZONE_LAYER_GRID_COL_WIDTHS.map((width) => ({ width }))}
-        ariaLabel="Zone layer properties"
+        ariaLabel={_('Zone layer properties')}
         renderCell={(_row, col, layer) => {
           if (col !== 0) return null;
 

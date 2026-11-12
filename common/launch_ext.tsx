@@ -45,6 +45,7 @@ import {
 import { DialogShim } from './dialog_shim.js';
 import { OK_LABEL } from './confirm_types.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // ---------------------------------------------------------------------------
 // The folder's I/O: what was designer/src/fs/theme_folder.ts (09-26). It is
@@ -197,12 +198,17 @@ export function ThemeFolderDialog({
     try {
       parsed = JSON.parse(await file.text());
     } catch {
-      setError(`${file.name} is not a JSON file.`);
+      setError(wxFormat(_('%s is not a JSON file.'), file.name));
       return;
     }
     const contents = colorThemeFromFile(parsed);
     if (!contents) {
-      setError(`${file.name} has no "schematic" or "board" section, so it is not a color theme.`);
+      setError(
+        wxFormat(
+          _('%s has no "schematic" or "board" section, so it is not a color theme.'),
+          file.name,
+        ),
+      );
       return;
     }
     setError('');
@@ -227,7 +233,7 @@ export function ThemeFolderDialog({
 
   return (
     <DialogShim
-      title={folderName ? `Color Themes — ${folderName}` : 'Color Themes'}
+      title={folderName ? wxFormat(_('Color Themes — %s'), folderName) : _('Color Themes')}
       onClose={onClose}
       className="ze-choicedlg ze-themefolder"
     >
@@ -236,14 +242,14 @@ export function ThemeFolderDialog({
           /* Said once, plainly, rather than leaving the user to work out why
            a button called "Open Theme Folder" produced a download. */
           <div className="ze-choicedlg-message">
-            This browser will not open a folder, so themes are saved and loaded as files.
+            {_('This browser will not open a folder, so themes are saved and loaded as files.')}
           </div>
         )}
 
         <div
           className="ze-choicedlg-list cols ze-themefolder-list"
           role="table"
-          aria-label="Color theme files"
+          aria-label={_('Color theme files')}
         >
           {folderFiles.map((f) => (
             <div
@@ -266,7 +272,7 @@ export function ThemeFolderDialog({
                   onClose();
                 }}
               >
-                Load
+                {_('Load')}
               </button>
             </div>
           ))}
@@ -281,10 +287,10 @@ export function ThemeFolderDialog({
               </span>
               <span role="cell" className="ze-themefolder-name">
                 {f.name}
-                {f.writable ? '' : ' (read-only)'}
+                {f.writable ? '' : _(' (read-only)')}
               </span>
               <button type="button" role="cell" className="ze-btn" onClick={() => void put(f)}>
-                {onWriteToFolder ? 'Save to folder' : _('Export')}
+                {onWriteToFolder ? _('Save to folder') : _('Export')}
               </button>
             </div>
           ))}

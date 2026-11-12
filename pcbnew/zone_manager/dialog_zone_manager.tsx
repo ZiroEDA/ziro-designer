@@ -847,7 +847,7 @@ function ZoneManagerBody({
             ),
           }))}
           selection={Math.max(0, notebookHost.m_selection)}
-          ariaLabel="Zone previews"
+          ariaLabel={wxGetTranslation('Zone previews')}
           onPageChanged={(aPage) => {
             // `wxNotebook`'s own tab click, then `OnPageChanged`.
             notebook.SetSelection(aPage);

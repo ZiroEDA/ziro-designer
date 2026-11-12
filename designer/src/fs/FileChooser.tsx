@@ -44,6 +44,7 @@ import { ROOT, ancestors, basename, isValidName, join } from './path.js';
 import { MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
 import { extendSelection, selectionToAccept } from './chooser_selection.js';
 import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 // ChooserFilter and ChooserPlace live in chooser_types.ts so the data modules
 // that name them stay reachable from qa's tsconfig, which compiles .ts only.
@@ -598,7 +599,7 @@ export function FileChooser({
                 value={name}
                 onChange={(aValue) => setName(aValue)}
                 disabled={!placeWritable}
-                title={placeWritable ? undefined : 'This location cannot be saved to.'}
+                title={placeWritable ? undefined : _('This location cannot be saved to.')}
                 inputRef={nameRef}
               />
             </div>
@@ -705,7 +706,7 @@ export function FileChooser({
                 <button
                   type="button"
                   className="ze-chooser-newdir"
-                  title="Create Folder"
+                  title={_('Create Folder')}
                   // Only inside a project: the root holds projects, and a folder
                   // there would be a project that is not one.
                   disabled={dir === ROOT}
@@ -867,7 +868,10 @@ export function FileChooser({
             // OURS - the shell always draws a header, and the file dialog's own
             // title is the least invented thing to put in it.
             caption={title}
-            message={`A file named “${basename(confirmOverwrite)}” already exists.  Do you want to replace it?`}
+            message={wxFormat(
+              _('A file named “%s” already exists.  Do you want to replace it?'),
+              basename(confirmOverwrite),
+            )}
             extendedMessage={`The file already exists in “${
               basename(dir) || (place?.label ?? 'this folder')
             }”.  Replacing it will overwrite its contents.`}

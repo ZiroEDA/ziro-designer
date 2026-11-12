@@ -243,7 +243,7 @@ function prefetchEditors(): () => void {
  */
 const frameLoading = (aName: string): JSX.Element => (
   <div className="ze-app">
-    <ProgressDialog title={aName} label={`Loading the ${aName}...`} />
+    <ProgressDialog title={aName} label={wxFormat(_('Loading the %s...'), aName)} />
   </div>
 );
 
@@ -1676,7 +1676,7 @@ export function App(): JSX.Element {
       ? `${demoSource.title} from GitHub. Edits are not being saved.`
       : 'Demo project. Edits are not being saved.';
   const demoNotice = !demoProject ? null : (
-    <ReadOnlyNotice message={demoMessage} actionLabel="Save a copy" onAction={saveDemoCopy} />
+    <ReadOnlyNotice message={demoMessage} actionLabel={_('Save a copy')} onAction={saveDemoCopy} />
   );
 
   // A new version, downloaded and waiting (sw_update.ts). On the launcher nothing is open, so it
@@ -1713,8 +1713,8 @@ export function App(): JSX.Element {
     updateReady && !updateClosed ? (
       <Infobar
         icon="information"
-        message="A new version of ZiroEDA is available."
-        actionLabel="Reload Now"
+        message={_('A new version of ZiroEDA is available.')}
+        actionLabel={_('Reload Now')}
         onAction={() => reloadOntoNewBuild(reloadPage)}
         closable
         onClose={() => setUpdateClosed(true)}
@@ -1920,7 +1920,7 @@ export function App(): JSX.Element {
   if (restoring) {
     return (
       <div className="ze-app" style={{ height: '100vh' }}>
-        <ProgressDialog title="Restore Project" label="Restoring your project..." />
+        <ProgressDialog title={_('Restore Project')} label={_('Restoring your project...')} />
       </div>
     );
   }

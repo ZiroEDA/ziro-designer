@@ -366,7 +366,7 @@ export function DIALOG_LABEL_PROPERTIES_BASE(p: DIALOG_LABEL_PROPERTIES_BASE_PRO
                             <BoxSizer orient={wxVERTICAL}>
                               <SizerItem flag={0} border={5}>
                                 <ColorSwatch
-                                  label="Text color"
+                                  label={_('Text color')}
                                   color={p.m_textColorSwatch}
                                   background={p.swatchBackground}
                                   onChange={p.onTextColor}

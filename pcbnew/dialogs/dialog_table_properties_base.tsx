@@ -146,7 +146,7 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
                     columns={p.gridColumns}
                     colLabels={false}
                     renderCell={p.renderCell}
-                    ariaLabel="Cell contents"
+                    ariaLabel={_('Cell contents')}
                   />
                 </SizerItem>
                 <SizerItem flag={wxTOP | wxBOTTOM | wxRIGHT | wxLEFT} border={3}>
@@ -198,7 +198,7 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
                   <StaticText label={_('Width:')} disabled={p.m_borderWidth.enabled === false} />
                 </SizerItem>
                 <SizerItem pos={[4, 1]} span={[1, 2]} flag={wxEXPAND} border={5}>
-                  <WidthRow unit={p.m_borderWidth} ariaLabel="Border width" />
+                  <WidthRow unit={p.m_borderWidth} ariaLabel={_('Border width')} />
                 </SizerItem>
                 <SizerItem pos={[5, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                   <StaticText
@@ -216,7 +216,7 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
                   <StyleCombo
                     rows={p.styleRows}
                     choice={p.m_borderStyleCombo}
-                    ariaLabel="Border style"
+                    ariaLabel={_('Border style')}
                   />
                 </SizerItem>
                 <Spacer pos={[6, 0]} width={0} height={15} flag={wxEXPAND} border={5} />
@@ -242,7 +242,7 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
                   />
                 </SizerItem>
                 <SizerItem pos={[9, 1]} span={[1, 2]} flag={wxEXPAND} border={5}>
-                  <WidthRow unit={p.m_separatorsWidth} ariaLabel="Separators width" />
+                  <WidthRow unit={p.m_separatorsWidth} ariaLabel={_('Separators width')} />
                 </SizerItem>
                 <SizerItem pos={[10, 0]} flag={wxALIGN_CENTER_VERTICAL} border={5}>
                   <StaticText
@@ -260,7 +260,7 @@ export function DIALOG_TABLE_PROPERTIES_BASE(p: DIALOG_TABLE_PROPERTIES_BASE_PRO
                   <StyleCombo
                     rows={p.styleRows}
                     choice={p.m_separatorsStyleCombo}
-                    ariaLabel="Separators style"
+                    ariaLabel={_('Separators style')}
                   />
                 </SizerItem>
               </GridBagSizer>

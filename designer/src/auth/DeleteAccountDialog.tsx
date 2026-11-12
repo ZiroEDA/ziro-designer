@@ -178,17 +178,17 @@ export function DeleteAccountDialog({
                 <>
                   <SizerItem flag={wxTOP | wxLEFT | wxRIGHT} border={5}>
                     <label htmlFor="ze-delete-reason">
-                      Reason for leaving <b className="ze-required">*</b>
+                      {_('Reason for leaving')} <b className="ze-required">*</b>
                     </label>
                   </SizerItem>
                   <SizerItem flag={wxEXPAND | wxALL} border={5}>
                     <Combo
                       id="ze-delete-reason"
-                      ariaLabel="Reason for leaving"
+                      ariaLabel={_('Reason for leaving')}
                       value={reason}
                       onChange={setReason}
                       options={[
-                        { value: '', label: 'Select a reason', disabled: true },
+                        { value: '', label: _('Select a reason'), disabled: true },
                         ...DELETE_REASONS,
                       ]}
                     />
@@ -200,7 +200,7 @@ export function DeleteAccountDialog({
                   )}
                   <SizerItem flag={wxTOP | wxLEFT | wxRIGHT} border={5}>
                     <label htmlFor="ze-delete-feedback">
-                      Anything else? <b className="ze-required">*</b>
+                      {_('Anything else?')} <b className="ze-required">*</b>
                     </label>
                   </SizerItem>
                   <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5} minSize={[-1, 120]}>
@@ -227,7 +227,9 @@ export function DeleteAccountDialog({
                       {summary.state === 'loading' && <StaticText label={_('Loading...')} />}
                       {summary.state === 'failed' && (
                         <span className="ze-delete-account-error">
-                          Couldn't load your data counts. Try again to review what will be deleted.
+                          {_(
+                            "Couldn't load your data counts. Try again to review what will be deleted.",
+                          )}
                         </span>
                       )}
                       {summary.state === 'ready' && (
@@ -248,12 +250,12 @@ export function DeleteAccountDialog({
                   </SizerItem>
                   {summary.state === 'failed' && (
                     <SizerItem flag={wxLEFT | wxRIGHT | wxBOTTOM} border={5}>
-                      <Button label="Try again" onClick={() => void load()} />
+                      <Button label={_('Try again')} onClick={() => void load()} />
                     </SizerItem>
                   )}
                   <SizerItem flag={wxALL} border={5}>
                     <CheckBox
-                      label="I understand this deletes my account and all its data."
+                      label={_('I understand this deletes my account and all its data.')}
                       checked={accepted}
                       disabled={summary.state !== 'ready'}
                       onChange={(aChecked) => setAccepted(aChecked)}

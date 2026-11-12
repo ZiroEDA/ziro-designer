@@ -23,6 +23,7 @@ import {
 } from '@ziroeda/wx/defs.js';
 import { BoxSizer, SizerItem, Spacer, StretchSpacer } from '@ziroeda/wx/sizer.js';
 import { SplitterWindow } from '@ziroeda/wx/splitter.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 export interface PANEL_FP_PROPERTIES_3D_MODEL_BASE_PROPS {
   /** `m_splitter1->GetSashPosition()`. */
@@ -64,7 +65,7 @@ export function PANEL_FP_PROPERTIES_3D_MODEL_BASE(
                   <SizerItem flag={CV | wxLEFT} border={5}>
                     <StdBitmapButton
                       bitmap="small_plus"
-                      title="Add 3D model"
+                      title={_('Add 3D model')}
                       tooltip={null}
                       onClick={p.onAdd3DRow}
                     />
@@ -72,7 +73,7 @@ export function PANEL_FP_PROPERTIES_3D_MODEL_BASE(
                   <SizerItem flag={CV | wxLEFT} border={5}>
                     <StdBitmapButton
                       bitmap="small_folder"
-                      title="Browse for 3D model"
+                      title={_('Browse for 3D model')}
                       tooltip={null}
                       onClick={p.onAdd3DModel}
                     />
@@ -81,7 +82,7 @@ export function PANEL_FP_PROPERTIES_3D_MODEL_BASE(
                   <SizerItem flag={CV} border={5}>
                     <StdBitmapButton
                       bitmap="small_trash"
-                      title="Remove 3D model"
+                      title={_('Remove 3D model')}
                       tooltip={null}
                       disabled={!p.removeEnabled}
                       onClick={p.onRemove3DModel}

@@ -935,7 +935,7 @@ export function DialogSymbolProperties({
       // m_pinTablePage->Disable() for a multi-body-style symbol: no table, and the tooltip.
       m_pinGrid={
         dlg.PinModel() ? (
-          <WxGridView grid={dlg.PinGrid()} columns={PIN_COLUMNS} ariaLabel="Pin functions" />
+          <WxGridView grid={dlg.PinGrid()} columns={PIN_COLUMNS} ariaLabel={_('Pin functions')} />
         ) : null
       }
       {...(dlg.m_pinsDisabled

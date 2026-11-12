@@ -84,7 +84,7 @@ export function DIALOG_SCH_IMPORT_SETTINGS_BASE(
                 <TextCtrl
                   value={p.m_filePathCtrl}
                   onChange={p.onFilePath}
-                  ariaLabel="Import from"
+                  ariaLabel={_('Import from')}
                 />
               </span>
             </SizerItem>

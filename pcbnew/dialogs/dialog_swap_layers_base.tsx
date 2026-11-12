@@ -30,7 +30,12 @@ export function DIALOG_SWAP_LAYERS_BASE(p: DIALOG_SWAP_LAYERS_BASE_PROPS): JSX.E
           <BoxSizer orient={wxVERTICAL}>
             {/* m_grid->SetMinSize( wxSize( 250,150 ) ) */}
             <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={5} minSize={[250, 150]}>
-              <WxGridView grid={p.m_grid} rowLabels={false} flexCol={1} ariaLabel="Swap layers" />
+              <WxGridView
+                grid={p.m_grid}
+                rowLabels={false}
+                flexCol={1}
+                ariaLabel={_('Swap layers')}
+              />
             </SizerItem>
           </BoxSizer>
         </SizerItem>

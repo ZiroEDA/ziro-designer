@@ -67,7 +67,7 @@ export function PANEL_FP_EDITOR_FIELD_DEFAULTS_BASE(
                   <SizerItem flag={wxBOTTOM | wxLEFT | wxTOP} border={5} minSize={[30, 29]}>
                     <StdBitmapButton
                       bitmap="small_plus"
-                      title="Add text item"
+                      title={_('Add text item')}
                       tooltip={null}
                       onClick={p.onAddTextItem}
                     />
@@ -80,7 +80,7 @@ export function PANEL_FP_EDITOR_FIELD_DEFAULTS_BASE(
                   >
                     <StdBitmapButton
                       bitmap="small_trash"
-                      title="Delete text item"
+                      title={_('Delete text item')}
                       tooltip={null}
                       onClick={p.onDeleteTextItem}
                     />

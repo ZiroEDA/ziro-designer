@@ -34,6 +34,7 @@
 
 import { type TreeFileType, canDelete, canRename } from './file_activation.js';
 import { _HKI } from '@ziroeda/include/i18n_utility.js';
+import { _ } from '@ziroeda/wx/translation.js';
 
 /** One row of the selection, as much of `PROJECT_TREE_ITEM` as the menu asks. */
 export interface TreeMenuSelectionItem {
@@ -200,7 +201,7 @@ export function projectTreeMenu(selection: readonly TreeMenuSelectionItem[]): Tr
     // not a new one taken here. The help string is upstream's, unchanged.
     menu.push({
       id: 'editInTextEditor',
-      label: 'Edit in a Text Viewer',
+      label: _('Edit in a Text Viewer'),
       help: single ? _HKI('Open the file in a Text Editor') : _HKI('Open files in a Text Editor'),
       icon: 'editor',
     });

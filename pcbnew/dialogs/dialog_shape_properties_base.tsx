@@ -193,7 +193,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                 value={p.m_cornerRadius.value}
                 onChange={p.m_cornerRadius.onChange}
                 onBlur={p.m_cornerRadius.onBlur}
-                ariaLabel="Corner radius"
+                ariaLabel={_('Corner radius')}
               />
             </SizerItem>
             <SizerItem flag={CV | wxTOP | wxBOTTOM | wxRIGHT} border={5}>
@@ -222,7 +222,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                     value={p.m_lineStyleCombo.value}
                     options={p.m_lineStyleCombo.rows}
                     onChange={p.m_lineStyleCombo.onChange}
-                    ariaLabel="Line style"
+                    ariaLabel={_('Line style')}
                   />
                 </SizerItem>
                 <SizerItem pos={[2, 0]} flag={wxALL | CV} border={5} shown={p.m_fillCtrl.shown}>
@@ -316,7 +316,7 @@ export function DIALOG_SHAPE_PROPERTIES_BASE(p: DIALOG_SHAPE_PROPERTIES_BASE_PRO
                     onBlur={p.m_solderMaskMargin.onBlur}
                     disabled={p.m_solderMaskMargin.enabled === false}
                     title={p.m_solderMaskMargin.title}
-                    ariaLabel="Expansion"
+                    ariaLabel={_('Expansion')}
                   />
                 </SizerItem>
                 <SizerItem flag={CV | wxRIGHT | wxLEFT} border={5}>

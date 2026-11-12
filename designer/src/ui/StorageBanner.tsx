@@ -10,6 +10,8 @@ import {
 } from '../home/storageHealth.js';
 import { downloadRecoveryZip } from '../home/recovery.js';
 import './errorBoundary.css';
+import { _ } from '@ziroeda/wx/translation.js';
+import { wxFormat } from '@ziroeda/wx/wxstring.js';
 
 const fmtMB = (n?: number): string => (n === undefined ? '?' : `${Math.round(n / 1e6)} MB`);
 
@@ -19,24 +21,31 @@ function explain(status: StorageStatus): { title: string; detail: string } {
   switch (failure) {
     case 'quota':
       return {
-        title: "Your browser's storage is full, edits are no longer being saved.",
-        detail: `Using ${fmtMB(status.usage)} of ${fmtMB(status.quota)}. Download your project, then delete old projects from the home screen to free space.`,
+        title: _("Your browser's storage is full, edits are no longer being saved."),
+        detail: wxFormat(
+          _(
+            'Using %s of %s. Download your project, then delete old projects from the home screen to free space.',
+          ),
+          fmtMB(status.usage),
+          fmtMB(status.quota),
+        ),
       };
     case 'blocked':
       return {
-        title: 'This browser is blocking site storage, edits are not being saved.',
-        detail:
+        title: _('This browser is blocking site storage, edits are not being saved.'),
+        detail: _(
           'Allow site data for this page, or download your project before closing the tab. Private-browsing windows often discard storage.',
+        ),
       };
     case 'unsupported':
       return {
-        title: 'This browser has no local storage, edits are not being saved.',
-        detail: 'Download your project before closing the tab, or switch to a current browser.',
+        title: _('This browser has no local storage, edits are not being saved.'),
+        detail: _('Download your project before closing the tab, or switch to a current browser.'),
       };
     default:
       return {
-        title: 'Saving failed, recent edits are not being stored.',
-        detail: 'Download your project before closing the tab so nothing is lost.',
+        title: _('Saving failed, recent edits are not being stored.'),
+        detail: _('Download your project before closing the tab so nothing is lost.'),
       };
   }
 }
@@ -71,7 +80,7 @@ export function StorageBanner(): JSX.Element | null {
         {detail}
       </div>
       <button type="button" onClick={() => setSaved(downloadRecoveryZip())}>
-        {saved ? 'Downloaded' : 'Download project'}
+        {saved ? _('Downloaded') : _('Download project')}
       </button>
     </div>
   );

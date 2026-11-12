@@ -221,7 +221,7 @@ export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
                         wxGetTranslation('Unspecified'),
                       ]}
                       choice={p.m_componentType}
-                      ariaLabel="Component type"
+                      ariaLabel={wxGetTranslation('Component type')}
                     />
                   </SizerItem>
                 </BoxSizer>
@@ -391,7 +391,7 @@ export function DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR_BASE(
                 wxGetTranslation('None'),
               ]}
               choice={p.m_ZoneConnectionChoice}
-              ariaLabel="Pad connection to zones"
+              ariaLabel={wxGetTranslation('Pad connection to zones')}
             />
           </SizerItem>
         </StaticBoxSizer>

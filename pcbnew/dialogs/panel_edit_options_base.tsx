@@ -176,7 +176,7 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
             <Choice
               choices={magnetic}
               choice={p.m_magneticPadChoice}
-              ariaLabel="Snap to pads"
+              ariaLabel={_('Snap to pads')}
               title={_('Capture cursor when the mouse enters a pad area')}
             />
           </SizerItem>
@@ -190,7 +190,7 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
             <Choice
               choices={magnetic}
               choice={p.m_magneticTrackChoice}
-              ariaLabel="Snap to tracks and vias"
+              ariaLabel={_('Snap to tracks and vias')}
               title={_('Capture cursor when the mouse approaches a track')}
             />
           </SizerItem>
@@ -204,7 +204,7 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
             <Choice
               choices={[_('Always'), _('Never')]}
               choice={p.m_magneticGraphicsChoice}
-              ariaLabel="Snap to graphics"
+              ariaLabel={_('Snap to graphics')}
               title={_('Capture cursor when the mouse approaches graphical control points')}
             />
           </SizerItem>
@@ -239,7 +239,7 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
                   max={10}
                   step={0.5}
                   digits={1}
-                  ariaLabel="Ratsnest line thickness"
+                  ariaLabel={_('Ratsnest line thickness')}
                 />
               </SizerItem>
             </BoxSizer>
@@ -319,7 +319,7 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
                           title={_(
                             'Set increment (in degrees) for context menu and hotkey rotation.',
                           )}
-                          ariaLabel="Step for rotate commands"
+                          ariaLabel={_('Step for rotate commands')}
                         />
                       </SizerItem>
                       <SizerItem flag={CV | wxBOTTOM | wxRIGHT} border={5}>
@@ -340,7 +340,7 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
                         _('Keep center and radius, adjust endpoints'),
                       ]}
                       choice={p.m_arcEditMode}
-                      ariaLabel="Arc editing mode"
+                      ariaLabel={_('Arc editing mode')}
                     />
                   </SizerItem>
                 </BoxSizer>
@@ -361,7 +361,7 @@ export function PANEL_EDIT_OPTIONS_BASE(p: PANEL_EDIT_OPTIONS_BASE_PROPS): JSX.E
                     <Choice
                       choices={[_('Move'), _('Drag (45 degree mode)'), _('Drag (free angle)')]}
                       choice={p.m_trackMouseDragCtrl}
-                      ariaLabel="Track mouse-drag mode"
+                      ariaLabel={_('Track mouse-drag mode')}
                     />
                   </SizerItem>
                   <SizerItem proportion={1} flag={wxEXPAND | wxTOP | wxBOTTOM} border={5}>

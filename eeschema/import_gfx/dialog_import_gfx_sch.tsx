@@ -254,7 +254,7 @@ export function DialogImportGfx({
       : '';
 
   return (
-    <DialogShim title="Import Vector Graphics" onClose={onCancel} className="ze-label-dialog">
+    <DialogShim title={_('Import Vector Graphics')} onClose={onCancel} className="ze-label-dialog">
       <div
         className="ze-label-dialog-body"
         style={{ display: 'flex', flexDirection: 'column', gap: 10 }}

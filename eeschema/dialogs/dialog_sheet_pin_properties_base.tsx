@@ -205,7 +205,7 @@ export function DIALOG_SHEET_PIN_PROPERTIES_BASE(
                                 value={p.m_textSizeCtrl}
                                 onChange={p.onTextSize}
                                 onEnter={p.onOK}
-                                ariaLabel="Text size"
+                                ariaLabel={_('Text size')}
                               />
                             </SizerItem>
                             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={3}>
@@ -224,7 +224,7 @@ export function DIALOG_SHEET_PIN_PROPERTIES_BASE(
                                     border={5}
                                   >
                                     <ColorSwatch
-                                      label="Text color"
+                                      label={_('Text color')}
                                       color={p.m_textColorSwatch}
                                       background={p.swatchBackground}
                                       onChange={p.onTextColor}

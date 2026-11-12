@@ -60,7 +60,7 @@ function Row({ label, u }: { label: string; u: UNIT }): JSX.Element {
 
 export function DIALOG_TRACK_VIA_SIZE_BASE(p: DIALOG_TRACK_VIA_SIZE_BASE_PROPS): JSX.Element {
   return (
-    <DialogShim title="Track Width and Via Size" onClose={p.onCancel}>
+    <DialogShim title={_('Track Width and Via Size')} onClose={p.onCancel}>
       {/* bSizes */}
       <BoxSizer orient={wxVERTICAL}>
         <SizerItem proportion={1} flag={wxEXPAND | wxALL} border={10}>

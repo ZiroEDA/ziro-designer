@@ -275,7 +275,7 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
           {/* `wxString::Format( _( "Inactive layers (%s):" ),
                   KeyNameFromKeyCode( hotkey ) )` — highContrastModeCycle is H
                   (appearance_controls.cpp:1944-1951). */}
-          <div className="ze-info">Inactive layers (H):</div>
+          <div className="ze-info">{wxGetTranslation('Inactive layers (H):')}</div>
           <div className="ze-radio-row">
             <RadioButton
               label={wxGetTranslation('Normal')}
@@ -377,12 +377,16 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
               {/* Net rows: [color swatch][visibility][name]; the swatch opens a
                     color picker, the eye hides the net's ratsnest. */}
               {nets.nets.slice(0, NET_ROW_CAP).map((net) => (
-                <div key={net.code} className="ze-object-row" title={`Net ${net.code}`}>
+                <div
+                  key={net.code}
+                  className="ze-object-row"
+                  title={wxFormat(wxGetTranslation('Net %s'), net.code)}
+                >
                   {/* COLOR_SWATCH (color_swatch.cpp:301-328) — the same
                         control APPEARANCE_CONTROLS builds for a net row. */}
                   <ColorSwatch
                     size="small"
-                    label={`Set color for net ${net.name}`}
+                    label={wxFormat(wxGetTranslation('Set color for net %s'), net.name)}
                     color={net.color ? parseColor4d(net.color) : COLOR4D_UNSPECIFIED}
                     onChange={(picked) => nets.onNetColor(net.code, picked)}
                   />
@@ -425,7 +429,10 @@ export function AppearanceControls(props: AppearanceControlsProps): JSX.Element 
                     ) : (
                       <ColorSwatch
                         size="small"
-                        label={`Set color for the ${cls.name} netclass`}
+                        label={wxFormat(
+                          wxGetTranslation('Set color for the %s netclass'),
+                          cls.name,
+                        )}
                         color={cls.color ? parseColor4d(cls.color) : COLOR4D_UNSPECIFIED}
                         onChange={(picked) => nets.onNetclassColor(cls.name, picked)}
                       />

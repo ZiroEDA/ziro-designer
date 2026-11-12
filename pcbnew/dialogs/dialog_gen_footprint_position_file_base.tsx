@@ -112,7 +112,7 @@ export function DIALOG_GEN_FOOTPRINT_POSITION_BASE(
                 options={choice(p.variants)}
                 onChange={(v) => p.onVariant(Number(v))}
                 disabled={!p.variantEnabled}
-                ariaLabel="Design variant"
+                ariaLabel={_('Design variant')}
               />
             </SizerItem>
             <SizerItem flag={wxALIGN_CENTER_VERTICAL | wxLEFT} border={5}>

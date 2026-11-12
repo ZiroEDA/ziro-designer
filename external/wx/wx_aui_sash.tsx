@@ -19,6 +19,7 @@
 
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { resizeDock, type DockEdge } from './wx_aui_sash_geometry.js';
+import { _ } from './translation.js';
 
 export interface DockSashProps {
   /** Which edge of the pane this sits on; decides the drag sign. */
@@ -60,5 +61,5 @@ export function DockSash({ edge, width, min, max, onResize }: DockSashProps): JS
     window.addEventListener('pointerup', onUp);
   };
 
-  return <div className="ze-dock-sash" onPointerDown={onPointerDown} title="Resize" />;
+  return <div className="ze-dock-sash" onPointerDown={onPointerDown} title={_('Resize')} />;
 }

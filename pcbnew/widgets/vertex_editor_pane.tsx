@@ -304,7 +304,7 @@ export function PcbVertexEditorPane({ pane }: Props): JSX.Element {
       grid={grid}
       tricks={tricks}
       colLabels
-      ariaLabel="Vertex Editor"
+      ariaLabel={_('Vertex Editor')}
       columns={[{ width: COL_MIN_WIDTH }, { width: COL_MIN_WIDTH }]}
       onUpdate={onUpdate}
     />
