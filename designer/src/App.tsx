@@ -65,6 +65,7 @@ import {
   applyUpdate,
   buildIsStale,
   reloadOntoNewBuild,
+  serviceWorkerContainer,
   shouldApplyUpdateNow,
   subscribeUpdate,
   updateWaiting,
@@ -1694,7 +1695,7 @@ export function App(): JSX.Element {
     window.location.reload();
   }, []);
   useEffect(() => {
-    const container = 'serviceWorker' in navigator ? navigator.serviceWorker : null;
+    const container = serviceWorkerContainer(navigator);
     watchForInteraction(window);
     watchForStaleBuild(window, container);
     if (container) watchForUpdate(container, reloadPage);

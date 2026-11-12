@@ -5,7 +5,8 @@
  * `GetLayerColors` (3d-viewer/dialogs/appearance_controls_3D.cpp,
  * 3d_canvas/board_adapter.cpp:598-985) — the pane's model.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { wxMsgCatalog, wxTranslations } from '@ziroeda/wx/translation.js';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
 import { F_Cu, F_Mask, F_SilkS, User_1 } from '@ziroeda/common/layer_ids.js';
 import { pcbLayerIdOf } from '@ziroeda/3d-viewer/board_3d_layers.js';
@@ -20,7 +21,9 @@ import {
   defaultVisibleLayers3d,
   layerColors3d,
   layerVisibilityChanged,
+  isLegacyColorsPreset,
   legacyColorsPreset,
+  withLegacyColorsPreset,
   pcbLayerOfFlag,
   presetComboItems3d,
   presetComboValue,
@@ -278,5 +281,53 @@ describe('presets and viewports', () => {
     const other = new Set(vis);
     other.delete('LAYER_3D_BOARD');
     expect(syncLayerPresetSelection([legacy], other, cols, false)).toBe('');
+  });
+});
+
+// Sentry JAVASCRIPT-REACT-Q: the frame named the preset in the user's language and then looked
+// for it in English, so in Polish it was never found - added again on every render, each copy
+// saved, until React stopped it ("Maximum update depth exceeded") and the 3D viewer was gone.
+describe('the "legacy colors" preset in a language that translates its name', () => {
+  const POLISH = new wxMsgCatalog({
+    language: 'pl',
+    nplurals: 3,
+    plural: 'n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2',
+    messages: { 'legacy colors': 'kolory poprzedniej wersji' },
+  });
+  afterEach(() => wxTranslations.Get().SetCatalog(null));
+  const asRow = (p: { name: string }) => ({ name: p.name });
+
+  it('is added once: the second look finds the row the first one added', () => {
+    wxTranslations.Get().SetCatalog(POLISH);
+    const once = withLegacyColorsPreset([{ name: 'mine' }], asRow);
+    expect(once).toEqual([{ name: 'mine' }, { name: 'kolory poprzedniej wersji' }]);
+    expect(withLegacyColorsPreset(once ?? [], asRow)).toBeNull();
+  });
+
+  it('keeps only the first of the copies an earlier build saved', () => {
+    wxTranslations.Get().SetCatalog(POLISH);
+    const legacy = { name: 'kolory poprzedniej wersji' };
+    const saved = [{ name: 'mine' }, legacy, { ...legacy }, { name: 'other' }, { ...legacy }];
+    const fixed = withLegacyColorsPreset(saved, asRow);
+    expect(fixed).toEqual([{ name: 'mine' }, legacy, { name: 'other' }]);
+    expect(fixed?.[1]).toBe(legacy);
+    expect(withLegacyColorsPreset(fixed ?? [], asRow)).toBeNull();
+  });
+
+  it('is recognised by its translated name, as KiCad compares it', () => {
+    wxTranslations.Get().SetCatalog(POLISH);
+    expect(isLegacyColorsPreset('kolory poprzedniej wersji')).toBe(true);
+    expect(isLegacyColorsPreset('Kolory poprzedniej wersji')).toBe(true);
+    expect(isLegacyColorsPreset('mine')).toBe(false);
+    const legacy = legacyColorsPreset();
+    const vis = new Set(legacy.layers);
+    const cols = new Map(Object.entries(legacy.colors) as [never, never][]);
+    expect(syncLayerPresetSelection([legacy], vis, cols, true)).toBe('');
+    expect(syncLayerPresetSelection([legacy], vis, cols, false)).toBe('kolory poprzedniej wersji');
+  });
+
+  it('in English is the English name', () => {
+    expect(withLegacyColorsPreset([], asRow)).toEqual([{ name: 'legacy colors' }]);
+    expect(withLegacyColorsPreset([{ name: 'legacy colors' }], asRow)).toBeNull();
   });
 });

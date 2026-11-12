@@ -14,6 +14,7 @@ import {
   buildIsStale,
   reloadOntoNewBuild,
   resetUpdateWatchForTests,
+  serviceWorkerContainer,
   shouldApplyUpdateNow,
   subscribeUpdate,
   UPDATE_CHECK_MS,
@@ -366,5 +367,29 @@ describe('taking a new version without asking', () => {
       target.dispatchEvent(new Event(type));
       expect(userHasInteracted(), type).toBe(true);
     }
+  });
+});
+
+describe('serviceWorkerContainer', () => {
+  // Sentry JAVASCRIPT-REACT-1Q: in a sandboxed iframe without allow-same-origin the property is
+  // there, and reading it throws - from a useEffect, which took the whole app down.
+  it('is null where reading navigator.serviceWorker throws, as in a sandboxed iframe', () => {
+    const sandboxed = {} as { readonly serviceWorker?: ServiceWorkerContainer };
+    Object.defineProperty(sandboxed, 'serviceWorker', {
+      get() {
+        throw new DOMException(
+          'Service worker is disabled because the context is sandboxed',
+          'SecurityError',
+        );
+      },
+    });
+    expect('serviceWorker' in sandboxed).toBe(true);
+    expect(serviceWorkerContainer(sandboxed)).toBeNull();
+  });
+
+  it('is the container where there is one, and null where the browser has none', () => {
+    const container = {} as ServiceWorkerContainer;
+    expect(serviceWorkerContainer({ serviceWorker: container })).toBe(container);
+    expect(serviceWorkerContainer({})).toBeNull();
   });
 });

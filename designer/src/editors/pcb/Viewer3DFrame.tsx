@@ -77,7 +77,8 @@ import {
   defaultColors3d,
   layerColors3d,
   layerVisibilityChanged,
-  legacyColorsPreset,
+  isLegacyColorsPreset,
+  withLegacyColorsPreset,
   presetComboItems3d,
   presetComboValue,
   renderFlagsFromVisible,
@@ -322,20 +323,20 @@ export function Viewer3DFrame({
   // The first open of the frame (eda_3d_viewer_frame.cpp:570-583): the
   // "legacy colors" preset is created once and the preset becomes
   // FOLLOW_PLOT_SETTINGS. Ours stores that end state as its default; only
-  // the preset row is still to add.
+  // the preset row is still to add (withLegacyColorsPreset: null once it is
+  // there, so this settles).
   useEffect(() => {
-    if (!v3d.layer_presets.some((p) => p.name === 'legacy colors')) {
-      settings.updateViewer3d((st) => {
-        const legacy = legacyColorsPreset();
-        st.layer_presets.push({
-          name: legacy.name,
-          layers: [...legacy.layers],
-          colors: Object.fromEntries(
-            Object.entries(legacy.colors).map(([k, c]) => [k, toCssColor(c, ', ')]),
-          ),
-        });
-      });
-    }
+    const next = withLegacyColorsPreset(v3d.layer_presets, (legacy) => ({
+      name: legacy.name,
+      layers: [...legacy.layers],
+      colors: Object.fromEntries(
+        Object.entries(legacy.colors).map(([k, c]) => [k, toCssColor(c, ', ')]),
+      ),
+    }));
+    if (!next) return;
+    settings.updateViewer3d((st) => {
+      st.layer_presets = next;
+    });
   }, [v3d.layer_presets]);
   const presetNames = useMemo(() => presets.map((p) => p.name), [presets]);
   const [deleteChooser, setDeleteChooser] = useState<'presets' | 'viewports' | null>(null);
@@ -378,7 +379,7 @@ export function Viewer3DFrame({
       // "legacy colors" also clears the stackup flag.
       settings.updateViewer3d((st) => {
         st.current_layer_preset = value;
-        if (value.toLowerCase() === 'legacy colors') st.use_stackup_colors = false;
+        if (isLegacyColorsPreset(value)) st.use_stackup_colors = false;
       });
     },
     [presetNames, visible3d, layerColors],

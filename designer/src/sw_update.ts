@@ -26,6 +26,23 @@ let stale = false;
 let watchingStale = false;
 
 /** The new version's worker, installed and waiting; null while there is none. */
+/**
+ * The page's service worker container, or null where there is none to have. Reading
+ * `navigator.serviceWorker` can itself throw: in a sandboxed iframe without `allow-same-origin`
+ * the getter raises a SecurityError ("Service worker is disabled because the context is
+ * sandboxed"), so `'serviceWorker' in navigator` is true and the read still fails. The app then
+ * runs as it does in a browser without service workers - from the network, no update offers.
+ */
+export function serviceWorkerContainer(
+  aNavigator: Navigator | { readonly serviceWorker?: ServiceWorkerContainer },
+): ServiceWorkerContainer | null {
+  try {
+    return 'serviceWorker' in aNavigator ? (aNavigator.serviceWorker ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function updateWaiting(): ServiceWorker | null {
   return waiting;
 }

@@ -11,10 +11,17 @@
 // rejection in the crash reports. A worker that cannot register costs only the
 // offline precache - the app runs from the network as it always did - so the
 // failure is noted on the console and goes no further.
+//
+// In a sandboxed iframe without `allow-same-origin`, merely reading `navigator.serviceWorker`
+// throws a SecurityError, though `'serviceWorker' in navigator` is true; that is the same case.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((err) => {
+    const warn = (err) =>
       console.warn('Service worker not registered; running without the offline cache:', err);
-    });
+    try {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(warn);
+    } catch (err) {
+      warn(err);
+    }
   });
 }

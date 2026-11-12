@@ -683,7 +683,7 @@ export function syncLayerPresetSelection(
   const same = (a: Color4d, b: Color4d): boolean =>
     a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
   const hit = presets.find((p) => {
-    if (p.name.toLowerCase() === 'legacy colors' && useStackupColors) return false;
+    if (isLegacyColorsPreset(p.name) && useStackupColors) return false;
     const pl = new Set(p.layers);
     for (const f of visible) if (!pl.has(f)) return false;
     for (const f of pl) if (!visible.has(f)) return false;
@@ -744,4 +744,34 @@ export function legacyColorsPreset(): LayerPreset3d {
     layers: [...defaultVisibleLayers3d()],
     colors: Object.fromEntries(defaultColors3d()),
   };
+}
+
+/**
+ * Whether a preset is the "legacy colors" one: `preset->name.Lower() == _( "legacy colors" )`
+ * (appearance_controls_3D.cpp:753, :940). The name is stored translated (eda_3d_viewer_frame.cpp:578),
+ * so it is compared translated - against the English literal, no other language ever matches.
+ */
+export function isLegacyColorsPreset(aName: string): boolean {
+  return aName.toLowerCase() === wxGetTranslation('legacy colors');
+}
+
+/**
+ * The presets with the "legacy colors" row the first open adds (eda_3d_viewer_frame.cpp:576-586:
+ * `if( !cfg->FindPreset( legacyColorsPresetName ) ) emplace_back(...)`), or null when there is
+ * nothing to change - which is what lets the frame's effect settle.
+ *
+ * A row of that name past the first is dropped: `FindPreset` only ever sees the first, and
+ * KiCad's save refuses a name already taken. Those rows exist only where an earlier build looked
+ * for the English name, missed a translated one, and added it again on every render until React
+ * stopped it - each copy saved as it went.
+ */
+export function withLegacyColorsPreset<T extends { readonly name: string }>(
+  aPresets: readonly T[],
+  aMake: (aLegacy: LayerPreset3d) => T,
+): T[] | null {
+  const name = wxGetTranslation('legacy colors');
+  const first = aPresets.findIndex((p) => p.name === name);
+  if (first === -1) return [...aPresets, aMake(legacyColorsPreset())];
+  const kept = aPresets.filter((p, i) => p.name !== name || i === first);
+  return kept.length === aPresets.length ? null : kept;
 }
