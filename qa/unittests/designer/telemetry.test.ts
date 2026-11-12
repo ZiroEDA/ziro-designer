@@ -23,6 +23,11 @@ import {
   prepareEvent,
   sentryBackend,
 } from '@ziroeda/designer/src/telemetry/sentry_backend.js';
+import {
+  buildIsStale,
+  resetUpdateWatchForTests,
+  watchForStaleBuild,
+} from '@ziroeda/designer/src/sw_update.js';
 
 const sentry = (): SENTRY => {
   SetSentryBackend(sentryBackend);
@@ -238,6 +243,28 @@ describe('an error in a callback the SDK wrapped', () => {
   it('keeps an event with no frames to judge, and one with no exception at all', () => {
     expect(fromInjectedCallback(wrapped([BUNDLE]))).toBe(false);
     expect(fromInjectedCallback({ message: 'boom' })).toBe(false);
+  });
+});
+
+describe('a report from a build a newer version has replaced', () => {
+  afterEach(resetUpdateWatchForTests);
+
+  it('carries stale_build once this build is known to be stale', () => {
+    expect(prepareEvent({ message: 'boom' })?.tags?.stale_build).toBeUndefined();
+    const listeners: Record<string, (e: Event) => void> = {};
+    watchForStaleBuild(
+      {
+        addEventListener: (t: string, l: EventListenerOrEventListenerObject) =>
+          (listeners[t] = l as (e: Event) => void),
+      },
+      null,
+    );
+    listeners['vite:preloadError']!(new Event('vite:preloadError'));
+    expect(buildIsStale()).toBe(true);
+    expect(prepareEvent({ message: 'boom', tags: { install_id: 'x' } })?.tags).toEqual({
+      install_id: 'x',
+      stale_build: 'yes',
+    });
   });
 });
 

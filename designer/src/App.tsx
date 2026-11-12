@@ -65,8 +65,11 @@ import {
   applyUpdate,
   buildIsStale,
   reloadOntoNewBuild,
+  shouldApplyUpdateNow,
   subscribeUpdate,
   updateWaiting,
+  userHasInteracted,
+  watchForInteraction,
   watchForStaleBuild,
   watchForUpdate,
 } from './sw_update.js';
@@ -1690,11 +1693,18 @@ export function App(): JSX.Element {
   }, []);
   useEffect(() => {
     const container = 'serviceWorker' in navigator ? navigator.serviceWorker : null;
+    watchForInteraction(window);
     watchForStaleBuild(window, container);
     if (container) watchForUpdate(container, reloadPage);
   }, [reloadPage]);
   useEffect(() => {
-    if (updateReady && view === 'home') applyUpdate();
+    if (!updateReady) return;
+    const now = shouldApplyUpdateNow({
+      onLauncher: view === 'home',
+      interacted: userHasInteracted(),
+      pageAgeMs: performance.now(),
+    });
+    if (now) applyUpdate();
   }, [updateReady, view]);
   const [updateClosed, setUpdateClosed] = useState(false);
   const updateNotice =

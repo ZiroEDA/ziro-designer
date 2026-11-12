@@ -9,13 +9,17 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  APPLY_ON_OPEN_MS,
   applyUpdate,
   buildIsStale,
   reloadOntoNewBuild,
   resetUpdateWatchForTests,
+  shouldApplyUpdateNow,
   subscribeUpdate,
   UPDATE_CHECK_MS,
   updateWaiting,
+  userHasInteracted,
+  watchForInteraction,
   watchForStaleBuild,
   watchForUpdate,
 } from '@ziroeda/designer/src/sw_update.js';
@@ -305,8 +309,12 @@ describe('the app', () => {
     'utf8',
   );
 
-  it('takes a waiting version at once on the launcher, where nothing is open', () => {
-    expect(APP).toMatch(/if \(updateReady && view === 'home'\) applyUpdate\(\);/);
+  it('asks shouldApplyUpdateNow whether to take a waiting version at once, from where it is', () => {
+    expect(APP).toMatch(/onLauncher: view === 'home',/);
+    expect(APP).toMatch(/interacted: userHasInteracted\(\),/);
+    expect(APP).toMatch(/pageAgeMs: performance\.now\(\),/);
+    expect(APP).toMatch(/if \(now\) applyUpdate\(\);/);
+    expect(APP).toMatch(/watchForInteraction\(window\);/);
   });
 
   it('offers a stale build as it offers a waiting version, and Reload Now takes either', () => {
@@ -321,5 +329,42 @@ describe('the app', () => {
     expect(sites).toHaveLength(4);
     for (const s of sites) expect(s).toMatch(/^(frameNotice\}|updateNotice \?\?)/);
     expect(APP).toMatch(/const frameNotice = updateNotice \?\? demoNotice;/);
+  });
+});
+
+describe('taking a new version without asking', () => {
+  // Sentry 1N, 11-12: a visitor came back to a GitHub board a day after the zstd fix, and the
+  // page opened on the cached build from before it - the update was offered on the editor's bar,
+  // after the old build had already failed. A page nobody has touched yet loses nothing.
+  it('does so on the launcher, whatever the user has done', () => {
+    expect(shouldApplyUpdateNow({ onLauncher: true, interacted: true, pageAgeMs: 1e9 })).toBe(true);
+  });
+
+  it('does so over an editor while the page is as it opened', () => {
+    expect(shouldApplyUpdateNow({ onLauncher: false, interacted: false, pageAgeMs: 5000 })).toBe(
+      true,
+    );
+  });
+
+  it('only offers it once the user has started, or the page has been open a while', () => {
+    expect(shouldApplyUpdateNow({ onLauncher: false, interacted: true, pageAgeMs: 5000 })).toBe(
+      false,
+    );
+    expect(
+      shouldApplyUpdateNow({ onLauncher: false, interacted: false, pageAgeMs: APPLY_ON_OPEN_MS }),
+    ).toBe(false);
+  });
+
+  it('counts a click, a key, the wheel or a touch as the user starting', () => {
+    for (const type of ['pointerdown', 'keydown', 'wheel', 'touchstart']) {
+      resetUpdateWatchForTests();
+      const target = new EventTarget();
+      watchForInteraction(target);
+      expect(userHasInteracted()).toBe(false);
+      target.dispatchEvent(new Event('pointermove'));
+      expect(userHasInteracted()).toBe(false);
+      target.dispatchEvent(new Event(type));
+      expect(userHasInteracted(), type).toBe(true);
+    }
   });
 });

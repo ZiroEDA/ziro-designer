@@ -23,6 +23,7 @@
 import type * as SentryNs from '@sentry/browser';
 import type { SENTRY_BACKEND } from '@ziroeda/common/app_monitor.js';
 import { settings } from '../prefs/settings.js';
+import { buildIsStale, updateWaiting } from '../sw_update.js';
 import { isInjected } from './global_handlers.js';
 import { type ScrubbableEvent, scrubEvent } from './scrub.js';
 
@@ -52,7 +53,12 @@ export function prepareEvent(event: ScrubbableEvent): ScrubbableEvent | null {
   if (fromInjectedCallback(event)) return null;
 
   try {
-    return scrubEvent(event);
+    const out = scrubEvent(event);
+    // A newer version is already waiting, or this build's files are gone from the host: the
+    // failure may well be one the deploy fixed. Said on the event, so triage sees it beside the
+    // release instead of chasing a fixed bug (1N, 11-12: the zstd abort, from a tab a day old).
+    if (updateWaiting() !== null || buildIsStale()) out.tags = { ...out.tags, stale_build: 'yes' };
+    return out;
   } catch {
     return null;
   }

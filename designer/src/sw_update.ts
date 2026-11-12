@@ -188,11 +188,63 @@ export function watchForUpdate(
     .catch(() => {});
 }
 
+/**
+ * How long after the page opened a new version may still take over on its own: the page has
+ * barely been seen, so reloading it onto the new build is the update a returning visitor gets.
+ */
+export const APPLY_ON_OPEN_MS = 2 * 60 * 1000;
+
+let interacted = false;
+let watchingInteraction = false;
+
+/**
+ * Note the first time the user does anything on \a aTarget - a click, a key, a scroll of the
+ * wheel, a touch. Until then the page is as it opened: nothing selected, no dialog, no tool half
+ * way through, no edit to a demo that is never saved - so nothing a reload could take away.
+ */
+export function watchForInteraction(aTarget: Pick<EventTarget, 'addEventListener'>): void {
+  if (watchingInteraction) return;
+
+  watchingInteraction = true;
+
+  const mark = (): void => {
+    interacted = true;
+  };
+
+  for (const type of ['pointerdown', 'keydown', 'wheel', 'touchstart'])
+    aTarget.addEventListener(type, mark, { capture: true, passive: true, once: true });
+}
+
+/** Whether the user has done anything on the page since it opened. */
+export function userHasInteracted(): boolean {
+  return interacted;
+}
+
+/**
+ * Whether a waiting version takes over now, or is only offered (the "Reload Now" bar).
+ *
+ * At once on the launcher, where nothing is open. Over an editor, at once while the page is
+ * still as it opened - the visitor who comes back after a deploy, a GitHub link opening straight
+ * into the board editor, gets the new build within moments instead of a whole session on the old
+ * one - and offered once they have started work, so a reload never lands under someone mid-task.
+ */
+export function shouldApplyUpdateNow(aState: {
+  onLauncher: boolean;
+  interacted: boolean;
+  pageAgeMs: number;
+}): boolean {
+  if (aState.onLauncher) return true;
+
+  return !aState.interacted && aState.pageAgeMs < APPLY_ON_OPEN_MS;
+}
+
 /** For the tests: forget the watches, the waiting worker and the stale build. */
 export function resetUpdateWatchForTests(): void {
   watching = false;
   waiting = null;
   stale = false;
   watchingStale = false;
+  interacted = false;
+  watchingInteraction = false;
   listeners.clear();
 }

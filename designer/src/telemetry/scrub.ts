@@ -47,6 +47,7 @@ export interface ScrubbableEvent {
   request?: { url?: string; query_string?: string; headers?: Record<string, string> };
   extra?: Record<string, unknown>;
   user?: Record<string, unknown>;
+  tags?: Record<string, string>;
 }
 
 /** Longest message we forward; runaway strings are usually serialized state. */
