@@ -16,7 +16,6 @@
 import type { COMMON_SETTINGS_LIKE } from '@ziroeda/common/pgm_base.js';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { VIEW } from '@ziroeda/common/view/view.js';
-import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from '../board.js';
 import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
 import type { PCB_DRAW_PANEL_GAL } from '../pcb_draw_panel_gal.js';
@@ -86,10 +85,6 @@ export class RENDER_WORKER_HOST {
   private m_destroyed = false;
   private m_viewLoop = 0;
   private m_lastView = '';
-  /** The view of the frame the worker's canvas shows now (its last `presented`). */
-  private m_presented: RENDER_VIEW_STATE | null = null;
-  /** The CSS transform last set on the worker's canvas, so it is written only when it moves. */
-  private m_presentTransform = '';
   private m_session = 0;
 
   constructor(
@@ -164,9 +159,7 @@ export class RENDER_WORKER_HOST {
     this.m_worker = worker;
 
     worker.onmessage = (e: MessageEvent<RENDER_WORKER_MESSAGE>): void => {
-      if (e.data.t === 'presented') {
-        if (session === this.m_session) this.m_presented = e.data.view;
-      } else if (e.data.t === 'error') console.error('render worker:', e.data.message);
+      if (e.data.t === 'error') console.error('render worker:', e.data.message);
       else if (e.data.t === 'ready' && session === this.m_session) {
         console.info(
           `render worker: board drawn (load ${e.data.loadMs.toFixed(0)} ms, first draw ${e.data.firstDrawMs.toFixed(0)} ms)`,
@@ -274,21 +267,6 @@ export class RENDER_WORKER_HOST {
         worker.postMessage({ t: 'view', view: next } satisfies RENDER_WORKER_REQUEST);
       }
 
-      // The window's overlay - the cursor, the origins, the ratsnest - is drawn in `next` this
-      // frame; the worker's canvas still shows the frame it last drew. Under load that frame is
-      // a zoom or two behind, and the overlay ran ahead of the board. Until the worker catches
-      // up, its frame is scaled and moved to where `next` puts it.
-      const transform = presentTransform(
-        this.m_presented,
-        next,
-        this.m_panel.GetView().ToScreen({ x: 1, y: 1 }, false),
-      );
-      if (transform !== this.m_presentTransform) {
-        this.m_presentTransform = transform;
-        wc.style.transformOrigin = '0 0';
-        wc.style.transform = transform;
-      }
-
       this.m_viewLoop = requestAnimationFrame(loop);
     };
 
@@ -328,37 +306,4 @@ export class RENDER_WORKER_HOST {
     this.stop();
     this.m_panel.SetOnDisplayBoard(null);
   }
-}
-
-/**
- * The CSS transform that takes a frame drawn in view \a aShown to where view \a aNow puts it:
- * `matrix( r, 0, 0, r, tx, ty )`, or `none` when the two are the same, there is no frame yet,
- * or nothing simpler than a redraw can map one to the other (a flip, a resize).
- *
- * Both views put their centre at the middle of the canvas and scale the world uniformly
- * (VIEW / GAL), so between them a screen point moves by `s' = r (s - h) + h + p (c - c')`,
- * where r is the ratio of the scales, h half the canvas, p the current pixels per world unit
- * (signed: the view's own mirror) and c, c' the two centres.
- *
- * @param aPxPerUnit `VIEW::ToScreen( (1, 1), false )` of the current view
- */
-export function presentTransform(
-  aShown: RENDER_VIEW_STATE | null,
-  aNow: RENDER_VIEW_STATE,
-  aPxPerUnit: Vec2,
-): string {
-  if (!aShown || aShown.scale <= 0) return 'none';
-  if (aShown.mirrorX !== aNow.mirrorX || aShown.mirrorY !== aNow.mirrorY) return 'none';
-  if (aShown.width !== aNow.width || aShown.height !== aNow.height) return 'none';
-
-  const r = aNow.scale / aShown.scale;
-  const hx = Math.trunc(aNow.width / 2);
-  const hy = Math.trunc(aNow.height / 2);
-  const tx = hx * (1 - r) + aPxPerUnit.x * (aShown.center.x - aNow.center.x);
-  const ty = hy * (1 - r) + aPxPerUnit.y * (aShown.center.y - aNow.center.y);
-
-  // A frame within a hundredth of a pixel of where it belongs is where it belongs.
-  if (Math.abs(r - 1) < 1e-9 && Math.abs(tx) < 0.01 && Math.abs(ty) < 0.01) return 'none';
-
-  return `matrix(${r}, 0, 0, ${r}, ${tx}, ${ty})`;
 }

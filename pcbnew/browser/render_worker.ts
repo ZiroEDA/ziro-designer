@@ -91,8 +91,6 @@ export type RENDER_WORKER_REQUEST =
 
 export type RENDER_WORKER_MESSAGE =
   | { t: 'ready'; loadMs: number; firstDrawMs: number }
-  /** A frame is on the canvas, drawn in this view (render_worker_host.ts holds it to the window's). */
-  | { t: 'presented'; view: RENDER_VIEW_STATE }
   | { t: 'error'; message: string };
 
 /**
@@ -153,11 +151,7 @@ if (g.WorkerGlobalScope !== undefined) {
     panel!.GetView().MarkDirty();
   };
 
-  /** The view the next frame will be drawn in: the last one the window sent. */
-  let applied: RENDER_VIEW_STATE | null = null;
-
   const applyView = (aView: RENDER_VIEW_STATE): void => {
-    applied = aView;
     const p = panel!;
     const view = p.GetView();
     const gal = p.GetGAL()!;
@@ -290,13 +284,6 @@ if (g.WorkerGlobalScope !== undefined) {
     view.UpdateAllLayersOrder();
     view.UpdateAllLayersColor();
     applyView(msg.view);
-
-    // Each frame drawn says which view it shows. A zoom the window has made since, and this
-    // worker has not yet drawn, is held by the window as a transform of this frame.
-    panel.m_onPainted = (): void => {
-      if (applied)
-        scope.postMessage({ t: 'presented', view: applied } satisfies RENDER_WORKER_MESSAGE);
-    };
 
     const loadMs = performance.now() - t0;
     const t1 = performance.now();
